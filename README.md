@@ -34,4 +34,4 @@ The prior chat records the hardened E1.1 installation, then a later observabilit
 
 ## Plans
 
-Use [E2-E3-revised-plan.mjs](docs/plans/E2-E3-revised-plan.mjs) with the [E2/E3 goals](docs/plans/E2-E3-goals.md). The earlier review's source-availability limitation describes that earlier review; the complete source was subsequently located using the previous chat and imported here. Inspect the actual source interfaces before implementing E2/E3.
+Start with the source-grounded [E2/E3 implementation plan](docs/plans/E2-E3-implementation-plan.md), which supersedes the earlier implementation instructions. Keep the [E2/E3 goals](docs/plans/E2-E3-goals.md), [review](docs/plans/E2-E3-plan-review.md), and [declarative plan](docs/plans/E2-E3-revised-plan.mjs) as supporting references. The earlier review's source-availability limitation describes that earlier review; the complete source was subsequently located using the previous chat and imported here. Inspect the actual source interfaces before implementing E2/E3.
