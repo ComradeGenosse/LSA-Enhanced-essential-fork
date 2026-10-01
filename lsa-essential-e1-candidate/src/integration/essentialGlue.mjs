@@ -1,0 +1,73 @@
+import { observeNative } from './nativeDelivery.mjs';
+import { decide } from '../openai/decide.mjs';
+import { transcribePcm } from '../openai/transcribe.mjs';
+import { speak } from '../openai/speak.mjs';
+import { DialogueHistory } from '../memory/dialogueHistory.mjs';
+import { validateDecisionShape } from '../context/essentialDecision.mjs';
+import { validateStockDecision } from '../context/decisionValidator.mjs';
+
+export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry = null } = {}) {
+  const history = new DialogueHistory({ maxMessages: config.maxHistoryMessages, onMetric: (event, data) => telemetry?.emit(event, null, null, data) });
+  const connections = new Set();
+  let bridge = null;
+  const services = {
+    config,
+    decide: options => decide({ ...options, config, fetchImpl }),
+    transcribe: options => transcribePcm({ ...options, config, fetchImpl }),
+    speak: options => speak({ ...options, config, fetchImpl }),
+  };
+  const runtime = {
+    config, history, services, telemetry,
+    validateDecisionShape,
+    validateStockDecision,
+    createTransport(geminiFactory) {
+      if (config.provider === 'openai') {
+        // The OpenAI route avoids constructing the Gemini transport and its client.
+        return new OpenAITransport(runtime);
+      }
+      const gemini = geminiFactory();
+      if (!gemini.provider) Object.defineProperty(gemini, 'provider', { value: 'gemini', configurable: true });
+      return gemini;
+    },
+    attach(connection) { connections.add(connection); telemetry?.emit('bridge_ready', null, null, { provider: 'openai' }); },
+    detach(connection) {
+      connections.delete(connection);
+        history.clearSession(connection.sessionIdentity?.pedId, connection.sessionIdentity?.sessionNonce);
+        telemetry?.emit('bridge_disconnected', null, null, { provider: 'openai', reason: 'session_closed' });
+    },
+    attachBridge(value) {
+      for (const name of ['isCurrent', 'routePinnedEvent', 'authorize', 'onNativeEvent', 'assertCapabilities', 'validateDecision', 'failMatchingTurn']) {
+        if (typeof value?.[name] !== 'function') throw new Error(`Missing Essential lifecycle capability: ${name}`);
+      }
+      bridge = value;
+    },
+    abortTurn(identity, reason) {
+      for (const connection of connections) connection.abortTurn(identity, reason);
+    },
+    get host() {
+      if (!bridge) throw new Error('Essential E1 bridge has not been attached.');
+      return bridge;
+    },
+    hostFor(connection) {
+      if (!bridge) throw new Error('Essential E1 bridge has not been attached.');
+      return {
+        assertCapabilities: () => bridge.assertCapabilities(),
+        isCurrent: identity => bridge.isCurrent(identity),
+        validateDecision: async (decision, context, identity) => {
+          const result = await bridge.validateDecision(decision, context, identity);
+          if (result?.identityValid && result.actionCount) telemetry?.beginTurn(identity, context?.source || 'player_text')?.actionValidated(result.actionNames?.[0]);
+          return result;
+        },
+        emit: event => connection.emitProviderEvent(event),
+        observe: (identity, signal, onTerminal, onObserved) => observeNative(bridge, identity, signal, onTerminal, onObserved),
+        authorize: identity => bridge.authorize(identity),
+        failTurn: (identity, error, details) => bridge.failMatchingTurn(identity, error, details),
+        log: (identity, event, details) => bridge.log?.(identity, event, details),
+        telemetry,
+      };
+    },
+  };
+  return runtime;
+}
+
+import { OpenAITransport } from '../openai/openaiTransport.mjs';

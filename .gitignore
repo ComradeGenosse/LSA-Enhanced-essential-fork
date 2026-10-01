@@ -1,0 +1,35 @@
+# Credentials and machine-local configuration
+.env
+.env.*
+!.env.example
+**/e1.private.json
+**/e1.config.json
+*.key
+*.pem
+*.p12
+*.pfx
+
+# Generated build/test/runtime outputs
+/lsa-essential-e1-candidate/dist/
+**/node_modules/
+**/.dotnet-local/
+**/.build-check-*/
+**/logs/
+**/outputs/
+**/e1-run-*.jsonl
+**/tools/native-metadata/bin/
+**/tools/native-metadata/obj/
+**/E1-API-SMOKE.json
+**/E1-API-SMOKE.md
+*.zip
+*.pcm
+*.wav
+
+# Local deployment packages, stages, receipts, and rollback data
+/deployment/stock-hotfix3/
+/deployment/active-stage-*/
+/deployment/backups/
+/deployment/runtime-analysis-*/
+/deployment/install-plan.json
+/deployment/deployment-receipt.json
+/deployment/deployment-verification.json

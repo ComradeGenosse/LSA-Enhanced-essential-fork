@@ -1,0 +1,335 @@
+{
+  "schemaVersion": 1,
+  "importedOn": "2026-10-01",
+  "description": "SHA-256 of imported source/reference files before generated repository documentation; excludes private/runtime artifacts.",
+  "files": [
+    {
+      "path": "lsa-essential-e1-candidate/.gitignore",
+      "sha256": "f3026db813575b62e83c9b7e2fa51c8d5ab400e68f2ebe0dde4b4de7ae012cb1"
+    },
+    {
+      "path": "lsa-essential-e1-candidate/docs/architecture.md",
+      "sha256": "3bb7fbf82c486e54b1d4aa03c73568678af6b8593f71cace4a6a2cb09b0f55d1"
+    },
+    {
+      "path": "lsa-essential-e1-candidate/docs/gta-smoke-checklist.md",
+      "sha256": "a984373c9179d536119b57fa14ee33b90a2c959939ed5e407835b3cb488023ca"
+    },
+    {
+      "path": "lsa-essential-e1-candidate/docs/native-contract.md",
+      "sha256": "7feae60bfb5719398b3fa3b3ac58f4950347e99ff1a808c86c14689e5db9f117"
+    },
+    {
+      "path": "lsa-essential-e1-candidate/docs/native-metadata.json",
+      "sha256": "18edd2b47ffde748388b07a4a2d023793e183b882fe638acb5276440d45a2d23"
+    },
+    {
+      "path": "lsa-essential-e1-candidate/docs/observability-implementation-plan.md",
+      "sha256": "d6bde80bd2eff31879e0fcae12c32d3c0f6b9bb8c73a83bbd1bda3051d61c52f"
+    },
+    {
+      "path": "lsa-essential-e1-candidate/docs/rebase-audit.md",
+      "sha256": "b8129f2c4097271ef8bc88c0557f1c91a75db48f4575c5006ec8f913e62ea841"
+    },
+    {
+      "path": "lsa-essential-e1-candidate/docs/test-results.txt",
+      "sha256": "460664aa88133f5d9d60cbe2efd62a4e16610717651f526cf887a76ede02b8fc"
+    },
+    {
+      "path": "lsa-essential-e1-candidate/docs/verification.md",
+      "sha256": "2b0663759f2b19c628f5d6a311a8f55286f8f5db068bee7674c75f1b93e4f929"
+    },
+    {
+      "path": "lsa-essential-e1-candidate/e1.config.example.json",
+      "sha256": "3fd9e13af02bed9fef14012d2883bfdc99cff928953c3d9428dd53d92e9d4857"
+    },
+    {
+      "path": "lsa-essential-e1-candidate/package.json",
+      "sha256": "b024616c5bdc60b22fd1e93e43b3eb5d1757b7c215aaccaa88141e673395c835"
+    },
+    {
+      "path": "lsa-essential-e1-candidate/patches/essential-hooks.json",
+      "sha256": "7c8dd7227b6512f03454283d23f65244db0bfa48820a2c94c3d1bdf6fe0c09e3"
+    },
+    {
+      "path": "lsa-essential-e1-candidate/README.md",
+      "sha256": "a5fe88229728b9a783bc2ba5f888df17a7625b8699bf6bd7e2b1cabcbf44ee2f"
+    },
+    {
+      "path": "lsa-essential-e1-candidate/src/bootstrap.mjs",
+      "sha256": "bb3bf75c01023c6e33fa00fdf9d457016e9d70c7c3b61eff75a287d5c147f8ef"
+    },
+    {
+      "path": "lsa-essential-e1-candidate/src/config/e1Config.mjs",
+      "sha256": "ed0460b64c7eda42ae488d53ae7ad4c466257fd69bce7dd7f005f2ae3b939e8b"
+    },
+    {
+      "path": "lsa-essential-e1-candidate/src/config/privateEnvironment.mjs",
+      "sha256": "135d14c6255c0141a7185f5bd3a8ea4de9e2fc553b8243f0ee1718fdaebfb904"
+    },
+    {
+      "path": "lsa-essential-e1-candidate/src/context/decisionValidator.mjs",
+      "sha256": "d10b90e5c8d009829f99610908dca8df03a9c9cfed8b8c5725804b653a157172"
+    },
+    {
+      "path": "lsa-essential-e1-candidate/src/context/essentialDecision.mjs",
+      "sha256": "3c2f13fae31c2fb39867ab08f9b2d5ed29ffc92919a4790ba898801717f42bcb"
+    },
+    {
+      "path": "lsa-essential-e1-candidate/src/integration/essentialGlue.mjs",
+      "sha256": "fb4c304469480fac746703e76af930cf1b99adbaaf45a43877e824cc69a85ff2"
+    },
+    {
+      "path": "lsa-essential-e1-candidate/src/integration/nativeDelivery.mjs",
+      "sha256": "d637003cad80a317f53b61c710d763dfbcfb8879fc7c9bdc38cdea4a08116ab5"
+    },
+    {
+      "path": "lsa-essential-e1-candidate/src/memory/dialogueHistory.mjs",
+      "sha256": "3232efade8ccdc4d5fc4d5da77efbde371c41fd3367b5185d80efb524ad8dbc2"
+    },
+    {
+      "path": "lsa-essential-e1-candidate/src/observability/eventContract.mjs",
+      "sha256": "c71a246626e5739540c873a36e92704bbc704d68544d28ca2500275e6b1f5aa9"
+    },
+    {
+      "path": "lsa-essential-e1-candidate/src/observability/fileSink.mjs",
+      "sha256": "e15fe27e7e4020be5d68c24d4ba641b978aeb980d76f2273ec845b131519eb10"
+    },
+    {
+      "path": "lsa-essential-e1-candidate/src/observability/telemetry.mjs",
+      "sha256": "a8654d0a2938bb56b739066a7c97456a39708f7250997b982798a4c1752baa1c"
+    },
+    {
+      "path": "lsa-essential-e1-candidate/src/openai/decide.mjs",
+      "sha256": "5cefaa16c077a4109647414c711e8c1d76e712e537cc21bbe0577c3db9177018"
+    },
+    {
+      "path": "lsa-essential-e1-candidate/src/openai/openaiConnection.mjs",
+      "sha256": "b6b6a620f673218b45e3c3e3d717400b20b7248b9c85fd42105c6d048dc2b46e"
+    },
+    {
+      "path": "lsa-essential-e1-candidate/src/openai/openaiTransport.mjs",
+      "sha256": "807e6be5983bcd9c167bcdb71280f2758962faf646287656ad7f7dbada99115c"
+    },
+    {
+      "path": "lsa-essential-e1-candidate/src/openai/request.mjs",
+      "sha256": "b27b4ada5d0a3f2df5c795394eacf96c7e32fa2500d1243778cd7181b05f70c3"
+    },
+    {
+      "path": "lsa-essential-e1-candidate/src/openai/runSequentialTurn.mjs",
+      "sha256": "ee4229b368572a70244a60f21b46e979991eda3562cc3c720f18cf69e9038f41"
+    },
+    {
+      "path": "lsa-essential-e1-candidate/src/openai/speak.mjs",
+      "sha256": "6c0a4add0583217eff8521593a106b7b03617eb619197b6e6073883166f3fbda"
+    },
+    {
+      "path": "lsa-essential-e1-candidate/src/openai/transcribe.mjs",
+      "sha256": "3064cb15c560c18520489db90bc1f5498b11db07db678dc6b3fb2fcbf6785f3c"
+    },
+    {
+      "path": "lsa-essential-e1-candidate/tests/build-and-isolation.test.mjs",
+      "sha256": "e0211e59d3239e76117fb1cf99c7172ee2a18564dca1e44027fbe397be90e22f"
+    },
+    {
+      "path": "lsa-essential-e1-candidate/tests/decisions-and-requests.test.mjs",
+      "sha256": "c4b29a3ea8ac66c7bea44c8eb3477a09b41a1b99a6b20a4a9f10466ff816272c"
+    },
+    {
+      "path": "lsa-essential-e1-candidate/tests/native-lifecycle.test.mjs",
+      "sha256": "40643fe5da5c008f7c32649361f256bbef68806d3aeb081d5d009d1b84c0bf4f"
+    },
+    {
+      "path": "lsa-essential-e1-candidate/tests/observability.test.mjs",
+      "sha256": "4510cd521e74b25ef0e65f7ec6e545dce82f7017cab4ee3c289d94e910e25ef3"
+    },
+    {
+      "path": "lsa-essential-e1-candidate/tests/openai-transport.test.mjs",
+      "sha256": "4590b36ccd8b9acd90ee6c8303ca9ec45e0efe54de064da0091af4a0feba4afd"
+    },
+    {
+      "path": "lsa-essential-e1-candidate/tests/privateEnvironment.test.mjs",
+      "sha256": "bf58909f1715dfc961a420161a65ac5f3fad3bf6481f7e47e163aa5e91374340"
+    },
+    {
+      "path": "lsa-essential-e1-candidate/tests/stock-controller-lifecycle.test.mjs",
+      "sha256": "4925bc2406d813a035e23ad3228b4f3b58c703e75c312cea246a8b05442966df"
+    },
+    {
+      "path": "lsa-essential-e1-candidate/tests/stock-harness.mjs",
+      "sha256": "a5a56bca823f45ffc264b55a4bbbc55d8b80ad17ca6f7c85c5c8c1f6d646f7a4"
+    },
+    {
+      "path": "lsa-essential-e1-candidate/tests/stock-lifecycle.test.mjs",
+      "sha256": "684185806eb53a3195300b56111e06925860c2938977f4a765172252b489f6a4"
+    },
+    {
+      "path": "lsa-essential-e1-candidate/tests/tts-and-history.test.mjs",
+      "sha256": "01bb3425a9bf305be2629f9d88f6b012f9c0be4c67fe1f17f419b687e9dba512"
+    },
+    {
+      "path": "lsa-essential-e1-candidate/tools/apiSmoke.mjs",
+      "sha256": "a23bf4e1dceae9a2adb4b02956dc0e079fd54c01dba321db4f3477795c372ab7"
+    },
+    {
+      "path": "lsa-essential-e1-candidate/tools/buildCandidate.mjs",
+      "sha256": "9673c07575df61c1f1b56a66acf87d88b6f6ef1b6d15468da8d077ee548f1363"
+    },
+    {
+      "path": "lsa-essential-e1-candidate/tools/checkIsolation.mjs",
+      "sha256": "fd252cdaef33dc5a00d56dc69acece5ced88f418bd99ffbbbf76c11dab59e704"
+    },
+    {
+      "path": "lsa-essential-e1-candidate/tools/native-metadata/NativeMetadata.csproj",
+      "sha256": "452104db257500c35db89bedbb7a1d5dc24325db8aac988fc7d2df042dfbe87a"
+    },
+    {
+      "path": "lsa-essential-e1-candidate/tools/native-metadata/Program.cs",
+      "sha256": "c4f6a976b0e2f6ee56e081ca66477aaa0ea1c8561d22921504830873f93d89b6"
+    },
+    {
+      "path": "lsa-essential-e1-candidate/tools/runTests.mjs",
+      "sha256": "c21e488ef10182a8638685b131f6c9181f25f07c07b50d7065f14a300e92ef60"
+    },
+    {
+      "path": "lsa-essential-e1-candidate/tools/summarizeRun.mjs",
+      "sha256": "fcc05b332c2edeb11071631070d1468f946000859ee4862dccf3e0990492520d"
+    },
+    {
+      "path": "lsa-essential-e1-candidate/tools/vendor/acorn/bin/acorn",
+      "sha256": "4c3eb6f1d8932790dbff043839f8ee7686bc614a59ef577e96fed618a4a4b1b8"
+    },
+    {
+      "path": "lsa-essential-e1-candidate/tools/vendor/acorn/CHANGELOG.md",
+      "sha256": "6f882e0da55efd5af8b9febed241f041913547841a650971556812e541b4f1bf"
+    },
+    {
+      "path": "lsa-essential-e1-candidate/tools/vendor/acorn/dist/acorn.d.mts",
+      "sha256": "d7c9a381dab2b83a38bae15fcf5c6e04ebac46770d4b18a05044fbe64833b73e"
+    },
+    {
+      "path": "lsa-essential-e1-candidate/tools/vendor/acorn/dist/acorn.d.ts",
+      "sha256": "d7c9a381dab2b83a38bae15fcf5c6e04ebac46770d4b18a05044fbe64833b73e"
+    },
+    {
+      "path": "lsa-essential-e1-candidate/tools/vendor/acorn/dist/acorn.js",
+      "sha256": "2261c5f0e4abe860e889dfc67081683a4ba4d27deb7f4cbc8ad06a1b7fdd510c"
+    },
+    {
+      "path": "lsa-essential-e1-candidate/tools/vendor/acorn/dist/acorn.mjs",
+      "sha256": "efb0124a960b34d53f9928c4926bfcfd300bb6a3d7ab64ee949b3a8bed1c7e5f"
+    },
+    {
+      "path": "lsa-essential-e1-candidate/tools/vendor/acorn/dist/bin.js",
+      "sha256": "fffd9df1d9158c4580068ad17c3176c34fe46f59021b8cd5780454994764dc30"
+    },
+    {
+      "path": "lsa-essential-e1-candidate/tools/vendor/acorn/LICENSE",
+      "sha256": "76a876cf886ff9be2a8b5e2e86514fed06223c8c9f0c1e9ee9606e93841e00b7"
+    },
+    {
+      "path": "lsa-essential-e1-candidate/tools/vendor/acorn/package.json",
+      "sha256": "705aa08b7b4fee1112244952b4843c40c381a3c7a9fc77101f369a172865bfac"
+    },
+    {
+      "path": "lsa-essential-e1-candidate/tools/vendor/acorn/README.md",
+      "sha256": "e18b969e9da9d0a547af348f2b3fa0ea29a95861aee38d07ed363fadb2580744"
+    },
+    {
+      "path": "lsa-essential-e1-candidate/tools/verifyNativeContract.mjs",
+      "sha256": "fb05d12bb497e3d98366dcc9d5bb25856d439470a9e312e77268b4304d636b9b"
+    },
+    {
+      "path": "lsa-essential-e1-candidate/upstream/LosSantosAlive.dll",
+      "sha256": "9b6de42d4c464901d859dd95e17e100e4fa9ef6074bfbb0cf3a57a76f6ddd653"
+    },
+    {
+      "path": "lsa-essential-e1-candidate/upstream/README.md",
+      "sha256": "17c1f1cb02d12a60cc24cc99a0d089e418203ef3e73b29212d2ccad06cf19e87"
+    },
+    {
+      "path": "lsa-essential-e1-candidate/upstream/server.bundle.mjs",
+      "sha256": "5d81de4217bd103316a1083e482ded1bddc791314abf671d686036175c0475f2"
+    },
+    {
+      "path": "deployment/installer-reference/config.js",
+      "sha256": "9f0e8f58583aa1bbf72892a9945432c3a12220fbc85d830a86336dd65afaca63"
+    },
+    {
+      "path": "deployment/installer-reference/constants.js",
+      "sha256": "497e6630733d1d90696c9ff29ed8f57157d92d948c134d2f375a6df08e9dce19"
+    },
+    {
+      "path": "deployment/installer-reference/dependencyInstaller.js",
+      "sha256": "25864a5c9a089d9819a20d47ac9fa16e3b6a3c7543c519a1c993f12270d2304c"
+    },
+    {
+      "path": "deployment/installer-reference/externalLinks.js",
+      "sha256": "cf3c634989a9e338cf1f83fcf9b072bb43fff670243c69c22e34a9eef7bbe720"
+    },
+    {
+      "path": "deployment/installer-reference/gemini.js",
+      "sha256": "1d1de3982b13f318335cf54ba94e981ed4b3fbbb8023db4ea2ee714e395f443e"
+    },
+    {
+      "path": "deployment/installer-reference/gtaDetection.js",
+      "sha256": "a4de6d6d7630d695f2f2218502ab38a1c6095ce5cb49149fda1ea47d3618de94"
+    },
+    {
+      "path": "deployment/installer-reference/languages.js",
+      "sha256": "ce94a06f910b5675925b24ec6eac827ae84d3e7134042e49f21ad8d74844fbb6"
+    },
+    {
+      "path": "deployment/installer-reference/lsaInstaller.js",
+      "sha256": "4b34da6892403e1702f5681298a44197a7ac07ba1306e2d5831d846a2f628152"
+    },
+    {
+      "path": "deployment/installer-reference/requirements.js",
+      "sha256": "ff4daa9106d591922f34a2d6688d08236622f504999ca4358ec51585c2a22e1d"
+    },
+    {
+      "path": "deployment/installer-reference/utils.js",
+      "sha256": "e0845ad59cd1111e2935330486cfcaf6e2330757f80038e5684ecdce8b6b59f0"
+    },
+    {
+      "path": "deployment/prepare-install.mjs",
+      "sha256": "bd66f73b6590501e5d8cf65ea48e5ddf838ad10874f3e78f18538b8152445229"
+    },
+    {
+      "path": "deployment/install-e1.ps1",
+      "sha256": "89cca1273b11635e9aaab2833c58c88c932037533cf5422c078f324d605e02ab"
+    },
+    {
+      "path": "deployment/verify-installed.mjs",
+      "sha256": "82f86d7014672b0c902feba9dc0e2976166466263d7eb29b5a6107d8a3dd5667"
+    },
+    {
+      "path": "deployment/DEPLOYMENT.md",
+      "sha256": "57b2bc16f90d3d7138f2d22d2d6071c70ba1dc3ca9eab8beac51d78cc3ca3f47"
+    },
+    {
+      "path": "docs/plans/mission.md",
+      "sha256": "e6fbb999c322a79db19a90da28153ee891afb94dbbb24c05ad5709acbf5c9976"
+    },
+    {
+      "path": "docs/plans/LosSantosAlive_Hotfix3_Extension_API_Analysis.md",
+      "sha256": "9c4721a21070aad40a623083508b8da3b9fb8ca18e9b780aa56145aa777d3b92"
+    },
+    {
+      "path": "docs/plans/E2-E3-revised-plan.mjs",
+      "sha256": "1c9d86d78a6379e01a878e16c0687a79e28fe25177e7f2bdd5f3e007206eb5f3"
+    },
+    {
+      "path": "docs/plans/E2-E3-plan-review.md",
+      "sha256": "5675882b810d536e5c677380f20466075a4c436df1d48274d5c69deb52dcd53c"
+    },
+    {
+      "path": "docs/plans/E2-E3-original-plan.mjs",
+      "sha256": "94ea0aacb2da236ad575bddf9268c73d34c1341bca886a8e026b2c11a62703aa"
+    },
+    {
+      "path": "docs/plans/E2-E3-goals.md",
+      "sha256": "ad2442d3f65b87a0b62c8377e56f38a79476c47b36905c729b60c29c9cbe7c5a"
+    }
+  ]
+}

@@ -1,0 +1,171 @@
+{
+  "upstreamBundleSha256": "5d81de4217bd103316a1083e482ded1bddc791314abf671d686036175c0475f2",
+  "stockDllSha256": "9b6de42d4c464901d859dd95e17e100e4fa9ef6074bfbb0cf3a57a76f6ddd653",
+  "parser": "vendored Acorn 8.16.0; ECMAScript latest, module mode",
+  "nativeContract": {
+    "dllSha256": "9b6de42d4c464901d859dd95e17e100e4fa9ef6074bfbb0cf3a57a76f6ddd653",
+    "metadataSha256": "18edd2b47ffde748388b07a4a2d023793e183b882fe638acb5276440d45a2d23",
+    "protocolVersion": 3,
+    "authorization": "npcAudioTurnStart -> npcAudioTurnAccepted/rejected",
+    "completion": "npcPlaybackEnded",
+    "lifecycleFallback": false,
+    "methods": [
+      "TryAuthorizeTurn",
+      "QueueTaggedAudioChunk",
+      "MarkStreamEnded",
+      "InterruptExactTurn"
+    ]
+  },
+  "patches": [
+    {
+      "id": "Rb body hook",
+      "sourceStart": 884349,
+      "sourceEnd": 884349,
+      "expected": 1
+    },
+    {
+      "id": "a4 body hook",
+      "sourceStart": 863351,
+      "sourceEnd": 863351,
+      "expected": 1
+    },
+    {
+      "id": "Sd body hook",
+      "sourceStart": 846228,
+      "sourceEnd": 846228,
+      "expected": 1
+    },
+    {
+      "id": "Td body hook",
+      "sourceStart": 845414,
+      "sourceEnd": 845414,
+      "expected": 1
+    },
+    {
+      "id": "reused context refresh",
+      "sourceStart": 843109,
+      "sourceEnd": 843109,
+      "expected": 1
+    },
+    {
+      "id": "session context options",
+      "sourceStart": 840429,
+      "sourceEnd": 840429,
+      "expected": 1
+    },
+    {
+      "id": "isolate Gemini resume handles",
+      "sourceStart": 840074,
+      "sourceEnd": 840094,
+      "expected": 1
+    },
+    {
+      "id": "session provider state",
+      "sourceStart": 839926,
+      "sourceEnd": 839926,
+      "expected": 1
+    },
+    {
+      "id": "Essential provider/action/playback bridge",
+      "sourceStart": 835165,
+      "sourceEnd": 835165,
+      "expected": 1
+    },
+    {
+      "id": "provider transport factory",
+      "sourceStart": 835003,
+      "sourceEnd": 835013,
+      "expected": 1
+    },
+    {
+      "id": "IP body hook",
+      "sourceStart": 809706,
+      "sourceEnd": 809706,
+      "expected": 1
+    },
+    {
+      "id": "CP body hook",
+      "sourceStart": 807600,
+      "sourceEnd": 807600,
+      "expected": 1
+    },
+    {
+      "id": "isolate Gemini debug PCM",
+      "sourceStart": 807046,
+      "sourceEnd": 807086,
+      "expected": 1
+    },
+    {
+      "id": "Zt body hook",
+      "sourceStart": 806375,
+      "sourceEnd": 806375,
+      "expected": 1
+    },
+    {
+      "id": "hK body hook",
+      "sourceStart": 806169,
+      "sourceEnd": 806169,
+      "expected": 1
+    },
+    {
+      "id": "exact OpenAI cancellation",
+      "sourceStart": 806169,
+      "sourceEnd": 806169,
+      "expected": 1
+    },
+    {
+      "id": "Qi body hook",
+      "sourceStart": 805726,
+      "sourceEnd": 805726,
+      "expected": 1
+    },
+    {
+      "id": "_P body hook",
+      "sourceStart": 803397,
+      "sourceEnd": 803397,
+      "expected": 1
+    },
+    {
+      "id": "disable Gemini exact-speech recovery for OpenAI",
+      "sourceStart": 802993,
+      "sourceEnd": 802998,
+      "expected": 1
+    },
+    {
+      "id": "generation identity bind",
+      "sourceStart": 801853,
+      "sourceEnd": 801853,
+      "expected": 1
+    },
+    {
+      "id": "OpenAI bypasses Gemini owner registration",
+      "sourceStart": 801757,
+      "sourceEnd": 801757,
+      "expected": 1
+    },
+    {
+      "id": "rP body hook",
+      "sourceStart": 790452,
+      "sourceEnd": 790452,
+      "expected": 1
+    },
+    {
+      "id": "td body hook",
+      "sourceStart": 789073,
+      "sourceEnd": 789073,
+      "expected": 1
+    },
+    {
+      "id": "yy body hook",
+      "sourceStart": 786557,
+      "sourceEnd": 786557,
+      "expected": 1
+    },
+    {
+      "id": "runtime import",
+      "sourceStart": 0,
+      "sourceEnd": 0,
+      "expected": 1
+    }
+  ]
+}

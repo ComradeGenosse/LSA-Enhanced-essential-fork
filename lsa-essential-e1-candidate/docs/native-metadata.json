@@ -1,0 +1,335 @@
+{
+  "dllSha256": "9b6de42d4c464901d859dd95e17e100e4fa9ef6074bfbb0cf3a57a76f6ddd653",
+  "types": [
+    {
+      "name": "LosSantosAlive.NPC.Actions.NpcActionRegistry",
+      "methods": [
+        {
+          "name": "Register",
+          "returns": "Void",
+          "parameters": [
+            "String",
+            "System.Collections.Generic.IEnumerable\u00601\u003CString\u003E",
+            "LosSantosAlive.NPC.Actions.NpcActionHandler"
+          ]
+        },
+        {
+          "name": "TryExecute",
+          "returns": "Boolean",
+          "parameters": [
+            "String",
+            "String",
+            "Rage.Ped"
+          ]
+        },
+        {
+          "name": "HasAction",
+          "returns": "Boolean",
+          "parameters": [
+            "String"
+          ]
+        }
+      ],
+      "fields": []
+    },
+    {
+      "name": "LosSantosAlive.NPC.Actions.RoleActionRouter",
+      "methods": [
+        {
+          "name": "TryExecute",
+          "returns": "Boolean",
+          "parameters": [
+            "String",
+            "String"
+          ]
+        }
+      ],
+      "fields": []
+    },
+    {
+      "name": "LosSantosAlive.Context.ActorHydrationCoordinator",
+      "methods": [
+        {
+          "name": "IsActorHydrationRequest",
+          "returns": "Boolean",
+          "parameters": [
+            "String"
+          ]
+        },
+        {
+          "name": "HandleRequest",
+          "returns": "Void",
+          "parameters": [
+            "String"
+          ]
+        },
+        {
+          "name": "Update",
+          "returns": "Void",
+          "parameters": []
+        }
+      ],
+      "fields": []
+    },
+    {
+      "name": "LosSantosAlive.Context.ConversationHydrationCoordinator",
+      "methods": [
+        {
+          "name": "BeginMicTurn",
+          "returns": "Void",
+          "parameters": [
+            "Rage.Ped"
+          ]
+        },
+        {
+          "name": "MarkMicReleased",
+          "returns": "Void",
+          "parameters": [
+            "Rage.Ped"
+          ]
+        },
+        {
+          "name": "Update",
+          "returns": "Void",
+          "parameters": []
+        }
+      ],
+      "fields": []
+    },
+    {
+      "name": "LosSantosAlive.Audio.NpcPlaybackStartedEvent",
+      "methods": [
+        {
+          "name": ".ctor",
+          "returns": "Void",
+          "parameters": []
+        }
+      ],
+      "fields": [
+        {
+          "name": "SpeakerPed",
+          "type": "Rage.Ped"
+        },
+        {
+          "name": "PedId",
+          "type": "String"
+        },
+        {
+          "name": "TurnId",
+          "type": "String"
+        },
+        {
+          "name": "GenerationId",
+          "type": "Int64"
+        }
+      ]
+    },
+    {
+      "name": "LosSantosAlive.Audio.NpcPlaybackEndedEvent",
+      "methods": [
+        {
+          "name": ".ctor",
+          "returns": "Void",
+          "parameters": []
+        }
+      ],
+      "fields": [
+        {
+          "name": "SpeakerPed",
+          "type": "Rage.Ped"
+        },
+        {
+          "name": "PedId",
+          "type": "String"
+        },
+        {
+          "name": "TurnId",
+          "type": "String"
+        },
+        {
+          "name": "GenerationId",
+          "type": "Int64"
+        },
+        {
+          "name": "Reason",
+          "type": "String"
+        },
+        {
+          "name": "WasInterrupted",
+          "type": "Boolean"
+        },
+        {
+          "name": "HadAudio",
+          "type": "Boolean"
+        },
+        {
+          "name": "PlaybackStarted",
+          "type": "Boolean"
+        }
+      ]
+    },
+    {
+      "name": "LosSantosAlive.Audio.NpcPlaybackCoordinator",
+      "methods": [
+        {
+          "name": "add_LegacyPlaybackFinished",
+          "returns": "Void",
+          "parameters": [
+            "System.Action\u00601\u003CRage.Ped\u003E"
+          ]
+        },
+        {
+          "name": "remove_LegacyPlaybackFinished",
+          "returns": "Void",
+          "parameters": [
+            "System.Action\u00601\u003CRage.Ped\u003E"
+          ]
+        },
+        {
+          "name": "add_PlaybackStarted",
+          "returns": "Void",
+          "parameters": [
+            "System.Action\u00601\u003CLosSantosAlive.Audio.NpcPlaybackStartedEvent\u003E"
+          ]
+        },
+        {
+          "name": "remove_PlaybackStarted",
+          "returns": "Void",
+          "parameters": [
+            "System.Action\u00601\u003CLosSantosAlive.Audio.NpcPlaybackStartedEvent\u003E"
+          ]
+        },
+        {
+          "name": "add_PlaybackEnded",
+          "returns": "Void",
+          "parameters": [
+            "System.Action\u00601\u003CLosSantosAlive.Audio.NpcPlaybackEndedEvent\u003E"
+          ]
+        },
+        {
+          "name": "remove_PlaybackEnded",
+          "returns": "Void",
+          "parameters": [
+            "System.Action\u00601\u003CLosSantosAlive.Audio.NpcPlaybackEndedEvent\u003E"
+          ]
+        },
+        {
+          "name": "Initialize",
+          "returns": "Void",
+          "parameters": []
+        },
+        {
+          "name": "TryAuthorizeTurn",
+          "returns": "Boolean",
+          "parameters": [
+            "Rage.Ped",
+            "String",
+            "Int64",
+            "String\u0026",
+            "Rage.Ped",
+            "String",
+            "Boolean"
+          ]
+        },
+        {
+          "name": "QueueTaggedAudioChunk",
+          "returns": "Boolean",
+          "parameters": [
+            "Byte[]",
+            "Rage.Ped",
+            "String",
+            "Int64",
+            "String\u0026"
+          ]
+        },
+        {
+          "name": "QueueLegacyAudioChunk",
+          "returns": "Void",
+          "parameters": [
+            "Byte[]",
+            "Rage.Ped"
+          ]
+        },
+        {
+          "name": "MarkStreamEnded",
+          "returns": "Boolean",
+          "parameters": [
+            "String",
+            "String",
+            "Int64",
+            "String\u0026"
+          ]
+        },
+        {
+          "name": "InterruptExactTurn",
+          "returns": "Boolean",
+          "parameters": [
+            "Rage.Ped",
+            "String",
+            "Int64",
+            "String"
+          ]
+        },
+        {
+          "name": "InterruptExactTurn",
+          "returns": "Boolean",
+          "parameters": [
+            "String",
+            "Rage.Ped",
+            "String",
+            "Int64",
+            "String"
+          ]
+        },
+        {
+          "name": "InterruptPed",
+          "returns": "Void",
+          "parameters": [
+            "Rage.Ped",
+            "String"
+          ]
+        },
+        {
+          "name": "HasPendingAudioForPed",
+          "returns": "Boolean",
+          "parameters": [
+            "Rage.Ped"
+          ]
+        },
+        {
+          "name": "IsAnyAudioPlayingOrPending",
+          "returns": "Boolean",
+          "parameters": []
+        },
+        {
+          "name": "IsPedCurrentlySpeaking",
+          "returns": "Boolean",
+          "parameters": [
+            "Rage.Ped"
+          ]
+        },
+        {
+          "name": "GetActiveSpeakerPed",
+          "returns": "Rage.Ped",
+          "parameters": []
+        },
+        {
+          "name": "Clear",
+          "returns": "Void",
+          "parameters": []
+        },
+        {
+          "name": "ResetForTransportDisconnect",
+          "returns": "Void",
+          "parameters": []
+        },
+        {
+          "name": "Shutdown",
+          "returns": "Void",
+          "parameters": []
+        }
+      ],
+      "fields": []
+    }
+  ]
+}

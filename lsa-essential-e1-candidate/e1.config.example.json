@@ -1,0 +1,22 @@
+{
+  "provider": "openai",
+  "reasoningModel": "gpt-6-luna",
+  "reasoningEffort": "low",
+  "transcriptionModel": "gpt-transcribe",
+  "ttsModel": "gpt-4o-mini-tts",
+  "ttsVoice": "nova",
+  "maxOutputTokens": 300,
+  "providerWorkDeadlineMs": 45000,
+  "playbackCompletionGraceMs": 30000,
+  "playbackCompletionMinMs": 60000,
+  "playbackCompletionMaxMs": 600000,
+  "maxMicDurationMs": 30000,
+  "maxHistoryMessages": 12,
+  "observabilityEnabled": true,
+  "observabilityMaxFileBytes": 10485760,
+  "observabilityMaxTotalBytes": 104857600,
+  "observabilityMaxFiles": 5,
+  "reasoningBaseUrl": "https://api.openai.com/v1",
+  "transcriptionBaseUrl": "https://api.openai.com/v1",
+  "ttsBaseUrl": "https://api.openai.com/v1"
+}

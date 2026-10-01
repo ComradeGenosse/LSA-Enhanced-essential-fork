@@ -1,0 +1,12 @@
+/dist/
+logs/
+**/e1-run-*.jsonl
+e1.private.json
+e1.config.json
+.env
+*.key
+.dotnet-local/
+tools/native-metadata/bin/
+tools/native-metadata/obj/
+.build-check-*/
+/outputs/api-smoke/

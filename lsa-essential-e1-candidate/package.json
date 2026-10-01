@@ -1,0 +1,14 @@
+{
+  "name": "lsa-essential-e1-candidate",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node tools/buildCandidate.mjs",
+    "test": "node tools/runTests.mjs",
+    "smoke:api": "node tools/apiSmoke.mjs"
+  },
+  "engines": {
+    "node": ">=20.19.0"
+  }
+}
