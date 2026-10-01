@@ -15,9 +15,11 @@ The complete JSON envelope is intentionally retained for terminal reconciliation
 Both switches default off in the checked-in `e1.config.example.json`:
 
 ```json
-"structuredStreamingEnabled": true,
-"earlyTtsEnabled": true
+"structuredStreamingEnabled": false,
+"earlyTtsEnabled": false
 ```
+
+The controlled live GTA test configuration is separate and currently enables both flags.
 
 Structured streaming alone keeps E5 behind the ordinary final-decision/TTS barrier. Early TTS requires structured streaming and is only honored for `dialogue_only`. The live GTA test config currently enables both flags; the repository example stays off. Change no native configuration or DLL. `tests/streaming-decision.test.mjs` and `tests/openai-transport.test.mjs` cover framing, segment validation, cancellation, PCM limits, buffered actions, and protocol failures. `tests/stock-controller-lifecycle.test.mjs` additionally runs two delayed segments through the actual patched stock controller and native lifecycle bridge: first PCM is observed before model completion, both chunks retain the same native identity and order, there is one stream-end handoff, and assistant history waits for matching `PlaybackEnded`.
 
@@ -31,3 +33,12 @@ node tools/streamingApiSmoke.mjs
 ```
 
 That explicit gate makes one billable request and prints only mode, segment lengths/timing, terminal timing, and whether the command was empty; it does not print the API key, prompt, or generated dialogue. The live install now has both flags enabled for a controlled GTA test; the checked-in example remains default-off. In-game validation should confirm first NPC audio precedes model completion, segments remain ordered with one logical stream, late refusal/failure interrupts that exact generation, and assistant history commits only after native playback completion.
+
+
+## Current implementation status
+
+E5 is **implemented and live-API validated** for the configured Luna streaming path. E6 is **implemented and validated through the patched stock-controller/native-lifecycle harness**, but physical GTA acceptance remains open.
+
+The latest recorded complete regression checkpoint is **140 tests, 0 failures** at commit `b604b5e1`. Current `main` subsequently added `84df8e30` to abort early speech immediately when model processing fails and to reject an incomplete PCM16 sample. A fresh complete-suite result after that final hardening commit is not yet recorded in this document.
+
+The installed/staged GTA payload documented in the deployment receipt predates that final repository-head hardening commit unless a later deployment receipt says otherwise. Do not assume repository HEAD and the currently installed GTA payload are byte-identical without a new hash-verified deployment record.
