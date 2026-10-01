@@ -193,6 +193,8 @@ Prior Phase 10B evidence (13 turns, 11 with audio/acknowledgements, observed PCM
 
 Once this physical GTA gate passes, the next feature phase is **SESSION_IDENTITY**.
 
+See the [E5/E6 implementation status](E5-E6-implementation-status.md) for the current checkpoint, deployment distinction, and remaining GTA gate.
+
 ## NPC intelligence roadmap
 
 After the provider/latency foundation is stable, development shifts from transport architecture toward persistent characters and autonomous behavior.
