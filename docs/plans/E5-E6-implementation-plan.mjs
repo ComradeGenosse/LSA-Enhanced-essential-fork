@@ -12,7 +12,7 @@ export const e56Plan = {
   schemaVersion: 1,
   title: 'E5 structured streaming and E6 early TTS for the Essential companion',
   createdOn: '2026-10-01',
-  status: 'implemented-offline-verified-live-api-and-gta-gates-pending',
+  status: 'implemented-offline-and-live-api-verified-gta-gate-pending',
   baseline: {
     repository: 'https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork',
     sourceCommit: '4a2fc4a5d5f5c4020f022e963adbf19c186a6d2c',

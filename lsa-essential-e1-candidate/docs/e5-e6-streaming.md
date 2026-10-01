@@ -12,20 +12,22 @@ E6 uses the same model response and native identity. Only an initial `dialogue_o
 
 The complete JSON envelope is intentionally retained for terminal reconciliation. The complete-segment decoder is based on the previously exercised Phase 10B design, whose consumer tests held the model terminal event until after TTS had started. The reported Phase 10B GTA run (13 turns, 11 with audio/acknowledgements; largest observed PCM gap about 2.98 seconds) is useful evidence that Essential's logical audio stream can remain open across segment gaps. It does not verify this E1.1 code path or the current configured Luna endpoint. The current native DLL is unchanged.
 
-Both switches default off in `e1.config.json`:
+Both switches default off in the checked-in `e1.config.example.json`:
 
 ```json
 "structuredStreamingEnabled": true,
 "earlyTtsEnabled": true
 ```
 
-Structured streaming alone keeps E5 behind the ordinary final-decision/TTS barrier. Early TTS requires structured streaming and is only honored for `dialogue_only`. Change no native configuration or DLL. The repository's `tests/streaming-decision.test.mjs` and `tests/openai-transport.test.mjs` cover framing, early PCM, one serial segment order, one transcript/end handoff, and terminal failure behavior.
+Structured streaming alone keeps E5 behind the ordinary final-decision/TTS barrier. Early TTS requires structured streaming and is only honored for `dialogue_only`. The live GTA test config currently enables both flags; the repository example stays off. Change no native configuration or DLL. The repository's `tests/streaming-decision.test.mjs` and `tests/openai-transport.test.mjs` cover framing, early PCM, one serial segment order, one transcript/end handoff, and terminal failure behavior.
 
-To test the exact configured Responses model without connecting to GTA, run:
+The gated smoke passed against the current live install's configured `gpt-6-luna`: the first locally validated dialogue-only segment arrived at about 1.05 s, before `response.completed` at about 1.19 s. The first attempt revealed that the provider emits `response.output_text.done`; the adapter now validates that event against accumulated deltas. The smoke reports lengths/timing only and does not print the generated dialogue.
+
+To repeat the exact configured Responses model check without connecting to GTA, run:
 
 ```powershell
 $env:LSA_E5_LIVE_API_SMOKE = '1'
 node tools/streamingApiSmoke.mjs
 ```
 
-That explicit gate makes one billable request and prints only mode, segment lengths/timing, terminal timing, and whether the command was empty; it does not print the API key, prompt, or generated dialogue. E6 should remain opt-in until this live API smoke and a controlled live GTA run with a non-conflicting Talk key pass. In-game validation should confirm first NPC audio precedes model completion, segments remain ordered with one logical stream, late refusal/failure interrupts that exact generation, and assistant history commits only after native playback completion.
+That explicit gate makes one billable request and prints only mode, segment lengths/timing, terminal timing, and whether the command was empty; it does not print the API key, prompt, or generated dialogue. The live install now has both flags enabled for a controlled GTA test; the checked-in example remains default-off. In-game validation should confirm first NPC audio precedes model completion, segments remain ordered with one logical stream, late refusal/failure interrupts that exact generation, and assistant history commits only after native playback completion.

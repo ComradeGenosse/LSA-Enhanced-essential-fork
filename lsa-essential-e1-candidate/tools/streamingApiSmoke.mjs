@@ -1,12 +1,12 @@
 import { loadConfig } from '../src/config/e1Config.mjs';
-import { loadPrivateEnvironment } from '../src/config/privateEnvironment.mjs';
+import { defaultEnvFilePath, loadPrivateEnvironment } from '../src/config/privateEnvironment.mjs';
 import { decideStreaming } from '../src/openai/decide.mjs';
 
 if (process.env.LSA_E5_LIVE_API_SMOKE !== '1') {
   throw new Error('Set LSA_E5_LIVE_API_SMOKE=1 to authorize one billable Responses streaming smoke request.');
 }
-const env = await loadPrivateEnvironment();
-const config = await loadConfig({ env });
+const env = await loadPrivateEnvironment({ envFilePath: process.env.LSA_E1_ENV_FILE || defaultEnvFilePath });
+const config = await loadConfig({ configPath: process.env.LSA_E1_CONFIG, env });
 if (!config.reasoningKey) throw new Error('No reasoning API credential is configured; no request was sent.');
 const started = performance.now();
 const segments = [];

@@ -38,7 +38,7 @@ E1 does not register OpenAI in Gemini owner maps, infer identity from the select
 
 ## Scope and limitations
 
-No replacement DLL, binary patch, alternate microphone subsystem, perception pipeline, production GTA deployment, or real OpenAI request is part of this candidate. Offline tests use deterministic providers and extracted stock controllers; they do not establish live API compatibility, installed-version matching, in-game acoustics, physical long-response timing, or actual action/world effects. Those remain GTA/runtime smoke-test items.
+No replacement DLL, binary patch, alternate microphone subsystem, or perception pipeline is part of this candidate. The E5/E6 payload is installed as a backed-up GTA test deployment, and the configured Luna streaming API smoke has passed. The game has not been launched with E5/E6; in-game acoustics, physical segment gaps, interruption, native history behavior, and actual action/world effects remain GTA/runtime smoke-test items.
 
 ## E5/E6 structured streaming
 

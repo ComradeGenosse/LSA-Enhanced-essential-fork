@@ -101,6 +101,10 @@ export async function streamDecision({
           if (error instanceof ProviderRequestError) throw error;
           throw new ProviderRequestError('OpenAI streamed an invalid structured decision.', { code: 'invalid_response' });
         }
+      } else if (type === 'response.output_text.done') {
+        if (data.output_index !== outputIndex || data.item_id !== outputItemId || data.text !== decoder.text) {
+          throw new ProviderRequestError('OpenAI completed text did not match its streamed deltas.', { code: 'invalid_response' });
+        }
       } else if (type === 'response.refusal.delta' || type === 'response.failed' || type === 'response.incomplete' || type === 'error') {
         throw new ProviderRequestError(type === 'response.refusal.delta' ? 'Luna refused the request.' : 'OpenAI streaming decision did not complete.', {
           code: type === 'response.refusal.delta' ? 'model_refusal' : type === 'response.incomplete' ? 'incomplete_response' : 'invalid_response',

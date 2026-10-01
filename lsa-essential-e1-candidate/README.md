@@ -58,4 +58,4 @@ Action validation parses with the stock Essential command parser and compares ag
 
 ## Status
 
-The E1.1 base release passed its configured live OpenAI API smoke outside GTA. E5/E6 passed offline streaming and stock-lifecycle tests but have not yet passed the gated live streaming API smoke or a controlled GTA test. Build and automated tests make no provider requests. GTA playback, interruption, late-failure handling, and captured-log completeness for E5/E6 remain unverified; keep both flags off until those gates pass.
+E5/E6 pass 137 offline tests and the gated live streaming API smoke against the configured `gpt-6-luna` endpoint. The payload is installed in the live GTA server directory with both flags enabled for the user's controlled test. GTA playback, interruption, late-failure behavior, and log evidence remain unverified; the install has a local pretest backup. The checked-in example config still defaults both flags off.

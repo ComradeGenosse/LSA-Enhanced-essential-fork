@@ -25,3 +25,9 @@ Sanitized machine-readable evidence: `deployment-receipt.json`, `deployment-veri
 No backend conversation, real API request, or GTA launch occurred during this deployment. Native startup, protocol handshake, microphone capture, physical playback, action execution, and interruption behavior still require the separate in-game smoke checklist in `../lsa-essential-e1-candidate/docs/gta-smoke-checklist.md`.
 
 Rollback must be a clean replacement using the saved version-owned roots and original absent-path list, never an overlay of old and new server code. Restore original shared files from the backup as well as the old DLL/server/config. Do not overwrite the backup.
+
+## E5/E6 test deployment — 2026-10-01
+
+The E5/E6 candidate was installed into the existing `plugins/LosSantosAliveServer` for the user’s controlled GTA test. The pretest server files are backed up at `backups/E5E6-pretest-20261001-175620`; `e5e6-backup-manifest.json` records the saved files and SHA-256 values. The E1 tree, launcher, example config, and build manifest were compared with the candidate payload after installation. The private `.env`, bundled Node/ffmpeg, public runtime config fields, and native DLL were kept in place; the live public config now has both streaming flags enabled. Build bundle SHA-256: `0443800cf148f10baa58558f106baa1e97e6edc2d227c0d48cf8fef15c457ed9`.
+
+The configured Luna streaming API smoke passed before deployment: one complete dialogue-only segment was locally validated before `response.completed`. The game was not launched as part of deployment. Native audio, ordered segment playback, interruption, late failures, and playback-history commit still need the controlled in-game checklist. Roll back by restoring the backed-up E1 tree, launcher, and `e1.config.json`; do not overwrite the backup. Setting both flags false also returns the next run to the sequential route.

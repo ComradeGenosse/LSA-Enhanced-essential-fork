@@ -61,6 +61,7 @@ test('Responses stream yields only validated complete segments before response.c
             const split = full.indexOf('},{') + 1;
             const msg = { id: 'msg_1', type: 'message', role: 'assistant', status: 'completed', content: [{ type: 'output_text', text: full, annotations: [] }] };
             controller.enqueue(new TextEncoder().encode(frame({ type: 'response.output_text.delta', output_index: 0, content_index: 0, item_id: 'msg_1', delta: full.slice(split) })));
+        controller.enqueue(new TextEncoder().encode(frame({ type: 'response.output_text.done', output_index: 0, content_index: 0, item_id: 'msg_1', text: full })));
             controller.enqueue(new TextEncoder().encode(frame({ type: 'response.completed', response: { id: 'resp_1', status: 'completed', output: [msg] } })));
             controller.close();
           });
