@@ -2,9 +2,25 @@
 
 ## E5/E6 implementation update (2026-10-01)
 
-E5 structured Responses streaming and E6 early segmented TTS are implemented behind `structuredStreamingEnabled` and `earlyTtsEnabled`; both default off in the repository example. The updated full offline suite passes **140 tests, 0 failures**. Coverage verifies split SSE framing, closed-segment-only exposure, exact completed-response reconciliation, refusal/truncation/malformed output rejection, early PCM before `response.completed`, serial per-segment TTS, a single final transcript/stream-end, buffered action-mode TTS, late-command rejection, in-flight cancellation, and the aggregate PCM cap before native authorization. The stock-controller integration test executes two delayed segments through the patched stock controller and exact native identity bridge, then verifies assistant history commits only after matching playback completion.
+E5 structured Responses streaming and E6 early segmented TTS are implemented behind `structuredStreamingEnabled` and `earlyTtsEnabled`; both default off in the repository example.
 
-The candidate rebuilt against the pinned source and native metadata with 25 exact AST matches. Built bundle SHA-256: `0443800cf148f10baa58558f106baa1e97e6edc2d227c0d48cf8fef15c457ed9`. The one-request live API smoke passed against the configured `gpt-6-luna`: first validated segment at about 1.05 s; response terminal at about 1.19 s. The E5/E6 payload is installed in the GTA server folder with both settings enabled, backed up and hash-verified. GTA has not been launched, so physical playback, interruption, partial failure, and native history behavior remain unverified. The Phase 10B open-stream evidence is recorded separately as user-reported prior evidence, not counted as this implementation's live GTA test. See [E5/E6 streaming notes](e5-e6-streaming.md) and the [manual GTA gates](gta-smoke-checklist.md).
+### Current evidence
+
+E5 passed the explicit one-request live streaming capability smoke against the configured `gpt-6-luna`: the first validated dialogue-only segment arrived at about **1.05 s**, before `response.completed` at about **1.19 s**.
+
+The E6 stock-controller integration gate executes two delayed segments through the patched stock controller and exact Essential native identity bridge. It verifies first PCM before the model terminal event, ordered chunks on one native identity, one final stream-end handoff, and assistant-history commit only after matching `PlaybackEnded`.
+
+The latest recorded complete regression checkpoint is commit `b604b5e1`: **140 tests, 0 failures**. Current `main` subsequently added `84df8e30` to abort early speech immediately when model processing fails and reject incomplete PCM16 output. A fresh complete-suite result after that final hardening commit is not yet recorded here.
+
+### Deployment / GTA gate
+
+A controlled E5/E6 payload was staged/installed in the GTA server folder with both settings enabled, backed up and hash-verified. That deployment record predates the latest repository-head hardening commit unless a newer deployment receipt supersedes it, so repository HEAD and the installed GTA payload should not be assumed byte-identical.
+
+There is still no post-deployment GTA log proving the current E6 physical playback path. Physical segment playback, real inter-segment gaps, interruption, partial/late failure behavior, and resulting native history behavior remain the open E6 release gate.
+
+The earlier Phase 10B stream-gap result remains prior evidence only and is not counted as validation of this exact E1.1/E6 path.
+
+Candidate status: **E5 implemented + live-API validated; E6 implemented + stock-controller/native-lifecycle validated; physical GTA acceptance pending.**
 
 Historical E1.1 baseline receipt: the focused hardening pass and original live API smoke updated the `lsa-essential-e1-candidate` workspace without changing the live GTA installation; that smoke used a simulated native endpoint. The later E5/E6 test deployment is documented above.
 
