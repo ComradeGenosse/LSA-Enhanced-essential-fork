@@ -24,7 +24,7 @@ function terminalForAbort(signal) {
 function terminalForError(error, stage) {
   const code = String(error?.code || '').toLowerCase();
   const message = String(error?.message || '').toLowerCase();
-  if (code === 'timeout' || message.includes('deadline')) return 'provider_timeout';
+  if (['timeout','attempt_timeout','deadline_exceeded'].includes(code) || message.includes('deadline')) return 'provider_timeout';
   if (message.includes('refused')) return 'model_refusal';
   if (message.includes('invalid decision') || message.includes('decision must') || message.includes('decision fields') ||
       message.includes('dialogue must') || message.includes('command must') || message.includes('control command')) return 'invalid_decision';
@@ -75,6 +75,7 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
   };
 
   const workDeadlineMs = services.config.providerWorkDeadlineMs ?? services.config.turnDeadlineMs;
+  const deadlineAt = performance.now() + workDeadlineMs;
   const providerWorkDone = metrics?.startSpan('provider_work', { watchdogMs: workDeadlineMs });
   providerTimer = setTimeout(() => {
     chooseTerminal('provider_timeout');
@@ -83,6 +84,17 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
   }, workDeadlineMs);
   const abortListener = () => chooseTerminal(terminalForAbort(controller.signal));
   controller.signal.addEventListener('abort', abortListener, { once: true });
+  const performProvider = (operation, provider, run, canRetry = () => true) => {
+    if (!services.executeProvider) return run({ signal: controller.signal, timeoutMs: workDeadlineMs, telemetry: metrics, isActive: valid });
+    return services.executeProvider({
+      operation, provider, identity, signal: controller.signal, deadlineAt,
+      isCurrent: () => !retired && host.isCurrent(identity), canRetry, telemetry: metrics,
+      run: ({ signal, timeoutMs, telemetry, isActive, attemptId }) => {
+        if (!isActive()) throw new Error('provider_attempt_inactive');
+        return run({ signal, timeoutMs, telemetry, isActive, attemptId });
+      },
+    });
+  };
   try {
     check();
     host.assertCapabilities();
@@ -113,7 +125,8 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
     let finalInput = input;
     if (pcm) {
       transition('transcribing');
-      finalInput = await services.transcribe({ pcm, sampleRate, signal: controller.signal, telemetry: metrics });
+      finalInput = await performProvider('stt', services.providerStack?.transcription.id || 'openai.transcription',
+        ({ signal, timeoutMs, telemetry }) => services.transcribe({ identity, pcm, sampleRate, signal, timeoutMs, telemetry }));
       check();
       await emit({ type: 'input_transcript', text: finalInput });
       check();
@@ -129,8 +142,9 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
       metrics?.event(committed ? 'player_history_committed' : 'history_duplicate_prevented', { role: 'user', inputChars: String(finalInput).length });
     }
     transition('model_running');
-    const decision = await services.decide({ context: { ...context, source }, source,
-      input: isPlayer ? finalInput : '', history: priorHistory, signal: controller.signal, telemetry: metrics });
+    const decision = await performProvider('model', services.providerStack?.reasoning.id || 'openai.reasoning',
+      ({ signal, timeoutMs, telemetry }) => services.decide({ identity, context: { ...context, source }, source,
+        input: isPlayer ? finalInput : '', history: priorHistory, signal, timeoutMs, telemetry }));
     check();
     transition('decision_validation');
     const validateSpan = metrics?.startSpan('decision_validation');
@@ -151,12 +165,19 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
     metrics?.count('assistantStageCount');
     metrics?.event('assistant_history_staged', { outputChars: String(decision.dialogue || '').length });
     // Stock action listener preserves timing, including final-only actions.
+    // Stock action listeners may dispatch synchronously on this transcript event.
+    const hasAction = validated.actionCount > 0;
     await emit({ type: 'output_transcript', text: validated.internalTranscript });
     check();
     transition('tts_running');
-    const audio = await services.speak({ dialogue: decision.dialogue, signal: controller.signal, telemetry: metrics,
+    let nativeHandoffStarted = false;
+    const audio = await performProvider('tts', services.providerStack?.speech.id || 'openai.speech',
+      ({ signal, timeoutMs, telemetry, isActive }) => services.speak({ identity, dialogue: decision.dialogue, speechProfile: turn.speechProfile, signal, timeoutMs, telemetry,
       onPcm: async chunk => {
+        if (!isActive()) throw new Error('provider_attempt_inactive');
         check();
+        // Close retry eligibility before authorization can have a native effect.
+        if (!nativeHandoffStarted) nativeHandoffStarted = true;
         if (endSent) throw new Error('chunk_after_end');
         if (!authorizationRequested) {
           authorizationRequested = true;
@@ -178,7 +199,7 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
         metrics?.audioPcm(chunk.byteLength);
         check();
       },
-    });
+    }), () => !hasAction && !nativeHandoffStarted);
     check();
     if (!authorizationRequested || !audio?.bytes) throw new Error('empty_audio');
     history.markModelAndTtsSucceeded(identity);

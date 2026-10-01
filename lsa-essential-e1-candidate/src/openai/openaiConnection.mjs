@@ -26,6 +26,7 @@ export class OpenAIConnection {
   #active = null;
   #metrics = null;
   #captureStartedAt = 0;
+  #voiceProfile = null;
 
   constructor({ runtime, onEvent, options, diagnosticContext }) {
     this.#runtime = runtime;
@@ -51,6 +52,24 @@ export class OpenAIConnection {
     if (this.#active && !sameIdentity(this.#active.identity, turn.identity)) this.abortTurn(this.#active.identity, 'superseded');
     const source = String(turn.source || 'player_text').toLowerCase();
     this.#metrics = this.#runtime.telemetry?.beginTurn(turn.identity, source, { inputChars: String(turn.context?.inputText || '').length }) || null;
+    if (!this.#voiceProfile) {
+      this.#voiceProfile = this.#runtime.voiceResolver?.resolve(turn.identity) || null;
+      if (this.#voiceProfile) {
+        this.#metrics?.event('speech_provider_selected', {
+          speechProvider: this.#voiceProfile.provider,
+          model: this.#voiceProfile.model,
+          voice: this.#voiceProfile.voice,
+        });
+        this.#metrics?.event('voice_profile_assigned', {
+          profileId: this.#voiceProfile.profileId,
+          speechProvider: this.#voiceProfile.provider,
+          model: this.#voiceProfile.model,
+          voice: this.#voiceProfile.voice,
+          speed: this.#voiceProfile.speed,
+          assignmentVersion: this.#voiceProfile.assignmentVersion,
+        });
+      }
+    }
     const internalSource = !['player_text','player_mic'].includes(source);
     const rawInput = String(turn.context?.inputText || '');
     const internalEvent = internalSource ? String(turn.context?.internalEvent || rawInput || '').trim().slice(0,12_000) : '';
@@ -206,6 +225,7 @@ export class OpenAIConnection {
       input: turn.source === 'special_event' || !['player_text','player_mic'].includes(turn.source) ? '' : (input.input || ''),
       pcm: input.pcm || null,
       sampleRate: input.sampleRate || 16_000,
+      speechProfile: this.#voiceProfile,
     };
     const state = { identity: turn.identity, controller, done: null, cancelReason: '' };
     this.#active = state;

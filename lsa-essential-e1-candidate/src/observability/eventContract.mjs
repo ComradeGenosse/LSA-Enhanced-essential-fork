@@ -1,10 +1,11 @@
 export const EVENT_NAMES = new Set([
-  'run_started','bridge_ready','bridge_disconnected','run_shutdown','turn_bound','turn_stage','phase_started','phase_finished','phase_failed','pcm_first_forwarded',
+  'run_started','bridge_ready','bridge_disconnected','run_shutdown','turn_bound','turn_stage','phase_started','phase_finished','phase_failed','pcm_first_forwarded','voice_profile_assigned','speech_provider_selected',
   'input_ready','capture_started','capture_stopped','mic_chunk','input_overflow','provider_request_started',
   'provider_headers','provider_first_byte','provider_request_finished','provider_request_failed','model_usage',
   'decision_validated','decision_rejected','pcm_first_ready','pcm_delivery_summary','native_authorization_requested',
   'native_authorization_accepted','native_authorization_rejected','native_playback_started','native_stream_end_handoff',
   'native_playback_ended','provider_deadline_fired','playback_watchdog_armed','playback_watchdog_fired','late_pcm_ignored',
+  'provider_selected','provider_attempt_started','provider_attempt_succeeded','provider_retry_scheduled','provider_retry_skipped','provider_retry_exhausted','provider_retry_recovered',
   'player_history_committed','history_duplicate_prevented','assistant_history_staged','assistant_history_committed',
   'assistant_history_discarded','history_trimmed','action_validated','action_dispatch_attempted',
   'action_dispatch_accepted','action_dispatch_rejected','action_dispatch_suppressed','cancellation_requested',
@@ -24,6 +25,7 @@ const safeKeys = new Set([
   'actionDispatchRejected','authorizationAcceptedCount','authorizationRejectedCount','authorizationAttempts',
   'credentialAvailable','providerWorkDeadlineMs','playbackCompletionMaxMs',
   'micChunks','droppedTelemetryRecords',
+  'profileId','speechProvider','voice','speed','assignmentVersion','attempt','attemptId','maxAttempts','retryDelayMs','remainingDeadlineMs',
 ]);
 const safeTokens = new Set([
   'openai','gemini','player_text','player_mic','special_event','system','internal','completed','failed',
@@ -33,6 +35,7 @@ const safeTokens = new Set([
   'transcribing','model_running','decision_validation','decision_validated','tts_running','native_authorization',
   'playback_streaming','stream_end','playback_completion','completed_no_audio','interrupted','rejected',
   'accepted','started','finished','headers','first_byte','stt','model','tts','normal','unknown','other','typed','microphone',
+  'attempt_limit','side_effect_started','retry_after_above_max','insufficient_deadline','disabled','permanent_provider_error','unknown_rate_limit','unknown_error','non_retryable_provider_error','http_408','http_502','http_503','http_504','rate_limit_error','rate_limit_exceeded','slow_down','attempt_timeout','econnreset','epipe','etimedout','und_err_socket','und_err_connect_timeout','und_err_headers_timeout','timeout_before_effect','connection_reset','connection_closed','temporary_network_failure','server_error','api_error','internal_server_error','service_unavailable_error',
 ]);
 
 function safeScalar(key, value) {
@@ -47,6 +50,11 @@ function safeScalar(key, value) {
   if (key === 'model' && /^(gpt|whisper|tts)[-_][A-Za-z0-9._-]{1,80}$/i.test(token)) return token;
   if (['bundleHash','dllHash'].includes(key) && /^[a-f0-9]{64}$/i.test(token)) return token.toLowerCase();
   if (key === 'nodeVersion' && /^v\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(token)) return token;
+  if (key === 'profileId' && /^vp_[a-f0-9]{20}$/.test(token)) return token;
+  if (key === 'voice' && /^[a-z][a-z0-9_-]{0,31}$/.test(token)) return token;
+  if (key === 'speechProvider' && /^[a-z][a-z0-9._-]{0,63}$/.test(token)) return token;
+  if (key === 'provider' && /^openai\.(reasoning|transcription|speech)$/.test(token)) return token;
+  if (key === 'attemptId' && /^(stt|model|tts):[12]$/.test(token)) return token;
   return undefined;
 }
 

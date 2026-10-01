@@ -1,7 +1,7 @@
 import { buildRequest, extractResponseText, parseDecisionJson } from '../context/essentialDecision.mjs';
 import { endpoint, requestJson } from './request.mjs';
 
-export async function decide({ config, context, input, history, signal, source, fetchImpl = globalThis.fetch, telemetry }) {
+export async function decide({ config, context, input, history, signal, timeoutMs = config.providerWorkDeadlineMs ?? config.turnDeadlineMs, source, fetchImpl = globalThis.fetch, telemetry }) {
   const body = buildRequest({
     model: config.reasoningModel,
     effort: config.reasoningEffort,
@@ -22,7 +22,7 @@ export async function decide({ config, context, input, history, signal, source, 
     key: config.reasoningKey,
     body,
     signal,
-    timeoutMs: config.providerWorkDeadlineMs ?? config.turnDeadlineMs,
+    timeoutMs,
     telemetry,
     operation: 'model',
     model: config.reasoningModel,

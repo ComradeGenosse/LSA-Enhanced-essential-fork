@@ -1,6 +1,6 @@
 # LSA Enhanced Essential Fork
 
-The current E1.1 hardened + Observability companion for Los Santos Alive Essential Hotfix #3, plus its tests, reproducible build inputs, project documentation, deployment tooling, and E2/E3 roadmap.
+The E1.1 hardened + Observability companion for Los Santos Alive Essential Hotfix #3, extended with the offline E2/E3 provider, voice, and retry implementation, plus tests, reproducible build inputs, documentation, and deployment tooling.
 
 ## Project layout
 
@@ -28,10 +28,10 @@ Git ignores private environment/configuration files, runtime logs, generated aud
 
 ## Current status
 
-E1.1 and observability are implemented in this candidate. E2/E3 is a reviewed roadmap and has not been implemented by this repository import. See [import provenance](docs/REPOSITORY-IMPORT.md) for fresh verification results.
+E1.1, observability, and the offline E2/E3 implementation are present in this repository. See the [E2/E3 implementation status](docs/E2-E3-implementation-status.md) for architecture and validation. Live API and GTA checks remain separate release gates. See [import provenance](docs/REPOSITORY-IMPORT.md) for the original repository verification.
 
 The prior chat records the hardened E1.1 installation, then a later observability candidate that was not deployed. This import changes neither installation. Live API/GTA checks require their separate explicit opt-in; no such checks are performed by repository setup.
 
 ## Plans
 
-Start with the source-grounded [E2/E3 implementation plan](docs/plans/E2-E3-implementation-plan.md), which supersedes the earlier implementation instructions. Keep the [E2/E3 goals](docs/plans/E2-E3-goals.md), [review](docs/plans/E2-E3-plan-review.md), and [declarative plan](docs/plans/E2-E3-revised-plan.mjs) as supporting references. The earlier review's source-availability limitation describes that earlier review; the complete source was subsequently located using the previous chat and imported here. Inspect the actual source interfaces before implementing E2/E3.
+The source-grounded [E2/E3 implementation plan](docs/plans/E2-E3-implementation-plan.md), [goals](docs/plans/E2-E3-goals.md), [review](docs/plans/E2-E3-plan-review.md), and [declarative plan](docs/plans/E2-E3-revised-plan.mjs) remain as design records. The full candidate source was imported into this repository before implementation.

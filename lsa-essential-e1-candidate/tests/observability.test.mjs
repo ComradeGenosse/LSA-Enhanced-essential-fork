@@ -37,6 +37,18 @@ test('telemetry schema drops credentials, text, raw bodies, and arbitrary nested
   assert.equal(JSON.stringify(row).includes(secret), false);
 });
 
+test('telemetry retains bounded provider retry and voice assignment dimensions', () => {
+  assert.deepEqual(sanitizeTelemetryData({
+    operation: 'tts', provider: 'openai.speech', attempt: 2, maxAttempts: 2, attemptId: 'tts:2',
+    retryDelayMs: 500, remainingDeadlineMs: 2500, reason: 'side_effect_started',
+    profileId: 'vp_0123456789abcdefabcd', voice: 'shimmer', speed: 1.1, instruction: 'private text',
+  }), {
+    operation: 'tts', provider: 'openai.speech', attempt: 2, maxAttempts: 2, attemptId: 'tts:2',
+    retryDelayMs: 500, remainingDeadlineMs: 2500, reason: 'side_effect_started',
+    profileId: 'vp_0123456789abcdefabcd', voice: 'shimmer', speed: 1.1,
+  });
+});
+
 test('rotating JSONL sink preserves order, bounds retention, and reserves terminal records under queue pressure', async t => {
   const directory = await tempDirectory(t);
   const sink = await createFileSink({ directory, maxFileBytes: 600, maxTotalBytes: 10_000, maxFiles: 2, maxQueue: 2, maxQueueBytes: 1_000 });
@@ -142,6 +154,24 @@ test('offline summarizer separates outcomes, unknown usage, and incomplete trace
   const partial = summarizeRecords([record('turn_terminal_summary', { terminalReason: 'provider_timeout', durationMs: 100, traceComplete: false })], { truncatedTail: true });
   assert.equal(partial[0].traceComplete, false);
   assert.match(renderMarkdown(partial), /Non-completed turns are separate/);
+});
+
+test('offline summarizer reports retry attempts and outcomes per provider stage', () => {
+  const runId = randomUUID();
+  const record = (event, data = {}) => ({ schemaVersion: 1, runId, event, identity: id, source: 'player_text', data });
+  const retryRecords = [
+    record('provider_attempt_started', { operation: 'model', attempt: 1 }),
+    record('provider_retry_scheduled', { operation: 'model', retryDelayMs: 500 }),
+    record('provider_attempt_started', { operation: 'model', attempt: 2 }),
+    record('provider_retry_recovered', { operation: 'model', attempt: 2 }),
+    record('provider_attempt_started', { operation: 'tts', attempt: 1 }),
+    record('provider_retry_skipped', { operation: 'tts', reason: 'side_effect_started' }),
+    record('turn_terminal_summary', { terminalReason: 'completed', stage: 'completed', durationMs: 800, traceComplete: true }),
+  ];
+  const [run] = summarizeRecords(retryRecords);
+  assert.deepEqual(run.providerRetries.model, { attemptsStarted: 2, scheduled: 1, recovered: 1, exhausted: 0, suppressed: 0, scheduledDelayMs: 500 });
+  assert.equal(run.providerRetries.tts.suppressed, 1);
+  assert.match(renderMarkdown([run]), /model: 2 attempts, 1 recovered/);
 });
 
 test('source-pinned stock patch measures action routing at AP without altering identity seam count', async () => {

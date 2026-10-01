@@ -1,7 +1,9 @@
 import { endpoint, ProviderRequestError, requestBytes } from './request.mjs';
 
-export async function speak({ config, dialogue, signal, fetchImpl = globalThis.fetch, onPcm, telemetry }) {
+export async function speak({ config, dialogue, speechProfile, signal, timeoutMs = config.providerWorkDeadlineMs ?? config.turnDeadlineMs, fetchImpl = globalThis.fetch, onPcm, telemetry }) {
   if (!String(dialogue || '').trim()) throw new TypeError('TTS received empty dialogue.');
+  const profile = speechProfile || { voice: config.ttsVoice, speed: 1, instructions: '' };
+  if (String(speechProfile?.model || config.ttsModel) !== config.ttsModel) throw new TypeError('Speech profile model does not match the configured TTS model.');
   let tail = null;
   let totalBytes = 0;
   let pcmChunks = 0;
@@ -11,14 +13,16 @@ export async function speak({ config, dialogue, signal, fetchImpl = globalThis.f
     url: endpoint(config.ttsBaseUrl, 'audio/speech'),
     key: config.ttsKey,
     signal,
-    timeoutMs: config.providerWorkDeadlineMs ?? config.turnDeadlineMs,
+    timeoutMs,
     telemetry,
     model: config.ttsModel,
     body: {
       model: config.ttsModel,
-      voice: config.ttsVoice,
+      voice: profile.voice,
       input: dialogue,
       response_format: 'pcm',
+      ...(profile.speed !== 1 ? { speed: profile.speed } : {}),
+      ...(profile.instructions ? { instructions: profile.instructions } : {}),
     },
     onChunk: async bytes => {
       signal?.throwIfAborted();

@@ -1,4 +1,4 @@
-import { endpoint, ProviderRequestError, safeRequestId } from './request.mjs';
+import { endpoint, ProviderRequestError, responseFailure, safeRequestId } from './request.mjs';
 
 export function pcm16Wav(pcm, sampleRate = 16_000) {
   const bytes = Buffer.from(pcm);
@@ -13,7 +13,7 @@ export function pcm16Wav(pcm, sampleRate = 16_000) {
   return wav;
 }
 
-export async function transcribePcm({ pcm, sampleRate = 16_000, config, signal, fetchImpl = globalThis.fetch, telemetry }) {
+export async function transcribePcm({ pcm, sampleRate = 16_000, config, signal, timeoutMs = config?.providerWorkDeadlineMs ?? config?.turnDeadlineMs ?? 45_000, fetchImpl = globalThis.fetch, telemetry }) {
   if (!config?.transcriptionKey) throw new ProviderRequestError('The selected OpenAI transcription credential is missing.', { code: 'missing_credential' });
   signal?.throwIfAborted();
   const form = new FormData();
@@ -30,7 +30,7 @@ export async function transcribePcm({ pcm, sampleRate = 16_000, config, signal, 
     requestId = safeRequestId(response.headers?.get?.('x-request-id'));
     telemetry?.event('provider_headers', { operation: 'stt', httpStatus: response.status, durationMs: performance.now() - started, requestId });
     signal?.throwIfAborted();
-    if (!response.ok) throw new ProviderRequestError(`OpenAI transcription failed with HTTP ${response.status}.`, { status: response.status });
+    if (!response.ok) throw await responseFailure(response, 'OpenAI transcription');
     let json;
     try { json = await response.json(); }
     catch { throw new ProviderRequestError('OpenAI transcription returned invalid JSON.', { code: 'invalid_response' }); }
@@ -41,6 +41,8 @@ export async function transcribePcm({ pcm, sampleRate = 16_000, config, signal, 
     return text;
   } catch (error) {
     spanDone?.('failed', { code: /^[A-Za-z][A-Za-z0-9_]{0,63}$/.test(error?.code || '') ? error.code : 'provider_request_failed', httpStatus: Number.isInteger(error?.status) ? error.status : 0 });
-    throw error;
+    if (error instanceof ProviderRequestError) throw error;
+    if (signal?.aborted) throw new ProviderRequestError('OpenAI transcription was cancelled.', { code: 'cancelled' });
+    throw new ProviderRequestError('OpenAI transcription could not be completed.', { code: 'network_error' });
   }
 }

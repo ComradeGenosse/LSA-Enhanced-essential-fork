@@ -5,19 +5,28 @@ import { speak } from '../openai/speak.mjs';
 import { DialogueHistory } from '../memory/dialogueHistory.mjs';
 import { validateDecisionShape } from '../context/essentialDecision.mjs';
 import { validateStockDecision } from '../context/decisionValidator.mjs';
+import { createProviderStack } from '../providers/providerStack.mjs';
+import { VoiceResolver } from '../voice/voiceResolver.mjs';
+import { executeProviderOperation } from '../reliability/providerExecutor.mjs';
 
-export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry = null } = {}) {
+export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry = null, providers = {} } = {}) {
   const history = new DialogueHistory({ maxMessages: config.maxHistoryMessages, onMetric: (event, data) => telemetry?.emit(event, null, null, data) });
   const connections = new Set();
   let bridge = null;
+  // Construct provider implementations only for the existing E1 OpenAI route.
+  // Stock Gemini keeps its native transport and does not enter this stack.
+  const providerStack = config.provider === 'openai' ? createProviderStack(config, { fetchImpl, providers }) : null;
+  const voiceResolver = config.provider === 'openai' ? new VoiceResolver(config) : null;
   const services = {
     config,
-    decide: options => decide({ ...options, config, fetchImpl }),
-    transcribe: options => transcribePcm({ ...options, config, fetchImpl }),
-    speak: options => speak({ ...options, config, fetchImpl }),
+    providerStack,
+    decide: providerStack ? options => providerStack.decide(options) : options => decide({ ...options, config, fetchImpl }),
+    transcribe: providerStack ? options => providerStack.transcribe(options) : options => transcribePcm({ ...options, config, fetchImpl }),
+    speak: providerStack ? options => providerStack.speak(options) : options => speak({ ...options, config, fetchImpl }),
+    executeProvider: providerStack ? args => executeProviderOperation({ ...args, retryConfig: config.retry, telemetry: args.telemetry }) : null,
   };
   const runtime = {
-    config, history, services, telemetry,
+    config, history, services, telemetry, providerStack, voiceResolver,
     validateDecisionShape,
     validateStockDecision,
     createTransport(geminiFactory) {

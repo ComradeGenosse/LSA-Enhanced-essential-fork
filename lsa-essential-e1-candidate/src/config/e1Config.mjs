@@ -30,6 +30,7 @@ export function normalizeConfig(input = {}, env = process.env) {
     reasoningModel: 'gpt-6-luna', reasoningEffort: 'low', transcriptionModel: 'gpt-transcribe',
     ttsModel: 'gpt-4o-mini-tts', ttsVoice: 'nova', maxOutputTokens: 300,
     turnDeadlineMs: 45_000, maxMicDurationMs: 30_000, maxHistoryMessages: 12,
+    retry: { enabled: true, maxAttempts: 2, baseDelayMs: 500, maxDelayMs: 3_000, honorRetryAfter: true, jitter: 'bounded', minAttemptBudgetMs: 1_000, attemptTimeoutMs: null },
     observabilityEnabled: true, observabilityMaxFileBytes: 10 * 1024 * 1024,
     observabilityMaxTotalBytes: 100 * 1024 * 1024, observabilityMaxFiles: 5,
   };
@@ -39,12 +40,50 @@ export function normalizeConfig(input = {}, env = process.env) {
   const ttsVoice = String(input.ttsVoice ?? env.OPENAI_TTS_VOICE ?? defaults.ttsVoice).trim();
   const reasoningEffort = String(input.reasoningEffort ?? env.OPENAI_REASONING_EFFORT ?? defaults.reasoningEffort).trim().toLowerCase();
   if (input.observabilityEnabled !== undefined && typeof input.observabilityEnabled !== 'boolean') throw new TypeError('observabilityEnabled must be a boolean.');
+  if (input.actingEnabled !== undefined && typeof input.actingEnabled !== 'boolean') throw new TypeError('actingEnabled must be a boolean.');
   for (const [name, value] of Object.entries({ reasoningModel, transcriptionModel, ttsModel, ttsVoice })) {
     if (!value || value.length > 128) throw new TypeError(`${name} must contain 1 to 128 characters.`);
   }
   if (!['none', 'low', 'medium', 'high', 'xhigh', 'max'].includes(reasoningEffort)) throw new TypeError('reasoningEffort is unsupported.');
 
+  const explicitVoicePool = input.speechVoices !== undefined && input.speechVoices !== null;
+  const voiceInput = explicitVoicePool ? input.speechVoices : [ttsVoice];
+  if (!Array.isArray(voiceInput) || voiceInput.length === 0 || voiceInput.length > 32 || voiceInput.some(voice => typeof voice !== 'string')) {
+    throw new TypeError('speechVoices must be a nonempty array of at most 32 voice names.');
+  }
+  const speechVoices = voiceInput.map(voice => explicitVoicePool ? voice.trim().toLowerCase() : voice.trim());
+  if (speechVoices.some(voice => !voice || voice.length > 128 || (explicitVoicePool && !/^[a-z][a-z0-9_-]{0,31}$/.test(voice)))) throw new TypeError('speechVoices contains an invalid voice name.');
+  if (new Set(speechVoices).size !== speechVoices.length) throw new TypeError('speechVoices cannot contain duplicates.');
+  const ttsSpeed = Number(input.ttsSpeed ?? 1);
+  if (!Number.isFinite(ttsSpeed) || ttsSpeed < 0.25 || ttsSpeed > 4) throw new TypeError('ttsSpeed must be between 0.25 and 4.0.');
+  const speechInstructionsSupported = /^gpt-4o-mini-tts(?:-|$)/.test(ttsModel);
+  const actingEnabled = input.actingEnabled ?? false;
+  if (actingEnabled && !speechInstructionsSupported) throw new TypeError('actingEnabled requires a TTS model that supports speech instructions.');
+  if (explicitVoicePool && speechVoices.length > 1) {
+    const supportedVoices = speechInstructionsSupported
+      ? ['alloy', 'ash', 'ballad', 'coral', 'echo', 'fable', 'nova', 'onyx', 'sage', 'shimmer', 'verse', 'marin', 'cedar']
+      : ['alloy', 'ash', 'coral', 'echo', 'fable', 'onyx', 'nova', 'sage', 'shimmer'];
+    if (!['tts-1', 'tts-1-hd'].includes(ttsModel) && !speechInstructionsSupported) throw new TypeError('Cannot validate a multi-voice pool for the configured TTS model.');
+    if (speechVoices.some(voice => !supportedVoices.includes(voice))) throw new TypeError('speechVoices contains a voice unsupported by the configured TTS model.');
+  }
+  const voiceAssignment = String(input.voiceAssignment ?? 'deterministic-session');
+  if (voiceAssignment !== 'deterministic-session') throw new TypeError('voiceAssignment must be deterministic-session.');
+
   const providerWorkDeadlineMs = boundedInteger(input.providerWorkDeadlineMs ?? input.turnDeadlineMs, defaults.turnDeadlineMs, 5_000, 120_000, 'providerWorkDeadlineMs');
+  const retryInput = input.retry ?? defaults.retry;
+  if (!retryInput || typeof retryInput !== 'object' || Array.isArray(retryInput)) throw new TypeError('retry must be an object.');
+  const retry = Object.freeze({
+    enabled: retryInput.enabled ?? defaults.retry.enabled,
+    maxAttempts: boundedInteger(retryInput.maxAttempts, defaults.retry.maxAttempts, 1, 2, 'retry.maxAttempts'),
+    baseDelayMs: boundedInteger(retryInput.baseDelayMs, defaults.retry.baseDelayMs, 0, 10_000, 'retry.baseDelayMs'),
+    maxDelayMs: boundedInteger(retryInput.maxDelayMs, defaults.retry.maxDelayMs, 0, 30_000, 'retry.maxDelayMs'),
+    honorRetryAfter: retryInput.honorRetryAfter ?? defaults.retry.honorRetryAfter,
+    jitter: retryInput.jitter ?? defaults.retry.jitter,
+    minAttemptBudgetMs: boundedInteger(retryInput.minAttemptBudgetMs, defaults.retry.minAttemptBudgetMs, 1, 30_000, 'retry.minAttemptBudgetMs'),
+    attemptTimeoutMs: retryInput.attemptTimeoutMs === undefined || retryInput.attemptTimeoutMs === null
+      ? null : boundedInteger(retryInput.attemptTimeoutMs, null, 1_000, 120_000, 'retry.attemptTimeoutMs'),
+  });
+  if (typeof retry.enabled !== 'boolean' || typeof retry.honorRetryAfter !== 'boolean' || retry.jitter !== 'bounded' || retry.maxDelayMs < retry.baseDelayMs) throw new TypeError('retry configuration is invalid.');
   const playbackCompletionGraceMs = boundedInteger(input.playbackCompletionGraceMs, 30_000, 5_000, 120_000, 'playbackCompletionGraceMs');
   const playbackCompletionMinMs = boundedInteger(input.playbackCompletionMinMs, 60_000, 1_000, 600_000, 'playbackCompletionMinMs');
   const playbackCompletionMaxMs = boundedInteger(input.playbackCompletionMaxMs, 600_000, 60_000, 1_800_000, 'playbackCompletionMaxMs');
@@ -53,6 +92,7 @@ export function normalizeConfig(input = {}, env = process.env) {
   return Object.freeze({
     provider: selectedProvider,
     reasoningModel, reasoningEffort, transcriptionModel, ttsModel, ttsVoice,
+    speechVoices: Object.freeze(speechVoices), voiceAssignment, ttsSpeed, actingEnabled, speechInstructionsSupported,
     reasoningBaseUrl: baseUrl(input.reasoningBaseUrl ?? env.OPENAI_REASONING_BASE_URL, 'https://api.openai.com/v1', 'reasoningBaseUrl'),
     transcriptionBaseUrl: baseUrl(input.transcriptionBaseUrl ?? env.OPENAI_TRANSCRIPTION_BASE_URL, 'https://api.openai.com/v1', 'transcriptionBaseUrl'),
     ttsBaseUrl: baseUrl(input.ttsBaseUrl ?? env.OPENAI_TTS_BASE_URL, 'https://api.openai.com/v1', 'ttsBaseUrl'),
@@ -61,6 +101,7 @@ export function normalizeConfig(input = {}, env = process.env) {
     ttsKey: env.OPENAI_TTS_API_KEY ?? env.OPENAI_API_KEY ?? '',
     maxOutputTokens: boundedInteger(input.maxOutputTokens, defaults.maxOutputTokens, 32, 2048, 'maxOutputTokens'),
     providerWorkDeadlineMs,
+    retry,
     // Retain the previous setting as a compatibility alias; it no longer includes playback.
     turnDeadlineMs: providerWorkDeadlineMs,
     playbackCompletionGraceMs,

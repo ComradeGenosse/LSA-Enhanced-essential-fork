@@ -4,7 +4,7 @@ Prepared October 1, 2026 from the E2/E3 goals, plan review, and the current repo
 
 Repository: [ComradeGenosse/LSA-Enhanced-essential-fork](https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork). Inspected baseline: `888d9fbff3fb79dee7e1e9b85b746d1b44c9bc51`.
 
-This document supersedes the earlier E2/E3 implementation instructions. The goals remain unchanged. E2/E3 is not implemented yet; this request produces a plan only.
+This is the source-grounded implementation plan. Offline E2/E3 implementation is now complete; see [implementation status](../E2-E3-implementation-status.md) for the delivered architecture and verification. API and in-game validation remain release gates and are not claimed as passed.
 
 ## 1. Outcome and fixed boundaries
 
@@ -253,7 +253,7 @@ Exit gate: dialogue-only TTS transient failure before usable PCM can recover; ac
 
 Extend both event/field allowlists and scalar validation, not just event names. Current filtering would otherwise discard new profile IDs, voice names, provider stage IDs, and retry reasons.
 
-Add `voice_profile_assigned`, `speech_provider_selected`, `provider_retry_scheduled`, `provider_retry_started`, `provider_retry_recovered`, `provider_retry_exhausted`, and `provider_retry_skipped`.
+Add `voice_profile_assigned`, `speech_provider_selected`, `provider_retry_scheduled`, `provider_attempt_started`, `provider_retry_recovered`, `provider_retry_exhausted`, and `provider_retry_skipped`.
 
 Allow bounded profile/provider/voice identifiers, finite speed, attempt/maxAttempts, delay/remaining budget, normalized status/code, and enumerated skip reasons. Keep existing native identity correlation and telemetry schema compatibility; evolve the schema explicitly if a breaking change is unavoidable.
 

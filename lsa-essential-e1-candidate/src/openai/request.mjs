@@ -1,12 +1,25 @@
 import { createHash } from 'node:crypto';
+import { parseRetryAfter, providerErrorDetails } from '../reliability/errorClassifier.mjs';
 
 export class ProviderRequestError extends Error {
-  constructor(message, { status = 0, code = 'provider_request_failed' } = {}) {
+  constructor(message, { status = 0, code = 'provider_request_failed', providerErrorCode, providerErrorType, retryAfterMs } = {}) {
     super(message);
     this.name = 'ProviderRequestError';
     this.status = status;
     this.code = code;
+    this.providerErrorCode = providerErrorCode;
+    this.providerErrorType = providerErrorType;
+    this.retryAfterMs = retryAfterMs;
   }
+}
+
+export async function responseFailure(response, label) {
+  let details = {};
+  try { details = providerErrorDetails(await response.json()); } catch { /* A non-JSON error body is not retry evidence. */ }
+  const retryAfterMs = parseRetryAfter(response.headers?.get?.('retry-after'));
+  return new ProviderRequestError(`${label} failed with HTTP ${response.status}.`, {
+    status: response.status, ...details, ...(retryAfterMs === null ? {} : { retryAfterMs }),
+  });
 }
 
 export function endpoint(baseUrl, route) {
@@ -37,7 +50,7 @@ export async function requestJson({ fetchImpl = globalThis.fetch, url, key, body
     const requestId = safeRequestId(response.headers?.get?.('x-request-id'));
     telemetry?.event('provider_headers', { operation, httpStatus: response.status, durationMs: performance.now() - started, requestId });
     requestAbort.signal.throwIfAborted();
-    if (!response.ok) throw new ProviderRequestError(`OpenAI request failed with HTTP ${response.status}.`, { status: response.status });
+    if (!response.ok) throw await responseFailure(response, 'OpenAI request');
     try {
       const value = await response.json(); requestAbort.signal.throwIfAborted();
       spanDone?.('finished', { httpStatus: response.status, requestId });
@@ -78,6 +91,7 @@ export async function requestBytes({ fetchImpl = globalThis.fetch, url, key, bod
   let firstByte = true;
   let bodyReadMs = 0;
   let handoffMs = 0;
+  let consumerError = false;
   let requestId;
   try {
     abort.signal.throwIfAborted();
@@ -89,7 +103,7 @@ export async function requestBytes({ fetchImpl = globalThis.fetch, url, key, bod
     requestId = safeRequestId(response.headers?.get?.('x-request-id'));
     telemetry?.event('provider_headers', { operation, httpStatus: response.status, durationMs: performance.now() - started, requestId });
     abort.signal.throwIfAborted();
-    if (!response.ok) throw new ProviderRequestError(`OpenAI speech request failed with HTTP ${response.status}.`, { status: response.status });
+    if (!response.ok) throw await responseFailure(response, 'OpenAI speech request');
     if (!response.body?.getReader) throw new ProviderRequestError('OpenAI speech response has no readable body.', { code: 'empty_body' });
     const reader = response.body.getReader();
     const stopReader = () => { Promise.resolve(reader.cancel(abort.signal.reason)).catch(() => {}); };
@@ -108,7 +122,8 @@ export async function requestBytes({ fetchImpl = globalThis.fetch, url, key, bod
           if (operation === 'tts') telemetry?.audioRaw?.(value.byteLength);
           if (firstByte) { firstByte = false; telemetry?.event('provider_first_byte', { operation, durationMs: performance.now() - started, rawBytes: value.byteLength }); }
           const handoffStart = performance.now();
-          await onChunk(value);
+          try { await onChunk(value); }
+          catch (error) { consumerError = true; throw error; }
           handoffMs += performance.now() - handoffStart;
         }
         abort.signal.throwIfAborted();
@@ -124,6 +139,7 @@ export async function requestBytes({ fetchImpl = globalThis.fetch, url, key, bod
   } catch (error) {
     spanDone?.('failed', { rawBytes, chunks, bodyReadMs, handoffMs, code: safeCode(error?.code), httpStatus: Number.isInteger(error?.status) ? error.status : 0 });
     if (error instanceof ProviderRequestError) throw error;
+    if (consumerError) throw error;
     if (signal?.aborted) throw new ProviderRequestError('OpenAI speech request was cancelled.', { code: 'cancelled' });
     if (abort.signal.aborted) throw new ProviderRequestError('OpenAI speech request timed out.', { code: 'timeout' });
     throw new ProviderRequestError('OpenAI speech request could not be completed.', { code: 'network_error' });

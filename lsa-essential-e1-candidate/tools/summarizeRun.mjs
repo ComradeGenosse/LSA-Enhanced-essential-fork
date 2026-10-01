@@ -41,6 +41,19 @@ export function summarizeRecords(records, { malformedLines = 0, truncatedTail = 
       const authAccepted = elapsed('native_authorization_accepted');
       const inputReady = elapsed('input_ready');
       const providerWorkMs = phases.find(span => span.operation === 'provider_work')?.durationMs ?? null;
+      const retryEvents = turn.events.filter(row => row.event.startsWith('provider_retry_'));
+      const attemptsStarted = turn.events.filter(row => row.event === 'provider_attempt_started');
+      const retries = Object.fromEntries(['stt','model','tts'].map(operation => {
+        const stageEvents = retryEvents.filter(row => row.data?.operation === operation);
+        return [operation, {
+          attemptsStarted: attemptsStarted.filter(row => row.data?.operation === operation).length,
+          scheduled: stageEvents.filter(row => row.event === 'provider_retry_scheduled').length,
+          recovered: stageEvents.filter(row => row.event === 'provider_retry_recovered').length,
+          exhausted: stageEvents.filter(row => row.event === 'provider_retry_exhausted').length,
+          suppressed: stageEvents.filter(row => row.event === 'provider_retry_skipped').length,
+          scheduledDelayMs: stageEvents.filter(row => row.event === 'provider_retry_scheduled').reduce((sum, row) => sum + (Number.isFinite(row.data?.retryDelayMs) ? row.data.retryDelayMs : 0), 0),
+        }];
+      }));
       return {
         identity: turn.identity, source: turn.source, terminalReason: turn.terminal?.terminalReason || 'missing_terminal_summary',
         stage: turn.terminal?.stage || null, totalDurationMs: turn.terminal?.durationMs ?? null,
@@ -68,16 +81,25 @@ export function summarizeRecords(records, { malformedLines = 0, truncatedTail = 
         native: { authorizationAccepted: counts('native_authorization_accepted'), playbackStarted: counts('native_playback_started'), playbackEnded: counts('native_playback_ended') },
         history: { playerCommitted: counts('player_history_committed'), assistantStaged: counts('assistant_history_staged'), assistantCommitted: counts('assistant_history_committed'), assistantDiscarded: counts('assistant_history_discarded') },
         actionDispatch: { attempted: counts('action_dispatch_attempted'), accepted: counts('action_dispatch_accepted'), rejected: counts('action_dispatch_rejected') },
+        retries,
         traceComplete: turn.terminal?.traceComplete ?? false,
       };
     });
     const success = turns.filter(turn => turn.terminalReason === 'completed');
     const failures = turns.filter(turn => turn.terminalReason !== 'completed');
     const latency = rows => ({ count: rows.length, p50Ms: percentile(rows.map(x => x.totalDurationMs), .50), p95Ms: percentile(rows.map(x => x.totalDurationMs), .95), p99Ms: percentile(rows.map(x => x.totalDurationMs), .99) });
+    const retrySummary = Object.fromEntries(['stt','model','tts'].map(operation => {
+      const sums = turns.reduce((sum, turn) => {
+        for (const key of ['attemptsStarted','scheduled','recovered','exhausted','suppressed','scheduledDelayMs']) sum[key] += turn.retries[operation][key];
+        return sum;
+      }, { attemptsStarted: 0, scheduled: 0, recovered: 0, exhausted: 0, suppressed: 0, scheduledDelayMs: 0 });
+      return [operation, sums];
+    }));
     return {
       runId: run.runId, eventCount: run.events, turnCount: turns.length, completedCount: success.length,
       nonCompletedCount: failures.length, completionLatency: latency(success), nonCompletionLatency: latency(failures),
       providerUsage: Object.fromEntries(['inputTokens','outputTokens','totalTokens'].map(name => [name, run.usage.known.has(name) ? run.usage[name] : null])),
+      providerRetries: retrySummary,
       droppedTelemetryRecords: run.dropped,
       malformedLines, truncatedTail,
       traceComplete: malformedLines === 0 && !truncatedTail && run.dropped === 0 && turns.every(turn => turn.terminalReason !== 'missing_terminal_summary' && turn.traceComplete),
@@ -107,7 +129,8 @@ export function renderMarkdown(runs) {
   for (const run of runs) {
     lines.push(`## Run ${run.runId}`, '', `Events: ${run.eventCount}; turns: ${run.turnCount}; completed: ${run.completedCount}; other outcomes: ${run.nonCompletedCount}; dropped telemetry: ${run.droppedTelemetryRecords}; trace complete: ${run.traceComplete}.`, '', '| Source | Ped | Turn | Generation | Outcome | Stage | Total ms | PCM bytes | Playback start/end | Player/assistant commits |', '|---|---|---|---:|---|---|---:|---:|---:|---:|');
     for (const turn of run.turns) lines.push(`| ${turn.source} | ${turn.identity.pedId} | ${turn.identity.turnId} | ${turn.identity.generationId} | ${turn.terminalReason} | ${turn.stage || ''} | ${turn.totalDurationMs ?? ''} | ${turn.pcmBytes ?? ''} | ${turn.native.playbackStarted}/${turn.native.playbackEnded} | ${turn.history.playerCommitted}/${turn.history.assistantCommitted} |`);
-    lines.push('', `Completed latency nearest-rank p50/p95/p99: ${run.completionLatency.p50Ms ?? 'n/a'} / ${run.completionLatency.p95Ms ?? 'n/a'} / ${run.completionLatency.p99Ms ?? 'n/a'} ms. Non-completed turns are separate.`, '', `Malformed lines: ${run.malformedLines}; truncated final line: ${run.truncatedTail}.`, '');
+    const retryText = Object.entries(run.providerRetries).map(([stage, stats]) => `${stage}: ${stats.attemptsStarted} attempts, ${stats.recovered} recovered, ${stats.exhausted} exhausted, ${stats.suppressed} suppressed, ${stats.scheduledDelayMs} ms scheduled delay`).join('; ');
+    lines.push('', `Provider retries — ${retryText}.`, '', `Completed latency nearest-rank p50/p95/p99: ${run.completionLatency.p50Ms ?? 'n/a'} / ${run.completionLatency.p95Ms ?? 'n/a'} / ${run.completionLatency.p99Ms ?? 'n/a'} ms. Non-completed turns are separate.`, '', `Malformed lines: ${run.malformedLines}; truncated final line: ${run.truncatedTail}.`, '');
   }
   return lines.join('\n');
 }

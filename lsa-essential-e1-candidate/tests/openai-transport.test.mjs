@@ -58,7 +58,8 @@ test('typed OpenAI turn is pinned, sequential, and awaits matching protocol play
     listener: { pedId: 'player' }, contextText: 'Street: Grove Street', inputText: 'Are you okay?',
   } });
   await connection.sendText('unused wrapper text');
-  await connection.whenSettled(identity);
+  const settled = await connection.whenSettled(identity);
+  assert.equal(settled.status, 'completed', JSON.stringify(settled));
   assert.deepEqual(fake.requests.map(request => request.url), [
     'https://api.openai.com/v1/responses', 'https://api.openai.com/v1/audio/speech',
   ]);
