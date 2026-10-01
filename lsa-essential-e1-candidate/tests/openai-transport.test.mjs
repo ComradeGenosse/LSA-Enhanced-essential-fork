@@ -177,6 +177,94 @@ test('a command contradicting an already released dialogue-only stream fails the
   connection.close();
 });
 
+test('cancellation during an early segment stops model/TTS readers and sends no final handoff', { timeout: 5000 }, async () => {
+  const config = normalizeConfig({ structuredStreamingEnabled: true, earlyTtsEnabled: true, retry: { enabled: false, maxAttempts: 1 } }, { OPENAI_API_KEY: 'test-key' });
+  const full = JSON.stringify({ mode: 'dialogue_only', segments: [{ text: 'Wait here.' }, { text: 'I am checking.' }], command: '' });
+  const split = full.indexOf('},{') + 1;
+  const frame = event => `event: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`;
+  let modelCancelled = false;
+  let ttsCancelled = false;
+  let ttsRequested = false;
+  let firstAudio;
+  const gotAudio = new Promise(resolve => { firstAudio = resolve; });
+  const events = [];
+  let authorizations = 0;
+  const runtime = createRuntime(config, { fetchImpl: async url => {
+    if (url.endsWith('/audio/speech')) { ttsRequested = true; return new Response(new ReadableStream({
+      start(controller) { controller.enqueue(Uint8Array.from([0, 0])); },
+      cancel() { ttsCancelled = true; },
+    }), { status: 200 }); }
+    const textItem = { id: 'msg_cancel', type: 'message', role: 'assistant', content: [] };
+    return new Response(new ReadableStream({
+      start(controller) {
+        for (const event of [
+          { type: 'response.created', response: { id: 'resp_cancel', status: 'in_progress' } },
+          { type: 'response.output_item.added', output_index: 0, item: textItem },
+          { type: 'response.output_text.delta', output_index: 0, content_index: 0, item_id: 'msg_cancel', delta: full.slice(0, split) },
+        ]) controller.enqueue(new TextEncoder().encode(frame(event)));
+      },
+      cancel() { modelCancelled = true; },
+    }), { status: 200, headers: { 'content-type': 'text/event-stream' } });
+  } });
+  let bridge;
+  bridge = readyBridge(event => { events.push(event); if (event.type === 'audio') firstAudio(); if (event.type === 'turn_complete') queueMicrotask(() => bridge.complete(event)); return true; });
+  const authorize = bridge.authorize.bind(bridge);
+  bridge.authorize = identity => { authorizations += 1; return authorize(identity); };
+  runtime.attachBridge(bridge);
+  const identity = { pedId: 'p19', turnId: 'stream-cancel', generationId: 4, sessionNonce: 5 };
+  const connection = await new OpenAITransport(runtime).connect({
+    systemInstruction: 'Stream short dialogue.', diagnosticContext: { pedId: identity.pedId, sessionNonce: identity.sessionNonce },
+    onEvent: async event => { events.push(event); if (event.type === 'audio') firstAudio(); if (event.type === 'turn_complete') queueMicrotask(() => bridge.complete(event)); },
+  });
+  await connection.beginTurn({ identity, source: 'player_text', context: { systemInstruction: 'Stream short dialogue.', inputText: 'What are you doing?' } });
+  await connection.sendText('What are you doing?');
+  const audioArrived = await Promise.race([gotAudio.then(() => true), new Promise(resolve => setTimeout(() => resolve(false), 1500))]);
+  if (!audioArrived) { connection.close(); assert.fail(`first audio timed out; ttsRequested=${ttsRequested}; events=${events.map(event => event.type).join(',')}`); }
+  assert.equal(connection.abortTurn(identity, 'native_interrupt'), true);
+  const settled = await connection.whenSettled(identity);
+  assert.notEqual(settled.status, 'completed');
+  assert.equal(authorizations, 1);
+  assert.equal(events.some(event => event.type === 'output_transcript' || event.type === 'generation_complete' || event.type === 'turn_complete'), false);
+  assert.equal(modelCancelled, true);
+  assert.equal(ttsCancelled, true);
+  connection.close();
+});
+
+test('early segmented PCM has an aggregate byte ceiling before native authorization', async () => {
+  const config = normalizeConfig({ structuredStreamingEnabled: true, earlyTtsEnabled: true, streamingMaxPcmBytes: 48_000, retry: { enabled: false, maxAttempts: 1 } }, { OPENAI_API_KEY: 'test-key' });
+  const full = JSON.stringify({ mode: 'dialogue_only', segments: [{ text: 'Oversized audio.' }], command: '' });
+  const frame = event => `event: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`;
+  const message = { id: 'msg_pcm_limit', type: 'message', role: 'assistant', status: 'completed', content: [{ type: 'output_text', text: full, annotations: [] }] };
+  let authorizationCalls = 0;
+  const runtime = createRuntime(config, { fetchImpl: async url => {
+    if (url.endsWith('/audio/speech')) return new Response(new Uint8Array(48_002), { status: 200 });
+    const events = [
+      { type: 'response.created', response: { id: 'resp_pcm_limit', status: 'in_progress' } },
+      { type: 'response.output_item.added', output_index: 0, item: { id: 'msg_pcm_limit', type: 'message', role: 'assistant', content: [] } },
+      { type: 'response.output_text.delta', output_index: 0, content_index: 0, item_id: 'msg_pcm_limit', delta: full },
+      { type: 'response.completed', response: { id: 'resp_pcm_limit', status: 'completed', output: [message] } },
+    ];
+    return new Response(new ReadableStream({ start(controller) { for (const event of events) controller.enqueue(new TextEncoder().encode(frame(event))); controller.close(); } }), { status: 200, headers: { 'content-type': 'text/event-stream' } });
+  } });
+  const bridge = readyBridge();
+  const originalAuthorize = bridge.authorize;
+  bridge.authorize = identity => { authorizationCalls += 1; return originalAuthorize(identity); };
+  runtime.attachBridge(bridge);
+  const identity = { pedId: 'p20', turnId: 'stream-pcm-limit', generationId: 5, sessionNonce: 6 };
+  const events = [];
+  const connection = await new OpenAITransport(runtime).connect({
+    systemInstruction: 'Use short dialogue.', diagnosticContext: { pedId: identity.pedId, sessionNonce: identity.sessionNonce },
+    onEvent: async event => { events.push(event); },
+  });
+  await connection.beginTurn({ identity, source: 'player_text', context: { systemInstruction: 'Use short dialogue.', inputText: 'Hello.' } });
+  await connection.sendText('Hello.');
+  const settled = await connection.whenSettled(identity);
+  assert.notEqual(settled.status, 'completed');
+  assert.equal(authorizationCalls, 0, 'oversized provider PCM is rejected before native authorization');
+  assert.equal(events.some(event => event.type === 'audio' || event.type === 'generation_complete' || event.type === 'turn_complete'), false);
+  connection.close();
+});
+
 test('buffered_action mode keeps TTS behind response completion even with early TTS enabled', async () => {
   const config = normalizeConfig({ structuredStreamingEnabled: true, earlyTtsEnabled: true, retry: { enabled: false, maxAttempts: 1 } }, { OPENAI_API_KEY: 'test-key' });
   const full = JSON.stringify({ mode: 'buffered_action', segments: [{ text: 'I will stay here.' }], command: 'DO WaitHere' });

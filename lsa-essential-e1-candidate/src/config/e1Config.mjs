@@ -32,7 +32,7 @@ export function normalizeConfig(input = {}, env = process.env) {
     turnDeadlineMs: 45_000, maxMicDurationMs: 30_000, maxHistoryMessages: 12,
     structuredStreamingEnabled: false, earlyTtsEnabled: false,
     streamingMaxOutputTokens: 600, streamingMaxSegments: 6,
-    streamingMaxSegmentChars: 240, streamingMaxDialogueChars: 1200,
+    streamingMaxSegmentChars: 240, streamingMaxDialogueChars: 1200, streamingMaxPcmBytes: 6_291_456,
     retry: { enabled: true, maxAttempts: 2, baseDelayMs: 500, maxDelayMs: 3_000, honorRetryAfter: true, jitter: 'bounded', minAttemptBudgetMs: 1_000, attemptTimeoutMs: null },
     observabilityEnabled: true, observabilityMaxFileBytes: 10 * 1024 * 1024,
     observabilityMaxTotalBytes: 100 * 1024 * 1024, observabilityMaxFiles: 5,
@@ -114,6 +114,7 @@ export function normalizeConfig(input = {}, env = process.env) {
     streamingMaxSegments: boundedInteger(input.streamingMaxSegments, defaults.streamingMaxSegments, 1, 8, 'streamingMaxSegments'),
     streamingMaxSegmentChars: boundedInteger(input.streamingMaxSegmentChars, defaults.streamingMaxSegmentChars, 40, 500, 'streamingMaxSegmentChars'),
     streamingMaxDialogueChars: boundedInteger(input.streamingMaxDialogueChars, defaults.streamingMaxDialogueChars, 100, 3000, 'streamingMaxDialogueChars'),
+    streamingMaxPcmBytes: boundedInteger(input.streamingMaxPcmBytes, defaults.streamingMaxPcmBytes, 48_000, 24_000_000, 'streamingMaxPcmBytes'),
     providerWorkDeadlineMs,
     retry,
     // Retain the previous setting as a compatibility alias; it no longer includes playback.

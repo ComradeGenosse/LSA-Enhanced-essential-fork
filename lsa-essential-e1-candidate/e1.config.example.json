@@ -8,6 +8,7 @@
   "streamingMaxSegments": 6,
   "streamingMaxSegmentChars": 240,
   "streamingMaxDialogueChars": 1200,
+  "streamingMaxPcmBytes": 6291456,
   "transcriptionModel": "gpt-transcribe",
   "ttsModel": "gpt-4o-mini-tts",
   "ttsVoice": "nova",

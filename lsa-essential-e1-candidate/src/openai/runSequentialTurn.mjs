@@ -103,6 +103,10 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
     if (!isActive()) throw new Error('provider_attempt_inactive');
     check();
     if (endSent) throw new Error('chunk_after_end');
+    if (services.config.structuredStreamingEnabled === true && services.config.earlyTtsEnabled === true &&
+        pcmBytesTotal + chunk.byteLength > services.config.streamingMaxPcmBytes) {
+      throw Object.assign(new Error('streaming_pcm_limit'), { code: 'streaming_pcm_limit' });
+    }
     if (!nativeHandoffStarted) nativeHandoffStarted = true;
     if (!authorizationRequested) {
       authorizationRequested = true;

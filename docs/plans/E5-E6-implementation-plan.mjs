@@ -90,7 +90,7 @@ export const e56Plan = {
   proposedConfig: {
     structuredStreamingEnabled: false, earlyTtsEnabled: false,
     streamingMaxOutputTokens: 600,
-    streamingMaxSegments: 6, streamingMaxSegmentChars: 240, streamingMaxDialogueChars: 1200,
+    streamingMaxSegments: 6, streamingMaxSegmentChars: 240, streamingMaxDialogueChars: 1200, streamingMaxPcmBytes: 6_291_456,
     maxSseEventBytes: 65536, maxResponseBytes: 262144,
     ttsConcurrency: 1, maxPrefetchedSegments: 0,
     notes: [
