@@ -2,7 +2,7 @@
 
 Updated October 1, 2026.
 
-This roadmap tracks the Essential-based LSA companion from the hardened E1.1 foundation through lower-latency dialogue, durable NPC identity, richer perception, autonomous scene behavior, and final long-session acceptance.
+This roadmap tracks the Essential-based LSA companion from the hardened E1.1 foundation through low-latency dialogue, durable NPC identity, richer perception, autonomous scene behavior, and final long-session acceptance.
 
 The governing architecture remains:
 
@@ -16,19 +16,19 @@ Los Santos Alive Essential
 GTA V
 ```
 
-Essential remains authoritative for native NPC state, turn/generation identity, action execution, playback authorization, interruption, and completion. Later phases should extend those native seams rather than create a second competing lifecycle.
+Essential remains authoritative for native NPC state, turn/generation identity, action execution, playback authorization, interruption, and completion. Later phases extend those native seams rather than create a second competing lifecycle.
 
 ## Status overview
 
-| Phase | Status | Purpose |
+| Phase | Status | Purpose / current gate |
 | --- | --- | --- |
 | E1 / E1.1 | ✅ Implemented | Hardened OpenAI/Luna integration on Essential's native lifecycle |
-| E4 (pulled forward) | ✅ Implemented | Persistent observability, lifecycle metrics, and offline reporting |
-| E2 | ✅ Implemented offline / runtime validation gate | Provider abstraction, stable session voices, bounded acting guidance |
-| E3 | ✅ Implemented offline / runtime validation gate | Stage-aware retries and provider failure recovery |
-| E5 | ⏭ Next major architecture phase | Structured model/output streaming |
-| E6 | Planned | Early TTS and lower perceived response latency |
-| SESSION_IDENTITY | Planned | Durable character identity beyond one native session |
+| E4 (pulled forward) | ✅ Implemented | Persistent observability, lifecycle metrics, Windows-safe logging/retention, offline reporting |
+| E2 | ✅ Implemented | Provider abstraction, stable session voices, bounded acting guidance |
+| E3 | ✅ Implemented | Stage-aware retries and provider failure recovery |
+| E5 | ✅ Implemented + live API validated | Structured Responses streaming; configured Luna produced a validated segment before response completion |
+| E6 | 🟡 Implemented; physical GTA acceptance pending | Early segmented TTS works through the stock-controller/native-lifecycle harness and is staged for live GTA testing |
+| SESSION_IDENTITY | ⏭ Next feature phase after E6 acceptance | Durable character identity beyond one native session |
 | PERCEPTION | Planned | Richer world/event/context awareness |
 | SALIENCE | Planned | Decide what an NPC should care about right now |
 | SCENE_DIRECTOR | Planned | NPC initiative and coordinated autonomous behavior |
@@ -58,131 +58,140 @@ The old/custom LSA 2.1 branch remains a reference and migration source, not the 
 
 Observability was originally planned after E2/E3 but was deliberately pulled forward so later work could be measured rather than debugged blindly.
 
-Implemented coverage includes:
+Implemented coverage includes turn/source binding, microphone capture, STT/reasoning/TTS timing, provider attempts/retries, first TTS byte, action-validation boundaries, native authorization, PCM forwarding, playback start/end, interruption/supersession, history mutation, terminal summaries, and incomplete/dropped trace detection.
 
-- turn/source binding;
-- microphone capture;
-- STT, reasoning, and TTS timing;
-- first TTS byte;
-- provider request correlation and reported usage when available;
-- action validation and stock-handler boundaries;
-- native authorization;
-- PCM chunk/byte forwarding;
-- playback start/end;
-- interruption/supersession;
-- history mutation;
-- provider retry activity;
-- terminal summaries;
-- incomplete/dropped trace detection.
+The later Windows logging/retention fix is also part of the current foundation. Runtime telemetry remains privacy-filtered and passive.
 
-Runtime telemetry is privacy-filtered and written to bounded rotating JSONL logs. The offline reporter produces JSON/Markdown summaries without network access.
-
-## Current validation work
+## Provider quality phases
 
 ### E2 — Provider abstraction, voices, and acting
 
-Implementation is present in the repository. E2 turns the previously hard-wired provider path into explicit reasoning, transcription, and speech provider seams while preserving existing E1.1 lifecycle ownership.
+Implemented in the current source tree. E2 converts the hard-wired provider path into explicit reasoning, transcription, and speech provider seams while preserving E1.1 lifecycle ownership.
 
-E2 also adds:
-
-- one immutable deterministic voice profile per native NPC session;
-- configurable voice pools while preserving legacy singleton `ttsVoice` behavior;
-- bounded speed settings;
-- optional trusted acting/style instructions;
-- no long-term character identity claims yet;
-- no stock Gemini migration into the new provider stack.
-
-Runtime validation should confirm:
-
-- the same NPC session retains the same voice across repeated turns;
-- two NPC sessions do not cross-contaminate voices;
-- context refresh does not reroll the voice;
-- acting guidance changes delivery without changing validated dialogue text;
-- stock Gemini behavior remains unchanged.
+It adds deterministic per-native-session voice profiles, configurable voice pools, bounded speed, and optional trusted acting/style instructions. It intentionally does not claim durable cross-session character identity; that belongs to SESSION_IDENTITY.
 
 ### E3 — Stage-aware reliability and retries
 
-Implementation is present in the repository. E3 adds conservative provider-level recovery without retrying native/gameplay side effects.
+Implemented in the current source tree. E3 retries provider operations only while they are still safe to repeat.
 
-Rules:
+Key rules remain:
 
-- at most one automatic retry after the original request;
+- at most one automatic retry after the original provider request;
 - retries consume the original provider deadline;
-- STT and reasoning may retry only inside their unpublished provider stages;
-- dialogue-only TTS may retry only before its first usable PCM/native side-effect boundary;
-- action-bearing TTS closes retry eligibility before stock action publication;
 - no whole-turn retries;
 - no automatic provider fallback;
 - no retry after cancellation, supersession, terminal state, or stale generation;
-- native authorization, action dispatch, playback completion, and history commit are never replayed by retry logic.
+- action dispatch, native authorization, playback completion, and history commit are never replayed by retry logic;
+- action-bearing TTS closes retry eligibility before stock action publication;
+- dialogue-only TTS may retry only before the first native PCM/effect boundary.
 
-Runtime validation should specifically exercise supersession, interruption, dialogue-only TTS recovery, action-bearing failures, and wrong-NPC/late-result prevention.
+See [E2/E3 implementation status](E2-E3-implementation-status.md).
 
-See [E2/E3 implementation status](E2-E3-implementation-status.md) and the [source-grounded E2/E3 implementation plan](plans/E2-E3-implementation-plan.md).
+## Low-latency pipeline
 
-## Next: E5 — Structured model/output streaming
+### E5 — Structured model/output streaming — implemented
 
-E5 creates the structured streaming foundation needed to reduce response latency safely.
+E5 is no longer a future architecture phase. The repository now contains the bounded Responses SSE adapter and complete-segment decoder.
 
-Current behavior is approximately:
+The current protocol uses one strict JSON decision envelope:
 
-```text
-wait for complete Luna decision
-        ↓
-validate
-        ↓
-begin TTS
+```json
+{"mode":"dialogue_only","segments":[{"text":"..."}],"command":""}
 ```
 
-The E5 target is an explicitly framed stream where useful dialogue segments and final decision/action information can arrive incrementally without parsing arbitrary half-written JSON.
+The decoder does **not** parse arbitrary half-finished JSON as a decision. It only exposes a speech segment after that segment object is closed, parsed, bounded, and locally validated. The complete terminal response is then reconciled and passed through the existing Essential decision/action validators.
 
-Conceptually:
+Important properties now implemented:
+
+- exact native identity remains external to/model-independent from the stream;
+- complete segments become immutable once released;
+- `dialogue_only` is irrevocable; a later command is a protocol failure;
+- action-bearing `buffered_action` turns remain behind the final validation barrier;
+- final transcript/action publication still occurs once;
+- refusal, incomplete output, malformed framing, duplicate/conflicting data, and terminal mismatch fail closed;
+- stock Gemini stays on its existing path.
+
+#### E5 live capability gate
+
+The explicit one-request streaming smoke passed against the configured `gpt-6-luna` endpoint.
+
+Recorded timing from that capability check:
+
+- first locally validated dialogue-only segment: about **1.05 s**;
+- `response.completed`: about **1.19 s**.
+
+That demonstrates that the configured Luna path can expose a usable complete segment before full response completion. It validates the key provider capability needed by E6; it is not itself a GTA playback test.
+
+See [E5/E6 streaming notes](../lsa-essential-e1-candidate/docs/e5-e6-streaming.md).
+
+### E6 — Early segmented TTS — implemented, GTA gate open
+
+E6 is implemented behind `structuredStreamingEnabled` and `earlyTtsEnabled`. Both remain default-off in the checked-in example config; the controlled live GTA test config has been staged with both enabled.
+
+For eligible `dialogue_only` turns, the implemented path is:
 
 ```text
-Luna stream
-   ├─ safe dialogue segment
-   ├─ safe dialogue segment
-   ├─ final action/decision data
-   └─ terminal completion
+Luna emits first complete safe segment
+        ↓
+segment TTS starts
+        ↓
+Essential authorizes the exact generation once
+        ↓
+PCM can begin before model completion
+        ↓
+later segments are synthesized serially/in order
+        ↓
+full model response validates
+        ↓
+one final transcript + one stream-end
+        ↓
+matching PlaybackEnded
+        ↓
+assistant history commits once
 ```
 
-Requirements:
+Action-bearing turns deliberately **do not** get early speech. They remain buffered until the final decision passes validation, preserving E3 side-effect rules.
 
-- preserve exact native generation identity;
-- preserve strict decision validation;
-- never allow a stale segment to escape after supersession;
-- distinguish provisional speech from final action-bearing state;
-- keep stock action authorization outside provider parsing;
-- instrument segment timing and cancellation through the existing observability system.
+Implemented safeguards include:
 
-E5 is primarily an architecture phase. It should make E6 possible without yet aggressively changing audible timing.
+- one serial TTS consumer;
+- no speculative concurrent PCM queue;
+- aggregate PCM cap before native authorization;
+- exact-generation cancellation/supersession fences;
+- one logical authorization/stream-end lifecycle;
+- no assistant history commit before matching `PlaybackEnded`;
+- abort of early speech when the model fails;
+- rejection of malformed/incomplete PCM16 output;
+- no stale action/segment/history resurrection.
 
-## E6 — Early TTS and lower perceived latency
+#### Current E6 evidence
 
-E6 uses E5's structured segments to start speech before the entire model turn has completed.
+A stock-controller integration test now drives two delayed TTS segments through the actual patched stock controller and Essential lifecycle bridge. It verifies:
 
-Target:
+- first PCM occurs before the model terminal event;
+- segment order is preserved;
+- all audio retains the same native identity;
+- there is one final stream-end handoff;
+- assistant history remains staged until matching `PlaybackEnded`.
 
-```text
-Luna produces first safe segment
-        ↓
-TTS begins for segment 1
-        ↓
-NPC starts speaking
-        ↓
-Luna continues generating later segments
-```
+The documented checkpoint at commit `b604b5e1` passed **140 tests with 0 failures**. Current `main` then added commit `84df8e30` to abort early speech on model failure and reject an incomplete PCM16 sample. The repository documentation does not yet record a fresh full-suite run after that final fix, so 140/140 should be treated as the latest recorded checkpoint rather than an assertion about the current HEAD until rerun.
 
-Key problems to solve:
+The E5/E6 payload was also staged/installed for controlled GTA testing with backups and hash verification. However, the repository does **not** yet contain a post-deployment GTA log proving physical playback for the current E6 path.
 
-- segment ordering;
-- cancellation and supersession;
-- preventing already-spoken dialogue from contradicting a later action decision;
-- ensuring audio from stale attempts/generations cannot leak;
-- preserving Essential as playback authority;
-- deciding when a segment is safe enough to synthesize early.
+#### E6 remaining release gate
 
-Success should be measured with existing telemetry: player-input-ready → first audible/native playback start, model segment latency, TTS first byte, and total completion.
+Physical GTA acceptance must still demonstrate:
+
+- the first segment is audibly played before model completion on an eligible turn;
+- later segments continue on the same logical native stream across real queue gaps;
+- no premature successful `PlaybackEnded` occurs before final stream end;
+- interruption/late model failure kills the exact generation without stale PCM or history;
+- action-bearing turns remain buffered;
+- final assistant history commits once and only after matching native playback completion.
+
+Prior Phase 10B evidence (13 turns, 11 with audio/acknowledgements, observed PCM gap up to about 2.98 seconds) remains strong prior evidence for open-stream behavior, but it is not counted as validation of this exact E1.1/E6 runtime path.
+
+Once this physical GTA gate passes, the next feature phase is **SESSION_IDENTITY**.
 
 ## NPC intelligence roadmap
 
