@@ -10,21 +10,22 @@ E5 passed the explicit one-request live streaming capability smoke against the c
 
 The E6 stock-controller integration gate executes two delayed segments through the patched stock controller and exact Essential native identity bridge. It verifies first PCM before the model terminal event, ordered chunks on one native identity, one final stream-end handoff, and assistant-history commit only after matching `PlaybackEnded`.
 
-The latest recorded complete regression checkpoint is commit `b604b5e1`: **140 tests, 0 failures**. Current `main` subsequently added `84df8e30` to abort early speech immediately when model processing fails and reject incomplete PCM16 output. A fresh complete-suite result after that final hardening commit is not yet recorded here.
+The full offline suite now passes **149 tests, 0 failures** ([current output](e5-e6-test-results.txt)), including the `84df8e30` model-failure and partial PCM16 hardening. The stock E6 test uses real production telemetry; microphone coverage exercises real and disabled logging with early TTS enabled and disabled.
+
+The user's subsequent GTA runs exposed a production telemetry integration error: the E6 callback invoked two nonexistent metrics methods and failed before TTS. The real-telemetry stock test reproduced the same failure before the fix and passes after it. The repaired callback uses the existing counter API, and local delivery errors are distinguished from malformed provider output. Detailed evidence is in [E5/E6 streaming notes](e5-e6-streaming.md).
 
 ### Deployment / GTA gate
 
-A controlled E5/E6 payload was staged/installed in the GTA server folder with both settings enabled, backed up and hash-verified. That deployment record predates the latest repository-head hardening commit unless a newer deployment receipt supersedes it, so repository HEAD and the installed GTA payload should not be assumed byte-identical.
+A controlled E5/E6 payload was staged/installed in the GTA server folder with both settings enabled, backed up and hash-verified. The repaired candidate rebuilds against the pinned source and native metadata with 25 exact AST matches. Built bundle SHA-256: `0443800cf148f10baa58558f106baa1e97e6edc2d227c0d48cf8fef15c457ed9`; repaired E1 source-tree SHA-256: `78dc5318bb79b945d683498531788523ee0cb426c4c4716e07db2474cf0027d9`. Compare source-tree and installed file hashes when confirming deployment; the launcher hash alone does not identify E1 module changes.
 
-There is still no post-deployment GTA log proving the current E6 physical playback path. Physical segment playback, real inter-segment gaps, interruption, partial/late failure behavior, and resulting native history behavior remain the open E6 release gate.
+The latest GTA log contains six failures before TTS, rather than successful physical playback. Physical segment playback, real inter-segment gaps, interruption, partial/late failure behavior, and resulting native history behavior remain the open E6 release gate for the repaired build.
 
 The earlier Phase 10B stream-gap result remains prior evidence only and is not counted as validation of this exact E1.1/E6 path.
 
-Candidate status: **E5 implemented + live-API validated; E6 implemented + stock-controller/native-lifecycle validated; physical GTA acceptance pending.**
 
 Historical E1.1 baseline receipt: the focused hardening pass and original live API smoke updated the `lsa-essential-e1-candidate` workspace without changing the live GTA installation; that smoke used a simulated native endpoint. The later E5/E6 test deployment is documented above.
 
-Candidate status: **offline E1.1 and configured OpenAI API path passed; GTA/runtime validation remains outstanding**.
+Candidate status: **production telemetry regression reproduced and fixed; offline suite passes; repaired GTA/runtime validation remains outstanding**.
 
 ## Offline results
 

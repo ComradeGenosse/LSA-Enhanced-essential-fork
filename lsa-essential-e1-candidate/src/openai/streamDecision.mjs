@@ -88,18 +88,26 @@ export async function streamDecision({
         if (outputIndex === null || data.output_index !== outputIndex || !outputItemId || data.item_id !== outputItemId) throw new ProviderRequestError('OpenAI changed the decision message identity.', { code: 'invalid_response' });
         if (typeof data.delta !== 'string') throw new ProviderRequestError('OpenAI returned a malformed text delta.', { code: 'invalid_response' });
         if (!sawDelta) { sawDelta = true; telemetry?.event('model_first_content_delta', { durationMs: performance.now() - streamStartedAt }); }
+        let segments;
         try {
           decoder.append(data.delta);
-          for (const segment of decoder.takeNewSegments()) {
-            telemetry?.event('stream_segment_validated', {
-              segmentSequence: segment.sequence, segmentChars: segment.text.length,
-              durationMs: performance.now() - streamStartedAt,
-            });
-            await onSegment(segment, decoder.mode);
-          }
+          segments = decoder.takeNewSegments();
         } catch (error) {
           if (error instanceof ProviderRequestError) throw error;
           throw new ProviderRequestError('OpenAI streamed an invalid structured decision.', { code: 'invalid_response' });
+        }
+        for (const segment of segments) {
+          telemetry?.event('stream_segment_validated', {
+            segmentSequence: segment.sequence, segmentChars: segment.text.length,
+            durationMs: performance.now() - streamStartedAt,
+          });
+          try { await onSegment(segment, decoder.mode); }
+          catch (error) {
+            if (signal?.aborted) throw new ProviderRequestError('OpenAI streaming decision was cancelled.', { code: 'cancelled' });
+            if (error instanceof ProviderRequestError) throw error;
+            // A local delivery failure must not masquerade as malformed model output.
+            throw new ProviderRequestError('The structured dialogue segment could not be delivered.', { code: 'segment_delivery_failed' });
+          }
         }
       } else if (type === 'response.output_text.done') {
         if (data.output_index !== outputIndex || data.item_id !== outputItemId || data.text !== decoder.text) {

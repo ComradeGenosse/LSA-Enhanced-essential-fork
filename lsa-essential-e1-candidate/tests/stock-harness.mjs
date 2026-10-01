@@ -11,14 +11,14 @@ let built;
 // Execute real patched stock declarations without starting the server, microphone,
 // SDK, sockets or native game. Only external I/O and unrelated scene presentation
 // are replaced. The turn store, routing, parser and lifecycle hooks are real code.
-export async function stockHarness(provider = 'openai', { config = {}, env = {}, fetchImpl = () => { throw new Error('network forbidden'); } } = {}) {
+export async function stockHarness(provider = 'openai', { config = {}, env = {}, telemetry = null, fetchImpl = () => { throw new Error('network forbidden'); } } = {}) {
   built ||= buildCandidate(); await built;
   const source = await readFile(new URL('../dist/plugins/LosSantosAliveServer/server.bundle.mjs', import.meta.url), 'utf8');
   const ast = acorn.parse(source, { ecmaVersion: 'latest', sourceType: 'module' });
   const variables = new Map();
   for (const statement of ast.body) if (statement.type === 'VariableDeclaration') for (const d of statement.declarations) variables.set(d.id.name, source.slice(d.start,d.end));
   const select = ['Ht','Z','Pe','ke','Ee','BM','$M','hy','Va','It','ae','yn','hv','Nd','u4','p4','b4'];
-  const runtime = createRuntime(normalizeConfig({ provider, ...config }, env), { fetchImpl });
+  const runtime = createRuntime(normalizeConfig({ provider, ...config }, env), { fetchImpl, telemetry });
   const sent = [], actions = [], logs = [];
   const context = vm.createContext({ Buffer, console, setTimeout, clearTimeout, queueMicrotask, Date, Map, Set, __LSA_E1_RUNTIME: runtime });
   context.sent = sent; context.actions = actions; context.logs = logs;

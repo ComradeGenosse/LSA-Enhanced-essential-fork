@@ -183,21 +183,9 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
     let earlyAudio = null;
     if (services.config.structuredStreamingEnabled === true) {
       const allowEarlyTts = services.config.earlyTtsEnabled === true;
-      const modelOptions = ({ signal, timeoutMs, telemetry, isActive }) => services.providerStack.decideStreaming({
+      const modelOptions = ({ signal, timeoutMs, telemetry }) => services.providerStack.decideStreaming({
         identity, context: { ...context, source }, source,
         input: isPlayer ? finalInput : '', history: priorHistory, signal, timeoutMs, telemetry,
-        onSegment: allowEarlyTts ? async (segment, mode) => {
-          check();
-          if (!mode) throw new Error('stream_mode_missing_before_segment');
-          if (streamMode && streamMode !== mode) throw new Error('stream_mode_changed');
-          streamMode = mode;
-          if (mode === 'dialogue_only') {
-            streamedSegments.push(segment);
-            metrics?.setDetail('acceptedSegmentCount', streamedSegments.length);
-            metrics?.mark(`segment${segment.sequence}Validated`);
-            signal.throwIfAborted();
-          }
-        } : undefined,
       });
       if (!allowEarlyTts) {
         const result = await performProvider('model', services.providerStack.reasoning.id, modelOptions);
@@ -263,8 +251,7 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
               streamMode = mode;
               if (mode === 'dialogue_only') {
                 streamedSegments.push(segment);
-                metrics?.setDetail('acceptedSegmentCount', streamedSegments.length);
-                metrics?.mark(`segment${segment.sequence}Validated`);
+                metrics?.count('segmentCount');
                 enqueue(segment);
               }
             },

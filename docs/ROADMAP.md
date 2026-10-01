@@ -174,7 +174,7 @@ A stock-controller integration test now drives two delayed TTS segments through 
 - there is one final stream-end handoff;
 - assistant history remains staged until matching `PlaybackEnded`.
 
-The documented checkpoint at commit `b604b5e1` passed **140 tests with 0 failures**. Current `main` then added commit `84df8e30` to abort early speech on model failure and reject an incomplete PCM16 sample. The repository documentation does not yet record a fresh full-suite run after that final fix, so 140/140 should be treated as the latest recorded checkpoint rather than an assertion about the current HEAD until rerun.
+The current full offline suite passes **149 tests with 0 failures** ([test output](../lsa-essential-e1-candidate/docs/e5-e6-test-results.txt)). This includes `84df8e30` model-failure/PCM16 hardening and the production telemetry repair reproduced from the first failed E5/E6 GTA runs. The stock E6 integration test now exercises the real logger; physical GTA acceptance of the repaired build remains open.
 
 The E5/E6 payload was also staged/installed for controlled GTA testing with backups and hash verification. However, the repository does **not** yet contain a post-deployment GTA log proving physical playback for the current E6 path.
 

@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { normalizeConfig } from '../src/config/e1Config.mjs';
 import { createRuntime } from '../src/integration/essentialGlue.mjs';
 import { OpenAITransport } from '../src/openai/openaiTransport.mjs';
+import { Telemetry, createNoopTelemetry } from '../src/observability/telemetry.mjs';
 
 function readyBridge(onEvent = async () => {}) {
   const listeners = new Set();
@@ -69,6 +70,59 @@ test('typed OpenAI turn is pinned, sequential, and awaits matching protocol play
   connection.close();
 });
 
+test('microphone structured turns complete with real and disabled logging, with early TTS on and off', async t => {
+  for (const earlyTtsEnabled of [true, false]) {
+    for (const loggingEnabled of [true, false]) {
+      await t.test(`earlyTts=${earlyTtsEnabled}, logging=${loggingEnabled}`, async t => {
+        const records = [];
+        const telemetry = loggingEnabled ? new Telemetry({ sink: { emit(record) { records.push(record); return true; } } }) : createNoopTelemetry();
+        const config = normalizeConfig({ structuredStreamingEnabled: true, earlyTtsEnabled, retry: { enabled: false, maxAttempts: 1 } }, { OPENAI_API_KEY: 'test-key' });
+        const requests = [];
+        const full = JSON.stringify({ mode: 'dialogue_only', segments: [{ text: 'First reply.' }, { text: 'Second reply.' }], command: '' });
+        const message = { id: 'msg_mic', type: 'message', role: 'assistant', status: 'completed', content: [{ type: 'output_text', text: full, annotations: [] }] };
+        const frame = event => `event: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`;
+        const runtime = createRuntime(config, { telemetry, fetchImpl: async url => {
+          requests.push(url);
+          if (url.endsWith('/audio/transcriptions')) return Response.json({ text: 'Private microphone input.' });
+          if (url.endsWith('/audio/speech')) return new Response(Uint8Array.from([1, 0]), { status: 200 });
+          assert.ok(url.endsWith('/responses'));
+          const events = [
+            { type: 'response.created', response: { id: 'resp_mic', status: 'in_progress' } },
+            { type: 'response.output_item.added', output_index: 0, item: { id: message.id, type: 'message', role: 'assistant', content: [] } },
+            { type: 'response.output_text.delta', output_index: 0, content_index: 0, item_id: message.id, delta: full },
+            { type: 'response.completed', response: { id: 'resp_mic', status: 'completed', output: [message] } },
+          ];
+          return new Response(events.map(frame).join(''), { headers: { 'content-type': 'text/event-stream' } });
+        } });
+        const events = [];
+        const bridge = readyBridge(event => { events.push(event); if (event.type === 'turn_complete') queueMicrotask(() => bridge.complete(event)); return true; });
+        runtime.attachBridge(bridge);
+        const identity = { pedId: '17', turnId: 'mic-telemetry', generationId: 1, sessionNonce: 1 };
+        const connection = await new OpenAITransport(runtime).connect({ diagnosticContext: identity, systemInstruction: 'stock' });
+        t.after(() => connection.close());
+        await connection.beginTurn({ identity, source: 'player_mic', context: { systemInstruction: 'stock' } });
+        await connection.startRealtimeInput();
+        await connection.sendRealtimeAudio(new Uint8Array(32_000), 16_000);
+        await connection.endRealtimeInput();
+        assert.equal((await connection.whenSettled(identity)).status, 'completed');
+        assert.equal(requests.filter(url => url.endsWith('/audio/transcriptions')).length, 1);
+        assert.equal(requests.filter(url => url.endsWith('/audio/speech')).length, earlyTtsEnabled ? 2 : 1);
+        assert.equal(events.filter(event => event.type === 'turn_complete').length, 1);
+        assert.ok(events.some(event => event.type === 'audio'));
+        assert.deepEqual(runtime.history.readForSession('17', 1), [
+          { role: 'user', content: 'Private microphone input.' },
+          { role: 'assistant', content: 'First reply. Second reply.' },
+        ]);
+        if (loggingEnabled) {
+          assert.equal(records.filter(record => record.event === 'turn_terminal_summary').length, 1);
+          assert.equal(records.find(record => record.event === 'turn_terminal_summary').data.terminalReason, 'completed');
+          assert.equal(JSON.stringify(records).includes('Private microphone input.'), false);
+        }
+      });
+    }
+  }
+});
+
 test('early segmented TTS overlaps one structured response and closes one Essential stream', async () => {
   const config = normalizeConfig({ structuredStreamingEnabled: true, earlyTtsEnabled: true, retry: { enabled: false, maxAttempts: 1 } }, { OPENAI_API_KEY: 'test-key' });
   let releaseModel;
@@ -125,6 +179,71 @@ test('early segmented TTS overlaps one structured response and closes one Essent
   assert.equal(events.filter(event => event.type === 'turn_complete').length, 1);
   assert.equal(events.find(event => event.type === 'output_transcript').text, 'I saw him. He went east.');
   connection.close();
+});
+
+test('early speech failures cancel active readers and never hand off a successful turn with real logging', { timeout: 5000 }, async t => {
+  for (const failure of ['late_model_refusal', 'partial_pcm16_sample']) {
+    await t.test(failure, async t => {
+      const config = normalizeConfig({ structuredStreamingEnabled: true, earlyTtsEnabled: true, retry: { enabled: false, maxAttempts: 1 } }, { OPENAI_API_KEY: 'test-key' });
+      const records = [];
+      const telemetry = new Telemetry({ sink: { emit(record) { records.push(record); return true; } } });
+      const full = JSON.stringify({ mode: 'dialogue_only', segments: [{ text: 'Safe phrase.' }], command: '' });
+      const message = { id: 'msg_failure', type: 'message', role: 'assistant', content: [] };
+      const frame = event => new TextEncoder().encode(`event: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`);
+      let modelController;
+      let ttsCancelled = false;
+      const events = [];
+      let firstAudio;
+      const gotAudio = new Promise(resolve => { firstAudio = resolve; });
+      const runtime = createRuntime(config, { telemetry, fetchImpl: async url => {
+        if (url.endsWith('/audio/speech')) {
+          if (failure === 'partial_pcm16_sample') return new Response(Uint8Array.from([0, 0, 1]));
+          return new Response(new ReadableStream({
+            start(controller) { controller.enqueue(Uint8Array.from([0, 0])); },
+            cancel() { ttsCancelled = true; },
+          }));
+        }
+        return new Response(new ReadableStream({ start(controller) {
+          modelController = controller;
+          for (const event of [
+            { type: 'response.created', response: { id: 'resp_failure', status: 'in_progress' } },
+            { type: 'response.output_item.added', output_index: 0, item: message },
+            { type: 'response.output_text.delta', output_index: 0, content_index: 0, item_id: message.id, delta: full },
+          ]) controller.enqueue(frame(event));
+          if (failure === 'partial_pcm16_sample') {
+            controller.enqueue(frame({ type: 'response.completed', response: { id: 'resp_failure', status: 'completed', output: [{ ...message, status: 'completed', content: [{ type: 'output_text', text: full }] }] } }));
+            controller.close();
+          }
+        } }), { headers: { 'content-type': 'text/event-stream' } });
+      } });
+      const bridge = readyBridge(event => { events.push(event); if (event.type === 'audio') firstAudio(); if (event.type === 'turn_complete') queueMicrotask(() => bridge.complete(event)); return true; });
+      let nativeFailures = 0;
+      bridge.failMatchingTurn = () => { nativeFailures++; return true; };
+      runtime.attachBridge(bridge);
+      const identity = { pedId: '17', turnId: failure, generationId: 1, sessionNonce: 1 };
+      const connection = await new OpenAITransport(runtime).connect({ diagnosticContext: identity, systemInstruction: 'stock' });
+      t.after(() => connection.close());
+      await connection.beginTurn({ identity, source: 'player_text', context: { inputText: 'Hello.' } });
+      await connection.sendText('Hello.');
+      const done = connection.whenSettled(identity);
+      if (failure === 'late_model_refusal') {
+        const first = await Promise.race([gotAudio.then(() => 'audio'), done.then(() => 'failed')]);
+        assert.equal(first, 'audio', 'the refusal arrives while TTS is still streaming');
+        modelController.enqueue(frame({ type: 'response.refusal.delta', delta: 'Private refusal.' }));
+        modelController.close();
+      }
+      const result = await done;
+      assert.equal(result.terminalReason, failure === 'late_model_refusal' ? 'model_refusal' : 'tts_error');
+      assert.equal(result.cause.code, failure === 'late_model_refusal' ? 'model_refusal' : 'partial_pcm16_sample');
+      if (failure === 'late_model_refusal') assert.equal(ttsCancelled, true, 'model failure must cancel the pending TTS body read');
+      assert.equal(nativeFailures, 1);
+      assert.equal(events.filter(event => event.type === 'audio').length, 1);
+      assert.equal(events.some(event => event.type === 'generation_complete' || event.type === 'turn_complete'), false);
+      assert.equal(runtime.history.readForSession('17', 1).filter(item => item.role === 'assistant').length, 0);
+      assert.equal(records.filter(record => record.event === 'turn_terminal_summary').length, 1);
+      assert.equal(JSON.stringify(records).includes('Private refusal.'), false);
+    });
+  }
 });
 
 test('a command contradicting an already released dialogue-only stream fails the exact turn without dispatch', async () => {

@@ -50,18 +50,15 @@ The stock-controller integration gate runs two delayed speech segments through t
 - one final native stream-end handoff is used;
 - assistant history stays staged until matching `PlaybackEnded`.
 
-The latest **recorded** full regression checkpoint is:
+The current full offline regression result is **149 tests passed, 0 failures** ([test output](../lsa-essential-e1-candidate/docs/e5-e6-test-results.txt)). It includes the `84df8e30` model-failure/PCM16 hardening and the production telemetry repair reproduced from the first failed E5/E6 GTA runs.
 
-- commit `b604b5e1`;
-- **140 tests passed, 0 failures**.
-
-Current `main` subsequently added commit `84df8e30`, which aborts early speech when model processing fails and rejects an incomplete PCM16 sample. A new complete-suite result after that final hardening commit has not yet been recorded in the repository docs.
+The real-telemetry stock E6 test was observed failing before the repair with the same first-segment/zero-TTS signature as the GTA logs, then passing afterward. Microphone tests exercise real and disabled logging with early TTS enabled and disabled. Detailed diagnosis is recorded in the [streaming notes](../lsa-essential-e1-candidate/docs/e5-e6-streaming.md).
 
 ## Deployment state
 
 A controlled E5/E6 payload was staged/installed in the GTA server directory with both runtime flags enabled, with rollback backups and hash verification recorded in [deployment/DEPLOYMENT.md](../deployment/DEPLOYMENT.md).
 
-That deployment record predates the latest repository-head hardening commit unless a later deployment receipt supersedes it. Do not assume the installed GTA payload is identical to current `main` without a new hash-verified deployment.
+The repaired candidate's E1 source-tree SHA-256 is `78dc5318bb79b945d683498531788523ee0cb426c4c4716e07db2474cf0027d9`. Do not assume the installed GTA payload is identical to current `main` without a hash-verified deployment; the launcher hash alone does not identify changes to the separate E1 modules.
 
 ## Remaining E6 gate
 

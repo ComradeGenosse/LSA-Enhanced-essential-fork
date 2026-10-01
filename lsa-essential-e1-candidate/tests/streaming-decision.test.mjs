@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { normalizeConfig } from '../src/config/e1Config.mjs';
 import { createSegmentDecoder } from '../src/openai/segmentDecoder.mjs';
 import { streamDecision } from '../src/openai/streamDecision.mjs';
+import { Telemetry } from '../src/observability/telemetry.mjs';
 
 const full = JSON.stringify({ mode: 'dialogue_only', segments: [{ text: 'I saw him.' }, { text: 'He went east.' }], command: '' });
 const frame = event => `event: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`;
@@ -94,4 +95,19 @@ test('streamed refusal, missing terminal, and incompatible final text fail close
   await assert.rejects(streamDecision({ ...base, fetchImpl: async () => streamingResponse([
     ...events,
   ]) }), error => error.code === 'invalid_response');
+});
+
+test('local segment delivery failures are logged separately from invalid model output without private content', async () => {
+  const records = [];
+  const telemetry = new Telemetry({ sink: { emit(record) { records.push(record); return true; } } });
+  const metrics = telemetry.beginTurn({ pedId: '17', turnId: 'delivery-failure', generationId: 1, sessionNonce: 1 }, 'player_text');
+  const config = normalizeConfig({ structuredStreamingEnabled: true }, { OPENAI_API_KEY: 'test-key' });
+  await assert.rejects(streamDecision({
+    config, body: {}, telemetry: metrics, timeoutMs: 1000,
+    fetchImpl: async () => streamingResponse(responseEvents(full)),
+    onSegment: () => { throw new TypeError('PRIVATE CALLBACK CONTENT'); },
+  }), error => error.code === 'segment_delivery_failed');
+  assert.equal(records.find(record => record.event === 'provider_request_failed')?.data.code, 'segment_delivery_failed');
+  assert.equal(JSON.stringify(records).includes('PRIVATE CALLBACK CONTENT'), false);
+  assert.equal(JSON.stringify(records).includes('I saw him.'), false);
 });

@@ -34,11 +34,20 @@ node tools/streamingApiSmoke.mjs
 
 That explicit gate makes one billable request and prints only mode, segment lengths/timing, terminal timing, and whether the command was empty; it does not print the API key, prompt, or generated dialogue. The live install now has both flags enabled for a controlled GTA test; the checked-in example remains default-off. In-game validation should confirm first NPC audio precedes model completion, segments remain ordered with one logical stream, late refusal/failure interrupts that exact generation, and assistant history commits only after native playback completion.
 
-
 ## Current implementation status
 
 E5 is **implemented and live-API validated** for the configured Luna streaming path. E6 is **implemented and validated through the patched stock-controller/native-lifecycle harness**, but physical GTA acceptance remains open.
 
-The latest recorded complete regression checkpoint is **140 tests, 0 failures** at commit `b604b5e1`. Current `main` subsequently added `84df8e30` to abort early speech immediately when model processing fails and to reject an incomplete PCM16 sample. A fresh complete-suite result after that final hardening commit is not yet recorded in this document.
+The current complete regression result is **149 tests, 0 failures** ([test output](e5-e6-test-results.txt)), including the `84df8e30` model-failure/PCM16 hardening and the production telemetry repair described below.
 
-The installed/staged GTA payload documented in the deployment receipt predates that final repository-head hardening commit unless a later deployment receipt says otherwise. Do not assume repository HEAD and the currently installed GTA payload are byte-identical without a new hash-verified deployment record.
+The repaired E1 source-tree SHA-256 is `78dc5318bb79b945d683498531788523ee0cb426c4c4716e07db2474cf0027d9`. Compare source-tree and installed file hashes when checking a deployment; the launcher bundle hash alone does not identify changes to separate E1 modules.
+
+## First GTA runs: telemetry integration regression (2026-10-01)
+
+The latest run, `e1-run-20261001T233519Z-a12d1e0c-5b87-48d5-895d-dc4f92ddf9bf.jsonl`, contains six turns: four microphone and two typed. All four STT requests succeeded; all six model requests returned HTTP 200 and locally validated their first dialogue segment. Every turn then failed with `invalid_response` before any TTS request, native audio authorization, or playback. The preceding E5/E6 run shows the same first-segment failure on its three turns that reached the model.
+
+The E6 segment callback called `metrics.setDetail()` and `metrics.mark()`, neither of which exists on the production `TurnMetrics` or disabled-logging metrics object. The first call threw before the segment was queued for TTS. The stream adapter then mislabeled that local callback error as invalid model output. Earlier E6 integration tests passed because they constructed the runtime with `telemetry: null`; the standalone live Responses smoke also did not exercise this production callback.
+
+The callback now uses the existing `count('segmentCount')` API. Validation timing already comes from `stream_segment_validated`, so no additional timing API is needed. The unused alternate callback was removed. Local segment-delivery errors now report the safe `segment_delivery_failed` code, distinct from malformed provider output, without recording dialogue or exception content.
+
+The stock-controller E6 test now uses the real telemetry class and was observed failing before the fix with the same zero-TTS signature, then passing after it. Microphone tests cover real and disabled logging with early TTS enabled and disabled. Additional real-telemetry regressions verify that late model refusal cancels a pending TTS reader and that a partial PCM16 tail fails without final stream completion or assistant history commitment. The full offline suite passes **149 tests, 0 failures**; see [current test output](e5-e6-test-results.txt). Physical GTA playback of the repaired build still requires a new run.

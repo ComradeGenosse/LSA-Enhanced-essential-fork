@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { stockHarness } from './stock-harness.mjs';
 import { buildRequest } from '../src/context/essentialDecision.mjs';
+import { Telemetry } from '../src/observability/telemetry.mjs';
 
 async function setup({ decide, speak, actorContext, completePlayback = true } = {}) {
   const h = await stockHarness('openai');
@@ -51,6 +52,8 @@ test('stock ib typed controller sends PLAYER_TEXT through native playback and co
 });
 
 test('E6 streams ordered segments through the patched stock controller and commits only after final native playback', { timeout: 10000 }, async t => {
+  const records = [];
+  const telemetry = new Telemetry({ sink: { emit(record) { records.push(record); return true; } } });
   const completeText = JSON.stringify({ mode: 'dialogue_only', segments: [{ text: 'First phrase.' }, { text: 'Second phrase.' }], command: '' });
   const firstSegmentEnd = completeText.indexOf('},{"text"') + 1;
   assert.ok(firstSegmentEnd > 0);
@@ -76,13 +79,16 @@ test('E6 streams ordered segments through the patched stock controller and commi
       },
     }), { status: 200, headers: { 'content-type': 'text/event-stream' } });
   };
-  const h = await stockHarness('openai', { config: { structuredStreamingEnabled: true, earlyTtsEnabled: true, retry: { enabled: false, maxAttempts: 1 } }, env: { OPENAI_API_KEY: 'test-key' }, fetchImpl });
+  const h = await stockHarness('openai', { config: { structuredStreamingEnabled: true, earlyTtsEnabled: true, retry: { enabled: false, maxAttempts: 1 } }, env: { OPENAI_API_KEY: 'test-key' }, fetchImpl, telemetry });
   const { connection, autoNativeAcks } = await h.openAIControllerSession();
   t.after(() => connection.close());
   autoNativeAcks({ completePlayback: false });
   const turn = await invokeTyped(h, 'What happened?');
   const identity = nativeIdentity(turn);
-  try { await waitFor(() => h.sent.some(message => message.type === 'npcAudioChunk'), 'first early native PCM chunk'); }
+  try {
+    await waitFor(() => h.sent.some(message => message.type === 'npcAudioChunk') || records.some(record => record.event === 'turn_terminal_summary'), 'first early native PCM chunk');
+    if (!h.sent.some(message => message.type === 'npcAudioChunk')) assert.fail('Turn failed before early native PCM');
+  }
   catch (error) {
     const settled = await Promise.race([connection.whenSettled(identity), new Promise(resolve => setTimeout(() => resolve(null), 100))]);
     assert.fail(`${error.message}; settled=${JSON.stringify(settled)}; ttsRequests=${ttsRequests}; stockLogs=${JSON.stringify(h.logs)}`);
@@ -119,6 +125,13 @@ test('E6 streams ordered segments through the patched stock controller and commi
     { role: 'user', content: 'What happened?' },
     { role: 'assistant', content: 'First phrase. Second phrase.' },
   ]);
+  assert.equal(records.filter(record => record.event === 'stream_segment_validated').length, 2);
+  assert.equal(records.filter(record => record.event === 'stream_tts_segment_started').length, 2);
+  const summaries = records.filter(record => record.event === 'turn_terminal_summary');
+  assert.equal(summaries.length, 1);
+  assert.equal(summaries[0].data.terminalReason, 'completed');
+  assert.equal(summaries[0].data.segmentCount, 2);
+  assert.equal(JSON.stringify(records).includes('First phrase.'), false, 'telemetry must not record dialogue');
   connection.close();
 });
 
