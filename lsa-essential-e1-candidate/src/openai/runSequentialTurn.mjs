@@ -238,6 +238,7 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
                 onPcm: chunk => forwardPcm(chunk, active),
               }), () => !nativeHandoffStarted);
             if (!audio?.bytes) throw new Error('empty_segment_audio');
+            if (audio.discardedTrailingByte) throw Object.assign(new Error('partial_pcm16_sample'), { code: 'partial_pcm16_sample' });
             bytes += audio.bytes;
             chunks += audio.chunks || 0;
             metrics?.event('stream_tts_segment_finished', { segmentSequence: segment.sequence, bytes: audio.bytes, chunks: audio.chunks || 0 });
@@ -278,6 +279,8 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
           earlyAudio = await speechTask;
         } catch (error) {
           modelFailed = true;
+          chooseTerminal(terminalForError(error, 'model_running'));
+          if (!controller.signal.aborted) controller.abort(error);
           cancelQueue(error);
           await Promise.allSettled([speechTask]);
           throw error;
