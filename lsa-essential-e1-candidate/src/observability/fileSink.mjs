@@ -10,7 +10,11 @@ export async function createFileSink({ directory = path.resolve(process.cwd(), '
   await mkdir(root, { recursive: true });
   const actual = await stat(root);
   if (!actual.isDirectory()) throw new Error('Telemetry path is not a directory.');
-  if (await realpath(root) !== root) throw new Error('Telemetry directory must not resolve through a link.');
+  const canonicalRoot = await realpath(root);
+  const samePath = process.platform === 'win32'
+    ? canonicalRoot.toLowerCase() === root.toLowerCase()
+    : canonicalRoot === root;
+  if (!samePath) throw new Error('Telemetry directory must not resolve through a link.');
   let runId = randomUUID();
   const stamp = now().toISOString().replace(/[-:]/g, '').replace(/\.\d{3}Z$/, 'Z');
   let fileNumber = 0;
@@ -46,7 +50,7 @@ export async function createFileSink({ directory = path.resolve(process.cwd(), '
     let kept = 0;
     for (const item of owned) {
       if (item.active) { kept++; continue; }
-      if (kept >= maxFiles - 1 || total <= maxTotalBytes) { await unlink(item.file).catch(() => {}); total -= item.size; continue; }
+      if (kept >= maxFiles || total > maxTotalBytes) { await unlink(item.file).catch(() => {}); total -= item.size; continue; }
       kept++;
     }
   }
