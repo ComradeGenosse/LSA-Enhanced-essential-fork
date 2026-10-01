@@ -171,6 +171,21 @@ Important rules:
 
 See [E2/E3 implementation status](docs/E2-E3-implementation-status.md) for the current validation record.
 
+## E5/E6 low-latency pipeline
+
+### E5 — structured streaming
+
+E5 is implemented. The OpenAI reasoning path can use bounded Responses SSE with complete, locally validated speech segments and strict terminal reconciliation. The configured `gpt-6-luna` live capability smoke produced its first validated segment at about **1.05 s**, before `response.completed` at about **1.19 s**.
+
+### E6 — early segmented TTS
+
+E6 is implemented for `dialogue_only` turns. TTS/native PCM can begin from the first complete safe segment while reasoning continues. Action-bearing turns remain buffered until final validation.
+
+The stock-controller/native-lifecycle integration gate verifies early PCM before model completion, ordered delayed segments on the same native identity, one final stream-end, and assistant-history commit only after matching `PlaybackEnded`.
+
+**Physical GTA acceptance is still pending.** See [E5/E6 implementation status](docs/E5-E6-implementation-status.md) and the [GTA smoke checklist](lsa-essential-e1-candidate/docs/gta-smoke-checklist.md).
+
+
 ## Observability
 
 The companion writes privacy-filtered rotating JSONL runtime logs when launched through the actual patched server path.
@@ -311,29 +326,34 @@ See:
 The repository currently contains:
 
 - hardened E1/E1.1 native-lifecycle integration;
-- observability/reporting;
+- observability/reporting and Windows-safe log retention;
 - E2 provider/voice/acting implementation;
 - E3 provider retry/reliability implementation;
+- **E5 structured Responses streaming**;
+- **E6 early segmented TTS for safe dialogue-only turns**;
 - source-pinned build tooling;
 - native contract verification;
 - deployment/rollback tooling;
 - offline regression coverage.
 
-The expanded E2/E3 offline suite currently records **131 passing tests with no failures, cancellations, or skips**, and the pinned candidate build succeeds.
+E5 has passed the explicit live streaming capability smoke against the configured `gpt-6-luna` endpoint. E6 has passed the patched stock-controller/native-lifecycle integration gate, including early PCM before model completion, ordered delayed segments, one stream-end, and playback-gated assistant history.
 
-Offline test success does not by itself prove live API quality or GTA runtime behavior. Live API and GTA validation are tracked as separate release gates.
+The latest recorded full regression checkpoint is **140 passing tests, 0 failures** at commit `b604b5e1`. Current `main` then added `84df8e30` to abort early speech on model failure and reject incomplete PCM16 output; a fresh full-suite result after that final hardening commit is not yet recorded.
+
+A controlled E5/E6 payload is staged/installed for GTA testing with both flags enabled, but repository HEAD may be newer than the installed payload. **Physical GTA playback/interruption/late-failure acceptance remains the open E6 release gate.**
 
 ## Project layout
 
 - [lsa-essential-e1-candidate/](lsa-essential-e1-candidate/README.md) — current companion source, tests, provider/reliability/voice code, build tools, native metadata, and pinned stock reference inputs.
 - [deployment/](deployment/README.md) — explicit staging/install/verification/rollback tooling.
 - [docs/E2-E3-implementation-status.md](docs/E2-E3-implementation-status.md) — current E2/E3 implementation and validation state.
+- [docs/E5-E6-implementation-status.md](docs/E5-E6-implementation-status.md) — current E5/E6 implementation, API/native-lifecycle evidence, deployment state, and remaining GTA gate.
 - [docs/plans/](docs/plans/) — design history, E2/E3 plans/reviews, native analysis, and original mission records.
 - [docs/ROADMAP.md](docs/ROADMAP.md) — current roadmap through streaming, durable identity, perception, salience, autonomy, actions, and final acceptance.
 
 ## Roadmap
 
-The next major planned phases are:
+Current phase status:
 
 ~~~text
 ✅ E1 / E1.1
@@ -347,13 +367,16 @@ The next major planned phases are:
 ✅ E3
    stage-aware retries / failure recovery
 
-→ E5
-   structured model/output streaming
+✅ E5
+   structured Responses streaming
+   live Luna incremental-delivery capability validated
 
-→ E6
-   early TTS / lower perceived latency
+🟡 E6
+   early segmented TTS implemented
+   stock-controller/native-lifecycle gate passed
+   → physical GTA acceptance pending
 
-→ SESSION_IDENTITY
+⏭ SESSION_IDENTITY
    durable character identity
 
 → PERCEPTION
