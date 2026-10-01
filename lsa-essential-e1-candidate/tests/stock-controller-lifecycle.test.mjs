@@ -50,6 +50,78 @@ test('stock ib typed controller sends PLAYER_TEXT through native playback and co
   assert.equal(h.runtime.history.readForSession('17', 1).length, 2);
 });
 
+test('E6 streams ordered segments through the patched stock controller and commits only after final native playback', { timeout: 10000 }, async t => {
+  const completeText = JSON.stringify({ mode: 'dialogue_only', segments: [{ text: 'First phrase.' }, { text: 'Second phrase.' }], command: '' });
+  const firstSegmentEnd = completeText.indexOf('},{"text"') + 1;
+  assert.ok(firstSegmentEnd > 0);
+  let modelController;
+  let modelCompleted = false;
+  let ttsRequests = 0;
+  const encodeEvent = event => `event: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`;
+  const textItem = { id: 'msg_stock_stream', type: 'message', role: 'assistant', content: [] };
+  const finalMessage = { ...textItem, status: 'completed', content: [{ type: 'output_text', text: completeText, annotations: [] }] };
+  const fetchImpl = async url => {
+    if (url.endsWith('/audio/speech')) {
+      ttsRequests++;
+      return new Response(Uint8Array.from([ttsRequests, 0]), { status: 200 });
+    }
+    return new Response(new ReadableStream({
+      start(controller) {
+        modelController = controller;
+        for (const event of [
+          { type: 'response.created', response: { id: 'resp_stock_stream', status: 'in_progress' } },
+          { type: 'response.output_item.added', output_index: 0, item: textItem },
+          { type: 'response.output_text.delta', output_index: 0, content_index: 0, item_id: textItem.id, delta: completeText.slice(0, firstSegmentEnd) },
+        ]) controller.enqueue(new TextEncoder().encode(encodeEvent(event)));
+      },
+    }), { status: 200, headers: { 'content-type': 'text/event-stream' } });
+  };
+  const h = await stockHarness('openai', { config: { structuredStreamingEnabled: true, earlyTtsEnabled: true, retry: { enabled: false, maxAttempts: 1 } }, env: { OPENAI_API_KEY: 'test-key' }, fetchImpl });
+  const { connection, autoNativeAcks } = await h.openAIControllerSession();
+  t.after(() => connection.close());
+  autoNativeAcks({ completePlayback: false });
+  const turn = await invokeTyped(h, 'What happened?');
+  const identity = nativeIdentity(turn);
+  try { await waitFor(() => h.sent.some(message => message.type === 'npcAudioChunk'), 'first early native PCM chunk'); }
+  catch (error) {
+    const settled = await Promise.race([connection.whenSettled(identity), new Promise(resolve => setTimeout(() => resolve(null), 100))]);
+    assert.fail(`${error.message}; settled=${JSON.stringify(settled)}; ttsRequests=${ttsRequests}; stockLogs=${JSON.stringify(h.logs)}`);
+  }
+  const firstAudio = h.sent.filter(message => message.type === 'npcAudioChunk');
+  assert.equal(modelCompleted, false);
+  assert.equal(ttsRequests, 1, 'first segment starts TTS before reasoning completes');
+  assert.equal(firstAudio.length, 1);
+  assert.ok(firstAudio.every(message => message.pedId === identity.pedId && message.turnId === identity.turnId && message.generationId === identity.generationId));
+  assert.equal(h.sent.some(message => message.type === 'npcAudioStreamEnded'), false);
+  assert.equal(connection.whenSettled(identity) instanceof Promise, true);
+  for (const event of [
+    { type: 'response.output_text.delta', output_index: 0, content_index: 0, item_id: textItem.id, delta: completeText.slice(firstSegmentEnd) },
+    { type: 'response.completed', response: { id: 'resp_stock_stream', status: 'completed', output: [finalMessage] } },
+  ]) modelController.enqueue(new TextEncoder().encode(encodeEvent(event)));
+  modelController.close();
+  modelCompleted = true;
+  await waitFor(() => h.sent.some(message => message.type === 'npcAudioStreamEnded'), 'single final native stream-end handoff');
+  const chunks = h.sent.filter(message => message.type === 'npcAudioChunk');
+  const streamEnds = h.sent.filter(message => message.type === 'npcAudioStreamEnded');
+  assert.equal(modelCompleted, true);
+  assert.equal(ttsRequests, 2, 'second segment is synthesized serially');
+  assert.equal(chunks.length, 2);
+  assert.deepEqual(chunks.map(message => [...Buffer.from(message.audioBase64, 'base64')]), [[1, 0], [2, 0]]);
+  assert.equal(streamEnds.length, 1);
+  assert.ok([...chunks, ...streamEnds].every(message => message.pedId === identity.pedId && message.turnId === identity.turnId && message.generationId === identity.generationId));
+  assert.deepEqual(h.runtime.history.readForSession(identity.pedId, identity.sessionNonce), [
+    { role: 'user', content: 'What happened?' },
+  ], 'assistant history remains staged until matching PlaybackEnded');
+  h.context.playbackIdentity = identity;
+  await h.evaluate('by({ ...playbackIdentity, type: "npcPlaybackEnded", reason: "completed", hadAudio: true, playbackStarted: true, wasInterrupted: false })');
+  assert.equal((await connection.whenSettled(identity)).status, 'completed');
+  assert.deepEqual(h.runtime.history.readForSession(identity.pedId, identity.sessionNonce), [
+    { role: 'user', content: 'What happened?' },
+    { role: 'assistant', content: 'First phrase. Second phrase.' },
+  ]);
+  connection.close();
+});
+
 test('stock typed controller handles consecutive turns for the same NPC with bounded dialogue history', async () => {
   const { h, connection } = await setup();
   const first = await invokeTyped(h, 'First question.');
