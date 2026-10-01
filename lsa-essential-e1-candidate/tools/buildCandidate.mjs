@@ -187,7 +187,8 @@ export async function buildCandidate({ sourcePath = stockBundleDefault, outputPa
   const releasePayloadSha256 = await directoryDigest(target);
   const manifest = {
     nativeContract,
-    stage: 'E2/E3', foundationStage: 'E1.1', status: 'candidate-built-offline-api-and-gta-unverified', observabilitySchemaVersion: 1,
+    stage: 'E5/E6', foundationStage: 'E1.1+E2+E3', status: 'candidate-built-offline-verified-live-api-and-gta-pending', observabilitySchemaVersion: 1,
+    features: { structuredStreaming: true, earlySegmentedTts: true, defaultEnabled: false, earlyTtsMode: 'dialogue_only', ttsConcurrency: 1 },
     launcherEntry: launcherName, upstreamBundleSha256: sourceHash,
     stockDllReferenceSha256: dllHash, builtBundleSha256: digest(patched.output),
     e1SourceTreeSha256, releasePayloadSha256,

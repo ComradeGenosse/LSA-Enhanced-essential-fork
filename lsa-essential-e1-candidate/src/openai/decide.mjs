@@ -1,5 +1,6 @@
 import { buildRequest, extractResponseText, parseDecisionJson } from '../context/essentialDecision.mjs';
 import { endpoint, requestJson } from './request.mjs';
+import { streamDecision } from './streamDecision.mjs';
 
 export async function decide({ config, context, input, history, signal, timeoutMs = config.providerWorkDeadlineMs ?? config.turnDeadlineMs, source, fetchImpl = globalThis.fetch, telemetry }) {
   const body = buildRequest({
@@ -41,4 +42,30 @@ export async function decide({ config, context, input, history, signal, timeoutM
     });
   } else telemetry?.event('model_usage', { outcome: 'unknown' });
   return parseDecisionJson(extractResponseText(response));
+}
+
+export async function decideStreaming({ config, context, input, history, signal,
+  timeoutMs = config.providerWorkDeadlineMs ?? config.turnDeadlineMs, source, fetchImpl = globalThis.fetch,
+  telemetry, onSegment }) {
+  const body = buildRequest({
+    model: config.reasoningModel,
+    effort: config.reasoningEffort,
+    systemInstruction: context.systemInstruction,
+    actor: context.actor,
+    listener: context.listener,
+    world: context.world,
+    contextText: context.contextText,
+    internalEvent: context.internalEvent,
+    source: source || context.source,
+    input,
+    history,
+    maxOutputTokens: config.streamingMaxOutputTokens,
+    structuredSegments: true,
+  });
+  return streamDecision({
+    config, body, signal, timeoutMs, fetchImpl, telemetry, onSegment,
+    maxSegments: config.streamingMaxSegments,
+    maxSegmentChars: config.streamingMaxSegmentChars,
+    maxDialogueChars: config.streamingMaxDialogueChars,
+  });
 }

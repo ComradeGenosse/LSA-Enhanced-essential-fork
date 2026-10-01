@@ -39,3 +39,11 @@ E1 does not register OpenAI in Gemini owner maps, infer identity from the select
 ## Scope and limitations
 
 No replacement DLL, binary patch, alternate microphone subsystem, perception pipeline, production GTA deployment, or real OpenAI request is part of this candidate. Offline tests use deterministic providers and extracted stock controllers; they do not establish live API compatibility, installed-version matching, in-game acoustics, physical long-response timing, or actual action/world effects. Those remain GTA/runtime smoke-test items.
+
+## E5/E6 structured streaming
+
+E5 adds an opt-in strict Responses SSE path. Its bounded JSON envelope starts with an immutable `mode` (`dialogue_only` or `buffered_action`), followed by short `{text}` segments and a final command. The decoder extracts only complete balanced segment objects, parses each complete object with duplicate-key rejection, and locally validates size/control text before E6 can consume it. It strictly parses the whole response at the end and reconciles the completed assistant output with the deltas. It never calls `JSON.parse` on an incomplete segment/root value.
+
+E6 starts segment TTS during model streaming only for `dialogue_only`. A single consumer issues TTS requests in order with the turn's fixed speech profile. Action-bearing turns remain on buffered whole-dialogue synthesis after final decision and stock validation. Early segment PCM goes through the existing awaited callback and one exact-identity native authorization; segments do not each get a new generation, authorization, or stream-end marker. The final transcript is emitted once after terminal model reconciliation and validation; `generation_complete` and `turn_complete` are sent once after all segment synthesis. Any late command, provider/TTS failure, cancellation, or interruption retires the matching turn and discards staged assistant history. Both config flags default off pending live API and GTA gates.
+
+The user-reported Phase 10B GTA run (13 turns, 11 with audio/acknowledgements, largest observed PCM gap about 2.98 seconds) is prior evidence for leaving the logical native stream open across segments. It is not a live validation of this new E1.1 provider path. See [E5/E6 test and rollout notes](e5-e6-streaming.md).

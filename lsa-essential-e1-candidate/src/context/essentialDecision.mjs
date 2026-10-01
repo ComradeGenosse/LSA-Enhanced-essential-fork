@@ -50,7 +50,7 @@ export function validateDecisionShape(decision) {
   return parseDecisionJson(JSON.stringify(decision));
 }
 
-export function buildRequest({ model, effort, systemInstruction, actor, listener, world, contextText, internalEvent, source, input, history = [], maxOutputTokens = 300 }) {
+export function buildRequest({ model, effort, systemInstruction, actor, listener, world, contextText, internalEvent, source, input, history = [], maxOutputTokens = 300, structuredSegments = false }) {
   const scene = [
     contextText,
     internalEvent ? `[INTERNAL EVENT TRIGGER]\n${String(internalEvent).slice(0, 12000)}\n[/INTERNAL EVENT TRIGGER]` : '',
@@ -59,19 +59,37 @@ export function buildRequest({ model, effort, systemInstruction, actor, listener
     world ? `CURRENT WORLD DATA\n${JSON.stringify(world)}` : '',
   ].filter(Boolean).join('\n\n');
   const boundedHistory = history.slice(-12).map(message => ({ role: message.role, content: message.content }));
-  return {
+  const outputRules = structuredSegments
+    ? 'Return one strict JSON object with exactly three fields in this order: mode, segments, command. mode is dialogue_only only when no action is needed; otherwise buffered_action. Each segments item contains exactly text and must be a complete short spoken phrase/sentence. command is empty or exactly one currently available Essential DO action. Never put DO commands in speech. Do not claim an action already happened. The mode is fixed and may not change; dialogue_only requires an empty final command.'
+    : 'Return one JSON object with exactly two fields: dialogue and command. dialogue contains only brief spoken words for the player, never a DO command. command is empty or exactly one currently available Essential DO action. Do not chain actions. Do not invent targets, vehicles, weapons, or destinations.';
+  const body = {
     model,
     store: false,
     reasoning: { effort },
     stream: false,
     max_output_tokens: maxOutputTokens,
-    text: { format: { type: 'json_schema', name: 'e1_decision', strict: true, schema: decisionSchema } },
+    text: { format: { type: 'json_schema', name: structuredSegments ? 'e1_segmented_decision' : 'e1_decision', strict: true,
+      schema: structuredSegments ? segmentedDecisionSchema : decisionSchema } },
     input: [
-      { role: 'system', content: `${systemInstruction}\n\n[E1 OUTPUT RULES]\nReturn one JSON object with exactly two fields: dialogue and command. dialogue contains only brief spoken words for the player, never a DO command. command is empty or exactly one currently available Essential DO action. Do not chain actions. Do not invent targets, vehicles, weapons, or destinations.\n\n[CURRENT REQUEST CONTEXT]\n${scene}` },
+      { role: 'system', content: `${systemInstruction}\n\n[E1 OUTPUT RULES]\n${outputRules}\n\n[CURRENT REQUEST CONTEXT]\n${scene}` },
       ...boundedHistory,
       { role: 'user', content: source === 'special_event' || (source && !['player_text','player_mic'].includes(source))
         ? 'Respond to the internal event described in the system context. No player utterance was received.'
         : String(input || '').slice(0, 12_000) },
     ],
   };
+  if (structuredSegments) body.stream = true;
+  return body;
 }
+
+const segmentedDecisionSchema = Object.freeze({
+  type: 'object', additionalProperties: false,
+  required: ['mode', 'segments', 'command'],
+  properties: {
+    mode: { type: 'string', enum: ['dialogue_only', 'buffered_action'] },
+    segments: { type: 'array', items: {
+      type: 'object', additionalProperties: false, required: ['text'], properties: { text: { type: 'string' } },
+    } },
+    command: { type: 'string' },
+  },
+});

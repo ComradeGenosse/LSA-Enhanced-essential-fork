@@ -18,6 +18,10 @@ test('config preserves Luna, the transcription alias, fixed TTS and bounded PTT 
   assert.equal(config.providerWorkDeadlineMs, 45_000);
   assert.equal(config.turnDeadlineMs, 45_000);
   assert.equal(config.playbackCompletionMinMs, 60_000);
+  assert.equal(config.structuredStreamingEnabled, false);
+  assert.equal(config.earlyTtsEnabled, false);
+  assert.throws(() => normalizeConfig({ earlyTtsEnabled: true }, {}), /requires structuredStreamingEnabled/);
+  assert.throws(() => normalizeConfig({ structuredStreamingEnabled: true, provider: 'gemini' }, {}), /only by the OpenAI provider/);
   assert.equal(normalizeConfig({ turnDeadlineMs: 30_000 }, {}).providerWorkDeadlineMs, 30_000);
   assert.throws(() => normalizeConfig({ playbackCompletionMinMs: 90_000, playbackCompletionMaxMs: 60_000 }, {}), /greater than or equal/);
   assert.equal(config.reasoningKey, 'unit-test-key');

@@ -14,6 +14,10 @@ Stock controls are retained: Mouse4 talk, F3 mark ped, Mouse5 talk to marked ped
 - [ ] Special/internal event through the stock event controller; confirm source remains `special_event`, event text appears once as internal context, no fake player message is committed, and any assistant response is committed only after native success.
 - [ ] Stock action plus dialogue: use a valid available action and confirm stock timing and at-most-once dispatch; interrupt/supersede a pending action turn and confirm no stale dispatch.
 - [ ] Dialogue-only response: confirm no action dispatch and one assistant history commit after native success.
+- [ ] With `structuredStreamingEnabled=true` and `earlyTtsEnabled=false`, confirm segmented Responses reaches the final validation barrier before the ordinary whole-dialogue TTS path; compare transcript/actions/history against sequential mode.
+- [ ] Only after the live API smoke passes, enable both flags for one controlled dialogue-only turn: verify first PCM arrives before `response.completed`, segment order is preserved through one authorized native stream, and there is only one final stream-end handoff.
+- [ ] Send an action-bearing `buffered_action` response with both flags enabled; confirm no TTS starts before the completed model decision and current stock action validation.
+- [ ] Fault after the first early segment (late command, model refusal/incomplete response, TTS failure, native interruption); confirm the exact generation is interrupted, no action dispatch or stream-end success occurs, and assistant history is discarded.
 - [ ] Native authorization rejection: no tagged PCM or stream end follows; player dialogue remains available and assistant text is absent.
 - [ ] Missing playback completion: watchdog records failure, does not commit assistant history, and late completion does not revive the turn.
 - [ ] Disconnect/reconnect during model, authorization, and playback; old work retires and cannot commit into the new session.

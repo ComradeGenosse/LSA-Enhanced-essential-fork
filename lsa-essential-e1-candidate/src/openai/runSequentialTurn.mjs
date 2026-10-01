@@ -24,6 +24,7 @@ function terminalForAbort(signal) {
 function terminalForError(error, stage) {
   const code = String(error?.code || '').toLowerCase();
   const message = String(error?.message || '').toLowerCase();
+  if (['invalid_response','incomplete_response','response_too_large'].includes(code)) return 'invalid_decision';
   if (['timeout','attempt_timeout','deadline_exceeded'].includes(code) || message.includes('deadline')) return 'provider_timeout';
   if (message.includes('refused')) return 'model_refusal';
   if (message.includes('invalid decision') || message.includes('decision must') || message.includes('decision fields') ||
@@ -95,6 +96,36 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
       },
     });
   };
+  let nativeHandoffStarted = false;
+  let pcmBytesTotal = 0;
+  let pcmChunksTotal = 0;
+  const forwardPcm = async (chunk, isActive = () => true) => {
+    if (!isActive()) throw new Error('provider_attempt_inactive');
+    check();
+    if (endSent) throw new Error('chunk_after_end');
+    if (!nativeHandoffStarted) nativeHandoffStarted = true;
+    if (!authorizationRequested) {
+      authorizationRequested = true;
+      transition('native_authorization');
+      metrics?.count('authorizationAttempts');
+      metrics?.event('native_authorization_requested', { attempts: metrics ? 1 : 0 });
+      authorization = (async () => {
+        if (await host.authorize(identity) !== true) throw new Error('native_authorization_rejected');
+        check();
+        const result = await observation.authorization(workDeadlineMs);
+        check();
+        if (!result.ok) throw new Error('native_authorization_rejected');
+        transition('playback_streaming');
+      })();
+    }
+    await authorization;
+    check();
+    await emit({ type: 'audio', chunk });
+    pcmBytesTotal += chunk.byteLength;
+    pcmChunksTotal += 1;
+    metrics?.audioPcm(chunk.byteLength);
+    check();
+  };
   try {
     check();
     host.assertCapabilities();
@@ -142,9 +173,117 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
       metrics?.event(committed ? 'player_history_committed' : 'history_duplicate_prevented', { role: 'user', inputChars: String(finalInput).length });
     }
     transition('model_running');
-    const decision = await performProvider('model', services.providerStack?.reasoning.id || 'openai.reasoning',
-      ({ signal, timeoutMs, telemetry }) => services.decide({ identity, context: { ...context, source }, source,
-        input: isPlayer ? finalInput : '', history: priorHistory, signal, timeoutMs, telemetry }));
+    let decision;
+    let streamedSegments = [];
+    let streamMode = null;
+    let earlyAudio = null;
+    if (services.config.structuredStreamingEnabled === true) {
+      const allowEarlyTts = services.config.earlyTtsEnabled === true;
+      const modelOptions = ({ signal, timeoutMs, telemetry, isActive }) => services.providerStack.decideStreaming({
+        identity, context: { ...context, source }, source,
+        input: isPlayer ? finalInput : '', history: priorHistory, signal, timeoutMs, telemetry,
+        onSegment: allowEarlyTts ? async (segment, mode) => {
+          check();
+          if (!mode) throw new Error('stream_mode_missing_before_segment');
+          if (streamMode && streamMode !== mode) throw new Error('stream_mode_changed');
+          streamMode = mode;
+          if (mode === 'dialogue_only') {
+            streamedSegments.push(segment);
+            metrics?.setDetail('acceptedSegmentCount', streamedSegments.length);
+            metrics?.mark(`segment${segment.sequence}Validated`);
+            signal.throwIfAborted();
+          }
+        } : undefined,
+      });
+      if (!allowEarlyTts) {
+        const result = await performProvider('model', services.providerStack.reasoning.id, modelOptions);
+        decision = result.decision;
+        streamMode = result.mode;
+      } else {
+        let queueClosed = false;
+        let queueFailure = null;
+        let modelFailed = false;
+        const pending = [];
+        let wake = null;
+        const signalQueue = () => { const resume = wake; wake = null; resume?.(); };
+        const enqueue = segment => {
+          check();
+          if (queueClosed || pending.length >= services.config.streamingMaxSegments) throw new Error('stream_segment_queue_limit');
+          pending.push(segment);
+          signalQueue();
+        };
+        const closeQueue = () => { queueClosed = true; signalQueue(); };
+        const cancelQueue = error => { queueFailure = error; pending.length = 0; closeQueue(); };
+        const speechTask = (async () => {
+          let bytes = 0;
+          let chunks = 0;
+          while (true) {
+            check();
+            if (queueFailure) throw queueFailure;
+            const segment = pending.shift();
+            if (!segment) {
+              if (queueClosed) break;
+              await new Promise(resolve => { wake = resolve; });
+              continue;
+            }
+            transition('tts_running');
+            metrics?.event('stream_tts_segment_started', { segmentSequence: segment.sequence });
+            const audio = await performProvider('tts', services.providerStack.speech.id,
+              ({ signal, timeoutMs, telemetry, isActive: active }) => services.speak({
+                identity, dialogue: segment.text, speechProfile: turn.speechProfile, signal, timeoutMs, telemetry,
+                onPcm: chunk => forwardPcm(chunk, active),
+              }), () => !nativeHandoffStarted);
+            if (!audio?.bytes) throw new Error('empty_segment_audio');
+            bytes += audio.bytes;
+            chunks += audio.chunks || 0;
+            metrics?.event('stream_tts_segment_finished', { segmentSequence: segment.sequence, bytes: audio.bytes, chunks: audio.chunks || 0 });
+          }
+          return { bytes, chunks, discardedTrailingByte: false };
+        })();
+        speechTask.catch(error => {
+          if (!modelFailed && !controller.signal.aborted && !retired && host.isCurrent(identity)) {
+            chooseTerminal('tts_error');
+            controller.abort(error);
+          }
+        });
+        const modelTask = performProvider('model', services.providerStack.reasoning.id,
+          ({ signal, timeoutMs, telemetry, isActive }) => services.providerStack.decideStreaming({
+            identity, context: { ...context, source }, source,
+            input: isPlayer ? finalInput : '', history: priorHistory, signal, timeoutMs, telemetry,
+            onSegment: async (segment, mode) => {
+              if (!isActive()) throw new Error('provider_attempt_inactive');
+              check();
+              if (!mode) throw new Error('stream_mode_missing_before_segment');
+              if (streamMode && streamMode !== mode) throw new Error('stream_mode_changed');
+              streamMode = mode;
+              if (mode === 'dialogue_only') {
+                streamedSegments.push(segment);
+                metrics?.setDetail('acceptedSegmentCount', streamedSegments.length);
+                metrics?.mark(`segment${segment.sequence}Validated`);
+                enqueue(segment);
+              }
+            },
+          }), () => streamedSegments.length === 0 && !nativeHandoffStarted);
+        try {
+          const result = await modelTask;
+          decision = result.decision;
+          streamMode = result.mode;
+          closeQueue();
+          // A final command is invalid in dialogue_only mode (also checked by the
+          // strict decoder); the normal stock validator remains the action gate.
+          earlyAudio = await speechTask;
+        } catch (error) {
+          modelFailed = true;
+          cancelQueue(error);
+          await Promise.allSettled([speechTask]);
+          throw error;
+        }
+      }
+    } else {
+      decision = await performProvider('model', services.providerStack?.reasoning.id || 'openai.reasoning',
+        ({ signal, timeoutMs, telemetry }) => services.decide({ identity, context: { ...context, source }, source,
+          input: isPlayer ? finalInput : '', history: priorHistory, signal, timeoutMs, telemetry }));
+    }
     check();
     transition('decision_validation');
     const validateSpan = metrics?.startSpan('decision_validation');
@@ -170,38 +309,16 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
     await emit({ type: 'output_transcript', text: validated.internalTranscript });
     check();
     transition('tts_running');
-    let nativeHandoffStarted = false;
-    const audio = await performProvider('tts', services.providerStack?.speech.id || 'openai.speech',
-      ({ signal, timeoutMs, telemetry, isActive }) => services.speak({ identity, dialogue: decision.dialogue, speechProfile: turn.speechProfile, signal, timeoutMs, telemetry,
-      onPcm: async chunk => {
-        if (!isActive()) throw new Error('provider_attempt_inactive');
-        check();
-        // Close retry eligibility before authorization can have a native effect.
-        if (!nativeHandoffStarted) nativeHandoffStarted = true;
-        if (endSent) throw new Error('chunk_after_end');
-        if (!authorizationRequested) {
-          authorizationRequested = true;
-          transition('native_authorization');
-          metrics?.count('authorizationAttempts');
-          metrics?.event('native_authorization_requested', { attempts: metrics ? 1 : 0 });
-          authorization = (async () => {
-            if (await host.authorize(identity) !== true) throw new Error('native_authorization_rejected');
-            check();
-            const result = await observation.authorization(workDeadlineMs);
-            check();
-            if (!result.ok) throw new Error('native_authorization_rejected');
-            transition('playback_streaming');
-          })();
-        }
-        await authorization;
-        check();
-        await emit({ type: 'audio', chunk });
-        metrics?.audioPcm(chunk.byteLength);
-        check();
-      },
-    }), () => !hasAction && !nativeHandoffStarted);
+    let audio = earlyAudio?.bytes > 0 ? earlyAudio : null;
+    if (!audio) {
+      audio = await performProvider('tts', services.providerStack?.speech.id || 'openai.speech',
+        ({ signal, timeoutMs, telemetry, isActive }) => services.speak({
+          identity, dialogue: decision.dialogue, speechProfile: turn.speechProfile, signal, timeoutMs, telemetry,
+          onPcm: chunk => forwardPcm(chunk, isActive),
+        }), () => !hasAction && !nativeHandoffStarted);
+    }
     check();
-    if (!authorizationRequested || !audio?.bytes) throw new Error('empty_audio');
+    if (!authorizationRequested || !audio?.bytes || !pcmBytesTotal) throw new Error('empty_audio');
     history.markModelAndTtsSucceeded(identity);
     await emit({ type: 'generation_complete' });
     check();
@@ -209,7 +326,7 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
     transition('stream_end');
     metrics?.count('streamEndCount');
     await emit({ type: 'turn_complete' });
-    metrics?.event('native_stream_end_handoff', { accepted: true, bytes: audio.bytes, chunks: audio.chunks });
+    metrics?.event('native_stream_end_handoff', { accepted: true, bytes: pcmBytesTotal, chunks: pcmChunksTotal });
     providerWorkDone?.('finished');
 
     // The provider deadline ends once native stream completion has been sent. From
@@ -217,7 +334,7 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
     clearTimeout(providerTimer);
     providerTimer = null;
     transition('playback_completion');
-    const expectedDurationMs = audio.bytes / (24_000 * 2) * 1_000;
+    const expectedDurationMs = pcmBytesTotal / (24_000 * 2) * 1_000;
     const watchdogMs = Math.max(services.config.playbackCompletionMinMs ?? 60_000,
       Math.min(services.config.playbackCompletionMaxMs ?? 600_000,
         expectedDurationMs + (services.config.playbackCompletionGraceMs ?? 30_000)));
@@ -235,8 +352,8 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
     metrics?.event('assistant_history_committed', { outputChars: String(decision.dialogue || '').length, playbackEndedCount: 1 });
     transition('completed');
     host.log?.(identity, 'terminal', { source, reason: 'completed', stage: state, cause: null });
-    metrics?.finish({ reason: 'completed', stage: state, pcmBytes: audio.bytes, audioDurationMs: expectedDurationMs, traceComplete: true, assistantCommitted: true });
-    return { status: 'completed', terminalReason: 'completed', audioBytes: audio.bytes, discardedTrailingByte: audio.discardedTrailingByte };
+    metrics?.finish({ reason: 'completed', stage: state, pcmBytes: pcmBytesTotal, audioDurationMs: expectedDurationMs, traceComplete: true, assistantCommitted: true });
+    return { status: 'completed', terminalReason: 'completed', audioBytes: pcmBytesTotal, discardedTrailingByte: audio.discardedTrailingByte };
   } catch (error) {
     const stageAtFailure = state;
     providerWorkDone?.('failed', { code: /^[A-Za-z][A-Za-z0-9_]{0,63}$/.test(error?.code || '') ? error.code : 'provider_work_failed' });

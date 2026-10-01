@@ -1,5 +1,11 @@
 # E1.1 implementation and verification report
 
+## E5/E6 implementation update (2026-10-01)
+
+E5 structured Responses streaming and E6 early segmented TTS are now implemented behind `structuredStreamingEnabled` and `earlyTtsEnabled`; both default off. The updated full offline suite passes **137 tests, 0 failures**. New coverage verifies split SSE framing, closed-segment-only exposure, exact completed-response reconciliation, refusal/truncation/malformed output rejection, early PCM before `response.completed`, serial per-segment TTS, a single final transcript/stream-end, buffered action-mode TTS, and a late command failing the exact native turn without action dispatch.
+
+The candidate rebuilt against the pinned source and native metadata with 25 exact AST matches. Built bundle SHA-256: `0443800cf148f10baa58558f106baa1e97e6edc2d227c0d48cf8fef15c457ed9`. E5/E6 are not live API or GTA verified: the candidate has no reasoning credential configured, so the opt-in one-request API smoke did not run. No GTA install or native DLL was changed. The Phase 10B open-stream evidence is recorded separately as user-reported prior evidence, not counted as this implementation's live test. See [E5/E6 streaming notes](e5-e6-streaming.md) and the [manual GTA gates](gta-smoke-checklist.md).
+
 This focused hardening pass and live API smoke update the existing `lsa-essential-e1-candidate` workspace. Stock Essential and the pinned DLL remain reference inputs. No live GTA installation was changed. The live OpenAI smoke ran outside GTA with a simulated native endpoint.
 
 Candidate status: **offline E1.1 and configured OpenAI API path passed; GTA/runtime validation remains outstanding**.

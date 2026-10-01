@@ -30,6 +30,9 @@ export function normalizeConfig(input = {}, env = process.env) {
     reasoningModel: 'gpt-6-luna', reasoningEffort: 'low', transcriptionModel: 'gpt-transcribe',
     ttsModel: 'gpt-4o-mini-tts', ttsVoice: 'nova', maxOutputTokens: 300,
     turnDeadlineMs: 45_000, maxMicDurationMs: 30_000, maxHistoryMessages: 12,
+    structuredStreamingEnabled: false, earlyTtsEnabled: false,
+    streamingMaxOutputTokens: 600, streamingMaxSegments: 6,
+    streamingMaxSegmentChars: 240, streamingMaxDialogueChars: 1200,
     retry: { enabled: true, maxAttempts: 2, baseDelayMs: 500, maxDelayMs: 3_000, honorRetryAfter: true, jitter: 'bounded', minAttemptBudgetMs: 1_000, attemptTimeoutMs: null },
     observabilityEnabled: true, observabilityMaxFileBytes: 10 * 1024 * 1024,
     observabilityMaxTotalBytes: 100 * 1024 * 1024, observabilityMaxFiles: 5,
@@ -41,6 +44,12 @@ export function normalizeConfig(input = {}, env = process.env) {
   const reasoningEffort = String(input.reasoningEffort ?? env.OPENAI_REASONING_EFFORT ?? defaults.reasoningEffort).trim().toLowerCase();
   if (input.observabilityEnabled !== undefined && typeof input.observabilityEnabled !== 'boolean') throw new TypeError('observabilityEnabled must be a boolean.');
   if (input.actingEnabled !== undefined && typeof input.actingEnabled !== 'boolean') throw new TypeError('actingEnabled must be a boolean.');
+  if (input.structuredStreamingEnabled !== undefined && typeof input.structuredStreamingEnabled !== 'boolean') throw new TypeError('structuredStreamingEnabled must be a boolean.');
+  if (input.earlyTtsEnabled !== undefined && typeof input.earlyTtsEnabled !== 'boolean') throw new TypeError('earlyTtsEnabled must be a boolean.');
+  const structuredStreamingEnabled = input.structuredStreamingEnabled ?? defaults.structuredStreamingEnabled;
+  const earlyTtsEnabled = input.earlyTtsEnabled ?? defaults.earlyTtsEnabled;
+  if (earlyTtsEnabled && !structuredStreamingEnabled) throw new TypeError('earlyTtsEnabled requires structuredStreamingEnabled.');
+  if ((structuredStreamingEnabled || earlyTtsEnabled) && selectedProvider !== 'openai') throw new TypeError('Structured streaming is supported only by the OpenAI provider.');
   for (const [name, value] of Object.entries({ reasoningModel, transcriptionModel, ttsModel, ttsVoice })) {
     if (!value || value.length > 128) throw new TypeError(`${name} must contain 1 to 128 characters.`);
   }
@@ -100,6 +109,11 @@ export function normalizeConfig(input = {}, env = process.env) {
     transcriptionKey: env.OPENAI_TRANSCRIPTION_API_KEY ?? env.OPENAI_API_KEY ?? '',
     ttsKey: env.OPENAI_TTS_API_KEY ?? env.OPENAI_API_KEY ?? '',
     maxOutputTokens: boundedInteger(input.maxOutputTokens, defaults.maxOutputTokens, 32, 2048, 'maxOutputTokens'),
+    structuredStreamingEnabled, earlyTtsEnabled,
+    streamingMaxOutputTokens: boundedInteger(input.streamingMaxOutputTokens, defaults.streamingMaxOutputTokens, 64, 2048, 'streamingMaxOutputTokens'),
+    streamingMaxSegments: boundedInteger(input.streamingMaxSegments, defaults.streamingMaxSegments, 1, 8, 'streamingMaxSegments'),
+    streamingMaxSegmentChars: boundedInteger(input.streamingMaxSegmentChars, defaults.streamingMaxSegmentChars, 40, 500, 'streamingMaxSegmentChars'),
+    streamingMaxDialogueChars: boundedInteger(input.streamingMaxDialogueChars, defaults.streamingMaxDialogueChars, 100, 3000, 'streamingMaxDialogueChars'),
     providerWorkDeadlineMs,
     retry,
     // Retain the previous setting as a compatibility alias; it no longer includes playback.
