@@ -58,4 +58,8 @@ Action validation parses with the stock Essential command parser and compares ag
 
 ## Status
 
-E5/E6 pass 137 offline tests and the gated live streaming API smoke against the configured `gpt-6-luna` endpoint. The payload is installed in the live GTA server directory with both flags enabled for the user's controlled test. GTA playback, interruption, late-failure behavior, and log evidence remain unverified; the install has a local pretest backup. The checked-in example config still defaults both flags off.
+E5 structured streaming is implemented and has passed the explicit live streaming capability smoke against the configured `gpt-6-luna` endpoint. E6 early segmented TTS is implemented and has passed the stock-controller/native-lifecycle integration gate: early PCM precedes model completion, delayed segments keep exact native identity/order, one final stream-end is used, and assistant history waits for matching `PlaybackEnded`.
+
+The latest recorded full regression checkpoint is **140 tests, 0 failures** at commit `b604b5e1`. Current `main` then added `84df8e30` to abort early speech on model failure and reject incomplete PCM16 output; a fresh complete-suite result after that final hardening commit is not yet recorded.
+
+A controlled E5/E6 payload is installed/staged in the live GTA server directory with both runtime flags enabled and rollback backups recorded. Repository HEAD may be newer than that installed payload. Physical GTA playback, real segment-gap behavior, interruption/late-failure behavior, and resulting live log evidence remain the outstanding E6 release gate. The checked-in example config continues to default both feature flags off.
