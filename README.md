@@ -7,6 +7,7 @@ The E1.1 hardened + Observability companion for Los Santos Alive Essential Hotfi
 - [lsa-essential-e1-candidate/](lsa-essential-e1-candidate/README.md): current companion source, tests, build tools, native metadata, and pinned stock reference inputs.
 - [docs/plans/](docs/plans/): original mission and native analysis, E2/E3 goals, original plan, revised plan, and review.
 - [deployment/](deployment/README.md): explicit installation/verification utilities and installer references. Nothing deploys as part of build or tests.
+- [docs/ROADMAP.md](docs/ROADMAP.md): current project roadmap from E1/E1.1 through streaming, durable NPC identity, perception, autonomy, and E7 acceptance.
 
 ## Build and test
 
