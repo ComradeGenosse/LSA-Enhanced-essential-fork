@@ -55,7 +55,7 @@ jobs:
           var reader = pe.GetMetadataReader();
           var global = reader.TypeDefinitions.Select(h => (h, d: reader.GetTypeDefinition(h)))
             .First(x => reader.GetString(x.d.Name) == "<Module>");
-          var tokens = global.d.GetMethods().Select(MetadataTokens.GetToken).ToArray();
+          var tokens = global.d.GetMethods().Select(h => MetadataTokens.GetToken(h)).ToArray();
           Console.WriteLine($"GLOBAL_METHODS={tokens.Length}");
 
           var asm = AssemblyLoadContext.Default.LoadFromAssemblyPath(dll);
