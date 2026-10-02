@@ -99,3 +99,14 @@ When `voiceAssignment` is `deterministic-session`, the original v1 voice hash an
 - match reason
 
 Prompts, dialogue, persona text, integration data, and raw actor records remain excluded.
+
+## Validation
+
+GitHub-hosted offline validation completed successfully on October 2, 2026:
+
+- **164 tests passed, 0 failed**;
+- the pinned candidate build completed successfully with **25 source-pinned patches**;
+- built launcher SHA-256: `0443800cf148f10baa58558f106baa1e97e6edc2d227c0d48cf8fef15c457ed9`;
+- validation run: https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/actions/runs/36948145647.
+
+This validation is offline. It does not replace the remaining physical GTA audition/calibration gate for how the configured voices sound in the actual game mix.
