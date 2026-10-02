@@ -37,19 +37,31 @@ namespace LSA.PromotedCharacters
         SessionIdentityIntegration identity;
         ControlChannel channel;
         long lastGameTime;
-        bool shutdown;
+        bool prepared,shutdown;
+        volatile bool shutdownRequested;
         public string Id => "characterProfile";
-        public bool IsAvailable => channel != null && identity?.IsAvailable == true && !shutdown;
+        // Prepared integrations must receive Core.Update even on a late load.
+        // Readiness is separate: no owner operation can run before Core creates
+        // P1/P2's stores and channels on its own initialization/update fiber.
+        public bool IsAvailable => prepared && !shutdown && (shutdownRequested || channel == null || identity?.IsAvailable == true);
+        public bool IsReady => channel != null && identity?.IsAvailable == true && !shutdown && !shutdownRequested;
         static long Now => DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
         public PromotedCharactersIntegration(string worldProfileId,string pipeName = "LSA.PromotedCharacters.v1",string identityPipeName = "LSA.SessionIdentity.v1")
         {
             if (worldProfileId == null || !Regex.IsMatch(worldProfileId,"^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$") || !Regex.IsMatch(pipeName,"^[A-Za-z0-9_.-]{1,80}$") || !Regex.IsMatch(identityPipeName,"^[A-Za-z0-9_.-]{1,80}$")) throw new ArgumentException("Invalid P2 configuration.");
             world = worldProfileId; this.pipeName = pipeName; this.identityPipeName = identityPipeName;
         }
+        public void Prepare()
+        {
+            if (prepared || shutdown) return;
+            identity = SessionIdentityIntegration.InstallDeferred(identityPipeName);
+            prepared = true;
+        }
         public void Initialize()
         {
-            if (channel != null || shutdown) return;
-            identity = SessionIdentityIntegration.Install(identityPipeName); if (!identity.IsAvailable) return;
+            if (!prepared || channel != null || shutdown) return;
+            identity.Initialize();
+            if (!identity.IsAvailable) { shutdown = true; Game.LogTrivial("[P2] identity_initialization_failed"); return; }
             channel = new ControlChannel(pipeName,Guid.NewGuid().ToString("D"),world); channel.Start(); lastGameTime = Game.GameTime;
         }
         static bool Alive(Encounter encounter) => encounter?.Ped != null && encounter.Ped.Exists() && !encounter.Ped.IsDead && encounter.Ped.MemoryAddress == encounter.Address;
@@ -79,12 +91,35 @@ namespace LSA.PromotedCharacters
             if (state != null) { state.FollowPlayerOnFoot = false; state.FollowPaused = true; state.EnterPassengerSeatWhenPlayerEnters = false; state.ExitVehicleWhenPlayerExits = false; state.StayUnderLsaControl = false; state.DemoteToPassiveRuntime(); }
             // No TASK, teleport, delete, or automatic resume.
         }
+        void ResetForClockDiscontinuity(long now)
+        {
+            // A save/world transition invalidates every live association. Clear
+            // them before any operation that can fail so even failure cleanup
+            // cannot inspect, task, dismiss or adopt a ped from the old world.
+            var retired = encounters.Values.ToArray(); encounters.Clear(); captures.Clear();
+            var previous = channel; channel = null; previous?.Dispose();
+            foreach (var encounter in retired) Retire(encounter);
+            // P1 may already have reset its owner store, or may do so later in
+            // this Core update. Retiring an old-epoch token never clears a new
+            // claim. No capture/control work is admitted during this reset tick.
+            var replacement = new ControlChannel(pipeName,Guid.NewGuid().ToString("D"),world);
+            replacement.Start(); channel = replacement; lastGameTime = now;
+            Game.LogTrivial("[P2] game_clock_reset");
+        }
         public void Update()
         {
             if (!IsAvailable) return;
             try
             {
-                if (Game.GameTime < lastGameTime) { Shutdown(); return; } lastGameTime = Game.GameTime;
+                if (shutdownRequested) { Shutdown(); return; }
+                if (!IsReady) { Initialize(); return; }
+                long now = Game.GameTime;
+                if (now < lastGameTime) {
+                    try { ResetForClockDiscontinuity(now); }
+                    catch { Game.LogTrivial("[P2] game_clock_reset_failed"); Shutdown(); }
+                    return;
+                }
+                lastGameTime = now;
                 foreach (var item in encounters.ToArray()) {
                     if (!Alive(item.Value)) { Retire(item.Value); encounters.Remove(item.Key); continue; }
                     if (item.Value.Registration != null && !Safe(item.Value) && !item.Value.Suspended) Suspend(item.Value);
@@ -224,15 +259,22 @@ namespace LSA.PromotedCharacters
         }
         public void EnrichActor(Ped ped,ActorContext context)
         {
-            if (!IsAvailable || context?.IntegrationBlocks == null || context.PedId != ped?.Handle.ToString()) return;
+            if (!IsReady || context?.IntegrationBlocks == null || context.PedId != ped?.Handle.ToString()) return;
             try { var encounter = EncounterFor(ped); context.IntegrationBlocks.Add(new IntegrationJsonBlock(Id,json.Serialize(new {version = 1,encounterId = encounter.Id}))); } catch { }
         }
-        public void OnPedControlChanged(Ped ped,bool controlledByLsa) { if (!controlledByLsa && ped != null && encounters.TryGetValue(ped.Handle.ToString(),out var encounter) && encounter.Registration != null && !encounter.Suspended) Suspend(encounter); }
+        public void OnPedControlChanged(Ped ped,bool controlledByLsa) { if (IsReady && !controlledByLsa && ped != null && encounters.TryGetValue(ped.Handle.ToString(),out var encounter) && encounter.Registration != null && !encounter.Suspended) Suspend(encounter); }
         public void OnNpcActionExecuted(Ped ped,string actionName,bool succeeded) { }
+        // A loader/lifetime fiber can request cleanup, but Core's own callback
+        // must retire evidence and perform any native cleanup on its owner fiber.
+        public void RequestShutdown() => shutdownRequested = true;
         public void Shutdown()
         {
             if (shutdown) return; shutdown = true; channel?.Dispose(); channel = null;
-            foreach (var encounter in encounters.Values) { try { if (Alive(encounter) && Safe(encounter)) { Suspend(encounter); if (encounter.Created) encounter.Ped.Dismiss(); } Retire(encounter); } catch { } }
+            foreach (var encounter in encounters.Values) {
+                try { if (Alive(encounter) && Safe(encounter)) { Suspend(encounter); if (encounter.Created) encounter.Ped.Dismiss(); } } catch { }
+                // Failed optional native cleanup cannot keep an ownership claim.
+                try { Retire(encounter); } catch { }
+            }
             encounters.Clear(); captures.Clear();
         }
     }

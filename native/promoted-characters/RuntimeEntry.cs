@@ -1,4 +1,5 @@
 using System;
+using System.Threading;
 using System.Web.Script.Serialization;
 using LosSantosAlive.Integrations;
 using LSA.SessionIdentity;
@@ -9,26 +10,32 @@ namespace LSA.PromotedCharacters
     public static class RuntimeEntry
     {
         static PromotedCharactersIntegration integration;
-        static volatile bool starting,stopping,finished;
-        public static bool Ready=>integration?.IsAvailable==true && !stopping;
+        static int startClaim;
+        static volatile bool stopping,finished;
+        public static bool Ready=>integration?.IsReady==true && !stopping;
         public static bool Alive=>!finished;
         public static bool Start(string text)
         {
-            if(starting || integration!=null || finished || text==null || text.Length>4096) return false;
+            if(integration!=null || finished || stopping || text==null || text.Length>4096) return false;
             var config=new JavaScriptSerializer {MaxJsonLength=4096}.Deserialize<Config>(text);
             if(config==null || !config.enabled) return false;
-            starting=true;
+            // Remoting can call Start concurrently. Only one caller may create
+            // the owner fiber, including before that fiber has initialized.
+            if(Interlocked.CompareExchange(ref startClaim,1,0)!=0) return false;
             // Remoting only schedules; native work executes in a game fiber.
             GameFiber.StartNew(()=>{
                 try {
                     GameFiber.Yield();
                     if(stopping) return;
                     integration=new PromotedCharactersIntegration(config.worldProfileId,config.pipeName,config.identityPipeName);
-                    IntegrationManager.Register(integration); integration.Initialize();
-                    Game.LogTrivial(integration.IsAvailable?"[P2] integrations_installed":"[P2] integration_unavailable");
+                    // Register both callbacks before Core enumerates them; let
+                    // Core Initialize/Update create evidence on its own fiber.
+                    integration.Prepare(); IntegrationManager.Register(integration);
+                    Game.LogTrivial("[P2] integrations_registered");
                     while(!stopping && integration.IsAvailable) GameFiber.Sleep(100);
+                    Game.LogTrivial(stopping?"[P2] native_host_shutdown_requested":"[P2] native_integration_became_unavailable");
                 } catch {Game.LogTrivial("[P2] host_initialization_failed");}
-                finally {integration?.Shutdown(); finished=true;}
+                finally {try {integration?.RequestShutdown();} finally {finished=true;Game.LogTrivial("[P2] native_host_stopped");}}
             },"LSA character host lifetime");
             return true;
         }
