@@ -1,10 +1,12 @@
 name: Native demographic literal probe
 
 on:
+  workflow_dispatch:
   push:
     branches:
       - audit/native-context-evidence-20261001
-  workflow_dispatch:
+    paths:
+      - .github/workflows/native-demographic-literal-probe.yml
 
 permissions:
   contents: read
@@ -33,37 +35,56 @@ jobs:
           '@ | Set-Content native-probe/native-probe.csproj
           @'
           using System.Reflection;
+          using System.Reflection.Metadata;
+          using System.Reflection.Metadata.Ecma335;
+          using System.Reflection.PortableExecutable;
           using System.Runtime.Loader;
-          
+
           var dll = Path.GetFullPath("lsa-essential-e1-candidate/upstream/LosSantosAlive.dll");
           var constants = new uint[] {
-            1054968094,3818300071,2568606624,1029827067,3557421416,275379809,
-            1183486338,4287505268,1221715181,3265984749,3112276658,
-            3002916032,1491984142,3136590273,3216616699,543755242,3823192816,
-            2752304247,3921185575,3452035397,456850424,1902598045,4017991228,
-            1146829187,3867215626,2490659326,3393120374,1007587260
+            275379809,1029827067,1054968094,1183486338,1221715181,2568606624,
+            3112276658,3265984749,3557421416,3818300071,4287505268,
+            456850424,543755242,1146829187,1491984142,1902598045,2752304247,
+            3002916032,3136590273,3216616699,3452035397,3823192816,3921185575,
+            4017991228,3867215626,2981142090,2490659326,3393120374,1007587260,
+            3409208058
           };
-          
+
+          using var fs = File.OpenRead(dll);
+          using var pe = new PEReader(fs);
+          var reader = pe.GetMetadataReader();
+          var global = reader.TypeDefinitions.Select(h => (h, d: reader.GetTypeDefinition(h)))
+            .First(x => reader.GetString(x.d.Name) == "<Module>");
+          var tokens = global.d.GetMethods().Select(MetadataTokens.GetToken).ToArray();
+          Console.WriteLine($"GLOBAL_METHODS={tokens.Length}");
+
           var asm = AssemblyLoadContext.Default.LoadFromAssemblyPath(dll);
           Console.WriteLine($"ASSEMBLY={asm.FullName}");
           Console.WriteLine($"MVID={asm.ManifestModule.ModuleVersionId}");
-          var moduleType = asm.GetType("<Module>", throwOnError: true)!;
-          var methods = moduleType.GetMethods(BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic)
-              .Where(m => m.IsGenericMethodDefinition && m.GetGenericArguments().Length == 1)
-              .Where(m => {
-                  var p = m.GetParameters();
-                  return p.Length == 1 && p[0].ParameterType == typeof(uint);
-              }).ToArray();
-          Console.WriteLine($"DECRYPTOR_COUNT={methods.Length}");
-          foreach (var m in methods) Console.WriteLine($"DECRYPTOR token=0x{m.MetadataToken:X8} name={m.Name}");
-          
-          foreach (var value in constants.Distinct()) {
-              foreach (var m in methods) {
-                  try {
-                      var s = m.MakeGenericMethod(typeof(string)).Invoke(null, new object[]{value}) as string;
-                      if (s != null) Console.WriteLine($"DECODE value={value} token=0x{m.MetadataToken:X8} text={Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(s))}");
-                  } catch {}
+          var candidates = new List<MethodInfo>();
+          foreach (var token in tokens) {
+            try {
+              var mb = asm.ManifestModule.ResolveMethod(token);
+              if (mb is not MethodInfo m || !m.IsGenericMethodDefinition || m.GetGenericArguments().Length != 1) continue;
+              var p = m.GetParameters();
+              if (p.Length == 1 && p[0].ParameterType == typeof(uint)) {
+                candidates.Add(m);
+                Console.WriteLine($"DECRYPTOR token=0x{token:X8} name64={Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(m.Name))}");
               }
+            } catch (Exception ex) {
+              Console.WriteLine($"RESOLVE_FAIL token=0x{token:X8} type={ex.GetType().Name}");
+            }
+          }
+          Console.WriteLine($"DECRYPTOR_COUNT={candidates.Count}");
+          foreach (var value in constants.Distinct()) {
+            foreach (var m in candidates) {
+              try {
+                var s = m.MakeGenericMethod(typeof(string)).Invoke(null, new object[]{value}) as string;
+                if (s != null) Console.WriteLine($"DECODE value={value} token=0x{m.MetadataToken:X8} text={Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(s))}");
+              } catch (Exception ex) {
+                Console.WriteLine($"INVOKE_FAIL value={value} token=0x{m.MetadataToken:X8} type={ex.GetBaseException().GetType().Name}");
+              }
+            }
           }
           '@ | Set-Content native-probe/Program.cs
           dotnet run --project native-probe/native-probe.csproj -c Release | Tee-Object -FilePath demographic-literals.txt
