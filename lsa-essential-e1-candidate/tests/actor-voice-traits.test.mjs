@@ -22,6 +22,12 @@ test('maps the exact native Essential ageRange vocabulary', () => {
   assert.equal(parseAgeRange('unknown').ageBand, 'unknown');
 });
 
+test('native age lookup rejects inherited object properties', () => {
+  for (const value of ['constructor', '__proto__', 'hasOwnProperty', 'toString']) {
+    assert.deepEqual(parseAgeRange(value), { min: null, max: null, midpoint: null, ageBand: 'unknown' });
+  }
+});
+
 test('parses numeric age ranges and exact ages', () => {
   assert.deepEqual(parseAgeRange('65-75'), { min: 65, max: 75, midpoint: 70, ageBand: 'older' });
   assert.deepEqual(parseAgeRange('75 to 65'), { min: 65, max: 75, midpoint: 70, ageBand: 'older' });

@@ -40,7 +40,9 @@ export function parseAgeRange(value) {
   // Essential Hotfix #3 emits exactly: young, middle-aged, old, unknown.
   // Keep this exact native contract ahead of the broader defensive parser so
   // coarse native "old" is retained instead of being discarded as unknown.
-  const nativeAgeBand = NATIVE_AGE_RANGE_TO_BAND[text];
+  const nativeAgeBand = Object.hasOwn(NATIVE_AGE_RANGE_TO_BAND, text)
+    ? NATIVE_AGE_RANGE_TO_BAND[text]
+    : null;
   if (nativeAgeBand) return frozenAge({ ageBand: nativeAgeBand });
 
   if (['n/a', 'na', 'none', 'unspecified'].includes(text)) return frozenAge();
