@@ -2,7 +2,7 @@
 
 Updated October 2, 2026.
 
-**Status:** implemented and offline-verified on `fix/p0-turn-context-snapshots-20261002`; GTA runtime acceptance is pending. P0 closes turn-context attribution and target-reference races without changing Essential's native turn, playback, or action-dispatch ownership.
+**Status:** merged to `main` and offline-verified; GTA runtime acceptance is pending. P0 closes turn-context attribution and target-reference races without changing Essential's native turn, playback, or action-dispatch ownership.
 
 ## Scope and behavior
 
@@ -16,7 +16,7 @@ The implementation is intentionally limited to P0. It adds no durable character 
 
 ## Offline verification
 
-- `node tools/runTests.mjs`: **187 passed, 0 failed**. The suite includes stock controller lifecycle tests, real stock normalization for typed/microphone listener clears, real special-event hydration with separate actor/listener worlds, delayed context capture, real stock action dispatch for stable and changed P/V references, generation replacement, and telemetry privacy checks.
+- `node tools/runTests.mjs`: **187 passed, 0 failed** on the merged P0 implementation. The suite includes stock controller lifecycle tests, real stock normalization for typed/microphone listener clears, real special-event hydration with separate actor/listener worlds, delayed context capture, real stock action dispatch for stable and changed P/V references, generation replacement, and telemetry privacy checks.
 - `node tools/buildCandidate.mjs`: succeeded with **46** expected source-pinned stock-code hooks. Candidate status: `candidate-built-offline-and-live-api-verified-gta-pending`; output hash: `d5043a0da151f34f1480b79aa7d329906b8acf0be5beace3b0df8fca3f444750`.
 - Main-path tests: [P0 turn-context tests](../lsa-essential-e1-candidate/tests/p0-turn-context.test.mjs), [decision/request tests](../lsa-essential-e1-candidate/tests/decisions-and-requests.test.mjs), and [stock lifecycle tests](../lsa-essential-e1-candidate/tests/stock-controller-lifecycle.test.mjs).
 
