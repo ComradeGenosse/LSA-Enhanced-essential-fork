@@ -27,7 +27,7 @@ Essential remains authoritative for native NPC state, turn/generation identity, 
 | E2 | ✅ Implemented | Provider abstraction, stable session voices, bounded acting guidance |
 | E3 | ✅ Implemented | Stage-aware retries and provider failure recovery |
 | E5 | ✅ Implemented + live API validated | Structured Responses streaming; configured Luna produced a validated segment before response completion |
-| E6 | 🟡 Implemented; physical GTA acceptance pending | Early segmented TTS works through the stock-controller/native-lifecycle harness and is staged for live GTA testing |
+| E6 | 🟡 Implemented; early-audio and multi-segment GTA checks pending | Repaired live path played 13 turns; eight synthesis requests started shortly before model completion, but first PCM arrived afterward; every reply contained one segment |
 | SESSION_IDENTITY | ⏭ Next feature phase after E6 acceptance | Durable character identity beyond one native session |
 | PERCEPTION | Planned | Richer world/event/context awareness |
 | SALIENCE | Planned | Decide what an NPC should care about right now |
@@ -175,6 +175,8 @@ A stock-controller integration test now drives two delayed TTS segments through 
 - assistant history remains staged until matching `PlaybackEnded`.
 
 The current full offline suite passes **149 tests with 0 failures** ([test output](../lsa-essential-e1-candidate/docs/e5-e6-test-results.txt)). This includes `84df8e30` model-failure/PCM16 hardening and the production telemetry repair reproduced from the first failed E5/E6 GTA runs. The stock E6 integration test now exercises the real logger; physical GTA acceptance of the repaired build remains open.
+
+The first repaired-build GTA run covered 13 microphone turns: all 13 reached native playback, 10 completed normally, and 3 were interrupted. TTS started slightly before model completion on eight eligible turns, but first PCM followed model completion; all replies contained one segment. See the [run review](E6-GTA-verification-2026-10-01.md). Multi-segment playback and audible early speech still need live verification.
 
 The E5/E6 payload was also staged/installed for controlled GTA testing with backups and hash verification. However, the repository does **not** yet contain a post-deployment GTA log proving physical playback for the current E6 path.
 

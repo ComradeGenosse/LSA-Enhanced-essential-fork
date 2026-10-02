@@ -18,7 +18,7 @@ The user's subsequent GTA runs exposed a production telemetry integration error:
 
 A controlled E5/E6 payload was staged/installed in the GTA server folder with both settings enabled, backed up and hash-verified. The repaired candidate rebuilds against the pinned source and native metadata with 25 exact AST matches. Built bundle SHA-256: `0443800cf148f10baa58558f106baa1e97e6edc2d227c0d48cf8fef15c457ed9`; repaired E1 source-tree SHA-256: `78dc5318bb79b945d683498531788523ee0cb426c4c4716e07db2474cf0027d9`. Compare source-tree and installed file hashes when confirming deployment; the launcher hash alone does not identify E1 module changes.
 
-The latest GTA log contains six failures before TTS, rather than successful physical playback. Physical segment playback, real inter-segment gaps, interruption, partial/late failure behavior, and resulting native history behavior remain the open E6 release gate for the repaired build.
+The follow-up GTA run on the repaired build completed 13 microphone turns through native playback: 10 completed and 3 were interrupted; no provider failures occurred. Eight dialogue-only turns started TTS shortly before the model finished, but first PCM arrived after model completion on all eight. Each turn contained one segment, so the run did not verify multi-segment ordering or inter-segment gaps. See the [run review](../../docs/E6-GTA-verification-2026-10-01.md). Live playback and action buffering are confirmed; audible early playback, multi-segment streaming, typed input, and multi-NPC isolation remain open.
 
 The earlier Phase 10B stream-gap result remains prior evidence only and is not counted as validation of this exact E1.1/E6 path.
 

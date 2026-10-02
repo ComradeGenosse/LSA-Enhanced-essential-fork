@@ -54,9 +54,11 @@ The current full offline regression result is **149 tests passed, 0 failures** (
 
 The real-telemetry stock E6 test was observed failing before the repair with the same first-segment/zero-TTS signature as the GTA logs, then passing afterward. Microphone tests exercise real and disabled logging with early TTS enabled and disabled. Detailed diagnosis is recorded in the [streaming notes](../lsa-essential-e1-candidate/docs/e5-e6-streaming.md).
 
+The first repaired-build GTA verification run covered 13 microphone turns: all 13 reached native playback, 10 completed normally, and 3 were interrupted. Eight dialogue-only turns started TTS before model completion, but PCM and playback still began after the model finished. Each response contained only one segment, so no multi-segment gap was exercised. See the [full run review](E6-GTA-verification-2026-10-01.md).
+
 ## Deployment state
 
-A controlled E5/E6 payload was staged/installed in the GTA server directory with both runtime flags enabled, with rollback backups and hash verification recorded in [deployment/DEPLOYMENT.md](../deployment/DEPLOYMENT.md).
+A controlled E5/E6 payload with both runtime flags enabled is installed in the GTA server directory. The repaired installation was backed up and its E1 source-tree hash verified before the run; history is documented in [deployment/DEPLOYMENT.md](../deployment/DEPLOYMENT.md) and the [run review](E6-GTA-verification-2026-10-01.md).
 
 The repaired candidate's E1 source-tree SHA-256 is `78dc5318bb79b945d683498531788523ee0cb426c4c4716e07db2474cf0027d9`. Do not assume the installed GTA payload is identical to current `main` without a hash-verified deployment; the launcher hash alone does not identify changes to the separate E1 modules.
 
