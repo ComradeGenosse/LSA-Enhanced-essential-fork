@@ -25,7 +25,7 @@ export async function stockHarness(provider = 'openai', { config = {}, env = {},
   vm.runInContext(ast.body.filter(n => n.type === 'FunctionDeclaration').map(n => source.slice(n.start,n.end)).join('\n'), context);
   vm.runInContext(select.map(name => { if (!variables.has(name)) throw new Error(`Missing ${name}`); return `var ${variables.get(name)};`; }).join('\n'), context);
   vm.runInContext(`
-    var od = new Set(), id = null, TP = true, Vy = {}, vb = {}, Ha = AP, stockZi = Zi;
+    var od = new Set(), id = null, TP = true, Vy = {}, vb = {}, Ha = AP, stockZi = Zi, stockOa = oa, stockM4 = M4, stockWb = wb;
     var A = { playerPedId: 'player', sessionsByPedId: new Map(), sessionNoncesByPedId: new Map(),
       outputOwnerByPedId: new Map(), retiringOutputOwnerByPedId: new Map(), pendingOutputOwnerByPedId: new Map(),
       sessionOpenPromisesByPedId: new Map(), sessionMetadataByPedId: new Map(),
@@ -47,6 +47,9 @@ export async function stockHarness(provider = 'openai', { config = {}, env = {},
   const evaluate = code => vm.runInContext(code,context);
   return { runtime, context, sent, actions, logs, evaluate,
     ensureWithStockController(options) { context.stockZiOptions=options; return evaluate('stockZi(stockZiOptions)'); },
+    useStockInputNormalizer() { evaluate('oa=stockOa; Pv=()=>({voiceName:"Harness"}); gv=()=>""; wO=()=>{}; vi=async()=>true;'); },
+    useStockSpecialHydration() { evaluate('M4=stockM4; vi=async()=>true;'); },
+    useStockActionDispatcher() { evaluate('wb=stockWb; var f4=new Set(["enterdriverseatoftargetvehicle"]); Vy.enterdriverseatoftargetvehicle=true; R4=(action,parameter)=>{actions.push({action,parameter});return{action,parameter};};'); },
     async openAIControllerSession({ pedId = '17', nonce = 1, actorContext = { pedId, roleName: 'Civilian' }, targetContext = { pedId: 'player' } } = {}) {
       const connection = await runtime.createTransport(() => { throw new Error('Gemini must not be constructed'); }).connect({
         systemInstruction: 'stock controller test', actorContext, targetContext, world: actorContext?.world,

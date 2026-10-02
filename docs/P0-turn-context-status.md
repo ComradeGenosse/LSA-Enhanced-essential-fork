@@ -16,8 +16,8 @@ The implementation is intentionally limited to P0. It adds no durable character 
 
 ## Offline verification
 
-- `node tools/runTests.mjs`: **183 passed, 0 failed**. The suite includes stock controller lifecycle tests, listener omitted/null/replacement transitions, actor/world attribution across typed/microphone/special-event flows, delayed context capture, P/V target stability and change, generation replacement, and telemetry privacy checks.
-- `node tools/buildCandidate.mjs`: succeeded with **44** expected source-pinned stock-code hooks. Candidate status: `candidate-built-offline-and-live-api-verified-gta-pending`; output hash: `55b52dffe64fc5ff6e6496d07f366f9717493fb364923ef79b5df3c5ff932cfc`.
+- `node tools/runTests.mjs`: **187 passed, 0 failed**. The suite includes stock controller lifecycle tests, real stock normalization for typed/microphone listener clears, real special-event hydration with separate actor/listener worlds, delayed context capture, real stock action dispatch for stable and changed P/V references, generation replacement, and telemetry privacy checks.
+- `node tools/buildCandidate.mjs`: succeeded with **46** expected source-pinned stock-code hooks. Candidate status: `candidate-built-offline-and-live-api-verified-gta-pending`; output hash: `d5043a0da151f34f1480b79aa7d329906b8acf0be5beace3b0df8fca3f444750`.
 - Main-path tests: [P0 turn-context tests](../lsa-essential-e1-candidate/tests/p0-turn-context.test.mjs), [decision/request tests](../lsa-essential-e1-candidate/tests/decisions-and-requests.test.mjs), and [stock lifecycle tests](../lsa-essential-e1-candidate/tests/stock-controller-lifecycle.test.mjs).
 
 These checks exercise the checked-in source and stock controller harness. They do not establish GTA entity validity, RAGE behavior, or in-game action outcomes.

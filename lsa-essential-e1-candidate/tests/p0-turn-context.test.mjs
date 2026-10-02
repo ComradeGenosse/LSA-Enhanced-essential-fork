@@ -143,6 +143,36 @@ test('microphone hydration binds its own actor and world before queued audio is 
   connection.close();
 });
 
+test('real stock text and microphone normalization preserve explicit listener clears', async () => {
+  const h = await stockHarness();
+  const initialListener = { pedId: 'listener-initial' };
+  const { connection, session } = await h.openAIControllerSession({ targetContext: initialListener });
+  h.useStockInputNormalizer();
+  h.context.nullText = { speaker: { pedId: '17', roleName: 'Civilian' }, target: null, world: { streetName: 'Text world' }, text: 'Hello' };
+
+  const textTurn = await h.evaluate('ib(nullText)');
+  assert.equal(session.targetContext, null);
+  assert.equal(textTurn.metadata.contextSnapshot.listener, null);
+  assert.equal(textTurn.metadata.contextSnapshot.listenerState, 'explicitly_cleared');
+
+  h.context.omittedText = { speaker: { pedId: '17', roleName: 'Civilian' }, text: 'Still no listener' };
+  const omittedTurn = await h.evaluate('ib(omittedText)');
+  assert.equal(session.targetContext, null);
+  assert.equal(omittedTurn.metadata.contextSnapshot.listener, null);
+  assert.equal(omittedTurn.metadata.contextSnapshot.listenerState, 'omitted');
+
+  await h.evaluate('za("17",ke.PLAYER_BARGE_IN)');
+  h.evaluate(`Te=()=>{}; hb=()=>{}; md=async()=>true; yd=async()=>true; n4=async()=>true;
+    var micTurn=Xi({pedId:'17',speakerPedId:'17',listenerPedId:'listener-initial',source:Ht.PLAYER_MIC,input:{transcript:'',contextText:''},metadata:{}});
+    A.mic=ND(); A.mic.activeTurnId=micTurn.id; A.mic.status='listening'; A.mic.pendingChunks=[]; A.mic.sendChain=Promise.resolve();`);
+  h.context.nullMic = { speaker: { pedId: '17', roleName: 'Civilian' }, target: null, world: { streetName: 'Mic world' } };
+  await h.evaluate('wd(nullMic)');
+  assert.equal(session.targetContext, null);
+  assert.equal(h.evaluate('micTurn.metadata.contextSnapshot.listener'), null);
+  assert.equal(h.evaluate('micTurn.metadata.contextSnapshot.listenerState'), 'explicitly_cleared');
+  connection.close();
+});
+
 test('special turns carry M4 actor, listener, and world snapshots through Xn', async () => {
   const h = await stockHarness();
   const actor = { pedId: '17', roleName: 'Civilian', snapshotRevision: 11 };
@@ -164,6 +194,29 @@ test('special turns carry M4 actor, listener, and world snapshots through Xn', a
   connection.close();
 });
 
+test('real special hydration never borrows the listener world when speaker world is missing', async () => {
+  const h = await stockHarness();
+  const actor = { pedId: '17', roleName: 'Civilian' };
+  const { connection } = await h.openAIControllerSession({ actorContext: actor });
+  h.useStockSpecialHydration();
+  h.context.hydrationResponses = {
+    '17': { success: true, speaker: { pedId: '17', roleName: 'Civilian' } },
+    '18': { success: true, speaker: { pedId: '18', roleName: 'Civilian' }, world: { streetName: 'LISTENER-WORLD-PRIVATE' } },
+  };
+  h.evaluate('var Nb=1000; Od=async pedId=>hydrationResponses[pedId]');
+  const result = await h.evaluate('M4({speakerPedId:"17",listenerPedId:"18"})');
+  assert.equal(result.world, null, 'listener hydration does not provide a missing speaker world');
+
+  h.evaluate('vi=async()=>true');
+  const turn = await h.evaluate('kb({speakerPedId:"17",listenerPedId:"18",content:"A scene event"})');
+  assert.deepEqual(connection.turnSnapshot.world, {
+    gameTime: 'unknown', weather: 'unknown', streetName: 'unknown', crossingStreetName: 'unknown', zoneCode: 'unknown',
+  });
+  assert.notEqual(connection.turnSnapshot.world.streetName, 'LISTENER-WORLD-PRIVATE');
+  assert.equal(turn.metadata.contextSnapshot.actor.pedId, '17');
+  connection.close();
+});
+
 test('stock dispatch rejects changed or unavailable person and vehicle aliases and lost action capability', async t => {
   const dispatch = async ({ actor, command, currentActor = actor }) => {
     const records = [];
@@ -177,9 +230,14 @@ test('stock dispatch rejects changed or unavailable person and vehicle aliases a
       persons: Object.fromEntries(Object.entries(actor.nearbyPersonReferences || {}).map(([key, value]) => [key, String(value).toLowerCase()])),
       vehicles: Object.fromEntries(Object.entries(actor.nearbyVehicleReferences || {}).map(([key, value]) => [key, String(value).toLowerCase()])),
     };
-    const validated = h.runtime.host.validateDecision({ dialogue: 'Proceed.', command }, {
-      actor, referenceMap, listener: null, world: { streetName: 'unknown' }, capturedAt: new Date().toISOString(), revision: actor.snapshotRevision || null,
-    }, identity);
+    let validated;
+    try {
+      validated = h.runtime.host.validateDecision({ dialogue: 'Proceed.', command }, {
+        actor, referenceMap, listener: null, world: { streetName: 'unknown' }, capturedAt: new Date().toISOString(), revision: actor.snapshotRevision || null,
+      }, identity);
+    } catch (validationError) {
+      return { dispatched: false, actions: h.actions, records, validationError };
+    }
     h.context.finalText = validated.internalTranscript;
     h.evaluate('turn.output.finalTranscript=finalText');
     if (currentActor !== actor) {
@@ -269,4 +327,38 @@ test('stock dispatch rejects changed or unavailable person and vehicle aliases a
     assert.equal(result.dispatched, false);
     assert.equal(result.actions.length, 0);
   });
+});
+
+test('real stock dispatcher cannot retarget an alias using a map newer than the session cache', async () => {
+  const h = await stockHarness();
+  const actor = { pedId: '17', roleName: 'Civilian', nearbyVehicleReferences: { V001: 'beef' } };
+  const identity = h.create();
+  h.context.reasoningActor = actor;
+  h.evaluate('session.actorContext=reasoningActor; A.activeActor=reasoningActor');
+  const checked = h.runtime.host.validateDecision({ dialogue: 'Proceed.', command: 'DO EnterDriverSeat V001' }, {
+    actor, referenceMap: { persons: {}, vehicles: { V001: 'beef' } }, world: { streetName: 'unknown' },
+  }, identity);
+  h.context.commandTranscript = checked.internalTranscript;
+  h.evaluate('turn.output.finalTranscript=commandTranscript; A.activeActor={pedId:"17",roleName:"Civilian",nearbyVehicleReferences:{V001:"cafe"}}');
+  h.useStockActionDispatcher();
+
+  assert.equal(h.evaluate('Rb(turn,true)'), false);
+  assert.deepEqual(h.actions, [], 'the stock action encoder never receives the newly mapped vehicle');
+});
+
+test('real stock dispatcher still accepts a stable reasoning-time vehicle target', async () => {
+  const h = await stockHarness();
+  const actor = { pedId: '17', roleName: 'Civilian', nearbyVehicleReferences: { V001: 'beef' } };
+  const identity = h.create();
+  h.context.reasoningActor = actor;
+  h.evaluate('session.actorContext=reasoningActor; A.activeActor=reasoningActor');
+  const checked = h.runtime.host.validateDecision({ dialogue: 'Proceed.', command: 'DO EnterDriverSeat V001' }, {
+    actor, referenceMap: { persons: {}, vehicles: { V001: 'beef' } }, world: { streetName: 'unknown' },
+  }, identity);
+  h.context.commandTranscript = checked.internalTranscript;
+  h.evaluate('turn.output.finalTranscript=commandTranscript');
+  h.useStockActionDispatcher();
+
+  assert.equal(h.evaluate('Rb(turn,true)'), true);
+  assert.deepEqual(JSON.parse(JSON.stringify(h.actions)), [{ action: 'enterdriverseatoftargetvehicle', parameter: 'beef' }]);
 });
