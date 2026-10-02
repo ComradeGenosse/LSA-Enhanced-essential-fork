@@ -1,5 +1,9 @@
 # GTA manual acceptance
 
+## P0 turn-context acceptance
+
+P0 is offline-verified, but the in-game checks are still open. Run the dedicated [P0 turn-context checklist](../../docs/P0-turn-context-status.md#gta-acceptance-checklist) alongside the existing acceptance run. It covers listener omission/clear/replacement, per-actor world attribution through typed/microphone/special-event entry, changed or invalid P/V references, delayed dispatch, supersession, entity removal, and telemetry privacy. Record P0 results separately from the E6 early-audio and multi-segment gate.
+
 The E5/E6 payload is installed in the current GTA server folder with `structuredStreamingEnabled=true` and `earlyTtsEnabled=true`. The repaired build has now been exercised in a 13-turn microphone run; see the [run review](../../docs/E6-GTA-verification-2026-10-01.md). All turns reached native playback, but each reply contained only one segment, and first PCM arrived after model completion. This run does not verify multiple segments or real inter-segment gaps. Use the E1 JSONL logs and `node tools/summarizeRun.mjs <logs directory>` to inspect `pedId`, `turnId`, `generationId`, `sessionNonce`, source, timings, and terminal reasons. Do not log credentials or full prompts.
 
 RAGE Plugin Hook logged Talk=Mouse4, Text=Mouse5, Mark=F9, and MarkedPedTalk=F10 for the latest run; these controls may differ from the stock defaults. The native launcher uses the bundled Node and `server.bundle.mjs`; E1 bootstrap loads supported credentials from the server `.env`, with inherited environment variables taking precedence.

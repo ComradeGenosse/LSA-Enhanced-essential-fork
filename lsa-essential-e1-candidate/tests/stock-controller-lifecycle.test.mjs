@@ -19,7 +19,7 @@ function nativeIdentity(turn, nonce = 1) {
 
 function invokeTyped(h, text) {
   h.context.playerText = text;
-  return h.evaluate('ib({ pedId: "17", speaker: { pedId: "17" }, target: { pedId: "player" }, text: playerText })');
+  return h.evaluate('ib({ pedId: "17", speaker: testActor, target: testTarget, world: testActor?.world, text: playerText })');
 }
 
 async function waitFor(predicate, label) {

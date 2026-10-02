@@ -45,7 +45,8 @@ test('strict decisions reject refusals, extra keys, multiple commands and comman
 test('stock action validator enforces the actor allow list, target and available weapon snapshot', () => {
   const common = {
     identity: { pedId: '17', turnId: 't1', generationId: 1, sessionNonce: 1 },
-    actor: { availableWeapons: ['Pistol'] },
+    actor: { availableWeapons: ['Pistol'], nearbyPersonReferences: { P001: '23' } },
+    referenceSnapshot: { persons: { P001: '23' }, vehicles: {} },
     parseActions: command => command.includes('Attack') ? [{ actionName: 'attacktargetwithweapon', target: command.match(/AttackTargetWithWeapon\s+(P\d{3})/i)?.[1] || 'P001', parameter: command.match(/USING\s+(\w+)/i)?.[1] || 'Pistol' }] : [{ actionName: 'waithere', target: '', parameter: '' }],
     allowedActionNames: new Set(['attacktargetwithweapon', 'waithere']),
     resolvePerson: reference => reference === 'P001',
@@ -60,6 +61,18 @@ test('stock action validator enforces the actor allow list, target and available
   assert.throws(() => validateStockDecision({ dialogue: 'Stay close.', command: 'DO AttackTargetWithWeapon P001 USING Pistol' }, { ...common, actor: { availableWeaponsContext: 'Available weapons: none' } }), /weapon/);
   assert.throws(() => validateStockDecision({ dialogue: 'Stay close.', command: 'DO AttackTargetWithWeapon P001 USING Pistol' }, { ...common, actor: {} }), /weapon/);
   assert.throws(() => validateStockDecision({ dialogue: 'Stay close.', command: 'DO AttackTargetWithWeapon P999 USING Pistol' }, common), /target/);
+  assert.throws(() => validateStockDecision({ dialogue: 'Follow them.', command: 'DO Follow P001' }, {
+    ...common, parseActions: () => [{ actionName: 'followtarget', target: 'P001', parameter: '' }],
+    allowedActionNames: new Set(['followtarget']), resolvePerson: () => '24',
+  }), /changed after reasoning/);
+  assert.throws(() => validateStockDecision({ dialogue: 'Follow them.', command: 'DO Follow P001' }, {
+    ...common, parseActions: () => [{ actionName: 'followtarget', target: 'P001', parameter: '' }],
+    allowedActionNames: new Set(['followtarget']), resolvePerson: () => null,
+  }), /no longer available/);
+  assert.deepEqual(validateStockDecision({ dialogue: 'Follow them.', command: 'DO Follow P001' }, {
+    ...common, parseActions: () => [{ actionName: 'followtarget', target: 'P001', parameter: '' }],
+    allowedActionNames: new Set(['followtarget']), resolvePerson: () => '23',
+  }).referenceBindings, { persons: { P001: '23' }, vehicles: {} });
   assert.throws(() => validateStockDecision({ dialogue: 'Drive there.', command: 'DO DriveTo V999' }, {
     ...common, parseActions: () => [{ actionName: 'drivetodestination', target: '', parameter: 'V999' }],
     allowedActionNames: new Set(['drivetodestination']),
@@ -95,6 +108,13 @@ test('Responses request uses one completed strict JSON decision and extracts out
   assert.equal(observed.body.text.format.strict, true);
   assert.equal(observed.body.text.format.schema.additionalProperties, false);
   assert.match(observed.body.input[0].content, /stock prompt/);
+});
+
+test('missing actor/world and unavailable listener context are explicit in the request', () => {
+  const request = buildRequest({ model: 'test', effort: 'low', systemInstruction: 'stock', actor: null, listener: null, world: null, input: 'Hello' });
+  assert.match(request.input[0].content, /CURRENT ACTOR DATA\s*\{"status":"unknown"\}/);
+  assert.match(request.input[0].content, /CURRENT LISTENER DATA\s*\{"status":"unavailable"\}/);
+  assert.match(request.input[0].content, /CURRENT WORLD DATA\s*\{"status":"unknown"\}/);
 });
 
 test('PTT PCM is wrapped once as a mono 16-bit WAV upload', async () => {

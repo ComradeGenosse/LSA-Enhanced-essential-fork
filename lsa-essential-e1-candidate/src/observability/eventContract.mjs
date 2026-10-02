@@ -11,6 +11,7 @@ export const EVENT_NAMES = new Set([
   'assistant_history_discarded','history_trimmed','action_validated','action_dispatch_attempted',
   'action_dispatch_accepted','action_dispatch_rejected','action_dispatch_suppressed','cancellation_requested',
   'supersession_requested','late_event_ignored','turn_terminal_summary','telemetry_records_dropped','telemetry_sink_failed',
+  'listener_cleared','listener_replaced','world_unavailable','snapshot_created','target_changed','target_missing','target_invalid','reference_map_revision_changed',
 ]);
 
 const safeKeys = new Set([
@@ -26,6 +27,7 @@ const safeKeys = new Set([
   'actionDispatchRejected','authorizationAcceptedCount','authorizationRejectedCount','authorizationAttempts',
   'credentialAvailable','providerWorkDeadlineMs','playbackCompletionMaxMs',
   'micChunks','droppedTelemetryRecords',
+  'listenerState','worldStatus','actorStatus','personReferenceCount','vehicleReferenceCount','referenceCount',
   'segmentSequence','segmentCount','segmentChars',
   'profileId','speechProvider','voice','speed','assignmentVersion','selectionMode','gender','ageBand','matchReason','attempt','attemptId','maxAttempts','retryDelayMs','remainingDeadlineMs',
 ]);
@@ -39,6 +41,7 @@ const safeTokens = new Set([
   'playback_streaming','stream_end','playback_completion','completed_no_audio','interrupted','rejected',
   'accepted','started','finished','headers','first_byte','stt','model','tts','normal','unknown','other','typed','microphone',
   'attempt_limit','side_effect_started','retry_after_above_max','insufficient_deadline','disabled','permanent_provider_error','unknown_rate_limit','unknown_error','non_retryable_provider_error','http_408','http_502','http_503','http_504','rate_limit_error','rate_limit_exceeded','slow_down','attempt_timeout','econnreset','epipe','etimedout','und_err_socket','und_err_connect_timeout','und_err_headers_timeout','timeout_before_effect','connection_reset','connection_closed','temporary_network_failure','server_error','api_error','internal_server_error','service_unavailable_error',
+  'present','explicitly_cleared','omitted','available','unavailable','already_unavailable','known','changed','cleared','replaced','target_changed','target_missing','target_invalid','reference_map_revision_changed','missing_or_unknown',
 ]);
 
 function safeScalar(key, value) {
