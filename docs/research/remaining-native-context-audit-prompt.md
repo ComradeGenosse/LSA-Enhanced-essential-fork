@@ -5,10 +5,9 @@ https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork
 
 Implementation baseline:
 - PR #1 is merged into `main`.
-- Audit-integration follow-up PR #2 is `fix/native-demographic-contract`:
+- Audit-integration follow-up PR #2 is also merged into `main`:
   https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/pull/2
-- While PR #2 is open, run this investigation against `fix/native-demographic-contract`.
-- After PR #2 merges, run it against `main`.
+- Run this investigation against the current `main` branch.
 
 Primary audit report:
 docs/research/character-aware-native-runtime-audit.md
@@ -24,7 +23,7 @@ Do not restart the original investigation from zero. Do not spend time reproving
 
 This is a focused reverse-engineering/runtime-validation task. Preserve the current implementation unless a **newly proven** defect is found.
 
-Do not reopen the already-resolved native `old` parser issue. PR #2 contains the audit-derived correction and regression coverage; treat that behavior as the implementation baseline unless contradictory native evidence is discovered.
+Do not reopen the already-resolved native `old` parser issue. The audit-derived correction and regression coverage from PR #2 are now merged into `main`; treat that behavior as the implementation baseline unless contradictory native evidence is discovered.
 
 ---
 
@@ -74,12 +73,12 @@ The prior audit directly established:
 
 12. OpenAIConnection resolves its voice profile once per connection/native session and retains it for turns/retries/segmented TTS on that connection.
 
-13. The audit found one native-vocabulary defect in the original PR #1 implementation: native AgeRange `"old"` was not recognized and became ageBand `"unknown"`. That defect is addressed in follow-up PR #2 by mapping:
+13. The audit found one native-vocabulary defect in the original PR #1 implementation: native AgeRange `"old"` was not recognized and became ageBand `"unknown"`. PR #2 fixed that defect and is now merged into `main`, with the mapping:
     - `young -> young`
     - `middle-aged -> mature`
     - `old -> older`
     - `unknown -> unknown`
-    PR #2 also adds regression coverage for the exact native Gender and AgeRange vocabularies. Treat this as resolved implementation work, not an open investigation question.
+    `main` also contains regression coverage for the exact native Gender and AgeRange vocabularies. Treat this as resolved implementation work, not an open investigation question.
 
 14. pedId + sessionNonce is appropriate for the current documented session-level stability contract.
 
@@ -318,9 +317,9 @@ Use exact control flow and timing evidence.
 
 ## PART 9 — Verify OpenAI behavior under the unresolved runtime edges
 
-Do not redesign the implementation. Test the current contract **with the PR #2 native-demographic correction present**.
+Do not redesign the implementation. Test the current `main` contract, which already includes the PR #2 native-demographic correction.
 
-Before running runtime-edge probes, verify the checked-out implementation maps native `AgeRange = "old"` to internal `ageBand = "older"` and that the exact native-vocabulary regression tests pass. This is a baseline sanity check only; do not treat the known parser issue as an open research task unless contradictory evidence appears.
+Before running runtime-edge probes, verify the checked-out `main` implementation maps native `AgeRange = "old"` to internal `ageBand = "older"` and that the exact native-vocabulary regression tests pass. This is a baseline sanity check only; do not treat the known parser issue as an open research task unless contradictory evidence appears.
 
 ### A. Unknown/custom demographic actor
 
@@ -428,9 +427,8 @@ with these sections:
 - Work from the exact pinned DLL SHA above.
 - Prefer direct binary/control-flow evidence over documentation.
 - Do not re-investigate settled vocabulary unless contradictory evidence appears.
-- Do not modify `main` directly.
-- While PR #2 is open, use `fix/native-demographic-contract` as the implementation baseline; after it merges, use `main`.
-- Do not alter the current voice implementation as part of this investigation. The known native-`old` correction is already handled by PR #2.
+- Use the current `main` branch as the implementation baseline.
+- Do not alter the current voice implementation as part of this investigation. The known native-`old` correction from PR #2 is already merged into `main`.
 - Do not convert inference into fact.
 - Do not execute arbitrary game behavior.
 - Keep in-game probes minimal and observational.
