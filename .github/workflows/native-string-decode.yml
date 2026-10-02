@@ -1,0 +1,125 @@
+name: Native classifier string decode
+on:
+  push:
+    branches:
+      - audit/native-demographics-20261002
+
+permissions:
+  contents: read
+
+jobs:
+  decode:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Verify DLL fingerprint
+        shell: pwsh
+        run: |
+          $hash=(Get-FileHash 'lsa-essential-e1-candidate/upstream/LosSantosAlive.dll' -Algorithm SHA256).Hash.ToLowerInvariant()
+          Write-Host "sha256=$hash"
+          if ($hash -ne '9b6de42d4c464901d859dd95e17e100e4fa9ef6074bfbb0cf3a57a76f6ddd653') { throw "DLL hash mismatch" }
+      - name: Build isolated decoder harness
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force native-decode | Out-Null
+          @'
+          <Project Sdk="Microsoft.NET.Sdk">
+            <PropertyGroup>
+              <OutputType>Exe</OutputType>
+              <TargetFramework>net8.0</TargetFramework>
+              <ImplicitUsings>enable</ImplicitUsings>
+              <Nullable>enable</Nullable>
+            </PropertyGroup>
+          </Project>
+          '@ | Set-Content native-decode/native-decode.csproj
+          @'
+          using System.Reflection;
+          using System.Text;
+          using System.Text.Json;
+
+          static class Program
+          {
+              static readonly uint[] Tokens = new uint[] {
+                  1054968094u,3818300071u,2568606624u,1029827067u,3557421416u,275379809u,
+                  1183486338u,4287505268u,1221715181u,3112276658u,3265984749u,
+                  3002916032u,1491984142u,3136590273u,3216616699u,543755242u,3823192816u,
+                  3921185575u,3452035397u,2752304247u,456850424u,4017991228u,1902598045u,
+                  1146829187u
+              };
+
+              static string Codepoints(string s) => string.Join(" ", s.Select(ch => $"U+{(int)ch:X4}"));
+              static bool Plausible(string s)
+              {
+                  if (s.Length > 300) return false;
+                  return s.All(ch => !char.IsControl(ch) || ch == '\r' || ch == '\n' || ch == '\t');
+              }
+
+              public static int Main(string[] args)
+              {
+                  Directory.CreateDirectory("audit-output");
+                  var dll = Path.GetFullPath(args[0]);
+                  var asm = Assembly.LoadFrom(dll);
+                  var moduleType = asm.ManifestModule.GetType("<Module>", throwOnError:false, ignoreCase:false);
+                  if (moduleType is null) throw new Exception("<Module> type not found.");
+
+                  var candidates = moduleType.GetMethods(BindingFlags.Static|BindingFlags.Public|BindingFlags.NonPublic)
+                      .Where(m => m.IsGenericMethodDefinition
+                          && m.GetGenericArguments().Length == 1
+                          && m.GetParameters().Length == 1
+                          && m.GetParameters()[0].ParameterType == typeof(uint))
+                      .ToArray();
+
+                  var rows = new List<object>();
+                  foreach (var method in candidates)
+                  {
+                      MethodInfo closed;
+                      try { closed = method.MakeGenericMethod(typeof(string)); }
+                      catch { continue; }
+                      foreach (var token in Tokens)
+                      {
+                          try
+                          {
+                              var value = closed.Invoke(null, new object[] { token }) as string;
+                              if (value is null || !Plausible(value)) continue;
+                              rows.Add(new {
+                                  methodToken = $"0x{method.MetadataToken:X8}",
+                                  methodCodepoints = Codepoints(method.Name),
+                                  token,
+                                  value
+                              });
+                          }
+                          catch (Exception ex)
+                          {
+                              rows.Add(new {
+                                  methodToken = $"0x{method.MetadataToken:X8}",
+                                  methodCodepoints = Codepoints(method.Name),
+                                  token,
+                                  error = ex.GetBaseException().GetType().FullName + ": " + ex.GetBaseException().Message
+                              });
+                          }
+                      }
+                  }
+                  File.WriteAllText("audit-output/decoded-classifier-strings.json",
+                      JsonSerializer.Serialize(rows, new JsonSerializerOptions { WriteIndented = true }));
+                  Console.WriteLine($"generic_uint_decoders={candidates.Length} rows={rows.Count}");
+                  return 0;
+              }
+          }
+          '@ | Set-Content native-decode/Program.cs
+          dotnet build native-decode/native-decode.csproj -c Release
+      - name: Decode classifier constants
+        shell: pwsh
+        run: |
+          dotnet native-decode/bin/Release/net8.0/native-decode.dll lsa-essential-e1-candidate/upstream/LosSantosAlive.dll
+          Get-Content audit-output/decoded-classifier-strings.json | Select-Object -First 300
+      - uses: actions/upload-artifact@v4
+        with:
+          name: native-classifier-string-decode
+          path: audit-output/decoded-classifier-strings.json
+          if-no-files-found: error
+          retention-days: 2
