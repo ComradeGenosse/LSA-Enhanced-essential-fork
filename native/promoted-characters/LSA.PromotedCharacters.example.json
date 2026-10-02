@@ -1,0 +1,7 @@
+{
+  "enabled": false,
+  "worldProfileId": "",
+  "pipeName": "LSA.PromotedCharacters.v1",
+  "identityPipeName": "LSA.SessionIdentity.v1",
+  "editorPort": 37921
+}

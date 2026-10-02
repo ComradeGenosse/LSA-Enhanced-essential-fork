@@ -5,6 +5,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { verifyNativeContract } from './verifyNativeContract.mjs';
 import { verifyIdentityContract } from './verifyIdentityContract.mjs';
+import { verifyCharactersContract } from './verifyCharactersContract.mjs';
 import { assertCandidateWriteTarget, assertNoLinkedOutput, candidateRootPath } from './checkIsolation.mjs';
 
 const root = candidateRootPath();
@@ -150,7 +151,7 @@ export function patchSource(source) {
   insert(bkParams[2].end, ',__lsaWorldSnapshot', 'BK explicit world snapshot parameter');
   const bkWorld = one((() => { const all = []; walk(functionBody(ast,'BK'), node => { if (node.type === 'Property' && node.key?.name === 'world') all.push(node); }); return all; })(), 'BK current world property');
   replace(bkWorld.value.start, bkWorld.value.end, '__lsaWorldSnapshot&&typeof __lsaWorldSnapshot==="object"?{gameTime:__lsaWorldSnapshot.gameTime??"unknown",weather:__lsaWorldSnapshot.weather??"unknown",streetName:__lsaWorldSnapshot.streetName??"unknown",crossingStreetName:__lsaWorldSnapshot.crossingStreetName??"unknown",zoneCode:__lsaWorldSnapshot.zoneCode??"unknown"}:{gameTime:"unknown",weather:"unknown",streetName:"unknown",crossingStreetName:"unknown",zoneCode:"unknown"}', 'world context has explicit unknown semantics');
-  prelude('BK', 'if (__LSA_E1_RUNTIME.identityService) { t=__LSA_E1_RUNTIME.modelActor(t); e=__LSA_E1_RUNTIME.modelActor(e); }');
+  prelude('BK', 'if (__LSA_E1_RUNTIME.identityService || __LSA_E1_RUNTIME.characterService) { t=__LSA_E1_RUNTIME.modelActor(t); e=__LSA_E1_RUNTIME.modelActor(e); }');
 
   // Reserved identity evidence never flattens into native fields/capabilities,
   // including when P1 is disabled or a forged/unsupported block is supplied.
@@ -256,6 +257,7 @@ export async function buildCandidate({ sourcePath = stockBundleDefault, outputPa
   if (dllHash !== expectedDllHash) throw new Error(`Pinned Essential DLL changed: expected ${expectedDllHash}, found ${dllHash}. Re-audit the baseline before rebuilding.`);
   const nativeContract = await verifyNativeContract(dllHash, { expectedMetadataSha256: expectedNativeMetadataHash });
   const identityContract = await verifyIdentityContract(dllHash);
+  const characterContract = await verifyCharactersContract(dllHash);
   const patched = patchSource(source);
   if (patched.edits.length !== expectedPatchCount) throw new Error(`AST patch inventory changed: expected ${expectedPatchCount}, found ${patched.edits.length}. Re-audit the source seam list before building.`);
   const entry = path.join(target, launcherName);
@@ -271,9 +273,11 @@ export async function buildCandidate({ sourcePath = stockBundleDefault, outputPa
   const manifest = {
     nativeContract,
     identityContract,
-    stage: 'P1 SESSION_IDENTITY', foundationStage: 'P0+E1.1+E2+E3+E5+E6', status: 'candidate-built-offline-p1-gta-pending', observabilitySchemaVersion: 1,
+    characterContract,
+    stage: 'P2 PROMOTED_CHARACTERS / CHARACTER_PROFILE', foundationStage: 'P0+P1+E1.1+E2+E3+E5+E6', status: 'candidate-built-offline-p2-gta-pending', observabilitySchemaVersion: 1,
     features: { structuredStreaming: true, earlySegmentedTts: true, defaultEnabled: false, earlyTtsMode: 'dialogue_only', ttsConcurrency: 1,
-      sessionIdentity: { defaultEnabled: false, modes: ['shadow','voices'], storeSchemaVersion: 1, nativeAddressing: 'unchanged' } },
+      sessionIdentity: { defaultEnabled: false, modes: ['shadow','voices'], storeSchemaVersion: 1, nativeAddressing: 'unchanged' },
+      promotedCharacters: { defaultEnabled:false,profileStoreSchemaVersion:1,manualMemoryOnly:true,requiresAuthoredP1Owner:true,nativeAddressing:'unchanged' } },
     launcherEntry: launcherName, upstreamBundleSha256: sourceHash,
     stockDllReferenceSha256: dllHash, builtBundleSha256: digest(patched.output),
     e1SourceTreeSha256, releasePayloadSha256,

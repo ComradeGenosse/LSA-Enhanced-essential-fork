@@ -1,0 +1,35 @@
+# Optional P2 authored owner plugin
+
+`LSA.PromotedCharacters.dll` is an explicitly loaded `net481` RAGE plugin implementing Essential's public `IIntegration`. It owns promoted/recreated peds through the unchanged `LSA.SessionIdentity.dll` authored seam. It adds no dialogue protocol, nonce allocator, model tool, PCM route or task scheduler.
+
+From the candidate directory, supply the same compile-only references as P1:
+
+```powershell
+$env:LSA_IDENTITY_RPH_REFERENCE = '<compile-only SDK>\RagePluginHook.dll'
+$env:LSA_IDENTITY_FRAMEWORK_ROOT = '<reference root containing .NETFramework\v4.8.1>'
+node tools/buildCharactersAddon.mjs
+```
+
+The builder verifies pinned Essential/RPH hashes and the P1 contract, restores/builds against reference assemblies, and packages both optional addons plus a disabled example config under `dist/promoted-characters`. `LSA_BUILD_DOTNET` may explicitly name a .NET executable when it is not on PATH. Build receipts state `deploymentPerformed: false` and `gtaRuntimeTest: false`. Dependency/core/game DLLs are never copied or deployed by this builder.
+
+For a separately authorized controlled game installation, put the addons together where RAGE can resolve them alongside Essential. Copy `LSA.PromotedCharacters.example.json` to `LSA.PromotedCharacters.json`, enable it and set the same explicit stable lowercase world UUID/pipe names as the companion. Explicitly load the owner plugin using RAGE's `LoadPlugin`. The owner fails closed on a different loaded Essential hash through P1's startup gate. It is default-off and has no automatic loader. No RAGENativeUI dependency or new UI framework is required; player management uses the small local companion editor and Essential's existing NPC selection.
+
+Match native `editorPort` to companion `promotedCharacters.editorPort`. Existing RAGE console inputs are `LSACharacters`, `LSAPromote`, `LSAFollowPromoted`, `LSAWaitPromoted`, `LSADismissPromoted`, `LSASummonCharacter <CharacterId>` and `LSADespawnCharacter <CharacterId>`. The last two take the exact durable ID displayed in the editor. Live controls require a ticking game; close the console after submission. The HTTP worker never touches a ped and permits only one outstanding console operation. Profile/memory editing works in the local editor while GTA is paused or offline.
+
+The native integration keeps at most 256 RAM encounter records, 16 capture tickets, and P1's 64 live authored registrations. It handles at most four queued player operations per Essential Update. The private `ControlChannel` is a separate current-user ACL pipe with fresh owner epoch, world UUID, per-request UUID, 5-second admission bound and expiry checked on the game fiber. Worker threads only parse/queue bounded JSON. The P1 factual pipe remains factual and rejects controls/audio.
+
+Promotion capture locks the exact current selected/conversation ped, then rechecks selection/existence/address/script state at registration. The stable alias is an application-generated `promoted.<UUID>`, never a handle or name. Follow/wait use public `NpcActions` and existing state/vehicle flags. Every later native player command carries the captured current ownership token. Old tokens cannot act on recreated peds. Dialogue/model effects still use Essential's exact tagged native tuple.
+
+Dismiss/release retire the exact P1 registration before safe native release. Only `despawn` can delete and only for a ped this addon constructed. Adopted ambient peds are never deleted by P2. Scripted state suspends optional native flags without clearing Rockstar tasks, deleting or teleporting. Automatic mission rejoin is intentionally absent; the player chooses a safe follow/wait after suspension. On addon unload, registered proof is retired; safe created peds are dismissed. Unknown guarded peds are left physically alone.
+
+Offline checks from repository root:
+
+```powershell
+dotnet run --project native/promoted-characters/tests/OfflineTests.csproj --verbosity quiet
+dotnet build native/promoted-characters/facts-tests/ControlChannelTests.csproj "-p:TargetFrameworkRootPath=$env:LSA_IDENTITY_FRAMEWORK_ROOT"
+& native/promoted-characters/facts-tests/bin/Debug/net481/ControlChannelTests.exe
+```
+
+The first compiles the production safety/admission source with .NET 10. The second compiles the actual Windows control pipe/parser with .NET 4.8.1 against no game references, using a unique offline pipe. The production parser accepts its actual nested `IList` array representation for appearance; this is checked by the real framework serializer test. No test here loads RPH/Essential or exercises GTA.
+
+See [P2 flow, persistence, limits and physical checklist](../../docs/P2-promoted-characters-status.md) and [focused native evidence](../../docs/P2-native-evidence.md).

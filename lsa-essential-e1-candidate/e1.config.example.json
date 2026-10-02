@@ -8,6 +8,12 @@
     "prepareTimeoutMs": 400
   },
   "provider": "openai",
+  "promotedCharacters": {
+    "enabled": false,
+    "storePath": "characters/profiles.v1.json",
+    "pipeName": "LSA.PromotedCharacters.v1",
+    "editorPort": 37921
+  },
   "reasoningModel": "gpt-6-luna",
   "reasoningEffort": "low",
   "structuredStreamingEnabled": false,

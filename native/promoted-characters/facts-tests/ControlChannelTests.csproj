@@ -1,0 +1,4 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net481</TargetFramework><LangVersion>latest</LangVersion><EnableDefaultCompileItems>false</EnableDefaultCompileItems><AutomaticallyUseReferenceAssemblyPackages>false</AutomaticallyUseReferenceAssemblyPackages></PropertyGroup>
+  <ItemGroup><Compile Include="Program.cs" /><Compile Include="../NativeSafetyPolicy.cs" Link="NativeSafetyPolicy.cs" /><Compile Include="../ControlChannel.cs" Link="ControlChannel.cs" /><Reference Include="System.Web.Extensions" /></ItemGroup>
+</Project>

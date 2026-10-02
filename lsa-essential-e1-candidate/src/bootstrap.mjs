@@ -6,6 +6,8 @@ import { loadPrivateEnvironment } from './config/privateEnvironment.mjs';
 import { createFileSink } from './observability/fileSink.mjs';
 import { Telemetry, createNoopTelemetry } from './observability/telemetry.mjs';
 import { identityContractSupported } from './identity/nativeSupport.mjs';
+import { startCharacterEditor } from './characters/editorServer.mjs';
+import { characterContractSupported } from './characters/nativeSupport.mjs';
 
 let shutdownFlushRegistered = false;
 
@@ -24,6 +26,11 @@ export async function createRuntimeForBundle(options = {}) {
       config = Object.freeze({ ...config, persistentIdentity: Object.freeze({ ...config.persistentIdentity, enabled: false }) });
       try { console.warn('[P1] Persistence disabled (optional_identity_contract_unavailable).'); } catch {}
     }
+  }
+  if (config.promotedCharacters.enabled) {
+    let contract = options.characterContract;
+    if (contract === undefined) try { contract = JSON.parse(await readFile(new URL('../build-manifest.json',import.meta.url),'utf8')).characterContract; } catch {}
+    config = Object.freeze({ ...config,promotedCharacters:Object.freeze({ ...config.promotedCharacters,nativeSupported:characterContractSupported(contract) }) });
   }
   let telemetry = options.telemetry;
   if (!telemetry) {
@@ -57,5 +64,13 @@ export async function createRuntimeForBundle(options = {}) {
       }
     } else telemetry = createNoopTelemetry();
   }
-  return createRuntime(config, { ...options, telemetry });
+  const runtime = createRuntime(config, { ...options, telemetry });
+  if (runtime.characterService) {
+    await runtime.characterService.initialize();
+    if (runtime.characterService.ready && options.startCharacterEditor !== false) try {
+      runtime.characterEditor = await startCharacterEditor(runtime.characterService);
+      try { console.info('[P2] Character editor: ' + runtime.characterEditor.url); } catch {}
+    } catch { runtime.characterService.emit('character_safe_failure',{reason:'owner_unavailable'}); }
+  }
+  return runtime;
 }
