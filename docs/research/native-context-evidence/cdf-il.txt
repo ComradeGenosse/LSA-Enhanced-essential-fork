@@ -1,0 +1,246 @@
+CDF SHA256 d0a81554ff66ea344a6e778f8c7faa6292201a45854ea89b83ced5b6814c24fc
+TYPE CommonDataFramework.EntryPoint
+FIELD 0x4000002 DatabasePruneInterval Int32 constant=A0BB0D00
+FIELD 0x4000003 <OnDuty>k__BackingField Boolean constant=None
+FIELD 0x4000004 <PluginReady>k__BackingField Boolean constant=None
+METHOD 0x600000b UnloadSystems []
+  IL_0000: ldc.i4.0
+  IL_0001: call 0x6000006 CommonDataFramework.EntryPoint::set_PluginReady
+  IL_0006: call 0x600006b CommonDataFramework.Modules.PedDatabase.PedDataController::Clear
+  IL_000b: call 0x600002c CommonDataFramework.Modules.VehicleDatabase.VehicleDataController::Clear
+  IL_0010: call 0x600000d CommonDataFramework.EntryPoint::InvalidateCache
+  IL_0015: ldstr Unloaded Systems of V
+  IL_001a: ldsfld 0x4000079 CommonDataFramework.Engine.Utility.Helper::PluginVersion
+  IL_001f: ldstr .
+  IL_0024: call 0xa00001f System.String::Concat
+  IL_0029: call 0x60000a7 CommonDataFramework.Engine.Utility.Logger::LogDebug
+  IL_002e: ret
+TYPE CommonDataFramework.Modules.PedDatabase.PedData
+FIELD 0x4000056 _persona LSPD_First_Response.Engine.Scripting.Entities.Persona constant=None
+FIELD 0x4000057 Holder Rage.Ped constant=None
+FIELD 0x4000058 _dlExpiration System.Nullable`1<System.DateTime> constant=None
+FIELD 0x4000059 <Address>k__BackingField CommonDataFramework.Modules.PedResidence.PedAddress constant=None
+FIELD 0x400005a _dlState LSPD_First_Response.Engine.Scripting.Entities.ELicenseState constant=None
+FIELD 0x400005b <IsOnParole>k__BackingField Boolean constant=None
+FIELD 0x400005c <IsOnProbation>k__BackingField Boolean constant=None
+FIELD 0x400005d HuntingPermit CommonDataFramework.Modules.PedDatabase.Permit constant=None
+FIELD 0x400005e FishingPermit CommonDataFramework.Modules.PedDatabase.Permit constant=None
+FIELD 0x400005f WeaponPermit CommonDataFramework.Modules.PedDatabase.WeaponPermit constant=None
+FIELD 0x4000060 RemoveDuringNextPrune Boolean constant=None
+METHOD 0x6000050 get_Birthday []
+  IL_0000: ldarg.0
+  IL_0001: ldfld 0x4000056 CommonDataFramework.Modules.PedDatabase.PedData::_persona
+  IL_0006: callvirt 0xa000085 LSPD_First_Response.Engine.Scripting.Entities.Persona::get_Birthday
+  IL_000b: ret
+METHOD 0x6000051 set_Birthday ['System.DateTime']
+  IL_0000: ldarg.0
+  IL_0001: ldfld 0x4000056 CommonDataFramework.Modules.PedDatabase.PedData::_persona
+  IL_0006: ldarg.1
+  IL_0007: callvirt 0xa000086 LSPD_First_Response.Engine.Scripting.Entities.Persona::set_Birthday
+  IL_000c: ret
+METHOD 0x6000056 get_Gender []
+  IL_0000: ldarg.0
+  IL_0001: ldfld 0x4000056 CommonDataFramework.Modules.PedDatabase.PedData::_persona
+  IL_0006: callvirt 0xa00008b LSPD_First_Response.Engine.Scripting.Entities.Persona::get_Gender
+  IL_000b: ret
+METHOD 0x6000057 set_Gender ['LSPD_First_Response.Gender']
+  IL_0000: ldarg.0
+  IL_0001: ldfld 0x4000056 CommonDataFramework.Modules.PedDatabase.PedData::_persona
+  IL_0006: ldarg.1
+  IL_0007: callvirt 0xa00008c LSPD_First_Response.Engine.Scripting.Entities.Persona::set_Gender
+  IL_000c: ret
+METHOD 0x600005c get_ModelAge []
+  IL_0000: ldarg.0
+  IL_0001: ldfld 0x4000056 CommonDataFramework.Modules.PedDatabase.PedData::_persona
+  IL_0006: callvirt 0xa000090 LSPD_First_Response.Engine.Scripting.Entities.Persona::get_ModelAge
+  IL_000b: ret
+METHOD 0x6000064 .ctor []
+  IL_0000: ldarg.0
+  IL_0001: call 0xa000022 System.Object::.ctor
+  IL_0006: ldarg.0
+  IL_0007: ldloca.s 0
+  IL_0009: initobj 0x1b000005 System.Nullable`1<CommonDataFramework.Modules.EDocumentStatus>
+  IL_000f: ldloc.0
+  IL_0010: newobj 0x6000072 CommonDataFramework.Modules.PedDatabase.Permit::.ctor
+  IL_0015: stfld 0x400005d CommonDataFramework.Modules.PedDatabase.PedData::HuntingPermit
+  IL_001a: ldarg.0
+  IL_001b: ldloca.s 0
+  IL_001d: initobj 0x1b000005 System.Nullable`1<CommonDataFramework.Modules.EDocumentStatus>
+  IL_0023: ldloc.0
+  IL_0024: newobj 0x6000072 CommonDataFramework.Modules.PedDatabase.Permit::.ctor
+  IL_0029: stfld 0x400005e CommonDataFramework.Modules.PedDatabase.PedData::FishingPermit
+  IL_002e: ldarg.0
+  IL_002f: ldloca.s 0
+  IL_0031: initobj 0x1b000005 System.Nullable`1<CommonDataFramework.Modules.EDocumentStatus>
+  IL_0037: ldloc.0
+  IL_0038: ldloca.s 1
+  IL_003a: initobj 0x1b00001d System.Nullable`1<CommonDataFramework.Modules.PedDatabase.EWeaponPermitType>
+  IL_0040: ldloc.1
+  IL_0041: newobj 0x6000077 CommonDataFramework.Modules.PedDatabase.WeaponPermit::.ctor
+  IL_0046: stfld 0x400005f CommonDataFramework.Modules.PedDatabase.PedData::WeaponPermit
+  IL_004b: ldarg.0
+  IL_004c: call 0x60000a1 CommonDataFramework.Engine.Utility.Helper::get_CDFSettings
+  IL_0051: ldfld 0x4000025 CommonDataFramework.Settings::PedProbationChance
+  IL_0056: call 0x60000a4 CommonDataFramework.Engine.Utility.Helper::GetRandomChance
+  IL_005b: call 0x6000063 CommonDataFramework.Modules.PedDatabase.PedData::set_IsOnProbation
+  IL_0060: ldarg.0
+  IL_0061: call 0x6000062 CommonDataFramework.Modules.PedDatabase.PedData::get_IsOnProbation
+  IL_0066: brtrue.s  -> IL_008b
+  IL_0068: ldarg.0
+  IL_0069: call 0x60000a1 CommonDataFramework.Engine.Utility.Helper::get_CDFSettings
+  IL_006e: ldfld 0x4000026 CommonDataFramework.Settings::PedParoleChance
+  IL_0073: ldc.i4.s 100
+  IL_0075: call 0x60000a1 CommonDataFramework.Engine.Utility.Helper::get_CDFSettings
+  IL_007a: ldfld 0x4000025 CommonDataFramework.Settings::PedProbationChance
+  IL_007f: sub
+  IL_0080: div
+  IL_0081: call 0x60000a4 CommonDataFramework.Engine.Utility.Helper::GetRandomChance
+  IL_0086: call 0x6000061 CommonDataFramework.Modules.PedDatabase.PedData::set_IsOnParole
+  IL_008b: ret
+METHOD 0x6000065 .ctor ['Rage.Ped', 'CommonDataFramework.Modules.PedResidence.PedAddress']
+  IL_0000: ldarg.0
+  IL_0001: call 0x6000064 CommonDataFramework.Modules.PedDatabase.PedData::.ctor
+  IL_0006: ldarg.0
+  IL_0007: ldarg.1
+  IL_0008: stfld 0x4000057 CommonDataFramework.Modules.PedDatabase.PedData::Holder
+  IL_000d: ldarg.0
+  IL_000e: ldarg.2
+  IL_000f: dup
+  IL_0010: brtrue.s  -> IL_0018
+  IL_0012: pop
+  IL_0013: newobj 0x600009b CommonDataFramework.Modules.PedResidence.PedAddress::.ctor
+  IL_0018: call 0x6000048 CommonDataFramework.Modules.PedDatabase.PedData::set_Address
+  IL_001d: ldarg.0
+  IL_001e: ldarg.1
+  IL_001f: call 0xa000094 LSPD_First_Response.Mod.API.Functions::GetPersonaForPed
+  IL_0024: stfld 0x4000056 CommonDataFramework.Modules.PedDatabase.PedData::_persona
+  IL_0029: ldarg.0
+  IL_002a: call 0x6000069 CommonDataFramework.Modules.PedDatabase.PedData::HandlePersonaUpdate
+  IL_002f: ldsfld 0x4000062 CommonDataFramework.Modules.PedDatabase.PedDataController::Database
+  IL_0034: ldarg.1
+  IL_0035: ldarg.0
+  IL_0036: callvirt 0xa000095 System.Collections.Generic.Dictionary`2<Rage.Ped,CommonDataFramework.Modules.PedDatabase.PedData>::Add
+  IL_003b: ret
+METHOD 0x6000066 .ctor ['LSPD_First_Response.Engine.Scripting.Entities.Persona', 'CommonDataFramework.Modules.PedResidence.PedAddress']
+  IL_0000: ldarg.0
+  IL_0001: call 0x6000064 CommonDataFramework.Modules.PedDatabase.PedData::.ctor
+  IL_0006: ldarg.0
+  IL_0007: ldarg.2
+  IL_0008: dup
+  IL_0009: brtrue.s  -> IL_0011
+  IL_000b: pop
+  IL_000c: newobj 0x600009b CommonDataFramework.Modules.PedResidence.PedAddress::.ctor
+  IL_0011: call 0x6000048 CommonDataFramework.Modules.PedDatabase.PedData::set_Address
+  IL_0016: ldarg.0
+  IL_0017: ldarg.1
+  IL_0018: stfld 0x4000056 CommonDataFramework.Modules.PedDatabase.PedData::_persona
+  IL_001d: ldarg.0
+  IL_001e: call 0x6000069 CommonDataFramework.Modules.PedDatabase.PedData::HandlePersonaUpdate
+  IL_0023: ret
+TYPE CommonDataFramework.Modules.PedDatabase.PedDataController
+FIELD 0x4000061 _lastPrune Int64 constant=None
+FIELD 0x4000062 Database System.Collections.Generic.Dictionary`2<Rage.Ped,CommonDataFramework.Modules.PedDatabase.PedData> constant=None
+METHOD 0x600006a GetPedData ['Rage.Ped']
+  IL_0000: call 0x60000a0 CommonDataFramework.Engine.Utility.Helper::CurrentMillis
+  IL_0005: stloc.0
+  IL_0006: ldloc.0
+  IL_0007: ldsfld 0x4000061 CommonDataFramework.Modules.PedDatabase.PedDataController::_lastPrune
+  IL_000c: sub
+  IL_000d: ldc.i4 900000
+  IL_0012: conv.i8
+  IL_0013: ble.s  -> IL_0020
+  IL_0015: ldloc.0
+  IL_0016: stsfld 0x4000061 CommonDataFramework.Modules.PedDatabase.PedDataController::_lastPrune
+  IL_001b: call 0x600006c CommonDataFramework.Modules.PedDatabase.PedDataController::Prune
+  IL_0020: ldsfld 0x4000062 CommonDataFramework.Modules.PedDatabase.PedDataController::Database
+  IL_0025: ldarg.0
+  IL_0026: ldloca.s 1
+  IL_0028: callvirt 0xa000097 System.Collections.Generic.Dictionary`2<Rage.Ped,CommonDataFramework.Modules.PedDatabase.PedData>::TryGetValue
+  IL_002d: brfalse.s  -> IL_0031
+  IL_002f: ldloc.1
+  IL_0030: ret
+  IL_0031: ldarg.0
+  IL_0032: call 0xa000023 .EntityExtensions::Exists
+  IL_0037: brfalse.s  -> IL_0049
+  IL_0039: ldarg.0
+  IL_003a: callvirt 0xa000098 Rage.Ped::get_IsHuman
+  IL_003f: brfalse.s  -> IL_0049
+  IL_0041: ldarg.0
+  IL_0042: ldnull
+  IL_0043: newobj 0x6000065 CommonDataFramework.Modules.PedDatabase.PedData::.ctor
+  IL_0048: ret
+  IL_0049: ldnull
+  IL_004a: ret
+METHOD 0x600006b Clear []
+  IL_0000: ldsfld 0x4000062 CommonDataFramework.Modules.PedDatabase.PedDataController::Database
+  IL_0005: callvirt 0xa000099 System.Collections.Generic.Dictionary`2<Rage.Ped,CommonDataFramework.Modules.PedDatabase.PedData>::Clear
+  IL_000a: ldstr Clear: PedDataController.
+  IL_000f: call 0x60000a7 CommonDataFramework.Engine.Utility.Logger::LogDebug
+  IL_0014: ret
+METHOD 0x600006c Prune []
+  IL_0000: ldstr PedDataController: Checking {0}.
+  IL_0005: ldsfld 0x4000062 CommonDataFramework.Modules.PedDatabase.PedDataController::Database
+  IL_000a: callvirt 0xa00009a System.Collections.Generic.Dictionary`2<Rage.Ped,CommonDataFramework.Modules.PedDatabase.PedData>::get_Count
+  IL_000f: box 0x1000064 System.Int32
+  IL_0014: call 0xa000073 System.String::Format
+  IL_0019: call 0x60000a7 CommonDataFramework.Engine.Utility.Logger::LogDebug
+  IL_001e: ldc.i4.0
+  IL_001f: stloc.0
+  IL_0020: ldsfld 0x4000062 CommonDataFramework.Modules.PedDatabase.PedDataController::Database
+  IL_0025: call 0x2b000004 System.Linq.Enumerable::ToArray
+  IL_002a: stloc.1
+  IL_002b: ldc.i4.0
+  IL_002c: stloc.2
+  IL_002d: br.s  -> IL_008f
+  IL_002f: ldloc.1
+  IL_0030: ldloc.2
+  IL_0031: ldelem 0x1b00001f System.Collections.Generic.KeyValuePair`2<Rage.Ped,CommonDataFramework.Modules.PedDatabase.PedData>
+  IL_0036: stloc.3
+  IL_0037: ldloca.s 3
+  IL_0039: call 0xa00009b System.Collections.Generic.KeyValuePair`2<Rage.Ped,CommonDataFramework.Modules.PedDatabase.PedData>::get_Key
+  IL_003e: call 0xa000023 .EntityExtensions::Exists
+  IL_0043: brtrue.s  -> IL_008b
+  IL_0045: ldloca.s 3
+  IL_0047: call 0xa00009c System.Collections.Generic.KeyValuePair`2<Rage.Ped,CommonDataFramework.Modules.PedDatabase.PedData>::get_Value
+  IL_004c: ldfld 0x4000060 CommonDataFramework.Modules.PedDatabase.PedData::RemoveDuringNextPrune
+  IL_0051: brtrue.s  -> IL_0062
+  IL_0053: ldloca.s 3
+  IL_0055: call 0xa00009c System.Collections.Generic.KeyValuePair`2<Rage.Ped,CommonDataFramework.Modules.PedDatabase.PedData>::get_Value
+  IL_005a: ldc.i4.1
+  IL_005b: stfld 0x4000060 CommonDataFramework.Modules.PedDatabase.PedData::RemoveDuringNextPrune
+  IL_0060: br.s  -> IL_008b
+  IL_0062: ldsfld 0x4000062 CommonDataFramework.Modules.PedDatabase.PedDataController::Database
+  IL_0067: ldloca.s 3
+  IL_0069: call 0xa00009b System.Collections.Generic.KeyValuePair`2<Rage.Ped,CommonDataFramework.Modules.PedDatabase.PedData>::get_Key
+  IL_006e: callvirt 0xa00009d System.Collections.Generic.Dictionary`2<Rage.Ped,CommonDataFramework.Modules.PedDatabase.PedData>::Remove
+  IL_0073: pop
+  IL_0074: ldloc.0
+  IL_0075: ldc.i4.1
+  IL_0076: add
+  IL_0077: stloc.0
+  IL_0078: ldloca.s 3
+  IL_007a: call 0xa00009b System.Collections.Generic.KeyValuePair`2<Rage.Ped,CommonDataFramework.Modules.PedDatabase.PedData>::get_Key
+  IL_007f: ldloca.s 3
+  IL_0081: call 0xa00009c System.Collections.Generic.KeyValuePair`2<Rage.Ped,CommonDataFramework.Modules.PedDatabase.PedData>::get_Value
+  IL_0086: call 0x60000ee CommonDataFramework.API.CDFEvents::InvokeOnPedDataRemoved
+  IL_008b: ldloc.2
+  IL_008c: ldc.i4.1
+  IL_008d: add
+  IL_008e: stloc.2
+  IL_008f: ldloc.2
+  IL_0090: ldloc.1
+  IL_0091: ldlen
+  IL_0092: conv.i4
+  IL_0093: blt.s  -> IL_002f
+  IL_0095: ldstr PedDataController: Removed {0}.
+  IL_009a: ldloc.0
+  IL_009b: box 0x1000064 System.Int32
+  IL_00a0: call 0xa000073 System.String::Format
+  IL_00a5: call 0x60000a7 CommonDataFramework.Engine.Utility.Logger::LogDebug
+  IL_00aa: ret
+METHOD 0x600006d .cctor []
+  IL_0000: call 0x60000a0 CommonDataFramework.Engine.Utility.Helper::CurrentMillis
+  IL_0005: stsfld 0x4000061 CommonDataFramework.Modules.PedDatabase.PedDataController::_lastPrune
+  IL_000a: newobj 0xa00009e System.Collections.Generic.Dictionary`2<Rage.Ped,CommonDataFramework.Modules.PedDatabase.PedData>::.ctor
+  IL_000f: stsfld 0x4000062 CommonDataFramework.Modules.PedDatabase.PedDataController::Database
+  IL_0014: ret

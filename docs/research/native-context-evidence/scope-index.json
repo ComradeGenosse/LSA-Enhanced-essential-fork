@@ -1,0 +1,857 @@
+{
+  "dllSha256": "9b6de42d4c464901d859dd95e17e100e4fa9ef6074bfbb0cf3a57a76f6ddd653",
+  "scope": "All method bodies and field signatures in pinned Essential. Reflection/external providers remain outside this static negative-search scope.",
+  "methodCount": 5588,
+  "typeCount": 651,
+  "coreFields": [
+    {
+      "token": "0x400097e",
+      "name": "PedId",
+      "attributes": "Public",
+      "type": "String",
+      "constant": null,
+      "declaringType": "LosSantosAlive.Context.ActorContext"
+    },
+    {
+      "token": "0x400097f",
+      "name": "PedModel",
+      "attributes": "Public",
+      "type": "String",
+      "constant": null,
+      "declaringType": "LosSantosAlive.Context.ActorContext"
+    },
+    {
+      "token": "0x4000980",
+      "name": "Gender",
+      "attributes": "Public",
+      "type": "String",
+      "constant": null,
+      "declaringType": "LosSantosAlive.Context.ActorContext"
+    },
+    {
+      "token": "0x4000981",
+      "name": "AgeRange",
+      "attributes": "Public",
+      "type": "String",
+      "constant": null,
+      "declaringType": "LosSantosAlive.Context.ActorContext"
+    },
+    {
+      "token": "0x4000982",
+      "name": "Archetype",
+      "attributes": "Public",
+      "type": "String",
+      "constant": null,
+      "declaringType": "LosSantosAlive.Context.ActorContext"
+    },
+    {
+      "token": "0x4000983",
+      "name": "ArchetypeDescription",
+      "attributes": "Public",
+      "type": "String",
+      "constant": null,
+      "declaringType": "LosSantosAlive.Context.ActorContext"
+    },
+    {
+      "token": "0x4000984",
+      "name": "ArchetypePerceivedDescription",
+      "attributes": "Public",
+      "type": "String",
+      "constant": null,
+      "declaringType": "LosSantosAlive.Context.ActorContext"
+    },
+    {
+      "token": "0x4000987",
+      "name": "RoleName",
+      "attributes": "Public",
+      "type": "String",
+      "constant": null,
+      "declaringType": "LosSantosAlive.Context.ActorContext"
+    },
+    {
+      "token": "0x4000988",
+      "name": "RoleContext",
+      "attributes": "Public",
+      "type": "String",
+      "constant": null,
+      "declaringType": "LosSantosAlive.Context.ActorContext"
+    }
+  ],
+  "coreWrites": [
+    {
+      "token": "0x600111e",
+      "type": "LosSantosAlive.Context.ActorContext",
+      "name": ".ctor",
+      "offset": "0x17d",
+      "op": "stfld",
+      "targetToken": "0x400097f",
+      "target": "LosSantosAlive.Context.ActorContext::PedModel"
+    },
+    {
+      "token": "0x600111e",
+      "type": "LosSantosAlive.Context.ActorContext",
+      "name": ".ctor",
+      "offset": "0x18d",
+      "op": "stfld",
+      "targetToken": "0x4000980",
+      "target": "LosSantosAlive.Context.ActorContext::Gender"
+    },
+    {
+      "token": "0x600111e",
+      "type": "LosSantosAlive.Context.ActorContext",
+      "name": ".ctor",
+      "offset": "0x1d1",
+      "op": "stfld",
+      "targetToken": "0x400097e",
+      "target": "LosSantosAlive.Context.ActorContext::PedId"
+    },
+    {
+      "token": "0x600111e",
+      "type": "LosSantosAlive.Context.ActorContext",
+      "name": ".ctor",
+      "offset": "0x29b",
+      "op": "stfld",
+      "targetToken": "0x4000987",
+      "target": "LosSantosAlive.Context.ActorContext::RoleName"
+    },
+    {
+      "token": "0x600111e",
+      "type": "LosSantosAlive.Context.ActorContext",
+      "name": ".ctor",
+      "offset": "0x2bd",
+      "op": "stfld",
+      "targetToken": "0x4000981",
+      "target": "LosSantosAlive.Context.ActorContext::AgeRange"
+    },
+    {
+      "token": "0x600111e",
+      "type": "LosSantosAlive.Context.ActorContext",
+      "name": ".ctor",
+      "offset": "0x2cd",
+      "op": "stfld",
+      "targetToken": "0x4000982",
+      "target": "LosSantosAlive.Context.ActorContext::Archetype"
+    },
+    {
+      "token": "0x600111e",
+      "type": "LosSantosAlive.Context.ActorContext",
+      "name": ".ctor",
+      "offset": "0x2d8",
+      "op": "stfld",
+      "targetToken": "0x4000983",
+      "target": "LosSantosAlive.Context.ActorContext::ArchetypeDescription"
+    },
+    {
+      "token": "0x600111e",
+      "type": "LosSantosAlive.Context.ActorContext",
+      "name": ".ctor",
+      "offset": "0x2e3",
+      "op": "stfld",
+      "targetToken": "0x4000984",
+      "target": "LosSantosAlive.Context.ActorContext::ArchetypePerceivedDescription"
+    },
+    {
+      "token": "0x600111e",
+      "type": "LosSantosAlive.Context.ActorContext",
+      "name": ".ctor",
+      "offset": "0x350",
+      "op": "stfld",
+      "targetToken": "0x4000988",
+      "target": "LosSantosAlive.Context.ActorContext::RoleContext"
+    },
+    {
+      "token": "0x60012b8",
+      "type": "LosSantosAlive.Context.Providers.ActorContextProvider",
+      "name": "Populate",
+      "offset": "0xc7",
+      "op": "stfld",
+      "targetToken": "0x4000984",
+      "target": "LosSantosAlive.Context.ActorContext::ArchetypePerceivedDescription"
+    },
+    {
+      "token": "0x60012b8",
+      "type": "LosSantosAlive.Context.Providers.ActorContextProvider",
+      "name": "Populate",
+      "offset": "0xfa",
+      "op": "stfld",
+      "targetToken": "0x400097e",
+      "target": "LosSantosAlive.Context.ActorContext::PedId"
+    },
+    {
+      "token": "0x60012b8",
+      "type": "LosSantosAlive.Context.Providers.ActorContextProvider",
+      "name": "Populate",
+      "offset": "0x12f",
+      "op": "stfld",
+      "targetToken": "0x400097f",
+      "target": "LosSantosAlive.Context.ActorContext::PedModel"
+    },
+    {
+      "token": "0x60012b8",
+      "type": "LosSantosAlive.Context.Providers.ActorContextProvider",
+      "name": "Populate",
+      "offset": "0x16a",
+      "op": "stfld",
+      "targetToken": "0x4000982",
+      "target": "LosSantosAlive.Context.ActorContext::Archetype"
+    },
+    {
+      "token": "0x60012b8",
+      "type": "LosSantosAlive.Context.Providers.ActorContextProvider",
+      "name": "Populate",
+      "offset": "0x187",
+      "op": "stfld",
+      "targetToken": "0x4000984",
+      "target": "LosSantosAlive.Context.ActorContext::ArchetypePerceivedDescription"
+    },
+    {
+      "token": "0x60012b8",
+      "type": "LosSantosAlive.Context.Providers.ActorContextProvider",
+      "name": "Populate",
+      "offset": "0x1c1",
+      "op": "stfld",
+      "targetToken": "0x4000987",
+      "target": "LosSantosAlive.Context.ActorContext::RoleName"
+    },
+    {
+      "token": "0x60012b8",
+      "type": "LosSantosAlive.Context.Providers.ActorContextProvider",
+      "name": "Populate",
+      "offset": "0x1cc",
+      "op": "stfld",
+      "targetToken": "0x4000988",
+      "target": "LosSantosAlive.Context.ActorContext::RoleContext"
+    },
+    {
+      "token": "0x60012b8",
+      "type": "LosSantosAlive.Context.Providers.ActorContextProvider",
+      "name": "Populate",
+      "offset": "0x1ee",
+      "op": "stfld",
+      "targetToken": "0x400097e",
+      "target": "LosSantosAlive.Context.ActorContext::PedId"
+    },
+    {
+      "token": "0x60012b8",
+      "type": "LosSantosAlive.Context.Providers.ActorContextProvider",
+      "name": "Populate",
+      "offset": "0x221",
+      "op": "stfld",
+      "targetToken": "0x4000980",
+      "target": "LosSantosAlive.Context.ActorContext::Gender"
+    },
+    {
+      "token": "0x60012b8",
+      "type": "LosSantosAlive.Context.Providers.ActorContextProvider",
+      "name": "Populate",
+      "offset": "0x231",
+      "op": "stfld",
+      "targetToken": "0x4000981",
+      "target": "LosSantosAlive.Context.ActorContext::AgeRange"
+    },
+    {
+      "token": "0x60012b8",
+      "type": "LosSantosAlive.Context.Providers.ActorContextProvider",
+      "name": "Populate",
+      "offset": "0x24f",
+      "op": "stfld",
+      "targetToken": "0x4000982",
+      "target": "LosSantosAlive.Context.ActorContext::Archetype"
+    },
+    {
+      "token": "0x60012b8",
+      "type": "LosSantosAlive.Context.Providers.ActorContextProvider",
+      "name": "Populate",
+      "offset": "0x284",
+      "op": "stfld",
+      "targetToken": "0x400097f",
+      "target": "LosSantosAlive.Context.ActorContext::PedModel"
+    },
+    {
+      "token": "0x60012b8",
+      "type": "LosSantosAlive.Context.Providers.ActorContextProvider",
+      "name": "Populate",
+      "offset": "0x2a1",
+      "op": "stfld",
+      "targetToken": "0x4000983",
+      "target": "LosSantosAlive.Context.ActorContext::ArchetypeDescription"
+    },
+    {
+      "token": "0x60012b8",
+      "type": "LosSantosAlive.Context.Providers.ActorContextProvider",
+      "name": "Populate",
+      "offset": "0x2bf",
+      "op": "stfld",
+      "targetToken": "0x4000980",
+      "target": "LosSantosAlive.Context.ActorContext::Gender"
+    },
+    {
+      "token": "0x60012b8",
+      "type": "LosSantosAlive.Context.Providers.ActorContextProvider",
+      "name": "Populate",
+      "offset": "0x2f7",
+      "op": "stfld",
+      "targetToken": "0x4000981",
+      "target": "LosSantosAlive.Context.ActorContext::AgeRange"
+    },
+    {
+      "token": "0x60012b8",
+      "type": "LosSantosAlive.Context.Providers.ActorContextProvider",
+      "name": "Populate",
+      "offset": "0x32b",
+      "op": "stfld",
+      "targetToken": "0x4000983",
+      "target": "LosSantosAlive.Context.ActorContext::ArchetypeDescription"
+    },
+    {
+      "token": "0x60012b9",
+      "type": "LosSantosAlive.Context.Providers.ActorContextProvider",
+      "name": "hidden",
+      "offset": "0x62",
+      "op": "stfld",
+      "targetToken": "0x4000988",
+      "target": "LosSantosAlive.Context.ActorContext::RoleContext"
+    },
+    {
+      "token": "0x60012b9",
+      "type": "LosSantosAlive.Context.Providers.ActorContextProvider",
+      "name": "hidden",
+      "offset": "0xae",
+      "op": "stfld",
+      "targetToken": "0x4000988",
+      "target": "LosSantosAlive.Context.ActorContext::RoleContext"
+    },
+    {
+      "token": "0x60012b9",
+      "type": "LosSantosAlive.Context.Providers.ActorContextProvider",
+      "name": "hidden",
+      "offset": "0xdf",
+      "op": "stfld",
+      "targetToken": "0x4000987",
+      "target": "LosSantosAlive.Context.ActorContext::RoleName"
+    },
+    {
+      "token": "0x60012b9",
+      "type": "LosSantosAlive.Context.Providers.ActorContextProvider",
+      "name": "hidden",
+      "offset": "0xf4",
+      "op": "stfld",
+      "targetToken": "0x4000987",
+      "target": "LosSantosAlive.Context.ActorContext::RoleName"
+    }
+  ],
+  "guidFields": [],
+  "guidOperations": [
+    {
+      "token": "0x60001ba",
+      "type": "LosSantosAlive.NPC.DirectedInteractionManager",
+      "name": "hidden",
+      "offset": "0x6c0",
+      "op": "call",
+      "targetToken": "0xa000122",
+      "target": "System.Guid::ToString"
+    },
+    {
+      "token": "0x60001ba",
+      "type": "LosSantosAlive.NPC.DirectedInteractionManager",
+      "name": "hidden",
+      "offset": "0x8d7",
+      "op": "call",
+      "targetToken": "0xa000124",
+      "target": "System.Guid::NewGuid"
+    }
+  ],
+  "guidWrapperCallers": [
+    {
+      "token": "0x60001b4",
+      "type": "LosSantosAlive.NPC.DirectedInteractionManager",
+      "name": "StartInteraction",
+      "offset": "0x7",
+      "op": "call",
+      "targetToken": "0x60001ba",
+      "target": "LosSantosAlive.NPC.DirectedInteractionManager::\u200c\u200b\u200e\u200b\u206c\u200f\u206f\u200d\u206c\u206c\u206a\u206b\u206b\u202a\u200b\u200b\u202d\u202e\u200f\u202d\u206d\u202d\u202d\u200d\u206a\u200d\u202e\u200f\u206d\u206a\u200e\u206c\u202d\u202d\u202b\u206f\u206c\u206f\u206e\u200c\u202e"
+    },
+    {
+      "token": "0x60001b6",
+      "type": "LosSantosAlive.NPC.DirectedInteractionManager",
+      "name": "StartFelonyStopInteraction",
+      "offset": "0x1a",
+      "op": "call",
+      "targetToken": "0x60001ba",
+      "target": "LosSantosAlive.NPC.DirectedInteractionManager::\u200c\u200b\u200e\u200b\u206c\u200f\u206f\u200d\u206c\u206c\u206a\u206b\u206b\u202a\u200b\u200b\u202d\u202e\u200f\u202d\u206d\u202d\u202d\u200d\u206a\u200d\u202e\u200f\u206d\u206a\u200e\u206c\u202d\u202d\u202b\u206f\u206c\u206f\u206e\u200c\u202e"
+    }
+  ],
+  "namedIdentityFields": [
+    {
+      "token": "0x40000be",
+      "name": "SetupId",
+      "attributes": "Public",
+      "type": "String",
+      "constant": null,
+      "declaringType": "LosSantosAlive.Scenes.HostageScenes.HostageSceneSetup"
+    },
+    {
+      "token": "0x40000bf",
+      "name": "InteriorId",
+      "attributes": "Public",
+      "type": "String",
+      "constant": null,
+      "declaringType": "LosSantosAlive.Scenes.HostageScenes.HostageSceneSetup"
+    },
+    {
+      "token": "0x40000d0",
+      "name": "InteriorId",
+      "attributes": "Public",
+      "type": "String",
+      "constant": null,
+      "declaringType": "LosSantosAlive.Scenes.HostageScenes.HostageSceneState"
+    },
+    {
+      "token": "0x4000284",
+      "name": "ActiveInteractionId",
+      "attributes": "Public",
+      "type": "String",
+      "constant": null,
+      "declaringType": "LosSantosAlive.NPC.NpcState"
+    },
+    {
+      "token": "0x400097e",
+      "name": "PedId",
+      "attributes": "Public",
+      "type": "String",
+      "constant": null,
+      "declaringType": "LosSantosAlive.Context.ActorContext"
+    },
+    {
+      "token": "0x40009b4",
+      "name": "PlayerPedId",
+      "attributes": "Public",
+      "type": "String",
+      "constant": null,
+      "declaringType": "LosSantosAlive.Context.ContextSnapshot"
+    },
+    {
+      "token": "0x40009b7",
+      "name": "InteractionId",
+      "attributes": "Public",
+      "type": "String",
+      "constant": null,
+      "declaringType": "LosSantosAlive.Context.ContextSnapshot"
+    },
+    {
+      "token": "0x4000b40",
+      "name": "PedId",
+      "attributes": "Public",
+      "type": "String",
+      "constant": null,
+      "declaringType": "LosSantosAlive.Audio.NpcAudioTurn"
+    },
+    {
+      "token": "0x4000b41",
+      "name": "TurnId",
+      "attributes": "Public",
+      "type": "String",
+      "constant": null,
+      "declaringType": "LosSantosAlive.Audio.NpcAudioTurn"
+    },
+    {
+      "token": "0x4000b43",
+      "name": "Key",
+      "attributes": "Public",
+      "type": "String",
+      "constant": null,
+      "declaringType": "LosSantosAlive.Audio.NpcAudioTurn"
+    },
+    {
+      "token": "0x4000b45",
+      "name": "ListenerPedId",
+      "attributes": "Public",
+      "type": "String",
+      "constant": null,
+      "declaringType": "LosSantosAlive.Audio.NpcAudioTurn"
+    },
+    {
+      "token": "0x4000b54",
+      "name": "PedId",
+      "attributes": "Public",
+      "type": "String",
+      "constant": null,
+      "declaringType": "LosSantosAlive.Audio.NpcPlaybackStartedEvent"
+    },
+    {
+      "token": "0x4000b55",
+      "name": "TurnId",
+      "attributes": "Public",
+      "type": "String",
+      "constant": null,
+      "declaringType": "LosSantosAlive.Audio.NpcPlaybackStartedEvent"
+    },
+    {
+      "token": "0x4000b58",
+      "name": "PedId",
+      "attributes": "Public",
+      "type": "String",
+      "constant": null,
+      "declaringType": "LosSantosAlive.Audio.NpcPlaybackEndedEvent"
+    },
+    {
+      "token": "0x4000b59",
+      "name": "TurnId",
+      "attributes": "Public",
+      "type": "String",
+      "constant": null,
+      "declaringType": "LosSantosAlive.Audio.NpcPlaybackEndedEvent"
+    },
+    {
+      "token": "0x4000bfe",
+      "name": "PedId",
+      "attributes": "Public",
+      "type": "String",
+      "constant": null,
+      "declaringType": "LosSantosAlive.Bridge.NpcAudioProtocolMessage"
+    },
+    {
+      "token": "0x4000bff",
+      "name": "TurnId",
+      "attributes": "Public",
+      "type": "String",
+      "constant": null,
+      "declaringType": "LosSantosAlive.Bridge.NpcAudioProtocolMessage"
+    },
+    {
+      "token": "0x4000c03",
+      "name": "ListenerPedId",
+      "attributes": "Public",
+      "type": "String",
+      "constant": null,
+      "declaringType": "LosSantosAlive.Bridge.NpcAudioProtocolMessage"
+    },
+    {
+      "token": "0x4000c31",
+      "name": "DedupeKey",
+      "attributes": "Public",
+      "type": "String",
+      "constant": null,
+      "declaringType": "LosSantosAlive.Bridge.SpecialTurns.SpecialGeminiTurnRequest"
+    }
+  ],
+  "archetypeReloadCallers": [
+    {
+      "token": "0x60010b2",
+      "type": "LosSantosAlive.Core.GeminiVoicePlugin",
+      "name": "hidden",
+      "offset": "0x3a",
+      "op": "call",
+      "targetToken": "0x600118c",
+      "target": "LosSantosAlive.Context.GeminiContextBuilder::LoadArchetypesIni"
+    },
+    {
+      "token": "0x600118c",
+      "type": "LosSantosAlive.Context.GeminiContextBuilder",
+      "name": "LoadArchetypesIni",
+      "offset": "0x0",
+      "op": "call",
+      "targetToken": "0x60012b5",
+      "target": "LosSantosAlive.Context.Providers.ActorContextProvider::LoadArchetypesIni"
+    }
+  ],
+  "contextUpdateConsumers": [
+    {
+      "token": "0x600118e",
+      "type": "LosSantosAlive.Context.GeminiContextBuilder",
+      "name": "BuildInteractionContextJson",
+      "offset": "0x289",
+      "op": "call",
+      "targetToken": "0x6001196",
+      "target": "LosSantosAlive.Context.GeminiContextBuilder::\u202a\u206e\u200c\u202a\u206e\u202d\u206a\u200f\u200e\u202e\u206c\u200c\u206f\u200f\u202d\u206f\u200c\u202b\u202b\u202d\u202d\u206c\u206b\u206b\u200d\u202c\u206e\u202d\u202a\u206e\u200d\u206b\u202d\u202c\u206d\u206b\u200b\u206e\u202c\u200f\u202e"
+    }
+  ],
+  "bridgeScope": {
+    "dllSha256": "712f9491c0693d496ea82b1e4cefaa03c0575408a2fefa8d9e295bb516e5ad3e",
+    "types": [
+      ".<Module>",
+      ".<Module>+\u206e\u202a\u200c\u202d\u206c\u202e\u206d\u206e\u206b\u202c\u202e\u202d\u200e\u200c\u202e\u202c\u202a\u206c\u202d\u200f\u200f\u202b\u202b\u200c\u200b\u202c\u206a\u202a\u206c\u200e\u206f\u206b\u202d\u202d\u202a\u206f\u200c\u200d\u200d\u206c\u202e",
+      ".<Module>+\u200e\u202e\u206e\u200c\u206f\u200f\u202b\u206b\u202e\u200f\u202d\u206f\u202c\u206f\u206e\u202e\u200b\u206d\u202b\u202a\u200f\u202b\u200c\u206e\u200c\u200f\u202d\u202d\u200d\u202d\u206b\u200c\u206c\u206c\u202d\u200e\u202c\u206e\u200e\u200c\u202e",
+      ".<Module>+\u202d\u200f\u202a\u206a\u206e\u206a\u200b\u200b\u206e\u202a\u202e\u200e\u206c\u200e\u206f\u200f\u200e\u202c\u202e\u202a\u202b\u200e\u200c\u206a\u206a\u206a\u200f\u206e\u206e\u206d\u206d\u200e\u202b\u206c\u206d\u202c\u206d\u206f\u200b\u202e\u202e",
+      ".<Module>+\u206b\u206a\u206c\u206b\u200c\u202b\u200d\u200c\u200c\u202b\u206c\u202b\u206d\u202e\u202e\u202d\u200b\u202c\u202a\u206a\u202d\u200f\u206f\u206c\u206e\u206f\u200f\u206b\u202e\u200f\u206d\u206e\u200b\u200f\u202d\u202e\u206a\u200d\u202a\u202b\u202e",
+      ".<Module>+\u206b\u206a\u206c\u206b\u200c\u202b\u200d\u200c\u200c\u202b\u206c\u202b\u206d\u202e\u202e\u202d\u200b\u202c\u202a\u206a\u202d\u200f\u206f\u206c\u206e\u206f\u200f\u206b\u202e\u200f\u206d\u206e\u200b\u200f\u202d\u202e\u206a\u200d\u202a\u202b\u202e+\u202e\u200f\u202d\u202d\u206c\u206f\u202c\u200f\u206e\u206e\u202c\u200f\u206f\u206b\u202e\u206f\u200f\u200d\u200b\u202c\u202a\u206c\u206b\u202d\u200d\u206c\u200c\u200b\u200c\u206b\u206d\u206b\u202d\u200b\u202c\u200f\u200c\u202c\u202e\u206d\u202e",
+      ".<Module>+\u206b\u206a\u206c\u206b\u200c\u202b\u200d\u200c\u200c\u202b\u206c\u202b\u206d\u202e\u202e\u202d\u200b\u202c\u202a\u206a\u202d\u200f\u206f\u206c\u206e\u206f\u200f\u206b\u202e\u200f\u206d\u206e\u200b\u200f\u202d\u202e\u206a\u200d\u202a\u202b\u202e+\u200e\u200b\u202d\u206f\u206f\u206c\u206f\u202b\u200d\u200e\u200e\u200b\u202d\u206f\u206e\u200f\u206c\u206e\u200e\u206a\u200b\u200b\u200d\u200b\u206f\u200b\u206d\u206d\u206f\u206e\u202b\u206a\u206f\u206c\u206e\u202a\u200f\u206e\u200f\u206f\u202e",
+      ".<Module>+\u206b\u206a\u206c\u206b\u200c\u202b\u200d\u200c\u200c\u202b\u206c\u202b\u206d\u202e\u202e\u202d\u200b\u202c\u202a\u206a\u202d\u200f\u206f\u206c\u206e\u206f\u200f\u206b\u202e\u200f\u206d\u206e\u200b\u200f\u202d\u202e\u206a\u200d\u202a\u202b\u202e+\u200e\u200b\u202d\u206f\u206f\u206c\u206f\u202b\u200d\u200e\u200e\u200b\u202d\u206f\u206e\u200f\u206c\u206e\u200e\u206a\u200b\u200b\u200d\u200b\u206f\u200b\u206d\u206d\u206f\u206e\u202b\u206a\u206f\u206c\u206e\u202a\u200f\u206e\u200f\u206f\u202e+\u200b\u206f\u200f\u202d\u202c\u202c\u206a\u206e\u206a\u206e\u200e\u202c\u202e\u200e\u200c\u206d\u202c\u206f\u206a\u200f\u206a\u200f\u206b\u202c\u206b\u202d\u200e\u206e\u206c\u206a\u206c\u202b\u202e\u206d\u206b\u200d\u206b\u206a\u206f\u206e\u202e",
+      ".<Module>+\u206b\u202a\u200f\u206d\u206f\u200b\u200d\u200f\u206b\u200b\u202b\u202e\u202c\u206b\u200d\u202a\u206b\u200b\u202c\u200e\u202b\u206f\u202e\u202a\u200e\u206e\u200c\u206c\u206c\u206b\u206b\u202d\u206c\u200e\u206f\u206a\u206c\u206c\u202d\u200f\u202e",
+      ".<Module>+\u202b\u202c\u206f\u206a\u206c\u202e\u200f\u200e\u206f\u202e\u200f\u206e\u206d\u206b\u206c\u206c\u200b\u202d\u206d\u202b\u200d\u206f\u206b\u200d\u202b\u206c\u202c\u202e\u206c\u202c\u202e\u200c\u206a\u200c\u202d\u202c\u200d\u202b\u202e\u206d\u202e",
+      ".<Module>+\u206c\u206b\u206c\u206c\u206a\u206e\u200d\u206b\u202d\u206f\u202e\u200b\u202a\u206f\u202e\u202d\u206b\u200d\u200e\u200b\u202a\u206b\u202a\u206b\u206f\u202a\u202c\u202a\u200e\u206e\u200c\u202d\u202a\u206b\u202e\u206d\u200b\u200f\u202c\u200d\u202e",
+      ".<Module>+\u202e\u206d\u202c\u202e\u200e\u200f\u206a\u200f\u206f\u206d\u206e\u202b\u202e\u200c\u200c\u200e\u206b\u206e\u202a\u206b\u206d\u206c\u200d\u206d\u202b\u200e\u202d\u206a\u202e\u206c\u206c\u206e\u200b\u202c\u200c\u202d\u206d\u206e\u202a\u200d\u202e",
+      "LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore",
+      "LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore+\u206f\u200c\u206a\u202b\u200e\u200b\u206b\u202c\u202a\u202a\u200f\u206e\u206f\u202c\u200d\u200b\u200d\u202e\u206b\u202b\u200c\u200e\u200d\u200d\u200d\u202b\u206c\u200f\u200e\u200b\u206e\u202d\u200e\u200b\u200f\u202e\u202a\u202d\u206a\u202d\u202e",
+      "LosSantosAlive.PRBridge.LspdfrDynamicDisturbanceCallout",
+      "LosSantosAlive.PRBridge.Main",
+      "LosSantosAlive.PRBridge.Main+\u202e\u206d\u206a\u200e\u202e\u206d\u200c\u202e\u202c\u200c\u200e\u202e\u200c\u202a\u206a\u200c\u206d\u202e\u206e\u202b\u206f\u200d\u200d\u206e\u206d\u206e\u200e\u202e\u200f\u200f\u206c\u202e\u206a\u202d\u206c\u202e\u202e\u200f\u206d\u202e\u202e",
+      "LosSantosAlive.PRBridge.PedCheckRequestHandler",
+      "LosSantosAlive.PRBridge.PedCheckRequestHandler+\u200b\u202c\u206b\u200f\u206c\u206a\u206f\u206a\u206f\u200d\u206f\u206a\u200d\u200c\u206d\u206d\u206a\u206b\u202c\u202e\u206b\u206d\u206f\u200b\u202e\u206d\u206b\u202a\u206c\u206e\u202d\u206a\u202c\u202a\u206d\u206b\u206d\u202b\u206b\u206e\u202e",
+      "LosSantosAlive.PRBridge.PrArrestInvoker",
+      "LosSantosAlive.PRBridge.PrArrestInvoker+\u206b\u206e\u200f\u202a\u200e\u202d\u200e\u200d\u206b\u202d\u206e\u200d\u202b\u202d\u200d\u202e\u202c\u200d\u202e\u202c\u206e\u202c\u206c\u200e\u206e\u206a\u206d\u206b\u206d\u202d\u200c\u200f\u202d\u206a\u206a\u206e\u200c\u200b\u200b\u200c\u202e",
+      "LosSantosAlive.PRBridge.PrArrestInvoker+\u200c\u202a\u200f\u202c\u200b\u202a\u202e\u202d\u202e\u200b\u206e\u206e\u202c\u202a\u206e\u202d\u206d\u202d\u200b\u206b\u202a\u200c\u206b\u200f\u206a\u200b\u200e\u202c\u206b\u202c\u202d\u206d\u206a\u206a\u206b\u200d\u206a\u206e\u206f\u200d\u202e",
+      "LosSantosAlive.PRBridge.PrArrestInvoker+\u202d\u200c\u206e\u206c\u200c\u202a\u200b\u202a\u206e\u200d\u206f\u206c\u206f\u206e\u206f\u202e\u200d\u202d\u200c\u200e\u206c\u206e\u200f\u200b\u206f\u200d\u200b\u202a\u206e\u202a\u206a\u200f\u206b\u202e\u200e\u202d\u202b\u200d\u206f\u206d\u202e",
+      "LosSantosAlive.PRBridge.PrArrestInvoker+\u202d\u202b\u200e\u200e\u200f\u200e\u202a\u206b\u200b\u200e\u202d\u200d\u206f\u202c\u202a\u206d\u206c\u202e\u202d\u202e\u200b\u202d\u202c\u202b\u200e\u202b\u206b\u206b\u200b\u206c\u206c\u200e\u202b\u206f\u206a\u206d\u202b\u206c\u206d\u202c\u202e",
+      "LosSantosAlive.PRBridge.PrBackupInvoker",
+      "LosSantosAlive.PRBridge.PrBackupInvoker+BackupKind",
+      "LosSantosAlive.PRBridge.PrBackupInvoker+ResponseCode",
+      "LosSantosAlive.PRBridge.PrBackupInvoker+\u206b\u200c\u206b\u200b\u202c\u202a\u200b\u206b\u200f\u206d\u200e\u200d\u206b\u200d\u206f\u200b\u206c\u200d\u202a\u206d\u202d\u206e\u202c\u200e\u200c\u206f\u206e\u206d\u200c\u206d\u202a\u202d\u206d\u206b\u206a\u200f\u202a\u206c\u202e\u202e\u202e",
+      "LosSantosAlive.PRBridge.PrBackupInvoker+\u200e\u206e\u202b\u202a\u200e\u206f\u202b\u206e\u206a\u202c\u200b\u200e\u200f\u206d\u202c\u202c\u206a\u202d\u206a\u200f\u206d\u206c\u200b\u202e\u206c\u206c\u200d\u206c\u202a\u206b\u202a\u200e\u206c\u206d\u206b\u206f\u202b\u206e\u202e\u206f\u202e",
+      "LosSantosAlive.PRBridge.PrCalloutPedHydrator",
+      "LosSantosAlive.PRBridge.PrCalloutPedHydrator+\u206f\u206f\u202e\u206d\u206c\u206d\u200e\u202a\u206f\u202b\u202c\u202a\u202e\u206d\u206f\u202a\u200d\u206c\u202b\u206a\u200c\u206b\u206a\u206d\u202b\u202e\u202a\u200b\u200d\u206c\u206d\u206a\u202e\u202a\u202e\u206c\u200c\u202d\u202a\u200e\u202e",
+      "LosSantosAlive.PRBridge.PrDataExtractor",
+      "LosSantosAlive.PRBridge.PrDismissInvoker",
+      "LosSantosAlive.PRBridge.PrDismissInvoker+\u200f\u206d\u206f\u200f\u200c\u200b\u200e\u206c\u200b\u206b\u206c\u202c\u206c\u206d\u206c\u200f\u200c\u206a\u206b\u202a\u200f\u202a\u200e\u200d\u200b\u206b\u206c\u206d\u200e\u202c\u206e\u202d\u206c\u200f\u206d\u202c\u206b\u206d\u206d\u200c\u202e",
+      "LosSantosAlive.PRBridge.PrDismissInvoker+\u202d\u206b\u200b\u200f\u200d\u206b\u206e\u200d\u200e\u206b\u200b\u202c\u202c\u200c\u200d\u202d\u206a\u202e\u202d\u202d\u200f\u206f\u202e\u200c\u202e\u202a\u206a\u206a\u200d\u206b\u206f\u200c\u200b\u206b\u206b\u200c\u206c\u202d\u206e\u200f\u202e",
+      "LosSantosAlive.PRBridge.PrDocumentHandoffBuilder",
+      "LosSantosAlive.PRBridge.PrLsaControlInvoker",
+      "LosSantosAlive.PRBridge.PrLsaControlInvoker+\u200e\u200b\u206e\u206b\u202c\u200d\u202a\u206c\u202c\u206b\u200f\u202b\u202e\u200e\u206c\u206a\u202a\u206f\u200b\u200d\u202a\u206a\u202d\u200b\u206a\u202d\u202b\u206d\u200e\u202b\u202d\u202a\u206b\u200f\u206f\u202a\u200d\u206b\u206b\u202d\u202e",
+      "LosSantosAlive.PRBridge.PrLsaControlInvoker+\u202e\u202c\u206a\u200d\u202d\u206c\u206b\u206a\u202e\u202a\u206a\u206c\u202e\u202c\u200d\u206e\u202c\u202e\u206c\u202e\u206d\u202d\u200e\u200e\u200b\u206d\u206e\u206d\u202d\u202c\u200d\u200f\u202d\u206e\u200b\u200c\u206b\u206c\u206b\u202c\u202e",
+      "LosSantosAlive.PRBridge.PrLsaControlInvoker+\u200f\u200d\u206c\u206d\u206b\u200e\u200e\u202c\u200b\u200f\u200b\u200b\u206d\u200e\u200b\u206a\u202c\u202c\u200c\u200d\u200d\u200d\u200d\u202d\u202a\u200d\u202e\u202e\u206c\u206a\u206f\u200b\u200e\u206a\u202d\u206c\u206f\u202e\u202c\u202d\u202e",
+      "LosSantosAlive.PRBridge.PrLsaControlInvoker+\u202d\u202e\u202a\u206f\u202b\u200d\u202e\u200e\u200b\u206e\u202b\u206e\u202d\u202c\u202d\u200b\u200f\u202a\u200b\u206b\u206a\u206d\u206f\u206d\u206c\u206d\u206e\u206d\u200e\u206f\u202b\u200f\u206a\u206a\u206e\u202b\u206d\u202c\u200e\u202d\u202e",
+      "LosSantosAlive.PRBridge.PrLsaControlInvoker+\u206f\u202e\u206c\u200f\u200d\u202e\u202b\u206b\u206c\u200f\u202c\u200c\u206c\u202c\u202a\u202b\u206c\u202c\u202d\u202a\u202e\u200e\u202c\u202b\u202c\u200b\u200d\u200c\u206d\u202c\u206f\u200f\u206d\u200e\u206b\u206f\u206a\u206f\u202c\u206b\u202e",
+      "LosSantosAlive.PRBridge.PrNamedPipeServer",
+      "LosSantosAlive.PRBridge.PrNamedPipeServer+\u206e\u202b\u202e\u200d\u200b\u202b\u200c\u200f\u202b\u200d\u200f\u206b\u200c\u206d\u200b\u200d\u202a\u200c\u202c\u202d\u206e\u200d\u202a\u200d\u202d\u200b\u206d\u206c\u202e\u200f\u200c\u200d\u202a\u200c\u206e\u200f\u202d\u200d\u200e\u200d\u202e",
+      "LosSantosAlive.PRBridge.PrNamedPipeServer+\u206c\u206f\u206f\u202e\u202c\u206e\u202c\u202b\u200c\u206e\u206d\u206d\u206b\u200e\u206f\u200b\u206e\u202e\u200f\u202e\u202a\u202c\u200d\u200d\u200b\u206a\u202d\u206b\u202b\u200e\u202e\u200e\u202a\u206e\u200b\u202a\u206f\u200d\u206e\u202d\u202e",
+      "LosSantosAlive.PRBridge.PrNamedPipeServer+\u206e\u206e\u202d\u202a\u202b\u206f\u200b\u200c\u206d\u206f\u200b\u206a\u206e\u200c\u200b\u202a\u200c\u206c\u200c\u200e\u200b\u206a\u200d\u202a\u200d\u202b\u200b\u200c\u206e\u202a\u202c\u206e\u200b\u206c\u202a\u200e\u206c\u206b\u206f\u202e",
+      "LosSantosAlive.PRBridge.PrNamedPipeServer+\u200d\u206e\u202c\u206e\u200f\u200c\u200b\u206c\u206c\u206e\u200c\u206d\u202c\u202c\u202c\u202b\u200e\u206a\u206f\u202b\u202a\u206a\u206c\u206b\u202d\u200d\u202a\u202b\u202d\u202b\u200e\u206c\u206e\u202b\u202c\u206a\u200e\u202e\u202b\u206d\u202e",
+      "LosSantosAlive.PRBridge.PrNamedPipeServer+\u202d\u200d\u206e\u200f\u202c\u202a\u200d\u202b\u200e\u200b\u206d\u200c\u206a\u206d\u202a\u206c\u206d\u200c\u200b\u206e\u202e\u206d\u206d\u200b\u202c\u206e\u202b\u206d\u200e\u200f\u206f\u206a\u206e\u206a\u200d\u206d\u202d\u202e\u206d\u206e\u202e",
+      "LosSantosAlive.PRBridge.PrNamedPipeServer+\u202a\u202b\u202c\u200f\u202b\u200c\u206c\u200d\u206d\u202b\u200e\u206d\u200e\u202c\u200f\u206d\u200b\u206e\u206f\u206d\u202a\u200d\u206a\u200b\u202d\u200f\u206f\u200c\u206d\u200b\u206f\u206b\u202a\u200f\u206c\u200f\u202e\u202a\u206f\u206e\u202e",
+      "LosSantosAlive.PRBridge.PrNamedPipeServer+\u206f\u202a\u206a\u202c\u200c\u206e\u200b\u206e\u202b\u200e\u200f\u200e\u200f\u206f\u202b\u200d\u206e\u200d\u206e\u202a\u200f\u200c\u200f\u200b\u200b\u206b\u202b\u206e\u200d\u202d\u202e\u202e\u206d\u206e\u200f\u200e\u202d\u206d\u202d\u206b\u202e",
+      "LosSantosAlive.PRBridge.PrNamedPipeServer+\u200f\u200f\u202b\u202b\u200c\u200f\u206c\u206d\u200f\u200e\u202d\u206e\u206b\u200e\u202d\u202c\u206a\u206b\u206d\u206f\u206b\u200b\u206e\u206c\u206b\u202d\u202e\u202c\u206d\u200c\u206c\u206b\u202a\u200d\u202c\u206c\u202d\u206d\u202e\u206a\u202e",
+      "LosSantosAlive.PRBridge.PrNamedPipeServer+\u200d\u202a\u200c\u206b\u202c\u200e\u200f\u202c\u200e\u206b\u202a\u202a\u200d\u200c\u202d\u206d\u202c\u206d\u200d\u206c\u202c\u206f\u200d\u200e\u206b\u202a\u206b\u200d\u200f\u206d\u206d\u200c\u202a\u202a\u202c\u200d\u202e\u200d\u206b\u200e\u202e",
+      "LosSantosAlive.PRBridge.PrNamedPipeServer+\u206d\u206e\u202a\u206d\u200e\u202c\u206a\u202b\u200c\u202e\u202d\u206d\u202c\u206b\u206a\u206b\u200e\u202e\u202e\u200d\u202a\u202e\u206e\u200b\u206d\u206d\u206c\u206f\u206e\u206a\u200f\u200b\u200f\u206a\u206a\u202d\u200d\u202c\u200f\u206a\u202e",
+      ".\u200d\u206a\u200d\u206d\u202d\u206c\u206b\u200f\u202e\u200c\u202b\u206d\u200d\u206d\u206a\u206e\u200d\u200d\u200e\u206b\u206e\u200e\u206d\u202c\u200b\u206b\u206b\u202e\u202c\u200b\u206f\u206a\u200e\u200c\u202c\u206d\u206d\u206b\u200d\u202d\u202e",
+      ".\u200d\u206a\u200d\u206d\u202d\u206c\u206b\u200f\u202e\u200c\u202b\u206d\u200d\u206d\u206a\u206e\u200d\u200d\u200e\u206b\u206e\u200e\u206d\u202c\u200b\u206b\u206b\u202e\u202c\u200b\u206f\u206a\u200e\u200c\u202c\u206d\u206d\u206b\u200d\u202d\u202e+\u202b\u202e\u200b\u206e\u202d\u206a\u200e\u206e\u202b\u200d\u202d\u206e\u200c\u202c\u206d\u202c\u200d\u206b\u202e\u206c\u200d\u206f\u206d\u200d\u206a\u206c\u200b\u202c\u200f\u200b\u206f\u200f\u206c\u200f\u202d\u202a\u202a\u206b\u206d\u206d\u202e",
+      ".\u200d\u206a\u200d\u206d\u202d\u206c\u206b\u200f\u202e\u200c\u202b\u206d\u200d\u206d\u206a\u206e\u200d\u200d\u200e\u206b\u206e\u200e\u206d\u202c\u200b\u206b\u206b\u202e\u202c\u200b\u206f\u206a\u200e\u200c\u202c\u206d\u206d\u206b\u200d\u202d\u202e+\u200b\u200e\u200e\u202b\u206d\u200c\u206c\u202c\u202e\u202c\u206d\u206a\u202b\u206b\u206e\u200b\u200f\u202b\u202d\u206d\u200d\u200f\u206c\u206b\u206a\u206b\u206c\u202b\u206f\u206a\u206f\u200c\u200e\u200e\u202a\u200b\u202e\u202d\u202c\u202b\u202e",
+      "LosSantosAlive.PRBridge.PrSearchInvoker",
+      "LosSantosAlive.PRBridge.PrStateTracker",
+      "LosSantosAlive.PRBridge.PrSuspectCommandInvoker",
+      "LosSantosAlive.PRBridge.PrSuspectCommandInvoker+\u206c\u202b\u206f\u206d\u206f\u202b\u200d\u206a\u206f\u200d\u206c\u206d\u202b\u200b\u206f\u200b\u200f\u206b\u206d\u200b\u200e\u206e\u206d\u200f\u206a\u206e\u200b\u202e\u200c\u202d\u206b\u202d\u206e\u200c\u202c\u202d\u202d\u200f\u202d\u202a\u202e",
+      "LosSantosAlive.PRBridge.PrSuspectCommandInvoker+\u206c\u200c\u206d\u206c\u200b\u202a\u202b\u200e\u206e\u202a\u206e\u200c\u202d\u202d\u202c\u202d\u206c\u200d\u206b\u202a\u200e\u202a\u202d\u206f\u200b\u206c\u206d\u206b\u206b\u202e\u202b\u200c\u200e\u202e\u206c\u206b\u206f\u200b\u206b\u206c\u202e",
+      "LosSantosAlive.PRBridge.PrSuspectCommandInvoker+\u206d\u206b\u206a\u200e\u206e\u206c\u200c\u202d\u202a\u200c\u206d\u202a\u202e\u200d\u206d\u200e\u202d\u202e\u200e\u206e\u200b\u202b\u202d\u200b\u200d\u206a\u206d\u206e\u202a\u206a\u202c\u206f\u206a\u202a\u200b\u200d\u206d\u202c\u206e\u202e",
+      "LosSantosAlive.PRBridge.PrSuspectCommandInvoker+\u202c\u200f\u200c\u200e\u206c\u206d\u206e\u206b\u200e\u206a\u202d\u206a\u202e\u206e\u200b\u202c\u202e\u202e\u202d\u202d\u202b\u200c\u202c\u202e\u206f\u200b\u202e\u206d\u206c\u200f\u206c\u200f\u200d\u202a\u202d\u202b\u200d\u200f\u200d\u206a\u202e",
+      "LosSantosAlive.PRBridge.PrSuspectCommandInvoker+\u206a\u206a\u202a\u202e\u206f\u200e\u200f\u200c\u202e\u200e\u202a\u206e\u200c\u206c\u200e\u200c\u200b\u202a\u206a\u202b\u206a\u200f\u202b\u206f\u202c\u200e\u206a\u206e\u200e\u206f\u206a\u200f\u202b\u202d\u202d\u200e\u202c\u206a\u200f\u202a\u202e",
+      "LosSantosAlive.PRBridge.VehicleCheckRequestHandler",
+      "LosSantosAlive.PRBridge.VehicleCheckRequestHandler+\u202b\u202b\u202e\u200b\u202c\u202b\u206f\u202e\u200d\u200c\u202e\u206a\u206e\u200e\u202b\u202d\u202c\u202e\u200e\u200d\u200f\u200f\u200b\u200f\u200f\u206c\u202c\u200c\u202a\u206c\u202c\u206e\u206c\u206f\u206d\u200f\u200e\u202b\u202b\u202e\u202e",
+      ".ConfusedByAttribute"
+    ],
+    "guidOperations": [
+      {
+        "token": "0x600003b",
+        "type": "LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore",
+        "offset": "0x3d",
+        "target": "System.Guid::NewGuid"
+      },
+      {
+        "token": "0x600003b",
+        "type": "LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore",
+        "offset": "0x50",
+        "target": "System.Guid::ToString"
+      },
+      {
+        "token": "0x6000041",
+        "type": "LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore",
+        "offset": "0xd",
+        "target": "System.Guid::NewGuid"
+      },
+      {
+        "token": "0x6000041",
+        "type": "LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore",
+        "offset": "0x1f",
+        "target": "System.Guid::ToString"
+      },
+      {
+        "token": "0x6000162",
+        "type": "LosSantosAlive.PRBridge.PrNamedPipeServer",
+        "offset": "0x71",
+        "target": "System.Guid::NewGuid"
+      },
+      {
+        "token": "0x6000162",
+        "type": "LosSantosAlive.PRBridge.PrNamedPipeServer",
+        "offset": "0x84",
+        "target": "System.Guid::ToString"
+      },
+      {
+        "token": "0x600016c",
+        "type": "LosSantosAlive.PRBridge.PrNamedPipeServer",
+        "offset": "0x1dc",
+        "target": "System.Guid::NewGuid"
+      },
+      {
+        "token": "0x600016c",
+        "type": "LosSantosAlive.PRBridge.PrNamedPipeServer",
+        "offset": "0x1ef",
+        "target": "System.Guid::ToString"
+      },
+      {
+        "token": "0x6000171",
+        "type": "LosSantosAlive.PRBridge.PrNamedPipeServer",
+        "offset": "0x16b",
+        "target": "System.Guid::NewGuid"
+      },
+      {
+        "token": "0x6000171",
+        "type": "LosSantosAlive.PRBridge.PrNamedPipeServer",
+        "offset": "0x17e",
+        "target": "System.Guid::ToString"
+      },
+      {
+        "token": "0x6000172",
+        "type": "LosSantosAlive.PRBridge.PrNamedPipeServer",
+        "offset": "0x137",
+        "target": "System.Guid::NewGuid"
+      },
+      {
+        "token": "0x6000172",
+        "type": "LosSantosAlive.PRBridge.PrNamedPipeServer",
+        "offset": "0x14a",
+        "target": "System.Guid::ToString"
+      },
+      {
+        "token": "0x600018c",
+        "type": "LosSantosAlive.PRBridge.PrNamedPipeServer",
+        "offset": "0x26",
+        "target": "System.Guid::NewGuid"
+      },
+      {
+        "token": "0x600018c",
+        "type": "LosSantosAlive.PRBridge.PrNamedPipeServer",
+        "offset": "0x38",
+        "target": "System.Guid::ToString"
+      }
+    ],
+    "dictionaryFields": [
+      {
+        "token": "0x400008a",
+        "name": "\u200f\u206b\u202a\u200d\u200c\u200f\u206c\u206b\u200e\u206c\u202d\u200f\u200c\u206f\u200d\u202d\u202a\u202b\u200b\u202d\u202a\u202a\u200d\u200f\u202d\u200b\u202a\u206e\u202a\u202e\u200f\u200d\u200d\u206b\u202e\u200b\u202c\u206e\u206b\u202b\u202e",
+        "attributes": "Private, Static, InitOnly",
+        "type": "System.Collections.Generic.Dictionary`2<UInt32,LosSantosAlive.PRBridge.PrLsaControlInvoker+\u200e\u200b\u206e\u206b\u202c\u200d\u202a\u206c\u202c\u206b\u200f\u202b\u202e\u200e\u206c\u206a\u202a\u206f\u200b\u200d\u202a\u206a\u202d\u200b\u206a\u202d\u202b\u206d\u200e\u202b\u202d\u202a\u206b\u200f\u206f\u202a\u200d\u206b\u206b\u202d\u202e>",
+        "constant": null,
+        "declaringType": "LosSantosAlive.PRBridge.PrLsaControlInvoker"
+      },
+      {
+        "token": "0x40000a9",
+        "name": "\u202e\u206c\u200d\u206f\u202c\u206f\u202a\u206f\u202b\u206a\u206e\u206c\u202a\u200f\u202b\u202e\u202d\u206b\u200f\u200b\u200d\u200e\u202a\u206d\u200d\u202c\u206e\u206e\u206c\u200d\u202c\u202d\u206d\u206c\u202b\u200e\u206c\u200e\u202e\u206a\u202e",
+        "attributes": "Private, Static, InitOnly",
+        "type": "System.Collections.Generic.Dictionary`2<String,Rage.Ped>",
+        "constant": null,
+        "declaringType": "LosSantosAlive.PRBridge.PrNamedPipeServer"
+      },
+      {
+        "token": "0x40000aa",
+        "name": "\u200b\u202e\u200e\u206f\u202c\u206c\u206e\u200b\u202d\u202a\u200e\u206b\u206a\u206f\u202b\u202d\u206f\u202b\u202d\u202c\u202c\u200e\u200e\u202e\u202d\u200e\u202b\u200b\u202c\u206f\u202d\u202d\u202b\u206f\u206f\u206c\u202a\u206f\u200c\u202d\u202e",
+        "attributes": "Private, Static, InitOnly",
+        "type": "System.Collections.Generic.Dictionary`2<String,Rage.Vehicle>",
+        "constant": null,
+        "declaringType": "LosSantosAlive.PRBridge.PrNamedPipeServer"
+      },
+      {
+        "token": "0x40000af",
+        "name": "\u206d\u200d\u206b\u206c\u206a\u206e\u202d\u202d\u200e\u206f\u206f\u206b\u200e\u202a\u206c\u202b\u200d\u200e\u200c\u200c\u202b\u202a\u202c\u200c\u202e\u200c\u206e\u200d\u206d\u200d\u200d\u200d\u200f\u200c\u206f\u200e\u202a\u206a\u206d\u206a\u202e",
+        "attributes": "Private, Static, InitOnly",
+        "type": "System.Collections.Generic.Dictionary`2<String,LosSantosAlive.PRBridge.PrNamedPipeServer+\u206e\u202b\u202e\u200d\u200b\u202b\u200c\u200f\u202b\u200d\u200f\u206b\u200c\u206d\u200b\u200d\u202a\u200c\u202c\u202d\u206e\u200d\u202a\u200d\u202d\u200b\u206d\u206c\u202e\u200f\u200c\u200d\u202a\u200c\u206e\u200f\u202d\u200d\u200e\u200d\u202e>",
+        "constant": null,
+        "declaringType": "LosSantosAlive.PRBridge.PrNamedPipeServer"
+      },
+      {
+        "token": "0x40000b3",
+        "name": "\u200c\u206b\u202c\u200d\u206c\u202c\u206a\u206a\u202d\u206c\u202b\u202d\u200c\u202b\u200f\u206b\u202c\u200d\u202a\u200c\u200b\u206e\u206b\u206b\u202c\u206a\u202a\u202d\u206c\u202e\u202b\u206b\u200b\u206c\u202d\u206a\u200e\u202e\u202a\u200c\u202e",
+        "attributes": "Private, Static, InitOnly",
+        "type": "System.Collections.Generic.Dictionary`2<String,String>",
+        "constant": null,
+        "declaringType": "LosSantosAlive.PRBridge.PrNamedPipeServer"
+      },
+      {
+        "token": "0x40000b4",
+        "name": "\u200d\u206a\u202b\u206b\u202c\u206a\u202d\u206b\u202b\u206f\u200e\u200b\u200c\u200e\u206e\u200b\u202c\u202a\u202a\u200c\u200b\u200f\u202b\u206a\u200b\u206e\u206c\u206f\u202a\u200f\u202d\u200d\u202b\u200c\u202d\u206d\u206b\u200c\u206c\u206a\u202e",
+        "attributes": "Private, Static, InitOnly",
+        "type": "System.Collections.Generic.Dictionary`2<String,String>",
+        "constant": null,
+        "declaringType": "LosSantosAlive.PRBridge.PrNamedPipeServer"
+      },
+      {
+        "token": "0x40000b6",
+        "name": "\u202e\u202d\u202b\u202c\u206d\u200e\u202d\u202b\u200e\u200d\u206e\u200e\u206e\u202c\u200e\u202c\u200e\u200c\u202d\u202b\u206f\u200b\u202c\u200b\u206f\u200e\u200b\u202c\u202a\u200b\u200b\u200c\u202c\u202a\u206c\u206e\u200e\u200b\u200d\u206f\u202e",
+        "attributes": "Private, Static, InitOnly",
+        "type": "System.Collections.Generic.Dictionary`2<String,String>",
+        "constant": null,
+        "declaringType": "LosSantosAlive.PRBridge.PrNamedPipeServer"
+      },
+      {
+        "token": "0x40000e8",
+        "name": "\u202e\u202a\u200c\u202b\u202d\u206d\u206c\u200e\u206c\u206b\u206b\u202a\u206d\u202d\u202d\u206e\u206f\u206c\u200e\u202a\u200b\u206f\u206e\u200d\u202b\u202d\u200f\u206f\u202a\u202c\u200b\u200f\u202d\u200d\u202b\u202c\u206e\u202d\u202e\u202c\u202e",
+        "attributes": "Private, Static, InitOnly",
+        "type": "System.Collections.Generic.Dictionary`2<UInt32,String>",
+        "constant": null,
+        "declaringType": "LosSantosAlive.PRBridge.PrStateTracker"
+      },
+      {
+        "token": "0x40000e9",
+        "name": "\u206b\u206b\u206d\u200d\u200c\u202d\u202b\u206d\u202e\u202a\u206d\u206f\u202d\u200e\u206e\u200f\u200c\u200d\u200b\u206b\u202d\u206c\u206b\u200f\u206a\u206a\u206d\u206f\u202b\u200b\u200d\u206f\u206d\u200e\u202c\u200b\u202c\u206f\u202e\u202e",
+        "attributes": "Private, Static, InitOnly",
+        "type": "System.Collections.Generic.Dictionary`2<UInt32,String>",
+        "constant": null,
+        "declaringType": "LosSantosAlive.PRBridge.PrStateTracker"
+      },
+      {
+        "token": "0x40000f2",
+        "name": "\u206f\u200e\u206d\u206e\u202c\u206c\u200b\u202b\u206c\u200c\u202d\u200c\u200e\u206b\u200d\u202c\u206b\u206a\u206c\u206f\u200f\u202c\u200b\u202a\u202d\u200f\u206f\u200f\u202a\u202c\u206d\u206e\u202c\u206b\u206f\u200d\u206b\u206d\u202c\u206c\u202e",
+        "attributes": "Private, Static, InitOnly",
+        "type": "System.Collections.Generic.Dictionary`2<UInt32,Int32>",
+        "constant": null,
+        "declaringType": "LosSantosAlive.PRBridge.PrSuspectCommandInvoker"
+      },
+      {
+        "token": "0x4000117",
+        "name": "\u200d\u206a\u206b\u202b\u202e\u202d\u206a\u200c\u206f\u202d\u200b\u202e\u202d\u200e\u200f\u202c\u206e\u200c\u200f\u202a\u202a\u200d\u206c\u200d\u206f\u206b\u206d\u200b\u206a\u200f\u206e\u200f\u200c\u202b\u206a\u200d\u206f\u200c\u202d\u202d\u202e",
+        "attributes": "Private, Static, InitOnly",
+        "type": "System.Collections.Generic.Dictionary`2<String,System.Type>",
+        "constant": null,
+        "declaringType": "LosSantosAlive.PRBridge.PrSuspectCommandInvoker"
+      },
+      {
+        "token": "0x4000118",
+        "name": "\u202e\u200f\u206a\u202d\u202e\u200c\u202b\u200f\u200d\u200d\u200b\u202c\u200b\u200f\u200e\u202b\u200b\u200e\u206e\u200e\u206a\u206f\u200f\u200d\u200e\u206e\u206e\u206e\u200b\u200c\u206a\u200b\u202e\u202e\u206e\u200c\u206e\u206e\u200f\u206f\u202e",
+        "attributes": "Private, Static, InitOnly",
+        "type": "System.Collections.Generic.Dictionary`2<String,System.Reflection.MemberInfo>",
+        "constant": null,
+        "declaringType": "LosSantosAlive.PRBridge.PrSuspectCommandInvoker"
+      },
+      {
+        "token": "0x4000119",
+        "name": "\u206f\u202a\u200f\u202e\u200c\u202c\u206a\u200e\u202a\u206d\u202b\u206a\u200b\u206c\u206d\u200f\u202c\u202a\u206b\u206a\u200e\u200c\u206f\u206e\u206e\u202b\u202e\u200f\u206d\u202d\u200b\u206b\u202a\u206d\u200c\u202c\u206d\u206b\u202a\u206a\u202e",
+        "attributes": "Private, Static, InitOnly",
+        "type": "System.Collections.Generic.Dictionary`2<String,System.Reflection.MemberInfo>",
+        "constant": null,
+        "declaringType": "LosSantosAlive.PRBridge.PrSuspectCommandInvoker"
+      },
+      {
+        "token": "0x400011a",
+        "name": "\u206d\u200d\u206e\u206f\u200c\u202d\u206e\u200c\u202b\u202b\u200c\u202e\u202a\u202b\u200f\u200c\u200d\u200b\u206d\u202c\u202c\u206d\u206c\u202e\u200d\u206d\u206f\u202e\u206f\u206e\u202a\u202d\u202e\u202e\u206c\u206a\u202c\u200c\u202e\u206f\u202e",
+        "attributes": "Private, Static, InitOnly",
+        "type": "System.Collections.Generic.Dictionary`2<String,System.Reflection.PropertyInfo>",
+        "constant": null,
+        "declaringType": "LosSantosAlive.PRBridge.PrSuspectCommandInvoker"
+      },
+      {
+        "token": "0x400011b",
+        "name": "\u206a\u200c\u206e\u202a\u200e\u206e\u206d\u206e\u200f\u202c\u206e\u206f\u206f\u202e\u200f\u202b\u200d\u200f\u200e\u202c\u206f\u202a\u206b\u202e\u206b\u200e\u206b\u202d\u200c\u206d\u202c\u202d\u206a\u202c\u202e\u202d\u200c\u206a\u206b\u206b\u202e",
+        "attributes": "Private, Static, InitOnly",
+        "type": "System.Collections.Generic.Dictionary`2<String,System.Reflection.FieldInfo>",
+        "constant": null,
+        "declaringType": "LosSantosAlive.PRBridge.PrSuspectCommandInvoker"
+      },
+      {
+        "token": "0x400011c",
+        "name": "\u200b\u202c\u206b\u200c\u206d\u200d\u202a\u206e\u200e\u206f\u200c\u200c\u200e\u202e\u202b\u202a\u202c\u206d\u200f\u206a\u202d\u202d\u206e\u200e\u200e\u206d\u202d\u206e\u202a\u206f\u206e\u202a\u206d\u202b\u206b\u202c\u202a\u206b\u206d\u200f\u202e",
+        "attributes": "Private, Static, InitOnly",
+        "type": "System.Collections.Generic.Dictionary`2<String,System.Reflection.MethodInfo[]>",
+        "constant": null,
+        "declaringType": "LosSantosAlive.PRBridge.PrSuspectCommandInvoker"
+      }
+    ]
+  }
+}
