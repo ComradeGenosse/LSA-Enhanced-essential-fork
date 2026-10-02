@@ -1,0 +1,56 @@
+name: Native age parser regression proof
+
+on:
+  push:
+    branches:
+      - audit/native-context-evidence-20261001
+    paths:
+      - .github/workflows/native-age-parser-regression.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  prove:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Prove current native vocabulary handling and proposed minimal fix
+        shell: bash
+        run: |
+          set -euo pipefail
+          SRC="lsa-essential-e1-candidate/src/voice/actorVoiceTraits.mjs"
+          node --input-type=module <<'NODE'
+          import { parseAgeRange } from './lsa-essential-e1-candidate/src/voice/actorVoiceTraits.mjs';
+          for (const v of ['young','middle-aged','old','unknown']) {
+            console.log('CURRENT', v, '=>', JSON.stringify(parseAgeRange(v)));
+          }
+          if (parseAgeRange('old').ageBand !== 'unknown') {
+            throw new Error('Expected current implementation to demonstrate the native-old regression.');
+          }
+          NODE
+
+          cp "$SRC" /tmp/actorVoiceTraits.patched.mjs
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('/tmp/actorVoiceTraits.patched.mjs')
+          s=p.read_text()
+          old="if (/(olderadult|older)/.test(collapsed)) return frozenAge({ ageBand: 'older' });"
+          new="if (collapsed === 'old' || /(olderadult|older)/.test(collapsed)) return frozenAge({ ageBand: 'older' });"
+          if old not in s:
+              raise SystemExit('patch anchor not found')
+          p.write_text(s.replace(old,new,1))
+          PY
+
+          node --input-type=module <<'NODE'
+          import { parseAgeRange } from 'file:///tmp/actorVoiceTraits.patched.mjs';
+          for (const v of ['young','middle-aged','old','unknown']) {
+            console.log('PATCHED', v, '=>', JSON.stringify(parseAgeRange(v)));
+          }
+          if (parseAgeRange('old').ageBand !== 'older') throw new Error('patched old must map to older');
+          if (parseAgeRange('middle-aged').ageBand !== 'mature') throw new Error('middle-aged regression');
+          if (parseAgeRange('young').ageBand !== 'young') throw new Error('young regression');
+          if (parseAgeRange('unknown').ageBand !== 'unknown') throw new Error('unknown regression');
+          console.log('PROPOSED_FIX_ASSERTIONS=PASS');
+          NODE
