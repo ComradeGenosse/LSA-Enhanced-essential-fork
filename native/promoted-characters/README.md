@@ -1,6 +1,6 @@
 # Optional P2 authored owner plugin
 
-`LSA.PromotedCharacters.dll` is an explicitly loaded `net481` RAGE plugin implementing Essential's public `IIntegration`. It owns promoted/recreated peds through the unchanged `LSA.SessionIdentity.dll` authored seam. It adds no dialogue protocol, nonce allocator, model tool, PCM route or task scheduler.
+`LSA.PromotedCharacters.dll` is a `net481` RAGE loader. Its private runtime implements Essential's public `IIntegration` inside the existing Essential AppDomain. It owns promoted/recreated peds through the unchanged `LSA.SessionIdentity.dll` authored seam. It adds no dialogue protocol, nonce allocator, model tool, PCM route or task scheduler.
 
 From the candidate directory, supply the same compile-only references as P1:
 
@@ -10,9 +10,9 @@ $env:LSA_IDENTITY_FRAMEWORK_ROOT = '<reference root containing .NETFramework\v4.
 node tools/buildCharactersAddon.mjs
 ```
 
-The builder verifies pinned Essential/RPH hashes and the P1 contract, restores/builds against reference assemblies, and packages both optional addons plus a disabled example config under `dist/promoted-characters`. `LSA_BUILD_DOTNET` may explicitly name a .NET executable when it is not on PATH. Build receipts state `deploymentPerformed: false` and `gtaRuntimeTest: false`. Dependency/core/game DLLs are never copied or deployed by this builder.
+The builder verifies pinned Essential/RPH hashes and the P1 contract, restores/builds against reference assemblies, and packages the loader, private runtime and P1 library plus a disabled example config under `dist/promoted-characters`. `LSA_BUILD_DOTNET` may explicitly name a .NET executable when it is not on PATH. Build receipts state `deploymentPerformed: false` and `gtaRuntimeTest: false`. Dependency/core/game DLLs are never copied or deployed by this builder.
 
-For a separately authorized controlled game installation, put the addons together where RAGE can resolve them alongside Essential. Copy `LSA.PromotedCharacters.example.json` to `LSA.PromotedCharacters.json`, enable it and set the same explicit stable lowercase world UUID/pipe names as the companion. Explicitly load the owner plugin using RAGE's `LoadPlugin`. The owner fails closed on a different loaded Essential hash through P1's startup gate. It is default-off and has no automatic loader. No RAGENativeUI dependency or new UI framework is required; player management uses the small local companion editor and Essential's existing NPC selection.
+Install the loader and JSON config directly in `plugins`. Install `LSA.PromotedCharacters.Runtime.dll` and `LSA.SessionIdentity.dll` in `plugins/LSA.PromotedCharacters/`. Only the loader is a RAGE plugin; the P1 library must not be loaded independently. Copy the example config to `LSA.PromotedCharacters.json`, enable it and use the same stable lowercase world UUID and pipe names as the companion. RAGE can load the loader explicitly or through its load-all selection. The loader locates the existing Essential AppDomain and checks its already loaded Core hash before installing integrations there. Generic source examples remain disabled; deployment may enable them explicitly. No RAGENativeUI dependency is required. See [host correction and evidence](../../docs/P2-rage-host-correction.md).
 
 Match native `editorPort` to companion `promotedCharacters.editorPort`. Existing RAGE console inputs are `LSACharacters`, `LSAPromote`, `LSAFollowPromoted`, `LSAWaitPromoted`, `LSADismissPromoted`, `LSASummonCharacter <CharacterId>` and `LSADespawnCharacter <CharacterId>`. The last two take the exact durable ID displayed in the editor. Live controls require a ticking game; close the console after submission. The HTTP worker never touches a ped and permits only one outstanding console operation. Profile/memory editing works in the local editor while GTA is paused or offline.
 
