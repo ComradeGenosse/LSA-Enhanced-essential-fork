@@ -159,3 +159,44 @@ test('legacy deterministic mode preserves the v1 voice and generic acting path',
   assert.equal(withActor.matchReason, 'deterministic-session');
   assert.equal(withoutActor.instructions, withActor.instructions);
 });
+
+test('exact gender profiles outrank any-gender profiles and any remains a safe fallback', () => {
+  const exactConfig = normalizeConfig({
+    speechVoices: ['ash', 'alloy', 'nova'],
+    voiceAssignment: 'character-aware-session',
+    speechVoiceProfiles: {
+      ash: { genders: ['male'], ageBands: ['adult'] },
+      alloy: { genders: ['any'], ageBands: ['adult'] },
+      nova: { genders: ['female'], ageBands: ['adult'] },
+    },
+  }, {});
+  const resolver = new VoiceResolver(exactConfig);
+  assert.equal(resolver.resolve(identity('male-exact', 1), { gender: 'Male', ageRange: '35-40' }).voice, 'ash');
+  assert.equal(resolver.resolve(identity('female-exact', 1), { gender: 'Female', ageRange: '35-40' }).voice, 'nova');
+
+  const fallbackConfig = normalizeConfig({
+    speechVoices: ['alloy'],
+    voiceAssignment: 'character-aware-session',
+    speechVoiceProfiles: { alloy: { genders: ['any'], ageBands: ['any'] } },
+  }, {});
+  assert.equal(new VoiceResolver(fallbackConfig).resolve(identity('fallback', 1), { gender: 'Male', ageRange: '80' }).voice, 'alloy');
+});
+
+test('equal demographic matches use deterministic identity hashing for variety', () => {
+  const config = normalizeConfig({
+    speechVoices: ['ash', 'echo', 'nova'],
+    voiceAssignment: 'character-aware-session',
+    speechVoiceProfiles: {
+      ash: { genders: ['male'], ageBands: ['young'] },
+      echo: { genders: ['male'], ageBands: ['young'] },
+      nova: { genders: ['female'], ageBands: ['any'] },
+    },
+  }, {});
+  const resolver = new VoiceResolver(config);
+  const voices = Array.from({ length: 64 }, (_, i) =>
+    resolver.resolve(identity(`young-male-${i}`, i + 1), { gender: 'Male', ageRange: '20-25' }).voice);
+  assert.deepEqual(new Set(voices), new Set(['ash', 'echo']));
+  assert.equal(resolver.resolve(identity('stable', 7), { gender: 'Male', ageRange: '20-25' }).voice,
+    resolver.resolve(identity('stable', 7), { gender: 'Male', ageRange: '20-25' }).voice);
+});
+
