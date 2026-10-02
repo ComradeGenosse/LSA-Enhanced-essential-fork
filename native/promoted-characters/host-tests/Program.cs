@@ -44,6 +44,22 @@ static class Program
             var references=Assembly.ReflectionOnlyLoadFrom(args[0]).GetReferencedAssemblies().Select(a=>a.Name).ToArray();
             Check(!references.Contains("LosSantosAlive") && !references.Contains("LSA.SessionIdentity") && !references.Contains("LSA.PromotedCharacters.Runtime"));
         }
-        Console.WriteLine(count+" production CLR host assertions passed; no game assemblies executed.");
+        PlayerCommands.Register();
+        PlayerCommands.Register();
+        Check(Rage.Game.RegistrationCalls==1);
+        Check(Rage.Game.CommandNames.Length==7 && Rage.Game.CommandNames.Distinct().Count()==7);
+        Check(Rage.Game.CommandNames.Contains("LSAPromote"));
+        PlayerCommands.Initialize(37921);
+        PlayerCommands.Initialize(37921);
+        PlayerCommands.Command_LSACharacters();
+        Check(Rage.Game.Console.LastMessage=="P2 character editor: http://127.0.0.1:37921");
+        PlayerCommands.Shutdown();
+        Rage.Game.Console.LastMessage=null;
+        PlayerCommands.Command_LSACharacters();
+        Check(Rage.Game.Console.LastMessage==null);
+        PlayerCommands.Register();
+        PlayerCommands.Initialize(37921);
+        Check(Rage.Game.RegistrationCalls==1);
+        Console.WriteLine(count+" production host/command lifecycle assertions passed; no game assemblies executed.");
     }
 }
