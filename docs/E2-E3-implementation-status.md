@@ -1,6 +1,6 @@
 # E2/E3 implementation status
 
-Updated October 1, 2026. Offline implementation is complete in the current source tree. The change preserves E1.1's native lifecycle and the existing Gemini path.
+Updated October 2, 2026. Offline implementation is complete in the current source tree. The change preserves E1.1's native lifecycle and the existing Gemini path.
 
 ## Delivered
 
@@ -17,10 +17,25 @@ See `lsa-essential-e1-candidate/e1.config.example.json`. Retry defaults are enab
 
 The executor only retries clearly transient network/timeouts, 408, recognized transient 429 rate limits, and selected 5xx responses. A recognized server `Retry-After` above the configured maximum suppresses the retry rather than shortening the server's requested wait. Root cancellation, turn deadline expiry, or supersession never triggers a retry.
 
+## Native demographic audit follow-up
+
+A direct Hotfix #3 DLL audit after the first character-aware implementation established the exact native contracts used by voice selection:
+
+- `Gender`: `male`, `female`, `unknown`
+- `AgeRange`: `young`, `middle-aged`, `old`, `unknown`
+- `PedId`: the current `Rage.PoolHandle` rendered as a string
+- core demographic assignment occurs before shipped integration enrichment
+
+That audit found one implementation regression: the exact native `AgeRange = "old"` value was not recognized and therefore degraded to `unknown`. The native-contract follow-up maps `old` to the coarse internal `older` band and adds regression coverage for every exact native gender and age-range value.
+
+The audit also confirmed that the current session-level identity design remains appropriate for this phase. It did **not** establish a better universal durable NPC identifier, and it did not establish enough semantics to safely promote Policing Redefined `modelAge`/`birthday` or other integration-specific identity data into voice assignment. Those behaviors remain unchanged.
+
 ## Validation and remaining gates
 
 The baseline before implementation was 106 passing tests. The expanded offline suite passes **131 tests** with no failures, cancellations, or skips. The pinned candidate build succeeds with 25 source-pinned patches. Its patched launcher SHA-256 is `0443800cf148f10baa58558f106baa1e97e6edc2d227c0d48cf8fef15c457ed9`; the E1 source tree SHA-256 is `c2aa248e59d1b5d4de75484eedbfa15f6109d7a3747ea42f5c81dacb0f032ae9`; the release payload SHA-256 is `7154b685e9a4a79d3a92d82068d0cad6c974775482c4ca2dc125018e80babc12`.
 
 No live API request, injected live provider fault, game launch, or GTA deployment has been performed. Those checks require separate explicit authorization and remain open; offline test success does not claim provider listening quality or in-game behavior.
 
-The later character-aware voice extension has also passed the repository-wide offline gate on October 2, 2026: **164 tests, 0 failures**, followed by a successful pinned candidate build with **25 source-pinned patches** (launcher SHA-256 `0443800cf148f10baa58558f106baa1e97e6edc2d227c0d48cf8fef15c457ed9`). [Validation run](https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/actions/runs/36948145647). Physical GTA voice audition remains open.
+The first character-aware voice extension passed the repository-wide offline gate on October 2, 2026: **164 tests, 0 failures**, followed by a successful pinned candidate build with **25 source-pinned patches** (launcher SHA-256 `0443800cf148f10baa58558f106baa1e97e6edc2d227c0d48cf8fef15c457ed9`). [Validation run](https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/actions/runs/36948145647).
+
+The native-contract follow-up adds focused demographic regression assertions; its branch/PR validation should be treated as the current gate once complete. Physical GTA voice audition remains open.
