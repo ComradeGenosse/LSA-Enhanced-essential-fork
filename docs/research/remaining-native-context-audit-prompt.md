@@ -3,11 +3,12 @@
 Repository:
 https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork
 
-Feature branch:
-feat/character-aware-npc-voices
-
-PR:
-https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/pull/1
+Implementation baseline:
+- PR #1 is merged into `main`.
+- Audit-integration follow-up PR #2 is `fix/native-demographic-contract`:
+  https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/pull/2
+- While PR #2 is open, run this investigation against `fix/native-demographic-contract`.
+- After PR #2 merges, run it against `main`.
 
 Primary audit report:
 docs/research/character-aware-native-runtime-audit.md
@@ -21,7 +22,9 @@ Close **only the remaining unknowns** from the completed native character-contex
 
 Do not restart the original investigation from zero. Do not spend time reproving facts already established below unless new evidence contradicts them.
 
-This is a focused reverse-engineering/runtime-validation task. Preserve the current implementation unless a newly proven defect is found.
+This is a focused reverse-engineering/runtime-validation task. Preserve the current implementation unless a **newly proven** defect is found.
+
+Do not reopen the already-resolved native `old` parser issue. PR #2 contains the audit-derived correction and regression coverage; treat that behavior as the implementation baseline unless contradictory native evidence is discovered.
 
 ---
 
@@ -71,8 +74,12 @@ The prior audit directly established:
 
 12. OpenAIConnection resolves its voice profile once per connection/native session and retains it for turns/retries/segmented TTS on that connection.
 
-13. The current OpenAI parser has one proven native-vocabulary defect:
-    native AgeRange "old" is not recognized and currently becomes ageBand "unknown".
+13. The audit found one native-vocabulary defect in the original PR #1 implementation: native AgeRange `"old"` was not recognized and became ageBand `"unknown"`. That defect is addressed in follow-up PR #2 by mapping:
+    - `young -> young`
+    - `middle-aged -> mature`
+    - `old -> older`
+    - `unknown -> unknown`
+    PR #2 also adds regression coverage for the exact native Gender and AgeRange vocabularies. Treat this as resolved implementation work, not an open investigation question.
 
 14. pedId + sessionNonce is appropriate for the current documented session-level stability contract.
 
@@ -311,7 +318,9 @@ Use exact control flow and timing evidence.
 
 ## PART 9 — Verify OpenAI behavior under the unresolved runtime edges
 
-Do not redesign the implementation. Test the current contract.
+Do not redesign the implementation. Test the current contract **with the PR #2 native-demographic correction present**.
+
+Before running runtime-edge probes, verify the checked-out implementation maps native `AgeRange = "old"` to internal `ageBand = "older"` and that the exact native-vocabulary regression tests pass. This is a baseline sanity check only; do not treat the known parser issue as an open research task unless contradictory evidence appears.
 
 ### A. Unknown/custom demographic actor
 
@@ -419,8 +428,9 @@ with these sections:
 - Work from the exact pinned DLL SHA above.
 - Prefer direct binary/control-flow evidence over documentation.
 - Do not re-investigate settled vocabulary unless contradictory evidence appears.
-- Do not modify main.
-- Do not alter the current voice implementation as part of this investigation.
+- Do not modify `main` directly.
+- While PR #2 is open, use `fix/native-demographic-contract` as the implementation baseline; after it merges, use `main`.
+- Do not alter the current voice implementation as part of this investigation. The known native-`old` correction is already handled by PR #2.
 - Do not convert inference into fact.
 - Do not execute arbitrary game behavior.
 - Keep in-game probes minimal and observational.
@@ -430,7 +440,7 @@ with these sections:
 
 The end state should close the few remaining gaps between:
 
-"We know the native fields and exact output vocabulary"
+"We know the native fields, exact output vocabulary, and have already integrated the proven `old -> older` parser correction"
 
 and:
 
