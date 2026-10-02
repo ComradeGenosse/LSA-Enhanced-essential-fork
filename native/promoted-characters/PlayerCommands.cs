@@ -2,7 +2,6 @@ using System;
 using System.Collections.Concurrent;
 using System.IO;
 using System.Net;
-using System.Reflection;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
@@ -22,8 +21,10 @@ namespace LSA.PromotedCharacters
         internal static void Initialize(int port)
         {
             if (port < 1024 || port > 65535) throw new ArgumentException("Invalid P2 editor port.");
+            // RAGE discovers the attributed commands when loading this plugin.
+            // Initialization only enables them; registering again can produce
+            // numbered aliases under another RAGE execution context.
             origin = "http://127.0.0.1:" + port; enabled = true;
-            Game.AddConsoleCommands(typeof(PlayerCommands).GetMethods(BindingFlags.Public | BindingFlags.Static));
         }
         [ConsoleCommand(Name = "LSACharacters",Description = "Show the local P2 character editor URL.")] public static void Command_LSACharacters() { if (enabled) Game.Console.Print("P2 character editor: " + origin); }
         [ConsoleCommand(Name = "LSAPromote",Description = "Promote Essential's currently selected NPC.")] public static void Command_LSAPromote() => Send(null);
