@@ -1,0 +1,90 @@
+name: Native context evidence audit
+
+on:
+  push:
+    branches:
+      - audit/native-context-evidence-20261001
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Install ILSpy
+        shell: bash
+        run: |
+          dotnet tool install --global ilspycmd
+          echo "$HOME/.dotnet/tools" >> "$GITHUB_PATH"
+          "$HOME/.dotnet/tools/ilspycmd" --version
+          "$HOME/.dotnet/tools/ilspycmd" --help > /tmp/ilspy-help.txt
+
+      - name: Inspect pinned DLL
+        shell: bash
+        run: |
+          set -u
+          DLL="lsa-essential-e1-candidate/upstream/LosSantosAlive.dll"
+          OUT="audit-output"
+          mkdir -p "$OUT/types" "$OUT/il" /tmp/lsa-decompiled
+          sha256sum "$DLL" | tee "$OUT/dll-sha256.txt"
+          file "$DLL" | tee "$OUT/file.txt"
+          cp /tmp/ilspy-help.txt "$OUT/ilspy-help.txt"
+
+          strings -a "$DLL" > "$OUT/strings-ascii.txt" || true
+          strings -a -el "$DLL" > "$OUT/strings-utf16.txt" || true
+
+          types=(
+            "LosSantosAlive.Context.Providers.ActorContextProvider"
+            "LosSantosAlive.Context.ActorHydrationCoordinator"
+            "LosSantosAlive.Context.ConversationHydrationCoordinator"
+            "LosSantosAlive.Context.GeminiContextBuilder"
+            "LosSantosAlive.Context.ContextJsonSerializer"
+            "LosSantosAlive.Context.ContextSnapshot"
+            "LosSantosAlive.Context.ActorContext"
+            "LosSantosAlive.Integrations.IntegrationManager"
+            "LosSantosAlive.Integrations.LspdfrIntegration"
+            "LosSantosAlive.Integrations.PolicingRedefinedIntegration"
+            "LosSantosAlive.Integrations.PolicingRedefinedBridge.PolicingRedefinedPipeClient"
+            "LosSantosAlive.NPC.NpcStateStore"
+            "LosSantosAlive.NPC.NpcState"
+            "LosSantosAlive.NPC.Memory.PedContinuityMemoryService"
+            "LosSantosAlive.Audio.NpcPlaybackCoordinator"
+          )
+
+          for t in "${types[@]}"; do
+            safe="${t//+/_}"
+            safe="${safe//./_}"
+            "$HOME/.dotnet/tools/ilspycmd" -t "$t" "$DLL" > "$OUT/types/$safe.cs" 2> "$OUT/types/$safe.stderr.txt" || true
+            "$HOME/.dotnet/tools/ilspycmd" -il -t "$t" "$DLL" > "$OUT/il/$safe.il.txt" 2> "$OUT/il/$safe.stderr.txt" || true
+          done
+
+          "$HOME/.dotnet/tools/ilspycmd" -p -o /tmp/lsa-decompiled "$DLL" > "$OUT/full-decompile.stdout.txt" 2> "$OUT/full-decompile.stderr.txt" || true
+
+          grep -RniE "AgeRange|Gender|ActorHydration|ConversationHydration|EnrichActor|IntegrationBlocks|modelAge|birthday|voiceName|PedId|Archetype|RecentVehicle|NearbyPeople|Reflex" /tmp/lsa-decompiled             > "$OUT/full-decompile-relevant-grep.txt" || true
+
+          grep -niE "Young|Adult|Middle|Mature|Older|Senior|Elder|Male|Female|Unknown|AgeRange|Gender|modelAge|birthday" "$OUT/strings-ascii.txt"             > "$OUT/strings-ascii-demographic.txt" || true
+          grep -niE "Young|Adult|Middle|Mature|Older|Senior|Elder|Male|Female|Unknown|AgeRange|Gender|modelAge|birthday" "$OUT/strings-utf16.txt"             > "$OUT/strings-utf16-demographic.txt" || true
+
+          find /tmp/lsa-decompiled -type f | sort > "$OUT/full-decompile-files.txt"
+          printf '\n=== ActorContextProvider decompile ===\n'
+          sed -n '1,1200p' "$OUT/types/LosSantosAlive_Context_Providers_ActorContextProvider.cs" || true
+          printf '\n=== ActorContextProvider IL ===\n'
+          sed -n '1,1600p' "$OUT/il/LosSantosAlive_Context_Providers_ActorContextProvider.il.txt" || true
+          printf '\n=== Demographic strings ===\n'
+          cat "$OUT/strings-ascii-demographic.txt" "$OUT/strings-utf16-demographic.txt" || true
+
+      - name: Upload audit evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: native-context-evidence
+          path: audit-output
+          if-no-files-found: error
+          retention-days: 7
