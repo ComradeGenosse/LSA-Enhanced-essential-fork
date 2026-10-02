@@ -64,10 +64,7 @@ jobs:
                   Directory.CreateDirectory("audit-output");
                   var dll = Path.GetFullPath(args[0]);
                   var asm = Assembly.LoadFrom(dll);
-                  var moduleType = asm.ManifestModule.GetType("<Module>", throwOnError:false, ignoreCase:false);
-                  if (moduleType is null) throw new Exception("<Module> type not found.");
-
-                  var candidates = moduleType.GetMethods(BindingFlags.Static|BindingFlags.Public|BindingFlags.NonPublic)
+                  var candidates = asm.ManifestModule.GetMethods(BindingFlags.Static|BindingFlags.Public|BindingFlags.NonPublic)
                       .Where(m => m.IsGenericMethodDefinition
                           && m.GetGenericArguments().Length == 1
                           && m.GetParameters().Length == 1
