@@ -35,6 +35,8 @@ export class OpenAIConnection {
   #metrics = null;
   #captureStartedAt = 0;
   #voiceProfile = null;
+  #voicePolicyLocked = false;
+  #characterSnapshot = null;
 
   constructor({ runtime, onEvent, options, diagnosticContext }) {
     this.#runtime = runtime;
@@ -132,6 +134,7 @@ export class OpenAIConnection {
       }),
       contextSnapshot,
     });
+    this.#characterSnapshot = null;
     this.#launched = false;
     this.#retired = false;
     this.#inputStarted = false;
@@ -254,12 +257,14 @@ export class OpenAIConnection {
 
   matches(identity) { return sameIdentity(this.#turn?.identity, identity); }
   get turnSnapshot() { return this.#turn?.contextSnapshot || null; }
+  get characterSnapshot() { return this.#characterSnapshot; }
   get source() { return this.#turn?.source || 'player_text'; }
 
   async emitProviderEvent(event) {
     this.#ensureOpen();
     if (!sameIdentity(this.#turn?.identity, event) || event.provider !== 'openai') return false;
     if (this.#active?.controller?.signal.aborted || !this.#runtime.host.isCurrent(event)) return false;
+    if (this.#runtime.identityService && !this.#runtime.identityService.current(event)) return false;
     return await this.#runtime.host.routePinnedEvent(Object.freeze({ ...event }));
   }
 
@@ -302,6 +307,25 @@ export class OpenAIConnection {
     // it, so controller callers can still observe a very fast terminal result.
     run.then(() => {}, () => {});
     return true;
+  }
+
+  retireIdentity() {
+    this.close(); // Permanently discard this connection/history, even if native close reports a failure.
+  }
+
+  async prepareIdentity(turn, signal, deadlineAt) {
+    const prepared = await this.#runtime.identityService.prepare({ identity: turn.identity, actor: turn.context.actor, signal, deadlineAt,
+      isCurrent: () => !this.#closed && sameIdentity(this.#turn?.identity, turn.identity) && this.#runtime.host.isCurrent(turn.identity),
+      voiceResolver: this.#runtime.voiceResolver, allowVoice: !this.#voicePolicyLocked });
+    if (signal.aborted || this.#closed || !sameIdentity(this.#turn?.identity, turn.identity) || !this.#runtime.host.isCurrent(turn.identity)) return;
+    this.#characterSnapshot = prepared.snapshot;
+    if (!this.#voicePolicyLocked) {
+      this.#voicePolicyLocked = true;
+      if (prepared.speechProfile) this.#voiceProfile = prepared.speechProfile;
+    }
+    turn.speechProfile = this.#voiceProfile;
+    turn.characterSnapshot = prepared.snapshot;
+    turn.context = { ...turn.context, actor: this.#runtime.modelActor(turn.context.actor), listener: this.#runtime.modelActor(turn.context.listener) };
   }
 
   #ensureOpen() { if (this.#closed) throw new Error('OpenAI session is closed.'); }

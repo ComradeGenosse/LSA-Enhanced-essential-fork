@@ -48,7 +48,8 @@ function publicCause(error) {
 }
 
 export async function runSequentialTurn({ connection, turn, controller = new AbortController(), services, history, host }) {
-  const { identity, context, input, pcm, sampleRate } = turn;
+  const { identity, input, pcm, sampleRate } = turn;
+  let context = turn.context;
   const source = String(turn.source || 'player_text').toLowerCase();
   const isPlayer = PLAYER_SOURCES.has(source);
   let observation;
@@ -156,6 +157,13 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
       metrics?.count(key);
       metrics?.native(type, { eventType: event.type, nativeReason: event.reason || event.type, outcome: event.wasInterrupted ? 'interrupted' : event.reason || 'accepted' });
     });
+
+    // Identity consumes this original work deadline; no provider deadline is reset.
+    if (host.prepareTurn) {
+      await host.prepareTurn(turn, controller.signal, deadlineAt);
+      check();
+      context = turn.context;
+    }
 
     let finalInput = input;
     if (pcm) {

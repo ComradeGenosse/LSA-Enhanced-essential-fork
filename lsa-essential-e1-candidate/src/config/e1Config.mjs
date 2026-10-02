@@ -1,6 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { normalizeIdentityConfig } from '../identity/identityContract.mjs';
 
 const moduleDirectory = path.dirname(fileURLToPath(import.meta.url));
 export const defaultConfigPath = path.resolve(moduleDirectory, '../../e1.config.json');
@@ -156,6 +157,7 @@ export function normalizeConfig(input = {}, env = process.env) {
 
   return Object.freeze({
     provider: selectedProvider,
+    persistentIdentity: normalizeIdentityConfig(input.persistentIdentity),
     reasoningModel, reasoningEffort, transcriptionModel, ttsModel, ttsVoice,
     speechVoices: Object.freeze(speechVoices), speechVoiceProfiles, voiceAssignment, ttsSpeed, actingEnabled, speechInstructionsSupported,
     reasoningBaseUrl: baseUrl(input.reasoningBaseUrl ?? env.OPENAI_REASONING_BASE_URL, 'https://api.openai.com/v1', 'reasoningBaseUrl'),

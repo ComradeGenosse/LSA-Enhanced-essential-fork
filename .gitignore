@@ -24,6 +24,14 @@
 *.zip
 *.pcm
 *.wav
+**/identity/characters.v1.json*
+**/session-identity/bin/
+**/session-identity/obj/
+**/session-identity/tests/bin/
+**/session-identity/tests/obj/
+**/session-identity/facts-tests/bin/
+**/session-identity/facts-tests/obj/
+**/.identity-test-*/
 
 # Local deployment packages, stages, receipts, and rollback data
 /deployment/stock-hotfix3/

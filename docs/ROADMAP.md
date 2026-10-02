@@ -29,7 +29,7 @@ Essential remains authoritative for native NPC state, turn/generation identity, 
 | E5 | ✅ Implemented + live API validated | Structured Responses streaming; configured Luna produced a validated segment before response completion |
 | E6 | 🟡 Implemented; early-audio and multi-segment GTA checks pending | Repaired live path played 13 turns; eight synthesis requests started shortly before model completion, but first PCM arrived afterward; every reply contained one segment |
 | P0 — TURN_CONTEXT | ✅ Merged to `main` + offline-verified; GTA acceptance pending | Immutable per-turn actor/listener/world snapshots and time-of-use P/V target-reference validation |
-| P1 — SESSION_IDENTITY | ⏭ Next implementation phase | Durable character identity beyond one native session; implementation can proceed while separate E6/P0 GTA acceptance checks remain open |
+| P1 — SESSION_IDENTITY | 🟡 Implemented + offline-verified; GTA acceptance pending | Explicit owner-authenticated durable UUIDs and actual voice assignments; default-off/shadow rollout; separate E6/P0 GTA gates remain open |
 | PERCEPTION | Planned | Richer world/event/context awareness |
 | SALIENCE | Planned | Decide what an NPC should care about right now |
 | SCENE_DIRECTOR | Planned | NPC initiative and coordinated autonomous behavior |
@@ -208,24 +208,13 @@ After the provider/latency foundation is stable, development shifts from transpo
 
 ### P1 — SESSION_IDENTITY — Durable character identity
 
-Current `pedId + sessionNonce` identity is correct for runtime safety but is intentionally not permanent character identity.
+V1 is implemented and verified offline. Only a fresh explicit authored-owner ledger assertion resolves the structured `(worldProfileId, sourceNamespace, sourceKey)` alias to a durable UUID CharacterId. Ambient/PR/Nexus identity inference is not enabled. See [P1 implementation, pins, and controlled GTA checklist](P1-session-identity-status.md).
 
-This phase should introduce a durable identity resolver capable of distinguishing:
+The companion persists aliases, revisions, and the actual character voice assignment. Runtime bindings, incarnation/adapter epochs, ped/session/turn/generation IDs, connections, and bounded dialogue history stay in RAM. A recreated character can retain its UUID/voice but always starts a fresh native session/history. All effects remain addressed by Essential's exact native tuple; stale work never redirects to a character's newest ped.
 
-- the same continuing character;
-- a new session for an existing known character;
-- a recycled GTA handle;
-- a genuinely new NPC.
+The feature defaults off and supports shadow metadata verification before character voice adoption at a clean session boundary. Invalid/unsupported storage or unavailable optional evidence leaves ordinary ephemeral dialogue usable. Known identity/incarnation contradictions retire the affected exact session. No fuzzy matching, auto-merge, binding theft, persistent memory, relationships, personality, or goals are included.
 
-Durable identity can later own:
-
-- long-term voice assignment;
-- relationship state;
-- memories;
-- personality/state continuity;
-- longer-term goals.
-
-Do not build persistent memory on raw ped handles.
+Physical GTA acceptance is still pending, independently of the existing P0 and E6 gates. Later character state must build on owner-authenticated aliases, never raw handles.
 
 ### PERCEPTION — Richer world and event awareness
 

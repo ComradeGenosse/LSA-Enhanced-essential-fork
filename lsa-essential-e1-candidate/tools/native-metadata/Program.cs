@@ -10,6 +10,7 @@ using var pe = new PEReader(stream);
 var reader = pe.GetMetadataReader();
 var types = new List<object>();
 var wanted = new HashSet<string> { "NpcPlaybackCoordinator", "NpcPlaybackStartedEvent", "NpcPlaybackEndedEvent", "NpcActionRegistry", "RoleActionRouter", "ActorHydrationCoordinator", "ConversationHydrationCoordinator" };
+if (args.Skip(1).Contains("--identity")) wanted = new HashSet<string> { "IIntegration", "IntegrationManager", "IntegrationJsonBlock", "ActorContext" };
 var provider = new Names();
 foreach (var handle in reader.TypeDefinitions) {
     var type = reader.GetTypeDefinition(handle);

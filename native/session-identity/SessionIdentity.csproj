@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net481</TargetFramework>
+    <AssemblyName>LSA.SessionIdentity</AssemblyName>
+    <LangVersion>latest</LangVersion>
+    <AutomaticallyUseReferenceAssemblyPackages>false</AutomaticallyUseReferenceAssemblyPackages>
+    <Deterministic>true</Deterministic>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="*.cs" Exclude="OfflineTests.cs" />
+    <Reference Include="LosSantosAlive"><HintPath>../../lsa-essential-e1-candidate/upstream/LosSantosAlive.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="RagePluginHook"><HintPath>$(RphReferencePath)</HintPath><Private>false</Private></Reference>
+    <Reference Include="System.Web.Extensions" />
+  </ItemGroup>
+  <Target Name="RequireRphReference" BeforeTargets="ResolveReferences">
+    <Error Condition="!Exists('$(RphReferencePath)')" Text="Pass RphReferencePath to the pinned compile-only RPH SDK DLL. No game path is used." />
+  </Target>
+</Project>

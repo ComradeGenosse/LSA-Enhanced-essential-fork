@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType><TargetFramework>net481</TargetFramework><LangVersion>latest</LangVersion>
+    <AutomaticallyUseReferenceAssemblyPackages>false</AutomaticallyUseReferenceAssemblyPackages>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../OwnerFactChannel.cs" Link="OwnerFactChannel.cs" />
+    <Compile Include="../NativeIdentityEvidenceStore.cs" Link="NativeIdentityEvidenceStore.cs" />
+    <Reference Include="System.Web.Extensions" />
+  </ItemGroup>
+</Project>

@@ -55,8 +55,12 @@ Action validation parses with the stock Essential command parser and compares ag
 - [Native dependency contract](docs/native-contract.md)
 - [Verification report](docs/verification.md)
 - [Remaining GTA smoke checklist](docs/gta-smoke-checklist.md)
+- [P1 explicit-owner identity, voice continuity, and pending GTA checks](../docs/P1-session-identity-status.md)
+- [Optional native identity addon and owner API](../native/session-identity/README.md)
 
 ## Status
+
+P1 SESSION_IDENTITY is implemented and verified offline on the merged P0 baseline. It defaults off; shadow mode verifies metadata without adopting character voices, and voices mode adopts a persisted actual assignment only at a clean session boundary. All native effects retain the original Essential tuple, and returning characters get fresh session history. The optional addon uses only pinned public integration seams. No P1 payload was deployed or tested in GTA; its controlled checklist and the separate P0/E6 physical gates remain pending. See the [P1 status record](../docs/P1-session-identity-status.md) for current test counts and build hashes.
 
 E5 structured streaming is implemented and has passed the explicit live streaming capability smoke against the configured `gpt-6-luna` endpoint. E6 early segmented TTS is implemented and has passed the stock-controller/native-lifecycle integration gate: early PCM precedes model completion, delayed segments keep exact native identity/order, one final stream-end is used, and assistant history waits for matching `PlaybackEnded`.
 

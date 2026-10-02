@@ -9,8 +9,10 @@ import { createProviderStack } from '../providers/providerStack.mjs';
 import { VoiceResolver } from '../voice/voiceResolver.mjs';
 import { executeProviderOperation } from '../reliability/providerExecutor.mjs';
 import { captureReferenceMap } from '../context/turnSnapshot.mjs';
+import { IdentityResolver } from '../identity/identityResolver.mjs';
+import { withoutIdentityEvidence } from '../identity/modelContext.mjs';
 
-export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry = null, providers = {} } = {}) {
+export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry = null, providers = {}, identityEvidence, identityStore } = {}) {
   const history = new DialogueHistory({ maxMessages: config.maxHistoryMessages, onMetric: (event, data) => telemetry?.emit(event, null, null, data) });
   const connections = new Set();
   let bridge = null;
@@ -18,6 +20,14 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
   // Stock Gemini keeps its native transport and does not enter this stack.
   const providerStack = config.provider === 'openai' ? createProviderStack(config, { fetchImpl, providers }) : null;
   const voiceResolver = config.provider === 'openai' ? new VoiceResolver(config) : null;
+  const identityService = config.provider === 'openai' && config.persistentIdentity?.enabled
+    ? new IdentityResolver(config.persistentIdentity, { evidence: identityEvidence, store: identityStore, telemetry,
+      retireSession: (session, reason) => {
+        for (const connection of connections) if (connection.sessionIdentity.pedId === session.pedId && connection.sessionIdentity.sessionNonce === session.sessionNonce) {
+          try { connection.retireIdentity(); } catch {}
+        }
+        return bridge?.retireMatchingSession(session, reason);
+      } }) : null;
   const services = {
     config,
     providerStack,
@@ -27,7 +37,8 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
     executeProvider: providerStack ? args => executeProviderOperation({ ...args, retryConfig: config.retry, telemetry: args.telemetry }) : null,
   };
   const runtime = {
-    config, history, services, telemetry, providerStack, voiceResolver,
+    config, history, services, telemetry, providerStack, voiceResolver, identityService,
+    modelActor: actor => identityService ? withoutIdentityEvidence(actor) : actor,
     validateDecisionShape,
     validateStockDecision,
     captureReferenceMap,
@@ -43,6 +54,7 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
     attach(connection) { connections.add(connection); telemetry?.emit('bridge_ready', null, null, { provider: 'openai' }); },
     detach(connection) {
       connections.delete(connection);
+        identityService?.detach(connection.sessionIdentity);
         history.clearSession(connection.sessionIdentity?.pedId, connection.sessionIdentity?.sessionNonce);
         telemetry?.emit('bridge_disconnected', null, null, { provider: 'openai', reason: 'session_closed' });
     },
@@ -50,6 +62,7 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
       for (const name of ['isCurrent', 'routePinnedEvent', 'authorize', 'onNativeEvent', 'assertCapabilities', 'validateDecision', 'failMatchingTurn']) {
         if (typeof value?.[name] !== 'function') throw new Error(`Missing Essential lifecycle capability: ${name}`);
       }
+      if (identityService && typeof value?.retireMatchingSession !== 'function') throw new Error('Identity requires exact Essential session retirement.');
       bridge = value;
     },
     abortTurn(identity, reason) {
@@ -63,7 +76,8 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
       if (!bridge) throw new Error('Essential E1 bridge has not been attached.');
       return {
         assertCapabilities: () => bridge.assertCapabilities(),
-        isCurrent: identity => bridge.isCurrent(identity),
+        isCurrent: identity => bridge.isCurrent(identity) && !connection.closed && (!identityService || identityService.current(identity)),
+        prepareTurn: identityService ? (turn, signal, deadlineAt) => connection.prepareIdentity(turn, signal, deadlineAt) : null,
         validateDecision: async (decision, context, identity) => {
           const result = await bridge.validateDecision(decision, context, identity);
           if (result?.identityValid && result.actionCount) telemetry?.beginTurn(identity, context?.source || 'player_text')?.actionValidated(result.actionNames?.[0]);

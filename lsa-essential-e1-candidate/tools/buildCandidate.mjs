@@ -4,6 +4,7 @@ import { copyFile, mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promi
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { verifyNativeContract } from './verifyNativeContract.mjs';
+import { verifyIdentityContract } from './verifyIdentityContract.mjs';
 import { assertCandidateWriteTarget, assertNoLinkedOutput, candidateRootPath } from './checkIsolation.mjs';
 
 const root = candidateRootPath();
@@ -12,7 +13,7 @@ const acorn = require('./vendor/acorn');
 const expectedBundleHash = '5d81de4217bd103316a1083e482ded1bddc791314abf671d686036175c0475f2';
 const expectedDllHash = '9b6de42d4c464901d859dd95e17e100e4fa9ef6074bfbb0cf3a57a76f6ddd653';
 const expectedNativeMetadataHash = '18edd2b47ffde748388b07a4a2d023793e183b882fe638acb5276440d45a2d23';
-const expectedPatchCount = 46;
+const expectedPatchCount = 48;
 const launcherName = 'server.bundle.mjs';
 const stockBundleDefault = path.resolve(root, 'upstream/server.bundle.mjs');
 const stockDllDefault = path.resolve(root, 'upstream/LosSantosAlive.dll');
@@ -66,6 +67,7 @@ export function patchSource(source) {
   const kKStatement = ast.body.find(statement => statement.type === 'VariableDeclaration' && statement.declarations.includes(kKDeclarator));
   if (!kKStatement) throw new Error('kK declaration statement missing.');
   insert(kKStatement.end, `\nglobalThis.__LSA_E1_RUNTIME = __LSA_E1_RUNTIME;\n__LSA_E1_RUNTIME.attachBridge({\n` +
+    `  retireMatchingSession(session, reason) { const live = A.sessionsByPedId.get(session.pedId); if (live?.provider !== "openai" || live.nonce !== session.sessionNonce || iP(session.pedId) !== session.sessionNonce) return false; const turn=le.getActiveTurnForPed(session.pedId); if (turn?.metadata?.provider === "openai" && turn.metadata.sessionNonce === session.sessionNonce && !Vt(turn.status)) Zt(turn.id, ke.CANCELLED, new Error("identity_retired")); return Ei(session.pedId, "identity_retired"); },\n` +
     `  isCurrent(identity) { const turn = le.getTurn(identity.turnId); const session = A.sessionsByPedId.get(identity.pedId); return !!turn && !Vt(turn.status) && turn.metadata?.provider === "openai" && turn.metadata?.sessionNonce === identity.sessionNonce && turn.pedId === identity.pedId && turn.generationId === identity.generationId && le.isCurrentGeneration(turn) && iP(identity.pedId) === identity.sessionNonce && session?.provider === "openai" && session.nonce === identity.sessionNonce; },\n` +
     `  reportTargetRejection(turn, error) { const reason = ["target_changed","target_missing","target_invalid"].includes(error?.code) ? error.code : ""; if (!reason || !turn || turn.metadata?.targetRejectionReported) return false; turn.metadata.targetRejectionReported = true; try { __LSA_E1_RUNTIME.telemetry?.emit(reason, { pedId: turn.pedId, turnId: turn.id, generationId: turn.generationId, sessionNonce: turn.metadata.sessionNonce }, turn.source, { reason, outcome: "rejected" }); } catch {} return true; },\n` +
     `  reportReferenceMapChange(turn, snapshot, actor) { if (!turn || turn.metadata?.referenceMapChangeReported) return false; const currentMap = __LSA_E1_RUNTIME.captureReferenceMap(actor); const stableMap = value => JSON.stringify(Object.fromEntries(Object.entries(value || {}).sort(([left],[right]) => left.localeCompare(right)))); if (stableMap(snapshot?.persons) === stableMap(currentMap.persons) && stableMap(snapshot?.vehicles) === stableMap(currentMap.vehicles)) return false; turn.metadata.referenceMapChangeReported = true; try { __LSA_E1_RUNTIME.telemetry?.emit("reference_map_revision_changed", { pedId: turn.pedId, turnId: turn.id, generationId: turn.generationId, sessionNonce: turn.metadata.sessionNonce }, turn.source, { reason: "reference_map_revision_changed", outcome: "changed" }); } catch {} return true; },\n` +
@@ -148,6 +150,14 @@ export function patchSource(source) {
   insert(bkParams[2].end, ',__lsaWorldSnapshot', 'BK explicit world snapshot parameter');
   const bkWorld = one((() => { const all = []; walk(functionBody(ast,'BK'), node => { if (node.type === 'Property' && node.key?.name === 'world') all.push(node); }); return all; })(), 'BK current world property');
   replace(bkWorld.value.start, bkWorld.value.end, '__lsaWorldSnapshot&&typeof __lsaWorldSnapshot==="object"?{gameTime:__lsaWorldSnapshot.gameTime??"unknown",weather:__lsaWorldSnapshot.weather??"unknown",streetName:__lsaWorldSnapshot.streetName??"unknown",crossingStreetName:__lsaWorldSnapshot.crossingStreetName??"unknown",zoneCode:__lsaWorldSnapshot.zoneCode??"unknown"}:{gameTime:"unknown",weather:"unknown",streetName:"unknown",crossingStreetName:"unknown",zoneCode:"unknown"}', 'world context has explicit unknown semantics');
+  prelude('BK', 'if (__LSA_E1_RUNTIME.identityService) { t=__LSA_E1_RUNTIME.modelActor(t); e=__LSA_E1_RUNTIME.modelActor(e); }');
+
+  // Reserved identity evidence never flattens into native fields/capabilities,
+  // including when P1 is disabled or a forged/unsupported block is supplied.
+  const eoIdentityGuard = one((() => { const all = []; walk(functionBody(ast, 'EO'), node => {
+    if (node.type === 'BinaryExpression' && sourceSlice(source,node) === 'o!=="raw"') all.push(node);
+  }); return all; })(), 'EO reserved identity namespace');
+  replace(eoIdentityGuard.start, eoIdentityGuard.end, '(o!=="raw"&&o!=="sessionIdentity")', 'keep identity evidence namespaced');
 
   const ziBody = functionBody(ast, 'Zi');
   const ziParam = functions(ast, 'Zi')[0].params[0];
@@ -245,6 +255,7 @@ export async function buildCandidate({ sourcePath = stockBundleDefault, outputPa
   const dllHash = await fileHash(stockDllDefault);
   if (dllHash !== expectedDllHash) throw new Error(`Pinned Essential DLL changed: expected ${expectedDllHash}, found ${dllHash}. Re-audit the baseline before rebuilding.`);
   const nativeContract = await verifyNativeContract(dllHash, { expectedMetadataSha256: expectedNativeMetadataHash });
+  const identityContract = await verifyIdentityContract(dllHash);
   const patched = patchSource(source);
   if (patched.edits.length !== expectedPatchCount) throw new Error(`AST patch inventory changed: expected ${expectedPatchCount}, found ${patched.edits.length}. Re-audit the source seam list before building.`);
   const entry = path.join(target, launcherName);
@@ -259,8 +270,10 @@ export async function buildCandidate({ sourcePath = stockBundleDefault, outputPa
   const releasePayloadSha256 = await directoryDigest(target);
   const manifest = {
     nativeContract,
-    stage: 'E5/E6', foundationStage: 'E1.1+E2+E3', status: 'candidate-built-offline-and-live-api-verified-gta-pending', observabilitySchemaVersion: 1,
-    features: { structuredStreaming: true, earlySegmentedTts: true, defaultEnabled: false, earlyTtsMode: 'dialogue_only', ttsConcurrency: 1 },
+    identityContract,
+    stage: 'P1 SESSION_IDENTITY', foundationStage: 'P0+E1.1+E2+E3+E5+E6', status: 'candidate-built-offline-p1-gta-pending', observabilitySchemaVersion: 1,
+    features: { structuredStreaming: true, earlySegmentedTts: true, defaultEnabled: false, earlyTtsMode: 'dialogue_only', ttsConcurrency: 1,
+      sessionIdentity: { defaultEnabled: false, modes: ['shadow','voices'], storeSchemaVersion: 1, nativeAddressing: 'unchanged' } },
     launcherEntry: launcherName, upstreamBundleSha256: sourceHash,
     stockDllReferenceSha256: dllHash, builtBundleSha256: digest(patched.output),
     e1SourceTreeSha256, releasePayloadSha256,

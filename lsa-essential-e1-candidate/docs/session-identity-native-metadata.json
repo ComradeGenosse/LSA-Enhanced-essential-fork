@@ -1,0 +1,323 @@
+{
+  "dllSha256": "9b6de42d4c464901d859dd95e17e100e4fa9ef6074bfbb0cf3a57a76f6ddd653",
+  "types": [
+    {
+      "name": "LosSantosAlive.Integrations.IIntegration",
+      "methods": [
+        {
+          "name": "get_Id",
+          "returns": "String",
+          "parameters": []
+        },
+        {
+          "name": "get_IsAvailable",
+          "returns": "Boolean",
+          "parameters": []
+        },
+        {
+          "name": "Initialize",
+          "returns": "Void",
+          "parameters": []
+        },
+        {
+          "name": "Update",
+          "returns": "Void",
+          "parameters": []
+        },
+        {
+          "name": "Shutdown",
+          "returns": "Void",
+          "parameters": []
+        },
+        {
+          "name": "EnrichActor",
+          "returns": "Void",
+          "parameters": [
+            "Rage.Ped",
+            "LosSantosAlive.Context.ActorContext"
+          ]
+        },
+        {
+          "name": "OnPedControlChanged",
+          "returns": "Void",
+          "parameters": [
+            "Rage.Ped",
+            "Boolean"
+          ]
+        },
+        {
+          "name": "OnNpcActionExecuted",
+          "returns": "Void",
+          "parameters": [
+            "Rage.Ped",
+            "String",
+            "Boolean"
+          ]
+        }
+      ],
+      "fields": []
+    },
+    {
+      "name": "LosSantosAlive.Integrations.IntegrationJsonBlock",
+      "methods": [
+        {
+          "name": "get_Id",
+          "returns": "String",
+          "parameters": []
+        },
+        {
+          "name": "set_Id",
+          "returns": "Void",
+          "parameters": [
+            "String"
+          ]
+        },
+        {
+          "name": "get_Json",
+          "returns": "String",
+          "parameters": []
+        },
+        {
+          "name": "set_Json",
+          "returns": "Void",
+          "parameters": [
+            "String"
+          ]
+        },
+        {
+          "name": ".ctor",
+          "returns": "Void",
+          "parameters": []
+        },
+        {
+          "name": ".ctor",
+          "returns": "Void",
+          "parameters": [
+            "String",
+            "String"
+          ]
+        }
+      ],
+      "fields": []
+    },
+    {
+      "name": "LosSantosAlive.Integrations.IntegrationManager",
+      "methods": [
+        {
+          "name": "Register",
+          "returns": "Void",
+          "parameters": [
+            "LosSantosAlive.Integrations.IIntegration"
+          ]
+        },
+        {
+          "name": "Initialize",
+          "returns": "Void",
+          "parameters": []
+        },
+        {
+          "name": "Update",
+          "returns": "Void",
+          "parameters": []
+        },
+        {
+          "name": "Shutdown",
+          "returns": "Void",
+          "parameters": []
+        },
+        {
+          "name": "EnrichActor",
+          "returns": "Void",
+          "parameters": [
+            "Rage.Ped",
+            "LosSantosAlive.Context.ActorContext"
+          ]
+        },
+        {
+          "name": "NotifyPedControlChanged",
+          "returns": "Void",
+          "parameters": [
+            "Rage.Ped",
+            "Boolean"
+          ]
+        },
+        {
+          "name": "NotifyNpcActionExecuted",
+          "returns": "Void",
+          "parameters": [
+            "Rage.Ped",
+            "String",
+            "Boolean"
+          ]
+        },
+        {
+          "name": "ApplyActionStateModifiers",
+          "returns": "Void",
+          "parameters": [
+            "Rage.Ped",
+            "LosSantosAlive.NPC.NpcState",
+            "String",
+            ".ActionStateModifierPhase"
+          ]
+        }
+      ],
+      "fields": []
+    },
+    {
+      "name": "LosSantosAlive.Context.ActorContext",
+      "methods": [
+        {
+          "name": ".ctor",
+          "returns": "Void",
+          "parameters": []
+        }
+      ],
+      "fields": [
+        {
+          "name": "Exists",
+          "type": "Boolean"
+        },
+        {
+          "name": "Label",
+          "type": "String"
+        },
+        {
+          "name": "PedId",
+          "type": "String"
+        },
+        {
+          "name": "PedModel",
+          "type": "String"
+        },
+        {
+          "name": "Gender",
+          "type": "String"
+        },
+        {
+          "name": "AgeRange",
+          "type": "String"
+        },
+        {
+          "name": "Archetype",
+          "type": "String"
+        },
+        {
+          "name": "ArchetypeDescription",
+          "type": "String"
+        },
+        {
+          "name": "ArchetypePerceivedDescription",
+          "type": "String"
+        },
+        {
+          "name": "Activity",
+          "type": "String"
+        },
+        {
+          "name": "InteractionActivityContext",
+          "type": "String"
+        },
+        {
+          "name": "RoleName",
+          "type": "String"
+        },
+        {
+          "name": "RoleContext",
+          "type": "String"
+        },
+        {
+          "name": "IsArmed",
+          "type": "Boolean"
+        },
+        {
+          "name": "WeaponDescription",
+          "type": "String"
+        },
+        {
+          "name": "EquippedWeaponDescription",
+          "type": "String"
+        },
+        {
+          "name": "AvailableWeaponsContext",
+          "type": "String"
+        },
+        {
+          "name": "AvailableWeapons",
+          "type": "System.Collections.Generic.List\u00601\u003CString\u003E"
+        },
+        {
+          "name": "VehicleContext",
+          "type": "String"
+        },
+        {
+          "name": "RecentVehicleContext",
+          "type": "String"
+        },
+        {
+          "name": "HasActiveReflex",
+          "type": "Boolean"
+        },
+        {
+          "name": "ReflexEvent",
+          "type": "String"
+        },
+        {
+          "name": "ReflexReaction",
+          "type": "String"
+        },
+        {
+          "name": "ReflexReason",
+          "type": "String"
+        },
+        {
+          "name": "ReflexEscalationLevel",
+          "type": "Int32"
+        },
+        {
+          "name": "StreetName",
+          "type": "String"
+        },
+        {
+          "name": "CrossingStreetName",
+          "type": "String"
+        },
+        {
+          "name": "ZoneCode",
+          "type": "String"
+        },
+        {
+          "name": "IsIndoors",
+          "type": "Boolean"
+        },
+        {
+          "name": "LocationContext",
+          "type": "String"
+        },
+        {
+          "name": "AvailableActivitiesContext",
+          "type": "String"
+        },
+        {
+          "name": "RadioContext",
+          "type": "String"
+        },
+        {
+          "name": "NearbyPeopleContext",
+          "type": "String"
+        },
+        {
+          "name": "NearbyPersonReferences",
+          "type": "System.Collections.Generic.Dictionary\u00602\u003CString,String\u003E"
+        },
+        {
+          "name": "NearbyVehicleReferences",
+          "type": "System.Collections.Generic.Dictionary\u00602\u003CString,String\u003E"
+        },
+        {
+          "name": "IntegrationBlocks",
+          "type": "System.Collections.Generic.List\u00601\u003CLosSantosAlive.Integrations.IntegrationJsonBlock\u003E"
+        }
+      ]
+    }
+  ]
+}
