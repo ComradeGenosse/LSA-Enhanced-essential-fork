@@ -146,10 +146,13 @@ E2 adds separate reasoning, transcription, and speech provider seams while leavi
 It also adds:
 
 - deterministic voice profiles scoped to one native NPC session;
-- configurable voice pools;
-- optional bounded TTS acting/style guidance;
+- optional character-aware assignment from Essential's hydrated actor gender and age range;
+- configurable voice pools with fail-closed demographic profile metadata;
+- optional bounded demographic-aware TTS acting/style guidance;
 - speech speed configuration;
 - provider capability validation.
+
+Character-aware assignment remains session-scoped: the profile is selected once from the first hydrated actor context and then frozen for that native session, including segmented E6 speech. The voice-profile labels are project calibration, not authoritative OpenAI gender/age metadata. See [character-aware NPC voices](lsa-essential-e1-candidate/docs/character-aware-voices.md).
 
 This is **session identity**, not permanent character identity. Durable cross-session character identity is a later roadmap phase.
 
@@ -258,6 +261,8 @@ OPENAI_TTS_API_KEY
 ~~~
 
 The common case only needs `OPENAI_API_KEY`.
+
+For demographic voice matching, set `voiceAssignment` to `character-aware-session` and provide one `speechVoiceProfiles` entry for every configured speech voice. The checked-in example config contains a starter male/female and age-band calibration. See [character-aware NPC voices](lsa-essential-e1-candidate/docs/character-aware-voices.md).
 
 Do not commit a real `.env`.
 
