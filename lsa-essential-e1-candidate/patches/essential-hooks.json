@@ -4,7 +4,6 @@
   "parser": "vendored Acorn 8.16.0; ECMAScript latest, module mode",
   "nativeContract": {
     "dllSha256": "9b6de42d4c464901d859dd95e17e100e4fa9ef6074bfbb0cf3a57a76f6ddd653",
-    "metadataSha256": "18edd2b47ffde748388b07a4a2d023793e183b882fe638acb5276440d45a2d23",
     "protocolVersion": 3,
     "authorization": "npcAudioTurnStart -> npcAudioTurnAccepted/rejected",
     "completion": "npcPlaybackEnded",
@@ -14,9 +13,35 @@
       "QueueTaggedAudioChunk",
       "MarkStreamEnded",
       "InterruptExactTurn"
-    ]
+    ],
+    "metadataSha256": "18edd2b47ffde748388b07a4a2d023793e183b882fe638acb5276440d45a2d23"
+  },
+  "identityContract": {
+    "available": true,
+    "dllSha256": "9b6de42d4c464901d859dd95e17e100e4fa9ef6074bfbb0cf3a57a76f6ddd653",
+    "metadataSha256": "8eac8860c81feacbb5eab557f5769cac1f76a36f061e1eb3640da7096f08cb63",
+    "requiredGameTarget": "net481",
+    "nativeProtocolChanged": false
   },
   "patches": [
+    {
+      "id": "keep listener world out of actor snapshot",
+      "sourceStart": 888744,
+      "sourceEnd": 888758,
+      "expected": 1
+    },
+    {
+      "id": "special-event session world association",
+      "sourceStart": 887515,
+      "sourceEnd": 887515,
+      "expected": 1
+    },
+    {
+      "id": "special-event context capture metadata",
+      "sourceStart": 887345,
+      "sourceEnd": 887345,
+      "expected": 1
+    },
     {
       "id": "Rb body hook",
       "sourceStart": 884349,
@@ -27,6 +52,36 @@
       "id": "a4 body hook",
       "sourceStart": 863351,
       "sourceEnd": 863351,
+      "expected": 1
+    },
+    {
+      "id": "microphone session listener and world association",
+      "sourceStart": 858372,
+      "sourceEnd": 858372,
+      "expected": 1
+    },
+    {
+      "id": "microphone turn listener and world hydration capture",
+      "sourceStart": 857970,
+      "sourceEnd": 857970,
+      "expected": 1
+    },
+    {
+      "id": "typed session listener and world association",
+      "sourceStart": 854984,
+      "sourceEnd": 854984,
+      "expected": 1
+    },
+    {
+      "id": "typed turn context capture metadata",
+      "sourceStart": 854920,
+      "sourceEnd": 854920,
+      "expected": 1
+    },
+    {
+      "id": "typed turn listener and world capture",
+      "sourceStart": 854434,
+      "sourceEnd": 854434,
       "expected": 1
     },
     {
@@ -42,9 +97,45 @@
       "expected": 1
     },
     {
-      "id": "reused context refresh",
+      "id": "world context has explicit unknown semantics",
+      "sourceStart": 843535,
+      "sourceEnd": 843652,
+      "expected": 1
+    },
+    {
+      "id": "BK body hook",
+      "sourceStart": 843377,
+      "sourceEnd": 843377,
+      "expected": 1
+    },
+    {
+      "id": "BK explicit world snapshot parameter",
+      "sourceStart": 843375,
+      "sourceEnd": 843375,
+      "expected": 1
+    },
+    {
+      "id": "reused actor listener world snapshot refresh",
       "sourceStart": 843109,
       "sourceEnd": 843109,
+      "expected": 1
+    },
+    {
+      "id": "retain omitted listener and clear explicit null",
+      "sourceStart": 842940,
+      "sourceEnd": 842979,
+      "expected": 1
+    },
+    {
+      "id": "qK listener and world operation",
+      "sourceStart": 842844,
+      "sourceEnd": 842844,
+      "expected": 1
+    },
+    {
+      "id": "resume fallback world",
+      "sourceStart": 840961,
+      "sourceEnd": 840961,
       "expected": 1
     },
     {
@@ -63,6 +154,48 @@
       "id": "session provider state",
       "sourceStart": 839926,
       "sourceEnd": 839926,
+      "expected": 1
+    },
+    {
+      "id": "bind prompt to session world",
+      "sourceStart": 839864,
+      "sourceEnd": 839873,
+      "expected": 1
+    },
+    {
+      "id": "session world option",
+      "sourceStart": 839659,
+      "sourceEnd": 839659,
+      "expected": 1
+    },
+    {
+      "id": "Zi new session world",
+      "sourceStart": 836816,
+      "sourceEnd": 836816,
+      "expected": 1
+    },
+    {
+      "id": "refresh context after shared session open",
+      "sourceStart": 836548,
+      "sourceEnd": 836548,
+      "expected": 1
+    },
+    {
+      "id": "Zi reused listener and world",
+      "sourceStart": 836240,
+      "sourceEnd": 836240,
+      "expected": 1
+    },
+    {
+      "id": "capture actor-associated listener and world at session entry",
+      "sourceStart": 835988,
+      "sourceEnd": 835988,
+      "expected": 1
+    },
+    {
+      "id": "Zi world input",
+      "sourceStart": 835884,
+      "sourceEnd": 835884,
       "expected": 1
     },
     {
@@ -159,6 +292,18 @@
       "id": "yy body hook",
       "sourceStart": 786557,
       "sourceEnd": 786557,
+      "expected": 1
+    },
+    {
+      "id": "retain explicit null listener through stock normalization",
+      "sourceStart": 362237,
+      "sourceEnd": 362266,
+      "expected": 1
+    },
+    {
+      "id": "keep identity evidence namespaced",
+      "sourceStart": 355647,
+      "sourceEnd": 355656,
       "expected": 1
     },
     {

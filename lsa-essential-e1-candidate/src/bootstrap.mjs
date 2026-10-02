@@ -5,6 +5,7 @@ import { createRuntime } from './integration/essentialGlue.mjs';
 import { loadPrivateEnvironment } from './config/privateEnvironment.mjs';
 import { createFileSink } from './observability/fileSink.mjs';
 import { Telemetry, createNoopTelemetry } from './observability/telemetry.mjs';
+import { identityContractSupported } from './identity/nativeSupport.mjs';
 
 let shutdownFlushRegistered = false;
 
@@ -13,7 +14,17 @@ export async function createRuntimeForBundle(options = {}) {
   const env = options.env !== undefined && options.envFilePath === undefined
     ? options.env
     : await loadPrivateEnvironment(options);
-  const config = await loadConfig({ ...options, env });
+  let config = await loadConfig({ ...options, env });
+  if (config.persistentIdentity.enabled) {
+    let contract = options.identityContract;
+    if (contract === undefined) {
+      try { contract = JSON.parse(await readFile(new URL('../build-manifest.json', import.meta.url), 'utf8')).identityContract; } catch {}
+    }
+    if (!identityContractSupported(contract)) {
+      config = Object.freeze({ ...config, persistentIdentity: Object.freeze({ ...config.persistentIdentity, enabled: false }) });
+      try { console.warn('[P1] Persistence disabled (optional_identity_contract_unavailable).'); } catch {}
+    }
+  }
   let telemetry = options.telemetry;
   if (!telemetry) {
     const entry = path.basename(process.argv[1] || '');

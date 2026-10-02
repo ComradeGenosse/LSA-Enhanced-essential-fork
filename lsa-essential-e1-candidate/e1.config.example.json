@@ -1,4 +1,12 @@
 {
+  "persistentIdentity": {
+    "enabled": false,
+    "mode": "shadow",
+    "worldProfileId": "",
+    "storePath": "identity/characters.v1.json",
+    "pipeName": "LSA.SessionIdentity.v1",
+    "prepareTimeoutMs": 400
+  },
   "provider": "openai",
   "reasoningModel": "gpt-6-luna",
   "reasoningEffort": "low",

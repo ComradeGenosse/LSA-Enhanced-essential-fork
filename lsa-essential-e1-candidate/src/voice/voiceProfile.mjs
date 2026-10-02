@@ -67,9 +67,9 @@ function digestFor(identity, assignmentVersion) {
   return createHash('sha256').update(identityBytes(identity, assignmentVersion)).digest();
 }
 
-function selectLegacyVoice(identity, config) {
+function selectLegacyVoice(identity, config, characterDigest = null) {
   const voices = config.speechVoices;
-  const digest = digestFor(identity, 1);
+  const digest = characterDigest || digestFor(identity, 1);
   return Object.freeze({
     voice: voices.length === 1 ? voices[0] : voices[digest.readUInt32BE(0) % voices.length],
     matchReason: 'deterministic-session',
@@ -112,7 +112,7 @@ function matchReason(profile, traits) {
   return 'character-aware-compatible';
 }
 
-function selectCharacterVoice(identity, traits, config) {
+function selectCharacterVoice(identity, traits, config, characterDigest = null) {
   const profiles = config.speechVoices
     .map(voice => config.speechVoiceProfiles?.[voice])
     .filter(Boolean);
@@ -121,13 +121,13 @@ function selectCharacterVoice(identity, traits, config) {
     .filter(item => Number.isFinite(item.score));
 
   if (!scored.length) {
-    const fallback = selectLegacyVoice(identity, config);
+    const fallback = selectLegacyVoice(identity, config, characterDigest);
     return Object.freeze({ ...fallback, matchReason: 'fallback-no-compatible-profile' });
   }
 
   const highest = Math.max(...scored.map(item => item.score));
   const finalists = scored.filter(item => item.score === highest).map(item => item.profile);
-  const digest = digestFor(identity, 2);
+  const digest = characterDigest || digestFor(identity, 2);
   const selected = finalists[digest.readUInt32BE(0) % finalists.length];
   return Object.freeze({ voice: selected.voice, matchReason: matchReason(selected, traits) });
 }
@@ -166,4 +166,28 @@ export function resolveVoiceProfile({ identity, actor = {}, config }) {
     ageBand: traits.ageBand,
     matchReason: selection.matchReason,
   });
+}
+
+// Separate seed domain and persisted choice; the session algorithm above is unchanged.
+export function createPersistentVoiceAssignment({ characterId, worldProfileId, actor = {}, config }) {
+  const digest = createHash('sha256').update('lsa-character-voice\0v1\0').update(JSON.stringify([worldProfileId, characterId])).digest();
+  const traits = actorVoiceTraits(actor);
+  const selection = config.voiceAssignment === 'character-aware-session'
+    ? selectCharacterVoice(null, traits, config, digest) : selectLegacyVoice(null, config, digest);
+  if (!isVoiceSupportedByModel(config.ttsModel, selection.voice)) throw new TypeError('persistent_voice_incompatible');
+  return Object.freeze({ assignmentVersion: 1, profileId: `vp_${digest.subarray(0, 10).toString('hex')}`,
+    provider: 'openai', voice: selection.voice,
+    poolVersion: createHash('sha256').update(JSON.stringify([config.speechVoices, config.speechVoiceProfiles, config.voiceAssignment])).digest('hex') });
+}
+
+export function resolvePersistentVoiceProfile({ assignment, actor = {}, config }) {
+  if (!assignment || assignment.assignmentVersion !== 1 || assignment.provider !== 'openai' ||
+      !isVoiceSupportedByModel(config.ttsModel, assignment.voice)) throw new TypeError('persistent_voice_incompatible');
+  const traits = actorVoiceTraits(actor);
+  const instructions = buildVoiceInstructions({ enabled: config.actingEnabled === true,
+    traits: config.voiceAssignment === 'character-aware-session' ? traits : {} });
+  if (instructions && !config.speechInstructionsSupported) throw new TypeError('persistent_voice_incompatible');
+  return Object.freeze({ profileId: assignment.profileId, provider: 'openai', model: config.ttsModel,
+    voice: assignment.voice, speed: config.ttsSpeed, instructions, assignmentVersion: 3,
+    selectionMode: 'persistent-character', gender: traits.gender, ageBand: traits.ageBand, matchReason: 'persistent-character' });
 }

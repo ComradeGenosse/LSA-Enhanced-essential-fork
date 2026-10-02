@@ -328,6 +328,8 @@ See:
 
 ## Current status
 
+P0 turn context is merged and P1 explicit-owner SESSION_IDENTITY is implemented and verified offline. P1 defaults off, supports shadow metadata verification, and persists only authenticated aliases/UUIDs/revisions and actual voice choices. Native effects retain Essential's exact tuple; returning characters get fresh session history. See the [P1 status, build pins, and controlled GTA checklist](docs/P1-session-identity-status.md). No P1 deployment or physical test has been performed, and the separate P0/E6 GTA gates remain pending.
+
 The repository currently contains:
 
 - hardened E1/E1.1 native-lifecycle integration;
@@ -381,8 +383,12 @@ Current phase status:
    stock-controller/native-lifecycle gate passed
    → physical GTA acceptance pending
 
-⏭ SESSION_IDENTITY
-   durable character identity
+🟡 P0 — TURN_CONTEXT
+   merged; physical GTA acceptance pending
+
+🟡 P1 — SESSION_IDENTITY
+   explicit-owner identity and voice continuity implemented offline
+   default off; physical GTA acceptance pending
 
 → PERCEPTION
    richer world/event awareness

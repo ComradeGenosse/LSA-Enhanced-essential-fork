@@ -11,21 +11,21 @@ let built;
 // Execute real patched stock declarations without starting the server, microphone,
 // SDK, sockets or native game. Only external I/O and unrelated scene presentation
 // are replaced. The turn store, routing, parser and lifecycle hooks are real code.
-export async function stockHarness(provider = 'openai', { config = {}, env = {}, telemetry = null, fetchImpl = () => { throw new Error('network forbidden'); } } = {}) {
+export async function stockHarness(provider = 'openai', { config = {}, env = {}, telemetry = null, identityEvidence, identityStore, fetchImpl = () => { throw new Error('network forbidden'); } } = {}) {
   built ||= buildCandidate(); await built;
   const source = await readFile(new URL('../dist/plugins/LosSantosAliveServer/server.bundle.mjs', import.meta.url), 'utf8');
   const ast = acorn.parse(source, { ecmaVersion: 'latest', sourceType: 'module' });
   const variables = new Map();
   for (const statement of ast.body) if (statement.type === 'VariableDeclaration') for (const d of statement.declarations) variables.set(d.id.name, source.slice(d.start,d.end));
   const select = ['Ht','Z','Pe','ke','Ee','BM','$M','hy','Va','It','ae','yn','hv','Nd','u4','p4','b4'];
-  const runtime = createRuntime(normalizeConfig({ provider, ...config }, env), { fetchImpl, telemetry });
+  const runtime = createRuntime(normalizeConfig({ provider, ...config }, env), { fetchImpl, telemetry, identityEvidence, identityStore });
   const sent = [], actions = [], logs = [];
   const context = vm.createContext({ Buffer, console, setTimeout, clearTimeout, queueMicrotask, Date, Map, Set, __LSA_E1_RUNTIME: runtime });
   context.sent = sent; context.actions = actions; context.logs = logs;
   vm.runInContext(ast.body.filter(n => n.type === 'FunctionDeclaration').map(n => source.slice(n.start,n.end)).join('\n'), context);
   vm.runInContext(select.map(name => { if (!variables.has(name)) throw new Error(`Missing ${name}`); return `var ${variables.get(name)};`; }).join('\n'), context);
   vm.runInContext(`
-    var od = new Set(), id = null, TP = true, Vy = {}, vb = {}, Ha = AP, stockZi = Zi, stockOa = oa, stockM4 = M4, stockWb = wb;
+    var od = new Set(), id = null, TP = true, Vy = {}, vb = {}, Ha = AP, stockZi = Zi, stockOa = oa, stockM4 = M4, stockWb = wb, stockVi = vi;
     var A = { playerPedId: 'player', sessionsByPedId: new Map(), sessionNoncesByPedId: new Map(),
       outputOwnerByPedId: new Map(), retiringOutputOwnerByPedId: new Map(), pendingOutputOwnerByPedId: new Map(),
       sessionOpenPromisesByPedId: new Map(), sessionMetadataByPedId: new Map(),
@@ -34,7 +34,7 @@ export async function stockHarness(provider = 'openai', { config = {}, env = {},
       audioEndpoint: { connected: true, ready: true, protocolVersion: 3, supportsTurnIdentity: true,
         supportsStreamEnded: true, supportsExactInterrupt: true, supportsPlaybackStarted: true, supportsStaleGenerationRejection: true } };
     var le = new hy(A);
-    se = (...args) => logs.push(args); Ji = se; gy = () => {}; vt = () => {}; vP = () => {}; tl = () => {}; $a = () => {};
+    se = (...args) => logs.push(args); Ji = se; ct = () => {}; gy = () => {}; vt = () => {}; vP = () => {}; tl = () => {}; $a = () => {};
     yi = () => []; Pb = () => []; Qt = (_, message) => { sent.push(message); return 1; };
     Ba = ({transcript}) => ({ recipientPedId: 'player', recipientIsPlayer: true, spokenText: transcript });
     z0 = () => null; PP = () => false;
@@ -48,7 +48,7 @@ export async function stockHarness(provider = 'openai', { config = {}, env = {},
   return { runtime, context, sent, actions, logs, evaluate,
     ensureWithStockController(options) { context.stockZiOptions=options; return evaluate('stockZi(stockZiOptions)'); },
     useStockInputNormalizer() { evaluate('oa=stockOa; Pv=()=>({voiceName:"Harness"}); gv=()=>""; wO=()=>{}; vi=async()=>true;'); },
-    useStockSpecialHydration() { evaluate('M4=stockM4; vi=async()=>true;'); },
+    useStockSpecialHydration({ sendInput = false } = {}) { evaluate(sendInput ? 'M4=stockM4; vi=stockVi;' : 'M4=stockM4; vi=async()=>true;'); },
     useStockActionDispatcher() { evaluate('wb=stockWb; var f4=new Set(["enterdriverseatoftargetvehicle"]); Vy.enterdriverseatoftargetvehicle=true; R4=(action,parameter)=>{actions.push({action,parameter});return{action,parameter};};'); },
     async openAIControllerSession({ pedId = '17', nonce = 1, actorContext = { pedId, roleName: 'Civilian' }, targetContext = { pedId: 'player' } } = {}) {
       const connection = await runtime.createTransport(() => { throw new Error('Gemini must not be constructed'); }).connect({
