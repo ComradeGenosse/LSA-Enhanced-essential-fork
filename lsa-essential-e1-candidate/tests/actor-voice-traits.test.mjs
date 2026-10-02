@@ -2,12 +2,24 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { actorVoiceTraits, ageBandFromAge, normalizeGender, parseAgeRange } from '../src/voice/actorVoiceTraits.mjs';
 
-test('normalizes common LSA gender values', () => {
+test('normalizes the exact native Essential gender vocabulary', () => {
+  assert.equal(normalizeGender('male'), 'male');
+  assert.equal(normalizeGender('female'), 'female');
+  assert.equal(normalizeGender('unknown'), 'unknown');
+});
+
+test('keeps defensive gender aliases for compatibility', () => {
   assert.equal(normalizeGender('Male'), 'male');
   assert.equal(normalizeGender('FEMALE'), 'female');
   assert.equal(normalizeGender('m'), 'male');
   assert.equal(normalizeGender('f'), 'female');
-  assert.equal(normalizeGender('unknown'), 'unknown');
+});
+
+test('maps the exact native Essential ageRange vocabulary', () => {
+  assert.equal(parseAgeRange('young').ageBand, 'young');
+  assert.equal(parseAgeRange('middle-aged').ageBand, 'mature');
+  assert.equal(parseAgeRange('old').ageBand, 'older');
+  assert.equal(parseAgeRange('unknown').ageBand, 'unknown');
 });
 
 test('parses numeric age ranges and exact ages', () => {
@@ -33,6 +45,12 @@ test('actorVoiceTraits exposes only normalized demographic traits', () => {
   assert.deepEqual(actorVoiceTraits({
     gender: 'Female', ageRange: '60-70', roleContext: 'private', personaDescription: 'secret',
   }), { gender: 'female', ageBand: 'older', ageMin: 60, ageMax: 70 });
+});
+
+test('actorVoiceTraits preserves native old as a usable age signal', () => {
+  assert.deepEqual(actorVoiceTraits({
+    gender: 'male', ageRange: 'old',
+  }), { gender: 'male', ageBand: 'older', ageMin: null, ageMax: null });
 });
 
 test('ageBandFromAge rejects implausible values', () => {
