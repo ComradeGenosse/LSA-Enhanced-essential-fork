@@ -1,5 +1,12 @@
 const AGE_BANDS = Object.freeze(['young', 'adult', 'mature', 'older', 'senior']);
 
+const NATIVE_AGE_RANGE_TO_BAND = Object.freeze({
+  young: 'young',
+  'middle-aged': 'mature',
+  old: 'older',
+  unknown: 'unknown',
+});
+
 function validAge(age) {
   return Number.isFinite(age) && age >= 13 && age <= 110;
 }
@@ -28,7 +35,15 @@ export function ageBandFromAge(age) {
 export function parseAgeRange(value) {
   const raw = String(value ?? '').trim();
   const text = raw.toLowerCase().replace(/[_]+/g, ' ').replace(/\s+/g, ' ');
-  if (!text || ['unknown', 'n/a', 'na', 'none', 'unspecified'].includes(text)) return frozenAge();
+  if (!text) return frozenAge();
+
+  // Essential Hotfix #3 emits exactly: young, middle-aged, old, unknown.
+  // Keep this exact native contract ahead of the broader defensive parser so
+  // coarse native "old" is retained instead of being discarded as unknown.
+  const nativeAgeBand = NATIVE_AGE_RANGE_TO_BAND[text];
+  if (nativeAgeBand) return frozenAge({ ageBand: nativeAgeBand });
+
+  if (['n/a', 'na', 'none', 'unspecified'].includes(text)) return frozenAge();
 
   const range = text.match(/\b(\d{1,3})\s*(?:-|–|—|to)\s*(\d{1,3})\b/i);
   if (range) {
