@@ -53,7 +53,8 @@ export class OpenAIConnection {
     const source = String(turn.source || 'player_text').toLowerCase();
     this.#metrics = this.#runtime.telemetry?.beginTurn(turn.identity, source, { inputChars: String(turn.context?.inputText || '').length }) || null;
     if (!this.#voiceProfile) {
-      this.#voiceProfile = this.#runtime.voiceResolver?.resolve(turn.identity) || null;
+      const voiceActor = turn.context?.actor || this.#context.actor || {};
+      this.#voiceProfile = this.#runtime.voiceResolver?.resolve(turn.identity, voiceActor) || null;
       if (this.#voiceProfile) {
         this.#metrics?.event('speech_provider_selected', {
           speechProvider: this.#voiceProfile.provider,
@@ -67,6 +68,10 @@ export class OpenAIConnection {
           voice: this.#voiceProfile.voice,
           speed: this.#voiceProfile.speed,
           assignmentVersion: this.#voiceProfile.assignmentVersion,
+          selectionMode: this.#voiceProfile.selectionMode,
+          gender: this.#voiceProfile.gender,
+          ageBand: this.#voiceProfile.ageBand,
+          matchReason: this.#voiceProfile.matchReason,
         });
       }
     }
