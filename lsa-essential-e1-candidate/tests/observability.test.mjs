@@ -41,11 +41,14 @@ test('telemetry retains bounded provider retry and voice assignment dimensions',
   assert.deepEqual(sanitizeTelemetryData({
     operation: 'tts', provider: 'openai.speech', attempt: 2, maxAttempts: 2, attemptId: 'tts:2',
     retryDelayMs: 500, remainingDeadlineMs: 2500, reason: 'side_effect_started',
-    profileId: 'vp_0123456789abcdefabcd', voice: 'shimmer', speed: 1.1, instruction: 'private text',
+    profileId: 'vp_0123456789abcdefabcd', voice: 'shimmer', speed: 1.1,
+    selectionMode: 'character-aware-session', gender: 'female', ageBand: 'older', matchReason: 'character-aware-exact',
+    instruction: 'private text', personaDescription: 'private persona',
   }), {
     operation: 'tts', provider: 'openai.speech', attempt: 2, maxAttempts: 2, attemptId: 'tts:2',
     retryDelayMs: 500, remainingDeadlineMs: 2500, reason: 'side_effect_started',
     profileId: 'vp_0123456789abcdefabcd', voice: 'shimmer', speed: 1.1,
+    selectionMode: 'character-aware-session', gender: 'female', ageBand: 'older', matchReason: 'character-aware-exact',
   });
 });
 
