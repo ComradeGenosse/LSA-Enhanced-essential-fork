@@ -5,6 +5,61 @@ import { fileURLToPath } from 'node:url';
 const moduleDirectory = path.dirname(fileURLToPath(import.meta.url));
 export const defaultConfigPath = path.resolve(moduleDirectory, '../../e1.config.json');
 
+const VOICE_PROFILE_GENDERS = new Set(['male', 'female', 'any']);
+const VOICE_PROFILE_AGE_BANDS = new Set(['young', 'adult', 'mature', 'older', 'senior', 'any']);
+
+function supportedVoicesForModel(ttsModel, speechInstructionsSupported) {
+  if (speechInstructionsSupported) return ['alloy', 'ash', 'ballad', 'coral', 'echo', 'fable', 'nova', 'onyx', 'sage', 'shimmer', 'verse', 'marin', 'cedar'];
+  if (['tts-1', 'tts-1-hd'].includes(ttsModel)) return ['alloy', 'ash', 'coral', 'echo', 'fable', 'onyx', 'nova', 'sage', 'shimmer'];
+  return null;
+}
+
+function normalizeProfileValues(value, allowed, fallback, name) {
+  const list = value === undefined ? fallback : value;
+  if (!Array.isArray(list) || list.length === 0) throw new TypeError(`${name} must be a nonempty array.`);
+  const normalized = list.map(item => String(item).trim().toLowerCase());
+  if (normalized.some(item => !allowed.has(item))) throw new TypeError(`${name} contains an unsupported value.`);
+  if (new Set(normalized).size !== normalized.length) throw new TypeError(`${name} cannot contain duplicates.`);
+  if (normalized.includes('any') && normalized.length > 1) throw new TypeError(`${name} cannot combine "any" with specific values.`);
+  return Object.freeze(normalized);
+}
+
+function normalizeSpeechVoiceProfiles(input, { speechVoices, supportedVoices, voiceAssignment }) {
+  if (input === undefined || input === null) {
+    if (voiceAssignment === 'character-aware-session') throw new TypeError('character-aware-session requires speechVoiceProfiles.');
+    return Object.freeze({});
+  }
+  if (!input || typeof input !== 'object' || Array.isArray(input)) throw new TypeError('speechVoiceProfiles must be an object.');
+  if (!supportedVoices) throw new TypeError('Cannot validate speechVoiceProfiles for the configured TTS model.');
+
+  const normalized = {};
+  for (const [rawVoice, rawProfile] of Object.entries(input)) {
+    const voice = String(rawVoice).trim().toLowerCase();
+    if (!voice || normalized[voice]) throw new TypeError('speechVoiceProfiles contains an invalid or duplicate voice key.');
+    if (!speechVoices.includes(voice)) throw new TypeError(`speechVoiceProfiles.${voice} is not present in speechVoices.`);
+    if (!supportedVoices.includes(voice)) throw new TypeError(`speechVoiceProfiles.${voice} is unsupported by the configured TTS model.`);
+    if (!rawProfile || typeof rawProfile !== 'object' || Array.isArray(rawProfile)) throw new TypeError(`speechVoiceProfiles.${voice} must be an object.`);
+    normalized[voice] = Object.freeze({
+      voice,
+      genders: normalizeProfileValues(rawProfile.genders, VOICE_PROFILE_GENDERS, ['any'], `speechVoiceProfiles.${voice}.genders`),
+      ageBands: normalizeProfileValues(rawProfile.ageBands, VOICE_PROFILE_AGE_BANDS, ['any'], `speechVoiceProfiles.${voice}.ageBands`),
+    });
+  }
+
+  if (voiceAssignment === 'character-aware-session') {
+    const keys = Object.keys(normalized);
+    if (keys.length !== speechVoices.length || speechVoices.some(voice => !normalized[voice])) {
+      throw new TypeError('character-aware-session requires one speechVoiceProfiles entry for every configured speech voice.');
+    }
+    const profiles = Object.values(normalized);
+    const maleCovered = profiles.some(profile => profile.genders.includes('male') || profile.genders.includes('any'));
+    const femaleCovered = profiles.some(profile => profile.genders.includes('female') || profile.genders.includes('any'));
+    if (!maleCovered || !femaleCovered) throw new TypeError('character-aware-session requires voice coverage for both male and female NPCs (or an any-gender profile).');
+  }
+
+  return Object.freeze(normalized);
+}
+
 function boundedInteger(value, fallback, min, max, name) {
   const number = Number(value ?? fallback);
   if (!Number.isSafeInteger(number) || number < min || number > max) {
@@ -68,15 +123,16 @@ export function normalizeConfig(input = {}, env = process.env) {
   const speechInstructionsSupported = /^gpt-4o-mini-tts(?:-|$)/.test(ttsModel);
   const actingEnabled = input.actingEnabled ?? false;
   if (actingEnabled && !speechInstructionsSupported) throw new TypeError('actingEnabled requires a TTS model that supports speech instructions.');
+  const supportedVoices = supportedVoicesForModel(ttsModel, speechInstructionsSupported);
   if (explicitVoicePool && speechVoices.length > 1) {
-    const supportedVoices = speechInstructionsSupported
-      ? ['alloy', 'ash', 'ballad', 'coral', 'echo', 'fable', 'nova', 'onyx', 'sage', 'shimmer', 'verse', 'marin', 'cedar']
-      : ['alloy', 'ash', 'coral', 'echo', 'fable', 'onyx', 'nova', 'sage', 'shimmer'];
-    if (!['tts-1', 'tts-1-hd'].includes(ttsModel) && !speechInstructionsSupported) throw new TypeError('Cannot validate a multi-voice pool for the configured TTS model.');
+    if (!supportedVoices) throw new TypeError('Cannot validate a multi-voice pool for the configured TTS model.');
     if (speechVoices.some(voice => !supportedVoices.includes(voice))) throw new TypeError('speechVoices contains a voice unsupported by the configured TTS model.');
   }
-  const voiceAssignment = String(input.voiceAssignment ?? 'deterministic-session');
-  if (voiceAssignment !== 'deterministic-session') throw new TypeError('voiceAssignment must be deterministic-session.');
+  const voiceAssignment = String(input.voiceAssignment ?? 'deterministic-session').trim().toLowerCase();
+  if (!['deterministic-session', 'character-aware-session'].includes(voiceAssignment)) {
+    throw new TypeError('voiceAssignment must be deterministic-session or character-aware-session.');
+  }
+  const speechVoiceProfiles = normalizeSpeechVoiceProfiles(input.speechVoiceProfiles, { speechVoices, supportedVoices, voiceAssignment });
 
   const providerWorkDeadlineMs = boundedInteger(input.providerWorkDeadlineMs ?? input.turnDeadlineMs, defaults.turnDeadlineMs, 5_000, 120_000, 'providerWorkDeadlineMs');
   const retryInput = input.retry ?? defaults.retry;
@@ -101,7 +157,7 @@ export function normalizeConfig(input = {}, env = process.env) {
   return Object.freeze({
     provider: selectedProvider,
     reasoningModel, reasoningEffort, transcriptionModel, ttsModel, ttsVoice,
-    speechVoices: Object.freeze(speechVoices), voiceAssignment, ttsSpeed, actingEnabled, speechInstructionsSupported,
+    speechVoices: Object.freeze(speechVoices), speechVoiceProfiles, voiceAssignment, ttsSpeed, actingEnabled, speechInstructionsSupported,
     reasoningBaseUrl: baseUrl(input.reasoningBaseUrl ?? env.OPENAI_REASONING_BASE_URL, 'https://api.openai.com/v1', 'reasoningBaseUrl'),
     transcriptionBaseUrl: baseUrl(input.transcriptionBaseUrl ?? env.OPENAI_TRANSCRIPTION_BASE_URL, 'https://api.openai.com/v1', 'transcriptionBaseUrl'),
     ttsBaseUrl: baseUrl(input.ttsBaseUrl ?? env.OPENAI_TTS_BASE_URL, 'https://api.openai.com/v1', 'ttsBaseUrl'),
