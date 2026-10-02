@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net481</TargetFramework><AssemblyName>LSA.PromotedCharacters</AssemblyName><LangVersion>latest</LangVersion>
+    <AutomaticallyUseReferenceAssemblyPackages>false</AutomaticallyUseReferenceAssemblyPackages><Deterministic>true</Deterministic><GenerateAssemblyInfo>false</GenerateAssemblyInfo><EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="*.cs" />
+    <ProjectReference Include="../session-identity/SessionIdentity.csproj" />
+    <Reference Include="LosSantosAlive"><HintPath>../../lsa-essential-e1-candidate/upstream/LosSantosAlive.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="RagePluginHook"><HintPath>$(RphReferencePath)</HintPath><Private>false</Private></Reference>
+    <Reference Include="System.Web.Extensions" />
+  </ItemGroup>
+</Project>

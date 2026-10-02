@@ -1,0 +1,164 @@
+{
+  "dllSha256": "9b6de42d4c464901d859dd95e17e100e4fa9ef6074bfbb0cf3a57a76f6ddd653",
+  "types": [
+    {
+      "name": "LosSantosAlive.NPC.NpcActions",
+      "methods": [
+        {
+          "name": "FollowTarget",
+          "returns": "Void",
+          "parameters": []
+        },
+        {
+          "name": "FollowTarget",
+          "returns": "Void",
+          "parameters": [
+            "Rage.Ped"
+          ]
+        },
+        {
+          "name": "WaitHere",
+          "returns": "Void",
+          "parameters": []
+        },
+        {
+          "name": "WaitHere",
+          "returns": "Void",
+          "parameters": [
+            "Rage.Ped"
+          ]
+        },
+        {
+          "name": "HasExclusiveControl",
+          "returns": "Boolean",
+          "parameters": [
+            "Rage.Ped"
+          ]
+        },
+        {
+          "name": "ReleaseExclusiveControlForExternalSystem",
+          "returns": "Void",
+          "parameters": [
+            "Rage.Ped",
+            "String",
+            "Boolean"
+          ]
+        }
+      ],
+      "fields": []
+    },
+    {
+      "name": "LosSantosAlive.NPC.NpcFocus",
+      "methods": [
+        {
+          "name": "SetFocus",
+          "returns": "Void",
+          "parameters": [
+            "Rage.Ped",
+            "Rage.Ped",
+            "String"
+          ]
+        }
+      ],
+      "fields": []
+    },
+    {
+      "name": "LosSantosAlive.NPC.NpcState",
+      "methods": [
+        {
+          "name": "DemoteToPassiveRuntime",
+          "returns": "Void",
+          "parameters": []
+        }
+      ],
+      "fields": [
+        {
+          "name": "StayUnderLsaControl",
+          "type": "Boolean"
+        },
+        {
+          "name": "FollowPlayerOnFoot",
+          "type": "Boolean"
+        },
+        {
+          "name": "FollowPaused",
+          "type": "Boolean"
+        },
+        {
+          "name": "EnterPassengerSeatWhenPlayerEnters",
+          "type": "Boolean"
+        },
+        {
+          "name": "ExitVehicleWhenPlayerExits",
+          "type": "Boolean"
+        },
+        {
+          "name": "AccompliceMode",
+          "type": "Boolean"
+        },
+        {
+          "name": "InDirectedInteraction",
+          "type": "Boolean"
+        }
+      ]
+    },
+    {
+      "name": "LosSantosAlive.NPC.NpcStateStore",
+      "methods": [
+        {
+          "name": "TryGetState",
+          "returns": "LosSantosAlive.NPC.NpcState",
+          "parameters": [
+            "Rage.Ped"
+          ]
+        },
+        {
+          "name": "TryGetState",
+          "returns": "Boolean",
+          "parameters": [
+            "Rage.Ped",
+            "LosSantosAlive.NPC.NpcState\u0026"
+          ]
+        },
+        {
+          "name": "GetStateForActiveBehavior",
+          "returns": "LosSantosAlive.NPC.NpcState",
+          "parameters": [
+            "Rage.Ped"
+          ]
+        }
+      ],
+      "fields": []
+    },
+    {
+      "name": "LosSantosAlive.NPC.NpcTargeting",
+      "methods": [
+        {
+          "name": "GetPlayerConversationPed",
+          "returns": "Rage.Ped",
+          "parameters": []
+        },
+        {
+          "name": "GetCurrentSpeakerPed",
+          "returns": "Rage.Ped",
+          "parameters": []
+        }
+      ],
+      "fields": []
+    },
+    {
+      "name": "LosSantosAlive.Context.Providers.ActorContextProvider",
+      "methods": [
+        {
+          "name": "Populate",
+          "returns": "Void",
+          "parameters": [
+            "LosSantosAlive.Context.ActorContext",
+            "Rage.Ped"
+          ]
+        }
+      ],
+      "fields": []
+    }
+  ]
+}

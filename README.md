@@ -55,6 +55,8 @@ The core rule is:
 
 That separation is deliberate. The project does not create its own competing NPC lifecycle or action system.
 
+P2 now adds optional **promoted persistent characters**: application-assigned encounter names, explicit player promotion through P1, a separate profile/memory store and local editor, guarded summon/recreation, and existing Essential companion controls. It defaults off and has not been validated in GTA. See [P2 setup, behavior and acceptance checklist](docs/P2-promoted-characters-status.md) and [compile-only native package](native/promoted-characters/README.md).
+
 ## What you need
 
 ### Required

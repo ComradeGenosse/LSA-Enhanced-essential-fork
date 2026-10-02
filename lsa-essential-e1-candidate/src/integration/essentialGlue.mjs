@@ -11,8 +11,9 @@ import { executeProviderOperation } from '../reliability/providerExecutor.mjs';
 import { captureReferenceMap } from '../context/turnSnapshot.mjs';
 import { IdentityResolver } from '../identity/identityResolver.mjs';
 import { withoutIdentityEvidence } from '../identity/modelContext.mjs';
+import { CharacterService,withoutCharacterTransport } from '../characters/characterService.mjs';
 
-export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry = null, providers = {}, identityEvidence, identityStore } = {}) {
+export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry = null, providers = {}, identityEvidence, identityStore, profileStore, nativeOwner } = {}) {
   const history = new DialogueHistory({ maxMessages: config.maxHistoryMessages, onMetric: (event, data) => telemetry?.emit(event, null, null, data) });
   const connections = new Set();
   let bridge = null;
@@ -28,6 +29,9 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
         }
         return bridge?.retireMatchingSession(session, reason);
       } }) : null;
+  const characterService = config.provider === 'openai' && config.promotedCharacters?.enabled
+    ? new CharacterService(config,{identityService,voiceResolver,store:profileStore,nativeOwner,telemetry}) : null;
+  characterService?.initialize().catch(() => {});
   const services = {
     config,
     providerStack,
@@ -37,8 +41,8 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
     executeProvider: providerStack ? args => executeProviderOperation({ ...args, retryConfig: config.retry, telemetry: args.telemetry }) : null,
   };
   const runtime = {
-    config, history, services, telemetry, providerStack, voiceResolver, identityService,
-    modelActor: actor => identityService ? withoutIdentityEvidence(actor) : actor,
+    config, history, services, telemetry, providerStack, voiceResolver, identityService,characterService,
+    modelActor: actor => characterService ? withoutCharacterTransport(actor) : identityService ? withoutIdentityEvidence(actor) : actor,
     validateDecisionShape,
     validateStockDecision,
     captureReferenceMap,
@@ -55,6 +59,7 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
     detach(connection) {
       connections.delete(connection);
         identityService?.detach(connection.sessionIdentity);
+        characterService?.sessions.detach(connection.sessionIdentity);
         history.clearSession(connection.sessionIdentity?.pedId, connection.sessionIdentity?.sessionNonce);
         telemetry?.emit('bridge_disconnected', null, null, { provider: 'openai', reason: 'session_closed' });
     },
@@ -77,7 +82,7 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
       return {
         assertCapabilities: () => bridge.assertCapabilities(),
         isCurrent: identity => bridge.isCurrent(identity) && !connection.closed && (!identityService || identityService.current(identity)),
-        prepareTurn: identityService ? (turn, signal, deadlineAt) => connection.prepareIdentity(turn, signal, deadlineAt) : null,
+        prepareTurn: identityService || characterService ? (turn, signal, deadlineAt) => connection.prepareIdentity(turn, signal, deadlineAt) : null,
         validateDecision: async (decision, context, identity) => {
           const result = await bridge.validateDecision(decision, context, identity);
           if (result?.identityValid && result.actionCount) telemetry?.beginTurn(identity, context?.source || 'player_text')?.actionValidated(result.actionNames?.[0]);

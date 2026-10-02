@@ -29,7 +29,8 @@ Essential remains authoritative for native NPC state, turn/generation identity, 
 | E5 | ✅ Implemented + live API validated | Structured Responses streaming; configured Luna produced a validated segment before response completion |
 | E6 | 🟡 Implemented; early-audio and multi-segment GTA checks pending | Repaired live path played 13 turns; eight synthesis requests started shortly before model completion, but first PCM arrived afterward; every reply contained one segment |
 | P0 — TURN_CONTEXT | ✅ Merged to `main` + offline-verified; GTA acceptance pending | Immutable per-turn actor/listener/world snapshots and time-of-use P/V target-reference validation |
-| P1 — SESSION_IDENTITY | 🟡 Implemented + offline-verified; GTA acceptance pending | Explicit owner-authenticated durable UUIDs and actual voice assignments; default-off/shadow rollout; separate E6/P0 GTA gates remain open |
+| P1 — SESSION_IDENTITY | 🟡 Merged to `main` + offline-verified; GTA acceptance pending | Explicit owner-authenticated durable UUIDs and actual voice assignments; default-off/shadow rollout; separate E6/P0 GTA gates remain open |
+| P2 — PROMOTED_CHARACTERS / CHARACTER_PROFILE | 🟡 Implemented + offline-verified; GTA acceptance pending | Explicit player promotion, encounter names, separate durable profiles/memory CRUD, local editor, P1-owned recreation and guarded native companion controls |
 | PERCEPTION | Planned | Richer world/event/context awareness |
 | SALIENCE | Planned | Decide what an NPC should care about right now |
 | SCENE_DIRECTOR | Planned | NPC initiative and coordinated autonomous behavior |
@@ -215,6 +216,25 @@ The companion persists aliases, revisions, and the actual character voice assign
 The feature defaults off and supports shadow metadata verification before character voice adoption at a clean session boundary. Invalid/unsupported storage or unavailable optional evidence leaves ordinary ephemeral dialogue usable. Known identity/incarnation contradictions retire the affected exact session. No fuzzy matching, auto-merge, binding theft, persistent memory, relationships, personality, or goals are included.
 
 Physical GTA acceptance is still pending, independently of the existing P0 and E6 gates. Later character state must build on owner-authenticated aliases, never raw handles.
+
+### P2 — PROMOTED_CHARACTERS / CHARACTER_PROFILE
+
+P2 is implemented on merged P1 (`2849df1`) and verified offline; its PR remains a review checkpoint and every physical GTA gate is open. It provides bounded application-assigned encounter names/voice profiles, explicit idempotent promotion through P1 authored ownership, independent versioned profiles keyed by CharacterId, biography/personality/relationship/notes editing, durable manual memory CRUD/selection, safe summon/recreation and a local character editor.
+
+The optional RAGE owner plugin uses existing Essential selection, follow/wait, focus and vehicle-state seams. It guards missions/cutscenes/script ownership and suspends optional behavior conservatively, without a second TASK scheduler or automatic mission rejoin. Only addon-created peds can be explicitly deleted; dismissal never erases a character. The canonical P1 identity/voice schema and exact native dialogue/audio/action tuple remain unchanged. Appearance recreation is limited to supported standard model/components/props; exact freemode/third-party customization remains unclaimed.
+
+The architecture sequence is now:
+
+```text
+P0 TURN_CONTEXT
+  → P1 SESSION_IDENTITY
+  → P2 PROMOTED_CHARACTERS / CHARACTER_PROFILE
+  → PERCEPTION
+  → SALIENCE
+  → SCENE_DIRECTOR
+```
+
+P2 supplies the durable foundation, not automatic memory extraction, event perception, salience ranking or autonomous coordination. See [implementation, file formats and GTA checklist](P2-promoted-characters-status.md), [focused pinned native evidence](P2-native-evidence.md), and [offline verification](../lsa-essential-e1-candidate/docs/p2-verification.md). Offline tests and compile-only addon builds do not establish physical task, appearance, cutscene or playback behavior.
 
 ### PERCEPTION — Richer world and event awareness
 

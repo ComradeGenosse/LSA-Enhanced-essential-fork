@@ -41,6 +41,21 @@ export class IdentityResolver {
     this.#retire(anchor, 'evidence_unavailable');
     return false;
   }
+  // Explicit player-owned registration has no dialogue turn yet. Resolve its
+  // canonical P1 record with the same fresh evidence, without creating a native
+  // session, runtime binding, history, or effect-routing address.
+  async resolveOwnerRegistration(binding, makeVoice = null) {
+    const claim = validateClaim(binding?.claim,this.config);
+    if (!claim || binding.ownerAlias !== claim.sourceKey || !binding.pedId) throw new Error('invalid_evidence');
+    const abort = new AbortController();
+    const timer = setTimeout(() => abort.abort(),this.config.prepareTimeoutMs);
+    try {
+      const proof = await this.evidence.verify(binding.pedId,claim,abort.signal);
+      const verified = validateClaim(proof?.claim,this.config);
+      if (abort.signal.aborted || proof?.kind !== 'verified' || !verified || !sameAssociation(claim,verified) || verified.observationSequence <= claim.observationSequence || verified.observedGameTime < claim.observedGameTime || !this.evidence.isCurrent(verified)) throw new Error('evidence_unavailable');
+      return await this.registry.resolveOrCreate(verified,makeVoice,() => !abort.signal.aborted && this.evidence.isCurrent(verified));
+    } finally { clearTimeout(timer); abort.abort(); }
+  }
   async prepare({ identity, actor, signal, deadlineAt, isCurrent, voiceResolver, allowVoice }) {
     let timer;
     const abort = new AbortController();

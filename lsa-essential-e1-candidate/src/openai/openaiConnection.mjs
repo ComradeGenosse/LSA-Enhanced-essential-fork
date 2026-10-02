@@ -95,7 +95,9 @@ export class OpenAIConnection {
     if (worldStatus === 'unavailable') safeEmit(this.#runtime.telemetry, 'world_unavailable', turn.identity, source, { reason: 'missing_or_unknown' });
     if (!this.#voiceProfile) {
       const voiceActor = actor || {};
-      this.#voiceProfile = this.#runtime.voiceResolver?.resolve(turn.identity, voiceActor) || null;
+      const encounter = this.#runtime.characterService?.session(turn.identity,voiceActor,null);
+      this.#voiceProfile = encounter?.speechProfile || this.#runtime.voiceResolver?.resolve(turn.identity, voiceActor) || null;
+      this.#runtime.characterService?.sessions.rememberVoice(turn.identity,voiceActor,this.#voiceProfile);
       if (this.#voiceProfile) {
         this.#metrics?.event('speech_provider_selected', {
           speechProvider: this.#voiceProfile.provider,
@@ -314,17 +316,25 @@ export class OpenAIConnection {
   }
 
   async prepareIdentity(turn, signal, deadlineAt) {
-    const prepared = await this.#runtime.identityService.prepare({ identity: turn.identity, actor: turn.context.actor, signal, deadlineAt,
+    const prepared = await this.#runtime.identityService?.prepare({ identity: turn.identity, actor: turn.context.actor, signal, deadlineAt,
       isCurrent: () => !this.#closed && sameIdentity(this.#turn?.identity, turn.identity) && this.#runtime.host.isCurrent(turn.identity),
       voiceResolver: this.#runtime.voiceResolver, allowVoice: !this.#voicePolicyLocked });
     if (signal.aborted || this.#closed || !sameIdentity(this.#turn?.identity, turn.identity) || !this.#runtime.host.isCurrent(turn.identity)) return;
-    this.#characterSnapshot = prepared.snapshot;
+    this.#characterSnapshot = prepared?.snapshot || null;
     if (!this.#voicePolicyLocked) {
       this.#voicePolicyLocked = true;
-      if (prepared.speechProfile) this.#voiceProfile = prepared.speechProfile;
+      if (prepared?.speechProfile) this.#voiceProfile = prepared.speechProfile;
     }
     turn.speechProfile = this.#voiceProfile;
-    turn.characterSnapshot = prepared.snapshot;
+    turn.characterSnapshot = prepared?.snapshot || null;
+    if (this.#runtime.characterService) {
+      try { await this.#runtime.characterService.prepareTurn(turn,prepared?.snapshot,this.#voiceProfile); }
+      catch { // Optional projection failure must still strip private native proof.
+        turn.context = { ...turn.context,actor:this.#runtime.modelActor(turn.context.actor),listener:this.#runtime.modelActor(turn.context.listener) };
+        this.#runtime.characterService.emit('character_safe_failure',{reason:'profile_projection_failed'});
+      }
+      return;
+    }
     turn.context = { ...turn.context, actor: this.#runtime.modelActor(turn.context.actor), listener: this.#runtime.modelActor(turn.context.listener) };
   }
 

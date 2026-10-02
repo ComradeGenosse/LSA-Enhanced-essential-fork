@@ -32,6 +32,14 @@
 **/session-identity/facts-tests/bin/
 **/session-identity/facts-tests/obj/
 **/.identity-test-*/
+**/characters/profiles.v1.json*
+**/LSA.PromotedCharacters.json
+**/promoted-characters/bin/
+**/promoted-characters/obj/
+**/promoted-characters/tests/bin/
+**/promoted-characters/tests/obj/
+**/promoted-characters/facts-tests/bin/
+**/promoted-characters/facts-tests/obj/
 
 # Local deployment packages, stages, receipts, and rollback data
 /deployment/stock-hotfix3/
