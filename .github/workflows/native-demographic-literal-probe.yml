@@ -1,0 +1,74 @@
+name: Native demographic literal probe
+
+on:
+  push:
+    branches:
+      - audit/native-context-evidence-20261001
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Build safe metadata/string probe
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path native-probe | Out-Null
+          @'
+          <Project Sdk="Microsoft.NET.Sdk">
+            <PropertyGroup>
+              <OutputType>Exe</OutputType>
+              <TargetFramework>net8.0</TargetFramework>
+              <ImplicitUsings>enable</ImplicitUsings>
+              <Nullable>enable</Nullable>
+            </PropertyGroup>
+          </Project>
+          '@ | Set-Content native-probe/native-probe.csproj
+          @'
+          using System.Reflection;
+          using System.Runtime.Loader;
+          
+          var dll = Path.GetFullPath("lsa-essential-e1-candidate/upstream/LosSantosAlive.dll");
+          var constants = new uint[] {
+            1054968094,3818300071,2568606624,1029827067,3557421416,275379809,
+            1183486338,4287505268,1221715181,3265984749,3112276658,
+            3002916032,1491984142,3136590273,3216616699,543755242,3823192816,
+            2752304247,3921185575,3452035397,456850424,1902598045,4017991228,
+            1146829187,3867215626,2490659326,3393120374,1007587260
+          };
+          
+          var asm = AssemblyLoadContext.Default.LoadFromAssemblyPath(dll);
+          Console.WriteLine($"ASSEMBLY={asm.FullName}");
+          Console.WriteLine($"MVID={asm.ManifestModule.ModuleVersionId}");
+          var moduleType = asm.GetType("<Module>", throwOnError: true)!;
+          var methods = moduleType.GetMethods(BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic)
+              .Where(m => m.IsGenericMethodDefinition && m.GetGenericArguments().Length == 1)
+              .Where(m => {
+                  var p = m.GetParameters();
+                  return p.Length == 1 && p[0].ParameterType == typeof(uint);
+              }).ToArray();
+          Console.WriteLine($"DECRYPTOR_COUNT={methods.Length}");
+          foreach (var m in methods) Console.WriteLine($"DECRYPTOR token=0x{m.MetadataToken:X8} name={m.Name}");
+          
+          foreach (var value in constants.Distinct()) {
+              foreach (var m in methods) {
+                  try {
+                      var s = m.MakeGenericMethod(typeof(string)).Invoke(null, new object[]{value}) as string;
+                      if (s != null) Console.WriteLine($"DECODE value={value} token=0x{m.MetadataToken:X8} text={Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(s))}");
+                  } catch {}
+              }
+          }
+          '@ | Set-Content native-probe/Program.cs
+          dotnet run --project native-probe/native-probe.csproj -c Release | Tee-Object -FilePath demographic-literals.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: native-demographic-literals
+          path: demographic-literals.txt
+          retention-days: 7
