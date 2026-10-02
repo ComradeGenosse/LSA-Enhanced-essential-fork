@@ -1,0 +1,86 @@
+name: Native demographics audit
+on:
+  push:
+    branches:
+      - audit/native-demographics-20261002
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Fingerprint pinned inputs
+        shell: bash
+        run: |
+          set -euxo pipefail
+          mkdir -p audit-output
+          sha256sum lsa-essential-e1-candidate/upstream/LosSantosAlive.dll | tee audit-output/dll.sha256
+          sha256sum lsa-essential-e1-candidate/upstream/server.bundle.mjs | tee audit-output/server.sha256
+      - name: Install ILSpy command line
+        shell: bash
+        run: |
+          set -euxo pipefail
+          dotnet tool install ilspycmd --tool-path .audit-tools
+          .audit-tools/ilspycmd --version | tee audit-output/ilspy-version.txt
+      - name: Extract strings
+        shell: bash
+        run: |
+          set -euxo pipefail
+          DLL=lsa-essential-e1-candidate/upstream/LosSantosAlive.dll
+          strings -a -n 3 "$DLL" > audit-output/strings-ascii.txt
+          strings -a -el -n 3 "$DLL" > audit-output/strings-utf16le.txt
+          grep -Ein 'age|gender|male|female|young|adult|middle|older|senior|elder|archetype|hydration|integration|birthday|modelAge|pedId|voice' audit-output/strings-ascii.txt > audit-output/strings-relevant-ascii.txt || true
+          grep -Ein 'age|gender|male|female|young|adult|middle|older|senior|elder|archetype|hydration|integration|birthday|modelAge|pedId|voice' audit-output/strings-utf16le.txt > audit-output/strings-relevant-utf16le.txt || true
+      - name: Decompile target types
+        shell: bash
+        run: |
+          set -euxo pipefail
+          DLL=lsa-essential-e1-candidate/upstream/LosSantosAlive.dll
+          IL=.audit-tools/ilspycmd
+          $IL -l c "$DLL" > audit-output/types.txt
+          types=(
+            'LosSantosAlive.Context.Providers.ActorContextProvider'
+            'LosSantosAlive.Context.ActorHydrationCoordinator'
+            'LosSantosAlive.Context.ConversationHydrationCoordinator'
+            'LosSantosAlive.Context.GeminiContextBuilder'
+            'LosSantosAlive.Context.ContextJsonSerializer'
+            'LosSantosAlive.Context.ContextSnapshot'
+            'LosSantosAlive.Context.ActorContext'
+            'LosSantosAlive.Integrations.IntegrationManager'
+            'LosSantosAlive.Integrations.IIntegration'
+            'LosSantosAlive.Integrations.PolicingRedefinedBridge.PolicingRedefinedPipeClient'
+            'LosSantosAlive.NPC.NpcStateStore'
+            'LosSantosAlive.NPC.Memory.PedContinuityMemoryService'
+          )
+          i=0
+          for type in "${types[@]}"; do
+            safe=$(printf '%s' "$type" | tr '.+<>/' '_____')
+            $IL -t "$type" "$DLL" > "audit-output/${safe}.cs" 2> "audit-output/${safe}.cs.err" || true
+            $IL -il -t "$type" "$DLL" > "audit-output/${safe}.il" 2> "audit-output/${safe}.il.err" || true
+            i=$((i+1))
+          done
+          echo "types_attempted=$i" > audit-output/decompile-summary.txt
+      - name: Run repository metadata extractor
+        shell: bash
+        run: |
+          set -euxo pipefail
+          dotnet run --project lsa-essential-e1-candidate/tools/native-metadata/NativeMetadata.csproj -- lsa-essential-e1-candidate/upstream/LosSantosAlive.dll > audit-output/native-metadata-fresh.json
+      - name: Collect integration type names
+        shell: bash
+        run: |
+          set -euxo pipefail
+          grep -Ei 'Integration|Context|Hydration|Policing|Lspdfr|ActorContextProvider|Continuity' audit-output/types.txt > audit-output/types-relevant.txt || true
+      - uses: actions/upload-artifact@v4
+        with:
+          name: native-demographics-audit
+          path: audit-output
+          if-no-files-found: error
+          retention-days: 2
