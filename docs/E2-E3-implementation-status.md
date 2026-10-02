@@ -5,7 +5,7 @@ Updated October 1, 2026. Offline implementation is complete in the current sourc
 ## Delivered
 
 - Added separate reasoning, transcription, and speech provider contracts and an OpenAI provider stack that wraps the existing single-request implementations.
-- Added one immutable deterministic voice profile per native session, selected from the configured pool using the ped/session identity. Added bounded speed and optional trusted acting instructions, disabled by default.
+- Added one immutable deterministic voice profile per native session. The original mode selects from the configured pool using ped/session identity; the character-aware extension can instead use Essential's hydrated actor gender/age to filter and rank configured profiles, with ped/session identity breaking ties. Added bounded speed and optional trusted acting instructions.
 - Added a shared two-attempt provider executor for STT, reasoning, and speech. It uses one original turn deadline, composed cancellation, per-attempt timeouts, bounded jitter, Retry-After minimums, and conservative transient-error classification. Quota/billing, invalid requests, unknown 429 responses, and semantic output failures are not retried.
 - Kept transcript publication, history effects, action routing, native authorization, and stream completion outside provider retry closures. Action-bearing TTS is ineligible as soon as its transcript is published. Dialogue-only TTS is eligible only until its first usable PCM callback enters native authorization.
 - Extended allowlisted telemetry for provider selection/attempt/retry events and voice profile dimensions. Late attempt telemetry is suppressed after timeout/closure.
@@ -13,7 +13,7 @@ Updated October 1, 2026. Offline implementation is complete in the current sourc
 
 ## Configuration
 
-See `lsa-essential-e1-candidate/e1.config.example.json`. Retry defaults are enabled, two maximum attempts, 500 ms base delay, 3,000 ms maximum delay, bounded jitter, a 1,000 ms retry budget reserve, and no separate attempt timeout. `Retry-After` is honored by default. Voice acting is disabled by default; the legacy single `ttsVoice` setting remains a singleton pool.
+See `lsa-essential-e1-candidate/e1.config.example.json`. Retry defaults are enabled, two maximum attempts, 500 ms base delay, 3,000 ms maximum delay, bounded jitter, a 1,000 ms retry budget reserve, and no separate attempt timeout. `Retry-After` is honored by default. Runtime defaults preserve `deterministic-session`, disabled acting, and the legacy singleton `ttsVoice`; the checked-in example demonstrates the opt-in `character-aware-session` profile map and acting guidance.
 
 The executor only retries clearly transient network/timeouts, 408, recognized transient 429 rate limits, and selected 5xx responses. A recognized server `Retry-After` above the configured maximum suppresses the retry rather than shortening the server's requested wait. Root cancellation, turn deadline expiry, or supersession never triggers a retry.
 
