@@ -343,7 +343,7 @@ The repository currently contains:
 
 E5 has passed the explicit live streaming capability smoke against the configured `gpt-6-luna` endpoint. E6 has passed the patched stock-controller/native-lifecycle integration gate, including early PCM before model completion, ordered delayed segments, one stream-end, and playback-gated assistant history.
 
-The current full offline regression result is **149 passing tests, 0 failures** ([test output](lsa-essential-e1-candidate/docs/e5-e6-test-results.txt)). This includes the `84df8e30` model-failure/PCM16 hardening and the production telemetry repair reproduced from the first failed E5/E6 GTA runs. The stock E6 test now exercises the real logger; physical GTA acceptance of the repaired build remains open.
+The last recorded full offline regression on `main` before the character-aware voice branch is **149 passing tests, 0 failures** ([test output](lsa-essential-e1-candidate/docs/e5-e6-test-results.txt)). The voice branch adds focused tests and should rerun the full offline suite before merge. This includes the `84df8e30` model-failure/PCM16 hardening and the production telemetry repair reproduced from the first failed E5/E6 GTA runs. The stock E6 test now exercises the real logger; physical GTA acceptance of the repaired build remains open.
 
 A controlled E5/E6 payload is staged/installed for GTA testing with both flags enabled, but repository HEAD may be newer than the installed payload. **Physical GTA playback/interruption/late-failure acceptance remains the open E6 release gate.**
 
