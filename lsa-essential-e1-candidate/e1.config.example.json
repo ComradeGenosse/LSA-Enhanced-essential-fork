@@ -12,10 +12,15 @@
   "transcriptionModel": "gpt-transcribe",
   "ttsModel": "gpt-4o-mini-tts",
   "ttsVoice": "nova",
-  "speechVoices": ["nova", "ash", "onyx", "shimmer"],
-  "voiceAssignment": "deterministic-session",
-  "ttsSpeed": 1.0,
-  "actingEnabled": false,
+  "speechVoices": [
+    "nova",
+    "shimmer",
+    "ash",
+    "onyx"
+  ],
+  "voiceAssignment": "character-aware-session",
+  "ttsSpeed": 1,
+  "actingEnabled": true,
   "maxOutputTokens": 300,
   "providerWorkDeadlineMs": 45000,
   "retry": {
@@ -39,5 +44,45 @@
   "observabilityMaxFiles": 5,
   "reasoningBaseUrl": "https://api.openai.com/v1",
   "transcriptionBaseUrl": "https://api.openai.com/v1",
-  "ttsBaseUrl": "https://api.openai.com/v1"
+  "ttsBaseUrl": "https://api.openai.com/v1",
+  "speechVoiceProfiles": {
+    "nova": {
+      "genders": [
+        "female"
+      ],
+      "ageBands": [
+        "young",
+        "adult"
+      ]
+    },
+    "shimmer": {
+      "genders": [
+        "female"
+      ],
+      "ageBands": [
+        "mature",
+        "older",
+        "senior"
+      ]
+    },
+    "ash": {
+      "genders": [
+        "male"
+      ],
+      "ageBands": [
+        "young",
+        "adult"
+      ]
+    },
+    "onyx": {
+      "genders": [
+        "male"
+      ],
+      "ageBands": [
+        "mature",
+        "older",
+        "senior"
+      ]
+    }
+  }
 }
