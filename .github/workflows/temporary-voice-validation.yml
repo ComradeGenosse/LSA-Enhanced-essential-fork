@@ -1,0 +1,26 @@
+name: Temporary voice branch validation
+
+on:
+  pull_request:
+  push:
+    branches:
+      - feat/character-aware-npc-voices
+
+permissions:
+  contents: read
+
+jobs:
+  offline-validation:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: lsa-essential-e1-candidate
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20.19.0'
+      - name: Offline regression suite
+        run: node tools/runTests.mjs
+      - name: Pinned candidate build
+        run: node tools/buildCandidate.mjs
