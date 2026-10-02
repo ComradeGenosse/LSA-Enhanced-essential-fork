@@ -17,13 +17,20 @@ namespace LSA.PromotedCharacters
         static string origin;
         static int pending;
         static volatile bool enabled;
+        static bool commandsRegistered;
         static readonly ConcurrentQueue<string> messages = new ConcurrentQueue<string>();
+        internal static void Register()
+        {
+            // Call only from the loader's game fiber, before remoting into
+            // Essential. RAGE requires explicit registration in this build.
+            if (commandsRegistered) return;
+            Game.AddConsoleCommands(new[] {typeof(PlayerCommands)});
+            commandsRegistered = true;
+            Game.LogTrivial("[P2] console_commands_registered");
+        }
         internal static void Initialize(int port)
         {
             if (port < 1024 || port > 65535) throw new ArgumentException("Invalid P2 editor port.");
-            // RAGE discovers the attributed commands when loading this plugin.
-            // Initialization only enables them; registering again can produce
-            // numbered aliases under another RAGE execution context.
             origin = "http://127.0.0.1:" + port; enabled = true;
         }
         [ConsoleCommand(Name = "LSACharacters",Description = "Show the local P2 character editor URL.")] public static void Command_LSACharacters() { if (enabled) Game.Console.Print("P2 character editor: " + origin); }

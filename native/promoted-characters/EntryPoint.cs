@@ -25,6 +25,7 @@ namespace LSA.PromotedCharacters
                 string text=File.ReadAllText(file);
                 var config=new JavaScriptSerializer {MaxJsonLength=4096}.Deserialize<Config>(text);
                 if(config==null || !config.enabled) return;
+                PlayerCommands.Register();
                 Game.LogTrivial("[P2] host_starting");
                 AppDomain target=null;
                 var deadline=Stopwatch.StartNew();
