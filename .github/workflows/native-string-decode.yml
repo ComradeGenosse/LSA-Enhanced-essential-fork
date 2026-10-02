@@ -114,6 +114,60 @@ jobs:
         run: |
           dotnet native-decode/bin/Release/net8.0/native-decode.dll lsa-essential-e1-candidate/upstream/LosSantosAlive.dll
           Get-Content audit-output/decoded-classifier-strings.json | Select-Object -First 300
+      - name: Probe pure ActorContext classifiers
+        shell: pwsh
+        run: |
+          @'
+          using System.Reflection;
+          using System.Text.Json;
+
+          static class Probe
+          {
+              static string CP(string s) => string.Join(" ", s.Select(ch => $"U+{(int)ch:X4}"));
+              public static int Main(string[] args)
+              {
+                  var asm=Assembly.LoadFrom(Path.GetFullPath(args[0]));
+                  var t=asm.GetType("LosSantosAlive.Context.Providers.ActorContextProvider", true)!;
+                  var inputs=new[]{
+                    "", "PLAYER_ZERO", "PLAYER_ONE", "PLAYER_TWO", "MP_M_SHOPKEEP_01",
+                    "A_M_Y_TEST", "A_M_M_TEST", "A_M_O_TEST",
+                    "A_F_Y_TEST", "A_F_M_TEST", "A_F_O_TEST",
+                    "A_M_X_TEST", "A_F_X_TEST", "CUSTOM_PED", "mp_m_freemode_01", "mp_f_freemode_01"
+                  };
+                  var methods=t.GetMethods(BindingFlags.Static|BindingFlags.NonPublic)
+                    .Where(m=>m.ReturnType==typeof(string) && m.GetParameters().Length==1 && m.GetParameters()[0].ParameterType==typeof(string))
+                    .ToArray();
+                  var rows=new List<object>();
+                  foreach(var m in methods)
+                  {
+                    foreach(var input in inputs)
+                    {
+                      try {
+                        var value=m.Invoke(null,new object?[]{input}) as string;
+                        rows.Add(new {token=$"0x{m.MetadataToken:X8}",nameCodepoints=CP(m.Name),input,value});
+                      } catch(Exception ex) {
+                        var e=ex.GetBaseException();
+                        rows.Add(new {token=$"0x{m.MetadataToken:X8}",nameCodepoints=CP(m.Name),input,error=e.GetType().FullName+": "+e.Message});
+                      }
+                    }
+                  }
+                  Directory.CreateDirectory("audit-output");
+                  File.WriteAllText("audit-output/actor-classifier-probe.json",JsonSerializer.Serialize(rows,new JsonSerializerOptions{WriteIndented=true}));
+                  Console.WriteLine($"methods={methods.Length} rows={rows.Count}");
+                  return 0;
+              }
+          }
+          '@ | Set-Content native-decode/Probe.cs
+          (Get-Content native-decode/native-decode.csproj -Raw).Replace('</Project>','<ItemGroup><Compile Remove="Program.cs" /></ItemGroup></Project>') | Set-Content native-decode/probe.csproj
+          dotnet build native-decode/probe.csproj -c Release
+          dotnet native-decode/bin/Release/net8.0/probe.dll lsa-essential-e1-candidate/upstream/LosSantosAlive.dll
+          Get-Content audit-output/actor-classifier-probe.json | Select-Object -First 500
+      - uses: actions/upload-artifact@v4
+        with:
+          name: native-classifier-probe
+          path: audit-output/actor-classifier-probe.json
+          if-no-files-found: error
+          retention-days: 2
       - uses: actions/upload-artifact@v4
         with:
           name: native-classifier-string-decode
