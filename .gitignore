@@ -40,6 +40,8 @@
 **/promoted-characters/tests/obj/
 **/promoted-characters/facts-tests/bin/
 **/promoted-characters/facts-tests/obj/
+**/promoted-characters/host-tests/bin/
+**/promoted-characters/host-tests/obj/
 
 # Local deployment packages, stages, receipts, and rollback data
 /deployment/stock-hotfix3/
