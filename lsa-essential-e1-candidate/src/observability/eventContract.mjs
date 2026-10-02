@@ -27,7 +27,7 @@ const safeKeys = new Set([
   'credentialAvailable','providerWorkDeadlineMs','playbackCompletionMaxMs',
   'micChunks','droppedTelemetryRecords',
   'segmentSequence','segmentCount','segmentChars',
-  'profileId','speechProvider','voice','speed','assignmentVersion','attempt','attemptId','maxAttempts','retryDelayMs','remainingDeadlineMs',
+  'profileId','speechProvider','voice','speed','assignmentVersion','selectionMode','gender','ageBand','matchReason','attempt','attemptId','maxAttempts','retryDelayMs','remainingDeadlineMs',
 ]);
 const safeTokens = new Set([
   'openai','gemini','player_text','player_mic','special_event','system','internal','completed','failed',
@@ -35,6 +35,7 @@ const safeTokens = new Set([
   'invalid_decision','tts_error','native_auth_rejected','playback_error','playback_interrupted',
   'playback_ack_timeout','native_ack_timeout','timeout','network_error','invalid_response','missing_credential',
   'transcribing','model_running','decision_validation','decision_validated','tts_running','native_authorization',
+  'deterministic-session','character-aware-session','male','female','young','adult','mature','older','senior','character-aware-exact','character-aware-nearest-age','character-aware-compatible','fallback-no-compatible-profile',
   'playback_streaming','stream_end','playback_completion','completed_no_audio','interrupted','rejected',
   'accepted','started','finished','headers','first_byte','stt','model','tts','normal','unknown','other','typed','microphone',
   'attempt_limit','side_effect_started','retry_after_above_max','insufficient_deadline','disabled','permanent_provider_error','unknown_rate_limit','unknown_error','non_retryable_provider_error','http_408','http_502','http_503','http_504','rate_limit_error','rate_limit_exceeded','slow_down','attempt_timeout','econnreset','epipe','etimedout','und_err_socket','und_err_connect_timeout','und_err_headers_timeout','timeout_before_effect','connection_reset','connection_closed','temporary_network_failure','server_error','api_error','internal_server_error','service_unavailable_error',
