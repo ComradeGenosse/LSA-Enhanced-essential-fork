@@ -8,6 +8,7 @@ import { validateStockDecision } from '../context/decisionValidator.mjs';
 import { createProviderStack } from '../providers/providerStack.mjs';
 import { VoiceResolver } from '../voice/voiceResolver.mjs';
 import { executeProviderOperation } from '../reliability/providerExecutor.mjs';
+import { captureReferenceMap } from '../context/turnSnapshot.mjs';
 
 export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry = null, providers = {} } = {}) {
   const history = new DialogueHistory({ maxMessages: config.maxHistoryMessages, onMetric: (event, data) => telemetry?.emit(event, null, null, data) });
@@ -29,6 +30,7 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
     config, history, services, telemetry, providerStack, voiceResolver,
     validateDecisionShape,
     validateStockDecision,
+    captureReferenceMap,
     createTransport(geminiFactory) {
       if (config.provider === 'openai') {
         // The OpenAI route avoids constructing the Gemini transport and its client.

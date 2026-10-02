@@ -1,6 +1,6 @@
 # Project roadmap
 
-Updated October 1, 2026.
+Updated October 2, 2026.
 
 This roadmap tracks the Essential-based LSA companion from the hardened E1.1 foundation through low-latency dialogue, durable NPC identity, richer perception, autonomous scene behavior, and final long-session acceptance.
 
@@ -28,6 +28,7 @@ Essential remains authoritative for native NPC state, turn/generation identity, 
 | E3 | ✅ Implemented | Stage-aware retries and provider failure recovery |
 | E5 | ✅ Implemented + live API validated | Structured Responses streaming; configured Luna produced a validated segment before response completion |
 | E6 | 🟡 Implemented; early-audio and multi-segment GTA checks pending | Repaired live path played 13 turns; eight synthesis requests started shortly before model completion, but first PCM arrived afterward; every reply contained one segment |
+| P0 — TURN_CONTEXT | 🟡 Implemented and offline-verified; GTA acceptance pending | Immutable per-turn actor/listener/world snapshots and time-of-use P/V target-reference validation |
 | SESSION_IDENTITY | ⏭ Next feature phase after E6 acceptance | Durable character identity beyond one native session |
 | PERCEPTION | Planned | Richer world/event/context awareness |
 | SALIENCE | Planned | Decide what an NPC should care about right now |
@@ -174,7 +175,7 @@ A stock-controller integration test now drives two delayed TTS segments through 
 - there is one final stream-end handoff;
 - assistant history remains staged until matching `PlaybackEnded`.
 
-The current full offline suite passes **149 tests with 0 failures** ([test output](../lsa-essential-e1-candidate/docs/e5-e6-test-results.txt)). This includes `84df8e30` model-failure/PCM16 hardening and the production telemetry repair reproduced from the first failed E5/E6 GTA runs. The stock E6 integration test now exercises the real logger; physical GTA acceptance of the repaired build remains open.
+At the E5/E6 checkpoint, the offline suite passed **149 tests with 0 failures** ([checkpoint test output](../lsa-essential-e1-candidate/docs/e5-e6-test-results.txt)). The current P0 branch passes **187 tests with 0 failures**. This includes `84df8e30` model-failure/PCM16 hardening and the production telemetry repair reproduced from the first failed E5/E6 GTA runs. The stock E6 integration test now exercises the real logger; physical GTA acceptance of the repaired build remains open.
 
 The first repaired-build GTA run covered 13 microphone turns: all 13 reached native playback, 10 completed normally, and 3 were interrupted. TTS started slightly before model completion on eight eligible turns, but first PCM followed model completion; all replies contained one segment. See the [run review](E6-GTA-verification-2026-10-01.md). Multi-segment playback and audible early speech still need live verification.
 
@@ -196,6 +197,10 @@ Prior Phase 10B evidence (13 turns, 11 with audio/acknowledgements, observed PCM
 Once this physical GTA gate passes, the next feature phase is **SESSION_IDENTITY**.
 
 See the [E5/E6 implementation status](E5-E6-implementation-status.md) for the current checkpoint, deployment distinction, and remaining GTA gate.
+
+### P0 — Turn-scoped context snapshots and target-reference safety
+
+P0 is implemented and offline-verified on the current branch. Each turn captures immutable actor, listener, actor-associated world, and P/V reference-map context before asynchronous provider work. Omitted listeners retain same-session state; explicit `null` clears it. Target aliases are checked against the reasoning-time snapshot and the latest actor reference map immediately before the unchanged stock dispatcher. GTA runtime acceptance remains pending; see the [P0 status and checklist](P0-turn-context-status.md). E6's separate early-audio and multi-segment physical gate remains open.
 
 ## NPC intelligence roadmap
 

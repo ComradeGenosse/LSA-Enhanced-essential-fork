@@ -25,9 +25,10 @@ export async function stockHarness(provider = 'openai', { config = {}, env = {},
   vm.runInContext(ast.body.filter(n => n.type === 'FunctionDeclaration').map(n => source.slice(n.start,n.end)).join('\n'), context);
   vm.runInContext(select.map(name => { if (!variables.has(name)) throw new Error(`Missing ${name}`); return `var ${variables.get(name)};`; }).join('\n'), context);
   vm.runInContext(`
-    var od = new Set(), id = null, TP = true, Vy = {}, vb = {}, Ha = AP;
+    var od = new Set(), id = null, TP = true, Vy = {}, vb = {}, Ha = AP, stockZi = Zi, stockOa = oa, stockM4 = M4, stockWb = wb;
     var A = { playerPedId: 'player', sessionsByPedId: new Map(), sessionNoncesByPedId: new Map(),
       outputOwnerByPedId: new Map(), retiringOutputOwnerByPedId: new Map(), pendingOutputOwnerByPedId: new Map(),
+      sessionOpenPromisesByPedId: new Map(), sessionMetadataByPedId: new Map(),
       turnsById: new Map(), activeTurnIdByPedId: new Map(), generationByPedId: new Map(), turnSerial: 0,
       geminiAudioChunks: [], actorSessionStates: new Map(), pendingPlayerContextByPedId: new Map(), context: {},
       audioEndpoint: { connected: true, ready: true, protocolVersion: 3, supportsTurnIdentity: true,
@@ -45,23 +46,33 @@ export async function stockHarness(provider = 'openai', { config = {}, env = {},
   vm.runInContext(source.slice(bridgeStatement.start,bridgeStatement.end),context);
   const evaluate = code => vm.runInContext(code,context);
   return { runtime, context, sent, actions, logs, evaluate,
+    ensureWithStockController(options) { context.stockZiOptions=options; return evaluate('stockZi(stockZiOptions)'); },
+    useStockInputNormalizer() { evaluate('oa=stockOa; Pv=()=>({voiceName:"Harness"}); gv=()=>""; wO=()=>{}; vi=async()=>true;'); },
+    useStockSpecialHydration() { evaluate('M4=stockM4; vi=async()=>true;'); },
+    useStockActionDispatcher() { evaluate('wb=stockWb; var f4=new Set(["enterdriverseatoftargetvehicle"]); Vy.enterdriverseatoftargetvehicle=true; R4=(action,parameter)=>{actions.push({action,parameter});return{action,parameter};};'); },
     async openAIControllerSession({ pedId = '17', nonce = 1, actorContext = { pedId, roleName: 'Civilian' }, targetContext = { pedId: 'player' } } = {}) {
       const connection = await runtime.createTransport(() => { throw new Error('Gemini must not be constructed'); }).connect({
-        systemInstruction: 'stock controller test', actorContext, targetContext,
+        systemInstruction: 'stock controller test', actorContext, targetContext, world: actorContext?.world,
         diagnosticContext: { pedId, sessionNonce: nonce },
       });
       context.testPed = pedId; context.testNonce = nonce; context.testActor = actorContext; context.testTarget = targetContext; context.controllerConnection = connection;
       evaluate(`
         var controllerSession = { pedId: testPed, nonce: testNonce, status: 'ready', provider: 'openai',
-          actorContext: testActor, targetContext: testTarget, systemInstruction: 'stock controller test', connection: null };
+          actorContext: testActor, targetContext: testTarget, world: testActor?.world || { gameTime:'unknown', weather:'unknown', streetName:'unknown', crossingStreetName:'unknown', zoneCode:'unknown' }, systemInstruction: 'stock controller test', connection: null };
         A.sessionNoncesByPedId.set(testPed,testNonce); A.sessionsByPedId.set(testPed,controllerSession);
-        A.activeActor = testActor; A.context = { target: testTarget, contextUpdate: '' };
-        controllerSession.connection = controllerConnection;
-        xs = () => {}; oa = () => {};
+        A.activeActor = testActor; A.context = { speaker:testActor, target: testTarget, world:controllerSession.world, contextUpdate: '' };
+        controllerSession.connection = controllerConnection; ET = () => 'stock controller test';
+        xs = () => {}; oa = message => { const speaker=message?.speaker && typeof message.speaker==='object' ? message.speaker : testActor;
+          A.activeActor=speaker; const target=Object.prototype.hasOwnProperty.call(message||{},'target') && message.target!==undefined ? message.target : testTarget;
+          const world=Object.prototype.hasOwnProperty.call(message||{},'world') && message.world!==undefined ? message.world : { gameTime:'unknown', weather:'unknown', streetName:'unknown', crossingStreetName:'unknown', zoneCode:'unknown' };
+          A.context={speaker,target,world,contextUpdate:String(message?.contextUpdate||'')}; };
         jK = () => {}; Ad = async () => true;
         za = async (ped, reason) => { const active = le.getActiveTurnForPed(ped); if (active) await Qi(active.id, reason); return true; };
         Zc = () => 'stock context';
-        Zi = async ({ pedId }) => A.sessionsByPedId.get(pedId);
+        Zi = async options => { const record=A.sessionsByPedId.get(options.pedId); if(record) qK(record,{actorContext:options.actorContext,targetContext:options.targetContext,
+          listenerProvided:options.listenerProvided===undefined ? options.targetContext!==undefined : options.listenerProvided,
+          world:Object.prototype.hasOwnProperty.call(options,'world') ? options.world : options.actorContext?.world??{gameTime:'unknown',weather:'unknown',streetName:'unknown',crossingStreetName:'unknown',zoneCode:'unknown'},
+          mode:options.mode,setAsPrimarySession:options.setAsPrimarySession}); return record; };
         M4 = async ({ speakerPedId, listenerPedId }) => ({ actorContext: { ...testActor, pedId: speakerPedId },
           targetContext: listenerPedId ? { ...testTarget, pedId: listenerPedId } : null, world: { location: 'stock' } });
         Xa = () => {}; MK = false;

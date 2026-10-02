@@ -54,9 +54,10 @@ export function buildRequest({ model, effort, systemInstruction, actor, listener
   const scene = [
     contextText,
     internalEvent ? `[INTERNAL EVENT TRIGGER]\n${String(internalEvent).slice(0, 12000)}\n[/INTERNAL EVENT TRIGGER]` : '',
-    actor ? `CURRENT ACTOR DATA\n${JSON.stringify(actor)}` : '',
-    listener ? `CURRENT LISTENER DATA\n${JSON.stringify(listener)}` : '',
-    world ? `CURRENT WORLD DATA\n${JSON.stringify(world)}` : '',
+    actor ? `CURRENT ACTOR DATA\n${JSON.stringify(actor)}` : 'CURRENT ACTOR DATA\n{"status":"unknown"}',
+    listener === null ? 'CURRENT LISTENER DATA\n{"status":"unavailable"}'
+      : listener ? `CURRENT LISTENER DATA\n${JSON.stringify(listener)}` : 'CURRENT LISTENER DATA\n{"status":"unknown"}',
+    world ? `CURRENT WORLD DATA\n${JSON.stringify(world)}` : 'CURRENT WORLD DATA\n{"status":"unknown"}',
   ].filter(Boolean).join('\n\n');
   const boundedHistory = history.slice(-12).map(message => ({ role: message.role, content: message.content }));
   const outputRules = structuredSegments

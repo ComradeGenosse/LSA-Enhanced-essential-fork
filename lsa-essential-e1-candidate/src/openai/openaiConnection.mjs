@@ -1,11 +1,19 @@
 import { sameIdentity } from '../integration/nativeDelivery.mjs';
 import { runSequentialTurn } from './runSequentialTurn.mjs';
+import { captureReferenceMap, immutableSnapshot, unknownWorld } from '../context/turnSnapshot.mjs';
 
-function copySnapshot(value) {
-  if (value == null) return null;
-  try { return structuredClone(value); }
-  catch { return JSON.parse(JSON.stringify(value)); }
+const hasOwn = (value, key) => Object.prototype.hasOwnProperty.call(value || {}, key);
+function worldSnapshot(value) { return immutableSnapshot(value) || unknownWorld(); }
+function worldIsUnavailable(value) {
+  if (!value || typeof value !== 'object') return true;
+  const fields = ['gameTime','weather','streetName','crossingStreetName','zoneCode'];
+  const known = fields.some(key => {
+    const item = value[key];
+    return item != null && String(item).trim() !== '' && !['unknown','unavailable','pending'].includes(String(item).trim().toLowerCase());
+  });
+  return !known && Object.keys(value).every(key => fields.includes(key));
 }
+function safeEmit(telemetry, ...args) { try { return telemetry?.emit?.(...args) ?? false; } catch { return false; } }
 
 function normalizeContextForComparison(value) {
   return String(value || '').trim().replace(/\s+/g, ' ');
@@ -32,9 +40,9 @@ export class OpenAIConnection {
     this.#runtime = runtime;
     this.#context = Object.freeze({
       systemInstruction: String(options.systemInstruction || ''),
-      actor: copySnapshot(options.actorContext),
-      listener: copySnapshot(options.targetContext),
-      world: copySnapshot(options.actorContext?.world),
+      actor: immutableSnapshot(options.actorContext),
+      listener: immutableSnapshot(options.targetContext),
+      world: worldSnapshot(hasOwn(options, 'world') ? options.world : options.actorContext?.world),
       contextText: '',
       inputText: '',
     });
@@ -52,8 +60,39 @@ export class OpenAIConnection {
     if (this.#active && !sameIdentity(this.#active.identity, turn.identity)) this.abortTurn(this.#active.identity, 'superseded');
     const source = String(turn.source || 'player_text').toLowerCase();
     this.#metrics = this.#runtime.telemetry?.beginTurn(turn.identity, source, { inputChars: String(turn.context?.inputText || '').length }) || null;
+    const inputContext = turn.context || {};
+    const actor = hasOwn(inputContext, 'actor') ? immutableSnapshot(inputContext.actor) : this.#context.actor;
+    const listenerProvided = hasOwn(inputContext, 'listener') && inputContext.listener !== undefined;
+    const listener = listenerProvided ? immutableSnapshot(inputContext.listener) : this.#context.listener;
+    const requestedListenerState = inputContext.listenerState;
+    const listenerState = ['present','explicitly_cleared','omitted'].includes(requestedListenerState)
+      ? requestedListenerState
+      : listenerProvided ? (inputContext.listener === null ? 'explicitly_cleared' : 'present') : 'omitted';
+    const world = hasOwn(inputContext, 'world')
+      ? worldSnapshot(inputContext.world)
+      : hasOwn(actor, 'world') ? worldSnapshot(actor?.world) : unknownWorld();
+    const references = hasOwn(inputContext, 'referenceMap')
+      ? immutableSnapshot(inputContext.referenceMap)
+      : captureReferenceMap(actor);
+    const rawRevision = inputContext.revision ?? actor?.snapshotRevision ?? actor?.revision ?? turn.identity.generationId;
+    const revision = ['string', 'number', 'boolean'].includes(typeof rawRevision) ? rawRevision : turn.identity.generationId;
+    const contextSnapshot = Object.freeze({
+      identity: Object.freeze({ ...turn.identity }),
+      actor, listener, listenerState, world, referenceMap: references,
+      capturedAt: String(inputContext.capturedAt || new Date().toISOString()),
+      revision,
+    });
+    const worldStatus = worldIsUnavailable(world) ? 'unavailable' : 'known';
+    try {
+      this.#metrics?.event('snapshot_created', {
+        actorStatus: actor ? 'available' : 'unknown', listenerState, worldStatus,
+        personReferenceCount: Object.keys(references?.persons || {}).length,
+        vehicleReferenceCount: Object.keys(references?.vehicles || {}).length,
+      });
+    } catch {}
+    if (worldStatus === 'unavailable') safeEmit(this.#runtime.telemetry, 'world_unavailable', turn.identity, source, { reason: 'missing_or_unknown' });
     if (!this.#voiceProfile) {
-      const voiceActor = turn.context?.actor || this.#context.actor || {};
+      const voiceActor = actor || {};
       this.#voiceProfile = this.#runtime.voiceResolver?.resolve(turn.identity, voiceActor) || null;
       if (this.#voiceProfile) {
         this.#metrics?.event('speech_provider_selected', {
@@ -85,12 +124,13 @@ export class OpenAIConnection {
       inputText: internalSource ? '' : rawInput,
       contextText,
       context: Object.freeze({
-        systemInstruction: String(turn.context?.systemInstruction || this.#context.systemInstruction),
-        actor: copySnapshot(turn.context?.actor || this.#context.actor),
-        listener: copySnapshot(turn.context?.listener || this.#context.listener),
-        world: copySnapshot(turn.context?.actor?.world || this.#context.world),
+        systemInstruction: String(inputContext.systemInstruction || this.#context.systemInstruction),
+        actor: contextSnapshot.actor, listener: contextSnapshot.listener,
+        listenerState: contextSnapshot.listenerState, world: contextSnapshot.world, referenceMap: contextSnapshot.referenceMap,
+        capturedAt: contextSnapshot.capturedAt, revision: contextSnapshot.revision,
         contextText, internalEvent,
       }),
+      contextSnapshot,
     });
     this.#launched = false;
     this.#retired = false;
@@ -166,11 +206,18 @@ export class OpenAIConnection {
 
   refreshContext(context) {
     this.#ensureOpen();
+    const actor = hasOwn(context, 'actorContext') ? immutableSnapshot(context.actorContext) : this.#context.actor;
+    const listenerProvided = hasOwn(context, 'targetContext') && context.targetContext !== undefined;
+    if (listenerProvided) {
+      if (context.targetContext === null) safeEmit(this.#runtime.telemetry, 'listener_cleared', null, null, { outcome: this.#context.listener === null ? 'already_unavailable' : 'cleared' });
+      else safeEmit(this.#runtime.telemetry, 'listener_replaced', null, null, { outcome: 'replaced' });
+    }
     this.#context = Object.freeze({
       systemInstruction: String(context.systemInstruction || this.#context.systemInstruction),
-      actor: copySnapshot(context.actorContext),
-      listener: copySnapshot(context.targetContext),
-      world: copySnapshot(context.actorContext?.world),
+      actor,
+      listener: listenerProvided ? immutableSnapshot(context.targetContext) : this.#context.listener,
+      world: hasOwn(context, 'world') ? worldSnapshot(context.world)
+        : hasOwn(actor, 'world') ? worldSnapshot(actor?.world) : unknownWorld(),
       contextText: '', inputText: '',
     });
   }
@@ -206,6 +253,7 @@ export class OpenAIConnection {
   }
 
   matches(identity) { return sameIdentity(this.#turn?.identity, identity); }
+  get turnSnapshot() { return this.#turn?.contextSnapshot || null; }
   get source() { return this.#turn?.source || 'player_text'; }
 
   async emitProviderEvent(event) {
