@@ -1,8 +1,8 @@
 # P1 — SESSION_IDENTITY V1
 
-Updated October 2, 2026. Baseline: `main` at `0edf170`, with merged P0.
+Updated October 2, 2026. P1 is merged to `main` and now serves as the identity foundation used by merged P2.
 
-**Status: implemented and verified offline; physical GTA acceptance pending.** Persistence defaults off. This change has not been deployed, connected to GTA, or exercised against a running game. P0 and E6 retain their separate physical acceptance gates.
+**Status: ✅ implemented and complete for roadmap purposes.** Persistence defaults off. The merged P1 identity path is now exercised by the live P2 promoted-character flow; additional recreation, revocation, stale-work and persistence stress cases remain useful follow-up/E7 regression coverage rather than a P1 implementation gate.
 
 ## Implemented scope
 
@@ -96,7 +96,7 @@ Final checks on Windows with Node `v24.19.0` and .NET SDK `10.0.301`:
 - `node tools/buildCandidate.mjs`: succeeded with **48** expected one-match source-pinned hooks; status `candidate-built-offline-p1-gta-pending`. Mandatory and optional contracts passed.
 - Native evidence-store executable: **16 assertions passed**. Native factual pipe executable: **9 assertions passed** against the actual production store/channel sources. Neither loads game assemblies or contacts the configured runtime pipe.
 - Optional `net481` addon and native factual pipe test compiled with **0 warnings, 0 errors** using pinned compile-only references.
-- `git diff --check`: clean. No GTA deployment/runtime or live provider smoke was performed.
+- `git diff --check`: clean. At the original P1 implementation checkpoint, no GTA deployment/runtime or live provider smoke had been performed. Subsequent merged P2 GTA testing exercises the P1-backed promoted-character identity path.
 
 | Built output | SHA-256 |
 | --- | --- |
@@ -115,7 +115,7 @@ Final checks on Windows with Node `v24.19.0` and .NET SDK `10.0.301`:
 
 The optional metadata is extracted with CLR metadata readers, without executing the DLL, and marked `-text` in `.gitattributes` so Windows checkout conversion cannot change its byte pin. The candidate has 48 one-match source-pinned hooks (P0's 46 plus two reserved identity-context protections); the existing exact-session close bridge additionally exposes the narrow retirement callback. No core DLL/protocol or native state-machine patches are introduced. `patches/essential-hooks.json` accounts for all 48.
 
-## Controlled GTA acceptance checklist — all pending
+## Follow-up GTA identity regression checklist
 
 Run only in a separately authorized controlled GTA session. Record candidate/addon hashes, Essential/RPH versions, world UUID, feature mode, and outcomes. Use a small authored owner plugin that owns the test ped and its registration token. Keep runtime source keys and registry contents out of public logs.
 
@@ -136,4 +136,4 @@ Run only in a separately authorized controlled GTA session. Record candidate/add
 - [ ] Complete the independent [P0 GTA checklist](P0-turn-context-status.md#gta-acceptance-checklist), including real entity/reference validity between capture and dispatch.
 - [ ] Complete the independent [E6 release gate](ROADMAP.md#e6-remaining-release-gate): audible first segment before model completion, ordered multi-segment continuation across gaps, one stream-end/history commit, interruption/late-failure rejection, and buffered action-bearing turns.
 
-Offline success does not validate these GTA/RAGE behaviors. No physical box is checked by this PR.
+These items remain valuable stress/regression coverage for the identity boundary, but they do not hold P1's implementation status open. Live P2 promotion now exercises the merged P1 ownership/identity foundation in GTA.
