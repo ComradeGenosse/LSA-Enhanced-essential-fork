@@ -1,0 +1,3830 @@
+SHA256 712f9491c0693d496ea82b1e4cefaa03c0575408a2fefa8d9e295bb516e5ad3e
+Scope: selected complete method bodies, field signatures and short call wrappers. Tokens are assembly-local.
+
+TYPE LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore
+FIELD 0x400002e hidden "Object" constantHex=None
+FIELD 0x400002f hidden "LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore+\u206f\u200c\u206a\u202b\u200e\u200b\u206b\u202c\u202a\u202a\u200f\u206e\u206f\u202c\u200d\u200b\u200d\u202e\u206b\u202b\u200c\u200e\u200d\u200d\u200d\u202b\u206c\u200f\u200e\u200b\u206e\u202d\u200e\u200b\u200f\u202e\u202a\u202d\u206a\u202d\u202e" constantHex=None
+FIELD 0x4000030 hidden "LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore+\u206f\u200c\u206a\u202b\u200e\u200b\u206b\u202c\u202a\u202a\u200f\u206e\u206f\u202c\u200d\u200b\u200d\u202e\u206b\u202b\u200c\u200e\u200d\u200d\u200d\u202b\u206c\u200f\u200e\u200b\u206e\u202d\u200e\u200b\u200f\u202e\u202a\u202d\u206a\u202d\u202e" constantHex=None
+FIELD 0x4000031 hidden "Int32" constantHex=None
+FIELD 0x4000032 hidden "Int32" constantHex=None
+FIELD 0x4000033 hidden "String" constantHex=None
+METHOD 0x600003b HandleSetCallout(String) -> String
+  EXCEPTION {"catchType": null, "filterOffset": null, "handlerLength": 10, "handlerOffset": 547, "kind": "Finally", "tryLength": 539, "tryOffset": 8}
+  IL_0000: ldsfld 0x400002e LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore::hidden
+  IL_0005: stloc.0
+  IL_0006: ldc.i4.0
+  IL_0007: stloc.1
+  IL_0008: ldloc.0
+  IL_0009: ldloca.s 1
+  IL_000b: call 0xa00002b System.Threading.Monitor::Enter
+  IL_0010: ldarg.0
+  IL_0011: ldloca.s 2
+  IL_0013: call 0x6000043 LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore::hidden
+  IL_0018: brtrue.s  -> IL_002f
+  IL_001a: ldc.i4 -243791112
+  IL_001f: call 0x2b000001 .<Module>::hidden decoded="invalid callout json"
+  IL_0024: call 0x600004c LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore::hidden
+  IL_0029: stloc.3
+  IL_002a: leave  -> IL_022d
+  IL_002f: ldloc.2
+  IL_0030: ldfld 0x4000034 LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore+\u206f\u200c\u206a\u202b\u200e\u200b\u206b\u202c\u202a\u202a\u200f\u206e\u206f\u202c\u200d\u200b\u200d\u202e\u206b\u202b\u200c\u200e\u200d\u200d\u200d\u202b\u206c\u200f\u200e\u200b\u206e\u202d\u200e\u200b\u200f\u202e\u202a\u202d\u206a\u202d\u202e::hidden
+  IL_0035: call 0xa00002c System.String::IsNullOrWhiteSpace
+  IL_003a: brfalse.s  -> IL_005a
+  IL_003c: ldloc.2
+  IL_003d: call 0xa00002d System.Guid::NewGuid
+  IL_0042: stloc.s 4
+  IL_0044: ldloca.s 4
+  IL_0046: ldc.i4 385397662
+  IL_004b: call 0x2b000001 .<Module>::hidden decoded="N"
+  IL_0050: call 0xa00002e System.Guid::ToString
+  IL_0055: stfld 0x4000034 LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore+\u206f\u200c\u206a\u202b\u200e\u200b\u206b\u202c\u202a\u202a\u200f\u206e\u206f\u202c\u200d\u200b\u200d\u202e\u206b\u202b\u200c\u200e\u200d\u200d\u200d\u202b\u206c\u200f\u200e\u200b\u206e\u202d\u200e\u200b\u200f\u202e\u202a\u202d\u206a\u202d\u202e::hidden
+  IL_005a: ldloc.2
+  IL_005b: ldfld 0x4000035 LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore+\u206f\u200c\u206a\u202b\u200e\u200b\u206b\u202c\u202a\u202a\u200f\u206e\u206f\u202c\u200d\u200b\u200d\u202e\u206b\u202b\u200c\u200e\u200d\u200d\u200d\u202b\u206c\u200f\u200e\u200b\u206e\u202d\u200e\u200b\u200f\u202e\u202a\u202d\u206a\u202d\u202e::hidden
+  IL_0060: call 0xa00002c System.String::IsNullOrWhiteSpace
+  IL_0065: brfalse.s  -> IL_0077
+  IL_0067: ldloc.2
+  IL_0068: ldc.i4 1810508874
+  IL_006d: call 0x2b000002 .<Module>::hidden decoded="LSA: Dynamic Disturbance"
+  IL_0072: stfld 0x4000035 LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore+\u206f\u200c\u206a\u202b\u200e\u200b\u206b\u202c\u202a\u202a\u200f\u206e\u206f\u202c\u200d\u200b\u200d\u202e\u206b\u202b\u200c\u200e\u200d\u200d\u200d\u202b\u206c\u200f\u200e\u200b\u206e\u202d\u200e\u200b\u200f\u202e\u202a\u202d\u206a\u202d\u202e::hidden
+  IL_0077: ldloc.2
+  IL_0078: ldfld 0x4000036 LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore+\u206f\u200c\u206a\u202b\u200e\u200b\u206b\u202c\u202a\u202a\u200f\u206e\u206f\u202c\u200d\u200b\u200d\u202e\u206b\u202b\u200c\u200e\u200d\u200d\u200d\u202b\u206c\u200f\u200e\u200b\u206e\u202d\u200e\u200b\u200f\u202e\u202a\u202d\u206a\u202d\u202e::hidden
+  IL_007d: call 0xa00002c System.String::IsNullOrWhiteSpace
+  IL_0082: brfalse.s  -> IL_0094
+  IL_0084: ldloc.2
+  IL_0085: ldc.i4 -1601158063
+  IL_008a: call 0x2b000003 .<Module>::hidden decoded="Caller reports a disturbance. Respond and investigate."
+  IL_008f: stfld 0x4000036 LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore+\u206f\u200c\u206a\u202b\u200e\u200b\u206b\u202c\u202a\u202a\u200f\u206e\u206f\u202c\u200d\u200b\u200d\u202e\u206b\u202b\u200c\u200e\u200d\u200d\u200d\u202b\u206c\u200f\u200e\u200b\u206e\u202d\u200e\u200b\u200f\u202e\u202a\u202d\u206a\u202d\u202e::hidden
+  IL_0094: ldloc.2
+  IL_0095: ldfld 0x4000037 LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore+\u206f\u200c\u206a\u202b\u200e\u200b\u206b\u202c\u202a\u202a\u200f\u206e\u206f\u202c\u200d\u200b\u200d\u202e\u206b\u202b\u200c\u200e\u200d\u200d\u200d\u202b\u206c\u200f\u200e\u200b\u206e\u202d\u200e\u200b\u200f\u202e\u202a\u202d\u206a\u202d\u202e::hidden
+  IL_009a: call 0xa00002c System.String::IsNullOrWhiteSpace
+  IL_009f: brfalse.s  -> IL_00b1
+  IL_00a1: ldloc.2
+  IL_00a2: ldc.i4 -958101492
+  IL_00a7: call 0x2b000003 .<Module>::hidden decoded="Unknown location"
+  IL_00ac: stfld 0x4000037 LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore+\u206f\u200c\u206a\u202b\u200e\u200b\u206b\u202c\u202a\u202a\u200f\u206e\u206f\u202c\u200d\u200b\u200d\u202e\u206b\u202b\u200c\u200e\u200d\u200d\u200d\u202b\u206c\u200f\u200e\u200b\u206e\u202d\u200e\u200b\u200f\u202e\u202a\u202d\u206a\u202d\u202e::hidden
+  IL_00b1: ldloc.2
+  IL_00b2: ldfld 0x4000038 LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore+\u206f\u200c\u206a\u202b\u200e\u200b\u206b\u202c\u202a\u202a\u200f\u206e\u206f\u202c\u200d\u200b\u200d\u202e\u206b\u202b\u200c\u200e\u200d\u200d\u200d\u202b\u206c\u200f\u200e\u200b\u206e\u202d\u200e\u200b\u200f\u202e\u202a\u202d\u206a\u202d\u202e::hidden
+  IL_00b7: call 0xa00002c System.String::IsNullOrWhiteSpace
+  IL_00bc: brfalse.s  -> IL_00ce
+  IL_00be: ldloc.2
+  IL_00bf: ldc.i4 2119562229
+  IL_00c4: call 0x2b000003 .<Module>::hidden decoded="CITIZENS_REPORT CRIME_DISTURBING_THE_PEACE IN_OR_ON_POSITION"
+  IL_00c9: stfld 0x4000038 LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore+\u206f\u200c\u206a\u202b\u200e\u200b\u206b\u202c\u202a\u202a\u200f\u206e\u206f\u202c\u200d\u200b\u200d\u202e\u206b\u202b\u200c\u200e\u200d\u200d\u200d\u202b\u206c\u200f\u200e\u200b\u206e\u202d\u200e\u200b\u200f\u202e\u202a\u202d\u206a\u202d\u202e::hidden
+  IL_00ce: ldloc.2
+  IL_00cf: ldfld 0x4000039 LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore+\u206f\u200c\u206a\u202b\u200e\u200b\u206b\u202c\u202a\u202a\u200f\u206e\u206f\u202c\u200d\u200b\u200d\u202e\u206b\u202b\u200c\u200e\u200d\u200d\u200d\u202b\u206c\u200f\u200e\u200b\u206e\u202d\u200e\u200b\u200f\u202e\u202a\u202d\u206a\u202d\u202e::hidden
+  IL_00d4: ldc.i4.0
+  IL_00d5: bgt.s  -> IL_00de
+  IL_00d7: ldloc.2
+  IL_00d8: ldc.i4.2
+  IL_00d9: stfld 0x4000039 LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore+\u206f\u200c\u206a\u202b\u200e\u200b\u206b\u202c\u202a\u202a\u200f\u206e\u206f\u202c\u200d\u200b\u200d\u202e\u206b\u202b\u200c\u200e\u200d\u200d\u200d\u202b\u206c\u200f\u200e\u200b\u206e\u202d\u200e\u200b\u200f\u202e\u202a\u202d\u206a\u202d\u202e::hidden
+  IL_00de: ldloc.2
+  IL_00df: ldfld 0x400003a LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore+\u206f\u200c\u206a\u202b\u200e\u200b\u206b\u202c\u202a\u202a\u200f\u206e\u206f\u202c\u200d\u200b\u200d\u202e\u206b\u202b\u200c\u200e\u200d\u200d\u200d\u202b\u206c\u200f\u200e\u200b\u206e\u202d\u200e\u200b\u200f\u202e\u202a\u202d\u206a\u202d\u202e::hidden
+  IL_00e4: ldloc.2
+  IL_00e5: ldfld 0x400003b LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore+\u206f\u200c\u206a\u202b\u200e\u200b\u206b\u202c\u202a\u202a\u200f\u206e\u206f\u202c\u200d\u200b\u200d\u202e\u206b\u202b\u200c\u200e\u200d\u200d\u200d\u202b\u206c\u200f\u200e\u200b\u206e\u202d\u200e\u200b\u200f\u202e\u202a\u202d\u206a\u202d\u202e::hidden
+  IL_00ea: ldloc.2
+  IL_00eb: ldfld 0x400003c LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore+\u206f\u200c\u206a\u202b\u200e\u200b\u206b\u202c\u202a\u202a\u200f\u206e\u206f\u202c\u200d\u200b\u200d\u202e\u206b\u202b\u200c\u200e\u200d\u200d\u200d\u202b\u206c\u200f\u200e\u200b\u206e\u202d\u200e\u200b\u200f\u202e\u202a\u202d\u206a\u202d\u202e::hidden
+  IL_00f0: call 0x6000046 LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore::hidden
+  IL_00f5: brfalse.s  -> IL_0125
+  IL_00f7: call 0x6000042 LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore::hidden
+  IL_00fc: stloc.s 5
+  IL_00fe: ldloc.2
+  IL_00ff: ldloc.s 5
+  IL_0101: ldfld 0xa00002f Rage.Vector3::X
+  IL_0106: stfld 0x400003a LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore+\u206f\u200c\u206a\u202b\u200e\u200b\u206b\u202c\u202a\u202a\u200f\u206e\u206f\u202c\u200d\u200b\u200d\u202e\u206b\u202b\u200c\u200e\u200d\u200d\u200d\u202b\u206c\u200f\u200e\u200b\u206e\u202d\u200e\u200b\u200f\u202e\u202a\u202d\u206a\u202d\u202e::hidden
+  IL_010b: ldloc.2
+  IL_010c: ldloc.s 5
+  IL_010e: ldfld 0xa000030 Rage.Vector3::Y
+  IL_0113: stfld 0x400003b LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore+\u206f\u200c\u206a\u202b\u200e\u200b\u206b\u202c\u202a\u202a\u200f\u206e\u206f\u202c\u200d\u200b\u200d\u202e\u206b\u202b\u200c\u200e\u200d\u200d\u200d\u202b\u206c\u200f\u200e\u200b\u206e\u202d\u200e\u200b\u200f\u202e\u202a\u202d\u206a\u202d\u202e::hidden
+  IL_0118: ldloc.2
+  IL_0119: ldloc.s 5
+  IL_011b: ldfld 0xa000031 Rage.Vector3::Z
+  IL_0120: stfld 0x400003c LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore+\u206f\u200c\u206a\u202b\u200e\u200b\u206b\u202c\u202a\u202a\u200f\u206e\u206f\u202c\u200d\u200b\u200d\u202e\u206b\u202b\u200c\u200e\u200d\u200d\u200d\u202b\u206c\u200f\u200e\u200b\u206e\u202d\u200e\u200b\u200f\u202e\u202a\u202d\u206a\u202d\u202e::hidden
+  IL_0125: ldloc.2
+  IL_0126: stsfld 0x400002f LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore::hidden
+  IL_012b: ldc.i4.s 13
+  IL_012d: newarr 0x1000053 System.String
+  IL_0132: dup
+  IL_0133: ldc.i4.0
+  IL_0134: ldc.i4 1577216175
+  IL_0139: call 0x2b000004 .<Module>::hidden decoded="[LSA.PRBridge.Callouts] Stored LSA callout id="
+  IL_013e: stelem.ref
+  IL_013f: dup
+  IL_0140: ldc.i4.1
+  IL_0141: ldsfld 0x400002f LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore::hidden
+  IL_0146: ldfld 0x4000034 LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore+\u206f\u200c\u206a\u202b\u200e\u200b\u206b\u202c\u202a\u202a\u200f\u206e\u206f\u202c\u200d\u200b\u200d\u202e\u206b\u202b\u200c\u200e\u200d\u200d\u200d\u202b\u206c\u200f\u200e\u200b\u206e\u202d\u200e\u200b\u200f\u202e\u202a\u202d\u206a\u202d\u202e::hidden
+  IL_014b: stelem.ref
+  IL_014c: dup
+  IL_014d: ldc.i4.2
+  IL_014e: ldc.i4 1779042626
+  IL_0153: call 0x2b000002 .<Module>::hidden decoded=" title="
+  IL_0158: stelem.ref
+  IL_0159: dup
+  IL_015a: ldc.i4.3
+  IL_015b: ldsfld 0x400002f LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore::hidden
+  IL_0160: ldfld 0x4000035 LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore+\u206f\u200c\u206a\u202b\u200e\u200b\u206b\u202c\u202a\u202a\u200f\u206e\u206f\u202c\u200d\u200b\u200d\u202e\u206b\u202b\u200c\u200e\u200d\u200d\u200d\u202b\u206c\u200f\u200e\u200b\u206e\u202d\u200e\u200b\u200f\u202e\u202a\u202d\u206a\u202d\u202e::hidden
+  IL_0165: stelem.ref
+  IL_0166: dup
+  IL_0167: ldc.i4.4
+  IL_0168: ldc.i4 -1629748469
+  IL_016d: call 0x2b000001 .<Module>::hidden decoded=" location="
+  IL_0172: stelem.ref
+  IL_0173: dup
+  IL_0174: ldc.i4.5
+  IL_0175: ldsfld 0x400002f LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore::hidden
+  IL_017a: ldfld 0x4000037 LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore+\u206f\u200c\u206a\u202b\u200e\u200b\u206b\u202c\u202a\u202a\u200f\u206e\u206f\u202c\u200d\u200b\u200d\u202e\u206b\u202b\u200c\u200e\u200d\u200d\u200d\u202b\u206c\u200f\u200e\u200b\u206e\u202d\u200e\u200b\u200f\u202e\u202a\u202d\u206a\u202d\u202e::hidden
+  IL_017f: stelem.ref
+  IL_0180: dup
+  IL_0181: ldc.i4.6
+  IL_0182: ldc.i4 534344751
+  IL_0187: call 0x2b000005 .<Module>::hidden decoded=" pos=("
+  IL_018c: stelem.ref
+  IL_018d: dup
+  IL_018e: ldc.i4.7
+  IL_018f: ldsfld 0x400002f LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore::hidden
+  IL_0194: ldfld 0x400003a LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore+\u206f\u200c\u206a\u202b\u200e\u200b\u206b\u202c\u202a\u202a\u200f\u206e\u206f\u202c\u200d\u200b\u200d\u202e\u206b\u202b\u200c\u200e\u200d\u200d\u200d\u202b\u206c\u200f\u200e\u200b\u206e\u202d\u200e\u200b\u200f\u202e\u202a\u202d\u206a\u202d\u202e::hidden
+  IL_0199: call 0x600004e LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore::hidden
+  IL_019e: stelem.ref
+  IL_019f: dup
+  IL_01a0: ldc.i4.8
+  IL_01a1: ldc.i4 -1982237912
+  IL_01a6: call 0x2b000003 .<Module>::hidden decoded=","
+  IL_01ab: stelem.ref
+  IL_01ac: dup
+  IL_01ad: ldc.i4.s 9
+  IL_01af: ldsfld 0x400002f LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore::hidden
+  IL_01b4: ldfld 0x400003b LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore+\u206f\u200c\u206a\u202b\u200e\u200b\u206b\u202c\u202a\u202a\u200f\u206e\u206f\u202c\u200d\u200b\u200d\u202e\u206b\u202b\u200c\u200e\u200d\u200d\u200d\u202b\u206c\u200f\u200e\u200b\u206e\u202d\u200e\u200b\u200f\u202e\u202a\u202d\u206a\u202d\u202e::hidden
+  IL_01b9: call 0x600004e LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore::hidden
+  IL_01be: stelem.ref
+  IL_01bf: dup
+  IL_01c0: ldc.i4.s 10
+  IL_01c2: ldc.i4 -426047982
+  IL_01c7: call 0x2b000001 .<Module>::hidden decoded=","
+  IL_01cc: stelem.ref
+  IL_01cd: dup
+  IL_01ce: ldc.i4.s 11
+  IL_01d0: ldsfld 0x400002f LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore::hidden
+  IL_01d5: ldfld 0x400003c LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore+\u206f\u200c\u206a\u202b\u200e\u200b\u206b\u202c\u202a\u202a\u200f\u206e\u206f\u202c\u200d\u200b\u200d\u202e\u206b\u202b\u200c\u200e\u200d\u200d\u200d\u202b\u206c\u200f\u200e\u200b\u206e\u202d\u200e\u200b\u200f\u202e\u202a\u202d\u206a\u202d\u202e::hidden
+  IL_01da: call 0x600004e LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore::hidden
+  IL_01df: stelem.ref
+  IL_01e0: dup
+  IL_01e1: ldc.i4.s 12
+  IL_01e3: ldc.i4 1158733102
+  IL_01e8: call 0x2b000002 .<Module>::hidden decoded=")"
+  IL_01ed: stelem.ref
+  IL_01ee: call 0xa000032 System.String::Concat
+  IL_01f3: call 0xa000033 Rage.Game::LogTrivial
+  IL_01f8: ldc.i4 1771176064
+  IL_01fd: call 0x2b000002 .<Module>::hidden decoded="{ \"ok\": true, \"type\": \"callout_set\", \"id\": \""
+  IL_0202: ldsfld 0x400002f LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore::hidden
+  IL_0207: ldfld 0x4000034 LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore+\u206f\u200c\u206a\u202b\u200e\u200b\u206b\u202c\u202a\u202a\u200f\u206e\u206f\u202c\u200d\u200b\u200d\u202e\u206b\u202b\u200c\u200e\u200d\u200d\u200d\u202b\u206c\u200f\u200e\u200b\u206e\u202d\u200e\u200b\u200f\u202e\u202a\u202d\u206a\u202d\u202e::hidden
+  IL_020c: call 0x600004f LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore::hidden
+  IL_0211: ldc.i4 759426818
+  IL_0216: call 0x2b000001 .<Module>::hidden decoded="\" }"
+  IL_021b: call 0xa000034 System.String::Concat
+  IL_0220: stloc.3
+  IL_0221: leave.s  -> IL_022d
+  IL_0223: ldloc.1
+  IL_0224: brfalse.s  -> IL_022c
+  IL_0226: ldloc.0
+  IL_0227: call 0xa000035 System.Threading.Monitor::Exit
+  IL_022c: endfinally
+  IL_022d: ldloc.3
+  IL_022e: ret
+METHOD 0x600003c HandleGetCallout() -> String
+  EXCEPTION {"catchType": null, "filterOffset": null, "handlerLength": 10, "handlerOffset": 54, "kind": "Finally", "tryLength": 46, "tryOffset": 8}
+  IL_0000: ldsfld 0x400002e LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore::hidden
+  IL_0005: stloc.0
+  IL_0006: ldc.i4.0
+  IL_0007: stloc.1
+  IL_0008: ldloc.0
+  IL_0009: ldloca.s 1
+  IL_000b: call 0xa00002b System.Threading.Monitor::Enter
+  IL_0010: ldsfld 0x400002f LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore::hidden
+  IL_0015: brtrue.s  -> IL_0029
+  IL_0017: ldc.i4 809499040
+  IL_001c: call 0x2b000005 .<Module>::hidden decoded="no pending LSA callout"
+  IL_0021: call 0x600004c LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore::hidden
+  IL_0026: stloc.2
+  IL_0027: leave.s  -> IL_0040
+  IL_0029: ldsfld 0x400002f LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore::hidden
+  IL_002e: call 0x6000044 LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore::hidden
+  IL_0033: stloc.2
+  IL_0034: leave.s  -> IL_0040
+  IL_0036: ldloc.1
+  IL_0037: brfalse.s  -> IL_003f
+  IL_0039: ldloc.0
+  IL_003a: call 0xa000035 System.Threading.Monitor::Exit
+  IL_003f: endfinally
+  IL_0040: ldloc.2
+  IL_0041: ret
+METHOD 0x600003d HandleAcceptCallout(String) -> String
+  EXCEPTION {"catchType": null, "filterOffset": null, "handlerLength": 10, "handlerOffset": 289, "kind": "Finally", "tryLength": 281, "tryOffset": 8}
+  IL_0000: ldsfld 0x400002e LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore::hidden
+  IL_0005: stloc.0
+  IL_0006: ldc.i4.0
+  IL_0007: stloc.1
+  IL_0008: ldloc.0
+  IL_0009: ldloca.s 1
+  IL_000b: call 0xa00002b System.Threading.Monitor::Enter
+  IL_0010: ldsfld 0x400002f LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore::hidden
+  IL_0015: brtrue.s  -> IL_002c
+  IL_0017: ldc.i4 -1248257277
+  IL_001c: call 0x2b000005 .<Module>::hidden decoded="no pending callout"
+  IL_0021: call 0x600004c LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore::hidden
+  IL_0026: stloc.2
+  IL_0027: leave  -> IL_012b
+  IL_002c: ldsfld 0x400002f LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore::hidden
+  IL_0031: ldfld 0x4000034 LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore+\u206f\u200c\u206a\u202b\u200e\u200b\u206b\u202c\u202a\u202a\u200f\u206e\u206f\u202c\u200d\u200b\u200d\u202e\u206b\u202b\u200c\u200e\u200d\u200d\u200d\u202b\u206c\u200f\u200e\u200b\u206e\u202d\u200e\u200b\u200f\u202e\u202a\u202d\u206a\u202d\u202e::hidden
+  IL_0036: ldarg.0
+  IL_0037: call 0x6000045 LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore::hidden
+  IL_003c: brtrue.s  -> IL_0053
+  IL_003e: ldc.i4 -1913428345
+  IL_0043: call 0x2b000003 .<Module>::hidden decoded="callout id mismatch"
+  IL_0048: call 0x600004c LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore::hidden
+  IL_004d: stloc.2
+  IL_004e: leave  -> IL_012b
+  IL_0053: ldsfld 0x400002f LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore::hidden
+  IL_0058: stsfld 0x4000030 LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore::hidden
+  IL_005d: ldnull
+  IL_005e: stsfld 0x400002f LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore::hidden
+  IL_0063: ldsfld 0x4000031 LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore::hidden
+  IL_0068: ldc.i4.1
+  IL_0069: add
+  IL_006a: stsfld 0x4000031 LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore::hidden
+  IL_006f: ldc.i4.6
+  IL_0070: newarr 0x1000053 System.String
+  IL_0075: dup
+  IL_0076: ldc.i4.0
+  IL_0077: ldc.i4 -1109913817
+  IL_007c: call 0x2b000001 .<Module>::hidden decoded="[LSA.PRBridge.Callouts] Accepted callout id="
+  IL_0081: stelem.ref
+  IL_0082: dup
+  IL_0083: ldc.i4.1
+  IL_0084: ldsfld 0x4000030 LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore::hidden
+  IL_0089: ldfld 0x4000034 LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore+\u206f\u200c\u206a\u202b\u200e\u200b\u206b\u202c\u202a\u202a\u200f\u206e\u206f\u202c\u200d\u200b\u200d\u202e\u206b\u202b\u200c\u200e\u200d\u200d\u200d\u202b\u206c\u200f\u200e\u200b\u206e\u202d\u200e\u200b\u200f\u202e\u202a\u202d\u206a\u202d\u202e::hidden
+  IL_008e: stelem.ref
+  IL_008f: dup
+  IL_0090: ldc.i4.2
+  IL_0091: ldc.i4 1779042626
+  IL_0096: call 0x2b000002 .<Module>::hidden decoded=" title="
+  IL_009b: stelem.ref
+  IL_009c: dup
+  IL_009d: ldc.i4.3
+  IL_009e: ldsfld 0x4000030 LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore::hidden
+  IL_00a3: ldfld 0x4000035 LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore+\u206f\u200c\u206a\u202b\u200e\u200b\u206b\u202c\u202a\u202a\u200f\u206e\u206f\u202c\u200d\u200b\u200d\u202e\u206b\u202b\u200c\u200e\u200d\u200d\u200d\u202b\u206c\u200f\u200e\u200b\u206e\u202d\u200e\u200b\u200f\u202e\u202a\u202d\u206a\u202d\u202e::hidden
+  IL_00a8: stelem.ref
+  IL_00a9: dup
+  IL_00aa: ldc.i4.4
+  IL_00ab: ldc.i4 -1026911059
+  IL_00b0: call 0x2b000003 .<Module>::hidden decoded=" acceptedVersion="
+  IL_00b5: stelem.ref
+  IL_00b6: dup
+  IL_00b7: ldc.i4.5
+  IL_00b8: ldsflda 0x4000031 LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore::hidden
+  IL_00bd: call 0xa000036 System.Int32::ToString
+  IL_00c2: stelem.ref
+  IL_00c3: call 0xa000032 System.String::Concat
+  IL_00c8: call 0xa000033 Rage.Game::LogTrivial
+  IL_00cd: ldc.i4.5
+  IL_00ce: newarr 0x1000053 System.String
+  IL_00d3: dup
+  IL_00d4: ldc.i4.0
+  IL_00d5: ldc.i4 -1748618007
+  IL_00da: call 0x2b000001 .<Module>::hidden decoded="{ \"ok\": true, \"type\": \"callout_accept\", \"id\": \""
+  IL_00df: stelem.ref
+  IL_00e0: dup
+  IL_00e1: ldc.i4.1
+  IL_00e2: ldsfld 0x4000030 LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore::hidden
+  IL_00e7: ldfld 0x4000034 LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore+\u206f\u200c\u206a\u202b\u200e\u200b\u206b\u202c\u202a\u202a\u200f\u206e\u206f\u202c\u200d\u200b\u200d\u202e\u206b\u202b\u200c\u200e\u200d\u200d\u200d\u202b\u206c\u200f\u200e\u200b\u206e\u202d\u200e\u200b\u200f\u202e\u202a\u202d\u206a\u202d\u202e::hidden
+  IL_00ec: call 0x600004f LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore::hidden
+  IL_00f1: stelem.ref
+  IL_00f2: dup
+  IL_00f3: ldc.i4.2
+  IL_00f4: ldc.i4 -1273493718
+  IL_00f9: call 0x2b000004 .<Module>::hidden decoded="\", \"acceptedVersion\": "
+  IL_00fe: stelem.ref
+  IL_00ff: dup
+  IL_0100: ldc.i4.3
+  IL_0101: ldsflda 0x4000031 LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore::hidden
+  IL_0106: call 0xa000036 System.Int32::ToString
+  IL_010b: stelem.ref
+  IL_010c: dup
+  IL_010d: ldc.i4.4
+  IL_010e: ldc.i4 1287971741
+  IL_0113: call 0x2b000001 .<Module>::hidden decoded=" }"
+  IL_0118: stelem.ref
+  IL_0119: call 0xa000032 System.String::Concat
+  IL_011e: stloc.2
+  IL_011f: leave.s  -> IL_012b
+  IL_0121: ldloc.1
+  IL_0122: brfalse.s  -> IL_012a
+  IL_0124: ldloc.0
+  IL_0125: call 0xa000035 System.Threading.Monitor::Exit
+  IL_012a: endfinally
+  IL_012b: ldloc.2
+  IL_012c: ret
+METHOD 0x600003e HandleDeclineCallout(String) -> String
+  EXCEPTION {"catchType": null, "filterOffset": null, "handlerLength": 10, "handlerOffset": 111, "kind": "Finally", "tryLength": 103, "tryOffset": 8}
+  IL_0000: ldsfld 0x400002e LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore::hidden
+  IL_0005: stloc.0
+  IL_0006: ldc.i4.0
+  IL_0007: stloc.1
+  IL_0008: ldloc.0
+  IL_0009: ldloca.s 1
+  IL_000b: call 0xa00002b System.Threading.Monitor::Enter
+  IL_0010: ldsfld 0x400002f LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore::hidden
+  IL_0015: brfalse.s  -> IL_004d
+  IL_0017: ldsfld 0x400002f LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore::hidden
+  IL_001c: ldfld 0x4000034 LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore+\u206f\u200c\u206a\u202b\u200e\u200b\u206b\u202c\u202a\u202a\u200f\u206e\u206f\u202c\u200d\u200b\u200d\u202e\u206b\u202b\u200c\u200e\u200d\u200d\u200d\u202b\u206c\u200f\u200e\u200b\u206e\u202d\u200e\u200b\u200f\u202e\u202a\u202d\u206a\u202d\u202e::hidden
+  IL_0021: ldarg.0
+  IL_0022: call 0x6000045 LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore::hidden
+  IL_0027: brfalse.s  -> IL_004d
+  IL_0029: ldc.i4 196533227
+  IL_002e: call 0x2b000004 .<Module>::hidden decoded="[LSA.PRBridge.Callouts] Declined callout id="
+  IL_0033: ldsfld 0x400002f LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore::hidden
+  IL_0038: ldfld 0x4000034 LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore+\u206f\u200c\u206a\u202b\u200e\u200b\u206b\u202c\u202a\u202a\u200f\u206e\u206f\u202c\u200d\u200b\u200d\u202e\u206b\u202b\u200c\u200e\u200d\u200d\u200d\u202b\u206c\u200f\u200e\u200b\u206e\u202d\u200e\u200b\u200f\u202e\u202a\u202d\u206a\u202d\u202e::hidden
+  IL_003d: call 0xa000037 System.String::Concat
+  IL_0042: call 0xa000033 Rage.Game::LogTrivial
+  IL_0047: ldnull
+  IL_0048: stsfld 0x400002f LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore::hidden
+  IL_004d: ldc.i4 963503807
+  IL_0052: call 0x2b000004 .<Module>::hidden decoded="{ \"ok\": true, \"type\": \"callout_decline\", \"id\": \""
+  IL_0057: ldarg.0
+  IL_0058: call 0x600004f LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore::hidden
+  IL_005d: ldc.i4 -710980674
+  IL_0062: call 0x2b000004 .<Module>::hidden decoded="\" }"
+  IL_0067: call 0xa000034 System.String::Concat
+  IL_006c: stloc.2
+  IL_006d: leave.s  -> IL_0079
+  IL_006f: ldloc.1
+  IL_0070: brfalse.s  -> IL_0078
+  IL_0072: ldloc.0
+  IL_0073: call 0xa000035 System.Threading.Monitor::Exit
+  IL_0078: endfinally
+  IL_0079: ldloc.2
+  IL_007a: ret
+METHOD 0x600003f HandleEndCallout(String) -> String
+  EXCEPTION {"catchType": null, "filterOffset": null, "handlerLength": 10, "handlerOffset": 179, "kind": "Finally", "tryLength": 171, "tryOffset": 8}
+  IL_0000: ldsfld 0x400002e LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore::hidden
+  IL_0005: stloc.0
+  IL_0006: ldc.i4.0
+  IL_0007: stloc.1
+  IL_0008: ldloc.0
+  IL_0009: ldloca.s 1
+  IL_000b: call 0xa00002b System.Threading.Monitor::Enter
+  IL_0010: ldsfld 0x4000030 LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore::hidden
+  IL_0015: brfalse.s  -> IL_0068
+  IL_0017: ldsfld 0x4000030 LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore::hidden
+  IL_001c: ldfld 0x4000034 LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore+\u206f\u200c\u206a\u202b\u200e\u200b\u206b\u202c\u202a\u202a\u200f\u206e\u206f\u202c\u200d\u200b\u200d\u202e\u206b\u202b\u200c\u200e\u200d\u200d\u200d\u202b\u206c\u200f\u200e\u200b\u206e\u202d\u200e\u200b\u200f\u202e\u202a\u202d\u206a\u202d\u202e::hidden
+  IL_0021: ldarg.0
+  IL_0022: call 0x6000045 LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore::hidden
+  IL_0027: brfalse.s  -> IL_0068
+  IL_0029: ldc.i4 -2117093404
+  IL_002e: call 0x2b000004 .<Module>::hidden decoded="[LSA.PRBridge.Callouts] Ended callout id="
+  IL_0033: ldsfld 0x4000030 LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore::hidden
+  IL_0038: ldfld 0x4000034 LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore+\u206f\u200c\u206a\u202b\u200e\u200b\u206b\u202c\u202a\u202a\u200f\u206e\u206f\u202c\u200d\u200b\u200d\u202e\u206b\u202b\u200c\u200e\u200d\u200d\u200d\u202b\u206c\u200f\u200e\u200b\u206e\u202d\u200e\u200b\u200f\u202e\u202a\u202d\u206a\u202d\u202e::hidden
+  IL_003d: call 0xa000037 System.String::Concat
+  IL_0042: call 0xa000033 Rage.Game::LogTrivial
+  IL_0047: ldsfld 0x4000030 LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore::hidden
+  IL_004c: ldfld 0x4000034 LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore+\u206f\u200c\u206a\u202b\u200e\u200b\u206b\u202c\u202a\u202a\u200f\u206e\u206f\u202c\u200d\u200b\u200d\u202e\u206b\u202b\u200c\u200e\u200d\u200d\u200d\u202b\u206c\u200f\u200e\u200b\u206e\u202d\u200e\u200b\u200f\u202e\u202a\u202d\u206a\u202d\u202e::hidden
+  IL_0051: stsfld 0x4000033 LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore::hidden
+  IL_0056: ldnull
+  IL_0057: stsfld 0x4000030 LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore::hidden
+  IL_005c: ldsfld 0x4000032 LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore::hidden
+  IL_0061: ldc.i4.1
+  IL_0062: add
+  IL_0063: stsfld 0x4000032 LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore::hidden
+  IL_0068: ldc.i4.5
+  IL_0069: newarr 0x1000053 System.String
+  IL_006e: dup
+  IL_006f: ldc.i4.0
+  IL_0070: ldc.i4 -661972032
+  IL_0075: call 0x2b000005 .<Module>::hidden decoded="{ \"ok\": true, \"type\": \"callout_end\", \"id\": \""
+  IL_007a: stelem.ref
+  IL_007b: dup
+  IL_007c: ldc.i4.1
+  IL_007d: ldarg.0
+  IL_007e: call 0x600004f LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore::hidden
+  IL_0083: stelem.ref
+  IL_0084: dup
+  IL_0085: ldc.i4.2
+  IL_0086: ldc.i4 475491082
+  IL_008b: call 0x2b000002 .<Module>::hidden decoded="\", \"endedVersion\": "
+  IL_0090: stelem.ref
+  IL_0091: dup
+  IL_0092: ldc.i4.3
+  IL_0093: ldsflda 0x4000032 LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore::hidden
+  IL_0098: call 0xa000036 System.Int32::ToString
+  IL_009d: stelem.ref
+  IL_009e: dup
+  IL_009f: ldc.i4.4
+  IL_00a0: ldc.i4 2101658341
+  IL_00a5: call 0x2b000005 .<Module>::hidden decoded=" }"
+  IL_00aa: stelem.ref
+  IL_00ab: call 0xa000032 System.String::Concat
+  IL_00b0: stloc.2
+  IL_00b1: leave.s  -> IL_00bd
+  IL_00b3: ldloc.1
+  IL_00b4: brfalse.s  -> IL_00bc
+  IL_00b6: ldloc.0
+  IL_00b7: call 0xa000035 System.Threading.Monitor::Exit
+  IL_00bc: endfinally
+  IL_00bd: ldloc.2
+  IL_00be: ret
+METHOD 0x6000040 HandleGetStatus() -> String
+  EXCEPTION {"catchType": null, "filterOffset": null, "handlerLength": 10, "handlerOffset": 587, "kind": "Finally", "tryLength": 579, "tryOffset": 8}
+  IL_0000: ldsfld 0x400002e LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore::hidden
+  IL_0005: stloc.0
+  IL_0006: ldc.i4.0
+  IL_0007: stloc.1
+  IL_0008: ldloc.0
+  IL_0009: ldloca.s 1
+  IL_000b: call 0xa00002b System.Threading.Monitor::Enter
+  IL_0010: ldsfld 0x400002f LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore::hidden
+  IL_0015: brtrue.s  -> IL_001e
+  IL_0017: ldstr  decoded=""
+  IL_001c: br.s  -> IL_0028
+  IL_001e: ldsfld 0x400002f LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore::hidden
+  IL_0023: ldfld 0x4000034 LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore+\u206f\u200c\u206a\u202b\u200e\u200b\u206b\u202c\u202a\u202a\u200f\u206e\u206f\u202c\u200d\u200b\u200d\u202e\u206b\u202b\u200c\u200e\u200d\u200d\u200d\u202b\u206c\u200f\u200e\u200b\u206e\u202d\u200e\u200b\u200f\u202e\u202a\u202d\u206a\u202d\u202e::hidden
+  IL_0028: stloc.2
+  IL_0029: ldsfld 0x4000030 LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore::hidden
+  IL_002e: brtrue.s  -> IL_0037
+  IL_0030: ldstr  decoded=""
+  IL_0035: br.s  -> IL_0041
+  IL_0037: ldsfld 0x4000030 LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore::hidden
+  IL_003c: ldfld 0x4000034 LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore+\u206f\u200c\u206a\u202b\u200e\u200b\u206b\u202c\u202a\u202a\u200f\u206e\u206f\u202c\u200d\u200b\u200d\u202e\u206b\u202b\u200c\u200e\u200d\u200d\u200d\u202b\u206c\u200f\u200e\u200b\u206e\u202d\u200e\u200b\u200f\u202e\u202a\u202d\u206a\u202d\u202e::hidden
+  IL_0041: stloc.3
+  IL_0042: ldsfld 0x4000030 LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore::hidden
+  IL_0047: brtrue.s  -> IL_0050
+  IL_0049: ldstr  decoded=""
+  IL_004e: br.s  -> IL_005a
+  IL_0050: ldsfld 0x4000030 LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore::hidden
+  IL_0055: ldfld 0x4000035 LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore+\u206f\u200c\u206a\u202b\u200e\u200b\u206b\u202c\u202a\u202a\u200f\u206e\u206f\u202c\u200d\u200b\u200d\u202e\u206b\u202b\u200c\u200e\u200d\u200d\u200d\u202b\u206c\u200f\u200e\u200b\u206e\u202d\u200e\u200b\u200f\u202e\u202a\u202d\u206a\u202d\u202e::hidden
+  IL_005a: stloc.s 4
+  IL_005c: ldsfld 0x4000030 LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore::hidden
+  IL_0061: brtrue.s  -> IL_006a
+  IL_0063: ldstr  decoded=""
+  IL_0068: br.s  -> IL_0074
+  IL_006a: ldsfld 0x4000030 LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore::hidden
+  IL_006f: ldfld 0x4000036 LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore+\u206f\u200c\u206a\u202b\u200e\u200b\u206b\u202c\u202a\u202a\u200f\u206e\u206f\u202c\u200d\u200b\u200d\u202e\u206b\u202b\u200c\u200e\u200d\u200d\u200d\u202b\u206c\u200f\u200e\u200b\u206e\u202d\u200e\u200b\u200f\u202e\u202a\u202d\u206a\u202d\u202e::hidden
+  IL_0074: stloc.s 5
+  IL_0076: ldsfld 0x4000030 LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore::hidden
+  IL_007b: brtrue.s  -> IL_0084
+  IL_007d: ldstr  decoded=""
+  IL_0082: br.s  -> IL_008e
+  IL_0084: ldsfld 0x4000030 LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore::hidden
+  IL_0089: ldfld 0x4000037 LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore+\u206f\u200c\u206a\u202b\u200e\u200b\u206b\u202c\u202a\u202a\u200f\u206e\u206f\u202c\u200d\u200b\u200d\u202e\u206b\u202b\u200c\u200e\u200d\u200d\u200d\u202b\u206c\u200f\u200e\u200b\u206e\u202d\u200e\u200b\u200f\u202e\u202a\u202d\u206a\u202d\u202e::hidden
+  IL_008e: stloc.s 6
+  IL_0090: ldsfld 0x4000030 LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore::hidden
+  IL_0095: brtrue.s  -> IL_009e
+  IL_0097: ldc.r4 00000000
+  IL_009c: br.s  -> IL_00a8
+  IL_009e: ldsfld 0x4000030 LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore::hidden
+  IL_00a3: ldfld 0x400003a LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore+\u206f\u200c\u206a\u202b\u200e\u200b\u206b\u202c\u202a\u202a\u200f\u206e\u206f\u202c\u200d\u200b\u200d\u202e\u206b\u202b\u200c\u200e\u200d\u200d\u200d\u202b\u206c\u200f\u200e\u200b\u206e\u202d\u200e\u200b\u200f\u202e\u202a\u202d\u206a\u202d\u202e::hidden
+  IL_00a8: stloc.s 7
+  IL_00aa: ldsfld 0x4000030 LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore::hidden
+  IL_00af: brtrue.s  -> IL_00b8
+  IL_00b1: ldc.r4 00000000
+  IL_00b6: br.s  -> IL_00c2
+  IL_00b8: ldsfld 0x4000030 LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore::hidden
+  IL_00bd: ldfld 0x400003b LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore+\u206f\u200c\u206a\u202b\u200e\u200b\u206b\u202c\u202a\u202a\u200f\u206e\u206f\u202c\u200d\u200b\u200d\u202e\u206b\u202b\u200c\u200e\u200d\u200d\u200d\u202b\u206c\u200f\u200e\u200b\u206e\u202d\u200e\u200b\u200f\u202e\u202a\u202d\u206a\u202d\u202e::hidden
+  IL_00c2: stloc.s 8
+  IL_00c4: ldsfld 0x4000030 LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore::hidden
+  IL_00c9: brtrue.s  -> IL_00d2
+  IL_00cb: ldc.r4 00000000
+  IL_00d0: br.s  -> IL_00dc
+  IL_00d2: ldsfld 0x4000030 LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore::hidden
+  IL_00d7: ldfld 0x400003c LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore+\u206f\u200c\u206a\u202b\u200e\u200b\u206b\u202c\u202a\u202a\u200f\u206e\u206f\u202c\u200d\u200b\u200d\u202e\u206b\u202b\u200c\u200e\u200d\u200d\u200d\u202b\u206c\u200f\u200e\u200b\u206e\u202d\u200e\u200b\u200f\u202e\u202a\u202d\u206a\u202d\u202e::hidden
+  IL_00dc: stloc.s 9
+  IL_00de: ldc.i4.s 27
+  IL_00e0: newarr 0x1000053 System.String
+  IL_00e5: dup
+  IL_00e6: ldc.i4.0
+  IL_00e7: ldc.i4 531203158
+  IL_00ec: call 0x2b000001 .<Module>::hidden decoded="{ \"ok\": true, \"type\": \"callout_status\", \"hasPending\": "
+  IL_00f1: stelem.ref
+  IL_00f2: dup
+  IL_00f3: ldc.i4.1
+  IL_00f4: ldsfld 0x400002f LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore::hidden
+  IL_00f9: ldnull
+  IL_00fa: cgt.un
+  IL_00fc: call 0x600004d LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore::hidden
+  IL_0101: stelem.ref
+  IL_0102: dup
+  IL_0103: ldc.i4.2
+  IL_0104: ldc.i4 2106300683
+  IL_0109: call 0x2b000003 .<Module>::hidden decoded=", \"hasActive\": "
+  IL_010e: stelem.ref
+  IL_010f: dup
+  IL_0110: ldc.i4.3
+  IL_0111: ldsfld 0x4000030 LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore::hidden
+  IL_0116: ldnull
+  IL_0117: cgt.un
+  IL_0119: call 0x600004d LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore::hidden
+  IL_011e: stelem.ref
+  IL_011f: dup
+  IL_0120: ldc.i4.4
+  IL_0121: ldc.i4 1723976692
+  IL_0126: call 0x2b000002 .<Module>::hidden decoded=", \"pendingId\": \""
+  IL_012b: stelem.ref
+  IL_012c: dup
+  IL_012d: ldc.i4.5
+  IL_012e: ldloc.2
+  IL_012f: call 0x600004f LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore::hidden
+  IL_0134: stelem.ref
+  IL_0135: dup
+  IL_0136: ldc.i4.6
+  IL_0137: ldc.i4 1698452271
+  IL_013c: call 0x2b000001 .<Module>::hidden decoded="\", \"activeId\": \""
+  IL_0141: stelem.ref
+  IL_0142: dup
+  IL_0143: ldc.i4.7
+  IL_0144: ldloc.3
+  IL_0145: call 0x600004f LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore::hidden
+  IL_014a: stelem.ref
+  IL_014b: dup
+  IL_014c: ldc.i4.8
+  IL_014d: ldc.i4 -1545610042
+  IL_0152: call 0x2b000003 .<Module>::hidden decoded="\", \"lastEndedCalloutId\": \""
+  IL_0157: stelem.ref
+  IL_0158: dup
+  IL_0159: ldc.i4.s 9
+  IL_015b: ldsfld 0x4000033 LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore::hidden
+  IL_0160: call 0x600004f LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore::hidden
+  IL_0165: stelem.ref
+  IL_0166: dup
+  IL_0167: ldc.i4.s 10
+  IL_0169: ldc.i4 421849036
+  IL_016e: call 0x2b000001 .<Module>::hidden decoded="\", \"activeAcceptedVersion\": "
+  IL_0173: stelem.ref
+  IL_0174: dup
+  IL_0175: ldc.i4.s 11
+  IL_0177: ldsflda 0x4000031 LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore::hidden
+  IL_017c: call 0xa000036 System.Int32::ToString
+  IL_0181: stelem.ref
+  IL_0182: dup
+  IL_0183: ldc.i4.s 12
+  IL_0185: ldc.i4 1014586436
+  IL_018a: call 0x2b000001 .<Module>::hidden decoded=", \"activeEndedVersion\": "
+  IL_018f: stelem.ref
+  IL_0190: dup
+  IL_0191: ldc.i4.s 13
+  IL_0193: ldsflda 0x4000032 LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore::hidden
+  IL_0198: call 0xa000036 System.Int32::ToString
+  IL_019d: stelem.ref
+  IL_019e: dup
+  IL_019f: ldc.i4.s 14
+  IL_01a1: ldc.i4 430559307
+  IL_01a6: call 0x2b000001 .<Module>::hidden decoded=", \"activeTitle\": \""
+  IL_01ab: stelem.ref
+  IL_01ac: dup
+  IL_01ad: ldc.i4.s 15
+  IL_01af: ldloc.s 4
+  IL_01b1: call 0x600004f LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore::hidden
+  IL_01b6: stelem.ref
+  IL_01b7: dup
+  IL_01b8: ldc.i4.s 16
+  IL_01ba: ldc.i4 984329767
+  IL_01bf: call 0x2b000003 .<Module>::hidden decoded="\", \"activeDescription\": \""
+  IL_01c4: stelem.ref
+  IL_01c5: dup
+  IL_01c6: ldc.i4.s 17
+  IL_01c8: ldloc.s 5
+  IL_01ca: call 0x600004f LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore::hidden
+  IL_01cf: stelem.ref
+  IL_01d0: dup
+  IL_01d1: ldc.i4.s 18
+  IL_01d3: ldc.i4 -963355953
+  IL_01d8: call 0x2b000003 .<Module>::hidden decoded="\", \"activeLocationName\": \""
+  IL_01dd: stelem.ref
+  IL_01de: dup
+  IL_01df: ldc.i4.s 19
+  IL_01e1: ldloc.s 6
+  IL_01e3: call 0x600004f LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore::hidden
+  IL_01e8: stelem.ref
+  IL_01e9: dup
+  IL_01ea: ldc.i4.s 20
+  IL_01ec: ldc.i4 -434596111
+  IL_01f1: call 0x2b000005 .<Module>::hidden decoded="\", \"activeX\": "
+  IL_01f6: stelem.ref
+  IL_01f7: dup
+  IL_01f8: ldc.i4.s 21
+  IL_01fa: ldloc.s 7
+  IL_01fc: call 0x600004e LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore::hidden
+  IL_0201: stelem.ref
+  IL_0202: dup
+  IL_0203: ldc.i4.s 22
+  IL_0205: ldc.i4 1140464908
+  IL_020a: call 0x2b000003 .<Module>::hidden decoded=", \"activeY\": "
+  IL_020f: stelem.ref
+  IL_0210: dup
+  IL_0211: ldc.i4.s 23
+  IL_0213: ldloc.s 8
+  IL_0215: call 0x600004e LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore::hidden
+  IL_021a: stelem.ref
+  IL_021b: dup
+  IL_021c: ldc.i4.s 24
+  IL_021e: ldc.i4 -76838667
+  IL_0223: call 0x2b000003 .<Module>::hidden decoded=", \"activeZ\": "
+  IL_0228: stelem.ref
+  IL_0229: dup
+  IL_022a: ldc.i4.s 25
+  IL_022c: ldloc.s 9
+  IL_022e: call 0x600004e LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore::hidden
+  IL_0233: stelem.ref
+  IL_0234: dup
+  IL_0235: ldc.i4.s 26
+  IL_0237: ldc.i4 324361657
+  IL_023c: call 0x2b000004 .<Module>::hidden decoded=" }"
+  IL_0241: stelem.ref
+  IL_0242: call 0xa000032 System.String::Concat
+  IL_0247: stloc.s 10
+  IL_0249: leave.s  -> IL_0255
+  IL_024b: ldloc.1
+  IL_024c: brfalse.s  -> IL_0254
+  IL_024e: ldloc.0
+  IL_024f: call 0xa000035 System.Threading.Monitor::Exit
+  IL_0254: endfinally
+  IL_0255: ldloc.s 10
+  IL_0257: ret
+METHOD 0x6000041 hidden() -> LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore+\u206f\u200c\u206a\u202b\u200e\u200b\u206b\u202c\u202a\u202a\u200f\u206e\u206f\u202c\u200d\u200b\u200d\u202e\u206b\u202b\u200c\u200e\u200d\u200d\u200d\u202b\u206c\u200f\u200e\u200b\u206e\u202d\u200e\u200b\u200f\u202e\u202a\u202d\u206a\u202d\u202e
+  IL_0000: call 0x6000042 LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore::hidden
+  IL_0005: stloc.0
+  IL_0006: newobj 0x6000051 LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore+\u206f\u200c\u206a\u202b\u200e\u200b\u206b\u202c\u202a\u202a\u200f\u206e\u206f\u202c\u200d\u200b\u200d\u202e\u206b\u202b\u200c\u200e\u200d\u200d\u200d\u202b\u206c\u200f\u200e\u200b\u206e\u202d\u200e\u200b\u200f\u202e\u202a\u202d\u206a\u202d\u202e::hidden
+  IL_000b: stloc.1
+  IL_000c: ldloc.1
+  IL_000d: call 0xa00002d System.Guid::NewGuid
+  IL_0012: stloc.2
+  IL_0013: ldloca.s 2
+  IL_0015: ldc.i4 589988372
+  IL_001a: call 0x2b000003 .<Module>::hidden decoded="N"
+  IL_001f: call 0xa00002e System.Guid::ToString
+  IL_0024: stfld 0x4000034 LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore+\u206f\u200c\u206a\u202b\u200e\u200b\u206b\u202c\u202a\u202a\u200f\u206e\u206f\u202c\u200d\u200b\u200d\u202e\u206b\u202b\u200c\u200e\u200d\u200d\u200d\u202b\u206c\u200f\u200e\u200b\u206e\u202d\u200e\u200b\u200f\u202e\u202a\u202d\u206a\u202d\u202e::hidden
+  IL_0029: ldloc.1
+  IL_002a: ldc.i4 348946288
+  IL_002f: call 0x2b000001 .<Module>::hidden decoded="LSA: Dynamic Disturbance"
+  IL_0034: stfld 0x4000035 LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore+\u206f\u200c\u206a\u202b\u200e\u200b\u206b\u202c\u202a\u202a\u200f\u206e\u206f\u202c\u200d\u200b\u200d\u202e\u206b\u202b\u200c\u200e\u200d\u200d\u200d\u202b\u206c\u200f\u200e\u200b\u206e\u202d\u200e\u200b\u200f\u202e\u202a\u202d\u206a\u202d\u202e::hidden
+  IL_0039: ldloc.1
+  IL_003a: ldc.i4 -1056715132
+  IL_003f: call 0x2b000005 .<Module>::hidden decoded="Caller reports two individuals arguing in public. Respond and investigate."
+  IL_0044: stfld 0x4000036 LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore+\u206f\u200c\u206a\u202b\u200e\u200b\u206b\u202c\u202a\u202a\u200f\u206e\u206f\u202c\u200d\u200b\u200d\u202e\u206b\u202b\u200c\u200e\u200d\u200d\u200d\u202b\u206c\u200f\u200e\u200b\u206e\u202d\u200e\u200b\u200f\u202e\u202a\u202d\u206a\u202d\u202e::hidden
+  IL_0049: ldloc.1
+  IL_004a: ldc.i4 -1990013890
+  IL_004f: call 0x2b000002 .<Module>::hidden decoded="Public sidewalk"
+  IL_0054: stfld 0x4000037 LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore+\u206f\u200c\u206a\u202b\u200e\u200b\u206b\u202c\u202a\u202a\u200f\u206e\u206f\u202c\u200d\u200b\u200d\u202e\u206b\u202b\u200c\u200e\u200d\u200d\u200d\u202b\u206c\u200f\u200e\u200b\u206e\u202d\u200e\u200b\u200f\u202e\u202a\u202d\u206a\u202d\u202e::hidden
+  IL_0059: ldloc.1
+  IL_005a: ldc.i4 605289355
+  IL_005f: call 0x2b000002 .<Module>::hidden decoded="CITIZENS_REPORT CRIME_DISTURBING_THE_PEACE IN_OR_ON_POSITION"
+  IL_0064: stfld 0x4000038 LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore+\u206f\u200c\u206a\u202b\u200e\u200b\u206b\u202c\u202a\u202a\u200f\u206e\u206f\u202c\u200d\u200b\u200d\u202e\u206b\u202b\u200c\u200e\u200d\u200d\u200d\u202b\u206c\u200f\u200e\u200b\u206e\u202d\u200e\u200b\u200f\u202e\u202a\u202d\u206a\u202d\u202e::hidden
+  IL_0069: ldloc.1
+  IL_006a: ldloc.0
+  IL_006b: ldfld 0xa00002f Rage.Vector3::X
+  IL_0070: stfld 0x400003a LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore+\u206f\u200c\u206a\u202b\u200e\u200b\u206b\u202c\u202a\u202a\u200f\u206e\u206f\u202c\u200d\u200b\u200d\u202e\u206b\u202b\u200c\u200e\u200d\u200d\u200d\u202b\u206c\u200f\u200e\u200b\u206e\u202d\u200e\u200b\u200f\u202e\u202a\u202d\u206a\u202d\u202e::hidden
+  IL_0075: ldloc.1
+  IL_0076: ldloc.0
+  IL_0077: ldfld 0xa000030 Rage.Vector3::Y
+  IL_007c: stfld 0x400003b LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore+\u206f\u200c\u206a\u202b\u200e\u200b\u206b\u202c\u202a\u202a\u200f\u206e\u206f\u202c\u200d\u200b\u200d\u202e\u206b\u202b\u200c\u200e\u200d\u200d\u200d\u202b\u206c\u200f\u200e\u200b\u206e\u202d\u200e\u200b\u200f\u202e\u202a\u202d\u206a\u202d\u202e::hidden
+  IL_0081: ldloc.1
+  IL_0082: ldloc.0
+  IL_0083: ldfld 0xa000031 Rage.Vector3::Z
+  IL_0088: stfld 0x400003c LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore+\u206f\u200c\u206a\u202b\u200e\u200b\u206b\u202c\u202a\u202a\u200f\u206e\u206f\u202c\u200d\u200b\u200d\u202e\u206b\u202b\u200c\u200e\u200d\u200d\u200d\u202b\u206c\u200f\u200e\u200b\u206e\u202d\u200e\u200b\u200f\u202e\u202a\u202d\u206a\u202d\u202e::hidden
+  IL_008d: ldloc.1
+  IL_008e: ldc.i4.2
+  IL_008f: stfld 0x4000039 LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore+\u206f\u200c\u206a\u202b\u200e\u200b\u206b\u202c\u202a\u202a\u200f\u206e\u206f\u202c\u200d\u200b\u200d\u202e\u206b\u202b\u200c\u200e\u200d\u200d\u200d\u202b\u206c\u200f\u200e\u200b\u206e\u202d\u200e\u200b\u200f\u202e\u202a\u202d\u206a\u202d\u202e::hidden
+  IL_0094: ldc.i4 -1976210323
+  IL_0099: call 0x2b000004 .<Module>::hidden decoded="[LSA.PRBridge.Callouts] Generated fallback test callout id="
+  IL_009e: ldloc.1
+  IL_009f: ldfld 0x4000034 LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore+\u206f\u200c\u206a\u202b\u200e\u200b\u206b\u202c\u202a\u202a\u200f\u206e\u206f\u202c\u200d\u200b\u200d\u202e\u206b\u202b\u200c\u200e\u200d\u200d\u200d\u202b\u206c\u200f\u200e\u200b\u206e\u202d\u200e\u200b\u200f\u202e\u202a\u202d\u206a\u202d\u202e::hidden
+  IL_00a4: ldc.i4 295167129
+  IL_00a9: call 0x2b000005 .<Module>::hidden decoded=" pos="
+  IL_00ae: ldloc.0
+  IL_00af: stloc.3
+  IL_00b0: ldloca.s 3
+  IL_00b2: constrained. 0x1000007 Rage.Vector3
+  IL_00b8: callvirt 0xa000038 System.Object::ToString
+  IL_00bd: call 0xa000039 System.String::Concat
+  IL_00c2: call 0xa000033 Rage.Game::LogTrivial
+  IL_00c7: ldloc.1
+  IL_00c8: ret
+METHOD 0x6000042 hidden() -> Rage.Vector3
+  EXCEPTION {"catchType": "System.Object", "filterOffset": null, "handlerLength": 3, "handlerOffset": 61, "kind": "Catch", "tryLength": 55, "tryOffset": 6}
+  IL_0000: call 0xa00003a Rage.Vector3::get_Zero
+  IL_0005: stloc.0
+  IL_0006: call 0xa00003b Rage.Game::get_LocalPlayer
+  IL_000b: callvirt 0xa00003c Rage.Player::get_Character
+  IL_0010: stloc.1
+  IL_0011: ldloc.1
+  IL_0012: ldnull
+  IL_0013: call 0xa00003d Rage.Entity::op_Inequality
+  IL_0018: brfalse.s  -> IL_003b
+  IL_001a: ldloc.1
+  IL_001b: call 0xa00003e .EntityExtensions::Exists
+  IL_0020: brfalse.s  -> IL_003b
+  IL_0022: ldloc.1
+  IL_0023: callvirt 0xa00003f Rage.Entity::get_Position
+  IL_0028: stloc.2
+  IL_0029: ldloca.s 2
+  IL_002b: ldc.r4 0000AF43
+  IL_0030: call 0xa000040 Rage.Vector3::Around
+  IL_0035: call 0xa000041 Rage.World::GetNextPositionOnStreet
+  IL_003a: stloc.0
+  IL_003b: leave.s  -> IL_0040
+  IL_003d: pop
+  IL_003e: leave.s  -> IL_0040
+  IL_0040: ldloc.0
+  IL_0041: call 0xa00003a Rage.Vector3::get_Zero
+  IL_0046: call 0xa000042 Rage.Vector3::op_Equality
+  IL_004b: brfalse.s  -> IL_0063
+  IL_004d: ldloca.s 0
+  IL_004f: ldc.r4 00000000
+  IL_0054: ldc.r4 00000000
+  IL_0059: ldc.r4 00009042
+  IL_005e: call 0xa000043 Rage.Vector3::.ctor
+  IL_0063: ldloc.0
+  IL_0064: ret
+METHOD 0x6000043 hidden(String, LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore+\u206f\u200c\u206a\u202b\u200e\u200b\u206b\u202c\u202a\u202a\u200f\u206e\u206f\u202c\u200d\u200b\u200d\u202e\u206b\u202b\u200c\u200e\u200d\u200d\u200d\u202b\u206c\u200f\u200e\u200b\u206e\u202d\u200e\u200b\u200f\u202e\u202a\u202d\u206a\u202d\u202e&) -> Boolean
+  IL_0000: ldarg.1
+  IL_0001: ldnull
+  IL_0002: stind.ref
+  IL_0003: ldarg.0
+  IL_0004: call 0xa00002c System.String::IsNullOrWhiteSpace
+  IL_0009: brfalse.s  -> IL_000d
+  IL_000b: ldc.i4.0
+  IL_000c: ret
+  IL_000d: newobj 0x6000051 LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore+\u206f\u200c\u206a\u202b\u200e\u200b\u206b\u202c\u202a\u202a\u200f\u206e\u206f\u202c\u200d\u200b\u200d\u202e\u206b\u202b\u200c\u200e\u200d\u200d\u200d\u202b\u206c\u200f\u200e\u200b\u206e\u202d\u200e\u200b\u200f\u202e\u202a\u202d\u206a\u202d\u202e::hidden
+  IL_0012: stloc.0
+  IL_0013: ldloc.0
+  IL_0014: ldarg.0
+  IL_0015: ldc.i4 -634011808
+  IL_001a: call 0x2b000004 .<Module>::hidden decoded="id"
+  IL_001f: call 0x6000047 LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore::hidden
+  IL_0024: stfld 0x4000034 LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore+\u206f\u200c\u206a\u202b\u200e\u200b\u206b\u202c\u202a\u202a\u200f\u206e\u206f\u202c\u200d\u200b\u200d\u202e\u206b\u202b\u200c\u200e\u200d\u200d\u200d\u202b\u206c\u200f\u200e\u200b\u206e\u202d\u200e\u200b\u200f\u202e\u202a\u202d\u206a\u202d\u202e::hidden
+  IL_0029: ldloc.0
+  IL_002a: ldarg.0
+  IL_002b: ldc.i4 -1583134526
+  IL_0030: call 0x2b000005 .<Module>::hidden decoded="title"
+  IL_0035: call 0x6000047 LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore::hidden
+  IL_003a: stfld 0x4000035 LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore+\u206f\u200c\u206a\u202b\u200e\u200b\u206b\u202c\u202a\u202a\u200f\u206e\u206f\u202c\u200d\u200b\u200d\u202e\u206b\u202b\u200c\u200e\u200d\u200d\u200d\u202b\u206c\u200f\u200e\u200b\u206e\u202d\u200e\u200b\u200f\u202e\u202a\u202d\u206a\u202d\u202e::hidden
+  IL_003f: ldloc.0
+  IL_0040: ldarg.0
+  IL_0041: ldc.i4 -2041146543
+  IL_0046: call 0x2b000002 .<Module>::hidden decoded="description"
+  IL_004b: call 0x6000047 LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore::hidden
+  IL_0050: stfld 0x4000036 LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore+\u206f\u200c\u206a\u202b\u200e\u200b\u206b\u202c\u202a\u202a\u200f\u206e\u206f\u202c\u200d\u200b\u200d\u202e\u206b\u202b\u200c\u200e\u200d\u200d\u200d\u202b\u206c\u200f\u200e\u200b\u206e\u202d\u200e\u200b\u200f\u202e\u202a\u202d\u206a\u202d\u202e::hidden
+  IL_0055: ldloc.0
+  IL_0056: ldarg.0
+  IL_0057: ldc.i4 1433777237
+  IL_005c: call 0x2b000001 .<Module>::hidden decoded="locationName"
+  IL_0061: call 0x6000047 LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore::hidden
+  IL_0066: stfld 0x4000037 LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore+\u206f\u200c\u206a\u202b\u200e\u200b\u206b\u202c\u202a\u202a\u200f\u206e\u206f\u202c\u200d\u200b\u200d\u202e\u206b\u202b\u200c\u200e\u200d\u200d\u200d\u202b\u206c\u200f\u200e\u200b\u206e\u202d\u200e\u200b\u200f\u202e\u202a\u202d\u206a\u202d\u202e::hidden
+  IL_006b: ldloc.0
+  IL_006c: ldarg.0
+  IL_006d: ldc.i4 175399689
+  IL_0072: call 0x2b000001 .<Module>::hidden decoded="scannerAudio"
+  IL_0077: call 0x6000047 LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore::hidden
+  IL_007c: stfld 0x4000038 LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore+\u206f\u200c\u206a\u202b\u200e\u200b\u206b\u202c\u202a\u202a\u200f\u206e\u206f\u202c\u200d\u200b\u200d\u202e\u206b\u202b\u200c\u200e\u200d\u200d\u200d\u202b\u206c\u200f\u200e\u200b\u206e\u202d\u200e\u200b\u200f\u202e\u202a\u202d\u206a\u202d\u202e::hidden
+  IL_0081: ldloc.0
+  IL_0082: ldarg.0
+  IL_0083: ldc.i4 324701417
+  IL_0088: call 0x2b000004 .<Module>::hidden decoded="priority"
+  IL_008d: ldc.i4.2
+  IL_008e: call 0x6000049 LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore::hidden
+  IL_0093: stfld 0x4000039 LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore+\u206f\u200c\u206a\u202b\u200e\u200b\u206b\u202c\u202a\u202a\u200f\u206e\u206f\u202c\u200d\u200b\u200d\u202e\u206b\u202b\u200c\u200e\u200d\u200d\u200d\u202b\u206c\u200f\u200e\u200b\u206e\u202d\u200e\u200b\u200f\u202e\u202a\u202d\u206a\u202d\u202e::hidden
+  IL_0098: ldloc.0
+  IL_0099: ldarg.0
+  IL_009a: ldc.i4 -192017814
+  IL_009f: call 0x2b000002 .<Module>::hidden decoded="x"
+  IL_00a4: call 0x6000048 LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore::hidden
+  IL_00a9: stfld 0x400003a LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore+\u206f\u200c\u206a\u202b\u200e\u200b\u206b\u202c\u202a\u202a\u200f\u206e\u206f\u202c\u200d\u200b\u200d\u202e\u206b\u202b\u200c\u200e\u200d\u200d\u200d\u202b\u206c\u200f\u200e\u200b\u206e\u202d\u200e\u200b\u200f\u202e\u202a\u202d\u206a\u202d\u202e::hidden
+  IL_00ae: ldloc.0
+  IL_00af: ldarg.0
+  IL_00b0: ldc.i4 157174002
+  IL_00b5: call 0x2b000001 .<Module>::hidden decoded="y"
+  IL_00ba: call 0x6000048 LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore::hidden
+  IL_00bf: stfld 0x400003b LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore+\u206f\u200c\u206a\u202b\u200e\u200b\u206b\u202c\u202a\u202a\u200f\u206e\u206f\u202c\u200d\u200b\u200d\u202e\u206b\u202b\u200c\u200e\u200d\u200d\u200d\u202b\u206c\u200f\u200e\u200b\u206e\u202d\u200e\u200b\u200f\u202e\u202a\u202d\u206a\u202d\u202e::hidden
+  IL_00c4: ldloc.0
+  IL_00c5: ldarg.0
+  IL_00c6: ldc.i4 1032868110
+  IL_00cb: call 0x2b000002 .<Module>::hidden decoded="z"
+  IL_00d0: call 0x6000048 LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore::hidden
+  IL_00d5: stfld 0x400003c LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore+\u206f\u200c\u206a\u202b\u200e\u200b\u206b\u202c\u202a\u202a\u200f\u206e\u206f\u202c\u200d\u200b\u200d\u202e\u206b\u202b\u200c\u200e\u200d\u200d\u200d\u202b\u206c\u200f\u200e\u200b\u206e\u202d\u200e\u200b\u200f\u202e\u202a\u202d\u206a\u202d\u202e::hidden
+  IL_00da: ldloc.0
+  IL_00db: ldfld 0x4000036 LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore+\u206f\u200c\u206a\u202b\u200e\u200b\u206b\u202c\u202a\u202a\u200f\u206e\u206f\u202c\u200d\u200b\u200d\u202e\u206b\u202b\u200c\u200e\u200d\u200d\u200d\u202b\u206c\u200f\u200e\u200b\u206e\u202d\u200e\u200b\u200f\u202e\u202a\u202d\u206a\u202d\u202e::hidden
+  IL_00e0: call 0xa00002c System.String::IsNullOrWhiteSpace
+  IL_00e5: brfalse.s  -> IL_00fd
+  IL_00e7: ldloc.0
+  IL_00e8: ldarg.0
+  IL_00e9: ldc.i4 -58322660
+  IL_00ee: call 0x2b000003 .<Module>::hidden decoded="dispatchText"
+  IL_00f3: call 0x6000047 LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore::hidden
+  IL_00f8: stfld 0x4000036 LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore+\u206f\u200c\u206a\u202b\u200e\u200b\u206b\u202c\u202a\u202a\u200f\u206e\u206f\u202c\u200d\u200b\u200d\u202e\u206b\u202b\u200c\u200e\u200d\u200d\u200d\u202b\u206c\u200f\u200e\u200b\u206e\u202d\u200e\u200b\u200f\u202e\u202a\u202d\u206a\u202d\u202e::hidden
+  IL_00fd: ldloc.0
+  IL_00fe: ldfld 0x400003a LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore+\u206f\u200c\u206a\u202b\u200e\u200b\u206b\u202c\u202a\u202a\u200f\u206e\u206f\u202c\u200d\u200b\u200d\u202e\u206b\u202b\u200c\u200e\u200d\u200d\u200d\u202b\u206c\u200f\u200e\u200b\u206e\u202d\u200e\u200b\u200f\u202e\u202a\u202d\u206a\u202d\u202e::hidden
+  IL_0103: ldloc.0
+  IL_0104: ldfld 0x400003b LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore+\u206f\u200c\u206a\u202b\u200e\u200b\u206b\u202c\u202a\u202a\u200f\u206e\u206f\u202c\u200d\u200b\u200d\u202e\u206b\u202b\u200c\u200e\u200d\u200d\u200d\u202b\u206c\u200f\u200e\u200b\u206e\u202d\u200e\u200b\u200f\u202e\u202a\u202d\u206a\u202d\u202e::hidden
+  IL_0109: ldloc.0
+  IL_010a: ldfld 0x400003c LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore+\u206f\u200c\u206a\u202b\u200e\u200b\u206b\u202c\u202a\u202a\u200f\u206e\u206f\u202c\u200d\u200b\u200d\u202e\u206b\u202b\u200c\u200e\u200d\u200d\u200d\u202b\u206c\u200f\u200e\u200b\u206e\u202d\u200e\u200b\u200f\u202e\u202a\u202d\u206a\u202d\u202e::hidden
+  IL_010f: call 0x6000046 LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore::hidden
+  IL_0114: brfalse.s  -> IL_0158
+  IL_0116: ldloc.0
+  IL_0117: ldarg.0
+  IL_0118: ldc.i4 749911402
+  IL_011d: call 0x2b000001 .<Module>::hidden decoded="sceneX"
+  IL_0122: call 0x6000048 LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore::hidden
+  IL_0127: stfld 0x400003a LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore+\u206f\u200c\u206a\u202b\u200e\u200b\u206b\u202c\u202a\u202a\u200f\u206e\u206f\u202c\u200d\u200b\u200d\u202e\u206b\u202b\u200c\u200e\u200d\u200d\u200d\u202b\u206c\u200f\u200e\u200b\u206e\u202d\u200e\u200b\u200f\u202e\u202a\u202d\u206a\u202d\u202e::hidden
+  IL_012c: ldloc.0
+  IL_012d: ldarg.0
+  IL_012e: ldc.i4 1347328857
+  IL_0133: call 0x2b000004 .<Module>::hidden decoded="sceneY"
+  IL_0138: call 0x6000048 LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore::hidden
+  IL_013d: stfld 0x400003b LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore+\u206f\u200c\u206a\u202b\u200e\u200b\u206b\u202c\u202a\u202a\u200f\u206e\u206f\u202c\u200d\u200b\u200d\u202e\u206b\u202b\u200c\u200e\u200d\u200d\u200d\u202b\u206c\u200f\u200e\u200b\u206e\u202d\u200e\u200b\u200f\u202e\u202a\u202d\u206a\u202d\u202e::hidden
+  IL_0142: ldloc.0
+  IL_0143: ldarg.0
+  IL_0144: ldc.i4 -796594214
+  IL_0149: call 0x2b000002 .<Module>::hidden decoded="sceneZ"
+  IL_014e: call 0x6000048 LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore::hidden
+  IL_0153: stfld 0x400003c LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore+\u206f\u200c\u206a\u202b\u200e\u200b\u206b\u202c\u202a\u202a\u200f\u206e\u206f\u202c\u200d\u200b\u200d\u202e\u206b\u202b\u200c\u200e\u200d\u200d\u200d\u202b\u206c\u200f\u200e\u200b\u206e\u202d\u200e\u200b\u200f\u202e\u202a\u202d\u206a\u202d\u202e::hidden
+  IL_0158: ldloc.0
+  IL_0159: ldfld 0x4000035 LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore+\u206f\u200c\u206a\u202b\u200e\u200b\u206b\u202c\u202a\u202a\u200f\u206e\u206f\u202c\u200d\u200b\u200d\u202e\u206b\u202b\u200c\u200e\u200d\u200d\u200d\u202b\u206c\u200f\u200e\u200b\u206e\u202d\u200e\u200b\u200f\u202e\u202a\u202d\u206a\u202d\u202e::hidden
+  IL_015e: call 0xa00002c System.String::IsNullOrWhiteSpace
+  IL_0163: brfalse.s  -> IL_018e
+  IL_0165: ldloc.0
+  IL_0166: ldfld 0x4000036 LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore+\u206f\u200c\u206a\u202b\u200e\u200b\u206b\u202c\u202a\u202a\u200f\u206e\u206f\u202c\u200d\u200b\u200d\u202e\u206b\u202b\u200c\u200e\u200d\u200d\u200d\u202b\u206c\u200f\u200e\u200b\u206e\u202d\u200e\u200b\u200f\u202e\u202a\u202d\u206a\u202d\u202e::hidden
+  IL_016b: call 0xa00002c System.String::IsNullOrWhiteSpace
+  IL_0170: brfalse.s  -> IL_018e
+  IL_0172: ldloc.0
+  IL_0173: ldfld 0x400003a LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore+\u206f\u200c\u206a\u202b\u200e\u200b\u206b\u202c\u202a\u202a\u200f\u206e\u206f\u202c\u200d\u200b\u200d\u202e\u206b\u202b\u200c\u200e\u200d\u200d\u200d\u202b\u206c\u200f\u200e\u200b\u206e\u202d\u200e\u200b\u200f\u202e\u202a\u202d\u206a\u202d\u202e::hidden
+  IL_0178: ldloc.0
+  IL_0179: ldfld 0x400003b LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore+\u206f\u200c\u206a\u202b\u200e\u200b\u206b\u202c\u202a\u202a\u200f\u206e\u206f\u202c\u200d\u200b\u200d\u202e\u206b\u202b\u200c\u200e\u200d\u200d\u200d\u202b\u206c\u200f\u200e\u200b\u206e\u202d\u200e\u200b\u200f\u202e\u202a\u202d\u206a\u202d\u202e::hidden
+  IL_017e: ldloc.0
+  IL_017f: ldfld 0x400003c LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore+\u206f\u200c\u206a\u202b\u200e\u200b\u206b\u202c\u202a\u202a\u200f\u206e\u206f\u202c\u200d\u200b\u200d\u202e\u206b\u202b\u200c\u200e\u200d\u200d\u200d\u202b\u206c\u200f\u200e\u200b\u206e\u202d\u200e\u200b\u200f\u202e\u202a\u202d\u206a\u202d\u202e::hidden
+  IL_0184: call 0x6000046 LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore::hidden
+  IL_0189: ldc.i4.0
+  IL_018a: ceq
+  IL_018c: br.s  -> IL_018f
+  IL_018e: ldc.i4.1
+  IL_018f: brtrue.s  -> IL_0193
+  IL_0191: ldc.i4.0
+  IL_0192: ret
+  IL_0193: ldarg.1
+  IL_0194: ldloc.0
+  IL_0195: stind.ref
+  IL_0196: ldc.i4.1
+  IL_0197: ret
+METHOD 0x6000044 hidden(LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore+\u206f\u200c\u206a\u202b\u200e\u200b\u206b\u202c\u202a\u202a\u200f\u206e\u206f\u202c\u200d\u200b\u200d\u202e\u206b\u202b\u200c\u200e\u200d\u200d\u200d\u202b\u206c\u200f\u200e\u200b\u206e\u202d\u200e\u200b\u200f\u202e\u202a\u202d\u206a\u202d\u202e) -> String
+  IL_0000: ldarg.0
+  IL_0001: brtrue.s  -> IL_0013
+  IL_0003: ldc.i4 1657110915
+  IL_0008: call 0x2b000002 .<Module>::hidden decoded="missing callout"
+  IL_000d: call 0x600004c LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore::hidden
+  IL_0012: ret
+  IL_0013: ldc.i4.s 19
+  IL_0015: newarr 0x1000053 System.String
+  IL_001a: dup
+  IL_001b: ldc.i4.0
+  IL_001c: ldc.i4 985668738
+  IL_0021: call 0x2b000002 .<Module>::hidden decoded="{ \"ok\": true, \"type\": \"callout_get\", \"callout\": { \"id\": \""
+  IL_0026: stelem.ref
+  IL_0027: dup
+  IL_0028: ldc.i4.1
+  IL_0029: ldarg.0
+  IL_002a: ldfld 0x4000034 LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore+\u206f\u200c\u206a\u202b\u200e\u200b\u206b\u202c\u202a\u202a\u200f\u206e\u206f\u202c\u200d\u200b\u200d\u202e\u206b\u202b\u200c\u200e\u200d\u200d\u200d\u202b\u206c\u200f\u200e\u200b\u206e\u202d\u200e\u200b\u200f\u202e\u202a\u202d\u206a\u202d\u202e::hidden
+  IL_002f: call 0x600004f LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore::hidden
+  IL_0034: stelem.ref
+  IL_0035: dup
+  IL_0036: ldc.i4.2
+  IL_0037: ldc.i4 381092338
+  IL_003c: call 0x2b000002 .<Module>::hidden decoded="\", \"title\": \""
+  IL_0041: stelem.ref
+  IL_0042: dup
+  IL_0043: ldc.i4.3
+  IL_0044: ldarg.0
+  IL_0045: ldfld 0x4000035 LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore+\u206f\u200c\u206a\u202b\u200e\u200b\u206b\u202c\u202a\u202a\u200f\u206e\u206f\u202c\u200d\u200b\u200d\u202e\u206b\u202b\u200c\u200e\u200d\u200d\u200d\u202b\u206c\u200f\u200e\u200b\u206e\u202d\u200e\u200b\u200f\u202e\u202a\u202d\u206a\u202d\u202e::hidden
+  IL_004a: call 0x600004f LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore::hidden
+  IL_004f: stelem.ref
+  IL_0050: dup
+  IL_0051: ldc.i4.4
+  IL_0052: ldc.i4 -499755875
+  IL_0057: call 0x2b000001 .<Module>::hidden decoded="\", \"description\": \""
+  IL_005c: stelem.ref
+  IL_005d: dup
+  IL_005e: ldc.i4.5
+  IL_005f: ldarg.0
+  IL_0060: ldfld 0x4000036 LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore+\u206f\u200c\u206a\u202b\u200e\u200b\u206b\u202c\u202a\u202a\u200f\u206e\u206f\u202c\u200d\u200b\u200d\u202e\u206b\u202b\u200c\u200e\u200d\u200d\u200d\u202b\u206c\u200f\u200e\u200b\u206e\u202d\u200e\u200b\u200f\u202e\u202a\u202d\u206a\u202d\u202e::hidden
+  IL_0065: call 0x600004f LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore::hidden
+  IL_006a: stelem.ref
+  IL_006b: dup
+  IL_006c: ldc.i4.6
+  IL_006d: ldc.i4 989602019
+  IL_0072: call 0x2b000002 .<Module>::hidden decoded="\", \"locationName\": \""
+  IL_0077: stelem.ref
+  IL_0078: dup
+  IL_0079: ldc.i4.7
+  IL_007a: ldarg.0
+  IL_007b: ldfld 0x4000037 LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore+\u206f\u200c\u206a\u202b\u200e\u200b\u206b\u202c\u202a\u202a\u200f\u206e\u206f\u202c\u200d\u200b\u200d\u202e\u206b\u202b\u200c\u200e\u200d\u200d\u200d\u202b\u206c\u200f\u200e\u200b\u206e\u202d\u200e\u200b\u200f\u202e\u202a\u202d\u206a\u202d\u202e::hidden
+  IL_0080: call 0x600004f LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore::hidden
+  IL_0085: stelem.ref
+  IL_0086: dup
+  IL_0087: ldc.i4.8
+  IL_0088: ldc.i4 -1165396023
+  IL_008d: call 0x2b000001 .<Module>::hidden decoded="\", \"scannerAudio\": \""
+  IL_0092: stelem.ref
+  IL_0093: dup
+  IL_0094: ldc.i4.s 9
+  IL_0096: ldarg.0
+  IL_0097: ldfld 0x4000038 LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore+\u206f\u200c\u206a\u202b\u200e\u200b\u206b\u202c\u202a\u202a\u200f\u206e\u206f\u202c\u200d\u200b\u200d\u202e\u206b\u202b\u200c\u200e\u200d\u200d\u200d\u202b\u206c\u200f\u200e\u200b\u206e\u202d\u200e\u200b\u200f\u202e\u202a\u202d\u206a\u202d\u202e::hidden
+  IL_009c: call 0x600004f LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore::hidden
+  IL_00a1: stelem.ref
+  IL_00a2: dup
+  IL_00a3: ldc.i4.s 10
+  IL_00a5: ldc.i4 401330523
+  IL_00aa: call 0x2b000004 .<Module>::hidden decoded="\", \"priority\": "
+  IL_00af: stelem.ref
+  IL_00b0: dup
+  IL_00b1: ldc.i4.s 11
+  IL_00b3: ldarg.0
+  IL_00b4: ldflda 0x4000039 LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore+\u206f\u200c\u206a\u202b\u200e\u200b\u206b\u202c\u202a\u202a\u200f\u206e\u206f\u202c\u200d\u200b\u200d\u202e\u206b\u202b\u200c\u200e\u200d\u200d\u200d\u202b\u206c\u200f\u200e\u200b\u206e\u202d\u200e\u200b\u200f\u202e\u202a\u202d\u206a\u202d\u202e::hidden
+  IL_00b9: call 0xa000036 System.Int32::ToString
+  IL_00be: stelem.ref
+  IL_00bf: dup
+  IL_00c0: ldc.i4.s 12
+  IL_00c2: ldc.i4 1889419412
+  IL_00c7: call 0x2b000001 .<Module>::hidden decoded=", \"x\": "
+  IL_00cc: stelem.ref
+  IL_00cd: dup
+  IL_00ce: ldc.i4.s 13
+  IL_00d0: ldarg.0
+  IL_00d1: ldfld 0x400003a LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore+\u206f\u200c\u206a\u202b\u200e\u200b\u206b\u202c\u202a\u202a\u200f\u206e\u206f\u202c\u200d\u200b\u200d\u202e\u206b\u202b\u200c\u200e\u200d\u200d\u200d\u202b\u206c\u200f\u200e\u200b\u206e\u202d\u200e\u200b\u200f\u202e\u202a\u202d\u206a\u202d\u202e::hidden
+  IL_00d6: call 0x600004e LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore::hidden
+  IL_00db: stelem.ref
+  IL_00dc: dup
+  IL_00dd: ldc.i4.s 14
+  IL_00df: ldc.i4 -1900166799
+  IL_00e4: call 0x2b000003 .<Module>::hidden decoded=", \"y\": "
+  IL_00e9: stelem.ref
+  IL_00ea: dup
+  IL_00eb: ldc.i4.s 15
+  IL_00ed: ldarg.0
+  IL_00ee: ldfld 0x400003b LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore+\u206f\u200c\u206a\u202b\u200e\u200b\u206b\u202c\u202a\u202a\u200f\u206e\u206f\u202c\u200d\u200b\u200d\u202e\u206b\u202b\u200c\u200e\u200d\u200d\u200d\u202b\u206c\u200f\u200e\u200b\u206e\u202d\u200e\u200b\u200f\u202e\u202a\u202d\u206a\u202d\u202e::hidden
+  IL_00f3: call 0x600004e LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore::hidden
+  IL_00f8: stelem.ref
+  IL_00f9: dup
+  IL_00fa: ldc.i4.s 16
+  IL_00fc: ldc.i4 1232215318
+  IL_0101: call 0x2b000004 .<Module>::hidden decoded=", \"z\": "
+  IL_0106: stelem.ref
+  IL_0107: dup
+  IL_0108: ldc.i4.s 17
+  IL_010a: ldarg.0
+  IL_010b: ldfld 0x400003c LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore+\u206f\u200c\u206a\u202b\u200e\u200b\u206b\u202c\u202a\u202a\u200f\u206e\u206f\u202c\u200d\u200b\u200d\u202e\u206b\u202b\u200c\u200e\u200d\u200d\u200d\u202b\u206c\u200f\u200e\u200b\u206e\u202d\u200e\u200b\u200f\u202e\u202a\u202d\u206a\u202d\u202e::hidden
+  IL_0110: call 0x600004e LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore::hidden
+  IL_0115: stelem.ref
+  IL_0116: dup
+  IL_0117: ldc.i4.s 18
+  IL_0119: ldc.i4 1551786393
+  IL_011e: call 0x2b000004 .<Module>::hidden decoded=" } }"
+  IL_0123: stelem.ref
+  IL_0124: call 0xa000032 System.String::Concat
+  IL_0129: ret
+METHOD 0x6000045 hidden(String, String) -> Boolean
+  IL_0000: ldarg.0
+  IL_0001: dup
+  IL_0002: brtrue.s  -> IL_000a
+  IL_0004: pop
+  IL_0005: ldstr  decoded=""
+  IL_000a: ldarg.1
+  IL_000b: dup
+  IL_000c: brtrue.s  -> IL_0014
+  IL_000e: pop
+  IL_000f: ldstr  decoded=""
+  IL_0014: ldc.i4.5
+  IL_0015: call 0xa000044 System.String::Equals
+  IL_001a: ret
+METHOD 0x6000046 hidden(Single, Single, Single) -> Boolean
+  IL_0000: ldarg.0
+  IL_0001: call 0xa000045 System.Math::Abs
+  IL_0006: ldc.r4 6F12833A
+  IL_000b: bge.un.s  -> IL_0028
+  IL_000d: ldarg.1
+  IL_000e: call 0xa000045 System.Math::Abs
+  IL_0013: ldc.r4 6F12833A
+  IL_0018: bge.un.s  -> IL_0028
+  IL_001a: ldarg.2
+  IL_001b: call 0xa000045 System.Math::Abs
+  IL_0020: ldc.r4 6F12833A
+  IL_0025: clt
+  IL_0027: ret
+  IL_0028: ldc.i4.0
+  IL_0029: ret
+METHOD 0x6000047 hidden(String, String) -> String
+  IL_0000: ldarg.0
+  IL_0001: call 0xa00002c System.String::IsNullOrWhiteSpace
+  IL_0006: brfalse.s  -> IL_000e
+  IL_0008: ldstr  decoded=""
+  IL_000d: ret
+  IL_000e: ldarg.1
+  IL_000f: call 0xa00002c System.String::IsNullOrWhiteSpace
+  IL_0014: brfalse.s  -> IL_001c
+  IL_0016: ldstr  decoded=""
+  IL_001b: ret
+  IL_001c: ldc.i4 -996849281
+  IL_0021: call 0x2b000005 .<Module>::hidden decoded="\""
+  IL_0026: ldarg.1
+  IL_0027: ldc.i4 649267551
+  IL_002c: call 0x2b000001 .<Module>::hidden decoded="\""
+  IL_0031: call 0xa000034 System.String::Concat
+  IL_0036: stloc.0
+  IL_0037: ldarg.0
+  IL_0038: ldloc.0
+  IL_0039: ldc.i4.5
+  IL_003a: callvirt 0xa000046 System.String::IndexOf
+  IL_003f: stloc.1
+  IL_0040: ldloc.1
+  IL_0041: ldc.i4.0
+  IL_0042: bge.s  -> IL_004a
+  IL_0044: ldstr  decoded=""
+  IL_0049: ret
+  IL_004a: ldarg.0
+  IL_004b: ldc.i4.s 58
+  IL_004d: ldloc.1
+  IL_004e: callvirt 0xa000047 System.String::IndexOf
+  IL_0053: stloc.2
+  IL_0054: ldloc.2
+  IL_0055: ldc.i4.0
+  IL_0056: bge.s  -> IL_005e
+  IL_0058: ldstr  decoded=""
+  IL_005d: ret
+  IL_005e: ldarg.0
+  IL_005f: ldc.i4.s 34
+  IL_0061: ldloc.2
+  IL_0062: ldc.i4.1
+  IL_0063: add
+  IL_0064: callvirt 0xa000047 System.String::IndexOf
+  IL_0069: stloc.3
+  IL_006a: ldloc.3
+  IL_006b: ldc.i4.0
+  IL_006c: bge.s  -> IL_0074
+  IL_006e: ldstr  decoded=""
+  IL_0073: ret
+  IL_0074: ldarg.0
+  IL_0075: ldloc.3
+  IL_0076: ldc.i4.1
+  IL_0077: add
+  IL_0078: call 0x600004a LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore::hidden
+  IL_007d: stloc.s 4
+  IL_007f: ldloc.s 4
+  IL_0081: ldloc.3
+  IL_0082: bgt.s  -> IL_008a
+  IL_0084: ldstr  decoded=""
+  IL_0089: ret
+  IL_008a: ldarg.0
+  IL_008b: ldloc.3
+  IL_008c: ldc.i4.1
+  IL_008d: add
+  IL_008e: ldloc.s 4
+  IL_0090: ldloc.3
+  IL_0091: sub
+  IL_0092: ldc.i4.1
+  IL_0093: sub
+  IL_0094: callvirt 0xa000048 System.String::Substring
+  IL_0099: call 0x600004b LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore::hidden
+  IL_009e: ret
+METHOD 0x6000048 hidden(String, String) -> Single
+  IL_0000: ldarg.0
+  IL_0001: call 0xa00002c System.String::IsNullOrWhiteSpace
+  IL_0006: brfalse.s  -> IL_000e
+  IL_0008: ldc.r4 00000000
+  IL_000d: ret
+  IL_000e: ldarg.1
+  IL_000f: call 0xa00002c System.String::IsNullOrWhiteSpace
+  IL_0014: brfalse.s  -> IL_001c
+  IL_0016: ldc.r4 00000000
+  IL_001b: ret
+  IL_001c: ldc.i4 649267551
+  IL_0021: call 0x2b000001 .<Module>::hidden decoded="\""
+  IL_0026: ldarg.1
+  IL_0027: ldc.i4 447114777
+  IL_002c: call 0x2b000003 .<Module>::hidden decoded="\""
+  IL_0031: call 0xa000034 System.String::Concat
+  IL_0036: stloc.0
+  IL_0037: ldarg.0
+  IL_0038: ldloc.0
+  IL_0039: ldc.i4.5
+  IL_003a: callvirt 0xa000046 System.String::IndexOf
+  IL_003f: stloc.1
+  IL_0040: ldloc.1
+  IL_0041: ldc.i4.0
+  IL_0042: bge.s  -> IL_004a
+  IL_0044: ldc.r4 00000000
+  IL_0049: ret
+  IL_004a: ldarg.0
+  IL_004b: ldc.i4.s 58
+  IL_004d: ldloc.1
+  IL_004e: callvirt 0xa000047 System.String::IndexOf
+  IL_0053: stloc.2
+  IL_0054: ldloc.2
+  IL_0055: ldc.i4.0
+  IL_0056: bge.s  -> IL_005e
+  IL_0058: ldc.r4 00000000
+  IL_005d: ret
+  IL_005e: ldloc.2
+  IL_005f: ldc.i4.1
+  IL_0060: add
+  IL_0061: stloc.3
+  IL_0062: br.s  -> IL_0068
+  IL_0064: ldloc.3
+  IL_0065: ldc.i4.1
+  IL_0066: add
+  IL_0067: stloc.3
+  IL_0068: ldloc.3
+  IL_0069: ldarg.0
+  IL_006a: callvirt 0xa000049 System.String::get_Length
+  IL_006f: bge.s  -> IL_007f
+  IL_0071: ldarg.0
+  IL_0072: ldloc.3
+  IL_0073: callvirt 0xa00004a System.String::get_Chars
+  IL_0078: call 0xa00004b System.Char::IsWhiteSpace
+  IL_007d: brtrue.s  -> IL_0064
+  IL_007f: ldloc.3
+  IL_0080: stloc.s 4
+  IL_0082: br.s  -> IL_008a
+  IL_0084: ldloc.s 4
+  IL_0086: ldc.i4.1
+  IL_0087: add
+  IL_0088: stloc.s 4
+  IL_008a: ldloc.s 4
+  IL_008c: ldarg.0
+  IL_008d: callvirt 0xa000049 System.String::get_Length
+  IL_0092: bge.s  -> IL_00df
+  IL_0094: ldarg.0
+  IL_0095: ldloc.s 4
+  IL_0097: callvirt 0xa00004a System.String::get_Chars
+  IL_009c: call 0xa00004c System.Char::IsDigit
+  IL_00a1: brtrue.s  -> IL_0084
+  IL_00a3: ldarg.0
+  IL_00a4: ldloc.s 4
+  IL_00a6: callvirt 0xa00004a System.String::get_Chars
+  IL_00ab: ldc.i4.s 45
+  IL_00ad: beq.s  -> IL_0084
+  IL_00af: ldarg.0
+  IL_00b0: ldloc.s 4
+  IL_00b2: callvirt 0xa00004a System.String::get_Chars
+  IL_00b7: ldc.i4.s 43
+  IL_00b9: beq.s  -> IL_0084
+  IL_00bb: ldarg.0
+  IL_00bc: ldloc.s 4
+  IL_00be: callvirt 0xa00004a System.String::get_Chars
+  IL_00c3: ldc.i4.s 46
+  IL_00c5: beq.s  -> IL_0084
+  IL_00c7: ldarg.0
+  IL_00c8: ldloc.s 4
+  IL_00ca: callvirt 0xa00004a System.String::get_Chars
+  IL_00cf: ldc.i4.s 101
+  IL_00d1: beq.s  -> IL_0084
+  IL_00d3: ldarg.0
+  IL_00d4: ldloc.s 4
+  IL_00d6: callvirt 0xa00004a System.String::get_Chars
+  IL_00db: ldc.i4.s 69
+  IL_00dd: beq.s  -> IL_0084
+  IL_00df: ldloc.s 4
+  IL_00e1: ldloc.3
+  IL_00e2: bgt.s  -> IL_00ea
+  IL_00e4: ldc.r4 00000000
+  IL_00e9: ret
+  IL_00ea: ldarg.0
+  IL_00eb: ldloc.3
+  IL_00ec: ldloc.s 4
+  IL_00ee: ldloc.3
+  IL_00ef: sub
+  IL_00f0: callvirt 0xa000048 System.String::Substring
+  IL_00f5: ldc.i4 167
+  IL_00fa: call 0xa00004d System.Globalization.CultureInfo::get_InvariantCulture
+  IL_00ff: ldloca.s 5
+  IL_0101: call 0xa00004e System.Single::TryParse
+  IL_0106: brfalse.s  -> IL_010b
+  IL_0108: ldloc.s 5
+  IL_010a: ret
+  IL_010b: ldc.r4 00000000
+  IL_0110: ret
+METHOD 0x6000049 hidden(String, String, Int32) -> Int32
+  IL_0000: ldarg.0
+  IL_0001: ldarg.1
+  IL_0002: call 0x6000048 LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore::hidden
+  IL_0007: stloc.0
+  IL_0008: ldloc.0
+  IL_0009: call 0xa000045 System.Math::Abs
+  IL_000e: ldc.r4 6F12833A
+  IL_0013: bge.un.s  -> IL_0017
+  IL_0015: ldarg.2
+  IL_0016: ret
+  IL_0017: ldloc.0
+  IL_0018: conv.i4
+  IL_0019: ret
+METHOD 0x600004a hidden(String, Int32) -> Int32
+  IL_0000: ldc.i4.0
+  IL_0001: stloc.0
+  IL_0002: ldarg.1
+  IL_0003: stloc.1
+  IL_0004: br.s  -> IL_0029
+  IL_0006: ldarg.0
+  IL_0007: ldloc.1
+  IL_0008: callvirt 0xa00004a System.String::get_Chars
+  IL_000d: stloc.2
+  IL_000e: ldloc.0
+  IL_000f: brfalse.s  -> IL_0015
+  IL_0011: ldc.i4.0
+  IL_0012: stloc.0
+  IL_0013: br.s  -> IL_0025
+  IL_0015: ldloc.2
+  IL_0016: ldc.i4.s 92
+  IL_0018: bne.un.s  -> IL_001e
+  IL_001a: ldc.i4.1
+  IL_001b: stloc.0
+  IL_001c: br.s  -> IL_0025
+  IL_001e: ldloc.2
+  IL_001f: ldc.i4.s 34
+  IL_0021: bne.un.s  -> IL_0025
+  IL_0023: ldloc.1
+  IL_0024: ret
+  IL_0025: ldloc.1
+  IL_0026: ldc.i4.1
+  IL_0027: add
+  IL_0028: stloc.1
+  IL_0029: ldloc.1
+  IL_002a: ldarg.0
+  IL_002b: callvirt 0xa000049 System.String::get_Length
+  IL_0030: blt.s  -> IL_0006
+  IL_0032: ldc.i4.m1
+  IL_0033: ret
+METHOD 0x600004b hidden(String) -> String
+  IL_0000: ldarg.0
+  IL_0001: brtrue.s  -> IL_0009
+  IL_0003: ldstr  decoded=""
+  IL_0008: ret
+  IL_0009: ldarg.0
+  IL_000a: ldc.i4 -1013649513
+  IL_000f: call 0x2b000003 .<Module>::hidden decoded="\\n"
+  IL_0014: ldc.i4 -526728083
+  IL_0019: call 0x2b000003 .<Module>::hidden decoded="\n"
+  IL_001e: callvirt 0xa00004f System.String::Replace
+  IL_0023: ldc.i4 -99575971
+  IL_0028: call 0x2b000005 .<Module>::hidden decoded="\\r"
+  IL_002d: ldc.i4 1005335143
+  IL_0032: call 0x2b000002 .<Module>::hidden decoded="\r"
+  IL_0037: callvirt 0xa00004f System.String::Replace
+  IL_003c: ldc.i4 -1567295251
+  IL_0041: call 0x2b000004 .<Module>::hidden decoded="\\\""
+  IL_0046: ldc.i4 447114777
+  IL_004b: call 0x2b000003 .<Module>::hidden decoded="\""
+  IL_0050: callvirt 0xa00004f System.String::Replace
+  IL_0055: ldc.i4 -16372597
+  IL_005a: call 0x2b000001 .<Module>::hidden decoded="\\\\"
+  IL_005f: ldc.i4 1457989651
+  IL_0064: call 0x2b000003 .<Module>::hidden decoded="\\"
+  IL_0069: callvirt 0xa00004f System.String::Replace
+  IL_006e: ret
+METHOD 0x600004c hidden(String) -> String
+  IL_0000: ldc.i4 1834742351
+  IL_0005: call 0x2b000001 .<Module>::hidden decoded="{ \"ok\": false, \"type\": \"callout\", \"error\": \""
+  IL_000a: ldarg.0
+  IL_000b: call 0x600004f LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore::hidden
+  IL_0010: ldc.i4 271135054
+  IL_0015: call 0x2b000005 .<Module>::hidden decoded="\" }"
+  IL_001a: call 0xa000034 System.String::Concat
+  IL_001f: ret
+METHOD 0x600004d hidden(Boolean) -> String
+  IL_0000: ldarg.0
+  IL_0001: brtrue.s  -> IL_000e
+  IL_0003: ldc.i4 1515515987
+  IL_0008: call 0x2b000005 .<Module>::hidden decoded="false"
+  IL_000d: ret
+  IL_000e: ldc.i4 -183331006
+  IL_0013: call 0x2b000005 .<Module>::hidden decoded="true"
+  IL_0018: ret
+METHOD 0x600004e hidden(Single) -> String
+  IL_0000: ldarga.s 0
+  IL_0002: call 0xa00004d System.Globalization.CultureInfo::get_InvariantCulture
+  IL_0007: call 0xa000050 System.Single::ToString
+  IL_000c: ret
+METHOD 0x600004f hidden(String) -> String
+  IL_0000: ldarg.0
+  IL_0001: brtrue.s  -> IL_0009
+  IL_0003: ldstr  decoded=""
+  IL_0008: ret
+  IL_0009: ldarg.0
+  IL_000a: ldc.i4 -1311638391
+  IL_000f: call 0x2b000004 .<Module>::hidden decoded="\\"
+  IL_0014: ldc.i4 -16372597
+  IL_0019: call 0x2b000001 .<Module>::hidden decoded="\\\\"
+  IL_001e: callvirt 0xa00004f System.String::Replace
+  IL_0023: ldc.i4 1423957963
+  IL_0028: call 0x2b000004 .<Module>::hidden decoded="\""
+  IL_002d: ldc.i4 950269209
+  IL_0032: call 0x2b000002 .<Module>::hidden decoded="\\\""
+  IL_0037: callvirt 0xa00004f System.String::Replace
+  IL_003c: ldc.i4 912644243
+  IL_0041: call 0x2b000004 .<Module>::hidden decoded="\r"
+  IL_0046: ldc.i4 392892181
+  IL_004b: call 0x2b000002 .<Module>::hidden decoded="\\r"
+  IL_0050: callvirt 0xa00004f System.String::Replace
+  IL_0055: ldc.i4 -637939957
+  IL_005a: call 0x2b000005 .<Module>::hidden decoded="\n"
+  IL_005f: ldc.i4 -831993743
+  IL_0064: call 0x2b000002 .<Module>::hidden decoded="\\n"
+  IL_0069: callvirt 0xa00004f System.String::Replace
+  IL_006e: ret
+METHOD 0x6000050 .cctor() -> Void
+  IL_0000: newobj 0xa000028 System.Object::.ctor
+  IL_0005: stsfld 0x400002e LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore::hidden
+  IL_000a: ldc.i4.0
+  IL_000b: stsfld 0x4000031 LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore::hidden
+  IL_0010: ldc.i4.0
+  IL_0011: stsfld 0x4000032 LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore::hidden
+  IL_0016: ldstr  decoded=""
+  IL_001b: stsfld 0x4000033 LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore::hidden
+  IL_0020: ret
+
+TYPE LosSantosAlive.PRBridge.LspdfrDynamicDisturbanceCallout
+FIELD 0x400003d hidden "String" constantHex=None
+FIELD 0x400003e hidden "String" constantHex=None
+FIELD 0x400003f hidden "String" constantHex=None
+FIELD 0x4000040 hidden "String" constantHex=None
+FIELD 0x4000041 hidden "Rage.Vector3" constantHex=None
+FIELD 0x4000042 hidden "Rage.Blip" constantHex=None
+FIELD 0x4000043 hidden "Boolean" constantHex=None
+FIELD 0x4000044 hidden "Boolean" constantHex=None
+METHOD 0x6000053 OnCalloutAccepted() -> Boolean
+  IL_0000: ldarg.0
+  IL_0001: ldc.i4.1
+  IL_0002: stfld 0x4000043 LosSantosAlive.PRBridge.LspdfrDynamicDisturbanceCallout::hidden
+  IL_0007: ldarg.0
+  IL_0008: ldfld 0x400003d LosSantosAlive.PRBridge.LspdfrDynamicDisturbanceCallout::hidden
+  IL_000d: call 0x600003d LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore::HandleAcceptCallout
+  IL_0012: stloc.0
+  IL_0013: ldc.i4 1718574051
+  IL_0018: call 0x2b000005 .<Module>::hidden decoded="[LSA.PRBridge.Callouts] Accept response: "
+  IL_001d: ldloc.0
+  IL_001e: call 0x600005d LosSantosAlive.PRBridge.LspdfrDynamicDisturbanceCallout::hidden
+  IL_0023: call 0xa000037 System.String::Concat
+  IL_0028: call 0xa000033 Rage.Game::LogTrivial
+  IL_002d: ldc.i4 -352340089
+  IL_0032: call 0x2b000001 .<Module>::hidden decoded="~b~Dispatch:~w~ "
+  IL_0037: ldarg.0
+  IL_0038: ldfld 0x400003f LosSantosAlive.PRBridge.LspdfrDynamicDisturbanceCallout::hidden
+  IL_003d: call 0x600005c LosSantosAlive.PRBridge.LspdfrDynamicDisturbanceCallout::hidden
+  IL_0042: call 0xa000037 System.String::Concat
+  IL_0047: call 0xa000056 Rage.Game::DisplayNotification
+  IL_004c: pop
+  IL_004d: ldarg.0
+  IL_004e: ldarg.0
+  IL_004f: ldfld 0x4000041 LosSantosAlive.PRBridge.LspdfrDynamicDisturbanceCallout::hidden
+  IL_0054: newobj 0xa000057 Rage.Blip::.ctor
+  IL_0059: stfld 0x4000042 LosSantosAlive.PRBridge.LspdfrDynamicDisturbanceCallout::hidden
+  IL_005e: ldarg.0
+  IL_005f: ldfld 0x4000042 LosSantosAlive.PRBridge.LspdfrDynamicDisturbanceCallout::hidden
+  IL_0064: ldc.i4.1
+  IL_0065: callvirt 0xa000058 Rage.Blip::set_IsRouteEnabled
+  IL_006a: ldarg.0
+  IL_006b: ldfld 0x4000042 LosSantosAlive.PRBridge.LspdfrDynamicDisturbanceCallout::hidden
+  IL_0070: ldarg.0
+  IL_0071: ldfld 0x400003e LosSantosAlive.PRBridge.LspdfrDynamicDisturbanceCallout::hidden
+  IL_0076: callvirt 0xa000059 Rage.Blip::set_Name
+  IL_007b: ldarg.0
+  IL_007c: call 0xa00005a LSPD_First_Response.Mod.Callouts.Callout::OnCalloutAccepted
+  IL_0081: ret
+METHOD 0x6000055 End() -> Void
+  EXCEPTION {"catchType": "System.Object", "filterOffset": null, "handlerLength": 3, "handlerOffset": 53, "kind": "Catch", "tryLength": 53, "tryOffset": 0}
+  EXCEPTION {"catchType": "System.Object", "filterOffset": null, "handlerLength": 3, "handlerOffset": 79, "kind": "Catch", "tryLength": 17, "tryOffset": 62}
+  IL_0000: ldarg.0
+  IL_0001: ldfld 0x400003d LosSantosAlive.PRBridge.LspdfrDynamicDisturbanceCallout::hidden
+  IL_0006: call 0xa00002c System.String::IsNullOrWhiteSpace
+  IL_000b: brtrue.s  -> IL_0033
+  IL_000d: ldarg.0
+  IL_000e: ldfld 0x400003d LosSantosAlive.PRBridge.LspdfrDynamicDisturbanceCallout::hidden
+  IL_0013: call 0x600003f LosSantosAlive.PRBridge.LspdfrCalloutBridgeStore::HandleEndCallout
+  IL_0018: stloc.0
+  IL_0019: ldc.i4 -2147345130
+  IL_001e: call 0x2b000002 .<Module>::hidden decoded="[LSA.PRBridge.Callouts] End response: "
+  IL_0023: ldloc.0
+  IL_0024: call 0x600005d LosSantosAlive.PRBridge.LspdfrDynamicDisturbanceCallout::hidden
+  IL_0029: call 0xa000037 System.String::Concat
+  IL_002e: call 0xa000033 Rage.Game::LogTrivial
+  IL_0033: leave.s  -> IL_0038
+  IL_0035: pop
+  IL_0036: leave.s  -> IL_0038
+  IL_0038: ldarg.0
+  IL_0039: call 0x6000056 LosSantosAlive.PRBridge.LspdfrDynamicDisturbanceCallout::hidden
+  IL_003e: ldc.i4 -1299396703
+  IL_0043: call 0x2b000003 .<Module>::hidden decoded="ATTENTION_ALL_UNITS WE_ARE_CODE_4"
+  IL_0048: call 0xa00005e LSPD_First_Response.Mod.API.Functions::PlayScannerAudio
+  IL_004d: leave.s  -> IL_0052
+  IL_004f: pop
+  IL_0050: leave.s  -> IL_0052
+  IL_0052: ldc.i4 -412879417
+  IL_0057: call 0x2b000003 .<Module>::hidden decoded="~b~Dispatch:~w~ Code 4. No further units required."
+  IL_005c: call 0xa000056 Rage.Game::DisplayNotification
+  IL_0061: pop
+  IL_0062: ldarg.0
+  IL_0063: call 0xa00005f LSPD_First_Response.Mod.Callouts.Callout::End
+  IL_0068: ret
+METHOD 0x6000057 hidden(String) -> Boolean
+  IL_0000: ldarg.1
+  IL_0001: call 0xa00002c System.String::IsNullOrWhiteSpace
+  IL_0006: brfalse.s  -> IL_000a
+  IL_0008: ldc.i4.0
+  IL_0009: ret
+  IL_000a: ldarg.1
+  IL_000b: ldc.i4 1447480729
+  IL_0010: call 0x2b000003 .<Module>::hidden decoded="\"ok\": true"
+  IL_0015: ldc.i4.5
+  IL_0016: callvirt 0xa000046 System.String::IndexOf
+  IL_001b: ldc.i4.0
+  IL_001c: bge.s  -> IL_0020
+  IL_001e: ldc.i4.0
+  IL_001f: ret
+  IL_0020: ldarg.0
+  IL_0021: ldarg.1
+  IL_0022: ldc.i4 -634011808
+  IL_0027: call 0x2b000004 .<Module>::hidden decoded="id"
+  IL_002c: call 0x6000058 LosSantosAlive.PRBridge.LspdfrDynamicDisturbanceCallout::hidden
+  IL_0031: stfld 0x400003d LosSantosAlive.PRBridge.LspdfrDynamicDisturbanceCallout::hidden
+  IL_0036: ldarg.0
+  IL_0037: ldarg.1
+  IL_0038: ldc.i4 -1583134526
+  IL_003d: call 0x2b000005 .<Module>::hidden decoded="title"
+  IL_0042: call 0x6000058 LosSantosAlive.PRBridge.LspdfrDynamicDisturbanceCallout::hidden
+  IL_0047: stfld 0x400003e LosSantosAlive.PRBridge.LspdfrDynamicDisturbanceCallout::hidden
+  IL_004c: ldarg.0
+  IL_004d: ldarg.1
+  IL_004e: ldc.i4 -2041146543
+  IL_0053: call 0x2b000002 .<Module>::hidden decoded="description"
+  IL_0058: call 0x6000058 LosSantosAlive.PRBridge.LspdfrDynamicDisturbanceCallout::hidden
+  IL_005d: stfld 0x400003f LosSantosAlive.PRBridge.LspdfrDynamicDisturbanceCallout::hidden
+  IL_0062: ldarg.0
+  IL_0063: ldarg.1
+  IL_0064: ldc.i4 69044557
+  IL_0069: call 0x2b000004 .<Module>::hidden decoded="scannerAudio"
+  IL_006e: call 0x6000058 LosSantosAlive.PRBridge.LspdfrDynamicDisturbanceCallout::hidden
+  IL_0073: stfld 0x4000040 LosSantosAlive.PRBridge.LspdfrDynamicDisturbanceCallout::hidden
+  IL_0078: ldarg.1
+  IL_0079: ldc.i4 390866756
+  IL_007e: call 0x2b000005 .<Module>::hidden decoded="x"
+  IL_0083: call 0x6000059 LosSantosAlive.PRBridge.LspdfrDynamicDisturbanceCallout::hidden
+  IL_0088: stloc.0
+  IL_0089: ldarg.1
+  IL_008a: ldc.i4 211412094
+  IL_008f: call 0x2b000005 .<Module>::hidden decoded="y"
+  IL_0094: call 0x6000059 LosSantosAlive.PRBridge.LspdfrDynamicDisturbanceCallout::hidden
+  IL_0099: stloc.1
+  IL_009a: ldarg.1
+  IL_009b: ldc.i4 -122698088
+  IL_00a0: call 0x2b000004 .<Module>::hidden decoded="z"
+  IL_00a5: call 0x6000059 LosSantosAlive.PRBridge.LspdfrDynamicDisturbanceCallout::hidden
+  IL_00aa: stloc.2
+  IL_00ab: ldarg.0
+  IL_00ac: ldfld 0x400003d LosSantosAlive.PRBridge.LspdfrDynamicDisturbanceCallout::hidden
+  IL_00b1: call 0xa00002c System.String::IsNullOrWhiteSpace
+  IL_00b6: brfalse.s  -> IL_00ba
+  IL_00b8: ldc.i4.0
+  IL_00b9: ret
+  IL_00ba: ldarg.0
+  IL_00bb: ldfld 0x400003e LosSantosAlive.PRBridge.LspdfrDynamicDisturbanceCallout::hidden
+  IL_00c0: call 0xa00002c System.String::IsNullOrWhiteSpace
+  IL_00c5: brfalse.s  -> IL_00d7
+  IL_00c7: ldarg.0
+  IL_00c8: ldc.i4 1862337828
+  IL_00cd: call 0x2b000005 .<Module>::hidden decoded="LSA: Dynamic Disturbance"
+  IL_00d2: stfld 0x400003e LosSantosAlive.PRBridge.LspdfrDynamicDisturbanceCallout::hidden
+  IL_00d7: ldarg.0
+  IL_00d8: ldfld 0x400003f LosSantosAlive.PRBridge.LspdfrDynamicDisturbanceCallout::hidden
+  IL_00dd: call 0xa00002c System.String::IsNullOrWhiteSpace
+  IL_00e2: brfalse.s  -> IL_00f4
+  IL_00e4: ldarg.0
+  IL_00e5: ldc.i4 -1746323005
+  IL_00ea: call 0x2b000004 .<Module>::hidden decoded="Caller reports a disturbance. Respond and investigate."
+  IL_00ef: stfld 0x400003f LosSantosAlive.PRBridge.LspdfrDynamicDisturbanceCallout::hidden
+  IL_00f4: ldarg.0
+  IL_00f5: ldfld 0x4000040 LosSantosAlive.PRBridge.LspdfrDynamicDisturbanceCallout::hidden
+  IL_00fa: call 0xa00002c System.String::IsNullOrWhiteSpace
+  IL_00ff: brfalse.s  -> IL_0111
+  IL_0101: ldarg.0
+  IL_0102: ldc.i4 294269227
+  IL_0107: call 0x2b000001 .<Module>::hidden decoded="CITIZENS_REPORT CRIME_DISTURBING_THE_PEACE IN_OR_ON_POSITION"
+  IL_010c: stfld 0x4000040 LosSantosAlive.PRBridge.LspdfrDynamicDisturbanceCallout::hidden
+  IL_0111: ldarg.0
+  IL_0112: ldloc.0
+  IL_0113: ldloc.1
+  IL_0114: ldloc.2
+  IL_0115: newobj 0xa000043 Rage.Vector3::.ctor
+  IL_011a: stfld 0x4000041 LosSantosAlive.PRBridge.LspdfrDynamicDisturbanceCallout::hidden
+  IL_011f: ldc.i4.1
+  IL_0120: ret
+
+TYPE LosSantosAlive.PRBridge.PrCalloutPedHydrator
+METHOD 0x60000ae TryHydrate(Rage.Ped, String, String&) -> Boolean
+  EXCEPTION {"catchType": "System.Exception", "filterOffset": null, "handlerLength": 46, "handlerOffset": 286, "kind": "Catch", "tryLength": 279, "tryOffset": 7}
+  IL_0000: ldarg.2
+  IL_0001: ldstr  decoded=""
+  IL_0006: stind.ref
+  IL_0007: ldarg.0
+  IL_0008: ldnull
+  IL_0009: call 0xa00006d Rage.Entity::op_Equality
+  IL_000e: brtrue.s  -> IL_0020
+  IL_0010: ldarg.0
+  IL_0011: call 0xa00003e .EntityExtensions::Exists
+  IL_0016: brfalse.s  -> IL_0020
+  IL_0018: ldarg.0
+  IL_0019: callvirt 0xa00006e Rage.Ped::get_IsHuman
+  IL_001e: brtrue.s  -> IL_0033
+  IL_0020: ldarg.2
+  IL_0021: ldc.i4 -18036448
+  IL_0026: call 0x2b000003 .<Module>::hidden decoded="invalid ped"
+  IL_002b: stind.ref
+  IL_002c: ldc.i4.0
+  IL_002d: stloc.1
+  IL_002e: leave  -> IL_014c
+  IL_0033: ldarg.1
+  IL_0034: call 0xa00002c System.String::IsNullOrWhiteSpace
+  IL_0039: brfalse.s  -> IL_004e
+  IL_003b: ldarg.2
+  IL_003c: ldc.i4 -991879308
+  IL_0041: call 0x2b000003 .<Module>::hidden decoded="missing json"
+  IL_0046: stind.ref
+  IL_0047: ldc.i4.0
+  IL_0048: stloc.1
+  IL_0049: leave  -> IL_014c
+  IL_004e: ldarg.0
+  IL_004f: call 0xa000071 CommonDataFramework.Modules.PedDatabase.PedDataController::GetPedData
+  IL_0054: stloc.0
+  IL_0055: ldloc.0
+  IL_0056: brtrue.s  -> IL_006b
+  IL_0058: ldarg.2
+  IL_0059: ldc.i4 -1965722168
+  IL_005e: call 0x2b000003 .<Module>::hidden decoded="ped data unavailable"
+  IL_0063: stind.ref
+  IL_0064: ldc.i4.0
+  IL_0065: stloc.1
+  IL_0066: leave  -> IL_014c
+  IL_006b: ldloc.0
+  IL_006c: ldarg.1
+  IL_006d: call 0x60000af LosSantosAlive.PRBridge.PrCalloutPedHydrator::hidden
+  IL_0072: ldloc.0
+  IL_0073: ldarg.1
+  IL_0074: call 0x60000b0 LosSantosAlive.PRBridge.PrCalloutPedHydrator::hidden
+  IL_0079: ldloc.0
+  IL_007a: ldarg.1
+  IL_007b: call 0x60000b1 LosSantosAlive.PRBridge.PrCalloutPedHydrator::hidden
+  IL_0080: ldloc.0
+  IL_0081: ldarg.1
+  IL_0082: call 0x60000b2 LosSantosAlive.PRBridge.PrCalloutPedHydrator::hidden
+  IL_0087: ldarg.0
+  IL_0088: ldarg.1
+  IL_0089: call 0x60000b3 LosSantosAlive.PRBridge.PrCalloutPedHydrator::hidden
+  IL_008e: ldarg.0
+  IL_008f: ldarg.1
+  IL_0090: call 0x60000b4 LosSantosAlive.PRBridge.PrCalloutPedHydrator::hidden
+  IL_0095: ldarg.0
+  IL_0096: ldarg.1
+  IL_0097: call 0x60000b5 LosSantosAlive.PRBridge.PrCalloutPedHydrator::hidden
+  IL_009c: ldc.i4.6
+  IL_009d: newarr 0x1000053 System.String
+  IL_00a2: dup
+  IL_00a3: ldc.i4.0
+  IL_00a4: ldc.i4 -2121170524
+  IL_00a9: call 0x2b000004 .<Module>::hidden decoded="[LSA.PRBridge] Hydrated callout ped. ped="
+  IL_00ae: stelem.ref
+  IL_00af: dup
+  IL_00b0: ldc.i4.1
+  IL_00b1: ldarg.0
+  IL_00b2: callvirt 0xa00007c Rage.Entity::get_Handle
+  IL_00b7: stloc.2
+  IL_00b8: ldloca.s 2
+  IL_00ba: constrained. 0x100006c Rage.PoolHandle
+  IL_00c0: callvirt 0xa000038 System.Object::ToString
+  IL_00c5: stelem.ref
+  IL_00c6: dup
+  IL_00c7: ldc.i4.2
+  IL_00c8: ldc.i4 1836733952
+  IL_00cd: call 0x2b000005 .<Module>::hidden decoded=" name="
+  IL_00d2: stelem.ref
+  IL_00d3: dup
+  IL_00d4: ldc.i4.3
+  IL_00d5: ldarg.1
+  IL_00d6: ldc.i4 1511537409
+  IL_00db: call 0x2b000003 .<Module>::hidden decoded="firstName"
+  IL_00e0: call 0x60000be LosSantosAlive.PRBridge.PrCalloutPedHydrator::hidden
+  IL_00e5: call 0x60000cc LosSantosAlive.PRBridge.PrCalloutPedHydrator::hidden
+  IL_00ea: stelem.ref
+  IL_00eb: dup
+  IL_00ec: ldc.i4.4
+  IL_00ed: ldc.i4 2137827449
+  IL_00f2: call 0x2b000003 .<Module>::hidden decoded=" "
+  IL_00f7: stelem.ref
+  IL_00f8: dup
+  IL_00f9: ldc.i4.5
+  IL_00fa: ldarg.1
+  IL_00fb: ldc.i4 -1786145493
+  IL_0100: call 0x2b000002 .<Module>::hidden decoded="lastName"
+  IL_0105: call 0x60000be LosSantosAlive.PRBridge.PrCalloutPedHydrator::hidden
+  IL_010a: call 0x60000cc LosSantosAlive.PRBridge.PrCalloutPedHydrator::hidden
+  IL_010f: stelem.ref
+  IL_0110: call 0xa000032 System.String::Concat
+  IL_0115: call 0xa000033 Rage.Game::LogTrivial
+  IL_011a: ldc.i4.1
+  IL_011b: stloc.1
+  IL_011c: leave.s  -> IL_014c
+  IL_011e: stloc.3
+  IL_011f: ldarg.2
+  IL_0120: ldloc.3
+  IL_0121: callvirt 0xa000072 System.Exception::get_Message
+  IL_0126: stind.ref
+  IL_0127: ldc.i4 -561799582
+  IL_012c: call 0x2b000004 .<Module>::hidden decoded="[LSA.PRBridge] TryHydrate failed: "
+  IL_0131: ldloc.3
+  IL_0132: dup
+  IL_0133: brtrue.s  -> IL_0139
+  IL_0135: pop
+  IL_0136: ldnull
+  IL_0137: br.s  -> IL_013e
+  IL_0139: callvirt 0xa000038 System.Object::ToString
+  IL_013e: call 0xa000037 System.String::Concat
+  IL_0143: call 0xa000033 Rage.Game::LogTrivial
+  IL_0148: ldc.i4.0
+  IL_0149: stloc.1
+  IL_014a: leave.s  -> IL_014c
+  IL_014c: ldloc.1
+  IL_014d: ret
+METHOD 0x60000af hidden(CommonDataFramework.Modules.PedDatabase.PedData, String) -> Void
+  IL_0000: ldarg.1
+  IL_0001: ldc.i4 -1385568233
+  IL_0006: call 0x2b000001 .<Module>::hidden decoded="firstName"
+  IL_000b: call 0x60000be LosSantosAlive.PRBridge.PrCalloutPedHydrator::hidden
+  IL_0010: stloc.0
+  IL_0011: ldarg.1
+  IL_0012: ldc.i4 -1786145493
+  IL_0017: call 0x2b000002 .<Module>::hidden decoded="lastName"
+  IL_001c: call 0x60000be LosSantosAlive.PRBridge.PrCalloutPedHydrator::hidden
+  IL_0021: stloc.1
+  IL_0022: ldarg.1
+  IL_0023: ldc.i4 1792030138
+  IL_0028: call 0x2b000003 .<Module>::hidden decoded="gender"
+  IL_002d: call 0x60000be LosSantosAlive.PRBridge.PrCalloutPedHydrator::hidden
+  IL_0032: stloc.2
+  IL_0033: ldarg.1
+  IL_0034: ldc.i4 -280745325
+  IL_0039: call 0x2b000005 .<Module>::hidden decoded="age"
+  IL_003e: ldc.i4.s 30
+  IL_0040: call 0x60000bf LosSantosAlive.PRBridge.PrCalloutPedHydrator::hidden
+  IL_0045: stloc.3
+  IL_0046: ldloc.0
+  IL_0047: call 0xa00002c System.String::IsNullOrWhiteSpace
+  IL_004c: brtrue.s  -> IL_0055
+  IL_004e: ldarg.0
+  IL_004f: ldloc.0
+  IL_0050: callvirt 0xa0000cf CommonDataFramework.Modules.PedDatabase.PedData::set_Firstname
+  IL_0055: ldloc.1
+  IL_0056: call 0xa00002c System.String::IsNullOrWhiteSpace
+  IL_005b: brtrue.s  -> IL_0064
+  IL_005d: ldarg.0
+  IL_005e: ldloc.1
+  IL_005f: callvirt 0xa0000d0 CommonDataFramework.Modules.PedDatabase.PedData::set_Lastname
+  IL_0064: ldarg.0
+  IL_0065: ldloc.3
+  IL_0066: call 0x60000b6 LosSantosAlive.PRBridge.PrCalloutPedHydrator::hidden
+  IL_006b: callvirt 0xa0000d1 CommonDataFramework.Modules.PedDatabase.PedData::set_Birthday
+  IL_0070: ldloc.2
+  IL_0071: ldc.i4 257618661
+  IL_0076: call 0x2b000005 .<Module>::hidden decoded="female"
+  IL_007b: ldc.i4.5
+  IL_007c: callvirt 0xa000076 System.String::Equals
+  IL_0081: brfalse.s  -> IL_008b
+  IL_0083: ldarg.0
+  IL_0084: ldc.i4.1
+  IL_0085: callvirt 0xa0000d2 CommonDataFramework.Modules.PedDatabase.PedData::set_Gender
+  IL_008a: ret
+  IL_008b: ldloc.2
+  IL_008c: ldc.i4 1900312122
+  IL_0091: call 0x2b000002 .<Module>::hidden decoded="male"
+  IL_0096: ldc.i4.5
+  IL_0097: callvirt 0xa000076 System.String::Equals
+  IL_009c: brfalse.s  -> IL_00a5
+  IL_009e: ldarg.0
+  IL_009f: ldc.i4.0
+  IL_00a0: callvirt 0xa0000d2 CommonDataFramework.Modules.PedDatabase.PedData::set_Gender
+  IL_00a5: ret
+METHOD 0x60000b6 hidden(Int32) -> System.DateTime
+  IL_0000: ldarg.0
+  IL_0001: ldc.i4.s 16
+  IL_0003: bge.s  -> IL_0009
+  IL_0005: ldc.i4.s 16
+  IL_0007: starg.s 0
+  IL_0009: ldarg.0
+  IL_000a: ldc.i4.s 100
+  IL_000c: ble.s  -> IL_0012
+  IL_000e: ldc.i4.s 100
+  IL_0010: starg.s 0
+  IL_0012: call 0xa0000d8 System.DateTime::get_Now
+  IL_0017: stloc.0
+  IL_0018: ldloca.s 0
+  IL_001a: ldarg.0
+  IL_001b: neg
+  IL_001c: call 0xa0000d9 System.DateTime::AddYears
+  IL_0021: stloc.0
+  IL_0022: ldloca.s 0
+  IL_0024: ldc.i4.s -3
+  IL_0026: call 0xa0000dc System.DateTime::AddMonths
+  IL_002b: stloc.0
+  IL_002c: ldloca.s 0
+  IL_002e: call 0xa0000e5 System.DateTime::get_Date
+  IL_0033: ret
+METHOD 0x60000be hidden(String, String) -> String
+  IL_0000: ldarg.0
+  IL_0001: call 0xa00002c System.String::IsNullOrWhiteSpace
+  IL_0006: brfalse.s  -> IL_000e
+  IL_0008: ldstr  decoded=""
+  IL_000d: ret
+  IL_000e: ldc.i4 -1444436705
+  IL_0013: call 0x2b000002 .<Module>::hidden decoded="\""
+  IL_0018: ldarg.1
+  IL_0019: ldc.i4 -1444436705
+  IL_001e: call 0x2b000002 .<Module>::hidden decoded="\""
+  IL_0023: call 0xa000034 System.String::Concat
+  IL_0028: stloc.0
+  IL_0029: ldarg.0
+  IL_002a: ldloc.0
+  IL_002b: ldc.i4.5
+  IL_002c: callvirt 0xa000046 System.String::IndexOf
+  IL_0031: stloc.1
+  IL_0032: ldloc.1
+  IL_0033: ldc.i4.0
+  IL_0034: bge.s  -> IL_003c
+  IL_0036: ldstr  decoded=""
+  IL_003b: ret
+  IL_003c: ldarg.0
+  IL_003d: ldc.i4.s 58
+  IL_003f: ldloc.1
+  IL_0040: callvirt 0xa000047 System.String::IndexOf
+  IL_0045: stloc.2
+  IL_0046: ldloc.2
+  IL_0047: ldc.i4.0
+  IL_0048: bge.s  -> IL_0050
+  IL_004a: ldstr  decoded=""
+  IL_004f: ret
+  IL_0050: ldarg.0
+  IL_0051: ldc.i4.s 34
+  IL_0053: ldloc.2
+  IL_0054: ldc.i4.1
+  IL_0055: add
+  IL_0056: callvirt 0xa000047 System.String::IndexOf
+  IL_005b: stloc.3
+  IL_005c: ldloc.3
+  IL_005d: ldc.i4.0
+  IL_005e: bge.s  -> IL_0066
+  IL_0060: ldstr  decoded=""
+  IL_0065: ret
+  IL_0066: ldarg.0
+  IL_0067: ldloc.3
+  IL_0068: ldc.i4.1
+  IL_0069: add
+  IL_006a: call 0x60000c4 LosSantosAlive.PRBridge.PrCalloutPedHydrator::hidden
+  IL_006f: stloc.s 4
+  IL_0071: ldloc.s 4
+  IL_0073: ldloc.3
+  IL_0074: bgt.s  -> IL_007c
+  IL_0076: ldstr  decoded=""
+  IL_007b: ret
+  IL_007c: ldarg.0
+  IL_007d: ldloc.3
+  IL_007e: ldc.i4.1
+  IL_007f: add
+  IL_0080: ldloc.s 4
+  IL_0082: ldloc.3
+  IL_0083: sub
+  IL_0084: ldc.i4.1
+  IL_0085: sub
+  IL_0086: callvirt 0xa000048 System.String::Substring
+  IL_008b: call 0x60000cb LosSantosAlive.PRBridge.PrCalloutPedHydrator::hidden
+  IL_0090: ret
+METHOD 0x60000bf hidden(String, String, Int32) -> Int32
+  IL_0000: ldarg.0
+  IL_0001: ldarg.1
+  IL_0002: call 0x60000c1 LosSantosAlive.PRBridge.PrCalloutPedHydrator::hidden
+  IL_0007: ldloca.s 0
+  IL_0009: call 0xa0000f4 System.Int32::TryParse
+  IL_000e: brfalse.s  -> IL_0012
+  IL_0010: ldloc.0
+  IL_0011: ret
+  IL_0012: ldarg.2
+  IL_0013: ret
+METHOD 0x60000c5 hidden(String, Int32) -> Int32
+  IL_0000: ldarg.0
+  IL_0001: ldarg.1
+  IL_0002: ldc.i4.s 123
+  IL_0004: ldc.i4.s 125
+  IL_0006: call 0x60000c7 LosSantosAlive.PRBridge.PrCalloutPedHydrator::hidden
+  IL_000b: ret
+METHOD 0x60000c6 hidden(String, Int32) -> Int32
+  IL_0000: ldarg.0
+  IL_0001: ldarg.1
+  IL_0002: ldc.i4.s 91
+  IL_0004: ldc.i4.s 93
+  IL_0006: call 0x60000c7 LosSantosAlive.PRBridge.PrCalloutPedHydrator::hidden
+  IL_000b: ret
+
+TYPE LosSantosAlive.PRBridge.PrDataExtractor
+METHOD 0x60000ce TryBuildPedRecordJson(Rage.Ped, String&, Boolean) -> Boolean
+  EXCEPTION {"catchType": null, "filterOffset": null, "handlerLength": 18, "handlerOffset": 70, "kind": "Finally", "tryLength": 9, "tryOffset": 61}
+  EXCEPTION {"catchType": null, "filterOffset": null, "handlerLength": 18, "handlerOffset": 115, "kind": "Finally", "tryLength": 10, "tryOffset": 105}
+  EXCEPTION {"catchType": null, "filterOffset": null, "handlerLength": 18, "handlerOffset": 155, "kind": "Finally", "tryLength": 12, "tryOffset": 143}
+  EXCEPTION {"catchType": null, "filterOffset": null, "handlerLength": 18, "handlerOffset": 238, "kind": "Finally", "tryLength": 10, "tryOffset": 228}
+  EXCEPTION {"catchType": null, "filterOffset": null, "handlerLength": 18, "handlerOffset": 296, "kind": "Finally", "tryLength": 10, "tryOffset": 286}
+  EXCEPTION {"catchType": null, "filterOffset": null, "handlerLength": 18, "handlerOffset": 354, "kind": "Finally", "tryLength": 10, "tryOffset": 344}
+  EXCEPTION {"catchType": null, "filterOffset": null, "handlerLength": 18, "handlerOffset": 412, "kind": "Finally", "tryLength": 10, "tryOffset": 402}
+  EXCEPTION {"catchType": null, "filterOffset": null, "handlerLength": 18, "handlerOffset": 470, "kind": "Finally", "tryLength": 10, "tryOffset": 460}
+  EXCEPTION {"catchType": null, "filterOffset": null, "handlerLength": 18, "handlerOffset": 528, "kind": "Finally", "tryLength": 10, "tryOffset": 518}
+  EXCEPTION {"catchType": null, "filterOffset": null, "handlerLength": 18, "handlerOffset": 586, "kind": "Finally", "tryLength": 10, "tryOffset": 576}
+  EXCEPTION {"catchType": null, "filterOffset": null, "handlerLength": 18, "handlerOffset": 647, "kind": "Finally", "tryLength": 10, "tryOffset": 637}
+  EXCEPTION {"catchType": null, "filterOffset": null, "handlerLength": 18, "handlerOffset": 746, "kind": "Finally", "tryLength": 51, "tryOffset": 695}
+  EXCEPTION {"catchType": "System.Exception", "filterOffset": null, "handlerLength": 34, "handlerOffset": 769, "kind": "Catch", "tryLength": 754, "tryOffset": 15}
+  EXCEPTION {"catchType": null, "filterOffset": null, "handlerLength": 18, "handlerOffset": 803, "kind": "Finally", "tryLength": 788, "tryOffset": 15}
+  IL_0000: ldarg.1
+  IL_0001: ldnull
+  IL_0002: stind.ref
+  IL_0003: call 0xa0000fa System.Diagnostics.Stopwatch::StartNew
+  IL_0008: stloc.0
+  IL_0009: ldstr  decoded=""
+  IL_000e: stloc.1
+  IL_000f: ldarg.0
+  IL_0010: ldnull
+  IL_0011: call 0xa00006d Rage.Entity::op_Equality
+  IL_0016: brtrue.s  -> IL_0028
+  IL_0018: ldarg.0
+  IL_0019: call 0xa00003e .EntityExtensions::Exists
+  IL_001e: brfalse.s  -> IL_0028
+  IL_0020: ldarg.0
+  IL_0021: callvirt 0xa00006e Rage.Ped::get_IsHuman
+  IL_0026: brtrue.s  -> IL_0030
+  IL_0028: ldc.i4.0
+  IL_0029: stloc.s 7
+  IL_002b: leave  -> IL_0335
+  IL_0030: ldarg.0
+  IL_0031: call 0x6000105 LosSantosAlive.PRBridge.PrDataExtractor::hidden
+  IL_0036: stloc.1
+  IL_0037: call 0xa0000fa System.Diagnostics.Stopwatch::StartNew
+  IL_003c: stloc.3
+  IL_003d: ldarg.0
+  IL_003e: call 0xa000071 CommonDataFramework.Modules.PedDatabase.PedDataController::GetPedData
+  IL_0043: stloc.2
+  IL_0044: leave.s  -> IL_0058
+  IL_0046: ldloc.1
+  IL_0047: ldc.i4 939603533
+  IL_004c: call 0x2b000005 .<Module>::hidden decoded="CDF.GetPedData"
+  IL_0051: ldloc.3
+  IL_0052: call 0x60000cf LosSantosAlive.PRBridge.PrDataExtractor::hidden
+  IL_0057: endfinally
+  IL_0058: ldloc.2
+  IL_0059: brtrue.s  -> IL_0063
+  IL_005b: ldc.i4.0
+  IL_005c: stloc.s 7
+  IL_005e: leave  -> IL_0335
+  IL_0063: call 0xa0000fa System.Diagnostics.Stopwatch::StartNew
+  IL_0068: stloc.3
+  IL_0069: ldarg.0
+  IL_006a: call 0x60000ff LosSantosAlive.PRBridge.PrDataExtractor::hidden
+  IL_006f: stloc.s 4
+  IL_0071: leave.s  -> IL_0085
+  IL_0073: ldloc.1
+  IL_0074: ldc.i4 -1015649776
+  IL_0079: call 0x2b000003 .<Module>::hidden decoded="IsOfficerPed"
+  IL_007e: ldloc.3
+  IL_007f: call 0x60000cf LosSantosAlive.PRBridge.PrDataExtractor::hidden
+  IL_0084: endfinally
+  IL_0085: ldloc.s 4
+  IL_0087: brfalse.s  -> IL_00b5
+  IL_0089: call 0xa0000fa System.Diagnostics.Stopwatch::StartNew
+  IL_008e: stloc.3
+  IL_008f: ldarg.1
+  IL_0090: ldarg.0
+  IL_0091: ldloc.2
+  IL_0092: ldarg.2
+  IL_0093: call 0x60000d1 LosSantosAlive.PRBridge.PrDataExtractor::hidden
+  IL_0098: stind.ref
+  IL_0099: leave.s  -> IL_00ad
+  IL_009b: ldloc.1
+  IL_009c: ldc.i4 -1989492636
+  IL_00a1: call 0x2b000003 .<Module>::hidden decoded="OfficerRecord"
+  IL_00a6: ldloc.3
+  IL_00a7: call 0x60000cf LosSantosAlive.PRBridge.PrDataExtractor::hidden
+  IL_00ac: endfinally
+  IL_00ad: ldc.i4.1
+  IL_00ae: stloc.s 7
+  IL_00b0: leave  -> IL_0335
+  IL_00b5: newobj 0xa0000f6 System.Collections.Generic.List`1<String>::.ctor
+  IL_00ba: stloc.s 5
+  IL_00bc: ldloc.s 5
+  IL_00be: ldc.i4 -1596802153
+  IL_00c3: call 0x2b000004 .<Module>::hidden decoded="\"detected\": true"
+  IL_00c8: callvirt 0xa0000f7 System.Collections.Generic.List`1<String>::Add
+  IL_00cd: ldloc.s 5
+  IL_00cf: ldc.i4 -612392222
+  IL_00d4: call 0x2b000002 .<Module>::hidden decoded="\"source\": \"Policing Redefined\""
+  IL_00d9: callvirt 0xa0000f7 System.Collections.Generic.List`1<String>::Add
+  IL_00de: call 0xa0000fa System.Diagnostics.Stopwatch::StartNew
+  IL_00e3: stloc.3
+  IL_00e4: ldloc.2
+  IL_00e5: call 0x60000d0 LosSantosAlive.PRBridge.PrDataExtractor::hidden
+  IL_00ea: stloc.s 6
+  IL_00ec: leave.s  -> IL_0100
+  IL_00ee: ldloc.1
+  IL_00ef: ldc.i4 -1139924031
+  IL_00f4: call 0x2b000001 .<Module>::hidden decoded="Identity"
+  IL_00f9: ldloc.3
+  IL_00fa: call 0x60000cf LosSantosAlive.PRBridge.PrDataExtractor::hidden
+  IL_00ff: endfinally
+  IL_0100: ldloc.s 5
+  IL_0102: ldc.i4 1322154004
+  IL_0107: call 0x2b000001 .<Module>::hidden decoded="\"identity\": "
+  IL_010c: ldloc.s 6
+  IL_010e: call 0xa000037 System.String::Concat
+  IL_0113: callvirt 0xa0000f7 System.Collections.Generic.List`1<String>::Add
+  IL_0118: call 0xa0000fa System.Diagnostics.Stopwatch::StartNew
+  IL_011d: stloc.3
+  IL_011e: ldloc.2
+  IL_011f: call 0x60000d4 LosSantosAlive.PRBridge.PrDataExtractor::hidden
+  IL_0124: stloc.s 6
+  IL_0126: leave.s  -> IL_013a
+  IL_0128: ldloc.1
+  IL_0129: ldc.i4 -1216968622
+  IL_012e: call 0x2b000002 .<Module>::hidden decoded="License"
+  IL_0133: ldloc.3
+  IL_0134: call 0x60000cf LosSantosAlive.PRBridge.PrDataExtractor::hidden
+  IL_0139: endfinally
+  IL_013a: ldloc.s 5
+  IL_013c: ldc.i4 959766447
+  IL_0141: call 0x2b000004 .<Module>::hidden decoded="\"license\": "
+  IL_0146: ldloc.s 6
+  IL_0148: call 0xa000037 System.String::Concat
+  IL_014d: callvirt 0xa0000f7 System.Collections.Generic.List`1<String>::Add
+  IL_0152: call 0xa0000fa System.Diagnostics.Stopwatch::StartNew
+  IL_0157: stloc.3
+  IL_0158: ldloc.2
+  IL_0159: call 0x60000d5 LosSantosAlive.PRBridge.PrDataExtractor::hidden
+  IL_015e: stloc.s 6
+  IL_0160: leave.s  -> IL_0174
+  IL_0162: ldloc.1
+  IL_0163: ldc.i4 -1433761639
+  IL_0168: call 0x2b000003 .<Module>::hidden decoded="Record"
+  IL_016d: ldloc.3
+  IL_016e: call 0x60000cf LosSantosAlive.PRBridge.PrDataExtractor::hidden
+  IL_0173: endfinally
+  IL_0174: ldloc.s 5
+  IL_0176: ldc.i4 -565412318
+  IL_017b: call 0x2b000001 .<Module>::hidden decoded="\"record\": "
+  IL_0180: ldloc.s 6
+  IL_0182: call 0xa000037 System.String::Concat
+  IL_0187: callvirt 0xa0000f7 System.Collections.Generic.List`1<String>::Add
+  IL_018c: call 0xa0000fa System.Diagnostics.Stopwatch::StartNew
+  IL_0191: stloc.3
+  IL_0192: ldarg.0
+  IL_0193: call 0x60000db LosSantosAlive.PRBridge.PrDataExtractor::hidden
+  IL_0198: stloc.s 6
+  IL_019a: leave.s  -> IL_01ae
+  IL_019c: ldloc.1
+  IL_019d: ldc.i4 -1285662854
+  IL_01a2: call 0x2b000005 .<Module>::hidden decoded="Impairment"
+  IL_01a7: ldloc.3
+  IL_01a8: call 0x60000cf LosSantosAlive.PRBridge.PrDataExtractor::hidden
+  IL_01ad: endfinally
+  IL_01ae: ldloc.s 5
+  IL_01b0: ldc.i4 27325082
+  IL_01b5: call 0x2b000001 .<Module>::hidden decoded="\"impairment\": "
+  IL_01ba: ldloc.s 6
+  IL_01bc: call 0xa000037 System.String::Concat
+  IL_01c1: callvirt 0xa0000f7 System.Collections.Generic.List`1<String>::Add
+  IL_01c6: call 0xa0000fa System.Diagnostics.Stopwatch::StartNew
+  IL_01cb: stloc.3
+  IL_01cc: ldloc.2
+  IL_01cd: call 0x60000d6 LosSantosAlive.PRBridge.PrDataExtractor::hidden
+  IL_01d2: stloc.s 6
+  IL_01d4: leave.s  -> IL_01e8
+  IL_01d6: ldloc.1
+  IL_01d7: ldc.i4 -1648001477
+  IL_01dc: call 0x2b000004 .<Module>::hidden decoded="Permits"
+  IL_01e1: ldloc.3
+  IL_01e2: call 0x60000cf LosSantosAlive.PRBridge.PrDataExtractor::hidden
+  IL_01e7: endfinally
+  IL_01e8: ldloc.s 5
+  IL_01ea: ldc.i4 -666347480
+  IL_01ef: call 0x2b000003 .<Module>::hidden decoded="\"permits\": "
+  IL_01f4: ldloc.s 6
+  IL_01f6: call 0xa000037 System.String::Concat
+  IL_01fb: callvirt 0xa0000f7 System.Collections.Generic.List`1<String>::Add
+  IL_0200: call 0xa0000fa System.Diagnostics.Stopwatch::StartNew
+  IL_0205: stloc.3
+  IL_0206: ldloc.2
+  IL_0207: call 0x60000f9 LosSantosAlive.PRBridge.PrDataExtractor::hidden
+  IL_020c: stloc.s 6
+  IL_020e: leave.s  -> IL_0222
+  IL_0210: ldloc.1
+  IL_0211: ldc.i4 149974442
+  IL_0216: call 0x2b000005 .<Module>::hidden decoded="Address"
+  IL_021b: ldloc.3
+  IL_021c: call 0x60000cf LosSantosAlive.PRBridge.PrDataExtractor::hidden
+  IL_0221: endfinally
+  IL_0222: ldloc.s 5
+  IL_0224: ldc.i4 -43215351
+  IL_0229: call 0x2b000002 .<Module>::hidden decoded="\"address\": "
+  IL_022e: ldloc.s 6
+  IL_0230: call 0xa000037 System.String::Concat
+  IL_0235: callvirt 0xa0000f7 System.Collections.Generic.List`1<String>::Add
+  IL_023a: call 0xa0000fa System.Diagnostics.Stopwatch::StartNew
+  IL_023f: stloc.3
+  IL_0240: ldarg.0
+  IL_0241: call 0x60000e3 LosSantosAlive.PRBridge.PrDataExtractor::hidden
+  IL_0246: stloc.s 6
+  IL_0248: leave.s  -> IL_025c
+  IL_024a: ldloc.1
+  IL_024b: ldc.i4 -497545607
+  IL_0250: call 0x2b000004 .<Module>::hidden decoded="Inventory"
+  IL_0255: ldloc.3
+  IL_0256: call 0x60000cf LosSantosAlive.PRBridge.PrDataExtractor::hidden
+  IL_025b: endfinally
+  IL_025c: ldloc.s 5
+  IL_025e: ldc.i4 -1878466927
+  IL_0263: call 0x2b000001 .<Module>::hidden decoded="\"inventory\": "
+  IL_0268: ldloc.s 6
+  IL_026a: call 0xa000037 System.String::Concat
+  IL_026f: callvirt 0xa0000f7 System.Collections.Generic.List`1<String>::Add
+  IL_0274: ldarg.2
+  IL_0275: brfalse.s  -> IL_02b1
+  IL_0277: call 0xa0000fa System.Diagnostics.Stopwatch::StartNew
+  IL_027c: stloc.3
+  IL_027d: ldarg.0
+  IL_027e: call 0x60000d2 LosSantosAlive.PRBridge.PrDataExtractor::hidden
+  IL_0283: stloc.s 6
+  IL_0285: leave.s  -> IL_0299
+  IL_0287: ldloc.1
+  IL_0288: ldc.i4 -638315066
+  IL_028d: call 0x2b000001 .<Module>::hidden decoded="NexusMDT"
+  IL_0292: ldloc.3
+  IL_0293: call 0x60000cf LosSantosAlive.PRBridge.PrDataExtractor::hidden
+  IL_0298: endfinally
+  IL_0299: ldloc.s 5
+  IL_029b: ldc.i4 -647791751
+  IL_02a0: call 0x2b000002 .<Module>::hidden decoded="\"nexusMdt\": "
+  IL_02a5: ldloc.s 6
+  IL_02a7: call 0xa000037 System.String::Concat
+  IL_02ac: callvirt 0xa0000f7 System.Collections.Generic.List`1<String>::Add
+  IL_02b1: call 0xa0000fa System.Diagnostics.Stopwatch::StartNew
+  IL_02b6: stloc.3
+  IL_02b7: ldarg.1
+  IL_02b8: ldc.i4 245674069
+  IL_02bd: call 0x2b000005 .<Module>::hidden decoded="{ "
+  IL_02c2: ldc.i4 1189537135
+  IL_02c7: call 0x2b000002 .<Module>::hidden decoded=", "
+  IL_02cc: ldloc.s 5
+  IL_02ce: callvirt 0xa0000fb System.Collections.Generic.List`1<String>::ToArray
+  IL_02d3: call 0xa0000fc System.String::Join
+  IL_02d8: ldc.i4 2101658341
+  IL_02dd: call 0x2b000005 .<Module>::hidden decoded=" }"
+  IL_02e2: call 0xa000034 System.String::Concat
+  IL_02e7: stind.ref
+  IL_02e8: leave.s  -> IL_02fc
+  IL_02ea: ldloc.1
+  IL_02eb: ldc.i4 -241888747
+  IL_02f0: call 0x2b000004 .<Module>::hidden decoded="Serialize"
+  IL_02f5: ldloc.3
+  IL_02f6: call 0x60000cf LosSantosAlive.PRBridge.PrDataExtractor::hidden
+  IL_02fb: endfinally
+  IL_02fc: ldc.i4.1
+  IL_02fd: stloc.s 7
+  IL_02ff: leave.s  -> IL_0335
+  IL_0301: stloc.s 8
+  IL_0303: ldc.i4 -1571380773
+  IL_0308: call 0x2b000003 .<Module>::hidden decoded="[LSA.PRBridge] TryBuildPedRecordJson failed: "
+  IL_030d: ldloc.s 8
+  IL_030f: callvirt 0xa000072 System.Exception::get_Message
+  IL_0314: call 0xa000037 System.String::Concat
+  IL_0319: call 0xa000033 Rage.Game::LogTrivial
+  IL_031e: ldc.i4.0
+  IL_031f: stloc.s 7
+  IL_0321: leave.s  -> IL_0335
+  IL_0323: ldloc.1
+  IL_0324: ldc.i4 -196990290
+  IL_0329: call 0x2b000005 .<Module>::hidden decoded="TOTAL"
+  IL_032e: ldloc.0
+  IL_032f: call 0x60000cf LosSantosAlive.PRBridge.PrDataExtractor::hidden
+  IL_0334: endfinally
+  IL_0335: ldloc.s 7
+  IL_0337: ret
+METHOD 0x60000d0 hidden(CommonDataFramework.Modules.PedDatabase.PedData) -> String
+  EXCEPTION {"catchType": "System.Object", "filterOffset": null, "handlerLength": 14, "handlerOffset": 315, "kind": "Catch", "tryLength": 315, "tryOffset": 0}
+  IL_0000: ldarg.0
+  IL_0001: brtrue.s  -> IL_0013
+  IL_0003: ldc.i4 -1954857661
+  IL_0008: call 0x2b000004 .<Module>::hidden decoded="{ }"
+  IL_000d: stloc.1
+  IL_000e: leave  -> IL_0149
+  IL_0013: newobj 0xa0000f6 System.Collections.Generic.List`1<String>::.ctor
+  IL_0018: stloc.0
+  IL_0019: ldloc.0
+  IL_001a: ldc.i4 -548744931
+  IL_001f: call 0x2b000004 .<Module>::hidden decoded="\"firstName\": \""
+  IL_0024: ldarg.0
+  IL_0025: callvirt 0xa000074 CommonDataFramework.Modules.PedDatabase.PedData::get_Firstname
+  IL_002a: call 0x600010e LosSantosAlive.PRBridge.PrDataExtractor::hidden
+  IL_002f: ldc.i4 -1444436705
+  IL_0034: call 0x2b000002 .<Module>::hidden decoded="\""
+  IL_0039: call 0xa000034 System.String::Concat
+  IL_003e: callvirt 0xa0000f7 System.Collections.Generic.List`1<String>::Add
+  IL_0043: ldloc.0
+  IL_0044: ldc.i4 -1923810328
+  IL_0049: call 0x2b000002 .<Module>::hidden decoded="\"lastName\": \""
+  IL_004e: ldarg.0
+  IL_004f: callvirt 0xa000075 CommonDataFramework.Modules.PedDatabase.PedData::get_Lastname
+  IL_0054: call 0x600010e LosSantosAlive.PRBridge.PrDataExtractor::hidden
+  IL_0059: ldc.i4 649267551
+  IL_005e: call 0x2b000001 .<Module>::hidden decoded="\""
+  IL_0063: call 0xa000034 System.String::Concat
+  IL_0068: callvirt 0xa0000f7 System.Collections.Generic.List`1<String>::Add
+  IL_006d: ldloc.0
+  IL_006e: ldc.i4 -146221517
+  IL_0073: call 0x2b000001 .<Module>::hidden decoded="\"fullName\": \""
+  IL_0078: ldarg.0
+  IL_0079: callvirt 0xa000074 CommonDataFramework.Modules.PedDatabase.PedData::get_Firstname
+  IL_007e: ldarg.0
+  IL_007f: callvirt 0xa000075 CommonDataFramework.Modules.PedDatabase.PedData::get_Lastname
+  IL_0084: call 0x6000108 LosSantosAlive.PRBridge.PrDataExtractor::hidden
+  IL_0089: call 0x600010e LosSantosAlive.PRBridge.PrDataExtractor::hidden
+  IL_008e: ldc.i4 649267551
+  IL_0093: call 0x2b000001 .<Module>::hidden decoded="\""
+  IL_0098: call 0xa000034 System.String::Concat
+  IL_009d: callvirt 0xa0000f7 System.Collections.Generic.List`1<String>::Add
+  IL_00a2: ldloc.0
+  IL_00a3: ldc.i4 -2015562152
+  IL_00a8: call 0x2b000001 .<Module>::hidden decoded="\"birthday\": \""
+  IL_00ad: ldarg.0
+  IL_00ae: callvirt 0xa000101 CommonDataFramework.Modules.PedDatabase.PedData::get_Birthday
+  IL_00b3: newobj 0xa0000da System.Nullable`1<System.DateTime>::.ctor
+  IL_00b8: call 0x6000109 LosSantosAlive.PRBridge.PrDataExtractor::hidden
+  IL_00bd: call 0x600010e LosSantosAlive.PRBridge.PrDataExtractor::hidden
+  IL_00c2: ldc.i4 -1444436705
+  IL_00c7: call 0x2b000002 .<Module>::hidden decoded="\""
+  IL_00cc: call 0xa000034 System.String::Concat
+  IL_00d1: callvirt 0xa0000f7 System.Collections.Generic.List`1<String>::Add
+  IL_00d6: ldloc.0
+  IL_00d7: ldc.i4 -775410291
+  IL_00dc: call 0x2b000001 .<Module>::hidden decoded="\"modelAge\": \""
+  IL_00e1: ldarg.0
+  IL_00e2: callvirt 0xa000102 CommonDataFramework.Modules.PedDatabase.PedData::get_ModelAge
+  IL_00e7: box 0x1000087 LSPD_First_Response.Engine.Scripting.Entities.PedModelAge
+  IL_00ec: call 0x600010c LosSantosAlive.PRBridge.PrDataExtractor::hidden
+  IL_00f1: call 0x600010e LosSantosAlive.PRBridge.PrDataExtractor::hidden
+  IL_00f6: ldc.i4 649267551
+  IL_00fb: call 0x2b000001 .<Module>::hidden decoded="\""
+  IL_0100: call 0xa000034 System.String::Concat
+  IL_0105: callvirt 0xa0000f7 System.Collections.Generic.List`1<String>::Add
+  IL_010a: ldc.i4 376304947
+  IL_010f: call 0x2b000003 .<Module>::hidden decoded="{ "
+  IL_0114: ldc.i4 -656540753
+  IL_0119: call 0x2b000001 .<Module>::hidden decoded=", "
+  IL_011e: ldloc.0
+  IL_011f: callvirt 0xa0000fb System.Collections.Generic.List`1<String>::ToArray
+  IL_0124: call 0xa0000fc System.String::Join
+  IL_0129: ldc.i4 1357402531
+  IL_012e: call 0x2b000003 .<Module>::hidden decoded=" }"
+  IL_0133: call 0xa000034 System.String::Concat
+  IL_0138: stloc.1
+  IL_0139: leave.s  -> IL_0149
+  IL_013b: pop
+  IL_013c: ldc.i4 519418631
+  IL_0141: call 0x2b000001 .<Module>::hidden decoded="{ }"
+  IL_0146: stloc.1
+  IL_0147: leave.s  -> IL_0149
+  IL_0149: ldloc.1
+  IL_014a: ret
+METHOD 0x60000d1 hidden(Rage.Ped, CommonDataFramework.Modules.PedDatabase.PedData, Boolean) -> String
+  EXCEPTION {"catchType": "System.Object", "filterOffset": null, "handlerLength": 14, "handlerOffset": 160, "kind": "Catch", "tryLength": 160, "tryOffset": 0}
+  IL_0000: newobj 0xa0000f6 System.Collections.Generic.List`1<String>::.ctor
+  IL_0005: stloc.0
+  IL_0006: ldloc.0
+  IL_0007: ldc.i4 1836876843
+  IL_000c: call 0x2b000005 .<Module>::hidden decoded="\"detected\": true"
+  IL_0011: callvirt 0xa0000f7 System.Collections.Generic.List`1<String>::Add
+  IL_0016: ldloc.0
+  IL_0017: ldc.i4 128881652
+  IL_001c: call 0x2b000004 .<Module>::hidden decoded="\"source\": \"Policing Redefined\""
+  IL_0021: callvirt 0xa0000f7 System.Collections.Generic.List`1<String>::Add
+  IL_0026: ldloc.0
+  IL_0027: ldc.i4 -1465539192
+  IL_002c: call 0x2b000003 .<Module>::hidden decoded="\"officerMode\": true"
+  IL_0031: callvirt 0xa0000f7 System.Collections.Generic.List`1<String>::Add
+  IL_0036: ldloc.0
+  IL_0037: ldc.i4 -1232701746
+  IL_003c: call 0x2b000002 .<Module>::hidden decoded="\"identity\": "
+  IL_0041: ldarg.1
+  IL_0042: call 0x60000d3 LosSantosAlive.PRBridge.PrDataExtractor::hidden
+  IL_0047: call 0xa000037 System.String::Concat
+  IL_004c: callvirt 0xa0000f7 System.Collections.Generic.List`1<String>::Add
+  IL_0051: ldarg.2
+  IL_0052: brfalse.s  -> IL_006f
+  IL_0054: ldloc.0
+  IL_0055: ldc.i4 1350147807
+  IL_005a: call 0x2b000003 .<Module>::hidden decoded="\"nexusMdt\": "
+  IL_005f: ldarg.0
+  IL_0060: call 0x60000d2 LosSantosAlive.PRBridge.PrDataExtractor::hidden
+  IL_0065: call 0xa000037 System.String::Concat
+  IL_006a: callvirt 0xa0000f7 System.Collections.Generic.List`1<String>::Add
+  IL_006f: ldc.i4 376304947
+  IL_0074: call 0x2b000003 .<Module>::hidden decoded="{ "
+  IL_0079: ldc.i4 66219407
+  IL_007e: call 0x2b000005 .<Module>::hidden decoded=", "
+  IL_0083: ldloc.0
+  IL_0084: callvirt 0xa0000fb System.Collections.Generic.List`1<String>::ToArray
+  IL_0089: call 0xa0000fc System.String::Join
+  IL_008e: ldc.i4 2101658341
+  IL_0093: call 0x2b000005 .<Module>::hidden decoded=" }"
+  IL_0098: call 0xa000034 System.String::Concat
+  IL_009d: stloc.1
+  IL_009e: leave.s  -> IL_00ae
+  IL_00a0: pop
+  IL_00a1: ldc.i4 -1954857661
+  IL_00a6: call 0x2b000004 .<Module>::hidden decoded="{ }"
+  IL_00ab: stloc.1
+  IL_00ac: leave.s  -> IL_00ae
+  IL_00ae: ldloc.1
+  IL_00af: ret
+METHOD 0x60000d3 hidden(CommonDataFramework.Modules.PedDatabase.PedData) -> String
+  EXCEPTION {"catchType": "System.Object", "filterOffset": null, "handlerLength": 14, "handlerOffset": 263, "kind": "Catch", "tryLength": 263, "tryOffset": 0}
+  IL_0000: ldarg.0
+  IL_0001: brtrue.s  -> IL_0013
+  IL_0003: ldc.i4 -1954857661
+  IL_0008: call 0x2b000004 .<Module>::hidden decoded="{ }"
+  IL_000d: stloc.1
+  IL_000e: leave  -> IL_0115
+  IL_0013: newobj 0xa0000f6 System.Collections.Generic.List`1<String>::.ctor
+  IL_0018: stloc.0
+  IL_0019: ldloc.0
+  IL_001a: ldc.i4 -647831473
+  IL_001f: call 0x2b000003 .<Module>::hidden decoded="\"firstName\": \""
+  IL_0024: ldarg.0
+  IL_0025: callvirt 0xa000074 CommonDataFramework.Modules.PedDatabase.PedData::get_Firstname
+  IL_002a: call 0x600010e LosSantosAlive.PRBridge.PrDataExtractor::hidden
+  IL_002f: ldc.i4 -996849281
+  IL_0034: call 0x2b000005 .<Module>::hidden decoded="\""
+  IL_0039: call 0xa000034 System.String::Concat
+  IL_003e: callvirt 0xa0000f7 System.Collections.Generic.List`1<String>::Add
+  IL_0043: ldloc.0
+  IL_0044: ldc.i4 -891292188
+  IL_0049: call 0x2b000003 .<Module>::hidden decoded="\"lastName\": \""
+  IL_004e: ldarg.0
+  IL_004f: callvirt 0xa000075 CommonDataFramework.Modules.PedDatabase.PedData::get_Lastname
+  IL_0054: call 0x600010e LosSantosAlive.PRBridge.PrDataExtractor::hidden
+  IL_0059: ldc.i4 447114777
+  IL_005e: call 0x2b000003 .<Module>::hidden decoded="\""
+  IL_0063: call 0xa000034 System.String::Concat
+  IL_0068: callvirt 0xa0000f7 System.Collections.Generic.List`1<String>::Add
+  IL_006d: ldloc.0
+  IL_006e: ldc.i4 -2108595763
+  IL_0073: call 0x2b000003 .<Module>::hidden decoded="\"fullName\": \""
+  IL_0078: ldarg.0
+  IL_0079: callvirt 0xa000074 CommonDataFramework.Modules.PedDatabase.PedData::get_Firstname
+  IL_007e: ldarg.0
+  IL_007f: callvirt 0xa000075 CommonDataFramework.Modules.PedDatabase.PedData::get_Lastname
+  IL_0084: call 0x6000108 LosSantosAlive.PRBridge.PrDataExtractor::hidden
+  IL_0089: call 0x600010e LosSantosAlive.PRBridge.PrDataExtractor::hidden
+  IL_008e: ldc.i4 649267551
+  IL_0093: call 0x2b000001 .<Module>::hidden decoded="\""
+  IL_0098: call 0xa000034 System.String::Concat
+  IL_009d: callvirt 0xa0000f7 System.Collections.Generic.List`1<String>::Add
+  IL_00a2: ldloc.0
+  IL_00a3: ldc.i4 -70748318
+  IL_00a8: call 0x2b000002 .<Module>::hidden decoded="\"birthday\": \""
+  IL_00ad: ldarg.0
+  IL_00ae: callvirt 0xa000101 CommonDataFramework.Modules.PedDatabase.PedData::get_Birthday
+  IL_00b3: newobj 0xa0000da System.Nullable`1<System.DateTime>::.ctor
+  IL_00b8: call 0x6000109 LosSantosAlive.PRBridge.PrDataExtractor::hidden
+  IL_00bd: call 0x600010e LosSantosAlive.PRBridge.PrDataExtractor::hidden
+  IL_00c2: ldc.i4 1423957963
+  IL_00c7: call 0x2b000004 .<Module>::hidden decoded="\""
+  IL_00cc: call 0xa000034 System.String::Concat
+  IL_00d1: callvirt 0xa0000f7 System.Collections.Generic.List`1<String>::Add
+  IL_00d6: ldc.i4 577094173
+  IL_00db: call 0x2b000002 .<Module>::hidden decoded="{ "
+  IL_00e0: ldc.i4 397253403
+  IL_00e5: call 0x2b000004 .<Module>::hidden decoded=", "
+  IL_00ea: ldloc.0
+  IL_00eb: callvirt 0xa0000fb System.Collections.Generic.List`1<String>::ToArray
+  IL_00f0: call 0xa0000fc System.String::Join
+  IL_00f5: ldc.i4 1357402531
+  IL_00fa: call 0x2b000003 .<Module>::hidden decoded=" }"
+  IL_00ff: call 0xa000034 System.String::Concat
+  IL_0104: stloc.1
+  IL_0105: leave.s  -> IL_0115
+  IL_0107: pop
+  IL_0108: ldc.i4 519418631
+  IL_010d: call 0x2b000001 .<Module>::hidden decoded="{ }"
+  IL_0112: stloc.1
+  IL_0113: leave.s  -> IL_0115
+  IL_0115: ldloc.1
+  IL_0116: ret
+METHOD 0x60000f2 hidden(CommonDataFramework.Modules.VehicleDatabase.VehicleData) -> String
+  EXCEPTION {"catchType": "System.Object", "filterOffset": null, "handlerLength": 14, "handlerOffset": 428, "kind": "Catch", "tryLength": 428, "tryOffset": 0}
+  IL_0000: ldarg.0
+  IL_0001: brtrue.s  -> IL_0013
+  IL_0003: ldc.i4 519418631
+  IL_0008: call 0x2b000001 .<Module>::hidden decoded="{ }"
+  IL_000d: stloc.1
+  IL_000e: leave  -> IL_01ba
+  IL_0013: ldarg.0
+  IL_0014: callvirt 0xa000121 CommonDataFramework.Modules.VehicleDatabase.VehicleData::get_Owner
+  IL_0019: stloc.0
+  IL_001a: ldloc.0
+  IL_001b: brtrue.s  -> IL_0051
+  IL_001d: ldc.i4 384878272
+  IL_0022: call 0x2b000004 .<Module>::hidden decoded="{ \"detected\": false, \"ownerType\": \""
+  IL_0027: ldarg.0
+  IL_0028: callvirt 0xa000122 CommonDataFramework.Modules.VehicleDatabase.VehicleData::get_OwnerType
+  IL_002d: box 0x1000091 CommonDataFramework.Modules.VehicleDatabase.EVehicleOwnerType
+  IL_0032: call 0x600010c LosSantosAlive.PRBridge.PrDataExtractor::hidden
+  IL_0037: call 0x600010e LosSantosAlive.PRBridge.PrDataExtractor::hidden
+  IL_003c: ldc.i4 -710980674
+  IL_0041: call 0x2b000004 .<Module>::hidden decoded="\" }"
+  IL_0046: call 0xa000034 System.String::Concat
+  IL_004b: stloc.1
+  IL_004c: leave  -> IL_01ba
+  IL_0051: ldc.i4.s 19
+  IL_0053: newarr 0x1000053 System.String
+  IL_0058: dup
+  IL_0059: ldc.i4.0
+  IL_005a: ldc.i4 -393277360
+  IL_005f: call 0x2b000002 .<Module>::hidden decoded="{ \"detected\": true, \"ownerType\": \""
+  IL_0064: stelem.ref
+  IL_0065: dup
+  IL_0066: ldc.i4.1
+  IL_0067: ldarg.0
+  IL_0068: callvirt 0xa000122 CommonDataFramework.Modules.VehicleDatabase.VehicleData::get_OwnerType
+  IL_006d: box 0x1000091 CommonDataFramework.Modules.VehicleDatabase.EVehicleOwnerType
+  IL_0072: call 0x600010c LosSantosAlive.PRBridge.PrDataExtractor::hidden
+  IL_0077: call 0x600010e LosSantosAlive.PRBridge.PrDataExtractor::hidden
+  IL_007c: stelem.ref
+  IL_007d: dup
+  IL_007e: ldc.i4.2
+  IL_007f: ldc.i4 1704771876
+  IL_0084: call 0x2b000005 .<Module>::hidden decoded="\", \"hasRealPed\": "
+  IL_0089: stelem.ref
+  IL_008a: dup
+  IL_008b: ldc.i4.3
+  IL_008c: ldloc.0
+  IL_008d: ldc.i4 -1922018282
+  IL_0092: call 0x2b000001 .<Module>::hidden decoded="HasRealPed"
+  IL_0097: call 0x60000fe LosSantosAlive.PRBridge.PrDataExtractor::hidden
+  IL_009c: call 0x600010d LosSantosAlive.PRBridge.PrDataExtractor::hidden
+  IL_00a1: stelem.ref
+  IL_00a2: dup
+  IL_00a3: ldc.i4.4
+  IL_00a4: ldc.i4 -2051831434
+  IL_00a9: call 0x2b000005 .<Module>::hidden decoded=", \"firstName\": \""
+  IL_00ae: stelem.ref
+  IL_00af: dup
+  IL_00b0: ldc.i4.5
+  IL_00b1: ldloc.0
+  IL_00b2: callvirt 0xa000074 CommonDataFramework.Modules.PedDatabase.PedData::get_Firstname
+  IL_00b7: call 0x600010e LosSantosAlive.PRBridge.PrDataExtractor::hidden
+  IL_00bc: stelem.ref
+  IL_00bd: dup
+  IL_00be: ldc.i4.6
+  IL_00bf: ldc.i4 159116537
+  IL_00c4: call 0x2b000003 .<Module>::hidden decoded="\", \"lastName\": \""
+  IL_00c9: stelem.ref
+  IL_00ca: dup
+  IL_00cb: ldc.i4.7
+  IL_00cc: ldloc.0
+  IL_00cd: callvirt 0xa000075 CommonDataFramework.Modules.PedDatabase.PedData::get_Lastname
+  IL_00d2: call 0x600010e LosSantosAlive.PRBridge.PrDataExtractor::hidden
+  IL_00d7: stelem.ref
+  IL_00d8: dup
+  IL_00d9: ldc.i4.8
+  IL_00da: ldc.i4 -795648800
+  IL_00df: call 0x2b000005 .<Module>::hidden decoded="\", \"fullName\": \""
+  IL_00e4: stelem.ref
+  IL_00e5: dup
+  IL_00e6: ldc.i4.s 9
+  IL_00e8: ldloc.0
+  IL_00e9: callvirt 0xa000074 CommonDataFramework.Modules.PedDatabase.PedData::get_Firstname
+  IL_00ee: ldloc.0
+  IL_00ef: callvirt 0xa000075 CommonDataFramework.Modules.PedDatabase.PedData::get_Lastname
+  IL_00f4: call 0x6000108 LosSantosAlive.PRBridge.PrDataExtractor::hidden
+  IL_00f9: call 0x600010e LosSantosAlive.PRBridge.PrDataExtractor::hidden
+  IL_00fe: stelem.ref
+  IL_00ff: dup
+  IL_0100: ldc.i4.s 10
+  IL_0102: ldc.i4 1621016841
+  IL_0107: call 0x2b000005 .<Module>::hidden decoded="\", \"birthday\": \""
+  IL_010c: stelem.ref
+  IL_010d: dup
+  IL_010e: ldc.i4.s 11
+  IL_0110: ldloc.0
+  IL_0111: callvirt 0xa000101 CommonDataFramework.Modules.PedDatabase.PedData::get_Birthday
+  IL_0116: newobj 0xa0000da System.Nullable`1<System.DateTime>::.ctor
+  IL_011b: call 0x6000109 LosSantosAlive.PRBridge.PrDataExtractor::hidden
+  IL_0120: call 0x600010e LosSantosAlive.PRBridge.PrDataExtractor::hidden
+  IL_0125: stelem.ref
+  IL_0126: dup
+  IL_0127: ldc.i4.s 12
+  IL_0129: ldc.i4 103464920
+  IL_012e: call 0x2b000002 .<Module>::hidden decoded="\", \"gender\": \""
+  IL_0133: stelem.ref
+  IL_0134: dup
+  IL_0135: ldc.i4.s 13
+  IL_0137: ldloc.0
+  IL_0138: ldc.i4 -415130467
+  IL_013d: call 0x2b000003 .<Module>::hidden decoded="Gender"
+  IL_0142: call 0x6000100 LosSantosAlive.PRBridge.PrDataExtractor::hidden
+  IL_0147: call 0x600010c LosSantosAlive.PRBridge.PrDataExtractor::hidden
+  IL_014c: call 0x600010e LosSantosAlive.PRBridge.PrDataExtractor::hidden
+  IL_0151: stelem.ref
+  IL_0152: dup
+  IL_0153: ldc.i4.s 14
+  IL_0155: ldc.i4 460533834
+  IL_015a: call 0x2b000005 .<Module>::hidden decoded="\", \"driversLicenseState\": \""
+  IL_015f: stelem.ref
+  IL_0160: dup
+  IL_0161: ldc.i4.s 15
+  IL_0163: ldloc.0
+  IL_0164: callvirt 0xa0000d7 CommonDataFramework.Modules.PedDatabase.PedData::get_DriversLicenseState
+  IL_0169: box 0x1000081 LSPD_First_Response.Engine.Scripting.Entities.ELicenseState
+  IL_016e: call 0x600010c LosSantosAlive.PRBridge.PrDataExtractor::hidden
+  IL_0173: call 0x600010e LosSantosAlive.PRBridge.PrDataExtractor::hidden
+  IL_0178: stelem.ref
+  IL_0179: dup
+  IL_017a: ldc.i4.s 16
+  IL_017c: ldc.i4 -501111480
+  IL_0181: call 0x2b000002 .<Module>::hidden decoded="\", \"wanted\": "
+  IL_0186: stelem.ref
+  IL_0187: dup
+  IL_0188: ldc.i4.s 17
+  IL_018a: ldloc.0
+  IL_018b: callvirt 0xa000105 CommonDataFramework.Modules.PedDatabase.PedData::get_Wanted
+  IL_0190: call 0x600010d LosSantosAlive.PRBridge.PrDataExtractor::hidden
+  IL_0195: stelem.ref
+  IL_0196: dup
+  IL_0197: ldc.i4.s 18
+  IL_0199: ldc.i4 1357402531
+  IL_019e: call 0x2b000003 .<Module>::hidden decoded=" }"
+  IL_01a3: stelem.ref
+  IL_01a4: call 0xa000032 System.String::Concat
+  IL_01a9: stloc.1
+  IL_01aa: leave.s  -> IL_01ba
+  IL_01ac: pop
+  IL_01ad: ldc.i4 519418631
+  IL_01b2: call 0x2b000001 .<Module>::hidden decoded="{ }"
+  IL_01b7: stloc.1
+  IL_01b8: leave.s  -> IL_01ba
+  IL_01ba: ldloc.1
+  IL_01bb: ret
+METHOD 0x60000fb hidden(String) -> Boolean
+  IL_0000: ldarg.0
+  IL_0001: dup
+  IL_0002: brtrue.s  -> IL_000a
+  IL_0004: pop
+  IL_0005: ldstr  decoded=""
+  IL_000a: ldc.i4 1083081528
+  IL_000f: call 0x2b000005 .<Module>::hidden decoded="None"
+  IL_0014: ldc.i4.5
+  IL_0015: call 0xa000044 System.String::Equals
+  IL_001a: ret
+METHOD 0x6000102 hidden(System.Reflection.FieldInfo) -> Object
+  EXCEPTION {"catchType": "System.Object", "filterOffset": null, "handlerLength": 5, "handlerOffset": 10, "kind": "Catch", "tryLength": 10, "tryOffset": 0}
+  IL_0000: ldarg.0
+  IL_0001: ldnull
+  IL_0002: callvirt 0xa0000b2 System.Reflection.FieldInfo::GetValue
+  IL_0007: stloc.0
+  IL_0008: leave.s  -> IL_000f
+  IL_000a: pop
+  IL_000b: ldnull
+  IL_000c: stloc.0
+  IL_000d: leave.s  -> IL_000f
+  IL_000f: ldloc.0
+  IL_0010: ret
+METHOD 0x6000105 hidden(Rage.Entity) -> String
+  EXCEPTION {"catchType": "System.Object", "filterOffset": null, "handlerLength": 9, "handlerOffset": 60, "kind": "Catch", "tryLength": 60, "tryOffset": 0}
+  IL_0000: ldarg.0
+  IL_0001: ldnull
+  IL_0002: call 0xa00006d Rage.Entity::op_Equality
+  IL_0007: brtrue.s  -> IL_0011
+  IL_0009: ldarg.0
+  IL_000a: call 0xa00003e .EntityExtensions::Exists
+  IL_000f: brtrue.s  -> IL_0019
+  IL_0011: ldstr  decoded=""
+  IL_0016: stloc.0
+  IL_0017: leave.s  -> IL_0045
+  IL_0019: ldarg.0
+  IL_001a: callvirt 0xa00007c Rage.Entity::get_Handle
+  IL_001f: stloc.1
+  IL_0020: ldloca.s 1
+  IL_0022: call 0xa00013b Rage.PoolHandle::get_Value
+  IL_0027: stloc.2
+  IL_0028: ldloca.s 2
+  IL_002a: ldc.i4 656908667
+  IL_002f: call 0x2b000002 .<Module>::hidden decoded="x8"
+  IL_0034: call 0xa00013c System.UInt32::ToString
+  IL_0039: stloc.0
+  IL_003a: leave.s  -> IL_0045
+  IL_003c: pop
+  IL_003d: ldstr  decoded=""
+  IL_0042: stloc.0
+  IL_0043: leave.s  -> IL_0045
+  IL_0045: ldloc.0
+  IL_0046: ret
+METHOD 0x6000109 hidden(System.Nullable`1<System.DateTime>) -> String
+  EXCEPTION {"catchType": "System.Object", "filterOffset": null, "handlerLength": 9, "handlerOffset": 45, "kind": "Catch", "tryLength": 45, "tryOffset": 0}
+  IL_0000: ldarga.s 0
+  IL_0002: call 0xa00013f System.Nullable`1<System.DateTime>::get_HasValue
+  IL_0007: brtrue.s  -> IL_0011
+  IL_0009: ldstr  decoded=""
+  IL_000e: stloc.0
+  IL_000f: leave.s  -> IL_0036
+  IL_0011: ldarga.s 0
+  IL_0013: call 0xa000140 System.Nullable`1<System.DateTime>::get_Value
+  IL_0018: stloc.1
+  IL_0019: ldloca.s 1
+  IL_001b: ldc.i4 -1714505155
+  IL_0020: call 0x2b000003 .<Module>::hidden decoded="MM/dd/yyyy"
+  IL_0025: call 0xa000141 System.DateTime::ToString
+  IL_002a: stloc.0
+  IL_002b: leave.s  -> IL_0036
+  IL_002d: pop
+  IL_002e: ldstr  decoded=""
+  IL_0033: stloc.0
+  IL_0034: leave.s  -> IL_0036
+  IL_0036: ldloc.0
+  IL_0037: ret
+METHOD 0x600010c hidden(Object) -> String
+  EXCEPTION {"catchType": "System.Object", "filterOffset": null, "handlerLength": 9, "handlerOffset": 20, "kind": "Catch", "tryLength": 20, "tryOffset": 0}
+  IL_0000: ldarg.0
+  IL_0001: brtrue.s  -> IL_000b
+  IL_0003: ldstr  decoded=""
+  IL_0008: stloc.0
+  IL_0009: leave.s  -> IL_001d
+  IL_000b: ldarg.0
+  IL_000c: callvirt 0xa000038 System.Object::ToString
+  IL_0011: stloc.0
+  IL_0012: leave.s  -> IL_001d
+  IL_0014: pop
+  IL_0015: ldstr  decoded=""
+  IL_001a: stloc.0
+  IL_001b: leave.s  -> IL_001d
+  IL_001d: ldloc.0
+  IL_001e: ret
+METHOD 0x600010d hidden(Boolean) -> String
+  IL_0000: ldarg.0
+  IL_0001: brtrue.s  -> IL_000e
+  IL_0003: ldc.i4 958135771
+  IL_0008: call 0x2b000002 .<Module>::hidden decoded="false"
+  IL_000d: ret
+  IL_000e: ldc.i4 -663787058
+  IL_0013: call 0x2b000001 .<Module>::hidden decoded="true"
+  IL_0018: ret
+
+TYPE LosSantosAlive.PRBridge.PrStateTracker
+FIELD 0x40000e2 hidden "Object" constantHex=None
+FIELD 0x40000e3 hidden "Object" constantHex=None
+FIELD 0x40000e4 hidden "System.Collections.Generic.HashSet`1<UInt32>" constantHex=None
+FIELD 0x40000e5 hidden "System.Collections.Generic.HashSet`1<UInt32>" constantHex=None
+FIELD 0x40000e6 hidden "System.Collections.Generic.HashSet`1<UInt32>" constantHex=None
+FIELD 0x40000e7 hidden "System.Collections.Generic.HashSet`1<UInt32>" constantHex=None
+FIELD 0x40000e8 hidden "System.Collections.Generic.Dictionary`2<UInt32,String>" constantHex=None
+FIELD 0x40000e9 hidden "System.Collections.Generic.Dictionary`2<UInt32,String>" constantHex=None
+FIELD 0x40000ea hidden "Boolean" constantHex=None
+FIELD 0x40000eb hidden "Int32" constantHex=88130000
+FIELD 0x40000ec hidden "Int32" constantHex=10270000
+FIELD 0x40000ed hidden "System.Type" constantHex=None
+FIELD 0x40000ee hidden "System.Reflection.MethodInfo" constantHex=None
+FIELD 0x40000ef hidden "System.Reflection.MethodInfo" constantHex=None
+FIELD 0x40000f0 hidden "Int32" constantHex=None
+FIELD 0x40000f1 hidden "Int32" constantHex=None
+METHOD 0x60001c9 Initialize() -> Void
+  EXCEPTION {"catchType": "System.Exception", "filterOffset": null, "handlerLength": 36, "handlerOffset": 139, "kind": "Catch", "tryLength": 125, "tryOffset": 14}
+  IL_0000: ldsfld 0x40000ea LosSantosAlive.PRBridge.PrStateTracker::hidden
+  IL_0005: brfalse.s  -> IL_0008
+  IL_0007: ret
+  IL_0008: ldc.i4.1
+  IL_0009: stsfld 0x40000ea LosSantosAlive.PRBridge.PrStateTracker::hidden
+  IL_000e: ldc.i4.1
+  IL_000f: call 0x60001d3 LosSantosAlive.PRBridge.PrStateTracker::hidden
+  IL_0014: ldnull
+  IL_0015: ldftn 0x60001d8 LosSantosAlive.PRBridge.PrStateTracker::hidden
+  IL_001b: newobj 0xa0001d0 PolicingRedefined.API.PedDelegate::.ctor
+  IL_0020: call 0xa0001d1 PolicingRedefined.API.EventsAPI::add_OnPedStopped
+  IL_0025: ldnull
+  IL_0026: ldftn 0x60001d9 LosSantosAlive.PRBridge.PrStateTracker::hidden
+  IL_002c: newobj 0xa0001d0 PolicingRedefined.API.PedDelegate::.ctor
+  IL_0031: call 0xa0001d2 PolicingRedefined.API.EventsAPI::add_OnPedReleased
+  IL_0036: ldnull
+  IL_0037: ldftn 0x60001da LosSantosAlive.PRBridge.PrStateTracker::hidden
+  IL_003d: newobj 0xa0001d3 PolicingRedefined.API.PedArrestedDelegate::.ctor
+  IL_0042: call 0xa0001d4 PolicingRedefined.API.EventsAPI::add_OnPedArrested
+  IL_0047: ldnull
+  IL_0048: ldftn 0x60001db LosSantosAlive.PRBridge.PrStateTracker::hidden
+  IL_004e: newobj 0xa0001d0 PolicingRedefined.API.PedDelegate::.ctor
+  IL_0053: call 0xa0001d5 PolicingRedefined.API.EventsAPI::add_OnPedPatDown
+  IL_0058: ldnull
+  IL_0059: ldftn 0x60001dc LosSantosAlive.PRBridge.PrStateTracker::hidden
+  IL_005f: newobj 0xa0001d0 PolicingRedefined.API.PedDelegate::.ctor
+  IL_0064: call 0xa0001d6 PolicingRedefined.API.EventsAPI::add_OnPedSurrendered
+  IL_0069: ldnull
+  IL_006a: ldftn 0x60001dd LosSantosAlive.PRBridge.PrStateTracker::hidden
+  IL_0070: newobj 0xa0001d7 PolicingRedefined.API.IdentificationGivenDelegate::.ctor
+  IL_0075: call 0xa0001d8 PolicingRedefined.API.EventsAPI::add_OnIdentificationGiven
+  IL_007a: ldc.i4 -1915439737
+  IL_007f: call 0x2b000005 .<Module>::hidden decoded="[LSA.PRBridge] PrStateTracker initialized. MODE=EVENTS_ONLY_CACHED_PEDAPI_NATIVE_CUFF_DISABLED"
+  IL_0084: call 0xa000033 Rage.Game::LogTrivial
+  IL_0089: leave.s  -> IL_00af
+  IL_008b: stloc.0
+  IL_008c: ldc.i4 146340944
+  IL_0091: call 0x2b000001 .<Module>::hidden decoded="[LSA.PRBridge] PrStateTracker initialize failed: "
+  IL_0096: ldloc.0
+  IL_0097: dup
+  IL_0098: brtrue.s  -> IL_009e
+  IL_009a: pop
+  IL_009b: ldnull
+  IL_009c: br.s  -> IL_00a3
+  IL_009e: callvirt 0xa000038 System.Object::ToString
+  IL_00a3: call 0xa000037 System.String::Concat
+  IL_00a8: call 0xa000033 Rage.Game::LogTrivial
+  IL_00ad: leave.s  -> IL_00af
+  IL_00af: ret
+METHOD 0x60001ca Shutdown() -> Void
+  EXCEPTION {"catchType": null, "filterOffset": null, "handlerLength": 10, "handlerOffset": 194, "kind": "Finally", "tryLength": 70, "tryOffset": 124}
+  EXCEPTION {"catchType": null, "filterOffset": null, "handlerLength": 10, "handlerOffset": 260, "kind": "Finally", "tryLength": 48, "tryOffset": 212}
+  EXCEPTION {"catchType": "System.Exception", "filterOffset": null, "handlerLength": 36, "handlerOffset": 287, "kind": "Catch", "tryLength": 273, "tryOffset": 14}
+  IL_0000: ldsfld 0x40000ea LosSantosAlive.PRBridge.PrStateTracker::hidden
+  IL_0005: brtrue.s  -> IL_0008
+  IL_0007: ret
+  IL_0008: ldc.i4.0
+  IL_0009: stsfld 0x40000ea LosSantosAlive.PRBridge.PrStateTracker::hidden
+  IL_000e: ldnull
+  IL_000f: ldftn 0x60001d8 LosSantosAlive.PRBridge.PrStateTracker::hidden
+  IL_0015: newobj 0xa0001d0 PolicingRedefined.API.PedDelegate::.ctor
+  IL_001a: call 0xa0001d9 PolicingRedefined.API.EventsAPI::remove_OnPedStopped
+  IL_001f: ldnull
+  IL_0020: ldftn 0x60001d9 LosSantosAlive.PRBridge.PrStateTracker::hidden
+  IL_0026: newobj 0xa0001d0 PolicingRedefined.API.PedDelegate::.ctor
+  IL_002b: call 0xa0001da PolicingRedefined.API.EventsAPI::remove_OnPedReleased
+  IL_0030: ldnull
+  IL_0031: ldftn 0x60001da LosSantosAlive.PRBridge.PrStateTracker::hidden
+  IL_0037: newobj 0xa0001d3 PolicingRedefined.API.PedArrestedDelegate::.ctor
+  IL_003c: call 0xa0001db PolicingRedefined.API.EventsAPI::remove_OnPedArrested
+  IL_0041: ldnull
+  IL_0042: ldftn 0x60001db LosSantosAlive.PRBridge.PrStateTracker::hidden
+  IL_0048: newobj 0xa0001d0 PolicingRedefined.API.PedDelegate::.ctor
+  IL_004d: call 0xa0001dc PolicingRedefined.API.EventsAPI::remove_OnPedPatDown
+  IL_0052: ldnull
+  IL_0053: ldftn 0x60001dc LosSantosAlive.PRBridge.PrStateTracker::hidden
+  IL_0059: newobj 0xa0001d0 PolicingRedefined.API.PedDelegate::.ctor
+  IL_005e: call 0xa0001dd PolicingRedefined.API.EventsAPI::remove_OnPedSurrendered
+  IL_0063: ldnull
+  IL_0064: ldftn 0x60001dd LosSantosAlive.PRBridge.PrStateTracker::hidden
+  IL_006a: newobj 0xa0001d7 PolicingRedefined.API.IdentificationGivenDelegate::.ctor
+  IL_006f: call 0xa0001de PolicingRedefined.API.EventsAPI::remove_OnIdentificationGiven
+  IL_0074: ldsfld 0x40000e2 LosSantosAlive.PRBridge.PrStateTracker::hidden
+  IL_0079: stloc.0
+  IL_007a: ldc.i4.0
+  IL_007b: stloc.1
+  IL_007c: ldloc.0
+  IL_007d: ldloca.s 1
+  IL_007f: call 0xa00002b System.Threading.Monitor::Enter
+  IL_0084: ldsfld 0x40000e4 LosSantosAlive.PRBridge.PrStateTracker::hidden
+  IL_0089: callvirt 0xa0001df System.Collections.Generic.HashSet`1<UInt32>::Clear
+  IL_008e: ldsfld 0x40000e5 LosSantosAlive.PRBridge.PrStateTracker::hidden
+  IL_0093: callvirt 0xa0001df System.Collections.Generic.HashSet`1<UInt32>::Clear
+  IL_0098: ldsfld 0x40000e6 LosSantosAlive.PRBridge.PrStateTracker::hidden
+  IL_009d: callvirt 0xa0001df System.Collections.Generic.HashSet`1<UInt32>::Clear
+  IL_00a2: ldsfld 0x40000e7 LosSantosAlive.PRBridge.PrStateTracker::hidden
+  IL_00a7: callvirt 0xa0001df System.Collections.Generic.HashSet`1<UInt32>::Clear
+  IL_00ac: ldsfld 0x40000e8 LosSantosAlive.PRBridge.PrStateTracker::hidden
+  IL_00b1: callvirt 0xa0001e0 System.Collections.Generic.Dictionary`2<UInt32,String>::Clear
+  IL_00b6: ldsfld 0x40000e9 LosSantosAlive.PRBridge.PrStateTracker::hidden
+  IL_00bb: callvirt 0xa0001e0 System.Collections.Generic.Dictionary`2<UInt32,String>::Clear
+  IL_00c0: leave.s  -> IL_00cc
+  IL_00c2: ldloc.1
+  IL_00c3: brfalse.s  -> IL_00cb
+  IL_00c5: ldloc.0
+  IL_00c6: call 0xa000035 System.Threading.Monitor::Exit
+  IL_00cb: endfinally
+  IL_00cc: ldsfld 0x40000e3 LosSantosAlive.PRBridge.PrStateTracker::hidden
+  IL_00d1: stloc.0
+  IL_00d2: ldc.i4.0
+  IL_00d3: stloc.1
+  IL_00d4: ldloc.0
+  IL_00d5: ldloca.s 1
+  IL_00d7: call 0xa00002b System.Threading.Monitor::Enter
+  IL_00dc: ldnull
+  IL_00dd: stsfld 0x40000ed LosSantosAlive.PRBridge.PrStateTracker::hidden
+  IL_00e2: ldnull
+  IL_00e3: stsfld 0x40000ee LosSantosAlive.PRBridge.PrStateTracker::hidden
+  IL_00e8: ldnull
+  IL_00e9: stsfld 0x40000ef LosSantosAlive.PRBridge.PrStateTracker::hidden
+  IL_00ee: ldc.i4 -5000
+  IL_00f3: stsfld 0x40000f0 LosSantosAlive.PRBridge.PrStateTracker::hidden
+  IL_00f8: ldc.i4 -10000
+  IL_00fd: stsfld 0x40000f1 LosSantosAlive.PRBridge.PrStateTracker::hidden
+  IL_0102: leave.s  -> IL_010e
+  IL_0104: ldloc.1
+  IL_0105: brfalse.s  -> IL_010d
+  IL_0107: ldloc.0
+  IL_0108: call 0xa000035 System.Threading.Monitor::Exit
+  IL_010d: endfinally
+  IL_010e: ldc.i4 -384102814
+  IL_0113: call 0x2b000005 .<Module>::hidden decoded="[LSA.PRBridge] PrStateTracker shut down."
+  IL_0118: call 0xa000033 Rage.Game::LogTrivial
+  IL_011d: leave.s  -> IL_0143
+  IL_011f: stloc.2
+  IL_0120: ldc.i4 2107504237
+  IL_0125: call 0x2b000004 .<Module>::hidden decoded="[LSA.PRBridge] PrStateTracker shutdown failed: "
+  IL_012a: ldloc.2
+  IL_012b: dup
+  IL_012c: brtrue.s  -> IL_0132
+  IL_012e: pop
+  IL_012f: ldnull
+  IL_0130: br.s  -> IL_0137
+  IL_0132: callvirt 0xa000038 System.Object::ToString
+  IL_0137: call 0xa000037 System.String::Concat
+  IL_013c: call 0xa000033 Rage.Game::LogTrivial
+  IL_0141: leave.s  -> IL_0143
+  IL_0143: ret
+METHOD 0x60001cb IsStopped(Rage.Ped) -> Boolean
+  IL_0000: ldsfld 0x40000e4 LosSantosAlive.PRBridge.PrStateTracker::hidden
+  IL_0005: ldarg.0
+  IL_0006: call 0x60001df LosSantosAlive.PRBridge.PrStateTracker::hidden
+  IL_000b: ret
+METHOD 0x60001cc IsArrested(Rage.Ped) -> Boolean
+  IL_0000: ldsfld 0x40000e5 LosSantosAlive.PRBridge.PrStateTracker::hidden
+  IL_0005: ldarg.0
+  IL_0006: call 0x60001df LosSantosAlive.PRBridge.PrStateTracker::hidden
+  IL_000b: ret
+METHOD 0x60001cd IsPatDown(Rage.Ped) -> Boolean
+  IL_0000: ldsfld 0x40000e6 LosSantosAlive.PRBridge.PrStateTracker::hidden
+  IL_0005: ldarg.0
+  IL_0006: call 0x60001df LosSantosAlive.PRBridge.PrStateTracker::hidden
+  IL_000b: ret
+METHOD 0x60001ce IsSurrendered(Rage.Ped) -> Boolean
+  IL_0000: ldsfld 0x40000e7 LosSantosAlive.PRBridge.PrStateTracker::hidden
+  IL_0005: ldarg.0
+  IL_0006: call 0x60001df LosSantosAlive.PRBridge.PrStateTracker::hidden
+  IL_000b: ret
+METHOD 0x60001cf GetLastIdentification(Rage.Ped) -> String
+  EXCEPTION {"catchType": null, "filterOffset": null, "handlerLength": 10, "handlerOffset": 74, "kind": "Finally", "tryLength": 52, "tryOffset": 22}
+  IL_0000: ldarg.0
+  IL_0001: call 0x60001e0 LosSantosAlive.PRBridge.PrStateTracker::hidden
+  IL_0006: brtrue.s  -> IL_000e
+  IL_0008: ldstr  decoded=""
+  IL_000d: ret
+  IL_000e: ldsfld 0x40000e2 LosSantosAlive.PRBridge.PrStateTracker::hidden
+  IL_0013: stloc.0
+  IL_0014: ldc.i4.0
+  IL_0015: stloc.1
+  IL_0016: ldloc.0
+  IL_0017: ldloca.s 1
+  IL_0019: call 0xa00002b System.Threading.Monitor::Enter
+  IL_001e: ldsfld 0x40000e8 LosSantosAlive.PRBridge.PrStateTracker::hidden
+  IL_0023: ldarg.0
+  IL_0024: callvirt 0xa00007c Rage.Entity::get_Handle
+  IL_0029: stloc.3
+  IL_002a: ldloca.s 3
+  IL_002c: call 0xa00013b Rage.PoolHandle::get_Value
+  IL_0031: ldloca.s 2
+  IL_0033: callvirt 0xa0001e1 System.Collections.Generic.Dictionary`2<UInt32,String>::TryGetValue
+  IL_0038: brfalse.s  -> IL_0048
+  IL_003a: ldloc.2
+  IL_003b: dup
+  IL_003c: brtrue.s  -> IL_0044
+  IL_003e: pop
+  IL_003f: ldstr  decoded=""
+  IL_0044: stloc.s 4
+  IL_0046: leave.s  -> IL_005a
+  IL_0048: leave.s  -> IL_0054
+  IL_004a: ldloc.1
+  IL_004b: brfalse.s  -> IL_0053
+  IL_004d: ldloc.0
+  IL_004e: call 0xa000035 System.Threading.Monitor::Exit
+  IL_0053: endfinally
+  IL_0054: ldstr  decoded=""
+  IL_0059: ret
+  IL_005a: ldloc.s 4
+  IL_005c: ret
+METHOD 0x60001d0 BuildPedStateJson(Rage.Ped) -> String
+  EXCEPTION {"catchType": "System.Object", "filterOffset": null, "handlerLength": 6, "handlerOffset": 131, "kind": "Catch", "tryLength": 10, "tryOffset": 121}
+  IL_0000: ldarg.0
+  IL_0001: call 0x60001e0 LosSantosAlive.PRBridge.PrStateTracker::hidden
+  IL_0006: brtrue.s  -> IL_0013
+  IL_0008: ldc.i4 922074027
+  IL_000d: call 0x2b000002 .<Module>::hidden decoded="{ \"detected\": false }"
+  IL_0012: ret
+  IL_0013: ldarg.0
+  IL_0014: call 0x60001cb LosSantosAlive.PRBridge.PrStateTracker::IsStopped
+  IL_0019: stloc.0
+  IL_001a: ldarg.0
+  IL_001b: call 0x60001cc LosSantosAlive.PRBridge.PrStateTracker::IsArrested
+  IL_0020: stloc.1
+  IL_0021: ldarg.0
+  IL_0022: call 0x60001cd LosSantosAlive.PRBridge.PrStateTracker::IsPatDown
+  IL_0027: stloc.2
+  IL_0028: ldarg.0
+  IL_0029: call 0x60001ce LosSantosAlive.PRBridge.PrStateTracker::IsSurrendered
+  IL_002e: stloc.3
+  IL_002f: ldc.i4.0
+  IL_0030: stloc.s 4
+  IL_0032: ldarg.0
+  IL_0033: ldc.i4 1937522740
+  IL_0038: call 0x2b000002 .<Module>::hidden decoded="IsPedStopped"
+  IL_003d: ldloca.s 5
+  IL_003f: call 0x60001d1 LosSantosAlive.PRBridge.PrStateTracker::hidden
+  IL_0044: stloc.s 7
+  IL_0046: ldarg.0
+  IL_0047: ldc.i4 -1227619591
+  IL_004c: call 0x2b000002 .<Module>::hidden decoded="IsPedArrested"
+  IL_0051: ldloca.s 6
+  IL_0053: call 0x60001d1 LosSantosAlive.PRBridge.PrStateTracker::hidden
+  IL_0058: stloc.s 8
+  IL_005a: ldloc.s 5
+  IL_005c: brtrue.s  -> IL_0061
+  IL_005e: ldloc.0
+  IL_005f: br.s  -> IL_0063
+  IL_0061: ldloc.s 7
+  IL_0063: stloc.s 9
+  IL_0065: ldloc.s 6
+  IL_0067: brtrue.s  -> IL_006c
+  IL_0069: ldloc.1
+  IL_006a: br.s  -> IL_006e
+  IL_006c: ldloc.s 8
+  IL_006e: stloc.s 10
+  IL_0070: ldloc.2
+  IL_0071: stloc.s 11
+  IL_0073: ldloc.3
+  IL_0074: stloc.s 12
+  IL_0076: ldc.i4.0
+  IL_0077: stloc.s 13
+  IL_0079: ldarg.0
+  IL_007a: call 0xa00017e LSPD_First_Response.Mod.API.Functions::IsPedGettingArrested
+  IL_007f: stloc.s 13
+  IL_0081: leave.s  -> IL_0089
+  IL_0083: pop
+  IL_0084: ldc.i4.0
+  IL_0085: stloc.s 13
+  IL_0087: leave.s  -> IL_0089
+  IL_0089: ldarg.0
+  IL_008a: ldloc.s 5
+  IL_008c: ldloc.s 7
+  IL_008e: ldloc.s 6
+  IL_0090: ldloc.s 8
+  IL_0092: call 0x60001d6 LosSantosAlive.PRBridge.PrStateTracker::hidden
+  IL_0097: ldarg.0
+  IL_0098: call 0x60001cf LosSantosAlive.PRBridge.PrStateTracker::GetLastIdentification
+  IL_009d: stloc.s 14
+  IL_009f: ldarg.0
+  IL_00a0: ldloc.0
+  IL_00a1: ldloc.1
+  IL_00a2: ldloc.2
+  IL_00a3: ldloc.3
+  IL_00a4: ldloc.s 4
+  IL_00a6: ldloc.s 9
+  IL_00a8: ldloc.s 10
+  IL_00aa: ldloc.s 11
+  IL_00ac: ldloc.s 12
+  IL_00ae: call 0x60001d7 LosSantosAlive.PRBridge.PrStateTracker::hidden
+  IL_00b3: ldc.i4.s 13
+  IL_00b5: newarr 0x1000053 System.String
+  IL_00ba: dup
+  IL_00bb: ldc.i4.0
+  IL_00bc: ldc.i4 1969935484
+  IL_00c1: call 0x2b000003 .<Module>::hidden decoded="{ \"detected\": true, \"source\": \"Policing Redefined PedAPI live state / cached reflection / native cuff disabled\", \"stopped\": "
+  IL_00c6: stelem.ref
+  IL_00c7: dup
+  IL_00c8: ldc.i4.1
+  IL_00c9: ldloc.s 9
+  IL_00cb: call 0x60001e2 LosSantosAlive.PRBridge.PrStateTracker::hidden
+  IL_00d0: stelem.ref
+  IL_00d1: dup
+  IL_00d2: ldc.i4.2
+  IL_00d3: ldc.i4 345660426
+  IL_00d8: call 0x2b000005 .<Module>::hidden decoded=", \"gettingArrested\": "
+  IL_00dd: stelem.ref
+  IL_00de: dup
+  IL_00df: ldc.i4.3
+  IL_00e0: ldloc.s 13
+  IL_00e2: call 0x60001e2 LosSantosAlive.PRBridge.PrStateTracker::hidden
+  IL_00e7: stelem.ref
+  IL_00e8: dup
+  IL_00e9: ldc.i4.4
+  IL_00ea: ldc.i4 -402779455
+  IL_00ef: call 0x2b000002 .<Module>::hidden decoded=", \"arrested\": "
+  IL_00f4: stelem.ref
+  IL_00f5: dup
+  IL_00f6: ldc.i4.5
+  IL_00f7: ldloc.s 10
+  IL_00f9: call 0x60001e2 LosSantosAlive.PRBridge.PrStateTracker::hidden
+  IL_00fe: stelem.ref
+  IL_00ff: dup
+  IL_0100: ldc.i4.6
+  IL_0101: ldc.i4 -994277243
+  IL_0106: call 0x2b000005 .<Module>::hidden decoded=", \"patDown\": "
+  IL_010b: stelem.ref
+  IL_010c: dup
+  IL_010d: ldc.i4.7
+  IL_010e: ldloc.s 11
+  IL_0110: call 0x60001e2 LosSantosAlive.PRBridge.PrStateTracker::hidden
+  IL_0115: stelem.ref
+  IL_0116: dup
+  IL_0117: ldc.i4.8
+  IL_0118: ldc.i4 305191326
+  IL_011d: call 0x2b000004 .<Module>::hidden decoded=", \"surrendered\": "
+  IL_0122: stelem.ref
+  IL_0123: dup
+  IL_0124: ldc.i4.s 9
+  IL_0126: ldloc.s 12
+  IL_0128: call 0x60001e2 LosSantosAlive.PRBridge.PrStateTracker::hidden
+  IL_012d: stelem.ref
+  IL_012e: dup
+  IL_012f: ldc.i4.s 10
+  IL_0131: ldc.i4 -1919091308
+  IL_0136: call 0x2b000004 .<Module>::hidden decoded=", \"lastIdentification\": \""
+  IL_013b: stelem.ref
+  IL_013c: dup
+  IL_013d: ldc.i4.s 11
+  IL_013f: ldloc.s 14
+  IL_0141: call 0x60001e3 LosSantosAlive.PRBridge.PrStateTracker::hidden
+  IL_0146: stelem.ref
+  IL_0147: dup
+  IL_0148: ldc.i4.s 12
+  IL_014a: ldc.i4 -710980674
+  IL_014f: call 0x2b000004 .<Module>::hidden decoded="\" }"
+  IL_0154: stelem.ref
+  IL_0155: call 0xa000032 System.String::Concat
+  IL_015a: ret
+METHOD 0x60001d1 hidden(Rage.Ped, String, Boolean&) -> Boolean
+  EXCEPTION {"catchType": "System.Exception", "filterOffset": null, "handlerLength": 85, "handlerOffset": 86, "kind": "Catch", "tryLength": 62, "tryOffset": 24}
+  IL_0000: ldarg.2
+  IL_0001: ldc.i4.0
+  IL_0002: stind.i1
+  IL_0003: ldarg.0
+  IL_0004: call 0x60001e0 LosSantosAlive.PRBridge.PrStateTracker::hidden
+  IL_0009: brtrue.s  -> IL_000d
+  IL_000b: ldc.i4.0
+  IL_000c: ret
+  IL_000d: ldarg.1
+  IL_000e: call 0xa00002c System.String::IsNullOrWhiteSpace
+  IL_0013: brfalse.s  -> IL_0017
+  IL_0015: ldc.i4.0
+  IL_0016: ret
+  IL_0017: nop
+  IL_0018: ldarg.1
+  IL_0019: call 0x60001d2 LosSantosAlive.PRBridge.PrStateTracker::hidden
+  IL_001e: stloc.0
+  IL_001f: ldloc.0
+  IL_0020: ldnull
+  IL_0021: call 0xa00007e System.Reflection.MethodInfo::op_Equality
+  IL_0026: brfalse.s  -> IL_002c
+  IL_0028: ldc.i4.0
+  IL_0029: stloc.2
+  IL_002a: leave.s  -> IL_00ab
+  IL_002c: ldloc.0
+  IL_002d: ldnull
+  IL_002e: ldc.i4.1
+  IL_002f: newarr 0x1000005 System.Object
+  IL_0034: dup
+  IL_0035: ldc.i4.0
+  IL_0036: ldarg.0
+  IL_0037: stelem.ref
+  IL_0038: callvirt 0xa00007f System.Reflection.MethodBase::Invoke
+  IL_003d: stloc.1
+  IL_003e: ldloc.1
+  IL_003f: isinst 0x100006a System.Boolean
+  IL_0044: brtrue.s  -> IL_004a
+  IL_0046: ldc.i4.0
+  IL_0047: stloc.2
+  IL_0048: leave.s  -> IL_00ab
+  IL_004a: ldarg.2
+  IL_004b: ldc.i4.1
+  IL_004c: stind.i1
+  IL_004d: ldloc.1
+  IL_004e: unbox.any 0x100006a System.Boolean
+  IL_0053: stloc.2
+  IL_0054: leave.s  -> IL_00ab
+  IL_0056: stloc.3
+  IL_0057: ldc.i4.6
+  IL_0058: newarr 0x1000053 System.String
+  IL_005d: dup
+  IL_005e: ldc.i4.0
+  IL_005f: ldc.i4 1864562268
+  IL_0064: call 0x2b000004 .<Module>::hidden decoded="PR PedAPI state query failed. method="
+  IL_0069: stelem.ref
+  IL_006a: dup
+  IL_006b: ldc.i4.1
+  IL_006c: ldarg.1
+  IL_006d: stelem.ref
+  IL_006e: dup
+  IL_006f: ldc.i4.2
+  IL_0070: ldc.i4 -1290888044
+  IL_0075: call 0x2b000003 .<Module>::hidden decoded=" ped="
+  IL_007a: stelem.ref
+  IL_007b: dup
+  IL_007c: ldc.i4.3
+  IL_007d: ldarg.0
+  IL_007e: call 0x60001e1 LosSantosAlive.PRBridge.PrStateTracker::hidden
+  IL_0083: stelem.ref
+  IL_0084: dup
+  IL_0085: ldc.i4.4
+  IL_0086: ldc.i4 -652661352
+  IL_008b: call 0x2b000001 .<Module>::hidden decoded=" error="
+  IL_0090: stelem.ref
+  IL_0091: dup
+  IL_0092: ldc.i4.5
+  IL_0093: ldloc.3
+  IL_0094: callvirt 0xa000072 System.Exception::get_Message
+  IL_0099: stelem.ref
+  IL_009a: call 0xa000032 System.String::Concat
+  IL_009f: call 0x60001d5 LosSantosAlive.PRBridge.PrStateTracker::hidden
+  IL_00a4: ldarg.2
+  IL_00a5: ldc.i4.0
+  IL_00a6: stind.i1
+  IL_00a7: ldc.i4.0
+  IL_00a8: stloc.2
+  IL_00a9: leave.s  -> IL_00ab
+  IL_00ab: ldloc.2
+  IL_00ac: ret
+METHOD 0x60001d2 hidden(String) -> System.Reflection.MethodInfo
+  EXCEPTION {"catchType": null, "filterOffset": null, "handlerLength": 10, "handlerOffset": 78, "kind": "Finally", "tryLength": 64, "tryOffset": 14}
+  IL_0000: ldc.i4.0
+  IL_0001: call 0x60001d3 LosSantosAlive.PRBridge.PrStateTracker::hidden
+  IL_0006: ldsfld 0x40000e3 LosSantosAlive.PRBridge.PrStateTracker::hidden
+  IL_000b: stloc.0
+  IL_000c: ldc.i4.0
+  IL_000d: stloc.1
+  IL_000e: ldloc.0
+  IL_000f: ldloca.s 1
+  IL_0011: call 0xa00002b System.Threading.Monitor::Enter
+  IL_0016: ldarg.0
+  IL_0017: ldc.i4 -185088326
+  IL_001c: call 0x2b000001 .<Module>::hidden decoded="IsPedStopped"
+  IL_0021: ldc.i4.5
+  IL_0022: callvirt 0xa000076 System.String::Equals
+  IL_0027: brfalse.s  -> IL_0031
+  IL_0029: ldsfld 0x40000ee LosSantosAlive.PRBridge.PrStateTracker::hidden
+  IL_002e: stloc.2
+  IL_002f: leave.s  -> IL_005a
+  IL_0031: ldarg.0
+  IL_0032: ldc.i4 -1227619591
+  IL_0037: call 0x2b000002 .<Module>::hidden decoded="IsPedArrested"
+  IL_003c: ldc.i4.5
+  IL_003d: callvirt 0xa000076 System.String::Equals
+  IL_0042: brfalse.s  -> IL_004c
+  IL_0044: ldsfld 0x40000ef LosSantosAlive.PRBridge.PrStateTracker::hidden
+  IL_0049: stloc.2
+  IL_004a: leave.s  -> IL_005a
+  IL_004c: leave.s  -> IL_0058
+  IL_004e: ldloc.1
+  IL_004f: brfalse.s  -> IL_0057
+  IL_0051: ldloc.0
+  IL_0052: call 0xa000035 System.Threading.Monitor::Exit
+  IL_0057: endfinally
+  IL_0058: ldnull
+  IL_0059: ret
+  IL_005a: ldloc.2
+  IL_005b: ret
+METHOD 0x60001d3 hidden(Boolean) -> Void
+  EXCEPTION {"catchType": null, "filterOffset": null, "handlerLength": 10, "handlerOffset": 311, "kind": "Finally", "tryLength": 297, "tryOffset": 14}
+  IL_0000: call 0xa0001e2 Rage.Game::get_GameTime
+  IL_0005: stloc.0
+  IL_0006: ldsfld 0x40000e3 LosSantosAlive.PRBridge.PrStateTracker::hidden
+  IL_000b: stloc.1
+  IL_000c: ldc.i4.0
+  IL_000d: stloc.2
+  IL_000e: ldloc.1
+  IL_000f: ldloca.s 2
+  IL_0011: call 0xa00002b System.Threading.Monitor::Enter
+  IL_0016: ldarg.0
+  IL_0017: brtrue.s  -> IL_0058
+  IL_0019: ldsfld 0x40000ed LosSantosAlive.PRBridge.PrStateTracker::hidden
+  IL_001e: ldnull
+  IL_001f: call 0xa000088 System.Type::op_Inequality
+  IL_0024: brfalse.s  -> IL_0045
+  IL_0026: ldsfld 0x40000ee LosSantosAlive.PRBridge.PrStateTracker::hidden
+  IL_002b: ldnull
+  IL_002c: call 0xa000084 System.Reflection.MethodInfo::op_Inequality
+  IL_0031: brfalse.s  -> IL_0045
+  IL_0033: ldsfld 0x40000ef LosSantosAlive.PRBridge.PrStateTracker::hidden
+  IL_0038: ldnull
+  IL_0039: call 0xa000084 System.Reflection.MethodInfo::op_Inequality
+  IL_003e: brfalse.s  -> IL_0045
+  IL_0040: leave  -> IL_0141
+  IL_0045: ldloc.0
+  IL_0046: ldsfld 0x40000f0 LosSantosAlive.PRBridge.PrStateTracker::hidden
+  IL_004b: sub
+  IL_004c: ldc.i4 5000
+  IL_0051: bge.s  -> IL_0058
+  IL_0053: leave  -> IL_0141
+  IL_0058: ldloc.0
+  IL_0059: stsfld 0x40000f0 LosSantosAlive.PRBridge.PrStateTracker::hidden
+  IL_005e: ldc.i4 -2143882226
+  IL_0063: call 0x2b000004 .<Module>::hidden decoded="PolicingRedefined.API.PedAPI"
+  IL_0068: call 0x60001d4 LosSantosAlive.PRBridge.PrStateTracker::hidden
+  IL_006d: stloc.3
+  IL_006e: ldloc.3
+  IL_006f: ldnull
+  IL_0070: call 0xa000082 System.Type::op_Equality
+  IL_0075: brfalse.s  -> IL_009d
+  IL_0077: ldnull
+  IL_0078: stsfld 0x40000ed LosSantosAlive.PRBridge.PrStateTracker::hidden
+  IL_007d: ldnull
+  IL_007e: stsfld 0x40000ee LosSantosAlive.PRBridge.PrStateTracker::hidden
+  IL_0083: ldnull
+  IL_0084: stsfld 0x40000ef LosSantosAlive.PRBridge.PrStateTracker::hidden
+  IL_0089: ldc.i4 -156726893
+  IL_008e: call 0x2b000005 .<Module>::hidden decoded="Could not resolve PolicingRedefined.API.PedAPI."
+  IL_0093: call 0x60001d5 LosSantosAlive.PRBridge.PrStateTracker::hidden
+  IL_0098: leave  -> IL_0141
+  IL_009d: ldloc.3
+  IL_009e: stsfld 0x40000ed LosSantosAlive.PRBridge.PrStateTracker::hidden
+  IL_00a3: ldloc.3
+  IL_00a4: ldc.i4 460125536
+  IL_00a9: call 0x2b000003 .<Module>::hidden decoded="IsPedStopped"
+  IL_00ae: ldc.i4.s 56
+  IL_00b0: ldnull
+  IL_00b1: ldc.i4.1
+  IL_00b2: newarr 0x100000e System.Type
+  IL_00b7: dup
+  IL_00b8: ldc.i4.0
+  IL_00b9: ldtoken 0x100000c Rage.Ped
+  IL_00be: call 0xa00001e System.Type::GetTypeFromHandle
+  IL_00c3: stelem.ref
+  IL_00c4: ldnull
+  IL_00c5: callvirt 0xa0000ce System.Type::GetMethod
+  IL_00ca: stsfld 0x40000ee LosSantosAlive.PRBridge.PrStateTracker::hidden
+  IL_00cf: ldloc.3
+  IL_00d0: ldc.i4 -1775150387
+  IL_00d5: call 0x2b000004 .<Module>::hidden decoded="IsPedArrested"
+  IL_00da: ldc.i4.s 56
+  IL_00dc: ldnull
+  IL_00dd: ldc.i4.1
+  IL_00de: newarr 0x100000e System.Type
+  IL_00e3: dup
+  IL_00e4: ldc.i4.0
+  IL_00e5: ldtoken 0x100000c Rage.Ped
+  IL_00ea: call 0xa00001e System.Type::GetTypeFromHandle
+  IL_00ef: stelem.ref
+  IL_00f0: ldnull
+  IL_00f1: callvirt 0xa0000ce System.Type::GetMethod
+  IL_00f6: stsfld 0x40000ef LosSantosAlive.PRBridge.PrStateTracker::hidden
+  IL_00fb: ldsfld 0x40000ee LosSantosAlive.PRBridge.PrStateTracker::hidden
+  IL_0100: ldnull
+  IL_0101: call 0xa00007e System.Reflection.MethodInfo::op_Equality
+  IL_0106: brtrue.s  -> IL_0115
+  IL_0108: ldsfld 0x40000ef LosSantosAlive.PRBridge.PrStateTracker::hidden
+  IL_010d: ldnull
+  IL_010e: call 0xa00007e System.Reflection.MethodInfo::op_Equality
+  IL_0113: brfalse.s  -> IL_0126
+  IL_0115: ldc.i4 -599391252
+  IL_011a: call 0x2b000005 .<Module>::hidden decoded="Resolved PedAPI but missing IsPedStopped/IsPedArrested methods."
+  IL_011f: call 0x60001d5 LosSantosAlive.PRBridge.PrStateTracker::hidden
+  IL_0124: leave.s  -> IL_0141
+  IL_0126: ldc.i4 -1400964935
+  IL_012b: call 0x2b000005 .<Module>::hidden decoded="[LSA.PRBridge] Cached Policing Redefined PedAPI reflection methods."
+  IL_0130: call 0xa000033 Rage.Game::LogTrivial
+  IL_0135: leave.s  -> IL_0141
+  IL_0137: ldloc.2
+  IL_0138: brfalse.s  -> IL_0140
+  IL_013a: ldloc.1
+  IL_013b: call 0xa000035 System.Threading.Monitor::Exit
+  IL_0140: endfinally
+  IL_0141: ret
+METHOD 0x60001d4 hidden(String) -> System.Type
+  EXCEPTION {"catchType": "System.Object", "filterOffset": null, "handlerLength": 3, "handlerOffset": 64, "kind": "Catch", "tryLength": 25, "tryOffset": 39}
+  IL_0000: ldarg.0
+  IL_0001: call 0xa00002c System.String::IsNullOrWhiteSpace
+  IL_0006: brfalse.s  -> IL_000a
+  IL_0008: ldnull
+  IL_0009: ret
+  IL_000a: call 0xa000022 System.AppDomain::get_CurrentDomain
+  IL_000f: callvirt 0xa000085 System.AppDomain::GetAssemblies
+  IL_0014: stloc.0
+  IL_0015: ldc.i4.0
+  IL_0016: stloc.1
+  IL_0017: br.s  -> IL_0047
+  IL_0019: ldloc.0
+  IL_001a: ldloc.1
+  IL_001b: ldelem.ref
+  IL_001c: stloc.2
+  IL_001d: ldloc.2
+  IL_001e: ldnull
+  IL_001f: call 0xa000086 System.Reflection.Assembly::op_Equality
+  IL_0024: brtrue.s  -> IL_0043
+  IL_0026: nop
+  IL_0027: ldloc.2
+  IL_0028: ldarg.0
+  IL_0029: ldc.i4.0
+  IL_002a: callvirt 0xa000087 System.Reflection.Assembly::GetType
+  IL_002f: stloc.3
+  IL_0030: ldloc.3
+  IL_0031: ldnull
+  IL_0032: call 0xa000088 System.Type::op_Inequality
+  IL_0037: brfalse.s  -> IL_003e
+  IL_0039: ldloc.3
+  IL_003a: stloc.s 4
+  IL_003c: leave.s  -> IL_004f
+  IL_003e: leave.s  -> IL_0043
+  IL_0040: pop
+  IL_0041: leave.s  -> IL_0043
+  IL_0043: ldloc.1
+  IL_0044: ldc.i4.1
+  IL_0045: add
+  IL_0046: stloc.1
+  IL_0047: ldloc.1
+  IL_0048: ldloc.0
+  IL_0049: ldlen
+  IL_004a: conv.i4
+  IL_004b: blt.s  -> IL_0019
+  IL_004d: ldnull
+  IL_004e: ret
+  IL_004f: ldloc.s 4
+  IL_0051: ret
+METHOD 0x60001d5 hidden(String) -> Void
+  EXCEPTION {"catchType": null, "filterOffset": null, "handlerLength": 10, "handlerOffset": 46, "kind": "Finally", "tryLength": 32, "tryOffset": 14}
+  IL_0000: call 0xa0001e2 Rage.Game::get_GameTime
+  IL_0005: stloc.0
+  IL_0006: ldsfld 0x40000e3 LosSantosAlive.PRBridge.PrStateTracker::hidden
+  IL_000b: stloc.1
+  IL_000c: ldc.i4.0
+  IL_000d: stloc.2
+  IL_000e: ldloc.1
+  IL_000f: ldloca.s 2
+  IL_0011: call 0xa00002b System.Threading.Monitor::Enter
+  IL_0016: ldloc.0
+  IL_0017: ldsfld 0x40000f1 LosSantosAlive.PRBridge.PrStateTracker::hidden
+  IL_001c: sub
+  IL_001d: ldc.i4 10000
+  IL_0022: bge.s  -> IL_0026
+  IL_0024: leave.s  -> IL_005b
+  IL_0026: ldloc.0
+  IL_0027: stsfld 0x40000f1 LosSantosAlive.PRBridge.PrStateTracker::hidden
+  IL_002c: leave.s  -> IL_0038
+  IL_002e: ldloc.2
+  IL_002f: brfalse.s  -> IL_0037
+  IL_0031: ldloc.1
+  IL_0032: call 0xa000035 System.Threading.Monitor::Exit
+  IL_0037: endfinally
+  IL_0038: ldc.i4 -144782301
+  IL_003d: call 0x2b000005 .<Module>::hidden decoded="[LSA.PRBridge] "
+  IL_0042: ldarg.0
+  IL_0043: dup
+  IL_0044: brtrue.s  -> IL_0051
+  IL_0046: pop
+  IL_0047: ldc.i4 -302325238
+  IL_004c: call 0x2b000002 .<Module>::hidden decoded="PR PedAPI failure"
+  IL_0051: call 0xa000037 System.String::Concat
+  IL_0056: call 0xa000033 Rage.Game::LogTrivial
+  IL_005b: ret
+METHOD 0x60001d6 hidden(Rage.Ped, Boolean, Boolean, Boolean, Boolean) -> Void
+  EXCEPTION {"catchType": null, "filterOffset": null, "handlerLength": 10, "handlerOffset": 119, "kind": "Finally", "tryLength": 102, "tryOffset": 17}
+  IL_0000: ldarg.0
+  IL_0001: call 0x60001e0 LosSantosAlive.PRBridge.PrStateTracker::hidden
+  IL_0006: brtrue.s  -> IL_0009
+  IL_0008: ret
+  IL_0009: ldsfld 0x40000e2 LosSantosAlive.PRBridge.PrStateTracker::hidden
+  IL_000e: stloc.0
+  IL_000f: ldc.i4.0
+  IL_0010: stloc.1
+  IL_0011: ldloc.0
+  IL_0012: ldloca.s 1
+  IL_0014: call 0xa00002b System.Threading.Monitor::Enter
+  IL_0019: ldarg.0
+  IL_001a: callvirt 0xa00007c Rage.Entity::get_Handle
+  IL_001f: stloc.3
+  IL_0020: ldloca.s 3
+  IL_0022: call 0xa00013b Rage.PoolHandle::get_Value
+  IL_0027: stloc.2
+  IL_0028: ldarg.1
+  IL_0029: brfalse.s  -> IL_0048
+  IL_002b: ldarg.2
+  IL_002c: brfalse.s  -> IL_003c
+  IL_002e: ldsfld 0x40000e4 LosSantosAlive.PRBridge.PrStateTracker::hidden
+  IL_0033: ldloc.2
+  IL_0034: callvirt 0xa0001e3 System.Collections.Generic.HashSet`1<UInt32>::Add
+  IL_0039: pop
+  IL_003a: br.s  -> IL_0048
+  IL_003c: ldsfld 0x40000e4 LosSantosAlive.PRBridge.PrStateTracker::hidden
+  IL_0041: ldloc.2
+  IL_0042: callvirt 0xa0001e4 System.Collections.Generic.HashSet`1<UInt32>::Remove
+  IL_0047: pop
+  IL_0048: ldarg.3
+  IL_0049: brfalse.s  -> IL_0075
+  IL_004b: ldarg.s 4
+  IL_004d: brfalse.s  -> IL_0069
+  IL_004f: ldsfld 0x40000e5 LosSantosAlive.PRBridge.PrStateTracker::hidden
+  IL_0054: ldloc.2
+  IL_0055: callvirt 0xa0001e3 System.Collections.Generic.HashSet`1<UInt32>::Add
+  IL_005a: pop
+  IL_005b: ldsfld 0x40000e4 LosSantosAlive.PRBridge.PrStateTracker::hidden
+  IL_0060: ldloc.2
+  IL_0061: callvirt 0xa0001e3 System.Collections.Generic.HashSet`1<UInt32>::Add
+  IL_0066: pop
+  IL_0067: leave.s  -> IL_0081
+  IL_0069: ldsfld 0x40000e5 LosSantosAlive.PRBridge.PrStateTracker::hidden
+  IL_006e: ldloc.2
+  IL_006f: callvirt 0xa0001e4 System.Collections.Generic.HashSet`1<UInt32>::Remove
+  IL_0074: pop
+  IL_0075: leave.s  -> IL_0081
+  IL_0077: ldloc.1
+  IL_0078: brfalse.s  -> IL_0080
+  IL_007a: ldloc.0
+  IL_007b: call 0xa000035 System.Threading.Monitor::Exit
+  IL_0080: endfinally
+  IL_0081: ret
+METHOD 0x60001d7 hidden(Rage.Ped, Boolean, Boolean, Boolean, Boolean, Boolean, Boolean, Boolean, Boolean, Boolean) -> Void
+  EXCEPTION {"catchType": null, "filterOffset": null, "handlerLength": 10, "handlerOffset": 322, "kind": "Finally", "tryLength": 77, "tryOffset": 245}
+  IL_0000: ldarg.0
+  IL_0001: call 0x60001e0 LosSantosAlive.PRBridge.PrStateTracker::hidden
+  IL_0006: brtrue.s  -> IL_0009
+  IL_0008: ret
+  IL_0009: ldc.i4.s 18
+  IL_000b: newarr 0x1000053 System.String
+  IL_0010: dup
+  IL_0011: ldc.i4.0
+  IL_0012: ldc.i4 -1226831364
+  IL_0017: call 0x2b000003 .<Module>::hidden decoded="eventStopped="
+  IL_001c: stelem.ref
+  IL_001d: dup
+  IL_001e: ldc.i4.1
+  IL_001f: ldarg.1
+  IL_0020: call 0x60001e2 LosSantosAlive.PRBridge.PrStateTracker::hidden
+  IL_0025: stelem.ref
+  IL_0026: dup
+  IL_0027: ldc.i4.2
+  IL_0028: ldc.i4 383274875
+  IL_002d: call 0x2b000001 .<Module>::hidden decoded=" eventArrested="
+  IL_0032: stelem.ref
+  IL_0033: dup
+  IL_0034: ldc.i4.3
+  IL_0035: ldarg.2
+  IL_0036: call 0x60001e2 LosSantosAlive.PRBridge.PrStateTracker::hidden
+  IL_003b: stelem.ref
+  IL_003c: dup
+  IL_003d: ldc.i4.4
+  IL_003e: ldc.i4 -1203320052
+  IL_0043: call 0x2b000004 .<Module>::hidden decoded=" eventPatDown="
+  IL_0048: stelem.ref
+  IL_0049: dup
+  IL_004a: ldc.i4.5
+  IL_004b: ldarg.3
+  IL_004c: call 0x60001e2 LosSantosAlive.PRBridge.PrStateTracker::hidden
+  IL_0051: stelem.ref
+  IL_0052: dup
+  IL_0053: ldc.i4.6
+  IL_0054: ldc.i4 -1011577407
+  IL_0059: call 0x2b000004 .<Module>::hidden decoded=" eventSurrendered="
+  IL_005e: stelem.ref
+  IL_005f: dup
+  IL_0060: ldc.i4.7
+  IL_0061: ldarg.s 4
+  IL_0063: call 0x60001e2 LosSantosAlive.PRBridge.PrStateTracker::hidden
+  IL_0068: stelem.ref
+  IL_0069: dup
+  IL_006a: ldc.i4.8
+  IL_006b: ldc.i4 -2044539083
+  IL_0070: call 0x2b000003 .<Module>::hidden decoded=" nativeCuffed="
+  IL_0075: stelem.ref
+  IL_0076: dup
+  IL_0077: ldc.i4.s 9
+  IL_0079: ldarg.s 5
+  IL_007b: call 0x60001e2 LosSantosAlive.PRBridge.PrStateTracker::hidden
+  IL_0080: stelem.ref
+  IL_0081: dup
+  IL_0082: ldc.i4.s 10
+  IL_0084: ldc.i4 1566009284
+  IL_0089: call 0x2b000005 .<Module>::hidden decoded=" finalStopped="
+  IL_008e: stelem.ref
+  IL_008f: dup
+  IL_0090: ldc.i4.s 11
+  IL_0092: ldarg.s 6
+  IL_0094: call 0x60001e2 LosSantosAlive.PRBridge.PrStateTracker::hidden
+  IL_0099: stelem.ref
+  IL_009a: dup
+  IL_009b: ldc.i4.s 12
+  IL_009d: ldc.i4 939560901
+  IL_00a2: call 0x2b000001 .<Module>::hidden decoded=" finalArrested="
+  IL_00a7: stelem.ref
+  IL_00a8: dup
+  IL_00a9: ldc.i4.s 13
+  IL_00ab: ldarg.s 7
+  IL_00ad: call 0x60001e2 LosSantosAlive.PRBridge.PrStateTracker::hidden
+  IL_00b2: stelem.ref
+  IL_00b3: dup
+  IL_00b4: ldc.i4.s 14
+  IL_00b6: ldc.i4 -929779734
+  IL_00bb: call 0x2b000001 .<Module>::hidden decoded=" finalPatDown="
+  IL_00c0: stelem.ref
+  IL_00c1: dup
+  IL_00c2: ldc.i4.s 15
+  IL_00c4: ldarg.s 8
+  IL_00c6: call 0x60001e2 LosSantosAlive.PRBridge.PrStateTracker::hidden
+  IL_00cb: stelem.ref
+  IL_00cc: dup
+  IL_00cd: ldc.i4.s 16
+  IL_00cf: ldc.i4 -887235233
+  IL_00d4: call 0x2b000002 .<Module>::hidden decoded=" finalSurrendered="
+  IL_00d9: stelem.ref
+  IL_00da: dup
+  IL_00db: ldc.i4.s 17
+  IL_00dd: ldarg.s 9
+  IL_00df: call 0x60001e2 LosSantosAlive.PRBridge.PrStateTracker::hidden
+  IL_00e4: stelem.ref
+  IL_00e5: call 0xa000032 System.String::Concat
+  IL_00ea: stloc.0
+  IL_00eb: ldc.i4.0
+  IL_00ec: stloc.1
+  IL_00ed: ldsfld 0x40000e2 LosSantosAlive.PRBridge.PrStateTracker::hidden
+  IL_00f2: stloc.2
+  IL_00f3: ldc.i4.0
+  IL_00f4: stloc.3
+  IL_00f5: ldloc.2
+  IL_00f6: ldloca.s 3
+  IL_00f8: call 0xa00002b System.Threading.Monitor::Enter
+  IL_00fd: ldsfld 0x40000e9 LosSantosAlive.PRBridge.PrStateTracker::hidden
+  IL_0102: ldarg.0
+  IL_0103: callvirt 0xa00007c Rage.Entity::get_Handle
+  IL_0108: stloc.s 5
+  IL_010a: ldloca.s 5
+  IL_010c: call 0xa00013b Rage.PoolHandle::get_Value
+  IL_0111: ldloca.s 4
+  IL_0113: callvirt 0xa0001e1 System.Collections.Generic.Dictionary`2<UInt32,String>::TryGetValue
+  IL_0118: brfalse.s  -> IL_0124
+  IL_011a: ldloc.s 4
+  IL_011c: ldloc.0
+  IL_011d: call 0xa0000c7 System.String::op_Inequality
+  IL_0122: brfalse.s  -> IL_0140
+  IL_0124: ldsfld 0x40000e9 LosSantosAlive.PRBridge.PrStateTracker::hidden
+  IL_0129: ldarg.0
+  IL_012a: callvirt 0xa00007c Rage.Entity::get_Handle
+  IL_012f: stloc.s 5
+  IL_0131: ldloca.s 5
+  IL_0133: call 0xa00013b Rage.PoolHandle::get_Value
+  IL_0138: ldloc.0
+  IL_0139: callvirt 0xa0001e5 System.Collections.Generic.Dictionary`2<UInt32,String>::set_Item
+  IL_013e: ldc.i4.1
+  IL_013f: stloc.1
+  IL_0140: leave.s  -> IL_014c
+  IL_0142: ldloc.3
+  IL_0143: brfalse.s  -> IL_014b
+  IL_0145: ldloc.2
+  IL_0146: call 0xa000035 System.Threading.Monitor::Exit
+  IL_014b: endfinally
+  IL_014c: ldloc.1
+  IL_014d: brtrue.s  -> IL_0150
+  IL_014f: ret
+  IL_0150: ldc.i4 1033677473
+  IL_0155: call 0x2b000004 .<Module>::hidden decoded="[LSA.PRBridge] PRSTATE query ped="
+  IL_015a: ldarg.0
+  IL_015b: call 0x60001e1 LosSantosAlive.PRBridge.PrStateTracker::hidden
+  IL_0160: ldc.i4 2137827449
+  IL_0165: call 0x2b000003 .<Module>::hidden decoded=" "
+  IL_016a: ldloc.0
+  IL_016b: call 0xa000039 System.String::Concat
+  IL_0170: call 0xa000033 Rage.Game::LogTrivial
+  IL_0175: ret
+METHOD 0x60001d8 hidden(Rage.Ped) -> Void
+  IL_0000: ldsfld 0x40000e4 LosSantosAlive.PRBridge.PrStateTracker::hidden
+  IL_0005: ldarg.0
+  IL_0006: call 0x60001de LosSantosAlive.PRBridge.PrStateTracker::hidden
+  IL_000b: ldc.i4 -827486295
+  IL_0010: call 0x2b000003 .<Module>::hidden decoded="[LSA.PRBridge] PR event: ped stopped "
+  IL_0015: ldarg.0
+  IL_0016: call 0x60001e1 LosSantosAlive.PRBridge.PrStateTracker::hidden
+  IL_001b: call 0xa000037 System.String::Concat
+  IL_0020: call 0xa000033 Rage.Game::LogTrivial
+  IL_0025: ret
+METHOD 0x60001d9 hidden(Rage.Ped) -> Void
+  EXCEPTION {"catchType": null, "filterOffset": null, "handlerLength": 10, "handlerOffset": 114, "kind": "Finally", "tryLength": 97, "tryOffset": 17}
+  IL_0000: ldarg.0
+  IL_0001: call 0x60001e0 LosSantosAlive.PRBridge.PrStateTracker::hidden
+  IL_0006: brtrue.s  -> IL_0009
+  IL_0008: ret
+  IL_0009: ldsfld 0x40000e2 LosSantosAlive.PRBridge.PrStateTracker::hidden
+  IL_000e: stloc.0
+  IL_000f: ldc.i4.0
+  IL_0010: stloc.1
+  IL_0011: ldloc.0
+  IL_0012: ldloca.s 1
+  IL_0014: call 0xa00002b System.Threading.Monitor::Enter
+  IL_0019: ldarg.0
+  IL_001a: callvirt 0xa00007c Rage.Entity::get_Handle
+  IL_001f: stloc.3
+  IL_0020: ldloca.s 3
+  IL_0022: call 0xa00013b Rage.PoolHandle::get_Value
+  IL_0027: stloc.2
+  IL_0028: ldsfld 0x40000e4 LosSantosAlive.PRBridge.PrStateTracker::hidden
+  IL_002d: ldloc.2
+  IL_002e: callvirt 0xa0001e4 System.Collections.Generic.HashSet`1<UInt32>::Remove
+  IL_0033: pop
+  IL_0034: ldsfld 0x40000e5 LosSantosAlive.PRBridge.PrStateTracker::hidden
+  IL_0039: ldloc.2
+  IL_003a: callvirt 0xa0001e4 System.Collections.Generic.HashSet`1<UInt32>::Remove
+  IL_003f: pop
+  IL_0040: ldsfld 0x40000e7 LosSantosAlive.PRBridge.PrStateTracker::hidden
+  IL_0045: ldloc.2
+  IL_0046: callvirt 0xa0001e4 System.Collections.Generic.HashSet`1<UInt32>::Remove
+  IL_004b: pop
+  IL_004c: ldsfld 0x40000e6 LosSantosAlive.PRBridge.PrStateTracker::hidden
+  IL_0051: ldloc.2
+  IL_0052: callvirt 0xa0001e4 System.Collections.Generic.HashSet`1<UInt32>::Remove
+  IL_0057: pop
+  IL_0058: ldsfld 0x40000e8 LosSantosAlive.PRBridge.PrStateTracker::hidden
+  IL_005d: ldloc.2
+  IL_005e: callvirt 0xa0001e6 System.Collections.Generic.Dictionary`2<UInt32,String>::Remove
+  IL_0063: pop
+  IL_0064: ldsfld 0x40000e9 LosSantosAlive.PRBridge.PrStateTracker::hidden
+  IL_0069: ldloc.2
+  IL_006a: callvirt 0xa0001e6 System.Collections.Generic.Dictionary`2<UInt32,String>::Remove
+  IL_006f: pop
+  IL_0070: leave.s  -> IL_007c
+  IL_0072: ldloc.1
+  IL_0073: brfalse.s  -> IL_007b
+  IL_0075: ldloc.0
+  IL_0076: call 0xa000035 System.Threading.Monitor::Exit
+  IL_007b: endfinally
+  IL_007c: ldc.i4 -2050657098
+  IL_0081: call 0x2b000004 .<Module>::hidden decoded="[LSA.PRBridge] PR event: ped released / cleared stopped+arrested+patdown+surrendered "
+  IL_0086: ldarg.0
+  IL_0087: call 0x60001e1 LosSantosAlive.PRBridge.PrStateTracker::hidden
+  IL_008c: call 0xa000037 System.String::Concat
+  IL_0091: call 0xa000033 Rage.Game::LogTrivial
+  IL_0096: ret
+METHOD 0x60001da hidden(Rage.Ped, Rage.Ped, Boolean) -> Void
+  IL_0000: ldsfld 0x40000e5 LosSantosAlive.PRBridge.PrStateTracker::hidden
+  IL_0005: ldarg.0
+  IL_0006: call 0x60001de LosSantosAlive.PRBridge.PrStateTracker::hidden
+  IL_000b: ldsfld 0x40000e4 LosSantosAlive.PRBridge.PrStateTracker::hidden
+  IL_0010: ldarg.0
+  IL_0011: call 0x60001de LosSantosAlive.PRBridge.PrStateTracker::hidden
+  IL_0016: ldc.i4.6
+  IL_0017: newarr 0x1000053 System.String
+  IL_001c: dup
+  IL_001d: ldc.i4.0
+  IL_001e: ldc.i4 -1489058873
+  IL_0023: call 0x2b000003 .<Module>::hidden decoded="[LSA.PRBridge] PR event: ped arrested "
+  IL_0028: stelem.ref
+  IL_0029: dup
+  IL_002a: ldc.i4.1
+  IL_002b: ldarg.0
+  IL_002c: call 0x60001e1 LosSantosAlive.PRBridge.PrStateTracker::hidden
+  IL_0031: stelem.ref
+  IL_0032: dup
+  IL_0033: ldc.i4.2
+  IL_0034: ldc.i4 -2136041980
+  IL_0039: call 0x2b000001 .<Module>::hidden decoded=" officer="
+  IL_003e: stelem.ref
+  IL_003f: dup
+  IL_0040: ldc.i4.3
+  IL_0041: ldarg.1
+  IL_0042: call 0x60001e1 LosSantosAlive.PRBridge.PrStateTracker::hidden
+  IL_0047: stelem.ref
+  IL_0048: dup
+  IL_0049: ldc.i4.4
+  IL_004a: ldc.i4 1711993412
+  IL_004f: call 0x2b000001 .<Module>::hidden decoded=" frontCuffs="
+  IL_0054: stelem.ref
+  IL_0055: dup
+  IL_0056: ldc.i4.5
+  IL_0057: ldarga.s 2
+  IL_0059: call 0xa000067 System.Boolean::ToString
+  IL_005e: stelem.ref
+  IL_005f: call 0xa000032 System.String::Concat
+  IL_0064: call 0xa000033 Rage.Game::LogTrivial
+  IL_0069: ret
+METHOD 0x60001db hidden(Rage.Ped) -> Void
+  IL_0000: ldsfld 0x40000e6 LosSantosAlive.PRBridge.PrStateTracker::hidden
+  IL_0005: ldarg.0
+  IL_0006: call 0x60001de LosSantosAlive.PRBridge.PrStateTracker::hidden
+  IL_000b: ldc.i4 -636558452
+  IL_0010: call 0x2b000001 .<Module>::hidden decoded="[LSA.PRBridge] PR event: ped pat down "
+  IL_0015: ldarg.0
+  IL_0016: call 0x60001e1 LosSantosAlive.PRBridge.PrStateTracker::hidden
+  IL_001b: call 0xa000037 System.String::Concat
+  IL_0020: call 0xa000033 Rage.Game::LogTrivial
+  IL_0025: ret
+METHOD 0x60001dc hidden(Rage.Ped) -> Void
+  IL_0000: ldsfld 0x40000e7 LosSantosAlive.PRBridge.PrStateTracker::hidden
+  IL_0005: ldarg.0
+  IL_0006: call 0x60001de LosSantosAlive.PRBridge.PrStateTracker::hidden
+  IL_000b: ldc.i4 -324973293
+  IL_0010: call 0x2b000004 .<Module>::hidden decoded="[LSA.PRBridge] PR event: ped surrendered "
+  IL_0015: ldarg.0
+  IL_0016: call 0x60001e1 LosSantosAlive.PRBridge.PrStateTracker::hidden
+  IL_001b: call 0xa000037 System.String::Concat
+  IL_0020: call 0xa000033 Rage.Game::LogTrivial
+  IL_0025: ret
+METHOD 0x60001dd hidden(Rage.Ped, PolicingRedefined.API.EGivenIdentification) -> Void
+  EXCEPTION {"catchType": null, "filterOffset": null, "handlerLength": 10, "handlerOffset": 64, "kind": "Finally", "tryLength": 47, "tryOffset": 17}
+  IL_0000: ldarg.0
+  IL_0001: call 0x60001e0 LosSantosAlive.PRBridge.PrStateTracker::hidden
+  IL_0006: brtrue.s  -> IL_0009
+  IL_0008: ret
+  IL_0009: ldsfld 0x40000e2 LosSantosAlive.PRBridge.PrStateTracker::hidden
+  IL_000e: stloc.0
+  IL_000f: ldc.i4.0
+  IL_0010: stloc.1
+  IL_0011: ldloc.0
+  IL_0012: ldloca.s 1
+  IL_0014: call 0xa00002b System.Threading.Monitor::Enter
+  IL_0019: ldsfld 0x40000e8 LosSantosAlive.PRBridge.PrStateTracker::hidden
+  IL_001e: ldarg.0
+  IL_001f: callvirt 0xa00007c Rage.Entity::get_Handle
+  IL_0024: stloc.2
+  IL_0025: ldloca.s 2
+  IL_0027: call 0xa00013b Rage.PoolHandle::get_Value
+  IL_002c: ldarga.s 1
+  IL_002e: constrained. 0x1000034 PolicingRedefined.API.EGivenIdentification
+  IL_0034: callvirt 0xa000038 System.Object::ToString
+  IL_0039: callvirt 0xa0001e5 System.Collections.Generic.Dictionary`2<UInt32,String>::set_Item
+  IL_003e: leave.s  -> IL_004a
+  IL_0040: ldloc.1
+  IL_0041: brfalse.s  -> IL_0049
+  IL_0043: ldloc.0
+  IL_0044: call 0xa000035 System.Threading.Monitor::Exit
+  IL_0049: endfinally
+  IL_004a: ldc.i4 895254717
+  IL_004f: call 0x2b000003 .<Module>::hidden decoded="[LSA.PRBridge] PR event: identification given "
+  IL_0054: ldarg.0
+  IL_0055: call 0x60001e1 LosSantosAlive.PRBridge.PrStateTracker::hidden
+  IL_005a: ldc.i4 876832390
+  IL_005f: call 0x2b000001 .<Module>::hidden decoded=" type="
+  IL_0064: ldarga.s 1
+  IL_0066: constrained. 0x1000034 PolicingRedefined.API.EGivenIdentification
+  IL_006c: callvirt 0xa000038 System.Object::ToString
+  IL_0071: call 0xa000039 System.String::Concat
+  IL_0076: call 0xa000033 Rage.Game::LogTrivial
+  IL_007b: ret
+METHOD 0x60001de hidden(System.Collections.Generic.HashSet`1<UInt32>, Rage.Ped) -> Void
+  EXCEPTION {"catchType": null, "filterOffset": null, "handlerLength": 10, "handlerOffset": 48, "kind": "Finally", "tryLength": 31, "tryOffset": 17}
+  IL_0000: ldarg.1
+  IL_0001: call 0x60001e0 LosSantosAlive.PRBridge.PrStateTracker::hidden
+  IL_0006: brtrue.s  -> IL_0009
+  IL_0008: ret
+  IL_0009: ldsfld 0x40000e2 LosSantosAlive.PRBridge.PrStateTracker::hidden
+  IL_000e: stloc.0
+  IL_000f: ldc.i4.0
+  IL_0010: stloc.1
+  IL_0011: ldloc.0
+  IL_0012: ldloca.s 1
+  IL_0014: call 0xa00002b System.Threading.Monitor::Enter
+  IL_0019: ldarg.0
+  IL_001a: ldarg.1
+  IL_001b: callvirt 0xa00007c Rage.Entity::get_Handle
+  IL_0020: stloc.2
+  IL_0021: ldloca.s 2
+  IL_0023: call 0xa00013b Rage.PoolHandle::get_Value
+  IL_0028: callvirt 0xa0001e3 System.Collections.Generic.HashSet`1<UInt32>::Add
+  IL_002d: pop
+  IL_002e: leave.s  -> IL_003a
+  IL_0030: ldloc.1
+  IL_0031: brfalse.s  -> IL_0039
+  IL_0033: ldloc.0
+  IL_0034: call 0xa000035 System.Threading.Monitor::Exit
+  IL_0039: endfinally
+  IL_003a: ret
+METHOD 0x60001df hidden(System.Collections.Generic.HashSet`1<UInt32>, Rage.Ped) -> Boolean
+  EXCEPTION {"catchType": null, "filterOffset": null, "handlerLength": 10, "handlerOffset": 49, "kind": "Finally", "tryLength": 31, "tryOffset": 18}
+  IL_0000: ldarg.1
+  IL_0001: call 0x60001e0 LosSantosAlive.PRBridge.PrStateTracker::hidden
+  IL_0006: brtrue.s  -> IL_000a
+  IL_0008: ldc.i4.0
+  IL_0009: ret
+  IL_000a: ldsfld 0x40000e2 LosSantosAlive.PRBridge.PrStateTracker::hidden
+  IL_000f: stloc.0
+  IL_0010: ldc.i4.0
+  IL_0011: stloc.1
+  IL_0012: ldloc.0
+  IL_0013: ldloca.s 1
+  IL_0015: call 0xa00002b System.Threading.Monitor::Enter
+  IL_001a: ldarg.0
+  IL_001b: ldarg.1
+  IL_001c: callvirt 0xa00007c Rage.Entity::get_Handle
+  IL_0021: stloc.2
+  IL_0022: ldloca.s 2
+  IL_0024: call 0xa00013b Rage.PoolHandle::get_Value
+  IL_0029: callvirt 0xa0001e7 System.Collections.Generic.HashSet`1<UInt32>::Contains
+  IL_002e: stloc.3
+  IL_002f: leave.s  -> IL_003b
+  IL_0031: ldloc.1
+  IL_0032: brfalse.s  -> IL_003a
+  IL_0034: ldloc.0
+  IL_0035: call 0xa000035 System.Threading.Monitor::Exit
+  IL_003a: endfinally
+  IL_003b: ldloc.3
+  IL_003c: ret
+METHOD 0x60001e0 hidden(Rage.Ped) -> Boolean
+  EXCEPTION {"catchType": "System.Object", "filterOffset": null, "handlerLength": 5, "handlerOffset": 32, "kind": "Catch", "tryLength": 32, "tryOffset": 0}
+  IL_0000: ldarg.0
+  IL_0001: ldnull
+  IL_0002: call 0xa00003d Rage.Entity::op_Inequality
+  IL_0007: brfalse.s  -> IL_001c
+  IL_0009: ldarg.0
+  IL_000a: callvirt 0xa00007c Rage.Entity::get_Handle
+  IL_000f: stloc.0
+  IL_0010: ldloca.s 0
+  IL_0012: call 0xa00013b Rage.PoolHandle::get_Value
+  IL_0017: ldc.i4.0
+  IL_0018: cgt.un
+  IL_001a: br.s  -> IL_001d
+  IL_001c: ldc.i4.0
+  IL_001d: stloc.1
+  IL_001e: leave.s  -> IL_0025
+  IL_0020: pop
+  IL_0021: ldc.i4.0
+  IL_0022: stloc.1
+  IL_0023: leave.s  -> IL_0025
+  IL_0025: ldloc.1
+  IL_0026: ret
+METHOD 0x60001e1 hidden(Rage.Ped) -> String
+  EXCEPTION {"catchType": "System.Object", "filterOffset": null, "handlerLength": 14, "handlerOffset": 47, "kind": "Catch", "tryLength": 47, "tryOffset": 0}
+  IL_0000: ldarg.0
+  IL_0001: ldnull
+  IL_0002: call 0xa00006d Rage.Entity::op_Equality
+  IL_0007: brfalse.s  -> IL_0016
+  IL_0009: ldc.i4 46020232
+  IL_000e: call 0x2b000003 .<Module>::hidden decoded="null"
+  IL_0013: stloc.0
+  IL_0014: leave.s  -> IL_003d
+  IL_0016: ldarg.0
+  IL_0017: callvirt 0xa00007c Rage.Entity::get_Handle
+  IL_001c: stloc.1
+  IL_001d: ldloca.s 1
+  IL_001f: call 0xa00013b Rage.PoolHandle::get_Value
+  IL_0024: stloc.2
+  IL_0025: ldloca.s 2
+  IL_0027: call 0xa0001e8 System.UInt32::ToString
+  IL_002c: stloc.0
+  IL_002d: leave.s  -> IL_003d
+  IL_002f: pop
+  IL_0030: ldc.i4 1195768164
+  IL_0035: call 0x2b000002 .<Module>::hidden decoded="invalid"
+  IL_003a: stloc.0
+  IL_003b: leave.s  -> IL_003d
+  IL_003d: ldloc.0
+  IL_003e: ret
+METHOD 0x60001e2 hidden(Boolean) -> String
+  IL_0000: ldarg.0
+  IL_0001: brtrue.s  -> IL_000e
+  IL_0003: ldc.i4 -672496241
+  IL_0008: call 0x2b000004 .<Module>::hidden decoded="false"
+  IL_000d: ret
+  IL_000e: ldc.i4 -663787058
+  IL_0013: call 0x2b000001 .<Module>::hidden decoded="true"
+  IL_0018: ret
+METHOD 0x60001e3 hidden(String) -> String
+  IL_0000: ldarg.0
+  IL_0001: brtrue.s  -> IL_0009
+  IL_0003: ldstr  decoded=""
+  IL_0008: ret
+  IL_0009: ldarg.0
+  IL_000a: ldc.i4 -1311638391
+  IL_000f: call 0x2b000004 .<Module>::hidden decoded="\\"
+  IL_0014: ldc.i4 -16372597
+  IL_0019: call 0x2b000001 .<Module>::hidden decoded="\\\\"
+  IL_001e: callvirt 0xa00004f System.String::Replace
+  IL_0023: ldc.i4 649267551
+  IL_0028: call 0x2b000001 .<Module>::hidden decoded="\""
+  IL_002d: ldc.i4 -1863134785
+  IL_0032: call 0x2b000003 .<Module>::hidden decoded="\\\""
+  IL_0037: callvirt 0xa00004f System.String::Replace
+  IL_003c: ret
+METHOD 0x60001e4 .cctor() -> Void
+  IL_0000: newobj 0xa000028 System.Object::.ctor
+  IL_0005: stsfld 0x40000e2 LosSantosAlive.PRBridge.PrStateTracker::hidden
+  IL_000a: newobj 0xa000028 System.Object::.ctor
+  IL_000f: stsfld 0x40000e3 LosSantosAlive.PRBridge.PrStateTracker::hidden
+  IL_0014: newobj 0xa0001e9 System.Collections.Generic.HashSet`1<UInt32>::.ctor
+  IL_0019: stsfld 0x40000e4 LosSantosAlive.PRBridge.PrStateTracker::hidden
+  IL_001e: newobj 0xa0001e9 System.Collections.Generic.HashSet`1<UInt32>::.ctor
+  IL_0023: stsfld 0x40000e5 LosSantosAlive.PRBridge.PrStateTracker::hidden
+  IL_0028: newobj 0xa0001e9 System.Collections.Generic.HashSet`1<UInt32>::.ctor
+  IL_002d: stsfld 0x40000e6 LosSantosAlive.PRBridge.PrStateTracker::hidden
+  IL_0032: newobj 0xa0001e9 System.Collections.Generic.HashSet`1<UInt32>::.ctor
+  IL_0037: stsfld 0x40000e7 LosSantosAlive.PRBridge.PrStateTracker::hidden
+  IL_003c: newobj 0xa0001ea System.Collections.Generic.Dictionary`2<UInt32,String>::.ctor
+  IL_0041: stsfld 0x40000e8 LosSantosAlive.PRBridge.PrStateTracker::hidden
+  IL_0046: newobj 0xa0001ea System.Collections.Generic.Dictionary`2<UInt32,String>::.ctor
+  IL_004b: stsfld 0x40000e9 LosSantosAlive.PRBridge.PrStateTracker::hidden
+  IL_0050: ldc.i4.0
+  IL_0051: stsfld 0x40000ea LosSantosAlive.PRBridge.PrStateTracker::hidden
+  IL_0056: ldnull
+  IL_0057: stsfld 0x40000ed LosSantosAlive.PRBridge.PrStateTracker::hidden
+  IL_005c: ldnull
+  IL_005d: stsfld 0x40000ee LosSantosAlive.PRBridge.PrStateTracker::hidden
+  IL_0062: ldnull
+  IL_0063: stsfld 0x40000ef LosSantosAlive.PRBridge.PrStateTracker::hidden
+  IL_0068: ldc.i4 -5000
+  IL_006d: stsfld 0x40000f0 LosSantosAlive.PRBridge.PrStateTracker::hidden
+  IL_0072: ldc.i4 -10000
+  IL_0077: stsfld 0x40000f1 LosSantosAlive.PRBridge.PrStateTracker::hidden
+  IL_007c: ret
