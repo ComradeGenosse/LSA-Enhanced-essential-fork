@@ -47,6 +47,7 @@ namespace LosSantosAlive.Integrations
         {
             current=integration;Interlocked.Increment(ref Registered);
         }
+        public static void Register(object integration) { Interlocked.Increment(ref Registered); }
         static void RunOnCore(Action callback)
         {
             // The real owner must bind on Core's callback thread, independently
@@ -75,9 +76,13 @@ namespace LSA.PromotedCharacters
         public static int Constructed,Prepared,Initialized,InitializedOutsideCore,ShutdownRequests,Shutdowns,ShutdownOutsideCore,PreparationThread,InitializationThread,ShutdownThread;
         bool prepared,shutdown;
         volatile bool ready,shutdownRequested;
+        public event Action<string> OwnerRetired;
         public bool IsAvailable=>prepared && !shutdown;
         public bool IsReady=>ready && !shutdownRequested && !shutdown;
+        internal string UnavailabilityReason=>shutdown?"shutdown":"none";
+        internal string IdentityRuntimeStatus=>"identity_status=test";
         public PromotedCharactersIntegration(string world,string pipe,string identityPipe)=>Interlocked.Increment(ref Constructed);
+        public LSA.Intelligence.OwnedParticipant[] PerceptionRoster()=>new LSA.Intelligence.OwnedParticipant[0];
         public void Prepare()
         {
             Interlocked.Increment(ref Prepared);PreparationThread=Thread.CurrentThread.ManagedThreadId;prepared=true;
@@ -98,5 +103,19 @@ namespace LSA.PromotedCharacters
             }
             Interlocked.Increment(ref Shutdowns);ShutdownThread=Thread.CurrentThread.ManagedThreadId;shutdown=true;ready=false;
         }
+    }
+}
+namespace LSA.Intelligence
+{
+    public sealed class OwnedParticipant { }
+    public sealed class IntelligenceIntegration
+    {
+        public IntelligenceIntegration(Func<OwnedParticipant[]> roster,string pipeName) { }
+        public void OwnerRetired(string incarnationId) { }
+        public void Shutdown() { }
+        public void Shutdown(string reason) { }
+        public void Initialize() { }
+        internal string RuntimeStatus()=>"test";
+        internal static void LogStatus(string message)=>Rage.Game.LogTrivial(message);
     }
 }

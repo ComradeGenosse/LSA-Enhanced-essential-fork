@@ -12,10 +12,11 @@ var types = new List<object>();
 var wanted = new HashSet<string> { "NpcPlaybackCoordinator", "NpcPlaybackStartedEvent", "NpcPlaybackEndedEvent", "NpcActionRegistry", "RoleActionRouter", "ActorHydrationCoordinator", "ConversationHydrationCoordinator" };
 if (args.Skip(1).Contains("--identity")) wanted = new HashSet<string> { "IIntegration", "IntegrationManager", "IntegrationJsonBlock", "ActorContext" };
 if (args.Skip(1).Contains("--characters")) wanted = new HashSet<string> { "NpcActions", "NpcState", "NpcStateStore", "NpcFocus", "NpcTargeting", "ActorContextProvider" };
+if (args.Skip(1).Contains("--intelligence")) wanted = new HashSet<string> { "PerceptionSnapshot", "PerceptionSystem", "NpcState", "NpcStateStore", "NpcTargeting", "NpcPlaybackCoordinator", "NpcPlaybackStartedEvent", "NpcPlaybackEndedEvent", "IIntegration", "DamageTrackerService", "PedDamageInfo", "VehDamageInfo", "WeaponDamageInfo", "DamageType" };
 bool characters = args.Skip(1).Contains("--characters");
 var characterMethods = new HashSet<string> { "FollowTarget", "WaitHere", "HasExclusiveControl", "ReleaseExclusiveControlForExternalSystem", "GetStateForActiveBehavior", "TryGetState", "SetFocus", "GetPlayerConversationPed", "GetCurrentSpeakerPed", "Populate", "DemoteToPassiveRuntime" };
 var characterFields = new HashSet<string> { "FollowPlayerOnFoot", "FollowPaused", "EnterPassengerSeatWhenPlayerEnters", "ExitVehicleWhenPlayerExits", "StayUnderLsaControl", "InDirectedInteraction", "AccompliceMode" };
-var provider = new Names();
+var provider = new Names { NestedNames = args.Skip(1).Contains("--intelligence") };
 foreach (var handle in reader.TypeDefinitions) {
     var type = reader.GetTypeDefinition(handle);
     if (!wanted.Contains(reader.GetString(type.Name))) continue;
@@ -28,6 +29,7 @@ foreach (var handle in reader.TypeDefinitions) {
 }
 Console.WriteLine(JsonSerializer.Serialize(new { dllSha256 = Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(file))).ToLowerInvariant(), types }, new JsonSerializerOptions { WriteIndented = true }));
 sealed class Names : ISignatureTypeProvider<string, object> {
+ public bool NestedNames;
  public string GetArrayType(string e, ArrayShape s) => e + "[" + new string(',',s.Rank-1) + "]";
  public string GetByReferenceType(string e) => e + "&";
  public string GetFunctionPointerType(MethodSignature<string> s) => "fn";
@@ -39,7 +41,7 @@ sealed class Names : ISignatureTypeProvider<string, object> {
  public string GetPointerType(string e) => e+"*";
  public string GetPrimitiveType(PrimitiveTypeCode t) => t.ToString();
  public string GetSZArrayType(string e) => e+"[]";
- public string GetTypeFromDefinition(MetadataReader r,TypeDefinitionHandle h,byte k) { var t=r.GetTypeDefinition(h);return r.GetString(t.Namespace)+"."+r.GetString(t.Name); }
+ public string GetTypeFromDefinition(MetadataReader r,TypeDefinitionHandle h,byte k) { var t=r.GetTypeDefinition(h);return NestedNames && !t.GetDeclaringType().IsNil ? GetTypeFromDefinition(r,t.GetDeclaringType(),k)+"+"+r.GetString(t.Name) : r.GetString(t.Namespace)+"."+r.GetString(t.Name); }
  public string GetTypeFromReference(MetadataReader r,TypeReferenceHandle h,byte k) { var t=r.GetTypeReference(h);return r.GetString(t.Namespace)+"."+r.GetString(t.Name); }
  public string GetTypeFromSpecification(MetadataReader r,object c,TypeSpecificationHandle h,byte k) => r.GetTypeSpecification(h).DecodeSignature(this,c);
 }

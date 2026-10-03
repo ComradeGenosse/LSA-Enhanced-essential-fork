@@ -5,9 +5,11 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="ControlChannel.cs;NativeSafetyPolicy.cs;PromotedCharactersIntegration.cs;RuntimeEntry.cs" />
+    <Compile Include="../intelligence/EntityAnchors.cs;../intelligence/SensorAdapters.cs;../intelligence/IntelligenceChannel.cs;../intelligence/DamageSensors.cs;../intelligence/IntelligenceIntegration.cs" />
     <ProjectReference Include="../session-identity/SessionIdentity.csproj" />
     <Reference Include="LosSantosAlive"><HintPath>../../lsa-essential-e1-candidate/upstream/LosSantosAlive.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="RagePluginHook"><HintPath>$(RphReferencePath)</HintPath><Private>false</Private></Reference>
+    <Reference Include="DamageTrackerLib"><HintPath>$(DamageReferencePath)</HintPath><Private>false</Private></Reference>
     <Reference Include="System.Web.Extensions" />
   </ItemGroup>
 </Project>

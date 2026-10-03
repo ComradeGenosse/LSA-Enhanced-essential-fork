@@ -39,12 +39,22 @@ namespace LSA.PromotedCharacters
         long lastGameTime;
         bool prepared,shutdown;
         volatile bool shutdownRequested;
+        string shutdownReason="none";
+        public event Action<string> OwnerRetired;
+        public LSA.Intelligence.OwnedParticipant[] PerceptionRoster() => encounters.Values.Where(e=>e.Registration!=null && Alive(e)).Select(e=> {
+            var registration=e.Registration;
+            // Read-only lifetime validity includes the terminal dead state until Retire;
+            // no identity proof or action authority is inferred from this roster.
+            return new LSA.Intelligence.OwnedParticipant {Ped=e.Ped,Lifetime=registration.IncarnationId,Current=()=>ReferenceEquals(e.Registration,registration) && e.Ped.Exists() && e.Ped.MemoryAddress==e.Address && (e.Ped.IsDead || identity?.Owner?.TryResolveCurrent(e.Ped,out var claim)==true && claim.incarnationId==registration.IncarnationId)};
+        }).ToArray();
         public string Id => "characterProfile";
         // Prepared integrations must receive Core.Update even on a late load.
         // Readiness is separate: no owner operation can run before Core creates
         // P1/P2's stores and channels on its own initialization/update fiber.
         public bool IsAvailable => prepared && !shutdown && (shutdownRequested || channel == null || identity?.IsAvailable == true);
         public bool IsReady => channel != null && identity?.IsAvailable == true && !shutdown && !shutdownRequested;
+        internal string UnavailabilityReason => shutdown?shutdownReason:channel==null?"not_initialized":identity?.IsAvailable!=true?"identity_unavailable":"none";
+        internal string IdentityRuntimeStatus => identity?.DiagnosticsStatus() ?? "identity_status=none";
         static long Now => DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
         public PromotedCharactersIntegration(string worldProfileId,string pipeName = "LSA.PromotedCharacters.v1",string identityPipeName = "LSA.SessionIdentity.v1")
         {
@@ -83,7 +93,7 @@ namespace LSA.PromotedCharacters
             return NativeSafetyPolicy.CanControl(true,false,encounter.Ped == Game.LocalPlayer.Character,Scripted(),
                 foreignScript || adopting && missionEntity && !NpcActions.HasExclusiveControl(encounter.Ped),state?.InDirectedInteraction == true);
         }
-        void Retire(Encounter encounter) { if (encounter.Registration != null) identity?.Owner?.Retire(encounter.Registration); encounter.Registration = null; encounter.OwnerAlias = null; encounter.OwnershipToken = null; }
+        void Retire(Encounter encounter) { if (encounter.Registration != null) { try {OwnerRetired?.Invoke(encounter.Registration.IncarnationId);}catch{} identity?.Owner?.Retire(encounter.Registration); } encounter.Registration = null; encounter.OwnerAlias = null; encounter.OwnershipToken = null; }
         static void Suspend(Encounter encounter)
         {
             encounter.Suspended = true; // Set first, before any native control callback.
@@ -131,7 +141,7 @@ namespace LSA.PromotedCharacters
                     catch { request.Reason = "native_operation_failed"; }
                     finally { request.Done.Set(); }
                 }
-            } catch { Game.LogTrivial("[P2] optional_update_failed"); Shutdown(); }
+            } catch { LSA.Intelligence.IntelligenceIntegration.LogStatus("[P2] optional_update_failed"); Shutdown("update_failed"); }
         }
         static void Fields(Dictionary<string,object> args,params string[] fields) { if (args.Count != fields.Length || fields.Any(field => !args.ContainsKey(field))) throw new InvalidOperationException("invalid_owner_arguments"); }
         static string Text(Dictionary<string,object> args,string key) { if (!args.TryGetValue(key,out var value) || !(value is string text) || text.Length > 80) throw new InvalidOperationException("invalid_owner_arguments"); return text; }
@@ -268,8 +278,12 @@ namespace LSA.PromotedCharacters
         // must retire evidence and perform any native cleanup on its owner fiber.
         public void RequestShutdown() => shutdownRequested = true;
         public void Shutdown()
+        {Shutdown("integration_shutdown");}
+        internal void Shutdown(string reason)
         {
-            if (shutdown) return; shutdown = true; channel?.Dispose(); channel = null;
+            if (shutdown) return; shutdownReason=reason; shutdown = true;
+            LSA.Intelligence.IntelligenceIntegration.LogStatus("[P2] shutdown reason="+shutdownReason);
+            channel?.Dispose(); channel = null;
             foreach (var encounter in encounters.Values) {
                 try { if (Alive(encounter) && Safe(encounter)) { Suspend(encounter); if (encounter.Created) encounter.Ped.Dismiss(); } } catch { }
                 // Failed optional native cleanup cannot keep an ownership claim.

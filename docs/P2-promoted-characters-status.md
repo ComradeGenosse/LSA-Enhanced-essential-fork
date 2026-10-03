@@ -1,8 +1,8 @@
 # P2 — PROMOTED_CHARACTERS / CHARACTER_PROFILE
 
-Updated October 2, 2026. Based on `main` at `2849df1`, containing merged P1 PR #5.
+Updated October 2, 2026. Current `main` contains merged P2 PR #6 plus runtime fixes from PRs #7–#9.
 
-Implemented; offline verification complete. **No deployment or physical GTA validation has been performed.** Default off. P0, P1 and E6 retain their separate physical acceptance gates.
+**Status: ✅ implemented and merged to `main`.** Offline verification is complete and live GTA smoke testing has confirmed the corrected RAGE host path, console command registration, explicit promotion, local character editor/profile and memory editing, and native vehicle/driver behavior. Default off. Remaining GTA checks are follow-up regression coverage rather than a P2 implementation gate.
 
 ## Player flow and setup
 
@@ -27,7 +27,7 @@ The addon registers these inputs through the existing RAGE console. They call th
 | `LSASummonCharacter <CharacterId>` | Recreate the saved character selected by its exact ID from the editor |
 | `LSADespawnCharacter <CharacterId>` | Explicitly despawn that character's addon-created incarnation; refuse adopted peds |
 
-Native operations require Essential's game Update to run while a request is pending. Summon waits up to 30 seconds by default (`promotedCharacters.summonWaitMs`, configurable from 5 to 60 seconds) so the player can return from the browser to safe gameplay; it still fails if GTA is paused through the deadline or the spawn safety checks fail. Expired requests are cancelled and never execute when updates resume later. Other live controls retain their short deadlines. The editor reports the summon wait and prevents duplicate clicks. It remains usable for profile/memory editing while the game is paused or offline. Console registration, focus and pause behavior remain physical acceptance items.
+Native operations require Essential's game Update to run while a request is pending. Summon waits up to 30 seconds by default (`promotedCharacters.summonWaitMs`, configurable from 5 to 60 seconds) so the player can return from the browser to safe gameplay; it still fails if GTA is paused through the deadline or the spawn safety checks fail. Expired requests are cancelled and never execute when updates resume later. Other live controls retain their short deadlines. The editor reports the summon wait and prevents duplicate clicks. It remains usable for profile/memory editing while the game is paused or offline. Console registration has been physically confirmed after the loader-owned registration fixes; focus/pause behavior remains a physical acceptance item.
 
 ## Ambient encounter identity
 
@@ -92,7 +92,7 @@ See [focused pinned native evidence](P2-native-evidence.md). Follow/wait call ex
 
 True cutscene activity/playback, player switching, the global mission flag, multiplayer sessions, foreign script-owned entities and directed interactions guard player controls. Adopted mission/persistent peds require proven existing Essential exclusive control and must belong to the current native script. During a guarded state, P2 clears only its behavior flags and demotes its optional active state; it does not clear Rockstar tasks, teleport or delete. Identity/profile data remain. The character shows suspended and requires an explicit safe **Follow**/**Wait** command afterward. No speculative automatic mission participation or cutscene reaction is added.
 
-RAGE script ownership is a native script boundary, not a universal per-addon ownership proof. Uncooperative plugins sharing that script can still require coordination; physical validation must establish installed-runtime ownership/callback behavior. Exact entity-address/handle reuse between observations is also a physical lifetime acceptance item, not a newly invented permanent identifier.
+RAGE script ownership is a native script boundary, not a universal per-addon ownership proof. Uncooperative plugins sharing that script can still require coordination; ongoing regression testing should continue to cover installed-runtime ownership/callback behavior. Exact entity-address/handle reuse between observations remains a runtime lifetime concern, not a newly invented permanent identifier.
 
 Appearance fidelity is limited to the captured model plus standard component/prop variations. Head blend, face features, hair/eye color, tattoos, decoration collections, wounds, inventory/weapons and arbitrary third-party customization are not claimed. A changed game/model variation table may refuse recreation safely. No unsupported freemode/customization reconstruction is invented.
 
@@ -102,11 +102,20 @@ Allowlisted events cover encounter/profile creation, name assignment/collision c
 
 The editor binds only IPv4 loopback, requires exact Host/Origin plus a random per-run token for mutations, rejects non-JSON and oversized bodies, uses no remote assets, disables caching/framing and renders edited text with `textContent`. The trusted boundary remains the installed addon and same-user local processes, as in P1. No model tool exposes promotion or management actions.
 
-## Verification and physical GTA checklist
+## Verification and follow-up GTA regression checklist
 
 Offline Node suite: **294 passed, zero failed/cancelled/skipped** (242-test P0/P1/E1–E6 baseline + 52 P2 tests). Includes the real source-pinned stock-controller promote/edit/dismiss/recreate path, fresh session/history, preserved voice, stale PCM/action/completion rejection, projection-failure privacy fallback, separate unchanged P1 schema, profile restart/CRUD/bounds/corruption/I/O failure, optional contract isolation and real loopback editor access/operation tests. Native production policy/admission and actual Windows pipe results are recorded in [verification](../lsa-essential-e1-candidate/docs/p2-verification.md). Native package builds use compile-only pinned references; no game is loaded.
 
-All physical boxes remain unchecked:
+Live GTA confirmation on October 2, 2026 established:
+
+- [x] Corrected P2 host loads in Essential's active RAGE AppDomain.
+- [x] `LSACharacters` opens/prints the local editor path and `LSAPromote` successfully promotes the selected NPC.
+- [x] A promoted character can be opened in the editor and its profile/memories edited successfully.
+- [x] Native driver-seat/drive behavior can complete successfully for a promoted NPC.
+
+One vehicle-entry ordering edge case remains worth regression testing: when the player claims/enters a vehicle before the NPC's vehicle-entry state is established, companion entry may fail; commanding the NPC toward the vehicle first and then entering can succeed.
+
+Remaining follow-up regression items:
 
 - [ ] Explicitly load the matching addons/config; verify Essential calls Update/EnrichActor on the expected game fiber and fresh P1 heartbeats/proofs are available.
 - [ ] Verify the documented RAGE console commands, current-target capture and exact-ID summon/despawn with GTA focused; verify pause/focus timeouts safely defer controls.
@@ -119,7 +128,7 @@ All physical boxes remain unchecked:
 - [ ] Enter/leave real missions/cutscenes/player switches and third-party scripted ownership. Verify suspension, no teleport/task clearing/deletion of Rockstar peds, preserved data and explicit safe rejoin.
 - [ ] Despawn only addon-created peds; adopted ped deletion is refused. Unpromotion requires exact confirmation, releases live ownership and deletes only P2 data.
 - [ ] Test optional missing/corrupt stores, unavailable owner/pipe, editor port conflict, native model failure, addon/companion reload and retired/duplicate alias scenarios. Ordinary ambient dialogue and exact stale-work fences must remain usable.
-- [ ] Run the independent P0/P1/E6 acceptance lists and a long-session soak; offline pass counts do not close these gates.
+- [ ] Run the independent P0/P1/E6 stress lists and a long-session soak as E7 regression coverage.
 
 ## Intentionally later
 

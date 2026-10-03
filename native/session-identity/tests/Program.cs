@@ -34,5 +34,18 @@ Check(restarted.AdapterEpoch != store.AdapterEpoch && !restarted.Retire(clean));
 Check(restarted.TryResolveCurrent("92", 1007, out _) == "absent");
 bool threadRejected = await Task.Run(() => { try { store.Register("95", "illegal", world, () => true); return false; } catch (InvalidOperationException) { return true; } });
 Check(threadRejected);
+using var authorizedFiber = new ThreadLocal<bool>(() => false);
+var fiberStore = new NativeIdentityEvidenceStore(() => authorizedFiber.Value);
+bool creatorRejected = false, otherFiberAccepted = false, workerRejected = false;
+try { fiberStore.Register("96", "unauthorized", world, () => true); } catch (InvalidOperationException) { creatorRejected = true; }
+var fiberThread = new Thread(() => {
+    authorizedFiber.Value = true;
+    var token = fiberStore.Register("96", "authorized", world, () => true);
+    otherFiberAccepted = fiberStore.TryResolveCurrent("96", 1008, out _) == "active" && fiberStore.Retire(token);
+    authorizedFiber.Value = false;
+    try { fiberStore.ValidateActive(); } catch (InvalidOperationException) { workerRejected = true; }
+});
+fiberThread.Start(); fiberThread.Join();
+Check(creatorRejected); Check(otherFiberAccepted); Check(workerRejected);
 // Continue on the captured owner thread: no awaits before further store mutations.
 Console.WriteLine(JsonSerializer.Serialize(new { passed, claim = original }, new JsonSerializerOptions { IncludeFields = true }));

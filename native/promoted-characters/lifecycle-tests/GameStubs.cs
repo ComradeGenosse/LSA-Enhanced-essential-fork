@@ -109,10 +109,15 @@ namespace LosSantosAlive.NPC
         public static void ReleaseExclusiveControlForExternalSystem(Rage.Ped ped,string reason,bool keepState) { Rage.Game.NativeCalls++; }
     }
 }
+namespace LSA.Intelligence
+{
+    public sealed class OwnedParticipant { public Rage.Ped Ped; public string Lifetime; public Func<bool> Current; }
+    public static class IntelligenceIntegration { internal static void LogStatus(string message)=>Rage.Game.LogTrivial(message); }
+}
 namespace LSA.SessionIdentity
 {
-    public sealed class RegistrationToken { internal string Epoch; }
-    public sealed class NativeIdentityClaim { }
+    public sealed class RegistrationToken { internal string Epoch; public string IncarnationId; }
+    public sealed class NativeIdentityClaim { public string incarnationId; }
     public sealed class ExplicitCharacterSource
     {
         readonly string epoch = Guid.NewGuid().ToString("D");
@@ -125,7 +130,7 @@ namespace LSA.SessionIdentity
         public RegistrationToken Register(Rage.Ped ped,string sourceKey,string world)
         {
             AssertOwner();
-            var token = new RegistrationToken {Epoch = epoch}; tokens.Add(token); return token;
+            var token = new RegistrationToken {Epoch = epoch,IncarnationId=Guid.NewGuid().ToString("D")}; tokens.Add(token); return token;
         }
         public bool Retire(RegistrationToken token)
         {
@@ -139,6 +144,7 @@ namespace LSA.SessionIdentity
     {
         public static SessionIdentityIntegration Current;
         public bool IsAvailable => Owner != null;
+        public string DiagnosticsStatus()=>"identity_status=test";
         public int InitializationThread {get;private set;}
         public int InitializationCalls {get;private set;}
         public ExplicitCharacterSource Owner {get;private set;}

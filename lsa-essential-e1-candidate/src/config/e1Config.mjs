@@ -3,6 +3,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { normalizeIdentityConfig } from '../identity/identityContract.mjs';
 import { normalizeCharacterConfig } from '../characters/characterService.mjs';
+import { normalizePerceptionConfig } from '../perception/contracts.mjs';
 import { normalizeDialogueLoggingConfig } from '../observability/dialogueTrace.mjs';
 
 const moduleDirectory = path.dirname(fileURLToPath(import.meta.url));
@@ -162,6 +163,7 @@ export function normalizeConfig(input = {}, env = process.env) {
     provider: selectedProvider,
     persistentIdentity: normalizeIdentityConfig(input.persistentIdentity),
     promotedCharacters: normalizeCharacterConfig(input.promotedCharacters),
+    intelligence: normalizePerceptionConfig(input.intelligence),
     dialogueLogging: normalizeDialogueLoggingConfig(input.dialogueLogging, boundedInteger),
     reasoningModel, reasoningEffort, transcriptionModel, ttsModel, ttsVoice,
     speechVoices: Object.freeze(speechVoices), speechVoiceProfiles, voiceAssignment, ttsSpeed, actingEnabled, speechInstructionsSupported,
