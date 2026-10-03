@@ -1,0 +1,55 @@
+import { isUuid } from '../identity/identityContract.mjs';
+
+export const BOUNDS = Object.freeze({ observers:16, anchors:256, rawSignals:256, criticalReserve:64, nativeFrames:64, companionFrames:256, frameBytes:8192, observationsPerObserver:128, observations:2048, observationBytes:2*1024*1024, signalTtlMs:30000, anchorLeaseMs:3000 });
+export const CAPABILITIES = Object.freeze(['snapshot','pedDamage','playerDamage','vehicleDamage','shooting','state','action','playback','witness','awareness']);
+export const PRODUCERS = new Set(['ped_damage','player_damage','vehicle_damage','shooting','state','action','playback']);
+export function normalizePerceptionConfig(value = {}) {
+  // Future modes cannot enable anything beyond this implementation.
+  const valid = value && typeof value === 'object' && !Array.isArray(value);
+  const mode = valid && value.mode === 'shadow' ? 'shadow' : 'off';
+  const pipeName = valid && typeof value.pipeName === 'string' ? value.pipeName : 'LSA.Intelligence.v1';
+  return Object.freeze({ mode, pipeName: /^[A-Za-z0-9_.-]{1,80}$/.test(pipeName) ? pipeName : 'LSA.Intelligence.v1' });
+}
+const integer = (v, max = Number.MAX_SAFE_INTEGER) => Number.isSafeInteger(v) && v >= 0 && v <= max;
+const optionalRef = v => v === null || isUuid(v);
+const keys = (v, required, optional=[]) => v!==null && typeof v==='object' && !Array.isArray(v) && required.every(k=>Object.hasOwn(v,k)) && Object.keys(v).every(k=>required.includes(k)||optional.includes(k));
+const label = v => typeof v === 'string' && /^[a-z][a-z0-9_]{0,47}$/.test(v);
+const position = v => keys(v,['x','y','z']) && Object.values(v).every(n=>Number.isFinite(n) && Math.abs(n)<=100000);
+export function validateSignal(s) {
+  if (!keys(s,['signalId','producer','producerSequence','kind','target','source','gameTick','ageMs','facts']) || !isUuid(s.signalId) || !PRODUCERS.has(s.producer) || !integer(s.producerSequence) || s.producerSequence===0 || !optionalRef(s.target) || !optionalRef(s.source) || !integer(s.gameTick,0xffffffff) || !integer(s.ageMs,30000)) return false;
+  const f = s.facts;
+  if (s.kind==='damage' || s.kind==='vehicle_damage') return (s.kind==='vehicle_damage' ? s.producer==='vehicle_damage' : ['ped_damage','player_damage'].includes(s.producer)) && keys(f,['damage','armour','classification'],['collision']) && integer(f.damage,100000) && integer(f.armour,100000) && ['unknown','bullet','melee','stun','explosion','collision','fire'].includes(f.classification) && (!Object.hasOwn(f,'collision') || s.kind==='vehicle_damage' && position(f.collision));
+  if (s.kind==='firing') return s.producer==='shooting' && isUuid(s.source) && keys(f,[]);
+  if (s.kind==='death') return s.producer==='state' && isUuid(s.target) && keys(f,[]);
+  if (s.kind==='injury_state') return s.producer==='state' && isUuid(s.target) && keys(f,['health','armour','injured']) && integer(f.health,100000) && integer(f.armour,100000) && typeof f.injured==='boolean';
+  if (s.kind==='vehicle_transition') return s.producer==='state' && isUuid(s.target) && keys(f,['vehicle','driver']) && optionalRef(f.vehicle) && typeof f.driver==='boolean';
+  if (s.kind==='vehicle_state') return s.producer==='state' && isUuid(s.target) && keys(f,['engine','healthBand','speedBand','driver']) && typeof f.engine==='boolean' && integer(f.healthBand,10) && integer(f.speedBand,10) && optionalRef(f.driver);
+  if (['activity_changed','presence_changed','location_changed'].includes(s.kind)) {
+    const field = s.kind.split('_')[0];
+    return s.producer==='state' && isUuid(s.target) && keys(f,[field]) && (field==='location' ? typeof f[field]==='string' && /^[A-Z0-9_]{1,16}$/.test(f[field]) : label(f[field]));
+  }
+  if (s.kind==='action_callback') return s.producer==='action' && isUuid(s.target) && keys(f,['action','succeeded']) && ['follow','wait','other'].includes(f.action) && typeof f.succeeded==='boolean';
+  if (s.kind==='playback_started' || s.kind==='playback_ended') return s.producer==='playback' && keys(f,['interrupted','hadAudio']) && typeof f.interrupted==='boolean' && typeof f.hadAudio==='boolean';
+  return false;
+}
+export function validateFrame(v) {
+  if (!v || Buffer.byteLength(JSON.stringify(v))>BOUNDS.frameBytes) return false;
+  if (v.type==='hello') return keys(v,['version','type','adapterEpoch','streamId','capabilities']) && v.version===1 && isUuid(v.adapterEpoch) && isUuid(v.streamId) && keys(v.capabilities,CAPABILITIES) && Object.values(v.capabilities).every(x=>typeof x==='boolean');
+  if (!keys(v,['version','type','adapterEpoch','streamId','sequence','payload']) || v.version!==1 || !isUuid(v.adapterEpoch) || !isUuid(v.streamId) || !integer(v.sequence) || v.sequence===0) return false;
+  if (v.type==='anchors') return Array.isArray(v.payload) && v.payload.length<=32 && v.payload.every(a=>keys(a,['captureRef','kind','observer'],['owned','conversation']) && isUuid(a.captureRef) && ['ped','player','vehicle'].includes(a.kind) && typeof a.observer==='boolean' && (!a.observer || a.kind==='ped') && ['owned','conversation'].every(k=>a[k]===undefined || typeof a[k]==='boolean' && (!a[k] || a.kind==='ped'))) && new Set(v.payload.map(a=>a.captureRef)).size===v.payload.length;
+  if (v.type==='retire') return keys(v.payload,['captureRef']) && isUuid(v.payload.captureRef);
+  if (v.type==='retire_batch') return Array.isArray(v.payload) && v.payload.length<=32 && v.payload.every(isUuid) && new Set(v.payload).size===v.payload.length;
+  if (v.type==='signal') return validateSignal(v.payload);
+  if (v.type==='diagnostics') return keys(v.payload,['anchors','observers','snapshotAgeMs','snapshotCadenceMs','dropped','staleRejected','retiredAnchors','deferredDiscovery','updateMicros','capabilities','signals']) && integer(v.payload.anchors,256) && integer(v.payload.observers,16) && Object.entries(v.payload).filter(([k])=>!['anchors','observers','capabilities','signals'].includes(k)).every(([,n])=>integer(n,2147483647)) && keys(v.payload.capabilities,CAPABILITIES) && Object.values(v.payload.capabilities).every(x=>typeof x==='boolean') && v.payload.signals && typeof v.payload.signals==='object' && !Array.isArray(v.payload.signals) && Object.entries(v.payload.signals).every(([k,n])=>['damage','vehicle_damage','firing','death','injury_state','vehicle_transition','vehicle_state','activity_changed','presence_changed','location_changed','action_callback','playback_started','playback_ended'].includes(k) && integer(n,2147483647));
+  return false;
+}
+
+// PS0 immutable observer contract. No producer promotes a backend signal to witness knowledge in PS1.
+export function validateObservation(o) {
+  if (!keys(o,['version','observationId','episodeId','revision','observer','observedAt','expiresAtMonotonicMs','eventType','severity','claims','recognizedCharacterIds'],['position']) || o.version!==1 || !isUuid(o.observationId) || !isUuid(o.episodeId) || !integer(o.revision) || o.revision===0 || !keys(o.observer,['captureRef','kind']) || !isUuid(o.observer.captureRef) || o.observer.kind!=='ped') return false;
+  if (!keys(o.observedAt,['nativeRun','gameTick','receivedUtc']) || !isUuid(o.observedAt.nativeRun) || !integer(o.observedAt.gameTick,0xffffffff) || typeof o.observedAt.receivedUtc!=='string' || !/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{3}Z$/.test(o.observedAt.receivedUtc) || !Number.isFinite(Date.parse(o.observedAt.receivedUtc)) || !integer(o.expiresAtMonotonicMs) || !['firing_burst','injury','death_seen','vehicle_impact','action_observed','location_changed','activity_changed','vehicle_transition','character_present'].includes(o.eventType) || !['routine','notable','danger','critical'].includes(o.severity) || !Array.isArray(o.claims) || o.claims.length<1 || o.claims.length>4 || !Array.isArray(o.recognizedCharacterIds) || o.recognizedCharacterIds.length!==0 || o.position!==undefined && !position(o.position)) return false;
+  return o.claims.every(validateClaim);
+}
+export function validateClaim(c) {
+  return keys(c,['claimId','kind','certainty','evidence'],['source','target','details']) && isUuid(c.claimId) && ['sound','firing','injured','dead','attack','location','action','presence'].includes(c.kind) && ['supported','uncertain'].includes(c.certainty) && ['source','target'].every(k=>c[k]===undefined || keys(c[k],['captureRef','kind']) && isUuid(c[k].captureRef) && ['ped','player','vehicle'].includes(c[k].kind)) && keys(c.evidence,['channel','basis','sampledGameTick']) && c.evidence.channel==='self' && ['native_callback','sampled_state'].includes(c.evidence.basis) && integer(c.evidence.sampledGameTick,0xffffffff) && (c.details===undefined || c.kind==='injured' && keys(c.details,['damageDelta','armourDelta']) && integer(c.details.damageDelta,100000) && integer(c.details.armourDelta,100000));
+}

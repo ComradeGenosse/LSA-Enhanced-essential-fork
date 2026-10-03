@@ -7,17 +7,21 @@ import { fileURLToPath } from 'node:url';
 import { verifyIdentityContract,RPH_SDK_SHA256,IDENTITY_DLL_SHA256 } from './verifyIdentityContract.mjs';
 import { assertNoLinkedOutput,candidateRootPath } from './checkIsolation.mjs';
 import { verifyCharactersContract } from './verifyCharactersContract.mjs';
+import { verifyPerceptionContract } from './verifyPerceptionContract.mjs';
+import { DAMAGE_DLL_SHA256 } from '../src/perception/nativeSupport.mjs';
 
 const root = candidateRootPath();
-export async function buildCharactersAddon({rphReferencePath,frameworkReferenceRoot,dotnetPath = 'dotnet',outputPath = path.join(root,'dist/promoted-characters')} = {}) {
+export async function buildCharactersAddon({rphReferencePath,frameworkReferenceRoot,damageReferencePath,dotnetPath = 'dotnet',outputPath = path.join(root,'dist/promoted-characters')} = {}) {
   const target = await assertNoLinkedOutput(outputPath);
   if (!rphReferencePath || !frameworkReferenceRoot) throw new Error('Explicit compile-only RPH and .NET 4.8.1 references required.');
   const hash = async file => createHash('sha256').update(await readFile(file)).digest('hex');
   if (await hash(path.join(root,'upstream/LosSantosAlive.dll')) !== IDENTITY_DLL_SHA256 || await hash(rphReferencePath) !== RPH_SDK_SHA256) throw new Error('P2 native assembly pin mismatch.');
   const nativeContract = await verifyIdentityContract(); if (!nativeContract.available) throw new Error('Optional P1 identity contract unavailable.');
   const characterContract = await verifyCharactersContract(); if (!characterContract.available) throw new Error('Optional P2 native contract unavailable.');
+  const perceptionContract = await verifyPerceptionContract();
+  if(!damageReferencePath || await hash(damageReferencePath)!==DAMAGE_DLL_SHA256 || !perceptionContract.available) throw new Error('Pinned compile-only DamageTracker reference and perception metadata required.');
   const project = path.resolve(root,'../native/promoted-characters/Loader.csproj');
-  const args = [`-p:RphReferencePath=${path.resolve(rphReferencePath)}`,`-p:TargetFrameworkRootPath=${path.resolve(frameworkReferenceRoot)}`];
+  const args = [`-p:RphReferencePath=${path.resolve(rphReferencePath)}`,`-p:TargetFrameworkRootPath=${path.resolve(frameworkReferenceRoot)}`,`-p:DamageReferencePath=${path.resolve(damageReferencePath)}`];
   const run = promisify(execFile);
   await run(dotnetPath,['restore',project,'--ignore-failed-sources',...args],{windowsHide:true});
   const {stdout} = await run(dotnetPath,['build',project,'--configuration','Release','--no-restore',...args],{windowsHide:true});
@@ -27,10 +31,10 @@ export async function buildCharactersAddon({rphReferencePath,frameworkReferenceR
     const source = path.join(addonDirectory,name); await copyFile(source,path.join(target,name));files.push({name,relativePath:name === 'LSA.PromotedCharacters.dll' ? `plugins/${name}` : `plugins/LSA.PromotedCharacters/${name}`,sha256:await hash(source)});
   }
   await copyFile(path.resolve(root,'../native/promoted-characters/LSA.PromotedCharacters.example.json'),path.join(target,'LSA.PromotedCharacters.example.json'));
-  const manifest = {stage:'P2',defaultEnabled:false,nativeContract,characterContract,rphSdkSha256:RPH_SDK_SHA256,files,deploymentPerformed:false,gtaRuntimeTest:false};
+  const manifest = {stage:'P2+PS0+PS1',defaultEnabled:false,intelligenceDefaultMode:'off',nativeContract,characterContract,perceptionContract,rphSdkSha256:RPH_SDK_SHA256,files,deploymentPerformed:false,gtaRuntimeTest:false};
   await writeFile(path.join(target,'build-manifest.json'),JSON.stringify(manifest,null,2)+'\n');return {target,manifest,compilerOutput:stdout};
 }
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  const result = await buildCharactersAddon({rphReferencePath:process.env.LSA_IDENTITY_RPH_REFERENCE,frameworkReferenceRoot:process.env.LSA_IDENTITY_FRAMEWORK_ROOT,dotnetPath:process.env.LSA_BUILD_DOTNET || 'dotnet'});
+  const result = await buildCharactersAddon({rphReferencePath:process.env.LSA_IDENTITY_RPH_REFERENCE,frameworkReferenceRoot:process.env.LSA_IDENTITY_FRAMEWORK_ROOT,damageReferencePath:process.env.LSA_INTELLIGENCE_DAMAGE_REFERENCE,dotnetPath:process.env.LSA_BUILD_DOTNET || 'dotnet'});
   console.log(JSON.stringify({target:result.target,...result.manifest},null,2));
 }

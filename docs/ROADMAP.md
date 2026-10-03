@@ -1,6 +1,6 @@
 # Project roadmap
 
-Updated October 2, 2026.
+Updated October 3, 2026.
 
 This roadmap tracks the Essential-based LSA companion from the hardened E1.1 foundation through low-latency dialogue, durable NPC identity, richer perception, autonomous scene behavior, and final long-session acceptance.
 
@@ -31,7 +31,8 @@ Essential remains authoritative for native NPC state, turn/generation identity, 
 | P0 — TURN_CONTEXT | ✅ Merged to `main` + offline-verified; GTA acceptance pending | Immutable per-turn actor/listener/world snapshots and time-of-use P/V target-reference validation |
 | P1 — SESSION_IDENTITY | ✅ Implemented | Explicit owner-authenticated durable UUIDs, runtime bindings, and persistent voice assignments are merged to `main`; additional stress/continuity checks roll into follow-up validation/E7. |
 | P2 — PROMOTED_CHARACTERS / CHARACTER_PROFILE | ✅ Implemented | Merged to `main` and exercised in GTA: promotion, character editor/profile memory editing, and native companion/vehicle behavior are working; remaining edge cases are follow-up regression work. |
-| PERCEPTION | Planned | Richer world/event/context awareness |
+| PS0 / PS1 — PERCEPTION FOUNDATION | Implemented offline; physical GTA validation pending | Default-off shadow-only contracts, lifetime anchors, bounded factual transport and supported native producers; [status and GTA checklist](PS0-PS1-perception-status.md) |
+| PS2+ — PERCEPTION / KNOWLEDGE | Planned | Witness/LOS/hearing, correlation and later context/memory phases remain unimplemented |
 | SALIENCE | Planned | Decide what an NPC should care about right now |
 | SCENE_DIRECTOR | Planned | NPC initiative and coordinated autonomous behavior |
 | CUSTOM ACTIONS / ACTIVITIES | Planned | Expose more native Essential capabilities and add new extensions where needed |

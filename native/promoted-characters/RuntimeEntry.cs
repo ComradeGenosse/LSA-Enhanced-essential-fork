@@ -9,6 +9,7 @@ namespace LSA.PromotedCharacters
     public static class RuntimeEntry
     {
         static PromotedCharactersIntegration integration;
+        static LSA.Intelligence.IntelligenceIntegration intelligence;
         static volatile bool starting,stopping,finished;
         public static bool Ready=>integration?.IsAvailable==true && !stopping;
         public static bool Alive=>!finished;
@@ -25,10 +26,17 @@ namespace LSA.PromotedCharacters
                     if(stopping) return;
                     integration=new PromotedCharactersIntegration(config.worldProfileId,config.pipeName,config.identityPipeName);
                     IntegrationManager.Register(integration); integration.Initialize();
+                    if(config.intelligence?.mode=="shadow") {
+                        try {
+                            intelligence=new LSA.Intelligence.IntelligenceIntegration(integration.PerceptionRoster,config.intelligence.pipeName);
+                            integration.OwnerRetired+=intelligence.OwnerRetired;
+                            IntegrationManager.Register(intelligence);intelligence.Initialize();
+                        } catch {Game.LogTrivial("[PS] optional_host_unavailable");}
+                    }
                     Game.LogTrivial(integration.IsAvailable?"[P2] integrations_installed":"[P2] integration_unavailable");
                     while(!stopping && integration.IsAvailable) GameFiber.Sleep(100);
                 } catch {Game.LogTrivial("[P2] host_initialization_failed");}
-                finally {integration?.Shutdown(); finished=true;}
+                finally {intelligence?.Shutdown();integration?.Shutdown(); finished=true;}
             },"LSA character host lifetime");
             return true;
         }
@@ -38,6 +46,8 @@ namespace LSA.PromotedCharacters
             public bool enabled {get;set;} public string worldProfileId {get;set;}
             public string pipeName {get;set;}="LSA.PromotedCharacters.v1";
             public string identityPipeName {get;set;}="LSA.SessionIdentity.v1";
+            public IntelligenceConfig intelligence {get;set;}=new IntelligenceConfig();
         }
+        public sealed class IntelligenceConfig {public string mode {get;set;}="off";public string pipeName {get;set;}="LSA.Intelligence.v1";}
     }
 }

@@ -8,6 +8,8 @@ import { Telemetry, createNoopTelemetry } from './observability/telemetry.mjs';
 import { identityContractSupported } from './identity/nativeSupport.mjs';
 import { startCharacterEditor } from './characters/editorServer.mjs';
 import { characterContractSupported } from './characters/nativeSupport.mjs';
+import { IntelligenceClient } from './perception/intelligenceClient.mjs';
+import { perceptionContractSupported } from './perception/nativeSupport.mjs';
 
 let shutdownFlushRegistered = false;
 
@@ -65,6 +67,13 @@ export async function createRuntimeForBundle(options = {}) {
     } else telemetry = createNoopTelemetry();
   }
   const runtime = createRuntime(config, { ...options, telemetry });
+  if(config.intelligence.mode==='shadow') {
+    let contract=options.perceptionContract;
+    if(contract===undefined) try {contract=JSON.parse(await readFile(new URL('../build-manifest.json',import.meta.url),'utf8')).perceptionContract;}catch{}
+    if(perceptionContractSupported(contract)) {
+      try {runtime.intelligence=new IntelligenceClient(config.intelligence,options.intelligenceOptions);runtime.intelligence.start();}catch{try{console.warn('[PS] optional_channel_unavailable');}catch{}}
+    } else try {console.warn('[PS] optional_perception_contract_unavailable');}catch{}
+  }
   if (runtime.characterService) {
     await runtime.characterService.initialize();
     if (runtime.characterService.ready && options.startCharacterEditor !== false) try {

@@ -1,0 +1,1242 @@
+{
+  "dllSha256": "9b6de42d4c464901d859dd95e17e100e4fa9ef6074bfbb0cf3a57a76f6ddd653",
+  "types": [
+    {
+      "name": "LosSantosAlive.NPC.NpcState",
+      "methods": [
+        {
+          "name": "get_IsPassiveRuntime",
+          "returns": "Boolean",
+          "parameters": []
+        },
+        {
+          "name": "get_IsReflexOnlyRuntime",
+          "returns": "Boolean",
+          "parameters": []
+        },
+        {
+          "name": "get_IsActiveBehaviorRuntime",
+          "returns": "Boolean",
+          "parameters": []
+        },
+        {
+          "name": "get_IsConversationRuntime",
+          "returns": "Boolean",
+          "parameters": []
+        },
+        {
+          "name": "get_ShouldUseFullBehaviorStack",
+          "returns": "Boolean",
+          "parameters": []
+        },
+        {
+          "name": "IsActionBlocked",
+          "returns": "Boolean",
+          "parameters": [
+            "String"
+          ]
+        },
+        {
+          "name": "BlockAction",
+          "returns": "Void",
+          "parameters": [
+            "String",
+            "String"
+          ]
+        },
+        {
+          "name": "BlockActions",
+          "returns": "Void",
+          "parameters": [
+            "System.Collections.Generic.IEnumerable\u00601\u003CString\u003E",
+            "String"
+          ]
+        },
+        {
+          "name": "UnblockAction",
+          "returns": "Void",
+          "parameters": [
+            "String"
+          ]
+        },
+        {
+          "name": "ClearBlockedActions",
+          "returns": "Void",
+          "parameters": []
+        },
+        {
+          "name": "PromoteToConversationRuntime",
+          "returns": "Void",
+          "parameters": []
+        },
+        {
+          "name": "PromoteToActiveBehaviorRuntime",
+          "returns": "Void",
+          "parameters": []
+        },
+        {
+          "name": "PromoteToReflexOnlyRuntime",
+          "returns": "Void",
+          "parameters": []
+        },
+        {
+          "name": "DemoteToPassiveRuntime",
+          "returns": "Void",
+          "parameters": []
+        },
+        {
+          "name": ".ctor",
+          "returns": "Void",
+          "parameters": []
+        }
+      ],
+      "fields": [
+        {
+          "name": "Ped",
+          "type": "Rage.Ped"
+        },
+        {
+          "name": "RoleType",
+          "type": "LosSantosAlive.NPC.Roles.NpcRoleType"
+        },
+        {
+          "name": "RoleProfile",
+          "type": "LosSantosAlive.NPC.Roles.NpcRoleProfile"
+        },
+        {
+          "name": "HasBeenTakenOver",
+          "type": "Boolean"
+        },
+        {
+          "name": "StayUnderLsaControl",
+          "type": "Boolean"
+        },
+        {
+          "name": "HasEverHadConversation",
+          "type": "Boolean"
+        },
+        {
+          "name": "RuntimeMode",
+          "type": "LosSantosAlive.NPC.NpcRuntimeMode"
+        },
+        {
+          "name": "FollowPlayerOnFoot",
+          "type": "Boolean"
+        },
+        {
+          "name": "FollowPaused",
+          "type": "Boolean"
+        },
+        {
+          "name": "HasDestination",
+          "type": "Boolean"
+        },
+        {
+          "name": "DestinationRawRequest",
+          "type": "String"
+        },
+        {
+          "name": "DestinationHint",
+          "type": "String"
+        },
+        {
+          "name": "DestinationIntent",
+          "type": "String"
+        },
+        {
+          "name": "ResolvedDestinationName",
+          "type": "String"
+        },
+        {
+          "name": "CurrentDestinationName",
+          "type": "String"
+        },
+        {
+          "name": "CurrentDestinationDescription",
+          "type": "String"
+        },
+        {
+          "name": "DestinationPosition",
+          "type": "Rage.Vector3"
+        },
+        {
+          "name": "DestinationResolved",
+          "type": "Boolean"
+        },
+        {
+          "name": "WalkToDestination",
+          "type": "Boolean"
+        },
+        {
+          "name": "DriveToDestination",
+          "type": "Boolean"
+        },
+        {
+          "name": "ActivityQueue",
+          "type": "System.Collections.Generic.Queue\u00601\u003CLosSantosAlive.NPC.NpcActivityQueueItem\u003E"
+        },
+        {
+          "name": "CurrentActivity",
+          "type": "LosSantosAlive.NPC.NpcActivityQueueItem"
+        },
+        {
+          "name": "HasActivityQueue",
+          "type": "Boolean"
+        },
+        {
+          "name": "ActivityInProgress",
+          "type": "Boolean"
+        },
+        {
+          "name": "ActivityWaitingForTurn",
+          "type": "Boolean"
+        },
+        {
+          "name": "OccupyingActivityPointPedHandle",
+          "type": "UInt32"
+        },
+        {
+          "name": "CurrentActivityLocationName",
+          "type": "String"
+        },
+        {
+          "name": "CurrentActivityPointName",
+          "type": "String"
+        },
+        {
+          "name": "CurrentActivityName",
+          "type": "String"
+        },
+        {
+          "name": "CurrentActivityItemName",
+          "type": "String"
+        },
+        {
+          "name": "ActivityStartTime",
+          "type": "Int32"
+        },
+        {
+          "name": "LastActivityTaskTime",
+          "type": "Int32"
+        },
+        {
+          "name": "ActivityUpdatesSinceLastInteraction",
+          "type": "System.Collections.Generic.List\u00601\u003CString\u003E"
+        },
+        {
+          "name": "ContextUpdatesSinceLastInteraction",
+          "type": "System.Collections.Generic.List\u00601\u003CString\u003E"
+        },
+        {
+          "name": "ImmediateContextUpdates",
+          "type": "System.Collections.Generic.List\u00601\u003CString\u003E"
+        },
+        {
+          "name": "HeldItem",
+          "type": "LosSantosAlive.NPC.Items.NpcHeldItemState"
+        },
+        {
+          "name": "EnterDriverSeatWhenPlayerVehicleNearby",
+          "type": "Boolean"
+        },
+        {
+          "name": "EnterPassengerSeatWhenPlayerVehicleNearby",
+          "type": "Boolean"
+        },
+        {
+          "name": "EnterBackPassengerSeatWhenPlayerVehicleNearby",
+          "type": "Boolean"
+        },
+        {
+          "name": "EnterPassengerSeatWhenPlayerEnters",
+          "type": "Boolean"
+        },
+        {
+          "name": "ExitVehicleWhenPlayerExits",
+          "type": "Boolean"
+        },
+        {
+          "name": "AssignedVehicle",
+          "type": "Rage.Vehicle"
+        },
+        {
+          "name": "AssignedVehicleSeatIndex",
+          "type": "Int32"
+        },
+        {
+          "name": "AssignedVehicleSeatEntryActive",
+          "type": "Boolean"
+        },
+        {
+          "name": "DriveToXWhenBothSeated",
+          "type": "Boolean"
+        },
+        {
+          "name": "DriveEvasiveMode",
+          "type": "Boolean"
+        },
+        {
+          "name": "PendingDriveDestinationName",
+          "type": "String"
+        },
+        {
+          "name": "DriveDestination",
+          "type": "Rage.Vector3"
+        },
+        {
+          "name": "HasResolvedDriveDestination",
+          "type": "Boolean"
+        },
+        {
+          "name": "WalkAway",
+          "type": "Boolean"
+        },
+        {
+          "name": "FleePlayer",
+          "type": "Boolean"
+        },
+        {
+          "name": "IntimidatePlayerWithWeapon",
+          "type": "Boolean"
+        },
+        {
+          "name": "IntimidateTargetPed",
+          "type": "Rage.Ped"
+        },
+        {
+          "name": "AttackPlayer",
+          "type": "Boolean"
+        },
+        {
+          "name": "TurnAroundMode",
+          "type": "Boolean"
+        },
+        {
+          "name": "TurnAroundTargetPed",
+          "type": "Rage.Ped"
+        },
+        {
+          "name": "WalkBackwardsToTargetMode",
+          "type": "Boolean"
+        },
+        {
+          "name": "WalkBackwardsTargetPed",
+          "type": "Rage.Ped"
+        },
+        {
+          "name": "LeanAgainstVehicleMode",
+          "type": "Boolean"
+        },
+        {
+          "name": "ApproachTargetMode",
+          "type": "Boolean"
+        },
+        {
+          "name": "ApproachTargetPed",
+          "type": "Rage.Ped"
+        },
+        {
+          "name": "LastApproachTaskTime",
+          "type": "Int32"
+        },
+        {
+          "name": "ChaseTargetMode",
+          "type": "Boolean"
+        },
+        {
+          "name": "ChaseTargetPed",
+          "type": "Rage.Ped"
+        },
+        {
+          "name": "LastChaseTaskTime",
+          "type": "Int32"
+        },
+        {
+          "name": "TakeCoverMode",
+          "type": "Boolean"
+        },
+        {
+          "name": "LastTakeCoverTaskTime",
+          "type": "Int32"
+        },
+        {
+          "name": "AccompliceMode",
+          "type": "Boolean"
+        },
+        {
+          "name": "CurrentFocusPed",
+          "type": "Rage.Ped"
+        },
+        {
+          "name": "CurrentFocusReason",
+          "type": "String"
+        },
+        {
+          "name": "LastAutoAddressedPedHandle",
+          "type": "UInt32"
+        },
+        {
+          "name": "AutoResumeFollowPedHandle",
+          "type": "UInt32"
+        },
+        {
+          "name": "ActiveInteractionId",
+          "type": "String"
+        },
+        {
+          "name": "InDirectedInteraction",
+          "type": "Boolean"
+        },
+        {
+          "name": "StopAndFaceTargetMode",
+          "type": "Boolean"
+        },
+        {
+          "name": "StopAndFaceTargetPed",
+          "type": "Rage.Ped"
+        },
+        {
+          "name": "LastStopAndFaceTaskTime",
+          "type": "Int32"
+        },
+        {
+          "name": "HandsUpMode",
+          "type": "Boolean"
+        },
+        {
+          "name": "WantsHandsUp",
+          "type": "Boolean"
+        },
+        {
+          "name": "KneelMode",
+          "type": "Boolean"
+        },
+        {
+          "name": "SitOnGroundMode",
+          "type": "Boolean"
+        },
+        {
+          "name": "BlockedActions",
+          "type": "System.Collections.Generic.HashSet\u00601\u003CString\u003E"
+        },
+        {
+          "name": "ActionBlockReason",
+          "type": "String"
+        },
+        {
+          "name": "BlockPhysicalReflexActions",
+          "type": "Boolean"
+        },
+        {
+          "name": "PhysicalReflexBlockReason",
+          "type": "String"
+        },
+        {
+          "name": "HasActiveReflex",
+          "type": "Boolean"
+        },
+        {
+          "name": "LastReflexEvent",
+          "type": "String"
+        },
+        {
+          "name": "LastReflexEventType",
+          "type": "LosSantosAlive.NPC.Reflexes.ReflexEventType"
+        },
+        {
+          "name": "LastReflexReaction",
+          "type": "String"
+        },
+        {
+          "name": "LastReflexReason",
+          "type": "String"
+        },
+        {
+          "name": "LastReflexTime",
+          "type": "Int32"
+        },
+        {
+          "name": "LastReflexRequestedGeminiSession",
+          "type": "Boolean"
+        },
+        {
+          "name": "ReflexLastTimes",
+          "type": "System.Collections.Generic.Dictionary\u00602\u003CLosSantosAlive.NPC.Reflexes.ReflexEventType,Int32\u003E"
+        },
+        {
+          "name": "LockedReflexEvents",
+          "type": "System.Collections.Generic.HashSet\u00601\u003CLosSantosAlive.NPC.Reflexes.ReflexEventType\u003E"
+        },
+        {
+          "name": "ReflexLocked",
+          "type": "Boolean"
+        },
+        {
+          "name": "ReflexEscalationLevel",
+          "type": "Int32"
+        },
+        {
+          "name": "LastFollowTaskTime",
+          "type": "Int32"
+        },
+        {
+          "name": "LastVehicleEnterTaskTime",
+          "type": "Int32"
+        },
+        {
+          "name": "LastVehicleExitTaskTime",
+          "type": "Int32"
+        },
+        {
+          "name": "LastAccompliceUpdateTime",
+          "type": "Int32"
+        },
+        {
+          "name": "LastComplianceTaskTime",
+          "type": "Int32"
+        },
+        {
+          "name": "LastCombatTaskTime",
+          "type": "Int32"
+        },
+        {
+          "name": "LastDriveTaskTime",
+          "type": "Int32"
+        },
+        {
+          "name": "LastFocusChangeTime",
+          "type": "Int32"
+        },
+        {
+          "name": "LastInteractionTaskTime",
+          "type": "Int32"
+        },
+        {
+          "name": "LastDestinationTaskTime",
+          "type": "Int32"
+        },
+        {
+          "name": "LastMovementActionTaskTime",
+          "type": "Int32"
+        },
+        {
+          "name": "LastReflexOnlyBrainRefreshTime",
+          "type": "Int32"
+        },
+        {
+          "name": "LastWantedControlledBrain",
+          "type": "Boolean"
+        },
+        {
+          "name": "TargetVehicle",
+          "type": "Rage.Vehicle"
+        },
+        {
+          "name": "LastKnownWeaponHash",
+          "type": "UInt32"
+        },
+        {
+          "name": "WeaponEquippedMode",
+          "type": "Boolean"
+        },
+        {
+          "name": "EquippedWeaponHash",
+          "type": "UInt32"
+        }
+      ]
+    },
+    {
+      "name": "LosSantosAlive.NPC.NpcStateStore",
+      "methods": [
+        {
+          "name": "GetState",
+          "returns": "LosSantosAlive.NPC.NpcState",
+          "parameters": [
+            "Rage.Ped"
+          ]
+        },
+        {
+          "name": "TryGetState",
+          "returns": "LosSantosAlive.NPC.NpcState",
+          "parameters": [
+            "Rage.Ped"
+          ]
+        },
+        {
+          "name": "TryGetState",
+          "returns": "Boolean",
+          "parameters": [
+            "Rage.Ped",
+            "LosSantosAlive.NPC.NpcState\u0026"
+          ]
+        },
+        {
+          "name": "GetStateForReflex",
+          "returns": "LosSantosAlive.NPC.NpcState",
+          "parameters": [
+            "Rage.Ped"
+          ]
+        },
+        {
+          "name": "GetStateForActiveBehavior",
+          "returns": "LosSantosAlive.NPC.NpcState",
+          "parameters": [
+            "Rage.Ped"
+          ]
+        },
+        {
+          "name": "GetStateForConversation",
+          "returns": "LosSantosAlive.NPC.NpcState",
+          "parameters": [
+            "Rage.Ped"
+          ]
+        },
+        {
+          "name": "PromoteToReflexOnly",
+          "returns": "Void",
+          "parameters": [
+            "Rage.Ped"
+          ]
+        },
+        {
+          "name": "PromoteToActiveBehavior",
+          "returns": "Void",
+          "parameters": [
+            "Rage.Ped"
+          ]
+        },
+        {
+          "name": "PromoteToConversation",
+          "returns": "Void",
+          "parameters": [
+            "Rage.Ped"
+          ]
+        },
+        {
+          "name": "GetAllStates",
+          "returns": "System.Collections.Generic.IEnumerable\u00601\u003CSystem.Collections.Generic.KeyValuePair\u00602\u003CString,LosSantosAlive.NPC.NpcState\u003E\u003E",
+          "parameters": []
+        },
+        {
+          "name": "GetAllStatesSnapshot",
+          "returns": "System.Collections.Generic.List\u00601\u003CSystem.Collections.Generic.KeyValuePair\u00602\u003CString,LosSantosAlive.NPC.NpcState\u003E\u003E",
+          "parameters": []
+        },
+        {
+          "name": "RemoveState",
+          "returns": "Void",
+          "parameters": [
+            "String"
+          ]
+        },
+        {
+          "name": "RemoveState",
+          "returns": "Void",
+          "parameters": [
+            "Rage.Ped"
+          ]
+        },
+        {
+          "name": "HasState",
+          "returns": "Boolean",
+          "parameters": [
+            "Rage.Ped"
+          ]
+        },
+        {
+          "name": "get_Count",
+          "returns": "Int32",
+          "parameters": []
+        },
+        {
+          "name": "Clear",
+          "returns": "Void",
+          "parameters": []
+        },
+        {
+          "name": "ClearRecentlyReleased",
+          "returns": "Void",
+          "parameters": [
+            "Rage.Ped"
+          ]
+        }
+      ],
+      "fields": []
+    },
+    {
+      "name": "LosSantosAlive.NPC.NpcTargeting",
+      "methods": [
+        {
+          "name": "WarmupForFirstConversation",
+          "returns": "Void",
+          "parameters": []
+        },
+        {
+          "name": "BeginFirstConversationWarmup",
+          "returns": "Void",
+          "parameters": []
+        },
+        {
+          "name": "get_IsFirstConversationWarmupComplete",
+          "returns": "Boolean",
+          "parameters": []
+        },
+        {
+          "name": "get_PlayerConversationPed",
+          "returns": "Rage.Ped",
+          "parameters": []
+        },
+        {
+          "name": "get_HasPlayerConversationPed",
+          "returns": "Boolean",
+          "parameters": []
+        },
+        {
+          "name": "SetPlayerConversationPed",
+          "returns": "Void",
+          "parameters": [
+            "Rage.Ped"
+          ]
+        },
+        {
+          "name": "GetPlayerConversationPed",
+          "returns": "Rage.Ped",
+          "parameters": []
+        },
+        {
+          "name": "ClearPlayerConversationPed",
+          "returns": "Void",
+          "parameters": []
+        },
+        {
+          "name": "get_CurrentSpeakerPed",
+          "returns": "Rage.Ped",
+          "parameters": []
+        },
+        {
+          "name": "get_HasCurrentSpeaker",
+          "returns": "Boolean",
+          "parameters": []
+        },
+        {
+          "name": "ActivateAttention",
+          "returns": "Void",
+          "parameters": [
+            "Rage.Ped"
+          ]
+        },
+        {
+          "name": "GetCurrentSpeakerPed",
+          "returns": "Rage.Ped",
+          "parameters": []
+        },
+        {
+          "name": "ClearCurrentSpeaker",
+          "returns": "Void",
+          "parameters": []
+        },
+        {
+          "name": "GetRelevantTarget",
+          "returns": "Rage.Ped",
+          "parameters": [
+            "Rage.Ped"
+          ]
+        },
+        {
+          "name": "TryGetRelevantTarget",
+          "returns": "Boolean",
+          "parameters": [
+            "Rage.Ped",
+            "Rage.Ped\u0026"
+          ]
+        },
+        {
+          "name": "SetRelevantTarget",
+          "returns": "Rage.Ped",
+          "parameters": [
+            "Rage.Ped",
+            "Rage.Ped",
+            "String"
+          ]
+        },
+        {
+          "name": "GetBestConversationPed",
+          "returns": "Rage.Ped",
+          "parameters": []
+        },
+        {
+          "name": "GetBestConversationPed",
+          "returns": "Rage.Ped",
+          "parameters": [
+            "Rage.Ped"
+          ]
+        },
+        {
+          "name": "GetBestConversationPed",
+          "returns": "Rage.Ped",
+          "parameters": [
+            "Single",
+            "Single"
+          ]
+        },
+        {
+          "name": "GetBestConversationPed",
+          "returns": "Rage.Ped",
+          "parameters": [
+            "Single",
+            "Single",
+            "Rage.Ped"
+          ]
+        },
+        {
+          "name": "GetNearestPed",
+          "returns": "Rage.Ped",
+          "parameters": []
+        },
+        {
+          "name": "GetNearestPed",
+          "returns": "Rage.Ped",
+          "parameters": [
+            "Rage.Ped"
+          ]
+        },
+        {
+          "name": "GetNearestPed",
+          "returns": "Rage.Ped",
+          "parameters": [
+            "Single"
+          ]
+        },
+        {
+          "name": "GetNearestPed",
+          "returns": "Rage.Ped",
+          "parameters": [
+            "Single",
+            "Rage.Ped"
+          ]
+        },
+        {
+          "name": "IsValid",
+          "returns": "Boolean",
+          "parameters": [
+            "Rage.Ped"
+          ]
+        },
+        {
+          "name": "IsValidAnyPed",
+          "returns": "Boolean",
+          "parameters": [
+            "Rage.Ped"
+          ]
+        },
+        {
+          "name": "IsValidHumanPed",
+          "returns": "Boolean",
+          "parameters": [
+            "Rage.Ped"
+          ]
+        },
+        {
+          "name": "IsHumanPed",
+          "returns": "Boolean",
+          "parameters": [
+            "Rage.Ped"
+          ]
+        }
+      ],
+      "fields": []
+    },
+    {
+      "name": "LosSantosAlive.NPC.Perception.PerceptionSnapshot",
+      "methods": [
+        {
+          "name": "get_IsValid",
+          "returns": "Boolean",
+          "parameters": []
+        },
+        {
+          "name": "TryGetPedByHandleString",
+          "returns": "Boolean",
+          "parameters": [
+            "String",
+            "Rage.Ped\u0026"
+          ]
+        },
+        {
+          "name": "TryGetPedByHandle",
+          "returns": "Boolean",
+          "parameters": [
+            "UInt32",
+            "Rage.Ped\u0026"
+          ]
+        },
+        {
+          "name": "Capture",
+          "returns": "LosSantosAlive.NPC.Perception.PerceptionSnapshot",
+          "parameters": []
+        },
+        {
+          "name": ".ctor",
+          "returns": "Void",
+          "parameters": []
+        }
+      ],
+      "fields": [
+        {
+          "name": "Player",
+          "type": "Rage.Ped"
+        },
+        {
+          "name": "AllPeds",
+          "type": "Rage.Ped[]"
+        },
+        {
+          "name": "AllVehicles",
+          "type": "Rage.Vehicle[]"
+        },
+        {
+          "name": "GameTime",
+          "type": "Int32"
+        }
+      ]
+    },
+    {
+      "name": "LosSantosAlive.NPC.Perception.PerceptionSystem",
+      "methods": [
+        {
+          "name": "get_CurrentSnapshot",
+          "returns": "LosSantosAlive.NPC.Perception.PerceptionSnapshot",
+          "parameters": []
+        },
+        {
+          "name": "Update",
+          "returns": "LosSantosAlive.NPC.Perception.PerceptionSnapshot",
+          "parameters": []
+        },
+        {
+          "name": "TryGetSnapshot",
+          "returns": "Boolean",
+          "parameters": [
+            "LosSantosAlive.NPC.Perception.PerceptionSnapshot\u0026"
+          ]
+        },
+        {
+          "name": "GetPedsSnapshot",
+          "returns": "Rage.Ped[]",
+          "parameters": []
+        },
+        {
+          "name": "GetVehiclesSnapshot",
+          "returns": "Rage.Vehicle[]",
+          "parameters": []
+        },
+        {
+          "name": "FindPedByHandleString",
+          "returns": "Rage.Ped",
+          "parameters": [
+            "String"
+          ]
+        },
+        {
+          "name": "FindPedByHandle",
+          "returns": "Rage.Ped",
+          "parameters": [
+            "UInt32"
+          ]
+        }
+      ],
+      "fields": []
+    },
+    {
+      "name": "LosSantosAlive.Integrations.IIntegration",
+      "methods": [
+        {
+          "name": "get_Id",
+          "returns": "String",
+          "parameters": []
+        },
+        {
+          "name": "get_IsAvailable",
+          "returns": "Boolean",
+          "parameters": []
+        },
+        {
+          "name": "Initialize",
+          "returns": "Void",
+          "parameters": []
+        },
+        {
+          "name": "Update",
+          "returns": "Void",
+          "parameters": []
+        },
+        {
+          "name": "Shutdown",
+          "returns": "Void",
+          "parameters": []
+        },
+        {
+          "name": "EnrichActor",
+          "returns": "Void",
+          "parameters": [
+            "Rage.Ped",
+            "LosSantosAlive.Context.ActorContext"
+          ]
+        },
+        {
+          "name": "OnPedControlChanged",
+          "returns": "Void",
+          "parameters": [
+            "Rage.Ped",
+            "Boolean"
+          ]
+        },
+        {
+          "name": "OnNpcActionExecuted",
+          "returns": "Void",
+          "parameters": [
+            "Rage.Ped",
+            "String",
+            "Boolean"
+          ]
+        }
+      ],
+      "fields": []
+    },
+    {
+      "name": "LosSantosAlive.Audio.NpcPlaybackStartedEvent",
+      "methods": [
+        {
+          "name": ".ctor",
+          "returns": "Void",
+          "parameters": []
+        }
+      ],
+      "fields": [
+        {
+          "name": "SpeakerPed",
+          "type": "Rage.Ped"
+        },
+        {
+          "name": "PedId",
+          "type": "String"
+        },
+        {
+          "name": "TurnId",
+          "type": "String"
+        },
+        {
+          "name": "GenerationId",
+          "type": "Int64"
+        }
+      ]
+    },
+    {
+      "name": "LosSantosAlive.Audio.NpcPlaybackEndedEvent",
+      "methods": [
+        {
+          "name": ".ctor",
+          "returns": "Void",
+          "parameters": []
+        }
+      ],
+      "fields": [
+        {
+          "name": "SpeakerPed",
+          "type": "Rage.Ped"
+        },
+        {
+          "name": "PedId",
+          "type": "String"
+        },
+        {
+          "name": "TurnId",
+          "type": "String"
+        },
+        {
+          "name": "GenerationId",
+          "type": "Int64"
+        },
+        {
+          "name": "Reason",
+          "type": "String"
+        },
+        {
+          "name": "WasInterrupted",
+          "type": "Boolean"
+        },
+        {
+          "name": "HadAudio",
+          "type": "Boolean"
+        },
+        {
+          "name": "PlaybackStarted",
+          "type": "Boolean"
+        }
+      ]
+    },
+    {
+      "name": "LosSantosAlive.Audio.NpcPlaybackCoordinator",
+      "methods": [
+        {
+          "name": "add_LegacyPlaybackFinished",
+          "returns": "Void",
+          "parameters": [
+            "System.Action\u00601\u003CRage.Ped\u003E"
+          ]
+        },
+        {
+          "name": "remove_LegacyPlaybackFinished",
+          "returns": "Void",
+          "parameters": [
+            "System.Action\u00601\u003CRage.Ped\u003E"
+          ]
+        },
+        {
+          "name": "add_PlaybackStarted",
+          "returns": "Void",
+          "parameters": [
+            "System.Action\u00601\u003CLosSantosAlive.Audio.NpcPlaybackStartedEvent\u003E"
+          ]
+        },
+        {
+          "name": "remove_PlaybackStarted",
+          "returns": "Void",
+          "parameters": [
+            "System.Action\u00601\u003CLosSantosAlive.Audio.NpcPlaybackStartedEvent\u003E"
+          ]
+        },
+        {
+          "name": "add_PlaybackEnded",
+          "returns": "Void",
+          "parameters": [
+            "System.Action\u00601\u003CLosSantosAlive.Audio.NpcPlaybackEndedEvent\u003E"
+          ]
+        },
+        {
+          "name": "remove_PlaybackEnded",
+          "returns": "Void",
+          "parameters": [
+            "System.Action\u00601\u003CLosSantosAlive.Audio.NpcPlaybackEndedEvent\u003E"
+          ]
+        },
+        {
+          "name": "Initialize",
+          "returns": "Void",
+          "parameters": []
+        },
+        {
+          "name": "TryAuthorizeTurn",
+          "returns": "Boolean",
+          "parameters": [
+            "Rage.Ped",
+            "String",
+            "Int64",
+            "String\u0026",
+            "Rage.Ped",
+            "String",
+            "Boolean"
+          ]
+        },
+        {
+          "name": "QueueTaggedAudioChunk",
+          "returns": "Boolean",
+          "parameters": [
+            "Byte[]",
+            "Rage.Ped",
+            "String",
+            "Int64",
+            "String\u0026"
+          ]
+        },
+        {
+          "name": "QueueLegacyAudioChunk",
+          "returns": "Void",
+          "parameters": [
+            "Byte[]",
+            "Rage.Ped"
+          ]
+        },
+        {
+          "name": "MarkStreamEnded",
+          "returns": "Boolean",
+          "parameters": [
+            "String",
+            "String",
+            "Int64",
+            "String\u0026"
+          ]
+        },
+        {
+          "name": "InterruptExactTurn",
+          "returns": "Boolean",
+          "parameters": [
+            "Rage.Ped",
+            "String",
+            "Int64",
+            "String"
+          ]
+        },
+        {
+          "name": "InterruptExactTurn",
+          "returns": "Boolean",
+          "parameters": [
+            "String",
+            "Rage.Ped",
+            "String",
+            "Int64",
+            "String"
+          ]
+        },
+        {
+          "name": "InterruptPed",
+          "returns": "Void",
+          "parameters": [
+            "Rage.Ped",
+            "String"
+          ]
+        },
+        {
+          "name": "HasPendingAudioForPed",
+          "returns": "Boolean",
+          "parameters": [
+            "Rage.Ped"
+          ]
+        },
+        {
+          "name": "IsAnyAudioPlayingOrPending",
+          "returns": "Boolean",
+          "parameters": []
+        },
+        {
+          "name": "IsPedCurrentlySpeaking",
+          "returns": "Boolean",
+          "parameters": [
+            "Rage.Ped"
+          ]
+        },
+        {
+          "name": "GetActiveSpeakerPed",
+          "returns": "Rage.Ped",
+          "parameters": []
+        },
+        {
+          "name": "Clear",
+          "returns": "Void",
+          "parameters": []
+        },
+        {
+          "name": "ResetForTransportDisconnect",
+          "returns": "Void",
+          "parameters": []
+        },
+        {
+          "name": "Shutdown",
+          "returns": "Void",
+          "parameters": []
+        }
+      ],
+      "fields": []
+    }
+  ]
+}

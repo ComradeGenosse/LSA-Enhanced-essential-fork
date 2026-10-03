@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { verifyNativeContract } from './verifyNativeContract.mjs';
 import { verifyIdentityContract } from './verifyIdentityContract.mjs';
 import { verifyCharactersContract } from './verifyCharactersContract.mjs';
+import { verifyPerceptionContract } from './verifyPerceptionContract.mjs';
 import { assertCandidateWriteTarget, assertNoLinkedOutput, candidateRootPath } from './checkIsolation.mjs';
 
 const root = candidateRootPath();
@@ -258,6 +259,7 @@ export async function buildCandidate({ sourcePath = stockBundleDefault, outputPa
   const nativeContract = await verifyNativeContract(dllHash, { expectedMetadataSha256: expectedNativeMetadataHash });
   const identityContract = await verifyIdentityContract(dllHash);
   const characterContract = await verifyCharactersContract(dllHash);
+  const perceptionContract = await verifyPerceptionContract(dllHash);
   const patched = patchSource(source);
   if (patched.edits.length !== expectedPatchCount) throw new Error(`AST patch inventory changed: expected ${expectedPatchCount}, found ${patched.edits.length}. Re-audit the source seam list before building.`);
   const entry = path.join(target, launcherName);
@@ -274,10 +276,12 @@ export async function buildCandidate({ sourcePath = stockBundleDefault, outputPa
     nativeContract,
     identityContract,
     characterContract,
-    stage: 'P2 PROMOTED_CHARACTERS / CHARACTER_PROFILE', foundationStage: 'P0+P1+E1.1+E2+E3+E5+E6', status: 'candidate-built-offline-p2-gta-pending', observabilitySchemaVersion: 1,
+    perceptionContract,
+    stage: 'PS0+PS1 SHADOW PERCEPTION', foundationStage: 'P2+P0+P1+E1.1+E2+E3+E5+E6', status: 'candidate-built-offline-ps0-ps1-gta-pending', observabilitySchemaVersion: 1,
     features: { structuredStreaming: true, earlySegmentedTts: true, defaultEnabled: false, earlyTtsMode: 'dialogue_only', ttsConcurrency: 1,
       sessionIdentity: { defaultEnabled: false, modes: ['shadow','voices'], storeSchemaVersion: 1, nativeAddressing: 'unchanged' },
-      promotedCharacters: { defaultEnabled:false,profileStoreSchemaVersion:1,manualMemoryOnly:true,requiresAuthoredP1Owner:true,nativeAddressing:'unchanged' } },
+      promotedCharacters: { defaultEnabled:false,profileStoreSchemaVersion:1,manualMemoryOnly:true,requiresAuthoredP1Owner:true,nativeAddressing:'unchanged' },
+      intelligence: {defaultMode:'off',modes:['off','shadow'],phases:['PS0','PS1'],modelContext:false,automaticMemory:false,initiative:false} },
     launcherEntry: launcherName, upstreamBundleSha256: sourceHash,
     stockDllReferenceSha256: dllHash, builtBundleSha256: digest(patched.output),
     e1SourceTreeSha256, releasePayloadSha256,

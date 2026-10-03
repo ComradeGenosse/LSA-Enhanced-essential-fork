@@ -1,0 +1,117 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { randomUUID } from 'node:crypto';
+import { readFile } from 'node:fs/promises';
+import { CAPABILITIES, normalizePerceptionConfig,validateFrame,validateSignal,validateObservation } from '../src/perception/contracts.mjs';
+import { ShadowRuntime } from '../src/perception/shadowRuntime.mjs';
+import { ObservationStore } from '../src/perception/observationStore.mjs';
+import { verifyPerceptionContract } from '../tools/verifyPerceptionContract.mjs';
+import { perceptionContractSupported } from '../src/perception/nativeSupport.mjs';
+
+function fixture() {
+  let now=0, sequence=0, producerSequence=0;const epoch=randomUUID(),stream=randomUUID(),ped=randomUUID(),player=randomUUID(),vehicle=randomUUID(),ambient=randomUUID();
+  const runtime=new ShadowRuntime({mode:'shadow',now:()=>now});const caps=Object.fromEntries(CAPABILITIES.map(k=>[k,!['witness','awareness'].includes(k)]));
+  const hello=()=>({version:1,type:'hello',adapterEpoch:epoch,streamId:stream,capabilities:caps});
+  const frame=(type,payload)=>({version:1,type,adapterEpoch:epoch,streamId:stream,sequence:++sequence,payload});
+  const ingest=v=>runtime.ingest(v,{authenticated:true});
+  ingest(hello());ingest(frame('anchors',[{captureRef:ped,kind:'ped',observer:true},{captureRef:player,kind:'player',observer:false},{captureRef:vehicle,kind:'vehicle',observer:false},{captureRef:ambient,kind:'ped',observer:false}]));
+  const signal=(patch={})=>({signalId:randomUUID(),producer:'ped_damage',producerSequence:++producerSequence,kind:'damage',target:ped,source:player,gameTick:1,ageMs:0,facts:{damage:5,armour:1,classification:'bullet'},...patch});
+  return {runtime,caps,ped,player,vehicle,ambient,hello,frame,signal,ingest,advance:n=>now+=n};
+}
+test('perception defaults off and unsupported future modes cannot activate effects',()=>{
+  assert.equal(normalizePerceptionConfig().mode,'off');assert.equal(normalizePerceptionConfig({mode:'shadow'}).mode,'shadow');
+  for(const mode of ['context','memory','initiative','anything']) assert.equal(normalizePerceptionConfig({mode}).mode,'off');
+  const f=fixture();const off=new ShadowRuntime();assert.equal(off.ingest(f.hello(),{authenticated:true}),false);assert.equal(off.anchors.size,0);
+});
+test('native perception metadata is pinned and drift fails closed',async()=>{
+  const c=await verifyPerceptionContract();assert.equal(perceptionContractSupported(c),true);
+  assert.equal((await verifyPerceptionContract('changed')).available,false);
+  assert.equal((await verifyPerceptionContract(undefined,{damageText:'{}'})).available,false);
+  assert.equal((await verifyPerceptionContract(undefined,{essentialText:'{}'})).available,false);
+  assert.equal(perceptionContractSupported({...c,damageDllSha256:'changed'}),false);
+});
+test('copied frames do not authenticate an endpoint',()=>{
+  const f=fixture(),r=new ShadowRuntime({mode:'shadow'});assert.equal(r.ingest(f.hello()),false);assert.equal(r.epoch,null);
+});
+test('primitive frames reject unknown keys, version, oversized, unrestricted identity and nonfinite facts',()=>{
+  const f=fixture();assert.equal(validateFrame(f.hello()),true);
+  for(const bad of [{...f.hello(),version:2},{...f.hello(),proof:'secret'},{...f.hello(),extra:'x'.repeat(8192)}]) assert.equal(validateFrame(bad),false);
+  const s=f.signal();assert.equal(validateSignal(s),true);
+  for(const bad of [{...s,CharacterId:randomUUID()},{...s,target:'12345'},{...s,facts:{...s.facts,nativeAddress:42}},{...s,facts:{...s.facts,damage:NaN}},{...s,producerSequence:-1}]) assert.equal(validateSignal(bad),false);
+  assert.equal(validateFrame(f.frame('anchors',[{captureRef:f.player,kind:'player',observer:true}])),false);
+  assert.equal(validateFrame(f.frame('anchors',Array(33).fill({captureRef:f.ped,kind:'ped',observer:false}))),false);
+});
+test('player ped vehicle damage supports unknown attacker without inferred attribution',()=>{
+  const f=fixture();for(const [producer,kind,target] of [['ped_damage','damage',f.ped],['player_damage','damage',f.player],['vehicle_damage','vehicle_damage',f.vehicle]]) assert.equal(f.ingest(f.frame('signal',f.signal({producer,kind,target,source:null}))),true);
+  assert.equal(f.runtime.signals.length,3);assert.equal(f.runtime.signals[2].value.source,null);
+});
+test('duplicate/out of order envelope sequences cannot replay facts',()=>{
+  const f=fixture(),v=f.frame('signal',f.signal());assert.equal(f.ingest(v),true);assert.equal(f.ingest(v),false);
+  assert.equal(f.ingest({...v,sequence:1}),false);assert.equal(f.runtime.signals.length,1);assert.equal(f.runtime.counters.duplicate,2);
+});
+test('transport sequence loss invalidates anchors and queued facts',()=>{
+  const f=fixture();f.ingest(f.frame('signal',f.signal()));const v=f.frame('signal',f.signal());assert.equal(f.ingest({...v,sequence:v.sequence+1}),false);
+  assert.equal(f.runtime.epoch,null);assert.equal(f.runtime.anchors.size,0);assert.equal(f.runtime.signals.length,0);
+});
+test('producer ordering loss reports uncertainty without guessing missed outcomes',()=>{
+  const f=fixture(),s=f.signal({producerSequence:3});assert.equal(f.ingest(f.frame('signal',s)),true);
+  assert.equal(f.runtime.counters.gaps,1);assert.equal(f.ingest(f.frame('signal',s)),false);assert.equal(f.runtime.signals.length,1);
+});
+test('400 critical callbacks remain bounded and preserve sequence tracking',()=>{
+  const f=fixture();for(let n=0;n<400;n++) f.ingest(f.frame('signal',f.signal()));assert.equal(f.runtime.signals.length,256);assert.equal(f.runtime.counters.dropped,144);
+});
+test('routine signals reserve 64 slots for critical involvement',()=>{
+  const f=fixture();for(let n=0;n<400;n++) f.ingest(f.frame('signal',f.signal({target:f.ambient,source:null})));
+  assert.equal(f.runtime.signals.length,192);for(let n=0;n<100;n++) f.ingest(f.frame('signal',f.signal()));assert.equal(f.runtime.signals.length,256);assert.ok(f.runtime.signals.some(s=>s.critical));
+});
+test('retirement purges old lifetime facts; same handle replacement cannot use old random token',()=>{
+  const f=fixture();f.ingest(f.frame('signal',f.signal()));f.ingest(f.frame('retire',{captureRef:f.ped}));assert.equal(f.runtime.signals.length,0);
+  const replacement=randomUUID();f.ingest(f.frame('anchors',[{captureRef:replacement,kind:'ped',observer:true}]));assert.equal(f.ingest(f.frame('signal',f.signal())),false);assert.equal(f.runtime.current(replacement),true);
+});
+test('expiry and stalled native validation cannot revive anchors from queued frames',()=>{
+  const f=fixture();f.advance(3001);f.runtime.expire();assert.equal(f.runtime.anchors.size,0);assert.equal(f.runtime.epoch,null);
+  assert.equal(f.ingest(f.frame('signal',f.signal())),false);
+});
+test('old native epoch/stream cannot publish after feature reset',()=>{
+  const f=fixture();f.runtime.reset();const other={...f.hello(),adapterEpoch:randomUUID(),streamId:randomUUID()};f.ingest(other);
+  assert.equal(f.ingest(f.frame('signal',f.signal())),false);assert.equal(f.runtime.signals.length,0);
+});
+test('missing source capability fails closed and future witness capabilities remain absent',()=>{
+  const f=fixture();f.caps.pedDamage=false;f.ingest(f.hello());f.ingest(f.frame('anchors',[{captureRef:f.ped,kind:'ped',observer:true}]));
+  assert.equal(f.ingest(f.frame('signal',f.signal({source:null}))),false);assert.equal(f.runtime.capabilities.witness,false);assert.equal(f.runtime.signals.length,0);
+});
+test('expired callback facts rejected and collision primitive copied immutably',()=>{
+  const f=fixture();assert.equal(f.ingest(f.frame('signal',f.signal({ageMs:30000}))),false);
+  const collision={x:1,y:2,z:3};const s=f.signal({producer:'vehicle_damage',kind:'vehicle_damage',target:f.vehicle,facts:{damage:1,armour:0,classification:'collision',collision}});
+  assert.equal(f.ingest(f.frame('signal',s)),true);collision.x=99;assert.equal(f.runtime.signals[0].value.facts.collision.x,1);
+});
+function observation(observer,episodeId=randomUUID()) {return {version:1,observationId:randomUUID(),episodeId,revision:1,observer:{captureRef:observer,kind:'ped'},observedAt:{nativeRun:randomUUID(),gameTick:1,receivedUtc:'2026-10-03T00:00:00.000Z'},expiresAtMonotonicMs:30000,eventType:'injury',severity:'danger',claims:[{claimId:randomUUID(),kind:'injured',certainty:'supported',evidence:{channel:'self',basis:'native_callback',sampledGameTick:1},details:{damageDelta:1,armourDelta:0}}],recognizedCharacterIds:[]};}
+test('observation revisions immutable, bounded, expire and retire with observer',()=>{
+  let now=0,live=true;const observer=randomUUID(),store=new ObservationStore({now:()=>now,current:()=>live}),o=observation(observer);
+  assert.equal(validateObservation(o),true);assert.equal(store.put(o),true);o.claims[0].details.damageDelta=9;assert.equal([...store.entries.values()][0].value.claims[0].details.damageDelta,1);
+  assert.equal(store.put(o),false);assert.equal(store.put({...o,revision:2}),true);
+  for(let n=0;n<127;n++) assert.equal(store.put(observation(observer)),true);assert.equal(store.put(observation(observer)),false);
+  now=30001;store.expire();assert.equal(store.entries.size,0);now=0;store.put(observation(observer));live=false;store.expire();assert.equal(store.entries.size,0);assert.equal(store.bytes,0);
+});
+test('observations reject unsupported witness claims and private fields',()=>{
+  const o=observation(randomUUID());for(const bad of [{...o,revision:0},{...o,recognizedCharacterIds:[randomUUID()]},{...o,prompt:'private'},{...o,claims:Array(5).fill(o.claims[0])}]) assert.equal(validateObservation(bad),false);
+});
+test('global observation count and serialized RAM budget are enforced',()=>{
+  const refs=Array.from({length:16},()=>randomUUID());const store=new ObservationStore({now:()=>0,current:()=>true});
+  for(let n=0;n<2048;n++) assert.equal(store.put(observation(refs[n%16])),true);
+  assert.equal(store.put(observation(randomUUID())),false);assert.equal(store.entries.size,2048);assert.ok(store.bytes<=2*1024*1024);
+  store.clear();let admitted=0;
+  for(let n=0;n<2048;n++) {const o=observation(refs[n%16]);o.claims=Array.from({length:4},()=>({...o.claims[0],claimId:randomUUID(),source:{captureRef:refs[0],kind:'ped'},target:{captureRef:refs[1],kind:'ped'}}));if(store.put(o)) admitted++;}
+  assert.ok(admitted<2048);assert.ok(store.bytes<=2*1024*1024);
+});
+test('signal anchor kinds reject wrong entity addresses',()=>{
+  const f=fixture();assert.equal(f.ingest(f.frame('signal',f.signal({target:f.vehicle}))),false);
+  assert.equal(f.ingest(f.frame('signal',f.signal({source:f.vehicle}))),false);
+  assert.equal(f.ingest(f.frame('signal',f.signal({kind:'vehicle_transition',producer:'state',facts:{vehicle:f.vehicle,driver:true},source:null}))),true);
+});
+test('PS0/PS1 production module boundary contains no model, memory or native action effect',async()=>{
+  for(const file of ['contracts.mjs','shadowRuntime.mjs','observationStore.mjs','intelligenceClient.mjs']) {
+    const source=await readFile(new URL('../src/perception/'+file,import.meta.url),'utf8');assert.doesNotMatch(source,/from ['"].*(?:openai|providers|profileStore|characterService|sceneDirector)/);assert.doesNotMatch(source,/writeFile|fetch\(|upsertExperience|\.request\(/);
+  }
+  const source=await readFile(new URL('../../native/intelligence/IntelligenceIntegration.cs',import.meta.url),'utf8');assert.doesNotMatch(source,/World\.GetAll|PerceptionSystem\.Update|PerceptionSnapshot\.Capture|GunshotReflexDetector|NpcActions\.|\.TASK|SpecialGeminiTurnScheduler/);assert.match(source,/public void EnrichActor\(Ped ped,ActorContext context\) \{\}/);
+});
