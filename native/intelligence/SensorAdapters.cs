@@ -25,6 +25,7 @@ namespace LSA.Intelligence
         public Dictionary<string,long> Counters {get {lock(gate) return new Dictionary<string,long>(received);}}
         readonly Dictionary<string,long> damageCallbacks=new Dictionary<string,long>{{"ped_damage",0},{"player_damage",0},{"vehicle_damage",0}};
         public Dictionary<string,long> DamageCallbacks {get {lock(gate) return new Dictionary<string,long>(damageCallbacks);}}
+        public void RecordDamageCallback(string producer) {lock(gate) if(Enabled && damageCallbacks.ContainsKey(producer)) damageCallbacks[producer]=Math.Min(int.MaxValue,damageCallbacks[producer]+1);}
         public bool Enabled {get;set;}
         public long Dropped {get;private set;}
         public int Count {get {lock(gate) return queue.Count;}}
@@ -34,7 +35,6 @@ namespace LSA.Intelligence
                 if(!Enabled) return false;
                 if(!received.ContainsKey(signal.kind)) received[signal.kind]=0;
                 received[signal.kind]=Math.Min(int.MaxValue,received[signal.kind]+1);
-                if(damageCallbacks.ContainsKey(signal.producer)) damageCallbacks[signal.producer]=Math.Min(int.MaxValue,damageCallbacks[signal.producer]+1);
                 if(!sequences.ContainsKey(signal.producer)) sequences[signal.producer]=0;
                 signal.producerSequence=++sequences[signal.producer];
                 // Reserve 64 of 256 for critical involvement. Never grow under a storm.

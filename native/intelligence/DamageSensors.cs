@@ -23,14 +23,15 @@ namespace LSA.Intelligence
         }
         // Payload handles are only looked up in the previously validated immutable index.
         // No native entity operations or handle re-resolution on the callback thread.
-        void PedDamage(Ped victim,Ped attacker,PedDamageInfo info) {Copy("ped_damage",victim,attacker,info);}
-        void PlayerDamage(Ped victim,Ped attacker,PedDamageInfo info) {Copy("player_damage",victim,attacker,info);}
+        void PedDamage(Ped victim,Ped attacker,PedDamageInfo info) {sensors.RecordDamageCallback("ped_damage");Copy("ped_damage",victim,attacker,info);}
+        void PlayerDamage(Ped victim,Ped attacker,PedDamageInfo info) {sensors.RecordDamageCallback("player_damage");Copy("player_damage",victim,attacker,info);}
         void Copy(string producer,Ped victim,Ped attacker,PedDamageInfo info)
         {
             try { var target=ped(info.PedHandle,victim);sensors.Damage(producer,target,ped(info.AttackerPedHandle,attacker),info.Damage,info.ArmourDamage,Classify(info.WeaponInfo.Type),tick(),now(),critical(target)); } catch {}
         }
         void VehicleDamage(Vehicle victim,Ped attacker,VehDamageInfo info)
         {
+            sensors.RecordDamageCallback("vehicle_damage");
             try { var target=vehicle(info.VehHandle,victim);var p=info.LastCollisionPosition;
                 object collision=Finite(p.X)&&Finite(p.Y)&&Finite(p.Z)?new {x=p.X,y=p.Y,z=p.Z}:null;
                 sensors.Damage("vehicle_damage",target,ped(info.AttackerPedHandle,attacker),info.Damage,0,Classify(info.WeaponInfo.Type),tick(),now(),critical(target),collision);

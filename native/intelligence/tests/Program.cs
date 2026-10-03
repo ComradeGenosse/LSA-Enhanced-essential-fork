@@ -50,6 +50,7 @@ class Program
             DamageTrackerService.Ped(new PedDamageInfo {PedHandle=1,AttackerPedHandle=0,Damage=1},true);
             signal=sensors.Take();Check(signal.producer=="player_damage"&&signal.source==null,"player absent attacker");
             Check(sensors.DamageCallbacks["ped_damage"]==1&&sensors.DamageCallbacks["player_damage"]==1,"one canonical player callback counted once");
+            DamageTrackerService.Ped(new PedDamageInfo {PedHandle=1,Damage=-1},true);Check(sensors.Count==0&&sensors.DamageCallbacks["player_damage"]==2,"callback diagnostic records invocation before payload validation");
             DamageTrackerService.Ped(new PedDamageInfo {PedHandle=99,AttackerPedHandle=99,Damage=1,WeaponInfo=new WeaponDamageInfo {Type=(DamageType)999}});
             signal=sensors.Take();Check(signal.target==null&&signal.source==null&&(string)signal.facts["classification"]=="unknown","unknown participants and type");
             DamageTrackerService.Vehicle(new VehDamageInfo {VehHandle=3,Damage=4,LastCollisionPosition=new Rage.Vector3 {X=1,Y=2,Z=3},WeaponInfo=new WeaponDamageInfo {Type=DamageType.Vehicle}});
