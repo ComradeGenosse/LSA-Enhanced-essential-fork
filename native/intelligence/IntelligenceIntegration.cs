@@ -34,9 +34,17 @@ namespace LSA.Intelligence
         volatile Dictionary<Ped,string> actionIndex=new Dictionary<Ped,string>();
         volatile Dictionary<uint,EntityAnchor> callbackEntities=new Dictionary<uint,EntityAnchor>();
         volatile uint callbackTick;
+        sealed class AnchorWireState
+        {
+            public string CaptureRef,Kind;
+            public bool Observer,Owned,Conversation;
+            public bool Same(AnchorWireState other)=>other!=null&&Kind==other.Kind&&Observer==other.Observer&&Owned==other.Owned&&Conversation==other.Conversation;
+            public bool Demotes(AnchorWireState other)=>other!=null&&(other.Observer&&!Observer||other.Conversation&&!Conversation);
+            public bool Promotes(AnchorWireState other)=>other==null&&(Observer||Conversation)||other!=null&&(!other.Observer&&Observer||!other.Conversation&&Conversation);
+        }
         Dictionary<string,bool> capabilities=new Dictionary<string,bool>();
-        readonly HashSet<string> announced=new HashSet<string>();
-        readonly HashSet<string> pendingAnnouncements=new HashSet<string>();
+        readonly object rosterGate=new object();
+        readonly Dictionary<string,AnchorWireState> publishedAnchorStates=new Dictionary<string,AnchorWireState>();
         readonly List<string> pendingRetirements=new List<string>();
         string conversationRef;
         PerceptionSnapshot discoverySnapshot;
@@ -93,15 +101,31 @@ namespace LSA.Intelligence
             if(entity==null||!entity.Exists()) return null;
             ulong handle=Convert.ToUInt64(entity.Handle);var address=entity.MemoryAddress;
             var a=anchors.Retain(entity,handle,address,kind,owner,()=>Live(entity,handle,address)&&(current==null||current()),clock.ElapsedMilliseconds,observer);
-            if(a!=null && announced.Add(a.CaptureRef)) pendingAnnouncements.Add(a.CaptureRef);return a;
+            return a;
         }
-        void Announce(IEnumerable<EntityAnchor> batch) => channel?.Send("anchors",batch.Select(a=>new {captureRef=a.CaptureRef,kind=a.Kind,observer=a.Observer,owned=a.OwnerLifetime!=null,conversation=a.CaptureRef==conversationRef}).ToArray());
-        void OnRetired(EntityAnchor a) {retiredAnchors=Math.Min(int.MaxValue,retiredAnchors+1);sensors.Retire(a.CaptureRef);announced.Remove(a.CaptureRef);pendingAnnouncements.Remove(a.CaptureRef);if(pendingRetirements.Count<256) pendingRetirements.Add(a.CaptureRef);else channel?.Dispose();}
-        void FlushControls()
+        AnchorWireState Describe(EntityAnchor a)=>new AnchorWireState {CaptureRef=a.CaptureRef,Kind=a.Kind,Observer=a.Observer,Owned=a.OwnerLifetime!=null,Conversation=a.CaptureRef==conversationRef};
+        void OnRetired(EntityAnchor a) {retiredAnchors=Math.Min(int.MaxValue,retiredAnchors+1);sensors.Retire(a.CaptureRef);lock(rosterGate) publishedAnchorStates.Remove(a.CaptureRef);if(pendingRetirements.Count<256) pendingRetirements.Add(a.CaptureRef);else channel?.Dispose();}
+        void FlushControls(bool refreshRoster=false)
         {
-            for(int i=0;i<pendingRetirements.Count;i+=32) channel?.Send("retire_batch",pendingRetirements.Skip(i).Take(32).ToArray());pendingRetirements.Clear();
-            var current=anchors.Current.Where(a=>pendingAnnouncements.Contains(a.CaptureRef)).ToArray();
-            for(int i=0;i<current.Length;i+=32) Announce(current.Skip(i).Take(32));pendingAnnouncements.Clear();
+            lock(rosterGate) {
+                for(int i=0;i<pendingRetirements.Count;i+=32) if(channel?.Send("retire_batch",pendingRetirements.Skip(i).Take(32).ToArray())!=true) return;
+                pendingRetirements.Clear();
+                var current=anchors.Current.Select(Describe).OrderBy(a=>a.CaptureRef,StringComparer.Ordinal).ToArray();
+                var demotions=current.Where(a=>publishedAnchorStates.TryGetValue(a.CaptureRef,out var old)&&a.Demotes(old)&&(refreshRoster||!a.Same(old))).ToArray();
+                var promotions=current.Where(a=>publishedAnchorStates.TryGetValue(a.CaptureRef,out var old)?a.Promotes(old):a.Promotes(null)).ToArray();
+                var demotionRefs=new HashSet<string>(demotions.Select(a=>a.CaptureRef));var promotionRefs=new HashSet<string>(promotions.Select(a=>a.CaptureRef));
+                var stable=current.Where(a=>!demotionRefs.Contains(a.CaptureRef)&&!promotionRefs.Contains(a.CaptureRef)&&(refreshRoster||!publishedAnchorStates.TryGetValue(a.CaptureRef,out var old)||!a.Same(old))).ToArray();
+                if(!SendAnchorStates(demotions)||!SendAnchorStates(stable)||!SendAnchorStates(promotions)) return;
+            }
+        }
+        bool SendAnchorStates(AnchorWireState[] states)
+        {
+            for(int i=0;i<states.Length;i+=32) {
+                var batch=states.Skip(i).Take(32).ToArray();
+                if(channel?.Send("anchors",batch.Select(a=>new {captureRef=a.CaptureRef,kind=a.Kind,observer=a.Observer,owned=a.Owned,conversation=a.Conversation}).ToArray())!=true) return false;
+                foreach(var a in batch) publishedAnchorStates[a.CaptureRef]=a;
+            }
+            return true;
         }
         public void OwnerRetired(string lifetime) {
             try {
@@ -127,9 +151,9 @@ namespace LSA.Intelligence
                 if(damageReady && damage==null) TryDamage();
                 if(!damageReady && damage!=null) {damage.Dispose();damage=null;}
                 uint tick=unchecked((uint)Game.GameTime);callbackTick=tick;
-                if(tick<previousTick) {anchors.Clear();sensors.Reset();announced.Clear();UpdateIndexes();channel.Dispose();channel=new IntelligenceChannel(pipeName,Guid.NewGuid().ToString("D"),()=>capabilities);channel.Start();nextRefresh=0;Game.LogTrivial("[PS] clock_reset");}
+                if(tick<previousTick) {anchors.Clear();sensors.Reset();lock(rosterGate) publishedAnchorStates.Clear();UpdateIndexes();channel.Dispose();channel=new IntelligenceChannel(pipeName,Guid.NewGuid().ToString("D"),()=>capabilities);channel.Start();nextRefresh=0;Game.LogTrivial("[PS] clock_reset");}
                 previousTick=tick;
-                if(channel.ConnectionVersion!=connectionVersion) {connectionVersion=channel.ConnectionVersion;announced.Clear();nextRefresh=0;}
+                if(channel.ConnectionVersion!=connectionVersion) {connectionVersion=channel.ConnectionVersion;lock(rosterGate) publishedAnchorStates.Clear();nextRefresh=0;}
                 if(now>=nextDiscovery) {
                     nextDiscovery=now+200;
                     var player=Game.LocalPlayer.Character;
@@ -191,8 +215,8 @@ namespace LSA.Intelligence
                     nextState=now+200;
                     for(int n=0;n<25 && sources.Length>0;n++) {var a=sources[stateCursor++%sources.Length];if(sampling.Elapsed.TotalMilliseconds>=1) break;Sample(a,tick,now);}
                 }
-                if(now>=nextRefresh) {nextRefresh=now+1000;var active=anchors.Current.ToArray();for(int i=0;i<active.Length;i+=32) Announce(active.Skip(i).Take(32));}
-                FlushControls();
+                bool refreshRoster=now>=nextRefresh;if(refreshRoster) nextRefresh=now+1000;
+                FlushControls(refreshRoster);
                 for(int n=0;n<32;n++) {var signal=sensors.Take();if(signal==null) break;Publish(signal,now);}
                 if(now>=nextDiagnostics) {
                     nextDiagnostics=now+1000;int age=capabilities["snapshot"]?(int)Math.Min(int.MaxValue,(long)unchecked(tick-snapshotTick)):int.MaxValue;

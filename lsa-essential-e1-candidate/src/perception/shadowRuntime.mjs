@@ -31,12 +31,16 @@ export class ShadowRuntime {
     if(v.sequence!==this.sequence+1) {this.count('gaps');this.reset();return false;}
     this.sequence=v.sequence;this.lastReceipt=this.now();
     if(v.type==='anchors') {
+      const projected=new Map(this.anchors);
       for(const a of v.payload) {
-        const old=this.anchors.get(a.captureRef);
-        if(old && old.kind!==a.kind || !old && this.anchors.size>=BOUNDS.anchors) {this.count('dropped');this.reset();return false;}
-        if(a.observer && (!old || !old.observer) && [...this.anchors.values()].filter(x=>x.observer).length>=BOUNDS.observers) {this.reset();return false;}
-        this.anchors.set(a.captureRef,{...a,expires:this.now()+BOUNDS.anchorLeaseMs});
-      } return true;
+        const old=projected.get(a.captureRef);
+        if(old && old.kind!==a.kind || !old && projected.size>=BOUNDS.anchors) {this.count('dropped');this.reset();return false;}
+        projected.set(a.captureRef,{...a,expires:this.now()+BOUNDS.anchorLeaseMs});
+      }
+      if([...projected.values()].filter(a=>a.observer).length>BOUNDS.observers) {this.reset();return false;}
+      // Commit a validated roster frame at once, so a paired demotion/promotion
+      // batch cannot expose a transient 17-observer state to companion logic.
+      this.anchors=projected;return true;
     }
     if(v.type==='retire') {this.retire(v.payload.captureRef);return true;}
     if(v.type==='retire_batch') {for(const ref of v.payload) this.retire(ref);return true;}
