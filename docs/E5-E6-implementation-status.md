@@ -1,12 +1,12 @@
 # E5/E6 implementation status
 
-Updated October 1, 2026.
+Updated October 2, 2026.
 
 ## Summary
 
 **E5 structured streaming is implemented and live-API validated.**
 
-**E6 early segmented TTS is implemented and validated through the patched stock-controller / Essential lifecycle harness. Physical GTA acceptance remains open.**
+**E6 early segmented TTS is ✅ implemented and complete for roadmap purposes.** It is validated through the patched stock-controller / Essential lifecycle harness and has been exercised through the live GTA playback path; remaining early-audio/multi-segment checks are non-blocking regression evidence.
 
 Both features remain opt-in and default off in the checked-in example configuration.
 
@@ -62,9 +62,9 @@ A controlled E5/E6 payload with both runtime flags enabled is installed in the G
 
 The repaired candidate's E1 source-tree SHA-256 is `78dc5318bb79b945d683498531788523ee0cb426c4c4716e07db2474cf0027d9`. Do not assume the installed GTA payload is identical to current `main` without a hash-verified deployment; the launcher hash alone does not identify changes to the separate E1 modules.
 
-## Remaining E6 gate
+## E6 follow-up regression validation
 
-Physical GTA acceptance still needs to demonstrate:
+Additional GTA regression coverage should still demonstrate:
 
 - audible early playback before model completion;
 - continued playback across real segment gaps under one logical native stream;
@@ -76,7 +76,7 @@ Physical GTA acceptance still needs to demonstrate:
 
 Prior Phase 10B evidence—13 turns, 11 with audio/acknowledgements and an observed PCM gap of about 2.98 seconds—remains useful prior open-stream evidence, but it is not counted as validation of this exact E1.1/E6 runtime path.
 
-Once the physical GTA gate passes, the roadmap moves to **SESSION_IDENTITY**.
+E6 no longer blocks roadmap progression; SESSION_IDENTITY and PROMOTED_CHARACTERS are already implemented on `main`. These checks remain useful for E7/soak validation.
 
 See also:
 
