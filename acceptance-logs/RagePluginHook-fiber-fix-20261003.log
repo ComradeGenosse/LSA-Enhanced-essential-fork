@@ -1,0 +1,337 @@
+[10/3/2026 4:43:10 PM.400] Started new log on 10/3/2026 4:43:10 PM.400
+[10/3/2026 4:43:10 PM.400] ====================================================================================================
+[10/3/2026 4:43:10 PM.395] Log path: C:\Program Files (x86)\Steam\steamapps\common\Grand Theft Auto V Enhanced\RagePluginHook.log
+[10/3/2026 4:43:10 PM.400] Log verbosity: Trivial
+[10/3/2026 4:43:10 PM.404] Initializing input system
+[10/3/2026 4:43:10 PM.405] AppDomainPool::InitializeAppDomain: Creating new app domain "PreInitializedDomain_0".
+[10/3/2026 4:43:10 PM.405] AppDomainPool::InitializeAppDomain: Creating new app domain "PreInitializedDomain_2".
+[10/3/2026 4:43:10 PM.406] Initializing game console
+[10/3/2026 4:43:10 PM.407] AppDomainPool::InitializeAppDomain: Creating new app domain "PreInitializedDomain_1".
+[10/3/2026 4:43:10 PM.407] AppDomainPool::InitializeAppDomain: Creating new app domain "PreInitializedDomain_3".
+[10/3/2026 4:43:10 PM.409] Console key has been set to F4 (key code: 115)
+[10/3/2026 4:43:10 PM.449] Initializing console variable "ConsoleScrollAmount".
+[10/3/2026 4:43:10 PM.449] Type: System.Int32, Reading section: "Miscellaneous", key: ConsoleScrollAmount
+[10/3/2026 4:43:10 PM.451] Read value: <null>
+[10/3/2026 4:43:10 PM.451] Initializing console variable "ConsoleKey".
+[10/3/2026 4:43:10 PM.451] Type: System.Windows.Forms.Keys, Reading section: "Miscellaneous", key: ConsoleKey
+[10/3/2026 4:43:10 PM.452] Read value: <null>
+[10/3/2026 4:43:10 PM.452] Initializing console variable "PluginTimeoutThreshold".
+[10/3/2026 4:43:10 PM.452] Type: System.Int32, Reading section: "Miscellaneous", key: PluginTimeoutThreshold
+[10/3/2026 4:43:10 PM.454] Read value: 10000
+[10/3/2026 4:43:10 PM.454] Setting value of console variable "PluginTimeoutThreshold" to stored value.
+[10/3/2026 4:43:10 PM.454] Initializing console variable "AlwaysShowConsoleOutput".
+[10/3/2026 4:43:10 PM.454] Type: System.Boolean, Reading section: "Miscellaneous", key: AlwaysShowConsoleOutput
+[10/3/2026 4:43:10 PM.454] Read value: <null>
+[10/3/2026 4:43:10 PM.454] Initializing console variable "ShowConsoleCommandInfoOnPluginLoad".
+[10/3/2026 4:43:10 PM.454] Type: System.Boolean, Reading section: "Miscellaneous", key: ShowConsoleCommandInfoOnPluginLoad
+[10/3/2026 4:43:10 PM.454] Read value: <null>
+[10/3/2026 4:43:10 PM.454] Initializing console variable "ShowOnScreenWarnings".
+[10/3/2026 4:43:10 PM.454] Type: System.Boolean, Reading section: "Miscellaneous", key: ShowOnScreenWarnings
+[10/3/2026 4:43:10 PM.455] Read value: <null>
+[10/3/2026 4:43:10 PM.455] Console initialized
+[10/3/2026 4:43:10 PM.455] Initializing forms manager
+[10/3/2026 4:43:10 PM.457] Cleaning temp folder
+[10/3/2026 4:43:10 PM.461] Version: RAGE Plugin Hook v1.132.1428.17748 for Grand Theft Auto V
+[10/3/2026 4:43:10 PM.466] ================ RAGE Plugin Hook ================
+[10/3/2026 4:43:10 PM.477] Waiting for launcher interop
+[10/3/2026 4:43:10 PM.479] Command line option "nobattleye" is specified twice. Please remove one.
+[10/3/2026 4:43:10 PM.483] Enhanced Edition detected; disabling custom loading screen due to alpha issues.
+[10/3/2026 4:43:10 PM.491] Detected Windows 10 Professional (64-bit) (10.0.26100.0)!
+[10/3/2026 4:43:10 PM.492] Checking game support
+[10/3/2026 4:43:10 PM.567] Product name: Grand Theft Auto V
+[10/3/2026 4:43:10 PM.567] Product version: 1.0.1158.16
+[10/3/2026 4:43:10 PM.567] Is steam version: True
+[10/3/2026 4:43:10 PM.568] Is enhanced version: True
+[10/3/2026 4:43:20 PM.569] Initializing DirectX
+[10/3/2026 4:43:20 PM.570] Initializing Direct3D (DX12)
+[10/3/2026 4:43:20 PM.580] D3D12 command queue found at 0x270D39D17C0, type 0
+[10/3/2026 4:43:20 PM.580] Loading D3D12...
+[10/3/2026 4:43:20 PM.631] D3D12 loaded successfully
+[10/3/2026 4:43:20 PM.631] [d3d12] Hooking game swap chain
+[10/3/2026 4:43:20 PM.655] [d3d12] Address mismatch: 0x00007FF7D7EF7AC0 != 0x0000000144EF3AC0
+[10/3/2026 4:43:20 PM.655] [d3d12] Hooked
+[10/3/2026 4:43:20 PM.655] Direct3D (DX12) initialized
+[10/3/2026 4:43:20 PM.655] Initialized DirectX
+[10/3/2026 4:43:20 PM.659] Address mismatch: 0x00007FF7D6F44BD8 != 0x0000000143F66738
+[10/3/2026 4:43:20 PM.667] Address mismatch: 0x00007FF7D398DAE0 != 0x00000001409103E0
+[10/3/2026 4:43:20 PM.667] [d3d12]Present called
+[10/3/2026 4:43:20 PM.668] Getting device
+[10/3/2026 4:43:20 PM.673] Direct3D watcher thread spawned
+[10/3/2026 4:43:20 PM.674] Address mismatch: 0x00007FF7D443F8D0 != 0x000000014138DD00
+[10/3/2026 4:43:20 PM.675] Address mismatch: 0x00007FF7D31BD790 != 0x00000001401426E0
+[10/3/2026 4:43:20 PM.675] Address mismatch: 0x00007FF7D779E010 != 0x00000001447BE240
+[10/3/2026 4:43:20 PM.675] Address mismatch: 0x00007FF7D30718A0 != 0x00000001400018A0
+[10/3/2026 4:43:20 PM.689] Initializing D3D11 Renderer
+[10/3/2026 4:43:20 PM.689] Creating wrapper
+[10/3/2026 4:43:20 PM.698] Address mismatch: 0x00007FF7D30718D0 != 0x00000001400018D0
+[10/3/2026 4:43:20 PM.714] Address mismatch: 0x00007FF7D7496E10 != 0x00000001444B6E90
+[10/3/2026 4:43:20 PM.715] Wrapper created
+[10/3/2026 4:43:20 PM.720] Effect created
+[10/3/2026 4:43:20 PM.720] Creating buffer
+[10/3/2026 4:43:20 PM.720] Created buffer
+[10/3/2026 4:43:20 PM.720] Creating blend state
+[10/3/2026 4:43:20 PM.720] Created blend state
+[10/3/2026 4:43:20 PM.720] Done with creation
+[10/3/2026 4:43:20 PM.722] Address mismatch: 0x00007FF7D74D96C0 != 0x00000001444F9740
+[10/3/2026 4:43:20 PM.723] [d3d11] Linear sampler state created successfully.
+[10/3/2026 4:43:20 PM.725] [d3d11] Fullscreen vertex shader compiled successfully.
+[10/3/2026 4:43:20 PM.726] [d3d11] Fullscreen pixel shader compiled successfully.
+[10/3/2026 4:43:20 PM.727] [d3d11] Alpha pixel shader compiled successfully.
+[10/3/2026 4:43:20 PM.732] Address mismatch: 0x00007FF7D7F60AB8 != 0x0000000144F5B658
+[10/3/2026 4:43:20 PM.736] Address mismatch: 0x00007FF7D730B730 != 0x000000014432C420
+[10/3/2026 4:43:20 PM.751] Initializing texture system.
+[10/3/2026 4:43:20 PM.751] Initializing texture system; phase 1
+[10/3/2026 4:43:20 PM.751] Initializing texture system; phase 2
+[10/3/2026 4:43:20 PM.755] Initializing texture system; phase 3
+[10/3/2026 4:43:20 PM.755] Initializing texture system; phase 4
+[10/3/2026 4:43:20 PM.760] Initializing texture system; phase 5
+[10/3/2026 4:43:20 PM.760] Initializing texture system; phase 6
+[10/3/2026 4:43:20 PM.761] Initializing texture system; phase 7
+[10/3/2026 4:43:20 PM.762] Initializing texture system; phase 8
+[10/3/2026 4:43:20 PM.763] Initializing texture system; phase 9
+[10/3/2026 4:43:20 PM.763] Initializing texture system; phase 10
+[10/3/2026 4:43:20 PM.764] Initializing texture system; phase 11
+[10/3/2026 4:43:20 PM.764] Initializing texture system; phase 12
+[10/3/2026 4:43:20 PM.765] Initializing texture system; phase 13
+[10/3/2026 4:43:20 PM.765] Initializing texture system; phase 14
+[10/3/2026 4:43:21 PM.173] Direct3D watcher thread ended
+[10/3/2026 4:43:29 PM.653] LoadingScreenMsg: Initializing game support
+[10/3/2026 4:43:29 PM.903] Initializing game support
+[10/3/2026 4:43:30 PM.407] Address mismatch: 0x00007FF7D5F07518 != 0x0000000142F35548
+[10/3/2026 4:43:30 PM.409] Address mismatch: 0x00007FF7D73BA920 != 0x00000001443DA960
+[10/3/2026 4:43:30 PM.409] PedPool pointer found at: 0000026FC9438CF0
+[10/3/2026 4:43:30 PM.409] Current PedPool Capacity: 256
+[10/3/2026 4:43:30 PM.409] Current PedPool Capacity: 0000026FC9438CF0
+[10/3/2026 4:43:30 PM.427] Address mismatch: 0x00007FF7D74E6D70 != 0x0000000144506DF0
+[10/3/2026 4:43:30 PM.427] ObjectPool pointer found at: 0000026FCA1185D0
+[10/3/2026 4:43:30 PM.427] Current ObjectPool Capacity: 2300
+[10/3/2026 4:43:30 PM.428] Address mismatch: 0x00007FF7D5F06950 != 0x0000000142F34980
+[10/3/2026 4:43:30 PM.428] ScriptGuidPool pointer found at: 0000026FCA2E4D80
+[10/3/2026 4:43:30 PM.428] Current ScriptGuidPool Capacity: 3072
+[10/3/2026 4:43:30 PM.432] Address mismatch: 0x00007FF7D73CF240 != 0x00000001443EF2A0
+[10/3/2026 4:43:30 PM.432] VehiclePool found at: 000002744198F1C0
+[10/3/2026 4:43:30 PM.432] Current VehiclePool Capacity: 300
+[10/3/2026 4:43:30 PM.432] Current VehiclePool Pointer Size: 8
+[10/3/2026 4:43:30 PM.437] Address mismatch: 0x00007FF7D7352AD0 != 0x0000000144372B90
+[10/3/2026 4:43:30 PM.437] BuildingPool pointer found at: FFFFFFFFCA1185A0
+[10/3/2026 4:43:30 PM.443] Address mismatch: 0x00007FF7D74C4D80 != 0x00000001444E4E00
+[10/3/2026 4:43:30 PM.443] PickupPool pointer found at: 0000026FCA118780
+[10/3/2026 4:43:30 PM.443] Current PickupPool Capacity: 73
+[10/3/2026 4:43:30 PM.446] Address mismatch: 0x00007FF7D6F44BD8 != 0x0000000143F66738
+[10/3/2026 4:43:30 PM.448] Address mismatch: 0x00007FF7D6EA1ACC != 0x0000000143EC362C
+[10/3/2026 4:43:30 PM.453] Address mismatch: 0x00007FF7D5F07417 != 0x0000000142F35447
+[10/3/2026 4:43:30 PM.453] Address mismatch: 0x00007FF7D5C775B0 != 0x0000000142C075B0
+[10/3/2026 4:43:30 PM.454] CollectionsArraySize found: 7260
+[10/3/2026 4:43:30 PM.474] Address mismatch: 0x00007FF7D58DBA50 != 0x00000001428BAA30
+[10/3/2026 4:43:30 PM.478] Address mismatch: 0x00007FF7D6E5BD70 != 0x0000000143E7ACB0
+[10/3/2026 4:43:30 PM.495] Address mismatch: 0x00007FF7D778289D != 0x00000001447A2B8D
+[10/3/2026 4:43:30 PM.496] Address mismatch: 0x00007FF7D74BAF90 != 0x00000001444DB010
+[10/3/2026 4:43:30 PM.496] Address mismatch: 0x00007FF7D74BAFC0 != 0x00000001444DB040
+[10/3/2026 4:43:30 PM.499] Address mismatch: 0x00007FF7D6F415A8 != 0x0000000143F63108
+[10/3/2026 4:43:30 PM.505] Address mismatch: 0x00007FF7D778D920 != 0x00000001447ADB60
+[10/3/2026 4:43:30 PM.546] Address mismatch: 0x00007FF7D31B9200 != 0x000000014013E1A0
+[10/3/2026 4:43:30 PM.550] Address mismatch: 0x00007FF7D3E40CC0 != 0x0000000140DB4C20
+[10/3/2026 4:43:30 PM.555] Address mismatch: 0x00007FF7D3E5B840 != 0x0000000140DCF6F0
+[10/3/2026 4:43:30 PM.562] Address mismatch: 0x00007FF7D35920D0 != 0x0000000140513930
+[10/3/2026 4:43:30 PM.567] Address mismatch: 0x00007FF7D4059BE0 != 0x0000000140FCD830
+[10/3/2026 4:43:30 PM.597] Address mismatch: 0x00007FF7D47F3120 != 0x000000014173C690
+[10/3/2026 4:43:30 PM.605] Address mismatch: 0x00007FF7D6F44C20 != 0x0000000143F66780
+[10/3/2026 4:43:30 PM.640] Compatibility level: 0
+[10/3/2026 4:43:30 PM.640] Supported version detected
+[10/3/2026 4:43:30 PM.640] ==================================================
+[10/3/2026 4:43:30 PM.640] LoadingScreenMsg: Patching code
+[10/3/2026 4:43:30 PM.891] LoadingScreenMsg: Waiting for game initialization
+[10/3/2026 4:43:31 PM.141] Waiting for game initialization
+[10/3/2026 4:43:31 PM.241] LoadingScreenMsg: Initializing core
+[10/3/2026 4:43:31 PM.492] Initializing hook
+[10/3/2026 4:43:31 PM.492] LoadingScreenMsg: Completing interoperability
+[10/3/2026 4:43:31 PM.742] Completing interoperability
+[10/3/2026 4:43:31 PM.742] Initialization code 1.
+[10/3/2026 4:43:31 PM.742] Initialization code 2.
+[10/3/2026 4:43:31 PM.742] Initialization code 3.
+[10/3/2026 4:43:31 PM.742] Initialization code 4.
+[10/3/2026 4:43:31 PM.742] Initialization code 5.
+[10/3/2026 4:43:31 PM.742] Initialization code 6.
+[10/3/2026 4:43:31 PM.742] Initialization code 7.
+[10/3/2026 4:43:53 PM.396] Completing interoperability, phase 1
+[10/3/2026 4:43:53 PM.396] Completing interoperability, phase 2
+[10/3/2026 4:43:53 PM.396] Highest ID is: 0x5b
+[10/3/2026 4:43:53 PM.396] Completing interoperability, phase 3
+[10/3/2026 4:43:53 PM.396] Completing interoperability, phase 4
+[10/3/2026 4:43:53 PM.396] Completing interoperability, phase 5
+[10/3/2026 4:43:53 PM.396] Completing interoperability, phase 6
+[10/3/2026 4:43:53 PM.396] Completing interoperability, phase 7
+[10/3/2026 4:43:53 PM.396] Highest ID after injection is: 0x7fffffff
+[10/3/2026 4:43:53 PM.396] LoadingScreenMsg: 
+[10/3/2026 4:43:53 PM.646] LoadingScreenMsg: Loading Story Mode
+[10/3/2026 4:43:59 PM.812] Address mismatch: 0x00007FF7D73C9458 != 0x00000001443E94B8
+[10/3/2026 4:43:59 PM.812] HandlingDataPool pointer found at: 0000026FD2171590
+[10/3/2026 4:43:59 PM.812] Current HandlingDataPool Capacity: 1800
+[10/3/2026 4:44:01 PM.352] We have 935 vehicle model names in total.
+[10/3/2026 4:44:04 PM.290] We have 1112 ped model names in total.
+[10/3/2026 4:44:04 PM.299] Initializing console variable "IsDeveloperModeEnabled".
+[10/3/2026 4:44:04 PM.299] Type: System.Boolean, Reading section: "Miscellaneous", key: IsDeveloperModeEnabled
+[10/3/2026 4:44:04 PM.299] Read value: <null>
+[10/3/2026 4:44:04 PM.299] Initializing console variable "TimeScale".
+[10/3/2026 4:44:04 PM.299] Type: System.Single, Reading section: "Miscellaneous", key: TimeScale
+[10/3/2026 4:44:04 PM.300] Read value: <null>
+[10/3/2026 4:44:04 PM.305] Loading plugin "C:\Program Files (x86)\Steam\steamapps\common\Grand Theft Auto V Enhanced\Plugins\LosSantosAlive.dll".
+[10/3/2026 4:44:04 PM.336] AppDomainPool::InitializeAppDomain: Creating new app domain "LosSantosAlive_AppDomain".
+[10/3/2026 4:44:04 PM.336] Creating new instance of RemotePlugin in new AppDomain: "LosSantosAlive_AppDomain".
+[10/3/2026 4:44:04 PM.347] Initializing remote plugin: "LosSantosAlive_AppDomain".
+[10/3/2026 4:44:04 PM.355] <UNLOADED PLUGIN>: Initializing input system
+[10/3/2026 4:44:04 PM.356] <UNLOADED PLUGIN>: Initializing game console
+[10/3/2026 4:44:04 PM.356] <UNLOADED PLUGIN>: Initializing forms manager
+[10/3/2026 4:44:04 PM.397] Initialized remote plugin: "LosSantosAlive_AppDomain".
+[10/3/2026 4:44:04 PM.399] Loaded plugin "LosSantosAlive" (LosSantosAlive.dll), version 1.0.0.0, file version 1.0.0.0, product version 1.0.0.0.
+[10/3/2026 4:44:04 PM.400] Loading plugin "C:\Program Files (x86)\Steam\steamapps\common\Grand Theft Auto V Enhanced\Plugins\LSA.PromotedCharacters.dll".
+[10/3/2026 4:44:04 PM.429] AppDomainPool::InitializeAppDomain: Creating new app domain "LSA.PromotedCharacters_AppDomain".
+[10/3/2026 4:44:04 PM.429] Creating new instance of RemotePlugin in new AppDomain: "LSA.PromotedCharacters_AppDomain".
+[10/3/2026 4:44:04 PM.439] Initializing remote plugin: "LSA.PromotedCharacters_AppDomain".
+[10/3/2026 4:44:04 PM.446] <UNLOADED PLUGIN>: Initializing input system
+[10/3/2026 4:44:04 PM.447] <UNLOADED PLUGIN>: Initializing game console
+[10/3/2026 4:44:04 PM.447] <UNLOADED PLUGIN>: Initializing forms manager
+[10/3/2026 4:44:04 PM.454] Initialized remote plugin: "LSA.PromotedCharacters_AppDomain".
+[10/3/2026 4:44:04 PM.456] Loaded plugin "LSA Promoted Characters" (LSA.PromotedCharacters.dll), version 0.0.0.0, file version 0.0.0.0, product version 0.0.0.0.
+[10/3/2026 4:44:04 PM.458] Loading plugin "C:\Program Files (x86)\Steam\steamapps\common\Grand Theft Auto V Enhanced\Plugins\SmartVehicleEntry.dll".
+[10/3/2026 4:44:04 PM.474] Creating new instance of RemotePlugin in new AppDomain: "thirdtest_AppDomain".
+[10/3/2026 4:44:04 PM.474] AppDomainPool::InitializeAppDomain: Creating new app domain "thirdtest_AppDomain".
+[10/3/2026 4:44:04 PM.485] Initializing remote plugin: "thirdtest_AppDomain".
+[10/3/2026 4:44:04 PM.493] <UNLOADED PLUGIN>: Initializing input system
+[10/3/2026 4:44:04 PM.494] <UNLOADED PLUGIN>: Initializing game console
+[10/3/2026 4:44:04 PM.494] <UNLOADED PLUGIN>: Initializing forms manager
+[10/3/2026 4:44:04 PM.501] Initialized remote plugin: "thirdtest_AppDomain".
+[10/3/2026 4:44:04 PM.503] Loaded plugin "Smart Vehicle Entry" (SmartVehicleEntry.dll), version 1.0.0.0, file version 1.0.0.0, product version 1.0.0.0.
+[10/3/2026 4:44:04 PM.503] Loading plugin "C:\Program Files (x86)\Steam\steamapps\common\Grand Theft Auto V Enhanced\Plugins\SmartVehicleEntry.dllbbb".
+[10/3/2026 4:44:04 PM.504] 
+[10/3/2026 4:44:04 PM.504] ==============================
+[10/3/2026 4:44:04 PM.504] Failed to load plugin
+[10/3/2026 4:44:04 PM.504] ------------------------------
+[10/3/2026 4:44:04 PM.504] Origin: C:\Program Files (x86)\Steam\steamapps\common\Grand Theft Auto V Enhanced\Plugins\SmartVehicleEntry.dllbbb
+[10/3/2026 4:44:04 PM.504] ------------------------------
+[10/3/2026 4:44:04 PM.504] Exception type: System.ArgumentException
+[10/3/2026 4:44:04 PM.504] Exception message: The specified file is not a valid CLR assembly.
+[10/3/2026 4:44:04 PM.504] Parameter name: filePath
+[10/3/2026 4:44:04 PM.504] ------------------------------
+[10/3/2026 4:44:04 PM.504] Inner exceptions:
+[10/3/2026 4:44:04 PM.504] ------------------------------
+[10/3/2026 4:44:04 PM.504] Stack trace:
+[10/3/2026 4:44:04 PM.504] at Rage.HookManager.LoadPlugin(String filePath, Boolean silent, Boolean noLoadingMessage)
+[10/3/2026 4:44:04 PM.504] at Rage.HookManager.LoadPlugin(String filePath)
+[10/3/2026 4:44:04 PM.504] ==============================
+[10/3/2026 4:44:04 PM.504] 
+[10/3/2026 4:44:04 PM.505] Error while loading plugin C:\Program Files (x86)\Steam\steamapps\common\Grand Theft Auto V Enhanced\Plugins\SmartVehicleEntry.dllbbb. Plugin is skipped during reload. Exception: System.ArgumentException: The specified file is not a valid CLR assembly.
+[10/3/2026 4:44:04 PM.505] Parameter name: filePath
+[10/3/2026 4:44:04 PM.505] at Rage.HookManager.LoadPlugin(String filePath)
+[10/3/2026 4:44:04 PM.505] at Rage.HookManager.ReloadAllPlugins(Boolean terminate)
+[10/3/2026 4:44:04 PM.518] LosSantosAlive: [LosSantosAlive] Plugin starting
+[10/3/2026 4:44:05 PM.457] LosSantosAlive: DamageTrackerService Started
+[10/3/2026 4:44:05 PM.463] LosSantosAlive: [ActorContextProvider] Loaded archetype descriptions: 198, perceived descriptions: 198, visual descriptions: 78
+[10/3/2026 4:44:05 PM.480] LosSantosAlive: [LosSantosAlive] Server launcher configuration: AutoStartServer=True, ShowServerConsole=False
+[10/3/2026 4:44:05 PM.481] LosSantosAlive: [LosSantosAlive] ===== NODE LAUNCH ENVIRONMENT =====
+[10/3/2026 4:44:05 PM.481] LosSantosAlive: [LosSantosAlive] Environment.CurrentDirectory=C:\Program Files (x86)\Steam\steamapps\common\Grand Theft Auto V Enhanced
+[10/3/2026 4:44:05 PM.481] LosSantosAlive: [LosSantosAlive] AppDomain.BaseDirectory=C:\Program Files (x86)\Steam\steamapps\common\Grand Theft Auto V Enhanced
+[10/3/2026 4:44:05 PM.481] LosSantosAlive: [LosSantosAlive] AppDomain.FriendlyName=PreInitializedDomain_1
+[10/3/2026 4:44:05 PM.482] LosSantosAlive: [LosSantosAlive] ProcessId=9376
+[10/3/2026 4:44:05 PM.482] LosSantosAlive: [LosSantosAlive] AutoStartServer=True ShowServerConsole=False
+[10/3/2026 4:44:05 PM.482] LosSantosAlive: [LosSantosAlive] ===================================
+[10/3/2026 4:44:05 PM.482] LosSantosAlive: [LosSantosAlive] ServerFolder=C:\Program Files (x86)\Steam\steamapps\common\Grand Theft Auto V Enhanced\Plugins\LosSantosAliveServer
+[10/3/2026 4:44:05 PM.482] LosSantosAlive: [LosSantosAlive] NodePath=C:\Program Files (x86)\Steam\steamapps\common\Grand Theft Auto V Enhanced\Plugins\LosSantosAliveServer\node.exe Exists=True
+[10/3/2026 4:44:05 PM.482] LosSantosAlive: [LosSantosAlive] ServerEntry=C:\Program Files (x86)\Steam\steamapps\common\Grand Theft Auto V Enhanced\Plugins\LosSantosAliveServer\server.bundle.mjs Exists=True
+[10/3/2026 4:44:05 PM.498] LosSantosAlive: [LosSantosAlive] Existing node.exe process count=9
+[10/3/2026 4:44:05 PM.502] LosSantosAlive: [LosSantosAlive] Existing node.exe PID=13504 Path=C:\Users\<WINDOWS_USER>\AppData\Local\OpenAI\Codex\runtimes\cua_node\45309f9050f7314b\bin\node.exe MatchesBundled=False
+[10/3/2026 4:44:05 PM.502] LosSantosAlive: [LosSantosAlive] Existing node.exe PID=28132 Path=C:\Users\<WINDOWS_USER>\AppData\Local\OpenAI\Codex\runtimes\cua_node\45309f9050f7314b\bin\node.exe MatchesBundled=False
+[10/3/2026 4:44:05 PM.502] LosSantosAlive: [LosSantosAlive] Existing node.exe PID=21500 Path=C:\Users\<WINDOWS_USER>\AppData\Local\OpenAI\Codex\runtimes\cua_node\45309f9050f7314b\bin\node.exe MatchesBundled=False
+[10/3/2026 4:44:05 PM.502] LosSantosAlive: [LosSantosAlive] Existing node.exe PID=46176 Path=C:\Users\<WINDOWS_USER>\AppData\Local\OpenAI\Codex\runtimes\cua_node\45309f9050f7314b\bin\node.exe MatchesBundled=False
+[10/3/2026 4:44:05 PM.502] LosSantosAlive: [LosSantosAlive] Existing node.exe PID=45248 Path=C:\Users\<WINDOWS_USER>\AppData\Local\OpenAI\Codex\runtimes\cua_node\45309f9050f7314b\bin\node.exe MatchesBundled=False
+[10/3/2026 4:44:05 PM.503] LosSantosAlive: [LosSantosAlive] Existing node.exe PID=7484 Path=C:\Users\<WINDOWS_USER>\AppData\Local\OpenAI\Codex\runtimes\cua_node\45309f9050f7314b\bin\node.exe MatchesBundled=False
+[10/3/2026 4:44:05 PM.503] LosSantosAlive: [LosSantosAlive] Existing node.exe PID=28628 Path=C:\Users\<WINDOWS_USER>\AppData\Local\OpenAI\Codex\runtimes\cua_node\45309f9050f7314b\bin\node.exe MatchesBundled=False
+[10/3/2026 4:44:05 PM.503] LosSantosAlive: [LosSantosAlive] Existing node.exe PID=34444 Path=C:\Users\<WINDOWS_USER>\AppData\Local\OpenAI\Codex\runtimes\cua_node\45309f9050f7314b\bin\node.exe MatchesBundled=False
+[10/3/2026 4:44:05 PM.503] LosSantosAlive: [LosSantosAlive] Existing node.exe PID=34036 Path=C:\Users\<WINDOWS_USER>\AppData\Local\OpenAI\Codex\runtimes\cua_node\45309f9050f7314b\bin\node.exe MatchesBundled=False
+[10/3/2026 4:44:06 PM.115] LosSantosAlive: [LosSantosAlive] Node port probe before launch: 127.0.0.1:8765 listening=False
+[10/3/2026 4:44:06 PM.122] LosSantosAlive: [LosSantosAlive] Starting local Node server as a hidden process.
+[10/3/2026 4:44:06 PM.122] LosSantosAlive: [LosSantosAlive] ===== NODE PROCESS STARTINFO =====
+[10/3/2026 4:44:06 PM.122] LosSantosAlive: [LosSantosAlive] FileName=C:\Program Files (x86)\Steam\steamapps\common\Grand Theft Auto V Enhanced\Plugins\LosSantosAliveServer\node.exe
+[10/3/2026 4:44:06 PM.122] LosSantosAlive: [LosSantosAlive] Arguments="C:\Program Files (x86)\Steam\steamapps\common\Grand Theft Auto V Enhanced\Plugins\LosSantosAliveServer\server.bundle.mjs" --parentPid 9376
+[10/3/2026 4:44:06 PM.122] LosSantosAlive: [LosSantosAlive] WorkingDirectory=C:\Program Files (x86)\Steam\steamapps\common\Grand Theft Auto V Enhanced\Plugins\LosSantosAliveServer
+[10/3/2026 4:44:06 PM.122] LosSantosAlive: [LosSantosAlive] UseShellExecute=False
+[10/3/2026 4:44:06 PM.122] LosSantosAlive: [LosSantosAlive] CreateNoWindow=True
+[10/3/2026 4:44:06 PM.122] LosSantosAlive: [LosSantosAlive] RedirectStandardOutput=False
+[10/3/2026 4:44:06 PM.122] LosSantosAlive: [LosSantosAlive] RedirectStandardError=False
+[10/3/2026 4:44:06 PM.122] LosSantosAlive: [LosSantosAlive] ==================================
+[10/3/2026 4:44:06 PM.130] LosSantosAlive: [LosSantosAlive] Started local Node server. PID=16744
+[10/3/2026 4:44:06 PM.306] LSA Promoted Characters: [P2] console_commands_registered
+[10/3/2026 4:44:06 PM.306] LSA Promoted Characters: [P2] host_starting
+[10/3/2026 4:44:06 PM.399] Smart Vehicle Entry: [SmartVehicleEntry] Loaded.
+[10/3/2026 4:44:06 PM.780] LosSantosAlive: [SessionIdentity] initialized thread=46 game_tick=16318
+[10/3/2026 4:44:06 PM.787] LosSantosAlive: [PS] native_adapter_loaded shadow
+[10/3/2026 4:44:06 PM.787] LosSantosAlive: [P2] integrations_installed
+[10/3/2026 4:44:06 PM.789] LosSantosAlive: [PS] host_status p2_available=True p2_reason=none available=True update_calls=0 update_completed=0 last_update_age_ms=2147483647 last_completed_age_ms=2147483647 last_game_tick=0 shutdown_reason=none identity_available=True identity_update_calls=0 identity_update_completed=0 identity_last_update_age_ms=2147483647 identity_last_completed_age_ms=2147483647 identity_last_game_tick=16318 identity_creation_thread=46 identity_update_thread=0 identity_shutdown_reason=none identity_update_failure=none
+[10/3/2026 4:44:06 PM.790] LSA Promoted Characters: [P2] essential_host_ready
+[10/3/2026 4:44:09 PM.320] LosSantosAlive: [LosSantosAlive] Local Node process is still alive after startup delay. PID=16744
+[10/3/2026 4:44:09 PM.321] LosSantosAlive: [LosSantosAlive] Node port probe after startup delay: 127.0.0.1:8765 listening=True
+[10/3/2026 4:44:09 PM.321] LosSantosAlive: [LSA Integrations] Registering integrations...
+[10/3/2026 4:44:09 PM.322] LosSantosAlive: [LSA Integrations] Initialized: characterProfile Available=True
+[10/3/2026 4:44:09 PM.322] LosSantosAlive: [LSA Integrations] Initialized: sessionIdentity Available=True
+[10/3/2026 4:44:09 PM.322] LosSantosAlive: [LSA Integrations] Initialized: intelligence Available=True
+[10/3/2026 4:44:09 PM.323] LosSantosAlive: [LspdfrIntegration] Assembly resolver installed.
+[10/3/2026 4:44:09 PM.326] LosSantosAlive: [LSA Integrations] Failed to initialize integration: lspdfr - Could not load file or assembly 'LSPD First Response, Version=0.4.9695.26411, Culture=neutral, PublicKeyToken=null' or one of its dependencies. The system cannot find the file specified.
+[10/3/2026 4:44:09 PM.335] LosSantosAlive: [LSA Integrations] Initialized: policingRedefined Available=False
+[10/3/2026 4:44:09 PM.335] LosSantosAlive: [LSA Interop] Integration initialized. Pipe=LosSantosAlive_Interop
+[10/3/2026 4:44:09 PM.335] LosSantosAlive: [LSA Integrations] Initialized: interop Available=True
+[10/3/2026 4:44:09 PM.353] LosSantosAlive: [LosSantosAlive] Connecting to Node bridge: ws://127.0.0.1:8765
+[10/3/2026 4:44:09 PM.387] LosSantosAlive: [LosSantosAlive] Connected to Node bridge
+[10/3/2026 4:44:09 PM.428] LosSantosAlive: [LosSantosAlive] First NPC conversation warmup complete.
+[10/3/2026 4:44:09 PM.655] LosSantosAlive: Imported 8256 model names from the pre-initialized cache.
+[10/3/2026 4:44:09 PM.738] LosSantosAlive: [RadioContextProvider] Seeded radio state for observer 00008702: noradio
+[10/3/2026 4:44:09 PM.742] LosSantosAlive: [LosSantosAlive] Systems initialized
+[10/3/2026 4:44:09 PM.743] LosSantosAlive: [LSA.PRBridge] AppDomain=PreInitializedDomain_1
+[10/3/2026 4:44:09 PM.743] LosSantosAlive: [LSA.PRBridge] MainAssembly=C:\Users\<WINDOWS_USER>\AppData\Local\Temp\RAGEPluginHook\bvyxbybbtz5paiez\LosSantosAlive.dll
+[10/3/2026 4:44:09 PM.785] LosSantosAlive: [LosSantosAlive] Loaded TalkKey=Mouse4 VK=5
+[10/3/2026 4:44:09 PM.785] LosSantosAlive: [LosSantosAlive] Loaded TextKey=Mouse5 VK=6
+[10/3/2026 4:44:09 PM.785] LosSantosAlive: [LosSantosAlive] Loaded MarkPedKey=F9 VK=120
+[10/3/2026 4:44:09 PM.785] LosSantosAlive: [LosSantosAlive] Loaded MarkedPedTalkKey=F10 VK=121
+[10/3/2026 4:44:11 PM.122] LosSantosAlive: [LosSantosAlive] Controls menu initialized. Press F7 to open.
+[10/3/2026 4:44:11 PM.126] LosSantosAlive: [LosSantosAlive] First-run tutorial already complete.
+[10/3/2026 4:44:11 PM.164] LosSantosAlive: [PS] shadow anchors=1 observers=0 snapshot_age_ms=66 snapshot_cadence_ms=0 dropped=0 stale=0 retired=0 deferred=1 update_us=22043 capabilities=snapshot,pedDamage,playerDamage,vehicleDamage,shooting,state,action,playback damage_callbacks=ped:0,player:0,vehicle:0 signals=
+[10/3/2026 4:44:11 PM.168] LosSantosAlive: [CoreComplianceActionRegistrar] Registered core compliance actions.
+[10/3/2026 4:44:11 PM.170] LosSantosAlive: [CoreMovementActionRegistrar] Registered core movement actions.
+[10/3/2026 4:44:11 PM.171] LosSantosAlive: [CoreVehicleActionRegistrar] Registered core vehicle actions.
+[10/3/2026 4:44:11 PM.173] LosSantosAlive: [CoreCombatActionRegistrar] Registered core combat actions.
+[10/3/2026 4:44:11 PM.173] LosSantosAlive: [CoreSocialActionRegistrar] Registered core social actions.
+[10/3/2026 4:44:11 PM.174] LosSantosAlive: [CoreItemActionRegistrar] Registered core item actions.
+[10/3/2026 4:44:11 PM.176] LosSantosAlive: [PrSuspectCommandActionRegistrar] Registered PR suspect-side command actions.
+[10/3/2026 4:44:11 PM.176] LosSantosAlive: [PrActionBootstrap] Registered registrar: PrSuspectCommandActionRegistrar
+[10/3/2026 4:44:11 PM.176] LosSantosAlive: [PrArrestActionRegistrar] Registered PR GetArrested actions.
+[10/3/2026 4:44:11 PM.176] LosSantosAlive: [PrActionBootstrap] Registered registrar: PrArrestActionRegistrar
+[10/3/2026 4:44:11 PM.176] LosSantosAlive: [PrOfficerTargetActionRegistrar] Registered PR officer-side target actions.
+[10/3/2026 4:44:11 PM.176] LosSantosAlive: [PrActionBootstrap] Registered registrar: PrOfficerTargetActionRegistrar
+[10/3/2026 4:44:11 PM.176] LosSantosAlive: [PrBackupActionRegistrar] Registered PR RequestBackup action.
+[10/3/2026 4:44:11 PM.176] LosSantosAlive: [PrActionBootstrap] Registered registrar: PrBackupActionRegistrar
+[10/3/2026 4:44:11 PM.177] LosSantosAlive: [PrPedCheckActionRegistrar] Registered PR RequestPedCheck action.
+[10/3/2026 4:44:11 PM.177] LosSantosAlive: [PrActionBootstrap] Registered registrar: PrPedCheckActionRegistrar
+[10/3/2026 4:44:11 PM.177] LosSantosAlive: [PrVehicleCheckActionRegistrar] Registered PR RequestVehicleCheck action.
+[10/3/2026 4:44:11 PM.177] LosSantosAlive: [PrActionBootstrap] Registered registrar: PrVehicleCheckActionRegistrar
+[10/3/2026 4:44:11 PM.177] LosSantosAlive: [PrPulloverActionRegistrar] Registered PR PullOverTargetVehicle action.
+[10/3/2026 4:44:11 PM.177] LosSantosAlive: [PrActionBootstrap] Registered registrar: PrPulloverActionRegistrar
+[10/3/2026 4:44:11 PM.177] LosSantosAlive: [PrActionBootstrap] PR actions registered.
+[10/3/2026 4:44:11 PM.177] LosSantosAlive: [IntegrationActionBootstrap] Integration actions registered.
+[10/3/2026 4:44:11 PM.177] LosSantosAlive: [NpcActionBootstrap] All NPC actions registered.
+[10/3/2026 4:44:11 PM.184] LosSantosAlive: [PedShotReflexDetector] DamageTracker event subscription started.
+[10/3/2026 4:44:16 PM.794] LosSantosAlive: [PS] host_status p2_available=True p2_reason=none available=True update_calls=217 update_completed=217 last_update_age_ms=0 last_completed_age_ms=0 last_game_tick=24438 shutdown_reason=none identity_available=True identity_update_calls=217 identity_update_completed=217 identity_last_update_age_ms=0 identity_last_completed_age_ms=0 identity_last_game_tick=24438 identity_creation_thread=46 identity_update_thread=35 identity_shutdown_reason=none identity_update_failure=none
+[10/3/2026 4:44:21 PM.293] LosSantosAlive: [PS] shadow anchors=64 observers=0 snapshot_age_ms=129 snapshot_cadence_ms=207 dropped=0 stale=0 retired=12 deferred=1 update_us=275 capabilities=snapshot,pedDamage,playerDamage,vehicleDamage,shooting,state,action,playback damage_callbacks=ped:0,player:0,vehicle:0 signals=location_changed:1,activity_changed:3
+[10/3/2026 4:44:26 PM.855] LosSantosAlive: [PS] host_status p2_available=True p2_reason=none available=True update_calls=596 update_completed=596 last_update_age_ms=1 last_completed_age_ms=1 last_game_tick=34497 shutdown_reason=none identity_available=True identity_update_calls=596 identity_update_completed=596 identity_last_update_age_ms=0 identity_last_completed_age_ms=0 identity_last_game_tick=34497 identity_creation_thread=46 identity_update_thread=35 identity_shutdown_reason=none identity_update_failure=none
+[10/3/2026 4:44:31 PM.448] LosSantosAlive: [PS] shadow anchors=111 observers=0 snapshot_age_ms=142 snapshot_cadence_ms=227 dropped=0 stale=0 retired=22 deferred=1 update_us=292 capabilities=snapshot,pedDamage,playerDamage,vehicleDamage,shooting,state,action,playback damage_callbacks=ped:0,player:0,vehicle:0 signals=location_changed:1,activity_changed:18,vehicle_state:1
+[10/3/2026 4:44:32 PM.156] LosSantosAlive: [RadioContextProvider] Seeded radio state for observer 00001402: noradio
+[10/3/2026 4:44:36 PM.705] LosSantosAlive: [LosSantosAlive] Initial hard takeover clear ran on-foot.
+[10/3/2026 4:44:36 PM.874] LosSantosAlive: [PS] host_status p2_available=True p2_reason=none available=True update_calls=947 update_completed=947 last_update_age_ms=0 last_completed_age_ms=0 last_game_tick=44510 shutdown_reason=none identity_available=True identity_update_calls=947 identity_update_completed=947 identity_last_update_age_ms=1 identity_last_completed_age_ms=1 identity_last_game_tick=44510 identity_creation_thread=46 identity_update_thread=35 identity_shutdown_reason=none identity_update_failure=none
+[10/3/2026 4:44:41 PM.591] LosSantosAlive: [PS] shadow anchors=131 observers=1 snapshot_age_ms=221 snapshot_cadence_ms=220 dropped=0 stale=0 retired=29 deferred=1 update_us=527 capabilities=snapshot,pedDamage,playerDamage,vehicleDamage,shooting,state,action,playback damage_callbacks=ped:0,player:0,vehicle:0 signals=location_changed:3,activity_changed:41,vehicle_state:3,presence_changed:1,action_callback:1,injury_state:1,playback_started:1,playback_ended:1
+[10/3/2026 4:44:46 PM.984] LosSantosAlive: [PS] host_status p2_available=True p2_reason=none available=True update_calls=1308 update_completed=1308 last_update_age_ms=1 last_completed_age_ms=1 last_game_tick=53755 shutdown_reason=none identity_available=True identity_update_calls=1308 identity_update_completed=1308 identity_last_update_age_ms=0 identity_last_completed_age_ms=0 identity_last_game_tick=53755 identity_creation_thread=46 identity_update_thread=35 identity_shutdown_reason=none identity_update_failure=none
+[10/3/2026 4:44:51 PM.709] LosSantosAlive: [PS] shadow anchors=137 observers=1 snapshot_age_ms=167 snapshot_cadence_ms=203 dropped=0 stale=0 retired=67 deferred=2 update_us=284 capabilities=snapshot,pedDamage,playerDamage,vehicleDamage,shooting,state,action,playback damage_callbacks=ped:0,player:0,vehicle:0 signals=location_changed:6,activity_changed:113,vehicle_state:14,presence_changed:1,action_callback:1,injury_state:1,playback_started:1,playback_ended:1,firing:3
+[10/3/2026 4:44:56 PM.987] LosSantosAlive: [PS] host_status p2_available=True p2_reason=none available=True update_calls=1664 update_completed=1664 last_update_age_ms=0 last_completed_age_ms=0 last_game_tick=63756 shutdown_reason=none identity_available=True identity_update_calls=1664 identity_update_completed=1664 identity_last_update_age_ms=1 identity_last_completed_age_ms=1 identity_last_game_tick=63756 identity_creation_thread=46 identity_update_thread=35 identity_shutdown_reason=none identity_update_failure=none
+[10/3/2026 4:45:01 PM.781] LosSantosAlive: [PS] shadow anchors=108 observers=1 snapshot_age_ms=86 snapshot_cadence_ms=201 dropped=0 stale=0 retired=110 deferred=2 update_us=833 capabilities=snapshot,pedDamage,playerDamage,vehicleDamage,shooting,state,action,playback damage_callbacks=ped:0,player:0,vehicle:0 signals=location_changed:15,activity_changed:179,vehicle_state:27,presence_changed:1,action_callback:1,injury_state:6,playback_started:1,playback_ended:1,firing:4
+[10/3/2026 4:45:02 PM.545] LosSantosAlive: [HostageSceneTrigger] Player wanted, but not inside a known interior.
+[10/3/2026 4:45:02 PM.622] LosSantosAlive: [LosSantosAlive] Released dead LSA ped and removed runtime state. ped=00001402 key=00001402 hadControl=True runtime=Conversation
+[10/3/2026 4:45:07 PM.013] LosSantosAlive: [PS] host_status p2_available=True p2_reason=none available=True update_calls=2020 update_completed=2020 last_update_age_ms=0 last_completed_age_ms=0 last_game_tick=73783 shutdown_reason=none identity_available=True identity_update_calls=2020 identity_update_completed=2020 identity_last_update_age_ms=1 identity_last_completed_age_ms=1 identity_last_game_tick=73783 identity_creation_thread=46 identity_update_thread=35 identity_shutdown_reason=none identity_update_failure=none
+[10/3/2026 4:45:11 PM.926] LosSantosAlive: [PS] shadow anchors=98 observers=1 snapshot_age_ms=57 snapshot_cadence_ms=203 dropped=0 stale=0 retired=142 deferred=2 update_us=788 capabilities=snapshot,pedDamage,playerDamage,vehicleDamage,shooting,state,action,playback damage_callbacks=ped:0,player:0,vehicle:0 signals=location_changed:24,activity_changed:214,vehicle_state:49,presence_changed:1,action_callback:1,injury_state:7,playback_started:1,playback_ended:1,firing:8,death:1
+
