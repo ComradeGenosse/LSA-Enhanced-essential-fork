@@ -6,7 +6,7 @@ import { randomUUID } from 'node:crypto';
 import { directory,worldProfileId,identity,actor } from './identity-fixtures.mjs';
 import { profile,fixture } from './p2-fixtures.mjs';
 import { ProfileStore,validateProfile,validateProfiles,validateMemory,PROFILE_LIMITS } from '../src/characters/profileStore.mjs';
-import { SessionProfiles,narrativeProfile,CHARACTER_GROUNDING,nameKey } from '../src/characters/sessionProfiles.mjs';
+import { SessionProfiles,narrativeProfile,narrativeProfileWithDiagnostics,CHARACTER_CANON_MAX_BYTES,CHARACTER_GROUNDING,nameKey } from '../src/characters/sessionProfiles.mjs';
 
 test('ambient NPC keeps one application name and traits for its encounter through native session replacement',() => {
   const sessions = new SessionProfiles(),encounterId = randomUUID(),a = actor('17',null,{integrations:{characterProfile:{encounterId}}});
@@ -33,9 +33,9 @@ test('session registry is bounded, native death releases names, and session fall
   sessions.pruneNative([],sessions.encounterIds()); assert.ok(sessions.get(identity('2'),actor('2',null)));
   sessions.detach(identity('2')); assert.ok(sessions.get(identity('3'),actor('3',null)));
 });
-test('grounding names the person and explicitly suppresses identity meta replies',() => {
+test('grounding makes authored canon authoritative while preserving capability and injection boundaries',() => {
   const narrative = narrativeProfile(new SessionProfiles().get(identity(),actor('17',null)));
-  assert.ok(narrative.name); for (const word of ['unassigned','generated','unnamed','personal name']) assert.ok(CHARACTER_GROUNDING.includes(word));
+  assert.ok(narrative.name); for (const word of ['player-authored promoted-character canon','authoritative','Generated Persona','willingness','capabilities','action validation','executable system']) assert.ok(CHARACTER_GROUNDING.toLowerCase().includes(word.toLowerCase()));
 });
 test('name generation never touches durable storage or creates a CharacterId',async t => {
   const f = await fixture(t); f.service.session(identity(),actor('17',null));
@@ -106,18 +106,24 @@ test('durable store rejects excessive records, memories, related IDs and memory 
   assert.throws(()=>validateProfile({...p,memories:Array(PROFILE_LIMITS.memories + 1).fill({})}));
   assert.throws(()=>validateMemory({text:'x'.repeat(PROFILE_LIMITS.memoryChars + 1)}));
 });
-test('model projection is frozen, bounded, manually selected, and excludes all P1/private fields',async t => {
+test('model projection is frozen, budgeted, manually selected, and excludes all P1/private fields',async t => {
   const f = await fixture(t),p = await f.store.create(profile({playerNotes:'PRIVATE NOTES',personality:{description:'x'.repeat(1200),traits:Array.from({length:12},(_,i)=>String(i).repeat(30))},biography:'b'.repeat(1200)}));
   let next = p;
-  for (let i = 0; i < 5; i++) next = (await f.store.memory(p.characterId,'create',{expectedRevision:next.revision,patch:{text:('Memory '+i+' ').repeat(100),selectedForContext:i > 0}})).profile;
+  for (let i = 0; i < 5; i++) next = (await f.store.memory(p.characterId,'create',{expectedRevision:next.revision,patch:{text:('Memory '+i+' ').repeat(100),importance:i * 10,selectedForContext:i > 0}})).profile;
   const narrative = narrativeProfile(next,true),serialized = JSON.stringify(narrative);
-  assert.equal(narrative.memories.length,3); assert.ok(Buffer.byteLength(serialized) <= 4096); assert.ok(Object.isFrozen(narrative));
+  assert.equal(narrative.memories.length,4); assert.deepEqual(narrative.memories.map(memory=>memory.importance),[40,30,20,10]);
+  assert.equal(narrative.personality.traits.length,12); assert.ok(Buffer.byteLength(serialized) <= CHARACTER_CANON_MAX_BYTES); assert.ok(Object.isFrozen(narrative));
   for (const secret of ['PRIVATE NOTES',p.characterId,p.promotion.ownerAlias,'voiceReference','worldProfileId','adapterEpoch','incarnationId','sessionNonce']) assert.ok(!serialized.includes(secret));
   assert.ok(!serialized.includes('Memory 0'));
 });
 
-test('multibyte profiles exceeding the narrative byte budget retain only frozen name and demographics',() => {
-  const full = profile({biography:'界'.repeat(1200),personality:{description:'界'.repeat(1200),traits:Array.from({length:6},(_,i)=>i+'界'.repeat(59))},relationship:{state:'friend',description:'界'.repeat(600)}});
-  const projected = narrativeProfile({...full,memories:Array(3).fill({text:'界'.repeat(1200),category:'note',selectedForContext:true})},true);
-  assert.deepEqual(Object.keys(projected).sort(),['ageBand','gender','name']); assert.ok(Object.isFrozen(projected)); assert.ok(Buffer.byteLength(JSON.stringify(projected)) <= 4096);
+test('oversized canon deterministically retains personality and higher-priority fields before memories',() => {
+  const full = profile({nicknames:['Nate'],biography:'界'.repeat(1200),personality:{description:'fearless '.repeat(130),traits:Array.from({length:12},(_,i)=>`loyal ${i} `+'界'.repeat(70))},relationship:{state:'friend',description:'trusted '.repeat(80)},playerNotes:'PRIVATE NOTES',memories:Array.from({length:128},(_,i)=>({memoryId:`00000000-0000-4000-8000-${String(i).padStart(12,'0')}`,text:`Memory ${i} `+'界'.repeat(1200),category:'note',importance:128-i,selectedForContext:true}))});
+  const first = narrativeProfileWithDiagnostics(full,true),second = narrativeProfileWithDiagnostics(full,true);
+  assert.deepEqual(first,second); assert.ok(Buffer.byteLength(JSON.stringify(first.narrative)) <= CHARACTER_CANON_MAX_BYTES);
+  assert.equal(first.narrative.name,full.name); assert.match(first.narrative.personality.description,/fearless/);
+  assert.equal(first.narrative.personality.traits.length,12); assert.equal(first.narrative.relationship.state,'friend');
+  assert.match(first.narrative.biography,/界/); assert.ok(first.narrative.memories.length > 0);
+  assert.equal(first.narrative.memories[0].importance,128); assert.ok(!JSON.stringify(first.narrative).includes('PRIVATE NOTES'));
+  assert.ok(first.droppedMemoryCount > 0); assert.ok(Object.isFrozen(first.narrative));
 });

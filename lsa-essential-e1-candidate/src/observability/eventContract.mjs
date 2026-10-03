@@ -13,7 +13,7 @@ export const EVENT_NAMES = new Set([
   'supersession_requested','late_event_ignored','turn_terminal_summary','telemetry_records_dropped','telemetry_sink_failed',
   'listener_cleared','listener_replaced','world_unavailable','snapshot_created','target_changed','target_missing','target_invalid','reference_map_revision_changed',
   'identity_resolved','identity_binding_created','identity_binding_retired','identity_conflict','identity_evidence_stale','identity_store_unavailable','persistent_voice_loaded',
-  'session_profile_created','character_name_assigned','promotion_started','promotion_completed','promotion_failed','persistent_profile_loaded','character_spawned','character_dismissed','character_profile_edited','character_memory_created','character_memory_edited','character_memory_deleted','character_unpromoted','character_safe_failure',
+  'session_profile_created','character_name_assigned','promotion_started','promotion_completed','promotion_failed','persistent_profile_loaded','character_spawned','character_dismissed','character_profile_edited','character_memory_created','character_memory_edited','character_memory_deleted','character_unpromoted','character_safe_failure','character_canon_projected','character_reasoning_request_composed',
 ]);
 
 const safeKeys = new Set([
@@ -33,7 +33,9 @@ const safeKeys = new Set([
   'segmentSequence','segmentCount','segmentChars',
   'profileId','speechProvider','voice','speed','assignmentVersion','selectionMode','gender','ageBand','matchReason','attempt','attemptId','maxAttempts','retryDelayMs','remainingDeadlineMs',
   'identityKind','bindingRevision','characterRecordRevision',
-  'profileRevision','profileCount','collisionCount',
+  'profileRevision','profileCount','collisionCount','canonHash','systemPromptHash','runtimePromptHash','finalReasoningRequestHash',
+  'traitsIncluded','memoryCount','biographyIncluded','relationshipIncluded','generatedPersonaPolicy',
+  'truncatedFields','truncatedFieldCount','droppedMemoryCount',
 ]);
 const safeTokens = new Set([
   'openai','gemini','player_text','player_mic','special_event','system','internal','completed','failed',
@@ -61,6 +63,9 @@ function safeScalar(key, value) {
   if (key === 'requestId' && /^rid_[a-f0-9]{16}$/.test(token)) return token;
   if (key === 'model' && /^(gpt|whisper|tts)[-_][A-Za-z0-9._-]{1,80}$/i.test(token)) return token;
   if (['bundleHash','dllHash'].includes(key) && /^[a-f0-9]{64}$/i.test(token)) return token.toLowerCase();
+  if (['canonHash','systemPromptHash','runtimePromptHash','finalReasoningRequestHash'].includes(key) && /^[a-f0-9]{64}$/i.test(token)) return token.toLowerCase();
+  if (key === 'generatedPersonaPolicy' && ['suppressed','subordinate'].includes(token.toLowerCase())) return token.toLowerCase();
+  if (key === 'truncatedFields' && /^(?:name|nicknames|personality\.description|personality\.traits|relationship\.description|biography|memory\.text)(?:,(?:name|nicknames|personality\.description|personality\.traits|relationship\.description|biography|memory\.text))*$/.test(token)) return token;
   if (key === 'nodeVersion' && /^v\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(token)) return token;
   if (key === 'profileId' && /^vp_[a-f0-9]{20}$/.test(token)) return token;
   if (key === 'voice' && /^[a-z][a-z0-9_-]{0,31}$/.test(token)) return token;

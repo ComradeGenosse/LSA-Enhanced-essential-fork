@@ -26,7 +26,7 @@ test('bootstrap gates native management without losing ambient grounding or chan
   assert.ok(unavailable.identityService); assert.equal(unavailable.characterService.ready,false);
   const turn = {identity:identity(),context:{actor:actor('17',null),listener:null,systemInstruction:'Essential rules'}};
   await unavailable.characterService.prepareTurn(turn,null,unavailable.voiceResolver.resolve(turn.identity,turn.context.actor));
-  assert.ok(turn.context.actor.characterProfile.name); assert.equal(f.native.requests.length,0);
+  assert.ok(turn.context.actor.characterProfile.canon.name); assert.equal(f.native.requests.length,0);
   await assert.rejects(unavailable.characterService.promote(),/profile_store_unavailable/);
   const available = await createRuntimeForBundle({...options,characterContract:await verifyCharactersContract()}); t.after(()=>available.identityService.close());
   assert.equal(available.characterService.ready,true); assert.equal(available.config.persistentIdentity.enabled,true); assert.equal(available.characterEditor,undefined);

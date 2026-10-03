@@ -1,6 +1,15 @@
 import { buildRequest, extractResponseText, parseDecisionJson } from '../context/essentialDecision.mjs';
 import { endpoint, requestJson } from './request.mjs';
 import { streamDecision } from './streamDecision.mjs';
+import { sha256 } from '../characters/characterAuthority.mjs';
+
+function recordCanonRequest(telemetry,body,actor) {
+  if (actor?.characterProfile?.authority !== 'player_authored') return;
+  try { telemetry?.event('character_reasoning_request_composed',{
+    profileRevision:actor.characterProfile.profileRevision,
+    finalReasoningRequestHash:sha256(JSON.stringify(body)),
+  }); } catch {}
+}
 
 export async function decide({ config, context, input, history, signal, timeoutMs = config.providerWorkDeadlineMs ?? config.turnDeadlineMs, source, fetchImpl = globalThis.fetch, telemetry, dialogueAttempt }) {
   const body = buildRequest({
@@ -17,6 +26,7 @@ export async function decide({ config, context, input, history, signal, timeoutM
     history,
     maxOutputTokens: config.maxOutputTokens,
   });
+  recordCanonRequest(telemetry,body,context.actor);
   const response = await requestJson({
     fetchImpl,
     url: endpoint(config.reasoningBaseUrl, 'responses'),
@@ -68,6 +78,7 @@ export async function decideStreaming({ config, context, input, history, signal,
     maxOutputTokens: config.streamingMaxOutputTokens,
     structuredSegments: true,
   });
+  recordCanonRequest(telemetry,body,context.actor);
   return streamDecision({
     config, body, signal, timeoutMs, fetchImpl, telemetry, onSegment, dialogueAttempt,
     maxSegments: config.streamingMaxSegments,

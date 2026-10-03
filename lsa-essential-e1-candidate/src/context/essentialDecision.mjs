@@ -80,6 +80,21 @@ export function buildRequest({ model, effort, systemInstruction, actor, listener
     ],
   };
   if (structuredSegments) body.stream = true;
+  if (process.env.LSA_PROMPT_AUDIT === 'true') {
+    const audit = {
+      label:'LSA PROMPT AUDIT — contains private character and user text',
+      finalSystemInstruction:body.input[0].content,
+      finalActorContext:actor ?? null,
+      finalListenerContext:listener ?? null,
+      finalWorldContext:world ?? null,
+      finalContextText:String(contextText || ''),
+      finalInternalEvent:String(internalEvent || ''),
+      finalHistory:boundedHistory,
+      finalCurrentInput:String(input || ''),
+      source:source || null,
+    };
+    console.info('[LSA_PROMPT_AUDIT]\n' + JSON.stringify(audit,null,2));
+  }
   return body;
 }
 

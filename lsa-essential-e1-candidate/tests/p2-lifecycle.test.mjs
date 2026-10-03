@@ -102,7 +102,7 @@ test('persistent narration projects edits and selected memories, with no private
   const proof = f.native.owned.get(p.promotion.ownerAlias).claim,a = actor('17',proof,{integrations:{sessionIdentity:proof,raw:{sessionIdentity:proof,characterProfile:{encounterId:f.native.selected.encounterId}},characterProfile:{encounterId:f.native.selected.encounterId}}});
   const turn = {identity:identity(),context:{actor:a,listener:a,systemInstruction:'Essential rules'},speechProfile:null};
   await f.service.prepareTurn(turn,{resolution:{kind:'persistent',characterId:p.characterId}},f.voice.resolve(identity(),a));
-  assert.equal(turn.context.actor.characterProfile.name,'Jordan'); assert.equal(turn.context.actor.characterProfile.memories[0].text,'Remember the beach');
+  assert.equal(turn.context.actor.characterProfile.canon.name,'Jordan'); assert.equal(turn.context.actor.characterProfile.canon.memories[0].text,'Remember the beach');
   const projected = JSON.stringify(turn.context); for (const secret of ['sessionIdentity','adapterEpoch','incarnationId',p.characterId,p.promotion.ownerAlias,f.native.selected.encounterId]) assert.ok(!projected.includes(secret));
   assert.ok(a.integrations.sessionIdentity,'private original snapshot remains intact');
 });
@@ -110,7 +110,7 @@ test('optional corrupt profiles still permit ambient names and normal ephemeral 
   const f = await fixture(t); const broken = new ProfileStore({filePath:f.store.filePath,worldProfileId}); await fs.writeFile(f.store.filePath,'corrupt');
   const service = new CharacterService(f.config,{identityService:f.identity,voiceResolver:f.voice,store:broken,nativeOwner:f.native}); await service.initialize(); assert.equal(service.ready,false);
   const turn = {identity:identity(),context:{actor:actor('17',null),listener:null,systemInstruction:'Essential rules'}}; await service.prepareTurn(turn,null,f.voice.resolve(identity(),turn.context.actor));
-  assert.ok(turn.context.actor.characterProfile.name); await assert.rejects(service.promote(),/profile_store_unavailable/);
+  assert.ok(turn.context.actor.characterProfile.canon.name); await assert.rejects(service.promote(),/profile_store_unavailable/);
 });
 
 test('P2 refuses a profile path shared with the strict P1 registry without writing either store',async t => {
@@ -143,11 +143,11 @@ test('real stock controller: promote, edit, dismiss, recreate with new native se
   const open = async (binding,nonce) => { const s = await h.openAIControllerSession({pedId:binding.pedId,nonce,actorContext:contextFor(binding)});s.autoNativeAcks();return s; };
   const typed = async (s,binding) => {h.context.p2Input={pedId:binding.pedId,speaker:contextFor(binding),text:'Hello.'};const turn=await h.evaluate('ib(p2Input)');const native={pedId:turn.pedId,turnId:turn.id,generationId:turn.generationId,sessionNonce:s.session.nonce};return {native,result:await s.connection.whenSettled(native)};};
   const ambient = await open(f.native.selected,1),first = await typed(ambient,f.native.selected);assert.equal(first.result.status,'completed');
-  const name = requests[0].context.actor.characterProfile.name,p = await h.runtime.characterService.promote(); assert.equal(p.name,name);assert.equal(p.voiceReference.voice,voices[0].voice);
+  const name = requests[0].context.actor.characterProfile.canon.name,p = await h.runtime.characterService.promote(); assert.equal(p.name,name);assert.equal(p.voiceReference.voice,voices[0].voice);
   const owned = f.native.owned.get(p.promotion.ownerAlias); const promoted = await typed(ambient,owned);assert.equal(promoted.result.status,'completed');assert.equal(ambient.connection.characterSnapshot.resolution.characterId,p.characterId);assert.equal(voices[1].voice,voices[0].voice);
   await h.runtime.characterService.edit(p.characterId,{name:'Alex Returned'},1);await h.runtime.characterService.control(p.characterId,'dismiss');assert.equal(ambient.connection.closed,true);
   await h.runtime.characterService.control(p.characterId,'summon');const rebound=f.native.owned.get(p.promotion.ownerAlias),next=await open(rebound,9),second=await typed(next,rebound);assert.equal(second.result.status,'completed');
-  assert.equal(next.connection.characterSnapshot.resolution.characterId,p.characterId);assert.equal(requests[2].context.actor.characterProfile.name,'Alex Returned');assert.equal(voices[2].voice,voices[0].voice);assert.deepEqual(requests[2].history,[]);
+  assert.equal(next.connection.characterSnapshot.resolution.characterId,p.characterId);assert.equal(requests[2].context.actor.characterProfile.canon.name,'Alex Returned');assert.equal(requests[2].context.actor.characterProfile.profileRevision,2);assert.equal(voices[2].voice,voices[0].voice);assert.deepEqual(requests[2].history,[]);
   assert.equal(await h.runtime.host.routePinnedEvent({...promoted.native,provider:'openai',type:'audio',chunk:new Uint8Array([3,4])}),false);
   assert.equal(await h.runtime.host.routePinnedEvent({...promoted.native,provider:'openai',type:'output_transcript',text:'DO RequestBackup'}),false);
   assert.equal(h.runtime.history.acceptPlaybackResult({...promoted.native,playbackSucceeded:true,hadAudio:true,playbackStarted:true}),false);assert.equal(h.runtime.history.readForSession('17',1).length,0);
@@ -165,5 +165,40 @@ test('real stock controller keeps dialogue and private-proof filtering when opti
   h.context.p2Input = {pedId:binding.pedId,speaker:a,text:'Hello.'}; const turn = await h.evaluate('ib(p2Input)');
   assert.equal((await s.connection.whenSettled({pedId:turn.pedId,turnId:turn.id,generationId:turn.generationId,sessionNonce:1})).status,'completed');
   for (const secret of ['sessionIdentity','adapterEpoch','incarnationId','encounterId',binding.encounterId,p.characterId,p.promotion.ownerAlias]) assert.ok(!projected.includes(secret));
+  s.connection.close();
+});
+
+test('real stock controller applies the same promoted canon to microphone and special-event turns',async t => {
+  const f = await fixture(t),p = await f.service.promote(),binding = f.native.owned.get(p.promotion.ownerAlias),
+    {trustedNamespaces,...persistentIdentity} = f.config.persistentIdentity;
+  const h = await stockHarness('openai',{identityEvidence:f.evidence,nativeOwner:f.native,profileStore:f.store,
+    config:{persistentIdentity,promotedCharacters:f.config.promotedCharacters}});
+  await h.runtime.characterService.initialize(); t.after(()=>h.runtime.identityService.close());
+  h.runtime.services.transcribe = async () => 'Will you fight with me?';
+  const requests=[];
+  h.runtime.services.decide = async options => { requests.push(options); return {dialogue:'I am willing.',command:''}; };
+  h.runtime.services.speak = async ({onPcm}) => { await onPcm(new Uint8Array([1,2])); return {bytes:2}; };
+  const a = actor(binding.pedId,binding.claim,{personaDescription:'Ordinary cautious civilian',integrations:{sessionIdentity:binding.claim,characterProfile:{encounterId:binding.encounterId}}});
+  const s = await h.openAIControllerSession({pedId:binding.pedId,nonce:1,actorContext:a,targetContext:null}); s.autoNativeAcks();
+  const mic = h.evaluate(`(() => { const value=Xi({pedId:'${binding.pedId}',speakerPedId:'${binding.pedId}',listenerPedId:'player',source:Ht.PLAYER_MIC,input:{transcript:'',contextText:''},metadata:{}}); A.mic=ND(); A.mic.activeTurnId=value.id; A.mic.status='listening'; A.mic.pendingChunks=[]; A.mic.sendChain=Promise.resolve(); return value; })()`);
+  h.context.micHydration = {speaker:a,target:null,world:{streetName:'Mic street'}};
+  h.evaluate('Te=()=>{}; hb=()=>{}; OK=false');
+  await h.evaluate('wd(micHydration)');
+  await s.connection.sendRealtimeAudio(new Uint8Array([1,2])); await s.connection.endRealtimeInput();
+  assert.equal((await s.connection.whenSettled({pedId:binding.pedId,turnId:mic.id,generationId:mic.generationId,sessionNonce:1})).status,'completed');
+  h.useStockSpecialHydration({sendInput:true});
+  h.context.hydrationResponses = {[binding.pedId]:{success:true,speaker:a,world:{streetName:'Actor street'}},player:{success:true,speaker:{pedId:'player'},world:{streetName:'Listener street'}}};
+  h.evaluate('var Nb=1000; Od=async ped=>hydrationResponses[ped]');
+  const special = await h.evaluate(`kb({speakerPedId:"${binding.pedId}",listenerPedId:"player",content:"An alarm is sounding."})`);
+  assert.equal((await s.connection.whenSettled({pedId:binding.pedId,turnId:special.id,generationId:special.generationId,sessionNonce:1})).status,'completed');
+  assert.equal(requests.length,2);
+  for (const request of requests) {
+    assert.equal(request.context.actor.characterProfile.authority,'player_authored');
+    assert.equal(request.context.actor.characterProfile.profileRevision,p.revision);
+    assert.match(request.context.systemInstruction,/PROMOTED CHARACTER AUTHORITY/);
+    assert.match(request.context.systemInstruction,/player-authored promoted-character canon is authoritative/i);
+    assert.ok(!('personaDescription' in request.context.actor));
+  }
+  assert.equal(requests[0].source,'player_mic'); assert.equal(requests[1].source,'special_event');
   s.connection.close();
 });
