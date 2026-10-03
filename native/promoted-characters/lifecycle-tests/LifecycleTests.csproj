@@ -1,0 +1,4 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net481</TargetFramework><LangVersion>latest</LangVersion><AutomaticallyUseReferenceAssemblyPackages>false</AutomaticallyUseReferenceAssemblyPackages></PropertyGroup>
+  <ItemGroup><Compile Include="../RuntimeEntry.cs" Link="RuntimeEntry.cs"/><Reference Include="System.Web.Extensions"/></ItemGroup>
+</Project>

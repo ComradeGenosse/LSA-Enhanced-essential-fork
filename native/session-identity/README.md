@@ -27,7 +27,7 @@ Missing optional identity evidence disables P1 at companion bootstrap while leav
 
 ## Owner API
 
-The plugin that owns the entity also owns the registration token and its cleanup. Calls belong on the owner game fiber/thread. Use a stable lowercase UUID-v4 world profile shared with companion config and a bounded immutable authored source key (1–128 characters, at most 256 UTF-8 bytes). Neither the ped handle nor appearance is an alias.
+The plugin that owns the entity also owns the registration token and its cleanup. Calls belong on an active RAGE game fiber. The integration and Core update fibers may have different managed thread IDs; the store checks RAGE's active-fiber state rather than pinning access to its construction thread. Ordinary background threads, including pipe workers, cannot access the store. Use a stable lowercase UUID-v4 world profile shared with companion config and a bounded immutable authored source key (1–128 characters, at most 256 UTF-8 bytes). Neither the ped handle nor appearance is an alias.
 
 ```csharp
 // ownedPed already belongs to this authored plugin. No entity is created here.

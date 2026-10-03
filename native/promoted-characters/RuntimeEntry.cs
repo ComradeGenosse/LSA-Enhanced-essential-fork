@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using System.Web.Script.Serialization;
 using LosSantosAlive.Integrations;
 using LSA.SessionIdentity;
@@ -21,6 +22,7 @@ namespace LSA.PromotedCharacters
             starting=true;
             // Remoting only schedules; native work executes in a game fiber.
             GameFiber.StartNew(()=>{
+                string exitReason="host_unavailable";
                 try {
                     GameFiber.Yield();
                     if(stopping) return;
@@ -34,13 +36,30 @@ namespace LSA.PromotedCharacters
                         } catch {Game.LogTrivial("[PS] optional_host_unavailable");}
                     }
                     Game.LogTrivial(integration.IsAvailable?"[P2] integrations_installed":"[P2] integration_unavailable");
-                    while(!stopping && integration.IsAvailable) GameFiber.Sleep(100);
-                } catch {Game.LogTrivial("[P2] host_initialization_failed");}
-                finally {intelligence?.Shutdown();integration?.Shutdown(); finished=true;}
+                    var statusClock=Stopwatch.StartNew();long nextStatus=0;
+                    while(!stopping && integration.IsAvailable) {
+                        if(intelligence!=null && statusClock.ElapsedMilliseconds>=nextStatus) {
+                            nextStatus=statusClock.ElapsedMilliseconds+10000;
+                            ReportStatus();
+                        }
+                        GameFiber.Sleep(100);
+                    }
+                } catch {exitReason="host_failed";LSA.Intelligence.IntelligenceIntegration.LogStatus("[P2] host_initialization_failed");}
+                finally {
+                    if(stopping) exitReason="host_stop_requested";
+                    LSA.Intelligence.IntelligenceIntegration.LogStatus("[P2] host_exit reason="+exitReason+" p2_reason="+(integration?.UnavailabilityReason??"not_initialized"));
+                    if(intelligence!=null) ReportStatus();
+                    intelligence?.Shutdown(exitReason);integration?.Shutdown(exitReason); finished=true;
+                }
             },"LSA character host lifetime");
             return true;
         }
         public static void Stop()=>stopping=true;
+        static void ReportStatus() {
+            // Observe from the existing host fiber even if Core stops dispatching Update.
+            // This never drives sampling or emits new factual frames.
+            LSA.Intelligence.IntelligenceIntegration.LogStatus("[PS] host_status p2_available="+(integration?.IsAvailable==true)+" p2_reason="+(integration?.UnavailabilityReason??"not_initialized")+" "+intelligence.RuntimeStatus()+" "+(integration?.IdentityRuntimeStatus??"identity_status=none"));
+        }
         public sealed class Config
         {
             public bool enabled {get;set;} public string worldProfileId {get;set;}

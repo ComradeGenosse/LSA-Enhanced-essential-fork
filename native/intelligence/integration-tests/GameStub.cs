@@ -7,7 +7,7 @@ namespace Rage {
     public class Vehicle:Entity {public Ped Driver;}
     public struct Vector3 {public float X,Y,Z;public float DistanceTo(Vector3 p)=>(float)Math.Sqrt((X-p.X)*(X-p.X)+(Y-p.Y)*(Y-p.Y)+(Z-p.Z)*(Z-p.Z));}
     public class Player {public Ped Character;}
-    public static class Game {public static int GameTime;public static Player LocalPlayer=new Player();public static List<string> Logs=new List<string>();public static void LogTrivial(string text)=>Logs.Add(text);}
+    public static class Game {public static int GameTime;public static bool ThrowLogs;public static Player LocalPlayer=new Player();public static List<string> Logs=new List<string>();public static void LogTrivial(string text) {if(ThrowLogs)throw new Exception("test sink failure");Logs.Add(text);}}
 }
 namespace Rage.Native {
     public static class NativeFunction {

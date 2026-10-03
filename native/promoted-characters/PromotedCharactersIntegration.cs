@@ -38,6 +38,7 @@ namespace LSA.PromotedCharacters
         ControlChannel channel;
         long lastGameTime;
         bool shutdown;
+        string shutdownReason="none";
         public event Action<string> OwnerRetired;
         public LSA.Intelligence.OwnedParticipant[] PerceptionRoster() => encounters.Values.Where(e=>e.Registration!=null && Alive(e)).Select(e=> {
             var registration=e.Registration;
@@ -47,6 +48,8 @@ namespace LSA.PromotedCharacters
         }).ToArray();
         public string Id => "characterProfile";
         public bool IsAvailable => channel != null && identity?.IsAvailable == true && !shutdown;
+        internal string UnavailabilityReason => shutdown?shutdownReason:channel==null?"not_initialized":identity?.IsAvailable!=true?"identity_unavailable":"none";
+        internal string IdentityRuntimeStatus => identity?.DiagnosticsStatus() ?? "identity_status=none";
         static long Now => DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
         public PromotedCharactersIntegration(string worldProfileId,string pipeName = "LSA.PromotedCharacters.v1",string identityPipeName = "LSA.SessionIdentity.v1")
         {
@@ -91,7 +94,11 @@ namespace LSA.PromotedCharacters
             if (!IsAvailable) return;
             try
             {
-                if (Game.GameTime < lastGameTime) { Shutdown(); return; } lastGameTime = Game.GameTime;
+                var gameTime=Game.GameTime;
+                if (gameTime < lastGameTime) {
+                    LSA.Intelligence.IntelligenceIntegration.LogStatus("[P2] clock_regression previous_game_tick="+lastGameTime+" current_game_tick="+gameTime);
+                    Shutdown("clock_regression"); return;
+                } lastGameTime = gameTime;
                 foreach (var item in encounters.ToArray()) {
                     if (!Alive(item.Value)) { Retire(item.Value); encounters.Remove(item.Key); continue; }
                     if (item.Value.Registration != null && !Safe(item.Value) && !item.Value.Suspended) Suspend(item.Value);
@@ -103,7 +110,7 @@ namespace LSA.PromotedCharacters
                     catch { request.Reason = "native_operation_failed"; }
                     finally { request.Done.Set(); }
                 }
-            } catch { Game.LogTrivial("[P2] optional_update_failed"); Shutdown(); }
+            } catch { LSA.Intelligence.IntelligenceIntegration.LogStatus("[P2] optional_update_failed"); Shutdown("update_failed"); }
         }
         static void Fields(Dictionary<string,object> args,params string[] fields) { if (args.Count != fields.Length || fields.Any(field => !args.ContainsKey(field))) throw new InvalidOperationException("invalid_owner_arguments"); }
         static string Text(Dictionary<string,object> args,string key) { if (!args.TryGetValue(key,out var value) || !(value is string text) || text.Length > 80) throw new InvalidOperationException("invalid_owner_arguments"); return text; }
@@ -237,8 +244,12 @@ namespace LSA.PromotedCharacters
         public void OnPedControlChanged(Ped ped,bool controlledByLsa) { if (!controlledByLsa && ped != null && encounters.TryGetValue(ped.Handle.ToString(),out var encounter) && encounter.Registration != null && !encounter.Suspended) Suspend(encounter); }
         public void OnNpcActionExecuted(Ped ped,string actionName,bool succeeded) { }
         public void Shutdown()
+        {Shutdown("integration_shutdown");}
+        internal void Shutdown(string reason)
         {
-            if (shutdown) return; shutdown = true; channel?.Dispose(); channel = null;
+            if (shutdown) return; shutdownReason=reason;shutdown = true;
+            LSA.Intelligence.IntelligenceIntegration.LogStatus("[P2] shutdown reason="+shutdownReason);
+            channel?.Dispose(); channel = null;
             foreach (var encounter in encounters.Values) { try { if (Alive(encounter) && Safe(encounter)) { Suspend(encounter); if (encounter.Created) encounter.Ped.Dismiss(); } Retire(encounter); } catch { } }
             encounters.Clear(); captures.Clear();
         }

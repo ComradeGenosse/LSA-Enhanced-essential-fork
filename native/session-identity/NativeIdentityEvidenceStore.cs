@@ -34,11 +34,19 @@ namespace LSA.SessionIdentity
     {
         public const int MaxRegistrations = 64;
         readonly Dictionary<string, RegistrationToken> registrations = new Dictionary<string, RegistrationToken>(StringComparer.Ordinal);
-        readonly int ownerThread = Thread.CurrentThread.ManagedThreadId;
+        readonly int ownerThread;
+        readonly Func<bool> authorizedContext;
         long revision, observation;
         public string AdapterEpoch { get; } = Guid.NewGuid().ToString("D");
         public event Action<string, RegistrationToken> Revoked;
-        void AssertOwner() { if (Thread.CurrentThread.ManagedThreadId != ownerThread) throw new InvalidOperationException("Owner game fiber required."); }
+        // Production supplies RAGE's active-fiber check. The default keeps the
+        // store's standalone/test use restricted to its creating thread.
+        public NativeIdentityEvidenceStore(Func<bool> authorizedGameFiber = null)
+        {
+            ownerThread = Thread.CurrentThread.ManagedThreadId;
+            authorizedContext = authorizedGameFiber ?? (() => Thread.CurrentThread.ManagedThreadId == ownerThread);
+        }
+        void AssertOwner() { if (!authorizedContext()) throw new InvalidOperationException("Authorized game fiber required."); }
         public static bool Key(string value) => value != null && value.Length > 0 && value.Length <= 128 && value.Trim() == value &&
             System.Text.Encoding.UTF8.GetByteCount(value) <= 256 && !value.Any(c => c < 32 || c == 127);
         public static bool Uuid(string value) => Guid.TryParseExact(value, "D", out var id) && id.ToString("D") == value && value[14] == '4' && "89ab".Contains(value[19]);
