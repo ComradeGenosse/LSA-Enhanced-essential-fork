@@ -38,6 +38,13 @@ namespace LSA.PromotedCharacters
         ControlChannel channel;
         long lastGameTime;
         bool shutdown;
+        public event Action<string> OwnerRetired;
+        public LSA.Intelligence.OwnedParticipant[] PerceptionRoster() => encounters.Values.Where(e=>e.Registration!=null && Alive(e)).Select(e=> {
+            var registration=e.Registration;
+            // Read-only lifetime validity includes the terminal dead state until Retire;
+            // no identity proof or action authority is inferred from this roster.
+            return new LSA.Intelligence.OwnedParticipant {Ped=e.Ped,Lifetime=registration.IncarnationId,Current=()=>ReferenceEquals(e.Registration,registration) && e.Ped.Exists() && e.Ped.MemoryAddress==e.Address && (e.Ped.IsDead || identity?.Owner?.TryResolveCurrent(e.Ped,out var claim)==true && claim.incarnationId==registration.IncarnationId)};
+        }).ToArray();
         public string Id => "characterProfile";
         public bool IsAvailable => channel != null && identity?.IsAvailable == true && !shutdown;
         static long Now => DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
@@ -71,7 +78,7 @@ namespace LSA.PromotedCharacters
             return NativeSafetyPolicy.CanControl(true,false,encounter.Ped == Game.LocalPlayer.Character,Scripted(),
                 foreignScript || adopting && missionEntity && !NpcActions.HasExclusiveControl(encounter.Ped),state?.InDirectedInteraction == true);
         }
-        void Retire(Encounter encounter) { if (encounter.Registration != null) identity?.Owner?.Retire(encounter.Registration); encounter.Registration = null; encounter.OwnerAlias = null; encounter.OwnershipToken = null; }
+        void Retire(Encounter encounter) { if (encounter.Registration != null) { try {OwnerRetired?.Invoke(encounter.Registration.IncarnationId);}catch{} identity?.Owner?.Retire(encounter.Registration); } encounter.Registration = null; encounter.OwnerAlias = null; encounter.OwnershipToken = null; }
         static void Suspend(Encounter encounter)
         {
             encounter.Suspended = true; // Set first, before any native control callback.

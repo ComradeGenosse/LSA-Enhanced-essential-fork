@@ -7,6 +7,7 @@ From the candidate directory, supply the same compile-only references as P1:
 ```powershell
 $env:LSA_IDENTITY_RPH_REFERENCE = '<compile-only SDK>\RagePluginHook.dll'
 $env:LSA_IDENTITY_FRAMEWORK_ROOT = '<reference root containing .NETFramework\v4.8.1>'
+$env:LSA_INTELLIGENCE_DAMAGE_REFERENCE = '<compile-only shipped>\DamageTrackerLib.dll'
 node tools/buildCharactersAddon.mjs
 ```
 
@@ -33,3 +34,5 @@ dotnet build native/promoted-characters/facts-tests/ControlChannelTests.csproj "
 The first compiles the production safety/admission source with .NET 10. The second compiles the actual Windows control pipe/parser with .NET 4.8.1 against no game references, using a unique offline pipe. The production parser accepts its actual nested `IList` array representation for appearance; this is checked by the real framework serializer test. No test here loads RPH/Essential or exercises GTA.
 
 See [P2 flow, persistence, limits and physical checklist](../../docs/P2-promoted-characters-status.md) and [focused native evidence](../../docs/P2-native-evidence.md).
+
+The same private runtime includes optional PS0/PS1 perception. Its `intelligence.mode` defaults to `off`; `shadow` uses a separate output-only factual channel without model context, memories or actions. No additional plugin or DamageTracker service is created. See [PS0/PS1 status, bounds and physical checklist](../../docs/PS0-PS1-perception-status.md).

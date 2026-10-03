@@ -1,0 +1,281 @@
+{
+  "dllSha256": "64816a0d1131a6ec241f8951902b08afaee86fb0f73693399edefe2db8776750",
+  "types": [
+    {
+      "name": "DamageTrackerLib.DamageTrackerService",
+      "methods": [
+        {
+          "name": "get_CurrentVersion",
+          "returns": "String",
+          "parameters": []
+        },
+        {
+          "name": "add_OnPedTookDamage",
+          "returns": "Void",
+          "parameters": [
+            "DamageTrackerLib.DamageTrackerService\u002BPedTookDamageDelegate"
+          ]
+        },
+        {
+          "name": "remove_OnPedTookDamage",
+          "returns": "Void",
+          "parameters": [
+            "DamageTrackerLib.DamageTrackerService\u002BPedTookDamageDelegate"
+          ]
+        },
+        {
+          "name": "add_OnPlayerTookDamage",
+          "returns": "Void",
+          "parameters": [
+            "DamageTrackerLib.DamageTrackerService\u002BPedTookDamageDelegate"
+          ]
+        },
+        {
+          "name": "remove_OnPlayerTookDamage",
+          "returns": "Void",
+          "parameters": [
+            "DamageTrackerLib.DamageTrackerService\u002BPedTookDamageDelegate"
+          ]
+        },
+        {
+          "name": "add_OnVehicleTookDamage",
+          "returns": "Void",
+          "parameters": [
+            "DamageTrackerLib.DamageTrackerService\u002BVehTookDamageDelegate"
+          ]
+        },
+        {
+          "name": "remove_OnVehicleTookDamage",
+          "returns": "Void",
+          "parameters": [
+            "DamageTrackerLib.DamageTrackerService\u002BVehTookDamageDelegate"
+          ]
+        },
+        {
+          "name": "get_IsRunning",
+          "returns": "Boolean",
+          "parameters": []
+        },
+        {
+          "name": "Start",
+          "returns": "Void",
+          "parameters": []
+        },
+        {
+          "name": "Start",
+          "returns": "Void",
+          "parameters": [
+            "Boolean"
+          ]
+        },
+        {
+          "name": "Stop",
+          "returns": "Void",
+          "parameters": []
+        }
+      ],
+      "fields": [
+        {
+          "name": "Guid",
+          "type": "String"
+        }
+      ]
+    },
+    {
+      "name": "DamageTrackerLib.DamageInfo.DamageType",
+      "methods": [],
+      "fields": [
+        {
+          "name": "value__",
+          "type": "Int32"
+        },
+        {
+          "name": "Unknown",
+          "type": "DamageTrackerLib.DamageInfo.DamageType"
+        },
+        {
+          "name": "Unarmed",
+          "type": "DamageTrackerLib.DamageInfo.DamageType"
+        },
+        {
+          "name": "MeleeBlunt",
+          "type": "DamageTrackerLib.DamageInfo.DamageType"
+        },
+        {
+          "name": "MeleeStab",
+          "type": "DamageTrackerLib.DamageInfo.DamageType"
+        },
+        {
+          "name": "Pistol",
+          "type": "DamageTrackerLib.DamageInfo.DamageType"
+        },
+        {
+          "name": "SMG",
+          "type": "DamageTrackerLib.DamageInfo.DamageType"
+        },
+        {
+          "name": "Shotgun",
+          "type": "DamageTrackerLib.DamageInfo.DamageType"
+        },
+        {
+          "name": "Rifle",
+          "type": "DamageTrackerLib.DamageInfo.DamageType"
+        },
+        {
+          "name": "Sniper",
+          "type": "DamageTrackerLib.DamageInfo.DamageType"
+        },
+        {
+          "name": "Launcher",
+          "type": "DamageTrackerLib.DamageInfo.DamageType"
+        },
+        {
+          "name": "MG",
+          "type": "DamageTrackerLib.DamageInfo.DamageType"
+        },
+        {
+          "name": "Explosive",
+          "type": "DamageTrackerLib.DamageInfo.DamageType"
+        },
+        {
+          "name": "ThrowableNonLethal",
+          "type": "DamageTrackerLib.DamageInfo.DamageType"
+        },
+        {
+          "name": "LessThanLethal",
+          "type": "DamageTrackerLib.DamageInfo.DamageType"
+        },
+        {
+          "name": "Misc",
+          "type": "DamageTrackerLib.DamageInfo.DamageType"
+        },
+        {
+          "name": "NonDamaging",
+          "type": "DamageTrackerLib.DamageInfo.DamageType"
+        },
+        {
+          "name": "WaterCannon",
+          "type": "DamageTrackerLib.DamageInfo.DamageType"
+        },
+        {
+          "name": "Bodily",
+          "type": "DamageTrackerLib.DamageInfo.DamageType"
+        },
+        {
+          "name": "Drowning",
+          "type": "DamageTrackerLib.DamageInfo.DamageType"
+        },
+        {
+          "name": "Animal",
+          "type": "DamageTrackerLib.DamageInfo.DamageType"
+        },
+        {
+          "name": "Vehicle",
+          "type": "DamageTrackerLib.DamageInfo.DamageType"
+        },
+        {
+          "name": "Fall",
+          "type": "DamageTrackerLib.DamageInfo.DamageType"
+        },
+        {
+          "name": "Fire",
+          "type": "DamageTrackerLib.DamageInfo.DamageType"
+        },
+        {
+          "name": "Electric",
+          "type": "DamageTrackerLib.DamageInfo.DamageType"
+        },
+        {
+          "name": "BarbedWire",
+          "type": "DamageTrackerLib.DamageInfo.DamageType"
+        },
+        {
+          "name": "Gas",
+          "type": "DamageTrackerLib.DamageInfo.DamageType"
+        },
+        {
+          "name": "VehicleLauncher",
+          "type": "DamageTrackerLib.DamageInfo.DamageType"
+        },
+        {
+          "name": "VehicleFirearm",
+          "type": "DamageTrackerLib.DamageInfo.DamageType"
+        }
+      ]
+    },
+    {
+      "name": "DamageTrackerLib.DamageInfo.PedDamageInfo",
+      "methods": [],
+      "fields": [
+        {
+          "name": "PedHandle",
+          "type": "UInt32"
+        },
+        {
+          "name": "AttackerPedHandle",
+          "type": "UInt32"
+        },
+        {
+          "name": "Damage",
+          "type": "Int32"
+        },
+        {
+          "name": "ArmourDamage",
+          "type": "Int32"
+        },
+        {
+          "name": "WeaponInfo",
+          "type": "DamageTrackerLib.DamageInfo.WeaponDamageInfo"
+        },
+        {
+          "name": "BoneInfo",
+          "type": "DamageTrackerLib.DamageInfo.BoneDamageInfo"
+        }
+      ]
+    },
+    {
+      "name": "DamageTrackerLib.DamageInfo.VehDamageInfo",
+      "methods": [],
+      "fields": [
+        {
+          "name": "VehHandle",
+          "type": "UInt32"
+        },
+        {
+          "name": "AttackerPedHandle",
+          "type": "UInt32"
+        },
+        {
+          "name": "Damage",
+          "type": "Int32"
+        },
+        {
+          "name": "WeaponInfo",
+          "type": "DamageTrackerLib.DamageInfo.WeaponDamageInfo"
+        },
+        {
+          "name": "LastCollisionPosition",
+          "type": "Rage.Vector3"
+        }
+      ]
+    },
+    {
+      "name": "DamageTrackerLib.DamageInfo.WeaponDamageInfo",
+      "methods": [],
+      "fields": [
+        {
+          "name": "Hash",
+          "type": "DamageTrackerLib.DamageInfo.WeaponHash"
+        },
+        {
+          "name": "Type",
+          "type": "DamageTrackerLib.DamageInfo.DamageType"
+        },
+        {
+          "name": "Group",
+          "type": "DamageTrackerLib.DamageInfo.DamageGroup"
+        }
+      ]
+    }
+  ]
+}
