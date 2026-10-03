@@ -7,7 +7,7 @@ import { isUuid } from '../identity/identityContract.mjs';
 import { withoutIdentityEvidence } from '../identity/modelContext.mjs';
 import { immutableSnapshot } from '../context/turnSnapshot.mjs';
 
-const FAILURE_REASONS = new Set(['profile_store_unavailable','identity_unavailable','native_stale','scripted_state','ownership_conflict','evidence_unavailable','owner_unavailable','unsafe_spawn_location','appearance_unavailable','invalid_ped_model']);
+const FAILURE_REASONS = new Set(['profile_store_unavailable','identity_unavailable','native_stale','scripted_state','ownership_conflict','evidence_unavailable','owner_unavailable','unsafe_spawn_location','appearance_unavailable','invalid_ped_model','summon_wait_timeout']);
 export const characterFailureReason = error => FAILURE_REASONS.has(error?.message) ? error.message : 'native_operation_failed';
 
 export function withoutCharacterTransport(actor) {
@@ -21,10 +21,11 @@ export function withoutCharacterTransport(actor) {
 }
 
 export function normalizeCharacterConfig(value = {}) {
-  if (!value || typeof value !== 'object' || Array.isArray(value) || Object.keys(value).some(key => !['enabled','storePath','pipeName','editorPort'].includes(key)) || (value.enabled !== undefined && typeof value.enabled !== 'boolean')) throw new TypeError('Invalid promotedCharacters configuration.');
+  if (!value || typeof value !== 'object' || Array.isArray(value) || Object.keys(value).some(key => !['enabled','storePath','pipeName','editorPort','summonWaitMs'].includes(key)) || (value.enabled !== undefined && typeof value.enabled !== 'boolean')) throw new TypeError('Invalid promotedCharacters configuration.');
   const storePath = value.storePath ?? 'characters/profiles.v1.json',pipeName = value.pipeName ?? 'LSA.PromotedCharacters.v1',editorPort = value.editorPort ?? 37921;
-  if (typeof storePath !== 'string' || !storePath.trim() || storePath.length > 512 || typeof pipeName !== 'string' || !/^[A-Za-z0-9_.-]{1,80}$/.test(pipeName) || !Number.isSafeInteger(editorPort) || editorPort < 1024 || editorPort > 65535) throw new TypeError('Invalid promotedCharacters configuration.');
-  return Object.freeze({ enabled:value.enabled === true,storePath,pipeName,editorPort });
+  const summonWaitMs = value.summonWaitMs ?? 30_000;
+  if (typeof storePath !== 'string' || !storePath.trim() || storePath.length > 512 || typeof pipeName !== 'string' || !/^[A-Za-z0-9_.-]{1,80}$/.test(pipeName) || !Number.isSafeInteger(editorPort) || editorPort < 1024 || editorPort > 65535 || !Number.isSafeInteger(summonWaitMs) || summonWaitMs < 5000 || summonWaitMs > 60_000) throw new TypeError('Invalid promotedCharacters configuration.');
+  return Object.freeze({ enabled:value.enabled === true,storePath,pipeName,editorPort,summonWaitMs });
 }
 export class CharacterService {
   #queue = Promise.resolve(); #initializing; #syncing; #lastSync = 0;

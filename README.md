@@ -212,6 +212,8 @@ Telemetry covers things such as:
 
 It intentionally excludes credentials, prompts, transcripts, dialogue, raw provider responses, endpoint URLs, and audio bytes.
 
+Optional **dialogue tracing** keeps private local conversation details for debugging. In `e1.config.json`, set `"dialogueLogging": { "enabled": true }`. It writes bounded, rotating JSONL under `logs/dialogue` (up to five 10 MiB files by default). Records correlate the assembled OpenAI prompt, returned text/stream segments, validated decision, and observed native playback/history outcome. Large payloads are chunked and explicitly marked if truncated or incomplete. API credentials are redacted; audio and hidden reasoning are not recorded. Leave this setting off when dialogue capture is not needed, because the files can include NPC/world context and conversations. Stock Gemini requests do not use this trace.
+
 To summarize a captured run:
 
 ~~~powershell

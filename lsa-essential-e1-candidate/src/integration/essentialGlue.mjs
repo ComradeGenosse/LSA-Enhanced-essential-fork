@@ -12,8 +12,10 @@ import { captureReferenceMap } from '../context/turnSnapshot.mjs';
 import { IdentityResolver } from '../identity/identityResolver.mjs';
 import { withoutIdentityEvidence } from '../identity/modelContext.mjs';
 import { CharacterService,withoutCharacterTransport } from '../characters/characterService.mjs';
+import { createNoopDialogueTrace } from '../observability/dialogueTrace.mjs';
 
-export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry = null, providers = {}, identityEvidence, identityStore, profileStore, nativeOwner } = {}) {
+export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry = null, dialogueTrace = null, providers = {}, identityEvidence, identityStore, profileStore, nativeOwner } = {}) {
+  dialogueTrace ||= createNoopDialogueTrace();
   const history = new DialogueHistory({ maxMessages: config.maxHistoryMessages, onMetric: (event, data) => telemetry?.emit(event, null, null, data) });
   const connections = new Set();
   let bridge = null;
@@ -34,6 +36,7 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
   characterService?.initialize().catch(() => {});
   const services = {
     config,
+    dialogueTrace,
     providerStack,
     decide: providerStack ? options => providerStack.decide(options) : options => decide({ ...options, config, fetchImpl }),
     transcribe: providerStack ? options => providerStack.transcribe(options) : options => transcribePcm({ ...options, config, fetchImpl }),
@@ -41,7 +44,7 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
     executeProvider: providerStack ? args => executeProviderOperation({ ...args, retryConfig: config.retry, telemetry: args.telemetry }) : null,
   };
   const runtime = {
-    config, history, services, telemetry, providerStack, voiceResolver, identityService,characterService,
+    config, history, services, telemetry, dialogueTrace, providerStack, voiceResolver, identityService,characterService,
     modelActor: actor => characterService ? withoutCharacterTransport(actor) : identityService ? withoutIdentityEvidence(actor) : actor,
     validateDecisionShape,
     validateStockDecision,

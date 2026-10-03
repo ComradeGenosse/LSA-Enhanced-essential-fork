@@ -10,7 +10,9 @@ import { startCharacterEditor } from './characters/editorServer.mjs';
 import { characterContractSupported } from './characters/nativeSupport.mjs';
 import { IntelligenceClient } from './perception/intelligenceClient.mjs';
 import { perceptionContractSupported } from './perception/nativeSupport.mjs';
+import { createDialogueTrace, createNoopDialogueTrace } from './observability/dialogueTrace.mjs';
 
+const shutdownClosers = new Set();
 let shutdownFlushRegistered = false;
 
 export async function createRuntimeForBundle(options = {}) {
@@ -56,17 +58,36 @@ export async function createRuntimeForBundle(options = {}) {
           credentialAvailable: Boolean(config.reasoningKey || config.transcriptionKey || config.ttsKey),
           bundleHash: manifest.builtBundleSha256, dllHash: manifest.nativeContract?.dllSha256,
         } });
-        if (!shutdownFlushRegistered) {
-          shutdownFlushRegistered = true;
-          process.once('beforeExit', () => { telemetry.close().catch(() => {}); });
-        }
+        shutdownClosers.add(telemetry);
       } catch (error) {
         try { console.warn(`[E1 telemetry] persistent logging unavailable (${/^[A-Za-z][A-Za-z0-9_]{0,63}$/.test(error?.code || '') ? error.code : 'initialization_failed'}).`); } catch {}
         telemetry = createNoopTelemetry();
       }
     } else telemetry = createNoopTelemetry();
   }
-  const runtime = createRuntime(config, { ...options, telemetry });
+  let dialogueTrace = options.dialogueTrace || createNoopDialogueTrace();
+  if (!options.dialogueTrace && config.provider === 'openai' && config.dialogueLogging.enabled) {
+    try {
+      const sink = await createFileSink({
+        directory: options.dialogueDirectory || path.resolve(process.cwd(), 'logs', 'dialogue'),
+        maxFileBytes: config.dialogueLogging.maxFileBytes,
+        maxTotalBytes: config.dialogueLogging.maxTotalBytes,
+        maxFiles: config.dialogueLogging.maxFiles,
+        onFailure: ({ code }) => { try { console.warn(`[E1 dialogue] persistent logging disabled (${code}).`); } catch {} },
+      });
+      dialogueTrace = createDialogueTrace({ sink, telemetryRunId: telemetry?.runId || null, config: config.dialogueLogging,
+        secrets: [config.reasoningKey, config.transcriptionKey, config.ttsKey] });
+      shutdownClosers.add(dialogueTrace);
+    } catch (error) {
+      try { console.warn(`[E1 dialogue] persistent logging unavailable (${/^[A-Za-z][A-Za-z0-9_]{0,63}$/.test(error?.code || '') ? error.code : 'initialization_failed'}).`); } catch {}
+      dialogueTrace = createNoopDialogueTrace();
+    }
+  }
+  if (!shutdownFlushRegistered) {
+    shutdownFlushRegistered = true;
+    process.once('beforeExit', async () => { for (const closer of shutdownClosers) await closer.close().catch(() => {}); });
+  }
+  const runtime = createRuntime(config, { ...options, telemetry, dialogueTrace });
   if(config.intelligence.mode==='shadow') {
     let contract=options.perceptionContract;
     if(contract===undefined) try {contract=JSON.parse(await readFile(new URL('../build-manifest.json',import.meta.url),'utf8')).perceptionContract;}catch{}

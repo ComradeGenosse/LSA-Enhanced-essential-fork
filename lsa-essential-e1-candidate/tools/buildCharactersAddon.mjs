@@ -21,13 +21,16 @@ export async function buildCharactersAddon({rphReferencePath,frameworkReferenceR
   const perceptionContract = await verifyPerceptionContract();
   if(!damageReferencePath || await hash(damageReferencePath)!==DAMAGE_DLL_SHA256 || !perceptionContract.available) throw new Error('Pinned compile-only DamageTracker reference and perception metadata required.');
   const project = path.resolve(root,'../native/promoted-characters/Loader.csproj');
+  const runtimeProject = path.resolve(root,'../native/promoted-characters/PromotedCharacters.csproj');
   const args = [`-p:RphReferencePath=${path.resolve(rphReferencePath)}`,`-p:TargetFrameworkRootPath=${path.resolve(frameworkReferenceRoot)}`,`-p:DamageReferencePath=${path.resolve(damageReferencePath)}`];
   const run = promisify(execFile);
+  await run(dotnetPath,['restore',runtimeProject,'--ignore-failed-sources',...args],{windowsHide:true});
+  await run(dotnetPath,['build',runtimeProject,'--configuration','Release','--no-restore',...args],{windowsHide:true});
   await run(dotnetPath,['restore',project,'--ignore-failed-sources',...args],{windowsHide:true});
   const {stdout} = await run(dotnetPath,['build',project,'--configuration','Release','--no-restore',...args],{windowsHide:true});
   await mkdir(target,{recursive:true}); const addonDirectory = path.join(path.dirname(project),'bin/Release/net481');
   const files = [];
-  for (const name of ['LSA.PromotedCharacters.dll','LSA.PromotedCharacters.Runtime.dll','LSA.SessionIdentity.dll']) {
+  for (const name of ['LSA.PromotedCharacters.dll','LSA.PromotedCharacters.Bootstrap.dll','LSA.PromotedCharacters.Runtime.dll','LSA.SessionIdentity.dll']) {
     const source = path.join(addonDirectory,name); await copyFile(source,path.join(target,name));files.push({name,relativePath:name === 'LSA.PromotedCharacters.dll' ? `plugins/${name}` : `plugins/LSA.PromotedCharacters/${name}`,sha256:await hash(source)});
   }
   await copyFile(path.resolve(root,'../native/promoted-characters/LSA.PromotedCharacters.example.json'),path.join(target,'LSA.PromotedCharacters.example.json'));

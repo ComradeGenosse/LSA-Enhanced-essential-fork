@@ -2,6 +2,7 @@ using System;
 using System.Collections.Concurrent;
 using System.IO;
 using System.Net;
+using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
@@ -17,22 +18,18 @@ namespace LSA.PromotedCharacters
         static string origin;
         static int pending;
         static volatile bool enabled;
-        static bool commandsRegistered;
+        static volatile bool nativeReady;
         static readonly ConcurrentQueue<string> messages = new ConcurrentQueue<string>();
-        internal static void Register()
-        {
-            // Call only from the loader's game fiber, before remoting into
-            // Essential. RAGE requires explicit registration in this build.
-            if (commandsRegistered) return;
-            Game.AddConsoleCommands(new[] {typeof(PlayerCommands)});
-            commandsRegistered = true;
-            Game.LogTrivial("[P2] console_commands_registered");
-        }
         internal static void Initialize(int port)
         {
             if (port < 1024 || port > 65535) throw new ArgumentException("Invalid P2 editor port.");
             origin = "http://127.0.0.1:" + port; enabled = true;
+            string name=typeof(PlayerCommands).Assembly.GetName().Name;
+            Game.LogTrivial("[P2] console_frontend_domain="+AppDomain.CurrentDomain.FriendlyName+" loader_instances="+AppDomain.CurrentDomain.GetAssemblies().Count(a=>a.GetName().Name==name));
+            // RAGE discovers the attributed methods when loading this plugin.
+            // Explicit AddConsoleCommands creates a second set in this build.
         }
+        internal static void SetNativeReady(bool value) {nativeReady=value;}
         [ConsoleCommand(Name = "LSACharacters",Description = "Show the local P2 character editor URL.")] public static void Command_LSACharacters() { if (enabled) Game.Console.Print("P2 character editor: " + origin); }
         [ConsoleCommand(Name = "LSAPromote",Description = "Promote Essential's currently selected NPC.")] public static void Command_LSAPromote() => Send(null);
         [ConsoleCommand(Name = "LSAFollowPromoted",Description = "Ask the selected promoted character to follow.")] public static void Command_LSAFollowPromoted() => Send("follow");
@@ -60,7 +57,9 @@ namespace LSA.PromotedCharacters
         }
         static void Send(string operation,string characterId = null)
         {
-            if (!enabled || Interlocked.CompareExchange(ref pending,1,0) != 0) return;
+            if (!enabled) return;
+            if (!nativeReady) {Game.Console.Print("P2 native host is unavailable. Use LSACharacters to open the character editor.");return;}
+            if (Interlocked.CompareExchange(ref pending,1,0) != 0) return;
             string address = origin;
             ThreadPool.QueueUserWorkItem(_ => {
                 try {
@@ -82,6 +81,6 @@ namespace LSA.PromotedCharacters
             });
         }
         internal static void Update() { while (messages.TryDequeue(out var message)) Game.Console.Print(message); }
-        internal static void Shutdown() { enabled = false; }
+        internal static void Shutdown() { enabled = false; nativeReady=false; }
     }
 }

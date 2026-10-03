@@ -27,7 +27,7 @@ The addon registers these inputs through the existing RAGE console. They call th
 | `LSASummonCharacter <CharacterId>` | Recreate the saved character selected by its exact ID from the editor |
 | `LSADespawnCharacter <CharacterId>` | Explicitly despawn that character's addon-created incarnation; refuse adopted peds |
 
-Native operations require Essential's game Update to run within the short request deadline. If switching to a browser pauses GTA, use the console inputs for live controls and close the console promptly so updates can continue. The editor supports live controls while the game is ticking and remains usable for profile/memory editing while the game is paused or offline. Console registration has been physically confirmed after the loader-owned registration fixes; focus/pause edge behavior remains follow-up regression coverage.
+Native operations require Essential's game Update to run while a request is pending. Summon waits up to 30 seconds by default (`promotedCharacters.summonWaitMs`, configurable from 5 to 60 seconds) so the player can return from the browser to safe gameplay; it still fails if GTA is paused through the deadline or the spawn safety checks fail. Expired requests are cancelled and never execute when updates resume later. Other live controls retain their short deadlines. The editor reports the summon wait and prevents duplicate clicks. It remains usable for profile/memory editing while the game is paused or offline. Console registration has been physically confirmed after the loader-owned registration fixes; focus/pause behavior remains a physical acceptance item.
 
 ## Ambient encounter identity
 

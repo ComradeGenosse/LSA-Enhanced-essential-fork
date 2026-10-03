@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using System.Linq;
 using System.Reflection;
 using LSA.PromotedCharacters;
@@ -9,14 +10,18 @@ public sealed class Probe:MarshalByRefObject
     public int Increment()=>++value;
     public string Name=>AppDomain.CurrentDomain.FriendlyName;
     public bool CoreLoaded=>AppDomain.CurrentDomain.GetAssemblies().Any(a=>a.GetName().Name=="LosSantosAlive");
+    public string[] AssemblyNames=>AppDomain.CurrentDomain.GetAssemblies().Select(a=>a.GetName().Name).ToArray();
 }
 static class Program
 {
     static int count;
     static void Check(bool condition){if(!condition)throw new Exception("Host assertion "+(count+1));count++;}
+    static bool RegistrationAttribute(CustomAttributeData attribute)=>attribute.AttributeType.FullName=="Rage.Attributes.PluginAttribute" || attribute.AttributeType.FullName=="Rage.Attributes.ConsoleCommandAttribute";
     static void Main(string[] args)
     {
-        var before=AppDomain.CurrentDomain.GetAssemblies().Select(a=>a.FullName).ToArray();
+        // Exercise the actual production bootstrap assembly across the boundary,
+        // rather than putting its source inside this command-bearing harness.
+        string bootstrapPath=args.Length>=2?Path.GetFullPath(args[1]):typeof(DomainHost).Assembly.Location;
         Check(ClrDomains.Enumerate().Any(d=>d.Id==AppDomain.CurrentDomain.Id));
         Check(ClrDomains.FindUnique(d=>d.FriendlyName=="LosSantosAlive_AppDomain")==null);
         var first=AppDomain.CreateDomain("LosSantosAlive_AppDomain");
@@ -26,9 +31,14 @@ static class Program
             Check(remote.Name=="LosSantosAlive_AppDomain");
             Check(remote.Increment()==1);
             Check(new Probe().Increment()==1); // static state remains isolated
-            var bridge=(DomainHost)first.CreateInstanceFromAndUnwrap(Assembly.GetExecutingAssembly().Location,typeof(DomainHost).FullName);
+            var bridge=(DomainHost)first.CreateInstanceFromAndUnwrap(bootstrapPath,typeof(DomainHost).FullName);
             Check(bridge.CoreStatus=="core_missing");
-            Check(ClrDomains.FindEssential(Assembly.GetExecutingAssembly().Location)==null);
+            Check(ClrDomains.FindEssential(bootstrapPath)==null);
+            // Only simple strings cross domains; no Assembly/Type is marshalled.
+            var remoteAssemblies=remote.AssemblyNames;
+            Check(remoteAssemblies.Contains("LSA.PromotedCharacters.Bootstrap"));
+            Check(!remoteAssemblies.Contains("LSA.PromotedCharacters"));
+            Check(!remoteAssemblies.Contains("LSA.PromotedCharacters.Runtime") && !remoteAssemblies.Contains("LSA.SessionIdentity"));
             Check(!bridge.Start("nonexistent","{}")); // never load a new Core
             Check(bridge.Status=="core_missing");
             Check(!bridge.Ready && !bridge.Alive);
@@ -40,26 +50,42 @@ static class Program
         } finally {AppDomain.Unload(first);}
         Check(ClrDomains.FindUnique(d=>d.FriendlyName=="LosSantosAlive_AppDomain")==null);
         Check(!AppDomain.CurrentDomain.GetAssemblies().Any(a=>a.GetName().Name=="LosSantosAlive"));
-        if(args.Length==1) {
+        if(args.Length>=1) {
             var references=Assembly.ReflectionOnlyLoadFrom(args[0]).GetReferencedAssemblies().Select(a=>a.Name).ToArray();
             Check(!references.Contains("LosSantosAlive") && !references.Contains("LSA.SessionIdentity") && !references.Contains("LSA.PromotedCharacters.Runtime"));
+            Check(references.Contains("LSA.PromotedCharacters.Bootstrap"));
         }
-        PlayerCommands.Register();
-        PlayerCommands.Register();
-        Check(Rage.Game.RegistrationCalls==1);
-        Check(Rage.Game.CommandNames.Length==7 && Rage.Game.CommandNames.Distinct().Count()==7);
-        Check(Rage.Game.CommandNames.Contains("LSAPromote"));
+        if(args.Length>=2) {
+            // Reflection-only inspection reads metadata and never executes RAGE.
+            AppDomain.CurrentDomain.ReflectionOnlyAssemblyResolve+=(_,e)=>Assembly.ReflectionOnlyLoad(e.Name);
+            var bootstrap=Assembly.ReflectionOnlyLoadFrom(bootstrapPath);
+            var references=bootstrap.GetReferencedAssemblies().Select(a=>a.Name).ToArray();
+            Check(!references.Contains("RagePluginHook") && !references.Contains("LosSantosAlive") && !references.Contains("LSA.SessionIdentity") && !references.Contains("LSA.PromotedCharacters.Runtime"));
+            Check(!references.Contains("LSA.PromotedCharacters"));
+            Check(bootstrap.GetType("LSA.PromotedCharacters.PlayerCommands")==null);
+            Check(bootstrap.GetType("LSA.PromotedCharacters.EntryPoint")==null);
+            Check(bootstrap.GetType("LSA.PromotedCharacters.DomainHost")!=null);
+            Check(!bootstrap.GetCustomAttributesData().Any(RegistrationAttribute));
+            Check(!bootstrap.GetTypes().Any(type=>type.GetCustomAttributesData().Any(RegistrationAttribute) || type.GetMethods(BindingFlags.Public|BindingFlags.NonPublic|BindingFlags.Instance|BindingFlags.Static|BindingFlags.DeclaredOnly).Any(method=>method.GetCustomAttributesData().Any(RegistrationAttribute))));
+        }
+        var names=typeof(PlayerCommands).GetMethods(BindingFlags.Public|BindingFlags.Static)
+            .Select(method=>method.GetCustomAttribute<Rage.Attributes.ConsoleCommandAttribute>())
+            .Where(attribute=>attribute!=null).Select(attribute=>attribute.Name).ToArray();
+        Check(names.Length==7 && names.Distinct().Count()==7);
+        Check(names.Contains("LSAPromote"));
         PlayerCommands.Initialize(37921);
         PlayerCommands.Initialize(37921);
         PlayerCommands.Command_LSACharacters();
         Check(Rage.Game.Console.LastMessage=="P2 character editor: http://127.0.0.1:37921");
+        PlayerCommands.SetNativeReady(false);
+        PlayerCommands.Command_LSAPromote();
+        Check(Rage.Game.Console.LastMessage=="P2 native host is unavailable. Use LSACharacters to open the character editor.");
         PlayerCommands.Shutdown();
         Rage.Game.Console.LastMessage=null;
         PlayerCommands.Command_LSACharacters();
         Check(Rage.Game.Console.LastMessage==null);
-        PlayerCommands.Register();
         PlayerCommands.Initialize(37921);
-        Check(Rage.Game.RegistrationCalls==1);
+        Check(Rage.Game.RegistrationCalls==0);
         Console.WriteLine(count+" production host/command lifecycle assertions passed; no game assemblies executed.");
     }
 }

@@ -52,6 +52,7 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
   let context = turn.context;
   const source = String(turn.source || 'player_text').toLowerCase();
   const isPlayer = PLAYER_SOURCES.has(source);
+  const dialogueTurn = services.dialogueTrace?.beginTurn(identity, source);
   let observation;
   let state = 'bound';
   let terminalReason = '';
@@ -87,13 +88,19 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
   const abortListener = () => chooseTerminal(terminalForAbort(controller.signal));
   controller.signal.addEventListener('abort', abortListener, { once: true });
   const performProvider = (operation, provider, run, canRetry = () => true) => {
-    if (!services.executeProvider) return run({ signal: controller.signal, timeoutMs: workDeadlineMs, telemetry: metrics, isActive: valid });
+    if (!services.executeProvider) {
+      const attemptId = `${operation}:1`;
+      const dialogueAttempt = dialogueTurn?.beginAttempt({ operation, attemptId, isActive: valid });
+      return Promise.resolve().then(() => run({ signal: controller.signal, timeoutMs: workDeadlineMs, telemetry: metrics, isActive: valid, attemptId, dialogueAttempt }))
+        .then(result => { dialogueAttempt?.finish({ outcome: 'completed', complete: true }); return result; }, error => { dialogueAttempt?.finish({ outcome: controller.signal.aborted ? 'cancelled' : 'failed', code: error?.code || null, httpStatus: error?.status || null }); throw error; });
+    }
     return services.executeProvider({
       operation, provider, identity, signal: controller.signal, deadlineAt,
       isCurrent: () => !retired && host.isCurrent(identity), canRetry, telemetry: metrics,
-      run: ({ signal, timeoutMs, telemetry, isActive, attemptId }) => {
+      dialogueTrace: dialogueTurn,
+      run: ({ signal, timeoutMs, telemetry, isActive, attemptId, dialogueAttempt }) => {
         if (!isActive()) throw new Error('provider_attempt_inactive');
-        return run({ signal, timeoutMs, telemetry, isActive, attemptId });
+        return run({ signal, timeoutMs, telemetry, isActive, attemptId, dialogueAttempt });
       },
     });
   };
@@ -153,6 +160,7 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
       };
       const type = map[event.type];
       if (!type) return;
+      dialogueTurn?.native({ type: event.type, reason: event.reason || null, wasInterrupted: event.wasInterrupted ?? null, hadAudio: event.hadAudio ?? null, playbackStarted: event.playbackStarted ?? null });
       const key = type === 'native_playback_started' ? 'playbackStartedCount' : type === 'native_playback_ended' ? 'playbackEndedCount' : type === 'native_authorization_accepted' ? 'authorizationAcceptedCount' : 'authorizationRejectedCount';
       metrics?.count(key);
       metrics?.native(type, { eventType: event.type, nativeReason: event.reason || event.type, outcome: event.wasInterrupted ? 'interrupted' : event.reason || 'accepted' });
@@ -175,6 +183,7 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
       check();
     }
     if (isPlayer && !String(finalInput || '').trim()) throw new Error('player_input_empty');
+    if (isPlayer) dialogueTurn?.input(finalInput);
 
     // Snapshot the old history first so the current utterance is not duplicated in
     // both the history and the current user message sent to Luna.
@@ -191,9 +200,9 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
     let earlyAudio = null;
     if (services.config.structuredStreamingEnabled === true) {
       const allowEarlyTts = services.config.earlyTtsEnabled === true;
-      const modelOptions = ({ signal, timeoutMs, telemetry }) => services.providerStack.decideStreaming({
+      const modelOptions = ({ signal, timeoutMs, telemetry, dialogueAttempt }) => services.providerStack.decideStreaming({
         identity, context: { ...context, source }, source,
-        input: isPlayer ? finalInput : '', history: priorHistory, signal, timeoutMs, telemetry,
+        input: isPlayer ? finalInput : '', history: priorHistory, signal, timeoutMs, telemetry, dialogueAttempt,
       });
       if (!allowEarlyTts) {
         const result = await performProvider('model', services.providerStack.reasoning.id, modelOptions);
@@ -248,9 +257,9 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
           }
         });
         const modelTask = performProvider('model', services.providerStack.reasoning.id,
-          ({ signal, timeoutMs, telemetry, isActive }) => services.providerStack.decideStreaming({
+          ({ signal, timeoutMs, telemetry, isActive, dialogueAttempt }) => services.providerStack.decideStreaming({
             identity, context: { ...context, source }, source,
-            input: isPlayer ? finalInput : '', history: priorHistory, signal, timeoutMs, telemetry,
+            input: isPlayer ? finalInput : '', history: priorHistory, signal, timeoutMs, telemetry, dialogueAttempt,
             onSegment: async (segment, mode) => {
               if (!isActive()) throw new Error('provider_attempt_inactive');
               check();
@@ -283,8 +292,8 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
       }
     } else {
       decision = await performProvider('model', services.providerStack?.reasoning.id || 'openai.reasoning',
-        ({ signal, timeoutMs, telemetry }) => services.decide({ identity, context: { ...context, source }, source,
-          input: isPlayer ? finalInput : '', history: priorHistory, signal, timeoutMs, telemetry }));
+        ({ signal, timeoutMs, telemetry, dialogueAttempt }) => services.decide({ identity, context: { ...context, source }, source,
+          input: isPlayer ? finalInput : '', history: priorHistory, signal, timeoutMs, telemetry, dialogueAttempt }));
     }
     check();
     transition('decision_validation');
@@ -302,6 +311,7 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
     if (validated.identityValid !== true || !validated.internalTranscript) throw new Error('decision_rejected');
     transition('decision_validated');
     metrics?.event('decision_validated', { inputChars: String(decision.dialogue || '').length, attempts: validated.actionCount || 0, outcome: validated.actionCount ? 'accepted' : 'normal' });
+    dialogueTurn?.decision({ dialogue: decision.dialogue, command: decision.command, internalTranscript: validated.internalTranscript });
     history.stage({ identity, spokenReply: decision.dialogue });
     metrics?.count('assistantStageCount');
     metrics?.event('assistant_history_staged', { outputChars: String(decision.dialogue || '').length });
@@ -352,6 +362,7 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
     if (!history.acceptPlaybackResult({ ...result, playbackSucceeded: true })) throw new Error('history_commit_rejected');
     metrics?.count('assistantCommitCount');
     metrics?.event('assistant_history_committed', { outputChars: String(decision.dialogue || '').length, playbackEndedCount: 1 });
+    dialogueTurn?.finish({ reason: 'completed', stage: 'completed', assistantCommitted: true, assistantDiscarded: false });
     transition('completed');
     host.log?.(identity, 'terminal', { source, reason: 'completed', stage: state, cause: null });
     metrics?.finish({ reason: 'completed', stage: state, pcmBytes: pcmBytesTotal, audioDurationMs: expectedDurationMs, traceComplete: true, assistantCommitted: true });
@@ -366,6 +377,7 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
       metrics?.count('assistantDiscardCount');
       metrics?.event('assistant_history_discarded', { reason: terminalReason });
     }
+    dialogueTurn?.finish({ reason: terminalReason, stage: stageAtFailure, assistantCommitted: false, assistantDiscarded });
     const cause = { ...(underlyingNativeCause || {}), ...(publicCause(error) || {}) };
     if (controller.signal.aborted && controller.signal.reason) cause.abortReason = String(controller.signal.reason.message || controller.signal.reason).slice(0, 80);
     host.log?.(identity, 'terminal', { source, reason: terminalReason, stage: state, cause });

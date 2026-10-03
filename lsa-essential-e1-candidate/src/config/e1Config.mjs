@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { normalizeIdentityConfig } from '../identity/identityContract.mjs';
 import { normalizeCharacterConfig } from '../characters/characterService.mjs';
 import { normalizePerceptionConfig } from '../perception/contracts.mjs';
+import { normalizeDialogueLoggingConfig } from '../observability/dialogueTrace.mjs';
 
 const moduleDirectory = path.dirname(fileURLToPath(import.meta.url));
 export const defaultConfigPath = path.resolve(moduleDirectory, '../../e1.config.json');
@@ -94,6 +95,7 @@ export function normalizeConfig(input = {}, env = process.env) {
     retry: { enabled: true, maxAttempts: 2, baseDelayMs: 500, maxDelayMs: 3_000, honorRetryAfter: true, jitter: 'bounded', minAttemptBudgetMs: 1_000, attemptTimeoutMs: null },
     observabilityEnabled: true, observabilityMaxFileBytes: 10 * 1024 * 1024,
     observabilityMaxTotalBytes: 100 * 1024 * 1024, observabilityMaxFiles: 5,
+    dialogueLogging: { enabled: false, maxFileBytes: 10 * 1024 * 1024, maxTotalBytes: 50 * 1024 * 1024, maxFiles: 5, maxPayloadBytes: 256 * 1024 },
   };
   const reasoningModel = String(input.reasoningModel ?? env.OPENAI_REASONING_MODEL ?? defaults.reasoningModel).trim();
   const transcriptionModel = String(input.transcriptionModel ?? env.OPENAI_TRANSCRIPTION_MODEL ?? defaults.transcriptionModel).trim();
@@ -162,6 +164,7 @@ export function normalizeConfig(input = {}, env = process.env) {
     persistentIdentity: normalizeIdentityConfig(input.persistentIdentity),
     promotedCharacters: normalizeCharacterConfig(input.promotedCharacters),
     intelligence: normalizePerceptionConfig(input.intelligence),
+    dialogueLogging: normalizeDialogueLoggingConfig(input.dialogueLogging, boundedInteger),
     reasoningModel, reasoningEffort, transcriptionModel, ttsModel, ttsVoice,
     speechVoices: Object.freeze(speechVoices), speechVoiceProfiles, voiceAssignment, ttsSpeed, actingEnabled, speechInstructionsSupported,
     reasoningBaseUrl: baseUrl(input.reasoningBaseUrl ?? env.OPENAI_REASONING_BASE_URL, 'https://api.openai.com/v1', 'reasoningBaseUrl'),

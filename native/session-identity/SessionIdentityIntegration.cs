@@ -52,10 +52,18 @@ namespace LSA.SessionIdentity
         // Called explicitly by the authored owner on the game fiber, not auto-loaded.
         public static SessionIdentityIntegration Install(string pipeName = "LSA.SessionIdentity.v1")
         {
-            if (installed != null) { installed.Initialize(); return installed; }
+            var integration = InstallDeferred(pipeName);
+            integration.Initialize();
+            return integration;
+        }
+        // Register before Core enters its integration foreach, then let its
+        // Initialize/Update callback create the store on the actual owner fiber.
+        // Preparation does not read the clock, initialize IPC, or touch a ped.
+        public static SessionIdentityIntegration InstallDeferred(string pipeName = "LSA.SessionIdentity.v1")
+        {
+            if (installed != null) return installed;
             installed = new SessionIdentityIntegration(pipeName);
             IntegrationManager.Register(installed);
-            installed.Initialize();
             return installed;
         }
         public void Initialize()
@@ -77,18 +85,44 @@ namespace LSA.SessionIdentity
         public void Update()
         {
             if (store == null) return;
+            string stage = "read_clock";
             try {
                 long now = Game.GameTime;
-                if (now < lastGameTime) { Shutdown(); Initialize(); return; } // Regressed game clock invalidates owner roster/epoch.
+                if (now < lastGameTime) {
+                    stage = "reset_owner"; Shutdown();
+                    stage = "initialize_owner"; Initialize();
+                    Game.LogTrivial(IsAvailable ? "[P1] game_clock_reset" : "[P1] game_clock_reset_unavailable");
+                    return;
+                } // Regressed game clock invalidates owner roster/epoch.
                 lastGameTime = now;
+                stage = "validate_roster";
                 store.ValidateActive();
+                stage = "dequeue_verify";
                 for (int count = 0; count < 16 && channel.TryTake(out var request); count++) {
+                    stage = "resolve_verify";
                     var status = store.TryResolveCurrent(request.PedId, now, out var claim);
+                    stage = "reply_verify";
                     channel.Reply(request, status, claim);
+                    stage = "dequeue_verify";
                 }
                 // Proves the game-fiber validation loop is alive; the pipe worker cannot mint leases.
+                stage = "heartbeat";
                 if (heartbeat.ElapsedMilliseconds >= 250) { channel.Heartbeat(); heartbeat.Restart(); }
-            } catch { Shutdown(); } // Optional evidence cannot throw into Essential's update loop.
+            } catch (Exception error) {
+                // Fixed diagnostic vocabulary only: never log exception text,
+                // ped/character identifiers, pipe contents or ownership tokens.
+                string affinity = store == null ? "owner_unavailable" : store.IsOnOwnerThread ? "owner_thread_same" : "owner_thread_changed";
+                Game.LogTrivial("[P1] optional_update_failed_" + stage + "_" + FailureType(error) + "_" + affinity);
+                Shutdown();
+            } // Optional evidence cannot throw into Essential's update loop.
+        }
+        static string FailureType(Exception error)
+        {
+            if (error is ObjectDisposedException) return "ObjectDisposedException";
+            if (error is InvalidOperationException) return "InvalidOperationException";
+            if (error is IOException) return "IOException";
+            if (error is ArgumentException) return "ArgumentException";
+            return "other_exception";
         }
         public void EnrichActor(Ped ped, ActorContext context)
         {
@@ -102,6 +136,7 @@ namespace LSA.SessionIdentity
         public void Shutdown()
         {
             if (store == null) return;
+            Game.LogTrivial("[P1] identity_shutdown");
             try { store.Clear(); } catch { }
             channel.Dispose(); store = null; Owner = null; heartbeat.Stop();
         }

@@ -6,12 +6,14 @@ namespace LSA.PromotedCharacters
     internal static class ClrDomains
     {
         // Read-only CLR enumeration; never create, stop, or unload a domain.
-        public static AppDomain FindEssential(string loader)
+        public static AppDomain FindEssential(string bootstrap)
         {
             return FindUnique(domain=>{
                 if(!domain.FriendlyName.StartsWith("PreInitializedDomain_",StringComparison.Ordinal) && domain.FriendlyName!="LosSantosAlive_AppDomain") return false;
                 try {
-                    var probe=(DomainHost)domain.CreateInstanceFromAndUnwrap(loader,typeof(DomainHost).FullName);
+                    // Only the command-free bootstrap crosses domains. Loading
+                    // the plugin here exposes its command definitions again.
+                    var probe=(DomainHost)domain.CreateInstanceFromAndUnwrap(bootstrap,typeof(DomainHost).FullName);
                     return probe.CoreStatus=="core_ready";
                 } catch {return false;}
             });

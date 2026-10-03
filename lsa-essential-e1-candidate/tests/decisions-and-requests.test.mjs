@@ -83,6 +83,8 @@ test('stock action validator enforces the actor allow list, target and available
 test('Responses request uses one completed strict JSON decision and extracts output across content blocks', async () => {
   const config = normalizeConfig({}, { OPENAI_API_KEY: 'test-key' });
   let observed;
+  let tracedRequest;
+  const tracedReplies = [];
   const fakeFetch = async (url, init) => {
     observed = { url, init, body: JSON.parse(init.body) };
     return new Response(JSON.stringify({
@@ -97,6 +99,7 @@ test('Responses request uses one completed strict JSON decision and extracts out
     config,
     context: { systemInstruction: 'stock prompt', actor: { roleName: 'Civilian' }, input: 'hello' },
     input: 'hello', history: [], signal: new AbortController().signal, fetchImpl: fakeFetch,
+    dialogueAttempt: { request: value => { tracedRequest = value; }, outputText: (text, meta) => tracedReplies.push({ text, ...meta }) },
   });
   assert.deepEqual(result, { dialogue: 'Hi there.', command: '' });
   assert.equal(observed.url, 'https://api.openai.com/v1/responses');
@@ -108,6 +111,18 @@ test('Responses request uses one completed strict JSON decision and extracts out
   assert.equal(observed.body.text.format.strict, true);
   assert.equal(observed.body.text.format.schema.additionalProperties, false);
   assert.match(observed.body.input[0].content, /stock prompt/);
+  assert.deepEqual(tracedRequest, observed.body);
+  assert.equal(tracedReplies.map(item => item.text).join(''), '{"dialogue":"Hi there.","command":""}');
+});
+
+test('dialogue trace captures malformed model decision text before strict parsing rejects it', async () => {
+  const config = normalizeConfig({}, { OPENAI_API_KEY: 'test-key' }); const replies = [];
+  await assert.rejects(decide({
+    config, context: { systemInstruction: 'stock', actor: null }, input: 'hello', history: [], signal: new AbortController().signal,
+    fetchImpl: async () => new Response(JSON.stringify({ status: 'completed', output: [{ type: 'message', role: 'assistant', content: [{ type: 'output_text', text: '{bad json' }] }] }), { status: 200 }),
+    dialogueAttempt: { request() {}, outputText: text => replies.push(text) },
+  }), /invalid decision JSON/);
+  assert.deepEqual(replies, ['{bad json']);
 });
 
 test('missing actor/world and unavailable listener context are explicit in the request', () => {

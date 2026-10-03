@@ -4,8 +4,8 @@
     <AutomaticallyUseReferenceAssemblyPackages>false</AutomaticallyUseReferenceAssemblyPackages><Deterministic>true</Deterministic><GenerateAssemblyInfo>false</GenerateAssemblyInfo><EnableDefaultCompileItems>false</EnableDefaultCompileItems>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="EntryPoint.cs;PlayerCommands.cs;ClrDomains.cs;DomainHost.cs" />
-    <ProjectReference Include="PromotedCharacters.csproj" ReferenceOutputAssembly="false" />
+    <Compile Include="EntryPoint.cs;PlayerCommands.cs;ClrDomains.cs" />
+    <ProjectReference Include="Bootstrap.csproj" />
     <Reference Include="RagePluginHook"><HintPath>$(RphReferencePath)</HintPath><Private>false</Private></Reference>
     <Reference Include="System.Web.Extensions" />
   </ItemGroup>
