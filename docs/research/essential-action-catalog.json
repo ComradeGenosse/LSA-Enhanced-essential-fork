@@ -1,0 +1,3626 @@
+{
+  "schemaVersion": 1,
+  "generated": "2026-10-03",
+  "repositoryHead": "f53394213f8d7b20868e2cbee88f3cbed63c87eb",
+  "pins": {
+    "essentialDll": "9b6de42d4c464901d859dd95e17e100e4fa9ef6074bfbb0cf3a57a76f6ddd653",
+    "stockBundle": "5d81de4217bd103316a1083e482ded1bddc791314abf671d686036175c0475f2",
+    "nativeMetadata": "18edd2b47ffde748388b07a4a2d023793e183b882fe638acb5276440d45a2d23"
+  },
+  "counts": {
+    "dllRegistrars": 13,
+    "dllCanonicalActions": 65,
+    "stockVyCanonical": 63,
+    "stockNdAliases": 71,
+    "stockHvModelTags": 51,
+    "stockHvMapped": 50,
+    "stockHvDead": 1,
+    "catalogRows": 70,
+    "latentCapabilities": 11
+  },
+  "modelCatalogDeadEntries": [
+    {
+      "tag": "StopDrivingEvasively",
+      "reason": "hv offers it; h4/Nd/Vy/vb have no stopdrivingevasively key. Parser Cb requires Nd[xd(token)]. DO DriveNormally maps to drivenormal instead.",
+      "confidence": "PROVEN"
+    }
+  ],
+  "actions": [
+    {
+      "canonical": "approachperson",
+      "aliases": [
+        "approach",
+        "approachtarget",
+        "walkuptotarget",
+        "gototarget"
+      ],
+      "stockParserAliases": [
+        "approach",
+        "approachperson"
+      ],
+      "stockPromptLabel": "Approach",
+      "modelTags": [],
+      "exposure": [
+        "stock-parser",
+        "parser-but-not-offered"
+      ],
+      "category": "movement",
+      "lifecycleKind": "finite_task",
+      "sourceRegistrar": "CoreMovementActionRegistrar",
+      "registrationSite": "0x6000adf@IL_0063",
+      "handlerToken": "0x6000aed",
+      "handlerCalls": [
+        "LosSantosAlive.NPC.NpcActions::ApproachTarget"
+      ],
+      "handlerContextFields": [
+        "SourcePed"
+      ],
+      "handlerReturn": [
+        "true"
+      ],
+      "handlerUnconditionalTrue": true,
+      "handlerReturnProves": "HANDLER_ACCEPTED only; wrapper invoked; no physical completion",
+      "completion": {
+        "event": "MovementBehavior.ApproachFinished(Ped actor, Ped target, bool ok, string reason)",
+        "raiser": "0x60008b3",
+        "strength": "STRONG_IF_SUBSCRIBED",
+        "notes": "Native event exists. Boolean + reason distinguish completed vs failed (target missing / distance lookup). No turn/generation on the event. Stale-safety UNKNOWN without GTA probe.",
+        "observable": "event + ApproachTargetMode cleared + proximity/heading",
+        "confidence": "STRONGLY SUPPORTED"
+      },
+      "confidence": "STRONGLY SUPPORTED",
+      "gtaExperimentNeeded": "Observe approachperson: handler true vs NpcState flags vs world postcondition vs cancel/supersede"
+    },
+    {
+      "canonical": "arresttarget",
+      "aliases": [
+        "arrest",
+        "arresttarget",
+        "arrestped",
+        "detain",
+        "detaintarget",
+        "cufftarget",
+        "handcufftarget",
+        "takeintocustody",
+        "takecustody"
+      ],
+      "stockParserAliases": [
+        "arrest"
+      ],
+      "stockPromptLabel": "Arrest",
+      "modelTags": [
+        {
+          "tag": "Arrest <person>",
+          "group": "POLICE",
+          "excludeGroups": [],
+          "requirements": []
+        }
+      ],
+      "exposure": [
+        "model-visible",
+        "stock-parser"
+      ],
+      "category": "other",
+      "lifecycleKind": "unknown",
+      "sourceRegistrar": "PrOfficerTargetActionRegistrar",
+      "registrationSite": "0x6000dba@IL_0092",
+      "handlerToken": "0x6000dce",
+      "handlerCalls": [
+        "LosSantosAlive.Integrations.PolicingRedefinedBridge.PrOfficerTargetActionRegistrar::m0x6000dbb"
+      ],
+      "handlerContextFields": [],
+      "handlerReturn": [
+        "computed"
+      ],
+      "handlerUnconditionalTrue": false,
+      "handlerReturnProves": "computed boolean from callee; still not automatically PHYSICALLY_COMPLETED",
+      "completion": {
+        "event": null,
+        "strength": "COMPUTED_HANDLER",
+        "notes": "No native completion event found. Handler return is not physical completion.",
+        "observable": "world/state postcondition required",
+        "confidence": "INFERRED"
+      },
+      "confidence": "INFERRED",
+      "gtaExperimentNeeded": "Observe arresttarget: handler true vs NpcState flags vs world postcondition vs cancel/supersede"
+    },
+    {
+      "canonical": "attacktarget",
+      "aliases": [
+        "attackplayer",
+        "attack",
+        "fighttarget"
+      ],
+      "stockParserAliases": [],
+      "stockPromptLabel": null,
+      "modelTags": [],
+      "exposure": [
+        "registry-only"
+      ],
+      "category": "combat",
+      "lifecycleKind": "mode",
+      "sourceRegistrar": "CoreCombatActionRegistrar",
+      "registrationSite": "0x6000aa5@IL_0056",
+      "handlerToken": "0x6000ab3",
+      "handlerCalls": [
+        "LosSantosAlive.NPC.NpcActions::AttackTarget"
+      ],
+      "handlerContextFields": [
+        "SourcePed"
+      ],
+      "handlerReturn": [
+        "true"
+      ],
+      "handlerUnconditionalTrue": true,
+      "handlerReturnProves": "HANDLER_ACCEPTED only; wrapper invoked; no physical completion",
+      "completion": {
+        "event": null,
+        "strength": "HANDLER_ONLY",
+        "notes": "No native completion event found. Handler return is not physical completion.",
+        "observable": "world/state postcondition required",
+        "confidence": "STRONGLY SUPPORTED"
+      },
+      "confidence": "STRONGLY SUPPORTED",
+      "gtaExperimentNeeded": "Observe attacktarget: handler true vs NpcState flags vs world postcondition vs cancel/supersede"
+    },
+    {
+      "canonical": "attacktargetwithweapon",
+      "aliases": [
+        "attackplayerwithweapon",
+        "attackwithweapon",
+        "fighttargetwithweapon",
+        "shoottarget",
+        "shoottarget",
+        "shootplayer",
+        "meleewithweapon",
+        "hitwithweapon"
+      ],
+      "stockParserAliases": [
+        "attack"
+      ],
+      "stockPromptLabel": "Attack",
+      "modelTags": [
+        {
+          "tag": "Attack <person> USING <weapon>",
+          "group": "COMMON",
+          "excludeGroups": [],
+          "requirements": [
+            "HAS_AVAILABLE_WEAPON"
+          ]
+        }
+      ],
+      "exposure": [
+        "model-visible",
+        "stock-parser"
+      ],
+      "category": "combat",
+      "lifecycleKind": "mode",
+      "sourceRegistrar": "CoreCombatActionRegistrar",
+      "registrationSite": "0x6000aa6@IL_0097",
+      "handlerToken": "0x6000ab4",
+      "handlerCalls": [
+        "LosSantosAlive.NPC.NpcActions::AttackTargetWithWeapon"
+      ],
+      "handlerContextFields": [
+        "Parameter",
+        "SourcePed"
+      ],
+      "handlerReturn": [
+        "true"
+      ],
+      "handlerUnconditionalTrue": true,
+      "handlerReturnProves": "HANDLER_ACCEPTED only; wrapper invoked; no physical completion",
+      "completion": {
+        "event": null,
+        "strength": "HANDLER_ONLY",
+        "notes": "No native completion event found. Handler return is not physical completion.",
+        "observable": "world/state postcondition required",
+        "confidence": "STRONGLY SUPPORTED"
+      },
+      "confidence": "STRONGLY SUPPORTED",
+      "gtaExperimentNeeded": "Observe attacktargetwithweapon: handler true vs NpcState flags vs world postcondition vs cancel/supersede"
+    },
+    {
+      "canonical": "becomeaccomplice",
+      "aliases": [
+        "accomplicemode"
+      ],
+      "stockParserAliases": [],
+      "stockPromptLabel": null,
+      "modelTags": [],
+      "exposure": [
+        "registry-only"
+      ],
+      "category": "social",
+      "lifecycleKind": "mode",
+      "sourceRegistrar": "CoreSocialActionRegistrar",
+      "registrationSite": "0x6000af5@IL_003c",
+      "handlerToken": "0x6000afb",
+      "handlerCalls": [
+        "LosSantosAlive.NPC.NpcActions::BecomeAccomplice"
+      ],
+      "handlerContextFields": [
+        "SourcePed"
+      ],
+      "handlerReturn": [
+        "true"
+      ],
+      "handlerUnconditionalTrue": true,
+      "handlerReturnProves": "HANDLER_ACCEPTED only; wrapper invoked; no physical completion",
+      "completion": {
+        "event": null,
+        "strength": "HANDLER_ONLY",
+        "notes": "No native completion event found. Handler return is not physical completion.",
+        "observable": "world/state postcondition required",
+        "confidence": "STRONGLY SUPPORTED"
+      },
+      "confidence": "STRONGLY SUPPORTED",
+      "gtaExperimentNeeded": "Observe becomeaccomplice: handler true vs NpcState flags vs world postcondition vs cancel/supersede"
+    },
+    {
+      "canonical": "clearhelditem",
+      "aliases": [
+        "dropitem",
+        "putitemaway",
+        "removeitem",
+        "stopholdingitem",
+        "discarditem",
+        "clearitem"
+      ],
+      "stockParserAliases": [
+        "discardhelditem"
+      ],
+      "stockPromptLabel": "DiscardHeldItem",
+      "modelTags": [],
+      "exposure": [
+        "stock-parser",
+        "parser-but-not-offered"
+      ],
+      "category": "item",
+      "lifecycleKind": "world_postcondition",
+      "sourceRegistrar": "CoreItemActionRegistrar",
+      "registrationSite": "0x6000acf@IL_007d",
+      "handlerToken": "0x6000ad8",
+      "handlerCalls": [
+        "LosSantosAlive.NPC.NpcActions::ClearHeldItem"
+      ],
+      "handlerContextFields": [
+        "SourcePed"
+      ],
+      "handlerReturn": [
+        "true"
+      ],
+      "handlerUnconditionalTrue": true,
+      "handlerReturnProves": "HANDLER_ACCEPTED only; wrapper invoked; no physical completion",
+      "completion": {
+        "event": null,
+        "strength": "HANDLER_ONLY",
+        "notes": "No native completion event found. Handler return is not physical completion.",
+        "observable": "world/state postcondition required",
+        "confidence": "STRONGLY SUPPORTED"
+      },
+      "confidence": "STRONGLY SUPPORTED",
+      "gtaExperimentNeeded": "Observe clearhelditem: handler true vs NpcState flags vs world postcondition vs cancel/supersede"
+    },
+    {
+      "canonical": "driveevasive",
+      "aliases": [
+        "drivefaster",
+        "gofaster",
+        "speedup",
+        "hurryup",
+        "steponit",
+        "floorit",
+        "punchit",
+        "runtheredlights",
+        "runredlights"
+      ],
+      "stockParserAliases": [
+        "driveevasively"
+      ],
+      "stockPromptLabel": "DriveEvasively",
+      "modelTags": [
+        {
+          "tag": "DriveEvasively",
+          "group": "COMMON",
+          "excludeGroups": [],
+          "requirements": [
+            "IS_DRIVER"
+          ]
+        }
+      ],
+      "exposure": [
+        "model-visible",
+        "stock-parser"
+      ],
+      "category": "vehicle",
+      "lifecycleKind": "mode",
+      "sourceRegistrar": "CoreVehicleActionRegistrar",
+      "registrationSite": "0x6000b04@IL_00a5",
+      "handlerToken": "0x6000b11",
+      "handlerCalls": [
+        "LosSantosAlive.NPC.NpcActions::DriveEvasive"
+      ],
+      "handlerContextFields": [
+        "SourcePed"
+      ],
+      "handlerReturn": [
+        "true"
+      ],
+      "handlerUnconditionalTrue": true,
+      "handlerReturnProves": "HANDLER_ACCEPTED only; wrapper invoked; no physical completion",
+      "completion": {
+        "event": null,
+        "strength": "HANDLER_ONLY",
+        "notes": "No native completion event found. Handler return is not physical completion.",
+        "observable": "world/state postcondition required",
+        "confidence": "STRONGLY SUPPORTED"
+      },
+      "confidence": "STRONGLY SUPPORTED",
+      "gtaExperimentNeeded": "Observe driveevasive: handler true vs NpcState flags vs world postcondition vs cancel/supersede"
+    },
+    {
+      "canonical": "drivenormal",
+      "aliases": [
+        "drivenormally",
+        "drivecareful",
+        "drivecarefully",
+        "slowdown",
+        "calmdown",
+        "relax",
+        "weregood"
+      ],
+      "stockParserAliases": [
+        "drivenormally"
+      ],
+      "stockPromptLabel": "StopDrivingEvasively",
+      "modelTags": [],
+      "exposure": [
+        "stock-parser"
+      ],
+      "category": "vehicle",
+      "lifecycleKind": "mode",
+      "sourceRegistrar": "CoreVehicleActionRegistrar",
+      "registrationSite": "0x6000b05@IL_008a",
+      "handlerToken": "0x6000b12",
+      "handlerCalls": [
+        "LosSantosAlive.NPC.NpcActions::DriveNormal"
+      ],
+      "handlerContextFields": [
+        "SourcePed"
+      ],
+      "handlerReturn": [
+        "true"
+      ],
+      "handlerUnconditionalTrue": true,
+      "handlerReturnProves": "HANDLER_ACCEPTED only; wrapper invoked; no physical completion",
+      "completion": {
+        "event": null,
+        "strength": "HANDLER_ONLY",
+        "notes": "No native completion event found. Handler return is not physical completion.",
+        "observable": "world/state postcondition required",
+        "confidence": "STRONGLY SUPPORTED"
+      },
+      "confidence": "STRONGLY SUPPORTED",
+      "gtaExperimentNeeded": "Observe drivenormal: handler true vs NpcState flags vs world postcondition vs cancel/supersede"
+    },
+    {
+      "canonical": "drivetodestination",
+      "category": "navigation",
+      "lifecycleKind": "finite_task",
+      "sourceRegistrar": null,
+      "path": "BridgeMessageRouter + NpcState.DriveToDestination / DestinationResolver",
+      "aliases": [
+        "driveto"
+      ],
+      "stockParserAliases": [
+        "driveto"
+      ],
+      "stockPromptLabel": "DriveTo",
+      "modelTags": [],
+      "exposure": [
+        "stock-parser",
+        "parser-but-not-offered",
+        "not-registry-registered"
+      ],
+      "handlerToken": null,
+      "handlerCalls": [],
+      "handlerUnconditionalTrue": false,
+      "handlerReturnProves": "not a registry handler; dispatch is bridge/state",
+      "completion": {
+        "event": null,
+        "strength": "STATE_PLUS_WORLD",
+        "notes": "DriveToDestination / DriveDestination / HasResolvedDriveDestination / DriveToXWhenBothSeated. Arrival predicate UNKNOWN statically.",
+        "observable": "vehicle near DriveDestination and drive flags cleared",
+        "confidence": "INFERRED"
+      },
+      "confidence": "INFERRED",
+      "gtaExperimentNeeded": "Trace live dispatch of drivetodestination from WS npcAction through BridgeMessageRouter"
+    },
+    {
+      "canonical": "enterbackoftargetvehicle",
+      "aliases": [
+        "enterbackofplayervehicle",
+        "getinbackofplayervehicle",
+        "getinbackoftargetvehicle",
+        "getintheback",
+        "getinthebackseat"
+      ],
+      "stockParserAliases": [
+        "enterbackseat"
+      ],
+      "stockPromptLabel": "EnterBackSeat",
+      "modelTags": [
+        {
+          "tag": "EnterBackSeat <vehicle>",
+          "group": "COMMON",
+          "excludeGroups": [],
+          "requirements": []
+        }
+      ],
+      "exposure": [
+        "model-visible",
+        "stock-parser"
+      ],
+      "category": "vehicle",
+      "lifecycleKind": "finite_task",
+      "sourceRegistrar": "CoreVehicleActionRegistrar",
+      "registrationSite": "0x6000b00@IL_0070",
+      "handlerToken": "0x6000b0d",
+      "handlerCalls": [
+        "LosSantosAlive.NPC.NpcActions::EnterBackOfTargetVehicle"
+      ],
+      "handlerContextFields": [
+        "Parameter",
+        "SourcePed"
+      ],
+      "handlerReturn": [
+        "true"
+      ],
+      "handlerUnconditionalTrue": true,
+      "handlerReturnProves": "HANDLER_ACCEPTED only; wrapper invoked; no physical completion",
+      "completion": {
+        "event": null,
+        "strength": "WORLD_POSTCONDITION",
+        "notes": "Same as passenger entry; intended seats are rear.",
+        "observable": "ped occupies a rear seat of intended vehicle",
+        "confidence": "STRONGLY SUPPORTED"
+      },
+      "confidence": "STRONGLY SUPPORTED",
+      "gtaExperimentNeeded": "Observe enterbackoftargetvehicle: handler true vs NpcState flags vs world postcondition vs cancel/supersede"
+    },
+    {
+      "canonical": "enterdriverseatoftargetvehicle",
+      "aliases": [
+        "enterdriverseatofplayervehicle",
+        "getindriverseat",
+        "drivemycar",
+        "youdrive",
+        "getinthedriverseat"
+      ],
+      "stockParserAliases": [
+        "enterdriverseat"
+      ],
+      "stockPromptLabel": "EnterDriverSeat",
+      "modelTags": [
+        {
+          "tag": "EnterDriverSeat <vehicle>",
+          "group": "COMMON",
+          "excludeGroups": [],
+          "requirements": []
+        }
+      ],
+      "exposure": [
+        "model-visible",
+        "stock-parser"
+      ],
+      "category": "vehicle",
+      "lifecycleKind": "finite_task",
+      "sourceRegistrar": "CoreVehicleActionRegistrar",
+      "registrationSite": "0x6000aff@IL_0070",
+      "handlerToken": "0x6000b0c",
+      "handlerCalls": [
+        "LosSantosAlive.NPC.NpcActions::EnterDriverSeatOfTargetVehicle"
+      ],
+      "handlerContextFields": [
+        "Parameter",
+        "SourcePed"
+      ],
+      "handlerReturn": [
+        "true"
+      ],
+      "handlerUnconditionalTrue": true,
+      "handlerReturnProves": "HANDLER_ACCEPTED only; wrapper invoked; no physical completion",
+      "completion": {
+        "event": null,
+        "strength": "WORLD_POSTCONDITION",
+        "notes": "Same as passenger entry; intended seat is driver.",
+        "observable": "ped is driver of intended vehicle",
+        "confidence": "STRONGLY SUPPORTED"
+      },
+      "confidence": "STRONGLY SUPPORTED",
+      "gtaExperimentNeeded": "Observe enterdriverseatoftargetvehicle: handler true vs NpcState flags vs world postcondition vs cancel/supersede"
+    },
+    {
+      "canonical": "entertargetvehicle",
+      "aliases": [
+        "enterplayervehicle",
+        "getinplayervehicle",
+        "getintargetvehicle",
+        "getinmycar",
+        "entervehicle",
+        "getinvehicle",
+        "hopin"
+      ],
+      "stockParserAliases": [
+        "enterpassengerseat"
+      ],
+      "stockPromptLabel": "EnterPassengerSeat",
+      "modelTags": [
+        {
+          "tag": "EnterPassengerSeat <vehicle>",
+          "group": "COMMON",
+          "excludeGroups": [],
+          "requirements": []
+        }
+      ],
+      "exposure": [
+        "model-visible",
+        "stock-parser"
+      ],
+      "category": "vehicle",
+      "lifecycleKind": "finite_task",
+      "sourceRegistrar": "CoreVehicleActionRegistrar",
+      "registrationSite": "0x6000afe@IL_008a",
+      "handlerToken": "0x6000b0b",
+      "handlerCalls": [
+        "LosSantosAlive.NPC.NpcActions::EnterTargetVehicle"
+      ],
+      "handlerContextFields": [
+        "Parameter",
+        "SourcePed"
+      ],
+      "handlerReturn": [
+        "true"
+      ],
+      "handlerUnconditionalTrue": true,
+      "handlerReturnProves": "HANDLER_ACCEPTED only; wrapper invoked; no physical completion",
+      "completion": {
+        "event": null,
+        "strength": "WORLD_POSTCONDITION",
+        "notes": "Success is ped seated in intended vehicle+seat. Flags AssignedVehicle / AssignedVehicleSeatIndex / AssignedVehicleSeatEntryActive are intent, not occupancy. P2 live testing showed ordering-dependent entry.",
+        "observable": "Rage.Ped.IsInVehicle + CurrentVehicle + seat index match assigned intent",
+        "confidence": "STRONGLY SUPPORTED"
+      },
+      "confidence": "STRONGLY SUPPORTED",
+      "gtaExperimentNeeded": "Observe entertargetvehicle: handler true vs NpcState flags vs world postcondition vs cancel/supersede"
+    },
+    {
+      "canonical": "equipweapon",
+      "aliases": [
+        "drawwweapon",
+        "drawweapon",
+        "pullweapon",
+        "pulloutweapon",
+        "switchweapon",
+        "selectweapon",
+        "useweapon"
+      ],
+      "stockParserAliases": [
+        "equipweapon"
+      ],
+      "stockPromptLabel": "EquipWeapon",
+      "modelTags": [
+        {
+          "tag": "EquipWeapon <weapon>",
+          "group": "COMMON",
+          "excludeGroups": [],
+          "requirements": [
+            "HAS_AVAILABLE_WEAPON"
+          ]
+        }
+      ],
+      "exposure": [
+        "model-visible",
+        "stock-parser"
+      ],
+      "category": "weapon",
+      "lifecycleKind": "world_postcondition",
+      "sourceRegistrar": "CoreCombatActionRegistrar",
+      "registrationSite": "0x6000aab@IL_008a",
+      "handlerToken": "0x6000ab9",
+      "handlerCalls": [
+        "LosSantosAlive.NPC.NpcActions::EquipWeapon"
+      ],
+      "handlerContextFields": [
+        "Parameter",
+        "SourcePed"
+      ],
+      "handlerReturn": [
+        "true"
+      ],
+      "handlerUnconditionalTrue": true,
+      "handlerReturnProves": "HANDLER_ACCEPTED only; wrapper invoked; no physical completion",
+      "completion": {
+        "event": null,
+        "strength": "HANDLER_ONLY",
+        "notes": "No native completion event found. Handler return is not physical completion.",
+        "observable": "world/state postcondition required",
+        "confidence": "STRONGLY SUPPORTED"
+      },
+      "confidence": "STRONGLY SUPPORTED",
+      "gtaExperimentNeeded": "Observe equipweapon: handler true vs NpcState flags vs world postcondition vs cancel/supersede"
+    },
+    {
+      "canonical": "exitvehicle",
+      "aliases": [
+        "exitplayervehicle",
+        "getoutofvehicle",
+        "getout"
+      ],
+      "stockParserAliases": [
+        "exitvehicle"
+      ],
+      "stockPromptLabel": "ExitVehicle",
+      "modelTags": [
+        {
+          "tag": "ExitVehicle",
+          "group": "COMMON",
+          "excludeGroups": [],
+          "requirements": [
+            "IN_VEHICLE"
+          ]
+        }
+      ],
+      "exposure": [
+        "model-visible",
+        "stock-parser"
+      ],
+      "category": "vehicle",
+      "lifecycleKind": "finite_task",
+      "sourceRegistrar": "CoreVehicleActionRegistrar",
+      "registrationSite": "0x6000b06@IL_0056",
+      "handlerToken": "0x6000b13",
+      "handlerCalls": [
+        "LosSantosAlive.NPC.NpcActions::ExitVehicle"
+      ],
+      "handlerContextFields": [
+        "SourcePed"
+      ],
+      "handlerReturn": [
+        "true"
+      ],
+      "handlerUnconditionalTrue": true,
+      "handlerReturnProves": "HANDLER_ACCEPTED only; wrapper invoked; no physical completion",
+      "completion": {
+        "event": null,
+        "strength": "HANDLER_ONLY",
+        "notes": "No native completion event found. Handler return is not physical completion.",
+        "observable": "world/state postcondition required",
+        "confidence": "STRONGLY SUPPORTED"
+      },
+      "confidence": "STRONGLY SUPPORTED",
+      "gtaExperimentNeeded": "Observe exitvehicle: handler true vs NpcState flags vs world postcondition vs cancel/supersede"
+    },
+    {
+      "canonical": "felonystopinteraction",
+      "aliases": [
+        "felonystop",
+        "felonytrafficstop",
+        "highriskstop"
+      ],
+      "stockParserAliases": [
+        "initiatefelonystop"
+      ],
+      "stockPromptLabel": "InitiateFelonyStop",
+      "modelTags": [],
+      "exposure": [
+        "stock-parser",
+        "parser-but-not-offered"
+      ],
+      "category": "policing",
+      "lifecycleKind": "mode",
+      "sourceRegistrar": "CoreMovementActionRegistrar",
+      "registrationSite": "0x6000add@IL_0056",
+      "handlerToken": "0x6000aeb",
+      "handlerCalls": [
+        "LosSantosAlive.NPC.NpcActions::FelonyStopInteraction"
+      ],
+      "handlerContextFields": [
+        "Parameter",
+        "SourcePed"
+      ],
+      "handlerReturn": [
+        "true"
+      ],
+      "handlerUnconditionalTrue": true,
+      "handlerReturnProves": "HANDLER_ACCEPTED only; wrapper invoked; no physical completion",
+      "completion": {
+        "event": null,
+        "strength": "HANDLER_ONLY",
+        "notes": "No native completion event found. Handler return is not physical completion.",
+        "observable": "world/state postcondition required",
+        "confidence": "STRONGLY SUPPORTED"
+      },
+      "confidence": "STRONGLY SUPPORTED",
+      "gtaExperimentNeeded": "Observe felonystopinteraction: handler true vs NpcState flags vs world postcondition vs cancel/supersede"
+    },
+    {
+      "canonical": "fleefromtarget",
+      "aliases": [
+        "fleeplayer",
+        "flee",
+        "runaway",
+        "runfromtarget"
+      ],
+      "stockParserAliases": [
+        "fleefrom"
+      ],
+      "stockPromptLabel": "FleeFrom",
+      "modelTags": [
+        {
+          "tag": "FleeFrom <person>",
+          "group": "COMMON",
+          "excludeGroups": [
+            "POLICE"
+          ],
+          "requirements": []
+        }
+      ],
+      "exposure": [
+        "model-visible",
+        "stock-parser"
+      ],
+      "category": "combat",
+      "lifecycleKind": "mode",
+      "sourceRegistrar": "CoreCombatActionRegistrar",
+      "registrationSite": "0x6000aa8@IL_0063",
+      "handlerToken": "0x6000ab6",
+      "handlerCalls": [
+        "LosSantosAlive.NPC.NpcActions::FleeFromTarget"
+      ],
+      "handlerContextFields": [
+        "SourcePed"
+      ],
+      "handlerReturn": [
+        "true"
+      ],
+      "handlerUnconditionalTrue": true,
+      "handlerReturnProves": "HANDLER_ACCEPTED only; wrapper invoked; no physical completion",
+      "completion": {
+        "event": null,
+        "strength": "HANDLER_ONLY",
+        "notes": "No native completion event found. Handler return is not physical completion.",
+        "observable": "world/state postcondition required",
+        "confidence": "STRONGLY SUPPORTED"
+      },
+      "confidence": "STRONGLY SUPPORTED",
+      "gtaExperimentNeeded": "Observe fleefromtarget: handler true vs NpcState flags vs world postcondition vs cancel/supersede"
+    },
+    {
+      "canonical": "followtarget",
+      "aliases": [
+        "followplayer",
+        "followme",
+        "comehere",
+        "comewithme"
+      ],
+      "stockParserAliases": [
+        "follow",
+        "followtarget"
+      ],
+      "stockPromptLabel": "Follow",
+      "modelTags": [
+        {
+          "tag": "Follow <person>",
+          "group": "COMMON",
+          "excludeGroups": [],
+          "requirements": []
+        }
+      ],
+      "exposure": [
+        "model-visible",
+        "stock-parser"
+      ],
+      "category": "movement",
+      "lifecycleKind": "mode",
+      "sourceRegistrar": "CoreMovementActionRegistrar",
+      "registrationSite": "0x6000ae4@IL_0063",
+      "handlerToken": "0x6000af2",
+      "handlerCalls": [
+        "LosSantosAlive.NPC.NpcActions::FollowTarget"
+      ],
+      "handlerContextFields": [
+        "SourcePed"
+      ],
+      "handlerReturn": [
+        "true"
+      ],
+      "handlerUnconditionalTrue": true,
+      "handlerReturnProves": "HANDLER_ACCEPTED only; wrapper invoked; no physical completion",
+      "completion": {
+        "event": null,
+        "strength": "STATE_FLAG",
+        "notes": "FollowPlayerOnFoot / FollowPaused / LastFollowTaskTime. Handler success only starts the mode.",
+        "observable": "FollowPlayerOnFoot true AND ped continuing TASK follow AND target still valid",
+        "confidence": "STRONGLY SUPPORTED"
+      },
+      "confidence": "STRONGLY SUPPORTED",
+      "gtaExperimentNeeded": "Observe followtarget: handler true vs NpcState flags vs world postcondition vs cancel/supersede"
+    },
+    {
+      "canonical": "followtargetvehicle",
+      "aliases": [
+        "followvehicle",
+        "followcar",
+        "tailvehicle",
+        "tailcar",
+        "followthatcar",
+        "followthatvehicle",
+        "staywithvehicle",
+        "keepupwithvehicle",
+        "keeponvehicle"
+      ],
+      "stockParserAliases": [
+        "followvehicle"
+      ],
+      "stockPromptLabel": "FollowVehicle",
+      "modelTags": [
+        {
+          "tag": "FollowVehicle <vehicle>",
+          "group": "COMMON",
+          "excludeGroups": [],
+          "requirements": [
+            "IS_DRIVER"
+          ]
+        }
+      ],
+      "exposure": [
+        "model-visible",
+        "stock-parser"
+      ],
+      "category": "vehicle",
+      "lifecycleKind": "mode",
+      "sourceRegistrar": "CoreVehicleActionRegistrar",
+      "registrationSite": "0x6000b02@IL_00a5",
+      "handlerToken": "0x6000b0f",
+      "handlerCalls": [
+        "LosSantosAlive.NPC.Behaviors.VehicleBehavior::FollowTargetVehicle"
+      ],
+      "handlerContextFields": [
+        "Parameter",
+        "SourcePed"
+      ],
+      "handlerReturn": [
+        "computed"
+      ],
+      "handlerUnconditionalTrue": false,
+      "handlerReturnProves": "computed boolean from callee; still not automatically PHYSICALLY_COMPLETED",
+      "completion": {
+        "event": null,
+        "strength": "COMPUTED_HANDLER",
+        "notes": "No native completion event found. Handler return is not physical completion.",
+        "observable": "world/state postcondition required",
+        "confidence": "INFERRED"
+      },
+      "confidence": "INFERRED",
+      "gtaExperimentNeeded": "Observe followtargetvehicle: handler true vs NpcState flags vs world postcondition vs cancel/supersede"
+    },
+    {
+      "canonical": "getarrested",
+      "aliases": [
+        "complywitharrest",
+        "submittoarrest",
+        "turnaroundforarrest",
+        "handsbehindback",
+        "puthandsbehindback",
+        "submitforcuffs",
+        "allowcuffs",
+        "becuffed",
+        "gethandcuffed"
+      ],
+      "stockParserAliases": [
+        "submittoarrest"
+      ],
+      "stockPromptLabel": "SubmitToArrest",
+      "modelTags": [
+        {
+          "tag": "SubmitToArrest",
+          "group": "CIVILIAN_PR",
+          "excludeGroups": [],
+          "requirements": []
+        }
+      ],
+      "exposure": [
+        "model-visible",
+        "stock-parser"
+      ],
+      "category": "other",
+      "lifecycleKind": "unknown",
+      "sourceRegistrar": "PrArrestActionRegistrar",
+      "registrationSite": "0x6000da5@IL_0092",
+      "handlerToken": "0x6000daa",
+      "handlerCalls": [
+        "LosSantosAlive.Integrations.PolicingRedefinedBridge.PrArrestActionRegistrar::m0x6000da6"
+      ],
+      "handlerContextFields": [],
+      "handlerReturn": [
+        "computed"
+      ],
+      "handlerUnconditionalTrue": false,
+      "handlerReturnProves": "computed boolean from callee; still not automatically PHYSICALLY_COMPLETED",
+      "completion": {
+        "event": null,
+        "strength": "COMPUTED_HANDLER",
+        "notes": "No native completion event found. Handler return is not physical completion.",
+        "observable": "world/state postcondition required",
+        "confidence": "INFERRED"
+      },
+      "confidence": "INFERRED",
+      "gtaExperimentNeeded": "Observe getarrested: handler true vs NpcState flags vs world postcondition vs cancel/supersede"
+    },
+    {
+      "canonical": "getarrestedfront",
+      "aliases": [
+        "complywithfrontarrest",
+        "submittofrontarrest",
+        "frontgetarrested",
+        "frontsubmitforcuffs",
+        "frontallowcuffs",
+        "frontbecuffed",
+        "getfrontcuffed"
+      ],
+      "stockParserAliases": [],
+      "stockPromptLabel": null,
+      "modelTags": [],
+      "exposure": [
+        "registry-only"
+      ],
+      "category": "other",
+      "lifecycleKind": "unknown",
+      "sourceRegistrar": "PrArrestActionRegistrar",
+      "registrationSite": "0x6000da5@IL_0133",
+      "handlerToken": "0x6000dab",
+      "handlerCalls": [
+        "LosSantosAlive.Integrations.PolicingRedefinedBridge.PrArrestActionRegistrar::m0x6000da6"
+      ],
+      "handlerContextFields": [],
+      "handlerReturn": [
+        "computed"
+      ],
+      "handlerUnconditionalTrue": false,
+      "handlerReturnProves": "computed boolean from callee; still not automatically PHYSICALLY_COMPLETED",
+      "completion": {
+        "event": null,
+        "strength": "COMPUTED_HANDLER",
+        "notes": "No native completion event found. Handler return is not physical completion.",
+        "observable": "world/state postcondition required",
+        "confidence": "INFERRED"
+      },
+      "confidence": "INFERRED",
+      "gtaExperimentNeeded": "Observe getarrestedfront: handler true vs NpcState flags vs world postcondition vs cancel/supersede"
+    },
+    {
+      "canonical": "getsearched",
+      "aliases": [
+        "submitforsearch",
+        "allowsearch",
+        "allowpatdown",
+        "allowfrisk",
+        "getpatdown",
+        "getpatteddown",
+        "getfrisked",
+        "submitforpatdown",
+        "submitforfrisk",
+        "complywithsearch",
+        "complywithpatdown",
+        "complywithfrisk",
+        "besearched",
+        "bepatdown",
+        "befrisked"
+      ],
+      "stockParserAliases": [
+        "submittosearch"
+      ],
+      "stockPromptLabel": "SubmitToSearch",
+      "modelTags": [
+        {
+          "tag": "SubmitToSearch",
+          "group": "CIVILIAN_PR",
+          "excludeGroups": [],
+          "requirements": []
+        }
+      ],
+      "exposure": [
+        "model-visible",
+        "stock-parser"
+      ],
+      "category": "other",
+      "lifecycleKind": "unknown",
+      "sourceRegistrar": "PrSuspectCommandActionRegistrar",
+      "registrationSite": "0x6000e6d@IL_0022",
+      "handlerToken": "0x6000ea9",
+      "handlerCalls": [
+        "LosSantosAlive.Integrations.PolicingRedefinedBridge.PrSuspectCommandActionRegistrar::m0x6000e6e"
+      ],
+      "handlerContextFields": [],
+      "handlerReturn": [
+        "computed"
+      ],
+      "handlerUnconditionalTrue": false,
+      "handlerReturnProves": "computed boolean from callee; still not automatically PHYSICALLY_COMPLETED",
+      "completion": {
+        "event": null,
+        "strength": "COMPUTED_HANDLER",
+        "notes": "No native completion event found. Handler return is not physical completion.",
+        "observable": "world/state postcondition required",
+        "confidence": "INFERRED"
+      },
+      "confidence": "INFERRED",
+      "gtaExperimentNeeded": "Observe getsearched: handler true vs NpcState flags vs world postcondition vs cancel/supersede"
+    },
+    {
+      "canonical": "getup",
+      "aliases": [
+        "standup",
+        "stand",
+        "getoffknees",
+        "stopkneeling"
+      ],
+      "stockParserAliases": [
+        "standup"
+      ],
+      "stockPromptLabel": "StandUp",
+      "modelTags": [
+        {
+          "tag": "StandUp",
+          "group": "COMMON",
+          "excludeGroups": [
+            "POLICE"
+          ],
+          "requirements": []
+        }
+      ],
+      "exposure": [
+        "model-visible",
+        "stock-parser"
+      ],
+      "category": "compliance",
+      "lifecycleKind": "instantaneous_mode_clear",
+      "sourceRegistrar": "CoreComplianceActionRegistrar",
+      "registrationSite": "0x6000ac2@IL_0063",
+      "handlerToken": "0x6000acb",
+      "handlerCalls": [
+        "LosSantosAlive.NPC.NpcActions::GetUp"
+      ],
+      "handlerContextFields": [
+        "SourcePed"
+      ],
+      "handlerReturn": [
+        "true"
+      ],
+      "handlerUnconditionalTrue": true,
+      "handlerReturnProves": "HANDLER_ACCEPTED only; wrapper invoked; no physical completion",
+      "completion": {
+        "event": null,
+        "strength": "HANDLER_ONLY",
+        "notes": "No native completion event found. Handler return is not physical completion.",
+        "observable": "world/state postcondition required",
+        "confidence": "STRONGLY SUPPORTED"
+      },
+      "confidence": "STRONGLY SUPPORTED",
+      "gtaExperimentNeeded": null
+    },
+    {
+      "canonical": "giveallinformation",
+      "aliases": [
+        "allinformation",
+        "allinfo",
+        "everything",
+        "alldocuments"
+      ],
+      "stockParserAliases": [
+        "givealldocumentsto"
+      ],
+      "stockPromptLabel": "GiveAllDocumentsTo",
+      "modelTags": [
+        {
+          "tag": "GiveAllDocumentsTo <person>",
+          "group": "CIVILIAN_PR",
+          "excludeGroups": [],
+          "requirements": []
+        }
+      ],
+      "exposure": [
+        "model-visible",
+        "stock-parser"
+      ],
+      "category": "other",
+      "lifecycleKind": "unknown",
+      "sourceRegistrar": "PrSuspectCommandActionRegistrar",
+      "registrationSite": "0x6000e6d@IL_0022",
+      "handlerToken": "0x6000ea9",
+      "handlerCalls": [
+        "LosSantosAlive.Integrations.PolicingRedefinedBridge.PrSuspectCommandActionRegistrar::m0x6000e6e"
+      ],
+      "handlerContextFields": [],
+      "handlerReturn": [
+        "computed"
+      ],
+      "handlerUnconditionalTrue": false,
+      "handlerReturnProves": "computed boolean from callee; still not automatically PHYSICALLY_COMPLETED",
+      "completion": {
+        "event": null,
+        "strength": "COMPUTED_HANDLER",
+        "notes": "No native completion event found. Handler return is not physical completion.",
+        "observable": "world/state postcondition required",
+        "confidence": "INFERRED"
+      },
+      "confidence": "INFERRED",
+      "gtaExperimentNeeded": "Observe giveallinformation: handler true vs NpcState flags vs world postcondition vs cancel/supersede"
+    },
+    {
+      "canonical": "givefishingpermit",
+      "aliases": [
+        "fishingpermit",
+        "fishinglicense",
+        "givefishinglicense",
+        "showfishingpermit",
+        "showfishinglicense",
+        "handoverfishingpermit"
+      ],
+      "stockParserAliases": [
+        "givefishingpermitto"
+      ],
+      "stockPromptLabel": "GiveFishingPermitTo",
+      "modelTags": [
+        {
+          "tag": "GiveFishingPermitTo <person>",
+          "group": "CIVILIAN_PR",
+          "excludeGroups": [],
+          "requirements": []
+        }
+      ],
+      "exposure": [
+        "model-visible",
+        "stock-parser"
+      ],
+      "category": "other",
+      "lifecycleKind": "unknown",
+      "sourceRegistrar": "PrSuspectCommandActionRegistrar",
+      "registrationSite": "0x6000e6d@IL_0022",
+      "handlerToken": "0x6000ea9",
+      "handlerCalls": [
+        "LosSantosAlive.Integrations.PolicingRedefinedBridge.PrSuspectCommandActionRegistrar::m0x6000e6e"
+      ],
+      "handlerContextFields": [],
+      "handlerReturn": [
+        "computed"
+      ],
+      "handlerUnconditionalTrue": false,
+      "handlerReturnProves": "computed boolean from callee; still not automatically PHYSICALLY_COMPLETED",
+      "completion": {
+        "event": null,
+        "strength": "COMPUTED_HANDLER",
+        "notes": "No native completion event found. Handler return is not physical completion.",
+        "observable": "world/state postcondition required",
+        "confidence": "INFERRED"
+      },
+      "confidence": "INFERRED",
+      "gtaExperimentNeeded": "Observe givefishingpermit: handler true vs NpcState flags vs world postcondition vs cancel/supersede"
+    },
+    {
+      "canonical": "givehuntingpermit",
+      "aliases": [
+        "huntingpermit",
+        "huntinglicense",
+        "givehuntinglicense",
+        "showhuntingpermit",
+        "showhuntinglicense",
+        "handoverhuntingpermit"
+      ],
+      "stockParserAliases": [
+        "givehuntingpermitto"
+      ],
+      "stockPromptLabel": "GiveHuntingPermitTo",
+      "modelTags": [
+        {
+          "tag": "GiveHuntingPermitTo <person>",
+          "group": "CIVILIAN_PR",
+          "excludeGroups": [],
+          "requirements": []
+        }
+      ],
+      "exposure": [
+        "model-visible",
+        "stock-parser"
+      ],
+      "category": "other",
+      "lifecycleKind": "unknown",
+      "sourceRegistrar": "PrSuspectCommandActionRegistrar",
+      "registrationSite": "0x6000e6d@IL_0022",
+      "handlerToken": "0x6000ea9",
+      "handlerCalls": [
+        "LosSantosAlive.Integrations.PolicingRedefinedBridge.PrSuspectCommandActionRegistrar::m0x6000e6e"
+      ],
+      "handlerContextFields": [],
+      "handlerReturn": [
+        "computed"
+      ],
+      "handlerUnconditionalTrue": false,
+      "handlerReturnProves": "computed boolean from callee; still not automatically PHYSICALLY_COMPLETED",
+      "completion": {
+        "event": null,
+        "strength": "COMPUTED_HANDLER",
+        "notes": "No native completion event found. Handler return is not physical completion.",
+        "observable": "world/state postcondition required",
+        "confidence": "INFERRED"
+      },
+      "confidence": "INFERRED",
+      "gtaExperimentNeeded": "Observe givehuntingpermit: handler true vs NpcState flags vs world postcondition vs cancel/supersede"
+    },
+    {
+      "canonical": "giveid",
+      "aliases": [
+        "id",
+        "giveidentification",
+        "showid",
+        "showidentification",
+        "handoverid",
+        "handid",
+        "presentid"
+      ],
+      "stockParserAliases": [
+        "giveidto"
+      ],
+      "stockPromptLabel": "GiveIDTo",
+      "modelTags": [
+        {
+          "tag": "GiveIDTo <person>",
+          "group": "CIVILIAN_PR",
+          "excludeGroups": [],
+          "requirements": []
+        }
+      ],
+      "exposure": [
+        "model-visible",
+        "stock-parser"
+      ],
+      "category": "other",
+      "lifecycleKind": "unknown",
+      "sourceRegistrar": "PrSuspectCommandActionRegistrar",
+      "registrationSite": "0x6000e6d@IL_0022",
+      "handlerToken": "0x6000ea9",
+      "handlerCalls": [
+        "LosSantosAlive.Integrations.PolicingRedefinedBridge.PrSuspectCommandActionRegistrar::m0x6000e6e"
+      ],
+      "handlerContextFields": [],
+      "handlerReturn": [
+        "computed"
+      ],
+      "handlerUnconditionalTrue": false,
+      "handlerReturnProves": "computed boolean from callee; still not automatically PHYSICALLY_COMPLETED",
+      "completion": {
+        "event": null,
+        "strength": "COMPUTED_HANDLER",
+        "notes": "No native completion event found. Handler return is not physical completion.",
+        "observable": "world/state postcondition required",
+        "confidence": "INFERRED"
+      },
+      "confidence": "INFERRED",
+      "gtaExperimentNeeded": "Observe giveid: handler true vs NpcState flags vs world postcondition vs cancel/supersede"
+    },
+    {
+      "canonical": "givelicense",
+      "aliases": [
+        "license",
+        "driverslicense",
+        "driverlicense",
+        "givedriverslicense",
+        "givedriverlicense",
+        "showlicense",
+        "showdriverslicense",
+        "handoverlicense",
+        "handlicense",
+        "presentlicense"
+      ],
+      "stockParserAliases": [],
+      "stockPromptLabel": null,
+      "modelTags": [],
+      "exposure": [
+        "registry-only"
+      ],
+      "category": "other",
+      "lifecycleKind": "unknown",
+      "sourceRegistrar": "PrSuspectCommandActionRegistrar",
+      "registrationSite": "0x6000e6d@IL_0022",
+      "handlerToken": "0x6000ea9",
+      "handlerCalls": [
+        "LosSantosAlive.Integrations.PolicingRedefinedBridge.PrSuspectCommandActionRegistrar::m0x6000e6e"
+      ],
+      "handlerContextFields": [],
+      "handlerReturn": [
+        "computed"
+      ],
+      "handlerUnconditionalTrue": false,
+      "handlerReturnProves": "computed boolean from callee; still not automatically PHYSICALLY_COMPLETED",
+      "completion": {
+        "event": null,
+        "strength": "COMPUTED_HANDLER",
+        "notes": "No native completion event found. Handler return is not physical completion.",
+        "observable": "world/state postcondition required",
+        "confidence": "INFERRED"
+      },
+      "confidence": "INFERRED",
+      "gtaExperimentNeeded": "Observe givelicense: handler true vs NpcState flags vs world postcondition vs cancel/supersede"
+    },
+    {
+      "canonical": "givetargetitem",
+      "aliases": [
+        "giveitem",
+        "givehelditem",
+        "handitem",
+        "handoveritem",
+        "passitem",
+        "offeritem",
+        "transferitem"
+      ],
+      "stockParserAliases": [
+        "giveitemto"
+      ],
+      "stockPromptLabel": "GiveItemTo",
+      "modelTags": [],
+      "exposure": [
+        "stock-parser",
+        "parser-but-not-offered"
+      ],
+      "category": "item",
+      "lifecycleKind": "world_postcondition",
+      "sourceRegistrar": "CoreItemActionRegistrar",
+      "registrationSite": "0x6000ad0@IL_008a",
+      "handlerToken": "0x6000ad9",
+      "handlerCalls": [
+        "LosSantosAlive.NPC.NpcActions::GiveTargetItem"
+      ],
+      "handlerContextFields": [
+        "SourcePed"
+      ],
+      "handlerReturn": [
+        "true"
+      ],
+      "handlerUnconditionalTrue": true,
+      "handlerReturnProves": "HANDLER_ACCEPTED only; wrapper invoked; no physical completion",
+      "completion": {
+        "event": null,
+        "strength": "HANDLER_ONLY",
+        "notes": "No native completion event found. Handler return is not physical completion.",
+        "observable": "world/state postcondition required",
+        "confidence": "STRONGLY SUPPORTED"
+      },
+      "confidence": "STRONGLY SUPPORTED",
+      "gtaExperimentNeeded": "Observe givetargetitem: handler true vs NpcState flags vs world postcondition vs cancel/supersede"
+    },
+    {
+      "canonical": "givetargetweapon",
+      "aliases": [
+        "giveplayerweapon",
+        "giveweapon",
+        "givegun",
+        "giveweaponback",
+        "givegunback",
+        "givebackweapon",
+        "givebackgun",
+        "returnweapon",
+        "returngun",
+        "handweaponback",
+        "handgunback"
+      ],
+      "stockParserAliases": [
+        "giveweaponto"
+      ],
+      "stockPromptLabel": "GiveWeaponTo",
+      "modelTags": [
+        {
+          "tag": "GiveWeaponTo <person>",
+          "group": "COMMON",
+          "excludeGroups": [],
+          "requirements": [
+            "HAS_AVAILABLE_WEAPON"
+          ]
+        }
+      ],
+      "exposure": [
+        "model-visible",
+        "stock-parser"
+      ],
+      "category": "weapon",
+      "lifecycleKind": "world_postcondition",
+      "sourceRegistrar": "CoreCombatActionRegistrar",
+      "registrationSite": "0x6000aae@IL_00c1",
+      "handlerToken": "0x6000abc",
+      "handlerCalls": [
+        "LosSantosAlive.NPC.NpcActions::GiveTargetWeapon"
+      ],
+      "handlerContextFields": [
+        "Parameter",
+        "SourcePed"
+      ],
+      "handlerReturn": [
+        "true"
+      ],
+      "handlerUnconditionalTrue": true,
+      "handlerReturnProves": "HANDLER_ACCEPTED only; wrapper invoked; no physical completion",
+      "completion": {
+        "event": null,
+        "strength": "HANDLER_ONLY",
+        "notes": "No native completion event found. Handler return is not physical completion.",
+        "observable": "world/state postcondition required",
+        "confidence": "STRONGLY SUPPORTED"
+      },
+      "confidence": "STRONGLY SUPPORTED",
+      "gtaExperimentNeeded": "Observe givetargetweapon: handler true vs NpcState flags vs world postcondition vs cancel/supersede"
+    },
+    {
+      "canonical": "givevehicledocuments",
+      "aliases": [
+        "vehiclepapers",
+        "vehicledocuments",
+        "registration",
+        "insurance",
+        "vehicleinsurance",
+        "vehicleregistration"
+      ],
+      "stockParserAliases": [
+        "givevehicledocumentsto"
+      ],
+      "stockPromptLabel": "GiveVehicleDocumentsTo",
+      "modelTags": [
+        {
+          "tag": "GiveVehicleDocumentsTo <person>",
+          "group": "CIVILIAN_PR",
+          "excludeGroups": [],
+          "requirements": []
+        }
+      ],
+      "exposure": [
+        "model-visible",
+        "stock-parser"
+      ],
+      "category": "other",
+      "lifecycleKind": "unknown",
+      "sourceRegistrar": "PrSuspectCommandActionRegistrar",
+      "registrationSite": "0x6000e6d@IL_0022",
+      "handlerToken": "0x6000ea9",
+      "handlerCalls": [
+        "LosSantosAlive.Integrations.PolicingRedefinedBridge.PrSuspectCommandActionRegistrar::m0x6000e6e"
+      ],
+      "handlerContextFields": [],
+      "handlerReturn": [
+        "computed"
+      ],
+      "handlerUnconditionalTrue": false,
+      "handlerReturnProves": "computed boolean from callee; still not automatically PHYSICALLY_COMPLETED",
+      "completion": {
+        "event": null,
+        "strength": "COMPUTED_HANDLER",
+        "notes": "No native completion event found. Handler return is not physical completion.",
+        "observable": "world/state postcondition required",
+        "confidence": "INFERRED"
+      },
+      "confidence": "INFERRED",
+      "gtaExperimentNeeded": "Observe givevehicledocuments: handler true vs NpcState flags vs world postcondition vs cancel/supersede"
+    },
+    {
+      "canonical": "giveweaponpermit",
+      "aliases": [
+        "weaponpermit",
+        "firearmpermit",
+        "firearmspermit",
+        "gunpermit",
+        "givefirearmpermit",
+        "giveweaponlicense",
+        "showweaponpermit",
+        "showfirearmpermit",
+        "handoverweaponpermit"
+      ],
+      "stockParserAliases": [
+        "giveweaponpermitto"
+      ],
+      "stockPromptLabel": "GiveWeaponPermitTo",
+      "modelTags": [
+        {
+          "tag": "GiveWeaponPermitTo <person>",
+          "group": "CIVILIAN_PR",
+          "excludeGroups": [],
+          "requirements": []
+        }
+      ],
+      "exposure": [
+        "model-visible",
+        "stock-parser"
+      ],
+      "category": "other",
+      "lifecycleKind": "unknown",
+      "sourceRegistrar": "PrSuspectCommandActionRegistrar",
+      "registrationSite": "0x6000e6d@IL_0022",
+      "handlerToken": "0x6000ea9",
+      "handlerCalls": [
+        "LosSantosAlive.Integrations.PolicingRedefinedBridge.PrSuspectCommandActionRegistrar::m0x6000e6e"
+      ],
+      "handlerContextFields": [],
+      "handlerReturn": [
+        "computed"
+      ],
+      "handlerUnconditionalTrue": false,
+      "handlerReturnProves": "computed boolean from callee; still not automatically PHYSICALLY_COMPLETED",
+      "completion": {
+        "event": null,
+        "strength": "COMPUTED_HANDLER",
+        "notes": "No native completion event found. Handler return is not physical completion.",
+        "observable": "world/state postcondition required",
+        "confidence": "INFERRED"
+      },
+      "confidence": "INFERRED",
+      "gtaExperimentNeeded": "Observe giveweaponpermit: handler true vs NpcState flags vs world postcondition vs cancel/supersede"
+    },
+    {
+      "canonical": "grabitem",
+      "aliases": [
+        "takeitem",
+        "pickupitem",
+        "pickitemup",
+        "getitem",
+        "holditem",
+        "grab",
+        "take",
+        "pickup"
+      ],
+      "stockParserAliases": [],
+      "stockPromptLabel": null,
+      "modelTags": [],
+      "exposure": [
+        "registry-only"
+      ],
+      "category": "item",
+      "lifecycleKind": "world_postcondition",
+      "sourceRegistrar": "CoreItemActionRegistrar",
+      "registrationSite": "0x6000acd@IL_0097",
+      "handlerToken": "0x6000ad6",
+      "handlerCalls": [
+        "LosSantosAlive.NPC.NpcActions::GrabItem"
+      ],
+      "handlerContextFields": [
+        "Parameter",
+        "SourcePed"
+      ],
+      "handlerReturn": [
+        "true"
+      ],
+      "handlerUnconditionalTrue": true,
+      "handlerReturnProves": "HANDLER_ACCEPTED only; wrapper invoked; no physical completion",
+      "completion": {
+        "event": null,
+        "strength": "HANDLER_ONLY",
+        "notes": "No native completion event found. Handler return is not physical completion.",
+        "observable": "world/state postcondition required",
+        "confidence": "STRONGLY SUPPORTED"
+      },
+      "confidence": "STRONGLY SUPPORTED",
+      "gtaExperimentNeeded": "Observe grabitem: handler true vs NpcState flags vs world postcondition vs cancel/supersede"
+    },
+    {
+      "canonical": "initiatedirectedinteraction",
+      "aliases": [
+        "gotalktonearestped",
+        "talktonearestped",
+        "gotalktosomeone",
+        "talktosomeone",
+        "speaktonearestped",
+        "approachnearestped"
+      ],
+      "stockParserAliases": [],
+      "stockPromptLabel": null,
+      "modelTags": [],
+      "exposure": [
+        "registry-only"
+      ],
+      "category": "social",
+      "lifecycleKind": "mode",
+      "sourceRegistrar": "CoreMovementActionRegistrar",
+      "registrationSite": "0x6000adc@IL_007d",
+      "handlerToken": "0x6000aea",
+      "handlerCalls": [
+        "LosSantosAlive.NPC.NpcActions::GoTalkToNearestPed"
+      ],
+      "handlerContextFields": [
+        "Parameter",
+        "SourcePed"
+      ],
+      "handlerReturn": [
+        "true"
+      ],
+      "handlerUnconditionalTrue": true,
+      "handlerReturnProves": "HANDLER_ACCEPTED only; wrapper invoked; no physical completion",
+      "completion": {
+        "event": null,
+        "strength": "HANDLER_ONLY",
+        "notes": "No native completion event found. Handler return is not physical completion.",
+        "observable": "world/state postcondition required",
+        "confidence": "STRONGLY SUPPORTED"
+      },
+      "confidence": "STRONGLY SUPPORTED",
+      "gtaExperimentNeeded": "Observe initiatedirectedinteraction: handler true vs NpcState flags vs world postcondition vs cancel/supersede"
+    },
+    {
+      "canonical": "initiatetrafficstopon",
+      "category": "policing",
+      "lifecycleKind": "mode",
+      "sourceRegistrar": null,
+      "path": "stock parser alias ApproachStoppedDriver; native path UNKNOWN beyond PR/bridge strings",
+      "aliases": [
+        "approachstoppeddriver"
+      ],
+      "stockParserAliases": [
+        "approachstoppeddriver"
+      ],
+      "stockPromptLabel": "ApproachStoppedDriver",
+      "modelTags": [],
+      "exposure": [
+        "stock-parser",
+        "parser-but-not-offered",
+        "not-registry-registered"
+      ],
+      "handlerToken": null,
+      "handlerCalls": [],
+      "handlerUnconditionalTrue": false,
+      "handlerReturnProves": "not a registry handler; dispatch is bridge/state",
+      "completion": {
+        "event": null,
+        "strength": "STATE_PLUS_WORLD",
+        "notes": "No NpcActionRegistry handler.",
+        "observable": "NpcState destination/activity fields + world",
+        "confidence": "INFERRED"
+      },
+      "confidence": "INFERRED",
+      "gtaExperimentNeeded": "Trace live dispatch of initiatetrafficstopon from WS npcAction through BridgeMessageRouter"
+    },
+    {
+      "canonical": "intimidatetargetwithweapon",
+      "aliases": [
+        "intimidateplayerwithweapon",
+        "intimidateplayer",
+        "intimidatetarget",
+        "threatenplayer",
+        "threatentarget",
+        "aimatplayer",
+        "aimattarget",
+        "pointweaponatplayer",
+        "pointweaponattarget",
+        "holdplayeratgunpoint",
+        "holdtargetatgunpoint"
+      ],
+      "stockParserAliases": [
+        "aimat"
+      ],
+      "stockPromptLabel": "AimAt",
+      "modelTags": [
+        {
+          "tag": "AimAt <person> USING <weapon>",
+          "group": "COMMON",
+          "excludeGroups": [],
+          "requirements": [
+            "HAS_AVAILABLE_WEAPON"
+          ]
+        }
+      ],
+      "exposure": [
+        "model-visible",
+        "stock-parser"
+      ],
+      "category": "combat",
+      "lifecycleKind": "mode",
+      "sourceRegistrar": "CoreCombatActionRegistrar",
+      "registrationSite": "0x6000aaa@IL_00c1",
+      "handlerToken": "0x6000ab8",
+      "handlerCalls": [
+        "LosSantosAlive.NPC.NpcActions::IntimidateTargetWithWeapon"
+      ],
+      "handlerContextFields": [
+        "Parameter",
+        "SourcePed"
+      ],
+      "handlerReturn": [
+        "true"
+      ],
+      "handlerUnconditionalTrue": true,
+      "handlerReturnProves": "HANDLER_ACCEPTED only; wrapper invoked; no physical completion",
+      "completion": {
+        "event": null,
+        "strength": "HANDLER_ONLY",
+        "notes": "No native completion event found. Handler return is not physical completion.",
+        "observable": "world/state postcondition required",
+        "confidence": "STRONGLY SUPPORTED"
+      },
+      "confidence": "STRONGLY SUPPORTED",
+      "gtaExperimentNeeded": "Observe intimidatetargetwithweapon: handler true vs NpcState flags vs world postcondition vs cancel/supersede"
+    },
+    {
+      "canonical": "kneel",
+      "aliases": [
+        "getonknees",
+        "kneeldown"
+      ],
+      "stockParserAliases": [
+        "kneel"
+      ],
+      "stockPromptLabel": "Kneel",
+      "modelTags": [
+        {
+          "tag": "Kneel",
+          "group": "COMMON",
+          "excludeGroups": [
+            "POLICE"
+          ],
+          "requirements": []
+        }
+      ],
+      "exposure": [
+        "model-visible",
+        "stock-parser"
+      ],
+      "category": "compliance",
+      "lifecycleKind": "mode",
+      "sourceRegistrar": "CoreComplianceActionRegistrar",
+      "registrationSite": "0x6000ac0@IL_0049",
+      "handlerToken": "0x6000ac9",
+      "handlerCalls": [
+        "LosSantosAlive.NPC.NpcActions::Kneel"
+      ],
+      "handlerContextFields": [
+        "SourcePed"
+      ],
+      "handlerReturn": [
+        "true"
+      ],
+      "handlerUnconditionalTrue": true,
+      "handlerReturnProves": "HANDLER_ACCEPTED only; wrapper invoked; no physical completion",
+      "completion": {
+        "event": null,
+        "strength": "HANDLER_ONLY",
+        "notes": "No native completion event found. Handler return is not physical completion.",
+        "observable": "world/state postcondition required",
+        "confidence": "STRONGLY SUPPORTED"
+      },
+      "confidence": "STRONGLY SUPPORTED",
+      "gtaExperimentNeeded": "Observe kneel: handler true vs NpcState flags vs world postcondition vs cancel/supersede"
+    },
+    {
+      "canonical": "leanagainstvehicle",
+      "aliases": [
+        "leanonvehicle",
+        "leanagainstcar",
+        "leanoncar",
+        "leanagainstthevehicle",
+        "leanagainstthecar"
+      ],
+      "stockParserAliases": [
+        "leanagainstvehicle"
+      ],
+      "stockPromptLabel": "LeanAgainstVehicle",
+      "modelTags": [
+        {
+          "tag": "LeanAgainstVehicle",
+          "group": "COMMON",
+          "excludeGroups": [],
+          "requirements": []
+        }
+      ],
+      "exposure": [
+        "model-visible",
+        "stock-parser"
+      ],
+      "category": "movement",
+      "lifecycleKind": "mode",
+      "sourceRegistrar": "CoreMovementActionRegistrar",
+      "registrationSite": "0x6000ae3@IL_0070",
+      "handlerToken": "0x6000af1",
+      "handlerCalls": [
+        "LosSantosAlive.NPC.NpcActions::LeanAgainstVehicle"
+      ],
+      "handlerContextFields": [
+        "SourcePed"
+      ],
+      "handlerReturn": [
+        "true"
+      ],
+      "handlerUnconditionalTrue": true,
+      "handlerReturnProves": "HANDLER_ACCEPTED only; wrapper invoked; no physical completion",
+      "completion": {
+        "event": null,
+        "strength": "HANDLER_ONLY",
+        "notes": "No native completion event found. Handler return is not physical completion.",
+        "observable": "world/state postcondition required",
+        "confidence": "STRONGLY SUPPORTED"
+      },
+      "confidence": "STRONGLY SUPPORTED",
+      "gtaExperimentNeeded": "Observe leanagainstvehicle: handler true vs NpcState flags vs world postcondition vs cancel/supersede"
+    },
+    {
+      "canonical": "performactivity",
+      "category": "activity",
+      "lifecycleKind": "long_running",
+      "sourceRegistrar": null,
+      "path": "stock parser + activity queue; not an NpcActionRegistry name",
+      "aliases": [
+        "performactivity"
+      ],
+      "stockParserAliases": [
+        "performactivity"
+      ],
+      "stockPromptLabel": "PerformActivity",
+      "modelTags": [],
+      "exposure": [
+        "stock-parser",
+        "parser-but-not-offered",
+        "not-registry-registered"
+      ],
+      "handlerToken": null,
+      "handlerCalls": [],
+      "handlerUnconditionalTrue": false,
+      "handlerReturnProves": "not a registry handler; dispatch is bridge/state",
+      "completion": {
+        "event": null,
+        "strength": "STATE_PLUS_WORLD",
+        "notes": "No NpcActionRegistry handler.",
+        "observable": "NpcState destination/activity fields + world",
+        "confidence": "INFERRED"
+      },
+      "confidence": "INFERRED",
+      "gtaExperimentNeeded": "Trace live dispatch of performactivity from WS npcAction through BridgeMessageRouter"
+    },
+    {
+      "canonical": "performactivitywithitem",
+      "category": "activity",
+      "lifecycleKind": "long_running",
+      "sourceRegistrar": null,
+      "path": "stock parser + activity queue with item",
+      "aliases": [
+        "performactivitywithitem"
+      ],
+      "stockParserAliases": [
+        "performactivitywithitem"
+      ],
+      "stockPromptLabel": "PerformActivityWithItem",
+      "modelTags": [],
+      "exposure": [
+        "stock-parser",
+        "parser-but-not-offered",
+        "not-registry-registered"
+      ],
+      "handlerToken": null,
+      "handlerCalls": [],
+      "handlerUnconditionalTrue": false,
+      "handlerReturnProves": "not a registry handler; dispatch is bridge/state",
+      "completion": {
+        "event": null,
+        "strength": "STATE_PLUS_WORLD",
+        "notes": "No NpcActionRegistry handler.",
+        "observable": "NpcState destination/activity fields + world",
+        "confidence": "INFERRED"
+      },
+      "confidence": "INFERRED",
+      "gtaExperimentNeeded": "Trace live dispatch of performactivitywithitem from WS npcAction through BridgeMessageRouter"
+    },
+    {
+      "canonical": "performhorizontalgazetest",
+      "aliases": [
+        "horizontalgazetest",
+        "horizontalgazenystagmustest",
+        "hgn",
+        "performhgn",
+        "fsthgn",
+        "eyetest",
+        "followpen",
+        "followthepen",
+        "followfinger",
+        "followthefinger"
+      ],
+      "stockParserAliases": [
+        "performhorizontalgazetest"
+      ],
+      "stockPromptLabel": "PerformHorizontalGazeTest",
+      "modelTags": [
+        {
+          "tag": "PerformHorizontalGazeTest",
+          "group": "CIVILIAN_PR",
+          "excludeGroups": [],
+          "requirements": []
+        }
+      ],
+      "exposure": [
+        "model-visible",
+        "stock-parser"
+      ],
+      "category": "other",
+      "lifecycleKind": "unknown",
+      "sourceRegistrar": "PrSuspectCommandActionRegistrar",
+      "registrationSite": "0x6000e6d@IL_0022",
+      "handlerToken": "0x6000ea9",
+      "handlerCalls": [
+        "LosSantosAlive.Integrations.PolicingRedefinedBridge.PrSuspectCommandActionRegistrar::m0x6000e6e"
+      ],
+      "handlerContextFields": [],
+      "handlerReturn": [
+        "computed"
+      ],
+      "handlerUnconditionalTrue": false,
+      "handlerReturnProves": "computed boolean from callee; still not automatically PHYSICALLY_COMPLETED",
+      "completion": {
+        "event": null,
+        "strength": "COMPUTED_HANDLER",
+        "notes": "No native completion event found. Handler return is not physical completion.",
+        "observable": "world/state postcondition required",
+        "confidence": "INFERRED"
+      },
+      "confidence": "INFERRED",
+      "gtaExperimentNeeded": "Observe performhorizontalgazetest: handler true vs NpcState flags vs world postcondition vs cancel/supersede"
+    },
+    {
+      "canonical": "performonelegstandtest",
+      "aliases": [
+        "onelegstandtest",
+        "onelegstand",
+        "standononeleg",
+        "performonelegstand",
+        "fstoneleg",
+        "fstonelegstand",
+        "balanceononeleg"
+      ],
+      "stockParserAliases": [
+        "performonelegstandtest"
+      ],
+      "stockPromptLabel": "PerformOneLegStandTest",
+      "modelTags": [
+        {
+          "tag": "PerformOneLegStandTest",
+          "group": "CIVILIAN_PR",
+          "excludeGroups": [],
+          "requirements": []
+        }
+      ],
+      "exposure": [
+        "model-visible",
+        "stock-parser"
+      ],
+      "category": "other",
+      "lifecycleKind": "unknown",
+      "sourceRegistrar": "PrSuspectCommandActionRegistrar",
+      "registrationSite": "0x6000e6d@IL_0022",
+      "handlerToken": "0x6000ea9",
+      "handlerCalls": [
+        "LosSantosAlive.Integrations.PolicingRedefinedBridge.PrSuspectCommandActionRegistrar::m0x6000e6e"
+      ],
+      "handlerContextFields": [],
+      "handlerReturn": [
+        "computed"
+      ],
+      "handlerUnconditionalTrue": false,
+      "handlerReturnProves": "computed boolean from callee; still not automatically PHYSICALLY_COMPLETED",
+      "completion": {
+        "event": null,
+        "strength": "COMPUTED_HANDLER",
+        "notes": "No native completion event found. Handler return is not physical completion.",
+        "observable": "world/state postcondition required",
+        "confidence": "INFERRED"
+      },
+      "confidence": "INFERRED",
+      "gtaExperimentNeeded": "Observe performonelegstandtest: handler true vs NpcState flags vs world postcondition vs cancel/supersede"
+    },
+    {
+      "canonical": "performwalkandturntest",
+      "aliases": [
+        "walkandturntest",
+        "walkandturn",
+        "walkturn",
+        "performwalkturn",
+        "fstwalkturn",
+        "linewalk",
+        "walktheline",
+        "walkstraightline"
+      ],
+      "stockParserAliases": [
+        "performwalkandturntest"
+      ],
+      "stockPromptLabel": "PerformWalkAndTurnTest",
+      "modelTags": [
+        {
+          "tag": "PerformWalkAndTurnTest",
+          "group": "CIVILIAN_PR",
+          "excludeGroups": [],
+          "requirements": []
+        }
+      ],
+      "exposure": [
+        "model-visible",
+        "stock-parser"
+      ],
+      "category": "other",
+      "lifecycleKind": "unknown",
+      "sourceRegistrar": "PrSuspectCommandActionRegistrar",
+      "registrationSite": "0x6000e6d@IL_0022",
+      "handlerToken": "0x6000ea9",
+      "handlerCalls": [
+        "LosSantosAlive.Integrations.PolicingRedefinedBridge.PrSuspectCommandActionRegistrar::m0x6000e6e"
+      ],
+      "handlerContextFields": [],
+      "handlerReturn": [
+        "computed"
+      ],
+      "handlerUnconditionalTrue": false,
+      "handlerReturnProves": "computed boolean from callee; still not automatically PHYSICALLY_COMPLETED",
+      "completion": {
+        "event": null,
+        "strength": "COMPUTED_HANDLER",
+        "notes": "No native completion event found. Handler return is not physical completion.",
+        "observable": "world/state postcondition required",
+        "confidence": "INFERRED"
+      },
+      "confidence": "INFERRED",
+      "gtaExperimentNeeded": "Observe performwalkandturntest: handler true vs NpcState flags vs world postcondition vs cancel/supersede"
+    },
+    {
+      "canonical": "pullovertargetvehicle",
+      "aliases": [
+        "startpullover",
+        "pullover",
+        "pullovervehicle",
+        "pulltargetvehicleover",
+        "pulloversuspectvehicle",
+        "pulloversuspectcar",
+        "starttrafficstop",
+        "initiatetrafficstop",
+        "stopvehicle",
+        "pullvehicleover",
+        "lightthemup",
+        "lightitup"
+      ],
+      "stockParserAliases": [
+        "pullover",
+        "pullovervehicle"
+      ],
+      "stockPromptLabel": "PullOver",
+      "modelTags": [],
+      "exposure": [
+        "stock-parser",
+        "parser-but-not-offered"
+      ],
+      "category": "other",
+      "lifecycleKind": "unknown",
+      "sourceRegistrar": "PrPulloverActionRegistrar",
+      "registrationSite": "0x6000e21@IL_00bc",
+      "handlerToken": "0x6000e25",
+      "handlerCalls": [
+        "LosSantosAlive.Integrations.PolicingRedefinedBridge.PrPulloverActionRegistrar::m0x6000e22"
+      ],
+      "handlerContextFields": [],
+      "handlerReturn": [
+        "computed"
+      ],
+      "handlerUnconditionalTrue": false,
+      "handlerReturnProves": "computed boolean from callee; still not automatically PHYSICALLY_COMPLETED",
+      "completion": {
+        "event": null,
+        "strength": "COMPUTED_HANDLER",
+        "notes": "No native completion event found. Handler return is not physical completion.",
+        "observable": "world/state postcondition required",
+        "confidence": "INFERRED"
+      },
+      "confidence": "INFERRED",
+      "gtaExperimentNeeded": "Observe pullovertargetvehicle: handler true vs NpcState flags vs world postcondition vs cancel/supersede"
+    },
+    {
+      "canonical": "puthandsdown",
+      "aliases": [
+        "handsdown",
+        "lowerhands",
+        "stophandsup",
+        "stopcomplying"
+      ],
+      "stockParserAliases": [
+        "lowerhands"
+      ],
+      "stockPromptLabel": "LowerHands",
+      "modelTags": [
+        {
+          "tag": "LowerHands",
+          "group": "COMMON",
+          "excludeGroups": [
+            "POLICE"
+          ],
+          "requirements": []
+        }
+      ],
+      "exposure": [
+        "model-visible",
+        "stock-parser"
+      ],
+      "category": "compliance",
+      "lifecycleKind": "instantaneous_mode_clear",
+      "sourceRegistrar": "CoreComplianceActionRegistrar",
+      "registrationSite": "0x6000abf@IL_0063",
+      "handlerToken": "0x6000ac8",
+      "handlerCalls": [
+        "LosSantosAlive.NPC.NpcActions::PutHandsDown"
+      ],
+      "handlerContextFields": [
+        "SourcePed"
+      ],
+      "handlerReturn": [
+        "true"
+      ],
+      "handlerUnconditionalTrue": true,
+      "handlerReturnProves": "HANDLER_ACCEPTED only; wrapper invoked; no physical completion",
+      "completion": {
+        "event": null,
+        "strength": "HANDLER_ONLY",
+        "notes": "No native completion event found. Handler return is not physical completion.",
+        "observable": "world/state postcondition required",
+        "confidence": "STRONGLY SUPPORTED"
+      },
+      "confidence": "STRONGLY SUPPORTED",
+      "gtaExperimentNeeded": null
+    },
+    {
+      "canonical": "puthandsup",
+      "aliases": [
+        "handsup",
+        "raisehands",
+        "surrender",
+        "comply"
+      ],
+      "stockParserAliases": [
+        "puthandsup",
+        "raisehands"
+      ],
+      "stockPromptLabel": "PutHandsUp",
+      "modelTags": [
+        {
+          "tag": "PutHandsUp",
+          "group": "COMMON",
+          "excludeGroups": [
+            "POLICE"
+          ],
+          "requirements": []
+        }
+      ],
+      "exposure": [
+        "model-visible",
+        "stock-parser"
+      ],
+      "category": "compliance",
+      "lifecycleKind": "mode",
+      "sourceRegistrar": "CoreComplianceActionRegistrar",
+      "registrationSite": "0x6000abe@IL_0063",
+      "handlerToken": "0x6000ac7",
+      "handlerCalls": [
+        "LosSantosAlive.NPC.NpcActions::PutHandsUp"
+      ],
+      "handlerContextFields": [
+        "SourcePed"
+      ],
+      "handlerReturn": [
+        "true"
+      ],
+      "handlerUnconditionalTrue": true,
+      "handlerReturnProves": "HANDLER_ACCEPTED only; wrapper invoked; no physical completion",
+      "completion": {
+        "event": null,
+        "strength": "HANDLER_ONLY",
+        "notes": "No native completion event found. Handler return is not physical completion.",
+        "observable": "world/state postcondition required",
+        "confidence": "STRONGLY SUPPORTED"
+      },
+      "confidence": "STRONGLY SUPPORTED",
+      "gtaExperimentNeeded": "Observe puthandsup: handler true vs NpcState flags vs world postcondition vs cancel/supersede"
+    },
+    {
+      "canonical": "requestbackup",
+      "aliases": [
+        "backup",
+        "callbackup",
+        "requestpolicebackup",
+        "callforbackup",
+        "requestassistance",
+        "radioforbackup"
+      ],
+      "stockParserAliases": [
+        "requestbackup"
+      ],
+      "stockPromptLabel": "RequestBackup",
+      "modelTags": [
+        {
+          "tag": "RequestBackup",
+          "group": "POLICE",
+          "excludeGroups": [],
+          "requirements": []
+        }
+      ],
+      "exposure": [
+        "model-visible",
+        "stock-parser"
+      ],
+      "category": "other",
+      "lifecycleKind": "unknown",
+      "sourceRegistrar": "PrBackupActionRegistrar",
+      "registrationSite": "0x6000db1@IL_006a",
+      "handlerToken": "0x6000db5",
+      "handlerCalls": [
+        "LosSantosAlive.Integrations.PolicingRedefinedBridge.PrBackupActionRegistrar::m0x6000db2"
+      ],
+      "handlerContextFields": [],
+      "handlerReturn": [
+        "computed"
+      ],
+      "handlerUnconditionalTrue": false,
+      "handlerReturnProves": "computed boolean from callee; still not automatically PHYSICALLY_COMPLETED",
+      "completion": {
+        "event": null,
+        "strength": "COMPUTED_HANDLER",
+        "notes": "No native completion event found. Handler return is not physical completion.",
+        "observable": "world/state postcondition required",
+        "confidence": "INFERRED"
+      },
+      "confidence": "INFERRED",
+      "gtaExperimentNeeded": "Observe requestbackup: handler true vs NpcState flags vs world postcondition vs cancel/supersede"
+    },
+    {
+      "canonical": "requestpedcheck",
+      "aliases": [
+        "pedcheck",
+        "personcheck",
+        "requestpersoncheck",
+        "runpedcheck",
+        "runpersoncheck",
+        "checkperson",
+        "checkped",
+        "recordscheck",
+        "requestrecordscheck"
+      ],
+      "stockParserAliases": [
+        "requestpersoncheck"
+      ],
+      "stockPromptLabel": "RequestPersonCheck",
+      "modelTags": [
+        {
+          "tag": "RequestPersonCheck <name>",
+          "group": "POLICE",
+          "excludeGroups": [],
+          "requirements": []
+        }
+      ],
+      "exposure": [
+        "model-visible",
+        "stock-parser"
+      ],
+      "category": "other",
+      "lifecycleKind": "unknown",
+      "sourceRegistrar": "PrPedCheckActionRegistrar",
+      "registrationSite": "0x6000dfc@IL_0092",
+      "handlerToken": "0x6000e08",
+      "handlerCalls": [
+        "LosSantosAlive.Integrations.PolicingRedefinedBridge.PrPedCheckActionRegistrar::m0x6000dfd"
+      ],
+      "handlerContextFields": [],
+      "handlerReturn": [
+        "computed"
+      ],
+      "handlerUnconditionalTrue": false,
+      "handlerReturnProves": "computed boolean from callee; still not automatically PHYSICALLY_COMPLETED",
+      "completion": {
+        "event": null,
+        "strength": "COMPUTED_HANDLER",
+        "notes": "No native completion event found. Handler return is not physical completion.",
+        "observable": "world/state postcondition required",
+        "confidence": "INFERRED"
+      },
+      "confidence": "INFERRED",
+      "gtaExperimentNeeded": "Observe requestpedcheck: handler true vs NpcState flags vs world postcondition vs cancel/supersede"
+    },
+    {
+      "canonical": "requestvehiclecheck",
+      "aliases": [
+        "vehiclecheck",
+        "platecheck",
+        "requestplatecheck",
+        "requestvehiclecheck",
+        "runplate",
+        "runplatecheck",
+        "runvehiclecheck",
+        "checkplate",
+        "checkvehicle",
+        "registrationcheck"
+      ],
+      "stockParserAliases": [
+        "requestvehiclecheck"
+      ],
+      "stockPromptLabel": "RequestVehicleCheck",
+      "modelTags": [
+        {
+          "tag": "RequestVehicleCheck <plate>",
+          "group": "POLICE",
+          "excludeGroups": [],
+          "requirements": []
+        }
+      ],
+      "exposure": [
+        "model-visible",
+        "stock-parser"
+      ],
+      "category": "other",
+      "lifecycleKind": "unknown",
+      "sourceRegistrar": "PrVehicleCheckActionRegistrar",
+      "registrationSite": "0x6000eaa@IL_00a0",
+      "handlerToken": "0x6000eb3",
+      "handlerCalls": [
+        "LosSantosAlive.Integrations.PolicingRedefinedBridge.PrVehicleCheckActionRegistrar::m0x6000eab"
+      ],
+      "handlerContextFields": [],
+      "handlerReturn": [
+        "computed"
+      ],
+      "handlerUnconditionalTrue": false,
+      "handlerReturnProves": "computed boolean from callee; still not automatically PHYSICALLY_COMPLETED",
+      "completion": {
+        "event": null,
+        "strength": "COMPUTED_HANDLER",
+        "notes": "No native completion event found. Handler return is not physical completion.",
+        "observable": "world/state postcondition required",
+        "confidence": "INFERRED"
+      },
+      "confidence": "INFERRED",
+      "gtaExperimentNeeded": "Observe requestvehiclecheck: handler true vs NpcState flags vs world postcondition vs cancel/supersede"
+    },
+    {
+      "canonical": "resumeactivity",
+      "aliases": [
+        "returntoactivity",
+        "continueactivity",
+        "gobacktoactivity",
+        "gobacktowhatyouweredoing",
+        "returntowhatyouweredoing",
+        "continuewhatyouweredoing",
+        "carryon",
+        "carryonwithwhatyouweredoing",
+        "getbacktowork",
+        "getbacktoit",
+        "resumework",
+        "returntowork"
+      ],
+      "stockParserAliases": [
+        "resumeactivity"
+      ],
+      "stockPromptLabel": "ResumeActivity",
+      "modelTags": [
+        {
+          "tag": "ResumeActivity",
+          "group": "COMMON",
+          "excludeGroups": [
+            "POLICE"
+          ],
+          "requirements": []
+        }
+      ],
+      "exposure": [
+        "model-visible",
+        "stock-parser"
+      ],
+      "category": "activity",
+      "lifecycleKind": "long_running",
+      "sourceRegistrar": "CoreSocialActionRegistrar",
+      "registrationSite": "0x6000af6@IL_00cf",
+      "handlerToken": "0x6000afc",
+      "handlerCalls": [
+        "LosSantosAlive.NPC.NpcActions::ResumeActivity"
+      ],
+      "handlerContextFields": [
+        "SourcePed"
+      ],
+      "handlerReturn": [
+        "true"
+      ],
+      "handlerUnconditionalTrue": true,
+      "handlerReturnProves": "HANDLER_ACCEPTED only; wrapper invoked; no physical completion",
+      "completion": {
+        "event": null,
+        "strength": "ACTIVITY_FIELDS",
+        "notes": "NpcActivityQueueItem.Started / Completed plus ActivityInProgress / CurrentActivity*. Best native long-running completion fields found.",
+        "observable": "queue item Completed==true and CurrentActivity cleared",
+        "confidence": "STRONGLY SUPPORTED"
+      },
+      "confidence": "STRONGLY SUPPORTED",
+      "gtaExperimentNeeded": "Observe resumeactivity: handler true vs NpcState flags vs world postcondition vs cancel/supersede"
+    },
+    {
+      "canonical": "searchtarget",
+      "aliases": [
+        "search",
+        "searchtarget",
+        "searchped",
+        "frisk",
+        "frisktarget",
+        "patdown",
+        "patdowntarget",
+        "pattargetdown",
+        "checkforweapons",
+        "checktargetforweapons"
+      ],
+      "stockParserAliases": [
+        "search"
+      ],
+      "stockPromptLabel": "Search",
+      "modelTags": [
+        {
+          "tag": "Search <person>",
+          "group": "POLICE",
+          "excludeGroups": [],
+          "requirements": []
+        }
+      ],
+      "exposure": [
+        "model-visible",
+        "stock-parser"
+      ],
+      "category": "other",
+      "lifecycleKind": "unknown",
+      "sourceRegistrar": "PrOfficerTargetActionRegistrar",
+      "registrationSite": "0x6000dba@IL_0137",
+      "handlerToken": "0x6000dcf",
+      "handlerCalls": [
+        "LosSantosAlive.Integrations.PolicingRedefinedBridge.PrOfficerTargetActionRegistrar::m0x6000dbc"
+      ],
+      "handlerContextFields": [],
+      "handlerReturn": [
+        "computed"
+      ],
+      "handlerUnconditionalTrue": false,
+      "handlerReturnProves": "computed boolean from callee; still not automatically PHYSICALLY_COMPLETED",
+      "completion": {
+        "event": null,
+        "strength": "COMPUTED_HANDLER",
+        "notes": "No native completion event found. Handler return is not physical completion.",
+        "observable": "world/state postcondition required",
+        "confidence": "INFERRED"
+      },
+      "confidence": "INFERRED",
+      "gtaExperimentNeeded": "Observe searchtarget: handler true vs NpcState flags vs world postcondition vs cancel/supersede"
+    },
+    {
+      "canonical": "sitonground",
+      "aliases": [
+        "sitdown",
+        "sitontheground",
+        "sitground",
+        "sitdownontheground"
+      ],
+      "stockParserAliases": [
+        "sitonground"
+      ],
+      "stockPromptLabel": "SitOnGround",
+      "modelTags": [
+        {
+          "tag": "SitOnGround",
+          "group": "COMMON",
+          "excludeGroups": [
+            "POLICE"
+          ],
+          "requirements": []
+        }
+      ],
+      "exposure": [
+        "model-visible",
+        "stock-parser"
+      ],
+      "category": "compliance",
+      "lifecycleKind": "mode",
+      "sourceRegistrar": "CoreComplianceActionRegistrar",
+      "registrationSite": "0x6000ac1@IL_0063",
+      "handlerToken": "0x6000aca",
+      "handlerCalls": [
+        "LosSantosAlive.NPC.NpcActions::SitOnGround"
+      ],
+      "handlerContextFields": [
+        "SourcePed"
+      ],
+      "handlerReturn": [
+        "true"
+      ],
+      "handlerUnconditionalTrue": true,
+      "handlerReturnProves": "HANDLER_ACCEPTED only; wrapper invoked; no physical completion",
+      "completion": {
+        "event": null,
+        "strength": "HANDLER_ONLY",
+        "notes": "No native completion event found. Handler return is not physical completion.",
+        "observable": "world/state postcondition required",
+        "confidence": "STRONGLY SUPPORTED"
+      },
+      "confidence": "STRONGLY SUPPORTED",
+      "gtaExperimentNeeded": "Observe sitonground: handler true vs NpcState flags vs world postcondition vs cancel/supersede"
+    },
+    {
+      "canonical": "startdriving",
+      "aliases": [
+        "justdrive",
+        "startdriving",
+        "begindriving",
+        "drivearound",
+        "cruisearound",
+        "cruise",
+        "keepdriving",
+        "keepmoving",
+        "keeprolling",
+        "letsdrive",
+        "takeadrive"
+      ],
+      "stockParserAliases": [
+        "begindriving",
+        "startdriving"
+      ],
+      "stockPromptLabel": "BeginDriving",
+      "modelTags": [
+        {
+          "tag": "BeginDriving <vehicle>",
+          "group": "COMMON",
+          "excludeGroups": [],
+          "requirements": []
+        }
+      ],
+      "exposure": [
+        "model-visible",
+        "stock-parser"
+      ],
+      "category": "vehicle",
+      "lifecycleKind": "mode",
+      "sourceRegistrar": "CoreVehicleActionRegistrar",
+      "registrationSite": "0x6000b01@IL_00c1",
+      "handlerToken": "0x6000b0e",
+      "handlerCalls": [
+        "LosSantosAlive.NPC.NpcActions::StartDriving"
+      ],
+      "handlerContextFields": [
+        "Parameter",
+        "SourcePed"
+      ],
+      "handlerReturn": [
+        "true"
+      ],
+      "handlerUnconditionalTrue": true,
+      "handlerReturnProves": "HANDLER_ACCEPTED only; wrapper invoked; no physical completion",
+      "completion": {
+        "event": null,
+        "strength": "MODE",
+        "notes": "StartDriving accepted != vehicle in motion != destination reached.",
+        "observable": "is driver + vehicle speed/task + optional DriveToDestination/HasResolvedDriveDestination",
+        "confidence": "STRONGLY SUPPORTED"
+      },
+      "confidence": "STRONGLY SUPPORTED",
+      "gtaExperimentNeeded": "Observe startdriving: handler true vs NpcState flags vs world postcondition vs cancel/supersede"
+    },
+    {
+      "canonical": "stopandfacetarget",
+      "aliases": [
+        "stopandfaceplayer",
+        "stopandtalk",
+        "stopandface",
+        "stopwalkingandtalk",
+        "stopwalking",
+        "waitaminute",
+        "holdon",
+        "holdup",
+        "stopforasec",
+        "talktome",
+        "lookatme",
+        "faceme"
+      ],
+      "stockParserAliases": [
+        "stopandface"
+      ],
+      "stockPromptLabel": "StopAndFace",
+      "modelTags": [
+        {
+          "tag": "StopAndFace <person>",
+          "group": "COMMON",
+          "excludeGroups": [],
+          "requirements": []
+        }
+      ],
+      "exposure": [
+        "model-visible",
+        "stock-parser"
+      ],
+      "category": "movement",
+      "lifecycleKind": "mode",
+      "sourceRegistrar": "CoreMovementActionRegistrar",
+      "registrationSite": "0x6000ade@IL_00cf",
+      "handlerToken": "0x6000aec",
+      "handlerCalls": [
+        "LosSantosAlive.NPC.NpcActions::StopAndFaceTarget"
+      ],
+      "handlerContextFields": [
+        "SourcePed"
+      ],
+      "handlerReturn": [
+        "true"
+      ],
+      "handlerUnconditionalTrue": true,
+      "handlerReturnProves": "HANDLER_ACCEPTED only; wrapper invoked; no physical completion",
+      "completion": {
+        "event": null,
+        "strength": "HANDLER_ONLY",
+        "notes": "No native completion event found. Handler return is not physical completion.",
+        "observable": "world/state postcondition required",
+        "confidence": "STRONGLY SUPPORTED"
+      },
+      "confidence": "STRONGLY SUPPORTED",
+      "gtaExperimentNeeded": "Observe stopandfacetarget: handler true vs NpcState flags vs world postcondition vs cancel/supersede"
+    },
+    {
+      "canonical": "stopfollowingtargetvehicle",
+      "aliases": [
+        "stopfollowingvehicle",
+        "stopfollowingcar",
+        "stoptailingvehicle",
+        "stoptailingcar",
+        "breakoffvehicle",
+        "breakoffcar",
+        "cancelvehiclefollow",
+        "stopvehiclefollow"
+      ],
+      "stockParserAliases": [
+        "stopfollowing"
+      ],
+      "stockPromptLabel": "StopFollowing",
+      "modelTags": [
+        {
+          "tag": "StopFollowing <vehicle>",
+          "group": "COMMON",
+          "excludeGroups": [],
+          "requirements": [
+            "IS_DRIVER"
+          ]
+        }
+      ],
+      "exposure": [
+        "model-visible",
+        "stock-parser"
+      ],
+      "category": "vehicle",
+      "lifecycleKind": "instantaneous_mode_clear",
+      "sourceRegistrar": "CoreVehicleActionRegistrar",
+      "registrationSite": "0x6000b03@IL_0097",
+      "handlerToken": "0x6000b10",
+      "handlerCalls": [
+        "LosSantosAlive.NPC.Behaviors.VehicleBehavior::StopFollowingTargetVehicle"
+      ],
+      "handlerContextFields": [
+        "Parameter",
+        "SourcePed"
+      ],
+      "handlerReturn": [
+        "computed"
+      ],
+      "handlerUnconditionalTrue": false,
+      "handlerReturnProves": "computed boolean from callee; still not automatically PHYSICALLY_COMPLETED",
+      "completion": {
+        "event": null,
+        "strength": "COMPUTED_HANDLER",
+        "notes": "No native completion event found. Handler return is not physical completion.",
+        "observable": "world/state postcondition required",
+        "confidence": "INFERRED"
+      },
+      "confidence": "INFERRED",
+      "gtaExperimentNeeded": "Observe stopfollowingtargetvehicle: handler true vs NpcState flags vs world postcondition vs cancel/supersede"
+    },
+    {
+      "canonical": "takebreathalyzer",
+      "aliases": [
+        "breathalyzer",
+        "takebreathalyser",
+        "breathalyser",
+        "blowintobreathalyzer",
+        "blowintobreathalyser",
+        "submitbreathalyzer",
+        "submitbreathalyser",
+        "takebreath-test",
+        "takebreathtest"
+      ],
+      "stockParserAliases": [
+        "submittobreathalyzer",
+        "takebreathalyzer"
+      ],
+      "stockPromptLabel": "SubmitToBreathalyzer",
+      "modelTags": [
+        {
+          "tag": "SubmitToBreathalyzer",
+          "group": "CIVILIAN_PR",
+          "excludeGroups": [],
+          "requirements": []
+        }
+      ],
+      "exposure": [
+        "model-visible",
+        "stock-parser"
+      ],
+      "category": "other",
+      "lifecycleKind": "unknown",
+      "sourceRegistrar": "PrSuspectCommandActionRegistrar",
+      "registrationSite": "0x6000e6d@IL_0022",
+      "handlerToken": "0x6000ea9",
+      "handlerCalls": [
+        "LosSantosAlive.Integrations.PolicingRedefinedBridge.PrSuspectCommandActionRegistrar::m0x6000e6e"
+      ],
+      "handlerContextFields": [],
+      "handlerReturn": [
+        "computed"
+      ],
+      "handlerUnconditionalTrue": false,
+      "handlerReturnProves": "computed boolean from callee; still not automatically PHYSICALLY_COMPLETED",
+      "completion": {
+        "event": null,
+        "strength": "COMPUTED_HANDLER",
+        "notes": "No native completion event found. Handler return is not physical completion.",
+        "observable": "world/state postcondition required",
+        "confidence": "INFERRED"
+      },
+      "confidence": "INFERRED",
+      "gtaExperimentNeeded": "Observe takebreathalyzer: handler true vs NpcState flags vs world postcondition vs cancel/supersede"
+    },
+    {
+      "canonical": "takecitation",
+      "aliases": [
+        "citation",
+        "citations",
+        "ticket",
+        "acceptcitation",
+        "acceptticket"
+      ],
+      "stockParserAliases": [
+        "acceptcitation"
+      ],
+      "stockPromptLabel": "AcceptCitation",
+      "modelTags": [
+        {
+          "tag": "AcceptCitation",
+          "group": "CIVILIAN_PR",
+          "excludeGroups": [],
+          "requirements": []
+        }
+      ],
+      "exposure": [
+        "model-visible",
+        "stock-parser"
+      ],
+      "category": "other",
+      "lifecycleKind": "unknown",
+      "sourceRegistrar": "PrSuspectCommandActionRegistrar",
+      "registrationSite": "0x6000e6d@IL_0022",
+      "handlerToken": "0x6000ea9",
+      "handlerCalls": [
+        "LosSantosAlive.Integrations.PolicingRedefinedBridge.PrSuspectCommandActionRegistrar::m0x6000e6e"
+      ],
+      "handlerContextFields": [],
+      "handlerReturn": [
+        "computed"
+      ],
+      "handlerUnconditionalTrue": false,
+      "handlerReturnProves": "computed boolean from callee; still not automatically PHYSICALLY_COMPLETED",
+      "completion": {
+        "event": null,
+        "strength": "COMPUTED_HANDLER",
+        "notes": "No native completion event found. Handler return is not physical completion.",
+        "observable": "world/state postcondition required",
+        "confidence": "INFERRED"
+      },
+      "confidence": "INFERRED",
+      "gtaExperimentNeeded": "Observe takecitation: handler true vs NpcState flags vs world postcondition vs cancel/supersede"
+    },
+    {
+      "canonical": "takecover",
+      "aliases": [
+        "seekcover",
+        "findcover",
+        "gettocover",
+        "getbehindcover"
+      ],
+      "stockParserAliases": [],
+      "stockPromptLabel": null,
+      "modelTags": [],
+      "exposure": [
+        "registry-only"
+      ],
+      "category": "combat",
+      "lifecycleKind": "mode",
+      "sourceRegistrar": "CoreCombatActionRegistrar",
+      "registrationSite": "0x6000aa9@IL_0063",
+      "handlerToken": "0x6000ab7",
+      "handlerCalls": [
+        "LosSantosAlive.NPC.NpcActions::TakeCover"
+      ],
+      "handlerContextFields": [
+        "SourcePed"
+      ],
+      "handlerReturn": [
+        "true"
+      ],
+      "handlerUnconditionalTrue": true,
+      "handlerReturnProves": "HANDLER_ACCEPTED only; wrapper invoked; no physical completion",
+      "completion": {
+        "event": null,
+        "strength": "HANDLER_ONLY",
+        "notes": "No native completion event found. Handler return is not physical completion.",
+        "observable": "world/state postcondition required",
+        "confidence": "STRONGLY SUPPORTED"
+      },
+      "confidence": "STRONGLY SUPPORTED",
+      "gtaExperimentNeeded": "Observe takecover: handler true vs NpcState flags vs world postcondition vs cancel/supersede"
+    },
+    {
+      "canonical": "takedrugswab",
+      "aliases": [
+        "drugswab",
+        "getswabbed",
+        "takeswab",
+        "submitdrugswab",
+        "submitforswab",
+        "mouthswab",
+        "takemouthswab",
+        "oralswab",
+        "takeoralswab"
+      ],
+      "stockParserAliases": [
+        "submittodrugswab",
+        "takedrugswab"
+      ],
+      "stockPromptLabel": "SubmitToDrugSwab",
+      "modelTags": [
+        {
+          "tag": "SubmitToDrugSwab",
+          "group": "CIVILIAN_PR",
+          "excludeGroups": [],
+          "requirements": []
+        }
+      ],
+      "exposure": [
+        "model-visible",
+        "stock-parser"
+      ],
+      "category": "other",
+      "lifecycleKind": "unknown",
+      "sourceRegistrar": "PrSuspectCommandActionRegistrar",
+      "registrationSite": "0x6000e6d@IL_0022",
+      "handlerToken": "0x6000ea9",
+      "handlerCalls": [
+        "LosSantosAlive.Integrations.PolicingRedefinedBridge.PrSuspectCommandActionRegistrar::m0x6000e6e"
+      ],
+      "handlerContextFields": [],
+      "handlerReturn": [
+        "computed"
+      ],
+      "handlerUnconditionalTrue": false,
+      "handlerReturnProves": "computed boolean from callee; still not automatically PHYSICALLY_COMPLETED",
+      "completion": {
+        "event": null,
+        "strength": "COMPUTED_HANDLER",
+        "notes": "No native completion event found. Handler return is not physical completion.",
+        "observable": "world/state postcondition required",
+        "confidence": "INFERRED"
+      },
+      "confidence": "INFERRED",
+      "gtaExperimentNeeded": "Observe takedrugswab: handler true vs NpcState flags vs world postcondition vs cancel/supersede"
+    },
+    {
+      "canonical": "takeshotontarget",
+      "aliases": [
+        "takeshoton",
+        "firesingleshotat",
+        "shootonceat"
+      ],
+      "stockParserAliases": [
+        "fireonceat",
+        "takeshoton"
+      ],
+      "stockPromptLabel": "FireOnceAt",
+      "modelTags": [
+        {
+          "tag": "FireOnceAt <person> USING <weapon>",
+          "group": "COMMON",
+          "excludeGroups": [],
+          "requirements": [
+            "HAS_AVAILABLE_WEAPON"
+          ]
+        }
+      ],
+      "exposure": [
+        "model-visible",
+        "stock-parser"
+      ],
+      "category": "combat",
+      "lifecycleKind": "finite_or_mode",
+      "sourceRegistrar": "CoreCombatActionRegistrar",
+      "registrationSite": "0x6000aa7@IL_0056",
+      "handlerToken": "0x6000ab5",
+      "handlerCalls": [
+        "LosSantosAlive.NPC.NpcActions::TakeShotOnTarget"
+      ],
+      "handlerContextFields": [
+        "Parameter",
+        "SourcePed"
+      ],
+      "handlerReturn": [
+        "true"
+      ],
+      "handlerUnconditionalTrue": true,
+      "handlerReturnProves": "HANDLER_ACCEPTED only; wrapper invoked; no physical completion",
+      "completion": {
+        "event": null,
+        "strength": "HANDLER_ONLY",
+        "notes": "No native completion event found. Handler return is not physical completion.",
+        "observable": "world/state postcondition required",
+        "confidence": "STRONGLY SUPPORTED"
+      },
+      "confidence": "STRONGLY SUPPORTED",
+      "gtaExperimentNeeded": "Observe takeshotontarget: handler true vs NpcState flags vs world postcondition vs cancel/supersede"
+    },
+    {
+      "canonical": "taketargetitem",
+      "aliases": [
+        "takehelditem",
+        "takeitemfromtarget",
+        "receiveitem",
+        "acceptitem",
+        "collectitem",
+        "grabitemfromtarget"
+      ],
+      "stockParserAliases": [
+        "takeitemfrom"
+      ],
+      "stockPromptLabel": "TakeItemFrom",
+      "modelTags": [],
+      "exposure": [
+        "stock-parser",
+        "parser-but-not-offered"
+      ],
+      "category": "item",
+      "lifecycleKind": "world_postcondition",
+      "sourceRegistrar": "CoreItemActionRegistrar",
+      "registrationSite": "0x6000ad1@IL_007d",
+      "handlerToken": "0x6000ada",
+      "handlerCalls": [
+        "LosSantosAlive.NPC.NpcActions::TakeTargetItem"
+      ],
+      "handlerContextFields": [
+        "SourcePed"
+      ],
+      "handlerReturn": [
+        "true"
+      ],
+      "handlerUnconditionalTrue": true,
+      "handlerReturnProves": "HANDLER_ACCEPTED only; wrapper invoked; no physical completion",
+      "completion": {
+        "event": null,
+        "strength": "HANDLER_ONLY",
+        "notes": "No native completion event found. Handler return is not physical completion.",
+        "observable": "world/state postcondition required",
+        "confidence": "STRONGLY SUPPORTED"
+      },
+      "confidence": "STRONGLY SUPPORTED",
+      "gtaExperimentNeeded": "Observe taketargetitem: handler true vs NpcState flags vs world postcondition vs cancel/supersede"
+    },
+    {
+      "canonical": "taketargetweapon",
+      "aliases": [
+        "takeplayerweapon",
+        "takeweapon",
+        "takegun"
+      ],
+      "stockParserAliases": [
+        "takeweaponfrom"
+      ],
+      "stockPromptLabel": "TakeWeaponFrom",
+      "modelTags": [
+        {
+          "tag": "TakeWeaponFrom <person>",
+          "group": "COMMON",
+          "excludeGroups": [],
+          "requirements": []
+        }
+      ],
+      "exposure": [
+        "model-visible",
+        "stock-parser"
+      ],
+      "category": "weapon",
+      "lifecycleKind": "world_postcondition",
+      "sourceRegistrar": "CoreCombatActionRegistrar",
+      "registrationSite": "0x6000aad@IL_0056",
+      "handlerToken": "0x6000abb",
+      "handlerCalls": [
+        "LosSantosAlive.NPC.NpcActions::TakeTargetWeapon"
+      ],
+      "handlerContextFields": [
+        "SourcePed"
+      ],
+      "handlerReturn": [
+        "true"
+      ],
+      "handlerUnconditionalTrue": true,
+      "handlerReturnProves": "HANDLER_ACCEPTED only; wrapper invoked; no physical completion",
+      "completion": {
+        "event": null,
+        "strength": "HANDLER_ONLY",
+        "notes": "No native completion event found. Handler return is not physical completion.",
+        "observable": "world/state postcondition required",
+        "confidence": "STRONGLY SUPPORTED"
+      },
+      "confidence": "STRONGLY SUPPORTED",
+      "gtaExperimentNeeded": "Observe taketargetweapon: handler true vs NpcState flags vs world postcondition vs cancel/supersede"
+    },
+    {
+      "canonical": "turnaround",
+      "aliases": [
+        "turnaround",
+        "turnaroundnow",
+        "faceaway",
+        "turnyourback",
+        "turnyourbacktome",
+        "facetheotherway"
+      ],
+      "stockParserAliases": [
+        "turnawayfrom"
+      ],
+      "stockPromptLabel": "TurnAwayFrom",
+      "modelTags": [
+        {
+          "tag": "TurnAwayFrom <person>",
+          "group": "COMMON",
+          "excludeGroups": [
+            "POLICE"
+          ],
+          "requirements": []
+        }
+      ],
+      "exposure": [
+        "model-visible",
+        "stock-parser"
+      ],
+      "category": "movement",
+      "lifecycleKind": "finite_or_mode",
+      "sourceRegistrar": "CoreMovementActionRegistrar",
+      "registrationSite": "0x6000ae0@IL_007d",
+      "handlerToken": "0x6000aee",
+      "handlerCalls": [
+        "LosSantosAlive.NPC.NpcActions::TurnAround"
+      ],
+      "handlerContextFields": [
+        "SourcePed"
+      ],
+      "handlerReturn": [
+        "true"
+      ],
+      "handlerUnconditionalTrue": true,
+      "handlerReturnProves": "HANDLER_ACCEPTED only; wrapper invoked; no physical completion",
+      "completion": {
+        "event": null,
+        "strength": "HANDLER_ONLY",
+        "notes": "No native completion event found. Handler return is not physical completion.",
+        "observable": "world/state postcondition required",
+        "confidence": "STRONGLY SUPPORTED"
+      },
+      "confidence": "STRONGLY SUPPORTED",
+      "gtaExperimentNeeded": "Observe turnaround: handler true vs NpcState flags vs world postcondition vs cancel/supersede"
+    },
+    {
+      "canonical": "turnoffengine",
+      "aliases": [
+        "engineoff",
+        "shutoffengine",
+        "switchoffengine",
+        "killengine"
+      ],
+      "stockParserAliases": [
+        "turnoffengine"
+      ],
+      "stockPromptLabel": "TurnOffEngine",
+      "modelTags": [
+        {
+          "tag": "TurnOffEngine",
+          "group": "CIVILIAN_PR",
+          "excludeGroups": [],
+          "requirements": [
+            "IS_DRIVER"
+          ]
+        }
+      ],
+      "exposure": [
+        "model-visible",
+        "stock-parser"
+      ],
+      "category": "other",
+      "lifecycleKind": "unknown",
+      "sourceRegistrar": "PrSuspectCommandActionRegistrar",
+      "registrationSite": "0x6000e6d@IL_0022",
+      "handlerToken": "0x6000ea9",
+      "handlerCalls": [
+        "LosSantosAlive.Integrations.PolicingRedefinedBridge.PrSuspectCommandActionRegistrar::m0x6000e6e"
+      ],
+      "handlerContextFields": [],
+      "handlerReturn": [
+        "computed"
+      ],
+      "handlerUnconditionalTrue": false,
+      "handlerReturnProves": "computed boolean from callee; still not automatically PHYSICALLY_COMPLETED",
+      "completion": {
+        "event": null,
+        "strength": "COMPUTED_HANDLER",
+        "notes": "No native completion event found. Handler return is not physical completion.",
+        "observable": "world/state postcondition required",
+        "confidence": "INFERRED"
+      },
+      "confidence": "INFERRED",
+      "gtaExperimentNeeded": "Observe turnoffengine: handler true vs NpcState flags vs world postcondition vs cancel/supersede"
+    },
+    {
+      "canonical": "unequipweapon",
+      "aliases": [
+        "putawayweapon",
+        "putgunaway",
+        "putweaponaway",
+        "lowerweapon",
+        "holsterweapon",
+        "holstergun",
+        "standdown",
+        "stopaiming"
+      ],
+      "stockParserAliases": [
+        "unequipweapon"
+      ],
+      "stockPromptLabel": "UnequipWeapon",
+      "modelTags": [
+        {
+          "tag": "UnequipWeapon",
+          "group": "COMMON",
+          "excludeGroups": [],
+          "requirements": [
+            "HAS_AVAILABLE_WEAPON"
+          ]
+        }
+      ],
+      "exposure": [
+        "model-visible",
+        "stock-parser"
+      ],
+      "category": "weapon",
+      "lifecycleKind": "world_postcondition",
+      "sourceRegistrar": "CoreCombatActionRegistrar",
+      "registrationSite": "0x6000aac@IL_0097",
+      "handlerToken": "0x6000aba",
+      "handlerCalls": [
+        "LosSantosAlive.NPC.NpcActions::UnequipWeapon"
+      ],
+      "handlerContextFields": [
+        "SourcePed"
+      ],
+      "handlerReturn": [
+        "true"
+      ],
+      "handlerUnconditionalTrue": true,
+      "handlerReturnProves": "HANDLER_ACCEPTED only; wrapper invoked; no physical completion",
+      "completion": {
+        "event": null,
+        "strength": "HANDLER_ONLY",
+        "notes": "No native completion event found. Handler return is not physical completion.",
+        "observable": "world/state postcondition required",
+        "confidence": "STRONGLY SUPPORTED"
+      },
+      "confidence": "STRONGLY SUPPORTED",
+      "gtaExperimentNeeded": "Observe unequipweapon: handler true vs NpcState flags vs world postcondition vs cancel/supersede"
+    },
+    {
+      "canonical": "usehelditem",
+      "aliases": [
+        "useitem",
+        "consumeitem",
+        "drink",
+        "sip",
+        "eat",
+        "takeasip",
+        "takebite",
+        "use"
+      ],
+      "stockParserAliases": [
+        "usehelditem"
+      ],
+      "stockPromptLabel": "UseHeldItem",
+      "modelTags": [],
+      "exposure": [
+        "stock-parser",
+        "parser-but-not-offered"
+      ],
+      "category": "item",
+      "lifecycleKind": "finite_or_world",
+      "sourceRegistrar": "CoreItemActionRegistrar",
+      "registrationSite": "0x6000ace@IL_0097",
+      "handlerToken": "0x6000ad7",
+      "handlerCalls": [
+        "LosSantosAlive.NPC.NpcActions::UseHeldItem"
+      ],
+      "handlerContextFields": [
+        "SourcePed"
+      ],
+      "handlerReturn": [
+        "true"
+      ],
+      "handlerUnconditionalTrue": true,
+      "handlerReturnProves": "HANDLER_ACCEPTED only; wrapper invoked; no physical completion",
+      "completion": {
+        "event": null,
+        "strength": "HANDLER_ONLY",
+        "notes": "No native completion event found. Handler return is not physical completion.",
+        "observable": "world/state postcondition required",
+        "confidence": "STRONGLY SUPPORTED"
+      },
+      "confidence": "STRONGLY SUPPORTED",
+      "gtaExperimentNeeded": "Observe usehelditem: handler true vs NpcState flags vs world postcondition vs cancel/supersede"
+    },
+    {
+      "canonical": "usetintreader",
+      "aliases": [
+        "tintreader",
+        "tintmeter",
+        "checktint",
+        "windowtint"
+      ],
+      "stockParserAliases": [
+        "submittotinttest"
+      ],
+      "stockPromptLabel": "SubmitToTintTest",
+      "modelTags": [
+        {
+          "tag": "SubmitToTintTest",
+          "group": "CIVILIAN_PR",
+          "excludeGroups": [],
+          "requirements": []
+        }
+      ],
+      "exposure": [
+        "model-visible",
+        "stock-parser"
+      ],
+      "category": "other",
+      "lifecycleKind": "unknown",
+      "sourceRegistrar": "PrSuspectCommandActionRegistrar",
+      "registrationSite": "0x6000e6d@IL_0022",
+      "handlerToken": "0x6000ea9",
+      "handlerCalls": [
+        "LosSantosAlive.Integrations.PolicingRedefinedBridge.PrSuspectCommandActionRegistrar::m0x6000e6e"
+      ],
+      "handlerContextFields": [],
+      "handlerReturn": [
+        "computed"
+      ],
+      "handlerUnconditionalTrue": false,
+      "handlerReturnProves": "computed boolean from callee; still not automatically PHYSICALLY_COMPLETED",
+      "completion": {
+        "event": null,
+        "strength": "COMPUTED_HANDLER",
+        "notes": "No native completion event found. Handler return is not physical completion.",
+        "observable": "world/state postcondition required",
+        "confidence": "INFERRED"
+      },
+      "confidence": "INFERRED",
+      "gtaExperimentNeeded": "Observe usetintreader: handler true vs NpcState flags vs world postcondition vs cancel/supersede"
+    },
+    {
+      "canonical": "waithere",
+      "aliases": [
+        "stayhere",
+        "stophere",
+        "holdposition",
+        "stopfollowingplayer",
+        "stopfollowplayer",
+        "stopfollowing",
+        "wait"
+      ],
+      "stockParserAliases": [
+        "waithere"
+      ],
+      "stockPromptLabel": "WaitHere",
+      "modelTags": [
+        {
+          "tag": "WaitHere",
+          "group": "COMMON",
+          "excludeGroups": [],
+          "requirements": []
+        }
+      ],
+      "exposure": [
+        "model-visible",
+        "stock-parser"
+      ],
+      "category": "movement",
+      "lifecycleKind": "mode_or_cancel",
+      "sourceRegistrar": "CoreMovementActionRegistrar",
+      "registrationSite": "0x6000ae5@IL_008a",
+      "handlerToken": "0x6000af3",
+      "handlerCalls": [
+        "LosSantosAlive.NPC.NpcActions::WaitHere"
+      ],
+      "handlerContextFields": [
+        "SourcePed"
+      ],
+      "handlerReturn": [
+        "true"
+      ],
+      "handlerUnconditionalTrue": true,
+      "handlerReturnProves": "HANDLER_ACCEPTED only; wrapper invoked; no physical completion",
+      "completion": {
+        "event": null,
+        "strength": "HANDLER_ONLY",
+        "notes": "No native completion event found. Handler return is not physical completion.",
+        "observable": "world/state postcondition required",
+        "confidence": "STRONGLY SUPPORTED"
+      },
+      "confidence": "STRONGLY SUPPORTED",
+      "gtaExperimentNeeded": "Observe waithere: handler true vs NpcState flags vs world postcondition vs cancel/supersede"
+    },
+    {
+      "canonical": "walkawayfromtarget",
+      "aliases": [
+        "walkawayfromplayer",
+        "stopdirectedinteraction",
+        "stoptalkingtoped",
+        "stopconversationwithped",
+        "enddirectedinteraction",
+        "walkaway",
+        "leave",
+        "goaway",
+        "backoff",
+        "getlost",
+        "disengage",
+        "disengagefromtarget"
+      ],
+      "stockParserAliases": [
+        "walkawayfrom"
+      ],
+      "stockPromptLabel": "WalkAwayFrom",
+      "modelTags": [
+        {
+          "tag": "WalkAwayFrom <person>",
+          "group": "COMMON",
+          "excludeGroups": [],
+          "requirements": []
+        }
+      ],
+      "exposure": [
+        "model-visible",
+        "stock-parser"
+      ],
+      "category": "movement",
+      "lifecycleKind": "mode",
+      "sourceRegistrar": "CoreMovementActionRegistrar",
+      "registrationSite": "0x6000ae1@IL_00cf",
+      "handlerToken": "0x6000aef",
+      "handlerCalls": [
+        "LosSantosAlive.NPC.NpcActions::WalkAwayFromTarget"
+      ],
+      "handlerContextFields": [
+        "SourcePed"
+      ],
+      "handlerReturn": [
+        "true"
+      ],
+      "handlerUnconditionalTrue": true,
+      "handlerReturnProves": "HANDLER_ACCEPTED only; wrapper invoked; no physical completion",
+      "completion": {
+        "event": null,
+        "strength": "HANDLER_ONLY",
+        "notes": "No native completion event found. Handler return is not physical completion.",
+        "observable": "world/state postcondition required",
+        "confidence": "STRONGLY SUPPORTED"
+      },
+      "confidence": "STRONGLY SUPPORTED",
+      "gtaExperimentNeeded": "Observe walkawayfromtarget: handler true vs NpcState flags vs world postcondition vs cancel/supersede"
+    },
+    {
+      "canonical": "walkbackwardstotarget",
+      "aliases": [
+        "walkbackwards",
+        "walkbackward",
+        "backuptotarget",
+        "backtowardstarget",
+        "walkbackwardstowardstarget",
+        "backtowardsme",
+        "walkbackwardstowardsme"
+      ],
+      "stockParserAliases": [
+        "walkbackwardsto"
+      ],
+      "stockPromptLabel": "WalkBackwardsTo",
+      "modelTags": [
+        {
+          "tag": "WalkBackwardsTo <person>",
+          "group": "COMMON",
+          "excludeGroups": [
+            "POLICE"
+          ],
+          "requirements": []
+        }
+      ],
+      "exposure": [
+        "model-visible",
+        "stock-parser"
+      ],
+      "category": "movement",
+      "lifecycleKind": "mode",
+      "sourceRegistrar": "CoreMovementActionRegistrar",
+      "registrationSite": "0x6000ae2@IL_008a",
+      "handlerToken": "0x6000af0",
+      "handlerCalls": [
+        "LosSantosAlive.NPC.NpcActions::WalkBackwardsToTarget"
+      ],
+      "handlerContextFields": [
+        "SourcePed"
+      ],
+      "handlerReturn": [
+        "true"
+      ],
+      "handlerUnconditionalTrue": true,
+      "handlerReturnProves": "HANDLER_ACCEPTED only; wrapper invoked; no physical completion",
+      "completion": {
+        "event": null,
+        "strength": "HANDLER_ONLY",
+        "notes": "No native completion event found. Handler return is not physical completion.",
+        "observable": "world/state postcondition required",
+        "confidence": "STRONGLY SUPPORTED"
+      },
+      "confidence": "STRONGLY SUPPORTED",
+      "gtaExperimentNeeded": "Observe walkbackwardstotarget: handler true vs NpcState flags vs world postcondition vs cancel/supersede"
+    },
+    {
+      "canonical": "walktodestination",
+      "category": "navigation",
+      "lifecycleKind": "finite_task",
+      "sourceRegistrar": null,
+      "path": "BridgeMessageRouter + NpcState.WalkToDestination / DestinationResolver",
+      "aliases": [
+        "walkto"
+      ],
+      "stockParserAliases": [
+        "walkto"
+      ],
+      "stockPromptLabel": "WalkTo",
+      "modelTags": [],
+      "exposure": [
+        "stock-parser",
+        "parser-but-not-offered",
+        "not-registry-registered"
+      ],
+      "handlerToken": null,
+      "handlerCalls": [],
+      "handlerUnconditionalTrue": false,
+      "handlerReturnProves": "not a registry handler; dispatch is bridge/state",
+      "completion": {
+        "event": null,
+        "strength": "STATE_PLUS_WORLD",
+        "notes": "Not registry-registered. Bridge/NpcState WalkToDestination + DestinationResolved + DestinationPosition. Arrived semantics use LastDestinationTaskTime / HasDestination clear \u2014 exact predicate UNKNOWN without Update IL + GTA.",
+        "observable": "HasDestination false after having been true AND ped near DestinationPosition AND no walk task",
+        "confidence": "INFERRED"
+      },
+      "confidence": "INFERRED",
+      "gtaExperimentNeeded": "Trace live dispatch of walktodestination from WS npcAction through BridgeMessageRouter"
+    }
+  ],
+  "latentCapabilities": [
+    {
+      "name": "NpcActions.ChaseTarget",
+      "tokens": [
+        "0x6000268",
+        "0x6000269"
+      ],
+      "family": "movement",
+      "whyHidden": "No registry action; MovementBehavior.StartChaseTarget exists",
+      "exposureAdvice": "D \u2014 register only after completion adapter + combat arbitration",
+      "risk": "Conflicts with follow/approach/vehicle/combat"
+    },
+    {
+      "name": "NpcActions.TakeCover",
+      "tokens": [
+        "0x600025e"
+      ],
+      "family": "combat",
+      "whyHidden": "Registered as takecover but not in stock hv/Vy/Nd \u2014 native-only unless integration/queue uses it",
+      "exposureAdvice": "D \u2014 model-facing action missing; combat is a mode",
+      "risk": "Combat mode; no finite completion"
+    },
+    {
+      "name": "NpcActions.BecomeAccomplice",
+      "tokens": [
+        "0x60002xx"
+      ],
+      "family": "social",
+      "whyHidden": "Registered becomeaccomplice but not offered to Luna (not in hv)",
+      "exposureAdvice": "E for default companion \u2014 P2 explicitly keeps accomplice off",
+      "risk": "Offensive accomplice mode"
+    },
+    {
+      "name": "NpcActions.GoTalkToNearestPed",
+      "tokens": [],
+      "family": "social",
+      "whyHidden": "Registered as initiatedirectedinteraction; not in hv",
+      "exposureAdvice": "C \u2014 directed-interaction ownership already exists; exposing without Scene Director is risky",
+      "risk": "Owns ped via InDirectedInteraction"
+    },
+    {
+      "name": "NpcActions.UseScenario / UseScenarioAtPosition",
+      "tokens": [
+        "0x6000250",
+        "0x6000251"
+      ],
+      "family": "activity",
+      "whyHidden": "Public wrapper, no registry action",
+      "exposureAdvice": "D via activity system rather than raw scenario",
+      "risk": "Bypasses occupancy/queue"
+    },
+    {
+      "name": "NpcActions.GrabItem",
+      "tokens": [
+        "0x6000244"
+      ],
+      "family": "item",
+      "whyHidden": "Registered grabitem; not in hv",
+      "exposureAdvice": "B \u2014 inventory postcondition observable",
+      "risk": "Item/prop attach natives"
+    },
+    {
+      "name": "WalkTo / DriveTo destinations",
+      "tokens": [],
+      "family": "navigation",
+      "whyHidden": "Stock parser + NpcState + DestinationResolver exist; hv does not offer WalkTo/DriveTo",
+      "exposureAdvice": "B \u2014 smallest high-value exposure after arrival adapter",
+      "risk": "Mission/traffic/vehicle conflicts"
+    },
+    {
+      "name": "PerformActivity / PerformActivityWithItem",
+      "tokens": [],
+      "family": "activity",
+      "whyHidden": "Stock parser + activity queue exist; hv does not offer them",
+      "exposureAdvice": "B \u2014 best existing completion fields",
+      "risk": "Occupancy / scenario / custom executors"
+    },
+    {
+      "name": "attacktarget (unarmed)",
+      "tokens": [],
+      "family": "combat",
+      "whyHidden": "Registered; stock only exposes Attack USING weapon",
+      "exposureAdvice": "E unless combat completion model exists",
+      "risk": "Persistent combat mode"
+    },
+    {
+      "name": "getarrestedfront / givelicense",
+      "tokens": [],
+      "family": "policing",
+      "whyHidden": "PR registrar extras not in hv",
+      "exposureAdvice": "C \u2014 PR ownership",
+      "risk": "External PR plugin"
+    },
+    {
+      "name": "RoleActionRouter hostage verbs",
+      "tokens": [
+        "0x6000a9f"
+      ],
+      "family": "scene",
+      "whyHidden": "raiseweapons/offerdeal/delaybreach/requesthostagerelease/standdownswat/lowerweapons/movecloser/moveback \u2014 scene controller, not Luna catalog",
+      "exposureAdvice": "E \u2014 scene-owned",
+      "risk": "Hostage scene ownership"
+    }
+  ]
+}
