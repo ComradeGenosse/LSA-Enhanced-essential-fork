@@ -29,7 +29,7 @@ export function endpoint(baseUrl, route) {
   return `${base}/${suffix}`;
 }
 
-export async function requestJson({ fetchImpl = globalThis.fetch, url, key, body, signal, timeoutMs = 45_000, telemetry, operation = 'model', model }) {
+export async function requestJson({ fetchImpl = globalThis.fetch, url, key, body, signal, timeoutMs = 45_000, telemetry, operation = 'model', model, onRequest }) {
   if (typeof fetchImpl !== 'function') throw new TypeError('This Node runtime does not provide fetch.');
   if (!String(key || '').trim()) throw new ProviderRequestError('The selected OpenAI credential is missing.', { code: 'missing_credential' });
   const requestAbort = new AbortController();
@@ -42,6 +42,7 @@ export async function requestJson({ fetchImpl = globalThis.fetch, url, key, body
   try { spanDone = telemetry?.startSpan(operation, { model }); } catch {}
   try {
     requestAbort.signal.throwIfAborted();
+    try { onRequest?.(body); } catch { /* Diagnostic capture cannot fail a provider request. */ }
     const response = await fetchImpl(url, {
       method: 'POST',
       headers: { authorization: `Bearer ${key}`, 'content-type': 'application/json' },

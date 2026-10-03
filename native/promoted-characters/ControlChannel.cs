@@ -57,11 +57,13 @@ namespace LSA.PromotedCharacters
                         var frame = json.Deserialize<Dictionary<string,object>>(Encoding.UTF8.GetString(bytes.ToArray()));
                         if (frame == null || frame.Count != 7 || !(frame["version"] is int version) || version != 1 || !(frame["requestId"] is string id) || !(frame["ownerEpoch"] is string suppliedEpoch) || !(frame["worldProfileId"] is string suppliedWorld) || !(frame["operation"] is string operation) || !(frame["args"] is Dictionary<string,object> args)) throw new InvalidDataException();
                         long expiry = Convert.ToInt64(frame["expiresAtUtc"]);
-                        if (!admission.Admit(id,suppliedEpoch,suppliedWorld,expiry,Now) || !new HashSet<string>{"capture","register","inspect","spawn","follow","wait","dismiss","despawn","release","roster"}.Contains(operation)) throw new InvalidDataException();
+                        if (!admission.Admit(id,suppliedEpoch,suppliedWorld,operation,expiry,Now)) throw new InvalidDataException();
                         if (Interlocked.Increment(ref count) > 16) { Interlocked.Decrement(ref count); throw new InvalidDataException(); }
                         request = new ControlRequest { RequestId = id, Operation = operation, Args = args, ExpiresAtUtc = expiry };
                         requests.Enqueue(request);
-                        if (!request.Done.Wait(Math.Max(1,(int)Math.Min(3000,expiry - Now)),stopping.Token)) { request.Cancelled = true; throw new TimeoutException(); }
+                        var remaining = Math.Max(1,(int)Math.Min(Int32.MaxValue,expiry - Now));
+                        if (operation == "spawn") watchdog.Change(checked(remaining + 1000),Timeout.Infinite);
+                        if (!request.Done.Wait(operation == "spawn" ? remaining : Math.Min(3000,remaining),stopping.Token)) { request.Cancelled = true; throw new TimeoutException(); }
                         Write(stream,json,new {version = 1,requestId = id,status = request.Reason == null ? "ok" : "failed",result = request.Result,reason = request.Reason});
                     }
                 }
@@ -75,7 +77,7 @@ namespace LSA.PromotedCharacters
         }
         public bool TryTake(out ControlRequest request)
         {
-            while (requests.TryDequeue(out request)) { Interlocked.Decrement(ref count); if (!request.Cancelled && NativeSafetyPolicy.Fresh(request.ExpiresAtUtc,Now)) return true; request.Reason = "native_stale"; request.Done.Set(); }
+            while (requests.TryDequeue(out request)) { Interlocked.Decrement(ref count); if (!request.Cancelled && NativeSafetyPolicy.Fresh(request.Operation,request.ExpiresAtUtc,Now)) return true; request.Reason = "native_stale"; request.Done.Set(); }
             request = null; return false;
         }
         public void Dispose() { stopping.Cancel(); try { pipe?.Dispose(); } catch {} while (requests.TryDequeue(out var request)) { request.Cancelled = true; request.Done.Set(); } }

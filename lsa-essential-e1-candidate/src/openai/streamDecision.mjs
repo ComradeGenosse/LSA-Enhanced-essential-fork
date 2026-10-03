@@ -23,7 +23,7 @@ export const segmentedDecisionSchema = Object.freeze({
 // The original JSON object remains buffered and is strictly reconciled at EOF.
 export async function streamDecision({
   config, body, signal, timeoutMs = config.providerWorkDeadlineMs, fetchImpl = globalThis.fetch,
-  telemetry, onSegment = () => {}, maxSegments = 6, maxSegmentChars = 240, maxDialogueChars = 1200,
+  telemetry, onSegment = () => {}, dialogueAttempt, maxSegments = 6, maxSegmentChars = 240, maxDialogueChars = 1200,
 }) {
   if (!String(config.reasoningKey || '').trim()) throw new ProviderRequestError('The selected OpenAI credential is missing.', { code: 'missing_credential' });
   const decoder = createSegmentDecoder({ maxSegments, maxSegmentChars, maxDialogueChars });
@@ -39,6 +39,7 @@ export async function streamDecision({
   let requestId;
   try {
     controller.signal.throwIfAborted();
+    try { dialogueAttempt?.request(body); } catch {}
     const response = await fetchImpl(endpoint(config.reasoningBaseUrl, 'responses'), {
       method: 'POST',
       headers: { authorization: `Bearer ${config.reasoningKey}`, 'content-type': 'application/json' },
@@ -87,6 +88,7 @@ export async function streamDecision({
       } else if (type === 'response.output_text.delta') {
         if (outputIndex === null || data.output_index !== outputIndex || !outputItemId || data.item_id !== outputItemId) throw new ProviderRequestError('OpenAI changed the decision message identity.', { code: 'invalid_response' });
         if (typeof data.delta !== 'string') throw new ProviderRequestError('OpenAI returned a malformed text delta.', { code: 'invalid_response' });
+        try { dialogueAttempt?.appendDelta(data.delta); } catch {}
         if (!sawDelta) { sawDelta = true; telemetry?.event('model_first_content_delta', { durationMs: performance.now() - streamStartedAt }); }
         let segments;
         try {
@@ -97,6 +99,7 @@ export async function streamDecision({
           throw new ProviderRequestError('OpenAI streamed an invalid structured decision.', { code: 'invalid_response' });
         }
         for (const segment of segments) {
+          try { dialogueAttempt?.segment({ sequence: segment.sequence, text: segment.text, mode: decoder.mode }); } catch {}
           telemetry?.event('stream_segment_validated', {
             segmentSequence: segment.sequence, segmentChars: segment.text.length,
             durationMs: performance.now() - streamStartedAt,
@@ -114,6 +117,9 @@ export async function streamDecision({
           throw new ProviderRequestError('OpenAI completed text did not match its streamed deltas.', { code: 'invalid_response' });
         }
       } else if (type === 'response.refusal.delta' || type === 'response.failed' || type === 'response.incomplete' || type === 'error') {
+        if (type === 'response.refusal.delta' && typeof data.delta === 'string') {
+          try { dialogueAttempt?.outputText(data.delta, { responseKind: 'refusal' }); } catch {}
+        }
         throw new ProviderRequestError(type === 'response.refusal.delta' ? 'Luna refused the request.' : 'OpenAI streaming decision did not complete.', {
           code: type === 'response.refusal.delta' ? 'model_refusal' : type === 'response.incomplete' ? 'incomplete_response' : 'invalid_response',
         });
@@ -135,6 +141,7 @@ export async function streamDecision({
     const contents = messages[0].content || [];
     if (contents.some(part => part?.type === 'refusal')) throw new ProviderRequestError('Luna refused the request.', { code: 'model_refusal' });
     const terminalText = contents.filter(part => part?.type === 'output_text').map(part => part.text).join('');
+    try { dialogueAttempt?.outputText(terminalText, { responseKind: 'terminal_output_text' }); } catch {}
     if (!terminalText || terminalText !== decoder.text) throw new ProviderRequestError('OpenAI stream text did not match its completed response.', { code: 'invalid_response' });
     let result;
     try { result = decoder.finish(); }

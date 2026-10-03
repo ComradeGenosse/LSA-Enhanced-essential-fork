@@ -1,6 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import http from 'node:http';
+import net, { Socket } from 'node:net';
+import { randomUUID } from 'node:crypto';
 import { createRequire } from 'node:module';
 import { fixture } from './p2-fixtures.mjs';
 import { startCharacterEditor } from '../src/characters/editorServer.mjs';
@@ -46,7 +48,28 @@ test('native client refuses unsupported or oversized operations before opening a
   const client = new NativeOwnerClient({pipeName:'test',worldProfileId:'11111111-1111-4111-8111-111111111111'});
   await assert.rejects(client.request('audio'),/invalid_owner_operation/);await assert.rejects(client.request('spawn',{payload:'x'.repeat(17000)}),/owner_request_limit/);
 });
+test('native spawn request remains pending beyond three seconds and keeps one fixed expiry', async t => {
+  const ownerEpoch='22222222-2222-4222-8222-222222222222',worldProfileId='11111111-1111-4111-8111-111111111111'; let frame;
+  const originalConnect=net.createConnection;const socket=new Socket();
+  net.createConnection=()=>socket;t.after(()=>{net.createConnection=originalConnect;socket.destroy();});
+  socket.write=bytes=>{frame=JSON.parse(String(bytes).trim());setTimeout(()=>socket.emit('data',Buffer.from(JSON.stringify({version:1,requestId:frame.requestId,status:'ok',result:{status:'spawned'},reason:null})+'\n')),3200);return true;};
+  const client=new NativeOwnerClient({pipeName:'test',worldProfileId,summonWaitMs:5000});const started=Date.now();
+  const resultPromise=client.request('spawn',{});
+  process.nextTick(()=>socket.emit('data',Buffer.from(JSON.stringify({version:1,type:'hello',worldProfileId,ownerEpoch})+'\n')));
+  const result=await resultPromise;
+  assert.deepEqual(result,{status:'spawned'});assert.ok(Date.now()-started>3000);assert.ok(frame.expiresAtUtc>=started+4500&&frame.expiresAtUtc<=started+5100);
+});
+test('native spawn disconnect after its fixed deadline reports the summon timeout', async t => {
+  const ownerEpoch='22222222-2222-4222-8222-222222222222',worldProfileId='11111111-1111-4111-8111-111111111111';
+  const originalConnect=net.createConnection;const socket=new Socket();net.createConnection=()=>socket;t.after(()=>{net.createConnection=originalConnect;socket.destroy();});
+  socket.write=()=>true;
+  const client=new NativeOwnerClient({pipeName:'test',worldProfileId,summonWaitMs:5000});
+  const result=client.request('spawn',{});process.nextTick(()=>socket.emit('data',Buffer.from(JSON.stringify({version:1,type:'hello',worldProfileId,ownerEpoch})+'\n')));
+  setTimeout(()=>socket.emit('close'),5100);
+  await assert.rejects(result,/summon_wait_timeout/);
+});
 test('optional P2 configuration defaults off and validates bounded editor/pipe settings',() => {
   assert.equal(normalizeConfig({},{}).promotedCharacters.enabled,false);
-  for (const promotedCharacters of [{enabled:'true'},{editorPort:80},{pipeName:'../bad'},{storePath:''},{unknown:true}]) assert.throws(()=>normalizeConfig({promotedCharacters},{}));
+  assert.equal(normalizeConfig({},{}).promotedCharacters.summonWaitMs,30000);
+  for (const promotedCharacters of [{enabled:'true'},{editorPort:80},{pipeName:'../bad'},{storePath:''},{unknown:true},{summonWaitMs:60001},{summonWaitMs:4999}]) assert.throws(()=>normalizeConfig({promotedCharacters},{}));
 });

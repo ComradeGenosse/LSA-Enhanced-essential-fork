@@ -113,6 +113,26 @@ test('executor performs at most one eligible retry inside the original deadline'
   assert.ok(events.some(event => event.name === 'provider_retry_recovered'));
 });
 
+test('dialogue trace closes every model attempt and retains distinct retry identities', async () => {
+  const attempts = [];
+  const result = await executeProviderOperation({
+    operation: 'model', provider: 'openai.reasoning', identity: { pedId: 'p', turnId: 't', generationId: 1, sessionNonce: 1 },
+    signal: new AbortController().signal, deadlineAt: 10_000, now: () => 0,
+    retryConfig: { enabled: true, maxAttempts: 2, baseDelayMs: 0, maxDelayMs: 0, minAttemptBudgetMs: 1 },
+    dialogueTrace: { beginAttempt: value => { const item = { ...value, finished: null }; attempts.push(item); return { request: body => { item.body = body; }, finish: outcome => { item.finished = outcome; } }; } },
+    delay: async () => {},
+    run: async ({ attempt, dialogueAttempt }) => {
+      dialogueAttempt.request({ input: `attempt ${attempt}` });
+      if (attempt === 1) throw Object.assign(new Error('temporary'), { status: 503 });
+      return 'ok';
+    },
+  });
+  assert.equal(result, 'ok');
+  assert.deepEqual(attempts.map(item => item.attemptId), ['model:1', 'model:2']);
+  assert.deepEqual(attempts.map(item => item.body.input), ['attempt 1', 'attempt 2']);
+  assert.deepEqual(attempts.map(item => item.finished.outcome), ['failed', 'completed']);
+});
+
 function bridge(onEvent = async () => {}, validateDecision = decision => ({ identityValid: true, internalTranscript: decision.dialogue, actionCount: 0 })) {
   const listeners = new Set();
   return {

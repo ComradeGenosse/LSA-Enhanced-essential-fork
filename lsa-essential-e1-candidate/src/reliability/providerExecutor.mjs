@@ -78,7 +78,7 @@ function attemptOperation({ run, parentSignal, attemptTimeoutMs, now, attempt })
 
 export async function executeProviderOperation({
   operation, provider, identity, signal, deadlineAt, isCurrent = () => true, canRetry = () => true,
-  retryConfig, telemetry = null, run, now = () => performance.now(), random = Math.random,
+  retryConfig, telemetry = null, dialogueTrace = null, run, now = () => performance.now(), random = Math.random,
   delay = abortableDelay,
 }) {
   if (typeof run !== 'function') throw new TypeError('Provider executor requires one single-request operation.');
@@ -93,7 +93,11 @@ export async function executeProviderOperation({
     const attemptId = `${operation}:${attempt}`;
     telemetry?.event('provider_selected', { operation, provider });
     telemetry?.event('provider_attempt_started', { operation, provider, attempt, attemptId });
-    const execute = context => run({ ...context, attemptId, timeoutMs, remainingDeadlineMs: remainingAtStart });
+    let dialogueAttempt = null;
+    const execute = context => {
+      dialogueAttempt = dialogueTrace?.beginAttempt({ operation, attemptId, isActive: context.isActive });
+      return run({ ...context, attemptId, timeoutMs, remainingDeadlineMs: remainingAtStart, dialogueAttempt });
+    };
     execute.telemetry = telemetry;
     const current = attemptOperation({ run: execute, parentSignal: signal, attemptTimeoutMs: timeoutMs, now, attempt });
     let result;
@@ -104,9 +108,11 @@ export async function executeProviderOperation({
       }
       telemetry?.event('provider_attempt_succeeded', { operation, provider, attempt, attemptId });
       if (attempt > 1) telemetry?.event('provider_retry_recovered', { operation, provider, attempt, maxAttempts: policy.maxAttempts });
+      dialogueAttempt?.finish({ outcome: 'completed', complete: true });
       return result;
     } catch (error) {
       lastError = current.timedOut() ? new ProviderAttemptError('Provider attempt timed out.', { code: 'attempt_timeout' }) : error;
+      dialogueAttempt?.finish({ outcome: signal?.aborted ? 'cancelled' : current.timedOut() ? 'timeout' : 'failed', code: lastError?.code || null, httpStatus: lastError?.status || null });
     } finally {
       current.close();
     }

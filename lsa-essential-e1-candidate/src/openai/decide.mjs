@@ -2,7 +2,7 @@ import { buildRequest, extractResponseText, parseDecisionJson } from '../context
 import { endpoint, requestJson } from './request.mjs';
 import { streamDecision } from './streamDecision.mjs';
 
-export async function decide({ config, context, input, history, signal, timeoutMs = config.providerWorkDeadlineMs ?? config.turnDeadlineMs, source, fetchImpl = globalThis.fetch, telemetry }) {
+export async function decide({ config, context, input, history, signal, timeoutMs = config.providerWorkDeadlineMs ?? config.turnDeadlineMs, source, fetchImpl = globalThis.fetch, telemetry, dialogueAttempt }) {
   const body = buildRequest({
     model: config.reasoningModel,
     effort: config.reasoningEffort,
@@ -27,7 +27,13 @@ export async function decide({ config, context, input, history, signal, timeoutM
     telemetry,
     operation: 'model',
     model: config.reasoningModel,
+    onRequest: value => dialogueAttempt?.request(value),
   });
+  const output = Array.isArray(response?.output) ? response.output : [];
+  const responseText = output.filter(item => item?.type === 'message' && Array.isArray(item.content))
+    .flatMap(item => item.content.filter(part => part?.type === 'output_text' || part?.type === 'refusal')
+      .map(part => ({ type: part.type, text: typeof part.text === 'string' ? part.text : typeof part.refusal === 'string' ? part.refusal : '' })).filter(part => part.text));
+  for (const part of responseText) dialogueAttempt?.outputText(part.text, { responseKind: part.type });
   const usage = response?.usage;
   if (usage && typeof usage === 'object') {
     const details = usage.input_tokens_details || {};
@@ -46,7 +52,7 @@ export async function decide({ config, context, input, history, signal, timeoutM
 
 export async function decideStreaming({ config, context, input, history, signal,
   timeoutMs = config.providerWorkDeadlineMs ?? config.turnDeadlineMs, source, fetchImpl = globalThis.fetch,
-  telemetry, onSegment }) {
+  telemetry, onSegment, dialogueAttempt }) {
   const body = buildRequest({
     model: config.reasoningModel,
     effort: config.reasoningEffort,
@@ -63,7 +69,7 @@ export async function decideStreaming({ config, context, input, history, signal,
     structuredSegments: true,
   });
   return streamDecision({
-    config, body, signal, timeoutMs, fetchImpl, telemetry, onSegment,
+    config, body, signal, timeoutMs, fetchImpl, telemetry, onSegment, dialogueAttempt,
     maxSegments: config.streamingMaxSegments,
     maxSegmentChars: config.streamingMaxSegmentChars,
     maxDialogueChars: config.streamingMaxDialogueChars,

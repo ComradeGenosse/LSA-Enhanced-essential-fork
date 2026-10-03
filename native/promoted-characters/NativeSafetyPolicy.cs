@@ -9,6 +9,8 @@ namespace LSA.PromotedCharacters
             exists && !dead && !player && !scripted && !externalOwner && !directedInteraction;
         public static bool Current(string expected, string actual) => !string.IsNullOrEmpty(expected) && expected == actual;
         public static bool Fresh(long expiresAtUtc, long nowUtc) => expiresAtUtc > nowUtc && expiresAtUtc - nowUtc <= 5000;
+        public static bool Fresh(string operation,long expiresAtUtc,long nowUtc) =>
+            expiresAtUtc > nowUtc && expiresAtUtc - nowUtc <= (operation == "spawn" ? 60000 : 5000);
         public static bool VariationAvailable(int drawable,int texture,int drawableCount,int textureCount) =>
             drawable >= 0 && drawable < drawableCount && texture >= 0 && texture < textureCount;
     }
@@ -19,9 +21,9 @@ namespace LSA.PromotedCharacters
         readonly HashSet<string> seen = new HashSet<string>();
         readonly Queue<string> order = new Queue<string>();
         public OperationAdmission(string epoch, string world) { this.epoch = epoch; this.world = world; }
-        public bool Admit(string requestId, string ownerEpoch, string worldProfileId, long expiresAtUtc, long nowUtc)
+        public bool Admit(string requestId, string ownerEpoch, string worldProfileId, string operation, long expiresAtUtc, long nowUtc)
         {
-            if (!Guid.TryParseExact(requestId,"D",out _) || epoch != ownerEpoch || world != worldProfileId || !NativeSafetyPolicy.Fresh(expiresAtUtc,nowUtc) || !seen.Add(requestId)) return false;
+            if (!Guid.TryParseExact(requestId,"D",out _) || epoch != ownerEpoch || world != worldProfileId || !new HashSet<string>{"capture","register","inspect","spawn","follow","wait","dismiss","despawn","release","roster"}.Contains(operation) || !NativeSafetyPolicy.Fresh(operation,expiresAtUtc,nowUtc) || !seen.Add(requestId)) return false;
             order.Enqueue(requestId); while (order.Count > 256) seen.Remove(order.Dequeue()); return true;
         }
     }

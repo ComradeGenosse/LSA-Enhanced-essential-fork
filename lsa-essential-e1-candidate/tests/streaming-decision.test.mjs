@@ -45,12 +45,14 @@ test('Responses stream yields only validated complete segments before response.c
   const config = normalizeConfig({ structuredStreamingEnabled: true }, { OPENAI_API_KEY: 'test-key' });
   let firstValidated;
   const callbacks = [];
+  const traced = { body: null, deltas: [], outputs: [], segments: [] };
   let releaseTerminal;
   const terminal = new Promise(resolve => { releaseTerminal = resolve; });
   const start = new Promise(resolve => { firstValidated = resolve; });
   const resultPromise = streamDecision({
     config,
     body: { model: 'gpt-6-luna', stream: true, input: [], text: { format: { type: 'json_schema', strict: true } } },
+    dialogueAttempt: { request: body => { traced.body = body; }, appendDelta: delta => traced.deltas.push(delta), outputText: (text, meta) => traced.outputs.push({ text, ...meta }), segment: segment => traced.segments.push(segment) },
     timeoutMs: 3000,
     fetchImpl: async (_url, init) => {
       assert.equal(JSON.parse(init.body).stream, true);
@@ -79,6 +81,10 @@ test('Responses stream yields only validated complete segments before response.c
   assert.deepEqual(result.decision, { dialogue: 'I saw him. He went east.', command: '' });
   assert.deepEqual(result.segments.map(item => item.text), ['I saw him.', 'He went east.']);
   assert.deepEqual(callbacks.map(item => item.text), ['I saw him.', 'He went east.']);
+  assert.equal(traced.body.stream, true);
+  assert.equal(traced.deltas.join(''), full);
+  assert.equal(traced.outputs.at(-1).text, full);
+  assert.deepEqual(traced.segments.map(item => item.text), ['I saw him.', 'He went east.']);
 });
 
 test('streamed refusal, missing terminal, and incompatible final text fail closed', async () => {
