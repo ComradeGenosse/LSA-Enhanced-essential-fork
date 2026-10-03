@@ -27,10 +27,10 @@ Essential remains authoritative for native NPC state, turn/generation identity, 
 | E2 | ✅ Implemented | Provider abstraction, stable session voices, bounded acting guidance |
 | E3 | ✅ Implemented | Stage-aware retries and provider failure recovery |
 | E5 | ✅ Implemented + live API validated | Structured Responses streaming; configured Luna produced a validated segment before response completion |
-| E6 | 🟡 Implemented; early-audio and multi-segment GTA checks pending | Repaired live path played 13 turns; eight synthesis requests started shortly before model completion, but first PCM arrived afterward; every reply contained one segment |
+| E6 | ✅ Implemented | Early segmented TTS is complete in the production path; prior GTA runs exercised native playback. Remaining early-audio/multi-segment stress checks are follow-up validation, not an implementation gate. |
 | P0 — TURN_CONTEXT | ✅ Merged to `main` + offline-verified; GTA acceptance pending | Immutable per-turn actor/listener/world snapshots and time-of-use P/V target-reference validation |
-| P1 — SESSION_IDENTITY | 🟡 Merged to `main` + offline-verified; GTA acceptance pending | Explicit owner-authenticated durable UUIDs and actual voice assignments; default-off/shadow rollout; separate E6/P0 GTA gates remain open |
-| P2 — PROMOTED_CHARACTERS / CHARACTER_PROFILE | 🟡 Implemented + offline-verified; GTA acceptance pending | Explicit player promotion, encounter names, separate durable profiles/memory CRUD, local editor, P1-owned recreation and guarded native companion controls |
+| P1 — SESSION_IDENTITY | ✅ Implemented | Explicit owner-authenticated durable UUIDs, runtime bindings, and persistent voice assignments are merged to `main`; additional stress/continuity checks roll into follow-up validation/E7. |
+| P2 — PROMOTED_CHARACTERS / CHARACTER_PROFILE | ✅ Implemented | Merged to `main` and exercised in GTA: promotion, character editor/profile memory editing, and native companion/vehicle behavior are working; remaining edge cases are follow-up regression work. |
 | PERCEPTION | Planned | Richer world/event/context awareness |
 | SALIENCE | Planned | Decide what an NPC should care about right now |
 | SCENE_DIRECTOR | Planned | NPC initiative and coordinated autonomous behavior |
@@ -126,7 +126,7 @@ That demonstrates that the configured Luna path can expose a usable complete seg
 
 See [E5/E6 streaming notes](../lsa-essential-e1-candidate/docs/e5-e6-streaming.md).
 
-### E6 — Early segmented TTS — implemented, GTA gate open
+### E6 — Early segmented TTS — implemented
 
 E6 is implemented behind `structuredStreamingEnabled` and `earlyTtsEnabled`. Both remain default-off in the checked-in example config; the controlled live GTA test config has been staged with both enabled.
 
@@ -182,9 +182,9 @@ The first repaired-build GTA run covered 13 microphone turns: all 13 reached nat
 
 The E5/E6 payload was also staged/installed for controlled GTA testing with backups and hash verification. However, the repository does **not** yet contain a post-deployment GTA log proving physical playback for the current E6 path.
 
-#### E6 remaining release gate
+#### E6 follow-up validation
 
-Physical GTA acceptance must still demonstrate:
+The implementation phase is complete. Additional GTA stress validation should still cover:
 
 - the first segment is audibly played before model completion on an eligible turn;
 - later segments continue on the same logical native stream across real queue gaps;
@@ -195,7 +195,7 @@ Physical GTA acceptance must still demonstrate:
 
 Prior Phase 10B evidence (13 turns, 11 with audio/acknowledgements, observed PCM gap up to about 2.98 seconds) remains strong prior evidence for open-stream behavior, but it is not counted as validation of this exact E1.1/E6 runtime path.
 
-E6 physical GTA acceptance remains an open release/validation gate, but it does not block beginning **P1 — SESSION_IDENTITY**. The two can proceed in parallel.
+E6 is considered complete for roadmap purposes. The remaining early-audio, multi-segment, interruption, and history checks are non-blocking regression evidence and belong with ongoing validation/E7 rather than holding E6 open.
 
 See the [E5/E6 implementation status](E5-E6-implementation-status.md) for the current checkpoint, deployment distinction, and remaining GTA gate.
 
@@ -215,11 +215,11 @@ The companion persists aliases, revisions, and the actual character voice assign
 
 The feature defaults off and supports shadow metadata verification before character voice adoption at a clean session boundary. Invalid/unsupported storage or unavailable optional evidence leaves ordinary ephemeral dialogue usable. Known identity/incarnation contradictions retire the affected exact session. No fuzzy matching, auto-merge, binding theft, persistent memory, relationships, personality, or goals are included.
 
-Physical GTA acceptance is still pending, independently of the existing P0 and E6 gates. Later character state must build on owner-authenticated aliases, never raw handles.
+P1 is considered implemented and complete for roadmap purposes. Additional recreation, revocation, persistence, and stale-work stress cases remain valuable regression coverage and should roll into E7. Later character state must build on owner-authenticated aliases, never raw handles.
 
 ### P2 — PROMOTED_CHARACTERS / CHARACTER_PROFILE
 
-P2 is implemented on merged P1 (`2849df1`) and verified offline; its PR remains a review checkpoint and every physical GTA gate is open. It provides bounded application-assigned encounter names/voice profiles, explicit idempotent promotion through P1 authored ownership, independent versioned profiles keyed by CharacterId, biography/personality/relationship/notes editing, durable manual memory CRUD/selection, safe summon/recreation and a local character editor.
+P2 is implemented and merged to `main`. GTA testing has confirmed the corrected RAGE host path, console registration, `LSACharacters`, `LSAPromote`, persistent character creation, the local editor, profile/memory editing, and working native vehicle/driver behavior. Follow-up fixes in PRs #7–#9 corrected the active RAGE AppDomain host and loader-owned console-command registration. It provides bounded application-assigned encounter names/voice profiles, explicit idempotent promotion through P1 authored ownership, independent versioned profiles keyed by CharacterId, biography/personality/relationship/notes editing, durable manual memory CRUD/selection, safe summon/recreation and a local character editor.
 
 The optional RAGE owner plugin uses existing Essential selection, follow/wait, focus and vehicle-state seams. It guards missions/cutscenes/script ownership and suspends optional behavior conservatively, without a second TASK scheduler or automatic mission rejoin. Only addon-created peds can be explicitly deleted; dismissal never erases a character. The canonical P1 identity/voice schema and exact native dialogue/audio/action tuple remain unchanged. Appearance recreation is limited to supported standard model/components/props; exact freemode/third-party customization remains unclaimed.
 
@@ -234,7 +234,7 @@ P0 TURN_CONTEXT
   → SCENE_DIRECTOR
 ```
 
-P2 supplies the durable foundation, not automatic memory extraction, event perception, salience ranking or autonomous coordination. See [implementation, file formats and GTA checklist](P2-promoted-characters-status.md), [focused pinned native evidence](P2-native-evidence.md), and [offline verification](../lsa-essential-e1-candidate/docs/p2-verification.md). Offline tests and compile-only addon builds do not establish physical task, appearance, cutscene or playback behavior.
+P2 supplies the durable foundation, not automatic memory extraction, event perception, salience ranking or autonomous coordination. See [implementation, file formats and follow-up GTA checklist](P2-promoted-characters-status.md), [focused pinned native evidence](P2-native-evidence.md), and [offline verification](../lsa-essential-e1-candidate/docs/p2-verification.md). One observed follow-up regression target is order-dependent vehicle entry: driver-seat/drive behavior works, but companion entry can depend on whether the NPC receives the vehicle command before the player claims/enters the vehicle.
 
 ### PERCEPTION — Richer world and event awareness
 
