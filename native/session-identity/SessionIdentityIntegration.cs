@@ -2,6 +2,7 @@ using System;
 using System.Diagnostics;
 using System.IO;
 using System.Security.Cryptography;
+using System.Threading;
 using System.Text.RegularExpressions;
 using System.Web.Script.Serialization;
 using LosSantosAlive.Context;
@@ -40,10 +41,31 @@ namespace LSA.SessionIdentity
         OwnerFactChannel channel;
         long lastGameTime;
         readonly Stopwatch heartbeat = new Stopwatch();
+        readonly Stopwatch diagnosticsClock = Stopwatch.StartNew();
         readonly string pipeName;
+        long updateCalls, completedUpdates, lastUpdateMs = -1, lastCompletedMs = -1;
+        int creationThreadId, lastUpdateThreadId;
+        string lastShutdownReason = "none", lastUpdateFailure = "none";
         public string Id => "sessionIdentity";
         public bool IsAvailable => store != null;
         public ExplicitCharacterSource Owner { get; private set; }
+        public string DiagnosticsStatus() => "identity_available=" + IsAvailable +
+            " identity_update_calls=" + Interlocked.Read(ref updateCalls) +
+            " identity_update_completed=" + Interlocked.Read(ref completedUpdates) +
+            " identity_last_update_age_ms=" + Age(Interlocked.Read(ref lastUpdateMs)) +
+            " identity_last_completed_age_ms=" + Age(Interlocked.Read(ref lastCompletedMs)) +
+            " identity_last_game_tick=" + lastGameTime +
+            " identity_creation_thread=" + creationThreadId +
+            " identity_update_thread=" + lastUpdateThreadId +
+            " identity_shutdown_reason=" + lastShutdownReason +
+            " identity_update_failure=" + lastUpdateFailure;
+        long Age(long stamp) => stamp < 0 ? int.MaxValue : Math.Min(int.MaxValue, diagnosticsClock.ElapsedMilliseconds - stamp);
+        static void Log(string message) { try { Game.LogTrivial(message); } catch { } }
+        static string ErrorText(Exception error)
+        {
+            string message = (error?.Message ?? "unknown").Replace('\r', ' ').Replace('\n', ' ').Replace('|', '/');
+            return error?.GetType().Name + ":" + (message.Length > 160 ? message.Substring(0, 160) : message);
+        }
         public SessionIdentityIntegration(string pipeName = "LSA.SessionIdentity.v1")
         {
             if (pipeName == null || !Regex.IsMatch(pipeName, "^[A-Za-z0-9_.-]{1,80}$")) throw new ArgumentException("Invalid identity pipe name.");
@@ -69,60 +91,61 @@ namespace LSA.SessionIdentity
         public void Initialize()
         {
             if (store != null) return;
+            creationThreadId = Thread.CurrentThread.ManagedThreadId;
             // Optional identity support fails closed on a different loaded core.
             // This read is startup-only, never in EnrichActor/Update.
             try {
                 using (var hash = SHA256.Create()) {
                     string actual = BitConverter.ToString(hash.ComputeHash(File.ReadAllBytes(typeof(IIntegration).Assembly.Location))).Replace("-", "").ToLowerInvariant();
-                    if (actual != "9b6de42d4c464901d859dd95e17e100e4fa9ef6074bfbb0cf3a57a76f6ddd653") return;
+                    if (actual != "9b6de42d4c464901d859dd95e17e100e4fa9ef6074bfbb0cf3a57a76f6ddd653") {
+                        lastShutdownReason = "core_pin_mismatch";
+                        Log("[SessionIdentity] unavailable reason=core_pin_mismatch actual_core_sha256=" + actual);
+                        return;
+                    }
                 }
-            } catch { return; }
-            store = new NativeIdentityEvidenceStore(); Owner = new ExplicitCharacterSource(store);
+            } catch (Exception error) {
+                lastShutdownReason = "core_pin_read_failed";
+                Log("[SessionIdentity] unavailable reason=core_pin_read_failed error=" + ErrorText(error));
+                return;
+            }
+            store = new NativeIdentityEvidenceStore(() => GameFiber.CanSleepNow); Owner = new ExplicitCharacterSource(store);
             channel = new OwnerFactChannel(pipeName, store.AdapterEpoch);
             store.Revoked += channel.Revoke; lastGameTime = Game.GameTime;
+            lastShutdownReason = "none"; lastUpdateFailure = "none";
             heartbeat.Restart(); channel.Start();
+            Log("[SessionIdentity] initialized thread=" + creationThreadId + " game_tick=" + lastGameTime);
         }
         public void Update()
         {
             if (store == null) return;
-            string stage = "read_clock";
+            Interlocked.Increment(ref updateCalls);
+            lastUpdateThreadId = Thread.CurrentThread.ManagedThreadId;
+            Interlocked.Exchange(ref lastUpdateMs, diagnosticsClock.ElapsedMilliseconds);
             try {
                 long now = Game.GameTime;
                 if (now < lastGameTime) {
-                    stage = "reset_owner"; Shutdown();
-                    stage = "initialize_owner"; Initialize();
-                    Game.LogTrivial(IsAvailable ? "[P1] game_clock_reset" : "[P1] game_clock_reset_unavailable");
-                    return;
+                    Log("[SessionIdentity] clock_regression previous_game_tick=" + lastGameTime + " current_game_tick=" + now +
+                        " thread=" + lastUpdateThreadId);
+                    Shutdown("clock_regression"); Initialize(); return;
                 } // Regressed game clock invalidates owner roster/epoch.
                 lastGameTime = now;
-                stage = "validate_roster";
                 store.ValidateActive();
-                stage = "dequeue_verify";
                 for (int count = 0; count < 16 && channel.TryTake(out var request); count++) {
-                    stage = "resolve_verify";
                     var status = store.TryResolveCurrent(request.PedId, now, out var claim);
-                    stage = "reply_verify";
                     channel.Reply(request, status, claim);
-                    stage = "dequeue_verify";
                 }
                 // Proves the game-fiber validation loop is alive; the pipe worker cannot mint leases.
-                stage = "heartbeat";
                 if (heartbeat.ElapsedMilliseconds >= 250) { channel.Heartbeat(); heartbeat.Restart(); }
+                Interlocked.Increment(ref completedUpdates);
+                Interlocked.Exchange(ref lastCompletedMs, diagnosticsClock.ElapsedMilliseconds);
             } catch (Exception error) {
-                // Fixed diagnostic vocabulary only: never log exception text,
-                // ped/character identifiers, pipe contents or ownership tokens.
-                string affinity = store == null ? "owner_unavailable" : store.IsOnOwnerThread ? "owner_thread_same" : "owner_thread_changed";
-                Game.LogTrivial("[P1] optional_update_failed_" + stage + "_" + FailureType(error) + "_" + affinity);
-                Shutdown();
+                lastUpdateFailure = ErrorText(error);
+                int ownerThread = creationThreadId;
+                Shutdown("update_failed");
+                Log("[SessionIdentity] update_failed error=" + lastUpdateFailure + " owner_thread=" + ownerThread +
+                    " update_thread=" + lastUpdateThreadId + " game_tick=" + lastGameTime +
+                    " update_calls=" + Interlocked.Read(ref updateCalls) + " update_completed=" + Interlocked.Read(ref completedUpdates));
             } // Optional evidence cannot throw into Essential's update loop.
-        }
-        static string FailureType(Exception error)
-        {
-            if (error is ObjectDisposedException) return "ObjectDisposedException";
-            if (error is InvalidOperationException) return "InvalidOperationException";
-            if (error is IOException) return "IOException";
-            if (error is ArgumentException) return "ArgumentException";
-            return "other_exception";
         }
         public void EnrichActor(Ped ped, ActorContext context)
         {
@@ -133,12 +156,16 @@ namespace LSA.SessionIdentity
                 context.IntegrationBlocks.Add(new IntegrationJsonBlock(Id, new JavaScriptSerializer { MaxJsonLength = 4096 }.Serialize(claim)));
             } catch { /* Optional evidence unavailable; Essential owns ordinary context. */ }
         }
-        public void Shutdown()
+        public void Shutdown() => Shutdown("integration_shutdown");
+        void Shutdown(string reason)
         {
+            lastShutdownReason = reason;
             if (store == null) return;
             Game.LogTrivial("[P1] identity_shutdown");
             try { store.Clear(); } catch { }
             channel.Dispose(); store = null; Owner = null; heartbeat.Stop();
+            Log("[SessionIdentity] shutdown reason=" + reason + " thread=" + Thread.CurrentThread.ManagedThreadId +
+                " update_calls=" + Interlocked.Read(ref updateCalls) + " update_completed=" + Interlocked.Read(ref completedUpdates));
         }
         public void OnPedControlChanged(Ped ped, bool controlledByLsa) { }
         public void OnNpcActionExecuted(Ped ped, string actionName, bool succeeded) { }

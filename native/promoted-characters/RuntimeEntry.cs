@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using System.Threading;
 using System.Web.Script.Serialization;
 using LosSantosAlive.Integrations;
@@ -25,6 +26,7 @@ namespace LSA.PromotedCharacters
             if(Interlocked.CompareExchange(ref startClaim,1,0)!=0) return false;
             // Remoting only schedules; native work executes in a game fiber.
             GameFiber.StartNew(()=>{
+                string exitReason="host_unavailable";
                 try {
                     GameFiber.Yield();
                     if(stopping) return;
@@ -35,18 +37,34 @@ namespace LSA.PromotedCharacters
                         try {
                             intelligence=new LSA.Intelligence.IntelligenceIntegration(integration.PerceptionRoster,config.intelligence.pipeName);
                             integration.OwnerRetired+=intelligence.OwnerRetired;
-                            IntegrationManager.Register(intelligence);
+                            IntegrationManager.Register(intelligence);intelligence.Initialize();
                         } catch {Game.LogTrivial("[PS] optional_host_unavailable");}
                     }
-                    Game.LogTrivial("[P2] integrations_registered");
-                    while(!stopping && integration.IsAvailable) GameFiber.Sleep(100);
-                    Game.LogTrivial(stopping?"[P2] native_host_shutdown_requested":"[P2] native_integration_became_unavailable");
-                } catch {Game.LogTrivial("[P2] host_initialization_failed");}
-                finally {try {intelligence?.Shutdown();} finally {try {integration?.RequestShutdown();} finally {finished=true;Game.LogTrivial("[P2] native_host_stopped");}}}
+                    Game.LogTrivial(integration.IsAvailable?"[P2] integrations_installed":"[P2] integration_unavailable");
+                    var statusClock=Stopwatch.StartNew();long nextStatus=0;
+                    while(!stopping && integration.IsAvailable) {
+                        if(intelligence!=null && statusClock.ElapsedMilliseconds>=nextStatus) {
+                            nextStatus=statusClock.ElapsedMilliseconds+10000;
+                            ReportStatus();
+                        }
+                        GameFiber.Sleep(100);
+                    }
+                } catch {exitReason="host_failed";LSA.Intelligence.IntelligenceIntegration.LogStatus("[P2] host_initialization_failed");}
+                finally {
+                    if(stopping) exitReason="host_stop_requested";
+                    LSA.Intelligence.IntelligenceIntegration.LogStatus("[P2] host_exit reason="+exitReason+" p2_reason="+(integration?.UnavailabilityReason??"not_initialized"));
+                    if(intelligence!=null) ReportStatus();
+                    try {intelligence?.Shutdown(exitReason);} finally {try {integration?.RequestShutdown();} finally {finished=true;Game.LogTrivial("[P2] native_host_stopped");}}
+                }
             },"LSA character host lifetime");
             return true;
         }
         public static void Stop()=>stopping=true;
+        static void ReportStatus() {
+            // Observe from the existing host fiber even if Core stops dispatching Update.
+            // This never drives sampling or emits new factual frames.
+            LSA.Intelligence.IntelligenceIntegration.LogStatus("[PS] host_status p2_available="+(integration?.IsAvailable==true)+" p2_reason="+(integration?.UnavailabilityReason??"not_initialized")+" "+intelligence.RuntimeStatus()+" "+(integration?.IdentityRuntimeStatus??"identity_status=none"));
+        }
         public sealed class Config
         {
             public bool enabled {get;set;} public string worldProfileId {get;set;}

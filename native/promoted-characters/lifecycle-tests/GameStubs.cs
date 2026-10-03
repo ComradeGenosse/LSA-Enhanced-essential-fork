@@ -112,6 +112,7 @@ namespace LosSantosAlive.NPC
 namespace LSA.Intelligence
 {
     public sealed class OwnedParticipant { public Rage.Ped Ped; public string Lifetime; public Func<bool> Current; }
+    public static class IntelligenceIntegration { internal static void LogStatus(string message)=>Rage.Game.LogTrivial(message); }
 }
 namespace LSA.SessionIdentity
 {
@@ -143,6 +144,7 @@ namespace LSA.SessionIdentity
     {
         public static SessionIdentityIntegration Current;
         public bool IsAvailable => Owner != null;
+        public string DiagnosticsStatus()=>"identity_status=test";
         public int InitializationThread {get;private set;}
         public int InitializationCalls {get;private set;}
         public ExplicitCharacterSource Owner {get;private set;}

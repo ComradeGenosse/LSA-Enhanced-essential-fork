@@ -79,6 +79,8 @@ namespace LSA.PromotedCharacters
         public event Action<string> OwnerRetired;
         public bool IsAvailable=>prepared && !shutdown;
         public bool IsReady=>ready && !shutdownRequested && !shutdown;
+        internal string UnavailabilityReason=>shutdown?"shutdown":"none";
+        internal string IdentityRuntimeStatus=>"identity_status=test";
         public PromotedCharactersIntegration(string world,string pipe,string identityPipe)=>Interlocked.Increment(ref Constructed);
         public LSA.Intelligence.OwnedParticipant[] PerceptionRoster()=>new LSA.Intelligence.OwnedParticipant[0];
         public void Prepare()
@@ -111,5 +113,9 @@ namespace LSA.Intelligence
         public IntelligenceIntegration(Func<OwnedParticipant[]> roster,string pipeName) { }
         public void OwnerRetired(string incarnationId) { }
         public void Shutdown() { }
+        public void Shutdown(string reason) { }
+        public void Initialize() { }
+        internal string RuntimeStatus()=>"test";
+        internal static void LogStatus(string message)=>Rage.Game.LogTrivial(message);
     }
 }

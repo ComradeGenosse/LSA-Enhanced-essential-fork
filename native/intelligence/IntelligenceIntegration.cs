@@ -59,8 +59,21 @@ namespace LSA.Intelligence
         volatile bool damageReady;
         int damagePinAttempt;
         bool stopped,started,playback;
+        long updateCalls,completedUpdates,lastUpdateMs=-1,lastCompletedMs=-1;
+        string shutdownReason="none";
         public string Id=>"intelligence";
         public bool IsAvailable=>started&&!stopped;
+        public long UpdateCalls=>Interlocked.Read(ref updateCalls);
+        public long CompletedUpdates=>Interlocked.Read(ref completedUpdates);
+        public string ShutdownReason=>shutdownReason;
+        static void Count(ref long value) {
+            long current;
+            do {current=Interlocked.Read(ref value);if(current>=int.MaxValue) return;}
+            while(Interlocked.CompareExchange(ref value,current+1,current)!=current);
+        }
+        int Age(long timestamp)=>timestamp<0?int.MaxValue:Clamp(clock.ElapsedMilliseconds-timestamp);
+        internal string RuntimeStatus()=>"available="+IsAvailable+" update_calls="+UpdateCalls+" update_completed="+CompletedUpdates+" last_update_age_ms="+Age(Interlocked.Read(ref lastUpdateMs))+" last_completed_age_ms="+Age(Interlocked.Read(ref lastCompletedMs))+" last_game_tick="+callbackTick+" shutdown_reason="+ShutdownReason;
+        internal static void LogStatus(string message) {try{Game.LogTrivial(message);}catch{}}
         static readonly string[] capabilityNames={"snapshot","pedDamage","playerDamage","vehicleDamage","shooting","state","action","playback","witness","awareness"};
         public IntelligenceIntegration(Func<OwnedParticipant[]> roster,string pipeName="LSA.Intelligence.v1") {if(pipeName==null||!System.Text.RegularExpressions.Regex.IsMatch(pipeName,"^[A-Za-z0-9_.-]{1,80}$")) throw new ArgumentException();this.roster=roster;this.pipeName=pipeName;capabilities=capabilityNames.ToDictionary(k=>k,k=>false);}
         static bool Pinned(System.Reflection.Assembly assembly,string pin)
@@ -78,7 +91,7 @@ namespace LSA.Intelligence
                 catch {try{NpcPlaybackCoordinator.PlaybackStarted-=PlaybackStarted;NpcPlaybackCoordinator.PlaybackEnded-=PlaybackEnded;}catch{}}
                 channel=new IntelligenceChannel(pipeName,Guid.NewGuid().ToString("D"),()=>capabilities);channel.Start();
                 previousTick=unchecked((uint)Game.GameTime);started=true;Game.LogTrivial("[PS] native_adapter_loaded shadow");
-            } catch {Shutdown();Game.LogTrivial("[PS] optional_initialization_failed");}
+            } catch {Shutdown("initialization_failed");LogStatus("[PS] optional_initialization_failed");}
         }
         void AssemblyLoaded(object sender,AssemblyLoadEventArgs e) {if(e.LoadedAssembly.GetName().Name=="DamageTrackerLib") QueueDamagePin();}
         void QueueDamagePin()
@@ -134,7 +147,7 @@ namespace LSA.Intelligence
                 foreach(var a in anchors.Current.Where(a=>a.OwnerLifetime==lifetime)) if(a.Entity is Ped p && Live(p,a.Handle,a.Address) && p.IsDead) Sample(a,callbackTick,clock.ElapsedMilliseconds);
                 for(int n=0;n<32;n++) {var s=sensors.Take();if(s==null) break;Publish(s,clock.ElapsedMilliseconds);}
                 anchors.RevokeOwner(lifetime);UpdateIndexes();FlushControls();
-            }catch{Shutdown();}
+            }catch{Shutdown("owner_retirement_failed");}
         }
         void UpdateIndexes()
         {
@@ -147,6 +160,7 @@ namespace LSA.Intelligence
         {
             if(!IsAvailable) return;
             var budget=Stopwatch.StartNew();long now=clock.ElapsedMilliseconds;
+            Count(ref updateCalls);Interlocked.Exchange(ref lastUpdateMs,now);
             try {
                 if(damageReady && damage==null) TryDamage();
                 if(!damageReady && damage!=null) {damage.Dispose();damage=null;}
@@ -225,7 +239,8 @@ namespace LSA.Intelligence
                     channel.Send("diagnostics",new {anchors=anchors.Count,observers=anchors.ObserverCount,snapshotAgeMs=age,snapshotCadenceMs=Clamp(snapshotCadence),dropped=Clamp(sensors.Dropped+channel.Dropped),staleRejected=Clamp(staleRejected),retiredAnchors=Clamp(retiredAnchors),deferredDiscovery=Clamp(deferredDiscovery),updateMicros=Clamp((long)(budget.Elapsed.TotalMilliseconds*1000)),capabilities,signals,damageCallbacks});
                     if(now>=nextLog) {nextLog=now+10000;Game.LogTrivial("[PS] shadow anchors="+anchors.Count+" observers="+anchors.ObserverCount+" snapshot_age_ms="+age+" snapshot_cadence_ms="+Clamp(snapshotCadence)+" dropped="+Clamp(sensors.Dropped+channel.Dropped)+" stale="+Clamp(staleRejected)+" retired="+Clamp(retiredAnchors)+" deferred="+Clamp(deferredDiscovery)+" update_us="+Clamp((long)(budget.Elapsed.TotalMilliseconds*1000))+" capabilities="+string.Join(",",capabilities.Where(c=>c.Value).Select(c=>c.Key))+" damage_callbacks=ped:"+damageCallbacks["ped_damage"]+",player:"+damageCallbacks["player_damage"]+",vehicle:"+damageCallbacks["vehicle_damage"]+" signals="+string.Join(",",signals.Select(c=>c.Key+":"+c.Value)));}
                 }
-            } catch {Game.LogTrivial("[PS] optional_update_failed");Shutdown();}
+                Count(ref completedUpdates);Interlocked.Exchange(ref lastCompletedMs,clock.ElapsedMilliseconds);
+            } catch {LogStatus("[PS] optional_update_failed");Shutdown("update_failed");}
         }
         static int Clamp(long n)=>(int)Math.Min(int.MaxValue,Math.Max(0,n));
         void Sample(EntityAnchor a,uint tick,long now)
@@ -270,8 +285,11 @@ namespace LSA.Intelligence
         public void EnrichActor(Ped ped,ActorContext context) {} // No model-visible block.
         public void OnPedControlChanged(Ped ped,bool controlledByLsa) {}
         public void Shutdown()
+        {Shutdown("integration_shutdown");}
+        internal void Shutdown(string reason)
         {
-            if(stopped) return;stopped=true;sensors.Enabled=false;
+            if(stopped) return;shutdownReason=reason;stopped=true;sensors.Enabled=false;
+            LogStatus("[PS] shutdown "+RuntimeStatus());
             AppDomain.CurrentDomain.AssemblyLoad-=AssemblyLoaded;
             try{damage?.Dispose();}catch{}damage=null;
             if(playback) {try{NpcPlaybackCoordinator.PlaybackStarted-=PlaybackStarted;NpcPlaybackCoordinator.PlaybackEnded-=PlaybackEnded;}catch{}playback=false;}

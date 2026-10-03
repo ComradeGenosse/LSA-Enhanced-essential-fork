@@ -42,6 +42,8 @@
 **/promoted-characters/facts-tests/obj/
 **/promoted-characters/host-tests/bin/
 **/promoted-characters/host-tests/obj/
+**/promoted-characters/lifecycle-tests/bin/
+**/promoted-characters/lifecycle-tests/obj/
 **/intelligence/tests/bin/
 **/intelligence/tests/obj/
 **/intelligence/integration-tests/bin/

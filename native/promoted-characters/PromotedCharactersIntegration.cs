@@ -39,6 +39,7 @@ namespace LSA.PromotedCharacters
         long lastGameTime;
         bool prepared,shutdown;
         volatile bool shutdownRequested;
+        string shutdownReason="none";
         public event Action<string> OwnerRetired;
         public LSA.Intelligence.OwnedParticipant[] PerceptionRoster() => encounters.Values.Where(e=>e.Registration!=null && Alive(e)).Select(e=> {
             var registration=e.Registration;
@@ -52,6 +53,8 @@ namespace LSA.PromotedCharacters
         // P1/P2's stores and channels on its own initialization/update fiber.
         public bool IsAvailable => prepared && !shutdown && (shutdownRequested || channel == null || identity?.IsAvailable == true);
         public bool IsReady => channel != null && identity?.IsAvailable == true && !shutdown && !shutdownRequested;
+        internal string UnavailabilityReason => shutdown?shutdownReason:channel==null?"not_initialized":identity?.IsAvailable!=true?"identity_unavailable":"none";
+        internal string IdentityRuntimeStatus => identity?.DiagnosticsStatus() ?? "identity_status=none";
         static long Now => DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
         public PromotedCharactersIntegration(string worldProfileId,string pipeName = "LSA.PromotedCharacters.v1",string identityPipeName = "LSA.SessionIdentity.v1")
         {
@@ -138,7 +141,7 @@ namespace LSA.PromotedCharacters
                     catch { request.Reason = "native_operation_failed"; }
                     finally { request.Done.Set(); }
                 }
-            } catch { Game.LogTrivial("[P2] optional_update_failed"); Shutdown(); }
+            } catch { LSA.Intelligence.IntelligenceIntegration.LogStatus("[P2] optional_update_failed"); Shutdown("update_failed"); }
         }
         static void Fields(Dictionary<string,object> args,params string[] fields) { if (args.Count != fields.Length || fields.Any(field => !args.ContainsKey(field))) throw new InvalidOperationException("invalid_owner_arguments"); }
         static string Text(Dictionary<string,object> args,string key) { if (!args.TryGetValue(key,out var value) || !(value is string text) || text.Length > 80) throw new InvalidOperationException("invalid_owner_arguments"); return text; }
@@ -275,8 +278,12 @@ namespace LSA.PromotedCharacters
         // must retire evidence and perform any native cleanup on its owner fiber.
         public void RequestShutdown() => shutdownRequested = true;
         public void Shutdown()
+        {Shutdown("integration_shutdown");}
+        internal void Shutdown(string reason)
         {
-            if (shutdown) return; shutdown = true; channel?.Dispose(); channel = null;
+            if (shutdown) return; shutdownReason=reason; shutdown = true;
+            LSA.Intelligence.IntelligenceIntegration.LogStatus("[P2] shutdown reason="+shutdownReason);
+            channel?.Dispose(); channel = null;
             foreach (var encounter in encounters.Values) {
                 try { if (Alive(encounter) && Safe(encounter)) { Suspend(encounter); if (encounter.Created) encounter.Ped.Dismiss(); } } catch { }
                 // Failed optional native cleanup cannot keep an ownership claim.
