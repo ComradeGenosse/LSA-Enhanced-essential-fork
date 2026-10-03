@@ -28,6 +28,18 @@ namespace LSA.Intelligence
         public IEnumerable<EntityAnchor> Current => entries.Values.ToArray();
         public int Count => entries.Count;
         public int ObserverCount => entries.Values.Count(a=>a.Observer);
+        // Apply a game-path priority list atomically. First item wins; old lower
+        // priority anchors are demoted in place, preserving their exact lifetime.
+        public void SetObserverPriority(IEnumerable<string> orderedCaptureRefs)
+        {
+            foreach(var a in entries.Values) a.Observer=false;
+            var admitted=new HashSet<string>();
+            foreach(var captureRef in orderedCaptureRefs??Enumerable.Empty<string>()) {
+                if(admitted.Count>=ObserverLimit) break;
+                if(captureRef==null || admitted.Contains(captureRef) || !entries.TryGetValue(captureRef,out var a) || a.Kind!="ped") continue;
+                admitted.Add(captureRef);a.Observer=true;
+            }
+        }
         public EntityAnchor Retain(object entity, ulong handle, IntPtr address, string kind, string ownerLifetime, Func<bool> validate, long now, bool observer = false)
         {
             if(entity==null || address==IntPtr.Zero || validate==null || !validate()) return null;

@@ -22,8 +22,8 @@ class Program
     {
         var unavailable=new IntelligenceIntegration(()=>new OwnedParticipant[0]);unavailable.Initialize();Check(!unavailable.IsAvailable,"missing pinned core fails closed");Check(Rage.Native.NativeFunction.Reads==0,"missing capability no game work");
         var player=new Ped {Handle=1,MemoryAddress=new IntPtr(1)};var actor=new Ped {Handle=2,MemoryAddress=new IntPtr(2)};
-        Game.LocalPlayer.Character=player;NpcTargeting.Conversation=actor;bool owned=true;var lifetime=Guid.NewGuid().ToString("D");
-        var integration=new IntelligenceIntegration(()=>owned?new[]{new OwnedParticipant {Ped=actor,Lifetime=lifetime,Current=()=>owned&&actor.Existing}}:new OwnedParticipant[0],"LSA.Integration.Tests."+Guid.NewGuid().ToString("N"));
+        Game.LocalPlayer.Character=player;NpcTargeting.Conversation=actor;bool owned=true;var lifetime=Guid.NewGuid().ToString("D");var rosterList=new List<OwnedParticipant> {new OwnedParticipant {Ped=actor,Lifetime=lifetime,Current=()=>owned&&actor.Existing}};
+        var integration=new IntelligenceIntegration(()=>owned?rosterList.ToArray():new OwnedParticipant[0],"LSA.Integration.Tests."+Guid.NewGuid().ToString("N"));
         // Startup pin verification is independently tested above. The game harness
         // substitutes only external APIs, then executes the real Update/Sample code.
         Set(integration,"started",true);var sensors=(SensorAdapters)Get(integration,"sensors");sensors.Enabled=true;
@@ -44,6 +44,17 @@ class Program
         actor.IsDead=true;actor.Health=0;Tick(integration);Check(sensors.Counters.TryGetValue("death",out var deaths)&&deaths==1,"real retained alive to dead");
         actor.Existing=false;Tick(integration);Check(sensors.Counters["death"]==1,"disappearance is not another death");
         owned=false;integration.OwnerRetired(lifetime);Check(!anchors.Current.Any(a=>a.OwnerLifetime==lifetime),"owner revoke clears original anchor");
+        rosterList.Clear();owned=true;
+        for(int n=0;n<16;n++) {var promoted=new Ped {Handle=(uint)(100+n),MemoryAddress=new IntPtr(100+n)};var ownerLifetime=Guid.NewGuid().ToString("D");rosterList.Add(new OwnedParticipant {Ped=promoted,Lifetime=ownerLifetime,Current=()=>promoted.Existing});}
+        var conversation=new Ped {Handle=99,MemoryAddress=new IntPtr(99)};NpcTargeting.Conversation=conversation;Tick(integration);
+        var conversationAnchor=anchors.Current.Single(a=>ReferenceEquals(a.Entity,conversation));var ownedObservers=anchors.Current.Where(a=>a.OwnerLifetime!=null&&a.Observer).ToArray();var demotedOwned=anchors.Current.Single(a=>a.OwnerLifetime!=null&&!a.Observer);
+        Check(conversationAnchor.Observer&&anchors.ObserverCount==16,"conversation NPC takes priority at full 16 promoted observers");
+        Check(ownedObservers.Length==15&&demotedOwned.OwnerLifetime!=null&&anchors.Resolve(demotedOwned.CaptureRef)==demotedOwned,"lowest-priority promoted observer demoted safely");
+        var conversationToken=conversationAnchor.CaptureRef;var nextConversation=new Ped {Handle=98,MemoryAddress=new IntPtr(98)};NpcTargeting.Conversation=nextConversation;Tick(integration);
+        var nextAnchor=anchors.Current.Single(a=>ReferenceEquals(a.Entity,nextConversation));
+        Check(nextAnchor.Observer&&anchors.ObserverCount==16&&!conversationAnchor.Observer&&anchors.Resolve(conversationToken)==conversationAnchor,"changing conversation demotes prior target without retargeting token");
+        NpcTargeting.Conversation=conversation;Tick(integration);
+        Check(anchors.Current.Single(a=>ReferenceEquals(a.Entity,conversation)).CaptureRef==conversationToken&&conversationAnchor.Observer&&anchors.ObserverCount==16,"returning conversation restores same lifetime without token reuse");
         var replacement=new Ped {Handle=2,MemoryAddress=new IntPtr(2)};
         var old=anchors.Current.FirstOrDefault(a=>a.Handle==4);if(old!=null) {
             var newWrapper=new Ped {Handle=4,MemoryAddress=new IntPtr(4)};

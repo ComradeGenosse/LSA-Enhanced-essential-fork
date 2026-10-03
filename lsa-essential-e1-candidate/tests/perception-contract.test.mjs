@@ -85,6 +85,12 @@ test('expired callback facts rejected and collision primitive copied immutably',
   const collision={x:1,y:2,z:3};const s=f.signal({producer:'vehicle_damage',kind:'vehicle_damage',target:f.vehicle,facts:{damage:1,armour:0,classification:'collision',collision}});
   assert.equal(f.ingest(f.frame('signal',s)),true);collision.x=99;assert.equal(f.runtime.signals[0].value.facts.collision.x,1);
 });
+test('damage callback diagnostics distinguish bounded ped, player and vehicle totals',()=>{
+  const f=fixture(),p={anchors:4,observers:1,snapshotAgeMs:0,snapshotCadenceMs:200,dropped:0,staleRejected:0,retiredAnchors:0,deferredDiscovery:0,updateMicros:200,capabilities:f.caps,signals:{},damageCallbacks:{ped_damage:2,player_damage:1,vehicle_damage:0}};
+  assert.equal(validateFrame(f.frame('diagnostics',p)),true);
+  assert.equal(validateFrame(f.frame('diagnostics',{...p,damageCallbacks:{ped_damage:2,player_damage:1}})),false);
+  assert.equal(validateFrame(f.frame('diagnostics',{...p,damageCallbacks:{ped_damage:2,player_damage:1,vehicle_damage:0,handles:[1]}})),false);
+});
 function observation(observer,episodeId=randomUUID()) {return {version:1,observationId:randomUUID(),episodeId,revision:1,observer:{captureRef:observer,kind:'ped'},observedAt:{nativeRun:randomUUID(),gameTick:1,receivedUtc:'2026-10-03T00:00:00.000Z'},expiresAtMonotonicMs:30000,eventType:'injury',severity:'danger',claims:[{claimId:randomUUID(),kind:'injured',certainty:'supported',evidence:{channel:'self',basis:'native_callback',sampledGameTick:1},details:{damageDelta:1,armourDelta:0}}],recognizedCharacterIds:[]};}
 test('observation revisions immutable, bounded, expire and retire with observer',()=>{
   let now=0,live=true;const observer=randomUUID(),store=new ObservationStore({now:()=>now,current:()=>live}),o=observation(observer);

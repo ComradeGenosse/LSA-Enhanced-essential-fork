@@ -6,12 +6,12 @@ export class ShadowRuntime {
   constructor({ mode='off', now=()=>Math.floor(performance.now()) }={}) {
     this.mode=mode;this.now=now;this.anchors=new Map();this.signals=[];this.sequence=0;this.producers=new Map();this.epoch=null;this.stream=null;this.lastReceipt=0;
     this.counters=Object.fromEntries(['received','dropped','stale','malformed','duplicate','gaps','expired','resets'].map(k=>[k,0]));
-    this.capabilities=Object.fromEntries(CAPABILITIES.map(k=>[k,false]));
+    this.capabilities=Object.fromEntries(CAPABILITIES.map(k=>[k,false]));this.diagnostics=null;
     this.observations=new ObservationStore({now,current:ref=>this.current(ref)});
     this.episodes=new EpisodeStore({now,current:ref=>this.current(ref)});
   }
   count(k) { this.counters[k]=Math.min(2147483647,this.counters[k]+1); }
-  reset() { this.anchors.clear();this.signals=[];this.producers.clear();this.observations.clear();this.episodes.clear();this.epoch=null;this.stream=null;this.sequence=0;this.lastReceipt=0;this.capabilities=Object.fromEntries(CAPABILITIES.map(k=>[k,false]));this.count('resets'); }
+  reset() { this.anchors.clear();this.signals=[];this.producers.clear();this.observations.clear();this.episodes.clear();this.epoch=null;this.stream=null;this.sequence=0;this.lastReceipt=0;this.diagnostics=null;this.capabilities=Object.fromEntries(CAPABILITIES.map(k=>[k,false]));this.count('resets'); }
   current(ref) {const a=this.anchors.get(ref);return Boolean(a && a.expires>this.now() && this.epoch);}
   expire() {
     if(this.epoch && this.now()-this.lastReceipt>3000) {this.reset();return;}
@@ -40,7 +40,7 @@ export class ShadowRuntime {
     }
     if(v.type==='retire') {this.retire(v.payload.captureRef);return true;}
     if(v.type==='retire_batch') {for(const ref of v.payload) this.retire(ref);return true;}
-    if(v.type==='diagnostics') {this.diagnostics=Object.freeze({...v.payload});this.capabilities=Object.freeze({...v.payload.capabilities});return true;}
+    if(v.type==='diagnostics') {this.diagnostics=Object.freeze({...v.payload,damageCallbacks:Object.freeze({...v.payload.damageCallbacks})});this.capabilities=Object.freeze({...v.payload.capabilities});return true;}
     const s=v.payload, cap={ped_damage:'pedDamage',player_damage:'playerDamage',vehicle_damage:'vehicleDamage',shooting:'shooting',state:'state',action:'action',playback:'playback'}[s.producer];
     if(!this.capabilities[cap]) {this.count('stale');return false;}
     if(s.producerSequence<=(this.producers.get(s.producer)||0)) {this.count('duplicate');return false;}

@@ -30,6 +30,14 @@ class Program
         Check(original.CaptureRef!=reused.CaptureRef && anchors.Resolve(original.CaptureRef)==null,"same handle/address new retained object fails closed");anchors.Clear();
         for(int n=0;n<16;n++) Check(anchors.Retain(new object(),(ulong)n+1,new IntPtr(n+1),"ped",null,()=>true,0,true)!=null,"observer admission");
         Check(anchors.Retain(new object(),99,new IntPtr(99),"ped",null,()=>true,0,true)==null,"observer cap");
+        var firstPriority=anchors.Current.OrderBy(a=>a.Handle).First();var secondPriority=anchors.Current.OrderBy(a=>a.Handle).Skip(1).First();var priorityToken=firstPriority.CaptureRef;var demotedToken=anchors.Current.OrderBy(a=>a.Handle).Last().CaptureRef;
+        var conversationAnchor=anchors.Retain(new object(),99,new IntPtr(99),"ped",null,()=>true,1);var conversationToken=conversationAnchor.CaptureRef;
+        anchors.SetObserverPriority(new[]{conversationToken}.Concat(anchors.Current.Where(a=>a.CaptureRef!=conversationToken).OrderBy(a=>a.Handle).Take(15).Select(a=>a.CaptureRef)));
+        Check(conversationAnchor.Observer&&anchors.ObserverCount==16,"conversation gets priority at full promoted observer cap");
+        Check(!anchors.Current.Single(a=>a.CaptureRef==demotedToken).Observer&&anchors.Resolve(demotedToken)!=null,"lower priority observer demoted without retiring lifetime");
+        anchors.SetObserverPriority(new[]{secondPriority.CaptureRef});Check(secondPriority.Observer&&!conversationAnchor.Observer&&anchors.ObserverCount==1,"changing conversation demotes prior target");
+        anchors.SetObserverPriority(new[]{conversationToken,priorityToken});Check(conversationAnchor.Observer&&firstPriority.Observer&&anchors.ObserverCount==2,"returning conversation promotes retained lifetimes");
+        Check(anchors.Resolve(priorityToken)==firstPriority&&anchors.Resolve(conversationToken)==conversationAnchor&&conversationToken!=demotedToken,"conversation changes never reuse or retarget captureRefs");
         for(int n=16;n<256;n++) anchors.Retain(new object(),(ulong)n+1,new IntPtr(n+1),"ped",null,()=>true,0);
         Check(anchors.Count==256&&anchors.Retain(new object(),999,new IntPtr(999),"vehicle",null,()=>true,0)==null,"anchor cap");anchors.Clear();Check(anchors.Count==0,"anchor reset");
         var sensors=new SensorAdapters();string target=Guid.NewGuid().ToString("D"),attacker=Guid.NewGuid().ToString("D");
@@ -38,8 +46,10 @@ class Program
             Check(callbacks.Running,"existing service available");
             DamageTrackerService.Ped(new PedDamageInfo {PedHandle=1,AttackerPedHandle=2,Damage=10,ArmourDamage=3,WeaponInfo=new WeaponDamageInfo {Type=DamageType.Pistol}});
             var signal=sensors.Take();Check(signal.target==target&&signal.source==attacker&&signal.gameTick==42&&(string)signal.facts["classification"]=="bullet","ped callback facts");
+            Check(sensors.DamageCallbacks["ped_damage"]==1&&sensors.DamageCallbacks["player_damage"]==0,"NPC callback diagnostic separated from player callback");
             DamageTrackerService.Ped(new PedDamageInfo {PedHandle=1,AttackerPedHandle=0,Damage=1},true);
             signal=sensors.Take();Check(signal.producer=="player_damage"&&signal.source==null,"player absent attacker");
+            Check(sensors.DamageCallbacks["ped_damage"]==1&&sensors.DamageCallbacks["player_damage"]==1,"one canonical player callback counted once");
             DamageTrackerService.Ped(new PedDamageInfo {PedHandle=99,AttackerPedHandle=99,Damage=1,WeaponInfo=new WeaponDamageInfo {Type=(DamageType)999}});
             signal=sensors.Take();Check(signal.target==null&&signal.source==null&&(string)signal.facts["classification"]=="unknown","unknown participants and type");
             DamageTrackerService.Vehicle(new VehDamageInfo {VehHandle=3,Damage=4,LastCollisionPosition=new Rage.Vector3 {X=1,Y=2,Z=3},WeaponInfo=new WeaponDamageInfo {Type=DamageType.Vehicle}});

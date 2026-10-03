@@ -135,13 +135,28 @@ namespace LSA.Intelligence
                     var player=Game.LocalPlayer.Character;
                     foreach(var oldPlayer in anchors.Current.Where(a=>a.Kind=="player" && !ReferenceEquals(a.Entity,player))) anchors.Retire(oldPlayer.CaptureRef);
                     Retain(player,"player");
-                    var owned=roster();var selected=NpcTargeting.GetPlayerConversationPed()??NpcTargeting.GetCurrentSpeakerPed();
+                    var owned=roster()??new OwnedParticipant[0];var selected=NpcTargeting.GetPlayerConversationPed()??NpcTargeting.GetCurrentSpeakerPed();
                     if(selected==player) selected=null;
-                    var selectedOwner=owned.FirstOrDefault(p=>p.Ped==selected);
-                    conversationRef=selected==null?null:Retain(selectedOwner?.Ped??selected,"ped",selectedOwner?.Lifetime,true,selectedOwner?.Current)?.CaptureRef;
-                    foreach(var p in owned.Take(16)) Retain(p.Ped,"ped",p.Lifetime,true,p.Current);
-                    var observerHandles=new HashSet<ulong>(owned.Select(p=>Convert.ToUInt64(p.Ped.Handle)));if(selected!=null) observerHandles.Add(Convert.ToUInt64(selected.Handle));
-                    foreach(var a in anchors.Current.Where(a=>a.Observer && !observerHandles.Contains(a.Handle)).ToArray()) anchors.Retire(a.CaptureRef);
+                    var selectedOwner=owned.FirstOrDefault(p=>p?.Ped!=null && ReferenceEquals(p.Ped,selected));
+                    var orderedOwned=owned.Where(p=>p?.Ped!=null).OrderBy(p=>p.Lifetime,StringComparer.Ordinal).ToArray();
+                    var ownedPriority=orderedOwned.Where(p=>selectedOwner==null || p.Lifetime!=selectedOwner.Lifetime).Take(selected==null?16:15).ToList();
+                    if(selectedOwner!=null) ownedPriority.Insert(0,selectedOwner);
+                    var ownedRetained=orderedOwned.Take(16).ToList();
+                    if(selectedOwner!=null && !ownedRetained.Any(p=>p.Lifetime==selectedOwner.Lifetime)) ownedRetained.Add(selectedOwner);
+                    // Retain before applying the priority list, without claiming slots
+                    // incrementally. This lets the current conversation displace a
+                    // stale/lower priority observer in the same bounded discovery tick.
+                    var selectedAnchor=selected==null?null:Retain(selectedOwner?.Ped??selected,"ped",selectedOwner?.Lifetime,false,selectedOwner?.Current);
+                    foreach(var p in ownedRetained) Retain(p.Ped,"ped",p.Lifetime,false,p.Current);
+                    var priorityRefs=new List<string>();
+                    if(selectedAnchor!=null) priorityRefs.Add(selectedAnchor.CaptureRef);
+                    foreach(var p in ownedPriority) {
+                        var a=anchors.Current.FirstOrDefault(x=>x.Kind=="ped" && ReferenceEquals(x.Entity,p.Ped) && x.OwnerLifetime==p.Lifetime);
+                        if(a!=null && !priorityRefs.Contains(a.CaptureRef)) priorityRefs.Add(a.CaptureRef);
+                    }
+                    anchors.SetObserverPriority(priorityRefs);
+                    conversationRef=selectedAnchor?.CaptureRef;
+                    UpdateIndexes();
                     bool snapshotAvailable=PerceptionSystem.TryGetSnapshot(out var snapshot)&&snapshot!=null&&snapshot.IsValid;
                     var updated=new Dictionary<string,bool>(capabilities);updated["snapshot"]=snapshotAvailable;
                     bool running=false;try{running=damage?.Running==true;}catch{}updated["pedDamage"]=running;updated["playerDamage"]=running;updated["vehicleDamage"]=running;capabilities=updated;
@@ -182,8 +197,9 @@ namespace LSA.Intelligence
                 if(now>=nextDiagnostics) {
                     nextDiagnostics=now+1000;int age=capabilities["snapshot"]?(int)Math.Min(int.MaxValue,(long)unchecked(tick-snapshotTick)):int.MaxValue;
                     var signals=sensors.Counters;
-                    channel.Send("diagnostics",new {anchors=anchors.Count,observers=anchors.ObserverCount,snapshotAgeMs=age,snapshotCadenceMs=Clamp(snapshotCadence),dropped=Clamp(sensors.Dropped+channel.Dropped),staleRejected=Clamp(staleRejected),retiredAnchors=Clamp(retiredAnchors),deferredDiscovery=Clamp(deferredDiscovery),updateMicros=Clamp((long)(budget.Elapsed.TotalMilliseconds*1000)),capabilities,signals});
-                    if(now>=nextLog) {nextLog=now+10000;Game.LogTrivial("[PS] shadow anchors="+anchors.Count+" observers="+anchors.ObserverCount+" snapshot_age_ms="+age+" snapshot_cadence_ms="+Clamp(snapshotCadence)+" dropped="+Clamp(sensors.Dropped+channel.Dropped)+" stale="+Clamp(staleRejected)+" retired="+Clamp(retiredAnchors)+" deferred="+Clamp(deferredDiscovery)+" update_us="+Clamp((long)(budget.Elapsed.TotalMilliseconds*1000))+" capabilities="+string.Join(",",capabilities.Where(c=>c.Value).Select(c=>c.Key))+" signals="+string.Join(",",signals.Select(c=>c.Key+":"+c.Value)));}
+                    var damageCallbacks=sensors.DamageCallbacks;
+                    channel.Send("diagnostics",new {anchors=anchors.Count,observers=anchors.ObserverCount,snapshotAgeMs=age,snapshotCadenceMs=Clamp(snapshotCadence),dropped=Clamp(sensors.Dropped+channel.Dropped),staleRejected=Clamp(staleRejected),retiredAnchors=Clamp(retiredAnchors),deferredDiscovery=Clamp(deferredDiscovery),updateMicros=Clamp((long)(budget.Elapsed.TotalMilliseconds*1000)),capabilities,signals,damageCallbacks});
+                    if(now>=nextLog) {nextLog=now+10000;Game.LogTrivial("[PS] shadow anchors="+anchors.Count+" observers="+anchors.ObserverCount+" snapshot_age_ms="+age+" snapshot_cadence_ms="+Clamp(snapshotCadence)+" dropped="+Clamp(sensors.Dropped+channel.Dropped)+" stale="+Clamp(staleRejected)+" retired="+Clamp(retiredAnchors)+" deferred="+Clamp(deferredDiscovery)+" update_us="+Clamp((long)(budget.Elapsed.TotalMilliseconds*1000))+" capabilities="+string.Join(",",capabilities.Where(c=>c.Value).Select(c=>c.Key))+" damage_callbacks=ped:"+damageCallbacks["ped_damage"]+",player:"+damageCallbacks["player_damage"]+",vehicle:"+damageCallbacks["vehicle_damage"]+" signals="+string.Join(",",signals.Select(c=>c.Key+":"+c.Value)));}
                 }
             } catch {Game.LogTrivial("[PS] optional_update_failed");Shutdown();}
         }

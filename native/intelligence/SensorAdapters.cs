@@ -23,6 +23,8 @@ namespace LSA.Intelligence
         readonly Dictionary<string,VehicleSample> vehicles=new Dictionary<string,VehicleSample>();
         readonly Dictionary<string,long> received=new Dictionary<string,long>();
         public Dictionary<string,long> Counters {get {lock(gate) return new Dictionary<string,long>(received);}}
+        readonly Dictionary<string,long> damageCallbacks=new Dictionary<string,long>{{"ped_damage",0},{"player_damage",0},{"vehicle_damage",0}};
+        public Dictionary<string,long> DamageCallbacks {get {lock(gate) return new Dictionary<string,long>(damageCallbacks);}}
         public bool Enabled {get;set;}
         public long Dropped {get;private set;}
         public int Count {get {lock(gate) return queue.Count;}}
@@ -32,6 +34,7 @@ namespace LSA.Intelligence
                 if(!Enabled) return false;
                 if(!received.ContainsKey(signal.kind)) received[signal.kind]=0;
                 received[signal.kind]=Math.Min(int.MaxValue,received[signal.kind]+1);
+                if(damageCallbacks.ContainsKey(signal.producer)) damageCallbacks[signal.producer]=Math.Min(int.MaxValue,damageCallbacks[signal.producer]+1);
                 if(!sequences.ContainsKey(signal.producer)) sequences[signal.producer]=0;
                 signal.producerSequence=++sequences[signal.producer];
                 // Reserve 64 of 256 for critical involvement. Never grow under a storm.
@@ -92,7 +95,7 @@ namespace LSA.Intelligence
             vehicles[captureRef]=current;
         }
         public void Retire(string captureRef) { baselines.Remove(captureRef); baselines.Remove("shot:"+captureRef); lastShot.Remove(captureRef);vehicles.Remove(captureRef);foreach(var state in baselines.Values) if(state.Vehicle==captureRef) state.VehicleBaseline=false; }
-        public void Reset() { lock(gate) {queue.Clear();sequences.Clear();baselines.Clear();lastShot.Clear();vehicles.Clear();received.Clear();Dropped=0;} }
+        public void Reset() { lock(gate) {queue.Clear();sequences.Clear();baselines.Clear();lastShot.Clear();vehicles.Clear();received.Clear();foreach(var k in damageCallbacks.Keys.ToArray()) damageCallbacks[k]=0;Dropped=0;} }
     }
     public sealed class StateSample
     {
