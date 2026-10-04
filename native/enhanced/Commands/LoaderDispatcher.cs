@@ -43,6 +43,9 @@ namespace LSA.Enhanced.Commands
         }
         public Func<EnhancedSettings> Settings = () => null;
         public Func<EssentialBindings> Essential = EssentialBindings.Unavailable;
+        public bool InterceptEssentialInput {get;set;}
+        public int InterceptMarkKey {get;set;}
+        public int InterceptTextKey {get;set;}
         public IUiController Ui;
         public CommandCatalog Catalog => catalog;
         public IReadOnlyList<string> RecentReasons => recent.ToList();
@@ -76,7 +79,10 @@ namespace LSA.Enhanced.Commands
         {
             var essential = Essential() ?? EssentialBindings.Unavailable();
             var key = info.Id == CommandCatalog.EssentialMark ? essential.Mark : info.Id == CommandCatalog.EssentialText ? essential.Text : null;
-            string reason = relay.Pulse(key,settings.RelayPulseMs,now);
+            bool intercepted = InterceptEssentialInput && key != null && (key.Vk == InterceptMarkKey || key.Vk == InterceptTextKey);
+            string reason = intercepted
+                ? key?.State == EssentialKeyState.Bound && (bridge as IEssentialInputBridge)?.PulseInput(key.Vk) == true ? null : "native_operation_failed"
+                : relay.Pulse(key,settings.RelayPulseMs,now);
             if (reason != null) return Reject(info.Id,reason,args,true);
             Record(info.Id,null); args?.OnDone?.Invoke(null,null); return null;
         }

@@ -36,6 +36,9 @@ namespace LSA.Enhanced.Input
         public bool GesturesPaused {get;set;}
         public int? SessionChordWindowMs {get;private set;}
         EssentialBindings essential;
+        bool intercept;
+        int interceptMark,interceptText;
+        long retryAt;
         public string State {get;private set;} = "disabled";
         public string Conflict {get;private set;}
         public IReadOnlyList<GestureBinding> ActiveBindings {get;private set;} = new GestureBinding[0];
@@ -46,12 +49,28 @@ namespace LSA.Enhanced.Input
         {
             settings = next; this.essential = essential; recognizer = null; Conflict = null; ActiveBindings = new GestureBinding[0];
             dispatcher.ReleaseKeys();
+            (bridge as IEssentialInputBridge)?.ReleaseInput();
+            intercept = dispatcher.InterceptEssentialInput = false;
+            interceptMark = interceptText = 0;
+            dispatcher.InterceptMarkKey = dispatcher.InterceptTextKey = 0;
             if (next == null || !next.InputEnabled) { SetState("disabled"); return; }
             bool ui = UiAvailable();
             var bindings = next.Bindings.Where(binding => ui || !binding.Command.StartsWith("ui.",StringComparison.Ordinal)).ToList();
             foreach (int key in bindings.SelectMany(binding => binding.Keys).Distinct()) {
                 var clash = essential?.ConflictWith(next.KeyCodes[key]);
                 if (clash != null) {
+                    // Only mark/text can be deferred; PTT must retain its own
+                    // press/release semantics and is never intercepted.
+                    if (clash.Setting == "MarkPedKey" || clash.Setting == "TextKey") {
+                        if (clash.Setting == "MarkPedKey") interceptMark = clash.Vk;
+                        else interceptText = clash.Vk;
+                        // A shared talk key would otherwise silently break PTT.
+                        if (essential.All.Any(other => other.Vk == clash.Vk && other.State == EssentialKeyState.Bound && other.Setting != clash.Setting)) {
+                            Conflict = "Shared key also controls another Essential action"; SetState("suspended"); return;
+                        }
+                        intercept = true;
+                        continue;
+                    }
                     // A router key that is also an Essential key would fire twice.
                     Conflict = next.KeyNames[key] + "=" + PhysicalKeys.Name(next.KeyCodes[key]) + " is also Essential's " + clash.Setting;
                     SetState("suspended");
@@ -60,6 +79,16 @@ namespace LSA.Enhanced.Input
                 }
             }
             if (bindings.Count == 0) { SetState("no_bindings"); return; }
+            if (intercept && (bridge as IEssentialInputBridge)?.LeaseInput(interceptMark,interceptText) != true) {
+                Conflict = "Essential input interception unavailable";
+                var clash = essential?.ConflictWith(interceptMark != 0 ? interceptMark : interceptText);
+                if (clash != null) hud.Show("Input paused: " + PhysicalKeys.Name(clash.Vk) + " is also Essential's " + clash.Setting);
+                retryAt = clock.Monotonic + 1000;
+                SetState("suspended"); return;
+            }
+            dispatcher.InterceptEssentialInput = intercept;
+            dispatcher.InterceptMarkKey = interceptMark;
+            dispatcher.InterceptTextKey = interceptText;
             var timing = SessionChordWindowMs.HasValue ? new GestureTiming(SessionChordWindowMs.Value,Math.Max(next.Timing.HoldMs,SessionChordWindowMs.Value + 100),next.Timing.DoubleTapMs) : next.Timing;
             recognizer = new GestureRecognizer(bindings,timing,next.KeyCodes.Count);
             // A router key held across the rebuild waits for its release instead of
@@ -86,7 +115,10 @@ namespace LSA.Enhanced.Input
         public void Tick()
         {
             dispatcher.Update();
-            if (recognizer == null) return;
+            if (recognizer == null) {
+                if (intercept && settings?.InputEnabled == true && clock.Monotonic >= retryAt) Apply(settings,essential);
+                return;
+            }
             long now = clock.Monotonic,utc = clock.Utc;
             bool focus = keys.GameHasFocus();
             if (!focus && focused) dispatcher.ReleaseKeys(); // a synthesized key can never stick
@@ -96,20 +128,35 @@ namespace LSA.Enhanced.Input
             bool menuOpen = MenuOpen();
             string closed = InputGates.Closed(focus,game,false,Snapshot(utc),utc);
             if (closed != null) {
+                if (intercept) (bridge as IEssentialInputBridge)?.ReleaseInput();
                 if (!gated) { recognizer.Reset(); gated = true; SetState("gated:" + closed); }
                 return;
             }
             if (gated) { gated = false; SetState("ready"); }
+            if (intercept) {
+                // Menus still dispatch explicit mark/text actions through the
+                // virtual poll. Physical gestures are filtered below.
+                bool active = !GesturesPaused;
+                dispatcher.InterceptEssentialInput = active;
+                if (!active) (bridge as IEssentialInputBridge)?.ReleaseInput();
+                else if ((bridge as IEssentialInputBridge)?.LeaseInput(interceptMark,interceptText) != true) {
+                    recognizer.Reset(); SetState("suspended"); return;
+                }
+            }
             int down = 0;
             for (int key = 0; key < settings.KeyCodes.Count; key++) if (keys.IsDown(settings.KeyCodes[key])) down |= 1 << key;
+            if (down != lastDown) { log("[UX] input_keys mask=" + down + " keys=" + string.Join("+",settings.KeyNames.Where((name,index) => (down & (1 << index)) != 0))); lastDown = down; }
             events.Clear();
             recognizer.Update(now,down,events);
             foreach (var gesture in events) {
                 // While an LSA menu is open only menu toggles pass; RNUI owns navigation.
                 if ((menuOpen || GesturesPaused) && !gesture.Command.StartsWith("ui.",StringComparison.Ordinal)) continue;
+                log("[UX] input_gesture binding=" + gesture.BindingId + " command=" + gesture.Command);
                 dispatcher.Dispatch(gesture.Command,"chord");
             }
         }
-        public void Stop() { recognizer = null; dispatcher.Stop(); SetState("stopped"); }
+        int lastDown;
+        public void CancelPending() { recognizer?.Reset(); (bridge as IEssentialInputBridge)?.ReleaseInput(); dispatcher.ReleaseKeys(); }
+        public void Stop() { recognizer = null; (bridge as IEssentialInputBridge)?.ReleaseInput(); dispatcher.Stop(); SetState("stopped"); }
     }
 }

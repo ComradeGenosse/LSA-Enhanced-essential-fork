@@ -11,6 +11,7 @@ namespace LSA.PromotedCharacters
         public const int MaxEnvelopeChars=8192, MaxReplyChars=16384, MaxSnapshotInterestMs=10000;
         Type runtime;
         MethodInfo submit,takeResult,snapshot,requestSnapshots;
+        MethodInfo leaseInput,pulseInput,releaseInput;
         public string Status {get;private set;}="not_started";
         public override object InitializeLifetimeService()=>null;
         public string CoreStatus
@@ -43,6 +44,9 @@ namespace LSA.PromotedCharacters
             takeResult=Bridge("TryTakeResult",typeof(string),typeof(string));
             snapshot=Bridge("Snapshot",typeof(string));
             requestSnapshots=Bridge("RequestSnapshots",typeof(void),typeof(int));
+            leaseInput=Bridge("LeaseInput",typeof(bool),typeof(int),typeof(int));
+            pulseInput=Bridge("PulseInput",typeof(bool),typeof(int));
+            releaseInput=Bridge("ReleaseInput",typeof(void));
             return true;
         }
         MethodInfo Bridge(string name,Type returns,params Type[] parameters)
@@ -54,6 +58,15 @@ namespace LSA.PromotedCharacters
         public bool BridgeAvailable=>runtime!=null && submit!=null && takeResult!=null && snapshot!=null && requestSnapshots!=null;
         public bool Alive=>runtime!=null && (bool)runtime.GetProperty("Alive").GetValue(null);
         public void Stop() { runtime?.GetMethod("Stop").Invoke(null,null); }
+        public bool LeaseInput(int mark,int text)
+        {
+            try { return runtime!=null && leaseInput!=null && (bool)leaseInput.Invoke(null,new object[]{mark,text}); } catch { return false; }
+        }
+        public bool PulseInput(int vk)
+        {
+            try { return runtime!=null && pulseInput!=null && (bool)pulseInput.Invoke(null,new object[]{vk}); } catch { return false; }
+        }
+        public void ReleaseInput() { try { if(runtime!=null) releaseInput?.Invoke(null,null); } catch {} }
         // Every bridge member takes and returns only string, int or bool, and
         // contains runtime failures here so no runtime type crosses the domain.
         public string Submit(string envelope)

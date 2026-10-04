@@ -16,4 +16,4 @@
     <Compile Include="../../lifecycle-tests/GameStubs.cs" Link="GameStubs.cs" />
     <Reference Include="System.Web.Extensions" />
   </ItemGroup>
-</Project>
+<ItemGroup><Compile Include="../../InputLeaseState.cs;../../EssentialInputInterception.cs" /></ItemGroup></Project>
