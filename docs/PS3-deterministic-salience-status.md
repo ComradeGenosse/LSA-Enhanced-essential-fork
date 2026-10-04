@@ -18,6 +18,9 @@ The decision shape is `observationId`, `revision`, `context` (`omit` | `candidat
 - Explicit bindings with `recognized: true` are the only social identities. A backend CharacterId is not a relationship.
 - Trait policy accepts only a whole trait equal to `protective`, `cautious`, `loyal`, or `bold`.
 - Shadow mode passes `activity: 'idle'` because the anchor roster has no driver flag. Callers can pass `driving`, `passenger`, or `in_vehicle`.
+- Live shadow currently has no authenticated `captureRef → CharacterId/profile` binding. It therefore does not supply relationship, memory or trait-policy context; those branches are implemented and covered offline only.
+- Recognition requires an explicit `recognized: true`; a missing flag is treated exactly like `false`.
+- Suppression capacity fails closed for response/memory entitlement instead of evicting a prior grant. The latest-decision diagnostic cache is bounded with the decision cache.
 
 ## Checks
 
@@ -29,6 +32,6 @@ Companion coverage is `lsa-essential-e1-candidate/tests/salience-engine.test.mjs
 2. Record sanitized `ps3` counters from the companion shadow report: decisions, urgent, eligible, staged, suppressed, faults.
 3. Confirm a companion who is shot produces an urgent self-danger decision while native reflex still owns movement.
 4. Confirm a repeated burst does not keep the urgent response after the first revision, and that a later death revision can become relevant again.
-5. Confirm an unrecognized ped and a promoted friend do not receive the same relationship reason.
+5. Confirm live shadow does **not** emit `relationship_close`, `relationship_conflict`, `prior_memory`, or `trait_policy` until an authenticated captureRef/profile binding seam is added. Recognized-vs-backend-only behavior is an offline PS3 gate today.
 6. If a driver flag is supplied by a later adapter, routine nearby presence stays omitted while vehicle impact does not.
 7. Player speech remains disabled until a source-time capture receipt exists. Do not treat post-STT text as hearing.
