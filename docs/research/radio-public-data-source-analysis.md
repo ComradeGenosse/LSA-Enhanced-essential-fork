@@ -303,6 +303,22 @@ Rules:
 - do not use soundHash alone to decide song identity on mix stations;
 - title/artist remain companion-side only.
 
+
+## Freshness caveat for October 2026 Enhanced
+
+The HintSystem source commit predates the current October 2026 GTA V Enhanced build. That makes it an excellent structural/text-ID baseline, but not a claim that every row is still in the live PC Enhanced rotation.
+
+A concrete example is text ID **1243**, `MOLOKO — The Time Is Now`. Public GTA metadata identifies 1243 as that song, while September 2026 reporting says Rockstar removed the track from PC Enhanced. Keeping a stale extra row in the resolver is harmless because it will never resolve unless GTA emits that ID; missing newly-added IDs remain explicit unknowns.
+
+Therefore runtime semantics are:
+
+```text
+live GTA trackTextId = authority that something is audible
+catalog row = metadata resolver only
+```
+
+Do not use catalog membership as proof that a song is currently available in the user's build. Record unknown IDs during GTA acceptance so newer content can be identified separately.
+
 ## Licensing / redistribution note
 
 Both source repositories are public, but neither repository currently exposes an explicit GitHub license file/license declaration.
