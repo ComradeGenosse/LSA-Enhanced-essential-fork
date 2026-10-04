@@ -29,6 +29,14 @@ namespace LSA.Intelligence
         public bool Enabled {get;set;}
         public long Dropped {get;private set;}
         public int Count {get {lock(gate) return queue.Count;}}
+        RadioSample radioBaseline;
+        long radioSamples,radioEdges,radioNativeFailures;
+        public long RadioSamples {get {lock(gate) return radioSamples;}}
+        public long RadioEdges {get {lock(gate) return radioEdges;}}
+        public long RadioNativeFailures {get {lock(gate) return radioNativeFailures;}}
+        public void NoteRadioSample() {lock(gate) radioSamples=Math.Min(int.MaxValue,radioSamples+1);}
+        public void NoteRadioNativeFailure() {lock(gate) radioNativeFailures=Math.Min(int.MaxValue,radioNativeFailures+1);}
+        static void Note(ref long value) { value=Math.Min(int.MaxValue,value+1); }
         public bool Enqueue(RawSignal signal)
         {
             lock(gate) {
@@ -94,8 +102,52 @@ namespace LSA.Intelligence
                 Edge(captureRef,"vehicle_state",new Dictionary<string,object>{{"engine",current.Engine},{"healthBand",current.HealthBand},{"speedBand",current.SpeedBand},{"driver",current.Driver}},tick,now);
             vehicles[captureRef]=current;
         }
+        public static bool ValidRadioStation(string station)
+        {
+            if(string.IsNullOrEmpty(station) || station.Length>64) return false;
+            for(int i=0;i<station.Length;i++) { char c=station[i]; if(!((c>='A'&&c<='Z')||(c>='0'&&c<='9')||c=='_')) return false; }
+            return true;
+        }
+        public static string RadioStationClasses(string station)
+        {
+            if(string.IsNullOrEmpty(station)) return "empty";
+            if(station.Length>64) return "long";
+            bool lower=false,upper=false,digit=false,underscore=false,other=false;
+            for(int i=0;i<station.Length;i++) {
+                char c=station[i];
+                if(c>='a'&&c<='z') lower=true;
+                else if(c>='A'&&c<='Z') upper=true;
+                else if(c>='0'&&c<='9') digit=true;
+                else if(c=='_') underscore=true;
+                else other=true;
+            }
+            string classes="";
+            if(lower) classes="lower";
+            if(upper) classes=classes.Length==0?"upper":classes+"+upper";
+            if(digit) classes=classes.Length==0?"digit":classes+"+digit";
+            if(underscore) classes=classes.Length==0?"underscore":classes+"+underscore";
+            if(other) classes=classes.Length==0?"other":classes+"+other";
+            return classes.Length==0?"empty":classes;
+        }
+        public void Radio(string vehicle,string station,uint trackHash,uint tick,long now)
+        {
+            if(!Enabled) return;
+            if(!ValidRadioStation(station)) { station=""; trackHash=0; }
+            var current=new RadioSample {Vehicle=vehicle,Station=station??"",TrackHash=trackHash};
+            if(current.Station.Length==0) current.TrackHash=0;
+            if(radioBaseline!=null && radioBaseline.Vehicle==current.Vehicle && radioBaseline.Station==current.Station && radioBaseline.TrackHash==current.TrackHash) return;
+            bool establishing=radioBaseline==null;
+            radioBaseline=current;
+            if(establishing) return;
+            lock(gate) Note(ref radioEdges);
+            bool stopped=current.Station.Length==0;
+            Enqueue(new RawSignal {
+                producer="radio",kind=stopped?"radio_stopped":"radio_changed",target=vehicle,source=null,gameTick=tick,receivedMs=now,Critical=false,
+                facts=new Dictionary<string,object>{{"station",stopped?"":current.Station},{"trackHash",(long)current.TrackHash}}
+            });
+        }
         public void Retire(string captureRef) { baselines.Remove(captureRef); baselines.Remove("shot:"+captureRef); lastShot.Remove(captureRef);vehicles.Remove(captureRef);foreach(var state in baselines.Values) if(state.Vehicle==captureRef) state.VehicleBaseline=false; }
-        public void Reset() { lock(gate) {queue.Clear();sequences.Clear();baselines.Clear();lastShot.Clear();vehicles.Clear();received.Clear();foreach(var k in damageCallbacks.Keys.ToArray()) damageCallbacks[k]=0;Dropped=0;} }
+        public void Reset() { lock(gate) {queue.Clear();sequences.Clear();baselines.Clear();lastShot.Clear();vehicles.Clear();received.Clear();radioBaseline=null;radioSamples=0;radioEdges=0;radioNativeFailures=0;foreach(var k in damageCallbacks.Keys.ToArray()) damageCallbacks[k]=0;Dropped=0;} }
     }
     public sealed class StateSample
     {
@@ -106,4 +158,5 @@ namespace LSA.Intelligence
         public long PendingSince;
     }
     public sealed class VehicleSample {public bool Engine;public int HealthBand,SpeedBand;public string Driver;}
+    public sealed class RadioSample { public string Vehicle; public string Station; public uint TrackHash; }
 }

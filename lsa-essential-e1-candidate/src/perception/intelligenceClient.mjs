@@ -4,7 +4,7 @@ import { ShadowRuntime } from './shadowRuntime.mjs';
 
 // Fixed same-user native factual endpoint; no actor integration blocks or commands.
 export class IntelligenceClient {
-  constructor(config,{connect=options=>net.createConnection(options),now,report=summary=>console.info('[PS] companion_shadow '+JSON.stringify(summary))}={}) {this.config=config;this.connect=connect;this.runtime=new ShadowRuntime({mode:config.mode,now});this.report=report;this.closed=false;this.socket=null;this.lastReport=0;}
+  constructor(config,{connect=options=>net.createConnection(options),now,report=summary=>console.info('[PS] companion_shadow '+JSON.stringify(summary))}={}) {this.config=config;this.connect=connect;this.runtime=new ShadowRuntime({mode:config.mode,radio:config.radio,now});this.report=report;this.closed=false;this.socket=null;this.lastReport=0;}
   start() {
     if(this.config.mode!=='shadow' || this.closed || this.socket) return;
     const socket=this.connect({path:`\\\\.\\pipe\\${this.config.pipeName}`});this.socket=socket;

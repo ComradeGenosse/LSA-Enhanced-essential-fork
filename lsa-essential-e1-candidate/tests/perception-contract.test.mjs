@@ -19,7 +19,8 @@ function fixture() {
   return {runtime,caps,ped,player,vehicle,ambient,hello,frame,signal,ingest,advance:n=>now+=n};
 }
 test('perception defaults off and unsupported future modes cannot activate effects',()=>{
-  assert.equal(normalizePerceptionConfig().mode,'off');assert.equal(normalizePerceptionConfig({mode:'shadow'}).mode,'shadow');
+  assert.equal(normalizePerceptionConfig().mode,'off');assert.equal(normalizePerceptionConfig().radio,'off');assert.equal(normalizePerceptionConfig({mode:'shadow'}).mode,'shadow');
+  assert.equal(normalizePerceptionConfig({mode:'shadow',radio:'shadow'}).radio,'shadow');assert.equal(normalizePerceptionConfig({mode:'off',radio:'shadow'}).radio,'off');assert.equal(normalizePerceptionConfig({mode:'shadow',radio:'context'}).radio,'off');
   for(const mode of ['context','memory','initiative','anything']) assert.equal(normalizePerceptionConfig({mode}).mode,'off');
   const f=fixture();const off=new ShadowRuntime();assert.equal(off.ingest(f.hello(),{authenticated:true}),false);assert.equal(off.anchors.size,0);
 });
@@ -116,8 +117,58 @@ test('signal anchor kinds reject wrong entity addresses',()=>{
   assert.equal(f.ingest(f.frame('signal',f.signal({kind:'vehicle_transition',producer:'state',facts:{vehicle:f.vehicle,driver:true},source:null}))),true);
 });
 test('PS0/PS1 production module boundary contains no model, memory or native action effect',async()=>{
-  for(const file of ['contracts.mjs','shadowRuntime.mjs','observationStore.mjs','intelligenceClient.mjs']) {
+  for(const file of ['contracts.mjs','shadowRuntime.mjs','observationStore.mjs','intelligenceClient.mjs','radioTrackCatalog.mjs']) {
     const source=await readFile(new URL('../src/perception/'+file,import.meta.url),'utf8');assert.doesNotMatch(source,/from ['"].*(?:openai|providers|profileStore|characterService|sceneDirector)/);assert.doesNotMatch(source,/writeFile|fetch\(|upsertExperience|\.request\(/);
   }
   const source=await readFile(new URL('../../native/intelligence/IntelligenceIntegration.cs',import.meta.url),'utf8');assert.doesNotMatch(source,/World\.GetAll|PerceptionSystem\.Update|PerceptionSnapshot\.Capture|GunshotReflexDetector|NpcActions\.|\.TASK|SpecialGeminiTurnScheduler/);assert.match(source,/public void EnrichActor\(Ped ped,ActorContext context\) \{\}/);
+});
+function radioRuntime(radio='shadow') {
+  let sequence=0,producer=0;const epoch=randomUUID(),stream=randomUUID(),vehicle=randomUUID(),ped=randomUUID();
+  const runtime=new ShadowRuntime({mode:'shadow',radio,now:()=>0});
+  const caps=Object.fromEntries(CAPABILITIES.map(k=>[k,!['witness','awareness'].includes(k)]));
+  const ingest=v=>runtime.ingest(v,{authenticated:true});
+  ingest({version:1,type:'hello',adapterEpoch:epoch,streamId:stream,capabilities:caps});
+  const frame=(type,payload)=>({version:1,type,adapterEpoch:epoch,streamId:stream,sequence:++sequence,payload});
+  ingest(frame('anchors',[{captureRef:vehicle,kind:'vehicle',observer:false},{captureRef:ped,kind:'ped',observer:true}]));
+  const signal=(patch={})=>({signalId:randomUUID(),producer:'radio',producerSequence:++producer,kind:'radio_changed',target:vehicle,source:null,gameTick:1,ageMs:0,facts:{station:'RADIO_01_CLASS_ROCK',trackHash:1},...patch,facts:patch.facts??{station:'RADIO_01_CLASS_ROCK',trackHash:1}});
+  return {runtime,ingest,frame,signal,vehicle,ped};
+}
+test('radio signals accept the closed station and hash contract',()=>{
+  const r=radioRuntime(),ok=r.signal(),emptyFacts=r.signal();emptyFacts.facts=null;
+  assert.equal(validateSignal(ok),true);assert.equal(validateSignal(r.signal({target:null})),true);assert.equal(validateSignal(r.signal({facts:{station:'RADIO_01_CLASS_ROCK',trackHash:0xffffffff}})),true);
+  assert.equal(validateSignal(r.signal({kind:'radio_stopped',facts:{station:'',trackHash:0}})),true);
+  const reject=[
+    r.signal({kind:'radio_started'}),r.signal({producer:'state'}),r.signal({facts:{station:'radio_01',trackHash:1}}),
+    r.signal({facts:{station:'A'.repeat(65),trackHash:1}}),r.signal({facts:{station:'',trackHash:1}}),r.signal({facts:{station:'RADIO_01_CLASS_ROCK',trackHash:-1}}),
+    r.signal({facts:{station:'RADIO_01_CLASS_ROCK',trackHash:0x100000000}}),r.signal({kind:'radio_stopped',facts:{station:'',trackHash:1}}),
+    r.signal({facts:{station:'RADIO_01_CLASS_ROCK',trackHash:1,artist:'secret'}}),r.signal({source:randomUUID()}),r.signal({target:'12345'}),
+    r.signal({signalId:'not-a-uuid'}),r.signal({ageMs:30001}),emptyFacts,
+  ];
+  for(const bad of reject) assert.equal(validateSignal(bad),false);
+  assert.equal(validateFrame(r.frame('signal',ok)),true);
+  const huge=r.frame('signal',ok);huge.extra='x'.repeat(9000);assert.equal(validateFrame(huge),false);
+});
+test('radio facts stay raw, routine, and out of the shadow store until radio shadow is enabled',()=>{
+  const blocked=radioRuntime('off'),signal=blocked.signal();
+  assert.equal(blocked.ingest(blocked.frame('signal',signal)),false);assert.equal(blocked.runtime.signals.length,0);assert.equal(blocked.runtime.observations.entries.size,0);
+  assert.equal(blocked.ingest(blocked.frame('signal',{signalId:randomUUID(),producer:'ped_damage',producerSequence:1,kind:'damage',target:blocked.ped,source:null,gameTick:1,ageMs:0,facts:{damage:1,armour:0,classification:'unknown'}})),true);
+  const live=radioRuntime();
+  assert.equal(live.ingest(live.frame('signal',live.signal())),true);
+  assert.equal(live.runtime.signals.length,1);assert.equal(live.runtime.signals[0].critical,false);assert.equal(live.runtime.signals[0].value.facts.station,'RADIO_01_CLASS_ROCK');
+  assert.equal('artist' in live.runtime.signals[0].value.facts,false);assert.equal(live.runtime.observations.entries.size,0);
+  assert.equal(live.ingest(live.frame('signal',live.signal({target:live.ped}))),false);
+  assert.equal(live.ingest(live.frame('signal',live.signal({target:null}))),true);
+  for(let n=0;n<64;n++) live.ingest(live.frame('signal',{signalId:randomUUID(),producer:'ped_damage',producerSequence:n+1,kind:'damage',target:live.ped,source:null,gameTick:1,ageMs:0,facts:{damage:1,armour:0,classification:'unknown'}}));
+  for(let n=0;n<400;n++) live.ingest(live.frame('signal',live.signal(n%2?{kind:'radio_stopped',facts:{station:'',trackHash:0}}:{facts:{station:'RADIO_01_CLASS_ROCK',trackHash:n+2}})));
+  assert.equal(live.runtime.signals.length,256);assert.ok(live.runtime.counters.dropped>0);
+  assert.equal(live.runtime.signals.filter(item=>item.critical).length,64);
+  live.ingest(live.frame('signal',{signalId:randomUUID(),producer:'ped_damage',producerSequence:65,kind:'damage',target:live.ped,source:null,gameTick:1,ageMs:0,facts:{damage:1,armour:0,classification:'unknown'}}));
+  assert.equal(live.runtime.signals.filter(item=>item.critical).length,65);assert.equal(live.runtime.signals.length,256);
+});
+test('radio diagnostics stay numeric and reject station content',()=>{
+  const f=fixture(),radio={samples:2,edges:1,nativeFailures:0};
+  const payload={anchors:1,observers:1,snapshotAgeMs:0,snapshotCadenceMs:250,dropped:0,staleRejected:0,retiredAnchors:0,deferredDiscovery:0,updateMicros:10,capabilities:f.caps,signals:{radio_changed:1,radio_stopped:1},damageCallbacks:{ped_damage:0,player_damage:0,vehicle_damage:0},radio};
+  assert.equal(validateFrame(f.frame('diagnostics',payload)),true);
+  assert.equal(validateFrame(f.frame('diagnostics',{...payload,radio:{...radio,station:'RADIO_01_CLASS_ROCK'}})),false);
+  assert.equal(validateFrame(f.frame('diagnostics',{...payload,signals:{...payload.signals,artist:1}})),false);
 });

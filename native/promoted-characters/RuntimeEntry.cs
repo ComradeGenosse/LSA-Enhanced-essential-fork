@@ -35,7 +35,7 @@ namespace LSA.PromotedCharacters
                     IntegrationManager.Register(integration);
                     if(config.intelligence?.mode=="shadow") {
                         try {
-                            intelligence=new LSA.Intelligence.IntelligenceIntegration(integration.PerceptionRoster,config.intelligence.pipeName);
+                            intelligence=new LSA.Intelligence.IntelligenceIntegration(integration.PerceptionRoster,config.intelligence.pipeName,config.intelligence.radio);
                             integration.OwnerRetired+=intelligence.OwnerRetired;
                             IntegrationManager.Register(intelligence);intelligence.Initialize();
                         } catch {Game.LogTrivial("[PS] optional_host_unavailable");}
@@ -78,6 +78,6 @@ namespace LSA.PromotedCharacters
             public string identityPipeName {get;set;}="LSA.SessionIdentity.v1";
             public IntelligenceConfig intelligence {get;set;}=new IntelligenceConfig();
         }
-        public sealed class IntelligenceConfig {public string mode {get;set;}="off";public string pipeName {get;set;}="LSA.Intelligence.v1";}
+        public sealed class IntelligenceConfig {public string mode {get;set;}="off";public string pipeName {get;set;}="LSA.Intelligence.v1";public string radio {get;set;}="off";}
     }
 }

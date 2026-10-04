@@ -2,13 +2,14 @@ import { isUuid } from '../identity/identityContract.mjs';
 
 export const BOUNDS = Object.freeze({ observers:16, anchors:256, rawSignals:256, criticalReserve:64, nativeFrames:64, companionFrames:256, frameBytes:8192, observationsPerObserver:128, observations:2048, observationBytes:2*1024*1024, signalTtlMs:30000, anchorLeaseMs:3000 });
 export const CAPABILITIES = Object.freeze(['snapshot','pedDamage','playerDamage','vehicleDamage','shooting','state','action','playback','witness','awareness']);
-export const PRODUCERS = new Set(['ped_damage','player_damage','vehicle_damage','shooting','state','action','playback']);
+export const PRODUCERS = new Set(['ped_damage','player_damage','vehicle_damage','shooting','state','action','playback','radio']);
 export function normalizePerceptionConfig(value = {}) {
   // Future modes cannot enable anything beyond this implementation.
   const valid = value && typeof value === 'object' && !Array.isArray(value);
   const mode = valid && value.mode === 'shadow' ? 'shadow' : 'off';
   const pipeName = valid && typeof value.pipeName === 'string' ? value.pipeName : 'LSA.Intelligence.v1';
-  return Object.freeze({ mode, pipeName: /^[A-Za-z0-9_.-]{1,80}$/.test(pipeName) ? pipeName : 'LSA.Intelligence.v1' });
+  const radio = mode==='shadow' && valid && value.radio==='shadow' ? 'shadow' : 'off';
+  return Object.freeze({ mode, pipeName: /^[A-Za-z0-9_.-]{1,80}$/.test(pipeName) ? pipeName : 'LSA.Intelligence.v1', radio });
 }
 const integer = (v, max = Number.MAX_SAFE_INTEGER) => Number.isSafeInteger(v) && v >= 0 && v <= max;
 const optionalRef = v => v === null || isUuid(v);
@@ -30,6 +31,11 @@ export function validateSignal(s) {
   }
   if (s.kind==='action_callback') return s.producer==='action' && isUuid(s.target) && keys(f,['action','succeeded']) && ['follow','wait','other'].includes(f.action) && typeof f.succeeded==='boolean';
   if (s.kind==='playback_started' || s.kind==='playback_ended') return s.producer==='playback' && keys(f,['interrupted','hadAudio']) && typeof f.interrupted==='boolean' && typeof f.hadAudio==='boolean';
+  if (s.kind==='radio_changed' || s.kind==='radio_stopped') {
+    if (s.producer!=='radio' || s.source!==null || !keys(f,['station','trackHash'])) return false;
+    if (s.kind==='radio_stopped') return f.station==='' && f.trackHash===0;
+    return typeof f.station==='string' && /^[A-Z0-9_]{1,64}$/.test(f.station) && integer(f.trackHash,0xffffffff);
+  }
   return false;
 }
 export function validateFrame(v) {
@@ -40,7 +46,7 @@ export function validateFrame(v) {
   if (v.type==='retire') return keys(v.payload,['captureRef']) && isUuid(v.payload.captureRef);
   if (v.type==='retire_batch') return Array.isArray(v.payload) && v.payload.length<=32 && v.payload.every(isUuid) && new Set(v.payload).size===v.payload.length;
   if (v.type==='signal') return validateSignal(v.payload);
-  if (v.type==='diagnostics') return keys(v.payload,['anchors','observers','snapshotAgeMs','snapshotCadenceMs','dropped','staleRejected','retiredAnchors','deferredDiscovery','updateMicros','capabilities','signals','damageCallbacks']) && integer(v.payload.anchors,256) && integer(v.payload.observers,16) && Object.entries(v.payload).filter(([k])=>!['anchors','observers','capabilities','signals','damageCallbacks'].includes(k)).every(([,n])=>integer(n,2147483647)) && keys(v.payload.capabilities,CAPABILITIES) && Object.values(v.payload.capabilities).every(x=>typeof x==='boolean') && v.payload.signals && typeof v.payload.signals==='object' && !Array.isArray(v.payload.signals) && Object.entries(v.payload.signals).every(([k,n])=>['damage','vehicle_damage','firing','death','injury_state','vehicle_transition','vehicle_state','activity_changed','presence_changed','location_changed','action_callback','playback_started','playback_ended'].includes(k) && integer(n,2147483647)) && keys(v.payload.damageCallbacks,['ped_damage','player_damage','vehicle_damage']) && Object.values(v.payload.damageCallbacks).every(n=>integer(n,2147483647));
+  if (v.type==='diagnostics') return keys(v.payload,['anchors','observers','snapshotAgeMs','snapshotCadenceMs','dropped','staleRejected','retiredAnchors','deferredDiscovery','updateMicros','capabilities','signals','damageCallbacks'],['radio']) && integer(v.payload.anchors,256) && integer(v.payload.observers,16) && Object.entries(v.payload).filter(([k])=>!['anchors','observers','capabilities','signals','damageCallbacks','radio'].includes(k)).every(([,n])=>integer(n,2147483647)) && keys(v.payload.capabilities,CAPABILITIES) && Object.values(v.payload.capabilities).every(x=>typeof x==='boolean') && v.payload.signals && typeof v.payload.signals==='object' && !Array.isArray(v.payload.signals) && Object.entries(v.payload.signals).every(([k,n])=>['damage','vehicle_damage','firing','death','injury_state','vehicle_transition','vehicle_state','activity_changed','presence_changed','location_changed','action_callback','playback_started','playback_ended','radio_changed','radio_stopped'].includes(k) && integer(n,2147483647)) && keys(v.payload.damageCallbacks,['ped_damage','player_damage','vehicle_damage']) && Object.values(v.payload.damageCallbacks).every(n=>integer(n,2147483647)) && (!Object.hasOwn(v.payload,'radio') || keys(v.payload.radio,['samples','edges','nativeFailures']) && ['samples','edges','nativeFailures'].every(k=>integer(v.payload.radio[k],2147483647)));
   return false;
 }
 

@@ -90,7 +90,7 @@ namespace LSA.Intelligence
     public sealed class IntelligenceIntegration:LosSantosAlive.Integrations.IIntegration
     {
         public static IntelligenceIntegration Instance;public bool IsAvailable{get;private set;}public long UpdateCalls;public int ShutdownCalls;public string ShutdownReason="none";
-        public IntelligenceIntegration(Func<OwnedParticipant[]> roster,string pipe){Instance=this;}
+        public IntelligenceIntegration(Func<OwnedParticipant[]> roster,string pipe,string radioMode=null){Instance=this;}
         public void Initialize()=>IsAvailable=true;
         public void Update(){UpdateCalls++;}
         public void OwnerRetired(string lifetime){}

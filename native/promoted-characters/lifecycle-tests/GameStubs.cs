@@ -159,7 +159,7 @@ namespace LSA.Intelligence
     // Static logging for P2; the instance surface is what RuntimeEntry hosts.
     public sealed class IntelligenceIntegration
     {
-        public IntelligenceIntegration(Func<OwnedParticipant[]> roster,string pipeName) { }
+        public IntelligenceIntegration(Func<OwnedParticipant[]> roster,string pipeName,string radioMode=null) { }
         public void OwnerRetired(string incarnationId) { }
         public void Initialize() { }
         internal void Shutdown(string reason) { }

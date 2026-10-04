@@ -269,6 +269,8 @@ export async function buildCandidate({ sourcePath = stockBundleDefault, outputPa
   await mkdir(target, { recursive: true });
   await writeFile(entry, patched.output, 'utf8');
   await copyDirectory(src, stagedE1);
+  await mkdir(path.join(target, 'data'), { recursive: true });
+  await copyFile(path.join(root, 'data', 'radioTracks.v1.json'), path.join(target, 'data', 'radioTracks.v1.json'));
   await copyFile(path.join(root, 'e1.config.example.json'), path.join(target, 'e1.config.example.json'));
   const e1SourceTreeSha256 = await directoryDigest(stagedE1);
   const releasePayloadSha256 = await directoryDigest(target);
@@ -281,7 +283,7 @@ export async function buildCandidate({ sourcePath = stockBundleDefault, outputPa
     features: { structuredStreaming: true, earlySegmentedTts: true, defaultEnabled: false, earlyTtsMode: 'dialogue_only', ttsConcurrency: 1,
       sessionIdentity: { defaultEnabled: false, modes: ['shadow','voices'], storeSchemaVersion: 1, nativeAddressing: 'unchanged' },
       promotedCharacters: { defaultEnabled:false,profileStoreSchemaVersion:1,manualMemoryOnly:true,requiresAuthoredP1Owner:true,nativeAddressing:'unchanged',summonWaitMs:30000,maxSummonWaitMs:60000 },
-      intelligence: {defaultMode:'off',modes:['off','shadow'],phases:['PS0','PS1'],modelContext:false,automaticMemory:false,initiative:false},
+      intelligence: {defaultMode:'off',modes:['off','shadow'],radioDefault:'off',radioModes:['off','shadow'],phases:['PS0','PS1'],modelContext:false,automaticMemory:false,initiative:false},
       dialogueLogging: { defaultEnabled:false,provider:'openai',storage:'rotating-jsonl' } },
     launcherEntry: launcherName, upstreamBundleSha256: sourceHash,
     stockDllReferenceSha256: dllHash, builtBundleSha256: digest(patched.output),

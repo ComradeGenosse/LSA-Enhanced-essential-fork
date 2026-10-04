@@ -1,5 +1,5 @@
 {
-  "intelligence": { "mode": "off", "pipeName": "LSA.Intelligence.v1" },
+  "intelligence": { "mode": "off", "pipeName": "LSA.Intelligence.v1", "radio": "off" },
   "persistentIdentity": {
     "enabled": false,
     "mode": "shadow",
