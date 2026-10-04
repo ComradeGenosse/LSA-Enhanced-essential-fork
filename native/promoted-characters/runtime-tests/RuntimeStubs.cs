@@ -110,6 +110,14 @@ namespace LSA.PromotedCharacters
             Interlocked.Increment(ref Shutdowns);ShutdownThread=Thread.CurrentThread.ManagedThreadId;shutdown=true;ready=false;
         }
     }
+    // RuntimeEntry now releases the production input lease on stop. This harness
+    // does not load Harmony or the real interceptor.
+    internal static class EssentialInputInterception
+    {
+        public static void Release() {}
+        public static bool Lease(int mark,int text) => false;
+        public static bool Pulse(int vk) => false;
+    }
 }
 namespace LSA.Intelligence
 {
