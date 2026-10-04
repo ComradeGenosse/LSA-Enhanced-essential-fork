@@ -1,6 +1,8 @@
 import { BOUNDS, CAPABILITIES, validateFrame } from './contracts.mjs';
 import { ObservationStore } from './observationStore.mjs';
 import { EpisodeStore } from './episodeStore.mjs';
+import { EpisodeCorrelator } from './episodeCorrelator.mjs';
+import { SharedTranscriptStore } from './sharedTranscriptStore.mjs';
 
 export class ShadowRuntime {
   constructor({ mode='off', now=()=>Math.floor(performance.now()) }={}) {
@@ -9,9 +11,12 @@ export class ShadowRuntime {
     this.capabilities=Object.fromEntries(CAPABILITIES.map(k=>[k,false]));this.diagnostics=null;
     this.observations=new ObservationStore({now,current:ref=>this.current(ref)});
     this.episodes=new EpisodeStore({now,current:ref=>this.current(ref)});
+    this.correlator=new EpisodeCorrelator({episodes:this.episodes,observations:this.observations,now,current:ref=>this.current(ref),anchor:ref=>this.anchors.get(ref)});
+    this.transcripts=new SharedTranscriptStore({now,current:ref=>this.current(ref)});
+    this.ps2Diagnostics={correlated:0,witnessed:0,duplicates:0,dropped:0,speechGate:'unsupported_capture_receipt'};
   }
   count(k) { this.counters[k]=Math.min(2147483647,this.counters[k]+1); }
-  reset() { this.anchors.clear();this.signals=[];this.producers.clear();this.observations.clear();this.episodes.clear();this.epoch=null;this.stream=null;this.sequence=0;this.lastReceipt=0;this.diagnostics=null;this.capabilities=Object.fromEntries(CAPABILITIES.map(k=>[k,false]));this.count('resets'); }
+  reset() { this.anchors.clear();this.signals=[];this.producers.clear();this.observations.clear();this.episodes.clear();this.correlator.clear();this.transcripts.setActiveRun(null);this.epoch=null;this.stream=null;this.sequence=0;this.lastReceipt=0;this.diagnostics=null;this.capabilities=Object.fromEntries(CAPABILITIES.map(k=>[k,false]));this.count('resets'); }
   current(ref) {const a=this.anchors.get(ref);return Boolean(a && a.expires>this.now() && this.epoch);}
   expire() {
     if(this.epoch && this.now()-this.lastReceipt>3000) {this.reset();return;}
@@ -25,7 +30,7 @@ export class ShadowRuntime {
     if(this.mode!=='shadow' || !authenticated) return false;
     this.expire();
     if(!validateFrame(v)) {this.count('malformed');return false;}
-    if(v.type==='hello') {this.reset();this.epoch=v.adapterEpoch;this.stream=v.streamId;this.capabilities=Object.freeze({...v.capabilities});this.lastReceipt=this.now();return true;}
+    if(v.type==='hello') {this.reset();this.epoch=v.adapterEpoch;this.stream=v.streamId;this.capabilities=Object.freeze({...v.capabilities});this.transcripts.setActiveRun(this.epoch);this.lastReceipt=this.now();return true;}
     if(v.adapterEpoch!==this.epoch || v.streamId!==this.stream) {this.count('stale');return false;}
     if(v.sequence<=this.sequence) {this.count('duplicate');return false;}
     if(v.sequence!==this.sequence+1) {this.count('gaps');this.reset();return false;}
@@ -47,6 +52,7 @@ export class ShadowRuntime {
     if(v.type==='diagnostics') {this.diagnostics=Object.freeze({...v.payload,damageCallbacks:Object.freeze({...v.payload.damageCallbacks})});this.capabilities=Object.freeze({...v.payload.capabilities});return true;}
     const s=v.payload, cap={ped_damage:'pedDamage',player_damage:'playerDamage',vehicle_damage:'vehicleDamage',shooting:'shooting',state:'state',action:'action',playback:'playback'}[s.producer];
     if(!this.capabilities[cap]) {this.count('stale');return false;}
+    if(s.witnessReceipts?.length && !this.capabilities.witness) {this.count('stale');return false;}
     if(s.producerSequence<=(this.producers.get(s.producer)||0)) {this.count('duplicate');return false;}
     // Producer gaps reflect bounded callback loss, never proof of an outcome.
     if(s.producerSequence>(this.producers.get(s.producer)||0)+1) this.count('gaps');
@@ -60,6 +66,20 @@ export class ShadowRuntime {
     if(this.signals.length>=256) {const index=this.signals.findIndex(x=>!x.critical);if(index<0) {this.count('dropped');return false;}this.signals.splice(index,1);this.count('dropped');}
     const facts={...s.facts};if(facts.collision) facts.collision=Object.freeze({...facts.collision});
     const value=Object.freeze({...s,facts:Object.freeze(facts)});
-    this.signals.push({value,critical,expires:this.now()+BOUNDS.signalTtlMs-s.ageMs});this.count('received');return true;
+    this.signals.push({value,critical,expires:this.now()+BOUNDS.signalTtlMs-s.ageMs});this.count('received');
+    const selfReceipts=[];
+    for(const anchor of this.anchors.values()) {
+      if(!anchor.observer || anchor.kind!=='ped') continue;
+      const involved=s.target===anchor.captureRef&&(s.kind==='damage'||s.kind==='death') || s.source===anchor.captureRef&&s.kind==='firing';
+      if(involved) selfReceipts.push({observer:{captureRef:anchor.captureRef,kind:'ped'},sampledGameTick:s.gameTick,status:'witnessed',reason:'self_involvement',evidence:{channel:'self',basis:s.producer==='state'?'sampled_state':'native_callback',sampledGameTick:s.gameTick}});
+    }
+    const correlated=this.correlator.ingest({nativeRun:this.epoch,signal:s,witnessReceipts:[...(s.witnessReceipts||[]),...selfReceipts]});
+    if(correlated.duplicate) this.ps2Diagnostics.duplicates=Math.min(2147483647,this.ps2Diagnostics.duplicates+1);
+    else if(correlated.accepted) {this.ps2Diagnostics.correlated=Math.min(2147483647,this.ps2Diagnostics.correlated+Number(Boolean(correlated.episodeId)));this.ps2Diagnostics.witnessed=Math.min(2147483647,this.ps2Diagnostics.witnessed+correlated.observations.length);}
+    if(!correlated.accepted) this.ps2Diagnostics.dropped=Math.min(2147483647,this.ps2Diagnostics.dropped+1);
+    return true;
+  }
+  acceptPlayerTranscript({text,receipt=null}={}) {
+    return this.transcripts.accept({capability:this.capabilities.playerSpeech===true,receipt,text});
   }
 }

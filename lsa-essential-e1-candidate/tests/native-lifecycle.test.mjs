@@ -189,9 +189,10 @@ test('body finishing after cancellation cannot return JSON success', async () =>
 });
 
 test('duplicate PTT start/stop preserves prefix and transcribes once', async () => {
-  const f = await fixture(); let calls = 0, bytes;
+  const f = await fixture(); let calls = 0, bytes,accepted=0,acceptedText,receipt='unset';
   f.runtime.services.transcribe = async ({ pcm }) => { calls++; bytes = [...pcm]; return 'hello'; };
-  await f.connection.beginTurn({ identity: id, context: { systemInstruction: 'stock' } });
+  f.runtime.services.acceptPlayerTranscript = input => {accepted++;acceptedText=input.text;receipt=input.receipt;};
+  await f.connection.beginTurn({ identity: id, source:'player_mic', context: { systemInstruction: 'stock' } });
   assert.equal(await f.connection.startRealtimeInput(),true);
   await f.connection.sendRealtimeAudio(new Uint8Array([1,2]));
   assert.equal(await f.connection.startRealtimeInput(),false);
@@ -199,8 +200,19 @@ test('duplicate PTT start/stop preserves prefix and transcribes once', async () 
   assert.equal(await f.connection.endRealtimeInput(),true);
   assert.equal(await f.connection.endRealtimeInput(),false);
   await f.connection.whenSettled(id);
-  assert.equal(calls,1); assert.deepEqual(bytes,[1,2,3,4]);
+  assert.equal(calls,1); assert.equal(accepted,1);assert.equal(acceptedText,'hello');assert.equal(receipt,null);assert.deepEqual(bytes,[1,2,3,4]);
   assert.equal(await f.connection.startRealtimeInput(),false);
+});
+
+test('accepted microphone hearing hook fires once before a later response failure and cannot change the native lifecycle',async()=>{
+  const f=await fixture({decide:async()=>{throw new Error('test response failure');}});let accepted=0,transcribed=0;
+  f.runtime.services.transcribe=async()=>{transcribed++;return 'heard once';};
+  f.runtime.services.acceptPlayerTranscript=({text,receipt})=>{accepted++;assert.equal(text,'heard once');assert.equal(receipt,null);};
+  await f.connection.beginTurn({identity:id,source:'player_mic',context:{systemInstruction:'stock'}});
+  await f.connection.startRealtimeInput();await f.connection.sendRealtimeAudio(new Uint8Array([1,2]));await f.connection.endRealtimeInput();
+  const result=await f.connection.whenSettled(id);
+  assert.notEqual(result.status,'completed');assert.equal(transcribed,1);assert.equal(accepted,1);
+  assert.equal(f.events.some(event=>event.type==='audio'),false);assert.equal(f.runtime.history.readForSession('17',5)[0].content,'heard once');
 });
 
 test('disconnect cancels provider and isolates history on reconnect', async () => {

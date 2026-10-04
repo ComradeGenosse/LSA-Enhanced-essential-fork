@@ -10,7 +10,7 @@ import { perceptionContractSupported } from '../src/perception/nativeSupport.mjs
 
 function fixture() {
   let now=0, sequence=0, producerSequence=0;const epoch=randomUUID(),stream=randomUUID(),ped=randomUUID(),player=randomUUID(),vehicle=randomUUID(),ambient=randomUUID();
-  const runtime=new ShadowRuntime({mode:'shadow',now:()=>now});const caps=Object.fromEntries(CAPABILITIES.map(k=>[k,!['witness','awareness'].includes(k)]));
+  const runtime=new ShadowRuntime({mode:'shadow',now:()=>now});const caps=Object.fromEntries(CAPABILITIES.map(k=>[k,!['awareness','playerSpeech'].includes(k)]));
   const hello=()=>({version:1,type:'hello',adapterEpoch:epoch,streamId:stream,capabilities:caps});
   const frame=(type,payload)=>({version:1,type,adapterEpoch:epoch,streamId:stream,sequence:++sequence,payload});
   const ingest=v=>runtime.ingest(v,{authenticated:true});
@@ -45,6 +45,16 @@ test('player ped vehicle damage supports unknown attacker without inferred attri
   const f=fixture();for(const [producer,kind,target] of [['ped_damage','damage',f.ped],['player_damage','damage',f.player],['vehicle_damage','vehicle_damage',f.vehicle]]) assert.equal(f.ingest(f.frame('signal',f.signal({producer,kind,target,source:null}))),true);
   assert.equal(f.runtime.signals.length,3);assert.equal(f.runtime.signals[2].value.source,null);
 });
+test('checked native visual witness receipts become immutable per-observer observations with exact attribution',()=>{
+  const f=fixture(),signalId=randomUUID(),receipt={observer:{captureRef:f.ped,kind:'ped'},sampledGameTick:17,status:'witnessed',reason:'visual_clear',knowsSource:true,knowsTarget:false,evidence:{channel:'visual',basis:'sampled_state',sampledGameTick:17}};
+  const signal=f.signal({signalId,producer:'shooting',producerSequence:40,kind:'firing',target:null,source:f.player,gameTick:17,facts:{},witnessReceipts:[receipt]});
+  assert.equal(validateSignal(signal),true);assert.equal(f.ingest(f.frame('signal',signal)),true);
+  const observation=[...f.runtime.observations.entries.values()][0].value;
+  assert.equal(validateObservation(observation),true);assert.equal(observation.claims[0].evidence.channel,'visual');assert.equal(observation.claims[0].source.captureRef,f.player);assert.equal(observation.claims[0].target,undefined);
+  const replay=f.signal({signalId,producer:'shooting',producerSequence:41,kind:'firing',target:null,source:f.player,gameTick:17,facts:{},witnessReceipts:[receipt]});
+  assert.equal(f.ingest(f.frame('signal',replay)),true);assert.equal(f.runtime.observations.entries.size,1);assert.equal(f.runtime.ps2Diagnostics.duplicates,1);
+  assert.equal(validateSignal({...signal,witnessReceipts:[{...receipt,observer:{...receipt.observer,kind:'vehicle'}}]}),false);
+});
 test('duplicate/out of order envelope sequences cannot replay facts',()=>{
   const f=fixture(),v=f.frame('signal',f.signal());assert.equal(f.ingest(v),true);assert.equal(f.ingest(v),false);
   assert.equal(f.ingest({...v,sequence:1}),false);assert.equal(f.runtime.signals.length,1);assert.equal(f.runtime.counters.duplicate,2);
@@ -76,17 +86,17 @@ test('old native epoch/stream cannot publish after feature reset',()=>{
   const f=fixture();f.runtime.reset();const other={...f.hello(),adapterEpoch:randomUUID(),streamId:randomUUID()};f.ingest(other);
   assert.equal(f.ingest(f.frame('signal',f.signal())),false);assert.equal(f.runtime.signals.length,0);
 });
-test('missing source capability fails closed and future witness capabilities remain absent',()=>{
-  const f=fixture();f.caps.pedDamage=false;f.ingest(f.hello());f.ingest(f.frame('anchors',[{captureRef:f.ped,kind:'ped',observer:true}]));
-  assert.equal(f.ingest(f.frame('signal',f.signal({source:null}))),false);assert.equal(f.runtime.capabilities.witness,false);assert.equal(f.runtime.signals.length,0);
+test('missing source capability fails closed while player speech stays explicitly unsupported',()=>{
+  const f=fixture();f.runtime.capabilities=Object.freeze({...f.runtime.capabilities,pedDamage:false});
+  assert.equal(f.ingest(f.frame('signal',f.signal({source:null}))),false);assert.equal(f.runtime.capabilities.witness,true);assert.equal(f.runtime.capabilities.playerSpeech,false);assert.equal(f.runtime.signals.length,0);
 });
 test('expired callback facts rejected and collision primitive copied immutably',()=>{
   const f=fixture();assert.equal(f.ingest(f.frame('signal',f.signal({ageMs:30000}))),false);
   const collision={x:1,y:2,z:3};const s=f.signal({producer:'vehicle_damage',kind:'vehicle_damage',target:f.vehicle,facts:{damage:1,armour:0,classification:'collision',collision}});
   assert.equal(f.ingest(f.frame('signal',s)),true);collision.x=99;assert.equal(f.runtime.signals[0].value.facts.collision.x,1);
 });
-test('damage callback diagnostics distinguish bounded ped, player and vehicle totals',()=>{
-  const f=fixture(),p={anchors:4,observers:1,snapshotAgeMs:0,snapshotCadenceMs:200,dropped:0,staleRejected:0,retiredAnchors:0,deferredDiscovery:0,updateMicros:200,capabilities:f.caps,signals:{},damageCallbacks:{ped_damage:2,player_damage:1,vehicle_damage:0}};
+test('damage callback and PS2 diagnostics distinguish bounded counters and unsupported speech receipt gate',()=>{
+  const f=fixture(),p={anchors:4,observers:1,snapshotAgeMs:0,snapshotCadenceMs:200,dropped:0,staleRejected:0,retiredAnchors:0,deferredDiscovery:0,updateMicros:200,capabilities:f.caps,signals:{},damageCallbacks:{ped_damage:2,player_damage:1,vehicle_damage:0},witnessDeferred:0,witnessUnknown:0,witnessRejected:0,playerSpeechGate:'unsupported_capture_receipt'};
   assert.equal(validateFrame(f.frame('diagnostics',p)),true);
   assert.equal(validateFrame(f.frame('diagnostics',{...p,damageCallbacks:{ped_damage:2,player_damage:1}})),false);
   assert.equal(validateFrame(f.frame('diagnostics',{...p,damageCallbacks:{ped_damage:2,player_damage:1,vehicle_damage:0,handles:[1]}})),false);
@@ -116,7 +126,7 @@ test('signal anchor kinds reject wrong entity addresses',()=>{
   assert.equal(f.ingest(f.frame('signal',f.signal({kind:'vehicle_transition',producer:'state',facts:{vehicle:f.vehicle,driver:true},source:null}))),true);
 });
 test('PS0/PS1 production module boundary contains no model, memory or native action effect',async()=>{
-  for(const file of ['contracts.mjs','shadowRuntime.mjs','observationStore.mjs','intelligenceClient.mjs']) {
+  for(const file of ['contracts.mjs','shadowRuntime.mjs','observationStore.mjs','episodeCorrelator.mjs','witnessPolicy.mjs','speechContract.mjs','sharedTranscriptStore.mjs','intelligenceClient.mjs']) {
     const source=await readFile(new URL('../src/perception/'+file,import.meta.url),'utf8');assert.doesNotMatch(source,/from ['"].*(?:openai|providers|profileStore|characterService|sceneDirector)/);assert.doesNotMatch(source,/writeFile|fetch\(|upsertExperience|\.request\(/);
   }
   const source=await readFile(new URL('../../native/intelligence/IntelligenceIntegration.cs',import.meta.url),'utf8');assert.doesNotMatch(source,/World\.GetAll|PerceptionSystem\.Update|PerceptionSnapshot\.Capture|GunshotReflexDetector|NpcActions\.|\.TASK|SpecialGeminiTurnScheduler/);assert.match(source,/public void EnrichActor\(Ped ped,ActorContext context\) \{\}/);

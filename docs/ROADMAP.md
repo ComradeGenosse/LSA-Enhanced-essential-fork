@@ -32,7 +32,8 @@ Essential remains authoritative for native NPC state, turn/generation identity, 
 | P1 — SESSION_IDENTITY | ✅ Implemented | Explicit owner-authenticated durable UUIDs, runtime bindings, and persistent voice assignments are merged to `main`; additional stress/continuity checks roll into follow-up validation/E7. |
 | P2 — PROMOTED_CHARACTERS / CHARACTER_PROFILE | ✅ Implemented | Merged to `main` and exercised in GTA: promotion, character editor/profile memory editing, and native companion/vehicle behavior are working; remaining edge cases are follow-up regression work. |
 | PS0 / PS1 — PERCEPTION FOUNDATION | Implemented offline; physical GTA validation pending | Default-off shadow-only contracts, lifetime anchors, bounded factual transport and supported native producers; [status and GTA checklist](PS0-PS1-perception-status.md) |
-| PS2+ — PERCEPTION / KNOWLEDGE | Planned | Witness/LOS/hearing, correlation and later context/memory phases remain unimplemented |
+| PS2 — WITNESS / EPISODE CORRELATION | Implemented offline in shadow; GTA validation pending | Source-sample visual receipts, self/report/auditory policy contracts, bounded episode correlation, immutable per-observer revisions, replay checks, ordinary transient observers; player speech hearing remains disabled because capture UUID/native-time linkage is unsupported |
+| PS3+ — SALIENCE / MEMORY / SOCIAL ROUTING | Planned | No responder selection, initiative, context projection, automatic memories, or later knowledge phases are implemented |
 | SALIENCE | Planned | Decide what an NPC should care about right now |
 | PROXIMITY_CHAT / SOCIAL_ROUTING | Planned | Route player speech through perception + salience so nearby NPCs can hear, be addressed, overhear, and respond without manual targeting |
 | SCENE_DIRECTOR | Planned | NPC initiative and coordinated autonomous behavior built on the same perception/salience/social-routing state |
