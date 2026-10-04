@@ -607,6 +607,8 @@ Read left to right, top row first. Each diamond is the physical GTA gate that cl
 
 ### Phase 0: consolidate the native host (no features)
 
+> Status (October 3, 2026): done on `main`; gate diagnostics and verification on `feature/ux-phase0-1-command-bridge`. See [UX phase 0–1 status](../UX-phase0-1-status.md).
+
 **Goal:** one `main` containing PS0/PS1, the fiber-access fix and `86d02eb`.
 
 - Push `fix/p2-command-assembly-isolation` (`86d02eb`) unchanged, then rebase it onto `main` (`f533942`).
@@ -619,6 +621,8 @@ Read left to right, top row first. Each diamond is the physical GTA gate that cl
 - **Gate:** exactly seven canonical `LSA*` commands with no numbered aliases, `essential_host_ready`, a successful `LSAPromote`, healthy `[PS] host_status`, then spikes S1–S6 (section 10).
 
 ### Phase 1: command bridge and contracts (no visible change)
+
+> Status (October 3, 2026): implemented and verified offline on `feature/ux-phase0-1-command-bridge`; GTA gate pending. See [UX phase 0–1 status](../UX-phase0-1-status.md) for the deliberate differences from this section.
 
 **Goal:** a string-only path from the loader into `Update`, a read-only current-NPC view, and an API handshake that no longer scrapes HTML.
 
