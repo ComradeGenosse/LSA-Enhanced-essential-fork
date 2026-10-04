@@ -38,7 +38,7 @@ export class IntelligenceClient {
       this.runtime.expire();if(!this.runtime.epoch && hello) fail();
       if(this.runtime.epoch && this.runtime.now()-this.lastReport>=10000) {
         this.lastReport=this.runtime.now();
-        try {this.report({anchors:this.runtime.anchors.size,queued:this.runtime.signals.length,...this.runtime.counters,capabilities:this.runtime.capabilities,damageCallbacks:this.runtime.diagnostics?.damageCallbacks??{ped_damage:0,player_damage:0,vehicle_damage:0}});}catch{}
+        try {this.report({anchors:this.runtime.anchors.size,queued:this.runtime.signals.length,...this.runtime.counters,capabilities:this.runtime.capabilities,damageCallbacks:this.runtime.diagnostics?.damageCallbacks??{ped_damage:0,player_damage:0,vehicle_damage:0},ps2:{...this.runtime.ps2Diagnostics,playerSpeechGate:this.runtime.diagnostics?.playerSpeechGate??'unsupported_capture_receipt',speech:this.runtime.transcripts.diagnostics}});}catch{}
       }
     },500).unref();
     socket.once('close',()=>clearInterval(this.watch));

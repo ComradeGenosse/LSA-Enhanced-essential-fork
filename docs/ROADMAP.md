@@ -2,7 +2,7 @@
 
 Updated October 4, 2026.
 
-Current runtime/code baseline: `6ae6bc9` (unified UX phases 0–3 merged). Roadmap-only commits after that SHA do not change runtime behavior.
+Current runtime/code baseline: unified UX phases 0–3, production input/Harmony fixes, and PS2 witness/episode correlation are merged. Source-time player-speech hearing remains disabled pending the native capture receipt probe.
 
 This roadmap tracks the Essential-based LSA companion from the hardened E1.1 foundation through low-latency dialogue, durable NPC identity, richer perception, autonomous scene behavior, and final long-session acceptance.
 
@@ -35,7 +35,7 @@ Essential remains authoritative for native NPC state, turn/generation identity, 
 | P2 — PROMOTED_CHARACTERS / CHARACTER_PROFILE | ✅ Implemented | Merged to `main` and exercised in GTA: promotion, character editor/profile memory editing, summon, follow/wait and native vehicle behavior |
 | UX0–UX3 — CONTROLS / NATIVE MENU | ✅ Merged to `main` + offline-verified; GTA acceptance pending | Command bridge, input router/chords, F11 native menu, Current NPC / Characters / Controls / AI / Diagnostics pages |
 | PS0 / PS1 — PERCEPTION FOUNDATION | ✅ Implemented offline on `main`; physical GTA validation pending | Default-off shadow contracts, lifetime anchors, bounded factual transport and supported native producers |
-| PS2 — WITNESS / EPISODE CORRELATION | 🟡 Implemented on feature branch; not merged | `feature/ps2-witness-rules-episode-correlation` is 3 commits ahead of `main`; witness rules, episode correlation and speech contracts are implemented offline. Full regression rerun + GTA acceptance remain; source-time player-speech hearing stays disabled until the native mic/capture receipt probe is proven |
+| PS2 — WITNESS / EPISODE CORRELATION | Implemented offline on `main`; GTA acceptance pending | Witness rules, episode correlation, immutable observer revisions and speech contracts are merged. Source-time player-speech hearing remains disabled until native mic/capture receipts are proven. |
 | SALIENCE | 🔵 Architecture researched; not implemented | Decide what an NPC should care about right now from bounded factual observations |
 | PROXIMITY_CHAT / SOCIAL_ROUTING | 🔵 Architecture researched; not implemented | Route one player utterance through hearing/address/overhearing and responder arbitration without creating a second dialogue stack |
 | SCENE_DIRECTOR | 🔵 Architecture researched; not implemented | NPC initiative and coordinated autonomous behavior built on perception, salience, social state and ACT capabilities |
@@ -266,7 +266,7 @@ P2 supplies the durable foundation, not automatic memory extraction, event perce
 
 ### PERCEPTION — Richer world and event awareness
 
-Current status: PS0/PS1 are merged to `main` in default-off shadow form. PS2 witness rules and episode correlation are implemented on `feature/ps2-witness-rules-episode-correlation` but are not yet merged. The PS2 branch deliberately keeps player-speech hearing unavailable until a source-time native mic/capture receipt can be proven in GTA; post-STT proximity is not accepted as evidence that an NPC heard an earlier utterance.
+Current status: PS0/PS1 are merged to `main` in default-off shadow form. PS2 witness rules and episode correlation are merged to `main`, together with the deployed injury, report and harm correlation fixes. The PS2 branch deliberately keeps player-speech hearing unavailable until a source-time native mic/capture receipt can be proven in GTA; post-STT proximity is not accepted as evidence that an NPC heard an earlier utterance.
 
 Use Essential's existing extension seams and native state rather than creating a duplicate world scanner.
 

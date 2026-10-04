@@ -67,6 +67,18 @@ class Program
         Check(sensors.Count==192&&sensors.Dropped==208,"routine reserve");for(int n=0;n<100;n++) sensors.Damage("player_damage",target,null,1,0,"unknown",1,1,true);
         Check(sensors.Count==256,"critical replaces routine within cap");sensors.Reset();
         Check(!sensors.Damage("ped_damage",target,null,-1,0,"unknown",1,1,false),"negative damage rejected");
+        var visual=WitnessPolicy.Evaluate(new WitnessGeometry {EventKind="firing",Observer=Guid.NewGuid().ToString("D"),Source=target,SampledGameTick=77,DistanceMeters=50,SameInterior=true,ClearLosInFront=true});
+        Check(visual.Status=="witnessed"&&visual.Channel=="visual"&&visual.KnowsSource,"visual witness at bounded range identifies visible source");
+        visual=WitnessPolicy.Evaluate(new WitnessGeometry {EventKind="firing",Observer=Guid.NewGuid().ToString("D"),Source=target,SampledGameTick=78,DistanceMeters=10,SameInterior=true,ClearLosInFront=false});
+        Check(visual.Status=="did_not_witness"&&visual.Channel==null,"wall or outside-cone visual check never grants knowledge");
+        var self=WitnessPolicy.Evaluate(new WitnessGeometry {EventKind="death",Observer=target,Target=target,SampledGameTick=79,DistanceMeters=1000,SelfInvolved=true});
+        Check(self.Status=="witnessed"&&self.Channel=="self"&&self.KnowsTarget,"direct victim involvement is independent of sight");
+        var heard=WitnessPolicy.Evaluate(new WitnessGeometry {EventKind="sound",Observer=Guid.NewGuid().ToString("D"),SampledGameTick=80,DistanceMeters=12,SoundKind="speech",SoundSourceVerified=true,SameAcousticSpace=true,ClearAcousticPath=true,SourceVehicle="on_foot",ObserverVehicle="on_foot"});
+        Check(heard.Status=="witnessed"&&heard.Channel=="auditory"&&!heard.KnowsSource,"verified audibility conveys sound but does not identify a speaker");
+        heard=WitnessPolicy.Evaluate(new WitnessGeometry {EventKind="sound",Observer=Guid.NewGuid().ToString("D"),SampledGameTick=81,DistanceMeters=3,SoundKind="speech",SoundSourceVerified=true,SameAcousticSpace=true,ClearAcousticPath=true,SourceVehicle="unknown",ObserverVehicle="on_foot"});
+        Check(heard.Status=="unknown"&&heard.Reason=="vehicle_acoustics_unknown","unknown vehicle context does not grant hearing");
+        heard=WitnessPolicy.Evaluate(new WitnessGeometry {EventKind="sound",Observer=Guid.NewGuid().ToString("D"),SampledGameTick=82,DistanceMeters=7,SoundKind="speech",SoundSourceVerified=true,SameAcousticSpace=true,ClearAcousticPath=true,SourceVehicle="enclosed",ObserverVehicle="on_foot"});
+        Check(heard.Status=="did_not_witness"&&heard.Reason=="auditory_out_of_range","enclosed vehicle halves modeled speech radius");
         sensors.Sample(target,new StateSample {Health=100,Location="ZONE1",Activity="stationary",Presence="retained"},1,1);
         Check(sensors.Count==0,"initial state baseline");sensors.Sample(target,new StateSample {Health=80,Location="ZONE1",Activity="stationary",Presence="retained"},2,2);
         Check(sensors.Take().kind=="injury_state","injury state edge");
@@ -92,7 +104,7 @@ class Program
     static void PipeTest()
     {
         var name="LSA.PS.Tests."+Guid.NewGuid().ToString("N");var epoch=Guid.NewGuid().ToString("D");var caps=new Dictionary<string,bool>();
-        foreach(var k in new[]{"snapshot","pedDamage","playerDamage","vehicleDamage","shooting","state","action","playback","witness","awareness"}) caps[k]=false;
+        foreach(var k in new[]{"snapshot","pedDamage","playerDamage","vehicleDamage","shooting","state","action","playback","witness","awareness","playerSpeech"}) caps[k]=false;
         using(var channel=new IntelligenceChannel(name,epoch,()=>caps)) {
             channel.Start();using(var client=new NamedPipeClientStream(".",name,PipeDirection.In)) {
                 client.Connect(3000);var reader=new StreamReader(client);var json=new JavaScriptSerializer();var hello=json.Deserialize<Dictionary<string,object>>(reader.ReadLine());
@@ -105,7 +117,7 @@ class Program
     }
     static void Serve(string name)
     {
-        var caps=new Dictionary<string,bool>();foreach(var k in new[]{"snapshot","pedDamage","playerDamage","vehicleDamage","shooting","state","action","playback","witness","awareness"}) caps[k]=k=="shooting";
+        var caps=new Dictionary<string,bool>();foreach(var k in new[]{"snapshot","pedDamage","playerDamage","vehicleDamage","shooting","state","action","playback","witness","awareness","playerSpeech"}) caps[k]=k=="shooting";
         using(var channel=new IntelligenceChannel(name,Guid.NewGuid().ToString("D"),()=>caps)) {
             channel.Start();Console.WriteLine("Interop server ready");
             var deadline=System.Diagnostics.Stopwatch.StartNew();bool sent=false;

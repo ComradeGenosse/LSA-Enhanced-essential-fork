@@ -181,6 +181,11 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
       check();
       await emit({ type: 'input_transcript', text: finalInput });
       check();
+      if (source === 'player_mic') {
+        // One observer-independent callback after accepted STT. No current
+        // Essential/native hook supplies a matched source-time capture receipt.
+        try { services.acceptPlayerTranscript?.({ text: finalInput, receipt: null }); } catch { /* Optional shadow perception cannot affect the turn. */ }
+      }
     }
     if (isPlayer && !String(finalInput || '').trim()) throw new Error('player_input_empty');
     if (isPlayer) dialogueTurn?.input(finalInput);
