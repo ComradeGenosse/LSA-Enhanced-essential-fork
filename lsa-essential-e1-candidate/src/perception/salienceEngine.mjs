@@ -1,0 +1,407 @@
+import { isUuid } from '../identity/identityContract.mjs';
+import { validateObservation } from './contracts.mjs';
+
+// Local ranker only. urgent is a priority label, not permission to speak,
+// interrupt playback, write memory, or override native reflex.
+export const REASON_CODES = Object.freeze([
+  'evidence_expired', 'evidence_lifetime_ended', 'evidence_channel_unhealthy', 'evidence_unsupported', 'evidence_uncertain',
+  'revision_stale', 'repetition_suppressed', 'suppression_capacity',
+  'safety_self_danger', 'safety_player_harm', 'safety_nearby_threat',
+  'involvement_self', 'involvement_player',
+  'relationship_close', 'relationship_conflict',
+  'prior_memory', 'novelty_escalation', 'novelty_material',
+  'situation_occupied', 'situation_conversation', 'trait_policy', 'routine_low_relevance',
+]);
+export const TRAIT_POLICIES = Object.freeze(['protective', 'cautious', 'loyal', 'bold']);
+export const SALIENCE_BOUNDS = Object.freeze({
+  decisions: 256, perObserver: 32, suppression: 1024, suppressionTtlMs: 10 * 60 * 1000, reasons: 4,
+});
+const REASON_SET = new Set(REASON_CODES);
+const RELATIONSHIPS = new Set(['associate', 'friend', 'trusted', 'strained', 'neutral']);
+const ACTIVITIES = new Set(['idle', 'driving', 'passenger', 'in_vehicle', 'conversation', 'following', 'waiting']);
+const CLOSE = new Set(['friend', 'trusted']);
+const OCCUPIED = new Set(['driving', 'passenger', 'in_vehicle']);
+const ROUTINE_EVENTS = new Set(['character_present', 'location_changed', 'activity_changed', 'speech_heard', 'action_observed', 'vehicle_transition']);
+const HARM_EVENTS = new Set(['injury', 'death_seen', 'body_found', 'vehicle_impact', 'threat']);
+const SEVERITY = Object.freeze({ routine: 0, notable: 1, danger: 2, critical: 3 });
+const RESPONSE_RANK = Object.freeze({ none: 0, eligible: 1, urgent: 2 });
+const DECISION_KEYS = ['observationId', 'revision', 'context', 'memory', 'response', 'reasons', 'expiresAtMonotonicMs'];
+
+const integer = value => Number.isSafeInteger(value) && value >= 0;
+
+function participantRefs(observation) {
+  const refs = [];
+  for (const claim of observation.claims) {
+    if (claim.source?.captureRef) refs.push(claim.source.captureRef);
+    if (claim.target?.captureRef) refs.push(claim.target.captureRef);
+  }
+  return refs;
+}
+function recognizedHit(recognized, ref) {
+  if (!isUuid(ref) || !recognized) return null;
+  const hit = recognized instanceof Map ? recognized.get(ref) : recognized[ref];
+  if (!hit || hit.recognized === false || !isUuid(hit.characterId)) return null;
+  return { characterId: hit.characterId, relationship: RELATIONSHIPS.has(hit.relationship) ? hit.relationship : 'neutral' };
+}
+function familyKey(observation) {
+  const family = HARM_EVENTS.has(observation.eventType) ? 'harm' : observation.eventType === 'firing_burst' ? 'firing' : observation.eventType;
+  return `${observation.observer.captureRef}|${family}|${participantRefs(observation).sort().join(',')}`;
+}
+function policyFingerprint(situation, observation) {
+  const recognized = participantRefs(observation).map(ref => {
+    const hit = recognizedHit(situation.recognized, ref);
+    return hit ? `${ref}:${hit.characterId}:${hit.relationship}` : `${ref}:backend`;
+  }).sort();
+  const memories = situation.memories.map(memory => `${memory.memoryId}:${memory.importance}:${[...memory.relatedCharacterIds].sort().join('.')}`).sort();
+  const player = situation.playerRelationship?.state || 'none';
+  return [situation.activity, player, recognized.join('|'), memories.join('|'), situation.traitPolicies.join(',')].join('~');
+}
+function selectReasons(reasons) {
+  const present = new Set(reasons.filter(code => REASON_SET.has(code)));
+  return REASON_CODES.filter(code => present.has(code)).slice(0, SALIENCE_BOUNDS.reasons);
+}
+function blank(observation, now, draft) {
+  const expiresAtMonotonicMs = Math.min(observation.expiresAtMonotonicMs, now + SALIENCE_BOUNDS.suppressionTtlMs);
+  return Object.freeze({
+    observationId: observation.observationId,
+    revision: observation.revision,
+    context: draft.context,
+    memory: draft.memory,
+    response: draft.response,
+    reasons: Object.freeze(selectReasons(draft.reasons)),
+    expiresAtMonotonicMs,
+  });
+}
+export function normalizeSalienceSituation(input = {}) {
+  const source = input && typeof input === 'object' ? input : {};
+  const traitPolicies = [];
+  for (const tag of Array.isArray(source.traitPolicies) ? source.traitPolicies : []) {
+    const token = typeof tag === 'string' ? tag.trim().toLowerCase() : '';
+    if (TRAIT_POLICIES.includes(token) && !traitPolicies.includes(token)) traitPolicies.push(token);
+  }
+  const recognized = {};
+  const entries = source.recognized instanceof Map ? [...source.recognized.entries()] : Object.entries(source.recognized && typeof source.recognized === 'object' ? source.recognized : {});
+  for (const [ref, hit] of entries.slice(0, 32)) {
+    const normalized = recognizedHit(new Map([[ref, hit]]), ref);
+    if (normalized) recognized[ref] = normalized;
+  }
+  const memories = [];
+  for (const memory of (Array.isArray(source.memories) ? source.memories : []).slice(0, 16)) {
+    if (!memory || !integer(memory.importance) || memory.importance < 50 || !Array.isArray(memory.relatedCharacterIds)) continue;
+    const relatedCharacterIds = memory.relatedCharacterIds.filter(isUuid).slice(0, 8);
+    if (relatedCharacterIds.length) memories.push({ memoryId: typeof memory.memoryId === 'string' ? memory.memoryId : '', importance: memory.importance, relatedCharacterIds });
+  }
+  const relationship = source.playerRelationship;
+  const playerRelationship = relationship && RELATIONSHIPS.has(relationship.state)
+    ? { state: relationship.state, revision: integer(relationship.revision) ? relationship.revision : 0 }
+    : null;
+  return Object.freeze({
+    nowMonotonicMs: integer(source.nowMonotonicMs) ? source.nowMonotonicMs : 0,
+    lifetimeCurrent: source.lifetimeCurrent !== false,
+    channelHealthy: source.channelHealthy !== false,
+    perceptionSupported: source.perceptionSupported !== false,
+    playerCaptureRef: isUuid(source.playerCaptureRef) ? source.playerCaptureRef : null,
+    recognized: Object.freeze(recognized),
+    playerRelationship: playerRelationship ? Object.freeze(playerRelationship) : null,
+    profileRevision: integer(source.profileRevision) ? source.profileRevision : 0,
+    activity: ACTIVITIES.has(source.activity) ? source.activity : 'idle',
+    memories: Object.freeze(memories),
+    traitPolicies: Object.freeze(traitPolicies),
+    distanceBand: [0, 1, 2, 3].includes(source.distanceBand) ? source.distanceBand : 0,
+  });
+}
+export function situationFromCharacterView(view = {}) {
+  const profile = view.profile && typeof view.profile === 'object' ? view.profile : null;
+  const traits = Array.isArray(profile?.personality?.traits) ? profile.personality.traits : [];
+  const traitPolicies = [];
+  for (const trait of traits) {
+    const token = typeof trait === 'string' ? trait.trim().toLowerCase() : '';
+    if (TRAIT_POLICIES.includes(token) && !traitPolicies.includes(token)) traitPolicies.push(token);
+  }
+  const recognized = {};
+  for (const binding of (Array.isArray(view.bindings) ? view.bindings : []).slice(0, 32)) {
+    if (!binding || binding.recognized !== true) continue;
+    const hit = recognizedHit(new Map([[binding.captureRef, binding]]), binding.captureRef);
+    if (hit) recognized[binding.captureRef] = hit;
+  }
+  const profileMemories = Array.isArray(view.memories) ? view.memories : profile?.memories;
+  const relationship = profile?.relationship;
+  return normalizeSalienceSituation({
+    nowMonotonicMs: view.nowMonotonicMs,
+    lifetimeCurrent: view.lifetimeCurrent,
+    channelHealthy: view.channelHealthy,
+    perceptionSupported: view.perceptionSupported,
+    playerCaptureRef: view.playerCaptureRef,
+    recognized,
+    playerRelationship: relationship && RELATIONSHIPS.has(relationship.state)
+      ? { state: relationship.state, revision: integer(view.relationshipRevision) ? view.relationshipRevision : (integer(profile?.revision) ? profile.revision : 0) }
+      : null,
+    profileRevision: integer(profile?.revision) ? profile.revision : view.profileRevision,
+    activity: view.activity,
+    memories: profileMemories,
+    traitPolicies,
+    distanceBand: view.distanceBand,
+  });
+}
+
+function classify(observation, situation) {
+  const reasons = [];
+  if (!situation.lifetimeCurrent) reasons.push('evidence_lifetime_ended');
+  if (!situation.channelHealthy) reasons.push('evidence_channel_unhealthy');
+  if (!situation.perceptionSupported) reasons.push('evidence_unsupported');
+  if (observation.expiresAtMonotonicMs <= situation.nowMonotonicMs) reasons.push('evidence_expired');
+  if (reasons.length) return { context: 'omit', memory: 'none', response: 'none', reasons, closed: true };
+
+  const supported = observation.claims.filter(claim => claim.certainty === 'supported' && claim.evidence.channel !== 'report');
+  if (!supported.length) return { context: 'candidate', memory: 'none', response: 'none', reasons: ['evidence_uncertain'], closed: true };
+
+  const selfRef = observation.observer.captureRef;
+  const playerRef = situation.playerCaptureRef;
+  const kindOf = kind => supported.some(claim => claim.kind === kind);
+  const selfHarm = supported.some(claim => claim.evidence.channel === 'self' && ['injured', 'dead', 'attack'].includes(claim.kind));
+  const selfInvolved = selfHarm || supported.some(claim => claim.evidence.channel === 'self');
+  const involves = (claim, ref) => Boolean(ref && (claim.target?.captureRef === ref || claim.source?.captureRef === ref));
+  const playerHarm = Boolean(playerRef) && supported.some(claim => ['injured', 'dead', 'attack'].includes(claim.kind) && involves(claim, playerRef) && !involves(claim, selfRef));
+  const playerInvolved = Boolean(playerRef) && supported.some(claim => involves(claim, playerRef));
+  const hits = [...new Set(participantRefs(observation))].map(ref => recognizedHit(situation.recognized, ref)).filter(Boolean);
+  const close = hits.filter(hit => CLOSE.has(hit.relationship));
+  const conflict = hits.filter(hit => hit.relationship === 'strained');
+  const playerClose = CLOSE.has(situation.playerRelationship?.state);
+  const playerConflict = situation.playerRelationship?.state === 'strained';
+  const death = observation.eventType === 'death_seen' || observation.eventType === 'body_found' || kindOf('dead');
+  const injury = observation.eventType === 'injury' || observation.eventType === 'vehicle_impact' || kindOf('injured') || kindOf('attack');
+  const firing = observation.eventType === 'firing_burst' || kindOf('firing');
+  const routineEvent = ROUTINE_EVENTS.has(observation.eventType) && !selfHarm && !playerHarm && !death && !injury && !firing;
+  const remembered = situation.memories.some(memory => memory.relatedCharacterIds.some(id => hits.some(hit => hit.characterId === id)));
+  let context = 'omit', memory = 'none', response = 'none';
+
+  if (selfHarm) {
+    context = 'must_include'; memory = 'stage'; response = 'urgent';
+    reasons.push('safety_self_danger', 'involvement_self');
+  } else if (playerHarm) {
+    context = 'must_include'; memory = 'stage'; response = 'eligible';
+    reasons.push('safety_player_harm', 'involvement_player');
+    if (playerClose) reasons.push('relationship_close');
+    else if (playerConflict) reasons.push('relationship_conflict');
+  } else if (death && close.length) {
+    context = 'must_include'; memory = 'stage'; response = 'eligible';
+    reasons.push('relationship_close', 'safety_nearby_threat');
+  } else if ((death || injury) && conflict.length) {
+    context = 'must_include'; memory = 'stage'; response = 'eligible';
+    reasons.push('relationship_conflict', 'safety_nearby_threat');
+  } else if (death) {
+    context = 'must_include'; response = 'eligible';
+    reasons.push('safety_nearby_threat');
+  } else if (injury && close.length) {
+    context = 'must_include'; memory = 'stage'; response = 'eligible';
+    reasons.push('relationship_close', 'safety_nearby_threat');
+  } else if (injury || firing) {
+    context = 'candidate';
+    reasons.push('safety_nearby_threat');
+    if (firing && (close.length || conflict.length)) response = 'eligible';
+    if (close.length) reasons.push('relationship_close');
+    else if (conflict.length) reasons.push('relationship_conflict');
+  } else if (playerInvolved) {
+    context = 'candidate';
+    reasons.push('involvement_player');
+    if (playerClose) reasons.push('relationship_close');
+    else if (playerConflict) reasons.push('relationship_conflict');
+  } else if (close.length && !routineEvent) {
+    context = 'candidate';
+    reasons.push('relationship_close');
+  } else if (conflict.length && !routineEvent) {
+    context = 'candidate';
+    reasons.push('relationship_conflict');
+  }
+
+  if (selfInvolved && !reasons.includes('involvement_self')) reasons.push('involvement_self');
+  if (remembered) {
+    if (context === 'omit') context = 'candidate';
+    else if (context === 'candidate' && (close.length || conflict.length)) context = 'must_include';
+    reasons.push('prior_memory');
+  }
+  if (OCCUPIED.has(situation.activity) && observation.eventType === 'vehicle_impact' && !selfHarm) {
+    context = 'must_include';
+    if (response === 'none') response = 'eligible';
+    reasons.push('safety_nearby_threat');
+  } else if (OCCUPIED.has(situation.activity) && routineEvent) {
+    context = remembered ? 'candidate' : 'omit';
+    response = 'none'; memory = 'none';
+    reasons.push('situation_occupied');
+  }
+  if (situation.activity === 'conversation' && (observation.eventType === 'speech_heard' || observation.eventType === 'report') && response !== 'urgent') {
+    if (context === 'omit') context = 'candidate';
+    response = 'none';
+    reasons.push('situation_conversation');
+  }
+  if ((situation.traitPolicies.includes('protective') || situation.traitPolicies.includes('loyal')) && close.length && context === 'omit') {
+    context = 'candidate';
+    reasons.push('trait_policy');
+  }
+  if (context === 'omit' && !reasons.length) reasons.push('routine_low_relevance');
+  return { context, memory, response, reasons, closed: false };
+}
+
+function applyLedger(draft, observation, situation, cache) {
+  if (!cache || draft.closed) return draft;
+  cache.expire(situation.nowMonotonicMs);
+  const policy = policyFingerprint(situation, observation);
+  const existing = cache.ledger.get(observation.observationId);
+  const family = cache.families.get(familyKey(observation));
+  const severity = SEVERITY[observation.severity] ?? 0;
+  const kinds = new Set(observation.claims.map(claim => claim.kind));
+  const escalated = Boolean(existing && observation.revision > existing.revision && (
+    severity > existing.severity || (kinds.has('dead') && !existing.kinds.has('dead')) || (kinds.has('attack') && !existing.kinds.has('attack'))
+  ));
+  const familyEscalated = Boolean(!existing && family && severity > family.severity);
+  let { context, memory, response, reasons } = draft;
+  const alreadyGranted = existing?.granted || 'none';
+  if (existing && observation.revision < existing.revision) {
+    response = 'none'; memory = 'none'; reasons = [...reasons, 'revision_stale'];
+  } else if (escalated || familyEscalated) {
+    reasons = [...reasons, 'novelty_escalation'];
+  } else if (existing?.consumed && RESPONSE_RANK[response] <= RESPONSE_RANK[alreadyGranted]) {
+    response = 'none';
+    if (existing.memoryStaged) memory = 'none';
+    reasons = [...reasons, 'repetition_suppressed'];
+  } else if (existing && !existing.consumed && existing.policy === policy) {
+    response = 'none'; memory = 'none';
+    reasons = [...reasons, 'repetition_suppressed'];
+  } else if (!existing && family?.consumed && severity <= family.severity) {
+    response = 'none';
+    if (family.memoryStaged) memory = 'none';
+    reasons = [...reasons, 'repetition_suppressed'];
+  } else if (!existing && (response !== 'none' || context !== 'omit')) {
+    reasons = [...reasons, 'novelty_material'];
+  }
+  const known = cache.ledger.has(observation.observationId);
+  if (!known && cache.ledger.size >= SALIENCE_BOUNDS.suppression && response !== 'urgent') {
+    response = 'none'; memory = 'none'; reasons = [...reasons, 'suppression_capacity'];
+  }
+  if (!known && cache.grantsForgotten && response !== 'urgent') {
+    response = 'none'; memory = 'none'; reasons = [...reasons, 'suppression_capacity'];
+  }
+  return { context, memory, response, reasons, closed: false, policy, existing, family, severity, kinds, escalated: escalated || familyEscalated };
+}
+
+export function evaluateSalience(observation, situationInput = {}, cache = null) {
+  if (!validateObservation(observation)) return null;
+  const situation = situationInput?.nowMonotonicMs !== undefined && Object.isFrozen(situationInput) && situationInput.traitPolicies
+    ? situationInput
+    : normalizeSalienceSituation(situationInput);
+  const draft = applyLedger(classify(observation, situation), observation, situation, cache);
+  const decision = blank(observation, situation.nowMonotonicMs, draft);
+  if (cache && !draft.closed) cache.remember(observation, situation, decision, draft);
+  else if (cache && draft.closed) cache.rememberClosed(observation, situation, decision);
+  return decision;
+}
+
+export function salienceSortKey(entry) {
+  const decision = entry.decision;
+  const situation = entry.situation || {};
+  const observation = entry.observation || {};
+  const reasons = new Set(decision.reasons);
+  const safety = decision.response === 'urgent' ? 5
+    : reasons.has('safety_self_danger') || reasons.has('safety_player_harm') ? 4
+    : decision.context === 'must_include' ? 3
+    : reasons.has('safety_nearby_threat') ? 2
+    : decision.context === 'candidate' ? 1 : 0;
+  const involvement = reasons.has('involvement_self') ? 2 : reasons.has('involvement_player') ? 1 : 0;
+  const relationship = reasons.has('relationship_close') ? 2 : reasons.has('relationship_conflict') ? 1 : 0;
+  const novelty = reasons.has('novelty_escalation') ? 2 : reasons.has('novelty_material') ? 1 : 0;
+  const traits = situation.traitPolicies || [];
+  return [
+    safety, involvement, relationship, novelty,
+    Math.min(situation.distanceBand || 0, 2),
+    observation.observedAt?.gameTick || 0,
+    traits.includes('loyal') || traits.includes('protective') ? 1 : 0,
+  ];
+}
+export function orderSalienceDecisions(entries) {
+  return [...entries].sort((left, right) => {
+    const a = salienceSortKey(left), b = salienceSortKey(right);
+    for (let index = 0; index < a.length; index += 1) if (a[index] !== b[index]) return b[index] - a[index];
+    return left.decision.observationId < right.decision.observationId ? -1 : left.decision.observationId > right.decision.observationId ? 1 : left.decision.revision - right.decision.revision;
+  });
+}
+
+export class SalienceCache {
+  constructor({ now = () => 0 } = {}) {
+    this.now = now;
+    this.decisions = new Map();
+    this.order = [];
+    this.ledger = new Map();
+    this.families = new Map();
+    this.latestById = new Map();
+    this.grantsForgotten = false;
+  }
+  evaluate(observation, situation) { return evaluateSalience(observation, situation, this); }
+  clear() { this.decisions.clear(); this.order = []; this.ledger.clear(); this.families.clear(); this.latestById.clear(); this.grantsForgotten = false; }
+  expire(now = this.now()) {
+    for (const [id, entry] of this.ledger) if (entry.expires <= now) this.ledger.delete(id);
+    for (const [key, entry] of this.families) if (entry.expires <= now) this.families.delete(key);
+    for (const [id, entry] of this.decisions) if (entry.decision.expiresAtMonotonicMs <= now) this.forgetDecision(id);
+    if (this.ledger.size < SALIENCE_BOUNDS.suppression) this.grantsForgotten = false;
+  }
+  forgetDecision(id) {
+    this.decisions.delete(id);
+    this.order = this.order.filter(key => key !== id);
+  }
+  evictDecisions(observer) {
+    const observers = id => this.decisions.get(id)?.observer === observer;
+    while ([...this.decisions.values()].filter(entry => entry.observer === observer).length > SALIENCE_BOUNDS.perObserver) {
+      const oldest = this.order.find(observers);
+      if (!oldest) break;
+      this.forgetDecision(oldest);
+    }
+    while (this.decisions.size > SALIENCE_BOUNDS.decisions) {
+      const oldest = this.order[0];
+      if (!oldest) break;
+      this.forgetDecision(oldest);
+    }
+  }
+  rememberClosed(observation, situation, decision) {
+    this.latestById.set(observation.observationId, Object.freeze({ decision, profileRevision: situation.profileRevision, policy: null }));
+  }
+  remember(observation, situation, decision, draft) {
+    const now = situation.nowMonotonicMs;
+    const expires = now + SALIENCE_BOUNDS.suppressionTtlMs;
+    const grant = decision.response === 'eligible' || decision.response === 'urgent';
+    const existing = draft.existing;
+    if (!(this.ledger.size >= SALIENCE_BOUNDS.suppression && !this.ledger.has(observation.observationId) && decision.response !== 'urgent')) {
+      if (!this.ledger.has(observation.observationId) && this.ledger.size >= SALIENCE_BOUNDS.suppression) {
+        const oldest = [...this.ledger.entries()].sort((a, b) => a[1].expires - b[1].expires)[0];
+        if (oldest) { this.ledger.delete(oldest[0]); this.grantsForgotten = true; }
+      }
+      const kinds = new Set([...(existing?.kinds || []), ...draft.kinds]);
+      this.ledger.set(observation.observationId, {
+        revision: Math.max(observation.revision, existing?.revision || 0),
+        severity: Math.max(draft.severity, existing?.severity || 0),
+        kinds,
+        policy: draft.policy,
+        granted: grant ? (RESPONSE_RANK[decision.response] >= RESPONSE_RANK[existing?.granted || 'none'] ? decision.response : existing.granted) : (existing?.granted || 'none'),
+        consumed: Boolean(existing?.consumed) || grant,
+        memoryStaged: Boolean(existing?.memoryStaged) || decision.memory === 'stage',
+        expires,
+      });
+    }
+    const key = familyKey(observation);
+    const family = this.families.get(key);
+    this.families.set(key, {
+      severity: Math.max(draft.severity, family?.severity || 0),
+      consumed: Boolean(family?.consumed) || grant || Boolean(existing?.consumed),
+      memoryStaged: Boolean(family?.memoryStaged) || decision.memory === 'stage',
+      expires,
+    });
+    if (this.families.size > SALIENCE_BOUNDS.suppression) {
+      const oldest = [...this.families.entries()].sort((a, b) => a[1].expires - b[1].expires)[0];
+      if (oldest) { this.families.delete(oldest[0]); this.grantsForgotten = true; }
+    }
+    this.forgetDecision(observation.observationId);
+    this.decisions.set(observation.observationId, { observer: observation.observer.captureRef, decision, at: now });
+    this.order.push(observation.observationId);
+    this.evictDecisions(observation.observer.captureRef);
+    this.latestById.set(observation.observationId, Object.freeze({ decision, profileRevision: situation.profileRevision, policy: draft.policy }));
+    if (!DECISION_KEYS.every(field => Object.hasOwn(decision, field))) throw new Error('salience_decision_shape');
+  }
+}
