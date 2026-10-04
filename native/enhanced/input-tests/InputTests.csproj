@@ -17,4 +17,4 @@
     <EmbeddedResource Include="../../../lsa-essential-e1-candidate/e1.config.example.json" LogicalName="e1.config.example.json" />
     <Reference Include="System.Web.Extensions" />
   </ItemGroup>
-<ItemGroup><Compile Include="../../promoted-characters/InputLeaseState.cs" /></ItemGroup></Project>
+<ItemGroup><Compile Include="../../promoted-characters/InputHookFiles.cs;../../promoted-characters/InputLeaseState.cs" /></ItemGroup></Project>

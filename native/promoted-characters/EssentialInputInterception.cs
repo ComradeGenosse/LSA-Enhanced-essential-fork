@@ -26,14 +26,18 @@ namespace LSA.PromotedCharacters
         {
             lock (sync) {
                 if (installed || rejected) return installed;
+                string stage = "core_pin",dependency = null;
                 try {
                     var core = AppDomain.CurrentDomain.GetAssemblies().Single(a => a.GetName().Name == "LosSantosAlive");
                     using (var hash = SHA256.Create()) if (BitConverter.ToString(hash.ComputeHash(File.ReadAllBytes(core.Location))).Replace("-","").ToLowerInvariant() != CoreHash) throw new InvalidOperationException("core_pin_mismatch");
                     var method = core.ManifestModule.ResolveMethod(PollToken);
                     if (method.DeclaringType.FullName != "LosSantosAlive.Input.InputController" || !method.IsStatic || ((MethodInfo)method).ReturnType != typeof(bool) || method.GetParameters().Length != 1 || method.GetParameters()[0].ParameterType != typeof(int)) throw new InvalidOperationException("input_poll_mismatch");
                     // Use the already-installed Harmony; never replace the Core DLL.
-                    string root = Path.GetDirectoryName(Path.GetDirectoryName(core.Location));
-                    var harmonyAssembly = AppDomain.CurrentDomain.GetAssemblies().FirstOrDefault(a => a.GetName().Name == "0Harmony") ?? Assembly.LoadFrom(Path.Combine(root,"0Harmony.dll"));
+                    stage = "harmony_load";
+                    dependency = InputHookFiles.HarmonyPath(AppDomain.CurrentDomain.BaseDirectory);
+                    Rage.Game.LogTrivial("[UX] essential_input_interception dependency=" + dependency + " core=" + core.Location);
+                    var harmonyAssembly = AppDomain.CurrentDomain.GetAssemblies().FirstOrDefault(a => a.GetName().Name == "0Harmony") ?? Assembly.LoadFrom(dependency);
+                    stage = "harmony_patch";
                     var harmony = harmonyAssembly.GetType("HarmonyLib.Harmony",true);
                     var harmonyMethod = harmonyAssembly.GetType("HarmonyLib.HarmonyMethod",true);
                     var instance = Activator.CreateInstance(harmony,new object[] {"comrade.lsa.existing-key-gestures"});
@@ -42,7 +46,12 @@ namespace LSA.PromotedCharacters
                     patch.Invoke(instance,new object[] {method,prefix,null,null,null});
                     installed = true;
                     Rage.Game.LogTrivial("[UX] essential_input_interception installed=True");
-                } catch (Exception error) { rejected = true; Rage.Game.LogTrivial("[UX] essential_input_interception installed=False error=" + error.GetType().Name); }
+                } catch (Exception error) {
+                    rejected = true;
+                    while (error is TargetInvocationException && error.InnerException != null) error = error.InnerException;
+                    string missing = (error as FileNotFoundException)?.FileName;
+                    Rage.Game.LogTrivial("[UX] essential_input_interception installed=False stage=" + stage + " error=" + error.GetType().Name + " file=" + (missing ?? dependency ?? "none") + " message=" + error.Message);
+                }
                 return installed;
             }
         }

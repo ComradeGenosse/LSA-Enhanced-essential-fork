@@ -34,6 +34,18 @@ virtual polls. Both talk keys retain their stock behavior while menus are open.
 The Controls page shows physical keys beside gesture names. Logs include hook
 installation, physical-key masks and recognized gesture IDs (never typed text).
 
+RPH shadow-copies Core into a temporary directory. Resolve installed Harmony
+from AppDomain.BaseDirectory, not from Core.Location. Core.Location remains the
+source for the Core fingerprint check. On failure, logs include the loading
+stage and missing filename. A standalone shadow-copy AppDomain probe reproduces
+the old FileNotFoundException and verifies the corrected path and poll hook.
+
+An independent main-menu recognizer retains F11 when interception is unavailable
+or a paddle-key conflict suspends shared gestures. It still observes focus and
+game/input gates, requests native snapshots and permits only non-conflicting
+main-menu keys. Shared gestures remain disabled until the hook succeeds. Tests
+cover opening/closing F11 across failed-hook retries without shared-key relays.
+
 Offline verification includes shared-key taps, chords in either order, holds,
 PTT passthrough, focus-loss recovery, lease expiry, pending-pulse cancellation
 and rebinding. A standalone probe checks the installed Harmony API. Physical

@@ -9,6 +9,8 @@ static partial class Program
 {
     static void InterceptionTests()
     {
+        string appBase = @"C:\Program Files (x86)\Steam\steamapps\common\Grand Theft Auto V Enhanced";
+        Check(InputHookFiles.HarmonyPath(appBase) == appBase + @"\0Harmony.dll","Harmony resolves from game application base, independently of shadow-copied Core location");
         bool down;
         var lease = new InputLeaseState();
         Check(lease.Lease(120,6,0),"interception accepts mark/text keys");
@@ -61,5 +63,16 @@ static partial class Program
         Check(lost.Bridge.Pulses.SequenceEqual(new[] {6}),"shared input recovers after focus loss");
         var ptt = rig(); ptt.Essential = EssentialBindings.Parse(new[] {"TalkKey=F9","TextKey=Mouse5","MarkPedKey=F9","MarkedPedTalkKey=F10"}); ptt.Router.Apply(ptt.Settings,ptt.Essential);
         Check(ptt.Router.State == "suspended","ambiguous PTT mapping is not intercepted");
+        var failed = rig(); failed.Bridge.InputSupported = false;
+        failed.Router.Apply(failed.Settings,failed.Essential); failed.Frame(2);
+        Check(failed.Router.State == "suspended" && failed.Router.ActiveBindings.Count == 1,"missing interception disables paddles but keeps independent menu binding");
+        failed.Hold(F11,60); failed.Frame(5);
+        Check(((FakeUi)failed.Dispatcher.Ui).Toggles.SequenceEqual(new[] {"main"}),"F11 opens menu even when interception fails");
+        failed.Hold(120,60); failed.Hold(6,60); failed.Frame(100);
+        Check(failed.Bridge.Pulses.Count == 0 && failed.Injector.Calls.Count == 0 && failed.Companion.Bodies.Count == 0,"failed hook never dispatches unsafe shared-key gestures");
+        failed.Hold(F11,60);
+        Check(((FakeUi)failed.Dispatcher.Ui).Toggles.SequenceEqual(new[] {"main","main"}),"F11 closes menu after interception retries");
+        failed.Keys.Focus = false; failed.Hold(F11,60); failed.Keys.Focus = true; failed.Frame(2);
+        Check(((FakeUi)failed.Dispatcher.Ui).Toggles.Count == 2,"independent menu still respects focus gate");
     }
 }

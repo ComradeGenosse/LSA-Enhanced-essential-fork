@@ -23,6 +23,8 @@ namespace LSA.Enhanced.Input
         readonly List<GestureEvent> events = new List<GestureEvent>();
         EnhancedSettings settings;
         GestureRecognizer recognizer;
+        GestureRecognizer menuRecognizer;
+        readonly List<GestureEvent> menuEvents = new List<GestureEvent>();
         NativeSnapshot snapshot;
         long nextSnapshotRead, nextInterest;
         bool gated, focused;
@@ -47,7 +49,7 @@ namespace LSA.Enhanced.Input
         // playing; every change rebuilds the recognizer between frames.
         public void Apply(EnhancedSettings next,EssentialBindings essential)
         {
-            settings = next; this.essential = essential; recognizer = null; Conflict = null; ActiveBindings = new GestureBinding[0];
+            settings = next; this.essential = essential; recognizer = menuRecognizer = null; Conflict = null; ActiveBindings = new GestureBinding[0];
             dispatcher.ReleaseKeys();
             (bridge as IEssentialInputBridge)?.ReleaseInput();
             intercept = dispatcher.InterceptEssentialInput = false;
@@ -56,6 +58,13 @@ namespace LSA.Enhanced.Input
             if (next == null || !next.InputEnabled) { SetState("disabled"); return; }
             bool ui = UiAvailable();
             var bindings = next.Bindings.Where(binding => ui || !binding.Command.StartsWith("ui.",StringComparison.Ordinal)).ToList();
+            // The independent main-menu key does not depend on the paddle hook.
+            var menuBindings = bindings.Where(binding => binding.Command == "ui.mainMenu" && binding.Keys.All(key => essential?.ConflictWith(next.KeyCodes[key]) == null)).ToList();
+            if (menuBindings.Count != 0) {
+                menuRecognizer = new GestureRecognizer(menuBindings,next.Timing,next.KeyCodes.Count);
+                if (menuBindings.SelectMany(binding => binding.Keys).Any(key => keys.IsDown(next.KeyCodes[key]))) menuRecognizer.Reset();
+                ActiveBindings = menuBindings.AsReadOnly();
+            }
             foreach (int key in bindings.SelectMany(binding => binding.Keys).Distinct()) {
                 var clash = essential?.ConflictWith(next.KeyCodes[key]);
                 if (clash != null) {
@@ -90,7 +99,7 @@ namespace LSA.Enhanced.Input
             dispatcher.InterceptMarkKey = interceptMark;
             dispatcher.InterceptTextKey = interceptText;
             var timing = SessionChordWindowMs.HasValue ? new GestureTiming(SessionChordWindowMs.Value,Math.Max(next.Timing.HoldMs,SessionChordWindowMs.Value + 100),next.Timing.DoubleTapMs) : next.Timing;
-            recognizer = new GestureRecognizer(bindings,timing,next.KeyCodes.Count);
+            recognizer = new GestureRecognizer(bindings.Where(binding => !menuBindings.Contains(binding)).ToList(),timing,next.KeyCodes.Count);
             // A router key held across the rebuild waits for its release instead of
             // starting a gesture mid-press.
             if (next.KeyCodes.Any(keys.IsDown)) recognizer.Reset();
@@ -115,9 +124,8 @@ namespace LSA.Enhanced.Input
         public void Tick()
         {
             dispatcher.Update();
-            if (recognizer == null) {
-                if (intercept && settings?.InputEnabled == true && clock.Monotonic >= retryAt) Apply(settings,essential);
-                return;
+            if (recognizer == null && menuRecognizer == null) {
+                RetryInterception(); return;
             }
             long now = clock.Monotonic,utc = clock.Utc;
             bool focus = keys.GameHasFocus();
@@ -129,10 +137,21 @@ namespace LSA.Enhanced.Input
             string closed = InputGates.Closed(focus,game,false,Snapshot(utc),utc);
             if (closed != null) {
                 if (intercept) (bridge as IEssentialInputBridge)?.ReleaseInput();
-                if (!gated) { recognizer.Reset(); gated = true; SetState("gated:" + closed); }
+                if (!gated) { recognizer?.Reset(); menuRecognizer?.Reset(); gated = true; SetState("gated:" + closed); }
                 return;
             }
-            if (gated) { gated = false; SetState("ready"); }
+            if (gated) { gated = false; SetState(recognizer != null ? "ready" : "suspended"); }
+            if (menuRecognizer != null) {
+                int menuDown = 0;
+                for (int key = 0; key < settings.KeyCodes.Count; key++) if (keys.IsDown(settings.KeyCodes[key])) menuDown |= 1 << key;
+                menuEvents.Clear(); menuRecognizer.Update(now,menuDown,menuEvents);
+                foreach (var gesture in menuEvents) {
+                    log("[UX] input_gesture binding=" + gesture.BindingId + " command=" + gesture.Command);
+                    dispatcher.Dispatch(gesture.Command,"key");
+                }
+                menuOpen = MenuOpen();
+            }
+            if (recognizer == null) { RetryInterception(); return; }
             if (intercept) {
                 // Menus still dispatch explicit mark/text actions through the
                 // virtual poll. Physical gestures are filtered below.
@@ -156,7 +175,8 @@ namespace LSA.Enhanced.Input
             }
         }
         int lastDown;
-        public void CancelPending() { recognizer?.Reset(); (bridge as IEssentialInputBridge)?.ReleaseInput(); dispatcher.ReleaseKeys(); }
-        public void Stop() { recognizer = null; (bridge as IEssentialInputBridge)?.ReleaseInput(); dispatcher.Stop(); SetState("stopped"); }
+        void RetryInterception() { if (intercept && settings?.InputEnabled == true && clock.Monotonic >= retryAt) Apply(settings,essential); }
+        public void CancelPending() { recognizer?.Reset(); menuRecognizer?.Reset(); (bridge as IEssentialInputBridge)?.ReleaseInput(); dispatcher.ReleaseKeys(); }
+        public void Stop() { recognizer = menuRecognizer = null; (bridge as IEssentialInputBridge)?.ReleaseInput(); dispatcher.Stop(); SetState("stopped"); }
     }
 }
