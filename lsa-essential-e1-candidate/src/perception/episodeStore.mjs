@@ -1,7 +1,7 @@
 import { isUuid, exactObject } from '../identity/identityContract.mjs';
 import { validateClaim } from './contracts.mjs';
 
-// PS0 storage primitive only: PS1 never correlates signals into episodes or knowledge.
+// Immutable episode storage primitive shared by the PS2 shadow correlator.
 export function validateEpisode(e) {
   if(!exactObject(e,['version','episodeId','revision','nativeRun','gameTick','expiresAtMonotonicMs','status','participants','claims','producerSequences']) || e.version!==1 || !isUuid(e.episodeId) || !isUuid(e.nativeRun) || !Number.isSafeInteger(e.revision) || e.revision<1 || !Number.isSafeInteger(e.gameTick) || e.gameTick<0 || e.gameTick>0xffffffff || !Number.isSafeInteger(e.expiresAtMonotonicMs) || !['open','settling','closed','expired'].includes(e.status) || !Array.isArray(e.participants) || e.participants.length>4 || e.participants.some(r=>!exactObject(r,['captureRef','kind']) || !isUuid(r.captureRef) || !['ped','vehicle','player'].includes(r.kind)) || !Array.isArray(e.claims) || e.claims.length<1 || e.claims.length>8 || !Array.isArray(e.producerSequences) || e.producerSequences.length>7) return false;
   const producers=new Set(['ped_damage','player_damage','vehicle_damage','state','shooting','action','playback']);

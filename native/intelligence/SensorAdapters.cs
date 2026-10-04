@@ -10,6 +10,7 @@ namespace LSA.Intelligence
         public long producerSequence, receivedMs;
         public uint gameTick;
         public Dictionary<string,object> facts=new Dictionary<string,object>();
+        public List<WitnessReceipt> witnessReceipts=new List<WitnessReceipt>();
         public bool Critical;
     }
     // Used by real callbacks and state sampling; no native/model/storage/action dependencies.
@@ -22,6 +23,7 @@ namespace LSA.Intelligence
         readonly Dictionary<string,long> lastShot=new Dictionary<string,long>();
         readonly Dictionary<string,VehicleSample> vehicles=new Dictionary<string,VehicleSample>();
         readonly Dictionary<string,long> received=new Dictionary<string,long>();
+        public Func<RawSignal,List<WitnessReceipt>> WitnessEvaluator {get;set;}
         public Dictionary<string,long> Counters {get {lock(gate) return new Dictionary<string,long>(received);}}
         readonly Dictionary<string,long> damageCallbacks=new Dictionary<string,long>{{"ped_damage",0},{"player_damage",0},{"vehicle_damage",0}};
         public Dictionary<string,long> DamageCallbacks {get {lock(gate) return new Dictionary<string,long>(damageCallbacks);}}
@@ -64,8 +66,10 @@ namespace LSA.Intelligence
             signal.facts.Add("classification",classification??"unknown"); if(collision!=null) signal.facts.Add("collision",collision);
             return Enqueue(signal);
         }
+        RawSignal Prepare(RawSignal signal)
+        {try {signal.witnessReceipts=WitnessEvaluator?.Invoke(signal)??new List<WitnessReceipt>();}catch {signal.witnessReceipts=new List<WitnessReceipt>();}return signal;}
         void Edge(string captureRef,string kind,Dictionary<string,object> facts,uint tick,long now,bool critical=false)
-        { Enqueue(new RawSignal {producer="state",kind=kind,target=captureRef,facts=facts,gameTick=tick,receivedMs=now,Critical=critical}); }
+        { Enqueue(Prepare(new RawSignal {producer="state",kind=kind,target=captureRef,facts=facts,gameTick=tick,receivedMs=now,Critical=critical})); }
         public void Sample(string captureRef,StateSample current,uint tick,long now)
         {
             if(!Enabled) return;
@@ -85,15 +89,16 @@ namespace LSA.Intelligence
             }
             baselines[captureRef]=current;
         }
-        public void Shooting(string captureRef,bool shooting,uint tick,long now)
+        public RawSignal Shooting(string captureRef,bool shooting,uint tick,long now)
         {
-            if(!Enabled) return;
+            if(!Enabled) return null;
             string key="shot:"+captureRef;
-            if(!baselines.TryGetValue(key,out var old)) { baselines[key]=new StateSample {Shooting=shooting}; return; }
+            if(!baselines.TryGetValue(key,out var old)) { baselines[key]=new StateSample {Shooting=shooting}; return null; }
             if(shooting && !old.Shooting && (!lastShot.TryGetValue(captureRef,out var previous) || now-previous>=500)) {
-                lastShot[captureRef]=now; Enqueue(new RawSignal {producer="shooting",kind="firing",source=captureRef,gameTick=tick,receivedMs=now});
+                lastShot[captureRef]=now;var signal=Prepare(new RawSignal {producer="shooting",kind="firing",source=captureRef,gameTick=tick,receivedMs=now});Enqueue(signal);old.Shooting=shooting;return signal;
             }
             old.Shooting=shooting;
+            return null;
         }
         public void Vehicle(string captureRef,VehicleSample current,uint tick,long now)
         {

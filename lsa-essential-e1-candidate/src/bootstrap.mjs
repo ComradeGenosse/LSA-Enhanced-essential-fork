@@ -96,6 +96,7 @@ export async function createRuntimeForBundle(options = {}) {
       try {runtime.intelligence=new IntelligenceClient(config.intelligence,options.intelligenceOptions);runtime.intelligence.start();}catch{try{console.warn('[PS] optional_channel_unavailable');}catch{}}
     } else try {console.warn('[PS] optional_perception_contract_unavailable');}catch{}
   }
+  runtime.services.acceptPlayerTranscript = input => runtime.intelligence?.acceptPlayerTranscript(input) ?? {accepted:false,reason:'unsupported_capture_receipt'};
   if (runtime.characterService) {
     await runtime.characterService.initialize();
     if (runtime.characterService.ready && options.startCharacterEditor !== false) try {

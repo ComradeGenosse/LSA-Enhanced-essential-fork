@@ -208,12 +208,13 @@ namespace LSA.Enhanced.Ui
             foreach (var binding in active) lines.Add(MenuLine.Fact("binding:" + binding.Id,Gesture(binding,settings),Label(binding.Command)));
             if (essential != null) foreach (var key in essential.All) lines.Add(MenuLine.Fact("essential:" + key.Setting,"Essential " + key.Setting,key.Display,"Essential's own keys; change them in its F7 menu."));
             if (conflict != null) lines.Add(MenuLine.Fact("conflict","Conflict",conflict,"A router key must not equal an Essential key."));
-            lines.Add(MenuLine.Fact("essentialInMenus","Essential keys in menus","Still active","Essential polls its own keys (Talk, Marked Talk) even while an LSA menu is open; LSA gestures pause instead."));
+            bool shared = essential != null && settings.KeyCodes.Any(vk => (essential.Mark.State == EssentialKeyState.Bound && essential.Mark.Vk == vk) || (essential.Text.State == EssentialKeyState.Bound && essential.Text.Vk == vk));
+            lines.Add(MenuLine.Fact("essentialInMenus","Essential keys in menus",shared ? "Talk keys stay active" : "Still active",shared ? "Mark/text gestures pause in menus; explicit menu actions still work. Talk and marked-talk keep their original keys." : "Essential polls its own keys (Talk, Marked Talk) even while an LSA menu is open; LSA gestures pause instead."));
             return lines;
         }
         static string Gesture(GestureBinding binding,EnhancedSettings settings)
         {
-            string keys = string.Join(" + ",binding.Keys.Select(key => settings.KeyNames[key]));
+            string keys = string.Join(" + ",binding.Keys.Select(key => settings.KeyNames[key] + " (" + PhysicalKeys.Name(settings.KeyCodes[key]) + ")"));
             switch (binding.Kind) {
                 case GestureKind.Tap: return "Tap " + keys;
                 case GestureKind.Chord: return "Chord " + keys;

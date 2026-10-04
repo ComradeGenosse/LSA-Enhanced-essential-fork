@@ -27,8 +27,15 @@ sealed class FakeInjector : IInputInjector
     public bool Release(int vk) { Calls.Add("up:" + PhysicalKeys.Name(vk)); return true; }
     public int Presses(string name) => Calls.Count(call => call == "down:" + name);
 }
-sealed class FakeBridge : INativeBridge
+sealed class FakeBridge : INativeBridge, IEssentialInputBridge
 {
+    public bool InputSupported;
+    public readonly LSA.PromotedCharacters.InputLeaseState Input = new LSA.PromotedCharacters.InputLeaseState();
+    public FakeClock InputClock;
+    public readonly List<int> Pulses = new List<int>();
+    public bool LeaseInput(int mark,int text) => InputSupported && Input.Lease(mark,text,InputClock.Monotonic);
+    public bool PulseInput(int vk) { if (!InputSupported || !Input.Pulse(vk,InputClock.Monotonic)) return false; Pulses.Add(vk); return true; }
+    public void ReleaseInput() => Input.Release();
     public bool Available {get;set;} = true;
     public string SnapshotJson;
     public readonly List<string> Submitted = new List<string>();

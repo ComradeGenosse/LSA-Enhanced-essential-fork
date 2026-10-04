@@ -65,7 +65,8 @@ namespace LSA.Intelligence
         readonly bool radioEnabled;
         RadioProbeState radioProbe;
         int discoveryCursor,stateCursor,connectionVersion;
-        long staleRejected,retiredAnchors;
+        long staleRejected,retiredAnchors,witnessDeferred,witnessUnknown,witnessRejected;
+        int lineOfSightBudget;
         volatile bool damageReady;
         int damagePinAttempt;
         bool stopped,started,playback;
@@ -84,7 +85,7 @@ namespace LSA.Intelligence
         int Age(long timestamp)=>timestamp<0?int.MaxValue:Clamp(clock.ElapsedMilliseconds-timestamp);
         internal string RuntimeStatus()=>"available="+IsAvailable+" update_calls="+UpdateCalls+" update_completed="+CompletedUpdates+" last_update_age_ms="+Age(Interlocked.Read(ref lastUpdateMs))+" last_completed_age_ms="+Age(Interlocked.Read(ref lastCompletedMs))+" last_game_tick="+callbackTick+" shutdown_reason="+ShutdownReason;
         internal static void LogStatus(string message) {try{Game.LogTrivial(message);}catch{}}
-        static readonly string[] capabilityNames={"snapshot","pedDamage","playerDamage","vehicleDamage","shooting","state","action","playback","witness","awareness"};
+        static readonly string[] capabilityNames={"snapshot","pedDamage","playerDamage","vehicleDamage","shooting","state","action","playback","witness","awareness","playerSpeech"};
         public IntelligenceIntegration(Func<OwnedParticipant[]> roster,string pipeName="LSA.Intelligence.v1",string radioMode="off") {if(pipeName==null||!System.Text.RegularExpressions.Regex.IsMatch(pipeName,"^[A-Za-z0-9_.-]{1,80}$")) throw new ArgumentException();this.roster=roster;this.pipeName=pipeName;capabilities=capabilityNames.ToDictionary(k=>k,k=>false);radioEnabled=radioMode=="shadow";}
         static bool Pinned(System.Reflection.Assembly assembly,string pin)
         {try {if(new FileInfo(assembly.Location).Length>16*1024*1024) return false;using(var h=SHA256.Create()) return BitConverter.ToString(h.ComputeHash(File.ReadAllBytes(assembly.Location))).Replace("-","").ToLowerInvariant()==pin;}catch{return false;}}
@@ -93,8 +94,8 @@ namespace LSA.Intelligence
             if(started||stopped) return;
             try {
                 if(!Pinned(typeof(IIntegration).Assembly,"9b6de42d4c464901d859dd95e17e100e4fa9ef6074bfbb0cf3a57a76f6ddd653")) return;
-                sensors.Enabled=true;anchors.Retired+=OnRetired;
-                capabilities["shooting"]=true;capabilities["state"]=true;capabilities["action"]=true;
+                sensors.Enabled=true;sensors.WitnessEvaluator=CaptureWitnesses;anchors.Retired+=OnRetired;
+                capabilities["shooting"]=true;capabilities["state"]=true;capabilities["action"]=true;capabilities["witness"]=true;capabilities["playerSpeech"]=false;
                 // Do not load a second tracker assembly. Essential already loads the library.
                 AppDomain.CurrentDomain.AssemblyLoad+=AssemblyLoaded;QueueDamagePin();
                 try {NpcPlaybackCoordinator.PlaybackStarted+=PlaybackStarted;NpcPlaybackCoordinator.PlaybackEnded+=PlaybackEnded;playback=true;capabilities["playback"]=true;}
@@ -178,6 +179,7 @@ namespace LSA.Intelligence
                 uint tick=unchecked((uint)Game.GameTime);callbackTick=tick;
                 if(tick<previousTick) {anchors.Clear();sensors.Reset();radioProbe=null;nextRadio=0;lock(rosterGate) publishedAnchorStates.Clear();UpdateIndexes();channel.Dispose();channel=new IntelligenceChannel(pipeName,Guid.NewGuid().ToString("D"),()=>capabilities);channel.Start();nextRefresh=0;Game.LogTrivial("[PS] clock_reset");}
                 previousTick=tick;
+                lineOfSightBudget=8;
                 if(channel.ConnectionVersion!=connectionVersion) {connectionVersion=channel.ConnectionVersion;lock(rosterGate) publishedAnchorStates.Clear();nextRefresh=0;}
                 if(now>=nextDiscovery) {
                     nextDiscovery=now+200;
@@ -202,6 +204,12 @@ namespace LSA.Intelligence
                     foreach(var p in ownedPriority) {
                         var a=anchors.Current.FirstOrDefault(x=>x.Kind=="ped" && ReferenceEquals(x.Entity,p.Ped) && x.OwnerLifetime==p.Lifetime);
                         if(a!=null && !priorityRefs.Contains(a.CaptureRef)) priorityRefs.Add(a.CaptureRef);
+                    }
+                    // PS2 also admits ordinary peds found in this already-captured
+                    // snapshot. They receive transient perception only; no promotion,
+                    // owner registration, identity, session or action authority.
+                    foreach(var a in anchors.Current.Where(x=>x.Kind=="ped"&&x.OwnerLifetime==null&&x.CaptureRef!=selectedAnchor?.CaptureRef&&now-x.LastSeen<=1000).OrderBy(x=>x.CaptureRef,StringComparer.Ordinal)) {
+                        if(a.Entity is Ped ordinary && ordinary.Exists() && ordinary.Position.DistanceTo(player.Position)<=60 && !priorityRefs.Contains(a.CaptureRef)) priorityRefs.Add(a.CaptureRef);
                     }
                     anchors.SetObserverPriority(priorityRefs);
                     conversationRef=selectedAnchor?.CaptureRef;
@@ -249,7 +257,7 @@ namespace LSA.Intelligence
                     var signals=sensors.Counters;
                     var damageCallbacks=sensors.DamageCallbacks;
                     var radio=new {samples=Clamp(sensors.RadioSamples),edges=Clamp(sensors.RadioEdges),nativeFailures=Clamp(sensors.RadioNativeFailures)};
-                    channel.Send("diagnostics",new {anchors=anchors.Count,observers=anchors.ObserverCount,snapshotAgeMs=age,snapshotCadenceMs=Clamp(snapshotCadence),dropped=Clamp(sensors.Dropped+channel.Dropped),staleRejected=Clamp(staleRejected),retiredAnchors=Clamp(retiredAnchors),deferredDiscovery=Clamp(deferredDiscovery),updateMicros=Clamp((long)(budget.Elapsed.TotalMilliseconds*1000)),capabilities,signals,damageCallbacks,radio});
+                    channel.Send("diagnostics",new {anchors=anchors.Count,observers=anchors.ObserverCount,snapshotAgeMs=age,snapshotCadenceMs=Clamp(snapshotCadence),dropped=Clamp(sensors.Dropped+channel.Dropped),staleRejected=Clamp(staleRejected),retiredAnchors=Clamp(retiredAnchors),deferredDiscovery=Clamp(deferredDiscovery),updateMicros=Clamp((long)(budget.Elapsed.TotalMilliseconds*1000)),capabilities,signals,damageCallbacks,witnessDeferred=Clamp(witnessDeferred),witnessUnknown=Clamp(witnessUnknown),witnessRejected=Clamp(witnessRejected),playerSpeechGate="unsupported_capture_receipt",radio});
                     if(now>=nextLog) {nextLog=now+10000;Game.LogTrivial("[PS] shadow anchors="+anchors.Count+" observers="+anchors.ObserverCount+" snapshot_age_ms="+age+" snapshot_cadence_ms="+Clamp(snapshotCadence)+" dropped="+Clamp(sensors.Dropped+channel.Dropped)+" stale="+Clamp(staleRejected)+" retired="+Clamp(retiredAnchors)+" deferred="+Clamp(deferredDiscovery)+" update_us="+Clamp((long)(budget.Elapsed.TotalMilliseconds*1000))+" capabilities="+string.Join(",",capabilities.Where(c=>c.Value).Select(c=>c.Key))+" damage_callbacks=ped:"+damageCallbacks["ped_damage"]+",player:"+damageCallbacks["player_damage"]+",vehicle:"+damageCallbacks["vehicle_damage"]+" radio="+radio.samples+":"+radio.edges+":"+radio.nativeFailures+" signals="+string.Join(",",signals.Select(c=>c.Key+":"+c.Value)));}
                 }
                 Count(ref completedUpdates);Interlocked.Exchange(ref lastCompletedMs,clock.ElapsedMilliseconds);
@@ -296,6 +304,33 @@ namespace LSA.Intelligence
             if(reading.Rejected) line+=" rejected=station_grammar len="+Math.Min(Math.Max(reading.RejectedLength,0),9999)+" classes="+reading.RejectedClasses;
             try { Game.LogTrivial(line); } catch {}
         }
+        List<WitnessReceipt> CaptureWitnesses(RawSignal signal)
+        {
+            var result=new List<WitnessReceipt>();
+            if(signal==null) return result;
+            var kind=signal.kind;
+            if(WitnessPolicy.VisualRange(kind)<=0) {witnessUnknown=Math.Min(int.MaxValue,witnessUnknown+1);return result;}
+            string participantRef=kind=="firing"?signal.source:signal.target;
+            var participant=anchors.Resolve(participantRef);
+            if(participant==null||!(participant.Entity is Ped subject)) return result;
+            foreach(var observer in anchors.Current.Where(a=>a.Observer&&a.Kind=="ped"&&a.CaptureRef!=participantRef)) {
+                if(!(observer.Entity is Ped witness) || witness.Position.DistanceTo(subject.Position)>WitnessPolicy.VisualRange(kind)) continue;
+                if(lineOfSightBudget<=0) {witnessDeferred=Math.Min(int.MaxValue,witnessDeferred+1);continue;}
+                var live=anchors.Resolve(observer.CaptureRef);
+                if(live==null||!ReferenceEquals(live.Entity,witness)) continue;
+                lineOfSightBudget--;
+                try {
+                    var distance=witness.Position.DistanceTo(subject.Position);
+                    var witnessInterior=NativeFunction.CallByName<int>("GET_INTERIOR_FROM_ENTITY",witness);
+                    var subjectInterior=NativeFunction.CallByName<int>("GET_INTERIOR_FROM_ENTITY",subject);
+                    bool sameInterior=witnessInterior==subjectInterior;
+                    bool clear=sameInterior&&NativeFunction.CallByName<bool>("HAS_ENTITY_CLEAR_LOS_TO_ENTITY_IN_FRONT",witness,subject);
+                    var receipt=WitnessPolicy.Evaluate(new WitnessGeometry {EventKind=kind,Observer=observer.CaptureRef,Source=signal.source,Target=signal.target,SampledGameTick=signal.gameTick,DistanceMeters=distance,SameInterior=sameInterior,ClearLosInFront=clear});
+                    if(receipt.Status=="witnessed") result.Add(receipt);else if(receipt.Status=="unknown") witnessUnknown=Math.Min(int.MaxValue,witnessUnknown+1);else witnessRejected=Math.Min(int.MaxValue,witnessRejected+1);
+                } catch { witnessUnknown=Math.Min(int.MaxValue,witnessUnknown+1); }
+            }
+            return result;
+        }
         void Sample(EntityAnchor a,uint tick,long now)
         {
             if(anchors.Resolve(a.CaptureRef)==null) return;var p=(Ped)a.Entity;
@@ -320,7 +355,8 @@ namespace LSA.Intelligence
         {
             if(now-signal.receivedMs>=30000) {staleRejected++;return;}
             if((signal.source!=null && anchors.Resolve(signal.source)==null) || (signal.target!=null && anchors.Resolve(signal.target)==null)) {staleRejected++;return;}
-            channel.Send("signal",new {signal.signalId,signal.producer,signal.producerSequence,signal.kind,signal.target,signal.source,signal.gameTick,ageMs=Clamp(now-signal.receivedMs),signal.facts});
+            var witnessReceipts=(signal.witnessReceipts??new List<WitnessReceipt>()).Where(w=>w!=null&&w.Status=="witnessed"&&w.Channel!=null&&w.Basis!=null).Select(w=>new {observer=new {captureRef=w.Observer,kind="ped"},sampledGameTick=w.SampledGameTick,status=w.Status,reason=w.Reason,knowsSource=w.KnowsSource,knowsTarget=w.KnowsTarget,evidence=new {channel=w.Channel,basis=w.Basis,sampledGameTick=w.SampledGameTick}}).ToArray();
+            channel.Send("signal",new {signal.signalId,signal.producer,signal.producerSequence,signal.kind,signal.target,signal.source,signal.gameTick,ageMs=Clamp(now-signal.receivedMs),signal.facts,witnessReceipts});
         }
         void Lifecycle(string kind,string pedId,object entity,bool interrupted,bool hadAudio)
         {

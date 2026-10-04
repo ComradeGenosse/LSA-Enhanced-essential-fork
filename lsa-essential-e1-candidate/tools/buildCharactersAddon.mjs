@@ -45,7 +45,7 @@ export async function buildCharactersAddon({rphReferencePath,frameworkReferenceR
   await copyFile(path.resolve(root,'../native/promoted-characters/LSA.PromotedCharacters.example.json'),path.join(target,'LSA.PromotedCharacters.example.json'));
   await copyFile(path.resolve(root,'../native/enhanced/LSA.Enhanced.example.json'),path.join(target,'LSA.Enhanced.example.json'));
   const uxContract = {commandsSha256:COMMANDS_CONTRACT_SHA256,rnuiReferenceSha256:RNUI_DLL_SHA256,rnuiAssemblyVersion:RNUI_ASSEMBLY_VERSION,rnuiPackaged:false,inputDefaultEnabled:false,uiDefaultEnabled:false};
-  const manifest = {stage:'P2+PS0+PS1+UX1+UX2+UX3',defaultEnabled:false,intelligenceDefaultMode:'off',nativeContract,characterContract,perceptionContract,controlsContract,uxContract,rphSdkSha256:RPH_SDK_SHA256,files,deploymentPerformed:false,gtaRuntimeTest:false};
+  const manifest = {stage:'P2+PS0+PS1+PS2+UX1+UX2+UX3',defaultEnabled:false,intelligenceDefaultMode:'off',playerSpeech:'disabled_unsupported_capture_receipt',nativeContract,characterContract,perceptionContract,controlsContract,uxContract,rphSdkSha256:RPH_SDK_SHA256,files,deploymentPerformed:false,gtaRuntimeTest:false};
   await writeFile(path.join(target,'build-manifest.json'),JSON.stringify(manifest,null,2)+'\n');return {target,manifest,compilerOutput:stdout};
 }
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {

@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
 namespace Rage {
-    public class Entity {public uint Handle;public IntPtr MemoryAddress;public Vector3 Position;public bool Existing=true;public bool Exists()=>Existing;}
+    public class Entity {public uint Handle;public IntPtr MemoryAddress;public Vector3 Position;public bool Existing=true;public float Heading;public bool Exists()=>Existing;}
     public class Ped:Entity {public bool IsDead,Shooting;public int Health=100,Armor;public Vehicle CurrentVehicle;}
     public class Vehicle:Entity {public Ped Driver;}
     public struct Vector3 {public float X,Y,Z;public float DistanceTo(Vector3 p)=>(float)Math.Sqrt((X-p.X)*(X-p.X)+(Y-p.Y)*(Y-p.Y)+(Z-p.Z)*(Z-p.Z));}
@@ -24,6 +24,8 @@ namespace Rage.Native {
                 case "IS_PED_INJURED":result=((Rage.Ped)args[0]).Health<100;break;
                 case "IS_PED_RUNNING":case "IS_PED_WALKING":case "GET_IS_VEHICLE_ENGINE_RUNNING":result=false;break;
                 case "GET_NAME_OF_ZONE":result=zone;break;
+                case "GET_INTERIOR_FROM_ENTITY":result=0;break;
+                case "HAS_ENTITY_CLEAR_LOS_TO_ENTITY_IN_FRONT":result=true;break;
                 case "GET_VEHICLE_ENGINE_HEALTH":result=1000f;break;
                 case "GET_ENTITY_SPEED":result=0f;break;
                 case "GET_PLAYER_RADIO_STATION_NAME":RadioStationReads++;if(RadioThrow) throw new InvalidOperationException("radio native unavailable");result=RadioStation??"";break;

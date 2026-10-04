@@ -26,6 +26,7 @@ static partial class Program
             RelayTests();
             DispatcherTests();
             RouterTests();
+            InterceptionTests();
             ViewModelTests();
             Console.WriteLine("UX phase 2/3 input, settings, dispatch and view models: " + count + " assertions passed; no game assemblies loaded.");
             return 0;
