@@ -34,6 +34,7 @@ Essential remains authoritative for native NPC state, turn/generation identity, 
 | P1 — SESSION_IDENTITY | ✅ Implemented | Explicit owner-authenticated durable UUIDs, runtime bindings, and persistent voice assignments are merged to `main` |
 | P2 — PROMOTED_CHARACTERS / CHARACTER_PROFILE | ✅ Implemented | Merged to `main` and exercised in GTA: promotion, character editor/profile memory editing, summon, follow/wait and native vehicle behavior |
 | UX0–UX3 — CONTROLS / NATIVE MENU | ✅ Merged to `main` + offline-verified; GTA acceptance pending | Command bridge, input router/chords, F11 native menu, Current NPC / Characters / Controls / AI / Diagnostics pages |
+| CGE0–CGE3 — CONVERSATION GAZE / ENGAGEMENT | 🟣 Implementation plan complete; not implemented | Native physical attention for the already-selected conversation partner: gaze, safe body reorientation, lifecycle-aware release; no activity interruption/resume |
 | PS0 / PS1 — PERCEPTION FOUNDATION | ✅ Implemented offline on `main`; physical GTA validation pending | Default-off shadow contracts, lifetime anchors, bounded factual transport and supported native producers |
 | PS2 — WITNESS / EPISODE CORRELATION | 🟡 Implemented on feature branch; not merged | `feature/ps2-witness-rules-episode-correlation` is 3 commits ahead of `main`; witness rules, episode correlation and speech contracts are implemented offline. Full regression rerun + GTA acceptance remain; source-time player-speech hearing stays disabled until the native mic/capture receipt probe is proven |
 | SALIENCE | 🔵 Architecture researched; not implemented | Decide what an NPC should care about right now from bounded factual observations |
@@ -264,6 +265,14 @@ The PS track answers **what NPCs perceive, know and care about**. The ACT track 
 
 P2 supplies the durable foundation, not automatic memory extraction, event perception, salience ranking or autonomous coordination. See [implementation, file formats and follow-up GTA checklist](P2-promoted-characters-status.md), [focused pinned native evidence](P2-native-evidence.md), and [offline verification](../lsa-essential-e1-candidate/docs/p2-verification.md). One observed follow-up regression target is order-dependent vehicle entry: driver-seat/drive behavior works, but companion entry can depend on whether the NPC receives the vehicle command before the player claims/enters the vehicle.
 
+### CGE — CONVERSATION GAZE / ENGAGEMENT
+
+**Status: implementation plan complete; not implemented.** CGE is a restrained native physical-attention layer for the NPC who is already the current conversation partner. It reuses Essential targeting and playback lifecycle, adds/proves a source-time player-speech seam, and drives finite head/look-at behavior on the Essential Core fiber. A later gated phase may add hysteretic body reorientation only when it cannot steal locomotion or other owned behavior.
+
+CGE deliberately does **not** decide whether an NPC is willing/available to talk and does not suspend or resume activities. Those policies remain ACT4. This split lets visible conversational attention ship and be tested without pulling the activity scheduler, salience, proximity routing, or Luna into the moment-to-moment gaze loop.
+
+See [CGE scope](plans/conversation-gaze-engagement/README.md), [runtime contract](plans/conversation-gaze-engagement/runtime-contract.md), [implementation plan](plans/conversation-gaze-engagement/implementation-plan.md), and [GTA validation](plans/conversation-gaze-engagement/gta-validation.md).
+
 ### PERCEPTION — Richer world and event awareness
 
 Current status: PS0/PS1 are merged to `main` in default-off shadow form. PS2 witness rules and episode correlation are implemented on `feature/ps2-witness-rules-episode-correlation` but are not yet merged. The PS2 branch deliberately keeps player-speech hearing unavailable until a source-time native mic/capture receipt can be proven in GTA; post-STT proximity is not accepted as evidence that an NPC heard an earlier utterance.
@@ -432,7 +441,7 @@ Essential remains the executor. ACT owns planning/lifecycle and native evidence 
 
 #### ACT4 — Dialogue awareness and interruption hardening
 
-**Status: planned from settled architecture.** Expose bounded current-activity context to dialogue and make conversation interruption/resume deterministic. An NPC can know what it is doing and why it stopped without claiming unverified physical completion.
+**Status: planned from settled architecture.** Build on CGE's physical-attention lifecycle, expose bounded current-activity context to dialogue, and make conversation interruption/resume deterministic. An NPC can know what it is doing and why it stopped without claiming unverified physical completion. CGE itself remains independent of activity suspension/resume.
 
 #### ACT5 — Model-proposed activities
 
