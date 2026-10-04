@@ -1,0 +1,509 @@
+# UX4 Talk Target Selector — architecture research
+
+Status: research / implementation design only. No runtime code is changed by this branch.
+
+Branch base: current main at bc3b2027b0b2eb6a3c1a7dcb326587f9af781696. The roadmap identifies 6ae6bc9 as the current runtime/code baseline; later main commits through this branch base are roadmap-only.
+
+## 1. Goal
+
+Make controller voice targeting explicit, visible and reusable instead of relying on an implicit "current NPC".
+
+Desired player flow:
+
+~~~text
+tap Talk
+  -> select the best nearby NPC
+  -> show a persistent visual indicator on that NPC
+
+tap Talk again soon
+  -> cycle to the next nearby NPC
+  -> move the indicator
+
+hold Talk
+  -> lock the selected target
+  -> start Essential PTT to that exact NPC
+
+release Talk
+  -> release Essential PTT
+  -> keep selection alive briefly for Follow / Wait / menu / another turn
+~~~
+
+The selected target must remain visually identifiable while seated in a vehicle. Selection must never silently jump to a different ped after despawn, handle reuse, death, world reset or target invalidation.
+
+## 2. Existing seams that make this feasible
+
+The repository's current Essential API audit records public targeting seams in LosSantosAlive.NPC.NpcTargeting:
+
+- SetPlayerConversationPed(Ped)
+- GetPlayerConversationPed()
+- ClearPlayerConversationPed()
+- ActivateAttention(Ped)
+- GetCurrentSpeakerPed()
+- GetBestConversationPed(...)
+- GetNearestPed(...)
+- IsValidHumanPed(Ped)
+
+The same audit records PerceptionSystem snapshots with AllPeds and lookup helpers.
+
+Current P2/native UX already exposes a safe same-user bridge from the loader AppDomain into PromotedCharactersIntegration.Update:
+
+- native/promoted-characters/LocalCommandQueue.cs
+- native/promoted-characters/NativeCommands.cs
+- native/enhanced/Commands/NativeBridge.cs
+- native/enhanced/Commands/NativeSnapshot.cs
+
+Every game read and Essential call already happens on Core's Update fiber. That boundary should remain authoritative.
+
+Current CurrentPed() resolution is:
+
+~~~text
+NpcTargeting.GetPlayerConversationPed()
+    ?? NpcTargeting.GetCurrentSpeakerPed()
+~~~
+
+The implementation should change that to prefer a valid explicit TalkTargetSelector selection, then fall back to the existing behavior.
+
+Current UX input handling is in:
+
+- native/enhanced/Input/InputRouter.cs
+- native/enhanced/Input/GestureRecognizer.cs
+- native/enhanced/Input/EssentialKeyRelay.cs
+- native/enhanced/EnhancedHost.cs
+
+EssentialKeyRelay is pulse-oriented. PTT needs a distinct held-key lifecycle so the normal pulse relay should not be stretched into an ambiguous long-running state machine.
+
+## 3. Hard architecture boundary
+
+The feature is split across the existing AppDomain boundary.
+
+### Loader / UX domain owns
+
+- neutral physical controller key state
+- tap versus hold recognition
+- opening and closing a held synthetic Essential TalkKey press
+- user-facing HUD status
+- settings and diagnostics
+- cancellation on focus loss, menu opening, settings reload or host shutdown
+
+It does not own Ped objects, target lifetimes or GTA world selection.
+
+### Essential / P2 domain owns
+
+- nearby-ped candidate discovery
+- selected Ped and exact live-lifetime validation
+- candidate cycle order
+- NpcTargeting mutation
+- screen-space target indicator rendering
+- selection expiry
+- current-NPC precedence
+- world reset / target retirement cleanup
+
+It never reads the physical controller directly and does not synthesize keyboard/mouse input.
+
+### Essential remains authoritative for
+
+- microphone capture
+- turn/session/generation creation
+- conversation state
+- provider lifecycle
+- action validation
+- playback
+- native action execution
+
+UX4 selects which valid NPC Essential should address. It does not create another conversation or microphone pipeline.
+
+## 4. T0 proof gate
+
+Before implementing the full feature, prove the public targeting seam in GTA.
+
+Required probe:
+
+1. Put NPC A closer to the player than NPC B.
+2. Call SetPlayerConversationPed(B).
+3. Verify GetPlayerConversationPed() returns B.
+4. Confirm the setter alone does not start a microphone turn, provider call, task or persistent ownership change.
+5. Press Essential's normal TalkKey and verify the created microphone turn addresses B rather than A.
+6. Repeat with B seated as driver.
+7. Repeat with B seated as passenger.
+8. Repeat with B behind/inside the same vehicle while A is standing closer.
+9. If safe, test whether ActivateAttention(B) is necessary; do not use it by default if the setter alone is sufficient.
+10. Clear or invalidate B and verify no later talk silently retargets to a recycled handle.
+
+Also probe TextKey after the setter. If normal typed input honors the same player-conversation target, UX4 can unify voice and text selection without another hook.
+
+Decision:
+
+- PASS: SetPlayerConversationPed is side-effect-safe and controls PTT. Continue with this plan.
+- PARTIAL: it controls text/current state but not PTT. Stop before runtime implementation and document the exact mic target-acquisition seam needed for one source-pinned hook.
+- FAIL: do not emulate a second voice lifecycle. Re-open native targeting research.
+
+## 5. Selection model
+
+Add native/promoted-characters/TalkTargetSelector.cs.
+
+Proposed runtime-only contract:
+
+~~~text
+TalkTargetSelection
+  Ped Ped
+  IntPtr Address
+  string SelectionId          random runtime UUID
+  string EncounterId?         resolved lazily for current-command expectations
+  long SelectedAtMonotonicMs
+  long ExpiresAtMonotonicMs
+  int CycleIndex
+  int CycleCount
+  bool PttCommitted
+~~~
+
+Candidate entries:
+
+~~~text
+TalkTargetCandidate
+  Ped Ped
+  IntPtr Address
+  float Distance
+  float ScreenCenterError
+  bool OnScreen
+  bool ExistingConversation
+~~~
+
+No Ped handle, address, selection id, cycle list or PTT state is persisted.
+
+A target is valid only if:
+
+- Ped still exists
+- Ped memory address is unchanged
+- Ped is alive
+- Ped is not the player
+- NpcTargeting.IsValidHumanPed returns true
+- it remains inside the configured retention distance
+- no game-clock/world reset invalidated the selector
+
+Invalid selection is cleared. It is never replaced automatically with a new ped. The next deliberate tap/hold may create a new selection.
+
+## 6. Candidate discovery and ranking
+
+Candidate discovery runs only when the player asks for selection. It is not a permanent world scan.
+
+Default bounds:
+
+- search radius: 15 m
+- retain radius while selected: 20 m
+- maximum candidates: 8
+- frozen cycle list lifetime: 1.5 s
+- selected-target idle lifetime: 8 s
+- no LOS requirement in v1, because a vehicle body must not hide a seated occupant from the selector
+
+Use the existing PerceptionSystem snapshot when available. Filter before scoring.
+
+Ranking is deterministic:
+
+1. currently selected/current conversation target if still valid and this is a continuation cycle
+2. candidates that project on screen
+3. smallest screen-center error
+4. shortest world distance
+5. stable tie break using the frozen candidate order
+
+The first selection rebuilds and freezes the list. Repeated taps during the cycle window advance through that same frozen list and wrap at the end. Ped motion must not reshuffle the list mid-cycle.
+
+After the cycle window expires, the next tap starts a new selection session and rebuilds the list.
+
+A list containing one candidate simply reaffirms the same target on repeated taps.
+
+## 7. Current-NPC precedence
+
+CurrentView() and CurrentPed() should use:
+
+~~~text
+TalkTargetSelector.SelectedPedIfValid()
+    ?? NpcTargeting.GetPlayerConversationPed()
+    ?? NpcTargeting.GetCurrentSpeakerPed()
+~~~
+
+This makes the explicit selection automatically useful to existing:
+
+- current.follow
+- current.wait
+- Promote
+- Current NPC quick menu
+- current_describe
+- other commands that intentionally consume CurrentView
+
+The exact selected encounter is still revalidated at execution. Existing expectedEncounterId / target_changed behavior remains.
+
+If the T0 setter probe passes, selecting a target also sets NpcTargeting.SetPlayerConversationPed(selectedPed). This aligns Essential's own target with the UX selection. If the setter has unwanted side effects, only the explicit UX current target changes until the narrower commit operation immediately before PTT.
+
+## 8. Input state machine
+
+Add native/enhanced/Input/TalkTargetInput.cs.
+
+The physical controller Talk control must be mapped by Steam Input to a neutral router key. It must no longer directly emit Essential's TalkKey while UX4 targeting is enabled.
+
+Do not implement PTT as a normal GestureRecognizer command. Voice requires press/release semantics.
+
+Proposed states:
+
+~~~text
+Idle
+  key down
+    -> Selecting / PendingHold
+
+PendingHold
+  if released before talkHoldMs
+    -> selection tap/cycle only
+    -> Idle
+
+  if talkHoldMs reached
+    -> CommitPending
+
+CommitPending
+  native target commit accepted while physical key still held
+    -> press Essential TalkKey
+    -> Talking
+
+  physical key released before commit
+    -> cancel local pending start
+    -> never press Essential TalkKey
+    -> Idle
+
+Talking
+  physical key released
+    -> release Essential TalkKey
+    -> Idle
+
+  gate closes / focus lost / settings reload / shutdown
+    -> force release Essential TalkKey
+    -> Idle
+~~~
+
+Suggested initial talkHoldMs: 220 ms, configurable 120–500 ms. Tune from GTA latency rather than assuming the initial value is final.
+
+On a hold with no selected target, the native side chooses the best candidate first. The player sees the indicator during PendingHold, before the microphone starts.
+
+Late bridge replies carry a local request generation and cannot start PTT after the physical button has already been released.
+
+## 9. Held Essential key relay
+
+Add native/enhanced/Input/EssentialHeldKeyRelay.cs rather than changing pulse semantics in EssentialKeyRelay.
+
+Responsibilities:
+
+- Begin(EssentialKey talk)
+- End()
+- ReleaseAll()
+- never synthesize two simultaneous holds
+- repeated Begin on the same hold is idempotent
+- release on focus loss
+- release on gate close
+- release on settings reload
+- release on host shutdown
+- release on exception containment
+
+It uses the existing IInputInjector / Win32InputInjector.
+
+The held relay is allowed to synthesize EssentialBindings.Talk only. MarkedTalk remains untouched in UX4 v1.
+
+## 10. Native bridge operations
+
+Extend LocalCommandQueue with internal talk-target operations. These are not model commands and do not grant new NPC action authority.
+
+Recommended commands:
+
+- talk.select_first
+- talk.select_next
+- talk.commit
+- talk.clear
+- talk.inspect
+
+Add source talk_input to the strict source allowlist.
+
+talk.select_first:
+- no target expectation
+- build bounded candidate list
+- select best
+- return selection summary
+
+talk.select_next:
+- requires current selection session
+- advance frozen list
+- return selection summary
+
+talk.commit:
+- requires expected SelectionId and, once materialized, expected EncounterId
+- revalidate exact Ped + MemoryAddress
+- set the Essential conversation target if T0 passed
+- return committed summary
+
+talk.clear:
+- clears only UX4's selector state
+- clears Essential player-conversation ped only if UX4 still owns the exact ped it set; never clear somebody else's newer selection
+
+talk.inspect:
+- read-only diagnostics
+
+Every command stays inside the existing queue capacity/freshness rules and executes on Core.Update.
+
+## 11. Snapshot contract
+
+Extend the existing local snapshot rather than creating another channel.
+
+Add an optional talkTarget object:
+
+~~~json
+{
+  "present": true,
+  "selectionId": "<uuid>",
+  "encounterId": "<uuid or null>",
+  "pedId": "<diagnostic handle string>",
+  "cycleIndex": 1,
+  "cycleCount": 3,
+  "pttCommitted": false,
+  "expiresInMs": 6420
+}
+~~~
+
+This is runtime UX information only. Loader parsing remains defensive. No Ped memory address crosses the boundary.
+
+Current continues to represent the actual selected/current command target so existing dispatcher logic remains compatible.
+
+## 12. Visual target indicator
+
+Add native/promoted-characters/TalkTargetIndicator.cs, invoked from the existing P2 Update path after selection validation.
+
+V1 should be geometry-first, not name-dependent.
+
+Primary indicator:
+
+- derive a point above the target's head/upper body
+- project world position to screen coordinates
+- draw four small HUD rectangles/brackets around the projected point
+- optionally show cycle position such as 2/3
+- keep the indicator above a seated driver's/passenger's projected head
+- do not require clear LOS, so the car body cannot suppress the marker
+
+A world-space marker can be an optional secondary cue, but it must not be the only cue.
+
+The indicator exists only while:
+- target is valid
+- selection is unexpired, or PTT is actively held
+- game is focused / not in a blocked scripted state
+- UI settings permit it
+
+Do not render durable names from guessed identity. A promoted name may be displayed only through existing authenticated profile/current_describe data; the correctness of targeting must never depend on that lookup.
+
+## 13. Settings
+
+Extend Plugins/LSA.Enhanced.json with an optional talkTargeting section. Default disabled.
+
+Proposed shape:
+
+~~~json
+{
+  "version": 1,
+  "talkTargeting": {
+    "enabled": false,
+    "key": "F10",
+    "talkHoldMs": 220,
+    "cycleWindowMs": 1500,
+    "selectionTimeoutMs": 8000,
+    "radiusMeters": 15,
+    "retentionRadiusMeters": 20,
+    "maxCandidates": 8,
+    "indicator": true
+  }
+}
+~~~
+
+Validation:
+
+- key must be a valid router key
+- key must not duplicate any input.keys value
+- key must not equal Essential Talk/Text/Mark/MarkedTalk
+- talkHoldMs 120–500
+- cycleWindowMs 500–3000
+- selectionTimeoutMs 2000–30000
+- radiusMeters 3–30
+- retentionRadiusMeters >= radiusMeters and <= 50
+- maxCandidates 1–16
+
+Settings hot reload clears pending selection input and forcibly releases synthesized TalkKey before applying the new configuration.
+
+## 14. Steam Input migration
+
+When UX4 is enabled:
+
+- map the physical controller Talk button to talkTargeting.key, for example F10
+- do not also map that button directly to Essential TalkKey
+- leave Essential's LosSantosAlive.config TalkKey unchanged, for example Mouse4
+- UX4 synthesizes that configured Essential TalkKey only after the hold threshold and exact target commit
+
+When UX4 is disabled, the player can restore the original direct controller Talk mapping and behavior is unchanged.
+
+## 15. Gates and cancellation
+
+Reuse InputGates.
+
+Selection/talk must not begin while:
+
+- GTA lacks focus
+- RPH console is open
+- game paused
+- LSA/RNUI menu owns input
+- Essential text input/F7 menu is open
+- loading
+- cutscene
+- player switch
+- other existing scripted gates close input
+
+If a gate closes during Talking, release Essential TalkKey immediately.
+
+If the target dies/despawns/changes memory address during PendingHold, fail with target_lost and do not start PTT.
+
+If it disappears during Talking, release the synthetic TalkKey and clear UX4 selection. Essential owns the turn/capture cleanup from that point.
+
+## 16. Telemetry
+
+Add bounded status lines only:
+
+- [UX4] talk_target selected index=N count=N reason=first|cycle
+- [UX4] talk_target cleared reason=expired|lost|world_reset|settings|manual
+- [UX4] talk_ptt commit=accepted|rejected reason=<code>
+- [UX4] talk_ptt begin latencyMs=<rounded>
+- [UX4] talk_ptt end reason=release|gate|focus|target_lost|shutdown
+- [UX4] talk_indicator state=ready|unavailable reason=<code>
+
+Do not log profile names, memory text, prompts, audio, Ped memory addresses or raw controller histories.
+
+## 17. Failure model
+
+UX4 is optional and fails closed.
+
+- selector unavailable -> no selected target, no synthetic PTT
+- native bridge unavailable -> show AI/native unavailable; do not guess a target
+- indicator failure -> targeting may continue but HUD reports indicator unavailable
+- companion offline -> native targeting still works; promoted display name may be unavailable
+- settings invalid -> retain prior valid settings
+- T0 targeting seam not proven -> do not ship the PTT override
+
+Ordinary Essential behavior remains available by disabling UX4 and restoring the controller's direct Talk mapping.
+
+## 18. Non-goals
+
+UX4 does not:
+
+- implement proximity chat
+- choose who overhears speech
+- create NPC attention/gaze behavior beyond an optional proven ActivateAttention call
+- persist a selected ped across reloads
+- infer durable character identity
+- change microphone/STT/provider/TTS lifecycle
+- create a second conversation manager
+- create a second ped task scheduler
+- patch Essential unless T0 demonstrates the public target seam cannot drive PTT
+
+## 19. Implementation-ready decision
+
+The feature is implementation-ready after T0 proves that SetPlayerConversationPed controls the subsequent microphone target without unacceptable side effects.
+
+If that proof passes, the remaining work is bounded UX/P2 integration with existing testable seams. No provider, memory, perception-knowledge or action architecture change is required.
