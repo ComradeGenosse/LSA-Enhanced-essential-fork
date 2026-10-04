@@ -1,6 +1,6 @@
 # Project roadmap
 
-Updated October 3, 2026.
+Updated October 4, 2026.
 
 This roadmap tracks the Essential-based LSA companion from the hardened E1.1 foundation through low-latency dialogue, durable NPC identity, richer perception, autonomous scene behavior, and final long-session acceptance.
 
@@ -33,8 +33,9 @@ Essential remains authoritative for native NPC state, turn/generation identity, 
 | P2 — PROMOTED_CHARACTERS / CHARACTER_PROFILE | ✅ Implemented | Merged to `main` and exercised in GTA: promotion, character editor/profile memory editing, and native companion/vehicle behavior are working; remaining edge cases are follow-up regression work. |
 | PS0 / PS1 — PERCEPTION FOUNDATION | Implemented offline; physical GTA validation pending | Default-off shadow-only contracts, lifetime anchors, bounded factual transport and supported native producers; [status and GTA checklist](PS0-PS1-perception-status.md) |
 | PS2 — WITNESS / EPISODE CORRELATION | Implemented offline in shadow; GTA validation pending | Source-sample visual receipts, self/report/auditory policy contracts, bounded episode correlation, immutable per-observer revisions, replay checks, ordinary transient observers; player speech hearing remains disabled because capture UUID/native-time linkage is unsupported |
-| PS3+ — SALIENCE / MEMORY / SOCIAL ROUTING | Planned | No responder selection, initiative, context projection, automatic memories, or later knowledge phases are implemented |
-| SALIENCE | Planned | Decide what an NPC should care about right now |
+| PS3 — DETERMINISTIC SALIENCE | Implemented offline in shadow; GTA validation pending | Local context/memory/response categories, controlled reason codes, and a bounded repetition cache. No model calls, turns, actions, memory writes, or responder arbitration; [reconciliation](PS3-salience-reconciliation.md) and [status](PS3-deterministic-salience-status.md) |
+| PS4+ — KNOWLEDGE / MEMORY / SOCIAL ROUTING | Planned | Dialogue projection, automatic memories, responder selection, and Scene Director remain unimplemented |
+| SALIENCE | Implemented offline as PS3 | Rank and filter observations with an explainable local decision; physical GTA checks remain open |
 | PROXIMITY_CHAT / SOCIAL_ROUTING | Planned | Route player speech through perception + salience so nearby NPCs can hear, be addressed, overhear, and respond without manual targeting |
 | SCENE_DIRECTOR | Planned | NPC initiative and coordinated autonomous behavior built on the same perception/salience/social-routing state |
 | CUSTOM ACTIONS / ACTIVITIES | Planned | Expose more native Essential capabilities and add new extensions where needed |
@@ -268,6 +269,8 @@ Examples of useful observations:
 Perception should expose facts, not decide behavior. For speech, the perception layer should answer **who could hear this utterance?**, not who should respond.
 
 ### SALIENCE — Decide what matters
+
+PS3 is the local implementation of this ranker. It records a shadow decision for each qualified PS2 observation and does not call a model, open a turn, persist memory, or authorize an action. See [PS3 status](PS3-deterministic-salience-status.md).
 
 A richer perception system can produce far more information than a model should receive every turn.
 

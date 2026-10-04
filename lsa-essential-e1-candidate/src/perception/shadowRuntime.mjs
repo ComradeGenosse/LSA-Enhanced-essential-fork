@@ -3,6 +3,7 @@ import { ObservationStore } from './observationStore.mjs';
 import { EpisodeStore } from './episodeStore.mjs';
 import { EpisodeCorrelator } from './episodeCorrelator.mjs';
 import { SharedTranscriptStore } from './sharedTranscriptStore.mjs';
+import { SalienceCache } from './salienceEngine.mjs';
 
 export class ShadowRuntime {
   constructor({ mode='off', now=()=>Math.floor(performance.now()) }={}) {
@@ -13,10 +14,12 @@ export class ShadowRuntime {
     this.episodes=new EpisodeStore({now,current:ref=>this.current(ref)});
     this.correlator=new EpisodeCorrelator({episodes:this.episodes,observations:this.observations,now,current:ref=>this.current(ref),anchor:ref=>this.anchors.get(ref)});
     this.transcripts=new SharedTranscriptStore({now,current:ref=>this.current(ref)});
+    this.salience=new SalienceCache({now});
     this.ps2Diagnostics={correlated:0,witnessed:0,duplicates:0,dropped:0,speechGate:'unsupported_capture_receipt'};
+    this.ps3Diagnostics={decisions:0,urgent:0,eligible:0,staged:0,suppressed:0,faults:0};
   }
   count(k) { this.counters[k]=Math.min(2147483647,this.counters[k]+1); }
-  reset() { this.anchors.clear();this.signals=[];this.producers.clear();this.observations.clear();this.episodes.clear();this.correlator.clear();this.transcripts.setActiveRun(null);this.epoch=null;this.stream=null;this.sequence=0;this.lastReceipt=0;this.diagnostics=null;this.capabilities=Object.fromEntries(CAPABILITIES.map(k=>[k,false]));this.count('resets'); }
+  reset() { this.anchors.clear();this.signals=[];this.producers.clear();this.observations.clear();this.episodes.clear();this.correlator.clear();this.salience.clear();this.transcripts.setActiveRun(null);this.epoch=null;this.stream=null;this.sequence=0;this.lastReceipt=0;this.diagnostics=null;this.capabilities=Object.fromEntries(CAPABILITIES.map(k=>[k,false]));this.ps3Diagnostics={decisions:0,urgent:0,eligible:0,staged:0,suppressed:0,faults:0};this.count('resets'); }
   current(ref) {const a=this.anchors.get(ref);return Boolean(a && a.expires>this.now() && this.epoch);}
   expire() {
     if(this.epoch && this.now()-this.lastReceipt>3000) {this.reset();return;}
@@ -24,6 +27,7 @@ export class ShadowRuntime {
     this.signals=this.signals.filter(s=>{ if(s.expires<=this.now()) {this.count('expired');return false;} return true; });
     this.observations.expire();
     this.episodes.expire();
+    this.salience.expire(this.now());
   }
   retire(ref) { this.anchors.delete(ref);this.signals=this.signals.filter(s=>s.value.target!==ref && s.value.source!==ref && s.value.facts.vehicle!==ref);this.observations.expire();this.episodes.expire(); }
   ingest(v, { authenticated=false }={}) {
@@ -77,7 +81,22 @@ export class ShadowRuntime {
     if(correlated.duplicate) this.ps2Diagnostics.duplicates=Math.min(2147483647,this.ps2Diagnostics.duplicates+1);
     else if(correlated.accepted) {this.ps2Diagnostics.correlated=Math.min(2147483647,this.ps2Diagnostics.correlated+Number(Boolean(correlated.episodeId)));this.ps2Diagnostics.witnessed=Math.min(2147483647,this.ps2Diagnostics.witnessed+correlated.observations.length);}
     if(!correlated.accepted) this.ps2Diagnostics.dropped=Math.min(2147483647,this.ps2Diagnostics.dropped+1);
+    for(const observation of correlated.observations||[]) this.noteSalience(observation);
     return true;
+  }
+  noteSalience(observation) {
+    try {
+      let player=null;
+      for(const anchor of this.anchors.values()) if(anchor.kind==='player') { player=anchor.captureRef; break; }
+      const decision=this.salience.evaluate(observation,{nowMonotonicMs:this.now(),lifetimeCurrent:this.current(observation.observer.captureRef),channelHealthy:Boolean(this.epoch),perceptionSupported:true,playerCaptureRef:player,activity:'idle'});
+      if(!decision) return;
+      const stats=this.ps3Diagnostics;
+      stats.decisions=Math.min(2147483647,stats.decisions+1);
+      if(decision.response==='urgent') stats.urgent=Math.min(2147483647,stats.urgent+1);
+      else if(decision.response==='eligible') stats.eligible=Math.min(2147483647,stats.eligible+1);
+      if(decision.memory==='stage') stats.staged=Math.min(2147483647,stats.staged+1);
+      if(decision.reasons.some(reason=>reason==='repetition_suppressed'||reason==='revision_stale'||reason==='suppression_capacity')) stats.suppressed=Math.min(2147483647,stats.suppressed+1);
+    } catch { this.ps3Diagnostics.faults=Math.min(2147483647,this.ps3Diagnostics.faults+1); }
   }
   acceptPlayerTranscript({text,receipt=null}={}) {
     return this.transcripts.accept({capability:this.capabilities.playerSpeech===true,receipt,text});
