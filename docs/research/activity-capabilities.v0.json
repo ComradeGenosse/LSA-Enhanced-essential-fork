@@ -1,0 +1,1617 @@
+{
+  "schema": "lsa.activity-capabilities",
+  "schemaVersion": 0,
+  "status": "PROPOSED draft; not a runtime contract",
+  "generated": "2026-10-04",
+  "repositoryHead": "6ae6bc99c82a2d78ec1fea1091e4f8116f0c7257",
+  "pins": {
+    "essentialDll": "9b6de42d4c464901d859dd95e17e100e4fa9ef6074bfbb0cf3a57a76f6ddd653",
+    "stockBundle": "5d81de4217bd103316a1083e482ded1bddc791314abf671d686036175c0475f2"
+  },
+  "enums": {
+    "kind": [
+      "finite",
+      "mode",
+      "finite_then_mode",
+      "instant"
+    ],
+    "path": [
+      "queue",
+      "wrapper",
+      "extension",
+      "none"
+    ],
+    "exposure": [
+      "model_visible",
+      "parser_only",
+      "registry_only",
+      "queue_special",
+      "wrapper_only",
+      "vestigial",
+      "missing",
+      "excluded"
+    ],
+    "registrationWork": [
+      "none",
+      "register_extension",
+      "new_behavior"
+    ],
+    "evidence": [
+      "PROVEN",
+      "STRONGLY_SUPPORTED",
+      "INFERRED",
+      "UNKNOWN"
+    ],
+    "adapter": [
+      "hold_mode",
+      "follow_mode",
+      "pose_mode",
+      "cover_mode",
+      "drive_mode",
+      "approach",
+      "seat_occupancy",
+      "vehicle_exit",
+      "held_item",
+      "item_transfer",
+      "walk_away",
+      "resume_ambient",
+      "scenario",
+      "scenario_at",
+      "place_arrival",
+      "drive_arrival",
+      "none"
+    ],
+    "preconditions": [
+      "actor_owned",
+      "actor_alive",
+      "actor_not_injured",
+      "actor_state_registered",
+      "not_scripted",
+      "not_foreign_mission_entity",
+      "not_directed_interaction",
+      "no_active_reflex",
+      "actor_on_foot",
+      "actor_in_vehicle",
+      "actor_is_driver",
+      "actor_in_bubble",
+      "target_valid",
+      "target_human",
+      "target_not_actor",
+      "target_within_near",
+      "target_within_medium",
+      "target_within_far",
+      "vehicle_valid",
+      "vehicle_not_moving",
+      "seat_free",
+      "vehicle_has_free_passenger_seat",
+      "place_resolved",
+      "place_within_medium",
+      "place_within_far",
+      "scenario_allowed",
+      "item_known",
+      "holding_item",
+      "capability_enabled",
+      "no_essential_mode",
+      "actor_near_place"
+    ],
+    "vehiclePolicy": {
+      "0": "immediate (deferred executor)",
+      "1": "force vehicle exit + settle, abort on newer command",
+      "2": "force vehicle exit + settle, abort on newer command",
+      "3": "immediate",
+      "null": "immediate executor 0x60002f7 or own path"
+    },
+    "scenarioMap": {
+      "smoke": "WORLD_HUMAN_SMOKING",
+      "drink_coffee": "WORLD_HUMAN_AA_COFFEE",
+      "phone": "WORLD_HUMAN_STAND_MOBILE",
+      "lean": "WORLD_HUMAN_LEANING",
+      "stand_idle": "WORLD_HUMAN_HANG_OUT_STREET",
+      "sit_bench": "PROP_HUMAN_SEAT_BENCH",
+      "clipboard": "WORLD_HUMAN_CLIPBOARD",
+      "binoculars": "WORLD_HUMAN_BINOCULARS"
+    },
+    "itemMap": {
+      "canned_goods": "CannedGoods",
+      "donut": "Donut",
+      "breakfast_snack": "BreakfastSnack",
+      "snack": "Snack",
+      "soda": "Soda",
+      "beer": "Beer",
+      "coffee": "Coffee",
+      "liquor": "Liquor",
+      "energy_drink": "EnergyDrink",
+      "water": "Water"
+    }
+  },
+  "capabilities": [
+    {
+      "id": "hold_position",
+      "kind": "mode",
+      "args": {
+        "place": "optional"
+      },
+      "preconditions": [
+        "actor_owned",
+        "actor_alive",
+        "actor_state_registered",
+        "not_scripted",
+        "not_foreign_mission_entity",
+        "not_directed_interaction",
+        "no_active_reflex",
+        "actor_in_bubble",
+        "capability_enabled",
+        "actor_near_place"
+      ],
+      "execution": {
+        "path": "queue",
+        "essentialName": "waithere",
+        "vehiclePolicy": null,
+        "exactTarget": false
+      },
+      "cancel": {
+        "path": "supersede",
+        "essentialName": null,
+        "onlyIfCurrent": true
+      },
+      "adapter": "hold_mode",
+      "failureSignals": [
+        "state_blocked",
+        "accept_timeout",
+        "control_released"
+      ],
+      "timeouts": {
+        "acceptMs": 2000,
+        "establishMaxMs": 5000,
+        "completeMaxMs": null,
+        "holdMaxMs": 1800000
+      },
+      "conflictRisk": "low",
+      "allowedSources": [
+        "player_ux",
+        "player_dialogue",
+        "commitment",
+        "recovery",
+        "scene_director"
+      ],
+      "allowedPriority": [
+        "player_direct",
+        "player_standing",
+        "director_routine"
+      ],
+      "ownedOnly": true,
+      "exposure": "model_visible",
+      "registrationWork": "none",
+      "evidence": "STRONGLY_SUPPORTED",
+      "probes": [
+        "Q1",
+        "FR1"
+      ],
+      "phase": "ACT2",
+      "notes": "WaitHere uses the immediate executor 0x60002f7. Owned characters keep StayUnderLsaControl=true (P2 precedent), so far-release does not apply. Optional place = the admission-time here anchor; actor_near_place (<= 6 m) is checked only when it is present, and hold_mode measures displacement from it."
+    },
+    {
+      "id": "follow_person",
+      "kind": "mode",
+      "args": {
+        "target": "required"
+      },
+      "preconditions": [
+        "actor_owned",
+        "actor_alive",
+        "actor_state_registered",
+        "not_scripted",
+        "not_foreign_mission_entity",
+        "not_directed_interaction",
+        "no_active_reflex",
+        "actor_in_bubble",
+        "capability_enabled",
+        "target_valid",
+        "target_human",
+        "target_not_actor",
+        "target_within_far"
+      ],
+      "execution": {
+        "path": "queue",
+        "essentialName": "followtarget",
+        "vehiclePolicy": 0,
+        "exactTarget": true
+      },
+      "cancel": {
+        "path": "stop_api",
+        "essentialName": "NpcActions.ClearFollowFlags+FollowBehavior.StopFollowTarget",
+        "onlyIfCurrent": true
+      },
+      "adapter": "follow_mode",
+      "failureSignals": [
+        "target_retired",
+        "directed_interaction",
+        "accept_timeout"
+      ],
+      "timeouts": {
+        "acceptMs": 2000,
+        "establishMaxMs": 8000,
+        "completeMaxMs": null,
+        "holdMaxMs": 1800000
+      },
+      "conflictRisk": "medium",
+      "allowedSources": [
+        "player_ux",
+        "player_dialogue",
+        "commitment",
+        "recovery"
+      ],
+      "allowedPriority": [
+        "player_direct",
+        "player_standing"
+      ],
+      "ownedOnly": true,
+      "exposure": "model_visible",
+      "registrationWork": "none",
+      "evidence": "STRONGLY_SUPPORTED",
+      "probes": [
+        "Q1",
+        "F1"
+      ],
+      "phase": "ACT2",
+      "notes": "Call NpcFocus.SetFocus(actor,target,\"lsa_activity\") first (P2 precedent), because followtarget is not in the queue target-relative set 0x6000216. If preflight finds the actor already following that target, the step is already satisfied and is not dispatched (stateful duplicate suppression, 0x600021a)."
+    },
+    {
+      "id": "resume_ambient",
+      "kind": "finite_then_mode",
+      "args": {},
+      "preconditions": [
+        "actor_owned",
+        "actor_alive",
+        "actor_state_registered",
+        "not_scripted",
+        "not_foreign_mission_entity",
+        "not_directed_interaction",
+        "no_active_reflex",
+        "actor_in_bubble",
+        "capability_enabled"
+      ],
+      "execution": {
+        "path": "queue",
+        "essentialName": "resumeactivity",
+        "vehiclePolicy": 3,
+        "exactTarget": false
+      },
+      "cancel": {
+        "path": "supersede",
+        "essentialName": null,
+        "onlyIfCurrent": true
+      },
+      "adapter": "resume_ambient",
+      "failureSignals": [
+        "complete_timeout",
+        "no_progress"
+      ],
+      "timeouts": {
+        "acceptMs": 2000,
+        "establishMaxMs": 10000,
+        "completeMaxMs": 45000,
+        "holdMaxMs": null
+      },
+      "conflictRisk": "low",
+      "allowedSources": [
+        "player_ux",
+        "player_dialogue",
+        "commitment",
+        "recovery",
+        "scene_director"
+      ],
+      "allowedPriority": [
+        "player_direct",
+        "player_standing",
+        "director_urgent",
+        "director_routine"
+      ],
+      "ownedOnly": true,
+      "exposure": "model_visible",
+      "registrationWork": "none",
+      "evidence": "PROVEN",
+      "probes": [
+        "R1"
+      ],
+      "phase": "ACT2",
+      "notes": "Queue special case 0x6000214 -> NpcActions.ResumeActivity -> ResumeActivityBehavior (private per-handle state). The target state is read from public PedContinuityMemoryService.TryGetMemory."
+    },
+    {
+      "id": "sit_on_ground",
+      "kind": "mode",
+      "args": {},
+      "preconditions": [
+        "actor_owned",
+        "actor_alive",
+        "actor_state_registered",
+        "not_scripted",
+        "not_foreign_mission_entity",
+        "not_directed_interaction",
+        "no_active_reflex",
+        "actor_in_bubble",
+        "capability_enabled",
+        "actor_on_foot"
+      ],
+      "execution": {
+        "path": "queue",
+        "essentialName": "sitonground",
+        "vehiclePolicy": 1,
+        "exactTarget": false
+      },
+      "cancel": {
+        "path": "stop_api",
+        "essentialName": "ComplianceBehavior.StopSitOnGround",
+        "onlyIfCurrent": true
+      },
+      "adapter": "pose_mode",
+      "failureSignals": [
+        "on_foot_required",
+        "accept_timeout"
+      ],
+      "timeouts": {
+        "acceptMs": 2000,
+        "establishMaxMs": 6000,
+        "completeMaxMs": null,
+        "holdMaxMs": 600000
+      },
+      "conflictRisk": "low",
+      "allowedSources": [
+        "player_ux",
+        "player_dialogue",
+        "commitment",
+        "recovery"
+      ],
+      "allowedPriority": [
+        "player_direct",
+        "player_standing"
+      ],
+      "ownedOnly": true,
+      "exposure": "model_visible",
+      "registrationWork": "none",
+      "evidence": "STRONGLY_SUPPORTED",
+      "probes": [
+        "K1"
+      ],
+      "phase": "ACT2",
+      "notes": "Vehicle policy 1 forces a vehicle exit first."
+    },
+    {
+      "id": "stop_and_face",
+      "kind": "mode",
+      "args": {
+        "target": "required"
+      },
+      "preconditions": [
+        "actor_owned",
+        "actor_alive",
+        "actor_state_registered",
+        "not_scripted",
+        "not_foreign_mission_entity",
+        "not_directed_interaction",
+        "no_active_reflex",
+        "actor_in_bubble",
+        "capability_enabled",
+        "target_valid",
+        "target_not_actor",
+        "target_within_medium"
+      ],
+      "execution": {
+        "path": "queue",
+        "essentialName": "stopandfacetarget",
+        "vehiclePolicy": 3,
+        "exactTarget": true
+      },
+      "cancel": {
+        "path": "supersede",
+        "essentialName": null,
+        "onlyIfCurrent": true
+      },
+      "adapter": "pose_mode",
+      "failureSignals": [
+        "target_retired"
+      ],
+      "timeouts": {
+        "acceptMs": 2000,
+        "establishMaxMs": 4000,
+        "completeMaxMs": null,
+        "holdMaxMs": 600000
+      },
+      "conflictRisk": "low",
+      "allowedSources": [
+        "player_ux",
+        "player_dialogue",
+        "commitment",
+        "recovery",
+        "scene_director"
+      ],
+      "allowedPriority": [
+        "player_direct",
+        "player_standing",
+        "director_routine"
+      ],
+      "ownedOnly": true,
+      "exposure": "model_visible",
+      "registrationWork": "none",
+      "evidence": "STRONGLY_SUPPORTED",
+      "probes": [
+        "Q1"
+      ],
+      "phase": "ACT3",
+      "notes": "Target-relative queue action. Exact target is established through SetRelevantTarget."
+    },
+    {
+      "id": "approach_person",
+      "kind": "finite",
+      "args": {
+        "target": "required"
+      },
+      "preconditions": [
+        "actor_owned",
+        "actor_alive",
+        "actor_state_registered",
+        "not_scripted",
+        "not_foreign_mission_entity",
+        "not_directed_interaction",
+        "no_active_reflex",
+        "actor_in_bubble",
+        "capability_enabled",
+        "target_valid",
+        "target_human",
+        "target_not_actor",
+        "target_within_far"
+      ],
+      "execution": {
+        "path": "queue",
+        "essentialName": "approachperson",
+        "vehiclePolicy": 1,
+        "exactTarget": true
+      },
+      "cancel": {
+        "path": "stop_api",
+        "essentialName": "MovementBehavior.StopApproachTarget",
+        "onlyIfCurrent": true
+      },
+      "adapter": "approach",
+      "failureSignals": [
+        "approach_failed",
+        "target_retired",
+        "complete_timeout"
+      ],
+      "timeouts": {
+        "acceptMs": 2000,
+        "establishMaxMs": 4000,
+        "completeMaxMs": 30000,
+        "holdMaxMs": null
+      },
+      "conflictRisk": "low",
+      "allowedSources": [
+        "player_ux",
+        "player_dialogue",
+        "commitment",
+        "recovery",
+        "scene_director"
+      ],
+      "allowedPriority": [
+        "player_direct",
+        "player_standing",
+        "director_routine"
+      ],
+      "ownedOnly": true,
+      "exposure": "parser_only",
+      "registrationWork": "none",
+      "evidence": "STRONGLY_SUPPORTED",
+      "probes": [
+        "Q1",
+        "A1"
+      ],
+      "phase": "ACT3",
+      "notes": "ApproachFinished has several acceptance paths (\"no-progress arrival accepted\"), so the event is medium evidence until distance <= 2.5 m."
+    },
+    {
+      "id": "enter_vehicle_seat",
+      "kind": "finite",
+      "args": {
+        "vehicle": "required",
+        "seat": "required"
+      },
+      "preconditions": [
+        "actor_owned",
+        "actor_alive",
+        "actor_state_registered",
+        "not_scripted",
+        "not_foreign_mission_entity",
+        "not_directed_interaction",
+        "no_active_reflex",
+        "actor_in_bubble",
+        "capability_enabled",
+        "vehicle_valid",
+        "vehicle_not_moving",
+        "seat_free"
+      ],
+      "execution": {
+        "path": "queue",
+        "essentialName": "enterdriverseatoftargetvehicle|entertargetvehicle|enterbackoftargetvehicle",
+        "vehiclePolicy": 3,
+        "exactTarget": true
+      },
+      "cancel": {
+        "path": "stop_api",
+        "essentialName": "VehicleBehavior.StopAllVehicleCommands",
+        "onlyIfCurrent": true
+      },
+      "adapter": "seat_occupancy",
+      "failureSignals": [
+        "seat_occupied",
+        "vehicle_invalid",
+        "vehicle_moving",
+        "complete_timeout"
+      ],
+      "timeouts": {
+        "acceptMs": 2000,
+        "establishMaxMs": 6000,
+        "completeMaxMs": 20000,
+        "holdMaxMs": null
+      },
+      "conflictRisk": "high",
+      "allowedSources": [
+        "player_ux",
+        "player_dialogue",
+        "commitment",
+        "recovery"
+      ],
+      "allowedPriority": [
+        "player_direct",
+        "player_standing"
+      ],
+      "ownedOnly": true,
+      "exposure": "model_visible",
+      "registrationWork": "none",
+      "evidence": "STRONGLY_SUPPORTED",
+      "probes": [
+        "V1",
+        "V2",
+        "V3",
+        "V4",
+        "SVE1"
+      ],
+      "phase": "ACT3",
+      "notes": "Vehicle chosen by description (VehicleTargetResolver). After acceptance NpcState.AssignedVehicle must equal the anchored vehicle, else cancel with vehicle_mismatch. Exact-entry alternative VehicleBehavior.BeginAssignedVehicleSeatEntry is only decided after probe V4."
+    },
+    {
+      "id": "exit_vehicle",
+      "kind": "finite",
+      "args": {},
+      "preconditions": [
+        "actor_owned",
+        "actor_alive",
+        "actor_state_registered",
+        "not_scripted",
+        "not_foreign_mission_entity",
+        "not_directed_interaction",
+        "no_active_reflex",
+        "actor_in_bubble",
+        "capability_enabled",
+        "actor_in_vehicle"
+      ],
+      "execution": {
+        "path": "queue",
+        "essentialName": "exitvehicle",
+        "vehiclePolicy": null,
+        "exactTarget": false
+      },
+      "cancel": {
+        "path": "none",
+        "essentialName": null,
+        "onlyIfCurrent": true
+      },
+      "adapter": "vehicle_exit",
+      "failureSignals": [
+        "complete_timeout"
+      ],
+      "timeouts": {
+        "acceptMs": 2000,
+        "establishMaxMs": 4000,
+        "completeMaxMs": 12000,
+        "holdMaxMs": null
+      },
+      "conflictRisk": "medium",
+      "allowedSources": [
+        "player_ux",
+        "player_dialogue",
+        "commitment",
+        "recovery"
+      ],
+      "allowedPriority": [
+        "player_direct",
+        "player_standing"
+      ],
+      "ownedOnly": true,
+      "exposure": "model_visible",
+      "registrationWork": "none",
+      "evidence": "STRONGLY_SUPPORTED",
+      "probes": [
+        "Q1"
+      ],
+      "phase": "ACT3",
+      "notes": "Immediate executor."
+    },
+    {
+      "id": "follow_vehicle",
+      "kind": "mode",
+      "args": {
+        "vehicle": "required"
+      },
+      "preconditions": [
+        "actor_owned",
+        "actor_alive",
+        "actor_state_registered",
+        "not_scripted",
+        "not_foreign_mission_entity",
+        "not_directed_interaction",
+        "no_active_reflex",
+        "actor_in_bubble",
+        "capability_enabled",
+        "actor_is_driver",
+        "vehicle_valid"
+      ],
+      "execution": {
+        "path": "queue",
+        "essentialName": "followtargetvehicle",
+        "vehiclePolicy": 3,
+        "exactTarget": true
+      },
+      "cancel": {
+        "path": "stop_api",
+        "essentialName": "VehicleBehavior.StopFollowTargetVehicle",
+        "onlyIfCurrent": true
+      },
+      "adapter": "drive_mode",
+      "failureSignals": [
+        "driver_required",
+        "target_retired"
+      ],
+      "timeouts": {
+        "acceptMs": 2000,
+        "establishMaxMs": 8000,
+        "completeMaxMs": null,
+        "holdMaxMs": 1200000
+      },
+      "conflictRisk": "high",
+      "allowedSources": [
+        "player_ux",
+        "player_dialogue",
+        "commitment",
+        "recovery"
+      ],
+      "allowedPriority": [
+        "player_direct",
+        "player_standing"
+      ],
+      "ownedOnly": true,
+      "exposure": "model_visible",
+      "registrationWork": "none",
+      "evidence": "INFERRED",
+      "probes": [
+        "Q1"
+      ],
+      "phase": "ACT3",
+      "notes": "Computed handler (TASK_VEHICLE_FOLLOW)."
+    },
+    {
+      "id": "begin_driving",
+      "kind": "mode",
+      "args": {
+        "vehicle": "optional"
+      },
+      "preconditions": [
+        "actor_owned",
+        "actor_alive",
+        "actor_state_registered",
+        "not_scripted",
+        "not_foreign_mission_entity",
+        "not_directed_interaction",
+        "no_active_reflex",
+        "actor_in_bubble",
+        "capability_enabled",
+        "actor_is_driver"
+      ],
+      "execution": {
+        "path": "queue",
+        "essentialName": "startdriving",
+        "vehiclePolicy": 3,
+        "exactTarget": false
+      },
+      "cancel": {
+        "path": "stop_api",
+        "essentialName": "VehicleBehavior.StopVehicleTaskOnly",
+        "onlyIfCurrent": true
+      },
+      "adapter": "drive_mode",
+      "failureSignals": [
+        "driver_required"
+      ],
+      "timeouts": {
+        "acceptMs": 2000,
+        "establishMaxMs": 8000,
+        "completeMaxMs": null,
+        "holdMaxMs": 600000
+      },
+      "conflictRisk": "medium",
+      "allowedSources": [
+        "player_ux",
+        "player_dialogue",
+        "commitment",
+        "recovery"
+      ],
+      "allowedPriority": [
+        "player_direct",
+        "player_standing"
+      ],
+      "ownedOnly": true,
+      "exposure": "model_visible",
+      "registrationWork": "none",
+      "evidence": "PROVEN",
+      "probes": [
+        "Q1"
+      ],
+      "phase": "ACT3",
+      "notes": "TASK_VEHICLE_DRIVE_WANDER only (0x6000989). It has no destination."
+    },
+    {
+      "id": "scenario_here",
+      "kind": "mode",
+      "args": {
+        "scenario": "required"
+      },
+      "preconditions": [
+        "actor_owned",
+        "actor_alive",
+        "actor_state_registered",
+        "not_scripted",
+        "not_foreign_mission_entity",
+        "not_directed_interaction",
+        "no_active_reflex",
+        "actor_in_bubble",
+        "capability_enabled",
+        "actor_on_foot",
+        "scenario_allowed",
+        "no_essential_mode"
+      ],
+      "execution": {
+        "path": "wrapper",
+        "essentialName": "NpcActions.UseScenario",
+        "vehiclePolicy": null,
+        "exactTarget": false
+      },
+      "cancel": {
+        "path": "supersede",
+        "essentialName": null,
+        "onlyIfCurrent": true
+      },
+      "adapter": "scenario",
+      "failureSignals": [
+        "capability_unavailable",
+        "establish_timeout"
+      ],
+      "timeouts": {
+        "acceptMs": 1000,
+        "establishMaxMs": 6000,
+        "completeMaxMs": null,
+        "holdMaxMs": 600000
+      },
+      "conflictRisk": "medium",
+      "allowedSources": [
+        "player_ux",
+        "player_dialogue",
+        "commitment",
+        "recovery"
+      ],
+      "allowedPriority": [
+        "player_direct",
+        "player_standing"
+      ],
+      "ownedOnly": true,
+      "exposure": "wrapper_only",
+      "registrationWork": "none",
+      "evidence": "PROVEN",
+      "probes": [
+        "S1"
+      ],
+      "phase": "ACT3",
+      "notes": "0x6000255: CLEAR_PED_TASKS + CLEAR_PED_SECONDARY_TASK, then TASK_START_SCENARIO_IN_PLACE + SET_PED_KEEP_TASK. No mode flag is set, so an owned character needs StayUnderLsaControl. UseScenario* bypasses the executor (N18): no modifier callback and no command-generation bump. Its own partial clear ends approach/chase/pose/hostile/directed-interaction modes but leaves follow, TakeCoverMode and vehicle intents, hence no_essential_mode."
+    },
+    {
+      "id": "scenario_at",
+      "kind": "finite_then_mode",
+      "args": {
+        "place": "required",
+        "scenario": "required"
+      },
+      "preconditions": [
+        "actor_owned",
+        "actor_alive",
+        "actor_state_registered",
+        "not_scripted",
+        "not_foreign_mission_entity",
+        "not_directed_interaction",
+        "no_active_reflex",
+        "actor_in_bubble",
+        "capability_enabled",
+        "actor_on_foot",
+        "scenario_allowed",
+        "place_resolved",
+        "place_within_medium",
+        "no_essential_mode"
+      ],
+      "execution": {
+        "path": "wrapper",
+        "essentialName": "NpcActions.UseScenarioAtPosition",
+        "vehiclePolicy": null,
+        "exactTarget": false
+      },
+      "cancel": {
+        "path": "supersede",
+        "essentialName": null,
+        "onlyIfCurrent": true
+      },
+      "adapter": "scenario_at",
+      "failureSignals": [
+        "navigation_failed",
+        "place_unresolved",
+        "establish_timeout"
+      ],
+      "timeouts": {
+        "acceptMs": 1000,
+        "establishMaxMs": 45000,
+        "completeMaxMs": null,
+        "holdMaxMs": 600000
+      },
+      "conflictRisk": "medium",
+      "allowedSources": [
+        "player_ux",
+        "player_dialogue",
+        "commitment",
+        "recovery"
+      ],
+      "allowedPriority": [
+        "player_direct",
+        "player_standing"
+      ],
+      "ownedOnly": true,
+      "exposure": "wrapper_only",
+      "registrationWork": "none",
+      "evidence": "PROVEN",
+      "probes": [
+        "S1"
+      ],
+      "phase": "ACT3",
+      "notes": "TASK_START_SCENARIO_AT_POSITION(ped,name,x,y,z,h,-1,true,false): teleport=false, so the ped navigates first. The navigation range must be measured (S1). UseScenario* bypasses the executor (N18): no modifier callback and no command-generation bump. Its own partial clear ends approach/chase/pose/hostile/directed-interaction modes but leaves follow, TakeCoverMode and vehicle intents, hence no_essential_mode."
+    },
+    {
+      "id": "walk_away_from",
+      "kind": "finite",
+      "args": {
+        "target": "required"
+      },
+      "preconditions": [
+        "actor_owned",
+        "actor_alive",
+        "actor_state_registered",
+        "not_scripted",
+        "not_foreign_mission_entity",
+        "not_directed_interaction",
+        "no_active_reflex",
+        "actor_in_bubble",
+        "capability_enabled",
+        "target_valid",
+        "target_not_actor"
+      ],
+      "execution": {
+        "path": "queue",
+        "essentialName": "walkawayfromtarget",
+        "vehiclePolicy": 1,
+        "exactTarget": true
+      },
+      "cancel": {
+        "path": "stop_api",
+        "essentialName": "CombatBehavior.StopWalkAwayFromTarget",
+        "onlyIfCurrent": true
+      },
+      "adapter": "walk_away",
+      "failureSignals": [
+        "target_retired"
+      ],
+      "timeouts": {
+        "acceptMs": 2000,
+        "establishMaxMs": 5000,
+        "completeMaxMs": 60000,
+        "holdMaxMs": null
+      },
+      "conflictRisk": "low",
+      "allowedSources": [
+        "player_ux",
+        "player_dialogue",
+        "commitment",
+        "recovery",
+        "scene_director"
+      ],
+      "allowedPriority": [
+        "player_direct",
+        "player_standing",
+        "director_urgent",
+        "director_routine"
+      ],
+      "ownedOnly": true,
+      "exposure": "model_visible",
+      "registrationWork": "none",
+      "evidence": "STRONGLY_SUPPORTED",
+      "probes": [
+        "Q1"
+      ],
+      "phase": "ACT3",
+      "notes": "Used by leave_scene. PHYSICALLY_COMPLETED at >= 40 m (distance evidence). leave_scene also sets until: duration short, so a slow walk-away advances after 60 s instead of failing."
+    },
+    {
+      "id": "take_cover",
+      "kind": "mode",
+      "args": {},
+      "preconditions": [
+        "actor_owned",
+        "actor_alive",
+        "actor_state_registered",
+        "not_scripted",
+        "not_foreign_mission_entity",
+        "not_directed_interaction",
+        "no_active_reflex",
+        "actor_in_bubble",
+        "capability_enabled"
+      ],
+      "execution": {
+        "path": "queue",
+        "essentialName": "takecover",
+        "vehiclePolicy": 2,
+        "exactTarget": false
+      },
+      "cancel": {
+        "path": "stop_api",
+        "essentialName": "CombatBehavior.StopTakeCover",
+        "onlyIfCurrent": true
+      },
+      "adapter": "cover_mode",
+      "failureSignals": [
+        "establish_timeout"
+      ],
+      "timeouts": {
+        "acceptMs": 2000,
+        "establishMaxMs": 8000,
+        "completeMaxMs": null,
+        "holdMaxMs": 60000
+      },
+      "conflictRisk": "high",
+      "allowedSources": [
+        "player_ux",
+        "player_dialogue",
+        "recovery",
+        "scene_director"
+      ],
+      "allowedPriority": [
+        "player_direct",
+        "player_standing",
+        "director_urgent"
+      ],
+      "ownedOnly": true,
+      "exposure": "queue_special",
+      "registrationWork": "none",
+      "evidence": "STRONGLY_SUPPORTED",
+      "probes": [
+        "C2"
+      ],
+      "phase": "ACT3",
+      "notes": "Queue special case. TASK_SEEK_COVER_FROM_POS. Cover origin semantics are UNKNOWN (U10)."
+    },
+    {
+      "id": "grab_item",
+      "kind": "finite",
+      "args": {
+        "item": "required"
+      },
+      "preconditions": [
+        "actor_owned",
+        "actor_alive",
+        "actor_state_registered",
+        "not_scripted",
+        "not_foreign_mission_entity",
+        "not_directed_interaction",
+        "no_active_reflex",
+        "actor_in_bubble",
+        "capability_enabled",
+        "item_known"
+      ],
+      "execution": {
+        "path": "queue",
+        "essentialName": "grabitem",
+        "vehiclePolicy": null,
+        "exactTarget": false
+      },
+      "cancel": {
+        "path": "stop_api",
+        "essentialName": "NpcActions.ClearHeldItem",
+        "onlyIfCurrent": true
+      },
+      "adapter": "held_item",
+      "failureSignals": [
+        "capability_unavailable",
+        "complete_timeout"
+      ],
+      "timeouts": {
+        "acceptMs": 2000,
+        "establishMaxMs": 4000,
+        "completeMaxMs": 10000,
+        "holdMaxMs": null
+      },
+      "conflictRisk": "low",
+      "allowedSources": [
+        "player_ux",
+        "player_dialogue",
+        "commitment",
+        "recovery"
+      ],
+      "allowedPriority": [
+        "player_direct",
+        "player_standing"
+      ],
+      "ownedOnly": true,
+      "exposure": "registry_only",
+      "registrationWork": "none",
+      "evidence": "STRONGLY_SUPPORTED",
+      "probes": [
+        "I1"
+      ],
+      "phase": "ACT3",
+      "notes": "Item names come from the NpcItemStore defaults (no cigarette)."
+    },
+    {
+      "id": "give_item",
+      "kind": "finite",
+      "args": {
+        "target": "required"
+      },
+      "preconditions": [
+        "actor_owned",
+        "actor_alive",
+        "actor_state_registered",
+        "not_scripted",
+        "not_foreign_mission_entity",
+        "not_directed_interaction",
+        "no_active_reflex",
+        "actor_in_bubble",
+        "capability_enabled",
+        "holding_item",
+        "target_valid",
+        "target_within_near"
+      ],
+      "execution": {
+        "path": "queue",
+        "essentialName": "givetargetitem",
+        "vehiclePolicy": null,
+        "exactTarget": true
+      },
+      "cancel": {
+        "path": "none",
+        "essentialName": null,
+        "onlyIfCurrent": true
+      },
+      "adapter": "item_transfer",
+      "failureSignals": [
+        "target_retired",
+        "complete_timeout"
+      ],
+      "timeouts": {
+        "acceptMs": 2000,
+        "establishMaxMs": 4000,
+        "completeMaxMs": 10000,
+        "holdMaxMs": null
+      },
+      "conflictRisk": "low",
+      "allowedSources": [
+        "player_ux",
+        "player_dialogue",
+        "commitment",
+        "recovery"
+      ],
+      "allowedPriority": [
+        "player_direct"
+      ],
+      "ownedOnly": true,
+      "exposure": "parser_only",
+      "registrationWork": "none",
+      "evidence": "STRONGLY_SUPPORTED",
+      "probes": [
+        "I1"
+      ],
+      "phase": "ACT3",
+      "notes": "Receiver held state is UNKNOWN until probe I1."
+    },
+    {
+      "id": "take_item",
+      "kind": "finite",
+      "args": {
+        "target": "required"
+      },
+      "preconditions": [
+        "actor_owned",
+        "actor_alive",
+        "actor_state_registered",
+        "not_scripted",
+        "not_foreign_mission_entity",
+        "not_directed_interaction",
+        "no_active_reflex",
+        "actor_in_bubble",
+        "capability_enabled",
+        "target_valid",
+        "target_within_near"
+      ],
+      "execution": {
+        "path": "queue",
+        "essentialName": "taketargetitem",
+        "vehiclePolicy": null,
+        "exactTarget": true
+      },
+      "cancel": {
+        "path": "none",
+        "essentialName": null,
+        "onlyIfCurrent": true
+      },
+      "adapter": "item_transfer",
+      "failureSignals": [
+        "target_retired",
+        "complete_timeout"
+      ],
+      "timeouts": {
+        "acceptMs": 2000,
+        "establishMaxMs": 4000,
+        "completeMaxMs": 10000,
+        "holdMaxMs": null
+      },
+      "conflictRisk": "low",
+      "allowedSources": [
+        "player_ux",
+        "player_dialogue",
+        "commitment",
+        "recovery"
+      ],
+      "allowedPriority": [
+        "player_direct"
+      ],
+      "ownedOnly": true,
+      "exposure": "parser_only",
+      "registrationWork": "none",
+      "evidence": "STRONGLY_SUPPORTED",
+      "probes": [
+        "I1"
+      ],
+      "phase": "ACT3",
+      "notes": ""
+    },
+    {
+      "id": "clear_held_item",
+      "kind": "instant",
+      "args": {},
+      "preconditions": [
+        "actor_owned",
+        "actor_alive",
+        "actor_state_registered",
+        "not_scripted",
+        "not_foreign_mission_entity",
+        "not_directed_interaction",
+        "no_active_reflex",
+        "actor_in_bubble",
+        "capability_enabled",
+        "holding_item"
+      ],
+      "execution": {
+        "path": "queue",
+        "essentialName": "clearhelditem",
+        "vehiclePolicy": null,
+        "exactTarget": false
+      },
+      "cancel": {
+        "path": "none",
+        "essentialName": null,
+        "onlyIfCurrent": true
+      },
+      "adapter": "held_item",
+      "failureSignals": [],
+      "timeouts": {
+        "acceptMs": 2000,
+        "establishMaxMs": null,
+        "completeMaxMs": 4000,
+        "holdMaxMs": null
+      },
+      "conflictRisk": "low",
+      "allowedSources": [
+        "player_ux",
+        "player_dialogue",
+        "commitment",
+        "recovery"
+      ],
+      "allowedPriority": [
+        "player_direct",
+        "player_standing"
+      ],
+      "ownedOnly": true,
+      "exposure": "parser_only",
+      "registrationWork": "none",
+      "evidence": "STRONGLY_SUPPORTED",
+      "probes": [
+        "I1"
+      ],
+      "phase": "ACT3",
+      "notes": ""
+    },
+    {
+      "id": "walk_to",
+      "kind": "finite",
+      "args": {
+        "place": "required"
+      },
+      "preconditions": [
+        "actor_owned",
+        "actor_alive",
+        "actor_state_registered",
+        "not_scripted",
+        "not_foreign_mission_entity",
+        "not_directed_interaction",
+        "no_active_reflex",
+        "actor_in_bubble",
+        "capability_enabled",
+        "actor_on_foot",
+        "place_resolved",
+        "place_within_far"
+      ],
+      "execution": {
+        "path": "extension",
+        "essentialName": "lsawalkto",
+        "vehiclePolicy": null,
+        "exactTarget": false
+      },
+      "cancel": {
+        "path": "stop_api",
+        "essentialName": "lsawalkto.stop",
+        "onlyIfCurrent": true
+      },
+      "adapter": "place_arrival",
+      "failureSignals": [
+        "navigation_failed",
+        "bubble_exceeded",
+        "complete_timeout"
+      ],
+      "timeouts": {
+        "acceptMs": 2000,
+        "establishMaxMs": 6000,
+        "completeMaxMs": 180000,
+        "holdMaxMs": null
+      },
+      "conflictRisk": "high",
+      "allowedSources": [
+        "player_ux",
+        "player_dialogue",
+        "commitment",
+        "recovery"
+      ],
+      "allowedPriority": [
+        "player_direct",
+        "player_standing"
+      ],
+      "ownedOnly": true,
+      "exposure": "missing",
+      "registrationWork": "new_behavior",
+      "evidence": "UNKNOWN",
+      "probes": [
+        "NV1",
+        "FR1",
+        "Q2",
+        "L1"
+      ],
+      "phase": "ACT6",
+      "notes": "Essential has no civilian navigation-to-coordinate executor (TASK_FOLLOW_NAV_MESH_TO_COORD exists only in DirectedInteractionManager and hostage positioning). walktodestination is vestigial (correction N3)."
+    },
+    {
+      "id": "drive_to",
+      "kind": "finite",
+      "args": {
+        "place": "required"
+      },
+      "preconditions": [
+        "actor_owned",
+        "actor_alive",
+        "actor_state_registered",
+        "not_scripted",
+        "not_foreign_mission_entity",
+        "not_directed_interaction",
+        "no_active_reflex",
+        "actor_in_bubble",
+        "capability_enabled",
+        "actor_is_driver",
+        "place_resolved"
+      ],
+      "execution": {
+        "path": "extension",
+        "essentialName": "lsadriveto",
+        "vehiclePolicy": null,
+        "exactTarget": false
+      },
+      "cancel": {
+        "path": "stop_api",
+        "essentialName": "lsadriveto.stop",
+        "onlyIfCurrent": true
+      },
+      "adapter": "drive_arrival",
+      "failureSignals": [
+        "driver_required",
+        "navigation_failed",
+        "bubble_exceeded",
+        "complete_timeout"
+      ],
+      "timeouts": {
+        "acceptMs": 2000,
+        "establishMaxMs": 8000,
+        "completeMaxMs": 360000,
+        "holdMaxMs": null
+      },
+      "conflictRisk": "high",
+      "allowedSources": [
+        "player_ux",
+        "player_dialogue",
+        "commitment",
+        "recovery"
+      ],
+      "allowedPriority": [
+        "player_direct",
+        "player_standing"
+      ],
+      "ownedOnly": true,
+      "exposure": "missing",
+      "registrationWork": "new_behavior",
+      "evidence": "UNKNOWN",
+      "probes": [
+        "NV2",
+        "FR1",
+        "Q2",
+        "L1",
+        "D1",
+        "D2",
+        "D3",
+        "SVE1"
+      ],
+      "phase": "ACT6",
+      "notes": "Only the scene-owned HostageResponseDriving issues TASK_VEHICLE_DRIVE_TO_COORD_LONGRANGE. drivetodestination is vestigial. The destination comes from LocationResolver/DestinationResolver (read-only)."
+    },
+    {
+      "id": "chase_person",
+      "kind": "mode",
+      "args": {
+        "target": "required"
+      },
+      "preconditions": [
+        "actor_owned",
+        "actor_alive",
+        "actor_state_registered",
+        "not_scripted",
+        "not_foreign_mission_entity",
+        "not_directed_interaction",
+        "no_active_reflex",
+        "actor_in_bubble",
+        "capability_enabled"
+      ],
+      "execution": {
+        "path": "wrapper",
+        "essentialName": "NpcActions.ChaseTarget",
+        "vehiclePolicy": 2,
+        "exactTarget": true
+      },
+      "cancel": {
+        "path": "stop_api",
+        "essentialName": "MovementBehavior.StopChaseTarget",
+        "onlyIfCurrent": true
+      },
+      "adapter": "none",
+      "failureSignals": [],
+      "timeouts": {
+        "acceptMs": 2000,
+        "establishMaxMs": null,
+        "completeMaxMs": null,
+        "holdMaxMs": 20000
+      },
+      "conflictRisk": "high",
+      "allowedSources": [],
+      "allowedPriority": [],
+      "ownedOnly": true,
+      "exposure": "wrapper_only",
+      "registrationWork": "register_extension",
+      "evidence": "STRONGLY_SUPPORTED",
+      "probes": [],
+      "phase": "never",
+      "notes": "Excluded in v1 (policy_denied). Revisit only with a combat arbitration design."
+    },
+    {
+      "id": "directed_interaction",
+      "kind": "mode",
+      "args": {
+        "target": "required"
+      },
+      "preconditions": [
+        "actor_owned",
+        "actor_alive",
+        "actor_state_registered",
+        "not_scripted",
+        "not_foreign_mission_entity",
+        "not_directed_interaction",
+        "no_active_reflex",
+        "actor_in_bubble",
+        "capability_enabled"
+      ],
+      "execution": {
+        "path": "queue",
+        "essentialName": "initiatedirectedinteraction",
+        "vehiclePolicy": null,
+        "exactTarget": true
+      },
+      "cancel": {
+        "path": "stop_api",
+        "essentialName": "NpcActions.StopDirectedInteraction",
+        "onlyIfCurrent": true
+      },
+      "adapter": "none",
+      "failureSignals": [],
+      "timeouts": {
+        "acceptMs": 2000,
+        "establishMaxMs": null,
+        "completeMaxMs": null,
+        "holdMaxMs": 40000
+      },
+      "conflictRisk": "high",
+      "allowedSources": [],
+      "allowedPriority": [],
+      "ownedOnly": true,
+      "exposure": "registry_only",
+      "registrationWork": "none",
+      "evidence": "STRONGLY_SUPPORTED",
+      "probes": [
+        "DI1"
+      ],
+      "phase": "ACT7",
+      "notes": "Server orchestration is stubbed (tb returns null). This belongs to PS7."
+    },
+    {
+      "id": "perform_activity",
+      "kind": "finite",
+      "args": {},
+      "preconditions": [],
+      "execution": {
+        "path": "none",
+        "essentialName": null,
+        "vehiclePolicy": null,
+        "exactTarget": false
+      },
+      "cancel": {
+        "path": "none",
+        "essentialName": null,
+        "onlyIfCurrent": true
+      },
+      "adapter": "none",
+      "failureSignals": [],
+      "timeouts": {
+        "acceptMs": 0,
+        "establishMaxMs": null,
+        "completeMaxMs": null,
+        "holdMaxMs": null
+      },
+      "conflictRisk": "low",
+      "allowedSources": [],
+      "allowedPriority": [],
+      "ownedOnly": true,
+      "exposure": "vestigial",
+      "registrationWork": "none",
+      "evidence": "PROVEN",
+      "probes": [
+        "W1"
+      ],
+      "phase": "never",
+      "notes": "performactivity* has no handler and no queue case. NpcActivityQueueItem.Started/Completed are written only by the constructor (correction N1/N2)."
+    }
+  ],
+  "excluded": [
+    {
+      "id": "attack",
+      "reason": "excluded_family",
+      "note": "Stays turn-level through stock validators only."
+    },
+    {
+      "id": "aim_at",
+      "reason": "excluded_family",
+      "note": "Stays turn-level through stock validators only."
+    },
+    {
+      "id": "flee_from",
+      "reason": "excluded_family",
+      "note": "Stays turn-level through stock validators only."
+    },
+    {
+      "id": "fire_once",
+      "reason": "excluded_family",
+      "note": "Stays turn-level through stock validators only."
+    },
+    {
+      "id": "equip_weapon",
+      "reason": "excluded_family",
+      "note": "Stays turn-level through stock validators only."
+    },
+    {
+      "id": "unequip_weapon",
+      "reason": "excluded_family",
+      "note": "Stays turn-level through stock validators only."
+    },
+    {
+      "id": "give_weapon",
+      "reason": "excluded_family",
+      "note": "Stays turn-level through stock validators only."
+    },
+    {
+      "id": "take_weapon",
+      "reason": "excluded_family",
+      "note": "Stays turn-level through stock validators only."
+    },
+    {
+      "id": "hands_up",
+      "reason": "excluded_family",
+      "note": "Stays turn-level through stock validators only."
+    },
+    {
+      "id": "hands_down",
+      "reason": "excluded_family",
+      "note": "Stays turn-level through stock validators only."
+    },
+    {
+      "id": "kneel",
+      "reason": "excluded_family",
+      "note": "Stays turn-level through stock validators only."
+    },
+    {
+      "id": "stand_up",
+      "reason": "excluded_family",
+      "note": "Stays turn-level through stock validators only."
+    },
+    {
+      "id": "turn_away",
+      "reason": "excluded_family",
+      "note": "Stays turn-level through stock validators only."
+    },
+    {
+      "id": "walk_backwards",
+      "reason": "excluded_family",
+      "note": "Stays turn-level through stock validators only."
+    },
+    {
+      "id": "lean_against_vehicle_compliance",
+      "reason": "excluded_family",
+      "note": "Stays turn-level through stock validators only."
+    },
+    {
+      "id": "become_accomplice",
+      "reason": "excluded_family",
+      "note": "Stays turn-level through stock validators only."
+    },
+    {
+      "id": "policing_verbs",
+      "reason": "excluded_family",
+      "note": "Stays turn-level through stock validators only."
+    },
+    {
+      "id": "hostage_router_verbs",
+      "reason": "excluded_family",
+      "note": "Stays turn-level through stock validators only."
+    }
+  ]
+}
