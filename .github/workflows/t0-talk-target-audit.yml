@@ -1,0 +1,73 @@
+name: T0 Talk Target IL Audit
+
+on:
+  push:
+    branches:
+      - research/ux4-talk-target-selector
+    paths:
+      - '.github/workflows/t0-talk-target-audit.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Install ILSpy command-line decompiler
+        run: dotnet tool install --global ilspycmd
+
+      - name: Verify pinned Essential DLL
+        shell: bash
+        run: |
+          set -euo pipefail
+          DLL="lsa-essential-e1-candidate/upstream/LosSantosAlive.dll"
+          sha256sum "$DLL"
+          test "$(sha256sum "$DLL" | awk '{print $1}')" = "9b6de42d4c464901d859dd95e17e100e4fa9ef6074bfbb0cf3a57a76f6ddd653"
+
+      - name: Decompile Essential
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/lsa-decompiled
+          ilspycmd -p -o /tmp/lsa-decompiled lsa-essential-e1-candidate/upstream/LosSantosAlive.dll
+
+      - name: Extract T0 targeting evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="$RUNNER_TEMP/t0"
+          mkdir -p "$OUT"
+
+          echo "=== Exact symbol references ===" | tee "$OUT/references.txt"
+          grep -R -n -E             'SetPlayerConversationPed|GetPlayerConversationPed|ClearPlayerConversationPed|GetBestConversationPed|BeginMicTurn|MarkMicReleased|TalkKey|MarkedPedTalkKey'             /tmp/lsa-decompiled             | tee -a "$OUT/references.txt" || true
+
+          echo "=== Candidate source files ===" | tee "$OUT/files.txt"
+          grep -R -l -E             'SetPlayerConversationPed|GetPlayerConversationPed|BeginMicTurn|TalkKey|MarkedPedTalkKey'             /tmp/lsa-decompiled             | sort             | tee -a "$OUT/files.txt" || true
+
+          while IFS= read -r file; do
+            [ -f "$file" ] || continue
+            name="$(basename "$file")"
+            cp "$file" "$OUT/$name"
+          done < <(grep -R -l -E             'SetPlayerConversationPed|GetPlayerConversationPed|BeginMicTurn|TalkKey|MarkedPedTalkKey'             /tmp/lsa-decompiled | sort -u)
+
+          echo "=== NpcTargeting type ===" | tee "$OUT/NpcTargeting-type.txt"
+          ilspycmd -t LosSantosAlive.NPC.NpcTargeting lsa-essential-e1-candidate/upstream/LosSantosAlive.dll             | tee -a "$OUT/NpcTargeting-type.txt"
+
+          echo "=== InputController type ===" | tee "$OUT/InputController-type.txt"
+          ilspycmd -t LosSantosAlive.Input.InputController lsa-essential-e1-candidate/upstream/LosSantosAlive.dll             | tee -a "$OUT/InputController-type.txt"
+
+          echo "=== ConversationHydrationCoordinator type ===" | tee "$OUT/ConversationHydrationCoordinator-type.txt"
+          ilspycmd -t LosSantosAlive.Context.ConversationHydrationCoordinator lsa-essential-e1-candidate/upstream/LosSantosAlive.dll             | tee -a "$OUT/ConversationHydrationCoordinator-type.txt"
+
+      - name: Upload T0 audit
+        uses: actions/upload-artifact@v4
+        with:
+          name: t0-talk-target-il-audit
+          path: ${{ runner.temp }}/t0
