@@ -144,13 +144,15 @@ namespace LSA.PromotedCharacters
         }
         // Phrases come from the player's own settings or console input: 1-120
         // characters, not blank, no control characters or unpaired surrogates.
+        // net481's JavaScriptSerializer rewrites an unpaired surrogate to U+FFFD
+        // before this runs, so that replacement is rejected too.
         public static bool Phrase(string phrase)
         {
             if (phrase == null || phrase.Length < 1 || phrase.Length > MaxPhraseChars || phrase.Trim().Length == 0) return false;
             for (int index = 0; index < phrase.Length; index++)
             {
                 char c = phrase[index];
-                if (char.IsControl(c)) return false;
+                if (char.IsControl(c) || c == '\uFFFD') return false;
                 if (char.IsHighSurrogate(c)) { if (index + 1 >= phrase.Length || !char.IsLowSurrogate(phrase[index + 1])) return false; index++; }
                 else if (char.IsLowSurrogate(c)) return false;
             }

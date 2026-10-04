@@ -100,7 +100,18 @@ namespace LSA.PromotedCharacters
             });
         }
         static string Unquote(string value) => value != null && value.Length >= 2 && value[0] == '"' && value[value.Length - 1] == '"' ? value.Substring(1,value.Length - 2) : value;
-        static bool Phrase(string value) => value.Length >= 1 && value.Length <= 120 && value.Trim().Length > 0 && !value.Any(char.IsControl);
+        static bool Phrase(string value)
+        {
+            if (value == null || value.Length < 1 || value.Length > 120 || value.Trim().Length == 0) return false;
+            for (int index = 0; index < value.Length; index++)
+            {
+                char c = value[index];
+                if (char.IsControl(c) || c == '\uFFFD') return false;
+                if (char.IsHighSurrogate(c)) { if (index + 1 >= value.Length || !char.IsLowSurrogate(value[index + 1])) return false; index++; }
+                else if (char.IsLowSurrogate(c)) return false;
+            }
+            return true;
+        }
         static string NewId() => CommandEnvelope.NewId();
         static string Envelope(string id,string command,string expectedEncounterId = null,string phrase = null) =>
             CommandEnvelope.Build(id,command,"console",DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),expectedEncounterId,phrase);

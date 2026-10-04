@@ -145,7 +145,8 @@ namespace LSA.Enhanced.Settings
             if (phrase.Trim().Length == 0) return false;
             for (int index = 0; index < phrase.Length; index++) {
                 char c = phrase[index];
-                if (char.IsControl(c)) return false;
+                // U+FFFD is how net481's JavaScriptSerializer delivers an unpaired surrogate.
+                if (char.IsControl(c) || c == '\uFFFD') return false;
                 if (char.IsHighSurrogate(c)) { if (index + 1 >= phrase.Length || !char.IsLowSurrogate(phrase[index + 1])) return false; index++; }
                 else if (char.IsLowSurrogate(c)) return false;
             }
