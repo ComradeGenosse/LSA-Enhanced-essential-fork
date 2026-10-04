@@ -34,7 +34,8 @@ Essential remains authoritative for native NPC state, turn/generation identity, 
 | PS0 / PS1 — PERCEPTION FOUNDATION | Implemented offline; physical GTA validation pending | Default-off shadow-only contracts, lifetime anchors, bounded factual transport and supported native producers; [status and GTA checklist](PS0-PS1-perception-status.md) |
 | PS2+ — PERCEPTION / KNOWLEDGE | Planned | Witness/LOS/hearing, correlation and later context/memory phases remain unimplemented |
 | SALIENCE | Planned | Decide what an NPC should care about right now |
-| SCENE_DIRECTOR | Planned | NPC initiative and coordinated autonomous behavior |
+| PROXIMITY_CHAT / SOCIAL_ROUTING | Planned | Route player speech through perception + salience so nearby NPCs can hear, be addressed, overhear, and respond without manual targeting |
+| SCENE_DIRECTOR | Planned | NPC initiative and coordinated autonomous behavior built on the same perception/salience/social-routing state |
 | CUSTOM ACTIONS / ACTIVITIES | Planned | Expose more native Essential capabilities and add new extensions where needed |
 | E7 | Planned | Full regression, soak testing, and GTA acceptance |
 
@@ -232,6 +233,7 @@ P0 TURN_CONTEXT
   → P2 PROMOTED_CHARACTERS / CHARACTER_PROFILE
   → PERCEPTION
   → SALIENCE
+  → PROXIMITY_CHAT / SOCIAL_ROUTING
   → SCENE_DIRECTOR
 ```
 
@@ -259,9 +261,10 @@ Examples of useful observations:
 - theft or aggression witnessed by an NPC;
 - changes in activity/location;
 - nearby characters with relevant relationships;
-- meaningful vehicle/object state.
+- meaningful vehicle/object state;
+- player speech as an audible event, including who could physically hear it based on distance, line of sight/occlusion, local context and conversation membership.
 
-Perception should expose facts, not decide behavior.
+Perception should expose facts, not decide behavior. For speech, the perception layer should answer **who could hear this utterance?**, not who should respond.
 
 ### SALIENCE — Decide what matters
 
@@ -275,7 +278,8 @@ Salience should rank/filter observations based on factors such as:
 - recency;
 - current goals/activity;
 - prior memory;
-- direct relevance to the player or current conversation.
+- direct relevance to the player or current conversation;
+- direct address cues such as a character's name, gaze/facing, active conversation membership, group-address language and whether the NPC merely overheard the utterance.
 
 The goal is to prevent NPCs from reacting to every minor event while still noticing genuinely important changes.
 
@@ -293,6 +297,42 @@ small relevant context set
 reasoning / initiative
 ```
 
+### PROXIMITY_CHAT / SOCIAL_ROUTING — Shared spoken-space conversation
+
+Proximity chat should be implemented as a consumer of **PERCEPTION + SALIENCE**, not as a separate dialogue stack. The player speaks once; LSA transcribes once; nearby NPCs are classified as addressed listeners, possible responders, or overhearers using the same world-awareness infrastructure that later feeds SCENE_DIRECTOR.
+
+Target flow:
+
+```text
+player mic / PTT / later optional VAD
+        ↓
+STT once
+        ↓
+PERCEPTION: who could physically hear it?
+        ↓
+SALIENCE / attention: who notices or cares?
+        ↓
+SOCIAL_ROUTING: who was addressed, who overheard, who may respond?
+        ↓
+existing P2 character-authority + reasoning/action pipeline
+        ↓
+overhearing / conversation events return to perception and later memory/director systems
+```
+
+Core rules:
+
+- do not require the player to mark an NPC before ordinary nearby conversation;
+- do not run independent STT for each NPC;
+- do not blindly fan one utterance out into simultaneous model/TTS turns for every nearby ped;
+- use native spatial facts such as distance, line of sight/occlusion, facing/attention and current conversation membership to build the hearing set;
+- use explicit names, gaze/facing, active conversation state, group-address language and semantic relevance to distinguish **addressed** NPCs from **overhearers**;
+- arbitrate responders so one clear speaker normally answers first, while allowing later multi-character exchanges where appropriate;
+- overhearers should receive a factual perception event even when they do not speak, allowing later salience, memory, relationship or Director behavior to use what they heard;
+- promoted-character canon remains authoritative for personality/willingness and Essential/native validation remains authoritative for actual action capability;
+- keep the existing turn/generation/playback lifecycle; proximity routing selects participants, it does not create a parallel conversation engine.
+
+This phase is intentionally before SCENE_DIRECTOR because it establishes reusable social-scene state: who is present, who heard what, who was addressed, who is engaged, who responded, and who merely observed. SCENE_DIRECTOR should consume that state rather than rebuilding its own hearing/attention model.
+
 ### SCENE_DIRECTOR — NPC initiative and coordination
 
 This phase moves beyond primarily player-triggered interaction.
@@ -300,9 +340,11 @@ This phase moves beyond primarily player-triggered interaction.
 Target behavior:
 
 ```text
-NPC perceives event
+NPC perceives event / social exchange
       ↓
 salience says it matters
+      ↓
+proximity/social state identifies participants and attention
       ↓
 NPC/native system initiates a turn
       ↓
@@ -342,6 +384,7 @@ It should cover more than isolated happy-path conversations:
 
 - long play sessions / soak tests;
 - multiple NPCs and rapid speaker switching;
+- proximity hearing/address resolution, overhearing, group-address routing and responder arbitration;
 - PTT and typed input;
 - long responses;
 - interruption/supersession;
