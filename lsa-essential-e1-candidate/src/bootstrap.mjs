@@ -7,6 +7,7 @@ import { createFileSink } from './observability/fileSink.mjs';
 import { Telemetry, createNoopTelemetry } from './observability/telemetry.mjs';
 import { identityContractSupported } from './identity/nativeSupport.mjs';
 import { startCharacterEditor } from './characters/editorServer.mjs';
+import { defaultControlEndpointPath } from './control/endpointFile.mjs';
 import { characterContractSupported } from './characters/nativeSupport.mjs';
 import { IntelligenceClient } from './perception/intelligenceClient.mjs';
 import { perceptionContractSupported } from './perception/nativeSupport.mjs';
@@ -98,8 +99,11 @@ export async function createRuntimeForBundle(options = {}) {
   if (runtime.characterService) {
     await runtime.characterService.initialize();
     if (runtime.characterService.ready && options.startCharacterEditor !== false) try {
-      runtime.characterEditor = await startCharacterEditor(runtime.characterService);
+      // Per-user endpoint file for the native console bridge; null disables it.
+      const endpointPath = options.controlEndpointPath !== undefined ? options.controlEndpointPath : defaultControlEndpointPath();
+      runtime.characterEditor = await startCharacterEditor(runtime.characterService,{ endpointPath });
       try { console.info('[P2] Character editor: ' + runtime.characterEditor.url); } catch {}
+      if (endpointPath && !runtime.characterEditor.endpointPublished) try { console.warn('[UX] Control endpoint file unavailable; native clients use the page handshake.'); } catch {}
     } catch { runtime.characterService.emit('character_safe_failure',{reason:'owner_unavailable'}); }
   }
   return runtime;

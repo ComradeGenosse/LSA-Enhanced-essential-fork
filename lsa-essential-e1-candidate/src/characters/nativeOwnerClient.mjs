@@ -1,7 +1,9 @@
 import net from 'node:net';
 import { randomUUID } from 'node:crypto';
 import { isUuid, exactObject } from '../identity/identityContract.mjs';
-export const OWNER_OPERATIONS = new Set(['capture','register','inspect','spawn','follow','wait','dismiss','despawn','release','roster']);
+// 'current' is the read-only UX phase 1 view of Essential's current NPC; it
+// creates no capture ticket, ownership, task or session.
+export const OWNER_OPERATIONS = new Set(['capture','register','inspect','spawn','follow','wait','dismiss','despawn','release','roster','current']);
 export class NativeOwnerClient {
   constructor({ pipeName,worldProfileId,timeoutMs = 3000,summonWaitMs = 30_000 }) { this.pipeName = pipeName; this.worldProfileId = worldProfileId; this.timeoutMs = timeoutMs; this.summonWaitMs = summonWaitMs; }
   request(operation,args = {}) {
