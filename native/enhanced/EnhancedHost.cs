@@ -76,6 +76,7 @@ namespace LSA.Enhanced
         {
             stopping = true;
             try { activeRelay?.ReleaseAll(); } catch { }
+            bridge.ReleaseInput();
         }
         // Console LSAMenu: queue a toggle for the fiber; returns a reason when the
         // menu cannot open.
@@ -149,6 +150,7 @@ namespace LSA.Enhanced
                         router.Tick(); ui.Tick(); failures = 0;
                     } catch (ThreadAbortException) { throw; }
                     catch (Exception error) {
+                        router.CancelPending();
                         // Contained: an unexpected failure never unloads the loader
                         // plugin and its console commands.
                         if (++failures == 1) Game.LogTrivial("[UX] enhanced_tick_failed " + error.GetType().Name);
