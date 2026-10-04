@@ -64,6 +64,34 @@ Open PRs #3, #10 and #12 are research/evidence branches, not production runtime 
 
 Historical feature branches for P1, P2, PS0/PS1, PS2 and UX0–UX3 should be treated as implementation history/reference now that their production equivalents are already on `main`; do not infer unfinished work merely because those branch refs still exist.
 
+## GTA deployment / physical validation state — perception track
+
+Keep this separate from implementation status:
+
+| Phase | Repo status | Last recorded GTA deployment state | Physical GTA acceptance |
+| --- | --- | --- | --- |
+| PS0 / PS1 | Merged on `main` | Included in the later PS2 production payload lineage; intelligence configured in `shadow` for the recorded PS2 deployment | **Pending.** The full PS0/PS1 acceptance sequence has not been closed |
+| PS2 | Merged on `main` | The reviewed PS2 payload at `5ea77f8` was deployed/installed before the later combined-source integration; shadow mode remained enabled | **Pending.** Witness/episode behavior needs a deliberate GTA validation pass. Player-speech hearing remains intentionally disabled |
+| PS3 | Implemented on unmerged feature branch | **Not deployed** as part of the recorded production payload | **Not run.** Reconcile/merge/build/deploy first, then validate in shadow |
+| PS4+ | Not implemented | Not deployable | Not applicable yet |
+
+The October 4 combined production-source integration on `main` passed offline regression/build validation but explicitly did **not** itself establish a new GTA deployment or controller/GTA acceptance record. Therefore "merged", "built", "installed" and "physically accepted" must remain separate states.
+
+### Recommended next GTA perception milestone
+
+Do not spend a full acceptance session certifying an older PS0–PS2 payload if PS3 is about to be reconciled. The preferred milestone is:
+
+1. reconcile PS3 onto current `main`;
+2. rerun its offline regression/build checks;
+3. build one combined PS0–PS3 payload from current `main`;
+4. make the normal verified rollback backup and deploy/hash-verify that exact payload;
+5. keep intelligence in `shadow`;
+6. run one structured PS0–PS3 GTA acceptance session.
+
+That session should cover startup/host health, observer roster and lifetime behavior, firing edges, isolated player/NPC damage callback counts, injury/death versus disappearance, vehicle damage/entry/exit/seat transitions, stable location/activity transitions, dismiss/recreate and stale-anchor rejection, reconnect/restart behavior, PS2 witness/episode correlation, and PS3 decision/suppression counters. It must also confirm that shadow perception produces **no** new Luna turns, automatic memory writes, autonomous actions or playback interruption.
+
+The separate source-time microphone/capture-receipt probe remains an independent gate for `speech_heard`. Until that exact begin/end linkage is proven, PS2/PS3 may validate other perception events in GTA while player-speech hearing stays disabled.
+
 ## Completed foundation
 
 ### E1 / E1.1 — Hardened Essential + OpenAI/Luna integration
