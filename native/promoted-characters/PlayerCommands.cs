@@ -2,13 +2,12 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.IO;
-using System.Net;
 using System.Linq;
-using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Web.Script.Serialization;
+using LSA.Enhanced.Commands;
+using LSA.Enhanced.Companion;
 using Rage;
 using Rage.Attributes;
 
@@ -17,7 +16,8 @@ namespace LSA.PromotedCharacters
     // Existing RAGE console input keeps live operations in a focused game. The
     // worker talks only to the loopback editor; it never reads/tasks a ped.
     // The UX bridge commands only submit strings to DomainHost; Essential's
-    // Update fiber does all game work.
+    // Update fiber does all game work. The loopback client and the envelope
+    // format are shared with the UX phase 2 dispatcher (native/enhanced).
     public static class PlayerCommands
     {
         static string origin;
@@ -29,7 +29,10 @@ namespace LSA.PromotedCharacters
         static DomainHost host;
         static BridgeJob job;
         // Written atomically by the companion when its loopback server listens.
-        internal static string EndpointPath = DefaultEndpointPath();
+        internal static string EndpointPath { get => CompanionClient.EndpointPath; set => CompanionClient.EndpointPath = value; }
+        internal static string EndpointToken(string address) => CompanionClient.EndpointToken(address);
+        // UX phase 3: EntryPoint connects this to EnhancedHost.RequestMenu.
+        internal static Func<string,string> MenuRequested;
         sealed class BridgeJob
         {
             public string Phrase, InspectId, GatesId, AskId, Inspect, Gates;
@@ -55,62 +58,27 @@ namespace LSA.PromotedCharacters
         [ConsoleCommand(Name = "LSADespawnCharacter",Description = "Despawn an addon-created ped by the exact CharacterId shown in the editor.")] public static void Command_LSADespawnCharacter(string characterId) => SendCharacter("despawn",characterId);
         [ConsoleCommand(Name = "LSACurrentNpc",Description = "Show Essential's current NPC and input gates as the LSA command bridge sees them.")] public static void Command_LSACurrentNpc() => StartBridge(null);
         [ConsoleCommand(Name = "LSAAskCurrent",Description = "Send a typed request in quotes to Essential's current NPC through Essential's own text input.")] public static void Command_LSAAskCurrent(string phrase) => StartBridge(Unquote(phrase) ?? "");
+        [ConsoleCommand(Name = "LSAMenu",Description = "Open or close the LSA Enhanced menu (needs ui.enabled in Plugins/LSA.Enhanced.json).")] public static void Command_LSAMenu()
+        {
+            if (!enabled) return;
+            string reason;
+            try { reason = MenuRequested == null ? "host_stopped" : MenuRequested("main"); } catch { reason = "host_stopped"; }
+            if (reason != null) Game.Console.Print(MenuReason(reason));
+        }
+        static string MenuReason(string reason)
+        {
+            switch (reason)
+            {
+                case "menu_off": return "The LSA menu is off. Set \"ui\": {\"enabled\": true} in Plugins/LSA.Enhanced.json.";
+                case "menu_unavailable": return "The LSA menu is unavailable (RAGENativeUI 1.9.3 not loaded). See RagePluginHook.log.";
+                default: return "LSA Enhanced input and menu are not running. See RagePluginHook.log.";
+            }
+        }
         static void SendCharacter(string operation,string characterId)
         {
             if (!enabled) return;
             if (characterId == null || !Regex.IsMatch(characterId,"^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$")) { Game.Console.Print("P2 needs the exact CharacterId shown in the editor."); return; }
             Send(operation,characterId);
-        }
-        static HttpWebRequest Request(string url)
-        {
-            var request = (HttpWebRequest)WebRequest.Create(url); request.Proxy = null; request.Timeout = 5000; request.ReadWriteTimeout = 5000; request.AllowAutoRedirect = false; return request;
-        }
-        static string Read(WebResponse response,int max)
-        {
-            using (var stream = response.GetResponseStream()) using (var output = new MemoryStream()) {
-                var buffer = new byte[1024]; int bytes;
-                while ((bytes = stream.Read(buffer,0,buffer.Length)) > 0) { if (output.Length + bytes > max) throw new InvalidDataException(); output.Write(buffer,0,bytes); }
-                return Encoding.UTF8.GetString(output.ToArray());
-            }
-        }
-        static string DefaultEndpointPath()
-        {
-            try { string root = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData); return string.IsNullOrEmpty(root) ? null : Path.Combine(root,"LSA Enhanced","control-endpoint.v1.json"); }
-            catch { return null; }
-        }
-        // The endpoint file grants nothing beyond the page: any same-user process
-        // can already GET / and read the token. It only replaces HTML scraping.
-        internal static string EndpointToken(string address)
-        {
-            try {
-                string file = EndpointPath; if (file == null || address == null) return null;
-                var info = new FileInfo(file); if (!info.Exists || info.Length > 4096) return null;
-                var value = new JavaScriptSerializer {MaxJsonLength = 8192,RecursionLimit = 4}.DeserializeObject(File.ReadAllText(info.FullName)) as Dictionary<string,object>;
-                if (value == null || !value.TryGetValue("version",out var version) || !(version is int number) || number != 1) return null;
-                if (!value.TryGetValue("url",out var url) || !(url is string text) || text != address) return null;
-                return value.TryGetValue("token",out var token) && token is string secret && Regex.IsMatch(secret,"^[a-f0-9]{64}$") ? secret : null;
-            } catch { return null; }
-        }
-        // Legacy handshake for companions that do not write the endpoint file yet.
-        static string PageToken(string address)
-        {
-            string html; using (var page = Request(address).GetResponse()) html = Read(page,32768);
-            var token = Regex.Match(html,"const auth=\"([a-f0-9]{64})\""); return token.Success ? token.Groups[1].Value : null;
-        }
-        static void Post(string address,string token,string body)
-        {
-            var request = Request(address + "/api"); request.Method = "POST"; request.ContentType = "application/json"; request.Headers["Origin"] = address; request.Headers["x-lsa-editor"] = token;
-            var bytes = Encoding.UTF8.GetBytes(body); request.ContentLength = bytes.Length;
-            using (var stream = request.GetRequestStream()) stream.Write(bytes,0,bytes.Length);
-            // The editor has already completed the operation before its
-            // success status. An idempotent promotion can return a large
-            // stored memory profile; console input needs no content copy.
-            using (var response = request.GetResponse()) { }
-        }
-        static bool Forbidden(WebException error)
-        {
-            var response = error.Response as HttpWebResponse; bool forbidden = response != null && response.StatusCode == HttpStatusCode.Forbidden;
-            response?.Close(); return forbidden;
         }
         static void Send(string operation,string characterId = null)
         {
@@ -123,28 +91,19 @@ namespace LSA.PromotedCharacters
                     string body = operation == null ? "{\"action\":\"promote\"}" : characterId == null
                         ? "{\"action\":\"control_current\",\"operation\":\"" + operation + "\"}"
                         : "{\"action\":\"control\",\"characterId\":\"" + characterId + "\",\"operation\":\"" + operation + "\"}";
-                    string token = EndpointToken(address); bool fromFile = token != null;
-                    if (!fromFile) token = PageToken(address);
-                    if (token == null || !enabled) throw new InvalidDataException();
-                    // The editor checks the token before any work, so a 403 after a
-                    // companion restart is safe to retry once with the page token.
-                    try { Post(address,token,body); }
-                    catch (WebException error) when (fromFile && Forbidden(error)) { Post(address,PageToken(address) ?? throw new InvalidDataException(),body); }
-                    messages.Enqueue("P2 player character operation completed.");
+                    // Endpoint-file token, page fallback and one retry after a 403
+                    // (the editor checks the token before any work).
+                    var reply = CompanionClient.Send(address,body,0,() => enabled);
+                    messages.Enqueue(reply.Ok ? "P2 player character operation completed." : "P2 operation unavailable or deferred. Check selection, scripted state and the character editor.");
                 } catch { messages.Enqueue("P2 operation unavailable or deferred. Check selection, scripted state and the character editor."); }
                 finally { Interlocked.Exchange(ref pending,0); }
             });
         }
         static string Unquote(string value) => value != null && value.Length >= 2 && value[0] == '"' && value[value.Length - 1] == '"' ? value.Substring(1,value.Length - 2) : value;
         static bool Phrase(string value) => value.Length >= 1 && value.Length <= 120 && value.Trim().Length > 0 && !value.Any(char.IsControl);
-        static string NewId() => Guid.NewGuid().ToString("D");
-        static string Envelope(string id,string command,string expectedEncounterId = null,string phrase = null)
-        {
-            long now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-            object target = command == "gates.read" ? new {kind = "none"} : expectedEncounterId == null ? (object)new {kind = "current"} : new {kind = "current",expect = new {encounterId = expectedEncounterId}};
-            object args = phrase == null ? (object)new Dictionary<string,object>() : new {phrase};
-            return new JavaScriptSerializer().Serialize(new {v = 1,id,command,target,args,source = "console",issuedAtUtc = now,expiresAtUtc = now + 4000});
-        }
+        static string NewId() => CommandEnvelope.NewId();
+        static string Envelope(string id,string command,string expectedEncounterId = null,string phrase = null) =>
+            CommandEnvelope.Build(id,command,"console",DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),expectedEncounterId,phrase);
         static void StartBridge(string phrase)
         {
             if (!enabled) return;

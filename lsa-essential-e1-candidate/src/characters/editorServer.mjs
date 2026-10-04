@@ -2,6 +2,10 @@ import http from 'node:http';
 import { randomBytes,timingSafeEqual } from 'node:crypto';
 import { characterFailureReason } from './characterService.mjs';
 import { publishControlEndpoint } from '../control/endpointFile.mjs';
+import { describeCurrent } from '../control/currentDescribe.mjs';
+import { isUuid } from '../identity/identityContract.mjs';
+// Optional native-client expectation of Essential's current NPC (UX phases 2-3).
+const expectedEncounter = value => { if (value === undefined || value === null) return null; if (!isUuid(value)) throw new Error('invalid_editor_request'); return value; };
 
 function editorHtml(token, summonWaitMs) {
   return `<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>LSA Characters</title>
@@ -59,12 +63,13 @@ export async function startCharacterEditor(service,{ port = service.config.promo
       let result;
       switch (body.action) {
         case 'list': result = await service.list(); break;
-        case 'promote': result = await service.promote(); break;
+        case 'promote': result = await service.promote(expectedEncounter(body.expectedEncounterId)); break;
         case 'edit': result = await service.edit(body.characterId,body.patch,body.expectedRevision); break;
         case 'memory': result = await service.memory(body.characterId,body.operation,{memoryId:body.memoryId,patch:body.patch,expectedRevision:body.expectedRevision}); break;
         case 'control': result = await service.control(body.characterId,body.operation); break;
-        case 'control_current': result = await service.controlCurrent(body.operation); break;
+        case 'control_current': result = await service.controlCurrent(body.operation,expectedEncounter(body.expectedEncounterId)); break;
         case 'remove': result = await service.remove(body.characterId,body.confirmation,body.expectedRevision); break;
+        case 'current_describe': result = describeCurrent(service,{ encounterId:body.encounterId ?? null,ownerAlias:body.ownerAlias ?? null }); break;
         default: throw new Error('invalid_editor_action');
       }
       send(200,result);

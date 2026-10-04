@@ -71,9 +71,10 @@ static class Program
         var names=typeof(PlayerCommands).GetMethods(BindingFlags.Public|BindingFlags.Static)
             .Select(method=>method.GetCustomAttribute<Rage.Attributes.ConsoleCommandAttribute>())
             .Where(attribute=>attribute!=null).Select(attribute=>attribute.Name).ToArray();
-        // Seven P2 commands plus the two UX phase 1 bridge commands; no aliases.
-        Check(names.Length==9 && names.Distinct().Count()==9);
-        Check(names.Contains("LSAPromote") && names.Contains("LSACurrentNpc") && names.Contains("LSAAskCurrent"));
+        // Seven P2 commands, the two UX phase 1 bridge commands and the UX phase 3
+        // menu toggle; no aliases.
+        Check(names.Length==10 && names.Distinct().Count()==10);
+        Check(names.Contains("LSAPromote") && names.Contains("LSACurrentNpc") && names.Contains("LSAAskCurrent") && names.Contains("LSAMenu"));
         PlayerCommands.Initialize(37921);
         PlayerCommands.Initialize(37921);
         PlayerCommands.Command_LSACharacters();
@@ -81,6 +82,18 @@ static class Program
         PlayerCommands.SetNativeReady(false);
         PlayerCommands.Command_LSAPromote();
         Check(Rage.Game.Console.LastMessage=="P2 native host is unavailable. Use LSACharacters to open the character editor.");
+        // LSAMenu only queues a toggle for the enhanced host fiber and explains a refusal.
+        PlayerCommands.MenuRequested=null; PlayerCommands.Command_LSAMenu();
+        Check(Rage.Game.Console.LastMessage=="LSA Enhanced input and menu are not running. See RagePluginHook.log.");
+        string requested=null; PlayerCommands.MenuRequested=page=>{requested=page;return "menu_off";}; PlayerCommands.Command_LSAMenu();
+        Check(requested=="main" && Rage.Game.Console.LastMessage=="The LSA menu is off. Set \"ui\": {\"enabled\": true} in Plugins/LSA.Enhanced.json.");
+        PlayerCommands.MenuRequested=page=>"menu_unavailable"; PlayerCommands.Command_LSAMenu();
+        Check(Rage.Game.Console.LastMessage=="The LSA menu is unavailable (RAGENativeUI 1.9.3 not loaded). See RagePluginHook.log.");
+        Rage.Game.Console.LastMessage=null; PlayerCommands.MenuRequested=page=>null; PlayerCommands.Command_LSAMenu();
+        Check(Rage.Game.Console.LastMessage==null);
+        PlayerCommands.MenuRequested=page=>throw new InvalidOperationException(); PlayerCommands.Command_LSAMenu();
+        Check(Rage.Game.Console.LastMessage=="LSA Enhanced input and menu are not running. See RagePluginHook.log.");
+        PlayerCommands.MenuRequested=null;
         PlayerCommands.Shutdown();
         Rage.Game.Console.LastMessage=null;
         PlayerCommands.Command_LSACharacters();

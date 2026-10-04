@@ -10,9 +10,10 @@ import { verifyCharactersContract } from './verifyCharactersContract.mjs';
 import { verifyPerceptionContract } from './verifyPerceptionContract.mjs';
 import { verifyControlsContract } from './verifyControlsContract.mjs';
 import { DAMAGE_DLL_SHA256 } from '../src/perception/nativeSupport.mjs';
+import { COMMANDS_CONTRACT_SHA256,RNUI_DLL_SHA256,RNUI_ASSEMBLY_VERSION } from '../src/control/nativeSupport.mjs';
 
 const root = candidateRootPath();
-export async function buildCharactersAddon({rphReferencePath,frameworkReferenceRoot,damageReferencePath,dotnetPath = 'dotnet',outputPath = path.join(root,'dist/promoted-characters')} = {}) {
+export async function buildCharactersAddon({rphReferencePath,frameworkReferenceRoot,damageReferencePath,rnuiReferencePath,dotnetPath = 'dotnet',outputPath = path.join(root,'dist/promoted-characters')} = {}) {
   const target = await assertNoLinkedOutput(outputPath);
   if (!rphReferencePath || !frameworkReferenceRoot) throw new Error('Explicit compile-only RPH and .NET 4.8.1 references required.');
   const hash = async file => createHash('sha256').update(await readFile(file)).digest('hex');
@@ -23,9 +24,14 @@ export async function buildCharactersAddon({rphReferencePath,frameworkReferenceR
   // UX phase 1 command bridge seams (typed request entry and input gates).
   const controlsContract = await verifyControlsContract(); if (!controlsContract.available) throw new Error('Pinned UX controls contract unavailable.');
   if(!damageReferencePath || await hash(damageReferencePath)!==DAMAGE_DLL_SHA256 || !perceptionContract.available) throw new Error('Pinned compile-only DamageTracker reference and perception metadata required.');
+  // UX phases 2-3: the embedded command contract and the compile-only RNUI
+  // reference are hash-pinned; RAGENativeUI.dll itself is never packaged.
+  const commandsPath = path.resolve(root,'../contracts/commands.v1.json');
+  if (await hash(commandsPath) !== COMMANDS_CONTRACT_SHA256) throw new Error('UX command contract pin mismatch.');
+  if (!rnuiReferencePath || await hash(rnuiReferencePath) !== RNUI_DLL_SHA256) throw new Error('Pinned compile-only RAGENativeUI 1.9.3 reference required.');
   const project = path.resolve(root,'../native/promoted-characters/Loader.csproj');
   const runtimeProject = path.resolve(root,'../native/promoted-characters/PromotedCharacters.csproj');
-  const args = [`-p:RphReferencePath=${path.resolve(rphReferencePath)}`,`-p:TargetFrameworkRootPath=${path.resolve(frameworkReferenceRoot)}`,`-p:DamageReferencePath=${path.resolve(damageReferencePath)}`];
+  const args = [`-p:RphReferencePath=${path.resolve(rphReferencePath)}`,`-p:TargetFrameworkRootPath=${path.resolve(frameworkReferenceRoot)}`,`-p:DamageReferencePath=${path.resolve(damageReferencePath)}`,`-p:RnuiReferencePath=${path.resolve(rnuiReferencePath)}`];
   const run = promisify(execFile);
   await run(dotnetPath,['restore',runtimeProject,'--ignore-failed-sources',...args],{windowsHide:true});
   await run(dotnetPath,['build',runtimeProject,'--configuration','Release','--no-restore',...args],{windowsHide:true});
@@ -37,10 +43,12 @@ export async function buildCharactersAddon({rphReferencePath,frameworkReferenceR
     const source = path.join(addonDirectory,name); await copyFile(source,path.join(target,name));files.push({name,relativePath:name === 'LSA.PromotedCharacters.dll' ? `plugins/${name}` : `plugins/LSA.PromotedCharacters/${name}`,sha256:await hash(source)});
   }
   await copyFile(path.resolve(root,'../native/promoted-characters/LSA.PromotedCharacters.example.json'),path.join(target,'LSA.PromotedCharacters.example.json'));
-  const manifest = {stage:'P2+PS0+PS1+UX1',defaultEnabled:false,intelligenceDefaultMode:'off',nativeContract,characterContract,perceptionContract,controlsContract,rphSdkSha256:RPH_SDK_SHA256,files,deploymentPerformed:false,gtaRuntimeTest:false};
+  await copyFile(path.resolve(root,'../native/enhanced/LSA.Enhanced.example.json'),path.join(target,'LSA.Enhanced.example.json'));
+  const uxContract = {commandsSha256:COMMANDS_CONTRACT_SHA256,rnuiReferenceSha256:RNUI_DLL_SHA256,rnuiAssemblyVersion:RNUI_ASSEMBLY_VERSION,rnuiPackaged:false,inputDefaultEnabled:false,uiDefaultEnabled:false};
+  const manifest = {stage:'P2+PS0+PS1+UX1+UX2+UX3',defaultEnabled:false,intelligenceDefaultMode:'off',nativeContract,characterContract,perceptionContract,controlsContract,uxContract,rphSdkSha256:RPH_SDK_SHA256,files,deploymentPerformed:false,gtaRuntimeTest:false};
   await writeFile(path.join(target,'build-manifest.json'),JSON.stringify(manifest,null,2)+'\n');return {target,manifest,compilerOutput:stdout};
 }
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  const result = await buildCharactersAddon({rphReferencePath:process.env.LSA_IDENTITY_RPH_REFERENCE,frameworkReferenceRoot:process.env.LSA_IDENTITY_FRAMEWORK_ROOT,damageReferencePath:process.env.LSA_INTELLIGENCE_DAMAGE_REFERENCE,dotnetPath:process.env.LSA_BUILD_DOTNET || 'dotnet'});
+  const result = await buildCharactersAddon({rphReferencePath:process.env.LSA_IDENTITY_RPH_REFERENCE,frameworkReferenceRoot:process.env.LSA_IDENTITY_FRAMEWORK_ROOT,damageReferencePath:process.env.LSA_INTELLIGENCE_DAMAGE_REFERENCE,rnuiReferencePath:process.env.LSA_RNUI_REFERENCE,dotnetPath:process.env.LSA_BUILD_DOTNET || 'dotnet'});
   console.log(JSON.stringify({target:result.target,...result.manifest},null,2));
 }

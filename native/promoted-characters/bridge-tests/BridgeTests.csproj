@@ -8,6 +8,8 @@
     <Compile Include="../LocalCommandQueue.cs" Link="LocalCommandQueue.cs" />
     <Compile Include="../NativeSafetyPolicy.cs" Link="NativeSafetyPolicy.cs" />
     <Compile Include="../PlayerCommands.cs" Link="PlayerCommands.cs" />
+    <Compile Include="../../enhanced/Companion/CompanionClient.cs" Link="CompanionClient.cs" />
+    <Compile Include="../../enhanced/Commands/Contracts.cs" Link="Contracts.cs" />
     <Compile Include="../host-tests/RageStub.cs" Link="RageStub.cs" />
     <ProjectReference Include="../Bootstrap.csproj" />
     <!-- Plugin fixtures copied into a temporary Plugins folder by the harness. The
