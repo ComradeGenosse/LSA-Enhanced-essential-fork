@@ -55,9 +55,23 @@ L4 and R4 take part in a chord, so a single tap fires when the button is release
 
 Nothing fires while the RPH console is open, the game is paused or not focused, Essential's text input or F7 menu is open, or during loading screens, cutscenes and player switches. The last four are reported by the P2 native host; if it is not running, Mark and Text still work like Essential's own keys. While an LSA menu is open, only the menu toggles pass; Essential still reads its own keys.
 
+## Talk target selector
+
+This is optional and off until `talkTargeting.enabled` is true. It uses the same physical Talk button to highlight a nearby NPC before the microphone starts. A quick tap cycles the highlight. Holding past `talkHoldMs` (220 ms by default) speaks to that exact NPC through Essential's own microphone start, aimed at the ped you highlighted. Releasing the button ends that microphone turn. Essential's configured `TalkKey` is not changed and is not pressed for you.
+
+The highlight is a screen bracket on the NPC, including a driver or passenger, with a small `2/3` label when more than one NPC is in range. Follow, Wait, Promote and the Current NPC page use that highlighted NPC while the selection lasts. Typed text still uses Essential's own target choice.
+
+1. Pick a router key that nothing else uses. `F10` is the example. It must not be one of `input.keys` and must not equal Essential's `TalkKey`, `TextKey`, `MarkPedKey` or `MarkedPedTalkKey`. If it later matches one of those, talk targeting pauses and an active microphone turn is stopped.
+2. In Steam Input, map the physical Talk button to that key with a plain regular press. Remove that button's direct mapping to Essential's Talk key. Leave `TalkKey` itself set in `LosSantosAlive.config`.
+3. In `Plugins/LSA.Enhanced.json` set `"talkTargeting": { "enabled": true, "key": "F10" }`. The other fields (`talkHoldMs`, `cycleWindowMs`, `selectionTimeoutMs`, `radiusMeters`, `retentionRadiusMeters`, `maxCandidates`, `indicator`) are optional and use the defaults in `LSA.Enhanced.example.json`.
+4. `RagePluginHook.log` shows `[UX4] talk_target input=ready key=F10`. A tap logs `[UX4] talk_target selected` and does not start the microphone. A hold logs `[UX4] talk_ptt commit=accepted`.
+
+Search radius defaults to 15 m, the highlight lasts 8 s, and repeated taps keep one frozen order for 1.5 s. No line of sight is required, so a seated NPC stays selectable.
+
 ## Rollback
 
 - **Gestures off:** set `"input": { "enabled": false }` in `Plugins/LSA.Enhanced.json`, or delete the file. The router stops within a second; no restart is needed.
 - **Menu off:** set `"ui": { "enabled": false }`.
 - **Controller:** in Steam Input choose **Browse configs** and pick your previous layout, or clear the L4/R4 bindings.
+- **Talk targeting off:** set `"talkTargeting": { "enabled": false }` or delete that section. Within a second the highlight and hold-to-talk stop. Map the physical Talk button back to Essential's Talk key if you want the old direct talk behavior. `LosSantosAlive.config` is never modified.
 - Removing the gestures never changes Essential's own keys or `LosSantosAlive.config`; LSA only reads that file.

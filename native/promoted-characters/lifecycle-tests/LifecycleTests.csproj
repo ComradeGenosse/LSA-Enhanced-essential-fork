@@ -6,6 +6,7 @@
     <Compile Include="../NativeSafetyPolicy.cs" Link="NativeSafetyPolicy.cs" />
     <Compile Include="../NativeCommands.cs" Link="NativeCommands.cs" />
     <Compile Include="../LocalCommandQueue.cs" Link="LocalCommandQueue.cs" />
+    <Compile Include="../TalkTargetPolicy.cs;../TalkPttSession.cs;../TalkTargetGeometry.cs;../TalkTargetIndicator.cs;../TalkTargetSelector.cs" />
     <Reference Include="System.Web.Extensions" />
   </ItemGroup>
 </Project>

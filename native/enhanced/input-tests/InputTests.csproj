@@ -6,8 +6,9 @@
     <AutomaticallyUseReferenceAssemblyPackages>false</AutomaticallyUseReferenceAssemblyPackages><EnableDefaultCompileItems>false</EnableDefaultCompileItems>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="Program.cs;Program.Dispatch.cs;Program.Ui.cs;Program.Interception.cs;Fakes.cs" />
-    <Compile Include="../Input/IEssentialInputBridge.cs;../Input/PhysicalKeys.cs;../Input/Gestures.cs;../Input/GestureRecognizer.cs;../Input/EssentialBindings.cs;../Input/EssentialKeyRelay.cs;../Input/InputGates.cs;../Input/InputRouter.cs" />
+    <Compile Include="Program.cs;Program.Dispatch.cs;Program.Ui.cs;Program.Interception.cs;Program.Talk.cs;Fakes.cs" />
+    <Compile Include="../Input/IEssentialInputBridge.cs;../Input/PhysicalKeys.cs;../Input/Gestures.cs;../Input/GestureRecognizer.cs;../Input/EssentialBindings.cs;../Input/EssentialKeyRelay.cs;../Input/InputGates.cs;../Input/InputRouter.cs;../Input/TalkTargetInput.cs" />
+    <Compile Include="../../promoted-characters/TalkTargetPolicy.cs;../../promoted-characters/TalkPttSession.cs;../../promoted-characters/TalkTargetGeometry.cs" />
     <Compile Include="../Commands/CommandCatalog.cs;../Commands/Contracts.cs;../Commands/NativeSnapshot.cs;../Commands/LoaderDispatcher.cs" />
     <Compile Include="../Companion/CompanionClient.cs" />
     <Compile Include="../Settings/EnhancedSettings.cs" />

@@ -28,6 +28,16 @@ namespace LSA.Enhanced.Settings
         public string OrdinaryNpc {get;private set;}                 // "ask" or "off"
         public IReadOnlyDictionary<string,string> Phrases {get;private set;}
         public string Hud {get;private set;}                         // "notification", "subtitle" or "off"
+        public bool TalkEnabled {get;private set;}
+        public int TalkKeyCode {get;private set;}
+        public string TalkKeyName {get;private set;}
+        public int TalkHoldMs {get;private set;} = 220;
+        public int TalkCycleWindowMs {get;private set;} = 1500;
+        public int TalkSelectionTimeoutMs {get;private set;} = 8000;
+        public float TalkRadiusMeters {get;private set;} = 15f;
+        public float TalkRetentionRadiusMeters {get;private set;} = 20f;
+        public int TalkMaxCandidates {get;private set;} = 8;
+        public bool TalkIndicator {get;private set;} = true;
         public string Revision {get;private set;}
         public string Phrase(string key) => key != null && Phrases.TryGetValue(key,out var phrase) ? phrase : null;
         public int KeyIndex(string name) { for (int index = 0; index < KeyNames.Count; index++) if (KeyNames[index] == name) return index; return -1; }
@@ -47,7 +57,7 @@ namespace LSA.Enhanced.Settings
         {
             if (json == null || Encoding.UTF8.GetByteCount(json) > MaxFileBytes) throw Fail("file","larger than 16 KiB");
             var root = new JavaScriptSerializer {MaxJsonLength = MaxFileBytes * 2,RecursionLimit = 8}.DeserializeObject(json) as Dictionary<string,object> ?? throw Fail("file","not a JSON object");
-            Only(root,"$","version","input","quickCommands","ui","feedback");
+            Only(root,"$","version","input","quickCommands","ui","feedback","talkTargeting");
             if (!(root.TryGetValue("version",out var version) && version is int number && number == 1)) throw Fail("version","must be 1");
             var result = new EnhancedSettings();
             using (var hash = SHA256.Create()) result.Revision = BitConverter.ToString(hash.ComputeHash(Encoding.UTF8.GetBytes(json))).Replace("-","").ToLowerInvariant();
@@ -121,6 +131,22 @@ namespace LSA.Enhanced.Settings
 
             var ui = Section(root,"ui"); Only(ui,"ui","enabled");
             result.UiEnabled = Flag(ui,"enabled","ui.enabled",false);
+            var talk = Section(root,"talkTargeting");
+            Only(talk,"talkTargeting","enabled","key","talkHoldMs","cycleWindowMs","selectionTimeoutMs","radiusMeters","retentionRadiusMeters","maxCandidates","indicator");
+            result.TalkEnabled = Flag(talk,"enabled","talkTargeting.enabled",false);
+            result.TalkHoldMs = Integer(talk,"talkHoldMs","talkTargeting.talkHoldMs",220,120,500);
+            result.TalkCycleWindowMs = Integer(talk,"cycleWindowMs","talkTargeting.cycleWindowMs",1500,500,3000);
+            result.TalkSelectionTimeoutMs = Integer(talk,"selectionTimeoutMs","talkTargeting.selectionTimeoutMs",8000,2000,30000);
+            result.TalkRadiusMeters = (float)Number(talk,"radiusMeters","talkTargeting.radiusMeters",15,3,30);
+            result.TalkRetentionRadiusMeters = (float)Number(talk,"retentionRadiusMeters","talkTargeting.retentionRadiusMeters",20,result.TalkRadiusMeters,50);
+            if (result.TalkRetentionRadiusMeters < result.TalkRadiusMeters) throw Fail("talkTargeting.retentionRadiusMeters","must be at least radiusMeters");
+            result.TalkMaxCandidates = Integer(talk,"maxCandidates","talkTargeting.maxCandidates",8,1,16);
+            result.TalkIndicator = Flag(talk,"indicator","talkTargeting.indicator",true);
+            if (talk.TryGetValue("key",out var talkKeyValue)) {
+                if (!(talkKeyValue is string keyName) || !PhysicalKeys.TryParse(keyName,out int talkKey) || !PhysicalKeys.UsableAsRouterKey(talkKey)) throw Fail("talkTargeting.key","unknown or reserved key");
+                if (codes.Contains(talkKey)) throw Fail("talkTargeting.key",PhysicalKeys.Name(talkKey) + " is already a router key");
+                result.TalkKeyCode = talkKey; result.TalkKeyName = PhysicalKeys.Name(talkKey);
+            } else if (result.TalkEnabled) throw Fail("talkTargeting.key","required when talk targeting is enabled");
             var feedback = Section(root,"feedback"); Only(feedback,"feedback","hud");
             result.Hud = feedback.TryGetValue("hud",out var hud) ? hud as string : "notification";
             if (result.Hud != "notification" && result.Hud != "subtitle" && result.Hud != "off") throw Fail("feedback.hud","use notification, subtitle or off");
@@ -167,6 +193,13 @@ namespace LSA.Enhanced.Settings
         {
             if (!value.TryGetValue(key,out var item)) return fallback;
             if (!(item is int number) || number < min || number > max) throw Fail(path,"must be an integer from " + min + " to " + max);
+            return number;
+        }
+        static double Number(Dictionary<string,object> value,string key,string path,double fallback,double min,double max)
+        {
+            if (!value.TryGetValue(key,out var item)) return fallback;
+            double number = item is int whole ? whole : item is long wide ? wide : item is decimal precise ? (double)precise : item is double floating ? floating : double.NaN;
+            if (double.IsNaN(number) || double.IsInfinity(number) || number < min || number > max) throw Fail(path,"must be a number from " + min + " to " + max);
             return number;
         }
     }

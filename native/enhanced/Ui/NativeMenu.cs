@@ -226,6 +226,7 @@ namespace LSA.Enhanced.Ui
                     if (page.Menu == roster || page.Menu == character) data.RequestCharacters();
                     data.Probe(); aiReadAt = -1; Invalidate(page); break;
                 case "log": context.Log("[UX] diagnostics " + string.Join("; ",DiagnosticsLines().Where(item => item.Info).Select(item => item.Text + "=" + item.Right))); context.Hud.Show("Diagnostics written to RagePluginHook.log"); break;
+                case CurrentNpcView.ClearTalkCommand: context.ClearTalkTarget(); Invalidate(page); break;
             }
         }
         void OpenCharacter(string characterId,UIMenu from)
@@ -397,7 +398,7 @@ namespace LSA.Enhanced.Ui
             if (page.Menu == controls) {
                 subtitle = "Controls";
                 var router = context.Router();
-                return ControlsView.Build(settings,context.Essential(),router?.State ?? "disabled",router?.Conflict,router?.GesturesPaused ?? false,router?.ChordWindowMs ?? GestureTiming.Default.ChordWindowMs,router?.ActiveBindings ?? new GestureBinding[0]);
+                return ControlsView.Build(settings,context.Essential(),router?.State ?? "disabled",router?.Conflict,router?.GesturesPaused ?? false,router?.ChordWindowMs ?? GestureTiming.Default.ChordWindowMs,router?.ActiveBindings ?? new GestureBinding[0],context.TalkStatus(),context.TalkConflict());
             }
             if (page.Menu == ai) {
                 subtitle = "AI and voice";
@@ -416,7 +417,8 @@ namespace LSA.Enhanced.Ui
             return DiagnosticsView.Build(new DiagnosticsInput {
                 HostStatus = context.HostStatus(),RouterState = router?.State,Conflict = router?.Conflict,SettingsRevision = context.Settings()?.Revision,
                 EndpointState = context.EndpointState(),CatalogSha = context.Catalog.Sha256,BridgeAvailable = context.Bridge.Available,CompanionReachable = data.CompanionReachable,
-                SnapshotAgeMs = snapshot == null ? -1 : Math.Max(0,utc - snapshot.BuiltAtUtc),Outstanding = context.Dispatcher.Outstanding,RecentReasons = context.Dispatcher.RecentReasons});
+                SnapshotAgeMs = snapshot == null ? -1 : Math.Max(0,utc - snapshot.BuiltAtUtc),Outstanding = context.Dispatcher.Outstanding,RecentReasons = context.Dispatcher.RecentReasons,
+                TalkState = context.TalkStatus(),TalkConflict = context.TalkConflict(),IndicatorState = snapshot?.TalkTarget?.Indicator});
         }
         // Public companion settings only; the credential file is checked for
         // presence and never opened.

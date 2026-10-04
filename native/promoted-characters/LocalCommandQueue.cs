@@ -7,8 +7,11 @@ namespace LSA.PromotedCharacters
 {
     internal sealed class LocalCommand
     {
-        public string Id, Command, Source, Phrase, ExpectedEncounterId;
+        public string Id, Command, Source, Phrase, ExpectedEncounterId, ExpectedSelectionId;
         public long ExpiresAtUtc;
+        public int PttGeneration, MaxCandidates, CycleWindowMs, SelectionTimeoutMs;
+        public float RadiusMeters, RetentionRadiusMeters;
+        public bool SelectFirst, Indicator, HasLimits;
     }
     // UX phase 1 bridge from the loader into PromotedCharactersIntegration.Update.
     // Callers on any thread only parse, admit and enqueue CommandEnvelope v1 strings;
@@ -18,8 +21,8 @@ namespace LSA.PromotedCharacters
     {
         public const int MaxEnvelopeChars = 8192, MaxResultChars = 16384, Capacity = 16, ResultCapacity = 64, MaxPhraseChars = 120;
         public const long ResultRetentionMs = 30000, MaxLifetimeMs = 5000, IssueSkewMs = 1000;
-        public static readonly string[] Commands = {"current.inspect","npc.ask","gates.read"};
-        static readonly HashSet<string> Sources = new HashSet<string> {"console","chord","menu","studio"};
+        public static readonly string[] Commands = {"current.inspect","npc.ask","gates.read","talk.select_first","talk.select_next","talk.ptt_start","talk.ptt_stop","talk.clear","talk.inspect"};
+        static readonly HashSet<string> Sources = new HashSet<string> {"console","chord","menu","studio","talk_input"};
         static readonly string[] EnvelopeFields = {"v","id","command","target","args","source","issuedAtUtc","expiresAtUtc"};
         static readonly Regex Uuid = new Regex("^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$");
         static readonly Regex Code = new Regex("^[a-z][a-z0-9_]{0,63}$");
@@ -124,6 +127,7 @@ namespace LSA.PromotedCharacters
             var args = value["args"] as Dictionary<string,object>;
             if (target == null || !(target.TryGetValue("kind",out var kindValue) && kindValue is string kind)) return "invalid_target";
             if (args == null) return "invalid_arguments";
+            if (name.StartsWith("talk.",StringComparison.Ordinal)) return ParseTalk(name,source,id,expires,kind,target,args,out command);
             string encounterId = null, phrase = null;
             if (name == "npc.ask")
             {
@@ -157,6 +161,74 @@ namespace LSA.PromotedCharacters
                 else if (char.IsLowSurrogate(c)) return false;
             }
             return true;
+        }
+        static string ParseTalk(string name,string source,string id,long expires,string kind,Dictionary<string,object> target,Dictionary<string,object> args,out LocalCommand command)
+        {
+            command = null;
+            if (source != "talk_input" || kind != "talk") return source != "talk_input" ? "invalid_envelope" : "invalid_target";
+            var parsed = new LocalCommand {Id = id,Command = name,Source = source,ExpiresAtUtc = expires};
+            switch (name) {
+                case "talk.select_first":
+                case "talk.select_next":
+                    if (target.Count != 1) return "invalid_target";
+                    if (!Exact(args,"radiusMeters","retentionRadiusMeters","maxCandidates","cycleWindowMs","selectionTimeoutMs","indicator") || !ReadLimits(args,parsed)) return "invalid_arguments";
+                    break;
+                case "talk.inspect":
+                case "talk.clear":
+                    if (target.Count != 1) return "invalid_target";
+                    if (args.Count != 0) return "invalid_arguments";
+                    break;
+                case "talk.ptt_stop":
+                    if (target.Count != 1) return "invalid_target";
+                    if (!Exact(args,"generation") || !Generation(args["generation"],out int stopGeneration)) return "invalid_arguments";
+                    parsed.PttGeneration = stopGeneration;
+                    break;
+                case "talk.ptt_start":
+                    string start = ReadStart(target,args,parsed);
+                    if (start != null) return start;
+                    break;
+                default: return "unsupported_command";
+            }
+            command = parsed;
+            return null;
+        }
+        static string ReadStart(Dictionary<string,object> target,Dictionary<string,object> args,LocalCommand command)
+        {
+            if (!Exact(args,"generation","selectFirst","radiusMeters","retentionRadiusMeters","maxCandidates","cycleWindowMs","selectionTimeoutMs","indicator")) return "invalid_arguments";
+            if (!(args["selectFirst"] is bool selectFirst) || !Generation(args["generation"],out int generation) || !ReadLimits(args,command)) return "invalid_arguments";
+            command.SelectFirst = selectFirst; command.PttGeneration = generation;
+            if (selectFirst) return target.Count == 1 ? null : "invalid_target";
+            var expect = target.TryGetValue("expect",out var expectValue) ? expectValue as Dictionary<string,object> : null;
+            if (target.Count != 2 || expect == null || !expect.TryGetValue("selectionId",out var selection) || !IsUuid(selection as string)) return "invalid_target";
+            command.ExpectedSelectionId = (string)selection;
+            if (expect.Count == 1) return null;
+            if (expect.Count == 2 && expect.TryGetValue("encounterId",out var encounter) && IsUuid(encounter as string)) { command.ExpectedEncounterId = (string)encounter; return null; }
+            return "invalid_target";
+        }
+        static bool ReadLimits(Dictionary<string,object> args,LocalCommand command)
+        {
+            if (!args.ContainsKey("radiusMeters")) return false;
+            if (!Real(args["radiusMeters"],out float radius) || !Real(args["retentionRadiusMeters"],out float retention) || !Whole(args["maxCandidates"],out int max) || !Whole(args["cycleWindowMs"],out int cycle) || !Whole(args["selectionTimeoutMs"],out int timeout)) return false;
+            if (!(args["indicator"] is bool indicator) || !TalkTargetOptions.Valid(radius,retention,max,cycle,timeout)) return false;
+            command.RadiusMeters = radius; command.RetentionRadiusMeters = retention; command.MaxCandidates = max; command.CycleWindowMs = cycle; command.SelectionTimeoutMs = timeout; command.Indicator = indicator; command.HasLimits = true;
+            return true;
+        }
+        static bool Generation(object value,out int generation) => Whole(value,out generation) && generation >= 1 && generation <= 1000000;
+        static bool Whole(object value,out int result)
+        {
+            if (value is int number) { result = number; return true; }
+            if (value is long wide && wide >= int.MinValue && wide <= int.MaxValue) { result = (int)wide; return true; }
+            result = 0; return false;
+        }
+        static bool Real(object value,out float result)
+        {
+            switch (value) {
+                case int number: result = number; return true;
+                case long number: result = number; return true;
+                case decimal number: result = (float)number; return true;
+                case double number: result = (float)number; return true;
+                default: result = 0f; return false;
+            }
         }
         static bool Exact(Dictionary<string,object> value,params string[] fields)
         {

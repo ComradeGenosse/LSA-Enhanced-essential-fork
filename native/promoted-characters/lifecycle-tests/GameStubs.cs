@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Drawing;
 
 // Link the production P2 integration and pipe without executing any game
 // assembly. Native/ped access is counted so a reset cannot hide unsafe cleanup.
@@ -14,6 +15,9 @@ namespace Rage
         public static bool IsLoading {get { NativeCalls++; return loading; } set { loading = value; }}
         public static readonly Player LocalPlayer = new Player();
         public static readonly List<string> Logs = new List<string>();
+        public static Size Resolution = new Size(1920,1080);
+        public static event EventHandler<GraphicsEventArgs> FrameRender;
+        public static void RaiseFrame() => FrameRender?.Invoke(null,new GraphicsEventArgs());
         public static int NativeCalls,PedReads,ClockReads;
         public static void LogTrivial(string message) { lock (Logs) Logs.Add(message); }
     }
@@ -30,9 +34,13 @@ namespace Rage
     {
         public Ped() { }
         public Ped(Model model,Vector3 position,float heading) { Game.NativeCalls++; }
-        public bool Exists() { Game.PedReads++; return true; }
+        public bool Existing = true;
+        public bool Exists() { Game.PedReads++; return Existing; }
         public bool IsDead,IsPersistent;
+        public Vector3 Position, Bone;
+        public float ScreenX, ScreenY;
         public IntPtr MemoryAddress = new IntPtr(123);
+        public Vector3 GetBonePosition(PedBoneId bone) => Bone.X == 0f && Bone.Y == 0f && Bone.Z == 0f ? Position : Bone;
         public int Handle = 12;
         public Model Model;
         public float Heading;
@@ -52,7 +60,20 @@ namespace Rage
         public Vector3(float x,float y,float z) { X=x; Y=y; Z=z; }
         public float X,Y,Z;
     }
-    public static class World { public static float? GetGroundZ(Vector3 position,bool p1,bool p2) { Game.NativeCalls++; return position.Z; } }
+    public struct Vector2 { public float X, Y; }
+    public enum PedBoneId { Head }
+    public sealed class GraphicsEventArgs : EventArgs { public Graphics Graphics {get;} = new Graphics(); }
+    public sealed class Graphics
+    {
+        public void DrawRectangle(RectangleF rect,Color color) { }
+        public void DrawText(string text,string font,float scale,PointF position,Color color) { }
+    }
+    public static class World
+    {
+        public static Func<Vector3,Vector2> Projector;
+        public static float? GetGroundZ(Vector3 position,bool p1,bool p2) { Game.NativeCalls++; return position.Z; }
+        public static Vector2 ConvertWorldPositionToScreenPosition(Vector3 position) => Projector != null ? Projector(position) : new Vector2 {X = 960f,Y = 540f};
+    }
 }
 namespace Rage.Native
 {
@@ -110,6 +131,9 @@ namespace LosSantosAlive.NPC
         public static Rage.Ped GetPlayerConversationPed() { Rage.Game.NativeCalls++; return ConversationPed; }
         public static Rage.Ped GetCurrentSpeakerPed() { Rage.Game.NativeCalls++; return SpeakerPed; }
         public static bool IsValidHumanPed(Rage.Ped ped) { Rage.Game.NativeCalls++; return Human(ped); }
+        public static int Sets, Clears;
+        public static void SetPlayerConversationPed(Rage.Ped ped) { Rage.Game.NativeCalls++; Sets++; ConversationPed = ped; }
+        public static void ClearPlayerConversationPed() { Rage.Game.NativeCalls++; Clears++; ConversationPed = null; }
     }
     public static class NpcFocus { public static void SetFocus(Rage.Ped ped,Rage.Ped player,string reason) { Rage.Game.NativeCalls++; } }
     public sealed class NpcState
@@ -138,11 +162,34 @@ namespace LosSantosAlive.Input
         public static readonly List<KeyValuePair<Rage.Ped,string>> Prompts = new List<KeyValuePair<Rage.Ped,string>>();
         public static Action<Rage.Ped,string> OnPrompt;
         public static void SendTextPrompt(Rage.Ped ped,string text) { Rage.Game.NativeCalls++; OnPrompt?.Invoke(ped,text); Prompts.Add(new KeyValuePair<Rage.Ped,string>(ped,text)); }
+        public static int MicStarts, MicStops;
+        public static Rage.Ped LastMic;
+        public static void SendMicStart(Rage.Ped ped) { Rage.Game.NativeCalls++; MicStarts++; LastMic = ped; }
+        public static void SendMicStop() { Rage.Game.NativeCalls++; MicStops++; }
     }
     public static class TextInputService
     {
         static bool open;
         public static bool IsOpen {get { Rage.Game.NativeCalls++; return open; } set { open = value; }}
+    }
+}
+namespace LosSantosAlive.NPC.Perception
+{
+    public sealed class PerceptionSnapshot
+    {
+        public Rage.Ped[] AllPeds;
+        public int GameTime;
+        public bool IsValid = true;
+    }
+    public static class PerceptionSystem
+    {
+        public static PerceptionSnapshot Snapshot;
+        public static bool TryGetSnapshot(out PerceptionSnapshot snapshot)
+        {
+            Rage.Game.NativeCalls++;
+            snapshot = Snapshot;
+            return snapshot != null;
+        }
     }
 }
 namespace LosSantosAlive.Core

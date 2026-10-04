@@ -61,6 +61,7 @@ namespace LSA.Enhanced
         static volatile string uiStatus = "off";
         static string requestedPage; // written and taken with Interlocked
         static volatile EssentialKeyRelay activeRelay;
+        static volatile TalkTargetInput activeTalk;
         public static NativeBridge Bridge => bridge;
         public static void SetNativeHost(DomainHost host) => bridge.SetHost(host);
         public static void Start(string plugins,Func<string> origin)
@@ -75,6 +76,7 @@ namespace LSA.Enhanced
         public static void Stop()
         {
             stopping = true;
+            try { activeTalk?.Stop(); } catch { }
             try { activeRelay?.ReleaseAll(); } catch { }
             bridge.ReleaseInput();
         }
@@ -105,15 +107,20 @@ namespace LSA.Enhanced
             var companion = new CompanionClient(origin);
             var dispatcher = new LoaderDispatcher(catalog,bridge,companion,hud,relay,clock);
             var gameState = new RageGameState();
-            var router = new InputRouter(new Win32KeySource(),gameState,dispatcher,bridge,clock,hud,Game.LogTrivial);
+            var keys = new Win32KeySource();
+            var router = new InputRouter(keys,gameState,dispatcher,bridge,clock,hud,Game.LogTrivial);
+            UiBridge ui = null;
+            var talk = new TalkTargetInput(keys,gameState,bridge,clock,hud,Game.LogTrivial,() => router.Snapshot(clock.Utc),() => ui != null && ui.AnyMenuOpen);
+            activeTalk = talk;
             EnhancedSettings settings = EnhancedSettings.Defaults(catalog);
             EssentialBindings essential = EssentialBindings.Unavailable();
             dispatcher.Settings = () => settings; dispatcher.Essential = () => essential;
             hud.Mode = () => settings.Hud;
             var context = new UiContext {Dispatcher = dispatcher,Bridge = bridge,Catalog = catalog,Hud = hud,Clock = clock,Companion = companion,
                 Settings = () => settings,Essential = () => essential,Router = () => router,HostStatus = bridge.Describe,Origin = origin,
+                TalkStatus = () => talk.DisplayState,ClearTalkTarget = () => talk.Clear("manual"),TalkConflict = () => talk.Conflict,
                 EndpointState = EndpointState,Paused = () => gameState.Paused,PluginsPath = plugins,Log = Game.LogTrivial};
-            var ui = new UiBridge(context,CreateMenu);
+            ui = new UiBridge(context,CreateMenu);
             dispatcher.Ui = ui; router.UiAvailable = () => ui.Available; router.MenuOpen = () => ui.AnyMenuOpen;
             FileStamp settingsStamp = default,essentialStamp = default;
             bool firstPass = true,uiWasAvailable = false; long nextCheck = 0; int failures = 0;
@@ -142,29 +149,32 @@ namespace LSA.Enhanced
                             ui.Configure(settings.UiEnabled);
                             uiStatus = ui.Status;
                             if (ui.Available != uiWasAvailable) { uiWasAvailable = ui.Available; changed = true; }
-                            if (changed) router.Apply(settings,essential);
+                            if (changed) { router.Apply(settings,essential); talk.Apply(settings,essential); }
                             firstPass = false;
                         }
                         string page = Interlocked.Exchange(ref requestedPage,null);
                         if (page != null) ui.Toggle(page);
-                        router.Tick(); ui.Tick(); failures = 0;
+                        router.Tick(); talk.Tick(); ui.Tick(); failures = 0;
                     } catch (ThreadAbortException) { throw; }
                     catch (Exception error) {
                         router.CancelPending();
+                        try { talk.Cancel("tick"); } catch { }
                         // Contained: an unexpected failure never unloads the loader
                         // plugin and its console commands.
                         if (++failures == 1) Game.LogTrivial("[UX] enhanced_tick_failed " + error.GetType().Name);
                         if (failures >= MaxConsecutiveFailures) { Game.LogTrivial("[UX] enhanced_host_disabled"); break; }
                     }
                     // Per-frame only while something can act; otherwise stay cheap.
-                    if (router.State == "disabled" && !ui.AnyMenuOpen && dispatcher.Outstanding == 0) GameFiber.Sleep(100); else GameFiber.Yield();
+                    if (router.State == "disabled" && !talk.NeedsFrame && !ui.AnyMenuOpen && dispatcher.Outstanding == 0) GameFiber.Sleep(100); else GameFiber.Yield();
                 }
             } catch (ThreadAbortException) { throw; }
             catch (Exception error) { Game.LogTrivial("[UX] enhanced_host_failed " + error.GetType().Name); }
             finally {
                 running = false; uiStatus = "off";
+                try { talk.Stop(); } catch { }
                 try { router.Stop(); } catch { }
                 try { ui.Close(); } catch { }
+                activeTalk = null;
                 activeRelay = null;
                 Game.LogTrivial("[UX] enhanced_host_stopped");
             }

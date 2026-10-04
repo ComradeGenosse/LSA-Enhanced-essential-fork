@@ -60,6 +60,7 @@ namespace LSA.PromotedCharacters
         {
             if (worldProfileId == null || !Regex.IsMatch(worldProfileId,"^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$") || !Regex.IsMatch(pipeName,"^[A-Za-z0-9_.-]{1,80}$") || !Regex.IsMatch(identityPipeName,"^[A-Za-z0-9_.-]{1,80}$")) throw new ArgumentException("Invalid P2 configuration.");
             world = worldProfileId; this.pipeName = pipeName; this.identityPipeName = identityPipeName;
+            talkTargets = new TalkTargetSelector(ped => EncounterFor(ped).Id);
         }
         public void Prepare()
         {
@@ -116,6 +117,7 @@ namespace LSA.PromotedCharacters
             replacement.Start(); channel = replacement; lastGameTime = now;
             // Pending loader commands carried the old world's expectations. The
             // optional bridge can never fail P2's own reset.
+            try { talkTargets.ResetForWorldChange(Monotonic); } catch { }
             try { ResetLocal("native_stale"); } catch { }
             Game.LogTrivial("[P2] game_clock_reset");
         }
@@ -168,7 +170,7 @@ namespace LSA.PromotedCharacters
             }
             if (request.Operation == "inspect") { Fields(args,"ownerAlias"); var item = Owned(Text(args,"ownerAlias")); return item == null ? null : Binding(item,true); }
             if (request.Operation == "capture") {
-                Fields(args); var ped = NpcTargeting.GetPlayerConversationPed() ?? NpcTargeting.GetCurrentSpeakerPed();
+                Fields(args); var ped = CurrentPed();
                 var encounter = EncounterFor(ped);
                 if (!Safe(encounter,encounter.Registration == null)) throw new InvalidOperationException("scripted_state");
                 if (captures.Count >= 16) throw new InvalidOperationException("capture_limit");
@@ -182,7 +184,7 @@ namespace LSA.PromotedCharacters
                 if (!captures.TryGetValue(token,out var capture) || capture.ExpiresAtUtc <= Now) throw new InvalidOperationException("native_stale"); captures.Remove(token);
                 var encounter = capture.Encounter;
                 // Selection can change during async preparation. Never promote a new target.
-                var selected = NpcTargeting.GetPlayerConversationPed() ?? NpcTargeting.GetCurrentSpeakerPed();
+                var selected = CurrentPed();
                 if (selected == null || selected != encounter.Ped || !Safe(encounter,encounter.Registration == null)) throw new InvalidOperationException("native_stale");
                 if (!Alias(alias)) throw new InvalidOperationException("invalid_owner_alias");
                 if (encounter.OwnerAlias != null) { if (encounter.OwnerAlias != alias) throw new InvalidOperationException("ownership_conflict"); return Binding(encounter,true); }
@@ -291,7 +293,9 @@ namespace LSA.PromotedCharacters
         {
             if (shutdown) return; shutdownReason=reason; shutdown = true;
             LSA.Intelligence.IntelligenceIntegration.LogStatus("[P2] shutdown reason="+shutdownReason);
-            channel?.Dispose(); channel = null; CloseLocal();
+            channel?.Dispose(); channel = null;
+            try { talkTargets?.Shutdown(Monotonic); } catch { }
+            CloseLocal();
             foreach (var encounter in encounters.Values) {
                 try { if (Alive(encounter) && Safe(encounter)) { Suspend(encounter); if (encounter.Created) encounter.Ped.Dismiss(); } } catch { }
                 // Failed optional native cleanup cannot keep an ownership claim.

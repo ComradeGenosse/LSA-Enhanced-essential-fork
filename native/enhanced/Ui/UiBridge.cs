@@ -19,6 +19,9 @@ namespace LSA.Enhanced.Ui
         public Func<EnhancedSettings> Settings = () => null;
         public Func<EssentialBindings> Essential = EssentialBindings.Unavailable;
         public Func<InputRouter> Router = () => null;
+        public Func<string> TalkStatus = () => null;
+        public Func<string> TalkConflict = () => null;
+        public Action ClearTalkTarget = () => { };
         public Func<string> HostStatus = () => "host=none";
         public Func<string> Origin = () => null;
         public Func<string> EndpointState = () => null;

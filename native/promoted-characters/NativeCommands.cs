@@ -17,6 +17,7 @@ namespace LSA.PromotedCharacters
     {
         const int SnapshotIntervalMs = 250, MaxSnapshotInterestMs = 10000, AskCooldownMs = 3000, AskHistoryLimit = 64;
         readonly LocalCommandQueue local = new LocalCommandQueue();
+        readonly TalkTargetSelector talkTargets;
         readonly Dictionary<string,long> lastAskAt = new Dictionary<string,long>();
         long snapshotInterestUntil, nextSnapshotAt, snapshotSequence;
         string snapshot;
@@ -25,7 +26,9 @@ namespace LSA.PromotedCharacters
         // Interest windows, snapshot cadence and ask cooldowns use a monotonic
         // clock so a wall-clock step cannot freeze or stretch them. Envelope
         // expiry stays in UTC because the loader stamps it.
-        static long Monotonic => System.Diagnostics.Stopwatch.GetTimestamp() / Math.Max(1L,System.Diagnostics.Stopwatch.Frequency / 1000);
+        static long? monotonicOverride;
+        internal static void SetMonotonic(long? value) => monotonicOverride = value;
+        static long Monotonic => monotonicOverride ?? System.Diagnostics.Stopwatch.GetTimestamp() / Math.Max(1L,System.Diagnostics.Stopwatch.Frequency / 1000);
         // Loader-facing entry points (any thread): they never touch game state.
         internal string SubmitLocal(string envelope) => IsReady ? local.Submit(envelope,Now) : "native_unavailable";
         internal string TakeLocalResult(string id) => local.TryTakeResult(id,Now);
@@ -42,6 +45,7 @@ namespace LSA.PromotedCharacters
         void ServeLocal(int budget)
         {
             try {
+                try { talkTargets.Maintain(Monotonic); } catch { }
                 for (; budget > 0 && local.TryTake(Now,out var command); budget--) Execute(command);
                 RefreshSnapshot();
             } catch { if (!bridgeFailureLogged) { bridgeFailureLogged = true; LSA.Intelligence.IntelligenceIntegration.LogStatus("[UX] bridge_update_failed"); } }
@@ -63,10 +67,17 @@ namespace LSA.PromotedCharacters
                 case "current.inspect": return CurrentView();
                 case "gates.read": return Gates();
                 case "npc.ask": return Ask(command);
+                case "talk.select_first": return talkTargets.AsResult(talkTargets.SelectFirst(Monotonic,Limits(command)));
+                case "talk.select_next": return talkTargets.AsResult(talkTargets.SelectNext(Monotonic,Limits(command)));
+                case "talk.ptt_start": return talkTargets.Start(command.ExpectedSelectionId,command.ExpectedEncounterId,command.PttGeneration,command.SelectFirst,Limits(command),Monotonic);
+                case "talk.ptt_stop": return talkTargets.Stop(command.PttGeneration,"stop",Monotonic);
+                case "talk.clear": talkTargets.Clear("manual",Monotonic); return new {cleared = true};
+                case "talk.inspect": return talkTargets.Describe(Monotonic);
                 default: throw new InvalidOperationException("unsupported_command");
             }
         }
-        static Ped CurrentPed() => NpcTargeting.GetPlayerConversationPed() ?? NpcTargeting.GetCurrentSpeakerPed();
+        Ped CurrentPed() => talkTargets.SelectedPedIfValid(Monotonic) ?? NpcTargeting.GetPlayerConversationPed() ?? NpcTargeting.GetCurrentSpeakerPed();
+        static TalkTargetOptions Limits(LocalCommand command) => new TalkTargetOptions {RadiusMeters = command.RadiusMeters,RetentionRadiusMeters = command.RetentionRadiusMeters,MaxCandidates = command.MaxCandidates,CycleWindowMs = command.CycleWindowMs,SelectionTimeoutMs = command.SelectionTimeoutMs,Indicator = command.Indicator};
         // Read-only: no capture ticket, ownership, task or session. The encounter
         // id is the same P2 handle-bound id EnrichActor already gives every actor.
         object CurrentView()
@@ -124,7 +135,9 @@ namespace LSA.PromotedCharacters
             catch (InvalidOperationException error) { current = gates = null; reason = Regex.IsMatch(error.Message,"^[a-z][a-z0-9_]{0,63}$") ? error.Message : "native_operation_failed"; }
             catch { current = gates = null; reason = "native_operation_failed"; }
             string text = null;
-            try { text = json.Serialize(new {v = 1,seq = ++snapshotSequence,builtAtUtc = Now,current,gates,reason}); } catch { }
+            object talkTarget = null;
+            try { talkTarget = talkTargets.Describe(Monotonic); } catch { talkTarget = null; }
+            try { text = json.Serialize(new {v = 1,seq = ++snapshotSequence,builtAtUtc = Now,current,gates,talkTarget,reason}); } catch { }
             Volatile.Write(ref snapshot,text != null && text.Length <= LocalCommandQueue.MaxResultChars ? text : null);
         }
         void ResetLocal(string reason)

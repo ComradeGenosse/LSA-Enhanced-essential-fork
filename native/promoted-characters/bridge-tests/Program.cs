@@ -153,6 +153,30 @@ static class Program
             catch { Interlocked.Increment(ref errors); }
         });
         Check(accepted == 16 && refused == 48 && errors == 0,"parallel submissions respect capacity without errors");
+
+        var talk = new LocalCommandQueue();
+        object talkTarget = new Dictionary<string,object> {{"kind","talk"}};
+        var limits = new Dictionary<string,object> {{"radiusMeters",15},{"retentionRadiusMeters",20},{"maxCandidates",8},{"cycleWindowMs",1500},{"selectionTimeoutMs",8000},{"indicator",true}};
+        Check(talk.Submit(Envelope(Id(),"talk.select_first",talkTarget,limits,now,now + 4000,source: "talk_input"),now) == "accepted","talk.select_first accepted");
+        Check(talk.Submit(Envelope(Id(),"talk.select_next",talkTarget,limits,now,now + 4000,source: "console"),now) == "invalid_envelope","talk commands require talk_input");
+        Check(talk.Submit(Envelope(Id(),"talk.select_first",Current,limits,now,now + 4000,source: "talk_input"),now) == "invalid_target","talk commands target kind talk");
+        var extraLimit = new Dictionary<string,object>(limits) {{"phrase","Hi"}};
+        Check(talk.Submit(Envelope(Id(),"talk.select_first",talkTarget,extraLimit,now,now + 4000,source: "talk_input"),now) == "invalid_arguments","talk select rejects extra arguments");
+        var wide = new Dictionary<string,object>(limits); wide["radiusMeters"] = 31;
+        Check(talk.Submit(Envelope(Id(),"talk.select_first",talkTarget,wide,now,now + 4000,source: "talk_input"),now) == "invalid_arguments","talk radius is bounded");
+        Check(talk.Submit(Envelope(Id(),"talk.inspect",talkTarget,Empty,now,now + 4000,source: "talk_input"),now) == "accepted","talk.inspect accepted");
+        Check(talk.Submit(Envelope(Id(),"talk.clear",talkTarget,Empty,now,now + 4000,source: "talk_input"),now) == "accepted","talk.clear accepted");
+        Check(talk.Submit(Envelope(Id(),"talk.ptt_stop",talkTarget,new Dictionary<string,object> {{"generation",1}},now,now + 4000,source: "talk_input"),now) == "accepted","talk.ptt_stop accepted");
+        Check(talk.Submit(Envelope(Id(),"talk.ptt_stop",talkTarget,Empty,now,now + 4000,source: "talk_input"),now) == "invalid_arguments","talk.ptt_stop requires a generation");
+        var start = new Dictionary<string,object>(limits) {{"generation",4},{"selectFirst",true}};
+        Check(talk.Submit(Envelope(Id(),"talk.ptt_start",talkTarget,start,now,now + 4000,source: "talk_input"),now) == "accepted","hold without a preview may select then commit");
+        var committed = new Dictionary<string,object>(limits) {{"generation",5},{"selectFirst",false}};
+        var expect = new Dictionary<string,object> {{"kind","talk"},{"expect",new Dictionary<string,object> {{"selectionId",Id()}}}};
+        Check(talk.Submit(Envelope(Id(),"talk.ptt_start",expect,committed,now,now + 4000,source: "talk_input"),now) == "accepted","ptt start names the selection");
+        var both = new Dictionary<string,object> {{"kind","talk"},{"expect",new Dictionary<string,object> {{"selectionId",Id()},{"encounterId",Id()}}}};
+        Check(talk.Submit(Envelope(Id(),"talk.ptt_start",both,committed,now,now + 4000,source: "talk_input"),now) == "accepted","ptt start may also name the encounter");
+        Check(talk.Submit(Envelope(Id(),"talk.ptt_start",talkTarget,committed,now,now + 4000,source: "talk_input"),now) == "invalid_target","a committed start without selectFirst needs a selection id");
+        Check(talk.Submit(Envelope(Id(),"talk.ptt_start",expect,start,now,now + 4000,source: "talk_input"),now) == "invalid_target","selectFirst does not take an expectation");
     }
 
     static void SurfaceTests()
@@ -225,6 +249,122 @@ static class Program
     {
         var reply = Run(host,driver,envelope);
         return (string)reply["status"] == "ok" ? "ok" : (string)reply["reason"];
+    }
+    static Dictionary<string,object> TalkLimits(int timeout = 8000,int max = 8) => new Dictionary<string,object> {{"radiusMeters",15},{"retentionRadiusMeters",20},{"maxCandidates",max},{"cycleWindowMs",1500},{"selectionTimeoutMs",timeout},{"indicator",true}};
+    static object TalkKind = new Dictionary<string,object> {{"kind","talk"}};
+    static string TalkCommand(string command,object target,object args,string source = "talk_input") { long now = Now; return Envelope(Id(),command,target,args,now,now + 4000,source); }
+    static Dictionary<string,object> TalkRun(DomainHost host,Driver driver,string command,object args,object target = null)
+    {
+        var reply = Run(host,driver,TalkCommand(command,target ?? TalkKind,args));
+        Check((string)reply["status"] == "ok","talk command ok: " + command + " " + reply["reason"]);
+        return Result(reply);
+    }
+    static void TalkTargetBridge(DomainHost host,Driver driver)
+    {
+        long clock = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        driver.Clock(clock); driver.ResetTalkCounters(); driver.PlayerAt(0,0,0); driver.ClearNearby();
+        driver.Nearby(20,8,0,0,960,540); driver.Nearby(10,5,0,0,1800,900); driver.Nearby(30,3,0,0, -100,-100);
+        driver.GameTime = 4000; driver.PublishSnapshot(); driver.Select(10,0);
+        int prompts = driver.PromptCount;
+        var first = TalkRun(host,driver,"talk.select_first",TalkLimits());
+        Check((bool)first["present"] && (string)first["pedId"] == "20" && (int)Convert.ToInt32(first["cycleIndex"]) == 1 && Convert.ToInt32(first["cycleCount"]) == 3 && driver.MicStarts == 0 && driver.ConversationSets == 0 && driver.ConversationHandle == 10,"first tap selects the on-screen center NPC and does not start the microphone or retarget Essential");
+        string selectionB = (string)first["selectionId"], encounterB = (string)first["encounterId"];
+        driver.Nearby(20,8,0,0,-100,-100); driver.Nearby(30,3,0,0,960,540); driver.PublishSnapshot();
+        var second = TalkRun(host,driver,"talk.select_next",TalkLimits());
+        Check((string)second["pedId"] == "10" && (string)second["selectionId"] != selectionB && Convert.ToInt32(second["cycleIndex"]) == 2,"cycling keeps the frozen order when scores change");
+        var third = TalkRun(host,driver,"talk.select_next",TalkLimits());
+        var wrapped = TalkRun(host,driver,"talk.select_next",TalkLimits());
+        Check((string)third["pedId"] == "30" && (string)wrapped["pedId"] == "20" && Convert.ToInt32(wrapped["cycleIndex"]) == 1,"cycle wraps to the first candidate");
+        driver.ClearNearby(); driver.Nearby(41,1,0,0,960,540);
+        for (int handle = 42; handle <= 50; handle++) driver.Nearby(handle,handle - 40,0,0,960,540);
+        driver.PublishSnapshot();
+        var capped = TalkRun(host,driver,"talk.select_first",TalkLimits());
+        var seen = new HashSet<string> {(string)capped["pedId"]};
+        for (int step = 0; step < 7; step++) seen.Add((string)TalkRun(host,driver,"talk.select_next",TalkLimits())["pedId"]);
+        Check(Convert.ToInt32(capped["cycleCount"]) == 8 && seen.Count == 8 && !seen.Contains("49") && !seen.Contains("50"),"candidate list is capped at 8");
+        driver.ClearNearby(); driver.Nearby(61,4,0,0,960,540); driver.PublishSnapshot();
+        var only = TalkRun(host,driver,"talk.select_first",TalkLimits());
+        var again = TalkRun(host,driver,"talk.select_next",TalkLimits());
+        Check((string)only["pedId"] == "61" && (string)again["pedId"] == "61" && (string)again["selectionId"] != (string)only["selectionId"] && driver.MicStarts == 0,"one candidate is reaffirmed without a microphone");
+        driver.ClearNearby(); driver.PublishSnapshot();
+        var none = TalkRun(host,driver,"talk.select_first",TalkLimits());
+        Check(!(bool)none["present"] && (string)none["reason"] == "no_nearby_npc" && driver.MicStarts == 0,"no candidate does not start the microphone");
+        driver.Nearby(20,8,0,0,960,540); driver.PublishSnapshot(); driver.SnapshotAge(5000);
+        var stale = TalkRun(host,driver,"talk.select_first",TalkLimits());
+        Check(!(bool)stale["present"] && (string)stale["reason"] == "selector_unavailable","a stale perception snapshot selects nobody");
+        driver.PublishSnapshot();
+        TalkRun(host,driver,"talk.select_first",TalkLimits());
+        driver.Kill(20); driver.Tick();
+        var dead = TalkRun(host,driver,"talk.inspect",Empty);
+        Check(!(bool)dead["present"] && driver.MicStarts == 0,"a dead target is cleared and not replaced");
+        driver.Nearby(20,8,0,0,960,540); driver.PublishSnapshot();
+        TalkRun(host,driver,"talk.select_first",TalkLimits());
+        driver.Retarget(20,99999); driver.Tick();
+        var reused = TalkRun(host,driver,"talk.inspect",Empty);
+        Check(!(bool)reused["present"],"the same handle at a new memory address is not the selected incarnation");
+        driver.Retarget(20,20 * 16); driver.Nearby(20,8,0,0,960,540); driver.PublishSnapshot();
+        driver.Clock(clock);
+        TalkRun(host,driver,"talk.select_first",TalkLimits(2000));
+        driver.Clock(clock + 2000); driver.Tick();
+        var expired = TalkRun(host,driver,"talk.inspect",Empty);
+        Check(!(bool)expired["present"],"an idle selection expires");
+        driver.Clock(clock + 3000); driver.Nearby(20,8,0,0,960,540); driver.Nearby(10,5,0,0,1800,900); driver.PublishSnapshot(); driver.Select(10,0); driver.ResetTalkCounters();
+        var chosen = TalkRun(host,driver,"talk.select_first",TalkLimits());
+        string chosenId = (string)chosen["selectionId"], chosenEncounter = (string)chosen["encounterId"];
+        var inspect = Result(Run(host,driver,Inspect(Id(),Now)));
+        Check((string)inspect["pedId"] == "20" && (string)inspect["encounterId"] == chosenEncounter,"current NPC follows the explicit selection ahead of PlayerConversationPed");
+        string captureText = driver.Capture();
+        Check(captureText != null && !captureText.StartsWith("error:"),"capture/promote uses the highlighted NPC: " + captureText);
+        var captured = Parse(captureText);
+        Check((string)captured["pedId"] == "20" && (string)captured["encounterId"] == chosenEncounter,"capture names the selected encounter");
+        Check(RunReason(host,driver,Ask(Id(),"00000000-0000-4000-8000-000000000001","Follow me.",Now)) == "target_changed" && driver.PromptCount == prompts,"a follow aimed at another encounter is not redirected");
+        var startArgs = TalkLimits(); startArgs["generation"] = 3; startArgs["selectFirst"] = false;
+        var startTarget = new Dictionary<string,object> {{"kind","talk"},{"expect",new Dictionary<string,object> {{"selectionId",chosenId},{"encounterId",chosenEncounter}}}};
+        var started = TalkRun(host,driver,"talk.ptt_start",startArgs,startTarget);
+        Check((bool)started["started"] && (string)started["pedId"] == "20" && driver.MicStarts == 1 && driver.LastMicHandle == 20 && driver.ConversationHandle == 20 && driver.ConversationSets == 1,"hold commits SetPlayerConversationPed and SendMicStart for the exact ped");
+        driver.Select(99,0);
+        var stopped = TalkRun(host,driver,"talk.ptt_stop",new Dictionary<string,object> {{"generation",3}});
+        Check((bool)stopped["stopped"] && driver.MicStops == 1 && driver.ConversationHandle == 99 && driver.ConversationClears == 0,"stop ends only the UX4 mic and does not clear a newer conversation ped");
+        var stoppedAgain = TalkRun(host,driver,"talk.ptt_stop",new Dictionary<string,object> {{"generation",3}});
+        Check(!(bool)stoppedAgain["stopped"] && driver.MicStops == 1,"a repeated stop does not call SendMicStop again");
+        int starts = driver.MicStarts;
+        TalkRun(host,driver,"talk.ptt_stop",new Dictionary<string,object> {{"generation",7}});
+        var cancelled = TalkRun(host,driver,"talk.ptt_start",new Dictionary<string,object>(TalkLimits()) {{"generation",7},{"selectFirst",true}});
+        Check(!(bool)cancelled["started"] && (string)cancelled["reason"] == "cancelled" && driver.MicStarts == starts,"a stop that wins the race fences the generation");
+        driver.ClearNearby(); driver.Nearby(20,8,0,0,960,540); driver.PublishSnapshot(); driver.ResetTalkCounters();
+        string queuedStart = TalkCommand("talk.ptt_start",TalkKind,new Dictionary<string,object>(TalkLimits()) {{"generation",8},{"selectFirst",true}});
+        string queuedStop = TalkCommand("talk.ptt_stop",TalkKind,new Dictionary<string,object> {{"generation",8}});
+        Check(host.Submit(queuedStart) == "accepted" && host.Submit(queuedStop) == "accepted","start and its release are both queued");
+        driver.Tick();
+        Check(driver.MicStarts == 1 && driver.MicStops == 1,"a release queued behind the start still closes the microphone");
+        TalkRun(host,driver,"talk.clear",Empty);
+        driver.ClearNearby(); driver.Nearby(20,8,0,0,960,540); driver.PublishSnapshot(); driver.ResetTalkCounters();
+        var holding = TalkRun(host,driver,"talk.ptt_start",new Dictionary<string,object>(TalkLimits()) {{"generation",9},{"selectFirst",true}});
+        Check((bool)holding["started"] && driver.LastMicHandle == 20 && driver.MicIsCurrent(20),"hold with no preview selects the best NPC then starts its microphone");
+        driver.Kill(20); driver.Tick();
+        var lostView = TalkRun(host,driver,"talk.inspect",Empty);
+        Check(driver.MicStops == 1 && !(bool)lostView["present"],"target loss while talking stops the UX4 microphone once");
+        driver.Tick(); Check(driver.MicStops == 1,"a later tick does not stop the microphone again");
+        driver.ClearNearby(); driver.Nearby(20,8,0,0,960,540); driver.Nearby(30,6,0,0,1200,540); driver.PublishSnapshot(); driver.ResetTalkCounters();
+        var before = TalkRun(host,driver,"talk.select_first",TalkLimits());
+        string beforeId = (string)before["selectionId"], beforeEncounter = (string)before["encounterId"];
+        driver.Kill(20);
+        Check(RunReason(host,driver,TalkCommand("talk.ptt_start",new Dictionary<string,object> {{"kind","talk"},{"expect",new Dictionary<string,object> {{"selectionId",beforeId}}}},new Dictionary<string,object>(TalkLimits()) {{"generation",11},{"selectFirst",false}})) == "target_lost" && driver.MicStarts == 0,"a commit after the target dies does not retarget");
+        driver.ClearNearby(); driver.Nearby(20,8,0,0,960,540); driver.Nearby(30,4,0,0,1000,540); driver.PublishSnapshot();
+        var left = TalkRun(host,driver,"talk.select_first",TalkLimits());
+        string leftEncounter = (string)left["encounterId"];
+        string ask = Ask(Id(),leftEncounter,"Look here.",Now);
+        string cycle = TalkCommand("talk.select_next",TalkKind,TalkLimits());
+        Check(host.Submit(ask) == "accepted" && host.Submit(cycle) == "accepted","follow is queued before the next cycle");
+        driver.Tick();
+        Check(driver.LastPrompt == "20:Look here.","a queued follow keeps the NPC it captured");
+        string rightEncounter = (string)TalkRun(host,driver,"talk.inspect",Empty)["encounterId"];
+        Check(rightEncounter != leftEncounter && RunReason(host,driver,Ask(Id(),leftEncounter,"Look here.",Now)) == "target_changed" && driver.LastPrompt == "20:Look here.","changing the selection fails the old follow instead of retargeting it");
+        driver.GameTime = 9000; driver.Tick(); driver.GameTime = 1000; driver.Tick();
+        var reset = TalkRun(host,driver,"talk.inspect",Empty);
+        Check(!(bool)reset["present"] && driver.Logs.Contains("[UX4] talk_target cleared reason=world_reset"),"a game-clock reset clears the selector");
+        TalkRun(host,driver,"talk.clear",Empty);
+        driver.ClearClock(); driver.ClearNearby(); driver.Select(505,0);
     }
     static void EndToEnd(string corePath,string temp)
     {
@@ -378,6 +518,7 @@ static class Program
         string renewed = (string)Result(Run(host,driver,Inspect(Id(),Now)))["encounterId"];
         Check(renewed != second && RunReason(host,driver,Ask(Id(),second,"Hi.",Now)) == "target_changed","a world reset invalidates old expectations");
 
+        TalkTargetBridge(host,driver);
         ConsoleBridge(host,driver);
 
         string atShutdown = Id();

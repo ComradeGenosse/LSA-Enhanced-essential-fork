@@ -57,6 +57,7 @@ namespace LSA.Enhanced.Ui
     }
     public static class CurrentNpcView
     {
+        public const string ClearTalkCommand = "local.clearTalkTarget";
         public static CurrentNpcModel Build(NativeSnapshot snapshot,long utcNow,Describe describe,bool hostAvailable,bool companionAvailable,EnhancedSettings settings)
         {
             var model = new CurrentNpcModel();
@@ -70,7 +71,8 @@ namespace LSA.Enhanced.Ui
             }
             var npc = snapshot.Current;
             if (npc == null || !npc.Present) {
-                model.Lines.Add(MenuLine.Fact("status","No current NPC","","Mark or talk to an NPC with Essential first."));
+                if (snapshot.TalkTarget != null && snapshot.TalkTarget.Present) AddTalk(model,snapshot.TalkTarget);
+                else model.Lines.Add(MenuLine.Fact("status","No current NPC","","Mark or talk to an NPC with Essential first."));
                 return model;
             }
             model.Present = true; model.Owned = npc.Owned; model.EncounterId = npc.EncounterId; model.OwnerAlias = npc.OwnerAlias;
@@ -96,7 +98,18 @@ namespace LSA.Enhanced.Ui
                     model.Lines.Add(MenuLine.Action("askWait","Ask to wait",CommandCatalog.CurrentWait,"Ask in character: \"" + (settings?.Phrase("wait") ?? "Wait here.") + "\""));
                 }
             }
+            if (snapshot.TalkTarget != null && snapshot.TalkTarget.Present) AddTalk(model,snapshot.TalkTarget);
             return model;
+        }
+        static void AddTalk(CurrentNpcModel model,TalkTargetInfo talk)
+        {
+            var lines = new List<MenuLine> {
+                MenuLine.Fact("talk","Explicit talk target",talk.PttCommitted ? "Talking" : "Selected","The highlighted NPC is used for Follow, Wait, Promote and this page."),
+                MenuLine.Action("clearTalk","Clear target",ClearTalkCommand,"Forget this highlighted NPC.")
+            };
+            if (talk.CycleCount > 0) lines.Insert(1,MenuLine.Fact("talkCycle","Candidate",talk.CycleIndex + "/" + talk.CycleCount));
+            if (!talk.PttCommitted && talk.ExpiresInMs > 0) lines.Insert(lines.Count - 1,MenuLine.Fact("talkExpires","Selection expires",Math.Max(1,(talk.ExpiresInMs + 999) / 1000) + " s"));
+            model.Lines.InsertRange(0,lines);
         }
         public static string Capitalize(string text) => string.IsNullOrEmpty(text) ? text : char.ToUpperInvariant(text[0]) + text.Substring(1);
     }
@@ -195,7 +208,7 @@ namespace LSA.Enhanced.Ui
             if (current >= MinChordWindowMs && current <= MaxChordWindowMs) values.Add(current);
             return values.ToArray();
         }
-        public static List<MenuLine> Build(EnhancedSettings settings,EssentialBindings essential,string routerState,string conflict,bool gesturesPaused,int chordWindowMs,IReadOnlyList<GestureBinding> active)
+        public static List<MenuLine> Build(EnhancedSettings settings,EssentialBindings essential,string routerState,string conflict,bool gesturesPaused,int chordWindowMs,IReadOnlyList<GestureBinding> active,string talkState = null,string talkConflict = null)
         {
             var lines = new List<MenuLine>();
             if (settings == null) return lines;
@@ -210,6 +223,15 @@ namespace LSA.Enhanced.Ui
             if (conflict != null) lines.Add(MenuLine.Fact("conflict","Conflict",conflict,"A router key must not equal an Essential key."));
             bool shared = essential != null && settings.KeyCodes.Any(vk => (essential.Mark.State == EssentialKeyState.Bound && essential.Mark.Vk == vk) || (essential.Text.State == EssentialKeyState.Bound && essential.Text.Vk == vk));
             lines.Add(MenuLine.Fact("essentialInMenus","Essential keys in menus",shared ? "Talk keys stay active" : "Still active",shared ? "Mark/text gestures pause in menus; explicit menu actions still work. Talk and marked-talk keep their original keys." : "Essential polls its own keys (Talk, Marked Talk) even while an LSA menu is open; LSA gestures pause instead."));
+            string talkLabel = settings.TalkEnabled ? (string.IsNullOrEmpty(talkState) ? "On" : talkState) : "Off";
+            lines.Add(MenuLine.Fact("talkTarget","Talk target",talkLabel,settings.TalkEnabled ? "Tap the talk key to highlight a nearby NPC. Hold it to speak to that exact NPC. Essential's own Talk key is not pressed." : "Set talkTargeting.enabled to choose an NPC before talking."));
+            if (settings.TalkEnabled) {
+                lines.Add(MenuLine.Fact("talkKey","Talk target key",settings.TalkKeyName ?? "Unset","Map the controller Talk button to this key in Steam Input. Leave Essential's TalkKey unchanged."));
+                lines.Add(MenuLine.Fact("talkHold","Talk hold",settings.TalkHoldMs.ToString(CultureInfo.InvariantCulture) + " ms","A shorter press cycles targets."));
+                lines.Add(MenuLine.Fact("talkRadius","Talk radius",settings.TalkRadiusMeters.ToString("0.#",CultureInfo.InvariantCulture) + " m"));
+                lines.Add(MenuLine.Fact("talkTimeout","Selection timeout",Math.Max(1,settings.TalkSelectionTimeoutMs / 1000).ToString(CultureInfo.InvariantCulture) + " s"));
+            }
+            if (!string.IsNullOrEmpty(talkConflict)) lines.Add(MenuLine.Fact("talkConflict","Talk target paused",talkConflict,"This key matches one of Essential's keys, so talk targeting is paused."));
             return lines;
         }
         static string Gesture(GestureBinding binding,EnhancedSettings settings)
@@ -242,6 +264,7 @@ namespace LSA.Enhanced.Ui
         public bool BridgeAvailable, CompanionReachable;
         public long SnapshotAgeMs = -1;
         public int Outstanding;
+        public string TalkState, TalkConflict, IndicatorState;
         public IReadOnlyList<string> RecentReasons = new string[0];
     }
     public static class DiagnosticsView
@@ -257,6 +280,8 @@ namespace LSA.Enhanced.Ui
                 MenuLine.Fact("settings","LSA.Enhanced.json",input.SettingsRevision == "defaults" ? "Defaults" : (input.SettingsRevision ?? "?").Substring(0,Math.Min(8,(input.SettingsRevision ?? "?").Length))),
                 MenuLine.Fact("catalog","Command catalog",(input.CatalogSha ?? "?").Substring(0,Math.Min(8,(input.CatalogSha ?? "?").Length))),
                 MenuLine.Fact("pending","Pending requests",input.Outstanding.ToString(CultureInfo.InvariantCulture)),
+                MenuLine.Fact("talk","Talk target",input.TalkState ?? "Off",input.TalkConflict),
+                MenuLine.Fact("indicator","Talk indicator",input.IndicatorState ?? "Off"),
             };
             if (input.RecentReasons.Count == 0) lines.Add(MenuLine.Fact("reasons","Recent failures","None"));
             else foreach (var reason in input.RecentReasons.Reverse().Take(10)) lines.Add(MenuLine.Fact("reason:" + lines.Count,"Recent",reason));

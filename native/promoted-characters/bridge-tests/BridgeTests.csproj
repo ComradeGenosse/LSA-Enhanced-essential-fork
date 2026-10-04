@@ -6,6 +6,7 @@
   <ItemGroup>
     <Compile Include="Program.cs" />
     <Compile Include="../LocalCommandQueue.cs" Link="LocalCommandQueue.cs" />
+    <Compile Include="../TalkTargetPolicy.cs" Link="TalkTargetPolicy.cs" />
     <Compile Include="../NativeSafetyPolicy.cs" Link="NativeSafetyPolicy.cs" />
     <Compile Include="../PlayerCommands.cs" Link="PlayerCommands.cs" />
     <Compile Include="../../enhanced/Companion/CompanionClient.cs" Link="CompanionClient.cs" />

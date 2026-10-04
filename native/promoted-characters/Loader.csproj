@@ -10,7 +10,7 @@
     <Compile Include="../enhanced/EnhancedHost.cs" />
     <Compile Include="../enhanced/Commands/CommandCatalog.cs;../enhanced/Commands/Contracts.cs;../enhanced/Commands/LoaderDispatcher.cs;../enhanced/Commands/NativeBridge.cs;../enhanced/Commands/NativeSnapshot.cs" />
     <Compile Include="../enhanced/Companion/CompanionClient.cs" />
-    <Compile Include="../enhanced/Input/IEssentialInputBridge.cs;../enhanced/Input/PhysicalKeys.cs;../enhanced/Input/Gestures.cs;../enhanced/Input/GestureRecognizer.cs;../enhanced/Input/EssentialBindings.cs;../enhanced/Input/EssentialKeyRelay.cs;../enhanced/Input/InputGates.cs;../enhanced/Input/InputRouter.cs" />
+    <Compile Include="../enhanced/Input/IEssentialInputBridge.cs;../enhanced/Input/PhysicalKeys.cs;../enhanced/Input/Gestures.cs;../enhanced/Input/GestureRecognizer.cs;../enhanced/Input/EssentialBindings.cs;../enhanced/Input/EssentialKeyRelay.cs;../enhanced/Input/InputGates.cs;../enhanced/Input/InputRouter.cs;../enhanced/Input/TalkTargetInput.cs" />
     <Compile Include="../enhanced/Settings/EnhancedSettings.cs" />
     <Compile Include="../enhanced/Ui/UiBridge.cs;../enhanced/Ui/MenuData.cs;../enhanced/Ui/NativeMenu.cs;../enhanced/Ui/OnscreenKeyboard.cs;../enhanced/Ui/ViewModels/MenuModels.cs" />
     <EmbeddedResource Include="../../contracts/commands.v1.json" LogicalName="LSA.Enhanced.commands.v1.json" />

@@ -16,6 +16,17 @@
     "ordinaryNpc": "ask",
     "phrases": { "follow": "Follow me.", "wait": "Wait here.", "dismiss": "That's all, you can go." }
   },
+  "talkTargeting": {
+    "enabled": false,
+    "key": "F10",
+    "talkHoldMs": 220,
+    "cycleWindowMs": 1500,
+    "selectionTimeoutMs": 8000,
+    "radiusMeters": 15,
+    "retentionRadiusMeters": 20,
+    "maxCandidates": 8,
+    "indicator": true
+  },
   "ui": { "enabled": false },
   "feedback": { "hud": "notification" }
 }
