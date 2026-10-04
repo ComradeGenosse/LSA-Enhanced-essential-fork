@@ -33,6 +33,19 @@ class Program
             ControlRequest request = null;var stop = DateTime.UtcNow.AddSeconds(4);
             while (DateTime.UtcNow < stop && !channel.TryTake(out request)) Thread.Sleep(10);
             Check(request != null,"capture dequeued");Check(request?.Operation == "capture","capture operation");if(request != null){request.Result = new {test = true};request.Done.Set();}client.GetAwaiter().GetResult();
+            // UX phase 1: the read-only "current" op is admitted like any owner op.
+            string currentId = Guid.NewGuid().ToString("D");
+            var currentClient = Task.Run(() => {
+                using (var pipe = new NamedPipeClientStream(".",name,PipeDirection.InOut)) {
+                    pipe.Connect(5000); var reader = new StreamReader(pipe); var writer = new StreamWriter(pipe) {AutoFlush = true}; reader.ReadLine();
+                    writer.WriteLine(json.Serialize(new {version = 1,requestId = currentId,worldProfileId = world,ownerEpoch = epoch,operation = "current",args = new {},expiresAtUtc = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() + 4500}));
+                    var result = json.Deserialize<Dictionary<string,object>>(reader.ReadLine()); Check((string)result["requestId"] == currentId,"current reply id"); Check((string)result["status"] == "ok","current reply status");
+                }
+            });
+            ControlRequest current = null; var currentStop = DateTime.UtcNow.AddSeconds(4);
+            while (DateTime.UtcNow < currentStop && !channel.TryTake(out current)) Thread.Sleep(10);
+            Check(current != null && current.Operation == "current" && current.Args.Count == 0,"current dequeued");
+            if (current != null) { current.Result = new {present = false}; current.Done.Set(); } currentClient.GetAwaiter().GetResult();
             // Production parser's nested array shape is used by appearance restore.
             var parsed = json.Deserialize<Dictionary<string,object>>("{\"appearance\":{\"components\":[{\"slot\":0}],\"props\":[]}}");
             var appearance = (Dictionary<string,object>)parsed["appearance"];Check(appearance["components"] is IList);Check(appearance["props"] is IList);

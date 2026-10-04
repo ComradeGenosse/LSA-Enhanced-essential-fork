@@ -23,7 +23,8 @@ namespace Rage
     public sealed class TestConsole
     {
         public string LastMessage;
-        public void Print(string message) { LastMessage=message; }
+        public readonly System.Collections.Generic.List<string> Messages=new System.Collections.Generic.List<string>();
+        public void Print(string message) { LastMessage=message; lock(Messages) Messages.Add(message); }
     }
 }
 namespace Rage.Attributes

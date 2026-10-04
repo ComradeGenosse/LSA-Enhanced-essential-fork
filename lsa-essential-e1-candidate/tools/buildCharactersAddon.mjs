@@ -8,6 +8,7 @@ import { verifyIdentityContract,RPH_SDK_SHA256,IDENTITY_DLL_SHA256 } from './ver
 import { assertNoLinkedOutput,candidateRootPath } from './checkIsolation.mjs';
 import { verifyCharactersContract } from './verifyCharactersContract.mjs';
 import { verifyPerceptionContract } from './verifyPerceptionContract.mjs';
+import { verifyControlsContract } from './verifyControlsContract.mjs';
 import { DAMAGE_DLL_SHA256 } from '../src/perception/nativeSupport.mjs';
 
 const root = candidateRootPath();
@@ -19,6 +20,8 @@ export async function buildCharactersAddon({rphReferencePath,frameworkReferenceR
   const nativeContract = await verifyIdentityContract(); if (!nativeContract.available) throw new Error('Optional P1 identity contract unavailable.');
   const characterContract = await verifyCharactersContract(); if (!characterContract.available) throw new Error('Optional P2 native contract unavailable.');
   const perceptionContract = await verifyPerceptionContract();
+  // UX phase 1 command bridge seams (typed request entry and input gates).
+  const controlsContract = await verifyControlsContract(); if (!controlsContract.available) throw new Error('Pinned UX controls contract unavailable.');
   if(!damageReferencePath || await hash(damageReferencePath)!==DAMAGE_DLL_SHA256 || !perceptionContract.available) throw new Error('Pinned compile-only DamageTracker reference and perception metadata required.');
   const project = path.resolve(root,'../native/promoted-characters/Loader.csproj');
   const runtimeProject = path.resolve(root,'../native/promoted-characters/PromotedCharacters.csproj');
@@ -34,7 +37,7 @@ export async function buildCharactersAddon({rphReferencePath,frameworkReferenceR
     const source = path.join(addonDirectory,name); await copyFile(source,path.join(target,name));files.push({name,relativePath:name === 'LSA.PromotedCharacters.dll' ? `plugins/${name}` : `plugins/LSA.PromotedCharacters/${name}`,sha256:await hash(source)});
   }
   await copyFile(path.resolve(root,'../native/promoted-characters/LSA.PromotedCharacters.example.json'),path.join(target,'LSA.PromotedCharacters.example.json'));
-  const manifest = {stage:'P2+PS0+PS1',defaultEnabled:false,intelligenceDefaultMode:'off',nativeContract,characterContract,perceptionContract,rphSdkSha256:RPH_SDK_SHA256,files,deploymentPerformed:false,gtaRuntimeTest:false};
+  const manifest = {stage:'P2+PS0+PS1+UX1',defaultEnabled:false,intelligenceDefaultMode:'off',nativeContract,characterContract,perceptionContract,controlsContract,rphSdkSha256:RPH_SDK_SHA256,files,deploymentPerformed:false,gtaRuntimeTest:false};
   await writeFile(path.join(target,'build-manifest.json'),JSON.stringify(manifest,null,2)+'\n');return {target,manifest,compilerOutput:stdout};
 }
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {

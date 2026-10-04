@@ -14,17 +14,21 @@ if (args.Skip(1).Contains("--identity")) wanted = new HashSet<string> { "IIntegr
 if (args.Skip(1).Contains("--characters")) wanted = new HashSet<string> { "NpcActions", "NpcState", "NpcStateStore", "NpcFocus", "NpcTargeting", "ActorContextProvider" };
 if (args.Skip(1).Contains("--intelligence")) wanted = new HashSet<string> { "PerceptionSnapshot", "PerceptionSystem", "NpcState", "NpcStateStore", "NpcTargeting", "NpcPlaybackCoordinator", "NpcPlaybackStartedEvent", "NpcPlaybackEndedEvent", "IIntegration", "DamageTrackerService", "PedDamageInfo", "VehDamageInfo", "WeaponDamageInfo", "DamageType" };
 bool characters = args.Skip(1).Contains("--characters");
+// UX phase 1 player-control seams: typed request entry and input gates only.
+bool controls = args.Skip(1).Contains("--controls");
+if (controls) wanted = new HashSet<string> { "InputController", "TextInputService", "LsaControlsMenu", "NpcTargeting" };
+var controlMethods = new HashSet<string> { "SendTextPrompt", "get_IsOpen", "get_BlocksLsaInput", "IsValidHumanPed" };
 var characterMethods = new HashSet<string> { "FollowTarget", "WaitHere", "HasExclusiveControl", "ReleaseExclusiveControlForExternalSystem", "GetStateForActiveBehavior", "TryGetState", "SetFocus", "GetPlayerConversationPed", "GetCurrentSpeakerPed", "Populate", "DemoteToPassiveRuntime" };
 var characterFields = new HashSet<string> { "FollowPlayerOnFoot", "FollowPaused", "EnterPassengerSeatWhenPlayerEnters", "ExitVehicleWhenPlayerExits", "StayUnderLsaControl", "InDirectedInteraction", "AccompliceMode" };
 var provider = new Names { NestedNames = args.Skip(1).Contains("--intelligence") };
 foreach (var handle in reader.TypeDefinitions) {
     var type = reader.GetTypeDefinition(handle);
     if (!wanted.Contains(reader.GetString(type.Name))) continue;
-    var methods = type.GetMethods().Select(h => reader.GetMethodDefinition(h)).Where(m => (m.Attributes & System.Reflection.MethodAttributes.MemberAccessMask) == System.Reflection.MethodAttributes.Public && (!characters || characterMethods.Contains(reader.GetString(m.Name)))).Select(m => {
+    var methods = type.GetMethods().Select(h => reader.GetMethodDefinition(h)).Where(m => (m.Attributes & System.Reflection.MethodAttributes.MemberAccessMask) == System.Reflection.MethodAttributes.Public && (!characters || characterMethods.Contains(reader.GetString(m.Name))) && (!controls || controlMethods.Contains(reader.GetString(m.Name)))).Select(m => {
         var sig = m.DecodeSignature(provider, (object)null);
         return new { name = reader.GetString(m.Name), returns = sig.ReturnType, parameters = sig.ParameterTypes.ToArray() };
     }).ToArray();
-    var fields = type.GetFields().Select(h => reader.GetFieldDefinition(h)).Where(f => (f.Attributes & System.Reflection.FieldAttributes.FieldAccessMask) == System.Reflection.FieldAttributes.Public && (!characters || characterFields.Contains(reader.GetString(f.Name)))).Select(f => new { name = reader.GetString(f.Name), type = f.DecodeSignature(provider, (object)null) }).ToArray();
+    var fields = type.GetFields().Select(h => reader.GetFieldDefinition(h)).Where(f => (f.Attributes & System.Reflection.FieldAttributes.FieldAccessMask) == System.Reflection.FieldAttributes.Public && (!characters || characterFields.Contains(reader.GetString(f.Name))) && !controls).Select(f => new { name = reader.GetString(f.Name), type = f.DecodeSignature(provider, (object)null) }).ToArray();
     types.Add(new { name = reader.GetString(type.Namespace) + "." + reader.GetString(type.Name), methods, fields });
 }
 Console.WriteLine(JsonSerializer.Serialize(new { dllSha256 = Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(file))).ToLowerInvariant(), types }, new JsonSerializerOptions { WriteIndented = true }));

@@ -4,6 +4,8 @@
     <Compile Include="../PromotedCharactersIntegration.cs" Link="PromotedCharactersIntegration.cs" />
     <Compile Include="../ControlChannel.cs" Link="ControlChannel.cs" />
     <Compile Include="../NativeSafetyPolicy.cs" Link="NativeSafetyPolicy.cs" />
+    <Compile Include="../NativeCommands.cs" Link="NativeCommands.cs" />
+    <Compile Include="../LocalCommandQueue.cs" Link="LocalCommandQueue.cs" />
     <Reference Include="System.Web.Extensions" />
   </ItemGroup>
 </Project>

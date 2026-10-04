@@ -3,16 +3,27 @@ using System.Collections.Generic;
 
 // Link the production P2 integration and pipe without executing any game
 // assembly. Native/ped access is counted so a reset cannot hide unsafe cleanup.
+// Essential's UX seams (input gates, typed-turn entry) count as native access too.
 namespace Rage
 {
     public static class Game
     {
         static long gameTime;
+        static bool loading;
         public static long GameTime {get { ClockReads++; return gameTime; } set { gameTime = value; }}
+        public static bool IsLoading {get { NativeCalls++; return loading; } set { loading = value; }}
         public static readonly Player LocalPlayer = new Player();
         public static readonly List<string> Logs = new List<string>();
         public static int NativeCalls,PedReads,ClockReads;
-        public static void LogTrivial(string message) => Logs.Add(message);
+        public static void LogTrivial(string message) { lock (Logs) Logs.Add(message); }
+    }
+    // Used only by RuntimeEntry in the bridge harness: the lifetime "fiber" is a
+    // background thread, while the harness plays Core's Update callback thread.
+    public sealed class GameFiber
+    {
+        public static GameFiber StartNew(Action work,string name) { new System.Threading.Thread(() => work()) {IsBackground = true,Name = name}.Start(); return new GameFiber(); }
+        public static void Yield() { }
+        public static void Sleep(int milliseconds) => System.Threading.Thread.Sleep(milliseconds);
     }
     public sealed class Player { public Ped Character; }
     public sealed class Ped
@@ -47,7 +58,14 @@ namespace Rage.Native
 {
     public static class NativeFunction
     {
-        public static T CallByName<T>(string name,params object[] args) { Rage.Game.NativeCalls++; throw new InvalidOperationException("Native calls are forbidden in the reset test."); }
+        // Null in lifecycle tests, where any native call is a failure.
+        public static Func<string,object[],object> Handler;
+        public static T CallByName<T>(string name,params object[] args)
+        {
+            Rage.Game.NativeCalls++;
+            if (Handler == null) throw new InvalidOperationException("Native calls are forbidden in the reset test.");
+            return (T)Handler(name,args);
+        }
     }
 }
 namespace LosSantosAlive.Context
@@ -69,7 +87,7 @@ namespace LosSantosAlive.Integrations
     {
         public static readonly List<object> Registered = new List<object>();
         public static int RegistrationThread;
-        public static void Register(object integration) { Registered.Add(integration); RegistrationThread = System.Threading.Thread.CurrentThread.ManagedThreadId; }
+        public static void Register(object integration) { lock (Registered) Registered.Add(integration); RegistrationThread = System.Threading.Thread.CurrentThread.ManagedThreadId; }
     }
     public interface IIntegration
     {
@@ -87,8 +105,11 @@ namespace LosSantosAlive.NPC
 {
     public static class NpcTargeting
     {
-        public static Rage.Ped GetPlayerConversationPed() { Rage.Game.NativeCalls++; return null; }
-        public static Rage.Ped GetCurrentSpeakerPed() { Rage.Game.NativeCalls++; return null; }
+        public static Rage.Ped ConversationPed,SpeakerPed;
+        public static Func<Rage.Ped,bool> Human = ped => true;
+        public static Rage.Ped GetPlayerConversationPed() { Rage.Game.NativeCalls++; return ConversationPed; }
+        public static Rage.Ped GetCurrentSpeakerPed() { Rage.Game.NativeCalls++; return SpeakerPed; }
+        public static bool IsValidHumanPed(Rage.Ped ped) { Rage.Game.NativeCalls++; return Human(ped); }
     }
     public static class NpcFocus { public static void SetFocus(Rage.Ped ped,Rage.Ped player,string reason) { Rage.Game.NativeCalls++; } }
     public sealed class NpcState
@@ -98,7 +119,8 @@ namespace LosSantosAlive.NPC
     }
     public static class NpcStateStore
     {
-        public static NpcState TryGetState(Rage.Ped ped) { Rage.Game.NativeCalls++; return new NpcState(); }
+        public static Func<Rage.Ped,NpcState> State;
+        public static NpcState TryGetState(Rage.Ped ped) { Rage.Game.NativeCalls++; return State?.Invoke(ped) ?? new NpcState(); }
         public static NpcState GetStateForActiveBehavior(Rage.Ped ped) { Rage.Game.NativeCalls++; return new NpcState(); }
     }
     public static class NpcActions
@@ -109,10 +131,41 @@ namespace LosSantosAlive.NPC
         public static void ReleaseExclusiveControlForExternalSystem(Rage.Ped ped,string reason,bool keepState) { Rage.Game.NativeCalls++; }
     }
 }
+namespace LosSantosAlive.Input
+{
+    public static class InputController
+    {
+        public static readonly List<KeyValuePair<Rage.Ped,string>> Prompts = new List<KeyValuePair<Rage.Ped,string>>();
+        public static Action<Rage.Ped,string> OnPrompt;
+        public static void SendTextPrompt(Rage.Ped ped,string text) { Rage.Game.NativeCalls++; OnPrompt?.Invoke(ped,text); Prompts.Add(new KeyValuePair<Rage.Ped,string>(ped,text)); }
+    }
+    public static class TextInputService
+    {
+        static bool open;
+        public static bool IsOpen {get { Rage.Game.NativeCalls++; return open; } set { open = value; }}
+    }
+}
+namespace LosSantosAlive.Core
+{
+    public static class LsaControlsMenu
+    {
+        static bool blocks;
+        public static bool BlocksLsaInput {get { Rage.Game.NativeCalls++; return blocks; } set { blocks = value; }}
+    }
+}
 namespace LSA.Intelligence
 {
     public sealed class OwnedParticipant { public Rage.Ped Ped; public string Lifetime; public Func<bool> Current; }
-    public static class IntelligenceIntegration { internal static void LogStatus(string message)=>Rage.Game.LogTrivial(message); }
+    // Static logging for P2; the instance surface is what RuntimeEntry hosts.
+    public sealed class IntelligenceIntegration
+    {
+        public IntelligenceIntegration(Func<OwnedParticipant[]> roster,string pipeName) { }
+        public void OwnerRetired(string incarnationId) { }
+        public void Initialize() { }
+        internal void Shutdown(string reason) { }
+        internal string RuntimeStatus() => "test";
+        internal static void LogStatus(string message)=>Rage.Game.LogTrivial(message);
+    }
 }
 namespace LSA.SessionIdentity
 {

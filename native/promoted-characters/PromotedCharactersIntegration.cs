@@ -28,7 +28,7 @@ namespace LSA.PromotedCharacters
         public Encounter Encounter;
         public long ExpiresAtUtc;
     }
-    public sealed class PromotedCharactersIntegration : IIntegration
+    public sealed partial class PromotedCharactersIntegration : IIntegration
     {
         readonly string world, pipeName, identityPipeName;
         readonly Dictionary<string,Encounter> encounters = new Dictionary<string,Encounter>();
@@ -106,7 +106,7 @@ namespace LSA.PromotedCharacters
             // A save/world transition invalidates every live association. Clear
             // them before any operation that can fail so even failure cleanup
             // cannot inspect, task, dismiss or adopt a ped from the old world.
-            var retired = encounters.Values.ToArray(); encounters.Clear(); captures.Clear();
+            var retired = encounters.Values.ToArray(); encounters.Clear(); captures.Clear(); ResetLocal("native_stale");
             var previous = channel; channel = null; previous?.Dispose();
             foreach (var encounter in retired) Retire(encounter);
             // P1 may already have reset its owner store, or may do so later in
@@ -135,12 +135,15 @@ namespace LSA.PromotedCharacters
                     if (item.Value.Registration != null && !Safe(item.Value) && !item.Value.Suspended) Suspend(item.Value);
                 }
                 foreach (var item in captures.Where(item => item.Value.ExpiresAtUtc <= Now).ToArray()) captures.Remove(item.Key);
-                for (int count = 0; count < 4 && channel.TryTake(out var request); count++) {
+                // One budget of four per tick: pipe requests first, then loader commands.
+                int handled = 0;
+                for (; handled < 4 && channel.TryTake(out var request); handled++) {
                     try { if (request.Cancelled || request.ExpiresAtUtc <= Now) throw new InvalidOperationException("native_stale"); request.Result = Handle(request); }
                     catch (InvalidOperationException error) { request.Reason = Regex.IsMatch(error.Message,"^[a-z][a-z0-9_]{0,63}$") ? error.Message : "native_operation_failed"; }
                     catch { request.Reason = "native_operation_failed"; }
                     finally { request.Done.Set(); }
                 }
+                ServeLocal(4 - handled);
             } catch { LSA.Intelligence.IntelligenceIntegration.LogStatus("[P2] optional_update_failed"); Shutdown("update_failed"); }
         }
         static void Fields(Dictionary<string,object> args,params string[] fields) { if (args.Count != fields.Length || fields.Any(field => !args.ContainsKey(field))) throw new InvalidOperationException("invalid_owner_arguments"); }
@@ -155,6 +158,8 @@ namespace LSA.PromotedCharacters
         object Handle(ControlRequest request)
         {
             var args = request.Args;
+            // Read-only view of Essential's current NPC; no capture ticket is created.
+            if (request.Operation == "current") { Fields(args); return CurrentView(); }
             if (request.Operation == "roster") {
                 Fields(args); return new {owned = encounters.Values.Where(item => item.Registration != null && Alive(item)).Select(item => new {ownerAlias = item.OwnerAlias,status = item.Suspended ? "suspended" : "spawned"}).ToArray(),encounters = encounters.Values.Where(Alive).Select(item => item.Id).ToArray()};
             }
@@ -283,7 +288,7 @@ namespace LSA.PromotedCharacters
         {
             if (shutdown) return; shutdownReason=reason; shutdown = true;
             LSA.Intelligence.IntelligenceIntegration.LogStatus("[P2] shutdown reason="+shutdownReason);
-            channel?.Dispose(); channel = null;
+            channel?.Dispose(); channel = null; CloseLocal();
             foreach (var encounter in encounters.Values) {
                 try { if (Alive(encounter) && Safe(encounter)) { Suspend(encounter); if (encounter.Created) encounter.Ped.Dismiss(); } } catch { }
                 // Failed optional native cleanup cannot keep an ownership claim.

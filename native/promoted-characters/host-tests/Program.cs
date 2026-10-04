@@ -71,8 +71,9 @@ static class Program
         var names=typeof(PlayerCommands).GetMethods(BindingFlags.Public|BindingFlags.Static)
             .Select(method=>method.GetCustomAttribute<Rage.Attributes.ConsoleCommandAttribute>())
             .Where(attribute=>attribute!=null).Select(attribute=>attribute.Name).ToArray();
-        Check(names.Length==7 && names.Distinct().Count()==7);
-        Check(names.Contains("LSAPromote"));
+        // Seven P2 commands plus the two UX phase 1 bridge commands; no aliases.
+        Check(names.Length==9 && names.Distinct().Count()==9);
+        Check(names.Contains("LSAPromote") && names.Contains("LSACurrentNpc") && names.Contains("LSAAskCurrent"));
         PlayerCommands.Initialize(37921);
         PlayerCommands.Initialize(37921);
         PlayerCommands.Command_LSACharacters();

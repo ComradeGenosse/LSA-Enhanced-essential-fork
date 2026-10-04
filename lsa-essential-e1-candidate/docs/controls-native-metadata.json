@@ -1,0 +1,54 @@
+{
+  "dllSha256": "9b6de42d4c464901d859dd95e17e100e4fa9ef6074bfbb0cf3a57a76f6ddd653",
+  "types": [
+    {
+      "name": "LosSantosAlive.Input.InputController",
+      "methods": [
+        {
+          "name": "SendTextPrompt",
+          "returns": "Void",
+          "parameters": [
+            "Rage.Ped",
+            "String"
+          ]
+        }
+      ],
+      "fields": []
+    },
+    {
+      "name": "LosSantosAlive.Input.TextInputService",
+      "methods": [
+        {
+          "name": "get_IsOpen",
+          "returns": "Boolean",
+          "parameters": []
+        }
+      ],
+      "fields": []
+    },
+    {
+      "name": "LosSantosAlive.NPC.NpcTargeting",
+      "methods": [
+        {
+          "name": "IsValidHumanPed",
+          "returns": "Boolean",
+          "parameters": [
+            "Rage.Ped"
+          ]
+        }
+      ],
+      "fields": []
+    },
+    {
+      "name": "LosSantosAlive.Core.LsaControlsMenu",
+      "methods": [
+        {
+          "name": "get_BlocksLsaInput",
+          "returns": "Boolean",
+          "parameters": []
+        }
+      ],
+      "fields": []
+    }
+  ]
+}

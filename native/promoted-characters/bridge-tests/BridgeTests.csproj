@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType><TargetFramework>net481</TargetFramework><LangVersion>latest</LangVersion>
+    <AutomaticallyUseReferenceAssemblyPackages>false</AutomaticallyUseReferenceAssemblyPackages><EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="Program.cs" />
+    <Compile Include="../LocalCommandQueue.cs" Link="LocalCommandQueue.cs" />
+    <Compile Include="../NativeSafetyPolicy.cs" Link="NativeSafetyPolicy.cs" />
+    <Compile Include="../PlayerCommands.cs" Link="PlayerCommands.cs" />
+    <Compile Include="../host-tests/RageStub.cs" Link="RageStub.cs" />
+    <ProjectReference Include="../Bootstrap.csproj" />
+    <!-- Plugin fixtures copied into a temporary Plugins folder by the harness. The
+         alias keeps their substitute game types out of the harness's namespaces;
+         the harness only names the Driver type to talk to the Essential test domain. -->
+    <ProjectReference Include="runtime/BridgeRuntime.csproj" Aliases="bridge" />
+    <ProjectReference Include="identity/BridgeIdentity.csproj" Aliases="identity" />
+    <Reference Include="System.Web.Extensions" />
+  </ItemGroup>
+</Project>

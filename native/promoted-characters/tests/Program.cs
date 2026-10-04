@@ -22,4 +22,10 @@ Check(admission.Admit(id,epoch,world,"capture",2000,1000));Check(!admission.Admi
 Check(!admission.Admit(Guid.NewGuid().ToString("D"),"old epoch",world,"capture",2000,1000));Check(!admission.Admit(Guid.NewGuid().ToString("D"),epoch,"other world","capture",2000,1000));
 Check(!admission.Admit("ped17",epoch,world,"capture",2000,1000));Check(!admission.Admit(Guid.NewGuid().ToString("D"),epoch,world,"capture",999,1000));
 Check(admission.Admit(Guid.NewGuid().ToString("D"),epoch,world,"spawn",61000,1000));Check(!admission.Admit(Guid.NewGuid().ToString("D"),epoch,world,"spawn",61001,1000));Check(!admission.Admit(Guid.NewGuid().ToString("D"),epoch,world,"unknown",2000,1000));
+// UX phase 1: the read-only "current" op uses the ordinary 5 s bound; local
+// bridge admission accepts only its own commands, never P2 pipe operations.
+Check(admission.Admit(Guid.NewGuid().ToString("D"),epoch,world,"current",6000,1000));Check(!admission.Admit(Guid.NewGuid().ToString("D"),epoch,world,"current",6001,1000));
+var local = new OperationAdmission(epoch,epoch,new[] {"current.inspect","npc.ask","gates.read"});
+Check(local.Admit(Guid.NewGuid().ToString("D"),epoch,epoch,"npc.ask",2000,1000));Check(!local.Admit(Guid.NewGuid().ToString("D"),epoch,epoch,"capture",2000,1000));Check(!local.Admit(Guid.NewGuid().ToString("D"),epoch,epoch,"current",2000,1000));
+Check(!admission.Admit(Guid.NewGuid().ToString("D"),epoch,world,"npc.ask",2000,1000));
 Console.WriteLine($"P2 production safety/admission: {count} assertions passed; no game assemblies loaded.");

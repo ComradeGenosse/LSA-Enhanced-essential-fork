@@ -95,6 +95,12 @@ namespace LSA.PromotedCharacters
             Interlocked.Increment(ref Initialized);InitializationThread=Thread.CurrentThread.ManagedThreadId;ready=true;
         }
         public void RequestShutdown() {Interlocked.Increment(ref ShutdownRequests);shutdownRequested=true;}
+        // UX phase 1 bridge surface reached through RuntimeEntry.
+        public static int Submissions,SnapshotRequests;
+        internal string SubmitLocal(string envelope) {Interlocked.Increment(ref Submissions);return IsReady?"accepted":"native_unavailable";}
+        internal string TakeLocalResult(string id)=>id=="00000000-0000-4000-8000-000000000000"?"{\"v\":1}":null;
+        internal string LocalSnapshot()=>"{\"v\":1,\"seq\":1}";
+        internal void RequestLocalSnapshots(int forMs) {Interlocked.Increment(ref SnapshotRequests);}
         public void Update() {if(shutdownRequested) Shutdown();}
         public void Shutdown()
         {

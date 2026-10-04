@@ -50,6 +50,8 @@
 **/intelligence/integration-tests/obj/
 **/promoted-characters/*/bin/
 **/promoted-characters/*/obj/
+**/promoted-characters/*/*/bin/
+**/promoted-characters/*/*/obj/
 
 # Local deployment packages, stages, receipts, and rollback data
 /deployment/stock-hotfix3/
