@@ -27,7 +27,7 @@ PS3 remains deterministic salience. No architectural blocker turned up. The adju
 | Activity / driving | No salience-owned native poll. Caller passes `activity`: `idle`, `driving`, `passenger`, `in_vehicle`, `conversation`, `following`, or `waiting`. Shadow ingestion has anchors only, so it passes `idle`. |
 | Distance | Observations do not include observer-relative distance. Optional `distanceBand` 0–3 is capped in the sort key so it cannot outrank safety. |
 | Repetition cache | New `SalienceCache` in the salience module. Decision RAM is capped separately from the reaction ledger. Ledger expiry is 10 minutes, longer than observation TTL, and a full ledger fails closed instead of forgetting a grant. |
-| Shadow path | `ShadowRuntime` records a decision after PS2 emits an observation. Failure there cannot change ingest success, prompts, or native control. Counts only are added to the existing companion shadow report. |
+| Shadow path | `ShadowRuntime` records a decision after PS2 emits an observation. Failure there cannot change ingest success, prompts, or native control. The live shadow caller currently has authenticated anchor/player/lifetime facts only, so it intentionally supplies `activity:'idle'` and no P2 profile bindings, memories or trait policies. Relationship/memory/trait rules are implemented as pure policy but are not claimed live until a trusted captureRef→character/profile seam exists. Counts only are added to the existing companion shadow report. |
 
 ## Files
 
@@ -60,5 +60,6 @@ Not modified: native intelligence, P0/P1/P2 lifecycle, dialogue, action, playbac
 ## Remaining unknowns
 
 - Physical GTA timing of damage, witness receipts, and anchor retirement is still open for PS0–PS2. PS3 shadow reasons should be read from companion counters during that same pass.
+- No authenticated live binding currently maps an intelligence `captureRef` to a P2 CharacterId/profile relationship. Production shadow therefore validates evidence/safety/novelty/repetition only; relationship, prior-memory and trait-policy behavior remains offline-tested until that seam exists. Do not infer the mapping from `owned`, names, models or handles.
 - No source-time speech receipt exists, so speech salience cannot be accepted from post-STT text.
 - Whether a live driver flag should be projected from `vehicle_state` into `activity` is later adapter work. The engine already honors an explicit `driving` activity.

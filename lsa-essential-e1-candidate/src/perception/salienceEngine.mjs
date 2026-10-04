@@ -40,8 +40,9 @@ function participantRefs(observation) {
 function recognizedHit(recognized, ref) {
   if (!isUuid(ref) || !recognized) return null;
   const hit = recognized instanceof Map ? recognized.get(ref) : recognized[ref];
-  if (!hit || hit.recognized === false || !isUuid(hit.characterId)) return null;
-  return { characterId: hit.characterId, relationship: RELATIONSHIPS.has(hit.relationship) ? hit.relationship : 'neutral' };
+  // Social relevance is authority-bearing input: omission is not consent.
+  if (!hit || hit.recognized !== true || !isUuid(hit.characterId)) return null;
+  return { characterId: hit.characterId, relationship: RELATIONSHIPS.has(hit.relationship) ? hit.relationship : 'neutral', recognized: true };
 }
 function familyKey(observation) {
   const family = HARM_EVENTS.has(observation.eventType) ? 'harm' : observation.eventType === 'firing_burst' ? 'firing' : observation.eventType;
@@ -275,10 +276,14 @@ function applyLedger(draft, observation, situation, cache) {
     reasons = [...reasons, 'novelty_material'];
   }
   const known = cache.ledger.has(observation.observationId);
-  if (!known && cache.ledger.size >= SALIENCE_BOUNDS.suppression && response !== 'urgent') {
-    response = 'none'; memory = 'none'; reasons = [...reasons, 'suppression_capacity'];
-  }
-  if (!known && cache.grantsForgotten && response !== 'urgent') {
+  // Never grant an entitlement that cannot be remembered. Under pressure the
+  // ranker fails closed (context can remain useful) rather than evicting an old
+  // grant and making a replay eligible again.
+  const capacityFull = !known && (
+    cache.ledger.size >= SALIENCE_BOUNDS.suppression ||
+    (!family && cache.families.size >= SALIENCE_BOUNDS.suppression)
+  );
+  if (capacityFull && (response !== 'none' || memory === 'stage')) {
     response = 'none'; memory = 'none'; reasons = [...reasons, 'suppression_capacity'];
   }
   return { context, memory, response, reasons, closed: false, policy, existing, family, severity, kinds, escalated: escalated || familyEscalated };
@@ -333,18 +338,27 @@ export class SalienceCache {
     this.ledger = new Map();
     this.families = new Map();
     this.latestById = new Map();
-    this.grantsForgotten = false;
   }
   evaluate(observation, situation) { return evaluateSalience(observation, situation, this); }
-  clear() { this.decisions.clear(); this.order = []; this.ledger.clear(); this.families.clear(); this.latestById.clear(); this.grantsForgotten = false; }
+  clear() { this.decisions.clear(); this.order = []; this.ledger.clear(); this.families.clear(); this.latestById.clear(); }
   expire(now = this.now()) {
     for (const [id, entry] of this.ledger) if (entry.expires <= now) this.ledger.delete(id);
     for (const [key, entry] of this.families) if (entry.expires <= now) this.families.delete(key);
     for (const [id, entry] of this.decisions) if (entry.decision.expiresAtMonotonicMs <= now) this.forgetDecision(id);
-    if (this.ledger.size < SALIENCE_BOUNDS.suppression) this.grantsForgotten = false;
+    for (const [id, entry] of this.latestById) if (entry.decision.expiresAtMonotonicMs <= now) this.latestById.delete(id);
+  }
+  rememberLatest(id, entry) {
+    this.latestById.delete(id);
+    this.latestById.set(id, entry);
+    while (this.latestById.size > SALIENCE_BOUNDS.decisions) {
+      const oldest = this.latestById.keys().next().value;
+      if (!oldest) break;
+      this.latestById.delete(oldest);
+    }
   }
   forgetDecision(id) {
     this.decisions.delete(id);
+    this.latestById.delete(id);
     this.order = this.order.filter(key => key !== id);
   }
   evictDecisions(observer) {
@@ -361,18 +375,14 @@ export class SalienceCache {
     }
   }
   rememberClosed(observation, situation, decision) {
-    this.latestById.set(observation.observationId, Object.freeze({ decision, profileRevision: situation.profileRevision, policy: null }));
+    this.rememberLatest(observation.observationId, Object.freeze({ decision, profileRevision: situation.profileRevision, policy: null }));
   }
   remember(observation, situation, decision, draft) {
     const now = situation.nowMonotonicMs;
     const expires = now + SALIENCE_BOUNDS.suppressionTtlMs;
     const grant = decision.response === 'eligible' || decision.response === 'urgent';
     const existing = draft.existing;
-    if (!(this.ledger.size >= SALIENCE_BOUNDS.suppression && !this.ledger.has(observation.observationId) && decision.response !== 'urgent')) {
-      if (!this.ledger.has(observation.observationId) && this.ledger.size >= SALIENCE_BOUNDS.suppression) {
-        const oldest = [...this.ledger.entries()].sort((a, b) => a[1].expires - b[1].expires)[0];
-        if (oldest) { this.ledger.delete(oldest[0]); this.grantsForgotten = true; }
-      }
+    if (this.ledger.has(observation.observationId) || this.ledger.size < SALIENCE_BOUNDS.suppression) {
       const kinds = new Set([...(existing?.kinds || []), ...draft.kinds]);
       this.ledger.set(observation.observationId, {
         revision: Math.max(observation.revision, existing?.revision || 0),
@@ -387,21 +397,20 @@ export class SalienceCache {
     }
     const key = familyKey(observation);
     const family = this.families.get(key);
-    this.families.set(key, {
-      severity: Math.max(draft.severity, family?.severity || 0),
-      consumed: Boolean(family?.consumed) || grant || Boolean(existing?.consumed),
-      memoryStaged: Boolean(family?.memoryStaged) || decision.memory === 'stage',
-      expires,
-    });
-    if (this.families.size > SALIENCE_BOUNDS.suppression) {
-      const oldest = [...this.families.entries()].sort((a, b) => a[1].expires - b[1].expires)[0];
-      if (oldest) { this.families.delete(oldest[0]); this.grantsForgotten = true; }
+    const trackFamily = grant || decision.memory === 'stage' || Boolean(existing?.consumed) || Boolean(existing?.memoryStaged) || Boolean(family?.consumed) || Boolean(family?.memoryStaged);
+    if (trackFamily && (family || this.families.size < SALIENCE_BOUNDS.suppression)) {
+      this.families.set(key, {
+        severity: Math.max(draft.severity, family?.severity || 0),
+        consumed: Boolean(family?.consumed) || grant || Boolean(existing?.consumed),
+        memoryStaged: Boolean(family?.memoryStaged) || decision.memory === 'stage',
+        expires,
+      });
     }
     this.forgetDecision(observation.observationId);
     this.decisions.set(observation.observationId, { observer: observation.observer.captureRef, decision, at: now });
     this.order.push(observation.observationId);
+    this.rememberLatest(observation.observationId, Object.freeze({ decision, profileRevision: situation.profileRevision, policy: draft.policy }));
     this.evictDecisions(observation.observer.captureRef);
-    this.latestById.set(observation.observationId, Object.freeze({ decision, profileRevision: situation.profileRevision, policy: draft.policy }));
     if (!DECISION_KEYS.every(field => Object.hasOwn(decision, field))) throw new Error('salience_decision_shape');
   }
 }

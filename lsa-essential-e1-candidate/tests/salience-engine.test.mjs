@@ -75,12 +75,15 @@ test('recognized relationship differs from a backend-only identity', () => {
   const seen = observation({ observer, eventType: 'death_seen', severity: 'critical', claims: [claim({ kind: 'dead', channel: 'visual', basis: 'sampled_state', target: victim })] });
   const recognized = new SalienceCache().evaluate(seen, view({ bindings: [{ captureRef: victim, characterId, recognized: true, relationship: 'friend' }] }));
   const backend = new SalienceCache().evaluate(seen, view({ bindings: [{ captureRef: victim, characterId, recognized: false, relationship: 'trusted' }] }));
+  const omittedAuthority = new SalienceCache().evaluate(seen, view({ bindings: [{ captureRef: victim, characterId, relationship: 'trusted' }] }));
   assert.equal(recognized.memory, 'stage');
   assert.ok(recognized.reasons.includes('relationship_close'));
-  assert.equal(backend.memory, 'none');
-  assert.equal(backend.reasons.includes('relationship_close'), false);
-  assert.equal(backend.reasons.includes('relationship_conflict'), false);
-  assert.equal(backend.context, 'must_include');
+  for (const unrecognized of [backend, omittedAuthority]) {
+    assert.equal(unrecognized.memory, 'none');
+    assert.equal(unrecognized.reasons.includes('relationship_close'), false);
+    assert.equal(unrecognized.reasons.includes('relationship_conflict'), false);
+    assert.equal(unrecognized.context, 'must_include');
+  }
 });
 
 test('player harm and self harm stay distinct', () => {
@@ -244,18 +247,29 @@ test('decision cache stays bounded and eviction does not restore reaction entitl
     many.evaluate(observation({ eventType: 'death_seen', severity: 'critical', claims: [claim({ kind: 'dead', channel: 'visual', basis: 'sampled_state', target: randomUUID() })] }), view());
   }
   assert.equal(many.decisions.size, SALIENCE_BOUNDS.decisions);
+  assert.ok(many.latestById.size <= SALIENCE_BOUNDS.decisions);
   assert.equal(many.ledger.size, 300);
   const replay = many.evaluate(first, view());
   assert.equal(replay.response, 'none');
   assert.ok(replay.reasons.includes('repetition_suppressed'));
   const full = new SalienceCache();
+  let oldestGrant = null;
   for (let index = 0; index < SALIENCE_BOUNDS.suppression; index += 1) {
-    full.evaluate(observation({ eventType: 'death_seen', severity: 'critical', claims: [claim({ kind: 'dead', channel: 'visual', basis: 'sampled_state', target: randomUUID() })] }), view());
+    const seen = observation({ eventType: 'death_seen', severity: 'critical', claims: [claim({ kind: 'dead', channel: 'visual', basis: 'sampled_state', target: randomUUID() })] });
+    if (index === 0) oldestGrant = seen;
+    assert.equal(full.evaluate(seen, view()).response, 'eligible');
   }
   const overflow = full.evaluate(observation({ eventType: 'death_seen', severity: 'critical', claims: [claim({ kind: 'dead', channel: 'visual', basis: 'sampled_state', target: randomUUID() })] }), view());
+  const urgentOverflow = full.evaluate(observation({ claims: [claim({ kind: 'injured', channel: 'self', basis: 'native_callback' })] }), view());
   assert.equal(full.ledger.size, SALIENCE_BOUNDS.suppression);
   assert.equal(overflow.response, 'none');
   assert.ok(overflow.reasons.includes('suppression_capacity'));
+  assert.equal(urgentOverflow.context, 'must_include');
+  assert.equal(urgentOverflow.response, 'none');
+  assert.ok(urgentOverflow.reasons.includes('suppression_capacity'));
+  const replay = full.evaluate(oldestGrant, view());
+  assert.equal(replay.response, 'none');
+  assert.ok(replay.reasons.includes('repetition_suppressed'));
 });
 
 test('salience performs no model call and shadow ingestion grants no native effect', async () => {
