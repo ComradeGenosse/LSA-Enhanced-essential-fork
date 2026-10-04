@@ -2,6 +2,8 @@
 
 Research baseline: `main` at `e5b3669`, fetched October 3, 2026. This is an implementation design, not an implemented intelligence feature or a GTA acceptance report.
 
+PS2 speech extension, October 4, 2026: extends `research/perception-salience-scene-director` at `be6b562` for future **PROXIMITY_CHAT / SOCIAL_ROUTING**. The existing PS0–PS8 architecture and P2 authority rules remain authoritative; the speech contracts and acceptance cases below are **PROPOSED**, not implemented or runtime-verified.
+
 **PROPOSED:** build one evidence pipeline with two outputs: bounded turn knowledge and bounded initiative requests. Essential continues to execute every native effect. A world event is not automatically a character's knowledge; a salient event is not automatically a permanent memory; a requested reaction is not an executed action.
 
 ```mermaid
@@ -82,7 +84,7 @@ type WitnessEvidence = {
 };
 type Claim = {
   claimId: string;
-  kind: 'sound' | 'firing' | 'injured' | 'dead' | 'attack' | 'location' | 'action' | 'presence';
+  kind: 'sound' | 'speech' | 'firing' | 'injured' | 'dead' | 'attack' | 'location' | 'action' | 'presence';
   source?: EntityRef; target?: EntityRef;
   certainty: 'supported' | 'uncertain';
   evidence: WitnessEvidence; // per claim, preserved across revisions
@@ -107,7 +109,7 @@ type Observation = {
 
 Initial event types are `firing_burst`, `injury`, `death_seen`, `body_found`, `threat`, `vehicle_impact`, `action_observed`, `location_changed`, `activity_changed`, `vehicle_transition`, `character_present`, `speech_heard` and `report`; each is enabled only when its producer/witness capability is verified. Environment events may omit an entity source. Vehicles use transient vehicle anchors and never acquire CharacterId. Mixed visual/auditory claims retain their individual evidence and original sample ticks; a later revision cannot overwrite an older claim's modality/time with the latest visual check.
 
-Validate `details` by event kind: measured bounded damage/armour deltas only on injury/impact, canonical callback action name only on an action claim, bounded location label only on a location claim, and the transition enum only on entry/presence/vehicle claims. No arbitrary JSON or native reason text. Speech/report content uses a separate bounded accepted-dialogue reference in RAM; its projection can quote only the authorized heard portion, without persisting a native turn ID into memory.
+Validate `details` by event kind: measured bounded damage/armour deltas only on injury/impact, canonical callback action name only on an action claim, bounded location label only on a location claim, and the transition enum only on entry/presence/vehicle claims. No arbitrary JSON or native reason text. Speech/report content uses a separate bounded accepted-dialogue reference in RAM; its projection can quote only the authorized heard portion, without persisting a native turn ID into memory. PS2 below defines the player-STT producer, shared transcript and observer-qualified speech adjunct. Negotiate a speech-capable contract version and capability before adding the `speech` claim/adjunct to closed validators; existing peers must reject unsupported shapes and leave this capability off.
 
 An observation's key is `(observer captureRef, episodeId)`; revision increases as that observer obtains new evidence. Do not add scalar `witnessedDirectly` or one global confidence number: directly hearing a shot establishes sound, not the shooter's identity or a death. Do not put relationship relevance in the canonical event; it changes with the observer's profile and belongs to Salience.
 
@@ -125,7 +127,7 @@ The compact native wire envelope additionally carries producer sequence, adapter
 
 **PROPOSED:** one native adapter in Essential's executing domain subscribes to existing callbacks and reads a bounded slice of the already-captured snapshot. `EnrichActor` only copies a small cached block; it does no scanning, disk I/O, model calls or tasking. `Update` services the budget. No addon calls `World.GetAllPeds/GetAllVehicles`, detector `Update` methods, `ReflexSystem.Trigger` for observation, or global resolver delegate setters.
 
-Initial observers are live promoted companions plus the current conversation actor, at most 16. Actor discovery from the shared snapshot is not itself perception. New observers establish a baseline; they do not acquire events that happened before registration. Ambient NPC initiative remains disabled until the same lifetime/ownership contracts are proven for it.
+Initial observers are live promoted companions plus the current conversation actor, at most 16. PS2's player-speech slice can admit ordinary nearby NPCs from the same cached snapshot after validating transient lifetime anchors, within that same 16-observer cap; this grants factual perception only, not promotion, durable identity, ownership or initiative. Actor discovery from the shared snapshot is not itself perception. New observers establish a baseline; they do not acquire events that happened before registration. Ambient NPC initiative remains disabled until the same lifetime/ownership contracts are proven for it.
 
 The following limits are **PROPOSED tuning defaults**, not discovered Essential radii or universal GTA acoustics. All visual rows require source-time range, facing and occlusion evidence; a positive distant global state query grants no knowledge.
 
@@ -140,7 +142,7 @@ The following limits are **PROPOSED tuning defaults**, not discovered Essential 
 | Theft | Successful item-transfer action or witnessed vehicle/object entry plus proven ownership/consent semantics. | Seeing someone enter a vehicle at 25 m proves entry. “Theft” remains unsupported without established ownership/unauthorized-taking evidence. No omniscient crime classification. |
 | Police arrival / activity | Sighted nearby actors, role/activity context and cooperating integration's factual notices. | At 60 m, sight proves apparent uniform/arrival. Role metadata is not knowledge of a hidden investigation, warrant or future response. Siren alone supports approaching emergency sound, not a named officer or dispatch facts. |
 | Weapon drawn / aimed | Visible weapon-state edge; current aim detector/state where actually available. | At 35 m with sight of weapon/actor. Aiming at this observer can become immediate threat; drawing a gun is not firing or intent to attack. Events behind the observer need self-involvement or hearing, not visual knowledge. |
-| Nearby conversation | Exact Essential playback start/end and directed partner data; supported reports from accepted dialogue. | Known speaker/listener membership plus modeled audible proximity, initially 12 m in the same acoustic space. Full text is shared only if explicitly authorized by the dialogue audibility policy; readiness/transcript generation alone is not heard speech. Interrupted playback supplies no unheard remainder. |
+| Nearby conversation / player speech | NPC speech uses exact Essential playback start/end and directed partner data. Player speech uses one accepted post-STT utterance joined to native capture-time witness receipts (PS2). | Modeled audible proximity, initially 12 m in the same acoustic space, qualified per observer. Membership is optional address evidence, not proof of hearing or identity. Only authorized heard text is shared; an NPC transcript without playback is unheard, and a player transcript without capture-time hearing evidence grants no knowledge. Interrupted/partial speech supplies no unheard remainder. |
 | Player/NPC actions | `OnNpcActionExecuted(ped, actionName, succeeded)` for self/corroboration, plus observable outcome edges. | Callback says handler reported success; it does not prove the physical action completed or every neighbor witnessed it. Only observer-visible/audible outcomes propagate. |
 | Enter/leave location; activity change | Cached actor/world/location/activity provider changes on tracked participants. | Self knows own move; another observer must see arrival/departure. Require stable location transition (1 s dwell), avoiding doorway chatter. Do not hydrate every nearby actor on every tick. |
 | Vehicle entry/exit, passenger/driver changes | Existing vehicle context and native companion state, compared across retained anchors. | Self knows its ride; visible others at 40 m. Seat/engine/motion edges create events only when meaningful to the observer's current activity. |
@@ -167,6 +169,7 @@ Native producers mint a signal UUID once per callback or detected edge and incre
 | Death outcome | Append only when retained target matches and damage/temporal evidence supports causality. If cause is insufficient, keep “injured; later died” or “found dead.” Temporal proximity alone cannot produce “Trevor killed Marcus.” |
 | Repeated threat/aim | One active state with revision/escalation edges; refresh last-seen without new speech entitlement. |
 | Crash/location/activity | Same vehicle/collision within 3 s; stable location/activity edge with 1 s dwell. Persistent state creates no new incident after restart. |
+| Speech utterance / conversation | One stable capture/utterance UUID across STT/transport retries; distinct real utterances keep distinct UUIDs even with identical words. Same retained speaker and compatible captured conversation evidence may link utterances within a proposed 5 s gap; otherwise retain separate episodes. Two nearby conversations never merge by proximity alone. Use the existing 30 s hard lifetime and linked continuation incident key, preserving utterance/observer suppression (PS2). |
 | Episode/context | Settling grace 2 s; hard episode lifetime 30 s. Ordinary observation TTL 30 s, danger context 120 s, capped at 128 observations per observer. Persisted memories are separate. |
 
 Keys use episode UUIDs and retained capture anchors, not durable raw handles. Index by event family, participant anchors and coarse spatial cell; search at most eight compatible open candidates. Distance-only keys must not merge adjacent unrelated crimes. A participant's retirement closes correlation eligibility; a newly spawned lookalike starts another anchor. Unknown participants never become known merely because a name appears later; newly recognized evidence creates a qualified revision.
@@ -349,7 +352,7 @@ Suggested feature modes are `off`, `shadow`, `context`, `memory`, `initiative`, 
 | Transient entity anchors | 256 retained peds/vehicles, prioritizing owned participants; retire invalid/idle anchors. Observe no newly assigned recycled handle as the prior lifetime. |
 | Snapshot discovery | Reuse one existing snapshot/version. Inspect at most 512 candidate entries per 200 ms discovery cycle with a cursor; prioritize player and owned roster separately. No addon world enumeration; record deferred discovery. |
 | Fast shooting sample | Player plus at most 8 relevant retained sources every proposed 50 ms. Missed short edges remain a measured limitation; callbacks cover injury independently. |
-| Other state/witness work | Proposed 200 ms cadence; spatial/range/facing rejection before LOS. At most 4 LOS checks in one Update and 8 per 200 ms; aim for ≤1 ms p95 added Update cost on test hardware. Budget overrun defers evidence rather than assuming sight. |
+| Other state/witness work | Proposed 200 ms cadence; spatial/range rejection and modality-appropriate facing gates before LOS (facing alone cannot reject hearing). At most 4 LOS checks in one Update and 8 per 200 ms; aim for ≤1 ms p95 added Update cost on test hardware. Budget overrun defers evidence rather than assuming sight/hearing. |
 | Raw ingestion | 256 signals, reserved 64 for critical involvement; merge repeated states first, drop routine oldest if necessary, report lost/gap count. Critical overflow still remains bounded and reduces certainty. |
 | Correlation | 64 open episodes, 256 retained episodes, 8 match candidates/signal, maximum 8 claims and 4 participant anchors per episode. Repeated counts saturate; no unbounded projectile list. |
 | Observations | 128/observer, 2,048 globally; maximum 4 claims each, ≤2 MiB aggregate serialized event RAM. Evict expired/routine first; overflow cannot reset incident suppression. |
@@ -373,6 +376,7 @@ Add allowlisted telemetry for source capability, ingestion/drop counts, capture-
 | `native/intelligence/IntelligenceIntegration.cs` | Idempotent integration registration/subscriptions, game-fiber Update/EnrichActor, lifecycle cleanup. Reuse P2 host bootstrap; do not register from another AppDomain. |
 | `native/intelligence/EntityAnchors.cs`, `SensorAdapters.cs` | Retained lifetime anchors; existing snapshot, damage/playback/action callbacks; bounded state/shot samples. |
 | `native/intelligence/WitnessPolicy.cs`, `IntelligenceChannel.cs` | Event-time observer evidence and bounded checked wire contracts; no model, storage or native task loop. |
+| `native/intelligence/SpeechCaptureAdapter.cs`; `src/perception/speechContract.mjs`, `speechEvents.mjs`, `sharedTranscriptStore.mjs` | Existing mic-capture markers and bounded native witness receipts joined to one accepted STT transcript; immutable observer speech evidence and optional address hints. No responder selection or extra dialogue lifecycle. |
 | `native/intelligence/DirectorAdmission.cs` | Exact tickets, policy/ownership/deadline checks, immediate native scheduler submission and directed-interaction admission. |
 | `src/perception/contracts.mjs`, `observationStore.mjs`, `episodeCorrelator.mjs` | Versioned primitive contracts, validation/expiry, bounded shared episodes with isolated observation revisions. |
 | `src/salience/salienceEngine.mjs`, `knowledgeSelector.mjs` | Local categorical rules and immutable bounded narrative selection. |
@@ -410,12 +414,140 @@ The entries below are **PROPOSED work**, not checks already run. Each phase adds
 
 ### PS2 — Witness rules and episode correlation
 
-- **Implement:** self/visual/auditory/report evidence, recognition separate from identity, claim-level observer views, temporal/participant correlation and material revisions; model audibility only for validated sound-producing sources.
-- **Files:** native `WitnessPolicy.cs`; `episodeCorrelator.mjs`, observation projection/fixtures.
-- **Native seams:** retained positions/facing, tested LOS/interior/vehicle helpers, source-time evidence from PS1 and fresh owner identity facts. Native acoustic shortcuts stay optional.
-- **Tests:** wall/back/vehicle/out-of-range cases; no causal/identity inference from sound; lost callbacks; mixed attackers/victims; same-handle new lifetime; reports never become direct witnesses; continuation episodes preserve suppression.
-- **GTA validation:** three observers in different facing/interiors/vehicle states hear/see different facts; move into view after injury; body discovery versus witnessed death; concurrent nearby unrelated fights.
-- **Exit:** no observer receives claims unsupported by its own evidence; bursts coalesce, causal unknowns stay unknown and hot-path budgets pass.
+**Boundary:** **PS2 decides what each NPC could factually hear/observe and how events correlate. It does not decide who should respond. That belongs to SALIENCE / SOCIAL_ROUTING later.** Extend the existing raw-signal → `EventEpisode` → immutable per-observer `Observation` flow. Player speech is a first-class auditory event with `eventType:'speech_heard'` and a `speech` claim; it is not a broadcast dialogue request.
+
+#### Implementation responsibilities
+
+- **Implement:** retain self/visual/auditory/report evidence, recognition separate from identity, claim-level observer views, temporal/participant correlation and material revisions. Existing non-speech witness, damage/causality and continuation rules still apply. Model audibility only for validated sound-producing sources.
+- Mint one run-scoped `utteranceId` when the existing player mic capture begins, link it to the native source/capture receipt, and retain it across retries. After STT succeeds and its accepted final transcript passes existing currency/cancellation checks, publish **one** `PlayerSpeechUtterance`. All qualified NPCs reference that same immutable transcription. STT is performed by the existing input path, never once per listener; PS2 adds zero reasoning/TTS/model calls, opens no model sessions and submits no turns. Empty/failed/cancelled STT, typed input, special-event text and generated NPC text without playback are not player auditory events. A failure after speech publication in the original response path must not erase an already factual hearing perception.
+- Capture native player position/lifetime, observer eligibility and geometry **during the mic interval**, before STT finishes. Join those receipts afterward; never query the current roster at STT completion to infer who heard the past. Membership/attention changes carry their own sample times. Without a timely matched receipt, omit the claim and report an unknown/missed witness check. An observer entering after the utterance cannot receive it from a backlog.
+- Decide audibility independently per retained observer: source-time distance; LOS/solid occlusion and acoustic path; same/different/unknown interior; source/listener vehicle and validated enclosure/window state; listener facing/attention where useful. Start from the existing proposed 12 m same-space speech radius and half-radius enclosed-vehicle policy. A verified solid wall or closed cross-interior boundary rejects speech under the conservative initial policy. Visual LOS is evidence about occlusion, not a universal acoustic truth; transparent/open paths need validated policy. Facing away does not itself mean deafness. Unknown vehicle/window/attention data cannot become a positive exemption; retain uncertainty and reason codes.
+- Keep **heard** and **did not hear** as perception results, distinct from **addressed** and **overheard** as qualified address interpretations. `heard` means supported access to an authorized portion of speech; `did_not_hear` requires a supported acoustic/range rejection and exposes no text. Missing/stale/budget-deferred evidence is `unknown`, not proof of deafness. A heard observer may remain `unresolved`, or carry an `addressed_candidate` / `overheard_candidate` hint with its basis. These mean probably addressed / probably heard someone else's exchange, never a final addressee or responder decision. Address cues cannot override `did_not_hear`.
+- Preserve what was actually established: hearing “he killed someone” establishes that those words were spoken, not a killing, culprit identity or speaker intent. Do not convert speech into an `attack`, `death_seen` or direct-crime claim. A backend-known speaker/third party is not automatically recognized by the observer. Pronouns, names, proximity and looking at a ped cannot prove intended target, identity of a referenced person, or that the listener was addressed.
+- Carry timestamped conversation membership, recent speaker/listener exchanges, explicit name spans, second-person/group wording such as “you guys,” and source facing/attention as **optional evidence for later SALIENCE / SOCIAL_ROUTING**. Extract bounded lexical spans locally; do not use an LLM to resolve address at PS2. Name spans remain transcript evidence with possibly no match, several matches or a qualified known reference; matching a name never creates an identity association. Recent relationships must come from existing exact accepted input/playback/membership receipts, not generated-but-unplayed text, another observer's private profile or invented conversation history. Group hints reference a bounded source-time candidate roster, without appointing members or a responder.
+- Correlate a continued utterance under its stable UUID and successive real utterances under a bounded conversation episode only when speaker lifetimes and captured continuity/membership are compatible. Proposed 5 s silence gap, existing 30 s hard episode lifetime, maximum eight match candidates and existing claim limits apply. Keep overlapping unrelated conversations separate; absent reliable continuity, keep separate episodes. A larger group uses the bounded observer roster, not an expansion of the four episode-participant anchors. At the eight-claim episode/four-claim observer cap, rotate a bounded linked continuation or omit routine detail with a drop count; never overwrite a claim with another utterance's evidence. Linked continuation preserves the incident key and suppression; never append an unbounded transcript/history.
+- Enforce idempotence at ingestion, observation publication and downstream handoff. Key speech perception by `(nativeRun, utteranceId, observer captureRef)` and accepted transcript revision, not text, CharacterId or a reallocated response generation. A replay returns the prior result and emits no new observation delta; conflicting content for the same accepted ID is rejected. Freeze accepted final text; late STT alternatives do not mint new utterances or reaction entitlement. Distinct actual repetitions may be perceived, but routine episode updates do not create new reaction entitlement. Carry utterance/incident keys so later routing can reserve one reaction; PS2 owns perception dedupe, downstream owns reaction reservations/completion.
+- Use the same policy for promoted characters and ordinary NPCs with validated RAM-only anchors. Optional CharacterId requires fresh P1 proof; ordinary observers need no promotion or fabricated session nonce. Names, membership, hearing and routing hints cannot grant P2 ownership, summon/despawn authority, durable memory writes or native action addressing. Any later selected responder still enters **the existing Essential turn/generation/action/playback pipeline**, with its normal P0/P1/P2 admission and lifetime checks. No parallel proximity-dialogue session, generation allocator, audio sender or task loop is introduced.
+
+#### Files/modules to add or modify
+
+**Files:** all paths are proposed unless explicitly described as existing; `src/...` retains the document's companion-root convention, while `native/...` is repository-root native code.
+
+| Files | PS2 responsibility |
+| --- | --- |
+| Add `native/intelligence/SpeechCaptureAdapter.cs`; modify planned `SensorAdapters.cs`, `IntelligenceIntegration.cs`, `EntityAnchors.cs` | Associate the existing mic begin/end interval with a retained player anchor; collect bounded observer receipts on the existing executing-domain Update/fiber; retire/expire them without world rescans. PS1 NPC playback evidence remains playback-qualified. |
+| Modify planned `native/intelligence/WitnessPolicy.cs`, `IntelligenceChannel.cs` | Source-time speech audibility, controlled rejection/unknown reasons, matched capture facts and negotiated speech capability. Extend only the checked factual channel as needed for capture-marker correlation; never repurpose P1 identity/P2 player-control messages. No transcript is required by native geometry evaluation. |
+| Add `src/perception/speechContract.mjs`, `speechEvents.mjs`, `sharedTranscriptStore.mjs`; modify planned `contracts.mjs`, `observationStore.mjs` | Validate/join accepted STT and native receipts, hold one transcript in RAM, produce observer-qualified adjuncts/immutable revisions, and dedupe under bounded expiry. Strict version, size, reference/lifetime and capability checks. |
+| Modify planned `src/perception/episodeCorrelator.mjs` and observation projection fixtures | Utterance/conversation correlation, simultaneous conversation separation, linked continuations, no retroactive membership and no causal/identity promotion from words. |
+| Modify existing `src/openai/openaiConnection.mjs`, `runSequentialTurn.mjs`, `src/integration/essentialGlue.mjs` | Add an optional factual capture/accepted-transcript hook around the current mic/STT path, before any listener-specific reasoning. Preserve its exact turn checks, deadlines, cancellation and current history semantics. Reuse a cached accepted transcript on replay; no repeated STT per observer. |
+| Modify existing `tools/buildCandidate.mjs`, `patches/essential-hooks.json`, planned capability/config wiring only if required by the seam proof | Source-pin the mic/capture hook and contract negotiation; missing/mismatched hooks disable speech perception while normal dialogue remains usable. Stock Gemini speech perception stays off unless an equivalent accepted-input seam is separately proven; do not add a second transcription path. |
+| Add `tests/perception-speech.test.mjs`, `perception-speech-replay.test.mjs`, stock mic/controller fixtures and `native/intelligence/tests` speech cases | Execute production ingestion, witness, correlation and projection interfaces with provider/native substitutes. Future SALIENCE / SOCIAL_ROUTING consumes the contract; no responder implementation belongs in this change. |
+
+#### Native seams used and probes required
+
+- **Native seams:** reuse retained PS0/P2 anchors and source-time PS1 snapshots, tested position/facing/LOS/interior/vehicle helpers, the P2 executing-domain integration Update, and fresh P1 owner facts only when attaching durable identity. Reuse existing current-conversation/directed-partner data and exact NPC `NpcPlaybackCoordinator.PlaybackStarted/PlaybackEnded` receipts as optional continuity evidence; they do not prove player mic audibility. Existing `BeginMicTurn(Rage.Ped)` is an input-control seam to inspect, not a proven lossless utterance/hearing receipt. No new scanner, damage service, resolver setter or native dialogue manager.
+- **CONFIRMED companion seam:** `src/openai/runSequentialTurn.mjs` currently awaits `services.transcribe`, checks currency, then emits `input_transcript`; `openaiConnection.mjs` buffers and ends the existing mic capture. **UNKNOWN native linkage:** the current research does not establish an exact native begin/end receipt tied to that capture UUID, or its game-tick/monotonic alignment. Add a narrow source/metadata proof and observational GTA probe for begin/end, cancellation, STT delay, reconnect and player-switch/retirement before enabling the producer. A transcript emitted after STT alone is insufficient hearing evidence.
+- **Required acoustic probe:** validate the speech policy at 3 m, the range boundary, solid wall/open doorway, same/different interior, on-foot/enclosed/open vehicle and moving listener, including facing/attention and source/listener lifetime. Measure snapshot/capture lag and LOS budget. Reuse the existing PS2 LOS/interior/vehicle gate, extending it to quiet speech; it cannot inherit acceptance from gunfire. `CanPedHearPlayer` remains an optional comparison only after Enhanced dispatch/semantics are tested; a native function name alone is not a per-utterance auditory event.
+- **Required continuity probe:** check whether current conversation/partner membership has timely exact anchors and start/end/retirement boundaries, including two simultaneous nearby exchanges. Missing/unproven membership leaves address/continuity unresolved; it does not block conservative heard-only perception once capture and acoustics pass. Window openness and attention remain unknown unless their seams are separately verified. These are focused additions to existing PS2 gates, not a redesign or a requirement for a new native acoustic engine.
+
+#### Companion-side data contracts
+
+**PROPOSED negotiated speech adjunct:** keep shared utterance content outside `EventEpisode`/`Observation` claims and project only through the observer-qualified reference. Use immutable RAM records and strict closed validators; no arbitrary native JSON, raw handles, private profiles or model-visible transport identifiers. `EntityRef`, per-claim `WitnessEvidence`, revision semantics and existing lifetime/clock-regression rules still apply.
+
+```ts
+type SharedSpeechTranscript = {
+  nativeRun: string; utteranceId: string; transcriptRef: string;
+  revision: 1; origin: 'player_stt'; text: string; // immutable, bounded final text
+};
+type PlayerSpeechUtterance = {
+  speechVersion: 1; nativeRun: string; producerId: string; producerSequence: number;
+  utteranceId: string; captureReceiptRef: string; source: EntityRef; // kind=player
+  capture: { startGameTick: number; endGameTick: number; durationMs: number };
+  acceptedAtMonotonicMs: number; expiresAtMonotonicMs: number;
+  transcriptRef: string; transcriptRevision: 1; // one frozen final STT result
+  conversationRef?: string; continuationOfEpisodeId?: string;
+};
+type SpeechAddressEvidence = {
+  // Optional, source-time evidence; absent evidence stays absent.
+  membershipRef?: string; recentExchangeRef?: string;
+  nameSpans: { start: number; end: number }[]; // spans into authorized heard text
+  groupSpan?: { start: number; end: number }; // e.g. "you guys"
+  candidateRosterRef?: string; // bounded capture-time anchors, not final addressees
+  hint: 'unresolved' | 'addressed_candidate' | 'overheard_candidate' | 'group_candidate';
+  basisCodes: string[]; // controlled vocabulary, maximum 4; no proof of intent
+};
+type ObserverSpeechReceipt = {
+  nativeRun: string; utteranceId: string; observer: EntityRef;
+  sampledGameTick: number;
+  audibleIntervalsMs: { start: number; end: number }[]; // max 4, capture-relative
+  hearing: 'heard' | 'did_not_hear' | 'unknown';
+  reasonCodes: string[]; // controlled vocabulary, maximum 4
+  evidence: WitnessEvidence; // channel=auditory, basis=audibility_model
+  acousticContext: {
+    occlusion: 'clear' | 'blocked' | 'unknown';
+    interior: 'same' | 'different' | 'unknown';
+    sourceVehicle: 'on_foot' | 'enclosed' | 'open' | 'unknown';
+    observerVehicle: 'on_foot' | 'enclosed' | 'open' | 'unknown';
+    sourceFacingToObserver: 'in_cone' | 'outside_cone' | 'unknown';
+    attention: 'attending' | 'distracted' | 'unknown';
+  };
+};
+type SpeechPerception = {
+  observationId: string; episodeId: string; revision: number;
+  nativeRun: string; utteranceId: string; observer: EntityRef;
+  witnessReceiptRef: string; // exact checked ObserverSpeechReceipt
+  authorizedTextRef?: string; // ONLY when hearing + heard coverage support it
+  coverage: 'full' | 'partial' | 'unresolved';
+  addressEvidence?: SpeechAddressEvidence;
+};
+```
+
+The checked native receipt authenticates the exact source/observer lifetimes; companion-supplied membership/name hints cannot authenticate them. Transport authority may bind the player source while an observer's perceived speaker identity remains uncertain. `conversationRef` is a run-local correlation reference, never an invented Essential session/ownership token. Membership/recent exchange references resolve to bounded timestamped factual records, not a new relationship store. One `heard` speech claim references `SpeechPerception`; negative/unknown checks stay diagnostics and never expose a transcript or create a heard observation. SALIENCE / SOCIAL_ROUTING can later decide probable addressee(s), group membership and responder eligibility using **each observer's own** evidence. Candidate-roster metadata is private routing evidence; narrative projection cannot reveal unseen roster names or another observer's claims/private facts.
+
+Full-text authorization requires supported hearing coverage across the utterance; unknown/stale sampling gaps cannot be bridged into continuous audibility. If a listener enters/leaves partway or audibility changes, grant only a verified time-aligned heard portion. The current STT path returns plain text, not proven word timing: without validated alignment, retain partial-hearing evidence without quoting the full text or attaching unheard lexical spans. Omit unsupported name/group hints rather than copying another listener's text. Do not fabricate word timestamps or retranscribe separately for each NPC.
+
+Use the existing 16-observer, episode/claim, 8-KiB-frame and 2-MiB aggregate event-RAM limits. Proposed shared-transcript cap: 64 live references, 4,096 UTF-8 bytes each / 256 KiB total within that aggregate budget, maximum four name spans and 16 anchors per candidate roster. Over-cap text disables the optional speech-content projection with a count; never silently truncate a factual quotation or enlarge the normal dialogue limits. Expire capture receipts/transcript references under the existing work deadline and source-time observation TTL; an STT completion too late for its source evidence is dropped from PS2, without restarting an expiry clock. Immutable observations keep their references alive only within these bounds.
+
+Suppression reuses the existing bounded 1,024-entry / 10-minute cache for utterance/observer keys. Keep a per-producer acknowledged sequence watermark/epoch as well, so old retries remain rejected after observation/transcript/cache eviction. Accept a new capture only in its active epoch and admission window; never replay old utterances into a new native run. Reconnect must establish a fresh checked epoch, without reviving prior capture IDs. Capacity pressure rejects/defer-drops optional new speech rather than evicting an active suppression entry to create duplicate entitlement. Reset/retirement invalidates live anchors, receipts and references; no speech backlog is persisted to disk.
+
+#### Tests and PS2 speech test matrix
+
+- **Tests:** retain existing wall/back/vehicle/out-of-range, lost callback, mixed attacker/victim, same-handle new lifetime, report-versus-direct-witness and continuation-suppression cases. Add the following production-interface fixtures with fake STT and checked native receipts; assert actual emitted claims, text authorization, stable IDs and call counts. PS2 itself must make **zero** model/turn/playback dispatches in every case. The one STT call is upstream input work, shared across all observers; unchanged ordinary response work is counted separately.
+
+| Scenario | Required PS2 result / later-routing boundary |
+| --- | --- |
+| NPC 3 m away facing the player, clear same-space path | `heard`, one authorized transcript reference with source-time distance/facing evidence. Facing is useful evidence, not automatic addressed status. |
+| NPC behind a solid wall | `did_not_hear` under the verified conservative speech policy; no speech observation/text. Unknown path instead produces `unknown`, never a positive claim. |
+| NPC in a nearby vehicle | Enclosed/open/unknown contexts produce distinct reasoned audibility/coverage under the validated policy; the vehicle row cannot inherit the on-foot result. |
+| Player says another NPC's name | A listener that heard the name gets its explicit span as evidence; no speaker/third-party identity proof, promotion or responder assignment. Ambiguous/unknown names stay unresolved. |
+| NPC overhears speech clearly addressed to someone else | `heard` plus `overheard_candidate` only when supported by exact captured membership/partner cues; preserve uncertainty and heard content, without declaring that NPC addressed or scheduling a reply. |
+| Player says "you guys" near several NPCs | Each qualifying observer gets the same shared transcription and a `group_candidate` span/roster reference. Non-hearers get no group speech knowledge; PS2 chooses no members/responder. |
+| NPC enters range after the utterance, before delayed STT returns | No retroactive speech perception. Missing source-time registration cannot be filled from the later snapshot. |
+| Same utterance retried/replayed, including new response generation and cache expiry | One accepted transcript, one perception per observer, no duplicate delta/reaction entitlement. Watermark rejects old retry after eviction; conflicting same-ID text is rejected. |
+| Two simultaneous nearby conversations | Separate correlation references/episodes and transcript evidence, including overlapping area/time. Missing continuity never merges them by distance or name. |
+| Player says "he killed someone" | Supported heard words/report only; referenced person/cause/intent unknown. No witnessed killing, attack/death claim or factual killer memory can be derived. |
+| Same real phrase spoken again; long continued exchange | New capture ID for a real repetition; compatible utterances correlate within bounded episodes. 30 s continuation retains incident suppression and does not create noisy independent response entitlement. |
+| Listener facing away, distracted, or enters/leaves mid-utterance | Facing alone does not reject hearing. Attention/coverage remain qualified; partial hearing without verified alignment has no full quotation/name/group spans. |
+| Ordinary and promoted NPCs; duplicate names; observer retires/reuses handle | Same witness policy; ordinary NPC keeps a transient anchor. Fresh owner proof is required for CharacterId, and a replacement inherits no speech, membership or suppression identity. |
+| STT failure/cancel/empty result, unsupported peer, reordered/gapped receipt, restart/clock regression or capacity overflow | No fabricated text/claim, new dialogue session or stale revival. Unknown/drop diagnostics are bounded; ordinary dialogue/lifecycle and P2 player authority remain intact. |
+
+Use the stock mic/controller harness to hold STT open while moving/registering/retiring observers, replay the same accepted input, and fail later reasoning/playback. Verify that publication reflects source-time receipts, factual hearing survives a later response failure, and optional-hook failure leaves the existing input/history/turn path intact. Test strict contract/version/UTF-8/span/reference validation, full/partial authorization, all cache/queue limits and zero provider fan-out with 16 admitted observers. Later routing integration must consume the same utterance/incident suppression keys through Essential; PS2 tests must not claim an implemented routing policy.
+
+#### GTA validation cases
+
+- **GTA validation:** retain the original different-witness, late injury/body-discovery and concurrent-fight checks. Run every speech matrix row with controlled non-mission placements and a promoted plus an ordinary NPC; speech perception runs in shadow first, with no autonomous responses.
+- Compare the 3 m facing listener against a listener behind a solid wall, across an open doorway/interior boundary, facing away, and in enclosed/open vehicles at matching distances. Record native policy reasons, geometry/receipt lag and actual placement; these validate the modeled perception policy, not an assertion that GTA plays the player's microphone through its sound engine.
+- Speak another NPC's name, address a known partner while a third NPC overhears, then say "you guys." Inspect each observer's authorized words and uncertain address evidence; ensure no response scheduling or P2 identity/authority change. Test identical names without selecting a winner.
+- Delay STT while an NPC enters/leaves, replay the accepted utterance through a transport retry/reconnect, and run two nearby conversations with overlapping timing. Inspect IDs/counts: no late hearing, duplicate deltas, merged exchanges or revived retired anchors. Include a partial listener whose plain-text STT cannot support a full quote.
+- Say "he killed someone" without an observed killing. The only supported proposition is heard speech/report; no killer/crime fact or automatic memory is produced. Check 30 s continuation and a bounded soak for Update/LOS/RAM limits. Inspect controlled fixture results in memory; normal telemetry remains allowlisted counts/reasons and excludes names, transcripts/audio, identifiers and private text under section 12. PS4/later routing answer/playback acceptance remains a downstream gate, not a PS2 exit shortcut.
+
+#### Exit criteria
+
+- **Exit:** no observer receives a claim or quoted portion unsupported by its own source-time evidence; original bursts/causal uncertainty and hot-path budgets still pass.
+- One admitted player mic capture produces at most one accepted transcript and one idempotent speech perception per qualified observer. Late arrivals, stale epochs, transport replays and handle replacements never acquire prior speech; accepted-text conflicts fail closed and bounded expiry does not reset suppression.
+- Heard/did-not-hear/unknown and unresolved/addressed/overheard/group candidates remain distinguishable. Names, conversation membership and hearsay never become intent, identity, crime truth or native authority. Capture/acoustic probes pass for each enabled seam; unproven helpers remain unknown/off.
+- Promoted and ordinary NPC fixtures pass under the same bounded witness policy, with P0/P1/P2/E1–E6 regression behavior preserved and no implicit promotion/persistence/control. Native and companion contracts agree, and source-pinned mic hooks fail safely when absent.
+- PS2 yields observer-qualified factual perceptions plus optional evidence for future SALIENCE / SOCIAL_ROUTING, with zero added model calls, session/turn allocation, responder arbitration or playback dispatch. Any downstream response still uses Essential's existing turn/generation/playback lifecycle and consumes the same suppression keys. All GTA cases are recorded with pinned build/runtime versions before speech capability is enabled.
 
 ### PS3 — Deterministic salience
 
@@ -496,6 +628,16 @@ These are **PROPOSED, not run**. Retain build/DLL/game/RPH versions, bounded rea
 | --- | --- |
 | Three witnesses, one shot | Facing observer can describe visible firing; behind-wall observer at most hears a qualified sound; remote/interior observer has no event. No named shooter from sound alone. |
 | Vehicle/window/interior hearing | Enclosed/open vehicle and different interior policies match observed behavior or stay conservative. Unsupported acoustic/window seams remain off. |
+| PS2: player speech at 3 m, listener facing player | Clear same-space listener receives `heard` with source-time evidence and the one shared accepted STT transcript; addressing remains a candidate. |
+| PS2: speech behind a solid wall | Verified closed path produces `did_not_hear`, with no text; missing acoustic evidence stays unknown rather than granting speech knowledge. |
+| PS2: nearby vehicle listener | Enclosed/open/unknown vehicle context changes qualified speech audibility; on-foot assumptions do not leak into occupants' knowledge. |
+| PS2: explicit-name mention | Hearing another NPC's name supplies a bounded mention span, without resolving identity/intent, promoting a character or choosing a responder. |
+| PS2: third-party overhearer | Heard words with supported partner/membership evidence carry an uncertain `overheard_candidate`; the overhearer is not automatically addressed. |
+| PS2: "you guys" | Multiple source-time qualified listeners reference one transcript and a group-address candidate; PS2 schedules zero responses. |
+| PS2: late arrival during delayed STT | An NPC entering after capture ends acquires no retroactive speech, even if nearby at transcript completion. |
+| PS2: retry/replay of one utterance | No duplicate observation delta or reaction entitlement, including after transcript/context eviction; old epoch/capture IDs never revive on reconnect. |
+| PS2: simultaneous nearby conversations | Distinct utterance/conversation correlation remains separate despite overlapping time/area; no combined shared knowledge. |
+| PS2: "he killed someone" | Hearing a statement remains speech/report evidence. Unknown referent and alleged crime are not converted into witnessed killing or killer memory. |
 | Injury then death versus discovered body | Supported witness can describe the qualified sequence; late arrival cannot name the killer. Health baseline/despawn/recreation never invents a death. |
 | Gunfight storm, several attackers/victims | Counts/claims remain bounded; different causal pairs stay distinct; one shared experience per observer, no hundreds of memories or autonomous calls. |
 | Hidden role/crime information | A stranger's private police/integration/profile facts never appear in the NPC's answer; ambiguous vehicle entry is not called theft. |
