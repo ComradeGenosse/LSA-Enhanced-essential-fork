@@ -360,6 +360,7 @@ A controlled E5/E6 payload is staged/installed for GTA testing with both flags e
 - [docs/E2-E3-implementation-status.md](docs/E2-E3-implementation-status.md) — current E2/E3 implementation and validation state.
 - [docs/E5-E6-implementation-status.md](docs/E5-E6-implementation-status.md) — current E5/E6 implementation, API/native-lifecycle evidence, deployment state, and remaining GTA gate.
 - [docs/plans/](docs/plans/) — design history, E2/E3 plans/reviews, native analysis, and original mission records.
+- [docs/UX-phase0-1-status.md](docs/UX-phase0-1-status.md), [docs/UX-phase2-3-status.md](docs/UX-phase2-3-status.md), [docs/controller-setup.md](docs/controller-setup.md) — the in-game UX: command bridge, L4/R4 gestures and the native LSA menu (optional, default off).
 - [docs/ROADMAP.md](docs/ROADMAP.md) — current roadmap through streaming, durable identity, perception, salience, autonomy, actions, and final acceptance.
 
 ## Roadmap

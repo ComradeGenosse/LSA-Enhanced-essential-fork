@@ -136,3 +136,5 @@ If the game pauses while the console is open, requests expire with `The LSA requ
 ## Next
 
 Phase 2 (InputRouter and chord MVP) can build on this bridge directly: the router submits `current.inspect` and `npc.ask` envelopes with `source: "chord"`, and the HUD reads `Snapshot()` while `RequestSnapshots` keeps interest alive. S1 and S2 should run first.
+
+Phases 2 and 3 are now on `feature/ux-phase2-3-router-menu`: see [UX phase 2–3 status](UX-phase2-3-status.md).

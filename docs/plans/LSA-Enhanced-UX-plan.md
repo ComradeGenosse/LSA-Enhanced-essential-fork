@@ -640,6 +640,8 @@ Read left to right, top row first. Each diamond is the physical GTA gate that cl
 
 ### Phase 2: InputRouter and chord MVP
 
+> Status (October 4, 2026): implemented and verified offline on `feature/ux-phase2-3-router-menu`; GTA gate pending. See [UX phase 2–3 status](../UX-phase2-3-status.md) and [controller setup](../controller-setup.md).
+
 **Goal:** L4 = Mark, R4 = Text, L4+R4 = Follow current NPC, with real suppression.
 
 - **New** `contracts/commands.v1.json` with `essential.mark`, `essential.text`, `current.follow`, `current.wait`, `current.dismiss`, `current.promote`, `npc.ask`.
@@ -651,6 +653,8 @@ Read left to right, top row first. Each diamond is the physical GTA gate that cl
 - **Gate:** 20 taps each give 20 marks and 20 text prompts; 20 chords in both orders give zero marks, zero text prompts and 20 follows or asks; a 5 s chord hold gives one follow; nothing fires with text input, the F7 menu or the console open; alt-tab mid-chord leaves nothing stuck.
 
 ### Phase 3: native menu v1
+
+> Status (October 4, 2026): implemented and verified offline on `feature/ux-phase2-3-router-menu`; GTA gate pending. See [UX phase 2–3 status](../UX-phase2-3-status.md) for the deliberate differences from this section (select twice instead of hold-to-confirm, one host fiber, `LSAMenu`).
 
 **Goal:** Current NPC, Characters, Controls and Diagnostics pages in RNUI.
 
