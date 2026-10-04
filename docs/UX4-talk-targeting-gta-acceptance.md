@@ -5,70 +5,47 @@ This document is a physical GTA V Enhanced acceptance checklist. Offline unit te
 Architecture: research/ux4-talk-targeting-architecture.md
 Implementation plan: plans/UX4-talk-targeting-implementation-plan.md
 
-## A. T0 target-seam proof — required before implementation
+## A. T0B direct-mic seam smoke test
 
-Record exact build SHA, installed DLL hashes, RPH version and LSA settings.
+T0A is already complete from the checked-in DLL. Do not test the obsolete "SetPlayerConversationPed then press normal TalkKey" design: static analysis proves stock Talk recomputes GetBestConversationPed and can overwrite that target.
 
-### A1 — explicit target beats nearest
+### A1 — exact target beats nearest
 
-Setup:
-- NPC A about 2–3 m away
-- NPC B about 6–8 m away
-- both ordinary, alive and valid
+- Put ordinary NPC A closer than B.
+- UX4 selects B without mutating NpcTargeting.
+- Hold past the threshold.
+- Native `talk.ptt_start` revalidates B, calls `SetPlayerConversationPed(B)`, then `InputController.SendMicStart(B)`.
+- Speak, then release through `talk.ptt_stop`.
 
-Steps:
-1. Use the diagnostic probe to SetPlayerConversationPed(B).
-2. Confirm GetPlayerConversationPed() == B.
-3. Do not press Talk yet for several seconds.
-4. Confirm no microphone/provider turn starts from the setter alone.
-5. Press/hold Essential's normal TalkKey and say a short unique line.
+Pass: B gets the mic turn, A does not, and preview taps alone create no conversation side effects.
 
-Pass:
-- created mic turn actor is B
-- A receives no turn
-- setter alone produced no turn/action/task
+### A2 — current speaker does not steal selection
 
-### A2 — current speaker does not steal explicit target
-
-Create recent/current speaker A, explicitly set B, then speak.
+Make A the recent/current speaker, explicitly select B, then start through UX4.
 
 Pass: B is addressed.
 
-### A3 — driver
+### A3 — vehicle occupants
 
-Put B in driver seat and A standing closer.
+Repeat with B as driver, front passenger and rear passenger.
 
-Pass: explicit B receives PTT.
+Pass: direct UX4 mic start addresses B in every supported seat.
 
-### A4 — passenger
+### A4 — release lifecycle
 
-Put B in passenger seat.
+Start B, release, then start C.
 
-Pass: explicit B receives PTT.
+Pass: B receives one matching stock release and no old mic state leaks into C.
 
-### A5 — text
+### A5 — target invalidation before start
 
-Set B, open Essential TextKey, send unique text.
+Select B, then kill/despawn/remove B before the hold commits.
 
-Record whether B receives it. This result determines whether UX4 can unify typed targeting automatically.
+Pass: start fails closed; speech never redirects to A or a recycled handle.
 
-### A6 — target invalidates
+### A6 — text is separate
 
-Set B, despawn/remove/kill B before TalkKey.
-
-Pass:
-- no conversation silently redirects to A or a recycled handle
-- failure/clear behavior is observable
-
-### A7 — ActivateAttention comparison
-
-Only if needed, compare SetPlayerConversationPed alone versus setter + ActivateAttention.
-
-Pass criterion for using ActivateAttention in production:
-- it is required for correct target acquisition
-- it does not introduce unwanted task/behavior ownership
-
-Otherwise omit it.
+Stock TextInputService recomputes GetBestConversationPed. Do not count stock TextKey as UX4-target-aware unless a separate typed-target integration is added.
 
 ## B. Selection and cycling
 
@@ -133,10 +110,10 @@ Select B, then hold Talk past talkHoldMs.
 
 Pass:
 - indicator remains on B
-- Essential TalkKey goes down once
+- InputController.SendMicStart runs once for the exact selected Ped
 - mic capture begins after target commit
 - speaking addresses B
-- release emits one TalkKey up
+- release emits one matching talk.ptt_stop / SendMicStop
 - selection remains briefly after release
 
 ### D2 — hold with no prior selection
@@ -200,7 +177,7 @@ Test each while Essential TalkKey is synthetically held:
 - unload/stop enhanced host if practical
 
 Pass every case:
-- TalkKey is released exactly once or idempotently
+- the matching UX4 mic generation is stopped exactly once or idempotently
 - no stuck microphone
 - next normal talk works
 

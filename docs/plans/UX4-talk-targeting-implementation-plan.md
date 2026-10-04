@@ -21,36 +21,19 @@ Non-negotiable invariants:
 7. UX4 is default-off and removable without changing LosSantosAlive.config.
 8. No new provider/model call is introduced by selecting or cycling a target.
 
-## Phase T0 — prove the Essential targeting seam
+## Phase T0A — offline Essential targeting audit — COMPLETE
 
-Purpose: close the only architectural uncertainty before code expansion.
+See `docs/research/ux4-t0-targeting-audit.md`.
 
-### Add
+The exact checked-in DLL proves:
 
-- docs/UX4-talk-targeting-gta-acceptance.md — T0 section is the executable probe matrix.
-- A temporary diagnostic console command or minimal debug-only path in the eventual feature branch. Do not keep an unsafe generic Ped setter.
+- normal Talk recomputes `GetBestConversationPed(...)`; do not synthesize TalkKey for UX4;
+- `SetPlayerConversationPed` has conversation/focus side effects and belongs at committed start, not selection preview;
+- public `InputController.SendMicStart(Ped)` passes the exact supplied Ped into the same stock mic core and `ConversationHydrationCoordinator.BeginMicTurn`;
+- public `InputController.SendMicStop()` performs the stock release path;
+- stock TextInputService independently recomputes its own best target.
 
-### Probe
-
-Use two or more ordinary NPCs and capture RagePluginHook/E1 logs.
-
-Required cases:
-
-- closest A / farther B: explicitly set B, hold normal Essential TalkKey, verify B receives the mic turn
-- driver B
-- passenger B
-- current speaker A while selected B
-- clear B before talk
-- B despawns between setter and press
-- TextKey after setter
-- setter only: verify no provider request or behavior task starts
-- optional ActivateAttention comparison
-
-### Exit gate
-
-PASS only if the target used by actual microphone turn creation is the exact selected B in all supported ordinary/seated cases and setter-only behavior is benign.
-
-If PTT does not honor the setter, stop after T0. Do not implement a parallel microphone path. Produce a source-pinned mic target-acquisition hook plan first.
+Implementation consequence: UX4 uses direct native stock mic start/stop with the exact selected Ped. T0B is now GTA acceptance rather than architecture discovery.
 
 ## Phase T1 — native TalkTargetSelector
 
@@ -241,81 +224,46 @@ Pure geometry/clamping helper tests plus GTA visual acceptance. Do not pretend o
 
 ### Add
 
-native/enhanced/Input/EssentialHeldKeyRelay.cs
+`native/enhanced/Input/TalkTargetInput.cs`
 
-Use existing IInputInjector.
+The loader owns only the neutral physical button state and a monotonically increasing UX4 PTT generation. It never owns a `Rage.Ped` and never synthesizes Essential TalkKey.
 
-Proposed API:
+States:
 
-~~~csharp
-public sealed class EssentialHeldKeyRelay
-{
-    public string Begin(EssentialKey key);
-    public void End();
-    public void ReleaseAll();
-    public bool Active { get; }
-}
+~~~text
+Idle
+  key down -> PendingHold
+
+PendingHold
+  release before talkHoldMs -> select/cycle only -> Idle
+  threshold reached -> send talk.ptt_start(selectionId, encounterId, pttGeneration) -> StartPending
+
+StartPending
+  matching start succeeds while still held -> Talking
+  release before reply -> fence generation and ensure matching stop if native start crossed boundary
+
+Talking
+  release / focus loss / gate / reload / shutdown -> send talk.ptt_stop(pttGeneration)
 ~~~
 
-### Add
+Native `talk.ptt_start` runs on Core.Update and:
 
-native/enhanced/Input/TalkTargetInput.cs
+1. revalidates the exact selected Ped/lifetime;
+2. calls `NpcTargeting.SetPlayerConversationPed(selectedPed)`;
+3. calls `InputController.SendMicStart(selectedPed)`;
+4. records that this exact PTT generation is UX4-owned.
 
-Inputs:
+Native `talk.ptt_stop` calls `InputController.SendMicStop()` only for the matching UX4-owned generation.
 
-- IKeySource
-- INativeBridge
-- IClock
-- IHud
-- EssentialHeldKeyRelay
-- Func<EssentialBindings>
-- settings accessor
-- gate/open-menu state
-
-It owns only the physical gesture state and request generation.
-
-Internal fields should include:
-
-- physicalDown
-- downAt
-- state enum
-- requestGeneration
-- pending command id
-- selected summary last seen
-- whether Essential TalkKey is currently held
-
-Do not start microphone capture until:
-
-1. physical key is still down
-2. hold threshold elapsed
-3. exact native commit reply succeeded for the selection generation
-
-If the player releases before commit arrives, discard the late reply and never press TalkKey.
+A late start response must never resurrect a released physical press. A stop must never terminate an unrelated stock or MarkedTalk turn.
 
 ### Modify
 
-native/enhanced/EnhancedHost.cs
+`native/enhanced/EnhancedHost.cs`
 
-Create one EssentialHeldKeyRelay and TalkTargetInput beside the existing InputRouter.
+Create `TalkTargetInput` beside the existing `InputRouter`. Tick it per-frame while enabled/pending/active. On shutdown or focus loss, issue best-effort stop for any pending/active UX4 generation.
 
-Per frame:
-
-~~~text
-dispatcher.Update
-router gesture processing
-talkTargetInput.Tick
-ui.Tick
-~~~
-
-Exact ordering may be adjusted to avoid duplicate dispatcher.Update; only one owner should update shared jobs per frame.
-
-On shutdown/failure/focus loss, ReleaseAll on both pulse and held relays.
-
-Host idle logic must remain per-frame while the talk selector key is down or held PTT is active; otherwise it can return to low-frequency idle.
-
-### Important
-
-Do not route the neutral Talk selector key through GestureRecognizer's ordinary command bindings. It has its own state machine.
+Do not add `EssentialHeldKeyRelay`; T0A proved that synthetic TalkKey is the wrong seam.
 
 ## Phase T5 — settings and controller migration
 
@@ -474,7 +422,7 @@ Do not merge until the acceptance matrix demonstrates:
 - PTT latency is acceptable
 - Follow/quick menu use the selected NPC
 - target loss never redirects speech
-- no stuck TalkKey
+- no orphaned/stuck microphone turn
 - old behavior is recoverable by disabling UX4
 
 ## Proposed file map
@@ -484,7 +432,6 @@ Do not merge until the acceptance matrix demonstrates:
 - native/promoted-characters/TalkTargetSelector.cs
 - native/promoted-characters/TalkTargetIndicator.cs
 - native/enhanced/Input/TalkTargetInput.cs
-- native/enhanced/Input/EssentialHeldKeyRelay.cs
 
 ### Existing runtime files expected to change
 
@@ -529,4 +476,4 @@ Do not mix unrelated roadmap work into these commits.
 
 ## Definition of done
 
-UX4 is done when a player can stand near several NPCs, tap the controller Talk button to visibly select/cycle among them, hold the same button to speak to the highlighted exact NPC, release to end PTT, and immediately use Follow/Wait/menu against that same target — including an NPC seated inside a vehicle — with no stale retargeting, accidental tap conversations or stuck input.
+UX4 is done when a player can stand near several NPCs, tap the controller Talk button to visibly select/cycle among them, hold the same button to speak to the highlighted exact NPC, release to end PTT, and immediately use Follow/Wait/menu against that same target — including an NPC seated inside a vehicle — with no stale retargeting, accidental tap conversations or orphaned microphone lifecycle.

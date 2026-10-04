@@ -112,30 +112,35 @@ It never reads the physical controller directly and does not synthesize keyboard
 
 UX4 selects which valid NPC Essential should address. It does not create another conversation or microphone pipeline.
 
-## 4. T0 proof gate
+## 4. T0A offline targeting audit — completed
 
-Before implementing the full feature, prove the public targeting seam in GTA.
+T0A was closed from the exact checked-in Essential DLL with ILSpy in GitHub Actions. See [UX4 T0 targeting audit](ux4-t0-targeting-audit.md).
 
-Required probe:
+The original assumption was wrong: pre-setting PlayerConversationPed and then synthesizing Essential's normal TalkKey would not preserve an explicit UX4 selection. Stock normal Talk recomputes GetBestConversationPed(...), calls SetPlayerConversationPed(bestConversationPed), and only then enters the microphone path.
 
-1. Put NPC A closer to the player than NPC B.
-2. Call SetPlayerConversationPed(B).
-3. Verify GetPlayerConversationPed() returns B.
-4. Confirm the setter alone does not start a microphone turn, provider call, task or persistent ownership change.
-5. Press Essential's normal TalkKey and verify the created microphone turn addresses B rather than A.
-6. Repeat with B seated as driver.
-7. Repeat with B seated as passenger.
-8. Repeat with B behind/inside the same vehicle while A is standing closer.
-9. If safe, test whether ActivateAttention(B) is necessary; do not use it by default if the setter alone is sufficient.
-10. Clear or invalidate B and verify no later talk silently retargets to a recycled handle.
+The audit found a better supported seam:
 
-Also probe TextKey after the setter. If normal typed input honors the same player-conversation target, UX4 can unify voice and text selection without another hook.
+~~~text
+UX4 exact selected Ped
+  -> NpcTargeting.SetPlayerConversationPed(selectedPed)
+  -> InputController.SendMicStart(selectedPed)
+  -> same private stock mic core used by normal/marked Talk
+  -> ConversationHydrationCoordinator.BeginMicTurn(selectedPed)
+  -> stock microphone/provider lifecycle
 
-Decision:
+release
+  -> InputController.SendMicStop()
+~~~
 
-- PASS: SetPlayerConversationPed is side-effect-safe and controls PTT. Continue with this plan.
-- PARTIAL: it controls text/current state but not PTT. Stop before runtime implementation and document the exact mic target-acquisition seam needed for one source-pinned hook.
-- FAIL: do not emulate a second voice lifecycle. Re-open native targeting research.
+InputController.SendMicStart(Ped) is public and passes the supplied Ped directly into the stock mic core. That core does not call GetBestConversationPed or GetPlayerConversationPed. BeginMicTurn likewise does not reselect another NPC.
+
+SetPlayerConversationPed is not a passive preview setter: it also registers interaction context, detaches conflicting directed interaction, queues conversation warmup and sets focus. UX4 therefore calls it only at committed PTT start, never while merely previewing/cycling.
+
+ActivateAttention is simply an alias for SetPlayerConversationPed.
+
+Text is separate: TextInputService.StartTextInputMode recomputes GetBestConversationPed and sets that result. Explicit UX4 typed targeting is a separate follow-up.
+
+T0B in GTA is now an acceptance smoke test, not an architecture-discovery gate. No Essential source patch is currently required.
 
 ## 5. Selection model
 
@@ -283,26 +288,28 @@ On a hold with no selected target, the native side chooses the best candidate fi
 
 Late bridge replies carry a local request generation and cannot start PTT after the physical button has already been released.
 
-## 9. Held Essential key relay
+## 9. Direct stock mic lifecycle — no synthetic TalkKey
 
-Add native/enhanced/Input/EssentialHeldKeyRelay.cs rather than changing pulse semantics in EssentialKeyRelay.
+T0A removes the need for a held keyboard/mouse relay.
 
-Responsibilities:
+UX4 must not synthesize Essential TalkKey for PTT because stock Talk performs its own target selection and can overwrite the explicit UX4 target.
 
-- Begin(EssentialKey talk)
-- End()
-- ReleaseAll()
-- never synthesize two simultaneous holds
-- repeated Begin on the same hold is idempotent
-- release on focus loss
-- release on gate close
-- release on settings reload
-- release on host shutdown
-- release on exception containment
+At committed start, the native P2-domain operation runs:
 
-It uses the existing IInputInjector / Win32InputInjector.
+~~~csharp
+NpcTargeting.SetPlayerConversationPed(selectedPed);
+InputController.SendMicStart(selectedPed);
+~~~
 
-The held relay is allowed to synthesize EssentialBindings.Talk only. MarkedTalk remains untouched in UX4 v1.
+Release runs:
+
+~~~csharp
+InputController.SendMicStop();
+~~~
+
+The native side tracks a bounded UX4 PTT generation and exact selected lifetime so a late start cannot survive a player release and a stop cannot terminate an unrelated stock/MarkedTalk turn.
+
+This preserves Essential's stock microphone hydration, provider and release lifecycle without creating a second conversation pipeline.
 
 ## 10. Native bridge operations
 
@@ -312,7 +319,8 @@ Recommended commands:
 
 - talk.select_first
 - talk.select_next
-- talk.commit
+- talk.ptt_start
+- talk.ptt_stop
 - talk.clear
 - talk.inspect
 
@@ -329,11 +337,17 @@ talk.select_next:
 - advance frozen list
 - return selection summary
 
-talk.commit:
-- requires expected SelectionId and, once materialized, expected EncounterId
-- revalidate exact Ped + MemoryAddress
-- set the Essential conversation target if T0 passed
-- return committed summary
+talk.ptt_start:
+- requires expected SelectionId, PTT generation and expected EncounterId when materialized
+- revalidates exact Ped + MemoryAddress
+- calls SetPlayerConversationPed(selectedPed) only at committed start
+- calls InputController.SendMicStart(selectedPed)
+- records exact UX4-owned active generation
+
+talk.ptt_stop:
+- accepts only the matching UX4 PTT generation
+- calls InputController.SendMicStop only for a UX4-owned start
+- clears UX4 PTT ownership even if the selected Ped is no longer valid
 
 talk.clear:
 - clears only UX4's selector state
