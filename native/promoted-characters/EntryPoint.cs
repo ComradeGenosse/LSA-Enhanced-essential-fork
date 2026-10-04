@@ -2,6 +2,7 @@ using System;
 using System.Diagnostics;
 using System.IO;
 using System.Web.Script.Serialization;
+using LSA.Enhanced;
 using Rage;
 using Rage.Attributes;
 [assembly: Plugin("LSA Promoted Characters",Description="Persistent character host for the running Essential instance",Author="ComradeGenosse",EntryPoint="LSA.PromotedCharacters.EntryPoint.Main",ExitPoint="LSA.PromotedCharacters.EntryPoint.Shutdown",AssemblyProbingPaths="Plugins;Plugins/LSA.PromotedCharacters",PrefersSingleInstance=true)]
@@ -29,6 +30,14 @@ namespace LSA.PromotedCharacters
                 if(config==null || !config.enabled) return;
                 stopping=false;
                 PlayerCommands.Initialize(config.editorPort);
+                LogSteamModules();
+                // UX phases 2-3: the input router and native menu run on their own
+                // fiber in this domain. LSA.Enhanced.json keeps both off by default.
+                try {
+                    string editor="http://127.0.0.1:"+config.editorPort;
+                    EnhancedHost.Start(plugins,()=>editor);
+                    PlayerCommands.MenuRequested=EnhancedHost.RequestMenu;
+                } catch {Game.LogTrivial("[UX] enhanced_host_start_failed");}
                 try {StartHost(plugins,bootstrap,text);} catch {Game.LogTrivial("[P2] optional_initialization_failed");StopHost();}
                 // The console frontend belongs to this plugin. An optional host
                 // failure must not return Main and remove its commands.
@@ -43,7 +52,10 @@ namespace LSA.PromotedCharacters
                         } catch {Game.LogTrivial("[P2] native_host_disconnected");StopHost();}
                     }
                     PlayerCommands.SetNativeReady(ready);
-                    if(!reported && ready) {Game.LogTrivial("[P2] essential_host_ready");reported=true;}
+                    if(!reported && ready) {
+                        Game.LogTrivial("[P2] essential_host_ready");reported=true;
+                        try {Game.LogTrivial("[UX] command_bridge available="+host.BridgeAvailable);} catch {}
+                    }
                     if(!reported && host!=null && deadline.ElapsedMilliseconds>15000) {Game.LogTrivial("[P2] host_start_timeout");StopHost();}
                     if(!auditedLater && deadline.ElapsedMilliseconds>30000) {Game.LogTrivial("[P2] frontend_alive_30s");auditedLater=true;}
                     PlayerCommands.Update();GameFiber.Sleep(100);
@@ -65,9 +77,28 @@ namespace LSA.PromotedCharacters
                 host=(DomainHost)target.CreateInstanceFromAndUnwrap(bootstrap,typeof(DomainHost).FullName);
                 if(stopping) {StopHost();return;}
                 if(!host.Start(plugins,text)) {Game.LogTrivial("[P2] essential_host_rejected_"+host.Status);return;}
+                // UX phase 1: console bridge commands submit strings to this host;
+                // the phase 2 dispatcher and phase 3 menu use the same bridge.
+                PlayerCommands.SetNativeHost(host);
+                EnhancedHost.SetNativeHost(host);
         }
-        static void StopHost() {try{host?.Stop();}catch{}host=null;PlayerCommands.SetNativeReady(false);}
-        public static void Shutdown() {stopping=true;PlayerCommands.Shutdown();StopHost();}
+        static void StopHost() {try{host?.Stop();}catch{}host=null;PlayerCommands.SetNativeHost(null);EnhancedHost.SetNativeHost(null);PlayerCommands.SetNativeReady(false);}
+        // Phase 0 spike S5 support: report once whether Steam's API and overlay
+        // renderer are loaded in the game process under RPH. Read-only.
+        static void LogSteamModules()
+        {
+            try {
+                bool api=false,overlay=false;
+                foreach(ProcessModule module in Process.GetCurrentProcess().Modules) {
+                    string name=module.ModuleName;
+                    if(string.Equals(name,"steam_api64.dll",StringComparison.OrdinalIgnoreCase)) api=true;
+                    else if(string.Equals(name,"gameoverlayrenderer64.dll",StringComparison.OrdinalIgnoreCase)) overlay=true;
+                    module.Dispose();
+                }
+                Game.LogTrivial("[UX] steam_modules steam_api64="+api+" gameoverlayrenderer64="+overlay);
+            } catch {Game.LogTrivial("[UX] steam_modules_unavailable");}
+        }
+        public static void Shutdown() {stopping=true;PlayerCommands.MenuRequested=null;EnhancedHost.Stop();PlayerCommands.Shutdown();StopHost();}
         public sealed class Config {public bool enabled {get;set;} public int editorPort {get;set;}=37921;}
     }
 }

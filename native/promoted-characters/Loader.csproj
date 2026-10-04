@@ -5,8 +5,21 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="EntryPoint.cs;PlayerCommands.cs;ClrDomains.cs" />
+    <!-- UX phases 2-3: input router, command dispatch and the native menu, all in
+         the loader's AppDomain. input-tests compiles the pure subset offline. -->
+    <Compile Include="../enhanced/EnhancedHost.cs" />
+    <Compile Include="../enhanced/Commands/CommandCatalog.cs;../enhanced/Commands/Contracts.cs;../enhanced/Commands/LoaderDispatcher.cs;../enhanced/Commands/NativeBridge.cs;../enhanced/Commands/NativeSnapshot.cs" />
+    <Compile Include="../enhanced/Companion/CompanionClient.cs" />
+    <Compile Include="../enhanced/Input/PhysicalKeys.cs;../enhanced/Input/Gestures.cs;../enhanced/Input/GestureRecognizer.cs;../enhanced/Input/EssentialBindings.cs;../enhanced/Input/EssentialKeyRelay.cs;../enhanced/Input/InputGates.cs;../enhanced/Input/InputRouter.cs" />
+    <Compile Include="../enhanced/Settings/EnhancedSettings.cs" />
+    <Compile Include="../enhanced/Ui/UiBridge.cs;../enhanced/Ui/MenuData.cs;../enhanced/Ui/NativeMenu.cs;../enhanced/Ui/OnscreenKeyboard.cs;../enhanced/Ui/ViewModels/MenuModels.cs" />
+    <EmbeddedResource Include="../../contracts/commands.v1.json" LogicalName="LSA.Enhanced.commands.v1.json" />
     <ProjectReference Include="Bootstrap.csproj" />
     <Reference Include="RagePluginHook"><HintPath>$(RphReferencePath)</HintPath><Private>false</Private></Reference>
+    <!-- Compile-only, hash-pinned by buildCharactersAddon.mjs (LSA_RNUI_REFERENCE).
+         Never packaged: Essential's payload installs RAGENativeUI 1.9.3, and
+         UiBridge requires assembly version 1.9.3.0 before creating any menu. -->
+    <Reference Include="RAGENativeUI"><HintPath>$(RnuiReferencePath)</HintPath><Private>false</Private></Reference>
     <Reference Include="System.Web.Extensions" />
   </ItemGroup>
 </Project>

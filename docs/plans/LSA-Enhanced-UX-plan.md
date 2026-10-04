@@ -607,6 +607,8 @@ Read left to right, top row first. Each diamond is the physical GTA gate that cl
 
 ### Phase 0: consolidate the native host (no features)
 
+> Status (October 3, 2026): done on `main`; gate diagnostics and verification on `feature/ux-phase0-1-command-bridge`. See [UX phase 0–1 status](../UX-phase0-1-status.md).
+
 **Goal:** one `main` containing PS0/PS1, the fiber-access fix and `86d02eb`.
 
 - Push `fix/p2-command-assembly-isolation` (`86d02eb`) unchanged, then rebase it onto `main` (`f533942`).
@@ -619,6 +621,8 @@ Read left to right, top row first. Each diamond is the physical GTA gate that cl
 - **Gate:** exactly seven canonical `LSA*` commands with no numbered aliases, `essential_host_ready`, a successful `LSAPromote`, healthy `[PS] host_status`, then spikes S1–S6 (section 10).
 
 ### Phase 1: command bridge and contracts (no visible change)
+
+> Status (October 3, 2026): implemented and verified offline on `feature/ux-phase0-1-command-bridge`; GTA gate pending. See [UX phase 0–1 status](../UX-phase0-1-status.md) for the deliberate differences from this section.
 
 **Goal:** a string-only path from the loader into `Update`, a read-only current-NPC view, and an API handshake that no longer scrapes HTML.
 
@@ -636,6 +640,8 @@ Read left to right, top row first. Each diamond is the physical GTA gate that cl
 
 ### Phase 2: InputRouter and chord MVP
 
+> Status (October 4, 2026): implemented and verified offline on `feature/ux-phase2-3-router-menu`; GTA gate pending. See [UX phase 2–3 status](../UX-phase2-3-status.md) and [controller setup](../controller-setup.md).
+
 **Goal:** L4 = Mark, R4 = Text, L4+R4 = Follow current NPC, with real suppression.
 
 - **New** `contracts/commands.v1.json` with `essential.mark`, `essential.text`, `current.follow`, `current.wait`, `current.dismiss`, `current.promote`, `npc.ask`.
@@ -647,6 +653,8 @@ Read left to right, top row first. Each diamond is the physical GTA gate that cl
 - **Gate:** 20 taps each give 20 marks and 20 text prompts; 20 chords in both orders give zero marks, zero text prompts and 20 follows or asks; a 5 s chord hold gives one follow; nothing fires with text input, the F7 menu or the console open; alt-tab mid-chord leaves nothing stuck.
 
 ### Phase 3: native menu v1
+
+> Status (October 4, 2026): implemented and verified offline on `feature/ux-phase2-3-router-menu`; GTA gate pending. See [UX phase 2–3 status](../UX-phase2-3-status.md) for the deliberate differences from this section (select twice instead of hold-to-confirm, one host fiber, `LSAMenu`).
 
 **Goal:** Current NPC, Characters, Controls and Diagnostics pages in RNUI.
 

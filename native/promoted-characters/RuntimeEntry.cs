@@ -60,6 +60,12 @@ namespace LSA.PromotedCharacters
             return true;
         }
         public static void Stop()=>stopping=true;
+        // UX phase 1 bridge. Strings only; DomainHost reflects into these. Callers
+        // never touch game state: work is queued for the integration's Update.
+        public static string Submit(string envelope) {var owner=integration;return owner!=null && !stopping?owner.SubmitLocal(envelope):"native_unavailable";}
+        public static string TryTakeResult(string id)=>integration?.TakeLocalResult(id);
+        public static string Snapshot() {var owner=integration;return owner!=null && !stopping?owner.LocalSnapshot():null;}
+        public static void RequestSnapshots(int forMs) {var owner=integration;if(owner!=null && !stopping) owner.RequestLocalSnapshots(forMs);}
         static void ReportStatus() {
             // Observe from the existing host fiber even if Core stops dispatching Update.
             // This never drives sampling or emits new factual frames.

@@ -8,7 +8,7 @@ import { isUuid } from '../identity/identityContract.mjs';
 import { withoutIdentityEvidence } from '../identity/modelContext.mjs';
 import { immutableSnapshot } from '../context/turnSnapshot.mjs';
 
-const FAILURE_REASONS = new Set(['profile_store_unavailable','identity_unavailable','native_stale','scripted_state','ownership_conflict','evidence_unavailable','owner_unavailable','unsafe_spawn_location','appearance_unavailable','invalid_ped_model','summon_wait_timeout']);
+const FAILURE_REASONS = new Set(['profile_store_unavailable','identity_unavailable','native_stale','scripted_state','ownership_conflict','evidence_unavailable','owner_unavailable','unsafe_spawn_location','appearance_unavailable','invalid_ped_model','summon_wait_timeout','target_changed']);
 export const characterFailureReason = error => FAILURE_REASONS.has(error?.message) ? error.message : 'native_operation_failed';
 
 export function withoutCharacterTransport(actor) {
@@ -92,12 +92,15 @@ export class CharacterService {
       turn.speechProfile = Object.freeze({ ...speechProfile,instructions:[speechProfile.instructions,characterDelivery].filter(Boolean).join('\n').slice(0,4000) });
     }
   }
-  async promote() { return this.#serial(async () => {
+  // expectedEncounterId (UX phases 2-3, optional): the NPC the player saw in the
+  // native menu or gesture. A different current NPC is refused, never promoted.
+  async promote(expectedEncounterId = null) { return this.#serial(async () => {
     await this.#requireReady(); this.emit('promotion_started');
     let binding;
     try {
       const capture = await this.native.request('capture');
       if (!capture?.captureToken || !isUuid(capture.encounterId) || !capture.actor || !capture.modelHash) throw new Error('invalid_capture');
+      if (expectedEncounterId !== null && capture.encounterId !== expectedEncounterId) throw new Error('target_changed');
       const identity = { pedId:capture.pedId,sessionNonce:0 };
       const actor = { ...capture.actor,pedId:capture.pedId,integrations:{ characterProfile:{encounterId:capture.encounterId} } };
       const session = this.session(identity,actor,null);
@@ -132,10 +135,12 @@ export class CharacterService {
   }
   async edit(characterId,patch,revision) { return this.#serial(async () => { await this.#requireReady(); const profile = await this.store.edit(characterId,patch,revision); this.sessions.reservePersistent(this.store.list()); this.emit('character_profile_edited',{profileRevision:profile.revision}); return profile; }); }
   async memory(characterId,operation,args) { return this.#serial(async () => { await this.#requireReady(); const result = await this.store.memory(characterId,operation,args); this.emit(`character_memory_${operation === 'create' ? 'created' : operation === 'edit' ? 'edited' : 'deleted'}`,{profileRevision:result.profile.revision}); return result; }); }
-  async controlCurrent(operation) { return this.#serial(async () => {
+  async controlCurrent(operation,expectedEncounterId = null) { return this.#serial(async () => {
     await this.#requireReady();
     if (!['follow','wait','dismiss'].includes(operation)) throw new Error('invalid_owner_operation');
     const capture = await this.native.request('capture');
+    // A request that waited behind a summon must not act on a newer current NPC.
+    if (expectedEncounterId !== null && capture?.encounterId !== expectedEncounterId) throw new Error('target_changed');
     const profile = this.store.list().find(profile => profile.promotion.ownerAlias === capture?.ownerAlias);
     if (!profile) throw new Error('character_not_promoted');
     const binding = await this.native.request('inspect',{ownerAlias:profile.promotion.ownerAlias});

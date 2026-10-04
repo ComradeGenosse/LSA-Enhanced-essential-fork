@@ -10,6 +10,7 @@ using Rage;
 public sealed class Scenario:MarshalByRefObject
 {
     const string Config="{\"enabled\":true,\"worldProfileId\":\"d7dfeaa1-13e8-4a7d-aff7-8e3fbb2ab4b5\"}";
+    const string ResultId="00000000-0000-4000-8000-000000000000";
     int assertions;
     public override object InitializeLifetimeService()=>null;
     void Check(bool condition,string message) {if(!condition) throw new Exception(message);assertions++;}
@@ -32,14 +33,19 @@ public sealed class Scenario:MarshalByRefObject
         Check(GameFiber.Scheduled==1,"More than one owner fiber was scheduled.");
         Check(PromotedCharactersIntegration.Constructed==0 && IntegrationManager.Registered==0,"Start performed integration work before the game fiber.");
         Check(!RuntimeEntry.Start(Config),"A duplicate start before fiber execution was accepted.");
+        Check(RuntimeEntry.Submit("{}")=="native_unavailable" && RuntimeEntry.Snapshot()==null && RuntimeEntry.TryTakeResult(ResultId)==null,"The bridge answered before the owner existed.");
+        RuntimeEntry.RequestSnapshots(1000);
+        Check(PromotedCharactersIntegration.Submissions==0 && PromotedCharactersIntegration.SnapshotRequests==0,"The bridge reached an integration before the owner existed.");
         Check(GameFiber.Scheduled==1 && PromotedCharactersIntegration.ShutdownRequests==0 && PromotedCharactersIntegration.Shutdowns==0,"A rejected pending duplicate changed the owner.");
-        bool pendingWaited=false,wasReady=false,wasAlive=false,rejected=false,ownerPreserved=false;
+        bool pendingWaited=false,wasReady=false,wasAlive=false,rejected=false,ownerPreserved=false,bridged=false;
         GameFiber.OnSleep=()=>{
             pendingWaited=!RuntimeEntry.Ready && PromotedCharactersIntegration.Prepared==1 && PromotedCharactersIntegration.Initialized==0;
             IntegrationManager.InitializeFromCore();
             wasReady=RuntimeEntry.Ready;wasAlive=RuntimeEntry.Alive;
             rejected=!RuntimeEntry.Start(Config);
             ownerPreserved=RuntimeEntry.Ready && PromotedCharactersIntegration.ShutdownRequests==0 && PromotedCharactersIntegration.Shutdowns==0 && IntegrationManager.Registered==1 && GameFiber.Scheduled==1;
+            RuntimeEntry.RequestSnapshots(1000);
+            bridged=RuntimeEntry.Submit("{}")=="accepted" && RuntimeEntry.TryTakeResult(ResultId)=="{\"v\":1}" && RuntimeEntry.Snapshot()=="{\"v\":1,\"seq\":1}" && PromotedCharactersIntegration.SnapshotRequests==1;
             RuntimeEntry.Stop();
         };
         GameFiber.ExecuteNext();
@@ -47,6 +53,10 @@ public sealed class Scenario:MarshalByRefObject
         Check(wasReady && wasAlive,"The accepted fiber did not initialize a ready owner.");
         Check(rejected,"A duplicate start while the owner was active was accepted.");
         Check(ownerPreserved,"A rejected active duplicate stopped or replaced the owner.");
+        Check(bridged,"The ready owner did not receive bridge submissions, results and snapshots.");
+        Check(RuntimeEntry.Submit("{}")=="native_unavailable" && RuntimeEntry.Snapshot()==null && PromotedCharactersIntegration.Submissions==1,"A stopping owner accepted bridge work.");
+        RuntimeEntry.RequestSnapshots(1000);
+        Check(PromotedCharactersIntegration.SnapshotRequests==1,"A stopping owner accepted snapshot interest.");
         Check(PromotedCharactersIntegration.Constructed==1 && PromotedCharactersIntegration.Prepared==1 && IntegrationManager.Registered==1,"The lifetime fiber did not prepare/register exactly one integration.");
         Check(PromotedCharactersIntegration.Initialized==1 && PromotedCharactersIntegration.InitializedOutsideCore==0,"The lifetime fiber performed native initialization instead of Core.");
         Check(PromotedCharactersIntegration.PreparationThread!=PromotedCharactersIntegration.InitializationThread,"The harness did not test Core initialization on a distinct callback thread.");

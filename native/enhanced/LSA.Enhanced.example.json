@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "input": {
+    "enabled": false,
+    "keys": { "L4": "F6", "R4": "F8", "Menu": "F11" },
+    "timing": { "chordWindowMs": 120, "holdMs": 600, "doubleTapMs": 250, "relayPulseMs": 80, "commandCooldownMs": 750 },
+    "bindings": [
+      { "id": "mark", "gesture": "tap", "keys": ["L4"], "command": "essential.mark" },
+      { "id": "text", "gesture": "tap", "keys": ["R4"], "command": "essential.text" },
+      { "id": "follow", "gesture": "chord", "keys": ["L4", "R4"], "command": "current.follow" },
+      { "id": "quickMenu", "gesture": "chordHold", "keys": ["L4", "R4"], "command": "ui.quickMenu" },
+      { "id": "menu", "gesture": "tap", "keys": ["Menu"], "command": "ui.mainMenu" }
+    ]
+  },
+  "quickCommands": {
+    "ordinaryNpc": "ask",
+    "phrases": { "follow": "Follow me.", "wait": "Wait here.", "dismiss": "That's all, you can go." }
+  },
+  "ui": { "enabled": false },
+  "feedback": { "hud": "notification" }
+}

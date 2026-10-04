@@ -52,6 +52,8 @@ export class SessionProfiles {
     this.onEvent('character_name_assigned',{ collisionCount:collisions });
     return profile;
   }
+  // Read-only lookup for display (UX phase 3 describe); never assigns a name.
+  peek(encounterId) { return isUuid(encounterId) ? this.#profiles.get(`encounter:${encounterId}`) ?? null : null; }
   retire(identity,actor) { this.#profiles.delete(encounterKey(identity,actor)); }
   retireEncounter(encounterId) { this.#profiles.delete(`encounter:${encounterId}`); }
   detach(identity) { this.#profiles.delete(`session:${sessionKey(identity)}`); }
