@@ -2,7 +2,7 @@
 
 Updated October 4, 2026.
 
-Current `main`: `6ae6bc9` (unified UX phases 0–3 merged).
+Current runtime/code baseline: `6ae6bc9` (unified UX phases 0–3 merged). Roadmap-only commits after that SHA do not change runtime behavior.
 
 This roadmap tracks the Essential-based LSA companion from the hardened E1.1 foundation through low-latency dialogue, durable NPC identity, richer perception, autonomous scene behavior, and final long-session acceptance.
 
