@@ -5,6 +5,7 @@ import { evaluateWitness, reportEvidence } from '../src/perception/witnessPolicy
 import { EpisodeCorrelator } from '../src/perception/episodeCorrelator.mjs';
 import { EpisodeStore } from '../src/perception/episodeStore.mjs';
 import { ObservationStore } from '../src/perception/observationStore.mjs';
+import { validateWitnessReceipt } from '../src/perception/contracts.mjs';
 
 test('visual, auditory and report evidence keep source, sound and hearsay boundaries distinct',()=>{
   const observer=randomUUID(),source=randomUUID(),target=randomUUID();
@@ -39,4 +40,44 @@ test('episode correlation emits observer-qualified revisions, preserves uncertai
   const continuation=correlator.ingest({nativeRun:run,signal:next,witnessReceipts:[{...witness,sampledGameTick:1100,evidence:{...witness.evidence,sampledGameTick:1100}}]});
   assert.equal(continuation.episodeId,first.episodeId);assert.equal(continuation.observations[0].revision,2);assert.equal(continuation.observations[0].claims.length,2);
   live.delete(observer);observations.expire();assert.equal(observations.entries.size,0);
+});
+
+
+test('sampled injury, callback damage and death correlate as one victim-scoped harm episode without inventing causality',()=>{
+  let now=100;const run=randomUUID(),observer=randomUUID(),attacker=randomUUID(),victim=randomUUID();
+  const live=new Set([observer,attacker,victim]);const anchors=new Map([[observer,{captureRef:observer,kind:'ped'}],[attacker,{captureRef:attacker,kind:'ped'}],[victim,{captureRef:victim,kind:'ped'}]]);
+  const episodes=new EpisodeStore({now:()=>now,current:ref=>live.has(ref)}),observations=new ObservationStore({now:()=>now,current:ref=>live.has(ref)});
+  const correlator=new EpisodeCorrelator({episodes,observations,now:()=>now,current:ref=>live.has(ref),anchor:ref=>anchors.get(ref),utc:()=>new Date(0).toISOString()});
+  const visual=tick=>({observer:{captureRef:observer,kind:'ped'},sampledGameTick:tick,status:'witnessed',reason:'visual_clear',evidence:{channel:'visual',basis:'sampled_state',sampledGameTick:tick},knowsTarget:true});
+  const injury={signalId:randomUUID(),producer:'state',producerSequence:1,kind:'injury_state',target:victim,source:null,gameTick:100,ageMs:0,facts:{health:80,armour:0,injured:true}};
+  const first=correlator.ingest({nativeRun:run,signal:injury,witnessReceipts:[visual(100)]});
+  assert.equal(first.accepted,true);assert.equal(first.observations[0].eventType,'injury');assert.equal(first.observations[0].claims[0].kind,'injured');assert.equal(first.observations[0].claims[0].target.captureRef,victim);
+  now+=500;
+  const damage={signalId:randomUUID(),producer:'ped_damage',producerSequence:1,kind:'damage',target:victim,source:attacker,gameTick:600,ageMs:0,facts:{damage:20,armour:0,classification:'bullet'}};
+  const second=correlator.ingest({nativeRun:run,signal:damage,witnessReceipts:[{...visual(600),knowsSource:true}]});
+  assert.equal(second.episodeId,first.episodeId);
+  now+=500;
+  const death={signalId:randomUUID(),producer:'state',producerSequence:2,kind:'death',target:victim,source:null,gameTick:1100,ageMs:0,facts:{}};
+  const third=correlator.ingest({nativeRun:run,signal:death,witnessReceipts:[visual(1100)]});
+  assert.equal(third.episodeId,first.episodeId);assert.equal(third.observations[0].eventType,'death_seen');
+  assert.deepEqual(third.observations[0].claims.map(c=>c.kind),['injured','injured','dead']);
+  const episode=episodes.entries.get(first.episodeId);
+  assert.deepEqual(new Set(episode.participants.map(p=>p.captureRef)),new Set([attacker,victim]));
+  const deadClaim=episode.claims.at(-1);assert.equal(deadClaim.kind,'dead');assert.equal(deadClaim.source,undefined);assert.equal(deadClaim.target.captureRef,victim);
+});
+
+test('reported evidence passes the closed contract and remains hearsay in observer knowledge',()=>{
+  let now=100;const run=randomUUID(),observer=randomUUID(),speaker=randomUUID();
+  const live=new Set([observer,speaker]);const anchors=new Map([[observer,{captureRef:observer,kind:'ped'}],[speaker,{captureRef:speaker,kind:'ped'}]]);
+  const episodes=new EpisodeStore({now:()=>now,current:ref=>live.has(ref)}),observations=new ObservationStore({now:()=>now,current:ref=>live.has(ref)});
+  const correlator=new EpisodeCorrelator({episodes,observations,now:()=>now,current:ref=>live.has(ref),anchor:ref=>anchors.get(ref),utc:()=>new Date(0).toISOString()});
+  const raw=reportEvidence({speakerCaptureRef:speaker,observerCaptureRef:observer,sampledGameTick:100,reportRef:randomUUID()});
+  const report={...raw,observer:{captureRef:observer,kind:'ped'},sampledGameTick:100};
+  assert.equal(validateWitnessReceipt(report),true);
+  const signal={signalId:randomUUID(),producer:'shooting',producerSequence:1,kind:'firing',target:null,source:speaker,gameTick:100,ageMs:0,facts:{}};
+  const result=correlator.ingest({nativeRun:run,signal,witnessReceipts:[report]});
+  assert.equal(result.observations.length,1);
+  const claim=result.observations[0].claims[0];
+  assert.equal(claim.kind,'report');assert.equal(claim.evidence.channel,'report');assert.equal(claim.evidence.reportRef,report.evidence.reportRef);
+  assert.equal(claim.source,undefined);assert.equal(claim.target,undefined);
 });

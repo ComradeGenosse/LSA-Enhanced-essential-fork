@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 const EVENT = Object.freeze({
   firing: ['firing_burst', 'routine', 'firing'],
   damage: ['injury', 'danger', 'injured'],
+  injury_state: ['injury', 'danger', 'injured'],
   vehicle_damage: ['vehicle_impact', 'danger', 'injured'],
   death: ['death_seen', 'critical', 'dead'],
   action_callback: ['action_observed', 'routine', 'action'],
@@ -31,23 +32,28 @@ export class EpisodeCorrelator {
     if (this.seen.has(eventKey)) { this.duplicates++; return { accepted: true, duplicate: true, episodeId: this.seen.get(eventKey).episodeId, observations: [] }; }
     if(this.seen.size>=CAP.dedupe) {this.dropped++;return {accepted:false,reason:'dedupe_capacity'};}
 
-    const qualified = witnessReceipts.filter(r => r && r.status === 'witnessed' && r.evidence && this.current(r.observer?.captureRef));
+    const qualified = witnessReceipts.filter(r => r && (r.status === 'witnessed' || r.status === 'reported') && r.evidence && this.current(r.observer?.captureRef));
     if (!qualified.length) { this.remember(eventKey, { episodeId: null }); return { accepted: true, duplicate: false, episodeId: null, observations: [] }; }
     const participants = [signal.source && { captureRef: signal.source, kind: this.anchor(signal.source)?.kind }, signal.target && { captureRef: signal.target, kind: this.anchor(signal.target)?.kind }]
       .filter(r => r && r.kind && this.current(r.captureRef));
-    const incidentKey = signal.incidentKey || (signal.source || signal.target ? `${signal.kind}:${signal.source||''}:${signal.target||''}` : null);
-    const existing = this.findContinuation(nativeRun, event[0], incidentKey, participants, signal.gameTick);
+    const family = ['damage', 'injury_state', 'death'].includes(signal.kind) ? 'harm' : event[0];
+    const incidentKey = signal.incidentKey || defaultIncidentKey(signal, family);
+    const matchParticipants = family === 'harm' && signal.target ? participants.filter(p => p.captureRef === signal.target) : participants;
+    const existing = this.findContinuation(nativeRun, family, incidentKey, matchParticipants, signal.gameTick);
     const episodeId = existing?.episodeId || randomUUID();
     const now = this.now(); const expiresAtMonotonicMs = Math.min(now + CAP.episodeMs, existing?.expiresAtMonotonicMs || now + CAP.episodeMs);
     const episodeClaims = existing ? [...existing.claims] : [];
-    const episodeClaim = { claimId: randomUUID(), kind: event[2], certainty: 'supported', evidence: { channel: 'self', basis: 'sampled_state', sampledGameTick: signal.gameTick }, ...(participants[0] ? { source: participants[0] } : {}), ...(participants[1] ? { target: participants[1] } : {}) };
+    const sourceRef = participants.find(p => p.captureRef === signal.source);
+    const targetRef = participants.find(p => p.captureRef === signal.target);
+    const episodeClaim = { claimId: randomUUID(), kind: event[2], certainty: 'supported', evidence: { channel: 'self', basis: 'sampled_state', sampledGameTick: signal.gameTick }, ...(sourceRef ? { source: sourceRef } : {}), ...(targetRef ? { target: targetRef } : {}) };
     if (episodeClaims.length < CAP.perEpisodeClaims) episodeClaims.push(episodeClaim);
     else { this.dropped++; this.remember(eventKey, { episodeId }); return { accepted: true, episodeId, observations: [], dropped: true }; }
     const producerSequence = { producer: signal.producer, sequence: signal.producerSequence };
     const producerSequences = existing ? [...existing.producerSequences.filter(p => p.producer !== producerSequence.producer), producerSequence].slice(-7) : [producerSequence];
-    const episode = { version: 1, episodeId, revision: (existing?.revision || 0) + 1, nativeRun, gameTick: signal.gameTick, expiresAtMonotonicMs, status: 'open', participants: uniqueRefs(participants).slice(0, 4), claims: episodeClaims.slice(-CAP.perEpisodeClaims), producerSequences };
+    const episodeParticipants = uniqueRefs([...(existing?.participants || []), ...participants]).slice(0, 4);
+    const episode = { version: 1, episodeId, revision: (existing?.revision || 0) + 1, nativeRun, gameTick: signal.gameTick, expiresAtMonotonicMs, status: 'open', participants: episodeParticipants, claims: episodeClaims.slice(-CAP.perEpisodeClaims), producerSequences };
     if (!this.episodes.put(episode)) { this.dropped++; this.remember(eventKey, { episodeId }); return { accepted: false, reason: 'episode_rejected' }; }
-    this.latest.set(episodeMatchKey(nativeRun, event[0], incidentKey, participants), { episodeId, gameTick: signal.gameTick });
+    this.latest.set(episodeMatchKey(nativeRun, family, incidentKey, matchParticipants), { episodeId, gameTick: signal.gameTick });
 
     const emitted = [];
     for (const receipt of qualified) {
@@ -57,7 +63,6 @@ export class EpisodeCorrelator {
       if (old?.claims.some(c => c.details?.eventSignalId === signal.signalId)) continue;
       if (old && old.claims.length >= CAP.perObservationClaims) { this.dropped++; continue; }
       const mappedKind = receipt.evidence.channel === 'report' ? 'report' : event[2];
-      const sourceRef=participants.find(p=>p.captureRef===signal.source),targetRef=participants.find(p=>p.captureRef===signal.target);
       const claim = { claimId: randomUUID(), kind: mappedKind, certainty: receipt.certainty === 'uncertain' ? 'uncertain' : 'supported', evidence: { ...receipt.evidence }, ...(receipt.knowsSource && sourceRef ? { source: sourceRef } : {}), ...(receipt.knowsTarget && targetRef ? { target: targetRef } : {}), details: { eventSignalId: signal.signalId, reason: receipt.reason } };
       const observation = {
         version: 1, observationId: old?.observationId || randomUUID(), episodeId, revision: (old?.revision || 0) + 1,
@@ -84,6 +89,11 @@ export class EpisodeCorrelator {
   clear() { this.seen.clear(); this.latest.clear(); this.dropped = 0; this.duplicates = 0; }
 }
 
+function defaultIncidentKey(signal, family) {
+  if (family === 'harm') return signal.target ? `harm:${signal.target}` : null;
+  if (family === 'firing_burst') return signal.source ? `firing:${signal.source}` : null;
+  return signal.source || signal.target ? `${family}:${signal.source || ''}:${signal.target || ''}` : null;
+}
 function uniqueRefs(values) { return [...new Map(values.map(v => [v.captureRef, v])).values()]; }
 function episodeMatchKey(run, type, incidentKey, participants) { return `${run}:${type}:${incidentKey || ''}:${uniqueRefs(participants).map(p => p.captureRef).sort().join(',')}`; }
 function tickDelta(a, b) { return (a - b) >>> 0; }

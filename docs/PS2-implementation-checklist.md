@@ -45,3 +45,14 @@ Specification: `origin/research/ps2-proximity-chat-speech-plan`, commit `e1d0bd1
 - [x] Review the final diff and commit the completed work on this branch (`a6a03e4`).
 
 The default interop helper path targets `net481`; on this host the passing pipe interop command supplied `native/intelligence/tests/bin/Debug/net48/IntelligenceTests.exe` explicitly. Physical GTA acceptance remains pending and is outside offline harness coverage.
+
+
+## Corrective review
+
+A post-implementation review found and corrected three contract-level gaps:
+
+- sampled `injury_state` now maps into PS2 injury observations instead of being rejected as unsupported;
+- `reported` witness receipts are admitted by the correlator, and the closed witness/claim contracts preserve a UUID `reportRef` only for `dialogue_report` evidence;
+- damage, sampled injury and death now share a victim-scoped `harm` continuation key, while episode participant revisions union prior/new participants so an earlier attacker is not lost. A later death claim remains source-less unless that death signal itself carries supported source evidence; episode continuity does not manufacture causality.
+
+Regression cases were added for sampled injury → damage → death continuity, participant preservation, death-without-source causality, report-contract admission and hearsay preservation. The previously recorded 345-test/full-native-suite result predates this corrective commit; repository CI is not configured on this branch, so the complete suite should be re-run before merge in the normal development environment.
