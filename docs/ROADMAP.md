@@ -1,6 +1,8 @@
 # Project roadmap
 
-Updated October 3, 2026.
+Updated October 4, 2026.
+
+Current `main`: `6ae6bc9` (unified UX phases 0–3 merged).
 
 This roadmap tracks the Essential-based LSA companion from the hardened E1.1 foundation through low-latency dialogue, durable NPC identity, richer perception, autonomous scene behavior, and final long-session acceptance.
 
@@ -27,17 +29,22 @@ Essential remains authoritative for native NPC state, turn/generation identity, 
 | E2 | ✅ Implemented | Provider abstraction, stable session voices, bounded acting guidance |
 | E3 | ✅ Implemented | Stage-aware retries and provider failure recovery |
 | E5 | ✅ Implemented + live API validated | Structured Responses streaming; configured Luna produced a validated segment before response completion |
-| E6 | ✅ Implemented | Early segmented TTS is complete in the production path; prior GTA runs exercised native playback. Remaining early-audio/multi-segment stress checks are follow-up validation, not an implementation gate. |
+| E6 | ✅ Implemented | Early segmented TTS is complete in the production path; remaining early-audio/multi-segment stress checks are follow-up validation |
 | P0 — TURN_CONTEXT | ✅ Merged to `main` + offline-verified; GTA acceptance pending | Immutable per-turn actor/listener/world snapshots and time-of-use P/V target-reference validation |
-| P1 — SESSION_IDENTITY | ✅ Implemented | Explicit owner-authenticated durable UUIDs, runtime bindings, and persistent voice assignments are merged to `main`; additional stress/continuity checks roll into follow-up validation/E7. |
-| P2 — PROMOTED_CHARACTERS / CHARACTER_PROFILE | ✅ Implemented | Merged to `main` and exercised in GTA: promotion, character editor/profile memory editing, and native companion/vehicle behavior are working; remaining edge cases are follow-up regression work. |
-| PS0 / PS1 — PERCEPTION FOUNDATION | Implemented offline; physical GTA validation pending | Default-off shadow-only contracts, lifetime anchors, bounded factual transport and supported native producers; [status and GTA checklist](PS0-PS1-perception-status.md) |
-| PS2+ — PERCEPTION / KNOWLEDGE | Planned | Witness/LOS/hearing, correlation and later context/memory phases remain unimplemented |
-| SALIENCE | Planned | Decide what an NPC should care about right now |
-| PROXIMITY_CHAT / SOCIAL_ROUTING | Planned | Route player speech through perception + salience so nearby NPCs can hear, be addressed, overhear, and respond without manual targeting |
-| SCENE_DIRECTOR | Planned | NPC initiative and coordinated autonomous behavior built on the same perception/salience/social-routing state |
-| CUSTOM ACTIONS / ACTIVITIES | Planned | Expose more native Essential capabilities and add new extensions where needed |
-| E7 | Planned | Full regression, soak testing, and GTA acceptance |
+| P1 — SESSION_IDENTITY | ✅ Implemented | Explicit owner-authenticated durable UUIDs, runtime bindings, and persistent voice assignments are merged to `main` |
+| P2 — PROMOTED_CHARACTERS / CHARACTER_PROFILE | ✅ Implemented | Merged to `main` and exercised in GTA: promotion, character editor/profile memory editing, summon, follow/wait and native vehicle behavior |
+| UX0–UX3 — CONTROLS / NATIVE MENU | ✅ Merged to `main` + offline-verified; GTA acceptance pending | Command bridge, input router/chords, F11 native menu, Current NPC / Characters / Controls / AI / Diagnostics pages |
+| PS0 / PS1 — PERCEPTION FOUNDATION | ✅ Implemented offline on `main`; physical GTA validation pending | Default-off shadow contracts, lifetime anchors, bounded factual transport and supported native producers |
+| PS2 — WITNESS / EPISODE CORRELATION | 🟡 Implemented on feature branch; not merged | `feature/ps2-witness-rules-episode-correlation` is 3 commits ahead of `main`; witness rules, episode correlation and speech contracts are implemented offline. Full regression rerun + GTA acceptance remain; source-time player-speech hearing stays disabled until the native mic/capture receipt probe is proven |
+| SALIENCE | 🔵 Architecture researched; not implemented | Decide what an NPC should care about right now from bounded factual observations |
+| PROXIMITY_CHAT / SOCIAL_ROUTING | 🔵 Architecture researched; not implemented | Route one player utterance through hearing/address/overhearing and responder arbitration without creating a second dialogue stack |
+| SCENE_DIRECTOR | 🔵 Architecture researched; not implemented | NPC initiative and coordinated autonomous behavior built on perception, salience, social state and ACT capabilities |
+| ACT0 / ACT1 — ACTIVITY FOUNDATION | 🟣 Research complete; ready to implement | Closed capability/contracts layer, then shadow observation/correlation with no new NPC dispatch |
+| ACT2 / ACT3 — PLAYER ACTIVITIES | 🟣 Implementation-ready after gates | F11-assigned basic activities, then richer short-range actions, scenarios, vehicles and interaction chains |
+| ACT4 / ACT5 — DIALOGUE + AI ACTIVITIES | 🟣 Planned from settled architecture | Activity-aware dialogue/interruption, then closed validated Luna activity proposals |
+| ACT6 — NAVIGATION | 🟠 Research-gated | Add real `lsawalkto` / `lsadriveto` only after the required GTA navigation probes |
+| ACT7 — COMMITMENTS / DIRECTOR INTEGRATION | ⏳ Blocked on later PS phases | Durable commitments/home anchor, Scene Director activity proposals and directed NPC↔NPC interaction; depends on PS5/PS6/PS7 |
+| E7 | Planned | Full regression, soak testing, GTA acceptance and integrated long-session validation |
 
 ## Completed foundation
 
@@ -225,21 +232,41 @@ P2 is implemented and merged to `main`. GTA testing has confirmed the corrected 
 
 The optional RAGE owner plugin uses existing Essential selection, follow/wait, focus and vehicle-state seams. It guards missions/cutscenes/script ownership and suspends optional behavior conservatively, without a second TASK scheduler or automatic mission rejoin. Only addon-created peds can be explicitly deleted; dismissal never erases a character. The canonical P1 identity/voice schema and exact native dialogue/audio/action tuple remain unchanged. Appearance recreation is limited to supported standard model/components/props; exact freemode/third-party customization remains unclaimed.
 
-The architecture sequence is now:
+The architecture now splits into two parallel tracks after P2:
 
 ```text
 P0 TURN_CONTEXT
   → P1 SESSION_IDENTITY
   → P2 PROMOTED_CHARACTERS / CHARACTER_PROFILE
-  → PERCEPTION
-  → SALIENCE
-  → PROXIMITY_CHAT / SOCIAL_ROUTING
-  → SCENE_DIRECTOR
+        │
+        ├─→ PS0/PS1 PERCEPTION FOUNDATION
+        │      → PS2 WITNESS / EPISODE CORRELATION
+        │      → SALIENCE
+        │      → PROXIMITY_CHAT / SOCIAL_ROUTING
+        │      → later knowledge / memory / SCENE_DIRECTOR phases
+        │
+        └─→ ACT0 CONTRACTS / CAPABILITIES
+               → ACT1 SHADOW OBSERVATION
+               → ACT2 BASIC PLAYER ACTIVITIES
+               → ACT3 RICH SHORT-RANGE ACTIVITIES
+               → ACT4 DIALOGUE AWARENESS
+               → ACT5 MODEL PROPOSALS
+               → ACT6 NAVIGATION EXTENSIONS
+                       │
+                       └───────────────┐
+                                       ↓
+                 later PS5 / PS6 / PS7 → ACT7
+                                       ↓
+                                      E7
 ```
+
+The PS track answers **what NPCs perceive, know and care about**. The ACT track answers **what NPCs can reliably and verifiably do**. They can advance in parallel through ACT6; Scene Director eventually consumes both.
 
 P2 supplies the durable foundation, not automatic memory extraction, event perception, salience ranking or autonomous coordination. See [implementation, file formats and follow-up GTA checklist](P2-promoted-characters-status.md), [focused pinned native evidence](P2-native-evidence.md), and [offline verification](../lsa-essential-e1-candidate/docs/p2-verification.md). One observed follow-up regression target is order-dependent vehicle entry: driver-seat/drive behavior works, but companion entry can depend on whether the NPC receives the vehicle command before the player claims/enters the vehicle.
 
 ### PERCEPTION — Richer world and event awareness
+
+Current status: PS0/PS1 are merged to `main` in default-off shadow form. PS2 witness rules and episode correlation are implemented on `feature/ps2-witness-rules-episode-correlation` but are not yet merged. The PS2 branch deliberately keeps player-speech hearing unavailable until a source-time native mic/capture receipt can be proven in GTA; post-STT proximity is not accepted as evidence that an NPC heard an earlier utterance.
 
 Use Essential's existing extension seams and native state rather than creating a duplicate world scanner.
 
@@ -361,20 +388,69 @@ Examples:
 
 Prefer Essential-native mechanisms such as directed interactions, reflex/state systems, and native/special-turn scheduling. Do not bypass the authoritative turn/playback lifecycle.
 
-### CUSTOM ACTIONS / ACTIVITIES
+### CUSTOM ACTIONS / ACTIVITIES — ACT0 through ACT7
 
-Before writing new GTA behaviors from scratch, expose useful native capabilities already present in Essential but not currently available to the model.
+The October 4 activity/goal-execution research changes this from one late roadmap phase into a **parallel execution track** that can start now. ACT0–ACT6 do not depend on Scene Director. Player-assigned activities can ship through the existing F11/native-menu UX first; later Luna and Scene Director reuse the exact same validated machinery instead of inventing separate action paths.
 
-Candidates identified in the native analysis include behavior such as:
+Authoritative flow:
 
-- taking cover;
-- chasing a target;
-- becoming an accomplice;
-- approaching/talking to nearby characters;
-- richer item interactions;
-- scenario/activity behaviors.
+```text
+F11 / player command / later Luna / later Scene Director
+        ↓
+closed ActivityIntent + typed slots
+        ↓
+deterministic activity template
+        ↓
+closed capability registry
+        ↓
+native StepRunner
+        ↓
+Essential queue / wrapper / registered extension
+        ↓
+physical evidence + ActionReceipt
+        ↓
+continue / retry / recover / pause / cancel / finish
+```
 
-Where Essential lacks a required behavior, add it through native extension seams such as `NpcActionRegistry.Register()`, `IActionStateModifier`, or `IIntegration` rather than creating a parallel action system.
+Essential remains the executor. ACT owns planning/lifecycle and native evidence around one step at a time; it does not become a competing GTA TASK scheduler.
+
+#### ACT0 — Contracts, registry and metadata
+
+**Status: research complete; ready to implement.** Freeze the closed activity vocabulary, capability registry, native/companion contracts and metadata verification. No runtime behavior, pipe, UI or model changes.
+
+#### ACT1 — Native shadow observer
+
+**Status: research complete; ready to implement.** Add the activity channel, StepMachine/receipt correlation and supersession observation in shadow mode. Observe existing P2 follow/wait, model actions and reflexes without dispatching new gameplay actions. GTA probes pin callback names/counts before ACT can move anyone.
+
+#### ACT2 — Player-assigned basic activities
+
+**Status: implementable after/alongside ACT1; enable only after its GTA gates.** Add the first real F11 activity lifecycle with `hold_position`, `follow_person`, `resume_ambient` and `sit_on_ground`, plus status, pause, resume and cancel. The existing UX command catalog becomes a new revision rather than a second menu system.
+
+#### ACT3 — Rich short-range world activities
+
+**Status: architecture settled; row-by-row GTA gates required.** Add tested capabilities such as approach/face, enter/exit vehicle, short-range scenarios, walk-away/leave-scene, bounded cover and optional item interactions. Menu pickers mint validated temporary references rather than passing raw GTA handles.
+
+#### ACT4 — Dialogue awareness and interruption hardening
+
+**Status: planned from settled architecture.** Expose bounded current-activity context to dialogue and make conversation interruption/resume deterministic. An NPC can know what it is doing and why it stopped without claiming unverified physical completion.
+
+#### ACT5 — Model-proposed activities
+
+**Status: planned from settled architecture.** Luna may propose only closed activity intents for the current promoted actor. Existing P0 target-reference validation and action publication fences remain authoritative; the model never supplies coordinates, natives, handles, registry names or arbitrary step lists.
+
+#### ACT6 — Navigation extensions and places
+
+**Status: research-gated.** Static analysis proved Essential Hotfix #3's apparent `walktodestination`, `drivetodestination` and activity-queue state are vestigial. Real destination travel therefore needs separately registered `lsawalkto` / `lsadriveto` extensions, enabled only after the navigation/vehicle GTA probes demonstrate they coexist safely with Essential and installed vehicle mods.
+
+#### ACT7 — Commitments, home anchor and Director integration
+
+**Status: blocked on later PS phases.** Add durable commitments/home anchor, Scene Director activity proposals and directed NPC↔NPC interaction only after the required PS5/PS6/PS7 contracts exist. Commitments remain descriptive across restart; they never silently auto-execute on reload/summon.
+
+#### Initial capability progression
+
+ACT2 starts with wait/hold, follow, ambient resume and sit. ACT3 adds approach/face, vehicle entry/exit, scenarios such as smoke/coffee/phone/lean/bench, walk-away, cover and optional item transfers. ACT6 adds true arbitrary walk/drive-to waypoint/place behavior. Offensive combat, weapons, policing/hostage verbs and other unsafe/high-conflict families remain excluded until separately designed and gated.
+
+The ACT research also corrected an important prior assumption: **handler acceptance is not physical completion**. ACT therefore records native `ActionReceipt` progression and uses capability-specific world evidence before reporting arrival/completion. This same evidence layer will later support perception, memory, Luna planning and Scene Director without falsely remembering that an accepted action actually happened.
 
 ## E7 — Full regression and GTA acceptance
 
