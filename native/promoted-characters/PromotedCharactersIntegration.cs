@@ -106,7 +106,7 @@ namespace LSA.PromotedCharacters
             // A save/world transition invalidates every live association. Clear
             // them before any operation that can fail so even failure cleanup
             // cannot inspect, task, dismiss or adopt a ped from the old world.
-            var retired = encounters.Values.ToArray(); encounters.Clear(); captures.Clear(); ResetLocal("native_stale");
+            var retired = encounters.Values.ToArray(); encounters.Clear(); captures.Clear();
             var previous = channel; channel = null; previous?.Dispose();
             foreach (var encounter in retired) Retire(encounter);
             // P1 may already have reset its owner store, or may do so later in
@@ -114,6 +114,9 @@ namespace LSA.PromotedCharacters
             // claim. No capture/control work is admitted during this reset tick.
             var replacement = new ControlChannel(pipeName,Guid.NewGuid().ToString("D"),world);
             replacement.Start(); channel = replacement; lastGameTime = now;
+            // Pending loader commands carried the old world's expectations. The
+            // optional bridge can never fail P2's own reset.
+            try { ResetLocal("native_stale"); } catch { }
             Game.LogTrivial("[P2] game_clock_reset");
         }
         public void Update()

@@ -17,20 +17,24 @@ namespace LSA.PromotedCharacters
     {
         const int SnapshotIntervalMs = 250, MaxSnapshotInterestMs = 10000, AskCooldownMs = 3000, AskHistoryLimit = 64;
         readonly LocalCommandQueue local = new LocalCommandQueue();
-        readonly Dictionary<string,long> lastAskAtUtc = new Dictionary<string,long>();
-        long snapshotInterestUntilUtc, nextSnapshotAtUtc, snapshotSequence;
+        readonly Dictionary<string,long> lastAskAt = new Dictionary<string,long>();
+        long snapshotInterestUntil, nextSnapshotAt, snapshotSequence;
         string snapshot;
         bool bridgeFailureLogged;
 
+        // Interest windows, snapshot cadence and ask cooldowns use a monotonic
+        // clock so a wall-clock step cannot freeze or stretch them. Envelope
+        // expiry stays in UTC because the loader stamps it.
+        static long Monotonic => System.Diagnostics.Stopwatch.GetTimestamp() / Math.Max(1L,System.Diagnostics.Stopwatch.Frequency / 1000);
         // Loader-facing entry points (any thread): they never touch game state.
         internal string SubmitLocal(string envelope) => IsReady ? local.Submit(envelope,Now) : "native_unavailable";
         internal string TakeLocalResult(string id) => local.TryTakeResult(id,Now);
         internal string LocalSnapshot() => Volatile.Read(ref snapshot);
         internal void RequestLocalSnapshots(int forMs)
         {
-            long until = Now + Math.Max(0,Math.Min(MaxSnapshotInterestMs,forMs)), seen;
+            long until = Monotonic + Math.Max(0,Math.Min(MaxSnapshotInterestMs,forMs)), seen;
             // Interest only extends, so one client cannot end another's window.
-            while ((seen = Interlocked.Read(ref snapshotInterestUntilUtc)) < until && Interlocked.CompareExchange(ref snapshotInterestUntilUtc,until,seen) != seen) { }
+            while ((seen = Interlocked.Read(ref snapshotInterestUntil)) < until && Interlocked.CompareExchange(ref snapshotInterestUntil,until,seen) != seen) { }
         }
 
         // Called from Update after pipe requests, with the remaining shared budget.
@@ -95,43 +99,43 @@ namespace LSA.PromotedCharacters
             var encounter = EncounterFor(ped);
             if (encounter.Id != command.ExpectedEncounterId) throw new InvalidOperationException("target_changed");
             if (NpcStateStore.TryGetState(ped)?.InDirectedInteraction == true) throw new InvalidOperationException("scripted_state");
-            long now = Now;
-            if (lastAskAtUtc.TryGetValue(encounter.Id,out long previous) && now >= previous && now - previous < AskCooldownMs) throw new InvalidOperationException("ask_cooldown");
+            long now = Monotonic;
+            if (lastAskAt.TryGetValue(encounter.Id,out long previous) && now - previous < AskCooldownMs) throw new InvalidOperationException("ask_cooldown");
             // The exact call Essential's own text input makes: P0 context, P1
             // identity, the model and stock decision validation all still apply.
             LosSantosAlive.Input.InputController.SendTextPrompt(ped,command.Phrase);
-            if (lastAskAtUtc.Count >= AskHistoryLimit) {
-                foreach (var stale in lastAskAtUtc.Where(item => now - item.Value >= AskCooldownMs || now < item.Value).Select(item => item.Key).ToArray()) lastAskAtUtc.Remove(stale);
-                if (lastAskAtUtc.Count >= AskHistoryLimit) lastAskAtUtc.Clear();
+            if (lastAskAt.Count >= AskHistoryLimit) {
+                foreach (var stale in lastAskAt.Where(item => now - item.Value >= AskCooldownMs).Select(item => item.Key).ToArray()) lastAskAt.Remove(stale);
+                if (lastAskAt.Count >= AskHistoryLimit) lastAskAt.Clear();
             }
-            lastAskAtUtc[encounter.Id] = now;
+            lastAskAt[encounter.Id] = now;
             return new {status = "asked",encounterId = encounter.Id};
         }
         // Snapshots are built only while a client has asked for them, at most
         // every 250 ms, so an idle loader costs no game reads.
         void RefreshSnapshot()
         {
-            long now = Now;
-            if (now >= Interlocked.Read(ref snapshotInterestUntilUtc)) { if (Volatile.Read(ref snapshot) != null) Volatile.Write(ref snapshot,null); return; }
-            if (now < nextSnapshotAtUtc) return;
-            nextSnapshotAtUtc = now + SnapshotIntervalMs;
+            long now = Monotonic;
+            if (now >= Interlocked.Read(ref snapshotInterestUntil)) { if (Volatile.Read(ref snapshot) != null) Volatile.Write(ref snapshot,null); return; }
+            if (now < nextSnapshotAt) return;
+            nextSnapshotAt = now + SnapshotIntervalMs;
             object current = null,gates = null; string reason = null;
             try { current = CurrentView(); gates = Gates(); }
             catch (InvalidOperationException error) { current = gates = null; reason = Regex.IsMatch(error.Message,"^[a-z][a-z0-9_]{0,63}$") ? error.Message : "native_operation_failed"; }
             catch { current = gates = null; reason = "native_operation_failed"; }
             string text = null;
-            try { text = json.Serialize(new {v = 1,seq = ++snapshotSequence,builtAtUtc = now,current,gates,reason}); } catch { }
+            try { text = json.Serialize(new {v = 1,seq = ++snapshotSequence,builtAtUtc = Now,current,gates,reason}); } catch { }
             Volatile.Write(ref snapshot,text != null && text.Length <= LocalCommandQueue.MaxResultChars ? text : null);
         }
         void ResetLocal(string reason)
         {
-            local.CancelPending(reason,Now); lastAskAtUtc.Clear(); nextSnapshotAtUtc = 0;
+            local.CancelPending(reason,Now); lastAskAt.Clear(); nextSnapshotAt = 0;
             Volatile.Write(ref snapshot,null);
         }
         void CloseLocal()
         {
             try { local.Close("native_unavailable",Now); } catch { }
-            lastAskAtUtc.Clear(); Volatile.Write(ref snapshot,null);
+            lastAskAt.Clear(); Volatile.Write(ref snapshot,null);
         }
     }
 }

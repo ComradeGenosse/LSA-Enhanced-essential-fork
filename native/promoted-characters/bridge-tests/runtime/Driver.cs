@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
@@ -21,6 +22,8 @@ namespace LSA.BridgeTests
     {
         readonly Dictionary<int,Ped> peds = new Dictionary<int,Ped>();
         readonly HashSet<string> trueNatives = new HashSet<string>();
+        readonly List<ControlRequest> pushed = new List<ControlRequest>();
+        string failingNative;
         readonly HashSet<int> nonHuman = new HashSet<int>();
         int directed;
         public override object InitializeLifetimeService() => null;
@@ -30,7 +33,11 @@ namespace LSA.BridgeTests
         }
         public Driver()
         {
-            NativeFunction.Handler = (name,args) => trueNatives.Contains(name);
+            NativeFunction.Handler = (name,args) => {
+                // Stands in for an RPH invalid-handle or native failure.
+                if (name == failingNative) throw new ApplicationException("native failure: " + name);
+                return trueNatives.Contains(name);
+            };
             NpcTargeting.Human = ped => !nonHuman.Contains(ped.Handle);
             NpcStateStore.State = ped => ped != null && ped.Handle == directed ? new NpcState {InDirectedInteraction = true} : null;
         }
@@ -64,6 +71,20 @@ namespace LSA.BridgeTests
         public void Native(string name,bool value) { if (value) trueNatives.Add(name); else trueNatives.Remove(name); }
         public void Human(int handle,bool human) { if (human) nonHuman.Remove(handle); else nonHuman.Add(handle); }
         public void Directed(int handle) => directed = handle;
+        public void FailNative(string name) => failingNative = name;
+        // Queues admitted requests exactly where the pipe worker puts them, so a
+        // tick can mix P2 pipe work with loader commands under one budget.
+        public void PushPipe(string operation,int count)
+        {
+            var channel = typeof(PromotedCharactersIntegration).GetField("channel",BindingFlags.Instance | BindingFlags.NonPublic).GetValue(Integration);
+            var requests = (ConcurrentQueue<ControlRequest>)typeof(ControlChannel).GetField("requests",BindingFlags.Instance | BindingFlags.NonPublic).GetValue(channel);
+            var queued = typeof(ControlChannel).GetField("count",BindingFlags.Instance | BindingFlags.NonPublic);
+            for (int index = 0; index < count; index++) {
+                var request = new ControlRequest {RequestId = Guid.NewGuid().ToString("D"),Operation = operation,Args = new Dictionary<string,object>(),ExpiresAtUtc = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() + 3000};
+                queued.SetValue(channel,(int)queued.GetValue(channel) + 1); requests.Enqueue(request); pushed.Add(request);
+            }
+        }
+        public string PipeOutcomes() { var outcomes = string.Join(",",pushed.Select(request => request.Done.IsSet ? request.Reason ?? "ok" : "pending")); pushed.Clear(); return outcomes; }
         public void PromptFailure(string mode) =>
             InputController.OnPrompt = mode == null ? null : (Action<Ped,string>)((ped,text) => { if (mode == "invalid_operation") throw new InvalidOperationException("Essential prompt failure"); throw new ApplicationException("Essential prompt failure"); });
         public int PromptCount => InputController.Prompts.Count;

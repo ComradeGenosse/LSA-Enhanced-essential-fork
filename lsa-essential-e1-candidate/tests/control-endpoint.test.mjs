@@ -1,6 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import http from 'node:http';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
 import net from 'node:net';
 import path from 'node:path';
 import { readdir, readFile, writeFile } from 'node:fs/promises';
@@ -58,6 +60,19 @@ test('endpoint file is written atomically and removed only by the server that ow
   await second.close(); await second.close();
   assert.deepEqual(await readdir(path.dirname(file)), []);
   assert.equal(exitListeners(), listeners);
+});
+
+test('a companion process that exits removes its own endpoint file but not a newer one', async t => {
+  const root = await directory(t), file = path.join(root, 'LSA Enhanced', CONTROL_ENDPOINT_FILE);
+  const module = new URL('../src/control/endpointFile.mjs', import.meta.url).href;
+  const child = overwrite => `const m = await import(${JSON.stringify(module)});
+    await m.publishControlEndpoint(${JSON.stringify(file)}, { url: 'http://127.0.0.1:37921', token: '${token}' });
+    ${overwrite ? `(await import('node:fs')).writeFileSync(${JSON.stringify(file)}, JSON.stringify({ version: 1, url: 'http://127.0.0.1:37922', token: '${'c'.repeat(64)}', pid: 1, startedAtUtc: new Date().toISOString() }));` : ''}
+    process.exit(0);`;
+  await promisify(execFile)(process.execPath, ['--input-type=module', '-e', child(false)]);
+  await assert.rejects(readFile(file, 'utf8'), { code: 'ENOENT' });
+  await promisify(execFile)(process.execPath, ['--input-type=module', '-e', child(true)]);
+  assert.equal(JSON.parse(await readFile(file, 'utf8')).token, 'c'.repeat(64));
 });
 
 test('character editor publishes the same token it embeds and removes the endpoint on close', async t => {

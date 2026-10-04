@@ -327,6 +327,28 @@ static class Program
         driver.NativeCalls = 0; driver.Tick();
         Check(driver.NativeCalls == 0,"no reads after interest lapses");
 
+        var mixed = Enumerable.Range(0,3).Select(_ => Id()).ToArray();
+        foreach (var id in mixed) host.Submit(Inspect(id,Now));
+        driver.PushPipe("current",3); driver.Tick();
+        var first = mixed.Where(id => host.TryTakeResult(id) != null).ToList();
+        Check(driver.PipeOutcomes() == "ok,ok,ok" && first.Count == 1,"pipe requests run first and leave the rest of the budget to loader commands");
+        driver.Tick();
+        Check(mixed.Except(first).All(id => host.TryTakeResult(id) != null),"loader commands continue on the next Update");
+
+        driver.FailNative("IS_ENTITY_A_MISSION_ENTITY");
+        Check(RunReason(host,driver,Inspect(Id(),Now)) == "native_operation_failed","a throwing read fails only that command");
+        driver.PushPipe("current",1); driver.Tick();
+        Check(driver.PipeOutcomes() == "native_operation_failed","the current pipe op fails closed");
+        host.RequestSnapshots(600); driver.Tick();
+        var failedSnapshot = Parse(host.Snapshot());
+        Check(failedSnapshot != null && failedSnapshot["current"] == null && failedSnapshot["gates"] == null && (string)failedSnapshot["reason"] == "native_operation_failed","snapshots report read failures");
+        driver.FailNative("GET_MISSION_FLAG");
+        Check(RunReason(host,driver,GatesRead(Id(),Now)) == "native_operation_failed" && RunReason(host,driver,Ask(Id(),second,"Hi.",Now)) == "native_operation_failed","gate reads fail closed");
+        driver.FailNative(null);
+        Check(driver.Available && driver.Ready && host.Ready && !driver.Logs.Contains("[P2] optional_update_failed"),"read failures never shut down P2");
+        Thread.Sleep(700); driver.Tick();
+        Check(host.Snapshot() == null,"failure-test snapshot interest lapsed");
+
         var pipe = Parse(driver.PipeCurrent(false));
         Check(pipe != null && (bool)pipe["present"] && (string)pipe["encounterId"] == second && !(bool)pipe["owned"],"read-only current pipe op shares the view");
         Check(driver.PipeCurrent(true) == "error:invalid_owner_arguments","current pipe op takes no arguments");

@@ -100,7 +100,8 @@ export async function createRuntimeForBundle(options = {}) {
     await runtime.characterService.initialize();
     if (runtime.characterService.ready && options.startCharacterEditor !== false) try {
       // Per-user endpoint file for the native console bridge; null disables it.
-      const endpointPath = options.controlEndpointPath !== undefined ? options.controlEndpointPath : defaultControlEndpointPath();
+      // The resolved environment keeps explicit test/embedding envs isolated.
+      const endpointPath = options.controlEndpointPath !== undefined ? options.controlEndpointPath : defaultControlEndpointPath({ env });
       runtime.characterEditor = await startCharacterEditor(runtime.characterService,{ endpointPath });
       try { console.info('[P2] Character editor: ' + runtime.characterEditor.url); } catch {}
       if (endpointPath && !runtime.characterEditor.endpointPublished) try { console.warn('[UX] Control endpoint file unavailable; native clients use the page handshake.'); } catch {}
