@@ -40,7 +40,7 @@ Specification: `origin/research/ps2-proximity-chat-speech-plan`, commit `e1d0bd1
 ## Verification
 
 - [x] Run targeted PS2 companion tests and native harnesses: witness rules (2), speech (3), contracts (22), lifecycle (54); native intelligence unit harness (76 assertions), native integration harness (41 assertions), and production Node/.NET factual-pipe interop (1).
-- [x] Run PS0/PS1/P2 regression tests and native harnesses: full companion suite below; Session Identity offline (19) and facts pipe (9); P2 offline safety (33), control pipe (13), runtime (29), PS host lifecycle (10), and recovery lifecycle (58). P2 `host-tests/HostTests.csproj` could not run because it references a `net481` bootstrap while this host only has the .NET Framework 4.8 targeting pack; the remaining `net481` harnesses ran with `TargetFramework=net48`.
+- [x] Run PS0/PS1/P2 regression tests and native harnesses: full companion suite below; Session Identity offline (19) and facts pipe (9); P2 offline safety (33), control pipe (13), runtime (29), PS host lifecycle (10), recovery lifecycle (58), and host/command lifecycle (25). The host test and its Bootstrap project restore the official .NET Framework 4.8.1 reference assemblies through NuGet when the machine targeting pack is absent; no game assemblies execute.
 - [x] Run the full companion suite: `node tools/runTests.mjs` — 345 passed, 0 failed.
 - [x] Review the final diff and commit the completed work on this branch (`a6a03e4`).
 
