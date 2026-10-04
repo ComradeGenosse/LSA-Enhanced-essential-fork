@@ -80,7 +80,7 @@ The feature is split across the existing AppDomain boundary.
 
 - neutral physical controller key state
 - tap versus hold recognition
-- opening and closing a held synthetic Essential TalkKey press
+- tap/hold recognition plus exact native PTT start/stop requests
 - user-facing HUD status
 - settings and diagnostics
 - cancellation on focus loss, menu opening, settings reload or host shutdown
@@ -241,52 +241,47 @@ If the T0 setter probe passes, selecting a target also sets NpcTargeting.SetPlay
 
 ## 8. Input state machine
 
-Add native/enhanced/Input/TalkTargetInput.cs.
+Add `native/enhanced/Input/TalkTargetInput.cs`.
 
-The physical controller Talk control must be mapped by Steam Input to a neutral router key. It must no longer directly emit Essential's TalkKey while UX4 targeting is enabled.
+The physical controller Talk control is mapped through Steam Input to a neutral router key while UX4 is enabled. Do not map that physical control directly to Essential TalkKey at the same time.
 
-Do not implement PTT as a normal GestureRecognizer command. Voice requires press/release semantics.
-
-Proposed states:
+PTT has its own press/release state machine rather than a normal GestureRecognizer command:
 
 ~~~text
 Idle
-  key down
-    -> Selecting / PendingHold
+  key down -> PendingHold
 
 PendingHold
-  if released before talkHoldMs
-    -> selection tap/cycle only
+  release before talkHoldMs
+    -> select/cycle only
     -> Idle
 
-  if talkHoldMs reached
-    -> CommitPending
+  threshold reached
+    -> send talk.ptt_start for exact selection/PTT generation
+    -> StartPending
 
-CommitPending
-  native target commit accepted while physical key still held
-    -> press Essential TalkKey
+StartPending
+  matching native start succeeds while key is still held
     -> Talking
 
-  physical key released before commit
-    -> cancel local pending start
-    -> never press Essential TalkKey
-    -> Idle
+  key released before reply
+    -> fence generation
+    -> ensure matching stop if native start crossed the boundary
+    -> never treat a late success as a new press
 
 Talking
-  physical key released
-    -> release Essential TalkKey
-    -> Idle
+  key released
+    -> talk.ptt_stop
+    -> stock InputController.SendMicStop()
+    -> Idle after ownership clears
 
   gate closes / focus lost / settings reload / shutdown
-    -> force release Essential TalkKey
-    -> Idle
+    -> request matching native stop immediately
 ~~~
 
-Suggested initial talkHoldMs: 220 ms, configurable 120–500 ms. Tune from GTA latency rather than assuming the initial value is final.
+Suggested initial `talkHoldMs`: 220 ms, configurable 120–500 ms and tuned from GTA measurements.
 
-On a hold with no selected target, the native side chooses the best candidate first. The player sees the indicator during PendingHold, before the microphone starts.
-
-Late bridge replies carry a local request generation and cannot start PTT after the physical button has already been released.
+On a hold with no prior target, the native side chooses the best candidate first and commits only that exact selected lifetime. The player sees the indicator before microphone start.
 
 ## 9. Direct stock mic lifecycle — no synthetic TalkKey
 
@@ -514,10 +509,21 @@ UX4 does not:
 - change microphone/STT/provider/TTS lifecycle
 - create a second conversation manager
 - create a second ped task scheduler
-- patch Essential unless T0 demonstrates the public target seam cannot drive PTT
+- patch Essential unless the proven public direct-mic seam later fails a specific source-pinned live acceptance case
 
 ## 19. Implementation-ready decision
 
-The feature is implementation-ready after T0 proves that SetPlayerConversationPed controls the subsequent microphone target without unacceptable side effects.
+T0A is complete from the exact pinned DLL. The implementation path is now:
 
-If that proof passes, the remaining work is bounded UX/P2 integration with existing testable seams. No provider, memory, perception-knowledge or action architecture change is required.
+~~~text
+preview/cycle target with no conversation mutation
+  -> exact target revalidation at hold commit
+  -> SetPlayerConversationPed(selectedPed)
+  -> InputController.SendMicStart(selectedPed)
+  -> stock mic lifecycle
+  -> InputController.SendMicStop() on matching release
+~~~
+
+Do not synthesize stock TalkKey.
+
+The remaining uncertainty is ordinary GTA acceptance of that public direct-mic seam from the P2 Core.Update context, not target-selection architecture. No Essential source patch, provider change, memory change, perception-knowledge change or action-architecture change is currently required.

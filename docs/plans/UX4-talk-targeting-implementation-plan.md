@@ -117,7 +117,8 @@ Add strict internal commands:
 
 - talk.select_first
 - talk.select_next
-- talk.commit
+- talk.ptt_start
+- talk.ptt_stop
 - talk.clear
 - talk.inspect
 
@@ -125,7 +126,7 @@ Add source talk_input.
 
 Do not loosen arbitrary command/argument parsing. Give each talk command an exact target/args schema.
 
-Extend LocalCommand only with fields actually required, for example ExpectedSelectionId and ExpectedEncounterId.
+Extend LocalCommand only with fields actually required, including ExpectedSelectionId, ExpectedEncounterId and PttGeneration for start/stop fencing.
 
 Keep queue Capacity, expiry, dedupe and bounded result behavior unless testing proves a separate cap is necessary.
 
@@ -133,7 +134,7 @@ Keep queue Capacity, expiry, dedupe and bounded result behavior unless testing p
 
 native/promoted-characters/NativeCommands.cs
 
-Add command handlers that call TalkTargetSelector only on Core.Update.
+Add command handlers that call TalkTargetSelector and the direct stock mic start/stop seam only on Core.Update.
 
 Change CurrentPed() to:
 
@@ -287,7 +288,7 @@ Default enabled=false.
 
 Reject duplicate/conflicting physical keys.
 
-Essential key conflict must be evaluated dynamically on Essential config reload. If talkTargeting.key becomes equal to TalkKey/TextKey/MarkPedKey/MarkedPedTalkKey, suspend UX4 targeting and force-release any held synthetic TalkKey.
+Essential key conflict must be evaluated dynamically on Essential config reload. If talkTargeting.key becomes equal to TalkKey/TextKey/MarkPedKey/MarkedPedTalkKey, suspend UX4 targeting and issue a matching native stop for any UX4-owned pending/active PTT generation.
 
 ### Modify
 
