@@ -1,6 +1,11 @@
 # Public radio metadata source analysis and v2 catalog recommendation
 
-Status: **research complete; candidate catalog generated; GTA text-ID probe still required**  
+Status: **research complete; candidate catalog generated; GTA text-ID probe still required**
+
+Implementation handoff:
+
+- [Radio Track Perception v2 — Full Implementation Plan](radio-track-perception-v2-implementation-plan.md)
+- [Radio Track Perception v2 — Validation and Migration Matrix](radio-track-perception-v2-validation.md)  
 Date: 2026-10-04  
 Baseline: `feature/radio-track-perception-r0-r2@41604c715ec16cdcaccf0096274ae3dc7da47481`
 
