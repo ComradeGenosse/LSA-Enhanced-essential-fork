@@ -1,5 +1,8 @@
 # LSA Enhanced — System Convergence Architecture
 
+> **Corpus status note:** The architecture, ownership conclusions, contract IDs and convergence rationale in this report remain authoritative. Its pinned refs, branch relationships, test counts and deployment/status tables are a historical snapshot of the audit run on October 5, 2026. Use [CURRENT.md](CURRENT.md) for current research interpretation and [../ROADMAP.md](../ROADMAP.md) for current merged/built/deployed/GTA-validated state.
+
+
 Research report. **No runtime code, configuration or gameplay behavior is changed by this branch.**
 
 | | |
