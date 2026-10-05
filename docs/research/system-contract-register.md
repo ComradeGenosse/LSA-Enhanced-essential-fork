@@ -1,5 +1,8 @@
 # System contract register
 
+> **Corpus status note:** Contract definitions in this register are the forward architectural authority. Implementation status can advance independently; use [CURRENT.md](CURRENT.md) and [../ROADMAP.md](../ROADMAP.md) to see what has actually landed or been validated.
+
+
 Part of the [system convergence architecture](system-convergence-architecture.md) research package. Research only: the contracts in §3 are **PROPOSED** interfaces, not implemented code.
 
 Contents:
