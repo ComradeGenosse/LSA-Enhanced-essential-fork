@@ -1,5 +1,8 @@
 # System convergence dependency graph and implementation order
 
+> **Corpus status note:** Dependency edges and prerequisite relationships remain authoritative unless superseded by a later contract/decision. Milestone completion shown in this graph reflects the convergence-audit snapshot; use [../ROADMAP.md](../ROADMAP.md) for current completion state.
+
+
 Part of the [system convergence architecture](system-convergence-architecture.md) research package. Research only.
 
 **Historical starting point** (PROVEN at research time, 2026-10-05). Current implementation status has advanced; use [../ROADMAP.md](../ROADMAP.md) for today's merged/deployed state:
