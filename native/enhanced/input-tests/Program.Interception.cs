@@ -33,6 +33,23 @@ static partial class Program
         lease.Read(120,false,1440,out down);
         Check(!lease.Read(120,true,1450,out down),"old key returns to stock after rebinding and release");
 
+        // UX4 Talk has a separate owner from the router. Either owner may renew
+        // or release without dropping the other's interception.
+        Check(lease.LeaseTalk(5,1500),"talk interception accepts a bound Talk key");
+        Check(lease.Read(5,true,1510,out down) && !down,"shared Talk is hidden from Essential while UX4 owns it");
+        Check(lease.LeaseRouter(120,6,1520),"router can renew while Talk is leased");
+        Check(lease.Read(5,true,1530,out down) && !down,"router renewal does not release Talk");
+        lease.ReleaseRouter();
+        Check(lease.Read(5,true,1540,out down) && !down,"router release does not release Talk");
+        lease.ReleaseTalk();
+        Check(lease.Read(5,true,1550,out down) && !down,"Talk release drains a physically held Talk key");
+        Check(lease.Read(5,false,1560,out down) && !down && !lease.Read(5,true,1570,out down),"stock Talk returns only after the real key is released");
+        Check(lease.LeaseRouter(120,6,1600) && lease.LeaseTalk(5,1600),"router and Talk leases can coexist");
+        lease.ReleaseTalk();
+        Check(lease.Pulse(120,1610) && lease.Read(120,true,1620,out down) && down,"releasing Talk leaves router pulses intact");
+        lease.ReleaseRouter(); lease.Read(120,false,1630,out down);
+        Check(!lease.LeaseTalk(0,1640) && !lease.LeaseTalk(255,1640),"invalid Talk leases are rejected");
+
         Func<Rig> rig = () => {
             var r = new Rig("{\"version\":1,\"input\":{\"enabled\":true,\"keys\":{\"L4\":\"F9\",\"R4\":\"Mouse5\",\"Menu\":\"F11\"}},\"ui\":{\"enabled\":true}}");
             r.Bridge.InputSupported = true; r.Bridge.InputClock = r.Clock;
