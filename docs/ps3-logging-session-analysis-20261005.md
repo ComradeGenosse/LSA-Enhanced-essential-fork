@@ -67,6 +67,18 @@ The bridge reported session_closed at 3:10:25, identity evidence retired, and in
 
 The final PS3 counters are sampled about 2.4 seconds before bridge closure. They may omit the last few seconds. Current persistent projection omits decision reasons/event categories, acknowledgement outcomes, damage callback counts and drop reasons, even though some of these are available in the richer console/native diagnostics. Suppressed=0 means this session did not demonstrate suppression; it does not prove suppression is broken. Consumer delivered/rejected/expired acknowledgement and stale-decision-key behavior remain offline-tested, not established here. Player-speech witnessing and authenticated relationship/trait context remain gated.
 
+## Follow-up implementation
+
+PR #14 (`fix/ps3-runtime-observability-followups`) addresses the code/observability findings that can be corrected without guessing at GTA runtime behavior:
+
+- Retained raw-signal history no longer gates semantic admission. Valid signals reach PS2/PS3 first; the diagnostic history then rotates noncritical entries or, if all retained entries are critical, skips only the retained copy.
+- Harmless retained-history ageing is counted separately from truly expired incoming signals.
+- PS2 and PS3 diagnostics remain process-cumulative across intelligence reconnect/reset boundaries, avoiding mixed reset semantics in comparisons.
+- JSONL `companion_shadow` records now include retained-history high-water/eviction/skip counters, reset/drop reasons, native drop/stale diagnostics, separate ped/player/vehicle damage callback totals, selected PS3 reason counters, and a final disconnect snapshot.
+- The DamageTracker callback implementation itself is deliberately unchanged. Zero live callback counts still require the controlled player/NPC/vehicle damage probe before any subscription/startup fix is justified.
+
+The changed production modules pass Node syntax checks and an isolated logic harness covering retained-history rotation/skip behavior, cumulative reset diagnostics, and the expanded scalar telemetry projection. This is focused verification only; the previous 387-test / 12-native-suite matrix remains the last full-suite baseline until a complete run is performed on the PR branch.
+
 ## Recommended next work
 1. Investigate native damage callbacks with controlled tracked-victim probes.
 2. Add bounded drop-reason/high-water counters and separate retained-history capacity from pre-correlation rejection, if full processing under this load is required.
