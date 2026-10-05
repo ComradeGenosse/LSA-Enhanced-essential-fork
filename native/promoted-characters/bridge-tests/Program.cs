@@ -350,7 +350,7 @@ static class Program
 
         driver.ResetTalkCounters(); driver.ClearNearby(); driver.Nearby(20,8,0,0,960,540); driver.PublishSnapshot();
         var gatedPick = TalkRun(host,driver,"talk.select_first",TalkLimits());
-        var gatedArgs = new Dictionary<string,object>(TalkLimits()) {{"generation",6},{"selectFirst",false}};
+        var gatedArgs = new Dictionary<string,object>(TalkLimits()) {{"generation",100},{"selectFirst",false}};
         var gatedTarget = new Dictionary<string,object> {{"kind","talk"},{"expect",new Dictionary<string,object> {{"selectionId",(string)gatedPick["selectionId"]},{"encounterId",(string)gatedPick["encounterId"]}}}};
         foreach (var gate in new[] {"text","controls","loading","cutscene","mission","online"}) {
             driver.Gates(gate == "text",gate == "controls",gate == "loading");
