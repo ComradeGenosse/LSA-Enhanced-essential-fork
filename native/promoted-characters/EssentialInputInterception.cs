@@ -55,8 +55,11 @@ namespace LSA.PromotedCharacters
                 return installed;
             }
         }
-        public static bool Lease(int mark,int text) => Install() && state.Lease(mark,text,Now);
+        public static bool Lease(int mark,int text) => Install() && state.LeaseRouter(mark,text,Now);
+        public static bool LeaseTalk(int talk) => Install() && state.LeaseTalk(talk,Now);
         public static bool Pulse(int vk) => installed && state.Pulse(vk,Now);
-        public static void Release() => state.Release();
+        public static void Release() => state.ReleaseRouter();
+        public static void ReleaseTalk() => state.ReleaseTalk();
+        public static void ReleaseAll() => state.ReleaseAll();
     }
 }
