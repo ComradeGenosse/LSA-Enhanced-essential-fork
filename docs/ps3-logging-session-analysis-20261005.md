@@ -1,5 +1,7 @@
 # GTA PS3 logging session review — October 5, 2026
 
+> **Follow-up note:** this is the first PS3 logging session. Its retained-history admission-drop finding was fixed afterward. The later [combined UX4/PS3 run](ux4-ps3-run-analysis-20261005.md) exercised the fix under real history pressure with zero companion/PS2 admission drops. The direct damage-callback question remains open.
+
 ## Conclusion
 The corrected PS3 shadow pipeline loaded, initialized, processed live observations, and persisted its new telemetry successfully. This session establishes live PS3 evaluation and JSONL persistence. It does not establish complete PS3 acceptance: companion capacity drops occurred, native damage callbacks were absent, and suppression/consumer acknowledgement were not demonstrated.
 
