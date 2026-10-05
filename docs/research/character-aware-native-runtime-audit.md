@@ -1,5 +1,7 @@
 # Los Santos Alive Essential Hotfix #3 Native Character Context Audit
 
+> **Later project state:** P1 SESSION_IDENTITY and P2 promoted characters were implemented after this audit. References below to a “future SESSION_IDENTITY phase” describe the design state at the time; they are not current roadmap status.
+
 Updated: 2026-10-02
 
 Repository: ComradeGenosse/LSA-Enhanced-essential-fork  
