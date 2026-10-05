@@ -78,7 +78,7 @@ The feature is split across the existing AppDomain boundary.
 
 ### Loader / UX domain owns
 
-- neutral physical controller key state
+- physical controller Talk-key state, either a neutral key or Essential's TalkKey under the dedicated UX4 interception lease
 - tap versus hold recognition
 - tap/hold recognition plus exact native PTT start/stop requests
 - user-facing HUD status
@@ -243,7 +243,7 @@ T0A showed the setter is not a preview. Selecting or cycling does not call it. `
 
 Add `native/enhanced/Input/TalkTargetInput.cs`.
 
-The physical controller Talk control is mapped through Steam Input to a neutral router key while UX4 is enabled. Do not map that physical control directly to Essential TalkKey at the same time.
+The physical controller Talk control may stay mapped to Essential's existing TalkKey. In shared-input mode UX4 polls the real physical key while a separate native interception lease suppresses Essential's duplicate Talk polling. A neutral router key remains supported as an alternative. Never synthesize Essential TalkKey to start the UX4 microphone lifecycle.
 
 PTT has its own press/release state machine rather than a normal GestureRecognizer command:
 
@@ -442,9 +442,10 @@ Settings hot reload clears pending selection input and sends `talk.ptt_stop` for
 
 When UX4 is enabled:
 
-- map the physical controller Talk button to talkTargeting.key, for example F10
-- do not also map that button directly to Essential TalkKey
-- leave Essential's LosSantosAlive.config TalkKey unchanged, for example Mouse4
+- recommended: leave the physical controller Talk button mapped exactly as it already is and set `talkTargeting.key` to the same key as Essential's `TalkKey`
+- shared-input mode acquires an independent suppression lease so Essential does not also run generic Talk from that physical press
+- a neutral key such as F10 remains supported if a separate binding is preferred
+- leave Essential's LosSantosAlive.config TalkKey unchanged
 - after the hold threshold, UX4 calls `SetPlayerConversationPed(selectedPed)` and `InputController.SendMicStart(selectedPed)` on Core.Update; it does not synthesize TalkKey
 
 When UX4 is disabled, the player can restore the original direct controller Talk mapping and behavior is unchanged.
