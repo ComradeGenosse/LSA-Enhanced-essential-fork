@@ -1,6 +1,6 @@
 # PS3 deterministic salience
 
-Status, October 5, 2026: **corrected implementation merged into main, fully offline-verified, and hash-deployed locally in shadow; structured physical GTA acceptance and live JSONL logging verification remain pending**.
+Status, October 5, 2026: **corrected implementation is merged into main and hash-deployed in shadow; live PS3 evaluation and JSONL persistence were verified in GTA, while structured behavioral acceptance and the controlled native-damage callback probe remain pending**.
 
 PS3 ranks PS2 observations. It does not create turns, actions, memories, playback changes, or native authority. `urgent` means the observation outranks other candidates. Reflex and self-preservation remain native.
 
@@ -35,7 +35,7 @@ The installed intelligence mode is `shadow`; player-speech witnessing remains di
 
 ## JSONL shadow telemetry
 
-The existing console `[PS] companion_shadow` report is still produced on its existing **10-second cadence** after the intelligence hello has initialized. A scalar-only projection is now also persisted through E4 observability to the server's normal rotating JSONL files:
+The existing console `[PS] companion_shadow` report is still produced on its existing **10-second cadence** after the intelligence hello has initialized. A scalar-only projection is also persisted through E4 observability to the server's normal rotating JSONL files. The October 5 GTA session verified 13 persisted samples at approximately the expected cadence:
 
 ```text
 <LosSantosAliveServer>/logs/e1-run-<UTC>-<runId>.jsonl
@@ -44,7 +44,7 @@ The existing console `[PS] companion_shadow` report is still produced on its exi
 The persistent records are:
 
 - `intelligence_status` with `data.stage` = `connecting`, `connected`, `initialized`, or `disconnected`.
-- `companion_shadow` with bounded transport counters plus PS2 `correlated`, `witnessed`, `duplicates`, `dropped` and PS3 `decisions`, `urgent`, `eligible`, `staged`, `suppressed`, `faults`.
+- `companion_shadow` with bounded transport counters; explicit retained-history count/high-water/eviction/skip diagnostics; lifecycle reset reasons; native drop/stale counts; separate ped/player/vehicle damage-callback totals; PS2 `correlated`, `witnessed`, `duplicates`, `dropped`; PS3 `decisions`, `urgent`, `eligible`, `staged`, `suppressed`, `faults`; selected bounded salience-reason counters; and `finalSnapshot` on the disconnect summary.
 
 Only explicitly whitelisted scalar counters cross this persistence boundary. Capabilities, dialogue, accepted speech text/transcripts, credentials, profile contents, memories, and arbitrary nested report data are not persisted by these records. The E4 sink remains passive: telemetry callback, serialization, queue, rotation, or write failures are swallowed/contained and cannot change intelligence acceptance, salience decisions, native behavior, or gameplay.
 
@@ -57,7 +57,7 @@ Select-String -Path $log.FullName -Pattern '"event":"intelligence_status"','"eve
 
 A healthy connection should show `connecting` -> `connected` -> `initialized`, followed by `companion_shadow` records roughly every 10 seconds while the channel remains initialized. A close/restart should add `disconnected`; reconnect attempts begin again with `connecting`.
 
-To verify salience activity without inspecting dialogue, trigger an ordinary supported PS2 event such as companion damage or witnessed gunfire and compare successive `companion_shadow` records. `ps3Decisions` should advance; the relevant `ps3Urgent` / `ps3Eligible` / `ps3Staged` / `ps3Suppressed` counters may advance according to the existing salience policy, while `ps3Faults` should remain zero. PS2 correlation/witness counters should advance independently. Player-speech hearing remains gated off by the existing unsupported-capture-receipt rule and this logging change does not alter that path.
+To verify salience activity without inspecting dialogue, trigger an ordinary supported PS2 event such as companion damage or witnessed gunfire and compare successive `companion_shadow` records. `ps3Decisions` should advance; the relevant `ps3Urgent` / `ps3Eligible` / `ps3Staged` / `ps3Suppressed` and selected reason counters may advance according to the existing salience policy, while `ps3Faults` should remain zero. PS2 correlation/witness counters should advance independently. `retainedSignals` is diagnostic history, not a work queue: history pressure may rotate or skip retained copies but must not reject valid input before PS2/PS3. Harmless history ageing is counted separately from input `expired`. PS2 and PS3 counters are process-cumulative across intelligence reconnects so their relationship remains interpretable. Player-speech hearing remains gated off by the existing unsupported-capture-receipt rule and this logging change does not alter that path.
 
 ## GTA validation still open
 
@@ -67,4 +67,4 @@ To verify salience activity without inspecting dialogue, trigger an ordinary sup
 4. Confirm a repeated burst does not keep the urgent response after the first revision, and that a later death revision can become relevant again.
 5. Confirm live shadow does **not** emit `relationship_close`, `relationship_conflict`, `prior_memory`, or `trait_policy` until an authenticated captureRef/profile binding seam is added. Recognized-vs-backend-only behavior is an offline PS3 gate today.
 6. If a driver flag is supplied by a later adapter, routine nearby presence stays omitted while vehicle impact does not.
-7. Player speech remains disabled until a source-time capture receipt exists. Do not treat post-STT text as hearing.
+7. Run the controlled native damage probe: record `pedDamageCallbacks`, `playerDamageCallbacks`, and `vehicleDamageCallbacks`; cause one isolated player hit, one tracked-NPC hit, and one vehicle damage event; verify the corresponding counter changes before diagnosing or changing the DamageTracker subscription path.\n8. Confirm retained-history eviction/skip counters can rise under a synthetic or long-session storm without `dropped` increasing solely because diagnostic history is full.\n9. Player speech remains disabled until a source-time capture receipt exists. Do not treat post-STT text as hearing.
