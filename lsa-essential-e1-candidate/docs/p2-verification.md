@@ -1,5 +1,7 @@
 # P2 offline verification
 
+> **Historical checkpoint:** this records the pre-deployment P2 offline gate. P2 was subsequently merged and exercised in GTA; current status is in `../../docs/P2-promoted-characters-status.md`. The “no P2 deployment/GTA test” statement below is intentionally retained as a fact about this specific verification run.
+
 October 2, 2026. Base: `main` at `2849df113a8326ee19ce1649caf67d87fd062539`, containing merged P1 PR #5. The remote base was refreshed before publication. **No P2 deployment, provider API call, or physical GTA test was performed.**
 
 ## Results
