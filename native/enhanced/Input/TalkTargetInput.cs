@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text.RegularExpressions;
 using System.Web.Script.Serialization;
 using LSA.Enhanced.Commands;
@@ -7,9 +8,10 @@ using LSA.Enhanced.Settings;
 
 namespace LSA.Enhanced.Input
 {
-    // Loader-side tap/hold for the neutral talk-target key. It never owns a Ped
-    // and never synthesizes Essential's TalkKey. Native talk.ptt_start/stop own
-    // the stock microphone generation.
+    // Loader-side tap/hold for the talk-target key. It never owns a Ped and never
+    // synthesizes Essential's TalkKey. When configured on Essential's own TalkKey,
+    // a separate native lease suppresses Essential's duplicate physical poll while
+    // UX4 reads the same real key and owns exact-Ped mic start/stop.
     public sealed class TalkTargetInput
     {
         const int StopRetryLimit = 8;
@@ -24,8 +26,8 @@ namespace LSA.Enhanced.Input
         EnhancedSettings settings;
         string state = "idle", selectionId, encounterId, selectId, startId, stopId;
         int generation, pressGeneration, stopRetries, stoppedGeneration;
-        long pressAt, cycleUntil, nextInterest, stopDeadline;
-        bool enabled, waitRelease, haveSession, startQueued, stopQueued, stopNeeded;
+        long pressAt, cycleUntil, nextInterest, stopDeadline, nextTalkLeaseRefresh;
+        bool enabled, waitRelease, haveSession, startQueued, stopQueued, stopNeeded, sharedEssentialTalk;
         public TalkTargetInput(IKeySource keys,IGameState game,INativeBridge bridge,IClock clock,IHud hud,Action<string> log,Func<NativeSnapshot> snapshot,Func<bool> menuOpen)
         {
             this.keys = keys; this.game = game; this.bridge = bridge; this.clock = clock; this.hud = hud; this.log = log ?? (_ => { });
@@ -36,7 +38,7 @@ namespace LSA.Enhanced.Input
         public string State => state;
         public string Conflict {get;private set;}
         public bool Enabled => enabled;
-        public bool NeedsFrame => enabled || state != "idle" || stopNeeded;
+        public bool NeedsFrame => enabled || sharedEssentialTalk || state != "idle" || stopNeeded;
         public string DisplayState
         {
             get {
@@ -56,24 +58,50 @@ namespace LSA.Enhanced.Input
             settings = next;
             Conflict = null;
             if (active) Finish("settings");
+            ReleaseSharedTalk();
             if (next == null || !next.TalkEnabled || next.TalkKeyCode == 0) { enabled = false; state = "idle"; waitRelease = true; haveSession = false; selectionId = encounterId = null; return; }
-            var clash = essential?.ConflictWith(next.TalkKeyCode);
-            if (clash != null) {
+
+            var matches = essential?.All.Where(item => item.State == EssentialKeyState.Bound && item.Vk == next.TalkKeyCode).ToArray();
+            var other = matches?.FirstOrDefault(item => item.Setting != "TalkKey");
+            if (other != null) {
                 enabled = false; state = "suspended";
-                Conflict = PhysicalKeys.Name(next.TalkKeyCode) + " is also Essential's " + clash.Setting;
+                Conflict = PhysicalKeys.Name(next.TalkKeyCode) + " is also Essential's " + other.Setting;
                 log("[UX4] talk_target suspended reason=key_conflict");
                 waitRelease = true; return;
             }
+
+            sharedEssentialTalk = matches != null && matches.Any(item => item.Setting == "TalkKey");
+            if (sharedEssentialTalk && !AcquireSharedTalk(clock.Monotonic)) {
+                enabled = false; state = "suspended";
+                Conflict = "Essential Talk interception unavailable";
+                log("[UX4] talk_target suspended reason=talk_interception_unavailable");
+                waitRelease = true; return;
+            }
+
             enabled = true; state = "idle";
             waitRelease = keys.IsDown(next.TalkKeyCode);
-            log("[UX4] talk_target input=ready key=" + PhysicalKeys.Name(next.TalkKeyCode));
+            log("[UX4] talk_target input=ready key=" + PhysicalKeys.Name(next.TalkKeyCode) + " mode=" + (sharedEssentialTalk ? "shared_essential" : "neutral"));
         }
         public void Tick()
         {
             Poll();
             if (stopNeeded && !stopQueued) SubmitStop();
-            if (!enabled) return;
             long now = clock.Monotonic;
+
+            if (sharedEssentialTalk && now >= nextTalkLeaseRefresh) {
+                if (!AcquireSharedTalk(now)) {
+                    if (enabled) Abort("talk_interception",Down());
+                    enabled = false; state = "suspended"; Conflict = "Essential Talk interception unavailable";
+                    log("[UX4] talk_target suspended reason=talk_interception_unavailable");
+                    return;
+                }
+                if (!enabled) {
+                    enabled = true; state = "idle"; Conflict = null; waitRelease = Down();
+                    log("[UX4] talk_target interception=recovered");
+                }
+            }
+
+            if (!enabled) return;
             bool down = Down();
             if (now >= nextInterest) { bridge.RequestSnapshots(1500); nextInterest = now + 1000; }
             if (waitRelease) { if (!down) waitRelease = false; else return; }
@@ -100,8 +128,25 @@ namespace LSA.Enhanced.Input
             Submit("talk.clear",0,false);
             state = "idle"; waitRelease = enabled && Down();
         }
-        public void Stop() { enabled = false; Finish("shutdown"); haveSession = false; selectionId = encounterId = null; state = "idle"; }
+        public void Stop() { enabled = false; Finish("shutdown"); ReleaseSharedTalk(); haveSession = false; selectionId = encounterId = null; state = "idle"; }
         public void Cancel(string reason) { Abort(reason ?? "tick",Down()); }
+
+        bool AcquireSharedTalk(long now)
+        {
+            if (!sharedEssentialTalk) return true;
+            bool leased = (bridge as IEssentialInputBridge)?.LeaseTalkInput(settings?.TalkKeyCode ?? 0) == true;
+            nextTalkLeaseRefresh = now + (leased ? 250 : 1000);
+            return leased;
+        }
+
+        void ReleaseSharedTalk()
+        {
+            if (sharedEssentialTalk) {
+                try { (bridge as IEssentialInputBridge)?.ReleaseTalkInput(); } catch { }
+            }
+            sharedEssentialTalk = false;
+            nextTalkLeaseRefresh = 0;
+        }
 
         void BeginHold(long now)
         {
