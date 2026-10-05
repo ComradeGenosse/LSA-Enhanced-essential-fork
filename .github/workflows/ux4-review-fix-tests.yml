@@ -4,8 +4,6 @@ on:
   push:
     branches:
       - feature/ux4-talk-target-selector
-    paths:
-      - '.github/workflows/ux4-review-fix-tests.yml'
 
 permissions:
   contents: read
