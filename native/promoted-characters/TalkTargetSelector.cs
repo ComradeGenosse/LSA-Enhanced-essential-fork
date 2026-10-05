@@ -24,7 +24,7 @@ namespace LSA.PromotedCharacters
         TalkTargetOptions options = new TalkTargetOptions();
         Ped essentialPed;
         long essentialAddress, clock, indicatorUntil;
-        bool essentialSet, hooked;
+        bool essentialSet, hooked, directPtt;
         public TalkTargetSelector(Func<Ped,string> encounterId) { this.encounterId = encounterId; }
         public string IndicatorState => indicator.State;
 
@@ -70,6 +70,7 @@ namespace LSA.PromotedCharacters
             string admission = ptt.Admit(generation);
             if (admission == "cancelled") return new {started = false,reason = "cancelled",generation};
             if (admission == "already") {
+                if (directPtt) return DirectPayload(essentialPed,EncounterOf(essentialPed),generation,true,"already");
                 if (policy.HasSelection) return Payload(policy.Inspect(now),EncounterOf(Bound()),generation,true);
                 return DirectPayload(essentialPed,EncounterOf(essentialPed),generation,true,"already");
             }
@@ -112,17 +113,15 @@ namespace LSA.PromotedCharacters
                     }
 
                     object result;
+                    policy.Commit(policy.SelectionId,now);
+                    indicatorUntil = 0;
+                    indicator.Clear();
                     if (explicitSelection) {
-                        policy.Commit(policy.SelectionId,now);
-                        indicatorUntil = 0;
-                        indicator.Clear();
+                        directPtt = false;
                         result = Payload(policy.Inspect(now),encounter,generation,true);
                     } else {
+                        directPtt = true;
                         result = DirectPayload(ped,encounter,generation,true,"direct");
-                        policy.Clear("direct");
-                        frozenPeds.Clear();
-                        indicatorUntil = 0;
-                        indicator.Clear();
                     }
 
                     try { Game.LogTrivial("[UX4] talk_ptt commit=accepted generation=" + generation + " mode=" + (explicitSelection ? "explicit" : "direct")); } catch { }
@@ -132,11 +131,11 @@ namespace LSA.PromotedCharacters
                     throw;
                 }
             } catch (InvalidOperationException) {
-                if (!explicitSelection && policy.HasSelection) Drop("direct_failed");
+                if (!explicitSelection && policy.HasSelection) { directPtt = false; Drop("direct_failed"); }
                 throw;
             }
             catch {
-                if (!explicitSelection && policy.HasSelection) Drop("direct_failed");
+                if (!explicitSelection && policy.HasSelection) { directPtt = false; Drop("direct_failed"); }
                 ptt.Fence(generation);
                 throw;
             }
@@ -150,7 +149,13 @@ namespace LSA.PromotedCharacters
             if (outcome == "native_operation_failed" || outcome == "mic_state_unavailable") throw new InvalidOperationException(outcome);
 
             ptt.CompleteStop(generation);
-            if (policy.HasSelection) policy.Release(now,options);
+            if (directPtt) {
+                directPtt = false;
+                policy.Clear("direct_release");
+                frozenPeds.Clear();
+                indicatorUntil = 0;
+                indicator.Clear();
+            } else if (policy.HasSelection) policy.Release(now,options);
             DetachEssential();
             try { Game.LogTrivial("[UX4] talk_ptt end reason=" + (reason ?? outcome ?? "stop") + " generation=" + generation); } catch { }
             return new {stopped = outcome == null,released = true,generation,reason = outcome};
@@ -187,6 +192,7 @@ namespace LSA.PromotedCharacters
             bool had = policy.HasSelection || ptt.IsLive || essentialSet;
             if (ptt.IsLive) Stop(ptt.LiveGeneration,"world_reset",now);
             ptt.Reset();
+            directPtt = false;
             policy.ResetForWorldChange();
             frozenPeds.Clear();
             indicatorUntil = 0;
