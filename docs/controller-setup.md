@@ -10,7 +10,7 @@ This page sets up the UX phase 2 gestures (and the phase 3 menu) for a controlle
 | Hold L4 and R4 (600 ms) | F6 + F8 | Opens the **Current NPC** page (needs the menu) |
 | Menu key | F11 | Opens the **LSA menu** (needs the menu) |
 
-Essential stays in charge of every NPC action. Mark and Text are relayed to Essential's keys; Follow goes through the existing P2 command or Essential's own typed input. Talk and Marked Talk keep their direct bindings.
+Essential stays in charge of every NPC action. Mark and Text are relayed to Essential's keys; Follow goes through the existing P2 command or Essential's own typed input. Marked Talk keeps its direct binding. With UX4 enabled, the existing generic Talk binding can be shared in place through the dedicated interception lease.
 
 ## 1. Turn the gestures on
 
@@ -84,7 +84,7 @@ The UX4 key must not collide with Essential's `TextKey`, `MarkPedKey`, or `Marke
 
 A tap selects/cycles and does not start the microphone. A hold starts UX4 PTT against the exact selected NPC.
 
-Search radius defaults to 15 m, the highlight lasts 8 s, and repeated taps keep one frozen order for 1.5 s. No line of sight is required, so a seated NPC stays selectable.
+Search radius defaults to 15 m. An explicit target remains valid for the normal 8 s selection timeout, but the visible bracket previews for only about 1 s and disappears when PTT starts. Repeated taps keep one frozen order for 1.5 s. No line of sight is required, so a seated NPC stays selectable.
 
 ## Rollback
 
