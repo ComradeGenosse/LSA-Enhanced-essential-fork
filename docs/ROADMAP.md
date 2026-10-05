@@ -37,7 +37,7 @@ Essential remains authoritative for native NPC state, turn/generation identity, 
 | UX4 — TALK TARGET SELECTOR | ✅ Merged to `main`; shared-key path GTA-exercised; latest UX refinement GTA-pending | Normal hold = direct Talk with no bracket; tap/cycle = explicit target selector; exact-Ped PTT; shared Essential `TalkKey` without controller remapping |
 | CGE — CONVERSATION GAZE / ENGAGEMENT | 🔵 Plan amended after convergence audit; not implemented | Yielding head/eye attention overlay for the current conversation partner. Essential's own conversation-look behavior wins; whole-body `stop_and_face` belongs to ACT3, not CGE |
 | RADIO TRACK PERCEPTION | 🟡 Raw R0–R2 implementation exists off-main; v2 catalog/text-ID research complete | `feature/radio-track-perception-r0-r2` samples raw station/hash facts in shadow. The v2 research branch replaces hash-only identity with GTA text-ID validation before any merge; PS2/PS3/context integration remains later work |
-| PS0 / PS1 — PERCEPTION FOUNDATION | ✅ Implemented offline on `main`; physical GTA validation pending | Default-off shadow contracts, lifetime anchors, bounded factual transport and supported native producers |
+| PS0 / PS1 — PERCEPTION FOUNDATION | ✅ Merged on `main`; live channel/sampled facts exercised; producer acceptance incomplete | Default-off shadow contracts, lifetime anchors, bounded factual transport and supported native producers |
 | PS2 — WITNESS / EPISODE CORRELATION | ✅ Merged on `main`; live pipeline exercised; structured GTA acceptance pending | Witness rules, episode correlation, immutable observer revisions and speech contracts are merged. Source-time player-speech hearing remains disabled until native mic/capture receipts are proven. |
 | PS3 — DETERMINISTIC SALIENCE | ✅ Merged, offline-verified, deployed in shadow, live JSONL verified | Corrected salience passed the 387-test/979-native-assertion baseline. The later GTA run recorded 380 PS3 decisions with 0 PS3 faults and 0 companion/PS2 admission drops while retained history rotated under pressure. Structured behavior acceptance and direct damage callbacks remain open. |
 | PROXIMITY_CHAT / SOCIAL_ROUTING | 🔵 Architecture researched; not implemented | Route one player utterance through hearing/address/overhearing and responder arbitration without creating a second dialogue stack |
@@ -78,7 +78,7 @@ The near-term queue after UX4 landed on `main` is:
 
 Open PRs #3, #10 and #12 are research/evidence branches, not production runtime branches: remaining native context audit, perception/salience/Scene Director architecture, and Essential action-completion audit respectively. Their findings are inputs to the implementation branches; merging those PRs is not a prerequisite for the current runtime queue.
 
-Historical feature branches for P1, P2, PS0/PS1, PS2 and UX0–UX3 should be treated as implementation history/reference now that their production equivalents are already on `main`; do not infer unfinished work merely because those branch refs still exist.
+Historical feature branches for P1, P2, PS0/PS1, PS2 and UX0–UX3 should be treated as implementation history/reference now that their production equivalents are already on `main`; do not infer unfinished work merely because those branch refs still exist. PR #15 is still open only because it targets the older UX4 feature branch; its head is identical to current `main`, so it is bookkeeping rather than missing runtime code.
 
 ## GTA deployment / physical validation state — perception track
 
@@ -247,7 +247,7 @@ A stock-controller integration test now drives two delayed TTS segments through 
 - there is one final stream-end handoff;
 - assistant history remains staged until matching `PlaybackEnded`.
 
-At the E5/E6 checkpoint, the offline suite passed **149 tests with 0 failures** ([checkpoint test output](../lsa-essential-e1-candidate/docs/e5-e6-test-results.txt)). Current `main`, including merged P0, passes **187 tests with 0 failures**. This includes `84df8e30` model-failure/PCM16 hardening and the production telemetry repair reproduced from the first failed E5/E6 GTA runs. The stock E6 integration test now exercises the real logger; physical GTA acceptance of the repaired build remains open.
+At the E5/E6 checkpoint, the offline suite passed **149 tests with 0 failures** ([checkpoint test output](../lsa-essential-e1-candidate/docs/e5-e6-test-results.txt)); the later P0 checkpoint passed **187**. Those are historical phase counts, not the test count for current `main`. The later corrected PS3 baseline reached **387 Node tests across 36 modules plus 12 native suites / 979 assertions** before subsequent UX4 refinements. Because `main@d7d8311` includes later UX4 changes, a fresh full current-main regression/build is still required before quoting a new authoritative total.
 
 The first repaired-build GTA run covered 13 microphone turns: all 13 reached native playback, 10 completed normally, and 3 were interrupted. TTS started slightly before model completion on eight eligible turns, but first PCM followed model completion; all replies contained one segment. See the [run review](E6-GTA-verification-2026-10-01.md). Multi-segment playback and audible early speech still need live verification.
 
