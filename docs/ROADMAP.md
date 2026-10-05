@@ -1,8 +1,8 @@
 # Project roadmap
 
-Updated October 4, 2026.
+Updated October 5, 2026.
 
-Current runtime/code baseline: `main@0c254049` contains unified UX phases 0–3, the production input/Harmony fixes, and PS2 witness/episode correlation. Source-time player-speech hearing remains disabled pending the native capture receipt probe. PS3 salience, ACT0/ACT1, and ACT2 now have real implementations on unmerged feature branches. PS3 was additionally reconciled on local staging and hash-deployed in shadow on October 5 for GTA acceptance, but is still not merged to GitHub `main`; ACT0/ACT1 and ACT2 still require reconciliation before merge/deployment.
+Current runtime/code baseline: `origin/main@df84a70e76e0aaba34c3675ceefdfad67f8a4078` contains unified UX phases 0–3, the production input/Harmony fixes, and PS2 witness/episode correlation. Source-time player-speech hearing remains disabled pending the native capture receipt probe. PS3 salience, ACT0/ACT1, and ACT2 now have real implementations on unmerged feature branches. PS3 was reconciled on fresh local staging and hash-deployed in shadow on October 5 for GTA acceptance, but is still not merged to GitHub `main`; ACT0/ACT1 and ACT2 still require reconciliation before merge/deployment.
 
 This roadmap tracks the Essential-based LSA companion from the hardened E1.1 foundation through low-latency dialogue, durable NPC identity, richer perception, autonomous scene behavior, and final long-session acceptance.
 
@@ -39,7 +39,7 @@ Essential remains authoritative for native NPC state, turn/generation identity, 
 | RADIO TRACK PERCEPTION | 🔵 Implementation-ready research; not implemented | Source-time vehicle-radio producer feeding PS2 witness attribution and PS3 salience; no direct prompt injection |
 | PS0 / PS1 — PERCEPTION FOUNDATION | ✅ Implemented offline on `main`; physical GTA validation pending | Default-off shadow contracts, lifetime anchors, bounded factual transport and supported native producers |
 | PS2 — WITNESS / EPISODE CORRELATION | Implemented offline on `main`; GTA acceptance pending | Witness rules, episode correlation, immutable observer revisions and speech contracts are merged. Source-time player-speech hearing remains disabled until native mic/capture receipts are proven. |
-| PS3 — DETERMINISTIC SALIENCE | 🟡 Implemented; reconciled/deployed from local staging; GitHub merge pending | Deterministic context/memory/response ranking in shadow only. October 5 staging was hash-deployed for GTA testing; fix the salience test-import defect, rerun the full suite, add grant-vs-consumption acknowledgement, then merge the corrected PS3 branch to `main` |
+| PS3 — DETERMINISTIC SALIENCE | 🟡 Corrected, reconciled, fully offline-verified, and hash-deployed locally in shadow; physical GTA acceptance and GitHub merge pending | Deterministic context/memory/response ranking in shadow only. The October 5 candidate passed all 384 Node tests across 36 modules and all 12 native suites (979 assertions); its 73-file overlay was hash-verified after a full rollback backup. Complete the physical GTA acceptance checklist before considering a merge to `main` |
 | PROXIMITY_CHAT / SOCIAL_ROUTING | 🔵 Architecture researched; not implemented | Route one player utterance through hearing/address/overhearing and responder arbitration without creating a second dialogue stack |
 | SCENE_DIRECTOR | 🔵 Architecture researched; not implemented | NPC initiative and coordinated autonomous behavior built on perception, salience, social state and ACT capabilities |
 | ACT0 / ACT1 — ACTIVITY FOUNDATION | 🟡 Implemented + post-review hardened on `feature/act0-act1-contracts-shadow-observer`; unmerged | Closed capability/contracts layer plus shadow observation/correlation. Needs reconciliation with current `main`, full post-hardening regression/build, then GTA shadow probes |

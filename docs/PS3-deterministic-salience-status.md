@@ -1,6 +1,6 @@
 # PS3 deterministic salience
 
-Status, October 5, 2026: **corrected implementation reconciled on local staging; full offline verification and production candidate build passed; local shadow deployment is the next gate; physical GTA validation and GitHub merge remain pending**.
+Status, October 5, 2026: **corrected implementation reconciled on fresh local staging, fully offline-verified, and hash-deployed locally in shadow; physical GTA validation and GitHub merge remain pending**.
 
 PS3 ranks PS2 observations. It does not create turns, actions, memories, playback changes, or native authority. `urgent` means the observation outranks other candidates. Reflex and self-preservation remain native.
 
@@ -26,6 +26,12 @@ The decision shape is `observationId`, `revision`, `decisionKey`, `policyVersion
 ## Checks
 
 Companion coverage is `lsa-essential-e1-candidate/tests/salience-engine.test.mjs`, included in `node tools/runTests.mjs`. The convergence audit found that this test file previously declared `const replay` twice, causing a syntax error that prevented 60 later test files from loading while the summary still looked green. The duplicate binding is fixed, acknowledgement/stale-key tests were added, and `runTests.mjs` now converts test-module import failures into explicit failed tests while continuing discovery. The corrected companion suite passed **384 tests across all 36 discovered modules, with 0 test failures and 0 module-import failures**. The native offline matrix passed all 12 suites (979 assertions). The source-pinned candidate build passed with 48 patches; its manifest lists PS0–PS3, keeps the default mode `off`, and keeps player speech gated. No production native source changed; the current-main runtime test project now includes its existing input-interception sources so the lifecycle suite compiles and runs.
+
+## Local shadow deployment
+
+The corrected 73-file overlay was deployed on October 5 after a full hash-verified rollback backup. Eight files were copied and 65 already matched; all 73 installed files match the candidate SHA256 manifest. The other 29 files in the backup scope—including live configs, `.env`, data, and logs—remain hash-identical to the pre-deployment backup. No files were removed.
+
+The installed intelligence mode is `shadow`; player-speech witnessing remains disabled because there is no source-time capture receipt. The game, RAGE Plugin Hook, and LSA server were stopped during deployment. GTA was not launched. The local staging receipt and backup manifest contain per-file hashes.
 
 ## GTA validation still open
 
