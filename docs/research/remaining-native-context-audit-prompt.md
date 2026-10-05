@@ -1,5 +1,7 @@
 # Follow-up prompt: close the remaining native character-context unknowns
 
+> **Historical investigation prompt:** “current main” below means the branch state when this prompt was authored. Do not use it as a present-day implementation baseline. Current project status and branch sequencing are in `../ROADMAP.md`.
+
 Repository:
 https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork
 
