@@ -2,7 +2,7 @@
 
 Updated October 5, 2026.
 
-Current runtime/code baseline: main includes unified UX phases 0–3, production input/Harmony fixes, PS2 witness/episode correlation, corrected PS3 salience, and bounded intelligence JSONL telemetry. PS3 passed the full offline matrix and was hash-deployed in shadow on October 5. Structured PS3 GTA acceptance and live logging verification remain pending. Source-time player-speech hearing remains disabled pending native capture receipts. ACT0/ACT1 and ACT2 remain unmerged and require reconciliation.
+Current runtime/code baseline: main includes unified UX phases 0–3, production input/Harmony fixes, PS2 witness/episode correlation, corrected PS3 salience, and bounded intelligence JSONL telemetry. PS3 passed the full offline matrix, was hash-deployed in shadow on October 5, and live JSONL persistence was verified in GTA. Structured PS3 behavioral acceptance and the controlled native-damage callback probe remain pending. Source-time player-speech hearing remains disabled pending native capture receipts. ACT0/ACT1 and ACT2 remain unmerged and require reconciliation.
 
 This roadmap tracks the Essential-based LSA companion from the hardened E1.1 foundation through low-latency dialogue, durable NPC identity, richer perception, autonomous scene behavior, and final long-session acceptance.
 
@@ -341,7 +341,7 @@ Perception should expose facts, not decide behavior. For speech, the perception 
 
 ### PS3 — SALIENCE — Decide what matters
 
-**Current status:** Corrected PS3 and bounded JSONL telemetry are merged into main, fully offline-verified (387 Node tests; 12 native suites, 979 assertions), and hash-deployed in shadow on October 5. GTA startup and host health were observed in the earlier session; structured PS3 acceptance and live telemetry confirmation remain pending. PS3 creates no turns, actions, memory writes, playback changes or native authority. Relationship/memory/trait branches remain inactive until the shared authenticated captureRef-to-CharacterId/profile seam exists.
+**Current status:** Corrected PS3 and bounded JSONL telemetry are merged into main, fully offline-verified at the pre-follow-up baseline (387 Node tests; 12 native suites, 979 assertions), and hash-deployed in shadow on October 5. A later GTA session verified live PS2→PS3 evaluation and persistent 10-second JSONL sampling. Follow-up hardening now separates retained diagnostic history from semantic admission, splits harmless history expiry from expired input, persists damage/lifecycle/reason diagnostics, and emits a final disconnect snapshot. Structured PS3 behavioral acceptance and the controlled native-damage callback probe remain pending. PS3 creates no turns, actions, memory writes, playback changes or native authority. Relationship/memory/trait branches remain inactive until the shared authenticated captureRef-to-CharacterId/profile seam exists.
 
 A richer perception system can produce far more information than a model should receive every turn.
 
