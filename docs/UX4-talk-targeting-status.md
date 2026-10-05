@@ -75,6 +75,16 @@ Packaged addon hashes from the final characters build:
 
 RAGENativeUI is still compile-only and is not in the package.
 
+## Post-review hardening verification
+
+GitHub Actions run `37318850380` on Windows against the hardened branch passed:
+
+- UX input/settings/dispatch/view models: **533 assertions passed**
+- P2 bridge/runtime: **449 assertions passed**
+- P2 lifecycle/reset: **58 assertions passed**
+
+The added regressions cover native PTT gate revalidation, active-mic ownership loss to a newer stock/MarkedTalk mic, retry after a physical `SendMicStop()` failure, and refusing a new hold while the previous stop remains unresolved.
+
 ## GTA tests still required
 
 Use [UX4-talk-targeting-gta-acceptance.md](UX4-talk-targeting-gta-acceptance.md). Offline tests do not show that the microphone turn reached the highlighted NPC. In GTA, still verify:
