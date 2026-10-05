@@ -84,7 +84,7 @@ This is deliberately **session identity**, not durable character identity. The n
 
 A hard replacement that creates a new `sessionNonce` can therefore select a different OpenAI voice for the same still-live ped. Ordinary retries and turns that remain on the same connection/profile do not reroll. This differs from stock Gemini, which retains `voiceName` in ped-oriented server state, and is currently an intentional consequence of the session-level contract rather than a hidden durability guarantee.
 
-The future `SESSION_IDENTITY` phase can reuse the same matcher if a genuinely durable character key is established.
+`SESSION_IDENTITY` is now implemented as P1, and P2 promoted characters can persist the actual validated voice choice against an owner-authenticated durable CharacterId. This session-level matcher remains the fallback for ordinary ephemeral NPC sessions.
 
 ## Configuration
 
