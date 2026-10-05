@@ -14,6 +14,7 @@ export const EVENT_NAMES = new Set([
   'listener_cleared','listener_replaced','world_unavailable','snapshot_created','target_changed','target_missing','target_invalid','reference_map_revision_changed',
   'identity_resolved','identity_binding_created','identity_binding_retired','identity_conflict','identity_evidence_stale','identity_store_unavailable','persistent_voice_loaded',
   'session_profile_created','character_name_assigned','promotion_started','promotion_completed','promotion_failed','persistent_profile_loaded','character_spawned','character_dismissed','character_profile_edited','character_memory_created','character_memory_edited','character_memory_deleted','character_unpromoted','character_safe_failure','character_canon_projected','character_reasoning_request_composed',
+  'intelligence_status','companion_shadow',
 ]);
 
 const safeKeys = new Set([
@@ -30,6 +31,8 @@ const safeKeys = new Set([
   'credentialAvailable','providerWorkDeadlineMs','playbackCompletionMaxMs',
   'micChunks','droppedTelemetryRecords',
   'listenerState','worldStatus','actorStatus','personReferenceCount','vehicleReferenceCount','referenceCount',
+  'anchors','queued','received','stale','malformed','duplicate','gaps','expired','resets',
+  'ps2Correlated','ps2Witnessed','ps2Duplicates','ps2Dropped','ps3Decisions','ps3Urgent','ps3Eligible','ps3Staged','ps3Suppressed','ps3Faults',
   'segmentSequence','segmentCount','segmentChars',
   'profileId','speechProvider','voice','speed','assignmentVersion','selectionMode','gender','ageBand','matchReason','attempt','attemptId','maxAttempts','retryDelayMs','remainingDeadlineMs',
   'identityKind','bindingRevision','characterRecordRevision',
