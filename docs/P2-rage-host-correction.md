@@ -1,5 +1,7 @@
 # P2 RAGE runtime hosting correction
 
+> **Follow-up status:** this correction was subsequently merged and exercised in live GTA. P2 promotion, editor/profile/memory editing, summon, follow/wait and native vehicle/driver behavior now have live evidence. The “next live run” wording later in this record describes the checkpoint immediately after the hosting fix, not a current P2 implementation gate.
+
 Production installation exposed three loading defects that offline native policy tests did not exercise:
 
 * RAGE loads each plugin in an isolated AppDomain. Calling Essential's static `IntegrationManager.Register` from a second domain does not register with the running Essential instance, and can load a second copy of the protected core.
