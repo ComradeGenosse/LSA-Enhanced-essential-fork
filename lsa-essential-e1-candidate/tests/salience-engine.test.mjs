@@ -61,13 +61,38 @@ test('urgent self-danger is priority only and does not authorize an effect', () 
   assert.equal(decision.context, 'must_include');
   assert.equal(decision.memory, 'stage');
   assert.ok(decision.reasons.includes('safety_self_danger'));
-  assert.deepEqual(Object.keys(decision), ['observationId', 'revision', 'context', 'memory', 'response', 'reasons', 'expiresAtMonotonicMs']);
+  assert.deepEqual(Object.keys(decision), ['observationId', 'revision', 'decisionKey', 'policyVersion', 'context', 'memory', 'response', 'reasons', 'expiresAtMonotonicMs']);
   assert.equal('action' in decision, false);
   assert.throws(() => { decision.response = 'none'; });
   const replay = cache.evaluate(seen, view());
   assert.equal(replay.response, 'none');
   assert.equal(replay.context, 'must_include');
   assert.ok(replay.reasons.includes('repetition_suppressed'));
+});
+
+test('salience separates response grants from consumer acknowledgement', () => {
+  const cache = new SalienceCache();
+  const seen = observation({ eventType: 'death_seen', severity: 'critical', claims: [claim({ kind: 'dead', channel: 'visual', basis: 'sampled_state', target: randomUUID() })] });
+  const first = cache.evaluate(seen, view());
+  assert.equal(first.response, 'eligible');
+  assert.equal(first.policyVersion, 1);
+  assert.equal(typeof first.decisionKey, 'string');
+  assert.equal(cache.ledger.get(seen.observationId).consumed, false);
+
+  const pendingReplay = cache.evaluate(seen, view());
+  assert.equal(pendingReplay.response, 'none');
+  assert.ok(pendingReplay.reasons.includes('repetition_suppressed'));
+
+  assert.equal(cache.acknowledge(first.decisionKey, 'ps6_ticket', 'rejected'), true);
+  const retried = cache.evaluate(seen, view());
+  assert.equal(retried.response, 'eligible');
+
+  assert.equal(cache.acknowledge(retried.decisionKey, 'ps6_ticket', 'delivered'), true);
+  assert.equal(cache.ledger.get(seen.observationId).consumed, true);
+  const consumedReplay = cache.evaluate(seen, view());
+  assert.equal(consumedReplay.response, 'none');
+  assert.ok(consumedReplay.reasons.includes('repetition_suppressed'));
+  assert.equal(cache.acknowledge('missing', 'ps6_ticket', 'delivered'), false);
 });
 
 test('recognized relationship differs from a backend-only identity', () => {
@@ -267,9 +292,9 @@ test('decision cache stays bounded and eviction does not restore reaction entitl
   assert.equal(urgentOverflow.context, 'must_include');
   assert.equal(urgentOverflow.response, 'none');
   assert.ok(urgentOverflow.reasons.includes('suppression_capacity'));
-  const replay = full.evaluate(oldestGrant, view());
-  assert.equal(replay.response, 'none');
-  assert.ok(replay.reasons.includes('repetition_suppressed'));
+  const replayFull = full.evaluate(oldestGrant, view());
+  assert.equal(replayFull.response, 'none');
+  assert.ok(replayFull.reasons.includes('repetition_suppressed'));
 });
 
 test('salience performs no model call and shadow ingestion grants no native effect', async () => {
