@@ -177,6 +177,30 @@ static partial class Program
         Check(rig.Talk.State == "idle" && rig.Bridge.Submitted.Count(item => item.Contains("talk.ptt_stop")) == 1,"a late start success does not open another microphone stop or a new press");
         rig.Reply(stop,new Dictionary<string,object> {{"stopped",true}}); rig.Frame(1);
         Check(!rig.Logs.Any(line => line.Contains("stop_abandoned")) && rig.Bridge.Submitted.Count(item => item.Contains("talk.ptt_stop")) == 1,"the matching stop completes");
+
+        var direct = new TalkRig();
+        direct.Press(); direct.Elapse(220);
+        string directStart = direct.LastId();
+        direct.Reply(directStart,new Dictionary<string,object> {{"started",true},{"selectionId",Id()},{"encounterId",FakeBridge.Encounter},{"cycleIndex",1},{"cycleCount",3}});
+        direct.Frame(1);
+        direct.Keys.Down.Remove(F10); direct.Frame(1);
+        string directStop = direct.LastId();
+        direct.Reply(directStop,new Dictionary<string,object> {{"stopped",true}}); direct.Frame(1);
+        direct.Press(); direct.Elapse(40); direct.Keys.Down.Remove(F10); direct.Frame(1);
+        Check(direct.LastCommand() == "talk.select_first","a normal direct hold does not silently enter explicit selector/cycle mode");
+
+        var explicitHold = new TalkRig();
+        explicitHold.Press(); explicitHold.Elapse(40); explicitHold.Keys.Down.Remove(F10); explicitHold.Frame(1);
+        string explicitSelection = Id();
+        explicitHold.Reply(explicitHold.LastId(),new Dictionary<string,object> {{"present",true},{"selectionId",explicitSelection},{"encounterId",FakeBridge.Encounter},{"cycleIndex",1},{"cycleCount",3}});
+        explicitHold.Frame(1);
+        explicitHold.Clock.Advance(2000); explicitHold.Refresh(); explicitHold.Talk.Tick();
+        explicitHold.Press(); explicitHold.Elapse(220);
+        var explicitArgs = (Dictionary<string,object>)explicitHold.Last()["args"];
+        var explicitTarget = (Dictionary<string,object>)explicitHold.Last()["target"];
+        var explicitExpect = (Dictionary<string,object>)explicitTarget["expect"];
+        Check(!(bool)explicitArgs["selectFirst"] && (string)explicitExpect["selectionId"] == explicitSelection,"an explicit tap target remains usable after the cycle window closes");
+
         var late = new TalkRig();
         late.Press(); late.Elapse(220);
         string lateStart = late.LastId();
