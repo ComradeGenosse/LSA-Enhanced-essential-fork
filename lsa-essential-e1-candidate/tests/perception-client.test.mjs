@@ -23,9 +23,10 @@ test('intelligence telemetry reports connection initialization and disconnection
     client.start();socket.emit('connect');socket.emit('data',Buffer.from(JSON.stringify(hello)+'\n'));await wait();
     assert.equal(client.runtime.epoch,hello.adapterEpoch);
     socket.destroy();
-    assert.deepEqual(events.map(entry=>[entry.event,entry.data.stage]),[
-      ['intelligence_status','connecting'],['intelligence_status','connected'],['intelligence_status','initialized'],['intelligence_status','disconnected'],
-    ]);
+    assert.deepEqual(events.filter(entry=>entry.event==='intelligence_status').map(entry=>entry.data.stage),['connecting','connected','initialized','disconnected']);
+    const final=events.find(entry=>entry.event==='companion_shadow');
+    assert.ok(final);assert.equal(final.data.finalSnapshot,true);assert.equal(final.data.resetInitializations,1);
+    assert.ok(events.indexOf(final)<events.findIndex(entry=>entry.event==='intelligence_status'&&entry.data.stage==='disconnected'));
   } finally {client.stop();}
 });
 test('malformed JSON, missing hello and oversized partial frames disconnect and reset',async()=>{
