@@ -20,13 +20,16 @@ UX4 was reconciled onto `main@5558da7398e5ea8b78e97758aadee64f9e28f6bb` after th
 
 ## What was implemented
 
-The physical Talk control, mapped in Steam Input to `talkTargeting.key`, now does this while the feature is enabled:
+The physical Talk control, mapped in Steam Input to `talkTargeting.key`, now has two modes:
 
-- a tap shorter than `talkHoldMs` selects the best nearby NPC, or cycles a frozen list
-- a hold commits that NPC and starts Essential's stock microphone with `NpcTargeting.SetPlayerConversationPed(selectedPed)` then `InputController.SendMicStart(selectedPed)`
+- **hold without a prior tap** = direct Talk. UX4 chooses the best current candidate for that PTT only, starts Essential's stock microphone, and shows **no selector bracket**
+- **tap** = enter explicit targeting mode and show the selector bracket
+- **tap again** = cycle the frozen nearby candidate list
+- **hold while an explicit target is still valid** = talk to that exact selected NPC
+- the explicit bracket previews for about 1 second and is hidden as soon as PTT starts; the explicit target itself remains usable for the normal selection timeout
 - release, focus loss, the LSA menu, a closed input gate, settings reload, target loss, world reset, or shutdown sends `talk.ptt_stop` for that UX4 generation only
 - `InputController.SendMicStop()` runs only when that generation actually called `SendMicStart`
-- while the selection is valid, Follow, Wait, Promote, capture, and the Current NPC page use it ahead of `PlayerConversationPed` and `CurrentSpeakerPed`
+- while an explicit selection is valid, Follow, Wait, Promote, capture, and the Current NPC page use it ahead of `PlayerConversationPed` and `CurrentSpeakerPed`
 
 New runtime pieces:
 
@@ -49,7 +52,7 @@ The highlight is a screen-space bracket around the projected head bone, plus a `
 - `SetPlayerConversationPed` runs only at committed PTT start. Preview and cycling do not call it, and they do not call `ActivateAttention`. Current-NPC precedence is the UX4 selection while it is valid, then the existing conversation ped, then the current speaker.
 - Stock Text input is unchanged. It still chooses its own best ped. UX4 does not claim to control Text.
 - Candidate limits travel inside each talk command because the settings file lives in the loader AppDomain. The native side rechecks the same bounds.
-- A hold with no current selection asks the native side to choose the best ped and commit that same ped. A hold while a selection is still valid commits that selection.
+- A hold with no explicit tap selection uses a temporary hidden native target for that PTT only. It is discarded on release and never becomes persistent selector state. A hold while an explicit tap selection is still valid commits that exact selection.
 - If `talk.ptt_stop` is processed before `talk.ptt_start` for the same generation, the start is cancelled and `SendMicStart` is not called. If start runs first, the queued stop closes it once.
 - UX4 source-resolves Essential's active microphone Ped from the hash-pinned `SendMicStop()` IL. A UX4 stop calls `SendMicStop()` only while that exact Ped is still active. If stock Talk/MarkedTalk replaced it, UX4 releases its own generation without stopping the newer stock mic.
 - Native `talk.ptt_start` rechecks Essential text/F7 gates plus loading, cutscene, player switch, mission, and online/scripted state immediately before the side-effecting mic start.
@@ -105,7 +108,7 @@ Use [UX4-talk-targeting-gta-acceptance.md](UX4-talk-targeting-gta-acceptance.md)
 
 - the exact selected NPC receives `SendMicStart`, including when a nearer NPC is present
 - driver, front passenger, and rear passenger can be highlighted and addressed
-- the bracket stays understandable inside a vehicle and matches the NPC who receives the turn
+- direct hold shows no bracket; tap/cycle shows the bracket briefly, including inside a vehicle, and the highlighted NPC matches the one who receives an explicit-target turn
 - a tap never opens the microphone
 - hold-to-mic latency is acceptable (`talkHoldMs` stays 220 until measured)
 - release during the native start, focus loss, and target loss leave no open UX4 microphone turn
