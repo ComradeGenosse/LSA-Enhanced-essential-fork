@@ -51,7 +51,7 @@ namespace LSA.PromotedCharacters
                     }
                 } catch {exitReason="host_failed";LSA.Intelligence.IntelligenceIntegration.LogStatus("[P2] host_initialization_failed");}
                 finally {
-                    EssentialInputInterception.Release();
+                    EssentialInputInterception.ReleaseAll();
                     if(stopping) exitReason="host_stop_requested";
                     LSA.Intelligence.IntelligenceIntegration.LogStatus("[P2] host_exit reason="+exitReason+" p2_reason="+(integration?.UnavailabilityReason??"not_initialized"));
                     if(intelligence!=null) ReportStatus();
@@ -60,10 +60,12 @@ namespace LSA.PromotedCharacters
             },"LSA character host lifetime");
             return true;
         }
-        public static void Stop() { stopping=true; EssentialInputInterception.Release(); }
+        public static void Stop() { stopping=true; EssentialInputInterception.ReleaseAll(); }
         public static bool LeaseInput(int mark,int text) => !stopping && EssentialInputInterception.Lease(mark,text);
+        public static bool LeaseTalkInput(int talk) => !stopping && EssentialInputInterception.LeaseTalk(talk);
         public static bool PulseInput(int vk) => !stopping && EssentialInputInterception.Pulse(vk);
         public static void ReleaseInput() => EssentialInputInterception.Release();
+        public static void ReleaseTalkInput() => EssentialInputInterception.ReleaseTalk();
         // UX phase 1 bridge. Strings only; DomainHost reflects into these. Callers
         // never touch game state: work is queued for the integration's Update.
         public static string Submit(string envelope) {var owner=integration;return owner!=null && !stopping?owner.SubmitLocal(envelope):"native_unavailable";}
