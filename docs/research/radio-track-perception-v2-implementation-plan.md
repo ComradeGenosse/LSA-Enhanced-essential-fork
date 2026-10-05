@@ -1059,25 +1059,21 @@ with details:
 }
 ```
 
-## 33. PS3 / context
+## 33. PS3 / PS4 context integration
 
-Default radio salience:
+Radio does not own a separate prompt selector or context vocabulary.
 
-```text
-response: none
-memory: none
-context: low
-```
+The live radio sampler produces only a raw PS fact. It becomes NPC knowledge **only after PS2 auditory witness attribution**. PS3 then ranks the resulting observer-specific observation using the normal salience vocabulary (`omit | candidate | must_include`, `none | stage`, `none | eligible | urgent`). A radio event by itself grants no initiative.
 
-Boost context only when relevant to the current turn/scene.
+If a witnessed/relevant radio fact is eventually shown to Luna, it is rendered only by the **PS4 TurnKnowledgeFrame** assembler in the normal PERCEIVED/SITUATION lanes. The radio subsystem never appends its own prompt block.
 
-Example model-visible projection:
+An eventual PS4 rendering may look like:
 
 ```text
 Audible environment: "Hollywood Nights" by Bob Seger is playing on Los Santos Rock Radio.
 ```
 
-No radio event by itself grants initiative.
+That sentence is a PS4 projection of witnessed evidence, not output from the radio producer.
 
 ---
 
@@ -1122,4 +1118,4 @@ Should Luna mention it?
 Should it become memory?
 ```
 
-Those remain PS2/PS3/context responsibilities.
+Those remain PS2 witness → PS3 salience → PS4 TurnKnowledgeFrame responsibilities.
