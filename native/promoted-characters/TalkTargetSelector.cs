@@ -125,7 +125,7 @@ namespace LSA.PromotedCharacters
 
             ptt.CompleteStop(generation);
             policy.Release(now,options);
-            ReleaseEssential();
+            DetachEssential();
             try { Game.LogTrivial("[UX4] talk_ptt end reason=" + (reason ?? outcome ?? "stop") + " generation=" + generation); } catch { }
             return new {stopped = outcome == null,released = true,generation,reason = outcome};
         }
@@ -153,7 +153,7 @@ namespace LSA.PromotedCharacters
             clock = now;
             if (ptt.IsLive) Stop(ptt.LiveGeneration,reason ?? "manual",now);
             Drop(reason ?? "manual");
-            ReleaseEssential();
+            DetachEssential();
         }
         public void ResetForWorldChange(long now)
         {
@@ -164,7 +164,7 @@ namespace LSA.PromotedCharacters
             policy.ResetForWorldChange();
             frozenPeds.Clear();
             indicator.Clear();
-            ReleaseEssential();
+            DetachEssential();
             if (had) Game.LogTrivial("[UX4] talk_target cleared reason=world_reset");
         }
         public void Shutdown(long now) { try { ResetForWorldChange(now); } catch { } try { indicator.Detach(); } catch { } }
@@ -286,15 +286,20 @@ namespace LSA.PromotedCharacters
                 if (current != null && current == ped) { essentialPed = ped; essentialAddress = ped.MemoryAddress.ToInt64(); essentialSet = true; ReleaseEssential(); }
             } catch { }
         }
+        void DetachEssential()
+        {
+            essentialSet = false;
+            essentialPed = null;
+            essentialAddress = 0;
+        }
         void ReleaseEssential()
         {
             if (!essentialSet) return;
-            essentialSet = false;
             try {
                 var current = NpcTargeting.GetPlayerConversationPed();
                 if (current != null && current == essentialPed && current.MemoryAddress.ToInt64() == essentialAddress) NpcTargeting.ClearPlayerConversationPed();
             } catch { }
-            essentialPed = null; essentialAddress = 0;
+            DetachEssential();
         }
         static string StartGate()
         {
