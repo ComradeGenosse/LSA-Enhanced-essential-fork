@@ -51,10 +51,10 @@ namespace LSA.PromotedCharacters
             clock = now;
             next = Sanitize(next);
             if (ptt.IsLive) return Current(now,"ptt_busy");
-            if (!policy.CycleOpen(now)) return Select(now,next);
+            if (!policy.CycleOpen(now)) return Select(now,next,true);
             options = next;
             var advanced = policy.SelectNext(now,next);
-            if (!advanced.Present) return Select(now,next);
+            if (!advanced.Present) return Select(now,next,true);
             string problem = Fitness(now,false);
             if (problem != null) { Drop(problem); return Absent(problem); }
             LogSelected("cycle");
@@ -107,6 +107,7 @@ namespace LSA.PromotedCharacters
                         string cancelledStop = mic.StopOwned(ped,address);
                         if (cancelledStop == "native_operation_failed" || cancelledStop == "mic_state_unavailable") throw new InvalidOperationException(cancelledStop);
                         ReleaseEssential();
+                        if (!explicitSelection && policy.HasSelection) Drop("direct_cancelled");
                         return new {started = false,reason = "cancelled",generation};
                     }
 
@@ -130,8 +131,15 @@ namespace LSA.PromotedCharacters
                     TryRevert(ped);
                     throw;
                 }
-            } catch (InvalidOperationException) { throw; }
-            catch { ptt.Fence(generation); throw; }
+            } catch (InvalidOperationException) {
+                if (!explicitSelection && policy.HasSelection) Drop("direct_failed");
+                throw;
+            }
+            catch {
+                if (!explicitSelection && policy.HasSelection) Drop("direct_failed");
+                ptt.Fence(generation);
+                throw;
+            }
         }
         public object Stop(int generation,string reason,long now)
         {
@@ -209,7 +217,7 @@ namespace LSA.PromotedCharacters
             LogSelected(showIndicator ? "first" : "direct");
             if (showIndicator) ShowIndicator(now); else { indicatorUntil = 0; indicator.Clear(); }
             Publish();
-            return Current(now,"first");
+            return Current(now,showIndicator ? "first" : "direct");
         }
         string Fitness(long now,bool strict)
         {
