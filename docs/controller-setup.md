@@ -57,7 +57,7 @@ Nothing fires while the RPH console is open, the game is paused or not focused, 
 
 ## Talk target selector
 
-This is optional and off until `talkTargeting.enabled` is true. It uses the same physical Talk button to highlight a nearby NPC before the microphone starts. A quick tap cycles the highlight. Holding past `talkHoldMs` (220 ms by default) speaks to that exact NPC through Essential's own microphone start, aimed at the ped you highlighted. Releasing the button ends that microphone turn. Essential's configured `TalkKey` is not changed and is not pressed for you.
+This is optional and off until `talkTargeting.enabled` is true. It uses the same physical Talk button in two modes. **Hold normally** (past `talkHoldMs`, 220 ms by default) to talk directly to the best nearby candidate with no selection bracket. **Tap** to enter explicit targeting mode; further taps cycle the nearby candidates. Holding while that explicit target remains valid speaks to that exact NPC. The bracket previews briefly and disappears when PTT starts. Releasing the button ends that microphone turn. Essential's configured `TalkKey` is not changed and is not pressed for you.
 
 The highlight is a screen bracket on the NPC, including a driver or passenger, with a small `2/3` label when more than one NPC is in range. Follow, Wait, Promote and the Current NPC page use that highlighted NPC while the selection lasts. Typed text still uses Essential's own target choice.
 

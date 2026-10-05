@@ -261,3 +261,14 @@ Do not merge if any of these occur:
 - current.* commands ignore the selected target
 - successful PTT release clears or redirects Essential's conversation partner before the reply lifecycle is finished
 - T0 public targeting seam is not proven and no source-pinned replacement plan exists
+
+
+## Direct-talk / explicit-selector split
+
+- Hold the Talk button without tapping first: microphone starts for the best candidate and **no selector bracket appears**.
+- Release, then hold again from a different camera aim: target choice is re-evaluated; the prior direct target is not retained as explicit selector state.
+- Tap once: selector bracket appears.
+- Wait about 1 second without talking: bracket fades, but the selected target remains available.
+- Hold after that fade but before the normal selection timeout: the previously tapped target receives the turn.
+- Tap repeatedly within the cycle window: bracket moves through the frozen candidate order.
+- Hold while the bracket is visible: the bracket disappears when PTT starts and does not sit over the NPC throughout the conversation.
