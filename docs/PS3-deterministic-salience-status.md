@@ -31,11 +31,11 @@ Companion coverage is `lsa-essential-e1-candidate/tests/salience-engine.test.mjs
 
 The corrected 73-file overlay was deployed on October 5 after a full hash-verified rollback backup. The latest telemetry refresh copied nine files and 64 already matched; all 73 installed files match the candidate SHA256 manifest. The other 29 files in the backup scope—including live configs, `.env`, data, and logs—remain hash-identical to the pre-deployment backup. No files were removed.
 
-The installed intelligence mode is `shadow`; player-speech witnessing remains disabled because there is no source-time capture receipt. The game, RAGE Plugin Hook, and LSA server were stopped during deployment. GTA was not launched. The local staging receipt and backup manifest contain per-file hashes.
+The installed intelligence mode is `shadow`; player-speech witnessing remains disabled because there is no source-time capture receipt. GTA was not launched during the deployment operation itself. Subsequent October 5 sessions did launch the deployed pipeline and verified live PS2→PS3 processing plus JSONL persistence. The local staging receipt and backup manifest contain per-file hashes.
 
 ## JSONL shadow telemetry
 
-The existing console `[PS] companion_shadow` report is still produced on its existing **10-second cadence** after the intelligence hello has initialized. A scalar-only projection is also persisted through E4 observability to the server's normal rotating JSONL files. The October 5 GTA session verified 13 persisted samples at approximately the expected cadence:
+The existing console `[PS] companion_shadow` report is still produced on its existing **10-second cadence** after the intelligence hello has initialized. A scalar-only projection is also persisted through E4 observability to the server's normal rotating JSONL files. The first October 5 validation run recorded 13 samples. The later combined UX4/PS3 run recorded 16 reports (15 periodic plus one final snapshot), reached 380 PS3 decisions, and exercised retained-history pressure with 147 evictions while companion and PS2 admission-drop counters stayed at zero:
 
 ```text
 <LosSantosAliveServer>/logs/e1-run-<UTC>-<runId>.jsonl
@@ -67,4 +67,6 @@ To verify salience activity without inspecting dialogue, trigger an ordinary sup
 4. Confirm a repeated burst does not keep the urgent response after the first revision, and that a later death revision can become relevant again.
 5. Confirm live shadow does **not** emit `relationship_close`, `relationship_conflict`, `prior_memory`, or `trait_policy` until an authenticated captureRef/profile binding seam is added. Recognized-vs-backend-only behavior is an offline PS3 gate today.
 6. If a driver flag is supplied by a later adapter, routine nearby presence stays omitted while vehicle impact does not.
-7. Run the controlled native damage probe: record `pedDamageCallbacks`, `playerDamageCallbacks`, and `vehicleDamageCallbacks`; cause one isolated player hit, one tracked-NPC hit, and one vehicle damage event; verify the corresponding counter changes before diagnosing or changing the DamageTracker subscription path.\n8. Confirm retained-history eviction/skip counters can rise under a synthetic or long-session storm without `dropped` increasing solely because diagnostic history is full.\n9. Player speech remains disabled until a source-time capture receipt exists. Do not treat post-STT text as hearing.
+7. Run the controlled native damage probe: record `pedDamageCallbacks`, `playerDamageCallbacks`, and `vehicleDamageCallbacks`; cause one isolated player hit, one tracked-NPC hit, and one vehicle damage event; verify the corresponding counter changes before diagnosing or changing the DamageTracker subscription path.
+8. Retained-history pressure is now live-exercised: the combined UX4/PS3 run showed eviction rising while semantic admission drops stayed zero. Repeat only as regression/soak coverage, not as an unresolved implementation gate.
+9. Player speech remains disabled until a source-time capture receipt exists. Do not treat post-STT text as hearing.
