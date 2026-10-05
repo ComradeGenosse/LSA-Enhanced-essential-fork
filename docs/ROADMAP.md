@@ -75,7 +75,9 @@ Keep this separate from implementation status:
 | PS3 | Corrected implementation and JSONL telemetry merged into main; offline-verified | **Deployed in shadow on October 5.** The later shared-Talk hotfix payload had 74 manifest files and all matched on disk | **Live JSONL/evaluation verified.** Structured salience scenarios and the controlled native damage-callback probe remain open |
 | PS4+ | Not implemented | Not deployable | Not applicable yet |
 
-The October 4 combined production-source integration on `main` passed offline regression/build validation but explicitly did **not** itself establish a new GTA deployment or controller/GTA acceptance record. Therefore "merged", "built", "installed" and "physica### Recommended next GTA perception milestone
+The October 4 combined production-source integration on `main` passed offline regression/build validation but explicitly did **not** itself establish a new GTA deployment or controller/GTA acceptance record. Therefore "merged", "built", "installed" and "physically accepted" must remain separate states.
+
+### Recommended next GTA perception milestone
 
 The combined PS0–PS3 payload is already deployed in shadow and live PS2/PS3 counters plus JSONL persistence are proven. The next perception session should therefore target the remaining **behavioral and producer-specific gaps**, not repeat basic initialization:
 
