@@ -61,10 +61,28 @@ This is optional and off until `talkTargeting.enabled` is true. It uses the same
 
 The highlight is a screen bracket on the NPC, including a driver or passenger, with a small `2/3` label when more than one NPC is in range. Follow, Wait, Promote and the Current NPC page use that highlighted NPC while the selection lasts. Typed text still uses Essential's own target choice.
 
-1. Pick a router key that nothing else uses. `F10` is the example. It must not be one of `input.keys` and must not equal Essential's `TalkKey`, `TextKey`, `MarkPedKey` or `MarkedPedTalkKey`. If it later matches one of those, talk targeting pauses and an active microphone turn is stopped.
-2. In Steam Input, map the physical Talk button to that key with a plain regular press. Remove that button's direct mapping to Essential's Talk key. Leave `TalkKey` itself set in `LosSantosAlive.config`.
-3. In `Plugins/LSA.Enhanced.json` set `"talkTargeting": { "enabled": true, "key": "F10" }`. The other fields (`talkHoldMs`, `cycleWindowMs`, `selectionTimeoutMs`, `radiusMeters`, `retentionRadiusMeters`, `maxCandidates`, `indicator`) are optional and use the defaults in `LSA.Enhanced.example.json`.
-4. `RagePluginHook.log` shows `[UX4] talk_target input=ready key=F10`. A tap logs `[UX4] talk_target selected` and does not start the microphone. A hold logs `[UX4] talk_ptt commit=accepted`.
+### Recommended: reuse your existing Essential Talk binding
+
+No Steam Input remap is required. Set `talkTargeting.key` to the **same physical key already configured as Essential's `TalkKey`**. UX4 acquires a separate input-interception lease: it reads the real key state directly while Essential sees that physical Talk press as released, preventing the stock generic Talk path from firing a second time.
+
+Example, if your existing controller button sends `Mouse4` and Essential's `TalkKey` is also `Mouse4`:
+
+```json
+"talkTargeting": { "enabled": true, "key": "Mouse4" }
+```
+
+Your controller mapping stays unchanged. Marked Talk also stays unchanged.
+
+A neutral dedicated key such as `F10` is still supported if preferred. In that mode, map the physical Talk button to the neutral key instead of Essential Talk.
+
+The UX4 key must not collide with Essential's `TextKey`, `MarkPedKey`, or `MarkedPedTalkKey`, and it must not be one of `input.keys`. A key that matches **only** Essential's `TalkKey` is now intentional shared-input mode.
+
+`RagePluginHook.log` shows either:
+
+- `[UX4] talk_target input=ready key=<key> mode=shared_essential`
+- `[UX4] talk_target input=ready key=<key> mode=neutral`
+
+A tap selects/cycles and does not start the microphone. A hold starts UX4 PTT against the exact selected NPC.
 
 Search radius defaults to 15 m, the highlight lasts 8 s, and repeated taps keep one frozen order for 1.5 s. No line of sight is required, so a seated NPC stays selectable.
 
@@ -73,5 +91,5 @@ Search radius defaults to 15 m, the highlight lasts 8 s, and repeated taps keep 
 - **Gestures off:** set `"input": { "enabled": false }` in `Plugins/LSA.Enhanced.json`, or delete the file. The router stops within a second; no restart is needed.
 - **Menu off:** set `"ui": { "enabled": false }`.
 - **Controller:** in Steam Input choose **Browse configs** and pick your previous layout, or clear the L4/R4 bindings.
-- **Talk targeting off:** set `"talkTargeting": { "enabled": false }` or delete that section. Within a second the highlight and hold-to-talk stop. Map the physical Talk button back to Essential's Talk key if you want the old direct talk behavior. `LosSantosAlive.config` is never modified.
+- **Talk targeting off:** set `"talkTargeting": { "enabled": false }` or delete that section. If UX4 shares Essential's existing Talk key, interception is released automatically and the same controller button returns to stock Essential Talk after the physical key is released. If you chose a separate neutral key, restore your previous Steam Input mapping manually. `LosSantosAlive.config` is never modified.
 - Removing the gestures never changes Essential's own keys or `LosSantosAlive.config`; LSA only reads that file.
