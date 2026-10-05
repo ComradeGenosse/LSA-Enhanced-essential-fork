@@ -12,7 +12,7 @@ namespace LSA.PromotedCharacters
     // Preview and cycling never call SetPlayerConversationPed or SendMicStart.
     internal sealed class TalkTargetSelector
     {
-        const int ProjectionCap = 48;
+        const int ProjectionCap = 48, IndicatorPreviewMs = 1000;
         sealed class Sample { public TalkCandidate Token; public Ped Ped; }
         readonly TalkTargetPolicy policy = new TalkTargetPolicy();
         readonly TalkPttSession ptt = new TalkPttSession();
@@ -23,7 +23,7 @@ namespace LSA.PromotedCharacters
         readonly List<TalkCandidate> exported = new List<TalkCandidate>();
         TalkTargetOptions options = new TalkTargetOptions();
         Ped essentialPed;
-        long essentialAddress, clock;
+        long essentialAddress, clock, indicatorUntil;
         bool essentialSet, hooked;
         public TalkTargetSelector(Func<Ped,string> encounterId) { this.encounterId = encounterId; }
         public string IndicatorState => indicator.State;
@@ -40,12 +40,12 @@ namespace LSA.PromotedCharacters
                     Drop(problem);
                     return;
                 }
-                if (options.Indicator && !indicator.Disabled && policy.Index >= 0 && policy.Index < frozenPeds.Count) indicator.Publish(frozenPeds[policy.Index],policy.Index + 1,policy.Count);
+                if (options.Indicator && now < indicatorUntil && !indicator.Disabled && policy.Index >= 0 && policy.Index < frozenPeds.Count) indicator.Publish(frozenPeds[policy.Index],policy.Index + 1,policy.Count);
                 else indicator.Clear();
             } catch { indicator.Clear(); }
         }
         public object AsResult(TalkTargetView view) => view != null && view.Present ? Payload(view,EncounterOf(Bound()),0,view.PttCommitted) : new {present = false,reason = view?.Reason,indicator = indicator.State};
-        public TalkTargetView SelectFirst(long now,TalkTargetOptions next) { clock = now; return Select(now,Sanitize(next)); }
+        public TalkTargetView SelectFirst(long now,TalkTargetOptions next) { clock = now; return Select(now,Sanitize(next),true); }
         public TalkTargetView SelectNext(long now,TalkTargetOptions next)
         {
             clock = now;
@@ -58,6 +58,7 @@ namespace LSA.PromotedCharacters
             string problem = Fitness(now,false);
             if (problem != null) { Drop(problem); return Absent(problem); }
             LogSelected("cycle");
+            ShowIndicator(now);
             Publish();
             return Current(now,"cycle");
         }
@@ -65,19 +66,24 @@ namespace LSA.PromotedCharacters
         {
             clock = now;
             next = Sanitize(next);
+            bool explicitSelection = !selectFirst;
             string admission = ptt.Admit(generation);
             if (admission == "cancelled") return new {started = false,reason = "cancelled",generation};
-            if (admission == "already") return Payload(policy.Inspect(now),EncounterOf(Bound()),generation,true);
+            if (admission == "already") {
+                if (policy.HasSelection) return Payload(policy.Inspect(now),EncounterOf(Bound()),generation,true);
+                return DirectPayload(essentialPed,EncounterOf(essentialPed),generation,true,"already");
+            }
             if (admission != "start") throw new InvalidOperationException(admission == "busy" ? "ptt_busy" : "invalid_arguments");
             try {
-                if (!selectFirst) {
+                if (explicitSelection) {
                     if (!policy.HasSelection || expectedSelectionId != policy.SelectionId) { ptt.Fence(generation); throw new InvalidOperationException(policy.HasSelection ? "target_changed" : "target_lost"); }
                     if (Fitness(now,true) != null) { Drop("lost"); ptt.Fence(generation); throw new InvalidOperationException("target_lost"); }
-                } else if (!policy.HasSelection || Fitness(now,true) != null) {
-                    if (policy.HasSelection) Drop("lost");
-                    var selected = Select(now,next);
+                } else {
+                    if (policy.HasSelection) Drop("direct_override");
+                    var selected = Select(now,next,false);
                     if (!selected.Present) { ptt.Fence(generation); throw new InvalidOperationException(selected.Reason ?? "no_nearby_npc"); }
                 }
+
                 var ped = Bound();
                 if (ped == null) { ptt.Fence(generation); throw new InvalidOperationException("target_lost"); }
                 string encounter = EncounterOf(ped);
@@ -104,10 +110,22 @@ namespace LSA.PromotedCharacters
                         return new {started = false,reason = "cancelled",generation};
                     }
 
-                    policy.Commit(policy.SelectionId,now);
-                    try { Game.LogTrivial("[UX4] talk_ptt commit=accepted generation=" + generation); } catch { }
-                    try { Publish(); } catch { }
-                    return Payload(policy.Inspect(now),encounter,generation,true);
+                    object result;
+                    if (explicitSelection) {
+                        policy.Commit(policy.SelectionId,now);
+                        indicatorUntil = 0;
+                        indicator.Clear();
+                        result = Payload(policy.Inspect(now),encounter,generation,true);
+                    } else {
+                        result = DirectPayload(ped,encounter,generation,true,"direct");
+                        policy.Clear("direct");
+                        frozenPeds.Clear();
+                        indicatorUntil = 0;
+                        indicator.Clear();
+                    }
+
+                    try { Game.LogTrivial("[UX4] talk_ptt commit=accepted generation=" + generation + " mode=" + (explicitSelection ? "explicit" : "direct")); } catch { }
+                    return result;
                 } catch {
                     TryRevert(ped);
                     throw;
@@ -124,7 +142,7 @@ namespace LSA.PromotedCharacters
             if (outcome == "native_operation_failed" || outcome == "mic_state_unavailable") throw new InvalidOperationException(outcome);
 
             ptt.CompleteStop(generation);
-            policy.Release(now,options);
+            if (policy.HasSelection) policy.Release(now,options);
             DetachEssential();
             try { Game.LogTrivial("[UX4] talk_ptt end reason=" + (reason ?? outcome ?? "stop") + " generation=" + generation); } catch { }
             return new {stopped = outcome == null,released = true,generation,reason = outcome};
@@ -163,13 +181,14 @@ namespace LSA.PromotedCharacters
             ptt.Reset();
             policy.ResetForWorldChange();
             frozenPeds.Clear();
+            indicatorUntil = 0;
             indicator.Clear();
             DetachEssential();
             if (had) Game.LogTrivial("[UX4] talk_target cleared reason=world_reset");
         }
         public void Shutdown(long now) { try { ResetForWorldChange(now); } catch { } try { indicator.Detach(); } catch { } }
 
-        TalkTargetView Select(long now,TalkTargetOptions next)
+        TalkTargetView Select(long now,TalkTargetOptions next,bool showIndicator)
         {
             if (ptt.IsLive) return Current(now,"ptt_busy");
             options = next;
@@ -187,7 +206,8 @@ namespace LSA.PromotedCharacters
                 frozenPeds.Add(ped);
             }
             if (Fitness(now,true) != null) { Drop("lost"); return Absent("target_lost"); }
-            LogSelected("first");
+            LogSelected(showIndicator ? "first" : "direct");
+            if (showIndicator) ShowIndicator(now); else { indicatorUntil = 0; indicator.Clear(); }
             Publish();
             return Current(now,"first");
         }
@@ -252,16 +272,20 @@ namespace LSA.PromotedCharacters
             view.Reason = view.Present ? reason : view.Reason;
             return view;
         }
+        void ShowIndicator(long now) { indicatorUntil = now + IndicatorPreviewMs; }
         void Publish()
         {
             var ped = Bound();
-            if (ped != null && options.Indicator && !indicator.Disabled) indicator.Publish(ped,policy.Index + 1,policy.Count);
+            if (ped != null && options.Indicator && clock < indicatorUntil && !indicator.Disabled) indicator.Publish(ped,policy.Index + 1,policy.Count);
             else indicator.Clear();
         }
         object Payload(TalkTargetView view,string encounter,int generation,bool started) => new {
             present = view.Present,started,selectionId = view.SelectionId,encounterId = encounter,pedId = view.PedId,
             cycleIndex = view.CycleIndex,cycleCount = view.CycleCount,pttCommitted = view.PttCommitted || started,
             expiresInMs = view.ExpiresInMs,indicator = indicator.State,generation,reason = view.Reason};
+        object DirectPayload(Ped ped,string encounter,int generation,bool started,string reason) => new {
+            present = false,started,selectionId = (string)null,encounterId = encounter,pedId = ped != null ? ped.Handle.ToString() : null,
+            cycleIndex = 0,cycleCount = 0,pttCommitted = started,expiresInMs = 0L,indicator = "off",generation,reason};
         string EncounterOf(Ped ped)
         {
             if (ped == null || encounterId == null) return null;
@@ -276,6 +300,7 @@ namespace LSA.PromotedCharacters
         void Forget(string reason)
         {
             frozenPeds.Clear();
+            indicatorUntil = 0;
             indicator.Clear();
             if (reason != null) Game.LogTrivial("[UX4] talk_target cleared reason=" + reason);
         }
