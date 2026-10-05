@@ -1,5 +1,7 @@
 # PS2 Implementation Checklist
 
+**Current status (October 5, 2026): ✅ merged to `main`.** The implementation branch/base metadata below is historical. Later PS3 shadow runs exercised live PS2 correlation/witness output and showed PS2 witnessed observations feeding PS3 decisions. Structured witness/episode GTA acceptance remains incomplete, and player-speech hearing is still deliberately disabled until the source-time microphone/capture-receipt seam is proven.
+
 Implementation branch: `feature/ps2-witness-rules-episode-correlation`
 Base: latest fetched `origin/main` at `b45f682` (2026-10-04).
 Specification: `origin/research/ps2-proximity-chat-speech-plan`, commit `e1d0bd1`.
@@ -55,4 +57,4 @@ A post-implementation review found and corrected three contract-level gaps:
 - `reported` witness receipts are admitted by the correlator, and the closed witness/claim contracts preserve a UUID `reportRef` only for `dialogue_report` evidence;
 - damage, sampled injury and death now share a victim-scoped `harm` continuation key, while episode participant revisions union prior/new participants so an earlier attacker is not lost. A later death claim remains source-less unless that death signal itself carries supported source evidence; episode continuity does not manufacture causality.
 
-Regression cases were added for sampled injury → damage → death continuity, participant preservation, death-without-source causality, report-contract admission and hearsay preservation. The previously recorded 345-test/full-native-suite result predates this corrective commit; repository CI is not configured on this branch, so the complete suite should be re-run before merge in the normal development environment.
+Regression cases were added for sampled injury → damage → death continuity, participant preservation, death-without-source causality, report-contract admission and hearsay preservation. The 345-test/full-native-suite count below is historical branch evidence and predates that corrective commit. PS2 was subsequently integrated into `main`; use the current roadmap/PS3 validation records for the present combined-runtime state rather than treating this old branch rerun note as an unmerged gate.
