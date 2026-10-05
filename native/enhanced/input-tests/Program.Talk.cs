@@ -212,11 +212,25 @@ static partial class Program
         reload.Talk.Apply(Settings("{\"version\":1}"),reload.Essential);
         Check(!reload.Talk.Enabled && reload.Talk.DisplayState == "Off","removing talkTargeting disables the feature");
 
-        var clash = new TalkRig();
-        clash.Essential = EssentialBindings.Parse(new[] {"TalkKey=F10","TextKey=Mouse5","MarkPedKey=F9","MarkedPedTalkKey=F3"});
-        clash.Press(); clash.Elapse(220);
-        clash.Talk.Apply(clash.Settings,clash.Essential);
-        Check(clash.Talk.DisplayState == "Paused" && clash.Talk.Conflict.Contains("TalkKey") && clash.LastCommand() == "talk.ptt_stop","a talk key that matches Essential TalkKey suspends and stops");
+        var shared = new TalkRig();
+        shared.Bridge.InputSupported = true; shared.Bridge.InputClock = shared.Clock;
+        shared.Essential = EssentialBindings.Parse(new[] {"TalkKey=F10","TextKey=Mouse5","MarkPedKey=F9","MarkedPedTalkKey=F3"});
+        shared.Talk.Apply(shared.Settings,shared.Essential);
+        Check(shared.Talk.DisplayState == "On" && shared.Talk.Conflict == null && shared.Bridge.TalkLeaseCalls == 1,"a talk key matching Essential TalkKey enters shared interception mode");
+        bool stockDown;
+        Check(shared.Bridge.Input.Read(F10,true,shared.Clock.Monotonic,out stockDown) && !stockDown,"shared UX4 Talk suppresses Essential's duplicate physical Talk poll");
+        shared.Press(); shared.Elapse(220);
+        Check(shared.LastCommand() == "talk.ptt_start","shared Essential Talk key still drives UX4 hold-to-talk");
+        shared.Talk.Stop();
+        Check(shared.Bridge.TalkReleaseCalls == 1 && shared.Bridge.Input.Read(F10,true,shared.Clock.Monotonic,out stockDown) && !stockDown,"disabling UX4 drains a still-held shared Talk key");
+        shared.Keys.Down.Remove(F10);
+        Check(shared.Bridge.Input.Read(F10,false,shared.Clock.Monotonic,out stockDown) && !stockDown && !shared.Bridge.Input.Read(F10,true,shared.Clock.Monotonic,out stockDown),"stock Essential Talk returns after physical release");
+
+        var sharedUnavailable = new TalkRig();
+        sharedUnavailable.Essential = EssentialBindings.Parse(new[] {"TalkKey=F10","TextKey=Mouse5","MarkPedKey=F9","MarkedPedTalkKey=F3"});
+        sharedUnavailable.Talk.Apply(sharedUnavailable.Settings,sharedUnavailable.Essential);
+        Check(sharedUnavailable.Talk.DisplayState == "Paused" && sharedUnavailable.Talk.Conflict.Contains("interception"),"shared Talk fails closed when interception is unavailable");
+
         foreach (var setting in new[] {"TextKey","MarkPedKey","MarkedPedTalkKey"}) {
             var conflict = new TalkRig();
             conflict.Essential = EssentialBindings.Parse(new[] {"TalkKey=Mouse4","TextKey=Mouse5","MarkPedKey=F9","MarkedPedTalkKey=F3"}.Select(line => line.Split('=')[0] == setting ? setting + "=F10" : line));
@@ -290,7 +304,7 @@ static partial class Program
         Check(broken != null && broken.Current.Present && broken.TalkTarget == null,"a malformed talk target does not blank the current NPC");
         var controls = ControlsView.Build(Settings(TalkJson()),EssentialBindings.Parse(new[] {"TalkKey=Mouse4","TextKey=Mouse5","MarkPedKey=F9","MarkedPedTalkKey=F3"}),"ready",null,false,120,new GestureBinding[0],"Talking",null);
         Check(Line(controls,"talkTarget").Right == "Talking" && Line(controls,"talkKey").Right == "F10" && Line(controls,"talkHold").Right == "220 ms","controls show the talk-target state");
-        var paused = ControlsView.Build(Settings(TalkJson()),EssentialBindings.Unavailable(),"ready",null,false,120,new GestureBinding[0],"Paused","F10 is also Essential's TalkKey");
-        Check(Line(paused,"talkConflict").Right.Contains("TalkKey"),"controls show an Essential key conflict");
+        var paused = ControlsView.Build(Settings(TalkJson()),EssentialBindings.Unavailable(),"ready",null,false,120,new GestureBinding[0],"Paused","Essential Talk interception unavailable");
+        Check(Line(paused,"talkConflict").Right.Contains("interception"),"controls show a Talk interception failure");
     }
 }
