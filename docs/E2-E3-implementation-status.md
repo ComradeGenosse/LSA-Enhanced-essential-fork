@@ -1,5 +1,7 @@
 # E2/E3 implementation status
 
+> **Checkpoint note:** this document records the E2/E3 implementation checkpoint from October 2. Later phases subsequently exercised the OpenAI path through live API and GTA runs. The implementation remains current; statements below about “no live API/GTA run” describe this checkpoint, not the repository's present validation history.
+
 Updated October 2, 2026. Offline implementation is complete in the current source tree. The change preserves E1.1's native lifecycle and the existing Gemini path.
 
 ## Delivered
@@ -34,8 +36,8 @@ The audit also confirmed that the current session-level identity design remains 
 
 The baseline before implementation was 106 passing tests. The expanded offline suite passes **131 tests** with no failures, cancellations, or skips. The pinned candidate build succeeds with 25 source-pinned patches. Its patched launcher SHA-256 is `0443800cf148f10baa58558f106baa1e97e6edc2d227c0d48cf8fef15c457ed9`; the E1 source tree SHA-256 is `c2aa248e59d1b5d4de75484eedbfa15f6109d7a3747ea42f5c81dacb0f032ae9`; the release payload SHA-256 is `7154b685e9a4a79d3a92d82068d0cad6c974775482c4ca2dc125018e80babc12`.
 
-No live API request, injected live provider fault, game launch, or GTA deployment has been performed. Those checks require separate explicit authorization and remain open; offline test success does not claim provider listening quality or in-game behavior.
+At this E2/E3 checkpoint no live API request, injected live provider fault, game launch, or GTA deployment had been performed. Later E5/E6 work supplied live OpenAI capability and GTA playback-path evidence. Dedicated voice audition/calibration and injected provider-fault quality checks remain useful follow-up coverage.
 
 The first character-aware voice extension passed the repository-wide offline gate on October 2, 2026: **164 tests, 0 failures**, followed by a successful pinned candidate build with **25 source-pinned patches** (launcher SHA-256 `0443800cf148f10baa58558f106baa1e97e6edc2d227c0d48cf8fef15c457ed9`). [Validation run](https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/actions/runs/36948145647).
 
-The native-contract follow-up adds focused demographic regression assertions; its branch/PR validation should be treated as the current gate once complete. Physical GTA voice audition remains open.
+The native-contract follow-up added focused demographic regression coverage and the corrected `old → older` mapping is part of the later repository baseline. Physical GTA voice audition/calibration remains open.
