@@ -1,10 +1,10 @@
 # PS3 deterministic salience
 
-Status, October 4, 2026: **implemented offline in shadow; physical GTA validation pending**.
+Status, October 5, 2026: **implemented in shadow; convergence corrections pushed; full corrected offline rerun and physical GTA validation pending**.
 
 PS3 ranks PS2 observations. It does not create turns, actions, memories, playback changes, or native authority. `urgent` means the observation outranks other candidates. Reflex and self-preservation remain native.
 
-The decision shape is `observationId`, `revision`, `context` (`omit` | `candidate` | `must_include`), `memory` (`none` | `stage`), `response` (`none` | `eligible` | `urgent`), at most four reason codes, and `expiresAtMonotonicMs`.
+The decision shape is `observationId`, `revision`, `decisionKey`, `policyVersion`, `context` (`omit` | `candidate` | `must_include`), `memory` (`none` | `stage`), `response` (`none` | `eligible` | `urgent`), at most four reason codes, and `expiresAtMonotonicMs`. `decisionKey` is grant-attempt-specific so a stale acknowledgement cannot consume a later re-grant.
 
 `memory: 'stage'` is a label for a later writer. This phase does not open the profile store. `response` does not select a speaker.
 
@@ -21,10 +21,11 @@ The decision shape is `observationId`, `revision`, `context` (`omit` | `candidat
 - Live shadow currently has no authenticated `captureRef → CharacterId/profile` binding. It therefore does not supply relationship, memory or trait-policy context; those branches are implemented and covered offline only.
 - Recognition requires an explicit `recognized: true`; a missing flag is treated exactly like `false`.
 - Suppression capacity fails closed for response/memory entitlement instead of evicting a prior grant. The latest-decision diagnostic cache is bounded with the decision cache.
+- A response grant is now an **entitlement**, not consumption. `acknowledge(decisionKey, consumer, delivered|rejected|expired)` records consumer outcome; only a delivered PS6 response consumes response entitlement. Rejected/expired grants may be re-issued with a fresh `decisionKey`.
 
 ## Checks
 
-Companion coverage is `lsa-essential-e1-candidate/tests/salience-engine.test.mjs`, included in `node tools/runTests.mjs`. The candidate build manifest phase list includes `PS3`. No native project changed.
+Companion coverage is `lsa-essential-e1-candidate/tests/salience-engine.test.mjs`, included in `node tools/runTests.mjs`. The convergence audit found that this test file previously declared `const replay` twice, causing a syntax error that prevented 60 later test files from loading while the summary still looked green. The duplicate binding is fixed, acknowledgement/stale-key tests were added, and `runTests.mjs` now converts test-module import failures into explicit failed tests while continuing discovery. **A complete corrected suite rerun is still required before merge.** The candidate build manifest phase list includes `PS3`. No native project changed.
 
 ## GTA validation still open
 
