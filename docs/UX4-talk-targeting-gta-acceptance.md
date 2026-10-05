@@ -2,6 +2,8 @@
 
 This document is a physical GTA V Enhanced acceptance checklist. Offline unit tests cannot substitute for these checks.
 
+**Current-main note:** the October 5 `c8df99b` run already proved shared Mouse4 interception, three clean PTT turns and no duplicate stock generic Talk. `main@d7d8311` adds the direct-Talk/no-bracket vs tap/cycle explicit-selector refinement; the matrix below is now primarily the acceptance gate for that refinement plus multi-target/vehicle/race behavior.
+
 Architecture: research/ux4-talk-targeting-architecture.md
 Implementation plan: plans/UX4-talk-targeting-implementation-plan.md
 
@@ -114,7 +116,8 @@ Also test player outside vehicle and player inside another vehicle.
 Select B, then hold Talk past talkHoldMs.
 
 Pass:
-- indicator remains on B
+- explicit-selection state remains on B even if the short-lived bracket has faded
+- the bracket is hidden once PTT starts
 - InputController.SendMicStart runs once for the exact selected Ped
 - mic capture begins after target commit
 - speaking addresses B
@@ -213,7 +216,7 @@ Verify:
 - L4/R4 mark/text/follow chord behavior remains
 - F11 menu remains
 - Essential direct MarkedTalk remains unchanged
-- disabling UX4 restores old behavior after controller mapping is restored
+- disabling UX4 releases shared Talk interception; when using the recommended shared-key setup, the same controller binding returns to stock Essential Talk after the physical key is released
 - no PS perception/provider/playback regressions appear in logs
 
 ## I. Latency and tuning
