@@ -15,6 +15,20 @@ function clientFixture() {
 test('factual client accepts fragmented bounded native frames without writing commands',async()=>{
   const f=clientFixture();try {const text=JSON.stringify(f.hello)+'\n';f.socket.emit('data',Buffer.from(text.slice(0,20)));f.socket.emit('data',Buffer.from(text.slice(20)));await wait();assert.equal(f.client.runtime.epoch,f.hello.adapterEpoch);assert.equal(f.connects(),1);}finally{f.client.stop();}
 });
+test('intelligence telemetry reports connection initialization and disconnection without changing the factual channel',async()=>{
+  const events=[];const socket=new EventEmitter();socket.destroy=()=>{if(socket.closed)return;socket.closed=true;socket.emit('close');};socket.write=()=>{throw new Error('factual client must not send commands');};
+  const client=new IntelligenceClient({mode:'shadow',pipeName:'LSA.Test.Intelligence'},{connect:()=>socket,telemetry:(event,data)=>events.push({event,data})});
+  const hello={version:1,type:'hello',adapterEpoch:randomUUID(),streamId:randomUUID(),capabilities:Object.fromEntries(CAPABILITIES.map(k=>[k,k==='state']))};
+  try {
+    client.start();socket.emit('connect');socket.emit('data',Buffer.from(JSON.stringify(hello)+'\n'));await wait();
+    assert.equal(client.runtime.epoch,hello.adapterEpoch);
+    socket.destroy();
+    assert.deepEqual(events.filter(entry=>entry.event==='intelligence_status').map(entry=>entry.data.stage),['connecting','connected','initialized','disconnected']);
+    const final=events.find(entry=>entry.event==='companion_shadow');
+    assert.ok(final);assert.equal(final.data.finalSnapshot,true);assert.equal(final.data.resetInitializations,1);
+    assert.ok(events.indexOf(final)<events.findIndex(entry=>entry.event==='intelligence_status'&&entry.data.stage==='disconnected'));
+  } finally {client.stop();}
+});
 test('malformed JSON, missing hello and oversized partial frames disconnect and reset',async()=>{
   for(const input of ['{broken}\n',JSON.stringify({version:1,type:'retire'})+'\n','x'.repeat(8193)]) {
     const f=clientFixture();try {f.socket.emit('data',Buffer.from(input));await wait();assert.equal(f.socket.closed,true);assert.equal(f.client.runtime.epoch,null);}finally{f.client.stop();}

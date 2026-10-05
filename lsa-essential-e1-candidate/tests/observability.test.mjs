@@ -15,6 +15,7 @@ import { transcribePcm } from '../src/openai/transcribe.mjs';
 import { speak } from '../src/openai/speak.mjs';
 import { patchSource } from '../tools/buildCandidate.mjs';
 import { readFile as readSource } from 'node:fs/promises';
+import { IntelligenceClient, createCompanionShadowTelemetry } from '../src/perception/intelligenceClient.mjs';
 
 const id = Object.freeze({ pedId: 'ped-17', turnId: 'native-40', generationId: 901, sessionNonce: 5 });
 const testRoot = path.dirname(fileURLToPath(import.meta.url));
@@ -50,6 +51,45 @@ test('telemetry retains bounded provider retry and voice assignment dimensions',
     profileId: 'vp_0123456789abcdefabcd', voice: 'shimmer', speed: 1.1,
     selectionMode: 'character-aware-session', gender: 'female', ageBand: 'older', matchReason: 'character-aware-exact',
   });
+});
+
+test('intelligence telemetry keeps only bounded lifecycle and PS2/PS3 scalar diagnostics', () => {
+  const projection = createCompanionShadowTelemetry({
+    anchors: 4, retainedSignals: 9, received: 10, dropped: 2, stale: 3, malformed: 4, duplicate: 5, gaps: 6, expired: 7, resets: 8,
+    history: { expired: 21, evicted: 22, skipped: 23, highWater: 24 },
+    dropReasons: { anchorCapacity: 25, observerCapacity: 26 },
+    resetReasons: { initializations: 27, disconnects: 28, faults: 29, timeouts: 30, manual: 31 },
+    nativeDiagnostics: { dropped: 32, staleRejected: 33 },
+    damageCallbacks: { ped_damage: 34, player_damage: 35, vehicle_damage: 36 },
+    ps2: { correlated: 11, witnessed: 12, duplicates: 13, dropped: 14, playerSpeechGate: 'unsupported_capture_receipt', speech: { unsupported: 99 }, transcript: 'PRIVATE' },
+    ps3: { decisions: 15, urgent: 16, eligible: 17, staged: 18, suppressed: 19, faults: 20, reasons: { safetySelfDanger: 37, safetyPlayerHarm: 38, safetyNearbyThreat: 39, repetitionSuppressed: 40, revisionStale: 41, noveltyEscalation: 42, suppressionCapacity: 43 }, profile: { biography: 'PRIVATE' } },
+    finalSnapshot: true, dialogue: 'PRIVATE DIALOGUE',
+  });
+  assert.deepEqual(projection, {
+    anchors: 4, retainedSignals: 9, received: 10, dropped: 2, stale: 3, malformed: 4, duplicate: 5, gaps: 6, expired: 7, resets: 8,
+    historyExpired: 21, historyEvicted: 22, historySkipped: 23, historyHighWater: 24,
+    dropAnchorCapacity: 25, dropObserverCapacity: 26,
+    resetInitializations: 27, resetDisconnects: 28, resetFaults: 29, resetTimeouts: 30, resetManual: 31,
+    nativeDropped: 32, nativeStaleRejected: 33, pedDamageCallbacks: 34, playerDamageCallbacks: 35, vehicleDamageCallbacks: 36,
+    ps2Correlated: 11, ps2Witnessed: 12, ps2Duplicates: 13, ps2Dropped: 14,
+    ps3Decisions: 15, ps3Urgent: 16, ps3Eligible: 17, ps3Staged: 18, ps3Suppressed: 19, ps3Faults: 20,
+    ps3ReasonSafetySelfDanger: 37, ps3ReasonSafetyPlayerHarm: 38, ps3ReasonSafetyNearbyThreat: 39,
+    ps3ReasonRepetitionSuppressed: 40, ps3ReasonRevisionStale: 41, ps3ReasonNoveltyEscalation: 42, ps3ReasonSuppressionCapacity: 43,
+    finalSnapshot: true,
+  });
+  const row = createTelemetryRecord({ sequence: 1, runId: 'test', originMs: 0, event: 'companion_shadow', provider: 'internal', data: { ...projection, text: 'PRIVATE', profile: 'PRIVATE' }, now: 1 });
+  assert.deepEqual(row.data, projection);
+  assert.equal(JSON.stringify(row).includes('PRIVATE'), false);
+  const status = createTelemetryRecord({ sequence: 2, runId: 'test', originMs: 0, event: 'intelligence_status', provider: 'internal', data: { stage: 'initialized', transcript: 'PRIVATE' }, now: 2 });
+  assert.deepEqual(status.data, { stage: 'initialized' });
+});
+
+test('intelligence telemetry callbacks are passive and bootstrap routes them through E4 telemetry', async () => {
+  const client = new IntelligenceClient({ mode: 'off', pipeName: 'test' }, { telemetry() { throw new Error('sink failed'); } });
+  assert.doesNotThrow(() => client.persist('intelligence_status', { stage: 'connecting' }));
+  const source = await readSource(new URL('../src/bootstrap.mjs', import.meta.url), 'utf8');
+  assert.match(source, /suppliedIntelligenceTelemetry/);
+  assert.match(source, /telemetry\?\.emit\?\.\(event,null,'internal',data,'internal'\)/);
 });
 
 test('rotating JSONL sink preserves order, bounds retention, and reserves terminal records under queue pressure', async t => {

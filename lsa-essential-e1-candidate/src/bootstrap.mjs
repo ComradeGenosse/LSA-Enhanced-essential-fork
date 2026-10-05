@@ -93,7 +93,14 @@ export async function createRuntimeForBundle(options = {}) {
     let contract=options.perceptionContract;
     if(contract===undefined) try {contract=JSON.parse(await readFile(new URL('../build-manifest.json',import.meta.url),'utf8')).perceptionContract;}catch{}
     if(perceptionContractSupported(contract)) {
-      try {runtime.intelligence=new IntelligenceClient(config.intelligence,options.intelligenceOptions);runtime.intelligence.start();}catch{try{console.warn('[PS] optional_channel_unavailable');}catch{}}
+      try {
+        const suppliedIntelligenceTelemetry=options.intelligenceOptions?.telemetry;
+        const intelligenceOptions={...options.intelligenceOptions,telemetry:(event,data)=>{
+          try { suppliedIntelligenceTelemetry?.(event,data); } catch {}
+          try { telemetry?.emit?.(event,null,'internal',data,'internal'); } catch {}
+        }};
+        runtime.intelligence=new IntelligenceClient(config.intelligence,intelligenceOptions);runtime.intelligence.start();
+      }catch{try{console.warn('[PS] optional_channel_unavailable');}catch{}}
     } else try {console.warn('[PS] optional_perception_contract_unavailable');}catch{}
   }
   runtime.services.acceptPlayerTranscript = input => runtime.intelligence?.acceptPlayerTranscript(input) ?? {accepted:false,reason:'unsupported_capture_receipt'};

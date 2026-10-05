@@ -1,12 +1,22 @@
 # UX4 Talk Target Selector — implementation status
 
-Status: **offline implementation complete / GTA-pending**. Not merged. Post-review mic ownership, native gate revalidation, and stop-retry fixes are included; GTA acceptance has not been run.
+Status: **reconciled onto current `main` / fresh regression-build required / GTA-pending**. Not merged. Post-review mic ownership, native gate revalidation, stop-retry, and conversation-partner ownership fixes are included; GTA acceptance has not been run.
 
 Branch: `feature/ux4-talk-target-selector`
 
-Implementation base: `main` at `8c63b20492fbf6bc2e1ba98acc598259c22a57fe`.
+Implementation base after October 5 reconciliation: `main@5558da7398e5ea8b78e97758aadee64f9e28f6bb` (corrected PS3 + runtime observability follow-ups). Original UX4 implementation base was `8c63b20492fbf6bc2e1ba98acc598259c22a57fe`.
 
 Research head used: `2ddb8ae059abb364edb551518e31f86bf32a7249` (docs only; `main` had moved past that base).
+
+## October 5 reconciliation onto current main
+
+UX4 was reconciled onto `main@5558da7398e5ea8b78e97758aadee64f9e28f6bb` after the PS3 runtime-observability follow-ups landed.
+
+- Current main remains authoritative for PS3 salience, JSONL telemetry, retained-history behavior, damage-callback diagnostics, and the current test runner.
+- UX4 contributes only its intended talk-target/runtime/UI/test/documentation files.
+- The only path changed by both main and UX4 since their merge base was `native/promoted-characters/runtime-tests/RuntimeTests.csproj`; both sides already contain the same Essential input-interception compile include, so no semantic conflict remained.
+- No ACT0/ACT1, ACT2, radio, CGE, PS4+, or Scene Director runtime code was introduced.
+- This reconciliation does **not** constitute a fresh build, CI result, deployment, or GTA acceptance. Run the full current-main regression/build matrix before deployment.
 
 ## What was implemented
 
