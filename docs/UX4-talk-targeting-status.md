@@ -1,22 +1,36 @@
 # UX4 Talk Target Selector — implementation status
 
-Status: **reconciled onto current `main` / fresh regression-build required / GTA-pending**. Not merged. Post-review mic ownership, native gate revalidation, stop-retry, and conversation-partner ownership fixes are included; GTA acceptance has not been run.
+Updated October 5, 2026.
 
-Branch: `feature/ux4-talk-target-selector`
+**Status: ✅ merged to `main@d7d8311`.** The shared Essential-Talk-key path was exercised in GTA on the preceding `c8df99b` payload: three ordinary microphone turns started/stopped cleanly, all replies completed, and no duplicate stock generic Talk turn was observed. The later direct-Talk/explicit-selector refinement is also on `main`, but that exact head still needs a fresh full build/regression and GTA acceptance pass.
 
-Implementation base after October 5 reconciliation: `main@5558da7398e5ea8b78e97758aadee64f9e28f6bb` (corrected PS3 + runtime observability follow-ups). Original UX4 implementation base was `8c63b20492fbf6bc2e1ba98acc598259c22a57fe`.
+Historical implementation branch: `feature/ux4-talk-target-selector@28b3ac8` (now 9 commits behind `main`). The refinement branch `fix/ux4-direct-talk-explicit-selector@d7d8311` is identical to current `main`.
 
-Research head used: `2ddb8ae059abb364edb551518e31f86bf32a7249` (docs only; `main` had moved past that base).
+Current design:
 
-## October 5 reconciliation onto current main
+- normal hold: direct Talk, no selector bracket, temporary hidden target only for that PTT;
+- tap: enter explicit selector mode;
+- repeated tap: cycle the frozen nearby list;
+- explicit bracket previews for about 1 second, while the target remains valid for the configured selection timeout;
+- hold with an explicit target: commit that exact Ped;
+- shared Essential `TalkKey` mode uses the existing Harmony interception without changing the user's Steam Controller binding;
+- Essential still owns microphone, conversation, action and playback lifecycle.
 
-UX4 was reconciled onto `main@5558da7398e5ea8b78e97758aadee64f9e28f6bb` after the PS3 runtime-observability follow-ups landed.
+The original T0A audit and implementation-plan branches are historical design inputs. They are not the current deployment status.
 
-- Current main remains authoritative for PS3 salience, JSONL telemetry, retained-history behavior, damage-callback diagnostics, and the current test runner.
-- UX4 contributes only its intended talk-target/runtime/UI/test/documentation files.
-- The only path changed by both main and UX4 since their merge base was `native/promoted-characters/runtime-tests/RuntimeTests.csproj`; both sides already contain the same Essential input-interception compile include, so no semantic conflict remained.
-- No ACT0/ACT1, ACT2, radio, CGE, PS4+, or Scene Director runtime code was introduced.
-- This reconciliation does **not** constitute a fresh build, CI result, deployment, or GTA acceptance. Run the full current-main regression/build matrix before deployment.
+## Live evidence on the pre-refinement shared-key build
+
+See [ux4-ps3-run-analysis-20261005.md](ux4-ps3-run-analysis-20261005.md). That run verified:
+
+- `[UX4] talk_target input=ready key=Mouse4 mode=shared_essential`;
+- three accepted UX4 PTT generations;
+- 268–284 ms hold-to-start latency;
+- native stop 27–34 ms after loader release;
+- exactly three server captures / authorization accepts / playback starts / playback completions;
+- no duplicate generic Talk turn;
+- selection-only taps did not open the microphone.
+
+It did **not** validate the later direct/no-bracket interaction split, multi-target cycling, vehicle occupants, all interruption races, or exact highlighted-target identity. Those remain GTA acceptance items.
 
 ## What was implemented
 
@@ -100,11 +114,11 @@ GitHub Actions run `37318850380` on Windows against the hardened branch passed:
 
 The added regressions cover native PTT gate revalidation, active-mic ownership loss to a newer stock/MarkedTalk mic, retry after a physical `SendMicStop()` failure, and refusing a new hold while the previous stop remains unresolved.
 
-**Convergence follow-up:** the later conversation-partner ownership change (successful PTT release no longer clears `PlayerConversationPed`) was pushed after that Actions run. The prior counts remain evidence for the earlier hardened head, but the updated branch still requires a fresh offline/CI rerun before merge.
+**Current-head note:** the historical Actions counts below validate earlier hardened UX4 heads. The conversation-partner ownership fix, shared-Talk lease work and direct-Talk/explicit-selector refinement landed afterward. Current `main@d7d8311` therefore still requires a fresh full offline/build run even though the feature is merged.
 
 ## GTA tests still required
 
-Use [UX4-talk-targeting-gta-acceptance.md](UX4-talk-targeting-gta-acceptance.md). Offline tests do not show that the microphone turn reached the highlighted NPC. In GTA, still verify:
+Use [UX4-talk-targeting-gta-acceptance.md](UX4-talk-targeting-gta-acceptance.md). The shared-key/no-duplicate-Talk seam has live evidence, but the exact current-main interaction model still needs GTA verification. In particular:
 
 - the exact selected NPC receives `SendMicStart`, including when a nearer NPC is present
 - driver, front passenger, and rear passenger can be highlighted and addressed
