@@ -1,0 +1,26 @@
+name: UX4 review fix tests
+
+on:
+  push:
+    branches:
+      - feature/ux4-talk-target-selector
+    paths:
+      - '.github/workflows/ux4-review-fix-tests.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: UX input tests
+        shell: pwsh
+        run: dotnet run --project native/enhanced/input-tests/InputTests.csproj -c Release
+      - name: P2 bridge/runtime tests
+        shell: pwsh
+        run: dotnet run --project native/promoted-characters/bridge-tests/BridgeTests.csproj -c Release
