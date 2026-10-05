@@ -18,7 +18,7 @@ Non-negotiable invariants:
 4. Selection never retargets stale work to a replacement incarnation.
 5. No UX4-owned microphone generation remains open after release, focus loss, a closed input gate, reload or shutdown. UX4 does not synthesize TalkKey.
 6. Current current.* commands retain expectedEncounterId / target_changed protection.
-7. UX4 is default-off and removable without changing LosSantosAlive.config.
+7. UX4 is default-off and removable without changing LosSantosAlive.config. It may intentionally share Essential's TalkKey through a separate interception lease; Marked Talk is never intercepted.
 8. No new provider/model call is introduced by selecting or cycling a target.
 
 ## Phase T0A — offline Essential targeting audit — COMPLETE
@@ -302,12 +302,11 @@ docs/controller-setup.md
 
 Add UX4 setup:
 
-1. choose neutral key, suggested F10 only if otherwise unused
-2. map physical controller Talk button to that neutral key
-3. remove direct Steam mapping from that controller button to Essential TalkKey
-4. leave Essential's own TalkKey configured in LosSantosAlive.config
-5. enable talkTargeting
-6. verify log reports target input ready
+1. recommended: keep the controller's existing Essential Talk binding unchanged
+2. set talkTargeting.key to that same Essential TalkKey
+3. enable talkTargeting and verify the log reports mode=shared_essential
+4. alternatively, choose a neutral key such as F10 and use the older remapped-button mode
+5. leave Essential's own TalkKey configured in LosSantosAlive.config in either mode
 
 Rollback instructions must explain how to restore direct Talk mapping.
 
