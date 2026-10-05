@@ -1,54 +1,58 @@
-# Existing-key gestures
+# Existing-key input interception
 
-The optional UX router now supports Essential's existing MarkPedKey and TextKey.
-For this installation L4 is F9, R4 is Mouse5, and Menu is F11. Steam's original
-upper rear paddles already emit F9 and Mouse5; its lower pair remains F10/Mouse4.
-The names L4/R4 in the settings are logical inputs, not controller device IDs.
+Updated October 5, 2026.
 
-The pinned Essential DLL's InputController bool(int) polling helper (metadata
-token 100663647) calls GetAsyncKeyState and tests its high bit. An optional
-Harmony prefix inside Essential's AppDomain overrides only the two configured
-mark/text keys. Core SHA256 and the exact method signature are checked before
-patching. The installed 0Harmony library is reused, never packaged or replaced.
-Neither the Core DLL nor Essential's key config is rewritten.
+The optional UX layer can reuse Essential's existing physical keys without rewriting `LosSantosAlive.config` or injecting duplicate OS input.
 
-The loader continues polling the physical keys. Before deciding a gesture it
-renews a 500 ms lease, suppressing Essential's immediate mark/text actions. A
-single action queues one virtual down sample for the stock helper. A chord
-dispatches current.follow and a chord hold opens the current-NPC menu. Shared
-keys never use SendInput, preventing feedback into the router. Unshared relay
-keys retain the original relay. Both push-to-talk keys are never intercepted;
-if a mark/text key is also a talk key, the router suspends with a conflict.
+For the gesture router, shared **MarkPedKey** and **TextKey** use one lease owner. UX4 optionally uses a separate **TalkKey** lease owner. `MarkedPedTalkKey` is never intercepted.
 
-Focus loss, input gates, settings changes, gesture pause and shutdown
-release the lease, cancel virtual pulses and suppress previously intercepted
-held keys until release. Expiry does the same if the loader stalls. The patch
-then passes stock input through, and an expired pulse cannot be revived by
-renewal. A missing hook suspends shared-key gestures and leaves stock input
-available. The prefix stays inert after release until the domain unloads.
+The pinned Essential DLL's `InputController bool(int)` polling helper (metadata token `100663647`) calls `GetAsyncKeyState` and tests its high bit. An optional Harmony prefix inside Essential's AppDomain overrides only keys that currently have an active LSA lease. Core SHA-256 and the exact method signature are checked before patching. The installed 0Harmony library is reused, never packaged or replaced. Neither the Core DLL nor Essential's key config is rewritten.
 
-Shared mark/text keys stay leased in the UX menu so physical gestures cannot
-open stock text input over the menu. Explicit menu mark/text actions still use
-virtual polls. Both talk keys retain their stock behavior while menus are open.
+## Router lease — Mark/Text
 
-The Controls page shows physical keys beside gesture names. Logs include hook
-installation, physical-key masks and recognized gesture IDs (never typed text).
+The loader continues polling the real physical keys. While a shared Mark/Text gesture is active, the router renews a 500 ms lease that suppresses Essential's immediate physical poll. A single Mark/Text action queues one virtual down sample for the stock helper; chords consume the physical gesture without generating the individual stock actions. Shared keys never use `SendInput`, avoiding feedback into the router. Unshared relay keys retain the older relay path.
 
-RPH shadow-copies Core into a temporary directory. Resolve installed Harmony
-from AppDomain.BaseDirectory, not from Core.Location. Core.Location remains the
-source for the Core fingerprint check. On failure, logs include the loading
-stage and missing filename. A standalone shadow-copy AppDomain probe reproduces
-the old FileNotFoundException and verifies the corrected path and poll hook.
+## UX4 Talk lease
 
-An independent main-menu recognizer retains F11 when interception is unavailable
-or a paddle-key conflict suspends shared gestures. It still observes focus and
-game/input gates, requests native snapshots and permits only non-conflicting
-main-menu keys. Shared gestures remain disabled until the hook succeeds. Tests
-cover opening/closing F11 across failed-hook retries without shared-key relays.
+When `talkTargeting.key` equals Essential's configured `TalkKey`, UX4 acquires an **independent Talk lease**. UX4 still reads the real physical key through its loader-side key source while the Harmony prefix reports that same physical Talk key as released to Essential. That prevents Essential's generic Talk handler from firing a second time.
 
-Offline verification includes shared-key taps, chords in either order, holds,
-PTT passthrough, focus-loss recovery, lease expiry, pending-pulse cancellation
-and rebinding. A standalone probe checks the installed Harmony API. Physical
-controller acceptance still requires GTA: tap each upper paddle, tap both,
-hold both, then check PTT and focus/menu recovery. The input source observes
-keyboard/mouse state; it cannot distinguish a paddle from a real keyboard key.
+The two owners are independent:
+
+- router lease: Mark/Text pulses and chords;
+- UX4 lease: suppression-only Talk ownership.
+
+Renewing or releasing the router lease cannot drop UX4 Talk interception, and releasing UX4 cannot erase pending Mark/Text pulses.
+
+UX4 then applies its own tap/hold semantics:
+
+- normal hold → direct Talk to the best current candidate, no selector bracket;
+- tap → explicit selector;
+- repeated tap → cycle;
+- hold with an explicit target → exact-Ped PTT.
+
+`MarkedPedTalkKey` continues through Essential unchanged.
+
+## Release and failure behavior
+
+Focus loss, input gates, settings changes, gesture pause and shutdown release the relevant owner lease. A released or expired key that is still physically held is drained until the real key comes up, preventing a synthetic half-press from suddenly reaching Essential. Expired pulses cannot be revived by lease renewal.
+
+If the Harmony hook cannot be installed, shared gestures fail closed. UX4 shared-Talk mode also fails closed rather than allowing both UX4 and stock generic Talk to fire. Once interception is released and the physical key has come up, stock Essential behavior resumes.
+
+Shared Mark/Text keys stay leased while the LSA menu owns input so physical gestures cannot open stock text input over the menu. Explicit menu Mark/Text actions still use virtual polls. UX4 Talk is stopped/released when its gates close; Marked Talk remains independent.
+
+## Diagnostics and verification
+
+The Controls page shows physical keys beside gesture names. Logs include hook installation, physical-key masks, recognized gesture IDs and UX4 shared/neutral Talk mode; they never log typed text.
+
+RPH shadow-copies Core into a temporary directory. Harmony is resolved from `AppDomain.BaseDirectory`, while `Core.Location` remains the fingerprint source. On failure the log includes the stage and missing filename.
+
+Offline coverage includes:
+
+- shared Mark/Text taps and chords in either order;
+- router lease expiry/rebinding/pulse cancellation;
+- independent router-vs-Talk lease renewal/release;
+- Talk release draining a held key before stock input returns;
+- shared UX4 Talk fail-closed behavior;
+- focus-loss recovery and failed-hook behavior.
+
+Physical controller acceptance still requires GTA. The October 5 shared-Mouse4 run proved three UX4 microphone turns without a duplicate stock generic Talk turn. The later direct-Talk/explicit-selector refinement on `main@d7d8311` still needs a fresh exact-main GTA pass.
