@@ -41,7 +41,7 @@ The local bridge gained `talk.select_first`, `talk.select_next`, `talk.ptt_start
 
 The highlight is a screen-space bracket around the projected head bone, plus a `2/3` label. It is cached on Core's Update and drawn from RPH `Game.FrameRender`. No line of sight is required.
 
-`talkTargeting` is off unless `Plugins/LSA.Enhanced.json` enables it. See [controller setup](controller-setup.md).
+`talkTargeting` is off unless `Plugins/LSA.Enhanced.json` enables it. It can use a neutral key or share Essential's configured `TalkKey` without changing the controller binding. See [controller setup](controller-setup.md).
 
 ## Deviations from the research plan
 
@@ -55,6 +55,7 @@ The highlight is a screen-space bracket around the projected head bone, plus a `
 - Native `talk.ptt_start` rechecks Essential text/F7 gates plus loading, cutscene, player switch, mission, and online/scripted state immediately before the side-effecting mic start.
 - Physical stop failure no longer clears UX4 generation ownership. The same generation remains retryable, and the loader will not begin a new hold while a prior stop is unresolved.
 - After a successfully committed PTT turn, release stops only the UX4-owned microphone generation. UX4 no longer clears `NpcTargeting.PlayerConversationPed`; Essential owns the committed conversation-partner lifetime through the reply/next committed input. Failed or cancelled starts still roll back the provisional partner.
+- UX4 may now intentionally share Essential's existing `TalkKey`. A separate Talk interception lease suppresses only Essential's duplicate physical Talk polling while UX4 reads the same real key. Router Mark/Text leases and UX4 Talk leases are independent, and disabling/stopping UX4 drains a held key before restoring stock Talk. `MarkedPedTalkKey` is never intercepted.
 - The runtime test project now compiles the existing Essential input-interception sources with `RuntimeEntry`. Those calls were already on `main`; the test project did not include the files, so it did not build.
 
 ## Offline results
