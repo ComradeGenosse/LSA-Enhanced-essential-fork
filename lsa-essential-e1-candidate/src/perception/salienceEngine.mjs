@@ -62,21 +62,21 @@ function selectReasons(reasons) {
   const present = new Set(reasons.filter(code => REASON_SET.has(code)));
   return REASON_CODES.filter(code => present.has(code)).slice(0, SALIENCE_BOUNDS.reasons);
 }
-function decisionKey(observation, policy) {
-  const input = `${observation.observationId}|${observation.revision}|${SALIENCE_POLICY_VERSION}|${policy || 'closed'}`;
+function decisionKey(observation, policy, grantEpoch = 0) {
+  const input = `${observation.observationId}|${observation.revision}|${SALIENCE_POLICY_VERSION}|${grantEpoch}|${policy || 'closed'}`;
   let hash = 2166136261;
   for (let index = 0; index < input.length; index += 1) {
     hash ^= input.charCodeAt(index);
     hash = Math.imul(hash, 16777619);
   }
-  return `${observation.observationId}:${observation.revision}:${SALIENCE_POLICY_VERSION}:${(hash >>> 0).toString(16).padStart(8, '0')}`;
+  return `${observation.observationId}:${observation.revision}:${SALIENCE_POLICY_VERSION}:${grantEpoch}:${(hash >>> 0).toString(16).padStart(8, '0')}`;
 }
 function blank(observation, now, draft) {
   const expiresAtMonotonicMs = Math.min(observation.expiresAtMonotonicMs, now + SALIENCE_BOUNDS.suppressionTtlMs);
   return Object.freeze({
     observationId: observation.observationId,
     revision: observation.revision,
-    decisionKey: decisionKey(observation, draft.policy),
+    decisionKey: decisionKey(observation, draft.policy, draft.grantEpoch || 0),
     policyVersion: SALIENCE_POLICY_VERSION,
     context: draft.context,
     memory: draft.memory,
@@ -298,7 +298,11 @@ function applyLedger(draft, observation, situation, cache) {
   if (capacityFull && (response !== 'none' || memory === 'stage')) {
     response = 'none'; memory = 'none'; reasons = [...reasons, 'suppression_capacity'];
   }
-  return { context, memory, response, reasons, closed: false, policy, existing, family, severity, kinds, escalated: escalated || familyEscalated };
+  let grantEpoch = existing?.grantEpoch || 0;
+  if ((response === 'eligible' || response === 'urgent') && (
+    !existing || existing.granted === 'none' || existing.policy !== policy || escalated || familyEscalated
+  )) grantEpoch += 1;
+  return { context, memory, response, reasons, closed: false, policy, existing, family, severity, kinds, grantEpoch, escalated: escalated || familyEscalated };
 }
 
 export function evaluateSalience(observation, situationInput = {}, cache = null) {
@@ -423,6 +427,7 @@ export class SalienceCache {
         consumed: Boolean(existing?.consumed),
         consumedBy: new Set(existing?.consumedBy || []),
         decisionKey: decision.decisionKey,
+        grantEpoch: draft.grantEpoch || existing?.grantEpoch || 0,
         familyKey: familyKey(observation),
         memoryStaged: Boolean(existing?.memoryStaged) || decision.memory === 'stage',
         expires,
