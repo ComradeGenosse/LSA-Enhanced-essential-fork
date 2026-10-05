@@ -1,0 +1,419 @@
+{
+  "corpusVersion": 1,
+  "updated": "2026-10-05",
+  "purpose": "Machine-readable navigation and provenance map for LSA Enhanced research. Implementation/deployment truth remains docs/ROADMAP.md.",
+  "canonical": {
+    "entrypoint": "docs/research/README.md",
+    "currentArchitecture": "docs/research/CURRENT.md",
+    "implementationStatus": "docs/ROADMAP.md",
+    "decisions": "docs/research/DECISIONS.md",
+    "openQuestions": "docs/research/OPEN-QUESTIONS.md",
+    "contracts": "docs/research/system-contract-register.md",
+    "convergenceArchitecture": "docs/research/system-convergence-architecture.md",
+    "ownership": "docs/research/system-ownership-matrix.md",
+    "dependencyGraph": "docs/research/system-convergence-dependency-graph.md",
+    "risks": "docs/research/system-convergence-risks.md",
+    "evidence": "docs/research/system-convergence-evidence.json",
+    "machineContracts": "docs/research/system-contracts.v1.json"
+  },
+  "authorityOrder": [
+    "current-status",
+    "current-architecture",
+    "forward-contract",
+    "durable-decision",
+    "canonical-rationale",
+    "supporting",
+    "historical-source",
+    "superseded"
+  ],
+  "domains": {
+    "essential": "docs/research/domains/essential/README.md",
+    "identity": "docs/research/domains/identity/README.md",
+    "perception": "docs/research/domains/perception/README.md",
+    "activities": "docs/research/domains/activities/README.md",
+    "radio": "docs/research/domains/radio/README.md",
+    "ux": "docs/research/domains/ux/README.md",
+    "gaze": "docs/research/domains/gaze/README.md",
+    "social": "docs/research/domains/social/README.md"
+  },
+  "contracts": {
+    "C-01": {
+      "register": "docs/research/system-contract-register.md"
+    },
+    "C-02": {
+      "register": "docs/research/system-contract-register.md"
+    },
+    "C-03": {
+      "register": "docs/research/system-contract-register.md"
+    },
+    "C-04": {
+      "register": "docs/research/system-contract-register.md"
+    },
+    "C-05": {
+      "register": "docs/research/system-contract-register.md"
+    },
+    "C-06": {
+      "register": "docs/research/system-contract-register.md"
+    },
+    "C-07": {
+      "register": "docs/research/system-contract-register.md"
+    },
+    "C-08": {
+      "register": "docs/research/system-contract-register.md"
+    },
+    "C-09": {
+      "register": "docs/research/system-contract-register.md"
+    },
+    "C-10": {
+      "register": "docs/research/system-contract-register.md"
+    },
+    "C-11": {
+      "register": "docs/research/system-contract-register.md"
+    },
+    "C-12": {
+      "register": "docs/research/system-contract-register.md"
+    },
+    "C-13": {
+      "register": "docs/research/system-contract-register.md"
+    },
+    "C-14": {
+      "register": "docs/research/system-contract-register.md"
+    },
+    "C-15": {
+      "register": "docs/research/system-contract-register.md"
+    }
+  },
+  "decisions": {
+    "D-001": {
+      "register": "docs/research/DECISIONS.md"
+    },
+    "D-002": {
+      "register": "docs/research/DECISIONS.md"
+    },
+    "D-003": {
+      "register": "docs/research/DECISIONS.md"
+    },
+    "D-004": {
+      "register": "docs/research/DECISIONS.md"
+    },
+    "D-005": {
+      "register": "docs/research/DECISIONS.md"
+    },
+    "D-006": {
+      "register": "docs/research/DECISIONS.md"
+    },
+    "D-007": {
+      "register": "docs/research/DECISIONS.md"
+    },
+    "D-008": {
+      "register": "docs/research/DECISIONS.md"
+    },
+    "D-009": {
+      "register": "docs/research/DECISIONS.md"
+    },
+    "D-010": {
+      "register": "docs/research/DECISIONS.md"
+    },
+    "D-011": {
+      "register": "docs/research/DECISIONS.md"
+    },
+    "D-012": {
+      "register": "docs/research/DECISIONS.md"
+    },
+    "D-013": {
+      "register": "docs/research/DECISIONS.md"
+    },
+    "D-014": {
+      "register": "docs/research/DECISIONS.md"
+    },
+    "D-015": {
+      "register": "docs/research/DECISIONS.md"
+    },
+    "D-016": {
+      "register": "docs/research/DECISIONS.md"
+    },
+    "D-017": {
+      "register": "docs/research/DECISIONS.md"
+    }
+  },
+  "documents": [
+    {
+      "id": "roadmap",
+      "path": "docs/ROADMAP.md",
+      "type": "status",
+      "authority": "current-status",
+      "status": "current"
+    },
+    {
+      "id": "corpus-readme",
+      "path": "docs/research/README.md",
+      "type": "index",
+      "authority": "current-architecture",
+      "status": "current"
+    },
+    {
+      "id": "current",
+      "path": "docs/research/CURRENT.md",
+      "type": "synthesis",
+      "authority": "current-architecture",
+      "status": "current"
+    },
+    {
+      "id": "decisions",
+      "path": "docs/research/DECISIONS.md",
+      "type": "decision-register",
+      "authority": "durable-decision",
+      "status": "current"
+    },
+    {
+      "id": "open-questions",
+      "path": "docs/research/OPEN-QUESTIONS.md",
+      "type": "question-register",
+      "authority": "supporting",
+      "status": "current"
+    },
+    {
+      "id": "convergence",
+      "path": "docs/research/system-convergence-architecture.md",
+      "type": "architecture",
+      "authority": "canonical-rationale",
+      "status": "current",
+      "stateSnapshot": "historical-as-of-2026-10-05-audit"
+    },
+    {
+      "id": "contracts",
+      "path": "docs/research/system-contract-register.md",
+      "type": "contract-register",
+      "authority": "forward-contract",
+      "status": "current"
+    },
+    {
+      "id": "ownership",
+      "path": "docs/research/system-ownership-matrix.md",
+      "type": "ownership-matrix",
+      "authority": "forward-contract",
+      "status": "current",
+      "sourceRef": "research/system-convergence-architecture-20261005"
+    },
+    {
+      "id": "dependency-graph",
+      "path": "docs/research/system-convergence-dependency-graph.md",
+      "type": "dependency-graph",
+      "authority": "forward-contract",
+      "status": "current"
+    },
+    {
+      "id": "risk-register",
+      "path": "docs/research/system-convergence-risks.md",
+      "type": "risk-register",
+      "authority": "canonical-rationale",
+      "status": "current"
+    },
+    {
+      "id": "convergence-evidence",
+      "path": "docs/research/system-convergence-evidence.json",
+      "type": "evidence",
+      "authority": "supporting",
+      "status": "current",
+      "sourceRef": "research/system-convergence-architecture-20261005"
+    },
+    {
+      "id": "machine-contracts",
+      "path": "docs/research/system-contracts.v1.json",
+      "type": "contracts-json",
+      "authority": "forward-contract",
+      "status": "current",
+      "sourceRef": "research/system-convergence-architecture-20261005"
+    },
+    {
+      "id": "essential-action-audit",
+      "path": "docs/research/domains/essential/essential-action-execution-completion-audit.md",
+      "type": "research",
+      "authority": "historical-source",
+      "status": "incorporated",
+      "sourceRef": "research/essential-action-completion-audit-20261003",
+      "incorporatedInto": [
+        "D-017",
+        "C-05",
+        "C-06",
+        "C-11"
+      ]
+    },
+    {
+      "id": "essential-action-catalog",
+      "path": "docs/research/domains/essential/essential-action-catalog.json",
+      "type": "evidence",
+      "authority": "supporting",
+      "status": "preserved",
+      "sourceRef": "research/essential-action-completion-audit-20261003"
+    },
+    {
+      "id": "essential-action-evidence",
+      "path": "docs/research/domains/essential/essential-action-execution-completion-evidence.json",
+      "type": "evidence",
+      "authority": "supporting",
+      "status": "preserved",
+      "sourceRef": "research/essential-action-completion-audit-20261003"
+    },
+    {
+      "id": "native-runtime-audit",
+      "path": "docs/research/character-aware-native-runtime-audit.md",
+      "type": "research",
+      "authority": "supporting",
+      "status": "current"
+    },
+    {
+      "id": "native-runtime-addendum",
+      "path": "docs/research/domains/essential/character-aware-native-runtime-audit-addendum.md",
+      "type": "research",
+      "authority": "historical-source",
+      "status": "incorporated",
+      "sourceRef": "research/remaining-native-context-audit"
+    },
+    {
+      "id": "native-context-identity-proposal",
+      "path": "docs/research/domains/essential/native-context-proposed-identity-merge-fix.md",
+      "type": "proposal",
+      "authority": "historical-source",
+      "status": "superseded",
+      "sourceRef": "research/remaining-native-context-audit",
+      "supersededBy": [
+        "D-002",
+        "C-02",
+        "C-15"
+      ]
+    },
+    {
+      "id": "act-architecture",
+      "path": "docs/research/domains/activities/lsa-activities-goal-execution-architecture.md",
+      "type": "research",
+      "authority": "historical-source",
+      "status": "incorporated",
+      "sourceRef": "research/lsa-activities-goal-execution-20261004",
+      "incorporatedInto": [
+        "C-02",
+        "C-05",
+        "C-06",
+        "C-11",
+        "C-14"
+      ]
+    },
+    {
+      "id": "act-capabilities",
+      "path": "docs/research/domains/activities/activity-capabilities.v0.json",
+      "type": "evidence",
+      "authority": "supporting",
+      "status": "preserved",
+      "sourceRef": "research/lsa-activities-goal-execution-20261004"
+    },
+    {
+      "id": "act-native-evidence",
+      "path": "docs/research/domains/activities/activity-native-evidence.json",
+      "type": "evidence",
+      "authority": "supporting",
+      "status": "preserved",
+      "sourceRef": "research/lsa-activities-goal-execution-20261004"
+    },
+    {
+      "id": "ps-director-architecture",
+      "path": "docs/research/domains/perception/perception-salience-scene-director-architecture.md",
+      "type": "research",
+      "authority": "historical-source",
+      "status": "incorporated",
+      "sourceRef": "research/ps2-proximity-chat-speech-plan",
+      "incorporatedInto": [
+        "C-01",
+        "C-03",
+        "C-04",
+        "C-11",
+        "C-12"
+      ]
+    },
+    {
+      "id": "perception-native-evidence",
+      "path": "docs/research/domains/perception/perception-native-evidence.json",
+      "type": "evidence",
+      "authority": "supporting",
+      "status": "preserved",
+      "sourceRef": "research/ps2-proximity-chat-speech-plan"
+    },
+    {
+      "id": "identity-memory-architecture",
+      "path": "docs/research/domains/identity/session-identity-memory-perception-salience-architecture.md",
+      "type": "research",
+      "authority": "historical-source",
+      "status": "incorporated",
+      "sourceRef": "research/session-identity-memory-architecture-20261002",
+      "incorporatedInto": [
+        "C-07",
+        "C-08",
+        "C-15"
+      ]
+    },
+    {
+      "id": "identity-memory-evidence",
+      "path": "docs/research/domains/identity/session-identity-memory-perception-salience-evidence.json",
+      "type": "evidence",
+      "authority": "supporting",
+      "status": "preserved",
+      "sourceRef": "research/session-identity-memory-architecture-20261002"
+    },
+    {
+      "id": "radio-public-data",
+      "path": "docs/research/domains/radio/radio-public-data-source-analysis.md",
+      "type": "research",
+      "authority": "supporting",
+      "status": "current",
+      "sourceRef": "research/radio-public-catalog-v2-20261004"
+    },
+    {
+      "id": "radio-catalog-provenance",
+      "path": "docs/research/domains/radio/radio-track-catalog-provenance.md",
+      "type": "provenance",
+      "authority": "supporting",
+      "status": "current",
+      "sourceRef": "research/radio-public-catalog-v2-20261004"
+    },
+    {
+      "id": "radio-v2-plan",
+      "path": "docs/research/domains/radio/radio-track-perception-v2-implementation-plan.md",
+      "type": "plan",
+      "authority": "historical-source",
+      "status": "incorporated",
+      "sourceRef": "research/radio-public-catalog-v2-20261004",
+      "incorporatedInto": [
+        "D-015",
+        "C-04"
+      ]
+    },
+    {
+      "id": "radio-v2-validation",
+      "path": "docs/research/domains/radio/radio-track-perception-v2-validation.md",
+      "type": "validation-plan",
+      "authority": "supporting",
+      "status": "current",
+      "sourceRef": "research/radio-public-catalog-v2-20261004"
+    },
+    {
+      "id": "ux4-t0-audit",
+      "path": "docs/research/ux4-t0-targeting-audit.md",
+      "type": "research",
+      "authority": "supporting",
+      "status": "current"
+    },
+    {
+      "id": "ux4-architecture",
+      "path": "docs/research/ux4-talk-targeting-architecture.md",
+      "type": "research",
+      "authority": "supporting",
+      "status": "current"
+    },
+    {
+      "id": "cge-plan",
+      "path": "docs/plans/conversation-gaze-engagement/README.md",
+      "type": "plan",
+      "authority": "supporting",
+      "status": "current"
+    }
+  ]
+}
