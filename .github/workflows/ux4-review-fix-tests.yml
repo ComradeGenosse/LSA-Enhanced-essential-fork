@@ -22,3 +22,6 @@ jobs:
       - name: P2 bridge/runtime tests
         shell: pwsh
         run: dotnet run --project native/promoted-characters/bridge-tests/BridgeTests.csproj -c Release
+      - name: P2 lifecycle/reset tests
+        shell: pwsh
+        run: dotnet run --project native/promoted-characters/lifecycle-tests/LifecycleTests.csproj -c Release
