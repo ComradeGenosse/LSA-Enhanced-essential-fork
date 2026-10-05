@@ -1,6 +1,8 @@
 # PS0 + PS1 shadow perception
 
-Status, October 3, 2026: **implemented offline; physical GTA validation pending**. This implements only the foundation and core factual producers from [PR #10](https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/pull/10), at research commit `be6b56294894efb10eb2a07db1aa31eebcba9606`. The architectural specification is that PR's `docs/research/perception-salience-scene-director-architecture.md`, particularly sections 3–5, 11–14, and its `perception-native-tools` evidence. Research remains unmerged and was not repeated.
+Status update, October 5, 2026: **merged on `main` and exercised as part of the combined shadow runtime.** The October 5 UX4/PS3 run observed firing, injury-state, death, vehicle/state and transition activity from the PS0/PS1 producer layer while PS2/PS3 processed live facts. This is partial live evidence, not closure of the structured PS0/PS1 acceptance checklist; direct DamageTracker callback counters still require the controlled player/NPC/vehicle probe.
+
+Historical implementation checkpoint, October 3, 2026: This implements only the foundation and core factual producers from [PR #10](https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/pull/10), at research commit `be6b56294894efb10eb2a07db1aa31eebcba9606`. The architectural specification is that PR's `docs/research/perception-salience-scene-director-architecture.md`, particularly sections 3–5, 11–14, and its `perception-native-tools` evidence. Research remains unmerged and was not repeated.
 
 ## What runs
 
