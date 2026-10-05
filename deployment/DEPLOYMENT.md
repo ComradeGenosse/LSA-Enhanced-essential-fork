@@ -1,5 +1,7 @@
 # E1.1 installation receipt — 2026-10-01
 
+> **Historical receipt:** “active installation” below means the machine state at this October 1 checkpoint. Later P2/PS/UX payloads superseded it. Do not use this file alone to identify the current installed runtime; verify the current deployment manifest/hashes and consult the later PS3/UX4 status/run records.
+
 The active installation is the hardened Essential Hotfix #3 E1.1 companion at:
 
 `C:\Program Files (x86)\Steam\steamapps\common\Grand Theft Auto V Enhanced`
