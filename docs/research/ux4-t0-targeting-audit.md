@@ -1,5 +1,7 @@
 # UX4 T0 targeting audit — exact Essential mic seam
 
+> **Implementation follow-up:** this audit's direct `SendMicStart(Ped)` seam is now implemented in merged UX4. Shared Essential Talk-key interception has live GTA evidence; current main further splits normal direct Talk from tap/cycle explicit selection. See `../UX4-talk-targeting-status.md`.
+
 Date: October 4, 2026
 
 Status: **T0A complete from the exact checked-in Essential DLL.**
