@@ -1,5 +1,7 @@
 # E1.1 observability implementation
 
+> **Current status:** E4 observability is implemented and has been used in multiple live GTA runs, including persistent PS3 `intelligence_status` / `companion_shadow` JSONL. The original “candidate not deployed” wording below describes the implementation checkpoint, not current runtime history.
+
 Status: implemented in the offline E1.1 candidate. The candidate is not deployed to GTA and this work made no live API calls. Instrumentation is passive: Essential remains authoritative for turn identity, playback, actions, and success.
 
 ## Runtime behavior
