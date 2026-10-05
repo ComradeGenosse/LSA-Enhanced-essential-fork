@@ -6,6 +6,8 @@ Current runtime/code baseline: current `main` includes E1–E6, P0–P2, UX0–U
 
 This roadmap tracks the Essential-based LSA companion from the hardened E1.1 foundation through low-latency dialogue, durable NPC identity, richer perception, autonomous scene behavior, and final long-session acceptance.
 
+For research/architecture navigation, start at the [LSA Research Corpus](research/README.md). The roadmap is the authority for current implementation/deployment state; the corpus is the authority map for what the project believes and why.
+
 The governing architecture remains:
 
 ```text
