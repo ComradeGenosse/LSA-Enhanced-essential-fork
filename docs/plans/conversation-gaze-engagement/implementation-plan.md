@@ -2,13 +2,13 @@
 
 Prepared against main at bc3b2027b0b2eb6a3c1a7dcb326587f9af781696.
 
-This plan is implementation-ready except for two GTA facts explicitly assigned to CGE0: the exact source-time player-speech seam and the exact non-disruptive look-at native/Essential helper.
+This plan is implementation-ready after the shared `C-01 UtteranceLifecycle` seam exists. CGE0 still must prove the exact non-disruptive look-at native/Essential helper and coexistence with Essential's existing `ConversationLookBehavior`.
 
 ## 1. Fixed scope
 
 Deliver native physical conversation engagement for the current conversation partner.
 
-Allowed: observe Essential targeting/input/playback, issue finite gaze, later issue tightly gated short body turn, emit bounded telemetry.
+Allowed: observe Essential targeting/playback plus the shared source-time `UtteranceLifecycle`, issue finite head/eye gaze as a yielding overlay, and emit bounded telemetry.
 
 Not allowed: cancel/suspend/resume activities, decide response willingness, alter prompts/Luna, put network/model latency in the gaze loop, change stock action publication, clear arbitrary ped tasks, or create persistent attention state.
 
@@ -66,10 +66,6 @@ The first packaging can reuse the existing P2 runtime host even though gaze work
     "maxDistanceMeters": 12.0,
     "lostTargetGraceMs": 500,
     "releaseHoldMs": 900,
-    "bodyTurnEnabled": false,
-    "bodyTurnEnterDegrees": 70,
-    "bodyTurnExitDegrees": 35,
-    "bodyTurnHoldMs": 500,
     "vehicleHeadTracking": false
   }
 }
@@ -77,23 +73,23 @@ The first packaging can reuse the existing P2 runtime host even though gaze work
 
 Modes: off, shadow, active.
 
-Keep bodyTurnEnabled and vehicleHeadTracking false through initial CGE1 rollout. Reject unknown keys/out-of-bounds values. No native config hot reload in v1.
+Keep vehicleHeadTracking false through initial CGE1 rollout. Reject unknown keys/out-of-bounds values. No native config hot reload in v1.
 
 ## 5. CGE0 — lifecycle and native capability spike
 
 ### 5.1 Player-speech lifecycle
 
-Inspect the exact pinned Essential Hotfix #3 runtime/source patch points.
+Consume the shared **C-01 UtteranceLifecycle** contract. CGE must not invent a private speech detector or time-window join.
 
-Prove an authoritative source-time event for microphone capture start/end and accepted typed turn.
+CGE0 may participate in the C-01 GTA/source-time probe if that seam is not yet landed, but active CGE implementation waits for the authoritative native `utterance.started/turn/ended` lifecycle. Typed input follows C-01's zero-duration semantics.
 
-Preferred: reuse an existing public event. Otherwise expose the smallest event at the real Essential input boundary. It must carry enough native identity to reject stale/other-target notifications.
+Do not derive player-speaking state from post-STT Node timing.
 
-Do not route this from post-STT Node code.
+### 5.2 Essential look / NpcFocus audit
 
-### 5.2 NpcFocus audit
+Essential already exposes `ConversationLookBehavior` for microphone/speaker attention, and P2 calls `NpcFocus.SetFocus(ped, player, "p2_player_command")`. Determine what each owns, how each clears, and which lifecycle indicates active ownership.
 
-P2 currently calls NpcFocus.SetFocus(ped, player, "p2_player_command"). Determine whether this is semantic focus, visual IK/look-at, a primary task, what owns it, and how it clears. Reuse it only if it is appropriate for non-destructive conversation gaze.
+**CGE yields while Essential's conversation look behavior owns gaze.** Reuse an existing Essential/NpcFocus mechanism if it is appropriate; do not run a competing look-at refresh loop against it.
 
 ### 5.3 Look-at probe
 
@@ -148,7 +144,6 @@ readonly struct EngagementDecision
 {
     public ConversationEngagementState State;
     public bool RefreshGaze;
-    public bool RequestBodyTurn;
     public string BlockReason;
 }
 ~~~
@@ -193,17 +188,13 @@ Required unit cases:
 
 Run all existing P0/P1/P2/PS/UX native regressions and the native runtime build.
 
-## 7. CGE2 — conservative body reorientation
+## 7. Body reorientation — delegated to ACT3
 
-Only after CGE1 physical acceptance.
+CGE does **not** own whole-body turns.
 
-Compute horizontal off-axis angle. Use enter/exit hysteresis and dwell. Request one bounded turn only after sustained off-axis state.
+When a future conversation policy needs the NPC to physically face the player, it proposes/requests ACT3's `stop_and_face` capability through ACT's normal ownership, lease, cancellation and completion rules. CGE remains head/eye-only and can continue or yield independently.
 
-Hard gates: on foot, approximately stationary, not ragdolled, not combat/fleeing, not vehicle transition, not directed interaction, not known P2/ACT controlled locomotion, and no mission/script safety conflict.
-
-If an existing Essential action owns orientation, CGE loses arbitration.
-
-Never snap heading. Never restart every frame. If the primitive cannot coexist safely, drop CGE2 and remain head-only.
+This removes the former CGE2 body-turn implementation and prevents two orientation owners.
 
 ## 8. CGE3 — conversational tuning and hardening
 
@@ -225,7 +216,7 @@ Passive and bounded. Example:
 [CGE] state=engaged target=142 epoch=8 role=player gaze_refresh=34 body_turn=0 blocked=0
 ~~~
 
-No transcript text. Add shutdown totals for acquisitions, gaze starts, block reasons, body turns, forced releases, and driver failures.
+No transcript text. Add shutdown totals for acquisitions, gaze starts, block reasons, forced releases, Essential-look yields, and driver failures.
 
 ## 10. Rollout
 
@@ -235,10 +226,9 @@ No transcript text. Add shutdown totals for acquisitions, gaze starts, block rea
 4. GTA probe in shadow;
 5. enable CGE1 on-foot only;
 6. collect focused GTA evidence;
-7. implement CGE2 only after CGE1 passes;
-8. tune CGE3 last.
+7. tune CGE3 last.
 
-Do not combine head tracking, body turn, interruption/resume, and activity awareness in one PR.
+Do not combine head tracking, ACT body orientation, interruption/resume, and activity awareness in one PR.
 
 ## 11. Definition of done
 
@@ -248,7 +238,7 @@ Do not combine head tracking, body turn, interruption/resume, and activity aware
 - target changes cannot leave stale gaze;
 - exchange end releases without snap or broad task clear;
 - unsafe states fail soft;
-- body turn, if enabled, is hysteretic and does not fight locomotion/vehicles/actions;
+- any whole-body reorientation is delegated to ACT3 rather than issued by CGE;
 - no model/network latency in gaze control;
 - disabling CGE changes no dialogue/action behavior.
 
