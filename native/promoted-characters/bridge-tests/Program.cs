@@ -308,7 +308,15 @@ static class Program
         driver.Clock(clock + 2000); driver.Tick();
         var expired = TalkRun(host,driver,"talk.inspect",Empty);
         Check(!(bool)expired["present"],"an idle selection expires");
-        driver.Clock(clock + 3000); driver.Nearby(20,8,0,0,960,540); driver.Nearby(10,5,0,0,1800,900); driver.PublishSnapshot(); driver.Select(10,0); driver.ResetTalkCounters();
+
+        driver.Clock(clock + 2500); driver.ClearNearby(); driver.Nearby(20,8,0,0,960,540); driver.PublishSnapshot();
+        var preview = TalkRun(host,driver,"talk.select_first",TalkLimits());
+        Check((bool)preview["present"] && (string)preview["indicator"] == "ready","a tap shows the explicit selector");
+        driver.Clock(clock + 3501); driver.Tick();
+        var fadedPreview = TalkRun(host,driver,"talk.inspect",Empty);
+        Check((bool)fadedPreview["present"] && (string)fadedPreview["indicator"] == "off","the bracket fades after about one second while the explicit target remains selected");
+
+        driver.Clock(clock + 4000); driver.Nearby(20,8,0,0,960,540); driver.Nearby(10,5,0,0,1800,900); driver.PublishSnapshot(); driver.Select(10,0); driver.ResetTalkCounters();
         var chosen = TalkRun(host,driver,"talk.select_first",TalkLimits());
         string chosenId = (string)chosen["selectionId"], chosenEncounter = (string)chosen["encounterId"];
         var inspect = Result(Run(host,driver,Inspect(Id(),Now)));
@@ -321,7 +329,7 @@ static class Program
         var startArgs = TalkLimits(); startArgs["generation"] = 3; startArgs["selectFirst"] = false;
         var startTarget = new Dictionary<string,object> {{"kind","talk"},{"expect",new Dictionary<string,object> {{"selectionId",chosenId},{"encounterId",chosenEncounter}}}};
         var started = TalkRun(host,driver,"talk.ptt_start",startArgs,startTarget);
-        Check((bool)started["started"] && (string)started["pedId"] == "20" && driver.MicStarts == 1 && driver.LastMicHandle == 20 && driver.ConversationHandle == 20 && driver.ConversationSets == 1,"hold commits SetPlayerConversationPed and SendMicStart for the exact ped");
+        Check((bool)started["started"] && (string)started["pedId"] == "20" && (string)started["indicator"] == "off" && driver.MicStarts == 1 && driver.LastMicHandle == 20 && driver.ConversationHandle == 20 && driver.ConversationSets == 1,"explicit hold commits the exact ped and hides the selector while talking");
         driver.Select(99,0);
         var stopped = TalkRun(host,driver,"talk.ptt_stop",new Dictionary<string,object> {{"generation",3}});
         Check((bool)stopped["stopped"] && driver.MicStops == 1 && driver.ConversationHandle == 99 && driver.ConversationClears == 0,"stop ends only the UX4 mic and does not clear a newer conversation ped");
@@ -376,7 +384,7 @@ static class Program
         TalkRun(host,driver,"talk.clear",Empty);
         driver.ClearNearby(); driver.Nearby(20,8,0,0,960,540); driver.PublishSnapshot(); driver.ResetTalkCounters();
         var holding = TalkRun(host,driver,"talk.ptt_start",new Dictionary<string,object>(TalkLimits()) {{"generation",9},{"selectFirst",true}});
-        Check((bool)holding["started"] && driver.LastMicHandle == 20 && driver.MicIsCurrent(20),"hold with no preview selects the best NPC then starts its microphone");
+        Check((bool)holding["started"] && !(bool)holding["present"] && (string)holding["indicator"] == "off" && driver.LastMicHandle == 20 && driver.MicIsCurrent(20),"normal hold starts the best NPC microphone without exposing selector UI/state");
         driver.Kill(20); driver.Tick();
         var lostView = TalkRun(host,driver,"talk.inspect",Empty);
         Check(driver.MicStops == 1 && !(bool)lostView["present"],"target loss while talking stops the UX4 microphone once");
