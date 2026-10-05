@@ -6,6 +6,7 @@
   <ItemGroup>
     <Compile Include="Program.cs;RuntimeStubs.cs" />
     <Compile Include="../RuntimeEntry.cs" Link="RuntimeEntry.cs" />
+    <Compile Include="../InputHookFiles.cs;../InputLeaseState.cs;../EssentialInputInterception.cs" />
     <Reference Include="System.Web.Extensions" />
   </ItemGroup>
 </Project>

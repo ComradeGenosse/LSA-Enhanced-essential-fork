@@ -88,7 +88,7 @@ export class ShadowRuntime {
     try {
       let player=null;
       for(const anchor of this.anchors.values()) if(anchor.kind==='player') { player=anchor.captureRef; break; }
-      const decision=this.salience.evaluate(observation,{nowMonotonicMs:this.now(),lifetimeCurrent:this.current(observation.observer.captureRef),channelHealthy:Boolean(this.epoch),perceptionSupported:true,playerCaptureRef:player,activity:'idle'});
+      const decision=this.salience.evaluate(observation,{nowMonotonicMs:this.now(),lifetimeCurrent:this.current(observation.observer.captureRef),channelHealthy:Boolean(this.epoch),perceptionSupported:true,playerCaptureRef:player,activity:'unknown'});
       if(!decision) return;
       const stats=this.ps3Diagnostics;
       stats.decisions=Math.min(2147483647,stats.decisions+1);

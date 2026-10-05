@@ -1,8 +1,10 @@
 # PS3 reconciliation
 
-Date: October 4, 2026. Branch: `feature/ps3-deterministic-salience`.
+Date: October 5, 2026. Staging branch: `stage/ps3-ready-20261005`.
 
-Base: latest `origin/main` at `6ae6bc99c82a2d78ec1fea1091e4f8116f0c7257`, plus the unmerged PS2 fast-forward `origin/feature/ps2-witness-rules-episode-correlation` at `5ea77f8`. Those three PS2 commits are the observation, witness, and correlation contracts PS3 consumes. The research codemap is `origin/research/perception-salience-scene-director` at `be6b562`, section 6 and PS3 in section 14.
+Sources fetched for this reconciliation: `origin/main@df84a70e76e0aaba34c3675ceefdfad67f8a4078` and `origin/feature/ps3-deterministic-salience@579b6df697bf73082b6590bd17ba4a7670b69bf3`. The PS3 commits were applied onto a fresh branch from current `origin/main`; the feature branch was not merged wholesale. Current-main README, roadmap baseline, PS2 contracts/diagnostics, production fixes, UX/input/Harmony sources, and native production sources were preserved. GitHub `main` is unchanged.
+
+The corrected companion suite passed 384/384 tests across all 36 discovered modules with zero import failures. The 12-suite native offline matrix passed 979 assertions. The source-pinned combined candidate build succeeded with 48 stock patches and PS3 listed in its build manifest.
 
 PS3 remains deterministic salience. No architectural blocker turned up. The adjustments below are interface corrections, not a different ranker.
 
@@ -24,10 +26,10 @@ PS3 remains deterministic salience. No architectural blocker turned up. The adju
 | `salienceEngine.mjs` reads observations | `validateObservation` in `lsa-essential-e1-candidate/src/perception/contracts.mjs`. PS2 `EpisodeCorrelator` emits those objects. `recognizedCharacterIds` is valid only when it is an empty array. |
 | Character identity on the observation | Not present. Social relevance comes from a caller-supplied binding `{ captureRef, characterId, recognized: true, relationship }`. `recognized !== true` is backend-only even if a CharacterId is attached. |
 | Profile / relationship revision | P2 `validateProfile` has `revision`, `relationship.state` (`associate`, `friend`, `trusted`, `strained`, `neutral`), `personality.traits`, and manual `memories`. Perception modules must not import `profileStore.mjs` or `characterService.mjs` (`perception-contract.test.mjs`). `situationFromCharacterView` accepts that plain shape. |
-| Activity / driving | No salience-owned native poll. Caller passes `activity`: `idle`, `driving`, `passenger`, `in_vehicle`, `conversation`, `following`, or `waiting`. Shadow ingestion has anchors only, so it passes `idle`. |
+| Activity / driving | No salience-owned native poll. Caller passes `activity`: `unknown`, `idle`, `driving`, `passenger`, `in_vehicle`, `conversation`, `following`, or `waiting`. Shadow ingestion has no activity evidence, so it passes `unknown`. |
 | Distance | Observations do not include observer-relative distance. Optional `distanceBand` 0–3 is capped in the sort key so it cannot outrank safety. |
 | Repetition cache | New `SalienceCache` in the salience module. Decision RAM is capped separately from the reaction ledger. Ledger expiry is 10 minutes, longer than observation TTL, and a full ledger fails closed instead of forgetting a grant. |
-| Shadow path | `ShadowRuntime` records a decision after PS2 emits an observation. Failure there cannot change ingest success, prompts, or native control. The live shadow caller currently has authenticated anchor/player/lifetime facts only, so it intentionally supplies `activity:'idle'` and no P2 profile bindings, memories or trait policies. Relationship/memory/trait rules are implemented as pure policy but are not claimed live until a trusted captureRef→character/profile seam exists. Counts only are added to the existing companion shadow report. |
+| Shadow path | `ShadowRuntime` records a decision after PS2 emits an observation. Failure there cannot change ingest success, prompts, or native control. The live shadow caller currently has authenticated anchor/player/lifetime facts only, so it supplies `activity:'unknown'` and no P2 profile bindings, memories or trait policies. Relationship/memory/trait rules are implemented as pure policy but are not claimed live until a trusted captureRef→character/profile seam exists. Counts only are added to the existing companion shadow report. |
 
 ## Files
 
@@ -44,9 +46,10 @@ Modified:
 - `lsa-essential-e1-candidate/src/perception/intelligenceClient.mjs` — numeric PS3 counters in the existing report
 - `lsa-essential-e1-candidate/tests/perception-contract.test.mjs` — boundary scan includes the new module
 - `lsa-essential-e1-candidate/tools/buildCandidate.mjs` — manifest phase label
+- `native/promoted-characters/runtime-tests/RuntimeTests.csproj` — includes current-main input-interception sources referenced by `RuntimeEntry.cs`; test harness only
 - `docs/ROADMAP.md` — PS3 status
 
-Not modified: native intelligence, P0/P1/P2 lifecycle, dialogue, action, playback, UX menus, profile schema, and provider clients.
+Production native intelligence, P0/P1/P2 lifecycle, dialogue, action, playback, UX menus, profile schema, and provider clients were not modified. The runtime test-project change only repairs compilation of the current-main lifecycle test harness; it changes no production assembly source.
 
 ## Stale research assumptions
 

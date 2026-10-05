@@ -1,6 +1,6 @@
 # PS3 deterministic salience
 
-Status, October 5, 2026: **implemented in shadow; convergence corrections pushed; full corrected offline rerun and physical GTA validation pending**.
+Status, October 5, 2026: **corrected implementation reconciled on local staging; full offline verification and production candidate build passed; local shadow deployment is the next gate; physical GTA validation and GitHub merge remain pending**.
 
 PS3 ranks PS2 observations. It does not create turns, actions, memories, playback changes, or native authority. `urgent` means the observation outranks other candidates. Reflex and self-preservation remain native.
 
@@ -17,7 +17,7 @@ The decision shape is `observationId`, `revision`, `decisionKey`, `policyVersion
 - A higher severity, or a new `dead` / `attack` claim, may earn entitlement again.
 - Explicit bindings with `recognized: true` are the only social identities. A backend CharacterId is not a relationship.
 - Trait policy accepts only a whole trait equal to `protective`, `cautious`, `loyal`, or `bold`.
-- Shadow mode passes `activity: 'idle'` because the anchor roster has no driver flag. Callers can pass `driving`, `passenger`, or `in_vehicle`.
+- The shadow adapter passes `activity: 'unknown'` because the anchor roster has no activity evidence. Callers can pass `idle`, `driving`, `passenger`, or `in_vehicle` when supported by a trusted situation source.
 - Live shadow currently has no authenticated `captureRef → CharacterId/profile` binding. It therefore does not supply relationship, memory or trait-policy context; those branches are implemented and covered offline only.
 - Recognition requires an explicit `recognized: true`; a missing flag is treated exactly like `false`.
 - Suppression capacity fails closed for response/memory entitlement instead of evicting a prior grant. The latest-decision diagnostic cache is bounded with the decision cache.
@@ -25,7 +25,7 @@ The decision shape is `observationId`, `revision`, `decisionKey`, `policyVersion
 
 ## Checks
 
-Companion coverage is `lsa-essential-e1-candidate/tests/salience-engine.test.mjs`, included in `node tools/runTests.mjs`. The convergence audit found that this test file previously declared `const replay` twice, causing a syntax error that prevented 60 later test files from loading while the summary still looked green. The duplicate binding is fixed, acknowledgement/stale-key tests were added, and `runTests.mjs` now converts test-module import failures into explicit failed tests while continuing discovery. **A complete corrected suite rerun is still required before merge.** The candidate build manifest phase list includes `PS3`. No native project changed.
+Companion coverage is `lsa-essential-e1-candidate/tests/salience-engine.test.mjs`, included in `node tools/runTests.mjs`. The convergence audit found that this test file previously declared `const replay` twice, causing a syntax error that prevented 60 later test files from loading while the summary still looked green. The duplicate binding is fixed, acknowledgement/stale-key tests were added, and `runTests.mjs` now converts test-module import failures into explicit failed tests while continuing discovery. The corrected companion suite passed **384 tests across all 36 discovered modules, with 0 test failures and 0 module-import failures**. The native offline matrix passed all 12 suites (979 assertions). The source-pinned candidate build passed with 48 patches; its manifest lists PS0–PS3, keeps the default mode `off`, and keeps player speech gated. No production native source changed; the current-main runtime test project now includes its existing input-interception sources so the lifecycle suite compiles and runs.
 
 ## GTA validation still open
 

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { validateObservation, CAPABILITIES } from '../src/perception/contracts.mjs';
-import { SalienceCache, evaluateSalience, orderSalienceDecisions, situationFromCharacterView, SALIENCE_BOUNDS } from '../src/perception/salienceEngine.mjs';
+import { SalienceCache, evaluateSalience, normalizeSalienceSituation, orderSalienceDecisions, situationFromCharacterView, SALIENCE_BOUNDS } from '../src/perception/salienceEngine.mjs';
 import { ShadowRuntime } from '../src/perception/shadowRuntime.mjs';
 
 const NOW = 1000;
@@ -53,6 +53,18 @@ function injuryOf(target, channel = 'visual') {
   return claim({ kind: 'injured', channel, basis: channel === 'self' ? 'native_callback' : 'sampled_state', target, targetKind: target ? 'ped' : undefined });
 }
 
+test('missing activity evidence stays unknown in normalization and shadow salience', () => {
+  assert.equal(normalizeSalienceSituation({}).activity, 'unknown');
+  const seen = observation({ claims: [claim({ kind: 'injured', channel: 'self', basis: 'native_callback' })] });
+  const runtime = new ShadowRuntime({ mode: 'shadow', now: () => NOW });
+  runtime.epoch = 'test-run';
+  runtime.anchors.set(seen.observer.captureRef, { captureRef: seen.observer.captureRef, kind: 'ped', expires: NOW + 60000 });
+  let salienceSituation;
+  runtime.salience.evaluate = (_observation, situation) => { salienceSituation = situation; return null; };
+  runtime.noteSalience(seen);
+  assert.equal(salienceSituation.activity, 'unknown');
+});
+
 test('urgent self-danger is priority only and does not authorize an effect', () => {
   const cache = new SalienceCache();
   const seen = observation({ claims: [claim({ kind: 'injured', channel: 'self', basis: 'native_callback' })] });
@@ -89,7 +101,14 @@ test('salience separates response grants from consumer acknowledgement', () => {
   assert.notEqual(retried.decisionKey, first.decisionKey);
   assert.equal(cache.acknowledge(first.decisionKey, 'ps6_ticket', 'delivered'), false);
 
-  assert.equal(cache.acknowledge(retried.decisionKey, 'ps6_ticket', 'delivered'), true);
+  assert.equal(cache.acknowledge(retried.decisionKey, 'ps6_ticket', 'expired'), true);
+  assert.equal(cache.ledger.get(seen.observationId).consumed, false);
+  const expiredRetry = cache.evaluate(seen, view());
+  assert.equal(expiredRetry.response, 'eligible');
+  assert.notEqual(expiredRetry.decisionKey, retried.decisionKey);
+  assert.equal(cache.acknowledge(retried.decisionKey, 'ps6_ticket', 'delivered'), false);
+
+  assert.equal(cache.acknowledge(expiredRetry.decisionKey, 'ps6_ticket', 'delivered'), true);
   assert.equal(cache.ledger.get(seen.observationId).consumed, true);
   const consumedReplay = cache.evaluate(seen, view());
   assert.equal(consumedReplay.response, 'none');
@@ -164,7 +183,11 @@ test('repeated observations stay suppressed until a material escalation', () => 
   const observer = randomUUID(), victim = randomUUID();
   const first = observation({ observer, eventType: 'death_seen', severity: 'critical', claims: [claim({ kind: 'dead', channel: 'visual', basis: 'sampled_state', target: victim })] });
   const repeat = observation({ observer, eventType: 'death_seen', severity: 'critical', claims: [claim({ kind: 'dead', channel: 'visual', basis: 'sampled_state', target: victim })] });
-  assert.equal(cache.evaluate(first, view()).response, 'eligible');
+  const initial = cache.evaluate(first, view());
+  assert.equal(initial.response, 'eligible');
+  assert.equal(cache.ledger.get(first.observationId).consumed, false);
+  assert.equal(cache.acknowledge(initial.decisionKey, 'ps6_ticket', 'delivered'), true);
+  assert.equal(cache.ledger.get(first.observationId).consumed, true);
   const suppressed = cache.evaluate(repeat, view());
   assert.equal(suppressed.response, 'none');
   assert.ok(suppressed.reasons.includes('repetition_suppressed'));
