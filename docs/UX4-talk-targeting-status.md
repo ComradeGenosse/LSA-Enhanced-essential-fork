@@ -44,6 +44,7 @@ The highlight is a screen-space bracket around the projected head bone, plus a `
 - UX4 source-resolves Essential's active microphone Ped from the hash-pinned `SendMicStop()` IL. A UX4 stop calls `SendMicStop()` only while that exact Ped is still active. If stock Talk/MarkedTalk replaced it, UX4 releases its own generation without stopping the newer stock mic.
 - Native `talk.ptt_start` rechecks Essential text/F7 gates plus loading, cutscene, player switch, mission, and online/scripted state immediately before the side-effecting mic start.
 - Physical stop failure no longer clears UX4 generation ownership. The same generation remains retryable, and the loader will not begin a new hold while a prior stop is unresolved.
+- After a successfully committed PTT turn, release stops only the UX4-owned microphone generation. UX4 no longer clears `NpcTargeting.PlayerConversationPed`; Essential owns the committed conversation-partner lifetime through the reply/next committed input. Failed or cancelled starts still roll back the provisional partner.
 - The runtime test project now compiles the existing Essential input-interception sources with `RuntimeEntry`. Those calls were already on `main`; the test project did not include the files, so it did not build.
 
 ## Offline results
@@ -95,6 +96,7 @@ Use [UX4-talk-targeting-gta-acceptance.md](UX4-talk-targeting-gta-acceptance.md)
 - a tap never opens the microphone
 - hold-to-mic latency is acceptable (`talkHoldMs` stays 220 until measured)
 - release during the native start, focus loss, and target loss leave no open UX4 microphone turn
+- after a successful release, `PlayerConversationPed` remains the addressed NPC through its reply and F11/P2 Current NPC/CGE-style readers do not lose or redirect the partner
 - a UX4 stop does not cut off an unrelated stock Talk or MarkedTalk turn
 - Follow and the Current NPC page use the highlighted NPC
 - disabling `talkTargeting` and restoring the controller's direct Talk mapping returns the old behavior
