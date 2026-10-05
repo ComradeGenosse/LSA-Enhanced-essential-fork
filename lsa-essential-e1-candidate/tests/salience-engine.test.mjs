@@ -86,6 +86,8 @@ test('salience separates response grants from consumer acknowledgement', () => {
   assert.equal(cache.acknowledge(first.decisionKey, 'ps6_ticket', 'rejected'), true);
   const retried = cache.evaluate(seen, view());
   assert.equal(retried.response, 'eligible');
+  assert.notEqual(retried.decisionKey, first.decisionKey);
+  assert.equal(cache.acknowledge(first.decisionKey, 'ps6_ticket', 'delivered'), false);
 
   assert.equal(cache.acknowledge(retried.decisionKey, 'ps6_ticket', 'delivered'), true);
   assert.equal(cache.ledger.get(seen.observationId).consumed, true);
