@@ -31,11 +31,16 @@ Repeat with B as driver, front passenger and rear passenger.
 
 Pass: direct UX4 mic start addresses B in every supported seat.
 
-### A4 — release lifecycle
+### A4 — release lifecycle and partner ownership
 
-Start B, release, then start C.
+Start B, release, let B's reply begin/finish, inspect Current NPC during the reply, then start C.
 
-Pass: B receives one matching stock release and no old mic state leaks into C.
+Pass:
+- B receives one matching stock microphone release and no old mic state leaks into C.
+- UX4 does **not** clear `PlayerConversationPed` merely because PTT was released.
+- B remains the Essential conversation partner through the reply unless Essential itself or a newer committed input replaces/clears it.
+- F11/P2 Current NPC and other partner readers do not become null or silently retarget during B's reply.
+- A failed/cancelled PTT start still rolls back any provisional `PlayerConversationPed` mutation.
 
 ### A5 — target invalidation before start
 
@@ -254,4 +259,5 @@ Do not merge if any of these occur:
 - selecting creates provider/task side effects before hold
 - vehicle occupants cannot be reliably distinguished
 - current.* commands ignore the selected target
+- successful PTT release clears or redirects Essential's conversation partner before the reply lifecycle is finished
 - T0 public targeting seam is not proven and no source-pinned replacement plan exists
