@@ -1,6 +1,6 @@
 # UX4 Talk Target Selector — implementation plan
 
-Status: plan reconciled with the implementation on `feature/ux4-talk-target-selector`. Do not merge until the GTA acceptance matrix passes. Offline status is in `docs/UX4-talk-targeting-status.md`.
+Status: **historical implementation plan; UX4 is now merged to `main`.** The feature branch described below is superseded by current main. The final merged interaction model is normal hold = direct Talk/no bracket; tap/cycle = explicit selector with a short-lived bracket. Current status and remaining GTA acceptance live in `docs/UX4-talk-targeting-status.md` and `docs/UX4-talk-targeting-gta-acceptance.md`.
 
 Architecture companion: ../research/ux4-talk-targeting-architecture.md
 
