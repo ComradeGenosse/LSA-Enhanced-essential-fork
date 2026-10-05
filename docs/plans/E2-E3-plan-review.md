@@ -1,5 +1,7 @@
 # E2/E3 plan review
 
+> **Historical planning review:** E2/E3 were subsequently implemented. Source/workspace availability statements and “no runtime/live test” notes below describe this October 1 review only. See `../E2-E3-implementation-status.md` and the root ROADMAP for current status.
+
 Reviewed October 1, 2026 against both supplied files.
 
 **Verdict: the architecture and scope are good, but the original plan needed several implementation-critical clarifications.** The revised plan keeps Essential authoritative, preserves E1.1 and stock Gemini, and implements E2 before E3. The E2/E3 goals document itself can remain unchanged.
