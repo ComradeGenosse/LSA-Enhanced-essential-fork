@@ -1,8 +1,8 @@
 # UX phase 0–1 — consolidated host and command bridge
 
-Updated October 3, 2026. Branch `feature/ux-phase0-1-command-bridge`, based on `main` at `b45f682`. Plan: [LSA Enhanced UX plan](plans/LSA-Enhanced-UX-plan.md), section 11.
+Updated October 5, 2026. Historical implementation branch: `feature/ux-phase0-1-command-bridge`, based on the October 3 `main` baseline. Plan: [LSA Enhanced UX plan](plans/LSA-Enhanced-UX-plan.md), section 11.
 
-**Status: implemented and verified offline; GTA acceptance pending.** Nothing was deployed. The bridge ships inside the existing optional P2 addon and companion, so it is off unless P2 is enabled.
+**Current status: ✅ merged to `main` and included in the later combined P2/PS/UX deployment lineage.** The original branch verification below remains the implementation evidence for this phase; it is no longer correct to read the branch ref or the original “nothing deployed” note as unfinished work. Full dedicated UX0/1 controller acceptance is still not separately closed.
 
 ## What was delivered
 
