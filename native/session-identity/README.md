@@ -69,4 +69,4 @@ node tools/buildCandidate.mjs
 
 The evidence-store test uses .NET 10 and compiles the production store source without a game reference. The Windows pipe test compiles the production store/channel against .NET 4.8.1 and also has no game references. It verifies real ACL-capable pipe handshake, fresh proof, revoke, heartbeat, and rejection of gameplay frames. Neither test executes the addon or loads Essential/RPH assemblies. The Node fixture contains only a synthetic claim minted by that core test.
 
-All deployment and physical testing remain separate. See [P1 status and controlled GTA checklist](../../docs/P1-session-identity-status.md); P0 and E6 physical gates remain open.
+P1 is now part of the merged P2 runtime and has been exercised through live promoted-character identity/profile flows. The offline commands above remain the reproducible library-level checks; broader recreation/revocation/stale-work cases belong to ongoing regression/E7 coverage. See [P1 status](../../docs/P1-session-identity-status.md) and the current [roadmap](../../docs/ROADMAP.md).
