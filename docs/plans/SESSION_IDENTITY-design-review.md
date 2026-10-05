@@ -1,5 +1,7 @@
 # SESSION_IDENTITY — source-grounded design review and implementation plan
 
+> **Implementation follow-up:** P1 SESSION_IDENTITY was subsequently implemented and merged, and now underpins the live P2 promoted-character path. This document remains the design/evidence record; statements that call SESSION_IDENTITY unimplemented apply to the October 1 research baseline. See `../P1-session-identity-status.md` for current status.
+
 Research date: October 1, 2026. Repository inspected: `ComradeGenosse/LSA-Enhanced-essential-fork`, default branch `main`, commit `c035550e39ffd4d218844ca63286088b2460dc2e`. This is a research deliverable, not an implemented feature.
 
 **Recommendation:** retain the proposed separation between character identity and native addressing. Implement v1 for explicitly registered, owner-authenticated characters only. Keep ambient NPCs on the current session history and E2 voice assignment. Essential already provides runtime continuity, but the inspected public APIs do not establish a permanent character key.
