@@ -1,0 +1,195 @@
+{
+  "schemaVersion": 1,
+  "investigation": "essential-action-execution-completion-audit",
+  "date": "2026-10-03",
+  "branch": "research/essential-action-completion-audit-20261003",
+  "methodology": {
+    "loadedGameAssemblies": false,
+    "executedNativeGameplay": false,
+    "gtaLaunched": false,
+    "tools": [
+      "docs/research/action-native-tools/ActionNativeAudit (PEReader + System.Reflection.Metadata, pin-checked)",
+      "docs/research/action-native-tools/ilcore.py string-table decoder (same seed/XOR/LZMA as remaining-native-context-audit)",
+      "docs/research/action-native-tools/cff.py control-flow unflattening",
+      "docs/research/action-native-tools/registrations.py / handlers.py / commands.py",
+      "pinned server.bundle.mjs text/AST extraction (not executed)"
+    ]
+  },
+  "pins": {
+    "originMain": "f53394213f8d7b20868e2cbee88f3cbed63c87eb",
+    "thisWorktreeHeadAtStart": "f53394213f8d7b20868e2cbee88f3cbed63c87eb",
+    "researchSessionIdentity": "ebc42bff7a117705397957a90e6f82674c2b6e26",
+    "researchPerceptionSalience": "be6b56294894efb10eb2a07db1aa31eebcba9606",
+    "researchRemainingNativeContext": "912ec129f084d412242c8d04e8b42b428ff9f1e6",
+    "essentialDll": {
+      "sha256": "9b6de42d4c464901d859dd95e17e100e4fa9ef6074bfbb0cf3a57a76f6ddd653",
+      "path": "lsa-essential-e1-candidate/upstream/LosSantosAlive.dll",
+      "verifiedThisInvestigation": true,
+      "matchesEstablishedPin": true
+    },
+    "stockBundle": {
+      "sha256": "5d81de4217bd103316a1083e482ded1bddc791314abf671d686036175c0475f2",
+      "path": "lsa-essential-e1-candidate/upstream/server.bundle.mjs",
+      "verifiedThisInvestigation": true
+    },
+    "nativeMetadataJson": {
+      "sha256": "18edd2b47ffde748388b07a4a2d023793e183b882fe638acb5276440d45a2d23",
+      "path": "lsa-essential-e1-candidate/docs/native-metadata.json",
+      "verifiedThisInvestigation": true
+    },
+    "buildCandidatePins": {
+      "expectedBundleHash": "5d81de4217bd103316a1083e482ded1bddc791314abf671d686036175c0475f2",
+      "expectedDllHash": "9b6de42d4c464901d859dd95e17e100e4fa9ef6074bfbb0cf3a57a76f6ddd653",
+      "expectedNativeMetadataHash": "18edd2b47ffde748388b07a4a2d023793e183b882fe638acb5276440d45a2d23",
+      "source": "lsa-essential-e1-candidate/tools/buildCandidate.mjs"
+    },
+    "priorSessionInstalledHashes": {
+      "note": "Recorded in CODEX_HANDOFF 2026-10-03; not re-hashed this session because they live outside the repo.",
+      "prBridge": "712f9491c0693d496ea82b1e4cefaa03c0575408a2fefa8d9e295bb516e5ad3e",
+      "interop": "b471252a",
+      "damageTracker": "64816a0d1131a6ec241f8951902b08afaee86fb0f73693399edefe2db8776750",
+      "systemPromptPrefix": "d79f83a6",
+      "prPromptPrefix": "c30a712f",
+      "prResponderPrefix": "bbb3775b"
+    },
+    "rphSdkFromP2Evidence": "5d439745604a5fedbf8fa401520d4f296c1b6800d77e2923ba3bf9772182c7e0"
+  },
+  "tryExecuteSemantics": {
+    "method": "LosSantosAlive.NPC.Actions.NpcActionRegistry::TryExecute(String, String, Rage.Ped) -> Boolean",
+    "token": "0x6000a91",
+    "ilSha256": "1c45eb18164a21838cba9cac5b8a34d186e0660aacdf108649183f05fbaf4d0a",
+    "provesWhenTrue": [
+      "action name normalized (m0x6000a93) is non-whitespace",
+      "dictionary f0x400073b contains the normalized name",
+      "entry has a non-null NpcActionHandler",
+      "NpcStateStore.GetState(ped) returned a state",
+      "NpcActionHandler.Invoke ran and returned true",
+      "NotifyNpcActionExecuted(ped, canonicalName, handlerResult) was called with that true"
+    ],
+    "falseWhen": [
+      "blank name",
+      "unknown action",
+      "null handler",
+      "no NpcState",
+      "handler returned false",
+      "handler threw (catch logs '[NpcActionRegistry] Action failed:' and notifies succeeded=false)"
+    ],
+    "doesNotProve": [
+      "RAGE task issued",
+      "behavior Update ran",
+      "physical objective achieved",
+      "turn/generation still current"
+    ],
+    "targetBinding": "NpcActionContext.TargetPed = CurrentFocusPed if NpcTargeting.IsValid, else null. Parameter is the raw string (or empty). No turnId/generationId on the context.",
+    "synchronous": true,
+    "confidence": "PROVEN"
+  },
+  "onNpcActionExecutedSemantics": {
+    "interface": "IIntegration.OnNpcActionExecuted(Rage.Ped, String, Boolean)",
+    "token": "0x6000c03",
+    "notifier": "IntegrationManager.NotifyNpcActionExecuted 0x6000c11",
+    "succeededTrueMeans": "exactly the boolean returned by NpcActionHandler.Invoke, forwarded after the invoke and before TryExecute returns",
+    "succeededFalseMeans": "handler returned false, OR handler threw (forced ldc.i4.0)",
+    "iterates": "all registered IIntegration with IsAvailable==true; per-integration exceptions are logged and skipped",
+    "doesNotProve": "physical completion",
+    "confidence": "PROVEN"
+  },
+  "stockDispatchSemantics": {
+    "modelCatalog": "hv, 51 tags, filtered by ra(actor) using role group + YD(requirements via zf/actionCapabilities)",
+    "allowlistForE1": "ra(actor).map(tag => h4(first token))",
+    "h4": "xd(token) then Nd[e] || (Vy[e] ? e : (vb[e] || null))",
+    "parser": "Cb: DO lines; requires Nd[xd(verb)]; parameter via w4",
+    "wbReturnTrue": "JSON npcAction was sent to every OPEN websocket client. Does not wait for native TryExecute.",
+    "turnCorrelation": "P4 attaches turnId/generationId/conversationId ONLY for approachperson from le.getActiveTurnForPed. All other actions lose turn/generation at wb/R4 unless metadata already contained them.",
+    "deadHvEntry": "StopDrivingEvasively",
+    "confidence": "PROVEN"
+  },
+  "events": [
+    {
+      "name": "MovementBehavior.ApproachFinished",
+      "signature": "Action<Ped,Ped,Boolean,String>",
+      "raiser": "0x60008b3",
+      "strings": [
+        "[MovementBehavior] ApproachFinished handler failed: ",
+        "ApproachTarget completed"
+      ],
+      "turnId": false,
+      "generationId": false,
+      "confidence": "PROVEN (event exists and is raised with actor,target,bool,reason); STRONGLY SUPPORTED (bool reflects completed vs failed approach); UNKNOWN (stale/supersede correlation)"
+    },
+    {
+      "name": "DirectedInteractionManager.NpcToNpcInteractionReady / Ended",
+      "note": "interaction lifecycle, not generic action completion",
+      "confidence": "PROVEN"
+    },
+    {
+      "name": "NpcPlaybackCoordinator.PlaybackStarted / PlaybackEnded",
+      "note": "speech lifecycle only; already used by E1 history commit. Not action completion.",
+      "confidence": "PROVEN"
+    }
+  ],
+  "npcActivityQueueItemFields": {
+    "LocationName": "String",
+    "ActivityPointName": "String",
+    "ActivityName": "String",
+    "ItemName": "String",
+    "RawAction": "String",
+    "Started": "Boolean",
+    "Completed": "Boolean",
+    "confidence": "PROVEN",
+    "note": "Best native long-running completion fields found. No ActivityCompleted CLR event."
+  },
+  "coreHandlerPattern": {
+    "unconditionalTrueCount": 39,
+    "computedHandlerCount": 26,
+    "note": "Almost every Core* registrar handler calls an NpcActions void wrapper then returns true with no branches.",
+    "confidence": "PROVEN"
+  },
+  "npcActionsExecutor": {
+    "method": "NpcActions.m0x60002e4(Ped, string command, policy enum, Action<Ped,NpcState> body)",
+    "token": "0x60002e4",
+    "vehiclePolicy": "closure m0x60003e2; policies 1/2 defer body until forced exit + settle delay; 0/3 run immediately. Newer command can cancel deferred start ('newer command during settle delay' / 'before exit completed').",
+    "generationBump": "per-ped integer dictionary f0x4000198 used to detect newer commands during deferred vehicle-exit start",
+    "confidence": "STRONGLY SUPPORTED"
+  },
+  "completionEvidenceTaxonomy": {
+    "NOT_COMPLETION": [
+      "Luna generated a DO command",
+      "decisionValidator / Cb accepted it",
+      "Rb dispatched and logged ACTION DISPATCHED",
+      "wb returned true (websocket send)",
+      "NpcActionQueue accepted the item",
+      "TryExecute returned true",
+      "OnNpcActionExecuted(..., true)",
+      "an NpcState *Mode / Wants* flag was set"
+    ],
+    "WEAK": [
+      "RAGE TaskInvoker / TASK_* native was issued",
+      "Last*TaskTime updated"
+    ],
+    "MEDIUM": [
+      "Behavior Start ran and matching Update keeps the mode alive",
+      "ApproachFinished(false, reason) failure path",
+      "activity item Started==true",
+      "AssignedVehicle set (intent, not occupancy)"
+    ],
+    "STRONG": [
+      "ped occupies requested vehicle seat",
+      "HeldItem / EquippedWeaponHash matches request",
+      "NpcActivityQueueItem.Completed==true after Started",
+      "ApproachFinished(true) for the same actor+target after the current approach generation (GTA still required for stale-safety)",
+      "destination proximity AND destination flags cleared AND no remaining go-to/drive task (arrival predicate still GTA-needed)"
+    ]
+  },
+  "catalogCounts": {
+    "dllRegistrars": 13,
+    "dllCanonicalActions": 65,
+    "stockVyCanonical": 63,
+    "stockNdAliases": 71,
+    "stockHvModelTags": 51,
+    "stockHvMapped": 50,
+    "stockHvDead": 1,
+    "catalogRows": 70,
+    "latentCapabilities": 11
+  }
+}
