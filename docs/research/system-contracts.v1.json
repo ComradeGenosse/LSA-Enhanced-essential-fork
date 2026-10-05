@@ -1,0 +1,1046 @@
+{
+  "schema": "lsa.system-contracts",
+  "schemaVersion": 1,
+  "status": "research; existing contracts pinned, proposed contracts are PROPOSED",
+  "base": "origin/main@8c63b20492fbf6bc2e1ba98acc598259c22a57fe",
+  "planes": [
+    {
+      "plane": 0,
+      "name": "GTA engine + scripts",
+      "authority": "highest physical authority (missions, cutscenes, switch, foreign mods)"
+    },
+    {
+      "plane": 1,
+      "name": "Essential",
+      "authority": "sole native executor: turns, mic, partner, playback, action queue/executor, reflex, directed interaction, special-turn scheduler, look behavior"
+    },
+    {
+      "plane": 2,
+      "name": "LSA native adapters",
+      "authority": "run-local anchors, owner evidence, witness sampling, step dispatch via Essential public seams, physical evidence"
+    },
+    {
+      "plane": 3,
+      "name": "Companion",
+      "authority": "durable identity (P1), durable character store (P2), turn snapshot, history, PS pipeline, knowledge assembly (PS4), ACT plans, Director policy (proposes)"
+    },
+    {
+      "plane": 4,
+      "name": "UX loader",
+      "authority": "presentation and proposals only"
+    },
+    {
+      "plane": 5,
+      "name": "Providers",
+      "authority": "none"
+    }
+  ],
+  "identifiers": [
+    {
+      "key": "ped_handle",
+      "name": "Ped wrapper / Rage PoolHandle",
+      "identifies": "GTA entity slot",
+      "allocator": "GTA/RPH",
+      "lifetime": "until deletion; slot reused",
+      "persisted": false,
+      "actionAddress": "unsafe",
+      "memoryIdentity": "unsafe",
+      "survivesRecreation": "unsafe",
+      "survivesSaveLoad": "unsafe",
+      "asyncSafe": "unsafe",
+      "privateStateRetrieval": "unsafe",
+      "note": "only inside an Essential tuple or native anchor"
+    },
+    {
+      "key": "entity_incarnation",
+      "name": "MemoryAddress + full handle (+ owner incarnationId)",
+      "identifies": "one physical incarnation",
+      "allocator": "GTA; P1/P2 owner incarnation",
+      "lifetime": "entity lifetime",
+      "persisted": false,
+      "actionAddress": "conditional",
+      "memoryIdentity": "unsafe",
+      "survivesRecreation": "unsafe",
+      "survivesSaveLoad": "unsafe",
+      "asyncSafe": "conditional",
+      "privateStateRetrieval": "unsafe",
+      "note": "native anchor revalidated at use"
+    },
+    {
+      "key": "pedId",
+      "name": "pedId",
+      "identifies": "Essential turn ped id",
+      "allocator": "Essential",
+      "lifetime": "session",
+      "persisted": false,
+      "actionAddress": "conditional",
+      "memoryIdentity": "unsafe",
+      "survivesRecreation": "unsafe",
+      "survivesSaveLoad": "unsafe",
+      "asyncSafe": "conditional",
+      "privateStateRetrieval": "unsafe",
+      "note": "only as part of the full tuple"
+    },
+    {
+      "key": "sessionNonce",
+      "name": "sessionNonce",
+      "identifies": "Essential conversation session",
+      "allocator": "Essential",
+      "lifetime": "session",
+      "persisted": false,
+      "actionAddress": "conditional",
+      "memoryIdentity": "unsafe",
+      "survivesRecreation": "unsafe",
+      "survivesSaveLoad": "unsafe",
+      "asyncSafe": "safe",
+      "privateStateRetrieval": "conditional",
+      "note": "private state only via P1 binding with fresh owner evidence"
+    },
+    {
+      "key": "turnId",
+      "name": "turnId",
+      "identifies": "one turn",
+      "allocator": "Essential",
+      "lifetime": "turn",
+      "persisted": false,
+      "actionAddress": "conditional",
+      "memoryIdentity": "unsafe",
+      "survivesRecreation": "unsafe",
+      "survivesSaveLoad": "unsafe",
+      "asyncSafe": "safe",
+      "privateStateRetrieval": "unsafe",
+      "note": "tuple member"
+    },
+    {
+      "key": "generationId",
+      "name": "generationId",
+      "identifies": "one generation",
+      "allocator": "Essential",
+      "lifetime": "generation",
+      "persisted": false,
+      "actionAddress": "conditional",
+      "memoryIdentity": "unsafe",
+      "survivesRecreation": "unsafe",
+      "survivesSaveLoad": "unsafe",
+      "asyncSafe": "safe",
+      "privateStateRetrieval": "unsafe",
+      "note": "tuple member; exact interruption"
+    },
+    {
+      "key": "captureRef",
+      "name": "captureRef",
+      "identifies": "run-local reference to retained wrapper/handle/address/owner lifetime",
+      "allocator": "PS EntityAnchors (canonical per C-02)",
+      "lifetime": "until retired or host run end",
+      "persisted": false,
+      "actionAddress": "conditional",
+      "memoryIdentity": "unsafe",
+      "survivesRecreation": "unsafe",
+      "survivesSaveLoad": "unsafe",
+      "asyncSafe": "safe",
+      "privateStateRetrieval": "conditional",
+      "note": "target only, resolved natively at use; private state only via C-02 index + recognition"
+    },
+    {
+      "key": "characterId",
+      "name": "CharacterId",
+      "identifies": "durable character",
+      "allocator": "P1",
+      "lifetime": "permanent",
+      "persisted": true,
+      "actionAddress": "unsafe",
+      "memoryIdentity": "safe",
+      "survivesRecreation": "safe",
+      "survivesSaveLoad": "safe",
+      "asyncSafe": "safe",
+      "privateStateRetrieval": "safe",
+      "note": "never an effect address; never implies another observer's recognition"
+    },
+    {
+      "key": "worldProfileId",
+      "name": "worldProfileId",
+      "identifies": "world/mod namespace",
+      "allocator": "user config (native+companion)",
+      "lifetime": "durable",
+      "persisted": true,
+      "actionAddress": "unsafe",
+      "memoryIdentity": "namespace",
+      "survivesRecreation": "safe",
+      "survivesSaveLoad": "unsafe",
+      "asyncSafe": "safe",
+      "privateStateRetrieval": "unsafe",
+      "note": "not a timeline"
+    },
+    {
+      "key": "timelineId",
+      "name": "timelineId (missing)",
+      "identifies": "playthrough/save lineage",
+      "allocator": "TimelineGuard (C-07)",
+      "lifetime": "durable",
+      "persisted": true,
+      "actionAddress": "unsafe",
+      "memoryIdentity": "scope",
+      "survivesRecreation": "safe",
+      "survivesSaveLoad": "safe",
+      "asyncSafe": "safe",
+      "privateStateRetrieval": "gates retrieval",
+      "note": "proposed"
+    },
+    {
+      "key": "ownerAlias",
+      "name": "source owner alias",
+      "identifies": "authored-owner key",
+      "allocator": "P2 owner + P1 registry",
+      "lifetime": "durable",
+      "persisted": true,
+      "actionAddress": "unsafe",
+      "memoryIdentity": "unsafe",
+      "survivesRecreation": "safe",
+      "survivesSaveLoad": "safe",
+      "asyncSafe": "safe",
+      "privateStateRetrieval": "conditional",
+      "note": "through P1 with fresh owner proof only"
+    },
+    {
+      "key": "encounterId",
+      "name": "encounterId",
+      "identifies": "P2 encounter",
+      "allocator": "P2 host",
+      "lifetime": "until release/despawn",
+      "persisted": false,
+      "actionAddress": "conditional",
+      "memoryIdentity": "unsafe",
+      "survivesRecreation": "unsafe",
+      "survivesSaveLoad": "unsafe",
+      "asyncSafe": "conditional",
+      "privateStateRetrieval": "conditional",
+      "note": "P2 command target with expect.encounterId fence; ephemeral session profile only"
+    },
+    {
+      "key": "ownershipToken",
+      "name": "OwnershipToken / incarnationId / claimRevision",
+      "identifies": "ownership proof of one incarnation",
+      "allocator": "P2/P1",
+      "lifetime": "incarnation",
+      "persisted": false,
+      "actionAddress": "unsafe",
+      "memoryIdentity": "unsafe",
+      "survivesRecreation": "unsafe",
+      "survivesSaveLoad": "unsafe",
+      "asyncSafe": "safe",
+      "privateStateRetrieval": "unsafe",
+      "note": "fence"
+    },
+    {
+      "key": "runEpochs",
+      "name": "nativeRun / adapterEpoch / streamId / hostRunId",
+      "identifies": "host run / pipe connection",
+      "allocator": "each channel; hostRunId by RuntimeEntry (proposed)",
+      "lifetime": "run/connection",
+      "persisted": false,
+      "actionAddress": "unsafe",
+      "memoryIdentity": "unsafe",
+      "survivesRecreation": "n/a",
+      "survivesSaveLoad": "unsafe",
+      "asyncSafe": "safe",
+      "privateStateRetrieval": "unsafe",
+      "note": "voiding fence"
+    },
+    {
+      "key": "uxSelection",
+      "name": "UX4 SelectionId + frozen Ped + address",
+      "identifies": "highlighted candidate",
+      "allocator": "UX4 policy",
+      "lifetime": "selection timeout / retention radius",
+      "persisted": false,
+      "actionAddress": "conditional",
+      "memoryIdentity": "unsafe",
+      "survivesRecreation": "unsafe",
+      "survivesSaveLoad": "unsafe",
+      "asyncSafe": "unsafe",
+      "privateStateRetrieval": "unsafe",
+      "note": "only through committed PTT with native revalidation"
+    },
+    {
+      "key": "uxGeneration",
+      "name": "UX4 PTT generation",
+      "identifies": "one hold",
+      "allocator": "loader + native",
+      "lifetime": "one hold",
+      "persisted": false,
+      "actionAddress": "unsafe",
+      "memoryIdentity": "unsafe",
+      "survivesRecreation": "unsafe",
+      "survivesSaveLoad": "unsafe",
+      "asyncSafe": "safe",
+      "privateStateRetrieval": "unsafe",
+      "note": "fence"
+    },
+    {
+      "key": "pvRefs",
+      "name": "P### / V###",
+      "identifies": "reasoning-time person/vehicle reference",
+      "allocator": "P0 snapshot",
+      "lifetime": "one turn",
+      "persisted": false,
+      "actionAddress": "conditional",
+      "memoryIdentity": "unsafe",
+      "survivesRecreation": "unsafe",
+      "survivesSaveLoad": "unsafe",
+      "asyncSafe": "conditional",
+      "privateStateRetrieval": "unsafe",
+      "note": "validateStockDecision within the same turn"
+    },
+    {
+      "key": "activityAnchor",
+      "name": "activity target anchor (RefSlot)",
+      "identifies": "activity target",
+      "allocator": "ACT2 private table today; shared captureRef (C-02)",
+      "lifetime": "step/activity (ResumeToken <=120 s)",
+      "persisted": false,
+      "actionAddress": "conditional",
+      "memoryIdentity": "unsafe",
+      "survivesRecreation": "unsafe",
+      "survivesSaveLoad": "unsafe",
+      "asyncSafe": "conditional",
+      "privateStateRetrieval": "unsafe",
+      "note": "AnchorLive at use; incarnation check"
+    },
+    {
+      "key": "actIds",
+      "name": "executionId / activityId / stepId / leaseId / leaseEpoch / requestId",
+      "identifies": "ACT step/plan/lease",
+      "allocator": "ACT engine / StepRunner",
+      "lifetime": "execution/activity",
+      "persisted": false,
+      "actionAddress": "step only",
+      "memoryIdentity": "provenance",
+      "survivesRecreation": "unsafe",
+      "survivesSaveLoad": "unsafe",
+      "asyncSafe": "safe",
+      "privateStateRetrieval": "unsafe",
+      "note": "stale receipts rejected"
+    },
+    {
+      "key": "observationId",
+      "name": "observationId + revision",
+      "identifies": "immutable per-observer observation",
+      "allocator": "PS2 correlator",
+      "lifetime": "observation TTL",
+      "persisted": false,
+      "actionAddress": "unsafe",
+      "memoryIdentity": "provenance",
+      "survivesRecreation": "unsafe",
+      "survivesSaveLoad": "unsafe",
+      "asyncSafe": "safe",
+      "privateStateRetrieval": "unsafe",
+      "note": "opaque provenance in PS5"
+    },
+    {
+      "key": "episodeId",
+      "name": "episodeId",
+      "identifies": "world-level incident",
+      "allocator": "PS2 correlator",
+      "lifetime": "30 s",
+      "persisted": false,
+      "actionAddress": "unsafe",
+      "memoryIdentity": "provenance",
+      "survivesRecreation": "unsafe",
+      "survivesSaveLoad": "unsafe",
+      "asyncSafe": "safe",
+      "privateStateRetrieval": "unsafe",
+      "note": ""
+    },
+    {
+      "key": "signalId",
+      "name": "signalId / producerSequence",
+      "identifies": "raw signal",
+      "allocator": "PS native",
+      "lifetime": "run",
+      "persisted": false,
+      "actionAddress": "unsafe",
+      "memoryIdentity": "unsafe",
+      "survivesRecreation": "unsafe",
+      "survivesSaveLoad": "unsafe",
+      "asyncSafe": "dedupe",
+      "privateStateRetrieval": "unsafe",
+      "note": ""
+    },
+    {
+      "key": "decisionKey",
+      "name": "salience decision key",
+      "identifies": "ranking decision",
+      "allocator": "PS3",
+      "lifetime": "ledger TTL 10 min",
+      "persisted": false,
+      "actionAddress": "unsafe",
+      "memoryIdentity": "unsafe",
+      "survivesRecreation": "unsafe",
+      "survivesSaveLoad": "unsafe",
+      "asyncSafe": "safe",
+      "privateStateRetrieval": "unsafe",
+      "note": "proposed explicit decisionKey (C-03)"
+    },
+    {
+      "key": "utteranceId",
+      "name": "utteranceId / transcriptRef / captureReceiptRef",
+      "identifies": "player utterance / transcript / capture",
+      "allocator": "native (C-01) / companion",
+      "lifetime": "<=30 s",
+      "persisted": false,
+      "actionAddress": "unsafe",
+      "memoryIdentity": "provenance",
+      "survivesRecreation": "unsafe",
+      "survivesSaveLoad": "unsafe",
+      "asyncSafe": "safe",
+      "privateStateRetrieval": "unsafe",
+      "note": "proposed"
+    },
+    {
+      "key": "conversationRef",
+      "name": "conversationRef (missing)",
+      "identifies": "multi-party conversation",
+      "allocator": "social routing (PS7)",
+      "lifetime": "conversation",
+      "persisted": false,
+      "actionAddress": "unsafe",
+      "memoryIdentity": "provenance",
+      "survivesRecreation": "unsafe",
+      "survivesSaveLoad": "unsafe",
+      "asyncSafe": "safe",
+      "privateStateRetrieval": "unsafe",
+      "note": "proposed"
+    },
+    {
+      "key": "diId",
+      "name": "directed interaction id",
+      "identifies": "one Essential DI",
+      "allocator": "Essential DirectedInteractionManager",
+      "lifetime": "interaction",
+      "persisted": false,
+      "actionAddress": "cancel-by-exact-id",
+      "memoryIdentity": "unsafe",
+      "survivesRecreation": "unsafe",
+      "survivesSaveLoad": "unsafe",
+      "asyncSafe": "safe",
+      "privateStateRetrieval": "unsafe",
+      "note": ""
+    },
+    {
+      "key": "directorTicket",
+      "name": "DirectorTicket UUID",
+      "identifies": "admission request",
+      "allocator": "native admission (PS6)",
+      "lifetime": "<=2 s pre-admission then tuple",
+      "persisted": false,
+      "actionAddress": "admission only",
+      "memoryIdentity": "unsafe",
+      "survivesRecreation": "unsafe",
+      "survivesSaveLoad": "unsafe",
+      "asyncSafe": "safe",
+      "privateStateRetrieval": "unsafe",
+      "note": "consumed once"
+    },
+    {
+      "key": "memoryId",
+      "name": "memoryId",
+      "identifies": "durable memory",
+      "allocator": "P2",
+      "lifetime": "durable",
+      "persisted": true,
+      "actionAddress": "unsafe",
+      "memoryIdentity": "safe",
+      "survivesRecreation": "safe",
+      "survivesSaveLoad": "conditional",
+      "asyncSafe": "safe",
+      "privateStateRetrieval": "safe",
+      "note": "needs timelineId for save/load safety"
+    },
+    {
+      "key": "profileRevision",
+      "name": "profile/store revision",
+      "identifies": "CAS counter",
+      "allocator": "P2",
+      "lifetime": "durable",
+      "persisted": true,
+      "actionAddress": "unsafe",
+      "memoryIdentity": "CAS",
+      "survivesRecreation": "safe",
+      "survivesSaveLoad": "timeline-agnostic",
+      "asyncSafe": "safe",
+      "privateStateRetrieval": "unsafe",
+      "note": ""
+    },
+    {
+      "key": "commandId",
+      "name": "CommandEnvelope id",
+      "identifies": "UX command",
+      "allocator": "LocalCommandQueue",
+      "lifetime": "command",
+      "persisted": false,
+      "actionAddress": "conditional",
+      "memoryIdentity": "unsafe",
+      "survivesRecreation": "unsafe",
+      "survivesSaveLoad": "unsafe",
+      "asyncSafe": "safe",
+      "privateStateRetrieval": "unsafe",
+      "note": "expect.encounterId fence"
+    }
+  ],
+  "existingContracts": [
+    {
+      "id": "essential-turn-lifecycle",
+      "owner": "Essential/E1",
+      "status": "merged",
+      "pin": "48 source-pinned patches",
+      "lock": true
+    },
+    {
+      "id": "e1-history-commit-rule",
+      "owner": "companion",
+      "status": "merged; GTA-observed 2026-10-01",
+      "lock": true
+    },
+    {
+      "id": "p0-turn-snapshot",
+      "owner": "companion",
+      "files": [
+        "src/context/turnSnapshot.mjs",
+        "src/context/decisionValidator.mjs"
+      ],
+      "status": "merged",
+      "lock": true
+    },
+    {
+      "id": "p1-session-identity-pipe",
+      "pipe": "LSA.SessionIdentity.v1",
+      "schemaVersion": 1,
+      "owner": "P1",
+      "status": "merged",
+      "lock": true
+    },
+    {
+      "id": "p2-promoted-characters-pipe",
+      "pipe": "LSA.PromotedCharacters.v1",
+      "owner": "P2",
+      "status": "merged",
+      "lock": true,
+      "change": "add C-06 owner token"
+    },
+    {
+      "id": "p2-profile-store",
+      "file": "characters/profiles.v1.json",
+      "schemaVersion": 1,
+      "owner": "P2",
+      "status": "merged",
+      "lock": false,
+      "change": "one v2 envelope (C-08)"
+    },
+    {
+      "id": "ux-commands-v1",
+      "file": "contracts/commands.v1.json",
+      "sha256": "2ec822810c06125952a0a9409408f3de3eff19ec7bedfae914ce66ad2a6e16fb",
+      "owner": "UX",
+      "status": "merged",
+      "lock": true
+    },
+    {
+      "id": "act-commands-v2",
+      "file": "contracts/commands.v2.json",
+      "sha256": "07e0ad837bcbce8b6ff088a0b57ae6aad94e23cdbb5ac4a6bc4668a20b15d754",
+      "owner": "UX/ACT",
+      "status": "branch",
+      "lock": "at merge"
+    },
+    {
+      "id": "ps-intelligence-pipe",
+      "pipe": "LSA.Intelligence.v1",
+      "owner": "PS",
+      "status": "merged",
+      "lock": true,
+      "change": "hostRunId in hello (C-13)"
+    },
+    {
+      "id": "ps-observation-v1",
+      "owner": "PS",
+      "status": "merged",
+      "lock": true
+    },
+    {
+      "id": "ps-speech-capture-receipt-v1",
+      "owner": "PS",
+      "status": "merged (gated)",
+      "lock": false,
+      "change": "v2 (C-01)"
+    },
+    {
+      "id": "ps3-salience-decision",
+      "owner": "PS3",
+      "status": "deployed shadow, unmerged",
+      "lock": true,
+      "change": "C-03 additions"
+    },
+    {
+      "id": "act-activities-pipe",
+      "pipe": "LSA.Activities.v1",
+      "owner": "ACT",
+      "status": "branch",
+      "lock": "at merge"
+    },
+    {
+      "id": "act-capability-registry",
+      "file": "contracts/activity-capabilities.v1.json",
+      "sha256": "31ed6e6d47a7222929b3645401d6e046676ed7f21a65f5643a68e002a3ee6486",
+      "owner": "ACT",
+      "status": "branch",
+      "lock": "at merge"
+    },
+    {
+      "id": "radio-raw-signals",
+      "owner": "PS",
+      "status": "branch",
+      "lock": "as raw facts"
+    },
+    {
+      "id": "cge-runtime-contract",
+      "owner": "CGE",
+      "status": "plan",
+      "lock": false,
+      "change": "yield to ConversationLookBehavior; consume C-01; no body turns"
+    },
+    {
+      "id": "ps6-director-ticket",
+      "owner": "Director",
+      "status": "research",
+      "lock": true,
+      "change": "add directorIntentId (C-11)"
+    }
+  ],
+  "proposedContracts": [
+    {
+      "id": "C-01",
+      "name": "UtteranceLifecycle v1 + SpeechCaptureReceipt v2",
+      "owner": "Plane 2 (P2 host) at Essential mic boundary",
+      "consumers": [
+        "companion turn pipeline",
+        "PS2",
+        "social routing",
+        "CGE",
+        "UX4 HUD",
+        "PS5"
+      ],
+      "phase": "probe in PS0-PS3 GTA session; implement before PS2 speech, CGE0, social routing",
+      "feasibility": "UNKNOWN",
+      "frames": {
+        "utterance.started": [
+          "utteranceId",
+          "hostRunId",
+          "inputSource",
+          "micPed.captureRef",
+          "selectionProvenance",
+          "startGameTick",
+          "startMonotonicMs"
+        ],
+        "utterance.turn": [
+          "utteranceId",
+          "pedId",
+          "sessionNonce",
+          "turnId"
+        ],
+        "utterance.ended": [
+          "utteranceId",
+          "endGameTick",
+          "endMonotonicMs",
+          "terminal"
+        ]
+      },
+      "enums": {
+        "inputSource": [
+          "stock_talk",
+          "marked_talk",
+          "ux4_ptt",
+          "typed"
+        ],
+        "terminal": [
+          "captured",
+          "cancelled",
+          "empty",
+          "overflow"
+        ]
+      },
+      "rules": [
+        "typed input: zero duration, no observers",
+        "hearing evaluated only over [start,end]",
+        "one STT per utterance"
+      ],
+      "risks": [
+        "R-01"
+      ]
+    },
+    {
+      "id": "C-02",
+      "name": "Shared anchor service + observer identity index",
+      "owner": "Plane 2 RuntimeEntry (EntityAnchors promoted)",
+      "consumers": [
+        "PS",
+        "ACT",
+        "UX4",
+        "CGE",
+        "Director",
+        "PS3/PS4"
+      ],
+      "phase": "before ACT3 and PS4",
+      "native": [
+        "Retain(ped, reason, ownerLifetime?) -> captureRef",
+        "Resolve(captureRef) -> Ped|null",
+        "Retire(captureRef, reason)"
+      ],
+      "companionIndex": "captureRef -> {kind, encounterId?, incarnationId?, owned}; CharacterId only for owned anchors via P1 binding; recognition gate before model use",
+      "risks": [
+        "R-03"
+      ]
+    },
+    {
+      "id": "C-03",
+      "name": "SalienceConsumption acknowledgement",
+      "owner": "PS3",
+      "consumers": [
+        "PS4",
+        "PS6",
+        "PS5"
+      ],
+      "phase": "with PS3 merge or before PS4/PS6",
+      "fields": {
+        "decisionKey": "string",
+        "policyVersion": "int"
+      },
+      "api": "acknowledge(decisionKey, consumer, outcome: delivered|rejected|expired)",
+      "risks": [
+        "R-06"
+      ]
+    },
+    {
+      "id": "C-04",
+      "name": "TurnKnowledgeFrame (single assembler)",
+      "owner": "companion PS4 (extends P2 allowlisted projection)",
+      "consumers": [
+        "Luna request builder",
+        "ACT4 (lane items)",
+        "radio R3 (lane items)"
+      ],
+      "phase": "PS4",
+      "lanes": [
+        "SELF",
+        "PERCEIVED",
+        "CONVERSE",
+        "RECALLED",
+        "SITUATION",
+        "COMPAT"
+      ],
+      "rules": [
+        "no raw Essential JSON",
+        "no CharacterIds",
+        "single producer per lane",
+        "per-lane budgets"
+      ],
+      "risks": [
+        "R-02"
+      ]
+    },
+    {
+      "id": "C-05",
+      "name": "DialogueActionReceipt",
+      "owner": "companion + native callback ring",
+      "consumers": [
+        "PS4 SELF lane",
+        "ACT",
+        "PS5"
+      ],
+      "phase": "before ACT4/PS5",
+      "fields": [
+        "tuple",
+        "canonicalAction",
+        "state",
+        "atGameTick"
+      ],
+      "risks": [
+        "R-05"
+      ]
+    },
+    {
+      "id": "C-06",
+      "name": "Primary-behavior owner token",
+      "owner": "P2 host Encounter",
+      "consumers": [
+        "ACT",
+        "Director",
+        "UX"
+      ],
+      "phase": "ACT2 reconciliation",
+      "fields": {
+        "owner": [
+          "p2",
+          "act",
+          "essential_residual",
+          "none"
+        ],
+        "mode": [
+          "follow",
+          "wait",
+          "sit",
+          "activity",
+          "unknown",
+          "idle"
+        ],
+        "leaseId": "optional",
+        "since": "gameMs"
+      },
+      "risks": [
+        "R-12"
+      ]
+    },
+    {
+      "id": "C-07",
+      "name": "TimelineGuard",
+      "owner": "P2 store",
+      "consumers": [
+        "PS5",
+        "PS7",
+        "ACT7",
+        "editor",
+        "F11"
+      ],
+      "phase": "before PS5",
+      "rules": [
+        "explicit active timeline",
+        "timeline-scoped records carry timelineId + formedAt",
+        "fail closed on rollback suspicion: hide, never delete",
+        "canon timeline-agnostic"
+      ],
+      "risks": [
+        "R-07"
+      ]
+    },
+    {
+      "id": "C-08",
+      "name": "Profile v2 envelope",
+      "owner": "P2",
+      "phase": "before PS5",
+      "newFields": [
+        "store.timelines",
+        "traitPolicies",
+        "memories[].timelineId",
+        "memories[].eventMetadata",
+        "memorySuppressions",
+        "relationshipEdges",
+        "commitments",
+        "homeAnchor"
+      ],
+      "rules": [
+        "pure lossless v1->v2",
+        "v1 backup",
+        "no automatic downgrade"
+      ],
+      "risks": [
+        "R-07",
+        "R-26"
+      ]
+    },
+    {
+      "id": "C-09",
+      "name": "Capability/health read model",
+      "owner": "companion",
+      "consumers": [
+        "F11 diagnostics",
+        "editor",
+        "PS",
+        "ACT",
+        "Director"
+      ],
+      "phase": "thin with ACT0/1 merge",
+      "facts": [
+        "compiled",
+        "configured",
+        "runtimeSupported",
+        "validated",
+        "suspended",
+        "active(derived)"
+      ],
+      "modeVocabulary": [
+        "off",
+        "shadow",
+        "active"
+      ],
+      "risks": [
+        "R-15"
+      ]
+    },
+    {
+      "id": "C-10",
+      "name": "Conversation-partner policy",
+      "owner": "Essential (documented by LSA)",
+      "writers": [
+        "Essential Talk/Text/MarkedTalk",
+        "UX4 committed PTT start"
+      ],
+      "clearers": [
+        "Essential",
+        "next committed input"
+      ],
+      "phase": "now",
+      "risks": [
+        "R-04"
+      ]
+    },
+    {
+      "id": "C-11",
+      "name": "DirectorIntent + ActivityProposal + DI ownership",
+      "owner": "Director (proposal) / ACT7 (execution)",
+      "phase": "PS6 (speech) / ACT7-PS7 (activity, DI)",
+      "fields": {
+        "DirectorIntent": [
+          "directorIntentId",
+          "observerCaptureRef",
+          "salienceDecisionKey",
+          "priority",
+          "speech?",
+          "activity?",
+          "pairing"
+        ],
+        "ActivityProposal": [
+          "capability",
+          "slots(RefSlot captureRef)",
+          "priority(clamped)",
+          "source=scene_director"
+        ]
+      },
+      "rules": [
+        "directed_interaction only via ACT7",
+        "P2 Safe() honors lsaDirectedInteraction{interactionId, leaseId}"
+      ],
+      "risks": [
+        "R-08"
+      ]
+    },
+    {
+      "id": "C-12",
+      "name": "ResponderReservation / turn-yield",
+      "owner": "social routing (PS7)",
+      "phase": "probe before PS7",
+      "api": "reserveResponder(utteranceId, captureRef, role)",
+      "feasibility": "UNKNOWN (silent turn handling)",
+      "risks": [
+        "R-16"
+      ]
+    },
+    {
+      "id": "C-13",
+      "name": "hostRunId + WorldEpoch broadcast",
+      "owner": "RuntimeEntry / P2 host",
+      "consumers": [
+        "PS",
+        "ACT",
+        "UX4",
+        "CGE",
+        "P1"
+      ],
+      "phase": "ACT0/1 reconciliation",
+      "frames": {
+        "world_epoch": [
+          "epoch",
+          "reason: clock_regression|host_reload|timeline_change"
+        ]
+      },
+      "risks": [
+        "R-13",
+        "R-14"
+      ]
+    },
+    {
+      "id": "C-14",
+      "name": "ObserverSituation provider",
+      "owner": "companion",
+      "consumers": [
+        "PS3"
+      ],
+      "phase": "with C-02",
+      "activityEnum": [
+        "idle",
+        "driving",
+        "passenger",
+        "in_vehicle",
+        "conversation",
+        "following",
+        "waiting",
+        "unknown"
+      ],
+      "risks": [
+        "R-27"
+      ]
+    },
+    {
+      "id": "C-15",
+      "name": "Player/protagonist SubjectRef",
+      "owner": "P2 v2",
+      "phase": "before PS5/PS7",
+      "variants": [
+        "character:characterId",
+        "protagonist:key",
+        "local:ref"
+      ],
+      "risks": [
+        "R-17"
+      ]
+    }
+  ],
+  "arbitration": {
+    "physicalTiers": [
+      "T0 GTA/mission/cutscene/switch/network/foreign script",
+      "T1 Essential self-preservation (reflex, death/injury, far release)",
+      "T2 Essential directed interaction (foreign)",
+      "T3 player direct (P2 controls, UX activity, dialogue DO; latest wins)",
+      "T4 player standing activities",
+      "T5 director urgent",
+      "T6 director routine",
+      "T7 ambient"
+    ],
+    "overlays": {
+      "speech": [
+        "Essential playback lifecycle",
+        "player input",
+        "active dialogue/directed exchange",
+        "director urgent",
+        "director routine"
+      ],
+      "gaze": [
+        "Essential ConversationLookBehavior",
+        "CGE (yielding)"
+      ],
+      "observation": "read-only"
+    },
+    "invariant": "never two independent systems believing they own primary behavior"
+  },
+  "featureStateModel": {
+    "facts": [
+      "compiled",
+      "configured",
+      "runtimeSupported",
+      "validated",
+      "suspended"
+    ],
+    "activeRule": "compiled AND configured in {shadow,active} AND runtimeSupported(hostRunId) AND NOT suspended AND (validated(payloadHash) OR configured==shadow OR experimentalOptIn); effects only when configured==active",
+    "vocabulary": [
+      "off",
+      "shadow",
+      "active"
+    ]
+  },
+  "evolutionRules": [
+    "cross-plane change ships contract tests on both sides",
+    "pipe hello carries hostRunId + contract version",
+    "one migration owner per durable schema",
+    "prompt-visible content only via C-04 lanes",
+    "run-local ids only as opaque provenance in durable records",
+    "Essential behavior claims cite pinned evidence or are UNKNOWN"
+  ]
+}
