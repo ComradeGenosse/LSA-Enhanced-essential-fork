@@ -26,8 +26,8 @@ namespace LSA.Enhanced.Input
         EnhancedSettings settings;
         string state = "idle", selectionId, encounterId, selectId, startId, stopId;
         int generation, pressGeneration, stopRetries, stoppedGeneration;
-        long pressAt, cycleUntil, nextInterest, stopDeadline, nextTalkLeaseRefresh;
-        bool enabled, waitRelease, haveSession, startQueued, stopQueued, stopNeeded, sharedEssentialTalk;
+        long pressAt, cycleUntil, selectionExpiresAt, nextInterest, stopDeadline, nextTalkLeaseRefresh;
+        bool enabled, waitRelease, haveSession, startQueued, stopQueued, stopNeeded, sharedEssentialTalk, startExplicit;
         public TalkTargetInput(IKeySource keys,IGameState game,INativeBridge bridge,IClock clock,IHud hud,Action<string> log,Func<NativeSnapshot> snapshot,Func<bool> menuOpen)
         {
             this.keys = keys; this.game = game; this.bridge = bridge; this.clock = clock; this.hud = hud; this.log = log ?? (_ => { });
@@ -59,7 +59,7 @@ namespace LSA.Enhanced.Input
             Conflict = null;
             if (active) Finish("settings");
             ReleaseSharedTalk();
-            if (next == null || !next.TalkEnabled || next.TalkKeyCode == 0) { enabled = false; state = "idle"; waitRelease = true; haveSession = false; selectionId = encounterId = null; return; }
+            if (next == null || !next.TalkEnabled || next.TalkKeyCode == 0) { enabled = false; state = "idle"; waitRelease = true; haveSession = false; selectionId = encounterId = null; selectionExpiresAt = cycleUntil = 0; return; }
 
             var matches = essential?.All.Where(item => item.State == EssentialKeyState.Bound && item.Vk == next.TalkKeyCode).ToArray();
             var other = matches?.FirstOrDefault(item => item.Setting != "TalkKey");
@@ -124,7 +124,7 @@ namespace LSA.Enhanced.Input
         public void Clear(string reason)
         {
             Finish(reason ?? "manual");
-            haveSession = false; selectionId = encounterId = null; cycleUntil = 0;
+            haveSession = false; selectionId = encounterId = null; cycleUntil = selectionExpiresAt = 0;
             Submit("talk.clear",0,false);
             state = "idle"; waitRelease = enabled && Down();
         }
@@ -154,8 +154,9 @@ namespace LSA.Enhanced.Input
             if (generation > 1000000) generation = pressGeneration = 1;
             if (stopNeeded || stopQueued) { state = "idle"; waitRelease = true; return; }
             startQueued = false; stopRetries = 0;
-            bool known = haveSession && selectionId != null && now < cycleUntil;
-            string id = Submit(known ? "talk.ptt_start" : "talk.ptt_start",pressGeneration,!known);
+            bool explicitTarget = haveSession && selectionId != null && now < selectionExpiresAt;
+            startExplicit = explicitTarget;
+            string id = Submit("talk.ptt_start",pressGeneration,!explicitTarget);
             if (id == null) { state = "idle"; waitRelease = true; hud.Show(bridge.Available ? "Talk targeting unavailable" : "LSA native host is unavailable"); return; }
             startId = id; startQueued = true; state = "start_pending";
         }
@@ -224,6 +225,7 @@ namespace LSA.Enhanced.Input
             selectionId = id; haveSession = true;
             encounterId = result.Body.TryGetValue("encounterId",out var encounter) && encounter is string text && Uuid.IsMatch(text) ? text : null;
             cycleUntil = clock.Monotonic + (settings?.TalkCycleWindowMs ?? 1500);
+            selectionExpiresAt = clock.Monotonic + (settings?.TalkSelectionTimeoutMs ?? 8000);
             int index = Number(result.Body,"cycleIndex"), count = Number(result.Body,"cycleCount");
             if (index > 0 && count > 0) hud.Show("Target " + index + "/" + count);
         }
@@ -235,8 +237,15 @@ namespace LSA.Enhanced.Input
             startId = null;
             bool started = result.Status == "ok" && result.Body != null && result.Body.TryGetValue("started",out var flag) && flag is bool yes && yes;
             if (started) {
-                if (result.Body.TryGetValue("selectionId",out var selection) && selection is string id && Uuid.IsMatch(id)) { selectionId = id; haveSession = true; cycleUntil = clock.Monotonic + (settings?.TalkCycleWindowMs ?? 1500); }
-                if (result.Body.TryGetValue("encounterId",out var encounter) && encounter is string text && Uuid.IsMatch(text)) encounterId = text;
+                if (startExplicit) {
+                    if (result.Body.TryGetValue("selectionId",out var selection) && selection is string id && Uuid.IsMatch(id)) {
+                        selectionId = id; haveSession = true;
+                        selectionExpiresAt = clock.Monotonic + (settings?.TalkSelectionTimeoutMs ?? 8000);
+                    }
+                    if (result.Body.TryGetValue("encounterId",out var encounter) && encounter is string text && Uuid.IsMatch(text)) encounterId = text;
+                } else {
+                    haveSession = false; selectionId = encounterId = null; cycleUntil = selectionExpiresAt = 0;
+                }
                 long latency = clock.Monotonic - pressAt;
                 if (latency >= 0 && latency < 10000) log("[UX4] talk_ptt begin latencyMs=" + latency);
                 if (state == "start_pending" && Down() && !stopNeeded) state = "talking";
