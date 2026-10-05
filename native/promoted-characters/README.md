@@ -36,6 +36,8 @@ The first compiles the production safety/admission source with .NET 10. The seco
 
 See [P2 flow, persistence, limits and physical checklist](../../docs/P2-promoted-characters-status.md) and [focused native evidence](../../docs/P2-native-evidence.md).
 
+The same loader/runtime now also hosts merged UX4 talk targeting. UX4 can share Essential's existing Talk key without changing the controller binding. A normal hold performs direct Talk with no bracket; a tap enters explicit target selection/cycling, and the bracket fades independently of the target lifetime. See [UX4 status](../../docs/UX4-talk-targeting-status.md) and [controller setup](../../docs/controller-setup.md).
+
 The same private runtime includes optional PS0/PS1 perception. Its `intelligence.mode` defaults to `off`; `shadow` uses a separate output-only factual channel without model context, memories or actions. No additional plugin or DamageTracker service is created. See [PS0/PS1 status, bounds and physical checklist](../../docs/PS0-PS1-perception-status.md).
 
 Clock recovery checks link the production integration and Windows pipe code against strict game substitutes:
