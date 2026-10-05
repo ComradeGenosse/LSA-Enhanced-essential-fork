@@ -17,4 +17,4 @@ The imported source/reference file hashes are recorded in import-file-manifest.j
 - E2/E3 plan module syntax: verified in the original review; plan stages form an acyclic dependency graph.
 - Live provider requests, GTA launch, and deployment: not run as part of this import.
 
-E2/E3 is planned work, not implemented behavior. The prior plan review's source-unavailability statement describes the earlier review context; source was subsequently found and imported through the previous chat.
+At this import checkpoint E2/E3 was planned work rather than implemented behavior. That statement is historical: E2/E3 are now implemented. The prior plan review's source-unavailability statement likewise describes only the earlier review context.
