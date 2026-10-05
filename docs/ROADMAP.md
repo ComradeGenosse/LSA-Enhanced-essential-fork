@@ -2,7 +2,7 @@
 
 Updated October 5, 2026.
 
-Current runtime/code baseline: main includes unified UX phases 0–3, production input/Harmony fixes, PS2 witness/episode correlation, corrected PS3 salience, and bounded intelligence JSONL telemetry. PS3 passed the full offline matrix, was hash-deployed in shadow on October 5, and live JSONL persistence was verified in GTA. Structured PS3 behavioral acceptance and the controlled native-damage callback probe remain pending. Source-time player-speech hearing remains disabled pending native capture receipts. ACT0/ACT1 and ACT2 remain unmerged and require reconciliation.
+Current runtime/code baseline: `main@9ab89e0` includes E1–E6, P0–P2, UX0–UX4, production input/Harmony interception, PS0–PS3, and bounded intelligence JSONL telemetry. UX4's shared Essential Talk-key path was exercised in GTA, then its direct-talk/explicit-selector refinement was merged to `main`; that refinement still needs a fresh physical acceptance pass. PS3 is deployed in shadow; live JSONL persistence, real PS2→PS3 evaluation, clean three-turn shared-Talk behavior, and retained-history pressure without admission drops were verified on October 5. The controlled native damage-callback probe remains open. Source-time player-speech hearing remains disabled pending native capture/utterance receipts. ACT0/ACT1 and ACT2 remain substantial implemented-but-unmerged branches and require reconciliation plus fresh post-hardening regression/build evidence.
 
 This roadmap tracks the Essential-based LSA companion from the hardened E1.1 foundation through low-latency dialogue, durable NPC identity, richer perception, autonomous scene behavior, and final long-session acceptance.
 
@@ -33,36 +33,36 @@ Essential remains authoritative for native NPC state, turn/generation identity, 
 | P0 — TURN_CONTEXT | ✅ Merged to `main` + offline-verified; GTA acceptance pending | Immutable per-turn actor/listener/world snapshots and time-of-use P/V target-reference validation |
 | P1 — SESSION_IDENTITY | ✅ Implemented | Explicit owner-authenticated durable UUIDs, runtime bindings, and persistent voice assignments are merged to `main` |
 | P2 — PROMOTED_CHARACTERS / CHARACTER_PROFILE | ✅ Implemented | Merged to `main` and exercised in GTA: promotion, character editor/profile memory editing, summon, follow/wait and native vehicle behavior |
-| UX0–UX3 — CONTROLS / NATIVE MENU | ✅ Merged to `main` + offline-verified; GTA acceptance pending | Command bridge, input router/chords, F11 native menu, Current NPC / Characters / Controls / AI / Diagnostics pages |
-| UX4 — TALK TARGET SELECTOR | 🔵 T0A audit + implementation plan complete; not implemented | Visible target select/cycle plus exact-Ped held PTT without replacing Essential's conversation lifecycle |
+| UX0–UX3 — CONTROLS / NATIVE MENU | ✅ Merged to `main`; exercised in live development, broader acceptance remains ongoing | Command bridge, input router/chords, F11 native menu, Current NPC / Characters / Controls / AI / Diagnostics pages |
+| UX4 — TALK TARGET SELECTOR | ✅ Merged to `main`; shared-Talk path GTA-verified, latest UX refinement GTA-pending | Existing Talk binding can be shared safely. Normal hold = direct Talk/no bracket; tap = explicit select; repeated taps cycle; explicit target outlives the ~1 s indicator preview |
 | CGE — CONVERSATION GAZE / ENGAGEMENT | 🔵 Plan amended after convergence audit; not implemented | Yielding head/eye attention overlay for the current conversation partner. Essential's own conversation-look behavior wins; whole-body `stop_and_face` belongs to ACT3, not CGE |
-| RADIO TRACK PERCEPTION | 🔵 Implementation-ready research; not implemented | Source-time vehicle-radio producer feeding PS2 witness attribution and PS3 salience; no direct prompt injection |
+| RADIO TRACK PERCEPTION | 🟡 R0–R2 implemented on `feature/radio-track-perception-r0-r2`; unmerged | 250 ms raw station/track sampler and change/stop facts only. Public catalog v2 research exists; PS2 witness/PS3/PS4 integration remains future work |
 | PS0 / PS1 — PERCEPTION FOUNDATION | ✅ Implemented offline on `main`; physical GTA validation pending | Default-off shadow contracts, lifetime anchors, bounded factual transport and supported native producers |
-| PS2 — WITNESS / EPISODE CORRELATION | Implemented offline on `main`; GTA acceptance pending | Witness rules, episode correlation, immutable observer revisions and speech contracts are merged. Source-time player-speech hearing remains disabled until native mic/capture receipts are proven. |
-| PS3 — DETERMINISTIC SALIENCE | Merged into main; offline-verified and deployed locally in shadow | Corrected salience and bounded JSONL telemetry passed 387 Node tests across 36 modules and 12 native suites (979 assertions). All 73 deployed files match the manifest. Structured GTA acceptance and live logging verification remain pending. |
+| PS2 — WITNESS / EPISODE CORRELATION | ✅ Merged on `main`; live counters exercised in GTA, structured acceptance still open | Witness rules, episode correlation and immutable observer revisions are live in shadow. Source-time player-speech hearing remains disabled until native mic/capture receipts are proven. |
+| PS3 — DETERMINISTIC SALIENCE | ✅ Merged, deployed in shadow, live telemetry/evaluation verified | Corrected salience and bounded JSONL telemetry passed the full offline matrix. October 5 GTA data showed PS2 witnessed outputs == PS3 decisions, zero PS3 faults, persistent JSONL cadence, and history-pressure eviction without admission drops. Controlled damage-callback probe remains open. |
 | PROXIMITY_CHAT / SOCIAL_ROUTING | 🔵 Architecture researched; not implemented | Route one player utterance through hearing/address/overhearing and responder arbitration without creating a second dialogue stack |
 | SCENE_DIRECTOR | 🔵 Architecture researched; not implemented | NPC initiative and coordinated autonomous behavior built on perception, salience, social state and ACT capabilities |
 | ACT0 / ACT1 — ACTIVITY FOUNDATION | 🟡 Implemented + post-review hardened on `feature/act0-act1-contracts-shadow-observer`; unmerged | Closed capability/contracts layer plus shadow observation/correlation. Needs reconciliation with current `main`, full post-hardening regression/build, then GTA shadow probes |
 | ACT2 — BASIC PLAYER ACTIVITIES | 🟡 Implemented + post-review hardened on `feature/act2-player-assigned-basic-activities`; unmerged | F11 Follow/Wait/Sit/Resume lifecycle with pause/resume/cancel/status/history. Stacked on ACT0/1; full rerun and GTA gates still required |
-| ACT3 — RICH PLAYER ACTIVITIES | 🟣 Architecture settled; next new ACT implementation after ACT2 gates | Approach/face, vehicles, short-range scenarios, walk-away, cover and optional item interactions with physical completion evidence |
+| ACT3 — RICH PLAYER ACTIVITIES | 🟣 Architecture settled; next new ACT implementation after ACT2 reconciliation/gates | Approach/face, vehicles, short-range scenarios, walk-away, cover and optional item interactions with physical completion evidence |
 | ACT4 / ACT5 — DIALOGUE + AI ACTIVITIES | 🟣 Planned from settled architecture | Activity-aware dialogue/interruption, then closed validated Luna activity proposals |
 | ACT6 — NAVIGATION | 🟠 Research-gated | Add real `lsawalkto` / `lsadriveto` only after the required GTA navigation probes |
 | ACT7 — COMMITMENTS / DIRECTOR INTEGRATION | ⏳ Blocked on later PS phases | Durable commitments/home anchor, Scene Director activity proposals and directed NPC↔NPC interaction; depends on PS5/PS6/PS7 |
 | E7 | Planned | Full regression, soak testing, GTA acceptance and integrated long-session validation |
 
-## Active development queue — October 4, 2026
+## Active development queue — October 5, 2026
 
-The branch list is now large enough that branch existence must not be confused with roadmap status. The near-term queue is:
+Branch existence must not be confused with production status. The near-term queue is now:
 
-1. **PS3 runtime verification** — Corrected PS3 and bounded JSONL telemetry are merged into main after the complete offline suite and builds passed. The October 5 shadow deployment is hash-verified. Record structured GTA acceptance and confirm intelligence events in the JSONL logs.
-2. **ACT0/ACT1 reconciliation / merge candidate** — `feature/act0-act1-contracts-shadow-observer@5d11ee9` contains the closed activity contract and hardened shadow observer. It is unmerged and behind the later PS2/production-fix baseline. Reconcile first, run the full post-hardening Node/.NET/build matrix, then merge with ACT still default-off/shadow-only.
-3. **ACT2 stacked merge candidate** — `feature/act2-player-assigned-basic-activities@1388954` is real implementation, not planning. It is stacked on ACT0/ACT1, so do **not** merge it first. After ACT0/ACT1 lands, rebase/reconcile ACT2, rerun its full matrix, and only enable individual capabilities after their GTA probes.
-4. **Next new core implementation work** — after that consolidation, the PS track moves to **PS4 immutable dialogue knowledge**, while the ACT track moves to **ACT3 rich short-range activities**. These can proceed in parallel because they solve different problems.
-5. **Independent UX/presentation side tracks** — `research/ux4-talk-target-selector@2ddb8ae` has T0A complete and an implementation-ready plan; `docs/conversation-gaze-engagement-plan@f20193f` has a bounded CGE0–CGE3 plan; `research/radio-track-perception-20261004@7f6ad8e` is implementation-ready research. None is a prerequisite for merging PS3/ACT0/ACT2.
+1. **Fresh current-main UX4 GTA acceptance** — The earlier October 5 run validated shared Mouse4 interception, clean PTT start/stop and no duplicate stock Talk. The later direct-talk/explicit-selector refinement is now on `main` but has not yet been physically tested. Verify: normal hold has no bracket; tap enters selector mode; cycle works with 2+ NPCs; bracket fades while target remains usable; exact selected NPC receives the turn; vehicle occupants work; disabling UX4 restores stock Talk cleanly.
+2. **ACT0/ACT1 reconciliation / merge candidate** — `feature/act0-act1-contracts-shadow-observer@5d11ee9` contains the closed activity contract and hardened shadow observer. Reconcile onto current `main` (which now includes PS3 + UX4), retain shadow-only behavior, rerun the full Node/.NET/build matrix, then run Q2/PT1/X1/M1 GTA probes.
+3. **ACT2 stacked merge candidate** — `feature/act2-player-assigned-basic-activities@1388954` is real implementation, not planning. It is stacked on ACT0/1. After ACT0/1 lands, reconcile ACT2, rerun its full matrix, then run Q1/F1/K1/R1/FR1/M1 before enabling any capability in production.
+4. **Next new core implementation work** — Once ACT consolidation is complete, proceed with **PS4 TurnKnowledgeFrame / epistemic firewall** and **ACT3 rich short-range activities** in parallel. PS4 becomes the single knowledge/prompt assembly seam; ACT3 extends the validated Essential execution path with physical completion evidence.
+5. **Independent side tracks** — radio R0–R2 may be reconciled as raw shadow facts without prompt injection; CGE0/1 waits for the shared utterance lifecycle seam and remains head/eye-only; radio knowledge/R3 waits for PS4; UX4 typed-target follow-up also waits for the utterance lifecycle seam.
 
-Open PRs #3, #10 and #12 are research/evidence branches, not production runtime branches: remaining native context audit, perception/salience/Scene Director architecture, and Essential action-completion audit respectively. Their findings are inputs to the implementation branches; merging those PRs is not a prerequisite for the current runtime queue.
+Historical feature branches for P1, P2, PS0/PS1, PS2, PS3 and UX0–UX4 are implementation history/reference now that their production equivalents are on `main`. Do not infer unfinished work merely because those refs remain.
 
-Historical feature branches for P1, P2, PS0/PS1, PS2 and UX0–UX3 should be treated as implementation history/reference now that their production equivalents are already on `main`; do not infer unfinished work merely because those branch refs still exist.
+The convergence architecture remains the forward dependency authority: shared utterance lifecycle (C-01), shared anchors (C-02), salience acknowledgement (C-03), one TurnKnowledgeFrame (C-04), DialogueActionReceipt (C-05), primary-owner token (C-06), TimelineGuard/Profile v2/SubjectRef (C-07/C-08/C-15), capability health (C-09), Essential conversation-partner policy (C-10), Director→ACT ownership (C-11), responder reservation (C-12), host/world epoch (C-13), and ObserverSituation (C-14).
 
 ## GTA deployment / physical validation state — perception track
 
@@ -71,26 +71,22 @@ Keep this separate from implementation status:
 | Phase | Repo status | Last recorded GTA deployment state | Physical GTA acceptance |
 | --- | --- | --- | --- |
 | PS0 / PS1 | Merged on `main` | Included in the later PS2 production payload lineage; intelligence configured in `shadow` for the recorded PS2 deployment | **Pending.** The full PS0/PS1 acceptance sequence has not been closed |
-| PS2 | Merged on `main` | The reviewed PS2 payload at `5ea77f8` was deployed/installed before the later combined-source integration; shadow mode remained enabled | **Pending.** Witness/episode behavior needs a deliberate GTA validation pass. Player-speech hearing remains intentionally disabled |
-| PS3 | Corrected implementation and JSONL telemetry merged into main; offline-verified | **Deployed in shadow on October 5; 73/73 files hash-verified after full rollback backup.** | Structured physical acceptance and live JSONL logging verification pending |
+| PS2 | Merged on `main` | Present in the October 5 combined payload and live shadow run | **Partially exercised.** Correlation/witness counters advanced with zero PS2 drops/duplicates. Deliberate witness-policy scenarios and player-speech hearing remain open |
+| PS3 | Corrected implementation and JSONL telemetry merged into main; offline-verified | **Deployed in shadow on October 5.** The later shared-Talk hotfix payload had 74 manifest files and all matched on disk | **Live JSONL/evaluation verified.** Structured salience scenarios and the controlled native damage-callback probe remain open |
 | PS4+ | Not implemented | Not deployable | Not applicable yet |
 
-The October 4 combined production-source integration on `main` passed offline regression/build validation but explicitly did **not** itself establish a new GTA deployment or controller/GTA acceptance record. Therefore "merged", "built", "installed" and "physically accepted" must remain separate states.
+The October 4 combined production-source integration on `main` passed offline regression/build validation but explicitly did **not** itself establish a new GTA deployment or controller/GTA acceptance record. Therefore "merged", "built", "installed" and "physica### Recommended next GTA perception milestone
 
-### Recommended next GTA perception milestone
+The combined PS0–PS3 payload is already deployed in shadow and live PS2/PS3 counters plus JSONL persistence are proven. The next perception session should therefore target the remaining **behavioral and producer-specific gaps**, not repeat basic initialization:
 
-Do not spend a full acceptance session certifying an older PS0–PS2 payload if PS3 is about to be reconciled. The preferred milestone is:
+1. run isolated player, tracked-NPC and vehicle damage cases while recording `pedDamageCallbacks`, `playerDamageCallbacks` and `vehicleDamageCallbacks`;
+2. verify witness/episode attribution for firing, injury, death, vehicle and location/activity transitions with known observer placement;
+3. exercise salience repeat suppression/re-grant behavior and confirm PS3 faults stay zero;
+4. confirm history eviction/expiry can rise without semantic admission drops;
+5. verify reconnect/restart/anchor retirement behavior;
+6. preserve shadow guarantees: no new Luna turns, automatic memory writes, autonomous actions or playback interruption.
 
-1. reconcile PS3 onto current `main`;
-2. rerun its offline regression/build checks;
-3. build one combined PS0–PS3 payload from current `main`;
-4. make the normal verified rollback backup and deploy/hash-verify that exact payload;
-5. keep intelligence in `shadow`;
-6. run one structured PS0–PS3 GTA acceptance session.
-
-That session should cover startup/host health, observer roster and lifetime behavior, firing edges, isolated player/NPC damage callback counts, injury/death versus disappearance, vehicle damage/entry/exit/seat transitions, stable location/activity transitions, dismiss/recreate and stale-anchor rejection, reconnect/restart behavior, PS2 witness/episode correlation, and PS3 decision/suppression counters. It must also confirm that shadow perception produces **no** new Luna turns, automatic memory writes, autonomous actions or playback interruption.
-
-The separate source-time microphone/capture-receipt probe remains an independent gate for `speech_heard`. Until that exact begin/end linkage is proven, PS2/PS3 may validate other perception events in GTA while player-speech hearing stays disabled.
+The separate source-time microphone/capture-receipt probe remains an independent gate for `speech_heard`. Until exact begin/end UUID/tick linkage is proven, player-speech witnessing stays disabled even though other PS2/PS3 perception is live.
 
 ## Completed foundation
 
