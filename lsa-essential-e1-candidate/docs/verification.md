@@ -1,5 +1,7 @@
 # E1.1 implementation and verification report
 
+> **Checkpoint scope:** this is the E1/E5/E6 verification record, not the current whole-project status page. Later P/PS/UX integrations and GTA runs are tracked in the root README and ROADMAP.
+
 ## E5/E6 implementation update (2026-10-01)
 
 E5 structured Responses streaming and E6 early segmented TTS are implemented behind `structuredStreamingEnabled` and `earlyTtsEnabled`; both default off in the repository example.
@@ -25,7 +27,7 @@ The earlier Phase 10B stream-gap result remains prior evidence only and is not c
 
 Historical E1.1 baseline receipt: the focused hardening pass and original live API smoke updated the `lsa-essential-e1-candidate` workspace without changing the live GTA installation; that smoke used a simulated native endpoint. The later E5/E6 test deployment is documented above.
 
-Candidate status: **production telemetry regression reproduced and fixed; offline suite passes; repaired GTA/runtime validation remains outstanding**.
+Checkpoint status: **production telemetry regression reproduced and fixed; offline suite passed; the repaired build subsequently completed a 13-turn GTA playback run.** Remaining E6-specific gaps are audible pre-model-completion playback, true multi-segment/gap behavior, typed-input coverage and multi-NPC isolation.
 
 ## Offline results
 
@@ -58,4 +60,4 @@ Essential remains the only allocator/authority for native ped, turn, generation,
 
 ## Remaining GTA/runtime verification
 
-The live smoke establishes OpenAI endpoint compatibility for the configured requests outside GTA. It does not establish actual DLL/server version matching, physical speech duration in GTA, native audio playback, acoustic interruption behavior, or in-game action/world effects. Those require the manual acceptance items in the [GTA smoke checklist](gta-smoke-checklist.md); none were run here.
+The live smoke itself establishes only OpenAI endpoint compatibility outside GTA. Later controlled GTA runs did establish native playback, interruption cleanup and action-buffering evidence for the repaired E6 path; they did not establish every manual smoke item. Audible early playback, multi-segment gaps, typed input, multi-NPC isolation and broader world/action effects remain follow-up regression coverage.
