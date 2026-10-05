@@ -33,6 +33,32 @@ The corrected 73-file overlay was deployed on October 5 after a full hash-verifi
 
 The installed intelligence mode is `shadow`; player-speech witnessing remains disabled because there is no source-time capture receipt. The game, RAGE Plugin Hook, and LSA server were stopped during deployment. GTA was not launched. The local staging receipt and backup manifest contain per-file hashes.
 
+## JSONL shadow telemetry
+
+The existing console `[PS] companion_shadow` report is still produced on its existing **10-second cadence** after the intelligence hello has initialized. A scalar-only projection is now also persisted through E4 observability to the server's normal rotating JSONL files:
+
+```text
+<LosSantosAliveServer>/logs/e1-run-<UTC>-<runId>.jsonl
+```
+
+The persistent records are:
+
+- `intelligence_status` with `data.stage` = `connecting`, `connected`, `initialized`, or `disconnected`.
+- `companion_shadow` with bounded transport counters plus PS2 `correlated`, `witnessed`, `duplicates`, `dropped` and PS3 `decisions`, `urgent`, `eligible`, `staged`, `suppressed`, `faults`.
+
+Only explicitly whitelisted scalar counters cross this persistence boundary. Capabilities, dialogue, accepted speech text/transcripts, credentials, profile contents, memories, and arbitrary nested report data are not persisted by these records. The E4 sink remains passive: telemetry callback, serialization, queue, rotation, or write failures are swallowed/contained and cannot change intelligence acceptance, salience decisions, native behavior, or gameplay.
+
+To verify initialization on a live shadow run from the server directory:
+
+```powershell
+$log = Get-ChildItem .\logs\e1-run-*.jsonl | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+Select-String -Path $log.FullName -Pattern '"event":"intelligence_status"','"event":"companion_shadow"'
+```
+
+A healthy connection should show `connecting` -> `connected` -> `initialized`, followed by `companion_shadow` records roughly every 10 seconds while the channel remains initialized. A close/restart should add `disconnected`; reconnect attempts begin again with `connecting`.
+
+To verify salience activity without inspecting dialogue, trigger an ordinary supported PS2 event such as companion damage or witnessed gunfire and compare successive `companion_shadow` records. `ps3Decisions` should advance; the relevant `ps3Urgent` / `ps3Eligible` / `ps3Staged` / `ps3Suppressed` counters may advance according to the existing salience policy, while `ps3Faults` should remain zero. PS2 correlation/witness counters should advance independently. Player-speech hearing remains gated off by the existing unsupported-capture-receipt rule and this logging change does not alter that path.
+
 ## GTA validation still open
 
 1. Enable intelligence shadow mode only. Confirm no new Luna turn, memory file write, action, or playback interruption during damage and gunfire.
