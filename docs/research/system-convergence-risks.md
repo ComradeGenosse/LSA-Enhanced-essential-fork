@@ -1,5 +1,8 @@
 # System convergence risk register
 
+> **Corpus status note:** Risk IDs and failure-mode analysis are preserved as architectural provenance. Some "fix now" items have since been implemented or amended. Use [CURRENT.md](CURRENT.md), [DECISIONS.md](DECISIONS.md), and [../ROADMAP.md](../ROADMAP.md) for current resolution/implementation status.
+
+
 Part of the [system convergence architecture](system-convergence-architecture.md) research package. Research only.
 
 **Priority scale (from the brief)**
