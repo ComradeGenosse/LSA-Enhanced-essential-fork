@@ -60,13 +60,16 @@ Action validation parses with the stock Essential command parser and compares ag
 
 ## Status
 
-P1 SESSION_IDENTITY is implemented and verified offline on the merged P0 baseline. It defaults off; shadow mode verifies metadata without adopting character voices, and voices mode adopts a persisted actual assignment only at a clean session boundary. All native effects retain the original Essential tuple, and returning characters get fresh session history. The optional addon uses only pinned public integration seams. No P1 payload was deployed or tested in GTA; its controlled checklist and the separate P0/E6 physical gates remain pending. See the [P1 status record](../docs/P1-session-identity-status.md) for current test counts and build hashes.
+The companion source on current `main` is no longer only an E1/E6 candidate: it is the provider-side half of the merged P0–P2 and PS0–PS3 system.
 
-E5 structured streaming is implemented and has passed the explicit live streaming capability smoke against the configured `gpt-6-luna` endpoint. E6 early segmented TTS is implemented and has passed the stock-controller/native-lifecycle integration gate: early PCM precedes model completion, delayed segments keep exact native identity/order, one final stream-end is used, and assistant history waits for matching `PlaybackEnded`.
+- **P0** turn snapshots are merged and offline-verified; engine-level target-reference stress remains a GTA checklist item.
+- **P1** SESSION_IDENTITY is merged and used by P2. Live P2 promotion exercises the owner-authenticated identity path; deeper recreation/revocation/stale-work stress remains follow-up coverage.
+- **P2** promoted characters are merged and GTA-exercised, including promotion, editor/profile/manual-memory editing, summon, follow/wait and native vehicle/driver behavior.
+- **PS0–PS3** are merged in default-off/shadow form. Live GTA evidence proves PS2→PS3 evaluation and persistent privacy-filtered JSONL telemetry. Player-speech hearing remains intentionally gated pending source-time capture receipts, and direct DamageTracker callbacks still need a controlled probe.
+- **UX4** lives primarily in the native/loader package but is part of the current integrated runtime. Shared Essential Talk-key interception has live GTA evidence; the latest direct-Talk/no-bracket vs tap/cycle explicit-selector refinement is merged and awaits a fresh exact-main GTA pass.
+- **E5/E6** remain implemented. E5 has live API capability evidence; E6 has live GTA playback-path evidence. Audible pre-terminal playback and multi-segment stress remain regression/soak items.
 
-The character-aware voice branch passes the full offline regression suite: **164 tests, 0 failures**, followed by a successful pinned candidate build with **25 source-pinned patches**. The built launcher hash is `0443800cf148f10baa58558f106baa1e97e6edc2d227c0d48cf8fef15c457ed9`. [GitHub Actions validation](https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/actions/runs/36948145647). It includes the `84df8e30` model-failure/PCM16 hardening and the production telemetry repair reproduced from the first failed E5/E6 GTA runs. The stock E6 test now exercises the real logger; physical GTA acceptance of the repaired build remains open.
-
-A controlled E5/E6 payload is installed/staged in the live GTA server directory with both runtime flags enabled and rollback backups recorded. Repository HEAD may be newer than that installed payload. Physical GTA playback, real segment-gap behavior, interruption/late-failure behavior, and resulting live log evidence remain the outstanding E6 release gate. The checked-in example config continues to default both feature flags off.
+See the root [ROADMAP](../docs/ROADMAP.md) for the current main/off-main split and sequencing.
 
 ## P2 promoted characters
 
