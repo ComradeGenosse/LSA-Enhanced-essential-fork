@@ -33,9 +33,12 @@ sealed class FakeBridge : INativeBridge, IEssentialInputBridge
     public readonly LSA.PromotedCharacters.InputLeaseState Input = new LSA.PromotedCharacters.InputLeaseState();
     public FakeClock InputClock;
     public readonly List<int> Pulses = new List<int>();
-    public bool LeaseInput(int mark,int text) => InputSupported && Input.Lease(mark,text,InputClock.Monotonic);
-    public bool PulseInput(int vk) { if (!InputSupported || !Input.Pulse(vk,InputClock.Monotonic)) return false; Pulses.Add(vk); return true; }
-    public void ReleaseInput() => Input.Release();
+    public int TalkLeaseCalls, TalkReleaseCalls;
+    public bool LeaseInput(int mark,int text) => InputSupported && InputClock != null && Input.LeaseRouter(mark,text,InputClock.Monotonic);
+    public bool LeaseTalkInput(int talk) { TalkLeaseCalls++; return InputSupported && InputClock != null && Input.LeaseTalk(talk,InputClock.Monotonic); }
+    public bool PulseInput(int vk) { if (!InputSupported || InputClock == null || !Input.Pulse(vk,InputClock.Monotonic)) return false; Pulses.Add(vk); return true; }
+    public void ReleaseInput() => Input.ReleaseRouter();
+    public void ReleaseTalkInput() { TalkReleaseCalls++; Input.ReleaseTalk(); }
     public bool Available {get;set;} = true;
     public string SnapshotJson;
     public readonly List<string> Submitted = new List<string>();
