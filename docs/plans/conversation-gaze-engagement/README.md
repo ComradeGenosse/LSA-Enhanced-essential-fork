@@ -13,7 +13,6 @@ When the player addresses an NPC, the NPC should:
 - notice and visually acquire the player;
 - track the player with head/eye attention while listening;
 - remain visually engaged while its own speech is playing;
-- reorient its body only when a head-only pose is no longer plausible and doing so is safe;
 - continue tracking as the player moves;
 - release attention naturally when the exchange ends;
 - fail closed when the ped, target, or gameplay state becomes unsafe.
@@ -59,7 +58,7 @@ CGE must run inside Essential's domain through IIntegration.Update. The loader-d
 
 The existing IntelligenceIntegration already polls the same conversation target and subscribes to playback events. CGE may copy the lifetime-validation pattern, but must not route physical gaze through the perception channel.
 
-P2 also calls NpcFocus.SetFocus during Follow. CGE0 must determine what NpcFocus actually owns and whether it is suitable for visual-only conversation attention before introducing a parallel focus mechanism.
+Essential already owns conversation look behavior (`ConversationLookBehavior`) during mic/playback lifecycles, and P2 also calls `NpcFocus.SetFocus` during Follow. CGE0 must characterize both. CGE is a **yielding overlay**: it may refresh head/eye gaze only when Essential's own conversation look behavior is not actively owning that attention channel, and it must never compete with ACT for body orientation.
 
 ## Architecture
 
@@ -74,11 +73,10 @@ Essential targeting / source-time speech lifecycle / playback events
              ConversationEngagementController
                  /                 \
                 v                   v
-        NativeGazeDriver      BodyTurnPolicy
-          head/look-at       stationary-only turn
-                \                   /
-                 \                 /
-                  ---- GTA/RAGE ----
+        NativeGazeDriver
+          head/eye only
+                |
+          ---- GTA/RAGE ----
 ~~~
 
 Moment-to-moment decisions stay native and deterministic. No network/model round trip is allowed in the gaze loop.
@@ -89,10 +87,11 @@ The implementation is split into four bounded stages:
 
 1. CGE0 — prove lifecycle and native behavior in shadow/probe form.
 2. CGE1 — head/eye look-at MVP with target lifetime, safety, release, and telemetry.
-3. CGE2 — conservative body reorientation with hysteresis and strict ownership gates.
-4. CGE3 — listening/speaking tuning, graceful release, vehicle head-only behavior, and hardening.
+3. CGE3 — listening/speaking tuning, graceful release, vehicle head-only behavior, and hardening.
 
-CGE1 is the first player-visible milestone. CGE2 and CGE3 must not be required to prove that head tracking works.
+**CGE2 body reorientation is retired from CGE.** Whole-body orientation belongs to ACT3's `stop_and_face` capability under ACT's physical lease, so CGE never becomes a second orientation/task owner.
+
+CGE1 is the first player-visible milestone. CGE3 must not be required to prove that head tracking works.
 
 See:
 
