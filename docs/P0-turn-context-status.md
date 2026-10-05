@@ -2,7 +2,7 @@
 
 Updated October 2, 2026.
 
-**Status:** merged to `main` and offline-verified; GTA runtime acceptance is pending. P0 closes turn-context attribution and target-reference races without changing Essential's native turn, playback, or action-dispatch ownership.
+**Status:** merged to `main` and used by the later P1/P2/PS/UX production stack. The standalone checklist below remains useful regression coverage; its original “GTA runtime acceptance pending” wording should not be read as meaning P0 is absent from the deployed combined runtime. P0 closes turn-context attribution and target-reference races without changing Essential's native turn, playback, or action-dispatch ownership.
 
 ## Scope and behavior
 
