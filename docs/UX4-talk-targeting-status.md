@@ -86,6 +86,8 @@ GitHub Actions run `37318850380` on Windows against the hardened branch passed:
 
 The added regressions cover native PTT gate revalidation, active-mic ownership loss to a newer stock/MarkedTalk mic, retry after a physical `SendMicStop()` failure, and refusing a new hold while the previous stop remains unresolved.
 
+**Convergence follow-up:** the later conversation-partner ownership change (successful PTT release no longer clears `PlayerConversationPed`) was pushed after that Actions run. The prior counts remain evidence for the earlier hardened head, but the updated branch still requires a fresh offline/CI rerun before merge.
+
 ## GTA tests still required
 
 Use [UX4-talk-targeting-gta-acceptance.md](UX4-talk-targeting-gta-acceptance.md). Offline tests do not show that the microphone turn reached the highlighted NPC. In GTA, still verify:
