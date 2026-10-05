@@ -57,6 +57,8 @@ That separation is deliberate. The project does not create its own competing NPC
 
 P2 now adds optional **promoted persistent characters**: application-assigned encounter names, explicit player promotion through P1, a separate profile/memory store and local editor, guarded summon/recreation, and existing Essential companion controls. It defaults off; promotion, editor/profile memory editing, summon, follow/wait, and native vehicle/driver behavior have been exercised in GTA, while broader regression/acceptance remains ongoing. See [P2 setup, behavior and acceptance checklist](docs/P2-promoted-characters-status.md) and [compile-only native package](native/promoted-characters/README.md).
 
+Current `main` also contains the default-off **PS0–PS3 perception/salience pipeline** and **UX4 talk targeting**. PS3 runs in shadow and has live GTA evidence for PS2→PS3 evaluation plus privacy-filtered JSONL telemetry; player-speech hearing remains gated pending a source-time capture receipt, and direct DamageTracker callbacks still need a controlled probe. UX4 can reuse Essential's existing Talk key with no Steam Input remap: normal hold performs direct Talk without a selector bracket, while tap/cycle enters explicit target-selection mode.
+
 ## What you need
 
 ### Required
@@ -332,26 +334,24 @@ See:
 
 ## Current status
 
-P0 turn context is merged and P1 explicit-owner SESSION_IDENTITY is implemented and verified offline. P1 defaults off, supports shadow metadata verification, and persists only authenticated aliases/UUIDs/revisions and actual voice choices. Native effects retain Essential's exact tuple; returning characters get fresh session history. See the [P1 status, build pins, and controlled GTA checklist](docs/P1-session-identity-status.md). No P1 deployment or physical test has been performed, and the separate P0/E6 GTA gates remain pending.
+The authoritative code baseline is `main@d7d8311`.
 
-The repository currently contains:
+| Area | Current state |
+| --- | --- |
+| E1/E1.1, E2, E3, E4, E5, E6 | Implemented. E5 has live API capability evidence; E6 has GTA playback-path evidence. Audible-before-model-complete and multi-segment stress remain E7-style regression coverage rather than implementation blockers. |
+| P0 | Merged and offline-verified; dedicated GTA target-reference stress checklist remains open. |
+| P1 | Merged and used by P2. Live P2 promotion exercises the owner-authenticated identity path; deeper recreation/revocation/stale-work stress remains follow-up coverage. |
+| P2 | Merged and exercised in GTA: promotion, editor/profile/memory editing, summon, follow/wait and vehicle/driver behavior. |
+| UX0–UX3 | Merged. Command bridge, gesture router and F11 menu are part of the optional P2 loader; full controller acceptance remains incomplete. |
+| UX4 | **Merged to main.** Shared Essential Talk-key interception was exercised in GTA with three clean turns and no duplicate stock Talk. The newer direct-Talk/no-bracket vs tap/cycle explicit-selector refinement is merged but still needs a fresh exact-main build/deploy/GTA pass. |
+| PS0–PS2 | Merged in default-off/shadow form. The live pipeline is running; structured witness/episode acceptance remains open. Source-time player speech is intentionally disabled pending capture receipts. |
+| PS3 | **Merged, deployed in shadow and live-telemetry verified.** The latest run recorded 380 PS3 decisions with 0 PS3 faults and no companion/PS2 admission drops under retained-history pressure. Structured salience behavior and direct player/NPC/vehicle damage callbacks remain open. |
+| ACT0/ACT1 | Implemented and hardened off-main; 11 unique commits / 78 behind current main. Reconcile + full rerun before merge. |
+| ACT2 | Implemented and hardened off-main; 40 unique commits / 78 behind current main, stacked on ACT0/1. |
+| PS4+, ACT3+, CGE | Not implemented on main. Architecture/plans exist. |
+| Radio | Raw R0–R2 sampler exists off-main; stronger public-data/text-ID v2 research exists. Reconciliation and GTA identifier proof are required before merge. |
 
-- hardened E1/E1.1 native-lifecycle integration;
-- observability/reporting and Windows-safe log retention;
-- E2 provider/voice/acting implementation;
-- E3 provider retry/reliability implementation;
-- **E5 structured Responses streaming**;
-- **E6 early segmented TTS for safe dialogue-only turns**;
-- source-pinned build tooling;
-- native contract verification;
-- deployment/rollback tooling;
-- offline regression coverage.
-
-E5 has passed the explicit live streaming capability smoke against the configured `gpt-6-luna` endpoint. E6 has passed the patched stock-controller/native-lifecycle integration gate, including early PCM before model completion, ordered delayed segments, one stream-end, and playback-gated assistant history.
-
-The character-aware voice branch passes the full offline regression suite: **164 passing tests, 0 failures**, followed by a successful pinned candidate build with **25 source-pinned patches**. The built launcher hash remains `0443800cf148f10baa58558f106baa1e97e6edc2d227c0d48cf8fef15c457ed9`. [GitHub Actions validation](https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/actions/runs/36948145647). Physical GTA voice audition remains a separate acceptance gate. This includes the `84df8e30` model-failure/PCM16 hardening and the production telemetry repair reproduced from the first failed E5/E6 GTA runs. The stock E6 test now exercises the real logger; physical GTA acceptance of the repaired build remains open.
-
-A controlled E5/E6 payload is staged/installed for GTA testing with both flags enabled, but repository HEAD may be newer than the installed payload. **Physical GTA playback/interruption/late-failure acceptance remains the open E6 release gate.**
+The latest combined UX4/PS3 GTA report is [UX4 shared Talk + PS3 follow-up run analysis](docs/ux4-ps3-run-analysis-20261005.md). The full implementation/validation distinction and current branch reconciliation live in [ROADMAP.md](docs/ROADMAP.md).
 
 ## Project layout
 
@@ -360,57 +360,44 @@ A controlled E5/E6 payload is staged/installed for GTA testing with both flags e
 - [docs/E2-E3-implementation-status.md](docs/E2-E3-implementation-status.md) — current E2/E3 implementation and validation state.
 - [docs/E5-E6-implementation-status.md](docs/E5-E6-implementation-status.md) — current E5/E6 implementation, API/native-lifecycle evidence, deployment state, and remaining GTA gate.
 - [docs/plans/](docs/plans/) — design history, E2/E3 plans/reviews, native analysis, and original mission records.
-- [docs/UX-phase0-1-status.md](docs/UX-phase0-1-status.md), [docs/UX-phase2-3-status.md](docs/UX-phase2-3-status.md), [docs/controller-setup.md](docs/controller-setup.md) — the in-game UX: command bridge, L4/R4 gestures and the native LSA menu (optional, default off).
+- [docs/UX-phase0-1-status.md](docs/UX-phase0-1-status.md), [docs/UX-phase2-3-status.md](docs/UX-phase2-3-status.md), [docs/UX4-talk-targeting-status.md](docs/UX4-talk-targeting-status.md), [docs/controller-setup.md](docs/controller-setup.md) — command bridge, gestures/menu and the current UX4 direct-Talk/explicit-selector controls.
 - [docs/ROADMAP.md](docs/ROADMAP.md) — current roadmap through streaming, durable identity, perception, salience, autonomy, actions, and final acceptance.
 
 ## Roadmap
 
-Current phase status:
+Current phase status, condensed:
 
 ~~~text
-✅ E1 / E1.1
-   Essential-native OpenAI/Luna foundation
+✅ E1/E1.1 · E2 · E3 · E4 · E5 · E6
+✅ P0 · P1 · P2
+✅ UX0–UX4 on main
+✅ PS0–PS3 on main (shadow/default-off where applicable)
 
-✅ Observability / E4 pulled forward
+🟡 GTA/runtime validation still open:
+   current-main UX4 refinement
+   structured PS0–PS3 acceptance
+   direct damage callbacks
+   source-time player-speech capture receipts
 
-✅ E2
-   provider abstraction + stable session voices + acting
+🟡 Implemented off-main:
+   ACT0/ACT1 → reconcile first
+   ACT2 → reconcile after ACT0/1
+   Radio R0–R2 → reconcile only after v2 identifier proof
 
-✅ E3
-   stage-aware retries / failure recovery
+→ Next new core implementation:
+   PS4 immutable dialogue knowledge
+   ACT3 rich short-range activities
 
-✅ E5
-   structured Responses streaming
-   live Luna incremental-delivery capability validated
-
-🟡 E6
-   early segmented TTS implemented
-   stock-controller/native-lifecycle gate passed
-   → physical GTA acceptance pending
-
-🟡 P0 — TURN_CONTEXT
-   merged; physical GTA acceptance pending
-
-🟡 P1 — SESSION_IDENTITY
-   explicit-owner identity and voice continuity implemented offline
-   default off; physical GTA acceptance pending
-
-→ PERCEPTION
-   richer world/event awareness
-
-→ SALIENCE
-   decide what actually matters
-
-→ SCENE_DIRECTOR
-   NPC initiative / coordinated autonomous behavior
-
-→ CUSTOM ACTIONS / ACTIVITIES
-
-→ E7
-   full regression, soak testing, and GTA acceptance
+→ Later:
+   PS5–PS8
+   ACT4–ACT7
+   CGE head/eye engagement
+   proximity/social routing
+   Scene Director
+   E7 integrated soak/acceptance
 ~~~
 
-See the full [project roadmap](docs/ROADMAP.md).
+See the full [project roadmap](docs/ROADMAP.md) for exact branch deltas, validation gates, and sequencing.
 
 ## Project relationship to the old custom LSA 2.1 branch
 
