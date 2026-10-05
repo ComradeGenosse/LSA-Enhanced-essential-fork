@@ -1,6 +1,10 @@
 # UX phases 2–3 — input router, chord MVP and native menu
 
-Updated October 4, 2026. Branch `feature/ux-phase2-3-router-menu`, based on `feature/ux-phase0-1-command-bridge` (`510ede7`, on `main` at `b45f682`). Plan: [LSA Enhanced UX plan](plans/LSA-Enhanced-UX-plan.md), section 11.
+Updated October 4, 2026.
+
+> [!NOTE]
+> **Historical implementation checkpoint.** UX2–UX3 were later merged to `main` and became the base for UX4. The “nothing was deployed / GTA acceptance pending” language below describes this October 4 branch checkpoint, not current repository status. For current state use [ROADMAP.md](ROADMAP.md), [controller setup](controller-setup.md), and [UX4 status](UX4-talk-targeting-status.md).
+ Branch `feature/ux-phase2-3-router-menu`, based on `feature/ux-phase0-1-command-bridge` (`510ede7`, on `main` at `b45f682`). Plan: [LSA Enhanced UX plan](plans/LSA-Enhanced-UX-plan.md), section 11.
 
 **Status: implemented and verified offline; GTA acceptance pending.** Nothing was deployed. Both features ship inside the optional P2 loader and are off until `Plugins/LSA.Enhanced.json` turns them on. Controller and keyboard setup: [controller setup](controller-setup.md).
 
