@@ -1,8 +1,10 @@
 # PS3 reconciliation
 
+> **Historical reconciliation record.** The staging work described below was subsequently merged to `main`, followed by runtime-observability hardening and live GTA verification. For current status use [PS3 deterministic salience](PS3-deterministic-salience-status.md), [the first logging-session review](ps3-logging-session-analysis-20261005.md), and [the later combined UX4/PS3 run](ux4-ps3-run-analysis-20261005.md).
+
 Date: October 5, 2026. Staging branch: `stage/ps3-ready-20261005`.
 
-Sources fetched for this reconciliation: `origin/main@df84a70e76e0aaba34c3675ceefdfad67f8a4078` and `origin/feature/ps3-deterministic-salience@579b6df697bf73082b6590bd17ba4a7670b69bf3`. The PS3 commits were applied onto a fresh branch from current `origin/main`; the feature branch was not merged wholesale. Current-main README, roadmap baseline, PS2 contracts/diagnostics, production fixes, UX/input/Harmony sources, and native production sources were preserved. GitHub `main` is unchanged.
+Sources fetched for this reconciliation: `origin/main@df84a70e76e0aaba34c3675ceefdfad67f8a4078` and `origin/feature/ps3-deterministic-salience@579b6df697bf73082b6590bd17ba4a7670b69bf3`. The PS3 commits were applied onto a fresh branch from current `origin/main`; the feature branch was not merged wholesale. Current-main README, roadmap baseline, PS2 contracts/diagnostics, production fixes, UX/input/Harmony sources, and native production sources were preserved. At the time of this staging record GitHub `main` was unchanged; that statement is historical, not the current repository state.
 
 The corrected companion suite passed 384/384 tests across all 36 discovered modules with zero import failures. The 12-suite native offline matrix passed 979 assertions. The source-pinned combined candidate build succeeded with 48 stock patches and PS3 listed in its build manifest.
 
