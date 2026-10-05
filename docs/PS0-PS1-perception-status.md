@@ -1,6 +1,6 @@
 # PS0 + PS1 shadow perception
 
-Status, October 3, 2026: **implemented offline; physical GTA validation pending**. This implements only the foundation and core factual producers from [PR #10](https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/pull/10), at research commit `be6b56294894efb10eb2a07db1aa31eebcba9606`. The architectural specification is that PR's `docs/research/perception-salience-scene-director-architecture.md`, particularly sections 3–5, 11–14, and its `perception-native-tools` evidence. Research remains unmerged and was not repeated.
+Updated October 5, 2026. **Status: ✅ merged to `main`; live shadow pipeline exercised, dedicated producer acceptance still open.** This phase originally implemented the foundation and core factual producers from PR #10 / research commit `be6b56294894efb10eb2a07db1aa31eebcba9606`. Later PS2/PS3 integration merged on top of it, and October 5 GTA runs exercised the running native/companion intelligence channel, observer/anchor updates, sampled firing/injury/death/vehicle facts and PS2→PS3 processing. That live evidence does not close every PS0/PS1 producer gate: direct ped/player/vehicle damage callbacks still recorded zero invocations and require the controlled probe below.
 
 ## What runs
 
@@ -69,7 +69,7 @@ node tools/buildCharactersAddon.mjs
 
 Core SHA-256 stays `9b6de42d4c464901d859dd95e17e100e4fa9ef6074bfbb0cf3a57a76f6ddd653`; DamageTracker stays `64816a0d1131a6ec241f8951902b08afaee86fb0f73693399edefe2db8776750`; RPH SDK stays `5d439745604a5fedbf8fa401520d4f296c1b6800d77e2923ba3bf9772182c7e0`. Additional PE metadata artifacts are byte-pinned by `verifyPerceptionContract.mjs`, including exact snapshot, state, targeting, damage add/remove and playback signatures. Drift fails closed; similarly named methods are not used. The PE reader's `--intelligence` mode reproduces the artifacts without executing game assemblies. Existing source-pinned stock controller patches remain at 48.
 
-The package contains only the existing loader/private runtime/P1 library and disabled example config. SDK, DamageTracker, framework and Essential DLLs are not deployed by the builder. No GTA installation/deployment or provider call is part of this offline validation.
+The package contains only the existing loader/private runtime/P1 library and disabled example config. SDK, DamageTracker, framework and Essential DLLs are not deployed by the builder. At the original offline-validation checkpoint no GTA installation/deployment or provider call was performed by the build itself; later combined PS deployments and GTA sessions are documented in the PS3 status/run reports.
 
 ## Bounds and diagnostics
 
