@@ -327,6 +327,42 @@ static class Program
         Check((bool)stopped["stopped"] && driver.MicStops == 1 && driver.ConversationHandle == 99 && driver.ConversationClears == 0,"stop ends only the UX4 mic and does not clear a newer conversation ped");
         var stoppedAgain = TalkRun(host,driver,"talk.ptt_stop",new Dictionary<string,object> {{"generation",3}});
         Check(!(bool)stoppedAgain["stopped"] && driver.MicStops == 1,"a repeated stop does not call SendMicStop again");
+
+        driver.ClearNearby(); driver.Nearby(20,8,0,0,960,540); driver.Nearby(30,4,0,0,1000,540); driver.PublishSnapshot(); driver.ResetTalkCounters();
+        var ownerPick = TalkRun(host,driver,"talk.select_first",TalkLimits());
+        var ownerArgs = new Dictionary<string,object>(TalkLimits()) {{"generation",4},{"selectFirst",false}};
+        var ownerTarget = new Dictionary<string,object> {{"kind","talk"},{"expect",new Dictionary<string,object> {{"selectionId",(string)ownerPick["selectionId"]},{"encounterId",(string)ownerPick["encounterId"]}}}};
+        Check((bool)TalkRun(host,driver,"talk.ptt_start",ownerArgs,ownerTarget)["started"],"ownership test starts UX4 mic");
+        driver.ReplaceMic(30);
+        var ownershipLost = TalkRun(host,driver,"talk.ptt_stop",new Dictionary<string,object> {{"generation",4}});
+        Check(!(bool)ownershipLost["stopped"] && (bool)ownershipLost["released"] && (string)ownershipLost["reason"] == "ownership_lost" && driver.MicStops == 0 && driver.LastMicHandle == 30,"UX4 release never stops a later stock/MarkedTalk mic");
+
+        driver.ResetTalkCounters(); driver.ClearNearby(); driver.Nearby(20,8,0,0,960,540); driver.PublishSnapshot();
+        var retryPick = TalkRun(host,driver,"talk.select_first",TalkLimits());
+        var retryArgs = new Dictionary<string,object>(TalkLimits()) {{"generation",5},{"selectFirst",false}};
+        var retryTarget = new Dictionary<string,object> {{"kind","talk"},{"expect",new Dictionary<string,object> {{"selectionId",(string)retryPick["selectionId"]},{"encounterId",(string)retryPick["encounterId"]}}}};
+        Check((bool)TalkRun(host,driver,"talk.ptt_start",retryArgs,retryTarget)["started"],"stop-retry test starts UX4 mic");
+        driver.FailMicStop(true);
+        Check(RunReason(host,driver,TalkCommand("talk.ptt_stop",TalkKind,new Dictionary<string,object> {{"generation",5}})) == "native_operation_failed" && driver.MicIsCurrent(20),"a failed physical stop keeps UX4 ownership for retry");
+        driver.FailMicStop(false);
+        var retryStop = TalkRun(host,driver,"talk.ptt_stop",new Dictionary<string,object> {{"generation",5}});
+        Check((bool)retryStop["stopped"] && driver.MicStops == 1 && !driver.MicIsCurrent(20),"the same generation can retry and finish the physical stop");
+
+        driver.ResetTalkCounters(); driver.ClearNearby(); driver.Nearby(20,8,0,0,960,540); driver.PublishSnapshot();
+        var gatedPick = TalkRun(host,driver,"talk.select_first",TalkLimits());
+        var gatedArgs = new Dictionary<string,object>(TalkLimits()) {{"generation",6},{"selectFirst",false}};
+        var gatedTarget = new Dictionary<string,object> {{"kind","talk"},{"expect",new Dictionary<string,object> {{"selectionId",(string)gatedPick["selectionId"]},{"encounterId",(string)gatedPick["encounterId"]}}}};
+        foreach (var gate in new[] {"text","controls","loading","cutscene","mission","online"}) {
+            driver.Gates(gate == "text",gate == "controls",gate == "loading");
+            if (gate == "cutscene") driver.Native("IS_CUTSCENE_ACTIVE",true);
+            if (gate == "mission") driver.Native("GET_MISSION_FLAG",true);
+            if (gate == "online") driver.Native("NETWORK_IS_SESSION_ACTIVE",true);
+            string blocked = RunReason(host,driver,TalkCommand("talk.ptt_start",gatedTarget,gatedArgs));
+            Check(blocked == (gate == "text" || gate == "controls" ? "input_busy" : "scripted_state") && driver.MicStarts == 0,"native PTT start rechecks gate: " + gate);
+            driver.Gates(false,false,false); driver.Native("IS_CUTSCENE_ACTIVE",false); driver.Native("GET_MISSION_FLAG",false); driver.Native("NETWORK_IS_SESSION_ACTIVE",false);
+            gatedArgs["generation"] = Convert.ToInt32(gatedArgs["generation"]) + 1;
+        }
+
         int starts = driver.MicStarts;
         TalkRun(host,driver,"talk.ptt_stop",new Dictionary<string,object> {{"generation",7}});
         var cancelled = TalkRun(host,driver,"talk.ptt_start",new Dictionary<string,object>(TalkLimits()) {{"generation",7},{"selectFirst",true}});

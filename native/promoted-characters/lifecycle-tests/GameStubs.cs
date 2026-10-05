@@ -163,9 +163,20 @@ namespace LosSantosAlive.Input
         public static Action<Rage.Ped,string> OnPrompt;
         public static void SendTextPrompt(Rage.Ped ped,string text) { Rage.Game.NativeCalls++; OnPrompt?.Invoke(ped,text); Prompts.Add(new KeyValuePair<Rage.Ped,string>(ped,text)); }
         public static int MicStarts, MicStops;
-        public static Rage.Ped LastMic;
-        public static void SendMicStart(Rage.Ped ped) { Rage.Game.NativeCalls++; MicStarts++; LastMic = ped; }
-        public static void SendMicStop() { Rage.Game.NativeCalls++; MicStops++; }
+        static Rage.Ped activeMic;
+        public static Rage.Ped LastMic => activeMic;
+        public static bool ThrowOnMicStop;
+        public static void SendMicStart(Rage.Ped ped) { Rage.Game.NativeCalls++; MicStarts++; activeMic = ped; }
+        public static void SendMicStop()
+        {
+            Rage.Game.NativeCalls++;
+            var previous = activeMic; // keep a ldsfld/stsfld pair like pinned Essential
+            if (ThrowOnMicStop) throw new InvalidOperationException("Injected mic stop failure.");
+            MicStops++;
+            activeMic = null;
+            if (previous == null) { }
+        }
+        public static void ReplaceMic(Rage.Ped ped) { activeMic = ped; }
     }
     public static class TextInputService
     {

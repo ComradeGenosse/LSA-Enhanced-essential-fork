@@ -4,6 +4,7 @@ using LosSantosAlive.Input;
 using LosSantosAlive.NPC;
 using LosSantosAlive.NPC.Perception;
 using Rage;
+using Rage.Native;
 
 namespace LSA.PromotedCharacters
 {
@@ -15,6 +16,7 @@ namespace LSA.PromotedCharacters
         sealed class Sample { public TalkCandidate Token; public Ped Ped; }
         readonly TalkTargetPolicy policy = new TalkTargetPolicy();
         readonly TalkPttSession ptt = new TalkPttSession();
+        readonly EssentialMicState mic = new EssentialMicState();
         readonly TalkTargetIndicator indicator = new TalkTargetIndicator();
         readonly Func<Ped,string> encounterId;
         readonly List<Ped> frozenPeds = new List<Ped>();
@@ -78,20 +80,35 @@ namespace LSA.PromotedCharacters
                 }
                 var ped = Bound();
                 if (ped == null) { ptt.Fence(generation); throw new InvalidOperationException("target_lost"); }
-                if (expectedEncounterId != null && EncounterOf(ped) != expectedEncounterId) { ptt.Fence(generation); throw new InvalidOperationException("target_changed"); }
-                bool mic = false;
+                string encounter = EncounterOf(ped);
+                if (expectedEncounterId != null && encounter != expectedEncounterId) { ptt.Fence(generation); throw new InvalidOperationException("target_changed"); }
+
+                string gate = StartGate();
+                if (gate != null) { ptt.Fence(generation); throw new InvalidOperationException(gate); }
+                string micGate = mic.CanStart();
+                if (micGate != null) { ptt.Fence(generation); throw new InvalidOperationException(micGate); }
+
+                long address;
+                try { address = ped.MemoryAddress.ToInt64(); } catch { ptt.Fence(generation); throw new InvalidOperationException("target_lost"); }
+
                 try {
                     NpcTargeting.SetPlayerConversationPed(ped);
-                    essentialPed = ped; essentialAddress = ped.MemoryAddress.ToInt64(); essentialSet = true;
+                    essentialPed = ped; essentialAddress = address; essentialSet = true;
                     InputController.SendMicStart(ped);
-                    mic = true;
-                    if (!ptt.Commit(generation)) { InputController.SendMicStop(); ReleaseEssential(); return new {started = false,reason = "cancelled",generation}; }
+                    if (!mic.Owns(ped,address)) { TryRevert(ped); ptt.Fence(generation); throw new InvalidOperationException("mic_ownership_lost"); }
+
+                    if (!ptt.Commit(generation)) {
+                        string cancelledStop = mic.StopOwned(ped,address);
+                        if (cancelledStop == "native_operation_failed" || cancelledStop == "mic_state_unavailable") throw new InvalidOperationException(cancelledStop);
+                        ReleaseEssential();
+                        return new {started = false,reason = "cancelled",generation};
+                    }
+
                     policy.Commit(policy.SelectionId,now);
-                    Game.LogTrivial("[UX4] talk_ptt commit=accepted generation=" + generation);
-                    Publish();
-                    return Payload(policy.Inspect(now),EncounterOf(ped),generation,true);
+                    try { Game.LogTrivial("[UX4] talk_ptt commit=accepted generation=" + generation); } catch { }
+                    try { Publish(); } catch { }
+                    return Payload(policy.Inspect(now),encounter,generation,true);
                 } catch {
-                    if (mic && ptt.ShouldStop(generation)) { try { InputController.SendMicStop(); } catch { } }
                     TryRevert(ped);
                     throw;
                 }
@@ -101,14 +118,16 @@ namespace LSA.PromotedCharacters
         public object Stop(int generation,string reason,long now)
         {
             clock = now;
-            bool stop = ptt.ShouldStop(generation);
-            if (stop) {
-                try { InputController.SendMicStop(); } catch { }
-                policy.Release(now,options);
-                ReleaseEssential();
-                Game.LogTrivial("[UX4] talk_ptt end reason=" + (reason ?? "stop") + " generation=" + generation);
-            }
-            return new {stopped = stop,generation};
+            if (!ptt.ShouldStop(generation)) return new {stopped = false,released = false,generation};
+
+            string outcome = mic.StopOwned(essentialPed,essentialAddress);
+            if (outcome == "native_operation_failed" || outcome == "mic_state_unavailable") throw new InvalidOperationException(outcome);
+
+            ptt.CompleteStop(generation);
+            policy.Release(now,options);
+            ReleaseEssential();
+            try { Game.LogTrivial("[UX4] talk_ptt end reason=" + (reason ?? outcome ?? "stop") + " generation=" + generation); } catch { }
+            return new {stopped = outcome == null,released = true,generation,reason = outcome};
         }
         public object Describe(long now)
         {
@@ -276,6 +295,19 @@ namespace LSA.PromotedCharacters
                 if (current != null && current == essentialPed && current.MemoryAddress.ToInt64() == essentialAddress) NpcTargeting.ClearPlayerConversationPed();
             } catch { }
             essentialPed = null; essentialAddress = 0;
+        }
+        static string StartGate()
+        {
+            try {
+                if (TextInputService.IsOpen || LosSantosAlive.Core.LsaControlsMenu.BlocksLsaInput) return "input_busy";
+                if (Game.IsLoading
+                    || NativeFunction.CallByName<bool>("IS_CUTSCENE_ACTIVE")
+                    || NativeFunction.CallByName<bool>("IS_CUTSCENE_PLAYING")
+                    || NativeFunction.CallByName<bool>("IS_PLAYER_SWITCH_IN_PROGRESS")
+                    || NativeFunction.CallByName<bool>("GET_MISSION_FLAG")
+                    || NativeFunction.CallByName<bool>("NETWORK_IS_SESSION_ACTIVE")) return "scripted_state";
+                return null;
+            } catch { return "scripted_state"; }
         }
         void LogSelected(string reason) => Game.LogTrivial("[UX4] talk_target selected index=" + (policy.Index + 1) + " count=" + policy.Count + " reason=" + reason);
         static TalkTargetView Absent(string reason) => new TalkTargetView {Reason = reason};

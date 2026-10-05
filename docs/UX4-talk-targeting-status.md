@@ -1,6 +1,6 @@
 # UX4 Talk Target Selector — implementation status
 
-Status: **offline-complete / GTA-pending**. Not merged. GTA acceptance has not been run.
+Status: **offline implementation complete / GTA-pending**. Not merged. Post-review mic ownership, native gate revalidation, and stop-retry fixes are included; GTA acceptance has not been run.
 
 Branch: `feature/ux4-talk-target-selector`
 
@@ -40,7 +40,10 @@ The highlight is a screen-space bracket around the projected head bone, plus a `
 - Stock Text input is unchanged. It still chooses its own best ped. UX4 does not claim to control Text.
 - Candidate limits travel inside each talk command because the settings file lives in the loader AppDomain. The native side rechecks the same bounds.
 - A hold with no current selection asks the native side to choose the best ped and commit that same ped. A hold while a selection is still valid commits that selection.
-- If `talk.ptt_stop` is processed before `talk.ptt_start` for the same generation, the start is cancelled and `SendMicStart` is not called. If start runs first, the queued stop calls `SendMicStop` once.
+- If `talk.ptt_stop` is processed before `talk.ptt_start` for the same generation, the start is cancelled and `SendMicStart` is not called. If start runs first, the queued stop closes it once.
+- UX4 source-resolves Essential's active microphone Ped from the hash-pinned `SendMicStop()` IL. A UX4 stop calls `SendMicStop()` only while that exact Ped is still active. If stock Talk/MarkedTalk replaced it, UX4 releases its own generation without stopping the newer stock mic.
+- Native `talk.ptt_start` rechecks Essential text/F7 gates plus loading, cutscene, player switch, mission, and online/scripted state immediately before the side-effecting mic start.
+- Physical stop failure no longer clears UX4 generation ownership. The same generation remains retryable, and the loader will not begin a new hold while a prior stop is unresolved.
 - The runtime test project now compiles the existing Essential input-interception sources with `RuntimeEntry`. Those calls were already on `main`; the test project did not include the files, so it did not build.
 
 ## Offline results

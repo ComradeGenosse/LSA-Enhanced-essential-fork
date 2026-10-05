@@ -97,7 +97,7 @@ namespace LSA.BridgeTests
         // The read-only P2 pipe op, invoked exactly as Update dispatches a request.
         public void Clock(long value) => PromotedCharactersIntegration.SetMonotonic(value);
         public void ClearClock() => PromotedCharactersIntegration.SetMonotonic(null);
-        public void ResetTalkCounters() { InputController.MicStarts = InputController.MicStops = 0; InputController.LastMic = null; NpcTargeting.Sets = NpcTargeting.Clears = 0; }
+        public void ResetTalkCounters() { InputController.MicStarts = InputController.MicStops = 0; InputController.ThrowOnMicStop = false; InputController.ReplaceMic(null); NpcTargeting.Sets = NpcTargeting.Clears = 0; }
         public int MicStarts => InputController.MicStarts;
         public int MicStops => InputController.MicStops;
         public int ConversationSets => NpcTargeting.Sets;
@@ -105,6 +105,8 @@ namespace LSA.BridgeTests
         public int ConversationHandle => NpcTargeting.ConversationPed?.Handle ?? 0;
         public int LastMicHandle => InputController.LastMic?.Handle ?? 0;
         public long LastMicAddress => InputController.LastMic == null ? 0 : InputController.LastMic.MemoryAddress.ToInt64();
+        public void ReplaceMic(int handle) => InputController.ReplaceMic(Ped(handle));
+        public void FailMicStop(bool fail) => InputController.ThrowOnMicStop = fail;
         public void PlayerAt(float x,float y,float z)
         {
             var player = new Ped {Handle = 1,MemoryAddress = new IntPtr(16),Position = new Vector3(x,y,z)};

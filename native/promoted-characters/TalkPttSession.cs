@@ -29,11 +29,20 @@ namespace LSA.PromotedCharacters
             live = generation;
             return true;
         }
+        // True means this generation currently owns UX4's microphone and the
+        // caller may attempt a physical stop. Ownership is intentionally kept
+        // until CompleteStop so a failed SendMicStop can be retried.
         public bool ShouldStop(int generation)
         {
-            if (generation > 0 && live == generation) { live = 0; return true; }
+            if (generation > 0 && live == generation) return true;
             Fence(generation);
             return false;
+        }
+        public bool CompleteStop(int generation)
+        {
+            if (generation <= 0 || live != generation) return false;
+            live = 0;
+            return true;
         }
         public void Fence(int generation)
         {

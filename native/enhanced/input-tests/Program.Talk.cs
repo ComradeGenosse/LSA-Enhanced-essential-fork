@@ -80,7 +80,7 @@ static partial class Program
         Check(session.Admit(5) == "start" && session.Commit(5) && session.IsLive,"a start commits one generation");
         Check(session.Admit(6) == "busy" && session.LiveGeneration == 5,"a second generation cannot steal the microphone");
         Check(session.ShouldStop(9) == false && session.LiveGeneration == 5,"a stop for another generation does not end this one");
-        Check(session.ShouldStop(5) && !session.IsLive && !session.ShouldStop(5),"the matching stop runs once");
+        Check(session.ShouldStop(5) && session.IsLive && session.CompleteStop(5) && !session.IsLive && !session.ShouldStop(5),"the matching stop keeps ownership until physical completion, then runs once");
         Check(session.Admit(8) == "start" && session.Commit(8),"a generation can start after reset preparation");
         session.Reset();
         Check(!session.IsLive && session.Admit(8) == "start","reset drops ownership without implying a microphone stop");
@@ -248,6 +248,15 @@ static partial class Program
         Check(staleStop.Bridge.Submitted.Count(item => item.Contains("talk.ptt_stop")) == 2,"a stale stop is retried once");
         staleStop.Reply(staleStop.LastId(),new Dictionary<string,object> {{"stopped",true}}); staleStop.Frame(1);
         Check(staleStop.Talk.State == "idle","the retried stop completes");
+
+        var unresolved = new TalkRig();
+        unresolved.Press(); unresolved.Elapse(220);
+        unresolved.Keys.Down.Remove(F10); unresolved.Frame(1);
+        int beforeSecond = unresolved.Bridge.Submitted.Count;
+        unresolved.Keys.Down.Add(F10); unresolved.Frame(3);
+        Check(unresolved.Bridge.Submitted.Count == beforeSecond && unresolved.Bridge.Submitted.Count(item => item.Contains("talk.ptt_start")) == 1,"a new hold cannot erase or bypass an unresolved previous stop");
+        unresolved.Keys.Down.Remove(F10); unresolved.Frame(1);
+        unresolved.Reply(unresolved.LastId(),new Dictionary<string,object> {{"stopped",true}}); unresolved.Frame(1);
 
         int starts = 0, stops = 0;
         var rapid = new TalkRig();

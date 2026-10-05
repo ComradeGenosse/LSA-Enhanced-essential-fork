@@ -81,7 +81,7 @@ namespace LSA.Enhanced.Input
             if (block != null) { Abort(block,down); return; }
             switch (state) {
                 case "idle":
-                    if (down) { state = "pending"; pressAt = now; }
+                    if (down && !stopNeeded && !stopQueued) { state = "pending"; pressAt = now; }
                     break;
                 case "pending":
                     if (!down) { Tap(); state = "idle"; }
@@ -107,7 +107,8 @@ namespace LSA.Enhanced.Input
         {
             pressGeneration = ++generation;
             if (generation > 1000000) generation = pressGeneration = 1;
-            startQueued = false; stopNeeded = false; stopQueued = false; stopRetries = 0;
+            if (stopNeeded || stopQueued) { state = "idle"; waitRelease = true; return; }
+            startQueued = false; stopRetries = 0;
             bool known = haveSession && selectionId != null && now < cycleUntil;
             string id = Submit(known ? "talk.ptt_start" : "talk.ptt_start",pressGeneration,!known);
             if (id == null) { state = "idle"; waitRelease = true; hud.Show(bridge.Available ? "Talk targeting unavailable" : "LSA native host is unavailable"); return; }
@@ -211,7 +212,7 @@ namespace LSA.Enhanced.Input
             if (result == null) return;
             stopId = null; stopQueued = false;
             if (result.Status == "ok") { stopNeeded = false; return; }
-            if (result.Reason == "native_stale" || result.Reason == "native_unavailable") stopDeadline = clock.Monotonic;
+            stopDeadline = clock.Monotonic + 250;
         }
         sealed class Reply { public string Status, Reason; public Dictionary<string,object> Body; }
         Reply Take(string id)
