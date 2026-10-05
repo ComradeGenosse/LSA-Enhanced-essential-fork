@@ -1,0 +1,2793 @@
+{
+ "schema": "lsa.activity-native-evidence",
+ "schemaVersion": 1,
+ "generated": "2026-10-04",
+ "status": "Static evidence only. Not GTA behavior. Runtime unknowns are in section 3 of the architecture document.",
+ "document": "docs/research/lsa-activities-goal-execution-architecture.md",
+ "repositoryHead": "6ae6bc99c82a2d78ec1fea1091e4f8116f0c7257",
+ "pins": {
+  "essentialDllSha256": "9b6de42d4c464901d859dd95e17e100e4fa9ef6074bfbb0cf3a57a76f6ddd653",
+  "stockBundleSha256": "5d81de4217bd103316a1083e482ded1bddc791314abf671d686036175c0475f2",
+  "extractor": "ActionNativeAudit (.NET 10) from research/essential-action-completion-audit-20261003 at 8e823310a41cac6529c5441a3286938f102229e7",
+  "extractShape": {
+   "types": 651,
+   "methods": 5588
+  },
+  "stringTable": {
+   "initToken": "0x600000c",
+   "seed": 1907038128,
+   "procedure": "XOR-feedback + LZMA (ilcore.py)"
+  }
+ },
+ "reproduce": {
+  "readme": "docs/research/activity-native-tools/README.md",
+  "script": "docs/research/activity-native-tools/activity_probe.py"
+ },
+ "findings": [
+  {
+   "id": "N1",
+   "label": "PROVEN",
+   "claim": "NpcActivityQueueItem.Started / Completed are written only by .ctor 0x6000455 and never read",
+   "consequence": "No activity completion event or field is usable",
+   "probeKey": "N1"
+  },
+  {
+   "id": "N2",
+   "label": "PROVEN",
+   "claim": "ActivityQueue (0x4000250) is allocated by the NpcState constructor (0x6000450) and otherwise only read by 0x60002cb, which clears it. CurrentActivity, ActivityInProgress and HasActivityQueue are only written there (null / false); their readers (0x60002d6, the control-intent check 0x60002dc, 0x60002dd, the debug overlay) therefore always see empty values",
+   "consequence": "The native activity queue is vestigial",
+   "probeKey": "N2"
+  },
+  {
+   "id": "N3",
+   "label": "PROVEN",
+   "claim": "The destination flags and positions are written only by the two Clear* helpers. DestinationResolver.TryResolve has no callers",
+   "consequence": "WalkTo/DriveTo are vestigial. Destination resolution still works as a read-only resolver",
+   "probeKey": "N3"
+  },
+  {
+   "id": "N4",
+   "label": "PROVEN",
+   "claim": "TASK inventory: no navigation-to-coordinate or drive-to-coordinate tasks in civilian behaviors. StartDriving → TASK_VEHICLE_DRIVE_WANDER (0x6000989)",
+   "consequence": "Point-to-point navigation needs an extension",
+   "probeKey": "N4"
+  },
+  {
+   "id": "N5",
+   "label": "PROVEN",
+   "claim": "TryExecute passes the entry's canonical name (f0x400073c) to NotifyNpcActionExecuted (IL_01cf/IL_01d6), both on success and in the catch path",
+   "consequence": "Receipts correlate on canonical names. The PS1 mapping is wrong",
+   "probeKey": "N5"
+  },
+  {
+   "id": "N6",
+   "label": "PROVEN",
+   "claim": "HandleBridgeTextMessage (0x6001517) routes approachperson to ApproachCoordinator.Start / ReportImmediateFailure(\"target_not_found\") and everything else to NpcActionQueue.QueueNpcAction. 0x6001523 is a parameter-bearing-action predicate called by the parser 0x600151e, not a special-case router",
+   "consequence": "Corrects the audit's §3 row \"BridgeMessageRouter destination/activity special cases\"",
+   "probeKey": "N6"
+  },
+  {
+   "id": "N7",
+   "label": "PROVEN",
+   "claim": "The queue (0x6000213 → 0x6000214) is drained from GeminiVoicePlugin.Main (0x60010b1). It special-cases takecover (NpcActions.TakeCover) and the resumeactivity / continueactivity / returntoactivity family. Stateful duplicate suppression covers waithere, takecover, followtarget, followplayer, driveevasive, drivenormal, hands up/down, kneel, getup and stopdirectedinteraction (0x600021a). It enforces target establishment, roles, state blocks and reflex locks, then ApplyActionStateModifiers + TryExecute (0x6000218)",
+   "consequence": "Dispatching through the queue inherits all of Essential's gates. A dispatch that duplicates the current mode yields no callback, so preflight must detect \"already satisfied\"",
+   "probeKey": "N7"
+  },
+  {
+   "id": "N8",
+   "label": "PROVEN (section strings 00.GetPreparedState … 08.AfterRefreshControlledBrain)",
+   "claim": "Executor 0x60002f7 runs, in order: GetPreparedState (GetStateForActiveBehavior), BumpBehaviorCommandGeneration (a Dictionary<UInt32,Int32> keyed by handle), clear pending vehicle exit, AcquireExclusiveControl (SetControlledBrain + NotifyPedControlChanged(true)), modifiers (Before), body, modifiers (After), RefreshControlledBrain. The deferred executor 0x60002e4 funnels into it",
+   "consequence": "Supersession signal. Every executor command promotes the ped and takes exclusive control",
+   "probeKey": "N8"
+  },
+  {
+   "id": "N9",
+   "label": "PROVEN (commands.py + call scan)",
+   "claim": "Deferred-executor (0x60002e4) command names and vehicle policies: FollowTarget 0; ApproachTarget, LeanAgainstVehicle, SitOnGround, WalkAwayFromTarget 1; TakeCover, ChaseTarget, FleeFromTarget 2; StartDriving, StopAndFaceTarget, the three Enter*, DriveEvasive, PutHandsUp, ResumeActivity 3. WaitHere, GoTalkToNearestPed, ExitVehicle, GetUp, DriveNormal and the item verbs call the immediate executor 0x60002f7 directly, with no vehicle policy. Reflex variants such as PutHandsUpFromReflex (0x6000282) do not use the executor",
+   "consequence": "The capability table records which steps force a vehicle exit first (policies 1/2). Reflex takeovers bypass the modifier callbacks, so they have to be detected from NpcState reflex fields",
+   "probeKey": "N9"
+  },
+  {
+   "id": "N10",
+   "label": "PROVEN",
+   "claim": "UseScenario* (0x6000254/0x6000255): CLEAR_PED_TASKS + CLEAR_PED_SECONDARY_TASK, then TASK_START_SCENARIO_AT_POSITION(ped, name, x, y, z, h, -1, true, false) or …_IN_PLACE, then SET_BLOCKING_OF_NON_TEMPORARY_EVENTS and SET_PED_KEEP_TASK. No mode flag is set",
+   "consequence": "Native \"go there and do X\" for short ranges (GTA probe S1). Without a control-intent flag the ped can be far-released",
+   "probeKey": "N10_N18"
+  },
+  {
+   "id": "N11",
+   "label": "PROVEN (strings, enum); timeout values STRONGLY SUPPORTED",
+   "claim": "ResumeActivityBehavior keeps private per-handle state with a phase (None, WalkToRememberedActivity, EnterRememberedVehicle). It re-enters the vehicle (driver: wander drive + keep task; passenger: release), walks back (TASK_GO_STRAIGHT_TO_COORD), restores the heading, maps activity text to scenarios (20 names, including every ScenarioId target ACT uses) and falls back to wander. Its literal constants include 12,000 / 15,000 / 2,500 / 750 (millisecond-like) and 1.0 / 1.15 / 2.0 / 18.0 / 85.0 (distance-like); the log strings name walk and vehicle-entry timeouts",
+   "consequence": "resume_previous capability. Completion is judged against PedContinuityMemory",
+   "probeKey": "N11"
+  },
+  {
+   "id": "N12",
+   "label": "PROVEN",
+   "claim": "Approach acceptance strings: \"immediate arrival reached\", \"no-progress arrival accepted\", \"GTA task ended near target; accepting arrival\", \"task no longer assigned; reissuing\". The plugin sends npcApproachCompleted / npcApproachFailed (BuildApproachResult, 0x60014fc). The stock server keeps a turn-scoped approach playback gate (EP/xy) that opens on the result and drops a STALE_APPROACH_RESULT whose target does not match",
+   "consequence": "ApproachFinished(true) is medium evidence until a distance check passes. The gate is the native precedent for \"act, then speak\"",
+   "probeKey": "N12"
+  },
+  {
+   "id": "N13",
+   "label": "PROVEN",
+   "claim": "Far release 0x6000313/0x6000311: with no control intent (0x60002dc) and distance ≥ 100 m, Essential clears runtime control, calls CLEAR_PED_SECONDARY_TASK and SetControlledBrain(false), sends NotifyPedControlChanged(false) and removes the state. Dead peds are released through 0x60002c6",
+   "consequence": "ACT bubble rule and terminal reason control_released",
+   "probeKey": "N13"
+  },
+  {
+   "id": "N14",
+   "label": "PROVEN (metadata); horizon STRONGLY SUPPORTED",
+   "claim": "PedContinuityMemoryService.TryGetMemory(Ped, ref PedContinuityMemory) is public. It returns the remembered vehicle (RecentVehicleMemory: handle, seat role, last seen) and the interaction activity (InteractionActivityMemory: activity text, position, heading, last seen). A private helper (0x60006bf) holds a 120,000 ms constant, most likely the expiry horizon",
+   "consequence": "Target state for the resume adapter. Memory older than about 2 minutes should be treated as absent until R1",
+   "probeKey": "N14"
+  },
+  {
+   "id": "N15",
+   "label": "PROVEN",
+   "claim": "Ten location registries are populated (LosSantosAlive.Locations.Registries.*): convenience stores (first entry \"LTD Davis\"; the strings \"store\" and \"gas station\" are present), banks, bars and clubs, barber shops, clothing stores, subway stations, Ammu-Nation and police stations, plus the scene registries DrugDealLocations and MiscCalloutLocations",
+   "consequence": "Closed named place slots can resolve to native locations. The two scene registries are excluded from ACT place resolution by policy",
+   "probeKey": "N15"
+  },
+  {
+   "id": "N16",
+   "label": "PROVEN",
+   "claim": "Default NpcItemStore items: CannedGoods, Donut, BreakfastSnack, Snack, Soda, Beer, Coffee, Liquor, EnergyDrink, Water. There is no cigarette",
+   "consequence": "\"Smoke\" must use the WORLD_HUMAN_SMOKING scenario, not an item",
+   "probeKey": "N16"
+  },
+  {
+   "id": "N17",
+   "label": "PROVEN",
+   "claim": "IntegrationManager.ApplyActionStateModifiers (0x6000c12) walks the registered List<IIntegration> (f0x40007b3), skips integrations whose IsAvailable is false, and calls ApplyActionState on each one that isinst IActionStateModifier (IL_0142). Each call has its own try/catch that logs [LSA Integrations] ApplyActionStateModifiers failed for {Id}. Its only callers are the queue (0x6000218, two sites) and the executor (0x60002f7, two sites). NotifyNpcActionExecuted (0x6000c11) is called only by TryExecute (two sites). IActionStateModifier and ActionStateModifierPhase (BeforeCoreStateRule = 0, AfterCoreStateRule = 1) are public types in the global namespace",
+   "consequence": "The P2 integration that RuntimeEntry already registers can implement the interface; no new Essential registration is needed. Exceptions are contained by Essential, but StepRunner still catches its own",
+   "probeKey": "N17"
+  },
+  {
+   "id": "N18",
+   "label": "PROVEN",
+   "claim": "The public NpcActions.UseScenario(Ped, String) / UseScenarioAtPosition(Ped, String, Vector3, Single, String) (0x6000252 / 0x6000253) go to 0x6000254, which does not use the shared executor. It runs its own preparation instead: GetPreparedState (0x60002fa: GetStateForActiveBehavior + first-takeover 0x60002fe), a partial mode clear (0x600031c: DirectedInteractionManager.ForceStopInteractionForPed, ClearComplianceFlags, ClearDestinationFlags, ClearExplicitVehicleEnterFlags, ClearHostileFlags, ClearMovementActionFlags, stop-and-face flags), a forced vehicle exit with a settle delay when seated (0x60002fc), then 0x6000255: PreparePed, ApplyControlledBrainIfChanged(ped, true) (0x6000309), ApplyScenarioFriendlyBrain (0x6000258: IsPersistent, BlockPermanentEvents, KeepTasks, flee attributes, ambient-anim flags) and the scenario natives (N10). Not cleared: follow flags, TakeCoverMode, vehicle-intent flags",
+   "consequence": "A scenario step produces no modifier callback and no command-generation bump. It ends approach, chase, pose, hostile and directed-interaction modes by itself, but not follow, cover or vehicle intents, hence precondition no_essential_mode for those three. Acceptance is the wrapper's return; loss is detected through IS_PED_USING_SCENARIO (S1)",
+   "probeKey": "N10_N18"
+  },
+  {
+   "id": "N19",
+   "label": "PROVEN",
+   "claim": "NotifyPedControlChanged (0x6000c10) is called by the dead-release path (0x60002c6), exclusive-control acquisition (0x60002ea), ReleaseExclusiveControlForExternalSystem, ApplyControlledBrainIfChanged (0x6000309), far release (0x6000313) and Cleanup",
+   "consequence": "Every control release reaches P2's OnPedControlChanged(false), which suspends the encounter. ACT observes releases through P2's Suspended flag and does not need its own release hook",
+   "probeKey": "N19"
+  },
+  {
+   "id": "N20",
+   "label": "PROVEN (metadata + strings)",
+   "claim": "LocationResolver.Resolve(query, ped) returns a LocationDefinition with Name, Zone, Aliases, Categories, IntentTags, ReferencePoint, InteriorId, Description and ActivityPoints. Each ActivityPoint has Name, Position, Heading, IntentTags, RequiredAccessTags, HiddenFromDestinationResolvingIfUnauthorized, UnauthorizedLabel, Activities, Items and OccupiedByPedHandle. Some activity points are crime-themed (for example \"Rob Cash Register\", \"Rob Safe\" in the convenience-store registry). DestinationResolver.TryResolve(string, out Vector3) is public",
+   "consequence": "In v1 a place anchor is only the location's ReferencePoint. Activity points are not used (they carry crime activities, access tags and Essential-owned occupancy). ACT never writes OccupiedByPedHandle. Interior locations are place_unsupported until L1",
+   "probeKey": "N20"
+  },
+  {
+   "id": "N21",
+   "label": "PROVEN (metadata)",
+   "claim": "NpcActionRegistry.Register(string, IEnumerable<string>, NpcActionHandler) and HasAction(string) are public. NpcActionHandler.Invoke(NpcActionContext) → bool, where NpcActionContext carries RawAction, ActionName, Parameter, SourcePed, TargetPed, State. NpcActions.PreparePed, SetControlledBrain and the Clear*Flags(NpcState) helpers are public; the shared executor (0x60002f7) is not",
+   "consequence": "An ACT6 extension can be registered and dispatched through the queue like any Essential action, so it inherits the queue gates, modifier callbacks and OnNpcActionExecuted. It cannot call the executor, so it neutralizes other modes through a public command first (§14.7)",
+   "probeKey": "N21"
+  }
+ ],
+ "probeOutput": {
+  "N1": {
+   "Started": {
+    "field": "0x40002b2",
+    "users": [
+     {
+      "method": "0x6000455",
+      "name": "LosSantosAlive.NPC.NpcActivityQueueItem::.ctor",
+      "op": "stfld",
+      "offsets": [
+       "0xb6"
+      ]
+     }
+    ]
+   },
+   "Completed": {
+    "field": "0x40002b3",
+    "users": [
+     {
+      "method": "0x6000455",
+      "name": "LosSantosAlive.NPC.NpcActivityQueueItem::.ctor",
+      "op": "stfld",
+      "offsets": [
+       "0x80"
+      ]
+     }
+    ]
+   }
+  },
+  "N2": {
+   "ActivityQueue": {
+    "field": "0x4000250",
+    "users": [
+     {
+      "method": "0x60002cb",
+      "name": "LosSantosAlive.NPC.NpcActions::m0x60002cb",
+      "op": "ldfld",
+      "offsets": [
+       "0xbe",
+       "0x101"
+      ]
+     },
+     {
+      "method": "0x6000450",
+      "name": "LosSantosAlive.NPC.NpcState::.ctor",
+      "op": "stfld",
+      "offsets": [
+       "0x198"
+      ]
+     }
+    ]
+   },
+   "CurrentActivity": {
+    "field": "0x4000251",
+    "users": [
+     {
+      "method": "0x60002cb",
+      "name": "LosSantosAlive.NPC.NpcActions::m0x60002cb",
+      "op": "stfld",
+      "offsets": [
+       "0xe9"
+      ]
+     },
+     {
+      "method": "0x60002d6",
+      "name": "LosSantosAlive.NPC.NpcActions::m0x60002d6",
+      "op": "ldfld",
+      "offsets": [
+       "0x4a"
+      ]
+     },
+     {
+      "method": "0x60002dc",
+      "name": "LosSantosAlive.NPC.NpcActions::m0x60002dc",
+      "op": "ldfld",
+      "offsets": [
+       "0x2f4"
+      ]
+     },
+     {
+      "method": "0x60002dd",
+      "name": "LosSantosAlive.NPC.NpcActions::m0x60002dd",
+      "op": "ldfld",
+      "offsets": [
+       "0x747"
+      ]
+     },
+     {
+      "method": "0x6000fff",
+      "name": "LosSantosAlive.Debug.StateDebugOverlay::m0x6000fff",
+      "op": "ldfld",
+      "offsets": [
+       "0x2a",
+       "0x65",
+       "0x85",
+       "0xa5",
+       "0xc5"
+      ]
+     }
+    ]
+   },
+   "ActivityInProgress": {
+    "field": "0x4000253",
+    "users": [
+     {
+      "method": "0x60002cb",
+      "name": "LosSantosAlive.NPC.NpcActions::m0x60002cb",
+      "op": "stfld",
+      "offsets": [
+       "0xdb"
+      ]
+     },
+     {
+      "method": "0x60002d6",
+      "name": "LosSantosAlive.NPC.NpcActions::m0x60002d6",
+      "op": "ldfld",
+      "offsets": [
+       "0xa0"
+      ]
+     },
+     {
+      "method": "0x60002dc",
+      "name": "LosSantosAlive.NPC.NpcActions::m0x60002dc",
+      "op": "ldfld",
+      "offsets": [
+       "0x524"
+      ]
+     },
+     {
+      "method": "0x60002dd",
+      "name": "LosSantosAlive.NPC.NpcActions::m0x60002dd",
+      "op": "ldfld",
+      "offsets": [
+       "0x1bf"
+      ]
+     },
+     {
+      "method": "0x600101c",
+      "name": "LosSantosAlive.Debug.StateDebugOverlay+~28cc6fdc::m0x600101c",
+      "op": "ldfld",
+      "offsets": [
+       "0x385"
+      ]
+     }
+    ]
+   },
+   "HasActivityQueue": {
+    "field": "0x4000252",
+    "users": [
+     {
+      "method": "0x60002cb",
+      "name": "LosSantosAlive.NPC.NpcActions::m0x60002cb",
+      "op": "stfld",
+      "offsets": [
+       "0x91"
+      ]
+     },
+     {
+      "method": "0x60002d6",
+      "name": "LosSantosAlive.NPC.NpcActions::m0x60002d6",
+      "op": "ldfld",
+      "offsets": [
+       "0x63"
+      ]
+     },
+     {
+      "method": "0x60002dc",
+      "name": "LosSantosAlive.NPC.NpcActions::m0x60002dc",
+      "op": "ldfld",
+      "offsets": [
+       "0x109"
+      ]
+     },
+     {
+      "method": "0x60002dd",
+      "name": "LosSantosAlive.NPC.NpcActions::m0x60002dd",
+      "op": "ldfld",
+      "offsets": [
+       "0x7d4"
+      ]
+     },
+     {
+      "method": "0x600101c",
+      "name": "LosSantosAlive.Debug.StateDebugOverlay+~28cc6fdc::m0x600101c",
+      "op": "ldfld",
+      "offsets": [
+       "0x379"
+      ]
+     }
+    ]
+   }
+  },
+  "N3": {
+   "WalkToDestination": {
+    "field": "0x400024e",
+    "writers": [
+     {
+      "method": "0x60002cc",
+      "name": "LosSantosAlive.NPC.NpcActions::ClearDestinationFlags",
+      "op": "stfld",
+      "offsets": [
+       "0xc6"
+      ]
+     }
+    ],
+    "readers": [
+     {
+      "method": "0x60002d4",
+      "name": "LosSantosAlive.NPC.NpcActions::m0x60002d4",
+      "op": "ldfld",
+      "offsets": [
+       "0x66"
+      ]
+     },
+     {
+      "method": "0x60002dc",
+      "name": "LosSantosAlive.NPC.NpcActions::m0x60002dc",
+      "op": "ldfld",
+      "offsets": [
+       "0x494"
+      ]
+     },
+     {
+      "method": "0x60002dd",
+      "name": "LosSantosAlive.NPC.NpcActions::m0x60002dd",
+      "op": "ldfld",
+      "offsets": [
+       "0x524"
+      ]
+     },
+     {
+      "method": "0x600101c",
+      "name": "LosSantosAlive.Debug.StateDebugOverlay+~28cc6fdc::m0x600101c",
+      "op": "ldfld",
+      "offsets": [
+       "0x19e"
+      ]
+     },
+     {
+      "method": "0x60011a9",
+      "name": "LosSantosAlive.Context.GeminiContextBuilder::m0x60011a9",
+      "op": "ldfld",
+      "offsets": [
+       "0xb1"
+      ]
+     },
+     {
+      "method": "0x60011ac",
+      "name": "LosSantosAlive.Context.GeminiContextBuilder::m0x60011ac",
+      "op": "ldfld",
+      "offsets": [
+       "0x52"
+      ]
+     }
+    ]
+   },
+   "DriveToDestination": {
+    "field": "0x400024f",
+    "writers": [
+     {
+      "method": "0x60002cc",
+      "name": "LosSantosAlive.NPC.NpcActions::ClearDestinationFlags",
+      "op": "stfld",
+      "offsets": [
+       "0x9c"
+      ]
+     },
+     {
+      "method": "0x60002ff",
+      "name": "LosSantosAlive.NPC.NpcActions::ClearVehicleIntentFlagsOnly",
+      "op": "stfld",
+      "offsets": [
+       "0xae"
+      ]
+     }
+    ],
+    "readers": [
+     {
+      "method": "0x60002d4",
+      "name": "LosSantosAlive.NPC.NpcActions::m0x60002d4",
+      "op": "ldfld",
+      "offsets": [
+       "0xa3"
+      ]
+     },
+     {
+      "method": "0x60002d5",
+      "name": "LosSantosAlive.NPC.NpcActions::m0x60002d5",
+      "op": "ldfld",
+      "offsets": [
+       "0x119"
+      ]
+     },
+     {
+      "method": "0x60002dc",
+      "name": "LosSantosAlive.NPC.NpcActions::m0x60002dc",
+      "op": "ldfld",
+      "offsets": [
+       "0x12d"
+      ]
+     },
+     {
+      "method": "0x60002dd",
+      "name": "LosSantosAlive.NPC.NpcActions::m0x60002dd",
+      "op": "ldfld",
+      "offsets": [
+       "0x6d5"
+      ]
+     },
+     {
+      "method": "0x600101c",
+      "name": "LosSantosAlive.Debug.StateDebugOverlay+~28cc6fdc::m0x600101c",
+      "op": "ldfld",
+      "offsets": [
+       "0x4fb"
+      ]
+     },
+     {
+      "method": "0x60011a9",
+      "name": "LosSantosAlive.Context.GeminiContextBuilder::m0x60011a9",
+      "op": "ldfld",
+      "offsets": [
+       "0x12c"
+      ]
+     },
+     {
+      "method": "0x60011ac",
+      "name": "LosSantosAlive.Context.GeminiContextBuilder::m0x60011ac",
+      "op": "ldfld",
+      "offsets": [
+       "0x6b"
+      ]
+     }
+    ]
+   },
+   "HasDestination": {
+    "field": "0x4000245",
+    "writers": [
+     {
+      "method": "0x60002cc",
+      "name": "LosSantosAlive.NPC.NpcActions::ClearDestinationFlags",
+      "op": "stfld",
+      "offsets": [
+       "0xb5"
+      ]
+     }
+    ],
+    "readers": [
+     {
+      "method": "0x60002d4",
+      "name": "LosSantosAlive.NPC.NpcActions::m0x60002d4",
+      "op": "ldfld",
+      "offsets": [
+       "0x87"
+      ]
+     },
+     {
+      "method": "0x600101c",
+      "name": "LosSantosAlive.Debug.StateDebugOverlay+~28cc6fdc::m0x600101c",
+      "op": "ldfld",
+      "offsets": [
+       "0x41f"
+      ]
+     },
+     {
+      "method": "0x60011a9",
+      "name": "LosSantosAlive.Context.GeminiContextBuilder::m0x60011a9",
+      "op": "ldfld",
+      "offsets": [
+       "0x107"
+      ]
+     },
+     {
+      "method": "0x60011ab",
+      "name": "LosSantosAlive.Context.GeminiContextBuilder::m0x60011ab",
+      "op": "ldfld",
+      "offsets": [
+       "0x10f"
+      ]
+     }
+    ]
+   },
+   "DestinationPosition": {
+    "field": "0x400024c",
+    "writers": [
+     {
+      "method": "0x60002cc",
+      "name": "LosSantosAlive.NPC.NpcActions::ClearDestinationFlags",
+      "op": "stfld",
+      "offsets": [
+       "0x194"
+      ]
+     }
+    ],
+    "readers": []
+   },
+   "DriveDestination": {
+    "field": "0x400026b",
+    "writers": [
+     {
+      "method": "0x60002cc",
+      "name": "LosSantosAlive.NPC.NpcActions::ClearDestinationFlags",
+      "op": "stfld",
+      "offsets": [
+       "0x12f"
+      ]
+     }
+    ],
+    "readers": []
+   },
+   "DestinationResolver.TryResolve": {
+    "methods": [
+     "0x600069a"
+    ],
+    "callers": []
+   }
+  },
+  "N4": {
+   "TASK_FOLLOW_NAV_MESH_TO_COORD": [
+    {
+     "method": "0x600005c",
+     "name": "LosSantosAlive.Scenes.HostageScenes.HostagePolicePositioning::m0x600005c"
+    },
+    {
+     "method": "0x6000091",
+     "name": "LosSantosAlive.Scenes.HostageScenes.HostagePolicePositioning+~638d83cb::m0x6000091"
+    },
+    {
+     "method": "0x60001d9",
+     "name": "LosSantosAlive.NPC.DirectedInteractionManager::m0x60001d9"
+    }
+   ],
+   "TASK_VEHICLE_DRIVE_TO_COORD_LONGRANGE": [
+    {
+     "method": "0x60000bf",
+     "name": "LosSantosAlive.Scenes.HostageScenes.HostageResponseDriving::m0x60000bf"
+    }
+   ],
+   "TASK_VEHICLE_DRIVE_TO_COORD": [],
+   "TASK_GO_STRAIGHT_TO_COORD": [
+    {
+     "method": "0x6000060",
+     "name": "LosSantosAlive.Scenes.HostageScenes.HostagePolicePositioning::m0x6000060"
+    },
+    {
+     "method": "0x6000908",
+     "name": "LosSantosAlive.NPC.Behaviors.ResumeActivityBehavior::m0x6000908"
+    }
+   ],
+   "TASK_VEHICLE_DRIVE_WANDER": [
+    {
+     "method": "0x600090a",
+     "name": "LosSantosAlive.NPC.Behaviors.ResumeActivityBehavior::m0x600090a"
+    },
+    {
+     "method": "0x6000989",
+     "name": "LosSantosAlive.NPC.Behaviors.VehicleBehavior::m0x6000989"
+    }
+   ],
+   "StartDrivingImplementation0x6000989": [
+    "TASK_VEHICLE_DRIVE_WANDER"
+   ]
+  },
+  "N5": {
+   "TryExecute": "0x6000a91",
+   "NotifyNpcActionExecuted": "0x6000c11",
+   "callSites": [
+    {
+     "callOffset": "0x1d6",
+     "precedingLoads": [
+      [
+       "0x1cf",
+       "ldfld",
+       "LosSantosAlive.NPC.Actions.NpcActionRegistry+~9a7f26d8::f0x400073c"
+      ]
+     ]
+    },
+    {
+     "callOffset": "0x22d",
+     "precedingLoads": [
+      [
+       "0x227",
+       "ldfld",
+       "LosSantosAlive.NPC.Actions.NpcActionRegistry+~9a7f26d8::f0x400073c"
+      ]
+     ]
+    }
+   ],
+   "notifyCallers": [
+    {
+     "method": "0x6000a91",
+     "name": "LosSantosAlive.NPC.Actions.NpcActionRegistry::TryExecute",
+     "offset": "0x1d6",
+     "op": "call"
+    },
+    {
+     "method": "0x6000a91",
+     "name": "LosSantosAlive.NPC.Actions.NpcActionRegistry::TryExecute",
+     "offset": "0x22d",
+     "op": "call"
+    }
+   ]
+  },
+  "N6": {
+   "HandleBridgeTextMessage0x6001517": {
+    "strings": [
+     "\"type\":\"npcaudiospeaker\"",
+     "\"type\":\"speechended\"",
+     "\"type\":\"radiospeechstate\"",
+     " team=",
+     "' target='",
+     "approachperson",
+     "target_not_found",
+     " action=",
+     " parameter='",
+     "' target='",
+     "none"
+    ],
+    "callees": [
+     "LosSantosAlive.Bridge.BridgeMessageRouter::m0x6001515",
+     "LosSantosAlive.Bridge.BridgeMessageRouter::m0x6001516",
+     "LosSantosAlive.Bridge.BridgeMessageRouter::m0x6001518",
+     "LosSantosAlive.Bridge.BridgeMessageRouter::m0x6001519",
+     "LosSantosAlive.Bridge.BridgeMessageRouter::m0x600151a",
+     "LosSantosAlive.Bridge.BridgeMessageRouter::m0x600151b",
+     "LosSantosAlive.Bridge.BridgeMessageRouter::m0x600151c",
+     "LosSantosAlive.Bridge.BridgeMessageRouter::m0x600151d",
+     "LosSantosAlive.Bridge.BridgeMessageRouter::m0x6001527",
+     "LosSantosAlive.Bridge.BridgeMessageRouter::m0x600152e",
+     "LosSantosAlive.Bridge.BridgeMessageRouter::m0x600152f",
+     "LosSantosAlive.NPC.Behaviors.ApproachCoordinator::ReportImmediateFailure",
+     "LosSantosAlive.NPC.Behaviors.ApproachCoordinator::Start",
+     "LosSantosAlive.NPC.NpcActionQueue::QueueNpcAction",
+     "LosSantosAlive.NPC.NpcTargeting::GetPlayerConversationPed",
+     "LosSantosAlive.NPC.NpcTargeting::IsValid",
+     "Rage.Entity::get_Handle",
+     "System.Boolean::ToString",
+     "System.Object::ToString",
+     "System.String::Concat",
+     "System.String::Equals",
+     "System.String::IsNullOrWhiteSpace"
+    ]
+   },
+   "predicate0x6001523": {
+    "callers": [
+     {
+      "method": "0x600151e",
+      "name": "LosSantosAlive.Bridge.BridgeMessageRouter::m0x600151e",
+      "offset": "0xf8",
+      "op": "call"
+     }
+    ],
+    "strings": [
+     "followtargetvehicle",
+     "driveplayertodestination",
+     "givetargetitem",
+     "enterbackoftargetvehicle",
+     "initiatedirectedinteraction",
+     "enterdriverseatoftargetvehicle",
+     "requestpedcheck",
+     "requestbackup",
+     "requestvehiclecheck",
+     "entertargetvehicle",
+     "setdestination",
+     "attacktargetwithweapon",
+     "performactivity",
+     "drivetargettodestination",
+     "givetargetweapon",
+     "takeshotontarget",
+     "drivetodestination",
+     "pullovertargetvehicle",
+     "taketargetweapon",
+     "equipweapon",
+     "stopfollowingtargetvehicle",
+     "walktodestination",
+     "intimidatetargetwithweapon",
+     "taketargetitem"
+    ]
+   }
+  },
+  "N7": {
+   "ProcessPendingActions": [
+    "0x6000213"
+   ],
+   "processCallers": [
+    {
+     "method": "0x60010b1",
+     "name": "LosSantosAlive.Core.GeminiVoicePlugin::Main",
+     "offset": "0x1e2",
+     "op": "call"
+    }
+   ],
+   "queueProcessor0x6000214": {
+    "specialCaseStrings": [
+     "takecover",
+     "continueactivity",
+     "returntoactivity",
+     "resumeactivity"
+    ],
+    "callees": [
+     "LosSantosAlive.Debug.LsaDebugOverlay::RecordAction",
+     "LosSantosAlive.NPC.Actions.RoleActionRouter::TryExecute",
+     "LosSantosAlive.NPC.NpcActionQueue::m0x6000207",
+     "LosSantosAlive.NPC.NpcActionQueue::m0x6000208",
+     "LosSantosAlive.NPC.NpcActionQueue::m0x600020d",
+     "LosSantosAlive.NPC.NpcActionQueue::m0x6000215",
+     "LosSantosAlive.NPC.NpcActionQueue::m0x6000216",
+     "LosSantosAlive.NPC.NpcActionQueue::m0x6000217",
+     "LosSantosAlive.NPC.NpcActionQueue::m0x6000218",
+     "LosSantosAlive.NPC.NpcActionQueue::m0x6000219",
+     "LosSantosAlive.NPC.NpcActionQueue::m0x600021a",
+     "LosSantosAlive.NPC.NpcActionQueue::m0x600021b",
+     "LosSantosAlive.NPC.NpcActionQueue::m0x600021c",
+     "LosSantosAlive.NPC.NpcActionQueue::m0x600021e",
+     "LosSantosAlive.NPC.NpcActionQueue::m0x600021f",
+     "LosSantosAlive.NPC.NpcActionQueue::m0x6000222",
+     "LosSantosAlive.NPC.NpcActionQueue::m0x6000223",
+     "LosSantosAlive.NPC.NpcActionQueue::m0x6000224",
+     "LosSantosAlive.NPC.NpcActionQueue::m0x6000225",
+     "LosSantosAlive.NPC.NpcActionQueue::m0x6000226",
+     "LosSantosAlive.NPC.NpcActionQueue::m0x6000227",
+     "LosSantosAlive.NPC.NpcActionQueue::m0x6000228",
+     "LosSantosAlive.NPC.NpcActionQueue::m0x6000229",
+     "LosSantosAlive.NPC.NpcActions::ResumeActivity",
+     "LosSantosAlive.NPC.NpcActions::TakeCover",
+     "LosSantosAlive.NPC.NpcFocus::GetFocusReason",
+     "LosSantosAlive.NPC.NpcStateStore::GetState",
+     "LosSantosAlive.NPC.NpcStateStore::GetStateForActiveBehavior",
+     "LosSantosAlive.NPC.NpcTargeting::GetPlayerConversationPed",
+     "LosSantosAlive.NPC.NpcTargeting::GetRelevantTarget",
+     "LosSantosAlive.NPC.NpcTargeting::IsValid",
+     "LosSantosAlive.NPC.NpcTargeting::SetRelevantTarget",
+     "LosSantosAlive.NPC.Roles.NpcRoleManager::CanUseAction",
+     "LosSantosAlive.NPC.Roles.NpcRoleManager::GetRoleName",
+     "Rage.PoolHandle::op_Implicit",
+     "System.Object::ToString"
+    ]
+   },
+   "statefulDuplicateSet0x600021a": [
+    "followplayer",
+    "waithere",
+    "takecover",
+    "driveevasive",
+    "stopdirectedinteraction",
+    "kneel",
+    "drivenormal",
+    "puthandsdown",
+    "puthandsup",
+    "followtarget",
+    "getup"
+   ],
+   "targetRelativeSet0x6000216": [
+    "givetargetitem",
+    "initiatetrafficstopon",
+    "taketargetweapon",
+    "initiatedirectedinteraction",
+    "searchtarget",
+    "arresttarget",
+    "stopandfacetarget",
+    "walkawayfromtarget",
+    "aimweaponattarget",
+    "givetargetweapon",
+    "felonystopinteraction",
+    "attacktarget",
+    "approachperson",
+    "takeshotontarget",
+    "taketargetitem",
+    "fleefromtarget",
+    "intimidatetargetwithweapon"
+   ],
+   "dispatch0x6000218": [
+    "LosSantosAlive.Integrations.IntegrationManager::ApplyActionStateModifiers",
+    "LosSantosAlive.NPC.Actions.NpcActionRegistry::TryExecute",
+    "LosSantosAlive.NPC.NpcActions::m0x60002f4",
+    "LosSantosAlive.NPC.NpcActions::m0x60002f5",
+    "LosSantosAlive.NPC.NpcStateStore::GetStateForActiveBehavior",
+    "LosSantosAlive.NPC.NpcTargeting::IsValid"
+   ]
+  },
+  "N8": {
+   "executor0x60002f7": {
+    "attributes": "Private, Static, HideBySig",
+    "sectionStrings": [
+     "00.GetPreparedState",
+     "01.BumpBehaviorCommandGeneration",
+     "02.ClearPendingVehicleExitCommand",
+     "03.AcquireExclusiveControl",
+     "04.AfterNotifyPedControlChangedTrue",
+     "05.AfterBeforeActionStateModifiers",
+     "06.AfterCommand",
+     "07.AfterAfterActionStateModifiers",
+     "08.AfterRefreshControlledBrain"
+    ],
+    "callees": [
+     "LosSantosAlive.NPC.NpcTargeting::IsValid",
+     "System.Int32::ToString",
+     "System.String::Concat",
+     "LosSantosAlive.NPC.NpcActions::m0x60002f1",
+     "LosSantosAlive.Debug.StateDebugOverlay::Capture",
+     "LosSantosAlive.Integrations.IntegrationManager::ApplyActionStateModifiers",
+     "LosSantosAlive.NPC.NpcActions::m0x60002f6",
+     "LosSantosAlive.NPC.NpcActions::m0x60002f6",
+     "LosSantosAlive.Debug.StateDebugOverlay::Capture",
+     "LosSantosAlive.NPC.NpcActions::m0x60002f8",
+     "LosSantosAlive.Debug.StateDebugOverlay::Capture",
+     "LosSantosAlive.Debug.StateDebugOverlay::Capture",
+     "LosSantosAlive.Debug.StateDebugOverlay::Capture",
+     "LosSantosAlive.NPC.NpcActions::m0x60002ea",
+     "System.Action`2<Rage.Ped,LosSantosAlive.NPC.NpcState>::Invoke",
+     "LosSantosAlive.Debug.StateDebugOverlay::Capture",
+     "LosSantosAlive.Debug.StateDebugOverlay::Capture",
+     "LosSantosAlive.NPC.NpcActions::m0x60002ed",
+     "LosSantosAlive.Debug.StateDebugOverlay::Capture",
+     "LosSantosAlive.Integrations.IntegrationManager::ApplyActionStateModifiers",
+     "LosSantosAlive.Debug.StateDebugOverlay::Capture",
+     "LosSantosAlive.NPC.NpcActions::m0x60002fa"
+    ]
+   },
+   "deferredExecutor0x60002e4": {
+    "attributes": "Private, Static, HideBySig",
+    "callees": [
+     "LosSantosAlive.NPC.NpcActions+~9706cceb::.ctor",
+     "LosSantosAlive.NPC.NpcActions+~9706cceb::m0x60003e2",
+     "LosSantosAlive.NPC.NpcActions::m0x60002f7",
+     "LosSantosAlive.NPC.NpcTargeting::IsValid",
+     "System.Action`2<Rage.Ped,LosSantosAlive.NPC.NpcState>::.ctor"
+    ]
+   },
+   "acquireExclusiveControl0x60002ea": [
+    "LosSantosAlive.Integrations.IntegrationManager::NotifyPedControlChanged",
+    "LosSantosAlive.NPC.NpcActions::SetControlledBrain",
+    "LosSantosAlive.NPC.NpcActions::m0x6000236",
+    "LosSantosAlive.NPC.NpcActions::m0x60002e9",
+    "LosSantosAlive.NPC.NpcActions::m0x6000352",
+    "LosSantosAlive.NPC.NpcTargeting::IsValid",
+    "Rage.PoolHandle::get_Value",
+    "System.Collections.Generic.Dictionary`2<UInt32,Boolean>::ContainsKey",
+    "System.Collections.Generic.Dictionary`2<UInt32,Boolean>::get_Item",
+    "System.Collections.Generic.Dictionary`2<UInt32,Boolean>::set_Item",
+    "System.IDisposable::Dispose"
+   ]
+  },
+  "N9": {
+   "wrappers": [
+    {
+     "wrapper": "SetControlledPed",
+     "params": [
+      "Rage.Ped",
+      "Boolean"
+     ],
+     "token": "0x6000237",
+     "deferred": [],
+     "immediateDirect": false
+    },
+    {
+     "wrapper": "QueueConversationWarmup",
+     "params": [
+      "Rage.Ped"
+     ],
+     "token": "0x6000238",
+     "deferred": [],
+     "immediateDirect": false
+    },
+    {
+     "wrapper": "IntimidateTargetWithWeapon",
+     "params": [
+      "Rage.Ped",
+      "Rage.Ped"
+     ],
+     "token": "0x600023b",
+     "deferred": [],
+     "immediateDirect": false
+    },
+    {
+     "wrapper": "IntimidateTargetWithWeapon",
+     "params": [
+      "Rage.Ped",
+      "Rage.Ped",
+      "LosSantosAlive.NPC.NpcActions+NpcActionExecutionContext"
+     ],
+     "token": "0x600023c",
+     "deferred": [
+      {
+       "command": "IntimidateTargetWithWeapon",
+       "policy": 2
+      }
+     ],
+     "immediateDirect": false
+    },
+    {
+     "wrapper": "TryExecuteDirectedInteractionAction",
+     "params": [
+      "Rage.Ped",
+      "Rage.Ped",
+      "String"
+     ],
+     "token": "0x600023d",
+     "deferred": [],
+     "immediateDirect": false
+    },
+    {
+     "wrapper": "TryExecuteDirectedInteractionTargetReaction",
+     "params": [
+      "Rage.Ped",
+      "Rage.Ped",
+      "String"
+     ],
+     "token": "0x600023f",
+     "deferred": [],
+     "immediateDirect": false
+    },
+    {
+     "wrapper": "StartDriving",
+     "params": [
+      "Rage.Ped",
+      "String"
+     ],
+     "token": "0x6000243",
+     "deferred": [
+      {
+       "command": "StartDriving",
+       "policy": 3
+      }
+     ],
+     "immediateDirect": false
+    },
+    {
+     "wrapper": "GrabItem",
+     "params": [
+      "Rage.Ped",
+      "String"
+     ],
+     "token": "0x6000245",
+     "deferred": [],
+     "immediateDirect": true
+    },
+    {
+     "wrapper": "UseHeldItem",
+     "params": [
+      "Rage.Ped"
+     ],
+     "token": "0x6000247",
+     "deferred": [],
+     "immediateDirect": true
+    },
+    {
+     "wrapper": "ClearHeldItem",
+     "params": [
+      "Rage.Ped"
+     ],
+     "token": "0x6000249",
+     "deferred": [],
+     "immediateDirect": true
+    },
+    {
+     "wrapper": "GiveTargetItem",
+     "params": [
+      "Rage.Ped"
+     ],
+     "token": "0x600024b",
+     "deferred": [],
+     "immediateDirect": true
+    },
+    {
+     "wrapper": "TakeTargetItem",
+     "params": [
+      "Rage.Ped"
+     ],
+     "token": "0x600024d",
+     "deferred": [],
+     "immediateDirect": true
+    },
+    {
+     "wrapper": "UseScenario",
+     "params": [
+      "Rage.Ped",
+      "String"
+     ],
+     "token": "0x6000252",
+     "deferred": [],
+     "immediateDirect": false
+    },
+    {
+     "wrapper": "UseScenarioAtPosition",
+     "params": [
+      "Rage.Ped",
+      "String",
+      "Rage.Vector3",
+      "Single",
+      "String"
+     ],
+     "token": "0x6000253",
+     "deferred": [],
+     "immediateDirect": false
+    },
+    {
+     "wrapper": "FollowTarget",
+     "params": [
+      "Rage.Ped"
+     ],
+     "token": "0x600025a",
+     "deferred": [
+      {
+       "command": "FollowTarget",
+       "policy": 0
+      }
+     ],
+     "immediateDirect": false
+    },
+    {
+     "wrapper": "WaitHere",
+     "params": [
+      "Rage.Ped"
+     ],
+     "token": "0x600025c",
+     "deferred": [],
+     "immediateDirect": true
+    },
+    {
+     "wrapper": "TakeCover",
+     "params": [
+      "Rage.Ped"
+     ],
+     "token": "0x600025e",
+     "deferred": [
+      {
+       "command": "TakeCover",
+       "policy": 2
+      }
+     ],
+     "immediateDirect": false
+    },
+    {
+     "wrapper": "GoTalkToNearestPed",
+     "params": [
+      "Rage.Ped"
+     ],
+     "token": "0x6000260",
+     "deferred": [],
+     "immediateDirect": false
+    },
+    {
+     "wrapper": "GoTalkToNearestPed",
+     "params": [
+      "Rage.Ped",
+      "String"
+     ],
+     "token": "0x6000261",
+     "deferred": [],
+     "immediateDirect": true
+    },
+    {
+     "wrapper": "FelonyStopInteraction",
+     "params": [
+      "Rage.Ped"
+     ],
+     "token": "0x6000263",
+     "deferred": [],
+     "immediateDirect": false
+    },
+    {
+     "wrapper": "FelonyStopInteraction",
+     "params": [
+      "Rage.Ped",
+      "String"
+     ],
+     "token": "0x6000264",
+     "deferred": [],
+     "immediateDirect": true
+    },
+    {
+     "wrapper": "ApproachTarget",
+     "params": [
+      "Rage.Ped"
+     ],
+     "token": "0x6000266",
+     "deferred": [
+      {
+       "command": "ApproachTarget",
+       "policy": 1
+      }
+     ],
+     "immediateDirect": false
+    },
+    {
+     "wrapper": "ChaseTarget",
+     "params": [
+      "Rage.Ped"
+     ],
+     "token": "0x6000268",
+     "deferred": [
+      {
+       "command": "ChaseTarget",
+       "policy": 2
+      }
+     ],
+     "immediateDirect": false
+    },
+    {
+     "wrapper": "ChaseTarget",
+     "params": [
+      "Rage.Ped",
+      "Rage.Ped"
+     ],
+     "token": "0x6000269",
+     "deferred": [
+      {
+       "command": "ChaseTarget",
+       "policy": 2
+      }
+     ],
+     "immediateDirect": false
+    },
+    {
+     "wrapper": "StopAndFaceTarget",
+     "params": [
+      "Rage.Ped"
+     ],
+     "token": "0x600026b",
+     "deferred": [
+      {
+       "command": "StopAndFaceTarget",
+       "policy": 3
+      }
+     ],
+     "immediateDirect": false
+    },
+    {
+     "wrapper": "StopAndFaceTarget",
+     "params": [
+      "Rage.Ped",
+      "Rage.Ped"
+     ],
+     "token": "0x600026c",
+     "deferred": [
+      {
+       "command": "StopAndFaceTarget",
+       "policy": 3
+      }
+     ],
+     "immediateDirect": false
+    },
+    {
+     "wrapper": "StopDirectedInteraction",
+     "params": [
+      "Rage.Ped"
+     ],
+     "token": "0x600026e",
+     "deferred": [],
+     "immediateDirect": true
+    },
+    {
+     "wrapper": "EnterTargetVehicle",
+     "params": [
+      "Rage.Ped",
+      "String"
+     ],
+     "token": "0x6000270",
+     "deferred": [
+      {
+       "command": "EnterTargetVehicle",
+       "policy": 3
+      }
+     ],
+     "immediateDirect": false
+    },
+    {
+     "wrapper": "EnterBackOfTargetVehicle",
+     "params": [
+      "Rage.Ped",
+      "String"
+     ],
+     "token": "0x6000272",
+     "deferred": [
+      {
+       "command": "EnterBackOfTargetVehicle",
+       "policy": 3
+      }
+     ],
+     "immediateDirect": false
+    },
+    {
+     "wrapper": "EnterDriverSeatOfTargetVehicle",
+     "params": [
+      "Rage.Ped",
+      "String"
+     ],
+     "token": "0x6000274",
+     "deferred": [
+      {
+       "command": "EnterDriverSeatOfTargetVehicle",
+       "policy": 3
+      }
+     ],
+     "immediateDirect": false
+    },
+    {
+     "wrapper": "FollowTargetVehicle",
+     "params": [
+      "Rage.Ped",
+      "String"
+     ],
+     "token": "0x6000276",
+     "deferred": [
+      {
+       "command": "FollowTargetVehicle",
+       "policy": 3
+      }
+     ],
+     "immediateDirect": false
+    },
+    {
+     "wrapper": "StopFollowingTargetVehicle",
+     "params": [
+      "Rage.Ped",
+      "String"
+     ],
+     "token": "0x6000278",
+     "deferred": [],
+     "immediateDirect": true
+    },
+    {
+     "wrapper": "DriveEvasive",
+     "params": [
+      "Rage.Ped"
+     ],
+     "token": "0x600027a",
+     "deferred": [
+      {
+       "command": "DriveEvasive",
+       "policy": 3
+      }
+     ],
+     "immediateDirect": false
+    },
+    {
+     "wrapper": "DriveNormal",
+     "params": [
+      "Rage.Ped"
+     ],
+     "token": "0x600027c",
+     "deferred": [],
+     "immediateDirect": true
+    },
+    {
+     "wrapper": "ExitVehicle",
+     "params": [
+      "Rage.Ped"
+     ],
+     "token": "0x600027e",
+     "deferred": [],
+     "immediateDirect": true
+    },
+    {
+     "wrapper": "PutHandsUp",
+     "params": [
+      "Rage.Ped"
+     ],
+     "token": "0x6000280",
+     "deferred": [
+      {
+       "command": "PutHandsUp",
+       "policy": 3
+      }
+     ],
+     "immediateDirect": false
+    },
+    {
+     "wrapper": "PutHandsUpFromReflex",
+     "params": [
+      "Rage.Ped"
+     ],
+     "token": "0x6000281",
+     "deferred": [],
+     "immediateDirect": false
+    },
+    {
+     "wrapper": "PutHandsUpFromReflex",
+     "params": [
+      "Rage.Ped",
+      "LosSantosAlive.NPC.NpcState"
+     ],
+     "token": "0x6000282",
+     "deferred": [],
+     "immediateDirect": false
+    },
+    {
+     "wrapper": "KneelFromReflex",
+     "params": [
+      "Rage.Ped"
+     ],
+     "token": "0x6000283",
+     "deferred": [],
+     "immediateDirect": false
+    },
+    {
+     "wrapper": "KneelFromReflex",
+     "params": [
+      "Rage.Ped",
+      "LosSantosAlive.NPC.NpcState"
+     ],
+     "token": "0x6000284",
+     "deferred": [],
+     "immediateDirect": false
+    },
+    {
+     "wrapper": "PutHandsDown",
+     "params": [
+      "Rage.Ped"
+     ],
+     "token": "0x6000286",
+     "deferred": [],
+     "immediateDirect": true
+    },
+    {
+     "wrapper": "Kneel",
+     "params": [
+      "Rage.Ped"
+     ],
+     "token": "0x6000288",
+     "deferred": [
+      {
+       "command": "Kneel",
+       "policy": 2
+      }
+     ],
+     "immediateDirect": false
+    },
+    {
+     "wrapper": "GetUp",
+     "params": [
+      "Rage.Ped"
+     ],
+     "token": "0x600028a",
+     "deferred": [],
+     "immediateDirect": true
+    },
+    {
+     "wrapper": "TurnAround",
+     "params": [
+      "Rage.Ped"
+     ],
+     "token": "0x600028c",
+     "deferred": [
+      {
+       "command": "TurnAround",
+       "policy": 1
+      }
+     ],
+     "immediateDirect": false
+    },
+    {
+     "wrapper": "WalkBackwardsToTarget",
+     "params": [
+      "Rage.Ped"
+     ],
+     "token": "0x600028e",
+     "deferred": [
+      {
+       "command": "WalkBackwardsToTarget",
+       "policy": 1
+      }
+     ],
+     "immediateDirect": false
+    },
+    {
+     "wrapper": "LeanAgainstVehicle",
+     "params": [
+      "Rage.Ped"
+     ],
+     "token": "0x6000290",
+     "deferred": [
+      {
+       "command": "LeanAgainstVehicle",
+       "policy": 1
+      }
+     ],
+     "immediateDirect": false
+    },
+    {
+     "wrapper": "SitOnGround",
+     "params": [
+      "Rage.Ped"
+     ],
+     "token": "0x6000292",
+     "deferred": [
+      {
+       "command": "SitOnGround",
+       "policy": 1
+      }
+     ],
+     "immediateDirect": false
+    },
+    {
+     "wrapper": "WalkAwayFromTarget",
+     "params": [
+      "Rage.Ped"
+     ],
+     "token": "0x6000294",
+     "deferred": [
+      {
+       "command": "WalkAwayFromTarget",
+       "policy": 1
+      }
+     ],
+     "immediateDirect": false
+    },
+    {
+     "wrapper": "FleeFromTarget",
+     "params": [
+      "Rage.Ped"
+     ],
+     "token": "0x6000296",
+     "deferred": [
+      {
+       "command": "FleeFromTarget",
+       "policy": 2
+      }
+     ],
+     "immediateDirect": false
+    },
+    {
+     "wrapper": "AttackTarget",
+     "params": [
+      "Rage.Ped"
+     ],
+     "token": "0x6000298",
+     "deferred": [
+      {
+       "command": "AttackTarget",
+       "policy": 2
+      }
+     ],
+     "immediateDirect": false
+    },
+    {
+     "wrapper": "AttackTargetWithWeapon",
+     "params": [
+      "Rage.Ped"
+     ],
+     "token": "0x600029b",
+     "deferred": [],
+     "immediateDirect": false
+    },
+    {
+     "wrapper": "AttackTargetWithWeapon",
+     "params": [
+      "Rage.Ped",
+      "String"
+     ],
+     "token": "0x600029c",
+     "deferred": [
+      {
+       "command": "AttackTargetWithWeapon",
+       "policy": 2
+      }
+     ],
+     "immediateDirect": false
+    },
+    {
+     "wrapper": "TakeShotOnTarget",
+     "params": [
+      "Rage.Ped"
+     ],
+     "token": "0x600029f",
+     "deferred": [],
+     "immediateDirect": false
+    },
+    {
+     "wrapper": "TakeShotOnTarget",
+     "params": [
+      "Rage.Ped",
+      "String"
+     ],
+     "token": "0x60002a0",
+     "deferred": [
+      {
+       "command": "TakeShotOnTarget",
+       "policy": 2
+      }
+     ],
+     "immediateDirect": false
+    },
+    {
+     "wrapper": "TakeTargetWeapon",
+     "params": [
+      "Rage.Ped"
+     ],
+     "token": "0x60002a2",
+     "deferred": [],
+     "immediateDirect": true
+    },
+    {
+     "wrapper": "GiveTargetWeapon",
+     "params": [
+      "Rage.Ped"
+     ],
+     "token": "0x60002a5",
+     "deferred": [],
+     "immediateDirect": false
+    },
+    {
+     "wrapper": "GiveTargetWeapon",
+     "params": [
+      "Rage.Ped",
+      "String"
+     ],
+     "token": "0x60002a6",
+     "deferred": [],
+     "immediateDirect": true
+    },
+    {
+     "wrapper": "EquipWeapon",
+     "params": [
+      "Rage.Ped"
+     ],
+     "token": "0x60002a9",
+     "deferred": [],
+     "immediateDirect": false
+    },
+    {
+     "wrapper": "EquipWeapon",
+     "params": [
+      "Rage.Ped",
+      "String"
+     ],
+     "token": "0x60002aa",
+     "deferred": [],
+     "immediateDirect": true
+    },
+    {
+     "wrapper": "IntimidateTargetWithWeapon",
+     "params": [
+      "Rage.Ped"
+     ],
+     "token": "0x60002ad",
+     "deferred": [],
+     "immediateDirect": false
+    },
+    {
+     "wrapper": "IntimidateTargetWithWeapon",
+     "params": [
+      "Rage.Ped",
+      "String"
+     ],
+     "token": "0x60002ae",
+     "deferred": [
+      {
+       "command": "IntimidateTargetWithWeapon",
+       "policy": 2
+      }
+     ],
+     "immediateDirect": false
+    },
+    {
+     "wrapper": "IntimidateTargetWithWeaponFromReflex",
+     "params": [
+      "Rage.Ped",
+      "Rage.Ped"
+     ],
+     "token": "0x60002af",
+     "deferred": [],
+     "immediateDirect": false
+    },
+    {
+     "wrapper": "IntimidateTargetWithWeaponFromReflex",
+     "params": [
+      "Rage.Ped",
+      "Rage.Ped",
+      "LosSantosAlive.NPC.NpcState"
+     ],
+     "token": "0x60002b0",
+     "deferred": [],
+     "immediateDirect": false
+    },
+    {
+     "wrapper": "UnequipWeapon",
+     "params": [
+      "Rage.Ped"
+     ],
+     "token": "0x60002b2",
+     "deferred": [],
+     "immediateDirect": true
+    },
+    {
+     "wrapper": "PutAwayWeapon",
+     "params": [
+      "Rage.Ped"
+     ],
+     "token": "0x60002b4",
+     "deferred": [],
+     "immediateDirect": false
+    },
+    {
+     "wrapper": "BecomeAccomplice",
+     "params": [
+      "Rage.Ped"
+     ],
+     "token": "0x60002b6",
+     "deferred": [],
+     "immediateDirect": true
+    },
+    {
+     "wrapper": "ResumeActivity",
+     "params": [
+      "Rage.Ped"
+     ],
+     "token": "0x60002ba",
+     "deferred": [
+      {
+       "command": "ResumeActivity",
+       "policy": 3
+      }
+     ],
+     "immediateDirect": false
+    },
+    {
+     "wrapper": "ResumeActivity",
+     "params": [
+      "Rage.Ped",
+      "String"
+     ],
+     "token": "0x60002bb",
+     "deferred": [],
+     "immediateDirect": false
+    },
+    {
+     "wrapper": "HasExclusiveControl",
+     "params": [
+      "Rage.Ped"
+     ],
+     "token": "0x60002e7",
+     "deferred": [],
+     "immediateDirect": false
+    },
+    {
+     "wrapper": "GetExclusiveControlReason",
+     "params": [
+      "Rage.Ped"
+     ],
+     "token": "0x60002e8",
+     "deferred": [],
+     "immediateDirect": false
+    },
+    {
+     "wrapper": "ReleaseExclusiveControlForExternalSystem",
+     "params": [
+      "Rage.Ped",
+      "String",
+      "Boolean"
+     ],
+     "token": "0x60002ec",
+     "deferred": [],
+     "immediateDirect": false
+    },
+    {
+     "wrapper": "PreparePed",
+     "params": [
+      "Rage.Ped"
+     ],
+     "token": "0x6000308",
+     "deferred": [],
+     "immediateDirect": false
+    },
+    {
+     "wrapper": "SetControlledBrain",
+     "params": [
+      "Rage.Ped",
+      "Boolean"
+     ],
+     "token": "0x600030a",
+     "deferred": [],
+     "immediateDirect": false
+    }
+   ],
+   "immediateExecutorCallers": [
+    {
+     "method": "0x6000245",
+     "name": "LosSantosAlive.NPC.NpcActions::GrabItem",
+     "offset": "0x24",
+     "op": "call"
+    },
+    {
+     "method": "0x6000247",
+     "name": "LosSantosAlive.NPC.NpcActions::UseHeldItem",
+     "offset": "0x2a",
+     "op": "call"
+    },
+    {
+     "method": "0x6000249",
+     "name": "LosSantosAlive.NPC.NpcActions::ClearHeldItem",
+     "offset": "0x2a",
+     "op": "call"
+    },
+    {
+     "method": "0x600024b",
+     "name": "LosSantosAlive.NPC.NpcActions::GiveTargetItem",
+     "offset": "0x2a",
+     "op": "call"
+    },
+    {
+     "method": "0x600024d",
+     "name": "LosSantosAlive.NPC.NpcActions::TakeTargetItem",
+     "offset": "0x2a",
+     "op": "call"
+    },
+    {
+     "method": "0x600025c",
+     "name": "LosSantosAlive.NPC.NpcActions::WaitHere",
+     "offset": "0x2a",
+     "op": "call"
+    },
+    {
+     "method": "0x6000261",
+     "name": "LosSantosAlive.NPC.NpcActions::GoTalkToNearestPed",
+     "offset": "0x55",
+     "op": "call"
+    },
+    {
+     "method": "0x6000264",
+     "name": "LosSantosAlive.NPC.NpcActions::FelonyStopInteraction",
+     "offset": "0x59",
+     "op": "call"
+    },
+    {
+     "method": "0x600026e",
+     "name": "LosSantosAlive.NPC.NpcActions::StopDirectedInteraction",
+     "offset": "0x2a",
+     "op": "call"
+    },
+    {
+     "method": "0x6000278",
+     "name": "LosSantosAlive.NPC.NpcActions::StopFollowingTargetVehicle",
+     "offset": "0x24",
+     "op": "call"
+    },
+    {
+     "method": "0x600027c",
+     "name": "LosSantosAlive.NPC.NpcActions::DriveNormal",
+     "offset": "0x2a",
+     "op": "call"
+    },
+    {
+     "method": "0x600027e",
+     "name": "LosSantosAlive.NPC.NpcActions::ExitVehicle",
+     "offset": "0x2a",
+     "op": "call"
+    },
+    {
+     "method": "0x6000286",
+     "name": "LosSantosAlive.NPC.NpcActions::PutHandsDown",
+     "offset": "0x2a",
+     "op": "call"
+    },
+    {
+     "method": "0x600028a",
+     "name": "LosSantosAlive.NPC.NpcActions::GetUp",
+     "offset": "0x2a",
+     "op": "call"
+    },
+    {
+     "method": "0x60002a2",
+     "name": "LosSantosAlive.NPC.NpcActions::TakeTargetWeapon",
+     "offset": "0x2a",
+     "op": "call"
+    },
+    {
+     "method": "0x60002a6",
+     "name": "LosSantosAlive.NPC.NpcActions::GiveTargetWeapon",
+     "offset": "0x55",
+     "op": "call"
+    },
+    {
+     "method": "0x60002aa",
+     "name": "LosSantosAlive.NPC.NpcActions::EquipWeapon",
+     "offset": "0x24",
+     "op": "call"
+    },
+    {
+     "method": "0x60002b2",
+     "name": "LosSantosAlive.NPC.NpcActions::UnequipWeapon",
+     "offset": "0x2a",
+     "op": "call"
+    },
+    {
+     "method": "0x60002b6",
+     "name": "LosSantosAlive.NPC.NpcActions::BecomeAccomplice",
+     "offset": "0x2a",
+     "op": "call"
+    },
+    {
+     "method": "0x60002e4",
+     "name": "LosSantosAlive.NPC.NpcActions::m0x60002e4",
+     "offset": "0xff",
+     "op": "call"
+    }
+   ]
+  },
+  "N10_N18": {
+   "public": {
+    "UseScenario": [
+     {
+      "token": "0x6000250",
+      "params": [],
+      "callees": [
+       "LosSantosAlive.NPC.NpcActions::m0x60002f9",
+       "LosSantosAlive.NPC.NpcActions::UseScenario"
+      ]
+     },
+     {
+      "token": "0x6000251",
+      "params": [
+       "String"
+      ],
+      "callees": [
+       "LosSantosAlive.NPC.NpcActions::m0x60002f9",
+       "LosSantosAlive.NPC.NpcActions::UseScenario"
+      ]
+     },
+     {
+      "token": "0x6000252",
+      "params": [
+       "Rage.Ped",
+       "String"
+      ],
+      "callees": [
+       "LosSantosAlive.NPC.NpcTargeting::IsValid",
+       "LosSantosAlive.NPC.NpcActions::m0x6000364",
+       "LosSantosAlive.NPC.NpcActions::m0x6000365",
+       "LosSantosAlive.NPC.NpcActions::m0x6000254"
+      ]
+     }
+    ],
+    "UseScenarioAtPosition": [
+     {
+      "token": "0x6000253",
+      "params": [
+       "Rage.Ped",
+       "String",
+       "Rage.Vector3",
+       "Single",
+       "String"
+      ],
+      "callees": [
+       "LosSantosAlive.NPC.NpcTargeting::IsValid",
+       "LosSantosAlive.NPC.NpcActions::m0x6000254"
+      ]
+     }
+    ]
+   },
+   "impl0x6000254": {
+    "strings": [
+     "[LosSantosAlive] UseScenario ignored. Missing scenario name.",
+     "NpcActions.Command.UseScenario.GetPreparedState",
+     "UseScenario"
+    ],
+    "callees": [
+     "LosSantosAlive.NPC.NpcActions+~c5b0159f::.ctor",
+     "LosSantosAlive.NPC.NpcActions::m0x6000355",
+     "LosSantosAlive.NPC.NpcTargeting::IsValid",
+     "LosSantosAlive.NPC.NpcActions::m0x600035e",
+     "LosSantosAlive.NPC.NpcActions::m0x6000236",
+     "LosSantosAlive.NPC.NpcActions::m0x60002fa",
+     "LosSantosAlive.NPC.NpcActions::m0x600034e",
+     "LosSantosAlive.NPC.NpcActions+~c5b0159f::m0x6000408",
+     "System.Action::.ctor",
+     "LosSantosAlive.NPC.NpcActions::m0x60002fc",
+     "LosSantosAlive.NPC.NpcActions::m0x6000255",
+     "LosSantosAlive.NPC.NpcActions::m0x600031c",
+     "LosSantosAlive.NPC.NpcActions::m0x6000366"
+    ],
+    "usesExecutor": false
+   },
+   "getPreparedState0x60002fa": [
+    "LosSantosAlive.NPC.NpcTargeting::IsValid",
+    "LosSantosAlive.NPC.NpcActions::m0x60002fe",
+    "LosSantosAlive.NPC.NpcStateStore::GetStateForActiveBehavior"
+   ],
+   "initialTakeover0x60002fe": {
+    "strings": [
+     "[LosSantosAlive] Initial takeover ran vehicle-safe; no task clear while ped is in vehicle.",
+     "CLEAR_PED_TASKS",
+     "CLEAR_PED_SECONDARY_TASK",
+     "[LosSantosAlive] Initial hard takeover clear ran on-foot."
+    ],
+    "callees": [
+     "LosSantosAlive.NPC.NpcActions::PreparePed",
+     "LosSantosAlive.NPC.NpcActions::m0x6000309",
+     "LosSantosAlive.NPC.NpcActions::m0x6000345",
+     "LosSantosAlive.NPC.NpcActions::m0x6000355",
+     "LosSantosAlive.NPC.NpcActions::m0x600035b",
+     "LosSantosAlive.NPC.NpcActions::m0x600035c",
+     "LosSantosAlive.NPC.NpcActions::m0x600035d",
+     "LosSantosAlive.NPC.NpcActions::m0x6000366",
+     "LosSantosAlive.NPC.NpcTargeting::IsValid",
+     "System.Action`3<System.Runtime.CompilerServices.CallSite,Object,Rage.Ped>::Invoke",
+     "System.Runtime.CompilerServices.CallSite`1<System.Action`3<System.Runtime.CompilerServices.CallSite,Object,Rage.Ped>>::Create"
+    ]
+   },
+   "partialModeClear0x600031c": [
+    "LosSantosAlive.NPC.NpcActions::m0x6000341",
+    "LosSantosAlive.NPC.NpcActions::ClearMovementActionFlags",
+    "LosSantosAlive.NPC.NpcActions::ClearDestinationFlags",
+    "LosSantosAlive.NPC.NpcActions::ClearHostileFlags",
+    "LosSantosAlive.NPC.NpcActions::ClearComplianceFlags",
+    "LosSantosAlive.NPC.NpcActions::ClearExplicitVehicleEnterFlags",
+    "LosSantosAlive.NPC.DirectedInteractionManager::ForceStopInteractionForPed"
+   ],
+   "stopAndFaceClear0x6000341.writes": [
+    "LosSantosAlive.NPC.NpcState::LastStopAndFaceTaskTime",
+    "LosSantosAlive.NPC.NpcState::StopAndFaceTargetMode",
+    "LosSantosAlive.NPC.NpcState::StopAndFaceTargetPed"
+   ],
+   "vehicleExitDeferral0x60002fc": {
+    "strings": [
+     "[LosSantosAlive] ",
+     " queued until ped leaves vehicle, then flat settle delay. fastExit=",
+     " delayMs="
+    ],
+    "callees": [
+     "LosSantosAlive.NPC.Behaviors.VehicleBehavior::ForceExitVehicle",
+     "LosSantosAlive.NPC.Behaviors.VehicleBehavior::ForceExitVehicleFast",
+     "LosSantosAlive.NPC.NpcActions+~2ec70c92::.ctor",
+     "LosSantosAlive.NPC.NpcActions+~2ec70c92::m0x60003eb",
+     "LosSantosAlive.NPC.NpcActions::m0x60002ee",
+     "LosSantosAlive.NPC.NpcActions::m0x60002f0",
+     "LosSantosAlive.NPC.NpcActions::m0x600034f",
+     "LosSantosAlive.NPC.NpcActions::m0x6000366",
+     "LosSantosAlive.NPC.NpcTargeting::IsValid",
+     "Rage.Game::LogTrivial",
+     "System.Action::Invoke",
+     "System.Boolean::ToString",
+     "System.Int32::ToString",
+     "System.String::Concat",
+     "System.Threading.ThreadStart::.ctor"
+    ]
+   },
+   "clearHelpersWrites": {
+    "ClearComplianceFlags": [
+     "HandsUpMode",
+     "KneelMode",
+     "LastComplianceTaskTime",
+     "SitOnGroundMode",
+     "WantsHandsUp"
+    ],
+    "ClearHostileFlags": [
+     "AccompliceMode",
+     "AttackPlayer",
+     "FleePlayer",
+     "IntimidatePlayerWithWeapon",
+     "IntimidateTargetPed",
+     "LastCombatTaskTime",
+     "WalkAway"
+    ],
+    "ClearMovementActionFlags": [
+     "ApproachTargetMode",
+     "ApproachTargetPed",
+     "ChaseTargetMode",
+     "ChaseTargetPed",
+     "LastApproachTaskTime",
+     "LastChaseTaskTime",
+     "LastMovementActionTaskTime",
+     "LeanAgainstVehicleMode",
+     "TurnAroundMode",
+     "TurnAroundTargetPed",
+     "WalkBackwardsTargetPed",
+     "WalkBackwardsToTargetMode"
+    ],
+    "ClearExplicitVehicleEnterFlags": [
+     "EnterBackPassengerSeatWhenPlayerVehicleNearby",
+     "EnterDriverSeatWhenPlayerVehicleNearby",
+     "EnterPassengerSeatWhenPlayerVehicleNearby",
+     "TargetVehicle"
+    ],
+    "ClearFollowFlags": [
+     "FollowPaused",
+     "FollowPlayerOnFoot",
+     "LastFollowTaskTime"
+    ],
+    "ClearVehicleIntentFlagsOnly": [
+     "DriveEvasiveMode",
+     "DriveToDestination",
+     "DriveToXWhenBothSeated",
+     "EnterBackPassengerSeatWhenPlayerVehicleNearby",
+     "EnterDriverSeatWhenPlayerVehicleNearby",
+     "EnterPassengerSeatWhenPlayerEnters",
+     "EnterPassengerSeatWhenPlayerVehicleNearby",
+     "ExitVehicleWhenPlayerExits",
+     "HasResolvedDriveDestination",
+     "LastDriveTaskTime",
+     "PendingDriveDestinationName",
+     "TargetVehicle"
+    ]
+   },
+   "impl0x6000255": {
+    "strings": [
+     "NpcActions.Command.UseScenario.Prepare",
+     "NpcActions.Command.UseScenario.ClearTasks",
+     "CLEAR_PED_TASKS",
+     "CLEAR_PED_SECONDARY_TASK",
+     "NpcActions.Command.UseScenario.StartNative",
+     "TASK_START_SCENARIO_AT_POSITION",
+     "TASK_START_SCENARIO_IN_PLACE",
+     "NpcActions.Command.UseScenario.KeepTaskNative",
+     "SET_BLOCKING_OF_NON_TEMPORARY_EVENTS",
+     "SET_PED_KEEP_TASK",
+     "[LosSantosAlive] UseScenario started. ped=",
+     " scenario='",
+     "' point='",
+     "' usePosition=",
+     " mode='",
+     "in_place",
+     "at_position",
+     "'",
+     "[LosSantosAlive] UseScenario failed. scenario='",
+     "' error="
+    ],
+    "callees": [
+     "LosSantosAlive.NPC.NpcTargeting::IsValid",
+     "LosSantosAlive.NPC.NpcActions::m0x600035e",
+     "LosSantosAlive.NPC.NpcActions::m0x6000236",
+     "LosSantosAlive.NPC.NpcActions::PreparePed",
+     "LosSantosAlive.NPC.NpcActions::m0x6000309",
+     "LosSantosAlive.NPC.NpcActions::m0x6000258",
+     "LosSantosAlive.NPC.NpcActions::m0x600034e",
+     "LosSantosAlive.NPC.NpcActions::m0x6000236",
+     "LosSantosAlive.NPC.NpcActions::m0x6000345",
+     "LosSantosAlive.NPC.NpcActions::m0x600035b",
+     "LosSantosAlive.NPC.NpcActions::m0x600035b",
+     "LosSantosAlive.NPC.NpcActions::m0x600035c",
+     "System.Runtime.CompilerServices.CallSite`1<System.Action`3<System.Runtime.CompilerServices.CallSite,Object,Rage.Ped>>::Create",
+     "LosSantosAlive.NPC.NpcActions::m0x6000345",
+     "LosSantosAlive.NPC.NpcActions::m0x600035b",
+     "LosSantosAlive.NPC.NpcActions::m0x600035b",
+     "LosSantosAlive.NPC.NpcActions::m0x600035c",
+     "System.Runtime.CompilerServices.CallSite`1<System.Action`3<System.Runtime.CompilerServices.CallSite,Object,Rage.Ped>>::Create",
+     "LosSantosAlive.NPC.NpcActions::m0x600035d",
+     "System.Action`3<System.Runtime.CompilerServices.CallSite,Object,Rage.Ped>::Invoke",
+     "LosSantosAlive.NPC.NpcActions::m0x600035d",
+     "System.Action`3<System.Runtime.CompilerServices.CallSite,Object,Rage.Ped>::Invoke",
+     "LosSantosAlive.NPC.NpcActions::m0x600034e",
+     "LosSantosAlive.NPC.NpcActions::m0x6000236",
+     "LosSantosAlive.NPC.NpcActions::m0x6000345",
+     "LosSantosAlive.NPC.NpcActions::m0x600035b",
+     "LosSantosAlive.NPC.NpcActions::m0x600035b",
+     "LosSantosAlive.NPC.NpcActions::m0x600035b",
+     "LosSantosAlive.NPC.NpcActions::m0x600035b",
+     "LosSantosAlive.NPC.NpcActions::m0x600035b",
+     "LosSantosAlive.NPC.NpcActions::m0x600035b",
+     "LosSantosAlive.NPC.NpcActions::m0x600035b",
+     "LosSantosAlive.NPC.NpcActions::m0x600035b",
+     "LosSantosAlive.NPC.NpcActions::m0x600035b",
+     "LosSantosAlive.NPC.NpcActions::m0x600035b",
+     "LosSantosAlive.NPC.NpcActions::m0x600035c",
+     "System.Runtime.CompilerServices.CallSite`1<System.Action`11<System.Runtime.CompilerServices.CallSite,Object,Rage.Ped,String,Single,Single,Single,Single,Int32,Boolean,Boolean>>::Create",
+     "LosSantosAlive.NPC.NpcActions::m0x600035d",
+     "System.Action`6<System.Runtime.CompilerServices.CallSite,Object,Rage.Ped,String,Int32,Boolean>::Invoke",
+     "LosSantosAlive.NPC.NpcActions::m0x6000345",
+     "LosSantosAlive.NPC.NpcActions::m0x600035b",
+     "LosSantosAlive.NPC.NpcActions::m0x600035b",
+     "LosSantosAlive.NPC.NpcActions::m0x600035b",
+     "LosSantosAlive.NPC.NpcActions::m0x600035b",
+     "LosSantosAlive.NPC.NpcActions::m0x600035b",
+     "LosSantosAlive.NPC.NpcActions::m0x600035c",
+     "System.Runtime.CompilerServices.CallSite`1<System.Action`6<System.Runtime.CompilerServices.CallSite,Object,Rage.Ped,String,Int32,Boolean>>::Create",
+     "LosSantosAlive.NPC.NpcActions::m0x600035d",
+     "System.Action`11<System.Runtime.CompilerServices.CallSite,Object,Rage.Ped,String,Single,Single,Single,Single,Int32,Boolean,Boolean>::Invoke",
+     "LosSantosAlive.NPC.NpcActions::m0x600034e",
+     "LosSantosAlive.NPC.NpcActions::m0x6000236",
+     "LosSantosAlive.NPC.NpcActions::m0x6000345",
+     "LosSantosAlive.NPC.NpcActions::m0x600035b",
+     "LosSantosAlive.NPC.NpcActions::m0x600035b",
+     "LosSantosAlive.NPC.NpcActions::m0x600035b",
+     "LosSantosAlive.NPC.NpcActions::m0x600035c",
+     "System.Runtime.CompilerServices.CallSite`1<System.Action`4<System.Runtime.CompilerServices.CallSite,Object,Rage.Ped,Boolean>>::Create",
+     "LosSantosAlive.NPC.NpcActions::m0x600035d",
+     "System.Action`4<System.Runtime.CompilerServices.CallSite,Object,Rage.Ped,Boolean>::Invoke",
+     "LosSantosAlive.NPC.NpcActions::m0x6000345",
+     "LosSantosAlive.NPC.NpcActions::m0x600035b",
+     "LosSantosAlive.NPC.NpcActions::m0x600035b",
+     "LosSantosAlive.NPC.NpcActions::m0x600035b",
+     "LosSantosAlive.NPC.NpcActions::m0x600035c",
+     "System.Runtime.CompilerServices.CallSite`1<System.Action`4<System.Runtime.CompilerServices.CallSite,Object,Rage.Ped,Boolean>>::Create",
+     "LosSantosAlive.NPC.NpcActions::m0x600035d",
+     "System.Action`4<System.Runtime.CompilerServices.CallSite,Object,Rage.Ped,Boolean>::Invoke",
+     "LosSantosAlive.NPC.NpcActions::m0x600034e",
+     "LosSantosAlive.NPC.NpcActions::m0x6000352",
+     "System.Object::ToString",
+     "System.Boolean::ToString",
+     "System.String::Concat",
+     "LosSantosAlive.NPC.NpcActions::m0x6000233",
+     "LosSantosAlive.NPC.NpcActions::m0x6000256",
+     "System.Object::ToString",
+     "System.String::Concat",
+     "Rage.Game::LogTrivial"
+    ],
+    "usesExecutor": false
+   },
+   "applyScenarioFriendlyBrain0x6000258": [
+    "NpcActions.Command.UseScenario.ApplyScenarioFriendlyBrain.Natives",
+    "SET_BLOCKING_OF_NON_TEMPORARY_EVENTS",
+    "SET_PED_KEEP_TASK",
+    "SET_PED_FLEE_ATTRIBUTES",
+    "SET_PED_CAN_PLAY_AMBIENT_ANIMS",
+    "SET_PED_CAN_PLAY_AMBIENT_BASE_ANIMS"
+   ],
+   "applyControlledBrainIfChanged0x6000309": {
+    "strings": [
+     "ApplyControlledBrainIfChanged.CacheLookup",
+     "ApplyControlledBrainIfChanged.SetControlledBrain",
+     "ApplyControlledBrainIfChanged.CacheSet",
+     "ApplyControlledBrainIfChanged.NotifyPedControlChanged"
+    ],
+    "callers": [
+     {
+      "method": "0x6000255",
+      "name": "LosSantosAlive.NPC.NpcActions::m0x6000255",
+      "offset": "0x84",
+      "op": "call"
+     },
+     {
+      "method": "0x60002eb",
+      "name": "LosSantosAlive.NPC.NpcActions::m0x60002eb",
+      "offset": "0x91",
+      "op": "call"
+     },
+     {
+      "method": "0x60002fd",
+      "name": "LosSantosAlive.NPC.NpcActions::m0x60002fd",
+      "offset": "0x15d",
+      "op": "call"
+     },
+     {
+      "method": "0x60002fe",
+      "name": "LosSantosAlive.NPC.NpcActions::m0x60002fe",
+      "offset": "0xb1",
+      "op": "call"
+     },
+     {
+      "method": "0x6000313",
+      "name": "LosSantosAlive.NPC.NpcActions::m0x6000313",
+      "offset": "0x732",
+      "op": "call"
+     }
+    ]
+   }
+  },
+  "N11": {
+   "publicMethods": [
+    "Start",
+    "StartResumeActivity",
+    "Stop",
+    "StopResumeActivity",
+    "Update"
+   ],
+   "fields": [
+    "0x4000626",
+    "0x4000627",
+    "0x4000628",
+    "0x4000629",
+    "0x400062a",
+    "0x400062b",
+    "0x400062c",
+    "0x400062d",
+    "0x400062e",
+    "0x400062f",
+    "0x4000630",
+    "0x4000631",
+    "0x4000632"
+   ],
+   "literalConstants": [
+    {
+     "int32": 1065353216,
+     "float32": 1.0
+    },
+    {
+     "int32": 1066611507,
+     "float32": 1.15
+    },
+    {
+     "int32": 12000,
+     "float32": 0.0
+    },
+    {
+     "int32": 1073741824,
+     "float32": 2.0
+    },
+    {
+     "int32": 12000,
+     "float32": 0.0
+    },
+    {
+     "int32": 15000,
+     "float32": 0.0
+    },
+    {
+     "int32": 2500,
+     "float32": 0.0
+    },
+    {
+     "int32": 2500,
+     "float32": 0.0
+    },
+    {
+     "int32": 750,
+     "float32": 0.0
+    },
+    {
+     "int32": 1118437376,
+     "float32": 85.0
+    },
+    {
+     "int32": 1099956224,
+     "float32": 18.0
+    },
+    {
+     "int32": 786603,
+     "float32": 0.0
+    }
+   ],
+   "phaseEnum": [
+    "None",
+    "WalkToRememberedActivity",
+    "EnterRememberedVehicle"
+   ],
+   "strings": {
+    "0x6000900": [
+     "[ResumeActivityBehavior] Started resume-to-activity lifecycle: "
+    ],
+    "0x6000904": [
+     "[ResumeActivityBehavior] ResumeActivity lifecycle stopped."
+    ],
+    "0x6000905": [
+     "[ResumeActivityBehavior] Remembered vehicle too far away. Falling back to activity resume.",
+     "[ResumeActivityBehavior] Ped already seated. ",
+     "[ResumeActivityBehavior] Started remembered-vehicle resume lifecycle. seatRole="
+    ],
+    "0x6000906": [
+     "[ResumeActivityBehavior] Remembered vehicle enter timed out. Standing down."
+    ],
+    "0x6000907": [
+     "TASK_ACHIEVE_HEADING",
+     "[ResumeActivityBehavior] Resume walk timed out. Starting remembered activity anyway."
+    ],
+    "0x6000908": [
+     "[ResumeActivityBehavior] Resume walk task issued: ",
+     "TASK_GO_STRAIGHT_TO_COORD"
+    ],
+    "0x6000909": [
+     "[ResumeActivityBehavior] Remembered vehicle enter task issued. seatRole=",
+     "TASK_ENTER_VEHICLE"
+    ],
+    "0x600090a": [
+     "SET_DRIVER_ABILITY",
+     "TASK_VEHICLE_DRIVE_WANDER",
+     "SET_PED_KEEP_TASK",
+     "SET_DRIVER_AGGRESSIVENESS",
+     "[ResumeActivityBehavior] Failed to issue ambient drive task. error=",
+     "[ResumeActivityBehavior] Ped is in the driver seat. Resuming ambient driving without exiting.",
+     "SET_PED_KEEP_TASK",
+     "[ResumeActivityBehavior] Ped is seated as a passenger. Releasing without exiting or re-entering."
+    ],
+    "0x600090c": [
+     "[ResumeActivityBehavior] FindVehicleByHandle error: "
+    ],
+    "0x600090f": [
+     "IS_VEHICLE_SEAT_FREE"
+    ],
+    "0x6000911": [
+     "GET_PED_IN_VEHICLE_SEAT"
+    ],
+    "0x6000912": [
+     "TASK_WANDER_STANDARD",
+     "[ResumeActivityBehavior] Resumed wandering.",
+     "[ResumeActivityBehavior] Resumed scenario ",
+     " from activity: ",
+     "[ResumeActivityBehavior] No exact scenario mapping. Standing at remembered activity spot: ",
+     "TASK_STAND_STILL",
+     "TASK_START_SCENARIO_AT_POSITION"
+    ],
+    "0x6000913": [
+     "TASK_WANDER_STANDARD",
+     "[ResumeActivityBehavior] No memory found. Returning to ambient wander."
+    ],
+    "0x6000914": [
+     "WORLD_HUMAN_SUNBATHE",
+     "WORLD_HUMAN_PAPARAZZI",
+     "WORLD_HUMAN_PARTYING",
+     "WORLD_HUMAN_LEANING",
+     "WORLD_HUMAN_CLIPBOARD",
+     "PROP_HUMAN_PARKING_METER",
+     "WORLD_HUMAN_WINDOW_SHOP_BROWSE",
+     "PROP_HUMAN_BBQ",
+     "WORLD_HUMAN_SMOKING",
+     "PROP_HUMAN_SEAT_BENCH",
+     "WORLD_HUMAN_STAND_MOBILE",
+     "WORLD_HUMAN_BINOCULARS",
+     "WORLD_HUMAN_STAND_IMPATIENT",
+     "WORLD_HUMAN_AA_COFFEE",
+     "WORLD_HUMAN_DRINKING",
+     "WORLD_HUMAN_YOGA",
+     "WORLD_HUMAN_MUSICIAN",
+     "WORLD_HUMAN_HANG_OUT_STREET",
+     "PROP_HUMAN_ATM",
+     "WORLD_HUMAN_GUARD_STAND"
+    ]
+   }
+  },
+  "N12": {
+   "strings": [
+    {
+     "method": "0x60008af",
+     "name": "LosSantosAlive.NPC.Behaviors.MovementBehavior::m0x60008af",
+     "string": "[MovementBehavior] ApproachTarget task no longer assigned; reissuing. mover="
+    },
+    {
+     "method": "0x60008af",
+     "name": "LosSantosAlive.NPC.Behaviors.MovementBehavior::m0x60008af",
+     "string": "[MovementBehavior] ApproachTarget immediate arrival reached. mover="
+    },
+    {
+     "method": "0x60008af",
+     "name": "LosSantosAlive.NPC.Behaviors.MovementBehavior::m0x60008af",
+     "string": "[MovementBehavior] ApproachTarget no-progress arrival accepted. mover="
+    },
+    {
+     "method": "0x60008af",
+     "name": "LosSantosAlive.NPC.Behaviors.MovementBehavior::m0x60008af",
+     "string": "[MovementBehavior] ApproachTarget GTA task ended near target; accepting arrival. mover="
+    },
+    {
+     "method": "0x60014fc",
+     "name": "LosSantosAlive.Bridge.NpcAudioProtocol::BuildApproachResult",
+     "string": "npcApproachFailed"
+    },
+    {
+     "method": "0x60014fc",
+     "name": "LosSantosAlive.Bridge.NpcAudioProtocol::BuildApproachResult",
+     "string": "npcApproachCompleted"
+    }
+   ],
+   "BuildApproachResult0x60014fc": [
+    "{\"type\":\"",
+    "npcApproachFailed",
+    "npcApproachCompleted",
+    "\",\"pedId\":",
+    ",\"targetPedId\":",
+    ",\"turnId\":",
+    ",\"generationId\":",
+    ",\"conversationId\":",
+    ",\"reason\":",
+    ",\"distance\":",
+    "0.00",
+    "}"
+   ]
+  },
+  "N13": {
+   "farReleaseCheck0x6000311": {
+    "floatConstants": [
+     10000
+    ],
+    "callers": [
+     {
+      "method": "0x6000313",
+      "name": "LosSantosAlive.NPC.NpcActions::m0x6000313",
+      "offset": "0x205",
+      "op": "call"
+     }
+    ]
+   },
+   "farRelease0x6000313": {
+    "callees": [
+     "LosSantosAlive.Integrations.IntegrationManager::NotifyPedControlChanged",
+     "LosSantosAlive.NPC.NpcActions::HasExclusiveControl",
+     "LosSantosAlive.NPC.NpcActions::SetControlledBrain",
+     "LosSantosAlive.NPC.NpcActions::m0x6000236",
+     "LosSantosAlive.NPC.NpcActions::m0x60002dc",
+     "LosSantosAlive.NPC.NpcActions::m0x60002dd",
+     "LosSantosAlive.NPC.NpcActions::m0x60002e9",
+     "LosSantosAlive.NPC.NpcActions::m0x60002eb",
+     "LosSantosAlive.NPC.NpcActions::m0x6000309",
+     "LosSantosAlive.NPC.NpcActions::m0x6000311",
+     "LosSantosAlive.NPC.NpcActions::m0x6000312",
+     "LosSantosAlive.NPC.NpcActions::m0x6000314",
+     "LosSantosAlive.NPC.NpcActions::m0x600034e",
+     "LosSantosAlive.NPC.NpcActions::m0x6000352",
+     "LosSantosAlive.NPC.NpcStateStore::RemoveState",
+     "LosSantosAlive.NPC.NpcTargeting::IsValid",
+     "Microsoft.CSharp.RuntimeBinder.Binder::InvokeMember",
+     "Microsoft.CSharp.RuntimeBinder.CSharpArgumentInfo::Create",
+     "Rage.Entity::get_Handle",
+     "Rage.Game::LogTrivial",
+     "Rage.Game::get_GameTime",
+     "Rage.Native.NativeFunction::get_Natives",
+     "Rage.Ped::get_Tasks",
+     "Rage.PoolHandle::get_Value",
+     "Rage.TaskInvoker::Clear",
+     "System.Action`3<System.Runtime.CompilerServices.CallSite,Object,Rage.Ped>::Invoke",
+     "System.Collections.Generic.Dictionary`2<UInt32,Boolean>::ContainsKey",
+     "System.Collections.Generic.Dictionary`2<UInt32,Boolean>::Remove",
+     "System.Collections.Generic.Dictionary`2<UInt32,Boolean>::get_Item",
+     "System.Collections.Generic.Dictionary`2<UInt32,Int32>::TryGetValue",
+     "System.Collections.Generic.Dictionary`2<UInt32,Int32>::set_Item",
+     "System.Collections.Generic.Dictionary`2<UInt32,String>::Remove",
+     "System.IDisposable::Dispose",
+     "System.Object::ToString",
+     "System.Runtime.CompilerServices.CallSite`1<System.Action`3<System.Runtime.CompilerServices.CallSite,Object,Rage.Ped>>::Create",
+     "System.String::Concat",
+     "System.Type::GetTypeFromHandle"
+    ]
+   },
+   "controlIntent0x60002dc": [
+    "LosSantosAlive.NPC.NpcState::AccompliceMode",
+    "LosSantosAlive.NPC.NpcState::ActivityInProgress",
+    "LosSantosAlive.NPC.NpcState::ActivityWaitingForTurn",
+    "LosSantosAlive.NPC.NpcState::ApproachTargetMode",
+    "LosSantosAlive.NPC.NpcState::AttackPlayer",
+    "LosSantosAlive.NPC.NpcState::ChaseTargetMode",
+    "LosSantosAlive.NPC.NpcState::CurrentActivity",
+    "LosSantosAlive.NPC.NpcState::DriveEvasiveMode",
+    "LosSantosAlive.NPC.NpcState::DriveToDestination",
+    "LosSantosAlive.NPC.NpcState::DriveToXWhenBothSeated",
+    "LosSantosAlive.NPC.NpcState::EnterBackPassengerSeatWhenPlayerVehicleNearby",
+    "LosSantosAlive.NPC.NpcState::EnterDriverSeatWhenPlayerVehicleNearby",
+    "LosSantosAlive.NPC.NpcState::EnterPassengerSeatWhenPlayerEnters",
+    "LosSantosAlive.NPC.NpcState::EnterPassengerSeatWhenPlayerVehicleNearby",
+    "LosSantosAlive.NPC.NpcState::ExitVehicleWhenPlayerExits",
+    "LosSantosAlive.NPC.NpcState::FleePlayer",
+    "LosSantosAlive.NPC.NpcState::FollowPaused",
+    "LosSantosAlive.NPC.NpcState::FollowPlayerOnFoot",
+    "LosSantosAlive.NPC.NpcState::HandsUpMode",
+    "LosSantosAlive.NPC.NpcState::HasActivityQueue",
+    "LosSantosAlive.NPC.NpcState::InDirectedInteraction",
+    "LosSantosAlive.NPC.NpcState::IntimidatePlayerWithWeapon",
+    "LosSantosAlive.NPC.NpcState::KneelMode",
+    "LosSantosAlive.NPC.NpcState::LeanAgainstVehicleMode",
+    "LosSantosAlive.NPC.NpcState::SitOnGroundMode",
+    "LosSantosAlive.NPC.NpcState::StayUnderLsaControl",
+    "LosSantosAlive.NPC.NpcState::StopAndFaceTargetMode",
+    "LosSantosAlive.NPC.NpcState::TakeCoverMode",
+    "LosSantosAlive.NPC.NpcState::TargetVehicle",
+    "LosSantosAlive.NPC.NpcState::TurnAroundMode",
+    "LosSantosAlive.NPC.NpcState::WalkAway",
+    "LosSantosAlive.NPC.NpcState::WalkBackwardsToTargetMode",
+    "LosSantosAlive.NPC.NpcState::WalkToDestination",
+    "LosSantosAlive.NPC.NpcState::WantsHandsUp",
+    "LosSantosAlive.NPC.NpcState::WeaponEquippedMode"
+   ],
+   "deadRelease0x60002c6": {
+    "callers": [
+     {
+      "method": "0x60002c0",
+      "name": "LosSantosAlive.NPC.NpcActions::m0x60002c0",
+      "offset": "0x76a",
+      "op": "call"
+     }
+    ]
+   }
+  },
+  "N14": {
+   "PedContinuityMemoryService.public": [
+    "TryGetMemory",
+    "Update"
+   ],
+   "PedContinuityMemory": [
+    "PedHandle",
+    "RecentVehicle",
+    "InteractionActivity",
+    "LastUpdatedGameTime"
+   ],
+   "RecentVehicleMemory": [
+    "VehicleHandle",
+    "SeatRole",
+    "LastSeenGameTime"
+   ],
+   "InteractionActivityMemory": [
+    "Activity",
+    "Position",
+    "Heading",
+    "LastSeenGameTime"
+   ],
+   "serviceIntegerConstants": {
+    "0x60006bf": [
+     120000
+    ]
+   }
+  },
+  "N15": {
+   "AmmuNationLocations": {
+    "decodedStrings": 635,
+    "firstLocationName": "Armor",
+    "mentionsLtdDavis": false
+   },
+   "BankLocations": {
+    "decodedStrings": 631,
+    "firstLocationName": "Blaine County Savings Bank",
+    "mentionsLtdDavis": false
+   },
+   "BarAndClubLocations": {
+    "decodedStrings": 511,
+    "firstLocationName": "Yellow Jack Inn",
+    "mentionsLtdDavis": false
+   },
+   "BarberShopLocations": {
+    "decodedStrings": 1006,
+    "firstLocationName": "Bob Mulet Barber Shop - Rockford hills",
+    "mentionsLtdDavis": false
+   },
+   "ClothingStoreLocations": {
+    "decodedStrings": 2000,
+    "firstLocationName": "Discount Clothing Store - Grand Senora",
+    "mentionsLtdDavis": false
+   },
+   "ConvenienceStoreLocations": {
+    "decodedStrings": 1471,
+    "firstLocationName": "LTD Davis",
+    "mentionsLtdDavis": true
+   },
+   "DrugDealLocations": {
+    "decodedStrings": 28,
+    "firstLocationName": "Sandy Shores Abandoned Motel",
+    "mentionsLtdDavis": false
+   },
+   "MiscCalloutLocations": {
+    "decodedStrings": 30,
+    "firstLocationName": "Marina Drive Scrapyard",
+    "mentionsLtdDavis": false
+   },
+   "PoliceStationLocations": {
+    "decodedStrings": 483,
+    "firstLocationName": "Mission Row Police Station",
+    "mentionsLtdDavis": false
+   },
+   "SubwayStationLocations": {
+    "decodedStrings": 741,
+    "firstLocationName": "Subway Station - Little Seoul",
+    "mentionsLtdDavis": false
+   }
+  },
+  "N16": {
+   "RegisterDefaults": [
+    "0x6000a75"
+   ],
+   "itemNames": [
+    "Beer",
+    "BreakfastSnack",
+    "CannedGoods",
+    "Coffee",
+    "Donut",
+    "EnergyDrink",
+    "Liquor",
+    "Snack",
+    "Soda",
+    "Water"
+   ],
+   "cigarettePresent": false
+  },
+  "N17": {
+   "ApplyActionStateModifiers": "0x6000c12",
+   "isinstOffsets": [
+    "0x142"
+   ],
+   "integrationList": [
+    "LosSantosAlive.Integrations.IntegrationManager::f0x40007b3 0x40007b3"
+   ],
+   "callers": [
+    {
+     "method": "0x6000218",
+     "name": "LosSantosAlive.NPC.NpcActionQueue::m0x6000218",
+     "offset": "0x99",
+     "op": "call"
+    },
+    {
+     "method": "0x6000218",
+     "name": "LosSantosAlive.NPC.NpcActionQueue::m0x6000218",
+     "offset": "0x103",
+     "op": "call"
+    },
+    {
+     "method": "0x60002f7",
+     "name": "LosSantosAlive.NPC.NpcActions::m0x60002f7",
+     "offset": "0xb9",
+     "op": "call"
+    },
+    {
+     "method": "0x60002f7",
+     "name": "LosSantosAlive.NPC.NpcActions::m0x60002f7",
+     "offset": "0x264",
+     "op": "call"
+    }
+   ],
+   "NotifyNpcActionExecuted.callers": [
+    {
+     "method": "0x6000a91",
+     "name": "LosSantosAlive.NPC.Actions.NpcActionRegistry::TryExecute",
+     "offset": "0x1d6",
+     "op": "call"
+    },
+    {
+     "method": "0x6000a91",
+     "name": "LosSantosAlive.NPC.Actions.NpcActionRegistry::TryExecute",
+     "offset": "0x22d",
+     "op": "call"
+    }
+   ],
+   "IActionStateModifier.attributes": "Public, ClassSemanticsMask, Abstract, BeforeFieldInit",
+   "ActionStateModifierPhase": {
+    "BeforeCoreStateRule": "00000000",
+    "AfterCoreStateRule": "01000000"
+   }
+  },
+  "N19": {
+   "NotifyPedControlChanged.callers": [
+    {
+     "method": "0x60002c6",
+     "name": "LosSantosAlive.NPC.NpcActions::m0x60002c6",
+     "offset": "0x198",
+     "op": "call"
+    },
+    {
+     "method": "0x60002ea",
+     "name": "LosSantosAlive.NPC.NpcActions::m0x60002ea",
+     "offset": "0x133",
+     "op": "call"
+    },
+    {
+     "method": "0x60002ec",
+     "name": "LosSantosAlive.NPC.NpcActions::ReleaseExclusiveControlForExternalSystem",
+     "offset": "0x452",
+     "op": "call"
+    },
+    {
+     "method": "0x6000309",
+     "name": "LosSantosAlive.NPC.NpcActions::m0x6000309",
+     "offset": "0x216",
+     "op": "call"
+    },
+    {
+     "method": "0x6000313",
+     "name": "LosSantosAlive.NPC.NpcActions::m0x6000313",
+     "offset": "0x5f0",
+     "op": "call"
+    },
+    {
+     "method": "0x6000315",
+     "name": "LosSantosAlive.NPC.NpcActions::Cleanup",
+     "offset": "0x8d",
+     "op": "call"
+    }
+   ]
+  },
+  "N20": {
+   "LocationResolver.public": [
+    "Resolve",
+    "ResolveAll",
+    "ResolveByInteriorId"
+   ],
+   "LocationDefinition": [
+    "Name",
+    "Zone",
+    "Aliases",
+    "Categories",
+    "IntentTags",
+    "ReferencePoint",
+    "InteriorId",
+    "Description",
+    "ActivityPoints"
+   ],
+   "ActivityPoint": [
+    "Name",
+    "Position",
+    "Heading",
+    "IntentTags",
+    "RequiredAccessTags",
+    "HiddenFromDestinationResolvingIfUnauthorized",
+    "UnauthorizedLabel",
+    "Activities",
+    "Items",
+    "OccupiedByPedHandle"
+   ],
+   "DestinationResolver.public": [
+    "TryResolve"
+   ]
+  },
+  "N21": {
+   "NpcActionRegistry.public": [
+    "HasAction",
+    "Register",
+    "TryExecute"
+   ],
+   "NpcActionHandler.Invoke": {
+    "params": [
+     "LosSantosAlive.NPC.Actions.NpcActionContext"
+    ],
+    "returns": "Boolean"
+   },
+   "NpcActionContext": [
+    "RawAction",
+    "ActionName",
+    "Parameter",
+    "SourcePed",
+    "TargetPed",
+    "State"
+   ],
+   "NpcActions.publicHelpers": [
+    "ClearAllVehicleFlags",
+    "ClearComplianceFlags",
+    "ClearFollowFlags",
+    "ClearMovementActionFlags",
+    "ClearVehicleIntentFlagsOnly",
+    "GetExclusiveControlReason",
+    "HasExclusiveControl",
+    "PreparePed",
+    "SetControlledBrain"
+   ],
+   "executor0x60002f7.attributes": "Private, Static, HideBySig"
+  }
+ }
+}
