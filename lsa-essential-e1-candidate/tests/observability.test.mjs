@@ -55,15 +55,27 @@ test('telemetry retains bounded provider retry and voice assignment dimensions',
 
 test('intelligence telemetry keeps only bounded lifecycle and PS2/PS3 scalar diagnostics', () => {
   const projection = createCompanionShadowTelemetry({
-    anchors: 4, queued: 9, received: 10, dropped: 2, stale: 3, malformed: 4, duplicate: 5, gaps: 6, expired: 7, resets: 8,
+    anchors: 4, retainedSignals: 9, received: 10, dropped: 2, stale: 3, malformed: 4, duplicate: 5, gaps: 6, expired: 7, resets: 8,
+    history: { expired: 21, evicted: 22, skipped: 23, highWater: 24 },
+    dropReasons: { anchorCapacity: 25, observerCapacity: 26 },
+    resetReasons: { initializations: 27, disconnects: 28, faults: 29, timeouts: 30, manual: 31 },
+    nativeDiagnostics: { dropped: 32, staleRejected: 33 },
+    damageCallbacks: { ped_damage: 34, player_damage: 35, vehicle_damage: 36 },
     ps2: { correlated: 11, witnessed: 12, duplicates: 13, dropped: 14, playerSpeechGate: 'unsupported_capture_receipt', speech: { unsupported: 99 }, transcript: 'PRIVATE' },
-    ps3: { decisions: 15, urgent: 16, eligible: 17, staged: 18, suppressed: 19, faults: 20, profile: { biography: 'PRIVATE' } },
-    dialogue: 'PRIVATE DIALOGUE',
+    ps3: { decisions: 15, urgent: 16, eligible: 17, staged: 18, suppressed: 19, faults: 20, reasons: { safetySelfDanger: 37, safetyPlayerHarm: 38, safetyNearbyThreat: 39, repetitionSuppressed: 40, revisionStale: 41, noveltyEscalation: 42, suppressionCapacity: 43 }, profile: { biography: 'PRIVATE' } },
+    finalSnapshot: true, dialogue: 'PRIVATE DIALOGUE',
   });
   assert.deepEqual(projection, {
-    anchors: 4, queued: 9, received: 10, dropped: 2, stale: 3, malformed: 4, duplicate: 5, gaps: 6, expired: 7, resets: 8,
+    anchors: 4, retainedSignals: 9, received: 10, dropped: 2, stale: 3, malformed: 4, duplicate: 5, gaps: 6, expired: 7, resets: 8,
+    historyExpired: 21, historyEvicted: 22, historySkipped: 23, historyHighWater: 24,
+    dropAnchorCapacity: 25, dropObserverCapacity: 26,
+    resetInitializations: 27, resetDisconnects: 28, resetFaults: 29, resetTimeouts: 30, resetManual: 31,
+    nativeDropped: 32, nativeStaleRejected: 33, pedDamageCallbacks: 34, playerDamageCallbacks: 35, vehicleDamageCallbacks: 36,
     ps2Correlated: 11, ps2Witnessed: 12, ps2Duplicates: 13, ps2Dropped: 14,
     ps3Decisions: 15, ps3Urgent: 16, ps3Eligible: 17, ps3Staged: 18, ps3Suppressed: 19, ps3Faults: 20,
+    ps3ReasonSafetySelfDanger: 37, ps3ReasonSafetyPlayerHarm: 38, ps3ReasonSafetyNearbyThreat: 39,
+    ps3ReasonRepetitionSuppressed: 40, ps3ReasonRevisionStale: 41, ps3ReasonNoveltyEscalation: 42, ps3ReasonSuppressionCapacity: 43,
+    finalSnapshot: true,
   });
   const row = createTelemetryRecord({ sequence: 1, runId: 'test', originMs: 0, event: 'companion_shadow', provider: 'internal', data: { ...projection, text: 'PRIVATE', profile: 'PRIVATE' }, now: 1 });
   assert.deepEqual(row.data, projection);
