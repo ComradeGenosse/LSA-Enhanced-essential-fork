@@ -622,7 +622,7 @@ Read left to right, top row first. Each diamond is the physical GTA gate that cl
 
 ### Phase 1: command bridge and contracts (no visible change)
 
-> Status (October 3, 2026): implemented and verified offline on `feature/ux-phase0-1-command-bridge`; GTA gate pending. See [UX phase 0–1 status](../UX-phase0-1-status.md) for the deliberate differences from this section.
+> Current status (October 5, 2026): UX0–UX1 are merged to `main`; the named feature branch is historical. Dedicated controller acceptance remains follow-up coverage. See [UX phase 0–1 status](../UX-phase0-1-status.md).
 
 **Goal:** a string-only path from the loader into `Update`, a read-only current-NPC view, and an API handshake that no longer scrapes HTML.
 
@@ -640,7 +640,7 @@ Read left to right, top row first. Each diamond is the physical GTA gate that cl
 
 ### Phase 2: InputRouter and chord MVP
 
-> Status (October 4, 2026): implemented and verified offline on `feature/ux-phase2-3-router-menu`; GTA gate pending. See [UX phase 2–3 status](../UX-phase2-3-status.md) and [controller setup](../controller-setup.md).
+> Current status (October 5, 2026): UX2–UX3 are merged to `main`; the named feature branch is historical. Dedicated controller/menu acceptance remains follow-up coverage. See [UX phase 2–3 status](../UX-phase2-3-status.md) and [controller setup](../controller-setup.md).
 
 **Goal:** L4 = Mark, R4 = Text, L4+R4 = Follow current NPC, with real suppression.
 
@@ -654,7 +654,7 @@ Read left to right, top row first. Each diamond is the physical GTA gate that cl
 
 ### Phase 3: native menu v1
 
-> Status (October 4, 2026): implemented and verified offline on `feature/ux-phase2-3-router-menu`; GTA gate pending. See [UX phase 2–3 status](../UX-phase2-3-status.md) for the deliberate differences from this section (select twice instead of hold-to-confirm, one host fiber, `LSAMenu`).
+> Current status (October 5, 2026): UX3 is merged to `main`; the feature-branch note is historical. See [UX phase 2–3 status](../UX-phase2-3-status.md) for the delivered differences (select twice instead of hold-to-confirm, one host fiber, `LSAMenu`).
 
 **Goal:** Current NPC, Characters, Controls and Diagnostics pages in RNUI.
 
