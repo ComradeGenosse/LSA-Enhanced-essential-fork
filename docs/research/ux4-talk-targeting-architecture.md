@@ -1,5 +1,7 @@
 # UX4 Talk Target Selector — architecture research
 
+> **Current implementation note:** UX4 is now merged to `main`. This document preserves the source-grounded design work, but some proposed interaction details are superseded: current main uses **normal hold = direct Talk/no bracket** and **tap/cycle = explicit selector with a short-lived bracket**. Shared Essential `TalkKey` interception is implemented. See [current status](../UX4-talk-targeting-status.md).
+
 Status: architecture for the UX4 implementation. T0A replaced the synthetic TalkKey idea with `InputController.SendMicStart(Ped)` / `SendMicStop()`. Preview and cycling do not call `SetPlayerConversationPed`.
 
 Research base: main at bc3b2027b0b2eb6a3c1a7dcb326587f9af781696. Implementation base: main at 8c63b20492fbf6bc2e1ba98acc598259c22a57fe.
@@ -281,7 +283,7 @@ Talking
 
 Suggested initial `talkHoldMs`: 220 ms, configurable 120–500 ms and tuned from GTA measurements.
 
-On a hold with no prior target, the native side chooses the best candidate first and commits only that exact selected lifetime. The player sees the indicator before microphone start.
+On current main, a hold with no prior explicit target chooses the best candidate for that PTT only and does **not** show the selector indicator. Tap/cycle is the explicit-selection path; its bracket previews briefly and is hidden when PTT starts.
 
 ## 9. Direct stock mic lifecycle — no synthetic TalkKey
 
@@ -448,7 +450,7 @@ When UX4 is enabled:
 - leave Essential's LosSantosAlive.config TalkKey unchanged
 - after the hold threshold, UX4 calls `SetPlayerConversationPed(selectedPed)` and `InputController.SendMicStart(selectedPed)` on Core.Update; it does not synthesize TalkKey
 
-When UX4 is disabled, the player can restore the original direct controller Talk mapping and behavior is unchanged.
+When UX4 is disabled, shared Talk interception releases automatically. In the recommended shared-key configuration no Steam Input remap is required; stock Essential Talk resumes after the physical key is released.
 
 ## 15. Gates and cancellation
 
