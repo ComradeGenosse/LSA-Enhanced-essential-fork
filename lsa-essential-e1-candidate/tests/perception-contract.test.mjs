@@ -67,12 +67,17 @@ test('producer ordering loss reports uncertainty without guessing missed outcome
   const f=fixture(),s=f.signal({producerSequence:3});assert.equal(f.ingest(f.frame('signal',s)),true);
   assert.equal(f.runtime.counters.gaps,1);assert.equal(f.ingest(f.frame('signal',s)),false);assert.equal(f.runtime.signals.length,1);
 });
-test('400 critical callbacks remain bounded and preserve sequence tracking',()=>{
-  const f=fixture();for(let n=0;n<400;n++) f.ingest(f.frame('signal',f.signal()));assert.equal(f.runtime.signals.length,256);assert.equal(f.runtime.counters.dropped,144);
+test('retained history pressure never drops valid critical signals before PS2/PS3',()=>{
+  const f=fixture();for(let n=0;n<400;n++) assert.equal(f.ingest(f.frame('signal',f.signal())),true);
+  assert.equal(f.runtime.signals.length,256);assert.equal(f.runtime.counters.received,400);assert.equal(f.runtime.counters.dropped,0);
+  assert.equal(f.runtime.historyDiagnostics.skipped,144);assert.equal(f.runtime.historyDiagnostics.highWater,256);
 });
-test('routine signals reserve 64 slots for critical involvement',()=>{
-  const f=fixture();for(let n=0;n<400;n++) f.ingest(f.frame('signal',f.signal({target:f.ambient,source:null})));
-  assert.equal(f.runtime.signals.length,192);for(let n=0;n<100;n++) f.ingest(f.frame('signal',f.signal()));assert.equal(f.runtime.signals.length,256);assert.ok(f.runtime.signals.some(s=>s.critical));
+test('routine signal history rotates while reserving space for critical involvement',()=>{
+  const f=fixture();for(let n=0;n<400;n++) assert.equal(f.ingest(f.frame('signal',f.signal({target:f.ambient,source:null}))),true);
+  assert.equal(f.runtime.signals.length,192);assert.equal(f.runtime.counters.received,400);assert.equal(f.runtime.counters.dropped,0);assert.equal(f.runtime.historyDiagnostics.evicted,208);
+  for(let n=0;n<100;n++) assert.equal(f.ingest(f.frame('signal',f.signal())),true);
+  assert.equal(f.runtime.signals.length,256);assert.equal(f.runtime.counters.received,500);assert.equal(f.runtime.counters.dropped,0);assert.ok(f.runtime.signals.some(s=>s.critical));
+  assert.equal(f.runtime.historyDiagnostics.highWater,256);
 });
 test('retirement purges old lifetime facts; same handle replacement cannot use old random token',()=>{
   const f=fixture();f.ingest(f.frame('signal',f.signal()));f.ingest(f.frame('retire',{captureRef:f.ped}));assert.equal(f.runtime.signals.length,0);
@@ -81,6 +86,19 @@ test('retirement purges old lifetime facts; same handle replacement cannot use o
 test('expiry and stalled native validation cannot revive anchors from queued frames',()=>{
   const f=fixture();f.advance(3001);f.runtime.expire();assert.equal(f.runtime.anchors.size,0);assert.equal(f.runtime.epoch,null);
   assert.equal(f.ingest(f.frame('signal',f.signal())),false);
+});
+test('history expiry is diagnostic ageing, not an expired input or semantic drop',()=>{
+  const f=fixture();assert.equal(f.ingest(f.frame('signal',f.signal())),true);const inputExpired=f.runtime.counters.expired;
+  f.runtime.signals[0].expires=0;f.runtime.expire();
+  assert.equal(f.runtime.signals.length,0);assert.equal(f.runtime.historyDiagnostics.expired,1);assert.equal(f.runtime.counters.expired,inputExpired);assert.equal(f.runtime.counters.dropped,0);
+});
+test('PS2 and PS3 counters stay process-cumulative across lifecycle resets',()=>{
+  const f=fixture();assert.equal(f.ingest(f.frame('signal',f.signal())),true);
+  const ps2={...f.runtime.ps2Diagnostics},ps3={...f.runtime.ps3Diagnostics,reasons:{...f.runtime.ps3Diagnostics.reasons}};
+  f.runtime.reset('disconnect');
+  assert.equal(f.runtime.ps2Diagnostics.witnessed,ps2.witnessed);assert.equal(f.runtime.ps3Diagnostics.decisions,ps3.decisions);
+  assert.equal(f.runtime.ps3Diagnostics.reasons.safetySelfDanger,ps3.reasons.safetySelfDanger);
+  assert.equal(f.runtime.resetDiagnostics.disconnects,1);
 });
 test('old native epoch/stream cannot publish after feature reset',()=>{
   const f=fixture();f.runtime.reset();const other={...f.hello(),adapterEpoch:randomUUID(),streamId:randomUUID()};f.ingest(other);
