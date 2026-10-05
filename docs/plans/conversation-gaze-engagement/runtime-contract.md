@@ -4,7 +4,7 @@ Status: implementation plan; no runtime behavior is claimed by this document.
 
 ## 1. Ownership
 
-CGE owns only gaze commands and, after CGE2 is enabled, short body-turn requests that CGE itself issued.
+CGE owns only **supplemental head/eye gaze commands that Essential is not currently owning**. It never owns whole-body orientation.
 
 CGE never owns the dialogue session, selected-NPC identity, P2 identity, activity goals, action queues, locomotion, vehicle driving, scenarios, combat/flee tasks, playback, or model output. Essential remains authoritative for all of those.
 
@@ -44,9 +44,9 @@ CGE needs four logical signals:
 
 NPC playback is already a proven public seam.
 
-Player-speech start/end is not yet proven as a public native event in the checked-in source. CGE0 must, in order: reuse an existing public event; expose a minimal event at the real native microphone/typed-turn boundary; or, only if neither is possible, use a bounded derived state with an explicit limitation.
+Player-speech start/end comes from the shared **C-01 UtteranceLifecycle** contract. If C-01 is not implemented yet, CGE stays at probe/planning status rather than creating its own approximate detector.
 
-Do not derive "player is speaking" from post-STT completion. Typed input has no capture duration: an accepted typed turn should start a short listening engagement and remain active through response/playback.
+Do not derive "player is speaking" from post-STT completion. Typed input follows C-01's zero-duration utterance semantics.
 
 ## 4. State model
 
@@ -59,11 +59,7 @@ Acquiring
    |
    | first successful gaze command
    v
-Engaged <------------------+
-   |                       |
-   | off-axis held         | turn settles / target returns
-   v                       |
-Reorienting ---------------+
+Engaged
    |
    | conversation becomes inactive
    v
@@ -93,7 +89,9 @@ CGE1 only needs active engagement. CGE3 may use stronger continuous gaze and fas
 
 CGE0 pins the exact native/RAGE mechanism before CGE1 active mode.
 
-Candidate mechanisms include GTA look-at tasks and any safe existing Essential NpcFocus behavior. The probe must determine whether the mechanism is head/eye-only, steals the primary task, coexists with walking/scenarios/vehicles, requires refresh, churns tasks, clamps extreme angles, and expires cleanly.
+Candidate mechanisms include Essential's existing `ConversationLookBehavior`, safe `NpcFocus` behavior, and only if necessary a GTA look-at primitive. The probe must determine whether the mechanism is head/eye-only, steals the primary task, coexists with walking/scenarios/vehicles, requires refresh, churns tasks, clamps extreme angles, and expires cleanly.
+
+**Arbitration rule:** while Essential's own conversation look behavior is active for the current turn/mic/playback lifecycle, CGE yields and issues no competing gaze refresh. CGE is only a supplemental overlay.
 
 Preferred CGE1 property: finite-duration look-at refreshed before expiry.
 
@@ -110,21 +108,14 @@ Do not change persistent IK flags unless CGE0 proves they are required and safel
 | max engage distance | 12 m |
 | lost-target grace | 500 ms |
 | release hold | 900 ms |
-| body-turn enter angle | 70 degrees |
-| body-turn exit angle | 35 degrees |
-| body-turn off-axis hold | 500 ms |
 
 The gaze native duration exceeds refresh interval so one delayed tick does not visibly flicker.
 
 ## 8. Body reorientation contract
 
-Body turning is not part of CGE1.
+Whole-body reorientation is outside CGE.
 
-CGE2 may request a body turn only when the same target epoch remains current, the NPC is on foot and approximately stationary, and it is not ragdolled, in combat/fleeing, entering/exiting a vehicle, in a directed interaction, or in known LSA-owned orientation/locomotion.
-
-Use hysteresis: enter above about 70 degrees, settle below about 35 degrees, and require the off-axis condition to persist for the hold interval.
-
-Never set entity heading directly. Never restart a turn every frame. If ownership cannot be proven, keep head tracking only.
+If conversational behavior requires a physical face/turn, it must go through ACT3's `stop_and_face` capability and ACT's physical lease/arbitration. CGE never sets heading, never starts a body-turn task, and never clears ACT/Essential tasks to obtain orientation.
 
 ## 9. Vehicles
 
@@ -137,7 +128,7 @@ Never set entity heading directly. Never restart a turn every frame. If ownershi
 
 At minimum block native attention for invalid/dead/reused targets, invalid/dead player, existing scripted-state gates, ragdoll, unsafe vehicle transitions, excessive distance, and any state where the chosen native would steal critical behavior.
 
-Combat/fleeing policy is conservative: no body turn. Disable look-at too if the GTA probe shows interference.
+Combat/fleeing policy is conservative: CGE yields. Disable supplemental look-at whenever the GTA probe or Essential ownership indicates interference.
 
 ## 11. Release semantics
 
