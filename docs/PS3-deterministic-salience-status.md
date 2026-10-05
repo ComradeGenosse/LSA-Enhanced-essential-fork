@@ -1,6 +1,6 @@
 # PS3 deterministic salience
 
-Status, October 5, 2026: **corrected implementation is merged into main and hash-deployed in shadow; live PS3 evaluation and JSONL persistence were verified in GTA, while structured behavioral acceptance and the controlled native-damage callback probe remain pending**.
+Status, October 5, 2026: **corrected implementation is merged into main and deployed in shadow; live PS2→PS3 evaluation, JSONL persistence, reconnect/report cadence, and retained-history pressure were verified in GTA. Structured behavioral acceptance and the controlled native-damage callback probe remain pending.**
 
 PS3 ranks PS2 observations. It does not create turns, actions, memories, playback changes, or native authority. `urgent` means the observation outranks other candidates. Reflex and self-preservation remain native.
 
@@ -29,7 +29,7 @@ Companion coverage is `lsa-essential-e1-candidate/tests/salience-engine.test.mjs
 
 ## Local shadow deployment
 
-The corrected 73-file overlay was deployed on October 5 after a full hash-verified rollback backup. The latest telemetry refresh copied nine files and 64 already matched; all 73 installed files match the candidate SHA256 manifest. The other 29 files in the backup scope—including live configs, `.env`, data, and logs—remain hash-identical to the pre-deployment backup. No files were removed.
+The corrected PS3 overlay was deployed on October 5 after a full hash-verified rollback backup. That PS3 checkpoint contained 73 manifest files. The later shared-Talk hotfix payload contained 74 manifest files, and the subsequent GTA run confirmed all 74 installed files matched that payload. The other 29 files in the backup scope—including live configs, `.env`, data, and logs—remain hash-identical to the pre-deployment backup. No files were removed.
 
 The installed intelligence mode is `shadow`; player-speech witnessing remains disabled because there is no source-time capture receipt. The game, RAGE Plugin Hook, and LSA server were stopped during deployment. GTA was not launched. The local staging receipt and backup manifest contain per-file hashes.
 
@@ -58,6 +58,14 @@ Select-String -Path $log.FullName -Pattern '"event":"intelligence_status"','"eve
 A healthy connection should show `connecting` -> `connected` -> `initialized`, followed by `companion_shadow` records roughly every 10 seconds while the channel remains initialized. A close/restart should add `disconnected`; reconnect attempts begin again with `connecting`.
 
 To verify salience activity without inspecting dialogue, trigger an ordinary supported PS2 event such as companion damage or witnessed gunfire and compare successive `companion_shadow` records. `ps3Decisions` should advance; the relevant `ps3Urgent` / `ps3Eligible` / `ps3Staged` / `ps3Suppressed` and selected reason counters may advance according to the existing salience policy, while `ps3Faults` should remain zero. PS2 correlation/witness counters should advance independently. `retainedSignals` is diagnostic history, not a work queue: history pressure may rotate or skip retained copies but must not reject valid input before PS2/PS3. Harmless history ageing is counted separately from input `expired`. PS2 and PS3 counters are process-cumulative across intelligence reconnects so their relationship remains interpretable. Player-speech hearing remains gated off by the existing unsupported-capture-receipt rule and this logging change does not alter that path.
+
+## October 5 live-run result
+
+The later UX4/PS3 run recorded 227 valid operational records, 45 dialogue records and 16 persisted companion reports. Final cumulative counters included 767 received signals, 196 PS2-correlated items, 380 witnessed observation outputs and 380 PS3 decisions, with PS3 faults/suppressed at 0/0 and companion/PS2 drops at 0/0. History eviction/expiry rose under pressure while semantic admission continued, confirming that retained history is diagnostic rather than a work queue.
+
+Direct native damage-callback counters remained zero even though independent firing/injury/death producers advanced. That is why the controlled player/NPC/vehicle damage-callback probe remains an explicit open gate.
+
+See [ux4-ps3-run-analysis-20261005.md](ux4-ps3-run-analysis-20261005.md).
 
 ## GTA validation still open
 
