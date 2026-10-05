@@ -13,19 +13,20 @@ export const REASON_CODES = Object.freeze([
   'situation_occupied', 'situation_conversation', 'trait_policy', 'routine_low_relevance',
 ]);
 export const TRAIT_POLICIES = Object.freeze(['protective', 'cautious', 'loyal', 'bold']);
+export const SALIENCE_POLICY_VERSION = 1;
 export const SALIENCE_BOUNDS = Object.freeze({
   decisions: 256, perObserver: 32, suppression: 1024, suppressionTtlMs: 10 * 60 * 1000, reasons: 4,
 });
 const REASON_SET = new Set(REASON_CODES);
 const RELATIONSHIPS = new Set(['associate', 'friend', 'trusted', 'strained', 'neutral']);
-const ACTIVITIES = new Set(['idle', 'driving', 'passenger', 'in_vehicle', 'conversation', 'following', 'waiting']);
+const ACTIVITIES = new Set(['unknown', 'idle', 'driving', 'passenger', 'in_vehicle', 'conversation', 'following', 'waiting']);
 const CLOSE = new Set(['friend', 'trusted']);
 const OCCUPIED = new Set(['driving', 'passenger', 'in_vehicle']);
 const ROUTINE_EVENTS = new Set(['character_present', 'location_changed', 'activity_changed', 'speech_heard', 'action_observed', 'vehicle_transition']);
 const HARM_EVENTS = new Set(['injury', 'death_seen', 'body_found', 'vehicle_impact', 'threat']);
 const SEVERITY = Object.freeze({ routine: 0, notable: 1, danger: 2, critical: 3 });
 const RESPONSE_RANK = Object.freeze({ none: 0, eligible: 1, urgent: 2 });
-const DECISION_KEYS = ['observationId', 'revision', 'context', 'memory', 'response', 'reasons', 'expiresAtMonotonicMs'];
+const DECISION_KEYS = ['observationId', 'revision', 'decisionKey', 'policyVersion', 'context', 'memory', 'response', 'reasons', 'expiresAtMonotonicMs'];
 
 const integer = value => Number.isSafeInteger(value) && value >= 0;
 
@@ -61,11 +62,22 @@ function selectReasons(reasons) {
   const present = new Set(reasons.filter(code => REASON_SET.has(code)));
   return REASON_CODES.filter(code => present.has(code)).slice(0, SALIENCE_BOUNDS.reasons);
 }
+function decisionKey(observation, policy) {
+  const input = `${observation.observationId}|${observation.revision}|${SALIENCE_POLICY_VERSION}|${policy || 'closed'}`;
+  let hash = 2166136261;
+  for (let index = 0; index < input.length; index += 1) {
+    hash ^= input.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return `${observation.observationId}:${observation.revision}:${SALIENCE_POLICY_VERSION}:${(hash >>> 0).toString(16).padStart(8, '0')}`;
+}
 function blank(observation, now, draft) {
   const expiresAtMonotonicMs = Math.min(observation.expiresAtMonotonicMs, now + SALIENCE_BOUNDS.suppressionTtlMs);
   return Object.freeze({
     observationId: observation.observationId,
     revision: observation.revision,
+    decisionKey: decisionKey(observation, draft.policy),
+    policyVersion: SALIENCE_POLICY_VERSION,
     context: draft.context,
     memory: draft.memory,
     response: draft.response,
@@ -105,7 +117,7 @@ export function normalizeSalienceSituation(input = {}) {
     recognized: Object.freeze(recognized),
     playerRelationship: playerRelationship ? Object.freeze(playerRelationship) : null,
     profileRevision: integer(source.profileRevision) ? source.profileRevision : 0,
-    activity: ACTIVITIES.has(source.activity) ? source.activity : 'idle',
+    activity: ACTIVITIES.has(source.activity) ? source.activity : 'unknown',
     memories: Object.freeze(memories),
     traitPolicies: Object.freeze(traitPolicies),
     distanceBand: [0, 1, 2, 3].includes(source.distanceBand) ? source.distanceBand : 0,
@@ -265,7 +277,7 @@ function applyLedger(draft, observation, situation, cache) {
     response = 'none';
     if (existing.memoryStaged) memory = 'none';
     reasons = [...reasons, 'repetition_suppressed'];
-  } else if (existing && !existing.consumed && existing.policy === policy) {
+  } else if (existing && !existing.consumed && existing.granted !== 'none' && existing.policy === policy) {
     response = 'none'; memory = 'none';
     reasons = [...reasons, 'repetition_suppressed'];
   } else if (!existing && family?.consumed && severity <= family.severity) {
@@ -340,6 +352,24 @@ export class SalienceCache {
     this.latestById = new Map();
   }
   evaluate(observation, situation) { return evaluateSalience(observation, situation, this); }
+  acknowledge(decisionKeyValue, consumer, outcome) {
+    if (typeof decisionKeyValue !== 'string' || !['ps4_context', 'ps6_ticket', 'ps5_memory'].includes(consumer) || !['delivered', 'rejected', 'expired'].includes(outcome)) return false;
+    const hit = [...this.ledger.entries()].find(([, entry]) => entry.decisionKey === decisionKeyValue);
+    if (!hit) return false;
+    const [, entry] = hit;
+    if (!(entry.consumedBy instanceof Set)) entry.consumedBy = new Set(entry.consumedBy || []);
+    if (outcome === 'delivered') {
+      entry.consumedBy.add(consumer);
+      if (consumer === 'ps6_ticket') {
+        entry.consumed = true;
+        const family = this.families.get(entry.familyKey);
+        if (family) family.consumed = true;
+      }
+      return true;
+    }
+    if (consumer === 'ps6_ticket' && !entry.consumed) entry.granted = 'none';
+    return true;
+  }
   clear() { this.decisions.clear(); this.order = []; this.ledger.clear(); this.families.clear(); this.latestById.clear(); }
   expire(now = this.now()) {
     for (const [id, entry] of this.ledger) if (entry.expires <= now) this.ledger.delete(id);
@@ -390,7 +420,10 @@ export class SalienceCache {
         kinds,
         policy: draft.policy,
         granted: grant ? (RESPONSE_RANK[decision.response] >= RESPONSE_RANK[existing?.granted || 'none'] ? decision.response : existing.granted) : (existing?.granted || 'none'),
-        consumed: Boolean(existing?.consumed) || grant,
+        consumed: Boolean(existing?.consumed),
+        consumedBy: new Set(existing?.consumedBy || []),
+        decisionKey: decision.decisionKey,
+        familyKey: familyKey(observation),
         memoryStaged: Boolean(existing?.memoryStaged) || decision.memory === 'stage',
         expires,
       });
@@ -401,7 +434,7 @@ export class SalienceCache {
     if (trackFamily && (family || this.families.size < SALIENCE_BOUNDS.suppression)) {
       this.families.set(key, {
         severity: Math.max(draft.severity, family?.severity || 0),
-        consumed: Boolean(family?.consumed) || grant || Boolean(existing?.consumed),
+        consumed: Boolean(family?.consumed) || Boolean(existing?.consumed),
         memoryStaged: Boolean(family?.memoryStaged) || decision.memory === 'stage',
         expires,
       });
