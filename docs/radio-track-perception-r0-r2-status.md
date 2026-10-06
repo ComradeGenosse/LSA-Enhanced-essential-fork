@@ -6,6 +6,8 @@ Branch: https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/tree/featu
 
 Radio is a raw world fact. It does not create a PS2 observation, a memory, or any Luna prompt text.
 
+This document describes the R0–R2 base. **R3 PS2 same-vehicle hearing is implemented separately on this branch; see [`radio-track-perception-r3-status.md`](radio-track-perception-r3-status.md).** R3 still does not add PS3 salience, Luna context, memory, or autonomous dialogue.
+
 ## Behavior
 
 It stays off unless both intelligence configs set `mode` and `radio` to `shadow`. Then the native sampler runs on its own 250 ms clock, outside the ped and observer loops:
