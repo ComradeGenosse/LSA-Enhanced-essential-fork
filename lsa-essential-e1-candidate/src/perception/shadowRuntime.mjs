@@ -4,7 +4,7 @@ import { EpisodeStore } from './episodeStore.mjs';
 import { EpisodeCorrelator } from './episodeCorrelator.mjs';
 import { SharedTranscriptStore } from './sharedTranscriptStore.mjs';
 import { SalienceCache } from './salienceEngine.mjs';
-import { RadioTrackCatalog, normalizeRadioSignal } from './radioTrackCatalog.mjs';
+import { RadioTrackTextCatalog, normalizeRadioSignal } from './radioTrackTextCatalog.mjs';
 
 const MAX_COUNTER = 2147483647;
 const PS3_REASON_COUNTERS = Object.freeze({
@@ -18,8 +18,8 @@ const PS3_REASON_COUNTERS = Object.freeze({
 });
 
 export class ShadowRuntime {
-  constructor({ mode='off', radio='off', radioCatalog=RadioTrackCatalog.unavailable(), now=()=>Math.floor(performance.now()) }={}) {
-    this.mode=mode;this.radio=radio==='shadow'?'shadow':'off';this.radioCatalog=radioCatalog??RadioTrackCatalog.unavailable();this.now=now;this.anchors=new Map();this.signals=[];this.sequence=0;this.producers=new Map();this.epoch=null;this.stream=null;this.lastReceipt=0;
+  constructor({ mode='off', radio='off', radioCatalog=RadioTrackTextCatalog.unavailable(), now=()=>Math.floor(performance.now()) }={}) {
+    this.mode=mode;this.radio=radio==='shadow'?'shadow':'off';this.radioCatalog=radioCatalog??RadioTrackTextCatalog.unavailable();this.now=now;this.anchors=new Map();this.signals=[];this.sequence=0;this.producers=new Map();this.epoch=null;this.stream=null;this.lastReceipt=0;
     this.counters=Object.fromEntries(['received','dropped','stale','malformed','duplicate','gaps','expired','resets'].map(k=>[k,0]));
     this.historyDiagnostics={expired:0,evicted:0,skipped:0,highWater:0};
     this.dropDiagnostics={anchorCapacity:0,observerCapacity:0};
