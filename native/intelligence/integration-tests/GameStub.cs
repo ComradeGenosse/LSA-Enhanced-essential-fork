@@ -11,10 +11,10 @@ namespace Rage {
 }
 namespace Rage.Native {
     public static class NativeFunction {
-        public static int Reads,Effects,RadioStationReads,RadioTrackReads,RadioPlayReads;
+        public static int Reads,Effects,RadioStationReads,RadioTrackReads,RadioTextIdReads,RadioPlayReads;
         public static string RadioStation="";
-        public static int RadioTrack,RadioPlayTime;
-        public static bool RadioThrow,RadioPlayThrow;
+        public static int RadioTrack,RadioTextId,RadioPlayTime;
+        public static bool RadioThrow,RadioTextIdThrow,RadioPlayThrow;
         static IntPtr zone=Marshal.StringToHGlobalAnsi("ZONE1");
         public static T CallByName<T>(string name,params object[] args) {
             Reads++;object result;
@@ -30,6 +30,7 @@ namespace Rage.Native {
                 case "GET_ENTITY_SPEED":result=0f;break;
                 case "GET_PLAYER_RADIO_STATION_NAME":RadioStationReads++;if(RadioThrow) throw new InvalidOperationException("radio native unavailable");result=RadioStation??"";break;
                 case "GET_CURRENT_TRACK_SOUND_NAME":RadioTrackReads++;if(RadioThrow) throw new InvalidOperationException("radio native unavailable");result=RadioTrack;break;
+                case "GET_AUDIBLE_MUSIC_TRACK_TEXT_ID":RadioTextIdReads++;if(RadioTextIdThrow) throw new InvalidOperationException("radio text id unavailable");result=RadioTextId;break;
                 case "GET_CURRENT_TRACK_PLAY_TIME":RadioPlayReads++;if(RadioPlayThrow) throw new InvalidOperationException("radio play unavailable");result=RadioPlayTime;break;
                 default:Effects++;throw new Exception("Unexpected native operation: "+name);
             }
