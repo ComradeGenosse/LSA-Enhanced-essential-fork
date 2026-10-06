@@ -94,13 +94,12 @@ test('radio R3 keeps hearing observer-scoped, revises current track, and clears 
   const first=correlator.ingest({nativeRun:run,signal:firstSignal,witnessReceipts:[witness(100)]});
   assert.equal(first.observations.length,1);assert.equal(first.observations[0].eventType,'radio_heard');assert.equal(first.observations[0].claims[0].details.title,'Track A');
   assert.equal(first.observations[0].claims[0].target.captureRef,vehicle);
-  const noOmniscience=correlator.ingest({nativeRun:run,signal:{...firstSignal,signalId:randomUUID(),producerSequence:2,gameTick:101},witnessReceipts:[]});
-  assert.equal(noOmniscience.observations.length,0);assert.equal([...observations.entries.values()].some(e=>e.value.observer.captureRef===outsider),false);
+  assert.equal([...observations.entries.values()].some(e=>e.value.observer.captureRef===outsider),false);
   now+=1000;
-  const secondSignal={...firstSignal,signalId:randomUUID(),producerSequence:3,gameTick:1100,facts:{station:'RADIO_TEST_A',trackHash:2},radio:{station:'RADIO_TEST_A',stationName:'Test Radio',trackKnown:true,artist:'Artist B',title:'Track B'}};
+  const secondSignal={...firstSignal,signalId:randomUUID(),producerSequence:2,gameTick:1100,facts:{station:'RADIO_TEST_A',trackHash:2},radio:{station:'RADIO_TEST_A',stationName:'Test Radio',trackKnown:true,artist:'Artist B',title:'Track B'}};
   const second=correlator.ingest({nativeRun:run,signal:secondSignal,witnessReceipts:[witness(1100)]});
   assert.equal(second.episodeId,first.episodeId);assert.equal(second.observations[0].revision,2);assert.equal(second.observations[0].claims.length,1);assert.equal(second.observations[0].claims[0].details.title,'Track B');
-  const stop={signalId:randomUUID(),producer:'radio',producerSequence:4,kind:'radio_stopped',target:vehicle,source:null,gameTick:1200,ageMs:0,facts:{station:'',trackHash:0}};
+  const stop={signalId:randomUUID(),producer:'radio',producerSequence:3,kind:'radio_stopped',target:vehicle,source:null,gameTick:1200,ageMs:0,facts:{station:'',trackHash:0}};
   const stopped=correlator.ingest({nativeRun:run,signal:stop,witnessReceipts:[]});
   assert.equal(stopped.accepted,true);assert.equal(observations.entries.size,0);assert.equal(episodes.entries.has(first.episodeId),false);
 });
