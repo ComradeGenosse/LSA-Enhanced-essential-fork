@@ -47,6 +47,7 @@ function view(patch = {}) {
     channelHealthy: patch.channelHealthy,
     perceptionSupported: patch.perceptionSupported,
     distanceBand: patch.distanceBand,
+    requestedEnvironmentChannels: patch.requestedEnvironmentChannels,
   });
 }
 function injuryOf(target, channel = 'visual') {
