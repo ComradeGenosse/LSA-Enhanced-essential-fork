@@ -28,7 +28,7 @@ export function validateSignal(s) {
     const field = s.kind.split('_')[0];
     return s.producer==='state' && isUuid(s.target) && keys(f,[field]) && (field==='location' ? typeof f[field]==='string' && /^[A-Z0-9_]{1,16}$/.test(f[field]) : label(f[field]));
   }
-  if (s.kind==='action_callback') return s.producer==='action' && isUuid(s.target) && keys(f,['action','succeeded']) && ['follow','wait','other'].includes(f.action) && typeof f.succeeded==='boolean';
+  if (s.kind==='action_callback') return s.producer==='action' && isUuid(s.target) && keys(f,['action','succeeded']) && ['followtarget','waithere','other'].includes(f.action) && typeof f.succeeded==='boolean';
   if (s.kind==='playback_started' || s.kind==='playback_ended') return s.producer==='playback' && keys(f,['interrupted','hadAudio']) && typeof f.interrupted==='boolean' && typeof f.hadAudio==='boolean';
   return false;
 }

@@ -48,6 +48,8 @@
 **/intelligence/tests/obj/
 **/intelligence/integration-tests/bin/
 **/intelligence/integration-tests/obj/
+**/activities/tests/bin/
+**/activities/tests/obj/
 **/promoted-characters/*/bin/
 **/promoted-characters/*/obj/
 **/promoted-characters/*/*/bin/

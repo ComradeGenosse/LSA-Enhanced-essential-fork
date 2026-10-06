@@ -44,6 +44,7 @@ namespace Rage
         public int Handle = 12;
         public Model Model;
         public float Heading;
+        public Vector3 Position;
         public Vector3 GetOffsetPosition(Vector3 offset) { Game.NativeCalls++; return offset; }
         public void Dismiss() { Game.NativeCalls++; }
         public void Delete() { Game.NativeCalls++; }
@@ -102,6 +103,11 @@ namespace LosSantosAlive.Context.Providers
 {
     public static class ActorContextProvider { public static void Populate(LosSantosAlive.Context.ActorContext actor,Rage.Ped ped) { Rage.Game.NativeCalls++; } }
 }
+public enum ActionStateModifierPhase { BeforeCoreStateRule = 0, AfterCoreStateRule = 1 }
+public interface IActionStateModifier
+{
+    void ApplyActionState(Rage.Ped ped, LosSantosAlive.NPC.NpcState state, string commandName, ActionStateModifierPhase phase);
+}
 namespace LosSantosAlive.Integrations
 {
     public static class IntegrationManager
@@ -138,7 +144,8 @@ namespace LosSantosAlive.NPC
     public static class NpcFocus { public static void SetFocus(Rage.Ped ped,Rage.Ped player,string reason) { Rage.Game.NativeCalls++; } }
     public sealed class NpcState
     {
-        public bool FollowPlayerOnFoot,FollowPaused,EnterPassengerSeatWhenPlayerEnters,ExitVehicleWhenPlayerExits,StayUnderLsaControl,InDirectedInteraction,AccompliceMode;
+        public bool FollowPlayerOnFoot,FollowPaused,EnterPassengerSeatWhenPlayerEnters,ExitVehicleWhenPlayerExits,StayUnderLsaControl,InDirectedInteraction,AccompliceMode,HasActiveReflex;
+        public int LastReflexTime;
         public void DemoteToPassiveRuntime() { Rage.Game.NativeCalls++; }
     }
     public static class NpcStateStore

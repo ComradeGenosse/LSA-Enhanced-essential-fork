@@ -9,6 +9,13 @@
     <Compile Include="Driver.cs" />
     <Compile Include="../../RuntimeEntry.cs" Link="RuntimeEntry.cs" />
     <Compile Include="../../PromotedCharactersIntegration.cs" Link="PromotedCharactersIntegration.cs" />
+    <Compile Include="../../ActivityCommands.cs" Link="ActivityCommands.cs" />
+    <Compile Include="../../../activities/ActivityContracts.cs" Link="ActivityContracts.cs" />
+    <Compile Include="../../../activities/CapabilityTable.cs" Link="CapabilityTable.cs" />
+    <Compile Include="../../../activities/ActivityChannel.cs" Link="ActivityChannel.cs" />
+    <Compile Include="../../../activities/StepMachine.cs" Link="StepMachine.cs" />
+    <Compile Include="../../../activities/SupersessionMonitor.cs" Link="SupersessionMonitor.cs" />
+    <EmbeddedResource Include="../../../../contracts/activity-capabilities.v1.json" LogicalName="LSA.Activities.activity-capabilities.v1.json" />
     <Compile Include="../../NativeCommands.cs" Link="NativeCommands.cs" />
     <Compile Include="../../LocalCommandQueue.cs" Link="LocalCommandQueue.cs" />
     <Compile Include="../../TalkTargetPolicy.cs;../../TalkPttSession.cs;../../TalkTargetGeometry.cs;../../TalkTargetIndicator.cs;../../EssentialMicState.cs;../../TalkTargetSelector.cs" />

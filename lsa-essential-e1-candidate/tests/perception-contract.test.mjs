@@ -138,6 +138,13 @@ test('global observation count and serialized RAM budget are enforced',()=>{
   for(let n=0;n<2048;n++) {const o=observation(refs[n%16]);o.claims=Array.from({length:4},()=>({...o.claims[0],claimId:randomUUID(),source:{captureRef:refs[0],kind:'ped'},target:{captureRef:refs[1],kind:'ped'}}));if(store.put(o)) admitted++;}
   assert.ok(admitted<2048);assert.ok(store.bytes<=2*1024*1024);
 });
+test('action callbacks use Essential canonical names',()=>{
+  const f=fixture();
+  assert.equal(validateSignal(f.signal({producer:'action',kind:'action_callback',source:null,facts:{action:'followtarget',succeeded:true}})),true);
+  assert.equal(validateSignal(f.signal({producer:'action',kind:'action_callback',source:null,facts:{action:'waithere',succeeded:false}})),true);
+  assert.equal(validateSignal(f.signal({producer:'action',kind:'action_callback',source:null,facts:{action:'other',succeeded:true}})),true);
+  for (const action of ['follow','wait','FollowTarget','WaitHere']) assert.equal(validateSignal(f.signal({producer:'action',kind:'action_callback',source:null,facts:{action,succeeded:true}})),false);
+});
 test('signal anchor kinds reject wrong entity addresses',()=>{
   const f=fixture();assert.equal(f.ingest(f.frame('signal',f.signal({target:f.vehicle}))),false);
   assert.equal(f.ingest(f.frame('signal',f.signal({source:f.vehicle}))),false);

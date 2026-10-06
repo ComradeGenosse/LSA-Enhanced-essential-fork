@@ -10,6 +10,7 @@ import { startCharacterEditor } from './characters/editorServer.mjs';
 import { defaultControlEndpointPath } from './control/endpointFile.mjs';
 import { characterContractSupported } from './characters/nativeSupport.mjs';
 import { IntelligenceClient } from './perception/intelligenceClient.mjs';
+import { ActivityClient } from './activities/activityClient.mjs';
 import { perceptionContractSupported } from './perception/nativeSupport.mjs';
 import { createDialogueTrace, createNoopDialogueTrace } from './observability/dialogueTrace.mjs';
 
@@ -104,6 +105,12 @@ export async function createRuntimeForBundle(options = {}) {
     } else try {console.warn('[PS] optional_perception_contract_unavailable');}catch{}
   }
   runtime.services.acceptPlayerTranscript = input => runtime.intelligence?.acceptPlayerTranscript(input) ?? {accepted:false,reason:'unsupported_capture_receipt'};
+  if(config.activities.mode==='shadow') {
+    try {
+      runtime.activities=new ActivityClient(config.activities,{...options.activityOptions,onEvent:(event,data)=>{ try { telemetry?.emit?.(event,null,'system',data); } catch {} }});
+      runtime.activities.start();
+    } catch { try { console.warn('[ACT] optional_channel_unavailable'); } catch {} }
+  }
   if (runtime.characterService) {
     await runtime.characterService.initialize();
     if (runtime.characterService.ready && options.startCharacterEditor !== false) try {

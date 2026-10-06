@@ -76,9 +76,24 @@ class Program
     static void Main()
     {
         try {
-            DeferredInitialization(); ShutdownOnCoreUpdate(); ResetWithPendingRequest(); ResetAfterP1(); RetireFailure(); ForwardClock();
+            DeferredInitialization(); ShutdownOnCoreUpdate(); ResetWithPendingRequest(); ResetAfterP1(); RetireFailure(); ForwardClock(); ActivityIsolation();
             Console.WriteLine("P2 production clock recovery and Windows pipe cancellation: " + count + " assertions passed; no game assemblies loaded.");
         } catch (Exception error) { Console.Error.WriteLine(error.GetType().Name + ": " + error.Message); Environment.ExitCode = 1; }
+    }
+    static void ActivityIsolation()
+    {
+        var integration = Create(out _);
+        integration.EnableActivityShadow("LSA.ACT.lifecycle." + Guid.NewGuid().ToString("N"));
+        integration.InjectActivityFault(true);
+        integration.Update();
+        Check(integration.IsAvailable && integration.ActivityDisabled);
+        integration.Shutdown();
+        integration = Create(out _);
+        integration.EnableActivityShadow("LSA.ACT.lifecycle." + Guid.NewGuid().ToString("N"));
+        for (var n = 0; n < 3; n++) { integration.InjectActivityFault(false); integration.Update(); }
+        Check(integration.IsAvailable && !integration.ActivityDisabled && integration.ActivityFaults == 3 && integration.ActivityBreakerTrips == 1);
+        Check(Game.Logs.Count(line => line == "[ACT] breaker_tripped") == 1);
+        integration.Shutdown();
     }
     static void DeferredInitialization()
     {

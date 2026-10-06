@@ -91,6 +91,13 @@ class Program
             var wrong=(string)integration.GetType().GetMethod("CallbackAnchor",BindingFlags.NonPublic|BindingFlags.Instance).Invoke(integration,new object[]{(uint)4,newWrapper,false});Check(wrong==null,"callback cannot borrow replacement token");
         }
         var before=Rage.Native.NativeFunction.Reads;integration.OnNpcActionExecuted(replacement,"follow",true);Check(Rage.Native.NativeFunction.Reads==before,"action callback no native operations");
+        while(sensors.Take()!=null) {}
+        var indexed=new Ped {Handle=7,MemoryAddress=new IntPtr(7)};
+        Set(integration,"actionIndex",new Dictionary<Ped,string>{{indexed,Guid.NewGuid().ToString("D")}});
+        integration.OnNpcActionExecuted(indexed,"followtarget",true);var action=sensors.Take();Check(action!=null&&(string)action.facts["action"]=="followtarget"&&(bool)action.facts["succeeded"],"canonical followtarget is preserved");
+        integration.OnNpcActionExecuted(indexed,"waithere",false);action=sensors.Take();Check((string)action.facts["action"]=="waithere"&&(bool)action.facts["succeeded"]==false,"canonical waithere is preserved");
+        integration.OnNpcActionExecuted(indexed,"follow",true);action=sensors.Take();Check((string)action.facts["action"]=="other","non-canonical follow is not classified as followtarget");
+        integration.OnNpcActionExecuted(indexed,"wait",true);action=sensors.Take();Check((string)action.facts["action"]=="other","non-canonical wait is not classified as waithere");
         var previous=anchors.Current.Select(a=>a.CaptureRef).ToArray();Game.GameTime=0;integration.Update();Check(anchors.Current.All(a=>!previous.Contains(a.CaptureRef)),"clock reset discards stale anchors");
         Check(Rage.Native.NativeFunction.Effects==0&&NpcStateStore.Creates==0,"no task/state promotion effects");integration.Shutdown();before=Rage.Native.NativeFunction.Reads;integration.Update();Check(Rage.Native.NativeFunction.Reads==before,"shutdown performs no sampling");
         Check(Game.Logs.All(l=>!l.Contains(lifetime)),"diagnostics omit owner proofs");

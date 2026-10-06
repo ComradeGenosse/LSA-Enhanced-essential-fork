@@ -15,6 +15,7 @@ export const EVENT_NAMES = new Set([
   'identity_resolved','identity_binding_created','identity_binding_retired','identity_conflict','identity_evidence_stale','identity_store_unavailable','persistent_voice_loaded',
   'session_profile_created','character_name_assigned','promotion_started','promotion_completed','promotion_failed','persistent_profile_loaded','character_spawned','character_dismissed','character_profile_edited','character_memory_created','character_memory_edited','character_memory_deleted','character_unpromoted','character_safe_failure','character_canon_projected','character_reasoning_request_composed',
   'intelligence_status','companion_shadow',
+  'activity_admitted','activity_rejected','activity_step_started','activity_receipt','activity_paused','activity_resumed','activity_terminal','activity_lease_lost','activity_breaker_tripped',
 ]);
 
 const safeKeys = new Set([
@@ -43,6 +44,7 @@ const safeKeys = new Set([
   'profileRevision','profileCount','collisionCount','canonHash','systemPromptHash','runtimePromptHash','finalReasoningRequestHash',
   'traitsIncluded','memoryCount','biographyIncluded','relationshipIncluded','generatedPersonaPolicy',
   'truncatedFields','truncatedFieldCount','droppedMemoryCount',
+  'activityId','intent','capability','receiptState','stepIndex',
 ]);
 const safeTokens = new Set([
   'openai','gemini','player_text','player_mic','special_event','system','internal','completed','failed',
@@ -79,6 +81,10 @@ function safeScalar(key, value) {
   if (key === 'speechProvider' && /^[a-z][a-z0-9._-]{0,63}$/.test(token)) return token;
   if (key === 'provider' && /^openai\.(reasoning|transcription|speech)$/.test(token)) return token;
   if (key === 'attemptId' && /^(stt|model|tts):[12]$/.test(token)) return token;
+  if (key === 'activityId' && /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(token)) return token;
+  if (key === 'intent' && /^(hold_position|accompany|resume_previous|sit_here|scenario_here|scenario_at|move_to_and_hold|approach_and_face|hang_out_with|board_vehicle|ride_along|exit_vehicle_and_hold|leave_scene|take_cover_and_hold|go_to_place|vehicle_trip)$/.test(token)) return token;
+  if (key === 'capability' && /^[a-z][a-z0-9_]{2,31}$/.test(token)) return token;
+  if (key === 'receiptState' && /^(REQUESTED|VALIDATED|REJECTED|DISPATCHED|HANDLER_ACCEPTED|MODE_ESTABLISHED|FAILED|CANCELLED|SUPERSEDED|TIMED_OUT|DETACHED)$/.test(token)) return token;
   return undefined;
 }
 
