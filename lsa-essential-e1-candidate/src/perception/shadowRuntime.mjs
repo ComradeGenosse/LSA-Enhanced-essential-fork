@@ -111,7 +111,9 @@ export class ShadowRuntime {
       if(correlated.duplicate) this.ps2Diagnostics.duplicates=Math.min(MAX_COUNTER,this.ps2Diagnostics.duplicates+1);
       else if(correlated.accepted) {this.ps2Diagnostics.correlated=Math.min(MAX_COUNTER,this.ps2Diagnostics.correlated+Number(Boolean(correlated.episodeId)));this.ps2Diagnostics.witnessed=Math.min(MAX_COUNTER,this.ps2Diagnostics.witnessed+correlated.observations.length);}
       if(!correlated.accepted) this.ps2Diagnostics.dropped=Math.min(MAX_COUNTER,this.ps2Diagnostics.dropped+1);
-      // R3 stops at PS2 knowledge. R4 will decide radio salience.
+      for(const observationId of correlated.removedObservationIds||[]) this.salience.forgetObservation(observationId);
+      for(const observation of correlated.observations||[]) this.noteSalience(observation);
+      // R4 ranks radio locally only. R5 remains responsible for model-visible projection.
       return true;
     }
     const selfReceipts=[];
@@ -130,11 +132,11 @@ export class ShadowRuntime {
     this.retainSignal(value,critical,this.now()+BOUNDS.signalTtlMs-s.ageMs);
     return true;
   }
-  noteSalience(observation) {
+  noteSalience(observation, situationOverrides={}) {
     try {
       let player=null;
       for(const anchor of this.anchors.values()) if(anchor.kind==='player') { player=anchor.captureRef; break; }
-      const decision=this.salience.evaluate(observation,{nowMonotonicMs:this.now(),lifetimeCurrent:this.current(observation.observer.captureRef),channelHealthy:Boolean(this.epoch),perceptionSupported:true,playerCaptureRef:player,activity:'unknown'});
+      const decision=this.salience.evaluate(observation,{nowMonotonicMs:this.now(),lifetimeCurrent:this.current(observation.observer.captureRef),channelHealthy:Boolean(this.epoch),perceptionSupported:true,playerCaptureRef:player,activity:'unknown',requestedEnvironmentChannels:situationOverrides.requestedEnvironmentChannels});
       if(!decision) return;
       const stats=this.ps3Diagnostics;
       stats.decisions=Math.min(MAX_COUNTER,stats.decisions+1);
@@ -146,7 +148,8 @@ export class ShadowRuntime {
         const key=PS3_REASON_COUNTERS[reason];
         if(key) stats.reasons[key]=Math.min(MAX_COUNTER,stats.reasons[key]+1);
       }
-    } catch { this.ps3Diagnostics.faults=Math.min(MAX_COUNTER,this.ps3Diagnostics.faults+1); }
+      return decision;
+    } catch { this.ps3Diagnostics.faults=Math.min(MAX_COUNTER,this.ps3Diagnostics.faults+1); return null; }
   }
   acceptPlayerTranscript({text,receipt=null}={}) {
     return this.transcripts.accept({capability:this.capabilities.playerSpeech===true,receipt,text});
