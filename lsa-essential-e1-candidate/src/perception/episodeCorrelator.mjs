@@ -79,7 +79,7 @@ export class EpisodeCorrelator {
       const details = radio ? {
         eventSignalId: signal.signalId, reason: receipt.reason, soundType: 'radio', station: radio.station, trackKnown: radio.trackKnown,
         ...(radio.stationName ? { stationName: radio.stationName } : {}),
-        ...(radio.trackKnown ? { artist: radio.artist, title: radio.title, contentKind: radio.kind } : {}),
+        ...(radio.trackKnown ? { artist: radio.artist, title: radio.title, contentKind: radio.contentKind } : {}),
       } : { eventSignalId: signal.signalId, reason: receipt.reason };
       const claim = { claimId: randomUUID(), kind: mappedKind, certainty: receipt.certainty === 'uncertain' ? 'uncertain' : 'supported', evidence: { ...receipt.evidence }, ...(receipt.knowsSource && sourceRef ? { source: sourceRef } : {}), ...(receipt.knowsTarget && targetRef ? { target: targetRef } : {}), details };
       const observation = {
