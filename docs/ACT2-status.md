@@ -1,6 +1,6 @@
 # ACT2 status — player-assigned basic activities
 
-Updated October 4, 2026. Branch `feature/act2-player-assigned-basic-activities`, based on `feature/act0-act1-contracts-shadow-observer` at `5d11ee9a22b4ffd4378f8585141e2303c39b0184`. Not merged. No physical GTA session was run. Post-review hardening is included after the original `eb786c3` implementation.
+Updated October 6, 2026. Branch `feature/act2-player-assigned-basic-activities` has been reconciled onto current `main`, includes ACT0/ACT1 underneath it, and has now been built, hash-deployed to the GTA Enhanced install, and exercised in GTA. The integrated ACT0→ACT2 stack is accepted for merge to `main`. Post-review hardening is included after the original `eb786c3` implementation.
 
 ACT2 is the first player-assigned activity path. It reuses the ACT0 registry and the ACT1 pipe, lease, receipt, and supersession machinery. Essential still performs the NPC action. ACT does not own a second GTA task scheduler.
 
@@ -95,9 +95,15 @@ Recorded on this branch after the ACT0/ACT1 head was fetched at `5d11ee9`. The p
 
 Source scans reject `TASK_`, broad ped-task clearing, `CancelAll`, exclusive-control release, and `SetControlledBrain` in the ACT2 execution files. Queue dispatch is confined to `ActivityDispatch.cs`.
 
+## October 6 deployment / GTA validation
+
+The rebased ACT2 stack (`1d6454e` before the documentation commits) was pulled locally with ACT0/ACT1 underneath it, built, and installed into GTA Enhanced. The deployment reported 83 installed files with staged-payload hash parity; active config/credential files were preserved and no files were deleted. The companion and native addon builds succeeded. A later GTA run exercised the integrated ACT stack sufficiently to accept ACT0/ACT1/ACT2 for merge.
+
+This is **stack-level deployment/runtime verification**, not proof that every focused capability probe below was observed. Any unanswered probe remains open and must stay documented as such. The full regression suite was not rerun as part of the initial deployment step, so historical suite counts are not rewritten as fresh results.
+
 ## Open GTA gates
 
-Do not treat the offline results as physical acceptance. ACT2 is not production-enabled while these are open.
+The integrated ACT0→ACT2 stack has now passed deployment and GTA runtime smoke testing. The focused capability probes below remain **open questions** wherever their exact evidence was not captured. Merge/deployment therefore must not be read as an automatic pass for Q1/F1/K1/R1/FR1/M1, nor as permission to remove the existing default-off and probe-allowlist safety gates.
 
 | Probe | What to record |
 | --- | --- |
@@ -120,6 +126,6 @@ ACT1 probes Q2, PT1, X1, and M1 are still open as well. They do not block this c
 
 ## Readiness
 
-The code is ready for a **post-hardening offline regression/build run**. This chat environment can inspect and update GitHub but cannot execute the Windows/.NET + GTA build/test stack, and there is no GitHub Actions run attached to this branch. Do not treat the historical green counts above as evidence for the hardened head.
+The hardened/rebased stack has now been built, deployed, and exercised in GTA. The deployment used the rebased ACT2 head containing ACT0/ACT1; the staged payload hash check completed successfully and the companion/native addon builds succeeded. The historical per-suite counts above remain historical unless a later full regression run explicitly supersedes them.
 
-After the updated Node/native/UX suites and production addon/candidate builds are green, the branch is ready for GTA probe testing with an explicit local config, not as a default enablement. Set `activities.mode` to `"on"` in both the companion config and `LSA.PromotedCharacters`, and set companion `activities.passedProbes` only for the capability being probed. Capture the six probes above before treating ACT2 as accepted.
+The integrated stack is accepted for merge and ordinary GTA testing, but individual physical capabilities remain deliberately gated. Keep `activities.mode` explicit and keep `activities.passedProbes` limited to capabilities whose focused GTA evidence has actually been captured. The six probe questions above stay open until that evidence exists; merging ACT2 does not silently close them.
