@@ -42,6 +42,14 @@ namespace LSA.Intelligence
             public bool Demotes(AnchorWireState other)=>other!=null&&(other.Observer&&!Observer||other.Conversation&&!Conversation);
             public bool Promotes(AnchorWireState other)=>other==null&&(Observer||Conversation)||other!=null&&(!other.Observer&&Observer||!other.Conversation&&Conversation);
         }
+        sealed class RadioProbeState
+        {
+            public string Vehicle,Station="",RejectedClasses="";
+            public bool InVehicle,Rejected;
+            public uint TrackHash;
+            public int PlayMs=-1,RejectedLength;
+            public bool Same(RadioProbeState other)=>other!=null&&Vehicle==other.Vehicle&&InVehicle==other.InVehicle&&Station==other.Station&&TrackHash==other.TrackHash&&Rejected==other.Rejected&&RejectedLength==other.RejectedLength&&RejectedClasses==other.RejectedClasses;
+        }
         Dictionary<string,bool> capabilities=new Dictionary<string,bool>();
         readonly object rosterGate=new object();
         readonly Dictionary<string,AnchorWireState> publishedAnchorStates=new Dictionary<string,AnchorWireState>();
@@ -53,7 +61,9 @@ namespace LSA.Intelligence
         int discoveryAllowance;
         long deferredDiscovery;
         uint previousTick,snapshotTick;
-        long nextDiscovery,nextState,nextShot,nextRefresh,nextDiagnostics,nextLog,snapshotChangedAt,snapshotCadence;
+        long nextDiscovery,nextState,nextShot,nextRadio,nextRefresh,nextDiagnostics,nextLog,snapshotChangedAt,snapshotCadence;
+        readonly bool radioEnabled;
+        RadioProbeState radioProbe;
         int discoveryCursor,stateCursor,connectionVersion;
         long staleRejected,retiredAnchors,witnessDeferred,witnessUnknown,witnessRejected;
         int lineOfSightBudget;
@@ -76,7 +86,7 @@ namespace LSA.Intelligence
         internal string RuntimeStatus()=>"available="+IsAvailable+" update_calls="+UpdateCalls+" update_completed="+CompletedUpdates+" last_update_age_ms="+Age(Interlocked.Read(ref lastUpdateMs))+" last_completed_age_ms="+Age(Interlocked.Read(ref lastCompletedMs))+" last_game_tick="+callbackTick+" shutdown_reason="+ShutdownReason;
         internal static void LogStatus(string message) {try{Game.LogTrivial(message);}catch{}}
         static readonly string[] capabilityNames={"snapshot","pedDamage","playerDamage","vehicleDamage","shooting","state","action","playback","witness","awareness","playerSpeech"};
-        public IntelligenceIntegration(Func<OwnedParticipant[]> roster,string pipeName="LSA.Intelligence.v1") {if(pipeName==null||!System.Text.RegularExpressions.Regex.IsMatch(pipeName,"^[A-Za-z0-9_.-]{1,80}$")) throw new ArgumentException();this.roster=roster;this.pipeName=pipeName;capabilities=capabilityNames.ToDictionary(k=>k,k=>false);}
+        public IntelligenceIntegration(Func<OwnedParticipant[]> roster,string pipeName="LSA.Intelligence.v1",string radioMode="off") {if(pipeName==null||!System.Text.RegularExpressions.Regex.IsMatch(pipeName,"^[A-Za-z0-9_.-]{1,80}$")) throw new ArgumentException();this.roster=roster;this.pipeName=pipeName;capabilities=capabilityNames.ToDictionary(k=>k,k=>false);radioEnabled=radioMode=="shadow";}
         static bool Pinned(System.Reflection.Assembly assembly,string pin)
         {try {if(new FileInfo(assembly.Location).Length>16*1024*1024) return false;using(var h=SHA256.Create()) return BitConverter.ToString(h.ComputeHash(File.ReadAllBytes(assembly.Location))).Replace("-","").ToLowerInvariant()==pin;}catch{return false;}}
         public void Initialize()
@@ -92,6 +102,7 @@ namespace LSA.Intelligence
                 catch {try{NpcPlaybackCoordinator.PlaybackStarted-=PlaybackStarted;NpcPlaybackCoordinator.PlaybackEnded-=PlaybackEnded;}catch{}}
                 channel=new IntelligenceChannel(pipeName,Guid.NewGuid().ToString("D"),()=>capabilities);channel.Start();
                 previousTick=unchecked((uint)Game.GameTime);started=true;Game.LogTrivial("[PS] native_adapter_loaded shadow");
+                if(radioEnabled) Game.LogTrivial("[PS] radio_shadow");
             } catch {Shutdown("initialization_failed");LogStatus("[PS] optional_initialization_failed");}
         }
         void AssemblyLoaded(object sender,AssemblyLoadEventArgs e) {if(e.LoadedAssembly.GetName().Name=="DamageTrackerLib") QueueDamagePin();}
@@ -166,7 +177,7 @@ namespace LSA.Intelligence
                 if(damageReady && damage==null) TryDamage();
                 if(!damageReady && damage!=null) {damage.Dispose();damage=null;}
                 uint tick=unchecked((uint)Game.GameTime);callbackTick=tick;
-                if(tick<previousTick) {anchors.Clear();sensors.Reset();lock(rosterGate) publishedAnchorStates.Clear();UpdateIndexes();channel.Dispose();channel=new IntelligenceChannel(pipeName,Guid.NewGuid().ToString("D"),()=>capabilities);channel.Start();nextRefresh=0;Game.LogTrivial("[PS] clock_reset");}
+                if(tick<previousTick) {anchors.Clear();sensors.Reset();radioProbe=null;nextRadio=0;lock(rosterGate) publishedAnchorStates.Clear();UpdateIndexes();channel.Dispose();channel=new IntelligenceChannel(pipeName,Guid.NewGuid().ToString("D"),()=>capabilities);channel.Start();nextRefresh=0;Game.LogTrivial("[PS] clock_reset");}
                 previousTick=tick;
                 lineOfSightBudget=8;
                 if(channel.ConnectionVersion!=connectionVersion) {connectionVersion=channel.ConnectionVersion;lock(rosterGate) publishedAnchorStates.Clear();nextRefresh=0;}
@@ -237,6 +248,7 @@ namespace LSA.Intelligence
                     nextState=now+200;
                     for(int n=0;n<25 && sources.Length>0;n++) {var a=sources[stateCursor++%sources.Length];if(sampling.Elapsed.TotalMilliseconds>=1) break;Sample(a,tick,now);}
                 }
+                if(radioEnabled && now>=nextRadio) { nextRadio=now+250; SampleRadio(tick,now); }
                 bool refreshRoster=now>=nextRefresh;if(refreshRoster) nextRefresh=now+1000;
                 FlushControls(refreshRoster);
                 for(int n=0;n<32;n++) {var signal=sensors.Take();if(signal==null) break;Publish(signal,now);}
@@ -244,13 +256,52 @@ namespace LSA.Intelligence
                     nextDiagnostics=now+1000;int age=capabilities["snapshot"]?(int)Math.Min(int.MaxValue,(long)unchecked(tick-snapshotTick)):int.MaxValue;
                     var signals=sensors.Counters;
                     var damageCallbacks=sensors.DamageCallbacks;
-                    channel.Send("diagnostics",new {anchors=anchors.Count,observers=anchors.ObserverCount,snapshotAgeMs=age,snapshotCadenceMs=Clamp(snapshotCadence),dropped=Clamp(sensors.Dropped+channel.Dropped),staleRejected=Clamp(staleRejected),retiredAnchors=Clamp(retiredAnchors),deferredDiscovery=Clamp(deferredDiscovery),updateMicros=Clamp((long)(budget.Elapsed.TotalMilliseconds*1000)),capabilities,signals,damageCallbacks,witnessDeferred=Clamp(witnessDeferred),witnessUnknown=Clamp(witnessUnknown),witnessRejected=Clamp(witnessRejected),playerSpeechGate="unsupported_capture_receipt"});
-                    if(now>=nextLog) {nextLog=now+10000;Game.LogTrivial("[PS] shadow anchors="+anchors.Count+" observers="+anchors.ObserverCount+" snapshot_age_ms="+age+" snapshot_cadence_ms="+Clamp(snapshotCadence)+" dropped="+Clamp(sensors.Dropped+channel.Dropped)+" stale="+Clamp(staleRejected)+" retired="+Clamp(retiredAnchors)+" deferred="+Clamp(deferredDiscovery)+" update_us="+Clamp((long)(budget.Elapsed.TotalMilliseconds*1000))+" capabilities="+string.Join(",",capabilities.Where(c=>c.Value).Select(c=>c.Key))+" damage_callbacks=ped:"+damageCallbacks["ped_damage"]+",player:"+damageCallbacks["player_damage"]+",vehicle:"+damageCallbacks["vehicle_damage"]+" signals="+string.Join(",",signals.Select(c=>c.Key+":"+c.Value)));}
+                    var radio=new {samples=Clamp(sensors.RadioSamples),edges=Clamp(sensors.RadioEdges),nativeFailures=Clamp(sensors.RadioNativeFailures)};
+                    channel.Send("diagnostics",new {anchors=anchors.Count,observers=anchors.ObserverCount,snapshotAgeMs=age,snapshotCadenceMs=Clamp(snapshotCadence),dropped=Clamp(sensors.Dropped+channel.Dropped),staleRejected=Clamp(staleRejected),retiredAnchors=Clamp(retiredAnchors),deferredDiscovery=Clamp(deferredDiscovery),updateMicros=Clamp((long)(budget.Elapsed.TotalMilliseconds*1000)),capabilities,signals,damageCallbacks,witnessDeferred=Clamp(witnessDeferred),witnessUnknown=Clamp(witnessUnknown),witnessRejected=Clamp(witnessRejected),playerSpeechGate="unsupported_capture_receipt",radio});
+                    if(now>=nextLog) {nextLog=now+10000;Game.LogTrivial("[PS] shadow anchors="+anchors.Count+" observers="+anchors.ObserverCount+" snapshot_age_ms="+age+" snapshot_cadence_ms="+Clamp(snapshotCadence)+" dropped="+Clamp(sensors.Dropped+channel.Dropped)+" stale="+Clamp(staleRejected)+" retired="+Clamp(retiredAnchors)+" deferred="+Clamp(deferredDiscovery)+" update_us="+Clamp((long)(budget.Elapsed.TotalMilliseconds*1000))+" capabilities="+string.Join(",",capabilities.Where(c=>c.Value).Select(c=>c.Key))+" damage_callbacks=ped:"+damageCallbacks["ped_damage"]+",player:"+damageCallbacks["player_damage"]+",vehicle:"+damageCallbacks["vehicle_damage"]+" radio="+radio.samples+":"+radio.edges+":"+radio.nativeFailures+" signals="+string.Join(",",signals.Select(c=>c.Key+":"+c.Value)));}
                 }
                 Count(ref completedUpdates);Interlocked.Exchange(ref lastCompletedMs,clock.ElapsedMilliseconds);
             } catch {LogStatus("[PS] optional_update_failed");Shutdown("update_failed");}
         }
         static int Clamp(long n)=>(int)Math.Min(int.MaxValue,Math.Max(0,n));
+        static RadioProbeState RadioOff()=>new RadioProbeState {Vehicle=null,Station="",RejectedClasses=""};
+        void SampleRadio(uint tick,long now)
+        {
+            if(!radioEnabled) return;
+            sensors.NoteRadioSample();
+            try {
+                var player=Game.LocalPlayer.Character;
+                if(player==null || !player.Exists()) { CommitRadio(RadioOff(),tick,now); return; }
+                var vehicle=player.CurrentVehicle;
+                if(vehicle==null || !vehicle.Exists()) { CommitRadio(RadioOff(),tick,now); return; }
+                CommitRadio(ReadRadio(Retain(vehicle,"vehicle")?.CaptureRef),tick,now);
+            } catch { sensors.NoteRadioNativeFailure(); }
+        }
+        RadioProbeState ReadRadio(string vehicleRef)
+        {
+            var reading=new RadioProbeState {Vehicle=vehicleRef,InVehicle=true,Station="",RejectedClasses=""};
+            string raw=NativeFunction.CallByName<string>("GET_PLAYER_RADIO_STATION_NAME");
+            if(!SensorAdapters.ValidRadioStation(raw)) {
+                if(!string.IsNullOrEmpty(raw)) { reading.Rejected=true; reading.RejectedLength=raw.Length; reading.RejectedClasses=SensorAdapters.RadioStationClasses(raw); }
+                return reading;
+            }
+            reading.Station=raw;
+            reading.TrackHash=unchecked((uint)NativeFunction.CallByName<int>("GET_CURRENT_TRACK_SOUND_NAME",raw));
+            return reading;
+        }
+        void CommitRadio(RadioProbeState reading,uint tick,long now)
+        {
+            sensors.Radio(reading.Vehicle,reading.Station,reading.TrackHash,tick,now);
+            if(radioProbe!=null && radioProbe.Same(reading)) return;
+            if(reading.Station.Length>0) {
+                try { int play=NativeFunction.CallByName<int>("GET_CURRENT_TRACK_PLAY_TIME",reading.Station); reading.PlayMs=play<0?-1:play; }
+                catch { reading.PlayMs=-1; }
+            }
+            radioProbe=reading;
+            string line="[RADIO_PROBE] vehicle="+(reading.InVehicle?"1":"0")+" station="+reading.Station+" track="+reading.TrackHash.ToString("X8")+" play_ms="+reading.PlayMs;
+            if(reading.Rejected) line+=" rejected=station_grammar len="+Math.Min(Math.Max(reading.RejectedLength,0),9999)+" classes="+reading.RejectedClasses;
+            try { Game.LogTrivial(line); } catch {}
+        }
         List<WitnessReceipt> CaptureWitnesses(RawSignal signal)
         {
             var result=new List<WitnessReceipt>();
@@ -329,7 +380,7 @@ namespace LSA.Intelligence
             AppDomain.CurrentDomain.AssemblyLoad-=AssemblyLoaded;
             try{damage?.Dispose();}catch{}damage=null;
             if(playback) {try{NpcPlaybackCoordinator.PlaybackStarted-=PlaybackStarted;NpcPlaybackCoordinator.PlaybackEnded-=PlaybackEnded;}catch{}playback=false;}
-            channel?.Dispose();anchors.Clear();sensors.Reset();UpdateIndexes();
+            channel?.Dispose();anchors.Clear();sensors.Reset();radioProbe=null;nextRadio=0;UpdateIndexes();
         }
     }
 }
