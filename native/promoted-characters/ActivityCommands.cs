@@ -13,6 +13,8 @@ namespace LSA.PromotedCharacters
     {
         ActivitySession activitySession;
         ActivityChannel activityChannel;
+        StepRunner activityRunner;
+        partial void BindActivityWorld(StepRunner runner);
         readonly SupersessionMonitor activityRing = new SupersessionMonitor();
         readonly Queue<long> activityFaultAt = new Queue<long>();
         bool activityDisabled, activityEscape, activityContainedFault;
@@ -35,6 +37,18 @@ namespace LSA.PromotedCharacters
             activityChannel.Start();
         }
 
+        internal void EnableActivityExecution(string pipeName)
+        {
+            if (activitySession != null || pipeName == null || !Regex.IsMatch(pipeName, "^[A-Za-z0-9_.-]{1,80}$")) throw new ArgumentException("invalid_activity_pipe");
+            var table = CapabilityTable.LoadEmbedded();
+            activityRunner = new StepRunner(table);
+            BindActivityWorld(activityRunner);
+            activitySession = new ActivitySession(table, activityRunner);
+            activityRunner.Session = activitySession;
+            activityChannel = new ActivityChannel(pipeName, activitySession);
+            activityChannel.Start();
+        }
+
         internal void InjectActivityFault(bool escape) { activityEscape = escape; activityContainedFault = !escape; }
 
         // P2 control operations run on the owner/update fiber, so opening the
@@ -43,19 +57,23 @@ namespace LSA.PromotedCharacters
         {
             if (activitySession == null || activityDisabled || encounter?.Registration == null) return;
             try {
-                activitySession.Machine.ObserveCommand(encounter.Id, encounter.Registration.IncarnationId, SameIncarnation(encounter), operation, unchecked((uint)Game.GameTime));
+                var game = unchecked((uint)Game.GameTime);
+                var wall = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+                if (activityRunner != null) activityRunner.Preempt(encounter.Id, encounter.Registration.IncarnationId, operation, game, wall, activitySession);
+                else activitySession.Machine.ObserveCommand(encounter.Id, encounter.Registration.IncarnationId, SameIncarnation(encounter), operation, game);
             } catch { DisableActivity(); }
         }
 
         void ActivityClockReset()
         {
-            try { activitySession?.Machine.ClockReset(); }
+            try { activitySession?.Machine.ClockReset(); activityRunner?.ClockReset(activitySession); }
             catch { DisableActivity(); }
         }
 
         void ActivityShutdown()
         {
             try { activitySession?.Machine.ClientDisconnected("control_released"); } catch { }
+            try { activityRunner?.ClientDisconnected(activitySession, "control_released", DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()); } catch { }
             try { activityChannel?.Dispose(); } catch { }
             activityChannel = null;
         }
@@ -72,6 +90,7 @@ namespace LSA.PromotedCharacters
                     // same owner fiber as every other StepMachine mutation.
                     activityChannel?.Pump(wall, activityRing.Dropped, activityBreakerTrips);
                     activitySession.Machine.Tick(game, wall);
+                    activityRunner?.Tick(game, wall);
 
                     if (wall >= activityBreakerUntil) {
                         if (activityContainedFault) { activityContainedFault = false; throw new InvalidOperationException("activity_contained"); }
@@ -121,10 +140,12 @@ namespace LSA.PromotedCharacters
                     record.ActorKey = encounter.Id;
                     record.IncarnationId = encounter.Registration.IncarnationId;
                     if (record.Phase == "control_lost") {
-                        activitySession.Machine.ObserveControlLost(record.ActorKey, record.IncarnationId, record.GameMs);
+                        if (activityRunner != null) activityRunner.Retire(record.ActorKey, record.IncarnationId, record.GameMs, DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(), activitySession);
+                        else activitySession.Machine.ObserveControlLost(record.ActorKey, record.IncarnationId, record.GameMs);
                         continue;
                     }
-                    activitySession.Machine.ObserveCallback(record, overflowed);
+                    if (activityRunner != null) activityRunner.OnCallback(record.ActorKey, record.IncarnationId, record.Name, record.Phase, record.Succeeded, record.GameMs, DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
+                    else activitySession.Machine.ObserveCallback(record, overflowed);
                 } catch {
                     activitySession.Machine.StaleReceipts++;
                 }
@@ -152,7 +173,7 @@ namespace LSA.PromotedCharacters
         void SampleActivityFacts(uint game)
         {
             foreach (var encounter in encounters.Values) {
-                if (encounter.Registration == null || activitySession.Machine.ActiveFor(encounter.Id) == null) continue;
+                if (encounter.Registration == null || (activityRunner != null ? !activityRunner.Tracks(encounter.Id) : activitySession.Machine.ActiveFor(encounter.Id) == null)) continue;
                 long now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
                 if (activityFactAt.TryGetValue(encounter.Id, out var at) && now - at < 500) continue;
                 NpcState state = null;
@@ -191,6 +212,7 @@ namespace LSA.PromotedCharacters
         {
             activityDisabled = true;
             try { activitySession?.Machine.ClientDisconnected("lease_lost"); } catch { }
+            try { activityRunner?.ClientDisconnected(activitySession, "lease_lost", DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()); } catch { }
             try { activityChannel?.Dispose(); } catch { }
         }
 

@@ -8,6 +8,10 @@
     <Compile Include="../../activities/ActivityChannel.cs" Link="ActivityChannel.cs" />
     <Compile Include="../../activities/StepMachine.cs" Link="StepMachine.cs" />
     <Compile Include="../../activities/SupersessionMonitor.cs" Link="SupersessionMonitor.cs" />
+    <Compile Include="../../activities/StepRunner.cs" Link="StepRunner.cs" />
+    <Compile Include="../../activities/CompletionAdapters.cs" Link="CompletionAdapters.cs" />
+    <Compile Include="../../activities/PlaceTable.cs" Link="PlaceTable.cs" />
+    <Compile Include="../../activities/ActivityWorld.cs" Link="ActivityWorld.cs" />
     <Compile Include="../ControlChannel.cs" Link="ControlChannel.cs" />
     <EmbeddedResource Include="../../../contracts/activity-capabilities.v1.json" LogicalName="LSA.Activities.activity-capabilities.v1.json" />
     <Compile Include="../NativeSafetyPolicy.cs" Link="NativeSafetyPolicy.cs" />

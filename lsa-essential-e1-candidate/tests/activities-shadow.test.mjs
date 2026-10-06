@@ -29,6 +29,7 @@ test('shadow client correlates hello, lease and diagnostics and drops on a seque
   assert.equal(client.runtime.nativeRun, hello().nativeRun);
   assert.deepEqual(client.runtime.counters, {});
   assert.equal(JSON.parse(pipe.writes[0]).type, 'hello');
+  assert.deepEqual(JSON.parse(pipe.writes[1]), { version: 1, type: 'lease', sequence: 1, leaseTtlMs: 5000 });
   assert.equal(pipe.writes.some(frame => JSON.parse(frame).type === 'step.begin'), false);
   pipe.emit('data', Buffer.from(JSON.stringify(diagnostics(1, { accepted: 1, superseded: 1 })) + '\n')); await new Promise(resolve => setImmediate(resolve));
   assert.deepEqual(events.map(item => item[0]), ['activity_receipt', 'activity_receipt']);
@@ -39,6 +40,22 @@ test('shadow client correlates hello, lease and diagnostics and drops on a seque
   const off = new ActivityClient({ mode: 'off', pipeName: 'LSA.Activities.v1' }, { connect: () => { throw new Error('off'); } });
   off.start(); assert.equal(off.socket, null);
 });
+
+test('ACT2 lease heartbeats and execution frames share one client sequence', async () => {
+  const pipe = socket();
+  const client = new ActivityClient({ mode: 'on', pipeName: 'LSA.Activities.v1' }, { connect: () => pipe });
+  client.start();
+  pipe.emit('data', Buffer.from(JSON.stringify(hello()) + '\n'));
+  await new Promise(resolve => setImmediate(resolve));
+  const lease = JSON.parse(pipe.writes[1]);
+  assert.equal(lease.type, 'lease');
+  assert.equal(lease.sequence, 1);
+  const sent = client.send({ type: 'step.query', requestId: '44444444-4444-4444-8444-444444444444', executionIds: [] });
+  assert.equal(sent.sequence, 2);
+  assert.equal(JSON.parse(pipe.writes.at(-1)).sequence, 2);
+  client.stop();
+});
+
 test('ACT shadow sources do not dispatch NPC actions or task natives', async () => {
   const root = new URL('../../native/', import.meta.url);
   const files = ['activities/ActivityChannel.cs','activities/StepMachine.cs','activities/SupersessionMonitor.cs','activities/CapabilityTable.cs','promoted-characters/ActivityCommands.cs'];
@@ -52,7 +69,7 @@ test('activity telemetry cannot record physical completion', () => {
   assert.equal(record.data.receiptState, undefined);
   assert.equal(record.data.capability, 'hold_position');
 });
-test('bootstrap starts the activity client only in shadow mode', async () => {
+test('bootstrap starts shadow observation or explicit ACT2 execution and stays off otherwise', async () => {
   const temp = await mkdtemp(path.resolve('.build-check-activities-')); const contract = await verifyPerceptionContract(); let connects = 0;
   const forbidden = () => { throw new Error('side effect'); };
   try {
@@ -61,8 +78,9 @@ test('bootstrap starts the activity client only in shadow mode', async () => {
       await writeFile(configPath, JSON.stringify({ activities: { mode }, intelligence: { mode: 'off' }, promotedCharacters: { enabled: false }, persistentIdentity: { enabled: false } }));
       const pipe = socket();
       const runtime = await createRuntimeForBundle({ configPath, env: {}, enableTelemetry: false, startCharacterEditor: false, perceptionContract: contract, fetchImpl: forbidden, profileStore: { initialize: forbidden, memory: forbidden }, nativeOwner: { request: forbidden }, activityOptions: { connect: () => { connects++; return pipe; } } });
-      if (mode === 'shadow') { assert.ok(runtime.activities); runtime.activities.stop(); } else assert.equal(runtime.activities, undefined);
+      if (mode === 'off') assert.equal(runtime.activities, undefined);
+      else { assert.ok(runtime.activities); runtime.activities.stop(); }
     }
-    assert.equal(connects, 1);
+    assert.equal(connects, 2);
   } finally { await rm(temp, { recursive: true, force: true }); }
 });

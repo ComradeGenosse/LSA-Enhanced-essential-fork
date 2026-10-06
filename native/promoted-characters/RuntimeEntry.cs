@@ -32,6 +32,7 @@ namespace LSA.PromotedCharacters
                     if(stopping) return;
                     integration=new PromotedCharactersIntegration(config.worldProfileId,config.pipeName,config.identityPipeName);
                     if(config.activities?.mode=="shadow") { try { integration.EnableActivityShadow(config.activities.pipeName);} catch {Game.LogTrivial("[ACT] optional_host_unavailable");} }
+                    else if(config.activities?.mode=="on") { try { integration.EnableActivityExecution(config.activities.pipeName);} catch {Game.LogTrivial("[ACT] optional_host_unavailable");} }
                     integration.Prepare();
                     IntegrationManager.Register(integration);
                     if(config.intelligence?.mode=="shadow") {

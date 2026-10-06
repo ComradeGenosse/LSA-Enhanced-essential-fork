@@ -13,14 +13,16 @@ namespace LSA.Enhanced.Commands
         public string Id, Class, Target, Executor, Hud, AskHud, Phrase;
         public bool Gesture;
     }
-    // contracts/commands.v1.json, embedded into the loader at build time. The
+    // contracts/commands.v2.json, embedded into the loader at build time. The
     // companion test suite asserts the same SHA-256, so the two sides cannot drift.
     public sealed class CommandCatalog
     {
-        public const string ResourceName = "LSA.Enhanced.commands.v1.json";
-        public const string ContractSha256 = "2ec822810c06125952a0a9409408f3de3eff19ec7bedfae914ce66ad2a6e16fb";
+        public const string ResourceName = "LSA.Enhanced.commands.v2.json";
+        public const string ContractSha256 = "07e0ad837bcbce8b6ff088a0b57ae6aad94e23cdbb5ac4a6bc4668a20b15d754";
         public const string EssentialMark = "essential.mark", EssentialText = "essential.text", CurrentFollow = "current.follow", CurrentWait = "current.wait",
             CurrentDismiss = "current.dismiss", CurrentPromote = "current.promote", NpcAsk = "npc.ask", UiMainMenu = "ui.mainMenu", UiQuickMenu = "ui.quickMenu",
+            ActivityStatus = "activity.status", ActivityPause = "activity.pause", ActivityResume = "activity.resume", ActivityCancel = "activity.cancel",
+            ActivityAssign = "activity.assign", ActivityHistory = "activity.history",
             CharacterSummon = "character.summon", CharacterFollow = "character.follow", CharacterWait = "character.wait", CharacterDismiss = "character.dismiss",
             CharacterDespawn = "character.despawn", CharacterRename = "character.rename", CharacterRelationship = "character.relationship",
             CharacterAvailability = "character.availability", CharacterMemorySelect = "character.memorySelect", CharacterMemoryAdd = "character.memoryAdd";
@@ -46,7 +48,7 @@ namespace LSA.Enhanced.Commands
             string sha;
             using (var hash = SHA256.Create()) sha = BitConverter.ToString(hash.ComputeHash(bytes)).Replace("-","").ToLowerInvariant();
             var root = new JavaScriptSerializer {MaxJsonLength = 65536,RecursionLimit = 8}.DeserializeObject(System.Text.Encoding.UTF8.GetString(bytes)) as Dictionary<string,object>;
-            if (root == null || !(root.TryGetValue("version",out var version) && version is int number && number == 1)) throw new InvalidDataException("command_catalog_invalid");
+            if (root == null || !(root.TryGetValue("version",out var version) && version is int number && number == 2)) throw new InvalidDataException("command_catalog_invalid");
             var commands = new Dictionary<string,CommandInfo>(StringComparer.Ordinal);
             foreach (var item in (root["commands"] as object[]) ?? throw new InvalidDataException("command_catalog_invalid")) {
                 var value = item as Dictionary<string,object> ?? throw new InvalidDataException("command_catalog_invalid");

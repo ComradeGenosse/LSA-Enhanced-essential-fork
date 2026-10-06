@@ -68,6 +68,7 @@ export async function startCharacterEditor(service,{ port = service.config.promo
         case 'memory': result = await service.memory(body.characterId,body.operation,{memoryId:body.memoryId,patch:body.patch,expectedRevision:body.expectedRevision}); break;
         case 'control': result = await service.control(body.characterId,body.operation); break;
         case 'control_current': result = await service.controlCurrent(body.operation,expectedEncounter(body.expectedEncounterId)); break;
+        case 'activity': result = await service.activity(body.operation,{expectedEncounterId:expectedEncounter(body.expectedEncounterId),intent:body.intent,slots:body.slots}); break;
         case 'remove': result = await service.remove(body.characterId,body.confirmation,body.expectedRevision); break;
         case 'current_describe': result = describeCurrent(service,{ encounterId:body.encounterId ?? null,ownerAlias:body.ownerAlias ?? null }); break;
         default: throw new Error('invalid_editor_action');

@@ -38,14 +38,14 @@ static partial class Program
     static void CatalogTests()
     {
         catalog = CommandCatalog.LoadEmbedded();
-        Check(catalog.Sha256 == CommandCatalog.ContractSha256,"embedded contracts/commands.v1.json matches the pinned SHA-256 (update CommandCatalog.ContractSha256 and the companion test together): " + catalog.Sha256);
+        Check(catalog.Sha256 == CommandCatalog.ContractSha256,"embedded contracts/commands.v2.json matches the pinned SHA-256 (update CommandCatalog.ContractSha256 and the companion test together): " + catalog.Sha256);
         foreach (var field in typeof(CommandCatalog).GetFields(BindingFlags.Public | BindingFlags.Static).Where(field => field.IsLiteral && field.Name != "ResourceName" && field.Name != "ContractSha256"))
             Check(catalog.Get((string)field.GetValue(null)) != null,"catalog defines " + field.Name);
         Check(catalog.All.Where(info => info.Gesture).All(info => info.Class == "read" || info.Class == "control" || info.Class == "ui"),"gestures bind only read, control and ui commands");
         Check(catalog.All.Where(info => info.Class == "destructive" || info.Class == "lifecycle" || info.Class == "profile").All(info => !info.Gesture),"no lifecycle, profile or destructive command is gesture-bindable");
         Check(catalog.Get(CommandCatalog.CurrentFollow).AskHud == "Asked to follow" && catalog.Get(CommandCatalog.CurrentFollow).Phrase == "follow","follow carries its ask text and phrase key");
         Check(catalog.Describe("no_current_npc") == "No current NPC" && catalog.Describe("brand_new_code") == "Request failed (brand_new_code)" && catalog.Describe("Bad Code!") == "Request failed (unknown)","reason text comes only from the catalog");
-        foreach (var bad in new[] {"{\"version\":2,\"commands\":[],\"reasons\":{}}","{\"version\":1,\"commands\":[{\"id\":\"x.y\",\"class\":\"destructive\",\"target\":\"none\",\"gesture\":true,\"executor\":\"ui\",\"hud\":\"x\"}],\"reasons\":{}}","{\"version\":1,\"commands\":[],\"reasons\":{\"Bad\":\"x\"}}"}) {
+        foreach (var bad in new[] {"{\"version\":99,\"commands\":[],\"reasons\":{}}","{\"version\":1,\"commands\":[{\"id\":\"x.y\",\"class\":\"destructive\",\"target\":\"none\",\"gesture\":true,\"executor\":\"ui\",\"hud\":\"x\"}],\"reasons\":{}}","{\"version\":1,\"commands\":[],\"reasons\":{\"Bad\":\"x\"}}"}) {
             bool rejected = false; try { CommandCatalog.Parse(System.Text.Encoding.UTF8.GetBytes(bad)); } catch (InvalidDataException) { rejected = true; }
             Check(rejected,"invalid catalog rejected: " + bad.Substring(0,30));
         }

@@ -8,7 +8,7 @@ import { isUuid } from '../identity/identityContract.mjs';
 import { withoutIdentityEvidence } from '../identity/modelContext.mjs';
 import { immutableSnapshot } from '../context/turnSnapshot.mjs';
 
-const FAILURE_REASONS = new Set(['profile_store_unavailable','identity_unavailable','native_stale','scripted_state','ownership_conflict','evidence_unavailable','owner_unavailable','unsafe_spawn_location','appearance_unavailable','invalid_ped_model','summon_wait_timeout','target_changed']);
+const FAILURE_REASONS = new Set(['profile_store_unavailable','identity_unavailable','native_stale','scripted_state','ownership_conflict','evidence_unavailable','owner_unavailable','unsafe_spawn_location','appearance_unavailable','invalid_ped_model','summon_wait_timeout','target_changed','capability_disabled','capability_unavailable','no_activity','activity_not_paused','activity_busy','activity_limit','policy_denied','unsupported_combination','actor_not_owned','actor_unavailable','actor_retired','budget_exhausted','repeated_failure','lease_lost']);
 export const characterFailureReason = error => FAILURE_REASONS.has(error?.message) ? error.message : 'native_operation_failed';
 
 export function withoutCharacterTransport(actor) {
@@ -37,6 +37,7 @@ export class CharacterService {
     this.sessions = new SessionProfiles({ onEvent:(event,data) => this.emit(event,data) });
     this.ready = false;
   }
+  bindActivities(runtime) { this.activities = runtime; }
   emit(event,data = {},identity = null,source = null) { try { this.telemetry?.emit(event,identity,source,data); } catch {} }
   initialize() { return this.#initializing ||= (async () => {
     try {
@@ -172,6 +173,27 @@ export class CharacterService {
     if (operation === 'dismiss' || operation === 'despawn') this.emit('character_dismissed');
     return result;
   }); }
+  async activity(operation, args = {}) { return this.#serial(async () => {
+    await this.#requireReady();
+    if (!this.activities?.engine || this.activities.engine.config.mode !== 'on') throw new Error('capability_disabled');
+    const expected = args.expectedEncounterId ?? null;
+    const capture = await this.native.request('capture');
+    if (expected !== null && capture?.encounterId !== expected) throw new Error('target_changed');
+    const profile = this.store.list().find(item => item.promotion.ownerAlias === capture?.ownerAlias);
+    if (!profile) throw new Error('character_not_promoted');
+    const binding = await this.native.request('inspect', { ownerAlias: profile.promotion.ownerAlias });
+    if (!binding || binding.encounterId !== capture.encounterId) throw new Error('native_stale');
+    const characterId = profile.characterId;
+    const owned = { characterId, ownerAlias: binding.ownerAlias, ownershipToken: binding.ownershipToken, encounterId: binding.encounterId, incarnationId: binding.claim?.incarnationId };
+    if (operation === 'status') return this.activities.status(characterId);
+    if (operation === 'history') return { history: this.activities.history(characterId) };
+    if (operation === 'pause' || operation === 'resume' || operation === 'cancel') return this.#activityResult(this.activities[operation](characterId));
+    if (operation !== 'assign') throw new Error('policy_denied');
+    const slots = args.slots && typeof args.slots === 'object' && !Array.isArray(args.slots) ? args.slots : {};
+    const proposal = { proposalVersion: 1, proposalId: randomUUID(), source: 'player_ux', subject: { characterId }, intent: args.intent, slots, priority: 'player_direct', origin: { uxRequestId: randomUUID() }, proposedAtMs: Date.now() };
+    return this.#activityResult(this.activities.assign(proposal, owned));
+  }); }
+  #activityResult(result) { if (!result?.ok) throw new Error(/^[a-z][a-z0-9_]{0,47}$/.test(result?.reason || '') ? result.reason : 'capability_unavailable'); return result; }
   async remove(characterId,confirmation,revision) { return this.#serial(async () => {
     await this.#requireReady();
     if (confirmation !== characterId) throw new Error('explicit_confirmation_required');

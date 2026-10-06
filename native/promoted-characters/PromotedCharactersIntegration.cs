@@ -94,7 +94,9 @@ namespace LSA.PromotedCharacters
             return NativeSafetyPolicy.CanControl(true,false,encounter.Ped == Game.LocalPlayer.Character,Scripted(),
                 foreignScript || adopting && missionEntity && !NpcActions.HasExclusiveControl(encounter.Ped),state?.InDirectedInteraction == true);
         }
-        void Retire(Encounter encounter) { if (encounter.Registration != null) { try {OwnerRetired?.Invoke(encounter.Registration.IncarnationId);}catch{} identity?.Owner?.Retire(encounter.Registration); } encounter.Registration = null; encounter.OwnerAlias = null; encounter.OwnershipToken = null; }
+        void Retire(Encounter encounter) {
+            try { activityRunner?.Retire(encounter.Id, encounter.Registration?.IncarnationId, unchecked((uint)Game.GameTime), DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(), activitySession); } catch { }
+            if (encounter.Registration != null) { try {OwnerRetired?.Invoke(encounter.Registration.IncarnationId);}catch{} identity?.Owner?.Retire(encounter.Registration); } encounter.Registration = null; encounter.OwnerAlias = null; encounter.OwnershipToken = null; }
         static void Suspend(Encounter encounter)
         {
             encounter.Suspended = true; // Set first, before any native control callback.

@@ -20,10 +20,13 @@ function rejectClosed(validate, value) {
   for (const key of Object.keys(value)) { const missing = { ...value }; delete missing[key]; assert.equal(validate(missing), false, key); }
 }
 
-test('activity config defaults off and cannot enable ACT2 execution', () => {
+test('activity config defaults off and keeps ACT2 execution opt-in', () => {
   assert.equal(normalizeActivityConfig().mode, 'off');
   assert.equal(normalizeActivityConfig({ mode: 'shadow' }).mode, 'shadow');
-  for (const mode of ['on', 'execute', 'context']) assert.equal(normalizeActivityConfig({ mode }).mode, 'off');
+  assert.equal(normalizeActivityConfig({ mode: 'on' }).mode, 'on');
+  assert.deepEqual(normalizeActivityConfig({ mode: 'on' }).passedProbes, []);
+  assert.equal(normalizeActivityConfig({ mode: 'on', dialogue: true }).dialogue, false);
+  for (const mode of ['execute', 'context']) assert.equal(normalizeActivityConfig({ mode }).mode, 'off');
   assert.equal(normalizeActivityConfig({ mode: 'shadow', pipeName: '../bad' }).pipeName, 'LSA.Activities.v1');
 });
 test('capability registry is SHA pinned and excluded or never rows cannot be enabled', async () => {

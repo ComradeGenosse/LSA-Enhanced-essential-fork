@@ -56,6 +56,102 @@ namespace LSA.Activities
             try { return Exact(value, "version", "type", "sequence", "leaseTtlMs") && Sequenced(value, expectedSequence) && value["type"] as string == "lease" && NonNegative(value["leaseTtlMs"], LeaseTtlMs) && Convert.ToInt32(value["leaseTtlMs"], CultureInfo.InvariantCulture) >= 1; }
             catch { return false; }
         }
+
+        public static bool ExecutionFrame(IDictionary<string, object> value, int expectedSequence)
+        {
+            try {
+                if (!Sequenced(value, expectedSequence)) return false;
+                var type = value["type"] as string;
+                if (type == "actor.acquire")
+                    return Exact(value,"version","type","sequence","requestId","characterId","ownerAlias","ownershipToken","leaseId") &&
+                        UuidField(value,"requestId") && UuidField(value,"characterId") && UuidField(value,"ownershipToken") && UuidField(value,"leaseId") &&
+                        value["ownerAlias"] is string alias && Alias.IsMatch(alias);
+                if (type == "actor.release")
+                    return Exact(value,"version","type","sequence","requestId","encounterId","leaseId") &&
+                        UuidField(value,"requestId") && UuidField(value,"encounterId") && UuidField(value,"leaseId");
+                if (type == "anchor.resolve") {
+                    if (!Exact(value,"version","type","sequence","requestId","encounterId","leaseId","refs") ||
+                        !UuidField(value,"requestId") || !UuidField(value,"encounterId") || !UuidField(value,"leaseId") ||
+                        !(value["refs"] is object[] refs) || refs.Length > 8) return false;
+                    foreach (var item in refs) if (!ResolveRef(item as Dictionary<string,object>)) return false;
+                    return true;
+                }
+                if (type == "step.preflight")
+                    return Exact(value,"version","type","sequence","requestId","encounterId","leaseId","capability","args","preconditions") &&
+                        UuidField(value,"requestId") && UuidField(value,"encounterId") && UuidField(value,"leaseId") &&
+                        Act2Capability(value["capability"] as string) && StepArgs(value["args"] as Dictionary<string,object>, value["capability"] as string) &&
+                        TokenArray(value["preconditions"] as object[],32);
+                if (type == "step.begin")
+                    return Exact(value,"version","type","sequence","requestId","executionId","activityId","stepId","attempt","encounterId","leaseId","leaseEpoch","capability","args","timeouts","completion","violated","onLeaseLoss") &&
+                        UuidField(value,"requestId") && UuidField(value,"executionId") && UuidField(value,"activityId") && UuidField(value,"stepId") &&
+                        UuidField(value,"encounterId") && UuidField(value,"leaseId") && NonNegative(value["attempt"],8) && Convert.ToInt32(value["attempt"],CultureInfo.InvariantCulture) >= 1 &&
+                        NonNegative(value["leaseEpoch"]) && Act2Capability(value["capability"] as string) &&
+                        StepArgs(value["args"] as Dictionary<string,object>, value["capability"] as string) &&
+                        Timeouts(value["timeouts"] as Dictionary<string,object>) && Completion(value["completion"] as Dictionary<string,object>) &&
+                        TokenArray(value["violated"] as object[],32) && ((value["onLeaseLoss"] as string) == "detach" || (value["onLeaseLoss"] as string) == "cancel_if_current");
+                if (type == "step.cancel")
+                    return Exact(value,"version","type","sequence","requestId","executionId","mode") &&
+                        UuidField(value,"requestId") && UuidField(value,"executionId") &&
+                        ((value["mode"] as string) == "detach" || (value["mode"] as string) == "cancel_if_current");
+                if (type == "step.query") {
+                    if (!Exact(value,"version","type","sequence","requestId","executionIds") || !UuidField(value,"requestId") || !(value["executionIds"] is object[] ids) || ids.Length > 8) return false;
+                    foreach (var id in ids) if (!(id is string text) || !IsUuid(text)) return false;
+                    return true;
+                }
+                return false;
+            } catch { return false; }
+        }
+        static bool UuidField(IDictionary<string,object> value,string key) => value.TryGetValue(key,out var item) && item is string text && IsUuid(text);
+        static bool Act2Capability(string value) => value == "hold_position" || value == "follow_person" || value == "resume_ambient" || value == "sit_on_ground";
+        static bool Token(string value) => value != null && Regex.IsMatch(value,"^[a-z][a-z0-9_]{0,47}$");
+        static bool TokenArray(object[] value,int max)
+        {
+            if (value == null || value.Length > max) return false;
+            foreach (var item in value) if (!(item is string text) || !Token(text)) return false;
+            return true;
+        }
+        static bool ResolveRef(Dictionary<string,object> value)
+        {
+            if (!Exact(value,"role","slot") || !(value["role"] is string role) || !(value["slot"] is Dictionary<string,object> slot)) return false;
+            if (role == "target") return Exact(slot,"kind") && slot["kind"] as string == "player";
+            if (role == "place") {
+                if (!Exact(slot,"kind","place") || slot["kind"] as string != "place" || !(slot["place"] is Dictionary<string,object> place)) return false;
+                return Exact(place,"kind") && place["kind"] as string == "here";
+            }
+            return false;
+        }
+        static bool StepArgs(Dictionary<string,object> value,string capability)
+        {
+            if (value == null) return false;
+            if (capability == "follow_person") {
+                if (!Exact(value,"target") || !(value["target"] is Dictionary<string,object> target) || !Exact(target,"kind","captureRef")) return false;
+                var kind = target["kind"] as string;
+                return (kind == "player" || kind == "capture") && target["captureRef"] is string targetRef && IsUuid(targetRef);
+            }
+            if (capability == "hold_position") {
+                if (!Exact(value,"place") || !(value["place"] is Dictionary<string,object> place) || !Exact(place,"kind","placeRef")) return false;
+                return place["kind"] as string == "place" && place["placeRef"] is string placeRef && IsUuid(placeRef);
+            }
+            return value.Count == 0;
+        }
+        static bool Timeouts(Dictionary<string,object> value)
+        {
+            if (!Exact(value,"acceptMs","establishMs","completeMs","holdMaxMs") || !NonNegative(value["acceptMs"],3600000)) return false;
+            foreach (var key in new[]{"establishMs","completeMs","holdMaxMs"}) if (value[key] != null && !NonNegative(value[key],3600000)) return false;
+            return true;
+        }
+        static bool Completion(Dictionary<string,object> value)
+        {
+            if (!Exact(value,"adapter","until") || !(value["adapter"] is string adapter) ||
+                (adapter != "hold_mode" && adapter != "follow_mode" && adapter != "pose_mode" && adapter != "resume_ambient")) return false;
+            if (value["until"] == null) return true;
+            if (!(value["until"] is Dictionary<string,object> until) || !(until["kind"] is string kind)) return false;
+            if (kind == "player_command") return Exact(until,"kind");
+            if (kind == "duration") return Exact(until,"kind","bucket") && until["bucket"] is string bucket && (bucket == "short" || bucket == "medium" || bucket == "long");
+            if (kind == "player_returns") return Exact(until,"kind","radius") && until["radius"] is string radius && (radius == "near" || radius == "medium");
+            return false;
+        }
+
         public static bool ActorFacts(IDictionary<string, object> value)
         {
             try {

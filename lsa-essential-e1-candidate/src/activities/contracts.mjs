@@ -69,11 +69,15 @@ const uuidList = (value, max) => Array.isArray(value) && value.length <= max && 
 const enumList = (value, set, max) => Array.isArray(value) && value.length <= max && value.every(item => set.has(item));
 
 export function normalizeActivityConfig(value = {}) {
-  // ACT2's "on" is recognized only so it cannot activate execution in this phase.
+  // "on" is the explicit ACT2 execution switch. It is never the default, and listing
+  // probe ids is an operator opt-in for a GTA experiment, not evidence those probes passed.
   const valid = value && typeof value === 'object' && !Array.isArray(value);
-  const mode = valid && value.mode === 'shadow' ? 'shadow' : 'off';
+  const mode = valid && (value.mode === 'shadow' || value.mode === 'on') ? value.mode : 'off';
   const pipeName = valid && typeof value.pipeName === 'string' ? value.pipeName : 'LSA.Activities.v1';
-  return Object.freeze({ mode, pipeName: /^[A-Za-z0-9_.-]{1,80}$/.test(pipeName) ? pipeName : 'LSA.Activities.v1' });
+  const passedProbes = valid && Array.isArray(value.passedProbes)
+    ? [...new Set(value.passedProbes.filter(item => typeof item === 'string' && /^[A-Z][A-Z0-9]{0,8}$/.test(item)))].slice(0, 12)
+    : [];
+  return Object.freeze({ mode, pipeName: /^[A-Za-z0-9_.-]{1,80}$/.test(pipeName) ? pipeName : 'LSA.Activities.v1', passedProbes, dialogue: false });
 }
 
 function refSlot(value) {

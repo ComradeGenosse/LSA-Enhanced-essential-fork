@@ -19,22 +19,26 @@ namespace LSA.Activities
         long nextDiagnosticsAt;
         string lastDiagnostics;
         public StepMachine Machine { get; }
+        public StepRunner Runner { get; }
+        public string NativeRun => nativeRun;
+        public string AdapterEpoch => adapterEpoch;
         public bool ClientReady { get; private set; }
         public int SequenceGaps { get; private set; }
         public bool Closed { get; private set; } = true;
 
-        public ActivitySession(CapabilityTable table)
+        public ActivitySession(CapabilityTable table, StepRunner runner = null)
         {
             if (table == null) throw new ArgumentNullException(nameof(table));
             nativeRun = Guid.NewGuid().ToString("D");
             adapterEpoch = Guid.NewGuid().ToString("D");
+            Runner = runner;
             Machine = new StepMachine(table.NamesFor, id => table.Get(id)?.AcceptMs ?? 2000, id => table.Get(id)?.HoldMaxMs ?? 0, id => table.Get(id)?.Mode ?? ActivityContracts.IsMode(id));
         }
 
         public string ServerHello()
         {
             var capabilities = new Dictionary<string, bool>();
-            foreach (var id in ActivityContracts.CapabilityIds) capabilities[id] = false;
+            foreach (var id in ActivityContracts.CapabilityIds) capabilities[id] = Runner != null && Runner.Advertises(id);
             return Encode(new Dictionary<string, object> {
                 {"version",1},{"type","hello"},{"nativeRun",nativeRun},{"adapterEpoch",adapterEpoch},
                 {"contractSha256",CapabilityTable.ContractSha256},{"capabilities",capabilities},{"limits",Limits()}
@@ -45,7 +49,9 @@ namespace LSA.Activities
         // new connection. A new connection is a fresh sequence space.
         public void OpenTransport()
         {
+            var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
             if (ClientReady || Machine.ActiveCount > 0) Machine.ClientDisconnected("lease_lost");
+            Runner?.ClientDisconnected(this, "lease_lost", now);
             ClientReady = false;
             Closed = false;
             clientSequence = 0;
@@ -59,12 +65,14 @@ namespace LSA.Activities
         // poisons the ACT session; a later hello may establish a new client run.
         public void Close(string reason)
         {
-            if (Closed && !ClientReady && Machine.ActiveCount == 0) return;
+            if (Closed && !ClientReady && Machine.ActiveCount == 0 && (Runner == null || Runner.ActiveCount == 0)) return;
             Closed = true;
             ClientReady = false;
             clientSequence = 0;
             outbound.Clear();
-            Machine.ClientDisconnected(ActivityContracts.IsReason(reason) ? reason : "lease_lost");
+            var closedReason = ActivityContracts.IsReason(reason) ? reason : "lease_lost";
+            Machine.ClientDisconnected(closedReason);
+            Runner?.ClientDisconnected(this, closedReason, DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
         }
 
         public bool AcceptClient(string frame)
@@ -77,6 +85,7 @@ namespace LSA.Activities
             if (value != null && value.ContainsKey("type") && value["type"] as string == "hello") {
                 if (ClientReady || !ActivityContracts.HelloClient(value, CapabilityTable.ContractSha256)) { Close("lease_lost"); return false; }
                 Machine.ClientHello(value["clientRun"] as string, DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(), ActivityContracts.LeaseTtlMs);
+                Runner?.ClientHello();
                 clientSequence = 1;
                 ClientReady = true;
                 return true;
@@ -84,10 +93,28 @@ namespace LSA.Activities
 
             if (!ClientReady || value == null || !(value.ContainsKey("sequence") && value["sequence"] is int sequence)) { Close("lease_lost"); return false; }
             if (sequence != clientSequence) { SequenceGaps++; Close("lease_lost"); return false; }
-            if (!ActivityContracts.Lease(value, clientSequence)) { Close("lease_lost"); return false; }
+            if (ActivityContracts.Lease(value, clientSequence)) {
+                if (!Machine.Accepting) { Close("lease_lost"); return false; }
+                clientSequence++;
+                var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+                var ttl = Convert.ToInt32(value["leaseTtlMs"]);
+                Machine.ClientLease(now, ttl);
+                Runner?.Lease(now, ttl);
+                return true;
+            }
+            // ACT1 stays shadow-only. ACT2 execution frames are accepted only
+            // after the native side independently validates the exact closed frame.
+            if (Runner == null || !ActivityContracts.ExecutionFrame(value, clientSequence) || !Runner.Accept(this, value)) { Close("lease_lost"); return false; }
             clientSequence++;
-            Machine.ClientLease(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(), Convert.ToInt32(value["leaseTtlMs"]));
             return true;
+        }
+
+        public void Reply(Dictionary<string, object> fields)
+        {
+            if (!ClientReady || Closed || fields == null) return;
+            fields["version"] = 1;
+            fields["sequence"] = ++serverSequence;
+            Publish(fields);
         }
 
         public void PublishActorFacts(Dictionary<string, object> fields)
@@ -118,17 +145,33 @@ namespace LSA.Activities
         {
             var fields = new Dictionary<string, object>();
             foreach (var key in ActivityContracts.DiagnosticKeys) fields[key] = 0;
-            fields["activities"] = Machine.ActiveCount;
-            fields["executions"] = Machine.ActiveCount;
-            fields["dispatches"] = Machine.Dispatches;
-            fields["accepted"] = Machine.Accepted;
-            fields["failed"] = Machine.Failed;
-            fields["superseded"] = Machine.Superseded;
-            fields["timedOut"] = Machine.TimedOut;
-            fields["detached"] = Machine.Detached;
-            fields["staleReceipts"] = Machine.StaleReceipts;
+            if (Runner != null) {
+                fields["activities"] = Runner.ActiveCount;
+                fields["executions"] = Runner.ActiveCount;
+                fields["anchors"] = Runner.Places.Count;
+                fields["dispatches"] = Runner.Dispatches;
+                fields["accepted"] = Runner.Accepted;
+                fields["established"] = Runner.Established;
+                fields["completed"] = Runner.Completed;
+                fields["failed"] = Runner.Failed;
+                fields["superseded"] = Runner.Superseded;
+                fields["timedOut"] = Runner.TimedOut;
+                fields["detached"] = Runner.Detached;
+                fields["staleReceipts"] = Runner.StaleReceipts;
+                fields["leaseExpiries"] = Runner.LeaseExpiries;
+            } else {
+                fields["activities"] = Machine.ActiveCount;
+                fields["executions"] = Machine.ActiveCount;
+                fields["dispatches"] = Machine.Dispatches;
+                fields["accepted"] = Machine.Accepted;
+                fields["failed"] = Machine.Failed;
+                fields["superseded"] = Machine.Superseded;
+                fields["timedOut"] = Machine.TimedOut;
+                fields["detached"] = Machine.Detached;
+                fields["staleReceipts"] = Machine.StaleReceipts;
+                fields["leaseExpiries"] = Machine.LeaseExpiries;
+            }
             fields["callbackDropped"] = Math.Max(0, callbackDropped);
-            fields["leaseExpiries"] = Machine.LeaseExpiries;
             fields["breakerTrips"] = Math.Max(0, breakerTrips);
             return fields;
         }

@@ -8,7 +8,8 @@ namespace LSA.Enhanced.Commands
     public sealed class CurrentNpc
     {
         public bool Present, Owned, Suspended, Human, Safe;
-        public string PedId, EncounterId, OwnerAlias, Mode;
+        public string PedId, EncounterId, OwnerAlias, Mode, ActivityIntent, ActivityStep, ActivityStatus, ActivityReason;
+        public bool ActivityPresent;
     }
     public sealed class TalkTargetInfo
     {
@@ -61,7 +62,11 @@ namespace LSA.Enhanced.Commands
             npc.OwnerAlias = Text(value,"ownerAlias",Alias);
             npc.Owned = Flag(value,"owned") && npc.OwnerAlias != null;
             npc.Suspended = Flag(value,"suspended"); npc.Human = Flag(value,"human"); npc.Safe = Flag(value,"safe");
-            npc.Mode = value.TryGetValue("mode",out var mode) && (mode as string == "follow" || mode as string == "wait") ? (string)mode : null;
+            npc.Mode = value.TryGetValue("mode",out var mode) && (mode as string == "follow" || mode as string == "wait" || mode as string == "activity" || mode as string == "idle") ? (string)mode : null;
+            if (value.TryGetValue("activity",out var activity) && activity is Dictionary<string,object> row && Flag(row,"present")) {
+                npc.ActivityPresent = true;
+                npc.ActivityIntent = Token(row,"intent"); npc.ActivityStep = Token(row,"step"); npc.ActivityStatus = Token(row,"status"); npc.ActivityReason = Token(row,"reason");
+            }
             return npc;
         }
         static TalkTargetInfo ParseTalk(Dictionary<string,object> value)
@@ -85,5 +90,6 @@ namespace LSA.Enhanced.Commands
         static long Long(Dictionary<string,object> value,string key) => value.TryGetValue(key,out var item) ? item is int small ? small : item is long large ? large : 0 : 0;
         static string Text(Dictionary<string,object> value,string key,Regex pattern) => value.TryGetValue(key,out var item) && item is string text && pattern.IsMatch(text) ? text : null;
         static string Code(Dictionary<string,object> value,string key) => value.TryGetValue(key,out var item) && item is string text && Regex.IsMatch(text,"^[a-z][a-z0-9_]{0,63}$") ? text : null;
+        static string Token(Dictionary<string,object> value,string key) => value.TryGetValue(key,out var item) && item is string text && Regex.IsMatch(text,"^[a-z][a-z0-9_]{0,47}$") ? text : null;
     }
 }
