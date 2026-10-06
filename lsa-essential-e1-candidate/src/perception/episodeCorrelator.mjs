@@ -35,6 +35,11 @@ export class EpisodeCorrelator {
     if (!event) return { accepted: false, reason: 'unsupported_event' };
 
     const qualified = witnessReceipts.filter(r => r && (r.status === 'witnessed' || r.status === 'reported') && r.evidence && this.current(r.observer?.captureRef));
+    if(signal.kind==='radio_changed' && signal.target) {
+      const currentEpisode=this.radioCurrent.get(signal.target);
+      if(currentEpisode) this.observations.retainEpisodeObservers(currentEpisode,new Set(qualified.map(r=>r.observer.captureRef)));
+      if(!qualified.length) {const episodeId=this.closeRadioVehicle(signal.target);this.remember(eventKey,{episodeId:episodeId||null});return {accepted:true,duplicate:false,episodeId:episodeId||null,observations:[]};}
+    }
     if (!qualified.length) { this.remember(eventKey, { episodeId: null }); return { accepted: true, duplicate: false, episodeId: null, observations: [] }; }
     const participants = [signal.source && { captureRef: signal.source, kind: this.anchor(signal.source)?.kind }, signal.target && { captureRef: signal.target, kind: this.anchor(signal.target)?.kind }]
       .filter(r => r && r.kind && this.current(r.captureRef));
@@ -87,8 +92,7 @@ export class EpisodeCorrelator {
     return { accepted: true, duplicate: false, episodeId, observations: emitted };
   }
 
-  stopRadio(signal,eventKey) {
-    const vehicle=signal.target;
+  closeRadioVehicle(vehicle) {
     const episodeId=vehicle ? this.radioCurrent.get(vehicle) : null;
     if(episodeId) {
       this.observations.removeEpisode(episodeId);
@@ -96,8 +100,12 @@ export class EpisodeCorrelator {
       this.radioCurrent.delete(vehicle);
       for(const [key,value] of this.latest) if(value.episodeId===episodeId) this.latest.delete(key);
     }
-    this.remember(eventKey,{episodeId:episodeId||null});
-    return {accepted:true,duplicate:false,episodeId:episodeId||null,observations:[]};
+    return episodeId||null;
+  }
+  stopRadio(signal,eventKey) {
+    const episodeId=this.closeRadioVehicle(signal.target);
+    this.remember(eventKey,{episodeId});
+    return {accepted:true,duplicate:false,episodeId,observations:[]};
   }
   findContinuation(nativeRun, eventType, incidentKey, participants, gameTick) {
     if (!incidentKey) return null;
