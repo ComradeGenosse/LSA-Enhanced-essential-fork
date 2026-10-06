@@ -86,6 +86,7 @@ test('v2 catalog rejects malformed schema, unsafe display text, bad provenance, 
     [{...fixture(),generatedFrom:{...fixture().generatedFrom,trackMetadata:{repository:'bad',commit:'x'}}},'invalid_provenance'],
     [{...fixture(),counts:{...fixture().counts,entries:5}},'count_mismatch'],
     [{...fixture(),tracks:{...fixture().tracks,'1006':{title:'Bad\nTitle',artist:'A',kind:'music',stations:['RADIO_TEST_A']}}},'invalid_track'],
+    [{...fixture(),tracks:{...fixture().tracks,'1006':{title:'https://example.test/song',artist:'A',kind:'music',stations:['RADIO_TEST_A']}}},'invalid_track'],
     [{...fixture(),tracks:{...fixture().tracks,'1006':{title:'X',artist:'A',kind:'music',stations:['RADIO_UNKNOWN']}}},'invalid_track_station'],
   ];
   for(const [value,token] of cases) assert.equal(verifyRadioTrackTextCatalog(value).errors.includes(token),true,token);
