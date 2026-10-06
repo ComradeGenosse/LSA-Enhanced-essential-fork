@@ -1,6 +1,6 @@
 # ACT0 / ACT1 status
 
-Updated October 6, 2026. Branch `feature/act0-act1-contracts-shadow-observer` has been reconciled onto current `main` as the base of the ACT2 stack. ACT0/ACT1 have now been built, deployed to the GTA Enhanced install, and exercised in GTA as part of the integrated ACT2 validation. Post-review hardening is included after the original `ff8c8be` implementation.
+Updated October 6, 2026. Branch `feature/act0-act1-contracts-shadow-observer` was reconciled onto current `main` as the base of the ACT2 stack and is now present on `main` through PR #18. ACT0/ACT1 were built, deployed to the GTA Enhanced install, and exercised in GTA as part of the integrated ACT2 validation. Post-review hardening is included after the original `ff8c8be` implementation.
 
 ACT0 freezes the activity vocabulary. ACT1 observes existing Essential and P2 actions and correlates their lifecycle. ACT does not dispatch NPC actions, call task natives, or add player controls.
 
