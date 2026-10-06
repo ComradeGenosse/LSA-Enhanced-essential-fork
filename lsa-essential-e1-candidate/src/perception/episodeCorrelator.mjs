@@ -16,7 +16,7 @@ const EVENT = Object.freeze({
   playback_ended: ['speech_heard', 'routine', 'sound'],
   radio_changed: ['radio_heard', 'routine', 'sound'],
 });
-const CAP = Object.freeze({ episodes: 256, dedupe: 1024, dedupeTtlMs: 10*60*1000, perEpisodeClaims: 8, perObservationClaims: 4, episodeMs: 30000, continuationMs: 5000 });
+const CAP = Object.freeze({ episodes: 256, dedupe: 1024, dedupeTtlMs: 10*60*1000, perEpisodeClaims: 8, perObservationClaims: 4, episodeMs: 30000, radioEpisodeMs: 120000, continuationMs: 5000 });
 
 export class EpisodeCorrelator {
   constructor({ episodes, observations, now = () => Math.floor(performance.now()), current = () => false, anchor = () => null, utc = () => new Date().toISOString() } = {}) {
@@ -49,7 +49,7 @@ export class EpisodeCorrelator {
     const radioEpisodeId = family==='radio' && signal.target ? this.radioCurrent.get(signal.target) : null;
     const existing = radioEpisodeId ? this.episodes.entries.get(radioEpisodeId) : this.findContinuation(nativeRun, family, incidentKey, matchParticipants, signal.gameTick);
     const episodeId = existing?.episodeId || randomUUID();
-    const now = this.now(); const expiresAtMonotonicMs = family==='radio' ? now + CAP.episodeMs : Math.min(now + CAP.episodeMs, existing?.expiresAtMonotonicMs || now + CAP.episodeMs);
+    const now = this.now(); const expiresAtMonotonicMs = family==='radio' ? now + CAP.radioEpisodeMs : Math.min(now + CAP.episodeMs, existing?.expiresAtMonotonicMs || now + CAP.episodeMs);
     const episodeClaims = family==='radio' ? [] : existing ? [...existing.claims] : [];
     const sourceRef = participants.find(p => p.captureRef === signal.source);
     const targetRef = participants.find(p => p.captureRef === signal.target);
@@ -115,7 +115,7 @@ export class EpisodeCorrelator {
     return episode && episode.claims.length < CAP.perEpisodeClaims ? episode : null;
   }
   remember(key, value) { this.seen.set(key, { ...value, expires: this.now() + CAP.dedupeTtlMs }); }
-  expire() { for (const [key, value] of this.seen) if (value.expires <= this.now()) this.seen.delete(key); for (const [key, value] of this.latest) if (!this.episodes.entries.has(value.episodeId)) this.latest.delete(key); for(const [vehicle,episodeId] of this.radioCurrent) if(!this.episodes.entries.has(episodeId)) this.radioCurrent.delete(vehicle); }
+  expire() { for (const [key, value] of this.seen) if (value.expires <= this.now()) this.seen.delete(key); for (const [key, value] of this.latest) if (!this.episodes.entries.has(value.episodeId)) this.latest.delete(key); for(const [vehicle,episodeId] of this.radioCurrent) if(!this.episodes.entries.has(episodeId)) {this.observations.removeEpisode(episodeId);this.radioCurrent.delete(vehicle);} }
   clear() { this.seen.clear(); this.latest.clear(); this.radioCurrent.clear(); this.dropped = 0; this.duplicates = 0; }
 }
 
