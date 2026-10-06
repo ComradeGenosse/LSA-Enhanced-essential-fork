@@ -276,7 +276,7 @@ function applyLedger(draft, observation, situation, cache) {
   ));
   const familyEscalated = Boolean(!existing && family && severity > family.severity);
   let { context, memory, response, reasons } = draft;
-  const radioContextReplay = observation.eventType === 'radio_heard' && existing?.revision === observation.revision && existing?.consumedBy instanceof Set && existing.consumedBy.has('ps4_context');
+  const radioContextReplay = observation.eventType === 'radio_heard' && !reasons.includes('environment_requested') && existing?.revision === observation.revision && existing?.consumedBy instanceof Set && existing.consumedBy.has('ps4_context');
   if (radioContextReplay && context !== 'omit') { context = 'omit'; reasons = [...reasons, 'repetition_suppressed']; }
   const alreadyGranted = existing?.granted || 'none';
   if (existing && observation.revision < existing.revision) {
