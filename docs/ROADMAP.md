@@ -472,7 +472,7 @@ Essential remains the executor. ACT owns planning/lifecycle and native evidence 
 
 #### ACT0 — Contracts, registry and metadata
 
-**Status: implemented, deployed, GTA-runtime verified, and included in the ACT2 stack accepted for merge on October 6, 2026.** The closed activity vocabulary, capability registry, native/companion contracts and metadata verification are present on `feature/act0-act1-contracts-shadow-observer`. The branch was reconciled with current `main`, built and exercised in GTA through the integrated ACT2 deployment. Focused ACT0/ACT1 probe questions remain open where their exact evidence was not captured.
+**Status: implemented, deployed, GTA-runtime verified, and merged to `main` through the ACT2 stack on October 6, 2026 (PR #18).** The closed activity vocabulary, capability registry, native/companion contracts and metadata verification are present on `feature/act0-act1-contracts-shadow-observer`. The branch was reconciled with current `main`, built and exercised in GTA through the integrated ACT2 deployment. Focused ACT0/ACT1 probe questions remain open where their exact evidence was not captured.
 
 #### ACT1 — Native shadow observer
 
@@ -480,7 +480,7 @@ Essential remains the executor. ACT owns planning/lifecycle and native evidence 
 
 #### ACT2 — Player-assigned basic activities
 
-**Status: implemented, reconciled onto current `main`, deployed and GTA-runtime tested; accepted for merge on October 6, 2026.** The branch adds the real F11 activity lifecycle for `hold_position`, `follow_person`, `resume_ambient` and `sit_on_ground`, plus status, history, pause, resume and cancel. It includes post-review hardening for lease sequencing, runtime ticking, owner-before-dispatch, strict frame validation, hold anchors and paused-state visibility. The companion/native addon builds and hash-verified GTA deployment succeeded. Historical suite counts remain historical because the full regression matrix was not rerun during the initial deployment. Individual physical capabilities remain default-off/probe-gated until their specific open GTA questions are answered.
+**Status: implemented, reconciled onto current `main`, deployed, GTA-runtime tested, and merged on October 6, 2026 (PR #18).** The branch adds the real F11 activity lifecycle for `hold_position`, `follow_person`, `resume_ambient` and `sit_on_ground`, plus status, history, pause, resume and cancel. It includes post-review hardening for lease sequencing, runtime ticking, owner-before-dispatch, strict frame validation, hold anchors and paused-state visibility. The companion/native addon builds and hash-verified GTA deployment succeeded. Historical suite counts remain historical because the full regression matrix was not rerun during the initial deployment. Individual physical capabilities remain default-off/probe-gated until their specific open GTA questions are answered.
 
 #### ACT3 — Rich short-range world activities
 
