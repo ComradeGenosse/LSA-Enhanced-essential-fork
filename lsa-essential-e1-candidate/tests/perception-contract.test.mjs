@@ -153,7 +153,7 @@ test('signal anchor kinds reject wrong entity addresses',()=>{
   assert.equal(f.ingest(f.frame('signal',f.signal({kind:'vehicle_transition',producer:'state',facts:{vehicle:f.vehicle,driver:true},source:null}))),true);
 });
 test('PS0/PS1 production module boundary contains no model, memory or native action effect',async()=>{
-  for(const file of ['contracts.mjs','shadowRuntime.mjs','observationStore.mjs','episodeCorrelator.mjs','witnessPolicy.mjs','speechContract.mjs','sharedTranscriptStore.mjs','intelligenceClient.mjs','salienceEngine.mjs']) {
+  for(const file of ['contracts.mjs','shadowRuntime.mjs','observationStore.mjs','episodeCorrelator.mjs','witnessPolicy.mjs','speechContract.mjs','sharedTranscriptStore.mjs','intelligenceClient.mjs','salienceEngine.mjs','radioTrackTextCatalog.mjs']) {
     const source=await readFile(new URL('../src/perception/'+file,import.meta.url),'utf8');assert.doesNotMatch(source,/from ['"].*(?:openai|providers|profileStore|characterService|sceneDirector)/);assert.doesNotMatch(source,/writeFile|fetch\(|upsertExperience|\.request\(/);
   }
   const source=await readFile(new URL('../../native/intelligence/IntelligenceIntegration.cs',import.meta.url),'utf8');assert.doesNotMatch(source,/World\.GetAll|PerceptionSystem\.Update|PerceptionSnapshot\.Capture|GunshotReflexDetector|NpcActions\.|\.TASK|SpecialGeminiTurnScheduler/);assert.match(source,/public void EnrichActor\(Ped ped,ActorContext context\) \{\}/);
