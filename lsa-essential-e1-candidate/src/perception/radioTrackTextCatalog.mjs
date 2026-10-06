@@ -34,7 +34,7 @@ function wellFormed(value) {
   return true;
 }
 function safeDisplay(value,max) {
-  return wellFormed(value) && value.length<=max && !/[\u0000-\u001f\u007f]/u.test(value);
+  return wellFormed(value) && value.length<=max && !/[\u0000-\u001f\u007f]/u.test(value) && !value.includes('://');
 }
 function stationLabel(catalog,station) {
   const name=catalog?.stations?.[station]?.name;
