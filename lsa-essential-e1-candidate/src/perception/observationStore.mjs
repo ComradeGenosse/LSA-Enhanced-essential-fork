@@ -13,5 +13,10 @@ export class ObservationStore {
     this.bytes-=old?.bytes||0; this.bytes+=bytes; this.entries.set(key,{value:freeze(value),bytes}); return true;
   }
   expire() { for(const [key,e] of this.entries) if(e.value.expiresAtMonotonicMs<=this.now() || !this.current(e.value.observer.captureRef) || e.value.claims.some(c=>[c.source,c.target].some(r=>r && !this.current(r.captureRef)))) {this.entries.delete(key);this.bytes-=e.bytes;} }
+  removeEpisode(episodeId) {
+    let removed=0;
+    for(const [key,e] of this.entries) if(e.value.episodeId===episodeId) {this.entries.delete(key);this.bytes-=e.bytes;removed++;}
+    return removed;
+  }
   clear() {this.entries.clear();this.bytes=0;}
 }
