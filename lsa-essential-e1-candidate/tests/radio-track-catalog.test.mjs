@@ -118,7 +118,7 @@ test('researched production v2 catalog is canonical and contains the audited map
 });
 
 test('catalog runtime and conversion paths make no network requests',async()=>{
-  const runtime=await readFile(new URL('../src/perception/radioTrackCatalog.mjs',import.meta.url),'utf8');
+  const runtime=await readFile(new URL('../src/perception/radioTrackTextCatalog.mjs',import.meta.url),'utf8');
   const converter=await readFile(new URL('../tools/buildRadioTrackTextCatalog.mjs',import.meta.url),'utf8');
   const verifier=await readFile(new URL('../tools/verifyRadioTrackTextCatalog.mjs',import.meta.url),'utf8');
   for(const source of [runtime,converter,verifier]) assert.doesNotMatch(source,/\bfetch\s*\(|https?:\/\//);
