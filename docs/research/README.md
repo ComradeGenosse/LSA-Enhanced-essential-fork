@@ -1,61 +1,46 @@
 # LSA Research Corpus
 
-This directory is the durable research memory for LSA Enhanced.
+This directory is the durable research memory for LSA Enhanced, but **not every preserved artifact is current guidance**.
 
-It exists so a human, Codex, Astra, or another future agent can enter the repository cold and answer four different questions without conflating them:
+## Start here
 
-1. **What is implemented/deployed now?** → [../ROADMAP.md](../ROADMAP.md)
-2. **What do we currently believe architecturally?** → [CURRENT.md](CURRENT.md)
-3. **What contracts and decisions govern future work?** → [system-contract-register.md](system-contract-register.md) and [DECISIONS.md](DECISIONS.md)
-4. **Why do we believe it?** → domain research and evidence indexed by [CORPUS.json](CORPUS.json)
+For ordinary implementation/planning work, read in this order:
 
-## Authority order
+1. [../ROADMAP.md](../ROADMAP.md) — what is implemented, merged, deployed and GTA-validated.
+2. [CURRENT.md](CURRENT.md) — current architecture synthesis.
+3. [DECISIONS.md](DECISIONS.md) — durable LOCKED/SETTLED design decisions.
+4. [system-contract-register.md](system-contract-register.md) — forward contracts and ownership boundaries.
+5. [OPEN-QUESTIONS.md](OPEN-QUESTIONS.md) — unresolved probes/questions.
+6. The relevant domain README and current phase/status document.
 
-When documents disagree, use this order:
+## Search / AI context rule
 
-1. **Current implementation/deployment state:** `docs/ROADMAP.md` and the relevant phase status document.
-2. **Current architecture:** `docs/research/CURRENT.md`.
-3. **Forward contracts:** `docs/research/system-contract-register.md`.
-4. **Durable design decisions:** `docs/research/DECISIONS.md`.
-5. **Convergence rationale:** `docs/research/system-convergence-architecture.md`.
-6. **Domain research/evidence:** supporting or historical material.
-7. **Branch snapshots / old plans:** evidence of what was investigated, not automatic implementation authority.
+**Do not use `docs/research/archive/` as current architecture, implementation status or an implementation plan.**
 
-A research finding does **not** imply that code is merged, built, deployed, or GTA-validated. The roadmap keeps those states separate.
+Archive material exists for provenance, evidence archaeology and "why did we decide this?" questions. It can contain old branch SHAs, old test counts, fixed bugs, superseded ownership, and plans that were later changed.
 
-## Corpus status vocabulary
+If active and archived material disagree, active material wins in this order:
 
-- **canonical** — current source of architectural truth.
-- **supporting** — current evidence/rationale that informs canonical docs.
-- **historical-source** — preserved primary research; useful for provenance but later synthesis may supersede conclusions.
-- **superseded** — retained for history; do not implement directly without reading the successor.
-- **current-status** — current implementation/deployment truth rather than architecture.
-- **open-question** — requires a probe, implementation evidence, or GTA validation.
+1. current phase/status docs and `docs/ROADMAP.md`
+2. `CURRENT.md`
+3. `DECISIONS.md`
+4. `system-contract-register.md`
+5. active convergence synthesis / ownership / dependency / risk docs
+6. domain supporting evidence
+7. archive/history
 
-Decision maturity:
+A research finding never implies code is merged, built, deployed or GTA-validated.
 
-- **LOCKED** — do not redesign without contradictory evidence.
-- **SETTLED** — expected design; implementation may refine details.
-- **PROVISIONAL** — likely direction; verification can still change it.
-- **UNKNOWN** — no trustworthy answer yet.
+## Active convergence package
 
-## Navigation
+- [system-convergence-architecture.md](system-convergence-architecture.md)
+- [system-contract-register.md](system-contract-register.md)
+- [system-ownership-matrix.md](system-ownership-matrix.md)
+- [system-convergence-dependency-graph.md](system-convergence-dependency-graph.md)
+- [system-convergence-risks.md](system-convergence-risks.md)
+- [system-contracts.v1.json](system-contracts.v1.json)
 
-Start here for new work:
-
-```text
-README.md
-   ↓
-CURRENT.md
-   ↓
-DECISIONS.md + system-contract-register.md
-   ↓
-relevant domains/<domain>/README.md
-   ↓
-source research / evidence
-```
-
-The [system convergence architecture](system-convergence-architecture.md), [ownership matrix](system-ownership-matrix.md), [dependency graph](system-convergence-dependency-graph.md), [risk register](system-convergence-risks.md), [evidence](system-convergence-evidence.json), and [machine contracts](system-contracts.v1.json) form one research package.
+The original October 5 audit package is preserved under [archive/convergence/](archive/convergence/) and is historical evidence only.
 
 ## Domains
 
@@ -68,20 +53,14 @@ The [system convergence architecture](system-convergence-architecture.md), [owne
 - [Conversation gaze](domains/gaze/README.md)
 - [Social routing](domains/social/README.md)
 
-## Preservation policy
+## Corpus metadata
 
-The corpus is **additive**.
+[CORPUS.json](CORPUS.json) is the machine-readable provenance/index map. Historical documents are indexed at their archive paths rather than their old active paths.
 
-Existing research files are not deleted merely because they are superseded. Branch-only primary research may be copied into a domain as an immutable snapshot while the original branch remains intact. The domain README records the source branch and how later work incorporated or superseded it.
-
-Do not silently rewrite an old research result to make it look as if it predicted newer architecture. Add a supersession note or update a canonical synthesis instead.
-
-## Machine use
-
-`CORPUS.json` is the machine-readable catalog. Run:
+Run:
 
 ```bash
 node docs/research/tools/validate-corpus.mjs
 ```
 
-The validator checks canonical files, unique IDs, local corpus paths, supersession targets, and relative links in the corpus entry documents.
+The validator checks indexed paths, canonical files, unique IDs, supersession/incorporation references and links in entry/domain documents.

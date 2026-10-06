@@ -3,7 +3,7 @@
 > **Corpus status note:** Contract definitions in this register are the forward architectural authority. Implementation status can advance independently; use [CURRENT.md](CURRENT.md) and [../ROADMAP.md](../ROADMAP.md) to see what has actually landed or been validated.
 
 
-Part of the [system convergence architecture](system-convergence-architecture.md) research package. Research only: the contracts in §3 are **PROPOSED** interfaces, not implemented code.
+Part of the [system convergence architecture](system-convergence-architecture.md) package. Section 3 originated as proposed interfaces; some contracts have since landed. Each entry states its implementation status. Use the roadmap for deployment/GTA truth.
 
 Contents:
 
@@ -93,11 +93,11 @@ Machine-readable form: [system-contracts.v1.json](system-contracts.v1.json).
 | PS `LSA.Intelligence.v1` frames (hello/anchors/retire/retire_batch/signal/diagnostics…) | `contracts.mjs` | PS | merged | **Lock** (add `hostRunId` in hello, `C-13`) |
 | PS Observation v1 (≤4 claims, `recognizedCharacterIds = []`) / Episode v1 | `contracts.mjs`, `episodeCorrelator.mjs` | PS | merged | **Lock** |
 | PS `SpeechCaptureReceipt` v1 + `AcceptedTranscript` | `speechContract.mjs` | PS | merged (gated) | Extend to v2 (`C-01`) |
-| PS3 `SalienceDecision` (context/memory/response + ≤4 reasons) | stage `101b212` | PS3 | deployed shadow, unmerged | Lock + `C-03` additions |
+| PS3 `SalienceDecision` (context/memory/response + ≤4 reasons, `decisionKey`, `policyVersion`) | current `main` | PS3 | merged; deployed shadow; live evaluation/telemetry exercised | **Lock**; C-03 acknowledgement is implemented |
 | ACT `LSA.Activities.v1` frames; `ActionReceipt` states; `ResumeToken` rules | ACT0/1, ACT2 branches | ACT | branch | Lock at merge |
 | ACT capability registry | `activity-capabilities.v1.json` sha256 `31ed6e6d…` (identical on ACT0/1 and ACT2) | ACT | branch | Lock (`directed_interaction` stays ACT7) |
 | Radio raw signals `radio_changed`/`radio_stopped`; `radioTracks.v1.json` | R0–R2 branch | PS | branch | Lock as raw facts |
-| CGE runtime contract | plan `f20193f` | CGE | plan | **Amend** before CGE0 (yield to `ConversationLookBehavior`; consume `C-01`; no body turns) |
+| CGE runtime contract | current plan | CGE | plan | **Reconciled**: yield to `ConversationLookBehavior`; consume C-01; body turns belong to ACT3 |
 | PS6 `DirectorTicket` (research) | PS/SD research §9 | Director | research | Lock the shape; extend with `directorIntentId` (`C-11`) |
 
 ---
@@ -136,7 +136,7 @@ AcceptedTranscript v2   = v1 fields + { utteranceId (already) } populated from t
 ### C-02 Shared anchor service + observer identity index
 
 - **Why:** there are three run-local reference tables (PS, ACT2, P2). The Director cannot hand ACT a perceived entity. PS3 relationship branches are dead. PS4 needs a join between the turn actor and the observer.
-- **Workaround today:** ACT `Resolve` supports only `player`/`here`; PS3 passes `activity:'idle'`; no join exists.
+- **Workaround today:** ACT `Resolve` supports only `player`/`here`; PS3 passes `activity:'unknown'` until C-14 supplies stronger evidence; no join exists.
 - **Owner:** Plane 2. Promote PS `EntityAnchors` to a host-level service owned by `RuntimeEntry` (ACT research §9.4 already assumed this).
 - **Interface:**
 
@@ -153,7 +153,8 @@ companion index (RAM): captureRef -> { kind, encounterId?, incarnationId?, owned
 
 ### C-03 Salience consumption acknowledgement
 
-- **Why:** `consumed = grant` (`salienceEngine.mjs:393`). A grant that is rejected or expires suppresses the incident for 10 minutes.
+- **Status:** **implemented on current `main`.** PS3 now separates grant from consumption and requires explicit acknowledgement.
+- **Historical defect:** the earlier implementation used `consumed = grant`; that behavior is retained only in the archived convergence audit.
 - **Interface:**
 
 ```text
@@ -162,7 +163,7 @@ acknowledge(decisionKey, consumer: ps4_context|ps6_ticket|ps5_memory, outcome: d
 ledger: granted (entitlement) and consumed (delivered) tracked separately
 ```
 
-- **Phase:** with the PS3 merge (no shadow behavior change) or before PS4/PS6.
+- **Phase:** **implemented with the PS3 merge**; PS4/PS5/PS6 consumers must use the acknowledgement contract.
 
 ### C-04 TurnKnowledgeFrame (single knowledge assembler)
 
@@ -256,7 +257,7 @@ validation.v1.json committed per GTA acceptance session
 ### C-10 Conversation-partner policy
 
 - Writers: committed player input only. Clearers: Essential or the next committed input. Readers: everyone else (main report §4.2).
-- **Phase:** now (UX4 fix; Director and CGE docs).
+- **Phase:** C-10's UX4 ownership fix is implemented on `main`; future input/targeting consumers must preserve the same ownership rule.
 
 ### C-11 DirectorIntent + ActivityProposal + DI ownership
 

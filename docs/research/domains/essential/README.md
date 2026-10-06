@@ -3,14 +3,19 @@
 **Canonical decisions:** D-001, D-016, D-017.  
 **Forward contracts:** C-05, C-10, C-11.
 
-Read in this order:
+Read current authority first:
 
 1. [../../CURRENT.md](../../CURRENT.md)
 2. [../../system-convergence-architecture.md](../../system-convergence-architecture.md)
-3. [essential-action-execution-completion-audit.md](essential-action-execution-completion-audit.md) — preserved primary research from `research/essential-action-completion-audit-20261003`; **historical-source**, partly superseded/refined by ACT research and convergence.
-4. [essential-action-catalog.json](essential-action-catalog.json) / [essential-action-execution-completion-evidence.json](essential-action-execution-completion-evidence.json) — source evidence.
-5. [../../character-aware-native-runtime-audit.md](../../character-aware-native-runtime-audit.md) — existing native-runtime audit on main.
-6. [character-aware-native-runtime-audit-addendum.md](character-aware-native-runtime-audit-addendum.md) — preserved addendum from `research/remaining-native-context-audit`.
-7. [native-context-proposed-identity-merge-fix.md](native-context-proposed-identity-merge-fix.md) — historical proposal; identity decisions must now follow convergence/C-02/C-15.
+3. [../../system-contract-register.md](../../system-contract-register.md)
 
-Do not infer physical completion from `TryExecute == true` or action callbacks. Do not bypass Essential with a second native task/session/playback lifecycle.
+Historical primary research is preserved under [../../archive/essential/](../../archive/essential/) and is **not current implementation guidance**:
+
+- [essential action/completion audit](../../archive/essential/essential-action-execution-completion-audit-20261003.md)
+- [native character-context audit](../../archive/essential/character-aware-native-runtime-audit-20261002.md)
+- [native-context addendum](../../archive/essential/character-aware-native-runtime-audit-addendum-20261002.md)
+- [superseded identity merge proposal](../../archive/essential/native-context-proposed-identity-merge-fix.md)
+
+Supporting machine evidence/catalogs remain in this domain.
+
+Current invariant: handler acceptance is not physical completion, and no LSA subsystem creates a second native task/session/playback lifecycle beside Essential.

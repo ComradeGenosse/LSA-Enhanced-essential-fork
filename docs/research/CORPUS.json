@@ -1,6 +1,6 @@
 {
   "corpusVersion": 1,
-  "updated": "2026-10-05",
+  "updated": "2026-10-06",
   "purpose": "Machine-readable navigation and provenance map for LSA Enhanced research. Implementation/deployment truth remains docs/ROADMAP.md.",
   "canonical": {
     "entrypoint": "docs/research/README.md",
@@ -13,7 +13,6 @@
     "ownership": "docs/research/system-ownership-matrix.md",
     "dependencyGraph": "docs/research/system-convergence-dependency-graph.md",
     "risks": "docs/research/system-convergence-risks.md",
-    "evidence": "docs/research/system-convergence-evidence.json",
     "machineContracts": "docs/research/system-contracts.v1.json"
   },
   "authorityOrder": [
@@ -177,8 +176,7 @@
       "path": "docs/research/system-convergence-architecture.md",
       "type": "architecture",
       "authority": "canonical-rationale",
-      "status": "current",
-      "stateSnapshot": "historical-as-of-2026-10-05-audit"
+      "status": "current"
     },
     {
       "id": "contracts",
@@ -211,11 +209,12 @@
     },
     {
       "id": "convergence-evidence",
-      "path": "docs/research/system-convergence-evidence.json",
+      "path": "docs/research/archive/convergence/system-convergence-evidence-20261005.json",
       "type": "evidence",
-      "authority": "supporting",
-      "status": "current",
-      "sourceRef": "research/system-convergence-architecture-20261005"
+      "authority": "historical-source",
+      "status": "preserved",
+      "sourceRef": "research/system-convergence-architecture-20261005",
+      "stateSnapshot": "historical-as-of-2026-10-05-audit"
     },
     {
       "id": "machine-contracts",
@@ -227,7 +226,7 @@
     },
     {
       "id": "essential-action-audit",
-      "path": "docs/research/domains/essential/essential-action-execution-completion-audit.md",
+      "path": "docs/research/archive/essential/essential-action-execution-completion-audit-20261003.md",
       "type": "research",
       "authority": "historical-source",
       "status": "incorporated",
@@ -257,14 +256,14 @@
     },
     {
       "id": "native-runtime-audit",
-      "path": "docs/research/character-aware-native-runtime-audit.md",
+      "path": "docs/research/archive/essential/character-aware-native-runtime-audit-20261002.md",
       "type": "research",
-      "authority": "supporting",
-      "status": "current"
+      "authority": "historical-source",
+      "status": "incorporated"
     },
     {
       "id": "native-runtime-addendum",
-      "path": "docs/research/domains/essential/character-aware-native-runtime-audit-addendum.md",
+      "path": "docs/research/archive/essential/character-aware-native-runtime-audit-addendum-20261002.md",
       "type": "research",
       "authority": "historical-source",
       "status": "incorporated",
@@ -272,7 +271,7 @@
     },
     {
       "id": "native-context-identity-proposal",
-      "path": "docs/research/domains/essential/native-context-proposed-identity-merge-fix.md",
+      "path": "docs/research/archive/essential/native-context-proposed-identity-merge-fix.md",
       "type": "proposal",
       "authority": "historical-source",
       "status": "superseded",
@@ -285,7 +284,7 @@
     },
     {
       "id": "act-architecture",
-      "path": "docs/research/domains/activities/lsa-activities-goal-execution-architecture.md",
+      "path": "docs/research/archive/activities/lsa-activities-goal-execution-architecture-20261004.md",
       "type": "research",
       "authority": "historical-source",
       "status": "incorporated",
@@ -316,7 +315,7 @@
     },
     {
       "id": "ps-director-architecture",
-      "path": "docs/research/domains/perception/perception-salience-scene-director-architecture.md",
+      "path": "docs/research/archive/perception/perception-salience-scene-director-architecture-20261004.md",
       "type": "research",
       "authority": "historical-source",
       "status": "incorporated",
@@ -339,7 +338,7 @@
     },
     {
       "id": "identity-memory-architecture",
-      "path": "docs/research/domains/identity/session-identity-memory-perception-salience-architecture.md",
+      "path": "docs/research/archive/identity/session-identity-memory-perception-salience-architecture-20261002.md",
       "type": "research",
       "authority": "historical-source",
       "status": "incorporated",
@@ -376,7 +375,7 @@
     },
     {
       "id": "radio-v2-plan",
-      "path": "docs/research/domains/radio/radio-track-perception-v2-implementation-plan.md",
+      "path": "docs/research/archive/radio/radio-track-perception-v2-implementation-plan-20261004.md",
       "type": "plan",
       "authority": "historical-source",
       "status": "incorporated",
@@ -414,6 +413,68 @@
       "type": "plan",
       "authority": "supporting",
       "status": "current"
+    },
+    {
+      "id": "convergence-audit-20261005",
+      "path": "docs/research/archive/convergence/system-convergence-architecture-audit-20261005.md",
+      "type": "architecture-audit",
+      "authority": "historical-source",
+      "status": "incorporated",
+      "incorporatedInto": [
+        "convergence",
+        "decisions",
+        "contracts"
+      ]
+    },
+    {
+      "id": "convergence-risk-audit-20261005",
+      "path": "docs/research/archive/convergence/system-convergence-risks-audit-20261005.md",
+      "type": "risk-audit",
+      "authority": "historical-source",
+      "status": "incorporated",
+      "incorporatedInto": [
+        "risk-register",
+        "open-questions"
+      ]
+    },
+    {
+      "id": "convergence-dependency-audit-20261005",
+      "path": "docs/research/archive/convergence/system-convergence-dependency-graph-audit-20261005.md",
+      "type": "dependency-audit",
+      "authority": "historical-source",
+      "status": "incorporated",
+      "incorporatedInto": [
+        "dependency-graph"
+      ]
+    },
+    {
+      "id": "convergence-ownership-audit-20261005",
+      "path": "docs/research/archive/convergence/system-ownership-matrix-audit-20261005.md",
+      "type": "ownership-audit",
+      "authority": "historical-source",
+      "status": "incorporated",
+      "incorporatedInto": [
+        "ownership"
+      ]
+    },
+    {
+      "id": "ux4-implementation-plan-history",
+      "path": "docs/research/archive/ux/UX4-talk-targeting-implementation-plan-20261004.md",
+      "type": "implementation-plan",
+      "authority": "historical-source",
+      "status": "incorporated",
+      "incorporatedInto": [
+        "ux4-architecture",
+        "D-012",
+        "C-10"
+      ]
     }
-  ]
+  ],
+  "historical": {
+    "convergenceAudit": "docs/research/archive/convergence/system-convergence-architecture-audit-20261005.md",
+    "convergenceRiskAudit": "docs/research/archive/convergence/system-convergence-risks-audit-20261005.md",
+    "convergenceDependencyAudit": "docs/research/archive/convergence/system-convergence-dependency-graph-audit-20261005.md",
+    "convergenceOwnershipAudit": "docs/research/archive/convergence/system-ownership-matrix-audit-20261005.md",
+    "convergenceEvidence": "docs/research/archive/convergence/system-convergence-evidence-20261005.json"
+  }
 }

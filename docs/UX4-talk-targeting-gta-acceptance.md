@@ -3,7 +3,8 @@
 This document is a physical GTA V Enhanced acceptance checklist. Offline unit tests cannot substitute for these checks.
 
 Architecture: research/ux4-talk-targeting-architecture.md
-Implementation plan: plans/UX4-talk-targeting-implementation-plan.md
+Historical implementation plan: research/archive/ux/UX4-talk-targeting-implementation-plan-20261004.md
+Current implementation status: UX4-talk-targeting-status.md
 
 ## A. T0B direct-mic seam smoke test
 

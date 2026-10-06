@@ -1,0 +1,1259 @@
+{
+  "schema": "lsa.system-convergence-evidence",
+  "schemaVersion": 1,
+  "generatedAtUtc": "2026-10-05T14:56:32Z",
+  "repository": "ComradeGenosse/LSA-Enhanced-essential-fork",
+  "researchBranch": "research/system-convergence-architecture-20261005",
+  "base": {
+    "ref": "origin/main",
+    "sha": "8c63b20492fbf6bc2e1ba98acc598259c22a57fe",
+    "codeBaseline": "0c254049bc6e47371739769147a4c94da9477309"
+  },
+  "method": [
+    "git source and history on all relevant branches",
+    "local branch heads and staging/deployment receipts on the developer machine (read-only)",
+    "existing research evidence (pinned IL/metadata recorded with offsets)",
+    "offline test runs performed for this audit",
+    "GTA not launched"
+  ],
+  "labels": {
+    "PROVEN": "read in current source, recorded pinned-binary evidence, Git object, audit test run, or deployment receipt",
+    "STRONGLY_SUPPORTED": "several consistent sources; deciding runtime behavior not observed",
+    "INFERRED": "follows from proven facts; not observed",
+    "PROPOSED": "canonical design recommended by this audit",
+    "UNKNOWN": "requires a GTA probe or missing evidence"
+  },
+  "premiseCorrection": {
+    "briefClaim": "PS3 has been reconciled/merged into main and applied to the production GTA payload for shadow testing",
+    "finding": "PS3 is reconciled on local-only stage/ps3-ready-20261004@101b212 and deployed (shadow, hash-verified 2026-10-05T13:28:34Z) but NOT merged to origin/main or local main; analysed as if on main per the brief",
+    "label": "PROVEN",
+    "evidence": [
+      "E01",
+      "E02",
+      "E03"
+    ]
+  },
+  "refs": [
+    {
+      "name": "main",
+      "sha": "8c63b20492fbf6bc2e1ba98acc598259c22a57fe",
+      "committedAt": "2026-10-04T18:44:00-04:00",
+      "notes": "Docs head; code baseline 0c254049 + 3 docs commits"
+    },
+    {
+      "name": "merge/production-fixes-20261004",
+      "sha": "0c254049bc6e47371739769147a4c94da9477309",
+      "committedAt": "2026-10-04T18:27:54-04:00",
+      "notes": "Runtime/code baseline (also local main)",
+      "relationToMain": {
+        "behindMain": 3,
+        "aheadOfMain": 0
+      }
+    },
+    {
+      "name": "feature/ps3-deterministic-salience",
+      "sha": "9e61d894c88896e347c475838fa3aa0f3b8c218d",
+      "committedAt": "2026-10-04T11:37:27-04:00",
+      "notes": "Pushed PS3 source; salience-engine test file has duplicate const replay",
+      "relationToMain": {
+        "behindMain": 10,
+        "aheadOfMain": 2
+      }
+    },
+    {
+      "name": "feature/act0-act1-contracts-shadow-observer",
+      "sha": "5d11ee9a22b4ffd4378f8585141e2303c39b0184",
+      "committedAt": "2026-10-04T17:19:05-04:00",
+      "notes": "ACT0/ACT1; fixes PS1 callback vocabulary on both sides",
+      "relationToMain": {
+        "behindMain": 11,
+        "aheadOfMain": 11
+      }
+    },
+    {
+      "name": "feature/act2-player-assigned-basic-activities",
+      "sha": "1388954367733fe4310474a981f013d1de788078",
+      "committedAt": "2026-10-04T18:30:36-04:00",
+      "notes": "ACT2 stacked on ACT0/1; private capture table; Mode token",
+      "relationToMain": {
+        "behindMain": 11,
+        "aheadOfMain": 40
+      }
+    },
+    {
+      "name": "feature/ux4-talk-target-selector",
+      "sha": "3dadbcfb9cdd25fefef154cb9ebc4227df3b4c46",
+      "committedAt": "2026-10-05T09:43:26-04:00",
+      "notes": "UX4 hardened 2026-10-05 (EssentialMicState); still clears PlayerConversationPed at stop",
+      "relationToMain": {
+        "behindMain": 0,
+        "aheadOfMain": 8
+      }
+    },
+    {
+      "name": "research/ux4-talk-target-selector",
+      "sha": "2ddb8ae059abb364edb551518e31f86bf32a7249",
+      "committedAt": "2026-10-04T18:13:25-04:00",
+      "notes": "UX4 T0A audit + architecture",
+      "relationToMain": {
+        "behindMain": 11,
+        "aheadOfMain": 4
+      }
+    },
+    {
+      "name": "docs/conversation-gaze-engagement-plan",
+      "sha": "f20193f9318e52608760d808f9e76e49f1a50ab4",
+      "committedAt": "2026-10-04T17:42:13-04:00",
+      "notes": "CGE0-CGE3 plan; no mention of ConversationLookBehavior",
+      "relationToMain": {
+        "behindMain": 11,
+        "aheadOfMain": 1
+      }
+    },
+    {
+      "name": "research/radio-track-perception-20261004",
+      "sha": "7f6ad8e5e6b6b806285eab967a0a029a209ecc07",
+      "committedAt": "2026-10-04T17:42:05-04:00",
+      "notes": "Radio contracts; PS3 mapping context:'low' (stale)",
+      "relationToMain": {
+        "behindMain": 11,
+        "aheadOfMain": 3
+      }
+    },
+    {
+      "name": "feature/radio-track-perception-r0-r2",
+      "sha": "41604c715ec16cdcaccf0096274ae3dc7da47481",
+      "committedAt": "2026-10-04T18:55:06-04:00",
+      "notes": "Radio raw facts only",
+      "relationToMain": {
+        "behindMain": 0,
+        "aheadOfMain": 4
+      }
+    },
+    {
+      "name": "research/radio-public-catalog-v2-20261004",
+      "sha": "abce2b7cef672c17227454ad36e9d13d09f97220",
+      "committedAt": "2026-10-04T19:34:39-04:00",
+      "notes": "Radio catalog v2 research (includes R0-R2)",
+      "relationToMain": {
+        "behindMain": 0,
+        "aheadOfMain": 11
+      }
+    },
+    {
+      "name": "research/session-identity-memory-architecture-20261002",
+      "sha": "ebc42bff7a117705397957a90e6f82674c2b6e26",
+      "committedAt": "2026-10-02T09:18:24-04:00",
+      "notes": "Identity/memory/timeline research",
+      "relationToMain": {
+        "behindMain": 53,
+        "aheadOfMain": 1
+      }
+    },
+    {
+      "name": "research/remaining-native-context-audit",
+      "sha": "912ec129f084d412242c8d04e8b42b428ff9f1e6",
+      "committedAt": "2026-10-02T07:59:42-04:00",
+      "notes": "Native context audit incl. integration blocks",
+      "relationToMain": {
+        "behindMain": 53,
+        "aheadOfMain": 1
+      }
+    },
+    {
+      "name": "research/perception-salience-scene-director",
+      "sha": "be6b56294894efb10eb2a07db1aa31eebcba9606",
+      "committedAt": "2026-10-03T07:16:57-04:00",
+      "notes": "PS/SD architecture (older)",
+      "relationToMain": {
+        "behindMain": 35,
+        "aheadOfMain": 1
+      }
+    },
+    {
+      "name": "research/ps2-proximity-chat-speech-plan",
+      "sha": "e1d0bd1a5c4f5554240dbe9049ef57c7a4128056",
+      "committedAt": "2026-10-04T06:38:48-04:00",
+      "notes": "PS/SD architecture + speech plan (newest PS/SD text)",
+      "relationToMain": {
+        "behindMain": 35,
+        "aheadOfMain": 2
+      }
+    },
+    {
+      "name": "research/essential-action-completion-audit-20261003",
+      "sha": "8e823310a41cac6529c5441a3286938f102229e7",
+      "committedAt": "2026-10-03T13:11:46-04:00",
+      "notes": "Action audit (partly superseded by ACT N1-N21)",
+      "relationToMain": {
+        "behindMain": 30,
+        "aheadOfMain": 1
+      }
+    },
+    {
+      "name": "research/lsa-activities-goal-execution-20261004",
+      "sha": "ca952a07f5495e3572d67531470f9f336fb4a232",
+      "committedAt": "2026-10-04T12:33:27-04:00",
+      "notes": "ACT research with corrections N1-N21",
+      "relationToMain": {
+        "behindMain": 13,
+        "aheadOfMain": 1
+      }
+    },
+    {
+      "name": "fix/existing-key-gestures",
+      "sha": "3a78067989a89ee0684290045db106fb8a25e531",
+      "committedAt": "2026-10-04T12:21:16-04:00",
+      "notes": "Existing-key input interception",
+      "relationToMain": {
+        "behindMain": 11,
+        "aheadOfMain": 0
+      }
+    }
+  ],
+  "localRefs": {
+    "machine": "developer workstation (read via linked computer, --no-optional-locks)",
+    "allLocalHeadsAncestorsOfOrigin": true,
+    "localOnly": [
+      {
+        "name": "stage/ps3-ready-20261004",
+        "sha": "101b21246bda9d8289d67c98ba3cba7a804ea74f",
+        "commitsOverOriginMain": [
+          "88354cc",
+          "8518ed5",
+          "101b212"
+        ],
+        "pushed": false
+      }
+    ],
+    "behindOrigin": [
+      {
+        "name": "main",
+        "localSha": "0c254049bc6e",
+        "behindBy": 3
+      },
+      {
+        "name": "feature/act0-act1-contracts-shadow-observer",
+        "localSha": "ff8c8be",
+        "behindBy": 10
+      },
+      {
+        "name": "feature/act2-player-assigned-basic-activities",
+        "localSha": "eb786c3",
+        "behindBy": 28
+      },
+      {
+        "name": "feature/ps3-deterministic-salience",
+        "localSha": "f7f53fe",
+        "behindBy": 1
+      },
+      {
+        "name": "feature/ux4-talk-target-selector",
+        "localSha": "9c1736a",
+        "behindBy": 7
+      }
+    ]
+  },
+  "deployments": [
+    {
+      "id": "ps3-ready-20261004T194324",
+      "status": "deployed_hash_verified",
+      "startedAtUtc": "2026-10-05T13:25:59.4088571Z",
+      "completedAtUtc": "2026-10-05T13:28:34.3190765Z",
+      "candidateBranch": "stage/ps3-ready-20261004",
+      "candidateHead": "101b21246bda9d8289d67c98ba3cba7a804ea74f",
+      "sourceGitHubMain": "8c63b20492fbf6bc2e1ba98acc598259c22a57fe",
+      "sourceRuntimeBaseline": "0c254049bc6e47371739769147a4c94da9477309",
+      "stagedFiles": 73,
+      "installedFilesHashVerified": 73,
+      "copiedFiles": 10,
+      "alreadyMatchingFiles": 63,
+      "effectiveIntelligenceMode": "shadow",
+      "gtaRuntimeTest": false,
+      "gameLaunchedByDeployment": false,
+      "manifestOfflineNodeSuite": {
+        "status": "incomplete_environment_block",
+        "tests": 322,
+        "passed": 321,
+        "blocked": 1,
+        "blockingTest": "tests/control-endpoint.test.mjs:65 spawn EPERM",
+        "additionalRunnerError": "SyntaxError: Identifier replay has already been declared"
+      },
+      "label": "PROVEN",
+      "evidence": [
+        "E02",
+        "E04"
+      ]
+    }
+  ],
+  "testRuns": [
+    {
+      "tree": "origin/main@8c63b20",
+      "result": "370/370 pass"
+    },
+    {
+      "tree": "feature/act0-act1-contracts-shadow-observer@5d11ee9",
+      "result": "370/370 pass"
+    },
+    {
+      "tree": "feature/act2-player-assigned-basic-activities@1388954",
+      "result": "379/379 pass"
+    },
+    {
+      "tree": "feature/ux4-talk-target-selector@9c1736a",
+      "result": "369/370 then 370/370 on two reruns",
+      "flaky": "tests/p1-session-identity.test.mjs:340 providerDeadline <= started + 5010"
+    },
+    {
+      "tree": "feature/radio-track-perception-r0-r2@41604c7",
+      "result": "378/378 pass"
+    },
+    {
+      "tree": "research/radio-public-catalog-v2-20261004@abce2b7",
+      "result": "378/378 pass"
+    },
+    {
+      "tree": "stage/ps3-ready-20261004@101b212 (blobs = 9e61d89)",
+      "result": "runner summary 322 pass then uncaught SyntaxError (exit 1); 60 tests in later files never loaded"
+    },
+    {
+      "tree": "stage tree with scratch rename of second const replay (not committed)",
+      "result": "382/382 pass"
+    },
+    {
+      "tree": "feature/ux4-talk-target-selector@3dadbcf",
+      "result": "not re-run; branch doc reports GitHub Actions run 37318850380 (533 + 449 + 58 assertions)",
+      "label": "STRONGLY_SUPPORTED"
+    }
+  ],
+  "stateLadder": [
+    {
+      "system": "E1-E6",
+      "researched": true,
+      "implemented": true,
+      "merged": true,
+      "built": true,
+      "deployed": true,
+      "validated": "dialogue path exercised 2026-10-01 (13/13 mic turns reached playback); E5/E6 early-audio/multi-segment acceptance open"
+    },
+    {
+      "system": "P0",
+      "researched": true,
+      "implemented": true,
+      "merged": true,
+      "built": true,
+      "deployed": "in production lineage",
+      "validated": "pending"
+    },
+    {
+      "system": "P1",
+      "researched": true,
+      "implemented": true,
+      "merged": true,
+      "built": true,
+      "deployed": "in lineage, default off",
+      "validated": "controlled checklist pending"
+    },
+    {
+      "system": "P2",
+      "researched": true,
+      "implemented": true,
+      "merged": true,
+      "built": true,
+      "deployed": true,
+      "validated": "exercised in GTA (README.md:58 stale)"
+    },
+    {
+      "system": "UX0-UX3",
+      "researched": true,
+      "implemented": true,
+      "merged": true,
+      "built": true,
+      "deployed": "in lineage",
+      "validated": "pending"
+    },
+    {
+      "system": "PS0/PS1",
+      "researched": true,
+      "implemented": true,
+      "merged": true,
+      "built": true,
+      "deployed": "shadow",
+      "validated": "pending"
+    },
+    {
+      "system": "PS2",
+      "researched": true,
+      "implemented": true,
+      "merged": true,
+      "built": true,
+      "deployed": "shadow",
+      "validated": "pending; player-speech hearing disabled"
+    },
+    {
+      "system": "PS3",
+      "researched": true,
+      "implemented": true,
+      "merged": false,
+      "built": true,
+      "deployed": "shadow 2026-10-05T13:28:34Z from local stage",
+      "validated": "not run"
+    },
+    {
+      "system": "ACT0/ACT1",
+      "researched": true,
+      "implemented": true,
+      "merged": false,
+      "built": "branch",
+      "deployed": false,
+      "validated": false
+    },
+    {
+      "system": "ACT2",
+      "researched": true,
+      "implemented": true,
+      "merged": false,
+      "built": "branch",
+      "deployed": false,
+      "validated": false
+    },
+    {
+      "system": "UX4",
+      "researched": true,
+      "implemented": true,
+      "merged": false,
+      "built": "branch + CI reported",
+      "deployed": false,
+      "validated": false
+    },
+    {
+      "system": "CGE",
+      "researched": true,
+      "implemented": false,
+      "merged": false,
+      "built": false,
+      "deployed": false,
+      "validated": false
+    },
+    {
+      "system": "Radio R0-R2",
+      "researched": true,
+      "implemented": true,
+      "merged": false,
+      "built": "branch",
+      "deployed": false,
+      "validated": false
+    },
+    {
+      "system": "PS4-PS8 / social routing / Scene Director",
+      "researched": true,
+      "implemented": false,
+      "merged": false,
+      "built": false,
+      "deployed": false,
+      "validated": false
+    },
+    {
+      "system": "ACT3-ACT7",
+      "researched": true,
+      "implemented": false,
+      "merged": false,
+      "built": false,
+      "deployed": false,
+      "validated": false
+    }
+  ],
+  "evidence": [
+    {
+      "id": "E01",
+      "label": "PROVEN",
+      "kind": "git",
+      "claim": "Ref SHAs fetched 2026-10-05T14:13Z; local heads ancestors of origin except stage/ps3-ready-20261004"
+    },
+    {
+      "id": "E02",
+      "label": "PROVEN",
+      "kind": "deployment",
+      "path": "lsa-production-staging/ps3-ready-20261004T194324/deployment-receipt.json",
+      "claim": "PS3 deployed shadow, hash-verified, gtaRuntimeTest false"
+    },
+    {
+      "id": "E03",
+      "label": "PROVEN",
+      "kind": "git",
+      "claim": "stage 101b212 salienceEngine.mjs blob ad9aaa98 and salience-engine.test.mjs blob fd149b41 identical to origin feature 9e61d89"
+    },
+    {
+      "id": "E04",
+      "label": "PROVEN",
+      "kind": "source+test",
+      "ref": "9e61d89",
+      "path": "lsa-essential-e1-candidate/tests/salience-engine.test.mjs",
+      "lines": [
+        252,
+        270
+      ],
+      "claim": "duplicate const replay -> SyntaxError -> 60 tests not loaded; 382/382 after rename"
+    },
+    {
+      "id": "E05",
+      "label": "PROVEN",
+      "kind": "source",
+      "ref": "8c63b20",
+      "path": "lsa-essential-e1-candidate/src/openai/runSequentialTurn.mjs",
+      "lines": [
+        187,
+        197,
+        326,
+        367
+      ],
+      "claim": "receipt:null to PS; action published before TTS; history commit after playback"
+    },
+    {
+      "id": "E06",
+      "label": "PROVEN",
+      "kind": "source",
+      "ref": "8c63b20",
+      "path": "lsa-essential-e1-candidate/src/perception/speechContract.mjs",
+      "claim": "capture receipt lacks turn join, addressee, input source"
+    },
+    {
+      "id": "E07",
+      "label": "PROVEN",
+      "kind": "source",
+      "ref": "8c63b20",
+      "path": "lsa-essential-e1-candidate/src/context/essentialDecision.mjs",
+      "lines": [
+        56,
+        59
+      ],
+      "claim": "raw actor/listener/world JSON in system message; modelActor strips only LSA transport (essentialGlue.mjs:48)"
+    },
+    {
+      "id": "E08",
+      "label": "PROVEN",
+      "kind": "source",
+      "ref": "8c63b20",
+      "path": "native/intelligence/IntelligenceIntegration.cs",
+      "lines": [
+        178,
+        318,
+        321
+      ],
+      "claim": "discovery precedence; follow/wait callback mapping; EnrichActor empty"
+    },
+    {
+      "id": "E09",
+      "label": "PROVEN",
+      "kind": "research",
+      "ref": "ca952a0",
+      "path": "docs/research/lsa-activities-goal-execution-architecture.md",
+      "claim": "N1-N21 incl. N5 canonical callback name, N1-N4 vestigial queue/destinations"
+    },
+    {
+      "id": "E10",
+      "label": "PROVEN",
+      "kind": "source",
+      "ref": "5d11ee9/1388954",
+      "claim": "followtarget/waithere on native and contracts.mjs:31"
+    },
+    {
+      "id": "E11",
+      "label": "PROVEN",
+      "kind": "source",
+      "ref": "8c63b20",
+      "path": "native/intelligence/WitnessPolicy.cs",
+      "claim": "no visual range for action_callback -> unknown -> no observation"
+    },
+    {
+      "id": "E12",
+      "label": "PROVEN",
+      "kind": "source",
+      "ref": "8c63b20",
+      "path": "lsa-essential-e1-candidate/src/perception/contracts.mjs",
+      "lines": [
+        53
+      ],
+      "claim": "recognizedCharacterIds must be empty"
+    },
+    {
+      "id": "E13",
+      "label": "PROVEN",
+      "kind": "source",
+      "ref": "9e61d89",
+      "path": "lsa-essential-e1-candidate/src/perception/shadowRuntime.mjs",
+      "lines": [
+        91
+      ],
+      "claim": "live salience passes activity idle only"
+    },
+    {
+      "id": "E14",
+      "label": "PROVEN",
+      "kind": "source",
+      "ref": "9e61d89",
+      "path": "lsa-essential-e1-candidate/src/perception/salienceEngine.mjs",
+      "lines": [
+        16,
+        393
+      ],
+      "claim": "bounds; consumed = grant"
+    },
+    {
+      "id": "E15",
+      "label": "PROVEN",
+      "kind": "source",
+      "ref": "8c63b20",
+      "path": "lsa-essential-e1-candidate/src/openai/openaiConnection.mjs",
+      "lines": [
+        156,
+        210
+      ],
+      "claim": "capture window local monotonic only"
+    },
+    {
+      "id": "E16",
+      "label": "PROVEN",
+      "kind": "source",
+      "ref": "3dadbcf",
+      "path": "native/promoted-characters/TalkTargetSelector.cs",
+      "lines": [
+        118,
+        131,
+        289,
+        297
+      ],
+      "claim": "ClearPlayerConversationPed at stop; EssentialMicState mic ownership"
+    },
+    {
+      "id": "E17",
+      "label": "PROVEN",
+      "kind": "research",
+      "ref": "2ddb8ae",
+      "path": "docs/research/ux4-talk-targeting-architecture.md",
+      "claim": "SetPlayerConversationPed side effects; stock Talk/Text recompute GetBestConversationPed"
+    },
+    {
+      "id": "E18",
+      "label": "PROVEN",
+      "kind": "docs",
+      "ref": "f20193f",
+      "path": "docs/plans/conversation-gaze-engagement/runtime-contract.md",
+      "claim": "CGE target precedence; no ConversationLookBehavior; speech seam unproven"
+    },
+    {
+      "id": "E19",
+      "label": "PROVEN",
+      "kind": "binary-metadata",
+      "ref": "8c63b20",
+      "path": "docs/plans/LosSantosAlive_Hotfix3_Extension_API_Analysis.md",
+      "claim": "ConversationLookBehavior, BeginMicTurn/MarkMicReleased, SendMicStart/Stop APIs"
+    },
+    {
+      "id": "E20",
+      "label": "PROVEN",
+      "kind": "source",
+      "ref": "1388954",
+      "path": "native/promoted-characters/ActivityDispatch.cs",
+      "claim": "private captures; Resolve player/here; Mode activity/idle"
+    },
+    {
+      "id": "E21",
+      "label": "PROVEN",
+      "kind": "source",
+      "ref": "1388954",
+      "path": "native/activities/StepRunner.cs",
+      "claim": "lease loss, Preempt, Finish->EndOwnership(false), foreign callback SUPERSEDED"
+    },
+    {
+      "id": "E22",
+      "label": "PROVEN",
+      "kind": "contract",
+      "ref": "1388954",
+      "path": "contracts/activity-capabilities.v1.json",
+      "sha256": "31ed6e6d47a7222929b3645401d6e046676ed7f21a65f5643a68e002a3ee6486",
+      "claim": "directed_interaction ACT7 registry_only; scene_director source on 6 capabilities"
+    },
+    {
+      "id": "E23",
+      "label": "PROVEN",
+      "kind": "research",
+      "ref": "e1d0bd1",
+      "path": "docs/research/perception-salience-scene-director-architecture.md",
+      "claim": "DirectorTicket, priorities, modes, handle re-resolution risk, PS5 schema v2, PS7 DirectorAdmission DI"
+    },
+    {
+      "id": "E24",
+      "label": "PROVEN",
+      "kind": "research",
+      "ref": "ca952a0",
+      "claim": "interrupt matrix 9.2, resume 9.4 (EntityAnchors.Resolve), ACT7 v2/v3 (line 1176)"
+    },
+    {
+      "id": "E25",
+      "label": "PROVEN",
+      "kind": "research",
+      "ref": "ebc42bf",
+      "claim": "SubjectBeliefRef, protagonist policy open (216), timelineId (245), CharacterMemoryService (267)"
+    },
+    {
+      "id": "E26",
+      "label": "PROVEN",
+      "kind": "docs",
+      "ref": "8c63b20",
+      "path": "docs/plans/SESSION_IDENTITY-design-review.md",
+      "claim": "no proven save/world-reset hook"
+    },
+    {
+      "id": "E27",
+      "label": "PROVEN",
+      "kind": "source",
+      "ref": "8c63b20",
+      "path": "lsa-essential-e1-candidate/src/characters/profileStore.mjs",
+      "lines": [
+        7,
+        11,
+        30
+      ],
+      "claim": "schema 1; no migrations; memory categories incl. promise/relationship"
+    },
+    {
+      "id": "E28",
+      "label": "PROVEN",
+      "kind": "research",
+      "ref": "7f6ad8e/41604c7",
+      "claim": "radio context low mapping; R0-R2 raw facts only"
+    },
+    {
+      "id": "E29",
+      "label": "PROVEN",
+      "kind": "source",
+      "ref": "8c63b20",
+      "path": "native/promoted-characters/PromotedCharactersIntegration.cs",
+      "lines": [
+        104,
+        131,
+        171,
+        185,
+        278,
+        284
+      ],
+      "claim": "clock reset; partner reads; EnrichActor encounterId; callback no-op"
+    },
+    {
+      "id": "E30",
+      "label": "PROVEN",
+      "kind": "source",
+      "claim": "per-pipe epochs: ActivityChannel.cs:32-33, IntelligenceChannel.cs:38, OwnerFactChannel.cs:48"
+    },
+    {
+      "id": "E31",
+      "label": "PROVEN",
+      "kind": "config",
+      "claim": "worldProfileId and intelligence.mode duplicated in native and companion configs; P1 mode shadow|voices"
+    },
+    {
+      "id": "E32",
+      "label": "PROVEN",
+      "kind": "source",
+      "claim": "PerceptionSystem.TryGetSnapshot shared by PS (IntelligenceIntegration.cs:206) and UX4 (TalkTargetSelector.cs:223); LOS IntelligenceIntegration.cs:274"
+    },
+    {
+      "id": "E33",
+      "label": "PROVEN",
+      "kind": "test",
+      "claim": "audit test runs (see testRuns)"
+    }
+  ],
+  "keyConclusions": [
+    {
+      "id": "K01",
+      "label": "PROVEN",
+      "text": "Fundamental rule (Essential sole native executor) holds on main"
+    },
+    {
+      "id": "K02",
+      "label": "PROVEN",
+      "text": "Three planned designs would violate it: UX4 clear-on-release, CGE gaze beside Essential look behavior, PS7 DI outside ACT"
+    },
+    {
+      "id": "K03",
+      "label": "PROVEN",
+      "text": "Seven representations of player speech (five in code, two in plans), no utterance join (receipt:null)"
+    },
+    {
+      "id": "K04",
+      "label": "PROVEN",
+      "text": "No epistemic firewall in live prompt path; raw stock context plus P2 canon projection today and three planned prompt writers (PS4, ACT4, radio)"
+    },
+    {
+      "id": "K05",
+      "label": "PROVEN",
+      "text": "Three run-local anchor tables; ACT2 drifted from ACT research (EntityAnchors.Resolve)"
+    },
+    {
+      "id": "K06",
+      "label": "PROVEN",
+      "text": "Dialogue DO published before playback; history after; no receipt"
+    },
+    {
+      "id": "K07",
+      "label": "PROVEN",
+      "text": "PS3 consumed = grant"
+    },
+    {
+      "id": "K08",
+      "label": "PROVEN",
+      "text": "No timeline; serial schema bumps planned"
+    },
+    {
+      "id": "K09",
+      "label": "PROVEN",
+      "text": "Directed interaction claimed by PS7 and ACT7; P2 Safe() suspends during DI"
+    },
+    {
+      "id": "K10",
+      "label": "PROVEN",
+      "text": "PS1 callback vocabulary wrong on main; fix only on ACT0/1 branch (both sides)"
+    },
+    {
+      "id": "K11",
+      "label": "PROVEN",
+      "text": "Executor callbacks are never witnessed (no witness range) - correct; lock"
+    },
+    {
+      "id": "K12",
+      "label": "PROVEN",
+      "text": "Encounter.Mode set idle on every non-preempt ACT terminal including DETACHED"
+    },
+    {
+      "id": "K13",
+      "label": "PROVEN",
+      "text": "PS and UX4 share Essential PerceptionSystem snapshot (no duplicate world scan)"
+    },
+    {
+      "id": "K14",
+      "label": "PROVEN",
+      "text": "PS3 verification skipped 60 tests due to test-file SyntaxError"
+    }
+  ],
+  "duplicateAuthorities": [
+    "DA-1 conversation partner lifetime (Essential vs UX4)",
+    "DA-2 model-visible context",
+    "DA-3 run-local entity references",
+    "DA-4 LSA-initiated directed interaction",
+    "DA-5 gaze",
+    "DA-6 body orientation",
+    "DA-7 clock/world epoch",
+    "DA-8 action-callback vocabulary",
+    "DA-9 voice display",
+    "DA-10 config keys"
+  ],
+  "missingOwners": [
+    "social address",
+    "responder selection",
+    "timeline/save",
+    "utterance identity",
+    "salience consumption",
+    "dialogue-action receipt/completion",
+    "capability/health",
+    "protagonist identity",
+    "conversation identity",
+    "cross-actor seat claims",
+    "hearing (gated)"
+  ],
+  "superseded": [
+    {
+      "id": "S-01",
+      "earlierClaim": "Essential activity queue reports progress/completion",
+      "source": "8e82331",
+      "newerEvidence": "ACT N1/N2",
+      "status": "superseded",
+      "replacement": "ACT completion adapters"
+    },
+    {
+      "id": "S-02",
+      "earlierClaim": "WalkTo/DriveTo destination machinery usable",
+      "source": "8e82331",
+      "newerEvidence": "ACT N3/N4",
+      "status": "superseded",
+      "replacement": "ACT6 registered extensions"
+    },
+    {
+      "id": "S-03",
+      "earlierClaim": "BridgeMessageRouter destination/activity special cases",
+      "source": "8e82331 s3",
+      "newerEvidence": "ACT N6",
+      "status": "corrected",
+      "replacement": "approachperson only"
+    },
+    {
+      "id": "S-04",
+      "earlierClaim": "TryExecute true = action happened",
+      "source": "early assumptions",
+      "newerEvidence": "audit + ACT",
+      "status": "superseded",
+      "replacement": "receipt ladder"
+    },
+    {
+      "id": "S-05",
+      "earlierClaim": "callbacks carry follow/wait",
+      "source": "main PS1",
+      "newerEvidence": "ACT N5; ACT0/1 fix",
+      "status": "contradicted",
+      "replacement": "canonical tokens + contract test"
+    },
+    {
+      "id": "S-06",
+      "earlierClaim": "Director admission starts DIs natively",
+      "source": "be6b562/e1d0bd1 PS7",
+      "newerEvidence": "ACT7 registry; P2 Safe()",
+      "status": "superseded/conflict",
+      "replacement": "ACT7 executes DI with exemption token (C-11)"
+    },
+    {
+      "id": "S-07",
+      "earlierClaim": "separate CharacterMemoryService journal",
+      "source": "ebc42bf",
+      "newerEvidence": "P2 ProfileStore; PS5 into P2 v2",
+      "status": "superseded",
+      "replacement": "one P2 store"
+    },
+    {
+      "id": "S-08",
+      "earlierClaim": "identity research P0-P8 phase names",
+      "source": "ebc42bf",
+      "newerEvidence": "roadmap",
+      "status": "superseded naming",
+      "replacement": "roadmap names"
+    },
+    {
+      "id": "S-09",
+      "earlierClaim": "hearing after STT",
+      "source": "early speech assumptions",
+      "newerEvidence": "PS2 source-time contracts",
+      "status": "superseded",
+      "replacement": "C-01"
+    },
+    {
+      "id": "S-10",
+      "earlierClaim": "pre-set partner then synthesize Talk",
+      "source": "UX4 initial",
+      "newerEvidence": "T0A audit",
+      "status": "superseded",
+      "replacement": "SetPlayerConversationPed + SendMicStart(ped)"
+    },
+    {
+      "id": "S-11",
+      "earlierClaim": "UX4 stop may stop newer stock mic",
+      "source": "9c1736a",
+      "newerEvidence": "3dadbcf",
+      "status": "corrected",
+      "replacement": "EssentialMicState ownership"
+    },
+    {
+      "id": "S-12",
+      "earlierClaim": "P2 not validated in GTA",
+      "source": "README.md:58",
+      "newerEvidence": "ROADMAP/P2 status",
+      "status": "stale",
+      "replacement": "ROADMAP"
+    },
+    {
+      "id": "S-13",
+      "earlierClaim": "PS3 not deployed",
+      "source": "ROADMAP 8c63b20",
+      "newerEvidence": "deployment receipt 2026-10-05",
+      "status": "stale",
+      "replacement": "deployed shadow, unmerged"
+    },
+    {
+      "id": "S-14",
+      "earlierClaim": "PS3 stage 321/322 environment block",
+      "source": "stage manifest",
+      "newerEvidence": "this audit",
+      "status": "misleading",
+      "replacement": "test-code defect; 382/382 after fix"
+    },
+    {
+      "id": "S-15",
+      "earlierClaim": "radio context low",
+      "source": "7f6ad8e s9",
+      "newerEvidence": "PS3 enums",
+      "status": "contradicted",
+      "replacement": "candidate|omit"
+    },
+    {
+      "id": "S-16",
+      "earlierClaim": "radio knowledge selector",
+      "source": "7f6ad8e s10",
+      "newerEvidence": "C-04",
+      "status": "superseded (proposed)",
+      "replacement": "PS4 lane"
+    },
+    {
+      "id": "S-17",
+      "earlierClaim": "ACT uses EntityAnchors.Resolve",
+      "source": "ca952a0 s9.4",
+      "newerEvidence": "ACT2 private table",
+      "status": "implementation drift",
+      "replacement": "C-02"
+    },
+    {
+      "id": "S-18",
+      "earlierClaim": "PS3 relationship/memory/trait salience live",
+      "source": "PS3 design",
+      "newerEvidence": "shadowRuntime.mjs:91",
+      "status": "narrower wording",
+      "replacement": "inactive until C-02"
+    },
+    {
+      "id": "S-19",
+      "earlierClaim": "Encounter.Mode follow|wait",
+      "source": "P2 main",
+      "newerEvidence": "ACT2",
+      "status": "narrower wording",
+      "replacement": "C-06"
+    },
+    {
+      "id": "S-20",
+      "earlierClaim": "P2 16 KiB projection is whole knowledge budget",
+      "source": "P2 status",
+      "newerEvidence": "PS4/ACT4/radio lanes",
+      "status": "narrower wording",
+      "replacement": "SELF-lane cap in C-04"
+    },
+    {
+      "id": "S-21",
+      "earlierClaim": "runtime baseline main@0c254049",
+      "source": "ROADMAP",
+      "newerEvidence": "origin/main 8c63b20",
+      "status": "narrower wording",
+      "replacement": "code baseline vs docs head"
+    },
+    {
+      "id": "S-22",
+      "earlierClaim": "CGE finds its own speech/target seams",
+      "source": "f20193f",
+      "newerEvidence": "this audit",
+      "status": "superseded (proposed)",
+      "replacement": "consume C-01; yield to Essential look"
+    },
+    {
+      "id": "S-23",
+      "earlierClaim": "Scene Director executes coordinated behavior",
+      "source": "ROADMAP prose",
+      "newerEvidence": "PS/SD + ACT research",
+      "status": "narrower wording",
+      "replacement": "Director proposes; Essential/ACT execute"
+    }
+  ],
+  "risks": [
+    {
+      "id": "R-01",
+      "priority": "P0",
+      "title": "speech lifecycle fragmented",
+      "fixNow": true
+    },
+    {
+      "id": "R-02",
+      "priority": "P0",
+      "title": "no epistemic firewall / multiple prompt writers (one existing, three planned)",
+      "fixNow": "lock design; implement PS4"
+    },
+    {
+      "id": "R-07",
+      "priority": "P0",
+      "title": "no timeline; serial migrations",
+      "fixNow": "design now; before PS5"
+    },
+    {
+      "id": "R-08",
+      "priority": "P0",
+      "title": "directed interaction double ownership",
+      "fixNow": "docs now"
+    },
+    {
+      "id": "R-09",
+      "priority": "P0",
+      "title": "CGE vs Essential look / ACT body orientation",
+      "fixNow": "plan now"
+    },
+    {
+      "id": "R-03",
+      "priority": "P1",
+      "title": "three anchor tables",
+      "fixNow": "before ACT3"
+    },
+    {
+      "id": "R-05",
+      "priority": "P1",
+      "title": "dialogue DO without receipts",
+      "fixNow": "before ACT4/PS5"
+    },
+    {
+      "id": "R-06",
+      "priority": "P1",
+      "title": "PS3 entitlement = consumption",
+      "fixNow": "with PS3 merge"
+    },
+    {
+      "id": "R-04",
+      "priority": "P1",
+      "title": "UX4 clears conversation partner",
+      "fixNow": "before UX4 merge"
+    },
+    {
+      "id": "R-10",
+      "priority": "P1",
+      "title": "callback vocabulary reconciliation hazard",
+      "fixNow": "during ACT0/1 reconciliation"
+    },
+    {
+      "id": "R-11",
+      "priority": "P2",
+      "title": "PS3 verification record wrong",
+      "fixNow": true
+    },
+    {
+      "id": "R-12",
+      "priority": "P2",
+      "title": "Encounter.Mode stale",
+      "fixNow": "ACT2 reconciliation"
+    },
+    {
+      "id": "R-13",
+      "priority": "P2",
+      "title": "epoch detection fragmented",
+      "fixNow": "ACT0/1 reconciliation"
+    },
+    {
+      "id": "R-14",
+      "priority": "P2",
+      "title": "pipe epochs not shared",
+      "fixNow": "ACT0/1 reconciliation"
+    },
+    {
+      "id": "R-15",
+      "priority": "P2",
+      "title": "feature-state/config fragmentation",
+      "fixNow": "thin read model"
+    },
+    {
+      "id": "R-16",
+      "priority": "P1",
+      "title": "turn-yield undefined",
+      "fixNow": "probe early"
+    },
+    {
+      "id": "R-17",
+      "priority": "P1",
+      "title": "protagonist identity undefined",
+      "fixNow": "with C-08"
+    },
+    {
+      "id": "R-18",
+      "priority": "P2",
+      "title": "no reflex producer",
+      "fixNow": false
+    },
+    {
+      "id": "R-19",
+      "priority": "P2",
+      "title": "third-party mods tasking promoted peds",
+      "fixNow": false
+    },
+    {
+      "id": "R-20",
+      "priority": "P2",
+      "title": "seat races",
+      "fixNow": false
+    },
+    {
+      "id": "R-21",
+      "priority": "P3",
+      "title": "voiceReference duplicate",
+      "fixNow": false
+    },
+    {
+      "id": "R-22",
+      "priority": "P3",
+      "title": "stale status docs",
+      "fixNow": true
+    },
+    {
+      "id": "R-23",
+      "priority": "P2",
+      "title": "branch drift in shared contract files",
+      "fixNow": "during reconciliation"
+    },
+    {
+      "id": "R-24",
+      "priority": "P3",
+      "title": "timing-sensitive P1 test",
+      "fixNow": false
+    },
+    {
+      "id": "R-25",
+      "priority": "P2",
+      "title": "single RAGE host aggregates integrations",
+      "fixNow": false
+    },
+    {
+      "id": "R-26",
+      "priority": "P2",
+      "title": "manual promise/relationship overlap",
+      "fixNow": "with C-08"
+    },
+    {
+      "id": "R-27",
+      "priority": "P2",
+      "title": "activity vocabularies diverge",
+      "fixNow": "unknown value now; mapping with ACT2"
+    },
+    {
+      "id": "R-28",
+      "priority": "P3",
+      "title": "typed input ignores UX4 selection",
+      "fixNow": "HUD disclosure"
+    }
+  ],
+  "contracts": [
+    "C-01",
+    "C-02",
+    "C-03",
+    "C-04",
+    "C-05",
+    "C-06",
+    "C-07",
+    "C-08",
+    "C-09",
+    "C-10",
+    "C-11",
+    "C-12",
+    "C-13",
+    "C-14",
+    "C-15"
+  ],
+  "highestRiskUnresolvedSeam": {
+    "contract": "C-01",
+    "reason": "source-time utterance lifecycle; Essential seam feasibility UNKNOWN; five consumers depend on it"
+  },
+  "recommendedNextAfterPs3GtaTesting": "M2 ACT0/ACT1 reconciliation+merge with R-10 contract test, C-13 hostRunId/world epoch, thin C-09; then ACT2 with C-06 and C-02; C-01 probe/implementation in parallel (M3)",
+  "nextMilestones": [
+    "M2 ACT0/1 -> ACT2 reconciliation with convergence corrections",
+    "M3 UtteranceLifecycle (C-01)",
+    "M4 PS4 TurnKnowledgeFrame (C-04) + DialogueActionReceipt (C-05)",
+    "M5 Profile v2 + TimelineGuard + SubjectRef (C-08, C-07, C-15)",
+    "M6 ACT3 || M7 PS5"
+  ],
+  "fundamentalRulePreserved": {
+    "main": "PROVEN yes",
+    "canonicalDesign": "PROPOSED yes",
+    "plannedViolations": [
+      "UX4 clear-on-release",
+      "CGE gaze beside Essential look",
+      "PS7 DI outside ACT"
+    ]
+  }
+}

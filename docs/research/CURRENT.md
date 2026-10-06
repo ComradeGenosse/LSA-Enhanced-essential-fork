@@ -98,4 +98,4 @@ Radio R0–R2 can remain a raw-facts side track. Radio model-visible knowledge w
 
 ## Important historical-status rule
 
-The convergence audit was a snapshot taken earlier on October 5. Its architecture, contracts, risks and dependency conclusions remain authoritative, but its branch/deployment tables are **historical evidence as of that audit timestamp**. Do not use them instead of the current roadmap to answer whether PS3, UX4 or another phase is merged/deployed today.
+The original October 5 convergence audit is preserved under `docs/research/archive/convergence/` as historical evidence. The active convergence architecture, ownership, dependency and risk documents are status-neutral/current-safe syntheses. Never use an archived snapshot to answer what is merged, deployed or validated today; use the roadmap and phase status docs.

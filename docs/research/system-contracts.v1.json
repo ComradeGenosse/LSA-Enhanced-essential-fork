@@ -1,8 +1,8 @@
 {
   "schema": "lsa.system-contracts",
   "schemaVersion": 1,
-  "status": "research; existing contracts pinned, proposed contracts are PROPOSED",
-  "base": "origin/main@8c63b20492fbf6bc2e1ba98acc598259c22a57fe",
+  "status": "forward architecture contracts; implementation status may be partial—use docs/ROADMAP.md for deployed/current state",
+  "base": "architecture corpus current as of 2026-10-06; implementation truth is docs/ROADMAP.md",
   "planes": [
     {
       "plane": 0,
@@ -709,7 +709,7 @@
         "PS6",
         "PS5"
       ],
-      "phase": "with PS3 merge or before PS4/PS6",
+      "phase": "implemented with PS3 merge; downstream PS4/PS5/PS6 consumers must acknowledge",
       "fields": {
         "decisionKey": "string",
         "policyVersion": "int"
@@ -717,7 +717,8 @@
       "api": "acknowledge(decisionKey, consumer, outcome: delivered|rejected|expired)",
       "risks": [
         "R-06"
-      ]
+      ],
+      "implementationStatus": "implemented-on-main"
     },
     {
       "id": "C-04",
@@ -890,7 +891,8 @@
       "phase": "now",
       "risks": [
         "R-04"
-      ]
+      ],
+      "implementationStatus": "UX4 conversation-partner ownership fix implemented-on-main"
     },
     {
       "id": "C-11",

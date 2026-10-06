@@ -1,13 +1,24 @@
-# Superseded / Archived Research
+# Archived / Historical Research
 
-The research corpus uses **preservation, not deletion**.
+Everything below this directory is **historical evidence, not current implementation or architecture guidance**.
 
-Nothing is moved here merely because a newer synthesis exists. Existing paths and historical branches remain intact so Git history, old prompts, raw evidence and implementation archaeology are not destroyed.
+Default AI/Codex/Astra context should exclude this directory. Read an archived artifact only when you specifically need provenance, old evidence, or the reasoning behind a later decision.
 
-Use this directory only when a future cleanup deliberately creates a preserved snapshot of material that would otherwise be removed from an active location. Any such move/copy must be recorded in `../CORPUS.json` with provenance and a successor.
+Archived snapshots may contain:
 
-For normal research supersession, prefer:
+- old branch/commit state;
+- bugs that have since been fixed;
+- plans that were later changed or implemented differently;
+- old test totals;
+- ownership conflicts that current contracts resolved;
+- relative links that reflect the artifact's original location.
 
-- keep the original file;
-- mark it historical/superseded in `CORPUS.json` or the domain README;
-- point to the current contract/decision/synthesis.
+Current authority lives in:
+
+1. `docs/ROADMAP.md`
+2. `docs/research/CURRENT.md`
+3. `docs/research/DECISIONS.md`
+4. `docs/research/system-contract-register.md`
+5. current phase/status docs
+
+Git history remains the final source for removed task prompts and other material that had no durable research value.
