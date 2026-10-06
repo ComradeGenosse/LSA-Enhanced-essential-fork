@@ -1,6 +1,7 @@
 import net from 'node:net';
 import { BOUNDS } from './contracts.mjs';
 import { ShadowRuntime } from './shadowRuntime.mjs';
+import { selectRadioContext } from './radioContextProjector.mjs';
 
 const COUNTER_MAX = 2147483647;
 const counter = value => Number.isSafeInteger(value) && value >= 0 ? Math.min(COUNTER_MAX, value) : 0;
@@ -71,6 +72,11 @@ export class IntelligenceClient {
     this.config=config;this.connect=connect;this.runtime=new ShadowRuntime({mode:config.mode,radio:config.radio,radioCatalog,now});this.report=report;this.telemetry=telemetry;this.closed=false;this.socket=null;this.lastReport=0;
   }
   persist(event,data={}) { try { this.telemetry(event,data); } catch {} }
+  projectTurnContext({input}={}) { return selectRadioContext(this.runtime,input); }
+  acknowledgeTurnContext(projection,outcome='delivered') {
+    if (projection?.kind!=='radio' || typeof projection.decisionKey!=='string' || !['delivered','rejected','expired'].includes(outcome)) return false;
+    return this.runtime.salience.acknowledge(projection.decisionKey,'ps4_context',outcome);
+  }
   summary(finalSnapshot=false) {
     const diagnostics=this.runtime.diagnostics;
     return {

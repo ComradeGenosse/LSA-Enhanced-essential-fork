@@ -111,6 +111,8 @@ export async function createRuntimeForBundle(options = {}) {
     } else try {console.warn('[PS] optional_perception_contract_unavailable');}catch{}
   }
   runtime.services.acceptPlayerTranscript = input => runtime.intelligence?.acceptPlayerTranscript(input) ?? {accepted:false,reason:'unsupported_capture_receipt'};
+  runtime.services.projectTurnContext = input => runtime.intelligence?.projectTurnContext(input) ?? null;
+  runtime.services.acknowledgeTurnContext = (projection,outcome='delivered') => runtime.intelligence?.acknowledgeTurnContext(projection,outcome) ?? false;
   if(config.activities.mode==='shadow' || config.activities.mode==='on') {
     try {
       const onEvent = (event, data) => { try { telemetry?.emit?.(event, null, 'system', data); } catch {} };

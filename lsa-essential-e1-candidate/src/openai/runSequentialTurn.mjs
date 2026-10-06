@@ -190,6 +190,23 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
     if (isPlayer && !String(finalInput || '').trim()) throw new Error('player_input_empty');
     if (isPlayer) dialogueTurn?.input(finalInput);
 
+    let contextProjection = null;
+    if (isPlayer) {
+      try {
+        const selected = services.projectTurnContext?.({ input: finalInput, source, identity }) ?? null;
+        const projectedText = typeof selected?.text === 'string' ? selected.text.trim() : '';
+        if (selected?.kind === 'radio' && projectedText && projectedText.length <= 512) {
+          const block = `[SELECTED AUDIBLE ENVIRONMENT]\n${projectedText}\nTreat this as current perceptual context only; do not infer preference, recognition, or memory from it.\n[/SELECTED AUDIBLE ENVIRONMENT]`;
+          const base = String(context?.contextText || '');
+          if (Buffer.byteLength(base) + Buffer.byteLength(block) + 2 <= 12_000) {
+            contextProjection = selected;
+            context = Object.freeze({ ...context, contextText: [base, block].filter(Boolean).join('\n\n') });
+            metrics?.event('context_projection_selected', { kind: 'radio', revision: selected.revision, chars: projectedText.length });
+          } else metrics?.event('context_projection_omitted', { kind: 'radio', reason: 'context_budget' });
+        }
+      } catch { metrics?.event('context_projection_omitted', { kind: 'radio', reason: 'projection_failed' }); }
+    }
+
     // Snapshot the old history first so the current utterance is not duplicated in
     // both the history and the current user message sent to Luna.
     const priorHistory = history.readForSession(identity.pedId, identity.sessionNonce);
@@ -301,6 +318,12 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
           input: isPlayer ? finalInput : '', history: priorHistory, signal, timeoutMs, telemetry, dialogueAttempt }));
     }
     check();
+    if (contextProjection) {
+      try {
+        const acknowledged = services.acknowledgeTurnContext?.(contextProjection,'delivered') === true;
+        metrics?.event('context_projection_consumed', { kind: 'radio', revision: contextProjection.revision, outcome: acknowledged ? 'delivered' : 'stale' });
+      } catch { metrics?.event('context_projection_consumed', { kind: 'radio', revision: contextProjection.revision, outcome: 'unavailable' }); }
+    }
     transition('decision_validation');
     const validateSpan = metrics?.startSpan('decision_validation');
     let validated;
