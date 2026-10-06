@@ -196,7 +196,7 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
         const selected = services.projectTurnContext?.({ input: finalInput, source, identity }) ?? null;
         const projectedText = typeof selected?.text === 'string' ? selected.text.trim() : '';
         if (selected?.kind === 'radio' && projectedText && projectedText.length <= 512) {
-          const block = `[SELECTED AUDIBLE ENVIRONMENT]\n${projectedText}\n[/SELECTED AUDIBLE ENVIRONMENT]`;
+          const block = `[SELECTED AUDIBLE ENVIRONMENT]\n${projectedText}\nTreat this as current perceptual context only; do not infer preference, recognition, or memory from it.\n[/SELECTED AUDIBLE ENVIRONMENT]`;
           const base = String(context?.contextText || '');
           if (Buffer.byteLength(base) + Buffer.byteLength(block) + 2 <= 12_000) {
             contextProjection = selected;
