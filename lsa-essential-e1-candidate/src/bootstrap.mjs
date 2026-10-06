@@ -10,7 +10,7 @@ import { startCharacterEditor } from './characters/editorServer.mjs';
 import { defaultControlEndpointPath } from './control/endpointFile.mjs';
 import { characterContractSupported } from './characters/nativeSupport.mjs';
 import { IntelligenceClient } from './perception/intelligenceClient.mjs';
-import { loadRadioTrackCatalog } from './perception/radioTrackCatalog.mjs';
+import { loadRadioTrackTextCatalog } from './perception/radioTrackTextCatalog.mjs';
 import { ActivityClient } from './activities/activityClient.mjs';
 import { ActivityRuntime } from './activities/activityRuntime.mjs';
 import { perceptionContractSupported } from './perception/nativeSupport.mjs';
@@ -100,7 +100,7 @@ export async function createRuntimeForBundle(options = {}) {
         const suppliedIntelligenceTelemetry=options.intelligenceOptions?.telemetry;
         let radioCatalog=options.intelligenceOptions?.radioCatalog;
         if(radioCatalog===undefined && config.intelligence.radio==='shadow') {
-          try { radioCatalog=loadRadioTrackCatalog(await readFile(new URL('../data/radioTrackTextIds.v2.json',import.meta.url),'utf8')); } catch {}
+          try { radioCatalog=loadRadioTrackTextCatalog(await readFile(new URL('../data/radioTrackTextIds.v2.json',import.meta.url),'utf8')); } catch {}
         }
         const intelligenceOptions={...options.intelligenceOptions,radioCatalog,telemetry:(event,data)=>{
           try { suppliedIntelligenceTelemetry?.(event,data); } catch {}
