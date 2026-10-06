@@ -45,6 +45,12 @@ namespace LSA.Intelligence
             if(g.DistanceMeters>soundRange) return Negative(g,"auditory_out_of_range");
             return new WitnessReceipt {Observer=g.Observer,SampledGameTick=g.SampledGameTick,Status="witnessed",Reason="audibility_model",Channel="auditory",Basis="audibility_model",KnowsSource=false,KnowsTarget=false};
         }
+        public static WitnessReceipt SameVehicleRadio(string observer,uint sampledGameTick,bool sameVehicle)
+        {
+            if(String.IsNullOrEmpty(observer)) return new WitnessReceipt {Observer=observer,SampledGameTick=sampledGameTick,Status="unknown",Reason="invalid_sample"};
+            if(!sameVehicle) return new WitnessReceipt {Observer=observer,SampledGameTick=sampledGameTick,Status="unknown",Reason="radio_exterior_unverified"};
+            return new WitnessReceipt {Observer=observer,SampledGameTick=sampledGameTick,Status="witnessed",Reason="same_vehicle_radio",Channel="auditory",Basis="audibility_model",KnowsSource=false,KnowsTarget=true};
+        }
         static double SoundRange(string kind) {switch(kind) {case "gunshot":return 60;case "siren":return 60;case "speech":return 12;case "impact":return 25;default:return 0;}}
         static WitnessReceipt Unknown(WitnessGeometry g,string reason)=>new WitnessReceipt {Observer=g?.Observer,SampledGameTick=g?.SampledGameTick??0,Status="unknown",Reason=reason};
         static WitnessReceipt Negative(WitnessGeometry g,string reason)=>new WitnessReceipt {Observer=g.Observer,SampledGameTick=g.SampledGameTick,Status="did_not_witness",Reason=reason};

@@ -4,6 +4,7 @@ import { EpisodeStore } from './episodeStore.mjs';
 import { EpisodeCorrelator } from './episodeCorrelator.mjs';
 import { SharedTranscriptStore } from './sharedTranscriptStore.mjs';
 import { SalienceCache } from './salienceEngine.mjs';
+import { RadioTrackCatalog, normalizeRadioSignal } from './radioTrackCatalog.mjs';
 
 const MAX_COUNTER = 2147483647;
 const PS3_REASON_COUNTERS = Object.freeze({
@@ -17,8 +18,8 @@ const PS3_REASON_COUNTERS = Object.freeze({
 });
 
 export class ShadowRuntime {
-  constructor({ mode='off', radio='off', now=()=>Math.floor(performance.now()) }={}) {
-    this.mode=mode;this.radio=radio==='shadow'?'shadow':'off';this.now=now;this.anchors=new Map();this.signals=[];this.sequence=0;this.producers=new Map();this.epoch=null;this.stream=null;this.lastReceipt=0;
+  constructor({ mode='off', radio='off', radioCatalog=RadioTrackCatalog.unavailable(), now=()=>Math.floor(performance.now()) }={}) {
+    this.mode=mode;this.radio=radio==='shadow'?'shadow':'off';this.radioCatalog=radioCatalog??RadioTrackCatalog.unavailable();this.now=now;this.anchors=new Map();this.signals=[];this.sequence=0;this.producers=new Map();this.epoch=null;this.stream=null;this.lastReceipt=0;
     this.counters=Object.fromEntries(['received','dropped','stale','malformed','duplicate','gaps','expired','resets'].map(k=>[k,0]));
     this.historyDiagnostics={expired:0,evicted:0,skipped:0,highWater:0};
     this.dropDiagnostics={anchorCapacity:0,observerCapacity:0};
@@ -100,8 +101,19 @@ export class ShadowRuntime {
     const critical=s.kind==='death' || ['damage','vehicle_damage'].includes(s.kind) && Boolean(this.anchors.get(s.target)?.observer || this.anchors.get(s.target)?.kind==='player');
     const facts={...s.facts};if(facts.collision) facts.collision=Object.freeze({...facts.collision});
     const value=Object.freeze({...s,facts:Object.freeze(facts)});
-    if(s.producer==='radio') {this.retainSignal(value,false,this.now()+BOUNDS.signalTtlMs-s.ageMs);return true;}
     this.count('received');
+    if(s.producer==='radio') {
+      this.retainSignal(value,false,this.now()+BOUNDS.signalTtlMs-s.ageMs);
+      const normalized=s.kind==='radio_changed'?normalizeRadioSignal(s,this.radioCatalog):null;
+      if(s.kind==='radio_changed' && !normalized) {this.ps2Diagnostics.dropped=Math.min(MAX_COUNTER,this.ps2Diagnostics.dropped+1);return true;}
+      const correlationSignal=s.kind==='radio_changed'?{...s,radio:normalized}:s;
+      const correlated=this.correlator.ingest({nativeRun:this.epoch,signal:correlationSignal,witnessReceipts:s.witnessReceipts||[]});
+      if(correlated.duplicate) this.ps2Diagnostics.duplicates=Math.min(MAX_COUNTER,this.ps2Diagnostics.duplicates+1);
+      else if(correlated.accepted) {this.ps2Diagnostics.correlated=Math.min(MAX_COUNTER,this.ps2Diagnostics.correlated+Number(Boolean(correlated.episodeId)));this.ps2Diagnostics.witnessed=Math.min(MAX_COUNTER,this.ps2Diagnostics.witnessed+correlated.observations.length);}
+      if(!correlated.accepted) this.ps2Diagnostics.dropped=Math.min(MAX_COUNTER,this.ps2Diagnostics.dropped+1);
+      // R3 stops at PS2 knowledge. R4 will decide radio salience.
+      return true;
+    }
     const selfReceipts=[];
     for(const anchor of this.anchors.values()) {
       if(!anchor.observer || anchor.kind!=='ped') continue;

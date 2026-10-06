@@ -44,12 +44,14 @@ class Program
         Check(Rage.Native.NativeFunction.RadioStationReads==offReads && ((SensorAdapters)Get(off,"sensors")).RadioSamples==0,"radio mode off performs no sampling");
         off.Shutdown();
         var player=new Ped {Handle=76,MemoryAddress=new IntPtr(76)};var vehicle=new Vehicle {Handle=77,MemoryAddress=new IntPtr(77)};
+        var passenger=new Ped {Handle=79,MemoryAddress=new IntPtr(79),CurrentVehicle=vehicle};var outsider=new Ped {Handle=80,MemoryAddress=new IntPtr(80)};
+        var radioRoster=new[]{new OwnedParticipant {Ped=passenger,Lifetime=Guid.NewGuid().ToString("D"),Current=()=>passenger.Existing},new OwnedParticipant {Ped=outsider,Lifetime=Guid.NewGuid().ToString("D"),Current=()=>outsider.Existing}};
         Game.LocalPlayer.Character=player;player.CurrentVehicle=vehicle;Game.GameTime=20000;PerceptionSystem.Snapshot=null;
         Rage.Native.NativeFunction.RadioStation="RADIO_01_CLASS_ROCK";Rage.Native.NativeFunction.RadioTrack=1;Rage.Native.NativeFunction.RadioPlayTime=42113;Rage.Native.NativeFunction.RadioThrow=false;Rage.Native.NativeFunction.RadioPlayThrow=false;
         var pipe="LSA.Radio.Tests."+Guid.NewGuid().ToString("N");
-        var integration=new IntelligenceIntegration(()=>new OwnedParticipant[0],pipe,"shadow");
+        var integration=new IntelligenceIntegration(()=>radioRoster,pipe,"shadow");
         Set(integration,"started",true);var sensors=(SensorAdapters)Get(integration,"sensors");sensors.Enabled=true;
-        var caps=(Dictionary<string,bool>)Get(integration,"capabilities");foreach(var k in new[]{"state","shooting","action"}) caps[k]=true;
+        var caps=(Dictionary<string,bool>)Get(integration,"capabilities");foreach(var k in new[]{"state","shooting","action","witness"}) caps[k]=true;
         var channel=new IntelligenceChannel(pipe,Guid.NewGuid().ToString("D"),()=>caps);Set(integration,"channel",channel);channel.Start();
         try {
             using(var client=new NamedPipeClientStream(".",pipe,PipeDirection.In)) {
@@ -58,15 +60,18 @@ class Program
                     Set(integration,"nextDiscovery",0L);Set(integration,"nextState",0L);Set(integration,"nextShot",0L);Set(integration,"nextRadio",0L);integration.Update();
                     var opened=ReadUntil(reader,"\"type\":\"diagnostics\"");
                     Check(opened.All(line=>!line.Contains("\"producer\":\"radio\"")),"first radio sample does not fabricate a change");
-                    Check(opened.Last().Contains("\"radio\":{\"samples\":1,\"edges\":0,\"nativeFailures\":0}"),"diagnostics expose bounded radio counters");
+                    Check(opened.Last().Contains("\"radio\":{\"samples\":1,\"edges\":0,\"nativeFailures\":0,\"witnessed\":0,\"witnessUnknown\":0}"),"diagnostics expose bounded radio counters");
                     Check(Game.Logs.Skip(logStart).Any(line=>line=="[RADIO_PROBE] vehicle=1 station=RADIO_01_CLASS_ROCK track=00000001 play_ms=42113"),"probe logs validated baseline");
                     Set(integration,"nextDiagnostics",long.MaxValue);Set(integration,"nextDiscovery",long.MaxValue);Set(integration,"nextState",long.MaxValue);Set(integration,"nextShot",long.MaxValue);Set(integration,"nextRefresh",long.MaxValue);
                     Rage.Native.NativeFunction.RadioTrack=unchecked((int)2481236011);Set(integration,"nextRadio",0L);Game.GameTime+=50;integration.Update();
                     var changed=ReadUntil(reader,"\"producer\":\"radio\"").Last();
                     Check(changed.Contains("\"kind\":\"radio_changed\"") && changed.Contains("\"trackHash\":2481236011") && !changed.Contains("artist") && !changed.Contains("title"),"serialized radio frame is station and hash only");
+                    var radioAnchors=(EntityAnchors)Get(integration,"anchors");var passengerRef=radioAnchors.Current.Single(a=>ReferenceEquals(a.Entity,passenger)).CaptureRef;var outsiderRef=radioAnchors.Current.Single(a=>ReferenceEquals(a.Entity,outsider)).CaptureRef;
+                    Check(changed.Contains(passengerRef) && changed.Contains("\"channel\":\"auditory\"") && changed.Contains("\"basis\":\"audibility_model\"") && changed.Contains("\"reason\":\"same_vehicle_radio\""),"same-vehicle passenger gets auditory witness receipt");
+                    Check(!changed.Contains(outsiderRef),"outside observer gets no radio witness receipt");
                     player.CurrentVehicle=null;Set(integration,"nextRadio",0L);Game.GameTime+=50;integration.Update();
                     var stopped=ReadUntil(reader,"\"kind\":\"radio_stopped\"").Last();
-                    Check(stopped.Contains("\"target\":null") && stopped.Contains("\"station\":\"\"") && stopped.Contains("\"trackHash\":0"),"vehicle exit serializes radio_stopped");
+                    Check(stopped.Contains("\"target\":") && stopped.Contains("\"station\":\"\"") && stopped.Contains("\"trackHash\":0") && !stopped.Contains("\"channel\":\"auditory\""),"vehicle exit keeps prior source only for stop/clear and creates no hearing receipt");
                 }
             }
             int edges=(int)sensors.RadioEdges;Game.GameTime=0;integration.Update();

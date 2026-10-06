@@ -10,6 +10,7 @@ import { startCharacterEditor } from './characters/editorServer.mjs';
 import { defaultControlEndpointPath } from './control/endpointFile.mjs';
 import { characterContractSupported } from './characters/nativeSupport.mjs';
 import { IntelligenceClient } from './perception/intelligenceClient.mjs';
+import { loadRadioTrackCatalog } from './perception/radioTrackCatalog.mjs';
 import { ActivityClient } from './activities/activityClient.mjs';
 import { ActivityRuntime } from './activities/activityRuntime.mjs';
 import { perceptionContractSupported } from './perception/nativeSupport.mjs';
@@ -97,7 +98,11 @@ export async function createRuntimeForBundle(options = {}) {
     if(perceptionContractSupported(contract)) {
       try {
         const suppliedIntelligenceTelemetry=options.intelligenceOptions?.telemetry;
-        const intelligenceOptions={...options.intelligenceOptions,telemetry:(event,data)=>{
+        let radioCatalog=options.intelligenceOptions?.radioCatalog;
+        if(radioCatalog===undefined && config.intelligence.radio==='shadow') {
+          try { radioCatalog=loadRadioTrackCatalog(await readFile(new URL('../data/radioTracks.v1.json',import.meta.url),'utf8')); } catch {}
+        }
+        const intelligenceOptions={...options.intelligenceOptions,radioCatalog,telemetry:(event,data)=>{
           try { suppliedIntelligenceTelemetry?.(event,data); } catch {}
           try { telemetry?.emit?.(event,null,'internal',data,'internal'); } catch {}
         }};
