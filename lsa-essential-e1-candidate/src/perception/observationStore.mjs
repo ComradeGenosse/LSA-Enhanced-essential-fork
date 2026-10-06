@@ -14,13 +14,13 @@ export class ObservationStore {
   }
   expire() { for(const [key,e] of this.entries) if(e.value.expiresAtMonotonicMs<=this.now() || !this.current(e.value.observer.captureRef) || e.value.claims.some(c=>[c.source,c.target].some(r=>r && !this.current(r.captureRef)))) {this.entries.delete(key);this.bytes-=e.bytes;} }
   retainEpisodeObservers(episodeId,allowed) {
-    let removed=0;
-    for(const [key,e] of this.entries) if(e.value.episodeId===episodeId && !allowed.has(e.value.observer.captureRef)) {this.entries.delete(key);this.bytes-=e.bytes;removed++;}
+    const removed=[];
+    for(const [key,e] of this.entries) if(e.value.episodeId===episodeId && !allowed.has(e.value.observer.captureRef)) {this.entries.delete(key);this.bytes-=e.bytes;removed.push(e.value.observationId);}
     return removed;
   }
   removeEpisode(episodeId) {
-    let removed=0;
-    for(const [key,e] of this.entries) if(e.value.episodeId===episodeId) {this.entries.delete(key);this.bytes-=e.bytes;removed++;}
+    const removed=[];
+    for(const [key,e] of this.entries) if(e.value.episodeId===episodeId) {this.entries.delete(key);this.bytes-=e.bytes;removed.push(e.value.observationId);}
     return removed;
   }
   clear() {this.entries.clear();this.bytes=0;}

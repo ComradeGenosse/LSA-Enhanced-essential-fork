@@ -283,7 +283,7 @@ export async function buildCandidate({ sourcePath = stockBundleDefault, outputPa
     features: { structuredStreaming: true, earlySegmentedTts: true, defaultEnabled: false, earlyTtsMode: 'dialogue_only', ttsConcurrency: 1,
       sessionIdentity: { defaultEnabled: false, modes: ['shadow','voices'], storeSchemaVersion: 1, nativeAddressing: 'unchanged' },
       promotedCharacters: { defaultEnabled:false,profileStoreSchemaVersion:1,manualMemoryOnly:true,requiresAuthoredP1Owner:true,nativeAddressing:'unchanged',summonWaitMs:30000,maxSummonWaitMs:60000 },
-      intelligence: {defaultMode:'off',modes:['off','shadow'],radioDefault:'off',radioModes:['off','shadow'],radioKnowledge:'ps2_same_vehicle_shadow',phases:['PS0','PS1','PS2','PS3'],witness:'source_sample_visual',playerSpeech:'disabled_unsupported_capture_receipt',salience:'deterministic_local',responderSelection:false,modelContext:false,automaticMemory:false,initiative:false},
+      intelligence: {defaultMode:'off',modes:['off','shadow'],radioDefault:'off',radioModes:['off','shadow'],radioKnowledge:'ps2_same_vehicle_shadow',radioSalience:'ps3_low_priority_shadow',saliencePolicyVersion:2,phases:['PS0','PS1','PS2','PS3'],witness:'source_sample_visual',playerSpeech:'disabled_unsupported_capture_receipt',salience:'deterministic_local',responderSelection:false,modelContext:false,automaticMemory:false,initiative:false},
       dialogueLogging: { defaultEnabled:false,provider:'openai',storage:'rotating-jsonl' } },
     launcherEntry: launcherName, upstreamBundleSha256: sourceHash,
     stockDllReferenceSha256: dllHash, builtBundleSha256: digest(patched.output),

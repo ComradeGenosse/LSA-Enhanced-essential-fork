@@ -184,7 +184,7 @@ test('radio signals accept the closed station and hash contract',()=>{
   ]) assert.equal(validateSignal(bad),false);
   assert.equal(validateFrame(r.frame('signal',ok)),true);
 });
-test('radio R3 creates PS2 knowledge only for source-time same-vehicle witness receipts',()=>{
+test('radio R3/R4 creates observer-scoped PS2 knowledge and low-priority PS3 decisions',()=>{
   const blocked=radioRuntime('off');
   assert.equal(blocked.ingest(blocked.frame('signal',blocked.signal())),false);assert.equal(blocked.runtime.signals.length,0);
   const live=radioRuntime();
@@ -198,10 +198,15 @@ test('radio R3 creates PS2 knowledge only for source-time same-vehicle witness r
   assert.equal(observation.claims[0].kind,'sound');assert.equal(observation.claims[0].evidence.channel,'auditory');
   assert.equal(observation.claims[0].target.captureRef,live.vehicle);assert.equal(observation.claims[0].details.stationName,'Test Rock');
   assert.equal(observation.claims[0].details.artist,'Artist A');assert.equal(observation.claims[0].details.title,'Track A');
-  assert.equal(live.runtime.ps3Diagnostics.decisions,0);
-  const outsider=radioRuntime();assert.equal(outsider.ingest(outsider.frame('signal',outsider.signal())),true);assert.equal(outsider.runtime.observations.entries.size,0);
+  assert.equal(live.runtime.ps3Diagnostics.decisions,1);assert.equal(live.runtime.ps3Diagnostics.urgent,0);assert.equal(live.runtime.ps3Diagnostics.eligible,0);assert.equal(live.runtime.ps3Diagnostics.staged,0);
+  const defaultDecision=live.runtime.salience.latestById.get(observation.observationId).decision;
+  assert.equal(defaultDecision.context,'omit');assert.equal(defaultDecision.response,'none');assert.equal(defaultDecision.memory,'none');assert.ok(defaultDecision.reasons.includes('routine_low_relevance'));
+  const requested=live.runtime.noteSalience(observation,{requestedEnvironmentChannels:['radio']});
+  assert.equal(requested.context,'candidate');assert.equal(requested.response,'none');assert.equal(requested.memory,'none');assert.ok(requested.reasons.includes('environment_requested'));
+  const outsider=radioRuntime();assert.equal(outsider.ingest(outsider.frame('signal',outsider.signal())),true);assert.equal(outsider.runtime.observations.entries.size,0);assert.equal(outsider.runtime.ps3Diagnostics.decisions,0);
   assert.equal(live.ingest(live.frame('signal',live.signal({target:live.ped,witnessReceipts:[witness]}))),false);
-  assert.equal(live.ingest(live.frame('signal',live.signal({target:null}))),true);
+  const stop=live.signal({kind:'radio_stopped',target:live.vehicle,facts:{station:'',trackHash:0},witnessReceipts:[]});
+  assert.equal(live.ingest(live.frame('signal',stop)),true);assert.equal(live.runtime.observations.entries.size,0);assert.equal(live.runtime.salience.latestById.has(observation.observationId),false);
 });
 test('radio diagnostics stay scalar and reject station content',()=>{
   const f=fixture(),radio={samples:2,edges:1,nativeFailures:0,witnessed:1,witnessUnknown:2};

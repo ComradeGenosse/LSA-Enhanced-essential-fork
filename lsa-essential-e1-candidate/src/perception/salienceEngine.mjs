@@ -10,10 +10,10 @@ export const REASON_CODES = Object.freeze([
   'involvement_self', 'involvement_player',
   'relationship_close', 'relationship_conflict',
   'prior_memory', 'novelty_escalation', 'novelty_material',
-  'situation_occupied', 'situation_conversation', 'trait_policy', 'routine_low_relevance',
+  'situation_occupied', 'situation_conversation', 'trait_policy', 'environment_requested', 'routine_low_relevance',
 ]);
 export const TRAIT_POLICIES = Object.freeze(['protective', 'cautious', 'loyal', 'bold']);
-export const SALIENCE_POLICY_VERSION = 1;
+export const SALIENCE_POLICY_VERSION = 2;
 export const SALIENCE_BOUNDS = Object.freeze({
   decisions: 256, perObserver: 32, suppression: 1024, suppressionTtlMs: 10 * 60 * 1000, reasons: 4,
 });
@@ -22,7 +22,7 @@ const RELATIONSHIPS = new Set(['associate', 'friend', 'trusted', 'strained', 'ne
 const ACTIVITIES = new Set(['unknown', 'idle', 'driving', 'passenger', 'in_vehicle', 'conversation', 'following', 'waiting']);
 const CLOSE = new Set(['friend', 'trusted']);
 const OCCUPIED = new Set(['driving', 'passenger', 'in_vehicle']);
-const ROUTINE_EVENTS = new Set(['character_present', 'location_changed', 'activity_changed', 'speech_heard', 'action_observed', 'vehicle_transition']);
+const ROUTINE_EVENTS = new Set(['character_present', 'location_changed', 'activity_changed', 'speech_heard', 'radio_heard', 'action_observed', 'vehicle_transition']);
 const HARM_EVENTS = new Set(['injury', 'death_seen', 'body_found', 'vehicle_impact', 'threat']);
 const SEVERITY = Object.freeze({ routine: 0, notable: 1, danger: 2, critical: 3 });
 const RESPONSE_RANK = Object.freeze({ none: 0, eligible: 1, urgent: 2 });
@@ -56,7 +56,7 @@ function policyFingerprint(situation, observation) {
   }).sort();
   const memories = situation.memories.map(memory => `${memory.memoryId}:${memory.importance}:${[...memory.relatedCharacterIds].sort().join('.')}`).sort();
   const player = situation.playerRelationship?.state || 'none';
-  return [situation.activity, player, recognized.join('|'), memories.join('|'), situation.traitPolicies.join(',')].join('~');
+  return [situation.activity, player, recognized.join('|'), memories.join('|'), situation.traitPolicies.join(','), (situation.requestedEnvironmentChannels||[]).join(',')].join('~');
 }
 function selectReasons(reasons) {
   const present = new Set(reasons.filter(code => REASON_SET.has(code)));
@@ -121,6 +121,7 @@ export function normalizeSalienceSituation(input = {}) {
     memories: Object.freeze(memories),
     traitPolicies: Object.freeze(traitPolicies),
     distanceBand: [0, 1, 2, 3].includes(source.distanceBand) ? source.distanceBand : 0,
+    requestedEnvironmentChannels: Object.freeze([...new Set((Array.isArray(source.requestedEnvironmentChannels) ? source.requestedEnvironmentChannels : []).filter(value => value === 'radio'))]),
   });
 }
 export function situationFromCharacterView(view = {}) {
@@ -154,6 +155,7 @@ export function situationFromCharacterView(view = {}) {
     memories: profileMemories,
     traitPolicies,
     distanceBand: view.distanceBand,
+    requestedEnvironmentChannels: view.requestedEnvironmentChannels,
   });
 }
 
@@ -167,6 +169,12 @@ function classify(observation, situation) {
 
   const supported = observation.claims.filter(claim => claim.certainty === 'supported' && claim.evidence.channel !== 'report');
   if (!supported.length) return { context: 'candidate', memory: 'none', response: 'none', reasons: ['evidence_uncertain'], closed: true };
+
+  const radioHeard = observation.eventType === 'radio_heard' && supported.some(claim => claim.kind === 'sound' && claim.details?.soundType === 'radio');
+  if (radioHeard) {
+    const requested = (situation.requestedEnvironmentChannels||[]).includes('radio');
+    return { context: requested ? 'candidate' : 'omit', memory: 'none', response: 'none', reasons: [requested ? 'environment_requested' : 'routine_low_relevance'], closed: false };
+  }
 
   const selfRef = observation.observer.captureRef;
   const playerRef = situation.playerCaptureRef;
@@ -268,6 +276,8 @@ function applyLedger(draft, observation, situation, cache) {
   ));
   const familyEscalated = Boolean(!existing && family && severity > family.severity);
   let { context, memory, response, reasons } = draft;
+  const radioContextReplay = observation.eventType === 'radio_heard' && existing?.revision === observation.revision && existing?.consumedBy instanceof Set && existing.consumedBy.has('ps4_context');
+  if (radioContextReplay && context !== 'omit') { context = 'omit'; reasons = [...reasons, 'repetition_suppressed']; }
   const alreadyGranted = existing?.granted || 'none';
   if (existing && observation.revision < existing.revision) {
     response = 'none'; memory = 'none'; reasons = [...reasons, 'revision_stale'];
@@ -374,6 +384,12 @@ export class SalienceCache {
     if (consumer === 'ps6_ticket' && !entry.consumed) entry.granted = 'none';
     return true;
   }
+  forgetObservation(observationId) {
+    if (!isUuid(observationId)) return false;
+    const existed = this.ledger.delete(observationId) || this.decisions.has(observationId) || this.latestById.has(observationId);
+    this.forgetDecision(observationId);
+    return existed;
+  }
   clear() { this.decisions.clear(); this.order = []; this.ledger.clear(); this.families.clear(); this.latestById.clear(); }
   expire(now = this.now()) {
     for (const [id, entry] of this.ledger) if (entry.expires <= now) this.ledger.delete(id);
@@ -425,7 +441,7 @@ export class SalienceCache {
         policy: draft.policy,
         granted: grant ? (RESPONSE_RANK[decision.response] >= RESPONSE_RANK[existing?.granted || 'none'] ? decision.response : existing.granted) : (existing?.granted || 'none'),
         consumed: Boolean(existing?.consumed),
-        consumedBy: new Set(existing?.consumedBy || []),
+        consumedBy: new Set(observation.eventType === 'radio_heard' && existing && observation.revision > existing.revision ? [] : (existing?.consumedBy || [])),
         decisionKey: decision.decisionKey,
         grantEpoch: draft.grantEpoch || existing?.grantEpoch || 0,
         familyKey: familyKey(observation),

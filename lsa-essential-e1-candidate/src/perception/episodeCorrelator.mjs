@@ -35,10 +35,14 @@ export class EpisodeCorrelator {
     if (!event) return { accepted: false, reason: 'unsupported_event' };
 
     const qualified = witnessReceipts.filter(r => r && (r.status === 'witnessed' || r.status === 'reported') && r.evidence && this.current(r.observer?.captureRef));
+    let removedObservationIds=[];
     if(signal.kind==='radio_changed' && signal.target) {
       const currentEpisode=this.radioCurrent.get(signal.target);
-      if(currentEpisode) this.observations.retainEpisodeObservers(currentEpisode,new Set(qualified.map(r=>r.observer.captureRef)));
-      if(!qualified.length) {const episodeId=this.closeRadioVehicle(signal.target);this.remember(eventKey,{episodeId:episodeId||null});return {accepted:true,duplicate:false,episodeId:episodeId||null,observations:[]};}
+      if(currentEpisode) removedObservationIds=this.observations.retainEpisodeObservers(currentEpisode,new Set(qualified.map(r=>r.observer.captureRef)));
+      if(!qualified.length) {
+        const closed=this.closeRadioVehicle(signal.target);removedObservationIds=[...new Set([...removedObservationIds,...closed.removedObservationIds])];
+        this.remember(eventKey,{episodeId:closed.episodeId});return {accepted:true,duplicate:false,episodeId:closed.episodeId,observations:[],removedObservationIds};
+      }
     }
     if (!qualified.length) { this.remember(eventKey, { episodeId: null }); return { accepted: true, duplicate: false, episodeId: null, observations: [] }; }
     const participants = [signal.source && { captureRef: signal.source, kind: this.anchor(signal.source)?.kind }, signal.target && { captureRef: signal.target, kind: this.anchor(signal.target)?.kind }]
@@ -89,23 +93,24 @@ export class EpisodeCorrelator {
     }
     if(family==='radio' && signal.target) this.radioCurrent.set(signal.target,episodeId);
     this.remember(eventKey, { episodeId });
-    return { accepted: true, duplicate: false, episodeId, observations: emitted };
+    return { accepted: true, duplicate: false, episodeId, observations: emitted, removedObservationIds };
   }
 
   closeRadioVehicle(vehicle) {
     const episodeId=vehicle ? this.radioCurrent.get(vehicle) : null;
+    let removedObservationIds=[];
     if(episodeId) {
-      this.observations.removeEpisode(episodeId);
+      removedObservationIds=this.observations.removeEpisode(episodeId);
       this.episodes.remove(episodeId);
       this.radioCurrent.delete(vehicle);
       for(const [key,value] of this.latest) if(value.episodeId===episodeId) this.latest.delete(key);
     }
-    return episodeId||null;
+    return {episodeId:episodeId||null,removedObservationIds};
   }
   stopRadio(signal,eventKey) {
-    const episodeId=this.closeRadioVehicle(signal.target);
-    this.remember(eventKey,{episodeId});
-    return {accepted:true,duplicate:false,episodeId,observations:[]};
+    const closed=this.closeRadioVehicle(signal.target);
+    this.remember(eventKey,{episodeId:closed.episodeId});
+    return {accepted:true,duplicate:false,episodeId:closed.episodeId,observations:[],removedObservationIds:closed.removedObservationIds};
   }
   findContinuation(nativeRun, eventType, incidentKey, participants, gameTick) {
     if (!incidentKey) return null;
