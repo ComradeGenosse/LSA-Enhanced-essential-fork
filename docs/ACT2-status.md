@@ -1,6 +1,6 @@
 # ACT2 status — player-assigned basic activities
 
-Updated October 6, 2026. Branch `feature/act2-player-assigned-basic-activities` has been reconciled onto current `main`, includes ACT0/ACT1 underneath it, and has now been built, hash-deployed to the GTA Enhanced install, and exercised in GTA. The integrated ACT0→ACT2 stack is accepted for merge to `main`. Post-review hardening is included after the original `eb786c3` implementation.
+Updated October 6, 2026. Branch `feature/act2-player-assigned-basic-activities` has been reconciled onto current `main`, includes ACT0/ACT1 underneath it, and has now been built, hash-deployed to the GTA Enhanced install, and exercised in GTA. The integrated ACT0→ACT2 stack was merged to `main` on October 6, 2026 via PR #18 (`b2221917`). Post-review hardening is included after the original `eb786c3` implementation.
 
 ACT2 is the first player-assigned activity path. It reuses the ACT0 registry and the ACT1 pipe, lease, receipt, and supersession machinery. Essential still performs the NPC action. ACT does not own a second GTA task scheduler.
 
@@ -128,4 +128,4 @@ ACT1 probes Q2, PT1, X1, and M1 are still open as well. They do not block this c
 
 The hardened/rebased stack has now been built, deployed, and exercised in GTA. The deployment used the rebased ACT2 head containing ACT0/ACT1; the staged payload hash check completed successfully and the companion/native addon builds succeeded. The historical per-suite counts above remain historical unless a later full regression run explicitly supersedes them.
 
-The integrated stack is accepted for merge and ordinary GTA testing, but individual physical capabilities remain deliberately gated. Keep `activities.mode` explicit and keep `activities.passedProbes` limited to capabilities whose focused GTA evidence has actually been captured. The six probe questions above stay open until that evidence exists; merging ACT2 does not silently close them.
+The integrated stack is merged and available for ordinary GTA testing, but individual physical capabilities remain deliberately gated. Keep `activities.mode` explicit and keep `activities.passedProbes` limited to capabilities whose focused GTA evidence has actually been captured. The six probe questions above stay open until that evidence exists; merging ACT2 does not silently close them.
