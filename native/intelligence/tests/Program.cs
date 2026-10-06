@@ -79,6 +79,10 @@ class Program
         Check(heard.Status=="unknown"&&heard.Reason=="vehicle_acoustics_unknown","unknown vehicle context does not grant hearing");
         heard=WitnessPolicy.Evaluate(new WitnessGeometry {EventKind="sound",Observer=Guid.NewGuid().ToString("D"),SampledGameTick=82,DistanceMeters=7,SoundKind="speech",SoundSourceVerified=true,SameAcousticSpace=true,ClearAcousticPath=true,SourceVehicle="enclosed",ObserverVehicle="on_foot"});
         Check(heard.Status=="did_not_witness"&&heard.Reason=="auditory_out_of_range","enclosed vehicle halves modeled speech radius");
+        var radioHeard=WitnessPolicy.SameVehicleRadio(Guid.NewGuid().ToString("D"),83,true);
+        Check(radioHeard.Status=="witnessed"&&radioHeard.Channel=="auditory"&&radioHeard.Basis=="audibility_model"&&radioHeard.Reason=="same_vehicle_radio"&&radioHeard.KnowsTarget,"same vehicle is strong radio hearing evidence");
+        radioHeard=WitnessPolicy.SameVehicleRadio(Guid.NewGuid().ToString("D"),84,false);
+        Check(radioHeard.Status=="unknown"&&radioHeard.Reason=="radio_exterior_unverified"&&radioHeard.Channel==null,"exterior radio hearing stays unknown");
         sensors.Sample(target,new StateSample {Health=100,Location="ZONE1",Activity="stationary",Presence="retained"},1,1);
         Check(sensors.Count==0,"initial state baseline");sensors.Sample(target,new StateSample {Health=80,Location="ZONE1",Activity="stationary",Presence="retained"},2,2);
         Check(sensors.Take().kind=="injury_state","injury state edge");
@@ -104,15 +108,17 @@ class Program
     }
     static void RadioTests(SensorAdapters sensors,string target)
     {
-        sensors.Reset();string v1=Guid.NewGuid().ToString("D"),v2=Guid.NewGuid().ToString("D");RawSignal radio;
+        sensors.Reset();string v1=Guid.NewGuid().ToString("D"),v2=Guid.NewGuid().ToString("D"),observer=Guid.NewGuid().ToString("D");RawSignal radio;
+        sensors.WitnessEvaluator=signal=>signal.kind=="radio_changed"?new List<WitnessReceipt>{WitnessPolicy.SameVehicleRadio(observer,signal.gameTick,true)}:new List<WitnessReceipt>();
         sensors.Radio(v1,"RADIO_TEST_A",1,1,1);sensors.Radio(v1,"RADIO_TEST_A",1,2,2);
         Check(sensors.Count==0 && sensors.RadioEdges==0,"radio baseline and stable track emit nothing");
         sensors.Radio(v1,"RADIO_TEST_A",2,3,3);radio=sensors.Take();
         Check(radio!=null && radio.producer=="radio" && radio.kind=="radio_changed" && !radio.Critical && radio.source==null && radio.target==v1 && radio.producerSequence==1 && (string)radio.facts["station"]=="RADIO_TEST_A" && (long)radio.facts["trackHash"]==2,"track change");
+        Check(radio.witnessReceipts.Count==1&&radio.witnessReceipts[0].Observer==observer&&radio.witnessReceipts[0].Channel=="auditory","radio edge carries source-time witness receipt");
         sensors.Radio(v1,"RADIO_TEST_A",2,4,4);sensors.Radio(v1,"RADIO_TEST_B",9,5,5);radio=sensors.Take();
         Check(sensors.Count==0 && radio.kind=="radio_changed" && radio.producerSequence==2 && (string)radio.facts["station"]=="RADIO_TEST_B","station change");
         sensors.Radio(null,null,4,6,6);radio=sensors.Take();
-        Check(radio.kind=="radio_stopped" && radio.target==null && radio.producerSequence==3 && (string)radio.facts["station"]=="" && (long)radio.facts["trackHash"]==0,"radio off");
+        Check(radio.kind=="radio_stopped" && radio.target==v1 && radio.producerSequence==3 && (string)radio.facts["station"]=="" && (long)radio.facts["trackHash"]==0 && radio.witnessReceipts.Count==0,"radio off retains prior source vehicle only to clear current knowledge");
         sensors.Radio(null,"",1,7,7);Check(sensors.Count==0,"off repeat emits nothing");
         sensors.Radio(v1,"RADIO_TEST_A",1,8,8);radio=sensors.Take();
         Check(radio.kind=="radio_changed" && radio.producerSequence==4,"start after off");
