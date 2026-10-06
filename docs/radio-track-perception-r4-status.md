@@ -1,5 +1,7 @@
 # Radio track perception R4 — PS3 salience
 
+> **R5 branch note:** this file describes the standalone R4 milestone. On `feature/radio-track-perception-r5-context-projection`, selected radio context can now cross the model boundary; see `radio-track-perception-r5-status.md`.
+
 Status: **implemented on `feature/radio-track-perception-r4-ps3-salience`; build/test/GTA acceptance pending**.  
 Base: `feature/radio-track-perception-r3-ps2-hearing@f2388a488c1714043b8bece2f1a666830f063436`.
 
