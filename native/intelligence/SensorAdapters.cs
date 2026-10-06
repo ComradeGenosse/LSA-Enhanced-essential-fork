@@ -141,15 +141,17 @@ namespace LSA.Intelligence
             var current=new RadioSample {Vehicle=vehicle,Station=station??"",TrackHash=trackHash};
             if(current.Station.Length==0) current.TrackHash=0;
             if(radioBaseline!=null && radioBaseline.Vehicle==current.Vehicle && radioBaseline.Station==current.Station && radioBaseline.TrackHash==current.TrackHash) return;
-            bool establishing=radioBaseline==null;
+            var previous=radioBaseline;
+            bool establishing=previous==null;
             radioBaseline=current;
             if(establishing) return;
             lock(gate) Note(ref radioEdges);
             bool stopped=current.Station.Length==0;
-            Enqueue(new RawSignal {
-                producer="radio",kind=stopped?"radio_stopped":"radio_changed",target=vehicle,source=null,gameTick=tick,receivedMs=now,Critical=false,
+            var signalTarget=stopped?(current.Vehicle??previous?.Vehicle):current.Vehicle;
+            Enqueue(Prepare(new RawSignal {
+                producer="radio",kind=stopped?"radio_stopped":"radio_changed",target=signalTarget,source=null,gameTick=tick,receivedMs=now,Critical=false,
                 facts=new Dictionary<string,object>{{"station",stopped?"":current.Station},{"trackHash",(long)current.TrackHash}}
-            });
+            }));
         }
         public void Retire(string captureRef) { baselines.Remove(captureRef); baselines.Remove("shot:"+captureRef); lastShot.Remove(captureRef);vehicles.Remove(captureRef);foreach(var state in baselines.Values) if(state.Vehicle==captureRef) state.VehicleBaseline=false; }
         public void Reset() { lock(gate) {queue.Clear();sequences.Clear();baselines.Clear();lastShot.Clear();vehicles.Clear();received.Clear();radioBaseline=null;radioSamples=0;radioEdges=0;radioNativeFailures=0;foreach(var k in damageCallbacks.Keys.ToArray()) damageCallbacks[k]=0;Dropped=0;} }
