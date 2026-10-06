@@ -4,6 +4,6 @@
   "pipeName": "LSA.PromotedCharacters.v1",
   "identityPipeName": "LSA.SessionIdentity.v1",
   "editorPort": 37921,
-  "intelligence": { "mode": "off", "pipeName": "LSA.Intelligence.v1" },
+  "intelligence": { "mode": "off", "pipeName": "LSA.Intelligence.v1", "radio": "off" },
   "activities": { "mode": "off", "pipeName": "LSA.Activities.v1" }
 }

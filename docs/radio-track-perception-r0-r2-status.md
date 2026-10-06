@@ -1,7 +1,7 @@
 # Radio track perception R0–R2
 
-Status: **implemented on `feature/radio-track-perception-r0-r2`; not merged to `main`**.  
-Tip: `58d8c77732e1a5e08ec85e0ac82233069e7d2a29`  
+Status: **implemented and reconciled onto current `main`; still unmerged and not redeployed after the rebase**.  
+Rebased on October 6, 2026 from `main@7e54b17b53f2786f3e9294e546db6b560fb5f6a7`.  
 Branch: https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/tree/feature/radio-track-perception-r0-r2
 
 Radio is a raw world fact. It does not create a PS2 observation, a memory, or any Luna prompt text.
@@ -55,7 +55,7 @@ The probe line, written only when that sanitized sample changes, looks like:
 
 ## Tests
 
-Fresh results on the pushed tip:
+Historical results from the pre-rebase radio implementation (not rerun after the October 6 reconciliation):
 
 | Suite | Result |
 | --- | --- |
@@ -66,7 +66,7 @@ Fresh results on the pushed tip:
 | `ps-host-tests` `stop` | PASS 7 |
 | `runtime-tests` | 34 passed |
 
-The companion suite’s candidate build check passed, so the empty catalog is copied into the staged package. The RPH characters-addon package build was not run, and nothing was deployed to GTA.
+The pre-rebase companion suite’s candidate build check passed, so the empty catalog was copied into the staged package. After reconciliation with current `main`, the catalog packaging path was preserved, but the full Node/.NET regression matrix and RPH characters-addon package build have **not** been rerun in this GitHub-only pass. The rebased radio build has not been deployed to GTA.
 
 ## Still shadow-only
 
@@ -78,7 +78,7 @@ PS2 hearing, PS3 salience, memory, and Luna context are not implemented. Radio s
 
 ## Differences from the research plan
 
-The branch started at `bc3b202`, the research baseline. `main` then moved to `8c63b20` and gained PS2 witness correlation plus the player-speech gate. This branch was merged forward onto that `main`. PS2 behavior is unchanged. Radio was not added as `radio_heard`.
+The branch originally started at `bc3b202`, was first merged forward through `8c63b20`, and has now been reconstructed directly on the October 6 `main` containing corrected PS3 telemetry/salience, UX updates, and merged ACT0–ACT2. Those newer systems remain authoritative. Radio was re-applied only at its intended seams and was **not** added as `radio_heard`; accepted radio frames are retained only as bounded raw diagnostic history and return before PS2 correlation or PS3 salience.
 
 Sampling is not always on. `intelligence.radio` defaults to `off`, which matches rollout mode 0. The 250 ms sampler runs only in `shadow`.
 
@@ -87,6 +87,15 @@ No new `radio` capability key was added. PS2 already extended the hello capabili
 Play time is read only when a probe line will be written. It is not part of track identity and it is not on the signal.
 
 The runtime admission harness stubs `EssentialInputInterception` so it still compiles after `main` started releasing that lease on host stop. That harness does not load Harmony.
+
+## October 6 rebase notes
+
+- Current `main` PS3 retained-history semantics are preserved: diagnostic history pressure evicts/skips retained copies without rejecting otherwise valid semantic input.
+- Radio remains routine/non-critical and never reserves critical history capacity.
+- Current ACT0–ACT2 constructor/runtime changes are preserved; the radio mode is an additional optional constructor/config argument only.
+- Current PS3 `companion_shadow` telemetry and acknowledgement/salience paths remain unchanged. Native radio counters stay in the existing diagnostics frame and `[PS] shadow` line; station/artist/title content is not persisted.
+- Radio tests were adjusted to current PS3 semantics so they assert that radio bypasses PS2/PS3 rather than relying on the older retention-drop counter behavior.
+- This reconciliation was performed from repository source and GitHub diffs. It establishes a clean source-level branch relationship to current `main`; it does **not** substitute for the normal local build/test/GTA acceptance run.
 
 ## GTA validation
 

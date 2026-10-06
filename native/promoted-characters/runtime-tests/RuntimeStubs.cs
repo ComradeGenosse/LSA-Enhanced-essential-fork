@@ -118,7 +118,7 @@ namespace LSA.Intelligence
     public sealed class OwnedParticipant { }
     public sealed class IntelligenceIntegration
     {
-        public IntelligenceIntegration(Func<OwnedParticipant[]> roster,string pipeName) { }
+        public IntelligenceIntegration(Func<OwnedParticipant[]> roster,string pipeName,string radioMode=null) { }
         public void OwnerRetired(string incarnationId) { }
         public void Shutdown() { }
         public void Shutdown(string reason) { }

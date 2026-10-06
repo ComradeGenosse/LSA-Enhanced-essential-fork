@@ -17,8 +17,8 @@ const PS3_REASON_COUNTERS = Object.freeze({
 });
 
 export class ShadowRuntime {
-  constructor({ mode='off', now=()=>Math.floor(performance.now()) }={}) {
-    this.mode=mode;this.now=now;this.anchors=new Map();this.signals=[];this.sequence=0;this.producers=new Map();this.epoch=null;this.stream=null;this.lastReceipt=0;
+  constructor({ mode='off', radio='off', now=()=>Math.floor(performance.now()) }={}) {
+    this.mode=mode;this.radio=radio==='shadow'?'shadow':'off';this.now=now;this.anchors=new Map();this.signals=[];this.sequence=0;this.producers=new Map();this.epoch=null;this.stream=null;this.lastReceipt=0;
     this.counters=Object.fromEntries(['received','dropped','stale','malformed','duplicate','gaps','expired','resets'].map(k=>[k,0]));
     this.historyDiagnostics={expired:0,evicted:0,skipped:0,highWater:0};
     this.dropDiagnostics={anchorCapacity:0,observerCapacity:0};
@@ -84,9 +84,10 @@ export class ShadowRuntime {
     }
     if(v.type==='retire') {this.retire(v.payload.captureRef);return true;}
     if(v.type==='retire_batch') {for(const ref of v.payload) this.retire(ref);return true;}
-    if(v.type==='diagnostics') {this.diagnostics=Object.freeze({...v.payload,damageCallbacks:Object.freeze({...v.payload.damageCallbacks})});this.capabilities=Object.freeze({...v.payload.capabilities});return true;}
+    if(v.type==='diagnostics') {const radio=v.payload.radio?Object.freeze({...v.payload.radio}):undefined;this.diagnostics=Object.freeze({...v.payload,damageCallbacks:Object.freeze({...v.payload.damageCallbacks}),...(radio?{radio}:{})});this.capabilities=Object.freeze({...v.payload.capabilities});return true;}
     const s=v.payload, cap={ped_damage:'pedDamage',player_damage:'playerDamage',vehicle_damage:'vehicleDamage',shooting:'shooting',state:'state',action:'action',playback:'playback'}[s.producer];
-    if(!this.capabilities[cap]) {this.count('stale');return false;}
+    if(s.producer==='radio') { if(this.radio!=='shadow') {this.count('stale');return false;} }
+    else if(!this.capabilities[cap]) {this.count('stale');return false;}
     if(s.witnessReceipts?.length && !this.capabilities.witness) {this.count('stale');return false;}
     if(s.producerSequence<=(this.producers.get(s.producer)||0)) {this.count('duplicate');return false;}
     // Producer gaps reflect bounded callback loss, never proof of an outcome.
@@ -94,11 +95,12 @@ export class ShadowRuntime {
     this.producers.set(s.producer,s.producerSequence);
     if([s.target,s.source,s.facts.vehicle].some(ref=>ref && !this.current(ref))) {this.count('stale');return false;}
     if(s.source && this.anchors.get(s.source).kind==='vehicle' || s.kind==='vehicle_state' && s.facts.driver && (!this.current(s.facts.driver) || this.anchors.get(s.facts.driver).kind==='vehicle')) {this.count('stale');return false;}
-    if(s.target && ((['vehicle_damage','vehicle_state'].includes(s.kind)) !== (this.anchors.get(s.target).kind==='vehicle')) || s.producer==='player_damage' && s.target && this.anchors.get(s.target).kind!=='player') {this.count('stale');return false;}
+    if(s.target && ((['vehicle_damage','vehicle_state','radio_changed','radio_stopped'].includes(s.kind)) !== (this.anchors.get(s.target).kind==='vehicle')) || s.producer==='player_damage' && s.target && this.anchors.get(s.target).kind!=='player') {this.count('stale');return false;}
     if(s.ageMs>=BOUNDS.signalTtlMs) {this.count('expired');return false;}
     const critical=s.kind==='death' || ['damage','vehicle_damage'].includes(s.kind) && Boolean(this.anchors.get(s.target)?.observer || this.anchors.get(s.target)?.kind==='player');
     const facts={...s.facts};if(facts.collision) facts.collision=Object.freeze({...facts.collision});
     const value=Object.freeze({...s,facts:Object.freeze(facts)});
+    if(s.producer==='radio') {this.retainSignal(value,false,this.now()+BOUNDS.signalTtlMs-s.ageMs);return true;}
     this.count('received');
     const selfReceipts=[];
     for(const anchor of this.anchors.values()) {
