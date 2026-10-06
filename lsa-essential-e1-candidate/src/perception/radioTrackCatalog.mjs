@@ -161,7 +161,8 @@ export function normalizeRadioSignal(signal,catalog) {
   }
   if(signal.kind!=='radio_changed') return null;
   const resolved=(catalog??RadioTrackTextCatalog.unavailable()).resolve(signal.facts);
-  return Object.freeze({eventSignalId:signal.signalId,kind:'radio_audio',soundKind:'radio',gameTick:signal.gameTick,sourceVehicleCaptureRef,...resolved});
+  const {kind:contentKind,...base}=resolved;
+  return Object.freeze({eventSignalId:signal.signalId,kind:'radio_audio',soundKind:'radio',gameTick:signal.gameTick,sourceVehicleCaptureRef,...base,...(contentKind?{contentKind}:{})});
 }
 
 // Transitional aliases keep the rest of the stack source-compatible while the active
