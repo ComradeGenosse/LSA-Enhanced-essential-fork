@@ -1,5 +1,7 @@
 # Radio track perception R5 — bounded model context projection
 
+> **V2 text-ID branch note:** this file describes the original R5 milestone. On `feature/radio-track-perception-v2-text-id`, R0–R5 now use live GTA `trackTextId` as the song identity and retain `soundHash` only as secondary container evidence. See `radio-track-perception-v2-status.md`.
+
 Status: **implemented on `feature/radio-track-perception-r5-context-projection`; build/test/GTA acceptance pending**.  
 Base: `feature/radio-track-perception-r4-ps3-salience@6d166c07bf550094503d48f23e5e2486d28562d8`.
 
@@ -15,7 +17,7 @@ R5 is the first Luna-visible radio layer. It consumes only R3 observer-scoped kn
 - At most one compact fact is appended to the frozen turn context.
 - Known track form: `Audible environment: the vehicle radio is playing "TITLE" by ARTIST on STATION.`
 - Unknown track form names a safe display station when available; otherwise it says only that the vehicle radio is playing and the track is unidentified.
-- Internal station keys, track hashes, capture refs, witness reasons, and catalog mechanics are never rendered.
+- Internal station keys, sound hashes, track text IDs, capture refs, witness reasons, and catalog mechanics are never rendered.
 - The projection block explicitly tells Luna not to infer preference, recognition, or memory from the fact.
 - Context is selected once before the model request. A track change during provider await cannot mutate the in-flight turn; the next turn may select the newer observation.
 - If the existing context budget cannot fit the bounded radio block, radio is omitted rather than displacing higher-priority context.
