@@ -1,5 +1,7 @@
 # Radio track perception R0–R2
 
+> **V2 supersession note:** this document is retained as historical R0–R2 status. The active stacked branch `feature/radio-track-perception-v2-text-id` replaces the original hash-only song identity with the researched `GET_AUDIBLE_MUSIC_TRACK_TEXT_ID()` design. Do not use this document's v1 hash-catalog assumptions for current implementation decisions.
+
 Status: **implemented and reconciled onto current `main`; still unmerged and not redeployed after the rebase**.  
 Rebased on October 6, 2026 from `main@7e54b17b53f2786f3e9294e546db6b560fb5f6a7`.  
 Branch: https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/tree/feature/radio-track-perception-r0-r2
