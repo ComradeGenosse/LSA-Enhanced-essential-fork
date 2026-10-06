@@ -1,5 +1,6 @@
-// Companion-only radio metadata. Native code never sends artist/title, and this
-// module is not consulted by prompt, memory, or observation code.
+// Companion-only radio metadata. Native code never sends artist/title. R3 may
+// use this bounded resolver when creating PS2 radio_heard observations; it is
+// still not a prompt, memory, network lookup, or autonomous-response path.
 export const RADIO_CATALOG_LIMITS = Object.freeze({
   tracks: 4096,
   bytes: 1024 * 1024,
