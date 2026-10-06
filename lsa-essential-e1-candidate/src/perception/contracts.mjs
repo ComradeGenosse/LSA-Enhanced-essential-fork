@@ -12,6 +12,7 @@ export function normalizePerceptionConfig(value = {}) {
   return Object.freeze({ mode, pipeName: /^[A-Za-z0-9_.-]{1,80}$/.test(pipeName) ? pipeName : 'LSA.Intelligence.v1', radio });
 }
 const integer = (v, max = Number.MAX_SAFE_INTEGER) => Number.isSafeInteger(v) && v >= 0 && v <= max;
+const signedInt32 = v => Number.isSafeInteger(v) && v >= -2147483648 && v <= 2147483647;
 const optionalRef = v => v === null || isUuid(v);
 const keys = (v, required, optional=[]) => v!==null && typeof v==='object' && !Array.isArray(v) && required.every(k=>Object.hasOwn(v,k)) && Object.keys(v).every(k=>required.includes(k)||optional.includes(k));
 const label = v => typeof v === 'string' && /^[a-z][a-z0-9_]{0,47}$/.test(v);
@@ -32,9 +33,9 @@ export function validateSignal(s) {
   if (s.kind==='action_callback') return s.producer==='action' && isUuid(s.target) && keys(f,['action','succeeded']) && ['followtarget','waithere','other'].includes(f.action) && typeof f.succeeded==='boolean';
   if (s.kind==='playback_started' || s.kind==='playback_ended') return s.producer==='playback' && keys(f,['interrupted','hadAudio']) && typeof f.interrupted==='boolean' && typeof f.hadAudio==='boolean';
   if (s.kind==='radio_changed' || s.kind==='radio_stopped') {
-    if (s.producer!=='radio' || s.source!==null || !keys(f,['station','trackHash'])) return false;
-    if (s.kind==='radio_stopped') return f.station==='' && f.trackHash===0;
-    return typeof f.station==='string' && /^[A-Z0-9_]{1,64}$/.test(f.station) && integer(f.trackHash,0xffffffff);
+    if (s.producer!=='radio' || s.source!==null || !keys(f,['station','soundHash','trackTextId'])) return false;
+    if (s.kind==='radio_stopped') return f.station==='' && f.soundHash===0 && f.trackTextId===0;
+    return typeof f.station==='string' && /^[A-Z0-9_]{1,64}$/.test(f.station) && integer(f.soundHash,0xffffffff) && signedInt32(f.trackTextId);
   }
   return false;
 }
@@ -61,10 +62,11 @@ export function validateObservation(o) {
 }
 const safeDisplayText = (v,max) => typeof v==='string' && v.length>=1 && v.length<=max && !/[\u0000-\u001f\u007f]/.test(v) && !v.includes('://') && !v.includes('\\');
 function validateRadioDetails(d) {
-  if (!keys(d,['eventSignalId','reason','soundType','station','trackKnown'],['stationName','artist','title']) || !isUuid(d.eventSignalId) || !label(d.reason) || d.soundType!=='radio' || typeof d.station!=='string' || !/^[A-Z0-9_]{1,64}$/.test(d.station) || typeof d.trackKnown!=='boolean') return false;
+  if (!keys(d,['eventSignalId','reason','soundType','station','trackKnown'],['stationName','artist','title','contentKind']) || !isUuid(d.eventSignalId) || !label(d.reason) || d.soundType!=='radio' || typeof d.station!=='string' || !/^[A-Z0-9_]{1,64}$/.test(d.station) || typeof d.trackKnown!=='boolean') return false;
   for (const [key,max] of [['stationName',80],['artist',120],['title',160]]) if (d[key]!==undefined && !safeDisplayText(d[key],max)) return false;
-  if (d.trackKnown) return ['stationName','artist','title'].every(k=>Object.hasOwn(d,k));
-  return d.artist===undefined && d.title===undefined;
+  if (d.contentKind!==undefined && !['music','commercial'].includes(d.contentKind)) return false;
+  if (d.trackKnown) return ['stationName','artist','title','contentKind'].every(k=>Object.hasOwn(d,k));
+  return d.artist===undefined && d.title===undefined && d.contentKind===undefined;
 }
 export function validateClaim(c) {
   if (!keys(c,['claimId','kind','certainty','evidence'],['source','target','details']) || !isUuid(c.claimId) || !['sound','firing','injured','dead','attack','location','action','presence','report'].includes(c.kind) || !['supported','uncertain'].includes(c.certainty) || !['source','target'].every(k=>c[k]===undefined || keys(c[k],['captureRef','kind']) && isUuid(c[k].captureRef) && ['ped','player','vehicle'].includes(c[k].kind)) || !keys(c.evidence,['channel','basis','sampledGameTick'],['reportRef']) || !['self','visual','auditory','report'].includes(c.evidence.channel) || !['native_callback','sampled_state','native_awareness','audibility_model','dialogue_report'].includes(c.evidence.basis) || !integer(c.evidence.sampledGameTick,0xffffffff) || c.evidence.reportRef!==undefined && (c.evidence.channel!=='report' || !isUuid(c.evidence.reportRef))) return false;
