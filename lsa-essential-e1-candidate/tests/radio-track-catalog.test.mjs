@@ -4,7 +4,7 @@ import { readFile } from 'node:fs/promises';
 import {
   RadioTrackTextCatalog, loadRadioTrackTextCatalog, normalizeRadioSignal, resolveRadioTrack,
   serializeRadioTrackTextCatalog, verifyRadioTrackTextCatalog, verifyRadioTrackTextCatalogText,
-} from '../src/perception/radioTrackCatalog.mjs';
+} from '../src/perception/radioTrackTextCatalog.mjs';
 
 const productionUrl = new URL('../data/radioTrackTextIds.v2.json', import.meta.url);
 
