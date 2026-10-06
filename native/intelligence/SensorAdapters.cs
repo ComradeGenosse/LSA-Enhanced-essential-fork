@@ -134,13 +134,13 @@ namespace LSA.Intelligence
             if(other) classes=classes.Length==0?"other":classes+"+other";
             return classes.Length==0?"empty":classes;
         }
-        public void Radio(string vehicle,string station,uint trackHash,uint tick,long now)
+        public void Radio(string vehicle,string station,uint soundHash,int trackTextId,uint tick,long now)
         {
             if(!Enabled) return;
-            if(!ValidRadioStation(station)) { station=""; trackHash=0; }
-            var current=new RadioSample {Vehicle=vehicle,Station=station??"",TrackHash=trackHash};
-            if(current.Station.Length==0) current.TrackHash=0;
-            if(radioBaseline!=null && radioBaseline.Vehicle==current.Vehicle && radioBaseline.Station==current.Station && radioBaseline.TrackHash==current.TrackHash) return;
+            if(!ValidRadioStation(station)) { station=""; soundHash=0; trackTextId=0; }
+            var current=new RadioSample {Vehicle=vehicle,Station=station??"",SoundHash=soundHash,TrackTextId=trackTextId};
+            if(current.Station.Length==0) {current.SoundHash=0;current.TrackTextId=0;}
+            if(radioBaseline!=null && radioBaseline.Vehicle==current.Vehicle && radioBaseline.Station==current.Station && radioBaseline.SoundHash==current.SoundHash && radioBaseline.TrackTextId==current.TrackTextId) return;
             var previous=radioBaseline;
             bool establishing=previous==null;
             radioBaseline=current;
@@ -150,7 +150,7 @@ namespace LSA.Intelligence
             var signalTarget=stopped?(current.Vehicle??previous?.Vehicle):current.Vehicle;
             Enqueue(Prepare(new RawSignal {
                 producer="radio",kind=stopped?"radio_stopped":"radio_changed",target=signalTarget,source=null,gameTick=tick,receivedMs=now,Critical=false,
-                facts=new Dictionary<string,object>{{"station",stopped?"":current.Station},{"trackHash",(long)current.TrackHash}}
+                facts=new Dictionary<string,object>{{"station",stopped?"":current.Station},{"soundHash",(long)current.SoundHash},{"trackTextId",current.TrackTextId}}
             }));
         }
         public void Retire(string captureRef) { baselines.Remove(captureRef); baselines.Remove("shot:"+captureRef); lastShot.Remove(captureRef);vehicles.Remove(captureRef);foreach(var state in baselines.Values) if(state.Vehicle==captureRef) state.VehicleBaseline=false; }
@@ -165,5 +165,5 @@ namespace LSA.Intelligence
         public long PendingSince;
     }
     public sealed class VehicleSample {public bool Engine;public int HealthBand,SpeedBand;public string Driver;}
-    public sealed class RadioSample { public string Vehicle; public string Station; public uint TrackHash; }
+    public sealed class RadioSample { public string Vehicle; public string Station; public uint SoundHash; public int TrackTextId; }
 }

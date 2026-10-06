@@ -5,10 +5,10 @@ import { SalienceCache } from '../src/perception/salienceEngine.mjs';
 import { radioTurnRelevant, currentConversationObserver, latestRadioObservation, renderRadioContext, selectRadioContext } from '../src/perception/radioContextProjector.mjs';
 
 const NOW=1000;
-function observation({observer,vehicle,title='Track A',artist='Artist A',stationName='Test Radio',known=true,revision=1,gameTick=10}={}) {
+function observation({observer,vehicle,title='Track A',artist='Artist A',stationName='Test Radio',known=true,contentKind='music',revision=1,gameTick=10}={}) {
   const details={eventSignalId:randomUUID(),reason:'same_vehicle_radio',soundType:'radio',station:'RADIO_TEST_A',trackKnown:known};
   if(stationName) details.stationName=stationName;
-  if(known) {details.artist=artist;details.title=title;}
+  if(known) {details.artist=artist;details.title=title;details.contentKind=contentKind;}
   return Object.freeze({
     version:1,observationId:randomUUID(),episodeId:randomUUID(),revision,
     observer:{captureRef:observer,kind:'ped'},
@@ -67,10 +67,19 @@ test('R5 omits when actor hearing is ambiguous or missing',()=>{
 test('R5 describes unknown tracks without exposing internal station/hash metadata',()=>{
   const f=runtimeFixture({known:false});
   const selected=selectRadioContext(f.runtime,'what is playing?');
-  assert.equal(selected.text,'Audible environment: Test Radio is playing, but the track is not identified.');
+  assert.equal(selected.text,'Audible environment: Test Radio is playing; the current radio content is not identified.');
   const noDisplay=observation({observer:f.ped,vehicle:f.vehicle,known:false,stationName:''});
-  assert.equal(renderRadioContext(noDisplay),'Audible environment: the vehicle radio is playing, but the track is not identified.');
-  assert.doesNotMatch(renderRadioContext(noDisplay),/RADIO_TEST_A|trackHash|captureRef/);
+  assert.equal(renderRadioContext(noDisplay),'Audible environment: the vehicle radio is playing; the current radio content is not identified.');
+  assert.doesNotMatch(renderRadioContext(noDisplay),/RADIO_TEST_A|soundHash|trackTextId|captureRef/);
+});
+
+test('R5 distinguishes a cataloged commercial from a song without inventing music identity',()=>{
+  const f=runtimeFixture();
+  const commercial=observation({observer:f.ped,vehicle:f.vehicle,title:'Commercial Break',artist:'Commercial',contentKind:'commercial'});
+  f.runtime.observations.entries.clear();f.runtime.observations.entries.set(f.ped+':'+commercial.episodeId,{value:commercial});
+  const selected=selectRadioContext(f.runtime,'what is playing?');
+  assert.equal(selected.text,'Audible environment: a commercial titled "Commercial Break" is playing on Test Radio.');
+  assert.doesNotMatch(selected.text,/by Commercial/);
 });
 
 test('explicit repeated radio questions remain eligible while R5 records PS4 delivery',()=>{

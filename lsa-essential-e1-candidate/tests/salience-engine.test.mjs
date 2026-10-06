@@ -63,7 +63,7 @@ function radioClaim({ vehicle = randomUUID(), title = 'Track A', artist = 'Artis
     target: { captureRef: vehicle, kind: 'vehicle' },
     details: {
       eventSignalId: randomUUID(), reason: 'same_vehicle_radio', soundType: 'radio',
-      station, trackKnown: true, stationName: 'Test Radio', artist, title,
+      station, trackKnown: true, stationName: 'Test Radio', artist, title, contentKind: 'music',
     },
   };
 }

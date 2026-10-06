@@ -18,6 +18,7 @@ export function createCompanionShadowTelemetry(summary = {}) {
   const drops = summary?.dropReasons && typeof summary.dropReasons === 'object' ? summary.dropReasons : {};
   const damage = summary?.damageCallbacks && typeof summary.damageCallbacks === 'object' ? summary.damageCallbacks : {};
   const native = summary?.nativeDiagnostics && typeof summary.nativeDiagnostics === 'object' ? summary.nativeDiagnostics : {};
+  const radioCatalog = summary?.radioCatalog && typeof summary.radioCatalog === 'object' ? summary.radioCatalog : {};
   return Object.freeze({
     anchors: counter(summary.anchors),
     retainedSignals: counter(summary.retainedSignals),
@@ -62,6 +63,8 @@ export function createCompanionShadowTelemetry(summary = {}) {
     ps3ReasonRevisionStale: counter(reasons.revisionStale),
     ps3ReasonNoveltyEscalation: counter(reasons.noveltyEscalation),
     ps3ReasonSuppressionCapacity: counter(reasons.suppressionCapacity),
+    radioUnknownTextIds: counter(radioCatalog.unknownTextIds),
+    radioCatalogMismatches: counter(radioCatalog.catalogMismatches),
     finalSnapshot: summary.finalSnapshot === true,
   });
 }
@@ -91,6 +94,7 @@ export class IntelligenceClient {
       damageCallbacks:diagnostics?.damageCallbacks??{ped_damage:0,player_damage:0,vehicle_damage:0},
       ps2:{...this.runtime.ps2Diagnostics,playerSpeechGate:diagnostics?.playerSpeechGate??'unsupported_capture_receipt',speech:this.runtime.transcripts.diagnostics},
       ps3:{...this.runtime.ps3Diagnostics,reasons:{...this.runtime.ps3Diagnostics.reasons}},
+      radioCatalog:{unknownTextIds:counter(this.runtime.radioCatalog?.unknownTextIds),catalogMismatches:counter(this.runtime.radioCatalog?.catalogMismatches)},
       finalSnapshot,
     };
   }

@@ -1,50 +1,96 @@
 # Radio track catalog provenance
 
-Status: **source data unavailable**. The committed catalog is intentionally empty.
+Status: **v1 hash catalog superseded; v2 research candidate present; GTA Enhanced runtime validation and redistribution decision still required.**
 
-## What is committed
+## Active catalog
 
-`lsa-essential-e1-candidate/data/radioTracks.v1.json` is a valid version-1 catalog with no track rows. `generatedFrom` is the token `unavailable`. That means this repository does not contain a mapping from `GET_CURRENT_TRACK_SOUND_NAME` hashes to artist and title.
+The active v2 branch uses:
 
-The resolver treats every runtime hash as unknown until a catalog built from the source below replaces that file. It does not guess, and it does not query the network.
+`lsa-essential-e1-candidate/data/radioTrackTextIds.v2.json`
 
-## Source data still required
+It is keyed by GTA radio **track text ID**, not by `GET_CURRENT_TRACK_SOUND_NAME()`.
 
-A locally owned GTA V Enhanced radio metadata extract is required before a real catalog can be generated. Each row must already contain:
+Audited candidate counts:
 
-- internal station key, matching `GET_PLAYER_RADIO_STATION_NAME` and `^[A-Z0-9_]{1,64}$`
-- display station name
-- track sound hash, the unsigned 32-bit value returned by `GET_CURRENT_TRACK_SOUND_NAME`
-- artist
-- title
+- 1,058 unique track text IDs;
+- 951 music entries;
+- 106 commercial entries;
+- 1 Media Player `Off` entry;
+- 26 stations with tagged content.
 
-The expected origin is Rockstar audio/radio metadata shipped with the game the operator owns. Community track lists, websites, and runtime lookups are not inputs.
+Live GTA runtime state remains authoritative. A catalog row does not prove that a song still exists in the current GTA V Enhanced rotation.
 
-This workspace does not include those game files. Do not invent rows to fill the gap.
+## Research provenance
 
-## Generator input
+The candidate was generated from the research recorded on `research/radio-public-catalog-v2-20261004`.
 
-`tools/buildRadioTrackCatalog.mjs` accepts only a local JSON document:
+Track metadata:
 
-```json
-{
-  "version": 1,
-  "game": "gta-v-enhanced",
-  "generatedFrom": "local-rockstar-radio-metadata",
-  "tracks": [
-    {
-      "station": "RADIO_01_CLASS_ROCK",
-      "stationName": "Los Santos Rock Radio",
-      "trackHash": "93E4A82B",
-      "artist": "Example Artist",
-      "title": "Example Track"
-    }
-  ]
-}
+- repository: `HintSystem/GTA-V-Radio-Dumps`
+- pinned commit: `d85fa6d9a63a2bc0d75109a6a8a3f9f26228e0cc`
+- useful inputs: GTA `dat151.rel`, `dat54.rel`, `dat4.rel`, AWC markers, nametables and `trackid.gxt2`
+
+Station labels:
+
+- repository: `DurtyFree/gta-v-data-dumps`
+- pinned commit: `b65684e00f689fdec405c5f1055322c802d3c895`
+- used only for station inventory/display labels, not song identity.
+
+The deterministic converter is:
+
+`tools/buildRadioTrackTextCatalog.mjs`
+
+The runtime verifier is:
+
+`tools/verifyRadioTrackTextCatalog.mjs`
+
+## Runtime authority
+
+The intended v2 runtime tuple is:
+
+```text
+station
+soundHash       # secondary sound/container evidence
+trackTextId     # primary candidate song/content identity
 ```
 
-`generatedFrom` is a short provenance token, not a filesystem path. The same hash cannot map to two rows. Hash `00000000` is not a track. The generator sorts keys and is byte-stable for the same input. `unknown` in its report stays zero until a complete Rockstar master list exists to compare against; it does not mean missing songs were identified.
+`GET_AUDIBLE_MUSIC_TRACK_TEXT_ID()` supplies the signed `trackTextId`.
 
-`tools/verifyRadioTrackCatalog.mjs` checks the closed schema, canonical ordering, and size ceiling.
+`GET_CURRENT_TRACK_SOUND_NAME(station)` remains useful for diagnostics/container identity but must not resolve artist/title. Research found 67 sound containers containing multiple unique tagged songs, with as many as 22 songs in one container.
 
-Tests use `lsa-essential-e1-candidate/tests/fixtures/radio-tracks.v1.json` only. They do not depend on real song names in the production catalog.
+Resolver rules:
+
+- known positive text ID + compatible station -> bounded metadata;
+- unknown positive ID -> `trackKnown=false`;
+- known ID on the wrong station -> `trackKnown=false`, catalog mismatch;
+- zero/negative values retain unknown semantics until GTA acceptance establishes what they mean;
+- catalog membership never creates runtime state by itself.
+
+## GTA validation gate
+
+The code migration does **not** establish that the native behaves as expected in GTA V Enhanced. Before merge/deployment acceptance, validate at minimum:
+
+1. a known ordinary song maps to its candidate text ID;
+2. a second independent station agrees;
+3. a multi-song mix such as FlyLo FM or Soulwax FM changes `trackTextId` when the audible song changes, ideally while `soundHash` remains stable;
+4. commercial, DJ/transition, news/talk and radio-off behavior is recorded;
+5. the text-ID native does not crash or flap under stable audible content.
+
+Example candidate row for a spot check:
+
+`1004 -> Hollywood Nights / BOB SEGER / RADIO_01_CLASS_ROCK`.
+
+## Redistribution boundary
+
+The public research repositories did not expose an explicit license declaration when researched. Public availability is not itself redistribution permission.
+
+Before treating this derived catalog as a public production asset, choose one:
+
+1. obtain permission/license clarification from the source maintainers; or
+2. regenerate the same metadata from the user's locally owned GTA V Enhanced files using the documented extraction/marker algorithm, retaining the public catalog only as a research cross-check.
+
+Runtime behavior must never depend on downloading either public repository.
+
+## Removed v1 assumption
+
+The old empty `radioTracks.v1.json` / hash-keyed generator path is historical and is not an active runtime source on the v2 branch. Keeping two competing song-identity catalogs would be unsafe.

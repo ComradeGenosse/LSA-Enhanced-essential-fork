@@ -4,7 +4,7 @@ import { EpisodeStore } from './episodeStore.mjs';
 import { EpisodeCorrelator } from './episodeCorrelator.mjs';
 import { SharedTranscriptStore } from './sharedTranscriptStore.mjs';
 import { SalienceCache } from './salienceEngine.mjs';
-import { RadioTrackCatalog, normalizeRadioSignal } from './radioTrackCatalog.mjs';
+import { RadioTrackTextCatalog, normalizeRadioSignal } from './radioTrackTextCatalog.mjs';
 
 const MAX_COUNTER = 2147483647;
 const PS3_REASON_COUNTERS = Object.freeze({
@@ -18,8 +18,8 @@ const PS3_REASON_COUNTERS = Object.freeze({
 });
 
 export class ShadowRuntime {
-  constructor({ mode='off', radio='off', radioCatalog=RadioTrackCatalog.unavailable(), now=()=>Math.floor(performance.now()) }={}) {
-    this.mode=mode;this.radio=radio==='shadow'?'shadow':'off';this.radioCatalog=radioCatalog??RadioTrackCatalog.unavailable();this.now=now;this.anchors=new Map();this.signals=[];this.sequence=0;this.producers=new Map();this.epoch=null;this.stream=null;this.lastReceipt=0;
+  constructor({ mode='off', radio='off', radioCatalog=RadioTrackTextCatalog.unavailable(), now=()=>Math.floor(performance.now()) }={}) {
+    this.mode=mode;this.radio=radio==='shadow'?'shadow':'off';this.radioCatalog=radioCatalog??RadioTrackTextCatalog.unavailable();this.now=now;this.anchors=new Map();this.signals=[];this.sequence=0;this.producers=new Map();this.epoch=null;this.stream=null;this.lastReceipt=0;
     this.counters=Object.fromEntries(['received','dropped','stale','malformed','duplicate','gaps','expired','resets'].map(k=>[k,0]));
     this.historyDiagnostics={expired:0,evicted:0,skipped:0,highWater:0};
     this.dropDiagnostics={anchorCapacity:0,observerCapacity:0};
@@ -106,8 +106,9 @@ export class ShadowRuntime {
       this.retainSignal(value,false,this.now()+BOUNDS.signalTtlMs-s.ageMs);
       const normalized=s.kind==='radio_changed'?normalizeRadioSignal(s,this.radioCatalog):null;
       if(s.kind==='radio_changed' && !normalized) {this.ps2Diagnostics.dropped=Math.min(MAX_COUNTER,this.ps2Diagnostics.dropped+1);return true;}
-      const correlationSignal=s.kind==='radio_changed'?{...s,radio:normalized}:s;
-      const correlated=this.correlator.ingest({nativeRun:this.epoch,signal:correlationSignal,witnessReceipts:s.witnessReceipts||[]});
+      const semanticOff=normalized?.contentKind==='off';
+      const correlationSignal=semanticOff?{...s,kind:'radio_stopped',radio:normalized}:s.kind==='radio_changed'?{...s,radio:normalized}:s;
+      const correlated=this.correlator.ingest({nativeRun:this.epoch,signal:correlationSignal,witnessReceipts:semanticOff?[]:(s.witnessReceipts||[])});
       if(correlated.duplicate) this.ps2Diagnostics.duplicates=Math.min(MAX_COUNTER,this.ps2Diagnostics.duplicates+1);
       else if(correlated.accepted) {this.ps2Diagnostics.correlated=Math.min(MAX_COUNTER,this.ps2Diagnostics.correlated+Number(Boolean(correlated.episodeId)));this.ps2Diagnostics.witnessed=Math.min(MAX_COUNTER,this.ps2Diagnostics.witnessed+correlated.observations.length);}
       if(!correlated.accepted) this.ps2Diagnostics.dropped=Math.min(MAX_COUNTER,this.ps2Diagnostics.dropped+1);

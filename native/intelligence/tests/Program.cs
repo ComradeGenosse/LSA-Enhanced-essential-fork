@@ -110,39 +110,60 @@ class Program
     {
         sensors.Reset();string v1=Guid.NewGuid().ToString("D"),v2=Guid.NewGuid().ToString("D"),observer=Guid.NewGuid().ToString("D");RawSignal radio;
         sensors.WitnessEvaluator=signal=>signal.kind=="radio_changed"?new List<WitnessReceipt>{WitnessPolicy.SameVehicleRadio(observer,signal.gameTick,true)}:new List<WitnessReceipt>();
-        sensors.Radio(v1,"RADIO_TEST_A",1,1,1);sensors.Radio(v1,"RADIO_TEST_A",1,2,2);
-        Check(sensors.Count==0 && sensors.RadioEdges==0,"radio baseline and stable track emit nothing");
-        sensors.Radio(v1,"RADIO_TEST_A",2,3,3);radio=sensors.Take();
-        Check(radio!=null && radio.producer=="radio" && radio.kind=="radio_changed" && !radio.Critical && radio.source==null && radio.target==v1 && radio.producerSequence==1 && (string)radio.facts["station"]=="RADIO_TEST_A" && (long)radio.facts["trackHash"]==2,"track change");
+        sensors.Radio(v1,"RADIO_TEST_A",1,1004,1,1);sensors.Radio(v1,"RADIO_TEST_A",1,1004,2,2);
+        Check(sensors.Count==0 && sensors.RadioEdges==0,"radio baseline and stable station/sound/text tuple emit nothing");
+
+        sensors.Radio(v1,"RADIO_TEST_A",1,1005,3,3);radio=sensors.Take();
+        Check(radio!=null && radio.producer=="radio" && radio.kind=="radio_changed" && !radio.Critical && radio.source==null && radio.target==v1 &&
+            radio.producerSequence==1 && (string)radio.facts["station"]=="RADIO_TEST_A" && (long)radio.facts["soundHash"]==1 &&
+            (int)radio.facts["trackTextId"]==1005,"text-ID-only song transition is material");
         Check(radio.witnessReceipts.Count==1&&radio.witnessReceipts[0].Observer==observer&&radio.witnessReceipts[0].Channel=="auditory","radio edge carries source-time witness receipt");
-        sensors.Radio(v1,"RADIO_TEST_A",2,4,4);sensors.Radio(v1,"RADIO_TEST_B",9,5,5);radio=sensors.Take();
-        Check(sensors.Count==0 && radio.kind=="radio_changed" && radio.producerSequence==2 && (string)radio.facts["station"]=="RADIO_TEST_B","station change");
-        sensors.Radio(null,null,4,6,6);radio=sensors.Take();
-        Check(radio.kind=="radio_stopped" && radio.target==v1 && radio.producerSequence==3 && (string)radio.facts["station"]=="" && (long)radio.facts["trackHash"]==0 && radio.witnessReceipts.Count==0,"radio off retains prior source vehicle only to clear current knowledge");
-        sensors.Radio(null,"",1,7,7);Check(sensors.Count==0,"off repeat emits nothing");
-        sensors.Radio(v1,"RADIO_TEST_A",1,8,8);radio=sensors.Take();
-        Check(radio.kind=="radio_changed" && radio.producerSequence==4,"start after off");
-        sensors.Radio(v2,"RADIO_TEST_A",1,9,9);radio=sensors.Take();
-        Check(radio.kind=="radio_changed" && radio.target==v2 && radio.producerSequence==5,"vehicle change");
-        sensors.Reset();sensors.Radio(v2,"RADIO_TEST_A",1,10,10);sensors.Radio(v2,"RADIO_TEST_A",1,11,11);Check(sensors.Count==0,"reset clears radio baseline");
-        sensors.Radio(v2,"RADIO_TEST_A",3,12,12);Check(sensors.Take().producerSequence==1,"radio producer sequence restarts after reset");
-        sensors.Radio(v1,"RADIO_TEST_A",0,13,13);radio=sensors.Take();
-        Check(radio.kind=="radio_changed" && (long)radio.facts["trackHash"]==0,"zero hash remains a track change");
-        sensors.Radio(v1,"not a station",5,14,14);radio=sensors.Take();
+
+        sensors.Radio(v1,"RADIO_TEST_A",2,1005,4,4);radio=sensors.Take();
+        Check(radio.kind=="radio_changed" && (long)radio.facts["soundHash"]==2 && (int)radio.facts["trackTextId"]==1005,"sound-container-only transition remains material");
+
+        sensors.Radio(v1,"RADIO_TEST_B",9,2000,5,5);radio=sensors.Take();
+        Check(radio.kind=="radio_changed" && (string)radio.facts["station"]=="RADIO_TEST_B" && (int)radio.facts["trackTextId"]==2000,"station change");
+
+        sensors.Radio(null,null,4,1234,6,6);radio=sensors.Take();
+        Check(radio.kind=="radio_stopped" && radio.target==v1 && (string)radio.facts["station"]=="" &&
+            (long)radio.facts["soundHash"]==0 && (int)radio.facts["trackTextId"]==0 && radio.witnessReceipts.Count==0,
+            "radio off retains prior source vehicle and normalizes identifiers to zero");
+        sensors.Radio(null,"",1,-5,7,7);Check(sensors.Count==0,"off repeat emits nothing");
+
+        sensors.Radio(v1,"RADIO_TEST_A",1,1004,8,8);radio=sensors.Take();Check(radio.kind=="radio_changed","start after off");
+        sensors.Radio(v2,"RADIO_TEST_A",1,1004,9,9);radio=sensors.Take();Check(radio.kind=="radio_changed" && radio.target==v2,"vehicle change");
+
+        sensors.Reset();sensors.Radio(v2,"RADIO_TEST_A",1,1004,10,10);sensors.Radio(v2,"RADIO_TEST_A",1,1004,11,11);
+        Check(sensors.Count==0,"reset clears radio baseline");
+        sensors.Radio(v2,"RADIO_TEST_A",1,1005,12,12);Check(sensors.Take().producerSequence==1,"radio producer sequence restarts after reset");
+
+        sensors.Radio(v1,"RADIO_TEST_A",0,-1,13,13);radio=sensors.Take();
+        Check(radio.kind=="radio_changed" && (long)radio.facts["soundHash"]==0 && (int)radio.facts["trackTextId"]==-1,"signed negative text ID is transported without invented semantics");
+        sensors.Radio(v1,"RADIO_TEST_A",0,int.MinValue,14,14);radio=sensors.Take();
+        Check((int)radio.facts["trackTextId"]==int.MinValue,"signed int32 minimum survives raw transport");
+        sensors.Radio(v1,"RADIO_TEST_A",0,int.MaxValue,15,15);radio=sensors.Take();
+        Check((int)radio.facts["trackTextId"]==int.MaxValue,"signed int32 maximum survives raw transport");
+
+        sensors.Radio(v1,"not a station",5,1004,16,16);radio=sensors.Take();
         Check(radio.kind=="radio_stopped" && (string)radio.facts["station"]=="" && !radio.facts.ContainsValue("not a station"),"invalid station fails closed");
-        sensors.Radio(v1,"RADIO_TEST_A",1,15,15);sensors.Take();sensors.Radio(v1,"radio_test_a",1,16,16);radio=sensors.Take();
+        sensors.Radio(v1,"RADIO_TEST_A",1,1004,17,17);sensors.Take();sensors.Radio(v1,"radio_test_a",1,1004,18,18);radio=sensors.Take();
         Check(radio.kind=="radio_stopped" && (string)radio.facts["station"]=="","lowercase station is not transmitted");
-        sensors.Radio(v1,"RADIO_TEST_A",1,17,17);sensors.Take();sensors.Radio(v1,new string('A',65),1,18,18);radio=sensors.Take();
+        sensors.Radio(v1,"RADIO_TEST_A",1,1004,19,19);sensors.Take();sensors.Radio(v1,new string('A',65),1,1004,20,20);radio=sensors.Take();
         Check(radio.kind=="radio_stopped" && ((string)radio.facts["station"]).Length==0,"overlong station is not transmitted");
-        sensors.Radio(v1,"RADIO_TEST_A",1,19,19);sensors.Take();sensors.Radio(v1,"",0,20,20);radio=sensors.Take();
+        sensors.Radio(v1,"RADIO_TEST_A",1,1004,21,21);sensors.Take();sensors.Radio(v1,"",0,0,22,22);radio=sensors.Take();
         Check(radio.kind=="radio_stopped" && radio.target==v1,"blank station stops on the same vehicle");
-        sensors.Enabled=false;sensors.Radio(v1,"RADIO_TEST_A",4,21,21);Check(sensors.Count==0,"disabled radio emits nothing");sensors.Enabled=true;
-        sensors.Reset();sensors.Radio(null,"",0,1,1);
+        sensors.Enabled=false;sensors.Radio(v1,"RADIO_TEST_A",4,1004,23,23);Check(sensors.Count==0,"disabled radio emits nothing");sensors.Enabled=true;
+
+        sensors.Reset();sensors.Radio(null,"",0,0,1,1);
         for(int n=0;n<64;n++) sensors.Damage("ped_damage",target,null,1,0,"unknown",1,1,true);
-        bool on=true;for(int n=0;n<400;n++) { if(on) sensors.Radio(v1,"RADIO_TEST_A",1,(uint)(n+2),n+2); else sensors.Radio(null,"",0,(uint)(n+2),n+2); on=!on; Check(sensors.Count<=256,"radio queue stays capped"); }
+        bool on=true;for(int n=0;n<400;n++) {
+            if(on) sensors.Radio(v1,"RADIO_TEST_A",1,1000+n,(uint)(n+2),n+2); else sensors.Radio(null,"",0,0,(uint)(n+2),n+2);
+            on=!on;Check(sensors.Count<=256,"radio queue stays capped");
+        }
         Check(sensors.RadioEdges==400 && sensors.Dropped>0,"radio edges count while routine drops increase");
         sensors.Damage("ped_damage",target,null,1,0,"unknown",1,1,true);
-        int critical=0,routine=0;RawSignal item;while((item=sensors.Take())!=null) { if(item.Critical) critical++; else routine++; }
+        int critical=0,routine=0;RawSignal item;while((item=sensors.Take())!=null) {if(item.Critical) critical++;else routine++;}
         Check(critical==65 && routine==191 && critical+routine==256,"radio cannot consume the critical reserve");
     }
     static void PipeTest()

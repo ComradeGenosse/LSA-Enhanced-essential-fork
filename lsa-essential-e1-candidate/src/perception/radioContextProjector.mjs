@@ -46,15 +46,21 @@ export function renderRadioContext(observation) {
   if (!claim) return null;
   const details = claim.details;
   const station = safeLine(details.stationName) ? details.stationName : '';
-  if (details.trackKnown === true && safeLine(details.title) && safeLine(details.artist)) {
+  if (details.trackKnown === true && details.contentKind === 'music' && safeLine(details.title) && safeLine(details.artist)) {
     const title = JSON.stringify(details.title);
     return station
       ? `Audible environment: the vehicle radio is playing ${title} by ${details.artist} on ${station}.`
       : `Audible environment: the vehicle radio is playing ${title} by ${details.artist}.`;
   }
+  if (details.trackKnown === true && details.contentKind === 'commercial' && safeLine(details.title)) {
+    const title = JSON.stringify(details.title);
+    return station
+      ? `Audible environment: a commercial titled ${title} is playing on ${station}.`
+      : `Audible environment: a commercial titled ${title} is playing on the vehicle radio.`;
+  }
   return station
-    ? `Audible environment: ${station} is playing, but the track is not identified.`
-    : 'Audible environment: the vehicle radio is playing, but the track is not identified.';
+    ? `Audible environment: ${station} is playing; the current radio content is not identified.`
+    : 'Audible environment: the vehicle radio is playing; the current radio content is not identified.';
 }
 
 export function selectRadioContext(runtime, input) {
