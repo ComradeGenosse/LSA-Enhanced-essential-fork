@@ -472,15 +472,15 @@ Essential remains the executor. ACT owns planning/lifecycle and native evidence 
 
 #### ACT0 — Contracts, registry and metadata
 
-**Status: implemented on the unmerged ACT0/ACT1 branch.** The closed activity vocabulary, capability registry, native/companion contracts and metadata verification are present on `feature/act0-act1-contracts-shadow-observer@5d11ee9`. The branch includes post-review hardening and now needs reconciliation with current `main` plus the full post-hardening regression/build run before merge.
+**Status: implemented, deployed, GTA-runtime verified, and included in the ACT2 stack accepted for merge on October 6, 2026.** The closed activity vocabulary, capability registry, native/companion contracts and metadata verification are present on `feature/act0-act1-contracts-shadow-observer`. The branch was reconciled with current `main`, built and exercised in GTA through the integrated ACT2 deployment. Focused ACT0/ACT1 probe questions remain open where their exact evidence was not captured.
 
 #### ACT1 — Native shadow observer
 
-**Status: implemented on the same unmerged branch; GTA gates open.** The activity channel, StepMachine/receipt correlation and supersession observation exist in shadow mode and do not dispatch new gameplay actions. Post-review hardening moved state mutation back onto the owner/update fiber, tightened reconnect/sequence handling and bounded diagnostics. GTA probes still need to pin callback names/counts/threading before ACT is considered production-validated.
+**Status: implemented, deployed and GTA-runtime verified as part of the integrated ACT2 stack.** The activity channel, StepMachine/receipt correlation and supersession observation exist in shadow mode and do not dispatch new gameplay actions. Post-review hardening moved state mutation back onto the owner/update fiber, tightened reconnect/sequence handling and bounded diagnostics. The stack-level runtime gate is closed for merge, while unanswered focused probes for callback names/counts/threading remain explicitly open.
 
 #### ACT2 — Player-assigned basic activities
 
-**Status: implemented on `feature/act2-player-assigned-basic-activities@1388954`; stacked on ACT0/ACT1 and not merged.** The branch adds the real F11 activity lifecycle for `hold_position`, `follow_person`, `resume_ambient` and `sit_on_ground`, plus status, history, pause, resume and cancel. It includes post-review hardening for lease sequencing, runtime ticking, owner-before-dispatch, strict frame validation, hold anchors and paused-state visibility. Historical green test counts predate the latest hardening, so the complete regression/build matrix must be rerun after reconciliation. Individual physical capabilities remain probe-gated and default-off.
+**Status: implemented, reconciled onto current `main`, deployed and GTA-runtime tested; accepted for merge on October 6, 2026.** The branch adds the real F11 activity lifecycle for `hold_position`, `follow_person`, `resume_ambient` and `sit_on_ground`, plus status, history, pause, resume and cancel. It includes post-review hardening for lease sequencing, runtime ticking, owner-before-dispatch, strict frame validation, hold anchors and paused-state visibility. The companion/native addon builds and hash-verified GTA deployment succeeded. Historical suite counts remain historical because the full regression matrix was not rerun during the initial deployment. Individual physical capabilities remain default-off/probe-gated until their specific open GTA questions are answered.
 
 #### ACT3 — Rich short-range world activities
 
