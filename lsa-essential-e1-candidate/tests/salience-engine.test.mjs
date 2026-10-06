@@ -190,15 +190,17 @@ test('radio R4 is low priority by default and explicit environment relevance onl
   assert.deepEqual(normalized.requestedEnvironmentChannels, ['radio']);assert.ok(Object.isFrozen(normalized.requestedEnvironmentChannels));
 });
 
-test('radio R4 context replay suppresses the same track but a track revision can become candidate again', () => {
+test('radio R5 explicit questions remain context-eligible after delivery and track revisions stay current', () => {
   const cache = new SalienceCache(), vehicle = randomUUID(), observationId = randomUUID(), episodeId = randomUUID(), nativeRun = randomUUID();
   const firstSeen = observation({ observationId, episodeId, nativeRun, revision: 1, eventType: 'radio_heard', severity: 'routine', claims: [radioClaim({ vehicle, title: 'Track A' })] });
   const relevant = view({ requestedEnvironmentChannels: ['radio'] });
   const first = cache.evaluate(firstSeen, relevant);
   assert.equal(first.context, 'candidate');assert.equal(first.response, 'none');assert.equal(first.memory, 'none');
   assert.equal(cache.acknowledge(first.decisionKey, 'ps4_context', 'delivered'), true);
-  const replay = cache.evaluate(firstSeen, relevant);
-  assert.equal(replay.context, 'omit');assert.equal(replay.response, 'none');assert.ok(replay.reasons.includes('repetition_suppressed'));
+  const repeatedQuestion = cache.evaluate(firstSeen, relevant);
+  assert.equal(repeatedQuestion.context, 'candidate');assert.equal(repeatedQuestion.response, 'none');assert.equal(repeatedQuestion.memory, 'none');
+  const unrelated = cache.evaluate(firstSeen, view());
+  assert.equal(unrelated.context, 'omit');assert.equal(unrelated.response, 'none');assert.equal(unrelated.memory, 'none');
   const secondSeen = observation({ observationId, episodeId, nativeRun, revision: 2, eventType: 'radio_heard', severity: 'routine', gameTick: 20, claims: [radioClaim({ vehicle, title: 'Track B' })] });
   const changed = cache.evaluate(secondSeen, relevant);
   assert.equal(changed.context, 'candidate');assert.equal(changed.response, 'none');assert.equal(changed.memory, 'none');
