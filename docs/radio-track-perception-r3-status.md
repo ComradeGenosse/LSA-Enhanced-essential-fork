@@ -1,5 +1,7 @@
 # Radio track perception R3 — PS2 hearing
 
+> **R4 branch note:** this file describes the standalone R3 milestone. On `feature/radio-track-perception-r4-ps3-salience`, R3 observations now feed deterministic PS3 radio salience; see `radio-track-perception-r4-status.md`.
+
 Status: **implemented on `feature/radio-track-perception-r3-ps2-hearing`; build/test/GTA acceptance pending**.  
 Base: `feature/radio-track-perception-r0-r2@6262c6257cc26bdc5ee14377829ed64120cfbfba`.
 
@@ -18,7 +20,7 @@ R3 turns the existing raw radio edge into observer-specific PS2 knowledge. It do
 - Listeners that no longer have same-vehicle evidence are pruned on the next radio change.
 - `radio_stopped` removes the current source-vehicle radio episode and its observations.
 - Radio knowledge is bounded to at most two minutes if no later edge arrives.
-- R3 intentionally returns before PS3 salience. R4 remains separate.
+- On the standalone R3 branch, radio returns before PS3 salience. The stacked R4 branch adds that separate layer.
 
 The production catalog is still intentionally empty, so real GTA observations will normally know the validated station/hash but report `trackKnown: false` until the catalog is populated from trusted game metadata.
 
@@ -33,7 +35,7 @@ Coverage was added for:
 - no-observer/no-omniscience behavior;
 - current-track revision replacing the previous claim;
 - radio stop clearing current knowledge;
-- R3 not incrementing PS3 decision counters.
+- Standalone R3 not incrementing PS3 decision counters; the stacked R4 branch intentionally replaces this expectation.
 
 These tests have **not been executed in this GitHub-only implementation pass**. No GitHub Actions run is attached to this branch. The normal Node/.NET regression/build run is still required.
 
