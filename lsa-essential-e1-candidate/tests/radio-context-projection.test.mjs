@@ -81,3 +81,16 @@ test('explicit repeated radio questions remain eligible while R5 records PS4 del
   assert.ok(repeated);assert.equal(repeated.observationId,first.observationId);
   assert.equal(repeated.text,first.text);
 });
+
+
+test('R5 selection is immutable for the in-flight turn while the next turn can see a new track',()=>{
+  const f=runtimeFixture();
+  const frozen=selectRadioContext(f.runtime,'what song is this?');
+  assert.match(frozen.text,/Track A/);
+  const newer=observation({observer:f.ped,vehicle:f.vehicle,title:'Track B',artist:'Artist B',gameTick:30,revision:2});
+  f.runtime.observations.entries.clear();
+  f.runtime.observations.entries.set(f.ped+':'+newer.episodeId,{value:newer});
+  assert.match(frozen.text,/Track A/);assert.doesNotMatch(frozen.text,/Track B/);
+  const next=selectRadioContext(f.runtime,'what song is this?');
+  assert.match(next.text,/Track B/);assert.doesNotMatch(next.text,/Track A/);
+});
