@@ -56,7 +56,7 @@ function policyFingerprint(situation, observation) {
   }).sort();
   const memories = situation.memories.map(memory => `${memory.memoryId}:${memory.importance}:${[...memory.relatedCharacterIds].sort().join('.')}`).sort();
   const player = situation.playerRelationship?.state || 'none';
-  return [situation.activity, player, recognized.join('|'), memories.join('|'), situation.traitPolicies.join(','), situation.requestedEnvironmentChannels.join(',')].join('~');
+  return [situation.activity, player, recognized.join('|'), memories.join('|'), situation.traitPolicies.join(','), (situation.requestedEnvironmentChannels||[]).join(',')].join('~');
 }
 function selectReasons(reasons) {
   const present = new Set(reasons.filter(code => REASON_SET.has(code)));
@@ -172,7 +172,7 @@ function classify(observation, situation) {
 
   const radioHeard = observation.eventType === 'radio_heard' && supported.some(claim => claim.kind === 'sound' && claim.details?.soundType === 'radio');
   if (radioHeard) {
-    const requested = situation.requestedEnvironmentChannels.includes('radio');
+    const requested = (situation.requestedEnvironmentChannels||[]).includes('radio');
     return { context: requested ? 'candidate' : 'omit', memory: 'none', response: 'none', reasons: [requested ? 'environment_requested' : 'routine_low_relevance'], closed: false };
   }
 
