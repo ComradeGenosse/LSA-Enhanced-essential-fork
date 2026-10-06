@@ -1,152 +1,127 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readdir, readFile } from 'node:fs/promises';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { readFile } from 'node:fs/promises';
 import {
-  RADIO_CATALOG_LIMITS, buildRadioTrackCatalog, loadRadioTrackCatalog, normalizeRadioSignal,
-  resolveRadioTrack, verifyRadioTrackCatalog, verifyRadioTrackCatalogText,
+  RadioTrackTextCatalog, loadRadioTrackTextCatalog, normalizeRadioSignal, resolveRadioTrack,
+  serializeRadioTrackTextCatalog, verifyRadioTrackTextCatalog, verifyRadioTrackTextCatalogText,
 } from '../src/perception/radioTrackCatalog.mjs';
 
-const fixtureUrl = new URL('./fixtures/radio-tracks.v1.json', import.meta.url);
-const productionUrl = new URL('../data/radioTracks.v1.json', import.meta.url);
-const row = (patch = {}) => ({ station: 'RADIO_TEST_A', stationName: 'Test Radio', trackHash: 1, artist: 'Artist A', title: 'Track A', ...patch });
-const input = (tracks, patch = {}) => ({ version: 1, game: 'gta-v-enhanced', generatedFrom: 'synthetic-fixture', tracks, ...patch });
+const productionUrl = new URL('../data/radioTrackTextIds.v2.json', import.meta.url);
 
-async function walk(dir) {
-  const files = [];
-  for (const item of await readdir(dir, { withFileTypes: true })) {
-    const full = path.join(dir, item.name);
-    if (item.isDirectory()) files.push(...await walk(full));
-    else files.push(full);
-  }
-  return files;
+function fixture() {
+  return {
+    version:2,game:'gta-v-enhanced',key:'trackTextId',
+    generatedFrom:{
+      trackMetadata:{repository:'Example/radio-dump',commit:'1111111111111111111111111111111111111111'},
+      stationLabels:{repository:'Example/stations',commit:'2222222222222222222222222222222222222222'},
+    },
+    counts:{entries:4,music:2,commercial:1,off:1,stations:3},
+    stations:{
+      RADIO_TEST_A:{name:'Test Radio A'},
+      RADIO_TEST_B:{name:'Test Radio B'},
+      RADIO_TEST_C:{name:'Test Radio C'},
+    },
+    tracks:{
+      '1004':{title:'Hollywood Nights',artist:'BOB SEGER',kind:'music',stations:['RADIO_TEST_A']},
+      '1005':{title:'One Girl/One Boy',artist:'!!! / TEST ARTIST',kind:'music',stations:['RADIO_TEST_A','RADIO_TEST_B']},
+      '2000':{title:'Commercial Break',artist:'Commercial',kind:'commercial',stations:['RADIO_TEST_A','RADIO_TEST_C']},
+      '2095':{title:'Off',artist:'Media Player',kind:'off',stations:['RADIO_TEST_C']},
+    },
+  };
 }
 
-test('synthetic catalog resolves known tracks and fails closed otherwise', async () => {
-  const text = await readFile(fixtureUrl, 'utf8');
-  assert.equal(verifyRadioTrackCatalogText(text).ok, true);
-  const catalog = loadRadioTrackCatalog(text);
-  assert.equal(catalog.loaded, true);
-  const known = catalog.resolve('RADIO_TEST_A', 1);
-  assert.deepEqual(known, { station: 'RADIO_TEST_A', stationName: 'Test Radio', trackHash: 1, trackKey: '00000001', trackKnown: true, artist: 'Artist A', title: 'Track A' });
-  assert.throws(() => { known.artist = 'changed'; });
-  assert.equal(catalog.tracks['00000001'].artist, 'Artist A');
-  const facts = { station: 'RADIO_TEST_A', trackHash: 1 };
-  const before = { ...facts };
-  assert.equal(resolveRadioTrack(facts, catalog).trackKnown, true);
-  assert.deepEqual(facts, before);
-  const unknown = catalog.resolve('RADIO_TEST_A', 99);
-  assert.equal(unknown.trackKnown, false);
-  assert.equal(unknown.trackKey, '00000063');
-  assert.equal('artist' in unknown, false);
-  assert.equal('catalogMismatch' in unknown, false);
-  const mismatch = catalog.resolve('RADIO_TEST_B', 1);
-  assert.equal(mismatch.trackKnown, false);
-  assert.equal(mismatch.catalogMismatch, true);
-  assert.equal('title' in mismatch, false);
-  const zero = catalog.resolve('RADIO_TEST_A', 0);
-  assert.equal(zero.trackKnown, false);
-  assert.equal('catalogMismatch' in zero, false);
-  assert.equal(catalog.resolve('RADIO_TEST_B', 0x2).trackKey, '00000002');
-  assert.equal(catalog.unknownTracks, 2);
-  assert.equal(catalog.catalogMismatches, 1);
-  const missing = loadRadioTrackCatalog('{');
-  assert.equal(missing.loaded, false);
-  assert.equal(missing.resolve('RADIO_TEST_A', 1).trackKnown, false);
+test('v2 catalog validates, allows legitimate slashes, and resolves by text ID rather than sound hash',()=>{
+  const raw=fixture(),text=serializeRadioTrackTextCatalog(raw);
+  assert.equal(verifyRadioTrackTextCatalog(raw).ok,true);
+  assert.equal(verifyRadioTrackTextCatalogText(text).ok,true);
+  const catalog=loadRadioTrackTextCatalog(text);
+  assert.equal(catalog.loaded,true);
+
+  const known=catalog.resolve({station:'RADIO_TEST_A',soundHash:0x93e4a82b,trackTextId:1004});
+  assert.deepEqual(known,{station:'RADIO_TEST_A',soundHash:0x93e4a82b,trackTextId:1004,trackKnown:true,stationName:'Test Radio A',kind:'music',artist:'BOB SEGER',title:'Hollywood Nights'});
+
+  const sameContainerNewSong=catalog.resolve({station:'RADIO_TEST_A',soundHash:0x93e4a82b,trackTextId:1005});
+  assert.equal(sameContainerNewSong.title,'One Girl/One Boy');
+  assert.equal(sameContainerNewSong.artist,'!!! / TEST ARTIST');
+  assert.notEqual(sameContainerNewSong.title,known.title);
+
+  const differentContainerSameSong=catalog.resolve({station:'RADIO_TEST_A',soundHash:1,trackTextId:1004});
+  assert.equal(differentContainerSameSong.title,'Hollywood Nights');
+  assert.equal(resolveRadioTrack({station:'RADIO_TEST_A',soundHash:2,trackTextId:1004},catalog).title,'Hollywood Nights');
 });
 
-test('radio normalization copies no guessed metadata and does not mutate the signal', async () => {
-  const catalog = loadRadioTrackCatalog(await readFile(fixtureUrl, 'utf8'));
-  const signal = { signalId: 'sig', producer: 'radio', kind: 'radio_changed', source: null, target: 'veh', gameTick: 4, facts: { station: 'RADIO_TEST_A', trackHash: 99 } };
-  const normalized = normalizeRadioSignal(signal, catalog);
-  assert.equal(normalized.trackKnown, false);
-  assert.equal(normalized.kind, 'radio_audio');
-  assert.equal('artist' in normalized, false);
-  assert.equal(signal.facts.trackHash, 99);
-  const known = normalizeRadioSignal({ ...signal, facts: { station: 'RADIO_TEST_A', trackHash: 1 } }, catalog);
-  assert.equal(known.artist, 'Artist A');
-  assert.equal(known.title, 'Track A');
-  const stopped = normalizeRadioSignal({ ...signal, kind: 'radio_stopped', facts: { station: '', trackHash: 0 } }, catalog);
-  assert.equal(stopped.trackKnown, false);
-  assert.equal(stopped.station, '');
-  assert.equal('artist' in stopped, false);
-  assert.equal(normalizeRadioSignal({ ...signal, source: 'ped' }, catalog), null);
-  assert.equal(normalizeRadioSignal({ ...signal, producer: 'state' }, catalog), null);
+test('v2 resolver fails closed for unknown IDs and wrong station while preserving station display metadata',()=>{
+  const catalog=loadRadioTrackTextCatalog(serializeRadioTrackTextCatalog(fixture()));
+  const unknown=catalog.resolve({station:'RADIO_TEST_A',soundHash:7,trackTextId:999999});
+  assert.equal(unknown.trackKnown,false);assert.equal(unknown.stationName,'Test Radio A');assert.equal('artist' in unknown,false);
+  assert.equal(catalog.unknownTextIds,1);
+
+  const mismatch=catalog.resolve({station:'RADIO_TEST_C',soundHash:7,trackTextId:1004});
+  assert.equal(mismatch.trackKnown,false);assert.equal(mismatch.catalogMismatch,true);assert.equal('title' in mismatch,false);
+  assert.equal(catalog.catalogMismatches,1);
+
+  for(const textId of [0,-1,-2147483648]) {
+    const unresolved=catalog.resolve({station:'RADIO_TEST_A',soundHash:7,trackTextId:textId});
+    assert.equal(unresolved.trackKnown,false);
+  }
+  assert.equal(catalog.unknownTextIds,1,'nonpositive runtime semantics remain unknown without inflating unmapped-positive counter');
 });
 
-test('catalog generation is deterministic and rejects closed-schema failures', async () => {
-  const forward = input([
-    row({ station: 'RADIO_TEST_B', stationName: 'Test Radio B', trackHash: '00000002', artist: 'Artist B', title: 'Track B' }),
-    row(),
-  ]);
-  const reverse = input([row(), row({ station: 'RADIO_TEST_B', stationName: 'Test Radio B', trackHash: 2, artist: 'Artist B', title: 'Track B' })]);
-  const first = buildRadioTrackCatalog(forward);
-  const second = buildRadioTrackCatalog(reverse);
-  assert.equal(first.ok, true);
-  assert.equal(first.json, second.json);
-  assert.equal(first.json, await readFile(fixtureUrl, 'utf8'));
-  assert.deepEqual(first.countsByStation, { RADIO_TEST_A: 1, RADIO_TEST_B: 1 });
-  assert.equal(first.duplicates, 0);
-  assert.equal(first.unknown, 0);
-  const high = buildRadioTrackCatalog(input([row({ trackHash: 0xffffffff })]));
-  assert.equal(high.ok, true);
-  assert.match(high.json, /"FFFFFFFF"/);
-  const rejected = [
-    input([row(), row({ trackHash: 1, station: 'RADIO_TEST_B' })]),
-    input([row({ trackHash: '00000000' })]),
-    input([row({ trackHash: 'zzzzzzzz' })]),
-    input([row({ title: '' })]),
-    input([row({ artist: '' })]),
-    input([row({ title: 'http://example.test/song' })]),
-    input([row({ station: 'radio_test_a' })]),
-    input([row({ lyrics: 'nope' })]),
-    input([row()], { version: 2 }),
-    input([row()], { generatedFrom: 'C:/secret/path' }),
-    { version: 1, game: 'gta-v-enhanced', generatedFrom: 'synthetic-fixture', tracks: [], extra: true },
+test('v2 resolver preserves multi-station content kinds including commercials and off marker',()=>{
+  const catalog=loadRadioTrackTextCatalog(serializeRadioTrackTextCatalog(fixture()));
+  for(const station of ['RADIO_TEST_A','RADIO_TEST_B']) {
+    const shared=catalog.resolve({station,soundHash:1,trackTextId:1005});
+    assert.equal(shared.trackKnown,true);assert.equal(shared.kind,'music');
+  }
+  const commercial=catalog.resolve({station:'RADIO_TEST_C',soundHash:5,trackTextId:2000});
+  assert.equal(commercial.trackKnown,true);assert.equal(commercial.kind,'commercial');
+  const off=catalog.resolve({station:'RADIO_TEST_C',soundHash:5,trackTextId:2095});
+  assert.equal(off.trackKnown,true);assert.equal(off.kind,'off');
+});
+
+test('v2 catalog rejects malformed schema, unsafe display text, bad provenance, and count drift',()=>{
+  const cases=[
+    [{...fixture(),version:1},'invalid_version'],
+    [{...fixture(),key:'soundHash'},'invalid_key'],
+    [{...fixture(),generatedFrom:{...fixture().generatedFrom,trackMetadata:{repository:'bad',commit:'x'}}},'invalid_provenance'],
+    [{...fixture(),counts:{...fixture().counts,entries:5}},'count_mismatch'],
+    [{...fixture(),tracks:{...fixture().tracks,'1006':{title:'Bad\nTitle',artist:'A',kind:'music',stations:['RADIO_TEST_A']}}},'invalid_track'],
+    [{...fixture(),tracks:{...fixture().tracks,'1006':{title:'X',artist:'A',kind:'music',stations:['RADIO_UNKNOWN']}}},'invalid_track_station'],
   ];
-  const tokens = ['duplicate_track', 'malformed_track_key', 'malformed_track_key', 'blank_title', 'blank_artist', 'unsafe_text', 'malformed_station', 'unexpected_entry_field', 'invalid_version', 'invalid_provenance', 'unexpected_input_field'];
-  rejected.forEach((value, index) => {
-    const result = buildRadioTrackCatalog(value);
-    assert.equal(result.ok, false);
-    assert.equal(result.errors.includes(tokens[index]), true);
-    assert.equal(result.json, undefined);
-  });
-  const unordered = JSON.parse(first.json);
-  const keys = Object.keys(unordered.tracks);
-  unordered.tracks = { [keys[1]]: unordered.tracks[keys[1]], [keys[0]]: unordered.tracks[keys[0]] };
-  assert.equal(verifyRadioTrackCatalog(unordered).errors.includes('unordered_tracks'), true);
-  assert.equal(verifyRadioTrackCatalogText(first.json.replace('\n', '\n ')).ok, false);
-  const tooMany = input(Array.from({ length: RADIO_CATALOG_LIMITS.tracks + 1 }, (_, index) => row({ trackHash: index + 1, title: `Track ${index + 1}` })));
-  assert.equal(buildRadioTrackCatalog(tooMany).errors.includes('too_many_tracks'), true);
+  for(const [value,token] of cases) assert.equal(verifyRadioTrackTextCatalog(value).errors.includes(token),true,token);
 });
 
-test('production radio catalog stays empty until Rockstar metadata exists', async () => {
-  const text = await readFile(productionUrl, 'utf8');
-  assert.equal(verifyRadioTrackCatalogText(text).ok, true);
-  const parsed = JSON.parse(text);
-  assert.equal(parsed.generatedFrom, 'unavailable');
-  assert.deepEqual(parsed.tracks, {});
-  const catalog = loadRadioTrackCatalog(text);
-  assert.equal(catalog.loaded, true);
-  assert.equal(catalog.resolve('RADIO_01_CLASS_ROCK', 1).trackKnown, false);
-  const empty = buildRadioTrackCatalog({ version: 1, game: 'gta-v-enhanced', generatedFrom: 'unavailable', tracks: [] });
-  assert.equal(empty.json, text);
+test('radio normalization carries text ID semantics without leaking title/artist on raw input',()=>{
+  const catalog=loadRadioTrackTextCatalog(serializeRadioTrackTextCatalog(fixture()));
+  const signal={signalId:'00000000-0000-4000-8000-000000000001',producer:'radio',kind:'radio_changed',source:null,target:'00000000-0000-4000-8000-000000000002',gameTick:4,facts:{station:'RADIO_TEST_A',soundHash:123,trackTextId:1004}};
+  const normalized=normalizeRadioSignal(signal,catalog);
+  assert.equal(normalized.kind,'radio_audio');assert.equal(normalized.contentKind,'music');assert.equal(normalized.trackTextId,1004);
+  assert.equal(normalized.soundHash,123);assert.equal(normalized.artist,'BOB SEGER');assert.equal(normalized.title,'Hollywood Nights');
+  assert.deepEqual(signal.facts,{station:'RADIO_TEST_A',soundHash:123,trackTextId:1004});
+
+  const unknown=normalizeRadioSignal({...signal,facts:{station:'RADIO_TEST_A',soundHash:123,trackTextId:999999}},catalog);
+  assert.equal(unknown.trackKnown,false);assert.equal('contentKind' in unknown,false);assert.equal('artist' in unknown,false);
+
+  const stopped=normalizeRadioSignal({...signal,kind:'radio_stopped',facts:{station:'',soundHash:0,trackTextId:0}},catalog);
+  assert.equal(stopped.trackKnown,false);assert.equal(stopped.soundHash,0);assert.equal(stopped.trackTextId,0);
 });
 
-test('radio resolution is not imported by prompt, memory, or runtime paths', async () => {
-  const root = fileURLToPath(new URL('../src/', import.meta.url));
-  for (const file of await walk(root)) {
-    if (file.endsWith(`${path.sep}radioTrackCatalog.mjs`)) continue;
-    const source = await readFile(file, 'utf8');
-    assert.doesNotMatch(source, /radioTrackCatalog|resolveRadioTrack|normalizeRadioSignal|Audible environment/);
-  }
-  for (const file of ['IntelligenceIntegration.cs', 'SensorAdapters.cs']) {
-    const source = await readFile(new URL(`../../native/intelligence/${file}`, import.meta.url), 'utf8');
-    assert.doesNotMatch(source, /artist|title|lyrics|prompt|fetch\(|openai/i);
-  }
-  for (const file of ['buildRadioTrackCatalog.mjs', 'verifyRadioTrackCatalog.mjs']) {
-    const source = await readFile(new URL(`../tools/${file}`, import.meta.url), 'utf8');
-    assert.doesNotMatch(source, /fetch\(|https?:\/\//);
-  }
+test('researched production v2 catalog is canonical and contains the audited mapping/counts',async()=>{
+  const text=await readFile(productionUrl,'utf8');
+  assert.equal(verifyRadioTrackTextCatalogText(text).ok,true);
+  const parsed=JSON.parse(text);
+  assert.deepEqual(parsed.counts,{entries:1058,music:951,commercial:106,off:1,stations:26});
+  assert.deepEqual(parsed.tracks['1004'],{title:'Hollywood Nights',artist:'BOB SEGER',kind:'music',stations:['RADIO_01_CLASS_ROCK']});
+  assert.equal(parsed.tracks['2095'].kind,'off');
+  const catalog=loadRadioTrackTextCatalog(text);
+  assert.equal(catalog.resolve({station:'RADIO_01_CLASS_ROCK',soundHash:1,trackTextId:1004}).title,'Hollywood Nights');
+});
+
+test('catalog runtime and conversion paths make no network requests',async()=>{
+  const runtime=await readFile(new URL('../src/perception/radioTrackCatalog.mjs',import.meta.url),'utf8');
+  const converter=await readFile(new URL('../tools/buildRadioTrackTextCatalog.mjs',import.meta.url),'utf8');
+  const verifier=await readFile(new URL('../tools/verifyRadioTrackTextCatalog.mjs',import.meta.url),'utf8');
+  for(const source of [runtime,converter,verifier]) assert.doesNotMatch(source,/\bfetch\s*\(|https?:\/\//);
+  const unavailable=RadioTrackTextCatalog.unavailable();
+  assert.equal(unavailable.resolve({station:'RADIO_TEST_A',soundHash:1,trackTextId:1004}).trackKnown,false);
 });
