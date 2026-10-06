@@ -279,7 +279,7 @@ export async function buildCandidate({ sourcePath = stockBundleDefault, outputPa
     identityContract,
     characterContract,
     perceptionContract,
-    stage: 'PS3 DETERMINISTIC SALIENCE + PS2/PS1/PS0/P2', foundationStage: 'P2+P0+P1+E1.1+E2+E3+E5+E6', status: 'candidate-built-offline-ps3-salience-gta-pending', observabilitySchemaVersion: 1, dialogueTraceSchemaVersion: 1,
+    stage: 'RADIO R5 CONTEXT PROJECTION + PS3/PS2/PS1/PS0/P2', foundationStage: 'P2+P0+P1+E1.1+E2+E3+E5+E6', status: 'candidate-built-offline-radio-r5-gta-pending', observabilitySchemaVersion: 1, dialogueTraceSchemaVersion: 1,
     features: { structuredStreaming: true, earlySegmentedTts: true, defaultEnabled: false, earlyTtsMode: 'dialogue_only', ttsConcurrency: 1,
       sessionIdentity: { defaultEnabled: false, modes: ['shadow','voices'], storeSchemaVersion: 1, nativeAddressing: 'unchanged' },
       promotedCharacters: { defaultEnabled:false,profileStoreSchemaVersion:1,manualMemoryOnly:true,requiresAuthoredP1Owner:true,nativeAddressing:'unchanged',summonWaitMs:30000,maxSummonWaitMs:60000 },
