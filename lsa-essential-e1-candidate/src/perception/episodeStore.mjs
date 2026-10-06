@@ -11,7 +11,7 @@ export function validateEpisode(e) {
 export class EpisodeStore {
   constructor({now=()=>Math.floor(performance.now()),current=()=>false}={}) {this.now=now;this.current=current;this.entries=new Map();}
   put(e) {
-    this.expire();if(!validateEpisode(e) || e.expiresAtMonotonicMs<=this.now() || e.expiresAtMonotonicMs>this.now()+30000 || e.participants.some(r=>!this.current(r.captureRef))) return false;
+    this.expire();if(!validateEpisode(e) || e.expiresAtMonotonicMs<=this.now() || e.expiresAtMonotonicMs>this.now()+120000 || e.participants.some(r=>!this.current(r.captureRef))) return false;
     const old=this.entries.get(e.episodeId);if(old && e.revision<=old.revision) return false;
     const active=x=>['open','settling'].includes(x.status);
     if(!old && this.entries.size>=256 || active(e) && (!old || !active(old)) && [...this.entries.values()].filter(active).length>=64) return false;
