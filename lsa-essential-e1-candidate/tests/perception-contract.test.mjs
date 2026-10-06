@@ -19,7 +19,8 @@ function fixture() {
   return {runtime,caps,ped,player,vehicle,ambient,hello,frame,signal,ingest,advance:n=>now+=n};
 }
 test('perception defaults off and unsupported future modes cannot activate effects',()=>{
-  assert.equal(normalizePerceptionConfig().mode,'off');assert.equal(normalizePerceptionConfig({mode:'shadow'}).mode,'shadow');
+  assert.equal(normalizePerceptionConfig().mode,'off');assert.equal(normalizePerceptionConfig().radio,'off');assert.equal(normalizePerceptionConfig({mode:'shadow'}).mode,'shadow');
+  assert.equal(normalizePerceptionConfig({mode:'shadow',radio:'shadow'}).radio,'shadow');assert.equal(normalizePerceptionConfig({mode:'off',radio:'shadow'}).radio,'off');assert.equal(normalizePerceptionConfig({mode:'shadow',radio:'context'}).radio,'off');
   for(const mode of ['context','memory','initiative','anything']) assert.equal(normalizePerceptionConfig({mode}).mode,'off');
   const f=fixture();const off=new ShadowRuntime();assert.equal(off.ingest(f.hello(),{authenticated:true}),false);assert.equal(off.anchors.size,0);
 });
@@ -155,4 +156,46 @@ test('PS0/PS1 production module boundary contains no model, memory or native act
     const source=await readFile(new URL('../src/perception/'+file,import.meta.url),'utf8');assert.doesNotMatch(source,/from ['"].*(?:openai|providers|profileStore|characterService|sceneDirector)/);assert.doesNotMatch(source,/writeFile|fetch\(|upsertExperience|\.request\(/);
   }
   const source=await readFile(new URL('../../native/intelligence/IntelligenceIntegration.cs',import.meta.url),'utf8');assert.doesNotMatch(source,/World\.GetAll|PerceptionSystem\.Update|PerceptionSnapshot\.Capture|GunshotReflexDetector|NpcActions\.|\.TASK|SpecialGeminiTurnScheduler/);assert.match(source,/public void EnrichActor\(Ped ped,ActorContext context\) \{\}/);
+});
+
+
+function radioRuntime(radio='shadow') {
+  let sequence=0,producer=0;const epoch=randomUUID(),stream=randomUUID(),vehicle=randomUUID(),ped=randomUUID();
+  const runtime=new ShadowRuntime({mode:'shadow',radio,now:()=>0});
+  const caps=Object.fromEntries(CAPABILITIES.map(k=>[k,!['witness','awareness','playerSpeech'].includes(k)]));
+  const ingest=v=>runtime.ingest(v,{authenticated:true});
+  ingest({version:1,type:'hello',adapterEpoch:epoch,streamId:stream,capabilities:caps});
+  const frame=(type,payload)=>({version:1,type,adapterEpoch:epoch,streamId:stream,sequence:++sequence,payload});
+  ingest(frame('anchors',[{captureRef:vehicle,kind:'vehicle',observer:false},{captureRef:ped,kind:'ped',observer:true}]));
+  const signal=(patch={})=>({signalId:randomUUID(),producer:'radio',producerSequence:++producer,kind:'radio_changed',target:vehicle,source:null,gameTick:1,ageMs:0,facts:{station:'RADIO_01_CLASS_ROCK',trackHash:1},...patch,facts:patch.facts??{station:'RADIO_01_CLASS_ROCK',trackHash:1}});
+  return {runtime,ingest,frame,signal,vehicle,ped};
+}
+test('radio signals accept the closed station and hash contract',()=>{
+  const r=radioRuntime(),ok=r.signal(),emptyFacts=r.signal();emptyFacts.facts=null;
+  assert.equal(validateSignal(ok),true);assert.equal(validateSignal(r.signal({target:null})),true);assert.equal(validateSignal(r.signal({facts:{station:'RADIO_01_CLASS_ROCK',trackHash:0xffffffff}})),true);
+  assert.equal(validateSignal(r.signal({kind:'radio_stopped',facts:{station:'',trackHash:0}})),true);
+  for(const bad of [
+    r.signal({kind:'radio_started'}),r.signal({producer:'state'}),r.signal({facts:{station:'radio_01',trackHash:1}}),
+    r.signal({facts:{station:'',trackHash:1}}),r.signal({facts:{station:'RADIO_01_CLASS_ROCK',trackHash:-1}}),
+    r.signal({facts:{station:'RADIO_01_CLASS_ROCK',trackHash:0x100000000}}),r.signal({kind:'radio_stopped',facts:{station:'',trackHash:1}}),
+    r.signal({facts:{station:'RADIO_01_CLASS_ROCK',trackHash:1,artist:'secret'}}),r.signal({source:randomUUID()}),emptyFacts
+  ]) assert.equal(validateSignal(bad),false);
+  assert.equal(validateFrame(r.frame('signal',ok)),true);
+});
+test('radio facts remain raw and bypass PS2/PS3 correlation',()=>{
+  const blocked=radioRuntime('off');
+  assert.equal(blocked.ingest(blocked.frame('signal',blocked.signal())),false);assert.equal(blocked.runtime.signals.length,0);
+  const live=radioRuntime();
+  assert.equal(live.ingest(live.frame('signal',live.signal())),true);
+  assert.equal(live.runtime.signals.length,1);assert.equal(live.runtime.signals[0].critical,false);
+  assert.equal(live.runtime.signals[0].value.facts.station,'RADIO_01_CLASS_ROCK');
+  assert.equal(live.runtime.observations.entries.size,0);assert.equal(live.runtime.ps2Diagnostics.correlated,0);assert.equal(live.runtime.ps3Diagnostics.decisions,0);
+  assert.equal(live.ingest(live.frame('signal',live.signal({target:live.ped}))),false);
+  assert.equal(live.ingest(live.frame('signal',live.signal({target:null}))),true);
+});
+test('radio diagnostics stay scalar and reject station content',()=>{
+  const f=fixture(),radio={samples:2,edges:1,nativeFailures:0};
+  const payload={anchors:1,observers:1,snapshotAgeMs:0,snapshotCadenceMs:250,dropped:0,staleRejected:0,retiredAnchors:0,deferredDiscovery:0,updateMicros:10,capabilities:f.caps,signals:{radio_changed:1,radio_stopped:1},damageCallbacks:{ped_damage:0,player_damage:0,vehicle_damage:0},witnessDeferred:0,witnessUnknown:0,witnessRejected:0,playerSpeechGate:'unsupported_capture_receipt',radio};
+  assert.equal(validateFrame(f.frame('diagnostics',payload)),true);
+  assert.equal(validateFrame(f.frame('diagnostics',{...payload,radio:{...radio,station:'RADIO_01_CLASS_ROCK'}})),false);
 });
