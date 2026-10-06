@@ -7,6 +7,7 @@ import { ShadowRuntime } from '../src/perception/shadowRuntime.mjs';
 import { ObservationStore } from '../src/perception/observationStore.mjs';
 import { verifyPerceptionContract } from '../tools/verifyPerceptionContract.mjs';
 import { perceptionContractSupported } from '../src/perception/nativeSupport.mjs';
+import { RadioTrackCatalog } from '../src/perception/radioTrackCatalog.mjs';
 
 function fixture() {
   let now=0, sequence=0, producerSequence=0;const epoch=randomUUID(),stream=randomUUID(),ped=randomUUID(),player=randomUUID(),vehicle=randomUUID(),ambient=randomUUID();
@@ -161,8 +162,9 @@ test('PS0/PS1 production module boundary contains no model, memory or native act
 
 function radioRuntime(radio='shadow') {
   let sequence=0,producer=0;const epoch=randomUUID(),stream=randomUUID(),vehicle=randomUUID(),ped=randomUUID();
-  const runtime=new ShadowRuntime({mode:'shadow',radio,now:()=>0});
-  const caps=Object.fromEntries(CAPABILITIES.map(k=>[k,!['witness','awareness','playerSpeech'].includes(k)]));
+  const catalog=new RadioTrackCatalog({tracks:{'00000001':{station:'RADIO_01_CLASS_ROCK',stationName:'Test Rock',artist:'Artist A',title:'Track A'}}},true);
+  const runtime=new ShadowRuntime({mode:'shadow',radio,radioCatalog:catalog,now:()=>0});
+  const caps=Object.fromEntries(CAPABILITIES.map(k=>[k,!['awareness','playerSpeech'].includes(k)]));
   const ingest=v=>runtime.ingest(v,{authenticated:true});
   ingest({version:1,type:'hello',adapterEpoch:epoch,streamId:stream,capabilities:caps});
   const frame=(type,payload)=>({version:1,type,adapterEpoch:epoch,streamId:stream,sequence:++sequence,payload});
@@ -182,19 +184,27 @@ test('radio signals accept the closed station and hash contract',()=>{
   ]) assert.equal(validateSignal(bad),false);
   assert.equal(validateFrame(r.frame('signal',ok)),true);
 });
-test('radio facts remain raw and bypass PS2/PS3 correlation',()=>{
+test('radio R3 creates PS2 knowledge only for source-time same-vehicle witness receipts',()=>{
   const blocked=radioRuntime('off');
   assert.equal(blocked.ingest(blocked.frame('signal',blocked.signal())),false);assert.equal(blocked.runtime.signals.length,0);
   const live=radioRuntime();
-  assert.equal(live.ingest(live.frame('signal',live.signal())),true);
+  const witness={observer:{captureRef:live.ped,kind:'ped'},sampledGameTick:1,status:'witnessed',reason:'same_vehicle_radio',knowsSource:false,knowsTarget:true,evidence:{channel:'auditory',basis:'audibility_model',sampledGameTick:1}};
+  const heard=live.signal({witnessReceipts:[witness]});
+  assert.equal(live.ingest(live.frame('signal',heard)),true);
   assert.equal(live.runtime.signals.length,1);assert.equal(live.runtime.signals[0].critical,false);
-  assert.equal(live.runtime.signals[0].value.facts.station,'RADIO_01_CLASS_ROCK');
-  assert.equal(live.runtime.observations.entries.size,0);assert.equal(live.runtime.ps2Diagnostics.correlated,0);assert.equal(live.runtime.ps3Diagnostics.decisions,0);
-  assert.equal(live.ingest(live.frame('signal',live.signal({target:live.ped}))),false);
+  assert.equal(live.runtime.observations.entries.size,1);assert.equal(live.runtime.ps2Diagnostics.correlated,1);assert.equal(live.runtime.ps2Diagnostics.witnessed,1);
+  const observation=[...live.runtime.observations.entries.values()][0].value;
+  assert.equal(observation.eventType,'radio_heard');assert.equal(observation.severity,'routine');assert.equal(validateObservation(observation),true);
+  assert.equal(observation.claims[0].kind,'sound');assert.equal(observation.claims[0].evidence.channel,'auditory');
+  assert.equal(observation.claims[0].target.captureRef,live.vehicle);assert.equal(observation.claims[0].details.stationName,'Test Rock');
+  assert.equal(observation.claims[0].details.artist,'Artist A');assert.equal(observation.claims[0].details.title,'Track A');
+  assert.equal(live.runtime.ps3Diagnostics.decisions,0);
+  const outsider=radioRuntime();assert.equal(outsider.ingest(outsider.frame('signal',outsider.signal())),true);assert.equal(outsider.runtime.observations.entries.size,0);
+  assert.equal(live.ingest(live.frame('signal',live.signal({target:live.ped,witnessReceipts:[witness]}))),false);
   assert.equal(live.ingest(live.frame('signal',live.signal({target:null}))),true);
 });
 test('radio diagnostics stay scalar and reject station content',()=>{
-  const f=fixture(),radio={samples:2,edges:1,nativeFailures:0};
+  const f=fixture(),radio={samples:2,edges:1,nativeFailures:0,witnessed:1,witnessUnknown:2};
   const payload={anchors:1,observers:1,snapshotAgeMs:0,snapshotCadenceMs:250,dropped:0,staleRejected:0,retiredAnchors:0,deferredDiscovery:0,updateMicros:10,capabilities:f.caps,signals:{radio_changed:1,radio_stopped:1},damageCallbacks:{ped_damage:0,player_damage:0,vehicle_damage:0},witnessDeferred:0,witnessUnknown:0,witnessRejected:0,playerSpeechGate:'unsupported_capture_receipt',radio};
   assert.equal(validateFrame(f.frame('diagnostics',payload)),true);
   assert.equal(validateFrame(f.frame('diagnostics',{...payload,radio:{...radio,station:'RADIO_01_CLASS_ROCK'}})),false);
