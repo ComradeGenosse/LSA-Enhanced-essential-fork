@@ -7,7 +7,7 @@ import { ShadowRuntime } from '../src/perception/shadowRuntime.mjs';
 import { ObservationStore } from '../src/perception/observationStore.mjs';
 import { verifyPerceptionContract } from '../tools/verifyPerceptionContract.mjs';
 import { perceptionContractSupported } from '../src/perception/nativeSupport.mjs';
-import { RadioTrackTextCatalog } from '../src/perception/radioTrackCatalog.mjs';
+import { RadioTrackTextCatalog } from '../src/perception/radioTrackTextCatalog.mjs';
 
 function fixture() {
   let now=0, sequence=0, producerSequence=0;const epoch=randomUUID(),stream=randomUUID(),ped=randomUUID(),player=randomUUID(),vehicle=randomUUID(),ambient=randomUUID();
