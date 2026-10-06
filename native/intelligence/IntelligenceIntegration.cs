@@ -65,7 +65,7 @@ namespace LSA.Intelligence
         readonly bool radioEnabled;
         RadioProbeState radioProbe;
         int discoveryCursor,stateCursor,connectionVersion;
-        long staleRejected,retiredAnchors,witnessDeferred,witnessUnknown,witnessRejected;
+        long staleRejected,retiredAnchors,witnessDeferred,witnessUnknown,witnessRejected,radioWitnessed,radioWitnessUnknown;
         int lineOfSightBudget;
         volatile bool damageReady;
         int damagePinAttempt;
@@ -256,9 +256,9 @@ namespace LSA.Intelligence
                     nextDiagnostics=now+1000;int age=capabilities["snapshot"]?(int)Math.Min(int.MaxValue,(long)unchecked(tick-snapshotTick)):int.MaxValue;
                     var signals=sensors.Counters;
                     var damageCallbacks=sensors.DamageCallbacks;
-                    var radio=new {samples=Clamp(sensors.RadioSamples),edges=Clamp(sensors.RadioEdges),nativeFailures=Clamp(sensors.RadioNativeFailures)};
+                    var radio=new {samples=Clamp(sensors.RadioSamples),edges=Clamp(sensors.RadioEdges),nativeFailures=Clamp(sensors.RadioNativeFailures),witnessed=Clamp(radioWitnessed),witnessUnknown=Clamp(radioWitnessUnknown)};
                     channel.Send("diagnostics",new {anchors=anchors.Count,observers=anchors.ObserverCount,snapshotAgeMs=age,snapshotCadenceMs=Clamp(snapshotCadence),dropped=Clamp(sensors.Dropped+channel.Dropped),staleRejected=Clamp(staleRejected),retiredAnchors=Clamp(retiredAnchors),deferredDiscovery=Clamp(deferredDiscovery),updateMicros=Clamp((long)(budget.Elapsed.TotalMilliseconds*1000)),capabilities,signals,damageCallbacks,witnessDeferred=Clamp(witnessDeferred),witnessUnknown=Clamp(witnessUnknown),witnessRejected=Clamp(witnessRejected),playerSpeechGate="unsupported_capture_receipt",radio});
-                    if(now>=nextLog) {nextLog=now+10000;Game.LogTrivial("[PS] shadow anchors="+anchors.Count+" observers="+anchors.ObserverCount+" snapshot_age_ms="+age+" snapshot_cadence_ms="+Clamp(snapshotCadence)+" dropped="+Clamp(sensors.Dropped+channel.Dropped)+" stale="+Clamp(staleRejected)+" retired="+Clamp(retiredAnchors)+" deferred="+Clamp(deferredDiscovery)+" update_us="+Clamp((long)(budget.Elapsed.TotalMilliseconds*1000))+" capabilities="+string.Join(",",capabilities.Where(c=>c.Value).Select(c=>c.Key))+" damage_callbacks=ped:"+damageCallbacks["ped_damage"]+",player:"+damageCallbacks["player_damage"]+",vehicle:"+damageCallbacks["vehicle_damage"]+" radio="+radio.samples+":"+radio.edges+":"+radio.nativeFailures+" signals="+string.Join(",",signals.Select(c=>c.Key+":"+c.Value)));}
+                    if(now>=nextLog) {nextLog=now+10000;Game.LogTrivial("[PS] shadow anchors="+anchors.Count+" observers="+anchors.ObserverCount+" snapshot_age_ms="+age+" snapshot_cadence_ms="+Clamp(snapshotCadence)+" dropped="+Clamp(sensors.Dropped+channel.Dropped)+" stale="+Clamp(staleRejected)+" retired="+Clamp(retiredAnchors)+" deferred="+Clamp(deferredDiscovery)+" update_us="+Clamp((long)(budget.Elapsed.TotalMilliseconds*1000))+" capabilities="+string.Join(",",capabilities.Where(c=>c.Value).Select(c=>c.Key))+" damage_callbacks=ped:"+damageCallbacks["ped_damage"]+",player:"+damageCallbacks["player_damage"]+",vehicle:"+damageCallbacks["vehicle_damage"]+" radio="+radio.samples+":"+radio.edges+":"+radio.nativeFailures+" radio_witness="+radio.witnessed+":"+radio.witnessUnknown+" signals="+string.Join(",",signals.Select(c=>c.Key+":"+c.Value)));}
                 }
                 Count(ref completedUpdates);Interlocked.Exchange(ref lastCompletedMs,clock.ElapsedMilliseconds);
             } catch {LogStatus("[PS] optional_update_failed");Shutdown("update_failed");}
@@ -307,6 +307,20 @@ namespace LSA.Intelligence
             var result=new List<WitnessReceipt>();
             if(signal==null) return result;
             var kind=signal.kind;
+            if(kind=="radio_changed" || kind=="radio_stopped") {
+                if(kind=="radio_stopped") return result;
+                var sourceVehicle=anchors.Resolve(signal.target);
+                if(sourceVehicle==null || sourceVehicle.Kind!="vehicle" || !(sourceVehicle.Entity is Vehicle)) {radioWitnessUnknown=Math.Min(int.MaxValue,radioWitnessUnknown+1);return result;}
+                foreach(var observer in anchors.Current.Where(a=>a.Observer&&a.Kind=="ped")) {
+                    if(!(observer.Entity is Ped witness) || !Live(witness,observer.Handle,observer.Address)) {radioWitnessUnknown=Math.Min(int.MaxValue,radioWitnessUnknown+1);continue;}
+                    bool sameVehicle=false;
+                    try {var vehicle=witness.CurrentVehicle;sameVehicle=vehicle!=null&&Live(vehicle,sourceVehicle.Handle,sourceVehicle.Address);} catch {}
+                    var receipt=WitnessPolicy.SameVehicleRadio(observer.CaptureRef,signal.gameTick,sameVehicle);
+                    if(receipt.Status=="witnessed") {result.Add(receipt);radioWitnessed=Math.Min(int.MaxValue,radioWitnessed+1);}
+                    else radioWitnessUnknown=Math.Min(int.MaxValue,radioWitnessUnknown+1);
+                }
+                return result;
+            }
             if(WitnessPolicy.VisualRange(kind)<=0) {witnessUnknown=Math.Min(int.MaxValue,witnessUnknown+1);return result;}
             string participantRef=kind=="firing"?signal.source:signal.target;
             var participant=anchors.Resolve(participantRef);
