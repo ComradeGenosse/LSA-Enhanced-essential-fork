@@ -1,5 +1,5 @@
 import { readFile } from 'node:fs/promises';
-import { verifyRadioTrackTextCatalogText } from '../src/perception/radioTrackCatalog.mjs';
+import { verifyRadioTrackTextCatalogText } from '../src/perception/radioTrackTextCatalog.mjs';
 
 const [catalogPath] = process.argv.slice(2);
 if (!catalogPath) {
