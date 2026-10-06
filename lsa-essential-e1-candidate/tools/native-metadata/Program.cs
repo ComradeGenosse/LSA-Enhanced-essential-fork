@@ -13,6 +13,7 @@ var wanted = new HashSet<string> { "NpcPlaybackCoordinator", "NpcPlaybackStarted
 if (args.Skip(1).Contains("--identity")) wanted = new HashSet<string> { "IIntegration", "IntegrationManager", "IntegrationJsonBlock", "ActorContext" };
 if (args.Skip(1).Contains("--characters")) wanted = new HashSet<string> { "NpcActions", "NpcState", "NpcStateStore", "NpcFocus", "NpcTargeting", "ActorContextProvider" };
 if (args.Skip(1).Contains("--intelligence")) wanted = new HashSet<string> { "PerceptionSnapshot", "PerceptionSystem", "NpcState", "NpcStateStore", "NpcTargeting", "NpcPlaybackCoordinator", "NpcPlaybackStartedEvent", "NpcPlaybackEndedEvent", "IIntegration", "DamageTrackerService", "PedDamageInfo", "VehDamageInfo", "WeaponDamageInfo", "DamageType" };
+if (args.Skip(1).Contains("--activities")) wanted = new HashSet<string> { "NpcActionQueue", "NpcActionRegistry", "NpcActionContext", "NpcActions", "NpcState", "NpcStateStore", "NpcFocus", "FollowBehavior", "ComplianceBehavior", "MovementBehavior", "VehicleBehavior", "CombatBehavior", "ResumeActivityBehavior", "IActionStateModifier", "ActionStateModifierPhase", "PedContinuityMemoryService", "PedContinuityMemory", "LocationResolver", "LocationDefinition", "ActivityPoint", "DestinationResolver", "NpcItemStore", "IntegrationManager" };
 bool characters = args.Skip(1).Contains("--characters");
 // UX phase 1 player-control seams: typed request entry and input gates only.
 bool controls = args.Skip(1).Contains("--controls");
@@ -29,7 +30,9 @@ foreach (var handle in reader.TypeDefinitions) {
         return new { name = reader.GetString(m.Name), returns = sig.ReturnType, parameters = sig.ParameterTypes.ToArray() };
     }).ToArray();
     var fields = type.GetFields().Select(h => reader.GetFieldDefinition(h)).Where(f => (f.Attributes & System.Reflection.FieldAttributes.FieldAccessMask) == System.Reflection.FieldAttributes.Public && (!characters || characterFields.Contains(reader.GetString(f.Name))) && !controls).Select(f => new { name = reader.GetString(f.Name), type = f.DecodeSignature(provider, (object)null) }).ToArray();
-    types.Add(new { name = reader.GetString(type.Namespace) + "." + reader.GetString(type.Name), methods, fields });
+    var typeNamespace = reader.GetString(type.Namespace);
+    var typeName = reader.GetString(type.Name);
+    types.Add(new { name = string.IsNullOrEmpty(typeNamespace) ? typeName : typeNamespace + "." + typeName, methods, fields });
 }
 Console.WriteLine(JsonSerializer.Serialize(new { dllSha256 = Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(file))).ToLowerInvariant(), types }, new JsonSerializerOptions { WriteIndented = true }));
 sealed class Names : ISignatureTypeProvider<string, object> {
@@ -45,7 +48,8 @@ sealed class Names : ISignatureTypeProvider<string, object> {
  public string GetPointerType(string e) => e+"*";
  public string GetPrimitiveType(PrimitiveTypeCode t) => t.ToString();
  public string GetSZArrayType(string e) => e+"[]";
- public string GetTypeFromDefinition(MetadataReader r,TypeDefinitionHandle h,byte k) { var t=r.GetTypeDefinition(h);return NestedNames && !t.GetDeclaringType().IsNil ? GetTypeFromDefinition(r,t.GetDeclaringType(),k)+"+"+r.GetString(t.Name) : r.GetString(t.Namespace)+"."+r.GetString(t.Name); }
- public string GetTypeFromReference(MetadataReader r,TypeReferenceHandle h,byte k) { var t=r.GetTypeReference(h);return r.GetString(t.Namespace)+"."+r.GetString(t.Name); }
+ static string Qualified(string ns,string name) => string.IsNullOrEmpty(ns) ? name : ns + "." + name;
+ public string GetTypeFromDefinition(MetadataReader r,TypeDefinitionHandle h,byte k) { var t=r.GetTypeDefinition(h);return NestedNames && !t.GetDeclaringType().IsNil ? GetTypeFromDefinition(r,t.GetDeclaringType(),k)+"+"+r.GetString(t.Name) : Qualified(r.GetString(t.Namespace),r.GetString(t.Name)); }
+ public string GetTypeFromReference(MetadataReader r,TypeReferenceHandle h,byte k) { var t=r.GetTypeReference(h);return Qualified(r.GetString(t.Namespace),r.GetString(t.Name)); }
  public string GetTypeFromSpecification(MetadataReader r,object c,TypeSpecificationHandle h,byte k) => r.GetTypeSpecification(h).DecodeSignature(this,c);
 }

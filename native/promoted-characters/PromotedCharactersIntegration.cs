@@ -94,7 +94,9 @@ namespace LSA.PromotedCharacters
             return NativeSafetyPolicy.CanControl(true,false,encounter.Ped == Game.LocalPlayer.Character,Scripted(),
                 foreignScript || adopting && missionEntity && !NpcActions.HasExclusiveControl(encounter.Ped),state?.InDirectedInteraction == true);
         }
-        void Retire(Encounter encounter) { if (encounter.Registration != null) { try {OwnerRetired?.Invoke(encounter.Registration.IncarnationId);}catch{} identity?.Owner?.Retire(encounter.Registration); } encounter.Registration = null; encounter.OwnerAlias = null; encounter.OwnershipToken = null; }
+        void Retire(Encounter encounter) {
+            try { activityRunner?.Retire(encounter.Id, encounter.Registration?.IncarnationId, unchecked((uint)Game.GameTime), DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(), activitySession); } catch { }
+            if (encounter.Registration != null) { try {OwnerRetired?.Invoke(encounter.Registration.IncarnationId);}catch{} identity?.Owner?.Retire(encounter.Registration); } encounter.Registration = null; encounter.OwnerAlias = null; encounter.OwnershipToken = null; }
         static void Suspend(Encounter encounter)
         {
             encounter.Suspended = true; // Set first, before any native control callback.
@@ -115,6 +117,7 @@ namespace LSA.PromotedCharacters
             // claim. No capture/control work is admitted during this reset tick.
             var replacement = new ControlChannel(pipeName,Guid.NewGuid().ToString("D"),world);
             replacement.Start(); channel = replacement; lastGameTime = now;
+            ActivityClockReset();
             // Pending loader commands carried the old world's expectations. The
             // optional bridge can never fail P2's own reset.
             try { talkTargets.ResetForWorldChange(Monotonic); } catch { }
@@ -149,6 +152,7 @@ namespace LSA.PromotedCharacters
                     finally { request.Done.Set(); }
                 }
                 ServeLocal(4 - handled);
+                try { ActivityTick(now); } catch { DisableActivity(); }
             } catch { LSA.Intelligence.IntelligenceIntegration.LogStatus("[P2] optional_update_failed"); Shutdown("update_failed"); }
         }
         static void Fields(Dictionary<string,object> args,params string[] fields) { if (args.Count != fields.Length || fields.Any(field => !args.ContainsKey(field))) throw new InvalidOperationException("invalid_owner_arguments"); }
@@ -221,11 +225,13 @@ namespace LSA.PromotedCharacters
             if (!Safe(owned)) throw new InvalidOperationException("scripted_state");
             switch (request.Operation) {
                 case "follow":
+                    NoteActivityCommand(owned, "follow");
                     NpcFocus.SetFocus(owned.Ped,Game.LocalPlayer.Character,"p2_player_command"); NpcActions.FollowTarget(owned.Ped); var follow = NpcStateStore.GetStateForActiveBehavior(owned.Ped);
                     follow.StayUnderLsaControl = true; follow.EnterPassengerSeatWhenPlayerEnters = true; follow.ExitVehicleWhenPlayerExits = true; follow.AccompliceMode = false;
                     owned.Mode = "follow"; owned.Suspended = false; break;
-                case "wait": NpcActions.WaitHere(owned.Ped); var wait = NpcStateStore.GetStateForActiveBehavior(owned.Ped); wait.StayUnderLsaControl = true; wait.EnterPassengerSeatWhenPlayerEnters = false; wait.ExitVehicleWhenPlayerExits = false; owned.Mode = "wait"; owned.Suspended = false; break;
+                case "wait": NoteActivityCommand(owned, "wait"); NpcActions.WaitHere(owned.Ped); var wait = NpcStateStore.GetStateForActiveBehavior(owned.Ped); wait.StayUnderLsaControl = true; wait.EnterPassengerSeatWhenPlayerEnters = false; wait.ExitVehicleWhenPlayerExits = false; owned.Mode = "wait"; owned.Suspended = false; break;
                 case "dismiss": case "release": case "despawn":
+                    NoteActivityCommand(owned, request.Operation);
                     if (request.Operation == "despawn" && !owned.Created) throw new InvalidOperationException("cannot_delete_adopted_ped");
                     // Retire proof first. Essential's original lifecycle closes exact
                     // sessions; no CharacterId-based rerouting is introduced.
@@ -282,8 +288,8 @@ namespace LSA.PromotedCharacters
             if (!IsReady || context?.IntegrationBlocks == null || context.PedId != ped?.Handle.ToString()) return;
             try { var encounter = EncounterFor(ped); context.IntegrationBlocks.Add(new IntegrationJsonBlock(Id,json.Serialize(new {version = 1,encounterId = encounter.Id}))); } catch { }
         }
-        public void OnPedControlChanged(Ped ped,bool controlledByLsa) { if (IsReady && !controlledByLsa && ped != null && encounters.TryGetValue(ped.Handle.ToString(),out var encounter) && encounter.Registration != null && !encounter.Suspended) Suspend(encounter); }
-        public void OnNpcActionExecuted(Ped ped,string actionName,bool succeeded) { }
+        public void OnPedControlChanged(Ped ped,bool controlledByLsa) { if (IsReady && !controlledByLsa && ped != null && encounters.TryGetValue(ped.Handle.ToString(),out var encounter) && encounter.Registration != null && !encounter.Suspended) { Suspend(encounter); PushActivity(ped, "", "control_lost", null); } }
+        public void OnNpcActionExecuted(Ped ped,string actionName,bool succeeded) { PushActivity(ped, actionName, "executed", succeeded); }
         // A loader/lifetime fiber can request cleanup, but Core's own callback
         // must retire evidence and perform any native cleanup on its owner fiber.
         public void RequestShutdown() => shutdownRequested = true;
@@ -292,6 +298,7 @@ namespace LSA.PromotedCharacters
         internal void Shutdown(string reason)
         {
             if (shutdown) return; shutdownReason=reason; shutdown = true;
+            ActivityShutdown();
             LSA.Intelligence.IntelligenceIntegration.LogStatus("[P2] shutdown reason="+shutdownReason);
             channel?.Dispose(); channel = null;
             try { talkTargets?.Shutdown(Monotonic); } catch { }

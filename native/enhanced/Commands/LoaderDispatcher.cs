@@ -130,6 +130,7 @@ namespace LSA.Enhanced.Commands
         }
         string Companion(CommandInfo info,CommandArgs args)
         {
+            if (info.Id != null && info.Id.StartsWith("activity.",StringComparison.Ordinal)) return Activity(info,args);
             if (info.Id == CommandCatalog.CurrentPromote) {
                 var npc = CurrentNpc(out string reason);
                 if (npc == null) return Reject(info.Id,reason,args,true);
@@ -161,6 +162,19 @@ namespace LSA.Enhanced.Commands
                         {"patch",new Dictionary<string,object> {{"text",args.Text.Trim()},{"selectedForContext",false}}}}),CompanionTimeoutMs,ProfileBodyBytes,info.Hud,args);
                 default: return Reject(info.Id,"unsupported_command",args,false);
             }
+        }
+        string Activity(CommandInfo info,CommandArgs args)
+        {
+            var npc = CurrentNpc(out string reason);
+            if (npc == null) return Reject(info.Id,reason,args,true);
+            if (!npc.Owned) return Reject(info.Id,"actor_not_owned",args,true);
+            var body = new Dictionary<string,object> {{"action","activity"},{"operation",info.Id.Substring("activity.".Length)},{"expectedEncounterId",npc.EncounterId}};
+            if (info.Id == CommandCatalog.ActivityAssign) {
+                if (args?.Value != "accompany" && args?.Value != "hold_position" && args?.Value != "sit_here" && args?.Value != "resume_previous") return Reject(info.Id,"capability_unavailable",args,true);
+                body["intent"] = args.Value;
+            }
+            var responseBytes = info.Id == CommandCatalog.ActivityStatus || info.Id == CommandCatalog.ActivityHistory ? 16384 : 0;
+            return StartCompanion(info,Json(body),CompanionTimeoutMs,responseBytes,info.Hud,args);
         }
         string Edit(CommandInfo info,CommandArgs args,Dictionary<string,object> patch) =>
             StartCompanion(info,Json(new Dictionary<string,object> {{"action","edit"},{"characterId",args.CharacterId},{"expectedRevision",args.ExpectedRevision},{"patch",patch}}),CompanionTimeoutMs,ProfileBodyBytes,info.Hud,args);

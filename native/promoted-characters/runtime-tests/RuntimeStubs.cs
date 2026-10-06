@@ -102,6 +102,8 @@ namespace LSA.PromotedCharacters
         internal string LocalSnapshot()=>"{\"v\":1,\"seq\":1}";
         internal void RequestLocalSnapshots(int forMs) {Interlocked.Increment(ref SnapshotRequests);}
         public void Update() {if(shutdownRequested) Shutdown();}
+        internal void EnableActivityShadow(string pipeName) {}
+        internal void EnableActivityExecution(string pipeName) {}
         public void Shutdown()
         {
             if(!LosSantosAlive.Integrations.IntegrationManager.InCoreCallback) {

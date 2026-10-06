@@ -78,6 +78,8 @@ namespace LSA.PromotedCharacters
         public void RequestShutdown(){ShutdownCalls++;IsAvailable=false;}
         public void Initialize()=>IsAvailable=true;
         public void Update(){}
+        internal void EnableActivityShadow(string pipeName) {}
+        internal void EnableActivityExecution(string pipeName) {}
         public LSA.Intelligence.OwnedParticipant[] PerceptionRoster()=>new LSA.Intelligence.OwnedParticipant[0];
         public void LoseAvailability(){IsAvailable=false;UnavailabilityReason="clock_regression";}
         internal string SubmitLocal(string envelope)=>"accepted";internal string TakeLocalResult(string id)=>null;internal string LocalSnapshot()=>null;internal void RequestLocalSnapshots(int forMs){}

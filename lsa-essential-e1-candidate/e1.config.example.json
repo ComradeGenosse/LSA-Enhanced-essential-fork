@@ -1,5 +1,6 @@
 {
   "intelligence": { "mode": "off", "pipeName": "LSA.Intelligence.v1" },
+  "activities": { "mode": "off", "pipeName": "LSA.Activities.v1" },
   "persistentIdentity": {
     "enabled": false,
     "mode": "shadow",

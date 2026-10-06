@@ -26,7 +26,7 @@ export async function buildCharactersAddon({rphReferencePath,frameworkReferenceR
   if(!damageReferencePath || await hash(damageReferencePath)!==DAMAGE_DLL_SHA256 || !perceptionContract.available) throw new Error('Pinned compile-only DamageTracker reference and perception metadata required.');
   // UX phases 2-3: the embedded command contract and the compile-only RNUI
   // reference are hash-pinned; RAGENativeUI.dll itself is never packaged.
-  const commandsPath = path.resolve(root,'../contracts/commands.v1.json');
+  const commandsPath = path.resolve(root,'../contracts/commands.v2.json');
   if (await hash(commandsPath) !== COMMANDS_CONTRACT_SHA256) throw new Error('UX command contract pin mismatch.');
   if (!rnuiReferencePath || await hash(rnuiReferencePath) !== RNUI_DLL_SHA256) throw new Error('Pinned compile-only RAGENativeUI 1.9.3 reference required.');
   const project = path.resolve(root,'../native/promoted-characters/Loader.csproj');

@@ -30,6 +30,8 @@ namespace LSA.Enhanced.Ui
     public sealed class Describe
     {
         public string Kind = "unknown", Name, CharacterId, Relationship, Status, Voice;
+        public string ActivityIntent, ActivityStep, ActivityStatus, ActivityReason, ActivityPhrase;
+        public bool ActivityPresent;
         public string[] Facts = new string[0];
         static readonly Regex Uuid = new Regex("^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$");
         public static Describe Parse(string json)
@@ -40,11 +42,18 @@ namespace LSA.Enhanced.Ui
                 var result = new Describe {Kind = Text(value,"kind",16) ?? "unknown",Name = Text(value,"name",80),Relationship = Text(value,"relationship",16),Status = Text(value,"status",16),Voice = Text(value,"voice",40)};
                 string id = Text(value,"characterId",36); result.CharacterId = id != null && Uuid.IsMatch(id) ? id : null;
                 if (value.TryGetValue("facts",out var facts) && facts is object[] items) result.Facts = items.OfType<string>().Where(item => item.Length > 0 && item.Length <= 120).Take(3).ToArray();
+                if (value.TryGetValue("activity",out var activity) && activity is Dictionary<string,object> row) {
+                    result.ActivityPresent = row.TryGetValue("present",out var present) && present is bool flag && flag;
+                    result.ActivityIntent = Token(row,"intent"); result.ActivityStep = Token(row,"step");
+                    result.ActivityStatus = Token(row,"status"); result.ActivityReason = Token(row,"reason");
+                    result.ActivityPhrase = Text(row,"phrase",120);
+                }
                 if (result.Kind != "promoted" && result.Kind != "encounter") result.Kind = "unknown";
                 return result;
             } catch { return null; }
         }
         static string Text(Dictionary<string,object> value,string key,int max) => value.TryGetValue(key,out var item) && item is string text && text.Length > 0 && text.Length <= max && !text.Any(char.IsControl) ? text : null;
+        static string Token(Dictionary<string,object> value,string key) => value.TryGetValue(key,out var item) && item is string text && Regex.IsMatch(text,"^[a-z][a-z0-9_]{0,47}$") ? text : null;
     }
     public sealed class CurrentNpcModel
     {
@@ -80,7 +89,7 @@ namespace LSA.Enhanced.Ui
             string name = matches ? describe.Name : null;
             model.Title = name ?? (npc.Owned ? "Promoted character" : "Current NPC");
             model.Lines.Add(MenuLine.Fact("type","Status",npc.Owned ? (npc.Suspended ? "Promoted, suspended" : "Promoted") : "Not promoted"));
-            if (npc.Owned) model.Lines.Add(MenuLine.Fact("mode","Mode",npc.Mode == "follow" ? "Following" : npc.Mode == "wait" ? "Waiting" : "Idle"));
+            if (npc.Owned) model.Lines.Add(MenuLine.Fact("mode","Mode",npc.Mode == "follow" ? "Following" : npc.Mode == "wait" ? "Waiting" : npc.Mode == "activity" ? "Activity" : "Idle"));
             if (matches && describe.Kind == "promoted" && describe.Relationship != null) model.Lines.Add(MenuLine.Fact("relationship","Relationship",Capitalize(describe.Relationship)));
             if (matches && describe.Facts.Length > 0) model.Lines.Add(MenuLine.Fact("role","Role",describe.Facts[0]));
             if (matches && describe.Voice != null) model.Lines.Add(MenuLine.Fact("voice","Voice",describe.Voice));
@@ -91,6 +100,21 @@ namespace LSA.Enhanced.Ui
                 model.Lines.Add(MenuLine.Action("follow","Follow",CommandCatalog.CurrentFollow,"Follow you as a companion (P2).",companionAvailable));
                 model.Lines.Add(MenuLine.Action("wait","Wait here",CommandCatalog.CurrentWait,"Wait at this spot (P2).",companionAvailable));
                 model.Lines.Add(MenuLine.Action("dismiss","Dismiss",CommandCatalog.CurrentDismiss,"Release this incarnation. The saved character is kept.",companionAvailable,true));
+                var companionActivity = matches && describe != null && describe.ActivityPresent;
+                var activityPresent = companionActivity || npc.ActivityPresent;
+                var activityIntent = companionActivity ? describe.ActivityIntent : npc.ActivityIntent;
+                var activityStatus = companionActivity ? describe.ActivityStatus : npc.ActivityStatus;
+                var activityReason = companionActivity ? describe.ActivityReason : npc.ActivityReason;
+                var label = activityPresent ? ActivityLabel(activityIntent) + " · " + ActivityLabel(activityStatus) : "No activity";
+                var detail = companionActivity && describe.ActivityPhrase != null ? describe.ActivityPhrase :
+                    activityReason == null ? "Player-assigned activity for this character." : "Reason: " + activityReason.Replace('_',' ');
+                model.Lines.Add(MenuLine.Fact("activity","Activity",label,detail));
+                model.Lines.Add(MenuLine.Action("assign","Assign Activity...","local.openActivities","Follow me, wait here, sit here, or resume the previous activity.",companionAvailable));
+                model.Lines.Add(MenuLine.Action("activityPause","Pause Activity",CommandCatalog.ActivityPause,"Pause the current activity. Resume starts a new attempt.",companionAvailable && activityPresent && activityStatus != "paused"));
+                model.Lines.Add(MenuLine.Action("activityResume","Resume Activity",CommandCatalog.ActivityResume,"Resume after a fresh check. This does not reuse the old attempt.",companionAvailable && activityStatus == "paused"));
+                model.Lines.Add(MenuLine.Action("activityCancel","Cancel Activity",CommandCatalog.ActivityCancel,"Stop the activity this addon started.",companionAvailable && activityPresent));
+                model.Lines.Add(MenuLine.Action("activityStatus","Activity Status",CommandCatalog.ActivityStatus,"Show the current activity, step and result.",companionAvailable));
+                model.Lines.Add(MenuLine.Action("activityHistory","Activity history",CommandCatalog.ActivityHistory,"The last few finished activities.",companionAvailable));
             } else {
                 model.Lines.Add(MenuLine.Action("promote","Promote",CommandCatalog.CurrentPromote,"Make this NPC a persistent character with saved memories.",companionAvailable && npc.Human,true));
                 if (ask) {
@@ -112,6 +136,32 @@ namespace LSA.Enhanced.Ui
             model.Lines.InsertRange(0,lines);
         }
         public static string Capitalize(string text) => string.IsNullOrEmpty(text) ? text : char.ToUpperInvariant(text[0]) + text.Substring(1);
+        public static string ActivityLabel(string token)
+        {
+            if (token == "accompany" || token == "follow_person") return "Follow me";
+            if (token == "hold_position") return "Wait here";
+            if (token == "sit_here" || token == "sit_on_ground") return "Sit here";
+            if (token == "resume_previous" || token == "resume_ambient") return "Resume previous activity";
+            if (token == "running") return "Running";
+            if (token == "paused") return "Paused";
+            if (token == "completed") return "Completed";
+            if (token == "failed") return "Failed";
+            if (token == "cancelled") return "Cancelled";
+            if (token == "superseded") return "Replaced";
+            if (token == "abandoned") return "Stopped";
+            if (token == "expired") return "Timed out";
+            return string.IsNullOrEmpty(token) ? "Activity" : Capitalize(token);
+        }
+        public static CurrentNpcModel Assign(bool companionAvailable)
+        {
+            var model = new CurrentNpcModel {Title = "Assign Activity"};
+            model.Lines.Add(MenuLine.Action("followMe","Follow me",CommandCatalog.ActivityAssign,"Follow you. Essential keeps the follow.",companionAvailable,true));
+            model.Lines.Add(MenuLine.Action("waitHere","Wait here",CommandCatalog.ActivityAssign,"Wait at this spot.",companionAvailable,true));
+            model.Lines.Add(MenuLine.Action("sitHere","Sit here",CommandCatalog.ActivityAssign,"Sit on the ground.",companionAvailable,true));
+            model.Lines.Add(MenuLine.Action("resumePrevious","Resume previous activity",CommandCatalog.ActivityAssign,"Return to ambient behavior. This does not restore an old task.",companionAvailable,true));
+            model.Lines[0].Value = "accompany"; model.Lines[1].Value = "hold_position"; model.Lines[2].Value = "sit_here"; model.Lines[3].Value = "resume_previous";
+            return model;
+        }
     }
     public sealed class MemoryRow
     {

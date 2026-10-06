@@ -86,9 +86,11 @@ namespace LSA.PromotedCharacters
             if (ped == null || !ped.Exists() || ped.IsDead || ped == Game.LocalPlayer.Character) return new {present = false};
             var encounter = EncounterFor(ped);
             bool owned = encounter.Registration != null;
+            var view = owned ? activityRunner?.View(encounter.Id) : null;
             return new {present = true,pedId = ped.Handle.ToString(),encounterId = encounter.Id,ownerAlias = owned ? encounter.OwnerAlias : null,owned,
                 suspended = owned && encounter.Suspended,mode = owned ? encounter.Mode : null,
-                human = LosSantosAlive.NPC.NpcTargeting.IsValidHumanPed(ped),safe = Safe(encounter,!owned)};
+                human = LosSantosAlive.NPC.NpcTargeting.IsValidHumanPed(ped),safe = Safe(encounter,!owned),
+                activity = view != null && view.Present ? new {present = true,intent = view.Intent,capability = view.Capability,step = view.Step,status = view.Status,reason = view.Reason} : null};
         }
         static object Gates()
         {

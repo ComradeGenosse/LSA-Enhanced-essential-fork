@@ -31,6 +31,8 @@ namespace LSA.PromotedCharacters
                     GameFiber.Yield();
                     if(stopping) return;
                     integration=new PromotedCharactersIntegration(config.worldProfileId,config.pipeName,config.identityPipeName);
+                    if(config.activities?.mode=="shadow") { try { integration.EnableActivityShadow(config.activities.pipeName);} catch {Game.LogTrivial("[ACT] optional_host_unavailable");} }
+                    else if(config.activities?.mode=="on") { try { integration.EnableActivityExecution(config.activities.pipeName);} catch {Game.LogTrivial("[ACT] optional_host_unavailable");} }
                     integration.Prepare();
                     IntegrationManager.Register(integration);
                     if(config.intelligence?.mode=="shadow") {
@@ -83,7 +85,9 @@ namespace LSA.PromotedCharacters
             public string pipeName {get;set;}="LSA.PromotedCharacters.v1";
             public string identityPipeName {get;set;}="LSA.SessionIdentity.v1";
             public IntelligenceConfig intelligence {get;set;}=new IntelligenceConfig();
+            public ActivitiesConfig activities {get;set;}=new ActivitiesConfig();
         }
         public sealed class IntelligenceConfig {public string mode {get;set;}="off";public string pipeName {get;set;}="LSA.Intelligence.v1";}
+        public sealed class ActivitiesConfig {public string mode {get;set;}="off";public string pipeName {get;set;}="LSA.Activities.v1";}
     }
 }

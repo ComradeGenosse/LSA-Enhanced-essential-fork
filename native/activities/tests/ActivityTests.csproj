@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net481</TargetFramework><LangVersion>latest</LangVersion><AutomaticallyUseReferenceAssemblyPackages>false</AutomaticallyUseReferenceAssemblyPackages></PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../ActivityContracts.cs" Link="ActivityContracts.cs" />
+    <Compile Include="../CapabilityTable.cs" Link="CapabilityTable.cs" />
+    <Compile Include="../ActivityChannel.cs" Link="ActivityChannel.cs" />
+    <Compile Include="../StepMachine.cs" Link="StepMachine.cs" />
+    <Compile Include="../SupersessionMonitor.cs" Link="SupersessionMonitor.cs" />
+    <Compile Include="../StepRunner.cs" Link="StepRunner.cs" />
+    <Compile Include="../CompletionAdapters.cs" Link="CompletionAdapters.cs" />
+    <Compile Include="../PlaceTable.cs" Link="PlaceTable.cs" />
+    <Compile Include="../ActivityWorld.cs" Link="ActivityWorld.cs" />
+    <EmbeddedResource Include="../../../contracts/activity-capabilities.v1.json" LogicalName="LSA.Activities.activity-capabilities.v1.json" />
+    <Reference Include="System.Web.Extensions" />
+  </ItemGroup>
+</Project>

@@ -315,7 +315,7 @@ namespace LSA.Intelligence
         public void OnNpcActionExecuted(Ped ped,string actionName,bool succeeded)
         {
             if(!IsAvailable || ReferenceEquals(ped,null) || !actionIndex.TryGetValue(ped,out var target)) return;
-            string action=actionName=="follow"?"follow":actionName=="wait"?"wait":"other";
+            string action=actionName=="followtarget"?"followtarget":actionName=="waithere"?"waithere":"other";
             sensors.Enqueue(new RawSignal {producer="action",kind="action_callback",target=target,gameTick=callbackTick,receivedMs=clock.ElapsedMilliseconds,facts=new Dictionary<string,object>{{"action",action},{"succeeded",succeeded}}});
         }
         public void EnrichActor(Ped ped,ActorContext context) {} // No model-visible block.

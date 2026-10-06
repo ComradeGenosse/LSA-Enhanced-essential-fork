@@ -1,10 +1,10 @@
 # ACT0 / ACT1 status
 
-Updated October 4, 2026. Branch `feature/act0-act1-contracts-shadow-observer`, based on `main` at `bc3b2027b0b2eb6a3c1a7dcb326587f9af781696`. Not merged. Post-review hardening is included after the original `ff8c8be` implementation.
+Updated October 6, 2026. Branch `feature/act0-act1-contracts-shadow-observer` has been reconciled onto current `main` as the base of the ACT2 stack. ACT0/ACT1 have now been built, deployed to the GTA Enhanced install, and exercised in GTA as part of the integrated ACT2 validation. Post-review hardening is included after the original `ff8c8be` implementation.
 
 ACT0 freezes the activity vocabulary. ACT1 observes existing Essential and P2 actions and correlates their lifecycle. ACT does not dispatch NPC actions, call task natives, or add player controls.
 
-No physical GTA session was run. Offline tests do not close the ACT1 acceptance gates.
+The integrated ACT stack has now completed a physical GTA deployment/runtime test. That establishes deployment and runtime-smoke confidence for ACT0/ACT1, but it does **not** retroactively answer the focused ACT1 evidence questions below unless that exact behavior was observed and recorded.
 
 ## What shipped
 
@@ -75,7 +75,7 @@ The ACT native test helper now pumps the production owner-fiber transport path, 
 
 ## Open GTA gates
 
-These remain open. Do not treat the offline results as physical acceptance.
+The branch is now deployed and GTA-runtime verified at the integrated stack level. The focused probes below remain **open questions** where their exact evidence was not captured; deployment/runtime verification must not be read as an automatic pass for each probe.
 
 | Probe | What to record | What it settles |
 | --- | --- | --- |
@@ -91,4 +91,4 @@ ACT2 execution, F11 activity controls, pause/resume/cancel UI, deterministic pla
 
 ## Post-review verification note
 
-This chat environment can update and inspect GitHub but cannot execute the repository locally, and this commit has no associated GitHub Actions workflow run. The original implementation's recorded green suites therefore remain historical evidence only. The post-review branch must receive the normal Windows/.NET + Node regression run and production addon build before merge. No physical GTA gate has been claimed.
+The later integrated ACT2 stack supplied the missing real deployment/runtime evidence: the ACT code was built, installed, and exercised in GTA. The historical per-suite counts above remain the recorded offline evidence for this branch unless a later run explicitly supersedes them. Focused ACT1 probe questions remain open where the required callback/thread/lifecycle evidence was not specifically captured.

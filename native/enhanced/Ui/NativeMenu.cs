@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Web.Script.Serialization;
 using LSA.Enhanced.Commands;
 using LSA.Enhanced.Input;
 using RAGENativeUI;
@@ -30,7 +31,7 @@ namespace LSA.Enhanced.Ui
         readonly UiContext context;
         readonly MenuPool pool = new MenuPool();
         readonly List<UIMenu> menus = new List<UIMenu>();
-        readonly UIMenu main, current, roster, character, controls, ai, diagnostics;
+        readonly UIMenu main, current, roster, character, controls, ai, diagnostics, activities;
         readonly Dictionary<UIMenu,Page> pages = new Dictionary<UIMenu,Page>();
         readonly MenuData data;
         readonly OnscreenKeyboard keyboard = new OnscreenKeyboard();
@@ -57,6 +58,7 @@ namespace LSA.Enhanced.Ui
             controls = Menu("Controls");
             ai = Menu("AI and voice");
             diagnostics = Menu("Diagnostics");
+            activities = Menu("Assign Activity");
             Bind(current,"Current NPC","Status and actions for the NPC Essential has selected.");
             Bind(roster,"Characters","Promoted characters: summon, follow, wait and edit.");
             Bind(controls,"Controls","Gestures, router keys and Essential's own keys.");
@@ -65,7 +67,8 @@ namespace LSA.Enhanced.Ui
             editorItem = new UIMenuItem("Character editor","Open this address in a browser for long text and full editing.");
             main.AddItem(editorItem);
             character.ParentMenu = roster;
-            foreach (var pair in new[] {("current",current),("roster",roster),("character",character),("controls",controls),("ai",ai),("diagnostics",diagnostics)})
+            activities.ParentMenu = current;
+            foreach (var pair in new[] {("current",current),("roster",roster),("character",character),("controls",controls),("ai",ai),("diagnostics",diagnostics),("activities",activities)})
                 pages[pair.Item2] = new Page {Name = pair.Item1,Menu = pair.Item2};
         }
         UIMenu Menu(string subtitle)
@@ -184,7 +187,9 @@ namespace LSA.Enhanced.Ui
             // The second select must still mean the same NPC or character.
             if (line.Confirm && armedTarget != Target(page)) { Disarm(); context.Hud.Show(context.Catalog.Describe("target_changed")); return; }
             Disarm();
-            Run(page,line,new CommandArgs());
+            var args = new CommandArgs();
+            if (line.Command == CommandCatalog.ActivityAssign) args.Value = line.Value;
+            Run(page,line,args);
         }
         void Toggled(UIMenu sender,UIMenuCheckboxItem item,bool on)
         {
@@ -222,6 +227,9 @@ namespace LSA.Enhanced.Ui
         {
             switch (line.Command ?? line.Key) {
                 case LocalOpenCharacter: OpenCharacter(line.Value,page.Menu); break;
+                case "local.openActivities":
+                    activities.ParentMenu = page.Menu; Invalidate(pages[activities]);
+                    page.Menu.Visible = false; activities.Visible = true; break;
                 case LocalRefresh: case "refresh":
                     if (page.Menu == roster || page.Menu == character) data.RequestCharacters();
                     data.Probe(); aiReadAt = -1; Invalidate(page); break;
@@ -280,7 +288,48 @@ namespace LSA.Enhanced.Ui
                 case CommandCatalog.CharacterDismiss: case CommandCatalog.CharacterDespawn: case CommandCatalog.CurrentPromote:
                     data.RequestCharacters();
                     break;
+                case CommandCatalog.ActivityAssign: case CommandCatalog.ActivityPause: case CommandCatalog.ActivityResume: case CommandCatalog.ActivityCancel:
+                    RefreshActivityDescribe();
+                    break;
+                case CommandCatalog.ActivityStatus:
+                    if (reason == null) context.Hud.Show(ActivityReply(body,false));
+                    RefreshActivityDescribe();
+                    break;
+                case CommandCatalog.ActivityHistory:
+                    if (reason == null) context.Hud.Show(ActivityReply(body,true));
+                    RefreshActivityDescribe();
+                    break;
             }
+        }
+        void RefreshActivityDescribe()
+        {
+            var snapshot = Snapshot(context.Clock.Utc);
+            var npc = snapshot?.Current;
+            if (npc != null && npc.Present) data.RequestDescribe(npc.EncounterId,npc.OwnerAlias,true);
+        }
+        static string ActivityReply(string body,bool history)
+        {
+            try {
+                var root = new JavaScriptSerializer {MaxJsonLength = 32768,RecursionLimit = 8}.DeserializeObject(body ?? "") as Dictionary<string,object>;
+                if (root == null) return history ? "No activity history" : "No activity";
+                if (!history) {
+                    if (root.TryGetValue("phrase",out var phraseValue) && phraseValue is string phrase && phrase.Length > 0 && phrase.Length <= 160 && !phrase.Any(char.IsControl)) return Plain(phrase);
+                    var intent = root.TryGetValue("activity",out var intentValue) ? intentValue as string : null;
+                    var status = root.TryGetValue("status",out var statusValue) ? statusValue as string : null;
+                    var reason = root.TryGetValue("reason",out var reasonValue) ? reasonValue as string : null;
+                    if (intent == null) return "No activity";
+                    var text = CurrentNpcView.ActivityLabel(intent) + ": " + CurrentNpcView.ActivityLabel(status);
+                    if (reason != null) text += " (" + reason.Replace('_',' ') + ")";
+                    return Plain(text);
+                }
+                if (!(root.TryGetValue("history",out var historyValue) && historyValue is object[] rows) || rows.Length == 0) return "No activity history";
+                var items = rows.OfType<Dictionary<string,object>>().Reverse().Take(3).Select(row => {
+                    var intent = row.TryGetValue("intent",out var intentValue) ? intentValue as string : null;
+                    var status = row.TryGetValue("status",out var statusValue) ? statusValue as string : null;
+                    return CurrentNpcView.ActivityLabel(intent) + " — " + CurrentNpcView.ActivityLabel(status);
+                }).ToArray();
+                return items.Length == 0 ? "No activity history" : Plain("Recent: " + string.Join("; ",items));
+            } catch { return history ? "No activity history" : "No activity"; }
         }
         string BusyKey(Page page,MenuLine line) => page.Name + ":" + (page.Menu == character ? selectedCharacterId : "") + ":" + line.Key;
         void Arm(Page page,UIMenuItem item,MenuLine line)
@@ -361,6 +410,7 @@ namespace LSA.Enhanced.Ui
         {
             var settings = context.Settings();
             long utc = context.Clock.Utc;
+            if (page.Menu == activities) { subtitle = "Assign Activity"; return CurrentNpcView.Assign(data.CompanionReachable).Lines; }
             if (page.Menu == current) {
                 var snapshot = Snapshot(utc);
                 var npc = snapshot != null && snapshot.Fresh(utc,InputGates.SnapshotMaxAgeMs) ? snapshot.Current : null;
