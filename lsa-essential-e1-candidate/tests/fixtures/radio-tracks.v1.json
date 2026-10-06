@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "game": "gta-v-enhanced",
+  "generatedFrom": "synthetic-fixture",
+  "tracks": {
+    "00000001": {
+      "station": "RADIO_TEST_A",
+      "stationName": "Test Radio",
+      "artist": "Artist A",
+      "title": "Track A"
+    },
+    "00000002": {
+      "station": "RADIO_TEST_B",
+      "stationName": "Test Radio B",
+      "artist": "Artist B",
+      "title": "Track B"
+    }
+  }
+}
