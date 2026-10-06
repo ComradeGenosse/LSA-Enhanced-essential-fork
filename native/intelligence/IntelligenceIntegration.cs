@@ -46,9 +46,9 @@ namespace LSA.Intelligence
         {
             public string Vehicle,Station="",RejectedClasses="";
             public bool InVehicle,Rejected;
-            public uint TrackHash;
-            public int PlayMs=-1,RejectedLength;
-            public bool Same(RadioProbeState other)=>other!=null&&Vehicle==other.Vehicle&&InVehicle==other.InVehicle&&Station==other.Station&&TrackHash==other.TrackHash&&Rejected==other.Rejected&&RejectedLength==other.RejectedLength&&RejectedClasses==other.RejectedClasses;
+            public uint SoundHash;
+            public int TrackTextId,PlayMs=-1,RejectedLength;
+            public bool Same(RadioProbeState other)=>other!=null&&Vehicle==other.Vehicle&&InVehicle==other.InVehicle&&Station==other.Station&&SoundHash==other.SoundHash&&TrackTextId==other.TrackTextId&&Rejected==other.Rejected&&RejectedLength==other.RejectedLength&&RejectedClasses==other.RejectedClasses;
         }
         Dictionary<string,bool> capabilities=new Dictionary<string,bool>();
         readonly object rosterGate=new object();
@@ -286,19 +286,20 @@ namespace LSA.Intelligence
                 return reading;
             }
             reading.Station=raw;
-            reading.TrackHash=unchecked((uint)NativeFunction.CallByName<int>("GET_CURRENT_TRACK_SOUND_NAME",raw));
+            reading.SoundHash=unchecked((uint)NativeFunction.CallByName<int>("GET_CURRENT_TRACK_SOUND_NAME",raw));
+            reading.TrackTextId=NativeFunction.CallByName<int>("GET_AUDIBLE_MUSIC_TRACK_TEXT_ID");
             return reading;
         }
         void CommitRadio(RadioProbeState reading,uint tick,long now)
         {
-            sensors.Radio(reading.Vehicle,reading.Station,reading.TrackHash,tick,now);
+            sensors.Radio(reading.Vehicle,reading.Station,reading.SoundHash,reading.TrackTextId,tick,now);
             if(radioProbe!=null && radioProbe.Same(reading)) return;
             if(reading.Station.Length>0) {
                 try { int play=NativeFunction.CallByName<int>("GET_CURRENT_TRACK_PLAY_TIME",reading.Station); reading.PlayMs=play<0?-1:play; }
                 catch { reading.PlayMs=-1; }
             }
             radioProbe=reading;
-            string line="[RADIO_PROBE] vehicle="+(reading.InVehicle?"1":"0")+" station="+reading.Station+" track="+reading.TrackHash.ToString("X8")+" play_ms="+reading.PlayMs;
+            string line="[RADIO_PROBE] vehicle="+(reading.InVehicle?"1":"0")+" station="+reading.Station+" sound="+reading.SoundHash.ToString("X8")+" text_id="+reading.TrackTextId+" play_ms="+reading.PlayMs;
             if(reading.Rejected) line+=" rejected=station_grammar len="+Math.Min(Math.Max(reading.RejectedLength,0),9999)+" classes="+reading.RejectedClasses;
             try { Game.LogTrivial(line); } catch {}
         }
