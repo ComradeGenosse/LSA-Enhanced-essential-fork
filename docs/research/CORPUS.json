@@ -1,6 +1,6 @@
 {
   "corpusVersion": 1,
-  "updated": "2026-10-06",
+  "updated": "2026-10-08",
   "purpose": "Machine-readable navigation and provenance map for LSA Enhanced research. Implementation/deployment truth remains docs/ROADMAP.md.",
   "canonical": {
     "entrypoint": "docs/research/README.md",
@@ -136,6 +136,14 @@
     }
   },
   "documents": [
+    {
+      "id": "ps4-dialogue-knowledge-update-20261008",
+      "path": "docs/research/PS4-dialogue-knowledge-update-20261008.md",
+      "type": "implementation-update",
+      "authority": "current-status",
+      "status": "current",
+      "sourceRef": "main@7e54b17b53f2786f3e9294e546db6b560fb5f6a7"
+    },
     {
       "id": "roadmap",
       "path": "docs/ROADMAP.md",
