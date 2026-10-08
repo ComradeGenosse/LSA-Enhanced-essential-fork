@@ -61,19 +61,20 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
           catch {reason='projection_failed';}
         }else reason ||= 'owner_unverified';
       }
-      // Active sending remains fenced until request validity and exact delivery
-      // acknowledgement are integrated. Preview is a private scalar read only.
+      // Only explicit active mode with the matching build/live contracts may
+      // select the candidate. Off/shadow always send the same hardened base.
+      const selected=mode==='active' && !reason && preview?preview:base;
       turn.knowledgeMode=mode;
       turn.knowledgePreview=preview?Object.freeze({selectedObservations:preview.delivery.length,frameBytes:preview.diagnostics.bytes,frameHash:createHash('sha256').update(JSON.stringify(preview.modelAllocation)).digest('hex')}):null;
-      turn.knowledgeFallbackReason=reason??(mode==='active'?'unsupported_contract':null);
+      turn.knowledgeFallbackReason=reason;
       try {telemetry?.emit('knowledge_frame_projected',turn.identity,source,{knowledgeMode:mode,preview:!!preview,selectedObservations:preview?.delivery.length??0,frameBytes:preview?.diagnostics.bytes??base.diagnostics.bytes,frameHash:turn.knowledgePreview?.frameHash??createHash('sha256').update(JSON.stringify(base.modelAllocation)).digest('hex'),reason:turn.knowledgeFallbackReason});}catch{}
       const validateKnowledge=frame=>assertOwnedKnowledgeCurrent(turn.knowledgeInputs,{identity:turn.identity,snapshot:turn.characterSnapshot,identityService,perception:runtime.intelligence?.runtime}) || assertKnowledgeItemsCurrent(turn.knowledgeInputs,frame,runtime.intelligence?.runtime);
-      turn.knowledgeDelivery=createKnowledgeDelivery({frame:base,baseFrame:base,isCurrent:()=>runtime.host.isCurrent(turn.identity) && (!identityService || identityService.current(turn.identity)),
+      turn.knowledgeDelivery=createKnowledgeDelivery({frame:selected,baseFrame:base,isCurrent:()=>runtime.host.isCurrent(turn.identity) && (!identityService || identityService.current(turn.identity)),
         prune:frame=>pruneKnowledgeFrame(frame,item=>!validateKnowledge({delivery:[item]})),
         validate:validateKnowledge,
         acknowledge:(key,consumer,outcome)=>runtime.intelligence?.runtime.salience.acknowledge(key,consumer,outcome),
         onOutcome:result=>{turn.knowledgeOutcome=result;try{telemetry?.emit('knowledge_delivery',turn.identity,source,{outcome:result.outcome,selectedObservations:result.selectedObservations,acknowledgedObservations:result.acknowledged,retiredAcknowledgements:result.retired,knowledgeRequestHash:result.requestHash,projectionHash:result.projectionHash,reason:result.retired?'ack_key_retired':null});}catch{}}});
-      return base;
+      return selected;
     },
     subscribeKnowledgeInvalidation:listener=>runtime.intelligence?.subscribeKnowledgeInvalidation(listener),
     providerStack,

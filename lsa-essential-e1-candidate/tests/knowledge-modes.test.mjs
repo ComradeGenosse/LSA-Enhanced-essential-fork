@@ -33,11 +33,11 @@ test('off and shadow send identical base frames; supported preview exposes only 
   runtime.intelligence={runtime:{observerIndexVersion:1,observerSituationVersion:1,hostContext:{hostContextVersion:1}},assertKnowledgeCurrent:()=>null};
   const turn={identity:{pedId:'17',turnId:'turn',generationId:1,sessionNonce:1},context:{actor:{pedId:'17'},listener:null,world:{},referenceMap:{}},knowledgeInputs:inputs};
   const frozen=JSON.stringify(inputs),frame=runtime.services.finalizeKnowledgeFrame(turn,options);
-  const body=JSON.stringify(frame.modelAllocation);if(before)assert.equal(body,before);before=body;
-  assert.equal(frame.delivery.length,0);assert.equal(JSON.parse(frame.modelAllocation.scene).lanes.PERCEIVED.observations.length,0);assert.equal(JSON.stringify(inputs),frozen);
+  const body=JSON.stringify(frame.modelAllocation);if(mode!=='active'){if(before)assert.equal(body,before);before=body;}else assert.notEqual(body,before);
+  assert.equal(frame.delivery.length,mode==='active'?1:0);assert.equal(JSON.parse(frame.modelAllocation.scene).lanes.PERCEIVED.observations.length,mode==='active'?1:0);assert.equal(JSON.stringify(inputs),frozen);
   if(mode==='off'){assert.equal(turn.knowledgePreview,null);assert.equal(turn.knowledgeFallbackReason,'disabled');}
   else {assert.equal(turn.knowledgePreview.selectedObservations,1);assert.match(turn.knowledgePreview.frameHash,/^[a-f0-9]{64}$/);assert.ok(Object.isFrozen(turn.knowledgePreview));assert.deepEqual(Object.keys(turn.knowledgePreview).sort(),['frameBytes','frameHash','selectedObservations']);}
-  if(mode==='active')assert.equal(turn.knowledgeFallbackReason,'unsupported_contract');
+  if(mode==='active')assert.equal(turn.knowledgeFallbackReason,null);
  }
 });
 test('missing support, stale join and failed projection preserve safe ordinary dialogue',()=>{
