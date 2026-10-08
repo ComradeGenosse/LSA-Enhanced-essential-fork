@@ -1,3 +1,4 @@
+import {captureActivityKnowledge} from '../activities/activityKnowledge.mjs';
 import {createKnowledgeDelivery} from '../context/knowledgeDelivery.mjs';
 import {createHash} from 'node:crypto';
 import {releaseOwnedKnowledge,assertOwnedKnowledgeCurrent,assertKnowledgeItemsCurrent} from '../context/knowledgeInputs.mjs';
@@ -113,7 +114,11 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
       catch {return Object.freeze({version:1,identity:Object.freeze({...identity}),claim:null,profile:null,session:null});}
     },
     captureKnowledgeInputs(input) {
-      try {return runtime.intelligence?.captureKnowledgeInputs({...input,identityConfig:config.persistentIdentity,ownerEvidence:identityService?.evidence}) ?? null;}
+      try {
+        const inputs=runtime.intelligence?.captureKnowledgeInputs({...input,identityConfig:config.persistentIdentity,ownerEvidence:identityService?.evidence}) ?? null;
+        let activityInputs=null;try{activityInputs=captureActivityKnowledge({knowledgeInputs:inputs,characterInputs:input.characterInputs,activities:runtime.activities});}catch{}
+        return activityInputs?Object.freeze({...inputs,activityInputs}):inputs;
+      }
       catch {return null;} // Optional knowledge failure cannot prevent an Essential turn.
     },
     validateDecisionShape,

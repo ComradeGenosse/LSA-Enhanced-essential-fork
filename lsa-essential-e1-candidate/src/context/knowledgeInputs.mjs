@@ -1,3 +1,4 @@
+import {releaseActivityKnowledge} from '../activities/activityKnowledge.mjs';
 import { immutableSnapshot } from './turnSnapshot.mjs';
 import { KNOWLEDGE_LIMITS,jsonBytes } from './knowledgeSelector.mjs';
 import { sameHostContext } from './hostContext.mjs';
@@ -71,7 +72,7 @@ export function assertOwnedKnowledgeCurrent(inputs,{identity,snapshot,identitySe
 export function releaseOwnedKnowledge(inputs,options) {
   if(!inputs?.ownerPendingProof)return inputs;
   const reason=inputs.association?.owned?assertOwnedKnowledgeCurrent(inputs,options):'owner_unverified';
-  return immutableSnapshot({...inputs,reason,ownerPendingProof:!!reason});
+  return immutableSnapshot({...inputs,reason,ownerPendingProof:!!reason,...(inputs.activityInputs && !reason?{activityInputs:releaseActivityKnowledge(inputs.activityInputs,options.snapshot?.resolution?.characterId)}:{})});
 }
 
 

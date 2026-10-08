@@ -123,6 +123,7 @@ export class OpenAIConnection {
     const internalEvent = internalSource ? String(turn.context?.internalEvent || rawInput || '').trim().slice(0,12_000) : '';
     let contextText = String(turn.context?.contextText || '');
     if (internalEvent && contextText && normalizeContextForComparison(contextText) === normalizeContextForComparison(internalEvent)) contextText = '';
+    const characterInputs=this.#runtime.captureCharacterInputs?.(turn.identity,actor) ?? null;
     this.#turn = Object.freeze({
       identity: Object.freeze({ ...turn.identity }), source,
       inputText: internalSource ? '' : rawInput,
@@ -137,8 +138,8 @@ export class OpenAIConnection {
       contextSnapshot,
       sourcePresence:this.#runtime.actorSourcePresence?.(actor) ?? Object.freeze([]),
       priorHistory:immutableSnapshot(this.#runtime.history?.readForSession(turn.identity.pedId,turn.identity.sessionNonce) ?? []),
-      characterInputs: this.#runtime.captureCharacterInputs?.(turn.identity,actor) ?? null,
-      knowledgeInputs: this.#runtime.captureKnowledgeInputs?.({identity:turn.identity,source,p0Snapshot:contextSnapshot}) ?? null,
+      characterInputs,
+      knowledgeInputs: this.#runtime.captureKnowledgeInputs?.({identity:turn.identity,source,p0Snapshot:contextSnapshot,characterInputs}) ?? null,
     });
     this.#characterSnapshot = null;
     this.#launched = false;
