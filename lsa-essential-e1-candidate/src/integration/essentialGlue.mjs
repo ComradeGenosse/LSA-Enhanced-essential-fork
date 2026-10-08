@@ -10,7 +10,6 @@ import { VoiceResolver } from '../voice/voiceResolver.mjs';
 import { executeProviderOperation } from '../reliability/providerExecutor.mjs';
 import { captureReferenceMap } from '../context/turnSnapshot.mjs';
 import { IdentityResolver } from '../identity/identityResolver.mjs';
-import { withoutIdentityEvidence } from '../identity/modelContext.mjs';
 import { CharacterService,withoutCharacterTransport } from '../characters/characterService.mjs';
 import { createNoopDialogueTrace } from '../observability/dialogueTrace.mjs';
 
@@ -45,7 +44,7 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
   };
   const runtime = {
     config, history, services, telemetry, dialogueTrace, providerStack, voiceResolver, identityService,characterService,
-    modelActor: actor => characterService ? withoutCharacterTransport(actor) : identityService ? withoutIdentityEvidence(actor) : actor,
+    modelActor: actor => withoutCharacterTransport(actor),
     validateDecisionShape,
     validateStockDecision,
     captureReferenceMap,

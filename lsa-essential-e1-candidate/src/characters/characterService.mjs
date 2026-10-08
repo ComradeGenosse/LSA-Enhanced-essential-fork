@@ -14,6 +14,7 @@ export const characterFailureReason = error => FAILURE_REASONS.has(error?.messag
 export function withoutCharacterTransport(actor) {
   let clean = withoutIdentityEvidence(actor);
   if (!clean) return clean;
+  if (!Object.prototype.hasOwnProperty.call(clean,'characterProfile') && !Object.prototype.hasOwnProperty.call(clean.integrations || {},'characterProfile') && !Object.prototype.hasOwnProperty.call(clean.integrations?.raw || {},'characterProfile')) return clean;
   const { characterProfile:ignored,...core } = clean;
   if (!core.integrations) return core;
   const integrations = { ...core.integrations }; delete integrations.characterProfile;

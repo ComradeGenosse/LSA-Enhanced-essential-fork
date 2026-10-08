@@ -152,14 +152,14 @@ export function patchSource(source) {
   insert(bkParams[2].end, ',__lsaWorldSnapshot', 'BK explicit world snapshot parameter');
   const bkWorld = one((() => { const all = []; walk(functionBody(ast,'BK'), node => { if (node.type === 'Property' && node.key?.name === 'world') all.push(node); }); return all; })(), 'BK current world property');
   replace(bkWorld.value.start, bkWorld.value.end, '__lsaWorldSnapshot&&typeof __lsaWorldSnapshot==="object"?{gameTime:__lsaWorldSnapshot.gameTime??"unknown",weather:__lsaWorldSnapshot.weather??"unknown",streetName:__lsaWorldSnapshot.streetName??"unknown",crossingStreetName:__lsaWorldSnapshot.crossingStreetName??"unknown",zoneCode:__lsaWorldSnapshot.zoneCode??"unknown"}:{gameTime:"unknown",weather:"unknown",streetName:"unknown",crossingStreetName:"unknown",zoneCode:"unknown"}', 'world context has explicit unknown semantics');
-  prelude('BK', 'if (__LSA_E1_RUNTIME.identityService || __LSA_E1_RUNTIME.characterService) { t=__LSA_E1_RUNTIME.modelActor(t); e=__LSA_E1_RUNTIME.modelActor(e); }');
+  prelude('BK', 't=__LSA_E1_RUNTIME.modelActor(t); e=__LSA_E1_RUNTIME.modelActor(e);');
 
   // Reserved identity evidence never flattens into native fields/capabilities,
   // including when P1 is disabled or a forged/unsupported block is supplied.
   const eoIdentityGuard = one((() => { const all = []; walk(functionBody(ast, 'EO'), node => {
     if (node.type === 'BinaryExpression' && sourceSlice(source,node) === 'o!=="raw"') all.push(node);
   }); return all; })(), 'EO reserved identity namespace');
-  replace(eoIdentityGuard.start, eoIdentityGuard.end, '(o!=="raw"&&o!=="sessionIdentity")', 'keep identity evidence namespaced');
+  replace(eoIdentityGuard.start, eoIdentityGuard.end, '(o!=="raw"&&o!=="sessionIdentity"&&o!=="characterProfile"&&o!=="turnKnowledge")', 'keep private evidence namespaced');
 
   const ziBody = functionBody(ast, 'Zi');
   const ziParam = functions(ast, 'Zi')[0].params[0];
