@@ -1,4 +1,5 @@
 import { immutableSnapshot } from './turnSnapshot.mjs';
+import { KNOWLEDGE_LIMITS,jsonBytes } from './knowledgeSelector.mjs';
 import { sameHostContext } from './hostContext.mjs';
 import { isUuid, actorClaim } from '../identity/identityContract.mjs';
 
@@ -36,8 +37,12 @@ export function captureKnowledgeInputs({identity,source,p0Snapshot,perception,id
     ownerClaim=identityConfig ? actorClaim(actor,identityConfig).claim : null;
     if(!ownerClaim || profile?.version!==1 || profile.encounterId!==index.encounterId || block.encounterId!==index.encounterId || block.incarnationId!==index.incarnationId || ownerClaim.incarnationId!==index.incarnationId || !sameHostContext(ownerEvidence?.hostContext,fence)) return finish({reason:'owner_unverified'});
   } else if(block.encounterId!==undefined || block.incarnationId!==undefined || index.encounterId!==undefined) return finish({reason:'owner_unverified'});
-  const pairs=perception.salience.snapshotForObserver(block.captureRef,perception.observations,perception.now());
-  return finish({reason:null,hostRunId:block.hostRunId,worldEpoch:block.worldEpoch,psAdapterEpoch:perception.epoch,psStreamId:perception.stream,association:{...index,sampledGameTick:block.sampledGameTick},ownerClaim,pairs});
+  const liveReferences=Object.fromEntries([...perception.anchors].filter(([ref])=>perception.current(ref)).map(([ref,anchor])=>[ref,anchor.kind]));
+  let poolBytes=0;
+  const pairs=perception.salience.snapshotForObserver(block.captureRef,perception.observations,perception.now()).filter(pair=>pair.observation.claims.every(claim=>[claim.source,claim.target].every(ref=>!ref || liveReferences[ref.captureRef]===ref.kind) && (!claim.details?.vehicle || liveReferences[claim.details.vehicle]==='vehicle'))).filter((pair,index)=>{
+    const bytes=jsonBytes(pair);if(index>=KNOWLEDGE_LIMITS.poolCount || poolBytes+bytes>KNOWLEDGE_LIMITS.poolBytes) return false;poolBytes+=bytes;return true;
+  });
+  return finish({reason:null,hostRunId:block.hostRunId,worldEpoch:block.worldEpoch,psAdapterEpoch:perception.epoch,psStreamId:perception.stream,association:{...index,sampledGameTick:block.sampledGameTick},ownerClaim,pairs,liveReferences});
 }
 
 export function assertKnowledgeCurrent(inputs,perception) {
