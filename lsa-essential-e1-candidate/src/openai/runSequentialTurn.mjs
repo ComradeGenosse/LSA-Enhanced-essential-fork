@@ -192,7 +192,7 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
 
     // Snapshot the old history first so the current utterance is not duplicated in
     // both the history and the current user message sent to Luna.
-    const priorHistory = history.readForSession(identity.pedId, identity.sessionNonce);
+    const priorHistory = turn.priorHistory ?? history.readForSession(identity.pedId, identity.sessionNonce);
     if (isPlayer) {
       const committed = history.commitPlayerInput({ identity, input: finalInput });
       metrics?.count(committed ? 'playerCommitted' : 'playerDuplicateCount');

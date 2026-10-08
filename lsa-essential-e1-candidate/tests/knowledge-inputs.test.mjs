@@ -58,13 +58,16 @@ test('actual OpenAI P0 boundary freezes private inputs synchronously before prep
 
 test('disabled-service actual Luna decision context excludes captured private join evidence',async()=>{
   const h=await stockHarness('openai',{config:{persistentIdentity:{enabled:false},promotedCharacters:{enabled:false}}});
-  const f=fixture();h.runtime.intelligence={captureKnowledgeInputs:input=>captureKnowledgeInputs({...input,perception:f.perception})};let request=null;
+  const f=fixture();let prior=[{role:'assistant',content:'History at P0'}];
+  h.runtime.history.readForSession=()=>prior;
+  h.runtime.intelligence={captureKnowledgeInputs:input=>{prior=[{role:'assistant',content:'Later history'}];return captureKnowledgeInputs({...input,perception:f.perception});}};let request=null;
   h.runtime.services.decide=async options=>{request=options;return {dialogue:'Hello.',command:''};};
   h.runtime.services.speak=async ({onPcm})=>{await onPcm(new Uint8Array([1,2]));return {bytes:2};};
   const session=await h.openAIControllerSession({actorContext:f.p0Snapshot.actor});session.autoNativeAcks();
   h.context.knowledgeInput={pedId:'17',speaker:f.p0Snapshot.actor,text:'Hello.'};const turn=await h.evaluate('ib(knowledgeInput)');
   const result=await session.connection.whenSettled({pedId:turn.pedId,turnId:turn.id,generationId:turn.generationId,sessionNonce:1});
   assert.equal(result.status,'completed');assert.ok(request);
+  assert.deepEqual(request.history,[{role:'assistant',content:'History at P0'}]);
   const text=JSON.stringify(request.context);for(const secret of ['turnKnowledge',f.captureRef,f.hello.hostRunId,'knowledgeInputs','psStreamId']) assert.equal(text.includes(secret),false);
   session.connection.close();
 });
