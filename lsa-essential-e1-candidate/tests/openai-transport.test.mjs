@@ -36,6 +36,22 @@ function fakeProviderFetch() {
   };
 }
 
+test('C05 publication observation precedes the synchronous transcript listener and cannot delay or veto',async()=>{
+ for(const behavior of ['capture','throw','reject','unresolved','no_action']){
+  const fake=fakeProviderFetch(),runtime=createRuntime(normalizeConfig({}, {OPENAI_API_KEY:'test-key'}),{fetchImpl:fake.fetch});
+  const order=[];let captured;
+  runtime.services.recordDialogueActionPublication=value=>{order.push('pending');captured=value;if(behavior==='throw')throw Error('optional');if(behavior==='reject')return Promise.reject(Error('optional'));if(behavior==='unresolved')return new Promise(()=>{});};
+  const bridge=readyBridge(event=>{if(event.type==='output_transcript')order.push('listener');if(event.type==='turn_complete')queueMicrotask(()=>bridge.complete(event));return true;});
+  bridge.validateDecision=decision=>({identityValid:true,internalTranscript:decision.dialogue,actionCount:behavior==='no_action'?0:1,actionNames:['waithere']});
+  runtime.attachBridge(bridge);const identity={pedId:'17',turnId:`publication-${behavior}`,generationId:1,sessionNonce:1};
+  const connection=await new OpenAITransport(runtime).connect({systemInstruction:'Stock',diagnosticContext:identity,onEvent:async event=>{if(event.type==='output_transcript')order.push('listener');if(event.type==='turn_complete')queueMicrotask(()=>bridge.complete(identity));}});
+  await connection.beginTurn({identity,source:'player_text',context:{actor:{pedId:'17'},listener:{pedId:'player'},inputText:'Wait'}});await connection.sendText('Wait');
+  assert.equal((await connection.whenSettled(identity)).status,'completed');assert.deepEqual(order,behavior==='no_action'?['listener']:['pending','listener']);
+  if(captured){assert.deepEqual(captured.turn.identity,identity);assert.deepEqual(captured.validated.actionNames,['waithere']);assert.ok(Number.isSafeInteger(captured.publishedAtMs));}
+  connection.close();
+ }
+});
+
 test('typed OpenAI turn is pinned, sequential, and awaits matching protocol playback', async () => {
   const fake = fakeProviderFetch();
   const config = normalizeConfig({}, { OPENAI_API_KEY: 'test-key' });

@@ -328,6 +328,11 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
     // Stock action listener preserves timing, including final-only actions.
     // Stock action listeners may dispatch synchronously on this transcript event.
     const hasAction = validated.actionCount > 0;
+    // Passive C-05 observation runs synchronously before the stock listener.
+    // It may capture already-validated data, never await, dispatch or veto.
+    if(hasAction && services.recordDialogueActionPublication){
+      try {const result=services.recordDialogueActionPublication({turn,validated,publishedAtMs:Date.now()});result?.catch?.(()=>{});}catch{}
+    }
     await emit({ type: 'output_transcript', text: validated.internalTranscript });
     check();
     transition('tts_running');
