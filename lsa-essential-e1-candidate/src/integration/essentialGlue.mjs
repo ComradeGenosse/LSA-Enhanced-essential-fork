@@ -1,4 +1,4 @@
-import {captureActivityKnowledge} from '../activities/activityKnowledge.mjs';
+import {captureActivityKnowledge,assertActivityKnowledgeCurrent} from '../activities/activityKnowledge.mjs';
 import {createKnowledgeDelivery} from '../context/knowledgeDelivery.mjs';
 import {createHash} from 'node:crypto';
 import {releaseOwnedKnowledge,assertOwnedKnowledgeCurrent,assertKnowledgeItemsCurrent} from '../context/knowledgeInputs.mjs';
@@ -70,9 +70,9 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
       turn.knowledgeFallbackReason=reason;
       const capture=turn.knowledgeInputs?.captureDiagnostics;
       try {telemetry?.emit('knowledge_frame_projected',turn.identity,source,{knowledgeMode:mode,preview:!!preview,captureObservationCount:capture?.observations??0,capturePairCount:capture?.retainedPairs??0,capturePoolBytes:capture?.poolBytes??0,captureMissingSalience:capture?.noMatchingSalience??0,captureRevisionMismatch:capture?.revisionMismatch??0,captureRetiredRefs:capture?.participantRetired??0,captureBudgetExcluded:capture?.budgetExcluded??0,selectedObservations:preview?.delivery.length??0,frameBytes:preview?.diagnostics.bytes??base.diagnostics.bytes,frameHash:turn.knowledgePreview?.frameHash??createHash('sha256').update(JSON.stringify(base.modelAllocation)).digest('hex'),reason:turn.knowledgeFallbackReason});}catch{}
-      const validateKnowledge=frame=>assertOwnedKnowledgeCurrent(turn.knowledgeInputs,{identity:turn.identity,snapshot:turn.characterSnapshot,identityService,perception:runtime.intelligence?.runtime}) || assertKnowledgeItemsCurrent(turn.knowledgeInputs,frame,runtime.intelligence?.runtime);
+      const validateKnowledge=frame=>assertOwnedKnowledgeCurrent(turn.knowledgeInputs,{identity:turn.identity,snapshot:turn.characterSnapshot,identityService,perception:runtime.intelligence?.runtime}) || assertKnowledgeItemsCurrent(turn.knowledgeInputs,frame,runtime.intelligence?.runtime) || ((frame.activityReferences?.length??0)>0?assertActivityKnowledgeCurrent(turn.knowledgeInputs.activityInputs,runtime.activities,frame.activityReferences):null);
       turn.knowledgeDelivery=createKnowledgeDelivery({frame:selected,baseFrame:base,isCurrent:()=>runtime.host.isCurrent(turn.identity) && (!identityService || identityService.current(turn.identity)),
-        prune:frame=>pruneKnowledgeFrame(frame,item=>!validateKnowledge({delivery:[item]})),
+        prune:frame=>pruneKnowledgeFrame(frame,item=>!validateKnowledge({delivery:[item]}),item=>!validateKnowledge({delivery:[],activityReferences:[item]})),
         validate:validateKnowledge,
         acknowledge:(key,consumer,outcome)=>runtime.intelligence?.runtime.salience.acknowledge(key,consumer,outcome),
         onOutcome:result=>{turn.knowledgeOutcome=result;try{telemetry?.emit('knowledge_delivery',turn.identity,source,{outcome:result.outcome,selectedObservations:result.selectedObservations,acknowledgedObservations:result.acknowledged,retiredAcknowledgements:result.retired,knowledgeRequestHash:result.requestHash,projectionHash:result.projectionHash,reason:result.retired?'ack_key_retired':null});}catch{}}});

@@ -47,12 +47,14 @@ export function releaseActivityKnowledge(inputs,characterId){
  if(!inputs)return null;
  return immutableSnapshot({...inputs,ownerPendingProof:inputs.binding?.characterId!==characterId,reason:inputs.binding?.characterId===characterId?null:'owner_unverified'});
 }
-export function assertActivityKnowledgeCurrent(inputs,activities){
+export function assertActivityKnowledgeCurrent(inputs,activities,references=null){
  if(!inputs || inputs.ownerPendingProof || inputs.reason)return 'owner_unverified';
  const client=activities?.client?.runtime;
  if(client?.ready!==true || client.nativeRun!==inputs.nativeRun || client.adapterEpoch!==inputs.adapterEpoch)return 'channel_unhealthy';
  if(!sameHostContext(client.hostContext,inputs.binding?.hostContext))return 'host_mismatch';
  let current;try{current=activities.factsForCharacter?.(inputs.binding);}catch{return 'channel_unhealthy';}
- if(!Array.isArray(current) || inputs.facts.some(captured=>!current.some(fact=>fact.factId===captured.factId && JSON.stringify(fact)===JSON.stringify(captured))))return 'participant_retired';
+ const selected=references===null?inputs.facts:references.map(ref=>inputs.facts.find(fact=>fact.factId===ref.factId && fact.activityId===ref.activityId && ref.encounterId===inputs.binding.encounterId && ref.incarnationId===inputs.binding.incarnationId));
+ if(selected.some(fact=>!fact))return 'revision_mismatch';
+ if(!Array.isArray(current) || selected.some(captured=>!current.some(fact=>fact.factId===captured.factId && JSON.stringify(fact)===JSON.stringify(captured))))return 'participant_retired';
  return null;
 }

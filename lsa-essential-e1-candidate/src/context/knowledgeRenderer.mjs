@@ -109,11 +109,13 @@ export function renderKnowledge({turn,frozenAt,profile,persistent=false,knowledg
 
 // Narrow an already rendered allocation before first send. No new facts, live
 // history or replacement candidates are admitted by this operation.
-export function pruneKnowledgeFrame(frame,keep) {
+export function pruneKnowledgeFrame(frame,keep,keepActivity=()=>true) {
  const retained=frame.delivery.map((item,index)=>keep(item)?index:null).filter(index=>index!==null);
- if(retained.length===frame.delivery.length)return frame;
+ const activityRetained=(frame.activityReferences??[]).map((item,index)=>keepActivity(item)?index:null).filter(index=>index!==null);
+ if(retained.length===frame.delivery.length && activityRetained.length===(frame.activityReferences?.length??0))return frame;
  const scene=JSON.parse(frame.modelAllocation.scene);
  scene.lanes.PERCEIVED.observations=retained.map(index=>scene.lanes.PERCEIVED.observations[index]);
+ if(frame.activityReferences)scene.lanes.SELF.selfFacts=activityRetained.map(index=>scene.lanes.SELF.selfFacts[index]);
  const modelAllocation={...frame.modelAllocation,scene:JSON.stringify(scene)};
- return immutableSnapshot({...frame,modelAllocation,delivery:retained.map(index=>frame.delivery[index]),diagnostics:{...frame.diagnostics,bytes:jsonBytes(modelAllocation),perLane:{...frame.diagnostics.perLane,PERCEIVED:jsonBytes(scene.lanes.PERCEIVED)},staleObservationDrops:(frame.diagnostics.staleObservationDrops??0)+frame.delivery.length-retained.length}});
+ return immutableSnapshot({...frame,modelAllocation,delivery:retained.map(index=>frame.delivery[index]),...(frame.activityReferences?{activityReferences:activityRetained.map(index=>frame.activityReferences[index])}:{}),diagnostics:{...frame.diagnostics,bytes:jsonBytes(modelAllocation),perLane:{...frame.diagnostics.perLane,PERCEIVED:jsonBytes(scene.lanes.PERCEIVED),SELF:jsonBytes(scene.lanes.SELF)},staleActivityFactDrops:(frame.diagnostics.staleActivityFactDrops??0)+(frame.activityReferences?.length??0)-activityRetained.length,staleObservationDrops:(frame.diagnostics.staleObservationDrops??0)+frame.delivery.length-retained.length}});
 }

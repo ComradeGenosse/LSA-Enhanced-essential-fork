@@ -5,7 +5,8 @@ const hash=value=>createHash('sha256').update(JSON.stringify(value)).digest('hex
 export function createKnowledgeDelivery({frame,baseFrame=frame,isCurrent,validate=()=>null,prune=frame=>frame,acknowledge=()=>false,onOutcome=()=>{}}) {
  let projection=frame,sent=false,terminal=false,requestHash=null,projectionHash=null,unsubscribe=null;
  const dispose=()=>{unsubscribe?.();unsubscribe=null;};
- const currentReason=()=>!isCurrent()?'superseded':projection.delivery.length?validate(projection):null;
+ const hasOptional=()=>projection.delivery.length>0 || (projection.activityReferences?.length??0)>0;
+ const currentReason=()=>!isCurrent()?'superseded':hasOptional()?validate(projection):null;
  const fail=reason=>{throw Object.assign(new Error('knowledge_request_stale'),{code:'knowledge_request_stale',reason});};
  const report=outcome=>{
   if(terminal)return null;terminal=true;dispose();
@@ -16,9 +17,9 @@ export function createKnowledgeDelivery({frame,baseFrame=frame,isCurrent,validat
  };
  return Object.freeze({
   watch(subscribe,cancel){
-   if(!projection.delivery.length || unsubscribe || terminal)return;
+   if(!hasOptional() || unsubscribe || terminal)return;
    try{unsubscribe=subscribe(()=>{
-    if(!sent || terminal || !projection.delivery.length)return;
+    if(!sent || terminal || !hasOptional())return;
     const reason=currentReason();if(reason){dispose();cancel(Object.assign(new Error('knowledge_request_stale'),{code:'knowledge_request_stale',reason}));}
    });}catch{if(sent)fail('unsupported_contract');projection=baseFrame;}
   },

@@ -119,10 +119,12 @@ export async function createRuntimeForBundle(options = {}) {
   runtime.services.acceptPlayerTranscript = input => runtime.intelligence?.acceptPlayerTranscript(input) ?? {accepted:false,reason:'unsupported_capture_receipt'};
   if(config.activities.mode==='shadow' || config.activities.mode==='on') {
     try {
-      const onEvent = (event, data) => { try { telemetry?.emit?.(event, null, 'system', data); } catch {} };
+      const notifyKnowledge=()=>{try{runtime.intelligence?.notifyKnowledgeInvalidation();}catch{}};
+      const onEvent = (event, data) => { try { telemetry?.emit?.(event, null, 'system', data); } catch {} notifyKnowledge(); };
+      const onFrame=frame=>{try{options.activityOptions?.onFrame?.(frame);}catch{}notifyKnowledge();};
       runtime.activities = config.activities.mode === 'on'
-        ? new ActivityRuntime(config.activities, { ...options.activityOptions, onEvent })
-        : new ActivityClient(config.activities, { ...options.activityOptions, onEvent });
+        ? new ActivityRuntime(config.activities, { ...options.activityOptions, onEvent,onFrame })
+        : new ActivityClient(config.activities, { ...options.activityOptions, onEvent,onFrame });
       runtime.activities.start();
       runtime.characterService?.bindActivities?.(runtime.activities);
     } catch { try { console.warn('[ACT] optional_channel_unavailable'); } catch {} }

@@ -8,7 +8,7 @@ export class ActivityRuntime {
       config, registry: options.registry, now: options.now, id: options.id, onEvent: options.onEvent || (() => {}),
       onCommand: frame => this.client?.send(frame),
     });
-    this.client = new ActivityClient(config, { ...options, onFrame: frame => this.engine.ingest(frame), onEvent: options.onEvent });
+    this.client = new ActivityClient(config, { ...options, onFrame: frame => {this.engine.ingest(frame);options.onFrame?.(frame);}, onEvent: options.onEvent });
   }
   start() {
     this.client.start();

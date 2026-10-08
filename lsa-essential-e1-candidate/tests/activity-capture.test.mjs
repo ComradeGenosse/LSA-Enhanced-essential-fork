@@ -24,3 +24,8 @@ test('ACT capture excludes ordinary/mixed-host/mismatched-turn or unavailable pr
  const f=fixture(),captured=releaseActivityKnowledge(captureActivityKnowledge(f),f.binding.characterId);f.activities.client.runtime.adapterEpoch=randomUUID();assert.equal(assertActivityKnowledgeCurrent(captured,f.activities),'channel_unhealthy');
  f.activities.client.runtime.adapterEpoch=captured.adapterEpoch;f.activities.factsForCharacter=()=>{throw new Error('optional read failure');};assert.equal(assertActivityKnowledgeCurrent(captured,f.activities),'channel_unhealthy');
 });
+
+test('ACT currentness validates only retained exact references and rejects replacement refs',()=>{
+ const f=fixture();f.add();const inputs=releaseActivityKnowledge(captureActivityKnowledge(f),f.binding.characterId),retained=projectActivityKnowledge(inputs).references[0];
+ f.facts.facts=f.facts.facts.slice(-1);assert.equal(assertActivityKnowledgeCurrent(inputs,f.activities),'participant_retired');assert.equal(assertActivityKnowledgeCurrent(inputs,f.activities,[retained]),null);assert.equal(assertActivityKnowledgeCurrent(inputs,f.activities,[{...retained,factId:randomUUID()}]),'revision_mismatch');
+});

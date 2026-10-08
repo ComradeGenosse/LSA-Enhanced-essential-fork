@@ -407,3 +407,12 @@ Captured ACT inputs remain ownerPendingProof and cannot render until the existin
 Validation: new capture tests cover original frozen facts across later append/profile changes, pending-vs-released projection, wrong character, exact claim/turn/host/body requirements, unavailable profile/channel, retired fact payloads, reconnect and optional read faults. Full explicit offline suite 547/547, zero failed/cancelled; existing real stock controller/source/request regressions remain passing; git diff --check passed. Nothing deployed or enabled.
 
 Still required: connect ACT currentness to actual request/retry/success/watch boundaries, supply the frozen contributor to the finalizer only behind its independent build/config/acceptance gates, and prove actual controller paths/pressure/negative cases. C-05 publication/callback association and ordinary shared-ring collection remain unfinished, as do MP6/G8 physical gates and later master-plan phases. The full goal remains active.
+
+
+## Checkpoint 37: optional ACT facts through request lifetime boundaries
+
+Extended the existing PS4 delivery boundary to validate optional ACT SELF references even when the frame contains no perception observations. First-send pruning removes whole stale SELF facts together with their private references; retries and final success reject changed selected payloads rather than refill from later facts. Validation checks only retained references, so eviction of an unselected captured fact does not invalidate the request. Canon, selected memories and original frozen inputs remain unchanged. ACT facts never consume salience or reaction entitlements.
+
+ACT frame/event notifications reuse the existing knowledge invalidation listener after engine updates. Channel loss, reset and retirement therefore cancel pending optional knowledge requests through existing cancellation and teardown, without a new timer or callback store. The production finalizer still does not enable ACT facts: independent contributor gates and actual controller-path validation remain required.
+
+Validation: full explicit offline Node suite 551/551, zero failed/cancelled/skipped. Added ACT-only prepare/send/retry/success/watch tests, whole-fact pruning with aligned references, and selected-reference eviction coverage. Nothing deployed or enabled. C-05 exact publication/callback association, production contributor gating, MP6/G8 and GTA acceptance, full gate audit and all later phases remain unfinished. The full goal remains active.

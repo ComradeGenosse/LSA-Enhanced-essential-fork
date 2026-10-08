@@ -51,3 +51,15 @@ test('in-flight invalidation cancels exactly the sent request and removes its li
 test('successful reasoning and explicit teardown release invalidation subscriptions',()=>{
  for(const complete of [true,false]){const f=fixture();let disposed=0;f.delivery.watch(()=>()=>{disposed++;},()=>{});f.delivery.beforeRequest({input:'enriched'});if(complete)f.delivery.success(decision);else f.delivery.dispose();assert.equal(disposed,1);f.delivery.dispose();assert.equal(disposed,1);}
 });
+
+
+test('ACT-only SELF validates request and success without consuming salience entitlements',()=>{
+ const base={modelAllocation:{scene:'base',messages:[]},delivery:[],activityReferences:[]},frame={...base,modelAllocation:{scene:'ACT SELF',messages:[]},activityReferences:[{factId:'captured-fact'}]};
+ let reason=null,checks=0,acks=0;const delivery=createKnowledgeDelivery({frame,baseFrame:base,isCurrent:()=>true,validate:()=>{checks++;return reason;},acknowledge:()=>{acks++;return true;}});
+ assert.equal(delivery.prepare(),frame);delivery.beforeRequest({scene:'ACT SELF'});assert.ok(checks>=2);reason='participant_retired';assert.throws(()=>delivery.beforeRequest({scene:'ACT SELF'}),{code:'knowledge_request_stale'});assert.throws(()=>delivery.success(decision),{code:'knowledge_request_stale'});assert.equal(delivery.finish().outcome,'expired');assert.equal(acks,0);
+ const fallback=createKnowledgeDelivery({frame,baseFrame:base,isCurrent:()=>true,validate:()=>reason});assert.equal(fallback.prepare(),base);fallback.beforeRequest({scene:'base'});assert.equal(fallback.success(decision).selectedObservations,0);
+});
+test('ACT-only in-flight watch cancels the exact request and disposes without PS4 acknowledgement',()=>{
+ let listener,reason=null,cancelled=null,disposed=0;const frame={modelAllocation:{scene:'ACT SELF'},delivery:[],activityReferences:[{factId:'captured-fact'}]};
+ const delivery=createKnowledgeDelivery({frame,isCurrent:()=>true,validate:()=>reason});delivery.watch(callback=>{listener=callback;return ()=>disposed++;},error=>{cancelled=error;});assert.equal(typeof listener,'function');delivery.beforeRequest({scene:'ACT SELF'});reason='channel_unhealthy';listener();assert.equal(cancelled.reason,'channel_unhealthy');assert.equal(disposed,1);assert.equal(delivery.finish().acknowledged,0);assert.equal(disposed,1);
+});
