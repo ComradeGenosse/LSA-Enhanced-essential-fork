@@ -296,3 +296,12 @@ The companion sample now explicitly includes dialogueKnowledge.mode off. The nat
 Built the current production Release addon against the existing pinned compile-only RPH/net481/DamageTracker/RNUI references. Verified all four packaged native artifact hashes against the generated manifest. Runtime DLL SHA-256: b8c3bd98c2f80c0c80e00614a8ef03c45e9827090952e523b5a946478941d3a9. Build metadata retains deploymentPerformed:false and gtaRuntimeTest:false. Artifacts remain isolated in candidate dist; no installation performed.
 
 Validation: full explicit offline Node suite 520/520, zero failed/cancelled; git diff --check passed. Remaining companion/native payload support verification, adversarial/pressure/reset/GTA gates and later master-plan phases remain unfinished. No enabling or GTA acceptance changed. The full goal remains active.
+
+
+## Checkpoint 26: actual failed and partial reasoning delivery cases
+
+Expanded the real active Essential/provider-fetch matrix with refused, incomplete and malformed buffered reasoning responses. Each sends the supported frozen perception frame but records rejected reasoning, consumes no PS4/PS6 entitlement, commits no assistant history and releases subscriptions. Added a real active early-TTS stream that releases a validated segment/PCM before a contradictory final response: partial speech still proves no completed reasoning delivery, so no knowledge acknowledgement or assistant commit occurs.
+
+These tests use the actual decoder/request/controller/ledger path, not a successful synthetic result or playback as delivery evidence. No production source or capability availability changed. Remaining payload support, pressure/adversarial/native reset/interop and GTA gates plus later master-plan phases remain unfinished. Nothing deployed or enabled. The full goal remains active.
+
+Validation: full explicit offline Node suite 524/524, zero failed/cancelled; git diff --check passed.

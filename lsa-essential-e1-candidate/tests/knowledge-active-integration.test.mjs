@@ -89,3 +89,31 @@ for(const fault of ['build_unavailable','host_mismatch','world_mismatch','captur
  const scene=JSON.parse(bodies[0].input[0].content.split('\n').find(line=>line.startsWith('{"frameVersion":1,')));assert.deepEqual(scene.lanes.PERCEIVED.observations,[]);assert.equal(bodies[0].input.at(-1).content,'Hello');assert.equal(JSON.stringify(bodies[0]).includes('turnKnowledge'),false);
  assert.ok([...f.ps.salience.ledger.values()].every(entry=>entry.consumedBy.size===0));assert.equal(f.client.knowledgeListeners.size,0);
 });
+
+
+for(const fault of ['refusal','incomplete','malformed'])test(`real active ${fault} never acknowledges perception delivery`,async t=>{
+ const f=factualFixture();let outcome=null;
+ const h=await stockHarness('openai',{config:{dialogueKnowledge:{mode:'active'},retry:{enabled:false,maxAttempts:1},persistentIdentity:{enabled:false},promotedCharacters:{enabled:false}},env:{OPENAI_API_KEY:'offline'},fetchImpl:async()=>{
+  const content=fault==='refusal'?{type:'refusal',refusal:'Offline refusal'}:{type:'output_text',text:fault==='malformed'?'{"dialogue":"Hello."}':'{"dialogue":"Hello.","command":""}'};
+  return new Response(JSON.stringify({status:fault==='incomplete'?'incomplete':'completed',output:[{type:'message',content:[content]}]}),{headers:{'content-type':'application/json'}});
+ }});
+ h.runtime.intelligence=f.client;h.runtime.dialogueKnowledgeBuildSupported=true;
+ const finalize=h.runtime.services.finalizeKnowledgeFrame;h.runtime.services.finalizeKnowledgeFrame=(turn,args)=>{const frame=finalize(turn,args),finish=turn.knowledgeDelivery.finish;turn.knowledgeDelivery={...turn.knowledgeDelivery,finish:()=>{outcome=finish();return outcome;}};return frame;};
+ h.runtime.services.speak=async()=>{throw new Error('Invalid reasoning must not reach speech');};
+ const session=await h.openAIControllerSession({actorContext:f.actor});t.after(()=>session.connection.close());session.autoNativeAcks();h.context.failedInput={pedId:'17',speaker:f.actor,text:'What happened?'};
+ const turn=await h.evaluate('ib(failedInput)');const result=await session.connection.whenSettled({pedId:turn.pedId,turnId:turn.id,generationId:turn.generationId,sessionNonce:1});
+ assert.notEqual(result.status,'completed');assert.equal(outcome.outcome,'rejected');assert.equal(outcome.selectedObservations,1);assert.ok([...f.ps.salience.ledger.values()].every(entry=>entry.consumedBy.size===0));assert.equal(f.client.knowledgeListeners.size,0);assert.equal(h.runtime.history.readForSession('17',1).some(item=>item.role==='assistant'),false);
+});
+test('real active early TTS partial segments cannot acknowledge a contradictory final response',async t=>{
+ const f=factualFixture();let pcm=0;
+ const h=await stockHarness('openai',{config:{dialogueKnowledge:{mode:'active'},structuredStreamingEnabled:true,earlyTtsEnabled:true,retry:{enabled:false,maxAttempts:1},persistentIdentity:{enabled:false},promotedCharacters:{enabled:false}},env:{OPENAI_API_KEY:'offline'},fetchImpl:async()=>{
+  const item={id:'msg_bad_final',type:'message',role:'assistant',content:[]},bad=JSON.stringify({mode:'dialogue_only',segments:[{text:'Hello.'}],command:'invalid final command'});
+  const events=[{type:'response.created',response:{id:'resp_bad_final',status:'in_progress'}},{type:'response.output_item.added',output_index:0,item},{type:'response.output_text.delta',output_index:0,content_index:0,item_id:item.id,delta:responseText},{type:'response.completed',response:{id:'resp_bad_final',status:'completed',output:[{...item,status:'completed',content:[{type:'output_text',text:bad,annotations:[]}]}]}}];
+  const stream=new ReadableStream({async start(controller){for(let index=0;index<events.length;index++){if(index===3)await new Promise(resolve=>setTimeout(resolve,10));const event=events[index];controller.enqueue(new TextEncoder().encode(`event: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`));}controller.close();}});
+  return new Response(stream,{headers:{'content-type':'text/event-stream'}});
+ }});
+ h.runtime.intelligence=f.client;h.runtime.dialogueKnowledgeBuildSupported=true;h.runtime.services.speak=async({onPcm})=>{pcm++;await onPcm(new Uint8Array([1,2]));return {bytes:2};};
+ const session=await h.openAIControllerSession({actorContext:f.actor});t.after(()=>session.connection.close());session.autoNativeAcks();h.context.partialInput={pedId:'17',speaker:f.actor,text:'What happened?'};
+ const turn=await h.evaluate('ib(partialInput)');const result=await session.connection.whenSettled({pedId:turn.pedId,turnId:turn.id,generationId:turn.generationId,sessionNonce:1});
+ assert.notEqual(result.status,'completed');assert.ok(pcm>0);assert.ok([...f.ps.salience.ledger.values()].every(entry=>entry.consumedBy.size===0));assert.equal(f.client.knowledgeListeners.size,0);assert.equal(h.runtime.history.readForSession('17',1).some(item=>item.role==='assistant'),false);
+});
