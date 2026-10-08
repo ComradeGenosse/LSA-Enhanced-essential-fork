@@ -325,6 +325,7 @@ export class OpenAIConnection {
       isCurrent: () => !this.#closed && sameIdentity(this.#turn?.identity, turn.identity) && this.#runtime.host.isCurrent(turn.identity),
       voiceResolver: this.#runtime.voiceResolver, allowVoice: !this.#voicePolicyLocked });
     if (signal.aborted || this.#closed || !sameIdentity(this.#turn?.identity, turn.identity) || !this.#runtime.host.isCurrent(turn.identity)) return;
+    turn.knowledgeInputs = this.#runtime.releaseOwnedKnowledge?.(turn.knowledgeInputs,turn.identity,prepared?.snapshot) ?? turn.knowledgeInputs;
     this.#characterSnapshot = prepared?.snapshot || null;
     if (!this.#voicePolicyLocked) {
       this.#voicePolicyLocked = true;

@@ -1,7 +1,7 @@
 import { immutableSnapshot } from './turnSnapshot.mjs';
 import { KNOWLEDGE_LIMITS,jsonBytes } from './knowledgeSelector.mjs';
 import { sameHostContext } from './hostContext.mjs';
-import { isUuid, actorClaim } from '../identity/identityContract.mjs';
+import { isUuid, actorClaim, sameAssociation } from '../identity/identityContract.mjs';
 
 const required=['version','hostRunId','worldEpoch','captureRef','sampledGameTick'];
 const optional=['encounterId','incarnationId'];
@@ -35,14 +35,15 @@ export function captureKnowledgeInputs({identity,source,p0Snapshot,perception,id
   if(index.owned) {
     const profile=actor.integrations?.characterProfile;
     ownerClaim=identityConfig ? actorClaim(actor,identityConfig).claim : null;
-    if(!ownerClaim || profile?.version!==1 || profile.encounterId!==index.encounterId || block.encounterId!==index.encounterId || block.incarnationId!==index.incarnationId || ownerClaim.incarnationId!==index.incarnationId || !sameHostContext(ownerEvidence?.hostContext,fence)) return finish({reason:'owner_unverified'});
+    if(!ownerClaim || profile?.version!==1 || profile.encounterId!==index.encounterId || block.encounterId!==index.encounterId || block.incarnationId!==index.incarnationId || ownerClaim.incarnationId!==index.incarnationId) return finish({reason:'owner_unverified'});
+    if(ownerEvidence?.hostContext && !sameHostContext(ownerEvidence.hostContext,fence)) return finish({reason:'owner_unverified'});
   } else if(block.encounterId!==undefined || block.incarnationId!==undefined || index.encounterId!==undefined) return finish({reason:'owner_unverified'});
   const liveReferences=Object.fromEntries([...perception.anchors].filter(([ref])=>perception.current(ref)).map(([ref,anchor])=>[ref,anchor.kind]));
   let poolBytes=0;
   const pairs=perception.salience.snapshotForObserver(block.captureRef,perception.observations,perception.now()).filter(pair=>pair.observation.claims.every(claim=>[claim.source,claim.target].every(ref=>!ref || liveReferences[ref.captureRef]===ref.kind) && (!claim.details?.vehicle || liveReferences[claim.details.vehicle]==='vehicle'))).filter((pair,index)=>{
     const bytes=jsonBytes(pair);if(index>=KNOWLEDGE_LIMITS.poolCount || poolBytes+bytes>KNOWLEDGE_LIMITS.poolBytes) return false;poolBytes+=bytes;return true;
   });
-  return finish({reason:null,hostRunId:block.hostRunId,worldEpoch:block.worldEpoch,psAdapterEpoch:perception.epoch,psStreamId:perception.stream,association:{...index,sampledGameTick:block.sampledGameTick},ownerClaim,pairs,liveReferences});
+  return finish({reason:null,hostRunId:block.hostRunId,worldEpoch:block.worldEpoch,psAdapterEpoch:perception.epoch,psStreamId:perception.stream,association:{...index,sampledGameTick:block.sampledGameTick},ownerClaim,ownerPendingProof:!!index.owned,pairs,liveReferences});
 }
 
 export function assertKnowledgeCurrent(inputs,perception) {
@@ -55,4 +56,15 @@ export function assertKnowledgeCurrent(inputs,perception) {
   if(!perception.current(ref) || !index) return 'participant_retired';
   if(index.encounterId!==inputs.association.encounterId || index.incarnationId!==inputs.association.incarnationId) return 'owner_unverified';
   return null;
+}
+
+// Release only the original owned candidate after the existing P1 preparation.
+// No observer/profile lookup or observation resampling is permitted here.
+export function releaseOwnedKnowledge(inputs,{identity,snapshot,identityService,perception}) {
+  if(!inputs?.ownerPendingProof) return inputs;
+  const deny=()=>immutableSnapshot({...inputs,reason:'owner_unverified'});
+  if(!identity || !['pedId','turnId','generationId','sessionNonce'].every(key=>identity[key]===inputs.turn?.[key]) || assertKnowledgeCurrent(inputs,perception)) return deny();
+  const binding=identityService?.bindings.get(identity),fence={hostContextVersion:1,hostRunId:inputs.hostRunId,worldEpoch:inputs.worldEpoch};
+  if(!['pedId','turnId','generationId','sessionNonce'].every(key=>snapshot?.nativeIdentity?.[key]===identity[key]) || snapshot?.resolution?.kind!=='persistent' || snapshot.bindingRevision!==binding?.bindingRevision || snapshot.bindingId!==binding?.bindingId || snapshot.resolution.characterId!==binding?.characterId || !sameAssociation(inputs.ownerClaim,binding?.claim) || !sameHostContext(identityService?.evidence?.hostContext,fence) || !identityService.evidence.isCurrent(binding.claim)) return deny();
+  return immutableSnapshot({...inputs,reason:null,ownerPendingProof:false});
 }

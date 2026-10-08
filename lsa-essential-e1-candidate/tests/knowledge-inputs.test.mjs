@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { ShadowRuntime } from '../src/perception/shadowRuntime.mjs';
 import { CAPABILITIES } from '../src/perception/contracts.mjs';
-import { captureKnowledgeInputs,assertKnowledgeCurrent,validateActorCapture } from '../src/context/knowledgeInputs.mjs';
+import { captureKnowledgeInputs,assertKnowledgeCurrent,validateActorCapture,releaseOwnedKnowledge } from '../src/context/knowledgeInputs.mjs';
 const fixture=()=>{
   let now=1;const perception=new ShadowRuntime({mode:'shadow',now:()=>now});
   const hello={version:1,type:'hello',adapterEpoch:randomUUID(),streamId:randomUUID(),hostContextVersion:1,hostRunId:randomUUID(),worldEpoch:1,observerIndexVersion:1,capabilities:Object.fromEntries(CAPABILITIES.map(k=>[k,k==='shooting']))};
@@ -85,4 +85,49 @@ test('owned candidate requires captured encounter/incarnation and independent P1
   const frozen=captureKnowledgeInputs(input);assert.equal(frozen.reason,null);assert.equal(frozen.ownerClaim.incarnationId,proof.incarnationId);assert.equal(Object.hasOwn(frozen,'characterId'),false);
   ownerEvidence.hostContext={...f.hello,hostRunId:randomUUID()};assert.equal(captureKnowledgeInputs(input).reason,'owner_unverified');
   ownerEvidence.hostContext=f.hello;proof.incarnationId=randomUUID();assert.equal(captureKnowledgeInputs(input).reason,'owner_unverified');assert.notEqual(frozen.ownerClaim.incarnationId,proof.incarnationId);
+});
+
+
+import {selectKnowledge} from '../src/context/knowledgeSelector.mjs';
+test('first owned candidate stays private until matching fresh P1 proof and never resamples',()=>{
+ const f=fixture(),proof=claim(),encounterId=randomUUID();
+ f.perception.anchors.get(f.captureRef).owned=true;
+ f.perception.observerIndex.set(f.captureRef,Object.freeze({captureRef:f.captureRef,kind:'ped',owned:true,encounterId,incarnationId:proof.incarnationId}));
+ Object.assign(f.block,{encounterId,incarnationId:proof.incarnationId});
+ Object.assign(f.p0Snapshot.actor.integrations,{characterProfile:{version:1,encounterId},sessionIdentity:proof});
+ f.send('signal',{signalId:randomUUID(),producer:'shooting',producerSequence:1,kind:'firing',target:null,source:f.captureRef,gameTick:10,ageMs:0,facts:{}});
+ const evidence={hostContext:null,isCurrent:()=>true},binding={bindingId:randomUUID(),bindingRevision:1,characterId:randomUUID(),claim:proof};
+ const identityService={evidence,bindings:{get:()=>binding}};
+ const inputs=captureKnowledgeInputs({identity:f.identity,source:'player_text',p0Snapshot:f.p0Snapshot,perception:f.perception,identityConfig:normalizeIdentityConfig({enabled:true,worldProfileId}),ownerEvidence:evidence});
+ assert.ok(inputs.pairs.length);assert.equal(inputs.ownerPendingProof,true);assert.equal(selectKnowledge(inputs).selected.length,0);
+ const snapshot={nativeIdentity:f.identity,bindingId:binding.bindingId,bindingRevision:1,resolution:{kind:'persistent',characterId:binding.characterId}};
+ const release=(patch={})=>releaseOwnedKnowledge(inputs,{identity:f.identity,snapshot,identityService,perception:f.perception,...patch});
+ assert.equal(release().reason,'owner_unverified');evidence.hostContext=f.hello;
+ const captured=JSON.stringify(inputs.pairs);
+ f.send('signal',{signalId:randomUUID(),producer:'shooting',producerSequence:2,kind:'firing',target:null,source:f.captureRef,gameTick:11,ageMs:0,facts:{}});
+ const released=release();assert.equal(released.reason,null);assert.equal(released.ownerPendingProof,false);assert.equal(JSON.stringify(released.pairs),captured);assert.ok(selectKnowledge(released).selected.length);
+ for(const patch of [{snapshot:{...snapshot,bindingId:randomUUID()}},{snapshot:{...snapshot,bindingRevision:2}},{snapshot:{...snapshot,nativeIdentity:{...f.identity,generationId:2}}},{identity:{...f.identity,sessionNonce:2}}])assert.equal(release(patch).reason,'owner_unverified');
+ evidence.isCurrent=()=>false;assert.equal(release().reason,'owner_unverified');evidence.isCurrent=()=>true;
+ binding.claim={...proof,incarnationId:randomUUID()};assert.equal(release().reason,'owner_unverified');binding.claim=proof;
+ evidence.hostContext={...f.hello,worldEpoch:2};assert.equal(release().reason,'owner_unverified');evidence.hostContext=f.hello;
+ f.send('retire_batch',[f.captureRef]);assert.equal(release().reason,'owner_unverified');assert.equal(inputs.ownerPendingProof,true);
+});
+
+
+test('actual Essential preparation releases the captured candidate into the launched private turn',async()=>{
+ const h=await stockHarness('openai',{config:{persistentIdentity:{enabled:false},promotedCharacters:{enabled:false}}});
+ const candidate=Object.freeze({version:1,ownerPendingProof:true,pairs:Object.freeze([])}),released=Object.freeze({...candidate,ownerPendingProof:false});
+ let releaseCall=null,finalized=null;
+ h.runtime.captureKnowledgeInputs=()=>candidate;
+ h.runtime.releaseOwnedKnowledge=(inputs,identity,snapshot)=>{releaseCall={inputs,identity,snapshot};return released;};
+ const finalize=h.runtime.services.finalizeKnowledgeFrame;
+ h.runtime.services.finalizeKnowledgeFrame=(turn,options)=>{finalized=turn.knowledgeInputs;return finalize(turn,options);};
+ h.runtime.services.decide=async()=>({dialogue:'Hello.',command:''});
+ h.runtime.services.speak=async({onPcm})=>{await onPcm(new Uint8Array([1,2]));return {bytes:2};};
+ const session=await h.openAIControllerSession();session.autoNativeAcks();
+ h.context.ownedReleaseInput={pedId:'17',speaker:{pedId:'17'},text:'Hello.'};const turn=await h.evaluate('ib(ownedReleaseInput)');
+ const identity={pedId:turn.pedId,turnId:turn.id,generationId:turn.generationId,sessionNonce:1};
+ const result=await session.connection.whenSettled(identity);
+ assert.equal(result.status,'completed');assert.equal(releaseCall.inputs,candidate);assert.deepEqual(releaseCall.identity,identity);assert.equal(releaseCall.snapshot,undefined);assert.equal(finalized,released);
+ session.connection.close();
 });

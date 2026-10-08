@@ -166,3 +166,14 @@ The base renderer additionally closes canon enums, normalizes malformed surrogat
 Validation: final explicit offline Node suite 475/475, zero failed/cancelled. Real rebuilt Essential/provider-fetch tests cover typed, microphone and internal turns across buffered, streaming and early-TTS paths; actual dM declarations with narrative expanders forbidden; byte-identical frozen retry despite live mutations; mandatory input rejection before fetch with accepted history preserved; unchanged Gemini routing; canonical single rendering and private-ID exclusion. Pinned deterministic builder remains at 54 AST edits. Research corpus validator passed (41 documents/17 decisions/15 contracts). No native production source, deployment, activation or GTA acceptance changed.
 
 **Next baseline PS4 work:** closed off/shadow/active configuration and supported capability gates; first-owned-turn proof release; pre/post-send lifetime validity; exact completed-reasoning C-03 acknowledgement; explicit safety reserve and pressure/omission diagnostics. Optional PS2/PS3 knowledge does not yet reach production Luna requests. Native interoperability, GTA gates and all later master-plan phases remain open. The full implementation goal remains active and incomplete.
+
+
+## Checkpoint 12: first-owned-turn frozen knowledge release
+
+Owned PS4 inputs now retain their original bounded observation/decision/situation candidate when P1 has not yet connected at P0. A conflicting already-known P1 host still prevents capture. Every owned candidate stays private behind ownerPendingProof, including those captured while P1 is connected; the selector cannot project pending or failed inputs. Ordinary unowned observers retain their existing independent path.
+
+Existing OpenAI identity preparation releases that same candidate only after the current persistent snapshot's full native tuple, binding ID/revision, CharacterId and captured claim association match the current binding, the P1 evidence is current, and P1/PS host/world and the original observer/stream remain current. It performs no new identity resolution, profile lookup, observation retrieval or salience evaluation. Missing/revoked/mismatched proof keeps optional knowledge unavailable. Captured pairs remain immutable even when newer observations arrive before proof completes.
+
+Validation: focused capture/selector tests and an actual rebuilt Essential controller preparation test pass. The final full regression result is recorded below. No native production source, deployment, activation or GTA acceptance changed. Optional production PERCEIVED delivery remains disabled; closed modes/build support, request-time validity, exact acknowledgement, budget/pressure diagnostics and later master-plan phases remain unfinished. The full goal remains active.
+
+Final validation: explicit offline Node suite 477/477, zero failed/cancelled; git diff --check passed.

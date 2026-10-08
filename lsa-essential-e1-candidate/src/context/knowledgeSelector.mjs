@@ -34,7 +34,7 @@ function validDecision(d) {
 export function selectKnowledge(inputs,{includePerceived=true}={}) {
   const omissions={unsupported_claim_detail:0,revision_mismatch:0,no_matching_salience:0,budget_excluded:0,safety_overflow:0};
   const result={observations:[],selected:[],omissions};
-  if(!includePerceived || !inputs?.association || !Array.isArray(inputs.pairs)) return immutableSnapshot(result);
+  if(!includePerceived || inputs?.ownerPendingProof || inputs?.reason || !inputs?.association || !Array.isArray(inputs.pairs)) return immutableSnapshot(result);
   const observer=inputs.association.captureRef,counts=new Map();for(const pair of inputs.pairs) counts.set(pair?.observation?.observationId,(counts.get(pair?.observation?.observationId)||0)+1);
   const valid=[];
   for(const pair of inputs.pairs) {

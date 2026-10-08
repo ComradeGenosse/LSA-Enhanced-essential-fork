@@ -1,3 +1,4 @@
+import {releaseOwnedKnowledge} from '../context/knowledgeInputs.mjs';
 import {separateKnowledgeInstruction} from '../context/knowledgeInstructions.mjs';
 import {renderKnowledge} from '../context/knowledgeRenderer.mjs';
 import {ActorPresenceStore} from '../context/actorPresence.mjs';
@@ -74,6 +75,9 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
       });
       const playerCurrent=[...ps.anchors.values()].some(anchor=>anchor.kind==='player' && ps.current(anchor.captureRef));
       return {profile:{...profile,relationship:playerCurrent?profile.relationship:null},memories,bindings:[]}; // Backend identity is never recognition.
+    },
+    releaseOwnedKnowledge(inputs,identity,snapshot) {
+      return releaseOwnedKnowledge(inputs,{identity,snapshot,identityService,perception:runtime.intelligence?.runtime});
     },
     captureCharacterInputs(identity,actor) {
       if(!characterService) return null;
