@@ -22,15 +22,25 @@ function factualFixture(){
  const actor={pedId:'17',integrations:{turnKnowledge:{version:1,hostRunId:hello.hostRunId,worldEpoch:1,captureRef:ref,sampledGameTick:10}}};
  return {client,ps,ref,actor,send};
 }
-for(const [mode,options] of [['buffered',{}],['streaming',{structuredStreamingEnabled:true}],['early TTS',{structuredStreamingEnabled:true,earlyTtsEnabled:true}]])test(`real active ${mode} request receives frozen PS2/PS3 knowledge and acknowledges exact keys`,async t=>{
+for(const [mode,options] of [['buffered',{}],['streaming',{structuredStreamingEnabled:true}],['early TTS',{structuredStreamingEnabled:true,earlyTtsEnabled:true}]])for(const source of ['player_text','player_mic','special_event'])test(`real active ${mode} ${source} receives frozen PS2/PS3 knowledge and acknowledges exact keys`,async t=>{
  const f=factualFixture(),bodies=[];
  const h=await stockHarness('openai',{config:{...options,dialogueKnowledge:{mode:'active'},retry:{enabled:false,maxAttempts:1},persistentIdentity:{enabled:false},promotedCharacters:{enabled:false}},env:{OPENAI_API_KEY:'offline'},fetchImpl:async(_url,request)=>{const body=JSON.parse(request.body);bodies.push(body);return response(body.stream);}});
  h.runtime.intelligence=f.client;h.runtime.dialogueKnowledgeBuildSupported=true;
  h.runtime.services.speak=async({onPcm})=>{await onPcm(new Uint8Array([1,2]));return {bytes:2};};
  const session=await h.openAIControllerSession({actorContext:f.actor});t.after(()=>session.connection.close());session.autoNativeAcks();h.context.activeInput={pedId:'17',speaker:f.actor,text:'What happened?'};
- const turn=await h.evaluate('ib(activeInput)');const result=await session.connection.whenSettled({pedId:turn.pedId,turnId:turn.id,generationId:turn.generationId,sessionNonce:1});
+ h.runtime.services.transcribe=async()=> 'What happened?';
+ let turn;
+ if(source==='player_text')turn=await h.evaluate('ib(activeInput)');
+ else if(source==='special_event')turn=await h.evaluate('kb({speakerPedId:"17",listenerPedId:"player",content:"UNSUPPORTED_TRIGGER_CANARY",reason:"scene_event"})');
+ else {
+  turn=h.evaluate('(()=>{const value=Xi({pedId:"17",speakerPedId:"17",listenerPedId:"player",source:Ht.PLAYER_MIC,input:{transcript:"",contextText:""},metadata:{}});A.mic=ND();A.mic.activeTurnId=value.id;A.mic.status="listening";A.mic.pendingChunks=[];A.mic.sendChain=Promise.resolve();return value;})()');
+  h.context.activeMic={speaker:f.actor,target:{pedId:'player'}};h.evaluate('Te=()=>{};hb=()=>{};OK=false');await h.evaluate('wd(activeMic)');
+  await session.connection.sendRealtimeAudio(new Uint8Array([1,2]));await session.connection.endRealtimeInput();
+ }
+ const result=await session.connection.whenSettled({pedId:turn.pedId,turnId:turn.id,generationId:turn.generationId,sessionNonce:1});
  assert.equal(result.status,'completed',result.terminalReason);assert.equal(bodies.length,1);
  const scene=JSON.parse(bodies[0].input[0].content.split('\n').find(line=>line.startsWith('{"frameVersion":1,')));
+ if(source==='special_event'){assert.match(bodies[0].input.at(-1).content,/No player utterance was received/);assert.equal(JSON.stringify(bodies[0]).includes('UNSUPPORTED_TRIGGER_CANARY'),false);}else assert.equal(bodies[0].input.at(-1).content,'What happened?');
  assert.ok(scene.lanes.PERCEIVED.observations.length);assert.equal(scene.lanes.PERCEIVED.observations[0].claims[0].kind,'firing');
  for(const secret of [f.ref,f.ps.epoch,f.ps.hostContext.hostRunId,'turnKnowledge','decisionKey'])assert.equal(JSON.stringify(bodies[0]).includes(secret),false);
  const entries=[...f.ps.salience.ledger.values()];assert.ok(entries.some(entry=>entry.consumedBy.has('ps4_context')));assert.ok(entries.every(entry=>!entry.consumedBy.has('ps6_ticket')));assert.equal(f.client.knowledgeListeners.size,0);
@@ -44,4 +54,21 @@ test('real active in-flight retirement aborts provider and prevents delivered ac
  const session=await h.openAIControllerSession({actorContext:f.actor});t.after(()=>session.connection.close());session.autoNativeAcks();h.context.retireInput={pedId:'17',speaker:f.actor,text:'What happened?'};
  const turn=await h.evaluate('ib(retireInput)');const result=await session.connection.whenSettled({pedId:turn.pedId,turnId:turn.id,generationId:turn.generationId,sessionNonce:1});
  assert.equal(aborted,true);assert.notEqual(result.status,'completed');assert.ok([...f.ps.salience.ledger.values()].every(entry=>!entry.consumedBy.has('ps4_context')));assert.equal(f.client.knowledgeListeners.size,0);assert.equal(h.runtime.history.readForSession('17',1).some(item=>item.role==='assistant'),false);
+});
+
+
+test('real active retry retains frozen body and cannot consume a later PS3 decision key',async t=>{
+ const f=factualFixture(),originalKeys=[...f.ps.salience.ledger.values()].map(entry=>entry.decisionKey),bodies=[],outcomes=[];
+ const h=await stockHarness('openai',{config:{dialogueKnowledge:{mode:'active'},retry:{enabled:true,maxAttempts:2,baseDelayMs:0,maxDelayMs:0},persistentIdentity:{enabled:false},promotedCharacters:{enabled:false}},env:{OPENAI_API_KEY:'offline'},fetchImpl:async(_url,request)=>{
+  bodies.push(request.body);
+  if(bodies.length===1){f.send('signal',{signalId:randomUUID(),producer:'shooting',producerSequence:2,kind:'firing',target:null,source:f.ref,gameTick:11,ageMs:0,facts:{}});return new Response(JSON.stringify({error:{code:'server_error'}}),{status:503,headers:{'content-type':'application/json'}});}
+  return response(false);
+ }});
+ h.runtime.intelligence=f.client;h.runtime.dialogueKnowledgeBuildSupported=true;
+ const finalize=h.runtime.services.finalizeKnowledgeFrame;h.runtime.services.finalizeKnowledgeFrame=(turn,args)=>{const frame=finalize(turn,args);const success=turn.knowledgeDelivery.success;turn.knowledgeDelivery={...turn.knowledgeDelivery,success:decision=>{const result=success(decision);if(result)outcomes.push(result);return result;}};return frame;};
+ h.runtime.services.speak=async({onPcm})=>{await onPcm(new Uint8Array([1,2]));return {bytes:2};};
+ const session=await h.openAIControllerSession({actorContext:f.actor});t.after(()=>session.connection.close());session.autoNativeAcks();h.context.retryInput={pedId:'17',speaker:f.actor,text:'What happened?'};
+ const turn=await h.evaluate('ib(retryInput)');const result=await session.connection.whenSettled({pedId:turn.pedId,turnId:turn.id,generationId:turn.generationId,sessionNonce:1});
+ assert.equal(result.status,'completed');assert.equal(bodies.length,2);assert.equal(bodies[0],bodies[1]);assert.equal(outcomes.length,1);assert.equal(outcomes[0].retired,1);
+ const successor=[...f.ps.salience.ledger.values()];assert.ok(successor.some(entry=>!originalKeys.includes(entry.decisionKey)));assert.ok(successor.every(entry=>!entry.consumedBy.has('ps4_context') && !entry.consumedBy.has('ps6_ticket')));assert.equal(f.client.knowledgeListeners.size,0);
 });

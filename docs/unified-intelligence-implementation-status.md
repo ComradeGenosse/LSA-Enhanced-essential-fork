@@ -235,3 +235,14 @@ Actual rebuilt Essential/provider-fetch tests now run real PS2 correlation and P
 Remaining baseline gates include the expanded active mic/internal/owned/mixed-host/retry/fault matrix, explicit safety reserve and pressure diagnostics, complete native interop/payload support verification and external GTA acceptance. Later master-plan phases remain unfinished. No deployment or activation performed. The full goal remains active.
 
 Validation: full explicit offline Node suite 503/503, zero failed/cancelled; git diff --check passed.
+
+
+## Checkpoint 19: actual active source/retry matrix
+
+Expanded the rebuilt Essential/provider-fetch active matrix to all nine typed/microphone/internal × buffered/streaming/early-TTS combinations. Each uses real PS2 correlation, PS3 paired decisions, P0 capture, production frame routing and exact ledger acknowledgement. Accepted player text appears once; internal turns retain the fixed no-player descriptor and omit unsupported trigger canaries. All request bodies omit captured native/host/key transport data and release invalidation subscriptions.
+
+Added a real retryable 503 case in which PS2/PS3 replaces the observation decision after the first send. The retry body remains byte-identical; completed reasoning reports the exact old key retired, and the successor has neither PS4 nor PS6 consumption. No replacement key or newly arrived observation enters the frozen request. This closes those tested source/retry cases, not the remaining owned/mixed-host/full fault matrix or native/GTA gates.
+
+No production source, deployment, enabling or capability declaration changed. Explicit safety reserve/pressure diagnostics, remaining baseline support/interop/fault/GTA gates and later master-plan phases remain unfinished. The full goal remains active.
+
+Validation: final explicit offline Node suite 510/510, zero failed/cancelled; git diff --check passed.
