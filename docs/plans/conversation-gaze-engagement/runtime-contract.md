@@ -1,6 +1,6 @@
 # CGE runtime contract
 
-Status: implementation plan; no runtime behavior is claimed by this document. October 8 integration amendment: use [master phase 10](../../research/UNIFIED-LSA-INTELLIGENCE-IMPLEMENTATION-PLAN-20261008.md#10-conversation-gaze-and-attention-evidence) for shared C-02 targets/C-13 reset and preserve source-time C-01/Essential-look yielding. The local target sketch below is policy data, not a second retained entity table.
+Status: implementation plan; no runtime behavior is claimed by this document. October 8 integration amendment: use [master phase 10](../../research/UNIFIED-LSA-INTELLIGENCE-IMPLEMENTATION-PLAN-20261008.md#10-conversation-gaze-and-attention-evidence) for shared C-02 targets/C-13 reset and split playback-only 10a from source-time player-listening 10b while preserving C-01/Essential-look yielding. The local target sketch below is policy data, not a second retained entity table.
 
 ## 1. Ownership
 
@@ -33,7 +33,7 @@ No ped handle is persistent identity.
 
 ## 3. Lifecycle signals
 
-CGE needs four logical signals:
+The complete CGE scope has four logical signals; the early playback-only slice uses only target validation and native NPC playback:
 
 | Signal | Required source |
 | --- | --- |
@@ -42,9 +42,9 @@ CGE needs four logical signals:
 | player speech ended | source-time Essential input lifecycle |
 | NPC speech started/ended | NpcPlaybackCoordinator events |
 
-NPC playback is already a proven public seam.
+NPC playback is already a proven public seam. Early 10a uses `SpeakerPed/PedId/TurnId/GenerationId` from direct native callbacks, paired with C-02 body/C-13 run fences. The lossy PS playback signal is insufficient; a missing session nonce is never guessed from the latest session. Native handlers copy bounded facts; only Core-fiber Update validates peds/issues optional commands.
 
-Player-speech start/end comes from the shared **C-01 UtteranceLifecycle** contract. If C-01 is not implemented yet, CGE stays at probe/planning status rather than creating its own approximate detector.
+Player-speech start/end comes only from shared **C-01 UtteranceLifecycle**. Without C-01, early 10a supports `NpcSpeaking` only and cannot infer `PlayerSpeaking`. Player-listening 10b waits for C-01, with no private detector; full phase 9 transcript processing is not required merely for listening gaze.
 
 Do not derive "player is speaking" from post-STT completion. Typed input follows C-01's zero-duration utterance semantics.
 
@@ -53,7 +53,8 @@ Do not derive "player is speaking" from post-STT completion. Typed input follows
 ~~~text
 Inactive
    |
-   | valid target + conversation activity
+   | valid target + actual matching NPC playback (10a)
+   | or authoritative C-01 player lifecycle (10b)
    v
 Acquiring
    |
@@ -83,7 +84,7 @@ enum ConversationSpeechRole
 }
 ~~~
 
-CGE1 only needs active engagement. CGE3 may use stronger continuous gaze and faster reacquisition while the player speaks, stable gaze with bounded micro-breaks while the NPC speaks, and a short hold between turns. No model call decides this role.
+Early CGE1/10a needs only native playback engagement. A duplicate start is idempotent; only a matching ended key releases that playback, and a late A terminal cannot end B. Missing-terminal timeout/body retirement/host reset force-release own refresh. Player role is unsupported until 10b. CGE1 only needs active engagement. CGE3 may use stronger continuous gaze and faster reacquisition while the player speaks, stable gaze with bounded micro-breaks while the NPC speaks, and a short hold between turns. No model call decides this role.
 
 ## 6. Native gaze policy
 
@@ -91,7 +92,7 @@ CGE0 pins the exact native/RAGE mechanism before CGE1 active mode.
 
 Candidate mechanisms include Essential's existing `ConversationLookBehavior`, safe `NpcFocus` behavior, and only if necessary a GTA look-at primitive. The probe must determine whether the mechanism is head/eye-only, steals the primary task, coexists with walking/scenarios/vehicles, requires refresh, churns tasks, clamps extreme angles, and expires cleanly.
 
-**Arbitration rule:** while Essential's own conversation look behavior is active for the current turn/mic/playback lifecycle, CGE yields and issues no competing gaze refresh. CGE is only a supplemental overlay.
+**Arbitration rule:** while Essential's own conversation look behavior is active or ownership is unknown, CGE yields and issues no competing gaze refresh. First verify existing Essential gaze; supplemental commands require a demonstrated gap and source-pinned ownership/mechanism proof. CGE must not call Essential Start/Stop/StopAll to take over or release its behavior. CGE is only a supplemental overlay.
 
 Preferred CGE1 property: finite-duration look-at refreshed before expiry.
 

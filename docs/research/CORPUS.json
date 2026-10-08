@@ -144,7 +144,7 @@
       "type": "master-implementation-plan",
       "authority": "supporting",
       "status": "current",
-      "sourceRef": "main@7e54b17b53f2786f3e9294e546db6b560fb5f6a7; PR21@dafa170f648cf44d776761ff893df863d73e25aa",
+      "sourceRef": "main@7e54b17b53f2786f3e9294e546db6b560fb5f6a7; PR21@dafa170f648cf44d776761ff893df863d73e25aa; PR22@3b32dbc603f185b7393b3f90ed741fbddfaadf63 sequencing refinement",
       "incorporatedInto": [
         "C-01",
         "C-02",

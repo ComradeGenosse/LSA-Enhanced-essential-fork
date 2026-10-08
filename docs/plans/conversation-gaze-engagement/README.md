@@ -1,6 +1,6 @@
 # Conversation Gaze / Engagement (CGE)
 
-Prepared October 4, 2026.
+Prepared October 4, 2026. Sequencing refined October 8 in PR #22: playback-only engagement (10a) can precede C-01; player-listening (10b) still requires it. No runtime implementation is claimed.
 
 Repository baseline at plan creation: bc3b2027b0b2eb6a3c1a7dcb326587f9af781696.
 
@@ -79,7 +79,7 @@ Essential targeting / source-time speech lifecycle / playback events
           ---- GTA/RAGE ----
 ~~~
 
-Moment-to-moment decisions stay native and deterministic. No network/model round trip is allowed in the gaze loop.
+Early delivery observes exact NPC playback and first validates existing Essential gaze; a supplemental look refresh needs proven non-ownership and a safe mechanism. C-01 absence disables player-listening, not playback engagement. Moment-to-moment decisions stay native and deterministic. No network/model round trip is allowed in the gaze loop.
 
 ## Delivery shape
 

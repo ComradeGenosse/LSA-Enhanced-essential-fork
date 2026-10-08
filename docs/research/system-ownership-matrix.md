@@ -12,14 +12,14 @@ The detailed October 5 audit matrix is archived at [archive/convergence/system-o
 | Explicit UX selection | UX4 | commits through Essential seam | CLEAN |
 | Durable CharacterId | P1 | P2 consumes authenticated binding | LOCKED |
 | Durable profile/canon/manual memory store | P2 | later PS/ACT schemas extend it | LOCKED |
-| Source-time utterance identity/window | C-01 host adapter at proven Essential mic seam | STT/hearing/CGE/UX/social consumers share one id | PLANNED; no live receipt yet |
+| Source-time utterance identity/window | C-01 host adapter at proven Essential mic seam | STT/hearing/player-listening CGE/UX/social consumers share one id | PLANNED; no live receipt yet |
 | Run-local entity references | intended C-02 shared anchor service | PS/ACT/P2 currently overlap | OPEN convergence item |
 | Facts / episodes / observations | PS0–PS2 | native producers supply evidence | CLEAN |
 | Salience | PS3 | PS4/PS5/PS6 future consumers acknowledge use | CLEAN; C-03 implemented |
 | Model-visible knowledge | PS4 TurnKnowledgeFrame | ACT/radio/social contribute typed lane items | PLANNED single writer |
 | Physical activity planning/arbitration | ACT | Director may propose | SETTLED |
 | Native physical execution | Essential | ACT dispatches through Essential | LOCKED |
-| Scene initiative | Director/PS policy | ACT executes physical proposals | SETTLED |
+| Scene initiative | Director/PS policy selects | Fixed C-11 admission/ticket/budget shell; ACT arbitrates physical proposals, Essential executes | SETTLED; current ACT2 still denies Director source |
 | Directed interaction | ACT7 owns execution | Director/PS7 propose; Essential executes | SETTLED |
 | Supplemental gaze | CGE head/eye only | yields to Essential look behavior | SETTLED |
 | Whole-body orientation | ACT3 | CGE does not own it | SETTLED |

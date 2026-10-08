@@ -19,3 +19,5 @@ For the current-main code trace, verified GitHub updates and exact remaining PS4
 The [PS4 code-level implementation plan](../../PS4-code-level-implementation-plan-20261008.md) expands that update with exact integration points, C-02/C-04/C-13/C-14 phases, tests, rollout gates and GTA acceptance. It reuses the current architecture and does not implement production code.
 
 The [unified intelligence master plan](../../UNIFIED-LSA-INTELLIGENCE-IMPLEMENTATION-PLAN-20261008.md#6-mvp-file-level-and-api-level-specification) reconciles this domain with all C-01–C-15 contracts and supplies exact integration phases/tests/gates. Baseline PS4 does not wait for optional enrichment; original research/provenance and the detailed PS4 plan remain preserved.
+
+Sequencing refinement: after accepted PS4, phase 13a permits transient NPC-initiated speech without PS5 automatic memory, using existing PS3 grants and checked C-11 admission/playback. Source-time hearing/responder routing and physical/DI proposals retain C-01/C-12/ACT gates. Alternative policy selection shares the same bounded admission path; no second infrastructure or production policy is added.

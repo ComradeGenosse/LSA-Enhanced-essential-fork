@@ -12622,5 +12622,210 @@
       "entryDomainDocs": 12
     },
     "diffWhitespaceCheck": "PASS: git diff --check"
+  },
+  "sequencingRefinement": {
+    "date": "2026-10-08",
+    "basePr22Head": "3b32dbc603f185b7393b3f90ed741fbddfaadf63",
+    "runtimeMain": "7e54b17b53f2786f3e9294e546db6b560fb5f6a7",
+    "sources": [
+      {
+        "id": "F01",
+        "commit": "7e54b17b53f2786f3e9294e546db6b560fb5f6a7",
+        "path": "lsa-essential-e1-candidate/src/perception/salienceEngine.mjs",
+        "needle": "let context = 'omit', memory = 'none', response = 'none'",
+        "line": 189,
+        "blob": "b72a874054aa3c5366e9f48fb4f83a7b126f4da2",
+        "sha256": "f3d2ff3945f72259d6c40262e54a550334ec6822f1f4a6bb9cc7e539c9167a18",
+        "role": "current-code",
+        "description": "Independent classification: death can grant response while memory stays none; no PS5 writer consulted.",
+        "url": "https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/blob/7e54b17b53f2786f3e9294e546db6b560fb5f6a7/lsa-essential-e1-candidate/src/perception/salienceEngine.mjs#L189"
+      },
+      {
+        "id": "F02",
+        "commit": "7e54b17b53f2786f3e9294e546db6b560fb5f6a7",
+        "path": "lsa-essential-e1-candidate/src/perception/salienceEngine.mjs",
+        "needle": "acknowledge(decisionKeyValue, consumer, outcome)",
+        "line": 359,
+        "blob": "b72a874054aa3c5366e9f48fb4f83a7b126f4da2",
+        "sha256": "f3d2ff3945f72259d6c40262e54a550334ec6822f1f4a6bb9cc7e539c9167a18",
+        "role": "current-code",
+        "description": "Distinct PS4/PS5/PS6 consumers; reaction consumed only by delivered PS6.",
+        "url": "https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/blob/7e54b17b53f2786f3e9294e546db6b560fb5f6a7/lsa-essential-e1-candidate/src/perception/salienceEngine.mjs#L359"
+      },
+      {
+        "id": "F03",
+        "commit": "7e54b17b53f2786f3e9294e546db6b560fb5f6a7",
+        "path": "native/intelligence/IntelligenceIntegration.cs",
+        "needle": "void PlaybackStarted(NpcPlaybackStartedEvent e)",
+        "line": 313,
+        "blob": "60d8d90e554935ac9db442471fd47b17dad7d73a",
+        "sha256": "9a21bf8c0a69e8408e0cda2460444e216ac1102f505ac42af90b249eb6c3049f",
+        "role": "current-code",
+        "description": "Actual direct subscription/callback/shutdown seam; factual forwarding drops native turn/generation.",
+        "url": "https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/blob/7e54b17b53f2786f3e9294e546db6b560fb5f6a7/native/intelligence/IntelligenceIntegration.cs#L313"
+      },
+      {
+        "id": "F04",
+        "commit": "7e54b17b53f2786f3e9294e546db6b560fb5f6a7",
+        "path": "lsa-essential-e1-candidate/docs/native-metadata.json",
+        "needle": "\"name\": \"LosSantosAlive.Audio.NpcPlaybackStartedEvent\"",
+        "line": 100,
+        "blob": "74165d158676ff7f7bc0218fa300d0ad8e8dd410",
+        "sha256": "18edd2b47ffde748388b07a4a2d023793e183b882fe638acb5276440d45a2d23",
+        "role": "pinned-binary-metadata",
+        "description": "Shipped CLR event field record: exact body/turn/generation, ended outcome fields, no session nonce.",
+        "url": "https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/blob/7e54b17b53f2786f3e9294e546db6b560fb5f6a7/lsa-essential-e1-candidate/docs/native-metadata.json#L100"
+      },
+      {
+        "id": "F05",
+        "commit": "7e54b17b53f2786f3e9294e546db6b560fb5f6a7",
+        "path": "docs/plans/LosSantosAlive_Hotfix3_Extension_API_Analysis.md",
+        "needle": "## `LosSantosAlive.NPC.Behaviors.ConversationLookBehavior`",
+        "line": 3326,
+        "blob": "ed53986ae33638959670f6d1fb5087c0bf727b3b",
+        "sha256": "9c4721a21070aad40a623083508b8da3b9fb8ca18e9b780aa56145aa777d3b92",
+        "role": "pinned-api-evidence",
+        "description": "Existing look Start/Stop surface; no proven public active-ownership getter in listed API.",
+        "url": "https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/blob/7e54b17b53f2786f3e9294e546db6b560fb5f6a7/docs/plans/LosSantosAlive_Hotfix3_Extension_API_Analysis.md#L3326"
+      },
+      {
+        "id": "F06",
+        "commit": "7e54b17b53f2786f3e9294e546db6b560fb5f6a7",
+        "path": "docs/plans/LosSantosAlive_Hotfix3_Extension_API_Analysis.md",
+        "needle": "### `LosSantosAlive.Bridge.SpecialTurns.SpecialGeminiTurnRequest`",
+        "line": 1011,
+        "blob": "ed53986ae33638959670f6d1fb5087c0bf727b3b",
+        "sha256": "9c4721a21070aad40a623083508b8da3b9fb8ca18e9b780aa56145aa777d3b92",
+        "role": "pinned-api-evidence",
+        "description": "Existing zero-delay special-turn/safety/cancel flags; no memory prerequisite.",
+        "url": "https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/blob/7e54b17b53f2786f3e9294e546db6b560fb5f6a7/docs/plans/LosSantosAlive_Hotfix3_Extension_API_Analysis.md#L1011"
+      },
+      {
+        "id": "F07",
+        "commit": "7e54b17b53f2786f3e9294e546db6b560fb5f6a7",
+        "path": "lsa-essential-e1-candidate/tools/buildCandidate.mjs",
+        "needle": "const kbBody = functionBody(ast, 'kb')",
+        "line": 196,
+        "blob": "346f140f9fbcf5e7b7b68d6818d429496210cb87",
+        "sha256": "22053795c8f2e773ff48a67ab866842b507ce1f57d1c8225009219ccbe4b8494",
+        "role": "current-code",
+        "description": "Existing source-pinned special-event hydration/turn seam; ticket fencing remains implementation work.",
+        "url": "https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/blob/7e54b17b53f2786f3e9294e546db6b560fb5f6a7/lsa-essential-e1-candidate/tools/buildCandidate.mjs#L196"
+      },
+      {
+        "id": "F08",
+        "commit": "7e54b17b53f2786f3e9294e546db6b560fb5f6a7",
+        "path": "lsa-essential-e1-candidate/src/openai/openaiConnection.mjs",
+        "needle": "input: turn.source === 'special_event'",
+        "line": 285,
+        "blob": "06c8e0e56ff1e96d878857b322e3208934549add",
+        "sha256": "2feefcfdd453ff9be0f31d302f05f62857ebb5cacd6b6a5bf31a2294715acb70",
+        "role": "current-code",
+        "description": "Special-event input is not genuine player text; no PS5 requirement.",
+        "url": "https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/blob/7e54b17b53f2786f3e9294e546db6b560fb5f6a7/lsa-essential-e1-candidate/src/openai/openaiConnection.mjs#L285"
+      },
+      {
+        "id": "F09",
+        "commit": "7e54b17b53f2786f3e9294e546db6b560fb5f6a7",
+        "path": "lsa-essential-e1-candidate/src/integration/nativeDelivery.mjs",
+        "needle": "export function sameIdentity",
+        "line": 1,
+        "blob": "bed9b3965688528b90dc13b90e7551e4c6703f91",
+        "sha256": "d637003cad80a317f53b61c710d763dfbcfb8879fc7c9bdc38cdea4a08116ab5",
+        "role": "current-code",
+        "description": "Full companion tuple and successful completed native playback; same outcome path for early PS6.",
+        "url": "https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/blob/7e54b17b53f2786f3e9294e546db6b560fb5f6a7/lsa-essential-e1-candidate/src/integration/nativeDelivery.mjs#L1"
+      },
+      {
+        "id": "F10",
+        "commit": "7e54b17b53f2786f3e9294e546db6b560fb5f6a7",
+        "path": "lsa-essential-e1-candidate/src/activities/activityValidator.mjs",
+        "needle": "if (proposal.source !== 'player_ux')",
+        "line": 7,
+        "blob": "98e25843d1bbdb9324ec3cfc4d55d87ea99fa963",
+        "sha256": "b31f9a004166027cb87547a9691bca4f10b103e9039f106902008316730988dc",
+        "role": "current-code",
+        "description": "Current ACT2 denies director/dialogue sources; declared source vocabulary is not permission.",
+        "url": "https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/blob/7e54b17b53f2786f3e9294e546db6b560fb5f6a7/lsa-essential-e1-candidate/src/activities/activityValidator.mjs#L7"
+      },
+      {
+        "id": "F11",
+        "commit": "7e54b17b53f2786f3e9294e546db6b560fb5f6a7",
+        "path": "lsa-essential-e1-candidate/src/activities/contracts.mjs",
+        "needle": "export const SOURCES",
+        "line": 15,
+        "blob": "aaa9456737378ade8b516fe489c68bc5f48aa570",
+        "sha256": "cf05d44f85068722292903f2718bc3a3ca111c79fb7d7e8123e1adac6e280203",
+        "role": "current-code",
+        "description": "Closed proposal/source/priority vocabulary already allows later Director integration without new executor.",
+        "url": "https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/blob/7e54b17b53f2786f3e9294e546db6b560fb5f6a7/lsa-essential-e1-candidate/src/activities/contracts.mjs#L15"
+      },
+      {
+        "id": "F12",
+        "commit": "7e54b17b53f2786f3e9294e546db6b560fb5f6a7",
+        "path": "docs/research/archive/perception/perception-salience-scene-director-architecture-20261004.md",
+        "needle": "Proposed limits: one PS model turn in flight globally",
+        "line": 306,
+        "blob": "2f0e46fc24eb56db3fea12d53ea4cf5733b5117e",
+        "sha256": "07b8074125a2ccfafb0349f0a67028a387a736805d6e1f1dfa2cd06449eea348",
+        "role": "historical-provenance",
+        "description": "Preserved transient candidate/ticket/admission/rate policy rationale; archival phase order is not normative.",
+        "url": "https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/blob/7e54b17b53f2786f3e9294e546db6b560fb5f6a7/docs/research/archive/perception/perception-salience-scene-director-architecture-20261004.md#L306"
+      },
+      {
+        "id": "F13",
+        "commit": "3b32dbc603f185b7393b3f90ed741fbddfaadf63",
+        "path": "docs/plans/conversation-gaze-engagement/runtime-contract.md",
+        "needle": "NPC playback is already a proven public seam.",
+        "line": 45,
+        "blob": "4ac1a9e374511ed889b49d82a08465268d273d60",
+        "sha256": "148c200c3be385e447d4c215cadfd35f09623eb48184b86a8074ab116ce58197",
+        "role": "prior-planning-provenance",
+        "description": "PR22 original CGE acknowledged independent playback seam; blanket C-01 gate now scoped to player listening.",
+        "url": "https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/blob/3b32dbc603f185b7393b3f90ed741fbddfaadf63/docs/plans/conversation-gaze-engagement/runtime-contract.md#L45"
+      }
+    ],
+    "essentialDllSha256": "9b6de42d4c464901d859dd95e17e100e4fa9ef6074bfbb0cf3a57a76f6ddd653",
+    "conclusions": [
+      "13a passive PS6 has no PS5 writer dependency",
+      "10a playback-only gaze has no C-01 dependency; ownership/mechanism still gated",
+      "selection-only policy boundary uses existing C-11/ACT/Essential path"
+    ],
+    "scope": "Documentation only; original branch/source snapshot and planning verification retained. No normative contract/PR21 plan change.",
+    "verification": {
+      "result": "PASS",
+      "checks": {
+        "pinnedSourceEntries": 94,
+        "additionalRefinementPins": 13,
+        "essentialBinaryMetadata": "MATCH: 9b6de42d4c464901d859dd95e17e100e4fa9ef6074bfbb0cf3a57a76f6ddd653",
+        "refreshedNonMainBranches": 60,
+        "originalInventoryPreserved": 59,
+        "protectedFilesUnchanged": [
+          "docs/research/PS4-code-level-implementation-plan-20261008.md",
+          "docs/research/PS4-dialogue-knowledge-update-20261008.md",
+          "docs/research/DECISIONS.md"
+        ],
+        "originalPS4PlanSha256": "c2a34b240acae61df0727f670c19a4d0a897207e24f089e8a9f6657292967192",
+        "contractChange": "Only C-01 phase metadata scopes player-listening; all normative fields/rules/limits/owners unchanged",
+        "planningFilesChanged": 19,
+        "localLinksChecked": 65,
+        "headingAnchorsChecked": 6,
+        "stableNumberedPhases": 16,
+        "reconciliationItems": 23,
+        "additionalTestObligations": 76,
+        "rolloutGates": 19,
+        "consolidatedGtaScenarios": 44
+      },
+      "errors": [],
+      "corpusValidation": {
+        "result": "PASS",
+        "documents": 41,
+        "decisions": 17,
+        "contracts": 15,
+        "entryDomainDocs": 12
+      },
+      "diffWhitespaceCheck": "PASS: git diff --check"
+    },
+    "publication": "User authorized pushing documentation updates to PR22; no production implementation/deployment authorized."
   }
 }

@@ -131,7 +131,7 @@ AcceptedTranscript v2   = v1 fields + { utteranceId (already) } populated from t
   - Hearing is evaluated only over the window `[start, end]`.
   - One STT per utterance.
 - **Consumers:** companion turn pipeline (annotation), PS2, social routing, CGE, UX4 HUD, PS5.
-- **Phase:** probe in the PS0–PS3 GTA session. Implement before PS2 player-speech, CGE0 and social routing.
+- **Phase:** probe in the PS0–PS3 GTA session. Implement before PS2 player-speech, CGE player-listening/source-time probe (master 10b), and social routing. Playback-only CGE (10a) consumes existing Essential events without fabricating C-01 evidence; its mechanism/ownership probe remains mandatory.
 
 ### C-02 Shared anchor service + observer identity index
 

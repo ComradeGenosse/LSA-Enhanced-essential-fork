@@ -1,7 +1,7 @@
 # Conversation Gaze / Engagement Research
 
 **Canonical decision:** D-014.  
-**Forward dependency:** C-01 utterance lifecycle.
+**Forward dependencies:** C-02/C-13 plus existing native playback/ownership probe for 10a; C-01 source-time player lifecycle additionally for 10b. Full proximity hearing is not a listening-gaze prerequisite.
 
 The implementation plan is maintained at:
 

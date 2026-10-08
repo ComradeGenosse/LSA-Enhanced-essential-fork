@@ -4,6 +4,8 @@
 
 The original [PS4 code-level plan](PS4-code-level-implementation-plan-20261008.md) is preserved unchanged. Its seven phases, 81 tests, nine gates and 19 GTA cases remain the detailed baseline specification. This master plan coordinates that work with ACT, radio, speech, gaze, memory, social initiative and selected Genesis ideas. It does not replace C-01–C-15 or authorize implementation, merge, deployment, configuration changes or GitHub publication. New symbols, encodings, constants and test names below are **proposed implementation specifications**, unless identified as existing code.
 
+**PR #22 sequencing refinement (October 8):** passive PS6 reactions may ship after accepted PS4 and native admission, before PS5; playback-only CGE may ship without C-01, while player-listening still requires C-01. One bounded Director policy function may eventually select alternative proposals through the same C-11/ACT/Essential path. No implementation, model-specific phase or new infrastructure is introduced. Source baseline remains unchanged; §19.1 and §20.1 record the additional verification. Phase numbers remain stable identifiers, not a compulsory serial queue.
+
 ## 1. Outcome, authority and scope
 
 Deliver one continuous path:
@@ -26,14 +28,15 @@ No locked decision is reopened here. Necessary corrections concern stale status,
 | Boundary | User-visible result | Required foundations | Explicitly unnecessary for this boundary |
 | --- | --- | --- | --- |
 | **MVP conversational intelligence** | Existing requested Luna turns use the exact actor's supported PS2/PS3 awareness plus existing P2 canon/manual memories and committed conversation. | C-02/C-13 shared lifetime; C-14 supported situation; C-04 frozen projection; existing C-03 acknowledgements; production request tests. | Radio, CGE, proximity hearing, automatic memory, Director, ACT3+, provider routing, dispatch. |
-| **Environmental and social enrichment** | Correct activity self-knowledge, qualified radio, overheard speech, natural gaze and timeline-safe personal experiences enrich requested turns. | MVP plus contributor-specific evidence/gates; C-05/C-06; C-01 for hearing/gaze; C-07/C-08/C-15 before automatic durable writes. | General autonomous agents, global world simulation, unrestricted navigation or multi-provider failover. |
-| **Bounded autonomy** | NPCs can initiate appropriate speech, propose validated activities and engage in a small coordinated exchange. | Earlier foundations plus C-11 proposals, C-12 reservations/yield, ACT leases, explicit budgets/cooldowns, exact playback/outcome receipts. | New executor, autonomous raw natives, another service/store/ledger/router. |
+| **Environmental and social enrichment** | Correct activity self-knowledge, qualified radio, overheard speech, natural gaze and timeline-safe personal experiences enrich requested turns. | MVP plus contributor-specific gates; C-05/C-06; existing playback for early gaze, C-01 for player hearing/listening gaze; C-07/C-08/C-15 before automatic durable writes. | General autonomous agents, global world simulation, unrestricted navigation or multi-provider failover. |
+| **Early passive initiative** | One owned NPC can make an appropriate short, observer-grounded warning/comment through the existing Luna turn pipeline. | Accepted PS4; existing PS3 reaction entitlement; C-02/C-13/C-14; truthful C-06/native admission; C-11 speech ticket/intake/outcome gate MP13a. | PS5, Profile v2/timeline migration, C-01 hearing, C-12 social routing, ACT3+ or physical proposals. |
+| **Advanced bounded autonomy** | Memory-informed reactions, validated physical proposals and a small coordinated exchange. | MP13a plus the particular contributor's gates: PS5 for automatic recall, C-12 for routing, ACT for physical effects/DI, C-07/C-08/C-15 for durable social state. | New executor, autonomous raw natives, another service/store/ledger/router. |
 
 Baseline delivery is complete only when a supported observation is present in an intercepted **actual Luna request** and produces a useful in-game exchange without changing E1–E6 guarantees. A frame hash, a plausible reply, or a green selector unit test alone is insufficient.
 
 ## 2. Verified current architecture and implementation status
 
-Remote refs were refreshed by `git fetch origin --prune`; no merge or push occurred. Main remains `7e54b17`. The local branch starts at PR #21's head, whose merge base is exactly that main. The working tree was clean before the branch was created. The branch inventory and pinned-file checks are recorded in [the source audit](unified-intelligence-source-audit-20261008.json); §18 lists every remote branch separately.
+During initial pre-publication preparation, remote refs were refreshed by `git fetch origin --prune`; no merge or push occurred in that preparation. Main remains `7e54b17`. The local branch started at PR #21's head, whose merge base is exactly that main. The working tree was clean before the branch was created. The original branch inventory and pinned-file checks are recorded in [the source audit](unified-intelligence-source-audit-20261008.json); §18 lists those 59 remote branches separately. This refinement operates on published PR #22, preserves that snapshot, and records its refreshed refs/source checks in §19.1/§20.1.
 
 ### 2.1 State ladder
 
@@ -165,7 +168,7 @@ No gaze refresh, successful STT, global radio query or model assertion upgrades 
 | Host/world discontinuity | C-13 RuntimeEntry/P2 owner | Existing reset methods and pipe hellos | One broadcast; channel epochs remain local |
 | Durable identity and proof | P1 | OwnerFactChannel, ownerEvidence, runtimeBindings | Own-profile reads require current incarnation proof; social recognition separate |
 | Canon/manual memory and later durable experience | P2 | ProfileStore, editor CAS, immutable get/list | One C-08 migration; no new memory DB |
-| Source-time player utterance | C-01 host adapter at proven Essential mic seam | Existing mic ownership evidence and accepted STT pipeline | PS2 hearing, CGE, UX typed follow-up, PS7/PS5 |
+| Source-time player utterance | C-01 host adapter at proven Essential mic seam | Existing mic ownership evidence and accepted STT pipeline | PS2 hearing, player-listening CGE, UX typed follow-up, PS7/PS5 |
 | World evidence / episodes / observer knowledge | PS0–PS2 | SensorAdapters, WitnessPolicy, EpisodeCorrelator, stores | Radio and supported world/communication producers extend these contracts |
 | Relevance / suppression / consumer acknowledgement | PS3 | SalienceCache/evaluate/orderSalienceDecisions/acknowledge | PS4 context, PS5 memory, PS6 reaction are distinct consumers |
 | Situation and profile-policy metadata | C-14 one provider | Sampled Essential/ACT state + exact P1/P2 association | PS3 and frozen PS4; unknown until proven |
@@ -216,13 +219,16 @@ The register's numerical “Phase: ACT0/1 reconciliation” entries for C-13/C-0
 | X11 | Interrupted reply loses spoken history although its DO may execute. | C-05 receipt correlated at actual publication/callback boundary, independent of history commit. Failed/ambiguous correlation remains unknown. | C-05 and existing callback ring; phase 6. |
 | X12 | Seven speech representations; null receipt; optional wrapper missing. | One native C-01 lifecycle and turn join; one STT; small wrapper and speech→PS2 adapter. No estimated post-STT window. | EssentialMicState proves owned mic view, not begin/end receipt; phases 8–9. |
 | X13 | NPC playback exists but no nearby listener transcript authorization. | Playback event alone proves playback state, not semantic content heard. Full observed NPC speech needs exact playback text/window plus PS2 coverage; remain unsupported until proven. | Existing playback producer vs SharedTranscriptStore player-only validator; phase 9 extension. |
-| X14 | CGE private target state/body-turn telemetry in an otherwise head/eye-only plan. | C-02 resolves physical target; C-13 retires state. Keep small policy state, remove body execution/settled telemetry claims. ACT3 owns body turns. | D-014, CGE runtime contract; phase 10. |
+| X14 | CGE private target state/body-turn telemetry in an otherwise head/eye-only plan. | C-02 resolves physical target; C-13 retires state. Keep small policy state, remove body execution/settled telemetry claims. ACT3 owns body turns. Split playback-only 10a from C-01 player-listening 10b. | D-014, CGE runtime contract; phase 10. |
 | X15 | Separate future memory/edge/commitment schema bumps. | One C-08 envelope with C-07/C-15 first; future collections empty until their writer ships. | D-011, ProfileStore migration map; phase 11. |
 | X16 | Director might start DI or dispatch actions itself. | C-11 speech tickets use checked Essential intake; physical/DI proposals use ACT with leases and bounded P2 exemption. | Active contracts supersede older research; phases 13–14. |
 | X17 | Genesis W0 suggests a new ledger before PS4. | Reuse PS2 EpisodeStore/ObservationStore/correlator; add typed producer adapters and bounded read views only when a real consumer needs them. PS4 first. | Existing code already implements event/observation distinction; §12. |
 | X18 | Genesis G0/V0/C0 suggest new broker, voice store and comms bus. | Reuse provider contracts/retries/voice identity and C-01/PS2 communication evidence. Defer failover and new channel agents. | E2/E3/E4 and existing voice assignment; §12. |
 | X19 | Zero damage callbacks could motivate new polling/event machinery. | Preserve sampled injury/death; perform the discriminating external-producer diagnostic only before claiming damage callbacks. Do not guess attacker or patch speculative producer internals. | Damage branch `569ed9e`; sampled state remains usable for MVP. |
 | X20 | Registry/planned public API exposes more than four actual capabilities. | Advertise only compiled, configured, runtime-supported and physically validated rows. Capability health is informational; it never grants execution. | StepRunner.Advertises and C-09; every ACT extension. |
+| X21 | Old phase graph made all PS6 speech wait for PS5. | Existing PS3 response grants and exact playback delivery are independent of memory writes. Move transient passive reactions to 13a after PS4/admission; only memory-aware 13b waits for PS5. | SalienceCache/classify/acknowledge, C-03/C-11; F01–F02/F06–F09/F12. |
+| X22 | Old CGE prose made all gaze wait for C-01. | Native playback already has exact speaker/turn/generation events. Permit playback-only 10a; C-01 remains the sole source for player-speaking/listening in 10b. Ownership/mechanism probe still mandatory. | Native callback subscription, shipped metadata, D-014; F03–F05/F13. |
+| X23 | Future policy changes could duplicate stores, ticketing or execution. | One small selection function returns existing C-11 proposals to the invariant admission/arbitration pipeline. Policy identity never increases privileges or produces native effects. | C-11, ACT source vocabulary versus actual ACT2 admission; F10–F11. |
 
 These corrections reuse settled architecture. They neither introduce another research program nor require optional source probes before baseline PS4 visual awareness.
 
@@ -437,17 +443,29 @@ Speech observation does not automatically allocate a responder, turn, action, me
 
 Keep the current CGE source layout proposal under `native/conversation-engagement/`: Integration, Controller, Policy, Target, Config, NativeAttentionDriver and offline tests. Compile into the existing runtime project with explicit Compile entries. RuntimeEntry owns optional registration/failure containment. No loader-domain native ped work, extra plugin, network/model call or persistent gaze store is needed.
 
-Reconcile the existing plan as follows:
+### 10.1 Source-verified early boundary
 
-- Resolve current Essential conversation/speaker targets using C-02. A small immutable per-tick policy target is allowed; a new independent retained Ped/handle lifetime table is not. Preserve full tuple/target ownership where available; C-13 world reset force-releases transient state.
-- Consume C-01 source-time player lifecycle and exact Essential playback lifecycle. Post-STT timestamps are not player-speaking signals. Merely highlighting a target does not start indefinite attention.
-- Prove the selected Essential/NpcFocus or finite gaze mechanism in CGE0. Yield while Essential ConversationLookBehavior owns gaze, and during combat/reflex/unsafe script or vehicle transition.
-- CGE1 on-foot only first: finite head/eye command, bounded refresh, stop-refresh on release, no broad clear, no heading/body turn, no persistent IK changes without probe evidence. Existing proposed initial tuning is 150 ms refresh/650 ms finite gaze/12 m engagement/500 ms loss grace/900 ms release hold; these are tunable proposal values, not proven performance.
-- CGE3 tuning and driver/passenger support follow independent coexistence acceptance. Whole-body face/turn is an ACT3 `stop_and_face` request under ACT lease, never a CGE command.
+`IntelligenceIntegration.Initialize` already subscribes to `NpcPlaybackCoordinator.PlaybackStarted/PlaybackEnded` and unsubscribes on shutdown. The shipped metadata records `SpeakerPed`, `PedId`, `TurnId`, `GenerationId`; ended events also provide `Reason`, `WasInterrupted`, `HadAudio`, `PlaybackStarted`. Its DLL fingerprint matches the actual upstream assembly pinned by current code. These are native audio-lifecycle events, independent of C-01 player capture and PS2 transcript authorization. Current PS raw playback signals **discard turn/generation fields**, so they cannot safely drive precise gaze. Reuse direct native event subscriptions in the existing CGE integration rather than reconstruct a key from those lossy signals or the latest conversation target. [F03–F05]
 
-Gaze strengthens presentation; it is not a new epistemic authority. CGE policy consumes C-14/capability/owner safety facts. If a later useful contributor is added, it may expose a private typed **command issued/status** self fact with current actor/run fences. Actual visible orientation or another participant's attention requires separately sampled PS2 evidence. Do not tell Luna “they are listening” solely from gaze, or use gaze to override unknown audibility. No prompt contribution is needed for CGE1, and no free-form gaze context block is allowed.
+**Conclusion:** basic NPC-speaking engagement is technically separable from player-listening/proximity speech. Supplemental visible gaze still requires the CGE0 mechanism/ownership probe; a public event is not physical acceptance. Essential already provides `ConversationLookBehavior.Start/Stop` around native playback, so first verify that its existing gaze satisfies the case. Add a CGE refresh only for a demonstrated gap with proven non-ownership. If Essential owns gaze, or ownership is unknown, yield with zero commands. No public active-ownership getter is established by the audited method list; prove a source-pinned read-only indication or remain conservatively yielded. Do not call Essential Start/Stop to take over or release its gaze. [F05, M28]
 
-Remove misleading `cge_body_turn_requested/settled` and “new gaze/body command” language from current CGE implementation/runtime documents when integrating; body execution belongs to ACT3. Use bounded head/eye/yield diagnostics. Existing plan/provenance remains preserved and linked. CGE failure stops only its refresh and leaves P2/PS/dialogue running. [M28]
+### 10.2 Phase 10a: playback-only on-foot engagement
+
+- Subscribe/unsubscribe existing native playback callbacks in `ConversationEngagementIntegration`; handlers copy bounded event facts and the supplied speaker wrapper, without reading/mutating peds. Existing Core-fiber Update drains them and validates the exact C-02 body/handle/address, current conversation participant and safety facts. No additional native update pump or retained entity table.
+- Proposed local key: `(hostRunId,worldEpoch,captureRef,pedId,turnId,generationId)`. Native events have no session nonce; this local presentation key is sufficient only within the validated body/run. It cannot authorize companion history, model delivery, semantic hearing or actions. Those use the existing full tuple/admitted mapping. Never fill a nonce from the latest session.
+- `PlaybackStarted` for the exact supported conversation speaker activates `NpcSpeaking`; provider start, generated text, pending PCM, target highlight, PTT release and post-STT completion do not. Initially target the validated player-facing conversation only; NPC↔NPC partner gaze waits for separately proven partner/DI context.
+- Duplicate starts are idempotent. Only the matching ended key releases that playback; a late end for generation A cannot clear generation B. Interrupt/cancel, body/target retirement, unknown ownership, host/world reset, disable/shutdown and a bounded missing-terminal watchdog stop CGE refresh. Never search for a replacement speaker by PedId or CharacterId.
+- Keep one active playback key and a proposed ≤32 callback-fact queue; overflow releases the supplement and requires a fresh valid start. Already-exposed native speaking/pending-audio queries may veto an ended/inactive key, never establish a new key or fill missing identity. CGE0 must record the finite missing-terminal watchdog bound and freeze it in the policy/config tests before MP10a; it cannot exceed the supported native playback lifetime or keep refreshing indefinitely after an unknown result. Finite gaze expiry remains the final release mechanism. [F04–F05]
+- Resolve C-02 refs and use C-13 resets. Preserve C-10 partner ownership; CGE cannot set or clear the conversation partner. Idle selection alone does not start indefinite attention. `PlayerSpeaking` is unsupported in 10a, with no estimated mic detector or utterance ID.
+- Probe finite head/eye behavior on foot, yield to Essential look/P2 focus/reflex/script/combat/unsafe transitions, and contain failures. Existing proposed tuning (150 ms refresh, 650 ms native duration, 12 m distance, 500 ms target-loss grace, 900 ms normal release hold) remains tunable/unproven. Interrupted/stale playback force-releases; normal finite hold does not imply continued speech/hearing. Shadow issues no native mutations. Vehicles remain off until independent acceptance.
+
+**Completion/gate:** MP10a, U29–U32/U69–U72, A23/A24/A41/A42. Test with C-01 and proximity hearing unavailable. A correct zero-command yield while Essential supplies visible gaze is acceptable coexistence evidence; it does not certify an untested supplemental driver.
+
+### 10.3 Phase 10b: source-time listening and advanced presentation
+
+After 10a and phase 8's C-01 source-time lifecycle, consume authoritative `utterance.started/turn/ended` for `PlayerSpeaking`, listening-role changes and bounded between-turn presentation. **Full proximity processing (phase 9) is not required merely to use C-01 for gaze.** Typed input retains zero-duration/no-acoustic-observer semantics. Do not derive player speaking from STT or create a private capture/coverage adapter. Multi-participant, vehicle, micro-break/reacquisition and NPC↔NPC tuning are separate supported/probed slices, with their actual partner/DI contracts when relevant. MP10b/U19–U22/U29–U32/U71/A19/A20/A43 apply.
+
+Gaze is presentation, never epistemic authority. A command/status fact cannot imply visible orientation, recognition, comprehension or full acoustic coverage. Any future PS4 contributor requires separate sampled PS2 evidence and the single C-04 assembler. Whole-body face/turn belongs to ACT3 `stop_and_face` under ACT leases. CGE failure stops only its own refresh; it never broad-clears tasks or shuts down PS/P2/dialogue. [M28, F13]
 
 ## 11. Timeline-safe memory and bounded autonomous behavior
 
@@ -483,7 +501,14 @@ Minimum automatic record provenance: observer owner CharacterId privately, timel
 
 Write through existing P2 serial/CAS path. A retry verifies the same event key and does not create a duplicate memory. Manual amendment stops automatic overwrite. User deletion can add bounded suppression rather than immediate automatic recreation. Ack `ps5_memory:delivered` only after durable write/CAS validation succeeds; failed/expired staging remains unconsumed according to existing C-03 semantics. Recall enters RECALLED through the same frozen PS4 provider and active timeline filter; no vector DB or separate memory file/service.
 
-### 11.3 PS6 Director: passive speech first
+### 11.3 PS6 Director: early passive speech, later memory-aware reactions
+
+**PS5 is not a technical prerequisite for 13a.** Current `classify` can issue `response:'eligible'` for witnessed death while `memory:'none'`; self danger also grants response without consulting a durable writer. `SalienceCache.acknowledge` consumes reaction only for `ps6_ticket:delivered`; `ps5_memory` and `ps4_context` are distinct consumers. The existing special-event/P0/Luna pipeline and native playback acknowledgement do not require Profile v2. The older PS5→PS6 arrow represented preferred serial delivery, not a settled contract. [F01–F02/F06–F09, F12]
+
+**13a prerequisites:** phases 1–5/MP1–MP5; observer-qualified paired PS2/PS3 evidence and current C-14; C-06 truthful owner/admission portion of phase 6; C-11 speech-only ticket/intake/outcome proof. The relevant C-06 subset may be accepted without claiming full MP6/C-05 complete. Unknown owner/safety remains a veto. C-05 receipts are required for future action self-knowledge/PS5, not for a visual-only empty-command bark. There is no dependency on phase 11, C-01/hearing, CGE, radio, C-12, ACT3–ACT7 or automatic relationships. Those capabilities remain disabled.
+
+13a uses RAM observations/cooldowns/reservations and existing P2 v1 canon/manual memories only. It neither invokes nor requires `memoryStager`, a migration, timeline selection or durable auto-memory writes. Policy cannot upgrade `response:'none'` by citing persona text. Unknown cause, recognition, hearing and action outcome remain unknown. Start with already-owned exact speakers and supported player listener/admission, no actor promotion, group exchange or background world scanning. A supported warning about present evidence is not a durable remembered episode.
+
 
 Add proposed `src/perception/sceneDirector.mjs`/policy plus `native/intelligence/DirectorAdmission.cs`. Reuse exact PS3 response entitlement and qualified observation; no world scanning or direct provider call. Initial candidates are explicitly owned/current supported actors under quiet/safe conditions. Player input, Essential playback/reflex, mission/cutscene, unsupported ownership, stale anchors/epoch and cooldowns veto optional initiative.
 
@@ -491,9 +516,14 @@ Use C-11 `DirectorIntent` with speech ticket only initially. Native admission re
 
 The PS factual pipe is currently output-only. For the eventual reserve/submit/cancel requests, extend the **existing** PS pipe with a separately versioned closed application vocabulary and owner-fiber dispatch; keep factual and request frames separate. This realizes the established research request channel within existing transport, not a new service/pipe. It cannot promote/spawn/task/allocate tuples/send PCM or accept arbitrary request text. Native renders only fixed-intent qualified trigger data; PS4 later builds the model frame.
 
-Add source-pinned checks at stock special-turn `kb` intake: before hydration, after exact speaker/listener hydration, and after async preparation/before generation. Namespaced PS ticket without valid proof fails closed and does not fall back to a new anonymous session. Carry expected owned anchor through existing P1 preparation. Standard stock special events retain their behavior. Initial Director turns require empty command: passive speech only.
+Add source-pinned checks at stock special-turn `kb` intake: before hydration, after exact speaker/listener hydration, and after async preparation/before generation. Namespaced PS ticket without valid proof fails closed and does not fall back to a new anonymous session. Carry expected owned anchor through existing P1 preparation. Standard stock special events retain their behavior. Early Director turns require **validated** empty command and no activity proposal: passive speech only. Enforce this source-specific restriction in the strict/segmented decision validator and pinned dispatch hook before any side-effect publication; prompt wording alone is insufficient. Reject a non-empty DO or ACT5 proposal whole; preserve existing early-TTS buffered-action rules and all non-Director stock special events. No body-facing (`FaceListener=false`), P2 control or native reflex trigger may be issued by the Director.
 
 Ack `ps6_ticket:delivered` only from matching successful complete playback, not reservation, model completion or partial audio; this is distinct from PS4 reasoning delivery. Failed/cancelled/expired attempts release reservations and back off without switching to another NPC or immediately retrying. Physical proposals later use ACT's source/priority allowlist and truthful C-06, not a direct native action. [H01–H02, M21, M30–M34]
+
+Retain the existing research's proposed initial limits: one PS6 turn in flight globally, one scene speech reservation, 4 attempted starts/min globally, routine/urgent speaker cooldowns 20 s/5 s, 8 s scene gap, one response per incident/observer plus one supported material escalation. Candidate TTL: immediate warning 2 s/routine 10 s; pre-admission tickets ≤32 and 2 s. Bounds live outside policy selection and count failed attempts. Expired urgent evidence may remain later requested-turn context, never an old automatic bark. Revalidate original evidence, grant, actor/listener and safety when quiet, at ticket consumption, after hydration/async preparation and before publication; no knowledge resampling inside a frozen request. These are proposed research defaults, requiring pressure/GTA acceptance, not current deployed settings. [F12]
+
+**13b is an optional enrichment of the same Director:** after MP11b, automatic recall can inform policy and the ordinary PS4 RECALLED lane under active timeline/SubjectRef rules. It adds no second queue, reservation map, scheduler, acknowledgement path or model pipeline. Without valid automatic recall, 13a still works using transient evidence/manual canon. Memory, social/DI, commitments and physical capabilities each need their own gates; no bundled permission follows from a successful passive bark. [C-07/C-08/C-11/C-15, H01–H03]
+
 
 ### 11.4 PS7 social routing and ACT7 directed interaction
 
@@ -506,6 +536,20 @@ For NPC↔NPC, Director submits an ACT7 `directed_interaction` proposal. ACT acq
 On matching `NpcToNpcInteractionReady`, PS7 schedules one existing special turn, with true partner/listener intent, after C-12/ACT admission. Each participant gets their own PS4 frame, never the other profile/observations. A heard completed reply can become report evidence via §9. Proposed initial limit from existing research: two alternating spoken turns, one generation at a time, 15 s per attempt and 40 s whole exchange. Player takeover, epoch change, retirement, guard/lease loss and timeout cancel by exact interaction ID. One rejected participant does not trigger an uncontrolled replacement search.
 
 ACT7 commitments/home anchor use P2 v2 and timeline-safe records; active native plans/leases/resume tokens remain RAM. Durable commitments are intentions, not persisted step/execution IDs or permission to replay after load. Future return-home/navigation requires ACT6 physical capability acceptance. [H01–H03]
+
+### 11.5 Future policy flexibility without parallel infrastructure
+
+Place one ordinary function boundary in the proposed `sceneDirector.mjs`, not a new policy service, plugin registry or framework. Its initial implementation is the settled deterministic selection policy. A future alternative can replace **selection only** through a bounded read-only call such as `selectIntent(qualifiedCandidates,policyFacts) -> null | DirectorIntent`, returning the existing C-11 vocabulary. This signature is proposed; `DirectorIntent` and ACT proposal contracts remain authoritative. No alternative policy, model backend or inference phase is added by this plan.
+
+| Boundary | Fixed authority / behavior |
+| --- | --- |
+| Input preparation | PS2 observation + paired PS3 decision + C-14 and exact C-02/C-13 identity; only observer-authorized bounded views, existing own canon/manual recall and later timeline-filtered automatic recall. No global raw signals, other actors' private profiles, mutable Maps, raw native handles or new evidence store. |
+| Selection | Default deterministic function selects no intent or one supported C-11 speech/activity intent; no world scan, prompt assembly, provider call, ticket creation, grant consumption or persistence. The orchestrator supplies provenance/IDs and clamps source/priority, so policy cannot invent authority. |
+| Invariant admission shell | Validate evidence/revision/entitlement/lifetime, allowed intent/source/capability and output size; enforce one-turn/rate/cooldown/scene/ticket budgets, player priority and native safety; revalidate at every async/native boundary. Rejection/exception/late result is no proposal plus bounded diagnostics. Policy replacement cannot reset cooldowns or resurrect consumed/stale decisions. |
+| Speech | Existing C-11 ticket → checked Essential special turn → frozen PS4/Luna/TTS → exact successful playback → C-03 `ps6_ticket` outcome. Every policy shares this path and source-specific empty-command rule in 13a. |
+| Physical behavior, later | Translate C-11 capability/RefSlots through the existing registered ACT intent templates into its validated proposal; do not pass a policy object unchecked as a wire command. Extend `activityValidator`/`intentTemplates` source-gated ingress only in the accepted later ACT phase, retaining GoalStore/ActivityEngine. Use `source:'scene_director'`, clamped priority, shared exact refs, local probes and ACT leases; Essential executes. Current ACT2 rejects this source, with no `player_ux`/P2-control fallback. ACT7/C-11 and per-capability acceptance precede activation. |
+
+Use existing runtime dependency injection/fake-policy fixtures to test this boundary; do not create a second candidate cache, decision ledger, retry loop, provider interface, or public registration API. A bounded diagnostic policy revision may identify the selection implementation but is not a new permission/enum. If a future policy ever returns asynchronously, preserve the same candidate expiry/original budget and discard cancelled/retired/late results before the fixed validator; changing selection cannot extend ticket lifetime or replay an effect. Test alternative outputs with local fakes, not a new production policy. [F01–F02/F10–F11, C-03/C-04/C-11]
 
 ## 12. Genesis ideas: reuse, selective additions and explicit deferrals
 
@@ -529,7 +573,7 @@ The genuinely new infrastructure is a small set of **in-process contract impleme
 
 ## 13. Numbered implementation phases and dependency graph
 
-These are future implementation tasks, not authorization to perform them in this planning change. Phase numbers express recommended delivery order, while the graph distinguishes hard prerequisites from independent extensions. **Phases 1–5 deliver the MVP.** Optional phases can ship separately; none is a prerequisite for phase 5.
+These are future implementation tasks, not authorization to perform them in this planning change. Phase numbers preserve existing identifiers; §17 states the refined execution priority and the graph distinguishes hard prerequisites from independent extensions. **Phases 1–5 deliver the MVP.** Optional phases can ship separately; none is a prerequisite for phase 5.
 
 ```mermaid
 flowchart LR
@@ -543,24 +587,28 @@ flowchart LR
   P1 --> P8[8: C-01 lifecycle]
   P8 --> P9[9: proximity speech]
   P5 --> P9
-  P8 --> P10[10: CGE head/eye]
-  P1 --> P10
+  P1 --> P10a[10a: playback-only gaze]
+  P5 --> P10a
+  P10a --> P10b[10b: source-time listening gaze]
+  P8 --> P10b
+  P5 --> P13a[13a: early PS6 passive reactions]
+  P6 -->|C-06 admission subset| P13a
   P5 --> P11[11: timeline/v2/PS5]
   P6 -->|C-05 before automatic writer| P11
   P9 -. speech memories .-> P11
+  P13a --> P13b[13b: optional memory-aware reactions]
+  P11 --> P13b
   P1 --> P12[12: ACT3/4/5]
   P6 --> P12
   P5 --> P12
-  P11 --> P13[13: PS6 passive Director]
-  P6 --> P13
-  P13 --> P14[14: C-12/PS7/ACT7]
+  P13a --> P14[14: C-12/PS7/ACT7]
   P9 --> P14
   P12 --> P14
   P11 --> P14
   P14 --> P15[15: individual PS8/ACT6 extensions]
 ```
 
-The dashed speech edge is a conditional contributor dependency: PS5 can persist qualified visual experience without implementing speech-memory forms. Phase 11a's v2/timeline migration can proceed after the MVP, but C-05/phase 6 must pass before phase 11b's automatic writer, as the settled contract explicitly requires “before ACT4/PS5.” C-01 probe work may begin independently after the host foundation, but a failed mic/gaze/radio probe cannot delay phase 5. ACT3 can develop after shared refs while PS4 progresses; activity-aware dialogue and model proposal delivery still wait for PS4/C-05/C-06. The recommended Director sequence follows the existing PS5→PS6→PS7 spine; no autonomous work is part of the MVP definition.
+Phase numbers are stable work identifiers, **not** hard chronological ordering. After phase 5, prioritize 10a and 13a as independently gated slices; phase 11/PS5 is not a prerequisite for either. The C-06 portion of phase 6 is required for 13a admission, while full C-05 is still required before ACT4/PS5. Phase 10b needs C-01/phase 8 but not full phase 9 proximity processing. Automatic recall is conditional 13b; durable social/commitment and physical capabilities retain their later gates. No optional slice delays baseline PS4. Probes may proceed independently without enabling effects or claiming their gates passed.
 
 ### Phase 0 — Preserve and record the current baseline
 
@@ -660,15 +708,17 @@ The dashed speech edge is a conditional contributor dependency: PS5 can persist 
 
 **Completion:** a later requested nearby NPC turn can truthfully discuss a fully heard utterance; non-hearer cannot. Report attribution stays reported. **Gate:** MP9. **GTA:** A21/A22; NPC completed/interrupted playback scenario is required only when that producer is included. Social routing still disabled.
 
-### Phase 10 — CGE yielding head/eye overlay
+### Phase 10 — Playback-only gaze first, source-time listening later
 
-**Dependency:** phase 8, C-02/C-13; not radio/memory/Director. **Files:** existing CGE planned native layout; RuntimeEntry and runtime/offline project Compile lists; reconcile body-turn telemetry.
+**10a dependency:** C-02/C-13 and accepted MVP; existing Essential playback callbacks, exact speaker key, safety and gaze ownership/mechanism proof. No C-01, phase 9, radio, PS5 or Director dependency. **Files:** existing CGE proposed layout, RuntimeEntry and Compile lists; §10.2 direct event-key adapter.
 
-**Deliver:** CGE0 exact mechanism/coexistence proof; CGE1 on-foot finite gaze; CGE3 tuning only afterward. Shared target/epoch, Essential-look yield, independent fault containment, no prompt block/body task.
+**10a deliver:** CGE0 playback/ownership/finite mechanism probe; on-foot playback engagement, native Core-fiber event drain, exact-key release/watchdog, Essential-look yield and isolated failures. Verify existing Essential gaze first; duplicate look loops are not a deliverable.
 
-**Required tests:** U29–U32/U37/U40 plus CGE policy matrix. Native mutation count remains zero in shadow; no ClearPedTasks/heading/whole-body task or extra model call.
+**10b dependency/deliver:** accepted 10a plus phase 8 C-01 lifecycle; add player-listening/role changes. Proximity transcript processing, vehicles and multi-participant tuning have separate actual dependencies/acceptance.
 
-**Completion:** visible timely engagement without task theft; target swap/reset/disable/shutdown releases; vehicles only if independently accepted. **Gate:** MP10. **GTA:** A23/A24; body orientation remains ACT3.
+**Required tests:** U29–U32/U69–U72/U37/U40; C-01 absent fixtures for 10a and U19–U22 for 10b. Shadow mutation count is zero; no broad clear, heading/body task or extra model call.
+
+**Completion/gates:** MP10a with A23/A24/A41/A42; MP10b with A19/A20/A43. Speaking engagement begins at actual playback, player-speaking remains unsupported before C-01, old terminal cannot end a new generation, and Essential ownership always wins. Body orientation stays ACT3.
 
 ### Phase 11 — P2 v2/timelines, then PS5 experience
 
@@ -692,15 +742,17 @@ Slice 12c follows 12b/ACT4. Its enabled intents reuse already accepted ACT2/ACT3
 
 **Completion:** no capability admitted without physical outcome proof and honest cancellation; ACT dialogue and ordinary Essential actions coexist. **Gate:** MP12 per capability/slice. **GTA:** A31/A32; navigation excluded until phase 15. Player choices still outrank optional autonomous intent.
 
-### Phase 13 — PS6 passive Director speech
+### Phase 13 — Early PS6 passive reactions, optional later recall
 
-**Dependency:** recommended after phase 11; phases 5–6 and C-11 speech admission/receipt proven. **Files:** §11.3, existing PS transport versioned requests, native ticket service, stock special-turn intake pins, normal PS4 request/lifecycle pipeline.
+**13a dependency:** phases 1–5 and C-06/native admission truth from phase 6; C-11 ticket/intake/full-playback proof. **Not required:** PS5/phase 11, full C-05 receipts, C-01/hearing/CGE/radio, C-12 or new ACT execution. **Files:** §11.3, proposed sceneDirector/policy, existing PS pipe versioned requests/native DirectorAdmission, pinned stock special-turn intake and normal PS4 request/lifecycle/decision validators.
 
-**Deliver:** deterministic candidate/cooldown policy; owned exact speaker/listener ticket; no-delay checked intake; exact tuple mapping/outcome/backoff; passive empty-command turn. Shadow logs decisions without submitting or calling Luna.
+**13a deliver:** bounded observer-grounded candidate selection; one invariant admission/budget shell; exact ticket→actual tuple mapping; speech-only validated decision; outcome/backoff and private lifetime fencing. Initial deterministic policy uses §11.5's small selection boundary. Shadow submits no turn/calls; Profile v1/manual canon remains sufficient and no automatic memory file/write occurs.
 
-**Required tests:** U50–U54/U37/U39/U40; actual stock special-turn hydration/proof await races and player takeover. Salience grant never consumed by admission alone.
+**Required tests:** U50–U54/U65–U68/U73–U76/U37/U39/U40; real stock hydration/proof await races, player takeover, attempted-start/scene/ticket bounds, forbidden DO/activity decisions and C-03 independence from memory. Alternative-selection fakes must traverse the same validator/admission shell; no production alternative policy is implemented.
 
-**Completion:** one appropriate warning/comment after quiet admission, no player interruption, no repeated chorus, exact successful playback consumes response entitlement. **Gate:** MP13. **GTA:** A33/A34. No movement/combat proposal enabled in this slice.
+**13a completion/gate:** MP13a; A33/A34/A39/A40. One appropriate short warning/comment while quiet, no interruption/churn/replacement speaker, exact complete playback consumes only the response entitlement. Essential owns the turn; no Director body movement/action/reflex.
+
+**13b optional dependency/deliver:** MP13a plus MP11b only for automatic recall; same queue/ticket/frame/outcome path with timeline-safe recalled context. Manual canon/recall is already allowed in 13a. **Tests/gate/GTA:** U33–U36/U41–U44/U76, MP13b, A44. Social/DI/physical initiative remains phase 14/accepted ACT capability; policy flexibility is a boundary, not a model-specific phase or additional infrastructure.
 
 ### Phase 14 — C-12 routing, PS7 social and ACT7 DI/commitments
 
@@ -768,7 +820,7 @@ All PR #21 **T01–T81** remain required for their included scope. T74–T81 are
 
 | ID | Required oracle | Reuse target / phase |
 | --- | --- | --- |
-| U29 | Current target without speech/playback stays inactive; source-time speech or exact playback acquires; preview selection alone does not stare. | proposed CGE policy tests; 10. |
+| U29 | Current target without actual playback stays inactive in 10a; matching playback acquires. Only 10b additionally consumes C-01 source-time player speech; preview/STT/provider completion does not stare. | proposed CGE policy tests; 10a/10b. |
 | U30 | Essential look ownership/reflex/script/unsafe vehicle state yields with zero supplemental commands; no ClearPedTasks/heading/body-turn emission. | CGE driver fake + source scan; 10. |
 | U31 | Shared ref target swap/address reuse/epoch/shutdown forces release; finite refresh cadence bounded, one driver exception disables CGE only. | CGE native runtime/policy; 10. |
 | U32 | Gaze command is not hearing/recognition proof; no new prompt writer/model call. Shadow emits zero native mutations, unsupported vehicle mechanism remains off. | CGE + PS4 contributor/side-effect tests; 10. |
@@ -794,11 +846,11 @@ All PR #21 **T01–T81** remain required for their included scope. T74–T81 are
 | U47 | Talking does not automatically cancel ACT; pause/resume re-preflight/mints new execution and expires old 120 s token; conversation partner stays Essential-owned. | activities/stock dialogue/UX; 12b. |
 | U48 | ACT5 strict/segmented v2 accepts only closed enabled intents/slots for current own promoted actor; disabled gate preserves legacy schema and Gemini stays identical in both modes. Forged source/priority, non-promoted actor, stale/remapped alias, unsupported/excluded capability and extra fields reject whole decision. | schema/stream decoder/validator/templates/goalStore/pinned binding/admission; 12c. |
 | U49 | Non-null activity requires empty command/no early TTS and buffered_action on segmented path; exactly one validated proposal at dispatch boundary with fresh current check, no effect retry or extra provider call. Only matching successful playback establishes delivered promise. | stock action + ACT proposal/stream/playback integration; 12c. |
-| U50 | Director shadow queues/logs only; active candidate exact observer/owner/epoch/cooldown and player/reflex/mission conditions enforced with bounded tickets. | proposed Director policy/admission; 13. |
-| U51 | Ticket expires/consumes once; speaker/listener are exact across hydration/proof awaits; failed namespaced ticket has no anonymous fallback or newest-incarnation substitution. | real stock special-turn intake hook tests; 13. |
-| U52 | Admission/reservation/model success/partial audio do not consume response grant; matching complete playback only; old tuple/late receipt cannot revive it. | PS3/Director/native lifecycle; 13. |
-| U53 | Player input/takeover after ticket grant cancels optional exact work; no interruptExisting/delayed handle resolve/body turn/DO in passive PS6. | scheduler/stock controller/Director tests; 13. |
-| U54 | Repeated unchanged observation/failure/backoff cannot cause repeated chorus/new-speaker retries or planner churn; no direct provider calls outside normal turn pipeline. | Director cooldown/trace/invocation tests; 13. |
+| U50 | Director shadow queues/logs only; active candidate exact observer/owner/epoch/cooldown and player/reflex/mission conditions enforced with bounded tickets. | proposed Director policy/admission; 13a. |
+| U51 | Ticket expires/consumes once; speaker/listener are exact across hydration/proof awaits; failed namespaced ticket has no anonymous fallback or newest-incarnation substitution. | real stock special-turn intake hook tests; 13a. |
+| U52 | Admission/reservation/model success/partial audio do not consume response grant; matching complete playback only; old tuple/late receipt cannot revive it. | PS3/Director/native lifecycle; 13a. |
+| U53 | Player input/takeover after ticket grant cancels optional exact work; no interruptExisting/delayed handle resolve/body turn/DO in passive PS6. | scheduler/stock controller/Director tests; 13a. |
+| U54 | Repeated unchanged observation/failure/backoff cannot cause repeated chorus/new-speaker retries or planner churn; no direct provider calls outside normal turn pipeline. | Director cooldown/trace/invocation tests; 13a. |
 | U55 | C-12 one primary responder/utterance, reservations exact host/body; unproven silent-yield keeps multi-responder off rather than spawning parallel turns. | social/responder native intake tests; 14a. |
 | U56 | Named/group address cannot redirect mic Ped without checked yield/admission; secondary serialized after primary, one STT and independent observer knowledge. | real typed/mic social request fixtures; 14a. |
 | U57 | ACT owns DI leases/start/cancel; P2 exemption only exact interaction+lease; foreign DI remains blocked; no Director task execution. | ACT7/DI/P2 safety tests; 14b. |
@@ -809,6 +861,23 @@ All PR #21 **T01–T81** remain required for their included scope. T74–T81 are
 | U62 | Explosion/theft/siren/restricted-area uncertainty/occlusion/report and callbacks preserve unknown cause/intent rather than omniscient labels. | producer-specific witness/projection tests; 15. |
 | U63 | ACT6 navigation cannot advertise completion from enqueue/handler; place validity/current actor/cancel/path timeout and bounded replans proven. | ACT6 native completion/PlaceTable tests; 15. |
 | U64 | Future dispatch/API/organization extension receives only authorized read/proposal contracts; no raw native/private-profile/global-knowledge or separate provider/ledger bypass. | hypothetical extension fixtures, required only if that product scope is later approved. |
+
+### 14.5 Early slices and invariant decision-policy shell
+
+| ID | Required oracle | Reuse target / phase |
+| --- | --- | --- |
+| U65 | Accepted PS4 + Profile v1, PS5/migration/hearing/CGE/radio off: one owned qualified response uses the normal Luna pipeline, with zero automatic memory writes/import requirement. | PS3/Director + real stock special/request harness; 13a. |
+| U66 | response eligible with memory none can be delivered; PS4 ack and absent/failed PS5 writer neither consume nor block response. Only exact successful playback consumes ps6_ticket; failed/retired key never redirects. | SalienceCache/Director/nativeDelivery; 13a. |
+| U67 | Early PS6 non-empty command/activity, forged speaker/source/priority or FaceListener request rejected before side-effect dispatch; stock non-PS special events unchanged. | strict/segment/stock pinned validators + native admission; 13a. |
+| U68 | One in-flight/scene reservation and attempted-start rate/cooldown/candidate/ticket bounds hold through provider failure/player takeover; expired warning never revived or routed to another speaker. | Director fake clock/native admission/real lifecycle; 13a. |
+| U69 | C-01 absent: actual native playback event key/body activates only matching NpcSpeaking; lossy PS playback signal, provider completion, pending PCM, PTT release or latest target cannot substitute. | native CGE callback/Core-fiber policy harness; 10a. |
+| U70 | Duplicate callbacks, old ended event versus new generation, same PedId/reused address, missing terminal and host/world reset stop only matching CGE work; no nonce inferred from latest session. | CGE exact-key/lifetime/watchdog tests; 10a. |
+| U71 | 10a never sets PlayerSpeaking/mints utterance/hearing receipt; 10b uses C-01 source-time lifecycle even with phase 9 hearing off, typed zero-duration preserved. | CGE/source-time fixtures; 10a/10b. |
+| U72 | Essential ownership active or unknown yields zero CGE commands; normal release never calls Essential Stop/StopAll. Proven optional driver has finite expiry/no broad clear and isolated failure. | gaze driver fake/source-pinned ownership + physical probe; 10a/10b. |
+| U73 | Two local fake selectors yield equivalent C-11 intent through the same validator/ticket/budget/ack pipeline; invalid output/no-op/throw consumes no grant and causes no native effect. | proposed sceneDirector injection/contract fixtures; 13a. |
+| U74 | Future physical policy output uses scene_director source/priority and current exact RefSlots; actual ACT2 rejects it, with no player_ux fallback, P2 control or direct Essential/native dispatch. | existing ACT contracts/admission + future source-gate fixtures; 13a boundary/14 activation. |
+| U75 | Policy sees bounded immutable observer-authorized facts, cannot mutate stores/profiles or append model context; policy revision/replacement does not clear global cooldowns/consumed decisions or add a provider call. | policy-shell/read-view/call/effect-counter fixtures; 13a. |
+| U76 | Cancelled/late/stale policy selection or automatic recall is revalidated under original expiry/host/body/timeline and budget, never renewed; 13a remains usable when 13b recall unavailable. | lifecycle/Director/PS4 recall tests; 13a/13b. |
 
 ## 15. Rollout gates, runtime modes and lifecycle handling
 
@@ -828,11 +897,13 @@ Each gate is evaluated for a specific source commit/payload/contract version and
 | MP7 | Current v2 radio tests/build/GTA text-ID/audibility/provenance; no R5 prompt injection. | Only qualified radio contributor active. |
 | MP8 | Source-time mic seam/terminal/turn join physically proven for supported inputs; v2 validators. | Player-speech receipt capability advertised; no responder/autonomy permission. |
 | MP9 | Full observer authorization, stored/salient speech, actual request isolation; NPC producer gated separately. | Requested-turn proximity awareness only. |
-| MP10 | C-01 + exact gaze mechanism/coexistence/shadow/on-foot GTA proof. | On-foot CGE; vehicles separately accepted. |
+| MP10a | C-02/C-13 plus native playback-key/ownership/finite mechanism and C-01-absent on-foot GTA proof; Essential gaze coexistence/yield. | Playback-only engagement; no player-listening/semantic hearing permission. |
+| MP10b | MP10a plus phase 8/C-01 source-time lifecycle/role/terminal proof and listening GTA; phase 9 is not required just for gaze. | Supported player-listening gaze; vehicles/multi-participant scopes separately accepted. |
 | MP11a | Lossless bounded backed-up v2 migration/editor/voice/timeline/protagonist tests. | Timeline-safe schema usable, auto writer still off. |
 | MP11b | MP6/C-05 and MP11a passed; durable writer/ack/suppression/provenance/recall tests and controlled persistence/rollback GTA. | Included automatic memory forms enabled individually. |
 | MP12 | Capability/source-specific ACT3/4/5 tests + exact physical outcomes/probes, no duplicate DO. | Only accepted capability/proposal source enabled. |
-| MP13 | Ticket/proof/lifetime/player priority/full-playback acknowledgement and cooldown GTA. | Passive Director speech in explicitly enabled scope. |
+| MP13a | MP1–MP5, C-06 truthful admission subset, ticket/intake/lifetime/full-playback/cooldown/empty-effect and policy-shell tests; Profile v1/no-auto-memory GTA. | Early speech-only passive reactions; no MP11b, C-01 or new ACT capability required. |
+| MP13b | MP13a and MP11b for automatic recalled context, timeline/SubjectRef/freeze/isolation acceptance on the same Director pipeline. | Memory-informed reactions only; no implicit social/physical permission. |
 | MP14 | Native silent-yield/reservation/DI lease/independent knowledge tests and bounded social GTA. | Specific social/DI/commitment slice enabled. |
 | MP15 | Each new event/navigation capability has real source, witness/execution/outcome/performance acceptance. | Individual PS8/ACT6 extension enabled. |
 
@@ -850,7 +921,7 @@ Normal telemetry contains counts/byte sizes/omission reasons/policy versions/has
 
 | Trigger | PS4 / perception / speech | ACT / CGE / Director | P2 / history |
 | --- | --- | --- | --- |
-| PTT release | Source-time utterance ends; current input may proceed; no target resample. | CGE transitions through finite release rules; no automatic ACT cancellation. | Essential committed partner remains; history unchanged. |
+| PTT release | Source-time utterance ends when C-01 exists; current input may proceed; no target resample. | 10a does not infer player speech from release; 10b consumes exact C-01 terminal. Playback engagement follows its own key; no automatic ACT cancellation. | Essential committed partner remains; history unchanged. |
 | New player turn / generation supersession | Old frame/request/ack token retires; accepted genuine input semantics remain existing E1. | Optional Director work/reservation yields; ACT only preempted through defined player/ownership policy; CGE follows exact lifecycle. | Failed/partial assistant history discarded; committed prior messages kept. |
 | Anchor/body retirement/revoke | Remove index/paired/contributor association and expire pending optional work. No latest-body substitution. | Cancel/detach exact current lease/DI; gaze stop-refresh; tickets/reservations void. | Durable CharacterId/profile retained; no runtime token inherited by summon. |
 | Pipe disconnect/reconnect | Clear that channel's live association and dependent pending work; require new version/host handshake. | Lease loss follows existing stop-if-current/detach; no action replay. | Store unaffected; exact session retirement only as existing evidence requires. |
@@ -892,8 +963,8 @@ All mandatory PR #21 **GTA01–GTA14 and GTA17–GTA19** remain MVP acceptance r
 | A20 C-01 | Empty/cancelled hold, menu/focus loss, shutdown, typed turn and reused target. | Correct terminal and exact mic release; typed duration zero and no nearby hearing; no duplicate player commit/PTT generation or cleared Essential partner. |
 | A21 proximity | NPCs near/far/different room/enclosed vehicle; movement during full/partial utterance. | One STT; only full source-time supported listener gets authorized text in future request. Others have speech presence/unknown/none as evidence permits. |
 | A22 conversation evidence | NPC/player report with name/group hint; optional full versus interrupted NPC playback heard by bystander. | Address does not establish recognition; report stays report. NPC transcript only with matching actual completed audible playback, no full text from partial TTS. |
-| A23 CGE | On-foot partner, player moves side/behind, walking/scenario, native Essential look active and combat/reflex. | Prompt finite head/eye engagement where proven; Essential-look yield, no locomotion/body/task theft, no acoustic knowledge inferred. |
-| A24 CGE | Target swap/death/reset/disable/shutdown; separately driver/passenger/enter-exit. | Old gaze expires safely; no lingering long task. Vehicle overlay remains off unless exact coexistence scenario passed; failure confined to CGE. |
+| A23 CGE 10a | On-foot partner during actual NPC playback, player moves side/behind, walking/scenario, Essential look active and combat/reflex; C-01/hearing unavailable. | Finite playback engagement where proven or zero-command yield to existing Essential gaze; no player-listening claim, task theft or acoustic knowledge inferred. |
+| A24 CGE 10a/10b | Target/body swap, old playback terminal, death/reset/disable/shutdown; separately driver/passenger/enter-exit. | Old gaze expires safely; terminal A cannot clear generation B. Vehicle overlay remains off unless its own scenario passed; failure confined to CGE. |
 | A25 MVP privacy | Controlled canary fixture/audit across raw integration/scene/listener/profile/identity-disabled fallback routes and unrecognized participant. | Zero private-state/cross-observer/raw canary leakage in actual request fixtures; GTA confirms unsupported recognition answered conservatively. Genuine user text is tested as data, not silently redacted. |
 | A26 MVP/E7 | PR #21 pressure/30-minute scene-changing soak, ordinary/owned churn, 16 observers, large profiles and provider delays. | Bounded queues/retained payloads, zero stale actions/privacy leaks/salience faults; diagnostic eviction distinguished from admission drops; added native Update p95 ≤1 ms and proposed companion synchronous capture/projection p95 ≤5 ms measured on target setup. |
 | A27 conditional damage | Record installed external producer identity/load log/MMF activity alongside isolated ped/player/vehicle hits. | Determine boundary before callbacks, record nonzero counts/order/thread only if observed; sampled state success does not falsely close callback probe. MVP does not require this producer fix. |
@@ -908,6 +979,12 @@ All mandatory PR #21 **GTA01–GTA14 and GTA17–GTA19** remain MVP acceptance r
 | A36 ACT7/PS7 | Two-party DI ready/exchange, missing partner, player takeover, foreign DI and guard/lease loss. | ACT owns exact interaction/lease, correct P2 exemption, ≤bounded alternating turns/deadline, each participant only own frame; exact cancellation releases without task wipe. |
 | A37 PS8 | One real new producer under LOS/audibility/interior/cause ambiguity and unsupported capability. | Qualified evidence only; declaration/engine-global fact produces no omniscient knowledge; unsupported stays off, bounded sampler/telemetry. |
 | A38 ACT6/E7 | One verified navigation place/arrival/cancel/path failure, then enabled-scope integrated coexistence soak. | Real arrival/outcome, bounded replans/current refs/no forced task restoration; final E7 certificate lists only tested enabled scope, not deferred Genesis/future features. |
+| A39 early PS6 | Current schema-v1 character, PS5/C-01/radio/CGE off; controlled qualified present event while player/native are quiet, then repeat. | One short observer-grounded Luna reaction, empty command/no activity, normal voice/playback, no durable memory write, repeated unchanged event suppressed. |
+| A40 early PS6 | Failure storm/candidate pressure, player start during admission/hydration, event/ticket expiry and owner replacement. | Attempt rate and one-flight/scene caps hold, exact optional work cancels/backoffs, no stale/replacement bark, no physical effect or consumed failed response. |
+| A41 early gaze | C-01/hearing absent; request ordinary response and delay provider/STT, then actual NPC playback with on-foot player movement. | No fabricated player-listening gaze before audio; playback-only key engages at actual start; existing Essential gaze wins, finite CGE supplement only in proven gaps. |
+| A42 early gaze | Begin generation B after A; deliver late A end, swap target/body/reset and interrupt B. | A cannot clear B; retirement/interrupt/reset force-release own supplement; no competing Essential Stop/task clear and no lingering refresh. |
+| A43 listening gaze | C-01 lifecycle proven but proximity transcript processing off; mic start/end, empty/cancelled hold and typed input. | 10b uses exact source-time player role/terminal, no hearing claim/extra STT/typed acoustic observers; failure does not regress 10a. |
+| A44 memory-aware PS6 | Enable accepted PS5 recall on same Director, then switch timeline/withdraw recall and retry a qualified fresh event. | Supported own recalled context only, no wrong-timeline experience, same tickets/rate/ack pipeline; without recall baseline 13a still functions. |
 
 Performance measurements aggregate included sensor/adapter work on the existing owner Update path; do not claim each new sampler independently fits 1 ms and then sum them without measuring. A missed/deferred witness sample is unknown and visible in diagnostics. No reflection/file I/O/provider call belongs in a native hot update. Model latency does not control gaze or physical cancellation.
 
@@ -934,12 +1011,14 @@ No branch is merged, deleted, reset, deployed or pushed by this planning change.
 | P0.2 | Typed PS2 semantics, sampled self evidence and C-14 paired relevance. | Master phase 2, PR21 phase B. |
 | P0.3 | Frozen P2/PS knowledge plus safe C-04 selector/renderer. | Master phase 3, PR21 phases C–D. |
 | P0.4 | Every actual Luna request + exact C-03 delivery/gates. | Master phases 4–5, PR21 E–F; MVP GTA baseline accepted. |
-| P1.1 | ACT/C-05/C-06 current self-knowledge. | Master phase 6; no new physical capability needed to expose existing proven facts. |
-| P1.2 | Radio v2 qualified contributor. | Phase 7; separate text-ID/audibility/catalog acceptance. |
-| P1.3 | C-01 source-time lifecycle, then proximity and on-foot gaze. | Phases 8–10 independently gated; no multi-responder routing yet. |
-| P1.4 | One timeline/v2 migration, then deterministic PS5 experience. | Phase 11; automatic writer requires phase 6/C-05, while visual memory can ship without optional speech/action record forms. |
+| P1.1 | Truthful C-06/native admission, then early passive PS6 reactions. | Phase 6 owner-truth subset → 13a/MP13a, after accepted baseline PS4; do not wait for PS5 or full C-05 receipts. |
+| P1.2 | Playback-only on-foot conversation engagement. | Phase 10a/MP10a after shared refs/MVP and Essential-look probe; no C-01/hearing prerequisite. |
+| P1.3 | Remaining ACT/C-05 self-knowledge. | Phase 6/MP6; required before ACT4/PS5, independent of early passive speech. |
+| P1.4 | Radio v2 qualified contributor. | Phase 7; separate text-ID/audibility/catalog acceptance. |
+| P1.5 | C-01 source-time lifecycle, then player-listening gaze and proximity. | Phase 8 → 10b; phase 8 → 9 separately. Full hearing does not block listening gaze; no multi-responder routing yet. |
+| P1.6 | One timeline/v2 migration, deterministic PS5 experience, then optional memory-aware reactions. | Phase 11 requires C-05 for writer; 13b reuses accepted 13a. Neither migration nor auto-memory blocks 13a. |
 | P2.1 | ACT3 single capability, ACT4 interruption, ACT5 validated proposals. | Phase 12 slices; native physical probes and source priority mandatory. |
-| P2.2 | PS6 passive initiative, then C-12/PS7/ACT7 bounded social/commitment. | Phases 13–14; no general autonomous native agent. |
+| P2.2 | C-12/PS7/ACT7 bounded social/commitment and physical initiative. | Phase 14 consumes earlier 13a speech infrastructure; automatic durable social state still requires phase 11. No second policy/execution stack. |
 | P3 | Individual PS8/ACT6/E7 additions; evaluate deferred dispatch/API/voice/provider products only when requested. | Phase 15 or a separately scoped future product task. |
 
 Fresh UX4 direct-hold/tap-selector physical acceptance and controlled damage-producer diagnostic remain useful existing backlog items. Neither creates a prerequisite to *write* the PS4 integration; UX/turn targeting reliability must be verified in the final accepted MVP payload, while unsupported damage remains omitted. E7 integrated acceptance is progressive: do not demand completion of future features before shipping the scoped MVP.
@@ -952,7 +1031,7 @@ The next implementation task is **phase 1**, not another corpus/research consoli
 
 ## 18. Complete remote branch reconciliation
 
-The inventory below contains all **59 non-main remote branches** observed after fetch; `origin/HEAD` is symbolic and excluded. Main is listed separately in §2. Remote tip SHA and `+ahead/-behind` are ancestry facts relative to audited main, not a measure of missing features. Each branch's changed paths, merge base and direct tree differences are in the source audit. No undiscovered implementation is assumed from a proposed research branch name.
+The inventory below contains all **59 non-main remote branches** observed after the initial pre-publication fetch; `origin/HEAD` is symbolic and excluded. PR #22 subsequently adds this planning branch as the 60th non-main ref, checked in §20.1. Main is listed separately in §2. Remote tip SHA and `+ahead/-behind` are ancestry facts relative to audited main, not a measure of missing features. Each original branch's changed paths, merge base and direct tree differences are in the source audit. No undiscovered implementation is assumed from a proposed research branch name.
 
 | Remote branch | Tip / ancestry | Reconciliation and disposition |
 | --- | --- | --- |
@@ -1104,9 +1183,29 @@ All source references below were checked from local Git objects at their full co
 | G03 | [docs/research/genesis-platform/NEXT_RESEARCH_PROMPT.md:1](https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/blob/1d38913fd2479c9e3760b4e38dcf62109036aeab/docs/research/genesis-platform/NEXT_RESEARCH_PROMPT.md#L1) | Unexecuted reconciliation prompt, provenance only; user task supersedes research ladder. **unmerged-research.** |
 | P21 | [docs/research/PS4-code-level-implementation-plan-20261008.md:1](https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/blob/dafa170f648cf44d776761ff893df863d73e25aa/docs/research/PS4-code-level-implementation-plan-20261008.md#L1) | Preserved full PS4 baseline: A–G, T01–T81, G0–G8 and GTA01–GTA19. **preserved-plan.** |
 
+### 19.1 Source pins for the PR #22 sequencing refinement
+
+The original 81-entry audit and 59-branch inventory above remain the **initial pre-publication snapshot**. This refinement refreshed origin/PR22 and verified unchanged runtime main and existing PR22 head `3b32dbc603f185b7393b3f90ed741fbddfaadf63` before editing. The additional 13 pins below support sequencing only; they do not claim new production code or reopen contracts. Native event metadata's recorded DLL hash was checked against the actual upstream binary (`9b6de42d…`). Public API availability is separate from physical gaze/intake acceptance.
+
+| ID | Pinned source / exact line | Evidence / scope |
+| --- | --- | --- |
+| F01 | [lsa-essential-e1-candidate/src/perception/salienceEngine.mjs:189](https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/blob/7e54b17b53f2786f3e9294e546db6b560fb5f6a7/lsa-essential-e1-candidate/src/perception/salienceEngine.mjs#L189) | Independent classification: death can grant response while memory stays none; no PS5 writer consulted. **current-code.** |
+| F02 | [lsa-essential-e1-candidate/src/perception/salienceEngine.mjs:359](https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/blob/7e54b17b53f2786f3e9294e546db6b560fb5f6a7/lsa-essential-e1-candidate/src/perception/salienceEngine.mjs#L359) | Distinct PS4/PS5/PS6 consumers; reaction consumed only by delivered PS6. **current-code.** |
+| F03 | [native/intelligence/IntelligenceIntegration.cs:313](https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/blob/7e54b17b53f2786f3e9294e546db6b560fb5f6a7/native/intelligence/IntelligenceIntegration.cs#L313) | Actual direct subscription/callback/shutdown seam; factual forwarding drops native turn/generation. **current-code.** |
+| F04 | [lsa-essential-e1-candidate/docs/native-metadata.json:100](https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/blob/7e54b17b53f2786f3e9294e546db6b560fb5f6a7/lsa-essential-e1-candidate/docs/native-metadata.json#L100) | Shipped CLR event field record: exact body/turn/generation, ended outcome fields, no session nonce. **pinned-binary-metadata.** |
+| F05 | [docs/plans/LosSantosAlive_Hotfix3_Extension_API_Analysis.md:3326](https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/blob/7e54b17b53f2786f3e9294e546db6b560fb5f6a7/docs/plans/LosSantosAlive_Hotfix3_Extension_API_Analysis.md#L3326) | Existing look Start/Stop surface; no proven public active-ownership getter in listed API. **pinned-api-evidence.** |
+| F06 | [docs/plans/LosSantosAlive_Hotfix3_Extension_API_Analysis.md:1011](https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/blob/7e54b17b53f2786f3e9294e546db6b560fb5f6a7/docs/plans/LosSantosAlive_Hotfix3_Extension_API_Analysis.md#L1011) | Existing zero-delay special-turn/safety/cancel flags; no memory prerequisite. **pinned-api-evidence.** |
+| F07 | [lsa-essential-e1-candidate/tools/buildCandidate.mjs:196](https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/blob/7e54b17b53f2786f3e9294e546db6b560fb5f6a7/lsa-essential-e1-candidate/tools/buildCandidate.mjs#L196) | Existing source-pinned special-event hydration/turn seam; ticket fencing remains implementation work. **current-code.** |
+| F08 | [lsa-essential-e1-candidate/src/openai/openaiConnection.mjs:285](https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/blob/7e54b17b53f2786f3e9294e546db6b560fb5f6a7/lsa-essential-e1-candidate/src/openai/openaiConnection.mjs#L285) | Special-event input is not genuine player text; no PS5 requirement. **current-code.** |
+| F09 | [lsa-essential-e1-candidate/src/integration/nativeDelivery.mjs:1](https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/blob/7e54b17b53f2786f3e9294e546db6b560fb5f6a7/lsa-essential-e1-candidate/src/integration/nativeDelivery.mjs#L1) | Full companion tuple and successful completed native playback; same outcome path for early PS6. **current-code.** |
+| F10 | [lsa-essential-e1-candidate/src/activities/activityValidator.mjs:7](https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/blob/7e54b17b53f2786f3e9294e546db6b560fb5f6a7/lsa-essential-e1-candidate/src/activities/activityValidator.mjs#L7) | Current ACT2 denies director/dialogue sources; declared source vocabulary is not permission. **current-code.** |
+| F11 | [lsa-essential-e1-candidate/src/activities/contracts.mjs:15](https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/blob/7e54b17b53f2786f3e9294e546db6b560fb5f6a7/lsa-essential-e1-candidate/src/activities/contracts.mjs#L15) | Closed proposal/source/priority vocabulary already allows later Director integration without new executor. **current-code.** |
+| F12 | [docs/research/archive/perception/perception-salience-scene-director-architecture-20261004.md:306](https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/blob/7e54b17b53f2786f3e9294e546db6b560fb5f6a7/docs/research/archive/perception/perception-salience-scene-director-architecture-20261004.md#L306) | Preserved transient candidate/ticket/admission/rate policy rationale; archival phase order is not normative. **historical-provenance.** |
+| F13 | [docs/plans/conversation-gaze-engagement/runtime-contract.md:45](https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/blob/3b32dbc603f185b7393b3f90ed741fbddfaadf63/docs/plans/conversation-gaze-engagement/runtime-contract.md#L45) | PR22 original CGE acknowledged independent playback seam; blanket C-01 gate now scoped to player listening. **prior-planning-provenance.** |
+
 ## 20. Verification performed for this planning change
 
-Verification results for this **documentation-only** change:
+Verification results for the **initial master-plan preparation before publication** (PR22 base `3b32dbc`):
 
 - Ref inventory: all **59 non-main `origin` branches** reconciled individually; tips, merge bases and ahead/behind counts matched the local fetched refs. Runtime main and PR #21 remain pinned to the full SHAs in §2.
 - Source audit: all **81 pinned source entries** checked against Git objects for path, blob ID, SHA-256, quoted symbol/needle, one-based line and corresponding master-plan link. These checks establish source attribution; recorded deployment/GTA evidence remains scoped to its original payload.
@@ -1116,3 +1215,14 @@ Verification results for this **documentation-only** change:
 - Change boundary: **21 existing planning/index documents plus this plan and its source audit**; all tracked/untracked repository changes are under `docs/`. `git diff --check` passed. No production source/runtime configuration change, branch merge, GitHub push, native build, provider call or GTA launch occurred. No new runtime/test/GTA acceptance is claimed.
 
 Implementation completion still requires the phase-specific tests, build/package validation, matching installed payload and GTA gates above. These verification results establish a coherent implementation handoff only.
+
+### 20.1 Verification of the sequencing refinement
+
+- Latest refs/PR22 were refreshed before editing: runtime main stayed `7e54b17b53f2786f3e9294e546db6b560fb5f6a7`; the starting PR22 head was `3b32dbc603f185b7393b3f90ed741fbddfaadf63`. All original 59 research/history refs stayed unchanged, with the published planning branch making 60 non-main refs.
+- All **94 pinned source entries (81 preserved + 13 refinement pins)** passed Git blob/hash/needle/line/link checks. Shipped playback field metadata matched the actual upstream Essential DLL SHA-256 `9b6de42d4c464901d859dd95e17e100e4fa9ef6074bfbb0cf3a57a76f6ddd653`. This verifies signatures/lifecycle code; no new physical gaze/intake behavior is claimed accepted.
+- Corpus validation passed: **41 documents, 17 decisions, 15 contracts, 12 entry/domain docs**. Targeted refinement link checks passed: **65 local links and 6 heading anchors**. Registers contain **16 stable numbered phases, 23 reconciliation items, 76 test obligations, 19 rollout gates and 44 consolidated GTA scenarios**; original IDs are retained and early/advanced gates are distinct.
+- PR #21's two original documents and `DECISIONS.md` remain byte-identical. The PS4-plan SHA-256 remains `c2a34b240acae61df0727f670c19a4d0a897207e24f089e8a9f6657292967192`. All normative C-01–C-15 fields/rules/owners/limits are unchanged; only C-01 phase metadata explicitly scopes its player-listening dependency.
+- The dependency checks explicitly require PS4 and C-06/native admission for 13a, prohibit a PS5→13a edge, require native playback/C-02/C-13 for 10a with no C-01 edge, and retain C-01 for 10b and PS5 for automatic recall in 13b. C-05 still gates the PS5 writer. Policy-fake obligations enforce the unchanged admission/ACT/Essential authority.
+- Changes are limited to **19 planning/index documents**; `git diff --check` and the corpus validator passed. No production source/configuration changes, native build, provider call, GTA run or branch merge occurred. Publication of this documentation refinement is separately authorized by the user's follow-up; runtime implementation remains future work.
+
+**Next Codex implementation task remains master phase 1 / PR21 phase A: shared C-02/C-13 host and exact actor/observer association.** Finish phases 1–5/MP5 before enabling optional slices; then prioritize truthful C-06 admission and early 13a, alongside independently probed 10a. Do not start PS5, a new policy backend or another research program to unlock those early slices.

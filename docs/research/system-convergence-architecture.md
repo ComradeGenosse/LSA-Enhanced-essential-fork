@@ -79,3 +79,5 @@ Normative definitions live in [system-contract-register.md](system-contract-regi
 6. Automatic durable memory/relationships/commitments wait for timeline-safe persistence.
 7. Archived branch snapshots are evidence only and never answer current merge/deploy state.
 8. Baseline requested-turn PS4 delivery does not wait for radio, gaze, proximity hearing, automatic memory, Director or Genesis expansion. Reuse PS2 stores/provider infrastructure; do not create competing event ledgers, databases or routers.
+9. After accepted PS4, early passive Director speech can precede PS5; exact playback-only gaze can precede C-01. Memory-aware policy and player-listening gaze wait only for their actual contributors.
+10. Policy flexibility is bounded selection behind the existing C-11 proposal boundary. One admission/budget/ticket/receipt path remains fixed, ACT owns physical arbitration and Essential executes; no alternative production policy or model-specific infrastructure is introduced.

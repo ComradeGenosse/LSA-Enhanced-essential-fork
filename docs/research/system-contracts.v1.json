@@ -629,7 +629,7 @@
         "UX4 HUD",
         "PS5"
       ],
-      "phase": "probe in PS0-PS3 GTA session; implement before PS2 speech, CGE0, social routing",
+      "phase": "probe in PS0-PS3 GTA session; before PS2 player speech, CGE player-listening/source-time probe (10b), social routing; playback-only 10a uses existing events",
       "feasibility": "UNKNOWN",
       "frames": {
         "utterance.started": [

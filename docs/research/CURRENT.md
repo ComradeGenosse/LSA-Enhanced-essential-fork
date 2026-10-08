@@ -68,7 +68,7 @@ Merged ACT0–ACT2 + PS/P2 shared-host convergence
 C-01 UtteranceLifecycle
           │
           ├── PS2 speech hearing
-          ├── CGE
+          ├── player-listening CGE (10b; playback-only 10a uses existing events)
           ├── UX4 typed-target follow-up
           └── social routing / future memory
 
@@ -85,16 +85,20 @@ Profile v2 + TimelineGuard + SubjectRef
           ├── PS7 relationship edges
           └── ACT7 durable commitments
 
-PS6 Director proposals
+PS4 + C-06 native admission + C-11 ticket/playback proof
           │
-          └── PS7 social/directed exchange ⇄ ACT7 execution
+          ├── early PS6 passive speech (13a; no PS5 dependency)
+          ├── existing playback → early gaze (10a; no C-01 dependency)
+          └── later PS7 social/directed exchange ⇄ ACT7 execution
+
+PS5 + 13a → optional memory-aware reactions (13b; same Director pipeline)
 ```
 
 ## Current next-work interpretation
 
 The [unified intelligence master plan](UNIFIED-LSA-INTELLIGENCE-IMPLEMENTATION-PLAN-20261008.md) is the implementation sequencing blueprint. Preserve the [PR #21 PS4 code-level plan](PS4-code-level-implementation-plan-20261008.md) as its detailed MVP specification. Next: C-02/C-13 actor/host association → qualified PS2/C-14 → frozen C-04 → all Luna request paths → controlled MVP acceptance. ACT0–ACT2 do not need rebuilding/remerging. Fresh UX4 physical acceptance and focused ACT probes remain separate validation obligations.
 
-ACT self-knowledge/C-05/C-06, radio, C-01 hearing/gaze, timeline-safe PS5 memory, then Director/social autonomy are separately gated integrations. Optional radio, gaze, proximity, Genesis and autonomy never block baseline PS4. ACT3 can develop after shared references; advanced physical execution still needs its own probes. Reuse existing PS2 stores, providers, P2 persistence and ACT engine; no new event ledger, service, database or inference router is required.
+After accepted baseline PS4, prioritize C-06/admission and early PS6 passive speech (13a), plus independently probed playback-only gaze (10a). PS5 is not required for transient reactions; C-01 is required for player-listening (10b), not native playback engagement. ACT/C-05 self-knowledge, radio, hearing, timeline-safe automatic memory and advanced social/physical autonomy retain their separate gates. Optional radio, gaze, proximity, Genesis and autonomy never block baseline PS4. ACT3 can develop after shared references; advanced physical execution still needs its own probes. Reuse existing PS2 stores, providers, P2 persistence and ACT engine; no new event ledger, service, database or inference router is required. Future decision-policy variation replaces only a bounded Director selection function; all policies share C-11 validation/tickets, quotas/receipts and ACT/Essential authority. No alternative production policy is added.
 
 ## Important historical-status rule
 
