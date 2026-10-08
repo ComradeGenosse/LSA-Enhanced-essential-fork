@@ -56,3 +56,30 @@ test('actual Luna request retains P0 canon across an edit while fresh owner proo
   assert.equal(request.context.systemInstruction.includes(f.profile.name),false,'canon must not also be embedded in the behavior instructions');
   session.connection.close();
 });
+
+
+import {IntelligenceClient} from '../src/perception/intelligenceClient.mjs';
+import {CAPABILITIES} from '../src/perception/contracts.mjs';
+for(const matching of [true,false])test(`real first-owned active request releases original knowledge only with matching P1 host: ${matching}`,async t=>{
+ const f=await setup(t),client=new IntelligenceClient({mode:'shadow'},{report:()=>{}}),ps=client.runtime;
+ const hello={version:1,type:'hello',adapterEpoch:randomUUID(),streamId:randomUUID(),hostContextVersion:1,hostRunId:randomUUID(),worldEpoch:1,observerIndexVersion:1,observerSituationVersion:1,capabilities:Object.fromEntries(CAPABILITIES.map(key=>[key,key==='shooting']))};
+ ps.ingest(hello,{authenticated:true});const ref=randomUUID();let sequence=0;
+ const send=(type,payload)=>ps.ingest({version:1,type,adapterEpoch:hello.adapterEpoch,streamId:hello.streamId,sequence:++sequence,payload},{authenticated:true});
+ send('anchors',[{captureRef:ref,kind:'ped',observer:true,owned:true}]);send('observer_index',[{captureRef:ref,kind:'ped',owned:true,encounterId:f.owned.encounterId,incarnationId:f.owned.claim.incarnationId}]);
+ send('signal',{signalId:randomUUID(),producer:'shooting',producerSequence:1,kind:'firing',target:null,source:ref,gameTick:10,ageMs:0,facts:{}});
+ f.a.integrations.turnKnowledge={version:1,hostRunId:hello.hostRunId,worldEpoch:1,captureRef:ref,sampledGameTick:10,encounterId:f.owned.encounterId,incarnationId:f.owned.claim.incarnationId};
+ f.evidence.hostContext=null;const {trustedNamespaces,...persistentIdentity}=f.config.persistentIdentity;const bodies=[];
+ const h=await stockHarness('openai',{identityEvidence:f.evidence,profileStore:f.store,nativeOwner:f.native,config:{persistentIdentity,promotedCharacters:f.config.promotedCharacters,dialogueKnowledge:{mode:'active'}},env:{OPENAI_API_KEY:'offline'},fetchImpl:async(_url,request)=>{bodies.push(JSON.parse(request.body));return new Response(JSON.stringify({status:'completed',output:[{type:'message',content:[{type:'output_text',text:'{"dialogue":"Hello.","command":""}'}]}]}),{headers:{'content-type':'application/json'}});}});
+ t.after(()=>h.runtime.identityService.close());await h.runtime.characterService.initialize();h.runtime.intelligence=client;h.runtime.dialogueKnowledgeBuildSupported=true;
+ let release,reached,captured;const gate=new Promise(resolve=>{release=resolve;}),waiting=new Promise(resolve=>{reached=resolve;});
+ const capture=h.runtime.captureKnowledgeInputs;h.runtime.captureKnowledgeInputs=input=>{captured=capture(input);return captured;};
+ const prepare=h.runtime.identityService.prepare.bind(h.runtime.identityService);h.runtime.identityService.prepare=async args=>{reached();await gate;f.evidence.hostContext=matching?hello:{...hello,hostRunId:randomUUID()};return prepare(args);};
+ h.runtime.services.speak=async({onPcm})=>{await onPcm(new Uint8Array([1,2]));return {bytes:2};};
+ const session=await h.openAIControllerSession({actorContext:f.a});t.after(()=>session.connection.close());session.autoNativeAcks();h.context.ownedInput={pedId:'17',speaker:f.a,text:'What happened?'};
+ const turn=await h.evaluate('ib(ownedInput)');await waiting;assert.equal(captured.ownerPendingProof,true);assert.ok(captured.pairs.length);
+ await f.service.edit(f.profile.characterId,{name:'Edited after owned freeze'},f.profile.revision);release();
+ const result=await session.connection.whenSettled({pedId:turn.pedId,turnId:turn.id,generationId:turn.generationId,sessionNonce:1});assert.equal(result.status,'completed',result.terminalReason);assert.equal(bodies.length,1);
+ const scene=JSON.parse(bodies[0].input[0].content.split('\n').find(line=>line.startsWith('{"frameVersion":1,')));assert.equal(scene.lanes.SELF.canon.name,f.profile.name);assert.equal(scene.lanes.PERCEIVED.observations.length>0,matching);
+ for(const secret of [ref,hello.hostRunId,f.profile.characterId,f.owned.encounterId,'turnKnowledge','sessionIdentity','Edited after owned freeze'])assert.equal(JSON.stringify(bodies[0]).includes(secret),false);
+ assert.equal([...ps.salience.ledger.values()].some(entry=>entry.consumedBy.has('ps4_context')),matching);assert.equal(client.knowledgeListeners.size,0);
+});

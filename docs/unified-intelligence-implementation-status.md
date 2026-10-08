@@ -269,3 +269,12 @@ Refreshed origin from GitHub; main remains d423125, the PR #22 merge. Added actu
 These cases strengthen the companion release evidence; owned-controller, broader adversarial/pressure/native interoperability/payload/GTA gates and later master-plan phases remain unfinished. No deployment or enabling performed. The full goal remains active.
 
 Validation: full explicit offline Node suite 518/518, zero failed/cancelled; git diff --check passed.
+
+
+## Checkpoint 23: actual first-owned active request and mixed P1/PS host proof
+
+Added rebuilt Essential/provider-fetch integration using the existing P1 resolver, P2 profile store/canon, owned C-02 observer index, C-13 host fence and real PS2/PS3 knowledge. P1 begins disconnected at P0; preparation waits while the profile is edited, then returns fresh owner proof. A matching host releases the original captured perception beside the original canon revision; a mismatched P1 host leaves PERCEIVED empty and does not consume salience. Both complete ordinary conversation, omit private native/profile/proof IDs and the later edit, and release subscriptions.
+
+These cases prove the first-owned request join rather than just the helper behavior. They do not establish full native physical support or GTA acceptance. Remaining adversarial/pressure/native interoperability/payload/GTA gates and later master-plan phases remain unfinished. No production source, capability enabling or deployment changed. The full goal remains active.
+
+Validation: full explicit offline Node suite 520/520, zero failed/cancelled; git diff --check passed.
