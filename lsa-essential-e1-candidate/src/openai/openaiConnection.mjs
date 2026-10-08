@@ -42,7 +42,7 @@ export class OpenAIConnection {
     this.#runtime = runtime;
     this.#context = Object.freeze({
       systemInstruction: String(options.systemInstruction || ''),
-      actor: immutableSnapshot(options.actorContext),
+      actor: this.#snapshotActor(options.actorContext),
       listener: immutableSnapshot(options.targetContext),
       world: worldSnapshot(hasOwn(options, 'world') ? options.world : options.actorContext?.world),
       contextText: '',
@@ -63,7 +63,7 @@ export class OpenAIConnection {
     const source = String(turn.source || 'player_text').toLowerCase();
     this.#metrics = this.#runtime.telemetry?.beginTurn(turn.identity, source, { inputChars: String(turn.context?.inputText || '').length }) || null;
     const inputContext = turn.context || {};
-    const actor = hasOwn(inputContext, 'actor') ? immutableSnapshot(inputContext.actor) : this.#context.actor;
+    const actor = hasOwn(inputContext, 'actor') ? this.#snapshotActor(inputContext.actor) : this.#context.actor;
     const listenerProvided = hasOwn(inputContext, 'listener') && inputContext.listener !== undefined;
     const listener = listenerProvided ? immutableSnapshot(inputContext.listener) : this.#context.listener;
     const requestedListenerState = inputContext.listenerState;
@@ -135,6 +135,7 @@ export class OpenAIConnection {
         contextText, internalEvent,
       }),
       contextSnapshot,
+      sourcePresence:this.#runtime.actorSourcePresence?.(actor) ?? Object.freeze([]),
       priorHistory:immutableSnapshot(this.#runtime.history?.readForSession(turn.identity.pedId,turn.identity.sessionNonce) ?? []),
       characterInputs: this.#runtime.captureCharacterInputs?.(turn.identity,actor) ?? null,
       knowledgeInputs: this.#runtime.captureKnowledgeInputs?.({identity:turn.identity,source,p0Snapshot:contextSnapshot}) ?? null,
@@ -214,7 +215,7 @@ export class OpenAIConnection {
 
   refreshContext(context) {
     this.#ensureOpen();
-    const actor = hasOwn(context, 'actorContext') ? immutableSnapshot(context.actorContext) : this.#context.actor;
+    const actor = hasOwn(context, 'actorContext') ? this.#snapshotActor(context.actorContext) : this.#context.actor;
     const listenerProvided = hasOwn(context, 'targetContext') && context.targetContext !== undefined;
     if (listenerProvided) {
       if (context.targetContext === null) safeEmit(this.#runtime.telemetry, 'listener_cleared', null, null, { outcome: this.#context.listener === null ? 'already_unavailable' : 'cleared' });
@@ -281,7 +282,7 @@ export class OpenAIConnection {
     const controller = new AbortController();
     const snapshot = {
       identity: turn.identity, source: turn.source,
-      knowledgeInputs:turn.knowledgeInputs,characterInputs:turn.characterInputs,priorHistory:turn.priorHistory,
+      knowledgeInputs:turn.knowledgeInputs,characterInputs:turn.characterInputs,priorHistory:turn.priorHistory,sourcePresence:turn.sourcePresence,
       context: {
         ...turn.context,
         contextText: [turn.contextText, this.#realtimeContext].filter(Boolean).join('\n\n'),
@@ -340,6 +341,11 @@ export class OpenAIConnection {
       return;
     }
     turn.context = { ...turn.context, actor: this.#runtime.modelActor(turn.context.actor), listener: this.#runtime.modelActor(turn.context.listener) };
+  }
+
+  #snapshotActor(actor) {
+    const snapshot=immutableSnapshot(actor);
+    return this.#runtime.copyActorPresence?.(actor,snapshot) ?? snapshot;
   }
 
   #ensureOpen() { if (this.#closed) throw new Error('OpenAI session is closed.'); }

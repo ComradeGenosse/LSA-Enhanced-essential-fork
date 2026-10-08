@@ -1,3 +1,4 @@
+import {ActorPresenceStore} from '../context/actorPresence.mjs';
 import { sameHostContext } from '../context/hostContext.mjs';
 import { selectedDialogueMemories } from '../characters/sessionProfiles.mjs';
 import { observeNative } from './nativeDelivery.mjs';
@@ -16,6 +17,7 @@ import { CharacterService,withoutCharacterTransport } from '../characters/charac
 import { createNoopDialogueTrace } from '../observability/dialogueTrace.mjs';
 
 export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry = null, dialogueTrace = null, providers = {}, identityEvidence, identityStore, profileStore, nativeOwner } = {}) {
+  const actorPresence=new ActorPresenceStore();
   dialogueTrace ||= createNoopDialogueTrace();
   const history = new DialogueHistory({ maxMessages: config.maxHistoryMessages, onMetric: (event, data) => telemetry?.emit(event, null, null, data) });
   const connections = new Set();
@@ -46,7 +48,10 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
   };
   const runtime = {
     config, history, services, telemetry, dialogueTrace, providerStack, voiceResolver, identityService,characterService,
-    modelActor: actor => withoutCharacterTransport(actor),
+    captureNormalizedActor: (actor,raw,shape)=>actorPresence.capture(actor,raw,shape),
+    actorSourcePresence: actor=>actorPresence.read(actor),
+    copyActorPresence: (source,target)=>actorPresence.copy(source,target),
+    modelActor: actor => actorPresence.copy(actor,withoutCharacterTransport(actor)),
     situationFor(observerRef) {
       const ps=runtime.intelligence?.runtime,index=ps?.observerIndex.get(observerRef);
       if(!index?.owned || !ps.current(observerRef) || !sameHostContext(ps.hostContext,identityService?.evidence?.hostContext) || !characterService?.store.loaded) return {};

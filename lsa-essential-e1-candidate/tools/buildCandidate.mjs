@@ -15,7 +15,7 @@ const acorn = require('./vendor/acorn');
 const expectedBundleHash = '5d81de4217bd103316a1083e482ded1bddc791314abf671d686036175c0475f2';
 const expectedDllHash = '9b6de42d4c464901d859dd95e17e100e4fa9ef6074bfbb0cf3a57a76f6ddd653';
 const expectedNativeMetadataHash = '18edd2b47ffde748388b07a4a2d023793e183b882fe638acb5276440d45a2d23';
-const expectedPatchCount = 48;
+const expectedPatchCount = 54;
 const launcherName = 'server.bundle.mjs';
 const stockBundleDefault = path.resolve(root, 'upstream/server.bundle.mjs');
 const stockDllDefault = path.resolve(root, 'upstream/LosSantosAlive.dll');
@@ -153,6 +153,14 @@ export function patchSource(source) {
   const bkWorld = one((() => { const all = []; walk(functionBody(ast,'BK'), node => { if (node.type === 'Property' && node.key?.name === 'world') all.push(node); }); return all; })(), 'BK current world property');
   replace(bkWorld.value.start, bkWorld.value.end, '__lsaWorldSnapshot&&typeof __lsaWorldSnapshot==="object"?{gameTime:__lsaWorldSnapshot.gameTime??"unknown",weather:__lsaWorldSnapshot.weather??"unknown",streetName:__lsaWorldSnapshot.streetName??"unknown",crossingStreetName:__lsaWorldSnapshot.crossingStreetName??"unknown",zoneCode:__lsaWorldSnapshot.zoneCode??"unknown"}:{gameTime:"unknown",weather:"unknown",streetName:"unknown",crossingStreetName:"unknown",zoneCode:"unknown"}', 'world context has explicit unknown semantics');
   prelude('BK', 't=__LSA_E1_RUNTIME.modelActor(t); e=__LSA_E1_RUNTIME.modelActor(e);');
+  // Exact return seams: capture source presence before AO/CO's alias/default
+  // transformations can turn omission into an apparently known false value.
+  for(const [name,shape] of [['ia','direct'],['AO','actor'],['CO','listener'],['eo','hydrated']]) {
+    const returns=[];walk(functionBody(ast,name),node=>{if(node.type==='ReturnStatement')returns.push(node);});
+    const value=one(returns,`${name} normalization return`).argument;
+    replace(value.start,value.end,`__LSA_E1_RUNTIME.captureNormalizedActor((${sourceSlice(source,value)}),t,"${shape}")`,`${name} private source presence`);
+  }
+
 
   // Reserved identity evidence never flattens into native fields/capabilities,
   // including when P1 is disabled or a forged/unsupported block is supplied.
@@ -182,8 +190,18 @@ export function patchSource(source) {
   const ibTurnOptions = ibTurn.arguments[0];
   const ibMetadata = one(ibTurnOptions.properties.filter(property => property.key?.name === 'metadata'), 'ib turn metadata');
   insert(ibMetadata.value.start + 1, 'world: __lsaWorld, listenerState: __lsaListenerProvided ? (n === null ? "explicitly_cleared" : "present") : "omitted", contextCapturedAt: new Date().toISOString(), contextRevision: e?.snapshotRevision ?? e?.revision ?? null, ', 'typed turn context capture metadata');
+  const hydrationListenerCopy=[];
+  walk(functionBody(ast,'M4'),node=>{if(node.type==='ObjectExpression' && sourceSlice(source,node)==='{...i,pedId:e,id:e}')hydrationListenerCopy.push(node);});
+  const hydratedCopy=one(hydrationListenerCopy,'M4 hydrated listener presence copy');
+  replace(hydratedCopy.start,hydratedCopy.end,`__LSA_E1_RUNTIME.copyActorPresence(i,${sourceSlice(source,hydratedCopy)})`,'M4 preserve hydrated listener presence');
+
   const ibEnsure = one((() => { const all = []; walk(ibBody, node => { if (node.type === 'CallExpression' && node.callee.name === 'Zi') all.push(node); }); return all; })(), 'ib session setup');
   insert(ibEnsure.arguments[0].start + 1, 'world: __lsaWorld, listenerProvided: __lsaListenerProvided, ', 'typed session listener and world association');
+
+  const actorCopyReturns=[];
+  walk(functionBody(ast,'pd'),node=>{if(node.type==='ReturnStatement')actorCopyReturns.push(node);});
+  const actorCopy=one(actorCopyReturns,'pd normalized actor copy').argument;
+  replace(actorCopy.start,actorCopy.end,`(__LSA_E1_RUNTIME.copyActorPresence(t,(${sourceSlice(source,actorCopy)})))`,'pd preserve private actor presence');
 
   // Microphone hydration refreshes the turn from the same addressed actor before the provider binds identity.
   const wdBody = functionBody(ast, 'wd');
