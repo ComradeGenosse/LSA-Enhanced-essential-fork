@@ -31,7 +31,7 @@ namespace Rage.Native {
         }
     }
 }
-namespace LosSantosAlive.Context {public class ActorContext {}}
+namespace LosSantosAlive.Context {public class ActorContext {public string PedId;public List<IntegrationJsonBlock> IntegrationBlocks=new List<IntegrationJsonBlock>();} public class IntegrationJsonBlock {public string Id,Text;public IntegrationJsonBlock(string id,string text) {Id=id;Text=text;}}}
 namespace LosSantosAlive.Integrations {
     public interface IIntegration {string Id{get;}bool IsAvailable{get;}void Initialize();void Update();void Shutdown();void EnrichActor(Rage.Ped p,LosSantosAlive.Context.ActorContext c);void OnPedControlChanged(Rage.Ped p,bool controlled);void OnNpcActionExecuted(Rage.Ped p,string action,bool succeeded);}
 }

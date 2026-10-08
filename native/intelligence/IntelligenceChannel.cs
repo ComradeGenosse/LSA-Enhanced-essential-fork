@@ -18,6 +18,7 @@ namespace LSA.Intelligence
         readonly Func<object> capabilities;
         readonly string hostRunId;
         readonly Func<int> worldEpoch;
+        readonly bool observerIndex;
         readonly JavaScriptSerializer json=new JavaScriptSerializer {MaxJsonLength=8192,RecursionLimit=8};
         NamedPipeServerStream pipe;
         string streamId;
@@ -25,13 +26,14 @@ namespace LSA.Intelligence
         volatile bool stopping,connected;
         public int ConnectionVersion {get;private set;}
         public long Dropped {get;private set;}
-        public IntelligenceChannel(string name,string epoch,Func<object> capabilities,string hostRunId=null,Func<int> worldEpoch=null) {
+        public IntelligenceChannel(string name,string epoch,Func<object> capabilities,string hostRunId=null,Func<int> worldEpoch=null,bool observerIndex=false) {
             if((hostRunId==null)!=(worldEpoch==null) || hostRunId!=null && !System.Text.RegularExpressions.Regex.IsMatch(hostRunId,"^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$")) throw new ArgumentException("invalid_host_context");
-            this.name=name;this.epoch=epoch;this.capabilities=capabilities;this.hostRunId=hostRunId;this.worldEpoch=worldEpoch;
+            this.name=name;this.epoch=epoch;this.capabilities=capabilities;this.hostRunId=hostRunId;this.worldEpoch=worldEpoch;this.observerIndex=observerIndex;
         }
         object Hello() {
             var value=new Dictionary<string,object>{{"version",1},{"type","hello"},{"adapterEpoch",epoch},{"streamId",streamId},{"capabilities",capabilities()}};
             if(hostRunId!=null) {value["hostContextVersion"]=1;value["hostRunId"]=hostRunId;value["worldEpoch"]=worldEpoch();}
+            if(observerIndex && hostRunId!=null) value["observerIndexVersion"]=1;
             return value;
         }
         public void Start() {new Thread(Serve) {IsBackground=true,Name="LSA intelligence facts"}.Start();}

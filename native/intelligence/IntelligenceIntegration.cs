@@ -19,7 +19,7 @@ namespace LSA.Intelligence
     public sealed class OwnedParticipant
     {
         public Ped Ped;
-        public string Lifetime;
+        public string Lifetime, EncounterId;
         public Func<bool> Current;
     }
     public sealed class IntelligenceIntegration : IIntegration
@@ -48,6 +48,8 @@ namespace LSA.Intelligence
         Dictionary<string,bool> capabilities=new Dictionary<string,bool>();
         readonly object rosterGate=new object();
         readonly Dictionary<string,AnchorWireState> publishedAnchorStates=new Dictionary<string,AnchorWireState>();
+        readonly Dictionary<string,string> publishedObserverIndex=new Dictionary<string,string>();
+        readonly System.Web.Script.Serialization.JavaScriptSerializer captureJson=new System.Web.Script.Serialization.JavaScriptSerializer {MaxJsonLength=8192};
         readonly List<string> pendingRetirements=new List<string>();
         string conversationRef;
         PerceptionSnapshot discoverySnapshot;
@@ -86,12 +88,12 @@ namespace LSA.Intelligence
         }
         void WorldChanged(int epoch,string reason) {
             if(!IsAvailable) return;
-            sensors.Reset();lock(rosterGate) publishedAnchorStates.Clear();pendingRetirements.Clear();
+            sensors.Reset();lock(rosterGate) {publishedAnchorStates.Clear();publishedObserverIndex.Clear();}pendingRetirements.Clear();
             conversationRef=null;discoverySnapshot=null;discoveryOwned=new OwnedParticipant[0];UpdateIndexes();
             // Ordered control fact invalidates all prior observer state. Losing
             // it closes the bounded channel; reconnect republishes current host.
             if(channel?.Send("world_epoch",new {epoch,reason})!=true) {
-                channel?.Dispose();channel=new IntelligenceChannel(pipeName,Guid.NewGuid().ToString("D"),()=>capabilities,host.HostRunId,()=>host.WorldEpoch);channel.Start();connectionVersion=0;
+                channel?.Dispose();channel=new IntelligenceChannel(pipeName,Guid.NewGuid().ToString("D"),()=>capabilities,host.HostRunId,()=>host.WorldEpoch,true);channel.Start();connectionVersion=0;
             }
             nextRefresh=nextDiscovery=nextState=nextShot=0;
             LogStatus("[PS] clock_reset");
@@ -109,7 +111,7 @@ namespace LSA.Intelligence
                 AppDomain.CurrentDomain.AssemblyLoad+=AssemblyLoaded;QueueDamagePin();
                 try {NpcPlaybackCoordinator.PlaybackStarted+=PlaybackStarted;NpcPlaybackCoordinator.PlaybackEnded+=PlaybackEnded;playback=true;capabilities["playback"]=true;}
                 catch {try{NpcPlaybackCoordinator.PlaybackStarted-=PlaybackStarted;NpcPlaybackCoordinator.PlaybackEnded-=PlaybackEnded;}catch{}}
-                channel=new IntelligenceChannel(pipeName,Guid.NewGuid().ToString("D"),()=>capabilities,host.HostRunId,()=>host.WorldEpoch);channel.Start();
+                channel=new IntelligenceChannel(pipeName,Guid.NewGuid().ToString("D"),()=>capabilities,host.HostRunId,()=>host.WorldEpoch,true);channel.Start();
                 previousTick=unchecked((uint)Game.GameTime);started=true;Game.LogTrivial("[PS] native_adapter_loaded shadow");
             } catch {Shutdown("initialization_failed");LogStatus("[PS] optional_initialization_failed");}
         }
@@ -137,7 +139,7 @@ namespace LSA.Intelligence
             return a;
         }
         AnchorWireState Describe(EntityAnchor a)=>new AnchorWireState {CaptureRef=a.CaptureRef,Kind=a.Kind,Observer=a.Observer,Owned=a.OwnerLifetime!=null,Conversation=a.CaptureRef==conversationRef};
-        void OnRetired(EntityAnchor a) {retiredAnchors=Math.Min(int.MaxValue,retiredAnchors+1);sensors.Retire(a.CaptureRef);lock(rosterGate) publishedAnchorStates.Remove(a.CaptureRef);if(pendingRetirements.Count<256) pendingRetirements.Add(a.CaptureRef);else channel?.Dispose();}
+        void OnRetired(EntityAnchor a) {retiredAnchors=Math.Min(int.MaxValue,retiredAnchors+1);sensors.Retire(a.CaptureRef);lock(rosterGate) {publishedAnchorStates.Remove(a.CaptureRef);publishedObserverIndex.Remove(a.CaptureRef);}if(pendingRetirements.Count<256) pendingRetirements.Add(a.CaptureRef);else channel?.Dispose();}
         void FlushControls(bool refreshRoster=false)
         {
             lock(rosterGate) {
@@ -149,6 +151,26 @@ namespace LSA.Intelligence
                 var demotionRefs=new HashSet<string>(demotions.Select(a=>a.CaptureRef));var promotionRefs=new HashSet<string>(promotions.Select(a=>a.CaptureRef));
                 var stable=current.Where(a=>!demotionRefs.Contains(a.CaptureRef)&&!promotionRefs.Contains(a.CaptureRef)&&(refreshRoster||!publishedAnchorStates.TryGetValue(a.CaptureRef,out var old)||!a.Same(old))).ToArray();
                 if(!SendAnchorStates(demotions)||!SendAnchorStates(stable)||!SendAnchorStates(promotions)) return;
+                SendObserverIndex(refreshRoster);
+            }
+        }
+        OwnedParticipant Association(EntityAnchor anchor) => (roster()??new OwnedParticipant[0]).FirstOrDefault(p=>p!=null && ReferenceEquals(p.Ped,anchor.Entity) && p.Lifetime==anchor.OwnerLifetime && p.EncounterId!=null && Guid.TryParse(p.EncounterId,out var unused) && p.Current?.Invoke()==true);
+        Dictionary<string,object> IndexRow(EntityAnchor anchor)
+        {
+            var row=new Dictionary<string,object>{{"captureRef",anchor.CaptureRef},{"kind",anchor.Kind},{"owned",anchor.OwnerLifetime!=null}};
+            if(anchor.OwnerLifetime!=null) {var owner=Association(anchor);if(owner!=null) {row["encounterId"]=owner.EncounterId;row["incarnationId"]=owner.Lifetime;}}
+            return row;
+        }
+        void SendObserverIndex(bool refresh)
+        {
+            var rows=anchors.Current.Where(a=>publishedAnchorStates.ContainsKey(a.CaptureRef)).OrderBy(a=>a.CaptureRef,StringComparer.Ordinal).Select(IndexRow).Where(row=>refresh || !publishedObserverIndex.TryGetValue((string)row["captureRef"],out var old) || old!=captureJson.Serialize(row)).ToArray();
+            // A changed owned association cannot repurpose an existing turn ref.
+            foreach(var row in rows) if(publishedObserverIndex.TryGetValue((string)row["captureRef"],out var prior) && prior!=captureJson.Serialize(row)) {
+                anchors.Retire((string)row["captureRef"],AnchorRetirement.LifetimeMismatch);return;
+            }
+            for(int i=0;i<rows.Length;i+=32) {
+                var batch=rows.Skip(i).Take(32).ToArray();if(channel?.Send("observer_index",batch)!=true) return;
+                foreach(var row in batch) publishedObserverIndex[(string)row["captureRef"]]=captureJson.Serialize(row);
             }
         }
         bool SendAnchorStates(AnchorWireState[] states)
@@ -188,7 +210,7 @@ namespace LSA.Intelligence
                 if(ownsHost) host.ObserveGameTick(tick);
                 previousTick=tick;
                 lineOfSightBudget=8;
-                if(channel.ConnectionVersion!=connectionVersion) {connectionVersion=channel.ConnectionVersion;lock(rosterGate) publishedAnchorStates.Clear();nextRefresh=0;}
+                if(channel.ConnectionVersion!=connectionVersion) {connectionVersion=channel.ConnectionVersion;lock(rosterGate) {publishedAnchorStates.Clear();publishedObserverIndex.Clear();}nextRefresh=0;}
                 if(now>=nextDiscovery) {
                     nextDiscovery=now+200;
                     var player=Game.LocalPlayer.Character;
@@ -337,7 +359,22 @@ namespace LSA.Intelligence
             string action=actionName=="followtarget"?"followtarget":actionName=="waithere"?"waithere":"other";
             sensors.Enqueue(new RawSignal {producer="action",kind="action_callback",target=target,gameTick=callbackTick,receivedMs=host.MonotonicMs,facts=new Dictionary<string,object>{{"action",action},{"succeeded",succeeded}}});
         }
-        public void EnrichActor(Ped ped,ActorContext context) {} // No model-visible block.
+        public void EnrichActor(Ped ped,ActorContext context)
+        {
+            if(!IsAvailable || context?.IntegrationBlocks==null || ped==null || context.PedId!=ped.Handle.ToString()) return;
+            try {
+                var existing=anchors.Current.FirstOrDefault(a=>a.Kind=="ped" && ReferenceEquals(a.Entity,ped));
+                var owner=(roster()??new OwnedParticipant[0]).FirstOrDefault(p=>p!=null && ReferenceEquals(p.Ped,ped) && p.Current?.Invoke()==true);
+                if(existing?.OwnerLifetime!=null && owner?.Lifetime!=existing.OwnerLifetime) return;
+                ulong handle=Convert.ToUInt64(ped.Handle);var address=ped.MemoryAddress;
+                var anchor=anchors.Retain(ped,handle,address,"ped",owner?.Lifetime,()=>Live(ped,handle,address) && (owner==null || owner.Current?.Invoke()==true),host.MonotonicMs,false,AnchorConsumer.TurnActor);
+                if(anchor==null || anchors.Resolve(anchor.CaptureRef)==null) return;
+                var block=new Dictionary<string,object>{{"version",1},{"hostRunId",host.HostRunId},{"worldEpoch",host.WorldEpoch},{"captureRef",anchor.CaptureRef},{"sampledGameTick",unchecked((uint)Game.GameTime)}};
+                var association=Association(anchor);if(association!=null) {block["encounterId"]=association.EncounterId;block["incarnationId"]=association.Lifetime;}
+                context.IntegrationBlocks.Add(new IntegrationJsonBlock("turnKnowledge",captureJson.Serialize(block)));
+                UpdateIndexes();FlushControls();
+            } catch { /* Optional capture omission cannot affect Essential dialogue. */ }
+        }
         public void OnPedControlChanged(Ped ped,bool controlledByLsa) {}
         public void Shutdown()
         {Shutdown("integration_shutdown");}

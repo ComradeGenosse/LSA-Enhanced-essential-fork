@@ -20,7 +20,7 @@ const PS3_REASON_COUNTERS = Object.freeze({
 export class ShadowRuntime {
   constructor({ mode='off', now=()=>Math.floor(performance.now()) }={}) {
     this.mode=mode;this.now=now;this.anchors=new Map();this.signals=[];this.sequence=0;this.producers=new Map();this.epoch=null;this.stream=null;this.lastReceipt=0;
-    this.hostContext=null;
+    this.hostContext=null;this.observerIndexVersion=null;this.observerIndex=new Map();
     this.counters=Object.fromEntries(['received','dropped','stale','malformed','duplicate','gaps','expired','resets'].map(k=>[k,0]));
     this.historyDiagnostics={expired:0,evicted:0,skipped:0,highWater:0};
     this.dropDiagnostics={anchorCapacity:0,observerCapacity:0};
@@ -37,7 +37,7 @@ export class ShadowRuntime {
   bump(target,k) { target[k]=Math.min(MAX_COUNTER,(target[k]||0)+1); }
   count(k) { this.bump(this.counters,k); }
   reset(reason='manual') {
-    this.hostContext=null;
+    this.hostContext=null;this.observerIndexVersion=null;this.observerIndex.clear();
     this.anchors.clear();this.signals=[];this.producers.clear();this.observations.clear();this.episodes.clear();this.correlator.clear();this.salience.clear();this.transcripts.setActiveRun(null);this.epoch=null;this.stream=null;this.sequence=0;this.lastReceipt=0;this.diagnostics=null;this.capabilities=Object.fromEntries(CAPABILITIES.map(k=>[k,false]));this.count('resets');
     const key={initialization:'initializations',disconnect:'disconnects',fault:'faults',timeout:'timeouts',manual:'manual'}[reason]||'manual';this.bump(this.resetDiagnostics,key);
   }
@@ -50,7 +50,7 @@ export class ShadowRuntime {
     this.episodes.expire();
     this.salience.expire(this.now());
   }
-  retire(ref) { this.anchors.delete(ref);this.signals=this.signals.filter(s=>s.value.target!==ref && s.value.source!==ref && s.value.facts.vehicle!==ref);this.observations.expire();this.episodes.expire(); }
+  retire(ref) { this.anchors.delete(ref);this.observerIndex.delete(ref);this.signals=this.signals.filter(s=>s.value.target!==ref && s.value.source!==ref && s.value.facts.vehicle!==ref);this.observations.expire();this.episodes.expire(); }
   retainSignal(value,critical,expires) {
     if(!critical && this.signals.filter(x=>!x.critical).length>=192) {
       const index=this.signals.findIndex(x=>!x.critical);
@@ -68,7 +68,7 @@ export class ShadowRuntime {
     if(this.mode!=='shadow' || !authenticated) return false;
     this.expire();
     if(!validateFrame(v)) {this.count('malformed');return false;}
-    if(v.type==='hello') {this.reset('initialization');this.epoch=v.adapterEpoch;this.stream=v.streamId;this.hostContext=readHostContext(v);this.capabilities=Object.freeze({...v.capabilities});this.transcripts.setActiveRun(this.epoch);this.lastReceipt=this.now();return true;}
+    if(v.type==='hello') {this.reset('initialization');this.epoch=v.adapterEpoch;this.stream=v.streamId;this.hostContext=readHostContext(v);this.observerIndexVersion=v.observerIndexVersion??null;this.capabilities=Object.freeze({...v.capabilities});this.transcripts.setActiveRun(this.epoch);this.lastReceipt=this.now();return true;}
     if(v.adapterEpoch!==this.epoch || v.streamId!==this.stream) {this.count('stale');return false;}
     if(v.sequence<=this.sequence) {this.count('duplicate');return false;}
     if(v.sequence!==this.sequence+1) {this.count('gaps');this.reset('fault');return false;}
@@ -78,7 +78,8 @@ export class ShadowRuntime {
       if(v.payload.epoch===this.hostContext.worldEpoch) return true;
       const context=Object.freeze({...this.hostContext,worldEpoch:v.payload.epoch});
       const epoch=this.epoch,stream=this.stream,sequence=this.sequence,capabilities=this.capabilities;
-      this.reset('manual');this.hostContext=context;this.epoch=epoch;this.stream=stream;this.sequence=sequence;
+      const observerIndexVersion=this.observerIndexVersion;
+      this.reset('manual');this.observerIndexVersion=observerIndexVersion;this.hostContext=context;this.epoch=epoch;this.stream=stream;this.sequence=sequence;
       this.capabilities=capabilities;this.transcripts.setActiveRun(epoch);this.lastReceipt=this.now();return true;
     }
     if(v.type==='anchors') {
@@ -92,6 +93,18 @@ export class ShadowRuntime {
       // Commit a validated roster frame at once, so a paired demotion/promotion
       // batch cannot expose a transient 17-observer state to companion logic.
       this.anchors=projected;return true;
+    }
+    if(v.type==='observer_index') {
+      if(this.observerIndexVersion!==1 || !this.hostContext) {this.reset('fault');return false;}
+      const next=new Map(this.observerIndex);
+      for(const row of v.payload) {
+        const anchor=this.anchors.get(row.captureRef);
+        if(!this.current(row.captureRef) || anchor.kind!==row.kind || Boolean(anchor.owned)!==row.owned || !next.has(row.captureRef) && next.size>=BOUNDS.anchors) {this.reset('fault');return false;}
+        const old=next.get(row.captureRef);
+        if(old && (old.encounterId!==row.encounterId || old.incarnationId!==row.incarnationId)) {this.reset('fault');return false;}
+        next.set(row.captureRef,Object.freeze({...row}));
+      }
+      this.observerIndex=next;return true;
     }
     if(v.type==='retire') {this.retire(v.payload.captureRef);return true;}
     if(v.type==='retire_batch') {for(const ref of v.payload) this.retire(ref);return true;}

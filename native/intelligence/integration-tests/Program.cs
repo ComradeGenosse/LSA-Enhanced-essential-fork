@@ -64,14 +64,23 @@ class Program
         var conversationAnchor=anchors.Current.Single(a=>ReferenceEquals(a.Entity,conversation));var ownedObservers=anchors.Current.Where(a=>a.OwnerLifetime!=null&&a.Observer).ToArray();var demotedOwned=anchors.Current.Single(a=>a.OwnerLifetime!=null&&!a.Observer);
         Check(conversationAnchor.Observer&&anchors.ObserverCount==16,"conversation NPC takes priority at full 16 promoted observers");
         Check(ownedObservers.Length==15&&demotedOwned.OwnerLifetime!=null&&anchors.Resolve(demotedOwned.CaptureRef)==demotedOwned,"lowest-priority promoted observer demoted safely");
-        var wireNextConversation=new Ped {Handle=98,MemoryAddress=new IntPtr(98)};var pipeName="LSA.Integration.Tests."+Guid.NewGuid().ToString("N");var wireCaps=(Dictionary<string,bool>)Get(integration,"capabilities");var wireChannel=new IntelligenceChannel(pipeName,Guid.NewGuid().ToString("D"),()=>wireCaps);Set(integration,"channel",wireChannel);wireChannel.Start();
+        var wireNextConversation=new Ped {Handle=98,MemoryAddress=new IntPtr(98)};var pipeName="LSA.Integration.Tests."+Guid.NewGuid().ToString("N");var wireCaps=(Dictionary<string,bool>)Get(integration,"capabilities");var wireChannel=new IntelligenceChannel(pipeName,Guid.NewGuid().ToString("D"),()=>wireCaps,((LSA.PromotedCharacters.HostContext)Get(integration,"host")).HostRunId,()=>((LSA.PromotedCharacters.HostContext)Get(integration,"host")).WorldEpoch,true);Set(integration,"channel",wireChannel);wireChannel.Start();
         using(var client=new NamedPipeClientStream(".",pipeName,PipeDirection.In)) {
             client.Connect(3000);using(var reader=new StreamReader(client)) {
                 var hello=ReadFrame(reader);Check((string)hello["type"]=="hello","observer transition transport hello");Tick(integration);
                 var received=new HashSet<string>();while(received.Count<anchors.Count) {var frame=ReadFrame(reader);if((string)frame["type"]!="anchors") continue;foreach(var item in FrameAnchors(frame)) received.Add((string)item["captureRef"]);}
                 Check(received.Count==anchors.Count&&anchors.ObserverCount==16,"initial published roster has bounded observer set");
+                Check((int)hello["observerIndexVersion"]==1 && hello.ContainsKey("hostRunId"),"native advertises closed index and host extension");
+                var wireIndexed=new HashSet<string>();
+                while(wireIndexed.Count<anchors.Count) {
+                    var frame=ReadFrame(reader);Check((string)frame["type"]=="observer_index","index follows complete anchor admission");
+                    var rows=FrameAnchors(frame).ToArray();Check(rows.Length<=32,"index wire batch bounded");
+                    foreach(Dictionary<string,object> row in rows) {Check(received.Contains((string)row["captureRef"]) && !row.ContainsKey("characterId") && !row.ContainsKey("handle") && !row.ContainsKey("address"),"index references admitted private lifetime only");wireIndexed.Add((string)row["captureRef"]);}
+                }
+
                 var beforeConversation=conversationAnchor.CaptureRef;NpcTargeting.Conversation=wireNextConversation;Tick(integration);
-                var demotion=ReadFrame(reader);var promotion=ReadFrame(reader);Check((string)demotion["type"]=="anchors"&&(string)promotion["type"]=="anchors","observer state changes use anchor frames");
+                Dictionary<string,object> NextAnchor() {for(int n=0;n<16;n++) {var frame=ReadFrame(reader);if((string)frame["type"]=="anchors") return frame;}throw new Exception("missing anchor transition");}
+                var demotion=NextAnchor();var promotion=NextAnchor();Check((string)demotion["type"]=="anchors"&&(string)promotion["type"]=="anchors","observer state changes use anchor frames");
                 var demotedWire=Anchor(beforeConversation,demotion);var promotedWire=Anchor(anchors.Current.Single(a=>ReferenceEquals(a.Entity,wireNextConversation)).CaptureRef,promotion);
                 Check((bool)demotedWire["observer"]==false&&(bool)demotedWire["conversation"]==false,"transport sends observer/conversation demotion first");
                 Check((bool)promotedWire["observer"]&&(bool)promotedWire["conversation"],"transport sends conversation promotion after demotion");
@@ -118,7 +127,15 @@ class Program
         host.Anchors.Retain(actor,(ulong)actor.Handle,actor.MemoryAddress,"ped",null,()=>true,host.MonotonicMs,false,AnchorConsumer.P2Encounter);
         Game.GameTime=100;shared.Update();Check(host.WorldEpoch==1,"shared PS does not run a second clock detector");
         host.ObserveGameTick(100);Check(host.WorldEpoch==2 && host.Anchors.Count==0 && shared.IsAvailable,"owner reset clears shared refs and reinitializes optional PS");
+        actor.Existing=true;
         var kept=host.Anchors.Retain(actor,(ulong)actor.Handle,actor.MemoryAddress,"ped",null,()=>true,host.MonotonicMs,false,AnchorConsumer.P2Encounter);
+        var captured=new LosSantosAlive.Context.ActorContext {PedId=actor.Handle.ToString()};
+        shared.EnrichActor(actor,captured);
+        Check(captured.IntegrationBlocks.Count==1 && captured.IntegrationBlocks[0].Id=="turnKnowledge","exact supplied actor gets reserved private capture");
+        var privateBlock=new System.Web.Script.Serialization.JavaScriptSerializer().Deserialize<Dictionary<string,object>>(captured.IntegrationBlocks[0].Text);
+        Check((string)privateBlock["captureRef"]==kept.CaptureRef && (string)privateBlock["hostRunId"]==host.HostRunId && (int)privateBlock["worldEpoch"]==host.WorldEpoch,"capture reuses shared reference and host fence");
+        Check(!privateBlock.ContainsKey("encounterId") && !privateBlock.ContainsKey("characterId"),"ordinary capture does not infer durable ownership");
+        var wrongActor=new LosSantosAlive.Context.ActorContext {PedId="999"};shared.EnrichActor(actor,wrongActor);Check(wrongActor.IntegrationBlocks.Count==0,"wrong PedId omits capture");
         shared.Shutdown();Check(host.Anchors.Resolve(kept.CaptureRef)!=null,"optional PS shutdown cannot clear another consumer's shared lifetime");
         host.Shutdown();Check(host.Anchors.Count==0,"host teardown clears shared table");
         Console.WriteLine("PASS "+assertions+" production integration assertions including lifecycle telemetry");
