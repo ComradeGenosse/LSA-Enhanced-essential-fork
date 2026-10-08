@@ -359,3 +359,37 @@ test('retired references release all paired payload views without consuming or r
  cache.releaseReference(target);
  assert.equal(ledger.pair,undefined);assert.equal(cache.decisions.get(value.observationId).pair,undefined);assert.equal(cache.latestById.get(value.observationId).pair,undefined);assert.equal(ledger.granted,granted);assert.equal(ledger.consumedBy.size,0);assert.equal(ledger.decisionKey,decision.decisionKey);
 });
+
+
+test('paired store pressure preserves urgent evidence and suppression without rebuilding evicted pairs',()=>{
+ const cache=new SalienceCache({now:()=>NOW}),observer=randomUUID();
+ const urgent=observation({observer,claims:[claim({kind:'injured',channel:'self',basis:'native_callback',target:observer})]});
+ const urgentDecision=cache.evaluate(urgent,view());
+ let admittedBytes=cache.ledger.get(urgent.observationId).pairBytes,firstRoutine;
+ for(let index=0;index<SALIENCE_BOUNDS.suppression-1;index++){
+  const claims=Array.from({length:4},()=>claim({kind:'presence',channel:'visual',basis:'sampled_state',source:randomUUID(),target:randomUUID()}));
+  const seen=observation({observer,eventType:'character_present',severity:'routine',claims,gameTick:index+20});
+  if(!firstRoutine)firstRoutine=seen;
+  cache.evaluate(seen,view());
+  // Measure the admitted immutable pair even when the pressure pass removes its payload.
+  admittedBytes+=Buffer.byteLength(JSON.stringify({observation:seen,situation:view(),decision:cache.ledger.get(seen.observationId).pair?.decision??cache.latestById.get(seen.observationId)?.decision}));
+ }
+ const pairs=new Map([...cache.decisions.values(),...cache.ledger.values(),...cache.latestById.values()].filter(entry=>entry.pair).map(entry=>[entry.pair,entry.pairBytes]));
+ assert.ok(admittedBytes>2*1024*1024,'fixture must exercise the byte limit');
+ assert.ok([...pairs.values()].reduce((sum,bytes)=>sum+bytes,0)<=2*1024*1024);
+ assert.equal(cache.ledger.size,SALIENCE_BOUNDS.suppression);
+ assert.equal(cache.ledger.get(urgent.observationId).pair.decision.decisionKey,urgentDecision.decisionKey);
+ assert.equal(cache.ledger.get(urgent.observationId).consumedBy.size,0);
+ const retired=cache.ledger.get(firstRoutine.observationId);
+ assert.equal(retired.pair,undefined);
+ assert.equal(cache.needsSituationRefresh(firstRoutine,view({revision:2})),false);
+ const counts={};
+ assert.deepEqual(cache.snapshotForObserver(observer,{entries:new Map([[firstRoutine.observationId,{value:firstRoutine}]])},NOW,counts),[]);
+ assert.equal(counts.noMatchingSalience,1);
+ assert.equal(retired.consumedBy.size,0);
+ assert.equal(cache.acknowledge(urgentDecision.decisionKey,'ps4_context','delivered'),true);
+ assert.equal(cache.ledger.get(urgent.observationId).consumed,false);
+ const replay=cache.evaluate(urgent,view());
+ assert.equal(replay.response,'none');
+ assert.ok(replay.reasons.includes('repetition_suppressed'));
+});

@@ -323,3 +323,12 @@ Updated pairs serve subsequent freezes; an earlier frozen pair still retains its
 Remaining payload/pressure/adversarial/native reset/GTA gates and later master-plan phases remain unfinished. Nothing deployed or enabled; the full goal remains active.
 
 Validation: full explicit offline Node suite 527/527, zero failed/cancelled; focused tests verify changed-policy-only evaluation, current pair replacement and immutable original inputs; git diff --check passed.
+
+
+## Checkpoint 29: actual paired-store byte pressure and entitlement preservation
+
+Added a production SalienceCache pressure fixture with 1,024 suppression entries and four qualified claims per routine observation. Admitted pair metadata exceeds 2 MiB; unique retained payloads across decision/ledger/latest views stay within the existing 2 MiB ceiling. An older urgent self-danger pair survives newer routine clutter even after ordinary decision-cache eviction. The evicted routine pair remains absent from snapshots, is counted as noMatchingSalience, and is not reconstructed by situation refresh. Exact suppression keys and unconsumed reaction state survive; PS4 delivery does not consume PS6 entitlement and replay remains repetition-suppressed.
+
+No production scoring, retention policy or architecture changed. This closes this specific store-pressure regression, not the complete PS4 T27/T73 or GTA pressure/soak gates. Remaining payload/adversarial/native reset/GTA validation and later master-plan phases remain unfinished. Nothing deployed or enabled; the full goal remains active.
+
+Validation: full explicit offline Node suite 528/528, zero failed/cancelled; focused salience suite 17/17; git diff --check passed.
