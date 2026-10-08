@@ -18,6 +18,8 @@ namespace LSA.PromotedCharacters
     {
         public Ped Ped;
         public IntPtr Address;
+        public ulong Handle;
+        public string CaptureRef;
         public string Id = Guid.NewGuid().ToString("D"), OwnerAlias, OwnershipToken;
         public RegistrationToken Registration;
         public bool Created, Suspended;
@@ -31,6 +33,7 @@ namespace LSA.PromotedCharacters
     public sealed partial class PromotedCharactersIntegration : IIntegration
     {
         readonly string world, pipeName, identityPipeName;
+        internal readonly HostContext Host;
         readonly Dictionary<string,Encounter> encounters = new Dictionary<string,Encounter>();
         readonly Dictionary<string,Capture> captures = new Dictionary<string,Capture>();
         readonly JavaScriptSerializer json = new JavaScriptSerializer {MaxJsonLength = 32768,RecursionLimit = 12};
@@ -56,10 +59,11 @@ namespace LSA.PromotedCharacters
         internal string UnavailabilityReason => shutdown?shutdownReason:channel==null?"not_initialized":identity?.IsAvailable!=true?"identity_unavailable":"none";
         internal string IdentityRuntimeStatus => identity?.DiagnosticsStatus() ?? "identity_status=none";
         static long Now => DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-        public PromotedCharactersIntegration(string worldProfileId,string pipeName = "LSA.PromotedCharacters.v1",string identityPipeName = "LSA.SessionIdentity.v1")
+        public PromotedCharactersIntegration(string worldProfileId,string pipeName = "LSA.PromotedCharacters.v1",string identityPipeName = "LSA.SessionIdentity.v1",HostContext host = null)
         {
             if (worldProfileId == null || !Regex.IsMatch(worldProfileId,"^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$") || !Regex.IsMatch(pipeName,"^[A-Za-z0-9_.-]{1,80}$") || !Regex.IsMatch(identityPipeName,"^[A-Za-z0-9_.-]{1,80}$")) throw new ArgumentException("Invalid P2 configuration.");
             world = worldProfileId; this.pipeName = pipeName; this.identityPipeName = identityPipeName;
+            Host = host ?? new HostContext();
             talkTargets = new TalkTargetSelector(ped => EncounterFor(ped).Id);
         }
         public void Prepare()
@@ -74,15 +78,32 @@ namespace LSA.PromotedCharacters
             identity.Initialize();
             if (!identity.IsAvailable) { shutdown = true; Game.LogTrivial("[P2] identity_initialization_failed"); return; }
             channel = new ControlChannel(pipeName,Guid.NewGuid().ToString("D"),world); channel.Start(); lastGameTime = Game.GameTime;
+            Host.ObserveGameTick(unchecked((uint)lastGameTime));
         }
         static bool Alive(Encounter encounter) => encounter?.Ped != null && encounter.Ped.Exists() && !encounter.Ped.IsDead && encounter.Ped.MemoryAddress == encounter.Address;
         Encounter EncounterFor(Ped ped)
         {
             if (ped == null || !ped.Exists() || ped.IsDead || ped == Game.LocalPlayer.Character) throw new InvalidOperationException("invalid_target");
             string handle = ped.Handle.ToString();
-            if (encounters.TryGetValue(handle,out var existing)) { if (Alive(existing)) return existing; Retire(existing); encounters.Remove(handle); }
+            if (encounters.TryGetValue(handle,out var existing)) {
+                if (Alive(existing) && ReferenceEquals(existing.Ped,ped) && existing.Handle==Convert.ToUInt64(ped.Handle) && existing.Address==ped.MemoryAddress && Host.Anchors.Resolve(existing.CaptureRef)!=null) {
+                    RetainEncounter(existing); return existing;
+                }
+                Retire(existing); encounters.Remove(handle);
+            }
             if (encounters.Count >= 256) throw new InvalidOperationException("encounter_limit");
-            var encounter = new Encounter {Ped = ped,Address = ped.MemoryAddress}; encounters.Add(handle,encounter); return encounter;
+            var encounter = new Encounter {Ped = ped,Address = ped.MemoryAddress,Handle=Convert.ToUInt64(ped.Handle)};
+            RetainEncounter(encounter); encounters.Add(handle,encounter); return encounter;
+        }
+        void RetainEncounter(Encounter encounter)
+        {
+            var ped=encounter.Ped; var handle=encounter.Handle;var address=encounter.Address;
+            var registration=encounter.Registration;
+            var anchor=Host.Anchors.Retain(ped,handle,address,"ped",registration?.IncarnationId,
+                ()=>ped.Exists() && Convert.ToUInt64(ped.Handle)==handle && ped.MemoryAddress==address && ReferenceEquals(encounter.Registration,registration),
+                Host.MonotonicMs,false,LSA.Intelligence.AnchorConsumer.P2Encounter);
+            if(anchor==null) throw new InvalidOperationException("anchor_limit");
+            encounter.CaptureRef=anchor.CaptureRef;
         }
         static bool Scripted() => NativeFunction.CallByName<bool>("IS_CUTSCENE_ACTIVE") || NativeFunction.CallByName<bool>("IS_CUTSCENE_PLAYING") || NativeFunction.CallByName<bool>("IS_PLAYER_SWITCH_IN_PROGRESS") || NativeFunction.CallByName<bool>("GET_MISSION_FLAG") || NativeFunction.CallByName<bool>("NETWORK_IS_SESSION_ACTIVE");
         static bool Safe(Encounter encounter,bool adopting = false)
@@ -96,7 +117,13 @@ namespace LSA.PromotedCharacters
         }
         void Retire(Encounter encounter) {
             try { activityRunner?.Retire(encounter.Id, encounter.Registration?.IncarnationId, unchecked((uint)Game.GameTime), DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(), activitySession); } catch { }
-            if (encounter.Registration != null) { try {OwnerRetired?.Invoke(encounter.Registration.IncarnationId);}catch{} identity?.Owner?.Retire(encounter.Registration); } encounter.Registration = null; encounter.OwnerAlias = null; encounter.OwnershipToken = null; }
+            // PS may sample the terminal state while the exact original lifetime
+            // is still retained. Revoke it only after that factual callback.
+            if (encounter.Registration != null) { try {OwnerRetired?.Invoke(encounter.Registration.IncarnationId);}catch{} }
+            Host.Anchors.Retire(encounter.CaptureRef,LSA.Intelligence.AnchorRetirement.OwnerRevoked);
+            if (encounter.Registration != null) identity?.Owner?.Retire(encounter.Registration);
+            encounter.Registration = null; encounter.OwnerAlias = null; encounter.OwnershipToken = null;
+        }
         static void Suspend(Encounter encounter)
         {
             encounter.Suspended = true; // Set first, before any native control callback.
@@ -132,12 +159,13 @@ namespace LSA.PromotedCharacters
                 if (shutdownRequested) { Shutdown(); return; }
                 if (!IsReady) { Initialize(); return; }
                 long now = Game.GameTime;
-                if (now < lastGameTime) {
+                if (Host.ObserveGameTick(unchecked((uint)now))) {
                     try { ResetForClockDiscontinuity(now); }
                     catch { Game.LogTrivial("[P2] game_clock_reset_failed"); Shutdown(); }
                     return;
                 }
                 lastGameTime = now;
+                Host.Cleanup();
                 foreach (var item in encounters.ToArray()) {
                     if (!Alive(item.Value)) { Retire(item.Value); encounters.Remove(item.Key); continue; }
                     if (item.Value.Registration != null && !Safe(item.Value) && !item.Value.Suspended) Suspend(item.Value);
@@ -189,11 +217,13 @@ namespace LSA.PromotedCharacters
                 var encounter = capture.Encounter;
                 // Selection can change during async preparation. Never promote a new target.
                 var selected = CurrentPed();
-                if (selected == null || selected != encounter.Ped || !Safe(encounter,encounter.Registration == null)) throw new InvalidOperationException("native_stale");
+                if (selected == null || !ReferenceEquals(selected,encounter.Ped) || selected.MemoryAddress!=encounter.Address ||
+                    Convert.ToUInt64(selected.Handle)!=encounter.Handle || Host.Anchors.Resolve(encounter.CaptureRef)==null ||
+                    !Safe(encounter,encounter.Registration == null)) throw new InvalidOperationException("native_stale");
                 if (!Alias(alias)) throw new InvalidOperationException("invalid_owner_alias");
                 if (encounter.OwnerAlias != null) { if (encounter.OwnerAlias != alias) throw new InvalidOperationException("ownership_conflict"); return Binding(encounter,true); }
                 if (Owned(alias) != null || identity.Owner.TryResolveCurrent(encounter.Ped,out _)) throw new InvalidOperationException("ownership_conflict");
-                encounter.Registration = identity.Owner.Register(encounter.Ped,alias,world); encounter.OwnerAlias = alias; encounter.OwnershipToken = Guid.NewGuid().ToString("D");
+                encounter.Registration = identity.Owner.Register(encounter.Ped,alias,world); encounter.OwnerAlias = alias; encounter.OwnershipToken = Guid.NewGuid().ToString("D"); RetainEncounter(encounter);
                 // Promotion records explicit ownership; it does not change the current
                 // voice or force a task. Companion mode is a separate player choice.
                 return Binding(encounter);
@@ -216,7 +246,7 @@ namespace LSA.PromotedCharacters
                     ped = new Ped(model,position,player.Heading);
                     if (request.Cancelled || request.ExpiresAtUtc <= Now || Scripted()) throw new InvalidOperationException("native_stale");
                     Restore(ped,appearance); encounter = EncounterFor(ped); encounter.Created = true;
-                    encounter.Registration = identity.Owner.Register(ped,alias,world); encounter.OwnerAlias = alias; encounter.OwnershipToken = Guid.NewGuid().ToString("D");
+                    encounter.Registration = identity.Owner.Register(ped,alias,world); encounter.OwnerAlias = alias; encounter.OwnershipToken = Guid.NewGuid().ToString("D"); RetainEncounter(encounter);
                     return Binding(encounter);
                 } catch { if (encounter != null) Retire(encounter); if (ped != null && ped.Exists() && !Scripted()) ped.Delete(); throw; }
             }
@@ -309,6 +339,7 @@ namespace LSA.PromotedCharacters
                 try { Retire(encounter); } catch { }
             }
             encounters.Clear(); captures.Clear();
+            Host.Shutdown();
         }
     }
 }

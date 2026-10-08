@@ -12,6 +12,7 @@ using LosSantosAlive.NPC;
 using LosSantosAlive.NPC.Perception;
 using Rage;
 using Rage.Native;
+using LSA.PromotedCharacters;
 
 namespace LSA.Intelligence
 {
@@ -23,9 +24,11 @@ namespace LSA.Intelligence
     }
     public sealed class IntelligenceIntegration : IIntegration
     {
-        readonly EntityAnchors anchors=new EntityAnchors();
+        readonly EntityAnchors anchors;
+        readonly HostContext host;
+        readonly bool ownsHost;
         readonly SensorAdapters sensors=new SensorAdapters();
-        readonly Stopwatch clock=Stopwatch.StartNew();
+        // Every retained lifetime uses the host's monotonic time axis.
         readonly Func<OwnedParticipant[]> roster;
         readonly string pipeName;
         IntelligenceChannel channel;
@@ -72,11 +75,23 @@ namespace LSA.Intelligence
             do {current=Interlocked.Read(ref value);if(current>=int.MaxValue) return;}
             while(Interlocked.CompareExchange(ref value,current+1,current)!=current);
         }
-        int Age(long timestamp)=>timestamp<0?int.MaxValue:Clamp(clock.ElapsedMilliseconds-timestamp);
+        int Age(long timestamp)=>timestamp<0?int.MaxValue:Clamp(host.MonotonicMs-timestamp);
         internal string RuntimeStatus()=>"available="+IsAvailable+" update_calls="+UpdateCalls+" update_completed="+CompletedUpdates+" last_update_age_ms="+Age(Interlocked.Read(ref lastUpdateMs))+" last_completed_age_ms="+Age(Interlocked.Read(ref lastCompletedMs))+" last_game_tick="+callbackTick+" shutdown_reason="+ShutdownReason;
         internal static void LogStatus(string message) {try{Game.LogTrivial(message);}catch{}}
         static readonly string[] capabilityNames={"snapshot","pedDamage","playerDamage","vehicleDamage","shooting","state","action","playback","witness","awareness","playerSpeech"};
-        public IntelligenceIntegration(Func<OwnedParticipant[]> roster,string pipeName="LSA.Intelligence.v1") {if(pipeName==null||!System.Text.RegularExpressions.Regex.IsMatch(pipeName,"^[A-Za-z0-9_.-]{1,80}$")) throw new ArgumentException();this.roster=roster;this.pipeName=pipeName;capabilities=capabilityNames.ToDictionary(k=>k,k=>false);}
+        public IntelligenceIntegration(Func<OwnedParticipant[]> roster,string pipeName="LSA.Intelligence.v1",HostContext host=null) {
+            if(pipeName==null||!System.Text.RegularExpressions.Regex.IsMatch(pipeName,"^[A-Za-z0-9_.-]{1,80}$")) throw new ArgumentException();
+            this.roster=roster;this.pipeName=pipeName;ownsHost=host==null;this.host=host??new HostContext();anchors=this.host.Anchors;
+            this.host.WorldChanged+=WorldChanged;capabilities=capabilityNames.ToDictionary(k=>k,k=>false);
+        }
+        void WorldChanged(int epoch,string reason) {
+            if(!IsAvailable) return;
+            sensors.Reset();lock(rosterGate) publishedAnchorStates.Clear();pendingRetirements.Clear();
+            conversationRef=null;discoverySnapshot=null;discoveryOwned=new OwnedParticipant[0];UpdateIndexes();
+            channel?.Dispose();channel=new IntelligenceChannel(pipeName,Guid.NewGuid().ToString("D"),()=>capabilities);channel.Start();
+            connectionVersion=0;nextRefresh=nextDiscovery=nextState=nextShot=0;
+            LogStatus("[PS] clock_reset");
+        }
         static bool Pinned(System.Reflection.Assembly assembly,string pin)
         {try {if(new FileInfo(assembly.Location).Length>16*1024*1024) return false;using(var h=SHA256.Create()) return BitConverter.ToString(h.ComputeHash(File.ReadAllBytes(assembly.Location))).Replace("-","").ToLowerInvariant()==pin;}catch{return false;}}
         public void Initialize()
@@ -106,7 +121,7 @@ namespace LSA.Intelligence
         }
         // Keeps optional DamageTracker type resolution outside ordinary host initialization.
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
-        void TryDamage() {try{damage=new DamageSensors(sensors,(h,e)=>CallbackAnchor(h,e,false),(h,e)=>CallbackAnchor(h,e,true),r=>r!=null&&criticalIndex.Contains(r),()=>clock.ElapsedMilliseconds,()=>callbackTick);}catch{damage=null;}}
+        void TryDamage() {try{damage=new DamageSensors(sensors,(h,e)=>CallbackAnchor(h,e,false),(h,e)=>CallbackAnchor(h,e,true),r=>r!=null&&criticalIndex.Contains(r),()=>host.MonotonicMs,()=>callbackTick);}catch{damage=null;}}
         string CallbackAnchor(uint handle,object entity,bool vehicle)
         {return entity!=null && callbackEntities.TryGetValue(handle,out var a) && ReferenceEquals(entity,a.Entity) && (a.Kind=="vehicle")==vehicle?a.CaptureRef:null;}
         static bool Live(Entity entity,ulong handle,IntPtr address) => entity!=null && entity.Exists() && Convert.ToUInt64(entity.Handle)==handle && entity.MemoryAddress==address;
@@ -114,7 +129,7 @@ namespace LSA.Intelligence
         {
             if(entity==null||!entity.Exists()) return null;
             ulong handle=Convert.ToUInt64(entity.Handle);var address=entity.MemoryAddress;
-            var a=anchors.Retain(entity,handle,address,kind,owner,()=>Live(entity,handle,address)&&(current==null||current()),clock.ElapsedMilliseconds,observer);
+            var a=anchors.Retain(entity,handle,address,kind,owner,()=>Live(entity,handle,address)&&(current==null||current()),host.MonotonicMs,observer);
             return a;
         }
         AnchorWireState Describe(EntityAnchor a)=>new AnchorWireState {CaptureRef=a.CaptureRef,Kind=a.Kind,Observer=a.Observer,Owned=a.OwnerLifetime!=null,Conversation=a.CaptureRef==conversationRef};
@@ -145,8 +160,8 @@ namespace LSA.Intelligence
             try {
                 // P2 can notice a terminal state before our next sample. Capture it
                 // while the original registration/entity still exists, then revoke.
-                foreach(var a in anchors.Current.Where(a=>a.OwnerLifetime==lifetime)) if(a.Entity is Ped p && Live(p,a.Handle,a.Address) && p.IsDead) Sample(a,callbackTick,clock.ElapsedMilliseconds);
-                for(int n=0;n<32;n++) {var s=sensors.Take();if(s==null) break;Publish(s,clock.ElapsedMilliseconds);}
+                foreach(var a in anchors.Current.Where(a=>a.OwnerLifetime==lifetime)) if(a.Entity is Ped p && Live(p,a.Handle,a.Address) && p.IsDead) Sample(a,callbackTick,host.MonotonicMs);
+                for(int n=0;n<32;n++) {var s=sensors.Take();if(s==null) break;Publish(s,host.MonotonicMs);}
                 anchors.RevokeOwner(lifetime);UpdateIndexes();FlushControls();
             }catch{Shutdown("owner_retirement_failed");}
         }
@@ -160,13 +175,13 @@ namespace LSA.Intelligence
         public void Update()
         {
             if(!IsAvailable) return;
-            var budget=Stopwatch.StartNew();long now=clock.ElapsedMilliseconds;
+            var budget=Stopwatch.StartNew();long now=host.MonotonicMs;
             Count(ref updateCalls);Interlocked.Exchange(ref lastUpdateMs,now);
             try {
                 if(damageReady && damage==null) TryDamage();
                 if(!damageReady && damage!=null) {damage.Dispose();damage=null;}
                 uint tick=unchecked((uint)Game.GameTime);callbackTick=tick;
-                if(tick<previousTick) {anchors.Clear();sensors.Reset();lock(rosterGate) publishedAnchorStates.Clear();UpdateIndexes();channel.Dispose();channel=new IntelligenceChannel(pipeName,Guid.NewGuid().ToString("D"),()=>capabilities);channel.Start();nextRefresh=0;Game.LogTrivial("[PS] clock_reset");}
+                if(ownsHost) host.ObserveGameTick(tick);
                 previousTick=tick;
                 lineOfSightBudget=8;
                 if(channel.ConnectionVersion!=connectionVersion) {connectionVersion=channel.ConnectionVersion;lock(rosterGate) publishedAnchorStates.Clear();nextRefresh=0;}
@@ -225,7 +240,7 @@ namespace LSA.Intelligence
                         Retain(ownership?.Ped??e,p==null?"vehicle":"ped",ownership?.Lifetime,false,ownership?.Current);
                     }
                 }
-                anchors.Cleanup(now,16,()=>budget.Elapsed.TotalMilliseconds<1);UpdateIndexes();
+                if(ownsHost) host.Cleanup(16,()=>budget.Elapsed.TotalMilliseconds<1);UpdateIndexes();
                 var sources=anchors.Current.Where(a=>a.Kind!="vehicle").OrderByDescending(a=>a.Kind=="player").ThenByDescending(a=>a.Observer).ToArray();
                 // Separate discovery and fast sampling budgets: discovery cannot starve firing reads.
                 var sampling=Stopwatch.StartNew();
@@ -247,7 +262,7 @@ namespace LSA.Intelligence
                     channel.Send("diagnostics",new {anchors=anchors.Count,observers=anchors.ObserverCount,snapshotAgeMs=age,snapshotCadenceMs=Clamp(snapshotCadence),dropped=Clamp(sensors.Dropped+channel.Dropped),staleRejected=Clamp(staleRejected),retiredAnchors=Clamp(retiredAnchors),deferredDiscovery=Clamp(deferredDiscovery),updateMicros=Clamp((long)(budget.Elapsed.TotalMilliseconds*1000)),capabilities,signals,damageCallbacks,witnessDeferred=Clamp(witnessDeferred),witnessUnknown=Clamp(witnessUnknown),witnessRejected=Clamp(witnessRejected),playerSpeechGate="unsupported_capture_receipt"});
                     if(now>=nextLog) {nextLog=now+10000;Game.LogTrivial("[PS] shadow anchors="+anchors.Count+" observers="+anchors.ObserverCount+" snapshot_age_ms="+age+" snapshot_cadence_ms="+Clamp(snapshotCadence)+" dropped="+Clamp(sensors.Dropped+channel.Dropped)+" stale="+Clamp(staleRejected)+" retired="+Clamp(retiredAnchors)+" deferred="+Clamp(deferredDiscovery)+" update_us="+Clamp((long)(budget.Elapsed.TotalMilliseconds*1000))+" capabilities="+string.Join(",",capabilities.Where(c=>c.Value).Select(c=>c.Key))+" damage_callbacks=ped:"+damageCallbacks["ped_damage"]+",player:"+damageCallbacks["player_damage"]+",vehicle:"+damageCallbacks["vehicle_damage"]+" signals="+string.Join(",",signals.Select(c=>c.Key+":"+c.Value)));}
                 }
-                Count(ref completedUpdates);Interlocked.Exchange(ref lastCompletedMs,clock.ElapsedMilliseconds);
+                Count(ref completedUpdates);Interlocked.Exchange(ref lastCompletedMs,host.MonotonicMs);
             } catch {LogStatus("[PS] optional_update_failed");Shutdown("update_failed");}
         }
         static int Clamp(long n)=>(int)Math.Min(int.MaxValue,Math.Max(0,n));
@@ -308,7 +323,7 @@ namespace LSA.Intelligence
         void Lifecycle(string kind,string pedId,object entity,bool interrupted,bool hadAudio)
         {
             if(!uint.TryParse(pedId,out var handle)) return;var target=CallbackAnchor(handle,entity,false);
-            sensors.Enqueue(new RawSignal {producer="playback",kind=kind,target=target,gameTick=callbackTick,receivedMs=clock.ElapsedMilliseconds,facts=new Dictionary<string,object>{{"interrupted",interrupted},{"hadAudio",hadAudio}}});
+            sensors.Enqueue(new RawSignal {producer="playback",kind=kind,target=target,gameTick=callbackTick,receivedMs=host.MonotonicMs,facts=new Dictionary<string,object>{{"interrupted",interrupted},{"hadAudio",hadAudio}}});
         }
         void PlaybackStarted(NpcPlaybackStartedEvent e) {try{Lifecycle("playback_started",e.PedId,e.SpeakerPed,false,false);}catch{}}
         void PlaybackEnded(NpcPlaybackEndedEvent e) {try{Lifecycle("playback_ended",e.PedId,e.SpeakerPed,e.WasInterrupted,e.HadAudio);}catch{}}
@@ -316,7 +331,7 @@ namespace LSA.Intelligence
         {
             if(!IsAvailable || ReferenceEquals(ped,null) || !actionIndex.TryGetValue(ped,out var target)) return;
             string action=actionName=="followtarget"?"followtarget":actionName=="waithere"?"waithere":"other";
-            sensors.Enqueue(new RawSignal {producer="action",kind="action_callback",target=target,gameTick=callbackTick,receivedMs=clock.ElapsedMilliseconds,facts=new Dictionary<string,object>{{"action",action},{"succeeded",succeeded}}});
+            sensors.Enqueue(new RawSignal {producer="action",kind="action_callback",target=target,gameTick=callbackTick,receivedMs=host.MonotonicMs,facts=new Dictionary<string,object>{{"action",action},{"succeeded",succeeded}}});
         }
         public void EnrichActor(Ped ped,ActorContext context) {} // No model-visible block.
         public void OnPedControlChanged(Ped ped,bool controlledByLsa) {}
@@ -329,7 +344,8 @@ namespace LSA.Intelligence
             AppDomain.CurrentDomain.AssemblyLoad-=AssemblyLoaded;
             try{damage?.Dispose();}catch{}damage=null;
             if(playback) {try{NpcPlaybackCoordinator.PlaybackStarted-=PlaybackStarted;NpcPlaybackCoordinator.PlaybackEnded-=PlaybackEnded;}catch{}playback=false;}
-            channel?.Dispose();anchors.Clear();sensors.Reset();UpdateIndexes();
+            channel?.Dispose();anchors.Retired-=OnRetired;host.WorldChanged-=WorldChanged;
+            if(ownsHost) host.Shutdown();sensors.Reset();UpdateIndexes();
         }
     }
 }

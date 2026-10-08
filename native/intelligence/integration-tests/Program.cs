@@ -111,6 +111,16 @@ class Program
         try{IntelligenceIntegration.LogStatus("[PS] test_status");sinkFailed.Update();}finally{Game.ThrowLogs=false;}
         Check(!sinkFailed.IsAvailable&&sinkFailed.ShutdownReason=="update_failed","failed diagnostic sink cannot prevent optional update cleanup");
         Check(failed.RuntimeStatus().Contains("update_completed=0"),"diagnostic sink failure leaves lifecycle state intact");
+        var host=new LSA.PromotedCharacters.HostContext();host.ObserveGameTick(2000);
+        var shared=new IntelligenceIntegration(()=>new OwnedParticipant[0],"LSA.Shared.Tests."+Guid.NewGuid().ToString("N"),host);
+        Set(shared,"started",true);Set(shared,"channel",new IntelligenceChannel("LSA.Shared.Unconnected",Guid.NewGuid().ToString("D"),()=>caps));
+        Check(ReferenceEquals(Get(shared,"anchors"),host.Anchors),"integration uses supplied host table");
+        host.Anchors.Retain(actor,(ulong)actor.Handle,actor.MemoryAddress,"ped",null,()=>true,host.MonotonicMs,false,AnchorConsumer.P2Encounter);
+        Game.GameTime=100;shared.Update();Check(host.WorldEpoch==1,"shared PS does not run a second clock detector");
+        host.ObserveGameTick(100);Check(host.WorldEpoch==2 && host.Anchors.Count==0 && shared.IsAvailable,"owner reset clears shared refs and reinitializes optional PS");
+        var kept=host.Anchors.Retain(actor,(ulong)actor.Handle,actor.MemoryAddress,"ped",null,()=>true,host.MonotonicMs,false,AnchorConsumer.P2Encounter);
+        shared.Shutdown();Check(host.Anchors.Resolve(kept.CaptureRef)!=null,"optional PS shutdown cannot clear another consumer's shared lifetime");
+        host.Shutdown();Check(host.Anchors.Count==0,"host teardown clears shared table");
         Console.WriteLine("PASS "+assertions+" production integration assertions including lifecycle telemetry");
     }
 }

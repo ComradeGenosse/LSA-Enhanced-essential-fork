@@ -44,7 +44,6 @@ namespace Rage
         public int Handle = 12;
         public Model Model;
         public float Heading;
-        public Vector3 Position;
         public Vector3 GetOffsetPosition(Vector3 offset) { Game.NativeCalls++; return offset; }
         public void Dismiss() { Game.NativeCalls++; }
         public void Delete() { Game.NativeCalls++; }
@@ -224,7 +223,7 @@ namespace LSA.Intelligence
     // Static logging for P2; the instance surface is what RuntimeEntry hosts.
     public sealed class IntelligenceIntegration
     {
-        public IntelligenceIntegration(Func<OwnedParticipant[]> roster,string pipeName) { }
+        public IntelligenceIntegration(Func<OwnedParticipant[]> roster,string pipeName,LSA.PromotedCharacters.HostContext host=null) { }
         public void OwnerRetired(string incarnationId) { }
         public void Initialize() { }
         internal void Shutdown(string reason) { }

@@ -76,9 +76,26 @@ class Program
     static void Main()
     {
         try {
-            DeferredInitialization(); ShutdownOnCoreUpdate(); ResetWithPendingRequest(); ResetAfterP1(); RetireFailure(); ForwardClock(); ActivityIsolation();
+            DeferredInitialization(); ShutdownOnCoreUpdate(); ResetWithPendingRequest(); ResetAfterP1(); RetireFailure(); ForwardClock(); ActivityIsolation(); ExactEncounterLifetime();
             Console.WriteLine("P2 production clock recovery and Windows pipe cancellation: " + count + " assertions passed; no game assemblies loaded.");
         } catch (Exception error) { Console.Error.WriteLine(error.GetType().Name + ": " + error.Message); Environment.ExitCode = 1; }
+    }
+    static void ExactEncounterLifetime()
+    {
+        var integration=Create(out _);
+        Game.LocalPlayer.Character=new Ped {Handle=1,MemoryAddress=new IntPtr(1)};
+        var first=new Ped {Handle=12,MemoryAddress=new IntPtr(12)};
+        var lookup=typeof(PromotedCharactersIntegration).GetMethod("EncounterFor",BindingFlags.NonPublic|BindingFlags.Instance);
+        var old=(Encounter)lookup.Invoke(integration,new object[]{first});
+        Check(old.CaptureRef!=null && integration.Host.Anchors.Resolve(old.CaptureRef)?.Entity==first);
+        Check(ReferenceEquals(old,lookup.Invoke(integration,new object[]{first})) && Encounters(integration).Count==1);
+        var replacement=new Ped {Handle=12,MemoryAddress=new IntPtr(12)};
+        var current=(Encounter)lookup.Invoke(integration,new object[]{replacement});
+        Check(current.Id!=old.Id && current.CaptureRef!=old.CaptureRef && integration.Host.Anchors.Resolve(old.CaptureRef)==null);
+        Check(ReferenceEquals(integration.Host.Anchors.Resolve(current.CaptureRef).Entity,replacement));
+        replacement.Handle=13;
+        Check(integration.Host.Anchors.Resolve(current.CaptureRef)==null);
+        integration.Shutdown();Check(integration.Host.Anchors.Count==0);
     }
     static void ActivityIsolation()
     {

@@ -12,6 +12,7 @@ namespace LSA.PromotedCharacters
     {
         static PromotedCharactersIntegration integration;
         static LSA.Intelligence.IntelligenceIntegration intelligence;
+        static HostContext host;
         static int startClaim;
         static volatile bool stopping,finished;
         public static bool Ready=>integration?.IsReady==true && !stopping;
@@ -30,14 +31,15 @@ namespace LSA.PromotedCharacters
                 try {
                     GameFiber.Yield();
                     if(stopping) return;
-                    integration=new PromotedCharactersIntegration(config.worldProfileId,config.pipeName,config.identityPipeName);
+                    host=new HostContext();
+                    integration=new PromotedCharactersIntegration(config.worldProfileId,config.pipeName,config.identityPipeName,host);
                     if(config.activities?.mode=="shadow") { try { integration.EnableActivityShadow(config.activities.pipeName);} catch {Game.LogTrivial("[ACT] optional_host_unavailable");} }
                     else if(config.activities?.mode=="on") { try { integration.EnableActivityExecution(config.activities.pipeName);} catch {Game.LogTrivial("[ACT] optional_host_unavailable");} }
                     integration.Prepare();
                     IntegrationManager.Register(integration);
                     if(config.intelligence?.mode=="shadow") {
                         try {
-                            intelligence=new LSA.Intelligence.IntelligenceIntegration(integration.PerceptionRoster,config.intelligence.pipeName);
+                            intelligence=new LSA.Intelligence.IntelligenceIntegration(integration.PerceptionRoster,config.intelligence.pipeName,host);
                             integration.OwnerRetired+=intelligence.OwnerRetired;
                             IntegrationManager.Register(intelligence);intelligence.Initialize();
                         } catch {Game.LogTrivial("[PS] optional_host_unavailable");}
