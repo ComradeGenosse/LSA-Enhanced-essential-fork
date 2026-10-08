@@ -118,13 +118,15 @@ class Program
     static void Serve(string name)
     {
         var caps=new Dictionary<string,bool>();foreach(var k in new[]{"snapshot","pedDamage","playerDamage","vehicleDamage","shooting","state","action","playback","witness","awareness","playerSpeech"}) caps[k]=k=="shooting";
-        using(var channel=new IntelligenceChannel(name,Guid.NewGuid().ToString("D"),()=>caps)) {
+        using(var channel=new IntelligenceChannel(name,Guid.NewGuid().ToString("D"),()=>caps,Guid.NewGuid().ToString("D"),()=>1,true)) {
             channel.Start();Console.WriteLine("Interop server ready");
             var deadline=System.Diagnostics.Stopwatch.StartNew();bool sent=false;
             while(deadline.ElapsedMilliseconds<10000) {
                 if(!sent&&channel.ConnectionVersion>0) {
                     sent=true;string player=Guid.NewGuid().ToString("D");
-                    channel.Send("anchors",new[]{new {captureRef=player,kind="player",observer=false}});
+                    channel.Send("anchors",new[]{new {captureRef=player,kind="ped",observer=true,owned=false}});
+                    channel.Send("observer_index",new[]{new {captureRef=player,kind="ped",owned=false}});
+                    channel.Send("observer_situation",new[]{new {captureRef=player,sampledGameTick=42,activity="conversation",situationRevision=1}});
                     channel.Send("signal",new {signalId=Guid.NewGuid().ToString("D"),producer="shooting",producerSequence=1,kind="firing",target=(string)null,source=player,gameTick=42,ageMs=0,facts=new {}});
                 }Thread.Sleep(10);
             }

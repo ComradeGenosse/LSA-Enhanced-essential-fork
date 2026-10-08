@@ -278,3 +278,12 @@ Added rebuilt Essential/provider-fetch integration using the existing P1 resolve
 These cases prove the first-owned request join rather than just the helper behavior. They do not establish full native physical support or GTA acceptance. Remaining adversarial/pressure/native interoperability/payload/GTA gates and later master-plan phases remain unfinished. No production source, capability enabling or deployment changed. The full goal remains active.
 
 Validation: full explicit offline Node suite 520/520, zero failed/cancelled; git diff --check passed.
+
+
+## Checkpoint 24: actual .NET/Node PS4 factual interoperability
+
+Strengthened the existing Windows factual interop helper rather than creating a parallel transport. It links the production IntelligenceChannel source and now emits the C-13 shared host/world hello, C-02 ped observer index and C-14 situation before its supported firing signal. The real IntelligenceClient checks those extensions and feeds its actual PS2/PS3 captured pairs into the existing PS4 renderer. The interop assertion requires nonempty bounded delivery metadata and no captureRef in the model allocation, while retaining the current-user factual-only pipe.
+
+Validation: helper net481 build succeeded with zero warnings/errors; actual Windows pipe test passed host/index/situation/knowledge-projection checks. This executes no game assemblies and does not establish physical witness/situation truth or GTA acceptance. Production addon capability remains unavailable; source/payload support and remaining adversarial/native reset/pressure/GTA gates still require completion. No deployment, enabling or native production source changed. Later master-plan phases remain unfinished and the full goal remains active.
+
+Final validation: full explicit offline Node suite 520/520, zero failed/cancelled; git diff --check passed.
