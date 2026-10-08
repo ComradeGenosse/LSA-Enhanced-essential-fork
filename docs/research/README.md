@@ -31,6 +31,11 @@ If active and archived material disagree, active material wins in this order:
 
 A research finding never implies code is merged, built, deployed or GTA-validated.
 
+### Current implementation updates
+
+- [PS4 code-level implementation plan — October 8, 2026](PS4-code-level-implementation-plan-20261008.md) — expands PR #21 against C-02/C-04/C-13/C-14 with exact source seams, phased changes, 81 required test cases, rollout gates and GTA acceptance criteria. Documentation only; proposed APIs/bounds are distinguished from existing contracts.
+- [PS4 dialogue knowledge update — October 8, 2026](PS4-dialogue-knowledge-update-20261008.md) — verified main/PR/branch state, PS0–PS8 reconciliation, production request trace, and remaining C-04 implementation/acceptance work. This update records the newer ACT0–ACT2 merge where older overview prose still describes those branches as unmerged.
+
 ## Active convergence package
 
 - [system-convergence-architecture.md](system-convergence-architecture.md)
