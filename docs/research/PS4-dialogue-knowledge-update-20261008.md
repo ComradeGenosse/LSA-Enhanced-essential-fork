@@ -2,6 +2,8 @@
 
 Date: **October 8, 2026**. Scope: reconcile the existing PS0–PS8 design with source; identify the implementation needed for Luna's conversations. This is an implementation update to the corpus consolidated in **PR #16**, not a new architecture or research program.
 
+For the exhaustive implementation handoff requested after this update, see the [PS4 code-level implementation plan](PS4-code-level-implementation-plan-20261008.md): exact C-02/C-04/C-13/C-14 integration points, phased changes, required tests, rollout gates and GTA criteria. It extends this update without changing settled architecture or implementing production code.
+
 Audited `main`: **`7e54b17b53f2786f3e9294e546db6b560fb5f6a7`**, last committed October 6 at 13:49 EDT. All main-source evidence links below are pinned to that commit. Implementation recommendations do not mean those changes are already merged, enabled, deployed, or GTA-accepted.
 
 ## Finding

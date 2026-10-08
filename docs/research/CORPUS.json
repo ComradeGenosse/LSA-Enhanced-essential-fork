@@ -137,6 +137,15 @@
   },
   "documents": [
     {
+      "id": "ps4-code-level-implementation-plan-20261008",
+      "path": "docs/research/PS4-code-level-implementation-plan-20261008.md",
+      "type": "implementation-plan",
+      "authority": "supporting",
+      "status": "current",
+      "sourceRef": "main@7e54b17b53f2786f3e9294e546db6b560fb5f6a7",
+      "incorporatedInto": ["C-02", "C-04", "C-13", "C-14"]
+    },
+    {
       "id": "ps4-dialogue-knowledge-update-20261008",
       "path": "docs/research/PS4-dialogue-knowledge-update-20261008.md",
       "type": "implementation-update",

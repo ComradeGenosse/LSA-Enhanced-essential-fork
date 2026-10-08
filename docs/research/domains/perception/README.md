@@ -15,3 +15,5 @@ The long PS/Director architecture from the October 4 research branch is preserve
 Current interpretation: facts → episodes → observer observations → PS3 salience → one PS4 knowledge assembler. Director proposes; ACT/Essential execute physical behavior.
 
 For the current-main code trace, verified GitHub updates and exact remaining PS4 implementation, read [PS4 dialogue knowledge update — October 8, 2026](../../PS4-dialogue-knowledge-update-20261008.md). It reconciles the existing corpus against `main@7e54b17`, including the merged ACT0–ACT2 stack and the unmerged radio R5/v2 projection slice.
+
+The [PS4 code-level implementation plan](../../PS4-code-level-implementation-plan-20261008.md) expands that update with exact integration points, C-02/C-04/C-13/C-14 phases, tests, rollout gates and GTA acceptance. It reuses the current architecture and does not implement production code.
