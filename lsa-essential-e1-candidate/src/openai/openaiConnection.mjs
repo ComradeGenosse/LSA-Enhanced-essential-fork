@@ -135,6 +135,7 @@ export class OpenAIConnection {
         contextText, internalEvent,
       }),
       contextSnapshot,
+      characterInputs: this.#runtime.captureCharacterInputs?.(turn.identity,actor) ?? null,
       knowledgeInputs: this.#runtime.captureKnowledgeInputs?.({identity:turn.identity,source,p0Snapshot:contextSnapshot}) ?? null,
     });
     this.#characterSnapshot = null;
@@ -279,6 +280,7 @@ export class OpenAIConnection {
     const controller = new AbortController();
     const snapshot = {
       identity: turn.identity, source: turn.source,
+      knowledgeInputs:turn.knowledgeInputs,characterInputs:turn.characterInputs,
       context: {
         ...turn.context,
         contextText: [turn.contextText, this.#realtimeContext].filter(Boolean).join('\n\n'),

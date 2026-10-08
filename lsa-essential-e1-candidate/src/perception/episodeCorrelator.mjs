@@ -1,3 +1,5 @@
+import { validateSignal, validateWitnessReceipt } from './contracts.mjs';
+import { isUuid } from '../identity/identityContract.mjs';
 import { randomUUID } from 'node:crypto';
 
 const EVENT = Object.freeze({
@@ -24,15 +26,19 @@ export class EpisodeCorrelator {
   }
 
   ingest({ nativeRun, signal, witnessReceipts = [] }) {
-    if (!nativeRun || !signal?.signalId || !Array.isArray(witnessReceipts) || witnessReceipts.length > 16) return { accepted: false, reason: 'invalid_input' };
+    if (!isUuid(nativeRun) || !validateSignal(signal) || !Array.isArray(witnessReceipts) || witnessReceipts.length > 16 || !witnessReceipts.every(validateWitnessReceipt)) return { accepted: false, reason: 'invalid_input' };
     this.expire();
     const event = EVENT[signal.kind];
     if (!event) return { accepted: false, reason: 'unsupported_event' };
     const eventKey = `${nativeRun}:${signal.signalId}`;
     if (this.seen.has(eventKey)) { this.duplicates++; return { accepted: true, duplicate: true, episodeId: this.seen.get(eventKey).episodeId, observations: [] }; }
     if(this.seen.size>=CAP.dedupe) {this.dropped++;return {accepted:false,reason:'dedupe_capacity'};}
+    // A state change is not necessarily injury, impact or a qualified sound.
+    if(signal.kind==='vehicle_state' || signal.kind==='injury_state' && signal.facts.injured!==true) {
+      this.remember(eventKey,{episodeId:null});return {accepted:true,observations:[],reason:'unsupported_claim_detail'};
+    }
 
-    const qualified = witnessReceipts.filter(r => r && (r.status === 'witnessed' || r.status === 'reported') && r.evidence && this.current(r.observer?.captureRef));
+    const qualified = witnessReceipts.filter(r => r && (r.status === 'witnessed' || r.status === 'reported') && r.evidence && this.current(r.observer?.captureRef) && this.anchor(r.observer.captureRef)?.kind==='ped');
     if (!qualified.length) { this.remember(eventKey, { episodeId: null }); return { accepted: true, duplicate: false, episodeId: null, observations: [] }; }
     const participants = [signal.source && { captureRef: signal.source, kind: this.anchor(signal.source)?.kind }, signal.target && { captureRef: signal.target, kind: this.anchor(signal.target)?.kind }]
       .filter(r => r && r.kind && this.current(r.captureRef));
@@ -63,7 +69,7 @@ export class EpisodeCorrelator {
       if (old?.claims.some(c => c.details?.eventSignalId === signal.signalId)) continue;
       if (old && old.claims.length >= CAP.perObservationClaims) { this.dropped++; continue; }
       const mappedKind = receipt.evidence.channel === 'report' ? 'report' : event[2];
-      const claim = { claimId: randomUUID(), kind: mappedKind, certainty: receipt.certainty === 'uncertain' ? 'uncertain' : 'supported', evidence: { ...receipt.evidence }, ...(receipt.knowsSource && sourceRef ? { source: sourceRef } : {}), ...(receipt.knowsTarget && targetRef ? { target: targetRef } : {}), details: { eventSignalId: signal.signalId, reason: receipt.reason } };
+      const claim = { claimId: randomUUID(), kind: mappedKind, certainty: receipt.certainty === 'uncertain' ? 'uncertain' : 'supported', evidence: { ...receipt.evidence }, ...(receipt.knowsSource && sourceRef ? { source: sourceRef } : {}), ...(receipt.knowsTarget && targetRef ? { target: targetRef } : {}), details: qualifiedDetails(signal,receipt,this.anchor) };
       const observation = {
         version: 1, observationId: old?.observationId || randomUUID(), episodeId, revision: (old?.revision || 0) + 1,
         observer: { captureRef: observerRef, kind: 'ped' }, observedAt: { nativeRun, gameTick: receipt.evidence.sampledGameTick, receivedUtc: this.utc() },
@@ -99,3 +105,19 @@ function episodeMatchKey(run, type, incidentKey, participants) { return `${run}:
 function tickDelta(a, b) { return (a - b) >>> 0; }
 
 export const EPISODE_CORRELATION_BOUNDS = CAP;
+
+function qualifiedDetails(signal,receipt,anchor) {
+  const details={eventSignalId:signal.signalId,reason:receipt.reason};
+  const self=receipt.evidence.channel==='self' && receipt.observer.captureRef===signal.target && receipt.knowsTarget===true;
+  if(!self || receipt.evidence.sampledGameTick!==signal.gameTick) return details;
+  if(receipt.evidence.basis==='native_callback') {
+    if(signal.kind==='damage') return {...details,damageDelta:signal.facts.damage,armourDelta:signal.facts.armour};
+    if(signal.kind==='action_callback' && ['followtarget','waithere'].includes(signal.facts.action)) return {...details,action:signal.facts.action,succeeded:signal.facts.succeeded};
+  }
+  if(receipt.evidence.basis==='sampled_state') {
+    if(signal.kind==='location_changed' && signal.facts.location!=='UNKNOWN') return {...details,location:signal.facts.location};
+    if(signal.kind==='activity_changed' && ['in_vehicle','running','walking','stationary'].includes(signal.facts.activity)) return {...details,activity:signal.facts.activity};
+    if(signal.kind==='vehicle_transition' && (signal.facts.vehicle===null ? signal.facts.driver===false : anchor(signal.facts.vehicle)?.kind==='vehicle')) return {...details,vehicle:signal.facts.vehicle,driver:signal.facts.driver};
+  }
+  return details;
+}

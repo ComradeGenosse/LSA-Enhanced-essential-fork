@@ -60,6 +60,11 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
       const playerCurrent=[...ps.anchors.values()].some(anchor=>anchor.kind==='player' && ps.current(anchor.captureRef));
       return {profile:{...profile,relationship:playerCurrent?profile.relationship:null},memories,bindings:[]}; // Backend identity is never recognition.
     },
+    captureCharacterInputs(identity,actor) {
+      if(!characterService) return null;
+      try {return characterService.captureTurnInputs(identity,actor);}
+      catch {return Object.freeze({version:1,identity:Object.freeze({...identity}),claim:null,profile:null,session:null});}
+    },
     captureKnowledgeInputs(input) {
       try {return runtime.intelligence?.captureKnowledgeInputs({...input,identityConfig:config.persistentIdentity,ownerEvidence:identityService?.evidence}) ?? null;}
       catch {return null;} // Optional knowledge failure cannot prevent an Essential turn.

@@ -67,5 +67,14 @@ export function validateClaim(c) {
   if (c.evidence.channel==='self' && (!['native_callback','sampled_state'].includes(c.evidence.basis) || c.evidence.reportRef!==undefined) || c.evidence.channel==='visual' && (!['sampled_state','native_awareness'].includes(c.evidence.basis) || c.evidence.reportRef!==undefined) || c.evidence.channel==='auditory' && (!['native_awareness','audibility_model'].includes(c.evidence.basis) || c.evidence.reportRef!==undefined) || c.evidence.channel==='report' && (c.evidence.basis!=='dialogue_report' || !isUuid(c.evidence.reportRef))) return false;
   if (c.details===undefined) return true;
   if (c.kind==='injured' && keys(c.details,['damageDelta','armourDelta']) && integer(c.details.damageDelta,100000) && integer(c.details.armourDelta,100000)) return true;
-  return keys(c.details,['eventSignalId','reason']) && isUuid(c.details.eventSignalId) && label(c.details.reason);
+  const provenance=['eventSignalId','reason'];
+  if (!isUuid(c.details.eventSignalId) || !label(c.details.reason)) return false;
+  if (keys(c.details,provenance)) return true;
+  const self=c.evidence.channel==='self',sampled=self && c.evidence.basis==='sampled_state';
+  if(c.kind==='injured' && self && c.evidence.basis==='native_callback' && keys(c.details,[...provenance,'damageDelta','armourDelta'])) return integer(c.details.damageDelta,100000) && integer(c.details.armourDelta,100000);
+  if(c.kind==='action' && self && c.evidence.basis==='native_callback' && keys(c.details,[...provenance,'action','succeeded'])) return ['followtarget','waithere'].includes(c.details.action) && typeof c.details.succeeded==='boolean';
+  if(c.kind==='location' && sampled && keys(c.details,[...provenance,'location'])) return typeof c.details.location==='string' && /^[A-Z0-9_]{1,16}$/.test(c.details.location) && c.details.location!=='UNKNOWN';
+  if(c.kind==='presence' && sampled && keys(c.details,[...provenance,'activity'])) return ['in_vehicle','running','walking','stationary'].includes(c.details.activity);
+  if(c.kind==='presence' && sampled && keys(c.details,[...provenance,'vehicle','driver'])) return optionalRef(c.details.vehicle) && typeof c.details.driver==='boolean' && (c.details.vehicle!==null || c.details.driver===false);
+  return false;
 }

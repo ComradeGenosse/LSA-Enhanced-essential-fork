@@ -126,6 +126,7 @@ export class ShadowRuntime {
     if(s.producerSequence>(this.producers.get(s.producer)||0)+1) this.count('gaps');
     this.producers.set(s.producer,s.producerSequence);
     if([s.target,s.source,s.facts.vehicle].some(ref=>ref && !this.current(ref))) {this.count('stale');return false;}
+    if(s.kind==='vehicle_transition' && s.facts.vehicle && this.anchors.get(s.facts.vehicle)?.kind!=='vehicle') {this.count('stale');return false;}
     if(s.source && this.anchors.get(s.source).kind==='vehicle' || s.kind==='vehicle_state' && s.facts.driver && (!this.current(s.facts.driver) || this.anchors.get(s.facts.driver).kind==='vehicle')) {this.count('stale');return false;}
     if(s.target && ((['vehicle_damage','vehicle_state'].includes(s.kind)) !== (this.anchors.get(s.target).kind==='vehicle')) || s.producer==='player_damage' && s.target && this.anchors.get(s.target).kind!=='player') {this.count('stale');return false;}
     if(s.ageMs>=BOUNDS.signalTtlMs) {this.count('expired');return false;}

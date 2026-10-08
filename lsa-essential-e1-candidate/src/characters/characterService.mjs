@@ -4,7 +4,7 @@ import { ProfileStore,validateProfile,validateAppearance } from './profileStore.
 import { SessionProfiles,narrativeProfileWithDiagnostics } from './sessionProfiles.mjs';
 import { buildCharacterAuthority,sha256,suppressGeneratedPersona } from './characterAuthority.mjs';
 import { NativeOwnerClient } from './nativeOwnerClient.mjs';
-import { isUuid } from '../identity/identityContract.mjs';
+import { isUuid,actorClaim,sameAssociation } from '../identity/identityContract.mjs';
 import { withoutIdentityEvidence } from '../identity/modelContext.mjs';
 import { immutableSnapshot } from '../context/turnSnapshot.mjs';
 
@@ -58,6 +58,17 @@ export class CharacterService {
       if (Array.isArray(roster?.encounters) && roster.encounters.length <= 256 && roster.encounters.every(isUuid)) this.sessions.pruneNative(roster.encounters,beforeRequest);
     }).catch(() => {}).finally(() => { this.#syncing = null; });
   }
+  captureTurnInputs(identity,actor) {
+    const claim=actorClaim(actor,this.config.persistentIdentity).claim;
+    const session=this.sessions.peekFor(identity,actor);
+    let profile=null;
+    if(claim && this.store.loaded && this.store.available) {
+      const binding=this.identity?.bindings.get(identity);
+      if(binding && sameAssociation(binding.claim,claim) && this.identity.evidence.isCurrent(binding.claim)) profile=this.store.get(binding.characterId);
+      else profile=this.store.list().find(item=>item.promotion.ownerAlias===claim.sourceKey) ?? null;
+    }
+    return immutableSnapshot({version:1,identity,claim,profile,session});
+  }
   async prepareTurn(turn,characterSnapshot,speechProfile) {
     // Loading never delays ordinary dialogue on optional storage. Bootstrap starts it;
     // a first turn before it finishes receives the bounded encounter profile.
@@ -65,9 +76,14 @@ export class CharacterService {
     const runtimePrompt = String(turn.context.systemInstruction || '');
     this.sessions.rememberVoice(turn.identity,actor,speechProfile,true);
     this.syncEncounters();
-    const session = this.session(turn.identity,actor,speechProfile);
+    const captured=turn.characterInputs;
+    const session = captured ? captured.session : this.session(turn.identity,actor,speechProfile);
     let profile = null;
-    if (characterSnapshot?.resolution.kind === 'persistent') profile = this.store.get(characterSnapshot.resolution.characterId);
+    if(captured) {
+      const binding=this.identity?.bindings.get(turn.identity);
+      if(captured.version===1 && captured.identity.pedId===turn.identity.pedId && captured.identity.turnId===turn.identity.turnId && captured.identity.generationId===turn.identity.generationId && captured.identity.sessionNonce===turn.identity.sessionNonce &&
+        captured.profile && characterSnapshot?.resolution.kind==='persistent' && characterSnapshot.resolution.characterId===captured.profile.characterId && binding?.bindingId===characterSnapshot.bindingId && sameAssociation(captured.claim,binding.claim) && this.identity.evidence.isCurrent(binding.claim)) profile=captured.profile;
+    } else if (characterSnapshot?.resolution.kind === 'persistent') profile = this.store.get(characterSnapshot.resolution.characterId);
     const projected = narrativeProfileWithDiagnostics(profile || session,!!profile);
     const narrative = projected.narrative;
     let clean = withoutCharacterTransport(actor);
