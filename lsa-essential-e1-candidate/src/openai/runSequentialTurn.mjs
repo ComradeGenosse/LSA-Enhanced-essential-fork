@@ -200,6 +200,7 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
     }
     transition('model_running');
     if(services.finalizeKnowledgeFrame)turn.knowledgeProjection=services.finalizeKnowledgeFrame(turn,{input:finalInput,history:priorHistory,source});
+    turn.knowledgeDelivery?.watch(listener=>services.subscribeKnowledgeInvalidation?.(listener) ?? (()=>{}),error=>controller.abort(error));
     const recordReasoningSuccess=decision=>{check();turn.knowledgeDelivery?.success(decision);};
     let decision;
     let streamedSegments = [];
@@ -404,6 +405,7 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
     retired = true;
     history.discard(identity);
     observation?.dispose();
+    turn.knowledgeDelivery?.dispose();
     clearTimeout(providerTimer);
     controller.signal.removeEventListener('abort', abortListener);
     connection.detachAbort(identity, controller);

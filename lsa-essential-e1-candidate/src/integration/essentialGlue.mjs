@@ -75,6 +75,7 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
         onOutcome:result=>{turn.knowledgeOutcome=result;try{telemetry?.emit('knowledge_delivery',turn.identity,source,{outcome:result.outcome,selectedObservations:result.selectedObservations,acknowledgedObservations:result.acknowledged,retiredAcknowledgements:result.retired,knowledgeRequestHash:result.requestHash,projectionHash:result.projectionHash,reason:result.retired?'ack_key_retired':null});}catch{}}});
       return base;
     },
+    subscribeKnowledgeInvalidation:listener=>runtime.intelligence?.subscribeKnowledgeInvalidation(listener),
     providerStack,
     decide: providerStack ? options => providerStack.decide(options) : options => decide({ ...options, config, fetchImpl }),
     transcribe: providerStack ? options => providerStack.transcribe(options) : options => transcribePcm({ ...options, config, fetchImpl }),

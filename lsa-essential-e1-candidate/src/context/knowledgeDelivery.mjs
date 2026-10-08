@@ -3,17 +3,27 @@ import {validateDecisionShape} from './essentialDecision.mjs';
 const hash=value=>createHash('sha256').update(JSON.stringify(value)).digest('hex');
 // Per-generation request state only; the existing salience ledger owns consumption.
 export function createKnowledgeDelivery({frame,baseFrame=frame,isCurrent,validate=()=>null,prune=frame=>frame,acknowledge=()=>false,onOutcome=()=>{}}) {
- let projection=frame,sent=false,terminal=false,requestHash=null,projectionHash=null;
+ let projection=frame,sent=false,terminal=false,requestHash=null,projectionHash=null,unsubscribe=null;
+ const dispose=()=>{unsubscribe?.();unsubscribe=null;};
  const currentReason=()=>!isCurrent()?'superseded':projection.delivery.length?validate(projection):null;
  const fail=reason=>{throw Object.assign(new Error('knowledge_request_stale'),{code:'knowledge_request_stale',reason});};
  const report=outcome=>{
-  if(terminal)return null;terminal=true;
+  if(terminal)return null;terminal=true;dispose();
   let acknowledged=0,retired=0;
   for(const item of sent?projection.delivery:[]){let accepted=false;try{accepted=acknowledge(item.decisionKey,'ps4_context',outcome)===true;}catch{}if(accepted)acknowledged++;else retired++;}
   const result=Object.freeze({outcome,selectedObservations:sent?projection.delivery.length:0,acknowledged,retired,requestHash,projectionHash});
   try{onOutcome(result);}catch{}return result;
  };
  return Object.freeze({
+  watch(subscribe,cancel){
+   if(!projection.delivery.length || unsubscribe || terminal)return;
+   try{unsubscribe=subscribe(()=>{
+    if(!sent || terminal || !projection.delivery.length)return;
+    const reason=currentReason();if(reason){dispose();cancel(Object.assign(new Error('knowledge_request_stale'),{code:'knowledge_request_stale',reason}));}
+   });}catch{if(sent)fail('unsupported_contract');projection=baseFrame;}
+  },
+  dispose,
+
   prepare(){
    if(!sent && isCurrent())projection=prune(projection);
    const reason=currentReason();

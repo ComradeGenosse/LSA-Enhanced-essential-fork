@@ -40,3 +40,14 @@ test('pruning runs only before first send and acknowledges only the surviving ex
  const delivery=createKnowledgeDelivery({frame,isCurrent:()=>true,prune:()=>{prunes++;return narrowed;},acknowledge:(...args)=>{calls.push(args);return true;}});
  assert.equal(delivery.prepare(),narrowed);delivery.beforeRequest({scene:'narrowed'});assert.equal(delivery.prepare(),narrowed);assert.equal(prunes,1);delivery.success(decision);assert.deepEqual(calls,[['retained','ps4_context','delivered']]);
 });
+
+test('in-flight invalidation cancels exactly the sent request and removes its listener',()=>{
+ const f=fixture();let listener=null,disposed=0,cancelled=null;
+ f.delivery.watch(callback=>{listener=callback;return ()=>{disposed++;};},error=>{cancelled=error;});
+ f.setReason('participant_retired');listener();assert.equal(cancelled,null);
+ f.setReason(null);f.delivery.beforeRequest({input:'enriched'});f.setReason('participant_retired');listener();
+ assert.equal(cancelled.code,'knowledge_request_stale');assert.equal(cancelled.reason,'participant_retired');assert.equal(disposed,1);f.delivery.finish();assert.equal(disposed,1);assert.deepEqual(f.calls,[['exact-old-key','ps4_context','expired']]);
+});
+test('successful reasoning and explicit teardown release invalidation subscriptions',()=>{
+ for(const complete of [true,false]){const f=fixture();let disposed=0;f.delivery.watch(()=>()=>{disposed++;},()=>{});f.delivery.beforeRequest({input:'enriched'});if(complete)f.delivery.success(decision);else f.delivery.dispose();assert.equal(disposed,1);f.delivery.dispose();assert.equal(disposed,1);}
+});

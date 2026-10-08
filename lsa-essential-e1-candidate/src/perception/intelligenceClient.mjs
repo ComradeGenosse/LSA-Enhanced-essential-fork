@@ -68,11 +68,17 @@ export function createCompanionShadowTelemetry(summary = {}) {
 
 // Fixed same-user native factual endpoint; no actor integration blocks or commands.
 export class IntelligenceClient {
+  subscribeKnowledgeInvalidation(listener) {
+    if(typeof listener!=='function' || this.knowledgeListeners.size>=32)throw new Error('knowledge_listener_capacity');
+    this.knowledgeListeners.add(listener);return ()=>this.knowledgeListeners.delete(listener);
+  }
+  notifyKnowledgeInvalidation() {for(const listener of [...this.knowledgeListeners])try{listener();}catch{}}
+
   captureKnowledgeInputs(input) {return captureKnowledgeInputs({...input,perception:this.runtime});}
   assertKnowledgeCurrent(inputs) {return assertKnowledgeCurrent(inputs,this.runtime);}
   acceptPlayerTranscript(input) {return this.runtime.acceptPlayerTranscript(input);}
   constructor(config,{connect=options=>net.createConnection(options),now,situationFor,report=summary=>console.info('[PS] companion_shadow '+JSON.stringify(summary)),telemetry=()=>{}}={}) {
-    this.config=config;this.connect=connect;this.runtime=new ShadowRuntime({mode:config.mode,now,situationFor});this.report=report;this.telemetry=telemetry;this.closed=false;this.socket=null;this.lastReport=0;
+    this.knowledgeListeners=new Set();this.config=config;this.connect=connect;this.runtime=new ShadowRuntime({mode:config.mode,now,situationFor});this.report=report;this.telemetry=telemetry;this.closed=false;this.socket=null;this.lastReport=0;
   }
   persist(event,data={}) { try { this.telemetry(event,data); } catch {} }
   summary(finalSnapshot=false) {
@@ -108,7 +114,7 @@ export class IntelligenceClient {
       for(let n=0;n<32 && frames.length;n++) {
         let v;try {v=JSON.parse(frames.shift());} catch {fail();return;}
         if(!hello && v?.type!=='hello' || hello && v?.type==='hello') {fail();return;}
-        const accepted=this.runtime.ingest(v,{authenticated:true});
+        const accepted=this.runtime.ingest(v,{authenticated:true});this.notifyKnowledgeInvalidation();
         if(!hello && !accepted || !this.runtime.epoch) {fail();return;}
         if(!hello) { hello=true;this.persist('intelligence_status',{stage:'initialized'}); }
       }
@@ -131,10 +137,10 @@ export class IntelligenceClient {
     socket.on('close',()=>{
       if(hello) this.emitReport(true);
       this.persist('intelligence_status',{stage:'disconnected'});
-      if(this.work) clearImmediate(this.work);this.work=null;frames=[];this.socket=null;this.runtime.reset('disconnect');if(!this.closed) this.retry=setTimeout(()=>this.start(),1000).unref();
+      if(this.work) clearImmediate(this.work);this.work=null;frames=[];this.socket=null;this.runtime.reset('disconnect');this.notifyKnowledgeInvalidation();if(!this.closed) this.retry=setTimeout(()=>this.start(),1000).unref();
     });
     this.watch=setInterval(()=>{
-      this.runtime.expire();if(!this.runtime.epoch && hello) fail();
+      this.runtime.expire();this.notifyKnowledgeInvalidation();if(!this.runtime.epoch && hello) fail();
       if(this.runtime.epoch && this.runtime.now()-this.lastReport>=10000) {
         this.lastReport=this.runtime.now();
         this.emitReport(false);
@@ -145,6 +151,6 @@ export class IntelligenceClient {
   }
   stop() {
     this.closed=true;clearTimeout(this.retry);clearInterval(this.watch);clearTimeout(this.helloDeadline);if(this.work) clearImmediate(this.work);
-    if(this.socket) this.socket.destroy(); else if(this.runtime.epoch) {this.emitReport(true);this.runtime.reset('disconnect');}
+    if(this.socket) this.socket.destroy(); else if(this.runtime.epoch) {this.emitReport(true);this.runtime.reset('disconnect');this.notifyKnowledgeInvalidation();}
   }
 }
