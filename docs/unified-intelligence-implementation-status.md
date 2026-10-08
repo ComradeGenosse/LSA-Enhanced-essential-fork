@@ -287,3 +287,12 @@ Strengthened the existing Windows factual interop helper rather than creating a 
 Validation: helper net481 build succeeded with zero warnings/errors; actual Windows pipe test passed host/index/situation/knowledge-projection checks. This executes no game assemblies and does not establish physical witness/situation truth or GTA acceptance. Production addon capability remains unavailable; source/payload support and remaining adversarial/native reset/pressure/GTA gates still require completion. No deployment, enabling or native production source changed. Later master-plan phases remain unfinished and the full goal remains active.
 
 Final validation: full explicit offline Node suite 520/520, zero failed/cancelled; git diff --check passed.
+
+
+## Checkpoint 25: fresh native payload build and explicit default-off sample
+
+The companion sample now explicitly includes dialogueKnowledge.mode off. The native addon build records its implemented ACT foundation/shared-host scope and a sharedIntelligenceContract with host/actor-capture/observer-index/observer-situation version 1, while explicitly retaining physicalAcceptance:false. Companion delivery availability remains false; this metadata is compiled support, not release approval or runtime truth.
+
+Built the current production Release addon against the existing pinned compile-only RPH/net481/DamageTracker/RNUI references. Verified all four packaged native artifact hashes against the generated manifest. Runtime DLL SHA-256: b8c3bd98c2f80c0c80e00614a8ef03c45e9827090952e523b5a946478941d3a9. Build metadata retains deploymentPerformed:false and gtaRuntimeTest:false. Artifacts remain isolated in candidate dist; no installation performed.
+
+Validation: full explicit offline Node suite 520/520, zero failed/cancelled; git diff --check passed. Remaining companion/native payload support verification, adversarial/pressure/reset/GTA gates and later master-plan phases remain unfinished. No enabling or GTA acceptance changed. The full goal remains active.
