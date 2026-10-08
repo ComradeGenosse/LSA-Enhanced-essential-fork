@@ -67,3 +67,21 @@ test('escape-heavy current input is retained exactly within final allocation and
  const body=buildRequest({model:'test',effort:'low',systemInstruction:'Trusted rules',knowledgeProjection:frame});
  assert.ok(jsonBytes(body)<=KNOWLEDGE_LIMITS.requestBytes);assert.equal(body.input.at(-1).content,input);
 });
+test('canonical enum fields cannot carry nested transport objects and strings are well formed',()=>{
+ const frame=renderKnowledge({profile:{name:'Mira\ud800',gender:{private:'ENUM_CANARY'},ageBand:{private:'AGE_CANARY'},personality:{description:'Reserved',traits:[]},facts:[]},source:'player_text',input:'Hi'});
+ const lanes=JSON.parse(frame.modelAllocation.scene).lanes;
+ assert.equal(lanes.SELF.canon.gender,'unknown');assert.equal(lanes.SELF.canon.ageBand,'unknown');assert.equal(lanes.SELF.canon.name,'Mira\ufffd');assert.ok(!frame.modelAllocation.scene.includes('CANARY'));
+});
+test('empty normalized weapon array retains the existing narrowly parsed self inventory',()=>{
+ assert.deepEqual(projectCompatibility({actor:{availableWeapons:[],availableWeaponsContext:'Available weapons: combat pistol'}}).actor.availableWeapons,['combat pistol']);
+});
+import {buildCharacterAuthority} from '../src/characters/characterAuthority.mjs';
+test('legacy direct P2 authority rendering also excludes memory transport IDs',()=>{
+ const text=buildCharacterAuthority({persistent:true,narrative:{name:'Mira',memories:[{memoryId:'PRIVATE_MEMORY_ID',category:'event',importance:90,text:'Remembered event'}]}});
+ assert.ok(text.includes('Remembered event'));assert.ok(!text.includes('PRIVATE_MEMORY_ID'));assert.ok(!text.includes('memoryId'));
+});
+
+test('arbitrary equipped/weapon descriptions do not become inventory tokens',()=>{
+ const result=projectCompatibility({actor:{weaponDescription:'Plain private description',equippedWeaponDescription:'Other private description'}});
+ assert.deepEqual(result.actor.availableWeapons,[]);
+});

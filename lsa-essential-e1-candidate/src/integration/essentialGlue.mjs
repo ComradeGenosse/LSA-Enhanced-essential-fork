@@ -1,3 +1,5 @@
+import {separateKnowledgeInstruction} from '../context/knowledgeInstructions.mjs';
+import {renderKnowledge} from '../context/knowledgeRenderer.mjs';
 import {ActorPresenceStore} from '../context/actorPresence.mjs';
 import { sameHostContext } from '../context/hostContext.mjs';
 import { selectedDialogueMemories } from '../characters/sessionProfiles.mjs';
@@ -40,6 +42,13 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
   const services = {
     config,
     dialogueTrace,
+    finalizeKnowledgeFrame(turn,{input,history,source}) {
+      const character=turn.characterProjection;
+      return renderKnowledge({turn:turn.identity,frozenAt:turn.knowledgeInputs?.frozenAt??0,
+        profile:character?.profile,persistent:character?.persistent===true,knowledgeInputs:turn.knowledgeInputs,
+        actor:turn.context.actor,listener:turn.context.listener,world:turn.context.world,referenceMap:turn.context.referenceMap,
+        presence:turn.sourcePresence,history,input,source,includePerceived:false});
+    },
     providerStack,
     decide: providerStack ? options => providerStack.decide(options) : options => decide({ ...options, config, fetchImpl }),
     transcribe: providerStack ? options => providerStack.transcribe(options) : options => transcribePcm({ ...options, config, fetchImpl }),
@@ -48,6 +57,7 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
   };
   const runtime = {
     config, history, services, telemetry, dialogueTrace, providerStack, voiceResolver, identityService,characterService,
+    separateKnowledgeInstruction,
     captureNormalizedActor: (actor,raw,shape)=>actorPresence.capture(actor,raw,shape),
     actorSourcePresence: actor=>actorPresence.read(actor),
     copyActorPresence: (source,target)=>actorPresence.copy(source,target),

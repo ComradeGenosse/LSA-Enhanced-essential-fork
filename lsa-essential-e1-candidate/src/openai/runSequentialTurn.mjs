@@ -199,6 +199,7 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
       metrics?.event(committed ? 'player_history_committed' : 'history_duplicate_prevented', { role: 'user', inputChars: String(finalInput).length });
     }
     transition('model_running');
+    if(services.finalizeKnowledgeFrame)turn.knowledgeProjection=services.finalizeKnowledgeFrame(turn,{input:finalInput,history:priorHistory,source});
     let decision;
     let streamedSegments = [];
     let streamMode = null;
@@ -206,7 +207,7 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
     if (services.config.structuredStreamingEnabled === true) {
       const allowEarlyTts = services.config.earlyTtsEnabled === true;
       const modelOptions = ({ signal, timeoutMs, telemetry, dialogueAttempt }) => services.providerStack.decideStreaming({
-        identity, context: { ...context, source }, source,
+        identity, context: { ...context, source }, source,knowledgeProjection:turn.knowledgeProjection,
         input: isPlayer ? finalInput : '', history: priorHistory, signal, timeoutMs, telemetry, dialogueAttempt,
       });
       if (!allowEarlyTts) {
@@ -263,7 +264,7 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
         });
         const modelTask = performProvider('model', services.providerStack.reasoning.id,
           ({ signal, timeoutMs, telemetry, isActive, dialogueAttempt }) => services.providerStack.decideStreaming({
-            identity, context: { ...context, source }, source,
+            identity, context: { ...context, source }, source,knowledgeProjection:turn.knowledgeProjection,
             input: isPlayer ? finalInput : '', history: priorHistory, signal, timeoutMs, telemetry, dialogueAttempt,
             onSegment: async (segment, mode) => {
               if (!isActive()) throw new Error('provider_attempt_inactive');
@@ -297,7 +298,7 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
       }
     } else {
       decision = await performProvider('model', services.providerStack?.reasoning.id || 'openai.reasoning',
-        ({ signal, timeoutMs, telemetry, dialogueAttempt }) => services.decide({ identity, context: { ...context, source }, source,
+        ({ signal, timeoutMs, telemetry, dialogueAttempt }) => services.decide({ identity, context: { ...context, source }, source,knowledgeProjection:turn.knowledgeProjection,
           input: isPlayer ? finalInput : '', history: priorHistory, signal, timeoutMs, telemetry, dialogueAttempt }));
     }
     check();

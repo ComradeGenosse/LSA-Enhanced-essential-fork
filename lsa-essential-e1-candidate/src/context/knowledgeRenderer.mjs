@@ -5,6 +5,16 @@ import {narrativeProfileWithDiagnostics} from '../characters/sessionProfiles.mjs
 const token=value=>typeof value==='string' && /^[a-zA-Z0-9][a-zA-Z0-9 _-]{0,63}$/.test(value) && !['unknown','none','unarmed'].includes(value.toLowerCase())?value.toLowerCase():null;
 const label=value=>typeof value==='string' && !/[\u0000-\u001f\u007f\ud800-\udfff]/u.test(value) && [...value].length<=120 && value.trim()?value:'unknown';
 const capabilities=['hasAvailableWeapon','hasActivityPoints','hasHeldItem','inVehicle','isDriver'];
+const wellFormedData=value=>typeof value==='string'?value.toWellFormed():Array.isArray(value)?value.map(wellFormedData):value&&typeof value==='object'?Object.fromEntries(Object.entries(value).map(([key,item])=>[key,wellFormedData(item)])):value;
+function canonData(value){
+ const result=wellFormedData(value);
+ result.gender=['male','female','unknown'].includes(result.gender)?result.gender:'unknown';
+ result.ageBand=['young','adult','mature','older','senior','unknown'].includes(result.ageBand)?result.ageBand:'unknown';
+ if(result.relationship)result.relationship.state=['associate','friend','trusted','strained','neutral'].includes(result.relationship.state)?result.relationship.state:'unknown';
+ return result;
+}
+
+
 export function projectCompatibility({actor,listener,referenceMap,presence=[]}) {
  const known=new Set(presence),self={status:actor?'present':'unknown'};
  for(const key of ['isArmed','isIndoors','hasHeldItem']) self[key]=known.has(key)&&typeof actor?.[key]==='boolean'?actor[key]:'unknown';
@@ -12,8 +22,8 @@ export function projectCompatibility({actor,listener,referenceMap,presence=[]}) 
  self.ageRange=known.has('ageRange')&&['young','middle-aged','old','unknown'].includes(actor?.ageRange)?actor.ageRange:'unknown';
  const held=known.has('heldItemName')?token(actor?.heldItemName):null;if(held)self.heldItem=held;
  self.actionCapabilities=Object.fromEntries(capabilities.filter(key=>typeof actor?.actionCapabilities?.[key]==='boolean').map(key=>[key,actor.actionCapabilities[key]]));
- const structured=Array.isArray(actor?.availableWeapons)?actor.availableWeapons.map(item=>item?.name||item?.weaponName||item):null;
- const descriptions=[actor?.availableWeaponsContext,actor?.equippedWeaponDescription,actor?.weaponDescription].filter(value=>typeof value==='string' && !/(?:available weapons:\s*none|no available weapons)/i.test(value));
+ const structured=Array.isArray(actor?.availableWeapons)&&actor.availableWeapons.length?actor.availableWeapons.map(item=>item?.name||item?.weaponName||item):null;
+ const descriptions=[actor?.availableWeaponsContext].filter(value=>typeof value==='string' && !/(?:available weapons:\s*none|no available weapons)/i.test(value));
  const weapons=structured ?? descriptions.flatMap(value=>value.replace(/^available weapons:\s*/i,'').split(/[,;\n]/));
  self.availableWeapons=[...new Set(weapons.map(value=>token(typeof value==='string'?value.trim():value)).filter(Boolean))].sort().slice(0,32);
  const persons=Object.entries(referenceMap?.persons||{}).filter(([key,id])=>/^P\d{3}$/.test(key)&&typeof id==='string'&&/^[0-9a-f]+$/i.test(id)).map(([key])=>key).sort().slice(0,32);
@@ -57,10 +67,10 @@ export function renderKnowledge({turn,frozenAt,profile,persistent=false,knowledg
   narrative=canonProjection.narrative;
  }
  const {memories=[],...canon}=narrative||{};
- const recalled=memories.map(({category,importance,text})=>({category,importance,text}));
+ const recalled=memories.map(({category,importance,text})=>({category:['note','relationship','promise','event','biography','other'].includes(category)?category:'other',importance:Number.isInteger(importance)&&importance>=0&&importance<=100?importance:0,text}));
  const perceived=selectKnowledge(knowledgeInputs,{includePerceived});
  const conversation=projectConversation(history,input,source);
- const lanes={SELF:{canon:narrative?canon:null,selfFacts:[]},PERCEIVED:{observations:[...perceived.observations]},RECALLED:{memories:recalled},SITUATION:projectSituation(world),COMPAT:projectCompatibility({actor,listener,referenceMap,presence})};
+ const lanes={SELF:{canon:narrative?canonData(canon):null,selfFacts:[]},PERCEIVED:{observations:[...perceived.observations]},RECALLED:{memories:wellFormedData(recalled)},SITUATION:projectSituation(world),COMPAT:projectCompatibility({actor,listener,referenceMap,presence})};
  if(jsonBytes({SELF:lanes.SELF,RECALLED:lanes.RECALLED})>KNOWLEDGE_LIMITS.canonBytes) {
   while(lanes.RECALLED.memories.length&&jsonBytes({SELF:lanes.SELF,RECALLED:lanes.RECALLED})>KNOWLEDGE_LIMITS.canonBytes)lanes.RECALLED.memories.pop();
   if(jsonBytes({SELF:lanes.SELF,RECALLED:lanes.RECALLED})>KNOWLEDGE_LIMITS.canonBytes)throw new RangeError('knowledge_canon_bytes');

@@ -281,7 +281,7 @@ export class OpenAIConnection {
     this.#launched = true;
     const controller = new AbortController();
     const snapshot = {
-      identity: turn.identity, source: turn.source,
+      identity: turn.identity, source: turn.source,knowledgeFramePreparation:true,
       knowledgeInputs:turn.knowledgeInputs,characterInputs:turn.characterInputs,priorHistory:turn.priorHistory,sourcePresence:turn.sourcePresence,
       context: {
         ...turn.context,
@@ -335,6 +335,7 @@ export class OpenAIConnection {
     if (this.#runtime.characterService) {
       try { await this.#runtime.characterService.prepareTurn(turn,prepared?.snapshot,this.#voiceProfile); }
       catch { // Optional projection failure must still strip private native proof.
+        delete turn.characterProjection;
         turn.context = { ...turn.context,actor:this.#runtime.modelActor(turn.context.actor),listener:this.#runtime.modelActor(turn.context.listener) };
         this.#runtime.characterService.emit('character_safe_failure',{reason:'profile_projection_failed'});
       }

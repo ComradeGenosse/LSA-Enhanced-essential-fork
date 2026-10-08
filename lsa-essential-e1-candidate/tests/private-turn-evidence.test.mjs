@@ -32,7 +32,7 @@ test('rebuilt Essential prompt path strips reserved capture namespaces for both 
   for(const provider of ['openai','gemini']) {
     const harness=await stockHarness(provider,{config:{persistentIdentity:{enabled:false},promotedCharacters:{enabled:false}}});
     harness.context.privateActor={pedId:'17',roleName:'Civilian',turnKnowledge:{captureRef:'PRIVATE_CAPTURE'},integrations:{turnKnowledge:{captureRef:'PRIVATE_CAPTURE'},characterProfile:{encounterId:'PRIVATE_ENCOUNTER'},sessionIdentity:{ownerAlias:'PRIVATE_OWNER'},raw:{turnKnowledge:{captureRef:'PRIVATE_RAW'}}}};
-    harness.evaluate('ET=()=>"fixture system instruction"');
+    harness.evaluate('ET=()=>"fixture system instruction"; dM=()=>"fixture system instruction"');
     const prompt=harness.evaluate('BK(privateActor,null,"conversation",{gameTime:"noon",weather:"clear"})');
     for(const value of ['PRIVATE_CAPTURE','PRIVATE_ENCOUNTER','PRIVATE_OWNER','PRIVATE_RAW','turnKnowledge','sessionIdentity']) assert.equal(JSON.stringify(prompt).includes(value),false);
   }

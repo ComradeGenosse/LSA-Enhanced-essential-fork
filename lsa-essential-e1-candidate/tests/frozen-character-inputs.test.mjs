@@ -49,5 +49,10 @@ test('actual Luna request retains P0 canon across an edit while fresh owner proo
   h.context.frozenInput={pedId:'17',speaker:f.a,text:'Hello.'};const turn=await h.evaluate('ib(frozenInput)');await waiting;
   await f.service.edit(f.profile.characterId,{name:'Late edited name'},f.profile.revision);release();
   const result=await session.connection.whenSettled({pedId:turn.pedId,turnId:turn.id,generationId:turn.generationId,sessionNonce:1});
-  assert.equal(result.status,'completed');assert.equal(prepared.snapshot.resolution.kind,'persistent',prepared.snapshot.resolution.reason);assert.ok(captured.profile,'P0 candidate missing');assert.equal(request.context.actor.characterProfile.canon.name,f.profile.name);assert.equal(request.context.actor.characterProfile.profileRevision,f.profile.revision);session.connection.close();
+  assert.equal(result.status,'completed');assert.equal(prepared.snapshot.resolution.kind,'persistent',prepared.snapshot.resolution.reason);assert.ok(captured.profile,'P0 candidate missing');assert.equal(request.context.actor.characterProfile.canon.name,f.profile.name);assert.equal(request.context.actor.characterProfile.profileRevision,f.profile.revision);
+  const lanes=JSON.parse(request.knowledgeProjection.modelAllocation.scene).lanes;
+  assert.equal(lanes.SELF.canon.name,f.profile.name);
+  assert.equal(JSON.stringify(request.knowledgeProjection.modelAllocation).includes(f.profile.characterId),false);
+  assert.equal(request.context.systemInstruction.includes(f.profile.name),false,'canon must not also be embedded in the behavior instructions');
+  session.connection.close();
 });

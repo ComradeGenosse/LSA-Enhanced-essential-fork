@@ -11,12 +11,12 @@ function recordCanonRequest(telemetry,body,actor) {
   }); } catch {}
 }
 
-export async function decide({ config, context, input, history, signal, timeoutMs = config.providerWorkDeadlineMs ?? config.turnDeadlineMs, source, fetchImpl = globalThis.fetch, telemetry, dialogueAttempt }) {
+export async function decide({ config, context, input, history, signal, knowledgeProjection, timeoutMs = config.providerWorkDeadlineMs ?? config.turnDeadlineMs, source, fetchImpl = globalThis.fetch, telemetry, dialogueAttempt }) {
   const body = buildRequest({
     model: config.reasoningModel,
     effort: config.reasoningEffort,
     systemInstruction: context.systemInstruction,
-    knowledgeProjection: context.knowledgeProjection,
+    knowledgeProjection: knowledgeProjection ?? context.knowledgeProjection,
     actor: context.actor,
     listener: context.listener,
     world: context.world,
@@ -61,14 +61,14 @@ export async function decide({ config, context, input, history, signal, timeoutM
   return parseDecisionJson(extractResponseText(response));
 }
 
-export async function decideStreaming({ config, context, input, history, signal,
+export async function decideStreaming({ config, context, input, history, signal, knowledgeProjection,
   timeoutMs = config.providerWorkDeadlineMs ?? config.turnDeadlineMs, source, fetchImpl = globalThis.fetch,
   telemetry, onSegment, dialogueAttempt }) {
   const body = buildRequest({
     model: config.reasoningModel,
     effort: config.reasoningEffort,
     systemInstruction: context.systemInstruction,
-    knowledgeProjection: context.knowledgeProjection,
+    knowledgeProjection: knowledgeProjection ?? context.knowledgeProjection,
     actor: context.actor,
     listener: context.listener,
     world: context.world,

@@ -152,7 +152,13 @@ export function patchSource(source) {
   insert(bkParams[2].end, ',__lsaWorldSnapshot', 'BK explicit world snapshot parameter');
   const bkWorld = one((() => { const all = []; walk(functionBody(ast,'BK'), node => { if (node.type === 'Property' && node.key?.name === 'world') all.push(node); }); return all; })(), 'BK current world property');
   replace(bkWorld.value.start, bkWorld.value.end, '__lsaWorldSnapshot&&typeof __lsaWorldSnapshot==="object"?{gameTime:__lsaWorldSnapshot.gameTime??"unknown",weather:__lsaWorldSnapshot.weather??"unknown",streetName:__lsaWorldSnapshot.streetName??"unknown",crossingStreetName:__lsaWorldSnapshot.crossingStreetName??"unknown",zoneCode:__lsaWorldSnapshot.zoneCode??"unknown"}:{gameTime:"unknown",weather:"unknown",streetName:"unknown",crossingStreetName:"unknown",zoneCode:"unknown"}', 'world context has explicit unknown semantics');
-  prelude('BK', 't=__LSA_E1_RUNTIME.modelActor(t); e=__LSA_E1_RUNTIME.modelActor(e);');
+
+  const bkReturns=[];walk(functionBody(ast,'BK'),node=>{if(node.type==='ReturnStatement')bkReturns.push(node);});
+  const npcReturn=one(bkReturns,'BK speech-mode return').argument;
+  if(npcReturn?.type!=='ConditionalExpression' || npcReturn.alternate?.type!=='BinaryExpression' || npcReturn.alternate.operator!=='+' || npcReturn.alternate.right?.type!=='TemplateLiteral' || npcReturn.alternate.right.expressions.length)throw new Error('BK trusted NPC speech suffix changed.');
+  const npcSuffix=sourceSlice(source,npcReturn.alternate.right);
+  prelude('BK', `t=__LSA_E1_RUNTIME.modelActor(t); e=__LSA_E1_RUNTIME.modelActor(e); if(__LSA_E1_RUNTIME.config.provider==="openai") return __LSA_E1_RUNTIME.separateKnowledgeInstruction(dM(t)) + (String(n||"").toLowerCase()==="npc"&&e?${npcSuffix}:"");`);
+
   // Exact return seams: capture source presence before AO/CO's alias/default
   // transformations can turn omission into an apparently known false value.
   for(const [name,shape] of [['ia','direct'],['AO','actor'],['CO','listener'],['eo','hydrated']]) {
@@ -295,11 +301,13 @@ export async function buildCandidate({ sourcePath = stockBundleDefault, outputPa
     identityContract,
     characterContract,
     perceptionContract,
+    dialogueKnowledgeContract:{available:false,frameVersion:1,hostContextVersion:1,observerIndexVersion:1,observerSituationVersion:1},
     stage: 'PS3 DETERMINISTIC SALIENCE + PS2/PS1/PS0/P2', foundationStage: 'P2+P0+P1+E1.1+E2+E3+E5+E6', status: 'candidate-built-offline-ps3-salience-gta-pending', observabilitySchemaVersion: 1, dialogueTraceSchemaVersion: 1,
     features: { structuredStreaming: true, earlySegmentedTts: true, defaultEnabled: false, earlyTtsMode: 'dialogue_only', ttsConcurrency: 1,
       sessionIdentity: { defaultEnabled: false, modes: ['shadow','voices'], storeSchemaVersion: 1, nativeAddressing: 'unchanged' },
       promotedCharacters: { defaultEnabled:false,profileStoreSchemaVersion:1,manualMemoryOnly:true,requiresAuthoredP1Owner:true,nativeAddressing:'unchanged',summonWaitMs:30000,maxSummonWaitMs:60000 },
       intelligence: {defaultMode:'off',modes:['off','shadow'],phases:['PS0','PS1','PS2','PS3'],witness:'source_sample_visual',playerSpeech:'disabled_unsupported_capture_receipt',salience:'deterministic_local',responderSelection:false,modelContext:false,automaticMemory:false,initiative:false},
+      dialogueKnowledge:{safeBase:true,frameVersion:1,optionalPerceptionDelivery:false,sourcePresence:true,frameBytes:112*1024,requestBytes:160*1024},
       dialogueLogging: { defaultEnabled:false,provider:'openai',storage:'rotating-jsonl' } },
     launcherEntry: launcherName, upstreamBundleSha256: sourceHash,
     stockDllReferenceSha256: dllHash, builtBundleSha256: digest(patched.output),

@@ -23,6 +23,10 @@ test('build is source-pinned, syntactically valid, deterministic, and writes onl
     assert.ok(first.manifest.astPatches.some(patch => patch.label === 'CP body hook'));
     assert.equal(first.manifest.realApiCalls, false);
     assert.equal(first.manifest.gtaRuntimeTest, false);
+    assert.equal(first.manifest.features.dialogueKnowledge.safeBase,true);
+    assert.equal(first.manifest.features.dialogueKnowledge.optionalPerceptionDelivery,false);
+    assert.equal(first.manifest.dialogueKnowledgeContract.available,false);
+    assert.equal(first.manifest.features.intelligence.modelContext,false);
     const bundle = await readFile(path.join(first.target, 'server.bundle.mjs'), 'utf8');
     const configModule = await import(pathToFileURL(path.join(first.target, 'e1/config/e1Config.mjs')).href);
     assert.equal(configModule.defaultConfigPath, path.join(first.target, 'e1.config.json'));

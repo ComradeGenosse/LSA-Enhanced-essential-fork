@@ -88,10 +88,11 @@ export class CharacterService {
     const narrative = projected.narrative;
     let clean = withoutCharacterTransport(actor);
     if (profile) clean = suppressGeneratedPersona(clean);
-    const authority = buildCharacterAuthority({ narrative,persistent:!!profile,generatedPersonaPolicy:'suppressed' });
+    const authority = buildCharacterAuthority({ narrative,persistent:!!profile,generatedPersonaPolicy:'suppressed',includeCanon:turn.knowledgeFramePreparation!==true });
     if (narrative) clean = { ...clean,characterProfile:profile
       ? { authority:'player_authored',profileRevision:profile.revision,generatedPersonaPolicy:'suppressed',canon:narrative }
       : { authority:'session_assigned',canon:narrative } };
+    if(turn.knowledgeFramePreparation===true)turn.characterProjection=immutableSnapshot({profile:profile||session,persistent:!!profile});
     const listener = withoutCharacterTransport(turn.context.listener);
     turn.context = { ...turn.context,actor:immutableSnapshot(clean),listener:immutableSnapshot(listener),
       systemInstruction:authority ? `${turn.context.systemInstruction}\n\n${authority}` : turn.context.systemInstruction };
