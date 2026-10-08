@@ -73,10 +73,29 @@ class Program
         while (DateTime.UtcNow < deadline) { if (requests.TryPeek(out var request)) return request; Thread.Sleep(10); }
         throw new Exception("Timed out waiting for the real control pipe request.");
     }
+    static void PrimaryOwnerTruth()
+    {
+        var act=PrimaryBehaviorOwner.Transition(null,"act","activity",10);
+        Check(act.owner=="act" && act.mode=="activity" && act.since==10);
+        Check(ReferenceEquals(act,PrimaryBehaviorOwner.Transition(act,"act","activity",20)));
+        var follow=PrimaryBehaviorOwner.Residual(act,true,true,false,false,false,30);
+        Check(follow.owner=="essential_residual" && follow.mode=="follow" && follow.since==30);
+        Check(PrimaryBehaviorOwner.Residual(follow,true,false,true,false,false,40).mode=="follow");
+        Check(PrimaryBehaviorOwner.Residual(act,true,false,false,true,false,40).mode=="sit");
+        Check(PrimaryBehaviorOwner.Residual(act,true,true,false,true,false,40).mode=="unknown");
+        Check(PrimaryBehaviorOwner.Residual(act,true,true,false,false,true,40).mode=="unknown");
+        var unknown=PrimaryBehaviorOwner.Residual(act,false,false,false,false,false,40);
+        Check(unknown.owner=="none" && unknown.mode=="unknown");
+        Check(PrimaryBehaviorOwner.Residual(act,true,false,false,false,false,40).mode=="unknown");
+        var command=PrimaryBehaviorOwner.Transition(follow,"p2","wait",50);
+        Check(command.owner=="p2" && command.mode=="wait" && command.since==50);
+        var wire=new JavaScriptSerializer().Deserialize<Dictionary<string,object>>(new JavaScriptSerializer().Serialize(follow));
+        Check(wire.Count==3 && (string)wire["owner"]=="essential_residual" && (string)wire["mode"]=="follow" && Convert.ToUInt32(wire["since"])==30);
+    }
     static void Main()
     {
         try {
-            DeferredInitialization(); ShutdownOnCoreUpdate(); ResetWithPendingRequest(); ResetAfterP1(); RetireFailure(); ForwardClock(); ActivityIsolation(); ExactEncounterLifetime();
+            PrimaryOwnerTruth(); DeferredInitialization(); ShutdownOnCoreUpdate(); ResetWithPendingRequest(); ResetAfterP1(); RetireFailure(); ForwardClock(); ActivityIsolation(); ExactEncounterLifetime();
             Console.WriteLine("P2 production clock recovery and Windows pipe cancellation: " + count + " assertions passed; no game assemblies loaded.");
         } catch (Exception error) { Console.Error.WriteLine(error.GetType().Name + ": " + error.Message); Environment.ExitCode = 1; }
     }

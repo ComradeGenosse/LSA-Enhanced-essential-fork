@@ -143,7 +143,7 @@ namespace LosSantosAlive.NPC
     public static class NpcFocus { public static void SetFocus(Rage.Ped ped,Rage.Ped player,string reason) { Rage.Game.NativeCalls++; } }
     public sealed class NpcState
     {
-        public bool FollowPlayerOnFoot,FollowPaused,EnterPassengerSeatWhenPlayerEnters,ExitVehicleWhenPlayerExits,StayUnderLsaControl,InDirectedInteraction,AccompliceMode,HasActiveReflex;
+        public bool SitOnGroundMode,FollowPlayerOnFoot,FollowPaused,EnterPassengerSeatWhenPlayerEnters,ExitVehicleWhenPlayerExits,StayUnderLsaControl,InDirectedInteraction,AccompliceMode,HasActiveReflex;
         public int LastReflexTime;
         public void DemoteToPassiveRuntime() { Rage.Game.NativeCalls++; }
     }

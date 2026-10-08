@@ -13,7 +13,7 @@ export async function intelligenceNativeSourceHash(root=nativeRoot){
  async function collect(directory){
   for(const item of await readdir(directory,{withFileTypes:true})){
    if(item.isSymbolicLink())throw new Error('knowledge_native_source_link');
-   if(item.isDirectory() && !['bin','obj','tests'].includes(item.name))await collect(path.join(directory,item.name));
+   if(item.isDirectory() && !['bin','obj','tests'].includes(item.name) && !item.name.endsWith('-tests'))await collect(path.join(directory,item.name));
    else if(item.isFile() && /\.(cs|csproj)$/.test(item.name))files.push(path.join(directory,item.name));
   }
  }

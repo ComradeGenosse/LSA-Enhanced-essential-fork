@@ -17,7 +17,7 @@ namespace LSA.PromotedCharacters
         // Essential queue and the registry stop APIs only. No raw task natives and no broad task clearing.
         sealed class EssentialActivityWorld : IActivityWorld
         {
-            sealed class SeatMemory { public string Previous; public bool Enter, Exit, Stay; }
+            sealed class SeatMemory { public bool Enter, Exit, Stay; }
             readonly PromotedCharactersIntegration host;
             // Entity references live exclusively in host.Host.Anchors.
             readonly Dictionary<string, string> own = new Dictionary<string, string>();
@@ -91,7 +91,7 @@ namespace LSA.PromotedCharacters
                 else return false;
                 return true;
             }
-            public void NoteForeign(string encounterId) { if (encounterId != null) own.Remove(encounterId); }
+            public void NoteForeign(string encounterId) { if (encounterId != null) {own.Remove(encounterId);RefreshPrimaryOwner(Find(encounterId));} }
             public void Cancel(string encounterId, string capability, bool stopIfCurrent)
             {
                 if (!stopIfCurrent || encounterId == null || !own.ContainsKey(encounterId)) return;
@@ -140,25 +140,27 @@ namespace LSA.PromotedCharacters
                 var encounter = Find(encounterId);
                 if (encounter == null || !PromotedCharactersIntegration.SameIncarnation(encounter)) throw new InvalidOperationException("actor_retired");
                 var state = NpcStateStore.GetStateForActiveBehavior(encounter.Ped);
-                seats[encounterId] = new SeatMemory { Previous = encounter.Mode, Enter = state.EnterPassengerSeatWhenPlayerEnters, Exit = state.ExitVehicleWhenPlayerExits, Stay = state.StayUnderLsaControl };
+                seats[encounterId] = new SeatMemory { Enter = state.EnterPassengerSeatWhenPlayerEnters, Exit = state.ExitVehicleWhenPlayerExits, Stay = state.StayUnderLsaControl };
                 state.EnterPassengerSeatWhenPlayerEnters = false;
                 state.ExitVehicleWhenPlayerExits = false;
                 state.StayUnderLsaControl = true;
                 encounter.Mode = "activity";
+                encounter.Owner=PrimaryBehaviorOwner.Transition(encounter.Owner,"act","activity",unchecked((uint)Game.GameTime));
             }
             public void EndOwnership(string encounterId, bool preempted)
             {
                 if (encounterId == null || !seats.ContainsKey(encounterId)) return;
                 var memory = seats[encounterId]; seats.Remove(encounterId);
                 var encounter = Find(encounterId);
-                if (encounter == null || preempted) return;
+                if (encounter == null || !PromotedCharactersIntegration.SameIncarnation(encounter)) return;
+                if(preempted) {RefreshPrimaryOwner(encounter);return;}
                 try {
                     var state = NpcStateStore.GetStateForActiveBehavior(encounter.Ped);
                     state.EnterPassengerSeatWhenPlayerEnters = memory.Enter;
                     state.ExitVehicleWhenPlayerExits = memory.Exit;
                     state.StayUnderLsaControl = memory.Stay;
                 } catch { }
-                encounter.Mode = "idle";
+                RefreshPrimaryOwner(encounter);
             }
             public bool AnchorLive(string captureRef) {
                 var anchor=host.Host.Anchors.Resolve(captureRef);

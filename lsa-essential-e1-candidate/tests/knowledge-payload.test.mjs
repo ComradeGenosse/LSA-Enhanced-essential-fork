@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {mkdtemp,rm,writeFile,readFile} from 'node:fs/promises';
+import {mkdtemp,mkdir,rm,writeFile,readFile} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import path from 'node:path';
 import {createHash} from 'node:crypto';
@@ -25,4 +25,12 @@ test('PS4 build rejects stale source, versions, pins and incomplete or redirecte
   Object.assign(f.manifest,baseline,patch);await f.save();await assert.rejects(verifyDialogueKnowledgePayload(f.directory,f.perceptionContract),/knowledge_native_payload_/);
  }
  Object.assign(f.manifest,baseline);await f.save();await assert.rejects(verifyDialogueKnowledgePayload(f.directory,{...f.perceptionContract,available:false}),/knowledge_native_payload_contract/);
+});
+
+test('native source receipt excludes test projects and generated output but detects production edits',async t=>{
+ const root=await mkdtemp(path.join(tmpdir(),'lsa-native-source-hash-'));t.after(()=>rm(root,{recursive:true,force:true}));
+ await writeFile(path.join(root,'Runtime.cs'),'production source');const before=await intelligenceNativeSourceHash(root);
+ for(const name of ['tests','lifecycle-tests','bridge-tests','bin','obj']){await mkdir(path.join(root,name));await writeFile(path.join(root,name,'Substitute.cs'),'test or generated source');}
+ assert.equal(await intelligenceNativeSourceHash(root),before);
+ await writeFile(path.join(root,'Runtime.cs'),'changed production source');assert.notEqual(await intelligenceNativeSourceHash(root),before);
 });

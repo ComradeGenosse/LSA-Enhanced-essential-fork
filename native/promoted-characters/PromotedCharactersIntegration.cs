@@ -14,6 +14,23 @@ using Rage.Native;
 
 namespace LSA.PromotedCharacters
 {
+    internal sealed class PrimaryBehaviorOwner
+    {
+        public string owner { get; }
+        public string mode { get; }
+        public uint since { get; }
+        PrimaryBehaviorOwner(string owner, string mode, uint since) { this.owner=owner; this.mode=mode; this.since=since; }
+        public static PrimaryBehaviorOwner Transition(PrimaryBehaviorOwner previous,string owner,string mode,uint gameMs)
+        {
+            if (!new[]{"p2","act","essential_residual","none"}.Contains(owner) || !new[]{"follow","wait","sit","activity","unknown","idle"}.Contains(mode)) throw new ArgumentException("primary_owner_shape");
+            return previous!=null && previous.owner==owner && previous.mode==mode ? previous : new PrimaryBehaviorOwner(owner,mode,gameMs);
+        }
+        public static PrimaryBehaviorOwner Residual(PrimaryBehaviorOwner previous,bool known,bool follow,bool paused,bool sit,bool foreign,uint gameMs)
+        {
+            var mode=!known || foreign || sit && (follow || paused) ? "unknown" : sit ? "sit" : follow || paused ? "follow" : "unknown";
+            return Transition(previous,known ? "essential_residual" : "none",mode,gameMs);
+        }
+    }
     internal sealed class Encounter
     {
         public Ped Ped;
@@ -23,7 +40,8 @@ namespace LSA.PromotedCharacters
         public string Id = Guid.NewGuid().ToString("D"), OwnerAlias, OwnershipToken;
         public RegistrationToken Registration;
         public bool Created, Suspended;
-        public string Mode = "wait";
+        public string Mode = "unknown";
+        public PrimaryBehaviorOwner Owner;
     }
     internal sealed class Capture
     {
@@ -106,6 +124,7 @@ namespace LSA.PromotedCharacters
                 Host.MonotonicMs,false,LSA.Intelligence.AnchorConsumer.P2Encounter);
             if(anchor==null) throw new InvalidOperationException("anchor_limit");
             encounter.CaptureRef=anchor.CaptureRef;
+            if(encounter.Owner==null) RefreshPrimaryOwner(encounter);
         }
         static bool Scripted() => NativeFunction.CallByName<bool>("IS_CUTSCENE_ACTIVE") || NativeFunction.CallByName<bool>("IS_CUTSCENE_PLAYING") || NativeFunction.CallByName<bool>("IS_PLAYER_SWITCH_IN_PROGRESS") || NativeFunction.CallByName<bool>("GET_MISSION_FLAG") || NativeFunction.CallByName<bool>("NETWORK_IS_SESSION_ACTIVE");
         static bool Safe(Encounter encounter,bool adopting = false)
@@ -125,12 +144,23 @@ namespace LSA.PromotedCharacters
             Host.Anchors.Retire(encounter.CaptureRef,LSA.Intelligence.AnchorRetirement.OwnerRevoked);
             if (encounter.Registration != null) identity?.Owner?.Retire(encounter.Registration);
             encounter.Registration = null; encounter.OwnerAlias = null; encounter.OwnershipToken = null;
+            encounter.Owner=PrimaryBehaviorOwner.Transition(encounter.Owner,"none","unknown",unchecked((uint)Game.GameTime));
+            encounter.Mode="unknown";
+        }
+        static void RefreshPrimaryOwner(Encounter encounter)
+        {
+            if(encounter==null)return;
+            NpcState state=null;
+            try {if(SameIncarnation(encounter))state=NpcStateStore.TryGetState(encounter.Ped);}catch{}
+            encounter.Owner=PrimaryBehaviorOwner.Residual(encounter.Owner,state!=null,state?.FollowPlayerOnFoot==true,state?.FollowPaused==true,state?.SitOnGroundMode==true,state?.InDirectedInteraction==true || state?.HasActiveReflex==true,unchecked((uint)Game.GameTime));
+            encounter.Mode=encounter.Owner.mode;
         }
         static void Suspend(Encounter encounter)
         {
             encounter.Suspended = true; // Set first, before any native control callback.
             var state = NpcStateStore.TryGetState(encounter.Ped);
             if (state != null) { state.FollowPlayerOnFoot = false; state.FollowPaused = true; state.EnterPassengerSeatWhenPlayerEnters = false; state.ExitVehicleWhenPlayerExits = false; state.StayUnderLsaControl = false; state.DemoteToPassiveRuntime(); }
+            RefreshPrimaryOwner(encounter);
             // No TASK, teleport, delete, or automatic resume.
         }
         void ResetForClockDiscontinuity(long now,string reason)
@@ -265,8 +295,8 @@ namespace LSA.PromotedCharacters
                     NoteActivityCommand(owned, "follow");
                     NpcFocus.SetFocus(owned.Ped,Game.LocalPlayer.Character,"p2_player_command"); NpcActions.FollowTarget(owned.Ped); var follow = NpcStateStore.GetStateForActiveBehavior(owned.Ped);
                     follow.StayUnderLsaControl = true; follow.EnterPassengerSeatWhenPlayerEnters = true; follow.ExitVehicleWhenPlayerExits = true; follow.AccompliceMode = false;
-                    owned.Mode = "follow"; owned.Suspended = false; break;
-                case "wait": NoteActivityCommand(owned, "wait"); NpcActions.WaitHere(owned.Ped); var wait = NpcStateStore.GetStateForActiveBehavior(owned.Ped); wait.StayUnderLsaControl = true; wait.EnterPassengerSeatWhenPlayerEnters = false; wait.ExitVehicleWhenPlayerExits = false; owned.Mode = "wait"; owned.Suspended = false; break;
+                    owned.Mode = "follow"; owned.Owner=PrimaryBehaviorOwner.Transition(owned.Owner,"p2","follow",unchecked((uint)Game.GameTime)); owned.Suspended = false; break;
+                case "wait": NoteActivityCommand(owned, "wait"); NpcActions.WaitHere(owned.Ped); var wait = NpcStateStore.GetStateForActiveBehavior(owned.Ped); wait.StayUnderLsaControl = true; wait.EnterPassengerSeatWhenPlayerEnters = false; wait.ExitVehicleWhenPlayerExits = false; owned.Mode = "wait"; owned.Owner=PrimaryBehaviorOwner.Transition(owned.Owner,"p2","wait",unchecked((uint)Game.GameTime)); owned.Suspended = false; break;
                 case "dismiss": case "release": case "despawn":
                     NoteActivityCommand(owned, request.Operation);
                     if (request.Operation == "despawn" && !owned.Created) throw new InvalidOperationException("cannot_delete_adopted_ped");
@@ -323,7 +353,7 @@ namespace LSA.PromotedCharacters
         public void EnrichActor(Ped ped,ActorContext context)
         {
             if (!IsReady || context?.IntegrationBlocks == null || context.PedId != ped?.Handle.ToString()) return;
-            try { var encounter = EncounterFor(ped); context.IntegrationBlocks.Add(new IntegrationJsonBlock(Id,json.Serialize(new {version = 1,encounterId = encounter.Id}))); } catch { }
+            try { var encounter = EncounterFor(ped); context.IntegrationBlocks.Add(new IntegrationJsonBlock(Id,json.Serialize(new {version = 1,encounterId = encounter.Id,owner = encounter.Owner}))); } catch { }
         }
         public void OnPedControlChanged(Ped ped,bool controlledByLsa) { if (IsReady && !controlledByLsa && ped != null && encounters.TryGetValue(ped.Handle.ToString(),out var encounter) && encounter.Registration != null && !encounter.Suspended) { Suspend(encounter); PushActivity(ped, "", "control_lost", null); } }
         public void OnNpcActionExecuted(Ped ped,string actionName,bool succeeded) { PushActivity(ped, actionName, "executed", succeeded); }
