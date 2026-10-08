@@ -53,20 +53,24 @@ export function assertKnowledgeCurrent(inputs,perception) {
   if(inputs.worldEpoch!==perception.hostContext?.worldEpoch) return 'world_epoch_changed';
   if(inputs.psAdapterEpoch!==perception.epoch || inputs.psStreamId!==perception.stream) return 'channel_unhealthy';
   const ref=inputs.association.captureRef,index=perception.observerIndex.get(ref);
-  if(!perception.current(ref) || !index) return 'participant_retired';
-  if(index.encounterId!==inputs.association.encounterId || index.incarnationId!==inputs.association.incarnationId) return 'owner_unverified';
+  if(!perception.current(ref) || !index || index.kind!=='ped' || perception.anchors.get(ref)?.kind!=='ped' || perception.anchors.get(ref)?.observer!==true) return 'participant_retired';
+  if(index.owned!==inputs.association.owned || index.encounterId!==inputs.association.encounterId || index.incarnationId!==inputs.association.incarnationId) return 'owner_unverified';
   return null;
 }
 
 // Release only the original owned candidate after the existing P1 preparation.
 // No observer/profile lookup or observation resampling is permitted here.
-export function releaseOwnedKnowledge(inputs,{identity,snapshot,identityService,perception}) {
-  if(!inputs?.ownerPendingProof) return inputs;
-  const deny=()=>immutableSnapshot({...inputs,reason:'owner_unverified'});
-  if(!identity || !['pedId','turnId','generationId','sessionNonce'].every(key=>identity[key]===inputs.turn?.[key]) || assertKnowledgeCurrent(inputs,perception)) return deny();
+export function assertOwnedKnowledgeCurrent(inputs,{identity,snapshot,identityService,perception}) {
+  if(!inputs?.association?.owned)return null;
+  if(!identity || !['pedId','turnId','generationId','sessionNonce'].every(key=>identity[key]===inputs.turn?.[key]) || assertKnowledgeCurrent(inputs,perception))return 'owner_unverified';
   const binding=identityService?.bindings.get(identity),fence={hostContextVersion:1,hostRunId:inputs.hostRunId,worldEpoch:inputs.worldEpoch};
-  if(!['pedId','turnId','generationId','sessionNonce'].every(key=>snapshot?.nativeIdentity?.[key]===identity[key]) || snapshot?.resolution?.kind!=='persistent' || snapshot.bindingRevision!==binding?.bindingRevision || snapshot.bindingId!==binding?.bindingId || snapshot.resolution.characterId!==binding?.characterId || !sameAssociation(inputs.ownerClaim,binding?.claim) || !sameHostContext(identityService?.evidence?.hostContext,fence) || !identityService.evidence.isCurrent(binding.claim)) return deny();
-  return immutableSnapshot({...inputs,reason:null,ownerPendingProof:false});
+  if(!['pedId','turnId','generationId','sessionNonce'].every(key=>snapshot?.nativeIdentity?.[key]===identity[key]) || snapshot?.resolution?.kind!=='persistent' || snapshot.bindingRevision!==binding?.bindingRevision || snapshot.bindingId!==binding?.bindingId || snapshot.resolution.characterId!==binding?.characterId || !sameAssociation(inputs.ownerClaim,binding?.claim) || !sameHostContext(identityService?.evidence?.hostContext,fence) || !identityService.evidence.isCurrent(binding.claim))return 'owner_unverified';
+  return null;
+}
+export function releaseOwnedKnowledge(inputs,options) {
+  if(!inputs?.ownerPendingProof)return inputs;
+  const reason=inputs.association?.owned?assertOwnedKnowledgeCurrent(inputs,options):'owner_unverified';
+  return immutableSnapshot({...inputs,reason,ownerPendingProof:!!reason});
 }
 
 

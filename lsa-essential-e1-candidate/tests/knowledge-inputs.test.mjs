@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { ShadowRuntime } from '../src/perception/shadowRuntime.mjs';
 import { CAPABILITIES } from '../src/perception/contracts.mjs';
-import { captureKnowledgeInputs,assertKnowledgeCurrent,validateActorCapture,releaseOwnedKnowledge,assertKnowledgeItemsCurrent } from '../src/context/knowledgeInputs.mjs';
+import { captureKnowledgeInputs,assertKnowledgeCurrent,validateActorCapture,releaseOwnedKnowledge,assertOwnedKnowledgeCurrent,assertKnowledgeItemsCurrent } from '../src/context/knowledgeInputs.mjs';
 const fixture=()=>{
   let now=1;const perception=new ShadowRuntime({mode:'shadow',now:()=>now});
   const hello={version:1,type:'hello',adapterEpoch:randomUUID(),streamId:randomUUID(),hostContextVersion:1,hostRunId:randomUUID(),worldEpoch:1,observerIndexVersion:1,capabilities:Object.fromEntries(CAPABILITIES.map(k=>[k,k==='shooting']))};
@@ -105,9 +105,9 @@ test('first owned candidate stays private until matching fresh P1 proof and neve
  assert.equal(release().reason,'owner_unverified');evidence.hostContext=f.hello;
  const captured=JSON.stringify(inputs.pairs);
  f.send('signal',{signalId:randomUUID(),producer:'shooting',producerSequence:2,kind:'firing',target:null,source:f.captureRef,gameTick:11,ageMs:0,facts:{}});
- const released=release();assert.equal(released.reason,null);assert.equal(released.ownerPendingProof,false);assert.equal(JSON.stringify(released.pairs),captured);assert.ok(selectKnowledge(released).selected.length);
+ const released=release();assert.equal(assertOwnedKnowledgeCurrent(released,{identity:f.identity,snapshot,identityService,perception:f.perception}),null);assert.equal(released.reason,null);assert.equal(released.ownerPendingProof,false);assert.equal(JSON.stringify(released.pairs),captured);assert.ok(selectKnowledge(released).selected.length);
  for(const patch of [{snapshot:{...snapshot,bindingId:randomUUID()}},{snapshot:{...snapshot,bindingRevision:2}},{snapshot:{...snapshot,nativeIdentity:{...f.identity,generationId:2}}},{identity:{...f.identity,sessionNonce:2}}])assert.equal(release(patch).reason,'owner_unverified');
- evidence.isCurrent=()=>false;assert.equal(release().reason,'owner_unverified');evidence.isCurrent=()=>true;
+ evidence.isCurrent=()=>false;assert.equal(assertOwnedKnowledgeCurrent(released,{identity:f.identity,snapshot,identityService,perception:f.perception}),'owner_unverified');assert.equal(release().reason,'owner_unverified');evidence.isCurrent=()=>true;
  binding.claim={...proof,incarnationId:randomUUID()};assert.equal(release().reason,'owner_unverified');binding.claim=proof;
  evidence.hostContext={...f.hello,worldEpoch:2};assert.equal(release().reason,'owner_unverified');evidence.hostContext=f.hello;
  f.send('retire_batch',[f.captureRef]);assert.equal(release().reason,'owner_unverified');assert.equal(inputs.ownerPendingProof,true);
@@ -140,4 +140,10 @@ test('delivery item fences use captured revisions, current source lifetimes and 
  const shortLived={...inputs,pairs:inputs.pairs.map(pair=>({...pair,observation:{...pair.observation,expiresAtMonotonicMs:100}}))};f.setNow(100);
  assert.equal(assertKnowledgeItemsCurrent(shortLived,frame,f.perception),'observation_expired');
  f.setNow(1);f.perception.lastReceipt=1;f.send('retire_batch',[f.captureRef]);assert.equal(assertKnowledgeItemsCurrent(inputs,frame,f.perception),'participant_retired');
+});
+
+
+test('pending proof cannot upgrade a missing or unowned association',()=>{
+ for(const association of [null,{owned:false}])assert.equal(releaseOwnedKnowledge({ownerPendingProof:true,association},{}).reason,'owner_unverified');
+ assert.equal(assertOwnedKnowledgeCurrent({association:{owned:false}},{}),null);
 });
