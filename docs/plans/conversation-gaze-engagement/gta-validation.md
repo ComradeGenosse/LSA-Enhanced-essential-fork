@@ -23,7 +23,18 @@ Offline tests never count as proof of physical gaze.
 
 Any disruptive case is removed from the CGE1 allow-list.
 
-## 3. CGE1 primary acceptance
+## 3. CGE1 staged acceptance
+
+### Early 10a — playback-only, C-01 absent
+
+Disable/unavailable C-01 and proximity hearing. Delay provider/STT before actual NPC audio: no player-listening acquisition is allowed. At exact playback start, validate ordinary on-foot speaker/target; Essential's own visible gaze wins and CGE issues zero competing commands. Only a proven gap may use finite supplemental head/eye gaze. Interrupt/end/reset/retire releases its key; a late end for A cannot clear B. Test callback duplicates/missing-terminal watchdog and uncertain ownership. No broad clear, body-turn or fabricated speech/hearing receipt.
+
+Pass gate MP10a with master A23/A24/A41/A42. Stock gaze coexistence proof does not certify an untested supplemental driver.
+
+### Later 10b — source-time player listening
+
+Requires accepted C-01 lifecycle and MP10a. Proximity transcript processing may remain off. The listening cases below apply only to 10b, with A19/A20/A43 and MP10b.
+
 
 ### A — basic listen/respond
 
@@ -64,7 +75,7 @@ Every case passes only if CGE stops mutation, never broad-clears tasks, never ta
 
 ## 5. CGE2 body-turn acceptance
 
-Do not run until CGE1 passes.
+Whole-body orientation belongs to separately accepted ACT3 `stop_and_face`, never CGE. These historical cases apply only to that ACT handoff after CGE1; they are not a 10a/10b gate.
 
 - Front-to-side around 50 degrees: head only; no needless foot shuffle.
 - Side hold beyond enter angle: after dwell, one smooth turn request.
@@ -83,7 +94,8 @@ Watch for stuck gaze, increasing native calls, refresh spam, epoch leaks, task c
 
 | Metric | Initial target |
 | --- | --- |
-| player speech start -> first gaze command | <= 250 ms |
+| actual playback start -> engagement/control decision (10a) | <= 250 ms; command only if proven unowned |
+| player speech start -> first gaze command (10b/C-01) | <= 250 ms |
 | target movement -> gaze refresh decision | <= 250 ms |
 | sustained off-axis -> body turn request | configured dwell +/- one update |
 | conversation end -> release start | <= 250 ms |

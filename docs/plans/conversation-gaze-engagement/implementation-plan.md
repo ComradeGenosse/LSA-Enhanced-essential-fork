@@ -1,8 +1,8 @@
 # CGE implementation plan
 
-Prepared against main at bc3b2027b0b2eb6a3c1a7dcb326587f9af781696.
+Original preparation baseline: main at bc3b2027b0b2eb6a3c1a7dcb326587f9af781696. October 8 integration sequencing is in the [unified master plan](../../research/UNIFIED-LSA-INTELLIGENCE-IMPLEMENTATION-PLAN-20261008.md#10-conversation-gaze-and-attention-evidence): consume shared C-02 refs/C-13 resets rather than create another retained target table. This remains planning only.
 
-This plan is implementation-ready after the shared `C-01 UtteranceLifecycle` seam exists. CGE0 still must prove the exact non-disruptive look-at native/Essential helper and coexistence with Essential's existing `ConversationLookBehavior`.
+The early playback-only slice (master 10a) can follow shared C-02/C-13 and accepted PS4 without C-01. Player-listening (10b) waits for C-01, not the full proximity transcript pipeline. CGE0 still must prove the non-disruptive mechanism and read-only ownership indication; existing Essential gaze wins and unknown ownership yields.
 
 ## 1. Fixed scope
 
@@ -41,7 +41,7 @@ native/promoted-characters/README.md
 docs/ROADMAP.md
 ~~~
 
-Only if CGE0 proves a new player-speech event is required, modify the source-pinned Essential hook/build metadata and its integration tests.
+Early 10a reuses existing native playback events and modifies no player-speech hook. Later 10b consumes the shared C-01 lifecycle implemented by its host owner; CGE never adds a competing mic detector.
 
 Do not modify native/enhanced/EnhancedHost.cs to perform gaze. That host is loader-domain UX, not the authoritative Core-fiber location for ped work.
 
@@ -81,7 +81,7 @@ Keep vehicleHeadTracking false through initial CGE1 rollout. Reject unknown keys
 
 Consume the shared **C-01 UtteranceLifecycle** contract. CGE must not invent a private speech detector or time-window join.
 
-CGE0 may participate in the C-01 GTA/source-time probe if that seam is not yet landed, but active CGE implementation waits for the authoritative native `utterance.started/turn/ended` lifecycle. Typed input follows C-01's zero-duration semantics.
+CGE0a/10a probes direct playback-key subscription, finite gaze and Essential ownership without C-01. CGE0b/10b participates in/consumes the authoritative `utterance.started/turn/ended` lifecycle for player listening. Typed input follows C-01 zero-duration semantics; early 10a sets no player-speaking role.
 
 Do not derive player-speaking state from post-STT Node timing.
 
@@ -89,7 +89,7 @@ Do not derive player-speaking state from post-STT Node timing.
 
 Essential already exposes `ConversationLookBehavior` for microphone/speaker attention, and P2 calls `NpcFocus.SetFocus(ped, player, "p2_player_command")`. Determine what each owns, how each clears, and which lifecycle indicates active ownership.
 
-**CGE yields while Essential's conversation look behavior owns gaze.** Reuse an existing Essential/NpcFocus mechanism if it is appropriate; do not run a competing look-at refresh loop against it.
+**CGE yields while Essential's conversation look behavior owns gaze or ownership is unknown.** Reuse an existing Essential/NpcFocus mechanism if it is appropriate; do not run a competing look-at refresh loop against it.
 
 ### 5.3 Look-at probe
 
@@ -97,7 +97,8 @@ If NpcFocus is not sufficient, test the narrowest GTA look-at mechanism against 
 
 Exit gate:
 
-- exact player-speech seam documented;
+- early slice: exact native playback key/body lifetime and Essential ownership indication documented;
+- later player-listening slice: exact shared C-01 source-time seam documented;
 - exact gaze mechanism documented;
 - no broad task clear required;
 - finite release known;
@@ -107,14 +108,14 @@ Exit gate:
 
 ### ConversationEngagementIntegration
 
-- subscribe/unsubscribe lifecycle events;
+- early slice subscribes/unsubscribes existing NpcPlaybackCoordinator events; later player-listening additionally consumes shared C-01;
 - resolve current target on Update;
 - validate Ped + handle + MemoryAddress;
-- feed immutable per-tick facts to pure policy;
+- feed immutable per-tick facts to pure policy, with PlayerSpeechActive unsupported/false before C-01;
 - invoke native driver only on Core fiber;
 - contain exceptions and disable only CGE.
 
-Event handlers only record bounded facts. Update reconciles them.
+Event handlers only record bounded facts. Update reconciles exact `(hostRunId,worldEpoch,captureRef,pedId,turnId,generationId)` keys; duplicate starts are idempotent and late old ends never release a newer playback. A bounded missing-terminal watchdog/reset/retirement stops only CGE refresh. No latest-session nonce join or lossy PS-signal reconstruction.
 
 ### ConversationEngagementController
 

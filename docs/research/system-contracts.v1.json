@@ -2,7 +2,7 @@
   "schema": "lsa.system-contracts",
   "schemaVersion": 1,
   "status": "forward architecture contracts; implementation status may be partial—use docs/ROADMAP.md for deployed/current state",
-  "base": "architecture corpus current as of 2026-10-06; implementation truth is docs/ROADMAP.md",
+  "base": "Architecture contracts unchanged; status reconciled 2026-10-08 against main@7e54b17 and PR21. Implementation truth remains docs/ROADMAP.md.",
   "planes": [
     {
       "plane": 0,
@@ -549,7 +549,7 @@
       "file": "contracts/commands.v2.json",
       "sha256": "07e0ad837bcbce8b6ff088a0b57ae6aad94e23cdbb5ac4a6bc4668a20b15d754",
       "owner": "UX/ACT",
-      "status": "branch",
+      "status": "merged through PR18; installed/GTA-smoke recorded; focused capability gates open",
       "lock": "at merge"
     },
     {
@@ -576,15 +576,15 @@
     {
       "id": "ps3-salience-decision",
       "owner": "PS3",
-      "status": "deployed shadow, unmerged",
+      "status": "merged; deployed shadow; live evaluation/telemetry verified",
       "lock": true,
-      "change": "C-03 additions"
+      "change": "C-03 acknowledgement additions implemented; consumers follow exact outcome contract"
     },
     {
       "id": "act-activities-pipe",
       "pipe": "LSA.Activities.v1",
       "owner": "ACT",
-      "status": "branch",
+      "status": "merged through PR18; installed/GTA-smoke recorded; focused capability gates open",
       "lock": "at merge"
     },
     {
@@ -592,13 +592,13 @@
       "file": "contracts/activity-capabilities.v1.json",
       "sha256": "31ed6e6d47a7222929b3645401d6e046676ed7f21a65f5643a68e002a3ee6486",
       "owner": "ACT",
-      "status": "branch",
+      "status": "merged through PR18; installed/GTA-smoke recorded; focused capability gates open",
       "lock": "at merge"
     },
     {
       "id": "radio-raw-signals",
       "owner": "PS",
-      "status": "branch",
+      "status": "unmerged R0–R5/v2 stack; build/GTA/catalog gates open; R5 ingress requires C-04 reconciliation",
       "lock": "as raw facts"
     },
     {
@@ -629,7 +629,7 @@
         "UX4 HUD",
         "PS5"
       ],
-      "phase": "probe in PS0-PS3 GTA session; implement before PS2 speech, CGE0, social routing",
+      "phase": "probe in PS0-PS3 GTA session; before PS2 player speech, CGE player-listening/source-time probe (10b), social routing; playback-only 10a uses existing events",
       "feasibility": "UNKNOWN",
       "frames": {
         "utterance.started": [
@@ -777,7 +777,7 @@
         "Director",
         "UX"
       ],
-      "phase": "ACT2 reconciliation",
+      "phase": "master phase 6: remaining owner-truth reconciliation after merged ACT2",
       "fields": {
         "owner": [
           "p2",
@@ -858,7 +858,7 @@
         "ACT",
         "Director"
       ],
-      "phase": "thin with ACT0/1 merge",
+      "phase": "master phase 5: shared capability/health read model; ACT merge alone did not implement it",
       "facts": [
         "compiled",
         "configured",
@@ -946,7 +946,7 @@
         "CGE",
         "P1"
       ],
-      "phase": "ACT0/1 reconciliation",
+      "phase": "master phase 1: shared host/world lifetime after merged ACT0–ACT2",
       "frames": {
         "world_epoch": [
           "epoch",

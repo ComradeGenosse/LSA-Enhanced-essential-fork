@@ -1,6 +1,6 @@
 # System convergence architecture
 
-Status: **current architecture synthesis**. Updated 2026-10-06.
+Status: **current architecture synthesis**. Updated 2026-10-08. The [unified intelligence master plan](UNIFIED-LSA-INTELLIGENCE-IMPLEMENTATION-PLAN-20261008.md) supplies the code-level cross-system implementation sequence; the original [PS4 plan](PS4-code-level-implementation-plan-20261008.md) remains the baseline detail.
 
 This file intentionally contains no branch-head or deployment snapshot. Use [../ROADMAP.md](../ROADMAP.md) for implementation/deployment truth. The original October 5 audit is archived at [archive/convergence/system-convergence-architecture-audit-20261005.md](archive/convergence/system-convergence-architecture-audit-20261005.md).
 
@@ -78,3 +78,6 @@ Normative definitions live in [system-contract-register.md](system-contract-regi
 5. Director/PS may propose behavior but ACT arbitrates physical behavior and Essential executes it.
 6. Automatic durable memory/relationships/commitments wait for timeline-safe persistence.
 7. Archived branch snapshots are evidence only and never answer current merge/deploy state.
+8. Baseline requested-turn PS4 delivery does not wait for radio, gaze, proximity hearing, automatic memory, Director or Genesis expansion. Reuse PS2 stores/provider infrastructure; do not create competing event ledgers, databases or routers.
+9. After accepted PS4, early passive Director speech can precede PS5; exact playback-only gaze can precede C-01. Memory-aware policy and player-listening gaze wait only for their actual contributors.
+10. Policy flexibility is bounded selection behind the existing C-11 proposal boundary. One admission/budget/ticket/receipt path remains fixed, ACT owns physical arbitration and Essential executes; no alternative production policy or model-specific infrastructure is introduced.

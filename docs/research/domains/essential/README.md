@@ -19,3 +19,5 @@ Historical primary research is preserved under [../../archive/essential/](../../
 Supporting machine evidence/catalogs remain in this domain.
 
 Current invariant: handler acceptance is not physical completion, and no LSA subsystem creates a second native task/session/playback lifecycle beside Essential.
+
+The [unified intelligence master plan](../../UNIFIED-LSA-INTELLIGENCE-IMPLEMENTATION-PLAN-20261008.md#4-consolidated-ownership-and-contract-matrix) reconciles this domain with all C-01–C-15 contracts and supplies exact integration phases/tests/gates. Baseline PS4 does not wait for optional enrichment; original research/provenance and the detailed PS4 plan remain preserved.
