@@ -3,12 +3,12 @@ import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { ShadowRuntime } from '../src/perception/shadowRuntime.mjs';
 import { CAPABILITIES } from '../src/perception/contracts.mjs';
-const fixture=()=>{
+const fixture=(options={})=>{
   let now=1;const runtime=new ShadowRuntime({mode:'shadow',now:()=>now,situationFor:()=>({profile:{revision:2,personality:{traits:[' Protective ','brave prose']}},bindings:[{recognized:true,captureRef:randomUUID()}]})});
-  const hello={version:1,type:'hello',adapterEpoch:randomUUID(),streamId:randomUUID(),hostContextVersion:1,hostRunId:randomUUID(),worldEpoch:1,observerIndexVersion:1,observerSituationVersion:1,capabilities:Object.fromEntries(CAPABILITIES.map(k=>[k,k==='state'||k==='shooting']))};
+  const hello={version:1,type:'hello',adapterEpoch:randomUUID(),streamId:randomUUID(),hostContextVersion:1,hostRunId:randomUUID(),worldEpoch:1,observerIndexVersion:1,observerSituationVersion:1,...(options.version===1?{primaryBehaviorOwnerVersion:1}:{}),capabilities:Object.fromEntries(CAPABILITIES.map(k=>[k,k==='state'||k==='shooting']))};
   assert.equal(runtime.ingest(hello,{authenticated:true}),true);let sequence=0;const captureRef=randomUUID();
   const send=(type,payload)=>runtime.ingest({version:1,type,adapterEpoch:hello.adapterEpoch,streamId:hello.streamId,sequence:++sequence,payload},{authenticated:true});
-  send('anchors',[{captureRef,kind:'ped',observer:true,owned:false}]);send('observer_index',[{captureRef,kind:'ped',owned:false}]);
+  send('anchors',[{captureRef,kind:'ped',observer:true,owned:options.owned===true}]);send('observer_index',[{captureRef,kind:'ped',owned:options.owned===true,...(options.owned?{encounterId:randomUUID(),incarnationId:randomUUID()}:{})}]);
   return {runtime,captureRef,send,setNow:value=>{now=value;}};
 };
 test('qualified physical situation feeds PS3 and preserves original paired inputs',()=>{
@@ -52,4 +52,21 @@ test('policy refresh evaluates only changed current pairs and preserves frozen i
  f.runtime.situationProvider=()=>({profile:{revision:3,personality:{traits:['loyal']}}});f.runtime.refreshSalience();assert.equal(evaluations,1);
  const updated=f.runtime.salience.snapshotForObserver(f.captureRef,f.runtime.observations)[0];assert.equal(updated.situation.profileRevision,3);assert.equal(original.situation.profileRevision,2);assert.deepEqual(original.situation.traitPolicies,['protective']);
  f.runtime.refreshSalience();assert.equal(evaluations,1);
+});
+
+
+test('qualified C06 ownership reaches frozen salience inputs without turning control intent into physical waiting',()=>{
+ const f=fixture({version:1,owned:true}),owner={owner:'p2',mode:'wait',since:10};
+ assert.equal(f.send('observer_situation',[{captureRef:f.captureRef,sampledGameTick:10,activity:'unknown',situationRevision:1,primaryOwner:owner}]),true);
+ owner.mode='follow';assert.equal(f.runtime.situationFor(f.captureRef).primaryOwner.mode,'wait');assert.equal(f.runtime.situationFor(f.captureRef).activity,'unknown');
+ f.send('signal',{signalId:randomUUID(),producer:'shooting',producerSequence:1,kind:'firing',target:null,source:f.captureRef,gameTick:10,ageMs:0,facts:{}});
+ const original=f.runtime.salience.snapshotForObserver(f.captureRef,f.runtime.observations)[0];assert.equal(original.situation.primaryOwner.mode,'wait');assert.ok(Object.isFrozen(original.situation.primaryOwner));
+ f.send('observer_situation',[{captureRef:f.captureRef,sampledGameTick:11,activity:'following',situationRevision:2,primaryOwner:{owner:'essential_residual',mode:'follow',since:11}}]);
+ assert.equal(original.situation.primaryOwner.owner,'p2');assert.equal(f.runtime.salience.snapshotForObserver(f.captureRef,f.runtime.observations)[0].situation.primaryOwner.owner,'essential_residual');
+ f.setNow(3002);assert.equal(f.runtime.situationFor(f.captureRef).primaryOwner,null);
+});
+test('C06 ownership rejects legacy/unowned and malformed association',()=>{
+ const row=f=>({captureRef:f.captureRef,sampledGameTick:10,activity:'unknown',situationRevision:1,primaryOwner:{owner:'act',mode:'activity',since:10}});
+ for(const options of [{owned:true},{version:1,owned:false}]){const f=fixture(options);assert.equal(f.send('observer_situation',[row(f)]),false);assert.equal(f.runtime.epoch,null);}
+ const f=fixture({version:1,owned:true});const malformed=row(f);malformed.primaryOwner.leaseId='not-an-id';assert.equal(f.send('observer_situation',[malformed]),false);assert.equal(f.runtime.observerSituations.size,0);
 });

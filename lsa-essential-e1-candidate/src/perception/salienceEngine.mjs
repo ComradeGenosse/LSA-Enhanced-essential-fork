@@ -1,3 +1,4 @@
+import {readPrimaryBehaviorOwner} from '../context/primaryBehaviorOwner.mjs';
 import { immutableSnapshot } from '../context/turnSnapshot.mjs';
 import { isUuid } from '../identity/identityContract.mjs';
 import { validateObservation } from './contracts.mjs';
@@ -119,6 +120,7 @@ export function normalizeSalienceSituation(input = {}) {
     playerRelationship: playerRelationship ? Object.freeze(playerRelationship) : null,
     situationRevision: integer(source.situationRevision) ? source.situationRevision : 0,
     profileRevision: integer(source.profileRevision) ? source.profileRevision : 0,
+    primaryOwner:readPrimaryBehaviorOwner(source.primaryOwner),
     activity: ACTIVITIES.has(source.activity) ? source.activity : 'unknown',
     memories: Object.freeze(memories),
     traitPolicies: Object.freeze(traitPolicies),
@@ -153,6 +155,7 @@ export function situationFromCharacterView(view = {}) {
       : null,
     profileRevision: integer(profile?.revision) ? profile.revision : view.profileRevision,
     activity: view.activity,
+    primaryOwner:view.primaryOwner,
     situationRevision: view.situationRevision,
     memories: profileMemories,
     traitPolicies,

@@ -21,6 +21,7 @@ namespace LSA.Intelligence
         public Ped Ped;
         public string Lifetime, EncounterId;
         public Func<bool> Current;
+        public Func<object> PrimaryOwner;
     }
     public sealed class IntelligenceIntegration : IIntegration
     {
@@ -323,6 +324,7 @@ namespace LSA.Intelligence
             }
             return result;
         }
+        object SamplePrimaryOwner(EntityAnchor anchor) {try{return Association(anchor)?.PrimaryOwner?.Invoke();}catch{return null;}}
         string ObserverActivity(EntityAnchor anchor,Ped ped)
         {
             try {
@@ -345,7 +347,7 @@ namespace LSA.Intelligence
         void Sample(EntityAnchor a,uint tick,long now)
         {
             if(anchors.Resolve(a.CaptureRef)==null) return;var p=(Ped)a.Entity;
-            if(a.Observer) sampledSituations[a.CaptureRef]=new {captureRef=a.CaptureRef,sampledGameTick=tick,activity=ObserverActivity(a,p),situationRevision=++situationRevision};
+            if(a.Observer) sampledSituations[a.CaptureRef]=new {captureRef=a.CaptureRef,sampledGameTick=tick,activity=ObserverActivity(a,p),situationRevision=++situationRevision,primaryOwner=SamplePrimaryOwner(a)};
             var v=p.CurrentVehicle;var va=Retain(v,"vehicle");
             if(va!=null) {
                 var driver=v.Driver;var driverAnchor=driver==null?null:anchors.Current.FirstOrDefault(a=>a.Entity is Ped && (Ped)a.Entity==driver);

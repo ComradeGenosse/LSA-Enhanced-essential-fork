@@ -121,7 +121,8 @@ class Program
         Check(!sinkFailed.IsAvailable&&sinkFailed.ShutdownReason=="update_failed","failed diagnostic sink cannot prevent optional update cleanup");
         Check(failed.RuntimeStatus().Contains("update_completed=0"),"diagnostic sink failure leaves lifecycle state intact");
         var host=new LSA.PromotedCharacters.HostContext();host.ObserveGameTick(2000);
-        var shared=new IntelligenceIntegration(()=>new OwnedParticipant[0],"LSA.Shared.Tests."+Guid.NewGuid().ToString("N"),host);
+        var sharedRoster=new List<OwnedParticipant>();
+        var shared=new IntelligenceIntegration(()=>sharedRoster.ToArray(),"LSA.Shared.Tests."+Guid.NewGuid().ToString("N"),host);
         Set(shared,"started",true);Set(shared,"channel",new IntelligenceChannel("LSA.Shared.Unconnected",Guid.NewGuid().ToString("D"),()=>caps));
         Check(ReferenceEquals(Get(shared,"anchors"),host.Anchors),"integration uses supplied host table");
         host.Anchors.Retain(actor,(ulong)actor.Handle,actor.MemoryAddress,"ped",null,()=>true,host.MonotonicMs,false,AnchorConsumer.P2Encounter);
@@ -143,6 +144,14 @@ class Program
         Check((string)privateBlock["captureRef"]==kept.CaptureRef && (string)privateBlock["hostRunId"]==host.HostRunId && (int)privateBlock["worldEpoch"]==host.WorldEpoch,"capture reuses shared reference and host fence");
         Check(!privateBlock.ContainsKey("encounterId") && !privateBlock.ContainsKey("characterId"),"ordinary capture does not infer durable ownership");
         var wrongActor=new LosSantosAlive.Context.ActorContext {PedId="999"};shared.EnrichActor(actor,wrongActor);Check(wrongActor.IntegrationBlocks.Count==0,"wrong PedId omits capture");
+        var ownerPed=new Ped {Handle=901,MemoryAddress=new IntPtr(901)};var c06Lifetime=Guid.NewGuid().ToString("D");bool ownerCurrent=true;
+        var ownerAnchor=host.Anchors.Retain(ownerPed,(ulong)ownerPed.Handle,ownerPed.MemoryAddress,"ped",c06Lifetime,()=>true,host.MonotonicMs,false,AnchorConsumer.P2Encounter);
+        var ownerToken=new {owner="p2",mode="wait",since=100u};
+        var participant=new OwnedParticipant {Ped=ownerPed,Lifetime=c06Lifetime,EncounterId=Guid.NewGuid().ToString("D"),Current=()=>ownerCurrent,PrimaryOwner=()=>ownerToken};sharedRoster.Add(participant);
+        object SampleOwner()=>shared.GetType().GetMethod("SamplePrimaryOwner",BindingFlags.NonPublic|BindingFlags.Instance).Invoke(shared,new object[]{ownerAnchor});
+        Check(ReferenceEquals(SampleOwner(),ownerToken),"C06 samples exact current owned participant token without a parallel store");
+        ownerCurrent=false;Check(SampleOwner()==null,"C06 omits retired ownership association");ownerCurrent=true;
+        participant.PrimaryOwner=()=>throw new Exception("optional owner sample");Check(SampleOwner()==null,"C06 getter fault omits only optional metadata");
         shared.Shutdown();Check(host.Anchors.Resolve(kept.CaptureRef)!=null,"optional PS shutdown cannot clear another consumer's shared lifetime");
         host.Shutdown();Check(host.Anchors.Count==0,"host teardown clears shared table");
         Console.WriteLine("PASS "+assertions+" production integration assertions including lifecycle telemetry");

@@ -33,7 +33,7 @@ namespace LSA.Intelligence
         object Hello() {
             var value=new Dictionary<string,object>{{"version",1},{"type","hello"},{"adapterEpoch",epoch},{"streamId",streamId},{"capabilities",capabilities()}};
             if(hostRunId!=null) {value["hostContextVersion"]=1;value["hostRunId"]=hostRunId;value["worldEpoch"]=worldEpoch();}
-            if(observerIndex && hostRunId!=null) {value["observerIndexVersion"]=1;value["observerSituationVersion"]=1;}
+            if(observerIndex && hostRunId!=null) {value["observerIndexVersion"]=1;value["observerSituationVersion"]=1;value["primaryBehaviorOwnerVersion"]=1;}
             return value;
         }
         public void Start() {new Thread(Serve) {IsBackground=true,Name="LSA intelligence facts"}.Start();}
