@@ -177,3 +177,14 @@ Existing OpenAI identity preparation releases that same candidate only after the
 Validation: focused capture/selector tests and an actual rebuilt Essential controller preparation test pass. The final full regression result is recorded below. No native production source, deployment, activation or GTA acceptance changed. Optional production PERCEIVED delivery remains disabled; closed modes/build support, request-time validity, exact acknowledgement, budget/pressure diagnostics and later master-plan phases remain unfinished. The full goal remains active.
 
 Final validation: explicit offline Node suite 477/477, zero failed/cancelled; git diff --check passed.
+
+
+## Checkpoint 13: closed PS4 configuration, build gates and scalar preview
+
+Added independent dialogueKnowledge.mode off/shadow/active, default off, with closed object/value validation. Existing intelligence off/shadow collection configuration is unchanged. Bootstrap checks the exact five-field dialogueKnowledgeContract extension and existing perception DLL/metadata pins separately, then per-turn preparation checks the live C-02/C-13/C-14 hello versions. Merely configuring shadow/active cannot start collection or authorize inference, actions or ownership operations.
+
+Supported shadow mode projects the captured candidate read-only while returning the identical hardened base allocation sent by off. Only frozen scalar selected-count/byte/hash preview metadata is retained; private candidates remain outside model context. Existing operational telemetry now admits the closed knowledge_frame_projected event and corresponding scalar fields/hash/reasons, dropping private payloads and freeform strings. Missing build/live support or a stale association preserves ordinary base dialogue. Production manifest capability remains unavailable.
+
+Active configuration is accepted but intentionally remains fenced on the safe base until request-time validity and exact completed-reasoning acknowledgement are integrated. It reports unsupported_contract for that unfinished release path. No timer/admission/autonomy or separate lifecycle is introduced. This checkpoint is mode/preview groundwork, not active PS4 completion or rollout acceptance.
+
+Validation: full explicit offline Node suite 483/483, zero failed/cancelled; focused bootstrap/mode tests verify default-off and unknown-option rejection, independent collection settings, exact version/native-pin checks, off/shadow allocation equality, candidate immutability, private scalar preview, stale safe fallback and telemetry sanitization. git diff --check passed. No deployment, enablement, native production source or GTA acceptance changed. Request validity, exact delivery acknowledgement, explicit safety reserve/pressure diagnostics, remaining baseline interoperability/GTA gates and later master-plan phases remain open. The full goal remains active.

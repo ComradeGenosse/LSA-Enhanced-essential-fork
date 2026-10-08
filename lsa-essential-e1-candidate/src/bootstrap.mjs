@@ -1,3 +1,4 @@
+import {dialogueKnowledgeContractSupported} from './config/dialogueKnowledge.mjs';
 import path from 'node:path';
 import { readFile } from 'node:fs/promises';
 import { loadConfig } from './config/e1Config.mjs';
@@ -91,6 +92,9 @@ export async function createRuntimeForBundle(options = {}) {
     process.once('beforeExit', async () => { for (const closer of shutdownClosers) await closer.close().catch(() => {}); });
   }
   const runtime = createRuntime(config, { ...options, telemetry, dialogueTrace });
+  let knowledgeContract=options.dialogueKnowledgeContract,knowledgePerceptionContract=options.perceptionContract;
+  try {const manifest=JSON.parse(await readFile(new URL('../build-manifest.json',import.meta.url),'utf8'));if(knowledgeContract===undefined)knowledgeContract=manifest.dialogueKnowledgeContract;if(knowledgePerceptionContract===undefined)knowledgePerceptionContract=manifest.perceptionContract;}catch{}
+  runtime.dialogueKnowledgeBuildSupported=dialogueKnowledgeContractSupported(knowledgeContract,knowledgePerceptionContract);
   if(config.intelligence.mode==='shadow') {
     let contract=options.perceptionContract;
     if(contract===undefined) try {contract=JSON.parse(await readFile(new URL('../build-manifest.json',import.meta.url),'utf8')).perceptionContract;}catch{}

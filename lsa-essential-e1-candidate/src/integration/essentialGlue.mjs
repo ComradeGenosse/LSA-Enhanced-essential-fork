@@ -1,3 +1,4 @@
+import {createHash} from 'node:crypto';
 import {releaseOwnedKnowledge} from '../context/knowledgeInputs.mjs';
 import {separateKnowledgeInstruction} from '../context/knowledgeInstructions.mjs';
 import {renderKnowledge} from '../context/knowledgeRenderer.mjs';
@@ -45,10 +46,27 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
     dialogueTrace,
     finalizeKnowledgeFrame(turn,{input,history,source}) {
       const character=turn.characterProjection;
-      return renderKnowledge({turn:turn.identity,frozenAt:turn.knowledgeInputs?.frozenAt??0,
+      const args={turn:turn.identity,frozenAt:turn.knowledgeInputs?.frozenAt??0,
         profile:character?.profile,persistent:character?.persistent===true,knowledgeInputs:turn.knowledgeInputs,
         actor:turn.context.actor,listener:turn.context.listener,world:turn.context.world,referenceMap:turn.context.referenceMap,
-        presence:turn.sourcePresence,history,input,source,includePerceived:false});
+        presence:turn.sourcePresence,history,input,source};
+      const base=renderKnowledge({...args,includePerceived:false});
+      const mode=config.dialogueKnowledge?.mode??'off',ps=runtime.intelligence?.runtime;
+      let reason=mode==='off'?'disabled':'unsupported_contract',preview=null;
+      if(mode!=='off' && config.provider==='openai' && runtime.dialogueKnowledgeBuildSupported && ps?.observerIndexVersion===1 && ps?.observerSituationVersion===1 && ps?.hostContext?.hostContextVersion===1) {
+        reason=runtime.intelligence.assertKnowledgeCurrent(turn.knowledgeInputs);
+        if(!reason && !turn.knowledgeInputs?.ownerPendingProof) {
+          try {preview=renderKnowledge({...args,includePerceived:true});}
+          catch {reason='projection_failed';}
+        }else reason ||= 'owner_unverified';
+      }
+      // Active sending remains fenced until request validity and exact delivery
+      // acknowledgement are integrated. Preview is a private scalar read only.
+      turn.knowledgeMode=mode;
+      turn.knowledgePreview=preview?Object.freeze({selectedObservations:preview.delivery.length,frameBytes:preview.diagnostics.bytes,frameHash:createHash('sha256').update(JSON.stringify(preview.modelAllocation)).digest('hex')}):null;
+      turn.knowledgeFallbackReason=reason??(mode==='active'?'unsupported_contract':null);
+      try {telemetry?.emit('knowledge_frame_projected',turn.identity,source,{knowledgeMode:mode,preview:!!preview,selectedObservations:preview?.delivery.length??0,frameBytes:preview?.diagnostics.bytes??base.diagnostics.bytes,frameHash:turn.knowledgePreview?.frameHash??createHash('sha256').update(JSON.stringify(base.modelAllocation)).digest('hex'),reason:turn.knowledgeFallbackReason});}catch{}
+      return base;
     },
     providerStack,
     decide: providerStack ? options => providerStack.decide(options) : options => decide({ ...options, config, fetchImpl }),

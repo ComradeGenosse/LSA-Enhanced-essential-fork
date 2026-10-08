@@ -1,3 +1,4 @@
+import {normalizeDialogueKnowledge} from './dialogueKnowledge.mjs';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -165,6 +166,7 @@ export function normalizeConfig(input = {}, env = process.env) {
     persistentIdentity: normalizeIdentityConfig(input.persistentIdentity),
     promotedCharacters: normalizeCharacterConfig(input.promotedCharacters),
     intelligence: normalizePerceptionConfig(input.intelligence),
+    dialogueKnowledge: normalizeDialogueKnowledge(input.dialogueKnowledge),
     activities: normalizeActivityConfig(input.activities),
     dialogueLogging: normalizeDialogueLoggingConfig(input.dialogueLogging, boundedInteger),
     reasoningModel, reasoningEffort, transcriptionModel, ttsModel, ttsVoice,

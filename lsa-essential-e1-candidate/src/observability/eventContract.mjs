@@ -14,11 +14,12 @@ export const EVENT_NAMES = new Set([
   'listener_cleared','listener_replaced','world_unavailable','snapshot_created','target_changed','target_missing','target_invalid','reference_map_revision_changed',
   'identity_resolved','identity_binding_created','identity_binding_retired','identity_conflict','identity_evidence_stale','identity_store_unavailable','persistent_voice_loaded',
   'session_profile_created','character_name_assigned','promotion_started','promotion_completed','promotion_failed','persistent_profile_loaded','character_spawned','character_dismissed','character_profile_edited','character_memory_created','character_memory_edited','character_memory_deleted','character_unpromoted','character_safe_failure','character_canon_projected','character_reasoning_request_composed',
-  'intelligence_status','companion_shadow',
+  'intelligence_status','companion_shadow','knowledge_frame_projected',
   'activity_admitted','activity_rejected','activity_step_started','activity_receipt','activity_paused','activity_resumed','activity_terminal','activity_lease_lost','activity_breaker_tripped',
 ]);
 
 const safeKeys = new Set([
+  'knowledgeMode','preview','selectedObservations','frameBytes','frameHash',
   'stage','operation','terminalReason','reason','code','nativeType','nativeReason','errorType','actionName',
   'requestId','model','effort','source','provider','role','outcome','eventType','httpStatus','durationMs',
   'bytes','rawBytes','pcmBytes','wavBytes','bodyReadMs','handoffMs','chunks','sampleRate','channels','inputChars','outputChars','inputTokens',
@@ -47,6 +48,7 @@ const safeKeys = new Set([
   'activityId','intent','capability','receiptState','stepIndex',
 ]);
 const safeTokens = new Set([
+  'off','shadow','active','unsupported_contract','no_actor_capture','no_observer_index','wrong_actor','host_mismatch','world_epoch_changed','channel_unhealthy','anchor_expired','participant_retired','owner_unverified','projection_failed',
   'openai','gemini','player_text','player_mic','special_event','system','internal','completed','failed',
   'cancelled','superseded','disconnected','provider_timeout','stt_error','model_error','model_refusal',
   'invalid_decision','tts_error','native_auth_rejected','playback_error','playback_interrupted',
@@ -71,7 +73,7 @@ function safeScalar(key, value) {
   if (['nativeReason','nativeType','errorType','actionName','stage','operation'].includes(key) && /^[A-Za-z][A-Za-z0-9_]{0,63}$/.test(token)) return token;
   if (key === 'requestId' && /^rid_[a-f0-9]{16}$/.test(token)) return token;
   if (key === 'model' && /^(gpt|whisper|tts)[-_][A-Za-z0-9._-]{1,80}$/i.test(token)) return token;
-  if (['bundleHash','dllHash'].includes(key) && /^[a-f0-9]{64}$/i.test(token)) return token.toLowerCase();
+  if (['bundleHash','dllHash','frameHash'].includes(key) && /^[a-f0-9]{64}$/i.test(token)) return token.toLowerCase();
   if (['canonHash','systemPromptHash','runtimePromptHash','finalReasoningRequestHash'].includes(key) && /^[a-f0-9]{64}$/i.test(token)) return token.toLowerCase();
   if (key === 'generatedPersonaPolicy' && ['suppressed','subordinate'].includes(token.toLowerCase())) return token.toLowerCase();
   if (key === 'truncatedFields' && /^(?:name|nicknames|personality\.description|personality\.traits|relationship\.description|biography|memory\.text)(?:,(?:name|nicknames|personality\.description|personality\.traits|relationship\.description|biography|memory\.text))*$/.test(token)) return token;
