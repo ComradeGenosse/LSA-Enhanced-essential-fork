@@ -19,6 +19,7 @@ export const EVENT_NAMES = new Set([
 ]);
 
 const safeKeys = new Set([
+  'captureObservationCount','capturePairCount','capturePoolBytes','captureMissingSalience','captureRevisionMismatch','captureRetiredRefs','captureBudgetExcluded',
   'acknowledgedObservations','retiredAcknowledgements','knowledgeRequestHash','projectionHash',
   'knowledgeMode','preview','selectedObservations','frameBytes','frameHash',
   'stage','operation','terminalReason','reason','code','nativeType','nativeReason','errorType','actionName',

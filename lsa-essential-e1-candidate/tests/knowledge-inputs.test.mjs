@@ -147,3 +147,11 @@ test('pending proof cannot upgrade a missing or unowned association',()=>{
  for(const association of [null,{owned:false}])assert.equal(releaseOwnedKnowledge({ownerPendingProof:true,association},{}).reason,'owner_unverified');
  assert.equal(assertOwnedKnowledgeCurrent({association:{owned:false}},{}),null);
 });
+
+
+test('capture counts missing salience metadata without evaluating or consuming grants',()=>{
+ const f=fixture();f.send('signal',{signalId:randomUUID(),producer:'shooting',producerSequence:1,kind:'firing',target:null,source:f.captureRef,gameTick:10,ageMs:0,facts:{}});
+ const first=f.capture();assert.equal(first.captureDiagnostics.retainedPairs,1);assert.ok(first.captureDiagnostics.poolBytes>0);
+ const ledger=[...f.perception.salience.ledger.values()][0];delete ledger.pair;f.perception.salience.decisions.clear();
+ const frozen=f.capture();assert.equal(frozen.pairs.length,0);assert.equal(frozen.captureDiagnostics.noMatchingSalience,1);assert.equal(ledger.consumedBy.size,0);assert.ok(Object.isFrozen(frozen.captureDiagnostics));
+});

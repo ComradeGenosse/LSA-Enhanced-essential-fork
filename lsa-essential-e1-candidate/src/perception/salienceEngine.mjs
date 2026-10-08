@@ -369,14 +369,16 @@ export class SalienceCache {
       bytes-=pairs.get(pair);
     }
   }
-  snapshotForObserver(observerRef,observations,now=this.now()) {
-    this.expire(now);const result=[];
+  snapshotForObserver(observerRef,observations,now=this.now(),diagnostics=null) {
+    this.expire(now);const result=[],counts={observations:0,observationExpired:0,noMatchingSalience:0,revisionMismatch:0};
     for(const entry of observations.entries.values()) {
-      const observation=entry.value;if(observation.observer.captureRef!==observerRef || observation.expiresAtMonotonicMs<=now) continue;
+      const observation=entry.value;if(observation.observer.captureRef!==observerRef)continue;counts.observations++;if(observation.expiresAtMonotonicMs<=now){counts.observationExpired++;continue;}
       const pair=this.decisions.get(observation.observationId)?.pair ?? this.ledger.get(observation.observationId)?.pair;
-      if(!pair || pair.observation.revision!==observation.revision || pair.observation.observedAt.nativeRun!==observation.observedAt.nativeRun || pair.decision.revision!==observation.revision || pair.decision.expiresAtMonotonicMs<=now) continue;
+      if(!pair){counts.noMatchingSalience++;continue;}
+      if(pair.observation.revision!==observation.revision || pair.observation.observedAt.nativeRun!==observation.observedAt.nativeRun || pair.decision.revision!==observation.revision || pair.decision.expiresAtMonotonicMs<=now){counts.revisionMismatch++;continue;}
       result.push(pair);if(result.length>=128) break;
     }
+    if(diagnostics)Object.assign(diagnostics,counts);
     return Object.freeze(orderSalienceDecisions(result));
   }
   acknowledge(decisionKeyValue, consumer, outcome) {
