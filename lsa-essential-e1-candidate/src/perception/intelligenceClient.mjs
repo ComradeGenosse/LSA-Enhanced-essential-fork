@@ -140,7 +140,7 @@ export class IntelligenceClient {
       if(this.work) clearImmediate(this.work);this.work=null;frames=[];this.socket=null;this.runtime.reset('disconnect');this.notifyKnowledgeInvalidation();if(!this.closed) this.retry=setTimeout(()=>this.start(),1000).unref();
     });
     this.watch=setInterval(()=>{
-      this.runtime.expire();this.notifyKnowledgeInvalidation();if(!this.runtime.epoch && hello) fail();
+      this.runtime.expire();this.runtime.refreshSalience();this.notifyKnowledgeInvalidation();if(!this.runtime.epoch && hello) fail();
       if(this.runtime.epoch && this.runtime.now()-this.lastReport>=10000) {
         this.lastReport=this.runtime.now();
         this.emitReport(false);

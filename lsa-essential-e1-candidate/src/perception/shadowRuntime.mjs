@@ -101,6 +101,7 @@ export class ShadowRuntime {
         if(!this.current(row.captureRef) || !this.observerIndex.has(row.captureRef) || this.anchors.get(row.captureRef).kind!=='ped' || old && row.situationRevision<=old.situationRevision) {this.reset('fault');return false;}
       }
       for(const row of v.payload) this.observerSituations.set(row.captureRef,Object.freeze({...row,expires:this.now()+BOUNDS.anchorLeaseMs}));
+      for(const row of v.payload)this.refreshSalience(row.captureRef);
       return true;
     }
     if(v.type==='observer_index') {
@@ -155,11 +156,23 @@ export class ShadowRuntime {
     const sample=this.observerSituations.get(ref),live=sample && sample.expires>this.now() && this.current(ref);
     return situationFromCharacterView({...view,bindings:[],nowMonotonicMs:this.now(),lifetimeCurrent:this.current(ref),channelHealthy:Boolean(this.epoch),perceptionSupported:true,playerCaptureRef,activity:live?sample.activity:'unknown',situationRevision:live?sample.situationRevision:0});
   }
-  noteSalience(observation) {
+  refreshSalience(observerRef=null) {
+    if(!this.epoch)return;
+    const counts=new Map(),situations=new Map();let player=null;
+    for(const anchor of this.anchors.values())if(anchor.kind==='player' && this.current(anchor.captureRef)){player=anchor.captureRef;break;}
+    for(const entry of this.observations.entries.values()){
+      const observation=entry.value,ref=observation.observer.captureRef;
+      if(observerRef && ref!==observerRef || !this.current(ref) || observation.expiresAtMonotonicMs<=this.now())continue;
+      const count=(counts.get(ref)??0)+1;counts.set(ref,count);if(count>128)continue;
+      if(!situations.has(ref))situations.set(ref,this.situationFor(ref,player));
+      const situation=situations.get(ref);if(this.salience.needsSituationRefresh(observation,situation))this.noteSalience(observation,situation);
+    }
+  }
+  noteSalience(observation,suppliedSituation=null) {
     try {
       let player=null;
       for(const anchor of this.anchors.values()) if(anchor.kind==='player') { player=anchor.captureRef; break; }
-      const decision=this.salience.evaluate(observation,this.situationFor(observation.observer.captureRef,player));
+      const decision=this.salience.evaluate(observation,suppliedSituation??this.situationFor(observation.observer.captureRef,player));
       if(!decision) return;
       const stats=this.ps3Diagnostics;
       stats.decisions=Math.min(MAX_COUNTER,stats.decisions+1);

@@ -18,7 +18,7 @@ test('qualified physical situation feeds PS3 and preserves original paired input
   assert.equal(pairs[0].situation.activity,'driving');assert.equal(pairs[0].situation.situationRevision,1);assert.deepEqual(pairs[0].situation.traitPolicies,['protective']);assert.deepEqual(pairs[0].situation.recognized,{});
   f.send('observer_situation',[{captureRef:f.captureRef,sampledGameTick:11,activity:'conversation',situationRevision:2}]);
   assert.equal(pairs[0].situation.activity,'driving');assert.equal(f.runtime.situationFor(f.captureRef).activity,'conversation');
-  f.runtime.salience.decisions.clear();assert.equal(f.runtime.salience.snapshotForObserver(f.captureRef,f.runtime.observations)[0].situation.activity,'driving');
+  f.runtime.salience.decisions.clear();assert.equal(f.runtime.salience.snapshotForObserver(f.captureRef,f.runtime.observations)[0].situation.activity,'conversation');
 });
 test('sample expiry and retirement cannot leave a fabricated physical mode',()=>{
   const f=fixture();f.send('observer_situation',[{captureRef:f.captureRef,sampledGameTick:10,activity:'passenger',situationRevision:1}]);f.setNow(3002);assert.equal(f.runtime.situationFor(f.captureRef).activity,'unknown');
@@ -41,4 +41,15 @@ test('runtime provider requires independently current owned incarnation and load
   assert.equal(runtime.situationFor(f.captureRef).profile.revision,profile.revision);assert.deepEqual(runtime.situationFor(f.captureRef).bindings,[]);assert.equal(runtime.situationFor(f.captureRef).profile.relationship,null);
   c.evidence.hostContext={...f.runtime.hostContext,hostRunId:randomUUID()};assert.deepEqual(runtime.situationFor(f.captureRef),{});
   c.evidence.hostContext=f.runtime.hostContext;c.evidence.retire(owned.pedId);assert.deepEqual(runtime.situationFor(f.captureRef),{});
+});
+
+
+test('policy refresh evaluates only changed current pairs and preserves frozen inputs',()=>{
+ const f=fixture();f.send('signal',{signalId:randomUUID(),producer:'shooting',producerSequence:1,kind:'firing',target:null,source:f.captureRef,gameTick:10,ageMs:0,facts:{}});
+ const original=f.runtime.salience.snapshotForObserver(f.captureRef,f.runtime.observations)[0];let evaluations=0;
+ const evaluate=f.runtime.salience.evaluate.bind(f.runtime.salience);f.runtime.salience.evaluate=(...args)=>{evaluations++;return evaluate(...args);};
+ f.runtime.refreshSalience();assert.equal(evaluations,0);
+ f.runtime.situationProvider=()=>({profile:{revision:3,personality:{traits:['loyal']}}});f.runtime.refreshSalience();assert.equal(evaluations,1);
+ const updated=f.runtime.salience.snapshotForObserver(f.captureRef,f.runtime.observations)[0];assert.equal(updated.situation.profileRevision,3);assert.equal(original.situation.profileRevision,2);assert.deepEqual(original.situation.traitPolicies,['protective']);
+ f.runtime.refreshSalience();assert.equal(evaluations,1);
 });

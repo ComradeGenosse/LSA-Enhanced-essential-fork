@@ -359,6 +359,11 @@ export class SalienceCache {
     this.latestById = new Map();
   }
   evaluate(observation, situation) { return evaluateSalience(observation, situation, this); }
+  needsSituationRefresh(observation,situation) {
+    const pair=this.decisions.get(observation.observationId)?.pair??this.ledger.get(observation.observationId)?.pair;
+    if(!pair || pair.observation.revision!==observation.revision)return false;
+    return pair.situation.profileRevision!==situation.profileRevision || pair.situation.situationRevision!==situation.situationRevision || policyFingerprint(pair.situation,observation)!==policyFingerprint(situation,observation);
+  }
   trimPairMetadata() {
     const pairs=new Map([...this.decisions.values(),...this.ledger.values(),...this.latestById.values()].filter(entry=>entry.pair).map(entry=>[entry.pair,entry.pairBytes]));
     let bytes=[...pairs.values()].reduce((sum,size)=>sum+size,0);

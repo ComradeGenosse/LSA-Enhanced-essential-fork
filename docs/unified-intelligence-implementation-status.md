@@ -312,3 +312,14 @@ Validation: full explicit offline Node suite 524/524, zero failed/cancelled; git
 Source inspection found that ledger entries could retain pair payloads after their observation/decision expired, up to the longer suppression TTL. SalienceCache.expire now removes expired pair payload references/byte metadata without deleting still-current suppression entries or changing grants/consumedBy. Factual reference retirement releases affected observer/source/target/vehicle pairs from the existing decision/ledger/latest views; ShadowRuntime calls this on its existing retirement seam. No replacement ledger, scoring rule or entitlement regrant is introduced.
 
 Validation: full explicit offline Node suite 526/526, zero failed/cancelled; git diff --check passed. Focused tests prove payload removal at expiry/retirement while preserving exact keys, existing grants, prior PS4 consumption and unconsumed PS6 state. Actual request/retirement/retry and transport tests remain passing. Remaining pressure/adversarial/payload/native reset/GTA gates and later master-plan phases remain unfinished. Nothing deployed or enabled; the full goal remains active.
+
+
+## Checkpoint 28: bounded C-14 policy refresh on existing PS3 pairs
+
+Source verification found that native situation/profile changes could leave current observations ranked with old paired inputs until another signal arrived. SalienceCache now compares the existing pair's profile/situation revisions and its established policy fingerprint. ShadowRuntime refreshes only changed current pairs through the same evaluate path, bounded to 128 per observer; native situation rows refresh immediately and the existing factual watch checks profile-policy changes. Unchanged policy does not evaluate, missing pressure-evicted pairs are not reconstructed, and no request rendering/retry performs refresh.
+
+Updated pairs serve subsequent freezes; an earlier frozen pair still retains its original activity/profile policy. The existing decision-key/suppression rules handle policy changes without a new scorer, event table, grant policy or prompt writer. No autonomous admission or additional timer introduced.
+
+Remaining payload/pressure/adversarial/native reset/GTA gates and later master-plan phases remain unfinished. Nothing deployed or enabled; the full goal remains active.
+
+Validation: full explicit offline Node suite 527/527, zero failed/cancelled; focused tests verify changed-policy-only evaluation, current pair replacement and immutable original inputs; git diff --check passed.
