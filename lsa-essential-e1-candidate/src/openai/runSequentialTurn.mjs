@@ -200,6 +200,7 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
     }
     transition('model_running');
     if(services.finalizeKnowledgeFrame)turn.knowledgeProjection=services.finalizeKnowledgeFrame(turn,{input:finalInput,history:priorHistory,source});
+    const recordReasoningSuccess=decision=>{check();turn.knowledgeDelivery?.success(decision);};
     let decision;
     let streamedSegments = [];
     let streamMode = null;
@@ -207,7 +208,7 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
     if (services.config.structuredStreamingEnabled === true) {
       const allowEarlyTts = services.config.earlyTtsEnabled === true;
       const modelOptions = ({ signal, timeoutMs, telemetry, dialogueAttempt }) => services.providerStack.decideStreaming({
-        identity, context: { ...context, source }, source,knowledgeProjection:turn.knowledgeProjection,
+        identity, context: { ...context, source }, source,knowledgeProjection:turn.knowledgeProjection,knowledgeDelivery:turn.knowledgeDelivery,
         input: isPlayer ? finalInput : '', history: priorHistory, signal, timeoutMs, telemetry, dialogueAttempt,
       });
       if (!allowEarlyTts) {
@@ -264,7 +265,7 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
         });
         const modelTask = performProvider('model', services.providerStack.reasoning.id,
           ({ signal, timeoutMs, telemetry, isActive, dialogueAttempt }) => services.providerStack.decideStreaming({
-            identity, context: { ...context, source }, source,knowledgeProjection:turn.knowledgeProjection,
+            identity, context: { ...context, source }, source,knowledgeProjection:turn.knowledgeProjection,knowledgeDelivery:turn.knowledgeDelivery,
             input: isPlayer ? finalInput : '', history: priorHistory, signal, timeoutMs, telemetry, dialogueAttempt,
             onSegment: async (segment, mode) => {
               if (!isActive()) throw new Error('provider_attempt_inactive');
@@ -283,6 +284,7 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
           const result = await modelTask;
           decision = result.decision;
           streamMode = result.mode;
+          recordReasoningSuccess(decision);
           closeQueue();
           // A final command is invalid in dialogue_only mode (also checked by the
           // strict decoder); the normal stock validator remains the action gate.
@@ -298,9 +300,10 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
       }
     } else {
       decision = await performProvider('model', services.providerStack?.reasoning.id || 'openai.reasoning',
-        ({ signal, timeoutMs, telemetry, dialogueAttempt }) => services.decide({ identity, context: { ...context, source }, source,knowledgeProjection:turn.knowledgeProjection,
+        ({ signal, timeoutMs, telemetry, dialogueAttempt }) => services.decide({ identity, context: { ...context, source }, source,knowledgeProjection:turn.knowledgeProjection,knowledgeDelivery:turn.knowledgeDelivery,
           input: isPlayer ? finalInput : '', history: priorHistory, signal, timeoutMs, telemetry, dialogueAttempt }));
     }
+    recordReasoningSuccess(decision);
     check();
     transition('decision_validation');
     const validateSpan = metrics?.startSpan('decision_validation');
@@ -374,6 +377,7 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
     metrics?.finish({ reason: 'completed', stage: state, pcmBytes: pcmBytesTotal, audioDurationMs: expectedDurationMs, traceComplete: true, assistantCommitted: true });
     return { status: 'completed', terminalReason: 'completed', audioBytes: pcmBytesTotal, discardedTrailingByte: audio.discardedTrailingByte };
   } catch (error) {
+    turn.knowledgeDelivery?.finish();
     const stageAtFailure = state;
     providerWorkDone?.('failed', { code: /^[A-Za-z][A-Za-z0-9_]{0,63}$/.test(error?.code || '') ? error.code : 'provider_work_failed' });
     if (!terminalReason) chooseTerminal(controller.signal.aborted ? terminalForAbort(controller.signal) : terminalForError(error, state));

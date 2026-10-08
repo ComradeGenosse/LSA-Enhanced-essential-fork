@@ -82,3 +82,22 @@ test('mandatory current-input overflow fails before fetch while retaining accept
  assert.equal(result.status,'failed');assert.equal(result.terminalReason,'model_error');assert.equal(calls,0);
  const history=h.runtime.history.readForSession('17',1);assert.equal(history.length,1);assert.equal(history[0].role,'user');assert.equal(history[0].content.length,12000);
 });
+
+
+import {createKnowledgeDelivery} from '../src/context/knowledgeDelivery.mjs';
+for(const [mode,options] of [['buffered',{}],['streaming',{structuredStreamingEnabled:true}],['early TTS',{structuredStreamingEnabled:true,earlyTtsEnabled:true}]])test(`real ${mode} acknowledges final reasoning before later TTS failure`,async t=>{
+ const calls=[],outcomes=[];let releaseSpeech;const reasoningDone=new Promise(resolve=>{releaseSpeech=resolve;});
+ const h=await stockHarness('openai',{config:{...options,retry:{enabled:false,maxAttempts:1},persistentIdentity:{enabled:false},promotedCharacters:{enabled:false}},env:{OPENAI_API_KEY:'offline'},fetchImpl:async(_url,request)=>response(JSON.parse(request.body).stream)});
+ const finalize=h.runtime.services.finalizeKnowledgeFrame;
+ h.runtime.services.finalizeKnowledgeFrame=(turn,args)=>{
+  const base=finalize(turn,args),scene=JSON.parse(base.modelAllocation.scene);scene.lanes.PERCEIVED.observations=[{event:'injury',claims:[{modality:'visual',certainty:'supported',kind:'injured',subject:'anonymous person'}],freshness:'recent'}];
+  const frame={...base,modelAllocation:{...base.modelAllocation,scene:JSON.stringify(scene)},delivery:[{observationId:'frozen-observation',revision:1,decisionKey:'frozen-key'}]};
+  turn.knowledgeDelivery=createKnowledgeDelivery({frame,baseFrame:base,isCurrent:()=>h.runtime.host.isCurrent(turn.identity),acknowledge:(...args)=>{calls.push(args);return true;},onOutcome:value=>{outcomes.push(value);releaseSpeech();}});
+  return frame;
+ };
+ h.runtime.services.speak=async()=>{await reasoningDone;throw new Error('post_reasoning_tts_failure');};
+ const session=await h.openAIControllerSession();t.after(()=>session.connection.close());session.autoNativeAcks();
+ const turn=await h.evaluate('ib({pedId:"17",speaker:testActor,target:testTarget,text:"Hello"})');
+ const result=await session.connection.whenSettled({pedId:turn.pedId,turnId:turn.id,generationId:turn.generationId,sessionNonce:1});
+ assert.equal(result.status,'failed');assert.deepEqual(calls,[['frozen-key','ps4_context','delivered']]);assert.equal(outcomes.length,1);assert.equal(outcomes[0].outcome,'delivered');assert.match(outcomes[0].requestHash,/^[a-f0-9]{64}$/);assert.equal(h.runtime.history.readForSession('17',1).some(item=>item.role==='assistant'),false);
+});

@@ -68,3 +68,19 @@ export function releaseOwnedKnowledge(inputs,{identity,snapshot,identityService,
   if(!['pedId','turnId','generationId','sessionNonce'].every(key=>snapshot?.nativeIdentity?.[key]===identity[key]) || snapshot?.resolution?.kind!=='persistent' || snapshot.bindingRevision!==binding?.bindingRevision || snapshot.bindingId!==binding?.bindingId || snapshot.resolution.characterId!==binding?.characterId || !sameAssociation(inputs.ownerClaim,binding?.claim) || !sameHostContext(identityService?.evidence?.hostContext,fence) || !identityService.evidence.isCurrent(binding.claim)) return deny();
   return immutableSnapshot({...inputs,reason:null,ownerPendingProof:false});
 }
+
+
+export function assertKnowledgeItemsCurrent(inputs,frame,perception) {
+ const reason=assertKnowledgeCurrent(inputs,perception);if(reason)return reason;
+ if(inputs.ownerPendingProof || inputs.reason)return inputs.reason??'owner_unverified';
+ for(const item of frame.delivery){
+  const pair=inputs.pairs.find(pair=>pair.observation.observationId===item.observationId && pair.observation.revision===item.revision && pair.decision.decisionKey===item.decisionKey);
+  if(!pair)return 'revision_mismatch';
+  if(pair.observation.expiresAtMonotonicMs<=perception.now() || pair.decision.expiresAtMonotonicMs<=perception.now())return 'observation_expired';
+  for(const claim of pair.observation.claims){
+   for(const ref of [claim.source,claim.target])if(ref && (!perception.current(ref.captureRef) || perception.anchors.get(ref.captureRef)?.kind!==ref.kind))return 'participant_retired';
+   if(claim.details?.vehicle && (!perception.current(claim.details.vehicle) || perception.anchors.get(claim.details.vehicle)?.kind!=='vehicle'))return 'participant_retired';
+  }
+ }
+ return null;
+}

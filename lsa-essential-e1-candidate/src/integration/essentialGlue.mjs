@@ -1,5 +1,6 @@
+import {createKnowledgeDelivery} from '../context/knowledgeDelivery.mjs';
 import {createHash} from 'node:crypto';
-import {releaseOwnedKnowledge} from '../context/knowledgeInputs.mjs';
+import {releaseOwnedKnowledge,assertKnowledgeItemsCurrent} from '../context/knowledgeInputs.mjs';
 import {separateKnowledgeInstruction} from '../context/knowledgeInstructions.mjs';
 import {renderKnowledge} from '../context/knowledgeRenderer.mjs';
 import {ActorPresenceStore} from '../context/actorPresence.mjs';
@@ -66,6 +67,10 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
       turn.knowledgePreview=preview?Object.freeze({selectedObservations:preview.delivery.length,frameBytes:preview.diagnostics.bytes,frameHash:createHash('sha256').update(JSON.stringify(preview.modelAllocation)).digest('hex')}):null;
       turn.knowledgeFallbackReason=reason??(mode==='active'?'unsupported_contract':null);
       try {telemetry?.emit('knowledge_frame_projected',turn.identity,source,{knowledgeMode:mode,preview:!!preview,selectedObservations:preview?.delivery.length??0,frameBytes:preview?.diagnostics.bytes??base.diagnostics.bytes,frameHash:turn.knowledgePreview?.frameHash??createHash('sha256').update(JSON.stringify(base.modelAllocation)).digest('hex'),reason:turn.knowledgeFallbackReason});}catch{}
+      turn.knowledgeDelivery=createKnowledgeDelivery({frame:base,baseFrame:base,isCurrent:()=>runtime.host.isCurrent(turn.identity) && (!identityService || identityService.current(turn.identity)),
+        validate:frame=>assertKnowledgeItemsCurrent(turn.knowledgeInputs,frame,runtime.intelligence?.runtime),
+        acknowledge:(key,consumer,outcome)=>runtime.intelligence?.runtime.salience.acknowledge(key,consumer,outcome),
+        onOutcome:result=>{turn.knowledgeOutcome=result;try{telemetry?.emit('knowledge_delivery',turn.identity,source,{outcome:result.outcome,selectedObservations:result.selectedObservations,acknowledgedObservations:result.acknowledged,retiredAcknowledgements:result.retired,knowledgeRequestHash:result.requestHash,projectionHash:result.projectionHash,reason:result.retired?'ack_key_retired':null});}catch{}}});
       return base;
     },
     providerStack,

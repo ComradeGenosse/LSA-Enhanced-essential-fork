@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { ShadowRuntime } from '../src/perception/shadowRuntime.mjs';
 import { CAPABILITIES } from '../src/perception/contracts.mjs';
-import { captureKnowledgeInputs,assertKnowledgeCurrent,validateActorCapture,releaseOwnedKnowledge } from '../src/context/knowledgeInputs.mjs';
+import { captureKnowledgeInputs,assertKnowledgeCurrent,validateActorCapture,releaseOwnedKnowledge,assertKnowledgeItemsCurrent } from '../src/context/knowledgeInputs.mjs';
 const fixture=()=>{
   let now=1;const perception=new ShadowRuntime({mode:'shadow',now:()=>now});
   const hello={version:1,type:'hello',adapterEpoch:randomUUID(),streamId:randomUUID(),hostContextVersion:1,hostRunId:randomUUID(),worldEpoch:1,observerIndexVersion:1,capabilities:Object.fromEntries(CAPABILITIES.map(k=>[k,k==='shooting']))};
@@ -130,4 +130,14 @@ test('actual Essential preparation releases the captured candidate into the laun
  const result=await session.connection.whenSettled(identity);
  assert.equal(result.status,'completed');assert.equal(releaseCall.inputs,candidate);assert.deepEqual(releaseCall.identity,identity);assert.equal(releaseCall.snapshot,undefined);assert.equal(finalized,released);
  session.connection.close();
+});
+
+
+test('delivery item fences use captured revisions, current source lifetimes and original expiry',()=>{
+ const f=fixture();f.send('signal',{signalId:randomUUID(),producer:'shooting',producerSequence:1,kind:'firing',target:null,source:f.captureRef,gameTick:10,ageMs:0,facts:{}});
+ const inputs=f.capture(),frame={delivery:selectKnowledge(inputs).selected};assert.ok(frame.delivery.length);assert.equal(assertKnowledgeItemsCurrent(inputs,frame,f.perception),null);
+ assert.equal(assertKnowledgeItemsCurrent(inputs,{delivery:[{...frame.delivery[0],revision:2}]},f.perception),'revision_mismatch');
+ const shortLived={...inputs,pairs:inputs.pairs.map(pair=>({...pair,observation:{...pair.observation,expiresAtMonotonicMs:100}}))};f.setNow(100);
+ assert.equal(assertKnowledgeItemsCurrent(shortLived,frame,f.perception),'observation_expired');
+ f.setNow(1);f.perception.lastReceipt=1;f.send('retire_batch',[f.captureRef]);assert.equal(assertKnowledgeItemsCurrent(inputs,frame,f.perception),'participant_retired');
 });
