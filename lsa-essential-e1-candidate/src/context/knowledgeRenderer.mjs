@@ -98,3 +98,15 @@ export function renderKnowledge({turn,frozenAt,profile,persistent=false,knowledg
  return immutableSnapshot({frameVersion:1,turn,frozenAt,modelAllocation,delivery,memoryIds:memories.slice(0,lanes.RECALLED.memories.length).map(memory=>memory.memoryId),diagnostics:{bytes,perLane,omissions,frameBudgetDrops,droppedHistoryCount:conversation.droppedHistoryCount,droppedMemoryCount:canonProjection.droppedMemoryCount+memories.length-lanes.RECALLED.memories.length}});
 
 }
+
+
+// Narrow an already rendered allocation before first send. No new facts, live
+// history or replacement candidates are admitted by this operation.
+export function pruneKnowledgeFrame(frame,keep) {
+ const retained=frame.delivery.map((item,index)=>keep(item)?index:null).filter(index=>index!==null);
+ if(retained.length===frame.delivery.length)return frame;
+ const scene=JSON.parse(frame.modelAllocation.scene);
+ scene.lanes.PERCEIVED.observations=retained.map(index=>scene.lanes.PERCEIVED.observations[index]);
+ const modelAllocation={...frame.modelAllocation,scene:JSON.stringify(scene)};
+ return immutableSnapshot({...frame,modelAllocation,delivery:retained.map(index=>frame.delivery[index]),diagnostics:{...frame.diagnostics,bytes:jsonBytes(modelAllocation),perLane:{...frame.diagnostics.perLane,PERCEIVED:jsonBytes(scene.lanes.PERCEIVED)},staleObservationDrops:(frame.diagnostics.staleObservationDrops??0)+frame.delivery.length-retained.length}});
+}

@@ -32,3 +32,11 @@ test('retired exact key reports false without acknowledging any successor',()=>{
 test('retry cannot replace final body bytes or projection metadata',()=>{
  const f=fixture();f.delivery.beforeRequest({input:'enriched'});assert.throws(()=>f.delivery.beforeRequest({input:'changed'}),{code:'knowledge_request_stale'});assert.deepEqual(f.calls,[]);
 });
+
+test('pruning runs only before first send and acknowledges only the surviving exact item',()=>{
+ let prunes=0;const calls=[];
+ const frame={modelAllocation:{scene:'original',messages:[]},delivery:[{decisionKey:'stale'},{decisionKey:'retained'}]};
+ const narrowed={modelAllocation:{scene:'narrowed',messages:[]},delivery:[frame.delivery[1]]};
+ const delivery=createKnowledgeDelivery({frame,isCurrent:()=>true,prune:()=>{prunes++;return narrowed;},acknowledge:(...args)=>{calls.push(args);return true;}});
+ assert.equal(delivery.prepare(),narrowed);delivery.beforeRequest({scene:'narrowed'});assert.equal(delivery.prepare(),narrowed);assert.equal(prunes,1);delivery.success(decision);assert.deepEqual(calls,[['retained','ps4_context','delivered']]);
+});

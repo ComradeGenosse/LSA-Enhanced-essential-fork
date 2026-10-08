@@ -2,7 +2,7 @@ import {createHash} from 'node:crypto';
 import {validateDecisionShape} from './essentialDecision.mjs';
 const hash=value=>createHash('sha256').update(JSON.stringify(value)).digest('hex');
 // Per-generation request state only; the existing salience ledger owns consumption.
-export function createKnowledgeDelivery({frame,baseFrame=frame,isCurrent,validate=()=>null,acknowledge=()=>false,onOutcome=()=>{}}) {
+export function createKnowledgeDelivery({frame,baseFrame=frame,isCurrent,validate=()=>null,prune=frame=>frame,acknowledge=()=>false,onOutcome=()=>{}}) {
  let projection=frame,sent=false,terminal=false,requestHash=null,projectionHash=null;
  const currentReason=()=>!isCurrent()?'superseded':projection.delivery.length?validate(projection):null;
  const fail=reason=>{throw Object.assign(new Error('knowledge_request_stale'),{code:'knowledge_request_stale',reason});};
@@ -15,6 +15,7 @@ export function createKnowledgeDelivery({frame,baseFrame=frame,isCurrent,validat
  };
  return Object.freeze({
   prepare(){
+   if(!sent && isCurrent())projection=prune(projection);
    const reason=currentReason();
    if(reason){if(sent || reason==='superseded')fail(reason);projection=baseFrame;}
    return projection;

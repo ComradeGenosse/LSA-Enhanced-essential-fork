@@ -85,3 +85,14 @@ test('arbitrary equipped/weapon descriptions do not become inventory tokens',()=
  const result=projectCompatibility({actor:{weaponDescription:'Plain private description',equippedWeaponDescription:'Other private description'}});
  assert.deepEqual(result.actor.availableWeapons,[]);
 });
+
+
+import {pruneKnowledgeFrame} from '../src/context/knowledgeRenderer.mjs';
+test('pre-send pruning removes whole rendered items and exact keys without refilling or changing conversation',()=>{
+ const base=renderKnowledge({actor:{pedId:'private'},world:{weather:'CLEAR'},history:[],input:'Original input',source:'player_text'});
+ const scene=JSON.parse(base.modelAllocation.scene);scene.lanes.PERCEIVED.observations=[{event:'first'},{event:'second'}];
+ const frame={...base,modelAllocation:{...base.modelAllocation,scene:JSON.stringify(scene)},delivery:[{decisionKey:'first-key'},{decisionKey:'second-key'}]};
+ const pruned=pruneKnowledgeFrame(frame,item=>item.decisionKey==='second-key');
+ assert.deepEqual(pruned.delivery,[{decisionKey:'second-key'}]);assert.deepEqual(JSON.parse(pruned.modelAllocation.scene).lanes.PERCEIVED.observations,[{event:'second'}]);assert.deepEqual(pruned.modelAllocation.messages,base.modelAllocation.messages);assert.equal(pruned.diagnostics.staleObservationDrops,1);assert.ok(Object.isFrozen(pruned.delivery));assert.equal(frame.delivery.length,2);
+ assert.equal(pruneKnowledgeFrame(pruned,()=>true),pruned);
+});
