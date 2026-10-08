@@ -1,6 +1,6 @@
 # Current system convergence risks
 
-Status: **active risk register**, updated 2026-10-06.
+Status: **active risk register**, updated 2026-10-08. Implementation mitigations are phased in the [unified master plan](UNIFIED-LSA-INTELLIGENCE-IMPLEMENTATION-PLAN-20261008.md).
 
 The frozen October 5 audit is archived at [archive/convergence/system-convergence-risks-audit-20261005.md](archive/convergence/system-convergence-risks-audit-20261005.md). This file lists only risks that remain materially relevant now.
 
@@ -11,8 +11,8 @@ The frozen October 5 audit is archived at [archive/convergence/system-convergenc
 | R-07 | P0 | Automatic durable experience can become save/timeline-incoherent. | C-07 + C-08 + C-15 before PS5/relationships/commitments. |
 | R-03 | P1 | PS, ACT and P2 still have overlapping run-local entity-reference concepts. | C-02 shared anchor service before ACT3/PS4 joins require it. |
 | R-05 | P1 | Dialogue actions can execute independently of spoken-history commit without a durable self-fact receipt. | C-05 before ACT4/PS5. |
-| R-10 | P1 | ACT callback vocabulary can drift during ACT0/1 reconciliation. | Cross-language canonical callback test during ACT merge. |
-| R-12 | P1 | Primary physical behavior ownership is not yet one truthful runtime token. | C-06 during ACT2 reconciliation. |
+| R-10 | P1 | ACT callback vocabulary/correlation can drift when adding C-05 or later capabilities to merged ACT0–ACT2. | Preserve current canonical callback tests and add publication/ordinary-actor/ambiguity tests in master phase 6. |
+| R-12 | P1 | Primary physical behavior ownership is not yet one truthful runtime token; merged ACT2 still writes idle after residual behavior. | C-06 sampled owner truth in master phase 6. |
 | R-13 | P1 | Run/world epoch fences are fragmented across channels. | C-13 shared hostRunId/world epoch. |
 | R-16 | P1 | Stock/special turn yield semantics for multi-character responder reservation remain unproven. | C-12 probe before PS7. |
 | R-27 | P2 | Activity/situation vocabularies can diverge between ACT and PS consumers. | C-14 ObserverSituation normalization. |

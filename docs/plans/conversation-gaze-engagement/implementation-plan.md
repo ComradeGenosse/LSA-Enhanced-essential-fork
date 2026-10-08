@@ -1,6 +1,6 @@
 # CGE implementation plan
 
-Prepared against main at bc3b2027b0b2eb6a3c1a7dcb326587f9af781696.
+Original preparation baseline: main at bc3b2027b0b2eb6a3c1a7dcb326587f9af781696. October 8 integration sequencing is in the [unified master plan](../../research/UNIFIED-LSA-INTELLIGENCE-IMPLEMENTATION-PLAN-20261008.md#10-conversation-gaze-and-attention-evidence): consume shared C-02 refs/C-13 resets rather than create another retained target table. This remains planning only.
 
 This plan is implementation-ready after the shared `C-01 UtteranceLifecycle` seam exists. CGE0 still must prove the exact non-disruptive look-at native/Essential helper and coexistence with Essential's existing `ConversationLookBehavior`.
 

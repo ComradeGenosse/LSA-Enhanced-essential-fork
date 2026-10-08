@@ -1,6 +1,6 @@
 # CGE runtime contract
 
-Status: implementation plan; no runtime behavior is claimed by this document.
+Status: implementation plan; no runtime behavior is claimed by this document. October 8 integration amendment: use [master phase 10](../../research/UNIFIED-LSA-INTELLIGENCE-IMPLEMENTATION-PLAN-20261008.md#10-conversation-gaze-and-attention-evidence) for shared C-02 targets/C-13 reset and preserve source-time C-01/Essential-look yielding. The local target sketch below is policy data, not a second retained entity table.
 
 ## 1. Ownership
 
@@ -151,7 +151,7 @@ Required events/counters:
 - cge_npc_speech_started / ended
 - cge_gaze_started
 - cge_gaze_blocked with bounded reason
-- cge_body_turn_requested / settled
+- cge_essential_look_yielded (aggregate); ACT3 owns any body-turn telemetry
 - cge_release_started / released
 - cge_failsafe
 
@@ -159,4 +159,4 @@ Do not log each refresh line. Aggregate refresh counts in periodic diagnostics.
 
 ## 13. Failure behavior
 
-All CGE failures fail soft: stop issuing new gaze/body commands, release transient state, log one bounded failure, and leave Essential dialogue/playback, P2, perception, and actions running. CGE failure must never unload or shut down P2/PS.
+All CGE failures fail soft: stop issuing new head/eye gaze commands, release transient state, log one bounded failure, and leave Essential dialogue/playback, P2, perception, and actions running. CGE failure must never unload or shut down P2/PS.

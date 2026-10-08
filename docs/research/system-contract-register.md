@@ -1,6 +1,6 @@
 # System contract register
 
-> **Corpus status note:** Contract definitions in this register are the forward architectural authority. Implementation status can advance independently; use [CURRENT.md](CURRENT.md) and [../ROADMAP.md](../ROADMAP.md) to see what has actually landed or been validated.
+> **Corpus status note (October 8, 2026):** Contract definitions in this register are the forward architectural authority. Remaining implementation phases are mapped in the [unified master plan](UNIFIED-LSA-INTELLIGENCE-IMPLEMENTATION-PLAN-20261008.md); this reconciliation changes status/sequencing references, not contract definitions. Implementation status can advance independently; use [CURRENT.md](CURRENT.md) and [../ROADMAP.md](../ROADMAP.md) to see what has actually landed or been validated.
 
 
 Part of the [system convergence architecture](system-convergence-architecture.md) package. Section 3 originated as proposed interfaces; some contracts have since landed. Each entry states its implementation status. Use the roadmap for deployment/GTA truth.
@@ -89,14 +89,14 @@ Machine-readable form: [system-contracts.v1.json](system-contracts.v1.json).
 | P2 `LSA.PromotedCharacters.v1` ops; `EnrichActor` `{version:1, encounterId}` | `PromotedCharactersIntegration.cs` | P2 | merged | **Lock** (add `C-06` field) |
 | P2 `ProfileStore` schema 1 | `profileStore.mjs` (`PROFILE_SCHEMA = 1`) | P2 | merged | Superseded by one v2 envelope (`C-08`) |
 | UX `commands.v1.json` + `CommandEnvelope v1` + DomainHost bridge | sha256 `2ec82281…` | UX | merged | **Lock** |
-| ACT `commands.v2.json` | sha256 `07e0ad83…` (ACT2 branch) | UX/ACT | branch | Lock at merge |
+| ACT `commands.v2.json` | sha256 `07e0ad83…` (merged ACT2) | UX/ACT | merged through PR #18 | Lock; current native/companion hash tests remain required |
 | PS `LSA.Intelligence.v1` frames (hello/anchors/retire/retire_batch/signal/diagnostics…) | `contracts.mjs` | PS | merged | **Lock** (add `hostRunId` in hello, `C-13`) |
 | PS Observation v1 (≤4 claims, `recognizedCharacterIds = []`) / Episode v1 | `contracts.mjs`, `episodeCorrelator.mjs` | PS | merged | **Lock** |
 | PS `SpeechCaptureReceipt` v1 + `AcceptedTranscript` | `speechContract.mjs` | PS | merged (gated) | Extend to v2 (`C-01`) |
 | PS3 `SalienceDecision` (context/memory/response + ≤4 reasons, `decisionKey`, `policyVersion`) | current `main` | PS3 | merged; deployed shadow; live evaluation/telemetry exercised | **Lock**; C-03 acknowledgement is implemented |
-| ACT `LSA.Activities.v1` frames; `ActionReceipt` states; `ResumeToken` rules | ACT0/1, ACT2 branches | ACT | branch | Lock at merge |
-| ACT capability registry | `activity-capabilities.v1.json` sha256 `31ed6e6d…` (identical on ACT0/1 and ACT2) | ACT | branch | Lock (`directed_interaction` stays ACT7) |
-| Radio raw signals `radio_changed`/`radio_stopped`; `radioTracks.v1.json` | R0–R2 branch | PS | branch | Lock as raw facts |
+| ACT `LSA.Activities.v1` frames; `ActionReceipt` states; `ResumeToken` rules | merged ACT0–ACT2 | ACT | merged through PR #18; recorded installed/smoke-tested | Lock; focused capability probes remain open |
+| ACT capability registry | `activity-capabilities.v1.json` sha256 `31ed6e6d…` (merged ACT0–ACT2) | ACT | merged | Lock (`directed_interaction` stays ACT7) |
+| Radio raw signals `radio_changed`/`radio_stopped`; `radioTracks.v1.json` | R0–R5/v2 unmerged stack | PS | unmerged; v2 tests/build/GTA/provenance gates open | Raw facts only; R5 must contribute through C-04 |
 | CGE runtime contract | current plan | CGE | plan | **Reconciled**: yield to `ConversationLookBehavior`; consume C-01; body turns belong to ACT3 |
 | PS6 `DirectorTicket` (research) | PS/SD research §9 | Director | research | Lock the shape; extend with `directorIntentId` (`C-11`) |
 
@@ -217,7 +217,7 @@ set on every P2 control, ACT BeginOwnership/EndOwnership; on ACT terminal derive
 (FollowPlayerOnFoot, FollowPaused, SitOnGroundMode, …) instead of writing "idle"
 ```
 
-- **Phase:** ACT2 reconciliation.
+- **Phase:** remaining integration after merged ACT2; unified master phase 6. No owner truth is inferred from merge/deployment.
 
 ### C-07 TimelineGuard
 
@@ -252,7 +252,7 @@ validation.v1.json committed per GTA acceptance session
 ```
 
 - **Rule:** read model only. Subsystems still enforce their own gates.
-- **Phase:** thin version with the ACT0/1 merge.
+- **Phase:** remaining thin read-model integration against merged ACT0–ACT2; unified master phase 5.
 
 ### C-10 Conversation-partner policy
 
@@ -288,7 +288,7 @@ P2 host owns the single clock/world discontinuity detector and broadcasts
 world_epoch { epoch, reason: clock_regression|host_reload|timeline_change } to PS, ACT, UX4, CGE.
 ```
 
-- **Phase:** ACT0/1 reconciliation.
+- **Phase:** next shared-host integration against merged ACT0–ACT2; unified master phase 1.
 
 ### C-14 ObserverSituation provider
 

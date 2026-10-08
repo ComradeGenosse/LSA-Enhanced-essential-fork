@@ -18,3 +18,5 @@ one utterance
 ```
 
 Do not fan one utterance into independent STT/model stacks per nearby NPC. Do not let the Director become a second physical executor.
+
+The [unified intelligence master plan](../../UNIFIED-LSA-INTELLIGENCE-IMPLEMENTATION-PLAN-20261008.md#9-source-time-speech-proximity-hearing-and-conversation-evidence) reconciles this domain with all C-01–C-15 contracts and supplies exact integration phases/tests/gates. Baseline PS4 does not wait for optional enrichment; original research/provenance and the detailed PS4 plan remain preserved.

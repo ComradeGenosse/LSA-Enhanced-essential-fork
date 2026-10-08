@@ -13,7 +13,9 @@
     "ownership": "docs/research/system-ownership-matrix.md",
     "dependencyGraph": "docs/research/system-convergence-dependency-graph.md",
     "risks": "docs/research/system-convergence-risks.md",
-    "machineContracts": "docs/research/system-contracts.v1.json"
+    "machineContracts": "docs/research/system-contracts.v1.json",
+    "masterImplementationPlan": "docs/research/UNIFIED-LSA-INTELLIGENCE-IMPLEMENTATION-PLAN-20261008.md",
+    "sourceAudit": "docs/research/unified-intelligence-source-audit-20261008.json"
   },
   "authorityOrder": [
     "current-status",
@@ -137,13 +139,51 @@
   },
   "documents": [
     {
+      "id": "unified-lsa-intelligence-master-plan-20261008",
+      "path": "docs/research/UNIFIED-LSA-INTELLIGENCE-IMPLEMENTATION-PLAN-20261008.md",
+      "type": "master-implementation-plan",
+      "authority": "supporting",
+      "status": "current",
+      "sourceRef": "main@7e54b17b53f2786f3e9294e546db6b560fb5f6a7; PR21@dafa170f648cf44d776761ff893df863d73e25aa",
+      "incorporatedInto": [
+        "C-01",
+        "C-02",
+        "C-03",
+        "C-04",
+        "C-05",
+        "C-06",
+        "C-07",
+        "C-08",
+        "C-09",
+        "C-10",
+        "C-11",
+        "C-12",
+        "C-13",
+        "C-14",
+        "C-15"
+      ]
+    },
+    {
+      "id": "unified-intelligence-source-audit-20261008",
+      "path": "docs/research/unified-intelligence-source-audit-20261008.json",
+      "type": "source-audit",
+      "authority": "supporting",
+      "status": "current",
+      "sourceRef": "main@7e54b17b53f2786f3e9294e546db6b560fb5f6a7"
+    },
+    {
       "id": "ps4-code-level-implementation-plan-20261008",
       "path": "docs/research/PS4-code-level-implementation-plan-20261008.md",
       "type": "implementation-plan",
       "authority": "supporting",
       "status": "current",
       "sourceRef": "main@7e54b17b53f2786f3e9294e546db6b560fb5f6a7",
-      "incorporatedInto": ["C-02", "C-04", "C-13", "C-14"]
+      "incorporatedInto": [
+        "C-02",
+        "C-04",
+        "C-13",
+        "C-14"
+      ]
     },
     {
       "id": "ps4-dialogue-knowledge-update-20261008",

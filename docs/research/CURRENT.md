@@ -1,6 +1,6 @@
 # LSA Research Corpus — Current Architectural Truth
 
-Updated: 2026-10-05.
+Updated: 2026-10-08. Source reconciliation: `main@7e54b17` and PR #21; this update is planning only.
 
 This document summarizes **what the research corpus currently believes**. It is not the implementation/deployment ledger; use [../ROADMAP.md](../ROADMAP.md) for that.
 
@@ -27,9 +27,9 @@ This document summarizes **what the research corpus currently believes**. It is 
 
 ## Current repository state
 
-Current `main` contains the dialogue/provider foundation E1–E6, P0–P2, UX0–UX4, PS0–PS3, and bounded intelligence JSONL telemetry. PS3 is deployed in shadow and live PS2→PS3 evaluation/telemetry has been exercised.
+Current `main` contains the dialogue/provider foundation E1–E6, P0–P2, UX0–UX4, PS0–PS3, ACT0–ACT2, and bounded intelligence JSONL telemetry. PS3 is deployed in shadow and live PS2→PS3 evaluation/telemetry has been exercised. ACT0–ACT2 merged through PR #18 on October 6; the 83-file install and integrated GTA smoke test are recorded, while focused capability probes/default-off gates remain open.
 
-ACT0/ACT1 and ACT2 are substantial implemented-but-unmerged branches. Radio R0–R2 is implemented but unmerged. CGE and PS4+ remain planned/researched rather than implemented.
+Radio R0–R5/v2 is implemented on the unmerged `feature/radio-track-perception-v2-text-id@ad6cad61` stack; its fresh offline/build/GTA/catalog release gates are not closed. Its R5 live observer/contextText writer must be converted to the frozen C-04 seam before incorporation. CGE, proximity routing and PS4+ remain planned/researched rather than implemented. Existing P2 canon/manual memories already enrich dialogue; PS2/PS3 world awareness still stops before Luna requests.
 
 For exact gates and GTA acceptance state, use [../ROADMAP.md](../ROADMAP.md).
 
@@ -58,7 +58,7 @@ The normative contract definitions are in [system-contract-register.md](system-c
 ## Current dependency spine
 
 ```text
-ACT0/1 + ACT2 reconciliation
+Merged ACT0–ACT2 + PS/P2 shared-host convergence
           │
           ├── C-02 shared anchors
           ├── C-06 owner token
@@ -92,9 +92,9 @@ PS6 Director proposals
 
 ## Current next-work interpretation
 
-The roadmap currently prioritizes fresh UX4 acceptance, ACT0/1 reconciliation, then ACT2 reconciliation. After ACT consolidation, **PS4 TurnKnowledgeFrame and ACT3 rich short-range activities are the next major architectural implementations** and can proceed in parallel once their prerequisites are met.
+The [unified intelligence master plan](UNIFIED-LSA-INTELLIGENCE-IMPLEMENTATION-PLAN-20261008.md) is the implementation sequencing blueprint. Preserve the [PR #21 PS4 code-level plan](PS4-code-level-implementation-plan-20261008.md) as its detailed MVP specification. Next: C-02/C-13 actor/host association → qualified PS2/C-14 → frozen C-04 → all Luna request paths → controlled MVP acceptance. ACT0–ACT2 do not need rebuilding/remerging. Fresh UX4 physical acceptance and focused ACT probes remain separate validation obligations.
 
-Radio R0–R2 can remain a raw-facts side track. Radio model-visible knowledge waits for PS4. CGE waits for C-01 and remains head/eye-only.
+ACT self-knowledge/C-05/C-06, radio, C-01 hearing/gaze, timeline-safe PS5 memory, then Director/social autonomy are separately gated integrations. Optional radio, gaze, proximity, Genesis and autonomy never block baseline PS4. ACT3 can develop after shared references; advanced physical execution still needs its own probes. Reuse existing PS2 stores, providers, P2 persistence and ACT engine; no new event ledger, service, database or inference router is required.
 
 ## Important historical-status rule
 

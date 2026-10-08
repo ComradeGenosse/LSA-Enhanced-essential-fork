@@ -1,6 +1,6 @@
 # System ownership matrix
 
-Status: **current ownership synthesis**, updated 2026-10-06.
+Status: **current ownership synthesis**, updated 2026-10-08. Detailed code seams and phased integrations: [unified intelligence master plan](UNIFIED-LSA-INTELLIGENCE-IMPLEMENTATION-PLAN-20261008.md).
 
 The detailed October 5 audit matrix is archived at [archive/convergence/system-ownership-matrix-audit-20261005.md](archive/convergence/system-ownership-matrix-audit-20261005.md).
 
@@ -12,6 +12,7 @@ The detailed October 5 audit matrix is archived at [archive/convergence/system-o
 | Explicit UX selection | UX4 | commits through Essential seam | CLEAN |
 | Durable CharacterId | P1 | P2 consumes authenticated binding | LOCKED |
 | Durable profile/canon/manual memory store | P2 | later PS/ACT schemas extend it | LOCKED |
+| Source-time utterance identity/window | C-01 host adapter at proven Essential mic seam | STT/hearing/CGE/UX/social consumers share one id | PLANNED; no live receipt yet |
 | Run-local entity references | intended C-02 shared anchor service | PS/ACT/P2 currently overlap | OPEN convergence item |
 | Facts / episodes / observations | PS0–PS2 | native producers supply evidence | CLEAN |
 | Salience | PS3 | PS4/PS5/PS6 future consumers acknowledge use | CLEAN; C-03 implemented |
@@ -25,6 +26,8 @@ The detailed October 5 audit matrix is archived at [archive/convergence/system-o
 | Automatic durable experience | P2/Profile v2 behind TimelineGuard | PS5/PS7/ACT7 future writers | BLOCKED on C-07/C-08/C-15 |
 | Run/world epoch | future C-13 shared service | current channels have local epochs | OPEN |
 | Situation/activity normalization | future C-14 | PS3/ACT consumers | OPEN |
+| Radio / nearby speech evidence | PS2 witness and PS3 relevance | catalog/STT/playback supply qualified data; PS4 assembles | Radio unmerged; player hearing gated; no extra prompt writer |
+| Provider/voice identity and retries | existing provider stack / P1 voice assignment | C-09 may read health; no new broker/router/store | EXISTING reuse |
 
 ## Non-negotiable ownership rules
 

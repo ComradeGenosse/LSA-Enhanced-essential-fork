@@ -11,6 +11,7 @@ Only unresolved questions that can materially change architecture or implementat
 | Q-005 | **RESEARCH-GATED** | Which GTA navigation primitives are reliable enough for real `lsawalkto` / `lsadriveto` completion semantics? | ACT6 navigation probes and physical completion evidence. |
 | Q-006 | **DEFERRED** | Can LSA reliably detect important third-party script task ownership for promoted peds without false confidence? | Targeted coexistence probes; not required for current ACT0–ACT3 work. |
 | Q-007 | **CGE0 probe** | Which head/eye attention mechanism safely coexists with walking/scenarios/vehicles and Essential ConversationLookBehavior? | Native/RAGE GTA probe; CGE yields on uncertainty. |
-| Q-008 | **RADIO GTA validation** | Does the audible per-song text ID mapping remain stable enough at runtime to join the public radio catalog without container ambiguity? | R0A/R0–R2 GTA validation; raw facts remain safe regardless. |
+| Q-008 | **RADIO GTA validation** | Does v2 text-ID/station mapping and same-vehicle audibility hold for known/unknown/commercial/off content and listener changes? | Unmerged v2 Gate B plus master phase 7 initial-stable/new-listener/exit tests; not an MVP prerequisite. |
+| Q-009 | **C-05 integration probe** | Which pinned publication→native callback association disambiguates exact tuple/body/action, including ordinary actors and overlapping same-name actions? | Master phase 6 passive receipt probe/tests; callback payload currently has no full tuple and ACT ring is gated to owned sessions. Ambiguity stays unknown; baseline visual PS4 is independent. |
 
 Resolved questions should be removed from this active table only after their answer is captured in a contract/decision/status document; historical evidence remains preserved.

@@ -13,3 +13,5 @@ Current source/status:
 The pre-merge implementation plan is preserved at [archive/ux](../../archive/ux/UX4-talk-targeting-implementation-plan-20261004.md) and must not be used to infer current merge state.
 
 Current rule: UX may select/commit a target; successful input release does not make UX the owner of Essential's conversation-partner lifetime.
+
+The [unified intelligence master plan](../../UNIFIED-LSA-INTELLIGENCE-IMPLEMENTATION-PLAN-20261008.md#9-source-time-speech-proximity-hearing-and-conversation-evidence) reconciles this domain with all C-01–C-15 contracts and supplies exact integration phases/tests/gates. Baseline PS4 does not wait for optional enrichment; original research/provenance and the detailed PS4 plan remain preserved.
