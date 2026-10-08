@@ -33,7 +33,7 @@ function validDecision(d) {
 }
 export function selectKnowledge(inputs,{includePerceived=true}={}) {
   const omissions={unsupported_claim_detail:0,revision_mismatch:0,no_matching_salience:0,budget_excluded:0,safety_overflow:0};
-  const result={observations:[],selected:[],omissions};
+  const result={observations:[],selected:[],omissions,safetyBudget:{reservedBytes:KNOWLEDGE_LIMITS.safetyReserveBytes,usedBytes:0,remainingBytes:KNOWLEDGE_LIMITS.safetyReserveBytes}};
   if(!includePerceived || inputs?.ownerPendingProof || inputs?.reason || !inputs?.association || !Array.isArray(inputs.pairs)) return immutableSnapshot(result);
   const observer=inputs.association.captureRef,counts=new Map();for(const pair of inputs.pairs) counts.set(pair?.observation?.observationId,(counts.get(pair?.observation?.observationId)||0)+1);
   const valid=[];
@@ -50,7 +50,9 @@ export function selectKnowledge(inputs,{includePerceived=true}={}) {
     const claims=pair.observation.claims.map(claim=>projectKnowledgeClaim(claim,pair.observation,observer)).filter(Boolean);
     omissions.unsupported_claim_detail+=pair.observation.claims.length-claims.length;if(!claims.length) continue;
     const item={event:pair.observation.eventType,claims,freshness:'recent'};
-    if(result.observations.length>=KNOWLEDGE_LIMITS.observations || jsonBytes({observations:[...result.observations,item]})>KNOWLEDGE_LIMITS.perceivedBytes) {omissions.budget_excluded++;if(pair.decision.context==='must_include') omissions.safety_overflow++;continue;}
+    const safety=pair.decision.context==='must_include',bytes=jsonBytes({observations:[...result.observations,item]}),limit=KNOWLEDGE_LIMITS.perceivedBytes-(safety?0:result.safetyBudget.remainingBytes);
+    if(result.observations.length>=KNOWLEDGE_LIMITS.observations || bytes>limit) {omissions.budget_excluded++;if(pair.decision.context==='must_include') omissions.safety_overflow++;continue;}
+    if(safety){result.safetyBudget.usedBytes+=bytes-jsonBytes({observations:result.observations});result.safetyBudget.remainingBytes=Math.max(0,KNOWLEDGE_LIMITS.safetyReserveBytes-result.safetyBudget.usedBytes);}
     result.observations.push(item);result.selected.push({observationId:pair.observation.observationId,revision:pair.observation.revision,decisionKey:pair.decision.decisionKey});
   }
   return immutableSnapshot(result);

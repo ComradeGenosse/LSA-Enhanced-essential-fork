@@ -246,3 +246,10 @@ Added a real retryable 503 case in which PS2/PS3 replaces the observation decisi
 No production source, deployment, enabling or capability declaration changed. Explicit safety reserve/pressure diagnostics, remaining baseline support/interop/fault/GTA gates and later master-plan phases remain unfinished. The full goal remains active.
 
 Validation: final explicit offline Node suite 510/510, zero failed/cancelled; git diff --check passed.
+
+
+## Checkpoint 20: explicit selector safety reserve
+
+The existing selector now explicitly accounts for the planned 2-KiB safety reserve inside the unchanged 8-KiB PERCEIVED bound. Highest-ranked must_include items are admitted first; routine items cannot use the unfilled reserve. Serialized item/envelope growth is measured rather than estimated. Private immutable selection diagnostics record reserved, used and remaining bytes; final rendered per-lane/allocation bytes continue to use actual serialization. Whole-item/count/overflow omissions and existing ordering remain unchanged; no new scoring or entitlement policy is introduced. Selection reserve diagnostics describe selector admission before later frame packing/pruning.
+
+Validation: full explicit offline Node suite 512/512, zero failed/cancelled; git diff --check passed. Tests verify unused/partially used reserve, immutable byte counters, safety-first retention among 100 routine candidates, eight whole retained items/93 deterministic omissions, stable repeated output and unchanged frozen inputs. Full paired-store pressure/omission instrumentation and the remaining support/interop/owned/fault/GTA matrix are still required. No deployment, capability activation, native production source or GTA acceptance changed. Later master-plan phases remain unfinished and the full goal remains active.

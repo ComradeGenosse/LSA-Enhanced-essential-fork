@@ -34,3 +34,20 @@ test('expired, mismatched revision, duplicate, and retired target evidence is ex
 test('disabled perceived lane has no selected keys',()=>{
  assert.deepEqual(selectKnowledge(fixture(),{includePerceived:false}).selected,[]);
 });
+
+
+test('perceived selection explicitly reserves safety bytes before routine context',()=>{
+ const routine=selectKnowledge(fixture());assert.deepEqual(routine.safetyBudget,{reservedBytes:2048,usedBytes:0,remainingBytes:2048});
+ const inputs=fixture();inputs.pairs[0].observation.claims[0].target={captureRef:inputs.association.captureRef,kind:'ped'};inputs.pairs[0].observation.claims[0].evidence.channel='self';inputs.pairs[0].decision=evaluateSalience(inputs.pairs[0].observation,inputs.pairs[0].situation);
+ assert.equal(inputs.pairs[0].decision.context,'must_include');const selected=selectKnowledge(inputs);assert.equal(selected.selected.length,1);assert.ok(selected.safetyBudget.usedBytes>0);assert.equal(selected.safetyBudget.remainingBytes,Math.max(0,2048-selected.safetyBudget.usedBytes));assert.ok(Object.isFrozen(selected.safetyBudget));
+});
+
+test('routine pressure preserves safety priority and deterministic whole-item omissions',()=>{
+ const inputs=fixture(),original=inputs.pairs[0];inputs.pairs=[];
+ for(let index=0;index<101;index++){
+  const observation=structuredClone(original.observation);observation.observationId=randomUUID();observation.episodeId=randomUUID();
+  if(index===100){observation.claims[0].target={captureRef:inputs.association.captureRef,kind:'ped'};observation.claims[0].evidence.channel='self';}
+  inputs.pairs.push({observation,situation:original.situation,decision:evaluateSalience(observation,original.situation)});
+ }
+ const before=JSON.stringify(inputs),result=selectKnowledge(inputs);assert.equal(result.selected.length,8);assert.equal(result.selected[0].observationId,inputs.pairs[100].observation.observationId);assert.equal(result.omissions.budget_excluded,93);assert.equal(result.omissions.safety_overflow,0);assert.ok(result.safetyBudget.usedBytes>0);assert.deepEqual(selectKnowledge(inputs),result);assert.equal(JSON.stringify(inputs),before);
+});

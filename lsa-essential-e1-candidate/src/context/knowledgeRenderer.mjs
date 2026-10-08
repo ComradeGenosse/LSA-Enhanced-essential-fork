@@ -95,7 +95,7 @@ export function renderKnowledge({turn,frozenAt,profile,persistent=false,knowledg
  const modelAllocation=allocation(),bytes=jsonBytes(modelAllocation);
  if(bytes>KNOWLEDGE_LIMITS.frameBytes)throw new RangeError('knowledge_frame_bytes');
  const perLane=Object.fromEntries(Object.entries(lanes).map(([name,value])=>[name,jsonBytes(value)]));perLane.CONVERSE=jsonBytes(conversation.messages);
- return immutableSnapshot({frameVersion:1,turn,frozenAt,modelAllocation,delivery,memoryIds:memories.slice(0,lanes.RECALLED.memories.length).map(memory=>memory.memoryId),diagnostics:{bytes,perLane,omissions,frameBudgetDrops,droppedHistoryCount:conversation.droppedHistoryCount,droppedMemoryCount:canonProjection.droppedMemoryCount+memories.length-lanes.RECALLED.memories.length}});
+ return immutableSnapshot({frameVersion:1,turn,frozenAt,modelAllocation,delivery,memoryIds:memories.slice(0,lanes.RECALLED.memories.length).map(memory=>memory.memoryId),diagnostics:{bytes,perLane,safetyBudget:perceived.safetyBudget,omissions,frameBudgetDrops,droppedHistoryCount:conversation.droppedHistoryCount,droppedMemoryCount:canonProjection.droppedMemoryCount+memories.length-lanes.RECALLED.memories.length}});
 
 }
 
