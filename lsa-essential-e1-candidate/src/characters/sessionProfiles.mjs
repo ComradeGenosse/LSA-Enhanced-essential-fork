@@ -102,7 +102,7 @@ function appendStringWithinBudget(target,key,value,field,truncatedFields,maxByte
   truncatedFields.add(field);
 }
 
-function selectedDialogueMemories(memories = []) {
+export function selectedDialogueMemories(memories = []) {
   if (!Array.isArray(memories)) return [];
   return memories.filter(memory => memory?.selectedForContext === true)
     .map(memory => ({ memoryId:memory.memoryId,category:memory.category,

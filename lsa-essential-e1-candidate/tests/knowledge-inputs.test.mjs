@@ -37,7 +37,7 @@ test('observer observations and matching salience revisions freeze before later 
   const f=fixture();const fire=()=>f.send('signal',{signalId:randomUUID(),producer:'shooting',producerSequence:f.perception.producers.get('shooting')+1||1,kind:'firing',target:null,source:f.captureRef,gameTick:10,ageMs:0,facts:{}});
   assert.equal(fire(),true);const frozen=f.capture();assert.ok(frozen.pairs.length>0);const before=JSON.stringify(frozen);
   f.setNow(100);fire();f.block.sampledGameTick=100;assert.equal(JSON.stringify(frozen),before);assert.equal(frozen.association.sampledGameTick,10);
-  for(const pair of frozen.pairs) {assert.equal(pair.observation.revision,pair.decision.revision);assert.equal(Object.isFrozen(pair.observation.claims),true);assert.equal(pair.situation,null);}
+  for(const pair of frozen.pairs) {assert.equal(pair.observation.revision,pair.decision.revision);assert.equal(Object.isFrozen(pair.observation.claims),true);assert.equal(pair.situation.activity,'unknown');assert.equal(Object.isFrozen(pair.situation),true);}
 });
 test('actor capture schema is closed and ownership cannot be inferred',()=>{
   const f=fixture();for(const patch of [{version:2},{characterId:randomUUID()},{worldEpoch:0},{sampledGameTick:-1},{encounterId:randomUUID()}]) assert.equal(Boolean(validateActorCapture({...f.block,...patch})),false);

@@ -48,6 +48,8 @@ namespace LSA.Intelligence
         Dictionary<string,bool> capabilities=new Dictionary<string,bool>();
         readonly object rosterGate=new object();
         readonly Dictionary<string,AnchorWireState> publishedAnchorStates=new Dictionary<string,AnchorWireState>();
+        long situationRevision;
+        readonly Dictionary<string,object> sampledSituations=new Dictionary<string,object>();
         readonly Dictionary<string,string> publishedObserverIndex=new Dictionary<string,string>();
         readonly System.Web.Script.Serialization.JavaScriptSerializer captureJson=new System.Web.Script.Serialization.JavaScriptSerializer {MaxJsonLength=8192};
         readonly List<string> pendingRetirements=new List<string>();
@@ -88,7 +90,7 @@ namespace LSA.Intelligence
         }
         void WorldChanged(int epoch,string reason) {
             if(!IsAvailable) return;
-            sensors.Reset();lock(rosterGate) {publishedAnchorStates.Clear();publishedObserverIndex.Clear();}pendingRetirements.Clear();
+            sensors.Reset();lock(rosterGate) {publishedAnchorStates.Clear();publishedObserverIndex.Clear();sampledSituations.Clear();}pendingRetirements.Clear();
             conversationRef=null;discoverySnapshot=null;discoveryOwned=new OwnedParticipant[0];UpdateIndexes();
             // Ordered control fact invalidates all prior observer state. Losing
             // it closes the bounded channel; reconnect republishes current host.
@@ -139,7 +141,7 @@ namespace LSA.Intelligence
             return a;
         }
         AnchorWireState Describe(EntityAnchor a)=>new AnchorWireState {CaptureRef=a.CaptureRef,Kind=a.Kind,Observer=a.Observer,Owned=a.OwnerLifetime!=null,Conversation=a.CaptureRef==conversationRef};
-        void OnRetired(EntityAnchor a) {retiredAnchors=Math.Min(int.MaxValue,retiredAnchors+1);sensors.Retire(a.CaptureRef);lock(rosterGate) {publishedAnchorStates.Remove(a.CaptureRef);publishedObserverIndex.Remove(a.CaptureRef);}if(pendingRetirements.Count<256) pendingRetirements.Add(a.CaptureRef);else channel?.Dispose();}
+        void OnRetired(EntityAnchor a) {retiredAnchors=Math.Min(int.MaxValue,retiredAnchors+1);sensors.Retire(a.CaptureRef);lock(rosterGate) {publishedAnchorStates.Remove(a.CaptureRef);publishedObserverIndex.Remove(a.CaptureRef);sampledSituations.Remove(a.CaptureRef);}if(pendingRetirements.Count<256) pendingRetirements.Add(a.CaptureRef);else channel?.Dispose();}
         void FlushControls(bool refreshRoster=false)
         {
             lock(rosterGate) {
@@ -152,6 +154,8 @@ namespace LSA.Intelligence
                 var stable=current.Where(a=>!demotionRefs.Contains(a.CaptureRef)&&!promotionRefs.Contains(a.CaptureRef)&&(refreshRoster||!publishedAnchorStates.TryGetValue(a.CaptureRef,out var old)||!a.Same(old))).ToArray();
                 if(!SendAnchorStates(demotions)||!SendAnchorStates(stable)||!SendAnchorStates(promotions)) return;
                 SendObserverIndex(refreshRoster);
+                foreach(var batch in sampledSituations.Where(pair=>publishedAnchorStates.ContainsKey(pair.Key)).Select(pair=>pair.Value).Select((row,i)=>new {row,i}).GroupBy(item=>item.i/32)) if(channel?.Send("observer_situation",batch.Select(item=>item.row).ToArray())!=true) return;
+                sampledSituations.Clear();
             }
         }
         OwnedParticipant Association(EntityAnchor anchor) => (roster()??new OwnedParticipant[0]).FirstOrDefault(p=>p!=null && ReferenceEquals(p.Ped,anchor.Entity) && p.Lifetime==anchor.OwnerLifetime && p.EncounterId!=null && Guid.TryParse(p.EncounterId,out var unused) && p.Current?.Invoke()==true);
@@ -210,7 +214,7 @@ namespace LSA.Intelligence
                 if(ownsHost) host.ObserveGameTick(tick);
                 previousTick=tick;
                 lineOfSightBudget=8;
-                if(channel.ConnectionVersion!=connectionVersion) {connectionVersion=channel.ConnectionVersion;lock(rosterGate) {publishedAnchorStates.Clear();publishedObserverIndex.Clear();}nextRefresh=0;}
+                if(channel.ConnectionVersion!=connectionVersion) {connectionVersion=channel.ConnectionVersion;lock(rosterGate) {publishedAnchorStates.Clear();publishedObserverIndex.Clear();sampledSituations.Clear();}nextRefresh=0;}
                 if(now>=nextDiscovery) {
                     nextDiscovery=now+200;
                     var player=Game.LocalPlayer.Character;
@@ -319,9 +323,29 @@ namespace LSA.Intelligence
             }
             return result;
         }
+        string ObserverActivity(EntityAnchor anchor,Ped ped)
+        {
+            try {
+                if(anchors.Resolve(anchor.CaptureRef)==null || ped.IsDead) return "unknown";
+                if(NativeFunction.CallByName<bool>("IS_PED_IN_ANY_VEHICLE",ped,false)) {
+                    var vehicle=ped.CurrentVehicle;if(vehicle==null || !vehicle.Exists()) return "in_vehicle";
+                    var driver=vehicle.Driver;if(driver==null || !driver.Exists()) return "in_vehicle";
+                    if(ReferenceEquals(driver,ped)) return "driving";
+                    if(driver.Handle==ped.Handle || driver.MemoryAddress==ped.MemoryAddress) return "in_vehicle";
+                    return "passenger";
+                }
+                var state=NpcStateStore.TryGetState(ped);
+                if(state?.FollowPaused==true) return "unknown";
+                if(state?.FollowPlayerOnFoot==true && !state.FollowPaused) return "following";
+                if(ReferenceEquals(NpcTargeting.GetPlayerConversationPed(),ped)) return "conversation";
+                // No supported complete hold/ambient-ownership sample yet.
+                return "unknown";
+            } catch {return "unknown";}
+        }
         void Sample(EntityAnchor a,uint tick,long now)
         {
             if(anchors.Resolve(a.CaptureRef)==null) return;var p=(Ped)a.Entity;
+            if(a.Observer) sampledSituations[a.CaptureRef]=new {captureRef=a.CaptureRef,sampledGameTick=tick,activity=ObserverActivity(a,p),situationRevision=++situationRevision};
             var v=p.CurrentVehicle;var va=Retain(v,"vehicle");
             if(va!=null) {
                 var driver=v.Driver;var driverAnchor=driver==null?null:anchors.Current.FirstOrDefault(a=>a.Entity is Ped && (Ped)a.Entity==driver);

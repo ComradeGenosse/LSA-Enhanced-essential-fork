@@ -129,6 +129,13 @@ class Program
         host.ObserveGameTick(100);Check(host.WorldEpoch==2 && host.Anchors.Count==0 && shared.IsAvailable,"owner reset clears shared refs and reinitializes optional PS");
         actor.Existing=true;
         var kept=host.Anchors.Retain(actor,(ulong)actor.Handle,actor.MemoryAddress,"ped",null,()=>true,host.MonotonicMs,false,AnchorConsumer.P2Encounter);
+        actor.IsDead=false;
+        string PhysicalActivity()=> (string)shared.GetType().GetMethod("ObserverActivity",BindingFlags.NonPublic|BindingFlags.Instance).Invoke(shared,new object[]{kept,actor});
+        var sampledVehicle=new Vehicle {Handle=900,MemoryAddress=new IntPtr(900),Driver=actor};actor.CurrentVehicle=sampledVehicle;
+        Check(PhysicalActivity()=="driving","exact current driver is driving");sampledVehicle.Driver=null;Check(PhysicalActivity()=="in_vehicle","absent driver cannot prove passenger");
+        sampledVehicle.Driver=player;Check(PhysicalActivity()=="passenger","different valid sampled driver proves passenger");actor.CurrentVehicle=null;
+        NpcTargeting.Conversation=actor;Check(PhysicalActivity()=="conversation","committed exact partner is conversation");NpcTargeting.Conversation=player;Check(PhysicalActivity()=="unknown","unproven ambient mode is unknown");
+        NpcStateStore.Sampled=new NpcState {FollowPlayerOnFoot=true};Check(PhysicalActivity()=="following","active sampled follow flag is following");NpcStateStore.Sampled.FollowPaused=true;Check(PhysicalActivity()=="unknown","paused follow is unknown");NpcStateStore.Sampled=null;
         var captured=new LosSantosAlive.Context.ActorContext {PedId=actor.Handle.ToString()};
         shared.EnrichActor(actor,captured);
         Check(captured.IntegrationBlocks.Count==1 && captured.IntegrationBlocks[0].Id=="turnKnowledge","exact supplied actor gets reserved private capture");

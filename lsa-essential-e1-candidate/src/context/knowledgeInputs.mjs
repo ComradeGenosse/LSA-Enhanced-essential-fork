@@ -36,12 +36,7 @@ export function captureKnowledgeInputs({identity,source,p0Snapshot,perception,id
     ownerClaim=identityConfig ? actorClaim(actor,identityConfig).claim : null;
     if(!ownerClaim || profile?.version!==1 || profile.encounterId!==index.encounterId || block.encounterId!==index.encounterId || block.incarnationId!==index.incarnationId || ownerClaim.incarnationId!==index.incarnationId || !sameHostContext(ownerEvidence?.hostContext,fence)) return finish({reason:'owner_unverified'});
   } else if(block.encounterId!==undefined || block.incarnationId!==undefined || index.encounterId!==undefined) return finish({reason:'owner_unverified'});
-  const now=perception.now(),pairs=[];
-  for(const entry of perception.observations.entries.values()) {
-    const observation=entry.value,decision=perception.salience.decisions.get(observation.observationId)?.decision;
-    if(observation.observer.captureRef!==block.captureRef || observation.observedAt.nativeRun!==perception.epoch || observation.expiresAtMonotonicMs<=now || !decision || decision.revision!==observation.revision || decision.observationId!==observation.observationId || decision.expiresAtMonotonicMs<=now) continue;
-    pairs.push({observation,decision,situation:null});
-  }
+  const pairs=perception.salience.snapshotForObserver(block.captureRef,perception.observations,perception.now());
   return finish({reason:null,hostRunId:block.hostRunId,worldEpoch:block.worldEpoch,psAdapterEpoch:perception.epoch,psStreamId:perception.stream,association:{...index,sampledGameTick:block.sampledGameTick},ownerClaim,pairs});
 }
 

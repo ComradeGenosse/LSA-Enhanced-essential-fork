@@ -1,3 +1,5 @@
+import { sameHostContext } from '../context/hostContext.mjs';
+import { selectedDialogueMemories } from '../characters/sessionProfiles.mjs';
 import { observeNative } from './nativeDelivery.mjs';
 import { decide } from '../openai/decide.mjs';
 import { transcribePcm } from '../openai/transcribe.mjs';
@@ -45,6 +47,19 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
   const runtime = {
     config, history, services, telemetry, dialogueTrace, providerStack, voiceResolver, identityService,characterService,
     modelActor: actor => withoutCharacterTransport(actor),
+    situationFor(observerRef) {
+      const ps=runtime.intelligence?.runtime,index=ps?.observerIndex.get(observerRef);
+      if(!index?.owned || !ps.current(observerRef) || !sameHostContext(ps.hostContext,identityService?.evidence?.hostContext) || !characterService?.store.loaded) return {};
+      const bindings=identityService.bindings.values().filter(binding=>binding.claim.incarnationId===index.incarnationId && identityService.evidence.isCurrent(binding.claim));
+      if(bindings.length!==1) return {};
+      const profile=characterService.store.get(bindings[0].characterId);if(!profile) return {};
+      const memories=selectedDialogueMemories(profile.memories).slice(0,16).map(selected=>{
+        const memory=profile.memories.find(item=>item.memoryId===selected.memoryId);
+        return {memoryId:memory.memoryId,importance:memory.importance,relatedCharacterIds:memory.relatedCharacterIds};
+      });
+      const playerCurrent=[...ps.anchors.values()].some(anchor=>anchor.kind==='player' && ps.current(anchor.captureRef));
+      return {profile:{...profile,relationship:playerCurrent?profile.relationship:null},memories,bindings:[]}; // Backend identity is never recognition.
+    },
     captureKnowledgeInputs(input) {
       try {return runtime.intelligence?.captureKnowledgeInputs({...input,identityConfig:config.persistentIdentity,ownerEvidence:identityService?.evidence}) ?? null;}
       catch {return null;} // Optional knowledge failure cannot prevent an Essential turn.

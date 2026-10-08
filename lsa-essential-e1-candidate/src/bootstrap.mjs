@@ -97,7 +97,7 @@ export async function createRuntimeForBundle(options = {}) {
     if(perceptionContractSupported(contract)) {
       try {
         const suppliedIntelligenceTelemetry=options.intelligenceOptions?.telemetry;
-        const intelligenceOptions={...options.intelligenceOptions,telemetry:(event,data)=>{
+        const intelligenceOptions={situationFor:ref=>runtime.situationFor(ref),...options.intelligenceOptions,telemetry:(event,data)=>{
           try { suppliedIntelligenceTelemetry?.(event,data); } catch {}
           try { telemetry?.emit?.(event,null,'internal',data,'internal'); } catch {}
         }};

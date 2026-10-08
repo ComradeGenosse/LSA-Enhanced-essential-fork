@@ -36,8 +36,8 @@ namespace LosSantosAlive.Integrations {
     public interface IIntegration {string Id{get;}bool IsAvailable{get;}void Initialize();void Update();void Shutdown();void EnrichActor(Rage.Ped p,LosSantosAlive.Context.ActorContext c);void OnPedControlChanged(Rage.Ped p,bool controlled);void OnNpcActionExecuted(Rage.Ped p,string action,bool succeeded);}
 }
 namespace LosSantosAlive.NPC {
-    public class NpcState {public bool InDirectedInteraction;}
-    public static class NpcStateStore {public static int Creates;public static NpcState TryGetState(Rage.Ped p)=>null;}
+    public class NpcState {public bool InDirectedInteraction,FollowPlayerOnFoot,FollowPaused;}
+    public static class NpcStateStore {public static int Creates;public static NpcState Sampled;public static NpcState TryGetState(Rage.Ped p)=>Sampled;}
     public static class NpcTargeting {public static Rage.Ped Conversation;public static Rage.Ped GetPlayerConversationPed()=>Conversation;public static Rage.Ped GetCurrentSpeakerPed()=>null;}
 }
 namespace LosSantosAlive.NPC.Perception {

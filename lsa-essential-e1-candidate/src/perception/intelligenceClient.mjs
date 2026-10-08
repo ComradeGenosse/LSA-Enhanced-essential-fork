@@ -71,8 +71,8 @@ export class IntelligenceClient {
   captureKnowledgeInputs(input) {return captureKnowledgeInputs({...input,perception:this.runtime});}
   assertKnowledgeCurrent(inputs) {return assertKnowledgeCurrent(inputs,this.runtime);}
   acceptPlayerTranscript(input) {return this.runtime.acceptPlayerTranscript(input);}
-  constructor(config,{connect=options=>net.createConnection(options),now,report=summary=>console.info('[PS] companion_shadow '+JSON.stringify(summary)),telemetry=()=>{}}={}) {
-    this.config=config;this.connect=connect;this.runtime=new ShadowRuntime({mode:config.mode,now});this.report=report;this.telemetry=telemetry;this.closed=false;this.socket=null;this.lastReport=0;
+  constructor(config,{connect=options=>net.createConnection(options),now,situationFor,report=summary=>console.info('[PS] companion_shadow '+JSON.stringify(summary)),telemetry=()=>{}}={}) {
+    this.config=config;this.connect=connect;this.runtime=new ShadowRuntime({mode:config.mode,now,situationFor});this.report=report;this.telemetry=telemetry;this.closed=false;this.socket=null;this.lastReport=0;
   }
   persist(event,data={}) { try { this.telemetry(event,data); } catch {} }
   summary(finalSnapshot=false) {
