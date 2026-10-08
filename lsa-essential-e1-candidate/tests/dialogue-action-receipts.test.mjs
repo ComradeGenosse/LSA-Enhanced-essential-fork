@@ -39,3 +39,27 @@ test('C05 adapter bounds pending and receipts and rejects unvalidated publicatio
  for(let n=0;n<200;n++){const row=store.publish({...publication,publishedAtMs:7000+n});store.callback({...callback(row),receivedAtMs:7000+n});}
  assert.equal(store.read(binding).length,16);
 });
+test('C05 ambiguity guards survive receipt eviction and bounded quarantine pressure',()=>{
+ const store=new DialogueActionReceipts();store.publish(publication);store.publish(publication);
+ for(let n=0;n<150;n++){
+  const row=store.publish({...publication,binding:{...binding,encounterId:id(n+10)}});
+  store.callback(callback(row));
+ }
+ assert.equal(store.read(binding).length,0);
+ assert.equal(store.publish({...publication,publishedAtMs:200}).reason,'ambiguous_publication');
+ for(let n=0;n<40;n++){
+  const candidate={...publication,binding:{...binding,encounterId:id(n+200)}};
+  store.publish(candidate);store.publish(candidate);
+ }
+ assert.equal(store.publish({...publication,binding:{...binding,encounterId:id(999)},publishedAtMs:200}).state,'UNKNOWN');
+ const later=store.publish({...publication,publishedAtMs:6000});assert.equal(store.callback({...callback(later),receivedAtMs:6001}).state,'HANDLER_ACCEPTED');
+});
+test('C05 dropped callback batch invalidates every pending publication, including unannotated overflow',()=>{
+ for(const reason of ['callback_overflow','channel_lost','annotation_failed']){
+  const store=new DialogueActionReceipts(),first=store.publish(publication),second=store.publish({...publication,canonicalAction:'waithere'});
+  if(reason==='callback_overflow')assert.equal(store.callback({...callback(first),publicationId:undefined,overflowed:true}),null);
+  else assert.equal(store.invalidateCallbacks(reason).length,2);
+  assert.equal(store.pendingCount,0);assert.equal(store.callback(callback(second)),null);assert.equal(store.read(binding).every(row=>row.state==='UNKNOWN' && row.reason===reason),true);
+  assert.equal(store.publish({...publication,publishedAtMs:150}).state,'UNKNOWN');
+ }
+});

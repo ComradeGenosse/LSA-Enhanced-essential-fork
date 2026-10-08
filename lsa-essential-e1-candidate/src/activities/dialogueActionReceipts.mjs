@@ -12,7 +12,14 @@ const tick=value=>Number.isSafeInteger(value) && value>=0 && value<=0xffffffff;
 // publication id AND tuple/body/host scope. Never infer the latest matching turn.
 // No lease, dispatcher, timer, history commit or physical-completion authority.
 export class DialogueActionReceipts {
- #pending=new Map();#receipts=[];
+ #pending=new Map();#receipts=[];#quarantine=[];#unsafeUntil=-1;
+ #quarantineAction(row){
+  const until=row.publishedAtMs+5000;
+  const existing=this.#quarantine.find(other=>sameBinding(other.binding,row.binding) && other.canonicalAction===row.canonicalAction);
+  if(existing){existing.until=Math.max(existing.until,until);return;}
+  if(this.#quarantine.length>=32){this.#unsafeUntil=Math.max(this.#unsafeUntil,until);return;}
+  this.#quarantine.push({binding:row.binding,canonicalAction:row.canonicalAction,until});
+ }
  #finish(row,state,reason,atGameTick=null){
   this.#pending.delete(row.publicationId);
   const receipt=immutableSnapshot({...row,state,reason,atGameTick,evidence:state==='HANDLER_ACCEPTED'?'handler_only':'none'});
@@ -20,6 +27,7 @@ export class DialogueActionReceipts {
  }
  expire(now){
   if(!Number.isSafeInteger(now) || now<0)return;
+  this.#quarantine=this.#quarantine.filter(row=>now<=row.until);
   for(const row of this.#pending.values())if(now<row.publishedAtMs || now-row.publishedAtMs>5000)this.#finish(row,'UNKNOWN',now<row.publishedAtMs?'clock_regression':'callback_timeout');
  }
  publish({tuple,binding,canonicalAction,publishedAtMs,allowedActions}={}){
@@ -27,20 +35,26 @@ export class DialogueActionReceipts {
   this.expire(publishedAtMs);
   const row=immutableSnapshot({publicationId:randomUUID(),tuple:Object.fromEntries(tupleKeys.map(key=>[key,tuple[key]])),binding:{encounterId:binding.encounterId,incarnationId:binding.incarnationId,hostContext:readHostContext(binding.hostContext)},canonicalAction,publishedAtMs});
   const overlaps=[...this.#pending.values()].filter(other=>sameBinding(other.binding,row.binding) && other.canonicalAction===canonicalAction);
-  const quarantined=this.#receipts.some(other=>other.reason==='ambiguous_publication' && sameBinding(other.binding,row.binding) && other.canonicalAction===canonicalAction && publishedAtMs-other.publishedAtMs<=5000);
-  if(overlaps.length || quarantined){for(const other of overlaps)this.#finish(other,'UNKNOWN','ambiguous_publication');return this.#finish(row,'UNKNOWN','ambiguous_publication');}
+  const quarantined=publishedAtMs<=this.#unsafeUntil || this.#quarantine.some(other=>sameBinding(other.binding,row.binding) && other.canonicalAction===canonicalAction);
+  if(overlaps.length || quarantined){this.#quarantineAction(row);for(const other of overlaps)this.#finish(other,'UNKNOWN','ambiguous_publication');return this.#finish(row,'UNKNOWN','ambiguous_publication');}
   if(this.#pending.size>=32)return this.#finish(row,'UNKNOWN','pending_capacity');
   this.#pending.set(row.publicationId,row);return row;
  }
  callback({publicationId,tuple,binding,canonicalAction,succeeded,atGameTick,receivedAtMs,overflowed=false}={}){
   if(!Number.isSafeInteger(receivedAtMs) || receivedAtMs<0)return null;
-  this.expire(receivedAtMs);const row=this.#pending.get(publicationId);if(!row)return null;
-  if(overflowed===true)return this.#finish(row,'UNKNOWN','callback_overflow');
+  this.expire(receivedAtMs);const row=this.#pending.get(publicationId);
+  if(overflowed===true){const receipts=this.invalidateCallbacks('callback_overflow');return receipts.find(receipt=>receipt.publicationId===publicationId)??null;}
+  if(!row)return null;
   if(!validTuple(tuple) || !tupleKeys.every(key=>tuple[key]===row.tuple[key]) || !sameBinding(binding,row.binding) || canonicalAction!==row.canonicalAction || typeof succeeded!=='boolean' || !tick(atGameTick))return this.#finish(row,'UNKNOWN','callback_mismatch');
   return this.#finish(row,succeeded?'HANDLER_ACCEPTED':'FAILED',succeeded?'handler_accepted':'handler_failed',atGameTick);
  }
- retire(binding){for(const row of this.#pending.values())if(sameBinding(row.binding,binding))this.#finish(row,'UNKNOWN','participant_retired');this.#receipts=this.#receipts.filter(row=>!sameBinding(row.binding,binding));}
- reset(){this.#pending.clear();this.#receipts=[];}
+ invalidateCallbacks(reason){
+  if(!['callback_overflow','channel_lost','annotation_failed'].includes(reason))return Object.freeze([]);
+  const receipts=[];for(const row of this.#pending.values()){this.#quarantineAction(row);receipts.push(this.#finish(row,'UNKNOWN',reason));}
+  return immutableSnapshot(receipts);
+ }
+ retire(binding){for(const row of this.#pending.values())if(sameBinding(row.binding,binding))this.#finish(row,'UNKNOWN','participant_retired');this.#receipts=this.#receipts.filter(row=>!sameBinding(row.binding,binding));this.#quarantine=this.#quarantine.filter(row=>!sameBinding(row.binding,binding));}
+ reset(){this.#pending.clear();this.#receipts=[];this.#quarantine=[];this.#unsafeUntil=-1;}
  read(binding){return immutableSnapshot(this.#receipts.filter(row=>sameBinding(row.binding,binding)).slice(-16));}
  get pendingCount(){return this.#pending.size;}
 }
