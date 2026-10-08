@@ -1,3 +1,4 @@
+import {verifyDialogueKnowledgePayload} from './verifyDialogueKnowledgePayload.mjs';
 import { createRequire } from 'node:module';
 import { createHash } from 'node:crypto';
 import { copyFile, mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises';
@@ -273,7 +274,7 @@ async function directoryDigest(directory) {
   return hash.digest('hex');
 }
 
-export async function buildCandidate({ sourcePath = stockBundleDefault, outputPath = path.join(root, 'dist/plugins/LosSantosAliveServer') } = {}) {
+export async function buildCandidate({ nativePayloadPath, sourcePath = stockBundleDefault, outputPath = path.join(root, 'dist/plugins/LosSantosAliveServer') } = {}) {
   const target = await assertNoLinkedOutput(outputPath);
   const source = await readFile(sourcePath, 'utf8');
   const sourceHash = digest(source);
@@ -284,6 +285,7 @@ export async function buildCandidate({ sourcePath = stockBundleDefault, outputPa
   const identityContract = await verifyIdentityContract(dllHash);
   const characterContract = await verifyCharactersContract(dllHash);
   const perceptionContract = await verifyPerceptionContract(dllHash);
+  const knowledgePayload=await verifyDialogueKnowledgePayload(nativePayloadPath,perceptionContract);
   const patched = patchSource(source);
   if (patched.edits.length !== expectedPatchCount) throw new Error(`AST patch inventory changed: expected ${expectedPatchCount}, found ${patched.edits.length}. Re-audit the source seam list before building.`);
   const entry = path.join(target, launcherName);
@@ -301,13 +303,14 @@ export async function buildCandidate({ sourcePath = stockBundleDefault, outputPa
     identityContract,
     characterContract,
     perceptionContract,
-    dialogueKnowledgeContract:{available:false,frameVersion:1,hostContextVersion:1,observerIndexVersion:1,observerSituationVersion:1},
-    stage: 'PS3 DETERMINISTIC SALIENCE + PS2/PS1/PS0/P2', foundationStage: 'P2+P0+P1+E1.1+E2+E3+E5+E6', status: 'candidate-built-offline-ps3-salience-gta-pending', observabilitySchemaVersion: 1, dialogueTraceSchemaVersion: 1,
+    dialogueKnowledgeContract:knowledgePayload.contract,
+    dialogueKnowledgeNativePayload:knowledgePayload.nativePayload,
+    stage: 'PS4 DIALOGUE KNOWLEDGE + PS3/PS2/PS1/PS0/P2', foundationStage: 'P2+P0+P1+E1.1+E2+E3+E5+E6', status: 'candidate-built-offline-ps4-gta-pending', observabilitySchemaVersion: 1, dialogueTraceSchemaVersion: 1,
     features: { structuredStreaming: true, earlySegmentedTts: true, defaultEnabled: false, earlyTtsMode: 'dialogue_only', ttsConcurrency: 1,
       sessionIdentity: { defaultEnabled: false, modes: ['shadow','voices'], storeSchemaVersion: 1, nativeAddressing: 'unchanged' },
       promotedCharacters: { defaultEnabled:false,profileStoreSchemaVersion:1,manualMemoryOnly:true,requiresAuthoredP1Owner:true,nativeAddressing:'unchanged',summonWaitMs:30000,maxSummonWaitMs:60000 },
-      intelligence: {defaultMode:'off',modes:['off','shadow'],phases:['PS0','PS1','PS2','PS3'],witness:'source_sample_visual',playerSpeech:'disabled_unsupported_capture_receipt',salience:'deterministic_local',responderSelection:false,modelContext:false,automaticMemory:false,initiative:false},
-      dialogueKnowledge:{safeBase:true,frameVersion:1,optionalPerceptionDelivery:false,sourcePresence:true,frameBytes:112*1024,requestBytes:160*1024},
+      intelligence: {defaultMode:'off',modes:['off','shadow'],phases:['PS0','PS1','PS2','PS3'],witness:'source_sample_visual',playerSpeech:'disabled_unsupported_capture_receipt',salience:'deterministic_local',responderSelection:false,modelContext:knowledgePayload.contract.available,automaticMemory:false,initiative:false},
+      dialogueKnowledge:{safeBase:true,frameVersion:1,optionalPerceptionDelivery:knowledgePayload.contract.available,sourcePresence:true,frameBytes:112*1024,requestBytes:160*1024},
       dialogueLogging: { defaultEnabled:false,provider:'openai',storage:'rotating-jsonl' } },
     launcherEntry: launcherName, upstreamBundleSha256: sourceHash,
     stockDllReferenceSha256: dllHash, builtBundleSha256: digest(patched.output),
@@ -322,6 +325,6 @@ export async function buildCandidate({ sourcePath = stockBundleDefault, outputPa
 
 const invoked = process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
 if (invoked) {
-  const result = await buildCandidate({ sourcePath: process.env.LSA_E1_SOURCE || stockBundleDefault });
+  const result = await buildCandidate({ sourcePath: process.env.LSA_E1_SOURCE || stockBundleDefault,nativePayloadPath:process.env.LSA_PS4_NATIVE_PAYLOAD });
   console.log(JSON.stringify({ target: result.target, status: result.manifest.status, hash: result.manifest.builtBundleSha256, patchCount: result.manifest.astPatchCount }, null, 2));
 }

@@ -71,3 +71,10 @@ A controlled E5/E6 payload is installed/staged in the live GTA server directory 
 ## P2 promoted characters
 
 The optional P2 system extends the merged P1 authored identity seam with bounded encounter names, independent durable profiles/manual memories, a local character editor, RAGE console controls and an explicitly loaded native owner plugin. Both flags remain default-off. See [P2 setup and invariants](../docs/P2-promoted-characters-status.md) and [native package build](../native/promoted-characters/README.md). `node tools/buildCharactersAddon.mjs` builds a separate compile-only package; ordinary candidate builds never deploy it or run GTA.
+
+
+### PS4 matching build support (implementation branch)
+
+Ordinary companion builds retain an unavailable optional-perception contract and safe base dialogue. To build a PS4-capable companion explicitly, first build the native addon using the pinned references documented above, then set `LSA_PS4_NATIVE_PAYLOAD` to that package directory before running `node tools/buildCandidate.mjs`. Programmatic callers use `buildCandidate({nativePayloadPath})`. The builder verifies the current native compile-source receipt, C-02/C-13/C-14 versions, existing perception pins, and every native artifact hash; mismatches fail the build. Its manifest records the matched native manifest/source/file hashes.
+
+This declares compiled support only. `dialogueKnowledge.mode` remains `off` by default, native intelligence remains off by default, and installed runtime host/version/currentness checks still apply. No build enables perception delivery, deploys to GTA, or establishes physical acceptance. Controlled shadow preview and active requested-turn acceptance follow the unchanged PS4 G6/G7 gates. Source changes require a fresh native build; no stale package is silently accepted.

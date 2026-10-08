@@ -332,3 +332,14 @@ Added a production SalienceCache pressure fixture with 1,024 suppression entries
 No production scoring, retention policy or architecture changed. This closes this specific store-pressure regression, not the complete PS4 T27/T73 or GTA pressure/soak gates. Remaining payload/adversarial/native reset/GTA validation and later master-plan phases remain unfinished. Nothing deployed or enabled; the full goal remains active.
 
 Validation: full explicit offline Node suite 528/528, zero failed/cancelled; focused salience suite 17/17; git diff --check passed.
+
+
+## Checkpoint 30: explicit matching PS4 companion/native payload support
+
+Removed the permanent-unavailable build dead end by adding an explicit `nativePayloadPath` build option (`LSA_PS4_NATIVE_PAYLOAD` for the CLI). Without it, ordinary companion builds retain unavailable optional-perception support. With it, the builder requires the current native compile-source receipt, all C-02/C-13/C-14 version fields, existing pinned perception contracts, and all four package artifact hashes/installation paths. It records the matching native manifest/source/file hashes and declares optional compiled PS4 support. Stale/incompatible/incomplete/modified packages fail the build rather than silently producing an active-looking candidate.
+
+The native builder records a deterministic compile-source hash before compilation and checks that it is unchanged before publishing the build manifest; generated bin/obj and test-only sources are excluded. Existing compile-only reference pins and isolated packaging remain unchanged. Companion status now truthfully identifies offline PS4 code. No config is enabled: default-off intelligence/dialogue knowledge remain unchanged, live host/index/situation gates still apply, physicalAcceptance and gtaRuntimeTest remain false, and no installer/GTA action occurred. This is matching payload evidence, not a claim that the complete G6 matrix or G7 GTA acceptance passed.
+
+Validation: new negative verifier matrix covers each altered binary, stale source receipt, version mismatch, unsupported perception pins, missing artifact and redirected installation path. Full explicit offline Node suite 530/530, zero failed/cancelled; fresh pinned Release native addon and explicit companion build succeeded; 54 pinned AST seams unchanged; git diff --check passed. Native source receipt `392f31e8932adfe10b7b74c0cb3a66ebc24ccde5bdc93ad9a2c5265902784412`; native manifest hash `7694ac0594d62dd88673c7518c9d6fc8743ffd49691626d09d6b5b6db1edec40`; Runtime.dll hash `e9d1471dc7dbf80d962bb762c622cdea4cd9b84bf96f1d10ff1e2a00073d8106`; companion patched bundle hash `b316b71019cb97f18af753c7518294a2a5a9079b57db7c7dc791fe7d07d4c2ff`. Hashes describe this offline build only.
+
+Remaining complete gate audit/native reset and adversity matrix, C-09 thin health projection, external GTA acceptance and later master-plan phases remain unfinished. The full goal remains active.
