@@ -343,3 +343,19 @@ test('salience performs no model call and shadow ingestion grants no native effe
   assert.equal(runtime.ps3Diagnostics.faults, 0);
   assert.equal(runtime.signals.length, 1);
 });
+
+
+test('expired pair payloads are released without retiring their suppression entitlement',()=>{
+ const observer=randomUUID(),cache=new SalienceCache({now:()=>NOW});
+ const value=observation({observer,expiresAtMonotonicMs:NOW+100,claims:[claim({kind:'injured',channel:'self',basis:'sampled_state',target:observer})]});
+ const decision=cache.evaluate(value,{nowMonotonicMs:NOW});assert.equal(cache.acknowledge(decision.decisionKey,'ps4_context','delivered'),true);
+ const ledger=cache.ledger.get(value.observationId),granted=ledger.granted;assert.ok(ledger.pair);
+ cache.expire(NOW+100);assert.equal(cache.ledger.get(value.observationId),ledger);assert.equal(ledger.pair,undefined);assert.equal(ledger.pairBytes,undefined);assert.equal(ledger.granted,granted);assert.ok(ledger.consumedBy.has('ps4_context'));assert.equal(ledger.consumed,false);
+});
+test('retired references release all paired payload views without consuming or regranting entitlements',()=>{
+ const observer=randomUUID(),target=randomUUID(),cache=new SalienceCache({now:()=>NOW});
+ const value=observation({observer,claims:[claim({kind:'injured',channel:'visual',basis:'sampled_state',target})]});
+ const decision=cache.evaluate(value,{nowMonotonicMs:NOW}),ledger=cache.ledger.get(value.observationId),granted=ledger.granted;
+ cache.releaseReference(target);
+ assert.equal(ledger.pair,undefined);assert.equal(cache.decisions.get(value.observationId).pair,undefined);assert.equal(cache.latestById.get(value.observationId).pair,undefined);assert.equal(ledger.granted,granted);assert.equal(ledger.consumedBy.size,0);assert.equal(ledger.decisionKey,decision.decisionKey);
+});

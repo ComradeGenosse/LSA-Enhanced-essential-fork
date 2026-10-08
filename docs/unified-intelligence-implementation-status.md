@@ -305,3 +305,10 @@ Expanded the real active Essential/provider-fetch matrix with refused, incomplet
 These tests use the actual decoder/request/controller/ledger path, not a successful synthetic result or playback as delivery evidence. No production source or capability availability changed. Remaining payload support, pressure/adversarial/native reset/interop and GTA gates plus later master-plan phases remain unfinished. Nothing deployed or enabled. The full goal remains active.
 
 Validation: full explicit offline Node suite 524/524, zero failed/cancelled; git diff --check passed.
+
+
+## Checkpoint 27: release expired/retired pair payloads while retaining suppression
+
+Source inspection found that ledger entries could retain pair payloads after their observation/decision expired, up to the longer suppression TTL. SalienceCache.expire now removes expired pair payload references/byte metadata without deleting still-current suppression entries or changing grants/consumedBy. Factual reference retirement releases affected observer/source/target/vehicle pairs from the existing decision/ledger/latest views; ShadowRuntime calls this on its existing retirement seam. No replacement ledger, scoring rule or entitlement regrant is introduced.
+
+Validation: full explicit offline Node suite 526/526, zero failed/cancelled; git diff --check passed. Focused tests prove payload removal at expiry/retirement while preserving exact keys, existing grants, prior PS4 consumption and unconsumed PS6 state. Actual request/retirement/retry and transport tests remain passing. Remaining pressure/adversarial/payload/native reset/GTA gates and later master-plan phases remain unfinished. Nothing deployed or enabled; the full goal remains active.

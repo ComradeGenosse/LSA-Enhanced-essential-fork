@@ -399,9 +399,17 @@ export class SalienceCache {
     if (consumer === 'ps6_ticket' && !entry.consumed) entry.granted = 'none';
     return true;
   }
+  releaseReference(ref) {
+    const uses=pair=>pair.observation.observer.captureRef===ref || pair.observation.claims.some(claim=>claim.source?.captureRef===ref || claim.target?.captureRef===ref || claim.details?.vehicle===ref);
+    for(const entry of [...this.decisions.values(),...this.ledger.values()])if(entry.pair && uses(entry.pair)){delete entry.pair;delete entry.pairBytes;delete entry.observation;delete entry.situation;}
+    for(const [id,entry] of this.latestById)if(entry.pair && uses(entry.pair))this.latestById.set(id,Object.freeze({decision:entry.decision,profileRevision:entry.profileRevision,policy:entry.policy}));
+  }
   clear() { this.decisions.clear(); this.order = []; this.ledger.clear(); this.families.clear(); this.latestById.clear(); }
   expire(now = this.now()) {
-    for (const [id, entry] of this.ledger) if (entry.expires <= now) this.ledger.delete(id);
+    for (const [id, entry] of this.ledger) {
+      if(entry.expires<=now)this.ledger.delete(id);
+      else if(entry.pair && (entry.pair.observation.expiresAtMonotonicMs<=now || entry.pair.decision.expiresAtMonotonicMs<=now)){delete entry.pair;delete entry.pairBytes;delete entry.observation;delete entry.situation;}
+    }
     for (const [key, entry] of this.families) if (entry.expires <= now) this.families.delete(key);
     for (const [id, entry] of this.decisions) if (entry.decision.expiresAtMonotonicMs <= now) this.forgetDecision(id);
     for (const [id, entry] of this.latestById) if (entry.decision.expiresAtMonotonicMs <= now) this.latestById.delete(id);

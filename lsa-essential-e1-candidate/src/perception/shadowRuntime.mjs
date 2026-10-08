@@ -50,7 +50,7 @@ export class ShadowRuntime {
     this.episodes.expire();
     this.salience.expire(this.now());
   }
-  retire(ref) { this.anchors.delete(ref);this.observerIndex.delete(ref);this.observerSituations.delete(ref);this.signals=this.signals.filter(s=>s.value.target!==ref && s.value.source!==ref && s.value.facts.vehicle!==ref);this.observations.expire();this.episodes.expire(); }
+  retire(ref) { this.salience.releaseReference(ref);this.anchors.delete(ref);this.observerIndex.delete(ref);this.observerSituations.delete(ref);this.signals=this.signals.filter(s=>s.value.target!==ref && s.value.source!==ref && s.value.facts.vehicle!==ref);this.observations.expire();this.episodes.expire(); }
   retainSignal(value,critical,expires) {
     if(!critical && this.signals.filter(x=>!x.critical).length>=192) {
       const index=this.signals.findIndex(x=>!x.critical);
