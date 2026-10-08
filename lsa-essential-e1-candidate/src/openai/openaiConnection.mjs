@@ -135,6 +135,7 @@ export class OpenAIConnection {
         contextText, internalEvent,
       }),
       contextSnapshot,
+      knowledgeInputs: this.#runtime.captureKnowledgeInputs?.({identity:turn.identity,source,p0Snapshot:contextSnapshot}) ?? null,
     });
     this.#characterSnapshot = null;
     this.#launched = false;

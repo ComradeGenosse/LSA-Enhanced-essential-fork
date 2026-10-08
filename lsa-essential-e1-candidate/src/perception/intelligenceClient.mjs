@@ -1,3 +1,4 @@
+import { captureKnowledgeInputs, assertKnowledgeCurrent } from '../context/knowledgeInputs.mjs';
 import net from 'node:net';
 import { BOUNDS } from './contracts.mjs';
 import { ShadowRuntime } from './shadowRuntime.mjs';
@@ -67,6 +68,9 @@ export function createCompanionShadowTelemetry(summary = {}) {
 
 // Fixed same-user native factual endpoint; no actor integration blocks or commands.
 export class IntelligenceClient {
+  captureKnowledgeInputs(input) {return captureKnowledgeInputs({...input,perception:this.runtime});}
+  assertKnowledgeCurrent(inputs) {return assertKnowledgeCurrent(inputs,this.runtime);}
+  acceptPlayerTranscript(input) {return this.runtime.acceptPlayerTranscript(input);}
   constructor(config,{connect=options=>net.createConnection(options),now,report=summary=>console.info('[PS] companion_shadow '+JSON.stringify(summary)),telemetry=()=>{}}={}) {
     this.config=config;this.connect=connect;this.runtime=new ShadowRuntime({mode:config.mode,now});this.report=report;this.telemetry=telemetry;this.closed=false;this.socket=null;this.lastReport=0;
   }

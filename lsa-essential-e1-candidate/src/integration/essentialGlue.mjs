@@ -45,6 +45,10 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
   const runtime = {
     config, history, services, telemetry, dialogueTrace, providerStack, voiceResolver, identityService,characterService,
     modelActor: actor => withoutCharacterTransport(actor),
+    captureKnowledgeInputs(input) {
+      try {return runtime.intelligence?.captureKnowledgeInputs({...input,identityConfig:config.persistentIdentity,ownerEvidence:identityService?.evidence}) ?? null;}
+      catch {return null;} // Optional knowledge failure cannot prevent an Essential turn.
+    },
     validateDecisionShape,
     validateStockDecision,
     captureReferenceMap,
@@ -84,7 +88,7 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
       return {
         assertCapabilities: () => bridge.assertCapabilities(),
         isCurrent: identity => bridge.isCurrent(identity) && !connection.closed && (!identityService || identityService.current(identity)),
-        prepareTurn: identityService || characterService ? (turn, signal, deadlineAt) => connection.prepareIdentity(turn, signal, deadlineAt) : null,
+        prepareTurn: (turn, signal, deadlineAt) => connection.prepareIdentity(turn, signal, deadlineAt),
         validateDecision: async (decision, context, identity) => {
           const result = await bridge.validateDecision(decision, context, identity);
           if (result?.identityValid && result.actionCount) telemetry?.beginTurn(identity, context?.source || 'player_text')?.actionValidated(result.actionNames?.[0]);
