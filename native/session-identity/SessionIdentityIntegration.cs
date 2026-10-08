@@ -43,6 +43,9 @@ namespace LSA.SessionIdentity
         readonly Stopwatch heartbeat = new Stopwatch();
         readonly Stopwatch diagnosticsClock = Stopwatch.StartNew();
         readonly string pipeName;
+        string hostRunId;
+        Func<int> worldEpoch;
+        int observedWorldEpoch;
         long updateCalls, completedUpdates, lastUpdateMs = -1, lastCompletedMs = -1;
         int creationThreadId, lastUpdateThreadId;
         string lastShutdownReason = "none", lastUpdateFailure = "none";
@@ -70,6 +73,22 @@ namespace LSA.SessionIdentity
         {
             if (pipeName == null || !Regex.IsMatch(pipeName, "^[A-Za-z0-9_.-]{1,80}$")) throw new ArgumentException("Invalid identity pipe name.");
             this.pipeName = pipeName;
+        }
+        // P1 has no dependency on P2. The existing host supplies primitives and
+        // a CPU-only epoch reader before Core initialization.
+        public void ConfigureHostContext(string run,Func<int> epoch)
+        {
+            if(!NativeIdentityEvidenceStore.Uuid(run) || epoch==null || epoch()<1 || hostRunId!=null && hostRunId!=run) throw new ArgumentException("invalid_host_context");
+            if(store!=null && hostRunId==null) throw new InvalidOperationException("host_context_already_initialized");
+            if(hostRunId!=null) return;
+            hostRunId=run;worldEpoch=epoch;observedWorldEpoch=epoch();
+        }
+        public void ResetForHostWorld(int epoch,string reason)
+        {
+            if(reason!="clock_regression" && reason!="host_reload" && reason!="timeline_change") throw new ArgumentException("invalid_world_reason");
+            if(hostRunId==null || epoch!=worldEpoch() || epoch<=observedWorldEpoch) return;
+            observedWorldEpoch=epoch;
+            Shutdown(reason);Initialize();
         }
         // Called explicitly by the authored owner on the game fiber, not auto-loaded.
         public static SessionIdentityIntegration Install(string pipeName = "LSA.SessionIdentity.v1")
@@ -109,7 +128,7 @@ namespace LSA.SessionIdentity
                 return;
             }
             store = new NativeIdentityEvidenceStore(() => GameFiber.CanSleepNow); Owner = new ExplicitCharacterSource(store);
-            channel = new OwnerFactChannel(pipeName, store.AdapterEpoch);
+            channel = new OwnerFactChannel(pipeName, store.AdapterEpoch,hostRunId,hostRunId==null?0:worldEpoch());
             store.Revoked += channel.Revoke; lastGameTime = Game.GameTime;
             lastShutdownReason = "none"; lastUpdateFailure = "none";
             heartbeat.Restart(); channel.Start();
@@ -123,7 +142,8 @@ namespace LSA.SessionIdentity
             Interlocked.Exchange(ref lastUpdateMs, diagnosticsClock.ElapsedMilliseconds);
             try {
                 long now = Game.GameTime;
-                if (now < lastGameTime) {
+                if (hostRunId!=null && worldEpoch()!=observedWorldEpoch) {ResetForHostWorld(worldEpoch(),"clock_regression");return;}
+                if (hostRunId==null && unchecked((uint)now-(uint)lastGameTime)>int.MaxValue) {
                     Log("[SessionIdentity] clock_regression previous_game_tick=" + lastGameTime + " current_game_tick=" + now +
                         " thread=" + lastUpdateThreadId);
                     Shutdown("clock_regression"); Initialize(); return;

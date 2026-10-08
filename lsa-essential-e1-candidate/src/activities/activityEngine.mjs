@@ -5,6 +5,7 @@ import { INTERRUPT_POLICY, buildPlan } from './intentTemplates.mjs';
 import { validateAdmission } from './activityValidator.mjs';
 import { GOAL_ATTEMPT_LIMIT, GOAL_DEADLINE_MS, GoalStore, makeGoal } from './goalStore.mjs';
 import { ActivityFacts, projectStatus } from './activityFacts.mjs';
+import { readHostContext, sameHostContext } from '../context/hostContext.mjs';
 
 const TERMINAL = new Set(['completed', 'failed', 'cancelled', 'abandoned', 'expired', 'superseded']);
 const RECEIPT_TERMINAL = new Set(['REJECTED', 'PHYSICALLY_COMPLETED', 'FAILED', 'CANCELLED', 'SUPERSEDED', 'TIMED_OUT', 'DETACHED']);
@@ -42,6 +43,7 @@ export class ActivityEngine {
     this.activities = [];
     this.history = [];
     this.hello = null;
+    this.hostContext = null;
     this.failures = [];
     this.breakerUntil = 0;
     this.staleReceipts = 0;
@@ -112,6 +114,13 @@ export class ActivityEngine {
   historyFor(characterId) { return this.history.filter(item => item.characterId === characterId).slice(-8); }
 
   noteHello(frame) {
+    if(frame.clientRestart) {
+      for(const activity of this.#live()) this.#finish(activity,'abandoned','lease_lost',this.now(),'detach',false);
+      this.hello=null;return;
+    }
+    const context=readHostContext(frame);
+    if((this.hostContext || context) && !sameHostContext(this.hostContext,context)) this.#resetWorld();
+    this.hostContext=context;
     const changed = this.hello && frame.nativeRun !== this.hello.nativeRun;
     if (this.hello && (frame.nativeRun !== this.hello.nativeRun || frame.adapterEpoch !== this.hello.adapterEpoch || frame.clientRestart)) {
       for (const activity of this.#live()) this.#finish(activity, 'abandoned', frame.nativeRun !== this.hello.nativeRun ? 'epoch_changed' : 'lease_lost', this.now(), 'detach');
@@ -123,6 +132,12 @@ export class ActivityEngine {
   ingest(frame) {
     if (!frame || typeof frame !== 'object') return;
     if (frame.type === 'hello' && frame.nativeRun) { this.noteHello(frame); return; }
+    if(frame.type==='world_epoch') {
+      if(this.hostContext && frame.epoch===this.hostContext.worldEpoch+1) {
+        this.#resetWorld();this.hostContext=Object.freeze({...this.hostContext,worldEpoch:frame.epoch});this.hello=null;
+      }
+      return;
+    }
     if (frame.type === 'actor.acquired') return this.#onAcquire(frame);
     if (frame.type === 'nack') return this.#onNack(frame);
     if (frame.type === 'anchor.resolved') return this.#onAnchors(frame);
@@ -131,6 +146,11 @@ export class ActivityEngine {
     if (frame.type === 'receipt') return this.#onReceipt(frame.receipt);
     if (frame.type === 'lease.changed') return this.#onLease(frame);
     if (frame.type === 'actor.facts') return this.#onFacts(frame);
+  }
+  #resetWorld() {
+    for(const activity of this.#live()) this.#finish(activity,'abandoned','epoch_changed',this.now(),'detach',false);
+    this.goals=new GoalStore(this.now);this.activities=[];this.history=[];this.facts.facts=[];
+    this.byRequest.clear();this.byExecution.clear();this.failures=[];this.lastGameMs=null;
   }
 
   tick(gameMs = null) {
@@ -507,7 +527,7 @@ export class ActivityEngine {
     if (activity.status === 'paused' && (frame.scripted || frame.reflexActive || frame.inDirectedInteraction)) activity.quietSince = 0;
   }
 
-  #finish(activity, status, reason, now, mode) {
+  #finish(activity, status, reason, now, mode, publish = true) {
     if (TERMINAL.has(activity.status)) return;
     activity.status = status;
     activity.terminal = { status, reason, atMs: now };
@@ -515,8 +535,8 @@ export class ActivityEngine {
     activity.asked = 'finish';
     const step = activity.steps[activity.cursor];
     if (step && step.status !== 'done') step.status = status === 'completed' ? 'done' : status === 'cancelled' || status === 'superseded' ? 'cancelled' : 'failed';
-    if (activity.currentExecutionId) this.#send('step.cancel', { requestId: this.id(), executionId: activity.currentExecutionId, mode: mode || 'detach' });
-    if (activity.leaseEpoch > 0) this.#send('actor.release', { requestId: this.id(), encounterId: activity.actor.encounterId, leaseId: activity.leaseId });
+    if (publish && activity.currentExecutionId) this.#send('step.cancel', { requestId: this.id(), executionId: activity.currentExecutionId, mode: mode || 'detach' });
+    if (publish && activity.leaseEpoch > 0) this.#send('actor.release', { requestId: this.id(), encounterId: activity.actor.encounterId, leaseId: activity.leaseId });
     const goal = this.goals.get(activity.goalId);
     if (goal && !['satisfied', 'failed', 'abandoned', 'expired', 'superseded', 'rejected', 'cancelled'].includes(goal.status)) {
       goal.status = status === 'completed' ? 'satisfied' : status === 'superseded' ? 'superseded' : status === 'expired' ? 'expired' : status === 'cancelled' ? 'cancelled' : 'failed';

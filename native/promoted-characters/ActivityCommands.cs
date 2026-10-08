@@ -32,7 +32,7 @@ namespace LSA.PromotedCharacters
         {
             if (activitySession != null || pipeName == null || !Regex.IsMatch(pipeName, "^[A-Za-z0-9_.-]{1,80}$")) throw new ArgumentException("invalid_activity_pipe");
             var table = CapabilityTable.LoadEmbedded();
-            activitySession = new ActivitySession(table);
+            activitySession = new ActivitySession(table,null,Host.HostRunId,()=>Host.WorldEpoch);
             activityChannel = new ActivityChannel(pipeName, activitySession);
             activityChannel.Start();
         }
@@ -43,7 +43,7 @@ namespace LSA.PromotedCharacters
             var table = CapabilityTable.LoadEmbedded();
             activityRunner = new StepRunner(table);
             BindActivityWorld(activityRunner);
-            activitySession = new ActivitySession(table, activityRunner);
+            activitySession = new ActivitySession(table, activityRunner,Host.HostRunId,()=>Host.WorldEpoch);
             activityRunner.Session = activitySession;
             activityChannel = new ActivityChannel(pipeName, activitySession);
             activityChannel.Start();
@@ -64,9 +64,9 @@ namespace LSA.PromotedCharacters
             } catch { DisableActivity(); }
         }
 
-        void ActivityClockReset()
+        void ActivityClockReset(string reason)
         {
-            try { activitySession?.Machine.ClockReset(); activityRunner?.ClockReset(activitySession); }
+            try { activitySession?.Machine.ClockReset(); activityRunner?.ClockReset(activitySession); activitySession?.WorldChanged(Host.WorldEpoch,reason);activityChannel?.RefreshHello();activityChannel?.Flush(); }
             catch { DisableActivity(); }
         }
 

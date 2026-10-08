@@ -64,12 +64,14 @@ namespace LSA.PromotedCharacters
             if (worldProfileId == null || !Regex.IsMatch(worldProfileId,"^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$") || !Regex.IsMatch(pipeName,"^[A-Za-z0-9_.-]{1,80}$") || !Regex.IsMatch(identityPipeName,"^[A-Za-z0-9_.-]{1,80}$")) throw new ArgumentException("Invalid P2 configuration.");
             world = worldProfileId; this.pipeName = pipeName; this.identityPipeName = identityPipeName;
             Host = host ?? new HostContext();
+            Host.WorldChanged+=OnHostWorldChanged;
             talkTargets = new TalkTargetSelector(ped => EncounterFor(ped).Id);
         }
         public void Prepare()
         {
             if (prepared || shutdown) return;
             identity = SessionIdentityIntegration.InstallDeferred(identityPipeName);
+            identity.ConfigureHostContext(Host.HostRunId,()=>Host.WorldEpoch);
             prepared = true;
         }
         public void Initialize()
@@ -77,7 +79,7 @@ namespace LSA.PromotedCharacters
             if (!prepared || channel != null || shutdown) return;
             identity.Initialize();
             if (!identity.IsAvailable) { shutdown = true; Game.LogTrivial("[P2] identity_initialization_failed"); return; }
-            channel = new ControlChannel(pipeName,Guid.NewGuid().ToString("D"),world); channel.Start(); lastGameTime = Game.GameTime;
+            channel = new ControlChannel(pipeName,Guid.NewGuid().ToString("D"),world,Host.HostRunId,Host.WorldEpoch); channel.Start(); lastGameTime = Game.GameTime;
             Host.ObserveGameTick(unchecked((uint)lastGameTime));
         }
         static bool Alive(Encounter encounter) => encounter?.Ped != null && encounter.Ped.Exists() && !encounter.Ped.IsDead && encounter.Ped.MemoryAddress == encounter.Address;
@@ -131,7 +133,7 @@ namespace LSA.PromotedCharacters
             if (state != null) { state.FollowPlayerOnFoot = false; state.FollowPaused = true; state.EnterPassengerSeatWhenPlayerEnters = false; state.ExitVehicleWhenPlayerExits = false; state.StayUnderLsaControl = false; state.DemoteToPassiveRuntime(); }
             // No TASK, teleport, delete, or automatic resume.
         }
-        void ResetForClockDiscontinuity(long now)
+        void ResetForClockDiscontinuity(long now,string reason)
         {
             // A save/world transition invalidates every live association. Clear
             // them before any operation that can fail so even failure cleanup
@@ -142,14 +144,22 @@ namespace LSA.PromotedCharacters
             // P1 may already have reset its owner store, or may do so later in
             // this Core update. Retiring an old-epoch token never clears a new
             // claim. No capture/control work is admitted during this reset tick.
-            var replacement = new ControlChannel(pipeName,Guid.NewGuid().ToString("D"),world);
+            var replacement = new ControlChannel(pipeName,Guid.NewGuid().ToString("D"),world,Host.HostRunId,Host.WorldEpoch);
             replacement.Start(); channel = replacement; lastGameTime = now;
-            ActivityClockReset();
+            ActivityClockReset(reason);
             // Pending loader commands carried the old world's expectations. The
             // optional bridge can never fail P2's own reset.
             try { talkTargets.ResetForWorldChange(Monotonic); } catch { }
             try { ResetLocal("native_stale"); } catch { }
             Game.LogTrivial("[P2] game_clock_reset");
+        }
+        void OnHostWorldChanged(int epoch,string reason)
+        {
+            if(!IsReady) return;
+            // Clear P2's associations before anything that can fail; P1 then
+            // rotates its independent factual epoch on this same Core owner.
+            ResetForClockDiscontinuity(Game.GameTime,reason);
+            identity.ResetForHostWorld(epoch,reason);
         }
         public void Update()
         {
@@ -159,11 +169,8 @@ namespace LSA.PromotedCharacters
                 if (shutdownRequested) { Shutdown(); return; }
                 if (!IsReady) { Initialize(); return; }
                 long now = Game.GameTime;
-                if (Host.ObserveGameTick(unchecked((uint)now))) {
-                    try { ResetForClockDiscontinuity(now); }
-                    catch { Game.LogTrivial("[P2] game_clock_reset_failed"); Shutdown(); }
-                    return;
-                }
+                try {if(Host.ObserveGameTick(unchecked((uint)now))) return;}
+                catch {Game.LogTrivial("[P2] game_clock_reset_failed");Shutdown();return;}
                 lastGameTime = now;
                 Host.Cleanup();
                 foreach (var item in encounters.ToArray()) {
@@ -328,6 +335,7 @@ namespace LSA.PromotedCharacters
         internal void Shutdown(string reason)
         {
             if (shutdown) return; shutdownReason=reason; shutdown = true;
+            Host.WorldChanged-=OnHostWorldChanged;
             ActivityShutdown();
             LSA.Intelligence.IntelligenceIntegration.LogStatus("[P2] shutdown reason="+shutdownReason);
             channel?.Dispose(); channel = null;

@@ -12,6 +12,7 @@ class Program
 {
     static int assertions;
     static void Check(bool condition, string name) { if (!condition) throw new Exception(name); assertions++; }
+    static Dictionary<string,object> Decode(JavaScriptSerializer json,string text) => json.DeserializeObject(text) as Dictionary<string,object>;
     static string ContractPath()
     {
         var dir = new DirectoryInfo(AppContext.BaseDirectory);
@@ -36,12 +37,30 @@ class Program
             }
         }
     }
+    static void HostResetContract(CapabilityTable table)
+    {
+        var json=new JavaScriptSerializer();var host=Guid.NewGuid().ToString("D");int epoch=1;
+        var session=new ActivitySession(table,null,host,()=>epoch);
+        string Hello(string run,int world)=>json.Serialize(new {version=1,type="hello",contractSha256=CapabilityTable.ContractSha256,clientRun=Guid.NewGuid().ToString("D"),hostContextVersion=1,hostRunId=run,worldEpoch=world});
+        var advertised=Decode(json,session.ServerHello());
+        Check((string)advertised["hostRunId"]==host && (int)advertised["worldEpoch"]==1,"ACT independent host advertisement");
+        session.OpenTransport();Check(!session.AcceptClient(Hello(Guid.NewGuid().ToString("D"),1)),"ACT rejects mixed host");
+        session.OpenTransport();Check(!session.AcceptClient(Hello(host,2)),"ACT rejects stale world echo");
+        session.OpenTransport();Check(session.AcceptClient(Hello(host,1)),"ACT matching host echo");
+        epoch=2;session.WorldChanged(epoch,"timeline_change");
+        var reset=Decode(json,session.TakeOutbound());
+        Check(session.Closed && (string)reset["type"]=="world_epoch" && (string)reset["reason"]=="timeline_change" && (int)reset["epoch"]==2,"ACT reset closes admission and preserves reason");
+        session.OpenTransport();Check(session.AcceptClient(Hello(host,2)),"ACT reconnect admits current world");
+        session.WorldChanged(2,"timeline_change");Check(session.ClientReady && !session.Closed,"ACT repeated reset is idempotent");
+        try {session.WorldChanged(1,"timeline_change");Check(false,"ACT regression accepted");} catch(ArgumentException) {Check(session.ClientReady,"ACT invalid reset leaves current session intact");}
+    }
     static void Run()
     {
         var bytes = File.ReadAllBytes(ContractPath());
         string sha; using (var hash = SHA256.Create()) sha = BitConverter.ToString(hash.ComputeHash(bytes)).Replace("-", "").ToLowerInvariant();
         Check(sha == CapabilityTable.ContractSha256, "pinned capability hash");
         var table = CapabilityTable.Parse(bytes);
+        HostResetContract(table);
         Check(CapabilityTable.LoadEmbedded().Get("hold_position") != null, "embedded contract loads");
         Check(!table.Enabled("chase_person", "on", new Dictionary<string, bool> {{"chase_person", true}}, new[] {"chase_person"}, new string[0], null, null), "never capability stays disabled");
         Check(!table.Enabled("perform_activity", "on", new Dictionary<string, bool> {{"perform_activity", true}}, new[] {"perform_activity"}, new[] {"W1"}, null, null), "vestigial capability stays disabled");
@@ -143,14 +162,14 @@ class Program
         var world = new FakeWorld();
         var runner = new StepRunner(table); runner.Bind(world);
         var session = new ActivitySession(table, runner); runner.Session = session;
-        var hello = json.Deserialize<Dictionary<string, object>>(session.ServerHello());
+        var hello = Decode(json,session.ServerHello());
         var caps = hello["capabilities"] as Dictionary<string, object>;
         Check((bool)caps["hold_position"] && (bool)caps["follow_person"] && (bool)caps["resume_ambient"] && (bool)caps["sit_on_ground"] && !(bool)caps["walk_to"], "execute hello advertises only ACT2");
         session.OpenTransport();
         var client = Id('a');
         Check(session.AcceptClient(json.Serialize(new { version = 1, type = "hello", contractSha256 = CapabilityTable.ContractSha256, clientRun = client })), "ACT2 hello");
         var sequence = 1;
-        string Send(object frame) { while (session.TakeOutbound() != null) { } var text = json.Serialize(frame); Check(session.AcceptClient(text), "frame accepted"); return session.TakeOutbound(); }
+        string Send(object frame) { while (session.TakeOutbound() != null) { } var text = json.Serialize(frame); Check(session.AcceptClient(text), "frame accepted: " + text); return session.TakeOutbound(); }
         Dictionary<string,object> Args(string capability,string reference = null)
         {
             if (capability == "hold_position") return new Dictionary<string,object> {{"place",new Dictionary<string,object>{{"kind","place"},{"placeRef",reference}}}};
@@ -173,10 +192,10 @@ class Program
         }
 
         Send(new { version = 1, type = "lease", sequence = sequence++, leaseTtlMs = 5000 });
-        var acquired = json.Deserialize<Dictionary<string, object>>(Send(new { version = 1, type = "actor.acquire", sequence = sequence++, requestId = Id('b'), characterId = Id('c'), ownerAlias = "promoted." + Id('c'), ownershipToken = Id('d'), leaseId = Id('e') }));
+        var acquired = Decode(json,Send(new { version = 1, type = "actor.acquire", sequence = sequence++, requestId = Id('b'), characterId = Id('c'), ownerAlias = "promoted." + Id('c'), ownershipToken = Id('d'), leaseId = Id('e') }));
         Check(acquired["type"] as string == "actor.acquired", "actor acquired");
 
-        var anchorReply = json.Deserialize<Dictionary<string,object>>(Send(new {
+        var anchorReply = Decode(json,Send(new {
             version = 1,type = "anchor.resolve",sequence = sequence++,requestId = Id('f'),encounterId = world.Encounter,leaseId = Id('e'),
             refs = new object[]{new Dictionary<string,object>{{"role","place"},{"slot",new Dictionary<string,object>{{"kind","place"},{"place",new Dictionary<string,object>{{"kind","here"}}}}}}}
         }));
@@ -185,7 +204,7 @@ class Program
         Check(ActivityContracts.IsUuid(anchor) && runner.Places.Count == 1, "here anchor captures a bounded place");
 
         world.Already = true;
-        var preflight = json.Deserialize<Dictionary<string, object>>(Send(new {
+        var preflight = Decode(json,Send(new {
             version = 1,type = "step.preflight",sequence = sequence++,requestId = Id('1'),encounterId = world.Encounter,leaseId = Id('e'),capability = "hold_position",
             args = Args("hold_position",anchor),preconditions = new object[]{"actor_owned"}
         }));
@@ -217,7 +236,7 @@ class Program
         Check(stale != null && stale.Contains("epoch_changed") && !world.Dispatched, "stale incarnation is not tasked");
         world.Same = true;
 
-        var targetReply = json.Deserialize<Dictionary<string,object>>(Send(new {
+        var targetReply = Decode(json,Send(new {
             version = 1,type = "anchor.resolve",sequence = sequence++,requestId = Id('b'),encounterId = world.Encounter,leaseId = Id('e'),
             refs = new object[]{new Dictionary<string,object>{{"role","target"},{"slot",new Dictionary<string,object>{{"kind","player"}}}}}
         }));
@@ -236,7 +255,7 @@ class Program
 
         world.SampleState.ContinuityReached = false; world.SampleState.FollowPaused = false; world.Stopped = false; world.Dispatched = false;
         world.SampleState.X = 7; world.SampleState.Y = 0; world.SampleState.Z = 0;
-        var displaced = json.Deserialize<Dictionary<string,object>>(Send(new {
+        var displaced = Decode(json,Send(new {
             version = 1,type = "step.preflight",sequence = sequence++,requestId = Id('5'),encounterId = world.Encounter,leaseId = Id('e'),capability = "hold_position",
             args = Args("hold_position",anchor),preconditions = new object[]{"actor_owned"}
         }));

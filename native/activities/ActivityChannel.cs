@@ -15,7 +15,9 @@ namespace LSA.Activities
         readonly JavaScriptSerializer json = new JavaScriptSerializer { MaxJsonLength = ActivityContracts.FrameBytes, RecursionLimit = 8 };
         readonly Queue<string> outbound = new Queue<string>();
         readonly string nativeRun, adapterEpoch;
-        int clientSequence, serverSequence;
+        readonly string hostRunId;
+        readonly Func<int> worldEpoch;
+        int clientSequence, serverSequence, observedWorldEpoch;
         long nextDiagnosticsAt;
         string lastDiagnostics;
         public StepMachine Machine { get; }
@@ -26,9 +28,11 @@ namespace LSA.Activities
         public int SequenceGaps { get; private set; }
         public bool Closed { get; private set; } = true;
 
-        public ActivitySession(CapabilityTable table, StepRunner runner = null)
+        public ActivitySession(CapabilityTable table, StepRunner runner = null,string hostRunId=null,Func<int> worldEpoch=null)
         {
             if (table == null) throw new ArgumentNullException(nameof(table));
+            if((hostRunId==null)!=(worldEpoch==null) || hostRunId!=null && (!ActivityContracts.IsUuid(hostRunId) || worldEpoch()<1)) throw new ArgumentException("invalid_host_context");
+            this.hostRunId=hostRunId;this.worldEpoch=worldEpoch;observedWorldEpoch=worldEpoch?.Invoke() ?? 0;
             nativeRun = Guid.NewGuid().ToString("D");
             adapterEpoch = Guid.NewGuid().ToString("D");
             Runner = runner;
@@ -39,10 +43,12 @@ namespace LSA.Activities
         {
             var capabilities = new Dictionary<string, bool>();
             foreach (var id in ActivityContracts.CapabilityIds) capabilities[id] = Runner != null && Runner.Advertises(id);
-            return Encode(new Dictionary<string, object> {
+            var hello=new Dictionary<string, object> {
                 {"version",1},{"type","hello"},{"nativeRun",nativeRun},{"adapterEpoch",adapterEpoch},
                 {"contractSha256",CapabilityTable.ContractSha256},{"capabilities",capabilities},{"limits",Limits()}
-            });
+            };
+            if(hostRunId!=null) {hello["hostContextVersion"]=1;hello["hostRunId"]=hostRunId;hello["worldEpoch"]=worldEpoch();}
+            return Encode(hello);
         }
 
         // Called only by the P2/update owner after the transport worker reports a
@@ -79,11 +85,12 @@ namespace LSA.Activities
         {
             if (Closed || frame == null || Encoding.UTF8.GetByteCount(frame) > ActivityContracts.FrameBytes) return false;
             Dictionary<string, object> value;
-            try { value = json.Deserialize<Dictionary<string, object>>(frame); }
+            try { value = json.DeserializeObject(frame) as Dictionary<string, object>; }
             catch { Close("lease_lost"); return false; }
 
             if (value != null && value.ContainsKey("type") && value["type"] as string == "hello") {
-                if (ClientReady || !ActivityContracts.HelloClient(value, CapabilityTable.ContractSha256)) { Close("lease_lost"); return false; }
+                if (ClientReady || !ActivityContracts.HelloClient(value, CapabilityTable.ContractSha256) ||
+                    (hostRunId==null ? value.ContainsKey("hostRunId") : !value.ContainsKey("hostRunId") || !Equals(value["hostRunId"],hostRunId) || (int)value["worldEpoch"]!=worldEpoch())) { Close("lease_lost"); return false; }
                 Machine.ClientHello(value["clientRun"] as string, DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(), ActivityContracts.LeaseTtlMs);
                 Runner?.ClientHello();
                 clientSequence = 1;
@@ -201,6 +208,15 @@ namespace LSA.Activities
         }
 
         public string TakeOutbound() => outbound.Count == 0 ? null : outbound.Dequeue();
+        public void WorldChanged(int epoch,string reason)
+        {
+            if(worldEpoch==null || epoch!=worldEpoch() || epoch<observedWorldEpoch || (reason!="clock_regression" && reason!="host_reload" && reason!="timeline_change")) throw new ArgumentException("invalid_world_reset");
+            if(epoch==observedWorldEpoch) return;
+            observedWorldEpoch=epoch;
+            bool notify=ClientReady && !Closed;
+            Close("clock_reset");
+            if(notify) outbound.Enqueue(Encode(new {version=1,type="world_epoch",sequence=++serverSequence,epoch,reason}));
+        }
 
         static Dictionary<string, object> Limits() => new Dictionary<string, object> {
             {"characters",4},{"anchors",32},{"pendingPerActor",1},{"callbackRing",ActivityContracts.CallbackRing},
@@ -229,7 +245,7 @@ namespace LSA.Activities
 
         readonly string name;
         readonly ActivitySession session;
-        readonly string serverHello;
+        volatile string serverHello;
         readonly object gate = new object();
         readonly Queue<Inbound> inbound = new Queue<Inbound>();
         readonly Queue<Outbound> outbound = new Queue<Outbound>();
@@ -245,6 +261,7 @@ namespace LSA.Activities
         }
 
         public void Start() { new Thread(Serve) { IsBackground = true, Name = "LSA activities shadow" }.Start(); }
+        public void RefreshHello() {serverHello=session.ServerHello();}
 
         // Owner-fiber pump. This is the only path from transport frames into the
         // session/state machine.

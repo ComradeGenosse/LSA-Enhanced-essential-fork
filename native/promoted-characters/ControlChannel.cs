@@ -26,12 +26,17 @@ namespace LSA.PromotedCharacters
     internal sealed class ControlChannel : IDisposable
     {
         readonly string name, epoch, world;
+        readonly string hostRunId;
+        readonly int worldEpoch;
         readonly OperationAdmission admission;
         readonly ConcurrentQueue<ControlRequest> requests = new ConcurrentQueue<ControlRequest>();
         readonly CancellationTokenSource stopping = new CancellationTokenSource();
         NamedPipeServerStream pipe;
         int count;
-        public ControlChannel(string name, string epoch, string world) { this.name = name; this.epoch = epoch; this.world = world; admission = new OperationAdmission(epoch,world); }
+        public ControlChannel(string name, string epoch, string world,string hostRunId=null,int worldEpoch=0) {
+            if(hostRunId!=null && (!System.Text.RegularExpressions.Regex.IsMatch(hostRunId,"^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$") || worldEpoch<1) || hostRunId==null && worldEpoch!=0) throw new ArgumentException("invalid_host_context");
+            this.name = name; this.epoch = epoch; this.world = world;this.hostRunId=hostRunId;this.worldEpoch=worldEpoch; admission = new OperationAdmission(epoch,world);
+        }
         public void Start() { new Thread(Serve) { IsBackground = true, Name = "LSA player character controls" }.Start(); }
         static long Now => DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
         void Serve()
@@ -50,12 +55,16 @@ namespace LSA.PromotedCharacters
                     // A local client cannot hold the sole slot indefinitely.
                     using (var watchdog = new Timer(_ => { try { stream.Dispose(); } catch {} },null,5000,Timeout.Infinite))
                     {
-                        Write(stream,json,new {version = 1,type = "hello",worldProfileId = world,ownerEpoch = epoch});
+                        var hello=new Dictionary<string,object>{{"version",1},{"type","hello"},{"worldProfileId",world},{"ownerEpoch",epoch}};
+                        if(hostRunId!=null) {hello["hostContextVersion"]=1;hello["hostRunId"]=hostRunId;hello["worldEpoch"]=worldEpoch;}
+                        Write(stream,json,hello);
                         var bytes = new List<byte>(); int b;
                         while ((b = stream.ReadByte()) != -1 && b != 10) { if (bytes.Count >= 16384) throw new InvalidDataException(); bytes.Add((byte)b); }
                         if (b == -1) throw new InvalidDataException();
                         var frame = json.Deserialize<Dictionary<string,object>>(Encoding.UTF8.GetString(bytes.ToArray()));
-                        if (frame == null || frame.Count != 7 || !(frame["version"] is int version) || version != 1 || !(frame["requestId"] is string id) || !(frame["ownerEpoch"] is string suppliedEpoch) || !(frame["worldProfileId"] is string suppliedWorld) || !(frame["operation"] is string operation) || !(frame["args"] is Dictionary<string,object> args)) throw new InvalidDataException();
+                        bool extension=frame!=null && (frame.ContainsKey("hostContextVersion") || frame.ContainsKey("hostRunId") || frame.ContainsKey("worldEpoch"));
+                        if (extension && (hostRunId==null || !frame.ContainsKey("hostContextVersion") || !(frame["hostContextVersion"] is int cv) || cv!=1 || !frame.ContainsKey("hostRunId") || !Equals(frame["hostRunId"],hostRunId) || !frame.ContainsKey("worldEpoch") || !(frame["worldEpoch"] is int ce) || ce!=worldEpoch)) throw new InvalidDataException();
+                        if (frame == null || frame.Count != (extension?10:7) || !(frame["version"] is int version) || version != 1 || !(frame["requestId"] is string id) || !(frame["ownerEpoch"] is string suppliedEpoch) || !(frame["worldProfileId"] is string suppliedWorld) || !(frame["operation"] is string operation) || !(frame["args"] is Dictionary<string,object> args)) throw new InvalidDataException();
                         long expiry = Convert.ToInt64(frame["expiresAtUtc"]);
                         if (!admission.Admit(id,suppliedEpoch,suppliedWorld,operation,expiry,Now)) throw new InvalidDataException();
                         if (Interlocked.Increment(ref count) > 16) { Interlocked.Decrement(ref count); throw new InvalidDataException(); }

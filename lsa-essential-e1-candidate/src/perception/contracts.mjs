@@ -1,4 +1,5 @@
 import { isUuid } from '../identity/identityContract.mjs';
+import { validateHostEnvelope, validateWorldEpoch } from '../context/hostContext.mjs';
 
 export const BOUNDS = Object.freeze({ observers:16, anchors:256, rawSignals:256, criticalReserve:64, nativeFrames:64, companionFrames:256, frameBytes:8192, observationsPerObserver:128, observations:2048, observationBytes:2*1024*1024, signalTtlMs:30000, anchorLeaseMs:3000 });
 export const CAPABILITIES = Object.freeze(['snapshot','pedDamage','playerDamage','vehicleDamage','shooting','state','action','playback','witness','awareness','playerSpeech']);
@@ -37,11 +38,12 @@ export function validateWitnessReceipt(r) {
 }
 export function validateFrame(v) {
   if (!v || Buffer.byteLength(JSON.stringify(v))>BOUNDS.frameBytes) return false;
-  if (v.type==='hello') return keys(v,['version','type','adapterEpoch','streamId','capabilities']) && v.version===1 && isUuid(v.adapterEpoch) && isUuid(v.streamId) && keys(v.capabilities,CAPABILITIES) && Object.values(v.capabilities).every(x=>typeof x==='boolean');
+  if (v.type==='hello') return validateHostEnvelope(v,['version','type','adapterEpoch','streamId','capabilities']) && v.version===1 && isUuid(v.adapterEpoch) && isUuid(v.streamId) && keys(v.capabilities,CAPABILITIES) && Object.values(v.capabilities).every(x=>typeof x==='boolean');
   if (!keys(v,['version','type','adapterEpoch','streamId','sequence','payload']) || v.version!==1 || !isUuid(v.adapterEpoch) || !isUuid(v.streamId) || !integer(v.sequence) || v.sequence===0) return false;
   if (v.type==='anchors') return Array.isArray(v.payload) && v.payload.length<=32 && v.payload.every(a=>keys(a,['captureRef','kind','observer'],['owned','conversation']) && isUuid(a.captureRef) && ['ped','player','vehicle'].includes(a.kind) && typeof a.observer==='boolean' && (!a.observer || a.kind==='ped') && ['owned','conversation'].every(k=>a[k]===undefined || typeof a[k]==='boolean' && (!a[k] || a.kind==='ped'))) && new Set(v.payload.map(a=>a.captureRef)).size===v.payload.length;
   if (v.type==='retire') return keys(v.payload,['captureRef']) && isUuid(v.payload.captureRef);
   if (v.type==='retire_batch') return Array.isArray(v.payload) && v.payload.length<=32 && v.payload.every(isUuid) && new Set(v.payload).size===v.payload.length;
+  if (v.type==='world_epoch') return validateWorldEpoch(v.payload);
   if (v.type==='signal') return validateSignal(v.payload);
   if (v.type==='diagnostics') return keys(v.payload,['anchors','observers','snapshotAgeMs','snapshotCadenceMs','dropped','staleRejected','retiredAnchors','deferredDiscovery','updateMicros','capabilities','signals','damageCallbacks','witnessDeferred','witnessUnknown','witnessRejected','playerSpeechGate']) && integer(v.payload.anchors,256) && integer(v.payload.observers,16) && ['snapshotAgeMs','snapshotCadenceMs','dropped','staleRejected','retiredAnchors','deferredDiscovery','updateMicros','witnessDeferred','witnessUnknown','witnessRejected'].every(k=>integer(v.payload[k],2147483647)) && v.payload.playerSpeechGate==='unsupported_capture_receipt' && keys(v.payload.capabilities,CAPABILITIES) && Object.values(v.payload.capabilities).every(x=>typeof x==='boolean') && v.payload.capabilities.playerSpeech===false && v.payload.signals && typeof v.payload.signals==='object' && !Array.isArray(v.payload.signals) && Object.entries(v.payload.signals).every(([k,n])=>['damage','vehicle_damage','firing','death','injury_state','vehicle_transition','vehicle_state','activity_changed','presence_changed','location_changed','action_callback','playback_started','playback_ended'].includes(k) && integer(n,2147483647)) && keys(v.payload.damageCallbacks,['ped_damage','player_damage','vehicle_damage']) && Object.values(v.payload.damageCallbacks).every(n=>integer(n,2147483647));
   return false;

@@ -16,6 +16,8 @@ namespace LSA.Intelligence
         readonly Queue<string> frames=new Queue<string>();
         readonly string name,epoch;
         readonly Func<object> capabilities;
+        readonly string hostRunId;
+        readonly Func<int> worldEpoch;
         readonly JavaScriptSerializer json=new JavaScriptSerializer {MaxJsonLength=8192,RecursionLimit=8};
         NamedPipeServerStream pipe;
         string streamId;
@@ -23,7 +25,15 @@ namespace LSA.Intelligence
         volatile bool stopping,connected;
         public int ConnectionVersion {get;private set;}
         public long Dropped {get;private set;}
-        public IntelligenceChannel(string name,string epoch,Func<object> capabilities) {this.name=name;this.epoch=epoch;this.capabilities=capabilities;}
+        public IntelligenceChannel(string name,string epoch,Func<object> capabilities,string hostRunId=null,Func<int> worldEpoch=null) {
+            if((hostRunId==null)!=(worldEpoch==null) || hostRunId!=null && !System.Text.RegularExpressions.Regex.IsMatch(hostRunId,"^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$")) throw new ArgumentException("invalid_host_context");
+            this.name=name;this.epoch=epoch;this.capabilities=capabilities;this.hostRunId=hostRunId;this.worldEpoch=worldEpoch;
+        }
+        object Hello() {
+            var value=new Dictionary<string,object>{{"version",1},{"type","hello"},{"adapterEpoch",epoch},{"streamId",streamId},{"capabilities",capabilities()}};
+            if(hostRunId!=null) {value["hostContextVersion"]=1;value["hostRunId"]=hostRunId;value["worldEpoch"]=worldEpoch();}
+            return value;
+        }
         public void Start() {new Thread(Serve) {IsBackground=true,Name="LSA intelligence facts"}.Start();}
         void Serve()
         {
@@ -35,7 +45,7 @@ namespace LSA.Intelligence
                     lock(gate) {if(stopping) {active.Dispose();return;}pipe=active;}
                     active.WaitForConnection();
                     string hello;
-                    lock(gate) {frames.Clear();sequence=0;streamId=Guid.NewGuid().ToString("D");hello=json.Serialize(new {version=1,type="hello",adapterEpoch=epoch,streamId,capabilities=capabilities()});connected=true;ConnectionVersion++;}
+                    lock(gate) {frames.Clear();sequence=0;streamId=Guid.NewGuid().ToString("D");hello=json.Serialize(Hello());connected=true;ConnectionVersion++;}
                     Write(active,hello);
                     while(!stopping && connected) {
                         string frame=null;lock(gate) {if(frames.Count>0) frame=frames.Dequeue();}

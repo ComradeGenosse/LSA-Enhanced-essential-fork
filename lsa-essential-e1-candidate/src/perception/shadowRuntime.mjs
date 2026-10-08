@@ -4,6 +4,7 @@ import { EpisodeStore } from './episodeStore.mjs';
 import { EpisodeCorrelator } from './episodeCorrelator.mjs';
 import { SharedTranscriptStore } from './sharedTranscriptStore.mjs';
 import { SalienceCache } from './salienceEngine.mjs';
+import { readHostContext } from '../context/hostContext.mjs';
 
 const MAX_COUNTER = 2147483647;
 const PS3_REASON_COUNTERS = Object.freeze({
@@ -19,6 +20,7 @@ const PS3_REASON_COUNTERS = Object.freeze({
 export class ShadowRuntime {
   constructor({ mode='off', now=()=>Math.floor(performance.now()) }={}) {
     this.mode=mode;this.now=now;this.anchors=new Map();this.signals=[];this.sequence=0;this.producers=new Map();this.epoch=null;this.stream=null;this.lastReceipt=0;
+    this.hostContext=null;
     this.counters=Object.fromEntries(['received','dropped','stale','malformed','duplicate','gaps','expired','resets'].map(k=>[k,0]));
     this.historyDiagnostics={expired:0,evicted:0,skipped:0,highWater:0};
     this.dropDiagnostics={anchorCapacity:0,observerCapacity:0};
@@ -35,6 +37,7 @@ export class ShadowRuntime {
   bump(target,k) { target[k]=Math.min(MAX_COUNTER,(target[k]||0)+1); }
   count(k) { this.bump(this.counters,k); }
   reset(reason='manual') {
+    this.hostContext=null;
     this.anchors.clear();this.signals=[];this.producers.clear();this.observations.clear();this.episodes.clear();this.correlator.clear();this.salience.clear();this.transcripts.setActiveRun(null);this.epoch=null;this.stream=null;this.sequence=0;this.lastReceipt=0;this.diagnostics=null;this.capabilities=Object.fromEntries(CAPABILITIES.map(k=>[k,false]));this.count('resets');
     const key={initialization:'initializations',disconnect:'disconnects',fault:'faults',timeout:'timeouts',manual:'manual'}[reason]||'manual';this.bump(this.resetDiagnostics,key);
   }
@@ -65,11 +68,19 @@ export class ShadowRuntime {
     if(this.mode!=='shadow' || !authenticated) return false;
     this.expire();
     if(!validateFrame(v)) {this.count('malformed');return false;}
-    if(v.type==='hello') {this.reset('initialization');this.epoch=v.adapterEpoch;this.stream=v.streamId;this.capabilities=Object.freeze({...v.capabilities});this.transcripts.setActiveRun(this.epoch);this.lastReceipt=this.now();return true;}
+    if(v.type==='hello') {this.reset('initialization');this.epoch=v.adapterEpoch;this.stream=v.streamId;this.hostContext=readHostContext(v);this.capabilities=Object.freeze({...v.capabilities});this.transcripts.setActiveRun(this.epoch);this.lastReceipt=this.now();return true;}
     if(v.adapterEpoch!==this.epoch || v.streamId!==this.stream) {this.count('stale');return false;}
     if(v.sequence<=this.sequence) {this.count('duplicate');return false;}
     if(v.sequence!==this.sequence+1) {this.count('gaps');this.reset('fault');return false;}
     this.sequence=v.sequence;this.lastReceipt=this.now();
+    if(v.type==='world_epoch') {
+      if(!this.hostContext || v.payload.epoch<this.hostContext.worldEpoch || v.payload.epoch>this.hostContext.worldEpoch+1) {this.reset('fault');return false;}
+      if(v.payload.epoch===this.hostContext.worldEpoch) return true;
+      const context=Object.freeze({...this.hostContext,worldEpoch:v.payload.epoch});
+      const epoch=this.epoch,stream=this.stream,sequence=this.sequence,capabilities=this.capabilities;
+      this.reset('manual');this.hostContext=context;this.epoch=epoch;this.stream=stream;this.sequence=sequence;
+      this.capabilities=capabilities;this.transcripts.setActiveRun(epoch);this.lastReceipt=this.now();return true;
+    }
     if(v.type==='anchors') {
       const projected=new Map(this.anchors);
       for(const a of v.payload) {

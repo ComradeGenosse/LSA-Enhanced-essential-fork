@@ -33,7 +33,10 @@ namespace LSA.PromotedCharacters
             if(WorldEpoch==int.MaxValue) throw new InvalidOperationException("world_epoch_exhausted");
             WorldEpoch++;
             Anchors.Clear(AnchorRetirement.WorldReset);
-            WorldChanged?.Invoke(WorldEpoch,reason);
+            Exception failure=null;
+            foreach(var callback in WorldChanged?.GetInvocationList() ?? new Delegate[0])
+                try {((Action<int,string>)callback)(WorldEpoch,reason);} catch(Exception error) {failure=error;}
+            if(failure!=null) throw new InvalidOperationException("world_consumer_failed",failure);
         }
 
         public void Cleanup(int limit=16,Func<bool> remaining=null) => Anchors.Cleanup(MonotonicMs,limit,remaining);

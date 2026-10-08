@@ -261,6 +261,8 @@ namespace LSA.SessionIdentity
     {
         public static SessionIdentityIntegration Current;
         public bool IsAvailable => Owner != null;
+        public void ConfigureHostContext(string run,Func<int> epoch) { }
+        public void ResetForHostWorld(int epoch,string reason) { }
         public string DiagnosticsStatus()=>"identity_status=test";
         public int InitializationThread {get;private set;}
         public int InitializationCalls {get;private set;}
