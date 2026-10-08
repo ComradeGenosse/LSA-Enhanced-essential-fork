@@ -1,3 +1,4 @@
+import {projectActivityKnowledge} from '../activities/activityKnowledge.mjs';
 import {immutableSnapshot} from './turnSnapshot.mjs';
 import {KNOWLEDGE_LIMITS,jsonBytes,selectKnowledge} from './knowledgeSelector.mjs';
 import {narrativeProfileWithDiagnostics} from '../characters/sessionProfiles.mjs';
@@ -52,7 +53,7 @@ export function projectConversation(history,input,source) {
 }
 // Pure projection only: callers must supply the canon already released by P1/P2.
 // Private turn/delivery metadata is never part of modelAllocation.
-export function renderKnowledge({turn,frozenAt,profile,persistent=false,knowledgeInputs,actor,listener,world,referenceMap,presence,history,input,source,includePerceived=false}) {
+export function renderKnowledge({turn,frozenAt,profile,persistent=false,knowledgeInputs,actor,listener,world,referenceMap,presence,history,input,source,includePerceived=false,activityInputs=null,includeActivityFacts=false}) {
  let canonProjection=narrativeProfileWithDiagnostics(profile,persistent);
  let narrative=canonProjection.narrative;
  // Reserve actual lane-wrapper overhead while reusing P2's established field
@@ -75,6 +76,11 @@ export function renderKnowledge({turn,frozenAt,profile,persistent=false,knowledg
   while(lanes.RECALLED.memories.length&&jsonBytes({SELF:lanes.SELF,RECALLED:lanes.RECALLED})>KNOWLEDGE_LIMITS.canonBytes)lanes.RECALLED.memories.pop();
   if(jsonBytes({SELF:lanes.SELF,RECALLED:lanes.RECALLED})>KNOWLEDGE_LIMITS.canonBytes)throw new RangeError('knowledge_canon_bytes');
  }
+ const activity=includeActivityFacts?projectActivityKnowledge(activityInputs):{facts:[],references:[],omitted:0};
+ lanes.SELF.selfFacts=[...activity.facts];
+ const activityReferences=[...activity.references];let droppedActivityFactCount=activity.omitted;
+ const dropActivityFact=()=>{lanes.SELF.selfFacts.pop();activityReferences.pop();droppedActivityFactCount++;};
+ while(lanes.SELF.selfFacts.length && jsonBytes({SELF:lanes.SELF,RECALLED:lanes.RECALLED})>KNOWLEDGE_LIMITS.canonBytes)dropActivityFact();
  const delivery=[...perceived.selected],omissions={...perceived.omissions};
  let frameBudgetDrops=0;
  const allocation=()=>({scene:JSON.stringify({frameVersion:1,lanes}),messages:conversation.messages});
@@ -90,12 +96,13 @@ export function renderKnowledge({turn,frozenAt,profile,persistent=false,knowledg
   const selected=delivery[index],pair=knowledgeInputs?.pairs?.find(pair=>pair.decision.decisionKey===selected.decisionKey);
   if(pair?.decision.context!=='must_include')dropObservation(index);
  }
+ while(oversized() && lanes.SELF.selfFacts.length){dropActivityFact();frameBudgetDrops++;}
  while(oversized() && lanes.RECALLED.memories.length){lanes.RECALLED.memories.pop();frameBudgetDrops++;}
  while(oversized() && delivery.length){dropObservation(delivery.length-1);omissions.safety_overflow++;}
  const modelAllocation=allocation(),bytes=jsonBytes(modelAllocation);
  if(bytes>KNOWLEDGE_LIMITS.frameBytes)throw new RangeError('knowledge_frame_bytes');
  const perLane=Object.fromEntries(Object.entries(lanes).map(([name,value])=>[name,jsonBytes(value)]));perLane.CONVERSE=jsonBytes(conversation.messages);
- return immutableSnapshot({frameVersion:1,turn,frozenAt,modelAllocation,delivery,memoryIds:memories.slice(0,lanes.RECALLED.memories.length).map(memory=>memory.memoryId),diagnostics:{bytes,perLane,capture:knowledgeInputs?.captureDiagnostics??null,safetyBudget:perceived.safetyBudget,omissions,frameBudgetDrops,droppedHistoryCount:conversation.droppedHistoryCount,droppedMemoryCount:canonProjection.droppedMemoryCount+memories.length-lanes.RECALLED.memories.length}});
+ return immutableSnapshot({frameVersion:1,turn,frozenAt,modelAllocation,delivery,memoryIds:memories.slice(0,lanes.RECALLED.memories.length).map(memory=>memory.memoryId),activityReferences,diagnostics:{bytes,perLane,droppedActivityFactCount,capture:knowledgeInputs?.captureDiagnostics??null,safetyBudget:perceived.safetyBudget,omissions,frameBudgetDrops,droppedHistoryCount:conversation.droppedHistoryCount,droppedMemoryCount:canonProjection.droppedMemoryCount+memories.length-lanes.RECALLED.memories.length}});
 
 }
 
