@@ -22,6 +22,7 @@ export class ActivityRuntime {
     try { this.engine.clockReset(); } catch {}
     this.client.stop();
   }
+  factsForCharacter(binding) {return this.engine.factsForCharacter(binding);}
   status(characterId) { return this.engine.status(characterId); }
   pause(characterId) { return this.engine.pause(characterId); }
   resume(characterId) { return this.engine.resume(characterId); }
