@@ -260,3 +260,12 @@ Validation: full explicit offline Node suite 512/512, zero failed/cancelled; git
 The existing salience snapshot optionally reports bounded observation/expired/missing-pair/revision counts while preserving its existing array API and ordering. P0 capture records retained pair count/serialized pool bytes plus retired-reference and pool-budget exclusions before immutable copying. Renderer diagnostics carry this private scalar summary; knowledge_frame_projected admits only explicitly named scalar counters through normal telemetry. No observation, decision key, profile, transcript or prompt payload is logged and no replacement pair is constructed.
 
 Validation: full explicit offline Node suite 513/513, zero failed/cancelled; git diff --check passed. A focused missing-metadata case verifies the empty captured pool and no_matching_salience count without evaluation or consumption of the existing grant. Earlier pressure/selector/retry and actual source-path tests remain passing. Broader paired-store pressure/fault/owned/mixed-host support and native interoperability/GTA gates still require verification. No deployment, capability enabling, native production source or GTA acceptance changed. All later master-plan phases remain unfinished; the full goal remains active.
+
+
+## Checkpoint 22: real active negative request gates and remote refresh
+
+Refreshed origin from GitHub; main remains d423125, the PR #22 merge. Added actual rebuilt Essential/provider-fetch negative cases for unavailable build support, mismatched actor host/world, missing private capture and unsupported live C-14 version. Each completes ordinary safe-base dialogue with empty PERCEIVED, no private actor block in the request, no salience consumption and no invalidation subscription leak. No authority document, production capability gate or native source changed.
+
+These cases strengthen the companion release evidence; owned-controller, broader adversarial/pressure/native interoperability/payload/GTA gates and later master-plan phases remain unfinished. No deployment or enabling performed. The full goal remains active.
+
+Validation: full explicit offline Node suite 518/518, zero failed/cancelled; git diff --check passed.

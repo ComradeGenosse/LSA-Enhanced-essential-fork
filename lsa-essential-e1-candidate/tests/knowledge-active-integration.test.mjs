@@ -72,3 +72,20 @@ test('real active retry retains frozen body and cannot consume a later PS3 decis
  assert.equal(result.status,'completed');assert.equal(bodies.length,2);assert.equal(bodies[0],bodies[1]);assert.equal(outcomes.length,1);assert.equal(outcomes[0].retired,1);
  const successor=[...f.ps.salience.ledger.values()];assert.ok(successor.some(entry=>!originalKeys.includes(entry.decisionKey)));assert.ok(successor.every(entry=>!entry.consumedBy.has('ps4_context') && !entry.consumedBy.has('ps6_ticket')));assert.equal(f.client.knowledgeListeners.size,0);
 });
+
+
+for(const fault of ['build_unavailable','host_mismatch','world_mismatch','capture_missing','situation_unsupported'])test(`real active ${fault} falls back to safe base without consumption`,async t=>{
+ const f=factualFixture(),bodies=[];
+ if(fault==='host_mismatch')f.actor.integrations.turnKnowledge.hostRunId=randomUUID();
+ if(fault==='world_mismatch')f.actor.integrations.turnKnowledge.worldEpoch=2;
+ if(fault==='capture_missing')delete f.actor.integrations.turnKnowledge;
+ if(fault==='situation_unsupported')f.ps.observerSituationVersion=null;
+ const h=await stockHarness('openai',{config:{dialogueKnowledge:{mode:'active'},retry:{enabled:false,maxAttempts:1},persistentIdentity:{enabled:false},promotedCharacters:{enabled:false}},env:{OPENAI_API_KEY:'offline'},fetchImpl:async(_url,request)=>{bodies.push(JSON.parse(request.body));return response(false);}});
+ h.runtime.intelligence=f.client;h.runtime.dialogueKnowledgeBuildSupported=fault!=='build_unavailable';
+ h.runtime.services.speak=async({onPcm})=>{await onPcm(new Uint8Array([1,2]));return {bytes:2};};
+ const session=await h.openAIControllerSession({actorContext:f.actor});t.after(()=>session.connection.close());session.autoNativeAcks();h.context.negativeInput={pedId:'17',speaker:f.actor,text:'Hello'};
+ const turn=await h.evaluate('ib(negativeInput)');const result=await session.connection.whenSettled({pedId:turn.pedId,turnId:turn.id,generationId:turn.generationId,sessionNonce:1});
+ assert.equal(result.status,'completed',result.terminalReason);assert.equal(bodies.length,1);
+ const scene=JSON.parse(bodies[0].input[0].content.split('\n').find(line=>line.startsWith('{"frameVersion":1,')));assert.deepEqual(scene.lanes.PERCEIVED.observations,[]);assert.equal(bodies[0].input.at(-1).content,'Hello');assert.equal(JSON.stringify(bodies[0]).includes('turnKnowledge'),false);
+ assert.ok([...f.ps.salience.ledger.values()].every(entry=>entry.consumedBy.size===0));assert.equal(f.client.knowledgeListeners.size,0);
+});
