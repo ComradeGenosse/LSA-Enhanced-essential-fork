@@ -1,4 +1,4 @@
 <Project Sdk="Microsoft.NET.Sdk">
-  <PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net10.0</TargetFramework><LangVersion>latest</LangVersion></PropertyGroup>
+  <PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net481</TargetFramework><AutomaticallyUseReferenceAssemblyPackages>false</AutomaticallyUseReferenceAssemblyPackages><LangVersion>latest</LangVersion></PropertyGroup>
   <ItemGroup><Compile Include="../HostContext.cs" Link="HostContext.cs"/><Compile Include="../../intelligence/EntityAnchors.cs" Link="EntityAnchors.cs"/></ItemGroup>
 </Project>
