@@ -26,6 +26,20 @@ namespace LSA.Activities
         static readonly Regex Sha = new Regex("^[a-f0-9]{64}$", RegexOptions.Compiled);
         static readonly Regex Alias = new Regex("^promoted\\.[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$", RegexOptions.Compiled);
         public static bool IsUuid(string value) => value != null && Uuid.IsMatch(value);
+        // Private passive C-05 annotation. Structural validity does not grant
+        // transport support, actor ownership, a lease or execution authority.
+        public static bool DialogueActionAnnotation(IDictionary<string,object> value,int expectedSequence)
+        {
+            try {
+                if(!Exact(value,"version","type","sequence","dialogueActionVersion","publicationId","tuple","binding","canonicalAction","publishedAtMs") || !Sequenced(value,expectedSequence) || value["type"] as string!="dialogue.action.pending" || !(value["dialogueActionVersion"] is int v && v==1) || !IsUuid(value["publicationId"] as string))return false;
+                var tuple=value["tuple"] as Dictionary<string,object>;var binding=value["binding"] as Dictionary<string,object>;
+                if(!Exact(tuple,"pedId","turnId","generationId","sessionNonce") || !ShortIdentity(tuple["pedId"]) || !ShortIdentity(tuple["turnId"]) || !SafeInteger(tuple["generationId"],0) || !SafeInteger(tuple["sessionNonce"],1) || !Exact(binding,"encounterId","incarnationId","hostContext") || !IsUuid(binding["encounterId"] as string) || !IsUuid(binding["incarnationId"] as string))return false;
+                var host=binding["hostContext"] as Dictionary<string,object>;var action=value["canonicalAction"] as string;
+                return Exact(host,"hostContextVersion","hostRunId","worldEpoch") && host["hostContextVersion"] is int hv && hv==1 && IsUuid(host["hostRunId"] as string) && host["worldEpoch"] is int epoch && epoch>0 && action!=null && Regex.IsMatch(action,@"^[a-z][a-z0-9_]{0,63}\z") && SafeInteger(value["publishedAtMs"],0);
+            }catch{return false;}
+        }
+        static bool ShortIdentity(object value) => value is string text && text.Length>0 && text.Length<=128;
+        static bool SafeInteger(object value,long min) => (value is int || value is long) && Convert.ToInt64(value)>=min && Convert.ToInt64(value)<=9007199254740991L;
         public static bool IsReason(string value) => value != null && Reasons.Contains(value);
         public static bool IsCapability(string value) => value != null && Capabilities.Contains(value);
         public static bool IsMode(string value) => value != null && Modes.Contains(value);

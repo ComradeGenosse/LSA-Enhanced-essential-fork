@@ -56,6 +56,16 @@ class Program
     }
     static void Run()
     {
+        var annotationJson=new JavaScriptSerializer();
+        var annotation=Decode(annotationJson,"{\"version\":1,\"type\":\"dialogue.action.pending\",\"sequence\":1,\"dialogueActionVersion\":1,\"publicationId\":\""+Id('1')+"\",\"tuple\":{\"pedId\":\"17\",\"turnId\":\"turn\",\"generationId\":1,\"sessionNonce\":1},\"binding\":{\"encounterId\":\""+Id('2')+"\",\"incarnationId\":\""+Id('3')+"\",\"hostContext\":{\"hostContextVersion\":1,\"hostRunId\":\""+Id('4')+"\",\"worldEpoch\":1}},\"canonicalAction\":\"followtarget\",\"publishedAtMs\":1791500000000}");
+        Check(ActivityContracts.DialogueActionAnnotation(annotation,1),"C05 exact annotation supports long publication timestamp");
+        Check(!ActivityContracts.ExecutionFrame(annotation,1),"C05 annotation is not execution");
+        Check(!ActivityContracts.DialogueActionAnnotation(annotation,2),"C05 sequence mismatch");
+        annotation["leaseId"]=Id('5');Check(!ActivityContracts.DialogueActionAnnotation(annotation,1),"C05 extra authority field rejected");annotation.Remove("leaseId");
+        annotation["publishedAtMs"]=1.5;Check(!ActivityContracts.DialogueActionAnnotation(annotation,1),"C05 fractional timestamp rejected");annotation["publishedAtMs"]=1791500000000L;
+        annotation["canonicalAction"]="followtarget\n";Check(!ActivityContracts.DialogueActionAnnotation(annotation,1),"C05 newline canonical action rejected");annotation["canonicalAction"]="followtarget";
+        annotation["dialogueActionVersion"]=2;Check(!ActivityContracts.DialogueActionAnnotation(annotation,1),"C05 unknown extension rejected");annotation["dialogueActionVersion"]=1;
+        ((Dictionary<string,object>)annotation["tuple"])["sessionNonce"]=0;Check(!ActivityContracts.DialogueActionAnnotation(annotation,1),"C05 invalid turn lifetime rejected");
         var bytes = File.ReadAllBytes(ContractPath());
         string sha; using (var hash = SHA256.Create()) sha = BitConverter.ToString(hash.ComputeHash(bytes)).Replace("-", "").ToLowerInvariant();
         Check(sha == CapabilityTable.ContractSha256, "pinned capability hash");

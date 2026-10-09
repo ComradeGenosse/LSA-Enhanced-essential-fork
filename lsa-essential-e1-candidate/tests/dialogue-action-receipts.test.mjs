@@ -1,11 +1,20 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {DialogueActionReceipts} from '../src/activities/dialogueActionReceipts.mjs';
+import {validateDialogueActionAnnotation} from '../src/activities/dialogueActionContract.mjs';
+import {validateFrame} from '../src/activities/contracts.mjs';
 const id=n=>`00000000-0000-4000-8000-${String(n).padStart(12,'0')}`;
 const binding={encounterId:id(1),incarnationId:id(2),hostContext:{hostContextVersion:1,hostRunId:id(3),worldEpoch:1}};
 const tuple={pedId:'actor',turnId:'turn',generationId:1,sessionNonce:1};
 const publication={tuple,binding,canonicalAction:'followtarget',publishedAtMs:100,allowedActions:['followtarget','waithere']};
 const callback=row=>({...row,succeeded:true,atGameTick:0xffffffff,receivedAtMs:120});
+test('C05 annotation is closed, versioned and never an existing execution frame',()=>{
+ const frame={version:1,type:'dialogue.action.pending',sequence:1,dialogueActionVersion:1,publicationId:id(5),tuple,binding,canonicalAction:'followtarget',publishedAtMs:100};
+ assert.equal(validateDialogueActionAnnotation(frame),true);assert.equal(validateFrame(frame),false);
+ for(const change of [{version:2},{dialogueActionVersion:2},{sequence:0},{sequence:0x80000000},{publicationId:'bad'},{leaseId:id(6)},{canonicalAction:'DO followtarget'},{publishedAtMs:1.5},{tuple:{...tuple,source:'player_dialogue'}},{tuple:{...tuple,sessionNonce:0}},{binding:{...binding,characterId:id(7)}},{binding:{...binding,hostContext:{...binding.hostContext,worldEpoch:0}}}])assert.equal(validateDialogueActionAnnotation({...frame,...change}),false);
+ assert.equal(validateDialogueActionAnnotation({...frame,tuple:{...tuple,pedId:'x'.repeat(129)}}),false);
+ assert.equal(validateDialogueActionAnnotation(null),false);
+});
 test('C05 exact passive receipt distinguishes acceptance and failure without physical completion',()=>{
  const store=new DialogueActionReceipts(),row=store.publish(publication);
  tuple.generationId=2;assert.equal(row.tuple.generationId,1);tuple.generationId=1;
