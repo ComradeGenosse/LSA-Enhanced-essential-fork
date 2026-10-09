@@ -47,6 +47,10 @@ jobs:
         working-directory: lsa-essential-e1-candidate
         run: |
           node --test --test-name-pattern="real owned ACT/C05 early TTS player_text frozen SELF: self_only$" tests/frozen-character-inputs.test.mjs
+      - name: Diagnose complete P1/PS4 frozen SELF fixture
+        working-directory: lsa-essential-e1-candidate
+        run: |
+          node --test --test-reporter=tap tests/frozen-character-inputs.test.mjs
       - name: Compile C-05 Windows test helper from source
         if: runner.os == 'Windows'
         shell: pwsh
