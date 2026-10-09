@@ -138,6 +138,8 @@ class Program
             HostRunId=r.HostRunId,WorldEpoch=r.WorldEpoch,
             SpeakerCaptureRef=r.SpeakerCaptureRef,PlayerCaptureRef=r.PlayerCaptureRef,
             OwnerIncarnationId=r.OwnerIncarnationId,OwnerProofRevision=r.ProofRevision,
+            ObservationId=r.ObservationId,ObservationRevision=r.ObservationRevision,
+            DecisionKey=r.DecisionKey,
             PlayerTurnVersion=r.PlayerTurnVersion,PolicyVersion=r.PolicyVersion,
             SpeakerAnchorCurrent=true,SpeakerOwned=true,SpeakerObserver=true,SpeakerAlive=true,
             PlayerAnchorCurrent=true,PlayerIsLocal=true,PlayerAlive=true,
@@ -169,6 +171,18 @@ class Program
         Check(!DirectorC06Policy.Safe(changed,proof),"no speaker substitution");
         changed=Request(23);changed.OwnerIncarnationId=Guid.NewGuid().ToString("D");
         Check(!DirectorC06Policy.Safe(changed,proof),"no owner incarnation substitution");
+        changed=Request(23);changed.ObservationId=Guid.NewGuid().ToString("D");
+        Check(!DirectorC06Policy.Safe(changed,proof),"no PS3 observation substitution");
+        changed=Request(23);changed.ObservationRevision++;
+        Check(!DirectorC06Policy.Safe(changed,proof),"no PS3 revision substitution");
+        changed=Request(23);changed.DecisionKey="same-actor-different-grant";
+        Check(!DirectorC06Policy.Safe(changed,proof),"no PS3 decision grant substitution");
+        proof.ObservationId=null;
+        Check(!DirectorC06Policy.Safe(req,proof),"unavailable original PS3 observation denies");
+        proof.ObservationId=req.ObservationId;
+        proof.DecisionKey=null;
+        Check(!DirectorC06Policy.Safe(req,proof),"unavailable original PS3 entitlement denies");
+        proof.DecisionKey=req.DecisionKey;
         Check(!DirectorC06Policy.Safe(req,new DirectorC06Policy.Snapshot()),"unknown C06 truth denies");
         var admission=new DirectorAdmission(()=>now,r=>DirectorC06Policy.Safe(r,proof),()=>host,()=>world,true);
         Check(admission.Handle(req).Status=="reserved","full native proof permits one reservation in isolated test only");
