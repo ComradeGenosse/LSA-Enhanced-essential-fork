@@ -39,6 +39,35 @@ test('observer observations and matching salience revisions freeze before later 
   f.setNow(100);fire();f.block.sampledGameTick=100;assert.equal(JSON.stringify(frozen),before);assert.equal(frozen.association.sampledGameTick,10);
   for(const pair of frozen.pairs) {assert.equal(pair.observation.revision,pair.decision.revision);assert.equal(Object.isFrozen(pair.observation.claims),true);assert.equal(pair.situation.activity,'unknown');assert.equal(Object.isFrozen(pair.situation),true);}
 });
+test('PR21 T31 a new P0 generation captures later witnessed signal while old PS3 salience remains frozen',()=>{
+  const f=fixture();
+  const originalSignal={signalId:randomUUID(),producer:'shooting',producerSequence:1,
+    kind:'firing',target:null,source:f.captureRef,gameTick:10,ageMs:0,facts:{}};
+  assert.equal(f.send('signal',originalSignal),true);
+  const first=f.capture();
+  assert.equal(first.reason,null);
+  assert.ok(first.pairs.length>0);
+  const frozen=JSON.stringify(first.pairs);
+  const version=first.pairs[0].observation.revision;
+  f.setNow(101);
+  f.block.sampledGameTick=100;
+  assert.equal(f.send('signal',{...originalSignal,signalId:randomUUID(),producerSequence:2,
+    gameTick:100}),true);
+  assert.equal(JSON.stringify(first.pairs),frozen,'old P0 snapshot may not absorb a later source event');
+  // The next provider generation obtains a fresh P0 and a new native sample,
+  // never a mutation of the earlier private frame.
+  f.identity.generationId=2;
+  f.identity.turnId='turn-2';
+  f.p0Snapshot.revision=2;
+  const later=f.capture();
+  assert.equal(later.reason,null);
+  assert.equal(later.turn.identity.generationId,2);
+  assert.ok(later.pairs.length>0);
+  assert.equal(JSON.stringify(first.pairs),frozen);
+  assert.ok(later.pairs.some(p=>p.observation.revision>version ||
+    p.observation.observedAt.gameTick>first.pairs[0].observation.observedAt.gameTick),
+    'new generation must reflect the newer native-qualified evidence or revision');
+});
 test('actor capture schema is closed and ownership cannot be inferred',()=>{
   const f=fixture();for(const patch of [{version:2},{characterId:randomUUID()},{worldEpoch:0},{sampledGameTick:-1},{encounterId:randomUUID()}]) assert.equal(Boolean(validateActorCapture({...f.block,...patch})),false);
   f.perception.observerIndex.set(f.captureRef,Object.freeze({captureRef:f.captureRef,kind:'ped',owned:true,encounterId:randomUUID(),incarnationId:randomUUID()}));assert.equal(f.capture().reason,'owner_unverified');
