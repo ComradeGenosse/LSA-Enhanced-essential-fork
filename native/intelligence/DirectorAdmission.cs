@@ -28,12 +28,17 @@ namespace LSA.Intelligence
             public long ExpiresAt;
             public bool Used,NativePlaybackStarted;
             public string TurnId;
-            public int GenerationId,SessionNonce;
+            // Core NpcPlaybackStarted/EndedEvent.GenerationId is Int64.
+            public long GenerationId;
+            public int SessionNonce;
             public string PedId;
             public long PlaybackExpiresAt;
         }
 
         internal const int MaxTickets=32;
+        // The companion transports this tuple as a JS Number: values outside
+        // this range cannot be matched exactly without changing the protocol.
+        internal const long MaxExactWireGeneration=9007199254740991L;
         internal const long TicketTtlMs=2000;
         internal const int MaxAttempts=4;
         readonly Func<long> clock;
@@ -145,12 +150,12 @@ namespace LSA.Intelligence
             a.ObservationId==b.ObservationId &&
             a.ObservationRevision==b.ObservationRevision &&
             a.DecisionKey==b.DecisionKey;
-        internal bool BindActualTuple(string ticket,string pedId,string turnId,int generationId,int nonce)
+        internal bool BindActualTuple(string ticket,string pedId,string turnId,long generationId,int nonce)
         {
             Reservation r;
             if(!enabled||ticket!=activeTicket||!pending.TryGetValue(ticket,out r)||
                 !r.Used||r.TurnId!=null||clock()>=r.ExpiresAt||
-                string.IsNullOrWhiteSpace(pedId)||!Key(turnId)||generationId<0||nonce<=0)
+                string.IsNullOrWhiteSpace(pedId)||!Key(turnId)||generationId<0||generationId>MaxExactWireGeneration||nonce<=0)
                 return false;
             if(!Safe(r.Request,"bind")) {
                 pending.Remove(ticket);activeTicket=null;return false;
@@ -164,7 +169,7 @@ namespace LSA.Intelligence
         }
         // Separate, original-tuple native started receipt. A later terminal
         // callback cannot invent that a playback actually started.
-        internal bool NotePlaybackStarted(string ticket,string pedId,string turnId,int generationId,int nonce)
+        internal bool NotePlaybackStarted(string ticket,string pedId,string turnId,long generationId,int nonce)
         {
             Reservation r;
             if(ticket!=activeTicket || !pending.TryGetValue(ticket,out r) ||
@@ -178,7 +183,7 @@ namespace LSA.Intelligence
             r.NativePlaybackStarted=true;
             return true;
         }
-        internal bool Complete(string ticket,string pedId,string turnId,int generationId,int nonce,
+        internal bool Complete(string ticket,string pedId,string turnId,long generationId,int nonce,
           bool complete,bool interrupted,bool hadAudio,bool playbackStarted)
         {
             Reservation r;
