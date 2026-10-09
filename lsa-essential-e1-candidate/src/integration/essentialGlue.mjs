@@ -1,3 +1,4 @@
+import {captureDialogueActionKnowledge} from '../activities/dialogueActionKnowledge.mjs';
 import {captureActivityKnowledge,assertActivityKnowledgeCurrent} from '../activities/activityKnowledge.mjs';
 import {prepareDialogueActionPublication} from '../activities/dialogueActionPublication.mjs';
 import {createKnowledgeDelivery} from '../context/knowledgeDelivery.mjs';
@@ -123,7 +124,8 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
       try {
         const inputs=runtime.intelligence?.captureKnowledgeInputs({...input,identityConfig:config.persistentIdentity,ownerEvidence:identityService?.evidence}) ?? null;
         let activityInputs=null;try{activityInputs=captureActivityKnowledge({knowledgeInputs:inputs,characterInputs:input.characterInputs,activities:runtime.activities});}catch{}
-        return activityInputs?Object.freeze({...inputs,activityInputs}):inputs;
+        let dialogueInputs=null;try{dialogueInputs=captureDialogueActionKnowledge({knowledgeInputs:inputs,activities:runtime.activities});}catch{}
+        return activityInputs || dialogueInputs?Object.freeze({...inputs,...(activityInputs?{activityInputs}:{}),...(dialogueInputs?{dialogueInputs}:{})}):inputs;
       }
       catch {return null;} // Optional knowledge failure cannot prevent an Essential turn.
     },
