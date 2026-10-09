@@ -13,6 +13,12 @@ on:
 permissions:
   contents: read
 
+# Old commits do not need to keep exercising lengthy native/Node matrices.
+# Ensure there is only one current PR validation matrix at a time.
+concurrency:
+  group: lsa-v1-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   isolated-node:
     name: Isolated Node regression
