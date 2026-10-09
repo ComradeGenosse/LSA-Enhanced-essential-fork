@@ -316,9 +316,10 @@ namespace LSA.Intelligence
             } catch {LogStatus("[PS] optional_update_failed");Shutdown("update_failed");}
         }
         // Read only what the current Core/P2/PS host can independently prove.
-        // The current native build has no source-pinned player-turn counter,
-        // authoritative mic+Essential busy receipt, or native PS3 entitlement
-        // echo. Those fields intentionally stay false/-1. Merely matching a
+        // Pinned Core exposes a special-turn counter and global queued/playback
+        // check, but no complete player-turn arbiter, Essential active-turn
+        // authority or native PS3 entitlement echo. Those critical gates stay
+        // false/-1. Merely matching a
         // Ped pointer or companion-provided integer never grants C-06 authority.
         DirectorC06Policy.Snapshot ReadDirectorC06(DirectorAdmission.Request r)
         {
@@ -340,6 +341,18 @@ namespace LSA.Intelligence
                 proof.PlayerAnchorCurrent=player?.Kind=="player" && player.Entity is Ped;
                 proof.PlayerIsLocal=player!=null && ReferenceEquals(player.Entity,local);
                 proof.PlayerAlive=local!=null && local.Exists() && !local.IsDead;
+                // Pinned Essential public APIs: the special-turn revision is
+                // only a partial player-priority signal, never a global idle
+                // authorization. An unreadable Core sample fails closed.
+                long specialTurnVersion=LosSantosAlive.Bridge.SpecialTurns.SpecialGeminiTurnService.ReadPlayerTurnVersion();
+                if(specialTurnVersion>=0) {
+                    proof.SpecialTurnVersion=specialTurnVersion;
+                    proof.SpecialTurnVersionKnown=true;
+                }
+                // Includes both current NPC playback and queued audio. Merely
+                // checking IsPedCurrentlySpeaking would miss pending playback.
+                proof.PlaybackIdle=!NpcPlaybackCoordinator.IsAnyAudioPlayingOrPending();
+                proof.PlaybackKnown=true;
                 var mic=directorMic;
                 if(mic?.Available==true) {
                     string status=mic.CanStart();
@@ -383,9 +396,9 @@ namespace LSA.Intelligence
                 proof.ScriptStateKnown=true;
                 // P2 registration has no monotonically source-published proof
                 // revision. Do not reconstruct that revision from a handle,
-                // clock, primary-owner mode or companion input. Likewise Core
-                // exports no authoritative player-turn/Essential-turn idle
-                // counter or native copy of the PS3 response ledger.
+                // clock, primary-owner mode or companion input. Core's special-
+                // turn counter cannot represent global player-turn idle; no
+                // complete Essential-turn idle or PS3 native receipt is exposed.
                 // Those required approval flags remain UNKNOWN until sourced.
             } catch { return new DirectorC06Policy.Snapshot(); }
             return proof;
