@@ -76,7 +76,7 @@ export class EpisodeCorrelator {
         expiresAtMonotonicMs: Math.min(now + 120000, expiresAtMonotonicMs + 90000), eventType: event[0], severity: event[1],
         claims: [...(old?.claims || []), claim], recognizedCharacterIds: [],
       };
-      if (this.observations.put(observation)) emitted.push(observation);
+      if (this.observations.put(observation,{sourceAgeMs:signal.ageMs})) emitted.push(observation);
       else this.dropped++;
     }
     this.remember(eventKey, { episodeId });
