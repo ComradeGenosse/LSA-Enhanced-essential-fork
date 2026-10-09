@@ -92,10 +92,48 @@ class Program
         var wire=new JavaScriptSerializer().Deserialize<Dictionary<string,object>>(new JavaScriptSerializer().Serialize(follow));
         Check(wire.Count==3 && (string)wire["owner"]=="essential_residual" && (string)wire["mode"]=="follow" && Convert.ToUInt32(wire["since"])==30);
     }
+    static void NativeOwnerSamples()
+    {
+        // Exercise production refresh rather than only its pure token helper.
+        var integration=Create(out _);var ped=new Ped{Handle=88,MemoryAddress=new IntPtr(88)};
+        var encounter=(Encounter)typeof(PromotedCharactersIntegration).GetMethod("EncounterFor",BindingFlags.Instance|BindingFlags.NonPublic).Invoke(integration,new object[]{ped});
+        encounter.OwnerAlias="promoted."+Guid.NewGuid().ToString("D");
+        encounter.Registration=SessionIdentityIntegration.Current.Owner.Register(ped,encounter.OwnerAlias,WorldId);
+        var refresh=typeof(PromotedCharactersIntegration).GetMethod("RefreshPrimaryOwner",BindingFlags.Static|BindingFlags.NonPublic);
+        var samples=new[]{
+            (new LosSantosAlive.NPC.NpcState{FollowPlayerOnFoot=true},"follow"),
+            (new LosSantosAlive.NPC.NpcState{FollowPaused=true},"follow"),
+            (new LosSantosAlive.NPC.NpcState{SitOnGroundMode=true},"sit"),
+            (new LosSantosAlive.NPC.NpcState{FollowPlayerOnFoot=true,SitOnGroundMode=true},"unknown"),
+            (new LosSantosAlive.NPC.NpcState{FollowPaused=true,SitOnGroundMode=true},"unknown"),
+            (new LosSantosAlive.NPC.NpcState{FollowPlayerOnFoot=true,HasActiveReflex=true},"unknown"),
+            (new LosSantosAlive.NPC.NpcState{SitOnGroundMode=true,InDirectedInteraction=true},"unknown"),
+            (new LosSantosAlive.NPC.NpcState{},"unknown")};
+        try{
+            foreach(var sample in samples){
+                encounter.Owner=PrimaryBehaviorOwner.Transition(null,"act","activity",10);Game.GameTime=200;
+                LosSantosAlive.NPC.NpcStateStore.State=body=>{Check(ReferenceEquals(body,ped));return sample.Item1;};
+                refresh.Invoke(null,new object[]{encounter});
+                Check(encounter.Owner.owner=="essential_residual" && encounter.Owner.mode==sample.Item2 && encounter.Mode==sample.Item2 && encounter.Owner.since==200);
+                var original=encounter.Owner;Game.GameTime=201;refresh.Invoke(null,new object[]{encounter});
+                Check(ReferenceEquals(original,encounter.Owner));
+            }
+            LosSantosAlive.NPC.NpcStateStore.State=body=>null;refresh.Invoke(null,new object[]{encounter});
+            Check(encounter.Owner.owner=="none" && encounter.Owner.mode=="unknown" && encounter.Mode=="unknown");
+            encounter.Owner=PrimaryBehaviorOwner.Transition(null,"act","activity",10);
+            LosSantosAlive.NPC.NpcStateStore.State=body=>throw new InvalidOperationException("native_sample_failed");
+            refresh.Invoke(null,new object[]{encounter});Check(encounter.Owner.owner=="none" && encounter.Mode=="unknown");
+            LosSantosAlive.NPC.NpcStateStore.State=body=>throw new Exception("stale body must never sample");
+            ped.MemoryAddress=new IntPtr(89);int reads=Game.NativeCalls;
+            refresh.Invoke(null,new object[]{encounter});Check(Game.NativeCalls==reads && encounter.Owner.owner=="none" && encounter.Mode=="unknown");
+            ped.MemoryAddress=new IntPtr(88);encounter.Registration=null;reads=Game.NativeCalls;
+            refresh.Invoke(null,new object[]{encounter});Check(Game.NativeCalls==reads && encounter.Owner.mode=="unknown");
+        }finally{LosSantosAlive.NPC.NpcStateStore.State=null;integration.Shutdown();}
+    }
     static void Main()
     {
         try {
-            PrimaryOwnerTruth(); DeferredInitialization(); ShutdownOnCoreUpdate(); ResetWithPendingRequest(); ResetAfterP1(); RetireFailure(); ForwardClock(); ActivityIsolation(); ExactEncounterLifetime(); DialogueActorResolution(); DialogueObserverLifetime();
+            PrimaryOwnerTruth(); NativeOwnerSamples(); DeferredInitialization(); ShutdownOnCoreUpdate(); ResetWithPendingRequest(); ResetAfterP1(); RetireFailure(); ForwardClock(); ActivityIsolation(); ExactEncounterLifetime(); DialogueActorResolution(); DialogueObserverLifetime();
             Console.WriteLine("P2 production clock recovery and Windows pipe cancellation: " + count + " assertions passed; no game assemblies loaded.");
         } catch (Exception error) { Console.Error.WriteLine(error.GetType().Name + ": " + error.Message); Environment.ExitCode = 1; }
     }

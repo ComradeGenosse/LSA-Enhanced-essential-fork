@@ -659,3 +659,16 @@ The first reset fixture failed because its test host did not refresh the cached 
 Validation: native ACT harness rebuilt with zero warnings/errors and passed 263 assertions; standalone real Windows pipe harness passed all 66 checks. Complete normal-Node isolated offline regression passed 644 assertions across 63 files, including the expanded pipe fixture. git diff --check passed. This changes only test infrastructure/documentation; production source and packaged runtime remain unchanged, so no fresh production build/install claim is made. The aggregate-process Node crash limitation remains open.
 
 Remaining v1.0 work: native C-06 owner-transition/admission audit and applicable missing tests, baseline PS4 T/G requirement closure, Phase 13a implementation/automated acceptance, and external physical callback/owner/PS4/initiative gates. Synthetic callback ordering is not Essential/GTA acceptance. Conditional gaze remains deferred pending evidence of insufficient stock behavior; other master phases remain deferred. The revised milestone goal remains active.
+
+
+## Checkpoint 63: production C-06 owner-sample matrix
+
+Audited native owner transitions: P2 follow/wait set p2 owner; ACT BeginOwnership sets act/activity; both normal and preempted EndOwnership call RefreshPrimaryOwner instead of assigning idle; suspend resamples after releasing control; retirement sets none/unknown. RefreshPrimaryOwner samples only the original registered body and conservatively preserves Essential residual follow/paused-follow/sit, conflicting modes/reflex/directed interaction as unknown, and unavailable/failed samples as none/unknown. Repeated unchanged ownership preserves since. Empty state does not establish idle.
+
+Added production RefreshPrimaryOwner tests to the existing P2 lifecycle harness, covering eight native sample shapes, stable since, null/throwing reads, reused address and absent registration. The test stub now permits explicit null samples rather than silently substituting an empty state, so missing evidence is exercised faithfully. No production policy, task or owner authority changed.
+
+Validation: lifecycle harness rebuilt with zero warnings/errors. Its sandboxed Windows-pipe run timed out; the authorized unsandboxed run passed all 157 assertions (previously 118). git diff --check passed. Production and Node code are unchanged, so prior checkpoint-62 normal-Node 644/63 regression remains the relevant evidence; no redundant companion build is claimed.
+
+Limits: the lifecycle harness links production owner sampling but substitutes the ACT world binding; it does not directly exercise production EssentialActivityWorld BeginOwnership/EndOwnership against game state. StepRunner tests cover ownership calls with a fake world, and the production addon compiles the actual world, but neither is physical proof. Those transitions and Q/F/K/R/FR probes remain explicit MP6 GTA gates. Phase 13a admission must resample native busy/safety/player state and exact identity; a C-06 token or empty NpcState is not sufficient permission. No idle inference or automatic restoration was introduced.
+
+Next: baseline PS4 requirement-to-evidence audit and remaining concrete automated gaps, then the checked Phase 13a ticket/intake pipeline. The user-authorized v1.0 goal remains active; physical gates are unaccepted and other master phases deferred.

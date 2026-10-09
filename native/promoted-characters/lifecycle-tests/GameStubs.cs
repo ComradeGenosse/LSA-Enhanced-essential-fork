@@ -150,7 +150,7 @@ namespace LosSantosAlive.NPC
     public static class NpcStateStore
     {
         public static Func<Rage.Ped,NpcState> State;
-        public static NpcState TryGetState(Rage.Ped ped) { Rage.Game.NativeCalls++; return State?.Invoke(ped) ?? new NpcState(); }
+        public static NpcState TryGetState(Rage.Ped ped) { Rage.Game.NativeCalls++; return State==null ? new NpcState() : State(ped); }
         public static NpcState GetStateForActiveBehavior(Rage.Ped ped) { Rage.Game.NativeCalls++; return new NpcState(); }
     }
     public static class NpcActions
