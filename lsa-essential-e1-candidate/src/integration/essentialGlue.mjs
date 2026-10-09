@@ -139,6 +139,16 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
       }
       catch {return null;} // Optional knowledge failure cannot prevent an Essential turn.
     },
+    requireDirectorTicket(input,hydrated) {
+      // The supplied kb object is not authority. Native accepted ticket, C-06,
+      // exact C-02 speaker/player binding and post-hydration proof are required.
+      // No native source currently exposes that complete receipt: fail closed.
+      if(input?.interruptExisting===true || input?.faceListener===true ||
+          !input?.directorTicket || !hydrated?.actorContext ||
+          runtime.intelligence?.verifyDirectorTicket?.(input.directorTicket,input,hydrated)!==true)
+        throw new TypeError('director_ticket_unverified');
+      return Object.freeze({...input.directorTicket});
+    },
     validateDecisionShape,
     validateStockDecision,
     captureReferenceMap,
