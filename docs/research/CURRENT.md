@@ -1,5 +1,7 @@
 # LSA Research Corpus — Current Architectural Truth
 
+**Active delivery boundary — October 9, 2026:** The current feature branch follows the [playable LSA v1.0 milestone](../lsa-v1-implementation-milestone.md), retaining settled architecture and the original PR #21 specification. Finish Phase 6 and baseline PS4 validation, then Phase 13a; 10a is conditional on demonstrated Essential gaze insufficiency. All other unfinished master phases are deferred. Use the implementation ledger for branch progress; earlier main/deployment statements below are the recorded baseline.
+
 Updated: 2026-10-08. Source reconciliation: `main@7e54b17` and PR #21; this update is planning only.
 
 This document summarizes **what the research corpus currently believes**. It is not the implementation/deployment ledger; use [../ROADMAP.md](../ROADMAP.md) for that.
