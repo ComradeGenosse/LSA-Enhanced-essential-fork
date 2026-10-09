@@ -912,3 +912,40 @@ Baseline PS4 per-requirement audit now contains **22/81** `automated_oracle_veri
 ### Still not the playable milestone
 
 Phase 13a's production Director endpoint remains an explicit `DirectorAdmission(enabled:false)` rejecting **shadow preview**. A current native read of microphone idleness is not the same as a proven player-turn version or real Essential turn acceptance. The **trusted original PS3 grant**, independently current player/text/mic arbitration, authoritative C-06 owner/Essential/reflex state, real source-pinned zero-delay Essential `kb` scheduling and exact native turn/generation/session completion/playback receipt correlation still require implementation and end-to-end validation. Native C-05/C-06 phase completion, remaining PS4 T/G automation, and Windows final pinned production RPH addon binary/payload hash checks remain open. **GTA physical acceptance A33/A34/A39/A40 and PS4 G7 were not executed**. The successful C# test executables are not an actual GTA runtime test. No merge, deployment, installation or enablement was performed.
+
+
+## Checkpoint 81: source-scoped native C-06 vetoes, original PS3 identity and callback-proof regression (October 9, 2026)
+
+**Verified source commit:** `63adfbc84bb0d785bdf21e3b10b0a1f7ddc1f0bc` on draft PR #23. **GitHub Actions [38005298078](https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/actions/runs/38005298078) completed SUCCESS on Linux and Windows.** Any later documentation-only commit does not change these tested native/Node source files.
+
+### Implemented within this C-06-only work block
+
+- `DirectorC06Policy.Snapshot` now binds its decision to the **original PS3 observation ID, exact revision and decision key**, in addition to host run, world epoch, speaker/player capture refs, owner incarnation and proof revision, policy and player-turn version. Empty/matching-null original identifiers cannot authorize speech. Policy fixtures explicitly test swapping each field and losing the original grant.
+- `EssentialMicState` now distinguishes a failed/unsupported private-field reflection read from an actually empty Essential microphone. Its `CanStart`, `Owns` and `StopOwned` paths do not accidentally convert an exception into idle; the production reflection code is tested with a failing FieldInfo.
+- The existing P2 native owner roster publishes a read-only `DirectorOwnerSample` from the **exact currently registered encounter** with its primary-owner mode and suspended state. Core owner-fiber C-06 samples that P2 state; it independently samples Core `NpcStateStore` reflex/directed-interaction and the existing GTA scripted-state natives. Foreign ACT/P2 owners, suspended encounters, reflex/directed interaction, scripted mission/cutscene/online state and unknown reads **veto** admission. No second authority store, fiber or scheduler was added.
+- Native admission requires a distinct, once-only `NotePlaybackStarted` receipt with the original full tuple before a successful terminal `Complete` can qualify. Wrong, duplicate, missing, interrupted, stale and failed callbacks cannot fabricate successful delivery. A failed current-owner recheck on tuple binding or playback start retires the pending reservation immediately. Bound-turn stages use the live-original-owner check instead of incorrectly demanding global idleness during legitimate playback.
+- Existing single-ticket reserve/submit/cancel, 2-second ticket TTL, bounded playback lease, one-use replay protection and failure-counting rate limits were preserved. Director requests remain preview-only and **disabled in the actual native integration**; no scheduling, native TASK, model or playback action was added.
+
+### Executed matching-head CI
+
+| Verification at `63adfbc8` | Actual result |
+| --- | --- |
+| Full isolated Node regression, Linux | **702 passed / 70 files / zero failed files** |
+| Full isolated Node regression, Windows | **702 passed / 70 files / zero failed files** |
+| Focused Phase 13a suites, each OS | **33 passed** |
+| Windows ACT native test executable | **263 assertions passed** |
+| Windows shared native intelligence test executable | **115 assertions passed** |
+| Windows C-11/Director/C-06 native test executable | **147 assertions passed** |
+| Windows real-source P2 lifecycle, owner and clock recovery executable | **179 assertions passed** |
+| Windows shared HostContext/anchor executable | **62 assertions passed** |
+| Windows production-source PS owner-fiber integration executable | **100 assertions passed** |
+
+All six Windows native test-project build steps succeeded (Debug/net481). The newly added direct P2 owner/actual private-mic reader checks and native C-06 player takeover, PS3 identity/revision swaps, world reset, expiry, callback loss and exact playback matching run in those suites. Two transient failures on **superseded** runs were fixed (wrong C-06 stage in a test harness, wrong single-argument P2 test helper); the final source run above is entirely green. No test acceptance was weakened to mask failures.
+
+### Genuine remaining production admission blocker
+
+**C-06 is NOT end-to-end authorized or playable.** The native current-source readings above prove some separate negative gates, **not** a real, positive, independently authorized C-06 proof. The pinned Essential/Core native surface currently inspected still lacks a source-verified complete *player-turn version and priority/busy arbiter*, *Essential active-turn/playback admission*, and *monotonic owner-proof revision*. The original PS3 observation and response-entitlement ledger is companion-side; matching request-provided IDs is necessary but **not** an independently verified original entitlement receipt. The live native owner-fiber must receive/source-verify the original current PS3 grant before it can assert `ObservationReceiptCurrent` or `ResponseGrantCurrent`. Likewise actual zero-delay `kb` scheduling, real Essential turn/generation/session tuple and original-ticket-correlated native playback callbacks remain unwired and **out of scope for this work block**. Existing tests exercise successful admission only through **injected, explicitly controlled authorization fixtures**; they must not be construed as game-authoritative permission.
+
+Therefore `DirectorAdmission(enabled:false)` still rejects live speech in the production integration; no field marked unknown was flipped true from a pointer, default-zero state, inferred clock, request body or model statement. This is a documented **source-authority blocker**, not a Windows .NET test-build failure. Preserve the off gates until the missing authoritative Essential/PS3 interfaces exist and are tested.
+
+**External gates not performed:** pinned RPH/GTA production Release addon compilation and payload hash verification, physical GTA runtime PS4 G7, Phase 6 native physical C-06 acceptance and Phase 13a A33/A34/A39/A40. Offline Windows stub builds are not a substitute for those. No merge, deployment, installation, feature enablement, spontaneous scheduler, additional master-plan phase or Phase 10a expansion. Baseline PS4 individual-oracle audit remains at its earlier 22/81 verified checkpoint; this focused block does not close unreviewed PS4 items.
