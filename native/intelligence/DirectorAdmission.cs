@@ -41,7 +41,8 @@ namespace LSA.Intelligence
         readonly Func<int> currentWorld;
         readonly Dictionary<string,Reservation> pending=new Dictionary<string,Reservation>();
         readonly Queue<long> attempts=new Queue<long>();
-        readonly HashSet<string> seen=new HashSet<string>();
+        readonly Dictionary<string,long> seen=new Dictionary<string,long>();
+        readonly Queue<KeyValuePair<string,long>> seenOrder=new Queue<KeyValuePair<string,long>>();
         string activeTicket;
         bool enabled;
 
@@ -76,13 +77,17 @@ namespace LSA.Intelligence
         void Trim(long now)
         {
             while(attempts.Count>0 && attempts.Peek()<=now-60000)attempts.Dequeue();
+            while(seenOrder.Count>0 && seenOrder.Peek().Value<=now-600000){
+                var oldest=seenOrder.Dequeue();
+                long recorded;if(seen.TryGetValue(oldest.Key,out recorded)&&recorded==oldest.Value)seen.Remove(oldest.Key);
+            }
             foreach(var id in new List<string>(pending.Keys))
                 if(now>=pending[id].ExpiresAt) {
                     if(activeTicket==id)activeTicket=null;
                     pending.Remove(id);
                 }
         }
-        internal void Reset(){pending.Clear();attempts.Clear();seen.Clear();activeTicket=null;}
+        internal void Reset(){pending.Clear();attempts.Clear();seen.Clear();seenOrder.Clear();activeTicket=null;}
         internal void Disable(){enabled=false;Reset();}
         internal int PendingCount=>pending.Count;
         internal bool HasActive=>activeTicket!=null;
@@ -91,15 +96,17 @@ namespace LSA.Intelligence
             long now=clock();Trim(now);
             if(!Valid(request))return new Receipt(request?.TicketId,"invalid");
             if(request.Operation=="cancel") {
-                var existed=pending.Remove(request.TicketId);
-                if(activeTicket==request.TicketId)activeTicket=null;
+                Reservation old;
+                var existed=pending.TryGetValue(request.TicketId,out old) && Same(old.Request,request);
+                if(existed)pending.Remove(request.TicketId);
+                if(existed && activeTicket==request.TicketId)activeTicket=null;
                 return new Receipt(request.TicketId,existed?"cancelled":"not_found");
             }
             if(request.Operation=="reserve") {
                 if(!enabled||activeTicket!=null||seen.Contains(request.TicketId)||
-                    pending.Count>=MaxTickets||attempts.Count>=MaxAttempts)
+                    pending.Count>=MaxTickets||attempts.Count>=MaxAttempts||seen.Count>=512)
                     return new Receipt(request.TicketId,"busy");
-                attempts.Enqueue(now);seen.Add(request.TicketId);
+                attempts.Enqueue(now);seen.Add(request.TicketId,now);seenOrder.Enqueue(new KeyValuePair<string,long>(request.TicketId,now));
                 if(!Safe(request))return new Receipt(request.TicketId,"unsafe");
                 pending[request.TicketId]=new Reservation{
                     Request=request,ExpiresAt=now+TicketTtlMs
