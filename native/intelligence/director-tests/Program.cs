@@ -75,8 +75,9 @@ class Program
         Check(expiry.Handle(modified).Status=="stale","owner change veto");
         modified=Request(9,"submit");modified.WorldEpoch=2;
         Check(expiry.Handle(modified).Status=="stale","epoch change veto");
+        var originalEpochSubmit=Request(9,"submit");
         world=2;
-        Check(expiry.Handle(Request(9,"submit")).Status=="unsafe","native world change veto");
+        Check(expiry.Handle(originalEpochSubmit).Status=="unsafe","native world change veto");
         world=1;
         Check(expiry.PendingCount==0,"unsafe ticket retired");
 
