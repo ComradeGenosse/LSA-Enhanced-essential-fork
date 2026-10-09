@@ -38,7 +38,28 @@ export async function testDialogueActionsInterop({helperPath=path.resolve(path.d
   check(runtime.readDialogueActionReceipts(ordinary).length===0,'Reconnect resurrected receipt evidence.');
   const fresh=runtime.recordDialogueActionPublication({tuple:{pedId:'17',turnId:'fresh',generationId:2,sessionNonce:2},binding:ordinary,canonicalAction:'waithere',publishedAtMs:Date.now(),allowedActions:['waithere']});
   await wait(()=>runtime.readDialogueActionReceipts(ordinary).some(row=>row.publicationId===fresh?.publicationId));check(runtime.readDialogueActionReceipts(ordinary)[0].tuple.sessionNonce===2,'Fresh connection used old tuple.');
-  return {passed,transport:'windows_current_user_activity_pipe',ordinary:true,owned:true,callbackEvidence:'synthetic_before_and_handler',gameAssembliesExecuted:false,dispatched:false,physicalAcceptance:false};
+  const peerFaults=['mixed_host','stale_world','sequence_gap','malformed_action','half_owned'];
+  for(const fault of peerFaults){
+   // Bypass the Node sender validator only in this adversarial peer fixture.
+   // The native session must independently reject this exact wire packet.
+   const packet={version:1,type:'dialogue.action.pending',dialogueActionVersion:1,sequence:++runtime.client.outSequence,publicationId:randomUUID(),tuple:{pedId:'17',turnId:'invalid-peer',generationId:3,sessionNonce:3},binding:{...ordinary},canonicalAction:'waithere',publishedAtMs:Date.now()};
+   if(fault==='mixed_host')packet.binding.hostContext={...hostContext,hostRunId:randomUUID()};
+   if(fault==='stale_world')packet.binding.hostContext={...hostContext,worldEpoch:2};
+   if(fault==='sequence_gap')packet.sequence++;
+   if(fault==='malformed_action')packet.canonicalAction='waithere\n';
+   if(fault==='half_owned')packet.binding.encounterId=randomUUID();
+   const stranded=runtime.dialogueReceipts.publish({tuple:{pedId:'17',turnId:'unsent',generationId:5,sessionNonce:5},binding:ordinary,canonicalAction:'followtarget',publishedAtMs:Date.now(),allowedActions:['followtarget']});
+   check(!!stranded && runtime.dialogueReceipts.pendingCount===1,'Peer fixture did not create pending evidence: '+fault);
+   runtime.client.deliver(packet);await wait(()=>!runtime.client.runtime.ready);
+   check(runtime.dialogueReceipts.read(ordinary).length===0,'Native peer rejection retained old receipts: '+fault);
+   check(runtime.dialogueReceipts.pendingCount===0,'Native peer rejection retained pending publications: '+fault);
+   runtime.stop();runtime=new ActivityRuntime({mode:'shadow',pipeName,dialogueReceipts:true});runtime.start();await wait(()=>runtime.client.runtime.ready);
+   check(runtime.readDialogueActionReceipts(ordinary).length===0,'Rejected connection evidence reappeared: '+fault);
+   const successor=runtime.recordDialogueActionPublication({tuple:{pedId:'17',turnId:'after-'+fault,generationId:4,sessionNonce:4},binding:ordinary,canonicalAction:'waithere',publishedAtMs:Date.now(),allowedActions:['waithere']});
+   await wait(()=>runtime.readDialogueActionReceipts(ordinary).some(row=>row.publicationId===successor?.publicationId));
+   check(runtime.readDialogueActionReceipts(ordinary)[0].tuple.turnId==='after-'+fault,'Peer rejection contaminated fresh publication: '+fault);
+  }
+  return {passed,transport:'windows_current_user_activity_pipe',ordinary:true,owned:true,peerRejections:peerFaults.length,callbackEvidence:'synthetic_before_and_handler',gameAssembliesExecuted:false,dispatched:false,physicalAcceptance:false};
  }finally{runtime.stop();helper.kill();}
 }
 if(process.argv[1] && path.resolve(process.argv[1])===fileURLToPath(import.meta.url))console.log(JSON.stringify(await testDialogueActionsInterop({helperPath:process.argv[2]})));

@@ -104,3 +104,6 @@ The companion publication service also requires its literal-true `activities.dia
 ### C-05 Windows interoperability fixture
 
 Build `native/activities/tests/ActivityTests.csproj` from the repository root, then run `node tools/testDialogueActionsInterop.mjs` from this candidate directory. The same check is in `tests/dialogue-action-interop.test.mjs` on Windows. It uses the production current-user ACT pipe/session, native shared ring/correlator/publisher and Node ActivityRuntime to verify ordinary/owned binding shapes, accepted/failed handler receipts, closed SELF projection, stale-host rejection, sequence preservation, passive mode and reconnect cleanup. The helper supplies synthetic before/handler callbacks and executes no game assemblies. A pass proves cross-process interoperability; it does not prove native actor resolution, Essential callback ordering or physical MP6/GTA acceptance.
+
+
+The C-05 Windows fixture also sends five malformed peer packets (host/world/sequence/action/owned-binding faults) to prove native rejection independently of the Node sender. Each rejection must clear existing pending/completed evidence and permit a fresh publication after reconnect. All 49 checks remain synthetic callback/transport evidence, not physical acceptance.
