@@ -393,3 +393,44 @@ test('paired store pressure preserves urgent evidence and suppression without re
  assert.equal(replay.response,'none');
  assert.ok(replay.reasons.includes('repetition_suppressed'));
 });
+
+test('PS6 read-only candidate uses native source age and an unconsumed exact PS3 grant',()=>{
+  let time=NOW;
+  const ps=new ShadowRuntime({mode:'shadow',now:()=>time});
+  const speaker=randomUUID(),player=randomUUID();
+  ps.epoch=randomUUID();ps.lastReceipt=time;
+  ps.anchors.set(speaker,{captureRef:speaker,kind:'ped',expires:NOW+30000});
+  ps.anchors.set(player,{captureRef:player,kind:'player',expires:NOW+30000});
+  ps.observerIndex.set(speaker,{captureRef:speaker,kind:'ped',owned:true,incarnationId:randomUUID()});
+  const seen=observation({
+    observer:speaker,nativeRun:ps.epoch,eventType:'death_seen',severity:'critical',
+    claims:[claim({kind:'dead',channel:'visual',basis:'native_awareness',target:player,targetKind:'player'})],
+  });
+  assert.equal(ps.observations.put(seen,{sourceAgeMs:800}),true);
+  ps.noteSalience(seen,ps.situationFor(speaker,player));
+  const rows=ps.directorCandidatesFor(speaker);
+  assert.equal(rows.length,1);
+  assert.equal(rows[0].entitlementCurrent,true);
+  assert.equal(rows[0].observedAtMonotonicMs,NOW-800);
+  assert.equal(rows[0].decision.response,'eligible');
+  assert.equal('handle' in rows[0],false);
+  assert.equal('prompt' in rows[0],false);
+  assert.equal(ps.salience.ledger.get(seen.observationId).consumed,false);
+  // Re-evaluating the situation does not renew the original evidence age.
+  time=NOW+9000;ps.lastReceipt=time;
+  ps.refreshSalience(speaker);
+  assert.equal(ps.directorCandidatesFor(speaker)[0].observedAtMonotonicMs,NOW-800);
+  const decision=rows[0].decision.decisionKey;
+  assert.equal(ps.salience.acknowledge(decision,'ps6_ticket','delivered'),true);
+  assert.deepEqual(ps.directorCandidatesFor(speaker),[]);
+});
+
+test('PS6 candidate cannot be inferred for an unowned speaker or missing player',()=>{
+  const ps=new ShadowRuntime({mode:'shadow',now:()=>NOW});
+  ps.epoch=randomUUID();
+  const speaker=randomUUID();ps.anchors.set(speaker,{captureRef:speaker,kind:'ped',expires:NOW+30000});
+  ps.observerIndex.set(speaker,{captureRef:speaker,kind:'ped',owned:false});
+  assert.deepEqual(ps.directorCandidatesFor(speaker),[]);
+  ps.observerIndex.set(speaker,{captureRef:speaker,kind:'ped',owned:true,incarnationId:randomUUID()});
+  assert.deepEqual(ps.directorCandidatesFor(speaker),[]);
+});
