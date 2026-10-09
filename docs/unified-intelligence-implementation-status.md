@@ -949,3 +949,40 @@ All six Windows native test-project build steps succeeded (Debug/net481). The ne
 Therefore `DirectorAdmission(enabled:false)` still rejects live speech in the production integration; no field marked unknown was flipped true from a pointer, default-zero state, inferred clock, request body or model statement. This is a documented **source-authority blocker**, not a Windows .NET test-build failure. Preserve the off gates until the missing authoritative Essential/PS3 interfaces exist and are tested.
 
 **External gates not performed:** pinned RPH/GTA production Release addon compilation and payload hash verification, physical GTA runtime PS4 G7, Phase 6 native physical C-06 acceptance and Phase 13a A33/A34/A39/A40. Offline Windows stub builds are not a substitute for those. No merge, deployment, installation, feature enablement, spontaneous scheduler, additional master-plan phase or Phase 10a expansion. Baseline PS4 individual-oracle audit remains at its earlier 22/81 verified checkpoint; this focused block does not close unreviewed PS4 items.
+
+
+## Checkpoint 82: actual uploaded Essential DLL source-interface audit and fail-closed C-06 sampling (October 9, 2026)
+
+**Pinned binary confirmed:** uploaded `LosSantosAlive(3).dll`, 2,407,424 bytes, SHA-256 `9b6de42d4c464901d859dd95e17e100e4fa9ef6074bfbb0cf3a57a76f6ddd653`, exactly matches `lsa-essential-e1-candidate/upstream/LosSantosAlive.dll` and the existing native Core runtime pin. This is a metadata/IL investigation of the actual Core assembly, **not** proof of in-game runtime readiness.
+
+### Direct binary findings and safe implementation
+
+- The publicly accessible `LosSantosAlive.Bridge.SpecialTurns.SpecialGeminiTurnService.ReadPlayerTurnVersion()` (metadata token `0x060015ba`) returns **Int64**, and `NotifyPlayerTurnStarted` exists (`0x060015b9`). That counter is **special-turn-scoped evidence**, not a verified global player text/microphone/essential-turn arbitration protocol. Native C-06 records it as separate `SpecialTurnVersionKnown`/`SpecialTurnVersion` diagnostics; it **does not** set `PlayerTurnSourceCurrent`, `PlayerTurnIdle`, or the native request's unrelated 32-bit player-turn version. Failure/invalid value never becomes a source-positive grant.
+- `LosSantosAlive.Audio.NpcPlaybackCoordinator.IsAnyAudioPlayingOrPending()` (token `0x06001402`) is a public static Boolean method backed by Core playback state. The pinned owner-fiber integration now samples it at C-06 preflight and independently treats **playing or queued/pending audio** as not idle. Exceptions reset the sample to unknown/fail-closed rather than infer no audio.
+- Actual Core `NpcPlaybackStartedEvent` and `NpcPlaybackEndedEvent` contain **TurnId: String** and **GenerationId: Int64**. The end event also exposes `PlaybackStarted: Boolean`, `HadAudio` and `WasInterrupted`. The existing native ticket contract formerly used 32-bit generation IDs; it now preserves **Int64** through binding, start and completion, and rejects IDs outside JavaScript's exact integer limit (`9007199254740991`). Tests verify large but exact IDs, rejection of unsafe IDs, and wrong/truncated callback generations.
+- New `tools/essential-abi` metadata-only .NET 8 verifier runs on Windows CI against **the real pinned Core DLL**, checking SHA-256, public static method returns and native event field types. No Essential code or GTA executable is loaded. This closes a prior gap where only simulation stubs established method availability.
+
+### Executed matching-code CI
+
+Code HEAD `39bdc681bb5d39c6c3dd17012a934a3f66799a5b` — **[GitHub Actions run 38006819821](https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/actions/runs/38006819821) completed SUCCESS** on Linux and Windows:
+
+| Verified stage | Result |
+| --- | --- |
+| Linux full isolated Node regression | **702/702 tests, 70 files, 0 failed files** |
+| Windows full isolated Node regression | **702/702 tests, 70 files, 0 failed files** |
+| Phase 13a focused Node tests | **33/33 each OS** |
+| Windows real pinned Essential metadata ABI verifier | **PASS** |
+| Windows ACT C-05 suite | **263 assertions passed** |
+| Windows shared native PS/ACT intelligence | **115 assertions passed** |
+| Windows Director/C-06/PS6 admission | **160 assertions passed** |
+| Windows actual P2 owner lifecycle/clock reset | **179 assertions passed** |
+| Windows HostContext/anchor contract | **62 assertions passed** |
+| Windows native PS host integration | **107 assertions passed** |
+
+There was a superseded Windows run where the old generic reflection test incorrectly assumed that **every** new Boolean field must be an admission gate, including the explicitly diagnostic-only special-turn counter. The test was corrected to prove that this diagnostic neither grants nor revokes permission, while **all real C-06 gate-failure tests were retained**. The matching-head run above is fully green. No behavior was enabled to obtain passing tests.
+
+### Still blocked for real Director speech
+
+The binary supplies valuable source-authenticated negative/diagnostic facts but **not** a complete authority model. Global player text/mic/special-turn priority arbitration, authoritative **Essential pre-playback active-turn/hydration** state, a monotonically revised native P2 ownership proof, and the independently matched *original PS3 observation/response-entitlement receipt* remain unsupported. PS3 observation and salience response entitlement live in the companion-side store; reusing companion-provided request fields is not independent native proof. The native original-ticket / actual scheduled Essential turn / playback callback / session nonce bridge also does not exist, and no zero-delay `kb` scheduling was implemented under this narrower C-06 work boundary.
+
+**Therefore** production still constructs `DirectorAdmission(...,enabled:false)`, and all outstanding positive gates remain fail-closed. The successful native reserve/submit/cancel and callback tests use controlled injection, not a playable speech authorization. GTA/RPH Release addon/payload hashes, PS4 G7 and Phase 13a A33/A34/A39/A40 physical tests were **not executed**. Baseline PS4 audit remains at **22/81 verified individual oracles**, with no unverified oracles closed here. No merge, deploy, installation, enabled feature, scheduler or deferred master-plan phase.
