@@ -219,7 +219,8 @@ namespace LosSantosAlive.Core
 }
 namespace LSA.Intelligence
 {
-    public sealed class OwnedParticipant { public Rage.Ped Ped; public string Lifetime,EncounterId; public Func<bool> Current; public Func<object> PrimaryOwner; }
+    public sealed class DirectorOwnerSample { public string Owner,Mode; public bool Suspended; }
+    public sealed class OwnedParticipant { public Rage.Ped Ped; public string Lifetime,EncounterId; public Func<bool> Current; public Func<object> PrimaryOwner; public Func<DirectorOwnerSample> DirectorOwner; }
     // Static logging for P2; the instance surface is what RuntimeEntry hosts.
     public sealed class IntelligenceIntegration
     {
