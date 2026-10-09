@@ -1,9 +1,6 @@
 name: LSA v1 Offline Verification
 
 on:
-  push:
-    branches:
-      - feature/unified-intelligence-implementation-20261008
   pull_request:
     branches:
       - main
