@@ -53,3 +53,12 @@ test('bootstrap exposes a live read-only C09 view without connecting or executin
  runtime.activities={runtime:{ready:true,hostContext:{hostContextVersion:1,hostRunId:randomUUID(),worldEpoch:1},capabilities:{follow_person:true}}};
  const after=runtime.services.capabilityHealth();assert.equal(after['act.follow_person'].runtimeSupported,true);assert.equal(before['act.follow_person'].runtimeSupported,false);assert.equal(after['act.follow_person'].active,false);assert.equal(calls,0);
 });
+
+test('SELF contributors require independent matching-payload acceptance and exact shared runtime support',async()=>{
+ const f=await fixture();f.config.dialogueKnowledge.activityFacts='active';f.config.dialogueKnowledge.dialogueReceipts='active';f.activities.runtime.dialogueActionVersion=1;
+ let health=projectCapabilityHealth(f);for(const key of ['ps.activity_facts','ps.dialogue_receipts']){assert.equal(health[key].runtimeSupported,true);assert.equal(health[key].active,false);}
+ f.validation=[receipt('ps.activity_facts'),receipt('ps.dialogue_receipts',{payloadHash:'e'.repeat(64)})];health=projectCapabilityHealth(f);assert.equal(health['ps.activity_facts'].active,true);assert.equal(health['ps.dialogue_receipts'].active,false);
+ f.validation.push(receipt('ps.dialogue_receipts'));assert.equal(projectCapabilityHealth(f)['ps.dialogue_receipts'].active,true);
+ f.activities.runtime.dialogueActionVersion=null;assert.equal(projectCapabilityHealth(f)['ps.dialogue_receipts'].active,false);assert.equal(projectCapabilityHealth(f)['ps.activity_facts'].active,true);
+ f.activities.runtime.hostContext={...f.perception.hostContext,worldEpoch:2};assert.equal(projectCapabilityHealth(f)['ps.activity_facts'].active,false);
+});

@@ -54,3 +54,20 @@ test('knowledge preview telemetry excludes all private payloads and freeform rea
  assert.deepEqual(sanitizeTelemetryData({knowledgeMode:'shadow',preview:true,selectedObservations:2,frameBytes:1024,frameHash:'a'.repeat(64),reason:'world_epoch_changed',pairs:[{secret:'private'}],canon:'private',prompt:'private',ownerClaim:'private'}),{knowledgeMode:'shadow',preview:true,selectedObservations:2,frameBytes:1024,frameHash:'a'.repeat(64),reason:'world_epoch_changed'});
  assert.deepEqual(sanitizeTelemetryData({reason:'private secret',frameHash:'private secret',knowledgeMode:'invented'}),{});
 });
+
+test('SELF configuration is closed, independently default off, and preserves baseline mode',()=>{
+ for(const key of ['activityFacts','dialogueReceipts'])for(const mode of ['off','shadow','active'])assert.equal(normalizeDialogueKnowledge({[key]:mode})[key],mode);
+ for(const value of [{activityFacts:true},{dialogueReceipts:'on'},{activityFacts:null}])assert.throws(()=>normalizeDialogueKnowledge(value),TypeError);
+});
+test('real finalizer gates receipt SELF independently and keeps shadow out of selected allocation',()=>{
+ for(const contributor of ['off','shadow','active'])for(const accepted of [false,true]){
+  const runtime=createRuntime(normalizeConfig({dialogueKnowledge:{mode:'active',dialogueReceipts:contributor},persistentIdentity:{enabled:false},promotedCharacters:{enabled:false}},{}));runtime.dialogueKnowledgeBuildSupported=true;
+  const inputs=fixture(),hostContext={hostContextVersion:1,hostRunId:randomUUID(),worldEpoch:1},binding={captureRef:inputs.association.captureRef,hostContext};
+  const receipt={publicationId:randomUUID(),binding,tuple:{pedId:'17',turnId:'previous',generationId:1,sessionNonce:1},canonicalAction:'waithere',publishedAtMs:1,atGameTick:2,state:'HANDLER_ACCEPTED',evidence:'handler_only',reason:'handler_accepted'};
+  const client={ready:true,dialogueActionVersion:1,nativeRun:randomUUID(),adapterEpoch:randomUUID(),hostContext};inputs.dialogueInputs={binding,receipts:[receipt],nativeRun:client.nativeRun,adapterEpoch:client.adapterEpoch,ownerPendingProof:false};
+  runtime.activities={client:{runtime:client},readDialogueActionReceipts:()=>[receipt]};runtime.intelligence={runtime:{observerIndexVersion:1,observerSituationVersion:1,hostContext},assertKnowledgeCurrent:()=>null};runtime.services.capabilityHealth=()=>({'ps.dialogue_receipts':{active:accepted}});
+  const turn={identity:{pedId:'17',turnId:'turn',generationId:1,sessionNonce:1},context:{actor:{pedId:'17'},world:{}},knowledgeInputs:inputs};
+  const frame=runtime.services.finalizeKnowledgeFrame(turn,{input:'Hi',history:[],source:'player_text'});assert.equal(frame.dialogueReferences.length,contributor==='active' && accepted?1:0);assert.equal(JSON.parse(frame.modelAllocation.scene).lanes.SELF.selfFacts.length,contributor==='active' && accepted?1:0);
+  assert.ok(!JSON.stringify(frame.modelAllocation).includes(receipt.publicationId));
+ }
+});

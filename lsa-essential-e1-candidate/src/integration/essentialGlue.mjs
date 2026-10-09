@@ -71,7 +71,17 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
       }
       // Only explicit active mode with the matching build/live contracts may
       // select the candidate. Off/shadow always send the same hardened base.
-      const selected=mode==='active' && !reason && preview?preview:base;
+      let selected=mode==='active' && !reason && preview?preview:base;
+      // SELF contributors require independent payload acceptance; baseline PS4
+      // mode alone never grants activation. Optional failures preserve selection.
+      let health=null;try{health=services.capabilityHealth?.();}catch{}
+      const selfCurrent=!reason && !turn.knowledgeInputs?.ownerPendingProof;
+      const activityReady=selfCurrent && !!turn.knowledgeInputs?.activityInputs && !assertActivityKnowledgeCurrent(turn.knowledgeInputs.activityInputs,runtime.activities);
+      const dialogueReady=selfCurrent && !!turn.knowledgeInputs?.dialogueInputs && !assertDialogueActionKnowledgeCurrent(turn.knowledgeInputs.dialogueInputs,runtime.activities);
+      const includeActivityFacts=activityReady && config.dialogueKnowledge?.activityFacts==='active' && health?.['ps.activity_facts']?.active===true;
+      const includeDialogueReceipts=dialogueReady && config.dialogueKnowledge?.dialogueReceipts==='active' && health?.['ps.dialogue_receipts']?.active===true;
+      if(mode==='active' && preview && (includeActivityFacts || includeDialogueReceipts))try{selected=renderKnowledge({...args,includePerceived:true,activityInputs:turn.knowledgeInputs.activityInputs,dialogueInputs:turn.knowledgeInputs.dialogueInputs,includeActivityFacts,includeDialogueReceipts});}catch{}
+      if(preview && (activityReady && ['shadow','active'].includes(config.dialogueKnowledge?.activityFacts) || dialogueReady && ['shadow','active'].includes(config.dialogueKnowledge?.dialogueReceipts)))try{preview=renderKnowledge({...args,includePerceived:true,activityInputs:turn.knowledgeInputs.activityInputs,dialogueInputs:turn.knowledgeInputs.dialogueInputs,includeActivityFacts:activityReady && ['shadow','active'].includes(config.dialogueKnowledge?.activityFacts),includeDialogueReceipts:dialogueReady && ['shadow','active'].includes(config.dialogueKnowledge?.dialogueReceipts)});}catch{}
       turn.knowledgeMode=mode;
       turn.knowledgePreview=preview?Object.freeze({selectedObservations:preview.delivery.length,frameBytes:preview.diagnostics.bytes,frameHash:createHash('sha256').update(JSON.stringify(preview.modelAllocation)).digest('hex')}):null;
       turn.knowledgeFallbackReason=reason;
