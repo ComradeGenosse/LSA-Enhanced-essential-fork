@@ -40,12 +40,12 @@ export class DialogueActionReceipts {
   if(this.#pending.size>=32)return this.#finish(row,'UNKNOWN','pending_capacity');
   this.#pending.set(row.publicationId,row);return row;
  }
- callback({publicationId,tuple,binding,canonicalAction,succeeded,atGameTick,receivedAtMs,overflowed=false}={}){
+ callback({publicationId,tuple,binding,canonicalAction,publishedAtMs,succeeded,atGameTick,receivedAtMs,overflowed=false}={}){
   if(!Number.isSafeInteger(receivedAtMs) || receivedAtMs<0)return null;
   this.expire(receivedAtMs);const row=this.#pending.get(publicationId);
   if(overflowed===true){const receipts=this.invalidateCallbacks('callback_overflow');return receipts.find(receipt=>receipt.publicationId===publicationId)??null;}
   if(!row)return null;
-  if(!validTuple(tuple) || !tupleKeys.every(key=>tuple[key]===row.tuple[key]) || !sameBinding(binding,row.binding) || canonicalAction!==row.canonicalAction || typeof succeeded!=='boolean' || !tick(atGameTick))return this.#finish(row,'UNKNOWN','callback_mismatch');
+  if(publishedAtMs!==row.publishedAtMs || !validTuple(tuple) || !tupleKeys.every(key=>tuple[key]===row.tuple[key]) || !sameBinding(binding,row.binding) || canonicalAction!==row.canonicalAction || typeof succeeded!=='boolean' || !tick(atGameTick))return this.#finish(row,'UNKNOWN','callback_mismatch');
   return this.#finish(row,succeeded?'HANDLER_ACCEPTED':'FAILED',succeeded?'handler_accepted':'handler_failed',atGameTick);
  }
  invalidateCallbacks(reason){
@@ -54,6 +54,11 @@ export class DialogueActionReceipts {
   return immutableSnapshot(receipts);
  }
  retire(binding){for(const row of this.#pending.values())if(sameBinding(row.binding,binding))this.#finish(row,'UNKNOWN','participant_retired');this.#receipts=this.#receipts.filter(row=>!sameBinding(row.binding,binding));this.#quarantine=this.#quarantine.filter(row=>!sameBinding(row.binding,binding));}
+ retireEncounter(encounterId){
+  if(!isUuid(encounterId))return;
+  for(const row of this.#pending.values())if(row.binding.encounterId===encounterId)this.#pending.delete(row.publicationId);
+  this.#receipts=this.#receipts.filter(row=>row.binding.encounterId!==encounterId);this.#quarantine=this.#quarantine.filter(row=>row.binding.encounterId!==encounterId);
+ }
  reset(){this.#pending.clear();this.#receipts=[];this.#quarantine=[];this.#unsafeUntil=-1;}
  read(binding){return immutableSnapshot(this.#receipts.filter(row=>sameBinding(row.binding,binding)).slice(-16));}
  get pendingCount(){return this.#pending.size;}

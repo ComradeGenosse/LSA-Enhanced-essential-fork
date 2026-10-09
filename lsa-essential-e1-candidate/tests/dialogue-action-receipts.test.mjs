@@ -4,11 +4,35 @@ import {DialogueActionReceipts} from '../src/activities/dialogueActionReceipts.m
 import {validateDialogueActionAnnotation,validateDialogueActionReceipt} from '../src/activities/dialogueActionContract.mjs';
 import {validateFrame} from '../src/activities/contracts.mjs';
 import {ActivityClient} from '../src/activities/activityClient.mjs';
+import {ActivityRuntime} from '../src/activities/activityRuntime.mjs';
 const id=n=>`00000000-0000-4000-8000-${String(n).padStart(12,'0')}`;
 const binding={encounterId:id(1),incarnationId:id(2),hostContext:{hostContextVersion:1,hostRunId:id(3),worldEpoch:1}};
 const tuple={pedId:'actor',turnId:'turn',generationId:1,sessionNonce:1};
 const publication={tuple,binding,canonicalAction:'followtarget',publishedAtMs:100,allowedActions:['followtarget','waithere']};
 const callback=row=>({...row,succeeded:true,atGameTick:0xffffffff,receivedAtMs:120});
+function runtimeFixture(){
+ const sent=[],runtime=new ActivityRuntime({mode:'shadow'},{now:()=>120});
+ Object.assign(runtime.client.runtime,{ready:true,dialogueActionVersion:1,nativeRun:id(6),adapterEpoch:id(7),hostContext:binding.hostContext});runtime.client.deliver=frame=>sent.push(frame);
+ const receipt=row=>({...row,version:1,type:'dialogue.action.receipt',sequence:1,dialogueActionVersion:1,succeeded:true,atGameTick:20,nativeRun:id(6),adapterEpoch:id(7)});
+ return {runtime,sent,receipt};
+}
+test('C05 runtime sends passive annotation and ingests only matching retained publication',()=>{
+ const {runtime,sent,receipt}=runtimeFixture(),row=runtime.recordDialogueActionPublication(publication);
+ assert.equal(sent.length,1);assert.equal(sent[0].publicationId,row.publicationId);assert.equal(runtime.dialogueReceipts.pendingCount,1);
+ runtime.client.onFrame(receipt({...row,publicationId:id(99)}));assert.equal(runtime.readDialogueActionReceipts(binding).length,0);
+ runtime.client.onFrame({...receipt(row),adapterEpoch:id(8)});assert.equal(runtime.dialogueReceipts.pendingCount,1);
+ runtime.client.onFrame(receipt(row));assert.equal(runtime.readDialogueActionReceipts(binding)[0].state,'HANDLER_ACCEPTED');
+ const frozen=runtime.readDialogueActionReceipts(binding);runtime.client.onFrame(receipt(row));assert.equal(runtime.readDialogueActionReceipts(binding).length,1);
+ runtime.client.onFrame({type:'lease.changed',reason:'retired',encounterId:binding.encounterId,leaseEpoch:1});assert.equal(runtime.readDialogueActionReceipts(binding).length,0);assert.equal(frozen.length,1);runtime.stop();
+});
+test('C05 runtime fails closed on annotation loss and clears evidence at reset/stop',()=>{
+ const {runtime,receipt}=runtimeFixture();runtime.client.deliver=null;
+ const failed=runtime.recordDialogueActionPublication(publication);assert.ok(failed);assert.equal(runtime.dialogueReceipts.pendingCount,0);assert.equal(runtime.readDialogueActionReceipts(binding)[0].reason,'annotation_failed');
+ runtime.client.onFrame(receipt(failed));assert.equal(runtime.readDialogueActionReceipts(binding)[0].state,'UNKNOWN');
+ runtime.client.onFrame({type:'world_epoch',epoch:2,reason:'clock_regression'});assert.equal(runtime.readDialogueActionReceipts(binding).length,0);
+ runtime.client.runtime.ready=false;assert.equal(runtime.recordDialogueActionPublication(publication),null);assert.equal(runtime.readDialogueActionReceipts(binding).length,0);
+ runtime.stop();assert.equal(runtime.dialogueReceipts.pendingCount,0);
+});
 test('C05 receipt carries exact annotation and channel epochs with handler-only boolean outcome',()=>{
  const frame={version:1,type:'dialogue.action.receipt',sequence:1,dialogueActionVersion:1,publicationId:id(5),tuple,binding,canonicalAction:'followtarget',publishedAtMs:100,succeeded:false,atGameTick:0xffffffff,nativeRun:id(6),adapterEpoch:id(7)};
  assert.equal(validateDialogueActionReceipt(frame),true);assert.equal(validateFrame(frame),false);
@@ -42,7 +66,7 @@ test('C05 exact passive receipt distinguishes acceptance and failure without phy
  assert.equal(store.read({...binding,incarnationId:id(4)}).length,0);assert.equal(store.read(binding).length,2);
 });
 test('C05 rejects stale, unannotated, overflowed and mismatched callback evidence',()=>{
- for(const mutate of [row=>({...callback(row),tuple:{...tuple,sessionNonce:2}}),row=>({...callback(row),binding:{...binding,hostContext:{...binding.hostContext,worldEpoch:2}}}),row=>({...callback(row),canonicalAction:'waithere'}),row=>({...callback(row),atGameTick:-1}),row=>({...callback(row),overflowed:true})]){
+ for(const mutate of [row=>({...callback(row),publishedAtMs:row.publishedAtMs+1}),row=>({...callback(row),tuple:{...tuple,sessionNonce:2}}),row=>({...callback(row),binding:{...binding,hostContext:{...binding.hostContext,worldEpoch:2}}}),row=>({...callback(row),canonicalAction:'waithere'}),row=>({...callback(row),atGameTick:-1}),row=>({...callback(row),overflowed:true})]){
   const store=new DialogueActionReceipts(),row=store.publish(publication);assert.equal(store.callback(mutate(row)).state,'UNKNOWN');assert.equal(store.callback(callback(row)),null);
  }
  const store=new DialogueActionReceipts(),row=store.publish(publication);
