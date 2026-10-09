@@ -73,6 +73,20 @@ class Program
         while (DateTime.UtcNow < deadline) { if (requests.TryPeek(out var request)) return request; Thread.Sleep(10); }
         throw new Exception("Timed out waiting for the real control pipe request.");
     }
+    sealed class BrokenMicField { public Ped Instance; }
+    static void MicReadFailure()
+    {
+        var mic=new EssentialMicState();
+        Check(mic.Available && mic.CanStart()==null);
+        // Exercise a *real* reflection failure in the production reader, not
+        // a mock CanStart result. A non-static FieldInfo throws on null target.
+        var source=typeof(EssentialMicState).GetField("activePed",BindingFlags.Instance|BindingFlags.NonPublic);
+        Check(source!=null);
+        source.SetValue(mic,typeof(BrokenMicField).GetField("Instance"));
+        Check(mic.Available && mic.CanStart()=="mic_state_unavailable");
+        Check(!mic.Owns(new Ped {Handle=77,MemoryAddress=new IntPtr(77)},77));
+        Check(mic.StopOwned(new Ped {Handle=77,MemoryAddress=new IntPtr(77)},77)=="mic_state_unavailable");
+    }
     static void PrimaryOwnerTruth()
     {
         var act=PrimaryBehaviorOwner.Transition(null,"act","activity",10);
@@ -143,7 +157,7 @@ class Program
     static void Main()
     {
         try {
-            PrimaryOwnerTruth(); NativeOwnerSamples(); DeferredInitialization(); ShutdownOnCoreUpdate(); ResetWithPendingRequest(); ResetAfterP1(); RetireFailure(); ForwardClock(); ActivityIsolation(); ExactEncounterLifetime(); DialogueActorResolution(); DialogueObserverLifetime();
+            MicReadFailure(); PrimaryOwnerTruth(); NativeOwnerSamples(); DeferredInitialization(); ShutdownOnCoreUpdate(); ResetWithPendingRequest(); ResetAfterP1(); RetireFailure(); ForwardClock(); ActivityIsolation(); ExactEncounterLifetime(); DialogueActorResolution(); DialogueObserverLifetime();
             Console.WriteLine("P2 production clock recovery and Windows pipe cancellation: " + count + " assertions passed; no game assemblies loaded.");
         } catch (Exception error) { Console.Error.WriteLine(error.GetType().Name + ": " + error.Message); Environment.ExitCode = 1; }
     }
