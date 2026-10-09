@@ -10,7 +10,7 @@ namespace LSA.Activities
         {
             public Dictionary<string,object> Annotation;
             public object Body;
-            public string Encounter,Incarnation,Action;
+            public string CaptureRef,Encounter,Incarnation,Action;
             public long Fence,AtWall,Before;
             public uint AtGame;
         }
@@ -28,23 +28,23 @@ namespace LSA.Activities
             var binding=(Dictionary<string,object>)annotation["binding"];var context=(Dictionary<string,object>)binding["hostContext"];
             if((string)context["hostRunId"]!=hostRun || (int)context["worldEpoch"]!=worldEpoch)return false;
             Expire(game,wall);if(wall<=unsafeUntil)return false;
-            var encounter=(string)binding["encounterId"];var incarnation=(string)binding["incarnationId"];var action=(string)annotation["canonicalAction"];
+            var captureRef=(string)binding["captureRef"];var encounter=binding.ContainsKey("encounterId")?(string)binding["encounterId"]:null;var incarnation=binding.ContainsKey("incarnationId")?(string)binding["incarnationId"]:null;var action=(string)annotation["canonicalAction"];
             if(pending.Exists(row=>Equals(row.Annotation["publicationId"],annotation["publicationId"])))return false;
-            if(pending.Exists(row=>row.Encounter==encounter && row.Incarnation==incarnation && row.Action==action)){
+            if(pending.Exists(row=>row.CaptureRef==captureRef && row.Encounter==encounter && row.Incarnation==incarnation && row.Action==action)){
                 // Ambiguous native action callbacks have no source publication id.
                 // Invalidate all pending joins for this bounded window; never pick latest.
                 Invalidate(wall);return false;
             }
             if(pending.Count>=32)return false;
-            pending.Add(new Pending{Annotation=Copy(annotation),Body=exactBody,Encounter=encounter,Incarnation=incarnation,Action=action,Fence=captureFence,AtGame=game,AtWall=wall});return true;
+            pending.Add(new Pending{Annotation=Copy(annotation),Body=exactBody,CaptureRef=captureRef,Encounter=encounter,Incarnation=incarnation,Action=action,Fence=captureFence,AtGame=game,AtWall=wall});return true;
         }
-        public Dictionary<string,object> Match(CallbackRecord record,string encounter,string incarnation,string currentHost,int currentWorld,uint game,long wall,bool overflowed)
+        public Dictionary<string,object> Match(CallbackRecord record,string captureRef,string encounter,string incarnation,string currentHost,int currentWorld,uint game,long wall,bool overflowed)
         {
             if(wall<0)return null;
             if(overflowed){Invalidate(wall);return null;}
             Expire(game,wall);
             if(record==null || record.Source!="essential" || (record.Phase!="executed" && record.Phase!="before") || currentHost!=hostRun || currentWorld!=worldEpoch)return null;
-            var row=pending.Find(candidate=>candidate.Encounter==encounter && candidate.Incarnation==incarnation && ReferenceEquals(candidate.Body,record.PedReference) && candidate.Action==record.Name && record.CaptureSequence>candidate.Fence && unchecked(record.GameMs-candidate.AtGame)<=5000);
+            var row=pending.Find(candidate=>candidate.CaptureRef==captureRef && candidate.Encounter==encounter && candidate.Incarnation==incarnation && ReferenceEquals(candidate.Body,record.PedReference) && candidate.Action==record.Name && record.CaptureSequence>candidate.Fence && unchecked(record.GameMs-candidate.AtGame)<=5000);
             if(row==null)return null;
             if(record.Phase=="before"){
                 if(row.Before!=0){Invalidate(wall);return null;}
@@ -54,6 +54,7 @@ namespace LSA.Activities
             pending.Remove(row);var result=Copy(row.Annotation);result["succeeded"]=record.Succeeded.Value;result["atGameTick"]=(long)record.GameMs;return result;
         }
         public void Invalidate(long wall){pending.Clear();unsafeUntil=Math.Max(unsafeUntil,wall>long.MaxValue-5000?long.MaxValue:wall+5000);}
+        public void RetireCapture(string captureRef){pending.RemoveAll(row=>row.CaptureRef==captureRef);}
         public void Retire(string encounter,string incarnation){pending.RemoveAll(row=>row.Encounter==encounter && row.Incarnation==incarnation);}
         public void Reset(){pending.Clear();unsafeUntil=-1;}
     }

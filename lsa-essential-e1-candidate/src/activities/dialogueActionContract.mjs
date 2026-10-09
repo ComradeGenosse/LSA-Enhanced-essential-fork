@@ -11,7 +11,7 @@ export function validateDialogueActionAnnotation(value){
   return exactObject(value,['version','type','sequence','dialogueActionVersion','publicationId','tuple','binding','canonicalAction','publishedAtMs']) &&
    value.version===1 && value.type==='dialogue.action.pending' && value.dialogueActionVersion===1 && safe(value.sequence,1) && value.sequence<=0x7fffffff && isUuid(value.publicationId) &&
    exactObject(value.tuple,['pedId','turnId','generationId','sessionNonce']) && text(value.tuple.pedId) && text(value.tuple.turnId) && safe(value.tuple.generationId) && safe(value.tuple.sessionNonce,1) &&
-   exactObject(value.binding,['encounterId','incarnationId','hostContext']) && isUuid(value.binding.encounterId) && isUuid(value.binding.incarnationId) && exactObject(value.binding.hostContext,HOST_FIELDS) && readHostContext(value.binding.hostContext)!==null &&
+   exactObject(value.binding,['captureRef','hostContext',...(Object.hasOwn(value.binding??{},'encounterId') || Object.hasOwn(value.binding??{},'incarnationId')?['encounterId','incarnationId']:[])]) && isUuid(value.binding.captureRef) && (value.binding.encounterId===undefined && value.binding.incarnationId===undefined || isUuid(value.binding.encounterId) && isUuid(value.binding.incarnationId)) && exactObject(value.binding.hostContext,HOST_FIELDS) && readHostContext(value.binding.hostContext)!==null &&
    typeof value.canonicalAction==='string' && /^[a-z][a-z0-9_]{0,63}$/.test(value.canonicalAction) && safe(value.publishedAtMs) && Buffer.byteLength(JSON.stringify(value))<=FRAME_BYTES;
  }catch{return false;}
 }

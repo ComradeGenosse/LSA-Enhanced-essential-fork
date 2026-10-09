@@ -57,7 +57,7 @@ class Program
     static void Run()
     {
         var annotationJson=new JavaScriptSerializer();
-        var annotation=Decode(annotationJson,"{\"version\":1,\"type\":\"dialogue.action.pending\",\"sequence\":1,\"dialogueActionVersion\":1,\"publicationId\":\""+Id('1')+"\",\"tuple\":{\"pedId\":\"17\",\"turnId\":\"turn\",\"generationId\":1,\"sessionNonce\":1},\"binding\":{\"encounterId\":\""+Id('2')+"\",\"incarnationId\":\""+Id('3')+"\",\"hostContext\":{\"hostContextVersion\":1,\"hostRunId\":\""+Id('4')+"\",\"worldEpoch\":1}},\"canonicalAction\":\"followtarget\",\"publishedAtMs\":1791500000000}");
+        var annotation=Decode(annotationJson,"{\"version\":1,\"type\":\"dialogue.action.pending\",\"sequence\":1,\"dialogueActionVersion\":1,\"publicationId\":\""+Id('1')+"\",\"tuple\":{\"pedId\":\"17\",\"turnId\":\"turn\",\"generationId\":1,\"sessionNonce\":1},\"binding\":{\"captureRef\":\""+Id('6')+"\",\"encounterId\":\""+Id('2')+"\",\"incarnationId\":\""+Id('3')+"\",\"hostContext\":{\"hostContextVersion\":1,\"hostRunId\":\""+Id('4')+"\",\"worldEpoch\":1}},\"canonicalAction\":\"followtarget\",\"publishedAtMs\":1791500000000}");
         Check(ActivityContracts.DialogueActionAnnotation(annotation,1),"C05 exact annotation supports long publication timestamp");
         Check(!ActivityContracts.ExecutionFrame(annotation,1),"C05 annotation is not execution");
         Check(!ActivityContracts.DialogueActionAnnotation(annotation,2),"C05 sequence mismatch");
@@ -161,15 +161,15 @@ class Program
         Check(correlator.Accept(capturedAnnotation,receiptBody,10,uint.MaxValue-2,100),"C05 exact native pending publication");
         ((Dictionary<string,object>)capturedAnnotation["tuple"])["turnId"]="changed_after_capture";
         var callback=new CallbackRecord{PedReference=receiptBody,Name="followtarget",Phase="executed",Source="essential",Succeeded=true,GameMs=0,CaptureSequence=10};
-        Check(correlator.Match(callback,Id('2'),Id('3'),Id('4'),1,0,101,false)==null && correlator.Count==1,"C05 queued pre-annotation callback cannot join");
-        callback.CaptureSequence=11;callback.PedReference=new object();Check(correlator.Match(callback,Id('2'),Id('3'),Id('4'),1,0,101,false)==null,"C05 replacement body cannot join");callback.PedReference=receiptBody;
-        Check(correlator.Match(callback,Id('2'),Id('5'),Id('4'),1,0,101,false)==null,"C05 wrong incarnation cannot join");
-        Check(correlator.Match(callback,Id('2'),Id('3'),Id('4'),2,0,101,false)==null,"C05 wrong world cannot join");
-        callback.Phase="after";Check(correlator.Match(callback,Id('2'),Id('3'),Id('4'),1,0,101,false)==null,"C05 modifier phase is not handler evidence");callback.Phase="executed";
-        Check(correlator.Match(callback,Id('2'),Id('3'),Id('4'),1,0,101,false)==null,"C05 handler without post-annotation before phase cannot join");
-        callback.Phase="before";callback.Succeeded=null;Check(correlator.Match(callback,Id('2'),Id('3'),Id('4'),1,0,101,false)==null && correlator.Count==1,"C05 post-annotation modifier before arms only exact pending action");
+        Check(correlator.Match(callback,Id('6'),Id('2'),Id('3'),Id('4'),1,0,101,false)==null && correlator.Count==1,"C05 queued pre-annotation callback cannot join");
+        callback.CaptureSequence=11;callback.PedReference=new object();Check(correlator.Match(callback,Id('6'),Id('2'),Id('3'),Id('4'),1,0,101,false)==null,"C05 replacement body cannot join");callback.PedReference=receiptBody;
+        Check(correlator.Match(callback,Id('6'),Id('2'),Id('5'),Id('4'),1,0,101,false)==null,"C05 wrong incarnation cannot join");
+        Check(correlator.Match(callback,Id('6'),Id('2'),Id('3'),Id('4'),2,0,101,false)==null,"C05 wrong world cannot join");
+        callback.Phase="after";Check(correlator.Match(callback,Id('6'),Id('2'),Id('3'),Id('4'),1,0,101,false)==null,"C05 modifier phase is not handler evidence");callback.Phase="executed";
+        Check(correlator.Match(callback,Id('6'),Id('2'),Id('3'),Id('4'),1,0,101,false)==null,"C05 handler without post-annotation before phase cannot join");
+        callback.Phase="before";callback.Succeeded=null;Check(correlator.Match(callback,Id('6'),Id('2'),Id('3'),Id('4'),1,0,101,false)==null && correlator.Count==1,"C05 post-annotation modifier before arms only exact pending action");
         callback.Phase="executed";callback.Succeeded=true;callback.CaptureSequence=12;
-        var matched=correlator.Match(callback,Id('2'),Id('3'),Id('4'),1,0,101,false);
+        var matched=correlator.Match(callback,Id('6'),Id('2'),Id('3'),Id('4'),1,0,101,false);
         Check(matched!=null && (bool)matched["succeeded"] && (string)((Dictionary<string,object>)matched["tuple"])["turnId"]=="turn" && (long)matched["atGameTick"]==0,"C05 immutable exact annotation joins across unsigned tick wrap");
         passive.OpenTransport();passiveClient["dialogueActionVersion"]=1;Check(passive.AcceptClient(annotationJson.Serialize(passiveClient)),"C05 response session negotiation");
         Check(passive.PublishDialogueReceipt(matched),"C05 correlated receipt published on existing channel");var response=Decode(annotationJson,passive.TakeOutbound());
@@ -177,26 +177,35 @@ class Program
         response["physicalCompletion"]=true;Check(!ActivityContracts.DialogueActionReceipt(response,1),"C05 response cannot invent physical completion");response.Remove("physicalCompletion");
         response["atGameTick"]=4294967296L;Check(!ActivityContracts.DialogueActionReceipt(response,1),"C05 response game tick is unsigned 32-bit");
         matched["succeeded"]=false;Check(passive.PublishDialogueReceipt(matched) && !(bool)Decode(annotationJson,passive.TakeOutbound())["succeeded"],"C05 failed handler response remains failure");
-        Check(correlator.Match(callback,Id('2'),Id('3'),Id('4'),1,0,101,false)==null,"C05 duplicate callback cannot emit twice");
+        Check(correlator.Match(callback,Id('6'),Id('2'),Id('3'),Id('4'),1,0,101,false)==null,"C05 duplicate callback cannot emit twice");
         Check(correlator.Accept(annotation,receiptBody,10,0,200),"C05 second native publication");
         var overlapping=Decode(annotationJson,annotationJson.Serialize(annotation));overlapping["publicationId"]=Id('5');
         Check(!correlator.Accept(overlapping,receiptBody,10,0,201) && correlator.Count==0,"C05 overlapping action invalidates native join");
         Check(!correlator.Accept(annotation,receiptBody,10,0,202),"C05 ambiguous window remains quarantined");
         correlator.Reset();Check(correlator.Accept(annotation,receiptBody,10,0,300),"C05 reset permits fresh capture");
-        Check(correlator.Match(callback,Id('2'),Id('3'),Id('4'),1,0,301,true)==null && correlator.Count==0,"C05 overflow invalidates native joins");
+        Check(correlator.Match(callback,Id('6'),Id('2'),Id('3'),Id('4'),1,0,301,true)==null && correlator.Count==0,"C05 overflow invalidates native joins");
         correlator.Reset();Check(correlator.Accept(annotation,receiptBody,10,0,400),"C05 capture before retirement");correlator.Retire(Id('2'),Id('3'));Check(correlator.Count==0,"C05 retirement removes exact native pending");
-        Check(correlator.Accept(annotation,receiptBody,10,0,500),"C05 capture before expiry");Check(correlator.Match(callback,Id('2'),Id('3'),Id('4'),1,5001,5501,false)==null && correlator.Count==0,"C05 expired callback cannot establish evidence");
+        Check(correlator.Accept(annotation,receiptBody,10,0,500),"C05 capture before expiry");Check(correlator.Match(callback,Id('6'),Id('2'),Id('3'),Id('4'),1,5001,5501,false)==null && correlator.Count==0,"C05 expired callback cannot establish evidence");
         correlator.Reset();Check(correlator.Accept(annotation,receiptBody,10,0,600),"C05 capture before conflicting modifier sequence");callback.Phase="before";callback.CaptureSequence=11;callback.Succeeded=null;
-        correlator.Match(callback,Id('2'),Id('3'),Id('4'),1,0,601,false);callback.CaptureSequence=12;correlator.Match(callback,Id('2'),Id('3'),Id('4'),1,0,602,false);
+        correlator.Match(callback,Id('6'),Id('2'),Id('3'),Id('4'),1,0,601,false);callback.CaptureSequence=12;correlator.Match(callback,Id('6'),Id('2'),Id('3'),Id('4'),1,0,602,false);
         Check(correlator.Count==0,"C05 multiple before callbacks invalidate ambiguous join");
-        correlator.Reset();Check(correlator.Accept(annotation,receiptBody,10,0,700),"C05 capture before handler failure");callback.CaptureSequence=11;correlator.Match(callback,Id('2'),Id('3'),Id('4'),1,0,701,false);callback.Phase="executed";callback.Succeeded=false;callback.CaptureSequence=12;
-        Check((bool)correlator.Match(callback,Id('2'),Id('3'),Id('4'),1,0,702,false)["succeeded"]==false,"C05 failed handler remains failure");
+        correlator.Reset();Check(correlator.Accept(annotation,receiptBody,10,0,700),"C05 capture before handler failure");callback.CaptureSequence=11;correlator.Match(callback,Id('6'),Id('2'),Id('3'),Id('4'),1,0,701,false);callback.Phase="executed";callback.Succeeded=false;callback.CaptureSequence=12;
+        Check((bool)correlator.Match(callback,Id('6'),Id('2'),Id('3'),Id('4'),1,0,702,false)["succeeded"]==false,"C05 failed handler remains failure");
         correlator.Reset();
         for(int pendingIndex=0;pendingIndex<33;pendingIndex++){
             var bounded=Decode(annotationJson,annotationJson.Serialize(annotation));bounded["publicationId"]=Guid.NewGuid().ToString("D");((Dictionary<string,object>)bounded["binding"])["encounterId"]=Guid.NewGuid().ToString("D");
             Check(correlator.Accept(bounded,receiptBody,10,0,800)==(pendingIndex<32),"C05 native pending capacity remains bounded");
         }
         Check(correlator.Count==32,"C05 native pending cap is 32");correlator.Reset();Check(correlator.Count==0,"C05 reset releases all pending body references");
+        var ordinaryAnnotation=Decode(annotationJson,annotationJson.Serialize(annotation));var ordinaryBinding=(Dictionary<string,object>)ordinaryAnnotation["binding"];ordinaryBinding.Remove("encounterId");ordinaryBinding.Remove("incarnationId");
+        Check(ActivityContracts.DialogueActionAnnotation(ordinaryAnnotation,1),"C05 ordinary annotation uses only exact C02 capture and host scope");
+        ordinaryBinding["encounterId"]=Id('2');Check(!ActivityContracts.DialogueActionAnnotation(ordinaryAnnotation,1),"C05 partial ownership pair rejected");ordinaryBinding.Remove("encounterId");
+        Check(correlator.Accept(ordinaryAnnotation,receiptBody,10,0,900),"C05 ordinary actor accepted without P2 ownership");callback.Phase="before";callback.Succeeded=null;callback.CaptureSequence=11;
+        Check(correlator.Match(callback,Id('5'),null,null,Id('4'),1,0,901,false)==null,"C05 replaced ordinary capture cannot arm callback");
+        correlator.Match(callback,Id('6'),null,null,Id('4'),1,0,901,false);callback.Phase="executed";callback.Succeeded=true;callback.CaptureSequence=12;
+        var ordinaryResult=correlator.Match(callback,Id('6'),null,null,Id('4'),1,0,902,false);
+        Check(ordinaryResult!=null && !((Dictionary<string,object>)ordinaryResult["binding"]).ContainsKey("encounterId"),"C05 ordinary receipt does not invent encounter identity");
+        Check(correlator.Accept(ordinaryAnnotation,receiptBody,10,0,1000),"C05 ordinary pending before anchor retirement");correlator.RetireCapture(Id('6'));Check(correlator.Count==0,"C05 exact anchor retirement clears ordinary pending");
         var hello = session.ServerHello();
         var parsed = new JavaScriptSerializer().Deserialize<Dictionary<string, object>>(hello);
         Check(ActivityContracts.HelloNative(parsed, CapabilityTable.ContractSha256), "native hello is closed and pinned");

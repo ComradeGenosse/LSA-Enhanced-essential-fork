@@ -5,8 +5,8 @@ import {readHostContext,sameHostContext} from '../context/hostContext.mjs';
 
 const tupleKeys=['pedId','turnId','generationId','sessionNonce'];
 const validTuple=t=>typeof t?.pedId==='string' && t.pedId.length>0 && t.pedId.length<=128 && typeof t.turnId==='string' && t.turnId.length>0 && t.turnId.length<=128 && Number.isSafeInteger(t.generationId) && t.generationId>=0 && Number.isSafeInteger(t.sessionNonce) && t.sessionNonce>0;
-const validBinding=b=>isUuid(b?.encounterId) && isUuid(b?.incarnationId) && readHostContext(b.hostContext);
-const sameBinding=(a,b)=>validBinding(a) && validBinding(b) && a.encounterId===b.encounterId && a.incarnationId===b.incarnationId && sameHostContext(a.hostContext,b.hostContext);
+const validBinding=b=>isUuid(b?.captureRef) && (b.encounterId===undefined && b.incarnationId===undefined || isUuid(b.encounterId) && isUuid(b.incarnationId)) && readHostContext(b.hostContext);
+const sameBinding=(a,b)=>validBinding(a) && validBinding(b) && a.captureRef===b.captureRef && a.encounterId===b.encounterId && a.incarnationId===b.incarnationId && sameHostContext(a.hostContext,b.hostContext);
 const tick=value=>Number.isSafeInteger(value) && value>=0 && value<=0xffffffff;
 // Passive C-05 adapter only. An annotated native callback must carry the exact
 // publication id AND tuple/body/host scope. Never infer the latest matching turn.
@@ -33,7 +33,7 @@ export class DialogueActionReceipts {
  publish({tuple,binding,canonicalAction,publishedAtMs,allowedActions}={}){
   if(!validTuple(tuple) || !validBinding(binding) || !Number.isSafeInteger(publishedAtMs) || publishedAtMs<0 || typeof canonicalAction!=='string' || !/^[a-z][a-z0-9_]{0,63}$/.test(canonicalAction) || !Array.isArray(allowedActions) || !allowedActions.includes(canonicalAction))return null;
   this.expire(publishedAtMs);
-  const row=immutableSnapshot({publicationId:randomUUID(),tuple:Object.fromEntries(tupleKeys.map(key=>[key,tuple[key]])),binding:{encounterId:binding.encounterId,incarnationId:binding.incarnationId,hostContext:readHostContext(binding.hostContext)},canonicalAction,publishedAtMs});
+  const row=immutableSnapshot({publicationId:randomUUID(),tuple:Object.fromEntries(tupleKeys.map(key=>[key,tuple[key]])),binding:{captureRef:binding.captureRef,...(binding.encounterId?{encounterId:binding.encounterId,incarnationId:binding.incarnationId}:{}),hostContext:readHostContext(binding.hostContext)},canonicalAction,publishedAtMs});
   const overlaps=[...this.#pending.values()].filter(other=>sameBinding(other.binding,row.binding) && other.canonicalAction===canonicalAction);
   const quarantined=publishedAtMs<=this.#unsafeUntil || this.#quarantine.some(other=>sameBinding(other.binding,row.binding) && other.canonicalAction===canonicalAction);
   if(overlaps.length || quarantined){this.#quarantineAction(row);for(const other of overlaps)this.#finish(other,'UNKNOWN','ambiguous_publication');return this.#finish(row,'UNKNOWN','ambiguous_publication');}

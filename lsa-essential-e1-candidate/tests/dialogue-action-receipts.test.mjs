@@ -6,10 +6,21 @@ import {validateFrame} from '../src/activities/contracts.mjs';
 import {ActivityClient} from '../src/activities/activityClient.mjs';
 import {ActivityRuntime} from '../src/activities/activityRuntime.mjs';
 const id=n=>`00000000-0000-4000-8000-${String(n).padStart(12,'0')}`;
-const binding={encounterId:id(1),incarnationId:id(2),hostContext:{hostContextVersion:1,hostRunId:id(3),worldEpoch:1}};
+const binding={captureRef:id(4),encounterId:id(1),incarnationId:id(2),hostContext:{hostContextVersion:1,hostRunId:id(3),worldEpoch:1}};
 const tuple={pedId:'actor',turnId:'turn',generationId:1,sessionNonce:1};
 const publication={tuple,binding,canonicalAction:'followtarget',publishedAtMs:100,allowedActions:['followtarget','waithere']};
 const callback=row=>({...row,succeeded:true,atGameTick:0xffffffff,receivedAtMs:120});
+test('C05 ordinary actors use exact C02 capture scope without manufactured owned identity',()=>{
+ const ordinary={captureRef:id(10),hostContext:binding.hostContext},store=new DialogueActionReceipts();
+ const row=store.publish({...publication,binding:ordinary});assert.ok(row);assert.equal(Object.hasOwn(row.binding,'encounterId'),false);
+ const frame={...row,version:1,type:'dialogue.action.pending',sequence:1,dialogueActionVersion:1};assert.equal(validateDialogueActionAnnotation(frame),true);
+ assert.equal(validateDialogueActionAnnotation({...frame,binding:{...ordinary,encounterId:id(11)}}),false);
+ assert.equal(validateDialogueActionAnnotation({...frame,binding:{hostContext:ordinary.hostContext}}),false);
+ assert.equal(store.publish({...publication,binding:{...ordinary,incarnationId:id(11)}}),null);
+ assert.equal(store.callback({...callback(row),binding:{...ordinary,captureRef:id(12)}}).state,'UNKNOWN');
+ store.reset();const fresh=store.publish({...publication,binding:ordinary});assert.equal(store.callback(callback(fresh)).state,'HANDLER_ACCEPTED');
+ assert.equal(store.read({...ordinary,captureRef:id(12)}).length,0);assert.equal(store.read(ordinary).length,1);store.retire(ordinary);assert.equal(store.read(ordinary).length,0);
+});
 function runtimeFixture(){
  const sent=[],runtime=new ActivityRuntime({mode:'shadow'},{now:()=>120});
  Object.assign(runtime.client.runtime,{ready:true,dialogueActionVersion:1,nativeRun:id(6),adapterEpoch:id(7),hostContext:binding.hostContext});runtime.client.deliver=frame=>sent.push(frame);

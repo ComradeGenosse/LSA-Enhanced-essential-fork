@@ -33,10 +33,16 @@ namespace LSA.Activities
             try {
                 if(!Exact(value,"version","type","sequence","dialogueActionVersion","publicationId","tuple","binding","canonicalAction","publishedAtMs") || !Sequenced(value,expectedSequence) || value["type"] as string!="dialogue.action.pending" || !(value["dialogueActionVersion"] is int v && v==1) || !IsUuid(value["publicationId"] as string))return false;
                 var tuple=value["tuple"] as Dictionary<string,object>;var binding=value["binding"] as Dictionary<string,object>;
-                if(!Exact(tuple,"pedId","turnId","generationId","sessionNonce") || !ShortIdentity(tuple["pedId"]) || !ShortIdentity(tuple["turnId"]) || !SafeInteger(tuple["generationId"],0) || !SafeInteger(tuple["sessionNonce"],1) || !Exact(binding,"encounterId","incarnationId","hostContext") || !IsUuid(binding["encounterId"] as string) || !IsUuid(binding["incarnationId"] as string))return false;
+                if(!Exact(tuple,"pedId","turnId","generationId","sessionNonce") || !ShortIdentity(tuple["pedId"]) || !ShortIdentity(tuple["turnId"]) || !SafeInteger(tuple["generationId"],0) || !SafeInteger(tuple["sessionNonce"],1) || !DialogueBinding(binding))return false;
                 var host=binding["hostContext"] as Dictionary<string,object>;var action=value["canonicalAction"] as string;
                 return Exact(host,"hostContextVersion","hostRunId","worldEpoch") && host["hostContextVersion"] is int hv && hv==1 && IsUuid(host["hostRunId"] as string) && host["worldEpoch"] is int epoch && epoch>0 && action!=null && Regex.IsMatch(action,@"^[a-z][a-z0-9_]{0,63}\z") && SafeInteger(value["publishedAtMs"],0);
             }catch{return false;}
+        }
+        static bool DialogueBinding(Dictionary<string,object> binding)
+        {
+            if(binding==null)return false;
+            var owned=binding.ContainsKey("encounterId") || binding.ContainsKey("incarnationId");
+            return Exact(binding,owned?new[]{"captureRef","encounterId","incarnationId","hostContext"}:new[]{"captureRef","hostContext"}) && IsUuid(binding["captureRef"] as string) && (!owned || IsUuid(binding["encounterId"] as string) && IsUuid(binding["incarnationId"] as string));
         }
         static bool ShortIdentity(object value) => value is string text && text.Length>0 && text.Length<=128;
         public static bool DialogueActionReceipt(IDictionary<string,object> value,int expectedSequence)
