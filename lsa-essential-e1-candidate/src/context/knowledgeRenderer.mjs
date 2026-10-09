@@ -1,3 +1,4 @@
+import {projectDialogueActionKnowledge} from '../activities/dialogueActionKnowledge.mjs';
 import {projectActivityKnowledge} from '../activities/activityKnowledge.mjs';
 import {immutableSnapshot} from './turnSnapshot.mjs';
 import {KNOWLEDGE_LIMITS,jsonBytes,selectKnowledge} from './knowledgeSelector.mjs';
@@ -53,7 +54,7 @@ export function projectConversation(history,input,source) {
 }
 // Pure projection only: callers must supply the canon already released by P1/P2.
 // Private turn/delivery metadata is never part of modelAllocation.
-export function renderKnowledge({turn,frozenAt,profile,persistent=false,knowledgeInputs,actor,listener,world,referenceMap,presence,history,input,source,includePerceived=false,activityInputs=null,includeActivityFacts=false}) {
+export function renderKnowledge({turn,frozenAt,profile,persistent=false,knowledgeInputs,actor,listener,world,referenceMap,presence,history,input,source,includePerceived=false,activityInputs=null,includeActivityFacts=false,dialogueInputs=null,includeDialogueReceipts=false}) {
  let canonProjection=narrativeProfileWithDiagnostics(profile,persistent);
  let narrative=canonProjection.narrative;
  // Reserve actual lane-wrapper overhead while reusing P2's established field
@@ -77,10 +78,12 @@ export function renderKnowledge({turn,frozenAt,profile,persistent=false,knowledg
   if(jsonBytes({SELF:lanes.SELF,RECALLED:lanes.RECALLED})>KNOWLEDGE_LIMITS.canonBytes)throw new RangeError('knowledge_canon_bytes');
  }
  const activity=includeActivityFacts?projectActivityKnowledge(activityInputs):{facts:[],references:[],omitted:0};
- lanes.SELF.selfFacts=[...activity.facts];
+ const dialogue=includeDialogueReceipts?projectDialogueActionKnowledge(dialogueInputs):{facts:[],references:[],omitted:0};
+ lanes.SELF.selfFacts=[...activity.facts,...dialogue.facts];
+ const dialogueReferences=[...dialogue.references];let droppedDialogueReceiptCount=dialogue.omitted;
  const activityReferences=[...activity.references];let droppedActivityFactCount=activity.omitted;
- const dropActivityFact=()=>{lanes.SELF.selfFacts.pop();activityReferences.pop();droppedActivityFactCount++;};
- while(lanes.SELF.selfFacts.length && jsonBytes({SELF:lanes.SELF,RECALLED:lanes.RECALLED})>KNOWLEDGE_LIMITS.canonBytes)dropActivityFact();
+ const dropSelfFact=()=>{lanes.SELF.selfFacts.pop();if(dialogueReferences.length){dialogueReferences.pop();droppedDialogueReceiptCount++;}else{activityReferences.pop();droppedActivityFactCount++;}};
+ while(lanes.SELF.selfFacts.length && jsonBytes({SELF:lanes.SELF,RECALLED:lanes.RECALLED})>KNOWLEDGE_LIMITS.canonBytes)dropSelfFact();
  const delivery=[...perceived.selected],omissions={...perceived.omissions};
  let frameBudgetDrops=0;
  const allocation=()=>({scene:JSON.stringify({frameVersion:1,lanes}),messages:conversation.messages});
@@ -96,26 +99,27 @@ export function renderKnowledge({turn,frozenAt,profile,persistent=false,knowledg
   const selected=delivery[index],pair=knowledgeInputs?.pairs?.find(pair=>pair.decision.decisionKey===selected.decisionKey);
   if(pair?.decision.context!=='must_include')dropObservation(index);
  }
- while(oversized() && lanes.SELF.selfFacts.length){dropActivityFact();frameBudgetDrops++;}
+ while(oversized() && lanes.SELF.selfFacts.length){dropSelfFact();frameBudgetDrops++;}
  while(oversized() && lanes.RECALLED.memories.length){lanes.RECALLED.memories.pop();frameBudgetDrops++;}
  while(oversized() && delivery.length){dropObservation(delivery.length-1);omissions.safety_overflow++;}
  const modelAllocation=allocation(),bytes=jsonBytes(modelAllocation);
  if(bytes>KNOWLEDGE_LIMITS.frameBytes)throw new RangeError('knowledge_frame_bytes');
  const perLane=Object.fromEntries(Object.entries(lanes).map(([name,value])=>[name,jsonBytes(value)]));perLane.CONVERSE=jsonBytes(conversation.messages);
- return immutableSnapshot({frameVersion:1,turn,frozenAt,modelAllocation,delivery,memoryIds:memories.slice(0,lanes.RECALLED.memories.length).map(memory=>memory.memoryId),activityReferences,diagnostics:{bytes,perLane,droppedActivityFactCount,capture:knowledgeInputs?.captureDiagnostics??null,safetyBudget:perceived.safetyBudget,omissions,frameBudgetDrops,droppedHistoryCount:conversation.droppedHistoryCount,droppedMemoryCount:canonProjection.droppedMemoryCount+memories.length-lanes.RECALLED.memories.length}});
+ return immutableSnapshot({frameVersion:1,turn,frozenAt,modelAllocation,delivery,memoryIds:memories.slice(0,lanes.RECALLED.memories.length).map(memory=>memory.memoryId),activityReferences,dialogueReferences,diagnostics:{bytes,perLane,droppedActivityFactCount,droppedDialogueReceiptCount,capture:knowledgeInputs?.captureDiagnostics??null,safetyBudget:perceived.safetyBudget,omissions,frameBudgetDrops,droppedHistoryCount:conversation.droppedHistoryCount,droppedMemoryCount:canonProjection.droppedMemoryCount+memories.length-lanes.RECALLED.memories.length}});
 
 }
 
 
 // Narrow an already rendered allocation before first send. No new facts, live
 // history or replacement candidates are admitted by this operation.
-export function pruneKnowledgeFrame(frame,keep,keepActivity=()=>true) {
+export function pruneKnowledgeFrame(frame,keep,keepActivity=()=>true,keepDialogue=()=>true) {
  const retained=frame.delivery.map((item,index)=>keep(item)?index:null).filter(index=>index!==null);
  const activityRetained=(frame.activityReferences??[]).map((item,index)=>keepActivity(item)?index:null).filter(index=>index!==null);
- if(retained.length===frame.delivery.length && activityRetained.length===(frame.activityReferences?.length??0))return frame;
+ const dialogueRetained=(frame.dialogueReferences??[]).map((item,index)=>keepDialogue(item)?index:null).filter(index=>index!==null);
+ if(retained.length===frame.delivery.length && activityRetained.length===(frame.activityReferences?.length??0) && dialogueRetained.length===(frame.dialogueReferences?.length??0))return frame;
  const scene=JSON.parse(frame.modelAllocation.scene);
  scene.lanes.PERCEIVED.observations=retained.map(index=>scene.lanes.PERCEIVED.observations[index]);
- if(frame.activityReferences)scene.lanes.SELF.selfFacts=activityRetained.map(index=>scene.lanes.SELF.selfFacts[index]);
+ if(frame.activityReferences || frame.dialogueReferences){const original=scene.lanes.SELF.selfFacts;scene.lanes.SELF.selfFacts=[...activityRetained.map(index=>original[index]),...dialogueRetained.map(index=>original[(frame.activityReferences?.length??0)+index])];}
  const modelAllocation={...frame.modelAllocation,scene:JSON.stringify(scene)};
- return immutableSnapshot({...frame,modelAllocation,delivery:retained.map(index=>frame.delivery[index]),...(frame.activityReferences?{activityReferences:activityRetained.map(index=>frame.activityReferences[index])}:{}),diagnostics:{...frame.diagnostics,bytes:jsonBytes(modelAllocation),perLane:{...frame.diagnostics.perLane,PERCEIVED:jsonBytes(scene.lanes.PERCEIVED),SELF:jsonBytes(scene.lanes.SELF)},staleActivityFactDrops:(frame.diagnostics.staleActivityFactDrops??0)+(frame.activityReferences?.length??0)-activityRetained.length,staleObservationDrops:(frame.diagnostics.staleObservationDrops??0)+frame.delivery.length-retained.length}});
+ return immutableSnapshot({...frame,modelAllocation,delivery:retained.map(index=>frame.delivery[index]),...(frame.activityReferences?{activityReferences:activityRetained.map(index=>frame.activityReferences[index])}:{}),...(frame.dialogueReferences?{dialogueReferences:dialogueRetained.map(index=>frame.dialogueReferences[index])}:{}),diagnostics:{...frame.diagnostics,staleDialogueReceiptDrops:(frame.diagnostics.staleDialogueReceiptDrops??0)+(frame.dialogueReferences?.length??0)-dialogueRetained.length,bytes:jsonBytes(modelAllocation),perLane:{...frame.diagnostics.perLane,PERCEIVED:jsonBytes(scene.lanes.PERCEIVED),SELF:jsonBytes(scene.lanes.SELF)},staleActivityFactDrops:(frame.diagnostics.staleActivityFactDrops??0)+(frame.activityReferences?.length??0)-activityRetained.length,staleObservationDrops:(frame.diagnostics.staleObservationDrops??0)+frame.delivery.length-retained.length}});
 }
