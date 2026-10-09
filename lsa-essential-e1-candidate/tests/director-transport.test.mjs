@@ -67,3 +67,36 @@ test('capability-gated companion preview queues exactly one closed native packet
  assert.equal(client.sendDirectorPreview(args),false);
  assert.equal(writes.length,1);
 });
+
+test('exact native PS6 request response binds once with independent status and disconnect cleanup',async()=>{
+ const client=new IntelligenceClient({mode:'shadow',pipeName:'LSA.Intelligence.v1'},{now:()=>1000,report:()=>{}});
+ const writes=[];
+ client.socket={destroyed:false,writable:true,writableLength:0,write:line=>{writes.push(JSON.parse(line));return true;},destroy:()=>{}};
+ assert.equal(client.runtime.ingest(hello,{authenticated:true}),true);
+ const original={operation:'reserve',ticket:{ticketId:ticket,dedupeKey:'ps:'+ticket},
+  proposal:{speakerCaptureRef:'e1111111-1111-4111-8111-111111111111',
+   playerCaptureRef:'f1111111-1111-4111-8111-111111111111',
+   observationId:'81111111-1111-4111-8111-111111111111',
+   observationRevision:1,decisionKey:'ps3:qualified',policyVersion:1},
+  stamp:{hostRunId:host,worldEpoch:1,
+   ownerIncarnationId:'91111111-1111-4111-8111-111111111111',
+   proofRevision:1,playerTurnVersion:0},ageMs:100};
+ const waiting=client.requestDirector(original);
+ assert.equal(writes.length,1);
+ assert.equal((await client.requestDirector(original)),null);
+ assert.equal(client.acceptDirectorResponse({ticketId:'00000000-0000-4000-8000-000000000000',status:'reserved'}),false);
+ assert.equal(client.acceptDirectorResponse({ticketId:ticket,status:'reserved'}),true);
+ assert.deepEqual(await waiting,{ticketId:ticket,status:'reserved'});
+ assert.equal(client.directorPending.size,0);
+ const submitted=client.requestDirector({...original,operation:'submit'});
+ assert.equal(writes.length,2);
+ assert.equal(client.acceptDirectorResponse({ticketId:ticket,status:'reserved'}),true);
+ assert.equal(await submitted,null); // a late reserve is never a submit
+ assert.equal(client.directorPending.size,0);
+ const late=client.requestDirector({...original,operation:'submit'});
+ assert.equal(writes.length,3);
+ client.cancelDirectorRequests();
+ assert.equal(await late,null);
+ assert.equal(client.directorPending.size,0);
+ client.stop();
+});
