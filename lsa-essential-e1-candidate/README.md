@@ -99,3 +99,8 @@ Both contributors use the existing single PS4 renderer and shared SELF/manual-me
 Passive receipt collection uses the existing ACT host: native `activities.dialogueReceipts: true` opts into C-05 while `activities.mode` remains explicitly shadow/on. Companion normalization preserves only a literal true opt-in; this does not enable ACT dialogue dispatch or change mode. Both example configurations remain false/off. Collection and SELF activation are independent; no physical acceptance record is supplied.
 
 The companion publication service also requires its literal-true `activities.dialogueReceipts` opt-in; native negotiation alone never enables publication annotation.
+
+
+### C-05 Windows interoperability fixture
+
+Build `native/activities/tests/ActivityTests.csproj` from the repository root, then run `node tools/testDialogueActionsInterop.mjs` from this candidate directory. The same check is in `tests/dialogue-action-interop.test.mjs` on Windows. It uses the production current-user ACT pipe/session, native shared ring/correlator/publisher and Node ActivityRuntime to verify ordinary/owned binding shapes, accepted/failed handler receipts, closed SELF projection, stale-host rejection, sequence preservation, passive mode and reconnect cleanup. The helper supplies synthetic before/handler callbacks and executes no game assemblies. A pass proves cross-process interoperability; it does not prove native actor resolution, Essential callback ordering or physical MP6/GTA acceptance.

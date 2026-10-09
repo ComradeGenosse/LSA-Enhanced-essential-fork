@@ -22,6 +22,7 @@ class Program
     static string Id(char n) => n + "1111111-1111-4111-8111-111111111111";
     static void Main(string[] args)
     {
+        if (args.Length == 2 && args[0] == "--serve-dialogue") { ServeDialogue(args[1]); return; }
         if (args.Length == 2 && args[0] == "--serve") { Serve(args[1]); return; }
         try { Run(); Console.WriteLine("PASS " + assertions + " ACT contract and shadow assertions"); }
         catch (Exception error) { Console.Error.WriteLine(error); Environment.ExitCode = 1; }
@@ -33,6 +34,32 @@ class Program
             channel.Start();
             while (true) {
                 channel.Pump(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
+                Thread.Sleep(10);
+            }
+        }
+    }
+    // Transport fixture: callback records are synthetic; no Essential/RAGE code.
+    static void ServeDialogue(string pipe)
+    {
+        string host=Guid.NewGuid().ToString("D");var ring=new SupersessionMonitor();
+        var correlator=new DialogueActionCorrelator(host,1);ActivitySession session=null;
+        session=new ActivitySession(CapabilityTable.Parse(File.ReadAllBytes(ContractPath())),null,host,()=>1,annotation=>{
+            long now=DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();var body=new object();
+            if(!correlator.Accept(annotation,body,ring.CaptureSequence,100,now))return true;
+            string action=(string)annotation["canonicalAction"];
+            ring.Push(new CallbackRecord{PedReference=body,Name=action,Phase="before",Source="essential",GameMs=101});
+            ring.Push(new CallbackRecord{PedReference=body,Name=action,Phase="executed",Source="essential",GameMs=102,Succeeded=action!="sitonground"});
+            return true;
+        },()=>correlator.Reset());
+        using(var channel=new ActivityChannel(pipe,session)){
+            channel.Start();while(true){
+                long now=DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();channel.Pump(now);now=DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+                CallbackRecord record;while((record=ring.Drain())!=null){
+                    var original=correlator.PendingForCallback(record);if(original==null)continue;
+                    var binding=(Dictionary<string,object>)original["binding"];
+                    var result=correlator.Match(record,(string)binding["captureRef"],binding.ContainsKey("encounterId")?(string)binding["encounterId"]:null,binding.ContainsKey("incarnationId")?(string)binding["incarnationId"]:null,host,1,102,now,false);
+                    if(result!=null && !session.PublishDialogueReceipt(result))throw new Exception("Fixture receipt publication failed.");
+                }
                 Thread.Sleep(10);
             }
         }
