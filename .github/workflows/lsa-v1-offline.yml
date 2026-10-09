@@ -64,6 +64,12 @@ jobs:
         run: |
           dotnet build native/intelligence/director-tests/DirectorTests.csproj --configuration Debug
           & .\\native\\intelligence\\director-tests\\bin\\Debug\\net481\\DirectorTests.exe
+      - name: Build and run real shared native host clock and reset contract
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          dotnet build native/promoted-characters/host-context-tests/HostContextTests.csproj --configuration Debug
+          & .\\native\\promoted-characters\\host-context-tests\\bin\\Debug\\net481\\HostContextTests.exe
       - name: Build and run native PS host integration stubs
         if: runner.os == 'Windows'
         shell: pwsh
