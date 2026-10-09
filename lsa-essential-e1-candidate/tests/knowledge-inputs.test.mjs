@@ -61,7 +61,7 @@ test('PR21 T31 a new P0 generation captures later witnessed signal while old PS3
   f.p0Snapshot.revision=2;
   const later=f.capture();
   assert.equal(later.reason,null);
-  assert.equal(later.turn.identity.generationId,2);
+  assert.equal(later.turn.generationId,2);
   assert.ok(later.pairs.length>0);
   assert.equal(JSON.stringify(first.pairs),frozen);
   assert.ok(later.pairs.some(p=>p.observation.revision>version ||
