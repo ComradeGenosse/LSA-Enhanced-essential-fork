@@ -19,7 +19,16 @@ namespace LSA.Intelligence
             public bool ScriptStateKnown,ScriptSafe,ActorReflexKnown,ActorReflexIdle;
             public bool ObservationReceiptCurrent,ResponseGrantCurrent;
         }
+        // Admission must be idle; playback completion may be legitimately busy.
         internal static bool Safe(DirectorAdmission.Request r,Snapshot s)
+        {
+            return CurrentPlayback(r,s) && s.OwnerIdle &&
+                s.EssentialTurnIdle && s.PlaybackIdle;
+        }
+        // Terminal proof rechecks the original identity, current native
+        // ownership, player priority, PS3 grant and host, but not idle flags.
+        // Exact native turn/generation and audio completion are checked apart.
+        internal static bool CurrentPlayback(DirectorAdmission.Request r,Snapshot s)
         {
             return r!=null && s!=null &&
                 r.HostRunId==s.HostRunId && r.WorldEpoch==s.WorldEpoch &&
@@ -31,11 +40,11 @@ namespace LSA.Intelligence
                 r.PolicyVersion==s.PolicyVersion &&
                 s.SpeakerAnchorCurrent && s.SpeakerOwned && s.SpeakerObserver && s.SpeakerAlive &&
                 s.PlayerAnchorCurrent && s.PlayerIsLocal && s.PlayerAlive &&
-                s.OwnerProofCurrent && s.OwnerPrimaryModeKnown && s.OwnerIdle &&
+                s.OwnerProofCurrent && s.OwnerPrimaryModeKnown &&
                 s.PlayerTurnSourceCurrent && s.PlayerTurnIdle &&
                 s.MicStateKnown && s.MicIdle &&
-                s.EssentialTurnKnown && s.EssentialTurnIdle &&
-                s.PlaybackKnown && s.PlaybackIdle &&
+                s.EssentialTurnKnown &&
+                s.PlaybackKnown &&
                 s.ScriptStateKnown && s.ScriptSafe &&
                 s.ActorReflexKnown && s.ActorReflexIdle &&
                 s.ObservationReceiptCurrent && s.ResponseGrantCurrent;
