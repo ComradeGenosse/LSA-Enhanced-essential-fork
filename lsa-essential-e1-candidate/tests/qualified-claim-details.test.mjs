@@ -48,3 +48,38 @@ test('unknown action/zone and stale sample keep generic provenance; arbitrary de
   const r=f.receipt();r.sampledGameTick=9;r.evidence.sampledGameTick=9;
   const location=f.ingest(f.signal('location_changed',{location:'DOWNTOWN'}),r).observations[0].claims.at(-1);assert.equal(Object.hasOwn(location.details,'location'),false);
 });
+
+test('PR21 T19 action success and silent playback/report facts never create player or overheard speech',()=>{
+  for(const [kind,producer,facts,basis] of [
+    ['action_callback','action',{action:'followtarget',succeeded:true},'native_callback'],
+    ['playback_started','playback',{interrupted:false,hadAudio:false},'native_callback'],
+    ['playback_ended','playback',{interrupted:false,hadAudio:true},'native_callback'],
+  ]) {
+    const f=fixture();
+    const r=f.ingest(f.signal(kind,facts,producer),f.receipt(f.actor,'self',basis));
+    assert.equal(r.accepted,true);
+    const claims=r.observations.flatMap(o=>o.claims);
+    assert.ok(claims.length>0);
+    for(const claim of claims){
+      assert.equal(validateClaim(claim),true);
+      assert.equal(claim.kind==='report',false);
+      assert.equal(claim.kind==='speech',false);
+      assert.equal(Object.hasOwn(claim.details,'text'),false);
+      assert.equal(Object.hasOwn(claim.details,'transcript'),false);
+      assert.equal(Object.hasOwn(claim.details,'speakerText'),false);
+      assert.equal(Object.hasOwn(claim.details,'completed'),false);
+    }
+    if(kind==='action_callback')assert.equal(claims[0].details.succeeded,true);
+    else assert.deepEqual(Object.keys(claims[0].details).sort(),['eventSignalId','reason']);
+  }
+  // A reported speech-adjacent fact remains a report with source provenance,
+  // not a magically authenticated transcript or a player-spoken utterance.
+  const f=fixture();
+  const reported={...f.receipt(f.other,'report','native_callback'),status:'reported'};
+  const result=f.ingest(f.signal('playback_ended',{interrupted:false,hadAudio:true},'playback'),reported);
+  assert.equal(result.accepted,true);
+  for(const claim of result.observations.flatMap(x=>x.claims)){
+    assert.equal(claim.kind,'report');
+    assert.equal(Object.keys(claim.details).sort().join(','),'eventSignalId,reason');
+  }
+});
