@@ -37,7 +37,7 @@ jobs:
         run: |
           node --check src/perception/sceneDirector.mjs
           node --check src/perception/sceneDirectorAdmission.mjs
-          node --test tests/scene-director.test.mjs tests/scene-director-admission.test.mjs
+          node --test tests/scene-director.test.mjs tests/scene-director-admission.test.mjs tests/director-decision-guard.test.mjs
       - name: Isolated offline regression (no network)
         env:
           LSA_CI_FAILURE_DETAILS: '1'
