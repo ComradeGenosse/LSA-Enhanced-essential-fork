@@ -34,6 +34,7 @@ namespace LSA.Intelligence
         readonly string pipeName;
         readonly bool directorShadow;
         readonly DirectorAdmission director;
+        EssentialMicState directorMic;
         IntelligenceChannel channel;
         IDamageSensors damage;
         volatile HashSet<string> criticalIndex=new HashSet<string>();
@@ -114,6 +115,9 @@ namespace LSA.Intelligence
             if(started||stopped) return;
             try {
                 if(!Pinned(typeof(IIntegration).Assembly,"9b6de42d4c464901d859dd95e17e100e4fa9ef6074bfbb0cf3a57a76f6ddd653")) return;
+                // Resolve only after Core DLL pin. Missing/unreadable private mic
+                // field remains an UNKNOWN veto, never inferred idle.
+                directorMic=new EssentialMicState();
                 sensors.Enabled=true;sensors.WitnessEvaluator=CaptureWitnesses;anchors.Retired+=OnRetired;
                 capabilities["shooting"]=true;capabilities["state"]=true;capabilities["action"]=true;capabilities["witness"]=true;capabilities["playerSpeech"]=false;
                 // Do not load a second tracker assembly. Essential already loads the library.
@@ -328,6 +332,12 @@ namespace LSA.Intelligence
                 proof.PlayerAnchorCurrent=player?.Kind=="player" && player.Entity is Ped;
                 proof.PlayerIsLocal=player!=null && ReferenceEquals(player.Entity,local);
                 proof.PlayerAlive=local!=null && local.Exists() && !local.IsDead;
+                var mic=directorMic;
+                if(mic?.Available==true) {
+                    string status=mic.CanStart();
+                    proof.MicStateKnown=status==null || status=="mic_busy";
+                    proof.MicIdle=status==null;
+                }
                 var current=(roster()??new OwnedParticipant[0]).FirstOrDefault(item=>
                     item!=null && item.Ped!=null && speaker!=null &&
                     ReferenceEquals(item.Ped,speaker.Entity) &&
