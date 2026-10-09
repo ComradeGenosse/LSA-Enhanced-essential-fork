@@ -57,13 +57,20 @@ namespace LSA.Activities
         }
         public static bool HelloNative(IDictionary<string, object> value, string contractSha)
         {
-            try { return HostEnvelope(value, "version", "type", "nativeRun", "adapterEpoch", "contractSha256", "capabilities", "limits") && VersionOf(value) && value["type"] as string == "hello" && IsUuid(value["nativeRun"] as string) && IsUuid(value["adapterEpoch"] as string) && value["contractSha256"] as string == contractSha && Sha.IsMatch(contractSha) && CapabilityMap(value["capabilities"] as Dictionary<string, object>) && LimitMap(value["limits"] as Dictionary<string, object>); }
+            try { return DialogueHelloEnvelope(value, "version", "type", "nativeRun", "adapterEpoch", "contractSha256", "capabilities", "limits") && VersionOf(value) && value["type"] as string == "hello" && IsUuid(value["nativeRun"] as string) && IsUuid(value["adapterEpoch"] as string) && value["contractSha256"] as string == contractSha && Sha.IsMatch(contractSha) && CapabilityMap(value["capabilities"] as Dictionary<string, object>) && LimitMap(value["limits"] as Dictionary<string, object>); }
             catch { return false; }
         }
         public static bool HelloClient(IDictionary<string, object> value, string contractSha)
         {
-            try { return HostEnvelope(value, "version", "type", "contractSha256", "clientRun") && VersionOf(value) && value["type"] as string == "hello" && value["contractSha256"] as string == contractSha && IsUuid(value["clientRun"] as string); }
+            try { return DialogueHelloEnvelope(value, "version", "type", "contractSha256", "clientRun") && VersionOf(value) && value["type"] as string == "hello" && value["contractSha256"] as string == contractSha && IsUuid(value["clientRun"] as string); }
             catch { return false; }
+        }
+        static bool DialogueHelloEnvelope(IDictionary<string,object> value,params string[] keys)
+        {
+            if(value==null)return false;
+            if(!value.ContainsKey("dialogueActionVersion"))return HostEnvelope(value,keys);
+            if(!(value["dialogueActionVersion"] is int v && v==1) || !value.ContainsKey("hostContextVersion"))return false;
+            var all=new List<string>(keys);all.Add("dialogueActionVersion");return HostEnvelope(value,all.ToArray());
         }
         static bool HostEnvelope(IDictionary<string,object> value,params string[] keys)
         {

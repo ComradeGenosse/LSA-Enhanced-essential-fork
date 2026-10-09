@@ -17,6 +17,8 @@ namespace LSA.Activities
         readonly string nativeRun, adapterEpoch;
         readonly string hostRunId;
         readonly Func<int> worldEpoch;
+        readonly Func<Dictionary<string,object>,bool> dialoguePublication;
+        bool dialogueNegotiated;
         int clientSequence, serverSequence, observedWorldEpoch;
         long nextDiagnosticsAt;
         string lastDiagnostics;
@@ -28,11 +30,13 @@ namespace LSA.Activities
         public int SequenceGaps { get; private set; }
         public bool Closed { get; private set; } = true;
 
-        public ActivitySession(CapabilityTable table, StepRunner runner = null,string hostRunId=null,Func<int> worldEpoch=null)
+        public ActivitySession(CapabilityTable table, StepRunner runner = null,string hostRunId=null,Func<int> worldEpoch=null,Func<Dictionary<string,object>,bool> dialoguePublication=null)
         {
             if (table == null) throw new ArgumentNullException(nameof(table));
             if((hostRunId==null)!=(worldEpoch==null) || hostRunId!=null && (!ActivityContracts.IsUuid(hostRunId) || worldEpoch()<1)) throw new ArgumentException("invalid_host_context");
             this.hostRunId=hostRunId;this.worldEpoch=worldEpoch;observedWorldEpoch=worldEpoch?.Invoke() ?? 0;
+            if(dialoguePublication!=null && hostRunId==null)throw new ArgumentException("dialogue_requires_host_context");
+            this.dialoguePublication=dialoguePublication;
             nativeRun = Guid.NewGuid().ToString("D");
             adapterEpoch = Guid.NewGuid().ToString("D");
             Runner = runner;
@@ -48,6 +52,7 @@ namespace LSA.Activities
                 {"contractSha256",CapabilityTable.ContractSha256},{"capabilities",capabilities},{"limits",Limits()}
             };
             if(hostRunId!=null) {hello["hostContextVersion"]=1;hello["hostRunId"]=hostRunId;hello["worldEpoch"]=worldEpoch();}
+            if(dialoguePublication!=null)hello["dialogueActionVersion"]=1;
             return Encode(hello);
         }
 
@@ -59,6 +64,7 @@ namespace LSA.Activities
             if (ClientReady || Machine.ActiveCount > 0) Machine.ClientDisconnected("lease_lost");
             Runner?.ClientDisconnected(this, "lease_lost", now);
             ClientReady = false;
+            dialogueNegotiated=false;
             Closed = false;
             clientSequence = 0;
             serverSequence = 0;
@@ -73,6 +79,7 @@ namespace LSA.Activities
         {
             if (Closed && !ClientReady && Machine.ActiveCount == 0 && (Runner == null || Runner.ActiveCount == 0)) return;
             Closed = true;
+            dialogueNegotiated=false;
             ClientReady = false;
             clientSequence = 0;
             outbound.Clear();
@@ -91,7 +98,9 @@ namespace LSA.Activities
             if (value != null && value.ContainsKey("type") && value["type"] as string == "hello") {
                 if (ClientReady || !ActivityContracts.HelloClient(value, CapabilityTable.ContractSha256) ||
                     (hostRunId==null ? value.ContainsKey("hostRunId") : !value.ContainsKey("hostRunId") || !Equals(value["hostRunId"],hostRunId) || (int)value["worldEpoch"]!=worldEpoch())) { Close("lease_lost"); return false; }
+                if(value.ContainsKey("dialogueActionVersion") && dialoguePublication==null){Close("lease_lost");return false;}
                 Machine.ClientHello(value["clientRun"] as string, DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(), ActivityContracts.LeaseTtlMs);
+                dialogueNegotiated=value.ContainsKey("dialogueActionVersion") && dialoguePublication!=null;
                 Runner?.ClientHello();
                 clientSequence = 1;
                 ClientReady = true;
@@ -100,6 +109,13 @@ namespace LSA.Activities
 
             if (!ClientReady || value == null || !(value.ContainsKey("sequence") && value["sequence"] is int sequence)) { Close("lease_lost"); return false; }
             if (sequence != clientSequence) { SequenceGaps++; Close("lease_lost"); return false; }
+            if(value.ContainsKey("type") && value["type"] as string=="dialogue.action.pending"){
+                if(!dialogueNegotiated || !ActivityContracts.DialogueActionAnnotation(value,clientSequence)){Close("lease_lost");return false;}
+                var binding=value["binding"] as Dictionary<string,object>;var context=binding["hostContext"] as Dictionary<string,object>;
+                if(!Equals(context["hostRunId"],hostRunId) || (int)context["worldEpoch"]!=worldEpoch()){Close("lease_lost");return false;}
+                try{if(!dialoguePublication(value)){Close("lease_lost");return false;}}catch{Close("lease_lost");return false;}
+                clientSequence++;return true;
+            }
             if (ActivityContracts.Lease(value, clientSequence)) {
                 if (!Machine.Accepting) { Close("lease_lost"); return false; }
                 clientSequence++;

@@ -3,11 +3,23 @@ import assert from 'node:assert/strict';
 import {DialogueActionReceipts} from '../src/activities/dialogueActionReceipts.mjs';
 import {validateDialogueActionAnnotation} from '../src/activities/dialogueActionContract.mjs';
 import {validateFrame} from '../src/activities/contracts.mjs';
+import {ActivityClient} from '../src/activities/activityClient.mjs';
 const id=n=>`00000000-0000-4000-8000-${String(n).padStart(12,'0')}`;
 const binding={encounterId:id(1),incarnationId:id(2),hostContext:{hostContextVersion:1,hostRunId:id(3),worldEpoch:1}};
 const tuple={pedId:'actor',turnId:'turn',generationId:1,sessionNonce:1};
 const publication={tuple,binding,canonicalAction:'followtarget',publishedAtMs:100,allowedActions:['followtarget','waithere']};
 const callback=row=>({...row,succeeded:true,atGameTick:0xffffffff,receivedAtMs:120});
+test('C05 shadow annotations require negotiated support and share sequence without allowing execution',()=>{
+ const client=new ActivityClient({mode:'shadow'}),sent=[];
+ client.deliver=frame=>sent.push(frame);client.runtime.ready=true;client.runtime.hostContext=binding.hostContext;
+ const frame={publicationId:id(5),tuple,binding,canonicalAction:'followtarget',publishedAtMs:100};
+ assert.equal(client.sendDialogueAnnotation(frame),false);assert.equal(client.outSequence,0);
+ client.runtime.dialogueActionVersion=1;
+ assert.equal(client.sendDialogueAnnotation(frame).sequence,1);assert.equal(sent.length,1);assert.equal(client.send({type:'actor.acquire'}),false);
+ assert.equal(client.sendDialogueAnnotation({...frame,binding:{...binding,hostContext:{...binding.hostContext,worldEpoch:2}}}),false);assert.equal(client.outSequence,1);
+ assert.equal(client.sendDialogueAnnotation({...frame,leaseId:id(9)}),false);assert.equal(client.outSequence,1);
+ client.runtime.ready=false;assert.equal(client.sendDialogueAnnotation(frame),false);
+});
 test('C05 annotation is closed, versioned and never an existing execution frame',()=>{
  const frame={version:1,type:'dialogue.action.pending',sequence:1,dialogueActionVersion:1,publicationId:id(5),tuple,binding,canonicalAction:'followtarget',publishedAtMs:100};
  assert.equal(validateDialogueActionAnnotation(frame),true);assert.equal(validateFrame(frame),false);

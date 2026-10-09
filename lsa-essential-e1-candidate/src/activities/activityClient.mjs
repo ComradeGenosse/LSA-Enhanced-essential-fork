@@ -3,6 +3,7 @@ import net from 'node:net';
 import { FRAME_BYTES, validateFrame } from './contracts.mjs';
 import { ACTIVITY_CAPABILITIES_SHA256 } from './capabilityRegistry.mjs';
 import { readHostContext } from '../context/hostContext.mjs';
+import {validateDialogueActionAnnotation} from './dialogueActionContract.mjs';
 
 const RECEIPTS = Object.freeze({ accepted: 'HANDLER_ACCEPTED', failed: 'FAILED', superseded: 'SUPERSEDED', timedOut: 'TIMED_OUT', detached: 'DETACHED' });
 
@@ -20,7 +21,7 @@ export class ActivityClient {
   start() {
     if ((this.config.mode !== 'shadow' && this.config.mode !== 'on') || this.closed || this.socket) return;
     const socket = this.connect({ path: `\\\\.\\pipe\\${this.config.pipeName}` });
-    this.socket = socket; this.clientRun = randomUUID(); this.runtime.ready = false; this.runtime.hostContext = null; this.runtime.expected = 1; this.outSequence = 0;
+    this.socket = socket; this.clientRun = randomUUID(); this.runtime.ready = false; this.runtime.hostContext = null; this.runtime.dialogueActionVersion=null; this.runtime.expected = 1; this.outSequence = 0;
     let buffer = Buffer.alloc(0), frames = [], hello = false;
     const fail = () => socket.destroy();
     const send = value => { const text = JSON.stringify(value); if (Buffer.byteLength(text) > FRAME_BYTES || (this.config.mode !== 'on' && EXECUTION.has(value.type))) { fail(); return; } socket.write(text + '\n'); };
@@ -38,8 +39,9 @@ export class ActivityClient {
           this.runtime.adapterEpoch = value.adapterEpoch;
           this.runtime.capabilities = value.capabilities;
           this.runtime.hostContext = readHostContext(value);
+          this.runtime.dialogueActionVersion=value.dialogueActionVersion===1?1:null;
           hello = true; this.runtime.ready = true; this.outSequence = 0;
-          send({ version: 1, type: 'hello', contractSha256: this.contractSha256, clientRun: this.clientRun,...this.runtime.hostContext });
+          send({ version: 1, type: 'hello', contractSha256: this.contractSha256, clientRun: this.clientRun,...this.runtime.hostContext,...(this.runtime.dialogueActionVersion===1?{dialogueActionVersion:1}:{}) });
           // Establish the execution lease immediately. Heartbeats and execution
           // frames share this one monotonically increasing client sequence.
           send({ version: 1, type: 'lease', sequence: ++this.outSequence, leaseTtlMs: 5000 });
@@ -73,7 +75,7 @@ export class ActivityClient {
       if (!this.work) this.work = setImmediate(processFrames);
     });
     socket.on('error', () => {});
-    socket.on('close', () => { if (this.work) clearImmediate(this.work); this.work = null; clearInterval(this.lease); this.socket = null; this.deliver = null; this.runtime.ready = false; this.runtime.hostContext = null; const restart = this.clientRun != null; this.clientRun = null; if (restart) { try { this.onFrame({ type: 'hello', nativeRun: this.runtime.nativeRun, adapterEpoch: this.runtime.adapterEpoch, capabilities: this.runtime.capabilities, clientRestart: true }); } catch {} } if (!this.closed) { this.retry = setTimeout(() => this.start(), 1000); this.retry.unref?.(); } });
+    socket.on('close', () => { if (this.work) clearImmediate(this.work); this.work = null; clearInterval(this.lease); this.socket = null; this.deliver = null; this.runtime.ready = false; this.runtime.hostContext = null; this.runtime.dialogueActionVersion=null; const restart = this.clientRun != null; this.clientRun = null; if (restart) { try { this.onFrame({ type: 'hello', nativeRun: this.runtime.nativeRun, adapterEpoch: this.runtime.adapterEpoch, capabilities: this.runtime.capabilities, clientRestart: true }); } catch {} } if (!this.closed) { this.retry = setTimeout(() => this.start(), 1000); this.retry.unref?.(); } });
     this.lease = setInterval(() => { if (hello && !this.closed) send({ version: 1, type: 'lease', sequence: ++this.outSequence, leaseTtlMs: 5000 }); }, 1000);
     this.lease.unref?.();
     socket.once('close', () => clearInterval(this.lease));
@@ -84,5 +86,11 @@ export class ActivityClient {
     this.deliver(sequenced);
     return sequenced;
   }
-  stop() { this.closed = true; clearTimeout(this.retry); clearInterval(this.lease); if (this.work) clearImmediate(this.work); this.socket?.destroy(); this.socket = null; this.deliver = null; this.runtime.ready = false; this.runtime.hostContext = null; this.clientRun = null; }
+  sendDialogueAnnotation(frame){
+    if(!['shadow','on'].includes(this.config.mode) || !this.deliver || !this.runtime.ready || this.runtime.dialogueActionVersion!==1)return false;
+    const sequenced={...frame,version:1,type:'dialogue.action.pending',sequence:this.outSequence+1,dialogueActionVersion:1};
+    if(!validateDialogueActionAnnotation(sequenced) || !this.runtime.hostContext || frame.binding.hostContext.hostRunId!==this.runtime.hostContext.hostRunId || frame.binding.hostContext.worldEpoch!==this.runtime.hostContext.worldEpoch)return false;
+    this.outSequence++;this.deliver(sequenced);return sequenced;
+  }
+  stop() { this.closed = true; clearTimeout(this.retry); clearInterval(this.lease); if (this.work) clearImmediate(this.work); this.socket?.destroy(); this.socket = null; this.deliver = null; this.runtime.ready = false; this.runtime.hostContext = null; this.runtime.dialogueActionVersion=null; this.clientRun = null; }
 }
