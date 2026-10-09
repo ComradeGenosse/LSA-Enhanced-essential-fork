@@ -4,13 +4,13 @@ import assert from 'node:assert/strict';
 import { fixture } from './p2-fixtures.mjs';
 import { actor,identity } from './identity-fixtures.mjs';
 const setup=async t=>{
-  const f=await fixture(t,{config:{actingEnabled:true}}),profile=await f.service.promote(),owned=f.native.owned.get(profile.promotion.ownerAlias),native=identity();
+  const f=await fixture(t,{config:{actingEnabled:true}}),profile=await f.service.promote(),owned=f.native.owned.get(profile.promotion.ownerAlias),nativeOwner=f.native,native=identity();
   const a=actor('17',owned.claim,{integrations:{sessionIdentity:owned.claim,characterProfile:{version:1,encounterId:owned.encounterId}}});
   const voice=f.voice.resolve(native,a);f.service.session(native,a,voice);
   const inputs=f.service.captureTurnInputs(native,a);
   const binding=f.identity.bindings.bind(native,owned.claim,{characterId:profile.characterId},()=>true).binding;
   const verified={resolution:{kind:'persistent',characterId:profile.characterId},bindingId:binding.bindingId};
-  return {...f,profile,owned,native,a,voice,inputs,verified};
+  return {...f,profile,owned,nativeOwner,native,a,voice,inputs,verified};
 };
 test('matching fresh proof releases the captured canon revision and acting direction after edits',async t=>{
   const f=await setup(t);await f.service.edit(f.profile.characterId,{name:'Changed after freeze',personality:{description:'Changed acting',traits:['bold']}},f.profile.revision);
@@ -37,7 +37,7 @@ test('profile absent at freeze stays absent even if loaded or found during prepa
 import { stockHarness } from './stock-harness.mjs';
 test('actual Luna request retains P0 canon across an edit while fresh owner proof is pending',async t=>{
   const f=await setup(t),{trustedNamespaces,...persistentIdentity}=f.config.persistentIdentity;
-  const h=await stockHarness('openai',{identityEvidence:f.evidence,profileStore:f.store,nativeOwner:f.native,config:{persistentIdentity,promotedCharacters:f.config.promotedCharacters}});t.after(()=>h.runtime.identityService.close());
+  const h=await stockHarness('openai',{identityEvidence:f.evidence,profileStore:f.store,nativeOwner:f.nativeOwner,config:{persistentIdentity,promotedCharacters:f.config.promotedCharacters}});t.after(()=>h.runtime.identityService.close());
   await h.runtime.characterService.initialize();let release,reached;
   const gate=new Promise(resolve=>{release=resolve;}),waiting=new Promise(resolve=>{reached=resolve;});
   const original=h.runtime.identityService.prepare.bind(h.runtime.identityService);
@@ -69,8 +69,8 @@ for(const matching of [true,false])test(`real first-owned active request release
  send('signal',{signalId:randomUUID(),producer:'shooting',producerSequence:1,kind:'firing',target:null,source:ref,gameTick:10,ageMs:0,facts:{}});
  f.a.integrations.turnKnowledge={version:1,hostRunId:hello.hostRunId,worldEpoch:1,captureRef:ref,sampledGameTick:10,encounterId:f.owned.encounterId,incarnationId:f.owned.claim.incarnationId};
  f.evidence.hostContext=null;const {trustedNamespaces,...persistentIdentity}=f.config.persistentIdentity;const bodies=[];
- const h=await stockHarness('openai',{identityEvidence:f.evidence,profileStore:f.store,nativeOwner:f.native,config:{persistentIdentity,promotedCharacters:f.config.promotedCharacters,dialogueKnowledge:{mode:'active'}},env:{OPENAI_API_KEY:'offline'},fetchImpl:async(_url,request)=>{bodies.push(JSON.parse(request.body));return new Response(JSON.stringify({status:'completed',output:[{type:'message',content:[{type:'output_text',text:'{"dialogue":"Hello.","command":""}'}]}]}),{headers:{'content-type':'application/json'}});}});
- t.after(()=>h.runtime.identityService.close());await h.runtime.characterService.initialize();h.runtime.intelligence=client;h.runtime.dialogueKnowledgeBuildSupported=true;
+ const h=await stockHarness('openai',{identityEvidence:f.evidence,profileStore:f.store,nativeOwner:f.nativeOwner,config:{persistentIdentity,promotedCharacters:f.config.promotedCharacters,dialogueKnowledge:{mode:'active'}},env:{OPENAI_API_KEY:'offline'},fetchImpl:async(_url,request)=>{bodies.push(JSON.parse(request.body));return new Response(JSON.stringify({status:'completed',output:[{type:'message',content:[{type:'output_text',text:'{"dialogue":"Hello.","command":""}'}]}]}),{headers:{'content-type':'application/json'}});}});
+ t.after(()=>h.runtime.identityService.close());await h.runtime.characterService.initialize();assert.equal(typeof h.runtime.characterService.native.request,'function','test must inject owner client, not turn identity');h.runtime.intelligence=client;h.runtime.dialogueKnowledgeBuildSupported=true;
  let release,reached,captured;const gate=new Promise(resolve=>{release=resolve;}),waiting=new Promise(resolve=>{reached=resolve;});
  const capture=h.runtime.captureKnowledgeInputs;h.runtime.captureKnowledgeInputs=input=>{captured=capture(input);return captured;};
  const prepare=h.runtime.identityService.prepare.bind(h.runtime.identityService);h.runtime.identityService.prepare=async args=>{reached();await gate;f.evidence.hostContext=matching?hello:{...hello,hostRunId:randomUUID()};return prepare(args);};
@@ -102,7 +102,7 @@ for(const [mode,options] of [['buffered',{}],['streaming',{structuredStreamingEn
  if(!scenario.startsWith('self_only'))send('signal',{signalId:randomUUID(),producer:'shooting',producerSequence:1,kind:'firing',target:null,source:ref,gameTick:10,ageMs:0,facts:{}});
  f.a.integrations.turnKnowledge={version:1,hostRunId:hello.hostRunId,worldEpoch:1,captureRef:ref,sampledGameTick:10,encounterId:f.owned.encounterId,incarnationId:f.owned.claim.incarnationId};
  f.evidence.hostContext=null;const {trustedNamespaces,...persistentIdentity}=f.config.persistentIdentity;const bodies=[];let aborted=false;
- const h=await stockHarness('openai',{identityEvidence:f.evidence,profileStore:f.store,nativeOwner:f.native,config:{...options,persistentIdentity,promotedCharacters:f.config.promotedCharacters,dialogueKnowledge:{mode:'active',activityFacts:'active',dialogueReceipts:'active'}},env:{OPENAI_API_KEY:'offline'},fetchImpl:async(_url,request)=>{const body=JSON.parse(request.body);bodies.push(body);if(scenario==='self_only_inflight_reset')return new Promise((resolve,reject)=>{request.signal.addEventListener('abort',()=>{aborted=true;reject(request.signal.reason);},{once:true});queueMicrotask(()=>{activities.client.runtime.adapterEpoch=randomUUID();client.notifyKnowledgeInvalidation();});});return frozenSelfResponse(body.stream);}});
+ const h=await stockHarness('openai',{identityEvidence:f.evidence,profileStore:f.store,nativeOwner:f.nativeOwner,config:{...options,persistentIdentity,promotedCharacters:f.config.promotedCharacters,dialogueKnowledge:{mode:'active',activityFacts:'active',dialogueReceipts:'active'}},env:{OPENAI_API_KEY:'offline'},fetchImpl:async(_url,request)=>{const body=JSON.parse(request.body);bodies.push(body);if(scenario==='self_only_inflight_reset')return new Promise((resolve,reject)=>{request.signal.addEventListener('abort',()=>{aborted=true;reject(request.signal.reason);},{once:true});queueMicrotask(()=>{activities.client.runtime.adapterEpoch=randomUUID();client.notifyKnowledgeInvalidation();});});return frozenSelfResponse(body.stream);}});
  const hostContext=ps.hostContext,binding={characterId:f.profile.characterId,encounterId:f.owned.encounterId,incarnationId:f.owned.claim.incarnationId,hostContext};
  const facts=new ActivityFacts(randomUUID,()=>1000),receiptStore=new DialogueActionReceipts(),receiptBinding={captureRef:ref,encounterId:binding.encounterId,incarnationId:binding.incarnationId,hostContext};
  const addFact=kind=>facts.record({characterId:binding.characterId,activityId:randomUUID(),goalId:randomUUID(),kind,intent:'accompany',evidence:'none'},{...hostContext,encounterId:binding.encounterId,incarnationId:binding.incarnationId});
@@ -112,15 +112,8 @@ for(const [mode,options] of [['buffered',{}],['streaming',{structuredStreamingEn
  h.runtime.activities=activities;h.runtime.services.capabilityHealth=()=>({'ps.activity_facts':{active:true},'ps.dialogue_receipts':{active:true}});
  t.after(()=>h.runtime.identityService.close());await h.runtime.characterService.initialize();h.runtime.intelligence=client;h.runtime.dialogueKnowledgeBuildSupported=true;
  let release,reached,captured;const gate=new Promise(resolve=>{release=resolve;}),waiting=new Promise(resolve=>{reached=resolve;});
- let projectionFailure=null,projectionPersistent=null,projectionActorCanon=null;
- const characterPrepare=h.runtime.characterService.prepareTurn.bind(h.runtime.characterService);
- h.runtime.characterService.prepareTurn=async(...args)=>{
-   try {const outcome=await characterPrepare(...args);projectionPersistent=args[0].characterProjection?.persistent;projectionActorCanon=!!args[0].context?.actor?.characterProfile?.canon;return outcome;}
-   catch(error){projectionFailure=String(error?.stack||error?.message||error).slice(0,550);throw error;}
- };
- let frozenCharacter=null;const originalCharacterCapture=h.runtime.captureCharacterInputs;h.runtime.captureCharacterInputs=(...args)=>{frozenCharacter=originalCharacterCapture(...args);return frozenCharacter;};
  const capture=h.runtime.captureKnowledgeInputs;h.runtime.captureKnowledgeInputs=input=>{captured=capture(input);return captured;};
- let identityOutcome=null;const prepare=h.runtime.identityService.prepare.bind(h.runtime.identityService);h.runtime.identityService.prepare=async args=>{reached();await gate;f.evidence.hostContext=matching?hello:{...hello,hostRunId:randomUUID()};identityOutcome=await prepare(args);return identityOutcome;};
+ const prepare=h.runtime.identityService.prepare.bind(h.runtime.identityService);h.runtime.identityService.prepare=async args=>{reached();await gate;f.evidence.hostContext=matching?hello:{...hello,hostRunId:randomUUID()};return prepare(args);};
  h.runtime.services.speak=async({onPcm})=>{await onPcm(new Uint8Array([1,2]));return {bytes:2};};
  const session=await h.openAIControllerSession({actorContext:f.a});t.after(()=>session.connection.close());session.autoNativeAcks();h.context.ownedInput={pedId:'17',speaker:f.a,text:'What happened?'};
  let turn;
@@ -132,7 +125,7 @@ for(const [mode,options] of [['buffered',{}],['streaming',{structuredStreamingEn
  addFact('failed');addReceipt('followtarget',200);if(scenario==='child_channel_reset')activities.client.runtime.adapterEpoch=randomUUID();
  await f.service.edit(f.profile.characterId,{name:'Edited after owned freeze'},f.profile.revision);release();
  const result=await session.connection.whenSettled({pedId:turn.pedId,turnId:turn.id,generationId:turn.generationId,sessionNonce:1});if(scenario==='self_only_inflight_reset'){assert.notEqual(result.status,'completed');assert.equal(aborted,true);assert.equal(h.runtime.history.readForSession('17',1).some(item=>item.role==='assistant'),false);}else assert.equal(result.status,'completed',result.terminalReason);assert.equal(bodies.length,1);
- const scene=JSON.parse(bodies[0].input[0].content.split('\n').find(line=>line.startsWith('{"frameVersion":1,')));assert.ok(scene.lanes.SELF.canon,JSON.stringify({source,mode,scenario,resolution:identityOutcome?.snapshot?.resolution?.kind,reason:identityOutcome?.snapshot?.resolution?.reason,hasFrozenOwnerClaim:!!captured?.ownerClaim,hasFrozenCharacterInputs:!!frozenCharacter,hasFrozenProfile:!!frozenCharacter?.profile,storedProfile:!!h.runtime.characterService.store.get(f.profile.characterId),matchedId:identityOutcome?.snapshot?.resolution?.characterId===frozenCharacter?.profile?.characterId,expectedId:f.profile.characterId===frozenCharacter?.profile?.characterId,projectionFailure,projectionPersistent,projectionActorCanon,hasCharacterProjection:!!scene.lanes.SELF.canon,actorName:f.profile.name}));assert.equal(scene.lanes.SELF.canon.name,f.profile.name);assert.equal(scene.lanes.PERCEIVED.observations.length>0,matching && !scenario.startsWith('self_only'));assert.equal(scene.lanes.SELF.selfFacts.length,(scenario==='valid' || scenario.startsWith('self_only'))?2:0);if(scenario==='valid' || scenario.startsWith('self_only')){assert.match(scene.lanes.SELF.selfFacts[0].text,/was asked/);assert.match(scene.lanes.SELF.selfFacts[1].text,/handler accepted my attempt to wait here/);assert.doesNotMatch(JSON.stringify(scene.lanes.SELF.selfFacts),/failed|follow the target/);}assert.equal(captured.activityInputs.facts.length,1);assert.equal(captured.dialogueInputs.receipts.length,1);
+ const scene=JSON.parse(bodies[0].input[0].content.split('\n').find(line=>line.startsWith('{"frameVersion":1,')));assert.equal(scene.lanes.SELF.canon.name,f.profile.name);assert.equal(scene.lanes.PERCEIVED.observations.length>0,matching && !scenario.startsWith('self_only'));assert.equal(scene.lanes.SELF.selfFacts.length,(scenario==='valid' || scenario.startsWith('self_only'))?2:0);if(scenario==='valid' || scenario.startsWith('self_only')){assert.match(scene.lanes.SELF.selfFacts[0].text,/was asked/);assert.match(scene.lanes.SELF.selfFacts[1].text,/handler accepted my attempt to wait here/);assert.doesNotMatch(JSON.stringify(scene.lanes.SELF.selfFacts),/failed|follow the target/);}assert.equal(captured.activityInputs.facts.length,1);assert.equal(captured.dialogueInputs.receipts.length,1);
  for(const secret of [captured.dialogueInputs.adapterEpoch,fact.factId,receipt.publicationId,activities.client.runtime.nativeRun,activities.client.runtime.adapterEpoch,ref,hello.hostRunId,f.profile.characterId,f.owned.encounterId,'turnKnowledge','sessionIdentity','Edited after owned freeze','PRIVATE_OWNED_TRIGGER'])assert.equal(JSON.stringify(bodies[0]).includes(secret),false);
  assert.equal([...ps.salience.ledger.values()].some(entry=>entry.consumedBy.has('ps4_context')),matching && !scenario.startsWith('self_only'));assert.equal(client.knowledgeListeners.size,0);
 });
