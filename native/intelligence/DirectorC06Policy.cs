@@ -10,7 +10,10 @@ namespace LSA.Intelligence
         internal sealed class Snapshot
         {
             public string HostRunId,SpeakerCaptureRef,PlayerCaptureRef,OwnerIncarnationId;
-            public int WorldEpoch,OwnerProofRevision,PlayerTurnVersion,PolicyVersion;
+            // Original PS3 observation and response entitlement must match; a
+            // truthful C-06 idle sample alone never authorizes an unrelated grant.
+            public string ObservationId,DecisionKey;
+            public int WorldEpoch,OwnerProofRevision,PlayerTurnVersion,PolicyVersion,ObservationRevision;
             public bool SpeakerAnchorCurrent,SpeakerOwned,SpeakerObserver,SpeakerAlive;
             public bool PlayerAnchorCurrent,PlayerIsLocal,PlayerAlive;
             public bool OwnerProofCurrent,OwnerPrimaryModeKnown,OwnerIdle;
@@ -38,6 +41,8 @@ namespace LSA.Intelligence
                 r.ProofRevision==s.OwnerProofRevision &&
                 r.PlayerTurnVersion==s.PlayerTurnVersion &&
                 r.PolicyVersion==s.PolicyVersion &&
+                r.ObservationId==s.ObservationId && r.ObservationRevision==s.ObservationRevision &&
+                r.DecisionKey==s.DecisionKey &&
                 s.SpeakerAnchorCurrent && s.SpeakerOwned && s.SpeakerObserver && s.SpeakerAlive &&
                 s.PlayerAnchorCurrent && s.PlayerIsLocal && s.PlayerAlive &&
                 s.OwnerProofCurrent && s.OwnerPrimaryModeKnown &&
