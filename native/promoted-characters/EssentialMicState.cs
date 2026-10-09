@@ -31,14 +31,14 @@ namespace LSA.PromotedCharacters
         public string CanStart()
         {
             if (activePed == null) return "mic_state_unavailable";
-            return Read() == null ? null : "mic_busy";
+            // A failed private-field read is unknown, never proof of idle.
+            return TryRead(out var current) ? (current == null ? null : "mic_busy") : "mic_state_unavailable";
         }
 
         public bool Owns(Ped ped,long address)
         {
             if (activePed == null || ped == null || address == 0) return false;
-            var current = Read();
-            if (current == null || current != ped) return false;
+            if (!TryRead(out var current) || current == null || current != ped) return false;
             try { return current.MemoryAddress.ToInt64() == address; } catch { return false; }
         }
 
@@ -49,7 +49,7 @@ namespace LSA.PromotedCharacters
         public string StopOwned(Ped ped,long address)
         {
             if (activePed == null) return "mic_state_unavailable";
-            var current = Read();
+            if (!TryRead(out var current)) return "mic_state_unavailable";
             if (current == null) return "already_stopped";
             if (ped == null || current != ped) return "ownership_lost";
             try {
@@ -59,13 +59,19 @@ namespace LSA.PromotedCharacters
             try { InputController.SendMicStop(); }
             catch { return "native_operation_failed"; }
 
-            return Read() == null ? null : "native_operation_failed";
+            return TryRead(out var after) && after == null ? null : "native_operation_failed";
         }
 
-        Ped Read()
+        bool TryRead(out Ped current)
         {
-            if (activePed == null) return null;
-            try { return activePed.GetValue(null) as Ped; } catch { return null; }
+            current = null;
+            if (activePed == null) return false;
+            try {
+                var value = activePed.GetValue(null);
+                if (value == null) return true;
+                current = value as Ped;
+                return current != null;
+            } catch { return false; }
         }
 
         static FieldInfo ResolveActivePedField()
