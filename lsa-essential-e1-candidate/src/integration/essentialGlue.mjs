@@ -1,4 +1,5 @@
 import {captureActivityKnowledge,assertActivityKnowledgeCurrent} from '../activities/activityKnowledge.mjs';
+import {prepareDialogueActionPublication} from '../activities/dialogueActionPublication.mjs';
 import {createKnowledgeDelivery} from '../context/knowledgeDelivery.mjs';
 import {createHash} from 'node:crypto';
 import {releaseOwnedKnowledge,assertOwnedKnowledgeCurrent,assertKnowledgeItemsCurrent} from '../context/knowledgeInputs.mjs';
@@ -44,6 +45,11 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
     ? new CharacterService(config,{identityService,voiceResolver,store:profileStore,nativeOwner,telemetry}) : null;
   characterService?.initialize().catch(() => {});
   const services = {
+    recordDialogueActionPublication({turn,validated,publishedAtMs}){
+      if(config.provider!=='openai' || !runtime.dialogueKnowledgeBuildSupported)return null;
+      const publication=prepareDialogueActionPublication({turn,validated,publishedAtMs,perception:runtime.intelligence?.runtime,identityService,activities:runtime.activities});
+      return publication?runtime.activities?.recordDialogueActionPublication(publication):null;
+    },
     config,
     dialogueTrace,
     finalizeKnowledgeFrame(turn,{input,history,source}) {
