@@ -716,3 +716,14 @@ The acceptance register records T39 individually verified. This fixture's privac
 Validation: complete renderer suite passed 15 cases. Full normal-Node isolated offline regression passed 657 assertions across 63 files; git diff --check passed. Production source/payload unchanged; no fresh production build/install/activation or GTA acceptance is claimed. Aggregate-process Node crash limitation remains open.
 
 Next: remaining compound baseline requirements and matching native/build closure, then Phase 13a. User-authorized v1.0 objective remains active; other master phases remain deferred.
+
+
+## Checkpoint 68: combined PS4 pressure and deterministic request bytes
+
+Closed PR21 T44/T45 automated oracles with a production selector→renderer→request serializer fixture combining 128 selected authored pins, 30 oversized prior messages, 100 routine competing observations, one must-include sampled self-injury and large escape-heavy genuine current input. The safety claim remains first and intact; memories/history/routine items are dropped whole with bounded reported counts. Shared canon, allocation and both final request-schema byte budgets hold. Separate all-safety capacity pressure reports exactly 93 omitted safety items; reversal retains the same deterministic result.
+
+Reversing irrelevant observation/pin order and Map-derived live-reference insertion produces identical model allocation, exact selected delivery references and both serialized request bodies without mutating inputs. Committed history order remains untouched. This is combined final-request serialization evidence, not only selector rank equality. No production budget, ordering, store or renderer implementation changed.
+
+Validation: full selector suite passed seven cases. Complete normal-Node isolated offline regression passed 658 assertions across 63 files; git diff --check passed. Acceptance register records T44/T45 individually verified; other compound requirements and physical gates remain unclaimed. Production source/payload unchanged; no fresh build/install/default activation or GTA acceptance is claimed. Aggregate-process Node crash limitation remains open.
+
+Next: remaining individual baseline oracles and matching native/build closure, then Phase 13a. Revised v1.0 goal remains active; conditional gaze and other phases remain deferred under the user's boundary.

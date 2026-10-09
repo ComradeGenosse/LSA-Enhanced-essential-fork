@@ -588,25 +588,39 @@
       "id": "T44",
       "oracle": "Large selected pins/history/routine events cannot displace reserved highest-ranked safety claims; deterministic safety overflow/drop counts.",
       "originalHarness": "Selector pressure tests.",
-      "status": "mapped_requires_oracle_review",
+      "status": "automated_oracle_verified",
       "candidateEvidence": [
         "lsa-essential-e1-candidate/tests/knowledge-renderer.test.mjs",
         "lsa-essential-e1-candidate/tests/knowledge-selector.test.mjs",
         "lsa-essential-e1-candidate/tests/knowledge-base-integration.test.mjs"
       ],
-      "note": "Candidate harnesses are navigation only; inspect concrete assertions and execution results before claiming this complete."
+      "note": "Combined pure production selector/renderer/request-serializer fixture uses 128 selected authored pins, 30 oversized history messages, 100 routine competing observations, one must-include self injury and large escape-heavy genuine input. Safety remains first while whole memories/history/routine items are pruned; final allocation/shared canon/both final request schema budgets hold. All-safety capacity pressure reports 93 omitted safety items deterministically.",
+      "reviewedEvidence": [
+        {
+          "file": "lsa-essential-e1-candidate/tests/knowledge-selector.test.mjs",
+          "testPattern": "PR21 T44 T45",
+          "oracles": "Combined canon/history/event pressure; reversed irrelevant order; exact serialized byte equality and deterministic whole-item safety overflow."
+        }
+      ]
     },
     {
       "id": "T45",
       "oracle": "Same frozen inputs produce byte-identical projection/hash under Map insertion order variation where contract order is irrelevant.",
       "originalHarness": "Determinism test with equal-rank IDs.",
-      "status": "mapped_requires_oracle_review",
+      "status": "automated_oracle_verified",
       "candidateEvidence": [
         "lsa-essential-e1-candidate/tests/knowledge-renderer.test.mjs",
         "lsa-essential-e1-candidate/tests/knowledge-selector.test.mjs",
         "lsa-essential-e1-candidate/tests/knowledge-base-integration.test.mjs"
       ],
-      "note": "Candidate harnesses are navigation only; inspect concrete assertions and execution results before claiming this complete."
+      "note": "The same production pressure fixture reverses observation input order, equal-importance authored pin order and Map-derived live-reference insertion order. Model allocation, selected private delivery refs and both actual request-schema serialized bytes are identical; input data is unchanged. Contract-relevant committed history order is preserved. Byte equality establishes equal content hashes without relying on a selector-only snapshot.",
+      "reviewedEvidence": [
+        {
+          "file": "lsa-essential-e1-candidate/tests/knowledge-selector.test.mjs",
+          "testPattern": "PR21 T44 T45",
+          "oracles": "Combined canon/history/event pressure; reversed irrelevant order; exact serialized byte equality and deterministic whole-item safety overflow."
+        }
+      ]
     },
     {
       "id": "T46",
