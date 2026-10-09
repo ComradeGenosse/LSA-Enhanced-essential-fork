@@ -96,3 +96,30 @@ test('pre-send pruning removes whole rendered items and exact keys without refil
  assert.deepEqual(pruned.delivery,[{decisionKey:'second-key'}]);assert.deepEqual(JSON.parse(pruned.modelAllocation.scene).lanes.PERCEIVED.observations,[{event:'second'}]);assert.deepEqual(pruned.modelAllocation.messages,base.modelAllocation.messages);assert.equal(pruned.diagnostics.staleObservationDrops,1);assert.ok(Object.isFrozen(pruned.delivery));assert.equal(frame.delivery.length,2);
  assert.equal(pruneKnowledgeFrame(pruned,()=>true),pruned);
 });
+
+
+test('PR21 T39 manual memory ties use private ID order and exclude unselected records from both requests',()=>{
+ const memories=[
+  {memoryId:'private-c',selectedForContext:true,importance:80,category:'event',text:'Pinned Gamma'},
+  {memoryId:'private-a',selectedForContext:true,importance:80,category:'event',text:'Pinned Alpha'},
+  {memoryId:'private-z',selectedForContext:true,importance:95,category:'event',text:'Pinned Highest'},
+  {memoryId:'private-b',selectedForContext:true,importance:80,category:'event',text:'Pinned Beta'},
+  {memoryId:'private-d',selectedForContext:true,importance:70,category:'event',text:'Pinned Last'},
+  {memoryId:'private-unselected',selectedForContext:false,importance:100,category:'event',text:'UNSELECTED_CANARY'},
+ ].map(memory=>({...memory,notes:'NOTE_CANARY',relatedCharacterIds:['RELATED_ID_CANARY']}));
+ const profile={name:'Mira',gender:'female',ageBand:'adult',nicknames:[],personality:{description:'Reserved',traits:[]},biography:'Authored biography',relationship:{state:'neutral',description:''},memories};
+ const before=JSON.stringify(profile),args={profile,persistent:true,source:'player_text',input:'What did we agree?'};
+ const frame=renderKnowledge(args),reversed=renderKnowledge({...args,profile:{...profile,memories:[...memories].reverse()}});
+ assert.equal(frame.modelAllocation.scene,reversed.modelAllocation.scene);assert.equal(JSON.stringify(profile),before);
+ const lanes=JSON.parse(frame.modelAllocation.scene).lanes;
+ const texts=['Pinned Highest','Pinned Alpha','Pinned Beta','Pinned Gamma','Pinned Last'];
+ assert.deepEqual(lanes.RECALLED.memories.map(memory=>memory.text),texts);
+ assert.deepEqual(frame.memoryIds,['private-z','private-a','private-b','private-c','private-d']);
+ for(const structuredSegments of [false,true]){
+  const body=buildRequest({model:'test',effort:'low',systemInstruction:'Trusted rules',knowledgeProjection:frame,structuredSegments}),serialized=JSON.stringify(body);
+  assert.ok(jsonBytes(body)<=KNOWLEDGE_LIMITS.requestBytes);
+  for(const text of texts)assert.equal(serialized.split(text).length-1,1);
+  for(const secret of [...memories.map(memory=>memory.memoryId),'UNSELECTED_CANARY','NOTE_CANARY','RELATED_ID_CANARY'])assert.equal(serialized.includes(secret),false);
+  assert.equal(body.input.at(-1).content,'What did we agree?');
+ }
+});

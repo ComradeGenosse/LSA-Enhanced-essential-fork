@@ -705,3 +705,14 @@ Strengthened existing refusal/incomplete/shape-invalid fixtures to inspect the r
 Validation: focused retry/output-failure matrix passed all ten cases. Complete normal-Node isolated offline regression passed 656 assertions across 63 files; git diff --check passed. Production source and payload unchanged, so no fresh production build/install or physical acceptance is claimed. Aggregate-process Node crash limitation remains open.
 
 Remaining: other individual baseline oracles, complete matching native/build gate refresh, then Phase 13a checked speech tickets/intake/empty effects/full-playback lifecycle. Physical MP5/MP6/MP13a gates remain external; conditional gaze and all deferred phases retain their user-defined scope. v1.0 objective remains active.
+
+
+## Checkpoint 67: selected manual-memory ordering and privacy
+
+Closed PR21 T39's automated oracle by combining the existing ten-selected-memory renderer fixture with an explicit five-pin importance/private-ID tie fixture. A higher-importance unselected record remains excluded; reversed source order produces identical scene bytes; the authored profile remains unchanged. Both request-schema serializers include each selected text once and exclude every private memory ID, note and related-character canary, while preserving the genuine player input and existing final request byte bound. Private IDs remain only in internal frame references. No production canon/profile/persistence implementation changed.
+
+The acceptance register records T39 individually verified. This fixture's privacy/order evidence does not separately claim recognition-aware relevance in T41 or complete observation/Map-order determinism in T45. Physical authored-memory conversation acceptance remains an external PS4 gate.
+
+Validation: complete renderer suite passed 15 cases. Full normal-Node isolated offline regression passed 657 assertions across 63 files; git diff --check passed. Production source/payload unchanged; no fresh production build/install/activation or GTA acceptance is claimed. Aggregate-process Node crash limitation remains open.
+
+Next: remaining compound baseline requirements and matching native/build closure, then Phase 13a. User-authorized v1.0 objective remains active; other master phases remain deferred.

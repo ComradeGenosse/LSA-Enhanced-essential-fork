@@ -521,13 +521,20 @@
       "id": "T39",
       "oracle": "Four-plus selected memories remain in importance/ID order when they fit; unselected never enters; no hidden three-record cap.",
       "originalHarness": "Existing P2 profiles/authority + projection.",
-      "status": "mapped_requires_oracle_review",
+      "status": "automated_oracle_verified",
       "candidateEvidence": [
         "lsa-essential-e1-candidate/tests/knowledge-renderer.test.mjs",
         "lsa-essential-e1-candidate/tests/knowledge-selector.test.mjs",
         "lsa-essential-e1-candidate/tests/knowledge-base-integration.test.mjs"
       ],
-      "note": "Candidate harnesses are navigation only; inspect concrete assertions and execution results before claiming this complete."
+      "note": "Existing ten-selected-memory renderer fixture proves no three-record cap. New T39 fixture proves five selected records sorted by importance then private ID, identical projection under reversed input order, no mutation of authored profile, unselected importance-100 record excluded, and each selected text appears exactly once in both actual request-schema serializers with no private memory IDs/notes/related IDs. Full renderer suite passed 15 cases. Physical authored-memory dialogue acceptance remains external.",
+      "reviewedEvidence": [
+        {
+          "file": "lsa-essential-e1-candidate/tests/knowledge-renderer.test.mjs",
+          "testPattern": "manual pins keep existing importance order beyond three|PR21 T39",
+          "oracles": "Ten pins retained; explicit equal-importance ID tie order and unselected-record exclusion in both serialized request schemas."
+        }
+      ]
     },
     {
       "id": "T40",
