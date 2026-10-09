@@ -27,3 +27,25 @@ test('world reset clears the index and retains the negotiated extension',()=>{
   assert.equal(send(3,'world_epoch',{epoch:2,reason:'timeline_change'}),true);assert.equal(runtime.observerIndex.size,0);assert.equal(runtime.observerIndexVersion,1);
   runtime.reset('disconnect');assert.equal(runtime.observerIndexVersion,null);
 });
+
+test('PR21 T09 sequence gap retires actual observer index and old stream cannot publish a replacement',()=>{
+  const {runtime,hello,send}=setup(),captureRef=randomUUID();
+  const row={captureRef,kind:'ped',owned:false};
+  assert.equal(send(1,'anchors',[{captureRef,kind:'ped',observer:true,owned:false}]),true);
+  assert.equal(send(2,'observer_index',[row]),true);
+  assert.equal(runtime.observerIndex.has(captureRef),true);
+  // The missing sequence 3 cannot be interpreted as a partial/native roster.
+  assert.equal(send(4,'observer_index',[row]),false);
+  assert.equal(runtime.epoch,null);
+  assert.equal(runtime.anchors.size,0);
+  assert.equal(runtime.observerIndex.size,0);
+  assert.equal(runtime.ingest({version:1,type:'observer_index',adapterEpoch:hello.adapterEpoch,
+    streamId:hello.streamId,sequence:3,payload:[row]},{authenticated:true}),false);
+  assert.equal(runtime.observerIndex.size,0);
+  const newHello={...hello,adapterEpoch:randomUUID(),streamId:randomUUID(),worldEpoch:2};
+  assert.equal(runtime.ingest(newHello,{authenticated:true}),true);
+  assert.equal(runtime.observerIndex.size,0);
+  assert.equal(runtime.ingest({version:1,type:'observer_index',adapterEpoch:hello.adapterEpoch,
+    streamId:hello.streamId,sequence:5,payload:[row]},{authenticated:true}),false);
+  assert.equal(runtime.observerIndex.size,0);
+});
