@@ -760,3 +760,10 @@ Existing character service fixtures prove a mismatched/revoked claim never relea
 Validation: focused knowledge-input suite passed 13 cases; existing frozen-character/owned-provider suite passed 51. Full normal-Node isolated offline regression passed 662 assertions across 63 files; added assertions do not increase the test-case count. git diff --check passed. Production source/payload unchanged; no fresh build/install/activation or physical acceptance claimed. Aggregate-process Node crash limitation remains open.
 
 Next: remaining individual baseline acceptance groups and matching native/build closure, then Phase 13a. User-authorized v1.0 goal remains active; other master phases remain deferred.
+
+
+## Checkpoint 72: T20 scope fences and paused web handoff
+
+Closed the T20 automated oracle with positive controls and observer/run/expiry/identity/revision/decision-key/source/target scope negatives in production selector/input fixtures. A different syntactically valid decision key rejects delivery; no production implementation changed. Focused selector/input suites passed 8/13 cases. Complete normal-Node isolated offline regression passed 663 tests across 63 files, with no failed files.
+
+The user requested a good stopping point and submission of all unfinished work for web continuation. See WEB-IMPLEMENTATION-HANDOFF-20261009.md for authoritative v1.0 scope, remaining baseline acceptance and Phase 13a work, prior native evidence, tooling limits and external GTA gates. The actual isolated runner is preserved under tools/isolated-offline-tests; logs stay outside the checkout. Implementation is paused, not complete; no deployment, activation, physical acceptance or merge is claimed. Resume only on user instruction.

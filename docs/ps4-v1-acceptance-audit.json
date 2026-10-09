@@ -297,14 +297,26 @@
       "id": "T20",
       "oracle": "Wrong observer, wrong native run, expired item, retired source/target, mismatched observation ID/revision/key all omitted.",
       "originalHarness": "ObservationStore bounded snapshot + selector tests.",
-      "status": "mapped_requires_oracle_review",
+      "status": "automated_oracle_verified",
       "candidateEvidence": [
         "lsa-essential-e1-candidate/tests/qualified-claim-details.test.mjs",
         "lsa-essential-e1-candidate/tests/observer-situation.test.mjs",
         "lsa-essential-e1-candidate/tests/salience-engine.test.mjs",
         "lsa-essential-e1-candidate/tests/knowledge-selector.test.mjs"
       ],
-      "note": "Candidate harnesses are navigation only; inspect concrete assertions and execution results before claiming this complete."
+      "note": "Production selector fixture first establishes a valid positive candidate, then separately rejects wrong observer/run, observation/decision expiry, mismatched observation ID/revision/key and retired target/source. Existing currentness fixture verifies original captured expiry/revision/lifetime and now rejects a syntactically valid altered key against the captured decision. Both suites freshly pass; rejected candidates emit no observation or delivery key.",
+      "reviewedEvidence": [
+        {
+          "file": "lsa-essential-e1-candidate/tests/knowledge-selector.test.mjs",
+          "testPattern": "PR21 T20",
+          "oracles": "Nine independent stale/mismatched source/target/observer/run/expiry/key cases with valid positive controls."
+        },
+        {
+          "file": "lsa-essential-e1-candidate/tests/knowledge-inputs.test.mjs",
+          "testPattern": "delivery item fences use captured revisions",
+          "oracles": "Captured exact revision/key/expiry/current source lifetime fences."
+        }
+      ]
     },
     {
       "id": "T21",

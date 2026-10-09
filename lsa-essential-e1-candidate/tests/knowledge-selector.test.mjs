@@ -82,3 +82,20 @@ test('PR21 T44 T45 safety survives combined canon/history/event pressure with de
  const allSafety={...inputs,pairs:inputs.pairs.map(pair=>{const observation=structuredClone(pair.observation);observation.claims[0].target={captureRef:inputs.association.captureRef,kind:'ped'};observation.claims[0].evidence.channel='self';return {observation,situation:pair.situation,decision:evaluateSalience(observation,pair.situation)};})};
  const overflow=selectKnowledge(allSafety);assert.equal(overflow.selected.length,8);assert.equal(overflow.omissions.safety_overflow,93);assert.deepEqual(selectKnowledge({...allSafety,pairs:[...allSafety.pairs].reverse()}),overflow);
 });
+
+
+test('PR21 T20 observer/run/expiry/identity/key and source/target scope reject optional evidence',()=>{
+ const cases=[
+  input=>{input.pairs[0].observation.observer.captureRef=randomUUID();},
+  input=>{input.pairs[0].observation.observedAt.nativeRun=randomUUID();},
+  input=>{input.pairs[0].observation.expiresAtMonotonicMs=input.frozenAt;},
+  input=>{input.pairs[0].decision={...input.pairs[0].decision,expiresAtMonotonicMs:input.frozenAt};},
+  input=>{input.pairs[0].observation.observationId=randomUUID();},
+  input=>{input.pairs[0].decision={...input.pairs[0].decision,revision:2};},
+  input=>{input.pairs[0].decision={...input.pairs[0].decision,decisionKey:'mismatched:'+input.pairs[0].decision.decisionKey};},
+  input=>{delete input.liveReferences[input.pairs[0].observation.claims[0].target.captureRef];},
+ ];
+ for(const mutate of cases){const input=fixture();assert.equal(selectKnowledge(input).selected.length,1);mutate(input);const result=selectKnowledge(input);assert.deepEqual(result.observations,[]);assert.deepEqual(result.selected,[]);}
+ const input=fixture();input.pairs[0].observation.claims[0].source={captureRef:input.association.captureRef,kind:'ped'};
+ assert.equal(selectKnowledge(input).selected.length,1);delete input.liveReferences[input.association.captureRef];assert.equal(selectKnowledge(input).selected.length,0);
+});

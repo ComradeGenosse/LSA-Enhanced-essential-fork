@@ -142,6 +142,7 @@ test('delivery item fences use captured revisions, current source lifetimes and 
  const f=fixture();f.send('signal',{signalId:randomUUID(),producer:'shooting',producerSequence:1,kind:'firing',target:null,source:f.captureRef,gameTick:10,ageMs:0,facts:{}});
  const inputs=f.capture(),frame={delivery:selectKnowledge(inputs).selected};assert.ok(frame.delivery.length);assert.equal(assertKnowledgeItemsCurrent(inputs,frame,f.perception),null);
  assert.equal(assertKnowledgeItemsCurrent(inputs,{delivery:[{...frame.delivery[0],revision:2}]},f.perception),'revision_mismatch');
+ const wrongKey=frame.delivery[0].decisionKey.replace(/:[0-9a-f]{8}$/,frame.delivery[0].decisionKey.endsWith(':ffffffff')?':00000000':':ffffffff');assert.notEqual(wrongKey,frame.delivery[0].decisionKey);assert.equal(assertKnowledgeItemsCurrent(inputs,{delivery:[{...frame.delivery[0],decisionKey:wrongKey}]},f.perception),'revision_mismatch');
  const shortLived={...inputs,pairs:inputs.pairs.map(pair=>({...pair,observation:{...pair.observation,expiresAtMonotonicMs:100}}))};f.setNow(100);
  assert.equal(assertKnowledgeItemsCurrent(shortLived,frame,f.perception),'observation_expired');
  f.setNow(1);f.perception.lastReceipt=1;f.send('retire_batch',[f.captureRef]);assert.equal(assertKnowledgeItemsCurrent(inputs,frame,f.perception),'participant_retired');
