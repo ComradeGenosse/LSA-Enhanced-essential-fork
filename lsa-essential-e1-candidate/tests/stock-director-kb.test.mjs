@@ -24,6 +24,7 @@ test('verified-ticket test double enforces no DO before stock action events',asy
  const h=await stockHarness('openai');
  const session=await h.openAIControllerSession({actorContext:{pedId:'17'}});
  session.autoNativeAcks();
+ h.context.directorArgs=args;
  // ONLY a fake acceptance here; production native preview cannot do this.
  h.runtime.requireDirectorTicket=()=>ticket;
  h.runtime.services.decide=async()=>({dialogue:'I see trouble.',command:'DO FOLLOW'});
