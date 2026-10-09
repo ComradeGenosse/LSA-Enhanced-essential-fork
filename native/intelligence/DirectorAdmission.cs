@@ -103,7 +103,7 @@ namespace LSA.Intelligence
                 return new Receipt(request.TicketId,existed?"cancelled":"not_found");
             }
             if(request.Operation=="reserve") {
-                if(!enabled||activeTicket!=null||seen.Contains(request.TicketId)||
+                if(!enabled||activeTicket!=null||seen.ContainsKey(request.TicketId)||
                     pending.Count>=MaxTickets||attempts.Count>=MaxAttempts||seen.Count>=512)
                     return new Receipt(request.TicketId,"busy");
                 attempts.Enqueue(now);seen.Add(request.TicketId,now);seenOrder.Enqueue(new KeyValuePair<string,long>(request.TicketId,now));
