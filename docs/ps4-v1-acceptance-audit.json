@@ -214,7 +214,7 @@
       "id": "T10",
       "oracle": "Clock regression detected once; uint wrap policy tested; PS/ACT/UX subscribers receive one ordered discontinuity; no extra update pump.",
       "originalHarness": "P2 lifecycle + PS host continuous/stalled tests.",
-      "status": "mapped_requires_oracle_review",
+      "status": "partial_verified",
       "candidateEvidence": [
         "native/intelligence/tests/Program.cs",
         "native/intelligence/integration-tests/Program.cs",
@@ -223,7 +223,24 @@
         "lsa-essential-e1-candidate/tests/host-context.test.mjs",
         "lsa-essential-e1-candidate/tests/observer-index.test.mjs"
       ],
-      "note": "Candidate harnesses are navigation only; inspect concrete assertions and execution results before claiming this complete."
+      "note": "Source-built HostContext tests now demonstrate uint wrap without regression, single backward-tick discontinuity, idempotent tick, ordered event fanout and continued fanout after a failed subscriber. Source-built P2 lifecycle suite executes real P2 reset including ACT/UX cancellation, and PS host integration verifies shared PS does not start a second clock pump and invalidates anchors on owner reset. Windows CI 38001446757 passed 62 shared host, 157 real P2 lifecycle, and 92 PS integration assertions. Still PARTIAL until one single pinned Core host run proves the integrated P2→PS→ACT/UX ordered reset across actual loaded owners and full GTA world reset.",
+      "reviewedEvidence": [
+        {
+          "file": "native/promoted-characters/host-context-tests/Program.cs",
+          "testPattern": "normal unsigned clock wrap|backwards game tick resets|one ordered world reset fanout|world subscriber failure fans out, then fails closed",
+          "oracles": "Source-built HostContext epoch and ordered callback correctness"
+        },
+        {
+          "file": "native/promoted-characters/lifecycle-tests/Program.cs",
+          "testPattern": "ResetWithPendingRequest|ResetAfterP1|ForwardClock",
+          "oracles": "Real P2 owner host reset and ACT/UX cleanup on native lifecycle fixture"
+        },
+        {
+          "file": "native/intelligence/integration-tests/Program.cs",
+          "testPattern": "shared PS does not run a second clock detector|owner reset clears shared refs",
+          "oracles": "Shared PS cannot double-pump source clock; P2 owner reset invalidates native PS refs"
+        }
+      ]
     },
     {
       "id": "T11",
@@ -358,14 +375,21 @@
       "id": "T19",
       "oracle": "Action succeeded true is handler outcome only; report/speech lifecycle without text receipt cannot become player/overheard transcript.",
       "originalHarness": "Existing action/witness/speech tests + projection.",
-      "status": "mapped_requires_oracle_review",
+      "status": "automated_oracle_verified",
       "candidateEvidence": [
         "lsa-essential-e1-candidate/tests/qualified-claim-details.test.mjs",
         "lsa-essential-e1-candidate/tests/observer-situation.test.mjs",
         "lsa-essential-e1-candidate/tests/salience-engine.test.mjs",
         "lsa-essential-e1-candidate/tests/knowledge-selector.test.mjs"
       ],
-      "note": "Candidate harnesses are navigation only; inspect concrete assertions and execution results before claiming this complete."
+      "note": "Successful native action callbacks contain supported handler outcome only, and native playback start/end with HadAudio still cannot produce player speech or overheard transcript. Valid source-proven dialogue-report receipt remains provenance-only absent authenticated text. Executed direct T19 test in 702/70 green Linux+Windows CI run 38001446757.",
+      "reviewedEvidence": [
+        {
+          "file": "lsa-essential-e1-candidate/tests/qualified-claim-details.test.mjs",
+          "testPattern": "PR21 T19 action success and silent playback/report facts never create player or overheard speech",
+          "oracles": "Successful follow action is not execution-complete or speech; playback started/ended even with hadAudio is a sound fact with no text; authenticated dialogue-report without text is provenance-only"
+        }
+      ]
     },
     {
       "id": "T20",
