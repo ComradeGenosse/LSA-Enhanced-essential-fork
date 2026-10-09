@@ -109,6 +109,7 @@ class Program
 
         invalid.Reset();Check(!invalid.HasActive,"reset cleanup");
         invalid.Disable();Check(invalid.Handle(Request(16)).Status=="busy","disable fail closed");
+        CodecContract();
         ChannelRoundtrip();
     }
     static void ChannelRoundtrip()
@@ -124,7 +125,7 @@ class Program
                 var hello=reader.ReadLine();
                 Check(hello!=null && hello.Contains("\"directorRequestVersion\":1"),
                     "explicit duplex capability in native hello");
-                var frame="{\"version\":1,\"type\":\"director.v1.reserve\",\"ticketId\":\"pending\"}";
+                var frame=Wire(Request(22));
                 writer.WriteLine(frame);
                 string received=null;
                 var deadline=DateTime.UtcNow.AddSeconds(3);
@@ -154,6 +155,39 @@ class Program
                     "legacy pipe rejects Director input");
             }
         }
+    }
+
+    static string Wire(DirectorAdmission.Request r)
+    {
+        return new System.Web.Script.Serialization.JavaScriptSerializer().Serialize(new {
+            version=r.Version,type="director.request",operation=r.Operation,
+            ticketId=r.TicketId,dedupeKey=r.DedupeKey,hostRunId=r.HostRunId,
+            worldEpoch=r.WorldEpoch,speakerCaptureRef=r.SpeakerCaptureRef,
+            playerCaptureRef=r.PlayerCaptureRef,ownerIncarnationId=r.OwnerIncarnationId,
+            proofRevision=r.ProofRevision,playerTurnVersion=r.PlayerTurnVersion,
+            policyVersion=r.PolicyVersion,observationId=r.ObservationId,
+            observationRevision=r.ObservationRevision,decisionKey=r.DecisionKey,
+            ageMs=r.AgeMs
+        });
+    }
+    static void CodecContract()
+    {
+        var source=Request(21);
+        string encoded=Wire(source);
+        DirectorAdmission.Request decoded;
+        Check(DirectorFrameCodec.TryDecode(encoded,out decoded),"strict frame decoder accepts matching v1");
+        Check(decoded.DedupeKey==source.DedupeKey &&
+              decoded.ProofRevision==source.ProofRevision &&
+              decoded.WorldEpoch==source.WorldEpoch,"frame fields unchanged");
+        Check(!DirectorFrameCodec.TryDecode(encoded.Replace("\"director.request\"","\"control.raw\""),out decoded),
+              "reject unsupported operation vocabulary");
+        Check(!DirectorFrameCodec.TryDecode(encoded.Replace("\"worldEpoch\":1","\"worldEpoch\":\"1\""),out decoded),
+              "reject coerced number");
+        Check(!DirectorFrameCodec.TryDecode(encoded.Substring(0,encoded.Length-1)+",\"unknown\":true}",out decoded),
+              "reject extra wire fields");
+        Check(!DirectorFrameCodec.TryDecode(encoded.Replace("\"version\":1","\"version\":2"),out decoded),
+              "reject unsupported version");
+        Check(!DirectorFrameCodec.TryDecode("{broken",out decoded),"reject malformed json");
     }
 
 }
