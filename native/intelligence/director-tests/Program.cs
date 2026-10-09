@@ -133,6 +133,37 @@ class Program
         now+=120000;
         Check(!neverEnding.Complete(a.TicketId,"17","native-never",2,3,true,false,true,true),"expired playback lease cannot claim delivery");
         Check(!neverEnding.HasActive,"expired completion releases native ticket");
+        // Pinned Core event GenerationId is Int64; never truncate to Int32
+        // or accept a value the JS-number wire cannot represent exactly.
+        var wide=New();a=Request(41);
+        Check(wide.Handle(a).Status=="reserved" && wide.Handle(Request(41,"submit")).Status=="submitted",
+              "Int64 generation fixture enters native contract");
+        Check(!wide.BindActualTuple(a.TicketId,"17","native-wide",long.MaxValue,3),
+              "unsafe JS-precision generation cannot bind");
+        long generation=(long)int.MaxValue+1L;
+        Check(wide.BindActualTuple(a.TicketId,"17","native-wide",generation,3),
+              "native generation beyond Int32 does not truncate");
+        Check(!wide.NotePlaybackStarted(a.TicketId,"17","native-wide",1L,3),
+              "truncated generation callback cannot match original");
+        Check(wide.NotePlaybackStarted(a.TicketId,"17","native-wide",generation,3),
+              "original Int64 playback start matches");
+        Check(!wide.Complete(a.TicketId,"17","native-wide",generation+1L,3,true,false,true,true),
+              "adjacent 64-bit generation is not the original callback");
+        Check(wide.Complete(a.TicketId,"17","native-wide",generation,3,true,false,true,true),
+              "exact Int64 generation completes once");
+        var upper=New();a=Request(42);
+        Check(upper.Handle(a).Status=="reserved" &&
+              upper.Handle(Request(42,"submit")).Status=="submitted",
+              "maximum exact wire generation fixture reserved");
+        Check(upper.BindActualTuple(a.TicketId,"17","native-upper",
+              DirectorAdmission.MaxExactWireGeneration,3),
+              "highest exactly representable JS generation allowed");
+        Check(upper.NotePlaybackStarted(a.TicketId,"17","native-upper",
+              DirectorAdmission.MaxExactWireGeneration,3),
+              "maximum exact generation playback-start matches");
+        Check(upper.Complete(a.TicketId,"17","native-upper",
+              DirectorAdmission.MaxExactWireGeneration,3,true,false,true,true),
+              "maximum exact generation callback completes");
         FailedCallbacks();
         C06Contract();
         CodecContract();
