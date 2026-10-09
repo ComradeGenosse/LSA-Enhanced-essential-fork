@@ -67,3 +67,13 @@ namespace DamageTrackerLib {
         public static void Vehicle(Rage.Vehicle p,DamageInfo.VehDamageInfo info)=>OnVehicleTookDamage?.Invoke(p,null,info);
     }
 }
+
+namespace LSA.PromotedCharacters {
+    // Read-only simulation of the pinned EssentialMicState owner-fiber query.
+    // Unknown always remains a separate outcome from idle.
+    internal sealed class EssentialMicState {
+        internal static bool Supported=true,Idle=true;
+        public bool Available=>Supported;
+        public string CanStart()=>!Supported?"mic_state_unavailable":Idle?null:"mic_busy";
+    }
+}
