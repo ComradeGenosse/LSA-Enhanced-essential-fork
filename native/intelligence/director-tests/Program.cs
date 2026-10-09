@@ -127,8 +127,55 @@ class Program
         now+=120000;
         Check(!neverEnding.Complete(a.TicketId,"17","native-never",2,3,true,false,true,true),"expired playback lease cannot claim delivery");
         Check(!neverEnding.HasActive,"expired completion releases native ticket");
+        C06Contract();
         CodecContract();
         ChannelRoundtrip();
+    }
+
+    static DirectorC06Policy.Snapshot ReadyProof(DirectorAdmission.Request r)
+    {
+        return new DirectorC06Policy.Snapshot {
+            HostRunId=r.HostRunId,WorldEpoch=r.WorldEpoch,
+            SpeakerCaptureRef=r.SpeakerCaptureRef,PlayerCaptureRef=r.PlayerCaptureRef,
+            OwnerIncarnationId=r.OwnerIncarnationId,OwnerProofRevision=r.ProofRevision,
+            PlayerTurnVersion=r.PlayerTurnVersion,PolicyVersion=r.PolicyVersion,
+            SpeakerAnchorCurrent=true,SpeakerOwned=true,SpeakerObserver=true,SpeakerAlive=true,
+            PlayerAnchorCurrent=true,PlayerIsLocal=true,PlayerAlive=true,
+            OwnerProofCurrent=true,OwnerPrimaryModeKnown=true,OwnerIdle=true,
+            PlayerTurnSourceCurrent=true,PlayerTurnIdle=true,MicStateKnown=true,MicIdle=true,
+            EssentialTurnKnown=true,EssentialTurnIdle=true,PlaybackKnown=true,PlaybackIdle=true,
+            ScriptStateKnown=true,ScriptSafe=true,ActorReflexKnown=true,ActorReflexIdle=true,
+            ObservationReceiptCurrent=true,ResponseGrantCurrent=true
+        };
+    }
+    static void C06Contract()
+    {
+        var req=Request(23),proof=ReadyProof(req);
+        Check(DirectorC06Policy.Safe(req,proof),"complete authoritative same-host/owner C06 snapshot admits");
+        foreach(var field in typeof(DirectorC06Policy.Snapshot).GetFields()) {
+            if(field.FieldType!=typeof(bool))continue;
+            field.SetValue(proof,false);
+            Check(!DirectorC06Policy.Safe(req,proof),"missing C06 native field denies: "+field.Name);
+            field.SetValue(proof,true);
+        }
+        var changed=Request(23);changed.WorldEpoch++;
+        Check(!DirectorC06Policy.Safe(changed,proof),"no world-epoch borrowing");
+        changed=Request(23);changed.ProofRevision++;
+        Check(!DirectorC06Policy.Safe(changed,proof),"no proof-revision borrowing");
+        changed=Request(23);changed.PlayerTurnVersion++;
+        Check(!DirectorC06Policy.Safe(changed,proof),"no player-turn borrowing");
+        changed=Request(23);changed.SpeakerCaptureRef=Guid.NewGuid().ToString("D");
+        Check(!DirectorC06Policy.Safe(changed,proof),"no speaker substitution");
+        changed=Request(23);changed.OwnerIncarnationId=Guid.NewGuid().ToString("D");
+        Check(!DirectorC06Policy.Safe(changed,proof),"no owner incarnation substitution");
+        Check(!DirectorC06Policy.Safe(req,new DirectorC06Policy.Snapshot()),"unknown C06 truth denies");
+        var admission=new DirectorAdmission(()=>now,r=>DirectorC06Policy.Safe(r,proof),()=>host,()=>world,true);
+        Check(admission.Handle(req).Status=="reserved","full native proof permits one reservation in isolated test only");
+        proof.PlayerTurnIdle=false;
+        Check(admission.Handle(Request(23,"submit")).Status=="unsafe","player takeover vetoes reserved Director before submit");
+        Check(!admission.HasActive,"safety veto frees global reservation");
+        proof.PlayerTurnIdle=true;
+        Check(admission.Handle(req).Status=="busy","failed native ticket cannot replay after priority change");
     }
     static void ChannelRoundtrip()
     {
