@@ -18,6 +18,10 @@ namespace LSA.Intelligence
             public bool PlayerAnchorCurrent,PlayerIsLocal,PlayerAlive;
             public bool OwnerProofCurrent,OwnerPrimaryModeKnown,OwnerIdle;
             public bool PlayerTurnSourceCurrent,PlayerTurnIdle,MicStateKnown,MicIdle;
+            // The pinned Core exposes a narrower special-turn revision, not a
+            // complete global player-turn arbiter. Diagnostic only, never a grant.
+            public bool SpecialTurnVersionKnown;
+            public long SpecialTurnVersion=-1;
             public bool EssentialTurnKnown,EssentialTurnIdle,PlaybackKnown,PlaybackIdle;
             public bool ScriptStateKnown,ScriptSafe,ActorReflexKnown,ActorReflexIdle;
             public bool ObservationReceiptCurrent,ResponseGrantCurrent;
