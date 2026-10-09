@@ -53,7 +53,7 @@ namespace LosSantosAlive.NPC.Perception {
 namespace LosSantosAlive.Audio {
     public class NpcPlaybackStartedEvent {public Rage.Ped SpeakerPed;public string PedId;}
     public class NpcPlaybackEndedEvent {public Rage.Ped SpeakerPed;public string PedId;public bool WasInterrupted,HadAudio;}
-    public static class NpcPlaybackCoordinator {public static event Action<NpcPlaybackStartedEvent> PlaybackStarted;public static event Action<NpcPlaybackEndedEvent> PlaybackEnded;public static void Start(NpcPlaybackStartedEvent e)=>PlaybackStarted?.Invoke(e);public static void End(NpcPlaybackEndedEvent e)=>PlaybackEnded?.Invoke(e);}
+    public static class NpcPlaybackCoordinator {public static bool AnyAudio,ThrowRead;public static int BusyReads;public static event Action<NpcPlaybackStartedEvent> PlaybackStarted;public static event Action<NpcPlaybackEndedEvent> PlaybackEnded;public static bool IsAnyAudioPlayingOrPending() {BusyReads++;if(ThrowRead)throw new Exception("Core playback read failed");return AnyAudio;}public static void Start(NpcPlaybackStartedEvent e)=>PlaybackStarted?.Invoke(e);public static void End(NpcPlaybackEndedEvent e)=>PlaybackEnded?.Invoke(e);}
 }
 namespace DamageTrackerLib.DamageInfo {
     public enum DamageType {Unknown,Pistol,MeleeBlunt,Explosive,Fire,Vehicle}
@@ -81,5 +81,12 @@ namespace LSA.PromotedCharacters {
         internal static bool Supported=true,Idle=true;
         public bool Available=>Supported;
         public string CanStart()=>!Supported?"mic_state_unavailable":Idle?null:"mic_busy";
+    }
+}
+
+namespace LosSantosAlive.Bridge.SpecialTurns {
+    public static class SpecialGeminiTurnService {
+        public static long Version;public static bool ThrowRead;
+        public static long ReadPlayerTurnVersion() {if(ThrowRead)throw new Exception("Core special-turn version unreadable");return Version;}
     }
 }
