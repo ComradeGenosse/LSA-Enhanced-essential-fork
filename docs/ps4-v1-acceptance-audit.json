@@ -187,7 +187,7 @@
       "id": "T09",
       "oracle": "Connection sequence gap/duplicate/old stream/old adapter epoch/reset refresh: no partial or stale index/roster becomes visible.",
       "originalHarness": "Perception client/contract + native channel tests.",
-      "status": "partial_verified",
+      "status": "automated_oracle_verified",
       "candidateEvidence": [
         "native/intelligence/tests/Program.cs",
         "native/intelligence/integration-tests/Program.cs",
@@ -196,12 +196,17 @@
         "lsa-essential-e1-candidate/tests/host-context.test.mjs",
         "lsa-essential-e1-candidate/tests/observer-index.test.mjs"
       ],
-      "note": "Envelope replay/old adapter-epoch/sequence-loss automated checks pass and reset fact/anchor state, but an individually asserted in-flight observer_index/roster rejection on transport restart is not yet in this exact acceptance audit. Keep final clause open rather than equating adjacent tests to full T09.",
+      "note": "The closed observer_index pipe, current anchors and signals are invalidated on skipped frame sequence and old adapter/stream frames cannot resurrect that index after new hello. The dedicated exact T09 scenario, existing duplicate/gap/reset scenarios and the real PS runtime passed on both Linux and Windows in GitHub CI run 37991307936: 699 tests / 70 files on each. Does not assert GTA-physical acceptance.",
       "reviewedEvidence": [
+        {
+          "file": "lsa-essential-e1-candidate/tests/observer-index.test.mjs",
+          "testPattern": "PR21 T09 sequence gap retires actual observer index and old stream cannot publish a replacement",
+          "oracles": "Actual observer_index present; sequence 3 skipped; no index/anchors survive; late original stream cannot publish under new epoch"
+        },
         {
           "file": "lsa-essential-e1-candidate/tests/perception-contract.test.mjs",
           "testPattern": "duplicate/out of order envelope sequences cannot replay facts|transport sequence loss invalidates anchors and queued facts|old native epoch/stream cannot publish after feature reset",
-          "oracles": "Duplicate and gap cannot publish signals; reset drops anchors/facts; old adapter/stream rejected"
+          "oracles": "Duplicate/out of order and old adapter/stream signals rejected; critical stored facts not revived"
         }
       ]
     },
