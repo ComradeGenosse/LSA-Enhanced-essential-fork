@@ -3,7 +3,7 @@
 import { isUuid } from '../identity/identityContract.mjs';
 
 export function assertDirectorSpeechDecision(decision, {source, directorTicket, streamMode} = {}) {
-  const director = source === 'scene_director' || directorTicket !== undefined;
+  const director = source === 'scene_director' || directorTicket != null;
   if (!director) return true; // preserve all existing E1–E6 stock turns
   if (!directorTicket || directorTicket.schemaVersion !== 1 ||
       !isUuid(directorTicket.ticketId) ||
