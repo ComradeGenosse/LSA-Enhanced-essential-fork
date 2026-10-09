@@ -177,6 +177,32 @@ class Program
         Check(!admission.HasActive,"safety veto frees global reservation");
         proof.PlayerTurnIdle=true;
         Check(admission.Handle(req).Status=="busy","failed native ticket cannot replay after priority change");
+        var playing=Request(24);var stagedProof=ReadyProof(playing);
+        var staged=new DirectorAdmission(()=>now,(r,stage)=>
+            stage=="complete" ? DirectorC06Policy.CurrentPlayback(r,stagedProof)
+                              : DirectorC06Policy.Safe(r,stagedProof),
+            ()=>host,()=>world,true);
+        Check(staged.Handle(playing).Status=="reserved","idle owner permits real ticket reserve");
+        Check(staged.Handle(Request(24,"submit")).Status=="submitted","idle at submit");
+        Check(staged.BindActualTuple(playing.TicketId,"17","essential-real-turn",7,3),"idle at exact tuple binding");
+        stagedProof.OwnerIdle=false;stagedProof.EssentialTurnIdle=false;stagedProof.PlaybackIdle=false;
+        Check(!DirectorC06Policy.Safe(playing,stagedProof) &&
+            DirectorC06Policy.CurrentPlayback(playing,stagedProof),
+            "actively speaking is not idle but retains valid owner/currentness");
+        Check(staged.Complete(playing.TicketId,"17","essential-real-turn",7,3,true,false,true,true),
+            "matching complete actual playback can be acknowledged while Essential no longer idle");
+        var takeover=Request(25),takeoverProof=ReadyProof(takeover);
+        var interrupted=new DirectorAdmission(()=>now,(r,stage)=>
+            stage=="complete" ? DirectorC06Policy.CurrentPlayback(r,takeoverProof)
+                              : DirectorC06Policy.Safe(r,takeoverProof),
+            ()=>host,()=>world,true);
+        Check(interrupted.Handle(takeover).Status=="reserved","player takeover fixture reserve");
+        Check(interrupted.Handle(Request(25,"submit")).Status=="submitted","player takeover fixture submit");
+        Check(interrupted.BindActualTuple(takeover.TicketId,"17","interrupted-turn",8,3),"player takeover fixture exact tuple");
+        takeoverProof.PlayerTurnVersion++;
+        Check(!interrupted.Complete(takeover.TicketId,"17","interrupted-turn",8,3,true,false,true,true),
+            "changed player turn makes even complete playback receipt inadmissible");
+        Check(!interrupted.HasActive,"player priority takeover frees exact native reservation");
     }
     static void ChannelRoundtrip()
     {
