@@ -1,3 +1,4 @@
+import {assertDirectorSpeechDecision} from '../perception/directorDecisionGuard.mjs';
 const PLAYER_SOURCES = new Set(['player_text', 'player_mic']);
 
 function terminalForNativeEvent(event) {
@@ -274,6 +275,8 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
               if (!mode) throw new Error('stream_mode_missing_before_segment');
               if (streamMode && streamMode !== mode) throw new Error('stream_mode_changed');
               streamMode = mode;
+              if (turn.directorTicket || source === 'scene_director')
+                assertDirectorSpeechDecision({command:''}, {source,directorTicket:turn.directorTicket,streamMode:mode});
               if (mode === 'dialogue_only') {
                 streamedSegments.push(segment);
                 metrics?.count('segmentCount');
@@ -304,6 +307,9 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
         ({ signal, timeoutMs, telemetry, dialogueAttempt }) => services.decide({ identity, context: { ...context, source }, source,knowledgeProjection:turn.knowledgeProjection,knowledgeDelivery:turn.knowledgeDelivery,
           input: isPlayer ? finalInput : '', history: priorHistory, signal, timeoutMs, telemetry, dialogueAttempt }));
     }
+    // Validate the PS6 passive-speech restriction before the stock action
+    // validator or output_transcript, which can synchronously dispatch effects.
+    assertDirectorSpeechDecision(decision,{source,directorTicket:turn.directorTicket,streamMode});
     recordReasoningSuccess(decision);
     check();
     transition('decision_validation');
