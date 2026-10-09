@@ -6,6 +6,7 @@ on:
       - main
     paths:
       - 'lsa-essential-e1-candidate/**'
+      - 'native/**'
       - 'tools/isolated-offline-tests/**'
       - '.github/workflows/lsa-v1-offline.yml'
   workflow_dispatch:
