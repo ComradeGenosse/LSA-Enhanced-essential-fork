@@ -12,6 +12,7 @@ namespace Rage {
 namespace Rage.Native {
     public static class NativeFunction {
         public static int Reads,Effects;
+        public static bool Scripted,ThrowSafetyRead;
         static IntPtr zone=Marshal.StringToHGlobalAnsi("ZONE1");
         public static T CallByName<T>(string name,params object[] args) where T:struct {
             Reads++;object result;
@@ -20,6 +21,11 @@ namespace Rage.Native {
                 case "IS_PED_IN_ANY_VEHICLE":result=((Rage.Ped)args[0]).CurrentVehicle!=null;break;
                 case "IS_PED_INJURED":result=((Rage.Ped)args[0]).Health<100;break;
                 case "IS_PED_RUNNING":case "IS_PED_WALKING":case "GET_IS_VEHICLE_ENGINE_RUNNING":result=false;break;
+                case "IS_CUTSCENE_ACTIVE":case "IS_CUTSCENE_PLAYING":
+                case "IS_PLAYER_SWITCH_IN_PROGRESS":case "GET_MISSION_FLAG":
+                case "NETWORK_IS_SESSION_ACTIVE":
+                    if(ThrowSafetyRead)throw new Exception("GTA scripted-state read failure");
+                    result=Scripted;break;
                 case "GET_NAME_OF_ZONE":result=zone;break;
                 case "GET_INTERIOR_FROM_ENTITY":result=0;break;
                 case "HAS_ENTITY_CLEAR_LOS_TO_ENTITY_IN_FRONT":result=true;break;
@@ -36,7 +42,7 @@ namespace LosSantosAlive.Integrations {
     public interface IIntegration {string Id{get;}bool IsAvailable{get;}void Initialize();void Update();void Shutdown();void EnrichActor(Rage.Ped p,LosSantosAlive.Context.ActorContext c);void OnPedControlChanged(Rage.Ped p,bool controlled);void OnNpcActionExecuted(Rage.Ped p,string action,bool succeeded);}
 }
 namespace LosSantosAlive.NPC {
-    public class NpcState {public bool InDirectedInteraction,FollowPlayerOnFoot,FollowPaused;}
+    public class NpcState {public bool InDirectedInteraction,HasActiveReflex,FollowPlayerOnFoot,FollowPaused;}
     public static class NpcStateStore {public static int Creates;public static NpcState Sampled;public static NpcState TryGetState(Rage.Ped p)=>Sampled;}
     public static class NpcTargeting {public static Rage.Ped Conversation;public static Rage.Ped GetPlayerConversationPed()=>Conversation;public static Rage.Ped GetCurrentSpeakerPed()=>null;}
 }
