@@ -59,3 +59,26 @@ test('C05 passive collection opt-in never changes ACT mode or enables dialogue d
  for(const mode of ['off','shadow','on'])for(const value of [undefined,false,true,'true',1]){const config=normalizeActivityConfig({mode,dialogueReceipts:value});assert.equal(config.mode,mode);assert.equal(config.dialogue,false);assert.equal(config.dialogueReceipts===true,value===true);}
  assert.equal(normalizeActivityConfig().dialogueReceipts,undefined);
 });
+
+import {readFile} from 'node:fs/promises';
+import {verifyPerceptionContract} from '../tools/verifyPerceptionContract.mjs';
+import {verifyNativeContract} from '../tools/verifyNativeContract.mjs';
+import {createHash} from 'node:crypto';
+test('C05 closed templates cover every pinned native registry action with handler-only semantics',async()=>{
+ const catalog=JSON.parse(await readFile(new URL('../../docs/research/domains/essential/essential-action-catalog.json',import.meta.url),'utf8'));
+ const pin=await verifyPerceptionContract();assert.equal(pin.dllSha256,catalog.pins.essentialDll);
+ assert.equal((await verifyNativeContract(pin.dllSha256)).metadataSha256,catalog.pins.nativeMetadata);
+ assert.equal(createHash('sha256').update(await readFile(new URL('../upstream/server.bundle.mjs',import.meta.url))).digest('hex'),catalog.pins.stockBundle);
+ const rows=catalog.actions.filter(row=>row.sourceRegistrar);assert.equal(rows.length,65);assert.equal(new Set(rows.map(row=>row.canonical)).size,65);
+ for(const row of rows)for(const accepted of [true,false]){
+  const inputs=receiptFixture();Object.assign(inputs.receipts[0],{canonicalAction:row.canonical,state:accepted?'HANDLER_ACCEPTED':'FAILED',evidence:accepted?'handler_only':'none',reason:accepted?'handler_accepted':'handler_failed'});
+  const result=project(inputs);assert.equal(result.facts.length,1,row.canonical);assert.equal(result.references.length,1);assert.equal(result.facts[0].evidence,accepted?'handler_only':'none');
+  assert.match(result.facts[0].text,accepted?/physical execution or completion was not established/:/does not establish the resulting physical state/);assert.ok(!JSON.stringify(result.facts).includes(inputs.receipts[0].publicationId));
+ }
+});
+test('C05 templates omit the catalog bridge-only entries and unpublished aliases',async()=>{
+ const catalog=JSON.parse(await readFile(new URL('../../docs/research/domains/essential/essential-action-catalog.json',import.meta.url),'utf8'));
+ const bridge=catalog.actions.filter(row=>!row.sourceRegistrar);assert.equal(bridge.length,5);
+ const canonicals=new Set(catalog.actions.filter(row=>row.sourceRegistrar).map(row=>row.canonical));
+ for(const name of [...bridge.map(row=>row.canonical),...catalog.actions.flatMap(row=>row.aliases??[]).filter(name=>!canonicals.has(name))]){const inputs=receiptFixture();inputs.receipts[0].canonicalAction=name;assert.equal(project(inputs).facts.length,0,name);}
+});
