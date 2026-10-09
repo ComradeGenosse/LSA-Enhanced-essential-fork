@@ -10,7 +10,7 @@
       "id": "T01",
       "oracle": "PS and ACT retain the exact same Ped/lifetime: one captureRef/table entry, distinct consumer accounting, no observer promotion from ACT.",
       "originalHarness": "Native intelligence unit + activities tests.",
-      "status": "mapped_requires_oracle_review",
+      "status": "automated_oracle_verified",
       "candidateEvidence": [
         "native/intelligence/tests/Program.cs",
         "native/intelligence/integration-tests/Program.cs",
@@ -19,13 +19,20 @@
         "lsa-essential-e1-candidate/tests/host-context.test.mjs",
         "lsa-essential-e1-candidate/tests/observer-index.test.mjs"
       ],
-      "note": "Candidate harnesses are navigation only; inspect concrete assertions and execution results before claiming this complete."
+      "note": "Verified by production native EntityAnchors test: same retained physical Ped returns identical captureRef to PS and ACT; consumers count independently; ACT-only retention cannot set observer. Windows native intelligence suite passed 115 assertions in run 37988428015. No GTA claim.",
+      "reviewedEvidence": [
+        {
+          "file": "native/intelligence/tests/Program.cs",
+          "testPattern": "PS/ACT share native exact anchor|ACT cannot promote its Ped",
+          "oracles": "Exact captureRef and consumer count; no ACT observer promotion"
+        }
+      ]
     },
     {
       "id": "T02",
       "oracle": "Wrapper changed with same full handle/address; address changed; full handle changed; owner lifetime changed: retire old ref, mint new, never resolve old.",
       "originalHarness": "EntityAnchors production source tests.",
-      "status": "mapped_requires_oracle_review",
+      "status": "automated_oracle_verified",
       "candidateEvidence": [
         "native/intelligence/tests/Program.cs",
         "native/intelligence/integration-tests/Program.cs",
@@ -34,13 +41,20 @@
         "lsa-essential-e1-candidate/tests/host-context.test.mjs",
         "lsa-essential-e1-candidate/tests/observer-index.test.mjs"
       ],
-      "note": "Candidate harnesses are navigation only; inspect concrete assertions and execution results before claiming this complete."
+      "note": "Verified by production EntityAnchors tests for wrapper replacement at the same full handle/address and changes to full handle, address, and owner lifetime. Old refs become unresolved with new captureRefs. Windows native suite passed in run 37988428015.",
+      "reviewedEvidence": [
+        {
+          "file": "native/intelligence/tests/Program.cs",
+          "testPattern": "same handle/address new retained object|address change retires original|full native handle change|retired owner lifetime",
+          "oracles": "Original captureRef cannot be reused for changed wrapper/handle/address/owner"
+        }
+      ]
     },
     {
       "id": "T03",
       "oracle": "256 global refs, 16 observers, 32 ACT refs: reject overflow; conversation priority/demotion/return stays atomic and preserves retained lifetimes.",
       "originalHarness": "Intelligence integration/ACT tests.",
-      "status": "mapped_requires_oracle_review",
+      "status": "automated_oracle_verified",
       "candidateEvidence": [
         "native/intelligence/tests/Program.cs",
         "native/intelligence/integration-tests/Program.cs",
@@ -49,13 +63,25 @@
         "lsa-essential-e1-candidate/tests/host-context.test.mjs",
         "lsa-essential-e1-candidate/tests/observer-index.test.mjs"
       ],
-      "note": "Candidate harnesses are navigation only; inspect concrete assertions and execution results before claiming this complete."
+      "note": "Verified via 256-entry global cap, 16-observer cap, ACT 32-target cap, and full-capacity conversation priority/demotion/return with lifetime-preserving captureRefs, including real Update and pipe transition integration stubs. Windows suites passed 115 intelligence and 86 host assertions in run 37988428015.",
+      "reviewedEvidence": [
+        {
+          "file": "native/intelligence/tests/Program.cs",
+          "testPattern": "anchor cap|observer cap|ACT 32 target references cap|conversation gets priority",
+          "oracles": "Independent global/observer/ACT bounds and identity-preserving demotion"
+        },
+        {
+          "file": "native/intelligence/integration-tests/Program.cs",
+          "testPattern": "conversation NPC takes priority|transport sends conversation promotion|returning conversation",
+          "oracles": "Actual Update and pipe admit/demote in bounded order"
+        }
+      ]
     },
     {
       "id": "T04",
       "oracle": "Expiry, owner revoke, entity deletion and host shutdown fan out one retirement; subscribers/indexes release; duplicate shutdown is harmless.",
       "originalHarness": "Intelligence integration, P2 lifecycle/runtime tests.",
-      "status": "mapped_requires_oracle_review",
+      "status": "automated_oracle_verified",
       "candidateEvidence": [
         "native/intelligence/tests/Program.cs",
         "native/intelligence/integration-tests/Program.cs",
@@ -64,7 +90,14 @@
         "lsa-essential-e1-candidate/tests/host-context.test.mjs",
         "lsa-essential-e1-candidate/tests/observer-index.test.mjs"
       ],
-      "note": "Candidate harnesses are navigation only; inspect concrete assertions and execution results before claiming this complete."
+      "note": "Verified by retained invalidity/expiry, one owner-revoke terminal, event subscriber fault isolation and counter, repeated revoke idempotence, and host shutdown Clear; old captureRef is unresolved. Windows intelligence suite passed 115 assertions in run 37988428015.",
+      "reviewedEvidence": [
+        {
+          "file": "native/intelligence/tests/Program.cs",
+          "testPattern": "retained invalid|anchor expiry|owner revocation fans out once|host shutdown clears remaining",
+          "oracles": "One retirement release despite invalid/expired/revoked/shutdown and throwing optional subscriber"
+        }
+      ]
     },
     {
       "id": "T05",
