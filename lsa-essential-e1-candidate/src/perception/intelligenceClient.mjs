@@ -92,8 +92,46 @@ export class IntelligenceClient {
     }catch{return false;}
   }
 
+  // One outstanding native request per exact ticket; no implicit retries.
+  // Negative/late/ambiguous receipts never become Essential authorization.
+  requestDirector(args,{timeoutMs=900}={}) {
+    const ticketId=args?.ticket?.ticketId;
+    if(typeof ticketId!=='string' || !Number.isSafeInteger(timeoutMs) ||
+       timeoutMs<1 || timeoutMs>1500 || this.directorPending.size>=32 ||
+       this.directorPending.has(ticketId)) return Promise.resolve(null);
+    return new Promise(resolve=>{
+      const finish=value=>{
+        const entry=this.directorPending.get(ticketId);
+        if(!entry || entry.resolve!==finish)return;
+        this.directorPending.delete(ticketId);
+        clearTimeout(entry.timeout);
+        resolve(value);
+      };
+      const timeout=setTimeout(()=>finish(null),timeoutMs);
+      timeout.unref?.();
+      this.directorPending.set(ticketId,{resolve:finish,timeout,operation:args.operation});
+      if(!this.sendDirectorPreview(args))finish(null);
+    });
+  }
+  acceptDirectorResponse(payload) {
+    if(!payload || this.runtime.directorRequestVersion!==1)return false;
+    const pending=this.directorPending.get(payload.ticketId);
+    if(!pending)return false;
+    const allowed={
+      reserve:['reserved','busy','invalid','unsafe','stale'],
+      submit:['submitted','busy','invalid','unsafe','stale'],
+      cancel:['cancelled','not_found','invalid','unsafe','stale'],
+    }[pending.operation];
+    pending.resolve(allowed?.includes(payload.status) ?
+      Object.freeze({ticketId:payload.ticketId,status:payload.status}) : null);
+    return true;
+  }
+  cancelDirectorRequests() {
+    for(const item of [...this.directorPending.values()])item.resolve(null);
+  }
+
   constructor(config,{connect=options=>net.createConnection(options),now,situationFor,report=summary=>console.info('[PS] companion_shadow '+JSON.stringify(summary)),telemetry=()=>{}}={}) {
-    this.knowledgeListeners=new Set();this.config=config;this.connect=connect;this.runtime=new ShadowRuntime({mode:config.mode,now,situationFor});this.report=report;this.telemetry=telemetry;this.closed=false;this.socket=null;this.lastReport=0;
+    this.knowledgeListeners=new Set();this.config=config;this.connect=connect;this.runtime=new ShadowRuntime({mode:config.mode,now,situationFor});this.report=report;this.telemetry=telemetry;this.closed=false;this.socket=null;this.lastReport=0;this.directorPending=new Map();
   }
   persist(event,data={}) { try { this.telemetry(event,data); } catch {} }
   summary(finalSnapshot=false) {
@@ -129,7 +167,7 @@ export class IntelligenceClient {
       for(let n=0;n<32 && frames.length;n++) {
         let v;try {v=JSON.parse(frames.shift());} catch {fail();return;}
         if(!hello && v?.type!=='hello' || hello && v?.type==='hello') {fail();return;}
-        const accepted=this.runtime.ingest(v,{authenticated:true});this.notifyKnowledgeInvalidation();
+        const accepted=this.runtime.ingest(v,{authenticated:true});if(accepted && v?.type==='director_response')this.acceptDirectorResponse(v.payload);this.notifyKnowledgeInvalidation();
         if(!hello && !accepted || !this.runtime.epoch) {fail();return;}
         if(!hello) { hello=true;this.persist('intelligence_status',{stage:'initialized'}); }
       }
@@ -152,7 +190,7 @@ export class IntelligenceClient {
     socket.on('close',()=>{
       if(hello) this.emitReport(true);
       this.persist('intelligence_status',{stage:'disconnected'});
-      if(this.work) clearImmediate(this.work);this.work=null;frames=[];this.socket=null;this.runtime.reset('disconnect');this.notifyKnowledgeInvalidation();if(!this.closed) this.retry=setTimeout(()=>this.start(),1000).unref();
+      if(this.work) clearImmediate(this.work);this.work=null;frames=[];this.cancelDirectorRequests();this.socket=null;this.runtime.reset('disconnect');this.notifyKnowledgeInvalidation();if(!this.closed) this.retry=setTimeout(()=>this.start(),1000).unref();
     });
     this.watch=setInterval(()=>{
       this.runtime.expire();this.runtime.refreshSalience();this.notifyKnowledgeInvalidation();if(!this.runtime.epoch && hello) fail();
@@ -165,7 +203,7 @@ export class IntelligenceClient {
     this.helloDeadline=setTimeout(()=>{if(!hello) fail();},3000).unref();socket.once('close',()=>clearTimeout(this.helloDeadline));
   }
   stop() {
-    this.closed=true;clearTimeout(this.retry);clearInterval(this.watch);clearTimeout(this.helloDeadline);if(this.work) clearImmediate(this.work);
+    this.cancelDirectorRequests();this.closed=true;clearTimeout(this.retry);clearInterval(this.watch);clearTimeout(this.helloDeadline);if(this.work) clearImmediate(this.work);
     if(this.socket) this.socket.destroy(); else if(this.runtime.epoch) {this.emitReport(true);this.runtime.reset('disconnect');this.notifyKnowledgeInvalidation();}
   }
 }
