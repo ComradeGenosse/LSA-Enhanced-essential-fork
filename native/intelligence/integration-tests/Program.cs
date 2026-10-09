@@ -59,6 +59,27 @@ class Program
         Check(!c06probe.PlayerTurnSourceCurrent&&!c06probe.EssentialTurnKnown&&
               !c06probe.ResponseGrantCurrent&&!DirectorC06Policy.Safe(c06request,c06probe),
               "Core host never claims C06/player-turn or PS3 permission from anchor identity");
+        // Pinned EssentialMicState is an independent read-only native source.
+        // No synthetic "idle" if the private field is unavailable/busy.
+        Set(integration,"directorMic",new LSA.PromotedCharacters.EssentialMicState());
+        LSA.PromotedCharacters.EssentialMicState.Supported=true;
+        LSA.PromotedCharacters.EssentialMicState.Idle=true;
+        var micIdle=(DirectorC06Policy.Snapshot)integration.GetType().GetMethod(
+            "ReadDirectorC06",BindingFlags.NonPublic|BindingFlags.Instance).Invoke(integration,new object[]{c06request});
+        Check(micIdle.MicStateKnown&&micIdle.MicIdle&&!DirectorC06Policy.Safe(c06request,micIdle),
+              "pinned Essential native microphone empty is a known but insufficient C06 fact");
+        LSA.PromotedCharacters.EssentialMicState.Idle=false;
+        var micBusy=(DirectorC06Policy.Snapshot)integration.GetType().GetMethod(
+            "ReadDirectorC06",BindingFlags.NonPublic|BindingFlags.Instance).Invoke(integration,new object[]{c06request});
+        Check(micBusy.MicStateKnown&&!micBusy.MicIdle&&!DirectorC06Policy.Safe(c06request,micBusy),
+              "player microphone busy vetoes Director admission");
+        LSA.PromotedCharacters.EssentialMicState.Supported=false;
+        var micUnknown=(DirectorC06Policy.Snapshot)integration.GetType().GetMethod(
+            "ReadDirectorC06",BindingFlags.NonPublic|BindingFlags.Instance).Invoke(integration,new object[]{c06request});
+        Check(!micUnknown.MicStateKnown&&!micUnknown.MicIdle&&!DirectorC06Policy.Safe(c06request,micUnknown),
+              "missing source-pinned Essential microphone field never means idle");
+        LSA.PromotedCharacters.EssentialMicState.Supported=true;
+        LSA.PromotedCharacters.EssentialMicState.Idle=true;
         owned=false;
         var ownerGone=(DirectorC06Policy.Snapshot)integration.GetType().GetMethod(
             "ReadDirectorC06",BindingFlags.NonPublic|BindingFlags.Instance).Invoke(integration,new object[]{c06request});
