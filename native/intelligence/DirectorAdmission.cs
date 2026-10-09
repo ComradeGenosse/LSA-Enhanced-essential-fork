@@ -26,7 +26,7 @@ namespace LSA.Intelligence
         {
             public Request Request;
             public long ExpiresAt;
-            public bool Used;
+            public bool Used,NativePlaybackStarted;
             public string TurnId;
             public int GenerationId,SessionNonce;
             public string PedId;
@@ -152,12 +152,30 @@ namespace LSA.Intelligence
                 !r.Used||r.TurnId!=null||clock()>=r.ExpiresAt||
                 string.IsNullOrWhiteSpace(pedId)||!Key(turnId)||generationId<0||nonce<=0)
                 return false;
-            if(!Safe(r.Request,"bind"))return false;
+            if(!Safe(r.Request,"bind")) {
+                pending.Remove(ticket);activeTicket=null;return false;
+            }
             r.PedId=pedId;r.TurnId=turnId;r.GenerationId=generationId;r.SessionNonce=nonce;
             // Ticket TTL guards pre-turn admission, not actual native TTS.
             // A separately bounded playback lease prevents a stuck turn from
             // holding the single global reservation forever.
             r.PlaybackExpiresAt=clock()+120000;
+            return true;
+        }
+        // Separate, original-tuple native started receipt. A later terminal
+        // callback cannot invent that a playback actually started.
+        internal bool NotePlaybackStarted(string ticket,string pedId,string turnId,int generationId,int nonce)
+        {
+            Reservation r;
+            if(ticket!=activeTicket || !pending.TryGetValue(ticket,out r) ||
+                !r.Used || r.TurnId==null || r.NativePlaybackStarted ||
+                r.PedId!=pedId || r.TurnId!=turnId ||
+                r.GenerationId!=generationId || r.SessionNonce!=nonce ||
+                clock()>=r.PlaybackExpiresAt)return false;
+            if(!Safe(r.Request,"playback_started")) {
+                pending.Remove(ticket);activeTicket=null;return false;
+            }
+            r.NativePlaybackStarted=true;
             return true;
         }
         internal bool Complete(string ticket,string pedId,string turnId,int generationId,int nonce,
@@ -171,7 +189,7 @@ namespace LSA.Intelligence
             pending.Remove(ticket);activeTicket=null;
             // Only a matching native complete-playback receipt permits a
             // separate, checked PS3 ps6_ticket acknowledgement.
-            return withinPlaybackLease&&complete&&!interrupted&&hadAudio&&playbackStarted&&Safe(r.Request,"complete");
+            return withinPlaybackLease&&r.NativePlaybackStarted&&complete&&!interrupted&&hadAudio&&playbackStarted&&Safe(r.Request,"complete");
         }
     }
 }
