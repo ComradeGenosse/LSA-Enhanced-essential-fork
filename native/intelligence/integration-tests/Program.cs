@@ -41,6 +41,31 @@ class Program
         PerceptionSystem.Snapshot=null;Tick(integration);Check(integration.IsAvailable,"optional snapshot absence preserves adapter");Check(!((Dictionary<string,bool>)Get(integration,"capabilities"))["snapshot"],"snapshot unavailable reported");
         Check(integration.UpdateCalls==1&&integration.CompletedUpdates==1&&integration.RuntimeStatus().Contains("shutdown_reason=none"),"completed production update records entry and completion");
         var anchors=(EntityAnchors)Get(integration,"anchors");Check(anchors.Count==2&&anchors.ObserverCount==1,"player and owned conversation baseline");
+        // The optional Director probe reads live existing PS/P2 capture refs,
+        // but cannot manufacture a source-pinned C-06 busy or PS3 grant proof.
+        var c06speaker=anchors.Current.Single(a=>a.Kind=="ped");
+        var c06player=anchors.Current.Single(a=>a.Kind=="player");
+        var c06request=new DirectorAdmission.Request {
+            HostRunId=((LSA.PromotedCharacters.HostContext)Get(integration,"host")).HostRunId,
+            WorldEpoch=((LSA.PromotedCharacters.HostContext)Get(integration,"host")).WorldEpoch,
+            SpeakerCaptureRef=c06speaker.CaptureRef,PlayerCaptureRef=c06player.CaptureRef,
+            OwnerIncarnationId=lifetime,ProofRevision=1,PlayerTurnVersion=0,PolicyVersion=1
+        };
+        var c06probe=(DirectorC06Policy.Snapshot)integration.GetType().GetMethod(
+            "ReadDirectorC06",BindingFlags.NonPublic|BindingFlags.Instance).Invoke(integration,new object[]{c06request});
+        Check(c06probe.SpeakerAnchorCurrent && c06probe.SpeakerOwned && c06probe.SpeakerObserver &&
+              c06probe.PlayerAnchorCurrent && c06probe.PlayerIsLocal && c06probe.OwnerProofCurrent,
+              "real Core host reads the exact current owned observer and local player");
+        Check(!c06probe.PlayerTurnSourceCurrent&&!c06probe.EssentialTurnKnown&&
+              !c06probe.ResponseGrantCurrent&&!DirectorC06Policy.Safe(c06request,c06probe),
+              "Core host never claims C06/player-turn or PS3 permission from anchor identity");
+        owned=false;
+        var ownerGone=(DirectorC06Policy.Snapshot)integration.GetType().GetMethod(
+            "ReadDirectorC06",BindingFlags.NonPublic|BindingFlags.Instance).Invoke(integration,new object[]{c06request});
+        Check(!ownerGone.OwnerProofCurrent&&!DirectorC06Policy.Safe(c06request,ownerGone),
+              "P2 association retired between admission checks cannot grant speech");
+        owned=true;
+
         Check(sensors.Counters.Count==0,"initial baseline no events");
         var far=new Ped {Handle=3,MemoryAddress=new IntPtr(3),Position=new Vector3 {X=1000}};
         PerceptionSystem.Snapshot=new PerceptionSnapshot {GameTime=Game.GameTime-2000,AllPeds=new[]{far}};Tick(integration);Check(anchors.Count==2,"stale snapshot ignored");
