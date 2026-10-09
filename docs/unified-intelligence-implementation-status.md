@@ -694,3 +694,14 @@ Expanded the existing actual early-TTS partial-PCM negative fixture to separatel
 Validation: all five focused T64 fixtures passed. Full normal-Node isolated offline regression passed 649 assertions across 63 files; the actual active request suite passed 37 cases. git diff --check passed. Production source/payload unchanged; no new build/install/activation or GTA acceptance claimed. Aggregate-process Node crash limitation remains open.
 
 Next: remaining individual baseline acceptance oracles and fresh native/build closure, then bounded Phase 13a on the same ticket/Essential/frozen-frame/playback architecture. v1.0 goal remains active; deferred phases remain outside current implementation scope.
+
+
+## Checkpoint 66: exact terminal acknowledgements through actual retries
+
+Closed PR21 T65's automated oracle with six actual active PS2/PS3/stock-controller fixtures: retry success and exhausted HTTP failures in buffered, structured-streaming and early-TTS modes. Both attempts send identical serialized bodies and observe zero acknowledgement calls before provider execution; only the final successful/failed result reports delivered/rejected exactly once for original captured decision keys. Success commits assistant history, failure does not; genuine user input is committed once, PS6/PS5 entitlements remain untouched and knowledge listeners are released. No production retry/lifecycle code changed.
+
+Strengthened existing refusal/incomplete/shape-invalid fixtures to inspect the real ledger acknowledgement trace directly, and added syntactically invalid JSON. Each terminal failure reports rejected only for original keys and consumes none. Combined direct active-ledger fetch-start/final-result traces and the inspected existing preview/prepare/pruning one-shot delivery tests also close T63's automated oracle. The audit register now records T63/T64/T65 as individually verified; other requirements/gates are not promoted by an aggregate count.
+
+Validation: focused retry/output-failure matrix passed all ten cases. Complete normal-Node isolated offline regression passed 656 assertions across 63 files; git diff --check passed. Production source and payload unchanged, so no fresh production build/install or physical acceptance is claimed. Aggregate-process Node crash limitation remains open.
+
+Remaining: other individual baseline oracles, complete matching native/build gate refresh, then Phase 13a checked speech tickets/intake/empty effects/full-playback lifecycle. Physical MP5/MP6/MP13a gates remain external; conditional gaze and all deferred phases retain their user-defined scope. v1.0 objective remains active.

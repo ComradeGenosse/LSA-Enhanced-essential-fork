@@ -91,10 +91,10 @@ for(const fault of ['build_unavailable','host_mismatch','world_mismatch','captur
 });
 
 
-for(const fault of ['refusal','incomplete','malformed'])test(`real active ${fault} never acknowledges perception delivery`,async t=>{
- const f=factualFixture();let outcome=null;
+for(const fault of ['refusal','incomplete','malformed','invalid_json'])test(`real active ${fault} never acknowledges perception delivery`,async t=>{
+ const f=factualFixture();let outcome=null;const calls=[],keys=[...f.ps.salience.ledger.values()].map(row=>row.decisionKey),acknowledge=f.ps.salience.acknowledge.bind(f.ps.salience);f.ps.salience.acknowledge=(...args)=>{calls.push(args);return acknowledge(...args);};
  const h=await stockHarness('openai',{config:{dialogueKnowledge:{mode:'active'},retry:{enabled:false,maxAttempts:1},persistentIdentity:{enabled:false},promotedCharacters:{enabled:false}},env:{OPENAI_API_KEY:'offline'},fetchImpl:async()=>{
-  const content=fault==='refusal'?{type:'refusal',refusal:'Offline refusal'}:{type:'output_text',text:fault==='malformed'?'{"dialogue":"Hello."}':'{"dialogue":"Hello.","command":""}'};
+  const content=fault==='refusal'?{type:'refusal',refusal:'Offline refusal'}:{type:'output_text',text:fault==='invalid_json'?'{broken':fault==='malformed'?'{"dialogue":"Hello."}':'{"dialogue":"Hello.","command":""}'};
   return new Response(JSON.stringify({status:fault==='incomplete'?'incomplete':'completed',output:[{type:'message',content:[content]}]}),{headers:{'content-type':'application/json'}});
  }});
  h.runtime.intelligence=f.client;h.runtime.dialogueKnowledgeBuildSupported=true;
@@ -102,7 +102,7 @@ for(const fault of ['refusal','incomplete','malformed'])test(`real active ${faul
  h.runtime.services.speak=async()=>{throw new Error('Invalid reasoning must not reach speech');};
  const session=await h.openAIControllerSession({actorContext:f.actor});t.after(()=>session.connection.close());session.autoNativeAcks();h.context.failedInput={pedId:'17',speaker:f.actor,text:'What happened?'};
  const turn=await h.evaluate('ib(failedInput)');const result=await session.connection.whenSettled({pedId:turn.pedId,turnId:turn.id,generationId:turn.generationId,sessionNonce:1});
- assert.notEqual(result.status,'completed');assert.equal(outcome.outcome,'rejected');assert.equal(outcome.selectedObservations,1);assert.ok([...f.ps.salience.ledger.values()].every(entry=>entry.consumedBy.size===0));assert.equal(f.client.knowledgeListeners.size,0);assert.equal(h.runtime.history.readForSession('17',1).some(item=>item.role==='assistant'),false);
+ assert.notEqual(result.status,'completed');assert.equal(outcome.outcome,'rejected');assert.equal(outcome.selectedObservations,1);assert.deepEqual(calls,keys.map(key=>[key,'ps4_context','rejected']));assert.ok([...f.ps.salience.ledger.values()].every(entry=>entry.consumedBy.size===0));assert.equal(f.client.knowledgeListeners.size,0);assert.equal(h.runtime.history.readForSession('17',1).some(item=>item.role==='assistant'),false);
 });
 for(const terminal of ['contradictory_final','missing_final'])test(`PR21 T64 real active early TTS partial segments cannot acknowledge ${terminal}`,async t=>{
  const f=factualFixture();let pcm=0;
@@ -223,5 +223,30 @@ for(const [mode,options] of [['buffered',{}],['streaming',{structuredStreamingEn
  for(const row of f.ps.salience.ledger.values()){assert.equal(row.consumedBy.has('ps4_context'),true);assert.equal(row.consumedBy.has('ps6_ticket'),false);assert.equal(row.consumedBy.has('ps5_memory'),false);}
  const history=h.runtime.history.readForSession('17',1);
  assert.equal(history.filter(row=>row.role==='user').length,1);assert.equal(history.some(row=>row.role==='assistant'),false);
+ assert.equal(f.client.knowledgeListeners.size,0);
+});
+
+
+for(const [mode,options] of [['buffered',{}],['streaming',{structuredStreamingEnabled:true}],['early TTS',{structuredStreamingEnabled:true,earlyTtsEnabled:true}]])for(const terminal of ['success','exhausted'])test(`PR21 T65 real active ${mode} retry ${terminal} records one terminal acknowledgement`,async t=>{
+ const f=factualFixture(),keys=[...f.ps.salience.ledger.values()].map(row=>row.decisionKey),calls=[],bodies=[];
+ const acknowledge=f.ps.salience.acknowledge.bind(f.ps.salience);
+ f.ps.salience.acknowledge=(...args)=>{calls.push(args);return acknowledge(...args);};
+ let speech=0;
+ const h=await stockHarness('openai',{config:{...options,dialogueKnowledge:{mode:'active'},retry:{enabled:true,maxAttempts:2,baseDelayMs:0,maxDelayMs:0},persistentIdentity:{enabled:false},promotedCharacters:{enabled:false}},env:{OPENAI_API_KEY:'offline'},fetchImpl:async(_url,request)=>{
+  assert.deepEqual(calls,[],'An intermediate attempt acknowledged delivery or final rejection');bodies.push(request.body);
+  if(bodies.length===1 || terminal==='exhausted')return new Response(JSON.stringify({error:{code:'server_error'}}),{status:503,headers:{'content-type':'application/json'}});
+  return response(JSON.parse(request.body).stream);
+ }});
+ h.runtime.intelligence=f.client;h.runtime.dialogueKnowledgeBuildSupported=true;
+ h.runtime.services.speak=async({onPcm})=>{speech++;await onPcm(new Uint8Array([1,2]));return {bytes:2};};
+ const session=await h.openAIControllerSession({actorContext:f.actor});t.after(()=>session.connection.close());session.autoNativeAcks();
+ h.context.retryAckInput={pedId:'17',speaker:f.actor,text:'What happened?'};
+ const turn=await h.evaluate('ib(retryAckInput)');
+ const result=await session.connection.whenSettled({pedId:'17',turnId:turn.id,generationId:turn.generationId,sessionNonce:1});
+ assert.equal(bodies.length,2);assert.equal(bodies[0],bodies[1]);
+ assert.deepEqual(calls,keys.map(key=>[key,'ps4_context',terminal==='success'?'delivered':'rejected']));
+ assert.equal(result.status==='completed',terminal==='success');assert.equal(speech>0,terminal==='success');
+ for(const row of f.ps.salience.ledger.values()){assert.equal(row.consumedBy.has('ps4_context'),terminal==='success');assert.equal(row.consumedBy.has('ps6_ticket'),false);assert.equal(row.consumedBy.has('ps5_memory'),false);}
+ const history=h.runtime.history.readForSession('17',1);assert.equal(history.filter(row=>row.role==='user').length,1);assert.equal(history.some(row=>row.role==='assistant'),terminal==='success');
  assert.equal(f.client.knowledgeListeners.size,0);
 });

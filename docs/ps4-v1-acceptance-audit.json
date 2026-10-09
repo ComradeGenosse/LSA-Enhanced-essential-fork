@@ -809,14 +809,26 @@
       "id": "T63",
       "oracle": "Freeze/render/fetch-start do not ack; valid final reasoning result acks each delivered selected key once.",
       "originalHarness": "RunSequentialTurn + SalienceCache.",
-      "status": "mapped_requires_oracle_review",
+      "status": "automated_oracle_verified",
       "candidateEvidence": [
         "lsa-essential-e1-candidate/tests/knowledge-delivery.test.mjs",
         "lsa-essential-e1-candidate/tests/knowledge-active-integration.test.mjs",
         "lsa-essential-e1-candidate/tests/knowledge-modes.test.mjs",
         "lsa-essential-e1-candidate/tests/knowledge-payload.test.mjs"
       ],
-      "note": "Candidate harnesses are navigation only; inspect concrete assertions and execution results before claiming this complete."
+      "note": "Actual active T64/T65 fixtures assert an empty original-key acknowledgement trace at provider fetch start after P0 freeze/render; exactly one delivered trace follows final valid reasoning. knowledge-delivery fixtures independently exercise preview/prepare/intermediate attempt with zero calls, one-shot final report, whole-item pruning and exact surviving-key acknowledgement. This proves the automated freeze/render/fetch versus final reasoning distinction without replacing the real ledger in provider fixtures.",
+      "reviewedEvidence": [
+        {
+          "file": "lsa-essential-e1-candidate/tests/knowledge-active-integration.test.mjs",
+          "testPattern": "PR21 T64|PR21 T65",
+          "oracles": "Direct real-ledger zero fetch-start acknowledgements and exact once final successful reasoning."
+        },
+        {
+          "file": "lsa-essential-e1-candidate/tests/knowledge-delivery.test.mjs",
+          "testPattern": "selection, preview and failed intermediate attempt never acknowledge delivery|pruning runs only before first send",
+          "oracles": "Preview/prepare/intermediate retry has no acknowledgement; only surviving exact item is delivered once."
+        }
+      ]
     },
     {
       "id": "T64",
@@ -842,14 +854,21 @@
       "id": "T65",
       "oracle": "Retry fails then succeeds: one delivered, no intermediate final rejection; all fail/refusal/invalid JSON: rejected only.",
       "originalHarness": "Provider executor + request integration.",
-      "status": "mapped_requires_oracle_review",
+      "status": "automated_oracle_verified",
       "candidateEvidence": [
         "lsa-essential-e1-candidate/tests/knowledge-delivery.test.mjs",
         "lsa-essential-e1-candidate/tests/knowledge-active-integration.test.mjs",
         "lsa-essential-e1-candidate/tests/knowledge-modes.test.mjs",
         "lsa-essential-e1-candidate/tests/knowledge-payload.test.mjs"
       ],
-      "note": "Candidate harnesses are navigation only; inspect concrete assertions and execution results before claiming this complete."
+      "note": "Actual active buffered/streaming/early-TTS retry success and exhausted cases assert identical serialized bodies across both attempts, no intermediate acknowledgement, exactly one original-key delivered or rejected terminal outcome, independent PS6/PS5 consumption, user history once, assistant history only on success and listener cleanup. Existing refusal/incomplete/shape-invalid cases now assert original-key rejection directly; added syntactically invalid JSON case. Focused ten-case matrix passed; physical gates remain external.",
+      "reviewedEvidence": [
+        {
+          "file": "lsa-essential-e1-candidate/tests/knowledge-active-integration.test.mjs",
+          "testPattern": "PR21 T65|real active (refusal|incomplete|malformed|invalid_json)",
+          "oracles": "Six actual retry cases across three modes plus four terminal output rejection cases."
+        }
+      ]
     },
     {
       "id": "T66",
