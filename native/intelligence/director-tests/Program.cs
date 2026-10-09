@@ -1,0 +1,108 @@
+using System;
+using LSA.Intelligence;
+
+class Program
+{
+    static int assertions;
+    static long now=1000;
+    static bool safe=true;
+    static string host="a1111111-1111-4111-8111-111111111111";
+    static int world=1;
+    static DirectorAdmission New(bool enabled=true)
+    {
+        return new DirectorAdmission(()=>now,r=>safe,()=>host,()=>world,enabled);
+    }
+    static void Check(bool value,string label)
+    {
+        if(!value)throw new Exception(label);
+        assertions++;
+    }
+    static DirectorAdmission.Request Request(int index=1,string operation="reserve")
+    {
+        string ticket="b1111111-1111-4111-8111-"+index.ToString("D12");
+        return new DirectorAdmission.Request{
+            Version=1,Operation=operation,TicketId=ticket,DedupeKey="ps:"+ticket,
+            HostRunId=host,WorldEpoch=world,
+            SpeakerCaptureRef="c1111111-1111-4111-8111-111111111111",
+            PlayerCaptureRef="d1111111-1111-4111-8111-111111111111",
+            OwnerIncarnationId="e1111111-1111-4111-8111-111111111111",
+            ObservationId="f1111111-1111-4111-8111-111111111111",
+            DecisionKey="qualified-ps3-decision",ProofRevision=1,PlayerTurnVersion=2,
+            PolicyVersion=1,ObservationRevision=1,AgeMs=100
+        };
+    }
+    static void Main()
+    {
+        try {Run();Console.WriteLine("PASS "+assertions+" native PS6 admission assertions");}
+        catch(Exception e){Console.Error.WriteLine(e);Environment.ExitCode=1;}
+    }
+    static void Run()
+    {
+        var off=New(false);
+        Check(off.Handle(Request()).Status=="busy","default off rejects reserve");
+        var shell=New();
+        var a=Request();
+        Check(shell.Handle(a).Status=="reserved","reserve valid");
+        Check(shell.HasActive&&shell.PendingCount==1,"one active");
+        Check(shell.Handle(a).Status=="busy","cannot replay reserve");
+        Check(shell.Handle(Request(2)).Status=="busy","only one global turn");
+        Check(shell.Handle(Request(1,"submit")).Status=="submitted","first submit");
+        Check(shell.Handle(Request(1,"submit")).Status=="stale","one use submit");
+        Check(shell.BindActualTuple(a.TicketId,"17","native-turn-1",4,2),"bind real tuple");
+        Check(!shell.BindActualTuple(a.TicketId,"17","native-turn-2",4,2),"cannot rebind");
+        Check(!shell.Complete(a.TicketId,"17","native-turn-1",5,2,true,false,true,true),"wrong generation veto");
+        Check(shell.Complete(a.TicketId,"17","native-turn-1",4,2,true,false,true,true),"matching full playback success");
+        Check(!shell.Complete(a.TicketId,"17","native-turn-1",4,2,true,false,true,true),"once-only terminal");
+        Check(!shell.HasActive&&shell.PendingCount==0,"success releases reservation");
+
+        var expiry=New();
+        a=Request(3);
+        Check(expiry.Handle(a).Status=="reserved","expiry reserve");
+        now+=2000;
+        Check(expiry.Handle(Request(3,"submit")).Status=="stale","pre-admission 2sec ttl");
+        Check(expiry.PendingCount==0,"expired removed");
+
+        now+=60000;
+        for(int n=4;n<8;n++) {
+            safe=false;
+            Check(expiry.Handle(Request(n)).Status=="unsafe","unsafe attempt counts");
+        }
+        safe=true;
+        Check(expiry.Handle(Request(8)).Status=="busy","four failures rate bound");
+        now+=60001;
+        a=Request(9);Check(expiry.Handle(a).Status=="reserved","quota resets after window");
+        var modified=Request(9,"submit");modified.OwnerIncarnationId="a1111111-1111-4111-8111-111111111111";
+        Check(expiry.Handle(modified).Status=="stale","owner change veto");
+        modified=Request(9,"submit");modified.WorldEpoch=2;
+        Check(expiry.Handle(modified).Status=="stale","epoch change veto");
+        world=2;
+        Check(expiry.Handle(Request(9,"submit")).Status=="unsafe","native world change veto");
+        world=1;
+        Check(expiry.PendingCount==0,"unsafe ticket retired");
+
+        var fail=New();
+        a=Request(10);Check(fail.Handle(a).Status=="reserved","failure reserve");
+        Check(fail.Handle(Request(10,"submit")).Status=="submitted","failure submit");
+        Check(fail.BindActualTuple(a.TicketId,"17","native-fail",1,1),"failure bind");
+        Check(!fail.Complete(a.TicketId,"17","native-fail",1,1,true,true,true,true),"interrupted not consumed");
+        Check(!fail.HasActive,"interrupted frees reservation");
+
+        var cancel=New();a=Request(11);
+        Check(cancel.Handle(a).Status=="reserved","cancel reserve");
+        Check(cancel.Handle(Request(11,"cancel")).Status=="cancelled","cancel exact");
+        Check(cancel.Handle(Request(11,"submit")).Status=="stale","cancellation terminal");
+        Check(cancel.Handle(Request(11,"cancel")).Status=="not_found","cancel idempotence");
+
+        var invalid=New();a=Request(12);a.TicketId="malformed";
+        Check(invalid.Handle(a).Status=="invalid","reject malformed UUID");
+        a=Request(13);a.DedupeKey="ps:other";
+        Check(invalid.Handle(a).Status=="invalid","reject dedupe drift");
+        a=Request(14);a.AgeMs=2001;
+        Check(invalid.Handle(a).Status=="invalid","reject expired evidence");
+        a=Request(15);a.Operation="effect";
+        Check(invalid.Handle(a).Status=="invalid","no arbitrary native operation");
+
+        invalid.Reset();Check(!invalid.HasActive,"reset cleanup");
+        invalid.Disable();Check(invalid.Handle(Request(16)).Status=="busy","disable fail closed");
+    }
+}
