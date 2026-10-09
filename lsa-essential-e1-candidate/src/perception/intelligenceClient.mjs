@@ -2,6 +2,7 @@ import { captureKnowledgeInputs, assertKnowledgeCurrent } from '../context/knowl
 import net from 'node:net';
 import { BOUNDS } from './contracts.mjs';
 import { ShadowRuntime } from './shadowRuntime.mjs';
+import {serializeDirectorRequest} from './directorWire.mjs';
 
 const COUNTER_MAX = 2147483647;
 const counter = value => Number.isSafeInteger(value) && value >= 0 ? Math.min(COUNTER_MAX, value) : 0;
@@ -77,6 +78,20 @@ export class IntelligenceClient {
   captureKnowledgeInputs(input) {return captureKnowledgeInputs({...input,perception:this.runtime});}
   assertKnowledgeCurrent(inputs) {return assertKnowledgeCurrent(inputs,this.runtime);}
   acceptPlayerTranscript(input) {return this.runtime.acceptPlayerTranscript(input);}
+  // Preview-only in v1.0's unaccepted native stage: no PS6 decisions are
+  // selected here and the native preview endpoint cannot admit Essential turns.
+  // Future admitted requests MUST use the same closed v1 encoder.
+  sendDirectorPreview(args) {
+    if(this.closed || this.runtime.directorRequestVersion!==1 ||
+        !this.socket || this.socket.destroyed || !this.socket.writable ||
+        this.socket.writableLength>BOUNDS.frameBytes) return false;
+    try {
+      const line=serializeDirectorRequest(args);
+      if(Buffer.byteLength(line)>BOUNDS.frameBytes)return false;
+      return this.socket.write(line)===true;
+    }catch{return false;}
+  }
+
   constructor(config,{connect=options=>net.createConnection(options),now,situationFor,report=summary=>console.info('[PS] companion_shadow '+JSON.stringify(summary)),telemetry=()=>{}}={}) {
     this.knowledgeListeners=new Set();this.config=config;this.connect=connect;this.runtime=new ShadowRuntime({mode:config.mode,now,situationFor});this.report=report;this.telemetry=telemetry;this.closed=false;this.socket=null;this.lastReport=0;
   }
