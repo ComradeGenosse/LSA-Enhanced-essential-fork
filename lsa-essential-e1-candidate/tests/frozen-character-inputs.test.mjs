@@ -19,6 +19,41 @@ test('matching fresh proof releases the captured canon revision and acting direc
   assert.equal(turn.context.actor.characterProfile.canon.name,f.profile.name);assert.equal(turn.context.actor.characterProfile.profileRevision,f.profile.revision);
   assert.equal(turn.speechProfile.instructions.includes('Changed acting'),false);assert.equal(Object.isFrozen(f.inputs.profile.memories),true);
 });
+test('PR21 T28 selected manual memory, personality and relationship remain P0-frozen across an edit; next capture sees revisions',async t=>{
+ const f=await setup(t);
+ const first=await f.store.memory(f.profile.characterId,'create',{
+  expectedRevision:f.profile.revision,
+  patch:{text:'Original promise to meet',category:'promise',importance:90,selectedForContext:true}
+ });
+ const frozen=f.service.captureTurnInputs(f.native,f.a);
+ assert.equal(frozen.profile.memories[0].text,'Original promise to meet');
+ assert.equal(frozen.profile.memories[0].selectedForContext,true);
+ const nextMemory=await f.store.memory(f.profile.characterId,'edit',{
+  memoryId:first.memoryId,expectedRevision:first.profile.revision,
+  patch:{text:'New promise to leave'}
+ });
+ const updated=await f.service.edit(f.profile.characterId,{
+  personality:{description:'Different personality',traits:['bold']},
+  relationship:{state:'friend',description:'New relationship'}
+ },nextMemory.profile.revision);
+ const oldTurn={identity:f.native,characterInputs:frozen,knowledgeFramePreparation:true,
+  context:{actor:f.a,listener:null,systemInstruction:'Essential rules'}};
+ await f.service.prepareTurn(oldTurn,f.verified,f.voice);
+ assert.equal(oldTurn.context.actor.characterProfile.canon.memories[0].text,'Original promise to meet');
+ assert.equal(oldTurn.context.actor.characterProfile.canon.personality.description,f.profile.personality.description);
+ assert.equal(oldTurn.context.actor.characterProfile.canon.relationship.description,f.profile.relationship.description);
+ assert.equal(oldTurn.characterProjection.profile.revision,first.profile.revision);
+ const fresh=f.service.captureTurnInputs(f.native,f.a);
+ assert.equal(fresh.profile.revision,updated.revision);
+ const nextTurn={identity:f.native,characterInputs:fresh,knowledgeFramePreparation:true,
+  context:{actor:f.a,listener:null,systemInstruction:'Essential rules'}};
+ await f.service.prepareTurn(nextTurn,f.verified,f.voice);
+ assert.equal(nextTurn.context.actor.characterProfile.canon.memories[0].text,'New promise to leave');
+ assert.equal(nextTurn.context.actor.characterProfile.canon.personality.description,'Different personality');
+ assert.equal(nextTurn.context.actor.characterProfile.canon.relationship.description,'New relationship');
+ assert.equal(oldTurn.context.actor.characterProfile.canon.memories[0].text,'Original promise to meet');
+});
+
 test('candidate never supplies persistent canon for a mismatched incarnation or revoked proof',async t=>{
   const f=await setup(t);
   const mismatch={identity:f.native,characterInputs:{...f.inputs,claim:{...f.inputs.claim,incarnationId:randomUUID()}},context:{actor:f.a,listener:null,systemInstruction:'Essential rules'}};
