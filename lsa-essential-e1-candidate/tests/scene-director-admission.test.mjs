@@ -82,3 +82,15 @@ test('disabled transition cancels pending; later playback does nothing',()=>{
  assert.equal(c.finish(t.ticketId,tuple,{type:'playback_ended',reason:'completed',wasInterrupted:false,hadAudio:true,playbackStarted:true}),false);
  assert.deepEqual(acks,[]);
 });
+
+test('pre-admission evidence expiry does not retroactively cancel a long successful TTS playback',()=>{
+ const c=harness();
+ const t=c.reserve(p,stamp);
+ assert.equal(c.consume(t.ticketId,stamp),true);
+ assert.equal(c.afterHydration(t.ticketId,stamp),true);
+ assert.equal(c.beforePublication(t.ticketId,stamp),true);
+ assert.equal(c.bindNativeTuple(t.ticketId,stamp,tuple),true);
+ now=140000; // playback completed after original candidate TTL, with exact live host/owner retained
+ assert.equal(c.finish(t.ticketId,tuple,{type:'playback_ended',reason:'completed',wasInterrupted:false,hadAudio:true,playbackStarted:true}),true);
+ assert.deepEqual(acks,[['decision-1','ps6_ticket','delivered']]);
+});
