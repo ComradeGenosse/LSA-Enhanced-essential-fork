@@ -177,7 +177,8 @@ class Program
         Check(!admission.HasActive,"safety veto frees global reservation");
         proof.PlayerTurnIdle=true;
         Check(admission.Handle(req).Status=="busy","failed native ticket cannot replay after priority change");
-        var playing=Request(24);var stagedProof=ReadyProof(playing);
+        var playing=Request(24);
+        var stagedProof=ReadyProof(playing);
         var staged=new DirectorAdmission(()=>now,(r,stage)=>
             stage=="bind" || stage=="complete" ? DirectorC06Policy.CurrentPlayback(r,stagedProof)
                               : DirectorC06Policy.Safe(r,stagedProof),
@@ -192,7 +193,8 @@ class Program
             "actively speaking is not idle but retains valid owner/currentness");
         Check(staged.Complete(playing.TicketId,"17","essential-real-turn",7,3,true,false,true,true),
             "matching complete actual playback can be acknowledged while Essential no longer idle");
-        var takeover=Request(25),takeoverProof=ReadyProof(takeover);
+        var takeover=Request(25);
+        var takeoverProof=ReadyProof(takeover);
         var interrupted=new DirectorAdmission(()=>now,(r,stage)=>
             stage=="bind" || stage=="complete" ? DirectorC06Policy.CurrentPlayback(r,takeoverProof)
                               : DirectorC06Policy.Safe(r,takeoverProof),
