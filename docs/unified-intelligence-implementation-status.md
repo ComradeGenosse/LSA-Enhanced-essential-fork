@@ -880,3 +880,35 @@ Added `PR21 T28 selected manual memory, personality and relationship remain P0-f
 T28 deliberately stays `partial_verified` in the JSON acceptance inventory: its additional end-to-end delayed mic/STT → one old provider request and a subsequent new provider request carrying edited selected memory/relationship is not individually executed. Audit remains **20/81 individually automated-verified** with T28/T30/T31 and one additional requirement partial. Never infer remaining baseline PS4 acceptance or GTA gates from passing total test counts.
 
 The native Phase 13a endpoint remains `DirectorAdmission(enabled:false)` in **rejecting shadow preview**. No source-proven real Essential C-06/player priority version, native PS3 entitled grant admission, actual stock scheduler/tuple/playback callback wiring, or GTA run is yet delivered. Full Phase 6, PS4 and Phase 13a milestone implementation therefore remains incomplete; Phase 10a remains conditional and deferred. No merge, installation, deployment or enabled feature.
+
+## Checkpoint 80: pinned Essential mic proof, source reset fanout and 702/70 clean two-OS validation
+
+The user-selected playable v1.0 scope remains **Phase 6 C-05/C-06, baseline PS4 automated acceptance, and Phase 13a**, with conditional Phase 10a only on a demonstrated existing playback gaze defect. **No other master-plan feature was enabled, merged, deployed or installed.**
+
+### Source changes
+
+- `native/intelligence/IntelligenceIntegration.cs` now constructs the existing `EssentialMicState` **only after** the Core assembly hash pin passes and reads its actual current `Available`/`CanStart` gate on the existing native owner fiber. `MicStateKnown`/ `MicIdle` distinguish source-proven idle, busy and unsupported. A throwing, missing or unsupported reflection source remains an **unknown C-06 veto**; no player-turn version or Essential scheduler idle is inferred from an empty mic. Native host integration tests use a strictly scoped test substitute for idle/busy/unknown and verify none alone authorizes Director speech.
+- Added PS4 **T19** full source `EpisodeCorrelator` regression: successful action callback, playback started/ended with `hadAudio`, and valid report-only native claims never generate spoken text, a player utterance, overheard speech or action completion.
+- Expanded the Windows pipeline to compile and execute **actual P2 owner lifecycle/ACT UX reset source** and the existing **shared HostContext/EntityAnchors contract** (net481). Strengthened source HostContext tests for uint wrap, one backward regression, ordered subscriber fanout, idempotent tick, explicit timeline change and failure-isolated callback propagation. Existing PS integration proves shared adapters do not create a second clock pump.
+
+### Executed current-HEAD validation
+
+[GitHub Actions run 38001446757](https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/actions/runs/38001446757), source SHA `251454c5a555856939d911a813207cc7967eb522`, **completed success on Linux and Windows**:
+
+| Verified stage | Result |
+|---|---|
+| Linux full network-blocked isolated Node regression | **702 passed / 70 files / 0 failed** |
+| Windows full network-blocked isolated Node regression | **702 passed / 70 files / 0 failed** |
+| Focused Phase 13a suites on each platform | **33/33 passed** |
+| Windows ACT native contract suite | **263 assertions passed** |
+| Windows PS/ACT shared native identity suite | **115 assertions passed** |
+| Windows C-11/PS6/C-06 native admission suite | **111 assertions passed** |
+| Windows real P2 native owner lifecycle/reset suite | **157 assertions passed** |
+| Windows shared HostContext/anchor contract suite | **62 assertions passed** |
+| Windows production-source PS host integration stubs | **92 assertions passed** |
+
+Baseline PS4 per-requirement audit now contains **22/81** `automated_oracle_verified`, **4 partial** and **3 explicitly deferred-radio**; 52 mapped items still need direct acceptance review. T19 closed by executed source-level claim checks. T10 stays **partial**: all standalone source contracts pass, but combined RPH/Core-host-owned P2→PS→ACT/UX reset ordering is not demonstrated in the real GTA-loaded host. No aggregate test-count shortcut closes the remaining items.
+
+### Still not the playable milestone
+
+Phase 13a's production Director endpoint remains an explicit `DirectorAdmission(enabled:false)` rejecting **shadow preview**. A current native read of microphone idleness is not the same as a proven player-turn version or real Essential turn acceptance. The **trusted original PS3 grant**, independently current player/text/mic arbitration, authoritative C-06 owner/Essential/reflex state, real source-pinned zero-delay Essential `kb` scheduling and exact native turn/generation/session completion/playback receipt correlation still require implementation and end-to-end validation. Native C-05/C-06 phase completion, remaining PS4 T/G automation, and Windows final pinned production RPH addon binary/payload hash checks remain open. **GTA physical acceptance A33/A34/A39/A40 and PS4 G7 were not executed**. The successful C# test executables are not an actual GTA runtime test. No merge, deployment, installation or enablement was performed.
