@@ -88,7 +88,7 @@ export class IntelligenceClient {
     try {
       const line=serializeDirectorRequest(args);
       if(Buffer.byteLength(line)>BOUNDS.frameBytes)return false;
-      return this.socket.write(line)===true;
+      this.socket.write(line);return true; // Queued, NOT accepted by native; await exact receipt.
     }catch{return false;}
   }
 
