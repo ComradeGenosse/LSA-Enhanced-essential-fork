@@ -233,7 +233,7 @@ namespace LSA.Intelligence
 }
 namespace LSA.SessionIdentity
 {
-    public sealed class RegistrationToken { internal string Epoch; public string IncarnationId; }
+    public sealed class RegistrationToken { internal string Epoch,Handle;internal Rage.Ped Ped; public string IncarnationId; }
     public sealed class NativeIdentityClaim { public string incarnationId; }
     public sealed class ExplicitCharacterSource
     {
@@ -247,7 +247,7 @@ namespace LSA.SessionIdentity
         public RegistrationToken Register(Rage.Ped ped,string sourceKey,string world)
         {
             AssertOwner();
-            var token = new RegistrationToken {Epoch = epoch,IncarnationId=Guid.NewGuid().ToString("D")}; tokens.Add(token); return token;
+            var token = new RegistrationToken {Epoch = epoch,IncarnationId=Guid.NewGuid().ToString("D"),Ped=ped,Handle=ped.Handle.ToString()}; tokens.Add(token); return token;
         }
         public bool Retire(RegistrationToken token)
         {
@@ -255,7 +255,7 @@ namespace LSA.SessionIdentity
             if (ThrowOnRetire) throw new InvalidOperationException("Injected owner retirement failure.");
             return token.Epoch == epoch && tokens.Remove(token);
         }
-        public bool TryResolveCurrent(Rage.Ped ped,out NativeIdentityClaim claim) { AssertOwner(); claim = null; return false; }
+        public bool TryResolveCurrent(Rage.Ped ped,out NativeIdentityClaim claim) { AssertOwner();claim=null;if(ped==null || !ped.Exists() || ped.IsDead)return false;foreach(var token in tokens)if(ReferenceEquals(token.Ped,ped) && token.Handle==ped.Handle.ToString()){claim=new NativeIdentityClaim{incarnationId=token.IncarnationId};return true;}return false; }
     }
     public sealed class SessionIdentityIntegration
     {

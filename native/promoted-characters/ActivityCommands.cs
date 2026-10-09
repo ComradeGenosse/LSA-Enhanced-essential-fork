@@ -27,6 +27,27 @@ namespace LSA.PromotedCharacters
         internal int ActivityFaults => activityFaults;
         internal int ActivityBreakerTrips => activityBreakerTrips;
         internal ActivitySession ActivitySession => activitySession;
+        // Owner-fiber passive resolution through C-02. Never EncounterFor,
+        // registration, acquisition, task dispatch or a handle-only fallback.
+        internal bool ResolveDialogueActor(Dictionary<string,object> annotation,out Ped body)
+        {
+            body=null;
+            try{
+                if(annotation==null || !annotation.ContainsKey("sequence") || !(annotation["sequence"] is int sequence) || !ActivityContracts.DialogueActionAnnotation(annotation,sequence))return false;
+                var binding=(Dictionary<string,object>)annotation["binding"];var context=(Dictionary<string,object>)binding["hostContext"];
+                if((string)context["hostRunId"]!=Host.HostRunId || (int)context["worldEpoch"]!=Host.WorldEpoch)return false;
+                var anchor=Host.Anchors.Resolve((string)binding["captureRef"]);var candidate=anchor?.Entity as Ped;
+                if(anchor==null || anchor.Kind!="ped" || candidate==null || !candidate.Exists() || candidate.IsDead || Convert.ToUInt64(candidate.Handle)!=anchor.Handle || candidate.MemoryAddress!=anchor.Address)return false;
+                if(anchor.OwnerLifetime==null){if(binding.ContainsKey("encounterId"))return false;}
+                else{
+                    if(!binding.ContainsKey("encounterId") || (string)binding["incarnationId"]!=anchor.OwnerLifetime)return false;
+                    bool current=false;
+                    foreach(var owned in PerceptionRoster())if(ReferenceEquals(owned.Ped,candidate) && owned.EncounterId==(string)binding["encounterId"] && owned.Lifetime==(string)binding["incarnationId"] && owned.Current?.Invoke()==true){current=true;break;}
+                    if(!current)return false;
+                }
+                body=candidate;return true;
+            }catch{return false;}
+        }
 
         internal void EnableActivityShadow(string pipeName)
         {

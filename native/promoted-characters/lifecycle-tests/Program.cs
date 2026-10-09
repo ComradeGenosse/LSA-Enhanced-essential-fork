@@ -95,7 +95,7 @@ class Program
     static void Main()
     {
         try {
-            PrimaryOwnerTruth(); DeferredInitialization(); ShutdownOnCoreUpdate(); ResetWithPendingRequest(); ResetAfterP1(); RetireFailure(); ForwardClock(); ActivityIsolation(); ExactEncounterLifetime();
+            PrimaryOwnerTruth(); DeferredInitialization(); ShutdownOnCoreUpdate(); ResetWithPendingRequest(); ResetAfterP1(); RetireFailure(); ForwardClock(); ActivityIsolation(); ExactEncounterLifetime(); DialogueActorResolution();
             Console.WriteLine("P2 production clock recovery and Windows pipe cancellation: " + count + " assertions passed; no game assemblies loaded.");
         } catch (Exception error) { Console.Error.WriteLine(error.GetType().Name + ": " + error.Message); Environment.ExitCode = 1; }
     }
@@ -115,6 +115,30 @@ class Program
         replacement.Handle=13;
         Check(integration.Host.Anchors.Resolve(current.CaptureRef)==null);
         integration.Shutdown();Check(integration.Host.Anchors.Count==0);
+    }
+    static Dictionary<string,object> DialogueAnnotation(PromotedCharactersIntegration integration,string captureRef)
+    {
+        return new Dictionary<string,object>{{"version",1},{"type","dialogue.action.pending"},{"sequence",1},{"dialogueActionVersion",1},{"publicationId",Guid.NewGuid().ToString("D")},{"tuple",new Dictionary<string,object>{{"pedId","40"},{"turnId","turn"},{"generationId",1},{"sessionNonce",1}}},{"binding",new Dictionary<string,object>{{"captureRef",captureRef},{"hostContext",new Dictionary<string,object>{{"hostContextVersion",1},{"hostRunId",integration.Host.HostRunId},{"worldEpoch",integration.Host.WorldEpoch}}}}},{"canonicalAction","waithere"},{"publishedAtMs",100}};
+    }
+    static void DialogueActorResolution()
+    {
+        var integration=Create(out _);Game.LocalPlayer.Character=new Ped{Handle=1,MemoryAddress=new IntPtr(1)};
+        var ped=new Ped{Handle=40,MemoryAddress=new IntPtr(40)};
+        var anchor=integration.Host.Anchors.Retain(ped,40,new IntPtr(40),"ped",null,()=>ped.Exists() && ped.Handle==40 && ped.MemoryAddress==new IntPtr(40),integration.Host.MonotonicMs,false,LSA.Intelligence.AnchorConsumer.TurnActor);
+        var annotation=DialogueAnnotation(integration,anchor.CaptureRef);int nativeBefore=Game.NativeCalls;
+        Check(integration.ResolveDialogueActor(annotation,out var resolved) && ReferenceEquals(resolved,ped));
+        Check(Encounters(integration).Count==0 && anchor.OwnerLifetime==null && Game.NativeCalls==nativeBefore);
+        var binding=(Dictionary<string,object>)annotation["binding"];binding["encounterId"]=Guid.NewGuid().ToString("D");binding["incarnationId"]=Guid.NewGuid().ToString("D");Check(!integration.ResolveDialogueActor(annotation,out resolved) && resolved==null);binding.Remove("encounterId");binding.Remove("incarnationId");
+        var context=(Dictionary<string,object>)binding["hostContext"];context["worldEpoch"]=2;Check(!integration.ResolveDialogueActor(annotation,out resolved));context["worldEpoch"]=1;
+        integration.Host.Anchors.Retire(anchor.CaptureRef);Check(!integration.ResolveDialogueActor(annotation,out resolved));
+        var ownedPed=new Ped{Handle=50,MemoryAddress=new IntPtr(50)};
+        var owned=(Encounter)typeof(PromotedCharactersIntegration).GetMethod("EncounterFor",BindingFlags.Instance|BindingFlags.NonPublic).Invoke(integration,new object[]{ownedPed});
+        owned.OwnerAlias="promoted."+Guid.NewGuid().ToString("D");owned.Registration=SessionIdentityIntegration.Current.Owner.Register(ownedPed,owned.OwnerAlias,WorldId);
+        typeof(PromotedCharactersIntegration).GetMethod("RetainEncounter",BindingFlags.Instance|BindingFlags.NonPublic).Invoke(integration,new object[]{owned});
+        var ownedAnnotation=DialogueAnnotation(integration,owned.CaptureRef);var ownedBinding=(Dictionary<string,object>)ownedAnnotation["binding"];
+        Check(!integration.ResolveDialogueActor(ownedAnnotation,out resolved));ownedBinding["encounterId"]=owned.Id;ownedBinding["incarnationId"]=owned.Registration.IncarnationId;
+        Check(integration.ResolveDialogueActor(ownedAnnotation,out resolved) && ReferenceEquals(resolved,ownedPed));ownedBinding["incarnationId"]=Guid.NewGuid().ToString("D");Check(!integration.ResolveDialogueActor(ownedAnnotation,out resolved));
+        ownedBinding["incarnationId"]=owned.Registration.IncarnationId;ownedPed.MemoryAddress=new IntPtr(51);Check(!integration.ResolveDialogueActor(ownedAnnotation,out resolved));integration.Shutdown();
     }
     static void ActivityIsolation()
     {
