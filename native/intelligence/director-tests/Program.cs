@@ -179,13 +179,14 @@ class Program
         Check(admission.Handle(req).Status=="busy","failed native ticket cannot replay after priority change");
         var playing=Request(24);var stagedProof=ReadyProof(playing);
         var staged=new DirectorAdmission(()=>now,(r,stage)=>
-            stage=="complete" ? DirectorC06Policy.CurrentPlayback(r,stagedProof)
+            stage=="bind" || stage=="complete" ? DirectorC06Policy.CurrentPlayback(r,stagedProof)
                               : DirectorC06Policy.Safe(r,stagedProof),
             ()=>host,()=>world,true);
         Check(staged.Handle(playing).Status=="reserved","idle owner permits real ticket reserve");
         Check(staged.Handle(Request(24,"submit")).Status=="submitted","idle at submit");
-        Check(staged.BindActualTuple(playing.TicketId,"17","essential-real-turn",7,3),"idle at exact tuple binding");
         stagedProof.OwnerIdle=false;stagedProof.EssentialTurnIdle=false;stagedProof.PlaybackIdle=false;
+        Check(staged.BindActualTuple(playing.TicketId,"17","essential-real-turn",7,3),
+            "native binding rechecks current ownership while exact allocated turn is already busy");
         Check(!DirectorC06Policy.Safe(playing,stagedProof) &&
             DirectorC06Policy.CurrentPlayback(playing,stagedProof),
             "actively speaking is not idle but retains valid owner/currentness");
@@ -193,7 +194,7 @@ class Program
             "matching complete actual playback can be acknowledged while Essential no longer idle");
         var takeover=Request(25),takeoverProof=ReadyProof(takeover);
         var interrupted=new DirectorAdmission(()=>now,(r,stage)=>
-            stage=="complete" ? DirectorC06Policy.CurrentPlayback(r,takeoverProof)
+            stage=="bind" || stage=="complete" ? DirectorC06Policy.CurrentPlayback(r,takeoverProof)
                               : DirectorC06Policy.Safe(r,takeoverProof),
             ()=>host,()=>world,true);
         Check(interrupted.Handle(takeover).Status=="reserved","player takeover fixture reserve");
