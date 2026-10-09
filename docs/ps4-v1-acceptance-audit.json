@@ -822,14 +822,21 @@
       "id": "T64",
       "oracle": "Early TTS fails after final model success: ps4 delivered retained, assistant history discarded. Partial stream without final result: no delivered.",
       "originalHarness": "Delayed early-TTS/model fixtures.",
-      "status": "partial_reviewed",
+      "status": "automated_oracle_verified",
       "candidateEvidence": [
         "lsa-essential-e1-candidate/tests/knowledge-delivery.test.mjs",
         "lsa-essential-e1-candidate/tests/knowledge-active-integration.test.mjs",
         "lsa-essential-e1-candidate/tests/knowledge-modes.test.mjs",
         "lsa-essential-e1-candidate/tests/knowledge-payload.test.mjs"
       ],
-      "note": "Existing real buffered/streaming/early-TTS controller fixture injects a delivery frame and verifies reasoning acknowledgement before later TTS failure; contradictory-final active test rejects partial-stream acknowledgement. Direct active PS3-ledger post-reasoning TTS-failure coverage still needs review."
+      "note": "Direct actual active PS2/PS3 ledger fixtures in buffered/streaming/early-TTS assert zero fetch-start acknowledgement, exact original-key single delivered after final reasoning, preserved ps4 consumption after later speech failure, no ps6/ps5 consumption, user history once, no assistant commit and listener cleanup. Actual early-TTS partial PCM with contradictory or absent final response asserts zero consumed consumers and no assistant history. All five T64 fixtures passed; physical gates remain external.",
+      "reviewedEvidence": [
+        {
+          "file": "lsa-essential-e1-candidate/tests/knowledge-active-integration.test.mjs",
+          "testPattern": "PR21 T64",
+          "oracles": "Three post-reasoning TTS-failure modes and two actual partial-PCM invalid/missing-final cases."
+        }
+      ]
     },
     {
       "id": "T65",

@@ -683,3 +683,14 @@ Added a real patched-stock overlapping-actor buffered request test for T51. A's 
 Validation: focused T51 test passed; complete normal-Node isolated offline regression passed 645 assertions across 63 files. Inventory structural/source equality checks and git diff --check passed. Production sources/payload are unchanged; no new production build/deployment or physical acceptance is claimed. The aggregate-process Node crash limitation remains open.
 
 Next: review the inventory's compound requirements against concrete assertions, implement missing automated cases (including direct active-ledger reasoning/TTS failure where needed), refresh the complete native/build acceptance matrix, then implement Phase 13a. The user-authorized v1.0 objective remains active and other master phases deferred.
+
+
+## Checkpoint 65: direct active PS3-ledger reasoning versus speech acceptance
+
+Closed PR21 T64's automated oracle with actual active PS2/PS3/stock-controller/provider fixtures rather than a substituted delivery frame. Buffered, structured-streaming and early-TTS paths each send the qualified frozen firing observation and acknowledge its original decision key exactly once only after successful final reasoning. A later TTS failure preserves ps4_context consumption, consumes neither ps6_ticket nor ps5_memory, commits the genuine user input once, excludes assistant history and releases knowledge listeners. The finalizer wrapper observes the real delivery success only; it neither replaces knowledge nor fabricates acknowledgement.
+
+Expanded the existing actual early-TTS partial-PCM negative fixture to separately test contradictory final output and a stream that closes without any final model result. Both produce partial audio yet consume no ledger entitlement and commit no assistant history. The acceptance register now records T64 as automated_oracle_verified with exact test pattern/evidence; other compound requirements and physical gates are not promoted by this pass.
+
+Validation: all five focused T64 fixtures passed. Full normal-Node isolated offline regression passed 649 assertions across 63 files; the actual active request suite passed 37 cases. git diff --check passed. Production source/payload unchanged; no new build/install/activation or GTA acceptance claimed. Aggregate-process Node crash limitation remains open.
+
+Next: remaining individual baseline acceptance oracles and fresh native/build closure, then bounded Phase 13a on the same ticket/Essential/frozen-frame/playback architecture. v1.0 goal remains active; deferred phases remain outside current implementation scope.

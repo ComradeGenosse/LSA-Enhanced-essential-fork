@@ -104,12 +104,12 @@ for(const fault of ['refusal','incomplete','malformed'])test(`real active ${faul
  const turn=await h.evaluate('ib(failedInput)');const result=await session.connection.whenSettled({pedId:turn.pedId,turnId:turn.id,generationId:turn.generationId,sessionNonce:1});
  assert.notEqual(result.status,'completed');assert.equal(outcome.outcome,'rejected');assert.equal(outcome.selectedObservations,1);assert.ok([...f.ps.salience.ledger.values()].every(entry=>entry.consumedBy.size===0));assert.equal(f.client.knowledgeListeners.size,0);assert.equal(h.runtime.history.readForSession('17',1).some(item=>item.role==='assistant'),false);
 });
-test('real active early TTS partial segments cannot acknowledge a contradictory final response',async t=>{
+for(const terminal of ['contradictory_final','missing_final'])test(`PR21 T64 real active early TTS partial segments cannot acknowledge ${terminal}`,async t=>{
  const f=factualFixture();let pcm=0;
  const h=await stockHarness('openai',{config:{dialogueKnowledge:{mode:'active'},structuredStreamingEnabled:true,earlyTtsEnabled:true,retry:{enabled:false,maxAttempts:1},persistentIdentity:{enabled:false},promotedCharacters:{enabled:false}},env:{OPENAI_API_KEY:'offline'},fetchImpl:async()=>{
   const item={id:'msg_bad_final',type:'message',role:'assistant',content:[]},bad=JSON.stringify({mode:'dialogue_only',segments:[{text:'Hello.'}],command:'invalid final command'});
   const events=[{type:'response.created',response:{id:'resp_bad_final',status:'in_progress'}},{type:'response.output_item.added',output_index:0,item},{type:'response.output_text.delta',output_index:0,content_index:0,item_id:item.id,delta:responseText},{type:'response.completed',response:{id:'resp_bad_final',status:'completed',output:[{...item,status:'completed',content:[{type:'output_text',text:bad,annotations:[]}]}]}}];
-  const stream=new ReadableStream({async start(controller){for(let index=0;index<events.length;index++){if(index===3)await new Promise(resolve=>setTimeout(resolve,10));const event=events[index];controller.enqueue(new TextEncoder().encode(`event: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`));}controller.close();}});
+  const stream=new ReadableStream({async start(controller){for(let index=0;index<(terminal==='missing_final'?3:events.length);index++){if(index===3)await new Promise(resolve=>setTimeout(resolve,10));const event=events[index];controller.enqueue(new TextEncoder().encode(`event: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`));}if(terminal==='missing_final')await new Promise(resolve=>setTimeout(resolve,10));controller.close();}});
   return new Response(stream,{headers:{'content-type':'text/event-stream'}});
  }});
  h.runtime.intelligence=f.client;h.runtime.dialogueKnowledgeBuildSupported=true;h.runtime.services.speak=async({onPcm})=>{pcm++;await onPcm(new Uint8Array([1,2]));return {bytes:2};};
@@ -191,5 +191,37 @@ test('PR21 T51 overlapping stock actor turns isolate observer knowledge and canc
  const firstOutcome=await a.connection.whenSettled({pedId:'17',turnId:first.id,generationId:first.generationId,sessionNonce:1});assert.notEqual(firstOutcome.status,'completed');
  assert.equal(h.runtime.history.readForSession('17',1).some(row=>row.role==='assistant'),false);
  assert.equal(h.runtime.history.readForSession('18',1).filter(row=>row.role==='assistant').length,1);
+ assert.equal(f.client.knowledgeListeners.size,0);
+});
+
+
+for(const [mode,options] of [['buffered',{}],['streaming',{structuredStreamingEnabled:true}],['early TTS',{structuredStreamingEnabled:true,earlyTtsEnabled:true}]])test(`PR21 T64 real active ${mode} ledger delivery survives later TTS failure`,{timeout:10000},async t=>{
+ const f=factualFixture(),keys=[...f.ps.salience.ledger.values()].map(row=>row.decisionKey),calls=[],bodies=[],outcomes=[];
+ const acknowledge=f.ps.salience.acknowledge.bind(f.ps.salience);
+ f.ps.salience.acknowledge=(...args)=>{calls.push(args);return acknowledge(...args);};
+ let reasoningFinished;const reasoningDone=new Promise(resolve=>reasoningFinished=resolve);
+ const h=await stockHarness('openai',{config:{...options,dialogueKnowledge:{mode:'active'},retry:{enabled:false,maxAttempts:1},persistentIdentity:{enabled:false},promotedCharacters:{enabled:false}},env:{OPENAI_API_KEY:'offline'},fetchImpl:async(_url,request)=>{
+  assert.deepEqual(calls,[]);bodies.push(JSON.parse(request.body));return response(bodies.at(-1).stream);
+ }});
+ h.runtime.intelligence=f.client;h.runtime.dialogueKnowledgeBuildSupported=true;
+ const finalize=h.runtime.services.finalizeKnowledgeFrame;
+ h.runtime.services.finalizeKnowledgeFrame=(turn,args)=>{
+  const frame=finalize(turn,args),success=turn.knowledgeDelivery.success;
+  turn.knowledgeDelivery={...turn.knowledgeDelivery,success:decision=>{const outcome=success(decision);if(outcome){outcomes.push(outcome);reasoningFinished();}return outcome;}};
+  return frame;
+ };
+ h.runtime.services.speak=async()=>{await reasoningDone;assert.equal(outcomes.length,1);assert.ok([...f.ps.salience.ledger.values()].some(row=>row.consumedBy.has('ps4_context')));throw Error('post_reasoning_tts_failure');};
+ const session=await h.openAIControllerSession({actorContext:f.actor});t.after(()=>session.connection.close());session.autoNativeAcks();
+ h.context.activeTtsFailure={pedId:'17',speaker:f.actor,text:'What happened?'};
+ const turn=await h.evaluate('ib(activeTtsFailure)');
+ const result=await session.connection.whenSettled({pedId:'17',turnId:turn.id,generationId:turn.generationId,sessionNonce:1});
+ assert.equal(result.status,'failed');assert.equal(bodies.length,1);
+ const scene=JSON.parse(bodies[0].input[0].content.split('\n').find(line=>line.startsWith('{"frameVersion":1,')));
+ assert.equal(scene.lanes.PERCEIVED.observations[0].claims[0].kind,'firing');
+ assert.deepEqual(calls,keys.map(key=>[key,'ps4_context','delivered']));
+ assert.equal(outcomes.length,1);assert.equal(outcomes[0].acknowledged,keys.length);assert.equal(outcomes[0].outcome,'delivered');
+ for(const row of f.ps.salience.ledger.values()){assert.equal(row.consumedBy.has('ps4_context'),true);assert.equal(row.consumedBy.has('ps6_ticket'),false);assert.equal(row.consumedBy.has('ps5_memory'),false);}
+ const history=h.runtime.history.readForSession('17',1);
+ assert.equal(history.filter(row=>row.role==='user').length,1);assert.equal(history.some(row=>row.role==='assistant'),false);
  assert.equal(f.client.knowledgeListeners.size,0);
 });
