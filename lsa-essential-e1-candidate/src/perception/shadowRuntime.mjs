@@ -21,7 +21,7 @@ const PS3_REASON_COUNTERS = Object.freeze({
 export class ShadowRuntime {
   constructor({ mode='off', now=()=>Math.floor(performance.now()), situationFor=()=>({}) }={}) {
     this.mode=mode;this.now=now;this.anchors=new Map();this.signals=[];this.sequence=0;this.producers=new Map();this.epoch=null;this.stream=null;this.lastReceipt=0;
-    this.hostContext=null;this.observerIndexVersion=null;this.observerIndex=new Map();this.observerSituations=new Map();this.observerSituationVersion=null;this.primaryBehaviorOwnerVersion=null;this.situationProvider=situationFor;
+    this.hostContext=null;this.observerIndexVersion=null;this.observerIndex=new Map();this.observerSituations=new Map();this.observerSituationVersion=null;this.primaryBehaviorOwnerVersion=null;this.directorRequestVersion=null;this.directorReceipts=[];this.situationProvider=situationFor;
     this.counters=Object.fromEntries(['received','dropped','stale','malformed','duplicate','gaps','expired','resets'].map(k=>[k,0]));
     this.historyDiagnostics={expired:0,evicted:0,skipped:0,highWater:0};
     this.dropDiagnostics={anchorCapacity:0,observerCapacity:0};
@@ -38,7 +38,7 @@ export class ShadowRuntime {
   bump(target,k) { target[k]=Math.min(MAX_COUNTER,(target[k]||0)+1); }
   count(k) { this.bump(this.counters,k); }
   reset(reason='manual') {
-    this.hostContext=null;this.observerIndexVersion=null;this.observerIndex.clear();this.observerSituations.clear();this.observerSituationVersion=null;this.primaryBehaviorOwnerVersion=null;
+    this.hostContext=null;this.observerIndexVersion=null;this.observerIndex.clear();this.observerSituations.clear();this.observerSituationVersion=null;this.primaryBehaviorOwnerVersion=null;this.directorRequestVersion=null;this.directorReceipts=[];
     this.anchors.clear();this.signals=[];this.producers.clear();this.observations.clear();this.episodes.clear();this.correlator.clear();this.salience.clear();this.transcripts.setActiveRun(null);this.epoch=null;this.stream=null;this.sequence=0;this.lastReceipt=0;this.diagnostics=null;this.capabilities=Object.fromEntries(CAPABILITIES.map(k=>[k,false]));this.count('resets');
     const key={initialization:'initializations',disconnect:'disconnects',fault:'faults',timeout:'timeouts',manual:'manual'}[reason]||'manual';this.bump(this.resetDiagnostics,key);
   }
@@ -69,7 +69,7 @@ export class ShadowRuntime {
     if(this.mode!=='shadow' || !authenticated) return false;
     this.expire();
     if(!validateFrame(v)) {this.count('malformed');return false;}
-    if(v.type==='hello') {this.reset('initialization');this.epoch=v.adapterEpoch;this.stream=v.streamId;this.hostContext=readHostContext(v);this.observerIndexVersion=v.observerIndexVersion??null;this.observerSituationVersion=v.observerSituationVersion??null;this.primaryBehaviorOwnerVersion=v.primaryBehaviorOwnerVersion??null;this.capabilities=Object.freeze({...v.capabilities});this.transcripts.setActiveRun(this.epoch);this.lastReceipt=this.now();return true;}
+    if(v.type==='hello') {this.reset('initialization');this.epoch=v.adapterEpoch;this.stream=v.streamId;this.hostContext=readHostContext(v);this.observerIndexVersion=v.observerIndexVersion??null;this.observerSituationVersion=v.observerSituationVersion??null;this.primaryBehaviorOwnerVersion=v.primaryBehaviorOwnerVersion??null;this.directorRequestVersion=v.directorRequestVersion??null;this.capabilities=Object.freeze({...v.capabilities});this.transcripts.setActiveRun(this.epoch);this.lastReceipt=this.now();return true;}
     if(v.adapterEpoch!==this.epoch || v.streamId!==this.stream) {this.count('stale');return false;}
     if(v.sequence<=this.sequence) {this.count('duplicate');return false;}
     if(v.sequence!==this.sequence+1) {this.count('gaps');this.reset('fault');return false;}
@@ -79,9 +79,16 @@ export class ShadowRuntime {
       if(v.payload.epoch===this.hostContext.worldEpoch) return true;
       const context=Object.freeze({...this.hostContext,worldEpoch:v.payload.epoch});
       const epoch=this.epoch,stream=this.stream,sequence=this.sequence,capabilities=this.capabilities;
-      const observerIndexVersion=this.observerIndexVersion,observerSituationVersion=this.observerSituationVersion,primaryBehaviorOwnerVersion=this.primaryBehaviorOwnerVersion;
-      this.reset('manual');this.observerIndexVersion=observerIndexVersion;this.observerSituationVersion=observerSituationVersion;this.primaryBehaviorOwnerVersion=primaryBehaviorOwnerVersion;this.hostContext=context;this.epoch=epoch;this.stream=stream;this.sequence=sequence;
+      const observerIndexVersion=this.observerIndexVersion,observerSituationVersion=this.observerSituationVersion,primaryBehaviorOwnerVersion=this.primaryBehaviorOwnerVersion,directorRequestVersion=this.directorRequestVersion;
+      this.reset('manual');this.observerIndexVersion=observerIndexVersion;this.observerSituationVersion=observerSituationVersion;this.primaryBehaviorOwnerVersion=primaryBehaviorOwnerVersion;this.directorRequestVersion=directorRequestVersion;this.hostContext=context;this.epoch=epoch;this.stream=stream;this.sequence=sequence;
       this.capabilities=capabilities;this.transcripts.setActiveRun(epoch);this.lastReceipt=this.now();return true;
+    }
+    if(v.type==='director_response') {
+      if(this.directorRequestVersion!==1)return false;
+      // Preview-only, no grant/turn submission/auto-memory side effects.
+      this.directorReceipts.push(Object.freeze({ticketId:v.payload.ticketId,status:v.payload.status}));
+      if(this.directorReceipts.length>32)this.directorReceipts.shift();
+      return true;
     }
     if(v.type==='anchors') {
       const projected=new Map(this.anchors);
