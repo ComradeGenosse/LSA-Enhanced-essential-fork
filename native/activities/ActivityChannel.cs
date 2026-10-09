@@ -18,7 +18,10 @@ namespace LSA.Activities
         readonly string hostRunId;
         readonly Func<int> worldEpoch;
         readonly Func<Dictionary<string,object>,bool> dialoguePublication;
+        readonly Action dialogueReset;
+        bool dialogueFaulted;
         bool dialogueNegotiated;
+        public bool DialogueSupported => dialoguePublication!=null && !dialogueFaulted;
         int clientSequence, serverSequence, observedWorldEpoch;
         long nextDiagnosticsAt;
         string lastDiagnostics;
@@ -30,13 +33,15 @@ namespace LSA.Activities
         public int SequenceGaps { get; private set; }
         public bool Closed { get; private set; } = true;
 
-        public ActivitySession(CapabilityTable table, StepRunner runner = null,string hostRunId=null,Func<int> worldEpoch=null,Func<Dictionary<string,object>,bool> dialoguePublication=null)
+        public ActivitySession(CapabilityTable table, StepRunner runner = null,string hostRunId=null,Func<int> worldEpoch=null,Func<Dictionary<string,object>,bool> dialoguePublication=null,Action dialogueReset=null)
         {
             if (table == null) throw new ArgumentNullException(nameof(table));
             if((hostRunId==null)!=(worldEpoch==null) || hostRunId!=null && (!ActivityContracts.IsUuid(hostRunId) || worldEpoch()<1)) throw new ArgumentException("invalid_host_context");
             this.hostRunId=hostRunId;this.worldEpoch=worldEpoch;observedWorldEpoch=worldEpoch?.Invoke() ?? 0;
             if(dialoguePublication!=null && hostRunId==null)throw new ArgumentException("dialogue_requires_host_context");
+            if((dialoguePublication==null)!=(dialogueReset==null))throw new ArgumentException("dialogue_requires_reset");
             this.dialoguePublication=dialoguePublication;
+            this.dialogueReset=dialogueReset;
             nativeRun = Guid.NewGuid().ToString("D");
             adapterEpoch = Guid.NewGuid().ToString("D");
             Runner = runner;
@@ -52,7 +57,7 @@ namespace LSA.Activities
                 {"contractSha256",CapabilityTable.ContractSha256},{"capabilities",capabilities},{"limits",Limits()}
             };
             if(hostRunId!=null) {hello["hostContextVersion"]=1;hello["hostRunId"]=hostRunId;hello["worldEpoch"]=worldEpoch();}
-            if(dialoguePublication!=null)hello["dialogueActionVersion"]=1;
+            if(DialogueSupported)hello["dialogueActionVersion"]=1;
             return Encode(hello);
         }
 
@@ -60,6 +65,7 @@ namespace LSA.Activities
         // new connection. A new connection is a fresh sequence space.
         public void OpenTransport()
         {
+            ResetDialogue();
             var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
             if (ClientReady || Machine.ActiveCount > 0) Machine.ClientDisconnected("lease_lost");
             Runner?.ClientDisconnected(this, "lease_lost", now);
@@ -77,6 +83,7 @@ namespace LSA.Activities
         // poisons the ACT session; a later hello may establish a new client run.
         public void Close(string reason)
         {
+            ResetDialogue();
             if (Closed && !ClientReady && Machine.ActiveCount == 0 && (Runner == null || Runner.ActiveCount == 0)) return;
             Closed = true;
             dialogueNegotiated=false;
@@ -98,9 +105,9 @@ namespace LSA.Activities
             if (value != null && value.ContainsKey("type") && value["type"] as string == "hello") {
                 if (ClientReady || !ActivityContracts.HelloClient(value, CapabilityTable.ContractSha256) ||
                     (hostRunId==null ? value.ContainsKey("hostRunId") : !value.ContainsKey("hostRunId") || !Equals(value["hostRunId"],hostRunId) || (int)value["worldEpoch"]!=worldEpoch())) { Close("lease_lost"); return false; }
-                if(value.ContainsKey("dialogueActionVersion") && dialoguePublication==null){Close("lease_lost");return false;}
+                if(value.ContainsKey("dialogueActionVersion") && !DialogueSupported){Close("lease_lost");return false;}
                 Machine.ClientHello(value["clientRun"] as string, DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(), ActivityContracts.LeaseTtlMs);
-                dialogueNegotiated=value.ContainsKey("dialogueActionVersion") && dialoguePublication!=null;
+                dialogueNegotiated=value.ContainsKey("dialogueActionVersion") && DialogueSupported;
                 Runner?.ClientHello();
                 clientSequence = 1;
                 ClientReady = true;
@@ -141,13 +148,14 @@ namespace LSA.Activities
         }
         public bool PublishDialogueReceipt(Dictionary<string,object> correlation)
         {
-            if(!ClientReady || Closed || !dialogueNegotiated || correlation==null)return false;
+            if(!ClientReady || Closed || !dialogueNegotiated || !DialogueSupported || correlation==null)return false;
             var fields=new Dictionary<string,object>(correlation);fields["version"]=1;fields["type"]="dialogue.action.receipt";fields["sequence"]=serverSequence+1;fields["nativeRun"]=nativeRun;fields["adapterEpoch"]=adapterEpoch;
             if(!ActivityContracts.DialogueActionReceipt(fields,serverSequence+1))return false;
             var binding=fields["binding"] as Dictionary<string,object>;var context=binding["hostContext"] as Dictionary<string,object>;
             if(!Equals(context["hostRunId"],hostRunId) || (int)context["worldEpoch"]!=worldEpoch())return false;
             serverSequence++;Publish(fields);return true;
         }
+        void ResetDialogue(){dialogueNegotiated=false;try{dialogueReset?.Invoke();}catch{dialogueFaulted=true;}}
 
         public void PublishActorFacts(Dictionary<string, object> fields)
         {
