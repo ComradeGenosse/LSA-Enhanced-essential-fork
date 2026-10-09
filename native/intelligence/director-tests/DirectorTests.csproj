@@ -9,6 +9,7 @@
   <ItemGroup>
     <Compile Include="Program.cs" />
     <Compile Include="../DirectorAdmission.cs" Link="DirectorAdmission.cs" />
+    <Compile Include="../DirectorC06Policy.cs" Link="DirectorC06Policy.cs" />
     <Compile Include="../IntelligenceChannel.cs" Link="IntelligenceChannel.cs" />
     <Compile Include="../DirectorFrameCodec.cs" Link="DirectorFrameCodec.cs" />
     <Reference Include="System.Web.Extensions" />
