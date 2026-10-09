@@ -68,6 +68,27 @@ class Program
           sharedRefs.Resolve(psRef.CaptureRef)==null,"owner revocation fans out once despite failing subscriber");
         sharedRefs.Clear(AnchorRetirement.Shutdown);
         Check(sharedRefs.Count==0,"host shutdown clears remaining consumer refs");
+        // PR21 T02: the exact mutable native handle/address/owner shape
+        // matters, not just the Ped wrapper type or CharacterId.
+        var moving=new EntityAnchors();var wrapper=new object();long address=400;
+        ulong currentHandle=400;
+        var addressOriginal=moving.Retain(wrapper,400,new IntPtr(400),"ped","owner-a",
+          ()=>currentHandle==400 && address==400,0);
+        address=401;
+        var afterAddress=moving.Retain(wrapper,400,new IntPtr(401),"ped","owner-a",
+          ()=>currentHandle==400 && address==401,1);
+        Check(afterAddress!=null && addressOriginal.CaptureRef!=afterAddress.CaptureRef &&
+          moving.Resolve(addressOriginal.CaptureRef)==null,"address change retires original exact tuple");
+        currentHandle=401;
+        var afterHandle=moving.Retain(wrapper,401,new IntPtr(401),"ped","owner-a",
+          ()=>currentHandle==401 && address==401,2);
+        Check(afterHandle!=null && afterHandle.CaptureRef!=afterAddress.CaptureRef &&
+          moving.Resolve(afterAddress.CaptureRef)==null,"full native handle change rejects old tuple");
+        var afterOwner=moving.Retain(wrapper,401,new IntPtr(401),"ped","owner-b",
+          ()=>currentHandle==401 && address==401,3);
+        Check(afterOwner!=null && afterOwner.CaptureRef!=afterHandle.CaptureRef &&
+          moving.Resolve(afterHandle.CaptureRef)==null,"same physical handle cannot borrow retired owner lifetime");
+        moving.Clear();
         var sensors=new SensorAdapters();string target=Guid.NewGuid().ToString("D"),attacker=Guid.NewGuid().ToString("D");
         Check(!sensors.Damage("ped_damage",target,null,2,0,"unknown",1,1,false)&&sensors.Count==0,"disabled parity");sensors.Enabled=true;
         using(var callbacks=new DamageSensors(sensors,(h,e)=>h==1?target:h==2?attacker:null,(h,e)=>h==3?target:null,r=>r==target,()=>100,()=>42)) {
