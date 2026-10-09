@@ -43,6 +43,9 @@ jobs:
           node --check src/perception/directorWire.mjs
           node --check src/perception/sceneDirectorOrchestrator.mjs
           node --test tests/scene-director.test.mjs tests/scene-director-admission.test.mjs tests/director-decision-guard.test.mjs tests/director-wire.test.mjs tests/director-transport.test.mjs tests/stock-director-kb.test.mjs tests/director-orchestrator.test.mjs
+      - name: Isolate PS4 early-TTS owned SELF without suite cross-effects
+        working-directory: lsa-essential-e1-candidate
+        run: node --test --test-name-pattern="real owned ACT/C05 early TTS player_text frozen SELF: self_only$" tests/frozen-character-inputs.test.mjs
       - name: Compile C-05 Windows test helper from source
         if: runner.os == 'Windows'
         shell: pwsh
