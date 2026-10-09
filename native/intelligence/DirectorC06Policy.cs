@@ -34,6 +34,15 @@ namespace LSA.Intelligence
         internal static bool CurrentPlayback(DirectorAdmission.Request r,Snapshot s)
         {
             return r!=null && s!=null &&
+                // Policy is also called by offline code outside the request
+                // decoder: missing tuples never compare equal by null==null.
+                !string.IsNullOrWhiteSpace(r.HostRunId) &&
+                !string.IsNullOrWhiteSpace(r.SpeakerCaptureRef) &&
+                !string.IsNullOrWhiteSpace(r.PlayerCaptureRef) &&
+                !string.IsNullOrWhiteSpace(r.OwnerIncarnationId) &&
+                !string.IsNullOrWhiteSpace(r.ObservationId) &&
+                !string.IsNullOrWhiteSpace(r.DecisionKey) &&
+                r.WorldEpoch>0 && r.ProofRevision>0 && r.ObservationRevision>0 &&
                 r.HostRunId==s.HostRunId && r.WorldEpoch==s.WorldEpoch &&
                 r.SpeakerCaptureRef==s.SpeakerCaptureRef &&
                 r.PlayerCaptureRef==s.PlayerCaptureRef &&
