@@ -16,12 +16,20 @@ using LSA.PromotedCharacters;
 
 namespace LSA.Intelligence
 {
+    // Native P2's existing current encounter is the authority for these
+    // read-only fields. Unknown/foreign/residual ownership never means idle.
+    public sealed class DirectorOwnerSample
+    {
+        public string Owner,Mode;
+        public bool Suspended;
+    }
     public sealed class OwnedParticipant
     {
         public Ped Ped;
         public string Lifetime, EncounterId;
         public Func<bool> Current;
         public Func<object> PrimaryOwner;
+        public Func<DirectorOwnerSample> DirectorOwner;
     }
     public sealed class IntelligenceIntegration : IIntegration
     {
@@ -343,9 +351,42 @@ namespace LSA.Intelligence
                     ReferenceEquals(item.Ped,speaker.Entity) &&
                     item.Lifetime==speaker.OwnerLifetime && item.Current?.Invoke()==true);
                 proof.OwnerIncarnationId=current?.Lifetime;
-                // ReadOnly P2 owner equivalence is not an owner proof *revision*,
-                // nor does it certify idle Essential/ACT/C-06 control.
                 proof.OwnerProofCurrent=current!=null;
+                if(current!=null) {
+                    // Only the exact current P2 registration supplies a mode.
+                    // Essential-residual "unknown", active P2/ACT tasks and a
+                    // suspended encounter cannot be presented as idle.
+                    var mode=current.DirectorOwner?.Invoke();
+                    proof.OwnerPrimaryModeKnown=mode!=null &&
+                        (mode.Owner=="none" || mode.Owner=="p2" ||
+                         mode.Owner=="act" || mode.Owner=="essential_residual") &&
+                        (mode.Mode=="idle" || mode.Mode=="unknown" ||
+                         mode.Mode=="follow" || mode.Mode=="wait" ||
+                         mode.Mode=="sit" || mode.Mode=="activity");
+                    proof.OwnerIdle=proof.OwnerPrimaryModeKnown && !mode.Suspended &&
+                        mode.Owner=="none" && mode.Mode=="idle";
+                    // Source-pinned Core NpcStateStore is used by existing ACT
+                    // preflight; no state is UNKNOWN, not absence of a reflex.
+                    var state=NpcStateStore.TryGetState((Ped)speaker.Entity);
+                    if(state!=null) {
+                        proof.ActorReflexKnown=true;
+                        proof.ActorReflexIdle=!state.HasActiveReflex && !state.InDirectedInteraction;
+                    }
+                }
+                // P2 already uses these exact GTA scripted-state natives.
+                // Every read must succeed before "safe" can be asserted.
+                proof.ScriptSafe=!NativeFunction.CallByName<bool>("IS_CUTSCENE_ACTIVE") &&
+                    !NativeFunction.CallByName<bool>("IS_CUTSCENE_PLAYING") &&
+                    !NativeFunction.CallByName<bool>("IS_PLAYER_SWITCH_IN_PROGRESS") &&
+                    !NativeFunction.CallByName<bool>("GET_MISSION_FLAG") &&
+                    !NativeFunction.CallByName<bool>("NETWORK_IS_SESSION_ACTIVE");
+                proof.ScriptStateKnown=true;
+                // P2 registration has no monotonically source-published proof
+                // revision. Do not reconstruct that revision from a handle,
+                // clock, primary-owner mode or companion input. Likewise Core
+                // exports no authoritative player-turn/Essential-turn idle
+                // counter or native copy of the PS3 response ledger.
+                // Those required approval flags remain UNKNOWN until sourced.
             } catch { return new DirectorC06Policy.Snapshot(); }
             return proof;
         }
