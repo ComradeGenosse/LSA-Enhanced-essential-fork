@@ -208,6 +208,16 @@ class Program
         }
         var changed=Request(23);changed.WorldEpoch++;
         Check(!DirectorC06Policy.Safe(changed,proof),"no world-epoch borrowing");
+        changed=Request(23);changed.HostRunId=Guid.NewGuid().ToString("D");
+        Check(!DirectorC06Policy.Safe(changed,proof),"no host-run borrowing");
+        changed=Request(23);changed.PlayerCaptureRef=Guid.NewGuid().ToString("D");
+        Check(!DirectorC06Policy.Safe(changed,proof),"no player anchor substitution");
+        changed=Request(23);changed.PolicyVersion++;
+        Check(!DirectorC06Policy.Safe(changed,proof),"no PS3 policy version borrowing");
+        changed=Request(23);changed.ObservationId=null;
+        proof.ObservationId=null;
+        Check(!DirectorC06Policy.Safe(changed,proof),"two missing observation IDs cannot authorize speech");
+        proof.ObservationId=req.ObservationId;
         changed=Request(23);changed.ProofRevision++;
         Check(!DirectorC06Policy.Safe(changed,proof),"no proof-revision borrowing");
         changed=Request(23);changed.PlayerTurnVersion++;
