@@ -51,6 +51,12 @@ jobs:
         working-directory: lsa-essential-e1-candidate
         run: |
           node --test --test-reporter=tap tests/frozen-character-inputs.test.mjs
+      - name: Diagnose frozen SELF through exact network-blocked wrapper
+        shell: bash
+        run: |
+          export LSA_OFFLINE_TEST_FILE="$(node -p 'require("url").pathToFileURL(require("path").resolve("lsa-essential-e1-candidate/tests/frozen-character-inputs.test.mjs")).href')"
+          cd lsa-essential-e1-candidate
+          node --test --test-reporter=tap ../tools/isolated-offline-tests/wrapper.mjs
       - name: Compile C-05 Windows test helper from source
         if: runner.os == 'Windows'
         shell: pwsh
