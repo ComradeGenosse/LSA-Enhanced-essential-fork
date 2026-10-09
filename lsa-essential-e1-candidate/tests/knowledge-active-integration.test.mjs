@@ -117,3 +117,44 @@ test('real active early TTS partial segments cannot acknowledge a contradictory 
  const turn=await h.evaluate('ib(partialInput)');const result=await session.connection.whenSettled({pedId:turn.pedId,turnId:turn.id,generationId:turn.generationId,sessionNonce:1});
  assert.notEqual(result.status,'completed');assert.ok(pcm>0);assert.ok([...f.ps.salience.ledger.values()].every(entry=>entry.consumedBy.size===0));assert.equal(f.client.knowledgeListeners.size,0);assert.equal(h.runtime.history.readForSession('17',1).some(item=>item.role==='assistant'),false);
 });
+
+import {DialogueActionReceipts} from '../src/activities/dialogueActionReceipts.mjs';
+function receiptSource(f){
+ const store=new DialogueActionReceipts(),hostContext=f.ps.hostContext,binding={captureRef:f.ref,hostContext};
+ const publication=store.publish({tuple:{pedId:'17',turnId:'previous',generationId:1,sessionNonce:1},binding,canonicalAction:'waithere',publishedAtMs:100,allowedActions:['waithere']});
+ store.callback({...publication,succeeded:true,atGameTick:20,receivedAtMs:110});
+ const activities={client:{runtime:{ready:true,dialogueActionVersion:1,nativeRun:randomUUID(),adapterEpoch:randomUUID(),hostContext}},readDialogueActionReceipts:scope=>store.read(scope)};
+ return {store,activities,publication,binding};
+}
+for(const [mode,options] of [['buffered',{}],['streaming',{structuredStreamingEnabled:true}],['early TTS',{structuredStreamingEnabled:true,earlyTtsEnabled:true}]])for(const source of ['player_text','player_mic','special_event'])test(`real C05 SELF ${mode} ${source} receives frozen PS2/PS3 knowledge and acknowledges exact keys`,async t=>{
+ const f=factualFixture(),r=receiptSource(f),bodies=[];
+ const h=await stockHarness('openai',{config:{...options,dialogueKnowledge:{mode:'active',dialogueReceipts:'active'},retry:{enabled:false,maxAttempts:1},persistentIdentity:{enabled:false},promotedCharacters:{enabled:false}},env:{OPENAI_API_KEY:'offline'},fetchImpl:async(_url,request)=>{const body=JSON.parse(request.body);bodies.push(body);return response(body.stream);}});
+ h.runtime.intelligence=f.client;h.runtime.activities=r.activities;h.runtime.dialogueKnowledgeBuildSupported=true;h.runtime.services.capabilityHealth=()=>({'ps.dialogue_receipts':{active:true}});
+ h.runtime.services.speak=async({onPcm})=>{await onPcm(new Uint8Array([1,2]));return {bytes:2};};
+ const session=await h.openAIControllerSession({actorContext:f.actor});t.after(()=>session.connection.close());session.autoNativeAcks();h.context.activeInput={pedId:'17',speaker:f.actor,text:'What happened?'};
+ h.runtime.services.transcribe=async()=> 'What happened?';
+ let turn;
+ if(source==='player_text')turn=await h.evaluate('ib(activeInput)');
+ else if(source==='special_event')turn=await h.evaluate('kb({speakerPedId:"17",listenerPedId:"player",content:"UNSUPPORTED_TRIGGER_CANARY",reason:"scene_event"})');
+ else {
+  turn=h.evaluate('(()=>{const value=Xi({pedId:"17",speakerPedId:"17",listenerPedId:"player",source:Ht.PLAYER_MIC,input:{transcript:"",contextText:""},metadata:{}});A.mic=ND();A.mic.activeTurnId=value.id;A.mic.status="listening";A.mic.pendingChunks=[];A.mic.sendChain=Promise.resolve();return value;})()');
+  h.context.activeMic={speaker:f.actor,target:{pedId:'player'}};h.evaluate('Te=()=>{};hb=()=>{};OK=false');await h.evaluate('wd(activeMic)');
+  await session.connection.sendRealtimeAudio(new Uint8Array([1,2]));await session.connection.endRealtimeInput();
+ }
+ const result=await session.connection.whenSettled({pedId:turn.pedId,turnId:turn.id,generationId:turn.generationId,sessionNonce:1});
+ assert.equal(result.status,'completed',result.terminalReason);assert.equal(bodies.length,1);
+ const scene=JSON.parse(bodies[0].input[0].content.split('\n').find(line=>line.startsWith('{"frameVersion":1,')));
+ if(source==='special_event'){assert.match(bodies[0].input.at(-1).content,/No player utterance was received/);assert.equal(JSON.stringify(bodies[0]).includes('UNSUPPORTED_TRIGGER_CANARY'),false);}else assert.equal(bodies[0].input.at(-1).content,'What happened?');
+ assert.equal(scene.lanes.SELF.selfFacts.length,1);assert.match(scene.lanes.SELF.selfFacts[0].text,/handler accepted/);assert.match(scene.lanes.SELF.selfFacts[0].text,/completion was not established/);assert.ok(scene.lanes.PERCEIVED.observations.length);assert.equal(scene.lanes.PERCEIVED.observations[0].claims[0].kind,'firing');
+ for(const secret of [f.ref,f.ps.epoch,f.ps.hostContext.hostRunId,r.publication.publicationId,r.activities.client.runtime.nativeRun,r.activities.client.runtime.adapterEpoch,'dialogueReferences','turnKnowledge','decisionKey'])assert.equal(JSON.stringify(bodies[0]).includes(secret),false);
+ const entries=[...f.ps.salience.ledger.values()];assert.ok(entries.some(entry=>entry.consumedBy.has('ps4_context')));assert.ok(entries.every(entry=>!entry.consumedBy.has('ps6_ticket')));assert.equal(f.client.knowledgeListeners.size,0);
+});
+
+for(const fault of ['channel_reset','actor_retired','receipt_retired'])test(`real C05 in-flight ${fault} cancels the provider and preserves independent receipt evidence`,async t=>{
+ const f=factualFixture(),r=receiptSource(f);let aborted=false;
+ const h=await stockHarness('openai',{config:{dialogueKnowledge:{mode:'active',dialogueReceipts:'active'},retry:{enabled:false,maxAttempts:1},persistentIdentity:{enabled:false},promotedCharacters:{enabled:false}},env:{OPENAI_API_KEY:'offline'},fetchImpl:async(_url,request)=>new Promise((resolve,reject)=>{
+  request.signal.addEventListener('abort',()=>{aborted=true;reject(request.signal.reason);},{once:true});queueMicrotask(()=>{if(fault==='channel_reset')r.activities.client.runtime.adapterEpoch=randomUUID();else if(fault==='receipt_retired')r.store.retire(r.binding);else f.send('retire_batch',[f.ref]);f.client.notifyKnowledgeInvalidation();});
+ })});h.runtime.intelligence=f.client;h.runtime.activities=r.activities;h.runtime.dialogueKnowledgeBuildSupported=true;h.runtime.services.capabilityHealth=()=>({'ps.dialogue_receipts':{active:true}});
+ const session=await h.openAIControllerSession({actorContext:f.actor});t.after(()=>session.connection.close());session.autoNativeAcks();h.context.selfFault={pedId:'17',speaker:f.actor,text:'What did you try?'};
+ const turn=await h.evaluate('ib(selfFault)'),result=await session.connection.whenSettled({pedId:turn.pedId,turnId:turn.id,generationId:turn.generationId,sessionNonce:1});assert.equal(aborted,true);assert.notEqual(result.status,'completed');assert.equal(f.client.knowledgeListeners.size,0);assert.equal(h.runtime.history.readForSession('17',1).some(item=>item.role==='assistant'),false);assert.equal(r.store.read(r.binding).length,fault==='receipt_retired'?0:1);
+});
