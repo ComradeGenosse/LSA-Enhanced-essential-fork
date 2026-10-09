@@ -73,7 +73,7 @@ for(const matching of [true,false])test(`real first-owned active request release
  t.after(()=>h.runtime.identityService.close());await h.runtime.characterService.initialize();h.runtime.intelligence=client;h.runtime.dialogueKnowledgeBuildSupported=true;
  let release,reached,captured;const gate=new Promise(resolve=>{release=resolve;}),waiting=new Promise(resolve=>{reached=resolve;});
  const capture=h.runtime.captureKnowledgeInputs;h.runtime.captureKnowledgeInputs=input=>{captured=capture(input);return captured;};
- let identityOutcome=null;const prepare=h.runtime.identityService.prepare.bind(h.runtime.identityService);h.runtime.identityService.prepare=async args=>{reached();await gate;f.evidence.hostContext=matching?hello:{...hello,hostRunId:randomUUID()};identityOutcome=await prepare(args);return identityOutcome;};
+ const prepare=h.runtime.identityService.prepare.bind(h.runtime.identityService);h.runtime.identityService.prepare=async args=>{reached();await gate;f.evidence.hostContext=matching?hello:{...hello,hostRunId:randomUUID()};return prepare(args);};
  h.runtime.services.speak=async({onPcm})=>{await onPcm(new Uint8Array([1,2]));return {bytes:2};};
  const session=await h.openAIControllerSession({actorContext:f.a});t.after(()=>session.connection.close());session.autoNativeAcks();h.context.ownedInput={pedId:'17',speaker:f.a,text:'What happened?'};
  const turn=await h.evaluate('ib(ownedInput)');await waiting;assert.equal(captured.ownerPendingProof,true);assert.ok(captured.pairs.length);
@@ -113,7 +113,7 @@ for(const [mode,options] of [['buffered',{}],['streaming',{structuredStreamingEn
  t.after(()=>h.runtime.identityService.close());await h.runtime.characterService.initialize();h.runtime.intelligence=client;h.runtime.dialogueKnowledgeBuildSupported=true;
  let release,reached,captured;const gate=new Promise(resolve=>{release=resolve;}),waiting=new Promise(resolve=>{reached=resolve;});
  const capture=h.runtime.captureKnowledgeInputs;h.runtime.captureKnowledgeInputs=input=>{captured=capture(input);return captured;};
- const prepare=h.runtime.identityService.prepare.bind(h.runtime.identityService);h.runtime.identityService.prepare=async args=>{reached();await gate;f.evidence.hostContext=matching?hello:{...hello,hostRunId:randomUUID()};return prepare(args);};
+ let identityOutcome=null;const prepare=h.runtime.identityService.prepare.bind(h.runtime.identityService);h.runtime.identityService.prepare=async args=>{reached();await gate;f.evidence.hostContext=matching?hello:{...hello,hostRunId:randomUUID()};identityOutcome=await prepare(args);return identityOutcome;};
  h.runtime.services.speak=async({onPcm})=>{await onPcm(new Uint8Array([1,2]));return {bytes:2};};
  const session=await h.openAIControllerSession({actorContext:f.a});t.after(()=>session.connection.close());session.autoNativeAcks();h.context.ownedInput={pedId:'17',speaker:f.a,text:'What happened?'};
  let turn;
