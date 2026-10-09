@@ -43,6 +43,12 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         run: '& .\\native\\activities\\tests\\bin\\Debug\\net481\\ActivityTests.exe'
+      - name: Build and run isolated native PS6 admission contract
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          dotnet build native/intelligence/director-tests/DirectorTests.csproj --configuration Debug
+          & .\\native\\intelligence\\director-tests\\bin\\Debug\\net481\\DirectorTests.exe
       - name: Isolated offline regression (no network)
         env:
           LSA_CI_FAILURE_DETAILS: '1'
