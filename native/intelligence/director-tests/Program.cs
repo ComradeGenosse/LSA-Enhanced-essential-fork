@@ -150,7 +150,8 @@ class Program
     }
     static void C06Contract()
     {
-        var req=Request(23),proof=ReadyProof(req);
+        var req=Request(23);
+        var proof=ReadyProof(req);
         Check(DirectorC06Policy.Safe(req,proof),"complete authoritative same-host/owner C06 snapshot admits");
         foreach(var field in typeof(DirectorC06Policy.Snapshot).GetFields()) {
             if(field.FieldType!=typeof(bool))continue;
