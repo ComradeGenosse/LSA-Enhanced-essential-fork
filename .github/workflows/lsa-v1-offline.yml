@@ -35,6 +35,10 @@ jobs:
           node --check src/perception/sceneDirector.mjs
           node --check src/perception/sceneDirectorAdmission.mjs
           node --test tests/scene-director.test.mjs tests/scene-director-admission.test.mjs tests/director-decision-guard.test.mjs
+      - name: Compile C-05 Windows test helper from source
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: dotnet build native/activities/tests/ActivityTests.csproj --configuration Debug
       - name: Isolated offline regression (no network)
         env:
           LSA_CI_FAILURE_DETAILS: '1'
