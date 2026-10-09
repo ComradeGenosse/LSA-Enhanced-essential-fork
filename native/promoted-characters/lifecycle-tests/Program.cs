@@ -133,7 +133,7 @@ class Program
                 var director=verified.DirectorOwner();
                 Check(director!=null && director.Owner=="essential_residual" && director.Mode==sample.Item2 && !director.Suspended);
                 encounter.Suspended=true;
-                Check(verified.DirectorOwner().Suspended,"Director source preserves native P2 suspension");
+                Check(verified.DirectorOwner().Suspended);
                 encounter.Suspended=false;
                 var original=encounter.Owner;Game.GameTime=201;refresh.Invoke(null,new object[]{encounter});
                 Check(ReferenceEquals(original,encounter.Owner));
@@ -149,7 +149,7 @@ class Program
             ped.MemoryAddress=new IntPtr(88);
             var prior=integration.PerceptionRoster().Single(x=>x.Lifetime==encounter.Registration.IncarnationId);
             encounter.Registration=null;
-            Check(prior.DirectorOwner()==null,"retired P2 registration cannot retain Director mode authorization");
+            Check(prior.DirectorOwner()==null);
             reads=Game.NativeCalls;
             refresh.Invoke(null,new object[]{encounter});Check(Game.NativeCalls==reads && encounter.Owner.mode=="unknown");
         }finally{LosSantosAlive.NPC.NpcStateStore.State=null;integration.Shutdown();}
