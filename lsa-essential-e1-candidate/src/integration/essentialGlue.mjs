@@ -47,7 +47,7 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
   characterService?.initialize().catch(() => {});
   const services = {
     recordDialogueActionPublication({turn,validated,publishedAtMs}){
-      if(config.provider!=='openai' || !runtime.dialogueKnowledgeBuildSupported)return null;
+      if(config.provider!=='openai' || config.activities?.dialogueReceipts!==true || !runtime.dialogueKnowledgeBuildSupported)return null;
       const publication=prepareDialogueActionPublication({turn,validated,publishedAtMs,perception:runtime.intelligence?.runtime,identityService,activities:runtime.activities});
       return publication?runtime.activities?.recordDialogueActionPublication(publication):null;
     },

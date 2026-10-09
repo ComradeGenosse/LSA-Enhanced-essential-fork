@@ -53,3 +53,9 @@ test('mixed ACT and C05 pruning preserves the other contributor and its exact re
  const onlyDialogue=pruneKnowledgeFrame(frame,()=>true,()=>false,()=>true);assert.equal(onlyDialogue.activityReferences.length,0);assert.equal(onlyDialogue.dialogueReferences.length,1);assert.match(JSON.parse(onlyDialogue.modelAllocation.scene).lanes.SELF.selfFacts[0].text,/handler accepted/);
  const onlyActivity=pruneKnowledgeFrame(frame,()=>true,()=>true,()=>false);assert.equal(onlyActivity.activityReferences.length,1);assert.equal(onlyActivity.dialogueReferences.length,0);assert.match(JSON.parse(onlyActivity.modelAllocation.scene).lanes.SELF.selfFacts[0].text,/was asked/);
 });
+
+import {normalizeActivityConfig} from '../src/activities/contracts.mjs';
+test('C05 passive collection opt-in never changes ACT mode or enables dialogue dispatch',()=>{
+ for(const mode of ['off','shadow','on'])for(const value of [undefined,false,true,'true',1]){const config=normalizeActivityConfig({mode,dialogueReceipts:value});assert.equal(config.mode,mode);assert.equal(config.dialogue,false);assert.equal(config.dialogueReceipts===true,value===true);}
+ assert.equal(normalizeActivityConfig().dialogueReceipts,undefined);
+});

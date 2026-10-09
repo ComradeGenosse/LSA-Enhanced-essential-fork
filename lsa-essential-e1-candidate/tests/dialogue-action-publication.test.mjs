@@ -28,10 +28,16 @@ test('C05 owned publication requires original matching current P1 proof and adds
 });
 test('C05 real runtime publication service requires matching build and validated original scope',()=>{
  const f=fixture(),calls=[];
- const runtime=createRuntime(normalizeConfig({}, {OPENAI_API_KEY:'test-key'}),{fetchImpl:()=>{throw Error('No provider call allowed');}});
+ const runtime=createRuntime(normalizeConfig({activities:{mode:'shadow',dialogueReceipts:true}}, {OPENAI_API_KEY:'test-key'}),{fetchImpl:()=>{throw Error('No provider call allowed');}});
  runtime.intelligence={runtime:f.perception};runtime.activities={...f.activities,recordDialogueActionPublication:input=>{calls.push(input);return input;}};
  const input={turn:f.turn,validated:f.validated,publishedAtMs:f.publishedAtMs};
  assert.equal(runtime.services.recordDialogueActionPublication(input),null);assert.equal(calls.length,0);
  runtime.dialogueKnowledgeBuildSupported=true;assert.equal(runtime.services.recordDialogueActionPublication(input).binding.captureRef,f.turn.knowledgeInputs.association.captureRef);assert.equal(calls.length,1);
  f.perception.current=()=>false;assert.equal(runtime.services.recordDialogueActionPublication(input),null);assert.equal(calls.length,1);
+});
+
+test('C05 runtime default collection control omits publication even with matching negotiated support',()=>{
+ const f=fixture(),runtime=createRuntime(normalizeConfig({}, {OPENAI_API_KEY:'test-key'}),{fetchImpl:()=>{throw Error('No provider call allowed');}});let calls=0;
+ runtime.intelligence={runtime:f.perception};runtime.activities={...f.activities,recordDialogueActionPublication:()=>{calls++;}};runtime.dialogueKnowledgeBuildSupported=true;
+ assert.equal(runtime.services.recordDialogueActionPublication({turn:f.turn,validated:f.validated,publishedAtMs:f.publishedAtMs}),null);assert.equal(calls,0);
 });

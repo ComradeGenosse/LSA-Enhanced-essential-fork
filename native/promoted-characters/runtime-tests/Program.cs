@@ -84,6 +84,20 @@ public sealed class Scenario:MarshalByRefObject
         Check(!RuntimeEntry.Start(Config) && GameFiber.Scheduled==1,"A canceled owner was restarted in the same domain.");
         return assertions;
     }
+    public int ActivityCollection(string mode,object receipts)
+    {
+        var fields=new System.Collections.Generic.Dictionary<string,object>{{"mode",mode}};
+        if(receipts!=null)fields["dialogueReceipts"]=receipts;
+        string config=new System.Web.Script.Serialization.JavaScriptSerializer().Serialize(new {enabled=true,worldProfileId="d7dfeaa1-13e8-4a7d-aff7-8e3fbb2ab4b5",activities=fields});
+        Check(RuntimeEntry.Start(config),"Collection configuration did not schedule the owner.");
+        Check(PromotedCharactersIntegration.ActivityShadowStarts==0 && PromotedCharactersIntegration.ActivityExecutionStarts==0,"Collection was started outside the owner fiber.");
+        GameFiber.OnSleep=()=>RuntimeEntry.Stop();GameFiber.ExecuteNext();
+        Check(PromotedCharactersIntegration.ActivityShadowStarts==(mode=="shadow"?1:0),"Passive collection changed ACT shadow admission.");
+        Check(PromotedCharactersIntegration.ActivityExecutionStarts==(mode=="on"?1:0),"Passive collection changed ACT execution admission.");
+        Check(PromotedCharactersIntegration.DialogueReceiptsEnabled==((mode=="shadow" || mode=="on") && receipts is bool && (bool)receipts),"Collection opt-in was not exact/default-off.");
+        Check(!Game.Logs.Contains("[P2] host_initialization_failed"),"Collection startup faulted the owner.");
+        return assertions;
+    }
 }
 static class Program
 {
@@ -100,6 +114,7 @@ static class Program
     static void Main()
     {
         int count=Run("runtime_parallel_start",scenario=>scenario.ConcurrentStart())+Run("runtime_stop_before_execution",scenario=>scenario.StopBeforeExecution());
+        foreach(var mode in new[]{"off","shadow","on","invalid"})foreach(object enabled in new object[]{null,false,true,"true",1})count+=Run("collection_"+mode+"_"+enabled,scenario=>scenario.ActivityCollection(mode,enabled));
         Console.WriteLine(count+" production runtime admission/lifetime assertions passed; no game assemblies executed.");
     }
 }

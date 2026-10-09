@@ -78,7 +78,7 @@ export function normalizeActivityConfig(value = {}) {
   const passedProbes = valid && Array.isArray(value.passedProbes)
     ? [...new Set(value.passedProbes.filter(item => typeof item === 'string' && /^[A-Z][A-Z0-9]{0,8}$/.test(item)))].slice(0, 12)
     : [];
-  return Object.freeze({ mode, pipeName: /^[A-Za-z0-9_.-]{1,80}$/.test(pipeName) ? pipeName : 'LSA.Activities.v1', passedProbes, dialogue: false });
+  return Object.freeze({ mode, pipeName: /^[A-Za-z0-9_.-]{1,80}$/.test(pipeName) ? pipeName : 'LSA.Activities.v1', passedProbes, dialogue: false,...(valid && value.dialogueReceipts===true?{dialogueReceipts:true}:{}) });
 }
 
 function refSlot(value) {
