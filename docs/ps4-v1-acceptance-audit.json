@@ -487,13 +487,20 @@
       "id": "T28",
       "oracle": "Edit selected memory/personality/relationship during delayed proof/STT: this request keeps captured revision; next turn sees edit.",
       "originalHarness": "P2 lifecycle + OpenAI connection delayed fixture.",
-      "status": "mapped_requires_oracle_review",
+      "status": "partial_verified",
       "candidateEvidence": [
         "lsa-essential-e1-candidate/tests/frozen-character-inputs.test.mjs",
         "lsa-essential-e1-candidate/tests/knowledge-inputs.test.mjs",
         "lsa-essential-e1-candidate/tests/stock-controller-lifecycle.test.mjs"
       ],
-      "note": "Candidate harnesses are navigation only; inspect concrete assertions and execution results before claiming this complete."
+      "note": "Delayed matching owner proof and actual Luna requests retain the P0 frozen profile/name and acting direction despite mid-flight edit; however this does not separately demonstrate selected memory/relationship edits followed by a *next* turn observing those exact edits. Leave full T28 open.",
+      "reviewedEvidence": [
+        {
+          "file": "lsa-essential-e1-candidate/tests/frozen-character-inputs.test.mjs",
+          "testPattern": "matching fresh proof releases the captured canon revision and acting direction after edits|actual Luna request retains P0 canon across an edit while fresh owner proof is pending",
+          "oracles": "Current request preserves original name/personality over pending proof"
+        }
+      ]
     },
     {
       "id": "T29",
@@ -523,37 +530,73 @@
       "id": "T30",
       "oracle": "First ordinary/unbound actor gets valid perceptions with no persistent profile; profile/store errors use safe session/basic context.",
       "originalHarness": "P0/P2/knowledge request fixture.",
-      "status": "mapped_requires_oracle_review",
+      "status": "partial_verified",
       "candidateEvidence": [
         "lsa-essential-e1-candidate/tests/frozen-character-inputs.test.mjs",
         "lsa-essential-e1-candidate/tests/knowledge-inputs.test.mjs",
         "lsa-essential-e1-candidate/tests/stock-controller-lifecycle.test.mjs"
       ],
-      "note": "Candidate harnesses are navigation only; inspect concrete assertions and execution results before claiming this complete."
+      "note": "Ordinary unbound speaker obtains exact observer currentness and no P1 profile; missing profile-at-freeze uses session assignment. Explicit unavailable profile-store error on the full real PS4 path still requires individual acceptance proof.",
+      "reviewedEvidence": [
+        {
+          "file": "lsa-essential-e1-candidate/tests/knowledge-inputs.test.mjs",
+          "testPattern": "ordinary P0 actor joins independently current observer without P1 or promotion",
+          "oracles": "Perception without P1"
+        },
+        {
+          "file": "lsa-essential-e1-candidate/tests/frozen-character-inputs.test.mjs",
+          "testPattern": "profile absent at freeze stays absent even if loaded or found during preparation",
+          "oracles": "No upgraded persistent profile; session/basic fallback"
+        }
+      ]
     },
     {
       "id": "T31",
       "oracle": "Frozen salience does not incorporate later proof/profile/event revision; next generation captures new view.",
       "originalHarness": "Connection + selector tests.",
-      "status": "mapped_requires_oracle_review",
+      "status": "partial_verified",
       "candidateEvidence": [
         "lsa-essential-e1-candidate/tests/frozen-character-inputs.test.mjs",
         "lsa-essential-e1-candidate/tests/knowledge-inputs.test.mjs",
         "lsa-essential-e1-candidate/tests/stock-controller-lifecycle.test.mjs"
       ],
-      "note": "Candidate harnesses are navigation only; inspect concrete assertions and execution results before claiming this complete."
+      "note": "Frozen observations and matching PS3 decisions remain byte-identical after a later incoming event; original captured P2 profile stays fixed across later edit. Separate next-generation recapture of changed event/profile is not individually asserted under this exact T31 requirement.",
+      "reviewedEvidence": [
+        {
+          "file": "lsa-essential-e1-candidate/tests/knowledge-inputs.test.mjs",
+          "testPattern": "observer observations and matching salience revisions freeze before later arrivals",
+          "oracles": "Original P0 pairs never change after later signal"
+        },
+        {
+          "file": "lsa-essential-e1-candidate/tests/frozen-character-inputs.test.mjs",
+          "testPattern": "actual Luna request retains P0 canon across an edit while fresh owner proof is pending",
+          "oracles": "No in-flight profile revision leak"
+        }
+      ]
     },
     {
       "id": "T32",
       "oracle": "Later realtime context, listener/world refresh, conversation target change cannot alter a captured frame; explicit null differs from omitted.",
       "originalHarness": "Existing P0 turn-context/stock-controller tests.",
-      "status": "mapped_requires_oracle_review",
+      "status": "automated_oracle_verified",
       "candidateEvidence": [
         "lsa-essential-e1-candidate/tests/frozen-character-inputs.test.mjs",
         "lsa-essential-e1-candidate/tests/knowledge-inputs.test.mjs",
         "lsa-essential-e1-candidate/tests/stock-controller-lifecycle.test.mjs"
       ],
-      "note": "Candidate harnesses are navigation only; inspect concrete assertions and execution results before claiming this complete."
+      "note": "Actual stock text/mic/special-turn typed P0 snapshots preserve original actor, listener, world, alias references and revisions when session is refreshed later; missing listener is retained, explicit null clears, cross-actor world fallback is rejected. Named real stock harness tests passed in Linux/Windows 699/70 run 37991307936.",
+      "reviewedEvidence": [
+        {
+          "file": "lsa-essential-e1-candidate/tests/p0-turn-context.test.mjs",
+          "testPattern": "stock session refresh retains an omitted listener, clears explicit null, and rejects cross-actor world fallback|typed turns freeze actor, listener, world, references, capture and revision before async work",
+          "oracles": "P0 actor/listener/world/alias stable despite later A.context/session updates"
+        },
+        {
+          "file": "lsa-essential-e1-candidate/tests/p0-turn-context.test.mjs",
+          "testPattern": "real stock text and microphone normalization preserve explicit listener clears|special turns carry M4 actor, listener, and world snapshots through Xn",
+          "oracles": "Omitted vs explicit-null listener and actual text, mic and special path normalization"
+        }
+      ]
     },
     {
       "id": "T33",
