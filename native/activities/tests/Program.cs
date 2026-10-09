@@ -129,6 +129,16 @@ class Program
         var ring = new SupersessionMonitor();
         for (var n = 0; n < 64; n++) Check(ring.Push(new CallbackRecord { Name = "waithere" }), "ring accepts bounded callbacks");
         Check(!ring.Push(new CallbackRecord { Name = "followtarget" }) && ring.Dropped == 1 && ring.Overflowing, "ring overflow is counted");
+        Check(ring.CaptureSequence==65,"C05 capture fence includes dropped callback attempt");
+        var earlier=ring.Drain();Check(earlier.CaptureSequence==1 && earlier.CaptureSequence<=ring.CaptureSequence,"C05 pre-annotation callback retains earlier sequence");
+        var stampRing=new SupersessionMonitor();var body=new object();var reused=new CallbackRecord{PedReference=body,Name="waithere",Phase="executed",Succeeded=true,GameMs=uint.MaxValue};
+        Check(stampRing.Push(reused),"C05 first source capture");var fence=stampRing.CaptureSequence;
+        reused.Name="followtarget";reused.GameMs=0;Check(stampRing.Push(reused),"C05 second source capture across tick wrap");
+        var capturedBefore=stampRing.Drain();var capturedAfter=stampRing.Drain();
+        Check(capturedBefore.Name=="waithere" && capturedBefore.GameMs==uint.MaxValue && capturedBefore.CaptureSequence==fence && ReferenceEquals(capturedBefore.PedReference,body),"C05 ring snapshots source fields without resolving body");
+        Check(capturedAfter.Name=="followtarget" && capturedAfter.GameMs==0 && capturedAfter.CaptureSequence>fence,"C05 source sequence disambiguates tick wrap");
+        Check(stampRing.CaptureSequence==2 && stampRing.Count==0,"C05 drain does not reset capture ordering");
+        Check(!stampRing.Push(null) && stampRing.CaptureSequence==2,"C05 null capture does not advance ordering");
         var session = new ActivitySession(table);
         int publications=0;
         var passive=new ActivitySession(table,null,Id('4'),()=>1,frame=>{publications++;return true;});

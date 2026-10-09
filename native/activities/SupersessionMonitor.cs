@@ -11,6 +11,7 @@ namespace LSA.Activities
         public string ActorKey, IncarnationId, Name, Phase, Source;
         public bool? Succeeded;
         public uint GameMs;
+        public long CaptureSequence;
     }
 
     // Callback producers may run outside the update fiber. They only append a
@@ -21,17 +22,25 @@ namespace LSA.Activities
         readonly Queue<CallbackRecord> ring = new Queue<CallbackRecord>();
         int dropped;
         bool overflowing;
+        long captureSequence;
 
         public int Dropped { get { lock (gate) return dropped; } }
         public bool Overflowing { get { lock (gate) return overflowing; } }
         public int Count { get { lock (gate) return ring.Count; } }
+        // Sample this fence on the owner fiber when accepting a C-05 annotation.
+        // A callback captured at/before it cannot belong to that publication.
+        public long CaptureSequence { get { lock (gate) return captureSequence; } }
 
         public bool Push(CallbackRecord record)
         {
             if (record == null) return false;
             lock (gate) {
+                if(captureSequence==long.MaxValue){dropped++;overflowing=true;return false;}
+                var sequence=++captureSequence;
                 if (ring.Count >= ActivityContracts.CallbackRing) { dropped++; overflowing = true; return false; }
-                ring.Enqueue(record);
+                // Keep source-time fields stable even if a producer reuses its
+                // record object. Ped remains opaque; no native/state reads here.
+                ring.Enqueue(new CallbackRecord{PedReference=record.PedReference,ActorKey=record.ActorKey,IncarnationId=record.IncarnationId,Name=record.Name,Phase=record.Phase,Source=record.Source,Succeeded=record.Succeeded,GameMs=record.GameMs,CaptureSequence=sequence});
                 return true;
             }
         }
