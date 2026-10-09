@@ -9,5 +9,7 @@
   <ItemGroup>
     <Compile Include="Program.cs" />
     <Compile Include="../DirectorAdmission.cs" Link="DirectorAdmission.cs" />
+    <Compile Include="../IntelligenceChannel.cs" Link="IntelligenceChannel.cs" />
+    <Reference Include="System.Web.Extensions" />
   </ItemGroup>
 </Project>
