@@ -250,3 +250,28 @@ for(const [mode,options] of [['buffered',{}],['streaming',{structuredStreamingEn
  const history=h.runtime.history.readForSession('17',1);assert.equal(history.filter(row=>row.role==='user').length,1);assert.equal(history.some(row=>row.role==='assistant'),terminal==='success');
  assert.equal(f.client.knowledgeListeners.size,0);
 });
+
+
+for(const [mode,options] of [['buffered',{}],['streaming',{structuredStreamingEnabled:true}],['early TTS',{structuredStreamingEnabled:true,earlyTtsEnabled:true}]])test(`PR21 T49 real ${mode} optional projection exception sends only hardened base`,async t=>{
+ const f=factualFixture(),bodies=[];let fallback=null,renderFaults=0;
+ f.actor.personaDescription='RAW_FALLBACK_CANARY';f.actor.integrations.raw={secret:'RAW_FALLBACK_CANARY'};
+ const h=await stockHarness('openai',{config:{...options,dialogueKnowledge:{mode:'active'},retry:{enabled:false,maxAttempts:1},persistentIdentity:{enabled:false},promotedCharacters:{enabled:false}},env:{OPENAI_API_KEY:'offline'},fetchImpl:async(_url,request)=>{bodies.push(JSON.parse(request.body));return response(bodies.at(-1).stream);}});
+ h.runtime.intelligence=f.client;h.runtime.dialogueKnowledgeBuildSupported=true;
+ const finalize=h.runtime.services.finalizeKnowledgeFrame;
+ h.runtime.services.finalizeKnowledgeFrame=(turn,args)=>{
+  // Fault only the optional renderer's enumeration after genuine P0 capture.
+  // All original lifetime/currentness checks and safe base serialization run.
+  const captured=turn.knowledgeInputs;
+  turn.knowledgeInputs={...captured,pairs:new Proxy(captured.pairs,{get(target,key,receiver){if(key===Symbol.iterator){renderFaults++;throw Error('optional_projection_fault');}return Reflect.get(target,key,receiver);}})};
+  const frame=finalize(turn,args);fallback=turn.knowledgeFallbackReason;return frame;
+ };
+ h.runtime.services.speak=async({onPcm})=>{await onPcm(new Uint8Array([1,2]));return {bytes:2};};
+ const session=await h.openAIControllerSession({actorContext:f.actor});t.after(()=>session.connection.close());session.autoNativeAcks();h.context.projectionFaultInput={pedId:'17',speaker:f.actor,text:'Genuine player question'};
+ const turn=await h.evaluate('ib(projectionFaultInput)');const result=await session.connection.whenSettled({pedId:'17',turnId:turn.id,generationId:turn.generationId,sessionNonce:1});
+ assert.equal(result.status,'completed',result.terminalReason);assert.equal(fallback,'projection_failed');assert.equal(renderFaults,1);assert.equal(bodies.length,1);
+ const scene=JSON.parse(bodies[0].input[0].content.split('\n').find(line=>line.startsWith('{"frameVersion":1,')));
+ assert.deepEqual(scene.lanes.PERCEIVED.observations,[]);assert.equal(bodies[0].input.at(-1).content,'Genuine player question');
+ for(const secret of ['RAW_FALLBACK_CANARY',f.ref,f.ps.hostContext.hostRunId,'turnKnowledge'])assert.equal(JSON.stringify(bodies[0]).includes(secret),false);
+ assert.ok([...f.ps.salience.ledger.values()].every(row=>row.consumedBy.size===0));assert.equal(f.client.knowledgeListeners.size,0);
+ assert.equal(h.runtime.history.readForSession('17',1).filter(row=>row.role==='assistant').length,1);
+});

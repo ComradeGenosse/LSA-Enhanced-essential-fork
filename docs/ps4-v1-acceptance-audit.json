@@ -681,13 +681,30 @@
       "id": "T49",
       "oracle": "Projection exception, unsupported contract or oversized mandatory template/input fails safely; no raw fallback body is fetched.",
       "originalHarness": "Failure-injection + request interception.",
-      "status": "mapped_requires_oracle_review",
+      "status": "automated_oracle_verified",
       "candidateEvidence": [
         "lsa-essential-e1-candidate/tests/knowledge-renderer.test.mjs",
         "lsa-essential-e1-candidate/tests/knowledge-selector.test.mjs",
         "lsa-essential-e1-candidate/tests/knowledge-base-integration.test.mjs"
       ],
-      "note": "Candidate harnesses are navigation only; inspect concrete assertions and execution results before claiming this complete."
+      "note": "Actual buffered/streaming/early-TTS stock-controller fixtures fault optional renderer enumeration after genuine P0 capture while preserving original currentness checks. They prove completed safe base request, projection_failed reason, empty perception/no salience consumption, genuine input, zero raw/private canary leaks and listener/history cleanup. Existing actual build/host/situation unsupported fallback fixtures, actual mic mandatory overflow zero-fetch fixture and both provider instruction-overflow zero-fetch checks cover remaining branches.",
+      "reviewedEvidence": [
+        {
+          "file": "lsa-essential-e1-candidate/tests/knowledge-active-integration.test.mjs",
+          "testPattern": "PR21 T49|falls back to safe base without consumption",
+          "oracles": "Three actual optional renderer failures plus unsupported build/host/world/capture/situation cases."
+        },
+        {
+          "file": "lsa-essential-e1-candidate/tests/knowledge-base-integration.test.mjs",
+          "testPattern": "mandatory current-input overflow fails before fetch",
+          "oracles": "Actual stock mic input overflow fails with no provider call."
+        },
+        {
+          "file": "lsa-essential-e1-candidate/tests/knowledge-renderer.test.mjs",
+          "testPattern": "provider entry points send projected bytes and reject oversized instructions before fetch",
+          "oracles": "Both actual provider entry points reject oversized instruction before fetch."
+        }
+      ]
     },
     {
       "id": "T50",

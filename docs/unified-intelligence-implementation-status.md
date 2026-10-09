@@ -738,3 +738,14 @@ Inspected the existing actual patched-stock microphone oversize-STT fixture: a 1
 Validation: renderer suite passed 16 cases. Complete normal-Node isolated offline regression passed 659 assertions across 63 files; git diff --check passed. Acceptance register records only T42/T48 individually verified. Production source/payload unchanged; no fresh build/install/activation or GTA acceptance is claimed. Aggregate-process Node crash limitation remains open.
 
 Next: remaining individual baseline acceptance oracles and matching native/build closure, then Phase 13a. Revised v1.0 objective remains active; deferred master phases remain outside current implementation scope.
+
+
+## Checkpoint 70: actual optional projection failure fallback
+
+Closed PR21 T49 automated oracle with actual buffered/structured-streaming/early-TTS stock-controller requests that fault optional renderer enumeration after genuine P0 capture. Original lifetime/currentness checks remain in place. Each path reports projection_failed, sends one hardened base request with genuine player input and no perceived/raw/private canaries, consumes no salience entitlement and completes ordinary assistant history/listener cleanup. The test observes the production finalizer; no rendering, authorization or request implementation changed.
+
+Complementary existing unsupported-build/host/world/capture/situation actual fallback tests, stock microphone mandatory-input overflow zero-fetch test and both provider instruction-overflow zero-fetch checks were inspected. Combined evidence closes T49; it does not imply all other optional-service failures or any physical acceptance gate passed.
+
+Validation: three focused actual projection-failure fixtures passed. Complete normal-Node isolated offline regression passed 662 assertions across 63 files; git diff --check passed. Acceptance register records T49 individually verified. Production source/payload unchanged; no fresh build/install/default activation or GTA acceptance is claimed. Aggregate-process Node crash limitation remains open.
+
+Next: remaining baseline oracles and matching native/build acceptance refresh, then bounded Phase 13a. Revised v1.0 goal remains active; all other master phases remain deferred.
