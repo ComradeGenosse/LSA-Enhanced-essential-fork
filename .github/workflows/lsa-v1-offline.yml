@@ -34,7 +34,8 @@ jobs:
         run: |
           node --check src/perception/sceneDirector.mjs
           node --check src/perception/sceneDirectorAdmission.mjs
-          node --test tests/scene-director.test.mjs tests/scene-director-admission.test.mjs tests/director-decision-guard.test.mjs
+          node --check src/perception/directorWire.mjs
+          node --test tests/scene-director.test.mjs tests/scene-director-admission.test.mjs tests/director-decision-guard.test.mjs tests/director-wire.test.mjs
       - name: Compile C-05 Windows test helper from source
         if: runner.os == 'Windows'
         shell: pwsh
