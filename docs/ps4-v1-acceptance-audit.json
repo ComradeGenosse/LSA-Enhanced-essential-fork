@@ -103,7 +103,7 @@
       "id": "T05",
       "oracle": "Ordinary actor private capture joins its own observer without promotion/P1 profile; target change between capture/send cannot substitute live conversation.",
       "originalHarness": "Native EnrichActor + PS host + companion request fixture.",
-      "status": "mapped_requires_oracle_review",
+      "status": "automated_oracle_verified",
       "candidateEvidence": [
         "native/intelligence/tests/Program.cs",
         "native/intelligence/integration-tests/Program.cs",
@@ -112,7 +112,19 @@
         "lsa-essential-e1-candidate/tests/host-context.test.mjs",
         "lsa-essential-e1-candidate/tests/observer-index.test.mjs"
       ],
-      "note": "Candidate harnesses are navigation only; inspect concrete assertions and execution results before claiming this complete."
+      "note": "Ordinary P0 actor independently joins its exact currently owned observer with ownerClaim null; live actor/target revisions cannot rewrite the frozen turn. Executed named tests in knowledge-inputs.test.mjs and p0-turn-context.test.mjs; baseline Linux/Windows run 37988428015 passed 698/70. No physical GTA claim.",
+      "reviewedEvidence": [
+        {
+          "file": "lsa-essential-e1-candidate/tests/knowledge-inputs.test.mjs",
+          "testPattern": "ordinary P0 actor joins independently current observer without P1 or promotion",
+          "oracles": "Own captureRef, no P1 claim; retired observer veto"
+        },
+        {
+          "file": "lsa-essential-e1-candidate/tests/p0-turn-context.test.mjs",
+          "testPattern": "typed turns freeze actor, listener, world, references, capture and revision before async work",
+          "oracles": "Target and actor changed after capture cannot replace frozen turn"
+        }
+      ]
     },
     {
       "id": "T06",
@@ -175,7 +187,7 @@
       "id": "T09",
       "oracle": "Connection sequence gap/duplicate/old stream/old adapter epoch/reset refresh: no partial or stale index/roster becomes visible.",
       "originalHarness": "Perception client/contract + native channel tests.",
-      "status": "mapped_requires_oracle_review",
+      "status": "partial_verified",
       "candidateEvidence": [
         "native/intelligence/tests/Program.cs",
         "native/intelligence/integration-tests/Program.cs",
@@ -184,7 +196,14 @@
         "lsa-essential-e1-candidate/tests/host-context.test.mjs",
         "lsa-essential-e1-candidate/tests/observer-index.test.mjs"
       ],
-      "note": "Candidate harnesses are navigation only; inspect concrete assertions and execution results before claiming this complete."
+      "note": "Envelope replay/old adapter-epoch/sequence-loss automated checks pass and reset fact/anchor state, but an individually asserted in-flight observer_index/roster rejection on transport restart is not yet in this exact acceptance audit. Keep final clause open rather than equating adjacent tests to full T09.",
+      "reviewedEvidence": [
+        {
+          "file": "lsa-essential-e1-candidate/tests/perception-contract.test.mjs",
+          "testPattern": "duplicate/out of order envelope sequences cannot replay facts|transport sequence loss invalidates anchors and queued facts|old native epoch/stream cannot publish after feature reset",
+          "oracles": "Duplicate and gap cannot publish signals; reset drops anchors/facts; old adapter/stream rejected"
+        }
+      ]
     },
     {
       "id": "T10",
@@ -304,14 +323,31 @@
       "id": "T18",
       "oracle": "Generic action/location/presence details cannot produce named action/zone/mode; closed supported variants retain only qualified values.",
       "originalHarness": "Contract/correlator tests.",
-      "status": "mapped_requires_oracle_review",
+      "status": "automated_oracle_verified",
       "candidateEvidence": [
         "lsa-essential-e1-candidate/tests/qualified-claim-details.test.mjs",
         "lsa-essential-e1-candidate/tests/observer-situation.test.mjs",
         "lsa-essential-e1-candidate/tests/salience-engine.test.mjs",
         "lsa-essential-e1-candidate/tests/knowledge-selector.test.mjs"
       ],
-      "note": "Candidate harnesses are navigation only; inspect concrete assertions and execution results before claiming this complete."
+      "note": "Qualified self action/location/activity claims carry only supported native receipt details; visual-only observers cannot inherit the subject's destination or action completion. Unrecognized action, stale/unknown location and arbitrary detail reject or omit specifics. Executed qualified-claim-details tests in verified 698/70 Linux/Windows run 37988428015.",
+      "reviewedEvidence": [
+        {
+          "file": "lsa-essential-e1-candidate/tests/qualified-claim-details.test.mjs",
+          "testPattern": "qualified self detail variants preserve provenance and handler outcome without completion",
+          "oracles": "Supported self action/location/activity facts only with correct provenance"
+        },
+        {
+          "file": "lsa-essential-e1-candidate/tests/qualified-claim-details.test.mjs",
+          "testPattern": "visual subject knowledge cannot reveal destination, activity value or handler outcome",
+          "oracles": "Other NPC visual claims stay generic"
+        },
+        {
+          "file": "lsa-essential-e1-candidate/tests/qualified-claim-details.test.mjs",
+          "testPattern": "unknown action/zone and stale sample keep generic provenance; arbitrary detail is rejected",
+          "oracles": "No invented named action, location or mode"
+        }
+      ]
     },
     {
       "id": "T19",
