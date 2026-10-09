@@ -493,12 +493,17 @@
         "lsa-essential-e1-candidate/tests/knowledge-inputs.test.mjs",
         "lsa-essential-e1-candidate/tests/stock-controller-lifecycle.test.mjs"
       ],
-      "note": "Delayed matching owner proof and actual Luna requests retain the P0 frozen profile/name and acting direction despite mid-flight edit; however this does not separately demonstrate selected memory/relationship edits followed by a *next* turn observing those exact edits. Leave full T28 open.",
+      "note": "Executed PR21 T28 direct P2 v1 test proves selected player-authored memory, personality and relationship fields stay frozen in the original CharacterService model projection across edits while the next independently captured input sees updated revisions and selected memory; existing true stock Luna tests prove delayed P1 name/acting direction does not rebase the first request. Still PARTIAL: one same-source delayed microphone/STT -> original model request vs newly generated second model request carrying edited memory/relationship is not separately exercised.",
       "reviewedEvidence": [
         {
           "file": "lsa-essential-e1-candidate/tests/frozen-character-inputs.test.mjs",
-          "testPattern": "matching fresh proof releases the captured canon revision and acting direction after edits|actual Luna request retains P0 canon across an edit while fresh owner proof is pending",
-          "oracles": "Current request preserves original name/personality over pending proof"
+          "testPattern": "PR21 T28 selected manual memory, personality and relationship remain P0-frozen across an edit; next capture sees revisions",
+          "oracles": "P2 v1 selected memory, personality, relationship frozen in projected SELF; fresh later capture uses edited values; test executed in 700/70 cross-platform CI run 37991971353"
+        },
+        {
+          "file": "lsa-essential-e1-candidate/tests/frozen-character-inputs.test.mjs",
+          "testPattern": "actual Luna request retains P0 canon across an edit while fresh owner proof is pending",
+          "oracles": "Actual Luna request retains frozen name during delayed P1 proof"
         }
       ]
     },
