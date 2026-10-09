@@ -109,6 +109,24 @@ class Program
 
         invalid.Reset();Check(!invalid.HasActive,"reset cleanup");
         invalid.Disable();Check(invalid.Handle(Request(16)).Status=="busy","disable fail closed");
+        // Source-time ticket is two seconds; the bound real native turn can
+        // legitimately play for longer without an unrelated incoming frame
+        // retiring its reservation. Its playback lease remains finite.
+        var speech=New();a=Request(17);
+        Check(speech.Handle(a).Status=="reserved","long speech reserve");
+        Check(speech.Handle(Request(17,"submit")).Status=="submitted","long speech submit");
+        Check(speech.BindActualTuple(a.TicketId,"17","native-long",1,3),"long speech bind");
+        now+=10000;
+        Check(speech.Handle(Request(18)).Status=="busy","bound playback survives source-time ticket expiry");
+        Check(speech.Complete(a.TicketId,"17","native-long",1,3,true,false,true,true),"complete playback acknowledged beyond source TTL");
+        Check(!speech.HasActive,"completed long playback releases single reservation");
+        var neverEnding=New();a=Request(19);
+        Check(neverEnding.Handle(a).Status=="reserved","stale playback reserve");
+        Check(neverEnding.Handle(Request(19,"submit")).Status=="submitted","stale playback submit");
+        Check(neverEnding.BindActualTuple(a.TicketId,"17","native-never",2,3),"stale playback bind");
+        now+=120000;
+        Check(!neverEnding.Complete(a.TicketId,"17","native-never",2,3,true,false,true,true),"expired playback lease cannot claim delivery");
+        Check(!neverEnding.HasActive,"expired completion releases native ticket");
         CodecContract();
         ChannelRoundtrip();
     }
