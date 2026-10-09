@@ -95,7 +95,7 @@ class Program
     static void Main()
     {
         try {
-            PrimaryOwnerTruth(); DeferredInitialization(); ShutdownOnCoreUpdate(); ResetWithPendingRequest(); ResetAfterP1(); RetireFailure(); ForwardClock(); ActivityIsolation(); ExactEncounterLifetime(); DialogueActorResolution();
+            PrimaryOwnerTruth(); DeferredInitialization(); ShutdownOnCoreUpdate(); ResetWithPendingRequest(); ResetAfterP1(); RetireFailure(); ForwardClock(); ActivityIsolation(); ExactEncounterLifetime(); DialogueActorResolution(); DialogueObserverLifetime();
             Console.WriteLine("P2 production clock recovery and Windows pipe cancellation: " + count + " assertions passed; no game assemblies loaded.");
         } catch (Exception error) { Console.Error.WriteLine(error.GetType().Name + ": " + error.Message); Environment.ExitCode = 1; }
     }
@@ -139,6 +139,35 @@ class Program
         Check(!integration.ResolveDialogueActor(ownedAnnotation,out resolved));ownedBinding["encounterId"]=owned.Id;ownedBinding["incarnationId"]=owned.Registration.IncarnationId;
         Check(integration.ResolveDialogueActor(ownedAnnotation,out resolved) && ReferenceEquals(resolved,ownedPed));ownedBinding["incarnationId"]=Guid.NewGuid().ToString("D");Check(!integration.ResolveDialogueActor(ownedAnnotation,out resolved));
         ownedBinding["incarnationId"]=owned.Registration.IncarnationId;ownedPed.MemoryAddress=new IntPtr(51);Check(!integration.ResolveDialogueActor(ownedAnnotation,out resolved));integration.Shutdown();
+    }
+    static void DialogueObserverLifetime()
+    {
+        var integration=Create(out _);var json=new JavaScriptSerializer();
+        integration.EnableActivityShadow("LSA.C05.lifecycle."+Guid.NewGuid().ToString("N"),true);
+        var session=integration.ActivitySession;Check(session.DialogueSupported && json.Deserialize<Dictionary<string,object>>(session.ServerHello()).ContainsKey("dialogueActionVersion"));
+        var ped=new Ped{Handle=70,MemoryAddress=new IntPtr(70)};
+        var anchor=integration.Host.Anchors.Retain(ped,70,new IntPtr(70),"ped",null,()=>ped.Exists() && ped.Handle==70 && ped.MemoryAddress==new IntPtr(70),integration.Host.MonotonicMs,false,LSA.Intelligence.AnchorConsumer.TurnActor);
+        var hello=new Dictionary<string,object>{{"version",1},{"type","hello"},{"contractSha256",LSA.Activities.CapabilityTable.ContractSha256},{"clientRun",Guid.NewGuid().ToString("D")},{"hostContextVersion",1},{"hostRunId",integration.Host.HostRunId},{"worldEpoch",1},{"dialogueActionVersion",1}};
+        session.OpenTransport();Check(session.AcceptClient(json.Serialize(hello)));var annotation=DialogueAnnotation(integration,anchor.CaptureRef);((Dictionary<string,object>)annotation["tuple"])["pedId"]="70";
+        int actions=Game.NativeCalls;Check(session.AcceptClient(json.Serialize(annotation)) && integration.PendingDialogueReceipts==1);
+        Check(Encounters(integration).Count==0 && Game.NativeCalls==actions);
+        integration.ApplyActionState(ped,null,"waithere",ActionStateModifierPhase.BeforeCoreStateRule);integration.OnNpcActionExecuted(ped,"waithere",true);
+        typeof(PromotedCharactersIntegration).GetMethod("DrainActivityRing",BindingFlags.Instance|BindingFlags.NonPublic).Invoke(integration,new object[0]);
+        var ordinaryReceipt=json.Deserialize<Dictionary<string,object>>(session.TakeOutbound());
+        Check(ordinaryReceipt!=null && (string)ordinaryReceipt["type"]=="dialogue.action.receipt" && (bool)ordinaryReceipt["succeeded"] && integration.PendingDialogueReceipts==0);
+        Check(!((Dictionary<string,object>)ordinaryReceipt["binding"]).ContainsKey("encounterId") && Encounters(integration).Count==0 && Game.NativeCalls==actions);
+        annotation["sequence"]=2;annotation["publicationId"]=Guid.NewGuid().ToString("D");Check(session.AcceptClient(json.Serialize(annotation)) && integration.PendingDialogueReceipts==1);
+        integration.Host.Anchors.Retire(anchor.CaptureRef);Check(integration.PendingDialogueReceipts==0);
+        annotation["sequence"]=3;Check(session.AcceptClient(json.Serialize(annotation)) && session.ClientReady && integration.PendingDialogueReceipts==0);
+        Check(session.AcceptClient(json.Serialize(new{version=1,type="lease",sequence=4,leaseTtlMs=5000})));
+        integration.Host.AdvanceWorld("timeline_change");Check(integration.PendingDialogueReceipts==0 && !session.ClientReady);
+        var fresh=integration.Host.Anchors.Retain(ped,70,new IntPtr(70),"ped",null,()=>ped.Exists() && ped.Handle==70 && ped.MemoryAddress==new IntPtr(70),integration.Host.MonotonicMs,false,LSA.Intelligence.AnchorConsumer.TurnActor);
+        hello["worldEpoch"]=integration.Host.WorldEpoch;session.OpenTransport();Check(session.AcceptClient(json.Serialize(hello)));
+        var newAnnotation=DialogueAnnotation(integration,fresh.CaptureRef);((Dictionary<string,object>)newAnnotation["tuple"])["pedId"]="70";
+        Check(session.AcceptClient(json.Serialize(newAnnotation)) && integration.PendingDialogueReceipts==1);
+        integration.InjectActivityFault(true);integration.Update();Check(integration.ActivityDisabled && integration.PendingDialogueReceipts==0);
+        integration.Shutdown();Check(integration.PendingDialogueReceipts==0);
+        Check(Field<Action<LSA.Intelligence.EntityAnchor>>(integration.Host.Anchors,"Retired")==null);
     }
     static void ActivityIsolation()
     {

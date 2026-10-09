@@ -53,6 +53,12 @@ namespace LSA.Activities
             if(!record.Succeeded.HasValue || row.Before<=row.Fence || record.CaptureSequence<=row.Before)return null;
             pending.Remove(row);var result=Copy(row.Annotation);result["succeeded"]=record.Succeeded.Value;result["atGameTick"]=(long)record.GameMs;return result;
         }
+        public Dictionary<string,object> PendingForCallback(CallbackRecord record)
+        {
+            if(record==null || record.Source!="essential" || (record.Phase!="before" && record.Phase!="executed"))return null;
+            var row=pending.Find(candidate=>ReferenceEquals(candidate.Body,record.PedReference) && candidate.Action==record.Name && record.CaptureSequence>candidate.Fence);
+            return row==null?null:Copy(row.Annotation);
+        }
         public void Invalidate(long wall){pending.Clear();unsafeUntil=Math.Max(unsafeUntil,wall>long.MaxValue-5000?long.MaxValue:wall+5000);}
         public void RetireCapture(string captureRef){pending.RemoveAll(row=>row.CaptureRef==captureRef);}
         public void Retire(string encounter,string incarnation){pending.RemoveAll(row=>row.Encounter==encounter && row.Incarnation==incarnation);}
