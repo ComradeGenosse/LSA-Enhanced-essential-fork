@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {ShadowRuntime} from '../src/perception/shadowRuntime.mjs';
+import {IntelligenceClient} from '../src/perception/intelligenceClient.mjs';
 import {CAPABILITIES,validateFrame} from '../src/perception/contracts.mjs';
 
 const uuid='a1111111-1111-4111-8111-111111111111';
@@ -41,4 +42,28 @@ test('fail closed for invalid response shape/version and untrusted delivery',()=
  assert.equal(validateFrame({...response,payload:{...response.payload,command:'DO STOP'}}),false);
  assert.equal(validateFrame({...response,payload:{...response.payload,directorRequestVersion:2}}),false);
  assert.equal(ps.ingest(response,{authenticated:false}),false);
+});
+
+test('capability-gated companion preview queues exactly one closed native packet',()=>{
+ const client=new IntelligenceClient({mode:'shadow',pipeName:'LSA.Intelligence.v1'},{now:()=>1000,report:()=>{}});
+ const writes=[];client.socket={destroyed:false,writable:true,writableLength:0,
+  write:line=>{writes.push(line);return false;}};
+ const args={operation:'reserve',ticket:{ticketId:ticket,dedupeKey:'ps:'+ticket},
+  proposal:{speakerCaptureRef:'e1111111-1111-4111-8111-111111111111',
+   playerCaptureRef:'f1111111-1111-4111-8111-111111111111',
+   observationId:'81111111-1111-4111-8111-111111111111',
+   observationRevision:1,decisionKey:'ps3:qualified',policyVersion:1},
+  stamp:{hostRunId:host,worldEpoch:1,
+   ownerIncarnationId:'91111111-1111-4111-8111-111111111111',
+   proofRevision:1,playerTurnVersion:0},ageMs:100};
+ assert.equal(client.sendDirectorPreview(args),false);
+ assert.equal(writes.length,0);
+ client.runtime.ingest(hello,{authenticated:true});
+ assert.equal(client.sendDirectorPreview(args),true);
+ assert.equal(writes.length,1);
+ assert.equal(JSON.parse(writes[0]).type,'director.request');
+ assert.equal(writes[0].endsWith('\n'),true);
+ client.socket.writableLength=8193;
+ assert.equal(client.sendDirectorPreview(args),false);
+ assert.equal(writes.length,1);
 });
