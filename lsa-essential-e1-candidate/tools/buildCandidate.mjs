@@ -16,7 +16,7 @@ const acorn = require('./vendor/acorn');
 const expectedBundleHash = '5d81de4217bd103316a1083e482ded1bddc791314abf671d686036175c0475f2';
 const expectedDllHash = '9b6de42d4c464901d859dd95e17e100e4fa9ef6074bfbb0cf3a57a76f6ddd653';
 const expectedNativeMetadataHash = '18edd2b47ffde748388b07a4a2d023793e183b882fe638acb5276440d45a2d23';
-const expectedPatchCount = 54;
+const expectedPatchCount = 55;
 const launcherName = 'server.bundle.mjs';
 const stockBundleDefault = path.resolve(root, 'upstream/server.bundle.mjs');
 const stockDllDefault = path.resolve(root, 'upstream/LosSantosAlive.dll');
@@ -219,6 +219,10 @@ export function patchSource(source) {
 
   // Internal/special events already hydrate actor, listener and world together in M4.
   const kbBody = functionBody(ast, 'kb');
+  // A claimed PS6 ticket (or reserved namespace) must have independent
+  // same-user native admission BEFORE stock M4 performs any async hydration.
+  // All ordinary Essential special events retain the stock path.
+  insert(kbBody.start+1, 'if ((t?.directorTicket !== undefined || String(t?.dedupeKey || "").startsWith("ps:") || t?.reason === "ps6_observer") && __LSA_E1_RUNTIME.directorPreflight(t) !== true) return false;', 'PS6 original ticket checked before kb hydration');
   const kbEnsure = one((() => { const all = []; walk(kbBody, node => { if (node.type === 'CallExpression' && node.callee.name === 'Zi') all.push(node); }); return all; })(), 'kb special-event session setup');
   insert(kbEnsure.arguments[0].start + 1, 'world: h.world, ', 'special-event session world association');
   const kbTurn = one((() => { const all = []; walk(kbBody, node => { if (node.type === 'CallExpression' && node.callee.name === 'Xi') all.push(node); }); return all; })(), 'kb special-event turn creation');
