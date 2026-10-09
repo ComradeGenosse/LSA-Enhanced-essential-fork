@@ -26,6 +26,7 @@ test('verified-ticket test double enforces no DO before stock action events',asy
  session.autoNativeAcks();
  h.context.directorArgs=args;
  // ONLY a fake acceptance here; production native preview cannot do this.
+ h.runtime.directorPreflight=()=>true;
  h.runtime.requireDirectorTicket=()=>ticket;
  h.runtime.services.decide=async()=>({dialogue:'I see trouble.',command:'DO FOLLOW'});
  const turn=await h.evaluate('kb(directorArgs)');
