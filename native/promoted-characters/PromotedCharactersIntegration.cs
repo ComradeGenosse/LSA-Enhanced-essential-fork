@@ -66,7 +66,11 @@ namespace LSA.PromotedCharacters
             var registration=e.Registration;
             // Read-only lifetime validity includes the terminal dead state until Retire;
             // no identity proof or action authority is inferred from this roster.
-            return new LSA.Intelligence.OwnedParticipant {Ped=e.Ped,Lifetime=registration.IncarnationId,EncounterId=e.Id,PrimaryOwner=()=>e.Owner,Current=()=>ReferenceEquals(e.Registration,registration) && e.Ped.Exists() && e.Ped.MemoryAddress==e.Address && (e.Ped.IsDead || identity?.Owner?.TryResolveCurrent(e.Ped,out var claim)==true && claim.incarnationId==registration.IncarnationId)};
+            return new LSA.Intelligence.OwnedParticipant {Ped=e.Ped,Lifetime=registration.IncarnationId,EncounterId=e.Id,PrimaryOwner=()=>e.Owner,
+                DirectorOwner=()=>ReferenceEquals(e.Registration,registration) && e.Owner!=null
+                    ? new LSA.Intelligence.DirectorOwnerSample {Owner=e.Owner.owner,Mode=e.Owner.mode,Suspended=e.Suspended}
+                    : null,
+                Current=()=>ReferenceEquals(e.Registration,registration) && e.Ped.Exists() && e.Ped.MemoryAddress==e.Address && (e.Ped.IsDead || identity?.Owner?.TryResolveCurrent(e.Ped,out var claim)==true && claim.incarnationId==registration.IncarnationId)};
         }).ToArray();
         public string Id => "characterProfile";
         // Prepared integrations must receive Core.Update even on a late load.
