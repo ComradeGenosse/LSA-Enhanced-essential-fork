@@ -40,6 +40,34 @@ class Program
         Check(anchors.Resolve(priorityToken)==firstPriority&&anchors.Resolve(conversationToken)==conversationAnchor&&conversationToken!=demotedToken,"conversation changes never reuse or retarget captureRefs");
         for(int n=16;n<256;n++) anchors.Retain(new object(),(ulong)n+1,new IntPtr(n+1),"ped",null,()=>true,0);
         Check(anchors.Count==256&&anchors.Retain(new object(),999,new IntPtr(999),"vehicle",null,()=>true,0)==null,"anchor cap");anchors.Clear();Check(anchors.Count==0,"anchor reset");
+        // PR21 T01/T03/T04: the same retained physical lifetime shares a
+        // captureRef across consumers, without ACT granting PS observer rights.
+        var sharedRefs=new EntityAnchors();var onePed=new object();
+        var psRef=sharedRefs.Retain(onePed,1100,new IntPtr(1100),"ped","owner-shared",()=>true,0,true,AnchorConsumer.PsObserver);
+        var actRef=sharedRefs.Retain(onePed,1100,new IntPtr(1100),"ped","owner-shared",()=>true,1,false,AnchorConsumer.ActTarget);
+        Check(ReferenceEquals(psRef,actRef)&&sharedRefs.Count==1&&
+          sharedRefs.ConsumerCount(AnchorConsumer.PsObserver)==1&&
+          sharedRefs.ConsumerCount(AnchorConsumer.ActTarget)==1,"PS/ACT share native exact anchor with distinct consumer receipts");
+        var otherPed=new object();var onlyAct=sharedRefs.Retain(otherPed,1101,new IntPtr(1101),"ped",null,()=>true,0,false,AnchorConsumer.ActTarget);
+        Check(onlyAct!=null&&!onlyAct.Observer,"ACT starts without PS observer authority");
+        Check(sharedRefs.Retain(otherPed,1101,new IntPtr(1101),"ped",null,()=>true,1,true,AnchorConsumer.ActTarget)==null&&
+          !onlyAct.Observer,"ACT cannot promote its Ped to observer");
+        for(int n=2;n<32;n++) {
+            var entry=sharedRefs.Retain(new object(),(ulong)(1100+n),new IntPtr(1100+n),"ped",null,()=>true,0,false,AnchorConsumer.ActTarget);
+            Check(entry!=null,"ACT current refs under cap");
+        }
+        Check(sharedRefs.ConsumerCount(AnchorConsumer.ActTarget)==32&&
+          sharedRefs.Retain(new object(),1200,new IntPtr(1200),"ped",null,()=>true,0,false,AnchorConsumer.ActTarget)==null,
+          "ACT 32 target references cap rejects overload independently of global refs");
+        int notificationCount=0;int reasonCount=0;
+        sharedRefs.Retired+=(entry)=>{if(entry.CaptureRef==psRef.CaptureRef) notificationCount++;};
+        sharedRefs.Retired+=(entry)=>{if(entry.CaptureRef==psRef.CaptureRef)throw new Exception("isolate subscriber");};
+        sharedRefs.Retirement+=(entry,reason)=>{if(entry.CaptureRef==psRef.CaptureRef&&reason==AnchorRetirement.OwnerRevoked)reasonCount++;};
+        sharedRefs.RevokeOwner("owner-shared");sharedRefs.RevokeOwner("owner-shared");
+        Check(notificationCount==1&&reasonCount==1&&sharedRefs.RetirementNotificationFaults==1&&
+          sharedRefs.Resolve(psRef.CaptureRef)==null,"owner revocation fans out once despite failing subscriber");
+        sharedRefs.Clear(AnchorRetirement.Shutdown);
+        Check(sharedRefs.Count==0,"host shutdown clears remaining consumer refs");
         var sensors=new SensorAdapters();string target=Guid.NewGuid().ToString("D"),attacker=Guid.NewGuid().ToString("D");
         Check(!sensors.Damage("ped_damage",target,null,2,0,"unknown",1,1,false)&&sensors.Count==0,"disabled parity");sensors.Enabled=true;
         using(var callbacks=new DamageSensors(sensors,(h,e)=>h==1?target:h==2?attacker:null,(h,e)=>h==3?target:null,r=>r==target,()=>100,()=>42)) {
