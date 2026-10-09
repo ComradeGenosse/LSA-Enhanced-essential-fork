@@ -749,3 +749,14 @@ Complementary existing unsupported-build/host/world/capture/situation actual fal
 Validation: three focused actual projection-failure fixtures passed. Complete normal-Node isolated offline regression passed 662 assertions across 63 files; git diff --check passed. Acceptance register records T49 individually verified. Production source/payload unchanged; no fresh build/install/default activation or GTA acceptance is claimed. Aggregate-process Node crash limitation remains open.
 
 Next: remaining baseline oracles and matching native/build acceptance refresh, then bounded Phase 13a. Revised v1.0 goal remains active; all other master phases remain deferred.
+
+
+## Checkpoint 71: original owned association and first-turn proof audit
+
+Reviewed existing original-capture and first-owned proof suites against T06/T29 rather than duplicating their substantial actual provider matrix. Added explicit captured encounter/incarnation/profile disagreement checks in the production capture fixture; each rejects owner join, and restoring the original fields succeeds. Existing wrong-actor, P1 host/claim mismatch, pending binding/revision/tuple/currentness/retirement tests cover the remaining association fences.
+
+Existing character service fixtures prove a mismatched/revoked claim never releases persistent canon, absent-at-freeze profile stays absent despite late loading, and actual first-owned requests retain captured canon/observations across proof awaits without refill. Actual owned ACT/C05 provider matrix exercises matching/mismatched P1 host and child epoch/lifetime scenarios in all nine request paths. The acceptance register now records T06/T29 individually verified. No production identity/proof/freeze implementation changed.
+
+Validation: focused knowledge-input suite passed 13 cases; existing frozen-character/owned-provider suite passed 51. Full normal-Node isolated offline regression passed 662 assertions across 63 files; added assertions do not increase the test-case count. git diff --check passed. Production source/payload unchanged; no fresh build/install/activation or physical acceptance claimed. Aggregate-process Node crash limitation remains open.
+
+Next: remaining individual baseline acceptance groups and matching native/build closure, then Phase 13a. User-authorized v1.0 goal remains active; other master phases remain deferred.

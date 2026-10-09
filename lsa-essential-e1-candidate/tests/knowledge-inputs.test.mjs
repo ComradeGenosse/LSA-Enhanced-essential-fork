@@ -83,6 +83,11 @@ test('owned candidate requires captured encounter/incarnation and independent P1
   const ownerEvidence={hostContext:f.hello,verify:()=>{throw new Error('freeze cannot await proof');}};
   const input={identity:f.identity,source:'player_text',p0Snapshot:f.p0Snapshot,perception:f.perception,identityConfig:normalizeIdentityConfig({enabled:true,worldProfileId}),ownerEvidence};
   const frozen=captureKnowledgeInputs(input);assert.equal(frozen.reason,null);assert.equal(frozen.ownerClaim.incarnationId,proof.incarnationId);assert.equal(Object.hasOwn(frozen,'characterId'),false);
+  const originalEncounter=f.block.encounterId,originalIncarnation=f.block.incarnationId,originalProfile=f.p0Snapshot.actor.integrations.characterProfile;
+  f.block.encounterId=randomUUID();assert.equal(captureKnowledgeInputs(input).reason,'owner_unverified');f.block.encounterId=originalEncounter;
+  f.block.incarnationId=randomUUID();assert.equal(captureKnowledgeInputs(input).reason,'owner_unverified');f.block.incarnationId=originalIncarnation;
+  f.p0Snapshot.actor.integrations.characterProfile={version:1,encounterId:randomUUID()};assert.equal(captureKnowledgeInputs(input).reason,'owner_unverified');f.p0Snapshot.actor.integrations.characterProfile=originalProfile;
+  assert.equal(captureKnowledgeInputs(input).reason,null);
   ownerEvidence.hostContext={...f.hello,hostRunId:randomUUID()};assert.equal(captureKnowledgeInputs(input).reason,'owner_unverified');
   ownerEvidence.hostContext=f.hello;proof.incarnationId=randomUUID();assert.equal(captureKnowledgeInputs(input).reason,'owner_unverified');assert.notEqual(frozen.ownerClaim.incarnationId,proof.incarnationId);
 });

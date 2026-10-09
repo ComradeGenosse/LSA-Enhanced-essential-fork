@@ -85,7 +85,7 @@
       "id": "T06",
       "oracle": "Owned capture index disagrees with encounter/incarnation/P1 claim: reject owned-profile join; mismatched actor/capture fails perception join.",
       "originalHarness": "P1/P2 contract + perception client tests.",
-      "status": "mapped_requires_oracle_review",
+      "status": "automated_oracle_verified",
       "candidateEvidence": [
         "native/intelligence/tests/Program.cs",
         "native/intelligence/integration-tests/Program.cs",
@@ -94,7 +94,19 @@
         "lsa-essential-e1-candidate/tests/host-context.test.mjs",
         "lsa-essential-e1-candidate/tests/observer-index.test.mjs"
       ],
-      "note": "Candidate harnesses are navigation only; inspect concrete assertions and execution results before claiming this complete."
+      "note": "Production capture tests explicitly reject captured encounter/incarnation/profile disagreement with the owned observer index, mismatched P1 claim/host and wrong actor identity; matching restoration succeeds. Existing pending-owner proof fixtures reject changed binding/revision/tuple/claim/currentness/host/retirement and cannot upgrade missing/unowned associations. Actual owned request matrix covers matching/mismatched independent P1 host with no private identity donation.",
+      "reviewedEvidence": [
+        {
+          "file": "lsa-essential-e1-candidate/tests/knowledge-inputs.test.mjs",
+          "testPattern": "owned candidate requires captured|first owned candidate stays private|pending proof cannot upgrade|missing and forged capture",
+          "oracles": "Closed original actor/index/proof association and exact release/currentness fences."
+        },
+        {
+          "file": "lsa-essential-e1-candidate/tests/frozen-character-inputs.test.mjs",
+          "testPattern": "candidate never supplies persistent canon|profile absent at freeze|real first-owned active request|real owned ACT/C05",
+          "oracles": "Mismatched/revoked/missing profile and actual provider first-owned proof-await matrix."
+        }
+      ]
     },
     {
       "id": "T07",
@@ -401,13 +413,25 @@
       "id": "T29",
       "oracle": "First owned turn verifies matching frozen candidate; mismatch/revoke/conflict cannot release it. Newly loaded profile after freeze waits for next turn.",
       "originalHarness": "P1/P2 service and identity evidence tests.",
-      "status": "mapped_requires_oracle_review",
+      "status": "automated_oracle_verified",
       "candidateEvidence": [
         "lsa-essential-e1-candidate/tests/frozen-character-inputs.test.mjs",
         "lsa-essential-e1-candidate/tests/knowledge-inputs.test.mjs",
         "lsa-essential-e1-candidate/tests/stock-controller-lifecycle.test.mjs"
       ],
-      "note": "Candidate harnesses are navigation only; inspect concrete assertions and execution results before claiming this complete."
+      "note": "Existing character service fixtures prove first-owned captured canon stays private on mismatched incarnation or revoked proof, and profile absent at freeze stays session-assigned even if loaded during preparation. Existing production pending-proof release tests fence binding revision/full original tuple/claim/host/lifetime; actual first-owned stock/provider fixtures preserve original frozen canon and observations across await without refilling. Both suites freshly passed.",
+      "reviewedEvidence": [
+        {
+          "file": "lsa-essential-e1-candidate/tests/knowledge-inputs.test.mjs",
+          "testPattern": "owned candidate requires captured|first owned candidate stays private|pending proof cannot upgrade|missing and forged capture",
+          "oracles": "Closed original actor/index/proof association and exact release/currentness fences."
+        },
+        {
+          "file": "lsa-essential-e1-candidate/tests/frozen-character-inputs.test.mjs",
+          "testPattern": "candidate never supplies persistent canon|profile absent at freeze|real first-owned active request|real owned ACT/C05",
+          "oracles": "Mismatched/revoked/missing profile and actual provider first-owned proof-await matrix."
+        }
+      ]
     },
     {
       "id": "T30",
