@@ -37,7 +37,7 @@ namespace LSA.Intelligence
         internal const long TicketTtlMs=2000;
         internal const int MaxAttempts=4;
         readonly Func<long> clock;
-        readonly Func<Request,bool> independentlySafe;
+        readonly Func<Request,string,bool> independentlySafe;
         readonly Func<string> currentHost;
         readonly Func<int> currentWorld;
         readonly Dictionary<string,Reservation> pending=new Dictionary<string,Reservation>();
@@ -48,6 +48,11 @@ namespace LSA.Intelligence
         bool enabled;
 
         internal DirectorAdmission(Func<long> clock,Func<Request,bool> independentlySafe,
+          Func<string> currentHost,Func<int> currentWorld,bool enabled=false)
+          :this(clock,independentlySafe==null?null:
+              new Func<Request,string,bool>((request,stage)=>independentlySafe(request)),
+              currentHost,currentWorld,enabled) {}
+        internal DirectorAdmission(Func<long> clock,Func<Request,string,bool> independentlySafe,
           Func<string> currentHost,Func<int> currentWorld,bool enabled=false)
         {
             this.clock=clock??throw new ArgumentNullException(nameof(clock));
@@ -69,11 +74,11 @@ namespace LSA.Intelligence
           Key(r.DecisionKey) && r.WorldEpoch>0 && r.ProofRevision>0 &&
           r.PlayerTurnVersion>=0 && r.PolicyVersion==1 && r.ObservationRevision>0 &&
           r.AgeMs>=0 && r.AgeMs<=2000;
-        bool Safe(Request r)
+        bool Safe(Request r,string stage)
         {
             if(!enabled||!Valid(r)||r.HostRunId!=currentHost()||
                 r.WorldEpoch!=currentWorld())return false;
-            try {return independentlySafe(r)==true;}catch{return false;}
+            try {return independentlySafe(r,stage)==true;}catch{return false;}
         }
         void Trim(long now)
         {
@@ -108,7 +113,7 @@ namespace LSA.Intelligence
                     pending.Count>=MaxTickets||attempts.Count>=MaxAttempts||seen.Count>=512)
                     return new Receipt(request.TicketId,"busy");
                 attempts.Enqueue(now);seen.Add(request.TicketId,now);seenOrder.Enqueue(new KeyValuePair<string,long>(request.TicketId,now));
-                if(!Safe(request))return new Receipt(request.TicketId,"unsafe");
+                if(!Safe(request,"reserve"))return new Receipt(request.TicketId,"unsafe");
                 pending[request.TicketId]=new Reservation{
                     Request=request,ExpiresAt=now+TicketTtlMs
                 };
@@ -119,7 +124,7 @@ namespace LSA.Intelligence
             if(!pending.TryGetValue(request.TicketId,out reservation)||
                 activeTicket!=request.TicketId||reservation.Used||
                 !Same(reservation.Request,request))return new Receipt(request.TicketId,"stale");
-            if(!Safe(request)) {
+            if(!Safe(request,"submit")) {
                 pending.Remove(request.TicketId);activeTicket=null;
                 return new Receipt(request.TicketId,"unsafe");
             }
@@ -147,7 +152,7 @@ namespace LSA.Intelligence
                 !r.Used||r.TurnId!=null||clock()>=r.ExpiresAt||
                 string.IsNullOrWhiteSpace(pedId)||!Key(turnId)||generationId<0||nonce<=0)
                 return false;
-            if(!Safe(r.Request))return false;
+            if(!Safe(r.Request,"bind"))return false;
             r.PedId=pedId;r.TurnId=turnId;r.GenerationId=generationId;r.SessionNonce=nonce;
             // Ticket TTL guards pre-turn admission, not actual native TTS.
             // A separately bounded playback lease prevents a stuck turn from
@@ -166,7 +171,7 @@ namespace LSA.Intelligence
             pending.Remove(ticket);activeTicket=null;
             // Only a matching native complete-playback receipt permits a
             // separate, checked PS3 ps6_ticket acknowledgement.
-            return withinPlaybackLease&&complete&&!interrupted&&hadAudio&&playbackStarted&&Safe(r.Request);
+            return withinPlaybackLease&&complete&&!interrupted&&hadAudio&&playbackStarted&&Safe(r.Request,"complete");
         }
     }
 }
