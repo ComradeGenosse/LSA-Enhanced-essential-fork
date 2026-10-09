@@ -115,6 +115,12 @@ class Program
                 LosSantosAlive.NPC.NpcStateStore.State=body=>{Check(ReferenceEquals(body,ped));return sample.Item1;};
                 refresh.Invoke(null,new object[]{encounter});
                 Check(encounter.Owner.owner=="essential_residual" && encounter.Owner.mode==sample.Item2 && encounter.Mode==sample.Item2 && encounter.Owner.since==200);
+                var verified=integration.PerceptionRoster().Single(x=>x.Lifetime==encounter.Registration.IncarnationId);
+                var director=verified.DirectorOwner();
+                Check(director!=null && director.Owner=="essential_residual" && director.Mode==sample.Item2 && !director.Suspended);
+                encounter.Suspended=true;
+                Check(verified.DirectorOwner().Suspended,"Director source preserves native P2 suspension");
+                encounter.Suspended=false;
                 var original=encounter.Owner;Game.GameTime=201;refresh.Invoke(null,new object[]{encounter});
                 Check(ReferenceEquals(original,encounter.Owner));
             }
@@ -126,7 +132,11 @@ class Program
             LosSantosAlive.NPC.NpcStateStore.State=body=>throw new Exception("stale body must never sample");
             ped.MemoryAddress=new IntPtr(89);int reads=Game.NativeCalls;
             refresh.Invoke(null,new object[]{encounter});Check(Game.NativeCalls==reads && encounter.Owner.owner=="none" && encounter.Mode=="unknown");
-            ped.MemoryAddress=new IntPtr(88);encounter.Registration=null;reads=Game.NativeCalls;
+            ped.MemoryAddress=new IntPtr(88);
+            var prior=integration.PerceptionRoster().Single(x=>x.Lifetime==encounter.Registration.IncarnationId);
+            encounter.Registration=null;
+            Check(prior.DirectorOwner()==null,"retired P2 registration cannot retain Director mode authorization");
+            reads=Game.NativeCalls;
             refresh.Invoke(null,new object[]{encounter});Check(Game.NativeCalls==reads && encounter.Owner.mode=="unknown");
         }finally{LosSantosAlive.NPC.NpcStateStore.State=null;integration.Shutdown();}
     }
