@@ -64,6 +64,45 @@ class Program
               c06probe.ActorReflexKnown&&c06probe.ActorReflexIdle&&
               c06probe.ScriptStateKnown&&c06probe.ScriptSafe,
               "native C06 samples explicit idle P2 mode, Core reflex and GTA scripted state");
+        Check(c06probe.SpecialTurnVersionKnown && c06probe.SpecialTurnVersion==0 &&
+              c06probe.PlaybackKnown && c06probe.PlaybackIdle &&
+              !c06probe.PlayerTurnSourceCurrent && !c06probe.EssentialTurnKnown,
+              "Core exposes real special-turn counter and global playback, not global player/Essential idle");
+        LosSantosAlive.Bridge.SpecialTurns.SpecialGeminiTurnService.Version=(long)int.MaxValue+10L;
+        var newerSpecial=(DirectorC06Policy.Snapshot)integration.GetType().GetMethod(
+            "ReadDirectorC06",BindingFlags.NonPublic|BindingFlags.Instance).Invoke(integration,new object[]{c06request});
+        Check(newerSpecial.SpecialTurnVersionKnown && newerSpecial.SpecialTurnVersion==(long)int.MaxValue+10L &&
+              newerSpecial.PlayerTurnVersion==-1 && !newerSpecial.PlayerTurnSourceCurrent,
+              "64-bit special-turn version is preserved without truncating to request's unrelated int field");
+        LosSantosAlive.Bridge.SpecialTurns.SpecialGeminiTurnService.Version=-1;
+        var unknownSpecial=(DirectorC06Policy.Snapshot)integration.GetType().GetMethod(
+            "ReadDirectorC06",BindingFlags.NonPublic|BindingFlags.Instance).Invoke(integration,new object[]{c06request});
+        Check(!unknownSpecial.SpecialTurnVersionKnown && unknownSpecial.SpecialTurnVersion==-1,
+              "invalid Core special-turn revision cannot be promoted as current");
+        LosSantosAlive.Bridge.SpecialTurns.SpecialGeminiTurnService.Version=0;
+        LosSantosAlive.Audio.NpcPlaybackCoordinator.AnyAudio=true;
+        var queuedAudio=(DirectorC06Policy.Snapshot)integration.GetType().GetMethod(
+            "ReadDirectorC06",BindingFlags.NonPublic|BindingFlags.Instance).Invoke(integration,new object[]{c06request});
+        Check(queuedAudio.PlaybackKnown && !queuedAudio.PlaybackIdle &&
+              !DirectorC06Policy.Safe(c06request,queuedAudio),
+              "any Core playing or pending audio independently vetoes new speech");
+        LosSantosAlive.Audio.NpcPlaybackCoordinator.AnyAudio=false;
+        LosSantosAlive.Audio.NpcPlaybackCoordinator.ThrowRead=true;
+        var failedPlayback=(DirectorC06Policy.Snapshot)integration.GetType().GetMethod(
+            "ReadDirectorC06",BindingFlags.NonPublic|BindingFlags.Instance).Invoke(integration,new object[]{c06request});
+        Check(!failedPlayback.PlaybackKnown && !failedPlayback.PlaybackIdle &&
+              !DirectorC06Policy.Safe(c06request,failedPlayback),
+              "unreadable Core playback fails closed instead of inferring idle");
+        LosSantosAlive.Audio.NpcPlaybackCoordinator.ThrowRead=false;
+        LosSantosAlive.Bridge.SpecialTurns.SpecialGeminiTurnService.ThrowRead=true;
+        var failedSpecial=(DirectorC06Policy.Snapshot)integration.GetType().GetMethod(
+            "ReadDirectorC06",BindingFlags.NonPublic|BindingFlags.Instance).Invoke(integration,new object[]{c06request});
+        Check(!failedSpecial.SpecialTurnVersionKnown && !failedSpecial.PlaybackKnown &&
+              !DirectorC06Policy.Safe(c06request,failedSpecial),
+              "failed special-turn revision read cannot silently grant playback");
+        LosSantosAlive.Bridge.SpecialTurns.SpecialGeminiTurnService.ThrowRead=false;
+        Check(LosSantosAlive.Audio.NpcPlaybackCoordinator.BusyReads>=3,
+              "Core global playback query is sampled on owner fiber");
         directorMode.Owner="act";directorMode.Mode="activity";
         var modeBusy=(DirectorC06Policy.Snapshot)integration.GetType().GetMethod(
             "ReadDirectorC06",BindingFlags.NonPublic|BindingFlags.Instance).Invoke(integration,new object[]{c06request});
