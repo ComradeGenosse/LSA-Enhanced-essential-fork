@@ -559,23 +559,28 @@
       "id": "T31",
       "oracle": "Frozen salience does not incorporate later proof/profile/event revision; next generation captures new view.",
       "originalHarness": "Connection + selector tests.",
-      "status": "partial_verified",
+      "status": "automated_oracle_verified",
       "candidateEvidence": [
         "lsa-essential-e1-candidate/tests/frozen-character-inputs.test.mjs",
         "lsa-essential-e1-candidate/tests/knowledge-inputs.test.mjs",
         "lsa-essential-e1-candidate/tests/stock-controller-lifecycle.test.mjs"
       ],
-      "note": "Frozen observations and matching PS3 decisions remain byte-identical after a later incoming event; original captured P2 profile stays fixed across later edit. Separate next-generation recapture of changed event/profile is not individually asserted under this exact T31 requirement.",
+      "note": "Direct real PS3/PS4 P0 capture regression proves event 2/revision after source time does not mutate original frozen observation/salience; a separately captured new generation/turn includes updated qualified signal. Separate P2 v1 CharacterService frozen-vs-new revision regression independently proves the old profile stays frozen and new projection gets edited manual memory/personality/relationship. Matching current SHA 0020f11 CI 37992536731 passed 701/70 Node on both Linux and Windows. No GTA claim.",
       "reviewedEvidence": [
         {
           "file": "lsa-essential-e1-candidate/tests/knowledge-inputs.test.mjs",
-          "testPattern": "observer observations and matching salience revisions freeze before later arrivals",
-          "oracles": "Original P0 pairs never change after later signal"
+          "testPattern": "PR21 T31 a new P0 generation captures later witnessed signal while old PS3 salience remains frozen",
+          "oracles": "Old evidence/paired PS3 decision snapshot frozen while new generation captures new observed source-time evidence"
+        },
+        {
+          "file": "lsa-essential-e1-candidate/tests/frozen-character-inputs.test.mjs",
+          "testPattern": "PR21 T28 selected manual memory, personality and relationship remain P0-frozen across an edit; next capture sees revisions",
+          "oracles": "P2 frozen old profile survives manual edits; new generation/new capture gets updated profile"
         },
         {
           "file": "lsa-essential-e1-candidate/tests/frozen-character-inputs.test.mjs",
           "testPattern": "actual Luna request retains P0 canon across an edit while fresh owner proof is pending",
-          "oracles": "No in-flight profile revision leak"
+          "oracles": "P1 delayed profile proof does not rebase old model request"
         }
       ]
     },
