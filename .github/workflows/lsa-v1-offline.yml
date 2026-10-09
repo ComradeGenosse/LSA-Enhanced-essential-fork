@@ -51,6 +51,12 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         run: '& .\\native\\activities\\tests\\bin\\Debug\\net481\\ActivityTests.exe'
+      - name: Build and run shared native PS/ACT identity tests
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          dotnet build native/intelligence/tests/IntelligenceTests.csproj --configuration Debug
+          & .\\native\\intelligence\\tests\\bin\\Debug\\net481\\IntelligenceTests.exe
       - name: Build and run isolated native PS6 admission contract
         if: runner.os == 'Windows'
         shell: pwsh
