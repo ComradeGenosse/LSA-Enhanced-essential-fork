@@ -23,5 +23,7 @@ test('Director speech fails closed if ticket version, UUID, dedupe or source pro
 test('Stock existing special/player events remain unaffected',()=>{
   for(const source of ['special_event','player_text','player_mic','internal_event']){
     assert.equal(assertDirectorSpeechDecision({dialogue:'Hello',command:'DO FOLLOW'},{source}),true);
+    // The frozen stock OpenAI snapshot explicitly uses null for no ticket.
+    assert.equal(assertDirectorSpeechDecision({dialogue:'Hello',command:'DO FOLLOW'},{source,directorTicket:null}),true);
   }
 });
