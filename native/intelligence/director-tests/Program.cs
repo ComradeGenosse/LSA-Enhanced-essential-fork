@@ -1,4 +1,8 @@
 using System;
+using System.IO;
+using System.IO.Pipes;
+using System.Text;
+using System.Threading;
 using LSA.Intelligence;
 
 class Program
@@ -105,5 +109,51 @@ class Program
 
         invalid.Reset();Check(!invalid.HasActive,"reset cleanup");
         invalid.Disable();Check(invalid.Handle(Request(16)).Status=="busy","disable fail closed");
+        ChannelRoundtrip();
     }
+    static void ChannelRoundtrip()
+    {
+        string name="LSA.PS6.CI."+Guid.NewGuid().ToString("N");
+        using(var server=new IntelligenceChannel(name,Guid.NewGuid().ToString("D"),
+            ()=>new {shooting=true},host,()=>world,true,true)) {
+            server.Start();
+            using(var client=new NamedPipeClientStream(".",name,PipeDirection.InOut)) {
+                client.Connect(5000);
+                var reader=new StreamReader(client,Encoding.UTF8,false,1024,true);
+                var writer=new StreamWriter(client,new UTF8Encoding(false),1024,true){AutoFlush=true};
+                var hello=reader.ReadLine();
+                Check(hello!=null && hello.Contains("\"directorRequestVersion\":1"),
+                    "explicit duplex capability in native hello");
+                var frame="{\"version\":1,\"type\":\"director.v1.reserve\",\"ticketId\":\"pending\"}";
+                writer.WriteLine(frame);
+                string received=null;
+                var deadline=DateTime.UtcNow.AddSeconds(3);
+                while(DateTime.UtcNow<deadline && !server.TryTakeDirectorFrame(out received))Thread.Sleep(10);
+                Check(received==frame,"same authenticated pipe bounded inbound frame");
+                Check(!server.TryTakeDirectorFrame(out received),"single dequeue");
+                Check(server.Send("diagnostics",new {test=true}),"original factual outbound path preserved");
+                var outbound=reader.ReadLine();
+                Check(outbound!=null && outbound.Contains("\"type\":\"diagnostics\""),
+                    "factual frame still sent through same connection");
+            }
+        }
+        // Legacy PS channels are unidirectional and do not advertise a new
+        // permission merely because the Director test assembly is present.
+        name="LSA.PS6.Legacy."+Guid.NewGuid().ToString("N");
+        using(var legacy=new IntelligenceChannel(name,Guid.NewGuid().ToString("D"),
+            ()=>new {shooting=true},host,()=>world,true)) {
+            legacy.Start();
+            using(var client=new NamedPipeClientStream(".",name,PipeDirection.In)) {
+                client.Connect(5000);
+                var reader=new StreamReader(client);
+                var hello=reader.ReadLine();
+                Check(hello!=null && !hello.Contains("directorRequestVersion"),
+                    "default PS channel retains output-only contract");
+                string missing;
+                Check(!legacy.TryTakeDirectorFrame(out missing),
+                    "legacy pipe rejects Director input");
+            }
+        }
+    }
+
 }
