@@ -71,6 +71,7 @@ namespace LSA.Intelligence
                     int raw=active.ReadByte();
                     if(raw<0) break;
                     if(raw==10) {
+                        if(bytes.Count>0 && bytes[bytes.Count-1]==13)bytes.RemoveAt(bytes.Count-1);
                         var line=Encoding.UTF8.GetString(bytes.ToArray());
                         bytes.Clear();
                         if(line.Length==0) continue;
