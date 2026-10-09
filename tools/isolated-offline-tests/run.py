@@ -9,7 +9,7 @@ for file in sorted((root/'tests').glob('*.test.mjs')):
   bad.append(file.name);failed+=count;print('FAIL '+file.name+' exit='+str(result.returncode),flush=True)
   if os.environ.get('LSA_CI_FAILURE_DETAILS')=='1':
    output=(result.stdout+result.stderr).splitlines()
-   detail=[line.strip() for line in output if re.search(r'^(?:not ok \\d+|\\s*(?:error:|code:|failureType:|stack:|\\d+\\)|# Error|# .*ERR_|# .*assert|# .*undefined))',line)]
+   detail=[line.strip() for line in output if any(token in line for token in ('not ok ','error:','code:','failureType:','stack:','# Error'))]
    for line in (detail[:24] or output[-14:]):print('  '+line[:280],flush=True)
  else:passed+=count
 print(f'Completed {len(list((root/"tests").glob("*.test.mjs")))} files; passed-test count {passed}; failed files {bad}',flush=True)
