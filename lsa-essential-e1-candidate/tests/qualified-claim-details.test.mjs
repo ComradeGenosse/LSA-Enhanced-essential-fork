@@ -75,7 +75,7 @@ test('PR21 T19 action success and silent playback/report facts never create play
   // A reported speech-adjacent fact remains a report with source provenance,
   // not a magically authenticated transcript or a player-spoken utterance.
   const f=fixture();
-  const reported={...f.receipt(f.other,'report','native_callback'),status:'reported'};
+  const reported={...f.receipt(f.other,'report','dialogue_report'),status:'reported',evidence:{channel:'report',basis:'dialogue_report',sampledGameTick:10,reportRef:randomUUID()}};
   const result=f.ingest(f.signal('playback_ended',{interrupted:false,hadAudio:true},'playback'),reported);
   assert.equal(result.accepted,true);
   for(const claim of result.observations.flatMap(x=>x.claims)){
