@@ -139,6 +139,14 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
       }
       catch {return null;} // Optional knowledge failure cannot prevent an Essential turn.
     },
+    directorPreflight(input) {
+      if(!input?.directorTicket || input?.interruptExisting===true ||
+         input?.faceListener===true || input?.reason!=='ps6_observer' ||
+         typeof input?.dedupeKey!=='string' ||
+         input.dedupeKey!==input.directorTicket.dedupeKey)return false;
+      try {return runtime.intelligence?.preflightDirectorTicket?.(input.directorTicket,input)===true;}
+      catch {return false;}
+    },
     requireDirectorTicket(input,hydrated) {
       // The supplied kb object is not authority. Native accepted ticket, C-06,
       // exact C-02 speaker/player binding and post-hydration proof are required.
