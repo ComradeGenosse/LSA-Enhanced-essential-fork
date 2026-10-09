@@ -63,3 +63,23 @@ test('ACT-only in-flight watch cancels the exact request and disposes without PS
  let listener,reason=null,cancelled=null,disposed=0;const frame={modelAllocation:{scene:'ACT SELF'},delivery:[],activityReferences:[{factId:'captured-fact'}]};
  const delivery=createKnowledgeDelivery({frame,isCurrent:()=>true,validate:()=>reason});delivery.watch(callback=>{listener=callback;return ()=>disposed++;},error=>{cancelled=error;});assert.equal(typeof listener,'function');delivery.beforeRequest({scene:'ACT SELF'});reason='channel_unhealthy';listener();assert.equal(cancelled.reason,'channel_unhealthy');assert.equal(disposed,1);assert.equal(delivery.finish().acknowledged,0);assert.equal(disposed,1);
 });
+
+
+test('C05-only SELF validates send, retry and completion without salience consumption',()=>{
+ const base={modelAllocation:{scene:'base'},delivery:[],dialogueReferences:[]},frame={...base,modelAllocation:{scene:'receipt'},dialogueReferences:[{publicationId:'original'}]};
+ let reason=null,checks=0,acks=0;const delivery=createKnowledgeDelivery({frame,baseFrame:base,isCurrent:()=>true,validate:()=>{checks++;return reason;},acknowledge:()=>{acks++;return true;}});
+ assert.equal(delivery.prepare(),frame);delivery.beforeRequest({scene:'receipt'});delivery.beforeRequest({scene:'receipt'});assert.ok(checks>=3);
+ reason='participant_retired';assert.throws(()=>delivery.beforeRequest({scene:'receipt'}),{code:'knowledge_request_stale'});assert.throws(()=>delivery.success(decision),{code:'knowledge_request_stale'});assert.equal(delivery.finish().outcome,'expired');assert.equal(acks,0);
+ const fallback=createKnowledgeDelivery({frame,baseFrame:base,isCurrent:()=>true,validate:()=>reason});assert.equal(fallback.prepare(),base);fallback.beforeRequest({scene:'base'});assert.equal(fallback.success(decision).acknowledged,0);
+});
+test('C05-only in-flight channel invalidation cancels exact request and disposes once',()=>{
+ let listener,reason=null,cancelled=null,disposed=0,acks=0;const frame={modelAllocation:{scene:'receipt'},delivery:[],dialogueReferences:[{publicationId:'original'}]};
+ const delivery=createKnowledgeDelivery({frame,isCurrent:()=>true,validate:()=>reason,acknowledge:()=>{acks++;return true;}});
+ delivery.watch(callback=>{listener=callback;return ()=>disposed++;},error=>cancelled=error);assert.equal(typeof listener,'function');listener();assert.equal(cancelled,null);
+ delivery.beforeRequest({scene:'receipt'});reason='channel_unhealthy';listener();assert.equal(cancelled.reason,'channel_unhealthy');assert.equal(disposed,1);delivery.finish();assert.equal(disposed,1);assert.equal(acks,0);
+});
+test('C05 receipt pruning before send preserves frozen allocation and never refills evidence',()=>{
+ const frame={modelAllocation:{scene:'two receipts'},delivery:[],dialogueReferences:[{publicationId:'a'},{publicationId:'b'}]},narrow={...frame,modelAllocation:{scene:'one receipt'},dialogueReferences:[frame.dialogueReferences[0]]};
+ const delivery=createKnowledgeDelivery({frame,isCurrent:()=>true,prune:()=>narrow,validate:projection=>projection.dialogueReferences.some(ref=>ref.publicationId==='b')?'participant_retired':null});
+ assert.equal(delivery.prepare(),narrow);delivery.beforeRequest({scene:'one receipt'});assert.throws(()=>delivery.beforeRequest({scene:'changed'}),{code:'knowledge_request_stale'});assert.equal(delivery.success(decision).selectedObservations,0);assert.equal(frame.dialogueReferences.length,2);
+});

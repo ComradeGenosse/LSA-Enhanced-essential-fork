@@ -5,7 +5,7 @@ const hash=value=>createHash('sha256').update(JSON.stringify(value)).digest('hex
 export function createKnowledgeDelivery({frame,baseFrame=frame,isCurrent,validate=()=>null,prune=frame=>frame,acknowledge=()=>false,onOutcome=()=>{}}) {
  let projection=frame,sent=false,terminal=false,requestHash=null,projectionHash=null,unsubscribe=null;
  const dispose=()=>{unsubscribe?.();unsubscribe=null;};
- const hasOptional=()=>projection.delivery.length>0 || (projection.activityReferences?.length??0)>0;
+ const hasOptional=()=>projection.delivery.length>0 || (projection.activityReferences?.length??0)>0 || (projection.dialogueReferences?.length??0)>0;
  const currentReason=()=>!isCurrent()?'superseded':hasOptional()?validate(projection):null;
  const fail=reason=>{throw Object.assign(new Error('knowledge_request_stale'),{code:'knowledge_request_stale',reason});};
  const report=outcome=>{
