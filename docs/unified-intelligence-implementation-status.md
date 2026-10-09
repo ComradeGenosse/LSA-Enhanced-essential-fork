@@ -826,3 +826,36 @@ The previous repeated `frozen-character-inputs.test.mjs` red run was traced to a
 - **Phase 13a is not functionally complete:** native C-06/player-priority live admissibility, an *authorized* owner-fiber reserve/submit path, independent post-hydration and pre-publication checks, actual Essential zero-delay scheduler binding, native real turn/generation/session tuple ownership, authoritative playback callback reconciliation, and the fully traced player-takeover path remain unimplemented or unaccepted. The test composer uses injected doubles and the only current production native endpoint is a rejecting shadow preview; no spontaneous NPC speech can be enabled from this checkpoint.
 - Remaining baseline PS4 individual T/G oracles and Phase 6 late-callback/world-reset/physical-owner gates must be audited without replacing proof with aggregate counts. Final pinned full Windows RPH/GTA addon build and payload hashes were **not** established by this CI run; the Windows test binaries and stubs do not substitute for the real game host.
 - GTA PS4 G7 and included ACT/Phase 13a physical gates are external and **not run**. No claim of installation, deployment, enabled capabilities, GTA playability, merge, or release readiness. Phase 10a gaze still lacks the required evidence that stock Essential playback gaze is insufficient and remains deferred; all other master-plan phases remain outside v1.0 scope.
+
+## Checkpoint 77: native C-06 truthful state split, bounded playback, PS4 T09, and complete cross-platform CI
+
+This continuation is **strictly within the user-selected playable LSA v1.0 boundary** (Phase 6, baseline PS4 automated acceptance, Phase 13a; Phase 10a only on evidence). No other master-plan phases were implemented. PR #23 remains **draft/unmerged**; there was no deployment, installation, enabling, or real GTA test.
+
+### Implemented and reviewed
+
+- The native `DirectorAdmission` contract now separates a two-second pre-admission ticket deadline from a bounded 120-second **actual bound playback** lease. Unrelated arriving frames cannot retire an active matching native speech tuple merely because its original source-time admission TTL elapsed; the lease still expires and rejects late terminal acknowledgments. Invalid identity/old tuple/interrupt/full-audio outcome checks remain intact.
+- Added pure `native/intelligence/DirectorC06Policy.cs` with fail-closed requirements for current speaker/player anchors, exact host/world and owner incarnation/proof revision, player-turn version, physical owner mode, trusted mic/Essential/playback busy state, reflex/script state and PS3 original observation/entitlement. The test matrix checks every required unknown/false input, wrong owner/host/turn and player takeover. The real native `IntelligenceIntegration.ReadDirectorC06` only supplies existing independently verifiable PS/P2/current-local-player anchor facts. **Original proof revision, authoritative player text/mic turn version, Essential scheduler/playback idleness and PS3 grant truth remain unknown/false**; they are not borrowed from a model or companion declaration.
+- Native C-06 safety is stage-specific. **reserve/submit** require actual idle; **bind/complete** recheck original owner/player/currentness without requiring the NPC's already-running Essential turn to be idle. The production adapter remains an inert shadow preview with `DirectorAdmission(enabled:false)`, so no PS6 request can start an Essential turn. Native regression explicitly simulates real tuple binding under busy speech, completed audio after candidate TTL, capped terminal expiry and takeover after admission.
+- PS4 audit entries **T05** and **T18** were individually reviewed against executed original frozen-capture/projection and qualified-claim tests. Added a new direct observer-index runtime regression for **T09**, testing a real admitted observer index lost on sequence gap and rejecting old-stream frames after new hello; it passed and was individually marked verified. The inventory is now **19/81 requirements** with `automated_oracle_verified`; other requirements are still separately open/partial/deferred. There is no aggregate-completes-audit claim.
+
+### Exact current source-level automated validation
+
+[GitHub Actions run 37991307936](https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/actions/runs/37991307936), commit `74cdc448f27f414fab372ccef0f8996a04444c28`, finished **success** on both OSes:
+
+| Executed test | Result |
+|---|---|
+| Ubuntu isolated normal-Node offline suite | **699 passed / 70 files / 0 failed** |
+| Windows isolated normal-Node offline suite | **699 passed / 70 files / 0 failed** |
+| Focused PS6 / Phase 13a modules on each OS | **33/33 passed** |
+| Windows native ACT contract and shadow suite | **263 assertions passed** |
+| Windows native PS/ACT production source shared intelligence | **115 assertions passed** |
+| Windows native Director admission and C06 + pipe test suite | **111 assertions passed** |
+| Windows real intelligence host-integration stubs | **89 assertions passed** |
+
+CI compiled the standalone native source contracts and production-source integration stubs, **not** a matching final RPH/GTA addon payload. This was the final code SHA for the present increment; subsequent audit/status text changes do not modify the executed source.
+
+### Remaining at the user-agreed implementation stopping boundary
+
+**Phase 13a cannot yet be described as functionally implemented or playable.** The independently sourced player-turn version, C-06 Essential busy/reflex/physical owner state and native PS3 entitlement receipt still need real Core-owned producers. The authoritative **reserve/submit admission, actual source-pinned Essential `kb` zero-delay scheduler connection, original native turn/generation/session tuple callbacks, playback mapping, immediate player takeover and cancel/backoff** still require implementation/verification. The current native PS endpoint deliberately replies from a rejecting preview, and companion orchestration still relies on injected test doubles. Source evidence does not justify enabling a Director turn.
+
+Phase 6 C-05/C-06 world reset and late owner callbacks and remaining individual baseline PS4 T/G automated audit gates also require closure; 263 ACT assertions are substantial but not a substitute for unperformed required oracles. Windows pinned complete addon build and payload hashes remain unproven. **GTA PS4 G7 and Phase 13a A33/A34/A39/A40 acceptance are external and not executed.** Stock Essential gaze insufficiency has not been demonstrated, so Phase 10a and every other master phase remain deferred. Do not merge, deploy or activate features.
