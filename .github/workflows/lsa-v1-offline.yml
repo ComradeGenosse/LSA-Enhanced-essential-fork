@@ -39,6 +39,10 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         run: dotnet build native/activities/tests/ActivityTests.csproj --configuration Debug
+      - name: Run native ACT contract suite
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: '& .\\native\\activities\\tests\\bin\\Debug\\net481\\ActivityTests.exe'
       - name: Isolated offline regression (no network)
         env:
           LSA_CI_FAILURE_DETAILS: '1'
