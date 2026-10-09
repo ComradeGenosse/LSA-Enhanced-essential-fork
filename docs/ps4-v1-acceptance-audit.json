@@ -564,13 +564,20 @@
       "id": "T42",
       "oracle": "Unicode including emoji, CJK, combining characters, quotes/backslashes/control escaping: valid encoding and exact final serialized bytes.",
       "originalHarness": "Projection byte-bound fixtures.",
-      "status": "mapped_requires_oracle_review",
+      "status": "automated_oracle_verified",
       "candidateEvidence": [
         "lsa-essential-e1-candidate/tests/knowledge-renderer.test.mjs",
         "lsa-essential-e1-candidate/tests/knowledge-selector.test.mjs",
         "lsa-essential-e1-candidate/tests/knowledge-base-integration.test.mjs"
       ],
-      "note": "Candidate harnesses are navigation only; inspect concrete assertions and execution results before claiming this complete."
+      "note": "Mixed emoji/CJK/combining-character/quote/backslash/control fixture round-trips both final request-schema serialized bodies, checks exact UTF-8 byte counts, preserves genuine input and authored biography/world label, and verifies decoded nested scene content. Existing escape-heavy 12000-control-character fixture checks final allocation/request bounds; unpaired-surrogate repair and enum exclusion remain covered.",
+      "reviewedEvidence": [
+        {
+          "file": "lsa-essential-e1-candidate/tests/knowledge-renderer.test.mjs",
+          "testPattern": "PR21 T42 T48|escape-heavy current input|canonical enum fields",
+          "oracles": "Exact mixed Unicode/escaping, valid role filtering and whole-message history suffix in both serialized request schemas."
+        }
+      ]
     },
     {
       "id": "T43",
@@ -650,13 +657,25 @@
       "id": "T48",
       "oracle": "Only valid user/assistant prior role messages; history trimmed by whole oldest messages; current input once and mandatory limit explicit.",
       "originalHarness": "History/request budget tests.",
-      "status": "mapped_requires_oracle_review",
+      "status": "automated_oracle_verified",
       "candidateEvidence": [
         "lsa-essential-e1-candidate/tests/knowledge-renderer.test.mjs",
         "lsa-essential-e1-candidate/tests/knowledge-selector.test.mjs",
         "lsa-essential-e1-candidate/tests/knowledge-base-integration.test.mjs"
       ],
-      "note": "Candidate harnesses are navigation only; inspect concrete assertions and execution results before claiming this complete."
+      "note": "Mixed-content fixture excludes system/tool/nonstring prior records, verifies retained history is the exact whole-message suffix in original role order, and preserves the genuine current input once as the terminal user message in both schemas. Existing actual stock microphone oversize-STT fixture proves mandatory input bound fails before provider fetch while retaining established accepted-player history policy.",
+      "reviewedEvidence": [
+        {
+          "file": "lsa-essential-e1-candidate/tests/knowledge-renderer.test.mjs",
+          "testPattern": "PR21 T42 T48|escape-heavy current input|canonical enum fields",
+          "oracles": "Exact mixed Unicode/escaping, valid role filtering and whole-message history suffix in both serialized request schemas."
+        },
+        {
+          "file": "lsa-essential-e1-candidate/tests/knowledge-base-integration.test.mjs",
+          "testPattern": "mandatory current-input overflow fails before fetch",
+          "oracles": "Actual stock mic STT 12001-unit input causes no fetch and no assistant history."
+        }
+      ]
     },
     {
       "id": "T49",

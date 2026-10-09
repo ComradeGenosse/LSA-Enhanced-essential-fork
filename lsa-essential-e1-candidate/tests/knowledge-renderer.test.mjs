@@ -123,3 +123,24 @@ test('PR21 T39 manual memory ties use private ID order and exclude unselected re
   assert.equal(body.input.at(-1).content,'What did we agree?');
  }
 });
+
+
+test('PR21 T42 T48 mixed Unicode and escaped roles survive exact final serialization without invalid history',()=>{
+ const text='Emoji 😀 CJK 東京 combining e\u0301 quotes " backslash \\ controls \u0000\t\n';
+ const history=[{role:'system',content:'SYSTEM_CANARY'},{role:'tool',content:'TOOL_CANARY'},{role:'assistant',content:{secret:'OBJECT_CANARY'}},...Array.from({length:12},(_,index)=>({role:index%2?'assistant':'user',content:'Whole prior '+index+' '+text.repeat(80)}))];
+ const frame=renderKnowledge({source:'player_mic',input:text,history,world:{streetName:'東京 e\u0301 😀',weather:'CLEAR'},profile:{name:'Mira',gender:'female',ageBand:'adult',nicknames:[],personality:{description:'Reserved',traits:[]},biography:text,relationship:{state:'neutral',description:''},memories:[]},persistent:true});
+ assert.ok(frame.diagnostics.droppedHistoryCount>0);
+ const retained=frame.modelAllocation.messages.slice(0,-1);
+ assert.ok(retained.every(item=>['user','assistant'].includes(item.role)));
+ assert.deepEqual(retained,history.filter(item=>['user','assistant'].includes(item.role)&&typeof item.content==='string').slice(-retained.length));
+ for(const structuredSegments of [false,true]){
+  const body=buildRequest({model:'test',effort:'low',systemInstruction:'Trusted rules',knowledgeProjection:frame,structuredSegments});
+  const serialized=JSON.stringify(body),decoded=JSON.parse(serialized);
+  assert.equal(Buffer.byteLength(serialized,'utf8'),jsonBytes(body));assert.ok(jsonBytes(body)<=KNOWLEDGE_LIMITS.requestBytes);
+  assert.equal(decoded.input.at(-1).content,text);assert.deepEqual(decoded.input.slice(1,-1),retained);
+  assert.equal(decoded.input.filter(item=>item.role==='user'&&item.content===text).length,1);
+  const scene=JSON.parse(decoded.input[0].content.split('\n').find(line=>line.startsWith('{"frameVersion":1,')));
+  assert.equal(scene.lanes.SELF.canon.biography,text);assert.equal(scene.lanes.SITUATION.streetName,'東京 e\u0301 😀');
+  for(const canary of ['SYSTEM_CANARY','TOOL_CANARY','OBJECT_CANARY'])assert.equal(serialized.includes(canary),false);
+ }
+});

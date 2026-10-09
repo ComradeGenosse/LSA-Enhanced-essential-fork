@@ -727,3 +727,14 @@ Reversing irrelevant observation/pin order and Map-derived live-reference insert
 Validation: full selector suite passed seven cases. Complete normal-Node isolated offline regression passed 658 assertions across 63 files; git diff --check passed. Acceptance register records T44/T45 individually verified; other compound requirements and physical gates remain unclaimed. Production source/payload unchanged; no fresh build/install/default activation or GTA acceptance is claimed. Aggregate-process Node crash limitation remains open.
 
 Next: remaining individual baseline oracles and matching native/build closure, then Phase 13a. Revised v1.0 goal remains active; conditional gaze and other phases remain deferred under the user's boundary.
+
+
+## Checkpoint 69: exact serialized Unicode and history allocation
+
+Closed PR21 T42/T48 automated oracles with a mixed emoji/CJK/combining-character/quote/backslash/control fixture through production renderer and both final request-schema serializers. It verifies exact UTF-8 byte counts, decoded nested scene content, preserved authored/genuine text, exclusion of invalid system/tool/nonstring history, exact whole-message suffix retention and one current terminal user allocation. Existing escape-heavy maximum-input and malformed-surrogate fixtures were inspected as complementary encoding/budget evidence.
+
+Inspected the existing actual patched-stock microphone oversize-STT fixture: a 12001-unit accepted transcript fails before fetch (zero provider calls), retains established truncated accepted-player history policy and commits no assistant response. Combined evidence closes the mandatory-input part of T48. It does not promote every optional error branch in T49 or physical gate. No production serializer/lifecycle implementation changed.
+
+Validation: renderer suite passed 16 cases. Complete normal-Node isolated offline regression passed 659 assertions across 63 files; git diff --check passed. Acceptance register records only T42/T48 individually verified. Production source/payload unchanged; no fresh build/install/activation or GTA acceptance is claimed. Aggregate-process Node crash limitation remains open.
+
+Next: remaining individual baseline acceptance oracles and matching native/build closure, then Phase 13a. Revised v1.0 objective remains active; deferred master phases remain outside current implementation scope.
