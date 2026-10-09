@@ -164,6 +164,38 @@ export class ShadowRuntime {
     const sample=this.observerSituations.get(ref),live=sample && sample.expires>this.now() && this.current(ref);
     return situationFromCharacterView({...view,bindings:[],nowMonotonicMs:this.now(),lifetimeCurrent:this.current(ref),channelHealthy:Boolean(this.epoch),perceptionSupported:true,playerCaptureRef,activity:live?sample.activity:'unknown',primaryOwner:live?sample.primaryOwner:null,situationRevision:live?sample.situationRevision:0});
   }
+  // PS6 candidates are restricted to original PS2/PS3 observer-qualified
+  // evidence. This read does not reserve tickets or consume response grants.
+  directorCandidatesFor(observerRef) {
+    if(!this.epoch || !this.current(observerRef))return Object.freeze([]);
+    const index=this.observerIndex.get(observerRef);
+    if(!index?.owned || index.kind!=='ped' || !this.current(observerRef))
+      return Object.freeze([]);
+    const players=[...this.anchors.values()].filter(a=>a.kind==='player' && this.current(a.captureRef));
+    if(players.length!==1)return Object.freeze([]);
+    const player=players[0].captureRef,now=this.now(),candidates=[];
+    for(const pair of this.salience.snapshotForObserver(observerRef,this.observations,now)){
+      const observation=pair.observation,decision=pair.decision;
+      if(decision?.response!=='urgent' && decision?.response!=='eligible')continue;
+      const stored=this.observations.entries.get(observerRef+':'+observation.episodeId);
+      const grant=this.salience.ledger.get(observation.observationId);
+      if(!stored || stored.value.observationId!==observation.observationId ||
+         stored.value.revision!==observation.revision ||
+         !Number.isSafeInteger(stored.observedAtMonotonicMs) ||
+         stored.observedAtMonotonicMs>now ||
+         !grant || grant.decisionKey!==decision.decisionKey ||
+         grant.consumed || grant.consumedBy?.has('ps6_ticket') ||
+         grant.granted==='none' ||
+         pair.situation?.playerCaptureRef!==player ||
+         pair.situation?.lifetimeCurrent!==true) continue;
+      candidates.push(Object.freeze({
+        observation,decision,situation:pair.situation,
+        observedAtMonotonicMs:stored.observedAtMonotonicMs,
+        entitlementCurrent:true,
+      }));
+    }
+    return Object.freeze(candidates);
+  }
   refreshSalience(observerRef=null) {
     if(!this.epoch)return;
     const counts=new Map(),situations=new Map();let player=null;
