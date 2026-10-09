@@ -1,0 +1,43 @@
+name: LSA v1 Offline Verification
+
+on:
+  push:
+    branches:
+      - feature/unified-intelligence-implementation-20261008
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'lsa-essential-e1-candidate/**'
+      - 'tools/isolated-offline-tests/**'
+      - '.github/workflows/lsa-v1-offline.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  isolated-node:
+    name: Isolated Node regression
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Validate Phase 13a modules and run focused tests
+        working-directory: lsa-essential-e1-candidate
+        run: |
+          node --check src/perception/sceneDirector.mjs
+          node --check src/perception/sceneDirectorAdmission.mjs
+          node --test tests/scene-director.test.mjs tests/scene-director-admission.test.mjs
+      - name: Isolated offline regression (no network)
+        shell: bash
+        run: python tools/isolated-offline-tests/run.py "$GITHUB_WORKSPACE/lsa-essential-e1-candidate"
