@@ -54,6 +54,9 @@ class Program
         Check(shell.Handle(Request(1,"submit")).Status=="stale","one use submit");
         Check(shell.BindActualTuple(a.TicketId,"17","native-turn-1",4,2),"bind real tuple");
         Check(!shell.BindActualTuple(a.TicketId,"17","native-turn-2",4,2),"cannot rebind");
+        Check(!shell.NotePlaybackStarted(a.TicketId,"17","native-turn-2",4,2),"wrong playback-start tuple veto");
+        Check(shell.NotePlaybackStarted(a.TicketId,"17","native-turn-1",4,2),"native playback start correlated to original tuple");
+        Check(!shell.NotePlaybackStarted(a.TicketId,"17","native-turn-1",4,2),"duplicate start is not a new receipt");
         Check(!shell.Complete(a.TicketId,"17","native-turn-1",5,2,true,false,true,true),"wrong generation veto");
         Check(shell.Complete(a.TicketId,"17","native-turn-1",4,2,true,false,true,true),"matching full playback success");
         Check(!shell.Complete(a.TicketId,"17","native-turn-1",4,2,true,false,true,true),"once-only terminal");
@@ -89,6 +92,7 @@ class Program
         a=Request(10);Check(fail.Handle(a).Status=="reserved","failure reserve");
         Check(fail.Handle(Request(10,"submit")).Status=="submitted","failure submit");
         Check(fail.BindActualTuple(a.TicketId,"17","native-fail",1,1),"failure bind");
+        Check(fail.NotePlaybackStarted(a.TicketId,"17","native-fail",1,1),"failure case starts original playback");
         Check(!fail.Complete(a.TicketId,"17","native-fail",1,1,true,true,true,true),"interrupted not consumed");
         Check(!fail.HasActive,"interrupted frees reservation");
 
@@ -116,6 +120,7 @@ class Program
         Check(speech.Handle(a).Status=="reserved","long speech reserve");
         Check(speech.Handle(Request(17,"submit")).Status=="submitted","long speech submit");
         Check(speech.BindActualTuple(a.TicketId,"17","native-long",1,3),"long speech bind");
+        Check(speech.NotePlaybackStarted(a.TicketId,"17","native-long",1,3),"long speech playback began");
         now+=10000;
         Check(speech.Handle(Request(18)).Status=="busy","bound playback survives source-time ticket expiry");
         Check(speech.Complete(a.TicketId,"17","native-long",1,3,true,false,true,true),"complete playback acknowledged beyond source TTL");
@@ -124,14 +129,54 @@ class Program
         Check(neverEnding.Handle(a).Status=="reserved","stale playback reserve");
         Check(neverEnding.Handle(Request(19,"submit")).Status=="submitted","stale playback submit");
         Check(neverEnding.BindActualTuple(a.TicketId,"17","native-never",2,3),"stale playback bind");
+        Check(neverEnding.NotePlaybackStarted(a.TicketId,"17","native-never",2,3),"stale playback started");
         now+=120000;
         Check(!neverEnding.Complete(a.TicketId,"17","native-never",2,3,true,false,true,true),"expired playback lease cannot claim delivery");
         Check(!neverEnding.HasActive,"expired completion releases native ticket");
+        FailedCallbacks();
         C06Contract();
         CodecContract();
         ChannelRoundtrip();
     }
 
+    static void FailedCallbacks()
+    {
+        var a=Request(30);
+        var noStart=New();
+        Check(noStart.Handle(a).Status=="reserved","no-start reserve");
+        Check(noStart.Handle(Request(30,"submit")).Status=="submitted","no-start submit");
+        Check(noStart.BindActualTuple(a.TicketId,"17","missing-start",3,4),"no-start bind");
+        Check(!noStart.Complete(a.TicketId,"17","missing-start",3,4,true,false,true,true),
+              "terminal callback cannot fabricate missing native playback start");
+        Check(!noStart.HasActive,"missing start callback releases ticket");
+
+        a=Request(31);var callbackFault=new DirectorAdmission(()=>now,(r,stage)=>{
+            if(stage=="complete")throw new Exception("failed native callback");
+            return true;
+        },()=>host,()=>world,true);
+        Check(callbackFault.Handle(a).Status=="reserved","fault fixture reserve");
+        Check(callbackFault.Handle(Request(31,"submit")).Status=="submitted","fault fixture submit");
+        Check(callbackFault.BindActualTuple(a.TicketId,"17","callback-fault",4,5),"fault fixture bind");
+        Check(callbackFault.NotePlaybackStarted(a.TicketId,"17","callback-fault",4,5),"fault fixture start");
+        Check(!callbackFault.Complete(a.TicketId,"17","callback-fault",4,5,true,false,true,true),
+              "throwing independent completion proof fails closed");
+        Check(!callbackFault.HasActive,"throwing completion proof retires ticket");
+
+        a=Request(32);var lostOwner=new DirectorAdmission(()=>now,(r,stage)=>
+            stage!="playback_started",()=>host,()=>world,true);
+        Check(lostOwner.Handle(a).Status=="reserved","lost-owner reserve");
+        Check(lostOwner.Handle(Request(32,"submit")).Status=="submitted","lost-owner submit");
+        Check(lostOwner.BindActualTuple(a.TicketId,"17","owner-revoked",4,5),"lost-owner bind");
+        Check(!lostOwner.NotePlaybackStarted(a.TicketId,"17","owner-revoked",4,5),
+              "owner loss at native start vetoes callback");
+        Check(!lostOwner.HasActive,"unsafe native start immediately releases reservation");
+        a=Request(33);
+        var reset=New();
+        Check(reset.Handle(a).Status=="reserved","world reset fixture reserve");
+        reset.Reset();
+        Check(reset.Handle(Request(33,"submit")).Status=="stale","world reset removes original reservation");
+        Check(!reset.HasActive,"world reset releases all reservations");
+    }
     static DirectorC06Policy.Snapshot ReadyProof(DirectorAdmission.Request r)
     {
         return new DirectorC06Policy.Snapshot {
@@ -202,6 +247,8 @@ class Program
         stagedProof.OwnerIdle=false;stagedProof.EssentialTurnIdle=false;stagedProof.PlaybackIdle=false;
         Check(staged.BindActualTuple(playing.TicketId,"17","essential-real-turn",7,3),
             "native binding rechecks current ownership while exact allocated turn is already busy");
+        Check(staged.NotePlaybackStarted(playing.TicketId,"17","essential-real-turn",7,3),
+            "owner-valid original-tuple native playback start");
         Check(!DirectorC06Policy.Safe(playing,stagedProof) &&
             DirectorC06Policy.CurrentPlayback(playing,stagedProof),
             "actively speaking is not idle but retains valid owner/currentness");
@@ -216,6 +263,7 @@ class Program
         Check(interrupted.Handle(takeover).Status=="reserved","player takeover fixture reserve");
         Check(interrupted.Handle(Request(25,"submit")).Status=="submitted","player takeover fixture submit");
         Check(interrupted.BindActualTuple(takeover.TicketId,"17","interrupted-turn",8,3),"player takeover fixture exact tuple");
+        Check(interrupted.NotePlaybackStarted(takeover.TicketId,"17","interrupted-turn",8,3),"player takeover fixture real start");
         takeoverProof.PlayerTurnVersion++;
         Check(!interrupted.Complete(takeover.TicketId,"17","interrupted-turn",8,3,true,false,true,true),
             "changed player turn makes even complete playback receipt inadmissible");
