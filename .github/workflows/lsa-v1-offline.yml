@@ -64,6 +64,12 @@ jobs:
         run: |
           dotnet build native/intelligence/director-tests/DirectorTests.csproj --configuration Debug
           & .\\native\\intelligence\\director-tests\\bin\\Debug\\net481\\DirectorTests.exe
+      - name: Build and run actual P2/ACT/UX native owner lifecycle and clock-reset tests
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          dotnet build native/promoted-characters/lifecycle-tests/LifecycleTests.csproj --configuration Debug
+          & .\\native\\promoted-characters\\lifecycle-tests\\bin\\Debug\\net481\\LifecycleTests.exe
       - name: Build and run real shared native host clock and reset contract
         if: runner.os == 'Windows'
         shell: pwsh
