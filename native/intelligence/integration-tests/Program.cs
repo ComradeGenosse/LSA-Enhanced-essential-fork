@@ -31,7 +31,11 @@ class Program
         var unavailable=new IntelligenceIntegration(()=>new OwnedParticipant[0]);unavailable.Initialize();unavailable.Update();Check(!unavailable.IsAvailable,"missing pinned core fails closed");Check(Rage.Native.NativeFunction.Reads==0,"missing capability no game work");
         Check(unavailable.UpdateCalls==0&&unavailable.CompletedUpdates==0&&unavailable.RuntimeStatus().Contains("last_update_age_ms=2147483647"),"unavailable adapter does not invent update receipts");
         var player=new Ped {Handle=1,MemoryAddress=new IntPtr(1)};var actor=new Ped {Handle=2,MemoryAddress=new IntPtr(2)};
-        Game.LocalPlayer.Character=player;NpcTargeting.Conversation=actor;bool owned=true;var lifetime=Guid.NewGuid().ToString("D");var rosterList=new List<OwnedParticipant> {new OwnedParticipant {Ped=actor,Lifetime=lifetime,Current=()=>owned&&actor.Existing}};
+        Game.LocalPlayer.Character=player;NpcTargeting.Conversation=actor;bool owned=true;var lifetime=Guid.NewGuid().ToString("D");
+        var directorMode=new DirectorOwnerSample {Owner="none",Mode="idle"};
+        NpcStateStore.Sampled=new NpcState();
+        var rosterList=new List<OwnedParticipant> {new OwnedParticipant {Ped=actor,Lifetime=lifetime,
+            Current=()=>owned&&actor.Existing,DirectorOwner=()=>directorMode}};
         var integration=new IntelligenceIntegration(()=>owned?rosterList.ToArray():new OwnedParticipant[0],"LSA.Integration.Tests."+Guid.NewGuid().ToString("N"));
         // Startup pin verification is independently tested above. The game harness
         // substitutes only external APIs, then executes the real Update/Sample code.
@@ -56,6 +60,43 @@ class Program
         Check(c06probe.SpeakerAnchorCurrent && c06probe.SpeakerOwned && c06probe.SpeakerObserver &&
               c06probe.PlayerAnchorCurrent && c06probe.PlayerIsLocal && c06probe.OwnerProofCurrent,
               "real Core host reads the exact current owned observer and local player");
+        Check(c06probe.OwnerPrimaryModeKnown&&c06probe.OwnerIdle&&
+              c06probe.ActorReflexKnown&&c06probe.ActorReflexIdle&&
+              c06probe.ScriptStateKnown&&c06probe.ScriptSafe,
+              "native C06 samples explicit idle P2 mode, Core reflex and GTA scripted state");
+        directorMode.Owner="act";directorMode.Mode="activity";
+        var modeBusy=(DirectorC06Policy.Snapshot)integration.GetType().GetMethod(
+            "ReadDirectorC06",BindingFlags.NonPublic|BindingFlags.Instance).Invoke(integration,new object[]{c06request});
+        Check(modeBusy.OwnerPrimaryModeKnown&&!modeBusy.OwnerIdle,"ACT owner is not native idle");
+        directorMode.Owner="none";directorMode.Mode="idle";directorMode.Suspended=true;
+        var suspended=(DirectorC06Policy.Snapshot)integration.GetType().GetMethod(
+            "ReadDirectorC06",BindingFlags.NonPublic|BindingFlags.Instance).Invoke(integration,new object[]{c06request});
+        Check(!suspended.OwnerIdle,"suspended P2 encounter vetoes idle");
+        directorMode.Suspended=false;
+        NpcStateStore.Sampled.HasActiveReflex=true;
+        var reflex=(DirectorC06Policy.Snapshot)integration.GetType().GetMethod(
+            "ReadDirectorC06",BindingFlags.NonPublic|BindingFlags.Instance).Invoke(integration,new object[]{c06request});
+        Check(reflex.ActorReflexKnown&&!reflex.ActorReflexIdle,"Core reflex vetoes Director");
+        NpcStateStore.Sampled.HasActiveReflex=false;NpcStateStore.Sampled.InDirectedInteraction=true;
+        var directed=(DirectorC06Policy.Snapshot)integration.GetType().GetMethod(
+            "ReadDirectorC06",BindingFlags.NonPublic|BindingFlags.Instance).Invoke(integration,new object[]{c06request});
+        Check(directed.ActorReflexKnown&&!directed.ActorReflexIdle,"directed Essential interaction vetoes Director");
+        NpcStateStore.Sampled.InDirectedInteraction=false;NpcStateStore.Sampled=null;
+        var missingState=(DirectorC06Policy.Snapshot)integration.GetType().GetMethod(
+            "ReadDirectorC06",BindingFlags.NonPublic|BindingFlags.Instance).Invoke(integration,new object[]{c06request});
+        Check(!missingState.ActorReflexKnown&&!missingState.ActorReflexIdle,"missing Core actor state is unknown");
+        NpcStateStore.Sampled=new NpcState();
+        Rage.Native.NativeFunction.Scripted=true;
+        var scripted=(DirectorC06Policy.Snapshot)integration.GetType().GetMethod(
+            "ReadDirectorC06",BindingFlags.NonPublic|BindingFlags.Instance).Invoke(integration,new object[]{c06request});
+        Check(scripted.ScriptStateKnown&&!scripted.ScriptSafe,"scripted GTA state explicitly vetoes Director");
+        Rage.Native.NativeFunction.Scripted=false;
+        Rage.Native.NativeFunction.ThrowSafetyRead=true;
+        var unreadable=(DirectorC06Policy.Snapshot)integration.GetType().GetMethod(
+            "ReadDirectorC06",BindingFlags.NonPublic|BindingFlags.Instance).Invoke(integration,new object[]{c06request});
+        Check(!unreadable.ScriptStateKnown&&!DirectorC06Policy.Safe(c06request,unreadable),
+              "failed GTA safety native read never becomes safe");
+        Rage.Native.NativeFunction.ThrowSafetyRead=false;
         Check(!c06probe.PlayerTurnSourceCurrent&&!c06probe.EssentialTurnKnown&&
               !c06probe.ResponseGrantCurrent&&!DirectorC06Policy.Safe(c06request,c06probe),
               "Core host never claims C06/player-turn or PS3 permission from anchor identity");
