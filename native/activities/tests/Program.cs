@@ -41,29 +41,46 @@ class Program
     // Transport fixture: callback records are synthetic; no Essential/RAGE code.
     static void ServeDialogue(string pipe)
     {
-        string host=Guid.NewGuid().ToString("D");var ring=new SupersessionMonitor();
-        var correlator=new DialogueActionCorrelator(host,1);ActivitySession session=null;
-        session=new ActivitySession(CapabilityTable.Parse(File.ReadAllBytes(ContractPath())),null,host,()=>1,annotation=>{
+        string host=Guid.NewGuid().ToString("D");int epoch=1;bool hold=false;
+        var ring=new SupersessionMonitor();var commands=new System.Collections.Concurrent.ConcurrentQueue<string>();
+        var reader=new Thread(()=>{string command;while((command=Console.ReadLine())!=null){if(command.Length>32)throw new Exception("Fixture command limit");commands.Enqueue(command);}}){IsBackground=true};reader.Start();
+        var correlator=new DialogueActionCorrelator(host,epoch);ActivitySession session=null;
+        session=new ActivitySession(CapabilityTable.Parse(File.ReadAllBytes(ContractPath())),null,host,()=>epoch,annotation=>{
             long now=DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();var body=new object();
             if(!correlator.Accept(annotation,body,ring.CaptureSequence,100,now))return true;
             string action=(string)annotation["canonicalAction"];
             ring.Push(new CallbackRecord{PedReference=body,Name=action,Phase="before",Source="essential",GameMs=101});
             ring.Push(new CallbackRecord{PedReference=body,Name=action,Phase="executed",Source="essential",GameMs=102,Succeeded=action!="sitonground"});
             return true;
-        },()=>correlator.Reset());
+        },()=>{correlator.Reset();correlator=new DialogueActionCorrelator(host,epoch);});
         using(var channel=new ActivityChannel(pipe,session)){
             channel.Start();while(true){
                 long now=DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();channel.Pump(now);now=DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-                CallbackRecord record;while((record=ring.Drain())!=null){
-                    var original=correlator.PendingForCallback(record);if(original==null)continue;
-                    var binding=(Dictionary<string,object>)original["binding"];
-                    var result=correlator.Match(record,(string)binding["captureRef"],binding.ContainsKey("encounterId")?(string)binding["encounterId"]:null,binding.ContainsKey("incarnationId")?(string)binding["incarnationId"]:null,host,1,102,now,false);
-                    if(result!=null && !session.PublishDialogueReceipt(result))throw new Exception("Fixture receipt publication failed.");
+                string command;bool report=commands.TryDequeue(out command);
+                if(report){
+                    if(command=="hold")hold=true;
+                    else if(command=="flush")hold=false;
+                    else if(command=="world"){epoch++;session.WorldChanged(epoch,"clock_regression");channel.RefreshHello();channel.Flush();}
+                    else if(command=="overflow"){for(int i=0;i<=ActivityContracts.CallbackRing;i++)ring.Push(new CallbackRecord{Name="foreign",Source="essential",Phase="before",GameMs=101});}
+                    else if(command!="status")throw new Exception("Unknown fixture command");
                 }
+                if(!hold){
+                    // Same owner-fiber ordering as ActivityCommands: overflow
+                    // invalidates before any retained callback can be joined.
+                    if(ring.Overflowing)correlator.Invalidate(now);
+                    CallbackRecord record;while((record=ring.Drain())!=null){
+                        var original=correlator.PendingForCallback(record);if(original==null)continue;
+                        var binding=(Dictionary<string,object>)original["binding"];
+                        var result=correlator.Match(record,(string)binding["captureRef"],binding.ContainsKey("encounterId")?(string)binding["encounterId"]:null,binding.ContainsKey("incarnationId")?(string)binding["incarnationId"]:null,host,epoch,102,now,false);
+                        if(result!=null && !session.PublishDialogueReceipt(result))throw new Exception("Fixture receipt publication failed.");
+                    }
+                }
+                if(report){Console.WriteLine(new JavaScriptSerializer().Serialize(new{command,epoch,pending=correlator.Count,callbacks=ring.Count,dropped=ring.Dropped}));Console.Out.Flush();}
                 Thread.Sleep(10);
             }
         }
     }
+
     static void HostResetContract(CapabilityTable table)
     {
         var json=new JavaScriptSerializer();var host=Guid.NewGuid().ToString("D");int epoch=1;

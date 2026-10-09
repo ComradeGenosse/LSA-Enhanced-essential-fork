@@ -8,11 +8,14 @@ import {projectDialogueActionKnowledge} from '../src/activities/dialogueActionKn
 export async function testDialogueActionsInterop({helperPath=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'../../native/activities/tests/bin/Debug/net481/ActivityTests.exe')}={}){
  if(process.platform!=='win32')throw Error('Windows dialogue receipt pipe test requires Windows.');
  const pipeName='LSA.C05.Interop.'+randomUUID().replaceAll('-','');
- const helper=spawn(helperPath,['--serve-dialogue',pipeName],{windowsHide:true,stdio:['ignore','ignore','pipe']});
+ const helper=spawn(helperPath,['--serve-dialogue',pipeName],{windowsHide:true,stdio:['pipe','pipe','pipe']});
  let failure=null,errorBytes=0,debug="";helper.on('error',error=>failure=error);helper.on('exit',code=>{if(code!==null)failure=Error('Receipt helper exited.');});
  helper.stderr.on('data',chunk=>{errorBytes+=chunk.length;debug+=chunk.toString();if(errorBytes>4096){failure=Error('Helper error output limit');helper.kill();}});
+ const reports=[];let reportBuffer='';
+ helper.stdout.on('data',chunk=>{reportBuffer+=chunk.toString();if(reportBuffer.length>8192){failure=Error('Helper report limit');helper.kill();return;}let end;while((end=reportBuffer.indexOf('\n'))>=0){const line=reportBuffer.slice(0,end);reportBuffer=reportBuffer.slice(end+1);try{reports.push(JSON.parse(line));}catch{failure=Error('Invalid helper report');}}});
  let runtime=new ActivityRuntime({mode:'shadow',pipeName,dialogueReceipts:true});
  const wait=async predicate=>{const deadline=Date.now()+8000;while(!predicate() && !failure && Date.now()<deadline)await new Promise(resolve=>setTimeout(resolve,25));if(failure)throw failure;if(!predicate())throw Error('Dialogue receipt transport timed out. '+debug+' ready='+runtime.client.runtime.ready+' pending='+runtime.dialogueReceipts.pendingCount);};
+ const control=async command=>{helper.stdin.write(command+'\n');await wait(()=>reports.length>0);const report=reports.shift();if(report.command!==command)throw Error('Fixture control ordering changed');return report;};
  let passed=0;
  const check=(value,message)=>{if(!value)throw Error(message);passed++;};
  try{
@@ -59,7 +62,35 @@ export async function testDialogueActionsInterop({helperPath=path.resolve(path.d
    await wait(()=>runtime.readDialogueActionReceipts(ordinary).some(row=>row.publicationId===successor?.publicationId));
    check(runtime.readDialogueActionReceipts(ordinary)[0].tuple.turnId==='after-'+fault,'Peer rejection contaminated fresh publication: '+fault);
   }
-  return {passed,transport:'windows_current_user_activity_pipe',ordinary:true,owned:true,peerRejections:peerFaults.length,callbackEvidence:'synthetic_before_and_handler',gameAssembliesExecuted:false,dispatched:false,physicalAcceptance:false};
+  const rejectedPublications=new Set();const observedReceipts=[];
+  // Test controls use helper stdin only, never a production wire vocabulary.
+  // Keep actual production callback records queued across native retirement.
+  for(const fault of ['world','overflow']){
+   await control('hold');
+   const currentBinding={captureRef:randomUUID(),hostContext:runtime.client.runtime.hostContext};
+   const doomed=runtime.recordDialogueActionPublication({tuple:{pedId:'17',turnId:'queued-'+fault,generationId:6,sessionNonce:6},binding:currentBinding,canonicalAction:'waithere',publishedAtMs:Date.now(),allowedActions:['waithere']});
+   check(!!doomed,'Queued publication missing: '+fault);rejectedPublications.add(doomed.publicationId);
+   let status;const statusDeadline=Date.now()+8000;
+   do{status=await control('status');if(status.pending===1 && status.callbacks===2)break;await new Promise(resolve=>setTimeout(resolve,25));}while(Date.now()<statusDeadline);
+   check(status.pending===1 && status.callbacks===2,'Owner did not capture delayed callbacks: '+fault);
+   const altered=await control(fault);
+   if(fault==='world'){
+    await wait(()=>!runtime.client.runtime.ready);check(runtime.dialogueReceipts.pendingCount===0 && runtime.dialogueReceipts.read(currentBinding).length===0,'World reset retained companion evidence');
+    check(altered.pending===0 && altered.epoch===2,'Native world reset retained pending callback association');
+   }else check(altered.dropped>0 && altered.pending===1,'Overflow fixture did not retain original pending join');
+   const flushed=await control('flush');check(flushed.pending===0 && flushed.callbacks===0,'Retired/overflow callbacks survived drain: '+fault);
+   check(runtime.dialogueReceipts.read(currentBinding).length===0,'Unsafe callback produced receipt: '+fault);
+   runtime.stop();
+   runtime=new ActivityRuntime({mode:'shadow',pipeName,dialogueReceipts:true},{onFrame:frame=>{if(frame.type==='dialogue.action.receipt')observedReceipts.push(frame.publicationId);}});
+   runtime.start();await wait(()=>runtime.client.runtime.ready);
+   const replacementBinding={captureRef:randomUUID(),hostContext:runtime.client.runtime.hostContext};
+   check(replacementBinding.hostContext.worldEpoch===2,'Fresh hello did not retain reset world: '+JSON.stringify(replacementBinding.hostContext)+' fault='+fault);
+   const next=runtime.recordDialogueActionPublication({tuple:{pedId:'17',turnId:'safe-'+fault,generationId:7,sessionNonce:7},binding:replacementBinding,canonicalAction:'waithere',publishedAtMs:Date.now(),allowedActions:['waithere']});
+   await wait(()=>runtime.readDialogueActionReceipts(replacementBinding).some(row=>row.publicationId===next?.publicationId));
+   check(runtime.readDialogueActionReceipts(replacementBinding).length===1,'Fresh connection did not isolate callback evidence');
+   check(!observedReceipts.some(id=>rejectedPublications.has(id)),'Late callback was reassociated after reconnect');
+  }
+  return {passed,transport:'windows_current_user_activity_pipe',ordinary:true,owned:true,peerRejections:peerFaults.length,orderingFaults:2,callbackEvidence:'synthetic_before_and_handler',gameAssembliesExecuted:false,dispatched:false,physicalAcceptance:false};
  }finally{runtime.stop();helper.kill();}
 }
 if(process.argv[1] && path.resolve(process.argv[1])===fileURLToPath(import.meta.url))console.log(JSON.stringify(await testDialogueActionsInterop({helperPath:process.argv[2]})));
