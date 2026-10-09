@@ -126,6 +126,7 @@ export class OpenAIConnection {
     const characterInputs=this.#runtime.captureCharacterInputs?.(turn.identity,actor) ?? null;
     this.#turn = Object.freeze({
       identity: Object.freeze({ ...turn.identity }), source,
+      directorTicket: inputContext.directorTicket ? immutableSnapshot(inputContext.directorTicket) : null,
       inputText: internalSource ? '' : rawInput,
       contextText,
       context: Object.freeze({
@@ -282,7 +283,7 @@ export class OpenAIConnection {
     this.#launched = true;
     const controller = new AbortController();
     const snapshot = {
-      identity: turn.identity, source: turn.source,knowledgeFramePreparation:true,
+      identity: turn.identity, source: turn.source,directorTicket:turn.directorTicket,knowledgeFramePreparation:true,
       knowledgeInputs:turn.knowledgeInputs,characterInputs:turn.characterInputs,priorHistory:turn.priorHistory,sourcePresence:turn.sourcePresence,
       context: {
         ...turn.context,
