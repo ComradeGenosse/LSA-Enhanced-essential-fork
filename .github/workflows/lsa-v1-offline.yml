@@ -50,6 +50,12 @@ jobs:
         run: |
           dotnet build native/intelligence/director-tests/DirectorTests.csproj --configuration Debug
           & .\\native\\intelligence\\director-tests\\bin\\Debug\\net481\\DirectorTests.exe
+      - name: Build and run native PS host integration stubs
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          dotnet build native/intelligence/integration-tests/IntegrationTests.csproj --configuration Debug
+          & .\\native\\intelligence\\integration-tests\\bin\\Debug\\net481\\IntegrationTests.exe
       - name: Isolated offline regression (no network)
         env:
           LSA_CI_FAILURE_DETAILS: '1'
