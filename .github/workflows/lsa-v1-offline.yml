@@ -39,5 +39,7 @@ jobs:
           node --check src/perception/sceneDirectorAdmission.mjs
           node --test tests/scene-director.test.mjs tests/scene-director-admission.test.mjs
       - name: Isolated offline regression (no network)
+        env:
+          LSA_CI_FAILURE_DETAILS: '1'
         shell: bash
         run: python tools/isolated-offline-tests/run.py "$GITHUB_WORKSPACE/lsa-essential-e1-candidate"
