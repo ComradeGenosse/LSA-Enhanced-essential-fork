@@ -1,7 +1,63 @@
+using System;
 using System.Collections.Generic;
 
 namespace LSA.Activities
 {
+    // Owner-fiber passive C-05 correlation; no Rage calls or execution authority.
+    public sealed class DialogueActionCorrelator
+    {
+        sealed class Pending
+        {
+            public Dictionary<string,object> Annotation;
+            public object Body;
+            public string Encounter,Incarnation,Action;
+            public long Fence,AtWall,Before;
+            public uint AtGame;
+        }
+        readonly List<Pending> pending=new List<Pending>();
+        readonly string hostRun;
+        readonly int worldEpoch;
+        long unsafeUntil=-1;
+        public int Count => pending.Count;
+        public DialogueActionCorrelator(string hostRun,int worldEpoch){if(!ActivityContracts.IsUuid(hostRun) || worldEpoch<1)throw new ArgumentException("invalid_host_context");this.hostRun=hostRun;this.worldEpoch=worldEpoch;}
+        static Dictionary<string,object> Copy(Dictionary<string,object> source){var copy=new Dictionary<string,object>();foreach(var pair in source)copy[pair.Key]=pair.Value is Dictionary<string,object> child?Copy(child):pair.Value;return copy;}
+        void Expire(uint game,long wall){pending.RemoveAll(row=>wall<row.AtWall || wall-row.AtWall>5000 || unchecked(game-row.AtGame)>5000);}
+        public bool Accept(Dictionary<string,object> annotation,object exactBody,long captureFence,uint game,long wall)
+        {
+            if(annotation==null || !annotation.ContainsKey("sequence") || !(annotation["sequence"] is int sequence) || !ActivityContracts.DialogueActionAnnotation(annotation,sequence) || exactBody==null || captureFence<0 || wall<0)return false;
+            var binding=(Dictionary<string,object>)annotation["binding"];var context=(Dictionary<string,object>)binding["hostContext"];
+            if((string)context["hostRunId"]!=hostRun || (int)context["worldEpoch"]!=worldEpoch)return false;
+            Expire(game,wall);if(wall<=unsafeUntil)return false;
+            var encounter=(string)binding["encounterId"];var incarnation=(string)binding["incarnationId"];var action=(string)annotation["canonicalAction"];
+            if(pending.Exists(row=>Equals(row.Annotation["publicationId"],annotation["publicationId"])))return false;
+            if(pending.Exists(row=>row.Encounter==encounter && row.Incarnation==incarnation && row.Action==action)){
+                // Ambiguous native action callbacks have no source publication id.
+                // Invalidate all pending joins for this bounded window; never pick latest.
+                Invalidate(wall);return false;
+            }
+            if(pending.Count>=32)return false;
+            pending.Add(new Pending{Annotation=Copy(annotation),Body=exactBody,Encounter=encounter,Incarnation=incarnation,Action=action,Fence=captureFence,AtGame=game,AtWall=wall});return true;
+        }
+        public Dictionary<string,object> Match(CallbackRecord record,string encounter,string incarnation,string currentHost,int currentWorld,uint game,long wall,bool overflowed)
+        {
+            if(wall<0)return null;
+            if(overflowed){Invalidate(wall);return null;}
+            Expire(game,wall);
+            if(record==null || record.Source!="essential" || (record.Phase!="executed" && record.Phase!="before") || currentHost!=hostRun || currentWorld!=worldEpoch)return null;
+            var row=pending.Find(candidate=>candidate.Encounter==encounter && candidate.Incarnation==incarnation && ReferenceEquals(candidate.Body,record.PedReference) && candidate.Action==record.Name && record.CaptureSequence>candidate.Fence && unchecked(record.GameMs-candidate.AtGame)<=5000);
+            if(row==null)return null;
+            if(record.Phase=="before"){
+                if(row.Before!=0){Invalidate(wall);return null;}
+                row.Before=record.CaptureSequence;return null;
+            }
+            if(!record.Succeeded.HasValue || row.Before<=row.Fence || record.CaptureSequence<=row.Before)return null;
+            pending.Remove(row);var result=Copy(row.Annotation);result["succeeded"]=record.Succeeded.Value;result["atGameTick"]=(long)record.GameMs;return result;
+        }
+        public void Invalidate(long wall){pending.Clear();unsafeUntil=Math.Max(unsafeUntil,wall>long.MaxValue-5000?long.MaxValue:wall+5000);}
+        public void Retire(string encounter,string incarnation){pending.RemoveAll(row=>row.Encounter==encounter && row.Incarnation==incarnation);}
+        public void Reset(){pending.Clear();unsafeUntil=-1;}
+    }
+
     public sealed class CallbackRecord
     {
         // PedReference is deliberately opaque here so the ACT transport/core layer
