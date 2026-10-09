@@ -249,7 +249,7 @@ class Program
         var playing=Request(24);
         var stagedProof=ReadyProof(playing);
         var staged=new DirectorAdmission(()=>now,(r,stage)=>
-            stage=="bind" || stage=="complete" ? DirectorC06Policy.CurrentPlayback(r,stagedProof)
+            stage=="bind" || stage=="playback_started" || stage=="complete" ? DirectorC06Policy.CurrentPlayback(r,stagedProof)
                               : DirectorC06Policy.Safe(r,stagedProof),
             ()=>host,()=>world,true);
         Check(staged.Handle(playing).Status=="reserved","idle owner permits real ticket reserve");
@@ -267,7 +267,7 @@ class Program
         var takeover=Request(25);
         var takeoverProof=ReadyProof(takeover);
         var interrupted=new DirectorAdmission(()=>now,(r,stage)=>
-            stage=="bind" || stage=="complete" ? DirectorC06Policy.CurrentPlayback(r,takeoverProof)
+            stage=="bind" || stage=="playback_started" || stage=="complete" ? DirectorC06Policy.CurrentPlayback(r,takeoverProof)
                               : DirectorC06Policy.Safe(r,takeoverProof),
             ()=>host,()=>world,true);
         Check(interrupted.Handle(takeover).Status=="reserved","player takeover fixture reserve");
