@@ -1,5 +1,6 @@
 using System;
 using System.Linq;
+using System.Collections.Generic;
 using LSA.Intelligence;
 using LSA.PromotedCharacters;
 
@@ -13,16 +14,31 @@ static class Program
         Check(Guid.TryParse(host.HostRunId,out _) && host.HostRunId!=reload.HostRunId,"one fresh run per host");
         Check(host.WorldEpoch==1 && host.MonotonicMs>=0,"initial epoch and local monotonic clock");
         int worlds=0,retirements=0; string reason=null;
-        host.WorldChanged+=(epoch,why)=> { worlds++;reason=why;Check(host.Anchors.Count==0 && epoch==host.WorldEpoch,"anchors retire before reset subscribers"); };
+        var resetOrder=new List<string>();
+        host.WorldChanged+=(epoch,why)=> { worlds++;reason=why;resetOrder.Add("P2");Check(host.Anchors.Count==0 && epoch==host.WorldEpoch,"anchors retire before reset subscribers"); };
+        host.WorldChanged+=(epoch,why)=> resetOrder.Add("PS");
+        host.WorldChanged+=(epoch,why)=> resetOrder.Add("ACT/UX");
         host.Anchors.Retirement+=(anchor,why)=> { retirements++; Check(why==AnchorRetirement.WorldReset,"world retirement reason"); };
         host.Anchors.Retain(new object(),1,new IntPtr(1),"ped",null,()=>true,0);
         Check(!host.ObserveGameTick(uint.MaxValue-5) && !host.ObserveGameTick(3),"normal unsigned clock wrap");
         Check(host.WorldEpoch==1 && host.Anchors.Count==1,"wrap keeps current lifetime");
         Check(host.ObserveGameTick(2),"backwards game tick resets");
         Check(worlds==1 && retirements==1 && reason=="clock_regression" && host.WorldEpoch==2,"one epoch and retirement per regression");
+        Check(resetOrder.SequenceEqual(new[]{"P2","PS","ACT/UX"}),"one ordered world reset fanout to existing host subscribers");
         Check(!host.ObserveGameTick(2) && worlds==1,"duplicate tick is idempotent");
+        Check(resetOrder.Count==3,"idempotent tick cannot pump another reset");
         host.AdvanceWorld("timeline_change"); Check(worlds==2 && host.WorldEpoch==3,"explicit timeline invalidation");
+        Check(resetOrder.SequenceEqual(new[]{"P2","PS","ACT/UX","P2","PS","ACT/UX"}),"explicit timeline receives one ordered subscriber fanout");
         try { host.AdvanceWorld("unknown"); throw new Exception("unknown reason accepted"); } catch(ArgumentException) { Check(host.WorldEpoch==3,"closed reset vocabulary"); }
+        // A failed optional callback must not withhold reset from the other
+        // owners. The host still surfaces the fault so the caller fails closed.
+        var failures=new HostContext();int healthy=0;
+        failures.WorldChanged+=(epoch,why)=>throw new InvalidOperationException("failed optional consumer");
+        failures.WorldChanged+=(epoch,why)=>healthy++;
+        try {failures.AdvanceWorld("timeline_change");Check(false,"lost world reset fault");}
+        catch(InvalidOperationException error) {Check(error.InnerException!=null &&
+            healthy==1 && failures.WorldEpoch==2,"world subscriber failure fans out, then fails closed");}
+
 
         var anchors = new EntityAnchors(); var ped = new object(); bool live=true;
         var a=anchors.Retain(ped,1,new IntPtr(1),"ped","owner",()=>live,0,false,AnchorConsumer.P2Encounter);
