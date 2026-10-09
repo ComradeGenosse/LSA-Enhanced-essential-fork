@@ -30,6 +30,7 @@ namespace LSA.Intelligence
             public string TurnId;
             public int GenerationId,SessionNonce;
             public string PedId;
+            public long PlaybackExpiresAt;
         }
 
         internal const int MaxTickets=32;
@@ -82,7 +83,7 @@ namespace LSA.Intelligence
                 long recorded;if(seen.TryGetValue(oldest.Key,out recorded)&&recorded==oldest.Value)seen.Remove(oldest.Key);
             }
             foreach(var id in new List<string>(pending.Keys))
-                if(now>=pending[id].ExpiresAt) {
+                if(now>= (pending[id].TurnId==null ? pending[id].ExpiresAt : pending[id].PlaybackExpiresAt)) {
                     if(activeTicket==id)activeTicket=null;
                     pending.Remove(id);
                 }
@@ -148,6 +149,10 @@ namespace LSA.Intelligence
                 return false;
             if(!Safe(r.Request))return false;
             r.PedId=pedId;r.TurnId=turnId;r.GenerationId=generationId;r.SessionNonce=nonce;
+            // Ticket TTL guards pre-turn admission, not actual native TTS.
+            // A separately bounded playback lease prevents a stuck turn from
+            // holding the single global reservation forever.
+            r.PlaybackExpiresAt=clock()+120000;
             return true;
         }
         internal bool Complete(string ticket,string pedId,string turnId,int generationId,int nonce,
@@ -157,10 +162,11 @@ namespace LSA.Intelligence
             if(ticket!=activeTicket||!pending.TryGetValue(ticket,out r)||
                 !r.Used||r.TurnId==null||r.PedId!=pedId||r.TurnId!=turnId||
                 r.GenerationId!=generationId||r.SessionNonce!=nonce)return false;
+            bool withinPlaybackLease=clock()<r.PlaybackExpiresAt;
             pending.Remove(ticket);activeTicket=null;
             // Only a matching native complete-playback receipt permits a
             // separate, checked PS3 ps6_ticket acknowledgement.
-            return complete&&!interrupted&&hadAudio&&playbackStarted&&Safe(r.Request);
+            return withinPlaybackLease&&complete&&!interrupted&&hadAudio&&playbackStarted&&Safe(r.Request);
         }
     }
 }
