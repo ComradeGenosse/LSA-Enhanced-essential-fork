@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {DialogueActionReceipts} from '../src/activities/dialogueActionReceipts.mjs';
-import {validateDialogueActionAnnotation} from '../src/activities/dialogueActionContract.mjs';
+import {validateDialogueActionAnnotation,validateDialogueActionReceipt} from '../src/activities/dialogueActionContract.mjs';
 import {validateFrame} from '../src/activities/contracts.mjs';
 import {ActivityClient} from '../src/activities/activityClient.mjs';
 const id=n=>`00000000-0000-4000-8000-${String(n).padStart(12,'0')}`;
@@ -9,6 +9,11 @@ const binding={encounterId:id(1),incarnationId:id(2),hostContext:{hostContextVer
 const tuple={pedId:'actor',turnId:'turn',generationId:1,sessionNonce:1};
 const publication={tuple,binding,canonicalAction:'followtarget',publishedAtMs:100,allowedActions:['followtarget','waithere']};
 const callback=row=>({...row,succeeded:true,atGameTick:0xffffffff,receivedAtMs:120});
+test('C05 receipt carries exact annotation and channel epochs with handler-only boolean outcome',()=>{
+ const frame={version:1,type:'dialogue.action.receipt',sequence:1,dialogueActionVersion:1,publicationId:id(5),tuple,binding,canonicalAction:'followtarget',publishedAtMs:100,succeeded:false,atGameTick:0xffffffff,nativeRun:id(6),adapterEpoch:id(7)};
+ assert.equal(validateDialogueActionReceipt(frame),true);assert.equal(validateFrame(frame),false);
+ for(const changes of [{succeeded:'true'},{atGameTick:0x100000000},{atGameTick:-1},{nativeRun:'bad'},{adapterEpoch:null},{physicalCompletion:true},{dialogueActionVersion:2}])assert.equal(validateDialogueActionReceipt({...frame,...changes}),false);
+});
 test('C05 shadow annotations require negotiated support and share sequence without allowing execution',()=>{
  const client=new ActivityClient({mode:'shadow'}),sent=[];
  client.deliver=frame=>sent.push(frame);client.runtime.ready=true;client.runtime.hostContext=binding.hostContext;

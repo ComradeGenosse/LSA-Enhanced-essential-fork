@@ -15,3 +15,10 @@ export function validateDialogueActionAnnotation(value){
    typeof value.canonicalAction==='string' && /^[a-z][a-z0-9_]{0,63}$/.test(value.canonicalAction) && safe(value.publishedAtMs) && Buffer.byteLength(JSON.stringify(value))<=FRAME_BYTES;
  }catch{return false;}
 }
+export function validateDialogueActionReceipt(value){
+ try{
+  if(!exactObject(value,['version','type','sequence','dialogueActionVersion','publicationId','tuple','binding','canonicalAction','publishedAtMs','succeeded','atGameTick','nativeRun','adapterEpoch']) || value.type!=='dialogue.action.receipt' || typeof value.succeeded!=='boolean' || !safe(value.atGameTick) || value.atGameTick>0xffffffff || !isUuid(value.nativeRun) || !isUuid(value.adapterEpoch))return false;
+  const {succeeded,atGameTick,nativeRun,adapterEpoch,...annotation}=value;
+  return validateDialogueActionAnnotation({...annotation,type:'dialogue.action.pending'}) && Buffer.byteLength(JSON.stringify(value))<=FRAME_BYTES;
+ }catch{return false;}
+}

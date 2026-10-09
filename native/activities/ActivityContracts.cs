@@ -39,6 +39,14 @@ namespace LSA.Activities
             }catch{return false;}
         }
         static bool ShortIdentity(object value) => value is string text && text.Length>0 && text.Length<=128;
+        public static bool DialogueActionReceipt(IDictionary<string,object> value,int expectedSequence)
+        {
+            try{
+                if(!Exact(value,"version","type","sequence","dialogueActionVersion","publicationId","tuple","binding","canonicalAction","publishedAtMs","succeeded","atGameTick","nativeRun","adapterEpoch") || value["type"] as string!="dialogue.action.receipt" || !(value["succeeded"] is bool) || !SafeInteger(value["atGameTick"],0) || Convert.ToInt64(value["atGameTick"])>uint.MaxValue || !IsUuid(value["nativeRun"] as string) || !IsUuid(value["adapterEpoch"] as string))return false;
+                var annotation=new Dictionary<string,object>(value);foreach(var key in new[]{"succeeded","atGameTick","nativeRun","adapterEpoch"})annotation.Remove(key);annotation["type"]="dialogue.action.pending";
+                return DialogueActionAnnotation(annotation,expectedSequence);
+            }catch{return false;}
+        }
         static bool SafeInteger(object value,long min) => (value is int || value is long) && Convert.ToInt64(value)>=min && Convert.ToInt64(value)<=9007199254740991L;
         public static bool IsReason(string value) => value != null && Reasons.Contains(value);
         public static bool IsCapability(string value) => value != null && Capabilities.Contains(value);

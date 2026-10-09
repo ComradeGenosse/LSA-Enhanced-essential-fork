@@ -3,7 +3,7 @@ import net from 'node:net';
 import { FRAME_BYTES, validateFrame } from './contracts.mjs';
 import { ACTIVITY_CAPABILITIES_SHA256 } from './capabilityRegistry.mjs';
 import { readHostContext } from '../context/hostContext.mjs';
-import {validateDialogueActionAnnotation} from './dialogueActionContract.mjs';
+import {validateDialogueActionAnnotation,validateDialogueActionReceipt} from './dialogueActionContract.mjs';
 
 const RECEIPTS = Object.freeze({ accepted: 'HANDLER_ACCEPTED', failed: 'FAILED', superseded: 'SUPERSEDED', timedOut: 'TIMED_OUT', detached: 'DETACHED' });
 
@@ -31,7 +31,9 @@ export class ActivityClient {
       this.work = null;
       while (frames.length) {
         let value; try { value = JSON.parse(frames.shift()); } catch { fail(); return; }
-        if (!validateFrame(value) || (value.contractSha256 && value.contractSha256 !== this.contractSha256)) { fail(); return; }
+        const dialogueReceipt=value?.type==='dialogue.action.receipt';
+        if (!(dialogueReceipt?validateDialogueActionReceipt(value):validateFrame(value)) || (value.contractSha256 && value.contractSha256 !== this.contractSha256)) { fail(); return; }
+        if(dialogueReceipt && (!hello || this.runtime.dialogueActionVersion!==1 || value.nativeRun!==this.runtime.nativeRun || value.adapterEpoch!==this.runtime.adapterEpoch || value.binding.hostContext.hostRunId!==this.runtime.hostContext?.hostRunId || value.binding.hostContext.worldEpoch!==this.runtime.hostContext?.worldEpoch)){fail();return;}
         if (!hello) {
           if (value.type !== 'hello' || value.nativeRun === undefined) { fail(); return; }
           if (this.runtime.nativeRun && this.runtime.nativeRun !== value.nativeRun) this.runtime.counters = {};

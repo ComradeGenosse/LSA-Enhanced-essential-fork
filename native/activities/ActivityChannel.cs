@@ -139,6 +139,15 @@ namespace LSA.Activities
             fields["sequence"] = ++serverSequence;
             Publish(fields);
         }
+        public bool PublishDialogueReceipt(Dictionary<string,object> correlation)
+        {
+            if(!ClientReady || Closed || !dialogueNegotiated || correlation==null)return false;
+            var fields=new Dictionary<string,object>(correlation);fields["version"]=1;fields["type"]="dialogue.action.receipt";fields["sequence"]=serverSequence+1;fields["nativeRun"]=nativeRun;fields["adapterEpoch"]=adapterEpoch;
+            if(!ActivityContracts.DialogueActionReceipt(fields,serverSequence+1))return false;
+            var binding=fields["binding"] as Dictionary<string,object>;var context=binding["hostContext"] as Dictionary<string,object>;
+            if(!Equals(context["hostRunId"],hostRunId) || (int)context["worldEpoch"]!=worldEpoch())return false;
+            serverSequence++;Publish(fields);return true;
+        }
 
         public void PublishActorFacts(Dictionary<string, object> fields)
         {

@@ -171,6 +171,12 @@ class Program
         callback.Phase="executed";callback.Succeeded=true;callback.CaptureSequence=12;
         var matched=correlator.Match(callback,Id('2'),Id('3'),Id('4'),1,0,101,false);
         Check(matched!=null && (bool)matched["succeeded"] && (string)((Dictionary<string,object>)matched["tuple"])["turnId"]=="turn" && (long)matched["atGameTick"]==0,"C05 immutable exact annotation joins across unsigned tick wrap");
+        passive.OpenTransport();passiveClient["dialogueActionVersion"]=1;Check(passive.AcceptClient(annotationJson.Serialize(passiveClient)),"C05 response session negotiation");
+        Check(passive.PublishDialogueReceipt(matched),"C05 correlated receipt published on existing channel");var response=Decode(annotationJson,passive.TakeOutbound());
+        Check(ActivityContracts.DialogueActionReceipt(response,1) && (string)response["nativeRun"]==passive.NativeRun && (string)response["adapterEpoch"]==passive.AdapterEpoch,"C05 response binds exact channel epochs");
+        response["physicalCompletion"]=true;Check(!ActivityContracts.DialogueActionReceipt(response,1),"C05 response cannot invent physical completion");response.Remove("physicalCompletion");
+        response["atGameTick"]=4294967296L;Check(!ActivityContracts.DialogueActionReceipt(response,1),"C05 response game tick is unsigned 32-bit");
+        matched["succeeded"]=false;Check(passive.PublishDialogueReceipt(matched) && !(bool)Decode(annotationJson,passive.TakeOutbound())["succeeded"],"C05 failed handler response remains failure");
         Check(correlator.Match(callback,Id('2'),Id('3'),Id('4'),1,0,101,false)==null,"C05 duplicate callback cannot emit twice");
         Check(correlator.Accept(annotation,receiptBody,10,0,200),"C05 second native publication");
         var overlapping=Decode(annotationJson,annotationJson.Serialize(annotation));overlapping["publicationId"]=Id('5');

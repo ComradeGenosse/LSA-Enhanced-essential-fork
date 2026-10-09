@@ -22,12 +22,16 @@ function socket() {
 
 test('C05 negotiated shadow handshake echoes support and shares heartbeat sequence',async()=>{
  const host={hostContextVersion:1,hostRunId:'44444444-4444-4444-8444-444444444444',worldEpoch:1},pipe=socket();
- const client=new ActivityClient({mode:'shadow',pipeName:'LSA.Activities.v1'},{connect:()=>pipe});
+ const observed=[];const client=new ActivityClient({mode:'shadow',pipeName:'LSA.Activities.v1'},{connect:()=>pipe,onFrame:frame=>observed.push(frame)});
  client.start();pipe.emit('data',Buffer.from(JSON.stringify({...hello(),...host,dialogueActionVersion:1})+'\n'));await new Promise(resolve=>setImmediate(resolve));
  assert.equal(client.runtime.ready,true);assert.equal(JSON.parse(pipe.writes[0]).dialogueActionVersion,1);
  const result=client.sendDialogueAnnotation({publicationId:hello().nativeRun,tuple:{pedId:'17',turnId:'turn',generationId:1,sessionNonce:1},binding:{encounterId:hello().nativeRun,incarnationId:hello().adapterEpoch,hostContext:host},canonicalAction:'waithere',publishedAtMs:100});
  assert.equal(result.sequence,2);assert.equal(JSON.parse(pipe.writes[2]).type,'dialogue.action.pending');
- assert.equal(client.send({type:'step.begin'}),false);client.stop();assert.equal(client.runtime.dialogueActionVersion,null);assert.equal(client.runtime.ready,false);
+ assert.equal(client.send({type:'step.begin'}),false);
+ const receipt={...result,type:'dialogue.action.receipt',sequence:1,succeeded:true,atGameTick:20,nativeRun:hello().nativeRun,adapterEpoch:hello().adapterEpoch};
+ pipe.emit('data',Buffer.from(JSON.stringify(receipt)+'\n'));await new Promise(resolve=>setImmediate(resolve));assert.equal(observed.at(-1).type,'dialogue.action.receipt');assert.equal(client.runtime.ready,true);
+ pipe.emit('data',Buffer.from(JSON.stringify({...receipt,sequence:2,adapterEpoch:host.hostRunId})+'\n'));await new Promise(resolve=>setImmediate(resolve));assert.equal(client.runtime.ready,false);assert.equal(observed.filter(frame=>frame.type==='dialogue.action.receipt').length,1);
+ client.stop();assert.equal(client.runtime.dialogueActionVersion,null);assert.equal(client.runtime.ready,false);
  for(const advertised of [{...hello(),dialogueActionVersion:1},{...hello(),...host,dialogueActionVersion:2}]){
   const bad=socket(),peer=new ActivityClient({mode:'shadow',pipeName:'LSA.Activities.v1'},{connect:()=>bad});peer.start();bad.emit('data',Buffer.from(JSON.stringify(advertised)+'\n'));await new Promise(resolve=>setImmediate(resolve));assert.equal(peer.runtime.ready,false);peer.stop();
  }
