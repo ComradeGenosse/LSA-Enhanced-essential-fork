@@ -92,7 +92,7 @@ namespace LSA.Intelligence
             this.directorShadow=directorShadow;
             // This preview endpoint never acquires C-11 speech authority.
             // Verified native C-06 + Essential intake are deliberately absent.
-            director=new DirectorAdmission(()=>this.host.MonotonicMs,_=>false,()=>this.host.HostRunId,()=>this.host.WorldEpoch,false);
+            director=new DirectorAdmission(()=>this.host.MonotonicMs,r=>DirectorC06Policy.Safe(r,ReadDirectorC06(r)),()=>this.host.HostRunId,()=>this.host.WorldEpoch,false);
             this.host.WorldChanged+=WorldChanged;capabilities=capabilityNames.ToDictionary(k=>k,k=>false);
         }
         void WorldChanged(int epoch,string reason) {
@@ -302,6 +302,42 @@ namespace LSA.Intelligence
                 }
                 Count(ref completedUpdates);Interlocked.Exchange(ref lastCompletedMs,host.MonotonicMs);
             } catch {LogStatus("[PS] optional_update_failed");Shutdown("update_failed");}
+        }
+        // Read only what the current Core/P2/PS host can independently prove.
+        // The current native build has no source-pinned player-turn counter,
+        // authoritative mic+Essential busy receipt, or native PS3 entitlement
+        // echo. Those fields intentionally stay false/-1. Merely matching a
+        // Ped pointer or companion-provided integer never grants C-06 authority.
+        DirectorC06Policy.Snapshot ReadDirectorC06(DirectorAdmission.Request r)
+        {
+            var proof=new DirectorC06Policy.Snapshot {
+                HostRunId=host.HostRunId,WorldEpoch=host.WorldEpoch,
+                OwnerProofRevision=-1,PlayerTurnVersion=-1,PolicyVersion=1
+            };
+            if(r==null)return proof;
+            try {
+                var speaker=anchors.Resolve(r.SpeakerCaptureRef);
+                var player=anchors.Resolve(r.PlayerCaptureRef);
+                var local=Game.LocalPlayer.Character;
+                proof.SpeakerCaptureRef=speaker?.CaptureRef;
+                proof.PlayerCaptureRef=player?.CaptureRef;
+                proof.SpeakerAnchorCurrent=speaker?.Kind=="ped" && speaker.Entity is Ped;
+                proof.SpeakerObserver=speaker?.Observer==true;
+                proof.SpeakerOwned=speaker?.OwnerLifetime!=null;
+                proof.SpeakerAlive=speaker?.Entity is Ped p && p.Exists() && !p.IsDead;
+                proof.PlayerAnchorCurrent=player?.Kind=="player" && player.Entity is Ped;
+                proof.PlayerIsLocal=player!=null && ReferenceEquals(player.Entity,local);
+                proof.PlayerAlive=local!=null && local.Exists() && !local.IsDead;
+                var current=(roster()??new OwnedParticipant[0]).FirstOrDefault(item=>
+                    item!=null && item.Ped!=null && speaker!=null &&
+                    ReferenceEquals(item.Ped,speaker.Entity) &&
+                    item.Lifetime==speaker.OwnerLifetime && item.Current?.Invoke()==true);
+                proof.OwnerIncarnationId=current?.Lifetime;
+                // ReadOnly P2 owner equivalence is not an owner proof *revision*,
+                // nor does it certify idle Essential/ACT/C-06 control.
+                proof.OwnerProofCurrent=current!=null;
+            } catch { return new DirectorC06Policy.Snapshot(); }
+            return proof;
         }
         // Owner-fiber only. A separately versioned Director request can be
         // decoded and explicitly rejected in shadow, but never tasks an actor,
