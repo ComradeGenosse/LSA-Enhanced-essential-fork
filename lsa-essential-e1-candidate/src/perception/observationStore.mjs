@@ -1,8 +1,9 @@
 import { BOUNDS, validateObservation } from './contracts.mjs';
 export class ObservationStore {
   constructor({ now = ()=>Math.floor(performance.now()), current = ()=>false } = {}) { this.now=now; this.current=current; this.entries=new Map(); this.bytes=0; }
-  put(input) {
+  put(input,{sourceAgeMs=0}={}) {
     this.expire();
+    if(!Number.isSafeInteger(sourceAgeMs) || sourceAgeMs<0 || sourceAgeMs>BOUNDS.signalTtlMs)return false;
     if (!validateObservation(input) || !this.current(input.observer.captureRef) || input.claims.some(c=>[c.source,c.target].some(r=>r&&!this.current(r.captureRef)) || c.details?.vehicle && !this.current(c.details.vehicle)) || input.expiresAtMonotonicMs<=this.now() || input.expiresAtMonotonicMs>this.now()+120000) return false;
     const key = `${input.observer.captureRef}:${input.episodeId}`, old=this.entries.get(key);
     if (old && (input.revision<=old.value.revision || input.observationId!==old.value.observationId)) return false;
@@ -10,7 +11,12 @@ export class ObservationStore {
     const count=[...this.entries.values()].filter(e=>e.value.observer.captureRef===value.observer.captureRef).length;
     if (!old && (this.entries.size>=BOUNDS.observations || count>=BOUNDS.observationsPerObserver) || this.bytes-(old?.bytes||0)+bytes>BOUNDS.observationBytes) return false;
     const freeze = v=>{ if(v && typeof v==='object') { Object.values(v).forEach(freeze); Object.freeze(v); } return v; };
-    this.bytes-=old?.bytes||0; this.bytes+=bytes; this.entries.set(key,{value:freeze(value),bytes}); return true;
+    this.bytes-=old?.bytes||0; this.bytes+=bytes; this.entries.set(key,{value:freeze(value),bytes,
+      // Source-time receipt sidecar, not a new Observation v1 field and never
+      // a prompt-visible fact. A revised witnessed claim gets its own age;
+      // old unchanged evidence cannot be refreshed by a PS3 policy resample.
+      observedAtMonotonicMs:Math.max(0,this.now()-sourceAgeMs),
+    }); return true;
   }
   expire() { for(const [key,e] of this.entries) if(e.value.expiresAtMonotonicMs<=this.now() || !this.current(e.value.observer.captureRef) || e.value.claims.some(c=>[c.source,c.target].some(r=>r && !this.current(r.captureRef)) || c.details?.vehicle && !this.current(c.details.vehicle))) {this.entries.delete(key);this.bytes-=e.bytes;} }
   clear() {this.entries.clear();this.bytes=0;}
