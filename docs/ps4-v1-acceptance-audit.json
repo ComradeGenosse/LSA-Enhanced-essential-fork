@@ -1,0 +1,1121 @@
+{
+  "version": 1,
+  "scope": "user-authorized LSA v1.0; original PR21 unchanged",
+  "authority": "docs/research/PS4-code-level-implementation-plan-20261008.md",
+  "authoritySha256": "c2a34b240acae61df0727f670c19a4d0a897207e24f089e8a9f6657292967192",
+  "implementationBase": "e939bf7",
+  "purpose": "Acceptance inventory, not a passed-test manifest. Candidate references do not prove coverage.",
+  "requirements": [
+    {
+      "id": "T01",
+      "oracle": "PS and ACT retain the exact same Ped/lifetime: one captureRef/table entry, distinct consumer accounting, no observer promotion from ACT.",
+      "originalHarness": "Native intelligence unit + activities tests.",
+      "status": "mapped_requires_oracle_review",
+      "candidateEvidence": [
+        "native/intelligence/tests/Program.cs",
+        "native/intelligence/integration-tests/Program.cs",
+        "native/activities/tests/Program.cs",
+        "native/promoted-characters/lifecycle-tests/Program.cs",
+        "lsa-essential-e1-candidate/tests/host-context.test.mjs",
+        "lsa-essential-e1-candidate/tests/observer-index.test.mjs"
+      ],
+      "note": "Candidate harnesses are navigation only; inspect concrete assertions and execution results before claiming this complete."
+    },
+    {
+      "id": "T02",
+      "oracle": "Wrapper changed with same full handle/address; address changed; full handle changed; owner lifetime changed: retire old ref, mint new, never resolve old.",
+      "originalHarness": "EntityAnchors production source tests.",
+      "status": "mapped_requires_oracle_review",
+      "candidateEvidence": [
+        "native/intelligence/tests/Program.cs",
+        "native/intelligence/integration-tests/Program.cs",
+        "native/activities/tests/Program.cs",
+        "native/promoted-characters/lifecycle-tests/Program.cs",
+        "lsa-essential-e1-candidate/tests/host-context.test.mjs",
+        "lsa-essential-e1-candidate/tests/observer-index.test.mjs"
+      ],
+      "note": "Candidate harnesses are navigation only; inspect concrete assertions and execution results before claiming this complete."
+    },
+    {
+      "id": "T03",
+      "oracle": "256 global refs, 16 observers, 32 ACT refs: reject overflow; conversation priority/demotion/return stays atomic and preserves retained lifetimes.",
+      "originalHarness": "Intelligence integration/ACT tests.",
+      "status": "mapped_requires_oracle_review",
+      "candidateEvidence": [
+        "native/intelligence/tests/Program.cs",
+        "native/intelligence/integration-tests/Program.cs",
+        "native/activities/tests/Program.cs",
+        "native/promoted-characters/lifecycle-tests/Program.cs",
+        "lsa-essential-e1-candidate/tests/host-context.test.mjs",
+        "lsa-essential-e1-candidate/tests/observer-index.test.mjs"
+      ],
+      "note": "Candidate harnesses are navigation only; inspect concrete assertions and execution results before claiming this complete."
+    },
+    {
+      "id": "T04",
+      "oracle": "Expiry, owner revoke, entity deletion and host shutdown fan out one retirement; subscribers/indexes release; duplicate shutdown is harmless.",
+      "originalHarness": "Intelligence integration, P2 lifecycle/runtime tests.",
+      "status": "mapped_requires_oracle_review",
+      "candidateEvidence": [
+        "native/intelligence/tests/Program.cs",
+        "native/intelligence/integration-tests/Program.cs",
+        "native/activities/tests/Program.cs",
+        "native/promoted-characters/lifecycle-tests/Program.cs",
+        "lsa-essential-e1-candidate/tests/host-context.test.mjs",
+        "lsa-essential-e1-candidate/tests/observer-index.test.mjs"
+      ],
+      "note": "Candidate harnesses are navigation only; inspect concrete assertions and execution results before claiming this complete."
+    },
+    {
+      "id": "T05",
+      "oracle": "Ordinary actor private capture joins its own observer without promotion/P1 profile; target change between capture/send cannot substitute live conversation.",
+      "originalHarness": "Native EnrichActor + PS host + companion request fixture.",
+      "status": "mapped_requires_oracle_review",
+      "candidateEvidence": [
+        "native/intelligence/tests/Program.cs",
+        "native/intelligence/integration-tests/Program.cs",
+        "native/activities/tests/Program.cs",
+        "native/promoted-characters/lifecycle-tests/Program.cs",
+        "lsa-essential-e1-candidate/tests/host-context.test.mjs",
+        "lsa-essential-e1-candidate/tests/observer-index.test.mjs"
+      ],
+      "note": "Candidate harnesses are navigation only; inspect concrete assertions and execution results before claiming this complete."
+    },
+    {
+      "id": "T06",
+      "oracle": "Owned capture index disagrees with encounter/incarnation/P1 claim: reject owned-profile join; mismatched actor/capture fails perception join.",
+      "originalHarness": "P1/P2 contract + perception client tests.",
+      "status": "mapped_requires_oracle_review",
+      "candidateEvidence": [
+        "native/intelligence/tests/Program.cs",
+        "native/intelligence/integration-tests/Program.cs",
+        "native/activities/tests/Program.cs",
+        "native/promoted-characters/lifecycle-tests/Program.cs",
+        "lsa-essential-e1-candidate/tests/host-context.test.mjs",
+        "lsa-essential-e1-candidate/tests/observer-index.test.mjs"
+      ],
+      "note": "Candidate harnesses are navigation only; inspect concrete assertions and execution results before claiming this complete."
+    },
+    {
+      "id": "T07",
+      "oracle": "Forged/unknown/duplicated/flattened private integration block cannot create a join; disabled P1/P2 still strips it.",
+      "originalHarness": "Actual EO patched-stock/build harness.",
+      "status": "mapped_requires_oracle_review",
+      "candidateEvidence": [
+        "native/intelligence/tests/Program.cs",
+        "native/intelligence/integration-tests/Program.cs",
+        "native/activities/tests/Program.cs",
+        "native/promoted-characters/lifecycle-tests/Program.cs",
+        "lsa-essential-e1-candidate/tests/host-context.test.mjs",
+        "lsa-essential-e1-candidate/tests/observer-index.test.mjs"
+      ],
+      "note": "Candidate harnesses are navigation only; inspect concrete assertions and execution results before claiming this complete."
+    },
+    {
+      "id": "T08",
+      "oracle": "Every existing hello carries the same hostRunId/worldEpoch, distinct local epochs remain distinct; unknown extension versions disable PS4.",
+      "originalHarness": "P1/P2/PS/ACT actual channel and companion validator tests.",
+      "status": "mapped_requires_oracle_review",
+      "candidateEvidence": [
+        "native/intelligence/tests/Program.cs",
+        "native/intelligence/integration-tests/Program.cs",
+        "native/activities/tests/Program.cs",
+        "native/promoted-characters/lifecycle-tests/Program.cs",
+        "lsa-essential-e1-candidate/tests/host-context.test.mjs",
+        "lsa-essential-e1-candidate/tests/observer-index.test.mjs"
+      ],
+      "note": "Candidate harnesses are navigation only; inspect concrete assertions and execution results before claiming this complete."
+    },
+    {
+      "id": "T09",
+      "oracle": "Connection sequence gap/duplicate/old stream/old adapter epoch/reset refresh: no partial or stale index/roster becomes visible.",
+      "originalHarness": "Perception client/contract + native channel tests.",
+      "status": "mapped_requires_oracle_review",
+      "candidateEvidence": [
+        "native/intelligence/tests/Program.cs",
+        "native/intelligence/integration-tests/Program.cs",
+        "native/activities/tests/Program.cs",
+        "native/promoted-characters/lifecycle-tests/Program.cs",
+        "lsa-essential-e1-candidate/tests/host-context.test.mjs",
+        "lsa-essential-e1-candidate/tests/observer-index.test.mjs"
+      ],
+      "note": "Candidate harnesses are navigation only; inspect concrete assertions and execution results before claiming this complete."
+    },
+    {
+      "id": "T10",
+      "oracle": "Clock regression detected once; uint wrap policy tested; PS/ACT/UX subscribers receive one ordered discontinuity; no extra update pump.",
+      "originalHarness": "P2 lifecycle + PS host continuous/stalled tests.",
+      "status": "mapped_requires_oracle_review",
+      "candidateEvidence": [
+        "native/intelligence/tests/Program.cs",
+        "native/intelligence/integration-tests/Program.cs",
+        "native/activities/tests/Program.cs",
+        "native/promoted-characters/lifecycle-tests/Program.cs",
+        "lsa-essential-e1-candidate/tests/host-context.test.mjs",
+        "lsa-essential-e1-candidate/tests/observer-index.test.mjs"
+      ],
+      "note": "Candidate harnesses are navigation only; inspect concrete assertions and execution results before claiming this complete."
+    },
+    {
+      "id": "T11",
+      "oracle": "Host reload/new host ID and future explicit timeline event invalidate old frames; durable stores survive; no re-adoption/replay.",
+      "originalHarness": "Runtime/P2 lifecycle and companion epoch fixtures.",
+      "status": "mapped_requires_oracle_review",
+      "candidateEvidence": [
+        "native/intelligence/tests/Program.cs",
+        "native/intelligence/integration-tests/Program.cs",
+        "native/activities/tests/Program.cs",
+        "native/promoted-characters/lifecycle-tests/Program.cs",
+        "lsa-essential-e1-candidate/tests/host-context.test.mjs",
+        "lsa-essential-e1-candidate/tests/observer-index.test.mjs"
+      ],
+      "note": "Candidate harnesses are navigation only; inspect concrete assertions and execution results before claiming this complete."
+    },
+    {
+      "id": "T12",
+      "oracle": "ACT player target uses shared resolve and current native player incarnation; place `here` remains coordinate-based; target reuse/protagonist switch rejected.",
+      "originalHarness": "ACT2 native/companion tests.",
+      "status": "mapped_requires_oracle_review",
+      "candidateEvidence": [
+        "native/intelligence/tests/Program.cs",
+        "native/intelligence/integration-tests/Program.cs",
+        "native/activities/tests/Program.cs",
+        "native/promoted-characters/lifecycle-tests/Program.cs",
+        "lsa-essential-e1-candidate/tests/host-context.test.mjs",
+        "lsa-essential-e1-candidate/tests/observer-index.test.mjs"
+      ],
+      "note": "Candidate harnesses are navigation only; inspect concrete assertions and execution results before claiming this complete."
+    },
+    {
+      "id": "T13",
+      "oracle": "Real PS output-only Windows pipe publishes hello/index/anchors/situation/observation source frames into production client; malformed/overflow/ACL behavior unchanged.",
+      "originalHarness": "`testPerceptionInterop.mjs`, native intelligence channel helper.",
+      "status": "mapped_requires_oracle_review",
+      "candidateEvidence": [
+        "native/intelligence/tests/Program.cs",
+        "native/intelligence/integration-tests/Program.cs",
+        "native/activities/tests/Program.cs",
+        "native/promoted-characters/lifecycle-tests/Program.cs",
+        "lsa-essential-e1-candidate/tests/host-context.test.mjs",
+        "lsa-essential-e1-candidate/tests/observer-index.test.mjs"
+      ],
+      "note": "Candidate harnesses are navigation only; inspect concrete assertions and execution results before claiming this complete."
+    },
+    {
+      "id": "T14",
+      "oracle": "Changed P1/P2/ACT hello parsing works with real framework serializer/duplex pipes; no arbitrary extra keys or legacy fence weakening.",
+      "originalHarness": "OwnerFactsTests, ControlChannelTests, `testActivitiesInterop.mjs`.",
+      "status": "mapped_requires_oracle_review",
+      "candidateEvidence": [
+        "native/intelligence/tests/Program.cs",
+        "native/intelligence/integration-tests/Program.cs",
+        "native/activities/tests/Program.cs",
+        "native/promoted-characters/lifecycle-tests/Program.cs",
+        "lsa-essential-e1-candidate/tests/host-context.test.mjs",
+        "lsa-essential-e1-candidate/tests/observer-index.test.mjs"
+      ],
+      "note": "Candidate harnesses are navigation only; inspect concrete assertions and execution results before claiming this complete."
+    },
+    {
+      "id": "T15",
+      "oracle": "Qualified visible injury/death/firing reaches PS2; no receipt means no observation/context; raw episode containing extra attacker/outcome never leaks.",
+      "originalHarness": "Perception witness/contract + selector tests.",
+      "status": "mapped_requires_oracle_review",
+      "candidateEvidence": [
+        "lsa-essential-e1-candidate/tests/qualified-claim-details.test.mjs",
+        "lsa-essential-e1-candidate/tests/observer-situation.test.mjs",
+        "lsa-essential-e1-candidate/tests/salience-engine.test.mjs",
+        "lsa-essential-e1-candidate/tests/knowledge-selector.test.mjs"
+      ],
+      "note": "Candidate harnesses are navigation only; inspect concrete assertions and execution results before claiming this complete."
+    },
+    {
+      "id": "T16",
+      "oracle": "Sampled `injury_state` self receipt reaches self-danger salience with correct self basis/target; callback failure does not invent damage attribution.",
+      "originalHarness": "ShadowRuntime + native integration fixture.",
+      "status": "mapped_requires_oracle_review",
+      "candidateEvidence": [
+        "lsa-essential-e1-candidate/tests/qualified-claim-details.test.mjs",
+        "lsa-essential-e1-candidate/tests/observer-situation.test.mjs",
+        "lsa-essential-e1-candidate/tests/salience-engine.test.mjs",
+        "lsa-essential-e1-candidate/tests/knowledge-selector.test.mjs"
+      ],
+      "note": "Candidate harnesses are navigation only; inspect concrete assertions and execution results before claiming this complete."
+    },
+    {
+      "id": "T17",
+      "oracle": "Mixed auditory/visual revisions keep each claim's source/target/certainty; heard sound does not acquire visible shooter/death from later claims.",
+      "originalHarness": "Perception correlation + projection tests.",
+      "status": "mapped_requires_oracle_review",
+      "candidateEvidence": [
+        "lsa-essential-e1-candidate/tests/qualified-claim-details.test.mjs",
+        "lsa-essential-e1-candidate/tests/observer-situation.test.mjs",
+        "lsa-essential-e1-candidate/tests/salience-engine.test.mjs",
+        "lsa-essential-e1-candidate/tests/knowledge-selector.test.mjs"
+      ],
+      "note": "Candidate harnesses are navigation only; inspect concrete assertions and execution results before claiming this complete."
+    },
+    {
+      "id": "T18",
+      "oracle": "Generic action/location/presence details cannot produce named action/zone/mode; closed supported variants retain only qualified values.",
+      "originalHarness": "Contract/correlator tests.",
+      "status": "mapped_requires_oracle_review",
+      "candidateEvidence": [
+        "lsa-essential-e1-candidate/tests/qualified-claim-details.test.mjs",
+        "lsa-essential-e1-candidate/tests/observer-situation.test.mjs",
+        "lsa-essential-e1-candidate/tests/salience-engine.test.mjs",
+        "lsa-essential-e1-candidate/tests/knowledge-selector.test.mjs"
+      ],
+      "note": "Candidate harnesses are navigation only; inspect concrete assertions and execution results before claiming this complete."
+    },
+    {
+      "id": "T19",
+      "oracle": "Action succeeded true is handler outcome only; report/speech lifecycle without text receipt cannot become player/overheard transcript.",
+      "originalHarness": "Existing action/witness/speech tests + projection.",
+      "status": "mapped_requires_oracle_review",
+      "candidateEvidence": [
+        "lsa-essential-e1-candidate/tests/qualified-claim-details.test.mjs",
+        "lsa-essential-e1-candidate/tests/observer-situation.test.mjs",
+        "lsa-essential-e1-candidate/tests/salience-engine.test.mjs",
+        "lsa-essential-e1-candidate/tests/knowledge-selector.test.mjs"
+      ],
+      "note": "Candidate harnesses are navigation only; inspect concrete assertions and execution results before claiming this complete."
+    },
+    {
+      "id": "T20",
+      "oracle": "Wrong observer, wrong native run, expired item, retired source/target, mismatched observation ID/revision/key all omitted.",
+      "originalHarness": "ObservationStore bounded snapshot + selector tests.",
+      "status": "mapped_requires_oracle_review",
+      "candidateEvidence": [
+        "lsa-essential-e1-candidate/tests/qualified-claim-details.test.mjs",
+        "lsa-essential-e1-candidate/tests/observer-situation.test.mjs",
+        "lsa-essential-e1-candidate/tests/salience-engine.test.mjs",
+        "lsa-essential-e1-candidate/tests/knowledge-selector.test.mjs"
+      ],
+      "note": "Candidate harnesses are navigation only; inspect concrete assertions and execution results before claiming this complete."
+    },
+    {
+      "id": "T21",
+      "oracle": "Actual normalized activity covers driver/passenger/unknown; expired/missing/scripted/suspended state never becomes idle/following.",
+      "originalHarness": "Native C-14 + salience adapter tests.",
+      "status": "mapped_requires_oracle_review",
+      "candidateEvidence": [
+        "lsa-essential-e1-candidate/tests/qualified-claim-details.test.mjs",
+        "lsa-essential-e1-candidate/tests/observer-situation.test.mjs",
+        "lsa-essential-e1-candidate/tests/salience-engine.test.mjs",
+        "lsa-essential-e1-candidate/tests/knowledge-selector.test.mjs"
+      ],
+      "note": "Candidate harnesses are navigation only; inspect concrete assertions and execution results before claiming this complete."
+    },
+    {
+      "id": "T22",
+      "oracle": "ACT detach while native follow/sit persists: no unconditional idle/none owner assertion.",
+      "originalHarness": "ActivityDispatch/P2 mode + C-06 tests if exposed.",
+      "status": "mapped_requires_oracle_review",
+      "candidateEvidence": [
+        "lsa-essential-e1-candidate/tests/qualified-claim-details.test.mjs",
+        "lsa-essential-e1-candidate/tests/observer-situation.test.mjs",
+        "lsa-essential-e1-candidate/tests/salience-engine.test.mjs",
+        "lsa-essential-e1-candidate/tests/knowledge-selector.test.mjs"
+      ],
+      "note": "Candidate harnesses are navigation only; inspect concrete assertions and execution results before claiming this complete."
+    },
+    {
+      "id": "T23",
+      "oracle": "Proof-backed own profile revisions/relationship/tags change existing PS3 policy inputs; prose/near-match tags do not.",
+      "originalHarness": "Salience engine + P1/P2 service fixtures.",
+      "status": "mapped_requires_oracle_review",
+      "candidateEvidence": [
+        "lsa-essential-e1-candidate/tests/qualified-claim-details.test.mjs",
+        "lsa-essential-e1-candidate/tests/observer-situation.test.mjs",
+        "lsa-essential-e1-candidate/tests/salience-engine.test.mjs",
+        "lsa-essential-e1-candidate/tests/knowledge-selector.test.mjs"
+      ],
+      "note": "Candidate harnesses are navigation only; inspect concrete assertions and execution results before claiming this complete."
+    },
+    {
+      "id": "T24",
+      "oracle": "Backend-known participant without explicit recognition remains anonymous; no borrowed profile/private memory/relationship.",
+      "originalHarness": "Identity + salience + projection tests.",
+      "status": "mapped_requires_oracle_review",
+      "candidateEvidence": [
+        "lsa-essential-e1-candidate/tests/qualified-claim-details.test.mjs",
+        "lsa-essential-e1-candidate/tests/observer-situation.test.mjs",
+        "lsa-essential-e1-candidate/tests/salience-engine.test.mjs",
+        "lsa-essential-e1-candidate/tests/knowledge-selector.test.mjs"
+      ],
+      "note": "Candidate harnesses are navigation only; inspect concrete assertions and execution results before claiming this complete."
+    },
+    {
+      "id": "T25",
+      "oracle": "Explicit validated recognition fixture permits intended existing prior_memory/relationship logic; revoked/wrong-incarnation recognition does not.",
+      "originalHarness": "Salience engine contract test; live capability stays off until provider exists.",
+      "status": "mapped_requires_oracle_review",
+      "candidateEvidence": [
+        "lsa-essential-e1-candidate/tests/qualified-claim-details.test.mjs",
+        "lsa-essential-e1-candidate/tests/observer-situation.test.mjs",
+        "lsa-essential-e1-candidate/tests/salience-engine.test.mjs",
+        "lsa-essential-e1-candidate/tests/knowledge-selector.test.mjs"
+      ],
+      "note": "Candidate harnesses are navigation only; inspect concrete assertions and execution results before claiming this complete."
+    },
+    {
+      "id": "T26",
+      "oracle": "Cache snapshot contains matched observation/situation/decision; policy refresh uses same ranker; preview read/retry does not regrant or mutate decisions.",
+      "originalHarness": "Salience engine/client tests.",
+      "status": "mapped_requires_oracle_review",
+      "candidateEvidence": [
+        "lsa-essential-e1-candidate/tests/qualified-claim-details.test.mjs",
+        "lsa-essential-e1-candidate/tests/observer-situation.test.mjs",
+        "lsa-essential-e1-candidate/tests/salience-engine.test.mjs",
+        "lsa-essential-e1-candidate/tests/knowledge-selector.test.mjs"
+      ],
+      "note": "Candidate harnesses are navigation only; inspect concrete assertions and execution results before claiming this complete."
+    },
+    {
+      "id": "T27",
+      "oracle": "Repetition, severity escalation, capacity and important-event-among-routine pressure keep existing entitlement rules; missing paired inputs are counted.",
+      "originalHarness": "Salience engine + bounded selector pressure tests.",
+      "status": "mapped_requires_oracle_review",
+      "candidateEvidence": [
+        "lsa-essential-e1-candidate/tests/qualified-claim-details.test.mjs",
+        "lsa-essential-e1-candidate/tests/observer-situation.test.mjs",
+        "lsa-essential-e1-candidate/tests/salience-engine.test.mjs",
+        "lsa-essential-e1-candidate/tests/knowledge-selector.test.mjs"
+      ],
+      "note": "Candidate harnesses are navigation only; inspect concrete assertions and execution results before claiming this complete."
+    },
+    {
+      "id": "T28",
+      "oracle": "Edit selected memory/personality/relationship during delayed proof/STT: this request keeps captured revision; next turn sees edit.",
+      "originalHarness": "P2 lifecycle + OpenAI connection delayed fixture.",
+      "status": "mapped_requires_oracle_review",
+      "candidateEvidence": [
+        "lsa-essential-e1-candidate/tests/frozen-character-inputs.test.mjs",
+        "lsa-essential-e1-candidate/tests/knowledge-inputs.test.mjs",
+        "lsa-essential-e1-candidate/tests/stock-controller-lifecycle.test.mjs"
+      ],
+      "note": "Candidate harnesses are navigation only; inspect concrete assertions and execution results before claiming this complete."
+    },
+    {
+      "id": "T29",
+      "oracle": "First owned turn verifies matching frozen candidate; mismatch/revoke/conflict cannot release it. Newly loaded profile after freeze waits for next turn.",
+      "originalHarness": "P1/P2 service and identity evidence tests.",
+      "status": "mapped_requires_oracle_review",
+      "candidateEvidence": [
+        "lsa-essential-e1-candidate/tests/frozen-character-inputs.test.mjs",
+        "lsa-essential-e1-candidate/tests/knowledge-inputs.test.mjs",
+        "lsa-essential-e1-candidate/tests/stock-controller-lifecycle.test.mjs"
+      ],
+      "note": "Candidate harnesses are navigation only; inspect concrete assertions and execution results before claiming this complete."
+    },
+    {
+      "id": "T30",
+      "oracle": "First ordinary/unbound actor gets valid perceptions with no persistent profile; profile/store errors use safe session/basic context.",
+      "originalHarness": "P0/P2/knowledge request fixture.",
+      "status": "mapped_requires_oracle_review",
+      "candidateEvidence": [
+        "lsa-essential-e1-candidate/tests/frozen-character-inputs.test.mjs",
+        "lsa-essential-e1-candidate/tests/knowledge-inputs.test.mjs",
+        "lsa-essential-e1-candidate/tests/stock-controller-lifecycle.test.mjs"
+      ],
+      "note": "Candidate harnesses are navigation only; inspect concrete assertions and execution results before claiming this complete."
+    },
+    {
+      "id": "T31",
+      "oracle": "Frozen salience does not incorporate later proof/profile/event revision; next generation captures new view.",
+      "originalHarness": "Connection + selector tests.",
+      "status": "mapped_requires_oracle_review",
+      "candidateEvidence": [
+        "lsa-essential-e1-candidate/tests/frozen-character-inputs.test.mjs",
+        "lsa-essential-e1-candidate/tests/knowledge-inputs.test.mjs",
+        "lsa-essential-e1-candidate/tests/stock-controller-lifecycle.test.mjs"
+      ],
+      "note": "Candidate harnesses are navigation only; inspect concrete assertions and execution results before claiming this complete."
+    },
+    {
+      "id": "T32",
+      "oracle": "Later realtime context, listener/world refresh, conversation target change cannot alter a captured frame; explicit null differs from omitted.",
+      "originalHarness": "Existing P0 turn-context/stock-controller tests.",
+      "status": "mapped_requires_oracle_review",
+      "candidateEvidence": [
+        "lsa-essential-e1-candidate/tests/frozen-character-inputs.test.mjs",
+        "lsa-essential-e1-candidate/tests/knowledge-inputs.test.mjs",
+        "lsa-essential-e1-candidate/tests/stock-controller-lifecycle.test.mjs"
+      ],
+      "note": "Candidate harnesses are navigation only; inspect concrete assertions and execution results before claiming this complete."
+    },
+    {
+      "id": "T33",
+      "oracle": "Accepted player input committed once; prior history frozen before current input; no duplicate current utterance in role messages.",
+      "originalHarness": "DialogueHistory and TTS/history suites.",
+      "status": "mapped_requires_oracle_review",
+      "candidateEvidence": [
+        "lsa-essential-e1-candidate/tests/frozen-character-inputs.test.mjs",
+        "lsa-essential-e1-candidate/tests/knowledge-inputs.test.mjs",
+        "lsa-essential-e1-candidate/tests/stock-controller-lifecycle.test.mjs"
+      ],
+      "note": "Candidate harnesses are navigation only; inspect concrete assertions and execution results before claiming this complete."
+    },
+    {
+      "id": "T34",
+      "oracle": "Special/internal source has no player-history commit or fake transcript; unknown trigger Content stays absent from request.",
+      "originalHarness": "Stock special hydration/controller tests.",
+      "status": "mapped_requires_oracle_review",
+      "candidateEvidence": [
+        "lsa-essential-e1-candidate/tests/frozen-character-inputs.test.mjs",
+        "lsa-essential-e1-candidate/tests/knowledge-inputs.test.mjs",
+        "lsa-essential-e1-candidate/tests/stock-controller-lifecycle.test.mjs"
+      ],
+      "note": "Candidate harnesses are navigation only; inspect concrete assertions and execution results before claiming this complete."
+    },
+    {
+      "id": "T35",
+      "oracle": "Model/STT retries reuse narrative bytes/selected keys and original deadline; no new knowledge lookup after freeze.",
+      "originalHarness": "Reliability + provider contract tests.",
+      "status": "mapped_requires_oracle_review",
+      "candidateEvidence": [
+        "lsa-essential-e1-candidate/tests/frozen-character-inputs.test.mjs",
+        "lsa-essential-e1-candidate/tests/knowledge-inputs.test.mjs",
+        "lsa-essential-e1-candidate/tests/stock-controller-lifecycle.test.mjs"
+      ],
+      "note": "Candidate harnesses are navigation only; inspect concrete assertions and execution results before claiming this complete."
+    },
+    {
+      "id": "T36",
+      "oracle": "Supersession/cancel/reset/actor retirement ignores late STT/model/PCM/ack; successor stays isolated; retained snapshot released.",
+      "originalHarness": "Native/stock lifecycle + transport tests.",
+      "status": "mapped_requires_oracle_review",
+      "candidateEvidence": [
+        "lsa-essential-e1-candidate/tests/frozen-character-inputs.test.mjs",
+        "lsa-essential-e1-candidate/tests/knowledge-inputs.test.mjs",
+        "lsa-essential-e1-candidate/tests/stock-controller-lifecycle.test.mjs"
+      ],
+      "note": "Candidate harnesses are navigation only; inspect concrete assertions and execution results before claiming this complete."
+    },
+    {
+      "id": "T37",
+      "oracle": "Existing voice/name assignment stable; acting direction uses frozen canon revision and 4000-character bound.",
+      "originalHarness": "Voice/profile/character-aware connection tests.",
+      "status": "mapped_requires_oracle_review",
+      "candidateEvidence": [
+        "lsa-essential-e1-candidate/tests/frozen-character-inputs.test.mjs",
+        "lsa-essential-e1-candidate/tests/knowledge-inputs.test.mjs",
+        "lsa-essential-e1-candidate/tests/stock-controller-lifecycle.test.mjs"
+      ],
+      "note": "Candidate harnesses are navigation only; inspect concrete assertions and execution results before claiming this complete."
+    },
+    {
+      "id": "T38",
+      "oracle": "Exact six lanes, one producer/writer, model rendering excludes private frame envelope and identifiers.",
+      "originalHarness": "New projection contract tests.",
+      "status": "mapped_requires_oracle_review",
+      "candidateEvidence": [
+        "lsa-essential-e1-candidate/tests/knowledge-renderer.test.mjs",
+        "lsa-essential-e1-candidate/tests/knowledge-selector.test.mjs",
+        "lsa-essential-e1-candidate/tests/knowledge-base-integration.test.mjs"
+      ],
+      "note": "Candidate harnesses are navigation only; inspect concrete assertions and execution results before claiming this complete."
+    },
+    {
+      "id": "T39",
+      "oracle": "Four-plus selected memories remain in importance/ID order when they fit; unselected never enters; no hidden three-record cap.",
+      "originalHarness": "Existing P2 profiles/authority + projection.",
+      "status": "mapped_requires_oracle_review",
+      "candidateEvidence": [
+        "lsa-essential-e1-candidate/tests/knowledge-renderer.test.mjs",
+        "lsa-essential-e1-candidate/tests/knowledge-selector.test.mjs",
+        "lsa-essential-e1-candidate/tests/knowledge-base-integration.test.mjs"
+      ],
+      "note": "Candidate harnesses are navigation only; inspect concrete assertions and execution results before claiming this complete."
+    },
+    {
+      "id": "T40",
+      "oracle": "Duplicate canon absent from actor/system/recall copies; fixed identity/personality precedence retained, memory IDs removed after sorting.",
+      "originalHarness": "P2 authority and final request tests.",
+      "status": "mapped_requires_oracle_review",
+      "candidateEvidence": [
+        "lsa-essential-e1-candidate/tests/knowledge-renderer.test.mjs",
+        "lsa-essential-e1-candidate/tests/knowledge-selector.test.mjs",
+        "lsa-essential-e1-candidate/tests/knowledge-base-integration.test.mjs"
+      ],
+      "note": "Candidate harnesses are navigation only; inspect concrete assertions and execution results before claiming this complete."
+    },
+    {
+      "id": "T41",
+      "oracle": "RelatedCharacterIds inform private relevance only under recognition; record IDs/notes/appearance/alias/proof do not appear in text.",
+      "originalHarness": "P2/profile + canary projection tests.",
+      "status": "mapped_requires_oracle_review",
+      "candidateEvidence": [
+        "lsa-essential-e1-candidate/tests/knowledge-renderer.test.mjs",
+        "lsa-essential-e1-candidate/tests/knowledge-selector.test.mjs",
+        "lsa-essential-e1-candidate/tests/knowledge-base-integration.test.mjs"
+      ],
+      "note": "Candidate harnesses are navigation only; inspect concrete assertions and execution results before claiming this complete."
+    },
+    {
+      "id": "T42",
+      "oracle": "Unicode including emoji, CJK, combining characters, quotes/backslashes/control escaping: valid encoding and exact final serialized bytes.",
+      "originalHarness": "Projection byte-bound fixtures.",
+      "status": "mapped_requires_oracle_review",
+      "candidateEvidence": [
+        "lsa-essential-e1-candidate/tests/knowledge-renderer.test.mjs",
+        "lsa-essential-e1-candidate/tests/knowledge-selector.test.mjs",
+        "lsa-essential-e1-candidate/tests/knowledge-base-integration.test.mjs"
+      ],
+      "note": "Candidate harnesses are navigation only; inspect concrete assertions and execution results before claiming this complete."
+    },
+    {
+      "id": "T43",
+      "oracle": "Per-lane/shared canon/total body bounds all apply; adding role framing or double escaping cannot exceed the limit.",
+      "originalHarness": "Final body assertion, not character-length approximation.",
+      "status": "mapped_requires_oracle_review",
+      "candidateEvidence": [
+        "lsa-essential-e1-candidate/tests/knowledge-renderer.test.mjs",
+        "lsa-essential-e1-candidate/tests/knowledge-selector.test.mjs",
+        "lsa-essential-e1-candidate/tests/knowledge-base-integration.test.mjs"
+      ],
+      "note": "Candidate harnesses are navigation only; inspect concrete assertions and execution results before claiming this complete."
+    },
+    {
+      "id": "T44",
+      "oracle": "Large selected pins/history/routine events cannot displace reserved highest-ranked safety claims; deterministic safety overflow/drop counts.",
+      "originalHarness": "Selector pressure tests.",
+      "status": "mapped_requires_oracle_review",
+      "candidateEvidence": [
+        "lsa-essential-e1-candidate/tests/knowledge-renderer.test.mjs",
+        "lsa-essential-e1-candidate/tests/knowledge-selector.test.mjs",
+        "lsa-essential-e1-candidate/tests/knowledge-base-integration.test.mjs"
+      ],
+      "note": "Candidate harnesses are navigation only; inspect concrete assertions and execution results before claiming this complete."
+    },
+    {
+      "id": "T45",
+      "oracle": "Same frozen inputs produce byte-identical projection/hash under Map insertion order variation where contract order is irrelevant.",
+      "originalHarness": "Determinism test with equal-rank IDs.",
+      "status": "mapped_requires_oracle_review",
+      "candidateEvidence": [
+        "lsa-essential-e1-candidate/tests/knowledge-renderer.test.mjs",
+        "lsa-essential-e1-candidate/tests/knowledge-selector.test.mjs",
+        "lsa-essential-e1-candidate/tests/knowledge-base-integration.test.mjs"
+      ],
+      "note": "Candidate harnesses are navigation only; inspect concrete assertions and execution results before claiming this complete."
+    },
+    {
+      "id": "T46",
+      "oracle": "All unknown/missing fields project unknown, not false/idle/empty evidence; absent listener and explicit null retain semantics.",
+      "originalHarness": "P0/COMPAT allowlist tests.",
+      "status": "mapped_requires_oracle_review",
+      "candidateEvidence": [
+        "lsa-essential-e1-candidate/tests/knowledge-renderer.test.mjs",
+        "lsa-essential-e1-candidate/tests/knowledge-selector.test.mjs",
+        "lsa-essential-e1-candidate/tests/knowledge-base-integration.test.mjs"
+      ],
+      "note": "Candidate harnesses are navigation only; inspect concrete assertions and execution results before claiming this complete."
+    },
+    {
+      "id": "T47",
+      "oracle": "Invalid item detail is omitted without losing other valid claims; qualification prefix cannot be truncated into a stronger claim.",
+      "originalHarness": "Claim renderer boundary tests.",
+      "status": "mapped_requires_oracle_review",
+      "candidateEvidence": [
+        "lsa-essential-e1-candidate/tests/knowledge-renderer.test.mjs",
+        "lsa-essential-e1-candidate/tests/knowledge-selector.test.mjs",
+        "lsa-essential-e1-candidate/tests/knowledge-base-integration.test.mjs"
+      ],
+      "note": "Candidate harnesses are navigation only; inspect concrete assertions and execution results before claiming this complete."
+    },
+    {
+      "id": "T48",
+      "oracle": "Only valid user/assistant prior role messages; history trimmed by whole oldest messages; current input once and mandatory limit explicit.",
+      "originalHarness": "History/request budget tests.",
+      "status": "mapped_requires_oracle_review",
+      "candidateEvidence": [
+        "lsa-essential-e1-candidate/tests/knowledge-renderer.test.mjs",
+        "lsa-essential-e1-candidate/tests/knowledge-selector.test.mjs",
+        "lsa-essential-e1-candidate/tests/knowledge-base-integration.test.mjs"
+      ],
+      "note": "Candidate harnesses are navigation only; inspect concrete assertions and execution results before claiming this complete."
+    },
+    {
+      "id": "T49",
+      "oracle": "Projection exception, unsupported contract or oversized mandatory template/input fails safely; no raw fallback body is fetched.",
+      "originalHarness": "Failure-injection + request interception.",
+      "status": "mapped_requires_oracle_review",
+      "candidateEvidence": [
+        "lsa-essential-e1-candidate/tests/knowledge-renderer.test.mjs",
+        "lsa-essential-e1-candidate/tests/knowledge-selector.test.mjs",
+        "lsa-essential-e1-candidate/tests/knowledge-base-integration.test.mjs"
+      ],
+      "note": "Candidate harnesses are navigation only; inspect concrete assertions and execution results before claiming this complete."
+    },
+    {
+      "id": "T50",
+      "oracle": "Actual patched Essential controller -> beginTurn -> PS2/PS3 frozen item -> final intercepted Responses body contains qualified event.",
+      "originalHarness": "`stock-harness.mjs`, new request integration test.",
+      "status": "mapped_requires_oracle_review",
+      "candidateEvidence": [
+        "lsa-essential-e1-candidate/tests/knowledge-active-integration.test.mjs",
+        "lsa-essential-e1-candidate/tests/knowledge-base-integration.test.mjs",
+        "lsa-essential-e1-candidate/tests/stock-controller-lifecycle.test.mjs"
+      ],
+      "note": "Candidate harnesses are navigation only; inspect concrete assertions and execution results before claiming this complete."
+    },
+    {
+      "id": "T51",
+      "oracle": "Two actors know different events; final bodies isolate observations/canon/history even with overlapping timing.",
+      "originalHarness": "Multi-actor stock-controller fixture.",
+      "status": "partial_verified",
+      "candidateEvidence": [
+        "lsa-essential-e1-candidate/tests/knowledge-active-integration.test.mjs",
+        "lsa-essential-e1-candidate/tests/knowledge-base-integration.test.mjs",
+        "lsa-essential-e1-candidate/tests/stock-controller-lifecycle.test.mjs"
+      ],
+      "note": "New actual overlapping buffered ordinary-actor request fixture proves firing versus self-injury, current-input/privacy isolation, independent history and exact cancellation cleanup. Owned canon overlap and additional request modes still need individual oracle review."
+    },
+    {
+      "id": "T52",
+      "oracle": "Typed and mic input both enriched; STT accepts once; mic completion creates no third-party hearing.",
+      "originalHarness": "OpenAI transport + speech/controller suites.",
+      "status": "mapped_requires_oracle_review",
+      "candidateEvidence": [
+        "lsa-essential-e1-candidate/tests/knowledge-active-integration.test.mjs",
+        "lsa-essential-e1-candidate/tests/knowledge-base-integration.test.mjs",
+        "lsa-essential-e1-candidate/tests/stock-controller-lifecycle.test.mjs"
+      ],
+      "note": "Candidate harnesses are navigation only; inspect concrete assertions and execution results before claiming this complete."
+    },
+    {
+      "id": "T53",
+      "oracle": "Nonstreaming, streaming buffered_action/dialogue_only, early TTS all render same narrative input.",
+      "originalHarness": "Streaming + stock-controller tests.",
+      "status": "mapped_requires_oracle_review",
+      "candidateEvidence": [
+        "lsa-essential-e1-candidate/tests/knowledge-active-integration.test.mjs",
+        "lsa-essential-e1-candidate/tests/knowledge-base-integration.test.mjs",
+        "lsa-essential-e1-candidate/tests/stock-controller-lifecycle.test.mjs"
+      ],
+      "note": "Candidate harnesses are navigation only; inspect concrete assertions and execution results before claiming this complete."
+    },
+    {
+      "id": "T54",
+      "oracle": "Every raw ingress gets a unique canary: finished systemInstruction, actor, listener, world, integrations/raw, contextText, realtime context, internal Content, generated persona. None reaches final request.",
+      "originalHarness": "Actual BK/EO/serializer interception with P1/P2 enabled/disabled/failing.",
+      "status": "mapped_requires_oracle_review",
+      "candidateEvidence": [
+        "lsa-essential-e1-candidate/tests/knowledge-active-integration.test.mjs",
+        "lsa-essential-e1-candidate/tests/knowledge-base-integration.test.mjs",
+        "lsa-essential-e1-candidate/tests/stock-controller-lifecycle.test.mjs"
+      ],
+      "note": "Candidate harnesses are navigation only; inspect concrete assertions and execution results before claiming this complete."
+    },
+    {
+      "id": "T55",
+      "oracle": "Trusted stock behavior/action declarations survive separation; scene placeholders render safe lanes once; templates without placeholders also work.",
+      "originalHarness": "Exact stock functions AST harness.",
+      "status": "mapped_requires_oracle_review",
+      "candidateEvidence": [
+        "lsa-essential-e1-candidate/tests/knowledge-active-integration.test.mjs",
+        "lsa-essential-e1-candidate/tests/knowledge-base-integration.test.mjs",
+        "lsa-essential-e1-candidate/tests/stock-controller-lifecycle.test.mjs"
+      ],
+      "note": "Candidate harnesses are navigation only; inspect concrete assertions and execution results before claiming this complete."
+    },
+    {
+      "id": "T56",
+      "oracle": "Current action list matches validator availability; changing P/V binding after model rejects rebound target; one action dispatch only.",
+      "originalHarness": "Existing decision/action/P0 target tests.",
+      "status": "mapped_requires_oracle_review",
+      "candidateEvidence": [
+        "lsa-essential-e1-candidate/tests/knowledge-active-integration.test.mjs",
+        "lsa-essential-e1-candidate/tests/knowledge-base-integration.test.mjs",
+        "lsa-essential-e1-candidate/tests/stock-controller-lifecycle.test.mjs"
+      ],
+      "note": "Candidate harnesses are navigation only; inspect concrete assertions and execution results before claiming this complete."
+    },
+    {
+      "id": "T57",
+      "oracle": "Weapon/vehicle/held-item action affordances remain usable when verified; unsupported inventory/target cannot be authorized by narrative.",
+      "originalHarness": "Stock action dispatcher + decision validator tests.",
+      "status": "mapped_requires_oracle_review",
+      "candidateEvidence": [
+        "lsa-essential-e1-candidate/tests/knowledge-active-integration.test.mjs",
+        "lsa-essential-e1-candidate/tests/knowledge-base-integration.test.mjs",
+        "lsa-essential-e1-candidate/tests/stock-controller-lifecycle.test.mjs"
+      ],
+      "note": "Candidate harnesses are navigation only; inspect concrete assertions and execution results before claiming this complete."
+    },
+    {
+      "id": "T58",
+      "oracle": "NPC direct-speech mode behavior retained; listener-private canon never donated.",
+      "originalHarness": "Actual BK/controller tests.",
+      "status": "mapped_requires_oracle_review",
+      "candidateEvidence": [
+        "lsa-essential-e1-candidate/tests/knowledge-active-integration.test.mjs",
+        "lsa-essential-e1-candidate/tests/knowledge-base-integration.test.mjs",
+        "lsa-essential-e1-candidate/tests/stock-controller-lifecycle.test.mjs"
+      ],
+      "note": "Candidate harnesses are navigation only; inspect concrete assertions and execution results before claiming this complete."
+    },
+    {
+      "id": "T59",
+      "oracle": "Optional services disabled/null/unavailable still use safe request renderer; no raw modelActor fallback.",
+      "originalHarness": "Runtime/bootstrap + request tests.",
+      "status": "mapped_requires_oracle_review",
+      "candidateEvidence": [
+        "lsa-essential-e1-candidate/tests/knowledge-active-integration.test.mjs",
+        "lsa-essential-e1-candidate/tests/knowledge-base-integration.test.mjs",
+        "lsa-essential-e1-candidate/tests/stock-controller-lifecycle.test.mjs"
+      ],
+      "note": "Candidate harnesses are navigation only; inspect concrete assertions and execution results before claiming this complete."
+    },
+    {
+      "id": "T60",
+      "oracle": "Current input, committed history, canon and projected fact each occur in exactly one intended role/allocation.",
+      "originalHarness": "Final body exact-value assertions.",
+      "status": "mapped_requires_oracle_review",
+      "candidateEvidence": [
+        "lsa-essential-e1-candidate/tests/knowledge-active-integration.test.mjs",
+        "lsa-essential-e1-candidate/tests/knowledge-base-integration.test.mjs",
+        "lsa-essential-e1-candidate/tests/stock-controller-lifecycle.test.mjs"
+      ],
+      "note": "Candidate harnesses are navigation only; inspect concrete assertions and execution results before claiming this complete."
+    },
+    {
+      "id": "T61",
+      "oracle": "Early TTS cancellation, segment/action mode, native auth/exact interrupt, PlaybackEnded assistant commit unchanged.",
+      "originalHarness": "Full E1/E5/E6 native/stock/TTS regressions.",
+      "status": "mapped_requires_oracle_review",
+      "candidateEvidence": [
+        "lsa-essential-e1-candidate/tests/knowledge-active-integration.test.mjs",
+        "lsa-essential-e1-candidate/tests/knowledge-base-integration.test.mjs",
+        "lsa-essential-e1-candidate/tests/stock-controller-lifecycle.test.mjs"
+      ],
+      "note": "Candidate harnesses are navigation only; inspect concrete assertions and execution results before claiming this complete."
+    },
+    {
+      "id": "T62",
+      "oracle": "Stock Gemini avoids PS4/OpenAI stack and retains existing lifecycle/context/resume behavior.",
+      "originalHarness": "Build/isolation + Gemini stock-controller tests.",
+      "status": "mapped_requires_oracle_review",
+      "candidateEvidence": [
+        "lsa-essential-e1-candidate/tests/knowledge-active-integration.test.mjs",
+        "lsa-essential-e1-candidate/tests/knowledge-base-integration.test.mjs",
+        "lsa-essential-e1-candidate/tests/stock-controller-lifecycle.test.mjs"
+      ],
+      "note": "Candidate harnesses are navigation only; inspect concrete assertions and execution results before claiming this complete."
+    },
+    {
+      "id": "T63",
+      "oracle": "Freeze/render/fetch-start do not ack; valid final reasoning result acks each delivered selected key once.",
+      "originalHarness": "RunSequentialTurn + SalienceCache.",
+      "status": "mapped_requires_oracle_review",
+      "candidateEvidence": [
+        "lsa-essential-e1-candidate/tests/knowledge-delivery.test.mjs",
+        "lsa-essential-e1-candidate/tests/knowledge-active-integration.test.mjs",
+        "lsa-essential-e1-candidate/tests/knowledge-modes.test.mjs",
+        "lsa-essential-e1-candidate/tests/knowledge-payload.test.mjs"
+      ],
+      "note": "Candidate harnesses are navigation only; inspect concrete assertions and execution results before claiming this complete."
+    },
+    {
+      "id": "T64",
+      "oracle": "Early TTS fails after final model success: ps4 delivered retained, assistant history discarded. Partial stream without final result: no delivered.",
+      "originalHarness": "Delayed early-TTS/model fixtures.",
+      "status": "partial_reviewed",
+      "candidateEvidence": [
+        "lsa-essential-e1-candidate/tests/knowledge-delivery.test.mjs",
+        "lsa-essential-e1-candidate/tests/knowledge-active-integration.test.mjs",
+        "lsa-essential-e1-candidate/tests/knowledge-modes.test.mjs",
+        "lsa-essential-e1-candidate/tests/knowledge-payload.test.mjs"
+      ],
+      "note": "Existing real buffered/streaming/early-TTS controller fixture injects a delivery frame and verifies reasoning acknowledgement before later TTS failure; contradictory-final active test rejects partial-stream acknowledgement. Direct active PS3-ledger post-reasoning TTS-failure coverage still needs review."
+    },
+    {
+      "id": "T65",
+      "oracle": "Retry fails then succeeds: one delivered, no intermediate final rejection; all fail/refusal/invalid JSON: rejected only.",
+      "originalHarness": "Provider executor + request integration.",
+      "status": "mapped_requires_oracle_review",
+      "candidateEvidence": [
+        "lsa-essential-e1-candidate/tests/knowledge-delivery.test.mjs",
+        "lsa-essential-e1-candidate/tests/knowledge-active-integration.test.mjs",
+        "lsa-essential-e1-candidate/tests/knowledge-modes.test.mjs",
+        "lsa-essential-e1-candidate/tests/knowledge-payload.test.mjs"
+      ],
+      "note": "Candidate harnesses are navigation only; inspect concrete assertions and execution results before claiming this complete."
+    },
+    {
+      "id": "T66",
+      "oracle": "Budget-dropped/unsupported/preview items never delivered; current exact keys succeed, replaced/expired keys return safe false.",
+      "originalHarness": "Ack/frozen-key tests.",
+      "status": "mapped_requires_oracle_review",
+      "candidateEvidence": [
+        "lsa-essential-e1-candidate/tests/knowledge-delivery.test.mjs",
+        "lsa-essential-e1-candidate/tests/knowledge-active-integration.test.mjs",
+        "lsa-essential-e1-candidate/tests/knowledge-modes.test.mjs",
+        "lsa-essential-e1-candidate/tests/knowledge-payload.test.mjs"
+      ],
+      "note": "Candidate harnesses are navigation only; inspect concrete assertions and execution results before claiming this complete."
+    },
+    {
+      "id": "T67",
+      "oracle": "Superseded late result/reset cannot ack successor; PS4 outcomes never consume/regrant PS6 response entitlement.",
+      "originalHarness": "Salience engine + lifecycle test.",
+      "status": "mapped_requires_oracle_review",
+      "candidateEvidence": [
+        "lsa-essential-e1-candidate/tests/knowledge-delivery.test.mjs",
+        "lsa-essential-e1-candidate/tests/knowledge-active-integration.test.mjs",
+        "lsa-essential-e1-candidate/tests/knowledge-modes.test.mjs",
+        "lsa-essential-e1-candidate/tests/knowledge-payload.test.mjs"
+      ],
+      "note": "Candidate harnesses are navigation only; inspect concrete assertions and execution results before claiming this complete."
+    },
+    {
+      "id": "T68",
+      "oracle": "Config default/unknown mode off; intelligence shadow alone sends no events; active needs contract/host support.",
+      "originalHarness": "Config/perception-bootstrap tests.",
+      "status": "mapped_requires_oracle_review",
+      "candidateEvidence": [
+        "lsa-essential-e1-candidate/tests/knowledge-delivery.test.mjs",
+        "lsa-essential-e1-candidate/tests/knowledge-active-integration.test.mjs",
+        "lsa-essential-e1-candidate/tests/knowledge-modes.test.mjs",
+        "lsa-essential-e1-candidate/tests/knowledge-payload.test.mjs"
+      ],
+      "note": "Candidate harnesses are navigation only; inspect concrete assertions and execution results before claiming this complete."
+    },
+    {
+      "id": "T69",
+      "oracle": "Off and shadow final request bodies equal safe base; preview no action/turn/history/memory/ack mutation; active differs only by authorized lanes.",
+      "originalHarness": "Bootstrap/controller with effect spies.",
+      "status": "mapped_requires_oracle_review",
+      "candidateEvidence": [
+        "lsa-essential-e1-candidate/tests/knowledge-delivery.test.mjs",
+        "lsa-essential-e1-candidate/tests/knowledge-active-integration.test.mjs",
+        "lsa-essential-e1-candidate/tests/knowledge-modes.test.mjs",
+        "lsa-essential-e1-candidate/tests/knowledge-payload.test.mjs"
+      ],
+      "note": "Candidate harnesses are navigation only; inspect concrete assertions and execution results before claiming this complete."
+    },
+    {
+      "id": "T70",
+      "oracle": "Normal JSONL only approved scalar data; no prompt/canon/transcript/UUID maps/free errors; private audit requires explicit opt-in.",
+      "originalHarness": "Observability/event contract/dialogue trace tests.",
+      "status": "mapped_requires_oracle_review",
+      "candidateEvidence": [
+        "lsa-essential-e1-candidate/tests/knowledge-delivery.test.mjs",
+        "lsa-essential-e1-candidate/tests/knowledge-active-integration.test.mjs",
+        "lsa-essential-e1-candidate/tests/knowledge-modes.test.mjs",
+        "lsa-essential-e1-candidate/tests/knowledge-payload.test.mjs"
+      ],
+      "note": "Candidate harnesses are navigation only; inspect concrete assertions and execution results before claiming this complete."
+    },
+    {
+      "id": "T71",
+      "oracle": "Telemetry sink/report/projection optional error preserves authorization, correct deadline and cleanup.",
+      "originalHarness": "Observability/reliability failure injection.",
+      "status": "mapped_requires_oracle_review",
+      "candidateEvidence": [
+        "lsa-essential-e1-candidate/tests/knowledge-delivery.test.mjs",
+        "lsa-essential-e1-candidate/tests/knowledge-active-integration.test.mjs",
+        "lsa-essential-e1-candidate/tests/knowledge-modes.test.mjs",
+        "lsa-essential-e1-candidate/tests/knowledge-payload.test.mjs"
+      ],
+      "note": "Candidate harnesses are navigation only; inspect concrete assertions and execution results before claiming this complete."
+    },
+    {
+      "id": "T72",
+      "oracle": "Manifest/extension/native pins consistent; unknown version/hash rejects only affected capability; no stock input/core DLL rewriting.",
+      "originalHarness": "Build/isolation/native-support tests.",
+      "status": "mapped_requires_oracle_review",
+      "candidateEvidence": [
+        "lsa-essential-e1-candidate/tests/knowledge-delivery.test.mjs",
+        "lsa-essential-e1-candidate/tests/knowledge-active-integration.test.mjs",
+        "lsa-essential-e1-candidate/tests/knowledge-modes.test.mjs",
+        "lsa-essential-e1-candidate/tests/knowledge-payload.test.mjs"
+      ],
+      "note": "Candidate harnesses are navigation only; inspect concrete assertions and execution results before claiming this complete."
+    },
+    {
+      "id": "T73",
+      "oracle": "Repeated turns/epochs/pressure leave bounded refs/cache/frame retention; no extra sampler, observer slot, callback subscription or model call.",
+      "originalHarness": "Native continuous/stalled host + companion load fixture.",
+      "status": "mapped_requires_oracle_review",
+      "candidateEvidence": [
+        "lsa-essential-e1-candidate/tests/knowledge-delivery.test.mjs",
+        "lsa-essential-e1-candidate/tests/knowledge-active-integration.test.mjs",
+        "lsa-essential-e1-candidate/tests/knowledge-modes.test.mjs",
+        "lsa-essential-e1-candidate/tests/knowledge-payload.test.mjs"
+      ],
+      "note": "Candidate harnesses are navigation only; inspect concrete assertions and execution results before claiming this complete."
+    },
+    {
+      "id": "T74",
+      "oracle": "ACT instructed/accepted/handler/mode/world_strong map to different SELF strengths; unsupported completed/arrived downgraded.",
+      "originalHarness": "Existing ACT facts/receipt tests + projection.",
+      "status": "mapped_requires_oracle_review",
+      "candidateEvidence": [
+        "lsa-essential-e1-candidate/tests/activity-knowledge.test.mjs",
+        "lsa-essential-e1-candidate/tests/dialogue-action-knowledge.test.mjs",
+        "lsa-essential-e1-candidate/tests/dialogue-action-interop.test.mjs",
+        "lsa-essential-e1-candidate/tests/knowledge-modes.test.mjs"
+      ],
+      "note": "Candidate harnesses are navigation only; inspect concrete assertions and execution results before claiming this complete."
+    },
+    {
+      "id": "T75",
+      "oracle": "ACT facts from prior host/world/encounter/incarnation are absent after reset/retirement; display history is not substituted.",
+      "originalHarness": "ACT engine/fact snapshot tests.",
+      "status": "mapped_requires_oracle_review",
+      "candidateEvidence": [
+        "lsa-essential-e1-candidate/tests/activity-knowledge.test.mjs",
+        "lsa-essential-e1-candidate/tests/dialogue-action-knowledge.test.mjs",
+        "lsa-essential-e1-candidate/tests/dialogue-action-interop.test.mjs",
+        "lsa-essential-e1-candidate/tests/knowledge-modes.test.mjs"
+      ],
+      "note": "Candidate harnesses are navigation only; inspect concrete assertions and execution results before claiming this complete."
+    },
+    {
+      "id": "T76",
+      "oracle": "C-05 exact tuple/action callback window, interruption, mismatch, late callback: no fabricated execution or replay.",
+      "originalHarness": "ACT callback ring + dialogue-action receipt tests, only if implemented.",
+      "status": "mapped_requires_oracle_review",
+      "candidateEvidence": [
+        "lsa-essential-e1-candidate/tests/activity-knowledge.test.mjs",
+        "lsa-essential-e1-candidate/tests/dialogue-action-knowledge.test.mjs",
+        "lsa-essential-e1-candidate/tests/dialogue-action-interop.test.mjs",
+        "lsa-essential-e1-candidate/tests/knowledge-modes.test.mjs"
+      ],
+      "note": "Candidate harnesses are navigation only; inspect concrete assertions and execution results before claiming this complete."
+    },
+    {
+      "id": "T77",
+      "oracle": "Radio frozen exact observer, later live conversation changes/STT song change cannot alter current request.",
+      "originalHarness": "Reused radio branch + request fixture.",
+      "status": "deferred_radio",
+      "candidateEvidence": [
+        "lsa-essential-e1-candidate/tests/activity-knowledge.test.mjs",
+        "lsa-essential-e1-candidate/tests/dialogue-action-knowledge.test.mjs",
+        "lsa-essential-e1-candidate/tests/dialogue-action-interop.test.mjs",
+        "lsa-essential-e1-candidate/tests/knowledge-modes.test.mjs"
+      ],
+      "note": "Radio is explicitly outside the user-authorized v1.0 scope; preserve original requirement for later."
+    },
+    {
+      "id": "T78",
+      "oracle": "Unknown ID, wrong station, commercial, stop, silence and unenclosed/enclosed audibility cases preserve branch evidence/unknown phrasing.",
+      "originalHarness": "Radio branch producer/catalog/witness/projector tests.",
+      "status": "deferred_radio",
+      "candidateEvidence": [
+        "lsa-essential-e1-candidate/tests/activity-knowledge.test.mjs",
+        "lsa-essential-e1-candidate/tests/dialogue-action-knowledge.test.mjs",
+        "lsa-essential-e1-candidate/tests/dialogue-action-interop.test.mjs",
+        "lsa-essential-e1-candidate/tests/knowledge-modes.test.mjs"
+      ],
+      "note": "Radio is explicitly outside the user-authorized v1.0 scope; preserve original requirement for later."
+    },
+    {
+      "id": "T79",
+      "oracle": "Radio/ACT contribute lane items only; old prompt block/contextText append cannot appear; all active paths use one writer.",
+      "originalHarness": "Final request canary/integration tests.",
+      "status": "mapped_requires_oracle_review",
+      "candidateEvidence": [
+        "lsa-essential-e1-candidate/tests/activity-knowledge.test.mjs",
+        "lsa-essential-e1-candidate/tests/dialogue-action-knowledge.test.mjs",
+        "lsa-essential-e1-candidate/tests/dialogue-action-interop.test.mjs",
+        "lsa-essential-e1-candidate/tests/knowledge-modes.test.mjs"
+      ],
+      "note": "ACT one-writer portion applies to v1.0; radio portion is deferred. Review each separately."
+    },
+    {
+      "id": "T80",
+      "oracle": "Direct radio query selects from frozen pool; unsupported source/query produces no fabricated relevance/extra model call.",
+      "originalHarness": "Radio relevance/request test.",
+      "status": "deferred_radio",
+      "candidateEvidence": [
+        "lsa-essential-e1-candidate/tests/activity-knowledge.test.mjs",
+        "lsa-essential-e1-candidate/tests/dialogue-action-knowledge.test.mjs",
+        "lsa-essential-e1-candidate/tests/dialogue-action-interop.test.mjs",
+        "lsa-essential-e1-candidate/tests/knowledge-modes.test.mjs"
+      ],
+      "note": "Radio is explicitly outside the user-authorized v1.0 scope; preserve original requirement for later."
+    },
+    {
+      "id": "T81",
+      "oracle": "Contributor unavailable or old version leaves baseline event/canon enrichment intact; contributor gate remains off until physical evidence.",
+      "originalHarness": "Capability/fallback/bootstrap tests.",
+      "status": "mapped_requires_oracle_review",
+      "candidateEvidence": [
+        "lsa-essential-e1-candidate/tests/activity-knowledge.test.mjs",
+        "lsa-essential-e1-candidate/tests/dialogue-action-knowledge.test.mjs",
+        "lsa-essential-e1-candidate/tests/dialogue-action-interop.test.mjs",
+        "lsa-essential-e1-candidate/tests/knowledge-modes.test.mjs"
+      ],
+      "note": "Candidate harnesses are navigation only; inspect concrete assertions and execution results before claiming this complete."
+    }
+  ],
+  "gates": [
+    {
+      "id": "G0",
+      "label": "baseline reconciled",
+      "oracle": "Source/main/PR21 SHA recorded; relevant locked contracts unchanged; actual callback/hearing/profile gaps classified.",
+      "eligible": "Implementation begins on audited source; no new architecture research.",
+      "status": "closure_requires_evidence_review"
+    },
+    {
+      "id": "G1",
+      "label": "shared identity/fencing",
+      "oracle": "Phase A native/companion/real-pipe tests pass; one table/detector; exact ordinary/owned actor joins and reset/retire failures.",
+      "eligible": "C-02/C-13 can be consumed by a frame; no prompt enrichment yet.",
+      "status": "closure_requires_evidence_review"
+    },
+    {
+      "id": "G2",
+      "label": "qualified situation",
+      "oracle": "Phase B tests pass; real C-14 provider revisions feed PS3; self-injury repaired; unsupported producer/recognition cases remain unknown.",
+      "eligible": "Current PS2/PS3 paired inputs are usable; no unsupported claims.",
+      "status": "closure_requires_evidence_review"
+    },
+    {
+      "id": "G3",
+      "label": "frozen inputs",
+      "oracle": "Delayed proof/STT/edit/supersession/retry tests pass; no live profile/observer/history substitution; original deadline preserved.",
+      "eligible": "Frame assembly can be used at the existing turn seam.",
+      "status": "closure_requires_evidence_review"
+    },
+    {
+      "id": "G4",
+      "label": "projection boundary",
+      "oracle": "All lane/Unicode/budget/pin/canary tests pass; one canon serialization; safe fallback works.",
+      "eligible": "Safe base serializer and unsent preview ready for controller integration.",
+      "status": "closure_requires_evidence_review"
+    },
+    {
+      "id": "G5",
+      "label": "actual request wired",
+      "oracle": "Intercepted final bodies from every real patched-controller OpenAI path contain correct lane data and no raw canaries; action/Gemini/E1–E6 regressions pass.",
+      "eligible": "Request hardening may ship default-off additional perception.",
+      "status": "closure_requires_evidence_review"
+    },
+    {
+      "id": "G6",
+      "label": "reproducible payload/preview",
+      "oracle": "Fresh complete companion/native/interop/build/isolation matrix passes; matching source/manifest hashes; explicit off/shadow config and ack/telemetry tests.",
+      "eligible": "Controlled GTA shadow preview; no PS4 delivery or autonomy.",
+      "status": "closure_requires_evidence_review"
+    },
+    {
+      "id": "G7",
+      "label": "active baseline accepted",
+      "oracle": "GTA01–GTA14 and GTA17–GTA19 below pass on the same payload; mandatory negative/canary tests have zero leaks; request inclusion and useful conversation both observed.",
+      "eligible": "Explicitly enable baseline PS4 for requested OpenAI turns only.",
+      "status": "external_not_run"
+    },
+    {
+      "id": "G8",
+      "label": "optional contributors accepted",
+      "oracle": "Specific ACT/radio/C-05 tests and GTA15/GTA16 pass on a recorded matching payload and existing capability/probe gates.",
+      "eligible": "Only the validated contributors become active.",
+      "status": "external_not_run"
+    }
+  ]
+}

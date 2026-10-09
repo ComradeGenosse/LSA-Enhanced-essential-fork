@@ -12,9 +12,9 @@ function response(stream){
  return new Response(events.map(event=>`event: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`).join(''),{headers:{'content-type':'text/event-stream'}});
 }
 
-function factualFixture(){
+function factualFixture({allCapabilities=false}={}){
  const client=new IntelligenceClient({mode:'shadow'},{report:()=>{}}),ps=client.runtime;
- const hello={version:1,type:'hello',adapterEpoch:randomUUID(),streamId:randomUUID(),hostContextVersion:1,hostRunId:randomUUID(),worldEpoch:1,observerIndexVersion:1,observerSituationVersion:1,capabilities:Object.fromEntries(CAPABILITIES.map(key=>[key,key==='shooting']))};
+ const hello={version:1,type:'hello',adapterEpoch:randomUUID(),streamId:randomUUID(),hostContextVersion:1,hostRunId:randomUUID(),worldEpoch:1,observerIndexVersion:1,observerSituationVersion:1,capabilities:Object.fromEntries(CAPABILITIES.map(key=>[key,allCapabilities || key==='shooting']))};
  ps.ingest(hello,{authenticated:true});const ref=randomUUID();let sequence=0;
  const send=(type,payload)=>{const result=ps.ingest({version:1,type,adapterEpoch:hello.adapterEpoch,streamId:hello.streamId,sequence:++sequence,payload},{authenticated:true});client.notifyKnowledgeInvalidation();return result;};
  send('anchors',[{captureRef:ref,kind:'ped',observer:true,owned:false}]);send('observer_index',[{captureRef:ref,kind:'ped',owned:false}]);
@@ -157,4 +157,39 @@ for(const fault of ['channel_reset','actor_retired','receipt_retired'])test(`rea
  })});h.runtime.intelligence=f.client;h.runtime.activities=r.activities;h.runtime.dialogueKnowledgeBuildSupported=true;h.runtime.services.capabilityHealth=()=>({'ps.dialogue_receipts':{active:true}});
  const session=await h.openAIControllerSession({actorContext:f.actor});t.after(()=>session.connection.close());session.autoNativeAcks();h.context.selfFault={pedId:'17',speaker:f.actor,text:'What did you try?'};
  const turn=await h.evaluate('ib(selfFault)'),result=await session.connection.whenSettled({pedId:turn.pedId,turnId:turn.id,generationId:turn.generationId,sessionNonce:1});assert.equal(aborted,true);assert.notEqual(result.status,'completed');assert.equal(f.client.knowledgeListeners.size,0);assert.equal(h.runtime.history.readForSession('17',1).some(item=>item.role==='assistant'),false);assert.equal(r.store.read(r.binding).length,fault==='receipt_retired'?0:1);
+});
+
+
+test('PR21 T51 overlapping stock actor turns isolate observer knowledge and cancellation',async t=>{
+ const f=factualFixture({allCapabilities:true}),otherRef=randomUUID(),bodies=[];
+ assert.equal(f.send('anchors',[{captureRef:f.ref,kind:'ped',observer:true,owned:false},{captureRef:otherRef,kind:'ped',observer:true,owned:false}]),true);
+ assert.equal(f.send('observer_index',[{captureRef:f.ref,kind:'ped',owned:false},{captureRef:otherRef,kind:'ped',owned:false}]),true);
+ assert.equal(f.send('signal',{signalId:randomUUID(),producer:'state',producerSequence:1,kind:'injury_state',target:otherRef,source:null,gameTick:11,ageMs:0,facts:{health:50,armour:0,injured:true}}),true);
+ const otherActor={pedId:'18',integrations:{turnKnowledge:{version:1,hostRunId:f.ps.hostContext.hostRunId,worldEpoch:1,captureRef:otherRef,sampledGameTick:11}}};
+ let firstStarted;const firstRequest=new Promise(resolve=>firstStarted=resolve);
+ const h=await stockHarness('openai',{config:{dialogueKnowledge:{mode:'active'},retry:{enabled:false,maxAttempts:1},persistentIdentity:{enabled:false},promotedCharacters:{enabled:false}},env:{OPENAI_API_KEY:'offline'},fetchImpl:async(_url,request)=>{
+  bodies.push(JSON.parse(request.body));
+  if(bodies.length===1){firstStarted();return new Promise((resolve,reject)=>{request.signal.addEventListener('abort',()=>reject(request.signal.reason),{once:true});});}
+  return response(false);
+ }});
+ h.runtime.intelligence=f.client;h.runtime.dialogueKnowledgeBuildSupported=true;
+ h.runtime.services.speak=async({onPcm})=>{await onPcm(new Uint8Array([1,2]));return {bytes:2};};
+ const a=await h.openAIControllerSession({pedId:'17',actorContext:f.actor});t.after(()=>a.connection.close());a.autoNativeAcks();
+ const b=await h.openAIControllerSession({pedId:'18',actorContext:otherActor});t.after(()=>b.connection.close());
+ h.context.isolatedA={pedId:'17',speaker:f.actor,text:'A_ONLY_INPUT'};h.context.isolatedB={pedId:'18',speaker:otherActor,text:'B_ONLY_INPUT'};
+ const first=await h.evaluate('ib(isolatedA)');await firstRequest;
+ const second=await h.evaluate('ib(isolatedB)');
+ const outcome=await b.connection.whenSettled({pedId:'18',turnId:second.id,generationId:second.generationId,sessionNonce:1});
+ assert.equal(outcome.status,'completed',outcome.terminalReason);assert.equal(bodies.length,2);
+ const scenes=bodies.map(body=>JSON.parse(body.input[0].content.split('\n').find(line=>line.startsWith('{"frameVersion":1,'))));
+ const kinds=scenes.map(scene=>scene.lanes.PERCEIVED.observations.flatMap(row=>row.claims.map(claim=>claim.kind)));
+ assert.deepEqual(kinds[0],['firing']);assert.deepEqual(kinds[1],['injured']);
+ assert.equal(bodies[0].input.at(-1).content,'A_ONLY_INPUT');assert.equal(bodies[1].input.at(-1).content,'B_ONLY_INPUT');
+ for(const [index,foreignInput] of [[0,'B_ONLY_INPUT'],[1,'A_ONLY_INPUT']])assert.equal(JSON.stringify(bodies[index]).includes(foreignInput),false);
+ for(const body of bodies)for(const privateValue of [f.ref,otherRef,f.ps.hostContext.hostRunId])assert.equal(JSON.stringify(body).includes(privateValue),false);
+ h.context.isolatedFirstId=first.id;await h.evaluate('Qi(isolatedFirstId,"test_cleanup")');
+ const firstOutcome=await a.connection.whenSettled({pedId:'17',turnId:first.id,generationId:first.generationId,sessionNonce:1});assert.notEqual(firstOutcome.status,'completed');
+ assert.equal(h.runtime.history.readForSession('17',1).some(row=>row.role==='assistant'),false);
+ assert.equal(h.runtime.history.readForSession('18',1).filter(row=>row.role==='assistant').length,1);
+ assert.equal(f.client.knowledgeListeners.size,0);
 });
