@@ -8,6 +8,7 @@ on:
       - 'lsa-essential-e1-candidate/**'
       - 'native/**'
       - 'tools/isolated-offline-tests/**'
+      - 'tools/essential-abi/**'
       - '.github/workflows/lsa-v1-offline.yml'
   workflow_dispatch:
 
@@ -44,6 +45,10 @@ jobs:
           node --check src/perception/directorWire.mjs
           node --check src/perception/sceneDirectorOrchestrator.mjs
           node --test tests/scene-director.test.mjs tests/scene-director-admission.test.mjs tests/director-decision-guard.test.mjs tests/director-wire.test.mjs tests/director-transport.test.mjs tests/stock-director-kb.test.mjs tests/director-orchestrator.test.mjs
+      - name: Verify actual pinned Essential Core metadata (no execution)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: dotnet run --project tools/essential-abi/EssentialAbi.csproj --configuration Release
       - name: Compile C-05 Windows test helper from source
         if: runner.os == 'Windows'
         shell: pwsh
