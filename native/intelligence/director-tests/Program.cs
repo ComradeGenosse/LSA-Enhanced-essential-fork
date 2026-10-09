@@ -231,8 +231,16 @@ class Program
         var req=Request(23);
         var proof=ReadyProof(req);
         Check(DirectorC06Policy.Safe(req,proof),"complete authoritative same-host/owner C06 snapshot admits");
+        // This Core API covers special turns only. Its status is diagnostic,
+        // never a substitute for the mandatory *global* player-turn arbiter.
+        Check(!proof.SpecialTurnVersionKnown && DirectorC06Policy.Safe(req,proof),
+              "special-turn diagnostic unknown cannot veto otherwise independently proven fixture");
+        proof.SpecialTurnVersionKnown=true;proof.SpecialTurnVersion=42;
+        Check(DirectorC06Policy.Safe(req,proof),
+              "special-turn diagnostic present cannot fabricate or replace global authority");
+        proof.SpecialTurnVersionKnown=false;proof.SpecialTurnVersion=-1;
         foreach(var field in typeof(DirectorC06Policy.Snapshot).GetFields()) {
-            if(field.FieldType!=typeof(bool))continue;
+            if(field.FieldType!=typeof(bool) || field.Name=="SpecialTurnVersionKnown")continue;
             field.SetValue(proof,false);
             Check(!DirectorC06Policy.Safe(req,proof),"missing C06 native field denies: "+field.Name);
             field.SetValue(proof,true);
