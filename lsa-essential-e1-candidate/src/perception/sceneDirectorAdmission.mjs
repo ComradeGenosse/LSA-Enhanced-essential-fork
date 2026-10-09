@@ -59,7 +59,9 @@ export class DirectorSpeechReservations {
   safe(proposal,stamp,stage,record=null) {
     if(!this.enabled || !validProposal(proposal) ||
         !stampValid(stamp,proposal) || !same(stamp,record?.stamp ?? stamp) ||
-        proposal.expiresAtMonotonicMs<=this.now())return false;
+        // The source-time candidate must be fresh through native admission and
+        // publication. Playback itself may outlast that candidate TTL.
+        (stage!=='complete' && proposal.expiresAtMonotonicMs<=this.now()))return false;
     // Optional subsystem failures and missing evidence cannot grant admission.
     try {return this.checkCurrent(Object.freeze({proposal,stamp,stage,ticketId:record?.id??null}))===true;}
     catch {return false;}
@@ -71,6 +73,9 @@ export class DirectorSpeechReservations {
     const at=this.now();
     if(!integer(at) || this.active || this.attemptedKeys.has(proposal.decisionKey))return null;
     this.attempts=this.attempts.filter(t=>t>at-LIMITS.attemptWindowMs);
+    // Bounded historical suppression: retired evidence is no longer selectable
+    // and does not grow the in-memory key table for an entire GTA session.
+    for(const [key,time] of this.attemptedKeys)if(time<=at-600_000)this.attemptedKeys.delete(key);
     if(this.attempts.length>=LIMITS.attemptsPerMinute)return null;
     const cooldown=proposal.urgency==='urgent' ? LIMITS.urgentSpeakerCooldownMs : LIMITS.routineSpeakerCooldownMs;
     if(at-this.sceneAt<LIMITS.sceneGapMs ||
