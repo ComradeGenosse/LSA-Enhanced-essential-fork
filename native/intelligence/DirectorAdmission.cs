@@ -240,6 +240,18 @@ namespace LSA.Intelligence
                 AgeMs=r.AgeMs
             };
         }
+        // 3B: a generation report is NOT a new ticket grant. Only the exact
+        // stock claim, already spent on this native owner fiber, is eligible
+        // for its first original-session binding. This is a read-only gate.
+        internal Request ClaimedForOriginalBinding(string ticket)
+        {
+            Reservation record;
+            if(!enabled || string.IsNullOrWhiteSpace(ticket) ||
+               ticket!=activeTicket || !pending.TryGetValue(ticket,out record) ||
+               !record.Used || !record.StockIntakeClaimed ||
+               record.TurnId!=null || clock()>=record.ExpiresAt)return null;
+            return record.Request;
+        }
         // Failed first stock scheduling attempt is final: free the global
         // reservation immediately while retaining anti-replay bookkeeping.
         internal bool AbandonStockIntake(string ticket)
