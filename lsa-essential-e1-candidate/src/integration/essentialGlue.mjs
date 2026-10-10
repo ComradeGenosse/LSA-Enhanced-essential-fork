@@ -1,5 +1,5 @@
 import {captureDialogueActionKnowledge,assertDialogueActionKnowledgeCurrent} from '../activities/dialogueActionKnowledge.mjs';
-import {projectOriginalTurnPriority} from '../perception/essentialTurnPriority.mjs';
+import {projectOriginalTurnPriority,OriginalEssentialTurnTimeline} from '../perception/essentialTurnPriority.mjs';
 import {captureActivityKnowledge,assertActivityKnowledgeCurrent} from '../activities/activityKnowledge.mjs';
 import {prepareDialogueActionPublication} from '../activities/dialogueActionPublication.mjs';
 import {createKnowledgeDelivery} from '../context/knowledgeDelivery.mjs';
@@ -27,6 +27,7 @@ import { createNoopDialogueTrace } from '../observability/dialogueTrace.mjs';
 
 export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry = null, dialogueTrace = null, providers = {}, identityEvidence, identityStore, profileStore, nativeOwner } = {}) {
   const actorPresence=new ActorPresenceStore();
+  const originalTurnTimeline=new OriginalEssentialTurnTimeline();
   dialogueTrace ||= createNoopDialogueTrace();
   const history = new DialogueHistory({ maxMessages: config.maxHistoryMessages, onMetric: (event, data) => telemetry?.emit(event, null, null, data) });
   const connections = new Set();
@@ -143,6 +144,11 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
     // Source projection is diagnostics-only until a source-versioned
     // native delivery/ack fence exists. Never use quiet as C-06 authority.
     projectOriginalTurnPriority,
+    // These callbacks execute on the original backend's single JS event loop,
+    // at source-pinned turn intake/terminal/session entrypoints. No actor
+    // effect, turn creation, artificial terminal or stock scheduling.
+    originalTurnTransition:event=>originalTurnTimeline.transition(event),
+    inspectOriginalTurnPriority:raw=>originalTurnTimeline.sample(raw),
     directorPreflight(input) {
       if(!input?.directorTicket || input?.interruptExisting===true ||
          input?.faceListener===true || input?.reason!=='ps6_observer' ||
