@@ -128,6 +128,9 @@ class Program
         var follow = machine.ObserveCommand(actor, incarnation, true, "follow", 10);
         Check(follow.History.SequenceEqual(new[] {"REQUESTED", "VALIDATED", "DISPATCHED"}) && follow.State == "DISPATCHED" && machine.ActiveCount == 1, "shadow follow opens one pending receipt");
         machine.ObserveCallback(new CallbackRecord { ActorKey = actor, IncarnationId = incarnation, Name = "FollowTarget", Phase = "before", GameMs = 11 }, false);
+        machine.ObserveCallback(new CallbackRecord { ActorKey = actor, IncarnationId = incarnation, Name = "FollowTarget", Phase = "after", GameMs = 11 }, false);
+        machine.ObserveCallback(new CallbackRecord { ActorKey = actor, IncarnationId = incarnation, Name = "FollowTarget", Phase = "executed", GameMs = 11 }, false);
+        Check(follow.State == "DISPATCHED", "ACT shadow after modifier and unknown executed outcome never assert handler acceptance");
         machine.ObserveCallback(new CallbackRecord { ActorKey = actor, IncarnationId = incarnation, Name = "followtarget", Phase = "executed", Succeeded = true, GameMs = 12 }, false);
         Check(follow.State == "HANDLER_ACCEPTED" && follow.History.Contains("HANDLER_ACCEPTED") && !machine.HasPhysicalCompletion, "canonical callback accepts without physical completion");
         var wait = machine.ObserveCommand(actor, incarnation, true, "wait", 20);
@@ -175,6 +178,8 @@ class Program
         Check(!ring.Push(new CallbackRecord { Name = "followtarget" }) && ring.Dropped == 1 && ring.Overflowing, "ring overflow is counted");
         Check(ring.CaptureSequence==65,"C05 capture fence includes dropped callback attempt");
         var earlier=ring.Drain();Check(earlier.CaptureSequence==1 && earlier.CaptureSequence<=ring.CaptureSequence,"C05 pre-annotation callback retains earlier sequence");
+        ring.ClearForWorldReset();Check(ring.Count==0 && !ring.Overflowing && ring.CaptureSequence==65,"C05 world reset discards pending callbacks without resetting source fence");
+        Check(ring.Push(new CallbackRecord {Name="waithere"}) && ring.Drain().CaptureSequence==66,"C05 fresh-world callback retains distinct monotonic source sequence");
         var stampRing=new SupersessionMonitor();var body=new object();var reused=new CallbackRecord{PedReference=body,Name="waithere",Phase="executed",Succeeded=true,GameMs=uint.MaxValue};
         Check(stampRing.Push(reused),"C05 first source capture");var fence=stampRing.CaptureSequence;
         reused.Name="followtarget";reused.GameMs=0;Check(stampRing.Push(reused),"C05 second source capture across tick wrap");
@@ -360,6 +365,9 @@ class Program
         Send(Begin(sequence++,Id('5'),first,"hold_position",1,anchor));
         Check(world.Dispatched && world.LastCapability == "hold_position" && runner.Active(world.Encounter).State == "DISPATCHED", "hold dispatches through the queue seam");
         Check(world.OwnershipSeenAtDispatch, "ownership is established before queue publication");
+        runner.OnCallback(world.Encounter, world.Incarnation, "waithere", "after", null, 1090, 1900);
+        runner.OnCallback(world.Encounter, world.Incarnation, "waithere", "executed", null, 1095, 1950);
+        Check(runner.Active(world.Encounter).State == "DISPATCHED", "ACT production runner does not infer handler success from modifier or unknown execution");
         runner.OnCallback(world.Encounter, world.Incarnation, "waithere", "executed", true, 1100, 2000);
         Check(runner.Active(world.Encounter).State == "HANDLER_ACCEPTED", "handler acceptance is not completion");
         world.SampleState.FollowPaused = true; world.Now = 1200;

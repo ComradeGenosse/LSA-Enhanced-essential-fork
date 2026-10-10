@@ -246,7 +246,14 @@ class Program
         integration.Host.Anchors.Retire(anchor.CaptureRef);Check(integration.PendingDialogueReceipts==0);
         annotation["sequence"]=3;Check(session.AcceptClient(json.Serialize(annotation)) && session.ClientReady && integration.PendingDialogueReceipts==0);
         Check(session.AcceptClient(json.Serialize(new{version=1,type="lease",sequence=4,leaseTtlMs=5000})));
+        // Real production callback producer enqueues on Core callbacks; old-world
+        // records must be discarded before a new-world ACT state can form.
+        integration.ApplyActionState(ped,null,"waithere",ActionStateModifierPhase.BeforeCoreStateRule);
+        integration.OnNpcActionExecuted(ped,"waithere",true);
+        var callbackRing=(LSA.Activities.SupersessionMonitor)typeof(PromotedCharactersIntegration).GetField("activityRing",BindingFlags.Instance|BindingFlags.NonPublic).GetValue(integration);
+        Check(callbackRing.Count==2);
         integration.Host.AdvanceWorld("timeline_change");Check(integration.PendingDialogueReceipts==0 && !session.ClientReady);
+        Check(callbackRing.Count==0 && !callbackRing.Overflowing);
         var fresh=integration.Host.Anchors.Retain(ped,70,new IntPtr(70),"ped",null,()=>ped.Exists() && ped.Handle==70 && ped.MemoryAddress==new IntPtr(70),integration.Host.MonotonicMs,false,LSA.Intelligence.AnchorConsumer.TurnActor);
         hello["worldEpoch"]=integration.Host.WorldEpoch;session.OpenTransport();Check(session.AcceptClient(json.Serialize(hello)));
         var newAnnotation=DialogueAnnotation(integration,fresh.CaptureRef);((Dictionary<string,object>)newAnnotation["tuple"])["pedId"]="70";

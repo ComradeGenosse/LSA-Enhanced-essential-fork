@@ -105,7 +105,7 @@ namespace LSA.PromotedCharacters
 
         void ActivityClockReset(string reason)
         {
-            try { activitySession?.Machine.ClockReset(); activityRunner?.ClockReset(activitySession); activitySession?.WorldChanged(Host.WorldEpoch,reason);activityChannel?.RefreshHello();activityChannel?.Flush(); }
+            try { activityRing.ClearForWorldReset(); activitySession?.Machine.ClockReset(); activityRunner?.ClockReset(activitySession); activitySession?.WorldChanged(Host.WorldEpoch,reason);activityChannel?.RefreshHello();activityChannel?.Flush(); }
             catch { DisableActivity(); }
         }
 
@@ -113,6 +113,7 @@ namespace LSA.PromotedCharacters
         {
             if(dialogueRetirementSubscribed){Host.Anchors.Retired-=DialogueAnchorRetired;dialogueRetirementSubscribed=false;}
             dialogueCorrelator?.Reset();
+            activityRing.ClearForWorldReset();
             try { activitySession?.Machine.ClientDisconnected("control_released"); } catch { }
             try { activityRunner?.ClientDisconnected(activitySession, "control_released", DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()); } catch { }
             try { activityChannel?.Dispose(); } catch { }
@@ -266,6 +267,7 @@ namespace LSA.PromotedCharacters
         {
             activityDisabled = true;
             dialogueCorrelator?.Reset();
+            activityRing.ClearForWorldReset();
             try { activitySession?.Machine.ClientDisconnected("lease_lost"); } catch { }
             try { activityRunner?.ClientDisconnected(activitySession, "lease_lost", DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()); } catch { }
             try { activityChannel?.Dispose(); } catch { }

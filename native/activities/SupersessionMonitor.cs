@@ -108,6 +108,14 @@ namespace LSA.Activities
             }
         }
 
+        // World/host resets must discard queued callbacks before a fresh actor can
+        // be registered. Retain the monotonic capture sequence: old fences must
+        // never be reused, even across a GTA clock regression.
+        public void ClearForWorldReset()
+        {
+            lock (gate) { ring.Clear(); overflowing = false; }
+        }
+
         public CallbackRecord Drain()
         {
             lock (gate) {

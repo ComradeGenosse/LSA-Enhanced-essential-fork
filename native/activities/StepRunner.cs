@@ -98,7 +98,7 @@ namespace LSA.Activities
             var own = table.NamesFor(execution.Capability).Contains(name ?? "");
             if (!own) { try { World?.NoteForeign(execution.EncounterId); } catch { } AddEvidence(execution, "control_changed", "weak", gameMs, "externalCommand", "essential"); Finish(Session, execution, "SUPERSEDED", "superseded_essential", gameMs, wallMs); return; }
             if (phase == "executed" && succeeded == false) Finish(Session, execution, "FAILED", "handler_false", gameMs, wallMs);
-            else if ((phase == "executed" || phase == "after") && execution.State == "DISPATCHED" && succeeded != false) { execution.Handler = true; execution.AcceptedGameMs = gameMs; Accepted++; AdvanceState(Session, execution, "HANDLER_ACCEPTED", gameMs, wallMs); }
+            else if (phase == "executed" && succeeded == true && execution.State == "DISPATCHED" { execution.Handler = true; execution.AcceptedGameMs = gameMs; Accepted++; AdvanceState(Session, execution, "HANDLER_ACCEPTED", gameMs, wallMs); }
         }
 
         public void Preempt(string encounterId, string incarnationId, string operation, uint gameMs, long wallMs, ActivitySession session)
