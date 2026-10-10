@@ -22,6 +22,7 @@ namespace LSA.Intelligence
     {
         public string Owner,Mode;
         public bool Suspended;
+        public int Revision;
     }
     public sealed class OwnedParticipant
     {
@@ -386,6 +387,11 @@ namespace LSA.Intelligence
                     // Essential-residual "unknown", active P2/ACT tasks and a
                     // suspended encounter cannot be presented as idle.
                     var mode=current.DirectorOwner?.Invoke();
+                    // P2's own Encounter setter increments this exact original
+                    // registered incarnation on every owner/suspension change.
+                    // It is NOT a stand-in for a PS3 response grant.
+                    if(mode!=null && mode.Revision>0)
+                        proof.OwnerProofRevision=mode.Revision;
                     proof.OwnerPrimaryModeKnown=mode!=null &&
                         (mode.Owner=="none" || mode.Owner=="p2" ||
                          mode.Owner=="act" || mode.Owner=="essential_residual") &&
@@ -410,11 +416,12 @@ namespace LSA.Intelligence
                     !NativeFunction.CallByName<bool>("GET_MISSION_FLAG") &&
                     !NativeFunction.CallByName<bool>("NETWORK_IS_SESSION_ACTIVE");
                 proof.ScriptStateKnown=true;
-                // P2 registration has no monotonically source-published proof
-                // revision. Do not reconstruct that revision from a handle,
-                // clock, primary-owner mode or companion input. Core's special-
-                // turn counter cannot represent global player-turn idle; no
-                // complete Essential-turn idle or PS3 native receipt is exposed.
+                // P2 now publishes a monotonic owner-fiber encounter revision,
+                // but the companion currently has no independent versioned
+                // source stamp from this producer. Matching a request's value
+                // to the current native revision is necessary, not sufficient.
+                // Core's special-turn counter is not global player-turn idle,
+                // and no complete Essential-turn or PS3 receipt is exposed.
                 // Those required approval flags remain UNKNOWN until sourced.
             } catch { return new DirectorC06Policy.Snapshot(); }
             return proof;
