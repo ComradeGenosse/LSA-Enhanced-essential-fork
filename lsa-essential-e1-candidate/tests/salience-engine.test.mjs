@@ -446,9 +446,10 @@ test('Phase 13a validates exact original PS2/PS3 grant and P2 source proof witho
   ps.anchors.set(player,{captureRef:player,kind:'player',expires:NOW+30000});
   ps.observerIndex.set(speaker,Object.freeze({captureRef:speaker,kind:'ped',owned:true,incarnationId:incarnation,encounterId:randomUUID()}));
   const sourceOwner={owner:'none',mode:'idle',since:10};
+  const nativeChallenge=randomUUID();
   ps.observerSituations.set(speaker,Object.freeze({
     captureRef:speaker,sampledGameTick:10,situationRevision:1,activity:'idle',
-    primaryOwner:sourceOwner,ownerProofRevision:3,expires:NOW+30000,
+    primaryOwner:sourceOwner,ownerProofRevision:3,ps3Challenge:nativeChallenge,expires:NOW+30000,
   }));
   const seen=observation({
     observer:speaker,nativeRun:ps.epoch,eventType:'death_seen',severity:'critical',
@@ -469,6 +470,12 @@ test('Phase 13a validates exact original PS2/PS3 grant and P2 source proof witho
   assert.equal(checked.decisionKey,candidates[0].decision.decisionKey);
   assert.equal(checked.ownerIncarnationId,incarnation);
   assert.equal(checked.proofRevision,3);
+  assert.equal(checked.challenge,nativeChallenge);
+  assert.equal(checked.signalId,seen.claims[0].details.eventSignalId);
+  assert.equal(checked.situationRevision,1);
+  assert.equal(checked.ageMs,100);
+  assert.notEqual(checked.signalId,proposal.observationId,
+    'original native signal identity differs from companion-issued observation UUID');
   assert.ok(Object.isFrozen(checked));
   assert.equal(ps.salience.ledger.get(seen.observationId).consumed,false);
 
