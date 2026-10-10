@@ -544,8 +544,12 @@ namespace LSA.Intelligence
                !ReferenceEquals(originalPlayer,Game.LocalPlayer.Character) ||
                !uint.TryParse(frame.PedId,out nativePed) ||
                Convert.ToUInt64(originalSpeaker.Handle)!=nativePed)return false;
-            return director.BindActualTuple(frame.TicketId,frame.PedId,
+            bool bound=director.BindActualTuple(frame.TicketId,frame.PedId,
                 frame.TurnId,frame.GenerationId,frame.SessionNonce);
+            // Binding consumes the sealed pre-turn source identity. Subsequent
+            // playback checks use the immutable native admission reservation.
+            originalTurns.Retire(frame.TicketId);
+            return bound;
         }
         // Owner-fiber only. A separately versioned Director request can be
         // decoded and explicitly rejected in shadow, but never tasks an actor,
