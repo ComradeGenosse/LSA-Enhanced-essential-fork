@@ -296,7 +296,7 @@ export function patchSource(source) {
       d.id?.name==='e' && d.init?.type==='CallExpression' &&
       memberName(d.init.callee)==='getTurn'))all.push(node);
   });return all;})(),'AP original turn read');
-  insert(apTurnRead.end+1,
+  insert(apTurnRead.end,
     'if(e?.metadata?.directorTicket && (t.type===Ee.OUTPUT_TRANSCRIPT || t.type===Ee.GENERATION_COMPLETE || t.type===Ee.TURN_COMPLETE) && /(^|\\\\r?\\\\n)[ \\t]*DO[ \\t]*:?[ \\t]+/i.test(String(e.output?.transcript||"")+String(t.text||""))) { Zt(e.id,ke.GEMINI_ERROR,new Error("director_speech_only"));return false; }',
     'PS6 original speech-only transcript veto');
 
