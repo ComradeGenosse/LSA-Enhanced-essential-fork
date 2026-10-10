@@ -24,7 +24,7 @@ const safeKeys = new Set([
   'acknowledgedObservations','retiredAcknowledgements','knowledgeRequestHash','projectionHash',
   'knowledgeMode','preview','selectedObservations','frameBytes','frameHash',
   'frameType','count','status','configuredMode','executionAvailable','nativeExperimental',
-  'captureEventFiring','captureEventDeath','captureEventImpact','captureEventInjury','captureEventOther',
+  'captureAnchorStatus','captureEventFiring','captureEventDeath','captureEventImpact','captureEventInjury','captureEventOther',
   'captureContextOmit','captureContextCandidate','captureContextMustInclude',
   'captureResponseEligible','captureResponseUrgent',
   'perceivedUnsupportedClaims','perceivedRevisionMismatch','perceivedUnmatchedSalience',
