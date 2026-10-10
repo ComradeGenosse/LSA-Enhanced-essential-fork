@@ -112,3 +112,13 @@ namespace LosSantosAlive.Core {
         public static bool BlocksLsaInput { get { if(ThrowRead)throw new Exception("Core controls state unavailable");return Block; } }
     }
 }
+
+namespace LSA.PromotedCharacters {
+    // The integration test does not load/execute pinned Essential or Harmony.
+    // The actual original Core entrypoint ABI is separately verified in CI.
+    internal static class EssentialPlayerPriorityMonitor {
+        internal static long Value=-1;
+        internal static long Read()=>Value;
+        internal static bool Attach()=>Value>=0;
+    }
+}
