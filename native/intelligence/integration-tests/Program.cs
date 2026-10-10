@@ -32,7 +32,7 @@ class Program
         Check(unavailable.UpdateCalls==0&&unavailable.CompletedUpdates==0&&unavailable.RuntimeStatus().Contains("last_update_age_ms=2147483647"),"unavailable adapter does not invent update receipts");
         var player=new Ped {Handle=1,MemoryAddress=new IntPtr(1)};var actor=new Ped {Handle=2,MemoryAddress=new IntPtr(2)};
         Game.LocalPlayer.Character=player;NpcTargeting.Conversation=actor;bool owned=true;var lifetime=Guid.NewGuid().ToString("D");
-        var directorMode=new DirectorOwnerSample {Owner="none",Mode="idle"};
+        var directorMode=new DirectorOwnerSample {Owner="none",Mode="idle",Revision=2};
         NpcStateStore.Sampled=new NpcState();
         var rosterList=new List<OwnedParticipant> {new OwnedParticipant {Ped=actor,Lifetime=lifetime,
             Current=()=>owned&&actor.Existing,DirectorOwner=()=>directorMode}};
@@ -122,6 +122,22 @@ class Program
               c06probe.ActorReflexKnown&&c06probe.ActorReflexIdle&&
               c06probe.ScriptStateKnown&&c06probe.ScriptSafe,
               "native C06 samples explicit idle P2 mode, Core reflex and GTA scripted state");
+        Check(c06probe.OwnerProofRevision==2 && !DirectorC06Policy.Safe(c06request,c06probe),
+              "original P2 owner revision sampled but never synthesizes global permission");
+        directorMode.Revision=3;
+        var changedOwnerVersion=(DirectorC06Policy.Snapshot)integration.GetType().GetMethod(
+            "ReadDirectorC06",BindingFlags.NonPublic|BindingFlags.Instance).Invoke(integration,new object[]{c06request});
+        Check(changedOwnerVersion.OwnerProofRevision==3 &&
+              changedOwnerVersion.OwnerProofRevision!=c06request.ProofRevision &&
+              !DirectorC06Policy.Safe(c06request,changedOwnerVersion),
+              "owner revision changes even when idle owner/mode identity is unchanged");
+        directorMode.Revision=0;
+        var overflowOwnerVersion=(DirectorC06Policy.Snapshot)integration.GetType().GetMethod(
+            "ReadDirectorC06",BindingFlags.NonPublic|BindingFlags.Instance).Invoke(integration,new object[]{c06request});
+        Check(overflowOwnerVersion.OwnerProofRevision==-1 &&
+              !DirectorC06Policy.Safe(c06request,overflowOwnerVersion),
+              "zero/overflow owner revision fails closed");
+        directorMode.Revision=2;
         Check(c06probe.SpecialTurnVersionKnown && c06probe.SpecialTurnVersion==0 &&
               c06probe.PlaybackKnown && c06probe.PlaybackIdle &&
               !c06probe.PlayerTurnSourceCurrent && !c06probe.EssentialTurnKnown,
