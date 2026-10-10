@@ -164,10 +164,10 @@ export function serializeDirectorOriginalTurnBinding(source,identity) {
      typeof payload.pedId!=='string'||!/^(0|[1-9][0-9]{0,9})$/.test(payload.pedId)||
      Number(payload.pedId)>4294967295 ||
      typeof payload.turnId!=='string'||!payload.turnId.trim()||
-     payload.turnId.length>128||/[\\r\\n\\0]/.test(payload.turnId)||
+     payload.turnId.length>128||/[\r\n\0]/.test(payload.turnId)||
      !Number.isSafeInteger(payload.generationId)||payload.generationId<0||
      !Number.isSafeInteger(payload.sessionNonce)||payload.sessionNonce<1||
      payload.sessionNonce>2147483647)
     throw new TypeError('director_original_turn_binding_invalid');
-  return JSON.stringify(payload)+'\\n';
+  return JSON.stringify(payload)+'\n';
 }
