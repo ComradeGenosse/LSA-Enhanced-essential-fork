@@ -33,8 +33,11 @@ namespace LSA.Intelligence
         // Admission must be idle; playback completion may be legitimately busy.
         internal static bool Safe(DirectorAdmission.Request r,Snapshot s)
         {
+            // Idle checks are only required before a stock turn starts.
+            // During a legitimate Core playback, the current speaker and
+            // queued-audio state can be busy *because of our own NPC*.
             return CurrentPlayback(r,s) && s.OwnerIdle &&
-                s.EssentialTurnIdle && s.PlaybackIdle;
+                s.EssentialTurnIdle && s.PlaybackIdle && s.ConversationIdle;
         }
         // Terminal proof rechecks the original identity, current native
         // ownership, player priority, PS3 grant and host, but not idle flags.
@@ -65,7 +68,7 @@ namespace LSA.Intelligence
                 s.OwnerProofCurrent && s.OwnerPrimaryModeKnown &&
                 s.PlayerTurnSourceCurrent && s.PlayerTurnIdle &&
                 s.MicStateKnown && s.MicIdle &&
-                s.ConversationStateKnown && s.ConversationIdle &&
+                s.ConversationStateKnown &&
                 s.EssentialTurnKnown &&
                 s.PlaybackKnown &&
                 s.ScriptStateKnown && s.ScriptSafe &&
