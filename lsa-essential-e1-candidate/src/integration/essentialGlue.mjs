@@ -157,8 +157,15 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
          input?.faceListener===true || input?.reason!=='ps6_observer' ||
          typeof input?.dedupeKey!=='string' ||
          input.dedupeKey!==input.directorTicket.dedupeKey)return false;
-      try {return runtime.intelligence?.preflightDirectorTicket?.(input.directorTicket,input)===true;}
-      catch {return false;}
+      try {
+        // This callback reads the original Essential A stores on their own
+        // event loop and checks the exact immutable source-side ticket lease.
+        // Native's independent entitlement still must pass; neither reader
+        // can grant C-06 on behalf of the other.
+        if(runtime.host.directorCheckOriginalTurn(input.directorTicket.ticketId)?.quiet!==true)
+          return false;
+        return runtime.intelligence?.preflightDirectorTicket?.(input.directorTicket,input)===true;
+      } catch {return false;}
     },
     requireDirectorTicket(input,hydrated) {
       // The supplied kb object is not authority. Native accepted ticket, C-06,
