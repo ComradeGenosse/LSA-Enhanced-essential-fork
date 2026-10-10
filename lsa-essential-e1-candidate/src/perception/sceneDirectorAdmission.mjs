@@ -48,13 +48,13 @@ export class DirectorSpeechReservations {
     this.now=now;this.checkCurrent=checkCurrent;this.acknowledge=acknowledge;
     this.uuid=uuid;this.enabled=enabled === true;
     this.active=null;this.attempts=[];this.speakerAt=new Map();
-    this.sceneAt=-Infinity;this.attemptedKeys=new Map();
+    this.sceneAt=-Infinity;this.attemptedKeys=new Map();this.lastReserveFailure=null;
   }
   // A mode transition or host/world reset retires reservations without a retry.
   setEnabled(value) {if(value!==true)this.reset();this.enabled=value===true;}
   reset() {
     this.active=null;this.attempts=[];this.speakerAt.clear();
-    this.sceneAt=-Infinity;this.attemptedKeys.clear();
+    this.sceneAt=-Infinity;this.attemptedKeys.clear();this.lastReserveFailure=null;
   }
   safe(proposal,stamp,stage,record=null) {
     if(!this.enabled || !validProposal(proposal) ||
@@ -69,21 +69,36 @@ export class DirectorSpeechReservations {
   // Counts attempts even if the final safety check rejects. Selection alone
   // does not count; no implicit fallback speaker is ever selected.
   reserve(proposal,stamp) {
-    if(!this.enabled || !validProposal(proposal))return null;
+    this.lastReserveFailure=null;
+    if(!this.enabled || !validProposal(proposal)) {
+      this.lastReserveFailure='invalid_or_disabled';return null;
+    }
     const at=this.now();
-    if(!integer(at) || this.active || this.attemptedKeys.has(proposal.decisionKey))return null;
+    if(!integer(at)) {this.lastReserveFailure='invalid_clock';return null;}
+    if(this.active) {this.lastReserveFailure='ticket_already_active';return null;}
+    if(this.attemptedKeys.has(proposal.decisionKey)) {
+      this.lastReserveFailure='decision_already_attempted';return null;
+    }
     this.attempts=this.attempts.filter(t=>t>at-LIMITS.attemptWindowMs);
     // Bounded historical suppression: retired evidence is no longer selectable
     // and does not grow the in-memory key table for an entire GTA session.
     for(const [key,time] of this.attemptedKeys)if(time<=at-600_000)this.attemptedKeys.delete(key);
-    if(this.attempts.length>=LIMITS.attemptsPerMinute)return null;
+    if(this.attempts.length>=LIMITS.attemptsPerMinute) {
+      this.lastReserveFailure='rate_limited';return null;
+    }
     const cooldown=proposal.urgency==='urgent' ? LIMITS.urgentSpeakerCooldownMs : LIMITS.routineSpeakerCooldownMs;
     if(at-this.sceneAt<LIMITS.sceneGapMs ||
-        at-(this.speakerAt.get(proposal.speakerCaptureRef)??-Infinity)<cooldown)return null;
+        at-(this.speakerAt.get(proposal.speakerCaptureRef)??-Infinity)<cooldown) {
+      this.lastReserveFailure='scene_or_speaker_cooldown';return null;
+    }
     this.attempts.push(at);
-    if(!this.safe(proposal,stamp,'reserve'))return null;
+    if(!this.safe(proposal,stamp,'reserve')) {
+      this.lastReserveFailure=proposal.expiresAtMonotonicMs<=at?
+        'evidence_expired':'source_or_safety_veto';
+      return null;
+    }
     const id=this.uuid();
-    if(!text(id))return null;
+    if(!text(id)) {this.lastReserveFailure='ticket_id_unavailable';return null;}
     const record={
       id,proposal:Object.freeze({...proposal}),stamp:Object.freeze({...stamp}),
       expiresAt:Math.min(at+LIMITS.ticketTtlMs,proposal.expiresAtMonotonicMs),
