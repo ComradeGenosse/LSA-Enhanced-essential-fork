@@ -504,6 +504,34 @@ namespace LSA.Intelligence
             return stockScheduler.Dispatch(input.TicketId,input.Context,
                 ReadDirectorC06(original),speaker,player);
         }
+        // 3B exact original generation report from the existing paired pipe.
+        // No wire-supplied ticket, source epoch or PedId grants authority.
+        // A report can bind once only after a consumed stock Submit and an
+        // independently retained native Core/source reservation. If backend
+        // ownership has already changed or its lease expired, fail closed.
+        bool TryDirectorOriginalTurnBinding(DirectorOriginalTurnBindingCodec.Frame frame)
+        {
+            if(!directorShadow || frame==null)return false;
+            var request=director.ClaimedForOriginalBinding(frame.TicketId);
+            if(request==null || frame.HostRunId!=request.HostRunId ||
+               frame.WorldEpoch!=request.WorldEpoch ||
+               frame.SpeakerCaptureRef!=request.SpeakerCaptureRef)return false;
+            var source=originalTurns.OriginalFor(request);
+            if(source==null || frame.SourceRun!=source.SourceRun ||
+               frame.SourceRevision!=source.Revision ||
+               !ps3Receipts.IsReserved(request))return false;
+            var originalSpeaker=anchors.Resolve(request.SpeakerCaptureRef)?.Entity as Ped;
+            var originalPlayer=anchors.Resolve(request.PlayerCaptureRef)?.Entity as Ped;
+            uint nativePed;
+            if(originalSpeaker==null || originalPlayer==null ||
+               !originalSpeaker.Exists() || originalSpeaker.IsDead ||
+               !originalPlayer.Exists() || originalPlayer.IsDead ||
+               !ReferenceEquals(originalPlayer,Game.LocalPlayer.Character) ||
+               !uint.TryParse(frame.PedId,out nativePed) ||
+               Convert.ToUInt64(originalSpeaker.Handle)!=nativePed)return false;
+            return director.BindActualTuple(frame.TicketId,frame.PedId,
+                frame.TurnId,frame.GenerationId,frame.SessionNonce);
+        }
         // Owner-fiber only. A separately versioned Director request can be
         // decoded and explicitly rejected in shadow, but never tasks an actor,
         // invokes kb/Essential, or consumes any PS3 response entitlement.
@@ -511,6 +539,13 @@ namespace LSA.Intelligence
         {
             if(!directorShadow || channel==null)return;
             for(int n=0;n<4 && channel.TryTakeDirectorFrame(out var frame);n++) {
+                DirectorOriginalTurnBindingCodec.Frame originalBinding;
+                if(DirectorOriginalTurnBindingCodec.TryDecode(frame,out originalBinding)) {
+                    // Source callbacks only bind to the original consumed claim.
+                    // PlaybackStarted/Ended are separately correlated later.
+                    TryDirectorOriginalTurnBinding(originalBinding);
+                    continue;
+                }
                 DirectorStockIntakeCodec.Frame stockIntake;
                 if(DirectorStockIntakeCodec.TryDecode(frame,out stockIntake)) {
                     // This emits no stock speech while the #3B handoff and
