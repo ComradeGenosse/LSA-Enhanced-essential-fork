@@ -65,7 +65,7 @@ test('source-pinned backend bridge reads stock A state; no scheduler or syntheti
   assert.match(output,/A\.turnsById\.values\(\)/);
   assert.match(output,/A\.sessionOpenPromisesByPedId\.size/);
   assert.match(output,/A\.pendingOutputOwnerByPedId\.size/);
-  assert.match(output,/projectOriginalTurnPriority/);
+  assert.match(output,/inspectOriginalTurnPriority/);
   assert.doesNotMatch(output,/directorTurnPrioritySnapshot\(\)[^}]{0,300}SpecialGeminiTurnScheduler/);
 });
 
