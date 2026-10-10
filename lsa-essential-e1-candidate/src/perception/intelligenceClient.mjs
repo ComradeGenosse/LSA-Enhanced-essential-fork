@@ -122,9 +122,9 @@ export class IntelligenceClient {
   // Original stock backend turn stores are independently observed; a
   // synchronous quiet snapshot can only suppress a busy candidate here.
   // It is NOT a source-versioned native Core player/Essential idle receipt.
-  originalBackendEvidence() {
-    let state;
-    try {state=this.originalTurnPriority();}catch{return null;}
+  originalBackendEvidence(source) {
+    let state=source;
+    if(state===undefined)try {state=this.originalTurnPriority();}catch{return null;}
     return state?.schemaVersion===1 &&
       state.source==='original_essential_backend_lifecycle' &&
       typeof state.sourceRun==='string' &&
@@ -158,7 +158,19 @@ export class IntelligenceClient {
     // a previously reserved native ticket can always be retired.
     const original=args?.operation==='cancel'?null:
       this.directorOriginalEntitlement(args?.proposal,args?.stamp);
-    const owner=args?.operation==='cancel'?null:this.originalBackendEvidence();
+    // The stock backend's single JS event loop owns this lease. It is
+    // sampled synchronously at each original C-11 stage, and a mic/text/
+    // session/terminal transition irrevocably retires its ticket before
+    // a new quiet snapshot could re-authorize it.
+    let owner=null;
+    if(args?.operation!=='cancel') {
+      try {
+        const originalLease=args.operation==='reserve' ?
+          this.originalTurnReserve(ticketId) :
+          args.operation==='submit' ? this.originalTurnCurrent(ticketId) : null;
+        owner=this.originalBackendEvidence(originalLease);
+      }catch{owner=null;}
+    }
     if(args?.operation!=='cancel' && (!original || !owner))
       return Promise.resolve(null);
     const prior=this.directorOwnerReservations.get(ticketId);
@@ -195,7 +207,10 @@ export class IntelligenceClient {
       if(!this.sendDirectorPreview(args)) {finish(null);return;}
       if(args.operation==='reserve')this.directorOwnerReservations.set(ticketId,
         {run:owner.sourceRun,revision:owner.revision});
-      if(args.operation==='cancel')this.directorOwnerReservations.delete(ticketId);
+      if(args.operation==='cancel') {
+        this.directorOwnerReservations.delete(ticketId);
+        try {this.originalTurnRelease(ticketId);}catch{}
+      }
     });
   }
   acceptDirectorResponse(payload) {
@@ -213,11 +228,17 @@ export class IntelligenceClient {
   }
   cancelDirectorRequests() {
     for(const item of [...this.directorPending.values()])item.resolve(null);
+    for(const ticketId of this.directorOwnerReservations.keys())
+      try {this.originalTurnRelease(ticketId);}catch{}
     this.directorOwnerReservations.clear();
   }
 
-  constructor(config,{connect=options=>net.createConnection(options),now,situationFor,originalTurnPriority=()=>null,report=summary=>console.info('[PS] companion_shadow '+JSON.stringify(summary)),telemetry=()=>{}}={}) {
-    this.knowledgeListeners=new Set();this.config=config;this.connect=connect;this.runtime=new ShadowRuntime({mode:config.mode,now,situationFor});this.report=report;this.telemetry=telemetry;this.originalTurnPriority=typeof originalTurnPriority==='function'?originalTurnPriority:()=>null;this.closed=false;this.socket=null;this.lastReport=0;this.directorPending=new Map();this.directorOwnerReservations=new Map();
+  constructor(config,{connect=options=>net.createConnection(options),now,situationFor,originalTurnPriority=()=>null,originalTurnReserve=()=>null,originalTurnCurrent=()=>null,originalTurnRelease=()=>false,report=summary=>console.info('[PS] companion_shadow '+JSON.stringify(summary)),telemetry=()=>{}}={}) {
+    this.knowledgeListeners=new Set();this.config=config;this.connect=connect;this.runtime=new ShadowRuntime({mode:config.mode,now,situationFor});this.report=report;this.telemetry=telemetry;this.originalTurnPriority=typeof originalTurnPriority==='function'?originalTurnPriority:()=>null;
+    this.originalTurnReserve=typeof originalTurnReserve==='function'?originalTurnReserve:()=>null;
+    this.originalTurnCurrent=typeof originalTurnCurrent==='function'?originalTurnCurrent:()=>null;
+    this.originalTurnRelease=typeof originalTurnRelease==='function'?originalTurnRelease:()=>false;
+    this.closed=false;this.socket=null;this.lastReport=0;this.directorPending=new Map();this.directorOwnerReservations=new Map();
   }
   persist(event,data={}) { try { this.telemetry(event,data); } catch {} }
   summary(finalSnapshot=false) {
