@@ -202,6 +202,18 @@ namespace LSA.Intelligence
         // from submit acknowledgment. Claims are irrevocable even if Core
         // stock Submit returns false or throws. #3B alone will bind the real
         // Ped/TurnId/generation/session tuple afterward.
+        // Peek only. The sender's ticket ID is NOT a source of any owner,
+        // participant, source stamp or current C-06 entitlement.
+        internal Request SubmittedForStockIntake(string ticket)
+        {
+            Reservation record;
+            if(!enabled || ticket!=activeTicket ||
+               !pending.TryGetValue(ticket,out record) ||
+               !record.Used || record.StockIntakeClaimed ||
+               record.TurnId!=null || clock()>=record.ExpiresAt)
+                return null;
+            return record.Request;
+        }
         internal Request TryClaimStockIntake(string ticket)
         {
             Reservation record;
