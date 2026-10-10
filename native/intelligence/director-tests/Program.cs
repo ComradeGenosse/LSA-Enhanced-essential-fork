@@ -228,6 +228,20 @@ class Program
             "interrupted-core",0,"interrupted",true,true,true),
             "interrupted Core playback never acknowledges PS3 grant");
         Check(!failed.HasActive,"Core interrupted ticket released");
+        var retired=New();request=Request(47);
+        Check(retired.Handle(request).Status=="reserved" &&
+            retired.Handle(Request(47,"submit")).Status=="submitted" &&
+            retired.BindActualTuple(request.TicketId,"17","owner-retired",5,4),
+            "native original owner retirement fixture");
+        Check(!retired.RevokeOwner(Guid.NewGuid().ToString("D")) && retired.HasActive,
+            "unrelated native owner retirement cannot cancel the original ticket");
+        Check(retired.RevokeOwner(request.OwnerIncarnationId),
+            "exact P2 incarnation retirement immediately revokes pending ticket");
+        Check(!retired.ObserveCorePlaybackStarted(request.SpeakerCaptureRef,
+            "17","owner-retired",5) && !retired.HasActive,
+            "late playback after source owner retirement cannot reopen ticket");
+        Check(retired.Handle(request).Status=="busy",
+            "retirement preserves original one-shot anti-replay bookkeeping");
         var reset=New();request=Request(46);
         Check(reset.Handle(request).Status=="reserved" &&
             reset.Handle(Request(46,"submit")).Status=="submitted" &&
