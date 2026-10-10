@@ -139,6 +139,12 @@ class Program
               !DirectorC06Policy.Safe(c06request,overflowOwnerVersion),
               "zero/overflow owner revision fails closed");
         directorMode.Revision=2;
+        // Baseline setup has a deliberately selected player conversation.
+        // A distinct truly-idle Core probe must not inherit that target.
+        var earlierConversation=LosSantosAlive.NPC.NpcTargeting.Conversation;
+        LosSantosAlive.NPC.NpcTargeting.Conversation=null;
+        c06probe=(DirectorC06Policy.Snapshot)integration.GetType().GetMethod(
+            "ReadDirectorC06",BindingFlags.NonPublic|BindingFlags.Instance).Invoke(integration,new object[]{c06request});
         Check(c06probe.ConversationStateKnown && c06probe.ConversationIdle &&
               !c06probe.PlayerTurnSourceCurrent,
               "readable idle Core target/speaker is only negative conversation evidence, not a global grant");
@@ -170,6 +176,7 @@ class Program
               !DirectorC06Policy.Safe(c06request,unknownSpeaker),
               "failed Core speaker read never becomes idle");
         LosSantosAlive.NPC.NpcTargeting.ThrowSpeaker=false;
+        LosSantosAlive.NPC.NpcTargeting.Conversation=earlierConversation;
         Check(c06probe.SpecialTurnVersionKnown && c06probe.SpecialTurnVersion==0 &&
               c06probe.PlaybackKnown && c06probe.PlaybackIdle &&
               !c06probe.PlayerTurnSourceCurrent && !c06probe.EssentialTurnKnown,
