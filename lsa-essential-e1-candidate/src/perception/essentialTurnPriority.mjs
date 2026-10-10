@@ -49,7 +49,7 @@ export function projectOriginalTurnPriority(raw) {
 // busy->idle->busy ABA at the backend sampler. This is NOT an interprocess
 // admission lock: native still needs an ordered ownership handoff.
 const originalEntrypoints = new Set([
-  'turn_intake','turn_terminal','turn_cancel','session_open',
+  'turn_intake','turn_allocate','turn_terminal','turn_cancel','session_open',
   'session_retire','mic_reset','special_dispatch','mic_capture',
 ]);
 export class OriginalEssentialTurnTimeline {
