@@ -92,10 +92,28 @@ export class IntelligenceClient {
     }catch{return false;}
   }
 
+  // Real companion PS2/PS3 source reader for the existing Director
+  // coordinator. Never trust entitlementCurrent or a request's copied
+  // observation/grant IDs as proof. Channel, epoch and negotiated native
+  // Director protocol must be current; this is NOT native authorization.
+  directorOriginalEntitlement(proposal,stamp) {
+    if(this.closed || this.config.mode!=='shadow' ||
+       !this.socket || this.socket.destroyed || !this.socket.writable ||
+       this.runtime.directorRequestVersion!==1 || !this.runtime.epoch)return null;
+    try{return this.runtime.directorOriginalEntitlementFor(proposal,stamp);}
+    catch{return null;}
+  }
+
   // One outstanding native request per exact ticket; no implicit retries.
   // Negative/late/ambiguous receipts never become Essential authorization.
   requestDirector(args,{timeoutMs=900}={}) {
     const ticketId=args?.ticket?.ticketId;
+    // Every reserve/submit must re-read the original companion ledger as an
+    // independent source. Cancel remains available after grant expiration so
+    // a previously reserved native ticket can always be retired.
+    if(args?.operation!=='cancel' &&
+       !this.directorOriginalEntitlement(args?.proposal,args?.stamp))
+       return Promise.resolve(null);
     if(typeof ticketId!=='string' || !Number.isSafeInteger(timeoutMs) ||
        timeoutMs<1 || timeoutMs>1500 || this.directorPending.size>=32 ||
        this.directorPending.has(ticketId)) return Promise.resolve(null);
