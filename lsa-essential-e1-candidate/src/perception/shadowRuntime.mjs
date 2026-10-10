@@ -5,7 +5,6 @@ import { EpisodeStore } from './episodeStore.mjs';
 import { EpisodeCorrelator } from './episodeCorrelator.mjs';
 import { SharedTranscriptStore } from './sharedTranscriptStore.mjs';
 import { SalienceCache, situationFromCharacterView } from './salienceEngine.mjs';
-import {selectDirectorIntent} from './sceneDirector.mjs';
 import { readHostContext } from '../context/hostContext.mjs';
 
 const MAX_COUNTER = 2147483647;
@@ -246,17 +245,21 @@ export class ShadowRuntime {
          grant.pair.situation.situationRevision!==
            (this.observerSituations.get(proposal.speakerCaptureRef)?.situationRevision??0))
           continue;
-      const selected=selectDirectorIntent([candidate],{
-        speakerCaptureRef:proposal.speakerCaptureRef,
-        playerCaptureRef:proposal.playerCaptureRef,
-        nowMonotonicMs:now,
-      });
-      if(!selected ||
-         selected.observationId!==proposal.observationId ||
-         selected.observationRevision!==proposal.observationRevision ||
-         selected.decisionKey!==proposal.decisionKey ||
-         selected.expiresAtMonotonicMs!==proposal.expiresAtMonotonicMs ||
-         selected.urgency!==proposal.urgency)
+      // Independently re-evaluate the original source-clock window; PS0/PS1
+      // must not import the PS6 selector or the stock turn scheduler. If
+      // selection policy TTL ever changes without this validator, mismatched
+      // expiry fails closed instead of silently extending entitlement.
+      const ttl=decision.response==='urgent'?2000:10000;
+      const observedAt=candidate.observedAtMonotonicMs;
+      const age=now-observedAt;
+      const sourceExpiry=Math.min(observedAt+ttl,
+        observation.expiresAtMonotonicMs,decision.expiresAtMonotonicMs);
+      if(!Number.isSafeInteger(observedAt) || !Number.isSafeInteger(now) ||
+         age<0 || age>=ttl || sourceExpiry<=now ||
+         !Array.isArray(observation.claims) ||
+         !observation.claims.some(c=>c?.certainty==='supported' &&
+                                     c.evidence?.channel!=='report') ||
+         sourceExpiry!==proposal.expiresAtMonotonicMs)
           continue;
       return Object.freeze({
         source:'original_companion_ps2_ps3',
@@ -269,7 +272,7 @@ export class ShadowRuntime {
         observationRevision:observation.revision,
         decisionKey:decision.decisionKey,
         policyVersion:decision.policyVersion,
-        expiresAtMonotonicMs:selected.expiresAtMonotonicMs,
+        expiresAtMonotonicMs:sourceExpiry,
       });
     }
     return null;
