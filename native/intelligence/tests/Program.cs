@@ -35,6 +35,13 @@ class Program
         anchors.SetObserverPriority(new[]{conversationToken}.Concat(anchors.Current.Where(a=>a.CaptureRef!=conversationToken).OrderBy(a=>a.Handle).Take(15).Select(a=>a.CaptureRef)));
         Check(conversationAnchor.Observer&&anchors.ObserverCount==16,"conversation gets priority at full promoted observer cap");
         Check(!anchors.Current.Single(a=>a.CaptureRef==demotedToken).Observer&&anchors.Resolve(demotedToken)!=null,"lower priority observer demoted without retiring lifetime");
+        // P0 uses lazy 'currently observer' input; materialize it BEFORE the
+        // atomic demotion or only the new turn actor survives admission.
+        anchors.SetObserverPriority(new[]{demotedToken}.Concat(
+            anchors.Current.Where(a=>a.Observer).Select(a=>a.CaptureRef)));
+        Check(anchors.ObserverCount==16 &&
+              anchors.Current.Single(a=>a.CaptureRef==demotedToken).Observer,
+              "lazy priority input retains 16 eligible observers at capacity");
         anchors.SetObserverPriority(new[]{secondPriority.CaptureRef});Check(secondPriority.Observer&&!conversationAnchor.Observer&&anchors.ObserverCount==1,"changing conversation demotes prior target");
         anchors.SetObserverPriority(new[]{conversationToken,priorityToken});Check(conversationAnchor.Observer&&firstPriority.Observer&&anchors.ObserverCount==2,"returning conversation promotes retained lifetimes");
         Check(anchors.Resolve(priorityToken)==firstPriority&&anchors.Resolve(conversationToken)==conversationAnchor&&conversationToken!=demotedToken,"conversation changes never reuse or retarget captureRefs");
