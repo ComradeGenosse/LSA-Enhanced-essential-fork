@@ -350,7 +350,19 @@ class Program
         var participant=new OwnedParticipant {Ped=ownerPed,Lifetime=c06Lifetime,EncounterId=Guid.NewGuid().ToString("D"),Current=()=>ownerCurrent,PrimaryOwner=()=>ownerToken};sharedRoster.Add(participant);
         object SampleOwner()=>shared.GetType().GetMethod("SamplePrimaryOwner",BindingFlags.NonPublic|BindingFlags.Instance).Invoke(shared,new object[]{ownerAnchor});
         Check(ReferenceEquals(SampleOwner(),ownerToken),"C06 samples exact current owned participant token without a parallel store");
-        ownerCurrent=false;Check(SampleOwner()==null,"C06 omits retired ownership association");ownerCurrent=true;
+        int? SampleRevision()=> (int?)shared.GetType().GetMethod("SampleDirectorOwnerRevision",
+            BindingFlags.NonPublic|BindingFlags.Instance).Invoke(shared,new object[]{ownerAnchor});
+        participant.DirectorOwner=()=>new DirectorOwnerSample{Owner="p2",Mode="wait",Revision=9};
+        Check(SampleRevision()==9,"observer situation samples genuine P2 incarnation revision");
+        participant.DirectorOwner=()=>new DirectorOwnerSample{Owner="p2",Mode="wait",Revision=0};
+        Check(SampleRevision()==null,"overflowed P2 revision cannot be published as positive");
+        participant.DirectorOwner=()=>throw new Exception("P2 revision missing");
+        Check(SampleRevision()==null,"throwing P2 version read never publishes guessed revision");
+        participant.DirectorOwner=()=>new DirectorOwnerSample{Owner="p2",Mode="wait",Revision=10};
+        ownerCurrent=false;
+        Check(SampleOwner()==null && SampleRevision()==null,
+             "retired P2 registration has neither primary owner nor source revision");
+        ownerCurrent=true;
         participant.PrimaryOwner=()=>throw new Exception("optional owner sample");Check(SampleOwner()==null,"C06 getter fault omits only optional metadata");
         // Core callback threads do not get access to the Director admission
         // dictionary. Queue only scalar/native event identity and drain it on
