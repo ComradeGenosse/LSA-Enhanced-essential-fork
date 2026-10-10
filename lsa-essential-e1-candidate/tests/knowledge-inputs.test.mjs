@@ -21,6 +21,27 @@ test('ordinary P0 actor joins independently current observer without P1 or promo
   assert.equal(Object.isFrozen(inputs.association),true);assert.equal(Object.isFrozen(inputs.turn),true);assert.equal(assertKnowledgeCurrent(inputs,f.perception),null);
   f.send('retire_batch',[f.captureRef]);assert.equal(assertKnowledgeCurrent(inputs,f.perception),'participant_retired');
 });
+test('P0 distinguishes true observer admission, expired lease, and missing wire index without guessing identity',()=>{
+ const approved=fixture();assert.equal(approved.capture().reason,null);
+ assert.equal(approved.capture().anchorStatus,'verified_observer');
+ const unobserved=fixture();unobserved.perception.anchors.get(unobserved.captureRef).observer=false;
+ assert.equal(unobserved.capture().reason,'anchor_expired');
+ assert.equal(unobserved.capture().anchorStatus,'not_observer');
+ const expired=fixture();expired.perception.anchors.get(expired.captureRef).expires=0;
+ assert.equal(expired.capture().reason,'anchor_expired');
+ assert.equal(expired.capture().anchorStatus,'lease_expired');
+ const missing=fixture();missing.perception.anchors.delete(missing.captureRef);
+ assert.equal(missing.capture().anchorStatus,'missing');
+ const unsupported=fixture();unsupported.perception.observerIndexVersion=null;
+ assert.equal(unsupported.capture().reason,'unsupported_contract');
+ assert.equal(unsupported.capture().anchorStatus,'contract_unavailable');
+ const unindexed=fixture();unindexed.perception.observerIndex.delete(unindexed.captureRef);
+ assert.equal(unindexed.capture().reason,'no_observer_index');
+ assert.equal(unindexed.capture().anchorStatus,'index_missing');
+ const wrongType=fixture();wrongType.perception.anchors.get(wrongType.captureRef).kind='player';
+ assert.equal(wrongType.capture().reason,'anchor_expired');
+ assert.equal(wrongType.capture().anchorStatus,'kind_mismatch');
+});
 test('missing and forged capture cannot use raw namespaces or live conversation flags',()=>{
   const f=fixture();delete f.p0Snapshot.actor.integrations.turnKnowledge;f.p0Snapshot.actor.integrations.raw={turnKnowledge:f.block};
   assert.equal(f.capture().reason,'no_actor_capture');
