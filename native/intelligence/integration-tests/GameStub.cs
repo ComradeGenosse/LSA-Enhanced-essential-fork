@@ -99,3 +99,16 @@ namespace LosSantosAlive.Bridge.SpecialTurns {
         public int DelayMilliseconds;
     }
 }
+
+namespace LosSantosAlive.Input {
+    public static class TextInputService {
+        public static bool Open,ThrowRead;
+        public static bool IsOpen { get { if(ThrowRead)throw new Exception("Core text state unavailable");return Open; } }
+    }
+}
+namespace LosSantosAlive.Core {
+    public static class LsaControlsMenu {
+        public static bool Block,ThrowRead;
+        public static bool BlocksLsaInput { get { if(ThrowRead)throw new Exception("Core controls state unavailable");return Block; } }
+    }
+}
