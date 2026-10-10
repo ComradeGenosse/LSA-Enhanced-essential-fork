@@ -111,7 +111,9 @@ export class ShadowRuntime {
            row.ownerProofRevision!=null && (!original?.owned || !original.incarnationId || !row.primaryOwner) ||
            !this.current(row.captureRef) || !original ||
            this.anchors.get(row.captureRef).kind!=='ped' ||
-           old && row.situationRevision<=old.situationRevision) {this.reset('fault');return false;}
+           old && (row.situationRevision<=old.situationRevision ||
+             row.ownerProofRevision!=null && old.ownerProofRevision!=null &&
+             row.ownerProofRevision<old.ownerProofRevision)) {this.reset('fault');return false;}
       }
       for(const row of v.payload) this.observerSituations.set(row.captureRef,Object.freeze({...row,primaryOwner:readPrimaryBehaviorOwner(row.primaryOwner),expires:this.now()+BOUNDS.anchorLeaseMs}));
       for(const row of v.payload)this.refreshSalience(row.captureRef);
