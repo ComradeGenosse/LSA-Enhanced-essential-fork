@@ -2,7 +2,7 @@ import { captureKnowledgeInputs, assertKnowledgeCurrent } from '../context/knowl
 import net from 'node:net';
 import { BOUNDS } from './contracts.mjs';
 import { ShadowRuntime } from './shadowRuntime.mjs';
-import {serializeDirectorRequest} from './directorWire.mjs';
+import {serializeDirectorRequest,serializeDirectorPs3Receipt} from './directorWire.mjs';
 
 const COUNTER_MAX = 2147483647;
 const counter = value => Number.isSafeInteger(value) && value >= 0 ? Math.min(COUNTER_MAX, value) : 0;
@@ -104,6 +104,21 @@ export class IntelligenceClient {
     catch{return null;}
   }
 
+  // A genuine PS3-ledger read produces this sideband only on the negotiated
+  // existing user-ACL PS pipe. It cannot stand in for native signal/challenge
+  // verification or native C-06, and never invokes Essential/kb.
+  sendDirectorPs3Receipt(ticket,original) {
+    if(this.closed || this.config.mode!=='shadow' ||
+       this.runtime.directorRequestVersion!==1 || !this.runtime.epoch ||
+       !this.socket || this.socket.destroyed || !this.socket.writable ||
+       this.socket.writableLength>BOUNDS.frameBytes)return false;
+    try {
+      const line=serializeDirectorPs3Receipt(ticket,original);
+      if(Buffer.byteLength(line)>BOUNDS.frameBytes)return false;
+      this.socket.write(line);return true;
+    }catch{return false;}
+  }
+
   // One outstanding native request per exact ticket; no implicit retries.
   // Negative/late/ambiguous receipts never become Essential authorization.
   requestDirector(args,{timeoutMs=900}={}) {
@@ -111,9 +126,9 @@ export class IntelligenceClient {
     // Every reserve/submit must re-read the original companion ledger as an
     // independent source. Cancel remains available after grant expiration so
     // a previously reserved native ticket can always be retired.
-    if(args?.operation!=='cancel' &&
-       !this.directorOriginalEntitlement(args?.proposal,args?.stamp))
-       return Promise.resolve(null);
+    const original=args?.operation==='cancel'?null:
+      this.directorOriginalEntitlement(args?.proposal,args?.stamp);
+    if(args?.operation!=='cancel' && !original)return Promise.resolve(null);
     if(typeof ticketId!=='string' || !Number.isSafeInteger(timeoutMs) ||
        timeoutMs<1 || timeoutMs>1500 || this.directorPending.size>=32 ||
        this.directorPending.has(ticketId)) return Promise.resolve(null);
@@ -128,6 +143,12 @@ export class IntelligenceClient {
       const timeout=setTimeout(()=>finish(null),timeoutMs);
       timeout.unref?.();
       this.directorPending.set(ticketId,{resolve:finish,timeout,operation:args.operation});
+      // Native consumes these FIFO on its owner fiber: a source-backed PS3
+      // receipt BEFORE reserve; submit reuses only the sealed original grant.
+      // If the original native source proof is missing, nothing is sent.
+      if(args.operation==='reserve' && !this.sendDirectorPs3Receipt(args.ticket,original)) {
+        finish(null);return;
+      }
       if(!this.sendDirectorPreview(args))finish(null);
     });
   }
