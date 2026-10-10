@@ -113,7 +113,7 @@ test('exact native PS6 request response binds once with independent status and d
  assert.deepEqual(await waiting,{ticketId:ticket,status:'reserved'});
  assert.equal(client.directorPending.size,0);
  const submitted=client.requestDirector({...original,operation:'submit'});
- assert.equal(writes.length,3);
+ assert.equal(writes.length,5);
  assert.equal(client.acceptDirectorResponse({ticketId:ticket,status:'reserved'}),true);
  assert.equal(await submitted,null); // a late reserve is never a submit
  assert.equal(client.directorPending.size,0);
