@@ -101,6 +101,7 @@ namespace LosSantosAlive.Bridge.SpecialTurns {
 }
 
 namespace LosSantosAlive.Input {
+    public static class InputController { }
     public static class TextInputService {
         public static bool Open,ThrowRead;
         public static bool IsOpen { get { if(ThrowRead)throw new Exception("Core text state unavailable");return Open; } }
@@ -113,12 +114,9 @@ namespace LosSantosAlive.Core {
     }
 }
 
+
 namespace LSA.PromotedCharacters {
-    // The integration test does not load/execute pinned Essential or Harmony.
-    // The actual original Core entrypoint ABI is separately verified in CI.
-    internal static class EssentialPlayerPriorityMonitor {
-        internal static long Value=-1;
-        internal static long Read()=>Value;
-        internal static bool Attach()=>Value>=0;
+    internal static class InputHookFiles {
+        internal static string HarmonyPath(string path)=>System.IO.Path.Combine(path,"0Harmony.dll");
     }
 }
