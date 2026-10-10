@@ -4,7 +4,9 @@
 const MAX_WAIT_BIND_MS=4000;
 const MAX_WAIT_PLAYBACK_MS=120000;
 export class DirectorPlaybackRegistry {
-  constructor(){this.entries=new Map();}
+  constructor({onTimeout=()=>{}}={}) {
+    this.entries=new Map();this.onTimeout=onTimeout;
+  }
   begin(ticket,gates) {
     const id=ticket?.ticketId;
     if(typeof id!=='string' || this.entries.size!==0 ||
@@ -16,7 +18,14 @@ export class DirectorPlaybackRegistry {
     const entry={ticket,gates,identity:null,hydrated:false,published:false,started:false,
       finished:false,boundResolve,terminalResolve,bound,terminal};
     this.entries.set(id,entry);
-    entry.bindingTimeout=setTimeout(()=>this.fail(id),MAX_WAIT_BIND_MS);
+    entry.bindingTimeout=setTimeout(()=>{
+      // The most informative possible failure when original Core never
+      // published a bound generation. Diagnostic only; fail as before.
+      const stage=entry.hydrated?
+        (entry.identity?'publication_missing':'binding_missing'):'hydration_missing';
+      try{this.onTimeout(stage);}catch{}
+      this.fail(id);
+    },MAX_WAIT_BIND_MS);
     entry.bindingTimeout.unref?.();
     return entry;
   }
