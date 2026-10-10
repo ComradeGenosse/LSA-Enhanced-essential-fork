@@ -4,15 +4,23 @@ import {selectDirectorIntent} from './sceneDirector.mjs';
 // pipeline changes; it never scans GTA, drives kb, creates turns, or fabricates
 // source receipts. The coordinator owns all native and stock admission gates.
 export class DirectorObservationPump {
-  constructor({client,coordinator,now=()=>client.runtime.now(),stampFor=()=>null,onResult=()=>{}}={}) {
+  constructor({client,coordinator,now=()=>client.runtime.now(),stampFor=()=>null,onResult=()=>{},onDiagnostic=()=>{}}={}) {
     if(!client?.runtime || typeof coordinator?.attempt!=='function' ||
        typeof now!=='function' || typeof stampFor!=='function' ||
-       typeof onResult!=='function')throw new TypeError('director_pump_dependencies');
+       typeof onResult!=='function' || typeof onDiagnostic!=='function')throw new TypeError('director_pump_dependencies');
     this.client=client;this.coordinator=coordinator;
-    this.now=now;this.stampFor=stampFor;this.onResult=onResult;
+    this.now=now;this.stampFor=stampFor;this.onResult=onResult;this.onDiagnostic=onDiagnostic;this.lastDiagnostic=null;
     this.seen=new Map();this.epoch=null;this.world=null;this.inFlight=false;this.stopped=false;
   }
   stop() {this.stopped=true;this.seen.clear();}
+  diagnose(reason) {
+    const at=this.now();
+    if(this.lastDiagnostic?.reason===reason &&
+       Number.isFinite(at) && at>=this.lastDiagnostic.at &&
+       at-this.lastDiagnostic.at<10000)return;
+    this.lastDiagnostic={reason,at};
+    try{this.onDiagnostic(Object.freeze({reason}));}catch{}
+  }
   // The original P2 source supplies ownership; the native Core read supplies
   // the actual current player-turn revision. No JS zero/quiet fallback.
   currentStamp(proposal) {
@@ -38,9 +46,9 @@ export class DirectorObservationPump {
     if(epoch!==this.epoch || world!==this.world){
       this.seen.clear();this.epoch=epoch;this.world=world;
     }
-    if(!epoch || runtime.directorRequestVersion!==1)return null;
+    if(!epoch || runtime.directorRequestVersion!==1){this.diagnose('channel_or_protocol_unavailable');return null;}
     const players=[...runtime.anchors.values()].filter(a=>a.kind==='player' && runtime.current(a.captureRef));
-    if(players.length!==1)return null;
+    if(players.length!==1){this.diagnose('player_anchor_unavailable');return null;}
     const player=players[0].captureRef,now=this.now();
     if(!Number.isSafeInteger(now) || now<0)return null;
     // Expire old attempted decisions; extended sessions must not permanently
@@ -49,11 +57,15 @@ export class DirectorObservationPump {
     // Native observer membership and P2 owner lifetime are prerequisite
     // evidence. Never infer ownership from the latest conversation target.
     const eligible=[];
+    let owned=0,sourceOwners=0,ps3Candidates=0;
     for(const [speaker,index] of runtime.observerIndex) {
       if(eligible.length>=16)break;
-      if(!index?.owned || index.kind!=='ped' || !runtime.current(speaker) ||
-         !runtime.directorOwnerProofFor(speaker))continue;
+      if(!index?.owned || index.kind!=='ped' || !runtime.current(speaker))continue;
+      owned++;
+      if(!runtime.directorOwnerProofFor(speaker))continue;
+      sourceOwners++;
       const candidates=runtime.directorCandidatesFor(speaker);
+      ps3Candidates+=candidates.length;
       const facts={speakerCaptureRef:speaker,playerCaptureRef:player,nowMonotonicMs:now};
       const proposal=selectDirectorIntent(candidates,facts);
       if(!proposal || this.seen.has(proposal.decisionKey))continue;
@@ -63,15 +75,20 @@ export class DirectorObservationPump {
       a.proposal.expiresAtMonotonicMs-b.proposal.expiresAtMonotonicMs ||
       a.proposal.observationId.localeCompare(b.proposal.observationId));
     const selected=eligible[0];
-    if(!selected)return null;
+    if(!selected){
+      this.diagnose(!owned?'no_owned_observer':!sourceOwners?'owner_proof_unavailable':
+        !ps3Candidates?'no_ps3_response_candidate':'candidate_filtered');
+      return null;
+    }
     // An attempted original decision key is spent for this producer epoch.
     // Capacity exhaustion is a veto, never implicit eviction/retry.
-    if(this.seen.size>=128)return null;
+    if(this.seen.size>=128){this.diagnose('dedupe_capacity');return null;}
     this.seen.set(selected.proposal.decisionKey,now);
     this.inFlight=true;
     try {
       let stamp=null;
       try {stamp=this.stampFor(selected.proposal,selected.facts);}catch{}
+      if(!stamp)this.diagnose('player_priority_or_owner_stamp_unavailable');
       const outcome=await this.coordinator.attempt({
         candidates:selected.candidates,facts:selected.facts,stamp,
       });
