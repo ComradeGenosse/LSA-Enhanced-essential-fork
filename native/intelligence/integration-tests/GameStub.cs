@@ -29,7 +29,8 @@ namespace Rage.Native {
                     result=Scripted;break;
                 case "GET_NAME_OF_ZONE":result=zone;break;
                 case "GET_INTERIOR_FROM_ENTITY":result=0;break;
-                case "HAS_ENTITY_CLEAR_LOS_TO_ENTITY_IN_FRONT":result=true;break;
+                case "HAS_ENTITY_CLEAR_LOS_TO_ENTITY_IN_FRONT":result=FrontLos;break;
+                case "HAS_ENTITY_CLEAR_LOS_TO_ENTITY":result=AcousticLos;break;
                 case "GET_VEHICLE_ENGINE_HEALTH":result=1000f;break;
                 case "GET_ENTITY_SPEED":result=0f;break;
                 default:Effects++;throw new Exception("Unexpected native operation: "+name);
