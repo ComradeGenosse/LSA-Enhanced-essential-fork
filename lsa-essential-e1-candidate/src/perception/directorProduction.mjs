@@ -10,7 +10,7 @@ export class DirectorObservationPump {
        typeof onResult!=='function')throw new TypeError('director_pump_dependencies');
     this.client=client;this.coordinator=coordinator;
     this.now=now;this.stampFor=stampFor;this.onResult=onResult;
-    this.seen=new Set();this.epoch=null;this.inFlight=false;this.stopped=false;
+    this.seen=new Set();this.epoch=null;this.world=null;this.inFlight=false;this.stopped=false;
   }
   stop() {this.stopped=true;this.seen.clear();}
   // The original P2 source supplies ownership; the native Core read supplies
@@ -34,7 +34,10 @@ export class DirectorObservationPump {
   async tick() {
     if(this.stopped || this.inFlight)return null;
     const runtime=this.client.runtime,epoch=runtime.epoch;
-    if(epoch!==this.epoch){this.seen.clear();this.epoch=epoch;}
+    const world=runtime.hostContext?.worldEpoch??null;
+    if(epoch!==this.epoch || world!==this.world){
+      this.seen.clear();this.epoch=epoch;this.world=world;
+    }
     if(!epoch || runtime.directorRequestVersion!==1)return null;
     const players=[...runtime.anchors.values()].filter(a=>a.kind==='player' && runtime.current(a.captureRef));
     if(players.length!==1)return null;
