@@ -1,0 +1,2335 @@
+{
+  "schemaVersion": 1,
+  "essentialDllSha256": "9b6de42d4c464901d859dd95e17e100e4fa9ef6074bfbb0cf3a57a76f6ddd653",
+  "damageDllSha256": "64816a0d1131a6ec241f8951902b08afaee86fb0f73693399edefe2db8776750",
+  "boundary": "Static PE metadata/IL only. Excerpts of long methods are call/field evidence, not reconstructed control flow or GTA validation.",
+  "essentialContracts": [
+    {
+      "type": "LosSantosAlive.NPC.Reflexes.Awareness.ReflexAwarenessMemory",
+      "fields": [
+        {
+          "name": "EventType",
+          "type": "LosSantosAlive.NPC.Reflexes.ReflexEventType",
+          "constantHex": null
+        },
+        {
+          "name": "EventReason",
+          "type": "String",
+          "constantHex": null
+        },
+        {
+          "name": "AmbientReactionType",
+          "type": "LosSantosAlive.NPC.Reflexes.ReflexReactionType",
+          "constantHex": null
+        },
+        {
+          "name": "AmbientReactionReason",
+          "type": "String",
+          "constantHex": null
+        },
+        {
+          "name": "EventPosition",
+          "type": "Rage.Vector3",
+          "constantHex": null
+        },
+        {
+          "name": "SourcePedHandle",
+          "type": "UInt32",
+          "constantHex": null
+        },
+        {
+          "name": "LastSeenGameTime",
+          "type": "Int32",
+          "constantHex": null
+        }
+      ],
+      "events": [],
+      "methods": [
+        {
+          "name": ".ctor",
+          "token": "0x06000672",
+          "returns": "Void",
+          "parameters": []
+        }
+      ]
+    },
+    {
+      "type": "LosSantosAlive.NPC.Reflexes.Awareness.ReflexAwarenessService",
+      "fields": [],
+      "events": [],
+      "methods": [
+        {
+          "name": "get_Count",
+          "token": "0x06000673",
+          "returns": "Int32",
+          "parameters": []
+        },
+        {
+          "name": "Record",
+          "token": "0x06000674",
+          "returns": "Void",
+          "parameters": [
+            "Rage.Ped",
+            "LosSantosAlive.NPC.Reflexes.ReflexEventType",
+            "String",
+            "Rage.Vector3",
+            "Rage.Ped"
+          ]
+        },
+        {
+          "name": "Record",
+          "token": "0x06000675",
+          "returns": "Void",
+          "parameters": [
+            "Rage.Ped",
+            "LosSantosAlive.NPC.Reflexes.ReflexEventType",
+            "String",
+            "Rage.Vector3",
+            "Rage.Ped",
+            "LosSantosAlive.NPC.Reflexes.ReflexReactionType",
+            "String"
+          ]
+        },
+        {
+          "name": "TryGetMemory",
+          "token": "0x06000676",
+          "returns": "Boolean",
+          "parameters": [
+            "Rage.Ped",
+            "LosSantosAlive.NPC.Reflexes.Awareness.ReflexAwarenessMemory&"
+          ]
+        },
+        {
+          "name": "Cleanup",
+          "token": "0x06000677",
+          "returns": "Void",
+          "parameters": []
+        }
+      ]
+    },
+    {
+      "type": "LosSantosAlive.NPC.Perception.PerceptionSnapshot",
+      "fields": [
+        {
+          "name": "Player",
+          "type": "Rage.Ped",
+          "constantHex": null
+        },
+        {
+          "name": "AllPeds",
+          "type": "Rage.Ped[]",
+          "constantHex": null
+        },
+        {
+          "name": "AllVehicles",
+          "type": "Rage.Vehicle[]",
+          "constantHex": null
+        },
+        {
+          "name": "GameTime",
+          "type": "Int32",
+          "constantHex": null
+        }
+      ],
+      "events": [],
+      "methods": [
+        {
+          "name": "get_IsValid",
+          "token": "0x06000680",
+          "returns": "Boolean",
+          "parameters": []
+        },
+        {
+          "name": "TryGetPedByHandleString",
+          "token": "0x06000681",
+          "returns": "Boolean",
+          "parameters": [
+            "String",
+            "Rage.Ped&"
+          ]
+        },
+        {
+          "name": "TryGetPedByHandle",
+          "token": "0x06000682",
+          "returns": "Boolean",
+          "parameters": [
+            "UInt32",
+            "Rage.Ped&"
+          ]
+        },
+        {
+          "name": "Capture",
+          "token": "0x06000684",
+          "returns": "LosSantosAlive.NPC.Perception.PerceptionSnapshot",
+          "parameters": []
+        },
+        {
+          "name": ".ctor",
+          "token": "0x06000685",
+          "returns": "Void",
+          "parameters": []
+        }
+      ]
+    },
+    {
+      "type": "LosSantosAlive.Bridge.SpecialTurns.SpecialGeminiTurnRequest",
+      "fields": [
+        {
+          "name": "SpeakerPed",
+          "type": "Rage.Ped",
+          "constantHex": null
+        },
+        {
+          "name": "ListenerPed",
+          "type": "Rage.Ped",
+          "constantHex": null
+        },
+        {
+          "name": "SpeechTargetPed",
+          "type": "Rage.Ped",
+          "constantHex": null
+        },
+        {
+          "name": "Content",
+          "type": "String",
+          "constantHex": null
+        },
+        {
+          "name": "Reason",
+          "type": "String",
+          "constantHex": null
+        },
+        {
+          "name": "DedupeKey",
+          "type": "String",
+          "constantHex": null
+        },
+        {
+          "name": "FaceListener",
+          "type": "Boolean",
+          "constantHex": null
+        },
+        {
+          "name": "InterruptExisting",
+          "type": "Boolean",
+          "constantHex": null
+        },
+        {
+          "name": "DelayMilliseconds",
+          "type": "Int32",
+          "constantHex": null
+        },
+        {
+          "name": "CancelIfPlayerStartsTurn",
+          "type": "Boolean",
+          "constantHex": null
+        },
+        {
+          "name": "RequireCurrentPlayerConversation",
+          "type": "Boolean",
+          "constantHex": null
+        },
+        {
+          "name": "SkipIfSpeakerBusy",
+          "type": "Boolean",
+          "constantHex": null
+        }
+      ],
+      "events": [],
+      "methods": [
+        {
+          "name": ".ctor",
+          "token": "0x06001597",
+          "returns": "Void",
+          "parameters": []
+        }
+      ]
+    },
+    {
+      "type": "LosSantosAlive.Bridge.SpecialTurns.SpecialGeminiTurnScheduler",
+      "fields": [],
+      "events": [],
+      "methods": [
+        {
+          "name": "Submit",
+          "token": "0x06001598",
+          "returns": "Boolean",
+          "parameters": [
+            "LosSantosAlive.Bridge.SpecialTurns.SpecialGeminiTurnRequest"
+          ]
+        },
+        {
+          "name": "SubmitAfterCurrentTurn",
+          "token": "0x06001599",
+          "returns": "Boolean",
+          "parameters": [
+            "LosSantosAlive.Bridge.SpecialTurns.SpecialGeminiTurnRequest"
+          ]
+        },
+        {
+          "name": "Cancel",
+          "token": "0x0600159b",
+          "returns": "Void",
+          "parameters": [
+            "String",
+            "Rage.Ped"
+          ]
+        },
+        {
+          "name": "CancelAll",
+          "token": "0x0600159c",
+          "returns": "Void",
+          "parameters": []
+        }
+      ]
+    }
+  ],
+  "damageContracts": [
+    {
+      "type": "DamageTrackerLib.DamageTrackerService",
+      "fields": [
+        {
+          "name": "Guid",
+          "type": "String",
+          "constantHex": "36003000390061003200320038006600"
+        }
+      ],
+      "events": [
+        {
+          "name": "OnPedTookDamage",
+          "type": "DamageTrackerLib.DamageTrackerService+PedTookDamageDelegate"
+        },
+        {
+          "name": "OnPlayerTookDamage",
+          "type": "DamageTrackerLib.DamageTrackerService+PedTookDamageDelegate"
+        },
+        {
+          "name": "OnVehicleTookDamage",
+          "type": "DamageTrackerLib.DamageTrackerService+VehTookDamageDelegate"
+        }
+      ],
+      "methods": [
+        {
+          "name": "get_CurrentVersion",
+          "token": "0x06000002",
+          "returns": "String",
+          "parameters": []
+        },
+        {
+          "name": "add_OnPedTookDamage",
+          "token": "0x06000003",
+          "returns": "Void",
+          "parameters": [
+            "DamageTrackerLib.DamageTrackerService+PedTookDamageDelegate"
+          ]
+        },
+        {
+          "name": "remove_OnPedTookDamage",
+          "token": "0x06000004",
+          "returns": "Void",
+          "parameters": [
+            "DamageTrackerLib.DamageTrackerService+PedTookDamageDelegate"
+          ]
+        },
+        {
+          "name": "add_OnPlayerTookDamage",
+          "token": "0x06000005",
+          "returns": "Void",
+          "parameters": [
+            "DamageTrackerLib.DamageTrackerService+PedTookDamageDelegate"
+          ]
+        },
+        {
+          "name": "remove_OnPlayerTookDamage",
+          "token": "0x06000006",
+          "returns": "Void",
+          "parameters": [
+            "DamageTrackerLib.DamageTrackerService+PedTookDamageDelegate"
+          ]
+        },
+        {
+          "name": "add_OnVehicleTookDamage",
+          "token": "0x06000007",
+          "returns": "Void",
+          "parameters": [
+            "DamageTrackerLib.DamageTrackerService+VehTookDamageDelegate"
+          ]
+        },
+        {
+          "name": "remove_OnVehicleTookDamage",
+          "token": "0x06000008",
+          "returns": "Void",
+          "parameters": [
+            "DamageTrackerLib.DamageTrackerService+VehTookDamageDelegate"
+          ]
+        },
+        {
+          "name": "get_IsRunning",
+          "token": "0x06000009",
+          "returns": "Boolean",
+          "parameters": []
+        },
+        {
+          "name": "Start",
+          "token": "0x0600000a",
+          "returns": "Void",
+          "parameters": []
+        },
+        {
+          "name": "Start",
+          "token": "0x0600000b",
+          "returns": "Void",
+          "parameters": [
+            "Boolean"
+          ]
+        },
+        {
+          "name": "Stop",
+          "token": "0x0600000c",
+          "returns": "Void",
+          "parameters": []
+        },
+        {
+          "name": "Run",
+          "token": "0x0600000d",
+          "returns": "Void",
+          "parameters": [
+            "Boolean"
+          ]
+        },
+        {
+          "name": "InvokePedDamageEvent",
+          "token": "0x0600000e",
+          "returns": "Void",
+          "parameters": [
+            "DamageTrackerLib.DamageInfo.PedDamageInfo",
+            "Boolean"
+          ]
+        },
+        {
+          "name": "InvokeVehicleDamageEvent",
+          "token": "0x0600000f",
+          "returns": "Void",
+          "parameters": [
+            "DamageTrackerLib.DamageInfo.VehDamageInfo",
+            "Boolean"
+          ]
+        }
+      ]
+    },
+    {
+      "type": "DamageTrackerLib.DamageInfo.PedDamageInfo",
+      "fields": [
+        {
+          "name": "PedHandle",
+          "type": "UInt32",
+          "constantHex": null
+        },
+        {
+          "name": "AttackerPedHandle",
+          "type": "UInt32",
+          "constantHex": null
+        },
+        {
+          "name": "Damage",
+          "type": "Int32",
+          "constantHex": null
+        },
+        {
+          "name": "ArmourDamage",
+          "type": "Int32",
+          "constantHex": null
+        },
+        {
+          "name": "WeaponInfo",
+          "type": "DamageTrackerLib.DamageInfo.WeaponDamageInfo",
+          "constantHex": null
+        },
+        {
+          "name": "BoneInfo",
+          "type": "DamageTrackerLib.DamageInfo.BoneDamageInfo",
+          "constantHex": null
+        }
+      ],
+      "events": [],
+      "methods": []
+    },
+    {
+      "type": "DamageTrackerLib.DamageInfo.VehDamageInfo",
+      "fields": [
+        {
+          "name": "VehHandle",
+          "type": "UInt32",
+          "constantHex": null
+        },
+        {
+          "name": "AttackerPedHandle",
+          "type": "UInt32",
+          "constantHex": null
+        },
+        {
+          "name": "Damage",
+          "type": "Int32",
+          "constantHex": null
+        },
+        {
+          "name": "WeaponInfo",
+          "type": "DamageTrackerLib.DamageInfo.WeaponDamageInfo",
+          "constantHex": null
+        },
+        {
+          "name": "LastCollisionPosition",
+          "type": "Rage.Vector3",
+          "constantHex": null
+        }
+      ],
+      "events": [],
+      "methods": []
+    },
+    {
+      "type": "DamageTrackerLib.DamageInfo.WeaponDamageInfo",
+      "fields": [
+        {
+          "name": "Hash",
+          "type": "DamageTrackerLib.DamageInfo.WeaponHash",
+          "constantHex": null
+        },
+        {
+          "name": "Type",
+          "type": "DamageTrackerLib.DamageInfo.DamageType",
+          "constantHex": null
+        },
+        {
+          "name": "Group",
+          "type": "DamageTrackerLib.DamageInfo.DamageGroup",
+          "constantHex": null
+        }
+      ],
+      "events": [],
+      "methods": []
+    },
+    {
+      "type": "DamageTrackerLib.DamageTrackerService+PedTookDamageDelegate",
+      "fields": [],
+      "events": [],
+      "methods": [
+        {
+          "name": ".ctor",
+          "token": "0x06000014",
+          "returns": "Void",
+          "parameters": [
+            "Object",
+            "IntPtr"
+          ]
+        },
+        {
+          "name": "Invoke",
+          "token": "0x06000015",
+          "returns": "Void",
+          "parameters": [
+            "Rage.Ped",
+            "Rage.Ped",
+            "DamageTrackerLib.DamageInfo.PedDamageInfo"
+          ]
+        },
+        {
+          "name": "BeginInvoke",
+          "token": "0x06000016",
+          "returns": "System.IAsyncResult",
+          "parameters": [
+            "Rage.Ped",
+            "Rage.Ped",
+            "DamageTrackerLib.DamageInfo.PedDamageInfo",
+            "System.AsyncCallback",
+            "Object"
+          ]
+        },
+        {
+          "name": "EndInvoke",
+          "token": "0x06000017",
+          "returns": "Void",
+          "parameters": [
+            "System.IAsyncResult"
+          ]
+        }
+      ]
+    },
+    {
+      "type": "DamageTrackerLib.DamageTrackerService+VehTookDamageDelegate",
+      "fields": [],
+      "events": [],
+      "methods": [
+        {
+          "name": ".ctor",
+          "token": "0x06000018",
+          "returns": "Void",
+          "parameters": [
+            "Object",
+            "IntPtr"
+          ]
+        },
+        {
+          "name": "Invoke",
+          "token": "0x06000019",
+          "returns": "Void",
+          "parameters": [
+            "Rage.Vehicle",
+            "Rage.Ped",
+            "DamageTrackerLib.DamageInfo.VehDamageInfo"
+          ]
+        },
+        {
+          "name": "BeginInvoke",
+          "token": "0x0600001a",
+          "returns": "System.IAsyncResult",
+          "parameters": [
+            "Rage.Vehicle",
+            "Rage.Ped",
+            "DamageTrackerLib.DamageInfo.VehDamageInfo",
+            "System.AsyncCallback",
+            "Object"
+          ]
+        },
+        {
+          "name": "EndInvoke",
+          "token": "0x0600001b",
+          "returns": "Void",
+          "parameters": [
+            "System.IAsyncResult"
+          ]
+        }
+      ]
+    }
+  ],
+  "essentialMethods": [
+    {
+      "type": "LosSantosAlive.NPC.Reflexes.Detectors.GunshotReflexDetector",
+      "method": "UpdatePlayerShotDetection",
+      "token": "0x060005f1",
+      "returns": "Void",
+      "parameters": [
+        "Rage.Ped",
+        "Int32"
+      ],
+      "ilSha256": "684888c0ebb17f374298b65ee2807526c066094c701bcc7ebbe1c1095f494fc1",
+      "excerptIsComplete": true,
+      "instructions": [
+        {
+          "offset": 0,
+          "op": "ret",
+          "operand": null,
+          "token": null
+        }
+      ]
+    },
+    {
+      "type": "LosSantosAlive.NPC.Reflexes.Detectors.GunshotReflexDetector",
+      "method": "Update",
+      "token": "0x060005f2",
+      "returns": "Void",
+      "parameters": [
+        "LosSantosAlive.NPC.Perception.PerceptionSnapshot"
+      ],
+      "ilSha256": "684888c0ebb17f374298b65ee2807526c066094c701bcc7ebbe1c1095f494fc1",
+      "excerptIsComplete": true,
+      "instructions": [
+        {
+          "offset": 0,
+          "op": "ret",
+          "operand": null,
+          "token": null
+        }
+      ]
+    },
+    {
+      "type": "LosSantosAlive.NPC.Reflexes.Detectors.GunshotReflexDetector",
+      "method": "HasRecentShotActivity",
+      "token": "0x060005f7",
+      "returns": "Boolean",
+      "parameters": [
+        "Int32"
+      ],
+      "ilSha256": "84a0936ff1fba6d2811d094757231685673447aed2170738872305076026a316",
+      "excerptIsComplete": true,
+      "instructions": [
+        {
+          "offset": 0,
+          "op": "ldc.i4.0",
+          "operand": null,
+          "token": null
+        },
+        {
+          "offset": 1,
+          "op": "ret",
+          "operand": null,
+          "token": null
+        }
+      ]
+    },
+    {
+      "type": "LosSantosAlive.NPC.Reflexes.Detectors.GunshotReflexDetector",
+      "method": "TryResolveRecentGunshotSource",
+      "token": "0x060005f8",
+      "returns": "Boolean",
+      "parameters": [
+        "Rage.Ped",
+        "Int32",
+        "Single",
+        "Rage.Ped&",
+        "UInt32&",
+        "String&"
+      ],
+      "ilSha256": "d3707f3570d5298935d38d31ba0f8e9d2437d13281e6a2854f074d22b3c756e3",
+      "excerptIsComplete": true,
+      "instructions": [
+        {
+          "offset": 0,
+          "op": "ldarg.3",
+          "operand": null,
+          "token": null
+        },
+        {
+          "offset": 1,
+          "op": "ldnull",
+          "operand": null,
+          "token": null
+        },
+        {
+          "offset": 2,
+          "op": "stind.ref",
+          "operand": null,
+          "token": null
+        },
+        {
+          "offset": 3,
+          "op": "ldc.i4",
+          "operand": "85E8AAF0",
+          "token": null,
+          "value": -257234811
+        },
+        {
+          "offset": 8,
+          "op": "ldc.i4",
+          "operand": "6E626BE0",
+          "token": null,
+          "value": -529833362
+        },
+        {
+          "offset": 13,
+          "op": "xor",
+          "operand": null,
+          "token": null
+        },
+        {
+          "offset": 14,
+          "op": "dup",
+          "operand": null,
+          "token": null
+        },
+        {
+          "offset": 15,
+          "op": "stloc.0",
+          "operand": null,
+          "token": null
+        },
+        {
+          "offset": 16,
+          "op": "ldc.i4.4",
+          "operand": null,
+          "token": null
+        },
+        {
+          "offset": 17,
+          "op": "rem.un",
+          "operand": null,
+          "token": null
+        },
+        {
+          "offset": 18,
+          "op": "switch",
+          "operand": "04000000DCFFFFFF310000001500000002000000",
+          "token": null,
+          "targets": [
+            3,
+            88,
+            60,
+            41
+          ]
+        },
+        {
+          "offset": 39,
+          "op": "br.s",
+          "operand": "2F",
+          "token": null,
+          "targets": [
+            88
+          ]
+        },
+        {
+          "offset": 41,
+          "op": "ldarg.s",
+          "operand": "04",
+          "token": null
+        },
+        {
+          "offset": 43,
+          "op": "ldc.i4.0",
+          "operand": null,
+          "token": null
+        },
+        {
+          "offset": 44,
+          "op": "stind.i4",
+          "operand": null,
+          "token": null
+        },
+        {
+          "offset": 45,
+          "op": "ldloc.0",
+          "operand": null,
+          "token": null
+        },
+        {
+          "offset": 46,
+          "op": "ldc.i4",
+          "operand": "DFCA60C8",
+          "token": null,
+          "value": -933180705
+        },
+        {
+          "offset": 51,
+          "op": "mul",
+          "operand": null,
+          "token": null
+        },
+        {
+          "offset": 52,
+          "op": "ldc.i4",
+          "operand": "A1E4E7D7",
+          "token": null,
+          "value": -672668511
+        },
+        {
+          "offset": 57,
+          "op": "xor",
+          "operand": null,
+          "token": null
+        },
+        {
+          "offset": 58,
+          "op": "br.s",
+          "operand": "CC",
+          "token": null,
+          "targets": [
+            8
+          ]
+        },
+        {
+          "offset": 60,
+          "op": "ldarg.s",
+          "operand": "05",
+          "token": null
+        },
+        {
+          "offset": 62,
+          "op": "ldc.i4",
+          "operand": "CD075EBF",
+          "token": null,
+          "value": -1084356659
+        },
+        {
+          "offset": 67,
+          "op": "call",
+          "operand": "[private member]",
+          "token": 721420291
+        },
+        {
+          "offset": 72,
+          "op": "stind.ref",
+          "operand": null,
+          "token": null
+        },
+        {
+          "offset": 73,
+          "op": "ldloc.0",
+          "operand": null,
+          "token": null
+        },
+        {
+          "offset": 74,
+          "op": "ldc.i4",
+          "operand": "1C6AFB64",
+          "token": null,
+          "value": 1694198300
+        },
+        {
+          "offset": 79,
+          "op": "mul",
+          "operand": null,
+          "token": null
+        },
+        {
+          "offset": 80,
+          "op": "ldc.i4",
+          "operand": "276BDB4C",
+          "token": null,
+          "value": 1289448231
+        },
+        {
+          "offset": 85,
+          "op": "xor",
+          "operand": null,
+          "token": null
+        },
+        {
+          "offset": 86,
+          "op": "br.s",
+          "operand": "B0",
+          "token": null,
+          "targets": [
+            8
+          ]
+        },
+        {
+          "offset": 88,
+          "op": "ldc.i4.0",
+          "operand": null,
+          "token": null
+        },
+        {
+          "offset": 89,
+          "op": "ret",
+          "operand": null,
+          "token": null
+        }
+      ]
+    },
+    {
+      "type": "LosSantosAlive.NPC.Reflexes.Detectors.PedShotReflexDetector",
+      "method": "[private helper]",
+      "token": "0x06000616",
+      "returns": "Void",
+      "parameters": [
+        ".PedTookDamageDelegate"
+      ],
+      "ilSha256": "55e95f80a88aa03b8054f4566ba0eedb323f9bb74131f7b4b0b65267197ca339",
+      "excerptIsComplete": true,
+      "instructions": [
+        {
+          "offset": 0,
+          "op": "ldarg.0",
+          "operand": null,
+          "token": null
+        },
+        {
+          "offset": 1,
+          "op": "call",
+          "operand": "DamageTrackerLib.DamageTrackerService::add_OnPedTookDamage",
+          "token": 167772723
+        },
+        {
+          "offset": 6,
+          "op": "ret",
+          "operand": null,
+          "token": null
+        }
+      ]
+    },
+    {
+      "type": "LosSantosAlive.NPC.Reflexes.Awareness.ReflexAwarenessService",
+      "method": "Record",
+      "token": "0x06000674",
+      "returns": "Void",
+      "parameters": [
+        "Rage.Ped",
+        "LosSantosAlive.NPC.Reflexes.ReflexEventType",
+        "String",
+        "Rage.Vector3",
+        "Rage.Ped"
+      ],
+      "ilSha256": "5bddd5d69b872e9b0511301c7edcce766fd600af6e7e9511ce4429edcd45013e",
+      "excerptIsComplete": true,
+      "instructions": [
+        {
+          "offset": 0,
+          "op": "ldarg.0",
+          "operand": null,
+          "token": null
+        },
+        {
+          "offset": 1,
+          "op": "ldarg.1",
+          "operand": null,
+          "token": null
+        },
+        {
+          "offset": 2,
+          "op": "ldarg.2",
+          "operand": null,
+          "token": null
+        },
+        {
+          "offset": 3,
+          "op": "ldarg.3",
+          "operand": null,
+          "token": null
+        },
+        {
+          "offset": 4,
+          "op": "ldarg.s",
+          "operand": "04",
+          "token": null
+        },
+        {
+          "offset": 6,
+          "op": "ldc.i4.0",
+          "operand": null,
+          "token": null
+        },
+        {
+          "offset": 7,
+          "op": "ldstr",
+          "operand": "[private member]",
+          "token": null
+        },
+        {
+          "offset": 12,
+          "op": "call",
+          "operand": "LosSantosAlive.NPC.Reflexes.Awareness.ReflexAwarenessService::Record",
+          "token": 100664949
+        },
+        {
+          "offset": 17,
+          "op": "ret",
+          "operand": null,
+          "token": null
+        }
+      ]
+    },
+    {
+      "type": "LosSantosAlive.NPC.Reflexes.Awareness.ReflexAwarenessService",
+      "method": "Record",
+      "token": "0x06000675",
+      "returns": "Void",
+      "parameters": [
+        "Rage.Ped",
+        "LosSantosAlive.NPC.Reflexes.ReflexEventType",
+        "String",
+        "Rage.Vector3",
+        "Rage.Ped",
+        "LosSantosAlive.NPC.Reflexes.ReflexReactionType",
+        "String"
+      ],
+      "ilSha256": "a089561bf07aa93fdb77545431444b4ebc7c45f8daa583b4eb3babae7f600234",
+      "excerptIsComplete": false,
+      "instructions": [
+        {
+          "offset": 118,
+          "op": "stfld",
+          "operand": "LosSantosAlive.NPC.Reflexes.Awareness.ReflexAwarenessMemory::AmbientReactionReason",
+          "token": 67109894
+        },
+        {
+          "offset": 187,
+          "op": "callvirt",
+          "operand": "System.Collections.Generic.Dictionary`2<String,LosSantosAlive.NPC.Reflexes.Awareness.ReflexAwarenessMemory>::set_Item",
+          "token": 167772752
+        },
+        {
+          "offset": 218,
+          "op": "callvirt",
+          "operand": "System.Collections.Generic.Dictionary`2<String,Rage.Ped>::set_Item",
+          "token": 167772753
+        },
+        {
+          "offset": 250,
+          "op": "callvirt",
+          "operand": "System.Object::ToString",
+          "token": 167772361
+        },
+        {
+          "offset": 298,
+          "op": "call",
+          "operand": "Rage.PoolHandle::get_Value",
+          "token": 167772490
+        },
+        {
+          "offset": 303,
+          "op": "stfld",
+          "operand": "LosSantosAlive.NPC.Reflexes.Awareness.ReflexAwarenessMemory::SourcePedHandle",
+          "token": 67109896
+        },
+        {
+          "offset": 326,
+          "op": "callvirt",
+          "operand": "System.Collections.Generic.Dictionary`2<String,LosSantosAlive.NPC.Reflexes.Awareness.ReflexAwarenessMemory>::TryGetValue",
+          "token": 167772754
+        },
+        {
+          "offset": 364,
+          "op": "stfld",
+          "operand": "LosSantosAlive.NPC.Reflexes.Awareness.ReflexAwarenessMemory::LastSeenGameTime",
+          "token": 67109897
+        },
+        {
+          "offset": 445,
+          "op": "stfld",
+          "operand": "LosSantosAlive.NPC.Reflexes.Awareness.ReflexAwarenessMemory::EventReason",
+          "token": 67109892
+        },
+        {
+          "offset": 453,
+          "op": "stfld",
+          "operand": "LosSantosAlive.NPC.Reflexes.Awareness.ReflexAwarenessMemory::AmbientReactionType",
+          "token": 67109893
+        },
+        {
+          "offset": 470,
+          "op": "stfld",
+          "operand": "LosSantosAlive.NPC.Reflexes.Awareness.ReflexAwarenessMemory::EventType",
+          "token": 67109891
+        },
+        {
+          "offset": 503,
+          "op": "stfld",
+          "operand": "LosSantosAlive.NPC.Reflexes.Awareness.ReflexAwarenessMemory::EventPosition",
+          "token": 67109895
+        },
+        {
+          "offset": 534,
+          "op": "call",
+          "operand": "LosSantosAlive.Debug.LsaDebugOverlay::RecordAwareness",
+          "token": 100667255
+        }
+      ]
+    },
+    {
+      "type": "LosSantosAlive.NPC.Reflexes.Awareness.ReflexAwarenessService",
+      "method": "TryGetMemory",
+      "token": "0x06000676",
+      "returns": "Boolean",
+      "parameters": [
+        "Rage.Ped",
+        "LosSantosAlive.NPC.Reflexes.Awareness.ReflexAwarenessMemory&"
+      ],
+      "ilSha256": "bc4c6c402535d6cbf65047e1cec9bdf6778b80d1da3ffb819125d4a66adf7910",
+      "excerptIsComplete": false,
+      "instructions": [
+        {
+          "offset": 96,
+          "op": "callvirt",
+          "operand": "System.Object::ToString",
+          "token": 167772361
+        },
+        {
+          "offset": 109,
+          "op": "callvirt",
+          "operand": "System.Collections.Generic.Dictionary`2<String,LosSantosAlive.NPC.Reflexes.Awareness.ReflexAwarenessMemory>::TryGetValue",
+          "token": 167772754
+        },
+        {
+          "offset": 168,
+          "op": "callvirt",
+          "operand": "System.Collections.Generic.Dictionary`2<String,Rage.Ped>::set_Item",
+          "token": 167772753
+        }
+      ]
+    },
+    {
+      "type": "LosSantosAlive.NPC.Reflexes.Awareness.ReflexAwarenessService",
+      "method": "[private helper]",
+      "token": "0x0600067b",
+      "returns": "UInt32",
+      "parameters": [],
+      "ilSha256": "b7aa71af17e41a6937c1a26b52d6142c06ff5d00ea5973cebe0931d074f58b6c",
+      "excerptIsComplete": true,
+      "instructions": [
+        {
+          "offset": 0,
+          "op": "call",
+          "operand": "Rage.Game::get_GameTime",
+          "token": 167772227
+        },
+        {
+          "offset": 5,
+          "op": "ret",
+          "operand": null,
+          "token": null
+        }
+      ]
+    },
+    {
+      "type": "LosSantosAlive.NPC.Reflexes.Awareness.ReflexAwarenessService",
+      "method": "[private helper]",
+      "token": "0x0600067c",
+      "returns": "Rage.PoolHandle",
+      "parameters": [
+        "Rage.Entity"
+      ],
+      "ilSha256": "90249594d6011671268f5e095d90186bb7c65f606c17e3182480088691daa938",
+      "excerptIsComplete": true,
+      "instructions": [
+        {
+          "offset": 0,
+          "op": "ldarg.0",
+          "operand": null,
+          "token": null
+        },
+        {
+          "offset": 1,
+          "op": "callvirt",
+          "operand": "Rage.Entity::get_Handle",
+          "token": 167772422
+        },
+        {
+          "offset": 6,
+          "op": "ret",
+          "operand": null,
+          "token": null
+        }
+      ]
+    },
+    {
+      "type": "LosSantosAlive.NPC.Perception.PerceptionSnapshot",
+      "method": "Capture",
+      "token": "0x06000684",
+      "returns": "LosSantosAlive.NPC.Perception.PerceptionSnapshot",
+      "parameters": [],
+      "ilSha256": "de73ac93c86dc6696d6fa9f2d0f2dc05b2e843d576e348c0c4f316e1b4f52251",
+      "excerptIsComplete": false,
+      "instructions": [
+        {
+          "offset": 98,
+          "op": "stfld",
+          "operand": "LosSantosAlive.NPC.Perception.PerceptionSnapshot::Player",
+          "token": 67109902
+        },
+        {
+          "offset": 105,
+          "op": "stfld",
+          "operand": "LosSantosAlive.NPC.Perception.PerceptionSnapshot::AllPeds",
+          "token": 67109903
+        },
+        {
+          "offset": 112,
+          "op": "stfld",
+          "operand": "LosSantosAlive.NPC.Perception.PerceptionSnapshot::AllVehicles",
+          "token": 67109904
+        },
+        {
+          "offset": 123,
+          "op": "stfld",
+          "operand": "LosSantosAlive.NPC.Perception.PerceptionSnapshot::GameTime",
+          "token": 67109905
+        }
+      ]
+    },
+    {
+      "type": "LosSantosAlive.NPC.Perception.PerceptionSnapshot",
+      "method": "[private helper]",
+      "token": "0x0600068f",
+      "returns": "Rage.Ped[]",
+      "parameters": [],
+      "ilSha256": "4ffe91ef1b6b411f28b0c0e083ca7769d377661878649454c25cb14117348f9a",
+      "excerptIsComplete": true,
+      "instructions": [
+        {
+          "offset": 0,
+          "op": "call",
+          "operand": "Rage.World::GetAllPeds",
+          "token": 167772324
+        },
+        {
+          "offset": 5,
+          "op": "ret",
+          "operand": null,
+          "token": null
+        }
+      ]
+    },
+    {
+      "type": "LosSantosAlive.NPC.Perception.PerceptionSnapshot",
+      "method": "[private helper]",
+      "token": "0x06000690",
+      "returns": "Rage.Vehicle[]",
+      "parameters": [],
+      "ilSha256": "2a0c52b5583f56b7f25489db71396ce5140c85864e694da337637dc40266ee74",
+      "excerptIsComplete": true,
+      "instructions": [
+        {
+          "offset": 0,
+          "op": "call",
+          "operand": "Rage.World::GetAllVehicles",
+          "token": 167772321
+        },
+        {
+          "offset": 5,
+          "op": "ret",
+          "operand": null,
+          "token": null
+        }
+      ]
+    },
+    {
+      "type": "LosSantosAlive.NPC.Perception.PerceptionSystem",
+      "method": "TryGetSnapshot",
+      "token": "0x06000694",
+      "returns": "Boolean",
+      "parameters": [
+        "LosSantosAlive.NPC.Perception.PerceptionSnapshot&"
+      ],
+      "ilSha256": "d4c1bb690b3407f149c2663590734c378dcd0716b483199110ddec714f75fb45",
+      "excerptIsComplete": true,
+      "instructions": [
+        {
+          "offset": 0,
+          "op": "ldarg.0",
+          "operand": null,
+          "token": null
+        },
+        {
+          "offset": 1,
+          "op": "ldsfld",
+          "operand": "[private member]",
+          "token": 67109910
+        },
+        {
+          "offset": 6,
+          "op": "stind.ref",
+          "operand": null,
+          "token": null
+        },
+        {
+          "offset": 7,
+          "op": "ldc.i4",
+          "operand": "03A37E2F",
+          "token": null,
+          "value": 796828419
+        },
+        {
+          "offset": 12,
+          "op": "ldc.i4",
+          "operand": "7C039430",
+          "token": null,
+          "value": 815006588
+        },
+        {
+          "offset": 17,
+          "op": "xor",
+          "operand": null,
+          "token": null
+        },
+        {
+          "offset": 18,
+          "op": "dup",
+          "operand": null,
+          "token": null
+        },
+        {
+          "offset": 19,
+          "op": "stloc.0",
+          "operand": null,
+          "token": null
+        },
+        {
+          "offset": 20,
+          "op": "ldc.i4.4",
+          "operand": null,
+          "token": null
+        },
+        {
+          "offset": 21,
+          "op": "rem.un",
+          "operand": null,
+          "token": null
+        },
+        {
+          "offset": 22,
+          "op": "switch",
+          "operand": "040000001F00000036000000DCFFFFFF02000000",
+          "token": null,
+          "targets": [
+            74,
+            97,
+            7,
+            45
+          ]
+        },
+        {
+          "offset": 43,
+          "op": "br.s",
+          "operand": "34",
+          "token": null,
+          "targets": [
+            97
+          ]
+        },
+        {
+          "offset": 45,
+          "op": "ldarg.0",
+          "operand": null,
+          "token": null
+        },
+        {
+          "offset": 46,
+          "op": "ldind.ref",
+          "operand": null,
+          "token": null
+        },
+        {
+          "offset": 47,
+          "op": "brfalse.s",
+          "operand": "08",
+          "token": null,
+          "targets": [
+            57
+          ]
+        },
+        {
+          "offset": 49,
+          "op": "ldc.i4",
+          "operand": "6678F01D",
+          "token": null,
+          "value": 502298726
+        },
+        {
+          "offset": 54,
+          "op": "dup",
+          "operand": null,
+          "token": null
+        },
+        {
+          "offset": 55,
+          "op": "br.s",
+          "operand": "06",
+          "token": null,
+          "targets": [
+            63
+          ]
+        },
+        {
+          "offset": 57,
+          "op": "ldc.i4",
+          "operand": "ABA84D06",
+          "token": null,
+          "value": 105752747
+        },
+        {
+          "offset": 62,
+          "op": "dup",
+          "operand": null,
+          "token": null
+        },
+        {
+          "offset": 63,
+          "op": "pop",
+          "operand": null,
+          "token": null
+        },
+        {
+          "offset": 64,
+          "op": "ldloc.0",
+          "operand": null,
+          "token": null
+        },
+        {
+          "offset": 65,
+          "op": "ldc.i4",
+          "operand": "52978B31",
+          "token": null,
+          "value": 831231826
+        },
+        {
+          "offset": 70,
+          "op": "mul",
+          "operand": null,
+          "token": null
+        },
+        {
+          "offset": 71,
+          "op": "xor",
+          "operand": null,
+          "token": null
+        },
+        {
+          "offset": 72,
+          "op": "br.s",
+          "operand": "C2",
+          "token": null,
+          "targets": [
+            12
+          ]
+        },
+        {
+          "offset": 74,
+          "op": "ldarg.0",
+          "operand": null,
+          "token": null
+        },
+        {
+          "offset": 75,
+          "op": "ldind.ref",
+          "operand": null,
+          "token": null
+        },
+        {
+          "offset": 76,
+          "op": "callvirt",
+          "operand": "LosSantosAlive.NPC.Perception.PerceptionSnapshot::get_IsValid",
+          "token": 100664960
+        },
+        {
+          "offset": 81,
+          "op": "ret",
+          "operand": null,
+          "token": null
+        },
+        {
+          "offset": 82,
+          "op": "ldloc.0",
+          "operand": null,
+          "token": null
+        },
+        {
+          "offset": 83,
+          "op": "ldc.i4",
+          "operand": "01F29C7F",
+          "token": null,
+          "value": 2140992001
+        },
+        {
+          "offset": 88,
+          "op": "mul",
+          "operand": null,
+          "token": null
+        },
+        {
+          "offset": 89,
+          "op": "ldc.i4",
+          "operand": "B1AB3BDB",
+          "token": null,
+          "value": -616846415
+        },
+        {
+          "offset": 94,
+          "op": "xor",
+          "operand": null,
+          "token": null
+        },
+        {
+          "offset": 95,
+          "op": "br.s",
+          "operand": "AB",
+          "token": null,
+          "targets": [
+            12
+          ]
+        },
+        {
+          "offset": 97,
+          "op": "ldc.i4.0",
+          "operand": null,
+          "token": null
+        },
+        {
+          "offset": 98,
+          "op": "ret",
+          "operand": null,
+          "token": null
+        }
+      ]
+    },
+    {
+      "type": "LosSantosAlive.Bridge.SpecialTurns.SpecialGeminiTurnScheduler",
+      "method": "Submit",
+      "token": "0x06001598",
+      "returns": "Boolean",
+      "parameters": [
+        "LosSantosAlive.Bridge.SpecialTurns.SpecialGeminiTurnRequest"
+      ],
+      "ilSha256": "398243b2d3677b9f3fc1031da85483ae213e74d8805452a40604b21d1a0727ca",
+      "excerptIsComplete": true,
+      "instructions": [
+        {
+          "offset": 0,
+          "op": "ldarg.0",
+          "operand": null,
+          "token": null
+        },
+        {
+          "offset": 1,
+          "op": "ldc.i4.0",
+          "operand": null,
+          "token": null
+        },
+        {
+          "offset": 2,
+          "op": "call",
+          "operand": "[private member]",
+          "token": 100668826
+        },
+        {
+          "offset": 7,
+          "op": "ret",
+          "operand": null,
+          "token": null
+        }
+      ]
+    },
+    {
+      "type": "LosSantosAlive.Bridge.SpecialTurns.SpecialGeminiTurnScheduler",
+      "method": "SubmitAfterCurrentTurn",
+      "token": "0x06001599",
+      "returns": "Boolean",
+      "parameters": [
+        "LosSantosAlive.Bridge.SpecialTurns.SpecialGeminiTurnRequest"
+      ],
+      "ilSha256": "d82c940acdf13539215281e8778e60e13a00fa64786e7c6b7bf5b74c9afffe0a",
+      "excerptIsComplete": true,
+      "instructions": [
+        {
+          "offset": 0,
+          "op": "ldarg.0",
+          "operand": null,
+          "token": null
+        },
+        {
+          "offset": 1,
+          "op": "ldc.i4.1",
+          "operand": null,
+          "token": null
+        },
+        {
+          "offset": 2,
+          "op": "call",
+          "operand": "[private member]",
+          "token": 100668826
+        },
+        {
+          "offset": 7,
+          "op": "ret",
+          "operand": null,
+          "token": null
+        }
+      ]
+    },
+    {
+      "type": "LosSantosAlive.Bridge.SpecialTurns.SpecialGeminiTurnScheduler",
+      "method": "[private helper]",
+      "token": "0x0600159a",
+      "returns": "Boolean",
+      "parameters": [
+        "LosSantosAlive.Bridge.SpecialTurns.SpecialGeminiTurnRequest",
+        "Boolean"
+      ],
+      "ilSha256": "e4c756081f071504a98c49a2c06ef611f3d1aed3f0505479dcfeb0bbdc8317a4",
+      "excerptIsComplete": false,
+      "instructions": [
+        {
+          "offset": 115,
+          "op": "call",
+          "operand": "LosSantosAlive.Bridge.SpecialTurns.SpecialGeminiTurnService::ReadPlayerTurnVersion",
+          "token": 100668858
+        },
+        {
+          "offset": 147,
+          "op": "ldfld",
+          "operand": "LosSantosAlive.Bridge.SpecialTurns.SpecialGeminiTurnRequest::SpeakerPed",
+          "token": 67111980
+        },
+        {
+          "offset": 233,
+          "op": "ldfld",
+          "operand": "LosSantosAlive.Bridge.SpecialTurns.SpecialGeminiTurnRequest::DedupeKey",
+          "token": 67111985
+        },
+        {
+          "offset": 244,
+          "op": "ldfld",
+          "operand": "LosSantosAlive.Bridge.SpecialTurns.SpecialGeminiTurnRequest::SpeakerPed",
+          "token": 67111980
+        },
+        {
+          "offset": 312,
+          "op": "ldfld",
+          "operand": "LosSantosAlive.Bridge.SpecialTurns.SpecialGeminiTurnRequest::DelayMilliseconds",
+          "token": 67111988
+        },
+        {
+          "offset": 355,
+          "op": "call",
+          "operand": "LosSantosAlive.Bridge.SpecialTurns.SpecialGeminiTurnService::SendNow",
+          "token": 100668859
+        },
+        {
+          "offset": 531,
+          "op": "callvirt",
+          "operand": "System.Collections.Generic.Dictionary`2<String,Int64>::set_Item",
+          "token": 167773606
+        },
+        {
+          "offset": 622,
+          "op": "ldfld",
+          "operand": "LosSantosAlive.Bridge.SpecialTurns.SpecialGeminiTurnRequest::SpeakerPed",
+          "token": 67111980
+        },
+        {
+          "offset": 635,
+          "op": "call",
+          "operand": "Rage.PoolHandle::get_Value",
+          "token": 167772490
+        },
+        {
+          "offset": 687,
+          "op": "ldfld",
+          "operand": "LosSantosAlive.Bridge.SpecialTurns.SpecialGeminiTurnRequest::ListenerPed",
+          "token": 67111981
+        },
+        {
+          "offset": 708,
+          "op": "ldfld",
+          "operand": "LosSantosAlive.Bridge.SpecialTurns.SpecialGeminiTurnRequest::ListenerPed",
+          "token": 67111981
+        },
+        {
+          "offset": 713,
+          "op": "callvirt",
+          "operand": "Rage.Entity::get_Handle",
+          "token": 167772422
+        },
+        {
+          "offset": 721,
+          "op": "call",
+          "operand": "Rage.PoolHandle::get_Value",
+          "token": 167772490
+        },
+        {
+          "offset": 766,
+          "op": "call",
+          "operand": "System.String::Concat",
+          "token": 167772287
+        },
+        {
+          "offset": 771,
+          "op": "call",
+          "operand": "Rage.GameFiber::StartNew",
+          "token": 167772617
+        },
+        {
+          "offset": 826,
+          "op": "call",
+          "operand": "System.Boolean::ToString",
+          "token": 167772437
+        },
+        {
+          "offset": 858,
+          "op": "call",
+          "operand": "System.Int32::ToString",
+          "token": 167772388
+        },
+        {
+          "offset": 864,
+          "op": "call",
+          "operand": "System.String::Concat",
+          "token": 167772389
+        }
+      ]
+    },
+    {
+      "type": "LosSantosAlive.Bridge.SpecialTurns.SpecialGeminiTurnScheduler",
+      "method": "[private helper]",
+      "token": "0x060015a4",
+      "returns": "Rage.Ped",
+      "parameters": [
+        "UInt32"
+      ],
+      "ilSha256": "64e5e621c2d5008c89132ba206ce4fa495f47b40688e265e81b8db74cd866663",
+      "excerptIsComplete": true,
+      "instructions": [
+        {
+          "offset": 0,
+          "op": "ldarg.0",
+          "operand": null,
+          "token": null
+        },
+        {
+          "offset": 1,
+          "op": "call",
+          "operand": "LosSantosAlive.NPC.Perception.PerceptionSystem::FindPedByHandle",
+          "token": 100664984
+        },
+        {
+          "offset": 6,
+          "op": "ret",
+          "operand": null,
+          "token": null
+        }
+      ]
+    },
+    {
+      "type": "[nested scheduler closure]",
+      "method": "[private helper]",
+      "token": "0x060015b8",
+      "returns": "Void",
+      "parameters": [],
+      "ilSha256": "393e582241831e79ac3cf97ebb592754d290c24dc56c285236c32c6e589a8735",
+      "excerptIsComplete": false,
+      "instructions": [
+        {
+          "offset": 146,
+          "op": "ldfld",
+          "operand": "LosSantosAlive.Bridge.SpecialTurns.SpecialGeminiTurnRequest::DelayMilliseconds",
+          "token": 67111988
+        },
+        {
+          "offset": 204,
+          "op": "call",
+          "operand": "LosSantosAlive.Bridge.SpecialTurns.SpecialGeminiTurnService::SendNow",
+          "token": 100668859
+        },
+        {
+          "offset": 247,
+          "op": "ldfld",
+          "operand": "LosSantosAlive.Bridge.SpecialTurns.SpecialGeminiTurnRequest::DelayMilliseconds",
+          "token": 67111988
+        },
+        {
+          "offset": 258,
+          "op": "ldfld",
+          "operand": "LosSantosAlive.Bridge.SpecialTurns.SpecialGeminiTurnRequest::CancelIfPlayerStartsTurn",
+          "token": 67111989
+        },
+        {
+          "offset": 350,
+          "op": "ldfld",
+          "operand": "LosSantosAlive.Bridge.SpecialTurns.SpecialGeminiTurnRequest::CancelIfPlayerStartsTurn",
+          "token": 67111989
+        },
+        {
+          "offset": 433,
+          "op": "call",
+          "operand": "System.Boolean::ToString",
+          "token": 167772437
+        },
+        {
+          "offset": 454,
+          "op": "call",
+          "operand": "System.String::Concat",
+          "token": 167772289
+        },
+        {
+          "offset": 673,
+          "op": "call",
+          "operand": "System.Int32::ToString",
+          "token": 167772388
+        },
+        {
+          "offset": 678,
+          "op": "call",
+          "operand": "System.String::Concat",
+          "token": 167772289
+        },
+        {
+          "offset": 758,
+          "op": "callvirt",
+          "operand": "System.Object::ToString",
+          "token": 167772361
+        },
+        {
+          "offset": 763,
+          "op": "call",
+          "operand": "System.String::Concat",
+          "token": 167772287
+        },
+        {
+          "offset": 768,
+          "op": "call",
+          "operand": "Rage.Game::LogTrivial",
+          "token": 167772288
+        }
+      ]
+    },
+    {
+      "type": "LosSantosAlive.Bridge.SpecialTurns.SpecialGeminiTurnService",
+      "method": "SendNow",
+      "token": "0x060015bb",
+      "returns": "Boolean",
+      "parameters": [
+        "LosSantosAlive.Bridge.SpecialTurns.SpecialGeminiTurnRequest"
+      ],
+      "ilSha256": "1f0b548a2a78a8e6c01d67eedf2a68d8153503d8df7dc4bab1c3835eee3b02d1",
+      "excerptIsComplete": false,
+      "instructions": [
+        {
+          "offset": 154,
+          "op": "ldfld",
+          "operand": "LosSantosAlive.Bridge.SpecialTurns.SpecialGeminiTurnRequest::ListenerPed",
+          "token": 67111981
+        },
+        {
+          "offset": 186,
+          "op": "ldfld",
+          "operand": "LosSantosAlive.Bridge.SpecialTurns.SpecialGeminiTurnRequest::SpeechTargetPed",
+          "token": 67111982
+        },
+        {
+          "offset": 241,
+          "op": "ldfld",
+          "operand": "LosSantosAlive.Bridge.SpecialTurns.SpecialGeminiTurnRequest::Reason",
+          "token": 67111984
+        },
+        {
+          "offset": 275,
+          "op": "ldfld",
+          "operand": "LosSantosAlive.Bridge.SpecialTurns.SpecialGeminiTurnRequest::DedupeKey",
+          "token": 67111985
+        },
+        {
+          "offset": 309,
+          "op": "ldfld",
+          "operand": "LosSantosAlive.Bridge.SpecialTurns.SpecialGeminiTurnRequest::FaceListener",
+          "token": 67111986
+        },
+        {
+          "offset": 338,
+          "op": "ldfld",
+          "operand": "LosSantosAlive.Bridge.SpecialTurns.SpecialGeminiTurnRequest::InterruptExisting",
+          "token": 67111987
+        },
+        {
+          "offset": 368,
+          "op": "call",
+          "operand": "LosSantosAlive.Bridge.GeminiBridgeClient::SendJson",
+          "token": 100668754
+        },
+        {
+          "offset": 417,
+          "op": "ldfld",
+          "operand": "LosSantosAlive.Bridge.SpecialTurns.SpecialGeminiTurnRequest::Reason",
+          "token": 67111984
+        },
+        {
+          "offset": 518,
+          "op": "ldfld",
+          "operand": "LosSantosAlive.Bridge.SpecialTurns.SpecialGeminiTurnRequest::SpeakerPed",
+          "token": 67111980
+        },
+        {
+          "offset": 535,
+          "op": "ldfld",
+          "operand": "LosSantosAlive.Bridge.SpecialTurns.SpecialGeminiTurnRequest::RequireCurrentPlayerConversation",
+          "token": 67111990
+        },
+        {
+          "offset": 599,
+          "op": "ldfld",
+          "operand": "LosSantosAlive.Bridge.SpecialTurns.SpecialGeminiTurnRequest::Content",
+          "token": 67111983
+        },
+        {
+          "offset": 640,
+          "op": "call",
+          "operand": "LosSantosAlive.Bridge.GeminiBridgeClient::get_IsConnected",
+          "token": 100668739
+        },
+        {
+          "offset": 820,
+          "op": "ldfld",
+          "operand": "LosSantosAlive.Bridge.SpecialTurns.SpecialGeminiTurnRequest::SkipIfSpeakerBusy",
+          "token": 67111991
+        }
+      ]
+    }
+  ],
+  "damageMethods": [
+    {
+      "type": "DamageTrackerLib.DamageTrackerService",
+      "method": "Run",
+      "token": "0x0600000d",
+      "returns": "Void",
+      "parameters": [
+        "Boolean"
+      ],
+      "ilSha256": "f60d71d17a5c05e5c4fe0a20d6f49f912da448e114192d8a4394bf35b3832625",
+      "excerptIsComplete": false,
+      "instructions": [
+        {
+          "offset": 12,
+          "op": "call",
+          "operand": "System.IO.MemoryMappedFiles.MemoryMappedFile::CreateOrOpen",
+          "token": 167772201
+        },
+        {
+          "offset": 19,
+          "op": "callvirt",
+          "operand": "System.IO.MemoryMappedFiles.MemoryMappedFile::CreateViewAccessor",
+          "token": 167772202
+        },
+        {
+          "offset": 31,
+          "op": "call",
+          "operand": "Rage.GameFiber::Yield",
+          "token": 167772204
+        },
+        {
+          "offset": 39,
+          "op": "callvirt",
+          "operand": "System.IO.Stream::SetLength",
+          "token": 167772205
+        },
+        {
+          "offset": 45,
+          "op": "callvirt",
+          "operand": "System.IO.UnmanagedMemoryAccessor::get_Capacity",
+          "token": 167772206
+        },
+        {
+          "offset": 65,
+          "op": "callvirt",
+          "operand": "System.IO.UnmanagedMemoryAccessor::ReadArray",
+          "token": 721420291
+        },
+        {
+          "offset": 72,
+          "op": "call",
+          "operand": "DamageTrackerLib.DamageTrackerService::IsByteArrayZero",
+          "token": 100663314
+        },
+        {
+          "offset": 85,
+          "op": "callvirt",
+          "operand": "System.IO.Stream::Write",
+          "token": 167772208
+        },
+        {
+          "offset": 93,
+          "op": "callvirt",
+          "operand": "System.IO.Stream::set_Position",
+          "token": 167772209
+        },
+        {
+          "offset": 99,
+          "op": "callvirt",
+          "operand": "System.IO.Stream::get_Length",
+          "token": 167772210
+        },
+        {
+          "offset": 108,
+          "op": "ldsfld",
+          "operand": "DamageTrackerLib.DamageTrackerService::BinaryFormatter",
+          "token": 67108871
+        },
+        {
+          "offset": 114,
+          "op": "callvirt",
+          "operand": "System.Runtime.Serialization.Formatters.Binary.BinaryFormatter::Deserialize",
+          "token": 167772211
+        },
+        {
+          "offset": 128,
+          "op": "ldfld",
+          "operand": "DamageTrackerLib.DamageInfo.DamageInfoData::PedDamageInfoList",
+          "token": 67108956
+        },
+        {
+          "offset": 150,
+          "op": "call",
+          "operand": "DamageTrackerLib.DamageTrackerService::InvokePedDamageEvent",
+          "token": 100663310
+        },
+        {
+          "offset": 171,
+          "op": "ldfld",
+          "operand": "DamageTrackerLib.DamageInfo.DamageInfoData::VehDamageInfoList",
+          "token": 67108957
+        },
+        {
+          "offset": 193,
+          "op": "call",
+          "operand": "DamageTrackerLib.DamageTrackerService::InvokeVehicleDamageEvent",
+          "token": 100663311
+        },
+        {
+          "offset": 221,
+          "op": "callvirt",
+          "operand": "System.IDisposable::Dispose",
+          "token": 167772212
+        },
+        {
+          "offset": 231,
+          "op": "callvirt",
+          "operand": "System.IDisposable::Dispose",
+          "token": 167772212
+        },
+        {
+          "offset": 241,
+          "op": "callvirt",
+          "operand": "System.IDisposable::Dispose",
+          "token": 167772212
+        }
+      ]
+    },
+    {
+      "type": "DamageTrackerLib.DamageTrackerService",
+      "method": "InvokePedDamageEvent",
+      "token": "0x0600000e",
+      "returns": "Void",
+      "parameters": [
+        "DamageTrackerLib.DamageInfo.PedDamageInfo",
+        "Boolean"
+      ],
+      "ilSha256": "8684d315249121b5862cfb935939ea896c92d53920bbd43243ae6b8023e354d4",
+      "excerptIsComplete": false,
+      "instructions": [
+        {
+          "offset": 1,
+          "op": "ldfld",
+          "operand": "DamageTrackerLib.DamageInfo.PedDamageInfo::PedHandle",
+          "token": 67108996
+        },
+        {
+          "offset": 6,
+          "op": "call",
+          "operand": "Rage.PoolHandle::op_Implicit",
+          "token": 167772213
+        },
+        {
+          "offset": 11,
+          "op": "call",
+          "operand": "DamageTrackerLib.DamageTrackerService::TryGetPedByHandle",
+          "token": 100663312
+        },
+        {
+          "offset": 18,
+          "op": "call",
+          "operand": "Rage.Entity::op_Implicit",
+          "token": 167772214
+        },
+        {
+          "offset": 35,
+          "op": "callvirt",
+          "operand": "Rage.Entity::get_Model",
+          "token": 167772215
+        },
+        {
+          "offset": 43,
+          "op": "call",
+          "operand": "Rage.Model::get_Name",
+          "token": 167772216
+        },
+        {
+          "offset": 49,
+          "op": "ldfld",
+          "operand": "DamageTrackerLib.DamageInfo.PedDamageInfo::WeaponInfo",
+          "token": 67109000
+        },
+        {
+          "offset": 54,
+          "op": "ldfld",
+          "operand": "DamageTrackerLib.DamageInfo.WeaponDamageInfo::Hash",
+          "token": 67109007
+        },
+        {
+          "offset": 65,
+          "op": "ldfld",
+          "operand": "DamageTrackerLib.DamageInfo.PedDamageInfo::AttackerPedHandle",
+          "token": 67108997
+        },
+        {
+          "offset": 75,
+          "op": "call",
+          "operand": "System.String::Format",
+          "token": 167772217
+        },
+        {
+          "offset": 80,
+          "op": "call",
+          "operand": "Rage.Game::LogTrivial",
+          "token": 167772190
+        },
+        {
+          "offset": 86,
+          "op": "ldfld",
+          "operand": "DamageTrackerLib.DamageInfo.PedDamageInfo::AttackerPedHandle",
+          "token": 67108997
+        },
+        {
+          "offset": 94,
+          "op": "ldfld",
+          "operand": "DamageTrackerLib.DamageInfo.PedDamageInfo::AttackerPedHandle",
+          "token": 67108997
+        },
+        {
+          "offset": 99,
+          "op": "call",
+          "operand": "Rage.PoolHandle::op_Implicit",
+          "token": 167772213
+        },
+        {
+          "offset": 104,
+          "op": "call",
+          "operand": "DamageTrackerLib.DamageTrackerService::TryGetPedByHandle",
+          "token": 100663312
+        },
+        {
+          "offset": 114,
+          "op": "callvirt",
+          "operand": "Rage.Ped::get_IsPlayer",
+          "token": 167772218
+        },
+        {
+          "offset": 121,
+          "op": "ldsfld",
+          "operand": "DamageTrackerLib.DamageTrackerService::OnPlayerTookDamage",
+          "token": 67108869
+        },
+        {
+          "offset": 128,
+          "op": "ldsfld",
+          "operand": "DamageTrackerLib.DamageTrackerService::OnPlayerTookDamage",
+          "token": 67108869
+        },
+        {
+          "offset": 136,
+          "op": "callvirt",
+          "operand": "DamageTrackerLib.DamageTrackerService+PedTookDamageDelegate::Invoke",
+          "token": 100663317
+        },
+        {
+          "offset": 142,
+          "op": "ldsfld",
+          "operand": "DamageTrackerLib.DamageTrackerService::OnPedTookDamage",
+          "token": 67108868
+        },
+        {
+          "offset": 149,
+          "op": "ldsfld",
+          "operand": "DamageTrackerLib.DamageTrackerService::OnPedTookDamage",
+          "token": 67108868
+        },
+        {
+          "offset": 157,
+          "op": "callvirt",
+          "operand": "DamageTrackerLib.DamageTrackerService+PedTookDamageDelegate::Invoke",
+          "token": 100663317
+        }
+      ]
+    },
+    {
+      "type": "DamageTrackerLib.DamageTrackerService",
+      "method": "InvokeVehicleDamageEvent",
+      "token": "0x0600000f",
+      "returns": "Void",
+      "parameters": [
+        "DamageTrackerLib.DamageInfo.VehDamageInfo",
+        "Boolean"
+      ],
+      "ilSha256": "e6d344e085ba4196ce779c0984b7ebdd9d578d7b05af8db2f29cefac36cdd1c2",
+      "excerptIsComplete": false,
+      "instructions": [
+        {
+          "offset": 1,
+          "op": "ldfld",
+          "operand": "DamageTrackerLib.DamageInfo.VehDamageInfo::VehHandle",
+          "token": 67109002
+        },
+        {
+          "offset": 6,
+          "op": "call",
+          "operand": "Rage.PoolHandle::op_Implicit",
+          "token": 167772213
+        },
+        {
+          "offset": 11,
+          "op": "call",
+          "operand": "DamageTrackerLib.DamageTrackerService::TryGetVehByHandle",
+          "token": 100663313
+        },
+        {
+          "offset": 18,
+          "op": "call",
+          "operand": "Rage.Entity::op_Implicit",
+          "token": 167772214
+        },
+        {
+          "offset": 35,
+          "op": "callvirt",
+          "operand": "Rage.Entity::get_Model",
+          "token": 167772215
+        },
+        {
+          "offset": 43,
+          "op": "call",
+          "operand": "Rage.Model::get_Name",
+          "token": 167772216
+        },
+        {
+          "offset": 49,
+          "op": "ldfld",
+          "operand": "DamageTrackerLib.DamageInfo.VehDamageInfo::WeaponInfo",
+          "token": 67109005
+        },
+        {
+          "offset": 54,
+          "op": "ldfld",
+          "operand": "DamageTrackerLib.DamageInfo.WeaponDamageInfo::Hash",
+          "token": 67109007
+        },
+        {
+          "offset": 65,
+          "op": "ldfld",
+          "operand": "DamageTrackerLib.DamageInfo.VehDamageInfo::AttackerPedHandle",
+          "token": 67109003
+        },
+        {
+          "offset": 75,
+          "op": "call",
+          "operand": "System.String::Format",
+          "token": 167772217
+        },
+        {
+          "offset": 80,
+          "op": "call",
+          "operand": "Rage.Game::LogTrivial",
+          "token": 167772190
+        },
+        {
+          "offset": 86,
+          "op": "ldfld",
+          "operand": "DamageTrackerLib.DamageInfo.VehDamageInfo::AttackerPedHandle",
+          "token": 67109003
+        },
+        {
+          "offset": 94,
+          "op": "ldfld",
+          "operand": "DamageTrackerLib.DamageInfo.VehDamageInfo::AttackerPedHandle",
+          "token": 67109003
+        },
+        {
+          "offset": 99,
+          "op": "call",
+          "operand": "Rage.PoolHandle::op_Implicit",
+          "token": 167772213
+        },
+        {
+          "offset": 104,
+          "op": "call",
+          "operand": "DamageTrackerLib.DamageTrackerService::TryGetPedByHandle",
+          "token": 100663312
+        },
+        {
+          "offset": 113,
+          "op": "ldsfld",
+          "operand": "DamageTrackerLib.DamageTrackerService::OnVehicleTookDamage",
+          "token": 67108870
+        },
+        {
+          "offset": 126,
+          "op": "callvirt",
+          "operand": "DamageTrackerLib.DamageTrackerService+VehTookDamageDelegate::Invoke",
+          "token": 100663321
+        }
+      ]
+    }
+  ]
+}
