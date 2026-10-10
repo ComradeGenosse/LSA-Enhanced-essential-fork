@@ -166,10 +166,81 @@ class Program
               DirectorAdmission.MaxExactWireGeneration,3,true,false,true,true),
               "maximum exact generation callback completes");
         CorePlaybackContract();
+        SpecialTurnFences();
         FailedCallbacks();
         C06Contract();
         CodecContract();
         ChannelRoundtrip();
+    }
+
+    static void SpecialTurnFences()
+    {
+        // Pinned Core version covers only special player turns, but a change
+        // during a native PS6 ticket is an independent hard veto. It cannot
+        // certify all other player text/mic turns idle.
+        special=7;var a=Request(48);
+        var stale=New();
+        Check(stale.Handle(a).Status=="reserved","source revision available at reserve");
+        special=8;
+        Check(stale.Handle(Request(48,"submit")).Status=="unsafe",
+              "player special-turn takeover between reserve and submit vetoes");
+        Check(!stale.HasActive,"source version takeover retires active ticket");
+
+        special=10;a=Request(49);var afterSubmit=New();
+        Check(afterSubmit.Handle(a).Status=="reserved" &&
+              afterSubmit.Handle(Request(49,"submit")).Status=="submitted",
+              "stable special-turn revision admits original submit in isolated fixture");
+        special=11;
+        Check(!afterSubmit.BindActualTuple(a.TicketId,"17","stale-special",1,4),
+              "player special-turn takeover between submit and Core bind vetoes");
+        Check(!afterSubmit.HasActive,"post-submit takeover cancels original ticket");
+
+        special=12;a=Request(50);var afterBind=New();
+        Check(afterBind.Handle(a).Status=="reserved" &&
+              afterBind.Handle(Request(50,"submit")).Status=="submitted" &&
+              afterBind.BindActualTuple(a.TicketId,"17","bound-special",2,4),
+              "bound special-turn baseline fixture");
+        special=13;
+        Check(!afterBind.NotePlaybackStarted(a.TicketId,"17","bound-special",2,4),
+              "player takeover at actual Core playback start cannot grant start receipt");
+        Check(!afterBind.HasActive,"started-callback takeover releases native ticket");
+
+        special=14;a=Request(51);var afterStart=New();
+        Check(afterStart.Handle(a).Status=="reserved" &&
+              afterStart.Handle(Request(51,"submit")).Status=="submitted" &&
+              afterStart.BindActualTuple(a.TicketId,"17","started-special",2,4) &&
+              afterStart.NotePlaybackStarted(a.TicketId,"17","started-special",2,4),
+              "original Core-start fixture with stable revision");
+        special=15;
+        Check(!afterStart.Complete(a.TicketId,"17","started-special",2,4,true,false,true,true),
+              "version change before successful terminal cannot consume original PS3 grant");
+        Check(!afterStart.HasActive,"Core completion with stale revision retires ticket");
+
+        special=-1;a=Request(52);var unreadable=New();
+        Check(unreadable.Handle(a).Status=="unsafe"&&!unreadable.HasActive,
+              "negative Core revision cannot be assumed current");
+        special=16;a=Request(53);
+        var throwing=new DirectorAdmission(()=>now,r=>true,()=>host,()=>world,true,
+            ()=>throw new InvalidOperationException("Core unavailable"));
+        Check(throwing.Handle(a).Status=="unsafe"&&!throwing.HasActive,
+              "throwing pinned Core revision read vetoes rather than guesses");
+        var missing=new DirectorAdmission(()=>now,r=>true,()=>host,()=>world,true);
+        Check(missing.Handle(Request(54)).Status=="unsafe",
+              "even independently all-positive injected C06 cannot reserve without Core source");
+
+        special=17;var racing=new DirectorAdmission(()=>now,
+            (r,stage)=>{if(stage=="reserve")special++;return true;},
+            ()=>host,()=>world,true,()=>special);
+        Check(racing.Handle(Request(55)).Status=="unsafe"&&!racing.HasActive,
+              "Core revision increment *during* reserve check vetoes before accepting");
+        special=18;a=Request(56);var recheck=new DirectorAdmission(()=>now,
+            (r,stage)=>{if(stage=="submit")special++;return true;},
+            ()=>host,()=>world,true,()=>special);
+        Check(recheck.Handle(a).Status=="reserved",
+              "baseline before in-check special-turn takeover");
+        Check(recheck.Handle(Request(56,"submit")).Status=="unsafe" && !recheck.HasActive,
+              "Core revision increment *during* submit proof cannot sneak through");
+        special=7;
     }
 
     static void CorePlaybackContract()
