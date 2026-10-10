@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { ShadowRuntime } from '../src/perception/shadowRuntime.mjs';
+import { selectKnowledge } from '../src/context/knowledgeSelector.mjs';
 import { CAPABILITIES } from '../src/perception/contracts.mjs';
 import { captureKnowledgeInputs,assertKnowledgeCurrent,validateActorCapture,releaseOwnedKnowledge,assertOwnedKnowledgeCurrent,assertKnowledgeItemsCurrent } from '../src/context/knowledgeInputs.mjs';
 const fixture=()=>{
@@ -88,6 +89,29 @@ test('PR21 T31 a new P0 generation captures later witnessed signal while old PS3
   assert.ok(later.pairs.some(p=>p.observation.revision>version ||
     p.observation.observedAt.gameTick>first.pairs[0].observation.observedAt.gameTick),
     'new generation must reflect the newer native-qualified evidence or revision');
+});
+test('original native-qualified gunfire heard by another Ped projects into frozen PS4 PERCEIVED context',()=>{
+ const f=fixture(),playerRef=randomUUID();
+ assert.equal(f.send('anchors',[{captureRef:playerRef,kind:'player',observer:false,owned:false}]),true);
+ assert.equal(f.send('signal',{
+   signalId:randomUUID(),producer:'shooting',producerSequence:1,
+   kind:'firing',target:null,source:playerRef,gameTick:10,ageMs:0,facts:{},
+   witnessReceipts:[{
+     observer:{captureRef:f.captureRef,kind:'ped'},sampledGameTick:10,
+     status:'witnessed',reason:'audibility_model',
+     knowsSource:false,knowsTarget:false,
+     evidence:{channel:'auditory',basis:'audibility_model',sampledGameTick:10},
+   }],
+ }),true);
+ const inputs=f.capture();
+ assert.equal(inputs.reason,null);
+ assert.equal(inputs.anchorStatus,'verified_observer');
+ assert.ok(inputs.pairs.some(pair=>pair.observation.eventType==='firing_burst'));
+ const selected=selectKnowledge(inputs);
+ assert.equal(selected.observations.some(o=>o.event==='firing_burst' &&
+     o.claims.some(c=>c.kind==='gunfire_sound'&&c.origin==='unidentified')),true);
+ assert.equal(JSON.stringify(selected).includes(playerRef),false,
+   'speaker must only receive a safe unidentified gunfire sound, never private shooter captureRef');
 });
 test('actor capture schema is closed and ownership cannot be inferred',()=>{
   const f=fixture();for(const patch of [{version:2},{characterId:randomUUID()},{worldEpoch:0},{sampledGameTick:-1},{encounterId:randomUUID()}]) assert.equal(Boolean(validateActorCapture({...f.block,...patch})),false);
