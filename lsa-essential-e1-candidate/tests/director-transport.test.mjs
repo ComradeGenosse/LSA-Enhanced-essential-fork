@@ -73,6 +73,11 @@ test('exact native PS6 request response binds once with independent status and d
  const writes=[];
  client.socket={destroyed:false,writable:true,writableLength:0,write:line=>{writes.push(JSON.parse(line));return true;},destroy:()=>{}};
  assert.equal(client.runtime.ingest(hello,{authenticated:true}),true);
+ // The transport protocol test isolates native status matching. Production
+ // source truth remains the original PS3 ledger; this stub grants *only*
+ // transport exercise and cannot turn on native admission.
+ const originalGrant=()=>Object.freeze({source:'test-original-ledger'});
+ client.runtime.directorOriginalEntitlementFor=originalGrant;
  const original={operation:'reserve',ticket:{ticketId:ticket,dedupeKey:'ps:'+ticket},
   proposal:{speakerCaptureRef:'e1111111-1111-4111-8111-111111111111',
    playerCaptureRef:'f1111111-1111-4111-8111-111111111111',
@@ -98,5 +103,44 @@ test('exact native PS6 request response binds once with independent status and d
  client.cancelDirectorRequests();
  assert.equal(await late,null);
  assert.equal(client.directorPending.size,0);
+ client.stop();
+});
+
+test('native transport refuses reserve/submit without live original PS3 ledger; cancellation survives revocation',async()=>{
+ const client=new IntelligenceClient({mode:'shadow',pipeName:'LSA.Intelligence.v1'},
+  {now:()=>1000,report:()=>{}});
+ let writes=0;client.socket={destroyed:false,writable:true,writableLength:0,
+  write:()=>{writes++;return true;},destroy:()=>{}};
+ assert.equal(client.runtime.ingest(hello,{authenticated:true}),true);
+ const original={operation:'reserve',ticket:{ticketId:ticket,dedupeKey:'ps:'+ticket},
+  proposal:{kind:'speech',speakerCaptureRef:'e1111111-1111-4111-8111-111111111111',
+   playerCaptureRef:'f1111111-1111-4111-8111-111111111111',
+   observationId:'81111111-1111-4111-8111-111111111111',
+   observationRevision:1,decisionKey:'ps3:qualified',policyVersion:1},
+  stamp:{hostRunId:host,worldEpoch:1,
+   ownerIncarnationId:'91111111-1111-4111-8111-111111111111',
+   proofRevision:1,playerTurnVersion:0,policyVersion:1},ageMs:100};
+ assert.equal(client.directorOriginalEntitlement(original.proposal,original.stamp),null);
+ assert.equal(await client.requestDirector(original),null);
+ assert.equal(await client.requestDirector({...original,operation:'submit'}),null);
+ assert.equal(writes,0,'no outbound native reserve or submit without original PS3');
+ let present=true;
+ client.runtime.directorOriginalEntitlementFor=()=>present?
+   Object.freeze({source:'original_companion_ps2_ps3'}):null;
+ const first=client.requestDirector(original);
+ assert.equal(writes,1);
+ assert.equal(client.acceptDirectorResponse({ticketId:ticket,status:'reserved'}),true);
+ assert.deepEqual(await first,{ticketId:ticket,status:'reserved'});
+ present=false;
+ assert.equal(await client.requestDirector({...original,operation:'submit'}),null);
+ assert.equal(writes,1,'revocation after reserve vetoes native submit');
+ const cancellation=client.requestDirector({...original,operation:'cancel'});
+ assert.equal(writes,2,'native cancel remains possible after the original PS3 grant disappears');
+ assert.equal(client.acceptDirectorResponse({ticketId:ticket,status:'cancelled'}),true);
+ assert.deepEqual(await cancellation,{ticketId:ticket,status:'cancelled'});
+ client.runtime.reset('disconnect');
+ present=true;
+ assert.equal(await client.requestDirector(original),null);
+ assert.equal(writes,2,'disconnect invalidates any forged future companion source read');
  client.stop();
 });
