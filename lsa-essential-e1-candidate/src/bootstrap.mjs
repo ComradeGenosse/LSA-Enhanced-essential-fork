@@ -169,6 +169,12 @@ export async function createRuntimeForBundle(options = {}) {
     let pump;
     pump=new DirectorObservationPump({client,coordinator,now,
       stampFor:proposal=>pump.currentStamp(proposal),
+      onDiagnostic:result=>{
+        try {telemetry?.emit?.('director_gate',null,'internal',{
+          reason:result.reason,configuredMode:config.spontaneousSpeech.mode,
+          nativeExperimental:client.runtime.directorPriority?.experimentalEnabled===true,
+        },'internal');}catch{}
+      },
       onResult:outcome=>{
         try {telemetry?.emit?.('director_candidate',null,'internal',{
           status:outcome?.status??'unknown',configuredMode:config.spontaneousSpeech.mode,
