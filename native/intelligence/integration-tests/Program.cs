@@ -75,6 +75,7 @@ class Program
             OwnerProofCurrent=true,OwnerPrimaryModeKnown=true,OwnerIdle=true,
             PlayerTurnSourceCurrent=true,PlayerTurnIdle=true,MicStateKnown=true,MicIdle=true,
             ConversationStateKnown=true,ConversationIdle=true,
+            TextInputKnown=true,TextInputIdle=true,ControlsInputKnown=true,ControlsInputIdle=true,
             EssentialTurnKnown=true,EssentialTurnIdle=true,PlaybackKnown=true,PlaybackIdle=true,
             ScriptStateKnown=true,ScriptSafe=true,ActorReflexKnown=true,ActorReflexIdle=true,
             ObservationReceiptCurrent=true,ResponseGrantCurrent=true
@@ -189,6 +190,35 @@ class Program
         Check(c06probe.ConversationStateKnown && c06probe.ConversationIdle &&
               !c06probe.PlayerTurnSourceCurrent,
               "readable idle Core target/speaker is only negative conversation evidence, not a global grant");
+        Check(c06probe.TextInputKnown&&c06probe.TextInputIdle&&
+              c06probe.ControlsInputKnown&&c06probe.ControlsInputIdle,
+              "source-pinned Core text editor and controls menu both idle, still not global turn ownership");
+        LosSantosAlive.Input.TextInputService.Open=true;
+        var openText=(DirectorC06Policy.Snapshot)integration.GetType().GetMethod(
+            "ReadDirectorC06",BindingFlags.NonPublic|BindingFlags.Instance).Invoke(integration,new object[]{c06request});
+        Check(openText.TextInputKnown&&!openText.TextInputIdle&&
+              !DirectorC06Policy.CurrentPlayback(c06request,openText),
+              "player text-entry takeover invalidates a pending Director ticket");
+        LosSantosAlive.Input.TextInputService.Open=false;
+        LosSantosAlive.Input.TextInputService.ThrowRead=true;
+        var unknownText=(DirectorC06Policy.Snapshot)integration.GetType().GetMethod(
+            "ReadDirectorC06",BindingFlags.NonPublic|BindingFlags.Instance).Invoke(integration,new object[]{c06request});
+        Check(!unknownText.TextInputKnown&&!DirectorC06Policy.CurrentPlayback(c06request,unknownText),
+              "failed Core text UI read cannot invent idle");
+        LosSantosAlive.Input.TextInputService.ThrowRead=false;
+        LosSantosAlive.Core.LsaControlsMenu.Block=true;
+        var openControls=(DirectorC06Policy.Snapshot)integration.GetType().GetMethod(
+            "ReadDirectorC06",BindingFlags.NonPublic|BindingFlags.Instance).Invoke(integration,new object[]{c06request});
+        Check(openControls.ControlsInputKnown&&!openControls.ControlsInputIdle&&
+              !DirectorC06Policy.CurrentPlayback(c06request,openControls),
+              "Core controls ownership supersedes Director playback");
+        LosSantosAlive.Core.LsaControlsMenu.Block=false;
+        LosSantosAlive.Core.LsaControlsMenu.ThrowRead=true;
+        var unknownControls=(DirectorC06Policy.Snapshot)integration.GetType().GetMethod(
+            "ReadDirectorC06",BindingFlags.NonPublic|BindingFlags.Instance).Invoke(integration,new object[]{c06request});
+        Check(!unknownControls.ControlsInputKnown&&!DirectorC06Policy.CurrentPlayback(c06request,unknownControls),
+              "unreadable original controls owner fails closed");
+        LosSantosAlive.Core.LsaControlsMenu.ThrowRead=false;
         LosSantosAlive.NPC.NpcTargeting.Conversation=actor;
         var activeConversation=(DirectorC06Policy.Snapshot)integration.GetType().GetMethod(
             "ReadDirectorC06",BindingFlags.NonPublic|BindingFlags.Instance).Invoke(integration,new object[]{c06request});
