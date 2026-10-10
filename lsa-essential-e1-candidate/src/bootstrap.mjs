@@ -115,6 +115,7 @@ export async function createRuntimeForBundle(options = {}) {
           originalTurnReserve:ticket=>{try{return runtime.host.directorReserveOriginalTurn(ticket);}catch{return null;}},
           originalTurnCurrent:ticket=>{try{return runtime.host.directorCheckOriginalTurn(ticket);}catch{return null;}},
           originalTurnRelease:ticket=>{try{return runtime.host.directorReleaseOriginalTurn(ticket);}catch{return false;}},
+          originalTurnPhase:ticket=>{try{return runtime.host.directorOriginalPhase(ticket);}catch{return null;}},
           ...options.intelligenceOptions,telemetry:(event,data)=>{
           try { suppliedIntelligenceTelemetry?.(event,data); } catch {}
           try { telemetry?.emit?.(event,null,'internal',data,'internal'); } catch {}
