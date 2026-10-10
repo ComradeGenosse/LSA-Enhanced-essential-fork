@@ -8,7 +8,7 @@ const fixture=()=>{
  const identity={pedId:'17',turnId:'turn',generationId:1,sessionNonce:1},hostContext={hostContextVersion:1,hostRunId:randomUUID(),worldEpoch:1};
  const association={captureRef:randomUUID(),kind:'ped',owned:false};
  const perception={epoch:randomUUID(),stream:randomUUID(),hostContext,lastReceipt:100,now:()=>120,current:()=>true,observerIndex:new Map([[association.captureRef,association]]),anchors:new Map([[association.captureRef,{kind:'ped',observer:true}]])};
- const turn={identity,knowledgeInputs:{turn:identity,reason:null,ownerPendingProof:false,association,hostRunId:hostContext.hostRunId,worldEpoch:1,psAdapterEpoch:perception.epoch,psStreamId:perception.stream}};
+ const turn={identity,knowledgeInputs:{turn:identity,reason:null,anchorStatus:'verified_observer',ownerPendingProof:false,association,hostRunId:hostContext.hostRunId,worldEpoch:1,psAdapterEpoch:perception.epoch,psStreamId:perception.stream}};
  return {turn,perception,validated:{identityValid:true,validatedFor:{...identity},actionCount:1,actionNames:['waithere']},publishedAtMs:150,activities:{client:{runtime:{ready:true,dialogueActionVersion:1,hostContext}}}};
 };
 test('C05 publication uses original frozen ordinary capture and validated canonical action only',()=>{
