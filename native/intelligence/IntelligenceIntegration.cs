@@ -644,7 +644,28 @@ namespace LSA.Intelligence
                     var subjectInterior=NativeFunction.CallByName<int>("GET_INTERIOR_FROM_ENTITY",subject);
                     bool sameInterior=witnessInterior==subjectInterior;
                     bool clear=sameInterior&&NativeFunction.CallByName<bool>("HAS_ENTITY_CLEAR_LOS_TO_ENTITY_IN_FRONT",witness,subject);
-                    var receipt=WitnessPolicy.Evaluate(new WitnessGeometry {EventKind=kind,Observer=observer.CaptureRef,Source=signal.source,Target=signal.target,SampledGameTick=signal.gameTick,DistanceMeters=distance,SameInterior=sameInterior,ClearLosInFront=clear});
+                    bool openAcoustics=false,clearAcousticPath=false;
+                    if(kind=="firing" && signal.producer=="shooting" &&
+                       signal.source==participantRef && sameInterior && !clear) {
+                        // Hearing from behind requires a SEPARATE actual native
+                        // clear-path read, independently of the frontal sight cone.
+                        // Both actors must be positively sampled on foot.
+                        // Count this second LOS native against the same cap.
+                        bool sourceOnFoot=!NativeFunction.CallByName<bool>(
+                            "IS_PED_IN_ANY_VEHICLE",subject,false);
+                        bool witnessOnFoot=!NativeFunction.CallByName<bool>(
+                            "IS_PED_IN_ANY_VEHICLE",witness,false);
+                        if(sourceOnFoot && witnessOnFoot && lineOfSightBudget>0) {
+                            openAcoustics=true;lineOfSightBudget--;
+                            clearAcousticPath=NativeFunction.CallByName<bool>(
+                                "HAS_ENTITY_CLEAR_LOS_TO_ENTITY",witness,subject,17);
+                        }
+                    }
+                    var receipt=WitnessPolicy.Evaluate(new WitnessGeometry {EventKind=kind,Observer=observer.CaptureRef,Source=signal.source,Target=signal.target,SampledGameTick=signal.gameTick,DistanceMeters=distance,SameInterior=sameInterior,ClearLosInFront=clear,
+                        SoundSourceVerified=kind=="firing" && signal.producer=="shooting",
+                        SameAcousticSpace=sameInterior,ClearAcousticPath=clearAcousticPath,
+                        SourceVehicle=openAcoustics?"open":"unknown",
+                        ObserverVehicle=openAcoustics?"open":"unknown"});
                     if(receipt.Status=="witnessed") result.Add(receipt);else if(receipt.Status=="unknown") witnessUnknown=Math.Min(int.MaxValue,witnessUnknown+1);else witnessRejected=Math.Min(int.MaxValue,witnessRejected+1);
                 } catch { witnessUnknown=Math.Min(int.MaxValue,witnessUnknown+1); }
             }
