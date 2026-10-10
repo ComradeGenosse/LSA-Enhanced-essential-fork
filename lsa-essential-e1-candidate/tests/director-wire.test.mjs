@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {serializeDirectorRequest,serializeDirectorPs3Receipt,validateDirectorRequest} from '../src/perception/directorWire.mjs';
+import {serializeDirectorRequest,serializeDirectorPs3Receipt,serializeDirectorStockIntake,validateDirectorRequest} from '../src/perception/directorWire.mjs';
 const ticketId='b1111111-1111-4111-8111-111111111111';
 const ticket={ticketId,dedupeKey:'ps:'+ticketId};
 const proposal={kind:'speech',
@@ -84,4 +84,18 @@ test('closed original PS3 receipt binds separate native challenge/source signal 
  }
  assert.throws(()=>serializeDirectorPs3Receipt({ticketId:'other'},proof),
    /original_ps3_receipt_invalid/);
+});
+
+test('stock scheduler intake has no ability to invent player, stock tuple or native grant',()=>{
+ const line=serializeDirectorStockIntake(ticket,'Brief nearby observation.');
+ const wire=JSON.parse(line);
+ assert.deepEqual(Object.keys(wire).sort(),
+   ['version','type','ticketId','dedupeKey','reason','context'].sort());
+ assert.equal(wire.type,'director.stock_intake');
+ assert.equal(wire.reason,'ps6_observer');
+ assert.equal(validateDirectorRequest(wire),false);
+ for(const text of ['', '   ','bad\ncommand','text\tcommand','x'.repeat(161)])
+   assert.throws(()=>serializeDirectorStockIntake(ticket,text),/director_stock_intake_invalid/);
+ assert.throws(()=>serializeDirectorStockIntake({...ticket,dedupeKey:'ps:foreign'},'OK'),
+   /director_stock_intake_invalid/);
 });
