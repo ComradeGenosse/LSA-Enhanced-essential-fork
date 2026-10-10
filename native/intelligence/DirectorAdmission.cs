@@ -240,6 +240,16 @@ namespace LSA.Intelligence
                 AgeMs=r.AgeMs
             };
         }
+        // Failed first stock scheduling attempt is final: free the global
+        // reservation immediately while retaining anti-replay bookkeeping.
+        internal bool AbandonStockIntake(string ticket)
+        {
+            Reservation r;
+            if(ticket==null || ticket!=activeTicket ||
+               !pending.TryGetValue(ticket,out r) || !r.StockIntakeClaimed ||
+               r.TurnId!=null)return false;
+            pending.Remove(ticket);activeTicket=null;return true;
+        }
         static bool Same(Request a,Request b)=>
             a.TicketId==b.TicketId && a.DedupeKey==b.DedupeKey &&
             a.HostRunId==b.HostRunId && a.WorldEpoch==b.WorldEpoch &&
