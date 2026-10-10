@@ -211,6 +211,8 @@ export class IntelligenceClient {
         this.directorOwnerReservations.delete(ticketId);
         this.directorNativeSubmitted.delete(ticketId);
         this.directorStockDispatched.delete(ticketId);
+        this.directorStockContexts.delete(ticketId);
+        this.directorStockClaims.delete(ticketId);
         try {this.originalTurnRelease(ticketId);}catch{}
       }
     });
@@ -242,8 +244,73 @@ export class IntelligenceClient {
     try {
       this.socket.write(line);
       this.directorStockDispatched.add(id);
+      this.directorStockContexts.set(id,context);
       return true;
     }catch{return false;}
+  }
+  // The stock kb payload itself is UNTRUSTED. Match an exact content/Ped
+  // invocation to a locally retained native-submitted AND subsequently
+  // dispatched ticket on the original companion's authenticated PS channel.
+  // Never claim on the basis of a ps: key or reason alone.
+  claimDirectorStockTicket(input) {
+    if(!input || Object.prototype.hasOwnProperty.call(input,'directorTicket') ||
+       input.reason!=='ps6_observer' || input.faceListener===true ||
+       input.interruptExisting===true || typeof input.dedupeKey!=='string' ||
+       !/^ps:[0-9a-f-]{36}$/.test(input.dedupeKey) ||
+       typeof input.speakerPedId!=='string' || !input.speakerPedId.trim() ||
+       typeof input.listenerPedId!=='string' || !input.listenerPedId.trim() ||
+       input.speakerPedId===input.listenerPedId)return null;
+    const id=input.dedupeKey.slice(3);
+    const record=this.directorOwnerReservations.get(id);
+    if(this.closed || this.config.mode!=='shadow' ||
+       !this.runtime.epoch || !record ||
+       !this.directorStockDispatched.has(id) ||
+       this.directorStockContexts.get(id)!==input.content ||
+       !this.runtime.current(record.proposal.speakerCaptureRef) ||
+       !this.runtime.current(record.proposal.playerCaptureRef) ||
+       !this.directorOriginalEntitlement(record.proposal,record.stamp))return null;
+    let proof;
+    try {proof=this.originalBackendEvidence(this.originalTurnCurrent(id));}
+    catch{return null;}
+    if(!proof || proof.sourceRun!==record.run ||
+       proof.revision!==record.revision)return null;
+    const ticket=Object.freeze({
+      schemaVersion:1,ticketId:id,dedupeKey:input.dedupeKey,
+      hostRunId:record.stamp.hostRunId,worldEpoch:record.stamp.worldEpoch,
+      ownerIncarnationId:record.stamp.ownerIncarnationId,
+      proofRevision:record.stamp.proofRevision,
+      playerTurnVersion:record.stamp.playerTurnVersion,
+      speakerCaptureRef:record.proposal.speakerCaptureRef,
+      playerCaptureRef:record.proposal.playerCaptureRef,
+      observationId:record.proposal.observationId,
+      observationRevision:record.proposal.observationRevision,
+      decisionKey:record.proposal.decisionKey,
+      policyVersion:record.proposal.policyVersion,
+      sourceRun:record.run,sourceRevision:record.revision,
+    });
+    this.directorStockDispatched.delete(id);
+    this.directorStockContexts.delete(id);
+    this.directorStockClaims.set(id,{ticket,input,record,pedId:input.speakerPedId,playerId:input.listenerPedId});
+    return ticket;
+  }
+  // Native/PS3 authority was already established. Hydration must remain on
+  // the SAME stock call, with the originally captured actor/player, and a
+  // source lease that has not been rebased by intervening player activity.
+  verifyDirectorTicket(ticket,input,hydrated) {
+    const claim=this.directorStockClaims.get(ticket?.ticketId);
+    if(!claim || claim.ticket!==ticket || claim.input!==input ||
+       !this.runtime.epoch ||
+       !this.runtime.current(claim.record.proposal.speakerCaptureRef) ||
+       !this.runtime.current(claim.record.proposal.playerCaptureRef) ||
+       String(hydrated?.actorContext?.pedId||'')!==claim.pedId ||
+       String(hydrated?.targetContext?.pedId||'')!==claim.playerId ||
+       !this.directorOriginalEntitlement(claim.record.proposal,claim.record.stamp))
+       return false;
+    let current;
+    try {current=this.originalBackendEvidence(this.originalTurnCurrent(ticket.ticketId));}
+    catch{return false;}
+    return !!current && current.sourceRun===claim.record.run &&
+      current.revision===claim.record.revision;
   }
   // Called only from the actual source-pinned Xn generation path, after the
   // stock kb ticket was independently hydrated. Never acknowledges playback.
@@ -288,7 +355,7 @@ export class IntelligenceClient {
     for(const item of [...this.directorPending.values()])item.resolve(null);
     for(const ticketId of this.directorOwnerReservations.keys())
       try {this.originalTurnRelease(ticketId);}catch{}
-    this.directorOwnerReservations.clear();this.directorNativeSubmitted.clear();this.directorStockDispatched.clear();
+    this.directorOwnerReservations.clear();this.directorNativeSubmitted.clear();this.directorStockDispatched.clear();this.directorStockContexts.clear();this.directorStockClaims.clear();
   }
 
   constructor(config,{connect=options=>net.createConnection(options),now,situationFor,originalTurnPriority=()=>null,originalTurnReserve=()=>null,originalTurnCurrent=()=>null,originalTurnRelease=()=>false,report=summary=>console.info('[PS] companion_shadow '+JSON.stringify(summary)),telemetry=()=>{}}={}) {
@@ -296,7 +363,7 @@ export class IntelligenceClient {
     this.originalTurnReserve=typeof originalTurnReserve==='function'?originalTurnReserve:()=>null;
     this.originalTurnCurrent=typeof originalTurnCurrent==='function'?originalTurnCurrent:()=>null;
     this.originalTurnRelease=typeof originalTurnRelease==='function'?originalTurnRelease:()=>false;
-    this.closed=false;this.socket=null;this.lastReport=0;this.directorPending=new Map();this.directorOwnerReservations=new Map();this.directorNativeSubmitted=new Set();this.directorStockDispatched=new Set();
+    this.closed=false;this.socket=null;this.lastReport=0;this.directorPending=new Map();this.directorOwnerReservations=new Map();this.directorNativeSubmitted=new Set();this.directorStockDispatched=new Set();this.directorStockContexts=new Map();this.directorStockClaims=new Map();
   }
   persist(event,data={}) { try { this.telemetry(event,data); } catch {} }
   summary(finalSnapshot=false) {
