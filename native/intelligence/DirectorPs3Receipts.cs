@@ -152,6 +152,14 @@ namespace LSA.Intelligence
                 g.PolicyVersion==request.PolicyVersion&&
                 request.AgeMs>=g.AgeMs;
         }
+        // Read original sealed receipt, never copy proposed request fields
+        // into a native approval snapshot.
+        internal Grant OriginalFor(DirectorAdmission.Request request)
+        {
+            Stored s;
+            return Current(request)&&grants.TryGetValue(request.TicketId,out s)
+                ? s.Grant:null;
+        }
         internal bool Reserve(DirectorAdmission.Request request)
         {
             if(!Current(request))return false;
