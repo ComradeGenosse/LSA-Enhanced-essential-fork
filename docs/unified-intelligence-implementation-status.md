@@ -1100,3 +1100,50 @@ One superseded run failed a deliberately strict PS0/PS1 source-module boundary b
 ### Still requiring trustworthy native integration
 
 The **companion original PS3 grant** can now be checked truthfully and the orchestrator requires it, but native code still has **no independently verified original PS3 observation/grant receipt**; copying fields from the companion request into a native snapshot must never turn `ObservationReceiptCurrent` or `ResponseGrantCurrent` true. Pinned Core's special-turn revision and playback APIs are not a complete authoritative global player text/mic/Essential-turn priority arbiter. No production stock `kb` `Submit` has been called, no original Core session nonce + generated TurnId/Int64 generation tuple binding has been authoritatively established, and in-game native start/terminal matching is not validated. Thus **production spontaneous speech remains disabled, preview-only and unplayable**. Phase 6 and full PS4/13a acceptance remain open; baseline individually verified PS4 oracles remain **22/81**. GTA RPH Release addon, payload-hash verification, PS4 G7 and A33/A34/A39/A40 physical gates not run. No merge, deployment, installation, gate enablement, Phase 10a or deferred features.
+
+
+## Checkpoint 86: source-pinned Core player-priority vetoes, special-turn revision race fence, companion original grant transport (October 10, 2026)
+
+**Matching tested code HEAD:** `68f7f10c97410d36236080185d69c0e13c4692bf`. **[GitHub Actions 38041071340](https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/actions/runs/38041071340)** completed **SUCCESS** on Windows and Linux. All changes remain Phase 13a work with the existing production admission feature gate **OFF**.
+
+### Authoritative negative native player-priority evidence
+
+- Core's actual pinned public `LosSantosAlive.NPC.NpcTargeting.GetPlayerConversationPed()` and `GetCurrentSpeakerPed()` are now sampled on the native PS host owner fiber in `ReadDirectorC06`. The presence of **either** a current player conversation or current Essential speaker is an explicit negative veto for *new* Director speech. Unknown/throwing Core state remains fail-closed. The Windows **real DLL** SHA/metadata verifier now checks both no-argument public static `Rage.Ped` signatures.
+- New `ConversationStateKnown` requires both source reads, and `ConversationIdle` is required **only for pre-admission** C-06 `Safe`. Post-binding/started/terminal `CurrentPlayback` retains `ConversationStateKnown` but does **not** require idle: a legitimate newly speaking NPC can naturally become the current speaker and its playback may be active. Tests explicitly preserve successful completion with busy Core speaker and reject unreadable state at both boundaries.
+- These are conservative **negative observations**, not proof that global Essential player text, active microphone, or other priority logic is idle. No unsupported source field was marked true.
+
+### Native original Core special-turn version anti-ABA fence
+
+- `DirectorAdmission` now requires a source-injected **actual Int64 Core special-turn version reader** for every enabled reservation. Production uses the pinned `SpecialGeminiTurnService.ReadPlayerTurnVersion()` method; the isolated positive fixtures inject a deterministic version. No source / negative version / thrown source read cannot reserve, even with an otherwise all-positive mocked C-06.
+- A new native ticket stores its independently sampled version and refuses an in-flight version change: it samples **before and after** the initial reserve safety check and also **before and after** submit, bind, actual Core playback-start and terminal proof checks. Changes release or invalidate the original ticket and never acknowledge a stale original PS3 grant. Tests include changes between stages, **during** a stage's proof callback, read failures and post-playback false-success prevention.
+- This is not a substitute for the missing complete global player-turn arbiter. The publicly available Core special-turn counter is a narrower source whose update coverage cannot be taken as proven across all possible player input modes; a *change* is a veto, stability does not grant authorization.
+
+### Companion original-PS3 transport gate
+
+- `IntelligenceClient.directorOriginalEntitlement(proposal,stamp)` now delegates only to the genuine `ShadowRuntime.directorOriginalEntitlementFor` original PS2/PS3 source after validating that the negotiated Director v1 channel, current native epoch, and writable live shadow connection are present.
+- `requestDirector` refuses both native **reserve** and **submit** when the original ledger entitlement is missing or has been revoked, even if someone bypasses the higher-level `SceneDirectorSpeech` orchestrator. Native **cancel** remains sendable when the source grant is gone, so cleanup does not deadlock or leave a submitted ticket behind. The lower-level `sendDirectorPreview` remains a raw preview wire helper, **not an authorization API**; native production admission remains disabled.
+- New transport tests explicitly isolate response matching with a stubbed original grant, demonstrate missing-source denial, revoke the grant between reserve and submit, require native cancellation to remain available, and reject stale connection epochs. No `kb` operation was performed.
+
+### Exactly executed matching-code CI
+
+| Stage | Result |
+| --- | --- |
+| Linux full isolated Node | **710 tests passed, 70 files, zero failed** |
+| Windows full isolated Node | **710 tests passed, 70 files, zero failed** |
+| Focused Phase 13a Node | **37/37 each OS** |
+| Windows pinned real Core metadata ABI | **PASS** |
+| Windows ACT native | **263 assertions** |
+| Windows shared PS/ACT native | **115 assertions** |
+| Windows Director/C-06 native | **209 assertions** |
+| Windows source P2 owner lifecycle | **194 assertions** |
+| Windows HostContext/anchor | **62 assertions** |
+| Windows PS host integration | **133 assertions** |
+
+A superseded intermediate Windows run revealed an incorrect idle fixture: the integration baseline already had a live Core player-conversation target. The test was corrected to deliberately clear and restore that target around the true-idle read, preserving the busy-target veto. A later review also corrected the policy to enforce conversation idle **before** new playback, not while the original NPC is already speaking. These were tested on the matching final code HEAD above. Source-verified ABI checks load the pinned DLL *as metadata only*; native game tests use their established offline .NET/RAGE doubles, not a running GTA instance.
+
+### Remaining Phase 13a and stop boundary
+
+- **Original independently checked native PS3 grant receipt still unavailable:** companion original PS2/PS3 truth is now verified at the orchestrator and transport, but request-controlled fields cannot become a native source-owned original grant. `ObservationReceiptCurrent` and `ResponseGrantCurrent` remain **unknown** in production.
+- **Global player/Essential priority remains unresolved:** special-turn revision and target/current-speaker busy-state are useful negative checks but do not cover every player text/microphone/active Essential turn. Complete independent `PlayerTurnSourceCurrent` / `EssentialTurnKnown` remain unknown.
+- **Actual stock Essential `kb` `Submit` / original tuple / nonce correlation and production playback acceptance remain unimplemented.** `DirectorStockTurnRequest.Prepare` is still pure and no stock scheduler is called. `DirectorAdmission(enabled:false)` rejects live reservations.
+- No production RPH Release build, installed GTA smoke acceptance or verified deployment hashes. PS4 remains 22/81 individually accepted; G7 / Phase 13a A33/A34/A39/A40 and Phase 6 full acceptance remain open. **PR draft/open/unmerged, no deploy, install, feature enable, Phase 10a, or deferred phases.**
