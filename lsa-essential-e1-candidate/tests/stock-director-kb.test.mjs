@@ -144,6 +144,11 @@ test('original kb hydrates one native-submitted source-backed Director tuple thr
    reason:'ps6_observer',dedupeKey:ticket.dedupeKey,
    content:'Nearby danger.',faceListener:false,interruptExisting:false};
  h.context.directorArgs=dto;
+ // The production stock Zi can enter WP to create a new actor session BEFORE
+ // Xi allocates the special turn. This harness stubs Zi, so emit that exact
+ // source-owned lifecycle entry here instead of bypassing the first-contact
+ // path as earlier tests did.
+ h.evaluate('var __lsaStockZi=Zi; Zi=async o=>{ __LSA_E1_RUNTIME.originalTurnTransition("session_open",o.directorTicket?.ticketId); return __lsaStockZi(o); };');
  h.runtime.services.decide=async()=>({dialogue:'Stay back from the danger.',command:''});
  const turn=await h.evaluate('kb(directorArgs)');
  assert.ok(turn,'actual source-pinned stock Xi and Xn allocated turn');
