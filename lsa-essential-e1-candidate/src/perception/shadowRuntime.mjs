@@ -231,7 +231,10 @@ export class ShadowRuntime {
       const original=this.observations.entries.get(
         proposal.speakerCaptureRef+':'+observation.episodeId);
       const grant=this.salience.ledger.get(observation.observationId);
-      if(!original || original.value!==observation ||
+      if(!original ||
+         original.value.observationId!==observation.observationId ||
+         original.value.revision!==observation.revision ||
+         original.value.observedAt?.nativeRun!==observation.observedAt.nativeRun ||
          !grant || grant.revision!==observation.revision ||
          grant.decisionKey!==decision.decisionKey ||
          grant.granted!==decision.response ||
@@ -239,7 +242,9 @@ export class ShadowRuntime {
          !grant.pair ||
          grant.pair.observation.observationId!==observation.observationId ||
          grant.pair.observation.revision!==observation.revision ||
-         grant.pair.decision.decisionKey!==decision.decisionKey)
+         grant.pair.decision.decisionKey!==decision.decisionKey ||
+         grant.pair.situation.situationRevision!==
+           (this.observerSituations.get(proposal.speakerCaptureRef)?.situationRevision??0))
           continue;
       const selected=selectDirectorIntent([candidate],{
         speakerCaptureRef:proposal.speakerCaptureRef,
