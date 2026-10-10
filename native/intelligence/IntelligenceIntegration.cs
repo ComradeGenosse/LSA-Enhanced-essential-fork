@@ -539,7 +539,7 @@ namespace LSA.Intelligence
                 if(e?.Speaker==null || string.IsNullOrWhiteSpace(e.PedId) ||
                     string.IsNullOrWhiteSpace(e.TurnId) || e.GenerationId<0)continue;
                 if(!uint.TryParse(e.PedId,out var pedHandle) ||
-                    e.Speaker.Handle!=pedHandle || !e.Speaker.Exists())continue;
+                    Convert.ToUInt64(e.Speaker.Handle)!=pedHandle || !e.Speaker.Exists())continue;
                 var token=CallbackAnchor(pedHandle,e.Speaker,false);
                 var anchor=token==null?null:anchors.Resolve(token);
                 if(anchor==null || !ReferenceEquals(anchor.Entity,e.Speaker))continue;
