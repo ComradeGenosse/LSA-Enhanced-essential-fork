@@ -46,9 +46,17 @@ namespace LSA.Intelligence
             if(original==null)return false;
             var prepared=DirectorStockTurnRequest.Prepare(
                 original,nativeProof,speaker,player,context);
-            if(prepared==null)return false;
-            try {return stockSubmit(prepared);}
-            catch {return false;}
+            if(prepared==null) {
+                admission.AbandonStockIntake(ticket);
+                return false;
+            }
+            try {
+                if(stockSubmit(prepared))return true;
+            }catch {}
+            // Core rejected or faulted before a real turn was accepted.
+            // Never leave an unusable C-11 reservation occupied.
+            admission.AbandonStockIntake(ticket);
+            return false;
         }
     }
 }
