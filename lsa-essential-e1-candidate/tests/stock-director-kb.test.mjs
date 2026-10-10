@@ -55,3 +55,21 @@ test('even an injected native-positive Director preflight cannot bypass missing 
  assert.equal(h.actions.length,0);
  session.connection.close();
 });
+
+
+test('3A Core scheduler DTO cannot bypass backend ticket hydration while 3B remains disabled',async()=>{
+ const h=await stockHarness('openai');
+ const session=await h.openAIControllerSession({actorContext:{pedId:'17'}});
+ h.context.directorArgs={
+   speakerPedId:'17',listenerPedId:'player',
+   content:'A nearby event occurred.',reason:'ps6_observer',
+   dedupeKey:ticket.dedupeKey,faceListener:false,interruptExisting:false,
+ };
+ let decisions=0;
+ h.runtime.services.decide=async()=>{decisions++;return {dialogue:'Not allowed.',command:''};};
+ const result=await h.evaluate('kb(directorArgs)');
+ assert.equal(result,false);
+ assert.equal(decisions,0);
+ assert.equal(h.actions.length,0);
+ session.connection.close();
+});
