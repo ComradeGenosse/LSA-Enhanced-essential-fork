@@ -83,7 +83,7 @@ test('capability-gated companion preview queues exactly one closed native packet
 });
 
 test('exact native PS6 request response binds once with independent status and disconnect cleanup',async()=>{
- const client=new IntelligenceClient({mode:'shadow',pipeName:'LSA.Intelligence.v1'},{now:()=>1000,report:()=>{},originalTurnPriority:()=>({source:'original_essential_server_turn_stores',quiet:true,grantsNativeAdmission:false})});
+ const client=new IntelligenceClient({mode:'shadow',pipeName:'LSA.Intelligence.v1'},{now:()=>1000,report:()=>{},originalTurnPriority:()=>({schemaVersion:1,source:'original_essential_backend_lifecycle',revision:2,quiet:true,grantsNativeAdmission:false,evidence:{source:'original_essential_server_turn_stores',quiet:true}})});
  const writes=[];
  client.socket={destroyed:false,writable:true,writableLength:0,write:line=>{writes.push(JSON.parse(line));return true;},destroy:()=>{}};
  assert.equal(client.runtime.ingest(hello,{authenticated:true}),true);
@@ -124,7 +124,7 @@ test('exact native PS6 request response binds once with independent status and d
 
 test('native transport refuses reserve/submit without live original PS3 ledger; cancellation survives revocation',async()=>{
  const client=new IntelligenceClient({mode:'shadow',pipeName:'LSA.Intelligence.v1'},
-  {now:()=>1000,report:()=>{},originalTurnPriority:()=>({source:'original_essential_server_turn_stores',quiet:true,grantsNativeAdmission:false})});
+  {now:()=>1000,report:()=>{},originalTurnPriority:()=>({schemaVersion:1,source:'original_essential_backend_lifecycle',revision:2,quiet:true,grantsNativeAdmission:false,evidence:{source:'original_essential_server_turn_stores',quiet:true}})});
  let writes=0;client.socket={destroyed:false,writable:true,writableLength:0,
   write:()=>{writes++;return true;},destroy:()=>{}};
  assert.equal(client.runtime.ingest(hello,{authenticated:true}),true);
@@ -181,8 +181,8 @@ test('source-verified original backend priority blocks mic, text, pending speech
  assert.equal(await client.requestDirector(request),null,'unavailable stock state vetoes');
  assert.equal(writes,0);
  let quiet=false;
- client.originalTurnPriority=()=>({source:'original_essential_server_turn_stores',
-   quiet,grantsNativeAdmission:false});
+ client.originalTurnPriority=()=>({schemaVersion:1,source:'original_essential_backend_lifecycle',revision:2,
+   quiet,grantsNativeAdmission:false,evidence:{source:'original_essential_server_turn_stores',quiet}});
  assert.equal(await client.requestDirector(request),null,'stock busy vetoes');
  assert.equal(await client.requestDirector({...request,operation:'submit'}),null,
    'stock busy vetoes submit even when original PS3 grant exists');
