@@ -139,3 +139,45 @@ StaticPublicSignature(service,"SendNow","000102128A14");
 StaticPublicSignature("LosSantosAlive.NPC.NpcTargeting","GetPlayerConversationPed","00001231");
 StaticPublicSignature("LosSantosAlive.NPC.NpcTargeting","GetCurrentSpeakerPed","00001231");
 Console.WriteLine("PASS pinned Essential SHA-256 + Core targeting, playback callbacks + stock kb request ABI");
+
+
+// Pin-compatible inventory of *possible* conversation ownership sources.
+// Metadata is an ABI map, NOT proof of semantics, lifetime, or thread-safety.
+// Output is restricted to relevant Core types to aid a separate IL/source audit.
+foreach (var handle in metadata.TypeDefinitions)
+{
+    var definition = metadata.GetTypeDefinition(handle);
+    var fullName = metadata.GetString(definition.Namespace) + "." + metadata.GetString(definition.Name);
+    if (!fullName.StartsWith("LosSantosAlive.", StringComparison.Ordinal) ||
+        !new[] { "Input", "Hydration", "Conversation", "Turn", "Dialogue", "Session", "Playback", "Audio" }
+            .Any(term => fullName.Contains(term, StringComparison.OrdinalIgnoreCase))) continue;
+    var methods = definition.GetMethods().Select(h => metadata.GetMethodDefinition(h))
+        .Select(m => metadata.GetString(m.Name)).Where(n =>
+            n.Contains("Mic", StringComparison.OrdinalIgnoreCase) ||
+            n.Contains("Text", StringComparison.OrdinalIgnoreCase) ||
+            n.Contains("Turn", StringComparison.OrdinalIgnoreCase) ||
+            n.Contains("Active", StringComparison.OrdinalIgnoreCase) ||
+            n.Contains("Busy", StringComparison.OrdinalIgnoreCase) ||
+            n.Contains("Pending", StringComparison.OrdinalIgnoreCase) ||
+            n.Contains("State", StringComparison.OrdinalIgnoreCase) ||
+            n.Contains("Release", StringComparison.OrdinalIgnoreCase) ||
+            n.Contains("Begin", StringComparison.OrdinalIgnoreCase) ||
+            n.Contains("Update", StringComparison.OrdinalIgnoreCase) ||
+            n.Contains("Stop", StringComparison.OrdinalIgnoreCase) ||
+            n.Contains("Start", StringComparison.OrdinalIgnoreCase))
+        .Distinct().Take(50).ToArray();
+    var fields = definition.GetFields().Select(h => metadata.GetFieldDefinition(h))
+        .Select(f => metadata.GetString(f.Name)).Where(n =>
+            n.Contains("Mic", StringComparison.OrdinalIgnoreCase) ||
+            n.Contains("Text", StringComparison.OrdinalIgnoreCase) ||
+            n.Contains("Turn", StringComparison.OrdinalIgnoreCase) ||
+            n.Contains("Pending", StringComparison.OrdinalIgnoreCase) ||
+            n.Contains("Hydrat", StringComparison.OrdinalIgnoreCase) ||
+            n.Contains("Active", StringComparison.OrdinalIgnoreCase) ||
+            n.Contains("Busy", StringComparison.OrdinalIgnoreCase) ||
+            n.Contains("State", StringComparison.OrdinalIgnoreCase))
+        .Distinct().Take(30).ToArray();
+    if (methods.Length + fields.Length > 0)
+        Console.WriteLine("ABI_OWNER_SURFACE " + fullName + " methods=" +
+            string.Join(",",methods) + " fields=" + string.Join(",",fields));
+}
