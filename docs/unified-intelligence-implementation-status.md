@@ -986,3 +986,39 @@ There was a superseded Windows run where the old generic reflection test incorre
 The binary supplies valuable source-authenticated negative/diagnostic facts but **not** a complete authority model. Global player text/mic/special-turn priority arbitration, authoritative **Essential pre-playback active-turn/hydration** state, a monotonically revised native P2 ownership proof, and the independently matched *original PS3 observation/response-entitlement receipt* remain unsupported. PS3 observation and salience response entitlement live in the companion-side store; reusing companion-provided request fields is not independent native proof. The native original-ticket / actual scheduled Essential turn / playback callback / session nonce bridge also does not exist, and no zero-delay `kb` scheduling was implemented under this narrower C-06 work boundary.
 
 **Therefore** production still constructs `DirectorAdmission(...,enabled:false)`, and all outstanding positive gates remain fail-closed. The successful native reserve/submit/cancel and callback tests use controlled injection, not a playable speech authorization. GTA/RPH Release addon/payload hashes, PS4 G7 and Phase 13a A33/A34/A39/A40 physical tests were **not executed**. Baseline PS4 audit remains at **22/81 verified individual oracles**, with no unverified oracles closed here. No merge, deploy, installation, enabled feature, scheduler or deferred master-plan phase.
+
+
+## Checkpoint 83: Core callback owner-fiber bridge, dormant stock request and immediate P2 revocation (October 9–10, 2026)
+
+**Matching tested code HEAD:** `b46a9987900c29644640381dfc9723b794bcd5a1`. [GitHub Actions run 38009580806](https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/actions/runs/38009580806) completed **SUCCESS on Windows and Linux**. This is a Phase 13a-only implementation increment; it does **not** close the playable-v1.0 scope.
+
+### Native source integration (still off)
+
+1. **Original-ticket Core playback events:** `DirectorAdmission.ObserveCorePlaybackStarted` / `ObserveCorePlaybackEnded` accept only a *previously reserved, submitted and natively bound* active ticket with the exact original speaker capture, PedId, TurnId and Int64 GenerationId. No event can create a ticket, rebind one or borrow another actor's identity; the existing verified preflight, single-playback and terminal gates remain required. Failed/duplicate/wrong-source/late/cancelled callbacks are rejected. The events themselves carry **no SessionNonce**; the native original binding retains it, and a separate original full-tuple production binding source is **still missing**. Therefore passing isolated callback tests does not establish real session-nonce provenance.
+2. **Callback-thread containment:** `IntelligenceIntegration` now copies Core `NpcPlaybackStartedEvent` and `NpcPlaybackEndedEvent` into a bounded **32-entry** queue only in Director shadow mode. The existing native `Update` owner fiber drains it, checks the live exact Core Ped handle/object and nonretired PS anchor, then consults the preexisting Director admission. Invalid/recycled actors and callback tuple mismatches cannot advance native tickets. Overflow discards the entire batch and resets the native Director, never silently treating lost callbacks as delivered. Native world resets/shutdown clear the queue. Existing PS playback factual signals are preserved.
+3. **Exact P2 owner retirement:** the P2 source `OwnerRetired(incarnation)` callback now revokes only the ticket bound to that original incarnation and clears any queued Director callback records. Other actors' ownership retirement cannot cancel the original ticket. Late playback cannot restore it, while original replay/attempt accounting survives.
+4. **Stock Essential `kb` request preparation:** `DirectorStockTurnRequest.Prepare` now builds the *real pinned Core* `SpecialGeminiTurnRequest` type with exact speaker/listener/target Ped instances, original `ps:<ticket UUID>` dedupe, `ps6_observer` reason, zero delay, no face/interrupt, cancel-on-player-turn, and skip-busy gates. It requires an existing **fully valid 'submit' ticket shape**, an independently all-positive C-06/PS3 snapshot, live distinct Peds and a short control-character-free context string. This is **pure DTO construction only**: it does not call `Submit`, `SendNow`, create a fiber, dispatch to the companion, or begin playback. No native source currently satisfies all required positive admission gates.
+5. The real pinned Core ABI verifier now additionally checks `SpecialGeminiTurnRequest` speaker/listener/speech-target, content/reason/dedupe, five safety flags and delay, plus `SpecialGeminiTurnScheduler.Submit`, `SubmitAfterCurrentTurn` and `SpecialGeminiTurnService.SendNow` signatures. These are **source-verified available methods, not executed live schedulers**.
+
+### Matching-head automated receipts
+
+| Suite at `b46a9987` | Result |
+| --- | --- |
+| Linux isolated Node | **702 passed / 70 files / zero failures** |
+| Windows isolated Node | **702 passed / 70 files / zero failures** |
+| Phase 13a focused Node tests | **33/33 passed per OS** |
+| Windows actual pinned Essential metadata-ABI verifier | **PASS** |
+| Windows ACT contract | **263 assertions passed** |
+| Windows shared native PS/ACT | **115 assertions passed** |
+| Windows native Director/C-06 | **187 assertions passed** |
+| Windows source P2 owner lifecycle | **179 assertions passed** |
+| Windows HostContext/anchor | **62 assertions passed** |
+| Windows PS host integration source/stubs | **122 assertions passed** |
+
+Intermediate CI found a test-only bad newline fixture (literal escaped characters instead of an LF). The input was corrected; the policy still rejects actual control characters and the matching code run above is completely green. All native test assemblies were built Debug/net481 using offline RAGE/Essential test doubles for the game-specific types. Only the separate metadata verifier checks the real Core DLL without running it; **no production RPH/GTA Release addon binary or physical GTA scenario was validated**.
+
+### Scope and remaining blockers
+
+`DirectorAdmission(...,enabled:false)` **still prevents live Director speech**. The bridge cannot bind a real Essential tuple because no source-verified native/companion intake yet obtains the original full turn/generation/**sessionNonce** after a real stock `kb` request. Neither the compiled Core special-turn revision nor queued-audio idle sample establishes the complete global player text/microphone arbitration or active Essential hydration/turn state. P2 does not yet publish a source-authoritative monotonic owner proof revision into the native-to-companion stamp. The original PS3 observation and salience grant are still companion-owned: matching IDs or an injected test-all-positive `Snapshot` cannot authorize a live native ticket, and no separately original native PS3 grant receipt exists. Stock `Submit` is **not called**. Consequently player priority, full source authorization, live cancellation and Phase 13a spontaneous speech scheduling remain incomplete.
+
+Baseline PS4 audit stays at **22/81** individually verified oracles; the unreviewed cases are not closed by aggregate test counts. Native Phase 6 / PS4 full acceptance, pinned production Release addon and payload hashes, GTA PS4 G7 and Phase 13a A33/A34/A39/A40 remain outstanding. No merge, installation, deployment, feature enablement, Phase 10a, or other deferred phase.
