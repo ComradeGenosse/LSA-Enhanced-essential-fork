@@ -555,6 +555,7 @@ class Program
             OwnerProofCurrent=true,OwnerPrimaryModeKnown=true,OwnerIdle=true,
             PlayerTurnSourceCurrent=true,PlayerTurnIdle=true,MicStateKnown=true,MicIdle=true,
             ConversationStateKnown=true,ConversationIdle=true,
+            TextInputKnown=true,TextInputIdle=true,ControlsInputKnown=true,ControlsInputIdle=true,
             EssentialTurnKnown=true,EssentialTurnIdle=true,PlaybackKnown=true,PlaybackIdle=true,
             ScriptStateKnown=true,ScriptSafe=true,ActorReflexKnown=true,ActorReflexIdle=true,
             ObservationReceiptCurrent=true,ResponseGrantCurrent=true
@@ -583,6 +584,14 @@ class Program
               !DirectorC06Policy.CurrentPlayback(req,proof),
               "unknown Core conversation status is not permission at any boundary");
         proof.ConversationStateKnown=true;
+        proof.TextInputIdle=false;
+        Check(!DirectorC06Policy.Safe(req,proof) && !DirectorC06Policy.CurrentPlayback(req,proof),
+              "player text input takeover vetoes even a previously authorized NPC");
+        proof.TextInputIdle=true;
+        proof.ControlsInputIdle=false;
+        Check(!DirectorC06Policy.Safe(req,proof) && !DirectorC06Policy.CurrentPlayback(req,proof),
+              "Core controls menu retains priority over Director playback");
+        proof.ControlsInputIdle=true;
         foreach(var field in typeof(DirectorC06Policy.Snapshot).GetFields()) {
             if(field.FieldType!=typeof(bool) || field.Name=="SpecialTurnVersionKnown")continue;
             field.SetValue(proof,false);
