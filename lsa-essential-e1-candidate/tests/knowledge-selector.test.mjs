@@ -9,9 +9,11 @@ function fixture(){
  const situation=normalizeSalienceSituation({nowMonotonicMs:1000});
  return {association:{captureRef:observer},psAdapterEpoch:run,frozenAt:1000,liveReferences:{[observer]:'ped',[target]:'ped'},pairs:[{observation,situation,decision:evaluateSalience(observation,situation)}]};
 }
-test('context candidates reach projection even when autonomous response is none',()=>{
+test('PS4 candidate projection is independent of autonomous speech eligibility',()=>{
  const inputs=fixture(),result=selectKnowledge(inputs);
- assert.equal(inputs.pairs[0].decision.response,'none');
+ assert.equal(inputs.pairs[0].decision.response,'eligible',
+   'a witnessed stranger injury can now prompt speech without changing PS4 context priority');
+ assert.equal(inputs.pairs[0].decision.context,'candidate');
  assert.equal(result.observations.length,1);
  assert.equal(result.observations[0].claims[0].subject,'anonymous person');
  assert.equal(result.selected[0].decisionKey,inputs.pairs[0].decision.decisionKey);
