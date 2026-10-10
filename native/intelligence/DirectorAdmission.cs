@@ -26,7 +26,7 @@ namespace LSA.Intelligence
         {
             public Request Request;
             public long ExpiresAt;
-            public bool Used,NativePlaybackStarted;
+            public bool Used,NativePlaybackStarted,StockIntakeClaimed;
             public string TurnId;
             // Core NpcPlaybackStarted/EndedEvent.GenerationId is Int64.
             public long GenerationId;
@@ -197,6 +197,36 @@ namespace LSA.Intelligence
             // Submit authorizes exactly one already-checked intake attempt.
             // It does NOT allocate an Essential turn or certify playback.
             return new Receipt(request.TicketId,"submitted");
+        }
+        // #3A: one-shot native owner-fiber intake authorization, distinct
+        // from submit acknowledgment. Claims are irrevocable even if Core
+        // stock Submit returns false or throws. #3B alone will bind the real
+        // Ped/TurnId/generation/session tuple afterward.
+        internal Request TryClaimStockIntake(string ticket)
+        {
+            Reservation record;
+            if(!enabled || string.IsNullOrWhiteSpace(ticket) ||
+               ticket!=activeTicket || !pending.TryGetValue(ticket,out record) ||
+               !record.Used || record.StockIntakeClaimed || record.TurnId!=null ||
+               clock()>=record.ExpiresAt)return null;
+            if(!SafeReserved(record,"stock_intake")) {
+                pending.Remove(ticket);activeTicket=null;
+                return null;
+            }
+            record.StockIntakeClaimed=true;
+            // Return a separate submit request so a caller cannot rewrite
+            // the sealed reservation or borrow a different PS3 proof.
+            var r=record.Request;
+            return new Request {
+                Version=r.Version,Operation="submit",TicketId=r.TicketId,
+                DedupeKey=r.DedupeKey,HostRunId=r.HostRunId,
+                WorldEpoch=r.WorldEpoch,SpeakerCaptureRef=r.SpeakerCaptureRef,
+                PlayerCaptureRef=r.PlayerCaptureRef,OwnerIncarnationId=r.OwnerIncarnationId,
+                ProofRevision=r.ProofRevision,PlayerTurnVersion=r.PlayerTurnVersion,
+                PolicyVersion=r.PolicyVersion,ObservationId=r.ObservationId,
+                ObservationRevision=r.ObservationRevision,DecisionKey=r.DecisionKey,
+                AgeMs=r.AgeMs
+            };
         }
         static bool Same(Request a,Request b)=>
             a.TicketId==b.TicketId && a.DedupeKey==b.DedupeKey &&
