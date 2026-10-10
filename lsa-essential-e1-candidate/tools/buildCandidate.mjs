@@ -16,7 +16,7 @@ const acorn = require('./vendor/acorn');
 const expectedBundleHash = '5d81de4217bd103316a1083e482ded1bddc791314abf671d686036175c0475f2';
 const expectedDllHash = '9b6de42d4c464901d859dd95e17e100e4fa9ef6074bfbb0cf3a57a76f6ddd653';
 const expectedNativeMetadataHash = '18edd2b47ffde748388b07a4a2d023793e183b882fe638acb5276440d45a2d23';
-const expectedPatchCount = 69;
+const expectedPatchCount = 70;
 const launcherName = 'server.bundle.mjs';
 const stockBundleDefault = path.resolve(root, 'upstream/server.bundle.mjs');
 const stockDllDefault = path.resolve(root, 'upstream/LosSantosAlive.dll');
@@ -279,6 +279,16 @@ export function patchSource(source) {
   const kbEnsure = one((() => { const all = []; walk(kbBody, node => { if (node.type === 'CallExpression' && node.callee.name === 'Zi') all.push(node); }); return all; })(), 'kb special-event session setup');
   insert(kbEnsure.arguments[0].start + 1, 'directorTicket: t?.directorTicket, world: h.world, ', 'special-event session world association');
   const kbTurn = one((() => { const all = []; walk(kbBody, node => { if (node.type === 'CallExpression' && node.callee.name === 'Xi') all.push(node); }); return all; })(), 'kb special-event turn creation');
+  // Core-to-companion submission is not a playback/authorization ACK.
+  // The original source must await the exact native bound result BEFORE
+  // sending any Director text to the model. Stock player/event vi unchanged.
+  const kbModelSend=one((()=>{const calls=[];walk(kbBody,node=>{
+    if(node.type==='CallExpression' && node.callee.name==='vi')calls.push(node);
+  });return calls;})(),'kb original vi model input');
+  replace(kbModelSend.start,kbModelSend.end,
+    '(t?.directorTicket && !await __LSA_E1_RUNTIME.awaitDirectorNativeBinding(t.directorTicket) ? (()=>{throw new Error("director_native_binding_denied");})() : '+sourceSlice(source,kbModelSend)+')',
+    'PS6 exact native binding ACK before original model input');
+
   const kbMetadata = one(kbTurn.arguments[0].properties.filter(property => property.key?.name === 'metadata'), 'kb special-event turn metadata');
   insert(kbMetadata.value.start + 1, 'directorTicket: t?.directorTicket ? __LSA_E1_RUNTIME.requireDirectorTicket(t,h) : undefined, listenerState: n ? "present" : "explicitly_cleared", contextCapturedAt: new Date().toISOString(), contextRevision: h.actorContext?.snapshotRevision ?? h.actorContext?.revision ?? null, ', 'special-event context capture metadata');
 
