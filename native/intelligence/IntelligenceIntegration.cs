@@ -42,6 +42,7 @@ namespace LSA.Intelligence
         readonly Func<OwnedParticipant[]> roster;
         readonly string pipeName;
         readonly bool directorShadow;
+        readonly bool directorExperimental;
         readonly DirectorAdmission director;
         readonly DirectorSchedulerIntake stockScheduler;
         readonly DirectorPs3Receipts ps3Receipts;
@@ -111,23 +112,24 @@ namespace LSA.Intelligence
         internal string RuntimeStatus()=>"available="+IsAvailable+" update_calls="+UpdateCalls+" update_completed="+CompletedUpdates+" last_update_age_ms="+Age(Interlocked.Read(ref lastUpdateMs))+" last_completed_age_ms="+Age(Interlocked.Read(ref lastCompletedMs))+" last_game_tick="+callbackTick+" shutdown_reason="+ShutdownReason;
         internal static void LogStatus(string message) {try{Game.LogTrivial(message);}catch{}}
         static readonly string[] capabilityNames={"snapshot","pedDamage","playerDamage","vehicleDamage","shooting","state","action","playback","witness","awareness","playerSpeech"};
-        public IntelligenceIntegration(Func<OwnedParticipant[]> roster,string pipeName="LSA.Intelligence.v1",HostContext host=null,bool directorShadow=false) {
+        public IntelligenceIntegration(Func<OwnedParticipant[]> roster,string pipeName="LSA.Intelligence.v1",HostContext host=null,bool directorShadow=false,bool directorExperimental=false) {
             if(pipeName==null||!System.Text.RegularExpressions.Regex.IsMatch(pipeName,"^[A-Za-z0-9_.-]{1,80}$")) throw new ArgumentException();
             this.roster=roster;this.pipeName=pipeName;ownsHost=host==null;this.host=host??new HostContext();anchors=this.host.Anchors;
-            this.directorShadow=directorShadow;
+            this.directorShadow=directorShadow || directorExperimental;
+            this.directorExperimental=directorExperimental;
             ps3Receipts=new DirectorPs3Receipts(()=>this.host.MonotonicMs,()=>this.host.HostRunId,()=>this.host.WorldEpoch);
             originalTurns=new DirectorOriginalTurnReceipts(()=>this.host.MonotonicMs,
                 ()=>this.host.HostRunId,()=>this.host.WorldEpoch,
                 ()=>LSA.PromotedCharacters.EssentialPlayerPriorityMonitor.Read());
             // This preview endpoint never acquires C-11 speech authority.
             // Verified native C-06 + Essential intake are deliberately absent.
-            director=new DirectorAdmission(()=>this.host.MonotonicMs,(r,stage)=>(stage=="playback_started" || stage=="complete") ? DirectorC06Policy.CurrentOccupiedPlayback(r,ReadDirectorC06(r)) : stage=="bind" ? DirectorC06Policy.CurrentPlayback(r,ReadDirectorC06(r)) : DirectorC06Policy.Safe(r,ReadDirectorC06(r)),()=>this.host.HostRunId,()=>this.host.WorldEpoch,false,
+            director=new DirectorAdmission(()=>this.host.MonotonicMs,(r,stage)=>(stage=="playback_started" || stage=="complete") ? DirectorC06Policy.CurrentOccupiedPlayback(r,ReadDirectorC06(r)) : stage=="bind" ? DirectorC06Policy.CurrentPlayback(r,ReadDirectorC06(r)) : DirectorC06Policy.Safe(r,ReadDirectorC06(r)),()=>this.host.HostRunId,()=>this.host.WorldEpoch,directorExperimental,
                 ()=>LosSantosAlive.Bridge.SpecialTurns.SpecialGeminiTurnService.ReadPlayerTurnVersion(),
                  ()=>directorShadow ? LSA.PromotedCharacters.EssentialPlayerPriorityMonitor.Read() : -1);
             // #3A compiles and binds the real pinned Essential Submit method.
             // This adapter is intentionally, unconditionally DEFAULT-OFF:
             // #3B must bind native callback tuple before activation.
-            stockScheduler=DirectorSchedulerIntake.Production(director,false);
+            stockScheduler=DirectorSchedulerIntake.Production(director,directorExperimental);
             this.host.WorldChanged+=WorldChanged;capabilities=capabilityNames.ToDictionary(k=>k,k=>false);
         }
         void WorldChanged(int epoch,string reason) {
@@ -342,7 +344,17 @@ namespace LSA.Intelligence
                 FlushControls(refreshRoster);
                 for(int n=0;n<32;n++) {var signal=sensors.Take();if(signal==null) break;Publish(signal,now);}
                 if(now>=nextDiagnostics) {
-                    nextDiagnostics=now+1000;int age=capabilities["snapshot"]?(int)Math.Min(int.MaxValue,(long)unchecked(tick-snapshotTick)):int.MaxValue;
+                    nextDiagnostics=now+1000;
+                    // Native-sourced player-turn version, never inferred from
+                    // a sampled mic snapshot or a JS observation. The Core
+                    // version is independently rechecked at every admission.
+                    if(directorShadow) {
+                        long nativeVersion=-1;
+                        try {nativeVersion=LosSantosAlive.Bridge.SpecialTurns.SpecialGeminiTurnService.ReadPlayerTurnVersion();}catch {}
+                        if(nativeVersion>=0 && nativeVersion<=int.MaxValue)
+                            channel.Send("director_priority",new {playerTurnVersion=(int)nativeVersion,experimentalEnabled=directorExperimental});
+                    }
+                    int age=capabilities["snapshot"]?(int)Math.Min(int.MaxValue,(long)unchecked(tick-snapshotTick)):int.MaxValue;
                     var signals=sensors.Counters;
                     var damageCallbacks=sensors.DamageCallbacks;
                     channel.Send("diagnostics",new {anchors=anchors.Count,observers=anchors.ObserverCount,snapshotAgeMs=age,snapshotCadenceMs=Clamp(snapshotCadence),dropped=Clamp(sensors.Dropped+channel.Dropped),staleRejected=Clamp(staleRejected),retiredAnchors=Clamp(retiredAnchors),deferredDiscovery=Clamp(deferredDiscovery),updateMicros=Clamp((long)(budget.Elapsed.TotalMilliseconds*1000)),capabilities,signals,damageCallbacks,witnessDeferred=Clamp(witnessDeferred),witnessUnknown=Clamp(witnessUnknown),witnessRejected=Clamp(witnessRejected),playerSpeechGate="unsupported_capture_receipt"});
