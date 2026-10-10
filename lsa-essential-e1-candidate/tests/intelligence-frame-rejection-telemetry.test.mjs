@@ -43,5 +43,12 @@ test('malformed Director frame and ensuing sequence gap are diagnosed without re
     assert.ok(rejected.every(row=>Object.keys(row.data).every(key=>
       ['frameType','reason','count','frameBytes'].includes(key))));
     assert.ok(recorded.some(row=>row.event==='intelligence_status' && row.data.stage==='disconnected'));
+  } catch(error) {
+    console.error('# Error diagnostic: '+JSON.stringify({
+      error:error.message, counters:client.runtime.counters,
+      resetReasons:client.runtime.resetDiagnostics,
+      telemetry:recorded.filter(row=>['intelligence_frame_rejected','intelligence_status'].includes(row.event)),
+    }));
+    throw error;
   } finally {client.stop();}
 });
