@@ -75,7 +75,9 @@ void PublicField(string typeName, string fieldName, byte primitiveType)
 StaticPublicMethod("LosSantosAlive.Bridge.SpecialTurns.SpecialGeminiTurnService",
     "ReadPlayerTurnVersion", 0x0a); // System.Int64
 StaticPublicMethod("LosSantosAlive.Audio.NpcPlaybackCoordinator",
-    "IsAnyAudioPlayingOrPending", 0x02); // System.Boolean
+    "IsAnyAudioPlayingOrPending", 0x02);
+StaticPublicMethod("LosSantosAlive.Input.TextInputService","get_IsOpen",0x02);
+StaticPublicMethod("LosSantosAlive.Core.LsaControlsMenu","get_BlocksLsaInput",0x02); // System.Boolean
 foreach (string evt in new[] {
     "LosSantosAlive.Audio.NpcPlaybackStartedEvent",
     "LosSantosAlive.Audio.NpcPlaybackEndedEvent"})
