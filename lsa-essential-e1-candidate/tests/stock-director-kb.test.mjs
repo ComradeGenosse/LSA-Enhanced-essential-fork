@@ -39,7 +39,7 @@ test('verified-ticket test double enforces no DO before stock action events',asy
  const generated=turn || h.evaluate('[...A.turnsById.values()].find(t=>t?.metadata?.directorTicket)');
  assert.ok(generated,'the exact ticket reached original Xn generation');
  const result=await session.connection.whenSettled({pedId:generated.pedId,turnId:generated.id,generationId:generated.generationId,sessionNonce:1});
- assert.notEqual(result.status,'completed');
+ assert.notEqual(result?.status,'completed','rejected DO must never complete an allowed speech turn');
  assert.equal(h.actions.length,0);
  assert.equal(h.runtime.history.readForSession('17',1).some(v=>v.role==='assistant'),false);
  session.connection.close();
