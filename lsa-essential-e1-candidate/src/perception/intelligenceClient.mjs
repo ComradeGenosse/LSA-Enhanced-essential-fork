@@ -125,8 +125,12 @@ export class IntelligenceClient {
   originalBackendQuiet() {
     let state;
     try {state=this.originalTurnPriority();}catch{return false;}
-    return state?.source==='original_essential_server_turn_stores' &&
-      state.quiet===true && state.grantsNativeAdmission===false;
+    return state?.schemaVersion===1 &&
+      state.source==='original_essential_backend_lifecycle' &&
+      Number.isSafeInteger(state.revision) && state.revision>0 &&
+      state.evidence?.source==='original_essential_server_turn_stores' &&
+      state.evidence.quiet===true && state.quiet===true &&
+      state.grantsNativeAdmission===false;
   }
 
   // One outstanding native request per exact ticket; no implicit retries.
