@@ -15,7 +15,7 @@ export class DirectorPlaybackRegistry {
     let boundResolve,terminalResolve;
     const bound=new Promise(resolve=>{boundResolve=resolve;});
     const terminal=new Promise(resolve=>{terminalResolve=resolve;});
-    const entry={ticket,gates,identity:null,hydrated:false,published:false,started:false,
+    const entry={ticket,claimedTicket:null,gates,identity:null,hydrated:false,published:false,started:false,
       finished:false,boundResolve,terminalResolve,bound,terminal};
     this.entries.set(id,entry);
     entry.bindingTimeout=setTimeout(()=>{
@@ -29,7 +29,34 @@ export class DirectorPlaybackRegistry {
     entry.bindingTimeout.unref?.();
     return entry;
   }
-  entry(ticket){const e=this.entries.get(ticket?.ticketId);return e?.ticket===ticket?e:null;}
+  // Core and Director retain DIFFERENT frozen objects for one reservation:
+  // the original C-11 ticket and the stock kb ticket independently rebuilt
+  // from the authenticated native claim. Never authorize by ticketId alone.
+  // Called only after the companion verified the exact kb claim, actor,
+  // player, PS3 entitlement and original backend owner/source revision.
+  registerVerifiedClaim(claimed) {
+    const e=this.entries.get(claimed?.ticketId),original=e?.ticket;
+    if(!e || e.finished || e.hydrated || e.claimedTicket ||
+       claimed===original || original?.schemaVersion!==1 ||
+       claimed?.schemaVersion!==1 || typeof original.ticketId!=='string' ||
+       original.ticketId!==claimed.ticketId ||
+       original.dedupeKey!==`ps:${original.ticketId}` ||
+       claimed.dedupeKey!==original.dedupeKey ||
+       typeof original.speakerCaptureRef!=='string' || !original.speakerCaptureRef ||
+       original.speakerCaptureRef!==claimed.speakerCaptureRef ||
+       typeof original.playerCaptureRef!=='string' || !original.playerCaptureRef ||
+       original.playerCaptureRef!==claimed.playerCaptureRef ||
+       typeof original.decisionKey!=='string' || !original.decisionKey ||
+       original.decisionKey!==claimed.decisionKey)return false;
+    // After one trusted alias is registered, ONLY these two exact objects
+    // work; a cloned object with identical fields can never borrow the turn.
+    e.claimedTicket=claimed;
+    return true;
+  }
+  entry(ticket){
+    const e=this.entries.get(ticket?.ticketId);
+    return e && (e.ticket===ticket || e.claimedTicket===ticket)?e:null;
+  }
   hydration(ticket) {
     const e=this.entry(ticket);
     if(!e || e.hydrated || e.finished)return false;
