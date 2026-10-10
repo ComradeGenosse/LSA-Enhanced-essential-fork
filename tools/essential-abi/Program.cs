@@ -302,3 +302,58 @@ foreach(var handle in metadata.TypeDefinitions)
             Console.WriteLine("ABI_OWNER_CALLER "+typeName+"."+mn+" -> "+instr.Operand+" @"+instr.Offset.ToString("X4"));
     }
 }
+
+
+// Production player-priority monitor must patch exactly these entrypoints
+// under the pinned hash. This is metadata/IL source verification only; it
+// does not authorize a global idle state or exercise Harmony/GTA.
+void CheckHookEntry(string typeName,string methodName,int count)
+{
+    TypeDefinition? type=null;
+    foreach(var h in metadata.TypeDefinitions) {
+        var candidate=metadata.GetTypeDefinition(h);
+        if(metadata.GetString(candidate.Namespace)+"."+metadata.GetString(candidate.Name)==typeName) {
+            type=candidate;break;
+        }
+    }
+    if(type==null)throw new Exception("Core hook type missing: "+typeName);
+    bool found=false;
+    foreach(var h in type.Value.GetMethods()) {
+        var m=metadata.GetMethodDefinition(h);
+        if(metadata.GetString(m.Name)!=methodName)continue;
+        var signature=metadata.GetBlobBytes(m.Signature);
+        if(signature.Length<3 || (signature[0]&0x20)!=0 || signature[1]!=count ||
+           (m.Attributes&MethodAttributes.Static)==0 || m.RelativeVirtualAddress==0)
+            continue;
+        if(found)throw new Exception("Ambiguous hook method "+typeName+"."+methodName);
+        found=true;
+    }
+    if(!found)throw new Exception("Core hook ABI mismatch: "+typeName+"."+methodName+"/"+count);
+}
+CheckHookEntry("LosSantosAlive.Input.InputController","SendMicStop",0);
+CheckHookEntry("LosSantosAlive.Input.InputController","SendTextPrompt",2);
+CheckHookEntry("LosSantosAlive.Input.TextInputService","StartTextInputMode",0);
+CheckHookEntry("LosSantosAlive.Context.ConversationHydrationCoordinator","BeginMicTurn",1);
+CheckHookEntry("LosSantosAlive.Context.ConversationHydrationCoordinator","MarkMicReleased",1);
+CheckHookEntry("LosSantosAlive.NPC.NpcTargeting","SetPlayerConversationPed",1);
+CheckHookEntry("LosSantosAlive.NPC.NpcTargeting","ClearPlayerConversationPed",0);
+CheckHookEntry("LosSantosAlive.Bridge.SpecialTurns.SpecialGeminiTurnService","NotifyPlayerTurnStarted",0);
+var sharedMic=metadata.GetMethodDefinition(
+    System.Reflection.Metadata.Ecma335.MetadataTokens.MethodDefinitionHandle(0x16f));
+var owner=metadata.GetTypeDefinition(sharedMic.GetDeclaringType());
+if(metadata.GetString(owner.Namespace)+ "."+metadata.GetString(owner.Name)!="LosSantosAlive.Input.InputController" ||
+    (sharedMic.Attributes & MethodAttributes.Static)==0 || sharedMic.RelativeVirtualAddress==0)
+    throw new Exception("Source-pinned shared original mic entry is unavailable");
+var micStart=metadata.TypeDefinitions.Select(h=>metadata.GetTypeDefinition(h))
+    .First(t=>metadata.GetString(t.Namespace)+"."+metadata.GetString(t.Name)=="LosSantosAlive.Input.InputController")
+    .GetMethods().Select(h=>metadata.GetMethodDefinition(h))
+    .Where(m=>metadata.GetString(m.Name)=="SendMicStart").ToArray();
+if(micStart.Length!=2)throw new Exception("Original public mic wrappers drifted");
+foreach(var wrapper in micStart) {
+    var bytes=pe.GetMethodBody(wrapper.RelativeVirtualAddress).GetILBytes().ToArray();
+    var signature=new byte[]{0x28,0x6f,0x01,0x00,0x06};
+    if(!Enumerable.Range(0,bytes.Length-signature.Length+1)
+        .Any(i=>bytes.Skip(i).Take(signature.Length).SequenceEqual(signature)))
+        throw new Exception("Stock mic wrapper no longer calls source-pinned shared entry");
+}
+Console.WriteLine("PASS source-pinned original mic/text/target/hydration player epoch hook ABI");
