@@ -128,39 +128,63 @@ export async function createRuntimeForBundle(options = {}) {
     } else try {console.warn('[PS] optional_perception_contract_unavailable');}catch{}
   }
 
-  // Hook the real authenticated PS2/PS3 stream, without a GTA world scan or
-  // second scheduler. Source projection is available in shadow immediately.
-  // Experimental speech remains explicitly unavailable until the production
-  // stock driver and exact callback/terminal handoff are connected. The
-  // existing isolated orchestrator test doubles are NOT such a handoff.
+  // Production coordinator: original Core kb is still the only scheduler.
+  // The native add-on must independently opt in and source-pin each C-06 gate.
   if(config.spontaneousSpeech.mode!=='off' && runtime.intelligence) {
     const client=runtime.intelligence;
     const now=()=>client.runtime.now();
+    const experimental=config.spontaneousSpeech.mode==='experimental';
+    const sourceCheck=({proposal,stamp,stage})=>{
+      const live=client.runtime,owner=live.directorOwnerProofFor(proposal.speakerCaptureRef);
+      const priority=live.directorPriority,at=now();
+      if(!owner || !priority || !priority.experimentalEnabled ||
+         !Number.isSafeInteger(at) || at-priority.receivedAt>1500 ||
+         at<priority.receivedAt ||
+         owner.hostRunId!==stamp.hostRunId ||
+         owner.worldEpoch!==stamp.worldEpoch ||
+         owner.ownerIncarnationId!==stamp.ownerIncarnationId ||
+         owner.proofRevision!==stamp.proofRevision ||
+         priority.hostRunId!==stamp.hostRunId ||
+         priority.worldEpoch!==stamp.worldEpoch ||
+         priority.playerTurnVersion!==stamp.playerTurnVersion ||
+         !live.current(proposal.playerCaptureRef))return false;
+      // PS3 grants expire during ordinary TTS; native verifies the original
+      // bound Core tuple and current player-priority epoch at playback end.
+      if(stage==='complete')return true;
+      return client.directorOriginalEntitlement(proposal,stamp)?.source===
+        'original_companion_ps2_ps3';
+    };
     const admission=new DirectorSpeechReservations({
-      now,enabled:false,checkCurrent:()=>false,acknowledge:()=>false,
+      now,enabled:experimental,checkCurrent:sourceCheck,
+      acknowledge:(decisionKey,consumer,outcome)=>
+        client.runtime.salience.acknowledge(decisionKey,consumer,outcome),
     });
     const coordinator=new SceneDirectorSpeech({
-      admission,now,mode:'shadow',
+      admission,now,mode:experimental?'active':'shadow',
       originalEntitlement:(proposal,stamp)=>client.directorOriginalEntitlement(proposal,stamp),
-      nativeRequest:()=>Promise.resolve(null),
-      dispatch:()=>Promise.resolve(null),
+      nativeRequest:r=>client.requestDirector(r),
+      dispatch:r=>client.dispatchDirector(r),
     });
-    const pump=new DirectorObservationPump({client,coordinator,now,
+    let pump;
+    pump=new DirectorObservationPump({client,coordinator,now,
+      stampFor:proposal=>pump.currentStamp(proposal),
       onResult:outcome=>{
         try {telemetry?.emit?.('director_candidate',null,'internal',{
           status:outcome?.status??'unknown',configuredMode:config.spontaneousSpeech.mode,
-          executionAvailable:false,
+          executionAvailable:experimental &&
+            client.runtime.directorPriority?.experimentalEnabled===true,
         },'internal');}catch{}
       },
     });
     runtime.director=pump;
     runtime.services.spontaneousSpeechStatus=()=>Object.freeze({
-      requested:config.spontaneousSpeech.mode,executionAvailable:false,
-      reason:'production_original_turn_and_playback_handoff_unavailable',
+      requested:config.spontaneousSpeech.mode,
+      executionAvailable:experimental &&
+        client.runtime.directorPriority?.experimentalEnabled===true &&
+        client.runtime.directorRequestVersion===1,
+      reason:experimental?'native_opt_in_and_live_C06_required':'shadow_only',
     });
     client.subscribeKnowledgeInvalidation(()=>{void pump.tick();});
-    if(config.spontaneousSpeech.mode==='experimental')
-      try {console.warn('[PS6] experimental speech requested, but stock/terminal production handoff is unavailable; remaining shadow-only.');}catch{}
   }
   runtime.services.acceptPlayerTranscript = input => runtime.intelligence?.acceptPlayerTranscript(input) ?? {accepted:false,reason:'unsupported_capture_receipt'};
   if(config.activities.mode==='shadow' || config.activities.mode==='on') {
