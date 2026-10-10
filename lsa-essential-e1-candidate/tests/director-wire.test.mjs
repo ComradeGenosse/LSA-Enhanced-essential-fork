@@ -1,0 +1,125 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {serializeDirectorRequest,serializeDirectorPs3Receipt,serializeDirectorStockIntake,serializeDirectorOriginalTurnBinding,validateDirectorRequest} from '../src/perception/directorWire.mjs';
+const ticketId='b1111111-1111-4111-8111-111111111111';
+const ticket={ticketId,dedupeKey:'ps:'+ticketId};
+const proposal={kind:'speech',
+ speakerCaptureRef:'c1111111-1111-4111-8111-111111111111',
+ playerCaptureRef:'d1111111-1111-4111-8111-111111111111',
+ observationId:'f1111111-1111-4111-8111-111111111111',
+ observationRevision:1,decisionKey:'ps3:source-evidence',policyVersion:1};
+const stamp={hostRunId:'a1111111-1111-4111-8111-111111111111',
+ worldEpoch:1,ownerIncarnationId:'e1111111-1111-4111-8111-111111111111',
+ proofRevision:1,playerTurnVersion:2};
+const args={ticket,proposal,stamp,operation:'reserve',ageMs:120};
+test('exact 17-field closed PS6 wire payload for native decoder, no side effects',()=>{
+ const encoded=serializeDirectorRequest(args);
+ assert.equal(encoded.endsWith('\n'),true);
+ const value=JSON.parse(encoded);
+ assert.equal(Object.keys(value).length,17);
+ assert.equal(value.version,1);assert.equal(value.type,'director.request');
+ assert.equal(value.dedupeKey,'ps:'+ticketId);assert.equal(value.ageMs,120);
+ assert.equal(validateDirectorRequest(value),true);
+ assert.equal('prompt' in value,false);assert.equal('command' in value,false);
+ assert.equal('activity' in value,false);
+});
+test('rejects stale version, unexpected fields, spoofed dedupe, invalid refs and age',()=>{
+ const base=JSON.parse(serializeDirectorRequest(args));
+ const mutated=[
+  {...base,version:2}, {...base,type:'native.execute'}, {...base,operation:'DO'},
+  {...base,dedupeKey:'ps:wrong'}, {...base,ownerIncarnationId:'not-uuid'},
+  {...base,ageMs:2001},{...base,ageMs:'0'}, {...base,unknown:'true'},
+  {...base,decisionKey:'\nDO SOMETHING'}, {...base,worldEpoch:0},
+ ];
+ for(const value of mutated)assert.equal(validateDirectorRequest(value),false,JSON.stringify(value));
+ assert.throws(()=>serializeDirectorRequest({...args,operation:'publish_native'}),/director_request_invalid/);
+});
+test('request carries only original ticket/provenance references, with strict policy',()=>{
+ const value=JSON.parse(serializeDirectorRequest({...args,operation:'submit',ageMs:1999}));
+ assert.equal(value.operation,'submit');
+ assert.equal(value.speakerCaptureRef,proposal.speakerCaptureRef);
+ assert.equal(value.observationId,proposal.observationId);
+ assert.equal(value.policyVersion,1);
+ assert.equal(value.ageMs,1999);
+ assert.equal(validateDirectorRequest({...value,ageMs:-1}),false);
+});
+
+test('closed original PS3 receipt binds separate native challenge/source signal to ticket',()=>{
+ const proof={
+  source:'original_companion_ps2_ps3',
+  challenge:'01111111-1111-4111-8111-111111111111',
+  signalId:'11111111-1111-4111-8111-111111111111',
+  situationRevision:5,ageMs:120,
+  hostRunId:stamp.hostRunId,worldEpoch:stamp.worldEpoch,
+  speakerCaptureRef:proposal.speakerCaptureRef,
+  playerCaptureRef:proposal.playerCaptureRef,
+  ownerIncarnationId:stamp.ownerIncarnationId,
+  proofRevision:stamp.proofRevision,
+  observationId:proposal.observationId,
+  observationRevision:proposal.observationRevision,
+  decisionKey:proposal.decisionKey,policyVersion:1,
+ };
+ const frame=serializeDirectorPs3Receipt(ticket,proof);
+ assert.equal(frame.endsWith('\n'),true);
+ const parsed=JSON.parse(frame);
+ assert.equal(Object.keys(parsed).length,18);
+ assert.equal(parsed.type,'director.ps3_receipt');
+ assert.equal(parsed.source,'original_companion_ps2_ps3');
+ assert.equal(parsed.challenge,proof.challenge);
+ assert.equal(parsed.signalId,proof.signalId);
+ assert.equal(parsed.ticketId,ticketId);
+ assert.equal(validateDirectorRequest(parsed),false,
+   'receipt never masquerades as a native application request');
+ for(const changed of [
+   {challenge:'not-native'},{signalId:'not-original-signal'},
+   {situationRevision:0},{situationRevision:2147483648},
+   {ageMs:2000},{ageMs:1.5},{worldEpoch:0},
+   {ownerIncarnationId:proposal.observationId},
+   {decisionKey:'\nmalicious-request'},{source:'request-echo'},
+ ]) {
+  const source={...proof,...changed};
+  if(changed.ownerIncarnationId)source.ownerIncarnationId='not-valid-uuid';
+  assert.throws(()=>serializeDirectorPs3Receipt(ticket,source),
+    /original_ps3_receipt_invalid/,JSON.stringify(changed));
+ }
+ assert.throws(()=>serializeDirectorPs3Receipt({ticketId:'other'},proof),
+   /original_ps3_receipt_invalid/);
+});
+
+test('stock scheduler intake has no ability to invent player, stock tuple or native grant',()=>{
+ const line=serializeDirectorStockIntake(ticket,'Brief nearby observation.');
+ const wire=JSON.parse(line);
+ assert.deepEqual(Object.keys(wire).sort(),
+   ['version','type','ticketId','dedupeKey','reason','context'].sort());
+ assert.equal(wire.type,'director.stock_intake');
+ assert.equal(wire.reason,'ps6_observer');
+ assert.equal(validateDirectorRequest(wire),false);
+ for(const text of ['', '   ','bad\ncommand','text\tcommand','x'.repeat(161)])
+   assert.throws(()=>serializeDirectorStockIntake(ticket,text),/director_stock_intake_invalid/);
+ assert.throws(()=>serializeDirectorStockIntake({...ticket,dedupeKey:'ps:foreign'},'OK'),
+   /director_stock_intake_invalid/);
+});
+
+test('source original binding preserves exact one-time Essential turn identity, never authorization',()=>{
+ const source={
+   ticketId,sourceRun:'71111111-1111-4111-8111-111111111111',
+   sourceRevision:3,hostRunId:stamp.hostRunId,worldEpoch:stamp.worldEpoch,
+   speakerCaptureRef:proposal.speakerCaptureRef,
+ };
+ const tuple={pedId:'17',turnId:'original-ax7',generationId:2147483648,sessionNonce:7};
+ const frame=JSON.parse(serializeDirectorOriginalTurnBinding(source,tuple));
+ assert.deepEqual(Object.keys(frame).sort(),[
+   'version','type','ticketId','sourceRun','sourceRevision','hostRunId',
+   'worldEpoch','speakerCaptureRef','pedId','turnId','generationId','sessionNonce'].sort());
+ assert.equal(frame.generationId,2147483648);
+ assert.equal(frame.sessionNonce,7);
+ assert.equal(frame.type,'director.original_turn_bound');
+ assert.equal('authorized' in frame,false);
+ for(const changed of [{pedId:'not-a-handle'},{turnId:'\nunsafe'},{sessionNonce:0},
+   {sessionNonce:'7'},{generationId:2**53},{generationId:-1}]) {
+   assert.throws(()=>serializeDirectorOriginalTurnBinding(source,{...tuple,...changed}),
+     /director_original_turn_binding_invalid/);
+ }
+ assert.throws(()=>serializeDirectorOriginalTurnBinding({...source,sourceRun:'forged'},tuple),
+   /director_original_turn_binding_invalid/);
+});

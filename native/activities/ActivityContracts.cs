@@ -26,6 +26,34 @@ namespace LSA.Activities
         static readonly Regex Sha = new Regex("^[a-f0-9]{64}$", RegexOptions.Compiled);
         static readonly Regex Alias = new Regex("^promoted\\.[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$", RegexOptions.Compiled);
         public static bool IsUuid(string value) => value != null && Uuid.IsMatch(value);
+        // Private passive C-05 annotation. Structural validity does not grant
+        // transport support, actor ownership, a lease or execution authority.
+        public static bool DialogueActionAnnotation(IDictionary<string,object> value,int expectedSequence)
+        {
+            try {
+                if(!Exact(value,"version","type","sequence","dialogueActionVersion","publicationId","tuple","binding","canonicalAction","publishedAtMs") || !Sequenced(value,expectedSequence) || value["type"] as string!="dialogue.action.pending" || !(value["dialogueActionVersion"] is int v && v==1) || !IsUuid(value["publicationId"] as string))return false;
+                var tuple=value["tuple"] as Dictionary<string,object>;var binding=value["binding"] as Dictionary<string,object>;
+                if(!Exact(tuple,"pedId","turnId","generationId","sessionNonce") || !ShortIdentity(tuple["pedId"]) || !ShortIdentity(tuple["turnId"]) || !SafeInteger(tuple["generationId"],0) || !SafeInteger(tuple["sessionNonce"],1) || !DialogueBinding(binding))return false;
+                var host=binding["hostContext"] as Dictionary<string,object>;var action=value["canonicalAction"] as string;
+                return Exact(host,"hostContextVersion","hostRunId","worldEpoch") && host["hostContextVersion"] is int hv && hv==1 && IsUuid(host["hostRunId"] as string) && host["worldEpoch"] is int epoch && epoch>0 && action!=null && Regex.IsMatch(action,@"^[a-z][a-z0-9_]{0,63}\z") && SafeInteger(value["publishedAtMs"],0);
+            }catch{return false;}
+        }
+        static bool DialogueBinding(Dictionary<string,object> binding)
+        {
+            if(binding==null)return false;
+            var owned=binding.ContainsKey("encounterId") || binding.ContainsKey("incarnationId");
+            return Exact(binding,owned?new[]{"captureRef","encounterId","incarnationId","hostContext"}:new[]{"captureRef","hostContext"}) && IsUuid(binding["captureRef"] as string) && (!owned || IsUuid(binding["encounterId"] as string) && IsUuid(binding["incarnationId"] as string));
+        }
+        static bool ShortIdentity(object value) => value is string text && text.Length>0 && text.Length<=128;
+        public static bool DialogueActionReceipt(IDictionary<string,object> value,int expectedSequence)
+        {
+            try{
+                if(!Exact(value,"version","type","sequence","dialogueActionVersion","publicationId","tuple","binding","canonicalAction","publishedAtMs","succeeded","atGameTick","nativeRun","adapterEpoch") || value["type"] as string!="dialogue.action.receipt" || !(value["succeeded"] is bool) || !SafeInteger(value["atGameTick"],0) || Convert.ToInt64(value["atGameTick"])>uint.MaxValue || !IsUuid(value["nativeRun"] as string) || !IsUuid(value["adapterEpoch"] as string))return false;
+                var annotation=new Dictionary<string,object>(value);foreach(var key in new[]{"succeeded","atGameTick","nativeRun","adapterEpoch"})annotation.Remove(key);annotation["type"]="dialogue.action.pending";
+                return DialogueActionAnnotation(annotation,expectedSequence);
+            }catch{return false;}
+        }
+        static bool SafeInteger(object value,long min) => (value is int || value is long) && Convert.ToInt64(value)>=min && Convert.ToInt64(value)<=9007199254740991L;
         public static bool IsReason(string value) => value != null && Reasons.Contains(value);
         public static bool IsCapability(string value) => value != null && Capabilities.Contains(value);
         public static bool IsMode(string value) => value != null && Modes.Contains(value);
@@ -43,13 +71,28 @@ namespace LSA.Activities
         }
         public static bool HelloNative(IDictionary<string, object> value, string contractSha)
         {
-            try { return Exact(value, "version", "type", "nativeRun", "adapterEpoch", "contractSha256", "capabilities", "limits") && VersionOf(value) && value["type"] as string == "hello" && IsUuid(value["nativeRun"] as string) && IsUuid(value["adapterEpoch"] as string) && value["contractSha256"] as string == contractSha && Sha.IsMatch(contractSha) && CapabilityMap(value["capabilities"] as Dictionary<string, object>) && LimitMap(value["limits"] as Dictionary<string, object>); }
+            try { return DialogueHelloEnvelope(value, "version", "type", "nativeRun", "adapterEpoch", "contractSha256", "capabilities", "limits") && VersionOf(value) && value["type"] as string == "hello" && IsUuid(value["nativeRun"] as string) && IsUuid(value["adapterEpoch"] as string) && value["contractSha256"] as string == contractSha && Sha.IsMatch(contractSha) && CapabilityMap(value["capabilities"] as Dictionary<string, object>) && LimitMap(value["limits"] as Dictionary<string, object>); }
             catch { return false; }
         }
         public static bool HelloClient(IDictionary<string, object> value, string contractSha)
         {
-            try { return Exact(value, "version", "type", "contractSha256", "clientRun") && VersionOf(value) && value["type"] as string == "hello" && value["contractSha256"] as string == contractSha && IsUuid(value["clientRun"] as string); }
+            try { return DialogueHelloEnvelope(value, "version", "type", "contractSha256", "clientRun") && VersionOf(value) && value["type"] as string == "hello" && value["contractSha256"] as string == contractSha && IsUuid(value["clientRun"] as string); }
             catch { return false; }
+        }
+        static bool DialogueHelloEnvelope(IDictionary<string,object> value,params string[] keys)
+        {
+            if(value==null)return false;
+            if(!value.ContainsKey("dialogueActionVersion"))return HostEnvelope(value,keys);
+            if(!(value["dialogueActionVersion"] is int v && v==1) || !value.ContainsKey("hostContextVersion"))return false;
+            var all=new List<string>(keys);all.Add("dialogueActionVersion");return HostEnvelope(value,all.ToArray());
+        }
+        static bool HostEnvelope(IDictionary<string,object> value,params string[] keys)
+        {
+            if(value==null) return false;
+            bool extended=value.ContainsKey("hostContextVersion") || value.ContainsKey("hostRunId") || value.ContainsKey("worldEpoch");
+            if(!extended) return Exact(value,keys);
+            var all=new List<string>(keys);all.AddRange(new[]{"hostContextVersion","hostRunId","worldEpoch"});
+            return Exact(value,all.ToArray()) && value["hostContextVersion"] is int v && v==1 && IsUuid(value["hostRunId"] as string) && value["worldEpoch"] is int epoch && epoch>0;
         }
         public static bool Lease(IDictionary<string, object> value, int expectedSequence)
         {

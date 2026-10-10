@@ -195,7 +195,10 @@ test('real stock controller applies the same promoted canon to microphone and sp
   for (const request of requests) {
     assert.equal(request.context.actor.characterProfile.authority,'player_authored');
     assert.equal(request.context.actor.characterProfile.profileRevision,p.revision);
-    assert.match(request.context.systemInstruction,/PROMOTED CHARACTER AUTHORITY/);
+    assert.match(request.context.systemInstruction,/SELF canon and RECALLED manual memories/);
+    const lanes=JSON.parse(request.knowledgeProjection.modelAllocation.scene).lanes;
+    assert.equal(lanes.SELF.canon.name,p.name);
+    assert.equal(JSON.stringify(request.knowledgeProjection.modelAllocation).includes(p.characterId),false);
     assert.match(request.context.systemInstruction,/player-authored promoted-character canon is authoritative/i);
     assert.ok(!('personaDescription' in request.context.actor));
   }

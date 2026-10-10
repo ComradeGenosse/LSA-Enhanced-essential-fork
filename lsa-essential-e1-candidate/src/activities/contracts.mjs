@@ -1,4 +1,5 @@
 import { isUuid } from '../identity/identityContract.mjs';
+import { validateHostEnvelope, validateWorldEpoch } from '../context/hostContext.mjs';
 
 export const ACTIVITY_CONTRACT_VERSION = 1;
 export const FRAME_BYTES = 8192;
@@ -77,7 +78,7 @@ export function normalizeActivityConfig(value = {}) {
   const passedProbes = valid && Array.isArray(value.passedProbes)
     ? [...new Set(value.passedProbes.filter(item => typeof item === 'string' && /^[A-Z][A-Z0-9]{0,8}$/.test(item)))].slice(0, 12)
     : [];
-  return Object.freeze({ mode, pipeName: /^[A-Za-z0-9_.-]{1,80}$/.test(pipeName) ? pipeName : 'LSA.Activities.v1', passedProbes, dialogue: false });
+  return Object.freeze({ mode, pipeName: /^[A-Za-z0-9_.-]{1,80}$/.test(pipeName) ? pipeName : 'LSA.Activities.v1', passedProbes, dialogue: false,...(valid && value.dialogueReceipts===true?{dialogueReceipts:true}:{}) });
 }
 
 function refSlot(value) {
@@ -242,11 +243,16 @@ function resolveSlot(value) {
   return false;
 }
 const sequenced = value => !!value && value.version === 1 && typeof value.type === 'string' && integer(value.sequence, 1_000_000_000) && value.sequence >= 1;
+function dialogueHelloEnvelope(value,keys){
+  if(!Object.hasOwn(value,'dialogueActionVersion'))return validateHostEnvelope(value,keys);
+  return value.dialogueActionVersion===1 && value.hostContextVersion===1 && validateHostEnvelope(value,[...keys,'dialogueActionVersion']);
+}
 export function validateFrame(value) {
   if (!value || typeof value !== 'object' || Array.isArray(value) || Buffer.byteLength(JSON.stringify(value)) > FRAME_BYTES) return false;
-  if (value.type === 'hello' && value.nativeRun !== undefined) return keys(value, ['version', 'type', 'nativeRun', 'adapterEpoch', 'contractSha256', 'capabilities', 'limits']) && value.version === 1 && isUuid(value.nativeRun) && isUuid(value.adapterEpoch) && SHA.test(value.contractSha256) && capabilities(value.capabilities) && limits(value.limits);
-  if (value.type === 'hello') return keys(value, ['version', 'type', 'contractSha256', 'clientRun']) && value.version === 1 && SHA.test(value.contractSha256) && isUuid(value.clientRun);
+  if (value.type === 'hello' && value.nativeRun !== undefined) return dialogueHelloEnvelope(value, ['version', 'type', 'nativeRun', 'adapterEpoch', 'contractSha256', 'capabilities', 'limits']) && value.version === 1 && isUuid(value.nativeRun) && isUuid(value.adapterEpoch) && SHA.test(value.contractSha256) && capabilities(value.capabilities) && limits(value.limits);
+  if (value.type === 'hello') return dialogueHelloEnvelope(value, ['version', 'type', 'contractSha256', 'clientRun']) && value.version === 1 && SHA.test(value.contractSha256) && isUuid(value.clientRun);
   if (!sequenced(value)) return false;
+  if (value.type === 'world_epoch') return keys(value,['version','type','sequence','epoch','reason']) && validateWorldEpoch({epoch:value.epoch,reason:value.reason});
   if (value.type === 'lease') return keys(value, ['version', 'type', 'sequence', 'leaseTtlMs']) && integer(value.leaseTtlMs, 5000) && value.leaseTtlMs >= 1;
   if (value.type === 'actor.acquire') return keys(value, ['version', 'type', 'sequence', 'requestId', 'characterId', 'ownerAlias', 'ownershipToken', 'leaseId']) && [value.requestId, value.characterId, value.ownershipToken, value.leaseId].every(isUuid) && ALIAS.test(value.ownerAlias);
   if (value.type === 'actor.acquired') return keys(value, ['version', 'type', 'sequence', 'requestId', 'encounterId', 'incarnationId', 'leaseEpoch']) && [value.requestId, value.encounterId, value.incarnationId].every(isUuid) && integer(value.leaseEpoch);

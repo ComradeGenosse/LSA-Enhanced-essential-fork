@@ -17,10 +17,9 @@ namespace LSA.PromotedCharacters
         // Essential queue and the registry stop APIs only. No raw task natives and no broad task clearing.
         sealed class EssentialActivityWorld : IActivityWorld
         {
-            sealed class SeatMemory { public string Previous; public bool Enter, Exit, Stay; }
+            sealed class SeatMemory { public bool Enter, Exit, Stay; }
             readonly PromotedCharactersIntegration host;
-            readonly Dictionary<string, Ped> captures = new Dictionary<string, Ped>();
-            readonly Dictionary<string, IntPtr> addresses = new Dictionary<string, IntPtr>();
+            // Entity references live exclusively in host.Host.Anchors.
             readonly Dictionary<string, string> own = new Dictionary<string, string>();
             readonly Dictionary<string, SeatMemory> seats = new Dictionary<string, SeatMemory>();
             public EssentialActivityWorld(PromotedCharactersIntegration host) { this.host = host; }
@@ -47,10 +46,12 @@ namespace LSA.PromotedCharacters
                     var player = Game.LocalPlayer.Character;
                     if (player == null || !player.Exists() || player.MemoryAddress == IntPtr.Zero) return new AnchorResult { Reason = "target_invalid" };
                     try { if (NativeFunction.CallByName<bool>("IS_PLAYER_SWITCH_IN_PROGRESS")) return new AnchorResult { Reason = "target_invalid" }; } catch { return new AnchorResult { Reason = "target_invalid" }; }
-                    if (captures.Count >= 32) return new AnchorResult { Reason = "budget_exhausted" };
-                    var id = Guid.NewGuid().ToString("D");
-                    captures[id] = player; addresses[id] = player.MemoryAddress;
-                    return new AnchorResult { Ok = true, Ref = id, SlotKind = "player", Band = Distance(encounter.Ped, player), Label = null };
+                    var handle=Convert.ToUInt64(player.Handle);var address=player.MemoryAddress;
+                    var anchor=host.Host.Anchors.Retain(player,handle,address,"player",null,
+                        ()=>player.Exists() && Convert.ToUInt64(player.Handle)==handle && player.MemoryAddress==address,
+                        host.Host.MonotonicMs,false,LSA.Intelligence.AnchorConsumer.ActTarget);
+                    if(anchor==null) return new AnchorResult { Reason = "budget_exhausted" };
+                    return new AnchorResult { Ok = true, Ref = anchor.CaptureRef, SlotKind = "player", Band = Distance(encounter.Ped, player), Label = null };
                 }
                 if (slotKind == "here") {
                     var position = encounter.Ped.Position;
@@ -78,7 +79,9 @@ namespace LSA.PromotedCharacters
                 if (encounter == null || !PromotedCharactersIntegration.SameIncarnation(encounter)) return false;
                 var ped = encounter.Ped;
                 if (capability == "follow_person") {
-                    if (targetRef == null || !captures.TryGetValue(targetRef, out var target) || !AnchorLive(targetRef)) return false;
+                    var anchor=host.Host.Anchors.Resolve(targetRef);
+                    var target=anchor?.Entity as Ped;
+                    if (target==null || anchor.Kind!="player" || !AnchorLive(targetRef)) return false;
                     NpcFocus.SetFocus(ped, target, "lsa_activity");
                     NpcActionQueue.QueueNpcAction("followtarget", null, null, ped, target);
                     own[encounterId] = "followtarget";
@@ -88,7 +91,7 @@ namespace LSA.PromotedCharacters
                 else return false;
                 return true;
             }
-            public void NoteForeign(string encounterId) { if (encounterId != null) own.Remove(encounterId); }
+            public void NoteForeign(string encounterId) { if (encounterId != null) {own.Remove(encounterId);RefreshPrimaryOwner(Find(encounterId));} }
             public void Cancel(string encounterId, string capability, bool stopIfCurrent)
             {
                 if (!stopIfCurrent || encounterId == null || !own.ContainsKey(encounterId)) return;
@@ -122,7 +125,8 @@ namespace LSA.PromotedCharacters
                 sample.TargetValid = false; sample.TargetSame = false;
                 if (player != null && player.Exists()) {
                     sample.DistanceBand = Distance(encounter.Ped, player);
-                    foreach (var pair in captures) if (pair.Value == player && addresses.TryGetValue(pair.Key, out var address) && address == player.MemoryAddress) { sample.TargetValid = true; sample.TargetSame = true; }
+                    foreach (var anchor in host.Host.Anchors.Current.Where(a=>a.Kind=="player" && a.Consumers.Contains(LSA.Intelligence.AnchorConsumer.ActTarget)))
+                        if (ReferenceEquals(anchor.Entity,player) && host.Host.Anchors.Resolve(anchor.CaptureRef)!=null) { sample.TargetValid = true; sample.TargetSame = true; }
                 }
                 var memory = false;
                 try { memory = PedContinuityMemoryService.TryGetMemory(encounter.Ped, out PedContinuityMemory _); } catch { }
@@ -136,27 +140,33 @@ namespace LSA.PromotedCharacters
                 var encounter = Find(encounterId);
                 if (encounter == null || !PromotedCharactersIntegration.SameIncarnation(encounter)) throw new InvalidOperationException("actor_retired");
                 var state = NpcStateStore.GetStateForActiveBehavior(encounter.Ped);
-                seats[encounterId] = new SeatMemory { Previous = encounter.Mode, Enter = state.EnterPassengerSeatWhenPlayerEnters, Exit = state.ExitVehicleWhenPlayerExits, Stay = state.StayUnderLsaControl };
+                seats[encounterId] = new SeatMemory { Enter = state.EnterPassengerSeatWhenPlayerEnters, Exit = state.ExitVehicleWhenPlayerExits, Stay = state.StayUnderLsaControl };
                 state.EnterPassengerSeatWhenPlayerEnters = false;
                 state.ExitVehicleWhenPlayerExits = false;
                 state.StayUnderLsaControl = true;
                 encounter.Mode = "activity";
+                encounter.Owner=PrimaryBehaviorOwner.Transition(encounter.Owner,"act","activity",unchecked((uint)Game.GameTime));
             }
             public void EndOwnership(string encounterId, bool preempted)
             {
                 if (encounterId == null || !seats.ContainsKey(encounterId)) return;
                 var memory = seats[encounterId]; seats.Remove(encounterId);
                 var encounter = Find(encounterId);
-                if (encounter == null || preempted) return;
+                if (encounter == null || !PromotedCharactersIntegration.SameIncarnation(encounter)) return;
+                if(preempted) {RefreshPrimaryOwner(encounter);return;}
                 try {
                     var state = NpcStateStore.GetStateForActiveBehavior(encounter.Ped);
                     state.EnterPassengerSeatWhenPlayerEnters = memory.Enter;
                     state.ExitVehicleWhenPlayerExits = memory.Exit;
                     state.StayUnderLsaControl = memory.Stay;
                 } catch { }
-                encounter.Mode = "idle";
+                RefreshPrimaryOwner(encounter);
             }
-            public bool AnchorLive(string captureRef) => captureRef != null && captures.TryGetValue(captureRef, out var ped) && addresses.TryGetValue(captureRef, out var address) && ped != null && ped.Exists() && ped.MemoryAddress == address;
+            public bool AnchorLive(string captureRef) {
+                var anchor=host.Host.Anchors.Resolve(captureRef);
+                return anchor!=null && anchor.Kind=="player" && anchor.Entity is Ped &&
+                    ReferenceEquals(anchor.Entity,Game.LocalPlayer?.Character) && anchor.Consumers.Contains(LSA.Intelligence.AnchorConsumer.ActTarget);
+            }
             Encounter Find(string encounterId) => encounterId == null ? null : host.encounters.Values.FirstOrDefault(item => item.Id == encounterId);
             static string Distance(Ped actor, Ped other)
             {

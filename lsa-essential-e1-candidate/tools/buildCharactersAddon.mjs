@@ -1,3 +1,4 @@
+import {intelligenceNativeSourceHash} from './verifyDialogueKnowledgePayload.mjs';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { readFile,copyFile,mkdir,writeFile } from 'node:fs/promises';
@@ -15,6 +16,7 @@ import { COMMANDS_CONTRACT_SHA256,RNUI_DLL_SHA256,RNUI_ASSEMBLY_VERSION } from '
 const root = candidateRootPath();
 export async function buildCharactersAddon({rphReferencePath,frameworkReferenceRoot,damageReferencePath,rnuiReferencePath,dotnetPath = 'dotnet',outputPath = path.join(root,'dist/promoted-characters')} = {}) {
   const target = await assertNoLinkedOutput(outputPath);
+  const intelligenceSourceSha256=await intelligenceNativeSourceHash();
   if (!rphReferencePath || !frameworkReferenceRoot) throw new Error('Explicit compile-only RPH and .NET 4.8.1 references required.');
   const hash = async file => createHash('sha256').update(await readFile(file)).digest('hex');
   if (await hash(path.join(root,'upstream/LosSantosAlive.dll')) !== IDENTITY_DLL_SHA256 || await hash(rphReferencePath) !== RPH_SDK_SHA256) throw new Error('P2 native assembly pin mismatch.');
@@ -45,7 +47,8 @@ export async function buildCharactersAddon({rphReferencePath,frameworkReferenceR
   await copyFile(path.resolve(root,'../native/promoted-characters/LSA.PromotedCharacters.example.json'),path.join(target,'LSA.PromotedCharacters.example.json'));
   await copyFile(path.resolve(root,'../native/enhanced/LSA.Enhanced.example.json'),path.join(target,'LSA.Enhanced.example.json'));
   const uxContract = {commandsSha256:COMMANDS_CONTRACT_SHA256,rnuiReferenceSha256:RNUI_DLL_SHA256,rnuiAssemblyVersion:RNUI_ASSEMBLY_VERSION,rnuiPackaged:false,inputDefaultEnabled:false,uiDefaultEnabled:false,talkTargetingDefaultEnabled:false};
-  const manifest = {stage:'P2+PS0+PS1+PS2+UX1+UX2+UX3+UX4',defaultEnabled:false,intelligenceDefaultMode:'off',playerSpeech:'disabled_unsupported_capture_receipt',nativeContract,characterContract,perceptionContract,controlsContract,uxContract,rphSdkSha256:RPH_SDK_SHA256,files,deploymentPerformed:false,gtaRuntimeTest:false,talkTargeting:'offline-complete-gta-pending'};
+  if(intelligenceSourceSha256!==await intelligenceNativeSourceHash())throw new Error('knowledge_native_source_changed_during_build');
+  const manifest = {intelligenceSourceSha256,stage:'P2+PS0+PS1+PS2+ACT0+ACT1+ACT2+UX1+UX2+UX3+UX4+C02+C13+C14+C06',defaultEnabled:false,sharedIntelligenceContract:{primaryBehaviorOwnerVersion:1,hostContextVersion:1,actorCaptureVersion:1,observerIndexVersion:1,observerSituationVersion:1,physicalAcceptance:false},intelligenceDefaultMode:'off',playerSpeech:'disabled_unsupported_capture_receipt',nativeContract,characterContract,perceptionContract,controlsContract,uxContract,rphSdkSha256:RPH_SDK_SHA256,files,deploymentPerformed:false,gtaRuntimeTest:false,talkTargeting:'offline-complete-gta-pending'};
   await writeFile(path.join(target,'build-manifest.json'),JSON.stringify(manifest,null,2)+'\n');return {target,manifest,compilerOutput:stdout};
 }
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {

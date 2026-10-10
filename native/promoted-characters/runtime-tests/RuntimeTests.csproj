@@ -9,4 +9,4 @@
     <Compile Include="../InputHookFiles.cs;../InputLeaseState.cs;../EssentialInputInterception.cs" />
     <Reference Include="System.Web.Extensions" />
   </ItemGroup>
-</Project>
+<ItemGroup><Compile Include="../HostContext.cs" Link="HostContext.cs"/><Compile Include="../../intelligence/EntityAnchors.cs" Link="EntityAnchors.cs"/></ItemGroup></Project>

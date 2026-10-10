@@ -22,3 +22,16 @@ test('bootstrap off/shadow parity: no provider, profile store, owner command or 
     assert.equal(runtime.intelligence,undefined);assert.equal(calls,0);
   }finally {await rm(temp,{recursive:true,force:true});}
 });
+
+
+test('bootstrap knowledge support is separate from PS collection and requires both manifest contracts',async()=>{
+ const temp=await mkdtemp(path.resolve('.build-check-knowledge-'));const perceptionContract=await verifyPerceptionContract();
+ const dialogueKnowledgeContract={available:true,frameVersion:1,hostContextVersion:1,observerIndexVersion:1,observerSituationVersion:1};
+ try {
+  const configPath=path.join(temp,'config.json');await writeFile(configPath,JSON.stringify({dialogueKnowledge:{mode:'shadow'},intelligence:{mode:'off'},persistentIdentity:{enabled:false},promotedCharacters:{enabled:false}}));
+  for(const [contract,pins,supported] of [[dialogueKnowledgeContract,perceptionContract,true],[{...dialogueKnowledgeContract,available:false},perceptionContract,false],[dialogueKnowledgeContract,{...perceptionContract,dllSha256:'bad'},false],[null,perceptionContract,false]]){
+   const runtime=await createRuntimeForBundle({configPath,env:{},enableTelemetry:false,startCharacterEditor:false,dialogueKnowledgeContract:contract,perceptionContract:pins,fetchImpl:()=>{throw new Error('No inference expected');}});
+   assert.equal(runtime.dialogueKnowledgeBuildSupported,supported);assert.equal(runtime.intelligence,undefined);assert.equal(runtime.config.dialogueKnowledge.mode,'shadow');
+  }
+ }finally {await rm(temp,{recursive:true,force:true});}
+});

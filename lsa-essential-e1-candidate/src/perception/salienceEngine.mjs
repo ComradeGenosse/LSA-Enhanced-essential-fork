@@ -1,3 +1,5 @@
+import {readPrimaryBehaviorOwner} from '../context/primaryBehaviorOwner.mjs';
+import { immutableSnapshot } from '../context/turnSnapshot.mjs';
 import { isUuid } from '../identity/identityContract.mjs';
 import { validateObservation } from './contracts.mjs';
 
@@ -116,7 +118,9 @@ export function normalizeSalienceSituation(input = {}) {
     playerCaptureRef: isUuid(source.playerCaptureRef) ? source.playerCaptureRef : null,
     recognized: Object.freeze(recognized),
     playerRelationship: playerRelationship ? Object.freeze(playerRelationship) : null,
+    situationRevision: integer(source.situationRevision) ? source.situationRevision : 0,
     profileRevision: integer(source.profileRevision) ? source.profileRevision : 0,
+    primaryOwner:readPrimaryBehaviorOwner(source.primaryOwner),
     activity: ACTIVITIES.has(source.activity) ? source.activity : 'unknown',
     memories: Object.freeze(memories),
     traitPolicies: Object.freeze(traitPolicies),
@@ -151,6 +155,8 @@ export function situationFromCharacterView(view = {}) {
       : null,
     profileRevision: integer(profile?.revision) ? profile.revision : view.profileRevision,
     activity: view.activity,
+    primaryOwner:view.primaryOwner,
+    situationRevision: view.situationRevision,
     memories: profileMemories,
     traitPolicies,
     distanceBand: view.distanceBand,
@@ -356,6 +362,33 @@ export class SalienceCache {
     this.latestById = new Map();
   }
   evaluate(observation, situation) { return evaluateSalience(observation, situation, this); }
+  needsSituationRefresh(observation,situation) {
+    const pair=this.decisions.get(observation.observationId)?.pair??this.ledger.get(observation.observationId)?.pair;
+    if(!pair || pair.observation.revision!==observation.revision)return false;
+    return pair.situation.profileRevision!==situation.profileRevision || pair.situation.situationRevision!==situation.situationRevision || policyFingerprint(pair.situation,observation)!==policyFingerprint(situation,observation);
+  }
+  trimPairMetadata() {
+    const pairs=new Map([...this.decisions.values(),...this.ledger.values(),...this.latestById.values()].filter(entry=>entry.pair).map(entry=>[entry.pair,entry.pairBytes]));
+    let bytes=[...pairs.values()].reduce((sum,size)=>sum+size,0);
+    for(const pair of orderSalienceDecisions([...pairs.keys()]).reverse()) {
+      if(bytes<=2*1024*1024) break;
+      for(const entry of [...this.decisions.values(),...this.ledger.values()]) if(entry.pair===pair) {delete entry.pair;delete entry.pairBytes;delete entry.observation;delete entry.situation;}
+      const latest=this.latestById.get(pair.observation.observationId);if(latest?.pair===pair) this.latestById.set(pair.observation.observationId,Object.freeze({decision:latest.decision,profileRevision:latest.profileRevision,policy:latest.policy}));
+      bytes-=pairs.get(pair);
+    }
+  }
+  snapshotForObserver(observerRef,observations,now=this.now(),diagnostics=null) {
+    this.expire(now);const result=[],counts={observations:0,observationExpired:0,noMatchingSalience:0,revisionMismatch:0};
+    for(const entry of observations.entries.values()) {
+      const observation=entry.value;if(observation.observer.captureRef!==observerRef)continue;counts.observations++;if(observation.expiresAtMonotonicMs<=now){counts.observationExpired++;continue;}
+      const pair=this.decisions.get(observation.observationId)?.pair ?? this.ledger.get(observation.observationId)?.pair;
+      if(!pair){counts.noMatchingSalience++;continue;}
+      if(pair.observation.revision!==observation.revision || pair.observation.observedAt.nativeRun!==observation.observedAt.nativeRun || pair.decision.revision!==observation.revision || pair.decision.expiresAtMonotonicMs<=now){counts.revisionMismatch++;continue;}
+      result.push(pair);if(result.length>=128) break;
+    }
+    if(diagnostics)Object.assign(diagnostics,counts);
+    return Object.freeze(orderSalienceDecisions(result));
+  }
   acknowledge(decisionKeyValue, consumer, outcome) {
     if (typeof decisionKeyValue !== 'string' || !['ps4_context', 'ps6_ticket', 'ps5_memory'].includes(consumer) || !['delivered', 'rejected', 'expired'].includes(outcome)) return false;
     const hit = [...this.ledger.entries()].find(([, entry]) => entry.decisionKey === decisionKeyValue);
@@ -374,9 +407,17 @@ export class SalienceCache {
     if (consumer === 'ps6_ticket' && !entry.consumed) entry.granted = 'none';
     return true;
   }
+  releaseReference(ref) {
+    const uses=pair=>pair.observation.observer.captureRef===ref || pair.observation.claims.some(claim=>claim.source?.captureRef===ref || claim.target?.captureRef===ref || claim.details?.vehicle===ref);
+    for(const entry of [...this.decisions.values(),...this.ledger.values()])if(entry.pair && uses(entry.pair)){delete entry.pair;delete entry.pairBytes;delete entry.observation;delete entry.situation;}
+    for(const [id,entry] of this.latestById)if(entry.pair && uses(entry.pair))this.latestById.set(id,Object.freeze({decision:entry.decision,profileRevision:entry.profileRevision,policy:entry.policy}));
+  }
   clear() { this.decisions.clear(); this.order = []; this.ledger.clear(); this.families.clear(); this.latestById.clear(); }
   expire(now = this.now()) {
-    for (const [id, entry] of this.ledger) if (entry.expires <= now) this.ledger.delete(id);
+    for (const [id, entry] of this.ledger) {
+      if(entry.expires<=now)this.ledger.delete(id);
+      else if(entry.pair && (entry.pair.observation.expiresAtMonotonicMs<=now || entry.pair.decision.expiresAtMonotonicMs<=now)){delete entry.pair;delete entry.pairBytes;delete entry.observation;delete entry.situation;}
+    }
     for (const [key, entry] of this.families) if (entry.expires <= now) this.families.delete(key);
     for (const [id, entry] of this.decisions) if (entry.decision.expiresAtMonotonicMs <= now) this.forgetDecision(id);
     for (const [id, entry] of this.latestById) if (entry.decision.expiresAtMonotonicMs <= now) this.latestById.delete(id);
@@ -412,6 +453,8 @@ export class SalienceCache {
     this.rememberLatest(observation.observationId, Object.freeze({ decision, profileRevision: situation.profileRevision, policy: null }));
   }
   remember(observation, situation, decision, draft) {
+    const pair=immutableSnapshot({observation,situation,decision});
+    const pairBytes=Buffer.byteLength(JSON.stringify(pair));
     const now = situation.nowMonotonicMs;
     const expires = now + SALIENCE_BOUNDS.suppressionTtlMs;
     const grant = decision.response === 'eligible' || decision.response === 'urgent';
@@ -426,6 +469,7 @@ export class SalienceCache {
         granted: grant ? (RESPONSE_RANK[decision.response] >= RESPONSE_RANK[existing?.granted || 'none'] ? decision.response : existing.granted) : (existing?.granted || 'none'),
         consumed: Boolean(existing?.consumed),
         consumedBy: new Set(existing?.consumedBy || []),
+        pair,pairBytes,
         decisionKey: decision.decisionKey,
         grantEpoch: draft.grantEpoch || existing?.grantEpoch || 0,
         familyKey: familyKey(observation),
@@ -445,10 +489,11 @@ export class SalienceCache {
       });
     }
     this.forgetDecision(observation.observationId);
-    this.decisions.set(observation.observationId, { observer: observation.observer.captureRef, decision, at: now });
+    this.decisions.set(observation.observationId, { observer: observation.observer.captureRef, ...pair, pair,pairBytes, at: now });
     this.order.push(observation.observationId);
-    this.rememberLatest(observation.observationId, Object.freeze({ decision, profileRevision: situation.profileRevision, policy: draft.policy }));
+    this.rememberLatest(observation.observationId, Object.freeze({ ...pair, pair,pairBytes, profileRevision: situation.profileRevision, policy: draft.policy }));
     this.evictDecisions(observation.observer.captureRef);
+    this.trimPairMetadata();
     if (!DECISION_KEYS.every(field => Object.hasOwn(decision, field))) throw new Error('salience_decision_shape');
   }
 }

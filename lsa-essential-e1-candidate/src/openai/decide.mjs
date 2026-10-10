@@ -11,11 +11,12 @@ function recordCanonRequest(telemetry,body,actor) {
   }); } catch {}
 }
 
-export async function decide({ config, context, input, history, signal, timeoutMs = config.providerWorkDeadlineMs ?? config.turnDeadlineMs, source, fetchImpl = globalThis.fetch, telemetry, dialogueAttempt }) {
+export async function decide({ config, context, input, history, signal, knowledgeProjection, knowledgeDelivery, timeoutMs = config.providerWorkDeadlineMs ?? config.turnDeadlineMs, source, fetchImpl = globalThis.fetch, telemetry, dialogueAttempt }) {
   const body = buildRequest({
     model: config.reasoningModel,
     effort: config.reasoningEffort,
     systemInstruction: context.systemInstruction,
+    knowledgeProjection: knowledgeDelivery?.prepare() ?? knowledgeProjection ?? context.knowledgeProjection,
     actor: context.actor,
     listener: context.listener,
     world: context.world,
@@ -38,6 +39,7 @@ export async function decide({ config, context, input, history, signal, timeoutM
     operation: 'model',
     model: config.reasoningModel,
     onRequest: value => dialogueAttempt?.request(value),
+    beforeRequest: body=>knowledgeDelivery?.beforeRequest(body),
   });
   const output = Array.isArray(response?.output) ? response.output : [];
   const responseText = output.filter(item => item?.type === 'message' && Array.isArray(item.content))
@@ -60,13 +62,14 @@ export async function decide({ config, context, input, history, signal, timeoutM
   return parseDecisionJson(extractResponseText(response));
 }
 
-export async function decideStreaming({ config, context, input, history, signal,
+export async function decideStreaming({ config, context, input, history, signal, knowledgeProjection, knowledgeDelivery,
   timeoutMs = config.providerWorkDeadlineMs ?? config.turnDeadlineMs, source, fetchImpl = globalThis.fetch,
   telemetry, onSegment, dialogueAttempt }) {
   const body = buildRequest({
     model: config.reasoningModel,
     effort: config.reasoningEffort,
     systemInstruction: context.systemInstruction,
+    knowledgeProjection: knowledgeDelivery?.prepare() ?? knowledgeProjection ?? context.knowledgeProjection,
     actor: context.actor,
     listener: context.listener,
     world: context.world,
@@ -80,7 +83,7 @@ export async function decideStreaming({ config, context, input, history, signal,
   });
   recordCanonRequest(telemetry,body,context.actor);
   return streamDecision({
-    config, body, signal, timeoutMs, fetchImpl, telemetry, onSegment, dialogueAttempt,
+    config, body, signal, timeoutMs, fetchImpl, telemetry, onSegment, dialogueAttempt, beforeRequest:body=>knowledgeDelivery?.beforeRequest(body),
     maxSegments: config.streamingMaxSegments,
     maxSegmentChars: config.streamingMaxSegmentChars,
     maxDialogueChars: config.streamingMaxDialogueChars,

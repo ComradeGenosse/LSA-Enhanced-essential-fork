@@ -40,6 +40,55 @@ class Program
         Check(anchors.Resolve(priorityToken)==firstPriority&&anchors.Resolve(conversationToken)==conversationAnchor&&conversationToken!=demotedToken,"conversation changes never reuse or retarget captureRefs");
         for(int n=16;n<256;n++) anchors.Retain(new object(),(ulong)n+1,new IntPtr(n+1),"ped",null,()=>true,0);
         Check(anchors.Count==256&&anchors.Retain(new object(),999,new IntPtr(999),"vehicle",null,()=>true,0)==null,"anchor cap");anchors.Clear();Check(anchors.Count==0,"anchor reset");
+        // PR21 T01/T03/T04: the same retained physical lifetime shares a
+        // captureRef across consumers, without ACT granting PS observer rights.
+        var sharedRefs=new EntityAnchors();var onePed=new object();
+        var psRef=sharedRefs.Retain(onePed,1100,new IntPtr(1100),"ped","owner-shared",()=>true,0,true,AnchorConsumer.PsObserver);
+        var actRef=sharedRefs.Retain(onePed,1100,new IntPtr(1100),"ped","owner-shared",()=>true,1,false,AnchorConsumer.ActTarget);
+        Check(ReferenceEquals(psRef,actRef)&&sharedRefs.Count==1&&
+          sharedRefs.ConsumerCount(AnchorConsumer.PsObserver)==1&&
+          sharedRefs.ConsumerCount(AnchorConsumer.ActTarget)==1,"PS/ACT share native exact anchor with distinct consumer receipts");
+        var otherPed=new object();var onlyAct=sharedRefs.Retain(otherPed,1101,new IntPtr(1101),"ped",null,()=>true,0,false,AnchorConsumer.ActTarget);
+        Check(onlyAct!=null&&!onlyAct.Observer,"ACT starts without PS observer authority");
+        Check(sharedRefs.Retain(otherPed,1101,new IntPtr(1101),"ped",null,()=>true,1,true,AnchorConsumer.ActTarget)==null&&
+          !onlyAct.Observer,"ACT cannot promote its Ped to observer");
+        for(int n=2;n<32;n++) {
+            var entry=sharedRefs.Retain(new object(),(ulong)(1100+n),new IntPtr(1100+n),"ped",null,()=>true,0,false,AnchorConsumer.ActTarget);
+            Check(entry!=null,"ACT current refs under cap");
+        }
+        Check(sharedRefs.ConsumerCount(AnchorConsumer.ActTarget)==32&&
+          sharedRefs.Retain(new object(),1200,new IntPtr(1200),"ped",null,()=>true,0,false,AnchorConsumer.ActTarget)==null,
+          "ACT 32 target references cap rejects overload independently of global refs");
+        int notificationCount=0;int reasonCount=0;
+        sharedRefs.Retired+=(entry)=>{if(entry.CaptureRef==psRef.CaptureRef) notificationCount++;};
+        sharedRefs.Retired+=(entry)=>{if(entry.CaptureRef==psRef.CaptureRef)throw new Exception("isolate subscriber");};
+        sharedRefs.Retirement+=(entry,reason)=>{if(entry.CaptureRef==psRef.CaptureRef&&reason==AnchorRetirement.OwnerRevoked)reasonCount++;};
+        sharedRefs.RevokeOwner("owner-shared");sharedRefs.RevokeOwner("owner-shared");
+        Check(notificationCount==1&&reasonCount==1&&sharedRefs.RetirementNotificationFaults==1&&
+          sharedRefs.Resolve(psRef.CaptureRef)==null,"owner revocation fans out once despite failing subscriber");
+        sharedRefs.Clear(AnchorRetirement.Shutdown);
+        Check(sharedRefs.Count==0,"host shutdown clears remaining consumer refs");
+        // PR21 T02: the exact mutable native handle/address/owner shape
+        // matters, not just the Ped wrapper type or CharacterId.
+        var moving=new EntityAnchors();var wrapper=new object();long address=400;
+        ulong currentHandle=400;
+        var addressOriginal=moving.Retain(wrapper,400,new IntPtr(400),"ped","owner-a",
+          ()=>currentHandle==400 && address==400,0);
+        address=401;
+        var afterAddress=moving.Retain(wrapper,400,new IntPtr(401),"ped","owner-a",
+          ()=>currentHandle==400 && address==401,1);
+        Check(afterAddress!=null && addressOriginal.CaptureRef!=afterAddress.CaptureRef &&
+          moving.Resolve(addressOriginal.CaptureRef)==null,"address change retires original exact tuple");
+        currentHandle=401;
+        var afterHandle=moving.Retain(wrapper,401,new IntPtr(401),"ped","owner-a",
+          ()=>currentHandle==401 && address==401,2);
+        Check(afterHandle!=null && afterHandle.CaptureRef!=afterAddress.CaptureRef &&
+          moving.Resolve(afterAddress.CaptureRef)==null,"full native handle change rejects old tuple");
+        var afterOwner=moving.Retain(wrapper,401,new IntPtr(401),"ped","owner-b",
+          ()=>currentHandle==401 && address==401,3);
+        Check(afterOwner!=null && afterOwner.CaptureRef!=afterHandle.CaptureRef &&
+          moving.Resolve(afterHandle.CaptureRef)==null,"same physical handle cannot borrow retired owner lifetime");
+        moving.Clear();
         var sensors=new SensorAdapters();string target=Guid.NewGuid().ToString("D"),attacker=Guid.NewGuid().ToString("D");
         Check(!sensors.Damage("ped_damage",target,null,2,0,"unknown",1,1,false)&&sensors.Count==0,"disabled parity");sensors.Enabled=true;
         using(var callbacks=new DamageSensors(sensors,(h,e)=>h==1?target:h==2?attacker:null,(h,e)=>h==3?target:null,r=>r==target,()=>100,()=>42)) {
@@ -71,6 +120,23 @@ class Program
         Check(visual.Status=="witnessed"&&visual.Channel=="visual"&&visual.KnowsSource,"visual witness at bounded range identifies visible source");
         visual=WitnessPolicy.Evaluate(new WitnessGeometry {EventKind="firing",Observer=Guid.NewGuid().ToString("D"),Source=target,SampledGameTick=78,DistanceMeters=10,SameInterior=true,ClearLosInFront=false});
         Check(visual.Status=="did_not_witness"&&visual.Channel==null,"wall or outside-cone visual check never grants knowledge");
+        var acousticGeometry=new WitnessGeometry {EventKind="firing",Observer=Guid.NewGuid().ToString("D"),
+            Source=target,SampledGameTick=78,DistanceMeters=10,SameInterior=true,ClearLosInFront=false,
+            SoundSourceVerified=true,SameAcousticSpace=true,ClearAcousticPath=true,
+            SourceVehicle="open",ObserverVehicle="open"};
+        var acoustic=WitnessPolicy.Evaluate(acousticGeometry);
+        Check(acoustic.Status=="witnessed"&&acoustic.Channel=="auditory"&&
+            acoustic.Reason=="audibility_model"&&!acoustic.KnowsSource&&!acoustic.KnowsTarget,
+            "verified gunfire heard outside visual cone without identifying shooter");
+        acousticGeometry.ClearAcousticPath=false;
+        Check(WitnessPolicy.Evaluate(acousticGeometry).Status=="did_not_witness",
+            "blocked acoustic path cannot make a nonvisual gunfire witness");
+        acousticGeometry.ClearAcousticPath=true;acousticGeometry.SoundSourceVerified=false;
+        Check(WitnessPolicy.Evaluate(acousticGeometry).Status=="did_not_witness",
+            "unverified firearm source cannot authorize auditory gunfire");
+        acousticGeometry.SoundSourceVerified=true;acousticGeometry.ObserverVehicle="unknown";
+        Check(WitnessPolicy.Evaluate(acousticGeometry).Status=="did_not_witness",
+            "unknown actor acoustics cannot authorize auditory gunfire");
         var self=WitnessPolicy.Evaluate(new WitnessGeometry {EventKind="death",Observer=target,Target=target,SampledGameTick=79,DistanceMeters=1000,SelfInvolved=true});
         Check(self.Status=="witnessed"&&self.Channel=="self"&&self.KnowsTarget,"direct victim involvement is independent of sight");
         var heard=WitnessPolicy.Evaluate(new WitnessGeometry {EventKind="sound",Observer=Guid.NewGuid().ToString("D"),SampledGameTick=80,DistanceMeters=12,SoundKind="speech",SoundSourceVerified=true,SameAcousticSpace=true,ClearAcousticPath=true,SourceVehicle="on_foot",ObserverVehicle="on_foot"});
@@ -118,13 +184,15 @@ class Program
     static void Serve(string name)
     {
         var caps=new Dictionary<string,bool>();foreach(var k in new[]{"snapshot","pedDamage","playerDamage","vehicleDamage","shooting","state","action","playback","witness","awareness","playerSpeech"}) caps[k]=k=="shooting";
-        using(var channel=new IntelligenceChannel(name,Guid.NewGuid().ToString("D"),()=>caps)) {
+        using(var channel=new IntelligenceChannel(name,Guid.NewGuid().ToString("D"),()=>caps,Guid.NewGuid().ToString("D"),()=>1,true)) {
             channel.Start();Console.WriteLine("Interop server ready");
             var deadline=System.Diagnostics.Stopwatch.StartNew();bool sent=false;
             while(deadline.ElapsedMilliseconds<10000) {
                 if(!sent&&channel.ConnectionVersion>0) {
                     sent=true;string player=Guid.NewGuid().ToString("D");
-                    channel.Send("anchors",new[]{new {captureRef=player,kind="player",observer=false}});
+                    channel.Send("anchors",new[]{new {captureRef=player,kind="ped",observer=true,owned=false}});
+                    channel.Send("observer_index",new[]{new {captureRef=player,kind="ped",owned=false}});
+                    channel.Send("observer_situation",new[]{new {captureRef=player,sampledGameTick=42,activity="conversation",situationRevision=1}});
                     channel.Send("signal",new {signalId=Guid.NewGuid().ToString("D"),producer="shooting",producerSequence=1,kind="firing",target=(string)null,source=player,gameTick=42,ageMs=0,facts=new {}});
                 }Thread.Sleep(10);
             }

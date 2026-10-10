@@ -44,7 +44,6 @@ namespace Rage
         public int Handle = 12;
         public Model Model;
         public float Heading;
-        public Vector3 Position;
         public Vector3 GetOffsetPosition(Vector3 offset) { Game.NativeCalls++; return offset; }
         public void Dismiss() { Game.NativeCalls++; }
         public void Delete() { Game.NativeCalls++; }
@@ -144,14 +143,14 @@ namespace LosSantosAlive.NPC
     public static class NpcFocus { public static void SetFocus(Rage.Ped ped,Rage.Ped player,string reason) { Rage.Game.NativeCalls++; } }
     public sealed class NpcState
     {
-        public bool FollowPlayerOnFoot,FollowPaused,EnterPassengerSeatWhenPlayerEnters,ExitVehicleWhenPlayerExits,StayUnderLsaControl,InDirectedInteraction,AccompliceMode,HasActiveReflex;
+        public bool SitOnGroundMode,FollowPlayerOnFoot,FollowPaused,EnterPassengerSeatWhenPlayerEnters,ExitVehicleWhenPlayerExits,StayUnderLsaControl,InDirectedInteraction,AccompliceMode,HasActiveReflex;
         public int LastReflexTime;
         public void DemoteToPassiveRuntime() { Rage.Game.NativeCalls++; }
     }
     public static class NpcStateStore
     {
         public static Func<Rage.Ped,NpcState> State;
-        public static NpcState TryGetState(Rage.Ped ped) { Rage.Game.NativeCalls++; return State?.Invoke(ped) ?? new NpcState(); }
+        public static NpcState TryGetState(Rage.Ped ped) { Rage.Game.NativeCalls++; return State==null ? new NpcState() : State(ped); }
         public static NpcState GetStateForActiveBehavior(Rage.Ped ped) { Rage.Game.NativeCalls++; return new NpcState(); }
     }
     public static class NpcActions
@@ -220,11 +219,12 @@ namespace LosSantosAlive.Core
 }
 namespace LSA.Intelligence
 {
-    public sealed class OwnedParticipant { public Rage.Ped Ped; public string Lifetime; public Func<bool> Current; }
+    public sealed class DirectorOwnerSample { public string Owner,Mode; public bool Suspended; public int Revision; }
+    public sealed class OwnedParticipant { public Rage.Ped Ped; public string Lifetime,EncounterId; public Func<bool> Current; public Func<object> PrimaryOwner; public Func<DirectorOwnerSample> DirectorOwner; }
     // Static logging for P2; the instance surface is what RuntimeEntry hosts.
     public sealed class IntelligenceIntegration
     {
-        public IntelligenceIntegration(Func<OwnedParticipant[]> roster,string pipeName) { }
+        public IntelligenceIntegration(Func<OwnedParticipant[]> roster,string pipeName,LSA.PromotedCharacters.HostContext host=null) { }
         public void OwnerRetired(string incarnationId) { }
         public void Initialize() { }
         internal void Shutdown(string reason) { }
@@ -234,7 +234,7 @@ namespace LSA.Intelligence
 }
 namespace LSA.SessionIdentity
 {
-    public sealed class RegistrationToken { internal string Epoch; public string IncarnationId; }
+    public sealed class RegistrationToken { internal string Epoch,Handle;internal Rage.Ped Ped; public string IncarnationId; }
     public sealed class NativeIdentityClaim { public string incarnationId; }
     public sealed class ExplicitCharacterSource
     {
@@ -248,7 +248,7 @@ namespace LSA.SessionIdentity
         public RegistrationToken Register(Rage.Ped ped,string sourceKey,string world)
         {
             AssertOwner();
-            var token = new RegistrationToken {Epoch = epoch,IncarnationId=Guid.NewGuid().ToString("D")}; tokens.Add(token); return token;
+            var token = new RegistrationToken {Epoch = epoch,IncarnationId=Guid.NewGuid().ToString("D"),Ped=ped,Handle=ped.Handle.ToString()}; tokens.Add(token); return token;
         }
         public bool Retire(RegistrationToken token)
         {
@@ -256,12 +256,14 @@ namespace LSA.SessionIdentity
             if (ThrowOnRetire) throw new InvalidOperationException("Injected owner retirement failure.");
             return token.Epoch == epoch && tokens.Remove(token);
         }
-        public bool TryResolveCurrent(Rage.Ped ped,out NativeIdentityClaim claim) { AssertOwner(); claim = null; return false; }
+        public bool TryResolveCurrent(Rage.Ped ped,out NativeIdentityClaim claim) { AssertOwner();claim=null;if(ped==null || !ped.Exists() || ped.IsDead)return false;foreach(var token in tokens)if(ReferenceEquals(token.Ped,ped) && token.Handle==ped.Handle.ToString()){claim=new NativeIdentityClaim{incarnationId=token.IncarnationId};return true;}return false; }
     }
     public sealed class SessionIdentityIntegration
     {
         public static SessionIdentityIntegration Current;
         public bool IsAvailable => Owner != null;
+        public void ConfigureHostContext(string run,Func<int> epoch) { }
+        public void ResetForHostWorld(int epoch,string reason) { }
         public string DiagnosticsStatus()=>"identity_status=test";
         public int InitializationThread {get;private set;}
         public int InitializationCalls {get;private set;}

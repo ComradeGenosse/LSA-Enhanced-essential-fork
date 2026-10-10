@@ -389,7 +389,7 @@ test('source semantics preserve typed, microphone, and special-event history pol
   assert.deepEqual(internal.runtime.history.readForSession('17',5), [{role:'assistant',content:'Event reply.'}]);
   const request=buildRequest({model:'test',effort:'low',systemInstruction:'stock',contextText:eventOptions.context.contextText,
     internalEvent:eventOptions.context.internalEvent,source:eventOptions.source,input:eventOptions.input,history:eventOptions.history});
-  assert.equal(request.input[0].content.split('INTERNAL_ALARM').length-1,1);
+  assert.equal(request.input[0].content.split('INTERNAL_ALARM').length-1,0);
   assert.match(request.input.at(-1).content,/No player utterance was received/);
 });
 

@@ -1,3 +1,4 @@
+import {KNOWLEDGE_LIMITS,jsonBytes} from '../context/knowledgeSelector.mjs';
 import { ProviderRequestError, endpoint, responseFailure, safeRequestId } from './request.mjs';
 import { createSegmentDecoder } from './segmentDecoder.mjs';
 
@@ -23,7 +24,7 @@ export const segmentedDecisionSchema = Object.freeze({
 // The original JSON object remains buffered and is strictly reconciled at EOF.
 export async function streamDecision({
   config, body, signal, timeoutMs = config.providerWorkDeadlineMs, fetchImpl = globalThis.fetch,
-  telemetry, onSegment = () => {}, dialogueAttempt, maxSegments = 6, maxSegmentChars = 240, maxDialogueChars = 1200,
+  telemetry, onSegment = () => {}, dialogueAttempt, beforeRequest, maxSegments = 6, maxSegmentChars = 240, maxDialogueChars = 1200,
 }) {
   if (!String(config.reasoningKey || '').trim()) throw new ProviderRequestError('The selected OpenAI credential is missing.', { code: 'missing_credential' });
   const decoder = createSegmentDecoder({ maxSegments, maxSegmentChars, maxDialogueChars });
@@ -40,10 +41,13 @@ export async function streamDecision({
   try {
     controller.signal.throwIfAborted();
     try { dialogueAttempt?.request(body); } catch {}
+    const requestBody={...body,stream:true};
+    if(jsonBytes(requestBody)>KNOWLEDGE_LIMITS.requestBytes)throw new RangeError('knowledge_request_bytes');
+    beforeRequest?.(requestBody);
     const response = await fetchImpl(endpoint(config.reasoningBaseUrl, 'responses'), {
       method: 'POST',
       headers: { authorization: `Bearer ${config.reasoningKey}`, 'content-type': 'application/json' },
-      body: JSON.stringify({ ...body, stream: true }), signal: controller.signal,
+      body: JSON.stringify(requestBody), signal: controller.signal,
     });
     requestId = safeRequestId(response.headers?.get?.('x-request-id'));
     telemetry?.event('provider_headers', { operation: 'model', httpStatus: response.status, durationMs: performance.now() - started, requestId });

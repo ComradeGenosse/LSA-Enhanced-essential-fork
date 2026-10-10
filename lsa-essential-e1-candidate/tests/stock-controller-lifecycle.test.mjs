@@ -222,7 +222,7 @@ test('stock kb special event is internal context, retains exact identity, and ne
     contextText: seen.context.contextText, internalEvent: seen.context.internalEvent, source: seen.source,
     input: seen.input, history: seen.history });
   const system = request.input[0].content;
-  assert.equal(system.split('A car alarm is sounding.').length - 1, 1);
+  assert.equal(system.split('A car alarm is sounding.').length - 1, 0,'unqualified freeform trigger cannot become evidence');
   assert.match(request.input.at(-1).content, /No player utterance was received/);
   assert.equal((await connection.whenSettled(identity)).status, 'completed');
   assert.deepEqual(h.runtime.history.readForSession('17', 1), [{ role: 'assistant', content: 'I heard that.' }]);

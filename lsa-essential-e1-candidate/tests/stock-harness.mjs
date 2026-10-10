@@ -14,7 +14,14 @@ let built;
 export async function stockHarness(provider = 'openai', { config = {}, env = {}, telemetry = null, identityEvidence, identityStore, profileStore,nativeOwner,fetchImpl = () => { throw new Error('network forbidden'); } } = {}) {
   built ||= buildCandidate(); await built;
   const source = await readFile(new URL('../dist/plugins/LosSantosAliveServer/server.bundle.mjs', import.meta.url), 'utf8');
-  const ast = acorn.parse(source, { ecmaVersion: 'latest', sourceType: 'module' });
+  let ast;
+  try { ast=acorn.parse(source, { ecmaVersion: 'latest', sourceType: 'module' }); }
+  catch(error) {
+    const lines=source.split('\\n'),line=(error?.loc?.line||1)-1,
+      column=error?.loc?.column||0,actual=lines[line]||'';
+    throw new SyntaxError('Patched stock source syntax '+line+':'+column+
+      ' ... '+actual.slice(Math.max(0,column-210),column+210));
+  }
   const variables = new Map();
   for (const statement of ast.body) if (statement.type === 'VariableDeclaration') for (const d of statement.declarations) variables.set(d.id.name, source.slice(d.start,d.end));
   const select = ['Ht','Z','Pe','ke','Ee','BM','$M','hy','Va','It','ae','yn','hv','Nd','u4','p4','b4'];
@@ -25,7 +32,7 @@ export async function stockHarness(provider = 'openai', { config = {}, env = {},
   vm.runInContext(ast.body.filter(n => n.type === 'FunctionDeclaration').map(n => source.slice(n.start,n.end)).join('\n'), context);
   vm.runInContext(select.map(name => { if (!variables.has(name)) throw new Error(`Missing ${name}`); return `var ${variables.get(name)};`; }).join('\n'), context);
   vm.runInContext(`
-    var od = new Set(), id = null, TP = true, Vy = {}, vb = {}, Ha = AP, stockZi = Zi, stockOa = oa, stockM4 = M4, stockWb = wb, stockVi = vi;
+    var od = new Set(), id = null, TP = true, Vy = {}, vb = {}, Ha = AP, stockZi = Zi, stockOa = oa, stockDm = dM, stockM4 = M4, stockWb = wb, stockVi = vi;
     var A = { playerPedId: 'player', sessionsByPedId: new Map(), sessionNoncesByPedId: new Map(),
       outputOwnerByPedId: new Map(), retiringOutputOwnerByPedId: new Map(), pendingOutputOwnerByPedId: new Map(),
       sessionOpenPromisesByPedId: new Map(), sessionMetadataByPedId: new Map(),
@@ -61,7 +68,7 @@ export async function stockHarness(provider = 'openai', { config = {}, env = {},
           actorContext: testActor, targetContext: testTarget, world: testActor?.world || { gameTime:'unknown', weather:'unknown', streetName:'unknown', crossingStreetName:'unknown', zoneCode:'unknown' }, systemInstruction: 'stock controller test', connection: null };
         A.sessionNoncesByPedId.set(testPed,testNonce); A.sessionsByPedId.set(testPed,controllerSession);
         A.activeActor = testActor; A.context = { speaker:testActor, target: testTarget, world:controllerSession.world, contextUpdate: '' };
-        controllerSession.connection = controllerConnection; ET = () => 'stock controller test';
+        controllerSession.connection = controllerConnection; ET = () => 'stock controller test'; dM = () => 'stock controller test';
         xs = () => {}; oa = message => { const speaker=message?.speaker && typeof message.speaker==='object' ? message.speaker : testActor;
           A.activeActor=speaker; const target=Object.prototype.hasOwnProperty.call(message||{},'target') && message.target!==undefined ? message.target : testTarget;
           const world=Object.prototype.hasOwnProperty.call(message||{},'world') && message.world!==undefined ? message.world : { gameTime:'unknown', weather:'unknown', streetName:'unknown', crossingStreetName:'unknown', zoneCode:'unknown' };

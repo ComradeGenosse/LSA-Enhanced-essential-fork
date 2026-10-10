@@ -115,8 +115,8 @@ namespace LSA.Activities
             }
             if (!own || receipt.Terminal) return;
             if (record.Phase == "executed" && record.Succeeded == false) Finish(receipt, "FAILED", "handler_false", record.GameMs);
-            else if (receipt.State == "DISPATCHED" && (record.Phase == "executed" || record.Phase == "after") && record.Succeeded != false) { Advance(receipt, "HANDLER_ACCEPTED", record.GameMs); Accepted++; AddEvidence(receipt, "handler_result"); }
-            else AddEvidence(receipt, record.Phase == "before" ? "modifier_before" : "modifier_after");
+            else if (receipt.State == "DISPATCHED" && record.Phase == "executed" && record.Succeeded == true) { Advance(receipt, "HANDLER_ACCEPTED", record.GameMs); Accepted++; AddEvidence(receipt, "handler_result"); }
+            else if (record.Phase == "before" || record.Phase == "after") AddEvidence(receipt, record.Phase == "before" ? "modifier_before" : "modifier_after");
         }
         public void ObserveReflex(string actor, string incarnation, bool activeReflex, int lastReflexTime, uint gameMs)
         {

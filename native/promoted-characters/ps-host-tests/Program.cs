@@ -28,6 +28,7 @@ static class Program
         Check(RuntimeEntry.Start(config),"real RuntimeEntry starts");
         var intelligence=LSA.Intelligence.IntelligenceIntegration.Instance;
         Check(LosSantosAlive.Integrations.IntegrationManager.Registered.Count==2,"P2 and PS register with Core manager");
+        Check(ReferenceEquals(intelligence.Host,PromotedCharactersIntegration.Instance.Host) && intelligence.Host!=null,"RuntimeEntry supplies one host to both integrations");
         Check(!RuntimeEntry.Alive&&!RuntimeEntry.Ready,"host completes and releases availability");
         Check(intelligence.ShutdownCalls==1&&PromotedCharactersIntegration.Instance.ShutdownCalls==1,"host shuts down each dependency once");
         var status=Rage.Game.Logs.Where(l=>l.StartsWith("[PS] host_status ")).ToArray();
@@ -71,7 +72,8 @@ namespace LSA.PromotedCharacters
     {
         public static PromotedCharactersIntegration Instance;public bool IsAvailable{get;private set;}public int ShutdownCalls;internal string UnavailabilityReason{get;private set;}="none";
         public event Action<string> OwnerRetired {add{}remove{}}
-        public PromotedCharactersIntegration(string world,string pipe,string identity) {Instance=this;}
+        public readonly HostContext Host;
+        public PromotedCharactersIntegration(string world,string pipe,string identity,HostContext host=null) {Instance=this;Host=host;}
         public void Prepare()=>IsAvailable=true;
         public bool IsReady=>IsAvailable;
         internal string IdentityRuntimeStatus=>"identity_status=test";
@@ -92,7 +94,8 @@ namespace LSA.Intelligence
     public sealed class IntelligenceIntegration:LosSantosAlive.Integrations.IIntegration
     {
         public static IntelligenceIntegration Instance;public bool IsAvailable{get;private set;}public long UpdateCalls;public int ShutdownCalls;public string ShutdownReason="none";
-        public IntelligenceIntegration(Func<OwnedParticipant[]> roster,string pipe){Instance=this;}
+        public readonly LSA.PromotedCharacters.HostContext Host;
+        public IntelligenceIntegration(Func<OwnedParticipant[]> roster,string pipe,LSA.PromotedCharacters.HostContext host=null){Instance=this;Host=host;}
         public void Initialize()=>IsAvailable=true;
         public void Update(){UpdateCalls++;}
         public void OwnerRetired(string lifetime){}

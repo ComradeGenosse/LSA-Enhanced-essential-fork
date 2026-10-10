@@ -1,3 +1,6 @@
+import {projectCapabilityHealth,loadCapabilityValidation} from './observability/capabilityHealth.mjs';
+import {createHash} from 'node:crypto';
+import {dialogueKnowledgeContractSupported} from './config/dialogueKnowledge.mjs';
 import path from 'node:path';
 import { readFile } from 'node:fs/promises';
 import { loadConfig } from './config/e1Config.mjs';
@@ -10,6 +13,9 @@ import { startCharacterEditor } from './characters/editorServer.mjs';
 import { defaultControlEndpointPath } from './control/endpointFile.mjs';
 import { characterContractSupported } from './characters/nativeSupport.mjs';
 import { IntelligenceClient } from './perception/intelligenceClient.mjs';
+import {DirectorObservationPump} from './perception/directorProduction.mjs';
+import {DirectorSpeechReservations} from './perception/sceneDirectorAdmission.mjs';
+import {SceneDirectorSpeech} from './perception/sceneDirectorOrchestrator.mjs';
 import { ActivityClient } from './activities/activityClient.mjs';
 import { ActivityRuntime } from './activities/activityRuntime.mjs';
 import { perceptionContractSupported } from './perception/nativeSupport.mjs';
@@ -91,13 +97,30 @@ export async function createRuntimeForBundle(options = {}) {
     process.once('beforeExit', async () => { for (const closer of shutdownClosers) await closer.close().catch(() => {}); });
   }
   const runtime = createRuntime(config, { ...options, telemetry, dialogueTrace });
+  let capabilityManifest=null,capabilityPayloadHash=null,capabilityValidation=Object.freeze([]);
+  try {const bytes=await readFile(new URL('../build-manifest.json',import.meta.url));capabilityManifest=JSON.parse(bytes);capabilityPayloadHash=createHash('sha256').update(bytes).digest('hex');}catch{}
+  capabilityValidation=await loadCapabilityValidation(options.capabilityValidationPath??path.resolve(process.cwd(),'diagnostics/validation.v1.json'));
+  runtime.services.capabilityHealth=()=>projectCapabilityHealth({config,manifest:capabilityManifest,payloadHash:capabilityPayloadHash,validation:capabilityValidation,perception:runtime.intelligence?.runtime,activities:runtime.activities});
+  let knowledgeContract=options.dialogueKnowledgeContract,knowledgePerceptionContract=options.perceptionContract;
+  if(knowledgeContract===undefined)knowledgeContract=capabilityManifest?.dialogueKnowledgeContract;
+  if(knowledgePerceptionContract===undefined)knowledgePerceptionContract=capabilityManifest?.perceptionContract;
+  runtime.dialogueKnowledgeBuildSupported=dialogueKnowledgeContractSupported(knowledgeContract,knowledgePerceptionContract);
   if(config.intelligence.mode==='shadow') {
     let contract=options.perceptionContract;
     if(contract===undefined) try {contract=JSON.parse(await readFile(new URL('../build-manifest.json',import.meta.url),'utf8')).perceptionContract;}catch{}
     if(perceptionContractSupported(contract)) {
       try {
         const suppliedIntelligenceTelemetry=options.intelligenceOptions?.telemetry;
-        const intelligenceOptions={...options.intelligenceOptions,telemetry:(event,data)=>{
+        const intelligenceOptions={situationFor:ref=>runtime.situationFor(ref),
+          directorProductionRequired:config.spontaneousSpeech.mode==='experimental',
+          // Original stock A turn/mic/output stores; every missing bridge or
+          // source read fails closed before native Director reserve/submit.
+          originalTurnPriority:()=>{try{return runtime.host.directorTurnPrioritySnapshot();}catch{return null;}},
+          originalTurnReserve:ticket=>{try{return runtime.host.directorReserveOriginalTurn(ticket);}catch{return null;}},
+          originalTurnCurrent:ticket=>{try{return runtime.host.directorCheckOriginalTurn(ticket);}catch{return null;}},
+          originalTurnRelease:ticket=>{try{return runtime.host.directorReleaseOriginalTurn(ticket);}catch{return false;}},
+          originalTurnPhase:ticket=>{try{return runtime.host.directorOriginalPhase(ticket);}catch{return null;}},
+          ...options.intelligenceOptions,telemetry:(event,data)=>{
           try { suppliedIntelligenceTelemetry?.(event,data); } catch {}
           try { telemetry?.emit?.(event,null,'internal',data,'internal'); } catch {}
         }};
@@ -105,13 +128,82 @@ export async function createRuntimeForBundle(options = {}) {
       }catch{try{console.warn('[PS] optional_channel_unavailable');}catch{}}
     } else try {console.warn('[PS] optional_perception_contract_unavailable');}catch{}
   }
+
+  // Production coordinator: original Core kb is still the only scheduler.
+  // The native add-on must independently opt in and source-pin each C-06 gate.
+  if(config.spontaneousSpeech.mode!=='off' && runtime.intelligence) {
+    const client=runtime.intelligence;
+    const now=()=>client.runtime.now();
+    const experimental=config.spontaneousSpeech.mode==='experimental';
+    const sourceCheck=({proposal,stamp,stage})=>{
+      const live=client.runtime,owner=live.directorOwnerProofFor(proposal.speakerCaptureRef);
+      const priority=live.directorPriority,at=now();
+      if(!owner || !priority || !priority.experimentalEnabled ||
+         !Number.isSafeInteger(at) || at-priority.receivedAt>1500 ||
+         at<priority.receivedAt ||
+         owner.hostRunId!==stamp.hostRunId ||
+         owner.worldEpoch!==stamp.worldEpoch ||
+         owner.ownerIncarnationId!==stamp.ownerIncarnationId ||
+         owner.proofRevision!==stamp.proofRevision ||
+         priority.hostRunId!==stamp.hostRunId ||
+         priority.worldEpoch!==stamp.worldEpoch ||
+         priority.playerTurnVersion!==stamp.playerTurnVersion ||
+         !live.current(proposal.playerCaptureRef))return false;
+      // PS3 grants expire during ordinary TTS; native verifies the original
+      // bound Core tuple and current player-priority epoch at playback end.
+      if(stage==='complete')return true;
+      return client.directorOriginalEntitlement(proposal,stamp)?.source===
+        'original_companion_ps2_ps3';
+    };
+    const admission=new DirectorSpeechReservations({
+      now,enabled:experimental,checkCurrent:sourceCheck,
+      acknowledge:(decisionKey,consumer,outcome)=>
+        client.runtime.salience.acknowledge(decisionKey,consumer,outcome),
+    });
+    const coordinator=new SceneDirectorSpeech({
+      admission,now,mode:experimental?'active':'shadow',
+      originalEntitlement:(proposal,stamp)=>client.directorOriginalEntitlement(proposal,stamp),
+      nativeRequest:r=>client.requestDirector(r),
+      dispatch:r=>client.dispatchDirector(r),
+    });
+    let pump;
+    pump=new DirectorObservationPump({client,coordinator,now,
+      stampFor:proposal=>pump.currentStamp(proposal),
+      onDiagnostic:result=>{
+        try {telemetry?.emit?.('director_gate',null,'internal',{
+          reason:result.reason,configuredMode:config.spontaneousSpeech.mode,
+          nativeExperimental:client.runtime.directorPriority?.experimentalEnabled===true,
+        },'internal');}catch{}
+      },
+      onResult:outcome=>{
+        try {telemetry?.emit?.('director_candidate',null,'internal',{
+          status:outcome?.status??'unknown',nativeReason:outcome?.nativeReason,
+          diagnosticReason:outcome?.diagnosticReason??null,
+          configuredMode:config.spontaneousSpeech.mode,
+          executionAvailable:experimental &&
+            client.runtime.directorPriority?.experimentalEnabled===true,
+        },'internal');}catch{}
+      },
+    });
+    runtime.director=pump;
+    runtime.services.spontaneousSpeechStatus=()=>Object.freeze({
+      requested:config.spontaneousSpeech.mode,
+      executionAvailable:experimental &&
+        client.runtime.directorPriority?.experimentalEnabled===true &&
+        client.runtime.directorRequestVersion===1,
+      reason:experimental?'native_opt_in_and_live_C06_required':'shadow_only',
+    });
+    client.subscribeKnowledgeInvalidation(()=>{void pump.tick();});
+  }
   runtime.services.acceptPlayerTranscript = input => runtime.intelligence?.acceptPlayerTranscript(input) ?? {accepted:false,reason:'unsupported_capture_receipt'};
   if(config.activities.mode==='shadow' || config.activities.mode==='on') {
     try {
-      const onEvent = (event, data) => { try { telemetry?.emit?.(event, null, 'system', data); } catch {} };
+      const notifyKnowledge=()=>{try{runtime.intelligence?.notifyKnowledgeInvalidation();}catch{}};
+      const onEvent = (event, data) => { try { telemetry?.emit?.(event, null, 'system', data); } catch {} notifyKnowledge(); };
+      const onFrame=frame=>{try{options.activityOptions?.onFrame?.(frame);}catch{}notifyKnowledge();};
       runtime.activities = config.activities.mode === 'on'
-        ? new ActivityRuntime(config.activities, { ...options.activityOptions, onEvent })
-        : new ActivityClient(config.activities, { ...options.activityOptions, onEvent });
+        ? new ActivityRuntime(config.activities, { ...options.activityOptions, onEvent,onFrame })
+        : new ActivityClient(config.activities, { ...options.activityOptions, onEvent,onFrame });
       runtime.activities.start();
       runtime.characterService?.bindActivities?.(runtime.activities);
     } catch { try { console.warn('[ACT] optional_channel_unavailable'); } catch {} }

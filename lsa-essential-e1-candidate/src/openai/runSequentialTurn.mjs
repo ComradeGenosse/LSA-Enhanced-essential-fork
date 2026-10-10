@@ -1,3 +1,4 @@
+import {assertDirectorSpeechDecision} from '../perception/directorDecisionGuard.mjs';
 const PLAYER_SOURCES = new Set(['player_text', 'player_mic']);
 
 function terminalForNativeEvent(event) {
@@ -192,13 +193,16 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
 
     // Snapshot the old history first so the current utterance is not duplicated in
     // both the history and the current user message sent to Luna.
-    const priorHistory = history.readForSession(identity.pedId, identity.sessionNonce);
+    const priorHistory = turn.priorHistory ?? history.readForSession(identity.pedId, identity.sessionNonce);
     if (isPlayer) {
       const committed = history.commitPlayerInput({ identity, input: finalInput });
       metrics?.count(committed ? 'playerCommitted' : 'playerDuplicateCount');
       metrics?.event(committed ? 'player_history_committed' : 'history_duplicate_prevented', { role: 'user', inputChars: String(finalInput).length });
     }
     transition('model_running');
+    if(services.finalizeKnowledgeFrame)turn.knowledgeProjection=services.finalizeKnowledgeFrame(turn,{input:finalInput,history:priorHistory,source});
+    turn.knowledgeDelivery?.watch(listener=>services.subscribeKnowledgeInvalidation?.(listener) ?? (()=>{}),error=>controller.abort(error));
+    const recordReasoningSuccess=decision=>{check();turn.knowledgeDelivery?.success(decision);};
     let decision;
     let streamedSegments = [];
     let streamMode = null;
@@ -206,7 +210,7 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
     if (services.config.structuredStreamingEnabled === true) {
       const allowEarlyTts = services.config.earlyTtsEnabled === true;
       const modelOptions = ({ signal, timeoutMs, telemetry, dialogueAttempt }) => services.providerStack.decideStreaming({
-        identity, context: { ...context, source }, source,
+        identity, context: { ...context, source }, source,knowledgeProjection:turn.knowledgeProjection,knowledgeDelivery:turn.knowledgeDelivery,
         input: isPlayer ? finalInput : '', history: priorHistory, signal, timeoutMs, telemetry, dialogueAttempt,
       });
       if (!allowEarlyTts) {
@@ -263,7 +267,7 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
         });
         const modelTask = performProvider('model', services.providerStack.reasoning.id,
           ({ signal, timeoutMs, telemetry, isActive, dialogueAttempt }) => services.providerStack.decideStreaming({
-            identity, context: { ...context, source }, source,
+            identity, context: { ...context, source }, source,knowledgeProjection:turn.knowledgeProjection,knowledgeDelivery:turn.knowledgeDelivery,
             input: isPlayer ? finalInput : '', history: priorHistory, signal, timeoutMs, telemetry, dialogueAttempt,
             onSegment: async (segment, mode) => {
               if (!isActive()) throw new Error('provider_attempt_inactive');
@@ -271,6 +275,8 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
               if (!mode) throw new Error('stream_mode_missing_before_segment');
               if (streamMode && streamMode !== mode) throw new Error('stream_mode_changed');
               streamMode = mode;
+              if (turn.directorTicket || source === 'scene_director')
+                assertDirectorSpeechDecision({command:''}, {source,directorTicket:turn.directorTicket,streamMode:mode});
               if (mode === 'dialogue_only') {
                 streamedSegments.push(segment);
                 metrics?.count('segmentCount');
@@ -282,6 +288,7 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
           const result = await modelTask;
           decision = result.decision;
           streamMode = result.mode;
+          recordReasoningSuccess(decision);
           closeQueue();
           // A final command is invalid in dialogue_only mode (also checked by the
           // strict decoder); the normal stock validator remains the action gate.
@@ -297,9 +304,13 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
       }
     } else {
       decision = await performProvider('model', services.providerStack?.reasoning.id || 'openai.reasoning',
-        ({ signal, timeoutMs, telemetry, dialogueAttempt }) => services.decide({ identity, context: { ...context, source }, source,
+        ({ signal, timeoutMs, telemetry, dialogueAttempt }) => services.decide({ identity, context: { ...context, source }, source,knowledgeProjection:turn.knowledgeProjection,knowledgeDelivery:turn.knowledgeDelivery,
           input: isPlayer ? finalInput : '', history: priorHistory, signal, timeoutMs, telemetry, dialogueAttempt }));
     }
+    // Validate the PS6 passive-speech restriction before the stock action
+    // validator or output_transcript, which can synchronously dispatch effects.
+    assertDirectorSpeechDecision(decision,{source,directorTicket:turn.directorTicket,streamMode});
+    recordReasoningSuccess(decision);
     check();
     transition('decision_validation');
     const validateSpan = metrics?.startSpan('decision_validation');
@@ -323,6 +334,11 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
     // Stock action listener preserves timing, including final-only actions.
     // Stock action listeners may dispatch synchronously on this transcript event.
     const hasAction = validated.actionCount > 0;
+    // Passive C-05 observation runs synchronously before the stock listener.
+    // It may capture already-validated data, never await, dispatch or veto.
+    if(hasAction && services.recordDialogueActionPublication){
+      try {const result=services.recordDialogueActionPublication({turn,validated,publishedAtMs:Date.now()});result?.catch?.(()=>{});}catch{}
+    }
     await emit({ type: 'output_transcript', text: validated.internalTranscript });
     check();
     transition('tts_running');
@@ -373,6 +389,7 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
     metrics?.finish({ reason: 'completed', stage: state, pcmBytes: pcmBytesTotal, audioDurationMs: expectedDurationMs, traceComplete: true, assistantCommitted: true });
     return { status: 'completed', terminalReason: 'completed', audioBytes: pcmBytesTotal, discardedTrailingByte: audio.discardedTrailingByte };
   } catch (error) {
+    turn.knowledgeDelivery?.finish();
     const stageAtFailure = state;
     providerWorkDone?.('failed', { code: /^[A-Za-z][A-Za-z0-9_]{0,63}$/.test(error?.code || '') ? error.code : 'provider_work_failed' });
     if (!terminalReason) chooseTerminal(controller.signal.aborted ? terminalForAbort(controller.signal) : terminalForError(error, state));
@@ -399,6 +416,7 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
     retired = true;
     history.discard(identity);
     observation?.dispose();
+    turn.knowledgeDelivery?.dispose();
     clearTimeout(providerTimer);
     controller.signal.removeEventListener('abort', abortListener);
     connection.detachAbort(identity, controller);

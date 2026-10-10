@@ -13,6 +13,9 @@ namespace LSA.PromotedCharacters
     {
         ActivitySession activitySession;
         ActivityChannel activityChannel;
+        DialogueActionCorrelator dialogueCorrelator;
+        bool dialogueRetirementSubscribed;
+        internal int PendingDialogueReceipts => dialogueCorrelator?.Count ?? 0;
         StepRunner activityRunner;
         partial void BindActivityWorld(StepRunner runner);
         readonly SupersessionMonitor activityRing = new SupersessionMonitor();
@@ -27,26 +30,62 @@ namespace LSA.PromotedCharacters
         internal int ActivityFaults => activityFaults;
         internal int ActivityBreakerTrips => activityBreakerTrips;
         internal ActivitySession ActivitySession => activitySession;
+        // Owner-fiber passive resolution through C-02. Never EncounterFor,
+        // registration, acquisition, task dispatch or a handle-only fallback.
+        internal bool ResolveDialogueActor(Dictionary<string,object> annotation,out Ped body)
+        {
+            body=null;
+            try{
+                if(annotation==null || !annotation.ContainsKey("sequence") || !(annotation["sequence"] is int sequence) || !ActivityContracts.DialogueActionAnnotation(annotation,sequence))return false;
+                var binding=(Dictionary<string,object>)annotation["binding"];var context=(Dictionary<string,object>)binding["hostContext"];
+                if((string)context["hostRunId"]!=Host.HostRunId || (int)context["worldEpoch"]!=Host.WorldEpoch)return false;
+                var anchor=Host.Anchors.Resolve((string)binding["captureRef"]);var candidate=anchor?.Entity as Ped;
+                if(anchor==null || anchor.Kind!="ped" || candidate==null || !candidate.Exists() || candidate.IsDead || Convert.ToUInt64(candidate.Handle)!=anchor.Handle || candidate.MemoryAddress!=anchor.Address)return false;
+                if(anchor.OwnerLifetime==null){if(binding.ContainsKey("encounterId"))return false;}
+                else{
+                    if(!binding.ContainsKey("encounterId") || (string)binding["incarnationId"]!=anchor.OwnerLifetime)return false;
+                    bool current=false;
+                    foreach(var owned in PerceptionRoster())if(ReferenceEquals(owned.Ped,candidate) && owned.EncounterId==(string)binding["encounterId"] && owned.Lifetime==(string)binding["incarnationId"] && owned.Current?.Invoke()==true){current=true;break;}
+                    if(!current)return false;
+                }
+                body=candidate;return true;
+            }catch{return false;}
+        }
 
-        internal void EnableActivityShadow(string pipeName)
+        internal void EnableActivityShadow(string pipeName,bool dialogueReceipts=false)
         {
             if (activitySession != null || pipeName == null || !Regex.IsMatch(pipeName, "^[A-Za-z0-9_.-]{1,80}$")) throw new ArgumentException("invalid_activity_pipe");
             var table = CapabilityTable.LoadEmbedded();
-            activitySession = new ActivitySession(table);
+            activitySession = CreateActivitySession(table,null,dialogueReceipts);
             activityChannel = new ActivityChannel(pipeName, activitySession);
             activityChannel.Start();
         }
 
-        internal void EnableActivityExecution(string pipeName)
+        internal void EnableActivityExecution(string pipeName,bool dialogueReceipts=false)
         {
             if (activitySession != null || pipeName == null || !Regex.IsMatch(pipeName, "^[A-Za-z0-9_.-]{1,80}$")) throw new ArgumentException("invalid_activity_pipe");
             var table = CapabilityTable.LoadEmbedded();
             activityRunner = new StepRunner(table);
             BindActivityWorld(activityRunner);
-            activitySession = new ActivitySession(table, activityRunner);
+            activitySession = CreateActivitySession(table,activityRunner,dialogueReceipts);
             activityRunner.Session = activitySession;
             activityChannel = new ActivityChannel(pipeName, activitySession);
             activityChannel.Start();
+        }
+        ActivitySession CreateActivitySession(CapabilityTable table,StepRunner runner,bool collectDialogue)
+        {
+            if(!collectDialogue)return new ActivitySession(table,runner,Host.HostRunId,()=>Host.WorldEpoch);
+            ResetNativeDialogue();Host.Anchors.Retired+=DialogueAnchorRetired;dialogueRetirementSubscribed=true;
+            return new ActivitySession(table,runner,Host.HostRunId,()=>Host.WorldEpoch,ObserveDialoguePublication,ResetNativeDialogue);
+        }
+        void ResetNativeDialogue(){dialogueCorrelator?.Reset();dialogueCorrelator=new DialogueActionCorrelator(Host.HostRunId,Host.WorldEpoch);}
+        void DialogueAnchorRetired(LSA.Intelligence.EntityAnchor anchor){dialogueCorrelator?.RetireCapture(anchor.CaptureRef);}
+        bool ObserveDialoguePublication(Dictionary<string,object> annotation)
+        {
+            // A valid but retired/unavailable actor omits optional evidence;
+            // it must not revoke an unrelated ACT execution lease.
+            if(ResolveDialogueActor(annotation,out var body))dialogueCorrelator?.Accept(annotation,body,activityRing.CaptureSequence,unchecked((uint)Game.GameTime),DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
+            return true;
         }
 
         internal void InjectActivityFault(bool escape) { activityEscape = escape; activityContainedFault = !escape; }
@@ -64,14 +103,17 @@ namespace LSA.PromotedCharacters
             } catch { DisableActivity(); }
         }
 
-        void ActivityClockReset()
+        void ActivityClockReset(string reason)
         {
-            try { activitySession?.Machine.ClockReset(); activityRunner?.ClockReset(activitySession); }
+            try { activityRing.ClearForWorldReset(); activitySession?.Machine.ClockReset(); activityRunner?.ClockReset(activitySession); activitySession?.WorldChanged(Host.WorldEpoch,reason);activityChannel?.RefreshHello();activityChannel?.Flush(); }
             catch { DisableActivity(); }
         }
 
         void ActivityShutdown()
         {
+            if(dialogueRetirementSubscribed){Host.Anchors.Retired-=DialogueAnchorRetired;dialogueRetirementSubscribed=false;}
+            dialogueCorrelator?.Reset();
+            activityRing.ClearForWorldReset();
             try { activitySession?.Machine.ClientDisconnected("control_released"); } catch { }
             try { activityRunner?.ClientDisconnected(activitySession, "control_released", DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()); } catch { }
             try { activityChannel?.Dispose(); } catch { }
@@ -128,10 +170,12 @@ namespace LSA.PromotedCharacters
             // this batch is incomplete; preserve handler callbacks but do not use
             // modifier phases to infer supersession.
             var overflowed = activityRing.Overflowing;
+            if(overflowed)dialogueCorrelator?.Invalidate(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
             CallbackRecord record;
             while ((record = activityRing.Drain()) != null) {
                 try {
                     var ped = record.PedReference as Ped;
+                    if(!overflowed)ObserveDialogueCallback(record);
                     if (ped == null || !ped.Exists() || !encounters.TryGetValue(ped.Handle.ToString(), out var encounter) ||
                         encounter.Registration == null || !SameIncarnation(encounter) || !ReferenceEquals(encounter.Ped, ped)) {
                         activitySession.Machine.StaleReceipts++;
@@ -150,6 +194,17 @@ namespace LSA.PromotedCharacters
                     activitySession.Machine.StaleReceipts++;
                 }
             }
+        }
+        void ObserveDialogueCallback(CallbackRecord record)
+        {
+            if(dialogueCorrelator==null || activitySession?.ClientReady!=true)return;
+            try{
+                var annotation=dialogueCorrelator.PendingForCallback(record);
+                if(annotation==null || !ResolveDialogueActor(annotation,out var body) || !ReferenceEquals(body,record.PedReference))return;
+                var binding=(Dictionary<string,object>)annotation["binding"];
+                var result=dialogueCorrelator.Match(record,(string)binding["captureRef"],binding.ContainsKey("encounterId")?(string)binding["encounterId"]:null,binding.ContainsKey("incarnationId")?(string)binding["incarnationId"]:null,Host.HostRunId,Host.WorldEpoch,unchecked((uint)Game.GameTime),DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),false);
+                if(result!=null)activitySession.PublishDialogueReceipt(result);
+            }catch{dialogueCorrelator.Invalidate(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());}
         }
 
         // Callback-only path: capture the ped reference, callback payload and
@@ -211,6 +266,8 @@ namespace LSA.PromotedCharacters
         void DisableActivity()
         {
             activityDisabled = true;
+            dialogueCorrelator?.Reset();
+            activityRing.ClearForWorldReset();
             try { activitySession?.Machine.ClientDisconnected("lease_lost"); } catch { }
             try { activityRunner?.ClientDisconnected(activitySession, "lease_lost", DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()); } catch { }
             try { activityChannel?.Dispose(); } catch { }

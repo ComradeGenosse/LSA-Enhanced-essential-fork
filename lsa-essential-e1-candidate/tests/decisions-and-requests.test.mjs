@@ -127,9 +127,9 @@ test('dialogue trace captures malformed model decision text before strict parsin
 
 test('missing actor/world and unavailable listener context are explicit in the request', () => {
   const request = buildRequest({ model: 'test', effort: 'low', systemInstruction: 'stock', actor: null, listener: null, world: null, input: 'Hello' });
-  assert.match(request.input[0].content, /CURRENT ACTOR DATA\s*\{"status":"unknown"\}/);
-  assert.match(request.input[0].content, /CURRENT LISTENER DATA\s*\{"status":"unavailable"\}/);
-  assert.match(request.input[0].content, /CURRENT WORLD DATA\s*\{"status":"unknown"\}/);
+  const lanes=JSON.parse(request.input[0].content.split('\n').find(line=>line.startsWith('{"frameVersion":1,'))).lanes;
+  assert.equal(lanes.COMPAT.actor.status,'unknown');assert.equal(lanes.COMPAT.listener.status,'unavailable');
+  assert.deepEqual(lanes.SITUATION,{gameTime:'unknown',weather:'unknown',streetName:'unknown',crossingStreetName:'unknown',zoneCode:'unknown'});
 });
 
 test('PTT PCM is wrapped once as a mono 16-bit WAV upload', async () => {

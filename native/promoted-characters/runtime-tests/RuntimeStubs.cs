@@ -81,7 +81,7 @@ namespace LSA.PromotedCharacters
         public bool IsReady=>ready && !shutdownRequested && !shutdown;
         internal string UnavailabilityReason=>shutdown?"shutdown":"none";
         internal string IdentityRuntimeStatus=>"identity_status=test";
-        public PromotedCharactersIntegration(string world,string pipe,string identityPipe)=>Interlocked.Increment(ref Constructed);
+        public PromotedCharactersIntegration(string world,string pipe,string identityPipe,HostContext host=null)=>Interlocked.Increment(ref Constructed);
         public LSA.Intelligence.OwnedParticipant[] PerceptionRoster()=>new LSA.Intelligence.OwnedParticipant[0];
         public void Prepare()
         {
@@ -102,8 +102,9 @@ namespace LSA.PromotedCharacters
         internal string LocalSnapshot()=>"{\"v\":1,\"seq\":1}";
         internal void RequestLocalSnapshots(int forMs) {Interlocked.Increment(ref SnapshotRequests);}
         public void Update() {if(shutdownRequested) Shutdown();}
-        internal void EnableActivityShadow(string pipeName) {}
-        internal void EnableActivityExecution(string pipeName) {}
+        public static int ActivityShadowStarts,ActivityExecutionStarts;public static bool DialogueReceiptsEnabled;
+        internal void EnableActivityShadow(string pipeName,bool dialogueReceipts=false) {ActivityShadowStarts++;DialogueReceiptsEnabled=dialogueReceipts;}
+        internal void EnableActivityExecution(string pipeName,bool dialogueReceipts=false) {ActivityExecutionStarts++;DialogueReceiptsEnabled=dialogueReceipts;}
         public void Shutdown()
         {
             if(!LosSantosAlive.Integrations.IntegrationManager.InCoreCallback) {
@@ -118,7 +119,7 @@ namespace LSA.Intelligence
     public sealed class OwnedParticipant { }
     public sealed class IntelligenceIntegration
     {
-        public IntelligenceIntegration(Func<OwnedParticipant[]> roster,string pipeName) { }
+        public IntelligenceIntegration(Func<OwnedParticipant[]> roster,string pipeName,LSA.PromotedCharacters.HostContext host=null) { }
         public void OwnerRetired(string incarnationId) { }
         public void Shutdown() { }
         public void Shutdown(string reason) { }

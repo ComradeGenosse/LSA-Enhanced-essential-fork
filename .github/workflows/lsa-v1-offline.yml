@@ -1,0 +1,94 @@
+name: LSA v1 Offline Verification
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'lsa-essential-e1-candidate/**'
+      - 'native/**'
+      - 'tools/isolated-offline-tests/**'
+      - 'tools/essential-abi/**'
+      - '.github/workflows/lsa-v1-offline.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Old commits do not need to keep exercising lengthy native/Node matrices.
+# Ensure there is only one current PR validation matrix at a time.
+concurrency:
+  group: lsa-v1-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  isolated-node:
+    name: Isolated Node regression
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Validate Phase 13a modules and run focused tests
+        working-directory: lsa-essential-e1-candidate
+        run: |
+          node --check src/perception/sceneDirector.mjs
+          node --check src/perception/sceneDirectorAdmission.mjs
+          node --check src/perception/directorWire.mjs
+          node --check src/perception/sceneDirectorOrchestrator.mjs
+          node --test tests/scene-director.test.mjs tests/scene-director-admission.test.mjs tests/director-decision-guard.test.mjs tests/director-wire.test.mjs tests/director-transport.test.mjs tests/stock-director-kb.test.mjs tests/director-orchestrator.test.mjs
+      - name: Verify actual pinned Essential Core metadata (no execution)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: dotnet run --project tools/essential-abi/EssentialAbi.csproj --configuration Release
+      - name: Compile C-05 Windows test helper from source
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: dotnet build native/activities/tests/ActivityTests.csproj --configuration Debug
+      - name: Run native ACT contract suite
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: '& .\\native\\activities\\tests\\bin\\Debug\\net481\\ActivityTests.exe'
+      - name: Build and run shared native PS/ACT identity tests
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          dotnet build native/intelligence/tests/IntelligenceTests.csproj --configuration Debug
+          & .\\native\\intelligence\\tests\\bin\\Debug\\net481\\IntelligenceTests.exe
+      - name: Build and run isolated native PS6 admission contract
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          dotnet build native/intelligence/director-tests/DirectorTests.csproj --configuration Debug
+          & .\\native\\intelligence\\director-tests\\bin\\Debug\\net481\\DirectorTests.exe
+      - name: Build and run actual P2/ACT/UX native owner lifecycle and clock-reset tests
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          dotnet build native/promoted-characters/lifecycle-tests/LifecycleTests.csproj --configuration Debug
+          & .\\native\\promoted-characters\\lifecycle-tests\\bin\\Debug\\net481\\LifecycleTests.exe
+      - name: Build and run real shared native host clock and reset contract
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          dotnet build native/promoted-characters/host-context-tests/HostContextTests.csproj --configuration Debug
+          & .\\native\\promoted-characters\\host-context-tests\\bin\\Debug\\net481\\HostContextTests.exe
+      - name: Build and run native PS host integration stubs
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          dotnet build native/intelligence/integration-tests/IntegrationTests.csproj --configuration Debug
+          & .\\native\\intelligence\\integration-tests\\bin\\Debug\\net481\\IntegrationTests.exe
+      - name: Isolated offline regression (no network)
+        env:
+          LSA_CI_FAILURE_DETAILS: '1'
+        shell: bash
+        run: python tools/isolated-offline-tests/run.py "$GITHUB_WORKSPACE/lsa-essential-e1-candidate"
