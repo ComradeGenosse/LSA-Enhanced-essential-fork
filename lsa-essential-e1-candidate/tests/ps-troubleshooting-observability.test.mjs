@@ -52,3 +52,13 @@ test('frozen PS4 diagnostic counts identify absent gunfire versus policy omissio
  assert.equal(JSON.stringify(telemetry).includes('never-log'),false);
  assert.deepEqual(summarizeKnowledgeSelection(null,null).captureEventFiring,0);
 });
+
+test('P0 actor admission diagnostics survive telemetry without any source identifiers',()=>{
+ for(const status of ['verified_observer','contract_unavailable','missing','index_missing','lease_expired','not_observer','kind_mismatch']) {
+   const projection=summarizeKnowledgeSelection({anchorStatus:status,pairs:[]},null);
+   assert.equal(record('knowledge_frame_projected',projection).data.captureAnchorStatus,status);
+ }
+ const recordWithoutIdentity=record('knowledge_frame_projected',
+   summarizeKnowledgeSelection({anchorStatus:'private-ref-do-not-leak',pairs:[]},null));
+ assert.equal(recordWithoutIdentity.data.captureAnchorStatus,undefined);
+});
