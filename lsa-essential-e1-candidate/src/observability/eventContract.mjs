@@ -69,6 +69,7 @@ const safeTokens = new Set([
   'no_eligible_evidence','event_context_unavailable','original_ps3_unavailable',
   'native_rejected','stale_after_reserve','stale_before_submit','native_submit_rejected',
   'stale_before_intake','incomplete_intake','tuple_rejected','not_delivered',
+  'verified_observer','contract_unavailable','index_missing','lease_expired','not_observer','kind_mismatch',
   'off','shadow','active','unsupported_contract','no_actor_capture','no_observer_index','wrong_actor','host_mismatch','world_epoch_changed','channel_unhealthy','anchor_expired','participant_retired','owner_unverified','projection_failed',
   'openai','gemini','player_text','player_mic','special_event','system','internal','completed','failed',
   'cancelled','superseded','disconnected','provider_timeout','stt_error','model_error','model_refusal',
