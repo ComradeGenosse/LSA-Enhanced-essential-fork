@@ -112,6 +112,9 @@ export async function createRuntimeForBundle(options = {}) {
           // Original stock A turn/mic/output stores; every missing bridge or
           // source read fails closed before native Director reserve/submit.
           originalTurnPriority:()=>{try{return runtime.host.directorTurnPrioritySnapshot();}catch{return null;}},
+          originalTurnReserve:ticket=>{try{return runtime.host.directorReserveOriginalTurn(ticket);}catch{return null;}},
+          originalTurnCurrent:ticket=>{try{return runtime.host.directorCheckOriginalTurn(ticket);}catch{return null;}},
+          originalTurnRelease:ticket=>{try{return runtime.host.directorReleaseOriginalTurn(ticket);}catch{return false;}},
           ...options.intelligenceOptions,telemetry:(event,data)=>{
           try { suppliedIntelligenceTelemetry?.(event,data); } catch {}
           try { telemetry?.emit?.(event,null,'internal',data,'internal'); } catch {}
