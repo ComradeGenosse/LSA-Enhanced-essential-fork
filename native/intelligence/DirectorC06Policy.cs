@@ -18,6 +18,10 @@ namespace LSA.Intelligence
             public bool PlayerAnchorCurrent,PlayerIsLocal,PlayerAlive;
             public bool OwnerProofCurrent,OwnerPrimaryModeKnown,OwnerIdle;
             public bool PlayerTurnSourceCurrent,PlayerTurnIdle,MicStateKnown,MicIdle;
+            // Source-pinned NpcTargeting negative player/dialogue state. Idle
+            // here only means no selected/current Core conversation or speaker;
+            // it never substitutes for the independent global player arbiter.
+            public bool ConversationStateKnown,ConversationIdle;
             // The pinned Core exposes a narrower special-turn revision, not a
             // complete global player-turn arbiter. Diagnostic only, never a grant.
             public bool SpecialTurnVersionKnown;
@@ -61,6 +65,7 @@ namespace LSA.Intelligence
                 s.OwnerProofCurrent && s.OwnerPrimaryModeKnown &&
                 s.PlayerTurnSourceCurrent && s.PlayerTurnIdle &&
                 s.MicStateKnown && s.MicIdle &&
+                s.ConversationStateKnown && s.ConversationIdle &&
                 s.EssentialTurnKnown &&
                 s.PlaybackKnown &&
                 s.ScriptStateKnown && s.ScriptSafe &&
