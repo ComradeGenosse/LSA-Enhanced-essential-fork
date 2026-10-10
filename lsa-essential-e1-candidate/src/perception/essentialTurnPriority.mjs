@@ -61,6 +61,7 @@ export class OriginalEssentialTurnTimeline {
   #lastSignature=null;
   #lastEvidence=null;
   #lease=null;
+  #director=null;
   #retiredTickets=new Set();
   constructor({maxRevision=Number.MAX_SAFE_INTEGER,now=()=>performance.now()}={}) {
     if(typeof now!=='function')throw new TypeError('original_owner_clock');
@@ -71,9 +72,39 @@ export class OriginalEssentialTurnTimeline {
   #retireLease() {
     if(this.#lease)this.#retiredTickets.add(this.#lease.ticketId);
     this.#lease=null;
+    this.#director=null;
   }
-  transition(event) {
-    this.#retireLease();
+  // Source-only: the original backend's exclusive pre-intake lease can be
+  // promoted to a single pending stock kb call. Neither a DTO ticket string
+  // nor a renewed quiet snapshot can create this phase.
+  beginDirector(ticketId,snapshot) {
+    if(this.#director || !this.check(ticketId,snapshot))return false;
+    this.#director=Object.freeze({
+      ticketId,stage:'reserved',sourceRun:this.sourceRun,
+      expiresAt:this.#lease.expiresAt,
+    });
+    return true;
+  }
+  directorPhase(ticketId) {
+    const d=this.#director,now=this.now();
+    return d && d.ticketId===ticketId && Number.isFinite(now) &&
+      now<d.expiresAt && !this.#invalid ? d.stage : null;
+  }
+  transition(event,ownedTicket=null) {
+    const d=this.#director,now=this.now();
+    // Expected transitions must occur on the original stock source path,
+    // in sequence, while the exact pre-intake owner lease is still live.
+    // Any foreign player/Essential/session event revokes the entire claim.
+    let next=null;
+    if(d && this.#lease && ownedTicket===d.ticketId &&
+       Number.isFinite(now) && now<d.expiresAt) {
+      if(event==='special_dispatch' && d.stage==='reserved')next='dispatch';
+      else if(event==='turn_allocate' && d.stage==='dispatch')next='allocation';
+      else if(event==='session_open' && d.stage==='allocation')next='session';
+      else if(event==='turn_intake' &&
+        (d.stage==='allocation'||d.stage==='session'))next='generation';
+    }
+    if(!next)this.#retireLease();
     if(!originalEntrypoints.has(event)) {
       this.#invalid=true;
       return false;
@@ -83,6 +114,10 @@ export class OriginalEssentialTurnTimeline {
       return false;
     }
     this.#revision++;
+    if(next) {
+      this.#director=Object.freeze({...d,stage:next});
+      this.#lease=Object.freeze({...this.#lease,revision:this.#revision});
+    }
     this.#dirty=true;
     return true;
   }
