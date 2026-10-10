@@ -58,6 +58,8 @@ class Program
         // All-positive fixture tests a *pure stock request DTO*, not an
         // actual Core/PS3 authorization, scheduling effect, or GTA runtime.
         c06request.TicketId=Guid.NewGuid().ToString("D");
+        c06request.Version=1;c06request.Operation="submit";
+        c06request.DedupeKey="ps:"+c06request.TicketId;c06request.AgeMs=100;
         c06request.ObservationId=Guid.NewGuid().ToString("D");
         c06request.DecisionKey="original-ps3-grant";
         c06request.ObservationRevision=1;
@@ -96,6 +98,13 @@ class Program
               DirectorStockTurnRequest.Prepare(c06request,preparedProof,actor,actor,
               "context")==null,
               "newline and self-target forbidden");
+        c06request.Operation="reserve";
+        Check(DirectorStockTurnRequest.Prepare(c06request,preparedProof,actor,player,
+              "context")==null,"non-submitted ticket cannot become stock request");
+        c06request.Operation="submit";c06request.DedupeKey="ps:"+Guid.NewGuid().ToString("D");
+        Check(DirectorStockTurnRequest.Prepare(c06request,preparedProof,actor,player,
+              "context")==null,"forged dedupe cannot become stock request");
+        c06request.DedupeKey="ps:"+c06request.TicketId;
         preparedProof.ObservationReceiptCurrent=false;
         Check(DirectorStockTurnRequest.Prepare(c06request,preparedProof,actor,player,
               "context")==null,"missing original PS3 receipt refuses stock request");
