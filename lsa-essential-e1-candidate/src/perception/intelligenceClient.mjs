@@ -422,7 +422,7 @@ export class IntelligenceClient {
     this.originalTurnPhase=typeof originalTurnPhase==='function'?originalTurnPhase:()=>null;
     this.directorProductionRequired=directorProductionRequired===true;
     this.directorPlaybacks=new DirectorPlaybackRegistry();
-    this.closed=false;this.socket=null;this.lastReport=0;this.directorPending=new Map();this.directorOwnerReservations=new Map();this.directorNativeSubmitted=new Set();this.directorStockDispatched=new Set();this.directorStockContexts=new Map();this.directorStockClaims=new Map();this.directorBindingPending=new Map();
+    this.closed=false;this.socket=null;this.lastReport=0;this.frameRejections=new Map();this.directorPending=new Map();this.directorOwnerReservations=new Map();this.directorNativeSubmitted=new Set();this.directorStockDispatched=new Set();this.directorStockContexts=new Map();this.directorStockClaims=new Map();this.directorBindingPending=new Map();
   }
   persist(event,data={}) { try { this.telemetry(event,data); } catch {} }
   summary(finalSnapshot=false) {
@@ -456,9 +456,33 @@ export class IntelligenceClient {
     const processFrames=()=>{
       this.work=null;
       for(let n=0;n<32 && frames.length;n++) {
-        let v;try {v=JSON.parse(frames.shift());} catch {fail();return;}
-        if(!hello && v?.type!=='hello' || hello && v?.type==='hello') {fail();return;}
-        const accepted=this.runtime.ingest(v,{authenticated:true});if(accepted && v?.type==='world_epoch')this.cancelDirectorRequests();if(accepted && v?.type==='director_response')this.acceptDirectorResponse(v.payload);this.notifyKnowledgeInvalidation();
+        let v;try {v=JSON.parse(frames.shift());} catch {
+          this.persist('intelligence_frame_rejected',{frameType:'other',reason:'invalid_json',count:1});fail();return;
+        }
+        if(!hello && v?.type!=='hello' || hello && v?.type==='hello') {
+          this.persist('intelligence_frame_rejected',{frameType:'hello',reason:'invalid_order',count:1});fail();return;
+        }
+        const before={malformed:this.runtime.counters.malformed,gaps:this.runtime.counters.gaps,faults:this.runtime.resetDiagnostics.faults};
+        const accepted=this.runtime.ingest(v,{authenticated:true});
+        if(!accepted) {
+          // Never include source payloads, NPC identities or raw frames in
+          // persistent diagnostics. A strict invalid frame stays invalid.
+          const allowed=['hello','anchors','retire','retire_batch','observer_index',
+            'observer_situation','world_epoch','director_priority','director_response',
+            'signal','diagnostics'];
+          const frameType=allowed.includes(v?.type)?v.type:'other';
+          const reason=this.runtime.counters.malformed>before.malformed?'invalid_contract':
+            this.runtime.counters.gaps>before.gaps?'sequence_gap':
+            this.runtime.resetDiagnostics.faults>before.faults?'runtime_consistency':'rejected';
+          const key=frameType+':'+reason,count=(this.frameRejections.get(key)||0)+1;
+          this.frameRejections.set(key,count);
+          if(count<=3 || count===10 || count%100===0)
+            this.persist('intelligence_frame_rejected',{
+              frameType,reason,count,frameBytes:Buffer.byteLength(JSON.stringify(v),'utf8')});
+        }
+        if(accepted && v?.type==='world_epoch')this.cancelDirectorRequests();
+        if(accepted && v?.type==='director_response')this.acceptDirectorResponse(v.payload);
+        this.notifyKnowledgeInvalidation();
         if(!hello && !accepted || !this.runtime.epoch) {fail();return;}
         if(!hello) { hello=true;this.persist('intelligence_status',{stage:'initialized'}); }
       }
