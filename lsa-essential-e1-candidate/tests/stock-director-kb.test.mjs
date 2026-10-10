@@ -37,3 +37,21 @@ test('verified-ticket test double enforces no DO before stock action events',asy
  assert.equal(h.runtime.history.readForSession('17',1).some(v=>v.role==='assistant'),false);
  session.connection.close();
 });
+
+
+test('even an injected native-positive Director preflight cannot bypass missing original backend owner lease',async()=>{
+ const h=await stockHarness('openai');
+ const session=await h.openAIControllerSession({actorContext:{pedId:'17'}});
+ h.context.directorArgs=args;
+ // The original source authority is read from the real patched stock A maps.
+ // An all-positive NATIVE stub cannot turn missing source ownership into true.
+ h.runtime.intelligence={preflightDirectorTicket:()=>true};
+ let requests=0;
+ h.runtime.services.decide=async()=>{requests++;return {dialogue:'Unsafe.',command:''};};
+ assert.equal(h.runtime.directorPreflight(args),false);
+ const result=await h.evaluate('kb(directorArgs)');
+ assert.equal(result,false);
+ assert.equal(requests,0);
+ assert.equal(h.actions.length,0);
+ session.connection.close();
+});
