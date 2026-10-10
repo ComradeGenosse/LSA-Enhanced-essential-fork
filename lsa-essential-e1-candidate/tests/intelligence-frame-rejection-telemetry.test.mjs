@@ -1,9 +1,19 @@
+
+test('valid native director priority wire frame passes strict contract validation',()=>{
+ const epoch=randomUUID(),stream=randomUUID();
+ const frame={version:1,type:'director_priority',adapterEpoch:epoch,streamId:stream,
+   sequence:1,payload:{playerTurnVersion:0,experimentalEnabled:true}};
+ assert.equal(validateFrame(frame),true);
+ assert.equal(validateFrame({...frame,payload:{playerTurnVersion:1,experimentalEnabled:false}}),true);
+ assert.equal(validateFrame({...frame,payload:{playerTurnVersion:-1,experimentalEnabled:true}}),false);
+ assert.equal(validateFrame({...frame,payload:{playerTurnVersion:0,experimentalEnabled:true,unrecognized:1}}),false);
+});
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
 import {EventEmitter} from 'node:events';
 import {IntelligenceClient} from '../src/perception/intelligenceClient.mjs';
-import {CAPABILITIES} from '../src/perception/contracts.mjs';
+import {CAPABILITIES,validateFrame} from '../src/perception/contracts.mjs';
 
 test('malformed Director frame and ensuing sequence gap are diagnosed without recording payload',async()=>{
   const socket=new EventEmitter(),recorded=[];
@@ -43,12 +53,5 @@ test('malformed Director frame and ensuing sequence gap are diagnosed without re
     assert.ok(rejected.every(row=>Object.keys(row.data).every(key=>
       ['frameType','reason','count','frameBytes'].includes(key))));
     assert.ok(recorded.some(row=>row.event==='intelligence_status' && row.data.stage==='disconnected'));
-  } catch(error) {
-    console.error('# Error diagnostic: '+JSON.stringify({
-      error:error.message, counters:client.runtime.counters,
-      resetReasons:client.runtime.resetDiagnostics,
-      telemetry:recorded.filter(row=>['intelligence_frame_rejected','intelligence_status'].includes(row.event)),
-    }));
-    throw error;
   } finally {client.stop();}
 });
