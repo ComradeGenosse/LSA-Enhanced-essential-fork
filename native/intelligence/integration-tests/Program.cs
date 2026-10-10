@@ -155,8 +155,9 @@ class Program
         var cloned=(DirectorC06Policy.Snapshot)integration.GetType().GetMethod(
             "ReadDirectorC06",BindingFlags.NonPublic|BindingFlags.Instance)
                 .Invoke(integration,new object[]{c06request});
-        Check(!cloned.ObservationReceiptCurrent && !cloned.ResponseGrantCurrent,
-              "producer receipt mutation cannot alter original request identity or grant permission");
+        Check(cloned.ObservationReceiptCurrent && cloned.ResponseGrantCurrent &&
+              cloned.ObservationId==c06request.ObservationId,
+              "mutable decoded source receipt cannot alter native sealed original grant");
         nativeOriginal.ObservationId=c06request.ObservationId;
         ps3Ledger.Retire(lifetime);
         var revoked=(DirectorC06Policy.Snapshot)integration.GetType().GetMethod(
