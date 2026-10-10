@@ -103,6 +103,26 @@ class Program
         Check(PrimaryBehaviorOwner.Residual(act,true,false,false,false,false,40).mode=="unknown");
         var command=PrimaryBehaviorOwner.Transition(follow,"p2","wait",50);
         Check(command.owner=="p2" && command.mode=="wait" && command.since==50);
+        // Revision belongs to this exact registered Encounter, not to a
+        // game clock tick or repeatedly reconstructed read-only roster copy.
+        var witness=new Encounter();
+        Check(witness.DirectorProofRevision==1);
+        witness.Owner=PrimaryBehaviorOwner.Transition(null,"none","unknown",1);
+        int revision=witness.DirectorProofRevision;
+        Check(revision==2);
+        witness.Owner=PrimaryBehaviorOwner.Transition(witness.Owner,"none","unknown",2);
+        Check(witness.DirectorProofRevision==revision);
+        witness.Owner=PrimaryBehaviorOwner.Transition(witness.Owner,"p2","wait",3);
+        witness.Owner=PrimaryBehaviorOwner.Transition(witness.Owner,"none","unknown",4);
+        Check(witness.DirectorProofRevision==revision+2);
+        witness.Suspended=true;witness.Suspended=true;witness.Suspended=false;
+        Check(witness.DirectorProofRevision==revision+4);
+        typeof(Encounter).GetField("directorRevision",BindingFlags.Instance|BindingFlags.NonPublic)
+            .SetValue(witness,int.MaxValue);
+        witness.Suspended=true;
+        Check(witness.DirectorProofRevision==0);
+        witness.Suspended=false;
+        Check(witness.DirectorProofRevision==0);
         var wire=new JavaScriptSerializer().Deserialize<Dictionary<string,object>>(new JavaScriptSerializer().Serialize(follow));
         Check(wire.Count==3 && (string)wire["owner"]=="essential_residual" && (string)wire["mode"]=="follow" && Convert.ToUInt32(wire["since"])==30);
     }
@@ -131,12 +151,16 @@ class Program
                 Check(encounter.Owner.owner=="essential_residual" && encounter.Owner.mode==sample.Item2 && encounter.Mode==sample.Item2 && encounter.Owner.since==200);
                 var verified=integration.PerceptionRoster().Single(x=>x.Lifetime==encounter.Registration.IncarnationId);
                 var director=verified.DirectorOwner();
-                Check(director!=null && director.Owner=="essential_residual" && director.Mode==sample.Item2 && !director.Suspended);
+                Check(director!=null && director.Owner=="essential_residual" && director.Mode==sample.Item2 && !director.Suspended
+                      && director.Revision==encounter.DirectorProofRevision && director.Revision>0);
+                int beforeSuspend=director.Revision;
                 encounter.Suspended=true;
-                Check(verified.DirectorOwner().Suspended);
+                Check(verified.DirectorOwner().Suspended &&
+                      verified.DirectorOwner().Revision==beforeSuspend+1);
                 encounter.Suspended=false;
+                Check(verified.DirectorOwner().Revision==beforeSuspend+2);
                 var original=encounter.Owner;Game.GameTime=201;refresh.Invoke(null,new object[]{encounter});
-                Check(ReferenceEquals(original,encounter.Owner));
+                Check(ReferenceEquals(original,encounter.Owner) && encounter.DirectorProofRevision==beforeSuspend+2);
             }
             LosSantosAlive.NPC.NpcStateStore.State=body=>null;refresh.Invoke(null,new object[]{encounter});
             Check(encounter.Owner.owner=="none" && encounter.Owner.mode=="unknown" && encounter.Mode=="unknown");
