@@ -26,6 +26,9 @@ export class ShadowRuntime {
     this.historyDiagnostics={expired:0,evicted:0,skipped:0,highWater:0};
     this.dropDiagnostics={anchorCapacity:0,observerCapacity:0};
     this.resetDiagnostics={initializations:0,disconnects:0,faults:0,timeouts:0,manual:0};
+    // Bounded local explanation for P0 tokens missing after retire/lease/reset.
+    // Never persist these capture refs or infer replacement actors.
+    this.missingRefReasons=new Map();this.lastResetReason='none';
     this.capabilities=Object.fromEntries(CAPABILITIES.map(k=>[k,false]));this.diagnostics=null;
     this.observations=new ObservationStore({now,current:ref=>this.current(ref)});
     this.episodes=new EpisodeStore({now,current:ref=>this.current(ref)});
@@ -37,7 +40,22 @@ export class ShadowRuntime {
   }
   bump(target,k) { target[k]=Math.min(MAX_COUNTER,(target[k]||0)+1); }
   count(k) { this.bump(this.counters,k); }
+  recordMissingRef(ref,reason) {
+    if(typeof ref!=='string')return;
+    this.missingRefReasons.delete(ref);
+    this.missingRefReasons.set(ref,{reason,at:this.now()});
+    while(this.missingRefReasons.size>256)
+      this.missingRefReasons.delete(this.missingRefReasons.keys().next().value);
+  }
+  missingRefReason(ref) {
+    const record=this.missingRefReasons.get(ref);
+    return record && this.now()>=record.at && this.now()-record.at<=60000 ?
+      record.reason:'not_tracked';
+  }
   reset(reason='manual') {
+    const kind=['initialization','disconnect','fault','timeout','manual'].includes(reason)?reason:'manual';
+    this.lastResetReason='reset_'+kind;
+    for(const ref of this.anchors.keys())this.recordMissingRef(ref,this.lastResetReason);
     this.hostContext=null;this.observerIndexVersion=null;this.observerIndex.clear();this.observerSituations.clear();this.observerSituationVersion=null;this.primaryBehaviorOwnerVersion=null;this.directorRequestVersion=null;this.directorPriority=null;this.directorReceipts=[];
     this.anchors.clear();this.signals=[];this.producers.clear();this.observations.clear();this.episodes.clear();this.correlator.clear();this.salience.clear();this.transcripts.setActiveRun(null);this.epoch=null;this.stream=null;this.sequence=0;this.lastReceipt=0;this.diagnostics=null;this.capabilities=Object.fromEntries(CAPABILITIES.map(k=>[k,false]));this.count('resets');
     const key={initialization:'initializations',disconnect:'disconnects',fault:'faults',timeout:'timeouts',manual:'manual'}[reason]||'manual';this.bump(this.resetDiagnostics,key);
@@ -45,13 +63,13 @@ export class ShadowRuntime {
   current(ref) {const a=this.anchors.get(ref);return Boolean(a && a.expires>this.now() && this.epoch);}
   expire() {
     if(this.epoch && this.now()-this.lastReceipt>3000) {this.reset('timeout');return;}
-    for(const [ref,a] of this.anchors) if(a.expires<=this.now()) this.retire(ref);
+    for(const [ref,a] of this.anchors) if(a.expires<=this.now()) this.retire(ref,'lease_expired');
     this.signals=this.signals.filter(s=>{ if(s.expires<=this.now()) {this.bump(this.historyDiagnostics,'expired');return false;} return true; });
     this.observations.expire();
     this.episodes.expire();
     this.salience.expire(this.now());
   }
-  retire(ref) { this.salience.releaseReference(ref);this.anchors.delete(ref);this.observerIndex.delete(ref);this.observerSituations.delete(ref);this.signals=this.signals.filter(s=>s.value.target!==ref && s.value.source!==ref && s.value.facts.vehicle!==ref);this.observations.expire();this.episodes.expire(); }
+  retire(ref,reason='retire') { if(this.anchors.has(ref))this.recordMissingRef(ref,reason);this.salience.releaseReference(ref);this.anchors.delete(ref);this.observerIndex.delete(ref);this.observerSituations.delete(ref);this.signals=this.signals.filter(s=>s.value.target!==ref && s.value.source!==ref && s.value.facts.vehicle!==ref);this.observations.expire();this.episodes.expire(); }
   retainSignal(value,critical,expires) {
     if(!critical && this.signals.filter(x=>!x.critical).length>=192) {
       const index=this.signals.findIndex(x=>!x.critical);
@@ -106,7 +124,9 @@ export class ShadowRuntime {
       if([...projected.values()].filter(a=>a.observer).length>BOUNDS.observers) {this.bump(this.dropDiagnostics,'observerCapacity');this.reset('fault');return false;}
       // Commit a validated roster frame at once, so a paired demotion/promotion
       // batch cannot expose a transient 17-observer state to companion logic.
-      this.anchors=projected;return true;
+      this.anchors=projected;
+      for(const a of v.payload)this.missingRefReasons.delete(a.captureRef);
+      return true;
     }
     if(v.type==='observer_situation') {
       if(this.observerSituationVersion!==1 || !this.hostContext) {this.reset('fault');return false;}
@@ -138,7 +158,7 @@ export class ShadowRuntime {
       this.observerIndex=next;return true;
     }
     if(v.type==='retire') {this.retire(v.payload.captureRef);return true;}
-    if(v.type==='retire_batch') {for(const ref of v.payload) this.retire(ref);return true;}
+    if(v.type==='retire_batch') {for(const ref of v.payload) this.retire(ref,'retire_batch');return true;}
     if(v.type==='diagnostics') {this.diagnostics=Object.freeze({...v.payload,damageCallbacks:Object.freeze({...v.payload.damageCallbacks})});this.capabilities=Object.freeze({...v.payload.capabilities});return true;}
     const s=v.payload, cap={ped_damage:'pedDamage',player_damage:'playerDamage',vehicle_damage:'vehicleDamage',shooting:'shooting',state:'state',action:'action',playback:'playback'}[s.producer];
     if(!this.capabilities[cap]) {this.count('stale');return false;}

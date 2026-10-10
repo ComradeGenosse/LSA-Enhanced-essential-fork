@@ -38,6 +38,10 @@ namespace LSA.Intelligence
             public long Expires;
             public bool Reserved;
         }
+        internal string LastAcceptFailure {get;private set;}
+        internal string LastCurrentFailure {get;private set;}
+        bool RejectAccept(string reason){LastAcceptFailure=reason;return false;}
+        bool RejectCurrent(string reason){LastCurrentFailure=reason;return false;}
         internal const int MaxChallenges=16,MaxSignals=256,MaxGrants=32;
         internal const long ChallengeLeaseMs=3000,SignalLeaseMs=10000,GrantLeaseMs=2000;
         readonly Func<long> clock;
@@ -113,31 +117,49 @@ namespace LSA.Intelligence
         }
         internal bool Accept(Grant grant)
         {
-            Trim();
+            // Capture expiry state before Trim removes it; do not extend leases.
+            var now=clock();
+            Challenge beforeChallenge;Signal beforeSignal;
+            bool challengeExpired=grant!=null &&
+                challenges.TryGetValue(grant.SpeakerCaptureRef??"",out beforeChallenge) &&
+                beforeChallenge.Expires<=now;
+            bool signalExpired=grant!=null &&
+                signals.TryGetValue((grant.SignalId??"")+"|"+(grant.SpeakerCaptureRef??""),out beforeSignal) &&
+                beforeSignal.Expires<=now;
+            Trim();LastAcceptFailure=null;
             if(grant==null || grant.Version!=1 ||
                grant.Source!="original_companion_ps2_ps3" ||
                !Uuid(grant.Challenge)||!Uuid(grant.TicketId) ||
                !Uuid(grant.HostRunId)||!Uuid(grant.SpeakerCaptureRef)||
                !Uuid(grant.PlayerCaptureRef)||!Uuid(grant.OwnerIncarnationId)||
                !Uuid(grant.SignalId)||!Uuid(grant.ObservationId)||
-               !Key(grant.DecisionKey)||grant.WorldEpoch!=world()||
-               grant.HostRunId!=host()||grant.ProofRevision<=0||
+               !Key(grant.DecisionKey)||grant.ProofRevision<=0||
                grant.SituationRevision<=0||grant.ObservationRevision<=0||
-               grant.PolicyVersion!=1||grant.AgeMs<0||grant.AgeMs>=2000||
-               grants.ContainsKey(grant.TicketId)||grants.Count>=MaxGrants)return false;
+               grant.PolicyVersion!=1||grant.AgeMs<0||grant.AgeMs>=2000)
+                return RejectAccept("grant_invalid");
+            if(grant.WorldEpoch!=world()||grant.HostRunId!=host())
+                return RejectAccept("grant_host_world_mismatch");
+            if(grants.ContainsKey(grant.TicketId))
+                return RejectAccept("grant_duplicate");
+            if(grants.Count>=MaxGrants)return RejectAccept("grant_capacity");
             Challenge issued;Signal signal;
-            if(!challenges.TryGetValue(grant.SpeakerCaptureRef,out issued) ||
-               !signals.TryGetValue(grant.SignalId+"|"+grant.SpeakerCaptureRef,out signal) ||
-               issued.Redeemed||issued.Expires<=clock()||signal.Expires<=clock()||
-               issued.Token!=grant.Challenge||
-               issued.Host!=grant.HostRunId||issued.World!=grant.WorldEpoch||
-               issued.Owner!=grant.OwnerIncarnationId||issued.Revision!=grant.ProofRevision||
-               grant.SituationRevision<issued.FirstSituation||
-               grant.SituationRevision>issued.LastSituation||
-               signal.Host!=grant.HostRunId||signal.World!=grant.WorldEpoch)
-               return false;
-            // One original source signal + challenge is consumable once.
-            // A second PS3 grant cannot borrow the first receipt's provenance.
+            if(!challenges.TryGetValue(grant.SpeakerCaptureRef,out issued))
+                return RejectAccept(challengeExpired?"challenge_expired":"challenge_missing");
+            if(!signals.TryGetValue(grant.SignalId+"|"+grant.SpeakerCaptureRef,out signal))
+                return RejectAccept(signalExpired?"signal_expired":"signal_missing");
+            if(issued.Redeemed)return RejectAccept("challenge_redeemed");
+            if(issued.Expires<=clock())return RejectAccept("challenge_expired");
+            if(signal.Expires<=clock())return RejectAccept("signal_expired");
+            if(issued.Token!=grant.Challenge)return RejectAccept("challenge_token_mismatch");
+            if(issued.Host!=grant.HostRunId||issued.World!=grant.WorldEpoch||
+               issued.Owner!=grant.OwnerIncarnationId||issued.Revision!=grant.ProofRevision)
+                return RejectAccept("challenge_owner_mismatch");
+            if(grant.SituationRevision<issued.FirstSituation||
+               grant.SituationRevision>issued.LastSituation)
+                return RejectAccept("challenge_situation_mismatch");
+            if(signal.Host!=grant.HostRunId||signal.World!=grant.WorldEpoch)
+                return RejectAccept("signal_host_world_mismatch");
+            // Exactly the same consumption as the original production policy.
             issued.Redeemed=true;
             signals.Remove(grant.SignalId+"|"+grant.SpeakerCaptureRef);
             grants.Add(grant.TicketId,new Stored{Grant=Copy(grant),
@@ -146,23 +168,34 @@ namespace LSA.Intelligence
         }
         internal bool Current(DirectorAdmission.Request request)
         {
-            Trim();
-            if(request==null||!DirectorAdmission.Valid(request))return false;
+            Stored before;
+            bool expired=request!=null &&
+                grants.TryGetValue(request.TicketId??"",out before) &&
+                before.Expires<=clock();
+            Trim();LastCurrentFailure=null;
+            if(request==null||!DirectorAdmission.Valid(request))
+                return RejectCurrent("grant_request_invalid");
             Stored stored;
-            if(!grants.TryGetValue(request.TicketId,out stored)||stored.Expires<=clock())return false;
+            if(!grants.TryGetValue(request.TicketId,out stored))
+                return RejectCurrent(expired?"grant_expired":"grant_missing");
+            if(stored.Expires<=clock())return RejectCurrent("grant_expired");
             var g=stored.Grant;
-            return g.TicketId==request.TicketId&&
-                g.HostRunId==host()&&g.WorldEpoch==world()&&
-                g.HostRunId==request.HostRunId&&g.WorldEpoch==request.WorldEpoch&&
-                g.SpeakerCaptureRef==request.SpeakerCaptureRef&&
-                g.PlayerCaptureRef==request.PlayerCaptureRef&&
-                g.OwnerIncarnationId==request.OwnerIncarnationId&&
-                g.ProofRevision==request.ProofRevision&&
-                g.ObservationId==request.ObservationId&&
-                g.ObservationRevision==request.ObservationRevision&&
-                g.DecisionKey==request.DecisionKey&&
-                g.PolicyVersion==request.PolicyVersion&&
-                request.AgeMs>=g.AgeMs;
+            if(g.TicketId!=request.TicketId||g.HostRunId!=host()||
+               g.WorldEpoch!=world()||g.HostRunId!=request.HostRunId||
+               g.WorldEpoch!=request.WorldEpoch)
+                return RejectCurrent("grant_host_world_mismatch");
+            if(g.SpeakerCaptureRef!=request.SpeakerCaptureRef||
+               g.PlayerCaptureRef!=request.PlayerCaptureRef||
+               g.OwnerIncarnationId!=request.OwnerIncarnationId||
+               g.ProofRevision!=request.ProofRevision)
+                return RejectCurrent("grant_owner_mismatch");
+            if(g.ObservationId!=request.ObservationId||
+               g.ObservationRevision!=request.ObservationRevision||
+               g.DecisionKey!=request.DecisionKey||
+               g.PolicyVersion!=request.PolicyVersion)
+                return RejectCurrent("grant_observation_mismatch");
+            if(request.AgeMs<g.AgeMs)return RejectCurrent("grant_age_regressed");
+            return true;
         }
         // Read original sealed receipt, never copy proposed request fields
         // into a native approval snapshot.

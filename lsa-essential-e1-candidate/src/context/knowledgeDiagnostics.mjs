@@ -4,6 +4,8 @@ export function summarizeKnowledgeSelection(inputs,frame) {
   const pairs=Array.isArray(inputs?.pairs)?inputs.pairs.slice(0,128):[];
   const counts={
     captureAnchorStatus:inputs?.anchorStatus??'unknown',
+    captureMissingReason:inputs?.missingReason??'none',
+    captureResetReason:inputs?.lastResetReason??'none',
     captureEventFiring:0,captureEventDeath:0,captureEventImpact:0,
     captureEventInjury:0,captureEventOther:0,
     captureContextOmit:0,captureContextCandidate:0,

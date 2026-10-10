@@ -33,7 +33,7 @@ export function captureKnowledgeInputs({identity,source,p0Snapshot,perception,id
   const anchor=perception.anchors.get(block.captureRef),index=perception.observerIndex.get(block.captureRef);
   // A missing native ref, an expired lease, and a real but unobserved Ped are
   // DIFFERENT failures. Never choose a substitute by PedId/name/current target.
-  if(!anchor) return finish({reason:'anchor_expired',anchorStatus:'missing'});
+  if(!anchor) return finish({reason:'anchor_expired',anchorStatus:'missing',missingReason:perception.missingRefReason?.(block.captureRef)??'not_tracked',lastResetReason:perception.lastResetReason??'none'});
   if(!perception.current(block.captureRef)) return finish({reason:'anchor_expired',anchorStatus:'lease_expired'});
   if(anchor.kind!=='ped') return finish({reason:'anchor_expired',anchorStatus:'kind_mismatch'});
   if(!anchor.observer) return finish({reason:'anchor_expired',anchorStatus:'not_observer'});

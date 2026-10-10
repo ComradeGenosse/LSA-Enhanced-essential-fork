@@ -172,7 +172,7 @@ namespace LSA.Intelligence
                  // is a takeover revision fence, NOT permission to declare
                  // complete player/Essential ownership idle.
                  if(directorShadow)LSA.PromotedCharacters.EssentialPlayerPriorityMonitor.Attach();
-                sensors.Enabled=true;sensors.WitnessEvaluator=CaptureWitnesses;anchors.Retired+=OnRetired;
+                sensors.Enabled=true;sensors.WitnessEvaluator=CaptureWitnesses;anchors.Retired+=OnRetired;anchors.Retirement+=OnRetirement;
                 capabilities["shooting"]=true;capabilities["state"]=true;capabilities["action"]=true;capabilities["witness"]=true;capabilities["playerSpeech"]=false;
                 // Do not load a second tracker assembly. Essential already loads the library.
                 AppDomain.CurrentDomain.AssemblyLoad+=AssemblyLoaded;QueueDamagePin();
@@ -206,6 +206,11 @@ namespace LSA.Intelligence
             return a;
         }
         AnchorWireState Describe(EntityAnchor a)=>new AnchorWireState {CaptureRef=a.CaptureRef,Kind=a.Kind,Observer=a.Observer,Owned=a.OwnerLifetime!=null,Conversation=a.CaptureRef==conversationRef};
+        void OnRetirement(EntityAnchor a,AnchorRetirement reason)
+        {
+            if(a?.Consumers?.Contains(AnchorConsumer.TurnActor)==true)
+                LogStatus("[PS] turn_actor_retired reason="+reason.ToString().ToLowerInvariant());
+        }
         void OnRetired(EntityAnchor a) {ps3Receipts.Retire(a.OwnerLifetime);retiredAnchors=Math.Min(int.MaxValue,retiredAnchors+1);sensors.Retire(a.CaptureRef);lock(rosterGate) {publishedAnchorStates.Remove(a.CaptureRef);publishedObserverIndex.Remove(a.CaptureRef);sampledSituations.Remove(a.CaptureRef);}if(pendingRetirements.Count<256) pendingRetirements.Add(a.CaptureRef);else channel?.Dispose();}
         void FlushControls(bool refreshRoster=false)
         {
@@ -479,6 +484,8 @@ namespace LSA.Intelligence
                 // received authenticated companion PS3 receipt must match.
                 // Only original fields from this sealed receipt populate C06.
                 var original=ps3Receipts.OriginalFor(r);
+                if(original==null)
+                    LogDirectorVeto("ps3_current",ps3Receipts.LastCurrentFailure??"grant_unknown");
                 if(original!=null) {
                     proof.ObservationId=original.ObservationId;
                     proof.ObservationRevision=original.ObservationRevision;
@@ -602,7 +609,8 @@ namespace LSA.Intelligence
                     // Only the actual connected pipe reader delivers this
                     // frame. Issue/challenge and native original source signal
                     // validation are independent of the request vocabulary.
-                    ps3Receipts.Accept(sourceGrant);
+                    if(!ps3Receipts.Accept(sourceGrant))
+                        LogDirectorVeto("ps3_accept",ps3Receipts.LastAcceptFailure??"grant_unknown");
                     continue;
                 }
                 if(!DirectorFrameCodec.TryDecode(frame,out var request))continue;
@@ -850,10 +858,14 @@ namespace LSA.Intelligence
             try {
                 var existing=anchors.Current.FirstOrDefault(a=>a.Kind=="ped" && ReferenceEquals(a.Entity,ped));
                 var owner=(roster()??new OwnedParticipant[0]).FirstOrDefault(p=>p!=null && ReferenceEquals(p.Ped,ped) && p.Current?.Invoke()==true);
-                if(existing?.OwnerLifetime!=null && owner?.Lifetime!=existing.OwnerLifetime) return;
+                if(existing?.OwnerLifetime!=null && owner?.Lifetime!=existing.OwnerLifetime) {
+                    LogStatus("[PS] turn_actor_capture_unavailable reason=owner_changed");return;
+                }
                 ulong handle=Convert.ToUInt64(ped.Handle);var address=ped.MemoryAddress;
                 var anchor=anchors.Retain(ped,handle,address,"ped",owner?.Lifetime,()=>Live(ped,handle,address) && (owner==null || owner.Current?.Invoke()==true),host.MonotonicMs,false,AnchorConsumer.TurnActor);
-                if(anchor==null || anchors.Resolve(anchor.CaptureRef)==null) return;
+                if(anchor==null || anchors.Resolve(anchor.CaptureRef)==null) {
+                    LogStatus("[PS] turn_actor_capture_unavailable reason=anchor_invalid");return;
+                }
                 // The exact P0 actor is a verified native Ped, not an inferred
                 // 'last speaker'. Keep its current retained identity and admit
                 // it as a PS observer before publishing the frozen turn capture.
@@ -868,11 +880,14 @@ namespace LSA.Intelligence
                             .Select(a=>a.CaptureRef));
                     anchors.SetObserverPriority(priorities);
                 }
-                if(!anchor.Observer) return;
+                if(!anchor.Observer) {
+                    LogStatus("[PS] turn_actor_capture_unavailable reason=observer_slot_unavailable");return;
+                }
                 var block=new Dictionary<string,object>{{"version",1},{"hostRunId",host.HostRunId},{"worldEpoch",host.WorldEpoch},{"captureRef",anchor.CaptureRef},{"sampledGameTick",unchecked((uint)Game.GameTime)}};
                 var association=Association(anchor);if(association!=null) {block["encounterId"]=association.EncounterId;block["incarnationId"]=association.Lifetime;}
                 context.IntegrationBlocks.Add(new IntegrationJsonBlock("turnKnowledge",captureJson.Serialize(block)));
                 UpdateIndexes();FlushControls();
+                LogStatus("[PS] turn_actor_capture_created");
             } catch { /* Optional capture omission cannot affect Essential dialogue. */ }
         }
         public void OnPedControlChanged(Ped ped,bool controlledByLsa) {}
@@ -885,7 +900,7 @@ namespace LSA.Intelligence
             AppDomain.CurrentDomain.AssemblyLoad-=AssemblyLoaded;
             try{damage?.Dispose();}catch{}damage=null;
             if(playback) {try{NpcPlaybackCoordinator.PlaybackStarted-=PlaybackStarted;NpcPlaybackCoordinator.PlaybackEnded-=PlaybackEnded;}catch{}playback=false;}
-            director.Disable();ps3Receipts.Reset();originalTurns.Reset();lock(directorPlaybackGate) {directorPlaybackEvents.Clear();directorPlaybackOverflow=false;}channel?.Dispose();anchors.Retired-=OnRetired;host.WorldChanged-=WorldChanged;
+            director.Disable();ps3Receipts.Reset();originalTurns.Reset();lock(directorPlaybackGate) {directorPlaybackEvents.Clear();directorPlaybackOverflow=false;}channel?.Dispose();anchors.Retired-=OnRetired;anchors.Retirement-=OnRetirement;host.WorldChanged-=WorldChanged;
             if(ownsHost) host.Shutdown();sensors.Reset();UpdateIndexes();
         }
     }
