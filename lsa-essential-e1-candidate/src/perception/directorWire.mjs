@@ -90,3 +90,34 @@ export function serializeDirectorPs3Receipt(ticket,proof) {
     throw new TypeError('original_ps3_receipt_invalid');
  return JSON.stringify(value)+'\n';
 }
+
+
+// Read-only acknowledgement from the exact original Essential backend
+// lifecycle/turn-store sampler. It is separate from PS3 grants and from the
+// Director request. It does not itself certify synchronized native idle.
+const ownerFields=Object.freeze([
+  'version','type','source','sourceRun','ticketId','hostRunId',
+  'worldEpoch','playerTurnVersion','revision','observationSerial','quiet',
+]);
+export function serializeDirectorOriginalOwnerReceipt(ticket,stamp,owner) {
+  const value={
+    version:1,type:'director.original_owner_receipt',
+    source:owner?.source,sourceRun:owner?.sourceRun,
+    ticketId:ticket?.ticketId,hostRunId:stamp?.hostRunId,
+    worldEpoch:stamp?.worldEpoch,playerTurnVersion:stamp?.playerTurnVersion,
+    revision:owner?.revision,observationSerial:owner?.observationSerial,
+    quiet:owner?.quiet,
+  };
+  if(Object.keys(value).length!==ownerFields.length ||
+     !ownerFields.every(key=>Object.hasOwn(value,key)) ||
+     value.source!=='original_essential_backend_lifecycle' ||
+     ![value.sourceRun,value.ticketId,value.hostRunId].every(isUuid) ||
+     !positive(value.worldEpoch) || !integer(value.playerTurnVersion) ||
+     !positive(value.revision) || !positive(value.observationSerial) ||
+     value.quiet!==true || owner?.grantsNativeAdmission!==false ||
+     owner?.evidence?.source!=='original_essential_server_turn_stores' ||
+     owner?.evidence?.quiet!==true ||
+     Buffer.byteLength(JSON.stringify(value))>8192)
+    throw new TypeError('original_owner_receipt_unverified');
+  return JSON.stringify(value)+'\n';
+}
