@@ -498,11 +498,12 @@ namespace LSA.Intelligence
                     proof.OwnerIdle=proof.OwnerPrimaryModeKnown && !mode.Suspended &&
                         (mode.Owner=="none" && mode.Mode=="idle" ||
                          mode.Owner=="p2" && mode.Mode=="follow");
-                    // Following controls movement, not dialogue. Keep native
-                    // provenance of this one compatible P2 mode so Essential's
-                    // broad speaker-busy flag does not treat it as exclusive.
-                    proof.SpeakerFollowCompatible=proof.OwnerPrimaryModeKnown &&
-                        !mode.Suspended && mode.Owner=="p2" && mode.Mode=="follow";
+                    // Following controls movement, not dialogue. Source
+                    // proof is from this exact native P2 owner incarnation.
+                    // An unknown, ACT, or suspended owner never qualifies.
+                    proof.CompatibleLocomotion=proof.OwnerPrimaryModeKnown &&
+                        !mode.Suspended && mode.Owner=="p2" && mode.Mode=="follow"
+                        ? "p2_follow" : null;
                     // Source-pinned Core NpcStateStore is used by existing ACT
                     // preflight; no state is UNKNOWN, not absence of a reflex.
                     var state=NpcStateStore.TryGetState((Ped)speaker.Entity);
