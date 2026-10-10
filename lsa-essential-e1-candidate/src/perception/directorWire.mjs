@@ -161,8 +161,9 @@ export function serializeDirectorOriginalTurnBinding(source,identity) {
        payload.speakerCaptureRef].every(isUuid) ||
      !Number.isSafeInteger(payload.sourceRevision)||payload.sourceRevision<1||
      !Number.isSafeInteger(payload.worldEpoch)||payload.worldEpoch<1||
-     typeof payload.pedId!=='string'||!/^(0|[1-9][0-9]{0,9})$/.test(payload.pedId)||
-     Number(payload.pedId)>4294967295 ||
+     // Preserve the original Essential PoolHandle.ToString() token verbatim.
+     typeof payload.pedId!=='string'||!/^[0-9a-fA-F]{1,16}$/.test(payload.pedId) ||
+     /[\r\n]/.test(payload.pedId) ||
      typeof payload.turnId!=='string'||!payload.turnId.trim()||
      payload.turnId.length>128||/[\r\n\0]/.test(payload.turnId)||
      !Number.isSafeInteger(payload.generationId)||payload.generationId<0||

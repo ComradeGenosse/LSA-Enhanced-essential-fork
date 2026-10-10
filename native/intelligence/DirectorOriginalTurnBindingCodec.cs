@@ -61,8 +61,8 @@ namespace LSA.Intelligence
                    !Number(values,"worldEpoch",out epoch)||epoch==0||epoch>int.MaxValue ||
                    !Number(values,"generationId",out generation) ||
                    !Number(values,"sessionNonce",out nonce)||nonce==0||nonce>int.MaxValue ||
-                   !Regex.IsMatch(ped,@"^[0-9]{1,10}$")||
-                   !uint.TryParse(ped,out _) ||
+                   // Decode bounded hex-shaped PoolHandle string without numeric conversion.
+                   !Regex.IsMatch(ped,@"\A[0-9a-fA-F]{1,16}\z") ||
                    string.IsNullOrWhiteSpace(turn)||turn.Length>128)return false;
                 result=new Frame {
                     TicketId=ticket,SourceRun=run,SourceRevision=revision,

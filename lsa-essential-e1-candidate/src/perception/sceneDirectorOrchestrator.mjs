@@ -66,7 +66,6 @@ export class SceneDirectorSpeech {
     const ticket=this.admission.reserve(proposal,stamp);
     if(!ticket)return Object.freeze({status:'not_admitted',
       diagnosticReason:this.admission.lastReserveFailure??'reservation_unavailable'});
-    let nativeReserved=false;
     const currentAge=()=>Math.max(0,this.now()-facts.nowMonotonicMs);
     const request=async operation=>this.nativeRequest({operation,ticket,proposal,stamp,
       // Cancellation remains legal long after the original candidate TTL.
@@ -75,7 +74,6 @@ export class SceneDirectorSpeech {
       let receipt=await request('reserve');
       if(receipt?.ticketId!==ticket.ticketId || receipt.status!=='reserved')
         return Object.freeze({status:'native_rejected',nativeReason:nativeVeto(receipt)});
-      nativeReserved=true;
       // Distinguish PS3/P2 source changes from an independent C-11 ticket,
       // cooldown, expiry or player-priority fence. Never retry a spent ticket.
       if(!this.originalGrantCurrent(proposal,stamp))
@@ -116,7 +114,8 @@ export class SceneDirectorSpeech {
       return Object.freeze({status:'failed'});
     } finally {
       this.admission.cancel(ticket.ticketId);
-      if(nativeReserved)try{await request('cancel');}catch{}
+      // Release even after a native veto; cancel never grants authority.
+      try{await request('cancel');}catch{}
     }
   }
 }

@@ -89,12 +89,22 @@ const safeTokens = new Set([
   'profile_store_unavailable','promotion_failed','owner_unavailable','scripted_state','ownership_conflict','native_operation_failed','identity_unavailable','unsafe_spawn_location','appearance_unavailable','invalid_ped_model','profile_projection_failed',
 ]);
 
+// Closed PS6 reason vocabulary: preserve diagnostics without arbitrary text.
+const safeDirectorReasons = new Set([
+  'invalid_or_disabled','invalid_clock','ticket_already_active',
+  'decision_already_attempted','rate_limited','scene_or_speaker_cooldown',
+  'evidence_expired','source_or_safety_veto','ticket_id_unavailable',
+  'reservation_unavailable','original_ps3_entitlement_changed',
+  'reservation_recheck_veto',
+]);
 function safeScalar(key, value) {
   if (value === null || typeof value === 'boolean') return value;
   if (typeof value === 'number') return Number.isFinite(value) && Math.abs(value) < 1e15 ? value : null;
   if (typeof value !== 'string' || !safeKeys.has(key)) return undefined;
   const token = value.trim();
   if (safeTokens.has(token.toLowerCase())) return token.toLowerCase();
+  if (['diagnosticReason','reason','terminalReason'].includes(key) &&
+      safeDirectorReasons.has(token)) return token;
   if (key === 'code' && /^[A-Za-z][A-Za-z0-9_]{0,63}$/.test(token)) return token;
   if (['nativeReason','nativeType','errorType','actionName','stage','operation'].includes(key) && /^[A-Za-z][A-Za-z0-9_]{0,63}$/.test(token)) return token;
   if (key === 'requestId' && /^rid_[a-f0-9]{16}$/.test(token)) return token;

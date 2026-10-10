@@ -154,6 +154,17 @@ export class IntelligenceClient {
   // Negative/late/ambiguous receipts never become Essential authorization.
   requestDirector(args,{timeoutMs=900}={}) {
     const ticketId=args?.ticket?.ticketId;
+    // Release local source authority even if native cancel cannot be sent.
+    // A rejected reserve must not block every subsequent Director attempt.
+    if(args?.operation==='cancel' && typeof ticketId==='string') {
+      this.directorOwnerReservations.delete(ticketId);
+      this.directorNativeSubmitted.delete(ticketId);
+      this.directorStockDispatched.delete(ticketId);
+      this.directorStockContexts.delete(ticketId);
+      this.directorStockClaims.delete(ticketId);
+      this.directorPlaybacks.clear(ticketId);
+      try {this.originalTurnRelease(ticketId);}catch{}
+    }
     // Every reserve/submit must re-read the original companion ledger as an
     // independent source. Cancel remains available after grant expiration so
     // a previously reserved native ticket can always be retired.
@@ -216,15 +227,6 @@ export class IntelligenceClient {
       if(!this.sendDirectorPreview(nativeArgs)) {finish(null);return;}
       if(args.operation==='reserve')this.directorOwnerReservations.set(ticketId,
         {run:owner.sourceRun,revision:owner.revision,stamp:args.stamp,proposal:args.proposal});
-      if(args.operation==='cancel') {
-        this.directorOwnerReservations.delete(ticketId);
-        this.directorNativeSubmitted.delete(ticketId);
-        this.directorStockDispatched.delete(ticketId);
-        this.directorStockContexts.delete(ticketId);
-        this.directorStockClaims.delete(ticketId);
-        this.directorPlaybacks.clear(ticketId);
-        try {this.originalTurnRelease(ticketId);}catch{}
-      }
     });
   }
   // Bounded 3A intake for a *previously native-submitted* ticket only.

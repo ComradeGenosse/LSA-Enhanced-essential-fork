@@ -628,13 +628,12 @@ namespace LSA.Intelligence
             }
             var originalSpeaker=anchors.Resolve(request.SpeakerCaptureRef)?.Entity as Ped;
             var originalPlayer=anchors.Resolve(request.PlayerCaptureRef)?.Entity as Ped;
-            uint nativePed;
             if(originalSpeaker==null || originalPlayer==null ||
                !originalSpeaker.Exists() || originalSpeaker.IsDead ||
                !originalPlayer.Exists() || originalPlayer.IsDead ||
                !ReferenceEquals(originalPlayer,Game.LocalPlayer.Character) ||
-               !uint.TryParse(frame.PedId,out nativePed) ||
-               Convert.ToUInt64(originalSpeaker.Handle)!=nativePed) {
+               !string.Equals(frame.PedId,originalSpeaker.Handle.ToString(),
+                   StringComparison.Ordinal)) {
                 LogDirectorHandoff("native_binding","rejected","actor_or_player_identity_invalid");
                 return false;
             }
@@ -849,7 +848,10 @@ namespace LSA.Intelligence
         }
         void Lifecycle(string kind,string pedId,object entity,bool interrupted,bool hadAudio)
         {
-            if(!uint.TryParse(pedId,out var handle)) return;var target=CallbackAnchor(handle,entity,false);
+            var speaker=entity as Ped;
+            if(speaker==null || !speaker.Exists() ||
+                !string.Equals(pedId,speaker.Handle.ToString(),StringComparison.Ordinal))return;
+            var target=CallbackAnchor(Convert.ToUInt32(speaker.Handle),speaker,false);
             sensors.Enqueue(new RawSignal {producer="playback",kind=kind,target=target,gameTick=callbackTick,receivedMs=host.MonotonicMs,facts=new Dictionary<string,object>{{"interrupted",interrupted},{"hadAudio",hadAudio}}});
         }
         void EnqueueDirectorPlayback(DirectorPlaybackEvent item)
@@ -879,9 +881,10 @@ namespace LSA.Intelligence
             foreach(var e in events) {
                 if(e?.Speaker==null || string.IsNullOrWhiteSpace(e.PedId) ||
                     string.IsNullOrWhiteSpace(e.TurnId) || e.GenerationId<0)continue;
-                if(!uint.TryParse(e.PedId,out var pedHandle) ||
-                    Convert.ToUInt64(e.Speaker.Handle)!=pedHandle || !e.Speaker.Exists())continue;
-                var token=CallbackAnchor(pedHandle,e.Speaker,false);
+                if(!e.Speaker.Exists() ||
+                    !string.Equals(e.PedId,e.Speaker.Handle.ToString(),
+                        StringComparison.Ordinal))continue;
+                var token=CallbackAnchor(Convert.ToUInt32(e.Speaker.Handle),e.Speaker,false);
                 var anchor=token==null?null:anchors.Resolve(token);
                 if(anchor==null || !ReferenceEquals(anchor.Entity,e.Speaker))continue;
                 // The callback is not a ticket. Match the previously bound
