@@ -128,6 +128,49 @@ test('exact native PS6 request response binds once with independent status and d
  client.stop();
 });
 
+test('Director native requests use original PS3 witnessed age, not selection age',async()=>{
+ let serial=0,sourceAge=850;
+ const owner=()=>({schemaVersion:1,source:'original_essential_backend_lifecycle',
+  sourceRun:uuid,revision:2,observationSerial:++serial,quiet:true,
+  grantsNativeAdmission:false,
+  evidence:{source:'original_essential_server_turn_stores',quiet:true}});
+ const client=new IntelligenceClient({mode:'shadow',pipeName:'LSA.Intelligence.v1'},
+  {now:()=>1000,report:()=>{},originalTurnReserve:owner,
+   originalTurnCurrent:owner,originalTurnRelease:()=>true});
+ const writes=[];
+ client.socket={destroyed:false,writable:true,writableLength:0,
+  write:line=>{writes.push(JSON.parse(line));return true;},destroy:()=>{}};
+ assert.equal(client.runtime.ingest(hello,{authenticated:true}),true);
+ client.runtime.directorOriginalEntitlementFor=(proposal,stamp)=>({
+  ...originalProof(proposal,stamp),ageMs:sourceAge
+ });
+ const args={operation:'reserve',ticket:{ticketId:ticket,dedupeKey:'ps:'+ticket},
+  proposal:{speakerCaptureRef:'e1111111-1111-4111-8111-111111111111',
+   playerCaptureRef:'f1111111-1111-4111-8111-111111111111',
+   observationId:'81111111-1111-4111-8111-111111111111',
+   observationRevision:1,decisionKey:'ps3:qualified',policyVersion:1},
+  stamp:{hostRunId:host,worldEpoch:1,
+   ownerIncarnationId:'91111111-1111-4111-8111-111111111111',
+   proofRevision:1,playerTurnVersion:0},ageMs:0};
+ const reserving=client.requestDirector(args);
+ assert.deepEqual(writes.map(w=>w.type),[
+  'director.original_owner_receipt','director.ps3_receipt','director.request']);
+ assert.equal(writes[1].ageMs,850);
+ assert.equal(writes[2].ageMs,850,
+  'source-backed native request cannot pretend a recent event started at Director selection');
+ assert.equal(client.acceptDirectorResponse({ticketId:ticket,status:'reserved'}),true);
+ assert.equal((await reserving).status,'reserved');
+ sourceAge=920;
+ const submitting=client.requestDirector({...args,operation:'submit',ageMs:1});
+ assert.deepEqual(writes.slice(3).map(w=>w.type),[
+  'director.original_owner_receipt','director.request']);
+ assert.equal(writes[4].ageMs,920,
+  'submit rechecks the exact source observation and uses its newer age');
+ assert.equal(client.acceptDirectorResponse({ticketId:ticket,status:'submitted'}),true);
+ assert.equal((await submitting).status,'submitted');
+ client.stop();
+});
+
 test('native transport refuses reserve/submit without live original PS3 ledger; cancellation survives revocation',async()=>{
  let serial=0;
  const sample=()=>({schemaVersion:1,source:'original_essential_backend_lifecycle',sourceRun:uuid,

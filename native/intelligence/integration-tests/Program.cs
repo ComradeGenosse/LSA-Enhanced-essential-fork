@@ -468,7 +468,7 @@ class Program
         actor.Existing=false;Tick(integration);Check(sensors.Counters["death"]==1,"disappearance is not another death");
         owned=false;integration.OwnerRetired(lifetime);Check(!anchors.Current.Any(a=>a.OwnerLifetime==lifetime),"owner revoke clears original anchor");
         rosterList.Clear();owned=true;
-        for(int n=0;n<16;n++) {var promoted=new Ped {Handle=(uint)(100+n),MemoryAddress=new IntPtr(100+n)};var ownerLifetime=Guid.NewGuid().ToString("D");rosterList.Add(new OwnedParticipant {Ped=promoted,Lifetime=ownerLifetime,Current=()=>promoted.Existing});}
+        for(int n=0;n<16;n++) {var promoted=new Ped {Handle=(uint)(100+n),MemoryAddress=new IntPtr(100+n)};var ownerLifetime=Guid.NewGuid().ToString("D");rosterList.Add(new OwnedParticipant {Ped=promoted,Lifetime=ownerLifetime,EncounterId=Guid.NewGuid().ToString("D"),Current=()=>promoted.Existing});}
         var conversation=new Ped {Handle=99,MemoryAddress=new IntPtr(99)};NpcTargeting.Conversation=conversation;Tick(integration);
         var conversationAnchor=anchors.Current.Single(a=>ReferenceEquals(a.Entity,conversation));var ownedObservers=anchors.Current.Where(a=>a.OwnerLifetime!=null&&a.Observer).ToArray();var demotedOwned=anchors.Current.Single(a=>a.OwnerLifetime!=null&&!a.Observer);
         Check(conversationAnchor.Observer&&anchors.ObserverCount==16,"conversation NPC takes priority at full 16 promoted observers");
@@ -482,6 +482,31 @@ class Program
         Check(budgetWitnesses.Count==8 &&
               budgetWitnesses.All(w=>ownedObservers.Any(a=>a.CaptureRef==w.Observer)),
               "all eight scarce native LOS slots prioritize original P2-owned companions");
+
+        // Issue #24: at capacity, P0 admits an owned NPC outside the static
+        // discovery top 15; the next 200 ms tick must not silently demote it.
+        // Essential may have released or changed its conversation between
+        // voice/typed turns, but the P2 incarnation remains the same.
+        var repeatedPed=(Ped)demotedOwned.Entity;
+        var firstTurn=new LosSantosAlive.Context.ActorContext {PedId=repeatedPed.Handle.ToString()};
+        integration.EnrichActor(repeatedPed,firstTurn);
+        Check(demotedOwned.Observer && anchors.ObserverCount==16 &&
+              firstTurn.IntegrationBlocks.Any(b=>b.Id=="turnKnowledge"),
+              "owned P0 capture admits previously demoted observer at capacity");
+        var repeatedRef=demotedOwned.CaptureRef;
+        Tick(integration);
+        Check(anchors.Resolve(repeatedRef)==demotedOwned && demotedOwned.Observer &&
+              anchors.ObserverCount==16,
+              "discovery keeps exact qualified promoted observer across turns");
+        NpcTargeting.Conversation=null;Tick(integration);
+        Check(demotedOwned.Observer && anchors.ObserverCount<=16,
+              "releasing Essential conversation does not erase owned witness");
+        NpcTargeting.Conversation=conversation;Tick(integration);
+        var secondTurn=new LosSantosAlive.Context.ActorContext {PedId=repeatedPed.Handle.ToString()};
+        integration.EnrichActor(repeatedPed,secondTurn);
+        Check(anchors.Resolve(repeatedRef)==demotedOwned && demotedOwned.Observer &&
+              secondTurn.IntegrationBlocks.Any(b=>b.Id=="turnKnowledge"),
+              "successive P0 captures reuse live original owned observer identity");
 
         var wireNextConversation=new Ped {Handle=98,MemoryAddress=new IntPtr(98)};var pipeName="LSA.Integration.Tests."+Guid.NewGuid().ToString("N");var wireCaps=(Dictionary<string,bool>)Get(integration,"capabilities");var wireChannel=new IntelligenceChannel(pipeName,Guid.NewGuid().ToString("D"),()=>wireCaps,((LSA.PromotedCharacters.HostContext)Get(integration,"host")).HostRunId,()=>((LSA.PromotedCharacters.HostContext)Get(integration,"host")).WorldEpoch,true);Set(integration,"channel",wireChannel);wireChannel.Start();
         using(var client=new NamedPipeClientStream(".",pipeName,PipeDirection.In)) {
@@ -511,6 +536,12 @@ class Program
         Check(nextAnchor.Observer&&anchors.ObserverCount==16&&!conversationAnchor.Observer&&anchors.Resolve(conversationToken)==conversationAnchor,"changing conversation demotes prior target without retargeting token");
         NpcTargeting.Conversation=conversation;Tick(integration);
         Check(anchors.Current.Single(a=>ReferenceEquals(a.Entity,conversation)).CaptureRef==conversationToken&&conversationAnchor.Observer&&anchors.ObserverCount==16,"returning conversation restores same lifetime without token reuse");
+        // A genuine P2 retirement, unlike priority demotion, kills the old
+        // captureRef and cannot be overridden by the continuity preference.
+        rosterList.RemoveAll(p=>p.Lifetime==demotedOwned.OwnerLifetime);
+        integration.OwnerRetired(demotedOwned.OwnerLifetime);Tick(integration);
+        Check(anchors.Resolve(repeatedRef)==null && !anchors.Current.Any(a=>a.CaptureRef==repeatedRef),
+              "owner retirement permanently invalidates continued observer");
         var replacement=new Ped {Handle=2,MemoryAddress=new IntPtr(2)};
         var old=anchors.Current.FirstOrDefault(a=>a.Handle==4);if(old!=null) {
             var newWrapper=new Ped {Handle=4,MemoryAddress=new IntPtr(4)};

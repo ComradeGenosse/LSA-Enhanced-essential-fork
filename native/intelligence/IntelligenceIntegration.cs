@@ -83,6 +83,10 @@ namespace LSA.Intelligence
         readonly System.Web.Script.Serialization.JavaScriptSerializer captureJson=new System.Web.Script.Serialization.JavaScriptSerializer {MaxJsonLength=8192};
         readonly List<string> pendingRetirements=new List<string>();
         string conversationRef;
+        // Exact native P0/P2 lifetime, never a PedId or character-name fallback.
+        // Keep the last qualified promoted turn actor eligible when Essential
+        // releases or changes the current conversation target.
+        string promotedTurnObserverRef;
         PerceptionSnapshot discoverySnapshot;
         Ped discoveryPlayer;
         OwnedParticipant[] discoveryOwned=new OwnedParticipant[0];
@@ -148,7 +152,7 @@ namespace LSA.Intelligence
         void WorldChanged(int epoch,string reason) {
             if(!IsAvailable) return;
             director.Reset();ps3Receipts.Reset();originalTurns.Reset();lock(directorPlaybackGate) {directorPlaybackEvents.Clear();directorPlaybackOverflow=false;}sensors.Reset();lock(rosterGate) {publishedAnchorStates.Clear();publishedObserverIndex.Clear();sampledSituations.Clear();}pendingRetirements.Clear();
-            conversationRef=null;discoverySnapshot=null;discoveryOwned=new OwnedParticipant[0];UpdateIndexes();
+            conversationRef=null;promotedTurnObserverRef=null;discoverySnapshot=null;discoveryOwned=new OwnedParticipant[0];UpdateIndexes();
             // Ordered control fact invalidates all prior observer state. Losing
             // it closes the bounded channel; reconnect republishes current host.
             if(channel?.Send("world_epoch",new {epoch,reason})!=true) {
@@ -211,7 +215,7 @@ namespace LSA.Intelligence
             if(a?.Consumers?.Contains(AnchorConsumer.TurnActor)==true)
                 LogStatus("[PS] turn_actor_retired reason="+reason.ToString().ToLowerInvariant());
         }
-        void OnRetired(EntityAnchor a) {ps3Receipts.Retire(a.OwnerLifetime);retiredAnchors=Math.Min(int.MaxValue,retiredAnchors+1);sensors.Retire(a.CaptureRef);lock(rosterGate) {publishedAnchorStates.Remove(a.CaptureRef);publishedObserverIndex.Remove(a.CaptureRef);sampledSituations.Remove(a.CaptureRef);}if(pendingRetirements.Count<256) pendingRetirements.Add(a.CaptureRef);else channel?.Dispose();}
+        void OnRetired(EntityAnchor a) {if(a.CaptureRef==promotedTurnObserverRef) promotedTurnObserverRef=null;ps3Receipts.Retire(a.OwnerLifetime);retiredAnchors=Math.Min(int.MaxValue,retiredAnchors+1);sensors.Retire(a.CaptureRef);lock(rosterGate) {publishedAnchorStates.Remove(a.CaptureRef);publishedObserverIndex.Remove(a.CaptureRef);sampledSituations.Remove(a.CaptureRef);}if(pendingRetirements.Count<256) pendingRetirements.Add(a.CaptureRef);else channel?.Dispose();}
         void FlushControls(bool refreshRoster=false)
         {
             lock(rosterGate) {
@@ -298,10 +302,34 @@ namespace LSA.Intelligence
                     if(selected==player) selected=null;
                     var selectedOwner=owned.FirstOrDefault(p=>p?.Ped!=null && ReferenceEquals(p.Ped,selected));
                     var orderedOwned=owned.Where(p=>p?.Ped!=null).OrderBy(p=>p.Lifetime,StringComparer.Ordinal).ToArray();
-                    var ownedPriority=orderedOwned.Where(p=>selectedOwner==null || p.Lifetime!=selectedOwner.Lifetime).Take(selected==null?16:15).ToList();
-                    if(selectedOwner!=null) ownedPriority.Insert(0,selectedOwner);
+                    // Discovery used to overwrite the observer promotion from
+                    // EnrichActor on the next 200 ms tick. In a full roster a
+                    // different current target could evict the same live P2
+                    // actor before its next voice/typed P0 capture.
+                    var recentTurn=promotedTurnObserverRef==null?null:anchors.Current.FirstOrDefault(a=>
+                        a.CaptureRef==promotedTurnObserverRef && a.Kind=="ped" && a.OwnerLifetime!=null);
+                    var recentTurnOwner=recentTurn==null?null:orderedOwned.FirstOrDefault(p=>
+                        p.Lifetime==recentTurn.OwnerLifetime && ReferenceEquals(p.Ped,recentTurn.Entity));
+                    if(recentTurnOwner!=null) {
+                        // Revalidate the original native wrapper, handle,
+                        // address, owner incarnation and current P2 claim.
+                        // Never transfer priority to a replacement lifetime.
+                        var retained=Retain(recentTurnOwner.Ped,"ped",recentTurnOwner.Lifetime,false,recentTurnOwner.Current);
+                        if(retained?.CaptureRef!=promotedTurnObserverRef ||
+                           anchors.Resolve(promotedTurnObserverRef)==null) recentTurnOwner=null;
+                    }
+                    if(recentTurnOwner==null) promotedTurnObserverRef=null;
+                    var ownedPriority=new List<OwnedParticipant>();
+                    if(selectedOwner!=null) ownedPriority.Add(selectedOwner);
+                    if(recentTurnOwner!=null && !ownedPriority.Any(p=>p.Lifetime==recentTurnOwner.Lifetime))
+                        ownedPriority.Add(recentTurnOwner);
+                    foreach(var p in orderedOwned) {
+                        if(ownedPriority.Count>= (selected==null?16:15)) break;
+                        if(!ownedPriority.Any(candidate=>candidate.Lifetime==p.Lifetime)) ownedPriority.Add(p);
+                    }
                     var ownedRetained=orderedOwned.Take(16).ToList();
                     if(selectedOwner!=null && !ownedRetained.Any(p=>p.Lifetime==selectedOwner.Lifetime)) ownedRetained.Add(selectedOwner);
+                    if(recentTurnOwner!=null && !ownedRetained.Any(p=>p.Lifetime==recentTurnOwner.Lifetime)) ownedRetained.Add(recentTurnOwner);
                     // Retain before applying the priority list, without claiming slots
                     // incrementally. This lets the current conversation displace a
                     // stale/lower priority observer in the same bounded discovery tick.
@@ -884,7 +912,13 @@ namespace LSA.Intelligence
                     LogStatus("[PS] turn_actor_capture_unavailable reason=observer_slot_unavailable");return;
                 }
                 var block=new Dictionary<string,object>{{"version",1},{"hostRunId",host.HostRunId},{"worldEpoch",host.WorldEpoch},{"captureRef",anchor.CaptureRef},{"sampledGameTick",unchecked((uint)Game.GameTime)}};
-                var association=Association(anchor);if(association!=null) {block["encounterId"]=association.EncounterId;block["incarnationId"]=association.Lifetime;}
+                var association=Association(anchor);if(association!=null) {
+                    // Only an exact current P2 registration can receive
+                    // continuing priority. Ordinary P0 witnesses stay bounded
+                    // by regular discovery/selection and do not gain ownership.
+                    promotedTurnObserverRef=anchor.CaptureRef;
+                    block["encounterId"]=association.EncounterId;block["incarnationId"]=association.Lifetime;
+                }
                 context.IntegrationBlocks.Add(new IntegrationJsonBlock("turnKnowledge",captureJson.Serialize(block)));
                 UpdateIndexes();FlushControls();
                 LogStatus("[PS] turn_actor_capture_created");

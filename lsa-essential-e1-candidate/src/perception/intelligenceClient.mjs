@@ -174,6 +174,14 @@ export class IntelligenceClient {
     }
     if(args?.operation!=='cancel' && (!original || !owner))
       return Promise.resolve(null);
+    // The coordinator's ageMs starts at Director selection, not at the
+    // witnessed event. Native PS3 admission compares against the original
+    // PS2 observation age sealed in the one-use producer receipt. Reuse
+    // that independently checked source age for this exact request so
+    // the two ordered frames cannot falsely report grant_age_regressed.
+    // Do not change cancellation or relax native age/expiry validation.
+    const nativeArgs=args.operation==='cancel'?args:
+      {...args,ageMs:original.ageMs};
     const prior=this.directorOwnerReservations.get(ticketId);
     // A newly observed source revision after reserve is a player/Essential
     // takeover, even if its final state is quiet again. It cannot be
@@ -205,7 +213,7 @@ export class IntelligenceClient {
       if(args.operation==='reserve' && !this.sendDirectorPs3Receipt(args.ticket,original)) {
         finish(null);return;
       }
-      if(!this.sendDirectorPreview(args)) {finish(null);return;}
+      if(!this.sendDirectorPreview(nativeArgs)) {finish(null);return;}
       if(args.operation==='reserve')this.directorOwnerReservations.set(ticketId,
         {run:owner.sourceRun,revision:owner.revision,stamp:args.stamp,proposal:args.proposal});
       if(args.operation==='cancel') {

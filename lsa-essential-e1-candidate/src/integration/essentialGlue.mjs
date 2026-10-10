@@ -94,7 +94,14 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
       turn.knowledgeDelivery=createKnowledgeDelivery({frame:selected,baseFrame:base,isCurrent:()=>runtime.host.isCurrent(turn.identity) && (!identityService || identityService.current(turn.identity)),
         prune:frame=>pruneKnowledgeFrame(frame,item=>!validateKnowledge({delivery:[item]}),item=>!validateKnowledge({delivery:[],activityReferences:[item]}),item=>!validateKnowledge({delivery:[],dialogueReferences:[item]})),
         validate:validateKnowledge,
-        acknowledge:(key,consumer,outcome)=>runtime.intelligence?.runtime.salience.acknowledge(key,consumer,outcome),
+        acknowledge:(key,consumer,outcome)=>{
+          const salience=runtime.intelligence?.runtime.salience;
+          if(consumer==='ps4_context' && outcome==='delivered'){
+            const frozen=turn.knowledgeInputs?.pairs.find(pair=>pair.decision.decisionKey===key);
+            return salience?.acknowledgeFrozenContext(key,frozen,outcome)===true;
+          }
+          return salience?.acknowledge(key,consumer,outcome)===true;
+        },
         onOutcome:result=>{turn.knowledgeOutcome=result;try{telemetry?.emit('knowledge_delivery',turn.identity,source,{outcome:result.outcome,selectedObservations:result.selectedObservations,acknowledgedObservations:result.acknowledged,retiredAcknowledgements:result.retired,knowledgeRequestHash:result.requestHash,projectionHash:result.projectionHash,reason:result.retired?'ack_key_retired':null});}catch{}}});
       return selected;
     },

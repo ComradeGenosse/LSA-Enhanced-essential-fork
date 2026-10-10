@@ -45,6 +45,32 @@ for(const [mode,options] of [['buffered',{}],['streaming',{structuredStreamingEn
  for(const secret of [f.ref,f.ps.epoch,f.ps.hostContext.hostRunId,'turnKnowledge','decisionKey'])assert.equal(JSON.stringify(bodies[0]).includes(secret),false);
  const entries=[...f.ps.salience.ledger.values()];assert.ok(entries.some(entry=>entry.consumedBy.has('ps4_context')));assert.ok(entries.every(entry=>!entry.consumedBy.has('ps6_ticket')));assert.equal(f.client.knowledgeListeners.size,0);
 });
+
+test('PS4 production turn acknowledges a frozen observation after a concurrent PS3 policy refresh',async t=>{
+ const f=factualFixture();let formerKey=null,successorKey=null,selected=false;
+ const h=await stockHarness('openai',{config:{dialogueKnowledge:{mode:'active'},retry:{enabled:false,maxAttempts:1},persistentIdentity:{enabled:false},promotedCharacters:{enabled:false}},env:{OPENAI_API_KEY:'offline'},fetchImpl:async(_url,request)=>{
+  const row=[...f.ps.salience.ledger.values()][0],pair=row.pair;
+  formerKey=row.decisionKey;
+  const revised=f.ps.salience.evaluate(pair.observation,{...pair.situation,activity:'conversation',situationRevision:pair.situation.situationRevision+1});
+  successorKey=revised.decisionKey;
+  assert.notEqual(successorKey,formerKey);
+  selected=JSON.parse(request.body).input[0].content.includes('PERCEIVED');
+  return response(false);
+ }});
+ h.runtime.intelligence=f.client;h.runtime.dialogueKnowledgeBuildSupported=true;
+ h.runtime.services.speak=async({onPcm})=>{await onPcm(new Uint8Array([1,2]));return {bytes:2};};
+ const session=await h.openAIControllerSession({actorContext:f.actor});t.after(()=>session.connection.close());session.autoNativeAcks();
+ h.context.refreshInput={pedId:'17',speaker:f.actor,text:'What happened?'};
+ const turn=await h.evaluate('ib(refreshInput)');
+ const result=await session.connection.whenSettled({pedId:turn.pedId,turnId:turn.id,generationId:turn.generationId,sessionNonce:1});
+ assert.equal(result.status,'completed',result.terminalReason);
+ assert.ok(selected);assert.ok(formerKey && successorKey);
+ const ledger=[...f.ps.salience.ledger.values()][0];
+ assert.equal(ledger.decisionKey,successorKey);
+ assert.equal(ledger.consumedBy.has('ps4_context'),true);
+ assert.equal(ledger.consumedBy.has('ps6_ticket'),false);
+});
+
 test('real active in-flight retirement aborts provider and prevents delivered acknowledgement',async t=>{
  const f=factualFixture();let aborted=false;
  const h=await stockHarness('openai',{config:{dialogueKnowledge:{mode:'active'},retry:{enabled:false,maxAttempts:1},persistentIdentity:{enabled:false},promotedCharacters:{enabled:false}},env:{OPENAI_API_KEY:'offline'},fetchImpl:async(_url,request)=>new Promise((resolve,reject)=>{
