@@ -1061,3 +1061,42 @@ The first intermediate Linux test run rejected malformed owner revisions correct
 The source-owned P2 revision is **now available**, replacing the previous unknown native owner-revision evidence gap. However, the complete **player text/microphone/Essential turn-priority arbiter**, independently original **PS3 observation and response-entitlement** admission record, production **real stock `kb` Submit** with original ticket, original **Core-produced full session nonce / generation / turn binding**, and accepted in-game callback path are **still not established**. Companion source proof is a separate optional fact; a full C06 stamp is not synthesized. The native constructor still supplies `enabled:false` and its shadow preview rejects speech; other independent unknown C06/PS3 gates still refuse. No production RPH Release build, verified payload hashes, GTA PS4 G7, or Phase 13a A33/A34/A39/A40 acceptance executed.
 
 PS4 audit remains **22/81** individually verified cases; Phase 6 overall, remaining PS4, Phase 13a and all physical gates are **not complete**. No merge, installation, deployment, feature enablement, scheduler call, Phase 10a or deferred phase.
+
+
+## Checkpoint 85: exact original companion PS3 grant verification and mandatory Director prepublication gate (October 10, 2026)
+
+**Matched source code head:** `ed3575ca8095ad68b6e465b4929d976a738604ac`; [GitHub Actions 38014164566](https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/actions/runs/38014164566) **completed SUCCESS Windows and Linux**. This is an incremental fail-closed Phase 13a implementation and does **not** establish native authorization or enabled spontaneous speech.
+
+### Original companion PS3 entitlement — not reconstructed permission
+
+- `ShadowRuntime.directorOriginalEntitlementFor(proposal,stamp)` now independently rereads the existing **PS2 observation store** and original **PS3 salience ledger/pair**, rather than accepting the proposed `decisionKey`, an inferred owner, or a synthetic all-positive `entitlementCurrent` as proof.
+- It requires exact original observation ID/revision/native run/episode, PS3 decision ID/revision/key/policy/response, **unconsumed original ledger grant**, source supported non-report claims, original observed-at monotonic timestamp and original urgency-limited expiry. It cross-checks the separately authenticated live P2 native incarnation/revision stamp, host run, world epoch, exact speaker/player, and original evaluated situation revision. Unknown, expired, mismatched, revoked or stale information yields `null`.
+- `sceneDirector.mjs` remains the separate *unprivileged selector*. PS0/PS1 `shadowRuntime.mjs` does **not import the Director module**. The entitlement verifier recomputes its source-time limits independently so policy drift fails closed rather than letting the selector authorize itself.
+- The returned frozen `source:'original_companion_ps2_ps3'` tuple is **only proof that the companion currently holds that source grant**. This is NOT a native-original PS3 receipt, NOT a global player-turn proof, NOT a playback permission, and NOT an Essential scheduling capability. Reading it does not consume a grant, submit a native ticket or affect world state.
+
+### Required prepublication proof at the Director orchestrator
+
+- `SceneDirectorSpeech` now accepts an `originalEntitlement` reader and **rejects active attempts without it**. A proposed exact source record must match the original host/world/speaker/player/incarnation/source revision, PS3 ID/revision/key/policy and source expiry, separately from the injected native C-06 gate.
+- The original companion source is re-read **before native reserve**, **after native reserve**, **before native submit**, **after native submit**, and at both **hydration and publication** gates. Losing it during an asynchronous await cancels the original ticket and prevents subsequent `kb` dispatch. It is **not** required after already begun TTS playback merely because the observation TTL elapsed; native original playback callback/ownership gates are distinct.
+- No production active `SceneDirectorSpeech` is instantiated. The *disabled* native `DirectorAdmission(enabled:false)` remains unchanged. Test injected fake source records validate the orchestrator contract, while tests against actual `ShadowRuntime` validate the original PS2/PS3 source-store read.
+
+### Matching-code automated results
+
+| Suite | Result |
+| --- | --- |
+| Linux isolated Node full | **709 passed / 70 files / zero failed** |
+| Windows isolated Node full | **709 passed / 70 files / zero failed** |
+| Focused Phase 13a Node | **36/36 each OS** |
+| Windows pinned Essential DLL ABI | **PASS** |
+| Windows ACT | **263 assertions** |
+| Windows shared PS/ACT | **115 assertions** |
+| Windows Director native C-06 | **187 assertions** |
+| Windows P2 lifecycle | **194 assertions** |
+| Windows HostContext | **62 assertions** |
+| Windows production-source integration stubs | **128 assertions** |
+
+One superseded run failed a deliberately strict PS0/PS1 source-module boundary because the first entitlement implementation imported the PS6 selector into `shadowRuntime`. The implementation was corrected to use **independent local source-time/TTL matching, retaining the dependency boundary**; the successful run above includes that regression plus complete cross-platform tests. No gating requirement was loosened.
+
+### Still requiring trustworthy native integration
+
+The **companion original PS3 grant** can now be checked truthfully and the orchestrator requires it, but native code still has **no independently verified original PS3 observation/grant receipt**; copying fields from the companion request into a native snapshot must never turn `ObservationReceiptCurrent` or `ResponseGrantCurrent` true. Pinned Core's special-turn revision and playback APIs are not a complete authoritative global player text/mic/Essential-turn priority arbiter. No production stock `kb` `Submit` has been called, no original Core session nonce + generated TurnId/Int64 generation tuple binding has been authoritatively established, and in-game native start/terminal matching is not validated. Thus **production spontaneous speech remains disabled, preview-only and unplayable**. Phase 6 and full PS4/13a acceptance remain open; baseline individually verified PS4 oracles remain **22/81**. GTA RPH Release addon, payload-hash verification, PS4 G7 and A33/A34/A39/A40 physical gates not run. No merge, deployment, installation, gate enablement, Phase 10a or deferred features.
