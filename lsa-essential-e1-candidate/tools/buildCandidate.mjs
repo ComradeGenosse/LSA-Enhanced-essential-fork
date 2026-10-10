@@ -134,8 +134,8 @@ export function patchSource(source) {
     if(node.type==='CallExpression' && node.callee.name==='pt' &&
        sourceSlice(source,node.arguments[0])==='Pe.GENERATION_STARTED')all.push(node);
   });return all; })(),'Xn original generation publication');
-  insert(genEvent.start,
-    'if(i.metadata?.directorTicket && __LSA_E1_RUNTIME.intelligence?.sendDirectorOriginalTurnBinding?.(i.metadata.directorTicket,{pedId:i.pedId,turnId:i.id,generationId:i.generationId,sessionNonce:e.nonce})!==true) throw new Error("director_original_binding_failed");',
+  replace(genEvent.start,genEvent.end,
+    '(i.metadata?.directorTicket && __LSA_E1_RUNTIME.intelligence?.sendDirectorOriginalTurnBinding?.(i.metadata.directorTicket,{pedId:i.pedId,turnId:i.id,generationId:i.generationId,sessionNonce:e.nonce})!==true ? (()=>{throw new Error("director_original_binding_failed");})() : null, '+sourceSlice(source,genEvent)+')',
     'PS6 original Xn generation native binding');
 
   prelude('rP', 'if (t?.provider === "openai") return await globalThis.__LSA_E1_RUNTIME.host.routePinnedEvent(t);');
