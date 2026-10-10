@@ -536,13 +536,19 @@ class Program
         sampledVehicle.Driver=player;Check(PhysicalActivity()=="passenger","different valid sampled driver proves passenger");actor.CurrentVehicle=null;
         NpcTargeting.Conversation=actor;Check(PhysicalActivity()=="conversation","committed exact partner is conversation");NpcTargeting.Conversation=player;Check(PhysicalActivity()=="unknown","unproven ambient mode is unknown");
         NpcStateStore.Sampled=new NpcState {FollowPlayerOnFoot=true};Check(PhysicalActivity()=="following","active sampled follow flag is following");NpcStateStore.Sampled.FollowPaused=true;Check(PhysicalActivity()=="unknown","paused follow is unknown");NpcStateStore.Sampled=null;
+        Check(!kept.Observer,"shared P2 anchor begins without PS witness authority");
         var captured=new LosSantosAlive.Context.ActorContext {PedId=actor.Handle.ToString()};
         shared.EnrichActor(actor,captured);
+        Check(kept.Observer && host.Anchors.ObserverCount==1 &&
+              host.Anchors.Resolve(kept.CaptureRef)==kept,
+              "exact P0 actor receives a bounded PS observer slot without changing its identity");
         Check(captured.IntegrationBlocks.Count==1 && captured.IntegrationBlocks[0].Id=="turnKnowledge","exact supplied actor gets reserved private capture");
         var privateBlock=new System.Web.Script.Serialization.JavaScriptSerializer().Deserialize<Dictionary<string,object>>(captured.IntegrationBlocks[0].Text);
         Check((string)privateBlock["captureRef"]==kept.CaptureRef && (string)privateBlock["hostRunId"]==host.HostRunId && (int)privateBlock["worldEpoch"]==host.WorldEpoch,"capture reuses shared reference and host fence");
         Check(!privateBlock.ContainsKey("encounterId") && !privateBlock.ContainsKey("characterId"),"ordinary capture does not infer durable ownership");
         var wrongActor=new LosSantosAlive.Context.ActorContext {PedId="999"};shared.EnrichActor(actor,wrongActor);Check(wrongActor.IntegrationBlocks.Count==0,"wrong PedId omits capture");
+        Check(host.Anchors.ObserverCount==1 && kept.Observer,
+              "forged P0 PedId does not change observer admission");
         var ownerPed=new Ped {Handle=901,MemoryAddress=new IntPtr(901)};var c06Lifetime=Guid.NewGuid().ToString("D");bool ownerCurrent=true;
         var ownerAnchor=host.Anchors.Retain(ownerPed,(ulong)ownerPed.Handle,ownerPed.MemoryAddress,"ped",c06Lifetime,()=>true,host.MonotonicMs,false,AnchorConsumer.P2Encounter);
         var ownerToken=new {owner="p2",mode="wait",since=100u};
