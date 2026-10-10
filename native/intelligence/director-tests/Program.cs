@@ -66,6 +66,25 @@ class Program
         Check(!shell.Complete(a.TicketId,"17","native-turn-1",4,2,true,false,true,true),"once-only terminal");
         Check(!shell.HasActive&&shell.PendingCount==0,"success releases reservation");
 
+
+        // 3A native submitted receipt cannot itself schedule stock speech.
+        var stock=New();a=Request(101);
+        Check(stock.SubmittedForStockIntake(a.TicketId)==null,"no unreserved stock dispatch");
+        Check(stock.Handle(a).Status=="reserved","stock candidate reserved");
+        Check(stock.SubmittedForStockIntake(a.TicketId)==null,"reserve not submit");
+        Check(stock.Handle(Request(101,"submit")).Status=="submitted","stock native submit");
+        Check(stock.SubmittedForStockIntake(a.TicketId)!=null,"exact submitted ticket");
+        var claim=stock.TryClaimStockIntake(a.TicketId);
+        Check(claim!=null&&claim.Operation=="submit","stock one-time native claim");
+        Check(stock.TryClaimStockIntake(a.TicketId)==null,"stock duplicate claim veto");
+        var changed=New();a=Request(103);
+        Check(changed.Handle(a).Status=="reserved" &&
+              changed.Handle(Request(103,"submit")).Status=="submitted",
+              "takeover ticket staged before stock intake");
+        playerEpoch++;
+        Check(changed.TryClaimStockIntake(a.TicketId)==null&&!changed.HasActive,
+              "changed native player epoch vetoes stock dispatch");
+        playerEpoch--;
         var expiry=New();
         a=Request(3);
         Check(expiry.Handle(a).Status=="reserved","expiry reserve");
