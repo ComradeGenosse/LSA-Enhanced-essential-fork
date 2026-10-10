@@ -104,7 +104,12 @@ test('original kb hydrates one native-submitted source-backed Director tuple thr
     originalTurnPhase:id=>h.runtime.host.directorOriginalPhase(id)});
  const frames=[];
  client.socket={destroyed:false,writable:true,writableLength:0,
-   write:line=>{frames.push(JSON.parse(line));return true;},destroy:()=>{}};
+   write:line=>{
+     const frame=JSON.parse(line);frames.push(frame);
+     if(frame.type==='director.original_turn_bound')queueMicrotask(()=>
+       client.acceptDirectorResponse({ticketId:frame.ticketId,status:'bound'}));
+     return true;
+   },destroy:()=>{}};
  const hello={version:1,type:'hello',
    adapterEpoch:'a1111111-1111-4111-8111-111111111111',
    streamId:'b1111111-1111-4111-8111-111111111111',
