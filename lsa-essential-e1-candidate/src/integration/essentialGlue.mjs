@@ -181,7 +181,8 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
       if(input?.interruptExisting===true || input?.faceListener===true ||
          !input?.directorTicket || !hydrated?.actorContext ||
          runtime.host.directorCheckOriginalTurn(input.directorTicket.ticketId)?.quiet!==true ||
-         runtime.intelligence?.verifyDirectorTicket?.(input.directorTicket,input,hydrated)!==true)
+         (runtime.intelligence?.verifyDirectorTicket?.(input.directorTicket,input,hydrated)!==true ||
+         runtime.intelligence?.confirmDirectorHydration?.(input.directorTicket)!==true))
         throw new TypeError('director_ticket_unverified');
       return input.directorTicket;
     },
