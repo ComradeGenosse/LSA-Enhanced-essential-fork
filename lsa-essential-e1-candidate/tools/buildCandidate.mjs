@@ -16,7 +16,7 @@ const acorn = require('./vendor/acorn');
 const expectedBundleHash = '5d81de4217bd103316a1083e482ded1bddc791314abf671d686036175c0475f2';
 const expectedDllHash = '9b6de42d4c464901d859dd95e17e100e4fa9ef6074bfbb0cf3a57a76f6ddd653';
 const expectedNativeMetadataHash = '18edd2b47ffde748388b07a4a2d023793e183b882fe638acb5276440d45a2d23';
-const expectedPatchCount = 67;
+const expectedPatchCount = 70;
 const launcherName = 'server.bundle.mjs';
 const stockBundleDefault = path.resolve(root, 'upstream/server.bundle.mjs');
 const stockDllDefault = path.resolve(root, 'upstream/LosSantosAlive.dll');
@@ -281,6 +281,24 @@ export function patchSource(source) {
   const kbTurn = one((() => { const all = []; walk(kbBody, node => { if (node.type === 'CallExpression' && node.callee.name === 'Xi') all.push(node); }); return all; })(), 'kb special-event turn creation');
   const kbMetadata = one(kbTurn.arguments[0].properties.filter(property => property.key?.name === 'metadata'), 'kb special-event turn metadata');
   insert(kbMetadata.value.start + 1, 'directorTicket: t?.directorTicket ? __LSA_E1_RUNTIME.requireDirectorTicket(t,h) : undefined, listenerState: n ? "present" : "explicitly_cleared", contextCapturedAt: new Date().toISOString(), contextRevision: h.actorContext?.snapshotRevision ?? h.actorContext?.revision ?? null, ', 'special-event context capture metadata');
+
+  // Director is speech-only even if the model returns text resembling a
+  // valid stock DO action. N4/Rb is the real stock action dispatch path and
+  // yK can initiate an approach before Rb, so BOTH are independently vetoed.
+  // No global action policy changes for unrelated Essential turns.
+  prelude('Rb','if(t?.metadata?.directorTicket) return false;');
+  prelude('yK','if(t?.metadata?.directorTicket) return null;');
+  // Reject the observed transcript itself before routing it to audio when a
+  // stock Director model disobeys the dialogue-only contract.
+  const apDirectorBody=functionBody(ast,'AP');
+  const apTurnRead=one((()=>{const all=[];walk(apDirectorBody,node=>{
+    if(node.type==='VariableDeclaration' && node.declarations.some(d=>
+      d.id?.name==='e' && d.init?.type==='CallExpression' &&
+      memberName(d.init.callee)==='getTurn'))all.push(node);
+  });return all;})(),'AP original turn read');
+  insert(apTurnRead.end,
+    'if(e?.metadata?.directorTicket && (t.type===Ee.OUTPUT_TRANSCRIPT || t.type===Ee.GENERATION_COMPLETE || t.type===Ee.TURN_COMPLETE) && /(^|\\\\r?\\\\n)[ \\t]*DO[ \\t]*:?[ \\t]+/i.test(String(e.output?.transcript||"")+String(t.text||""))) { Zt(e.id,ke.GEMINI_ERROR,new Error("director_speech_only"));return false; }',
+    'PS6 original speech-only transcript veto');
 
   const apBody = functionBody(ast, 'AP');
   const completeCall = one((() => { const all = []; walk(apBody, node => { if (node.type === 'CallExpression' && node.callee.name === 'wP') all.push(node); }); return all; })(), 'AP TURN_COMPLETE');
