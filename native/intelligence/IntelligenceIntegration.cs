@@ -820,6 +820,21 @@ namespace LSA.Intelligence
                 ulong handle=Convert.ToUInt64(ped.Handle);var address=ped.MemoryAddress;
                 var anchor=anchors.Retain(ped,handle,address,"ped",owner?.Lifetime,()=>Live(ped,handle,address) && (owner==null || owner.Current?.Invoke()==true),host.MonotonicMs,false,AnchorConsumer.TurnActor);
                 if(anchor==null || anchors.Resolve(anchor.CaptureRef)==null) return;
+                // The exact P0 actor is a verified native Ped, not an inferred
+                // 'last speaker'. Keep its current retained identity and admit
+                // it as a PS observer before publishing the frozen turn capture.
+                // This only affects FUTURE observations; it cannot fabricate
+                // a witness receipt for events that already occurred.
+                if(!anchor.Observer) {
+                    var priorities=new[]{anchor.CaptureRef}.Concat(
+                        anchors.Current.Where(a=>a.Observer && a.Kind=="ped" &&
+                            a.CaptureRef!=anchor.CaptureRef)
+                            .OrderByDescending(a=>a.OwnerLifetime!=null)
+                            .ThenBy(a=>a.CaptureRef,StringComparer.Ordinal)
+                            .Select(a=>a.CaptureRef));
+                    anchors.SetObserverPriority(priorities);
+                }
+                if(!anchor.Observer) return;
                 var block=new Dictionary<string,object>{{"version",1},{"hostRunId",host.HostRunId},{"worldEpoch",host.WorldEpoch},{"captureRef",anchor.CaptureRef},{"sampledGameTick",unchecked((uint)Game.GameTime)}};
                 var association=Association(anchor);if(association!=null) {block["encounterId"]=association.EncounterId;block["incarnationId"]=association.Lifetime;}
                 context.IntegrationBlocks.Add(new IntegrationJsonBlock("turnKnowledge",captureJson.Serialize(block)));
