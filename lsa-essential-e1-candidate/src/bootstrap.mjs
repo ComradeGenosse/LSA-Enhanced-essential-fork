@@ -112,6 +112,7 @@ export async function createRuntimeForBundle(options = {}) {
       try {
         const suppliedIntelligenceTelemetry=options.intelligenceOptions?.telemetry;
         const intelligenceOptions={situationFor:ref=>runtime.situationFor(ref),
+          directorProductionRequired:config.spontaneousSpeech.mode==='experimental',
           // Original stock A turn/mic/output stores; every missing bridge or
           // source read fails closed before native Director reserve/submit.
           originalTurnPriority:()=>{try{return runtime.host.directorTurnPrioritySnapshot();}catch{return null;}},
