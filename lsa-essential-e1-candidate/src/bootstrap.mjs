@@ -157,8 +157,10 @@ export async function createRuntimeForBundle(options = {}) {
     };
     const admission=new DirectorSpeechReservations({
       now,enabled:experimental,checkCurrent:sourceCheck,
-      acknowledge:(decisionKey,consumer,outcome)=>
-        client.runtime.salience.acknowledge(decisionKey,consumer,outcome),
+      acknowledge:(decisionKey,consumer,outcome,proposal)=>
+        consumer==='ps6_ticket' && outcome==='delivered' && proposal?.decisionKey===decisionKey
+          ? client.runtime.salience.acknowledgeDirectorCompletion(proposal,client.runtime.epoch)
+          : false,
     });
     const coordinator=new SceneDirectorSpeech({
       admission,now,mode:experimental?'active':'shadow',

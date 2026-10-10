@@ -161,7 +161,7 @@ export class DirectorSpeechReservations {
       this.cancel(ticketId);return false;
     }
     let delivered=false;
-    try {delivered=this.acknowledge(r.proposal.decisionKey,'ps6_ticket','delivered')===true;}
+    try {delivered=this.acknowledge(r.proposal.decisionKey,'ps6_ticket','delivered',r.proposal)===true;}
     catch {delivered=false;}
     if(!delivered)this.lastFinishFailure='ps6_ack_rejected';
     this.active=null;return delivered;

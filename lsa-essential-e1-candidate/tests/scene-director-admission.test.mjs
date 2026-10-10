@@ -16,7 +16,7 @@ function harness(opts={}){
  ctr=new DirectorSpeechReservations({
   now:()=>now, enabled:true,uuid:()=>`00000000-0000-4000-8000-${String(++counter).padStart(12,'0')}`,
   checkCurrent:({stage})=>{stages.push(stage);return allowed;},
-  acknowledge:(...args)=>{acks.push(args);return true;},...opts,
+  acknowledge:(...args)=>{acks.push(args.slice(0,3));return true;},...opts,
  });
  return ctr;
 }
