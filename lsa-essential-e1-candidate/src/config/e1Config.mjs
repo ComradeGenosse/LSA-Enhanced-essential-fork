@@ -85,6 +85,18 @@ function baseUrl(value, fallback, name) {
 }
 
 export function normalizeConfig(input = {}, env = process.env) {
+  // Phase 13a is opt-in and independent of PS observation collection. The
+  // experimental setting requests production speech, but never bypasses the
+  // separately verified native/Essential runtime capability gate.
+  const speechInput=input.spontaneousSpeech ?? {};
+  if(!speechInput || typeof speechInput!=='object' || Array.isArray(speechInput) ||
+     Object.keys(speechInput).some(key=>key!=='mode'))
+    throw new TypeError('spontaneousSpeech must contain only a mode.');
+  const speechMode=speechInput.mode ?? 'off';
+  if(!['off','shadow','experimental'].includes(speechMode))
+    throw new TypeError('spontaneousSpeech.mode must be off, shadow, or experimental.');
+  if(speechMode!=='off' && input.intelligence?.mode!=='shadow')
+    throw new TypeError('spontaneousSpeech requires intelligence.mode=shadow.');
   const selectedProvider = String(input.provider ?? env.AI_PROVIDER ?? 'openai').trim().toLowerCase();
   if (!['openai', 'gemini'].includes(selectedProvider)) throw new TypeError('E1 provider must be openai or gemini.');
   const defaults = {
@@ -166,6 +178,7 @@ export function normalizeConfig(input = {}, env = process.env) {
     persistentIdentity: normalizeIdentityConfig(input.persistentIdentity),
     promotedCharacters: normalizeCharacterConfig(input.promotedCharacters),
     intelligence: normalizePerceptionConfig(input.intelligence),
+    spontaneousSpeech: Object.freeze({mode:speechMode}),
     dialogueKnowledge: normalizeDialogueKnowledge(input.dialogueKnowledge),
     activities: normalizeActivityConfig(input.activities),
     dialogueLogging: normalizeDialogueLoggingConfig(input.dialogueLogging, boundedInteger),
