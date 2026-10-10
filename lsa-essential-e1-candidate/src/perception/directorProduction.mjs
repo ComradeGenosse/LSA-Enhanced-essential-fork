@@ -10,7 +10,7 @@ export class DirectorObservationPump {
        typeof onResult!=='function')throw new TypeError('director_pump_dependencies');
     this.client=client;this.coordinator=coordinator;
     this.now=now;this.stampFor=stampFor;this.onResult=onResult;
-    this.seen=new Set();this.epoch=null;this.world=null;this.inFlight=false;this.stopped=false;
+    this.seen=new Map();this.epoch=null;this.world=null;this.inFlight=false;this.stopped=false;
   }
   stop() {this.stopped=true;this.seen.clear();}
   // The original P2 source supplies ownership; the native Core read supplies
@@ -43,6 +43,9 @@ export class DirectorObservationPump {
     if(players.length!==1)return null;
     const player=players[0].captureRef,now=this.now();
     if(!Number.isSafeInteger(now) || now<0)return null;
+    // Expire old attempted decisions; extended sessions must not permanently
+    // exhaust a bounded 128-entry de-duplication table.
+    for(const [key,at] of this.seen)if(at<=now-600_000)this.seen.delete(key);
     // Native observer membership and P2 owner lifetime are prerequisite
     // evidence. Never infer ownership from the latest conversation target.
     const eligible=[];
@@ -64,7 +67,7 @@ export class DirectorObservationPump {
     // An attempted original decision key is spent for this producer epoch.
     // Capacity exhaustion is a veto, never implicit eviction/retry.
     if(this.seen.size>=128)return null;
-    this.seen.add(selected.proposal.decisionKey);
+    this.seen.set(selected.proposal.decisionKey,now);
     this.inFlight=true;
     try {
       let stamp=null;
