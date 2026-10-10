@@ -16,7 +16,7 @@ const acorn = require('./vendor/acorn');
 const expectedBundleHash = '5d81de4217bd103316a1083e482ded1bddc791314abf671d686036175c0475f2';
 const expectedDllHash = '9b6de42d4c464901d859dd95e17e100e4fa9ef6074bfbb0cf3a57a76f6ddd653';
 const expectedNativeMetadataHash = '18edd2b47ffde748388b07a4a2d023793e183b882fe638acb5276440d45a2d23';
-const expectedPatchCount = 55;
+const expectedPatchCount = 62;
 const launcherName = 'server.bundle.mjs';
 const stockBundleDefault = path.resolve(root, 'upstream/server.bundle.mjs');
 const stockDllDefault = path.resolve(root, 'upstream/LosSantosAlive.dll');
@@ -71,7 +71,7 @@ export function patchSource(source) {
   if (!kKStatement) throw new Error('kK declaration statement missing.');
   insert(kKStatement.end, `\nglobalThis.__LSA_E1_RUNTIME = __LSA_E1_RUNTIME;\n__LSA_E1_RUNTIME.attachBridge({\n` +
     `  retireMatchingSession(session, reason) { const live = A.sessionsByPedId.get(session.pedId); if (live?.provider !== "openai" || live.nonce !== session.sessionNonce || iP(session.pedId) !== session.sessionNonce) return false; const turn=le.getActiveTurnForPed(session.pedId); if (turn?.metadata?.provider === "openai" && turn.metadata.sessionNonce === session.sessionNonce && !Vt(turn.status)) Zt(turn.id, ke.CANCELLED, new Error("identity_retired")); return Ei(session.pedId, "identity_retired"); },\n` +
-    `  directorTurnPrioritySnapshot() { try { const m=A.mic; if(!m || !Array.isArray(m.pendingChunks) || typeof m.status !== "string" || typeof m.activeTurnId !== "string" || typeof m.releasedBeforeContextReady !== "boolean") return null; const maps=[A.turnsById,A.activeTurnIdByPedId,A.sessionOpenPromisesByPedId,A.pendingOutputOwnerByPedId,A.retiringOutputOwnerByPedId,A.outputOwnerByPedId,A.pendingPlayerContextByPedId,A.pendingConversationContextByPedId,A.playerTurnRecoveryByTurnId]; if(!maps.every(v=>v instanceof Map))return null; return __LSA_E1_RUNTIME.projectOriginalTurnPriority({micStatus:m.status,micActiveTurnId:m.activeTurnId,micReleasedBeforeContextReady:m.releasedBeforeContextReady,micBufferedChunks:m.pendingChunks.length,liveTurns:[...A.turnsById.values()].filter(t=>t && !Vt(t.status)).length,activeTurnMappings:A.activeTurnIdByPedId.size,pendingSessionOpens:A.sessionOpenPromisesByPedId.size,pendingOutputOwners:A.pendingOutputOwnerByPedId.size,retiringOutputOwners:A.retiringOutputOwnerByPedId.size,activeOutputOwners:A.outputOwnerByPedId.size,pendingPlayerContext:A.pendingPlayerContextByPedId.size,pendingConversationContext:A.pendingConversationContextByPedId.size,playerTurnRecoveries:A.playerTurnRecoveryByTurnId.size}); } catch { return null; } },\n` +
+    `  directorTurnPrioritySnapshot() { try { const m=A.mic; if(!m || !Array.isArray(m.pendingChunks) || typeof m.status !== "string" || typeof m.activeTurnId !== "string" || typeof m.releasedBeforeContextReady !== "boolean") return null; const maps=[A.turnsById,A.activeTurnIdByPedId,A.sessionOpenPromisesByPedId,A.pendingOutputOwnerByPedId,A.retiringOutputOwnerByPedId,A.outputOwnerByPedId,A.pendingPlayerContextByPedId,A.pendingConversationContextByPedId,A.playerTurnRecoveryByTurnId]; if(!maps.every(v=>v instanceof Map))return null; return __LSA_E1_RUNTIME.inspectOriginalTurnPriority({micStatus:m.status,micActiveTurnId:m.activeTurnId,micReleasedBeforeContextReady:m.releasedBeforeContextReady,micBufferedChunks:m.pendingChunks.length,liveTurns:[...A.turnsById.values()].filter(t=>t && !Vt(t.status)).length,activeTurnMappings:A.activeTurnIdByPedId.size,pendingSessionOpens:A.sessionOpenPromisesByPedId.size,pendingOutputOwners:A.pendingOutputOwnerByPedId.size,retiringOutputOwners:A.retiringOutputOwnerByPedId.size,activeOutputOwners:A.outputOwnerByPedId.size,pendingPlayerContext:A.pendingPlayerContextByPedId.size,pendingConversationContext:A.pendingConversationContextByPedId.size,playerTurnRecoveries:A.playerTurnRecoveryByTurnId.size}); } catch { return null; } },\n` +
     `  isCurrent(identity) { const turn = le.getTurn(identity.turnId); const session = A.sessionsByPedId.get(identity.pedId); return !!turn && !Vt(turn.status) && turn.metadata?.provider === "openai" && turn.metadata?.sessionNonce === identity.sessionNonce && turn.pedId === identity.pedId && turn.generationId === identity.generationId && le.isCurrentGeneration(turn) && iP(identity.pedId) === identity.sessionNonce && session?.provider === "openai" && session.nonce === identity.sessionNonce; },\n` +
     `  reportTargetRejection(turn, error) { const reason = ["target_changed","target_missing","target_invalid"].includes(error?.code) ? error.code : ""; if (!reason || !turn || turn.metadata?.targetRejectionReported) return false; turn.metadata.targetRejectionReported = true; try { __LSA_E1_RUNTIME.telemetry?.emit(reason, { pedId: turn.pedId, turnId: turn.id, generationId: turn.generationId, sessionNonce: turn.metadata.sessionNonce }, turn.source, { reason, outcome: "rejected" }); } catch {} return true; },\n` +
     `  reportReferenceMapChange(turn, snapshot, actor) { if (!turn || turn.metadata?.referenceMapChangeReported) return false; const currentMap = __LSA_E1_RUNTIME.captureReferenceMap(actor); const stableMap = value => JSON.stringify(Object.fromEntries(Object.entries(value || {}).sort(([left],[right]) => left.localeCompare(right)))); if (stableMap(snapshot?.persons) === stableMap(currentMap.persons) && stableMap(snapshot?.vehicles) === stableMap(currentMap.vehicles)) return false; turn.metadata.referenceMapChangeReported = true; try { __LSA_E1_RUNTIME.telemetry?.emit("reference_map_revision_changed", { pedId: turn.pedId, turnId: turn.id, generationId: turn.generationId, sessionNonce: turn.metadata.sessionNonce }, turn.source, { reason: "reference_map_revision_changed", outcome: "changed" }); } catch {} return true; },\n` +
@@ -102,6 +102,20 @@ export function patchSource(source) {
   const resumeRetry = one((() => { const all = []; walk(wpBody, node => { if (node.type === 'CallExpression' && node.callee.name === 'WP' && node.arguments[0]?.type === 'ObjectExpression' && sourceSlice(source,node.arguments[0]).includes('allowFreshRetryAfterResumeFailure:!1')) all.push(node); }); return all; })(), 'WP resume fallback');
   insert(resumeRetry.arguments[0].start + 1, 'world: w, ', 'resume fallback world');
 
+
+  // Original backend lifecycle *entry* instrumentation, including async
+  // terminal/reset paths, not a timer-based quiet poll. A transition is
+  // recorded BEFORE stock execution to close fast busy/idle ABA. The
+  // observer does not change original function arguments, return values,
+  // activity, playback or turn/session ownership. All named functions are
+  // AST-pinned under the source bundle hash at build time.
+  for (const [original,event] of [
+    ['Xn','turn_intake'],['Zt','turn_terminal'],
+    ['hK','turn_cancel'],['WP','session_open'],
+    ['Ei','session_retire'],['el','mic_reset'],
+    ['kb','special_dispatch'],
+  ]) prelude(original,
+    `__LSA_E1_RUNTIME.originalTurnTransition("${event}");`);
 
   // Bind native identity before the controller sends text or microphone input.
   const xnBody = functionBody(ast, 'Xn');
