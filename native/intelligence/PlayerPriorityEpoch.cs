@@ -10,7 +10,7 @@ namespace LSA.Intelligence
     internal sealed class PlayerPriorityEpoch
     {
         long revision=1;
-        int available;
+        int available,poisoned;
         internal long Revision {
             get {
                 long value=Interlocked.Read(ref revision);
@@ -20,12 +20,13 @@ namespace LSA.Intelligence
         internal void Transition()
         {
             long next=Interlocked.Increment(ref revision);
-            if(next<=0)Volatile.Write(ref available,0);
+            if(next<=0) {Volatile.Write(ref poisoned,1);Volatile.Write(ref available,0);}
         }
         // Availability means the entire *enumerated, pinned hook set* was
         // installed, NOT exhaustive global Essential ownership proof.
         internal void Installed() {
-            if(Interlocked.Read(ref revision)>0)Volatile.Write(ref available,1);
+            if(Volatile.Read(ref poisoned)==0 && Interlocked.Read(ref revision)>0)
+                Volatile.Write(ref available,1);
         }
         internal void Unavailable()=>Volatile.Write(ref available,0);
     }
