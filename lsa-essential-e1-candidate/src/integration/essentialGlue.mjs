@@ -1,4 +1,5 @@
 import {captureDialogueActionKnowledge,assertDialogueActionKnowledgeCurrent} from '../activities/dialogueActionKnowledge.mjs';
+import {projectOriginalTurnPriority} from '../perception/essentialTurnPriority.mjs';
 import {captureActivityKnowledge,assertActivityKnowledgeCurrent} from '../activities/activityKnowledge.mjs';
 import {prepareDialogueActionPublication} from '../activities/dialogueActionPublication.mjs';
 import {createKnowledgeDelivery} from '../context/knowledgeDelivery.mjs';
@@ -139,6 +140,9 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
       }
       catch {return null;} // Optional knowledge failure cannot prevent an Essential turn.
     },
+    // Source projection is diagnostics-only until a source-versioned
+    // native delivery/ack fence exists. Never use quiet as C-06 authority.
+    projectOriginalTurnPriority,
     directorPreflight(input) {
       if(!input?.directorTicket || input?.interruptExisting===true ||
          input?.faceListener===true || input?.reason!=='ps6_observer' ||
