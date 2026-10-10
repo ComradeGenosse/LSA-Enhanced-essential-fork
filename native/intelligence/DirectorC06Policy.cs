@@ -44,6 +44,38 @@ namespace LSA.Intelligence
             return CurrentPlayback(r,s) && s.OwnerIdle &&
                 s.EssentialTurnIdle && s.PlaybackIdle && s.ConversationIdle;
         }
+        // After a *bound* original turn begins, admission receipts are no
+        // longer an idle grant: PS3 (<=2s) and the cross-process quiet sample
+        // (250ms) legitimately expire while speech is generated or played.
+        // Requiring those expired receipts at playback start/end would make
+        // every normal spoken answer fail. Check fresh native identity,
+        // player safety, incumbent P2 owner and script/reflex facts instead.
+        // The immutable original ticket and Core/player epochs are independently
+        // fenced by DirectorAdmission.SafeReserved.
+        internal static bool CurrentOccupiedPlayback(DirectorAdmission.Request r,Snapshot s)
+        {
+            return r!=null && s!=null &&
+                !string.IsNullOrWhiteSpace(r.HostRunId) &&
+                !string.IsNullOrWhiteSpace(r.SpeakerCaptureRef) &&
+                !string.IsNullOrWhiteSpace(r.PlayerCaptureRef) &&
+                !string.IsNullOrWhiteSpace(r.OwnerIncarnationId) &&
+                r.HostRunId==s.HostRunId && r.WorldEpoch>0 &&
+                r.WorldEpoch==s.WorldEpoch &&
+                r.SpeakerCaptureRef==s.SpeakerCaptureRef &&
+                r.PlayerCaptureRef==s.PlayerCaptureRef &&
+                r.OwnerIncarnationId==s.OwnerIncarnationId &&
+                r.ProofRevision>0 && r.ProofRevision==s.OwnerProofRevision &&
+                s.SpeakerAnchorCurrent && s.SpeakerOwned &&
+                s.SpeakerObserver && s.SpeakerAlive &&
+                s.PlayerAnchorCurrent && s.PlayerIsLocal && s.PlayerAlive &&
+                s.OwnerProofCurrent && s.OwnerPrimaryModeKnown &&
+                s.MicStateKnown && s.MicIdle &&
+                s.ConversationStateKnown && s.ConversationIdle &&
+                s.TextInputKnown && s.TextInputIdle &&
+                s.ControlsInputKnown && s.ControlsInputIdle &&
+                s.ScriptStateKnown && s.ScriptSafe &&
+                s.ActorReflexKnown && s.ActorReflexIdle;
+        }
         // Terminal proof rechecks the original identity, current native
         // ownership, player priority, PS3 grant and host, but not idle flags.
         // Exact native turn/generation and audio completion are checked apart.
