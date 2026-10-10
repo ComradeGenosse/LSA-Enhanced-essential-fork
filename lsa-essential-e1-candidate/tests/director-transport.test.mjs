@@ -83,7 +83,7 @@ test('capability-gated companion preview queues exactly one closed native packet
 });
 
 test('exact native PS6 request response binds once with independent status and disconnect cleanup',async()=>{
- const client=new IntelligenceClient({mode:'shadow',pipeName:'LSA.Intelligence.v1'},{now:()=>1000,report:()=>{}});
+ const client=new IntelligenceClient({mode:'shadow',pipeName:'LSA.Intelligence.v1'},{now:()=>1000,report:()=>{},originalTurnPriority:()=>({source:'original_essential_server_turn_stores',quiet:true,grantsNativeAdmission:false})});
  const writes=[];
  client.socket={destroyed:false,writable:true,writableLength:0,write:line=>{writes.push(JSON.parse(line));return true;},destroy:()=>{}};
  assert.equal(client.runtime.ingest(hello,{authenticated:true}),true);
@@ -124,7 +124,7 @@ test('exact native PS6 request response binds once with independent status and d
 
 test('native transport refuses reserve/submit without live original PS3 ledger; cancellation survives revocation',async()=>{
  const client=new IntelligenceClient({mode:'shadow',pipeName:'LSA.Intelligence.v1'},
-  {now:()=>1000,report:()=>{}});
+  {now:()=>1000,report:()=>{},originalTurnPriority:()=>({source:'original_essential_server_turn_stores',quiet:true,grantsNativeAdmission:false})});
  let writes=0;client.socket={destroyed:false,writable:true,writableLength:0,
   write:()=>{writes++;return true;},destroy:()=>{}};
  assert.equal(client.runtime.ingest(hello,{authenticated:true}),true);
@@ -158,5 +158,43 @@ test('native transport refuses reserve/submit without live original PS3 ledger; 
  present=true;
  assert.equal(await client.requestDirector(original),null);
  assert.equal(writes,3,'disconnect invalidates any forged future companion source read');
+ client.stop();
+});
+
+
+test('source-verified original backend priority blocks mic, text, pending speech and unknown turns before native reserve/submit',async()=>{
+ const client=new IntelligenceClient({mode:'shadow',pipeName:'LSA.Intelligence.v1'},
+   {now:()=>1000,report:()=>{}});
+ let writes=0;
+ client.socket={destroyed:false,writable:true,writableLength:0,
+   write:()=>{writes++;return true;},destroy:()=>{}};
+ client.runtime.ingest(hello,{authenticated:true});
+ client.runtime.directorOriginalEntitlementFor=originalProof;
+ const request={operation:'reserve',ticket:{ticketId:ticket,dedupeKey:'ps:'+ticket},
+   proposal:{speakerCaptureRef:'e1111111-1111-4111-8111-111111111111',
+     playerCaptureRef:'f1111111-1111-4111-8111-111111111111',
+     observationId:'81111111-1111-4111-8111-111111111111',
+     observationRevision:1,decisionKey:'ps3:qualified',policyVersion:1},
+   stamp:{hostRunId:host,worldEpoch:1,
+     ownerIncarnationId:'91111111-1111-4111-8111-111111111111',
+     proofRevision:1,playerTurnVersion:0},ageMs:100};
+ assert.equal(await client.requestDirector(request),null,'unavailable stock state vetoes');
+ assert.equal(writes,0);
+ let quiet=false;
+ client.originalTurnPriority=()=>({source:'original_essential_server_turn_stores',
+   quiet,grantsNativeAdmission:false});
+ assert.equal(await client.requestDirector(request),null,'stock busy vetoes');
+ assert.equal(await client.requestDirector({...request,operation:'submit'}),null,
+   'stock busy vetoes submit even when original PS3 grant exists');
+ assert.equal(writes,0);
+ quiet=true;
+ client.originalTurnPriority=()=>{throw new Error('Core source unavailable')};
+ assert.equal(await client.requestDirector(request),null,'throwing Core reader vetoes');
+ assert.equal(writes,0);
+ // Cancel is still transportable after a player takeover or loss of source.
+ const cancel=client.requestDirector({...request,operation:'cancel'});
+ assert.equal(writes,1);
+ assert.equal(client.acceptDirectorResponse({ticketId:ticket,status:'cancelled'}),true);
+ assert.deepEqual(await cancel,{ticketId:ticket,status:'cancelled'});
  client.stop();
 });
