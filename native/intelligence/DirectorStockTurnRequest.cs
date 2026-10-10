@@ -45,7 +45,7 @@ namespace LSA.Intelligence
                 // verified original identity, owner mode, mic/conversation,
                 // playback, actor reflex and player-priority fences.
                 // Preserve stock's busy veto for every other speaker state.
-                SkipIfSpeakerBusy=!nativeProof.SpeakerFollowCompatible
+                SkipIfSpeakerBusy=nativeProof.CompatibleLocomotion!="p2_follow"
             };
         }
     }
