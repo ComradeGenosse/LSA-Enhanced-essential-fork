@@ -302,6 +302,7 @@ class Program
             PlayerAnchorCurrent=true,PlayerIsLocal=true,PlayerAlive=true,
             OwnerProofCurrent=true,OwnerPrimaryModeKnown=true,OwnerIdle=true,
             PlayerTurnSourceCurrent=true,PlayerTurnIdle=true,MicStateKnown=true,MicIdle=true,
+            ConversationStateKnown=true,ConversationIdle=true,
             EssentialTurnKnown=true,EssentialTurnIdle=true,PlaybackKnown=true,PlaybackIdle=true,
             ScriptStateKnown=true,ScriptSafe=true,ActorReflexKnown=true,ActorReflexIdle=true,
             ObservationReceiptCurrent=true,ResponseGrantCurrent=true
