@@ -284,3 +284,49 @@ test('3A source revision change prevents native-submitted stock intake after pla
  assert.equal(writes,before,'no ownership receipt or scheduler message after takeover');
  client.stop();
 });
+
+test('native binding ACK cannot be forged, borrowed, repeated or used after disconnect',async()=>{
+ const client=new IntelligenceClient({mode:'shadow',pipeName:'LSA.Intelligence.v1'},
+   {now:()=>1000,report:()=>{},originalTurnPhase:()=> 'generation'});
+ const frames=[];
+ client.socket={destroyed:false,writable:true,writableLength:0,
+   write:line=>{frames.push(JSON.parse(line));return true;},destroy:()=>{}};
+ assert.equal(client.runtime.ingest(hello,{authenticated:true}),true);
+ client.runtime.directorOriginalEntitlementFor=originalProof;
+ const ticketObject=Object.freeze({ticketId:ticket,dedupeKey:'ps:'+ticket});
+ const proposal={speakerCaptureRef:'e1111111-1111-4111-8111-111111111111',
+   playerCaptureRef:'f1111111-1111-4111-8111-111111111111'};
+ const stamp={hostRunId:host,worldEpoch:1,ownerIncarnationId:
+   '91111111-1111-4111-8111-111111111111',proofRevision:1};
+ client.directorOwnerReservations.set(ticket,{proposal,stamp,run:uuid,revision:2});
+ client.directorStockClaims.set(ticket,{ticket:ticketObject});
+ const identity={pedId:'17',turnId:'original-turn-A',
+   generationId:2147483648,sessionNonce:1};
+ assert.equal(client.sendDirectorOriginalTurnBinding(ticketObject,identity),true);
+ assert.equal(frames.length,1);
+ assert.equal(frames[0].type,'director.original_turn_bound');
+ assert.equal(client.sendDirectorOriginalTurnBinding(ticketObject,identity),false,
+   'already consumed claim cannot rebind');
+ assert.equal(client.acceptDirectorResponse({ticketId:'00000000-0000-4000-8000-000000000000',status:'bound'}),false);
+ assert.equal(client.acceptDirectorResponse({ticketId:ticket,status:'submitted'}),false,
+   'native submit is not a binding ACK');
+ const bound={...response,payload:{directorRequestVersion:1,ticketId:ticket,status:'bound'}};
+ assert.equal(validateFrame(bound),true,'one new typed response is accepted');
+ assert.equal(validateFrame({...bound,payload:{...bound.payload,status:'authorized'}}),false);
+ assert.equal(client.acceptDirectorResponse(bound.payload),true);
+ assert.equal(await client.awaitDirectorNativeBinding(ticketObject),true);
+ assert.equal(await client.awaitDirectorNativeBinding(ticketObject),false,
+   'already consumed native ACK cannot be reused');
+ client.directorStockClaims.set(ticket,{ticket:ticketObject});
+ assert.equal(client.sendDirectorOriginalTurnBinding(ticketObject,{...identity,turnId:'original-turn-B'}),true);
+ assert.equal(client.acceptDirectorResponse({ticketId:ticket,status:'unsafe'}),true);
+ assert.equal(await client.awaitDirectorNativeBinding(ticketObject),false);
+ client.directorStockClaims.set(ticket,{ticket:ticketObject});
+ assert.equal(client.sendDirectorOriginalTurnBinding(ticketObject,{...identity,turnId:'original-turn-C'}),true);
+ const waiter=client.awaitDirectorNativeBinding(ticketObject);
+ client.cancelDirectorRequests();
+ assert.equal(await waiter,false,'disconnect cancels waiting native binding');
+ assert.equal(client.acceptDirectorResponse(bound.payload),false,
+   'late ACK cannot revive a cancelled claim');
+ client.stop();
+});
