@@ -4,15 +4,17 @@ import { validateHostEnvelope, validateWorldEpoch } from '../context/hostContext
 
 export const BOUNDS = Object.freeze({ observers:16, anchors:256, rawSignals:256, criticalReserve:64, nativeFrames:64, companionFrames:256, frameBytes:8192, observationsPerObserver:128, observations:2048, observationBytes:2*1024*1024, signalTtlMs:30000, anchorLeaseMs:3000 });
 export const CAPABILITIES = Object.freeze(['snapshot','pedDamage','playerDamage','vehicleDamage','shooting','state','action','playback','witness','awareness','playerSpeech']);
-export const PRODUCERS = new Set(['ped_damage','player_damage','vehicle_damage','shooting','state','action','playback']);
+export const PRODUCERS = new Set(['ped_damage','player_damage','vehicle_damage','shooting','state','action','playback','radio']);
 export function normalizePerceptionConfig(value = {}) {
   // Future modes cannot enable anything beyond this implementation.
   const valid = value && typeof value === 'object' && !Array.isArray(value);
   const mode = valid && value.mode === 'shadow' ? 'shadow' : 'off';
   const pipeName = valid && typeof value.pipeName === 'string' ? value.pipeName : 'LSA.Intelligence.v1';
-  return Object.freeze({ mode, pipeName: /^[A-Za-z0-9_.-]{1,80}$/.test(pipeName) ? pipeName : 'LSA.Intelligence.v1' });
+  const radio = mode==='shadow' && valid && value.radio==='shadow' ? 'shadow' : 'off';
+  return Object.freeze({ mode, pipeName: /^[A-Za-z0-9_.-]{1,80}$/.test(pipeName) ? pipeName : 'LSA.Intelligence.v1', radio });
 }
 const integer = (v, max = Number.MAX_SAFE_INTEGER) => Number.isSafeInteger(v) && v >= 0 && v <= max;
+const signedInt32 = v => Number.isSafeInteger(v) && v >= -2147483648 && v <= 2147483647;
 const optionalRef = v => v === null || isUuid(v);
 const keys = (v, required, optional=[]) => v!==null && typeof v==='object' && !Array.isArray(v) && required.every(k=>Object.hasOwn(v,k)) && Object.keys(v).every(k=>required.includes(k)||optional.includes(k));
 const label = v => typeof v === 'string' && /^[a-z][a-z0-9_]{0,47}$/.test(v);
@@ -32,6 +34,11 @@ export function validateSignal(s) {
   }
   if (s.kind==='action_callback') return s.producer==='action' && isUuid(s.target) && keys(f,['action','succeeded']) && ['followtarget','waithere','other'].includes(f.action) && typeof f.succeeded==='boolean';
   if (s.kind==='playback_started' || s.kind==='playback_ended') return s.producer==='playback' && keys(f,['interrupted','hadAudio']) && typeof f.interrupted==='boolean' && typeof f.hadAudio==='boolean';
+  if (s.kind==='radio_changed' || s.kind==='radio_stopped') {
+    if (s.producer!=='radio' || s.source!==null || !keys(f,['station','soundHash','trackTextId'])) return false;
+    if (s.kind==='radio_stopped') return f.station==='' && f.soundHash===0 && f.trackTextId===0;
+    return typeof f.station==='string' && /^[A-Z0-9_]{1,64}$/.test(f.station) && integer(f.soundHash,0xffffffff) && signedInt32(f.trackTextId);
+  }
   return false;
 }
 export function validateWitnessReceipt(r) {
@@ -59,21 +66,30 @@ export function validateFrame(v) {
     v.payload.directorRequestVersion===1 && isUuid(v.payload.ticketId) &&
     ['invalid','busy','unsafe','stale','cancelled','not_found','reserved','submitted','bound','started','completed','failed'].includes(v.payload.status);
   if (v.type==='signal') return validateSignal(v.payload);
-  if (v.type==='diagnostics') return keys(v.payload,['anchors','observers','snapshotAgeMs','snapshotCadenceMs','dropped','staleRejected','retiredAnchors','deferredDiscovery','updateMicros','capabilities','signals','damageCallbacks','witnessDeferred','witnessUnknown','witnessRejected','playerSpeechGate']) && integer(v.payload.anchors,256) && integer(v.payload.observers,16) && ['snapshotAgeMs','snapshotCadenceMs','dropped','staleRejected','retiredAnchors','deferredDiscovery','updateMicros','witnessDeferred','witnessUnknown','witnessRejected'].every(k=>integer(v.payload[k],2147483647)) && v.payload.playerSpeechGate==='unsupported_capture_receipt' && keys(v.payload.capabilities,CAPABILITIES) && Object.values(v.payload.capabilities).every(x=>typeof x==='boolean') && v.payload.capabilities.playerSpeech===false && v.payload.signals && typeof v.payload.signals==='object' && !Array.isArray(v.payload.signals) && Object.entries(v.payload.signals).every(([k,n])=>['damage','vehicle_damage','firing','death','injury_state','vehicle_transition','vehicle_state','activity_changed','presence_changed','location_changed','action_callback','playback_started','playback_ended'].includes(k) && integer(n,2147483647)) && keys(v.payload.damageCallbacks,['ped_damage','player_damage','vehicle_damage']) && Object.values(v.payload.damageCallbacks).every(n=>integer(n,2147483647));
+  if (v.type==='diagnostics') return keys(v.payload,['anchors','observers','snapshotAgeMs','snapshotCadenceMs','dropped','staleRejected','retiredAnchors','deferredDiscovery','updateMicros','capabilities','signals','damageCallbacks','witnessDeferred','witnessUnknown','witnessRejected','playerSpeechGate'],['radio']) && integer(v.payload.anchors,256) && integer(v.payload.observers,16) && ['snapshotAgeMs','snapshotCadenceMs','dropped','staleRejected','retiredAnchors','deferredDiscovery','updateMicros','witnessDeferred','witnessUnknown','witnessRejected'].every(k=>integer(v.payload[k],2147483647)) && v.payload.playerSpeechGate==='unsupported_capture_receipt' && keys(v.payload.capabilities,CAPABILITIES) && Object.values(v.payload.capabilities).every(x=>typeof x==='boolean') && v.payload.capabilities.playerSpeech===false && v.payload.signals && typeof v.payload.signals==='object' && !Array.isArray(v.payload.signals) && Object.entries(v.payload.signals).every(([k,n])=>['damage','vehicle_damage','firing','death','injury_state','vehicle_transition','vehicle_state','activity_changed','presence_changed','location_changed','action_callback','playback_started','playback_ended','radio_changed','radio_stopped'].includes(k) && integer(n,2147483647)) && keys(v.payload.damageCallbacks,['ped_damage','player_damage','vehicle_damage']) && Object.values(v.payload.damageCallbacks).every(n=>integer(n,2147483647)) && (!Object.hasOwn(v.payload,'radio') || keys(v.payload.radio,['samples','edges','nativeFailures','witnessed','witnessUnknown']) && ['samples','edges','nativeFailures','witnessed','witnessUnknown'].every(k=>integer(v.payload.radio[k],2147483647)));
   return false;
 }
 
 // PS0 immutable observer contract. No producer promotes a backend signal to witness knowledge in PS1.
 export function validateObservation(o) {
   if (!keys(o,['version','observationId','episodeId','revision','observer','observedAt','expiresAtMonotonicMs','eventType','severity','claims','recognizedCharacterIds'],['position']) || o.version!==1 || !isUuid(o.observationId) || !isUuid(o.episodeId) || !integer(o.revision) || o.revision===0 || !keys(o.observer,['captureRef','kind']) || !isUuid(o.observer.captureRef) || o.observer.kind!=='ped') return false;
-  if (!keys(o.observedAt,['nativeRun','gameTick','receivedUtc']) || !isUuid(o.observedAt.nativeRun) || !integer(o.observedAt.gameTick,0xffffffff) || typeof o.observedAt.receivedUtc!=='string' || !/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{3}Z$/.test(o.observedAt.receivedUtc) || !Number.isFinite(Date.parse(o.observedAt.receivedUtc)) || !integer(o.expiresAtMonotonicMs) || !['firing_burst','injury','death_seen','body_found','threat','vehicle_impact','action_observed','location_changed','activity_changed','vehicle_transition','character_present','speech_heard','report'].includes(o.eventType) || !['routine','notable','danger','critical'].includes(o.severity) || !Array.isArray(o.claims) || o.claims.length<1 || o.claims.length>4 || !Array.isArray(o.recognizedCharacterIds) || o.recognizedCharacterIds.length!==0 || o.position!==undefined && !position(o.position)) return false;
+  if (!keys(o.observedAt,['nativeRun','gameTick','receivedUtc']) || !isUuid(o.observedAt.nativeRun) || !integer(o.observedAt.gameTick,0xffffffff) || typeof o.observedAt.receivedUtc!=='string' || !/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{3}Z$/.test(o.observedAt.receivedUtc) || !Number.isFinite(Date.parse(o.observedAt.receivedUtc)) || !integer(o.expiresAtMonotonicMs) || !['firing_burst','injury','death_seen','body_found','threat','vehicle_impact','action_observed','location_changed','activity_changed','vehicle_transition','character_present','speech_heard','radio_heard','report'].includes(o.eventType) || !['routine','notable','danger','critical'].includes(o.severity) || !Array.isArray(o.claims) || o.claims.length<1 || o.claims.length>4 || !Array.isArray(o.recognizedCharacterIds) || o.recognizedCharacterIds.length!==0 || o.position!==undefined && !position(o.position)) return false;
   return o.claims.every(validateClaim);
+}
+const safeDisplayText = (v,max) => typeof v==='string' && v.length>=1 && v.length<=max && !/[\u0000-\u001f\u007f]/.test(v) && !v.includes('://') && !v.includes('\\');
+function validateRadioDetails(d) {
+  if (!keys(d,['eventSignalId','reason','soundType','station','trackKnown'],['stationName','artist','title','contentKind']) || !isUuid(d.eventSignalId) || !label(d.reason) || d.soundType!=='radio' || typeof d.station!=='string' || !/^[A-Z0-9_]{1,64}$/.test(d.station) || typeof d.trackKnown!=='boolean') return false;
+  for (const [key,max] of [['stationName',80],['artist',120],['title',160]]) if (d[key]!==undefined && !safeDisplayText(d[key],max)) return false;
+  if (d.contentKind!==undefined && !['music','commercial'].includes(d.contentKind)) return false;
+  if (d.trackKnown) return ['stationName','artist','title','contentKind'].every(k=>Object.hasOwn(d,k));
+  return d.artist===undefined && d.title===undefined && d.contentKind===undefined;
 }
 export function validateClaim(c) {
   if (!keys(c,['claimId','kind','certainty','evidence'],['source','target','details']) || !isUuid(c.claimId) || !['sound','firing','injured','dead','attack','location','action','presence','report'].includes(c.kind) || !['supported','uncertain'].includes(c.certainty) || !['source','target'].every(k=>c[k]===undefined || keys(c[k],['captureRef','kind']) && isUuid(c[k].captureRef) && ['ped','player','vehicle'].includes(c[k].kind)) || !keys(c.evidence,['channel','basis','sampledGameTick'],['reportRef']) || !['self','visual','auditory','report'].includes(c.evidence.channel) || !['native_callback','sampled_state','native_awareness','audibility_model','dialogue_report'].includes(c.evidence.basis) || !integer(c.evidence.sampledGameTick,0xffffffff) || c.evidence.reportRef!==undefined && (c.evidence.channel!=='report' || !isUuid(c.evidence.reportRef))) return false;
   if (c.evidence.channel==='self' && (!['native_callback','sampled_state'].includes(c.evidence.basis) || c.evidence.reportRef!==undefined) || c.evidence.channel==='visual' && (!['sampled_state','native_awareness'].includes(c.evidence.basis) || c.evidence.reportRef!==undefined) || c.evidence.channel==='auditory' && (!['native_awareness','audibility_model'].includes(c.evidence.basis) || c.evidence.reportRef!==undefined) || c.evidence.channel==='report' && (c.evidence.basis!=='dialogue_report' || !isUuid(c.evidence.reportRef))) return false;
   if (c.details===undefined) return true;
   if (c.kind==='injured' && keys(c.details,['damageDelta','armourDelta']) && integer(c.details.damageDelta,100000) && integer(c.details.armourDelta,100000)) return true;
+  if (c.kind==='sound' && c.details?.soundType==='radio') return validateRadioDetails(c.details);
   const provenance=['eventSignalId','reason'];
   if (!isUuid(c.details.eventSignalId) || !label(c.details.reason)) return false;
   if (keys(c.details,provenance)) return true;

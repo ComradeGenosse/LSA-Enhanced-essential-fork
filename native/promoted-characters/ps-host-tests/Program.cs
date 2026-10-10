@@ -95,7 +95,7 @@ namespace LSA.Intelligence
     {
         public static IntelligenceIntegration Instance;public bool IsAvailable{get;private set;}public long UpdateCalls;public int ShutdownCalls;public string ShutdownReason="none";
         public readonly LSA.PromotedCharacters.HostContext Host;
-        public IntelligenceIntegration(Func<OwnedParticipant[]> roster,string pipe,LSA.PromotedCharacters.HostContext host=null){Instance=this;Host=host;}
+        public IntelligenceIntegration(Func<OwnedParticipant[]> roster,string pipe,LSA.PromotedCharacters.HostContext host=null,bool directorShadow=false,bool directorExperimental=false,string radioMode="off"){Instance=this;Host=host;}
         public void Initialize()=>IsAvailable=true;
         public void Update(){UpdateCalls++;}
         public void OwnerRetired(string lifetime){}

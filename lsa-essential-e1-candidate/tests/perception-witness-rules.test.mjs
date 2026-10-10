@@ -81,3 +81,25 @@ test('reported evidence passes the closed contract and remains hearsay in observ
   assert.equal(claim.kind,'report');assert.equal(claim.evidence.channel,'report');assert.equal(claim.evidence.reportRef,report.evidence.reportRef);
   assert.equal(claim.source,undefined);assert.equal(claim.target,undefined);
 });
+
+
+test('radio R3 keeps hearing observer-scoped, revises current track, and clears on stop',()=>{
+  let now=100;const run=randomUUID(),observer=randomUUID(),outsider=randomUUID(),vehicle=randomUUID();
+  const live=new Set([observer,outsider,vehicle]);
+  const anchors=new Map([[observer,{captureRef:observer,kind:'ped'}],[outsider,{captureRef:outsider,kind:'ped'}],[vehicle,{captureRef:vehicle,kind:'vehicle'}]]);
+  const episodes=new EpisodeStore({now:()=>now,current:ref=>live.has(ref)}),observations=new ObservationStore({now:()=>now,current:ref=>live.has(ref)});
+  const correlator=new EpisodeCorrelator({episodes,observations,now:()=>now,current:ref=>live.has(ref),anchor:ref=>anchors.get(ref),utc:()=>new Date(0).toISOString()});
+  const witness=tick=>({observer:{captureRef:observer,kind:'ped'},sampledGameTick:tick,status:'witnessed',reason:'same_vehicle_radio',knowsSource:false,knowsTarget:true,evidence:{channel:'auditory',basis:'audibility_model',sampledGameTick:tick}});
+  const firstSignal={signalId:randomUUID(),producer:'radio',producerSequence:1,kind:'radio_changed',target:vehicle,source:null,gameTick:100,ageMs:0,facts:{station:'RADIO_TEST_A',soundHash:1,trackTextId:1004}};
+  const first=correlator.ingest({nativeRun:run,signal:firstSignal,witnessReceipts:[witness(100)],radio:{eventSignalId:firstSignal.signalId,sourceVehicleCaptureRef:vehicle,gameTick:100,station:'RADIO_TEST_A',soundHash:1,trackTextId:1004,trackKnown:true,stationName:'Test Radio',artist:'Artist A',title:'Track A',contentKind:'music'}});
+  assert.equal(first.observations.length,1);assert.equal(first.observations[0].eventType,'radio_heard');assert.equal(first.observations[0].claims[0].details.title,'Track A');
+  assert.equal(first.observations[0].claims[0].target.captureRef,vehicle);
+  assert.equal([...observations.entries.values()].some(e=>e.value.observer.captureRef===outsider),false);
+  now+=1000;
+  const secondSignal={...firstSignal,signalId:randomUUID(),producerSequence:2,gameTick:1100,facts:{station:'RADIO_TEST_A',soundHash:1,trackTextId:1005}};
+  const second=correlator.ingest({nativeRun:run,signal:secondSignal,witnessReceipts:[witness(1100)],radio:{eventSignalId:secondSignal.signalId,sourceVehicleCaptureRef:vehicle,gameTick:1100,station:'RADIO_TEST_A',soundHash:1,trackTextId:1005,trackKnown:true,stationName:'Test Radio',artist:'Artist B',title:'Track B',contentKind:'music'}});
+  assert.equal(second.episodeId,first.episodeId);assert.equal(second.observations[0].revision,2);assert.equal(second.observations[0].claims.length,1);assert.equal(second.observations[0].claims[0].details.title,'Track B');
+  const stop={signalId:randomUUID(),producer:'radio',producerSequence:3,kind:'radio_stopped',target:vehicle,source:null,gameTick:1200,ageMs:0,facts:{station:'',soundHash:0,trackTextId:0}};
+  const stopped=correlator.ingest({nativeRun:run,signal:stop,witnessReceipts:[]});
+  assert.equal(stopped.accepted,true);assert.equal(observations.entries.size,0);assert.equal(episodes.entries.has(first.episodeId),false);
+});

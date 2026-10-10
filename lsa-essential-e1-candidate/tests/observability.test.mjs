@@ -75,6 +75,7 @@ test('intelligence telemetry keeps only bounded lifecycle and PS2/PS3 scalar dia
     ps3Decisions: 15, ps3Urgent: 16, ps3Eligible: 17, ps3Staged: 18, ps3Suppressed: 19, ps3Faults: 20,
     ps3ReasonSafetySelfDanger: 37, ps3ReasonSafetyPlayerHarm: 38, ps3ReasonSafetyNearbyThreat: 39,
     ps3ReasonRepetitionSuppressed: 40, ps3ReasonRevisionStale: 41, ps3ReasonNoveltyEscalation: 42, ps3ReasonSuppressionCapacity: 43,
+    radioUnknownTextIds: 0, radioCatalogMismatches: 0,
     finalSnapshot: true,
   });
   const row = createTelemetryRecord({ sequence: 1, runId: 'test', originMs: 0, event: 'companion_shadow', provider: 'internal', data: { ...projection, text: 'PRIVATE', profile: 'PRIVATE' }, now: 1 });

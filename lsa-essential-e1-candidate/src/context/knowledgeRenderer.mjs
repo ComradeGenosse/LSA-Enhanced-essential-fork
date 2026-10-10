@@ -70,7 +70,7 @@ export function renderKnowledge({turn,frozenAt,profile,persistent=false,knowledg
  }
  const {memories=[],...canon}=narrative||{};
  const recalled=memories.map(({category,importance,text})=>({category:['note','relationship','promise','event','biography','other'].includes(category)?category:'other',importance:Number.isInteger(importance)&&importance>=0&&importance<=100?importance:0,text}));
- const perceived=selectKnowledge(knowledgeInputs,{includePerceived});
+ const perceived=selectKnowledge(knowledgeInputs,{includePerceived,radioInput:['player_text','player_mic'].includes(source)?input:''});
  const conversation=projectConversation(history,input,source);
  const lanes={SELF:{canon:narrative?canonData(canon):null,selfFacts:[]},PERCEIVED:{observations:[...perceived.observations]},RECALLED:{memories:wellFormedData(recalled)},SITUATION:projectSituation(world),COMPAT:projectCompatibility({actor,listener,referenceMap,presence})};
  if(jsonBytes({SELF:lanes.SELF,RECALLED:lanes.RECALLED})>KNOWLEDGE_LIMITS.canonBytes) {

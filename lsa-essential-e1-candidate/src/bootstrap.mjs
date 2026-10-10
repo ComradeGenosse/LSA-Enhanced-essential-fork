@@ -13,6 +13,7 @@ import { startCharacterEditor } from './characters/editorServer.mjs';
 import { defaultControlEndpointPath } from './control/endpointFile.mjs';
 import { characterContractSupported } from './characters/nativeSupport.mjs';
 import { IntelligenceClient } from './perception/intelligenceClient.mjs';
+import { loadRadioTrackTextCatalog } from './perception/radioTrackTextCatalog.mjs';
 import {DirectorObservationPump} from './perception/directorProduction.mjs';
 import {DirectorSpeechReservations} from './perception/sceneDirectorAdmission.mjs';
 import {SceneDirectorSpeech} from './perception/sceneDirectorOrchestrator.mjs';
@@ -111,7 +112,12 @@ export async function createRuntimeForBundle(options = {}) {
     if(perceptionContractSupported(contract)) {
       try {
         const suppliedIntelligenceTelemetry=options.intelligenceOptions?.telemetry;
-        const intelligenceOptions={situationFor:ref=>runtime.situationFor(ref),
+        // Radio remains optional and never supplies a second model prompt writer.
+        let radioCatalog=options.intelligenceOptions?.radioCatalog;
+        if(radioCatalog===undefined && config.intelligence.radio==='shadow') {
+          try {radioCatalog=loadRadioTrackTextCatalog(await readFile(new URL('../data/radioTrackTextIds.v2.json',import.meta.url),'utf8'));} catch {}
+        }
+        const intelligenceOptions={radioCatalog,situationFor:ref=>runtime.situationFor(ref),
           directorProductionRequired:config.spontaneousSpeech.mode==='experimental',
           // Original stock A turn/mic/output stores; every missing bridge or
           // source read fails closed before native Director reserve/submit.
@@ -196,6 +202,8 @@ export async function createRuntimeForBundle(options = {}) {
     client.subscribeKnowledgeInvalidation(()=>{void pump.tick();});
   }
   runtime.services.acceptPlayerTranscript = input => runtime.intelligence?.acceptPlayerTranscript(input) ?? {accepted:false,reason:'unsupported_capture_receipt'};
+  runtime.services.projectTurnContext = input => runtime.intelligence?.projectTurnContext(input) ?? null;
+  runtime.services.acknowledgeTurnContext = (projection,outcome='delivered') => runtime.intelligence?.acknowledgeTurnContext(projection,outcome) ?? false;
   if(config.activities.mode==='shadow' || config.activities.mode==='on') {
     try {
       const notifyKnowledge=()=>{try{runtime.intelligence?.notifyKnowledgeInvalidation();}catch{}};

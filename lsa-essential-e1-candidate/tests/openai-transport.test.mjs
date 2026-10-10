@@ -86,6 +86,41 @@ test('typed OpenAI turn is pinned, sequential, and awaits matching protocol play
   connection.close();
 });
 
+test('legacy radio projectTurnContext cannot inject a second prompt writer into PS4', async () => {
+  const fake = fakeProviderFetch();
+  const config = normalizeConfig({}, { OPENAI_API_KEY: 'test-key' });
+  const runtime = createRuntime(config, { fetchImpl: fake.fetch });
+  const consumed = [];
+  runtime.services.projectTurnContext = ({ input }) => /song/i.test(String(input || '')) ? Object.freeze({
+    kind:'radio',text:'Audible environment: the vehicle radio is playing "Track A" by Artist A on Test Radio.',
+    observationId:'00000000-0000-4000-8000-000000000001',revision:2,decisionKey:'radio-decision-2',
+  }) : null;
+  runtime.services.acknowledgeTurnContext = (projection,outcome) => { consumed.push({ projection,outcome }); return true; };
+  const bridge = readyBridge(event => { if (event.type === 'turn_complete') queueMicrotask(() => bridge.complete(event)); return true; });
+  runtime.attachBridge(bridge);
+  const connection = await new OpenAITransport(runtime).connect({
+    systemInstruction:'Stock Essential system prompt',diagnosticContext:{pedId:'17',sessionNonce:1},
+    onEvent:async event=>{ if(event.type==='turn_complete') queueMicrotask(()=>bridge.complete(event)); },
+  });
+  const first={pedId:'17',turnId:'radio-turn',generationId:1,sessionNonce:1};
+  await connection.beginTurn({identity:first,source:'player_text',context:{systemInstruction:'Stock Essential system prompt',actor:{pedId:'17'},listener:{pedId:'player'},contextText:'Street: Grove Street',inputText:'What song is this?'}});
+  await connection.sendText('What song is this?');
+  assert.equal((await connection.whenSettled(first)).status,'completed');
+  const firstBody=JSON.parse(fake.requests.find(request=>request.url.endsWith('/responses')).init.body);
+  assert.doesNotMatch(firstBody.input[0].content,/SELECTED AUDIBLE ENVIRONMENT|Track A|Artist A/);
+  assert.equal(consumed.length,0);
+
+  const second={pedId:'17',turnId:'normal-turn',generationId:2,sessionNonce:1};
+  await connection.beginTurn({identity:second,source:'player_text',context:{systemInstruction:'Stock Essential system prompt',actor:{pedId:'17'},listener:{pedId:'player'},contextText:'Street: Grove Street',inputText:'How are you?'}});
+  await connection.sendText('How are you?');
+  assert.equal((await connection.whenSettled(second)).status,'completed');
+  const responseBodies=fake.requests.filter(request=>request.url.endsWith('/responses')).map(request=>JSON.parse(request.init.body));
+  assert.equal(responseBodies.length,2);
+  assert.doesNotMatch(responseBodies[1].input[0].content,/SELECTED AUDIBLE ENVIRONMENT|Track A|Artist A/);
+  assert.equal(consumed.length,0);
+  connection.close();
+});
+
 test('microphone structured turns complete with real and disabled logging, with early TTS on and off', async t => {
   for (const earlyTtsEnabled of [true, false]) {
     for (const loggingEnabled of [true, false]) {

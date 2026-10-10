@@ -74,6 +74,14 @@ namespace LSA.Intelligence
             public bool Demotes(AnchorWireState other)=>other!=null&&(other.Observer&&!Observer||other.Conversation&&!Conversation);
             public bool Promotes(AnchorWireState other)=>other==null&&(Observer||Conversation)||other!=null&&(!other.Observer&&Observer||!other.Conversation&&Conversation);
         }
+        sealed class RadioProbeState
+        {
+            public string Vehicle,Station="",RejectedClasses="";
+            public bool InVehicle,Rejected;
+            public uint SoundHash;
+            public int TrackTextId,PlayMs=-1,RejectedLength;
+            public bool Same(RadioProbeState other)=>other!=null&&Vehicle==other.Vehicle&&InVehicle==other.InVehicle&&Station==other.Station&&SoundHash==other.SoundHash&&TrackTextId==other.TrackTextId&&Rejected==other.Rejected&&RejectedLength==other.RejectedLength&&RejectedClasses==other.RejectedClasses;
+        }
         Dictionary<string,bool> capabilities=new Dictionary<string,bool>();
         readonly object rosterGate=new object();
         readonly Dictionary<string,AnchorWireState> publishedAnchorStates=new Dictionary<string,AnchorWireState>();
@@ -93,9 +101,11 @@ namespace LSA.Intelligence
         int discoveryAllowance;
         long deferredDiscovery;
         uint previousTick,snapshotTick;
-        long nextDiscovery,nextState,nextShot,nextRefresh,nextDiagnostics,nextLog,snapshotChangedAt,snapshotCadence;
+        long nextDiscovery,nextState,nextShot,nextRadio,nextRefresh,nextDiagnostics,nextLog,snapshotChangedAt,snapshotCadence;
+        readonly bool radioEnabled;
+        RadioProbeState radioProbe;
         int discoveryCursor,stateCursor,connectionVersion;
-        long staleRejected,retiredAnchors,witnessDeferred,witnessUnknown,witnessRejected;
+        long staleRejected,retiredAnchors,witnessDeferred,witnessUnknown,witnessRejected,radioWitnessed,radioWitnessUnknown;
         int lineOfSightBudget;
         volatile bool damageReady;
         int damagePinAttempt;
@@ -128,9 +138,9 @@ namespace LSA.Intelligence
                 " status="+status+" reason="+reason);
         }
         static readonly string[] capabilityNames={"snapshot","pedDamage","playerDamage","vehicleDamage","shooting","state","action","playback","witness","awareness","playerSpeech"};
-        public IntelligenceIntegration(Func<OwnedParticipant[]> roster,string pipeName="LSA.Intelligence.v1",HostContext host=null,bool directorShadow=false,bool directorExperimental=false) {
+        public IntelligenceIntegration(Func<OwnedParticipant[]> roster,string pipeName="LSA.Intelligence.v1",HostContext host=null,bool directorShadow=false,bool directorExperimental=false,string radioMode="off") {
             if(pipeName==null||!System.Text.RegularExpressions.Regex.IsMatch(pipeName,"^[A-Za-z0-9_.-]{1,80}$")) throw new ArgumentException();
-            this.roster=roster;this.pipeName=pipeName;ownsHost=host==null;this.host=host??new HostContext();anchors=this.host.Anchors;
+            this.roster=roster;this.pipeName=pipeName;radioEnabled=radioMode=="shadow";ownsHost=host==null;this.host=host??new HostContext();anchors=this.host.Anchors;
             this.directorShadow=directorShadow || directorExperimental;
             this.directorExperimental=directorExperimental;
             ps3Receipts=new DirectorPs3Receipts(()=>this.host.MonotonicMs,()=>this.host.HostRunId,()=>this.host.WorldEpoch);
@@ -159,7 +169,7 @@ namespace LSA.Intelligence
         }
         void WorldChanged(int epoch,string reason) {
             if(!IsAvailable) return;
-            director.Reset();ps3Receipts.Reset();originalTurns.Reset();lock(directorPlaybackGate) {directorPlaybackEvents.Clear();directorPlaybackOverflow=false;}sensors.Reset();lock(rosterGate) {publishedAnchorStates.Clear();publishedObserverIndex.Clear();sampledSituations.Clear();}pendingRetirements.Clear();
+            director.Reset();ps3Receipts.Reset();originalTurns.Reset();lock(directorPlaybackGate) {directorPlaybackEvents.Clear();directorPlaybackOverflow=false;}sensors.Reset();radioProbe=null;nextRadio=0;lock(rosterGate) {publishedAnchorStates.Clear();publishedObserverIndex.Clear();sampledSituations.Clear();}pendingRetirements.Clear();
             conversationRef=null;promotedTurnObserverRef=null;discoverySnapshot=null;discoveryOwned=new OwnedParticipant[0];UpdateIndexes();
             // Ordered control fact invalidates all prior observer state. Losing
             // it closes the bounded channel; reconnect republishes current host.
@@ -192,6 +202,7 @@ namespace LSA.Intelligence
                 catch {try{NpcPlaybackCoordinator.PlaybackStarted-=PlaybackStarted;NpcPlaybackCoordinator.PlaybackEnded-=PlaybackEnded;}catch{}}
                 channel=new IntelligenceChannel(pipeName,Guid.NewGuid().ToString("D"),()=>capabilities,host.HostRunId,()=>host.WorldEpoch,true,directorShadow);channel.Start();
                 previousTick=unchecked((uint)Game.GameTime);started=true;Game.LogTrivial("[PS] native_adapter_loaded shadow");
+                if(radioEnabled)Game.LogTrivial("[PS] radio_shadow");
             } catch {Shutdown("initialization_failed");LogStatus("[PS] optional_initialization_failed");}
         }
         void AssemblyLoaded(object sender,AssemblyLoadEventArgs e) {if(e.LoadedAssembly.GetName().Name=="DamageTrackerLib") QueueDamagePin();}
@@ -394,6 +405,7 @@ namespace LSA.Intelligence
                     nextState=now+200;
                     for(int n=0;n<25 && sources.Length>0;n++) {var a=sources[stateCursor++%sources.Length];if(sampling.Elapsed.TotalMilliseconds>=1) break;Sample(a,tick,now);}
                 }
+                if(radioEnabled && now>=nextRadio) {nextRadio=now+250;SampleRadio(tick,now);}
                 bool refreshRoster=now>=nextRefresh;if(refreshRoster) nextRefresh=now+1000;
                 FlushControls(refreshRoster);
                 for(int n=0;n<32;n++) {var signal=sensors.Take();if(signal==null) break;Publish(signal,now);}
@@ -411,8 +423,9 @@ namespace LSA.Intelligence
                     int age=capabilities["snapshot"]?(int)Math.Min(int.MaxValue,(long)unchecked(tick-snapshotTick)):int.MaxValue;
                     var signals=sensors.Counters;
                     var damageCallbacks=sensors.DamageCallbacks;
-                    channel.Send("diagnostics",new {anchors=anchors.Count,observers=anchors.ObserverCount,snapshotAgeMs=age,snapshotCadenceMs=Clamp(snapshotCadence),dropped=Clamp(sensors.Dropped+channel.Dropped),staleRejected=Clamp(staleRejected),retiredAnchors=Clamp(retiredAnchors),deferredDiscovery=Clamp(deferredDiscovery),updateMicros=Clamp((long)(budget.Elapsed.TotalMilliseconds*1000)),capabilities,signals,damageCallbacks,witnessDeferred=Clamp(witnessDeferred),witnessUnknown=Clamp(witnessUnknown),witnessRejected=Clamp(witnessRejected),playerSpeechGate="unsupported_capture_receipt"});
-                    if(now>=nextLog) {nextLog=now+10000;Game.LogTrivial("[PS] shadow anchors="+anchors.Count+" observers="+anchors.ObserverCount+" snapshot_age_ms="+age+" snapshot_cadence_ms="+Clamp(snapshotCadence)+" dropped="+Clamp(sensors.Dropped+channel.Dropped)+" stale="+Clamp(staleRejected)+" retired="+Clamp(retiredAnchors)+" deferred="+Clamp(deferredDiscovery)+" update_us="+Clamp((long)(budget.Elapsed.TotalMilliseconds*1000))+" capabilities="+string.Join(",",capabilities.Where(c=>c.Value).Select(c=>c.Key))+" damage_callbacks=ped:"+damageCallbacks["ped_damage"]+",player:"+damageCallbacks["player_damage"]+",vehicle:"+damageCallbacks["vehicle_damage"]+" signals="+string.Join(",",signals.Select(c=>c.Key+":"+c.Value)));}
+                    var radio=new {samples=Clamp(sensors.RadioSamples),edges=Clamp(sensors.RadioEdges),nativeFailures=Clamp(sensors.RadioNativeFailures),witnessed=Clamp(radioWitnessed),witnessUnknown=Clamp(radioWitnessUnknown)};
+                    channel.Send("diagnostics",new {anchors=anchors.Count,observers=anchors.ObserverCount,snapshotAgeMs=age,snapshotCadenceMs=Clamp(snapshotCadence),dropped=Clamp(sensors.Dropped+channel.Dropped),staleRejected=Clamp(staleRejected),retiredAnchors=Clamp(retiredAnchors),deferredDiscovery=Clamp(deferredDiscovery),updateMicros=Clamp((long)(budget.Elapsed.TotalMilliseconds*1000)),capabilities,signals,damageCallbacks,witnessDeferred=Clamp(witnessDeferred),witnessUnknown=Clamp(witnessUnknown),witnessRejected=Clamp(witnessRejected),playerSpeechGate="unsupported_capture_receipt",radio});
+                    if(now>=nextLog) {nextLog=now+10000;Game.LogTrivial("[PS] shadow anchors="+anchors.Count+" observers="+anchors.ObserverCount+" snapshot_age_ms="+age+" snapshot_cadence_ms="+Clamp(snapshotCadence)+" dropped="+Clamp(sensors.Dropped+channel.Dropped)+" stale="+Clamp(staleRejected)+" retired="+Clamp(retiredAnchors)+" deferred="+Clamp(deferredDiscovery)+" update_us="+Clamp((long)(budget.Elapsed.TotalMilliseconds*1000))+" capabilities="+string.Join(",",capabilities.Where(c=>c.Value).Select(c=>c.Key))+" damage_callbacks=ped:"+damageCallbacks["ped_damage"]+",player:"+damageCallbacks["player_damage"]+",vehicle:"+damageCallbacks["vehicle_damage"]+" radio="+radio.samples+":"+radio.edges+":"+radio.nativeFailures+" radio_witness="+radio.witnessed+":"+radio.witnessUnknown+" signals="+string.Join(",",signals.Select(c=>c.Key+":"+c.Value)));}
                 }
                 Count(ref completedUpdates);Interlocked.Exchange(ref lastCompletedMs,host.MonotonicMs);
             } catch {LogStatus("[PS] optional_update_failed");Shutdown("update_failed");}
@@ -713,11 +726,64 @@ namespace LSA.Intelligence
             }
         }
         static int Clamp(long n)=>(int)Math.Min(int.MaxValue,Math.Max(0,n));
+        static RadioProbeState RadioOff()=>new RadioProbeState {Vehicle=null,Station="",RejectedClasses=""};
+        void SampleRadio(uint tick,long now)
+        {
+            if(!radioEnabled) return;
+            sensors.NoteRadioSample();
+            try {
+                var player=Game.LocalPlayer.Character;
+                if(player==null || !player.Exists()) { CommitRadio(RadioOff(),tick,now); return; }
+                var vehicle=player.CurrentVehicle;
+                if(vehicle==null || !vehicle.Exists()) { CommitRadio(RadioOff(),tick,now); return; }
+                CommitRadio(ReadRadio(Retain(vehicle,"vehicle")?.CaptureRef),tick,now);
+            } catch { sensors.NoteRadioNativeFailure(); }
+        }
+        RadioProbeState ReadRadio(string vehicleRef)
+        {
+            var reading=new RadioProbeState {Vehicle=vehicleRef,InVehicle=true,Station="",RejectedClasses=""};
+            string raw=NativeFunction.CallByName<string>("GET_PLAYER_RADIO_STATION_NAME");
+            if(!SensorAdapters.ValidRadioStation(raw)) {
+                if(!string.IsNullOrEmpty(raw)) { reading.Rejected=true; reading.RejectedLength=raw.Length; reading.RejectedClasses=SensorAdapters.RadioStationClasses(raw); }
+                return reading;
+            }
+            reading.Station=raw;
+            reading.SoundHash=unchecked((uint)NativeFunction.CallByName<int>("GET_CURRENT_TRACK_SOUND_NAME",raw));
+            reading.TrackTextId=NativeFunction.CallByName<int>("GET_AUDIBLE_MUSIC_TRACK_TEXT_ID");
+            return reading;
+        }
+        void CommitRadio(RadioProbeState reading,uint tick,long now)
+        {
+            sensors.Radio(reading.Vehicle,reading.Station,reading.SoundHash,reading.TrackTextId,tick,now);
+            if(radioProbe!=null && radioProbe.Same(reading)) return;
+            if(reading.Station.Length>0) {
+                try { int play=NativeFunction.CallByName<int>("GET_CURRENT_TRACK_PLAY_TIME",reading.Station); reading.PlayMs=play<0?-1:play; }
+                catch { reading.PlayMs=-1; }
+            }
+            radioProbe=reading;
+            string line="[RADIO_PROBE] vehicle="+(reading.InVehicle?"1":"0")+" station="+reading.Station+" sound="+reading.SoundHash.ToString("X8")+" text_id="+reading.TrackTextId+" play_ms="+reading.PlayMs;
+            if(reading.Rejected) line+=" rejected=station_grammar len="+Math.Min(Math.Max(reading.RejectedLength,0),9999)+" classes="+reading.RejectedClasses;
+            try { Game.LogTrivial(line); } catch {}
+        }
         List<WitnessReceipt> CaptureWitnesses(RawSignal signal)
         {
             var result=new List<WitnessReceipt>();
             if(signal==null) return result;
             var kind=signal.kind;
+            if(kind=="radio_changed" || kind=="radio_stopped") {
+                if(kind=="radio_stopped") return result;
+                var sourceVehicle=anchors.Resolve(signal.target);
+                if(sourceVehicle==null || sourceVehicle.Kind!="vehicle" || !(sourceVehicle.Entity is Vehicle)) {radioWitnessUnknown=Math.Min(int.MaxValue,radioWitnessUnknown+1);return result;}
+                foreach(var observer in anchors.Current.Where(a=>a.Observer&&a.Kind=="ped")) {
+                    if(!(observer.Entity is Ped witness) || !Live(witness,observer.Handle,observer.Address)) {radioWitnessUnknown=Math.Min(int.MaxValue,radioWitnessUnknown+1);continue;}
+                    bool sameVehicle=false;
+                    try {var vehicle=witness.CurrentVehicle;sameVehicle=vehicle!=null&&Live(vehicle,sourceVehicle.Handle,sourceVehicle.Address);} catch {}
+                    var receipt=WitnessPolicy.SameVehicleRadio(observer.CaptureRef,signal.gameTick,sameVehicle);
+                    if(receipt.Status=="witnessed") {result.Add(receipt);radioWitnessed=Math.Min(int.MaxValue,radioWitnessed+1);}
+                    else radioWitnessUnknown=Math.Min(int.MaxValue,radioWitnessUnknown+1);
+                }
+                return result;
+            }
             if(WitnessPolicy.VisualRange(kind)<=0) {witnessUnknown=Math.Min(int.MaxValue,witnessUnknown+1);return result;}
             string participantRef=kind=="firing"?signal.source:signal.target;
             var participant=anchors.Resolve(participantRef);

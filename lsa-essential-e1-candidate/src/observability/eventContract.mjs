@@ -47,7 +47,7 @@ const safeKeys = new Set([
   'resetInitializations','resetDisconnects','resetFaults','resetTimeouts','resetManual',
   'nativeDropped','nativeStaleRejected','pedDamageCallbacks','playerDamageCallbacks','vehicleDamageCallbacks','finalSnapshot',
   'ps2Correlated','ps2Witnessed','ps2Duplicates','ps2Dropped','ps3Decisions','ps3Urgent','ps3Eligible','ps3Staged','ps3Suppressed','ps3Faults',
-  'ps3ReasonSafetySelfDanger','ps3ReasonSafetyPlayerHarm','ps3ReasonSafetyNearbyThreat','ps3ReasonRepetitionSuppressed','ps3ReasonRevisionStale','ps3ReasonNoveltyEscalation','ps3ReasonSuppressionCapacity',
+  'ps3ReasonSafetySelfDanger','ps3ReasonSafetyPlayerHarm','ps3ReasonSafetyNearbyThreat','ps3ReasonRepetitionSuppressed','ps3ReasonRevisionStale','ps3ReasonNoveltyEscalation','ps3ReasonSuppressionCapacity','radioUnknownTextIds','radioCatalogMismatches',
   'segmentSequence','segmentCount','segmentChars',
   'profileId','speechProvider','voice','speed','assignmentVersion','selectionMode','gender','ageBand','matchReason','attempt','attemptId','maxAttempts','retryDelayMs','remainingDeadlineMs',
   'identityKind','bindingRevision','characterRecordRevision',

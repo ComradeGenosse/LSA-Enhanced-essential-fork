@@ -18,6 +18,94 @@ class Program
     static object Get(object target,string name)=>target.GetType().GetField(name,BindingFlags.NonPublic|BindingFlags.Instance).GetValue(target);
     static void Set(object target,string name,object value)=>target.GetType().GetField(name,BindingFlags.NonPublic|BindingFlags.Instance).SetValue(target,value);
     static void Call(object target,string name,params object[] args)=>target.GetType().GetMethod(name,BindingFlags.NonPublic|BindingFlags.Instance).Invoke(target,args);
+    static string ReadRaw(StreamReader reader)
+    {
+        var pending=Task.Run(()=>reader.ReadLine());
+        if(!pending.Wait(3000) || pending.Result==null) throw new TimeoutException("Timed out waiting for a radio frame.");
+        return pending.Result;
+    }
+    static List<string> ReadUntil(StreamReader reader,string marker)
+    {
+        var lines=new List<string>();
+        for(int n=0;n<12;n++) { var line=ReadRaw(reader); lines.Add(line); if(line.Contains(marker)) return lines; }
+        throw new Exception("Missing frame marker "+marker);
+    }
+    static void RadioCoverage()
+    {
+        int effects=Rage.Native.NativeFunction.Effects;int logStart=Game.Logs.Count;
+        var off=new IntelligenceIntegration(()=>new OwnedParticipant[0],"LSA.Radio.Off."+Guid.NewGuid().ToString("N"));
+        Set(off,"started",true);((SensorAdapters)Get(off,"sensors")).Enabled=true;
+        var offCaps=(Dictionary<string,bool>)Get(off,"capabilities");
+        Set(off,"channel",new IntelligenceChannel("LSA.Radio.Off.Channel."+Guid.NewGuid().ToString("N"),Guid.NewGuid().ToString("D"),()=>offCaps));
+        var parked=new Ped {Handle=70,MemoryAddress=new IntPtr(70)};var parkedVehicle=new Vehicle {Handle=71,MemoryAddress=new IntPtr(71)};
+        Game.LocalPlayer.Character=parked;parked.CurrentVehicle=parkedVehicle;Game.GameTime=1000;
+        int offStationReads=Rage.Native.NativeFunction.RadioStationReads,offSoundReads=Rage.Native.NativeFunction.RadioTrackReads,offTextReads=Rage.Native.NativeFunction.RadioTextIdReads;
+        for(int n=0;n<4;n++) {Set(off,"nextRadio",0L);off.Update();}
+        Check(Rage.Native.NativeFunction.RadioStationReads==offStationReads&&Rage.Native.NativeFunction.RadioTrackReads==offSoundReads&&Rage.Native.NativeFunction.RadioTextIdReads==offTextReads&&((SensorAdapters)Get(off,"sensors")).RadioSamples==0,"radio mode off performs no radio native reads");
+        off.Shutdown();
+
+        var player=new Ped {Handle=76,MemoryAddress=new IntPtr(76)};var vehicle=new Vehicle {Handle=77,MemoryAddress=new IntPtr(77)};
+        var passenger=new Ped {Handle=79,MemoryAddress=new IntPtr(79),CurrentVehicle=vehicle};var outsider=new Ped {Handle=80,MemoryAddress=new IntPtr(80)};
+        var radioRoster=new[]{new OwnedParticipant {Ped=passenger,Lifetime=Guid.NewGuid().ToString("D"),Current=()=>passenger.Existing},new OwnedParticipant {Ped=outsider,Lifetime=Guid.NewGuid().ToString("D"),Current=()=>outsider.Existing}};
+        Game.LocalPlayer.Character=player;player.CurrentVehicle=vehicle;Game.GameTime=20000;PerceptionSystem.Snapshot=null;
+        Rage.Native.NativeFunction.RadioStation="RADIO_01_CLASS_ROCK";
+        Rage.Native.NativeFunction.RadioTrack=1;Rage.Native.NativeFunction.RadioTextId=1004;Rage.Native.NativeFunction.RadioPlayTime=42113;
+        Rage.Native.NativeFunction.RadioThrow=false;Rage.Native.NativeFunction.RadioTextIdThrow=false;Rage.Native.NativeFunction.RadioPlayThrow=false;
+        var pipe="LSA.Radio.Tests."+Guid.NewGuid().ToString("N");
+        var integration=new IntelligenceIntegration(()=>radioRoster,pipe,null,false,false,"shadow");
+        Set(integration,"started",true);var sensors=(SensorAdapters)Get(integration,"sensors");sensors.Enabled=true;
+        sensors.WitnessEvaluator=(Func<RawSignal,List<WitnessReceipt>>)Delegate.CreateDelegate(typeof(Func<RawSignal,List<WitnessReceipt>>),integration,typeof(IntelligenceIntegration).GetMethod("CaptureWitnesses",BindingFlags.Instance|BindingFlags.NonPublic));
+        var caps=(Dictionary<string,bool>)Get(integration,"capabilities");foreach(var k in new[]{"state","shooting","action","witness"}) caps[k]=true;
+        var channel=new IntelligenceChannel(pipe,Guid.NewGuid().ToString("D"),()=>caps);Set(integration,"channel",channel);channel.Start();
+        try {
+            using(var client=new NamedPipeClientStream(".",pipe,PipeDirection.In)) {
+                client.Connect(3000);using(var reader=new StreamReader(client)) {
+                    Check(ReadRaw(reader).Contains("\"type\":\"hello\""),"radio transport hello");
+                    Set(integration,"nextDiscovery",0L);Set(integration,"nextState",0L);Set(integration,"nextShot",0L);Set(integration,"nextRadio",0L);integration.Update();
+                    var opened=ReadUntil(reader,"\"type\":\"diagnostics\"");
+                    Check(opened.All(line=>!line.Contains("\"producer\":\"radio\"")),"first v2 radio sample establishes baseline only");
+                    Check(opened.Last().Contains("\"radio\":{\"samples\":1,\"edges\":0,\"nativeFailures\":0,\"witnessed\":0,\"witnessUnknown\":0}"),"diagnostics expose bounded radio counters");
+                    Check(Game.Logs.Skip(logStart).Any(line=>line=="[RADIO_PROBE] vehicle=1 station=RADIO_01_CLASS_ROCK sound=00000001 text_id=1004 play_ms=42113"),"probe logs sound hash and text ID");
+
+                    Set(integration,"nextDiagnostics",long.MaxValue);Set(integration,"nextDiscovery",long.MaxValue);Set(integration,"nextState",long.MaxValue);Set(integration,"nextShot",long.MaxValue);Set(integration,"nextRefresh",long.MaxValue);
+                    int plays=Rage.Native.NativeFunction.RadioPlayReads;Rage.Native.NativeFunction.RadioPlayTime=99999;Set(integration,"nextRadio",0L);Game.GameTime+=50;integration.Update();
+                    Check(Rage.Native.NativeFunction.RadioPlayReads==plays,"play-time-only changes do not drive probe or event edges");
+
+                    Rage.Native.NativeFunction.RadioTextId=1005;Set(integration,"nextRadio",0L);Game.GameTime+=50;integration.Update();
+                    var changed=ReadUntil(reader,"\"producer\":\"radio\"").Last();
+                    Check(changed.Contains("\"kind\":\"radio_changed\"")&&changed.Contains("\"soundHash\":1")&&changed.Contains("\"trackTextId\":1005")&&!changed.Contains("artist")&&!changed.Contains("title"),"text-ID-only transition crosses raw wire");
+                    var radioAnchors=(EntityAnchors)Get(integration,"anchors");var passengerRef=radioAnchors.Current.Single(a=>ReferenceEquals(a.Entity,passenger)).CaptureRef;var outsiderRef=radioAnchors.Current.Single(a=>ReferenceEquals(a.Entity,outsider)).CaptureRef;
+                    Check(changed.Contains(passengerRef)&&changed.Contains("\"channel\":\"auditory\"")&&changed.Contains("\"basis\":\"audibility_model\"")&&changed.Contains("\"reason\":\"same_vehicle_radio\""),"same-vehicle passenger keeps source-time hearing receipt: "+changed);
+                    Check(!changed.Contains(outsiderRef),"outside observer gets no radio witness receipt");
+                    Check(Game.Logs.Skip(logStart).Any(line=>line.Contains("sound=00000001 text_id=1005")),"probe changes when text ID changes");
+
+                    Rage.Native.NativeFunction.RadioTrack=unchecked((int)2481236011);Set(integration,"nextRadio",0L);Game.GameTime+=50;integration.Update();
+                    var soundChanged=ReadUntil(reader,"\"producer\":\"radio\"").Last();
+                    Check(soundChanged.Contains("\"soundHash\":2481236011")&&soundChanged.Contains("\"trackTextId\":1005"),"soundHash-only container transition remains material");
+                    Check(Game.Logs.Skip(logStart).Any(line=>line.Contains("sound=93E4A82B text_id=1005")),"probe retains hexadecimal sound evidence");
+
+                    player.CurrentVehicle=null;Set(integration,"nextRadio",0L);Game.GameTime+=50;integration.Update();
+                    var stopped=ReadUntil(reader,"\"kind\":\"radio_stopped\"").Last();
+                    Check(stopped.Contains("\"target\":")&&stopped.Contains("\"station\":\"\"")&&stopped.Contains("\"soundHash\":0")&&stopped.Contains("\"trackTextId\":0")&&!stopped.Contains("\"channel\":\"auditory\""),"vehicle exit clears v2 identifiers and keeps prior source for episode closure");
+                }
+            }
+
+            int edges=(int)sensors.RadioEdges;Game.GameTime=0;integration.Update();
+            Check(sensors.RadioEdges==0&&edges>0,"clock reset clears v2 radio baseline");
+
+            player.CurrentVehicle=vehicle;Rage.Native.NativeFunction.RadioStation="RADIO_01_CLASS_ROCK";Rage.Native.NativeFunction.RadioTrack=1;Rage.Native.NativeFunction.RadioTextId=1004;
+            Rage.Native.NativeFunction.RadioTextIdThrow=true;Set(integration,"nextRadio",0L);Game.GameTime=100;integration.Update();
+            Check(integration.IsAvailable&&sensors.RadioNativeFailures>=1&&sensors.RadioEdges==0,"text-ID native failure is contained and does not fabricate an edge");
+            Rage.Native.NativeFunction.RadioTextIdThrow=false;
+
+            Rage.Native.NativeFunction.RadioThrow=true;Set(integration,"nextRadio",0L);Game.GameTime+=50;integration.Update();
+            Check(integration.IsAvailable&&sensors.RadioNativeFailures>=2,"station/sound native failure does not tear down intelligence");
+        } finally {
+            Rage.Native.NativeFunction.RadioThrow=false;Rage.Native.NativeFunction.RadioTextIdThrow=false;Rage.Native.NativeFunction.RadioPlayThrow=false;
+            integration.Shutdown();PerceptionSystem.Snapshot=null;
+        }
+        Check(Rage.Native.NativeFunction.Effects==effects,"radio v2 coverage performs no unexpected native effects");
+    }
     static Dictionary<string,object> ReadFrame(StreamReader reader)
     {var line=Task.Run(()=>reader.ReadLine());if(!line.Wait(3000)) throw new TimeoutException("Timed out waiting for an intelligence frame.");return new JavaScriptSerializer().Deserialize<Dictionary<string,object>>(line.Result);}
     static IEnumerable<Dictionary<string,object>> FrameAnchors(Dictionary<string,object> frame)=>((System.Collections.IEnumerable)frame["payload"]).Cast<object>().Cast<Dictionary<string,object>>();
@@ -25,7 +113,8 @@ class Program
     static void Tick(IntelligenceIntegration integration)
     {Game.GameTime+=210;Set(integration,"nextDiscovery",0L);Set(integration,"nextState",0L);Set(integration,"nextShot",0L);integration.Update();}
     static void Main()
-    {try{Run();}catch(Exception e){Console.Error.WriteLine(e.ToString());Environment.ExitCode=1;}}
+    {
+        try{Run();RadioCoverage();}catch(Exception e){Console.Error.WriteLine(e.ToString());Environment.ExitCode=1;}}
     static void Run()
     {
         Check(LSA.PromotedCharacters.EssentialPlayerPriorityMonitor.Read()==-1,
