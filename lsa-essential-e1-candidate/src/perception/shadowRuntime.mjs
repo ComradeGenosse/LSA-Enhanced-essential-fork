@@ -5,6 +5,7 @@ import { EpisodeStore } from './episodeStore.mjs';
 import { EpisodeCorrelator } from './episodeCorrelator.mjs';
 import { SharedTranscriptStore } from './sharedTranscriptStore.mjs';
 import { SalienceCache, situationFromCharacterView } from './salienceEngine.mjs';
+import {selectDirectorIntent} from './sceneDirector.mjs';
 import { readHostContext } from '../context/hostContext.mjs';
 
 const MAX_COUNTER = 2147483647;
@@ -192,6 +193,81 @@ export class ShadowRuntime {
       ownerIncarnationId:index.incarnationId,
       proofRevision:row.ownerProofRevision,
     });
+  }
+  // Companion-local ORIGINAL PS2 observation + PS3 ledger authorization.
+  // This can establish a genuine companion entitlement; it is intentionally
+  // NOT an independently authenticated native C-06/Essential grant. No ticket,
+  // playback, PS3 acknowledgement or cooldown is consumed by this read.
+  // Use only at pre-intake stages: after publication the original observation
+  // can expire while a legitimately started Essential TTS continues.
+  directorOriginalEntitlementFor(proposal,stamp) {
+    if(!proposal || proposal.kind!=='speech' || !stamp ||
+       !this.epoch || !this.hostContext ||
+       proposal.speakerCaptureRef!==stamp.speakerCaptureRef ||
+       proposal.playerCaptureRef!==stamp.playerCaptureRef ||
+       proposal.policyVersion!==stamp.policyVersion ||
+       stamp.policyVersion!==1 || !Number.isSafeInteger(stamp.worldEpoch) ||
+       stamp.worldEpoch!==this.hostContext.worldEpoch ||
+       stamp.hostRunId!==this.hostContext.hostRunId)
+       return null;
+    const owner=this.directorOwnerProofFor(proposal.speakerCaptureRef);
+    if(!owner || owner.hostRunId!==stamp.hostRunId ||
+       owner.worldEpoch!==stamp.worldEpoch ||
+       owner.ownerIncarnationId!==stamp.ownerIncarnationId ||
+       owner.proofRevision!==stamp.proofRevision)return null;
+    const now=this.now();
+    const candidates=this.directorCandidatesFor(proposal.speakerCaptureRef);
+    for(const candidate of candidates) {
+      const observation=candidate.observation,decision=candidate.decision;
+      if(observation?.observationId!==proposal.observationId ||
+         observation.revision!==proposal.observationRevision ||
+         observation.observedAt?.nativeRun!==this.epoch ||
+         decision?.observationId!==observation.observationId ||
+         decision.revision!==observation.revision ||
+         decision.decisionKey!==proposal.decisionKey ||
+         decision.policyVersion!==proposal.policyVersion ||
+         (decision.response==='urgent'?'urgent':'routine')!==proposal.urgency)
+          continue;
+      const original=this.observations.entries.get(
+        proposal.speakerCaptureRef+':'+observation.episodeId);
+      const grant=this.salience.ledger.get(observation.observationId);
+      if(!original || original.value!==observation ||
+         !grant || grant.revision!==observation.revision ||
+         grant.decisionKey!==decision.decisionKey ||
+         grant.granted!==decision.response ||
+         grant.consumed || grant.consumedBy?.has('ps6_ticket') ||
+         !grant.pair ||
+         grant.pair.observation.observationId!==observation.observationId ||
+         grant.pair.observation.revision!==observation.revision ||
+         grant.pair.decision.decisionKey!==decision.decisionKey)
+          continue;
+      const selected=selectDirectorIntent([candidate],{
+        speakerCaptureRef:proposal.speakerCaptureRef,
+        playerCaptureRef:proposal.playerCaptureRef,
+        nowMonotonicMs:now,
+      });
+      if(!selected ||
+         selected.observationId!==proposal.observationId ||
+         selected.observationRevision!==proposal.observationRevision ||
+         selected.decisionKey!==proposal.decisionKey ||
+         selected.expiresAtMonotonicMs!==proposal.expiresAtMonotonicMs ||
+         selected.urgency!==proposal.urgency)
+          continue;
+      return Object.freeze({
+        source:'original_companion_ps2_ps3',
+        hostRunId:owner.hostRunId,worldEpoch:owner.worldEpoch,
+        speakerCaptureRef:owner.speakerCaptureRef,
+        playerCaptureRef:proposal.playerCaptureRef,
+        ownerIncarnationId:owner.ownerIncarnationId,
+        proofRevision:owner.proofRevision,
+        observationId:observation.observationId,
+        observationRevision:observation.revision,
+        decisionKey:decision.decisionKey,
+        policyVersion:decision.policyVersion,
+        expiresAtMonotonicMs:selected.expiresAtMonotonicMs,
+      });
+    }
+    return null;
   }
   // PS6 candidates are restricted to original PS2/PS3 observer-qualified
   // evidence. This read does not reserve tickets or consume response grants.
