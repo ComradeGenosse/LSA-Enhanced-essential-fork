@@ -533,3 +533,42 @@ test('Phase 13a original PS3 proof rejects expired native source evidence withou
   assert.equal(ps.directorOriginalEntitlementFor(proposal,stamp),null,
     'original urgent source timestamp expires despite valid original PS3 ledger');
 });
+
+test('PS4 frozen decision acknowledges the same live observation after PS3 changes its policy key',()=>{
+  const cache=new SalienceCache({now:()=>NOW}),victim=randomUUID();
+  const seen=observation({eventType:'death_seen',severity:'critical',claims:[claim({kind:'dead',channel:'visual',basis:'sampled_state',target:victim})]});
+  const original=cache.evaluate(seen,view({activity:'idle'}));
+  const frozen=cache.ledger.get(seen.observationId).pair;
+  const refreshed=cache.evaluate(seen,view({activity:'conversation'}));
+  assert.notEqual(refreshed.decisionKey,original.decisionKey);
+  assert.equal(cache.acknowledge(original.decisionKey,'ps4_context','delivered'),false,'old key was retired in the current ledger');
+  assert.equal(cache.acknowledgeFrozenContext(original.decisionKey,frozen,'delivered'),true);
+  assert.equal(cache.ledger.get(seen.observationId).decisionKey,refreshed.decisionKey);
+  assert.equal(cache.ledger.get(seen.observationId).consumedBy.has('ps4_context'),true);
+  assert.equal(cache.ledger.get(seen.observationId).consumed,false,'PS4 cannot consume a PS6 ticket');
+  assert.equal(cache.acknowledge(original.decisionKey,'ps6_ticket','delivered'),false);
+});
+
+test('PS4 frozen acknowledgment refuses expired, retired, changed-revision, and substituted evidence',()=>{
+  const setup=()=>{let time=NOW;const victim=randomUUID(),cache=new SalienceCache({now:()=>time});
+    const seen=observation({eventType:'death_seen',severity:'critical',expiresAtMonotonicMs:NOW+100,
+      claims:[claim({kind:'dead',channel:'visual',basis:'sampled_state',target:victim})]});
+    const original=cache.evaluate(seen,view()),frozen=cache.ledger.get(seen.observationId).pair;
+    cache.evaluate(seen,view({activity:'conversation'}));
+    return {cache,victim,seen,original,frozen,setTime:value=>{time=value;}};
+  };
+  const expired=setup();expired.setTime(NOW+100);
+  assert.equal(expired.cache.acknowledgeFrozenContext(expired.original.decisionKey,expired.frozen,'delivered'),false);
+  const retired=setup();retired.cache.releaseReference(retired.victim);
+  assert.equal(retired.cache.acknowledgeFrozenContext(retired.original.decisionKey,retired.frozen,'delivered'),false);
+  const revised=setup();const s=revised.seen;
+  revised.cache.evaluate(observation({observationId:s.observationId,episodeId:s.episodeId,observer:s.observer.captureRef,
+    nativeRun:s.observedAt.nativeRun,revision:2,eventType:s.eventType,severity:s.severity,claims:s.claims}),view());
+  assert.equal(revised.cache.acknowledgeFrozenContext(revised.original.decisionKey,revised.frozen,'delivered'),false);
+  const replaced=setup();
+  assert.equal(replaced.cache.acknowledgeFrozenContext('not-the-frozen-key',replaced.frozen,'delivered'),false);
+  const reset=setup();reset.cache.clear();
+  assert.equal(reset.cache.acknowledgeFrozenContext(reset.original.decisionKey,reset.frozen,'delivered'),false);
+  for(const fixture of [expired,retired,revised,replaced,reset])
+    assert.equal([...fixture.cache.ledger.values()].some(row=>row.consumedBy.has('ps4_context')),false);
+});
