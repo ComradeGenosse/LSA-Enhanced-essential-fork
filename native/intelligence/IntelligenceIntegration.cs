@@ -123,7 +123,7 @@ namespace LSA.Intelligence
                 ()=>LSA.PromotedCharacters.EssentialPlayerPriorityMonitor.Read());
             // This preview endpoint never acquires C-11 speech authority.
             // Verified native C-06 + Essential intake are deliberately absent.
-            director=new DirectorAdmission(()=>this.host.MonotonicMs,(r,stage)=>(stage=="playback_started" || stage=="complete") ? DirectorC06Policy.CurrentOccupiedPlayback(r,ReadDirectorC06(r)) : stage=="bind" ? DirectorC06Policy.CurrentPlayback(r,ReadDirectorC06(r)) : DirectorC06Policy.Safe(r,ReadDirectorC06(r)),()=>this.host.HostRunId,()=>this.host.WorldEpoch,directorExperimental,
+            director=new DirectorAdmission(()=>this.host.MonotonicMs,(r,stage)=>(stage=="playback_started" || stage=="complete") ? DirectorC06Policy.CurrentOccupiedPlayback(r,ReadDirectorC06(r)) : stage=="bind" ? DirectorC06Policy.CurrentOccupiedPlayback(r,ReadDirectorC06(r)) : DirectorC06Policy.Safe(r,ReadDirectorC06(r)),()=>this.host.HostRunId,()=>this.host.WorldEpoch,directorExperimental,
                 ()=>LosSantosAlive.Bridge.SpecialTurns.SpecialGeminiTurnService.ReadPlayerTurnVersion(),
                  ()=>directorShadow ? LSA.PromotedCharacters.EssentialPlayerPriorityMonitor.Read() : -1);
             // #3A compiles and binds the real pinned Essential Submit method.
@@ -513,8 +513,11 @@ namespace LSA.Intelligence
             // a claimed PedId, latest focus or replacement owner.
             if(speaker==null||player==null||
                 !ReferenceEquals(player,Game.LocalPlayer.Character))return false;
-            return stockScheduler.Dispatch(input.TicketId,input.Context,
+            if(!originalTurns.CaptureForBinding(original))return false;
+            bool submitted=stockScheduler.Dispatch(input.TicketId,input.Context,
                 ReadDirectorC06(original),speaker,player);
+            if(!submitted)originalTurns.Retire(input.TicketId);
+            return submitted;
         }
         // 3B exact original generation report from the existing paired pipe.
         // No wire-supplied ticket, source epoch or PedId grants authority.
@@ -528,7 +531,7 @@ namespace LSA.Intelligence
             if(request==null || frame.HostRunId!=request.HostRunId ||
                frame.WorldEpoch!=request.WorldEpoch ||
                frame.SpeakerCaptureRef!=request.SpeakerCaptureRef)return false;
-            var source=originalTurns.OriginalFor(request);
+            var source=originalTurns.SealedForBinding(request);
             if(source==null || frame.SourceRun!=source.SourceRun ||
                frame.SourceRevision!=source.Revision ||
                !ps3Receipts.IsReserved(request))return false;
