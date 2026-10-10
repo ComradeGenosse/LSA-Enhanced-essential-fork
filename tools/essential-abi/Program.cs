@@ -181,3 +181,59 @@ foreach (var handle in metadata.TypeDefinitions)
         Console.WriteLine("ABI_OWNER_SURFACE " + fullName + " methods=" +
             string.Join(",",methods) + " fields=" + string.Join(",",fields));
 }
+
+
+// Candidate IL edges for the stock player-input transitions. Exact method
+// bodies, not their names, are necessary before treating a counter as global.
+// The opcode scan is exploratory (operands can resemble opcodes): it prints
+// possible direct callers but is never used as an admission verdict.
+var transitionNames = new HashSet<string>(StringComparer.Ordinal) {
+    "NotifyPlayerTurnStarted", "SendMicStart", "SendMicStop",
+    "SendTextPrompt", "BeginMicTurn", "MarkMicReleased", "StartTextInputMode"
+};
+var transitionTokens = new Dictionary<int,string>();
+foreach (var h in metadata.TypeDefinitions)
+{
+    var t = metadata.GetTypeDefinition(h);
+    var n = metadata.GetString(t.Namespace)+"."+metadata.GetString(t.Name);
+    foreach (var m in t.GetMethods())
+    {
+        var d = metadata.GetMethodDefinition(m);
+        var methodName = metadata.GetString(d.Name);
+        if (transitionNames.Contains(methodName) &&
+            (n.StartsWith("LosSantosAlive.Input.") ||
+             n.StartsWith("LosSantosAlive.Context.") ||
+             n.StartsWith("LosSantosAlive.Bridge.SpecialTurns.")))
+            transitionTokens[System.Reflection.Metadata.Ecma335.MetadataTokens.GetToken(m)] = n+"."+methodName;
+    }
+}
+foreach (var h in metadata.TypeDefinitions)
+{
+    var t = metadata.GetTypeDefinition(h);
+    var n = metadata.GetString(t.Namespace)+"."+metadata.GetString(t.Name);
+    foreach (var m in t.GetMethods())
+    {
+        var d = metadata.GetMethodDefinition(m);
+        if (d.RelativeVirtualAddress == 0) continue;
+        var bytes = pe.GetMethodBody(d.RelativeVirtualAddress).GetILBytes().ToArray();
+        var methodName = metadata.GetString(d.Name);
+        foreach (var token in transitionTokens)
+        {
+            bool maybeCalls = false;
+            for (int i=0;i+4<bytes.Length;i++)
+            {
+                if (bytes[i]!=0x28 && bytes[i]!=0x6f) continue;
+                if (BitConverter.ToInt32(bytes,i+1)==token.Key) {maybeCalls = true; break;}
+            }
+            if (maybeCalls) Console.WriteLine("ABI_TRANSITION_EDGE " + n+"."+methodName+" => "+token.Value);
+        }
+        if ((n=="LosSantosAlive.Input.InputController" &&
+                new[]{"SendMicStart","SendMicStop","SendTextPrompt"}.Contains(methodName)) ||
+            (n=="LosSantosAlive.Context.ConversationHydrationCoordinator" &&
+                new[]{"BeginMicTurn","MarkMicReleased","Update"}.Contains(methodName)) ||
+            (n=="LosSantosAlive.Bridge.SpecialTurns.SpecialGeminiTurnService" &&
+                new[]{"NotifyPlayerTurnStarted","ReadPlayerTurnVersion"}.Contains(methodName)))
+            Console.WriteLine("ABI_TRANSITION_IL " + n+"."+methodName+
+                " size="+bytes.Length+" prefix="+Convert.ToHexString(bytes.Take(1024).ToArray()));
+    }
+}
