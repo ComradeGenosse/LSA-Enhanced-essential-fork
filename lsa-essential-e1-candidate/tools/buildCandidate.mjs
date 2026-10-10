@@ -256,12 +256,12 @@ export function patchSource(source) {
 
   // Exact authorized stock-session ticket follows only the original
   // Zi -> WP call, never any global/current NPC inferred from active sessions.
-  const ziBody=functionBody(ast,'Zi');
+  const ziDirectorBody=functionBody(ast,'Zi');
   const ziParams=functions(ast,'Zi')[0].params[0];
   if(ziParams?.type!=='ObjectPattern')throw new Error('Zi director options changed');
   insert(ziParams.start+1,'directorTicket: __lsaDirectorSessionTicket, ',
     'PS6 original Zi director ticket option');
-  const ziWP=one((()=>{const all=[];walk(ziBody,node=>{
+  const ziWP=one((()=>{const all=[];walk(ziDirectorBody,node=>{
     if(node.type==='CallExpression' && node.callee.name==='WP')all.push(node);
   });return all;})(),'Zi stock session open');
   insert(ziWP.arguments[0].start+1,'directorTicket: __lsaDirectorSessionTicket, ',
