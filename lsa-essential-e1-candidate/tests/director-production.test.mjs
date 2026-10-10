@@ -96,7 +96,7 @@ test('experimental config never starts production native or provider without pro
    assert.ok(runtime.director);
    assert.deepEqual(runtime.services.spontaneousSpeechStatus(),{
      requested:'experimental',executionAvailable:false,
-     reason:'production_original_turn_and_playback_handoff_unavailable',
+     reason:'native_opt_in_and_live_C06_required',
    });
    assert.equal((await runtime.director.tick()),null);
    assert.equal(requests,0);
