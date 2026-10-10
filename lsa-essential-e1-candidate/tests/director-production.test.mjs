@@ -103,3 +103,29 @@ test('experimental config never starts production native or provider without pro
    runtime.director.stop();runtime.intelligence?.stop();
  } finally {await rm(temp,{recursive:true,force:true});}
 });
+
+test('bounded Director gate diagnostics classify no owner proof and no PS3 candidate without dispatch',async()=>{
+ const seen=[],runtime={
+   epoch:null,directorRequestVersion:1,now:()=>10000,
+   anchors:new Map([[player,{captureRef:player,kind:'player'}]]),
+   observerIndex:new Map(),
+   current:()=>true,directorOwnerProofFor:()=>null,
+   directorCandidatesFor:()=>[],
+ };
+ const pump=new DirectorObservationPump({client:{runtime},coordinator:{
+   attempt:async()=>{throw new Error('No admission without PS3');}
+ },onDiagnostic:d=>seen.push(d.reason)});
+ assert.equal(await pump.tick(),null);
+ runtime.epoch='connected';
+ assert.equal(await pump.tick(),null);
+ runtime.observerIndex.set(speaker,{kind:'ped',owned:true});
+ assert.equal(await pump.tick(),null);
+ runtime.directorOwnerProofFor=()=>({ownerIncarnationId:'native-owner'});
+ assert.equal(await pump.tick(),null);
+ assert.equal(await pump.tick(),null);
+ assert.deepEqual(seen,[
+   'channel_or_protocol_unavailable','no_owned_observer',
+   'owner_proof_unavailable','no_ps3_response_candidate',
+ ]);
+ pump.stop();
+});
