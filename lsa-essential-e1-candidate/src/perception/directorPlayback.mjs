@@ -13,7 +13,7 @@ export class DirectorPlaybackRegistry {
     let boundResolve,terminalResolve;
     const bound=new Promise(resolve=>{boundResolve=resolve;});
     const terminal=new Promise(resolve=>{terminalResolve=resolve;});
-    const entry={ticket,gates,identity:null,hydrated:false,bound:false,started:false,
+    const entry={ticket,gates,identity:null,hydrated:false,published:false,started:false,
       finished:false,boundResolve,terminalResolve,bound,terminal};
     this.entries.set(id,entry);
     entry.bindingTimeout=setTimeout(()=>this.fail(id),MAX_WAIT_BIND_MS);
@@ -39,11 +39,11 @@ export class DirectorPlaybackRegistry {
   }
   publication(ticket){
     const e=this.entry(ticket);
-    if(!e || !e.hydrated || !e.identity || e.bound || e.finished)return false;
+    if(!e || !e.hydrated || !e.identity || e.published || e.finished)return false;
     let allowed=false;
     try {allowed=e.gates.publication()===true;}catch{}
     if(!allowed){this.fail(ticket.ticketId);return false;}
-    e.bound=true;clearTimeout(e.bindingTimeout);
+    e.published=true;clearTimeout(e.bindingTimeout);
     e.boundResolve(Object.freeze({tuple:e.identity,terminal:e.terminal}));
     e.playbackTimeout=setTimeout(()=>this.fail(ticket.ticketId),MAX_WAIT_PLAYBACK_MS);
     e.playbackTimeout.unref?.();
@@ -51,7 +51,7 @@ export class DirectorPlaybackRegistry {
   }
   onNativeStatus(id,status){
     const e=this.entries.get(id);
-    if(!e || e.finished || !e.bound)return false;
+    if(!e || e.finished || !e.published)return false;
     if(status==='started' && !e.started){e.started=true;return true;}
     if(status==='completed' && e.started){
       e.finished=true;clearTimeout(e.playbackTimeout);
