@@ -147,7 +147,9 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
     // These callbacks execute on the original backend's single JS event loop,
     // at source-pinned turn intake/terminal/session entrypoints. No actor
     // effect, turn creation, artificial terminal or stock scheduling.
-    originalTurnTransition:event=>originalTurnTimeline.transition(event),
+    originalTurnTransition:(event,ticketId)=>originalTurnTimeline.transition(event,ticketId),
+    beginDirectorOriginalTurn:(ticketId,snapshot)=>originalTurnTimeline.beginDirector(ticketId,snapshot),
+    directorOriginalPhase:ticketId=>originalTurnTimeline.directorPhase(ticketId),
     inspectOriginalTurnPriority:raw=>originalTurnTimeline.sample(raw),
     acquireOriginalTurn:(ticketId,snapshot)=>originalTurnTimeline.acquire(ticketId,snapshot),
     checkOriginalTurn:(ticketId,snapshot)=>originalTurnTimeline.check(ticketId,snapshot),
@@ -166,6 +168,7 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
         const ticket=runtime.intelligence?.claimDirectorStockTicket?.(input);
         if(!ticket || ticket.ticketId!==id ||
            ticket.dedupeKey!==input.dedupeKey)return false;
+        if(runtime.host.directorBeginOriginalTurn(id)!==true)return false;
         input.directorTicket=ticket;
         return true;
       }catch{return false;}
