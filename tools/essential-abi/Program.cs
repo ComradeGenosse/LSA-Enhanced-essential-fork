@@ -357,3 +357,12 @@ foreach(var wrapper in micStart) {
         throw new Exception("Stock mic wrapper no longer calls source-pinned shared entry");
 }
 Console.WriteLine("PASS source-pinned original mic/text/target/hydration player epoch hook ABI");
+
+var targeting=Type("LosSantosAlive.NPC.NpcTargeting");
+var speakerMethod=targeting.GetMethods().Select(h=>metadata.GetMethodDefinition(h))
+    .Single(m=>metadata.GetString(m.Name)=="GetCurrentSpeakerPed");
+var speakerBody=Disassemble(pe.GetMethodBody(speakerMethod.RelativeVirtualAddress).GetILBytes().ToArray()).ToArray();
+if(speakerBody.Length!=2 || speakerBody[0].Op!="call" ||
+   speakerBody[0].Operand!="GetPlayerConversationPed" || speakerBody[1].Op!="ret")
+    throw new Exception("Pinned Core current-speaker delegation changed; re-audit actual ownership");
+Console.WriteLine("PASS Core speaker getter aliases player-conversation getter (not independent authority)");
