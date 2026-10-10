@@ -133,4 +133,9 @@ PublicField(request,"DelayMilliseconds",0x08);
 StaticPublicSignature(scheduler,"Submit","000102128A14");
 StaticPublicSignature(scheduler,"SubmitAfterCurrentTurn","000102128A14");
 StaticPublicSignature(service,"SendNow","000102128A14");
-Console.WriteLine("PASS pinned Essential SHA-256 + playback callbacks + stock kb scheduler request ABI");
+// Confirm the two Core NPC targeting reads are still source-compatible.
+// Return is Rage.Ped (TypeDefOrRef coded index 0x31), not a bool that
+// could be confused with a complete global Essential turn arbiter.
+StaticPublicSignature("LosSantosAlive.NPC.NpcTargeting","GetPlayerConversationPed","00001231");
+StaticPublicSignature("LosSantosAlive.NPC.NpcTargeting","GetCurrentSpeakerPed","00001231");
+Console.WriteLine("PASS pinned Essential SHA-256 + Core targeting, playback callbacks + stock kb request ABI");
