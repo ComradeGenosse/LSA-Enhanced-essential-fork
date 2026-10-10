@@ -33,8 +33,12 @@ test('verified-ticket test double enforces no DO before stock action events',asy
  h.runtime.intelligence={sendDirectorOriginalTurnBinding:()=>true}; // native Xn test relay
  h.runtime.services.decide=async()=>({dialogue:'I see trouble.',command:'DO FOLLOW'});
  const turn=await h.evaluate('kb(directorArgs)');
- assert.ok(turn);
- const result=await session.connection.whenSettled({pedId:turn.pedId,turnId:turn.id,generationId:turn.generationId,sessionNonce:1});
+ // With the new native-ACK-before-vi await, the source kb can now return
+ // false when the model's DO instruction is rejected synchronously. The
+ // original generated Essential tuple must still exist and remain terminal.
+ const generated=turn || h.evaluate('[...A.turnsById.values()].find(t=>t?.metadata?.directorTicket)');
+ assert.ok(generated,'the exact ticket reached original Xn generation');
+ const result=await session.connection.whenSettled({pedId:generated.pedId,turnId:generated.id,generationId:generated.generationId,sessionNonce:1});
  assert.notEqual(result.status,'completed');
  assert.equal(h.actions.length,0);
  assert.equal(h.runtime.history.readForSession('17',1).some(v=>v.role==='assistant'),false);
