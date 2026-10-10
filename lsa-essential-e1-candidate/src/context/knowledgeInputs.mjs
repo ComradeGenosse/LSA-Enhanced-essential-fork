@@ -29,10 +29,15 @@ export function captureKnowledgeInputs({identity,source,p0Snapshot,perception,id
   if(!perception?.epoch || !perception.hostContext || perception.now()-perception.lastReceipt>3000) return finish({reason:'channel_unhealthy'});
   const fence={hostContextVersion:1,hostRunId:block.hostRunId,worldEpoch:block.worldEpoch};
   if(!sameHostContext(fence,perception.hostContext)) return finish({reason:block.hostRunId!==perception.hostContext.hostRunId?'host_mismatch':'world_epoch_changed'});
-  if(perception.observerIndexVersion!==1) return finish({reason:'unsupported_contract'});
+  if(perception.observerIndexVersion!==1) return finish({reason:'unsupported_contract',anchorStatus:'contract_unavailable'});
   const anchor=perception.anchors.get(block.captureRef),index=perception.observerIndex.get(block.captureRef);
-  if(!perception.current(block.captureRef) || anchor?.kind!=='ped' || !anchor.observer) return finish({reason:'anchor_expired'});
-  if(!index || index.kind!=='ped') return finish({reason:'no_observer_index'});
+  // A missing native ref, an expired lease, and a real but unobserved Ped are
+  // DIFFERENT failures. Never choose a substitute by PedId/name/current target.
+  if(!anchor) return finish({reason:'anchor_expired',anchorStatus:'missing'});
+  if(!perception.current(block.captureRef)) return finish({reason:'anchor_expired',anchorStatus:'lease_expired'});
+  if(anchor.kind!=='ped') return finish({reason:'anchor_expired',anchorStatus:'kind_mismatch'});
+  if(!anchor.observer) return finish({reason:'anchor_expired',anchorStatus:'not_observer'});
+  if(!index || index.kind!=='ped') return finish({reason:'no_observer_index',anchorStatus:'index_missing'});
   let ownerClaim=null;
   if(index.owned) {
     const profile=actor.integrations?.characterProfile;
@@ -46,7 +51,7 @@ export function captureKnowledgeInputs({identity,source,p0Snapshot,perception,id
     const bytes=jsonBytes(pair);if(index>=KNOWLEDGE_LIMITS.poolCount || poolBytes+bytes>KNOWLEDGE_LIMITS.poolBytes){captureDiagnostics.budgetExcluded++;return false;}poolBytes+=bytes;return true;
   });
   captureDiagnostics.retainedPairs=pairs.length;captureDiagnostics.poolBytes=poolBytes;
-  return finish({reason:null,captureDiagnostics,hostRunId:block.hostRunId,worldEpoch:block.worldEpoch,psAdapterEpoch:perception.epoch,psStreamId:perception.stream,association:{...index,sampledGameTick:block.sampledGameTick},ownerClaim,ownerPendingProof:!!index.owned,pairs,liveReferences});
+  return finish({reason:null,anchorStatus:'verified_observer',captureDiagnostics,hostRunId:block.hostRunId,worldEpoch:block.worldEpoch,psAdapterEpoch:perception.epoch,psStreamId:perception.stream,association:{...index,sampledGameTick:block.sampledGameTick},ownerClaim,ownerPendingProof:!!index.owned,pairs,liveReferences});
 }
 
 export function assertKnowledgeCurrent(inputs,perception) {
