@@ -261,8 +261,18 @@ export class ShadowRuntime {
                                      c.evidence?.channel!=='report') ||
          sourceExpiry!==proposal.expiresAtMonotonicMs)
           continue;
+      // The signal ID comes from the original immutable PS2 claim's native
+      // event provenance, not from the proposed Director request. Native
+      // separately retains only facts *it actually sent* to this observer.
+      const signalId=grant.pair.observation.claims.find(c=>
+        c.certainty==='supported' && c.evidence?.channel!=='report' &&
+        typeof c.details?.eventSignalId==='string')?.details?.eventSignalId??null;
+      const nativeSituation=this.observerSituations.get(proposal.speakerCaptureRef);
       return Object.freeze({
         source:'original_companion_ps2_ps3',
+        signalId,challenge:nativeSituation?.ps3Challenge??null,
+        situationRevision:nativeSituation?.situationRevision??0,
+        ageMs:Math.floor(age),
         hostRunId:owner.hostRunId,worldEpoch:owner.worldEpoch,
         speakerCaptureRef:owner.speakerCaptureRef,
         playerCaptureRef:proposal.playerCaptureRef,
