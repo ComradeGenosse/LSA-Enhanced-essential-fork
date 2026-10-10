@@ -54,6 +54,7 @@ class Program
         var pipe="LSA.Radio.Tests."+Guid.NewGuid().ToString("N");
         var integration=new IntelligenceIntegration(()=>radioRoster,pipe,null,false,false,"shadow");
         Set(integration,"started",true);var sensors=(SensorAdapters)Get(integration,"sensors");sensors.Enabled=true;
+        sensors.WitnessEvaluator=(Func<RawSignal,List<WitnessReceipt>>)Delegate.CreateDelegate(typeof(Func<RawSignal,List<WitnessReceipt>>),integration,typeof(IntelligenceIntegration).GetMethod("CaptureWitnesses",BindingFlags.Instance|BindingFlags.NonPublic));
         var caps=(Dictionary<string,bool>)Get(integration,"capabilities");foreach(var k in new[]{"state","shooting","action","witness"}) caps[k]=true;
         var channel=new IntelligenceChannel(pipe,Guid.NewGuid().ToString("D"),()=>caps);Set(integration,"channel",channel);channel.Start();
         try {
