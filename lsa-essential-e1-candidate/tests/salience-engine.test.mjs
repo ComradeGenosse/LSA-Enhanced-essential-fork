@@ -5,6 +5,7 @@ import { readFile } from 'node:fs/promises';
 import { validateObservation, CAPABILITIES } from '../src/perception/contracts.mjs';
 import { SalienceCache, evaluateSalience, normalizeSalienceSituation, orderSalienceDecisions, situationFromCharacterView, SALIENCE_BOUNDS } from '../src/perception/salienceEngine.mjs';
 import { ShadowRuntime } from '../src/perception/shadowRuntime.mjs';
+import {selectDirectorIntent} from '../src/perception/sceneDirector.mjs';
 
 const NOW = 1000;
 function claim(patch) {
@@ -433,4 +434,95 @@ test('PS6 candidate cannot be inferred for an unowned speaker or missing player'
   assert.deepEqual(ps.directorCandidatesFor(speaker),[]);
   ps.observerIndex.set(speaker,{captureRef:speaker,kind:'ped',owned:true,incarnationId:randomUUID()});
   assert.deepEqual(ps.directorCandidatesFor(speaker),[]);
+});
+
+test('Phase 13a validates exact original PS2/PS3 grant and P2 source proof without claiming native authorization',()=>{
+  let time=NOW;
+  const ps=new ShadowRuntime({mode:'shadow',now:()=>time});
+  const speaker=randomUUID(),player=randomUUID(),hostRunId=randomUUID(),incarnation=randomUUID();
+  ps.epoch=randomUUID();ps.lastReceipt=time;
+  ps.hostContext=Object.freeze({hostRunId,worldEpoch:1});
+  ps.anchors.set(speaker,{captureRef:speaker,kind:'ped',observer:true,owned:true,expires:NOW+30000});
+  ps.anchors.set(player,{captureRef:player,kind:'player',expires:NOW+30000});
+  ps.observerIndex.set(speaker,Object.freeze({captureRef:speaker,kind:'ped',owned:true,incarnationId:incarnation,encounterId:randomUUID()}));
+  const sourceOwner={owner:'none',mode:'idle',since:10};
+  ps.observerSituations.set(speaker,Object.freeze({
+    captureRef:speaker,sampledGameTick:10,situationRevision:1,activity:'idle',
+    primaryOwner:sourceOwner,ownerProofRevision:3,expires:NOW+30000,
+  }));
+  const seen=observation({
+    observer:speaker,nativeRun:ps.epoch,eventType:'death_seen',severity:'critical',
+    claims:[claim({kind:'dead',channel:'visual',basis:'native_awareness',target:player,targetKind:'player'})],
+  });
+  assert.equal(ps.observations.put(seen,{sourceAgeMs:100}),true);
+  ps.noteSalience(seen,ps.situationFor(speaker,player));
+  const candidates=ps.directorCandidatesFor(speaker);
+  assert.equal(candidates.length,1);
+  const proposal=selectDirectorIntent(candidates,{
+    speakerCaptureRef:speaker,playerCaptureRef:player,nowMonotonicMs:time});
+  assert.ok(proposal);
+  const stamp={hostRunId,worldEpoch:1,speakerCaptureRef:speaker,playerCaptureRef:player,
+    ownerIncarnationId:incarnation,proofRevision:3,playerTurnVersion:0,policyVersion:1};
+  const checked=ps.directorOriginalEntitlementFor(proposal,stamp);
+  assert.ok(checked);
+  assert.equal(checked.source,'original_companion_ps2_ps3');
+  assert.equal(checked.decisionKey,candidates[0].decision.decisionKey);
+  assert.equal(checked.ownerIncarnationId,incarnation);
+  assert.equal(checked.proofRevision,3);
+  assert.ok(Object.isFrozen(checked));
+  assert.equal(ps.salience.ledger.get(seen.observationId).consumed,false);
+
+  // All request-controlled and cross-world substitutions are read-only denials.
+  for(const [key,bad] of [
+    ['decisionKey','different-ps3-key'],['observationId',randomUUID()],
+    ['observationRevision',proposal.observationRevision+1],
+    ['expiresAtMonotonicMs',proposal.expiresAtMonotonicMs+1],
+    ['urgency','urgent'],['policyVersion',2],['playerCaptureRef',randomUUID()],
+  ]) assert.equal(ps.directorOriginalEntitlementFor({...proposal,[key]:bad},stamp),null,key);
+  for(const [key,bad] of [
+    ['hostRunId',randomUUID()],['worldEpoch',2],
+    ['speakerCaptureRef',randomUUID()],['playerCaptureRef',randomUUID()],
+    ['ownerIncarnationId',randomUUID()],['proofRevision',2],['policyVersion',2],
+  ]) assert.equal(ps.directorOriginalEntitlementFor(proposal,{...stamp,[key]:bad}),null,key);
+
+  // A native ownership ABA transition advances its source revision. Old PS3
+  // situation inputs do NOT automatically authorize a new incarnation state.
+  ps.observerSituations.set(speaker,Object.freeze({
+    ...ps.observerSituations.get(speaker),ownerProofRevision:4,situationRevision:2}));
+  assert.equal(ps.directorOriginalEntitlementFor(proposal,stamp),null);
+  assert.equal(ps.directorOriginalEntitlementFor(proposal,{...stamp,proofRevision:4}),null,
+    'owner revision matching alone cannot bypass stale original PS3 situation');
+  ps.observerSituations.set(speaker,Object.freeze({
+    ...ps.observerSituations.get(speaker),ownerProofRevision:3,situationRevision:1}));
+  assert.ok(ps.directorOriginalEntitlementFor(proposal,stamp));
+  const granted=candidates[0].decision.decisionKey;
+  assert.equal(ps.salience.acknowledge(granted,'ps6_ticket','delivered'),true);
+  assert.equal(ps.directorOriginalEntitlementFor(proposal,stamp),null,
+    'already consumed original PS3 response cannot be borrowed again');
+  ps.retire(speaker);
+  assert.equal(ps.directorOriginalEntitlementFor(proposal,stamp),null);
+});
+test('Phase 13a original PS3 proof rejects expired native source evidence without renewing its clock',()=>{
+  let time=NOW;const ps=new ShadowRuntime({mode:'shadow',now:()=>time});
+  const speaker=randomUUID(),player=randomUUID(),incarnation=randomUUID(),hostRunId=randomUUID();
+  ps.epoch=randomUUID();ps.hostContext={hostRunId,worldEpoch:1};ps.lastReceipt=time;
+  ps.anchors.set(speaker,{captureRef:speaker,kind:'ped',observer:true,owned:true,expires:NOW+30000});
+  ps.anchors.set(player,{captureRef:player,kind:'player',expires:NOW+30000});
+  ps.observerIndex.set(speaker,{captureRef:speaker,kind:'ped',owned:true,incarnationId:incarnation});
+  ps.observerSituations.set(speaker,{captureRef:speaker,activity:'idle',situationRevision:1,
+    primaryOwner:{owner:'none',mode:'idle',since:1},ownerProofRevision:2,expires:NOW+30000});
+  const seen=observation({observer:speaker,nativeRun:ps.epoch,
+    claims:[claim({kind:'injured',channel:'self',basis:'native_callback'})]});
+  assert.equal(ps.observations.put(seen,{sourceAgeMs:100}),true);
+  ps.noteSalience(seen,ps.situationFor(speaker,player));
+  const candidates=ps.directorCandidatesFor(speaker);
+  const proposal=selectDirectorIntent(candidates,{
+    speakerCaptureRef:speaker,playerCaptureRef:player,nowMonotonicMs:time});
+  assert.ok(proposal);
+  const stamp={hostRunId,worldEpoch:1,speakerCaptureRef:speaker,playerCaptureRef:player,
+    ownerIncarnationId:incarnation,proofRevision:2,playerTurnVersion:0,policyVersion:1};
+  assert.ok(ps.directorOriginalEntitlementFor(proposal,stamp));
+  time=NOW+1901;ps.lastReceipt=time;
+  assert.equal(ps.directorOriginalEntitlementFor(proposal,stamp),null,
+    'original urgent source timestamp expires despite valid original PS3 ledger');
 });
