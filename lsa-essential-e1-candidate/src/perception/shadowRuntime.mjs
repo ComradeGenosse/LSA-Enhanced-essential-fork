@@ -183,8 +183,8 @@ export class ShadowRuntime {
       const normalized=s.kind==='radio_changed'?normalizeRadioSignal(s,this.radioCatalog):null;
       if(s.kind==='radio_changed' && !normalized) {this.ps2Diagnostics.dropped=Math.min(MAX_COUNTER,this.ps2Diagnostics.dropped+1);return true;}
       const semanticOff=normalized?.contentKind==='off';
-      const correlationSignal=semanticOff?{...s,kind:'radio_stopped',radio:normalized}:s.kind==='radio_changed'?{...s,radio:normalized}:s;
-      const correlated=this.correlator.ingest({nativeRun:this.epoch,signal:correlationSignal,witnessReceipts:semanticOff?[]:(s.witnessReceipts||[])});
+      const correlationSignal=semanticOff?{...s,kind:'radio_stopped',facts:{station:'',soundHash:0,trackTextId:0}}:s;
+      const correlated=this.correlator.ingest({nativeRun:this.epoch,signal:correlationSignal,radio:semanticOff?null:normalized,witnessReceipts:semanticOff?[]:(s.witnessReceipts||[])});
       if(correlated.duplicate) this.ps2Diagnostics.duplicates=Math.min(MAX_COUNTER,this.ps2Diagnostics.duplicates+1);
       else if(correlated.accepted) {this.ps2Diagnostics.correlated=Math.min(MAX_COUNTER,this.ps2Diagnostics.correlated+Number(Boolean(correlated.episodeId)));this.ps2Diagnostics.witnessed=Math.min(MAX_COUNTER,this.ps2Diagnostics.witnessed+correlated.observations.length);}
       if(!correlated.accepted) this.ps2Diagnostics.dropped=Math.min(MAX_COUNTER,this.ps2Diagnostics.dropped+1);

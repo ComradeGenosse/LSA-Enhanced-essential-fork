@@ -114,7 +114,7 @@ class Program
     {Game.GameTime+=210;Set(integration,"nextDiscovery",0L);Set(integration,"nextState",0L);Set(integration,"nextShot",0L);integration.Update();}
     static void Main()
     {
-        RadioCoverage();try{Run();}catch(Exception e){Console.Error.WriteLine(e.ToString());Environment.ExitCode=1;}}
+        try{Run();RadioCoverage();}catch(Exception e){Console.Error.WriteLine(e.ToString());Environment.ExitCode=1;}}
     static void Run()
     {
         Check(LSA.PromotedCharacters.EssentialPlayerPriorityMonitor.Read()==-1,

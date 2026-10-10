@@ -26,8 +26,15 @@ export class EpisodeCorrelator {
     this.seen = new Map(); this.latest = new Map(); this.radioCurrent = new Map(); this.dropped = 0; this.duplicates = 0;
   }
 
-  ingest({ nativeRun, signal, witnessReceipts = [] }) {
+  ingest({ nativeRun, signal, witnessReceipts = [], radio = null }) {
     if (!isUuid(nativeRun) || !validateSignal(signal) || !Array.isArray(witnessReceipts) || witnessReceipts.length > 16 || !witnessReceipts.every(validateWitnessReceipt)) return { accepted: false, reason: 'invalid_input' };
+    // Catalog details are locally derived, never appended to the authenticated wire.
+    if(signal.kind==='radio_changed' && (!radio || radio.eventSignalId!==signal.signalId ||
+       radio.sourceVehicleCaptureRef!==signal.target || radio.gameTick!==signal.gameTick ||
+       radio.station!==signal.facts.station || radio.soundHash!==signal.facts.soundHash ||
+       radio.trackTextId!==signal.facts.trackTextId || typeof radio.trackKnown!=='boolean')) {
+      return {accepted:false,reason:'radio_derived_identity_mismatch'};
+    }
     this.expire();
     const eventKey = `${nativeRun}:${signal.signalId}`;
     if (this.seen.has(eventKey)) { this.duplicates++; return { accepted: true, duplicate: true, episodeId: this.seen.get(eventKey).episodeId, observations: [] }; }
@@ -81,7 +88,7 @@ export class EpisodeCorrelator {
       if (old?.claims.some(c => c.details?.eventSignalId === signal.signalId)) continue;
       if (old && old.claims.length >= CAP.perObservationClaims) { this.dropped++; continue; }
       const mappedKind = receipt.evidence.channel === 'report' ? 'report' : event[2];
-      const claim = { claimId: randomUUID(), kind: mappedKind, certainty: receipt.certainty === 'uncertain' ? 'uncertain' : 'supported', evidence: { ...receipt.evidence }, ...(receipt.knowsSource && sourceRef ? { source: sourceRef } : {}), ...(receipt.knowsTarget && targetRef ? { target: targetRef } : {}), details: signal.kind==='radio_changed' && signal.radio ? {eventSignalId:signal.signalId,reason:receipt.reason,soundType:'radio',station:signal.radio.station,trackKnown:signal.radio.trackKnown,...(signal.radio.stationName?{stationName:signal.radio.stationName}:{}),...(signal.radio.trackKnown?{artist:signal.radio.artist,title:signal.radio.title,contentKind:signal.radio.contentKind}:{})} : qualifiedDetails(signal,receipt,this.anchor) };
+      const claim = { claimId: randomUUID(), kind: mappedKind, certainty: receipt.certainty === 'uncertain' ? 'uncertain' : 'supported', evidence: { ...receipt.evidence }, ...(receipt.knowsSource && sourceRef ? { source: sourceRef } : {}), ...(receipt.knowsTarget && targetRef ? { target: targetRef } : {}), details: signal.kind==='radio_changed' && radio ? {eventSignalId:signal.signalId,reason:receipt.reason,soundType:'radio',station:radio.station,trackKnown:radio.trackKnown,...(radio.stationName?{stationName:radio.stationName}:{}),...(radio.trackKnown?{artist:radio.artist,title:radio.title,contentKind:radio.contentKind}:{})} : qualifiedDetails(signal,receipt,this.anchor) };
       const observation = {
         version: 1, observationId: old?.observationId || randomUUID(), episodeId, revision: (old?.revision || 0) + 1,
         observer: { captureRef: observerRef, kind: 'ped' }, observedAt: { nativeRun, gameTick: receipt.evidence.sampledGameTick, receivedUtc: this.utc() },
