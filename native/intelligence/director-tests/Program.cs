@@ -9,12 +9,13 @@ class Program
 {
     static int assertions;
     static long now=1000;
+    static long special=7;
     static bool safe=true;
     static string host="a1111111-1111-4111-8111-111111111111";
     static int world=1;
     static DirectorAdmission New(bool enabled=true)
     {
-        return new DirectorAdmission(()=>now,r=>safe,()=>host,()=>world,enabled);
+        return new DirectorAdmission(()=>now,r=>safe,()=>host,()=>world,enabled,()=>special);
     }
     static void Check(bool value,string label)
     {
@@ -265,7 +266,7 @@ class Program
         a=Request(31);var callbackFault=new DirectorAdmission(()=>now,(r,stage)=>{
             if(stage=="complete")throw new Exception("failed native callback");
             return true;
-        },()=>host,()=>world,true);
+        },()=>host,()=>world,true,()=>special);
         Check(callbackFault.Handle(a).Status=="reserved","fault fixture reserve");
         Check(callbackFault.Handle(Request(31,"submit")).Status=="submitted","fault fixture submit");
         Check(callbackFault.BindActualTuple(a.TicketId,"17","callback-fault",4,5),"fault fixture bind");
@@ -275,7 +276,7 @@ class Program
         Check(!callbackFault.HasActive,"throwing completion proof retires ticket");
 
         a=Request(32);var lostOwner=new DirectorAdmission(()=>now,(r,stage)=>
-            stage!="playback_started",()=>host,()=>world,true);
+            stage!="playback_started",()=>host,()=>world,true,()=>special);
         Check(lostOwner.Handle(a).Status=="reserved","lost-owner reserve");
         Check(lostOwner.Handle(Request(32,"submit")).Status=="submitted","lost-owner submit");
         Check(lostOwner.BindActualTuple(a.TicketId,"17","owner-revoked",4,5),"lost-owner bind");
@@ -360,7 +361,7 @@ class Program
         Check(!DirectorC06Policy.Safe(req,proof),"unavailable original PS3 entitlement denies");
         proof.DecisionKey=req.DecisionKey;
         Check(!DirectorC06Policy.Safe(req,new DirectorC06Policy.Snapshot()),"unknown C06 truth denies");
-        var admission=new DirectorAdmission(()=>now,r=>DirectorC06Policy.Safe(r,proof),()=>host,()=>world,true);
+        var admission=new DirectorAdmission(()=>now,r=>DirectorC06Policy.Safe(r,proof),()=>host,()=>world,true,()=>special);
         Check(admission.Handle(req).Status=="reserved","full native proof permits one reservation in isolated test only");
         proof.PlayerTurnIdle=false;
         Check(admission.Handle(Request(23,"submit")).Status=="unsafe","player takeover vetoes reserved Director before submit");
@@ -372,7 +373,7 @@ class Program
         var staged=new DirectorAdmission(()=>now,(r,stage)=>
             stage=="bind" || stage=="playback_started" || stage=="complete" ? DirectorC06Policy.CurrentPlayback(r,stagedProof)
                               : DirectorC06Policy.Safe(r,stagedProof),
-            ()=>host,()=>world,true);
+            ()=>host,()=>world,true,()=>special);
         Check(staged.Handle(playing).Status=="reserved","idle owner permits real ticket reserve");
         Check(staged.Handle(Request(24,"submit")).Status=="submitted","idle at submit");
         stagedProof.OwnerIdle=false;stagedProof.EssentialTurnIdle=false;stagedProof.PlaybackIdle=false;
@@ -390,7 +391,7 @@ class Program
         var interrupted=new DirectorAdmission(()=>now,(r,stage)=>
             stage=="bind" || stage=="playback_started" || stage=="complete" ? DirectorC06Policy.CurrentPlayback(r,takeoverProof)
                               : DirectorC06Policy.Safe(r,takeoverProof),
-            ()=>host,()=>world,true);
+            ()=>host,()=>world,true,()=>special);
         Check(interrupted.Handle(takeover).Status=="reserved","player takeover fixture reserve");
         Check(interrupted.Handle(Request(25,"submit")).Status=="submitted","player takeover fixture submit");
         Check(interrupted.BindActualTuple(takeover.TicketId,"17","interrupted-turn",8,3),"player takeover fixture exact tuple");
