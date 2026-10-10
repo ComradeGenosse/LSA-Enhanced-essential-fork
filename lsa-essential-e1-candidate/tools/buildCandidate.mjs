@@ -16,7 +16,7 @@ const acorn = require('./vendor/acorn');
 const expectedBundleHash = '5d81de4217bd103316a1083e482ded1bddc791314abf671d686036175c0475f2';
 const expectedDllHash = '9b6de42d4c464901d859dd95e17e100e4fa9ef6074bfbb0cf3a57a76f6ddd653';
 const expectedNativeMetadataHash = '18edd2b47ffde748388b07a4a2d023793e183b882fe638acb5276440d45a2d23';
-const expectedPatchCount = 70;
+const expectedPatchCount = 69;
 const launcherName = 'server.bundle.mjs';
 const stockBundleDefault = path.resolve(root, 'upstream/server.bundle.mjs');
 const stockDllDefault = path.resolve(root, 'upstream/LosSantosAlive.dll');
@@ -163,7 +163,7 @@ export function patchSource(source) {
   replace(audioBufferPush.start, audioBufferPush.end, '(t.metadata?.provider !== "openai" && ' + source.slice(audioBufferPush.start, audioBufferPush.end) + ')', 'isolate Gemini debug PCM');
   prelude('CP', 'if (t?.metadata?.provider === "openai" && (!globalThis.__LSA_E1_RUNTIME.host.isCurrent({ pedId: t.pedId, turnId: t.id, generationId: t.generationId, sessionNonce: t.metadata.sessionNonce }) || !t.audio.accepted || t.audio.rejected || t.audio.streamEnded)) throw new Error("E1 PCM has no current native authorization.");');
   prelude('IP', 'if (t?.metadata?.provider === "openai" && (!globalThis.__LSA_E1_RUNTIME.host.isCurrent({ pedId: t.pedId, turnId: t.id, generationId: t.generationId, sessionNonce: t.metadata.sessionNonce }) || !t.audio.accepted || t.audio.rejected)) throw new Error("E1 stream end has no current native authorization.");');
-  prelude('Rb', 'if (t?.metadata?.provider === "openai" && (!globalThis.__LSA_E1_RUNTIME.host.isCurrent({ pedId: t.pedId, turnId: t.id, generationId: t.generationId, sessionNonce: t.metadata.sessionNonce }) || !globalThis.__LSA_E1_RUNTIME.host.validateTurnAction(t))) return false;');
+  prelude('Rb', 'if(t?.metadata?.directorTicket) return false; if (t?.metadata?.provider === "openai" && (!globalThis.__LSA_E1_RUNTIME.host.isCurrent({ pedId: t.pedId, turnId: t.id, generationId: t.generationId, sessionNonce: t.metadata.sessionNonce }) || !globalThis.__LSA_E1_RUNTIME.host.validateTurnAction(t))) return false;');
   // Stock cancellation did not interrupt authorized audio. OpenAI requires exact cleanup.
   insert(functionBody(ast, 'hK').start + 1, 'const __lsaE1Cancel = le.getTurn(t); if (__lsaE1Cancel?.metadata?.provider === "openai" && !Vt(__lsaE1Cancel.status) && __lsaE1Cancel.audio.authorized) Ey(yi(), _i(__lsaE1Cancel), "openai_cancel");', 'exact OpenAI cancellation');
 
@@ -286,7 +286,7 @@ export function patchSource(source) {
   // valid stock DO action. N4/Rb is the real stock action dispatch path and
   // yK can initiate an approach before Rb, so BOTH are independently vetoed.
   // No global action policy changes for unrelated Essential turns.
-  prelude('Rb','if(t?.metadata?.directorTicket) return false;');
+
   prelude('yK','if(t?.metadata?.directorTicket) return null;');
   // Reject the observed transcript itself before routing it to audio when a
   // stock Director model disobeys the dialogue-only contract.
