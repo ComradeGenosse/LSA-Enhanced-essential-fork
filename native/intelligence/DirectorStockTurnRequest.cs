@@ -16,7 +16,8 @@ namespace LSA.Intelligence
             DirectorC06Policy.Snapshot nativeProof,
             Ped speaker,Ped player,string context)
         {
-            if(!DirectorC06Policy.Safe(original,nativeProof) ||
+            if(!DirectorAdmission.Valid(original) || original.Operation!="submit" ||
+                !DirectorC06Policy.Safe(original,nativeProof) ||
                 speaker==null || player==null || speaker==player ||
                 !speaker.Exists() || speaker.IsDead ||
                 !player.Exists() || player.IsDead ||
