@@ -490,8 +490,14 @@ namespace LSA.Intelligence
                         (mode.Mode=="idle" || mode.Mode=="unknown" ||
                          mode.Mode=="follow" || mode.Mode=="wait" ||
                          mode.Mode=="sit" || mode.Mode=="activity");
+                    // A P2 follow order owns locomotion, not the voice turn.
+                    // Permit the same live, unsuspended follower to speak
+                    // spontaneously; C-06 independently rejects mic, text,
+                    // conversation, pending audio, reflex and script conflicts.
+                    // ACT tasks, residual/unknown modes and suspension stay busy.
                     proof.OwnerIdle=proof.OwnerPrimaryModeKnown && !mode.Suspended &&
-                        mode.Owner=="none" && mode.Mode=="idle";
+                        (mode.Owner=="none" && mode.Mode=="idle" ||
+                         mode.Owner=="p2" && mode.Mode=="follow");
                     // Source-pinned Core NpcStateStore is used by existing ACT
                     // preflight; no state is UNKNOWN, not absence of a reflex.
                     var state=NpcStateStore.TryGetState((Ped)speaker.Entity);
