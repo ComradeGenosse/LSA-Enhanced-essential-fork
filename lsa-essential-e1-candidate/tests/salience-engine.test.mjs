@@ -170,7 +170,8 @@ test('verified gunfire and stranger injury permit a bounded spontaneous reaction
     claims:[injuryOf(stranger)]});
   const injuryDecision=evaluateSalience(injured,following);
   assert.equal(injuryDecision.response,'eligible','someone getting shot merits a response');
-  assert.equal(injuryDecision.context,'must_include');
+  assert.equal(injuryDecision.context,'candidate',
+    'ordinary stranger injury should not displace PS4 reserved danger context');
   assert.equal(injuryDecision.memory,'none','strangers do not gain a fabricated memory link');
 
   const uncertain=observation({observer,eventType:'firing_burst',severity:'routine',
