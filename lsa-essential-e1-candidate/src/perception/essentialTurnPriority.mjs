@@ -1,3 +1,4 @@
+import {randomUUID} from 'node:crypto';
 // Read-only projection of the *original stock backend* conversation stores.
 // Does not allocate a turn, call stock kb or certify native C-06. The backend
 // owns its full lifecycle; the companion may only inspect a synchronous
@@ -51,6 +52,7 @@ const originalEntrypoints = new Set([
   'session_retire','mic_reset','special_dispatch','mic_capture',
 ]);
 export class OriginalEssentialTurnTimeline {
+  sourceRun=randomUUID();
   #revision=1;
   #invalid=false;
   #dirty=true;
@@ -102,6 +104,7 @@ export class OriginalEssentialTurnTimeline {
     return Object.freeze({
       schemaVersion:1,
       source:'original_essential_backend_lifecycle',
+      sourceRun:this.sourceRun,
       revision:this.#revision,
       observationSerial:this.#observations,
       quiet:projection.quiet,
