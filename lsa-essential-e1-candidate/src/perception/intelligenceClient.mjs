@@ -336,11 +336,41 @@ export class IntelligenceClient {
       },identity);
     }catch{return false;}
     if(Buffer.byteLength(line)>BOUNDS.frameBytes)return false;
+    // The original source cannot consume a queued wire write as permission.
+    // A separate, exact ticket-bound native response resolves this waiter.
+    // The timeout covers a missed/late native drain without a model call.
+    if(this.directorBindingPending.has(id))return false;
+    let finish;
+    const result=new Promise(resolve=>{
+      finish=accepted=>{
+        const current=this.directorBindingPending.get(id);
+        if(!current || current.finish!==finish)return;
+        clearTimeout(current.timeout);
+        resolve(accepted===true);
+      };
+    });
+    const timeout=setTimeout(()=>finish(false),900);
+    timeout.unref?.();
+    this.directorBindingPending.set(id,{ticket,finish,timeout,result});
     this.directorStockClaims.delete(id); // no retry or identity reassignment
-    try {this.socket.write(line);return true;}catch{return false;}
+    try {this.socket.write(line);return true;}
+    catch{finish(false);return false;}
+  }
+  async awaitDirectorNativeBinding(ticket) {
+    const id=ticket?.ticketId,pending=this.directorBindingPending.get(id);
+    if(!pending || pending.ticket!==ticket)return false;
+    try {return await pending.result===true;}
+    finally {
+      if(this.directorBindingPending.get(id)===pending)this.directorBindingPending.delete(id);
+    }
   }
   acceptDirectorResponse(payload) {
     if(!payload || this.runtime.directorRequestVersion!==1)return false;
+    const nativeBinding=this.directorBindingPending.get(payload.ticketId);
+    if(nativeBinding && (payload.status==='bound'||payload.status==='unsafe')) {
+      nativeBinding.finish(payload.status==='bound');
+      return true;
+    }
     const pending=this.directorPending.get(payload.ticketId);
     if(!pending)return false;
     const allowed={
@@ -356,6 +386,8 @@ export class IntelligenceClient {
   }
   cancelDirectorRequests() {
     for(const item of [...this.directorPending.values()])item.resolve(null);
+    for(const item of [...this.directorBindingPending.values()])item.finish(false);
+    this.directorBindingPending.clear();
     for(const ticketId of this.directorOwnerReservations.keys())
       try {this.originalTurnRelease(ticketId);}catch{}
     this.directorOwnerReservations.clear();this.directorNativeSubmitted.clear();this.directorStockDispatched.clear();this.directorStockContexts.clear();this.directorStockClaims.clear();
@@ -367,7 +399,7 @@ export class IntelligenceClient {
     this.originalTurnCurrent=typeof originalTurnCurrent==='function'?originalTurnCurrent:()=>null;
     this.originalTurnRelease=typeof originalTurnRelease==='function'?originalTurnRelease:()=>false;
     this.originalTurnPhase=typeof originalTurnPhase==='function'?originalTurnPhase:()=>null;
-    this.closed=false;this.socket=null;this.lastReport=0;this.directorPending=new Map();this.directorOwnerReservations=new Map();this.directorNativeSubmitted=new Set();this.directorStockDispatched=new Set();this.directorStockContexts=new Map();this.directorStockClaims=new Map();
+    this.closed=false;this.socket=null;this.lastReport=0;this.directorPending=new Map();this.directorOwnerReservations=new Map();this.directorNativeSubmitted=new Set();this.directorStockDispatched=new Set();this.directorStockContexts=new Map();this.directorStockClaims=new Map();this.directorBindingPending=new Map();
   }
   persist(event,data={}) { try { this.telemetry(event,data); } catch {} }
   summary(finalSnapshot=false) {
