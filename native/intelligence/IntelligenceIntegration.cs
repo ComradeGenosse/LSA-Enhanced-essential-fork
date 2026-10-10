@@ -43,6 +43,7 @@ namespace LSA.Intelligence
         readonly string pipeName;
         readonly bool directorShadow;
         readonly DirectorAdmission director;
+        readonly DirectorSchedulerIntake stockScheduler;
         readonly DirectorPs3Receipts ps3Receipts;
         readonly DirectorOriginalTurnReceipts originalTurns;
         // Core callback thread is not established as the host owner fiber.
@@ -123,6 +124,10 @@ namespace LSA.Intelligence
             director=new DirectorAdmission(()=>this.host.MonotonicMs,(r,stage)=>(stage=="bind" || stage=="playback_started" || stage=="complete") ? DirectorC06Policy.CurrentPlayback(r,ReadDirectorC06(r)) : DirectorC06Policy.Safe(r,ReadDirectorC06(r)),()=>this.host.HostRunId,()=>this.host.WorldEpoch,false,
                 ()=>LosSantosAlive.Bridge.SpecialTurns.SpecialGeminiTurnService.ReadPlayerTurnVersion(),
                  ()=>directorShadow ? LSA.PromotedCharacters.EssentialPlayerPriorityMonitor.Read() : -1);
+            // #3A compiles and binds the real pinned Essential Submit method.
+            // This adapter is intentionally, unconditionally DEFAULT-OFF:
+            // #3B must bind native callback tuple before activation.
+            stockScheduler=DirectorSchedulerIntake.Production(director,false);
             this.host.WorldChanged+=WorldChanged;capabilities=capabilityNames.ToDictionary(k=>k,k=>false);
         }
         void WorldChanged(int epoch,string reason) {
@@ -480,6 +485,25 @@ namespace LSA.Intelligence
             } catch { return new DirectorC06Policy.Snapshot(); }
             return proof;
         }
+        // #3A: a bounded original stock scheduler message, with NO grant
+        // fields supplied by its sender. The native owner-fiber reconstructs
+        // the exact immutable submitted ticket and original anchors itself.
+        bool TryDirectorStockIntake(DirectorStockIntakeCodec.Frame input)
+        {
+            if(!directorShadow || input==null)return false;
+            var original=director.SubmittedForStockIntake(input.TicketId);
+            if(original==null || input.DedupeKey!=original.DedupeKey ||
+                !ps3Receipts.IsReserved(original) ||
+                originalTurns.OriginalFor(original)==null)return false;
+            var speaker=anchors.Resolve(original.SpeakerCaptureRef)?.Entity as Ped;
+            var player=anchors.Resolve(original.PlayerCaptureRef)?.Entity as Ped;
+            // Resolve through the *original native reservation*, never
+            // a claimed PedId, latest focus or replacement owner.
+            if(speaker==null||player==null||
+                !ReferenceEquals(player,Game.LocalPlayer.Character))return false;
+            return stockScheduler.Dispatch(input.TicketId,input.Context,
+                ReadDirectorC06(original),speaker,player);
+        }
         // Owner-fiber only. A separately versioned Director request can be
         // decoded and explicitly rejected in shadow, but never tasks an actor,
         // invokes kb/Essential, or consumes any PS3 response entitlement.
@@ -487,6 +511,14 @@ namespace LSA.Intelligence
         {
             if(!directorShadow || channel==null)return;
             for(int n=0;n<4 && channel.TryTakeDirectorFrame(out var frame);n++) {
+                DirectorStockIntakeCodec.Frame stockIntake;
+                if(DirectorStockIntakeCodec.TryDecode(frame,out stockIntake)) {
+                    // This emits no stock speech while the #3B handoff and
+                    // callback binding are unavailable. No native scheduler
+                    // result is represented as playback completion.
+                    TryDirectorStockIntake(stockIntake);
+                    continue;
+                }
                 DirectorOriginalTurnReceipts.Evidence ownerReceipt;
                 if(DirectorOriginalTurnReceiptCodec.TryDecode(frame,out ownerReceipt)) {
                     originalTurns.Accept(ownerReceipt);
