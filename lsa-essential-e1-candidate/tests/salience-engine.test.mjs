@@ -474,6 +474,16 @@ test('Phase 13a validates exact original PS2/PS3 grant and P2 source proof witho
   assert.equal(checked.signalId,seen.claims[0].details.eventSignalId);
   assert.equal(checked.situationRevision,1);
   assert.equal(checked.ageMs,100);
+  // Native samples tick frequently even when policy and P2 owner have not
+  // changed. A fresh sample must not retire/re-grant the original PS3 key.
+  ps.observerSituations.set(speaker,Object.freeze({
+    ...ps.observerSituations.get(speaker),situationRevision:2,sampledGameTick:11}));
+  ps.refreshSalience(speaker);
+  const sampled=ps.directorOriginalEntitlementFor(proposal,stamp);
+  assert.equal(sampled?.decisionKey,checked.decisionKey);
+  assert.equal(sampled?.situationRevision,2);
+  assert.equal(sampled?.ageMs,100);
+  assert.equal(ps.salience.ledger.get(seen.observationId).consumed,false);
   assert.notEqual(checked.signalId,proposal.observationId,
     'original native signal identity differs from companion-issued observation UUID');
   assert.ok(Object.isFrozen(checked));
