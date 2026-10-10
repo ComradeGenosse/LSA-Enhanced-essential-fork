@@ -741,6 +741,53 @@ class Program
             "actively speaking is not idle but retains valid owner/currentness");
         Check(staged.Complete(playing.TicketId,"17","essential-real-turn",7,3,true,false,true,true),
             "matching complete actual playback can be acknowledged while Essential no longer idle");
+        // A successful native-occupied Director turn can outlive the original
+        // 250ms idle sample and 2s PS3 grant. Neither is a playback receipt.
+        long lateClock=1000;
+        var lateReq=Request(26);
+        var lateProof=ReadyProof(lateReq);
+        var late=new DirectorAdmission(()=>lateClock,(r,stage)=>
+            stage=="bind" ? DirectorC06Policy.CurrentPlayback(r,lateProof) :
+            stage=="playback_started" || stage=="complete" ?
+                DirectorC06Policy.CurrentOccupiedPlayback(r,lateProof) :
+                DirectorC06Policy.Safe(r,lateProof),
+            ()=>host,()=>world,true,()=>special,()=>playerEpoch);
+        Check(late.Handle(lateReq).Status=="reserved","occupied-turn fixture reserve");
+        Check(late.Handle(Request(26,"submit")).Status=="submitted","occupied-turn fixture submit");
+        Check(late.BindActualTuple(lateReq.TicketId,"17","late-generated",99,4),
+            "occupied-turn original binding");
+        lateClock+=5000;
+        lateProof.ObservationReceiptCurrent=false;lateProof.ResponseGrantCurrent=false;
+        lateProof.PlayerTurnSourceCurrent=false;lateProof.EssentialTurnKnown=false;
+        lateProof.PlaybackIdle=false;lateProof.EssentialTurnIdle=false;
+        lateProof.OwnerIdle=false;lateProof.ConversationIdle=false;
+        Check(!DirectorC06Policy.CurrentPlayback(lateReq,lateProof) &&
+            DirectorC06Policy.CurrentOccupiedPlayback(lateReq,lateProof),
+            "stale native PS3 grant does not invalidate the exact occupied stock turn");
+        Check(late.NotePlaybackStarted(lateReq.TicketId,"17","late-generated",99,4),
+            "real native playback may start after the short admission grant expires");
+        lateClock+=60000;
+        Check(late.Complete(lateReq.TicketId,"17","late-generated",99,4,true,false,true,true),
+            "exact native completed playback is accepted inside its own 120s lease");
+        Check(!late.HasActive,"completed occupied turn releases its global reservation");
+        var lostReq=Request(27);
+        long lostClock=1000;
+        var lostProof=ReadyProof(lostReq);
+        var lost=new DirectorAdmission(()=>lostClock,(r,stage)=>
+            stage=="bind" ? DirectorC06Policy.CurrentPlayback(r,lostProof) :
+            stage=="playback_started" || stage=="complete" ?
+                DirectorC06Policy.CurrentOccupiedPlayback(r,lostProof) :
+                DirectorC06Policy.Safe(r,lostProof),
+            ()=>host,()=>world,true,()=>special,()=>playerEpoch);
+        Check(lost.Handle(lostReq).Status=="reserved","player-priority fixture reserve");
+        Check(lost.Handle(Request(27,"submit")).Status=="submitted","player-priority fixture submit");
+        Check(lost.BindActualTuple(lostReq.TicketId,"17","priority-turn",100,4),
+            "player-priority fixture binding");
+        lostClock+=4000;
+        lostProof.TextInputIdle=false;
+        Check(!lost.NotePlaybackStarted(lostReq.TicketId,"17","priority-turn",100,4),
+            "real player text interrupts even an occupied Director turn");
+        Check(!lost.HasActive,"playback takeover retires the original turn");
         var takeover=Request(25);
         var takeoverProof=ReadyProof(takeover);
         var interrupted=new DirectorAdmission(()=>now,(r,stage)=>
