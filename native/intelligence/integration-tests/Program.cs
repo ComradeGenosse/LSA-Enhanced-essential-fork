@@ -74,6 +74,7 @@ class Program
             PlayerAnchorCurrent=true,PlayerIsLocal=true,PlayerAlive=true,
             OwnerProofCurrent=true,OwnerPrimaryModeKnown=true,OwnerIdle=true,
             PlayerTurnSourceCurrent=true,PlayerTurnIdle=true,MicStateKnown=true,MicIdle=true,
+            ConversationStateKnown=true,ConversationIdle=true,
             EssentialTurnKnown=true,EssentialTurnIdle=true,PlaybackKnown=true,PlaybackIdle=true,
             ScriptStateKnown=true,ScriptSafe=true,ActorReflexKnown=true,ActorReflexIdle=true,
             ObservationReceiptCurrent=true,ResponseGrantCurrent=true
@@ -138,6 +139,37 @@ class Program
               !DirectorC06Policy.Safe(c06request,overflowOwnerVersion),
               "zero/overflow owner revision fails closed");
         directorMode.Revision=2;
+        Check(c06probe.ConversationStateKnown && c06probe.ConversationIdle &&
+              !c06probe.PlayerTurnSourceCurrent,
+              "readable idle Core target/speaker is only negative conversation evidence, not a global grant");
+        LosSantosAlive.NPC.NpcTargeting.Conversation=actor;
+        var activeConversation=(DirectorC06Policy.Snapshot)integration.GetType().GetMethod(
+            "ReadDirectorC06",BindingFlags.NonPublic|BindingFlags.Instance).Invoke(integration,new object[]{c06request});
+        Check(activeConversation.ConversationStateKnown && !activeConversation.ConversationIdle &&
+              !DirectorC06Policy.Safe(c06request,activeConversation),
+              "active Core player-conversation target independently vetoes Director");
+        LosSantosAlive.NPC.NpcTargeting.Conversation=null;
+        LosSantosAlive.NPC.NpcTargeting.CurrentSpeaker=actor;
+        var activeSpeaker=(DirectorC06Policy.Snapshot)integration.GetType().GetMethod(
+            "ReadDirectorC06",BindingFlags.NonPublic|BindingFlags.Instance).Invoke(integration,new object[]{c06request});
+        Check(activeSpeaker.ConversationStateKnown && !activeSpeaker.ConversationIdle &&
+              !DirectorC06Policy.Safe(c06request,activeSpeaker),
+              "active Essential current speaker independently vetoes Director");
+        LosSantosAlive.NPC.NpcTargeting.CurrentSpeaker=null;
+        LosSantosAlive.NPC.NpcTargeting.ThrowConversation=true;
+        var unknownConversation=(DirectorC06Policy.Snapshot)integration.GetType().GetMethod(
+            "ReadDirectorC06",BindingFlags.NonPublic|BindingFlags.Instance).Invoke(integration,new object[]{c06request});
+        Check(!unknownConversation.ConversationStateKnown && !unknownConversation.ConversationIdle &&
+              !DirectorC06Policy.Safe(c06request,unknownConversation),
+              "failed Core conversation read never becomes idle");
+        LosSantosAlive.NPC.NpcTargeting.ThrowConversation=false;
+        LosSantosAlive.NPC.NpcTargeting.ThrowSpeaker=true;
+        var unknownSpeaker=(DirectorC06Policy.Snapshot)integration.GetType().GetMethod(
+            "ReadDirectorC06",BindingFlags.NonPublic|BindingFlags.Instance).Invoke(integration,new object[]{c06request});
+        Check(!unknownSpeaker.ConversationStateKnown && !unknownSpeaker.ConversationIdle &&
+              !DirectorC06Policy.Safe(c06request,unknownSpeaker),
+              "failed Core speaker read never becomes idle");
+        LosSantosAlive.NPC.NpcTargeting.ThrowSpeaker=false;
         Check(c06probe.SpecialTurnVersionKnown && c06probe.SpecialTurnVersion==0 &&
               c06probe.PlaybackKnown && c06probe.PlaybackIdle &&
               !c06probe.PlayerTurnSourceCurrent && !c06probe.EssentialTurnKnown,
