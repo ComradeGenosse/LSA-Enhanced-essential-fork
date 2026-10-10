@@ -88,7 +88,7 @@ export function normalizeConfig(input = {}, env = process.env) {
   // Phase 13a is opt-in and independent of PS observation collection. The
   // experimental setting requests production speech, but never bypasses the
   // separately verified native/Essential runtime capability gate.
-  const speechInput=input.spontaneousSpeech ?? {};
+  const speechInput=input.spontaneousSpeech===undefined ? {} : input.spontaneousSpeech;
   if(!speechInput || typeof speechInput!=='object' || Array.isArray(speechInput) ||
      Object.keys(speechInput).some(key=>key!=='mode'))
     throw new TypeError('spontaneousSpeech must contain only a mode.');
