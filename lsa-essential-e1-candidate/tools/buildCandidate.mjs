@@ -114,8 +114,8 @@ export function patchSource(source) {
     ['hK','turn_cancel'],['WP','session_open'],
     ['Ei','session_retire'],['el','mic_reset'],
     ['kb','special_dispatch'],
-  ]) prelude(original,
-    `__LSA_E1_RUNTIME.originalTurnTransition("${event}");`);
+  ]) insert(functionBody(ast,original).start+1,
+    `__LSA_E1_RUNTIME.originalTurnTransition("${event}");`, `PS6 original lifecycle ${original}`);
 
   // Bind native identity before the controller sends text or microphone input.
   const xnBody = functionBody(ast, 'Xn');
