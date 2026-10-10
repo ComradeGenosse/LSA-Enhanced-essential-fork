@@ -453,6 +453,16 @@ class Program
         var conversationAnchor=anchors.Current.Single(a=>ReferenceEquals(a.Entity,conversation));var ownedObservers=anchors.Current.Where(a=>a.OwnerLifetime!=null&&a.Observer).ToArray();var demotedOwned=anchors.Current.Single(a=>a.OwnerLifetime!=null&&!a.Observer);
         Check(conversationAnchor.Observer&&anchors.ObserverCount==16,"conversation NPC takes priority at full 16 promoted observers");
         Check(ownedObservers.Length==15&&demotedOwned.OwnerLifetime!=null&&anchors.Resolve(demotedOwned.CaptureRef)==demotedOwned,"lowest-priority promoted observer demoted safely");
+        // The finite LOS budget must not be consumed by transient ambient
+        // observers while a nearby promoted companion still needs sampling.
+        Set(integration,"lineOfSightBudget",8);
+        var budgetWitnesses=(List<WitnessReceipt>)integration.GetType().GetMethod(
+            "CaptureWitnesses",BindingFlags.NonPublic|BindingFlags.Instance).Invoke(
+                integration,new object[]{new RawSignal {kind="firing",source=playerCapture,gameTick=100}});
+        Check(budgetWitnesses.Count==8 &&
+              budgetWitnesses.All(w=>ownedObservers.Any(a=>a.CaptureRef==w.Observer)),
+              "all eight scarce native LOS slots prioritize original P2-owned companions");
+
         var wireNextConversation=new Ped {Handle=98,MemoryAddress=new IntPtr(98)};var pipeName="LSA.Integration.Tests."+Guid.NewGuid().ToString("N");var wireCaps=(Dictionary<string,bool>)Get(integration,"capabilities");var wireChannel=new IntelligenceChannel(pipeName,Guid.NewGuid().ToString("D"),()=>wireCaps,((LSA.PromotedCharacters.HostContext)Get(integration,"host")).HostRunId,()=>((LSA.PromotedCharacters.HostContext)Get(integration,"host")).WorldEpoch,true);Set(integration,"channel",wireChannel);wireChannel.Start();
         using(var client=new NamedPipeClientStream(".",pipeName,PipeDirection.In)) {
             client.Connect(3000);using(var reader=new StreamReader(client)) {
