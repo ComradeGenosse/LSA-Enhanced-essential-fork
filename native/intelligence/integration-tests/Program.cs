@@ -492,7 +492,7 @@ class Program
         integration.EnrichActor(repeatedPed,firstTurn);
         Check(demotedOwned.Observer && anchors.ObserverCount==16 &&
               firstTurn.IntegrationBlocks.Any(b=>b.Id=="turnKnowledge"),
-              "owned P0 capture admits previously demoted observer at capacity: available="+integration.IsAvailable+" observer="+demotedOwned.Observer+" count="+anchors.ObserverCount+" blocks="+firstTurn.IntegrationBlocks.Count+" psLog="+Game.Logs.LastOrDefault(s=>s.Contains("[PS] turn_actor")));
+              "owned P0 capture admits previously demoted observer at capacity");
         var repeatedRef=demotedOwned.CaptureRef;
         Tick(integration);
         Check(anchors.Resolve(repeatedRef)==demotedOwned && demotedOwned.Observer &&
