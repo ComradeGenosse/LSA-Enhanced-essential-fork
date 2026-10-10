@@ -153,29 +153,33 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
     checkOriginalTurn:(ticketId,snapshot)=>originalTurnTimeline.check(ticketId,snapshot),
     releaseOriginalTurn:ticketId=>originalTurnTimeline.release(ticketId),
     directorPreflight(input) {
-      if(!input?.directorTicket || input?.interruptExisting===true ||
+      if(input?.directorTicket!==undefined || input?.interruptExisting===true ||
          input?.faceListener===true || input?.reason!=='ps6_observer' ||
          typeof input?.dedupeKey!=='string' ||
-         input.dedupeKey!==input.directorTicket.dedupeKey)return false;
+         !/^ps:[0-9a-f-]{36}$/.test(input.dedupeKey))return false;
       try {
-        // This callback reads the original Essential A stores on their own
-        // event loop and checks the exact immutable source-side ticket lease.
-        // Native's independent entitlement still must pass; neither reader
-        // can grant C-06 on behalf of the other.
-        if(runtime.host.directorCheckOriginalTurn(input.directorTicket.ticketId)?.quiet!==true)
-          return false;
-        return runtime.intelligence?.preflightDirectorTicket?.(input.directorTicket,input)===true;
-      } catch {return false;}
+        // The stock DTO is NEVER an authority. Resolve its exact invocation
+        // through the original companion's authenticated, native-submitted
+        // one-shot dispatch ledger; caller-chosen ticket fields are forbidden.
+        const id=input.dedupeKey.slice(3);
+        if(runtime.host.directorCheckOriginalTurn(id)?.quiet!==true)return false;
+        const ticket=runtime.intelligence?.claimDirectorStockTicket?.(input);
+        if(!ticket || ticket.ticketId!==id ||
+           ticket.dedupeKey!==input.dedupeKey)return false;
+        input.directorTicket=ticket;
+        return true;
+      }catch{return false;}
     },
     requireDirectorTicket(input,hydrated) {
-      // The supplied kb object is not authority. Native accepted ticket, C-06,
-      // exact C-02 speaker/player binding and post-hydration proof are required.
-      // No native source currently exposes that complete receipt: fail closed.
+      // A source-backed and native-claimed ticket is checked again AFTER
+      // asynchronous actor hydration. A same-key foreign call or player
+      // takeover cannot adopt the claim; no fallback to a ps: key.
       if(input?.interruptExisting===true || input?.faceListener===true ||
-          !input?.directorTicket || !hydrated?.actorContext ||
-          runtime.intelligence?.verifyDirectorTicket?.(input.directorTicket,input,hydrated)!==true)
+         !input?.directorTicket || !hydrated?.actorContext ||
+         runtime.host.directorCheckOriginalTurn(input.directorTicket.ticketId)?.quiet!==true ||
+         runtime.intelligence?.verifyDirectorTicket?.(input.directorTicket,input,hydrated)!==true)
         throw new TypeError('director_ticket_unverified');
-      return Object.freeze({...input.directorTicket});
+      return input.directorTicket;
     },
     validateDecisionShape,
     validateStockDecision,
