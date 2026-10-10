@@ -120,6 +120,13 @@ namespace LSA.Intelligence
         {
             if(directorShadow)LogStatus("[PS] director_admission_veto stage="+stage+" reason="+reason);
         }
+        // Fixed literals only. No ticket, Ped, context, character or freeform
+        // exception text can reach the GTA diagnostic log.
+        void LogDirectorHandoff(string stage,string status,string reason)
+        {
+            if(directorShadow)LogStatus("[PS] director_handoff stage="+stage+
+                " status="+status+" reason="+reason);
+        }
         static readonly string[] capabilityNames={"snapshot","pedDamage","playerDamage","vehicleDamage","shooting","state","action","playback","witness","awareness","playerSpeech"};
         public IntelligenceIntegration(Func<OwnedParticipant[]> roster,string pipeName="LSA.Intelligence.v1",HostContext host=null,bool directorShadow=false,bool directorExperimental=false) {
             if(pipeName==null||!System.Text.RegularExpressions.Regex.IsMatch(pipeName,"^[A-Za-z0-9_.-]{1,80}$")) throw new ArgumentException();
@@ -146,7 +153,8 @@ namespace LSA.Intelligence
             // #3A compiles and binds the real pinned Essential Submit method.
             // This adapter is intentionally, unconditionally DEFAULT-OFF:
             // #3B must bind native callback tuple before activation.
-            stockScheduler=DirectorSchedulerIntake.Production(director,directorExperimental);
+            stockScheduler=DirectorSchedulerIntake.Production(director,directorExperimental,
+                (status,reason)=>LogDirectorHandoff("scheduler",status,reason));
             this.host.WorldChanged+=WorldChanged;capabilities=capabilityNames.ToDictionary(k=>k,k=>false);
         }
         void WorldChanged(int epoch,string reason) {
@@ -564,18 +572,35 @@ namespace LSA.Intelligence
         {
             if(!directorShadow || input==null)return false;
             var original=director.SubmittedForStockIntake(input.TicketId);
-            if(original==null || input.DedupeKey!=original.DedupeKey ||
-                !ps3Receipts.IsReserved(original) ||
-                originalTurns.OriginalFor(original)==null)return false;
+            if(original==null || input.DedupeKey!=original.DedupeKey) {
+                LogDirectorHandoff("native_intake","rejected","ticket_not_submitted");
+                return false;
+            }
+            if(!ps3Receipts.IsReserved(original)) {
+                LogDirectorHandoff("native_intake","rejected","ps3_grant_not_reserved");
+                return false;
+            }
+            if(originalTurns.OriginalFor(original)==null) {
+                LogDirectorHandoff("native_intake","rejected","backend_owner_not_current");
+                return false;
+            }
             var speaker=anchors.Resolve(original.SpeakerCaptureRef)?.Entity as Ped;
             var player=anchors.Resolve(original.PlayerCaptureRef)?.Entity as Ped;
             // Resolve through the *original native reservation*, never
             // a claimed PedId, latest focus or replacement owner.
             if(speaker==null||player==null||
-                !ReferenceEquals(player,Game.LocalPlayer.Character))return false;
-            if(!originalTurns.CaptureForBinding(original))return false;
+                !ReferenceEquals(player,Game.LocalPlayer.Character)) {
+                LogDirectorHandoff("native_intake","rejected","native_anchor_mismatch");
+                return false;
+            }
+            if(!originalTurns.CaptureForBinding(original)) {
+                LogDirectorHandoff("native_intake","rejected","binding_source_capture_denied");
+                return false;
+            }
             bool submitted=stockScheduler.Dispatch(input.TicketId,input.Context,
                 ReadDirectorC06(original),speaker,player);
+            LogDirectorHandoff("native_intake",submitted?"accepted":"rejected",
+                submitted?"scheduler_submission_accepted":"scheduler_submission_denied");
             if(!submitted)originalTurns.Retire(input.TicketId);
             return submitted;
         }
@@ -590,11 +615,17 @@ namespace LSA.Intelligence
             var request=director.ClaimedForOriginalBinding(frame.TicketId);
             if(request==null || frame.HostRunId!=request.HostRunId ||
                frame.WorldEpoch!=request.WorldEpoch ||
-               frame.SpeakerCaptureRef!=request.SpeakerCaptureRef)return false;
+               frame.SpeakerCaptureRef!=request.SpeakerCaptureRef) {
+                LogDirectorHandoff("native_binding","rejected","ticket_or_epoch_mismatch");
+                return false;
+            }
             var source=originalTurns.SealedForBinding(request);
             if(source==null || frame.SourceRun!=source.SourceRun ||
                frame.SourceRevision!=source.Revision ||
-               !ps3Receipts.IsReserved(request))return false;
+               !ps3Receipts.IsReserved(request)) {
+                LogDirectorHandoff("native_binding","rejected","original_source_or_grant_expired");
+                return false;
+            }
             var originalSpeaker=anchors.Resolve(request.SpeakerCaptureRef)?.Entity as Ped;
             var originalPlayer=anchors.Resolve(request.PlayerCaptureRef)?.Entity as Ped;
             uint nativePed;
@@ -603,9 +634,14 @@ namespace LSA.Intelligence
                !originalPlayer.Exists() || originalPlayer.IsDead ||
                !ReferenceEquals(originalPlayer,Game.LocalPlayer.Character) ||
                !uint.TryParse(frame.PedId,out nativePed) ||
-               Convert.ToUInt64(originalSpeaker.Handle)!=nativePed)return false;
+               Convert.ToUInt64(originalSpeaker.Handle)!=nativePed) {
+                LogDirectorHandoff("native_binding","rejected","actor_or_player_identity_invalid");
+                return false;
+            }
             bool bound=director.BindActualTuple(frame.TicketId,frame.PedId,
                 frame.TurnId,frame.GenerationId,frame.SessionNonce);
+            LogDirectorHandoff("native_binding",bound?"accepted":"rejected",
+                bound?"original_tuple_bound":"original_tuple_denied");
             // Binding consumes the sealed pre-turn source identity. Subsequent
             // playback checks use the immutable native admission reservation.
             originalTurns.Retire(frame.TicketId);
