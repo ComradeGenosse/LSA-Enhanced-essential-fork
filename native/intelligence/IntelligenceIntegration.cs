@@ -219,6 +219,9 @@ namespace LSA.Intelligence
         }
         public void OwnerRetired(string lifetime) {
             try {
+                if(director.RevokeOwner(lifetime))lock(directorPlaybackGate) {
+                    directorPlaybackEvents.Clear();directorPlaybackOverflow=false;
+                }
                 // P2 can notice a terminal state before our next sample. Capture it
                 // while the original registration/entity still exists, then revoke.
                 foreach(var a in anchors.Current.Where(a=>a.OwnerLifetime==lifetime)) if(a.Entity is Ped p && Live(p,a.Handle,a.Address) && p.IsDead) Sample(a,callbackTick,host.MonotonicMs);
