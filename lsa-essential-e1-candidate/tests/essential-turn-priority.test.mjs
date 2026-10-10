@@ -121,7 +121,7 @@ test('pinned AST modifies original lifecycle entrypoints rather than polling alo
    assert.ok(patched.edits.some(edit=>edit.label==='PS6 original lifecycle '+boundary));
  for(const event of ['turn_intake','turn_allocate','turn_terminal','turn_cancel','session_open',
   'session_retire','mic_reset','special_dispatch'])
-   assert.ok(patched.output.includes('originalTurnTransition("'+event+'")'));
+   assert.ok(patched.output.includes('originalTurnTransition("'+event+'",'));
  assert.match(patched.output,/inspectOriginalTurnPriority/);
 });
 
@@ -164,4 +164,51 @@ test('original backend ownership lease expires and revokes on hidden map mutatio
  now+=201;
  assert.equal(t.check(next,t.sample(clear())),null,'expiry cannot refresh the lease');
  assert.equal(t.acquire(next,t.sample(clear())),null,'expired lease is terminal');
+});
+
+test('director own-stock lifecycle preserves only its exact authorized staged transitions',()=>{
+ let now=1000;
+ const t=new OriginalEssentialTurnTimeline({now:()=>now});
+ const own='b1111111-1111-4111-8111-111111111111';
+ const foreign='c1111111-1111-4111-8111-111111111111';
+ assert.ok(t.acquire(own,t.sample(clear())));
+ assert.ok(t.beginDirector(own,t.sample(clear())));
+ assert.equal(t.directorPhase(own),'reserved');
+ assert.equal(t.transition('special_dispatch',own),true);
+ assert.equal(t.directorPhase(own),'dispatch');
+ assert.ok(t.check(own,t.sample(clear())));
+ assert.equal(t.transition('turn_allocate',own),true);
+ assert.equal(t.directorPhase(own),'allocation');
+ assert.equal(t.transition('session_open',own),true);
+ assert.equal(t.directorPhase(own),'session');
+ assert.equal(t.transition('turn_intake',own),true);
+ assert.equal(t.directorPhase(own),'generation');
+ assert.equal(t.directorPhase(foreign),null,'foreign ticket never inherits the phase');
+ t.transition('session_retire');
+ assert.equal(t.directorPhase(own),null,'retiring Essential session ends ownership');
+ assert.equal(t.leaseCount,0);
+ assert.equal(t.acquire(own,t.sample(clear())),null,'retired ticket cannot reauthorize');
+});
+
+test('player takeover, wrong source transition and expiration veto Director allocation',()=>{
+ const id='e1111111-1111-4111-8111-111111111111',alt='f1111111-1111-4111-8111-111111111111';
+ let now=1000;const t=new OriginalEssentialTurnTimeline({now:()=>now});
+ assert.ok(t.acquire(id,t.sample(clear())));
+ assert.ok(t.beginDirector(id,t.sample(clear())));
+ t.transition('special_dispatch',id);
+ t.transition('turn_allocate',alt);
+ assert.equal(t.directorPhase(id),null,'foreign allocation retires held lease');
+ const t2=new OriginalEssentialTurnTimeline({now:()=>now});
+ assert.ok(t2.acquire(id,t2.sample(clear())));
+ assert.ok(t2.beginDirector(id,t2.sample(clear())));
+ t2.transition('special_dispatch',id);
+ t2.transition('mic_capture');
+ assert.equal(t2.directorPhase(id),null,'player speech wins');
+ const t3=new OriginalEssentialTurnTimeline({now:()=>now});
+ assert.ok(t3.acquire(id,t3.sample(clear())));
+ assert.ok(t3.beginDirector(id,t3.sample(clear())));
+ now+=2001;
+ assert.equal(t3.directorPhase(id),null,'late generation cannot revive expired reservation');
+ t3.transition('turn_allocate',id);
+ assert.equal(t3.leaseCount,0);
 });
