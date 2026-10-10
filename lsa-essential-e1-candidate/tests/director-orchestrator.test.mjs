@@ -71,7 +71,7 @@ test('complete exact native reserve/submit/hydration/publication/playback consum
 });
 test('native admission denial never asks Essential to speak',async()=>{
  const f=fixture({nativeStatus:{reserve:'busy'}});
- assert.equal((await f.director.attempt({candidates:[candidate],facts,stamp})).status,'native_rejected');
+ assert.deepEqual(await f.director.attempt({candidates:[candidate],facts,stamp}),{status:'native_rejected',nativeReason:'busy'});
  assert.deepEqual(f.native.map(r=>r.operation),['reserve']);
  assert.equal(f.dispatches.length,0);
  assert.equal(f.acknowledgements.length,0);
@@ -130,4 +130,15 @@ test('original PS3 entitlement revoked during native submit cannot reach kb inta
  assert.deepEqual(f.native.map(r=>r.operation),['reserve','submit','cancel']);
  assert.deepEqual(f.dispatches,[]);
  assert.deepEqual(f.acknowledgements,[]);
+});
+
+test('native denial reason vocabulary is bounded and cannot leak arbitrary native status',async()=>{
+ const f=fixture({nativeStatus:{reserve:'raw-private-content-123'}});
+ assert.deepEqual(await f.director.attempt({candidates:[candidate],facts,stamp}),
+   {status:'native_rejected',nativeReason:'unknown'});
+ assert.equal(f.dispatches.length,0);
+ const submit=fixture({nativeStatus:{submit:'unsafe'}});
+ assert.deepEqual(await submit.director.attempt({candidates:[candidate],facts,stamp}),
+   {status:'native_submit_rejected',nativeReason:'unsafe'});
+ assert.equal(submit.dispatches.length,0);
 });
