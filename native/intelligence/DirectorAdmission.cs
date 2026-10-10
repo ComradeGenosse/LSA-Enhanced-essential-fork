@@ -183,6 +183,36 @@ namespace LSA.Intelligence
             r.NativePlaybackStarted=true;
             return true;
         }
+        // Core PlaybackStarted/Ended events carry PedId, TurnId and Int64
+        // GenerationId, but NOT SessionNonce or any PS6 ticket ID. Only the
+        // original native binding supplies those; never accept callbacks as a
+        // new binding, infer nonce from a ped handle or borrow another actor's
+        // owner proof. Called strictly from the owner fiber after exact anchor
+        // identity validation, never directly from the Core event thread.
+        internal bool ObserveCorePlaybackStarted(
+          string speakerCaptureRef,string pedId,string turnId,long generationId)
+        {
+            Reservation r;
+            if(!enabled || activeTicket==null ||
+                !pending.TryGetValue(activeTicket,out r) ||
+                r.Request.SpeakerCaptureRef!=speakerCaptureRef ||
+                r.PedId!=pedId || r.TurnId!=turnId ||
+                r.GenerationId!=generationId)return false;
+            return NotePlaybackStarted(activeTicket,pedId,turnId,generationId,r.SessionNonce);
+        }
+        internal bool ObserveCorePlaybackEnded(
+          string speakerCaptureRef,string pedId,string turnId,long generationId,
+          string reason,bool interrupted,bool hadAudio,bool playbackStarted)
+        {
+            Reservation r;
+            if(!enabled || activeTicket==null ||
+                !pending.TryGetValue(activeTicket,out r) ||
+                r.Request.SpeakerCaptureRef!=speakerCaptureRef ||
+                r.PedId!=pedId || r.TurnId!=turnId ||
+                r.GenerationId!=generationId)return false;
+            return Complete(activeTicket,pedId,turnId,generationId,r.SessionNonce,
+                reason=="completed",interrupted,hadAudio,playbackStarted);
+        }
         internal bool Complete(string ticket,string pedId,string turnId,long generationId,int nonce,
           bool complete,bool interrupted,bool hadAudio,bool playbackStarted)
         {
