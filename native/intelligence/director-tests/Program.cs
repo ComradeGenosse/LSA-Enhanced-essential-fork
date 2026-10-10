@@ -421,6 +421,29 @@ class Program
             ()=>special,()=>throw new InvalidOperationException("player source lost"));
         Check(unreadable.Handle(Request(87)).Status=="unsafe"&&!unreadable.HasActive,
               "unreadable player-ownership revision denies instead of inventing idle");
+        // Test actual monotonic implementation rather than changing a mock
+        // long by hand. A source not installed is unknown; successive
+        // recorded original calls never re-use a prior stable revision.
+        var source=new PlayerPriorityEpoch();
+        Check(source.Revision==-1,"new source is not installed or falsely idle");
+        source.Transition();
+        Check(source.Revision==-1,"pre-install events cannot authorize");
+        source.Installed();
+        long baseline=source.Revision;
+        Check(baseline==2,"installed source preserves original transition history");
+        var checkedSource=new DirectorAdmission(()=>now,r=>true,()=>host,()=>world,
+            true,()=>special,()=>source.Revision);
+        a=Request(88);
+        Check(checkedSource.Handle(a).Status=="reserved","real epoch-source baseline");
+        source.Transition();source.Transition();
+        Check(source.Revision==baseline+2 &&
+              checkedSource.Handle(Request(88,"submit")).Status=="unsafe",
+              "real source records rapid mic/text ABA without a busy sample");
+        source.Unavailable();
+        var lostSource=new DirectorAdmission(()=>now,r=>true,()=>host,()=>world,
+            true,()=>special,()=>source.Revision);
+        Check(lostSource.Handle(Request(89)).Status=="unsafe",
+              "unavailable Core observer is negative, not zero epoch");
         playerEpoch=1;
     }
     static void CorePlaybackContract()
