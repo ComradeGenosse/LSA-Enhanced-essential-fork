@@ -457,7 +457,7 @@ export class IntelligenceClient {
       for(let n=0;n<32 && frames.length;n++) {
         let v;try {v=JSON.parse(frames.shift());} catch {fail();return;}
         if(!hello && v?.type!=='hello' || hello && v?.type==='hello') {fail();return;}
-        const accepted=this.runtime.ingest(v,{authenticated:true});if(accepted && v?.type==='director_response')this.acceptDirectorResponse(v.payload);this.notifyKnowledgeInvalidation();
+        const accepted=this.runtime.ingest(v,{authenticated:true});if(accepted && v?.type==='world_epoch')this.cancelDirectorRequests();if(accepted && v?.type==='director_response')this.acceptDirectorResponse(v.payload);this.notifyKnowledgeInvalidation();
         if(!hello && !accepted || !this.runtime.epoch) {fail();return;}
         if(!hello) { hello=true;this.persist('intelligence_status',{stage:'initialized'}); }
       }
