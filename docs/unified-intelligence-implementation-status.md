@@ -1192,3 +1192,38 @@ Intermediate checks caught and corrected a double-escaped JS receipt wire newlin
 **This slice implements the PS3 producer-to-native receipt transport and proof ledger.** It resolves the missing native PS3 grant-source integration **at the offline contract/test level**; production GTA reception and behavior remain unverified. It does *not* mean native independently recalculates PS3's policy, authenticates against adversarial same-user processes, or permits live speech.
 
 **Still incomplete:** full global player text/mic/Essential-turn arbitration, source-verified actual stock `SpecialGeminiTurnScheduler.Submit` and original session nonce/turn/generation binding, and production GTA acceptance. Native `DirectorAdmission(...,enabled:false)` is **still disabled**, no `kb` is invoked, and baseline PS4 remains **22/81** individually verified; Phase 6 full acceptance, G7, A33/A34/A39/A40, pinned RPH production Release build and verified deployment are outstanding. No merge, installation, deployment, enablement, Phase 10a or deferred phase.
+
+
+## Checkpoint 88: Phase 13a Architectural Piece #2 — independently fenced player-priority revisions, Core text UI takeover, source-verified ownership gap (October 10, 2026)
+
+**Matching tested implementation code HEAD:** `7671647b307a6d64886c927820a9095ea74586f3`. **[GitHub Actions 38045049639](https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/actions/runs/38045049639) SUCCESS**, Windows + Linux. **Result: bounded implementation and safety tests completed; Architectural Piece #2 is NOT complete.** No production source is falsely promoted into a global player-turn arbiter.
+
+### New authoritative negative sources and revision-safe admission
+
+- Native `ReadDirectorC06` samples the **real pinned Core** `TextInputService.IsOpen` and `LsaControlsMenu.BlocksLsaInput` on the original PS host owner fiber, in addition to the existing mic private-field, active conversation/speaker, queued/playing Core audio, and special-turn revision checks. The Windows ABI verifier independently checks the public static Boolean getter signatures. Open text input or controls menu vetoes new Director admission **and** previously authorized speech; a thrown Core read is unknown and fails closed. These are real input UI negative facts, *not* proof that queued/submitted text or pending hydration is idle.
+- `DirectorAdmission` now pins a separate **Int64 global player-priority revision source** at reserve, alongside the existing source-backed special-turn revision, and checks both before/after every independently safe reserve, submit, bind, playback start and terminal C-06 callback. Source absent/negative/unreadable or any changed epoch rejects; cancellation and retirement remain available. The revision protects A→B→A changes that return to idle between callbacks, and does not invalidate valid NPC playback merely because *its own* Essential speaker/audio state becomes busy.
+- **Critical nonclaim:** isolated tests inject a deterministic, monotonic all-input epoch to verify the API and race fencing. There is **no source-verified exhaustive production Core epoch** wired to `playerPrioritySource`: the production caller deliberately omits it. Neither `ReadPlayerTurnVersion()` nor an input UI getter is automatically such an epoch. Native `enabled:false`, and `ReadDirectorC06` still leaves `PlayerTurnSourceCurrent`, `PlayerTurnIdle`, `EssentialTurnKnown` and `EssentialTurnIdle` unproven.
+- The existing verified pinned-DLL metadata-only tool was extended with a **diagnostic-only** inventory/IL call-target probe. It located `InputController.SendMicStart/Stop/SendTextPrompt`, `TextInputService.StartTextInputMode`, `ConversationHydrationCoordinator.BeginMicTurn/MarkMicReleased/Update`, and `SpecialGeminiTurnService.NotifyPlayerTurnStarted/ReadPlayerTurnVersion`. The exploratory direct-token IL scan detects a Core mic-stop→hydration release link and input-path call candidates, but it **does not** establish every state transition, a definitive terminal text/model ownership event, or that Essential's version covers normal mic/text. Opcode-token scanning can produce candidate matches and cannot be treated as an ownership proof.
+
+### Matching-code CI acceptance
+
+| Test suite | Executed result |
+| --- | --- |
+| Linux full isolated Node | **711 passed / 70 files / 0 failed** |
+| Windows full isolated Node | **711 passed / 70 files / 0 failed** |
+| Phase 13a focused Node | **38/38 on each OS** |
+| Pinned actual Essential DLL SHA + metadata ABI (Windows) | **PASS** |
+| ACT native Windows | **263 assertions PASS** |
+| Shared PS/ACT intelligence Windows | **115 assertions PASS** |
+| Director/PS3 native Windows, including new all-player epoch/ABA tests | **256 assertions PASS** |
+| P2 owner native Windows | **194 assertions PASS** |
+| Shared HostContext Windows | **62 assertions PASS** |
+| Production-source PS host native Windows, including real C-06 text/menu reads | **142 assertions PASS** |
+
+The new tests exercise player mic/text start→stop and busy→idle ABA **using explicit supplied epoch transitions**, source missing/throwing, text-editor/menu takeovers, within-check version races, before-binding/start/terminal player takeover, queued/playing audio, Core input getter failures, and already-authorized exact-tuple NPC playback completing successfully. They **do not** simulate or prove actual in-game stock Core text/mic/model completion propagation, and the DLL inventory is metadata-only. No Windows GTA/RPH runtime test was executed.
+
+### Genuine remaining Piece #2 blocker
+
+The pinned Core's source-verified public mic Ped field, text UI getter, conversation/current-speaker getters and global audio query do **not** jointly disclose the authoritative **player/Essential conversation owner and complete in-flight turn lifecycle**. Especially unresolved: stock mic start→release→hydration windows, asynchronous player text submission after the text UI closes, normal player-directed turns while generation is pending, Essential dialogue ownership during a pending-but-silent turn, and a monotonic **all-input** revision that records busy→idle→busy/ABA across these paths. `SpecialGeminiTurnService.ReadPlayerTurnVersion` exists but its complete global update coverage was not established by the pinned IL survey. A genuinely complete Piece #2 requires a source-verified producer spanning these state transitions and terminal outcomes, potentially narrow pinned Core/backend hooks, **before** setting the unknown C-06 authority fields true or wiring the production revision reader. Merely adding another idle boolean or using a monotonic counter from an unrelated path would be incorrect.
+
+**Stopping boundary preserved:** Architectural Piece #2 **partial / blocked by missing verified exhaustive Essential ownership source**; **not ready** for Piece #3 stock scheduler integration. No original `SpecialGeminiTurnScheduler.Submit` or server `kb` call; no original session tuple allocation, no native enabled gate, no GTA deployment/install, no merge, no Phase 10a or other phases. PR #23 remains draft/open/unmerged; previous PS2/PS3/P2/ACT/UX/native Director contracts remain intact.
