@@ -13,6 +13,9 @@ import { startCharacterEditor } from './characters/editorServer.mjs';
 import { defaultControlEndpointPath } from './control/endpointFile.mjs';
 import { characterContractSupported } from './characters/nativeSupport.mjs';
 import { IntelligenceClient } from './perception/intelligenceClient.mjs';
+import {DirectorObservationPump} from './perception/directorProduction.mjs';
+import {DirectorSpeechReservations} from './perception/sceneDirectorAdmission.mjs';
+import {SceneDirectorSpeech} from './perception/sceneDirectorOrchestrator.mjs';
 import { ActivityClient } from './activities/activityClient.mjs';
 import { ActivityRuntime } from './activities/activityRuntime.mjs';
 import { perceptionContractSupported } from './perception/nativeSupport.mjs';
@@ -123,6 +126,41 @@ export async function createRuntimeForBundle(options = {}) {
         runtime.intelligence=new IntelligenceClient(config.intelligence,intelligenceOptions);runtime.intelligence.start();
       }catch{try{console.warn('[PS] optional_channel_unavailable');}catch{}}
     } else try {console.warn('[PS] optional_perception_contract_unavailable');}catch{}
+  }
+
+  // Hook the real authenticated PS2/PS3 stream, without a GTA world scan or
+  // second scheduler. Source projection is available in shadow immediately.
+  // Experimental speech remains explicitly unavailable until the production
+  // stock driver and exact callback/terminal handoff are connected. The
+  // existing isolated orchestrator test doubles are NOT such a handoff.
+  if(config.spontaneousSpeech.mode!=='off' && runtime.intelligence) {
+    const client=runtime.intelligence;
+    const now=()=>client.runtime.now();
+    const admission=new DirectorSpeechReservations({
+      now,enabled:false,checkCurrent:()=>false,acknowledge:()=>false,
+    });
+    const coordinator=new SceneDirectorSpeech({
+      admission,now,mode:'shadow',
+      originalEntitlement:(proposal,stamp)=>client.directorOriginalEntitlement(proposal,stamp),
+      nativeRequest:()=>Promise.resolve(null),
+      dispatch:()=>Promise.resolve(null),
+    });
+    const pump=new DirectorObservationPump({client,coordinator,now,
+      onResult:outcome=>{
+        try {telemetry?.emit?.('director_candidate',null,'internal',{
+          status:outcome?.status??'unknown',configuredMode:config.spontaneousSpeech.mode,
+          executionAvailable:false,
+        },'internal');}catch{}
+      },
+    });
+    runtime.director=pump;
+    runtime.services.spontaneousSpeechStatus=()=>Object.freeze({
+      requested:config.spontaneousSpeech.mode,executionAvailable:false,
+      reason:'production_original_turn_and_playback_handoff_unavailable',
+    });
+    client.subscribeKnowledgeInvalidation(()=>{void pump.tick();});
+    if(config.spontaneousSpeech.mode==='experimental')
+      try {console.warn('[PS6] experimental speech requested, but stock/terminal production handoff is unavailable; remaining shadow-only.');}catch{}
   }
   runtime.services.acceptPlayerTranscript = input => runtime.intelligence?.acceptPlayerTranscript(input) ?? {accepted:false,reason:'unsupported_capture_receipt'};
   if(config.activities.mode==='shadow' || config.activities.mode==='on') {
