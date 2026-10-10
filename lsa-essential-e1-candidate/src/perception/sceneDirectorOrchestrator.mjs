@@ -62,7 +62,9 @@ export class SceneDirectorSpeech {
     if(!ticket)return Object.freeze({status:'not_admitted'});
     let nativeReserved=false;
     const currentAge=()=>Math.max(0,this.now()-facts.nowMonotonicMs);
-    const request=async operation=>this.nativeRequest({operation,ticket,proposal,stamp,ageMs:currentAge()});
+    const request=async operation=>this.nativeRequest({operation,ticket,proposal,stamp,
+      // Cancellation remains legal long after the original candidate TTL.
+      ageMs:operation==='cancel'?0:currentAge()});
     try {
       let receipt=await request('reserve');
       if(receipt?.ticketId!==ticket.ticketId || receipt.status!=='reserved')
