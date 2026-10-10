@@ -112,7 +112,10 @@ test('native owner revision is optional, rejects zero/unowned/forged and is neve
  for(const invalid of [0,-1,1.5,2147483648,'3',true]){
    const f=fixture({version:1,owned:true});
    assert.equal(f.send('observer_situation',[{...originalRow(f),ownerProofRevision:invalid}]),false);
-   assert.equal(f.runtime.epoch,null);
+   // Malformed frame is dropped; unlike source-valid contradictory ownership,
+   // it does not force a transport reset, but never creates a native proof.
+   assert.equal(f.runtime.directorOwnerProofFor(f.captureRef),null);
+   assert.equal(f.runtime.observerSituations.size,0);
  }
  const unowned=fixture({version:1,owned:false});
  assert.equal(unowned.send('observer_situation',[originalRow(unowned)]),false);
