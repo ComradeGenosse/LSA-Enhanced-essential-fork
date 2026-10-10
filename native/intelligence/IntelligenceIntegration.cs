@@ -753,11 +753,21 @@ namespace LSA.Intelligence
                 var token=CallbackAnchor(pedHandle,e.Speaker,false);
                 var anchor=token==null?null:anchors.Resolve(token);
                 if(anchor==null || !ReferenceEquals(anchor.Entity,e.Speaker))continue;
+                // The callback is not a ticket. Match the previously bound
+                // native original tuple before emitting a status on the same
+                // authenticated PS channel. A failed playback never consumes
+                // the companion's PS3 grant.
+                var ticket=director.OriginalBoundTicket(token,e.PedId,e.TurnId,e.GenerationId);
+                if(ticket==null)continue;
                 if(e.Started) {
-                    director.ObserveCorePlaybackStarted(token,e.PedId,e.TurnId,e.GenerationId);
+                    if(director.ObserveCorePlaybackStarted(token,e.PedId,e.TurnId,e.GenerationId))
+                        channel?.Send("director_response",new {
+                            directorRequestVersion=1,ticketId=ticket,status="started"});
                 } else {
-                    director.ObserveCorePlaybackEnded(token,e.PedId,e.TurnId,e.GenerationId,
+                    bool delivered=director.ObserveCorePlaybackEnded(token,e.PedId,e.TurnId,e.GenerationId,
                         e.Reason,e.Interrupted,e.HadAudio,e.PlaybackStarted);
+                    channel?.Send("director_response",new {
+                        directorRequestVersion=1,ticketId=ticket,status=delivered?"completed":"failed"});
                 }
             }
         }
