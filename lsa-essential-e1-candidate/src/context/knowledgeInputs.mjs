@@ -61,7 +61,14 @@ export function assertKnowledgeCurrent(inputs,perception) {
   if(inputs.worldEpoch!==perception.hostContext?.worldEpoch) return 'world_epoch_changed';
   if(inputs.psAdapterEpoch!==perception.epoch || inputs.psStreamId!==perception.stream) return 'channel_unhealthy';
   const ref=inputs.association.captureRef,index=perception.observerIndex.get(ref);
-  if(!perception.current(ref) || !index || index.kind!=='ped' || perception.anchors.get(ref)?.kind!=='ped' || perception.anchors.get(ref)?.observer!==true) return 'participant_retired';
+  const anchor=perception.anchors.get(ref);
+  // The authenticated P0 capture already proved observer admission. Native
+  // observer priority can subsequently demote the same living Ped without
+  // retiring its captureRef; demotion only stops NEW witness sampling.
+  // Keep the frozen turn valid, but never accept a retired/replaced lifetime,
+  // missing index, changed owner, or capture that was never observer-qualified.
+  if(inputs.anchorStatus!=='verified_observer' || !perception.current(ref) ||
+     !index || index.kind!=='ped' || anchor?.kind!=='ped') return 'participant_retired';
   if(index.owned!==inputs.association.owned || index.encounterId!==inputs.association.encounterId || index.incarnationId!==inputs.association.incarnationId) return 'owner_unverified';
   return null;
 }
