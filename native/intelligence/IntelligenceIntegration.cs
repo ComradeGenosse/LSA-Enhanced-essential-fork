@@ -626,7 +626,13 @@ namespace LSA.Intelligence
             string participantRef=kind=="firing"?signal.source:signal.target;
             var participant=anchors.Resolve(participantRef);
             if(participant==null||!(participant.Entity is Ped subject)) return result;
-            foreach(var observer in anchors.Current.Where(a=>a.Observer&&a.Kind=="ped"&&a.CaptureRef!=participantRef)) {
+            // Give the finite native LOS budget to actual P2-owned companions first.
+            // Equal-priority observers are nearest-first with a stable private
+            // tie-breaker. This does not broaden witness geometry or invent proof.
+            foreach(var observer in anchors.Current.Where(a=>a.Observer&&a.Kind=="ped"&&a.CaptureRef!=participantRef)
+                .OrderByDescending(a=>a.OwnerLifetime!=null)
+                .ThenBy(a=>a.Entity is Ped p ? p.Position.DistanceTo(subject.Position) : float.MaxValue)
+                .ThenBy(a=>a.CaptureRef,StringComparer.Ordinal)) {
                 if(!(observer.Entity is Ped witness) || witness.Position.DistanceTo(subject.Position)>WitnessPolicy.VisualRange(kind)) continue;
                 if(lineOfSightBudget<=0) {witnessDeferred=Math.Min(int.MaxValue,witnessDeferred+1);continue;}
                 var live=anchors.Resolve(observer.CaptureRef);
