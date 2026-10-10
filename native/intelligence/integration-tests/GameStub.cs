@@ -13,6 +13,7 @@ namespace Rage.Native {
     public static class NativeFunction {
         public static int Reads,Effects;
         public static bool Scripted,ThrowSafetyRead;
+        public static bool FrontLos=true,AcousticLos=true;
         static IntPtr zone=Marshal.StringToHGlobalAnsi("ZONE1");
         public static T CallByName<T>(string name,params object[] args) where T:struct {
             Reads++;object result;
