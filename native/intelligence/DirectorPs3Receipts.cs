@@ -153,6 +153,7 @@ namespace LSA.Intelligence
             var g=stored.Grant;
             return g.TicketId==request.TicketId&&
                 g.HostRunId==host()&&g.WorldEpoch==world()&&
+                g.HostRunId==request.HostRunId&&g.WorldEpoch==request.WorldEpoch&&
                 g.SpeakerCaptureRef==request.SpeakerCaptureRef&&
                 g.PlayerCaptureRef==request.PlayerCaptureRef&&
                 g.OwnerIncarnationId==request.OwnerIncarnationId&&
