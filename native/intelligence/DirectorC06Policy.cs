@@ -70,7 +70,7 @@ namespace LSA.Intelligence
                 s.PlayerAnchorCurrent && s.PlayerIsLocal && s.PlayerAlive &&
                 s.OwnerProofCurrent && s.OwnerPrimaryModeKnown &&
                 s.MicStateKnown && s.MicIdle &&
-                s.ConversationStateKnown && s.ConversationIdle &&
+                s.ConversationStateKnown &&
                 s.TextInputKnown && s.TextInputIdle &&
                 s.ControlsInputKnown && s.ControlsInputIdle &&
                 s.ScriptStateKnown && s.ScriptSafe &&
