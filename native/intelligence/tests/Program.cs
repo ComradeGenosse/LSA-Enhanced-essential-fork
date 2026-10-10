@@ -120,6 +120,22 @@ class Program
         Check(visual.Status=="witnessed"&&visual.Channel=="visual"&&visual.KnowsSource,"visual witness at bounded range identifies visible source");
         visual=WitnessPolicy.Evaluate(new WitnessGeometry {EventKind="firing",Observer=Guid.NewGuid().ToString("D"),Source=target,SampledGameTick=78,DistanceMeters=10,SameInterior=true,ClearLosInFront=false});
         Check(visual.Status=="did_not_witness"&&visual.Channel==null,"wall or outside-cone visual check never grants knowledge");
+        var acoustic=WitnessPolicy.Evaluate(new WitnessGeometry {EventKind="firing",Observer=Guid.NewGuid().ToString("D"),
+            Source=target,SampledGameTick=78,DistanceMeters=10,SameInterior=true,ClearLosInFront=false,
+            SoundSourceVerified=true,SameAcousticSpace=true,ClearAcousticPath=true,
+            SourceVehicle="open",ObserverVehicle="open"});
+        Check(acoustic.Status=="witnessed"&&acoustic.Channel=="auditory"&&
+            acoustic.Reason=="audibility_model"&&!acoustic.KnowsSource&&!acoustic.KnowsTarget,
+            "verified gunfire heard outside visual cone without identifying shooter");
+        acoustic.ClearAcousticPath=false;
+        Check(WitnessPolicy.Evaluate(acoustic).Status=="did_not_witness",
+            "blocked acoustic path cannot make a nonvisual gunfire witness");
+        acoustic.ClearAcousticPath=true;acoustic.SoundSourceVerified=false;
+        Check(WitnessPolicy.Evaluate(acoustic).Status=="did_not_witness",
+            "unverified firearm source cannot authorize auditory gunfire");
+        acoustic.SoundSourceVerified=true;acoustic.ObserverVehicle="unknown";
+        Check(WitnessPolicy.Evaluate(acoustic).Status=="did_not_witness",
+            "unknown actor acoustics cannot authorize auditory gunfire");
         var self=WitnessPolicy.Evaluate(new WitnessGeometry {EventKind="death",Observer=target,Target=target,SampledGameTick=79,DistanceMeters=1000,SelfInvolved=true});
         Check(self.Status=="witnessed"&&self.Channel=="self"&&self.KnowsTarget,"direct victim involvement is independent of sight");
         var heard=WitnessPolicy.Evaluate(new WitnessGeometry {EventKind="sound",Observer=Guid.NewGuid().ToString("D"),SampledGameTick=80,DistanceMeters=12,SoundKind="speech",SoundSourceVerified=true,SameAcousticSpace=true,ClearAcousticPath=true,SourceVehicle="on_foot",ObserverVehicle="on_foot"});
