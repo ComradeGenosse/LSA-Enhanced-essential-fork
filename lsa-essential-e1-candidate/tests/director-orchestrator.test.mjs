@@ -22,15 +22,26 @@ const candidate={
 const tuple={pedId:'17',sessionNonce:1,turnId:'real-stock-turn-id',generationId:1};
 const completed={type:'playback_ended',reason:'completed',wasInterrupted:false,hadAudio:true,playbackStarted:true};
 let counter;
-function fixture({mode='active',nativeStatus,terminal=completed,gateOk=true,approve=true}={}){
+function fixture({mode='active',nativeStatus,terminal=completed,gateOk=true,approve=true,
+                  sourcePresent=true,revokeAfterNative=null,sourceTransform=record=>record}={}){
  counter=0;
  const acknowledgements=[],native=[],dispatches=[];
+ let sourceCurrent=sourcePresent;
  const admission=new DirectorSpeechReservations({now:()=>now,enabled:mode==='active',
   checkCurrent:()=>approve,
   uuid:()=>`00000000-0000-4000-8000-${String(++counter).padStart(12,'0')}`,
   acknowledge:(...args)=>{acknowledgements.push(args);return true;}});
  const director=new SceneDirectorSpeech({admission,now:()=>now,mode,
-  nativeRequest:async r=>{native.push(r);return {ticketId:r.ticket.ticketId,status:nativeStatus?.[r.operation]??{reserve:'reserved',submit:'submitted',cancel:'cancelled'}[r.operation]};},
+  originalEntitlement:(proposal,s)=>sourceCurrent?sourceTransform({
+    source:'original_companion_ps2_ps3',
+    hostRunId:s.hostRunId,worldEpoch:s.worldEpoch,
+    speakerCaptureRef:proposal.speakerCaptureRef,playerCaptureRef:proposal.playerCaptureRef,
+    ownerIncarnationId:s.ownerIncarnationId,proofRevision:s.proofRevision,
+    observationId:proposal.observationId,observationRevision:proposal.observationRevision,
+    decisionKey:proposal.decisionKey,policyVersion:proposal.policyVersion,
+    expiresAtMonotonicMs:proposal.expiresAtMonotonicMs,
+  }):null,
+  nativeRequest:async r=>{native.push(r);if(revokeAfterNative===r.operation)sourceCurrent=false;return {ticketId:r.ticket.ticketId,status:nativeStatus?.[r.operation]??{reserve:'reserved',submit:'submitted',cancel:'cancelled'}[r.operation]};},
   dispatch:async r=>{dispatches.push(r);
    if(gateOk){assert.equal(r.gates.hydrated(),true);assert.equal(r.gates.publication(),true);}
    return {tuple,terminal:Promise.resolve(terminal)};
@@ -82,4 +93,38 @@ test('feature gate off cannot enter native or Essential',async()=>{
  const f=fixture({mode:'off'});
  assert.equal((await f.director.attempt({candidates:[candidate],facts,stamp})).status,'off');
  assert.deepEqual(f.native,[]);
+});
+
+test('missing original PS3 reader or copied grant cannot reach native or Essential',async()=>{
+ const absent=fixture({sourcePresent:false});
+ assert.equal((await absent.director.attempt({candidates:[candidate],facts,stamp})).status,
+   'original_ps3_unavailable');
+ assert.deepEqual(absent.native,[]);assert.deepEqual(absent.dispatches,[]);
+ const copied=fixture({sourceTransform:r=>({...r,observationRevision:r.observationRevision+1})});
+ assert.equal((await copied.director.attempt({candidates:[candidate],facts,stamp})).status,
+   'original_ps3_unavailable');
+ assert.deepEqual(copied.native,[]);
+ const noReader=new SceneDirectorSpeech({
+   admission:absent.admission,now:()=>now,mode:'active',
+   nativeRequest:async()=>{throw new Error('never');},
+   dispatch:async()=>{throw new Error('never');},
+ });
+ assert.equal((await noReader.attempt({candidates:[candidate],facts,stamp})).status,
+   'original_ps3_unavailable');
+});
+test('original PS3 entitlement revoked during async native reserve never submits or dispatches',async()=>{
+ const f=fixture({revokeAfterNative:'reserve'});
+ assert.equal((await f.director.attempt({candidates:[candidate],facts,stamp})).status,
+   'stale_after_reserve');
+ assert.deepEqual(f.native.map(r=>r.operation),['reserve','cancel']);
+ assert.deepEqual(f.dispatches,[]);
+ assert.deepEqual(f.acknowledgements,[]);
+});
+test('original PS3 entitlement revoked during native submit cannot reach kb intake',async()=>{
+ const f=fixture({revokeAfterNative:'submit'});
+ assert.equal((await f.director.attempt({candidates:[candidate],facts,stamp})).status,
+   'stale_before_intake');
+ assert.deepEqual(f.native.map(r=>r.operation),['reserve','submit','cancel']);
+ assert.deepEqual(f.dispatches,[]);
+ assert.deepEqual(f.acknowledgements,[]);
 });
