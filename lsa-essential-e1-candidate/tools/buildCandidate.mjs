@@ -16,7 +16,7 @@ const acorn = require('./vendor/acorn');
 const expectedBundleHash = '5d81de4217bd103316a1083e482ded1bddc791314abf671d686036175c0475f2';
 const expectedDllHash = '9b6de42d4c464901d859dd95e17e100e4fa9ef6074bfbb0cf3a57a76f6ddd653';
 const expectedNativeMetadataHash = '18edd2b47ffde748388b07a4a2d023793e183b882fe638acb5276440d45a2d23';
-const expectedPatchCount = 64;
+const expectedPatchCount = 67;
 const launcherName = 'server.bundle.mjs';
 const stockBundleDefault = path.resolve(root, 'upstream/server.bundle.mjs');
 const stockDllDefault = path.resolve(root, 'upstream/LosSantosAlive.dll');
@@ -117,8 +117,14 @@ export function patchSource(source) {
     ['hK','turn_cancel'],['WP','session_open'],
     ['Ei','session_retire'],['el','mic_reset'],
     ['kb','special_dispatch'],
-  ]) insert(functionBody(ast,original).start+1,
-    `__LSA_E1_RUNTIME.originalTurnTransition("${event}");`, `PS6 original lifecycle ${original}`);
+  ]) {
+    const owner=original==='kb'?'t?.directorTicket?.ticketId':
+      original==='Xi'?'t?.metadata?.directorTicket?.ticketId':
+      original==='Xn'?'le.getTurn(t)?.metadata?.directorTicket?.ticketId':
+      original==='WP'?'__lsaDirectorSessionTicket?.ticketId':'null';
+    insert(functionBody(ast,original).start+1,
+      `__LSA_E1_RUNTIME.originalTurnTransition("${event}",${owner});`, `PS6 original lifecycle ${original}`);
+  }
 
   // Bind native identity before the controller sends text or microphone input.
   const xnBody = functionBody(ast, 'Xn');
@@ -246,6 +252,22 @@ export function patchSource(source) {
   const wdEnsure = one((() => { const all = []; walk(wdBody, node => { if (node.type === 'CallExpression' && node.callee.name === 'Zi') all.push(node); }); return all; })(), 'wd session setup');
   insert(wdEnsure.arguments[0].start + 1, 'world: __lsaMicWorld, listenerProvided: __lsaMicListenerProvided, ', 'microphone session listener and world association');
 
+  // Exact authorized stock-session ticket follows only the original
+  // Zi -> WP call, never any global/current NPC inferred from active sessions.
+  const ziBody=functionBody(ast,'Zi');
+  const ziParams=functions(ast,'Zi')[0].params[0];
+  if(ziParams?.type!=='ObjectPattern')throw new Error('Zi director options changed');
+  insert(ziParams.start+1,'directorTicket: __lsaDirectorSessionTicket, ',
+    'PS6 original Zi director ticket option');
+  const ziWP=one((()=>{const all=[];walk(ziBody,node=>{
+    if(node.type==='CallExpression' && node.callee.name==='WP')all.push(node);
+  });return all;})(),'Zi stock session open');
+  insert(ziWP.arguments[0].start+1,'directorTicket: __lsaDirectorSessionTicket, ',
+    'PS6 original Zi to WP ticket');
+  const wpDirectorOptions=functions(ast,'WP')[0].params[0];
+  insert(wpDirectorOptions.start+1,'directorTicket: __lsaDirectorSessionTicket, ',
+    'PS6 original WP director ticket option');
+
   // Internal/special events already hydrate actor, listener and world together in M4.
   const kbBody = functionBody(ast, 'kb');
   // A claimed PS6 ticket (or reserved namespace) must have independent
@@ -253,7 +275,7 @@ export function patchSource(source) {
   // All ordinary Essential special events retain the stock path.
   insert(kbBody.start+1, 'if ((t?.directorTicket !== undefined || String(t?.dedupeKey || "").startsWith("ps:") || t?.reason === "ps6_observer") && __LSA_E1_RUNTIME.directorPreflight(t) !== true) return false;', 'PS6 original ticket checked before kb hydration');
   const kbEnsure = one((() => { const all = []; walk(kbBody, node => { if (node.type === 'CallExpression' && node.callee.name === 'Zi') all.push(node); }); return all; })(), 'kb special-event session setup');
-  insert(kbEnsure.arguments[0].start + 1, 'world: h.world, ', 'special-event session world association');
+  insert(kbEnsure.arguments[0].start + 1, 'directorTicket: t?.directorTicket, world: h.world, ', 'special-event session world association');
   const kbTurn = one((() => { const all = []; walk(kbBody, node => { if (node.type === 'CallExpression' && node.callee.name === 'Xi') all.push(node); }); return all; })(), 'kb special-event turn creation');
   const kbMetadata = one(kbTurn.arguments[0].properties.filter(property => property.key?.name === 'metadata'), 'kb special-event turn metadata');
   insert(kbMetadata.value.start + 1, 'directorTicket: t?.directorTicket ? __LSA_E1_RUNTIME.requireDirectorTicket(t,h) : undefined, listenerState: n ? "present" : "explicitly_cleared", contextCapturedAt: new Date().toISOString(), contextRevision: h.actorContext?.snapshotRevision ?? h.actorContext?.revision ?? null, ', 'special-event context capture metadata');
