@@ -86,7 +86,7 @@ test('original backend lifecycle revision rejects fast busy-idle-busy ABA even w
 test('async text/model terminal and session-retire boundaries advance a single source revision',()=>{
  const timeline=new OriginalEssentialTurnTimeline();
  let earlier=timeline.sample(clear()).revision;
- for(const event of ['turn_intake','turn_terminal','turn_cancel','session_open',
+ for(const event of ['turn_intake','turn_allocate','turn_terminal','turn_cancel','session_open',
     'session_retire','mic_reset','special_dispatch']) {
    assert.equal(timeline.transition(event),true);
    const sampled=timeline.sample(clear());
@@ -117,9 +117,9 @@ test('original backend source invalidation, wrap and malformed state are permane
 test('pinned AST modifies original lifecycle entrypoints rather than polling alone',async()=>{
  const source=await readFile(new URL('../upstream/server.bundle.mjs',import.meta.url),'utf8');
  const patched=patchSource(source);
- for(const boundary of ['Xn','Zt','hK','WP','Ei','el','kb'])
+ for(const boundary of ['Xn','Xi','Zt','hK','WP','Ei','el','kb'])
    assert.ok(patched.edits.some(edit=>edit.label==='PS6 original lifecycle '+boundary));
- for(const event of ['turn_intake','turn_terminal','turn_cancel','session_open',
+ for(const event of ['turn_intake','turn_allocate','turn_terminal','turn_cancel','session_open',
   'session_retire','mic_reset','special_dispatch'])
    assert.ok(patched.output.includes('originalTurnTransition("'+event+'")'));
  assert.match(patched.output,/inspectOriginalTurnPriority/);
