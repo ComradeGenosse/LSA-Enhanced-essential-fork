@@ -42,7 +42,7 @@ namespace LSA.PromotedCharacters
                     IntegrationManager.Register(integration);
                     if(config.intelligence?.mode=="shadow") {
                         try {
-                            intelligence=new LSA.Intelligence.IntelligenceIntegration(integration.PerceptionRoster,config.intelligence.pipeName,host,config.intelligence.directorMode=="shadow");
+                            intelligence=new LSA.Intelligence.IntelligenceIntegration(integration.PerceptionRoster,config.intelligence.pipeName,host,config.intelligence.directorMode=="shadow" || config.intelligence.directorMode=="experimental",config.intelligence.directorMode=="experimental");
                             integration.OwnerRetired+=intelligence.OwnerRetired;
                             IntegrationManager.Register(intelligence);intelligence.Initialize();
                         } catch {Game.LogTrivial("[PS] optional_host_unavailable");}
