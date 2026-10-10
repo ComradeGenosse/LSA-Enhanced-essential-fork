@@ -14,4 +14,4 @@
     <Reference Include="DamageTrackerLib"><HintPath>$(DamageReferencePath)</HintPath><Private>false</Private></Reference>
     <Reference Include="System.Web.Extensions" />
   </ItemGroup>
-<ItemGroup><Compile Include="HostContext.cs" Link="HostContext.cs"/></ItemGroup></Project>
+<ItemGroup><Compile Include="HostContext.cs" Link="HostContext.cs"/><Compile Include="../intelligence/DirectorOriginalTurnBindingCodec.cs" Link="DirectorOriginalTurnBindingCodec.cs"/></ItemGroup></Project>
