@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {serializeDirectorRequest,serializeDirectorPs3Receipt,serializeDirectorStockIntake,validateDirectorRequest} from '../src/perception/directorWire.mjs';
+import {serializeDirectorRequest,serializeDirectorPs3Receipt,serializeDirectorStockIntake,serializeDirectorOriginalTurnBinding,validateDirectorRequest} from '../src/perception/directorWire.mjs';
 const ticketId='b1111111-1111-4111-8111-111111111111';
 const ticket={ticketId,dedupeKey:'ps:'+ticketId};
 const proposal={kind:'speech',
@@ -98,4 +98,28 @@ test('stock scheduler intake has no ability to invent player, stock tuple or nat
    assert.throws(()=>serializeDirectorStockIntake(ticket,text),/director_stock_intake_invalid/);
  assert.throws(()=>serializeDirectorStockIntake({...ticket,dedupeKey:'ps:foreign'},'OK'),
    /director_stock_intake_invalid/);
+});
+
+test('source original binding preserves exact one-time Essential turn identity, never authorization',()=>{
+ const source={
+   ticketId,sourceRun:'71111111-1111-4111-8111-111111111111',
+   sourceRevision:3,hostRunId:stamp.hostRunId,worldEpoch:stamp.worldEpoch,
+   speakerCaptureRef:proposal.speakerCaptureRef,
+ };
+ const tuple={pedId:'17',turnId:'original-ax7',generationId:2147483648,sessionNonce:7};
+ const frame=JSON.parse(serializeDirectorOriginalTurnBinding(source,tuple));
+ assert.deepEqual(Object.keys(frame).sort(),[
+   'version','type','ticketId','sourceRun','sourceRevision','hostRunId',
+   'worldEpoch','speakerCaptureRef','pedId','turnId','generationId','sessionNonce'].sort());
+ assert.equal(frame.generationId,2147483648);
+ assert.equal(frame.sessionNonce,7);
+ assert.equal(frame.type,'director.original_turn_bound');
+ assert.equal('authorized' in frame,false);
+ for(const changed of [{pedId:'not-a-handle'},{turnId:'\nunsafe'},{sessionNonce:0},
+   {sessionNonce:'7'},{generationId:2**53},{generationId:-1}]) {
+   assert.throws(()=>serializeDirectorOriginalTurnBinding(source,{...tuple,...changed}),
+     /director_original_turn_binding_invalid/);
+ }
+ assert.throws(()=>serializeDirectorOriginalTurnBinding({...source,sourceRun:'forged'},tuple),
+   /director_original_turn_binding_invalid/);
 });
