@@ -48,6 +48,17 @@ namespace LSA.Intelligence
         readonly Dictionary<string,Stored> grants=new Dictionary<string,Stored>();
         internal DirectorPs3Receipts(Func<long> clock,Func<string> host,Func<int> world)
         {this.clock=clock??throw new ArgumentNullException(nameof(clock));this.host=host??throw new ArgumentNullException(nameof(host));this.world=world??throw new ArgumentNullException(nameof(world));}
+        // A parsed receipt is caller-owned mutable data. Copy every scalar
+        // before sealing it, and never return the stored object by reference.
+        static Grant Copy(Grant g)=>new Grant {
+            Version=g.Version,Source=g.Source,Challenge=g.Challenge,
+            TicketId=g.TicketId,HostRunId=g.HostRunId,WorldEpoch=g.WorldEpoch,
+            SpeakerCaptureRef=g.SpeakerCaptureRef,PlayerCaptureRef=g.PlayerCaptureRef,
+            OwnerIncarnationId=g.OwnerIncarnationId,ProofRevision=g.ProofRevision,
+            SituationRevision=g.SituationRevision,SignalId=g.SignalId,
+            ObservationId=g.ObservationId,ObservationRevision=g.ObservationRevision,
+            DecisionKey=g.DecisionKey,PolicyVersion=g.PolicyVersion,AgeMs=g.AgeMs
+        };
         static bool Uuid(string s)=>s!=null && Regex.IsMatch(s,
             "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
             RegexOptions.CultureInvariant);
@@ -129,7 +140,7 @@ namespace LSA.Intelligence
             // A second PS3 grant cannot borrow the first receipt's provenance.
             issued.Redeemed=true;
             signals.Remove(grant.SignalId+"|"+grant.SpeakerCaptureRef);
-            grants.Add(grant.TicketId,new Stored{Grant=grant,
+            grants.Add(grant.TicketId,new Stored{Grant=Copy(grant),
                 Expires=Math.Min(issued.Expires,clock()+Math.Min(GrantLeaseMs,2000L-grant.AgeMs))});
             return true;
         }
@@ -158,7 +169,7 @@ namespace LSA.Intelligence
         {
             Stored s;
             return Current(request)&&grants.TryGetValue(request.TicketId,out s)
-                ? s.Grant:null;
+                ? Copy(s.Grant):null;
         }
         internal bool Reserve(DirectorAdmission.Request request)
         {
