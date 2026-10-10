@@ -175,6 +175,7 @@ class Program
         FailedCallbacks();
         C06Contract();
         CodecContract();
+        OriginalOwnerReceiptsContract();
         ChannelRoundtrip();
     }
 
@@ -695,6 +696,96 @@ class Program
             "changed player turn makes even complete playback receipt inadmissible");
         Check(!interrupted.HasActive,"player priority takeover frees exact native reservation");
     }
+
+    static void OriginalOwnerReceiptsContract()
+    {
+        long previousNow=now,previousInput=playerEpoch;
+        try {
+            now=1000;playerEpoch=12;
+            var request=Request(71);
+            var source=new DirectorOriginalTurnReceipts.Evidence {
+                Version=1,Source="original_essential_backend_lifecycle",
+                SourceRun="51111111-1111-4111-8111-111111111111",
+                TicketId=request.TicketId,HostRunId=host,WorldEpoch=world,
+                PlayerTurnVersion=request.PlayerTurnVersion,
+                Revision=4,ObservationSerial=1,Quiet=true
+            };
+            var sourceReader=new DirectorOriginalTurnReceipts(
+                ()=>now,()=>host,()=>world,()=>playerEpoch);
+            Check(sourceReader.OriginalFor(request)==null,
+                "no original backend source observation means UNKNOWN");
+            var json=new System.Web.Script.Serialization.JavaScriptSerializer();
+            string Encode(DirectorOriginalTurnReceipts.Evidence e)=>json.Serialize(new {
+                version=e.Version,type="director.original_owner_receipt",
+                source=e.Source,sourceRun=e.SourceRun,ticketId=e.TicketId,
+                hostRunId=e.HostRunId,worldEpoch=e.WorldEpoch,
+                playerTurnVersion=e.PlayerTurnVersion,
+                revision=e.Revision,observationSerial=e.ObservationSerial,quiet=e.Quiet
+            });
+            DirectorOriginalTurnReceipts.Evidence decoded;
+            Check(DirectorOriginalTurnReceiptCodec.TryDecode(Encode(source),out decoded) &&
+                decoded.Revision==4 && decoded.ObservationSerial==1 && decoded.Quiet,
+                "strict original backend source envelope");
+            Check(!DirectorOriginalTurnReceiptCodec.TryDecode(
+                Encode(source).Replace("director.original_owner_receipt","control.raw"),out decoded),
+                "source receipt vocabulary rejects arbitrary commands");
+            Check(!DirectorOriginalTurnReceiptCodec.TryDecode(
+                Encode(source).Replace("\"quiet\":true","\"quiet\":1"),out decoded),
+                "source receipt rejects bool-number confusion");
+            Check(!DirectorOriginalTurnReceiptCodec.TryDecode(
+                Encode(source).Replace("\"revision\":4","\"revision\":4.2"),out decoded),
+                "source receipt rejects floating-point epoch");
+            Check(!DirectorOriginalTurnReceiptCodec.TryDecode(
+                Encode(source).Replace("}",",\"extra\":true}"),out decoded),
+                "source receipt refuses extra properties");
+            Check(sourceReader.Accept(source),"first source-confirmed quiet observation accepted");
+            var sealedSource=sourceReader.OriginalFor(request);
+            Check(sealedSource!=null && sealedSource.SourceRun==source.SourceRun &&
+                sealedSource.Revision==4 && !ReferenceEquals(sealedSource,source),
+                "owner-fiber Core revision fences sealed original source");
+            source.Revision=99;
+            Check(sourceReader.OriginalFor(request).Revision==4,
+                "mutable caller cannot alter sealed source evidence");
+            source.Revision=4;
+            Check(!sourceReader.Accept(source),"replayed original observation serial is rejected");
+            source.ObservationSerial=2;
+            Check(sourceReader.Accept(source),"fresh same source revision renews bounded receipt");
+            playerEpoch++;
+            Check(sourceReader.OriginalFor(request)==null,
+                "native real input takeover revokes old backend quiet claim");
+            playerEpoch--;
+            source.ObservationSerial=3;source.Revision=5;
+            Check(!sourceReader.Accept(source),
+                "new backend revision invalidates existing native ticket");
+            source.ObservationSerial=4;
+            Check(!sourceReader.Accept(source) &&
+                sourceReader.OriginalFor(request)==null,
+                "changed lifecycle ticket is permanently poisoned, not rebased");
+            var next=Request(72);
+            source.TicketId=next.TicketId;
+            source.ObservationSerial=5;
+            Check(sourceReader.Accept(source),"independent new ticket may sample newer source");
+            now+=DirectorOriginalTurnReceipts.LeaseMs+1;
+            Check(sourceReader.OriginalFor(next)==null,
+                "source sample expires on real monotonic owner time");
+            sourceReader.Reset();
+            source.SourceRun="61111111-1111-4111-8111-111111111111";
+            source.ObservationSerial=1;
+            Check(sourceReader.Accept(source),
+                "reset permits genuinely new original source incarnation");
+            var older=Request(73);source.TicketId=older.TicketId;
+            source.ObservationSerial=2;source.Quiet=false;
+            Check(!sourceReader.Accept(source),
+                "busy original lifecycle cannot be claimed idle");
+            source.Quiet=true;source.WorldEpoch=world+1;
+            Check(!sourceReader.Accept(source),"stale source world cannot supply C-06");
+            source.WorldEpoch=world;source.HostRunId="41111111-1111-4111-8111-111111111111";
+            Check(!sourceReader.Accept(source),"foreign host original receipt rejected");
+            sourceReader.Reset();
+            Check(sourceReader.Pending==0,"reset retires all owner source epochs");
+        } finally {now=previousNow;playerEpoch=previousInput;}
+    }
+
     static void ChannelRoundtrip()
     {
         string name="LSA.PS6.CI."+Guid.NewGuid().ToString("N");
