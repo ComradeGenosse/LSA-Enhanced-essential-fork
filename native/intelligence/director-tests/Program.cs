@@ -10,12 +10,15 @@ class Program
     static int assertions;
     static long now=1000;
     static long special=7;
+    // Independently supplied monotonic ALL-player-input ownership epoch.
+    // The pinned Core's special counter is deliberately NOT this source.
+    static long playerEpoch=1;
     static bool safe=true;
     static string host="a1111111-1111-4111-8111-111111111111";
     static int world=1;
     static DirectorAdmission New(bool enabled=true)
     {
-        return new DirectorAdmission(()=>now,r=>safe,()=>host,()=>world,enabled,()=>special);
+        return new DirectorAdmission(()=>now,r=>safe,()=>host,()=>world,enabled,()=>special,()=>playerEpoch);
     }
     static void Check(bool value,string label)
     {
@@ -168,6 +171,7 @@ class Program
         CorePlaybackContract();
         Ps3ReceiptContract();
         SpecialTurnFences();
+        PlayerPriorityFences();
         FailedCallbacks();
         C06Contract();
         CodecContract();
@@ -338,12 +342,12 @@ class Program
 
         special=17;var racing=new DirectorAdmission(()=>now,
             (r,stage)=>{if(stage=="reserve")special++;return true;},
-            ()=>host,()=>world,true,()=>special);
+            ()=>host,()=>world,true,()=>special,()=>playerEpoch);
         Check(racing.Handle(Request(55)).Status=="unsafe"&&!racing.HasActive,
               "Core revision increment *during* reserve check vetoes before accepting");
         special=18;a=Request(56);var recheck=new DirectorAdmission(()=>now,
             (r,stage)=>{if(stage=="submit")special++;return true;},
-            ()=>host,()=>world,true,()=>special);
+            ()=>host,()=>world,true,()=>special,()=>playerEpoch);
         Check(recheck.Handle(a).Status=="reserved",
               "baseline before in-check special-turn takeover");
         Check(recheck.Handle(Request(56,"submit")).Status=="unsafe" && !recheck.HasActive,
@@ -351,6 +355,74 @@ class Program
         special=7;
     }
 
+    static void PlayerPriorityFences()
+    {
+        // Player ownership transitions are independent of the narrower stock
+        // special-turn counter; A->B->A must never revive the initial lease.
+        playerEpoch=40;
+        var a=Request(80);
+        var fixture=New();
+        Check(fixture.Handle(a).Status=="reserved","global player epoch source pins initial lease");
+        // Player mic starts and ends before native submit; sampled 'idle'
+        // returns to the identical state, but the source revision advanced.
+        playerEpoch+=2;
+        Check(fixture.Handle(Request(80,"submit")).Status=="unsafe"&&!fixture.HasActive,
+              "mic busy-to-idle ABA invalidates native reservation");
+
+        a=Request(81);fixture=New();
+        Check(fixture.Handle(a).Status=="reserved" &&
+              fixture.Handle(Request(81,"submit")).Status=="submitted",
+              "global epoch baseline submits");
+        playerEpoch+=2; // text start, text finished without a busy sample
+        Check(!fixture.BindActualTuple(a.TicketId,"17","text-aba",1,1) && !fixture.HasActive,
+              "text busy-to-idle ABA before actual binding invalidates ticket");
+
+        a=Request(82);fixture=New();
+        Check(fixture.Handle(a).Status=="reserved" &&
+              fixture.Handle(Request(82,"submit")).Status=="submitted" &&
+              fixture.BindActualTuple(a.TicketId,"17","mic-start",2,1),
+              "global source baseline binds");
+        playerEpoch++; // player takeover before playback start
+        Check(!fixture.NotePlaybackStarted(a.TicketId,"17","mic-start",2,1) && !fixture.HasActive,
+              "player microphone takeover before playback start rejects");
+
+        a=Request(83);fixture=New();
+        Check(fixture.Handle(a).Status=="reserved" &&
+              fixture.Handle(Request(83,"submit")).Status=="submitted" &&
+              fixture.BindActualTuple(a.TicketId,"17","playing",3,1) &&
+              fixture.NotePlaybackStarted(a.TicketId,"17","playing",3,1),
+              "already authorized NPC playback starts");
+        Check(fixture.Complete(a.TicketId,"17","playing",3,1,true,false,true,true),
+              "normal NPC completion accepted while global player epoch remains unchanged");
+
+        a=Request(84);fixture=New();
+        Check(fixture.Handle(a).Status=="reserved" &&
+              fixture.Handle(Request(84,"submit")).Status=="submitted" &&
+              fixture.BindActualTuple(a.TicketId,"17","taken-over",4,1) &&
+              fixture.NotePlaybackStarted(a.TicketId,"17","taken-over",4,1),
+              "player takeover completion fixture");
+        playerEpoch+=2;
+        Check(!fixture.Complete(a.TicketId,"17","taken-over",4,1,true,false,true,true) &&
+              !fixture.HasActive,
+              "normal-looking terminal receipt cannot mask player takeover ABA");
+
+        playerEpoch=100;
+        var withinCheck=new DirectorAdmission(()=>now,(r,stage)=>{
+            if(stage=="reserve")playerEpoch+=2;
+            return true;
+        },()=>host,()=>world,true,()=>special,()=>playerEpoch);
+        Check(withinCheck.Handle(Request(85)).Status=="unsafe"&&!withinCheck.HasActive,
+              "player text round trip during reserve callback cannot certify idle");
+        playerEpoch=101;
+        var missingSource=new DirectorAdmission(()=>now,r=>true,()=>host,()=>world,true,()=>special);
+        Check(missingSource.Handle(Request(86)).Status=="unsafe"&&!missingSource.HasActive,
+              "all-positive C06 fixture without independent global player source fails closed");
+        var unreadable=new DirectorAdmission(()=>now,r=>true,()=>host,()=>world,true,
+            ()=>special,()=>throw new InvalidOperationException("player source lost"));
+        Check(unreadable.Handle(Request(87)).Status=="unsafe"&&!unreadable.HasActive,
+              "unreadable player-ownership revision denies instead of inventing idle");
+        playerEpoch=1;
+    }
     static void CorePlaybackContract()
     {
         var original=Request(43);
@@ -445,7 +517,7 @@ class Program
         a=Request(31);var callbackFault=new DirectorAdmission(()=>now,(r,stage)=>{
             if(stage=="complete")throw new Exception("failed native callback");
             return true;
-        },()=>host,()=>world,true,()=>special);
+        },()=>host,()=>world,true,()=>special,()=>playerEpoch);
         Check(callbackFault.Handle(a).Status=="reserved","fault fixture reserve");
         Check(callbackFault.Handle(Request(31,"submit")).Status=="submitted","fault fixture submit");
         Check(callbackFault.BindActualTuple(a.TicketId,"17","callback-fault",4,5),"fault fixture bind");
@@ -455,7 +527,7 @@ class Program
         Check(!callbackFault.HasActive,"throwing completion proof retires ticket");
 
         a=Request(32);var lostOwner=new DirectorAdmission(()=>now,(r,stage)=>
-            stage!="playback_started",()=>host,()=>world,true,()=>special);
+            stage!="playback_started",()=>host,()=>world,true,()=>special,()=>playerEpoch);
         Check(lostOwner.Handle(a).Status=="reserved","lost-owner reserve");
         Check(lostOwner.Handle(Request(32,"submit")).Status=="submitted","lost-owner submit");
         Check(lostOwner.BindActualTuple(a.TicketId,"17","owner-revoked",4,5),"lost-owner bind");
@@ -550,7 +622,7 @@ class Program
         Check(!DirectorC06Policy.Safe(req,proof),"unavailable original PS3 entitlement denies");
         proof.DecisionKey=req.DecisionKey;
         Check(!DirectorC06Policy.Safe(req,new DirectorC06Policy.Snapshot()),"unknown C06 truth denies");
-        var admission=new DirectorAdmission(()=>now,r=>DirectorC06Policy.Safe(r,proof),()=>host,()=>world,true,()=>special);
+        var admission=new DirectorAdmission(()=>now,r=>DirectorC06Policy.Safe(r,proof),()=>host,()=>world,true,()=>special,()=>playerEpoch);
         Check(admission.Handle(req).Status=="reserved","full native proof permits one reservation in isolated test only");
         proof.PlayerTurnIdle=false;
         Check(admission.Handle(Request(23,"submit")).Status=="unsafe","player takeover vetoes reserved Director before submit");
@@ -562,7 +634,7 @@ class Program
         var staged=new DirectorAdmission(()=>now,(r,stage)=>
             stage=="bind" || stage=="playback_started" || stage=="complete" ? DirectorC06Policy.CurrentPlayback(r,stagedProof)
                               : DirectorC06Policy.Safe(r,stagedProof),
-            ()=>host,()=>world,true,()=>special);
+            ()=>host,()=>world,true,()=>special,()=>playerEpoch);
         Check(staged.Handle(playing).Status=="reserved","idle owner permits real ticket reserve");
         Check(staged.Handle(Request(24,"submit")).Status=="submitted","idle at submit");
         stagedProof.OwnerIdle=false;stagedProof.EssentialTurnIdle=false;stagedProof.PlaybackIdle=false;
@@ -581,7 +653,7 @@ class Program
         var interrupted=new DirectorAdmission(()=>now,(r,stage)=>
             stage=="bind" || stage=="playback_started" || stage=="complete" ? DirectorC06Policy.CurrentPlayback(r,takeoverProof)
                               : DirectorC06Policy.Safe(r,takeoverProof),
-            ()=>host,()=>world,true,()=>special);
+            ()=>host,()=>world,true,()=>special,()=>playerEpoch);
         Check(interrupted.Handle(takeover).Status=="reserved","player takeover fixture reserve");
         Check(interrupted.Handle(Request(25,"submit")).Status=="submitted","player takeover fixture submit");
         Check(interrupted.BindActualTuple(takeover.TicketId,"17","interrupted-turn",8,3),"player takeover fixture exact tuple");
