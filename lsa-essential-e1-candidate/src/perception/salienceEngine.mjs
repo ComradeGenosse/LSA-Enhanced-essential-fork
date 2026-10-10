@@ -243,9 +243,14 @@ function classify(observation, situation) {
     context = 'must_include'; memory = 'stage'; response = 'eligible';
     reasons.push('relationship_close', 'safety_nearby_threat');
   } else if (injury || firing) {
-    context = 'candidate';
+    // Any independently witnessed nearby gunfire or injury can merit one
+    // brief, in-character reaction. A stranger getting shot is alarming even
+    // when no character relationship/recognition binding exists. The source
+    // witness receipt, supported non-report claim, native Director admission
+    // and exact one-shot PS3 ledger still fence actual speech.
+    context = injury ? 'must_include' : 'candidate';
+    response = 'eligible';
     reasons.push('safety_nearby_threat');
-    if (firing && (close.length || conflict.length)) response = 'eligible';
     if (close.length) reasons.push('relationship_close');
     else if (conflict.length) reasons.push('relationship_conflict');
   } else if (playerInvolved) {
