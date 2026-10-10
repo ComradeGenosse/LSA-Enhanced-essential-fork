@@ -94,7 +94,7 @@ class Program
               !prepared.RequireCurrentPlayerConversation && prepared.SkipIfSpeakerBusy,
               "stock kb safety fields are noninterrupting and zero-delay");
         Check(DirectorStockTurnRequest.Prepare(c06request,preparedProof,actor,player,
-              "unsafe\\ncommand")==null &&
+              "unsafe"+((char)10)+"command")==null &&
               DirectorStockTurnRequest.Prepare(c06request,preparedProof,actor,actor,
               "context")==null,
               "newline and self-target forbidden");
