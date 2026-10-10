@@ -175,9 +175,9 @@ class Program
         Check(!DirectorStockIntakeCodec.TryDecode(
             intakeJson.Replace("director.stock_intake","native.execute"),out intakeFrame) &&
             !DirectorStockIntakeCodec.TryDecode(
-            intakeJson.Replace("Nearby trouble.","DO FOLLOW\\n"),out intakeFrame) &&
+            intakeJson.Replace("Nearby trouble.","DO FOLLOW"+((char)10)+"command"),out intakeFrame) &&
             !DirectorStockIntakeCodec.TryDecode(
-            intakeJson.Substring(0,intakeJson.Length-1)+",\\\"pedId\\\":\\\"17\\\"}",out intakeFrame),
+            intakeJson.Substring(0,intakeJson.Length-1)+",\"pedId\":\"17\"}",out intakeFrame),
             "stock intake refuses command types, newlines and forged PedId");
         c06request.Operation="reserve";
         Check(DirectorStockTurnRequest.Prepare(c06request,preparedProof,actor,player,
