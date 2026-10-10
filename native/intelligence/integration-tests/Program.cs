@@ -143,9 +143,9 @@ class Program
                 ObservationRevision=nativeReserve.ObservationRevision,
                 DecisionKey=nativeReserve.DecisionKey,AgeMs=nativeReserve.AgeMs
             }).Status=="submitted","native stock adapter requires real reserve then submit");
-        int calls=0;
+        int stockDispatchCalls=0;
         var testIntake=new DirectorSchedulerIntake(preparedNative,req=>{
-            calls++;
+            stockDispatchCalls++;
             return req.SpeakerPed==actor && req.ListenerPed==player &&
                 req.SpeechTargetPed==player && req.Reason=="ps6_observer" &&
                 !req.FaceListener && !req.InterruptExisting &&
@@ -153,13 +153,13 @@ class Program
                 req.DedupeKey=="ps:"+c06request.TicketId;
         },true);
         Check(!testIntake.Dispatch(nativeReserve.TicketId,"\nInjected command",
-            preparedProof,actor,player) && calls==0,
-            "unbounded context never calls stock");
+            preparedProof,actor,player) && stockDispatchCalls==0,
+            "unbounded context never stockDispatchCalls stock");
         Check(testIntake.Dispatch(nativeReserve.TicketId,
-            "A brief nearby incident.",preparedProof,actor,player) && calls==1,
+            "A brief nearby incident.",preparedProof,actor,player) && stockDispatchCalls==1,
             "one-shot dispatch invokes source-compatible original stock Submit");
         Check(!testIntake.Dispatch(nativeReserve.TicketId,
-            "A brief nearby incident.",preparedProof,actor,player) && calls==1,
+            "A brief nearby incident.",preparedProof,actor,player) && stockDispatchCalls==1,
             "duplicate native intake cannot reschedule original ticket");
         // Decode only transport fields; never acquire PS3/native permission.
         var intakeJson=new JavaScriptSerializer().Serialize(new {
