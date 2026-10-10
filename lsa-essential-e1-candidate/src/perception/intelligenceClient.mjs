@@ -321,7 +321,7 @@ export class IntelligenceClient {
   // speaker/player anchor before it binds once on the native owner fiber.
   // The source Core kb path is the only place these hydration/publication
   // hooks run. A coordinator-side early callback cannot substitute for them.
-  confirmDirectorHydration(ticket) {return this.directorPlaybacks.hydration(ticket);}
+  confirmDirectorHydration(ticket) {return !this.directorProductionRequired || this.directorPlaybacks.hydration(ticket);}
   async dispatchDirector({ticket,gates,eventContext}) {
     const original=this.directorPlaybacks.begin(ticket,gates);
     if(!original)return null;
@@ -354,7 +354,7 @@ export class IntelligenceClient {
     // The original source cannot consume a queued wire write as permission.
     // A separate, exact ticket-bound native response resolves this waiter.
     // The timeout covers a missed/late native drain without a model call.
-    if(this.directorBindingPending.has(id) || !this.directorPlaybacks.identify(ticket,identity))return false;
+    if(this.directorBindingPending.has(id) || this.directorProductionRequired && !this.directorPlaybacks.identify(ticket,identity))return false;
     let finish;
     const result=new Promise(resolve=>{
       finish=accepted=>{
@@ -376,7 +376,7 @@ export class IntelligenceClient {
     if(!pending || pending.ticket!==ticket)return false;
     try {
       const accepted=await pending.result===true;
-      return accepted && this.directorPlaybacks.publication(ticket);
+      return accepted && (!this.directorProductionRequired || this.directorPlaybacks.publication(ticket));
     }
     finally {
       if(this.directorBindingPending.get(id)===pending)this.directorBindingPending.delete(id);
@@ -414,12 +414,13 @@ export class IntelligenceClient {
     this.directorOwnerReservations.clear();this.directorNativeSubmitted.clear();this.directorStockDispatched.clear();this.directorStockContexts.clear();this.directorStockClaims.clear();
   }
 
-  constructor(config,{connect=options=>net.createConnection(options),now,situationFor,originalTurnPriority=()=>null,originalTurnReserve=()=>null,originalTurnCurrent=()=>null,originalTurnRelease=()=>false,originalTurnPhase=()=>null,report=summary=>console.info('[PS] companion_shadow '+JSON.stringify(summary)),telemetry=()=>{}}={}) {
+  constructor(config,{connect=options=>net.createConnection(options),directorProductionRequired=false,now,situationFor,originalTurnPriority=()=>null,originalTurnReserve=()=>null,originalTurnCurrent=()=>null,originalTurnRelease=()=>false,originalTurnPhase=()=>null,report=summary=>console.info('[PS] companion_shadow '+JSON.stringify(summary)),telemetry=()=>{}}={}) {
     this.knowledgeListeners=new Set();this.config=config;this.connect=connect;this.runtime=new ShadowRuntime({mode:config.mode,now,situationFor});this.report=report;this.telemetry=telemetry;this.originalTurnPriority=typeof originalTurnPriority==='function'?originalTurnPriority:()=>null;
     this.originalTurnReserve=typeof originalTurnReserve==='function'?originalTurnReserve:()=>null;
     this.originalTurnCurrent=typeof originalTurnCurrent==='function'?originalTurnCurrent:()=>null;
     this.originalTurnRelease=typeof originalTurnRelease==='function'?originalTurnRelease:()=>false;
     this.originalTurnPhase=typeof originalTurnPhase==='function'?originalTurnPhase:()=>null;
+    this.directorProductionRequired=directorProductionRequired===true;
     this.directorPlaybacks=new DirectorPlaybackRegistry();
     this.closed=false;this.socket=null;this.lastReport=0;this.directorPending=new Map();this.directorOwnerReservations=new Map();this.directorNativeSubmitted=new Set();this.directorStockDispatched=new Set();this.directorStockContexts=new Map();this.directorStockClaims=new Map();this.directorBindingPending=new Map();
   }
