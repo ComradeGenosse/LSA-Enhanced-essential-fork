@@ -2,7 +2,7 @@ import { captureKnowledgeInputs, assertKnowledgeCurrent } from '../context/knowl
 import net from 'node:net';
 import { BOUNDS } from './contracts.mjs';
 import { ShadowRuntime } from './shadowRuntime.mjs';
-import {serializeDirectorRequest,serializeDirectorPs3Receipt,serializeDirectorOriginalOwnerReceipt} from './directorWire.mjs';
+import {serializeDirectorRequest,serializeDirectorPs3Receipt,serializeDirectorOriginalOwnerReceipt,serializeDirectorStockIntake} from './directorWire.mjs';
 
 const COUNTER_MAX = 2147483647;
 const counter = value => Number.isSafeInteger(value) && value >= 0 ? Math.min(COUNTER_MAX, value) : 0;
@@ -206,12 +206,39 @@ export class IntelligenceClient {
       }
       if(!this.sendDirectorPreview(args)) {finish(null);return;}
       if(args.operation==='reserve')this.directorOwnerReservations.set(ticketId,
-        {run:owner.sourceRun,revision:owner.revision});
+        {run:owner.sourceRun,revision:owner.revision,stamp:args.stamp,proposal:args.proposal});
       if(args.operation==='cancel') {
         this.directorOwnerReservations.delete(ticketId);
+        this.directorNativeSubmitted.delete(ticketId);
         try {this.originalTurnRelease(ticketId);}catch{}
       }
     });
+  }
+  // Bounded 3A intake for a *previously native-submitted* ticket only.
+  // Returns true for bytes queued on the pipe, never for stock scheduling
+  // success or playback. No implicit retries. #3B will consume callbacks.
+  sendDirectorStockIntake(ticket,context) {
+    const id=ticket?.ticketId,record=this.directorOwnerReservations.get(id);
+    if(this.closed || this.config.mode!=='shadow' ||
+       this.runtime.directorRequestVersion!==1 || !this.runtime.epoch ||
+       !this.directorNativeSubmitted.has(id) || !record ||
+       ticket.dedupeKey!==`ps:${id}` ||
+       !this.directorOriginalEntitlement(record.proposal,record.stamp))
+      return false;
+    let current;
+    try {current=this.originalBackendEvidence(this.originalTurnCurrent(id));}
+    catch{return false;}
+    if(!current || current.sourceRun!==record.run ||
+       current.revision!==record.revision)return false;
+    let line;
+    try {line=serializeDirectorStockIntake(ticket,context);}
+    catch{return false;}
+    // One shot is spent before any writable checks or sends.
+    this.directorNativeSubmitted.delete(id);
+    if(!this.sendDirectorOwnerReceipt(ticket,record.stamp,current) ||
+       !this.socket || this.socket.destroyed || !this.socket.writable ||
+       this.socket.writableLength>BOUNDS.frameBytes)return false;
+    try {this.socket.write(line);return true;}catch{return false;}
   }
   acceptDirectorResponse(payload) {
     if(!payload || this.runtime.directorRequestVersion!==1)return false;
@@ -222,6 +249,8 @@ export class IntelligenceClient {
       submit:['submitted','busy','invalid','unsafe','stale'],
       cancel:['cancelled','not_found','invalid','unsafe','stale'],
     }[pending.operation];
+    if(pending.operation==='submit' && payload.status==='submitted')
+      this.directorNativeSubmitted.add(payload.ticketId);
     pending.resolve(allowed?.includes(payload.status) ?
       Object.freeze({ticketId:payload.ticketId,status:payload.status}) : null);
     return true;
@@ -230,7 +259,7 @@ export class IntelligenceClient {
     for(const item of [...this.directorPending.values()])item.resolve(null);
     for(const ticketId of this.directorOwnerReservations.keys())
       try {this.originalTurnRelease(ticketId);}catch{}
-    this.directorOwnerReservations.clear();
+    this.directorOwnerReservations.clear();this.directorNativeSubmitted.clear();
   }
 
   constructor(config,{connect=options=>net.createConnection(options),now,situationFor,originalTurnPriority=()=>null,originalTurnReserve=()=>null,originalTurnCurrent=()=>null,originalTurnRelease=()=>false,report=summary=>console.info('[PS] companion_shadow '+JSON.stringify(summary)),telemetry=()=>{}}={}) {
@@ -238,7 +267,7 @@ export class IntelligenceClient {
     this.originalTurnReserve=typeof originalTurnReserve==='function'?originalTurnReserve:()=>null;
     this.originalTurnCurrent=typeof originalTurnCurrent==='function'?originalTurnCurrent:()=>null;
     this.originalTurnRelease=typeof originalTurnRelease==='function'?originalTurnRelease:()=>false;
-    this.closed=false;this.socket=null;this.lastReport=0;this.directorPending=new Map();this.directorOwnerReservations=new Map();
+    this.closed=false;this.socket=null;this.lastReport=0;this.directorPending=new Map();this.directorOwnerReservations=new Map();this.directorNativeSubmitted=new Set();
   }
   persist(event,data={}) { try { this.telemetry(event,data); } catch {} }
   summary(finalSnapshot=false) {
