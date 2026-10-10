@@ -127,6 +127,17 @@ export function patchSource(source) {
   insert(ownerBind.end, `), (i.metadata.provider = e.provider || "gemini", i.metadata.sessionNonce = e.nonce, (() => { const __lsaTurnActor = Object.prototype.hasOwnProperty.call(i.metadata, "actorContext") ? i.metadata.actorContext : e.actorContext; const __lsaTurnListener = Object.prototype.hasOwnProperty.call(i.metadata, "targetContext") ? i.metadata.targetContext : e.targetContext; const __lsaTurnWorld = Object.prototype.hasOwnProperty.call(i.metadata, "world") ? i.metadata.world : e.world; i.metadata.actorContext = __lsaTurnActor; i.metadata.targetContext = __lsaTurnListener; i.metadata.world = __lsaTurnWorld; if (e.provider === "openai") { e.connection.beginTurn({ identity: { pedId: i.pedId, turnId: i.id, generationId: i.generationId, sessionNonce: e.nonce }, source: i.source, context: { systemInstruction: e.systemInstruction, actor: __lsaTurnActor, listener: __lsaTurnListener, listenerState: i.metadata.listenerState, world: __lsaTurnWorld, capturedAt: i.metadata.contextCapturedAt, revision: i.metadata.contextRevision, directorTicket: i.metadata.directorTicket ?? null, contextText: String(i.input?.contextText || ""), inputText: String(i.input?.transcript || i.input?.text || ""), internalEvent: i.source === Ht.SPECIAL_EVENT ? String(i.input?.text || i.input?.contextText || "") : "" } }); i.metadata.contextSnapshot = e.connection.turnSnapshot; } })())`, 'generation identity bind');
 
   // Route pinned HTTP output directly to the stock coordinator. Never infer identity from the active speaker.
+  // 3B: export ONLY the exact original stock Xn generation after Core
+  // registration and before speech input. A missing native relay rejects
+  // Director, but ordinary Essential stock and player events are untouched.
+  const genEvent=one((() => { const all=[];walk(xnBody,node=>{
+    if(node.type==='CallExpression' && node.callee.name==='pt' &&
+       sourceSlice(source,node.arguments[0])==='Pe.GENERATION_STARTED')all.push(node);
+  });return all; })(),'Xn original generation publication');
+  insert(genEvent.start,
+    'if(i.metadata?.directorTicket && __LSA_E1_RUNTIME.intelligence?.sendDirectorOriginalTurnBinding?.(i.metadata.directorTicket,{pedId:i.pedId,turnId:i.id,generationId:i.generationId,sessionNonce:e.nonce})!==true) throw new Error("director_original_binding_failed");',
+    'PS6 original Xn generation native binding');
+
   prelude('rP', 'if (t?.provider === "openai") return await globalThis.__LSA_E1_RUNTIME.host.routePinnedEvent(t);');
   prelude('_P', 'if (t?.metadata?.provider === "openai") return !1;');
   prelude('Sd', 'if (le.getTurn(t)?.metadata?.provider === "openai") return !1;');
