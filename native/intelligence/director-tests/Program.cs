@@ -244,7 +244,7 @@ class Program
         var absent=new DirectorPs3Receipts(()=>now,()=>host,()=>world);
         var bare=absent.Issue(observer,req.OwnerIncarnationId,req.ProofRevision,6);
         var copy=new DirectorPs3Receipts.Grant {
-            Version=1,Source=proof.Source,Challenge=bare,TicketId=Guid.NewGuid().ToString("D"),
+            Version=1,Source=proof.Source,Challenge=bare,TicketId=req.TicketId,
             HostRunId=host,WorldEpoch=world,SpeakerCaptureRef=observer,
             PlayerCaptureRef=req.PlayerCaptureRef,OwnerIncarnationId=req.OwnerIncarnationId,
             ProofRevision=req.ProofRevision,SituationRevision=6,
@@ -262,6 +262,7 @@ class Program
         Check(!absent.Accept(copy),"companion-created challenge cannot borrow native owner proof");
         copy.Challenge=bare;
         Check(absent.Accept(copy),"valid unique original signal, native challenge and source grant accepted");
+        Check(absent.Current(req),"matching source-backed ticket is live before owner retirement");
         absent.Retire(req.OwnerIncarnationId);
         Check(!absent.Current(req),"retirement invalidates source grant regardless of ticket state");
         var afterReset=new DirectorPs3Receipts(()=>now,()=>host,()=>world);
