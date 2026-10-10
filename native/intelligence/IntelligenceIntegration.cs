@@ -42,6 +42,18 @@ namespace LSA.Intelligence
         readonly string pipeName;
         readonly bool directorShadow;
         readonly DirectorAdmission director;
+        // Core callback thread is not established as the host owner fiber.
+        // Only Update consumes this bounded read-only callback queue.
+        readonly object directorPlaybackGate=new object();
+        readonly Queue<DirectorPlaybackEvent> directorPlaybackEvents=new Queue<DirectorPlaybackEvent>();
+        bool directorPlaybackOverflow;
+        sealed class DirectorPlaybackEvent
+        {
+            public Ped Speaker;
+            public string PedId,TurnId,Reason;
+            public long GenerationId;
+            public bool Started,Interrupted,HadAudio,PlaybackStarted;
+        }
         EssentialMicState directorMic;
         IntelligenceChannel channel;
         IDamageSensors damage;
@@ -106,7 +118,7 @@ namespace LSA.Intelligence
         }
         void WorldChanged(int epoch,string reason) {
             if(!IsAvailable) return;
-            director.Reset();sensors.Reset();lock(rosterGate) {publishedAnchorStates.Clear();publishedObserverIndex.Clear();sampledSituations.Clear();}pendingRetirements.Clear();
+            director.Reset();lock(directorPlaybackGate) {directorPlaybackEvents.Clear();directorPlaybackOverflow=false;}sensors.Reset();lock(rosterGate) {publishedAnchorStates.Clear();publishedObserverIndex.Clear();sampledSituations.Clear();}pendingRetirements.Clear();
             conversationRef=null;discoverySnapshot=null;discoveryOwned=new OwnedParticipant[0];UpdateIndexes();
             // Ordered control fact invalidates all prior observer state. Losing
             // it closes the bounded channel; reconnect republishes current host.
@@ -289,6 +301,7 @@ namespace LSA.Intelligence
                         Retain(ownership?.Ped??e,p==null?"vehicle":"ped",ownership?.Lifetime,false,ownership?.Current);
                     }
                 }
+                DrainDirectorCorePlayback();
                 DrainDirectorPreview();
                 if(ownsHost) host.Cleanup(16,()=>budget.Elapsed.TotalMilliseconds<1);UpdateIndexes();
                 var sources=anchors.Current.Where(a=>a.Kind!="vehicle").OrderByDescending(a=>a.Kind=="player").ThenByDescending(a=>a.Observer).ToArray();
@@ -498,8 +511,66 @@ namespace LSA.Intelligence
             if(!uint.TryParse(pedId,out var handle)) return;var target=CallbackAnchor(handle,entity,false);
             sensors.Enqueue(new RawSignal {producer="playback",kind=kind,target=target,gameTick=callbackTick,receivedMs=host.MonotonicMs,facts=new Dictionary<string,object>{{"interrupted",interrupted},{"hadAudio",hadAudio}}});
         }
-        void PlaybackStarted(NpcPlaybackStartedEvent e) {try{Lifecycle("playback_started",e.PedId,e.SpeakerPed,false,false);}catch{}}
-        void PlaybackEnded(NpcPlaybackEndedEvent e) {try{Lifecycle("playback_ended",e.PedId,e.SpeakerPed,e.WasInterrupted,e.HadAudio);}catch{}}
+        void EnqueueDirectorPlayback(DirectorPlaybackEvent item)
+        {
+            if(!directorShadow || stopped || item==null)return;
+            lock(directorPlaybackGate) {
+                if(directorPlaybackEvents.Count>=32) {
+                    directorPlaybackOverflow=true;
+                    directorPlaybackEvents.Clear();
+                } else if(!directorPlaybackOverflow)directorPlaybackEvents.Enqueue(item);
+            }
+        }
+        // Owner fiber ONLY. Callback PedId/turn/generation are native evidence;
+        // the callback contains NO session nonce or original PS6 ticket. An
+        // earlier native BindActualTuple is mandatory. Wrong/reused ped wrappers
+        // or world-retired capture refs cannot inherit an existing ticket.
+        void DrainDirectorCorePlayback()
+        {
+            bool overflow;DirectorPlaybackEvent[] events;
+            lock(directorPlaybackGate) {
+                overflow=directorPlaybackOverflow;
+                directorPlaybackOverflow=false;
+                events=directorPlaybackEvents.ToArray();
+                directorPlaybackEvents.Clear();
+            }
+            if(overflow) {director.Reset();return;}
+            foreach(var e in events) {
+                if(e?.Speaker==null || string.IsNullOrWhiteSpace(e.PedId) ||
+                    string.IsNullOrWhiteSpace(e.TurnId) || e.GenerationId<0)continue;
+                if(!uint.TryParse(e.PedId,out var pedHandle) ||
+                    e.Speaker.Handle!=pedHandle || !e.Speaker.Exists())continue;
+                var token=CallbackAnchor(pedHandle,e.Speaker,false);
+                var anchor=token==null?null:anchors.Resolve(token);
+                if(anchor==null || !ReferenceEquals(anchor.Entity,e.Speaker))continue;
+                if(e.Started) {
+                    director.ObserveCorePlaybackStarted(token,e.PedId,e.TurnId,e.GenerationId);
+                } else {
+                    director.ObserveCorePlaybackEnded(token,e.PedId,e.TurnId,e.GenerationId,
+                        e.Reason,e.Interrupted,e.HadAudio,e.PlaybackStarted);
+                }
+            }
+        }
+        void PlaybackStarted(NpcPlaybackStartedEvent e)
+        {
+            try {
+                Lifecycle("playback_started",e.PedId,e.SpeakerPed,false,false);
+                EnqueueDirectorPlayback(new DirectorPlaybackEvent{
+                    Started=true,Speaker=e.SpeakerPed,PedId=e.PedId,
+                    TurnId=e.TurnId,GenerationId=e.GenerationId});
+            } catch {}
+        }
+        void PlaybackEnded(NpcPlaybackEndedEvent e)
+        {
+            try {
+                Lifecycle("playback_ended",e.PedId,e.SpeakerPed,e.WasInterrupted,e.HadAudio);
+                EnqueueDirectorPlayback(new DirectorPlaybackEvent{
+                    Speaker=e.SpeakerPed,PedId=e.PedId,TurnId=e.TurnId,
+                    GenerationId=e.GenerationId,Reason=e.Reason,
+                    Interrupted=e.WasInterrupted,HadAudio=e.HadAudio,
+                    PlaybackStarted=e.PlaybackStarted});
+            } catch {}
+        }
         public void OnNpcActionExecuted(Ped ped,string actionName,bool succeeded)
         {
             if(!IsAvailable || ReferenceEquals(ped,null) || !actionIndex.TryGetValue(ped,out var target)) return;
@@ -532,7 +603,7 @@ namespace LSA.Intelligence
             AppDomain.CurrentDomain.AssemblyLoad-=AssemblyLoaded;
             try{damage?.Dispose();}catch{}damage=null;
             if(playback) {try{NpcPlaybackCoordinator.PlaybackStarted-=PlaybackStarted;NpcPlaybackCoordinator.PlaybackEnded-=PlaybackEnded;}catch{}playback=false;}
-            director.Disable();channel?.Dispose();anchors.Retired-=OnRetired;host.WorldChanged-=WorldChanged;
+            director.Disable();lock(directorPlaybackGate) {directorPlaybackEvents.Clear();directorPlaybackOverflow=false;}channel?.Dispose();anchors.Retired-=OnRetired;host.WorldChanged-=WorldChanged;
             if(ownsHost) host.Shutdown();sensors.Reset();UpdateIndexes();
         }
     }
