@@ -221,8 +221,9 @@ class Program
         wire["proofRevision"]=req.ProofRevision;
         Check(receipts.Accept(proof),"independent original native signal and P2 challenge grant accepted");
         Check(!receipts.Accept(proof),"original native challenge and signal are one use");
-        Check(receipts.Current(req) && receipts.OriginalFor(req)==proof,
-            "source-origin PS3 receipt is available separately from request IDs");
+        Check(receipts.Current(req) && receipts.OriginalFor(req)?.ObservationId==proof.ObservationId &&
+              !ReferenceEquals(receipts.OriginalFor(req),proof),
+            "source-origin PS3 sealed receipt is independently copied, never request-owned");
         Check(receipts.Reserve(req) && receipts.IsReserved(req),
             "one native ticket can claim original producer grant");
         Check(!receipts.Reserve(req),"already reserved original grant cannot be claimed twice");
