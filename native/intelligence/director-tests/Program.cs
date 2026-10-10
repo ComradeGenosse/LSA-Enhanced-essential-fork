@@ -164,12 +164,79 @@ class Program
         Check(upper.Complete(a.TicketId,"17","native-upper",
               DirectorAdmission.MaxExactWireGeneration,3,true,false,true,true),
               "maximum exact generation callback completes");
+        CorePlaybackContract();
         FailedCallbacks();
         C06Contract();
         CodecContract();
         ChannelRoundtrip();
     }
 
+    static void CorePlaybackContract()
+    {
+        var original=Request(43);
+        var correct=New();
+        Check(!correct.ObserveCorePlaybackStarted(original.SpeakerCaptureRef,"17","core-turn",1),
+            "Core callback without original native binding cannot allocate a ticket");
+        Check(correct.Handle(original).Status=="reserved" &&
+            correct.Handle(Request(43,"submit")).Status=="submitted",
+            "Core callback test has authentic one-use reserved/submitted native ticket");
+        Check(correct.BindActualTuple(original.TicketId,"17","core-turn",
+            (long)int.MaxValue+2,3),"native full tuple bound before Core callbacks");
+        Check(!correct.ObserveCorePlaybackStarted(Guid.NewGuid().ToString("D"),
+            "17","core-turn",(long)int.MaxValue+2),"different anchor cannot borrow Core start");
+        Check(!correct.ObserveCorePlaybackStarted(original.SpeakerCaptureRef,
+            "18","core-turn",(long)int.MaxValue+2),"different ped ID vetoes Core start");
+        Check(!correct.ObserveCorePlaybackStarted(original.SpeakerCaptureRef,
+            "17","core-turn",1),"different generation vetoes Core start");
+        Check(!correct.ObserveCorePlaybackStarted(original.SpeakerCaptureRef,
+            "17","core-other",(long)int.MaxValue+2),"different turn vetoes Core start");
+        Check(correct.ObserveCorePlaybackStarted(original.SpeakerCaptureRef,
+            "17","core-turn",(long)int.MaxValue+2),"exact Core event binds to original ticket");
+        Check(!correct.ObserveCorePlaybackStarted(original.SpeakerCaptureRef,
+            "17","core-turn",(long)int.MaxValue+2),"duplicate Core start never regrants");
+        Check(!correct.ObserveCorePlaybackEnded(Guid.NewGuid().ToString("D"),
+            "17","core-turn",(long)int.MaxValue+2,"completed",false,true,true),
+            "unrelated actor cannot close original Core playback ticket");
+        Check(!correct.ObserveCorePlaybackEnded(original.SpeakerCaptureRef,
+            "17","core-turn",7,"completed",false,true,true),
+            "wrong Core generation cannot consume original ticket");
+        Check(correct.ObserveCorePlaybackEnded(original.SpeakerCaptureRef,
+            "17","core-turn",(long)int.MaxValue+2,"completed",false,true,true),
+            "successful Core end consumes only exact original ticket");
+        Check(!correct.ObserveCorePlaybackEnded(original.SpeakerCaptureRef,
+            "17","core-turn",(long)int.MaxValue+2,"completed",false,true,true),
+            "duplicate Core completion never consumes retired ticket");
+        Check(!correct.HasActive,"original Core ticket retired after terminal callback");
+
+        var failed=New();var request=Request(44);
+        Check(failed.Handle(request).Status=="reserved" &&
+            failed.Handle(Request(44,"submit")).Status=="submitted" &&
+            failed.BindActualTuple(request.TicketId,"17","failed-core",0,4),
+            "failed Core playback setup");
+        Check(!failed.ObserveCorePlaybackEnded(request.SpeakerCaptureRef,"17",
+            "failed-core",0,"completed",false,true,true),
+            "Core terminal cannot fabricate a missing source playback-start event");
+        Check(!failed.HasActive,"failed no-start Core terminal closes reservation");
+
+        failed=New();request=Request(45);
+        Check(failed.Handle(request).Status=="reserved" &&
+            failed.Handle(Request(45,"submit")).Status=="submitted" &&
+            failed.BindActualTuple(request.TicketId,"17","interrupted-core",0,4) &&
+            failed.ObserveCorePlaybackStarted(request.SpeakerCaptureRef,"17","interrupted-core",0),
+            "interruption Core callback fixture");
+        Check(!failed.ObserveCorePlaybackEnded(request.SpeakerCaptureRef,"17",
+            "interrupted-core",0,"interrupted",true,true,true),
+            "interrupted Core playback never acknowledges PS3 grant");
+        Check(!failed.HasActive,"Core interrupted ticket released");
+        var reset=New();request=Request(46);
+        Check(reset.Handle(request).Status=="reserved" &&
+            reset.Handle(Request(46,"submit")).Status=="submitted" &&
+            reset.BindActualTuple(request.TicketId,"17","reset-core",5,4),
+            "reset Core playback fixture");
+        reset.Reset();
+        Check(!reset.ObserveCorePlaybackStarted(request.SpeakerCaptureRef,"17","reset-core",5),
+            "world reset invalidates late Core callback");
+    }
     static void FailedCallbacks()
     {
         var a=Request(30);
