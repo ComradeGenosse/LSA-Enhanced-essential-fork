@@ -85,8 +85,8 @@ export function serializeDirectorPs3Receipt(ticket,proof) {
     !positive(value.observationRevision)||value.policyVersion!==1||
     !integer(value.ageMs)||value.ageMs>=2000||
     typeof value.decisionKey!=='string'||!value.decisionKey.length||
-    value.decisionKey.length>160||/[\\u0000-\\u001f\\u007f]/.test(value.decisionKey)||
+    value.decisionKey.length>160||/[\u0000-\u001f\u007f]/.test(value.decisionKey)||
     Buffer.byteLength(JSON.stringify(value))>8192)
     throw new TypeError('original_ps3_receipt_invalid');
- return JSON.stringify(value)+'\\n';
+ return JSON.stringify(value)+'\n';
 }
