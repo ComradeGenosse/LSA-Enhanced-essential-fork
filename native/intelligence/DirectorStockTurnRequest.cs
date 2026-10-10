@@ -11,6 +11,10 @@ namespace LSA.Intelligence
     // production never produces a request eligible for active dispatch.
     internal static class DirectorStockTurnRequest
     {
+        internal static bool ValidContext(string context)=>
+            !string.IsNullOrWhiteSpace(context) && context.Length<=160 &&
+            context.IndexOfAny(new[]{'\r','\n','\0','\t'})<0;
+
         internal static SpecialGeminiTurnRequest Prepare(
             DirectorAdmission.Request original,
             DirectorC06Policy.Snapshot nativeProof,
@@ -21,8 +25,7 @@ namespace LSA.Intelligence
                 speaker==null || player==null || speaker==player ||
                 !speaker.Exists() || speaker.IsDead ||
                 !player.Exists() || player.IsDead ||
-                string.IsNullOrWhiteSpace(context) || context.Length>160 ||
-                context.IndexOfAny(new[]{'\r','\n','\0','\t'})>=0)
+                !ValidContext(context))
                 return null;
             // This is one speech-only candidate, not a generic autonomous
             // command. Stock Essential retains its own final eligibility gate.
