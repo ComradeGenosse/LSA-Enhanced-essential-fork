@@ -84,7 +84,10 @@ test('capability-gated companion preview queues exactly one closed native packet
 
 test('exact native PS6 request response binds once with independent status and disconnect cleanup',async()=>{
  let serial=0;
- const client=new IntelligenceClient({mode:'shadow',pipeName:'LSA.Intelligence.v1'},{now:()=>1000,report:()=>{},originalTurnPriority:()=>({schemaVersion:1,source:'original_essential_backend_lifecycle',sourceRun:uuid,revision:2,observationSerial:++serial,quiet:true,grantsNativeAdmission:false,evidence:{source:'original_essential_server_turn_stores',quiet:true}})});
+ const sample=()=>({schemaVersion:1,source:'original_essential_backend_lifecycle',sourceRun:uuid,
+   revision:2,observationSerial:++serial,quiet:true,grantsNativeAdmission:false,
+   evidence:{source:'original_essential_server_turn_stores',quiet:true}});
+ const client=new IntelligenceClient({mode:'shadow',pipeName:'LSA.Intelligence.v1'},{now:()=>1000,report:()=>{},originalTurnPriority:sample,originalTurnReserve:()=>sample(),originalTurnCurrent:()=>sample(),originalTurnRelease:()=>true});
  const writes=[];
  client.socket={destroyed:false,writable:true,writableLength:0,write:line=>{writes.push(JSON.parse(line));return true;},destroy:()=>{}};
  assert.equal(client.runtime.ingest(hello,{authenticated:true}),true);
@@ -127,8 +130,11 @@ test('exact native PS6 request response binds once with independent status and d
 
 test('native transport refuses reserve/submit without live original PS3 ledger; cancellation survives revocation',async()=>{
  let serial=0;
+ const sample=()=>({schemaVersion:1,source:'original_essential_backend_lifecycle',sourceRun:uuid,
+   revision:2,observationSerial:++serial,quiet:true,grantsNativeAdmission:false,
+   evidence:{source:'original_essential_server_turn_stores',quiet:true}});
  const client=new IntelligenceClient({mode:'shadow',pipeName:'LSA.Intelligence.v1'},
-  {now:()=>1000,report:()=>{},originalTurnPriority:()=>({schemaVersion:1,source:'original_essential_backend_lifecycle',sourceRun:uuid,revision:2,observationSerial:++serial,quiet:true,grantsNativeAdmission:false,evidence:{source:'original_essential_server_turn_stores',quiet:true}})});
+  {now:()=>1000,report:()=>{},originalTurnPriority:sample,originalTurnReserve:()=>sample(),originalTurnCurrent:()=>sample(),originalTurnRelease:()=>true});
  let writes=0;client.socket={destroyed:false,writable:true,writableLength:0,
   write:()=>{writes++;return true;},destroy:()=>{}};
  assert.equal(client.runtime.ingest(hello,{authenticated:true}),true);
