@@ -18,9 +18,10 @@ namespace LSA.Intelligence
             public bool PlayerAnchorCurrent,PlayerIsLocal,PlayerAlive;
             public bool OwnerProofCurrent,OwnerPrimaryModeKnown,OwnerIdle;
             public bool PlayerTurnSourceCurrent,PlayerTurnIdle,MicStateKnown,MicIdle;
-            // Source-pinned NpcTargeting negative player/dialogue state. Idle
-            // here only means no selected/current Core conversation or speaker;
-            // it never substitutes for the independent global player arbiter.
+            // Source-pinned NpcTargeting negative player/dialogue state. The
+            // pinned GetCurrentSpeakerPed forwards to GetPlayerConversationPed:
+            // these are NOT independent global turn ownership sources.
+            // Missing selected target cannot certify asynchronous idle.
             public bool ConversationStateKnown,ConversationIdle;
             // The public Essential text editor and controls menu are genuine
             // player-input negative signals. Neither proves that a submitted
