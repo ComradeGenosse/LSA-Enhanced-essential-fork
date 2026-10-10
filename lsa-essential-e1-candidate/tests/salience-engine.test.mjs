@@ -147,6 +147,41 @@ test('player harm and self harm stay distinct', () => {
   assert.ok(playerDecision.reasons.includes('safety_player_harm'));
 });
 
+test('verified gunfire and stranger injury permit a bounded spontaneous reaction while following', () => {
+  const observer=randomUUID(),player=randomUUID(),stranger=randomUUID();
+  const following=view({activity:'following',playerCaptureRef:player});
+  const gunfire=observation({observer,eventType:'firing_burst',severity:'routine',
+    claims:[claim({kind:'firing',channel:'auditory',basis:'audibility_model',
+      source:player,sourceKind:'player'})]});
+  const cache=new SalienceCache({now:()=>NOW});
+  const first=cache.evaluate(gunfire,following);
+  assert.equal(first.response,'eligible','verified nearby shots need no relationship binding');
+  assert.equal(first.context,'candidate');
+  assert.equal(first.memory,'none');
+  assert.ok(first.reasons.includes('safety_nearby_threat'));
+  assert.ok(!first.reasons.includes('relationship_close'));
+  assert.equal(cache.evaluate(gunfire,following).response,'none',
+    'repeated PS3 evaluation cannot grant a second reaction');
+  assert.equal(cache.acknowledge(first.decisionKey,'ps6_ticket','delivered'),true);
+  assert.equal(cache.evaluate(gunfire,following).response,'none',
+    'successful speech consumes that event response');
+
+  const injured=observation({observer,eventType:'injury',severity:'danger',
+    claims:[injuryOf(stranger)]});
+  const injuryDecision=evaluateSalience(injured,following);
+  assert.equal(injuryDecision.response,'eligible','someone getting shot merits a response');
+  assert.equal(injuryDecision.context,'must_include');
+  assert.equal(injuryDecision.memory,'none','strangers do not gain a fabricated memory link');
+
+  const uncertain=observation({observer,eventType:'firing_burst',severity:'routine',
+    claims:[claim({kind:'firing',channel:'auditory',basis:'audibility_model',
+      certainty:'uncertain'})]});
+  assert.equal(evaluateSalience(uncertain,following).response,'none',
+    'unverified shots cannot cause unsolicited speech');
+  assert.equal(evaluateSalience(gunfire,view({activity:'following',lifetimeCurrent:false,
+    playerCaptureRef:player})).response,'none','retired actor cannot speak');
+});
+
 test('driving suppresses routine presence and keeps vehicle danger', () => {
   const observer = randomUUID(), other = randomUUID();
   const parked = observation({ observer, eventType: 'character_present', severity: 'routine', claims: [claim({ kind: 'presence', channel: 'visual', basis: 'sampled_state', target: other })] });
