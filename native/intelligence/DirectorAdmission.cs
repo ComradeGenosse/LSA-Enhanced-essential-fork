@@ -33,6 +33,9 @@ namespace LSA.Intelligence
             // Original Essential special-turn revision at native reserve time.
             // It is only a takeover veto; never a global idle permission.
             public long SpecialTurnVersion=-1;
+            // Separately observed *global* player ownership revision; never
+            // substitute the narrower Essential special-turn version.
+            public long PlayerPriorityRevision=-1;
             public int SessionNonce;
             public string PedId;
             public long PlaybackExpiresAt;
@@ -49,6 +52,7 @@ namespace LSA.Intelligence
         readonly Func<string> currentHost;
         readonly Func<int> currentWorld;
         readonly Func<long> specialTurnSource;
+        readonly Func<long> playerPrioritySource;
         readonly Dictionary<string,Reservation> pending=new Dictionary<string,Reservation>();
         readonly Queue<long> attempts=new Queue<long>();
         readonly Dictionary<string,long> seen=new Dictionary<string,long>();
@@ -58,13 +62,13 @@ namespace LSA.Intelligence
 
         internal DirectorAdmission(Func<long> clock,Func<Request,bool> independentlySafe,
           Func<string> currentHost,Func<int> currentWorld,bool enabled=false,
-          Func<long> specialTurnSource=null)
+          Func<long> specialTurnSource=null,Func<long> playerPrioritySource=null)
           :this(clock,independentlySafe==null?null:
               new Func<Request,string,bool>((request,stage)=>independentlySafe(request)),
-              currentHost,currentWorld,enabled,specialTurnSource) {}
+              currentHost,currentWorld,enabled,specialTurnSource,playerPrioritySource) {}
         internal DirectorAdmission(Func<long> clock,Func<Request,string,bool> independentlySafe,
           Func<string> currentHost,Func<int> currentWorld,bool enabled=false,
-          Func<long> specialTurnSource=null)
+          Func<long> specialTurnSource=null,Func<long> playerPrioritySource=null)
         {
             this.clock=clock??throw new ArgumentNullException(nameof(clock));
             this.independentlySafe=independentlySafe??throw new ArgumentNullException(nameof(independentlySafe));
@@ -74,6 +78,9 @@ namespace LSA.Intelligence
             // be reserved, submitted or marked delivered. Isolated tests inject
             // a deterministic source; production uses the pinned Core reader.
             this.specialTurnSource=specialTurnSource;
+            // No proven end-to-end Essential text/mic/dialogue epoch source is
+            // wired in production yet. Missing is a hard veto, not epoch zero.
+            this.playerPrioritySource=playerPrioritySource;
             this.enabled=enabled;
         }
         static bool Uuid(string value)=>value!=null && Regex.IsMatch(value,
@@ -102,13 +109,23 @@ namespace LSA.Intelligence
             try {version=specialTurnSource();return version>=0;}
             catch {return false;}
         }
+        bool ReadPlayerPriority(out long revision)
+        {
+            revision=-1;
+            if(playerPrioritySource==null)return false;
+            try {revision=playerPrioritySource();return revision>=0;}
+            catch {return false;}
+        }
         bool SafeReserved(Reservation original,string stage)
         {
-            long before,after;
+            long specialBefore,specialAfter,playerBefore,playerAfter;
             return original!=null && original.SpecialTurnVersion>=0 &&
-                ReadSpecial(out before) && before==original.SpecialTurnVersion &&
+                original.PlayerPriorityRevision>=0 &&
+                ReadSpecial(out specialBefore) && specialBefore==original.SpecialTurnVersion &&
+                ReadPlayerPriority(out playerBefore) && playerBefore==original.PlayerPriorityRevision &&
                 Safe(original.Request,stage) &&
-                ReadSpecial(out after) && after==original.SpecialTurnVersion;
+                ReadPlayerPriority(out playerAfter) && playerAfter==original.PlayerPriorityRevision &&
+                ReadSpecial(out specialAfter) && specialAfter==original.SpecialTurnVersion;
         }
         void Trim(long now)
         {
@@ -155,13 +172,15 @@ namespace LSA.Intelligence
                     pending.Count>=MaxTickets||attempts.Count>=MaxAttempts||seen.Count>=512)
                     return new Receipt(request.TicketId,"busy");
                 attempts.Enqueue(now);seen.Add(request.TicketId,now);seenOrder.Enqueue(new KeyValuePair<string,long>(request.TicketId,now));
-                long initial,after;
-                if(!ReadSpecial(out initial) || !Safe(request,"reserve") ||
+                long initial,after,playerInitial,playerAfter;
+                if(!ReadSpecial(out initial) || !ReadPlayerPriority(out playerInitial) ||
+                   !Safe(request,"reserve") ||
+                   !ReadPlayerPriority(out playerAfter) || playerAfter!=playerInitial ||
                    !ReadSpecial(out after) || after!=initial)
                     return new Receipt(request.TicketId,"unsafe");
                 pending[request.TicketId]=new Reservation{
                     Request=request,ExpiresAt=now+TicketTtlMs,
-                    SpecialTurnVersion=initial
+                    SpecialTurnVersion=initial,PlayerPriorityRevision=playerInitial
                 };
                 activeTicket=request.TicketId;
                 return new Receipt(request.TicketId,"reserved");
