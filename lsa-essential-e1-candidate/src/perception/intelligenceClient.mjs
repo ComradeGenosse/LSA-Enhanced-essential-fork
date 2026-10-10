@@ -2,7 +2,7 @@ import { captureKnowledgeInputs, assertKnowledgeCurrent } from '../context/knowl
 import net from 'node:net';
 import { BOUNDS } from './contracts.mjs';
 import { ShadowRuntime } from './shadowRuntime.mjs';
-import {serializeDirectorRequest,serializeDirectorPs3Receipt} from './directorWire.mjs';
+import {serializeDirectorRequest,serializeDirectorPs3Receipt,serializeDirectorOriginalOwnerReceipt} from './directorWire.mjs';
 
 const COUNTER_MAX = 2147483647;
 const counter = value => Number.isSafeInteger(value) && value >= 0 ? Math.min(COUNTER_MAX, value) : 0;
@@ -122,15 +122,31 @@ export class IntelligenceClient {
   // Original stock backend turn stores are independently observed; a
   // synchronous quiet snapshot can only suppress a busy candidate here.
   // It is NOT a source-versioned native Core player/Essential idle receipt.
-  originalBackendQuiet() {
+  originalBackendEvidence() {
     let state;
-    try {state=this.originalTurnPriority();}catch{return false;}
+    try {state=this.originalTurnPriority();}catch{return null;}
     return state?.schemaVersion===1 &&
       state.source==='original_essential_backend_lifecycle' &&
+      typeof state.sourceRun==='string' &&
       Number.isSafeInteger(state.revision) && state.revision>0 &&
+      Number.isSafeInteger(state.observationSerial) && state.observationSerial>0 &&
       state.evidence?.source==='original_essential_server_turn_stores' &&
       state.evidence.quiet===true && state.quiet===true &&
-      state.grantsNativeAdmission===false;
+      state.grantsNativeAdmission===false ? state : null;
+  }
+  originalBackendQuiet() {return this.originalBackendEvidence()!==null;}
+  // Same authenticated PS pipe, strictly ordered before the matching
+  // native reserve/submit. No sender-provided idle boolean is sufficient:
+  // the bounded original store sample and lifecycle epoch are mandatory.
+  sendDirectorOwnerReceipt(ticket,stamp,source) {
+    if(this.closed || !this.socket || this.socket.destroyed ||
+       !this.socket.writable || this.socket.writableLength>BOUNDS.frameBytes)
+      return false;
+    try {
+      const message=serializeDirectorOriginalOwnerReceipt(ticket,stamp,source);
+      if(Buffer.byteLength(message)>BOUNDS.frameBytes)return false;
+      this.socket.write(message);return true;
+    }catch{return false;}
   }
 
   // One outstanding native request per exact ticket; no implicit retries.
@@ -142,7 +158,15 @@ export class IntelligenceClient {
     // a previously reserved native ticket can always be retired.
     const original=args?.operation==='cancel'?null:
       this.directorOriginalEntitlement(args?.proposal,args?.stamp);
-    if(args?.operation!=='cancel' && (!original || !this.originalBackendQuiet()))
+    const owner=args?.operation==='cancel'?null:this.originalBackendEvidence();
+    if(args?.operation!=='cancel' && (!original || !owner))
+      return Promise.resolve(null);
+    const prior=this.directorOwnerReservations.get(ticketId);
+    // A newly observed source revision after reserve is a player/Essential
+    // takeover, even if its final state is quiet again. It cannot be
+    // silently rebased at submit.
+    if(args?.operation==='submit' &&
+       (!prior || prior.run!==owner.sourceRun || prior.revision!==owner.revision))
       return Promise.resolve(null);
     if(typeof ticketId!=='string' || !Number.isSafeInteger(timeoutMs) ||
        timeoutMs<1 || timeoutMs>1500 || this.directorPending.size>=32 ||
@@ -161,10 +185,17 @@ export class IntelligenceClient {
       // Native consumes these FIFO on its owner fiber: a source-backed PS3
       // receipt BEFORE reserve; submit reuses only the sealed original grant.
       // If the original native source proof is missing, nothing is sent.
+      if(args.operation!=='cancel' &&
+         !this.sendDirectorOwnerReceipt(args.ticket,args.stamp,owner)) {
+        finish(null);return;
+      }
       if(args.operation==='reserve' && !this.sendDirectorPs3Receipt(args.ticket,original)) {
         finish(null);return;
       }
-      if(!this.sendDirectorPreview(args))finish(null);
+      if(!this.sendDirectorPreview(args)) {finish(null);return;}
+      if(args.operation==='reserve')this.directorOwnerReservations.set(ticketId,
+        {run:owner.sourceRun,revision:owner.revision});
+      if(args.operation==='cancel')this.directorOwnerReservations.delete(ticketId);
     });
   }
   acceptDirectorResponse(payload) {
@@ -182,10 +213,11 @@ export class IntelligenceClient {
   }
   cancelDirectorRequests() {
     for(const item of [...this.directorPending.values()])item.resolve(null);
+    this.directorOwnerReservations.clear();
   }
 
   constructor(config,{connect=options=>net.createConnection(options),now,situationFor,originalTurnPriority=()=>null,report=summary=>console.info('[PS] companion_shadow '+JSON.stringify(summary)),telemetry=()=>{}}={}) {
-    this.knowledgeListeners=new Set();this.config=config;this.connect=connect;this.runtime=new ShadowRuntime({mode:config.mode,now,situationFor});this.report=report;this.telemetry=telemetry;this.originalTurnPriority=typeof originalTurnPriority==='function'?originalTurnPriority:()=>null;this.closed=false;this.socket=null;this.lastReport=0;this.directorPending=new Map();
+    this.knowledgeListeners=new Set();this.config=config;this.connect=connect;this.runtime=new ShadowRuntime({mode:config.mode,now,situationFor});this.report=report;this.telemetry=telemetry;this.originalTurnPriority=typeof originalTurnPriority==='function'?originalTurnPriority:()=>null;this.closed=false;this.socket=null;this.lastReport=0;this.directorPending=new Map();this.directorOwnerReservations=new Map();
   }
   persist(event,data={}) { try { this.telemetry(event,data); } catch {} }
   summary(finalSnapshot=false) {
