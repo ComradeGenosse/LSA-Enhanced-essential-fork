@@ -118,7 +118,7 @@ test('pinned AST modifies original lifecycle entrypoints rather than polling alo
  const source=await readFile(new URL('../upstream/server.bundle.mjs',import.meta.url),'utf8');
  const patched=patchSource(source);
  for(const boundary of ['Xn','Zt','hK','WP','Ei','el','kb'])
-   assert.ok(patched.edits.some(edit=>edit.label===boundary+' body hook'));
+   assert.ok(patched.edits.some(edit=>edit.label==='PS6 original lifecycle '+boundary));
  for(const event of ['turn_intake','turn_terminal','turn_cancel','session_open',
   'session_retire','mic_reset','special_dispatch'])
    assert.ok(patched.output.includes('originalTurnTransition("'+event+'")'));
