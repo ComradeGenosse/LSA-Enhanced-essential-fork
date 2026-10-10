@@ -15,6 +15,7 @@ export const EVENT_NAMES = new Set([
   'identity_resolved','identity_binding_created','identity_binding_retired','identity_conflict','identity_evidence_stale','identity_store_unavailable','persistent_voice_loaded',
   'session_profile_created','character_name_assigned','promotion_started','promotion_completed','promotion_failed','persistent_profile_loaded','character_spawned','character_dismissed','character_profile_edited','character_memory_created','character_memory_edited','character_memory_deleted','character_unpromoted','character_safe_failure','character_canon_projected','character_reasoning_request_composed',
   'intelligence_status','companion_shadow','knowledge_frame_projected','knowledge_delivery',
+  'intelligence_frame_rejected','director_gate','director_candidate',
   'activity_admitted','activity_rejected','activity_step_started','activity_receipt','activity_paused','activity_resumed','activity_terminal','activity_lease_lost','activity_breaker_tripped',
 ]);
 
@@ -22,6 +23,12 @@ const safeKeys = new Set([
   'captureObservationCount','capturePairCount','capturePoolBytes','captureMissingSalience','captureRevisionMismatch','captureRetiredRefs','captureBudgetExcluded',
   'acknowledgedObservations','retiredAcknowledgements','knowledgeRequestHash','projectionHash',
   'knowledgeMode','preview','selectedObservations','frameBytes','frameHash',
+  'frameType','count','status','configuredMode','executionAvailable','nativeExperimental',
+  'captureEventFiring','captureEventDeath','captureEventImpact','captureEventInjury','captureEventOther',
+  'captureContextOmit','captureContextCandidate','captureContextMustInclude',
+  'captureResponseEligible','captureResponseUrgent',
+  'perceivedUnsupportedClaims','perceivedRevisionMismatch','perceivedUnmatchedSalience',
+  'perceivedBudgetExcluded','perceivedSafetyOverflow',
   'stage','operation','terminalReason','reason','code','nativeType','nativeReason','errorType','actionName',
   'requestId','model','effort','source','provider','role','outcome','eventType','httpStatus','durationMs',
   'bytes','rawBytes','pcmBytes','wavBytes','bodyReadMs','handoffMs','chunks','sampleRate','channels','inputChars','outputChars','inputTokens',
@@ -51,6 +58,14 @@ const safeKeys = new Set([
 ]);
 const safeTokens = new Set([
   'delivered','expired','ack_key_retired','observation_expired',
+  'invalid_json','invalid_order','invalid_contract','sequence_gap','runtime_consistency',
+  'hello','anchors','retire','retire_batch','observer_index','observer_situation',
+  'world_epoch','director_priority','director_response','signal','diagnostics',
+  'channel_or_protocol_unavailable','player_anchor_unavailable','no_owned_observer',
+  'owner_proof_unavailable','no_ps3_response_candidate','candidate_filtered',
+  'dedupe_capacity','player_priority_or_owner_stamp_unavailable','producer_failed',
+  'shadow_only','native_opt_in_and_live_c06_required','experimental',
+  'reserved','submitted','bound','unsafe','busy','stale','no_candidate','not_admitted',
   'off','shadow','active','unsupported_contract','no_actor_capture','no_observer_index','wrong_actor','host_mismatch','world_epoch_changed','channel_unhealthy','anchor_expired','participant_retired','owner_unverified','projection_failed',
   'openai','gemini','player_text','player_mic','special_event','system','internal','completed','failed',
   'cancelled','superseded','disconnected','provider_timeout','stt_error','model_error','model_refusal',
