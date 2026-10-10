@@ -44,6 +44,7 @@ namespace LSA.Intelligence
         readonly bool directorShadow;
         readonly DirectorAdmission director;
         readonly DirectorPs3Receipts ps3Receipts;
+        readonly DirectorOriginalTurnReceipts originalTurns;
         // Core callback thread is not established as the host owner fiber.
         // Only Update consumes this bounded read-only callback queue.
         readonly object directorPlaybackGate=new object();
@@ -114,6 +115,9 @@ namespace LSA.Intelligence
             this.roster=roster;this.pipeName=pipeName;ownsHost=host==null;this.host=host??new HostContext();anchors=this.host.Anchors;
             this.directorShadow=directorShadow;
             ps3Receipts=new DirectorPs3Receipts(()=>this.host.MonotonicMs,()=>this.host.HostRunId,()=>this.host.WorldEpoch);
+            originalTurns=new DirectorOriginalTurnReceipts(()=>this.host.MonotonicMs,
+                ()=>this.host.HostRunId,()=>this.host.WorldEpoch,
+                ()=>LSA.PromotedCharacters.EssentialPlayerPriorityMonitor.Read());
             // This preview endpoint never acquires C-11 speech authority.
             // Verified native C-06 + Essential intake are deliberately absent.
             director=new DirectorAdmission(()=>this.host.MonotonicMs,(r,stage)=>(stage=="bind" || stage=="playback_started" || stage=="complete") ? DirectorC06Policy.CurrentPlayback(r,ReadDirectorC06(r)) : DirectorC06Policy.Safe(r,ReadDirectorC06(r)),()=>this.host.HostRunId,()=>this.host.WorldEpoch,false,
@@ -123,7 +127,7 @@ namespace LSA.Intelligence
         }
         void WorldChanged(int epoch,string reason) {
             if(!IsAvailable) return;
-            director.Reset();ps3Receipts.Reset();lock(directorPlaybackGate) {directorPlaybackEvents.Clear();directorPlaybackOverflow=false;}sensors.Reset();lock(rosterGate) {publishedAnchorStates.Clear();publishedObserverIndex.Clear();sampledSituations.Clear();}pendingRetirements.Clear();
+            director.Reset();ps3Receipts.Reset();originalTurns.Reset();lock(directorPlaybackGate) {directorPlaybackEvents.Clear();directorPlaybackOverflow=false;}sensors.Reset();lock(rosterGate) {publishedAnchorStates.Clear();publishedObserverIndex.Clear();sampledSituations.Clear();}pendingRetirements.Clear();
             conversationRef=null;discoverySnapshot=null;discoveryOwned=new OwnedParticipant[0];UpdateIndexes();
             // Ordered control fact invalidates all prior observer state. Losing
             // it closes the bounded channel; reconnect republishes current host.
@@ -452,13 +456,27 @@ namespace LSA.Intelligence
                     proof.ObservationReceiptCurrent=true;
                     proof.ResponseGrantCurrent=true;
                 }
-                // P2 now publishes a monotonic owner-fiber encounter revision,
-                // but the companion currently has no independent versioned
-                // source stamp from this producer. Matching a request's value
-                // to the current native revision is necessary, not sufficient.
-                // Core's special-turn counter is not global player-turn idle,
-                // and no complete Essential-turn or PS3 receipt is exposed.
-                // Those required approval flags remain UNKNOWN until sourced.
+                // Source-verified, sealed original backend turn evidence must
+                // be delivered on the authenticated PS pipe BEFORE this exact
+                // native request. It is independently checked against the
+                // original Core input observer revision on the owner fiber and
+                // expires quickly. Matching a requested playerTurnVersion
+                // alone never authorizes idle or rebinds a changed source.
+                var owner=originalTurns.OriginalFor(r);
+                if(owner!=null && proof.SpecialTurnVersionKnown &&
+                   proof.SpecialTurnVersion<=int.MaxValue &&
+                   owner.PlayerTurnVersion==(int)proof.SpecialTurnVersion &&
+                   LSA.PromotedCharacters.EssentialPlayerPriorityMonitor.Read()>=0) {
+                    proof.PlayerTurnVersion=(int)proof.SpecialTurnVersion;
+                    proof.PlayerTurnSourceCurrent=true;
+                    proof.PlayerTurnIdle=owner.Quiet;
+                    proof.EssentialTurnKnown=true;
+                    proof.EssentialTurnIdle=owner.Quiet;
+                }
+                // This proves an ordered *past* backend sample and a live Core
+                // negative fence. A backend transition after the sample must
+                // still be checked by the original JS owner before publication.
+                // Director stays disabled until that handoff is exercised.
             } catch { return new DirectorC06Policy.Snapshot(); }
             return proof;
         }
@@ -469,6 +487,11 @@ namespace LSA.Intelligence
         {
             if(!directorShadow || channel==null)return;
             for(int n=0;n<4 && channel.TryTakeDirectorFrame(out var frame);n++) {
+                DirectorOriginalTurnReceipts.Evidence ownerReceipt;
+                if(DirectorOriginalTurnReceiptCodec.TryDecode(frame,out ownerReceipt)) {
+                    originalTurns.Accept(ownerReceipt);
+                    continue;
+                }
                 DirectorPs3Receipts.Grant sourceGrant;
                 if(DirectorPs3ReceiptCodec.TryDecode(frame,out sourceGrant)) {
                     // Only the actual connected pipe reader delivers this
@@ -495,7 +518,7 @@ namespace LSA.Intelligence
                     });
                     receipt=new DirectorAdmission.Receipt(request.TicketId,"unsafe");
                 }
-                if(request.Operation=="cancel")ps3Receipts.ClearGrant(request.TicketId);
+                if(request.Operation=="cancel") {ps3Receipts.ClearGrant(request.TicketId);originalTurns.Retire(request.TicketId);}
                 channel.Send("director_response",new {
                     directorRequestVersion=1,ticketId=receipt.TicketId,status=receipt.Status
                 });
@@ -705,7 +728,7 @@ namespace LSA.Intelligence
             AppDomain.CurrentDomain.AssemblyLoad-=AssemblyLoaded;
             try{damage?.Dispose();}catch{}damage=null;
             if(playback) {try{NpcPlaybackCoordinator.PlaybackStarted-=PlaybackStarted;NpcPlaybackCoordinator.PlaybackEnded-=PlaybackEnded;}catch{}playback=false;}
-            director.Disable();ps3Receipts.Reset();lock(directorPlaybackGate) {directorPlaybackEvents.Clear();directorPlaybackOverflow=false;}channel?.Dispose();anchors.Retired-=OnRetired;host.WorldChanged-=WorldChanged;
+            director.Disable();ps3Receipts.Reset();originalTurns.Reset();lock(directorPlaybackGate) {directorPlaybackEvents.Clear();directorPlaybackOverflow=false;}channel?.Dispose();anchors.Retired-=OnRetired;host.WorldChanged-=WorldChanged;
             if(ownsHost) host.Shutdown();sensors.Reset();UpdateIndexes();
         }
     }
