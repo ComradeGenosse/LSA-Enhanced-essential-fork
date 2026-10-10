@@ -358,6 +358,15 @@ namespace LSA.Intelligence
                 proof.PlayerAnchorCurrent=player?.Kind=="player" && player.Entity is Ped;
                 proof.PlayerIsLocal=player!=null && ReferenceEquals(player.Entity,local);
                 proof.PlayerAlive=local!=null && local.Exists() && !local.IsDead;
+                // The existing Core targeting methods are negative priority
+                // signals: a selected player conversation OR a Core speaker
+                // blocks autonomous speech. Null does not prove that a full
+                // player-turn/Essential-turn arbiter is idle. Any failure in
+                // either source read leaves the entire snapshot UNKNOWN.
+                var conversation=NpcTargeting.GetPlayerConversationPed();
+                var currentSpeaker=NpcTargeting.GetCurrentSpeakerPed();
+                proof.ConversationStateKnown=true;
+                proof.ConversationIdle=conversation==null && currentSpeaker==null;
                 // Pinned Essential public APIs: the special-turn revision is
                 // only a partial player-priority signal, never a global idle
                 // authorization. An unreadable Core sample fails closed.
