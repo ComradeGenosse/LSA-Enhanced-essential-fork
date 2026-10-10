@@ -43,6 +43,7 @@ namespace LSA.Intelligence
         readonly string pipeName;
         readonly bool directorShadow;
         readonly DirectorAdmission director;
+        readonly DirectorPs3Receipts ps3Receipts;
         // Core callback thread is not established as the host owner fiber.
         // Only Update consumes this bounded read-only callback queue.
         readonly object directorPlaybackGate=new object();
@@ -112,6 +113,7 @@ namespace LSA.Intelligence
             if(pipeName==null||!System.Text.RegularExpressions.Regex.IsMatch(pipeName,"^[A-Za-z0-9_.-]{1,80}$")) throw new ArgumentException();
             this.roster=roster;this.pipeName=pipeName;ownsHost=host==null;this.host=host??new HostContext();anchors=this.host.Anchors;
             this.directorShadow=directorShadow;
+            ps3Receipts=new DirectorPs3Receipts(()=>this.host.MonotonicMs,()=>this.host.HostRunId,()=>this.host.WorldEpoch);
             // This preview endpoint never acquires C-11 speech authority.
             // Verified native C-06 + Essential intake are deliberately absent.
             director=new DirectorAdmission(()=>this.host.MonotonicMs,(r,stage)=>(stage=="bind" || stage=="playback_started" || stage=="complete") ? DirectorC06Policy.CurrentPlayback(r,ReadDirectorC06(r)) : DirectorC06Policy.Safe(r,ReadDirectorC06(r)),()=>this.host.HostRunId,()=>this.host.WorldEpoch,false,
@@ -120,7 +122,7 @@ namespace LSA.Intelligence
         }
         void WorldChanged(int epoch,string reason) {
             if(!IsAvailable) return;
-            director.Reset();lock(directorPlaybackGate) {directorPlaybackEvents.Clear();directorPlaybackOverflow=false;}sensors.Reset();lock(rosterGate) {publishedAnchorStates.Clear();publishedObserverIndex.Clear();sampledSituations.Clear();}pendingRetirements.Clear();
+            director.Reset();ps3Receipts.Reset();lock(directorPlaybackGate) {directorPlaybackEvents.Clear();directorPlaybackOverflow=false;}sensors.Reset();lock(rosterGate) {publishedAnchorStates.Clear();publishedObserverIndex.Clear();sampledSituations.Clear();}pendingRetirements.Clear();
             conversationRef=null;discoverySnapshot=null;discoveryOwned=new OwnedParticipant[0];UpdateIndexes();
             // Ordered control fact invalidates all prior observer state. Losing
             // it closes the bounded channel; reconnect republishes current host.
@@ -174,7 +176,7 @@ namespace LSA.Intelligence
             return a;
         }
         AnchorWireState Describe(EntityAnchor a)=>new AnchorWireState {CaptureRef=a.CaptureRef,Kind=a.Kind,Observer=a.Observer,Owned=a.OwnerLifetime!=null,Conversation=a.CaptureRef==conversationRef};
-        void OnRetired(EntityAnchor a) {retiredAnchors=Math.Min(int.MaxValue,retiredAnchors+1);sensors.Retire(a.CaptureRef);lock(rosterGate) {publishedAnchorStates.Remove(a.CaptureRef);publishedObserverIndex.Remove(a.CaptureRef);sampledSituations.Remove(a.CaptureRef);}if(pendingRetirements.Count<256) pendingRetirements.Add(a.CaptureRef);else channel?.Dispose();}
+        void OnRetired(EntityAnchor a) {ps3Receipts.Retire(a.OwnerLifetime);retiredAnchors=Math.Min(int.MaxValue,retiredAnchors+1);sensors.Retire(a.CaptureRef);lock(rosterGate) {publishedAnchorStates.Remove(a.CaptureRef);publishedObserverIndex.Remove(a.CaptureRef);sampledSituations.Remove(a.CaptureRef);}if(pendingRetirements.Count<256) pendingRetirements.Add(a.CaptureRef);else channel?.Dispose();}
         void FlushControls(bool refreshRoster=false)
         {
             lock(rosterGate) {
@@ -221,6 +223,7 @@ namespace LSA.Intelligence
         }
         public void OwnerRetired(string lifetime) {
             try {
+                ps3Receipts.Retire(lifetime);
                 if(director.RevokeOwner(lifetime))lock(directorPlaybackGate) {
                     directorPlaybackEvents.Clear();directorPlaybackOverflow=false;
                 }
@@ -250,7 +253,7 @@ namespace LSA.Intelligence
                 if(ownsHost) host.ObserveGameTick(tick);
                 previousTick=tick;
                 lineOfSightBudget=8;
-                if(channel.ConnectionVersion!=connectionVersion) {connectionVersion=channel.ConnectionVersion;lock(rosterGate) {publishedAnchorStates.Clear();publishedObserverIndex.Clear();sampledSituations.Clear();}nextRefresh=0;}
+                if(channel.ConnectionVersion!=connectionVersion) {ps3Receipts.Reset();director.Reset();connectionVersion=channel.ConnectionVersion;lock(rosterGate) {publishedAnchorStates.Clear();publishedObserverIndex.Clear();sampledSituations.Clear();}nextRefresh=0;}
                 if(now>=nextDiscovery) {
                     nextDiscovery=now+200;
                     var player=Game.LocalPlayer.Character;
@@ -426,6 +429,17 @@ namespace LSA.Intelligence
                     !NativeFunction.CallByName<bool>("GET_MISSION_FLAG") &&
                     !NativeFunction.CallByName<bool>("NETWORK_IS_SESSION_ACTIVE");
                 proof.ScriptStateKnown=true;
+                // Original native P2/source-signal evidence and independently
+                // received authenticated companion PS3 receipt must match.
+                // Only original fields from this sealed receipt populate C06.
+                var original=ps3Receipts.OriginalFor(r);
+                if(original!=null) {
+                    proof.ObservationId=original.ObservationId;
+                    proof.ObservationRevision=original.ObservationRevision;
+                    proof.DecisionKey=original.DecisionKey;
+                    proof.ObservationReceiptCurrent=true;
+                    proof.ResponseGrantCurrent=true;
+                }
                 // P2 now publishes a monotonic owner-fiber encounter revision,
                 // but the companion currently has no independent versioned
                 // source stamp from this producer. Matching a request's value
@@ -443,8 +457,33 @@ namespace LSA.Intelligence
         {
             if(!directorShadow || channel==null)return;
             for(int n=0;n<4 && channel.TryTakeDirectorFrame(out var frame);n++) {
+                DirectorPs3Receipts.Grant sourceGrant;
+                if(DirectorPs3ReceiptCodec.TryDecode(frame,out sourceGrant)) {
+                    // Only the actual connected pipe reader delivers this
+                    // frame. Issue/challenge and native original source signal
+                    // validation are independent of the request vocabulary.
+                    ps3Receipts.Accept(sourceGrant);
+                    continue;
+                }
                 if(!DirectorFrameCodec.TryDecode(frame,out var request))continue;
                 var receipt=director.Handle(request);
+                // The original source proof can be reserved only with its
+                // exact one-use native reservation. The feature gate remains
+                // OFF, so the production endpoint never consumes a grant.
+                if(receipt.Status=="reserved" && !ps3Receipts.Reserve(request)) {
+                    director.Handle(new DirectorAdmission.Request {
+                        Version=request.Version,Operation="cancel",TicketId=request.TicketId,
+                        DedupeKey=request.DedupeKey,HostRunId=request.HostRunId,
+                        WorldEpoch=request.WorldEpoch,SpeakerCaptureRef=request.SpeakerCaptureRef,
+                        PlayerCaptureRef=request.PlayerCaptureRef,OwnerIncarnationId=request.OwnerIncarnationId,
+                        ProofRevision=request.ProofRevision,PlayerTurnVersion=request.PlayerTurnVersion,
+                        PolicyVersion=request.PolicyVersion,ObservationId=request.ObservationId,
+                        ObservationRevision=request.ObservationRevision,DecisionKey=request.DecisionKey,
+                        AgeMs=request.AgeMs
+                    });
+                    receipt=new DirectorAdmission.Receipt(request.TicketId,"unsafe");
+                }
+                if(request.Operation=="cancel")ps3Receipts.ClearGrant(request.TicketId);
                 channel.Send("director_response",new {
                     directorRequestVersion=1,ticketId=receipt.TicketId,status=receipt.Status
                 });
@@ -512,11 +551,18 @@ namespace LSA.Intelligence
             if(anchors.Resolve(a.CaptureRef)==null) return;var p=(Ped)a.Entity;
             if(a.Observer) {
                 var primaryOwner=SamplePrimaryOwner(a);
+                var revision=++situationRevision;
+                var ownerRevision=primaryOwner==null ? (int?)null : SampleDirectorOwnerRevision(a);
+                // Native-issued challenge remains bound to this exact P2
+                // incumbent and source revision across nearby samples.
+                var challenge=directorShadow && a.OwnerLifetime!=null && ownerRevision>0
+                    ? ps3Receipts.Issue(a.CaptureRef,a.OwnerLifetime,ownerRevision.Value,(int)revision)
+                    : null;
                 sampledSituations[a.CaptureRef]=new {
                     captureRef=a.CaptureRef,sampledGameTick=tick,
-                    activity=ObserverActivity(a,p),situationRevision=++situationRevision,
-                    primaryOwner,ownerProofRevision=primaryOwner==null
-                        ? (int?)null : SampleDirectorOwnerRevision(a)
+                    activity=ObserverActivity(a,p),situationRevision=revision,
+                    primaryOwner,ownerProofRevision=ownerRevision,
+                    ps3Challenge=challenge
                 };
             }
             var v=p.CurrentVehicle;var va=Retain(v,"vehicle");
@@ -541,7 +587,14 @@ namespace LSA.Intelligence
             if(now-signal.receivedMs>=30000) {staleRejected++;return;}
             if((signal.source!=null && anchors.Resolve(signal.source)==null) || (signal.target!=null && anchors.Resolve(signal.target)==null)) {staleRejected++;return;}
             var witnessReceipts=(signal.witnessReceipts??new List<WitnessReceipt>()).Where(w=>w!=null&&w.Status=="witnessed"&&w.Channel!=null&&w.Basis!=null).Select(w=>new {observer=new {captureRef=w.Observer,kind="ped"},sampledGameTick=w.SampledGameTick,status=w.Status,reason=w.Reason,knowsSource=w.KnowsSource,knowsTarget=w.KnowsTarget,evidence=new {channel=w.Channel,basis=w.Basis,sampledGameTick=w.SampledGameTick}}).ToArray();
-            channel.Send("signal",new {signal.signalId,signal.producer,signal.producerSequence,signal.kind,signal.target,signal.source,signal.gameTick,ageMs=Clamp(now-signal.receivedMs),signal.facts,witnessReceipts});
+            if(channel?.Send("signal",new {signal.signalId,signal.producer,signal.producerSequence,signal.kind,signal.target,signal.source,signal.gameTick,ageMs=Clamp(now-signal.receivedMs),signal.facts,witnessReceipts})==true) {
+                var nativeWitnesses=witnessReceipts.Select(w=>w.observer.captureRef).ToList();
+                foreach(var reference in new[]{signal.source,signal.target}) {
+                    var actor=reference==null?null:anchors.Resolve(reference);
+                    if(actor?.Observer==true && actor.Kind=="ped")nativeWitnesses.Add(reference);
+                }
+                ps3Receipts.SentSignal(signal.signalId,nativeWitnesses);
+            }
         }
         void Lifecycle(string kind,string pedId,object entity,bool interrupted,bool hadAudio)
         {
@@ -640,7 +693,7 @@ namespace LSA.Intelligence
             AppDomain.CurrentDomain.AssemblyLoad-=AssemblyLoaded;
             try{damage?.Dispose();}catch{}damage=null;
             if(playback) {try{NpcPlaybackCoordinator.PlaybackStarted-=PlaybackStarted;NpcPlaybackCoordinator.PlaybackEnded-=PlaybackEnded;}catch{}playback=false;}
-            director.Disable();lock(directorPlaybackGate) {directorPlaybackEvents.Clear();directorPlaybackOverflow=false;}channel?.Dispose();anchors.Retired-=OnRetired;host.WorldChanged-=WorldChanged;
+            director.Disable();ps3Receipts.Reset();lock(directorPlaybackGate) {directorPlaybackEvents.Clear();directorPlaybackOverflow=false;}channel?.Dispose();anchors.Retired-=OnRetired;host.WorldChanged-=WorldChanged;
             if(ownsHost) host.Shutdown();sensors.Reset();UpdateIndexes();
         }
     }
