@@ -86,7 +86,7 @@ test('typed OpenAI turn is pinned, sequential, and awaits matching protocol play
   connection.close();
 });
 
-test('R5 projects one selected radio fact only for a relevant player turn', async () => {
+test('legacy radio projectTurnContext cannot inject a second prompt writer into PS4', async () => {
   const fake = fakeProviderFetch();
   const config = normalizeConfig({}, { OPENAI_API_KEY: 'test-key' });
   const runtime = createRuntime(config, { fetchImpl: fake.fetch });
@@ -107,10 +107,8 @@ test('R5 projects one selected radio fact only for a relevant player turn', asyn
   await connection.sendText('What song is this?');
   assert.equal((await connection.whenSettled(first)).status,'completed');
   const firstBody=JSON.parse(fake.requests.find(request=>request.url.endsWith('/responses')).init.body);
-  assert.match(firstBody.input[0].content,/\[SELECTED AUDIBLE ENVIRONMENT\]/);
-  assert.match(firstBody.input[0].content,/Track A/);
-  assert.match(firstBody.input[0].content,/Artist A/);
-  assert.equal(consumed.length,1);assert.equal(consumed[0].outcome,'delivered');
+  assert.doesNotMatch(firstBody.input[0].content,/SELECTED AUDIBLE ENVIRONMENT|Track A|Artist A/);
+  assert.equal(consumed.length,0);
 
   const second={pedId:'17',turnId:'normal-turn',generationId:2,sessionNonce:1};
   await connection.beginTurn({identity:second,source:'player_text',context:{systemInstruction:'Stock Essential system prompt',actor:{pedId:'17'},listener:{pedId:'player'},contextText:'Street: Grove Street',inputText:'How are you?'}});
@@ -119,7 +117,7 @@ test('R5 projects one selected radio fact only for a relevant player turn', asyn
   const responseBodies=fake.requests.filter(request=>request.url.endsWith('/responses')).map(request=>JSON.parse(request.init.body));
   assert.equal(responseBodies.length,2);
   assert.doesNotMatch(responseBodies[1].input[0].content,/SELECTED AUDIBLE ENVIRONMENT|Track A|Artist A/);
-  assert.equal(consumed.length,1);
+  assert.equal(consumed.length,0);
   connection.close();
 });
 

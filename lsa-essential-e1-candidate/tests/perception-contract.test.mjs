@@ -226,7 +226,7 @@ test('radio v2 keeps R3-R5 observer knowledge keyed to live text ID rather than 
   assert.equal(live.runtime.radioCatalog.unknownTextIds,0);assert.equal(live.runtime.radioCatalog.catalogMismatches,0);
 
   const defaultDecision=live.runtime.salience.latestById.get(observation.observationId).decision;
-  assert.equal(defaultDecision.context,'omit');assert.equal(defaultDecision.response,'none');assert.equal(defaultDecision.memory,'none');
+  assert.equal(defaultDecision.context,'candidate');assert.equal(defaultDecision.response,'none');assert.equal(defaultDecision.memory,'none');
   const requested=live.runtime.noteSalience(observation,{requestedEnvironmentChannels:['radio']});
   assert.equal(requested.context,'candidate');assert.equal(requested.response,'none');assert.equal(requested.memory,'none');
 

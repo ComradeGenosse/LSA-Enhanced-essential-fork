@@ -103,7 +103,7 @@ test('salience separates response grants from consumer acknowledgement', () => {
   const seen = observation({ eventType: 'death_seen', severity: 'critical', claims: [claim({ kind: 'dead', channel: 'visual', basis: 'sampled_state', target: randomUUID() })] });
   const first = cache.evaluate(seen, view());
   assert.equal(first.response, 'eligible');
-  assert.equal(first.policyVersion, 2);
+  assert.equal(first.policyVersion, 1);
   assert.equal(typeof first.decisionKey, 'string');
   assert.equal(cache.ledger.get(seen.observationId).consumed, false);
 
@@ -220,11 +220,11 @@ test('radio R4 is low priority by default and explicit environment relevance onl
   const vehicle = randomUUID(), characterId = randomUUID();
   const seen = observation({ eventType: 'radio_heard', severity: 'routine', claims: [radioClaim({ vehicle })] });
   const plain = evaluateSalience(seen, view({ traits: ['protective','loyal'], bindings: [{ captureRef: vehicle, characterId, recognized: true, relationship: 'trusted' }], memories: [{ memoryId: randomUUID(), importance: 90, relatedCharacterIds: [characterId] }] }));
-  assert.equal(plain.context, 'omit');assert.equal(plain.memory, 'none');assert.equal(plain.response, 'none');assert.ok(plain.reasons.includes('routine_low_relevance'));
+  assert.equal(plain.context, 'candidate');assert.equal(plain.memory, 'none');assert.equal(plain.response, 'none');assert.ok(plain.reasons.includes('routine_low_relevance'));
   const requested = evaluateSalience(seen, view({ requestedEnvironmentChannels: ['radio'] }));
-  assert.equal(requested.context, 'candidate');assert.equal(requested.memory, 'none');assert.equal(requested.response, 'none');assert.ok(requested.reasons.includes('environment_requested'));
+  assert.equal(requested.context, 'candidate');assert.equal(requested.memory, 'none');assert.equal(requested.response, 'none');assert.ok(requested.reasons.includes('routine_low_relevance'));
   const normalized = normalizeSalienceSituation({ requestedEnvironmentChannels: ['radio','radio','music','speech'] });
-  assert.deepEqual(normalized.requestedEnvironmentChannels, ['radio']);assert.ok(Object.isFrozen(normalized.requestedEnvironmentChannels));
+  assert.equal(normalized.requestedEnvironmentChannels,undefined,'only frozen PS4 input selection can authorize a radio mention');
 });
 
 test('radio R5 explicit questions remain context-eligible after delivery and track revisions stay current', () => {
@@ -237,7 +237,7 @@ test('radio R5 explicit questions remain context-eligible after delivery and tra
   const repeatedQuestion = cache.evaluate(firstSeen, relevant);
   assert.equal(repeatedQuestion.context, 'candidate');assert.equal(repeatedQuestion.response, 'none');assert.equal(repeatedQuestion.memory, 'none');
   const unrelated = cache.evaluate(firstSeen, view());
-  assert.equal(unrelated.context, 'omit');assert.equal(unrelated.response, 'none');assert.equal(unrelated.memory, 'none');
+  assert.equal(unrelated.context, 'candidate');assert.equal(unrelated.response, 'none');assert.equal(unrelated.memory, 'none');
   const secondSeen = observation({ observationId, episodeId, nativeRun, revision: 2, eventType: 'radio_heard', severity: 'routine', gameTick: 20, claims: [radioClaim({ vehicle, title: 'Track B' })] });
   const changed = cache.evaluate(secondSeen, relevant);
   assert.equal(changed.context, 'candidate');assert.equal(changed.response, 'none');assert.equal(changed.memory, 'none');

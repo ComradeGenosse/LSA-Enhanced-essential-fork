@@ -74,8 +74,8 @@ export function verifyRadioTrackTextCatalog(value) {
   for(const key of trackKeys) {
     const row=value.tracks[key];
     if(!DECIMAL_ID.test(key) || Number(key)>INT32_MAX) {push('invalid_track_text_id');continue;}
-    if(!exactKeys(row,['title','artist','kind','stations']) || !safeDisplay(row.title,RADIO_TEXT_CATALOG_LIMITS.title) ||
-       !safeDisplay(row.artist,RADIO_TEXT_CATALOG_LIMITS.artist) || !KINDS.has(row.kind) ||
+    if(!exactKeys(row,['title','artist','kind','stations']) || !(row.title==='' || safeDisplay(row.title,RADIO_TEXT_CATALOG_LIMITS.title)) ||
+       !(row.artist==='' || safeDisplay(row.artist,RADIO_TEXT_CATALOG_LIMITS.artist)) || !KINDS.has(row.kind) ||
        !Array.isArray(row.stations) || row.stations.length<1 || row.stations.length>32) {push('invalid_track');continue;}
     if(new Set(row.stations).size!==row.stations.length || row.stations.some(station=>!STATION.test(station)||!Object.hasOwn(value.stations,station))) push('invalid_track_station');
     if(row.kind==='music') music++; else if(row.kind==='commercial') commercial++; else off++;
@@ -135,6 +135,10 @@ export class RadioTrackTextCatalog {
       this.catalogMismatches=saturate(this.catalogMismatches);
       return Object.freeze({...base,catalogMismatch:true});
     }
+    // Candidate public metadata legitimately leaves a handful of titles or
+    // artists blank. Such entries are *unidentified*, never a known song.
+    if(!safeDisplay(entry.title,RADIO_TEXT_CATALOG_LIMITS.title) ||
+       !safeDisplay(entry.artist,RADIO_TEXT_CATALOG_LIMITS.artist)) return Object.freeze(base);
     return Object.freeze({...base,trackKnown:true,kind:entry.kind,artist:entry.artist,title:entry.title});
   }
 }
