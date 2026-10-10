@@ -70,3 +70,48 @@ test('C06 ownership rejects legacy/unowned and malformed association',()=>{
  for(const options of [{owned:true},{version:1,owned:false}]){const f=fixture(options);assert.equal(f.send('observer_situation',[row(f)]),false);assert.equal(f.runtime.epoch,null);}
  const f=fixture({version:1,owned:true});const malformed=row(f);malformed.primaryOwner.leaseId='not-an-id';assert.equal(f.send('observer_situation',[malformed]),false);assert.equal(f.runtime.observerSituations.size,0);
 });
+
+test('native source P2 proof revision preserves exact incarnation and rejects stale or malformed updates',()=>{
+ const f=fixture({version:1,owned:true});
+ const native=f.runtime.observerIndex.get(f.captureRef);
+ const owner={owner:'none',mode:'idle',since:10};
+ const row=(revision,situationRevision)=>({captureRef:f.captureRef,sampledGameTick:10,
+   activity:'idle',situationRevision,primaryOwner:owner,ownerProofRevision:revision});
+ assert.equal(f.runtime.directorOwnerProofFor(f.captureRef),null);
+ assert.equal(f.send('observer_situation',[row(3,1)]),true);
+ const original=f.runtime.directorOwnerProofFor(f.captureRef);
+ assert.equal(original.proofRevision,3);
+ assert.equal(original.ownerIncarnationId,native.incarnationId);
+ assert.equal(original.speakerCaptureRef,f.captureRef);
+ assert.equal(original.hostRunId,f.runtime.hostContext.hostRunId);
+ assert.ok(Object.isFrozen(original));
+ assert.equal(f.send('observer_situation',[row(5,2)]),true);
+ assert.equal(original.proofRevision,3);
+ assert.equal(f.runtime.directorOwnerProofFor(f.captureRef).proofRevision,5);
+ f.setNow(3002);
+ assert.equal(f.runtime.directorOwnerProofFor(f.captureRef),null);
+ f.runtime.retire(f.captureRef);
+ assert.equal(f.runtime.directorOwnerProofFor(f.captureRef),null);
+});
+test('native owner revision is optional, rejects zero/unowned/forged and is never PS3 grant',()=>{
+ const originalRow=f=>({captureRef:f.captureRef,sampledGameTick:10,
+   activity:'idle',situationRevision:1,
+   primaryOwner:{owner:'none',mode:'idle',since:10},ownerProofRevision:3});
+ const optional=fixture({version:1,owned:true});
+ const without={...originalRow(optional)};delete without.ownerProofRevision;
+ assert.equal(optional.send('observer_situation',[without]),true);
+ assert.equal(optional.runtime.directorOwnerProofFor(optional.captureRef),null);
+ for(const invalid of [0,-1,1.5,2147483648,'3',true]){
+   const f=fixture({version:1,owned:true});
+   assert.equal(f.send('observer_situation',[{...originalRow(f),ownerProofRevision:invalid}]),false);
+   assert.equal(f.runtime.epoch,null);
+ }
+ const unowned=fixture({version:1,owned:false});
+ assert.equal(unowned.send('observer_situation',[originalRow(unowned)]),false);
+ const withoutOwner=fixture({version:1,owned:true});
+ assert.equal(withoutOwner.send('observer_situation',[{...originalRow(withoutOwner),primaryOwner:null}]),false);
+ const withOwner=fixture({version:1,owned:true});
+ assert.equal(withOwner.send('observer_situation',[originalRow(withOwner)]),true);
+ assert.equal(withOwner.runtime.directorCandidatesFor(withOwner.captureRef).length,0,
+   'a source P2 revision alone cannot fabricate an observation or PS3 speech entitlement');
+});
