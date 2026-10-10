@@ -117,7 +117,8 @@ namespace LSA.Intelligence
             // This preview endpoint never acquires C-11 speech authority.
             // Verified native C-06 + Essential intake are deliberately absent.
             director=new DirectorAdmission(()=>this.host.MonotonicMs,(r,stage)=>(stage=="bind" || stage=="playback_started" || stage=="complete") ? DirectorC06Policy.CurrentPlayback(r,ReadDirectorC06(r)) : DirectorC06Policy.Safe(r,ReadDirectorC06(r)),()=>this.host.HostRunId,()=>this.host.WorldEpoch,false,
-                ()=>LosSantosAlive.Bridge.SpecialTurns.SpecialGeminiTurnService.ReadPlayerTurnVersion());
+                ()=>LosSantosAlive.Bridge.SpecialTurns.SpecialGeminiTurnService.ReadPlayerTurnVersion(),
+                 ()=>directorShadow ? LSA.PromotedCharacters.EssentialPlayerPriorityMonitor.Read() : -1);
             this.host.WorldChanged+=WorldChanged;capabilities=capabilityNames.ToDictionary(k=>k,k=>false);
         }
         void WorldChanged(int epoch,string reason) {
@@ -142,6 +143,11 @@ namespace LSA.Intelligence
                 // Resolve only after Core DLL pin. Missing/unreadable private mic
                 // field remains an UNKNOWN veto, never inferred idle.
                 directorMic=new EssentialMicState();
+                 // Read-only source-pinned original Core entry observer, only
+                 // in an explicitly requested Director shadow runtime. This
+                 // is a takeover revision fence, NOT permission to declare
+                 // complete player/Essential ownership idle.
+                 if(directorShadow)LSA.PromotedCharacters.EssentialPlayerPriorityMonitor.Attach();
                 sensors.Enabled=true;sensors.WitnessEvaluator=CaptureWitnesses;anchors.Retired+=OnRetired;
                 capabilities["shooting"]=true;capabilities["state"]=true;capabilities["action"]=true;capabilities["witness"]=true;capabilities["playerSpeech"]=false;
                 // Do not load a second tracker assembly. Essential already loads the library.
