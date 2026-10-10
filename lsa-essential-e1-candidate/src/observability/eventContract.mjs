@@ -95,7 +95,9 @@ const safeDirectorReasons = new Set([
   'decision_already_attempted','rate_limited','scene_or_speaker_cooldown',
   'evidence_expired','source_or_safety_veto','ticket_id_unavailable',
   'reservation_unavailable','original_ps3_entitlement_changed',
-  'reservation_recheck_veto',
+  'reservation_recheck_veto','completion_tuple_invalid',
+  'native_playback_unverified','completion_safety_veto',
+  'ps6_ack_rejected','completion_unclassified',
 ]);
 function safeScalar(key, value) {
   if (value === null || typeof value === 'boolean') return value;

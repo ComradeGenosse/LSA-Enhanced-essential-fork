@@ -864,10 +864,12 @@ namespace LSA.Intelligence
                 } else if(!directorPlaybackOverflow)directorPlaybackEvents.Enqueue(item);
             }
         }
-        // Owner fiber ONLY. Callback PedId/turn/generation are native evidence;
-        // the callback contains NO session nonce or original PS6 ticket. An
-        // earlier native BindActualTuple is mandatory. Wrong/reused ped wrappers
-        // or world-retired capture refs cannot inherit an existing ticket.
+        // Owner fiber ONLY. Essential can construct a *different Ped wrapper*
+        // for the very same physical actor during playback callbacks. A CLR
+        // ReferenceEquals test (or CallbackAnchor's reference-keyed lookup)
+        // silently loses valid Core start/end receipts. Resolve instead through
+        // the original, still-live P0/P2 anchor with matching native handle
+        // AND memory address. Never infer a PS6 ticket from a callback.
         void DrainDirectorCorePlayback()
         {
             bool overflow;DirectorPlaybackEvent[] events;
@@ -879,29 +881,72 @@ namespace LSA.Intelligence
             }
             if(overflow) {director.Reset();return;}
             foreach(var e in events) {
+                // Don't emit diagnostics for unrelated Core playback.
+                if(!director.HasActive)continue;
+                LogDirectorHandoff("native_playback", "started",
+                    e?.Started==true?"core_start_received":"core_end_received");
                 if(e?.Speaker==null || string.IsNullOrWhiteSpace(e.PedId) ||
-                    string.IsNullOrWhiteSpace(e.TurnId) || e.GenerationId<0)continue;
-                if(!e.Speaker.Exists() ||
-                    !string.Equals(e.PedId,e.Speaker.Handle.ToString(),
-                        StringComparison.Ordinal))continue;
-                var token=CallbackAnchor(Convert.ToUInt32(e.Speaker.Handle),e.Speaker,false);
-                var anchor=token==null?null:anchors.Resolve(token);
-                if(anchor==null || !ReferenceEquals(anchor.Entity,e.Speaker))continue;
-                // The callback is not a ticket. Match the previously bound
-                // native original tuple before emitting a status on the same
-                // authenticated PS channel. A failed playback never consumes
-                // the companion's PS3 grant.
-                var ticket=director.OriginalBoundTicket(token,e.PedId,e.TurnId,e.GenerationId);
-                if(ticket==null)continue;
+                    string.IsNullOrWhiteSpace(e.TurnId) || e.GenerationId<0) {
+                    LogDirectorHandoff("native_playback","rejected","callback_identity_missing");
+                    continue;
+                }
+                ulong nativeHandle;IntPtr nativeAddress;
+                try {
+                    if(!e.Speaker.Exists() ||
+                        !string.Equals(e.PedId,e.Speaker.Handle.ToString(),
+                            StringComparison.Ordinal)) {
+                        LogDirectorHandoff("native_playback","rejected","callback_ped_invalid");
+                        continue;
+                    }
+                    nativeHandle=Convert.ToUInt64(e.Speaker.Handle);
+                    nativeAddress=e.Speaker.MemoryAddress;
+                } catch {
+                    LogDirectorHandoff("native_playback","rejected","callback_ped_invalid");
+                    continue;
+                }
+                if(nativeAddress==IntPtr.Zero) {
+                    LogDirectorHandoff("native_playback","rejected","callback_ped_invalid");
+                    continue;
+                }
+                string token=null,ticket=null;
+                foreach(var candidate in anchors.Current) {
+                    if(candidate.Kind!="ped" || candidate.OwnerLifetime==null ||
+                       candidate.Handle!=nativeHandle ||
+                       candidate.Address!=nativeAddress)continue;
+                    var current=anchors.Resolve(candidate.CaptureRef);
+                    if(!ReferenceEquals(current,candidate) ||
+                       !(current.Entity is Ped retained) ||
+                       !Live(retained,nativeHandle,nativeAddress) ||
+                       !Live(e.Speaker,nativeHandle,nativeAddress))continue;
+                    // Exact original reservation AND bound Core PedId/TurnId/
+                    // GenerationId remain mandatory. The original nonce stays
+                    // sealed in DirectorAdmission, never inferred from Core.
+                    var matched=director.OriginalBoundTicket(current.CaptureRef,
+                        e.PedId,e.TurnId,e.GenerationId);
+                    if(matched==null)continue;
+                    token=current.CaptureRef;ticket=matched;break;
+                }
+                if(ticket==null) {
+                    LogDirectorHandoff("native_playback","rejected",
+                        "anchor_or_bound_tuple_missing");
+                    continue;
+                }
                 if(e.Started) {
-                    if(director.ObserveCorePlaybackStarted(token,e.PedId,e.TurnId,e.GenerationId))
-                        channel?.Send("director_response",new {
-                            directorRequestVersion=1,ticketId=ticket,status="started"});
+                    bool started=director.ObserveCorePlaybackStarted(token,
+                        e.PedId,e.TurnId,e.GenerationId);
+                    LogDirectorHandoff("native_playback",started?"accepted":"rejected",
+                        started?"original_start_verified":"original_start_veto");
+                    if(started)channel?.Send("director_response",new {
+                        directorRequestVersion=1,ticketId=ticket,status="started"});
                 } else {
-                    bool delivered=director.ObserveCorePlaybackEnded(token,e.PedId,e.TurnId,e.GenerationId,
-                        e.Reason,e.Interrupted,e.HadAudio,e.PlaybackStarted);
+                    bool delivered=director.ObserveCorePlaybackEnded(token,e.PedId,
+                        e.TurnId,e.GenerationId,e.Reason,e.Interrupted,
+                        e.HadAudio,e.PlaybackStarted);
+                    LogDirectorHandoff("native_playback",delivered?"accepted":"rejected",
+                        delivered?"original_completion_verified":"original_completion_veto");
                     channel?.Send("director_response",new {
-                        directorRequestVersion=1,ticketId=ticket,status=delivered?"completed":"failed"});
+                        directorRequestVersion=1,ticketId=ticket,
+                        status=delivered?"completed":"failed"});
                 }
             }
         }

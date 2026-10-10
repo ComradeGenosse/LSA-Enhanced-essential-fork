@@ -142,19 +142,28 @@ export class DirectorSpeechReservations {
   // An earlier reasoning success, partial PCM, wrong generation, audio-less
   // playback or interruption must never consume the PS6 grant.
   finish(ticketId,tuple,receipt) {
+    this.lastFinishFailure=null;
     const r=this.active;
-    if(!r || r.id!==ticketId || r.state!=='bound' || !tupleMatches(r.tuple,tuple))
-      return false;
+    if(!r || r.id!==ticketId || r.state!=='bound' || !tupleMatches(r.tuple,tuple)) {
+      this.lastFinishFailure='completion_tuple_invalid';return false;
+    }
     const success=receipt?.type==='playback_ended' &&
       receipt.reason==='completed' && receipt.wasInterrupted===false &&
       receipt.hadAudio===true && receipt.playbackStarted===true;
-    if(!success) {this.cancel(ticketId);return false;}
+    if(!success) {
+      this.lastFinishFailure='native_playback_unverified';
+      this.cancel(ticketId);return false;
+    }
     // Final gate still applies: a retired/changed actor must not speak using
     // a late receipt. Use recorded stamp, never 'latest target' reconstruction.
-    if(!this.safe(r.proposal,r.stamp,'complete',r)) {this.cancel(ticketId);return false;}
+    if(!this.safe(r.proposal,r.stamp,'complete',r)) {
+      this.lastFinishFailure='completion_safety_veto';
+      this.cancel(ticketId);return false;
+    }
     let delivered=false;
     try {delivered=this.acknowledge(r.proposal.decisionKey,'ps6_ticket','delivered')===true;}
     catch {delivered=false;}
+    if(!delivered)this.lastFinishFailure='ps6_ack_rejected';
     this.active=null;return delivered;
   }
   cancel(ticketId) {

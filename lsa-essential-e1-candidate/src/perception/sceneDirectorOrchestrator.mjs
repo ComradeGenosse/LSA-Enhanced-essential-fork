@@ -109,7 +109,8 @@ export class SceneDirectorSpeech {
         return Object.freeze({status:'tuple_rejected'});
       const outcome=await result.terminal;
       const delivered=this.admission.finish(ticket.ticketId,result.tuple,outcome);
-      return Object.freeze({status:delivered?'delivered':'not_delivered'});
+      return Object.freeze(delivered?{status:'delivered'}:
+        {status:'not_delivered',diagnosticReason:this.admission.lastFinishFailure??'completion_unclassified'});
     } catch {
       return Object.freeze({status:'failed'});
     } finally {
