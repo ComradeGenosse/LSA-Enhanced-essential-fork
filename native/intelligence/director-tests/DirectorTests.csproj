@@ -9,7 +9,7 @@
   <ItemGroup>
     <Compile Include="Program.cs" />
     <Compile Include="../DirectorAdmission.cs" Link="DirectorAdmission.cs" /><Compile Include="../PlayerPriorityEpoch.cs" Link="PlayerPriorityEpoch.cs" />
-    <Compile Include="../DirectorC06Policy.cs" Link="DirectorC06Policy.cs" /><Compile Include="../DirectorPs3Receipts.cs" Link="DirectorPs3Receipts.cs" /><Compile Include="../DirectorPs3ReceiptCodec.cs" Link="DirectorPs3ReceiptCodec.cs" />
+    <Compile Include="../DirectorC06Policy.cs" Link="DirectorC06Policy.cs" /><Compile Include="../DirectorPs3Receipts.cs" Link="DirectorPs3Receipts.cs" /><Compile Include="../DirectorOriginalTurnReceipts.cs" Link="DirectorOriginalTurnReceipts.cs" /><Compile Include="../DirectorOriginalTurnReceiptCodec.cs" Link="DirectorOriginalTurnReceiptCodec.cs" /><Compile Include="../DirectorPs3ReceiptCodec.cs" Link="DirectorPs3ReceiptCodec.cs" />
     <Compile Include="../IntelligenceChannel.cs" Link="IntelligenceChannel.cs" />
     <Compile Include="../DirectorFrameCodec.cs" Link="DirectorFrameCodec.cs" />
     <Reference Include="System.Web.Extensions" />
