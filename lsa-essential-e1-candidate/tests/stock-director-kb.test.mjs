@@ -149,7 +149,8 @@ test('original kb hydrates one native-submitted source-backed Director tuple thr
  });
  assert.ok(playback,'production registry has the original Director reservation');
  client.directorOwnerReservations.set(ticket.ticketId,{
-   run:reservation.sourceRun,revision:reservation.revision,proposal,stamp});
+   run:reservation.sourceRun,revision:reservation.revision,proposal,stamp,
+   priority:directorTicket.priority});
  client.directorStockDispatched.add(ticket.ticketId);
  client.directorStockContexts.set(ticket.ticketId,'Nearby danger.');
  h.runtime.intelligence=client;

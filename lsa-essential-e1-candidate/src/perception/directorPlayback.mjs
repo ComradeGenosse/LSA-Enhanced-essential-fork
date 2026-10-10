@@ -47,7 +47,9 @@ export class DirectorPlaybackRegistry {
        typeof original.playerCaptureRef!=='string' || !original.playerCaptureRef ||
        original.playerCaptureRef!==claimed.playerCaptureRef ||
        typeof original.decisionKey!=='string' || !original.decisionKey ||
-       original.decisionKey!==claimed.decisionKey)return false;
+       original.decisionKey!==claimed.decisionKey ||
+       !['director_urgent','director_routine'].includes(original.priority) ||
+       claimed.priority!==original.priority)return false;
     // After one trusted alias is registered, ONLY these two exact objects
     // work; a cloned object with identical fields can never borrow the turn.
     e.claimedTicket=claimed;
@@ -97,6 +99,25 @@ export class DirectorPlaybackRegistry {
     }
     if(status==='failed' || status==='completed') {this.fail(id);return true;}
     return false;
+  }
+  // Terminal-only failure for the original verified ticket + native turn.
+  // A turn snapshot is a clone, never an authorization or playback receipt.
+  failVerifiedTurn(ticket,identity) {
+    const e=this.entries.get(ticket?.ticketId),claim=e?.claimedTicket;
+    if(!e || e.finished || !e.published || !claim || !e.identity ||
+       !identity || !['director_urgent','director_routine'].includes(claim.priority))
+      return false;
+    for(const key of [
+      'schemaVersion','ticketId','dedupeKey','priority',
+      'hostRunId','worldEpoch','ownerIncarnationId','proofRevision',
+      'playerTurnVersion','speakerCaptureRef','playerCaptureRef',
+      'observationId','observationRevision','decisionKey','policyVersion',
+      'sourceRun','sourceRevision',
+    ])if(ticket[key]!==claim[key])return false;
+    for(const key of ['pedId','turnId','generationId','sessionNonce'])
+      if(identity[key]!==e.identity[key])return false;
+    this.fail(e.ticket.ticketId);
+    return true;
   }
   fail(id) {
     const e=this.entries.get(id);

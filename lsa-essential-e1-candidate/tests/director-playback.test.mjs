@@ -53,7 +53,7 @@ test('independently reconstructed native-verified kb ticket hydrates and publish
  const claimed=Object.freeze({
    schemaVersion:1,ticketId:original.ticketId,dedupeKey:original.dedupeKey,
    speakerCaptureRef:original.speakerCaptureRef,playerCaptureRef:original.playerCaptureRef,
-   decisionKey:original.decisionKey,sourceRun:'original-backend-run',
+   decisionKey:original.decisionKey,priority:original.priority,sourceRun:'original-backend-run',
    sourceRevision:9,ownerIncarnationId:'source-p2-owner',
  });
  assert.notEqual(claimed,original,'stock kb reconstructs the ticket from verified native records');
@@ -82,7 +82,7 @@ test('Director reconstructed ticket cannot be borrowed, replayed, mutated or sub
  const valid=Object.freeze({
    schemaVersion:1,ticketId:original.ticketId,dedupeKey:original.dedupeKey,
    speakerCaptureRef:original.speakerCaptureRef,playerCaptureRef:original.playerCaptureRef,
-   decisionKey:original.decisionKey,
+   decisionKey:original.decisionKey,priority:original.priority,
  });
  const registry=new DirectorPlaybackRegistry();
  const pending=registry.begin(original,gates());
@@ -93,6 +93,7 @@ test('Director reconstructed ticket cannot be borrowed, replayed, mutated or sub
    {speakerCaptureRef:'speaker-B'},
    {playerCaptureRef:'player-B'},
    {decisionKey:'ps3:decision-B'},
+   {priority:'director_routine'},
    {schemaVersion:2},
  ])assert.equal(registry.registerVerifiedClaim(Object.freeze({...valid,...patch})),false,
    'no mismatched reservation authority may be registered');

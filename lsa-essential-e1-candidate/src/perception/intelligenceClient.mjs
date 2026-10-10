@@ -226,7 +226,8 @@ export class IntelligenceClient {
       }
       if(!this.sendDirectorPreview(nativeArgs)) {finish(null);return;}
       if(args.operation==='reserve')this.directorOwnerReservations.set(ticketId,
-        {run:owner.sourceRun,revision:owner.revision,stamp:args.stamp,proposal:args.proposal});
+        {run:owner.sourceRun,revision:owner.revision,stamp:args.stamp,
+         proposal:args.proposal,priority:args.ticket.priority});
     });
   }
   // Bounded 3A intake for a *previously native-submitted* ticket only.
@@ -307,6 +308,7 @@ export class IntelligenceClient {
       observationRevision:record.proposal.observationRevision,
       decisionKey:record.proposal.decisionKey,
       policyVersion:record.proposal.policyVersion,
+      priority:record.priority,
       sourceRun:record.run,sourceRevision:record.revision,
     });
     this.directorStockDispatched.delete(id);
@@ -372,6 +374,13 @@ export class IntelligenceClient {
       return false;
     }
     return this.directorPlaybacks.hydration(ticket);
+  }
+  // OpenAI snapshots the source-verified kb claim, rather than retaining
+  // its JS reference. A matching native-bound turn tuple is also mandatory.
+  failDirectorOriginalTurn(ticket,identity) {
+    const failed=this.directorPlaybacks.failVerifiedTurn(ticket,identity);
+    if(failed)this.handoff('binding_wait','failed','original_turn_failed');
+    return failed;
   }
   async dispatchDirector({ticket,gates,eventContext}) {
     const original=this.directorPlaybacks.begin(ticket,gates);
