@@ -74,7 +74,7 @@ class Program
                     var changed=ReadUntil(reader,"\"producer\":\"radio\"").Last();
                     Check(changed.Contains("\"kind\":\"radio_changed\"")&&changed.Contains("\"soundHash\":1")&&changed.Contains("\"trackTextId\":1005")&&!changed.Contains("artist")&&!changed.Contains("title"),"text-ID-only transition crosses raw wire");
                     var radioAnchors=(EntityAnchors)Get(integration,"anchors");var passengerRef=radioAnchors.Current.Single(a=>ReferenceEquals(a.Entity,passenger)).CaptureRef;var outsiderRef=radioAnchors.Current.Single(a=>ReferenceEquals(a.Entity,outsider)).CaptureRef;
-                    Check(changed.Contains(passengerRef)&&changed.Contains("\"channel\":\"auditory\"")&&changed.Contains("\"basis\":\"audibility_model\"")&&changed.Contains("\"reason\":\"same_vehicle_radio\""),"same-vehicle passenger keeps source-time hearing receipt");
+                    Check(changed.Contains(passengerRef)&&changed.Contains("\"channel\":\"auditory\"")&&changed.Contains("\"basis\":\"audibility_model\"")&&changed.Contains("\"reason\":\"same_vehicle_radio\""),"same-vehicle passenger keeps source-time hearing receipt: "+changed);
                     Check(!changed.Contains(outsiderRef),"outside observer gets no radio witness receipt");
                     Check(Game.Logs.Skip(logStart).Any(line=>line.Contains("sound=00000001 text_id=1005")),"probe changes when text ID changes");
 
