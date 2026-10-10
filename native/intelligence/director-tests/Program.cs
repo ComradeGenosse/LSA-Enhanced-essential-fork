@@ -393,6 +393,16 @@ class Program
         Check(DirectorC06Policy.Safe(req,proof),
               "special-turn diagnostic present cannot fabricate or replace global authority");
         proof.SpecialTurnVersionKnown=false;proof.SpecialTurnVersion=-1;
+        proof.ConversationIdle=false;
+        Check(!DirectorC06Policy.Safe(req,proof) &&
+              DirectorC06Policy.CurrentPlayback(req,proof),
+              "known active Core conversation vetoes new speech but does not invalidate already speaking actor");
+        proof.ConversationIdle=true;
+        proof.ConversationStateKnown=false;
+        Check(!DirectorC06Policy.Safe(req,proof) &&
+              !DirectorC06Policy.CurrentPlayback(req,proof),
+              "unknown Core conversation status is not permission at any boundary");
+        proof.ConversationStateKnown=true;
         foreach(var field in typeof(DirectorC06Policy.Snapshot).GetFields()) {
             if(field.FieldType!=typeof(bool) || field.Name=="SpecialTurnVersionKnown")continue;
             field.SetValue(proof,false);
@@ -448,6 +458,7 @@ class Program
         Check(staged.Handle(playing).Status=="reserved","idle owner permits real ticket reserve");
         Check(staged.Handle(Request(24,"submit")).Status=="submitted","idle at submit");
         stagedProof.OwnerIdle=false;stagedProof.EssentialTurnIdle=false;stagedProof.PlaybackIdle=false;
+        stagedProof.ConversationIdle=false; // Actual Core speaker is the speaking Director NPC.
         Check(staged.BindActualTuple(playing.TicketId,"17","essential-real-turn",7,3),
             "native binding rechecks current ownership while exact allocated turn is already busy");
         Check(staged.NotePlaybackStarted(playing.TicketId,"17","essential-real-turn",7,3),
