@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {serializeDirectorRequest,validateDirectorRequest} from '../src/perception/directorWire.mjs';
+import {serializeDirectorRequest,serializeDirectorPs3Receipt,validateDirectorRequest} from '../src/perception/directorWire.mjs';
 const ticketId='b1111111-1111-4111-8111-111111111111';
 const ticket={ticketId,dedupeKey:'ps:'+ticketId};
 const proposal={kind:'speech',
@@ -42,4 +42,46 @@ test('request carries only original ticket/provenance references, with strict po
  assert.equal(value.policyVersion,1);
  assert.equal(value.ageMs,1999);
  assert.equal(validateDirectorRequest({...value,ageMs:-1}),false);
+});
+
+test('closed original PS3 receipt binds separate native challenge/source signal to ticket',()=>{
+ const proof={
+  source:'original_companion_ps2_ps3',
+  challenge:'01111111-1111-4111-8111-111111111111',
+  signalId:'11111111-1111-4111-8111-111111111111',
+  situationRevision:5,ageMs:120,
+  hostRunId:stamp.hostRunId,worldEpoch:stamp.worldEpoch,
+  speakerCaptureRef:proposal.speakerCaptureRef,
+  playerCaptureRef:proposal.playerCaptureRef,
+  ownerIncarnationId:stamp.ownerIncarnationId,
+  proofRevision:stamp.proofRevision,
+  observationId:proposal.observationId,
+  observationRevision:proposal.observationRevision,
+  decisionKey:proposal.decisionKey,policyVersion:1,
+ };
+ const frame=serializeDirectorPs3Receipt(ticket,proof);
+ assert.equal(frame.endsWith('\n'),true);
+ const parsed=JSON.parse(frame);
+ assert.equal(Object.keys(parsed).length,18);
+ assert.equal(parsed.type,'director.ps3_receipt');
+ assert.equal(parsed.source,'original_companion_ps2_ps3');
+ assert.equal(parsed.challenge,proof.challenge);
+ assert.equal(parsed.signalId,proof.signalId);
+ assert.equal(parsed.ticketId,ticketId);
+ assert.equal(validateDirectorRequest(parsed),false,
+   'receipt never masquerades as a native application request');
+ for(const changed of [
+   {challenge:'not-native'},{signalId:'not-original-signal'},
+   {situationRevision:0},{situationRevision:2147483648},
+   {ageMs:2000},{ageMs:1.5},{worldEpoch:0},
+   {ownerIncarnationId:proposal.observationId},
+   {decisionKey:'\nmalicious-request'},{source:'request-echo'},
+ ]) {
+  const source={...proof,...changed};
+  if(changed.ownerIncarnationId)source.ownerIncarnationId='not-valid-uuid';
+  assert.throws(()=>serializeDirectorPs3Receipt(ticket,source),
+    /original_ps3_receipt_invalid/,JSON.stringify(changed));
+ }
+ assert.throws(()=>serializeDirectorPs3Receipt({ticketId:'other'},proof),
+   /original_ps3_receipt_invalid/);
 });
