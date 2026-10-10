@@ -4,9 +4,9 @@ import { randomUUID } from 'node:crypto';
 import { ShadowRuntime } from '../src/perception/shadowRuntime.mjs';
 import { CAPABILITIES } from '../src/perception/contracts.mjs';
 import { captureKnowledgeInputs,assertKnowledgeCurrent,validateActorCapture,releaseOwnedKnowledge,assertOwnedKnowledgeCurrent,assertKnowledgeItemsCurrent } from '../src/context/knowledgeInputs.mjs';
-const fixture=()=>{
+const fixture=({witness=false}={})=>{
   let now=1;const perception=new ShadowRuntime({mode:'shadow',now:()=>now});
-  const hello={version:1,type:'hello',adapterEpoch:randomUUID(),streamId:randomUUID(),hostContextVersion:1,hostRunId:randomUUID(),worldEpoch:1,observerIndexVersion:1,capabilities:Object.fromEntries(CAPABILITIES.map(k=>[k,k==='shooting']))};
+  const hello={version:1,type:'hello',adapterEpoch:randomUUID(),streamId:randomUUID(),hostContextVersion:1,hostRunId:randomUUID(),worldEpoch:1,observerIndexVersion:1,capabilities:Object.fromEntries(CAPABILITIES.map(k=>[k,k==='shooting'||witness&&k==='witness']))};
   perception.ingest(hello,{authenticated:true});const captureRef=randomUUID();let sequence=0;
   const send=(type,payload)=>perception.ingest({version:1,type,adapterEpoch:hello.adapterEpoch,streamId:hello.streamId,sequence:++sequence,payload},{authenticated:true});
   send('anchors',[{captureRef,kind:'ped',observer:true,owned:false}]);send('observer_index',[{captureRef,kind:'ped',owned:false}]);
@@ -90,7 +90,7 @@ test('PR21 T31 a new P0 generation captures later witnessed signal while old PS3
     'new generation must reflect the newer native-qualified evidence or revision');
 });
 test('original native-qualified gunfire heard by another Ped projects into frozen PS4 PERCEIVED context',()=>{
- const f=fixture(),playerRef=randomUUID();
+ const f=fixture({witness:true}),playerRef=randomUUID();
  assert.equal(f.send('anchors',[{captureRef:playerRef,kind:'player',observer:false,owned:false}]),true);
  assert.equal(f.send('signal',{
    signalId:randomUUID(),producer:'shooting',producerSequence:1,
