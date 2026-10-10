@@ -39,9 +39,29 @@ namespace LSA.PromotedCharacters
         public string CaptureRef;
         public string Id = Guid.NewGuid().ToString("D"), OwnerAlias, OwnershipToken;
         public RegistrationToken Registration;
-        public bool Created, Suspended;
+        public bool Created;
         public string Mode = "unknown";
-        public PrimaryBehaviorOwner Owner;
+        // Monotonic native P2-source revision within this encounter's
+        // incarnation. Every actual primary-owner or suspension transition
+        // advances it, including A->B->A between perception samples.
+        // Wrap permanently disables proof rather than recycling a number.
+        int directorRevision=1;
+        PrimaryBehaviorOwner owner;
+        bool suspended;
+        public int DirectorProofRevision => directorRevision;
+        void Revise()
+        {
+            if(directorRevision>0)
+                directorRevision=directorRevision==int.MaxValue?0:directorRevision+1;
+        }
+        public PrimaryBehaviorOwner Owner {
+            get=>owner;
+            set {if(!ReferenceEquals(owner,value)) {owner=value;Revise();}}
+        }
+        public bool Suspended {
+            get=>suspended;
+            set {if(suspended!=value) {suspended=value;Revise();}}
+        }
     }
     internal sealed class Capture
     {
@@ -68,7 +88,7 @@ namespace LSA.PromotedCharacters
             // no identity proof or action authority is inferred from this roster.
             return new LSA.Intelligence.OwnedParticipant {Ped=e.Ped,Lifetime=registration.IncarnationId,EncounterId=e.Id,PrimaryOwner=()=>e.Owner,
                 DirectorOwner=()=>ReferenceEquals(e.Registration,registration) && e.Owner!=null
-                    ? new LSA.Intelligence.DirectorOwnerSample {Owner=e.Owner.owner,Mode=e.Owner.mode,Suspended=e.Suspended}
+                    ? new LSA.Intelligence.DirectorOwnerSample {Owner=e.Owner.owner,Mode=e.Owner.mode,Suspended=e.Suspended,Revision=e.DirectorProofRevision}
                     : null,
                 Current=()=>ReferenceEquals(e.Registration,registration) && e.Ped.Exists() && e.Ped.MemoryAddress==e.Address && (e.Ped.IsDead || identity?.Owner?.TryResolveCurrent(e.Ped,out var claim)==true && claim.incarnationId==registration.IncarnationId)};
         }).ToArray();
