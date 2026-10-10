@@ -248,7 +248,10 @@ function classify(observation, situation) {
     // when no character relationship/recognition binding exists. The source
     // witness receipt, supported non-report claim, native Director admission
     // and exact one-shot PS3 ledger still fence actual speech.
-    context = injury ? 'must_include' : 'candidate';
+    // PS4 context ranking remains candidate unless the existing close/
+    // self/player danger branches require must_include. Speech eligibility is
+    // independent of PS4's separate safety-byte reservation.
+    context = 'candidate';
     response = 'eligible';
     reasons.push('safety_nearby_threat');
     if (close.length) reasons.push('relationship_close');
