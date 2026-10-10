@@ -44,7 +44,7 @@ namespace LosSantosAlive.Integrations {
 namespace LosSantosAlive.NPC {
     public class NpcState {public bool InDirectedInteraction,HasActiveReflex,FollowPlayerOnFoot,FollowPaused;}
     public static class NpcStateStore {public static int Creates;public static NpcState Sampled;public static NpcState TryGetState(Rage.Ped p)=>Sampled;}
-    public static class NpcTargeting {public static Rage.Ped Conversation;public static Rage.Ped GetPlayerConversationPed()=>Conversation;public static Rage.Ped GetCurrentSpeakerPed()=>null;}
+    public static class NpcTargeting {public static Rage.Ped Conversation,CurrentSpeaker;public static bool ThrowConversation,ThrowSpeaker;public static Rage.Ped GetPlayerConversationPed(){if(ThrowConversation)throw new Exception("Core conversation unavailable");return Conversation;}public static Rage.Ped GetCurrentSpeakerPed(){if(ThrowSpeaker)throw new Exception("Core speaker unavailable");return CurrentSpeaker;}}
 }
 namespace LosSantosAlive.NPC.Perception {
     public class PerceptionSnapshot {public Rage.Ped Player;public Rage.Ped[] AllPeds;public Rage.Vehicle[] AllVehicles;public int GameTime;public bool IsValid=true;}
