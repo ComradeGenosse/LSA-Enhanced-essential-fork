@@ -2,6 +2,7 @@ import { captureKnowledgeInputs, assertKnowledgeCurrent } from '../context/knowl
 import net from 'node:net';
 import { BOUNDS } from './contracts.mjs';
 import { ShadowRuntime } from './shadowRuntime.mjs';
+import {DirectorPlaybackRegistry} from './directorPlayback.mjs';
 import {serializeDirectorRequest,serializeDirectorPs3Receipt,serializeDirectorOriginalOwnerReceipt,serializeDirectorStockIntake,serializeDirectorOriginalTurnBinding} from './directorWire.mjs';
 
 const COUNTER_MAX = 2147483647;
@@ -213,6 +214,7 @@ export class IntelligenceClient {
         this.directorStockDispatched.delete(ticketId);
         this.directorStockContexts.delete(ticketId);
         this.directorStockClaims.delete(ticketId);
+        this.directorPlaybacks.clear(ticketId);
         try {this.originalTurnRelease(ticketId);}catch{}
       }
     });
@@ -317,6 +319,19 @@ export class IntelligenceClient {
   // stock kb ticket was independently hydrated. Never acknowledges playback.
   // Native separately compares the original source incarnation and retained
   // speaker/player anchor before it binds once on the native owner fiber.
+  // The source Core kb path is the only place these hydration/publication
+  // hooks run. A coordinator-side early callback cannot substitute for them.
+  confirmDirectorHydration(ticket) {return this.directorPlaybacks.hydration(ticket);}
+  async dispatchDirector({ticket,gates,eventContext}) {
+    const original=this.directorPlaybacks.begin(ticket,gates);
+    if(!original)return null;
+    if(!this.sendDirectorStockIntake(ticket,eventContext)) {
+      this.directorPlaybacks.clear(ticket.ticketId);return null;
+    }
+    const result=await original.bound;
+    if(!result){this.directorPlaybacks.clear(ticket.ticketId);return null;}
+    return result;
+  }
   sendDirectorOriginalTurnBinding(ticket,identity) {
     const id=ticket?.ticketId,record=this.directorOwnerReservations.get(id);
     const claimed=this.directorStockClaims.get(id);
@@ -339,7 +354,7 @@ export class IntelligenceClient {
     // The original source cannot consume a queued wire write as permission.
     // A separate, exact ticket-bound native response resolves this waiter.
     // The timeout covers a missed/late native drain without a model call.
-    if(this.directorBindingPending.has(id))return false;
+    if(this.directorBindingPending.has(id) || !this.directorPlaybacks.identify(ticket,identity))return false;
     let finish;
     const result=new Promise(resolve=>{
       finish=accepted=>{
@@ -359,13 +374,18 @@ export class IntelligenceClient {
   async awaitDirectorNativeBinding(ticket) {
     const id=ticket?.ticketId,pending=this.directorBindingPending.get(id);
     if(!pending || pending.ticket!==ticket)return false;
-    try {return await pending.result===true;}
+    try {
+      const accepted=await pending.result===true;
+      return accepted && this.directorPlaybacks.publication(ticket);
+    }
     finally {
       if(this.directorBindingPending.get(id)===pending)this.directorBindingPending.delete(id);
     }
   }
   acceptDirectorResponse(payload) {
     if(!payload || this.runtime.directorRequestVersion!==1)return false;
+    if(['started','completed','failed'].includes(payload.status))
+      return this.directorPlaybacks.onNativeStatus(payload.ticketId,payload.status);
     const nativeBinding=this.directorBindingPending.get(payload.ticketId);
     if(nativeBinding && (payload.status==='bound'||payload.status==='unsafe')) {
       nativeBinding.finish(payload.status==='bound');
@@ -385,6 +405,7 @@ export class IntelligenceClient {
     return true;
   }
   cancelDirectorRequests() {
+    this.directorPlaybacks.reset();
     for(const item of [...this.directorPending.values()])item.resolve(null);
     for(const item of [...this.directorBindingPending.values()])item.finish(false);
     this.directorBindingPending.clear();
@@ -399,6 +420,7 @@ export class IntelligenceClient {
     this.originalTurnCurrent=typeof originalTurnCurrent==='function'?originalTurnCurrent:()=>null;
     this.originalTurnRelease=typeof originalTurnRelease==='function'?originalTurnRelease:()=>false;
     this.originalTurnPhase=typeof originalTurnPhase==='function'?originalTurnPhase:()=>null;
+    this.directorPlaybacks=new DirectorPlaybackRegistry();
     this.closed=false;this.socket=null;this.lastReport=0;this.directorPending=new Map();this.directorOwnerReservations=new Map();this.directorNativeSubmitted=new Set();this.directorStockDispatched=new Set();this.directorStockContexts=new Map();this.directorStockClaims=new Map();this.directorBindingPending=new Map();
   }
   persist(event,data={}) { try { this.telemetry(event,data); } catch {} }
