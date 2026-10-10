@@ -357,7 +357,20 @@ export class IntelligenceClient {
   // speaker/player anchor before it binds once on the native owner fiber.
   // The source Core kb path is the only place these hydration/publication
   // hooks run. A coordinator-side early callback cannot substitute for them.
-  confirmDirectorHydration(ticket) {return !this.directorProductionRequired || this.directorPlaybacks.hydration(ticket);}
+  confirmDirectorHydration(ticket) {
+    if(!this.directorProductionRequired)return true;
+    // requireDirectorTicket called verifyDirectorTicket on this same frozen
+    // kb claim before reaching here. Recheck its exact retained reference:
+    // no copied ticket, arbitrary ps: key or latest conversation target can
+    // become the owner of an already reserved Director playback.
+    const claimed=this.directorStockClaims.get(ticket?.ticketId);
+    if(claimed?.ticket!==ticket ||
+       !this.directorPlaybacks.registerVerifiedClaim(ticket)) {
+      this.handoff('post_hydration','rejected','playback_ticket_identity_mismatch');
+      return false;
+    }
+    return this.directorPlaybacks.hydration(ticket);
+  }
   async dispatchDirector({ticket,gates,eventContext}) {
     const original=this.directorPlaybacks.begin(ticket,gates);
     if(!original){this.handoff('binding_wait','rejected','playback_slot_unavailable');return null;}
