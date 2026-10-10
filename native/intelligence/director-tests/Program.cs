@@ -166,6 +166,7 @@ class Program
               DirectorAdmission.MaxExactWireGeneration,3,true,false,true,true),
               "maximum exact generation callback completes");
         CorePlaybackContract();
+        Ps3ReceiptContract();
         SpecialTurnFences();
         FailedCallbacks();
         C06Contract();
@@ -173,6 +174,111 @@ class Program
         ChannelRoundtrip();
     }
 
+    static void Ps3ReceiptContract()
+    {
+        var req=Request(59);
+        var receipts=new DirectorPs3Receipts(()=>now,()=>host,()=>world);
+        var source=Guid.NewGuid().ToString("D");
+        var observer=req.SpeakerCaptureRef;
+        var challenge=receipts.Issue(observer,req.OwnerIncarnationId,req.ProofRevision,5);
+        Check(challenge!=null,"source native P2 owner challenge created");
+        Check(challenge==receipts.Issue(observer,req.OwnerIncarnationId,req.ProofRevision,6),
+            "unchanged P2 incarnation source reuses bounded native challenge");
+        receipts.SentSignal(source,new[]{observer});
+        var proof=new DirectorPs3Receipts.Grant {
+            Version=1,Source="original_companion_ps2_ps3",
+            Challenge=challenge,TicketId=req.TicketId,HostRunId=host,WorldEpoch=world,
+            SpeakerCaptureRef=observer,PlayerCaptureRef=req.PlayerCaptureRef,
+            OwnerIncarnationId=req.OwnerIncarnationId,ProofRevision=req.ProofRevision,
+            SituationRevision=6,SignalId=source,ObservationId=req.ObservationId,
+            ObservationRevision=req.ObservationRevision,DecisionKey=req.DecisionKey,
+            PolicyVersion=1,AgeMs=100
+        };
+        var serializer=new System.Web.Script.Serialization.JavaScriptSerializer();
+        var wire=new System.Collections.Generic.Dictionary<string,object> {
+          {"version",1},{"type","director.ps3_receipt"},
+          {"source",proof.Source},{"challenge",proof.Challenge},{"ticketId",proof.TicketId},
+          {"hostRunId",proof.HostRunId},{"worldEpoch",proof.WorldEpoch},
+          {"speakerCaptureRef",proof.SpeakerCaptureRef},{"playerCaptureRef",proof.PlayerCaptureRef},
+          {"ownerIncarnationId",proof.OwnerIncarnationId},{"proofRevision",proof.ProofRevision},
+          {"situationRevision",proof.SituationRevision},{"signalId",proof.SignalId},
+          {"observationId",proof.ObservationId},{"observationRevision",proof.ObservationRevision},
+          {"decisionKey",proof.DecisionKey},{"policyVersion",proof.PolicyVersion},{"ageMs",proof.AgeMs}
+        };
+        var frame=serializer.Serialize(wire);
+        DirectorPs3Receipts.Grant decoded;
+        Check(DirectorPs3ReceiptCodec.TryDecode(frame,out decoded) && decoded.SignalId==source,
+              "native original PS3 receipt codec requires exact closed source vocabulary");
+        Check(!DirectorFrameCodec.TryDecode(frame,out var wrongKind),
+              "PS3 source receipt can never be decoded as a speech request");
+        wire["injectedApproval"]=true;
+        Check(!DirectorPs3ReceiptCodec.TryDecode(serializer.Serialize(wire),out decoded),
+              "extra untrusted grants are not accepted by strict source codec");
+        wire.Remove("injectedApproval");
+        wire["proofRevision"]=1.5;
+        Check(!DirectorPs3ReceiptCodec.TryDecode(serializer.Serialize(wire),out decoded),
+              "fractional native owner revision does not coerce");
+        wire["proofRevision"]=req.ProofRevision;
+        Check(receipts.Accept(proof),"independent original native signal and P2 challenge grant accepted");
+        Check(!receipts.Accept(proof),"original native challenge and signal are one use");
+        Check(receipts.Current(req) && receipts.OriginalFor(req)==proof,
+            "source-origin PS3 receipt is available separately from request IDs");
+        Check(receipts.Reserve(req) && receipts.IsReserved(req),
+            "one native ticket can claim original producer grant");
+        Check(!receipts.Reserve(req),"already reserved original grant cannot be claimed twice");
+        var forged=Request(59);forged.ObservationId=Guid.NewGuid().ToString("D");
+        Check(!receipts.Current(forged),"matching ticket with forged PS2 observation ID denied");
+        forged=Request(59);forged.DecisionKey="other-original-ps3-decision";
+        Check(!receipts.Current(forged),"matching ticket with forged decision entitlement denied");
+        forged=Request(59);forged.ProofRevision++;
+        Check(!receipts.Current(forged),"stale native P2 owner revision denied");
+        forged=Request(59);forged.PlayerCaptureRef=Guid.NewGuid().ToString("D");
+        Check(!receipts.Current(forged),"other native player anchor denied");
+        forged=Request(59);forged.WorldEpoch++;
+        Check(!receipts.Current(forged),"other native world epoch denied");
+
+        var unrelated=Guid.NewGuid().ToString("D");
+        Check(receipts.Issue(unrelated,req.OwnerIncarnationId,0,10)==null,
+              "zero P2 revision cannot mint a native proof");
+        var absent=new DirectorPs3Receipts(()=>now,()=>host,()=>world);
+        var bare=absent.Issue(observer,req.OwnerIncarnationId,req.ProofRevision,6);
+        var copy=new DirectorPs3Receipts.Grant {
+            Version=1,Source=proof.Source,Challenge=bare,TicketId=Guid.NewGuid().ToString("D"),
+            HostRunId=host,WorldEpoch=world,SpeakerCaptureRef=observer,
+            PlayerCaptureRef=req.PlayerCaptureRef,OwnerIncarnationId=req.OwnerIncarnationId,
+            ProofRevision=req.ProofRevision,SituationRevision=6,
+            SignalId=source,ObservationId=req.ObservationId,
+            ObservationRevision=req.ObservationRevision,DecisionKey=req.DecisionKey,
+            PolicyVersion=1,AgeMs=100
+        };
+        Check(!absent.Accept(copy),"matching companion claims without native sent signal fail");
+        absent.SentSignal(source,new[]{unrelated});
+        Check(!absent.Accept(copy),"native signal sent to another observer cannot be borrowed");
+        absent.SentSignal(source,new[]{observer});
+        copy.SituationRevision=7;
+        Check(!absent.Accept(copy),"future unsampled native situation fails closed");
+        copy.SituationRevision=6;copy.Challenge=Guid.NewGuid().ToString("D");
+        Check(!absent.Accept(copy),"companion-created challenge cannot borrow native owner proof");
+        copy.Challenge=bare;
+        Check(absent.Accept(copy),"valid unique original signal, native challenge and source grant accepted");
+        absent.Retire(req.OwnerIncarnationId);
+        Check(!absent.Current(req),"retirement invalidates source grant regardless of ticket state");
+        var afterReset=new DirectorPs3Receipts(()=>now,()=>host,()=>world);
+        var same=afterReset.Issue(observer,req.OwnerIncarnationId,req.ProofRevision,6);
+        afterReset.SentSignal(source,new[]{observer});
+        copy.Challenge=same;copy.TicketId=req.TicketId;
+        Check(afterReset.Accept(copy),"fixture accepts original native proof before epoch reset");
+        afterReset.Reset();
+        Check(!afterReset.Current(req) && afterReset.PendingGrants==0,
+            "world/disconnect reset retires all original PS3 records");
+        var expire=new DirectorPs3Receipts(()=>now,()=>host,()=>world);
+        copy.Challenge=expire.Issue(observer,req.OwnerIncarnationId,req.ProofRevision,6);
+        expire.SentSignal(source,new[]{observer});
+        Check(expire.Accept(copy),"short-lived original producer grant fixture");
+        now+=1901;
+        Check(!expire.Current(req),"native host monotonic TTL cannot be extended by replayed request age");
+        now-=1901;
+    }
     static void SpecialTurnFences()
     {
         // Pinned Core version covers only special player turns, but a change
