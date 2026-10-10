@@ -440,6 +440,26 @@ class Program
         Set(integration,"lineOfSightBudget",8);var playerCapture=anchors.Current.Single(a=>a.Kind=="player").CaptureRef;
         var witnessed=(List<WitnessReceipt>)integration.GetType().GetMethod("CaptureWitnesses",BindingFlags.NonPublic|BindingFlags.Instance).Invoke(integration,new object[]{new RawSignal {kind="firing",source=playerCapture,gameTick=99}});
         var promotedAnchor=anchors.Current.Single(a=>a.OwnerLifetime==lifetime);Check(witnessed.Any(w=>w.Observer==ordinaryAnchor.CaptureRef&&w.Channel=="visual")&&witnessed.Any(w=>w.Observer==promotedAnchor.CaptureRef&&w.Channel=="visual"),"ordinary and promoted observers use the same source-sample visual witness policy");
+        Rage.Native.NativeFunction.FrontLos=false;
+        Rage.Native.NativeFunction.AcousticLos=true;
+        Set(integration,"lineOfSightBudget",8);
+        var heardShots=(List<WitnessReceipt>)integration.GetType().GetMethod(
+            "CaptureWitnesses",BindingFlags.NonPublic|BindingFlags.Instance).Invoke(
+                integration,new object[]{new RawSignal {
+                    producer="shooting",kind="firing",source=playerCapture,gameTick=100}});
+        Check(heardShots.Any(w=>w.Observer==promotedAnchor.CaptureRef &&
+            w.Channel=="auditory"&&!w.KnowsSource),
+            "promoted companion hears verified unoccluded gunfire from behind without identifying shooter");
+        Rage.Native.NativeFunction.AcousticLos=false;
+        Set(integration,"lineOfSightBudget",8);
+        var blockedShots=(List<WitnessReceipt>)integration.GetType().GetMethod(
+            "CaptureWitnesses",BindingFlags.NonPublic|BindingFlags.Instance).Invoke(
+                integration,new object[]{new RawSignal {
+                    producer="shooting",kind="firing",source=playerCapture,gameTick=101}});
+        Check(!blockedShots.Any(w=>w.Channel=="auditory"),
+            "blocked acoustic LOS cannot fabricate a gunshot witness");
+        Rage.Native.NativeFunction.FrontLos=true;
+        Rage.Native.NativeFunction.AcousticLos=true;
         // Warm the native substitutes before testing the 1 ms sampling budget.
         for(int n=0;n<3;n++) Tick(integration);
         player.Shooting=true;Tick(integration);Check(sensors.Counters.TryGetValue("firing",out var firing)&&firing==1,"real Update shooting edge");
