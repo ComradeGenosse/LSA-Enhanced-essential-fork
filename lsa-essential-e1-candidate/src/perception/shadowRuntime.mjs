@@ -106,7 +106,12 @@ export class ShadowRuntime {
       if(this.observerSituationVersion!==1 || !this.hostContext) {this.reset('fault');return false;}
       for(const row of v.payload) {
         const old=this.observerSituations.get(row.captureRef);
-        if(row.primaryOwner!=null && (this.primaryBehaviorOwnerVersion!==1 || !this.observerIndex.get(row.captureRef)?.incarnationId) || !this.current(row.captureRef) || !this.observerIndex.has(row.captureRef) || this.anchors.get(row.captureRef).kind!=='ped' || old && row.situationRevision<=old.situationRevision) {this.reset('fault');return false;}
+        const original=this.observerIndex.get(row.captureRef);
+        if(row.primaryOwner!=null && (this.primaryBehaviorOwnerVersion!==1 || !original?.incarnationId) ||
+           row.ownerProofRevision!=null && (!original?.owned || !original.incarnationId || !row.primaryOwner) ||
+           !this.current(row.captureRef) || !original ||
+           this.anchors.get(row.captureRef).kind!=='ped' ||
+           old && row.situationRevision<=old.situationRevision) {this.reset('fault');return false;}
       }
       for(const row of v.payload) this.observerSituations.set(row.captureRef,Object.freeze({...row,primaryOwner:readPrimaryBehaviorOwner(row.primaryOwner),expires:this.now()+BOUNDS.anchorLeaseMs}));
       for(const row of v.payload)this.refreshSalience(row.captureRef);
@@ -163,6 +168,28 @@ export class ShadowRuntime {
     let view={};try {view=this.situationProvider(ref)??{};} catch {}
     const sample=this.observerSituations.get(ref),live=sample && sample.expires>this.now() && this.current(ref);
     return situationFromCharacterView({...view,bindings:[],nowMonotonicMs:this.now(),lifetimeCurrent:this.current(ref),channelHealthy:Boolean(this.epoch),perceptionSupported:true,playerCaptureRef,activity:live?sample.activity:'unknown',primaryOwner:live?sample.primaryOwner:null,situationRevision:live?sample.situationRevision:0});
+  }
+  // Native P2-origin, incarnation-scoped source revision. This is
+  // transport evidence ONLY, never a grant or global player-turn version.
+  // TTL, world reset, retirement and association checks are independently
+  // required before using it as a candidate stamp.
+  directorOwnerProofFor(observerRef) {
+    const index=this.observerIndex.get(observerRef);
+    const row=this.observerSituations.get(observerRef);
+    if(!this.hostContext || !this.current(observerRef) ||
+       !index?.owned || index.kind!=='ped' || !index.incarnationId ||
+       !this.anchors.get(observerRef)?.observer ||
+       !row || row.expires<=this.now() || !row.primaryOwner ||
+       !Number.isSafeInteger(row.ownerProofRevision) ||
+       row.ownerProofRevision<=0 || row.ownerProofRevision>2147483647)
+      return null;
+    return Object.freeze({
+      hostRunId:this.hostContext.hostRunId,
+      worldEpoch:this.hostContext.worldEpoch,
+      speakerCaptureRef:observerRef,
+      ownerIncarnationId:index.incarnationId,
+      proofRevision:row.ownerProofRevision,
+    });
   }
   // PS6 candidates are restricted to original PS2/PS3 observer-qualified
   // evidence. This read does not reserve tickets or consume response grants.
