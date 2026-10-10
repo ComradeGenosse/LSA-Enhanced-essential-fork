@@ -319,9 +319,15 @@ export class IntelligenceClient {
     let current;
     try {current=this.originalBackendEvidence(this.originalTurnCurrent(ticket.ticketId));}
     catch{return false;}
+    // On a warm actor session, kb goes directly from special_dispatch to
+    // Xi; on the first encounter its stock Zi->WP session_open happens
+    // before Xi. Require the exact phase AND source revision for either
+    // original lifecycle path, never an arbitrary new quiet snapshot.
+    const phase=this.originalTurnPhase(ticket.ticketId);
+    const expectedAdvance=phase==='dispatch'?1:phase==='session'?2:null;
     return !!current && current.sourceRun===claim.record.run &&
-      current.revision===claim.record.revision+1 &&
-      this.originalTurnPhase(ticket.ticketId)==='dispatch';
+      expectedAdvance!==null &&
+      current.revision===claim.record.revision+expectedAdvance;
   }
   // Called only from the actual source-pinned Xn generation path, after the
   // stock kb ticket was independently hydrated. Never acknowledges playback.
