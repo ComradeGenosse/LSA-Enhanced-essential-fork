@@ -119,6 +119,16 @@ export class IntelligenceClient {
     }catch{return false;}
   }
 
+  // Original stock backend turn stores are independently observed; a
+  // synchronous quiet snapshot can only suppress a busy candidate here.
+  // It is NOT a source-versioned native Core player/Essential idle receipt.
+  originalBackendQuiet() {
+    let state;
+    try {state=this.originalTurnPriority();}catch{return false;}
+    return state?.source==='original_essential_server_turn_stores' &&
+      state.quiet===true && state.grantsNativeAdmission===false;
+  }
+
   // One outstanding native request per exact ticket; no implicit retries.
   // Negative/late/ambiguous receipts never become Essential authorization.
   requestDirector(args,{timeoutMs=900}={}) {
@@ -128,7 +138,8 @@ export class IntelligenceClient {
     // a previously reserved native ticket can always be retired.
     const original=args?.operation==='cancel'?null:
       this.directorOriginalEntitlement(args?.proposal,args?.stamp);
-    if(args?.operation!=='cancel' && !original)return Promise.resolve(null);
+    if(args?.operation!=='cancel' && (!original || !this.originalBackendQuiet()))
+      return Promise.resolve(null);
     if(typeof ticketId!=='string' || !Number.isSafeInteger(timeoutMs) ||
        timeoutMs<1 || timeoutMs>1500 || this.directorPending.size>=32 ||
        this.directorPending.has(ticketId)) return Promise.resolve(null);
@@ -169,8 +180,8 @@ export class IntelligenceClient {
     for(const item of [...this.directorPending.values()])item.resolve(null);
   }
 
-  constructor(config,{connect=options=>net.createConnection(options),now,situationFor,report=summary=>console.info('[PS] companion_shadow '+JSON.stringify(summary)),telemetry=()=>{}}={}) {
-    this.knowledgeListeners=new Set();this.config=config;this.connect=connect;this.runtime=new ShadowRuntime({mode:config.mode,now,situationFor});this.report=report;this.telemetry=telemetry;this.closed=false;this.socket=null;this.lastReport=0;this.directorPending=new Map();
+  constructor(config,{connect=options=>net.createConnection(options),now,situationFor,originalTurnPriority=()=>null,report=summary=>console.info('[PS] companion_shadow '+JSON.stringify(summary)),telemetry=()=>{}}={}) {
+    this.knowledgeListeners=new Set();this.config=config;this.connect=connect;this.runtime=new ShadowRuntime({mode:config.mode,now,situationFor});this.report=report;this.telemetry=telemetry;this.originalTurnPriority=typeof originalTurnPriority==='function'?originalTurnPriority:()=>null;this.closed=false;this.socket=null;this.lastReport=0;this.directorPending=new Map();
   }
   persist(event,data={}) { try { this.telemetry(event,data); } catch {} }
   summary(finalSnapshot=false) {
