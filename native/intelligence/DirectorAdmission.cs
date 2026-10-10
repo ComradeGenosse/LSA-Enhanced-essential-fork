@@ -99,6 +99,18 @@ namespace LSA.Intelligence
                 }
         }
         internal void Reset(){pending.Clear();attempts.Clear();seen.Clear();seenOrder.Clear();activeTicket=null;}
+        // Native P2 ownership retirement is an immediate hard cancellation.
+        // Unrelated owners cannot cancel the active actor's original ticket.
+        // Replay/attempt bookkeeping is intentionally retained.
+        internal bool RevokeOwner(string incarnationId)
+        {
+            Reservation r;
+            if(string.IsNullOrWhiteSpace(incarnationId) || activeTicket==null ||
+                !pending.TryGetValue(activeTicket,out r) ||
+                r.Request.OwnerIncarnationId!=incarnationId)return false;
+            pending.Remove(activeTicket);activeTicket=null;
+            return true;
+        }
         internal void Disable(){enabled=false;Reset();}
         internal int PendingCount=>pending.Count;
         internal bool HasActive=>activeTicket!=null;
