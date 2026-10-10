@@ -148,6 +148,7 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
     // at source-pinned turn intake/terminal/session entrypoints. No actor
     // effect, turn creation, artificial terminal or stock scheduling.
     originalTurnTransition:(event,ticketId)=>originalTurnTimeline.transition(event,ticketId),
+    awaitDirectorNativeBinding:ticket=>runtime.intelligence?.awaitDirectorNativeBinding?.(ticket) ?? Promise.resolve(false),
     beginDirectorOriginalTurn:(ticketId,snapshot)=>originalTurnTimeline.beginDirector(ticketId,snapshot),
     directorOriginalPhase:ticketId=>originalTurnTimeline.directorPhase(ticketId),
     inspectOriginalTurnPriority:raw=>originalTurnTimeline.sample(raw),
