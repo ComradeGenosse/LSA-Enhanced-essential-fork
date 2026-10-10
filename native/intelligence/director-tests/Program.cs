@@ -44,8 +44,45 @@ class Program
         try {Run();Console.WriteLine("PASS "+assertions+" native PS6 admission assertions");}
         catch(Exception e){Console.Error.WriteLine(e);Environment.ExitCode=1;}
     }
+    static void OriginalTurnBindingFrameContract()
+    {
+        const string frame="{\\\"version\\\":1,\\\"type\\\":\\\"director.original_turn_bound\\\","+
+            "\\\"ticketId\\\":\\\"b1111111-1111-4111-8111-000000000001\\\","+
+            "\\\"sourceRun\\\":\\\"e1111111-1111-4111-8111-111111111111\\\","+
+            "\\\"sourceRevision\\\":4,\\\"hostRunId\\\":\\\"a1111111-1111-4111-8111-111111111111\\\","+
+            "\\\"worldEpoch\\\":1,\\\"speakerCaptureRef\\\":\\\"c1111111-1111-4111-8111-111111111111\\\","+
+            "\\\"pedId\\\":\\\"17\\\",\\\"turnId\\\":\\\"source-turn-1\\\","+
+            "\\\"generationId\\\":2147483648,\\\"sessionNonce\\\":3}";
+        DirectorOriginalTurnBindingCodec.Frame original;
+        Check(DirectorOriginalTurnBindingCodec.TryDecode(frame,out original),
+              "exact source bound-turn identity frame decoded");
+        Check(original.PedId=="17" && original.TurnId=="source-turn-1" &&
+              original.GenerationId==2147483648L && original.SessionNonce==3,
+              "64-bit generation and original nonce preserved");
+        Check(!DirectorOriginalTurnBindingCodec.TryDecode(
+              frame.Replace("\\\"sessionNonce\\\":3","\\\"sessionNonce\\\":0"),out original),
+              "zero session nonce veto");
+        Check(!DirectorOriginalTurnBindingCodec.TryDecode(
+              frame.Replace("\\\"generationId\\\":2147483648","\\\"generationId\\\":9007199254740992"),out original),
+              "non-exact generation veto");
+        Check(!DirectorOriginalTurnBindingCodec.TryDecode(
+              frame.Replace("\\\"pedId\\\":\\\"17\\\"","\\\"pedId\\\":\\\"17x\\\""),out original),
+              "non-numeric stock ped veto");
+        Check(!DirectorOriginalTurnBindingCodec.TryDecode(
+              frame.Replace("\\\"sessionNonce\\\":3","\\\"sessionNonce\\\":\\\"3\\\""),out original),
+              "string nonce coercion veto");
+        Check(!DirectorOriginalTurnBindingCodec.TryDecode(
+              frame.Replace("\\\"type\\\":\\\"director.original_turn_bound\\\"",
+                            "\\\"type\\\":\\\"director.stock_intake\\\""),out original),
+              "stock intake is not binding");
+        Check(!DirectorOriginalTurnBindingCodec.TryDecode(
+              frame.Substring(0,frame.Length-1)+",\\\"authorized\\\":true}",out original),
+              "caller authorization flag is forbidden");
+    }
+
     static void Run()
     {
+        OriginalTurnBindingFrameContract();
         var off=New(false);
         Check(off.Handle(Request()).Status=="busy","default off rejects reserve");
         var shell=New();
