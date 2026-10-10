@@ -14,3 +14,5 @@ The October 4 ACT architecture investigation is preserved at [archive/activities
 Supporting capability/native evidence JSON remains active.
 
 Current interpretation: ACT owns physical activity planning/arbitration, Essential executes, Director proposes. ACT3 owns whole-body `stop_and_face`; CGE does not.
+
+The [unified intelligence master plan](../../UNIFIED-LSA-INTELLIGENCE-IMPLEMENTATION-PLAN-20261008.md#7-activities-truthful-self-knowledge-and-later-execution) reconciles this domain with all C-01–C-15 contracts and supplies exact integration phases/tests/gates. Baseline PS4 does not wait for optional enrichment; original research/provenance and the detailed PS4 plan remain preserved.

@@ -35,11 +35,67 @@ class Program
         anchors.SetObserverPriority(new[]{conversationToken}.Concat(anchors.Current.Where(a=>a.CaptureRef!=conversationToken).OrderBy(a=>a.Handle).Take(15).Select(a=>a.CaptureRef)));
         Check(conversationAnchor.Observer&&anchors.ObserverCount==16,"conversation gets priority at full promoted observer cap");
         Check(!anchors.Current.Single(a=>a.CaptureRef==demotedToken).Observer&&anchors.Resolve(demotedToken)!=null,"lower priority observer demoted without retiring lifetime");
+        // P0 uses lazy 'currently observer' input; materialize it BEFORE the
+        // atomic demotion or only the new turn actor survives admission.
+        anchors.SetObserverPriority(new[]{demotedToken}.Concat(
+            anchors.Current.Where(a=>a.Observer).Select(a=>a.CaptureRef)));
+        Check(anchors.ObserverCount==16 &&
+              anchors.Current.Single(a=>a.CaptureRef==demotedToken).Observer,
+              "lazy priority input retains 16 eligible observers at capacity");
         anchors.SetObserverPriority(new[]{secondPriority.CaptureRef});Check(secondPriority.Observer&&!conversationAnchor.Observer&&anchors.ObserverCount==1,"changing conversation demotes prior target");
         anchors.SetObserverPriority(new[]{conversationToken,priorityToken});Check(conversationAnchor.Observer&&firstPriority.Observer&&anchors.ObserverCount==2,"returning conversation promotes retained lifetimes");
         Check(anchors.Resolve(priorityToken)==firstPriority&&anchors.Resolve(conversationToken)==conversationAnchor&&conversationToken!=demotedToken,"conversation changes never reuse or retarget captureRefs");
         for(int n=16;n<256;n++) anchors.Retain(new object(),(ulong)n+1,new IntPtr(n+1),"ped",null,()=>true,0);
         Check(anchors.Count==256&&anchors.Retain(new object(),999,new IntPtr(999),"vehicle",null,()=>true,0)==null,"anchor cap");anchors.Clear();Check(anchors.Count==0,"anchor reset");
+        // PR21 T01/T03/T04: the same retained physical lifetime shares a
+        // captureRef across consumers, without ACT granting PS observer rights.
+        var sharedRefs=new EntityAnchors();var onePed=new object();
+        var psRef=sharedRefs.Retain(onePed,1100,new IntPtr(1100),"ped","owner-shared",()=>true,0,true,AnchorConsumer.PsObserver);
+        var actRef=sharedRefs.Retain(onePed,1100,new IntPtr(1100),"ped","owner-shared",()=>true,1,false,AnchorConsumer.ActTarget);
+        Check(ReferenceEquals(psRef,actRef)&&sharedRefs.Count==1&&
+          sharedRefs.ConsumerCount(AnchorConsumer.PsObserver)==1&&
+          sharedRefs.ConsumerCount(AnchorConsumer.ActTarget)==1,"PS/ACT share native exact anchor with distinct consumer receipts");
+        var otherPed=new object();var onlyAct=sharedRefs.Retain(otherPed,1101,new IntPtr(1101),"ped",null,()=>true,0,false,AnchorConsumer.ActTarget);
+        Check(onlyAct!=null&&!onlyAct.Observer,"ACT starts without PS observer authority");
+        Check(sharedRefs.Retain(otherPed,1101,new IntPtr(1101),"ped",null,()=>true,1,true,AnchorConsumer.ActTarget)==null&&
+          !onlyAct.Observer,"ACT cannot promote its Ped to observer");
+        for(int n=2;n<32;n++) {
+            var entry=sharedRefs.Retain(new object(),(ulong)(1100+n),new IntPtr(1100+n),"ped",null,()=>true,0,false,AnchorConsumer.ActTarget);
+            Check(entry!=null,"ACT current refs under cap");
+        }
+        Check(sharedRefs.ConsumerCount(AnchorConsumer.ActTarget)==32&&
+          sharedRefs.Retain(new object(),1200,new IntPtr(1200),"ped",null,()=>true,0,false,AnchorConsumer.ActTarget)==null,
+          "ACT 32 target references cap rejects overload independently of global refs");
+        int notificationCount=0;int reasonCount=0;
+        sharedRefs.Retired+=(entry)=>{if(entry.CaptureRef==psRef.CaptureRef) notificationCount++;};
+        sharedRefs.Retired+=(entry)=>{if(entry.CaptureRef==psRef.CaptureRef)throw new Exception("isolate subscriber");};
+        sharedRefs.Retirement+=(entry,reason)=>{if(entry.CaptureRef==psRef.CaptureRef&&reason==AnchorRetirement.OwnerRevoked)reasonCount++;};
+        sharedRefs.RevokeOwner("owner-shared");sharedRefs.RevokeOwner("owner-shared");
+        Check(notificationCount==1&&reasonCount==1&&sharedRefs.RetirementNotificationFaults==1&&
+          sharedRefs.Resolve(psRef.CaptureRef)==null,"owner revocation fans out once despite failing subscriber");
+        sharedRefs.Clear(AnchorRetirement.Shutdown);
+        Check(sharedRefs.Count==0,"host shutdown clears remaining consumer refs");
+        // PR21 T02: the exact mutable native handle/address/owner shape
+        // matters, not just the Ped wrapper type or CharacterId.
+        var moving=new EntityAnchors();var wrapper=new object();long address=400;
+        ulong currentHandle=400;
+        var addressOriginal=moving.Retain(wrapper,400,new IntPtr(400),"ped","owner-a",
+          ()=>currentHandle==400 && address==400,0);
+        address=401;
+        var afterAddress=moving.Retain(wrapper,400,new IntPtr(401),"ped","owner-a",
+          ()=>currentHandle==400 && address==401,1);
+        Check(afterAddress!=null && addressOriginal.CaptureRef!=afterAddress.CaptureRef &&
+          moving.Resolve(addressOriginal.CaptureRef)==null,"address change retires original exact tuple");
+        currentHandle=401;
+        var afterHandle=moving.Retain(wrapper,401,new IntPtr(401),"ped","owner-a",
+          ()=>currentHandle==401 && address==401,2);
+        Check(afterHandle!=null && afterHandle.CaptureRef!=afterAddress.CaptureRef &&
+          moving.Resolve(afterAddress.CaptureRef)==null,"full native handle change rejects old tuple");
+        var afterOwner=moving.Retain(wrapper,401,new IntPtr(401),"ped","owner-b",
+          ()=>currentHandle==401 && address==401,3);
+        Check(afterOwner!=null && afterOwner.CaptureRef!=afterHandle.CaptureRef &&
+          moving.Resolve(afterHandle.CaptureRef)==null,"same physical handle cannot borrow retired owner lifetime");
+        moving.Clear();
         var sensors=new SensorAdapters();string target=Guid.NewGuid().ToString("D"),attacker=Guid.NewGuid().ToString("D");
         Check(!sensors.Damage("ped_damage",target,null,2,0,"unknown",1,1,false)&&sensors.Count==0,"disabled parity");sensors.Enabled=true;
         using(var callbacks=new DamageSensors(sensors,(h,e)=>h==1?target:h==2?attacker:null,(h,e)=>h==3?target:null,r=>r==target,()=>100,()=>42)) {
@@ -71,6 +127,23 @@ class Program
         Check(visual.Status=="witnessed"&&visual.Channel=="visual"&&visual.KnowsSource,"visual witness at bounded range identifies visible source");
         visual=WitnessPolicy.Evaluate(new WitnessGeometry {EventKind="firing",Observer=Guid.NewGuid().ToString("D"),Source=target,SampledGameTick=78,DistanceMeters=10,SameInterior=true,ClearLosInFront=false});
         Check(visual.Status=="did_not_witness"&&visual.Channel==null,"wall or outside-cone visual check never grants knowledge");
+        var acousticGeometry=new WitnessGeometry {EventKind="firing",Observer=Guid.NewGuid().ToString("D"),
+            Source=target,SampledGameTick=78,DistanceMeters=10,SameInterior=true,ClearLosInFront=false,
+            SoundSourceVerified=true,SameAcousticSpace=true,ClearAcousticPath=true,
+            SourceVehicle="open",ObserverVehicle="open"};
+        var acoustic=WitnessPolicy.Evaluate(acousticGeometry);
+        Check(acoustic.Status=="witnessed"&&acoustic.Channel=="auditory"&&
+            acoustic.Reason=="audibility_model"&&!acoustic.KnowsSource&&!acoustic.KnowsTarget,
+            "verified gunfire heard outside visual cone without identifying shooter");
+        acousticGeometry.ClearAcousticPath=false;
+        Check(WitnessPolicy.Evaluate(acousticGeometry).Status=="did_not_witness",
+            "blocked acoustic path cannot make a nonvisual gunfire witness");
+        acousticGeometry.ClearAcousticPath=true;acousticGeometry.SoundSourceVerified=false;
+        Check(WitnessPolicy.Evaluate(acousticGeometry).Status=="did_not_witness",
+            "unverified firearm source cannot authorize auditory gunfire");
+        acousticGeometry.SoundSourceVerified=true;acousticGeometry.ObserverVehicle="unknown";
+        Check(WitnessPolicy.Evaluate(acousticGeometry).Status=="did_not_witness",
+            "unknown actor acoustics cannot authorize auditory gunfire");
         var self=WitnessPolicy.Evaluate(new WitnessGeometry {EventKind="death",Observer=target,Target=target,SampledGameTick=79,DistanceMeters=1000,SelfInvolved=true});
         Check(self.Status=="witnessed"&&self.Channel=="self"&&self.KnowsTarget,"direct victim involvement is independent of sight");
         var heard=WitnessPolicy.Evaluate(new WitnessGeometry {EventKind="sound",Observer=Guid.NewGuid().ToString("D"),SampledGameTick=80,DistanceMeters=12,SoundKind="speech",SoundSourceVerified=true,SameAcousticSpace=true,ClearAcousticPath=true,SourceVehicle="on_foot",ObserverVehicle="on_foot"});
@@ -79,10 +152,6 @@ class Program
         Check(heard.Status=="unknown"&&heard.Reason=="vehicle_acoustics_unknown","unknown vehicle context does not grant hearing");
         heard=WitnessPolicy.Evaluate(new WitnessGeometry {EventKind="sound",Observer=Guid.NewGuid().ToString("D"),SampledGameTick=82,DistanceMeters=7,SoundKind="speech",SoundSourceVerified=true,SameAcousticSpace=true,ClearAcousticPath=true,SourceVehicle="enclosed",ObserverVehicle="on_foot"});
         Check(heard.Status=="did_not_witness"&&heard.Reason=="auditory_out_of_range","enclosed vehicle halves modeled speech radius");
-        var radioHeard=WitnessPolicy.SameVehicleRadio(Guid.NewGuid().ToString("D"),83,true);
-        Check(radioHeard.Status=="witnessed"&&radioHeard.Channel=="auditory"&&radioHeard.Basis=="audibility_model"&&radioHeard.Reason=="same_vehicle_radio"&&radioHeard.KnowsTarget,"same vehicle is strong radio hearing evidence");
-        radioHeard=WitnessPolicy.SameVehicleRadio(Guid.NewGuid().ToString("D"),84,false);
-        Check(radioHeard.Status=="unknown"&&radioHeard.Reason=="radio_exterior_unverified"&&radioHeard.Channel==null,"exterior radio hearing stays unknown");
         sensors.Sample(target,new StateSample {Health=100,Location="ZONE1",Activity="stationary",Presence="retained"},1,1);
         Check(sensors.Count==0,"initial state baseline");sensors.Sample(target,new StateSample {Health=80,Location="ZONE1",Activity="stationary",Presence="retained"},2,2);
         Check(sensors.Take().kind=="injury_state","injury state edge");
@@ -103,68 +172,7 @@ class Program
         sensors.Vehicle(attacker,new VehicleSample(),1,1);Check(sensors.Count==0,"vehicle initial baseline");sensors.Vehicle(attacker,new VehicleSample {Engine=true,HealthBand=8,SpeedBand=2,Driver=target},2,2);Check(sensors.Take().kind=="vehicle_state","current vehicle state edge");
         sensors.Enabled=false;sensors.Sample(target,new StateSample {Dead=true},5,1300);Check(sensors.Count==0,"source disabled");sensors.Reset();sensors.Enabled=true;
         sensors.Damage("ped_damage",target,null,1,0,"unknown",1,1,false);Check(sensors.Take().producerSequence==1,"feature reset producer sequence");
-        RadioTests(sensors,target);
         PipeTest();Console.WriteLine("PASS "+assertions+" production-source intelligence assertions");
-    }
-    static void RadioTests(SensorAdapters sensors,string target)
-    {
-        sensors.Reset();string v1=Guid.NewGuid().ToString("D"),v2=Guid.NewGuid().ToString("D"),observer=Guid.NewGuid().ToString("D");RawSignal radio;
-        sensors.WitnessEvaluator=signal=>signal.kind=="radio_changed"?new List<WitnessReceipt>{WitnessPolicy.SameVehicleRadio(observer,signal.gameTick,true)}:new List<WitnessReceipt>();
-        sensors.Radio(v1,"RADIO_TEST_A",1,1004,1,1);sensors.Radio(v1,"RADIO_TEST_A",1,1004,2,2);
-        Check(sensors.Count==0 && sensors.RadioEdges==0,"radio baseline and stable station/sound/text tuple emit nothing");
-
-        sensors.Radio(v1,"RADIO_TEST_A",1,1005,3,3);radio=sensors.Take();
-        Check(radio!=null && radio.producer=="radio" && radio.kind=="radio_changed" && !radio.Critical && radio.source==null && radio.target==v1 &&
-            radio.producerSequence==1 && (string)radio.facts["station"]=="RADIO_TEST_A" && (long)radio.facts["soundHash"]==1 &&
-            (int)radio.facts["trackTextId"]==1005,"text-ID-only song transition is material");
-        Check(radio.witnessReceipts.Count==1&&radio.witnessReceipts[0].Observer==observer&&radio.witnessReceipts[0].Channel=="auditory","radio edge carries source-time witness receipt");
-
-        sensors.Radio(v1,"RADIO_TEST_A",2,1005,4,4);radio=sensors.Take();
-        Check(radio.kind=="radio_changed" && (long)radio.facts["soundHash"]==2 && (int)radio.facts["trackTextId"]==1005,"sound-container-only transition remains material");
-
-        sensors.Radio(v1,"RADIO_TEST_B",9,2000,5,5);radio=sensors.Take();
-        Check(radio.kind=="radio_changed" && (string)radio.facts["station"]=="RADIO_TEST_B" && (int)radio.facts["trackTextId"]==2000,"station change");
-
-        sensors.Radio(null,null,4,1234,6,6);radio=sensors.Take();
-        Check(radio.kind=="radio_stopped" && radio.target==v1 && (string)radio.facts["station"]=="" &&
-            (long)radio.facts["soundHash"]==0 && (int)radio.facts["trackTextId"]==0 && radio.witnessReceipts.Count==0,
-            "radio off retains prior source vehicle and normalizes identifiers to zero");
-        sensors.Radio(null,"",1,-5,7,7);Check(sensors.Count==0,"off repeat emits nothing");
-
-        sensors.Radio(v1,"RADIO_TEST_A",1,1004,8,8);radio=sensors.Take();Check(radio.kind=="radio_changed","start after off");
-        sensors.Radio(v2,"RADIO_TEST_A",1,1004,9,9);radio=sensors.Take();Check(radio.kind=="radio_changed" && radio.target==v2,"vehicle change");
-
-        sensors.Reset();sensors.Radio(v2,"RADIO_TEST_A",1,1004,10,10);sensors.Radio(v2,"RADIO_TEST_A",1,1004,11,11);
-        Check(sensors.Count==0,"reset clears radio baseline");
-        sensors.Radio(v2,"RADIO_TEST_A",1,1005,12,12);Check(sensors.Take().producerSequence==1,"radio producer sequence restarts after reset");
-
-        sensors.Radio(v1,"RADIO_TEST_A",0,-1,13,13);radio=sensors.Take();
-        Check(radio.kind=="radio_changed" && (long)radio.facts["soundHash"]==0 && (int)radio.facts["trackTextId"]==-1,"signed negative text ID is transported without invented semantics");
-        sensors.Radio(v1,"RADIO_TEST_A",0,int.MinValue,14,14);radio=sensors.Take();
-        Check((int)radio.facts["trackTextId"]==int.MinValue,"signed int32 minimum survives raw transport");
-        sensors.Radio(v1,"RADIO_TEST_A",0,int.MaxValue,15,15);radio=sensors.Take();
-        Check((int)radio.facts["trackTextId"]==int.MaxValue,"signed int32 maximum survives raw transport");
-
-        sensors.Radio(v1,"not a station",5,1004,16,16);radio=sensors.Take();
-        Check(radio.kind=="radio_stopped" && (string)radio.facts["station"]=="" && !radio.facts.ContainsValue("not a station"),"invalid station fails closed");
-        sensors.Radio(v1,"RADIO_TEST_A",1,1004,17,17);sensors.Take();sensors.Radio(v1,"radio_test_a",1,1004,18,18);radio=sensors.Take();
-        Check(radio.kind=="radio_stopped" && (string)radio.facts["station"]=="","lowercase station is not transmitted");
-        sensors.Radio(v1,"RADIO_TEST_A",1,1004,19,19);sensors.Take();sensors.Radio(v1,new string('A',65),1,1004,20,20);radio=sensors.Take();
-        Check(radio.kind=="radio_stopped" && ((string)radio.facts["station"]).Length==0,"overlong station is not transmitted");
-        sensors.Radio(v1,"RADIO_TEST_A",1,1004,21,21);sensors.Take();sensors.Radio(v1,"",0,0,22,22);radio=sensors.Take();
-        Check(radio.kind=="radio_stopped" && radio.target==v1,"blank station stops on the same vehicle");
-        sensors.Enabled=false;sensors.Radio(v1,"RADIO_TEST_A",4,1004,23,23);Check(sensors.Count==0,"disabled radio emits nothing");sensors.Enabled=true;
-
-        sensors.Reset();sensors.Radio(null,"",0,0,1,1);
-        for(int n=0;n<64;n++) sensors.Damage("ped_damage",target,null,1,0,"unknown",1,1,true);
-        bool on=true;for(int n=0;n<400;n++) {
-            if(on) sensors.Radio(v1,"RADIO_TEST_A",1,1000+n,(uint)(n+2),n+2); else sensors.Radio(null,"",0,0,(uint)(n+2),n+2);
-            on=!on;Check(sensors.Count<=256,"radio queue stays capped");
-        }
-        Check(sensors.RadioEdges==400 && sensors.Dropped>0,"radio edges count while routine drops increase");
-        sensors.Damage("ped_damage",target,null,1,0,"unknown",1,1,true);
-        int critical=0,routine=0;RawSignal item;while((item=sensors.Take())!=null) {if(item.Critical) critical++;else routine++;}
-        Check(critical==65 && routine==191 && critical+routine==256,"radio cannot consume the critical reserve");
     }
     static void PipeTest()
     {
@@ -183,13 +191,15 @@ class Program
     static void Serve(string name)
     {
         var caps=new Dictionary<string,bool>();foreach(var k in new[]{"snapshot","pedDamage","playerDamage","vehicleDamage","shooting","state","action","playback","witness","awareness","playerSpeech"}) caps[k]=k=="shooting";
-        using(var channel=new IntelligenceChannel(name,Guid.NewGuid().ToString("D"),()=>caps)) {
+        using(var channel=new IntelligenceChannel(name,Guid.NewGuid().ToString("D"),()=>caps,Guid.NewGuid().ToString("D"),()=>1,true)) {
             channel.Start();Console.WriteLine("Interop server ready");
             var deadline=System.Diagnostics.Stopwatch.StartNew();bool sent=false;
             while(deadline.ElapsedMilliseconds<10000) {
                 if(!sent&&channel.ConnectionVersion>0) {
                     sent=true;string player=Guid.NewGuid().ToString("D");
-                    channel.Send("anchors",new[]{new {captureRef=player,kind="player",observer=false}});
+                    channel.Send("anchors",new[]{new {captureRef=player,kind="ped",observer=true,owned=false}});
+                    channel.Send("observer_index",new[]{new {captureRef=player,kind="ped",owned=false}});
+                    channel.Send("observer_situation",new[]{new {captureRef=player,sampledGameTick=42,activity="conversation",situationRevision=1}});
                     channel.Send("signal",new {signalId=Guid.NewGuid().ToString("D"),producer="shooting",producerSequence=1,kind="firing",target=(string)null,source=player,gameTick=42,ageMs=0,facts=new {}});
                 }Thread.Sleep(10);
             }

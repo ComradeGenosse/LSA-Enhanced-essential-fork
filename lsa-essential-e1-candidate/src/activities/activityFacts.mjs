@@ -1,3 +1,6 @@
+import {immutableSnapshot} from '../context/turnSnapshot.mjs';
+import {readHostContext,sameHostContext} from '../context/hostContext.mjs';
+import {isUuid} from '../identity/identityContract.mjs';
 import { REASON_CODES } from './contracts.mjs';
 
 export const FACT_LIMIT = 128;
@@ -9,16 +12,25 @@ const PHRASES = Object.freeze({
 
 export class ActivityFacts {
   constructor(id = () => '', now = () => Date.now()) { this.id = id; this.now = now; this.facts = []; }
-  record(partial) {
+  record(partial,scope=null) {
     const fact = {
       factVersion: 1, factId: this.id(), characterId: partial.characterId, activityId: partial.activityId, goalId: partial.goalId,
       kind: partial.kind, intent: partial.intent, placeLabel: partial.placeLabel || null,
       evidence: partial.evidence || 'none', reason: partial.reason || null, atMs: partial.atMs ?? this.now(),
     };
     if ((fact.kind === 'arrived' || fact.kind === 'completed') && fact.evidence !== 'world_strong') fact.kind = 'mode_established';
-    this.facts.push(fact);
+    const host=readHostContext(scope);
+    if(host && isUuid(scope.encounterId) && isUuid(scope.incarnationId))fact.provenance=Object.freeze({...host,encounterId:scope.encounterId,incarnationId:scope.incarnationId});
+    const frozen=immutableSnapshot(fact);
+    this.facts.push(frozen);
     if (this.facts.length > FACT_LIMIT) this.facts.splice(0, this.facts.length - FACT_LIMIT);
-    return fact;
+    return frozen;
+  }
+  clear() {this.facts=[];}
+  retireEncounter(encounterId) {this.facts=this.facts.filter(fact=>fact.provenance?.encounterId!==encounterId);}
+  factsForCharacter(binding) {
+    if(!isUuid(binding?.characterId) || !isUuid(binding?.encounterId) || !isUuid(binding?.incarnationId) || !readHostContext(binding.hostContext))return immutableSnapshot([]);
+    return immutableSnapshot(this.facts.filter(fact=>fact.characterId===binding.characterId && fact.provenance?.encounterId===binding.encounterId && fact.provenance?.incarnationId===binding.incarnationId && sameHostContext(fact.provenance,binding.hostContext)).slice(-16));
   }
   forCharacter(characterId) { return this.facts.filter(fact => fact.characterId === characterId).slice(-16); }
 }

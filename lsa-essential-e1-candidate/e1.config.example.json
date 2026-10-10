@@ -1,6 +1,17 @@
 {
-  "intelligence": { "mode": "off", "pipeName": "LSA.Intelligence.v1", "radio": "off" },
-  "activities": { "mode": "off", "pipeName": "LSA.Activities.v1" },
+  "dialogueKnowledge": {
+    "mode": "off"
+  },
+  "intelligence": {
+    "mode": "off",
+    "pipeName": "LSA.Intelligence.v1",
+    "radio": "off"
+  },
+  "activities": {
+    "mode": "off",
+    "pipeName": "LSA.Activities.v1",
+    "dialogueReceipts": false
+  },
   "persistentIdentity": {
     "enabled": false,
     "mode": "shadow",
@@ -108,5 +119,8 @@
         "senior"
       ]
     }
+  },
+  "spontaneousSpeech": {
+    "mode": "off"
   }
 }

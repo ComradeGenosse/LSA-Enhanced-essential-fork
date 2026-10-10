@@ -1,3 +1,5 @@
+import {readPrimaryBehaviorOwner} from '../context/primaryBehaviorOwner.mjs';
+import { immutableSnapshot } from '../context/turnSnapshot.mjs';
 import { isUuid } from '../identity/identityContract.mjs';
 import { validateObservation } from './contracts.mjs';
 
@@ -13,7 +15,7 @@ export const REASON_CODES = Object.freeze([
   'situation_occupied', 'situation_conversation', 'trait_policy', 'environment_requested', 'routine_low_relevance',
 ]);
 export const TRAIT_POLICIES = Object.freeze(['protective', 'cautious', 'loyal', 'bold']);
-export const SALIENCE_POLICY_VERSION = 2;
+export const SALIENCE_POLICY_VERSION = 1;
 export const SALIENCE_BOUNDS = Object.freeze({
   decisions: 256, perObserver: 32, suppression: 1024, suppressionTtlMs: 10 * 60 * 1000, reasons: 4,
 });
@@ -49,6 +51,25 @@ function familyKey(observation) {
   const family = HARM_EVENTS.has(observation.eventType) ? 'harm' : observation.eventType === 'firing_burst' ? 'firing' : observation.eventType;
   return `${observation.observer.captureRef}|${family}|${participantRefs(observation).sort().join(',')}`;
 }
+function samePrimaryBehaviorOwner(a,b) {
+  return (!a && !b) || (!!a && !!b &&
+    a.owner===b.owner && a.mode===b.mode && a.since===b.since);
+}
+
+// Compare policy-relevant state without equating a fresh native sample with
+// new PS3 authority. The original response key/TTL is never renewed here.
+export function sameSalienceSituationPolicy(sealed,live,observation) {
+  return !!sealed && !!live && !!observation &&
+    sealed.profileRevision===live.profileRevision &&
+    sealed.ownerProofRevision===live.ownerProofRevision &&
+    samePrimaryBehaviorOwner(sealed.primaryOwner,live.primaryOwner) &&
+    sealed.playerCaptureRef===live.playerCaptureRef &&
+    sealed.lifetimeCurrent===true && live.lifetimeCurrent===true &&
+    sealed.channelHealthy===true && live.channelHealthy===true &&
+    sealed.perceptionSupported===true && live.perceptionSupported===true &&
+    policyFingerprint(sealed,observation)===policyFingerprint(live,observation);
+}
+
 function policyFingerprint(situation, observation) {
   const recognized = participantRefs(observation).map(ref => {
     const hit = recognizedHit(situation.recognized, ref);
@@ -56,7 +77,12 @@ function policyFingerprint(situation, observation) {
   }).sort();
   const memories = situation.memories.map(memory => `${memory.memoryId}:${memory.importance}:${[...memory.relatedCharacterIds].sort().join('.')}`).sort();
   const player = situation.playerRelationship?.state || 'none';
-  return [situation.activity, player, recognized.join('|'), memories.join('|'), situation.traitPolicies.join(','), (situation.requestedEnvironmentChannels||[]).join(',')].join('~');
+  // The ranker only distinguishes occupied vehicles, conversations, and
+  // ordinary unoccupied activity. Following/walking/idle sampling changes
+  // cannot alter classification and must not retire a pending PS3 grant.
+  const activity=OCCUPIED.has(situation.activity)?'occupied':
+    situation.activity==='conversation'?'conversation':'unoccupied';
+  return [activity, player, recognized.join('|'), memories.join('|'), situation.traitPolicies.join(',')].join('~');
 }
 function selectReasons(reasons) {
   const present = new Set(reasons.filter(code => REASON_SET.has(code)));
@@ -116,12 +142,16 @@ export function normalizeSalienceSituation(input = {}) {
     playerCaptureRef: isUuid(source.playerCaptureRef) ? source.playerCaptureRef : null,
     recognized: Object.freeze(recognized),
     playerRelationship: playerRelationship ? Object.freeze(playerRelationship) : null,
+    situationRevision: integer(source.situationRevision) ? source.situationRevision : 0,
     profileRevision: integer(source.profileRevision) ? source.profileRevision : 0,
+    // Native P2 owner revision is a lifetime/ABA fence, not the continuously
+    // incrementing perception situationRevision. Keep it on the sealed pair.
+    ownerProofRevision: integer(source.ownerProofRevision) ? source.ownerProofRevision : 0,
+    primaryOwner:readPrimaryBehaviorOwner(source.primaryOwner),
     activity: ACTIVITIES.has(source.activity) ? source.activity : 'unknown',
     memories: Object.freeze(memories),
     traitPolicies: Object.freeze(traitPolicies),
     distanceBand: [0, 1, 2, 3].includes(source.distanceBand) ? source.distanceBand : 0,
-    requestedEnvironmentChannels: Object.freeze([...new Set((Array.isArray(source.requestedEnvironmentChannels) ? source.requestedEnvironmentChannels : []).filter(value => value === 'radio'))]),
   });
 }
 export function situationFromCharacterView(view = {}) {
@@ -152,10 +182,12 @@ export function situationFromCharacterView(view = {}) {
       : null,
     profileRevision: integer(profile?.revision) ? profile.revision : view.profileRevision,
     activity: view.activity,
+    primaryOwner:view.primaryOwner,
+    ownerProofRevision:view.ownerProofRevision,
+    situationRevision: view.situationRevision,
     memories: profileMemories,
     traitPolicies,
     distanceBand: view.distanceBand,
-    requestedEnvironmentChannels: view.requestedEnvironmentChannels,
   });
 }
 
@@ -170,12 +202,11 @@ function classify(observation, situation) {
   const supported = observation.claims.filter(claim => claim.certainty === 'supported' && claim.evidence.channel !== 'report');
   if (!supported.length) return { context: 'candidate', memory: 'none', response: 'none', reasons: ['evidence_uncertain'], closed: true };
 
-  const radioHeard = observation.eventType === 'radio_heard' && supported.some(claim => claim.kind === 'sound' && claim.details?.soundType === 'radio');
-  if (radioHeard) {
-    const requested = (situation.requestedEnvironmentChannels||[]).includes('radio');
-    return { context: requested ? 'candidate' : 'omit', memory: 'none', response: 'none', reasons: [requested ? 'environment_requested' : 'routine_low_relevance'], closed: false };
+  // Radio is a low-priority factual candidate only. PS4's frozen, direct-question
+  // selector determines visibility; no automatic memory or speech entitlement.
+  if(observation.eventType==='radio_heard' && supported.some(claim=>claim.kind==='sound'&&claim.evidence.channel==='auditory'&&claim.details?.soundType==='radio')) {
+    return {context:'candidate',memory:'none',response:'none',reasons:['routine_low_relevance'],closed:false};
   }
-
   const selfRef = observation.observer.captureRef;
   const playerRef = situation.playerCaptureRef;
   const kindOf = kind => supported.some(claim => claim.kind === kind);
@@ -217,9 +248,17 @@ function classify(observation, situation) {
     context = 'must_include'; memory = 'stage'; response = 'eligible';
     reasons.push('relationship_close', 'safety_nearby_threat');
   } else if (injury || firing) {
+    // Any independently witnessed nearby gunfire or injury can merit one
+    // brief, in-character reaction. A stranger getting shot is alarming even
+    // when no character relationship/recognition binding exists. The source
+    // witness receipt, supported non-report claim, native Director admission
+    // and exact one-shot PS3 ledger still fence actual speech.
+    // PS4 context ranking remains candidate unless the existing close/
+    // self/player danger branches require must_include. Speech eligibility is
+    // independent of PS4's separate safety-byte reservation.
     context = 'candidate';
+    response = 'eligible';
     reasons.push('safety_nearby_threat');
-    if (firing && (close.length || conflict.length)) response = 'eligible';
     if (close.length) reasons.push('relationship_close');
     else if (conflict.length) reasons.push('relationship_conflict');
   } else if (playerInvolved) {
@@ -276,8 +315,6 @@ function applyLedger(draft, observation, situation, cache) {
   ));
   const familyEscalated = Boolean(!existing && family && severity > family.severity);
   let { context, memory, response, reasons } = draft;
-  const radioContextReplay = observation.eventType === 'radio_heard' && !reasons.includes('environment_requested') && existing?.revision === observation.revision && existing?.consumedBy instanceof Set && existing.consumedBy.has('ps4_context');
-  if (radioContextReplay && context !== 'omit') { context = 'omit'; reasons = [...reasons, 'repetition_suppressed']; }
   const alreadyGranted = existing?.granted || 'none';
   if (existing && observation.revision < existing.revision) {
     response = 'none'; memory = 'none'; reasons = [...reasons, 'revision_stale'];
@@ -366,6 +403,76 @@ export class SalienceCache {
     this.latestById = new Map();
   }
   evaluate(observation, situation) { return evaluateSalience(observation, situation, this); }
+  needsSituationRefresh(observation,situation) {
+    const pair=this.decisions.get(observation.observationId)?.pair??this.ledger.get(observation.observationId)?.pair;
+    if(!pair || pair.observation.revision!==observation.revision)return false;
+    return pair.situation.profileRevision!==situation.profileRevision ||
+      pair.situation.ownerProofRevision!==situation.ownerProofRevision ||
+      !samePrimaryBehaviorOwner(pair.situation.primaryOwner,situation.primaryOwner) ||
+      pair.situation.lifetimeCurrent!==situation.lifetimeCurrent ||
+      pair.situation.channelHealthy!==situation.channelHealthy ||
+      pair.situation.perceptionSupported!==situation.perceptionSupported ||
+      pair.situation.playerCaptureRef!==situation.playerCaptureRef ||
+      policyFingerprint(pair.situation,observation)!==policyFingerprint(situation,observation);
+  }
+  trimPairMetadata() {
+    const pairs=new Map([...this.decisions.values(),...this.ledger.values(),...this.latestById.values()].filter(entry=>entry.pair).map(entry=>[entry.pair,entry.pairBytes]));
+    let bytes=[...pairs.values()].reduce((sum,size)=>sum+size,0);
+    for(const pair of orderSalienceDecisions([...pairs.keys()]).reverse()) {
+      if(bytes<=2*1024*1024) break;
+      for(const entry of [...this.decisions.values(),...this.ledger.values()]) if(entry.pair===pair) {delete entry.pair;delete entry.pairBytes;delete entry.observation;delete entry.situation;}
+      const latest=this.latestById.get(pair.observation.observationId);if(latest?.pair===pair) this.latestById.set(pair.observation.observationId,Object.freeze({decision:latest.decision,profileRevision:latest.profileRevision,policy:latest.policy}));
+      bytes-=pairs.get(pair);
+    }
+  }
+  forgetObservation(observationId) {
+    if(!isUuid(observationId))return false;
+    const found=this.decisions.has(observationId)||this.ledger.has(observationId)||this.latestById.has(observationId);
+    this.decisions.delete(observationId);this.ledger.delete(observationId);this.latestById.delete(observationId);
+    return found;
+  }
+  snapshotForObserver(observerRef,observations,now=this.now(),diagnostics=null) {
+    this.expire(now);const result=[],counts={observations:0,observationExpired:0,noMatchingSalience:0,revisionMismatch:0};
+    for(const entry of observations.entries.values()) {
+      const observation=entry.value;if(observation.observer.captureRef!==observerRef)continue;counts.observations++;if(observation.expiresAtMonotonicMs<=now){counts.observationExpired++;continue;}
+      const pair=this.decisions.get(observation.observationId)?.pair ?? this.ledger.get(observation.observationId)?.pair;
+      if(!pair){counts.noMatchingSalience++;continue;}
+      if(pair.observation.revision!==observation.revision || pair.observation.observedAt.nativeRun!==observation.observedAt.nativeRun || pair.decision.revision!==observation.revision || pair.decision.expiresAtMonotonicMs<=now){counts.revisionMismatch++;continue;}
+      result.push(pair);if(result.length>=128) break;
+    }
+    if(diagnostics)Object.assign(diagnostics,counts);
+    return Object.freeze(orderSalienceDecisions(result));
+  }
+  // PS4's P0 frame is immutable, while PS3 may legitimately recalculate its
+  // current decision key before the model finishes. The caller has just
+  // revalidated the frozen frame, owner, refs and channel at model completion.
+  // Reconcile only the exact same live observation; never borrow a later
+  // revision/actor or a retired payload, and never change PS6 grant semantics.
+  acknowledgeFrozenContext(decisionKeyValue, frozenPair, outcome) {
+    const original = frozenPair?.observation, decision = frozenPair?.decision;
+    if (typeof decisionKeyValue !== 'string' ||
+        !['delivered', 'rejected', 'expired'].includes(outcome) ||
+        !original || !decision ||
+        decision.decisionKey !== decisionKeyValue ||
+        decision.observationId !== original.observationId ||
+        decision.revision !== original.revision ||
+        decision.policyVersion !== SALIENCE_POLICY_VERSION) return false;
+    const entry = this.ledger.get(original.observationId);
+    const currentPair = entry?.pair, now = this.now();
+    if (!currentPair ||
+        entry.expires <= now ||
+        entry.revision !== original.revision ||
+        entry.decisionKey !== currentPair.decision.decisionKey ||
+        currentPair.decision.revision !== original.revision ||
+        original.expiresAtMonotonicMs <= now ||
+        decision.expiresAtMonotonicMs <= now ||
+        currentPair.observation.expiresAtMonotonicMs <= now ||
+        currentPair.decision.expiresAtMonotonicMs <= now ||
+        JSON.stringify(currentPair.observation) !== JSON.stringify(original)) return false;
+    // Consumption remains scoped to PS4 context; the current PS6 key/grant
+    // never becomes usable through the frozen key.
+    return this.acknowledge(entry.decisionKey, 'ps4_context', outcome);
+  }
   acknowledge(decisionKeyValue, consumer, outcome) {
     if (typeof decisionKeyValue !== 'string' || !['ps4_context', 'ps6_ticket', 'ps5_memory'].includes(consumer) || !['delivered', 'rejected', 'expired'].includes(outcome)) return false;
     const hit = [...this.ledger.entries()].find(([, entry]) => entry.decisionKey === decisionKeyValue);
@@ -384,15 +491,17 @@ export class SalienceCache {
     if (consumer === 'ps6_ticket' && !entry.consumed) entry.granted = 'none';
     return true;
   }
-  forgetObservation(observationId) {
-    if (!isUuid(observationId)) return false;
-    const existed = this.ledger.delete(observationId) || this.decisions.has(observationId) || this.latestById.has(observationId);
-    this.forgetDecision(observationId);
-    return existed;
+  releaseReference(ref) {
+    const uses=pair=>pair.observation.observer.captureRef===ref || pair.observation.claims.some(claim=>claim.source?.captureRef===ref || claim.target?.captureRef===ref || claim.details?.vehicle===ref);
+    for(const entry of [...this.decisions.values(),...this.ledger.values()])if(entry.pair && uses(entry.pair)){delete entry.pair;delete entry.pairBytes;delete entry.observation;delete entry.situation;}
+    for(const [id,entry] of this.latestById)if(entry.pair && uses(entry.pair))this.latestById.set(id,Object.freeze({decision:entry.decision,profileRevision:entry.profileRevision,policy:entry.policy}));
   }
   clear() { this.decisions.clear(); this.order = []; this.ledger.clear(); this.families.clear(); this.latestById.clear(); }
   expire(now = this.now()) {
-    for (const [id, entry] of this.ledger) if (entry.expires <= now) this.ledger.delete(id);
+    for (const [id, entry] of this.ledger) {
+      if(entry.expires<=now)this.ledger.delete(id);
+      else if(entry.pair && (entry.pair.observation.expiresAtMonotonicMs<=now || entry.pair.decision.expiresAtMonotonicMs<=now)){delete entry.pair;delete entry.pairBytes;delete entry.observation;delete entry.situation;}
+    }
     for (const [key, entry] of this.families) if (entry.expires <= now) this.families.delete(key);
     for (const [id, entry] of this.decisions) if (entry.decision.expiresAtMonotonicMs <= now) this.forgetDecision(id);
     for (const [id, entry] of this.latestById) if (entry.decision.expiresAtMonotonicMs <= now) this.latestById.delete(id);
@@ -428,6 +537,8 @@ export class SalienceCache {
     this.rememberLatest(observation.observationId, Object.freeze({ decision, profileRevision: situation.profileRevision, policy: null }));
   }
   remember(observation, situation, decision, draft) {
+    const pair=immutableSnapshot({observation,situation,decision});
+    const pairBytes=Buffer.byteLength(JSON.stringify(pair));
     const now = situation.nowMonotonicMs;
     const expires = now + SALIENCE_BOUNDS.suppressionTtlMs;
     const grant = decision.response === 'eligible' || decision.response === 'urgent';
@@ -441,7 +552,8 @@ export class SalienceCache {
         policy: draft.policy,
         granted: grant ? (RESPONSE_RANK[decision.response] >= RESPONSE_RANK[existing?.granted || 'none'] ? decision.response : existing.granted) : (existing?.granted || 'none'),
         consumed: Boolean(existing?.consumed),
-        consumedBy: new Set(observation.eventType === 'radio_heard' && existing && observation.revision > existing.revision ? [] : (existing?.consumedBy || [])),
+        consumedBy: new Set(existing?.consumedBy || []),
+        pair,pairBytes,
         decisionKey: decision.decisionKey,
         grantEpoch: draft.grantEpoch || existing?.grantEpoch || 0,
         familyKey: familyKey(observation),
@@ -461,10 +573,11 @@ export class SalienceCache {
       });
     }
     this.forgetDecision(observation.observationId);
-    this.decisions.set(observation.observationId, { observer: observation.observer.captureRef, decision, at: now });
+    this.decisions.set(observation.observationId, { observer: observation.observer.captureRef, ...pair, pair,pairBytes, at: now });
     this.order.push(observation.observationId);
-    this.rememberLatest(observation.observationId, Object.freeze({ decision, profileRevision: situation.profileRevision, policy: draft.policy }));
+    this.rememberLatest(observation.observationId, Object.freeze({ ...pair, pair,pairBytes, profileRevision: situation.profileRevision, policy: draft.policy }));
     this.evictDecisions(observation.observer.captureRef);
+    this.trimPairMetadata();
     if (!DECISION_KEYS.every(field => Object.hasOwn(decision, field))) throw new Error('salience_decision_shape');
   }
 }

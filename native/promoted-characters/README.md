@@ -62,3 +62,12 @@ dotnet build native/enhanced/input-tests/InputTests.csproj -c Release "-p:Target
 ```
 
 On a game-clock reset, P2 cancels old requests and retires live associations before starting a new owner epoch. No ped tasks or automatic re-adoption occur. The console frontend remains loaded through native-host failures and explains when controls are unavailable. Startup diagnostics are bounded and do not register additional commands.
+
+
+### Passive dialogue-action receipt collection (implementation branch)
+
+The native `activities.dialogueReceipts` flag defaults to false. Only literal JSON `true` enables passive C-05 observation when the existing ACT host is explicitly configured as shadow or on. Setting the flag while mode is off starts no ACT host; shadow collection enables no ACT dispatch. Configure the native host and companion to use the same existing ACT pipe. Essential still publishes and executes the original action, and ordinary actors use current C-02 anchors without P2 ownership. Pending/body/callback ambiguity and retirement/reset/fault containment follow the existing shared-ring correlation path.
+
+Collection grants neither physical acceptance nor model-visible SELF activation. Companion `dialogueKnowledge.dialogueReceipts` remains independently off by default and requires the existing PS4 build/lifetime/acceptance gates. Real Essential callback ordering, actual cross-process C-05 interoperability and GTA MP6/G8 probes remain open. No deployment or successful validation receipt is performed by these settings or builds.
+
+The companion publication service also requires its literal-true `activities.dialogueReceipts` opt-in; native negotiation alone never enables publication annotation.

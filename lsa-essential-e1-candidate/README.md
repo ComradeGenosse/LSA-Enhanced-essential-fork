@@ -71,3 +71,39 @@ A controlled E5/E6 payload is installed/staged in the live GTA server directory 
 ## P2 promoted characters
 
 The optional P2 system extends the merged P1 authored identity seam with bounded encounter names, independent durable profiles/manual memories, a local character editor, RAGE console controls and an explicitly loaded native owner plugin. Both flags remain default-off. See [P2 setup and invariants](../docs/P2-promoted-characters-status.md) and [native package build](../native/promoted-characters/README.md). `node tools/buildCharactersAddon.mjs` builds a separate compile-only package; ordinary candidate builds never deploy it or run GTA.
+
+
+### PS4 matching build support (implementation branch)
+
+Ordinary companion builds retain an unavailable optional-perception contract and safe base dialogue. To build a PS4-capable companion explicitly, first build the native addon using the pinned references documented above, then set `LSA_PS4_NATIVE_PAYLOAD` to that package directory before running `node tools/buildCandidate.mjs`. Programmatic callers use `buildCandidate({nativePayloadPath})`. The builder verifies the current native compile-source receipt, C-02/C-13/C-14 versions, existing perception pins, and every native artifact hash; mismatches fail the build. Its manifest records the matched native manifest/source/file hashes.
+
+This declares compiled support only. `dialogueKnowledge.mode` remains `off` by default, native intelligence remains off by default, and installed runtime host/version/currentness checks still apply. No build enables perception delivery, deploys to GTA, or establishes physical acceptance. Controlled shadow preview and active requested-turn acceptance follow the unchanged PS4 G6/G7 gates. Source changes require a fresh native build; no stale package is silently accepted.
+
+
+### Capability validation diagnostics (C-09)
+
+`runtime.services.capabilityHealth()` returns an immutable current read model for perception, PS4, the four implemented ACT2 capabilities, and the still-uncompiled speech/gaze/radio contributors. Each row separates `compiled`, `configured`, `runtimeSupported`, `hostRunId`, `validated` payload hashes, `suspended`, and derived `active`. This is acceptance eligibility information; it never admits an action or replaces a subsystem's runtime gates. The private host association stays outside model context and normal scalar telemetry. ACT probe configuration is read through the existing registry gate and is never treated as physical validation.
+
+At startup the companion optionally reads `diagnostics/validation.v1.json` under its working directory (embedding may specify `capabilityValidationPath`). The bounded 64 KiB file has the closed shape `{version:1,receipts:[...]}` with at most 64 closed receipt rows: `capability`, `payloadHash`, `sourceCommit` (40 lowercase hex), `sessionId` (UUID), `result` (`passed`, `failed`, or `not_run`), and `evidenceSha256`. Hashes are 64 lowercase hex. `payloadHash` identifies the exact companion build-manifest bytes, which include the matching native manifest/source/file hashes; `evidenceSha256` references the complete acceptance-session evidence. Record `passed` only after the capability's complete required acceptance gates pass on that payload. No acceptance file or successful receipt is generated automatically. A later failed/not-run receipt supersedes an earlier pass for that capability/payload. Missing, oversized or malformed records yield no validated capabilities; another payload's pass never establishes current acceptance. Restart after updating records; there is no added watcher or polling loop.
+
+This read model is available to diagnostics consumers through the runtime service API. Native F11 presentation remains a separate integration task; no command-contract changes or authority-bearing health service were introduced.
+
+
+### Optional SELF contributors (implementation branch)
+
+`dialogueKnowledge.activityFacts` and `dialogueKnowledge.dialogueReceipts` independently accept `off`, `shadow`, or `active`; omission means off. The parent `dialogueKnowledge.mode` must permit PS4 projection. Shadow contributors enrich only the immutable preview, never the selected request. Active SELF additionally requires parent active mode, original released/current P0 capture, matching build/live shared PS/ACT host and transport scope, and an active C-09 capability backed by a passed acceptance record for the exact payload. Capability names are `ps.activity_facts` and `ps.dialogue_receipts`; dialogue receipts additionally require negotiated C-05 version 1. Configuration and ACT `passedProbes` do not establish this acceptance. No successful record is supplied by this implementation.
+
+Both contributors use the existing single PS4 renderer and shared SELF/manual-memory budget. Private provenance stays outside model allocation; stale whole items prune before first send and invalidate an already-sent request. Neither contributor consumes PS3 salience. Current dialogue templates cover the 65 registry actions in the existing pinned Essential catalog; parser-only bridge entries and aliases remain omitted. Real Essential callback/body-resolution probes and MP6/G8/GTA acceptance remain open. Native collection configuration and synthetic Windows pipe interoperability have offline coverage.
+
+
+Passive receipt collection uses the existing ACT host: native `activities.dialogueReceipts: true` opts into C-05 while `activities.mode` remains explicitly shadow/on. Companion normalization preserves only a literal true opt-in; this does not enable ACT dialogue dispatch or change mode. Both example configurations remain false/off. Collection and SELF activation are independent; no physical acceptance record is supplied.
+
+The companion publication service also requires its literal-true `activities.dialogueReceipts` opt-in; native negotiation alone never enables publication annotation.
+
+
+### C-05 Windows interoperability fixture
+
+Build `native/activities/tests/ActivityTests.csproj` from the repository root, then run `node tools/testDialogueActionsInterop.mjs` from this candidate directory. The same check is in `tests/dialogue-action-interop.test.mjs` on Windows. It uses the production current-user ACT pipe/session, native shared ring/correlator/publisher and Node ActivityRuntime to verify ordinary/owned binding shapes, accepted/failed handler receipts, closed SELF projection, stale-host rejection, sequence preservation, passive mode and reconnect cleanup. The helper supplies synthetic before/handler callbacks and executes no game assemblies. A pass proves cross-process interoperability; it does not prove native actor resolution, Essential callback ordering or physical MP6/GTA acceptance.
+
+
+The C-05 Windows fixture also sends five malformed peer packets (host/world/sequence/action/owned-binding faults) to prove native rejection independently of the Node sender. Each rejection must clear existing pending/completed evidence and permit a fresh publication after reconnect. The fixture now also holds original callbacks across a native world reset and forces shared-ring overflow before drain. It verifies native pending retirement, companion reset, discarded unsafe callbacks and fresh-connection recovery. Test controls travel only through helper stdin, not the production pipe vocabulary. All 66 checks remain synthetic callback/transport evidence, not physical acceptance.

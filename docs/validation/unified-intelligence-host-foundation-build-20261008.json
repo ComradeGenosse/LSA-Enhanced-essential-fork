@@ -1,0 +1,74 @@
+{
+  "stage": "P2+PS0+PS1+PS2+UX1+UX2+UX3+UX4",
+  "defaultEnabled": false,
+  "intelligenceDefaultMode": "off",
+  "playerSpeech": "disabled_unsupported_capture_receipt",
+  "nativeContract": {
+    "available": true,
+    "dllSha256": "9b6de42d4c464901d859dd95e17e100e4fa9ef6074bfbb0cf3a57a76f6ddd653",
+    "metadataSha256": "8eac8860c81feacbb5eab557f5769cac1f76a36f061e1eb3640da7096f08cb63",
+    "requiredGameTarget": "net481",
+    "nativeProtocolChanged": false
+  },
+  "characterContract": {
+    "available": true,
+    "dllSha256": "9b6de42d4c464901d859dd95e17e100e4fa9ef6074bfbb0cf3a57a76f6ddd653",
+    "metadataSha256": "9ce200bf1a900d996a6f8471a40be1f439d97aa8f86289e334e51e22d627b2e4",
+    "requiredGameTarget": "net481",
+    "nativeProtocolChanged": false
+  },
+  "perceptionContract": {
+    "available": true,
+    "version": 1,
+    "dllSha256": "9b6de42d4c464901d859dd95e17e100e4fa9ef6074bfbb0cf3a57a76f6ddd653",
+    "damageDllSha256": "64816a0d1131a6ec241f8951902b08afaee86fb0f73693399edefe2db8776750",
+    "metadataSha256": "d746155f707158bf97ee75452da0be04d258b2142fd0c6bdcb9cc014e36bbfb3",
+    "damageMetadataSha256": "a78c6bcb866605f88b281a56dfe26fd3b508bc5c15a317383aefbec146b547a9",
+    "requiredGameTarget": "net481",
+    "shadowOnly": true,
+    "nativeProtocolChanged": false
+  },
+  "controlsContract": {
+    "available": true,
+    "version": 1,
+    "dllSha256": "9b6de42d4c464901d859dd95e17e100e4fa9ef6074bfbb0cf3a57a76f6ddd653",
+    "metadataSha256": "9484b30448c1786e7b02d16147ddaaaab3cea9eda120affbd019fc422f4f31f4",
+    "requiredGameTarget": "net481",
+    "nativeProtocolChanged": false
+  },
+  "uxContract": {
+    "commandsSha256": "07e0ad837bcbce8b6ff088a0b57ae6aad94e23cdbb5ac4a6bc4668a20b15d754",
+    "rnuiReferenceSha256": "d2607481b206e7907c9c1f2cabf15797654aacaaf1746ea202740dcdd5eb8bbb",
+    "rnuiAssemblyVersion": "1.9.3.0",
+    "rnuiPackaged": false,
+    "inputDefaultEnabled": false,
+    "uiDefaultEnabled": false,
+    "talkTargetingDefaultEnabled": false
+  },
+  "rphSdkSha256": "5d439745604a5fedbf8fa401520d4f296c1b6800d77e2923ba3bf9772182c7e0",
+  "files": [
+    {
+      "name": "LSA.PromotedCharacters.dll",
+      "relativePath": "plugins/LSA.PromotedCharacters.dll",
+      "sha256": "fc015c70df5ba0cf8106313369cad93c74e1c6fb0263dd4e8bcfd0f874c0d3f7"
+    },
+    {
+      "name": "LSA.PromotedCharacters.Bootstrap.dll",
+      "relativePath": "plugins/LSA.PromotedCharacters/LSA.PromotedCharacters.Bootstrap.dll",
+      "sha256": "5c8f0e01def15b8971f8c107ca75e022e8c5ef674a48bae162adb8edc3bc390b"
+    },
+    {
+      "name": "LSA.PromotedCharacters.Runtime.dll",
+      "relativePath": "plugins/LSA.PromotedCharacters/LSA.PromotedCharacters.Runtime.dll",
+      "sha256": "927b349d63dd8830865e5a57892e8a606fae46e675f08fcfe2b135e40816dab2"
+    },
+    {
+      "name": "LSA.SessionIdentity.dll",
+      "relativePath": "plugins/LSA.PromotedCharacters/LSA.SessionIdentity.dll",
+      "sha256": "436f77e6dff8a673e993079120cadc85fc9b84d38008671ce54ad7b546c9f15b"
+    }
+  ],
+  "deploymentPerformed": false,
+  "gtaRuntimeTest": false,
+  "talkTargeting": "offline-complete-gta-pending"
+}

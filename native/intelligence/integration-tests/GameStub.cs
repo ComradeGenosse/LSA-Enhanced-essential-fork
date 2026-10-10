@@ -15,6 +15,8 @@ namespace Rage.Native {
         public static string RadioStation="";
         public static int RadioTrack,RadioTextId,RadioPlayTime;
         public static bool RadioThrow,RadioTextIdThrow,RadioPlayThrow;
+        public static bool Scripted,ThrowSafetyRead;
+        public static bool FrontLos=true,AcousticLos=true;
         static IntPtr zone=Marshal.StringToHGlobalAnsi("ZONE1");
         public static T CallByName<T>(string name,params object[] args) {
             Reads++;object result;
@@ -23,38 +25,48 @@ namespace Rage.Native {
                 case "IS_PED_IN_ANY_VEHICLE":result=((Rage.Ped)args[0]).CurrentVehicle!=null;break;
                 case "IS_PED_INJURED":result=((Rage.Ped)args[0]).Health<100;break;
                 case "IS_PED_RUNNING":case "IS_PED_WALKING":case "GET_IS_VEHICLE_ENGINE_RUNNING":result=false;break;
+                case "IS_CUTSCENE_ACTIVE":case "IS_CUTSCENE_PLAYING":
+                case "IS_PLAYER_SWITCH_IN_PROGRESS":case "GET_MISSION_FLAG":
+                case "NETWORK_IS_SESSION_ACTIVE":
+                    if(ThrowSafetyRead)throw new Exception("GTA scripted-state read failure");
+                    result=Scripted;break;
+                case "GET_PLAYER_RADIO_STATION_NAME":
+                    RadioStationReads++;if(RadioThrow)throw new InvalidOperationException("radio unavailable");result=RadioStation;break;
+                case "GET_CURRENT_TRACK_SOUND_NAME":
+                    RadioTrackReads++;if(RadioThrow)throw new InvalidOperationException("radio unavailable");result=RadioTrack;break;
+                case "GET_AUDIBLE_MUSIC_TRACK_TEXT_ID":
+                    RadioTextIdReads++;if(RadioTextIdThrow)throw new InvalidOperationException("radio text ID unavailable");result=RadioTextId;break;
+                case "GET_CURRENT_TRACK_PLAY_TIME":
+                    RadioPlayReads++;if(RadioPlayThrow)throw new InvalidOperationException("radio playtime unavailable");result=RadioPlayTime;break;
                 case "GET_NAME_OF_ZONE":result=zone;break;
                 case "GET_INTERIOR_FROM_ENTITY":result=0;break;
-                case "HAS_ENTITY_CLEAR_LOS_TO_ENTITY_IN_FRONT":result=true;break;
+                case "HAS_ENTITY_CLEAR_LOS_TO_ENTITY_IN_FRONT":result=FrontLos;break;
+                case "HAS_ENTITY_CLEAR_LOS_TO_ENTITY":result=AcousticLos;break;
                 case "GET_VEHICLE_ENGINE_HEALTH":result=1000f;break;
                 case "GET_ENTITY_SPEED":result=0f;break;
-                case "GET_PLAYER_RADIO_STATION_NAME":RadioStationReads++;if(RadioThrow) throw new InvalidOperationException("radio native unavailable");result=RadioStation??"";break;
-                case "GET_CURRENT_TRACK_SOUND_NAME":RadioTrackReads++;if(RadioThrow) throw new InvalidOperationException("radio native unavailable");result=RadioTrack;break;
-                case "GET_AUDIBLE_MUSIC_TRACK_TEXT_ID":RadioTextIdReads++;if(RadioTextIdThrow) throw new InvalidOperationException("radio text id unavailable");result=RadioTextId;break;
-                case "GET_CURRENT_TRACK_PLAY_TIME":RadioPlayReads++;if(RadioPlayThrow) throw new InvalidOperationException("radio play unavailable");result=RadioPlayTime;break;
                 default:Effects++;throw new Exception("Unexpected native operation: "+name);
             }
             return (T)result;
         }
     }
 }
-namespace LosSantosAlive.Context {public class ActorContext {}}
+namespace LosSantosAlive.Context {public class ActorContext {public string PedId;public List<IntegrationJsonBlock> IntegrationBlocks=new List<IntegrationJsonBlock>();} public class IntegrationJsonBlock {public string Id,Text;public IntegrationJsonBlock(string id,string text) {Id=id;Text=text;}}}
 namespace LosSantosAlive.Integrations {
     public interface IIntegration {string Id{get;}bool IsAvailable{get;}void Initialize();void Update();void Shutdown();void EnrichActor(Rage.Ped p,LosSantosAlive.Context.ActorContext c);void OnPedControlChanged(Rage.Ped p,bool controlled);void OnNpcActionExecuted(Rage.Ped p,string action,bool succeeded);}
 }
 namespace LosSantosAlive.NPC {
-    public class NpcState {public bool InDirectedInteraction;}
-    public static class NpcStateStore {public static int Creates;public static NpcState TryGetState(Rage.Ped p)=>null;}
-    public static class NpcTargeting {public static Rage.Ped Conversation;public static Rage.Ped GetPlayerConversationPed()=>Conversation;public static Rage.Ped GetCurrentSpeakerPed()=>null;}
+    public class NpcState {public bool InDirectedInteraction,HasActiveReflex,FollowPlayerOnFoot,FollowPaused;}
+    public static class NpcStateStore {public static int Creates;public static NpcState Sampled;public static NpcState TryGetState(Rage.Ped p)=>Sampled;}
+    public static class NpcTargeting {public static Rage.Ped Conversation,CurrentSpeaker;public static bool ThrowConversation,ThrowSpeaker;public static Rage.Ped GetPlayerConversationPed(){if(ThrowConversation)throw new Exception("Core conversation unavailable");return Conversation;}public static Rage.Ped GetCurrentSpeakerPed(){if(ThrowSpeaker)throw new Exception("Core speaker unavailable");return CurrentSpeaker;}}
 }
 namespace LosSantosAlive.NPC.Perception {
     public class PerceptionSnapshot {public Rage.Ped Player;public Rage.Ped[] AllPeds;public Rage.Vehicle[] AllVehicles;public int GameTime;public bool IsValid=true;}
     public static class PerceptionSystem {public static PerceptionSnapshot Snapshot;public static int Reads,Scans;public static bool TryGetSnapshot(out PerceptionSnapshot s) {Reads++;s=Snapshot;return s!=null;}public static void Update(){Scans++;throw new Exception("No second scanner");}}
 }
 namespace LosSantosAlive.Audio {
-    public class NpcPlaybackStartedEvent {public Rage.Ped SpeakerPed;public string PedId;}
-    public class NpcPlaybackEndedEvent {public Rage.Ped SpeakerPed;public string PedId;public bool WasInterrupted,HadAudio;}
-    public static class NpcPlaybackCoordinator {public static event Action<NpcPlaybackStartedEvent> PlaybackStarted;public static event Action<NpcPlaybackEndedEvent> PlaybackEnded;public static void Start(NpcPlaybackStartedEvent e)=>PlaybackStarted?.Invoke(e);public static void End(NpcPlaybackEndedEvent e)=>PlaybackEnded?.Invoke(e);}
+    public class NpcPlaybackStartedEvent {public Rage.Ped SpeakerPed;public string PedId,TurnId;public long GenerationId;}
+    public class NpcPlaybackEndedEvent {public Rage.Ped SpeakerPed;public string PedId,TurnId,Reason;public long GenerationId;public bool WasInterrupted,HadAudio,PlaybackStarted;}
+    public static class NpcPlaybackCoordinator {public static bool AnyAudio,ThrowRead;public static int BusyReads;public static event Action<NpcPlaybackStartedEvent> PlaybackStarted;public static event Action<NpcPlaybackEndedEvent> PlaybackEnded;public static bool IsAnyAudioPlayingOrPending() {BusyReads++;if(ThrowRead)throw new Exception("Core playback read failed");return AnyAudio;}public static void Start(NpcPlaybackStartedEvent e)=>PlaybackStarted?.Invoke(e);public static void End(NpcPlaybackEndedEvent e)=>PlaybackEnded?.Invoke(e);}
 }
 namespace DamageTrackerLib.DamageInfo {
     public enum DamageType {Unknown,Pistol,MeleeBlunt,Explosive,Fire,Vehicle}
@@ -72,5 +84,63 @@ namespace DamageTrackerLib {
         public static void Ped(Rage.Ped p,DamageInfo.PedDamageInfo info)=>OnPedTookDamage?.Invoke(p,null,info);
         public static void Player(Rage.Ped p,DamageInfo.PedDamageInfo info)=>OnPlayerTookDamage?.Invoke(p,null,info);
         public static void Vehicle(Rage.Vehicle p,DamageInfo.VehDamageInfo info)=>OnVehicleTookDamage?.Invoke(p,null,info);
+    }
+}
+
+namespace LSA.PromotedCharacters {
+    // Read-only simulation of the pinned EssentialMicState owner-fiber query.
+    // Unknown always remains a separate outcome from idle.
+    internal sealed class EssentialMicState {
+        internal static bool Supported=true,Idle=true;
+        public bool Available=>Supported;
+        public string CanStart()=>!Supported?"mic_state_unavailable":Idle?null:"mic_busy";
+    }
+}
+
+namespace LosSantosAlive.Bridge.SpecialTurns {
+    public static class SpecialGeminiTurnService {
+        public static long Version;public static bool ThrowRead;
+        public static long ReadPlayerTurnVersion() {if(ThrowRead)throw new Exception("Core special-turn version unreadable");return Version;}
+    }
+}
+
+namespace LosSantosAlive.Bridge.SpecialTurns {
+    public static class SpecialGeminiTurnScheduler {
+        public static int Calls;
+        public static bool Result=true,ThrowSubmit;
+        public static bool Submit(SpecialGeminiTurnRequest request) {
+            Calls++;
+            if(ThrowSubmit)throw new Exception("stock scheduler fault");
+            return Result;
+        }
+    }
+}
+namespace LosSantosAlive.Bridge.SpecialTurns {
+    public sealed class SpecialGeminiTurnRequest {
+        public Rage.Ped SpeakerPed,ListenerPed,SpeechTargetPed;
+        public string Content,Reason,DedupeKey;
+        public bool FaceListener,InterruptExisting,CancelIfPlayerStartsTurn,RequireCurrentPlayerConversation,SkipIfSpeakerBusy;
+        public int DelayMilliseconds;
+    }
+}
+
+namespace LosSantosAlive.Input {
+    public static class InputController { }
+    public static class TextInputService {
+        public static bool Open,ThrowRead;
+        public static bool IsOpen { get { if(ThrowRead)throw new Exception("Core text state unavailable");return Open; } }
+    }
+}
+namespace LosSantosAlive.Core {
+    public static class LsaControlsMenu {
+        public static bool Block,ThrowRead;
+        public static bool BlocksLsaInput { get { if(ThrowRead)throw new Exception("Core controls state unavailable");return Block; } }
+    }
+}
+
+
+namespace LSA.PromotedCharacters {
+    internal static class InputHookFiles {
+        internal static string HarmonyPath(string path)=>System.IO.Path.Combine(path,"0Harmony.dll");
     }
 }

@@ -42,7 +42,7 @@ export class OpenAIConnection {
     this.#runtime = runtime;
     this.#context = Object.freeze({
       systemInstruction: String(options.systemInstruction || ''),
-      actor: immutableSnapshot(options.actorContext),
+      actor: this.#snapshotActor(options.actorContext),
       listener: immutableSnapshot(options.targetContext),
       world: worldSnapshot(hasOwn(options, 'world') ? options.world : options.actorContext?.world),
       contextText: '',
@@ -63,7 +63,7 @@ export class OpenAIConnection {
     const source = String(turn.source || 'player_text').toLowerCase();
     this.#metrics = this.#runtime.telemetry?.beginTurn(turn.identity, source, { inputChars: String(turn.context?.inputText || '').length }) || null;
     const inputContext = turn.context || {};
-    const actor = hasOwn(inputContext, 'actor') ? immutableSnapshot(inputContext.actor) : this.#context.actor;
+    const actor = hasOwn(inputContext, 'actor') ? this.#snapshotActor(inputContext.actor) : this.#context.actor;
     const listenerProvided = hasOwn(inputContext, 'listener') && inputContext.listener !== undefined;
     const listener = listenerProvided ? immutableSnapshot(inputContext.listener) : this.#context.listener;
     const requestedListenerState = inputContext.listenerState;
@@ -123,8 +123,10 @@ export class OpenAIConnection {
     const internalEvent = internalSource ? String(turn.context?.internalEvent || rawInput || '').trim().slice(0,12_000) : '';
     let contextText = String(turn.context?.contextText || '');
     if (internalEvent && contextText && normalizeContextForComparison(contextText) === normalizeContextForComparison(internalEvent)) contextText = '';
+    const characterInputs=this.#runtime.captureCharacterInputs?.(turn.identity,actor) ?? null;
     this.#turn = Object.freeze({
       identity: Object.freeze({ ...turn.identity }), source,
+      directorTicket: inputContext.directorTicket ? immutableSnapshot(inputContext.directorTicket) : null,
       inputText: internalSource ? '' : rawInput,
       contextText,
       context: Object.freeze({
@@ -135,6 +137,10 @@ export class OpenAIConnection {
         contextText, internalEvent,
       }),
       contextSnapshot,
+      sourcePresence:this.#runtime.actorSourcePresence?.(actor) ?? Object.freeze([]),
+      priorHistory:immutableSnapshot(this.#runtime.history?.readForSession(turn.identity.pedId,turn.identity.sessionNonce) ?? []),
+      characterInputs,
+      knowledgeInputs: this.#runtime.captureKnowledgeInputs?.({identity:turn.identity,source,p0Snapshot:contextSnapshot,characterInputs}) ?? null,
     });
     this.#characterSnapshot = null;
     this.#launched = false;
@@ -211,7 +217,7 @@ export class OpenAIConnection {
 
   refreshContext(context) {
     this.#ensureOpen();
-    const actor = hasOwn(context, 'actorContext') ? immutableSnapshot(context.actorContext) : this.#context.actor;
+    const actor = hasOwn(context, 'actorContext') ? this.#snapshotActor(context.actorContext) : this.#context.actor;
     const listenerProvided = hasOwn(context, 'targetContext') && context.targetContext !== undefined;
     if (listenerProvided) {
       if (context.targetContext === null) safeEmit(this.#runtime.telemetry, 'listener_cleared', null, null, { outcome: this.#context.listener === null ? 'already_unavailable' : 'cleared' });
@@ -277,7 +283,8 @@ export class OpenAIConnection {
     this.#launched = true;
     const controller = new AbortController();
     const snapshot = {
-      identity: turn.identity, source: turn.source,
+      identity: turn.identity, source: turn.source,directorTicket:turn.directorTicket,knowledgeFramePreparation:true,
+      knowledgeInputs:turn.knowledgeInputs,characterInputs:turn.characterInputs,priorHistory:turn.priorHistory,sourcePresence:turn.sourcePresence,
       context: {
         ...turn.context,
         contextText: [turn.contextText, this.#realtimeContext].filter(Boolean).join('\n\n'),
@@ -320,6 +327,7 @@ export class OpenAIConnection {
       isCurrent: () => !this.#closed && sameIdentity(this.#turn?.identity, turn.identity) && this.#runtime.host.isCurrent(turn.identity),
       voiceResolver: this.#runtime.voiceResolver, allowVoice: !this.#voicePolicyLocked });
     if (signal.aborted || this.#closed || !sameIdentity(this.#turn?.identity, turn.identity) || !this.#runtime.host.isCurrent(turn.identity)) return;
+    turn.knowledgeInputs = this.#runtime.releaseOwnedKnowledge?.(turn.knowledgeInputs,turn.identity,prepared?.snapshot) ?? turn.knowledgeInputs;
     this.#characterSnapshot = prepared?.snapshot || null;
     if (!this.#voicePolicyLocked) {
       this.#voicePolicyLocked = true;
@@ -330,12 +338,18 @@ export class OpenAIConnection {
     if (this.#runtime.characterService) {
       try { await this.#runtime.characterService.prepareTurn(turn,prepared?.snapshot,this.#voiceProfile); }
       catch { // Optional projection failure must still strip private native proof.
+        delete turn.characterProjection;
         turn.context = { ...turn.context,actor:this.#runtime.modelActor(turn.context.actor),listener:this.#runtime.modelActor(turn.context.listener) };
         this.#runtime.characterService.emit('character_safe_failure',{reason:'profile_projection_failed'});
       }
       return;
     }
     turn.context = { ...turn.context, actor: this.#runtime.modelActor(turn.context.actor), listener: this.#runtime.modelActor(turn.context.listener) };
+  }
+
+  #snapshotActor(actor) {
+    const snapshot=immutableSnapshot(actor);
+    return this.#runtime.copyActorPresence?.(actor,snapshot) ?? snapshot;
   }
 
   #ensureOpen() { if (this.#closed) throw new Error('OpenAI session is closed.'); }

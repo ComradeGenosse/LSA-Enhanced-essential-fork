@@ -1,6 +1,7 @@
 import net from 'node:net';
 import { randomUUID } from 'node:crypto';
 import { UUID, OWNER_NAMESPACE, validateClaim, boundedKey, positive, exactObject } from './identityContract.mjs';
+import { validateHostEnvelope, readHostContext } from '../context/hostContext.mjs';
 
 // The server is the configured addon pipe, ACL'd to the current Windows user.
 // Claims from mutable actor JSON only reference this independent owner ledger.
@@ -8,6 +9,7 @@ export class OwnerEvidence {
   #socket = null;
   #opening = null;
   #epoch = null;
+  #hostContext = null;
   #pending = new Map();
   #listeners = new Set();
   #revoked = new Set();
@@ -17,6 +19,7 @@ export class OwnerEvidence {
     this.config = config; this.connect = connect; this.platform = platform;
   }
   subscribe(listener) { this.#listeners.add(listener); return () => this.#listeners.delete(listener); }
+  get hostContext() { return this.#hostContext; }
   #notify(fact) { for (const listener of this.#listeners) { try { listener(fact); } catch {} } }
   #token(claim) { return JSON.stringify([claim.adapterEpoch,claim.incarnationId,claim.claimRevision]); }
   #renew() {
@@ -32,6 +35,7 @@ export class OwnerEvidence {
     this.#pending.clear();
     if (this.#epoch) this.#notify({ type: 'lost', adapterEpoch: this.#epoch });
     this.#epoch = null; this.#revoked.clear();
+    this.#hostContext = null;
   }
   async #open(signal) {
     if (this.#socket && this.#epoch) return true;
@@ -59,9 +63,9 @@ export class OwnerEvidence {
           let message;
           try { message = JSON.parse(line.toString('utf8')); } catch { return cancel(); }
           if (!greeted) {
-            if (!exactObject(message, ['schemaVersion','type','adapterEpoch','sourceNamespace']) || message.schemaVersion !== 1 ||
+            if (!validateHostEnvelope(message, ['schemaVersion','type','adapterEpoch','sourceNamespace']) || message.schemaVersion !== 1 ||
                 message.type !== 'hello' || !UUID.test(message.adapterEpoch) || message.sourceNamespace !== OWNER_NAMESPACE) return cancel();
-            this.#epoch = message.adapterEpoch; greeted = true; this.#renew(); finish(true);
+            this.#epoch = message.adapterEpoch; this.#hostContext=readHostContext(message); greeted = true; this.#renew(); finish(true);
           } else if (!this.#receive(message)) return cancel();
         }
       });

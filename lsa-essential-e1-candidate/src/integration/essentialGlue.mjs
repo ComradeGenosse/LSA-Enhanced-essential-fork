@@ -1,3 +1,16 @@
+import {captureDialogueActionKnowledge,assertDialogueActionKnowledgeCurrent} from '../activities/dialogueActionKnowledge.mjs';
+import {projectOriginalTurnPriority,OriginalEssentialTurnTimeline} from '../perception/essentialTurnPriority.mjs';
+import {captureActivityKnowledge,assertActivityKnowledgeCurrent} from '../activities/activityKnowledge.mjs';
+import {prepareDialogueActionPublication} from '../activities/dialogueActionPublication.mjs';
+import {createKnowledgeDelivery} from '../context/knowledgeDelivery.mjs';
+import {createHash} from 'node:crypto';
+import {releaseOwnedKnowledge,assertOwnedKnowledgeCurrent,assertKnowledgeItemsCurrent} from '../context/knowledgeInputs.mjs';
+import {separateKnowledgeInstruction} from '../context/knowledgeInstructions.mjs';
+import {renderKnowledge,pruneKnowledgeFrame} from '../context/knowledgeRenderer.mjs';
+import {summarizeKnowledgeSelection} from '../context/knowledgeDiagnostics.mjs';
+import {ActorPresenceStore} from '../context/actorPresence.mjs';
+import { sameHostContext } from '../context/hostContext.mjs';
+import { selectedDialogueMemories } from '../characters/sessionProfiles.mjs';
 import { observeNative } from './nativeDelivery.mjs';
 import { decide } from '../openai/decide.mjs';
 import { transcribePcm } from '../openai/transcribe.mjs';
@@ -10,11 +23,12 @@ import { VoiceResolver } from '../voice/voiceResolver.mjs';
 import { executeProviderOperation } from '../reliability/providerExecutor.mjs';
 import { captureReferenceMap } from '../context/turnSnapshot.mjs';
 import { IdentityResolver } from '../identity/identityResolver.mjs';
-import { withoutIdentityEvidence } from '../identity/modelContext.mjs';
 import { CharacterService,withoutCharacterTransport } from '../characters/characterService.mjs';
 import { createNoopDialogueTrace } from '../observability/dialogueTrace.mjs';
 
 export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry = null, dialogueTrace = null, providers = {}, identityEvidence, identityStore, profileStore, nativeOwner } = {}) {
+  const actorPresence=new ActorPresenceStore();
+  const originalTurnTimeline=new OriginalEssentialTurnTimeline();
   dialogueTrace ||= createNoopDialogueTrace();
   const history = new DialogueHistory({ maxMessages: config.maxHistoryMessages, onMetric: (event, data) => telemetry?.emit(event, null, null, data) });
   const connections = new Set();
@@ -35,8 +49,63 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
     ? new CharacterService(config,{identityService,voiceResolver,store:profileStore,nativeOwner,telemetry}) : null;
   characterService?.initialize().catch(() => {});
   const services = {
+    recordDialogueActionPublication({turn,validated,publishedAtMs}){
+      if(config.provider!=='openai' || config.activities?.dialogueReceipts!==true || !runtime.dialogueKnowledgeBuildSupported)return null;
+      const publication=prepareDialogueActionPublication({turn,validated,publishedAtMs,perception:runtime.intelligence?.runtime,identityService,activities:runtime.activities});
+      return publication?runtime.activities?.recordDialogueActionPublication(publication):null;
+    },
     config,
     dialogueTrace,
+    finalizeKnowledgeFrame(turn,{input,history,source}) {
+      const character=turn.characterProjection;
+      const args={turn:turn.identity,frozenAt:turn.knowledgeInputs?.frozenAt??0,
+        profile:character?.profile,persistent:character?.persistent===true,knowledgeInputs:turn.knowledgeInputs,
+        actor:turn.context.actor,listener:turn.context.listener,world:turn.context.world,referenceMap:turn.context.referenceMap,
+        presence:turn.sourcePresence,history,input,source};
+      const base=renderKnowledge({...args,includePerceived:false});
+      const mode=config.dialogueKnowledge?.mode??'off',ps=runtime.intelligence?.runtime;
+      let reason=mode==='off'?'disabled':'unsupported_contract',preview=null;
+      if(mode!=='off' && config.provider==='openai' && runtime.dialogueKnowledgeBuildSupported && ps?.observerIndexVersion===1 && ps?.observerSituationVersion===1 && ps?.hostContext?.hostContextVersion===1) {
+        reason=runtime.intelligence.assertKnowledgeCurrent(turn.knowledgeInputs);
+        if(!reason && !turn.knowledgeInputs?.ownerPendingProof) {
+          try {preview=renderKnowledge({...args,includePerceived:true});}
+          catch {reason='projection_failed';}
+        }else reason ||= 'owner_unverified';
+      }
+      // Only explicit active mode with the matching build/live contracts may
+      // select the candidate. Off/shadow always send the same hardened base.
+      let selected=mode==='active' && !reason && preview?preview:base;
+      // SELF contributors require independent payload acceptance; baseline PS4
+      // mode alone never grants activation. Optional failures preserve selection.
+      let health=null;try{health=services.capabilityHealth?.();}catch{}
+      const selfCurrent=!reason && !turn.knowledgeInputs?.ownerPendingProof;
+      const activityReady=selfCurrent && !!turn.knowledgeInputs?.activityInputs && !assertActivityKnowledgeCurrent(turn.knowledgeInputs.activityInputs,runtime.activities);
+      const dialogueReady=selfCurrent && !!turn.knowledgeInputs?.dialogueInputs && !assertDialogueActionKnowledgeCurrent(turn.knowledgeInputs.dialogueInputs,runtime.activities);
+      const includeActivityFacts=activityReady && config.dialogueKnowledge?.activityFacts==='active' && health?.['ps.activity_facts']?.active===true;
+      const includeDialogueReceipts=dialogueReady && config.dialogueKnowledge?.dialogueReceipts==='active' && health?.['ps.dialogue_receipts']?.active===true;
+      if(mode==='active' && preview && (includeActivityFacts || includeDialogueReceipts))try{selected=renderKnowledge({...args,includePerceived:true,activityInputs:turn.knowledgeInputs.activityInputs,dialogueInputs:turn.knowledgeInputs.dialogueInputs,includeActivityFacts,includeDialogueReceipts});}catch{}
+      if(preview && (activityReady && ['shadow','active'].includes(config.dialogueKnowledge?.activityFacts) || dialogueReady && ['shadow','active'].includes(config.dialogueKnowledge?.dialogueReceipts)))try{preview=renderKnowledge({...args,includePerceived:true,activityInputs:turn.knowledgeInputs.activityInputs,dialogueInputs:turn.knowledgeInputs.dialogueInputs,includeActivityFacts:activityReady && ['shadow','active'].includes(config.dialogueKnowledge?.activityFacts),includeDialogueReceipts:dialogueReady && ['shadow','active'].includes(config.dialogueKnowledge?.dialogueReceipts)});}catch{}
+      turn.knowledgeMode=mode;
+      turn.knowledgePreview=preview?Object.freeze({selectedObservations:preview.delivery.length,frameBytes:preview.diagnostics.bytes,frameHash:createHash('sha256').update(JSON.stringify(preview.modelAllocation)).digest('hex')}):null;
+      turn.knowledgeFallbackReason=reason;
+      const capture=turn.knowledgeInputs?.captureDiagnostics;
+      try {telemetry?.emit('knowledge_frame_projected',turn.identity,source,{knowledgeMode:mode,preview:!!preview,captureObservationCount:capture?.observations??0,capturePairCount:capture?.retainedPairs??0,capturePoolBytes:capture?.poolBytes??0,captureMissingSalience:capture?.noMatchingSalience??0,captureRevisionMismatch:capture?.revisionMismatch??0,captureRetiredRefs:capture?.participantRetired??0,captureBudgetExcluded:capture?.budgetExcluded??0,...summarizeKnowledgeSelection(turn.knowledgeInputs,preview),selectedObservations:preview?.delivery.length??0,frameBytes:preview?.diagnostics.bytes??base.diagnostics.bytes,frameHash:turn.knowledgePreview?.frameHash??createHash('sha256').update(JSON.stringify(base.modelAllocation)).digest('hex'),reason:turn.knowledgeFallbackReason});}catch{}
+      const validateKnowledge=frame=>assertOwnedKnowledgeCurrent(turn.knowledgeInputs,{identity:turn.identity,snapshot:turn.characterSnapshot,identityService,perception:runtime.intelligence?.runtime}) || assertKnowledgeItemsCurrent(turn.knowledgeInputs,frame,runtime.intelligence?.runtime) || ((frame.activityReferences?.length??0)>0?assertActivityKnowledgeCurrent(turn.knowledgeInputs.activityInputs,runtime.activities,frame.activityReferences):null) || ((frame.dialogueReferences?.length??0)>0?assertDialogueActionKnowledgeCurrent(turn.knowledgeInputs.dialogueInputs,runtime.activities,frame.dialogueReferences):null);
+      turn.knowledgeDelivery=createKnowledgeDelivery({frame:selected,baseFrame:base,isCurrent:()=>runtime.host.isCurrent(turn.identity) && (!identityService || identityService.current(turn.identity)),
+        prune:frame=>pruneKnowledgeFrame(frame,item=>!validateKnowledge({delivery:[item]}),item=>!validateKnowledge({delivery:[],activityReferences:[item]}),item=>!validateKnowledge({delivery:[],dialogueReferences:[item]})),
+        validate:validateKnowledge,
+        acknowledge:(key,consumer,outcome)=>{
+          const salience=runtime.intelligence?.runtime.salience;
+          if(consumer==='ps4_context' && outcome==='delivered'){
+            const frozen=turn.knowledgeInputs?.pairs.find(pair=>pair.decision.decisionKey===key);
+            return salience?.acknowledgeFrozenContext(key,frozen,outcome)===true;
+          }
+          return salience?.acknowledge(key,consumer,outcome)===true;
+        },
+        onOutcome:result=>{turn.knowledgeOutcome=result;try{telemetry?.emit('knowledge_delivery',turn.identity,source,{outcome:result.outcome,selectedObservations:result.selectedObservations,acknowledgedObservations:result.acknowledged,retiredAcknowledgements:result.retired,knowledgeRequestHash:result.requestHash,projectionHash:result.projectionHash,reason:result.retired?'ack_key_retired':null});}catch{}}});
+      return selected;
+    },
+    subscribeKnowledgeInvalidation:listener=>runtime.intelligence?.subscribeKnowledgeInvalidation(listener),
     providerStack,
     decide: providerStack ? options => providerStack.decide(options) : options => decide({ ...options, config, fetchImpl }),
     transcribe: providerStack ? options => providerStack.transcribe(options) : options => transcribePcm({ ...options, config, fetchImpl }),
@@ -45,7 +114,113 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
   };
   const runtime = {
     config, history, services, telemetry, dialogueTrace, providerStack, voiceResolver, identityService,characterService,
-    modelActor: actor => characterService ? withoutCharacterTransport(actor) : identityService ? withoutIdentityEvidence(actor) : actor,
+    separateKnowledgeInstruction,
+    captureNormalizedActor: (actor,raw,shape)=>actorPresence.capture(actor,raw,shape),
+    actorSourcePresence: actor=>actorPresence.read(actor),
+    copyActorPresence: (source,target)=>actorPresence.copy(source,target),
+    modelActor: actor => actorPresence.copy(actor,withoutCharacterTransport(actor)),
+    situationFor(observerRef) {
+      const ps=runtime.intelligence?.runtime,index=ps?.observerIndex.get(observerRef);
+      if(!index?.owned || !ps.current(observerRef) || !sameHostContext(ps.hostContext,identityService?.evidence?.hostContext) || !characterService?.store.loaded) return {};
+      const bindings=identityService.bindings.values().filter(binding=>binding.claim.incarnationId===index.incarnationId && identityService.evidence.isCurrent(binding.claim));
+      if(bindings.length!==1) return {};
+      const profile=characterService.store.get(bindings[0].characterId);if(!profile) return {};
+      const memories=selectedDialogueMemories(profile.memories).slice(0,16).map(selected=>{
+        const memory=profile.memories.find(item=>item.memoryId===selected.memoryId);
+        return {memoryId:memory.memoryId,importance:memory.importance,relatedCharacterIds:memory.relatedCharacterIds};
+      });
+      const playerCurrent=[...ps.anchors.values()].some(anchor=>anchor.kind==='player' && ps.current(anchor.captureRef));
+      return {profile:{...profile,relationship:playerCurrent?profile.relationship:null},memories,bindings:[]}; // Backend identity is never recognition.
+    },
+    releaseOwnedKnowledge(inputs,identity,snapshot) {
+      return releaseOwnedKnowledge(inputs,{identity,snapshot,identityService,perception:runtime.intelligence?.runtime});
+    },
+    captureCharacterInputs(identity,actor) {
+      if(!characterService) return null;
+      try {return characterService.captureTurnInputs(identity,actor);}
+      catch {return Object.freeze({version:1,identity:Object.freeze({...identity}),claim:null,profile:null,session:null});}
+    },
+    captureKnowledgeInputs(input) {
+      try {
+        const inputs=runtime.intelligence?.captureKnowledgeInputs({...input,identityConfig:config.persistentIdentity,ownerEvidence:identityService?.evidence}) ?? null;
+        let activityInputs=null;try{activityInputs=captureActivityKnowledge({knowledgeInputs:inputs,characterInputs:input.characterInputs,activities:runtime.activities});}catch{}
+        let dialogueInputs=null;try{dialogueInputs=captureDialogueActionKnowledge({knowledgeInputs:inputs,activities:runtime.activities});}catch{}
+        return activityInputs || dialogueInputs?Object.freeze({...inputs,...(activityInputs?{activityInputs}:{}),...(dialogueInputs?{dialogueInputs}:{})}):inputs;
+      }
+      catch {return null;} // Optional knowledge failure cannot prevent an Essential turn.
+    },
+    // Source projection is diagnostics-only until a source-versioned
+    // native delivery/ack fence exists. Never use quiet as C-06 authority.
+    projectOriginalTurnPriority,
+    // These callbacks execute on the original backend's single JS event loop,
+    // at source-pinned turn intake/terminal/session entrypoints. No actor
+    // effect, turn creation, artificial terminal or stock scheduling.
+    originalTurnTransition:(event,ticketId)=>originalTurnTimeline.transition(event,ticketId),
+    awaitDirectorNativeBinding:ticket=>runtime.intelligence?.awaitDirectorNativeBinding?.(ticket) ?? Promise.resolve(false),
+    beginDirectorOriginalTurn:(ticketId,snapshot)=>originalTurnTimeline.beginDirector(ticketId,snapshot),
+    directorOriginalPhase:ticketId=>originalTurnTimeline.directorPhase(ticketId),
+    inspectOriginalTurnPriority:raw=>originalTurnTimeline.sample(raw),
+    acquireOriginalTurn:(ticketId,snapshot)=>originalTurnTimeline.acquire(ticketId,snapshot),
+    checkOriginalTurn:(ticketId,snapshot)=>originalTurnTimeline.check(ticketId,snapshot),
+    releaseOriginalTurn:ticketId=>originalTurnTimeline.release(ticketId),
+    // Only fixed, non-sensitive stage codes; never ticket IDs, speech text,
+    // capture references, player context, or arbitrary exception messages.
+    directorHandoff(stage,status,code) {
+      const stages=['preflight','post_hydration','turn_allocate','turn_intake',
+        'session_open','binding_emit','binding_ack','binding_wait','stock_intake'];
+      if(!stages.includes(stage) || !['started','accepted','rejected','timeout','failed'].includes(status) ||
+         typeof code!=='string' || !/^[a-z][a-z0-9_]{0,63}$/.test(code))return false;
+      try{telemetry?.emit('director_handoff',null,'internal',{stage,status,code});}catch{}
+      return true;
+    },
+    directorPreflight(input) {
+      if(input?.directorTicket!==undefined || input?.interruptExisting===true ||
+         input?.faceListener===true || input?.reason!=='ps6_observer' ||
+         typeof input?.dedupeKey!=='string' ||
+         !/^ps:[0-9a-f-]{36}$/.test(input.dedupeKey)) {
+        runtime.directorHandoff('preflight','rejected','input_contract');
+        return false;
+      }
+      try {
+        // Never treat the stock DTO as authority. Check the original backend
+        // lease and native-submitted one-shot ticket independently.
+        const id=input.dedupeKey.slice(3);
+        if(runtime.host.directorCheckOriginalTurn(id)?.quiet!==true) {
+          runtime.directorHandoff('preflight','rejected','backend_not_quiet');return false;
+        }
+        const ticket=runtime.intelligence?.claimDirectorStockTicket?.(input);
+        if(!ticket || ticket.ticketId!==id || ticket.dedupeKey!==input.dedupeKey) {
+          runtime.directorHandoff('preflight','rejected','stock_ticket_unclaimed');return false;
+        }
+        if(runtime.host.directorBeginOriginalTurn(id)!==true) {
+          runtime.directorHandoff('preflight','rejected','source_transition_denied');return false;
+        }
+        input.directorTicket=ticket;
+        runtime.directorHandoff('preflight','accepted','stock_ticket_claimed');
+        return true;
+      }catch{
+        runtime.directorHandoff('preflight','failed','preflight_exception');return false;
+      }
+    },
+    requireDirectorTicket(input,hydrated) {
+      // Check only the actual pinned post-M4 hydration path; preserve all
+      // original native/owner checks and throw the same stock veto on failure.
+      const reject=code=>{
+        runtime.directorHandoff('post_hydration','rejected',code);
+        throw new TypeError('director_ticket_unverified');
+      };
+      if(input?.interruptExisting===true || input?.faceListener===true ||
+         !input?.directorTicket || !hydrated?.actorContext)
+        return reject('hydration_contract');
+      if(runtime.host.directorCheckOriginalTurn(input.directorTicket.ticketId)?.quiet!==true)
+        return reject('backend_lease_invalid');
+      if(runtime.intelligence?.verifyDirectorTicket?.(input.directorTicket,input,hydrated)!==true)
+        return reject('hydrated_ticket_invalid');
+      if(runtime.intelligence?.confirmDirectorHydration?.(input.directorTicket)!==true)
+        return reject('hydration_gate_denied');
+      runtime.directorHandoff('post_hydration','accepted','ticket_verified');
+      return input.directorTicket;
+    },
     validateDecisionShape,
     validateStockDecision,
     captureReferenceMap,
@@ -85,7 +260,7 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
       return {
         assertCapabilities: () => bridge.assertCapabilities(),
         isCurrent: identity => bridge.isCurrent(identity) && !connection.closed && (!identityService || identityService.current(identity)),
-        prepareTurn: identityService || characterService ? (turn, signal, deadlineAt) => connection.prepareIdentity(turn, signal, deadlineAt) : null,
+        prepareTurn: (turn, signal, deadlineAt) => connection.prepareIdentity(turn, signal, deadlineAt),
         validateDecision: async (decision, context, identity) => {
           const result = await bridge.validateDecision(decision, context, identity);
           if (result?.identityValid && result.actionCount) telemetry?.beginTurn(identity, context?.source || 'player_text')?.actionValidated(result.actionNames?.[0]);
@@ -95,6 +270,7 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
         observe: (identity, signal, onTerminal, onObserved) => observeNative(bridge, identity, signal, onTerminal, onObserved),
         authorize: identity => bridge.authorize(identity),
         failTurn: (identity, error, details) => bridge.failMatchingTurn(identity, error, details),
+        failDirectorTurn: (ticket,identity) => runtime.intelligence?.failDirectorOriginalTurn?.(ticket,identity) === true,
         log: (identity, event, details) => bridge.log?.(identity, event, details),
         telemetry,
       };

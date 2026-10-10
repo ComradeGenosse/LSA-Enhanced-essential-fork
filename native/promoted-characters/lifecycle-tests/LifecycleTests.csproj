@@ -20,4 +20,4 @@
     <Compile Include="../TalkTargetPolicy.cs;../TalkPttSession.cs;../TalkTargetGeometry.cs;../TalkTargetIndicator.cs;../EssentialMicState.cs;../TalkTargetSelector.cs" />
     <Reference Include="System.Web.Extensions" />
   </ItemGroup>
-</Project>
+<ItemGroup><Compile Include="../HostContext.cs" Link="HostContext.cs"/><Compile Include="../../intelligence/EntityAnchors.cs" Link="EntityAnchors.cs"/></ItemGroup></Project>

@@ -1,3 +1,5 @@
+import { validateSignal, validateWitnessReceipt } from './contracts.mjs';
+import { isUuid } from '../identity/identityContract.mjs';
 import { randomUUID } from 'node:crypto';
 
 const EVENT = Object.freeze({
@@ -25,16 +27,20 @@ export class EpisodeCorrelator {
   }
 
   ingest({ nativeRun, signal, witnessReceipts = [] }) {
-    if (!nativeRun || !signal?.signalId || !Array.isArray(witnessReceipts) || witnessReceipts.length > 16) return { accepted: false, reason: 'invalid_input' };
+    if (!isUuid(nativeRun) || !validateSignal(signal) || !Array.isArray(witnessReceipts) || witnessReceipts.length > 16 || !witnessReceipts.every(validateWitnessReceipt)) return { accepted: false, reason: 'invalid_input' };
     this.expire();
     const eventKey = `${nativeRun}:${signal.signalId}`;
     if (this.seen.has(eventKey)) { this.duplicates++; return { accepted: true, duplicate: true, episodeId: this.seen.get(eventKey).episodeId, observations: [] }; }
     if(this.seen.size>=CAP.dedupe) {this.dropped++;return {accepted:false,reason:'dedupe_capacity'};}
     if(signal.kind==='radio_stopped') return this.stopRadio(signal,eventKey);
-    const event = EVENT[signal.kind];
-    if (!event) return { accepted: false, reason: 'unsupported_event' };
+    const event=EVENT[signal.kind];
+    if(!event) return {accepted:false,reason:'unsupported_event'};
+    // A state change is not necessarily injury, impact or a qualified sound.
+    if(signal.kind==='vehicle_state' || signal.kind==='injury_state' && signal.facts.injured!==true) {
+      this.remember(eventKey,{episodeId:null});return {accepted:true,observations:[],reason:'unsupported_claim_detail'};
+    }
 
-    const qualified = witnessReceipts.filter(r => r && (r.status === 'witnessed' || r.status === 'reported') && r.evidence && this.current(r.observer?.captureRef));
+    const qualified = witnessReceipts.filter(r => r && (r.status === 'witnessed' || r.status === 'reported') && r.evidence && this.current(r.observer?.captureRef) && this.anchor(r.observer.captureRef)?.kind==='ped');
     let removedObservationIds=[];
     if(signal.kind==='radio_changed' && signal.target) {
       const currentEpisode=this.radioCurrent.get(signal.target);
@@ -75,20 +81,14 @@ export class EpisodeCorrelator {
       if (old?.claims.some(c => c.details?.eventSignalId === signal.signalId)) continue;
       if (old && old.claims.length >= CAP.perObservationClaims) { this.dropped++; continue; }
       const mappedKind = receipt.evidence.channel === 'report' ? 'report' : event[2];
-      const radio = signal.kind==='radio_changed' ? signal.radio : null;
-      const details = radio ? {
-        eventSignalId: signal.signalId, reason: receipt.reason, soundType: 'radio', station: radio.station, trackKnown: radio.trackKnown,
-        ...(radio.stationName ? { stationName: radio.stationName } : {}),
-        ...(radio.trackKnown ? { artist: radio.artist, title: radio.title, contentKind: radio.contentKind } : {}),
-      } : { eventSignalId: signal.signalId, reason: receipt.reason };
-      const claim = { claimId: randomUUID(), kind: mappedKind, certainty: receipt.certainty === 'uncertain' ? 'uncertain' : 'supported', evidence: { ...receipt.evidence }, ...(receipt.knowsSource && sourceRef ? { source: sourceRef } : {}), ...(receipt.knowsTarget && targetRef ? { target: targetRef } : {}), details };
+      const claim = { claimId: randomUUID(), kind: mappedKind, certainty: receipt.certainty === 'uncertain' ? 'uncertain' : 'supported', evidence: { ...receipt.evidence }, ...(receipt.knowsSource && sourceRef ? { source: sourceRef } : {}), ...(receipt.knowsTarget && targetRef ? { target: targetRef } : {}), details: signal.kind==='radio_changed' && signal.radio ? {eventSignalId:signal.signalId,reason:receipt.reason,soundType:'radio',station:signal.radio.station,trackKnown:signal.radio.trackKnown,...(signal.radio.stationName?{stationName:signal.radio.stationName}:{}),...(signal.radio.trackKnown?{artist:signal.radio.artist,title:signal.radio.title,contentKind:signal.radio.contentKind}:{})} : qualifiedDetails(signal,receipt,this.anchor) };
       const observation = {
         version: 1, observationId: old?.observationId || randomUUID(), episodeId, revision: (old?.revision || 0) + 1,
         observer: { captureRef: observerRef, kind: 'ped' }, observedAt: { nativeRun, gameTick: receipt.evidence.sampledGameTick, receivedUtc: this.utc() },
         expiresAtMonotonicMs: Math.min(now + 120000, expiresAtMonotonicMs + 90000), eventType: event[0], severity: event[1],
         claims: [...(family==='radio' ? [] : (old?.claims || [])), claim], recognizedCharacterIds: [],
       };
-      if (this.observations.put(observation)) emitted.push(observation);
+      if (this.observations.put(observation,{sourceAgeMs:signal.ageMs})) emitted.push(observation);
       else this.dropped++;
     }
     if(family==='radio' && signal.target) this.radioCurrent.set(signal.target,episodeId);
@@ -135,3 +135,19 @@ function episodeMatchKey(run, type, incidentKey, participants) { return `${run}:
 function tickDelta(a, b) { return (a - b) >>> 0; }
 
 export const EPISODE_CORRELATION_BOUNDS = CAP;
+
+function qualifiedDetails(signal,receipt,anchor) {
+  const details={eventSignalId:signal.signalId,reason:receipt.reason};
+  const self=receipt.evidence.channel==='self' && receipt.observer.captureRef===signal.target && receipt.knowsTarget===true;
+  if(!self || receipt.evidence.sampledGameTick!==signal.gameTick) return details;
+  if(receipt.evidence.basis==='native_callback') {
+    if(signal.kind==='damage') return {...details,damageDelta:signal.facts.damage,armourDelta:signal.facts.armour};
+    if(signal.kind==='action_callback' && ['followtarget','waithere'].includes(signal.facts.action)) return {...details,action:signal.facts.action,succeeded:signal.facts.succeeded};
+  }
+  if(receipt.evidence.basis==='sampled_state') {
+    if(signal.kind==='location_changed' && signal.facts.location!=='UNKNOWN') return {...details,location:signal.facts.location};
+    if(signal.kind==='activity_changed' && ['in_vehicle','running','walking','stationary'].includes(signal.facts.activity)) return {...details,activity:signal.facts.activity};
+    if(signal.kind==='vehicle_transition' && (signal.facts.vehicle===null ? signal.facts.driver===false : anchor(signal.facts.vehicle)?.kind==='vehicle')) return {...details,vehicle:signal.facts.vehicle,driver:signal.facts.driver};
+  }
+  return details;
+}

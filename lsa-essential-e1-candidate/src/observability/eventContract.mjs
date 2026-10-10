@@ -14,11 +14,21 @@ export const EVENT_NAMES = new Set([
   'listener_cleared','listener_replaced','world_unavailable','snapshot_created','target_changed','target_missing','target_invalid','reference_map_revision_changed',
   'identity_resolved','identity_binding_created','identity_binding_retired','identity_conflict','identity_evidence_stale','identity_store_unavailable','persistent_voice_loaded',
   'session_profile_created','character_name_assigned','promotion_started','promotion_completed','promotion_failed','persistent_profile_loaded','character_spawned','character_dismissed','character_profile_edited','character_memory_created','character_memory_edited','character_memory_deleted','character_unpromoted','character_safe_failure','character_canon_projected','character_reasoning_request_composed',
-  'intelligence_status','companion_shadow',
+  'intelligence_status','companion_shadow','knowledge_frame_projected','knowledge_delivery',
+  'intelligence_frame_rejected','director_gate','director_candidate','director_handoff',
   'activity_admitted','activity_rejected','activity_step_started','activity_receipt','activity_paused','activity_resumed','activity_terminal','activity_lease_lost','activity_breaker_tripped',
 ]);
 
 const safeKeys = new Set([
+  'captureObservationCount','capturePairCount','capturePoolBytes','captureMissingSalience','captureRevisionMismatch','captureRetiredRefs','captureBudgetExcluded',
+  'acknowledgedObservations','retiredAcknowledgements','knowledgeRequestHash','projectionHash',
+  'knowledgeMode','preview','selectedObservations','frameBytes','frameHash',
+  'frameType','count','status','configuredMode','executionAvailable','nativeExperimental','diagnosticReason','captureMissingReason','captureResetReason',
+  'captureAnchorStatus','captureEventFiring','captureEventDeath','captureEventImpact','captureEventInjury','captureEventOther',
+  'captureContextOmit','captureContextCandidate','captureContextMustInclude',
+  'captureResponseEligible','captureResponseUrgent',
+  'perceivedUnsupportedClaims','perceivedRevisionMismatch','perceivedUnmatchedSalience',
+  'perceivedBudgetExcluded','perceivedSafetyOverflow',
   'stage','operation','terminalReason','reason','code','nativeType','nativeReason','errorType','actionName',
   'requestId','model','effort','source','provider','role','outcome','eventType','httpStatus','durationMs',
   'bytes','rawBytes','pcmBytes','wavBytes','bodyReadMs','handoffMs','chunks','sampleRate','channels','inputChars','outputChars','inputTokens',
@@ -47,6 +57,24 @@ const safeKeys = new Set([
   'activityId','intent','capability','receiptState','stepIndex',
 ]);
 const safeTokens = new Set([
+  'delivered','expired','ack_key_retired','observation_expired',
+  'invalid_json','invalid_order','invalid_contract','sequence_gap','runtime_consistency',
+  'hello','anchors','retire','retire_batch','observer_index','observer_situation',
+  'world_epoch','director_priority','director_response','signal','diagnostics',
+  'channel_or_protocol_unavailable','player_anchor_unavailable','no_owned_observer',
+  'owner_proof_unavailable','no_ps3_response_candidate','candidate_filtered',
+  'dedupe_capacity','player_priority_or_owner_stamp_unavailable','producer_failed',
+  'player_priority_missing','native_director_not_enabled','player_priority_invalid','player_priority_stale','player_priority_host_mismatch','stamp_provider_unavailable',
+  'stamp_unavailable','original_ps3_entitlement_unverified',
+  'retire','retire_batch','lease_expired','not_tracked','none',
+  'reset_initialization','reset_disconnect','reset_fault','reset_timeout','reset_manual',
+  'shadow_only','native_opt_in_and_live_c06_required','experimental',
+  'reserved','submitted','bound','unsafe','busy','stale','no_candidate','not_admitted',
+  'no_eligible_evidence','event_context_unavailable','original_ps3_unavailable',
+  'native_rejected','stale_after_reserve','stale_before_submit','native_submit_rejected',
+  'stale_before_intake','incomplete_intake','tuple_rejected','not_delivered',
+  'verified_observer','contract_unavailable','missing','index_missing','lease_expired','not_observer','kind_mismatch',
+  'off','shadow','active','unsupported_contract','no_actor_capture','no_observer_index','wrong_actor','host_mismatch','world_epoch_changed','channel_unhealthy','anchor_expired','participant_retired','owner_unverified','projection_failed',
   'openai','gemini','player_text','player_mic','special_event','system','internal','completed','failed',
   'cancelled','superseded','disconnected','provider_timeout','stt_error','model_error','model_refusal',
   'invalid_decision','tts_error','native_auth_rejected','playback_error','playback_interrupted',
@@ -61,17 +89,29 @@ const safeTokens = new Set([
   'profile_store_unavailable','promotion_failed','owner_unavailable','scripted_state','ownership_conflict','native_operation_failed','identity_unavailable','unsafe_spawn_location','appearance_unavailable','invalid_ped_model','profile_projection_failed',
 ]);
 
+// Closed PS6 reason vocabulary: preserve diagnostics without arbitrary text.
+const safeDirectorReasons = new Set([
+  'invalid_or_disabled','invalid_clock','ticket_already_active',
+  'decision_already_attempted','rate_limited','scene_or_speaker_cooldown',
+  'evidence_expired','source_or_safety_veto','ticket_id_unavailable',
+  'reservation_unavailable','original_ps3_entitlement_changed',
+  'reservation_recheck_veto','completion_tuple_invalid',
+  'native_playback_unverified','completion_safety_veto',
+  'ps6_ack_rejected','completion_unclassified',
+]);
 function safeScalar(key, value) {
   if (value === null || typeof value === 'boolean') return value;
   if (typeof value === 'number') return Number.isFinite(value) && Math.abs(value) < 1e15 ? value : null;
   if (typeof value !== 'string' || !safeKeys.has(key)) return undefined;
   const token = value.trim();
   if (safeTokens.has(token.toLowerCase())) return token.toLowerCase();
+  if (['diagnosticReason','reason','terminalReason'].includes(key) &&
+      safeDirectorReasons.has(token)) return token;
   if (key === 'code' && /^[A-Za-z][A-Za-z0-9_]{0,63}$/.test(token)) return token;
   if (['nativeReason','nativeType','errorType','actionName','stage','operation'].includes(key) && /^[A-Za-z][A-Za-z0-9_]{0,63}$/.test(token)) return token;
   if (key === 'requestId' && /^rid_[a-f0-9]{16}$/.test(token)) return token;
   if (key === 'model' && /^(gpt|whisper|tts)[-_][A-Za-z0-9._-]{1,80}$/i.test(token)) return token;
-  if (['bundleHash','dllHash'].includes(key) && /^[a-f0-9]{64}$/i.test(token)) return token.toLowerCase();
+  if (['bundleHash','dllHash','frameHash','knowledgeRequestHash','projectionHash'].includes(key) && /^[a-f0-9]{64}$/i.test(token)) return token.toLowerCase();
   if (['canonHash','systemPromptHash','runtimePromptHash','finalReasoningRequestHash'].includes(key) && /^[a-f0-9]{64}$/i.test(token)) return token.toLowerCase();
   if (key === 'generatedPersonaPolicy' && ['suppressed','subordinate'].includes(token.toLowerCase())) return token.toLowerCase();
   if (key === 'truncatedFields' && /^(?:name|nicknames|personality\.description|personality\.traits|relationship\.description|biography|memory\.text)(?:,(?:name|nicknames|personality\.description|personality\.traits|relationship\.description|biography|memory\.text))*$/.test(token)) return token;

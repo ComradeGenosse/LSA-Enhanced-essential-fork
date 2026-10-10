@@ -21,6 +21,8 @@ namespace LSA.SessionIdentity
     internal sealed class OwnerFactChannel : IDisposable
     {
         readonly string name, epoch;
+        readonly string hostRunId;
+        readonly int worldEpoch;
         readonly BlockingCollection<string> output = new BlockingCollection<string>(64);
         readonly ConcurrentQueue<VerifyRequest> requests = new ConcurrentQueue<VerifyRequest>();
         readonly CancellationTokenSource stopping = new CancellationTokenSource();
@@ -28,7 +30,10 @@ namespace LSA.SessionIdentity
         int requestCount;
         long client;
         volatile bool connected;
-        public OwnerFactChannel(string name, string epoch) { this.name = name; this.epoch = epoch; }
+        public OwnerFactChannel(string name, string epoch,string hostRunId=null,int worldEpoch=0) {
+            if(hostRunId!=null && (!NativeIdentityEvidenceStore.Uuid(hostRunId) || worldEpoch<1) || hostRunId==null && worldEpoch!=0) throw new ArgumentException("invalid_host_context");
+            this.name = name; this.epoch = epoch;this.hostRunId=hostRunId;this.worldEpoch=worldEpoch;
+        }
         public void Start() { var thread = new Thread(Serve) { IsBackground = true, Name = "LSA identity facts" }; thread.Start(); }
         void Serve()
         {
@@ -45,7 +50,9 @@ namespace LSA.SessionIdentity
                     pipe.WaitForConnection();
                     var stream = pipe;
                     client++;
-                    var hello = Encoding.UTF8.GetBytes(new JavaScriptSerializer().Serialize(new { schemaVersion = 1, type = "hello", adapterEpoch = epoch, sourceNamespace = "comrade.authored" }) + "\n");
+                    var greeting=new Dictionary<string,object>{{"schemaVersion",1},{"type","hello"},{"adapterEpoch",epoch},{"sourceNamespace","comrade.authored"}};
+                    if(hostRunId!=null) {greeting["hostContextVersion"]=1;greeting["hostRunId"]=hostRunId;greeting["worldEpoch"]=worldEpoch;}
+                    var hello = Encoding.UTF8.GetBytes(new JavaScriptSerializer().Serialize(greeting) + "\n");
                     stream.Write(hello, 0, hello.Length); stream.Flush(); connected = true;
                     var writer = Task.Run(() => {
                         try { while (connected && ReferenceEquals(pipe, stream) && !stopping.IsCancellationRequested) {

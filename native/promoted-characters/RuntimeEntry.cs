@@ -12,6 +12,7 @@ namespace LSA.PromotedCharacters
     {
         static PromotedCharactersIntegration integration;
         static LSA.Intelligence.IntelligenceIntegration intelligence;
+        static HostContext host;
         static int startClaim;
         static volatile bool stopping,finished;
         public static bool Ready=>integration?.IsReady==true && !stopping;
@@ -21,6 +22,9 @@ namespace LSA.PromotedCharacters
             if(integration!=null || finished || stopping || text==null || text.Length>4096) return false;
             var config=new JavaScriptSerializer {MaxJsonLength=4096}.Deserialize<Config>(text);
             if(config==null || !config.enabled) return false;
+            // Keep the raw optional value: serializer bool conversion can
+            // accept strings. Only a literal JSON true opts into collection.
+            bool collectDialogueReceipts=config.activities?.dialogueReceipts is bool && (bool)config.activities.dialogueReceipts;
             // Remoting can call Start concurrently. Only one caller may create
             // the owner fiber, including before that fiber has initialized.
             if(Interlocked.CompareExchange(ref startClaim,1,0)!=0) return false;
@@ -30,14 +34,15 @@ namespace LSA.PromotedCharacters
                 try {
                     GameFiber.Yield();
                     if(stopping) return;
-                    integration=new PromotedCharactersIntegration(config.worldProfileId,config.pipeName,config.identityPipeName);
-                    if(config.activities?.mode=="shadow") { try { integration.EnableActivityShadow(config.activities.pipeName);} catch {Game.LogTrivial("[ACT] optional_host_unavailable");} }
-                    else if(config.activities?.mode=="on") { try { integration.EnableActivityExecution(config.activities.pipeName);} catch {Game.LogTrivial("[ACT] optional_host_unavailable");} }
+                    host=new HostContext();
+                    integration=new PromotedCharactersIntegration(config.worldProfileId,config.pipeName,config.identityPipeName,host);
+                    if(config.activities?.mode=="shadow") { try { integration.EnableActivityShadow(config.activities.pipeName,collectDialogueReceipts);} catch {Game.LogTrivial("[ACT] optional_host_unavailable");} }
+                    else if(config.activities?.mode=="on") { try { integration.EnableActivityExecution(config.activities.pipeName,collectDialogueReceipts);} catch {Game.LogTrivial("[ACT] optional_host_unavailable");} }
                     integration.Prepare();
                     IntegrationManager.Register(integration);
                     if(config.intelligence?.mode=="shadow") {
                         try {
-                            intelligence=new LSA.Intelligence.IntelligenceIntegration(integration.PerceptionRoster,config.intelligence.pipeName,config.intelligence.radio);
+                            intelligence=new LSA.Intelligence.IntelligenceIntegration(integration.PerceptionRoster,config.intelligence.pipeName,host,config.intelligence.directorMode=="shadow" || config.intelligence.directorMode=="experimental",config.intelligence.directorMode=="experimental",config.intelligence.radio);
                             integration.OwnerRetired+=intelligence.OwnerRetired;
                             IntegrationManager.Register(intelligence);intelligence.Initialize();
                         } catch {Game.LogTrivial("[PS] optional_host_unavailable");}
@@ -87,7 +92,7 @@ namespace LSA.PromotedCharacters
             public IntelligenceConfig intelligence {get;set;}=new IntelligenceConfig();
             public ActivitiesConfig activities {get;set;}=new ActivitiesConfig();
         }
-        public sealed class IntelligenceConfig {public string mode {get;set;}="off";public string pipeName {get;set;}="LSA.Intelligence.v1";public string radio {get;set;}="off";}
-        public sealed class ActivitiesConfig {public string mode {get;set;}="off";public string pipeName {get;set;}="LSA.Activities.v1";}
+        public sealed class IntelligenceConfig {public string mode {get;set;}="off";public string directorMode {get;set;}="off";public string radio {get;set;}="off";public string pipeName {get;set;}="LSA.Intelligence.v1";}
+        public sealed class ActivitiesConfig {public object dialogueReceipts {get;set;}=false;public string mode {get;set;}="off";public string pipeName {get;set;}="LSA.Activities.v1";}
     }
 }

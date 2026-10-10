@@ -1,3 +1,4 @@
+import {renderKnowledge} from '../src/context/knowledgeRenderer.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { fixture,profile } from './p2-fixtures.mjs';
@@ -8,7 +9,7 @@ import { Telemetry } from '../src/observability/telemetry.mjs';
 import { normalizeConfig } from '../src/config/e1Config.mjs';
 import { decide } from '../src/openai/decide.mjs';
 
-test('player-authored canon outranks generated Persona while temporary and objective facts stay visible',async t => {
+test('player-authored canon outranks generated Persona while only qualified objective affordances reach the frame',async t => {
   const f = await fixture(t,{config:{actingEnabled:true}});
   const p = await f.store.create(profile({name:'Nathan JustNate',biography:'Criminal contract killer.',
     personality:{description:'Fearless, loyal, and willing to fight with the player.',traits:['extremely loyal','comfortable using violence']},
@@ -17,7 +18,7 @@ test('player-authored canon outranks generated Persona while temporary and objec
   const sourceActor = actor('17',null,{personaDescription:'Ordinary cautious civilian',archetypeDescription:'Timid civilian',personaName:'Cautious Persona',archetypeName:'Civilian',
     emotionalState:'Afraid',currentActivity:'Taking cover',restrained:false,availableWeapons:['Pistol']});
   const voice = f.voice.resolve(identity(),sourceActor);
-  const turn = {identity:identity(),source:'player_text',speechProfile:voice,context:{actor:sourceActor,listener:null,world:{streetName:'Forum Dr'},systemInstruction:'Base runtime instruction'}};
+  const turn = {identity:identity(),source:'player_text',speechProfile:voice,knowledgeFramePreparation:true,context:{actor:sourceActor,listener:null,world:{streetName:'Forum Dr'},systemInstruction:'Base runtime instruction'}};
   await f.service.prepareTurn(turn,{resolution:{kind:'persistent',characterId:p.characterId}},voice);
 
   const projected = turn.context.actor;
@@ -32,15 +33,18 @@ test('player-authored canon outranks generated Persona while temporary and objec
   assert.match(turn.speechProfile.instructions,/willing to fight with the player/);
   assert.match(turn.speechProfile.instructions,/dialogue words are fixed/);
 
-  const request = buildRequest({model:'test',effort:'low',systemInstruction:turn.context.systemInstruction,actor:projected,listener:null,
+  const frame=renderKnowledge({profile:turn.characterProjection.profile,persistent:true,actor:projected,listener:null,world:turn.context.world,source:'player_text',input:'Will you fight with me?',history:[]});
+  const request = buildRequest({knowledgeProjection:frame,model:'test',effort:'low',systemInstruction:turn.context.systemInstruction,actor:projected,listener:null,
     world:turn.context.world,source:'player_text',input:'Will you fight with me?',history:[]});
   const finalSystem = request.input[0].content;
   assert.match(finalSystem,/player-authored promoted-character canon is authoritative/i);
-  assert.match(finalSystem,/Generated Persona handling: suppressed/i);
+  assert.equal(projected.characterProfile.generatedPersonaPolicy,'suppressed');
   assert.match(finalSystem,/Do not reinterpret\s+inability as moral unwillingness/i);
   assert.match(finalSystem,/Nathan JustNate/); assert.match(finalSystem,/Fearless, loyal/);
-  assert.match(finalSystem,/Emotional State|emotionalState/i); assert.match(finalSystem,/Afraid/);
-  assert.match(finalSystem,/Pistol/); assert.doesNotMatch(finalSystem,/Ordinary cautious civilian|PRIVATE PLAYER NOTES/);
+  assert.doesNotMatch(finalSystem,/emotionalState|Afraid|Taking cover/);
+  assert.equal(finalSystem.split('Nathan JustNate').length-1,1);
+  assert.ok(!finalSystem.includes(p.characterId));
+  assert.match(finalSystem,/pistol/i); assert.doesNotMatch(finalSystem,/Ordinary cautious civilian|PRIVATE PLAYER NOTES/);
 });
 
 test('character willingness never adds weapon or target capability and validator remains authoritative',async t => {
@@ -99,5 +103,6 @@ test('LSA_PROMPT_AUDIT is opt-in and prints the complete assembled request conte
     console.info=original;
     if (before===undefined) delete process.env.LSA_PROMPT_AUDIT; else process.env.LSA_PROMPT_AUDIT=before;
   }
-  assert.equal(rows.length,1); for (const expected of ['FINAL SYSTEM','player_authored','WORLD TEXT','EVENT','secret history','secret current input']) assert.ok(rows[0].includes(expected));
+  assert.equal(rows.length,1); for (const expected of ['FINAL SYSTEM','secret history','No player utterance was received']) assert.ok(rows[0].includes(expected));
+  for(const excluded of ['player_authored','WORLD TEXT','EVENT','secret current input'])assert.ok(!rows[0].includes(excluded));
 });

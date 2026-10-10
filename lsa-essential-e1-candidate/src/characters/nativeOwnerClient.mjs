@@ -1,6 +1,7 @@
 import net from 'node:net';
 import { randomUUID } from 'node:crypto';
 import { isUuid, exactObject } from '../identity/identityContract.mjs';
+import { validateHostEnvelope, readHostContext } from '../context/hostContext.mjs';
 // 'current' is the read-only UX phase 1 view of Essential's current NPC; it
 // creates no capture ticket, ownership, task or session.
 export const OWNER_OPERATIONS = new Set(['capture','register','inspect','spawn','follow','wait','dismiss','despawn','release','roster','current']);
@@ -28,13 +29,13 @@ export class NativeOwnerClient {
           const line = buffer.subarray(0,boundary).toString('utf8'); buffer = buffer.subarray(boundary + 1);
           let value; try { value = JSON.parse(line); } catch { return finish(new Error('invalid_owner_response')); }
           if (!sent) {
-            if (!exactObject(value,['version','type','worldProfileId','ownerEpoch']) || value.version !== 1 || value.type !== 'hello' || value.worldProfileId !== this.worldProfileId || !isUuid(value.ownerEpoch)) return finish(new Error('invalid_owner_response'));
+            if (!validateHostEnvelope(value,['version','type','worldProfileId','ownerEpoch']) || value.version !== 1 || value.type !== 'hello' || value.worldProfileId !== this.worldProfileId || !isUuid(value.ownerEpoch)) return finish(new Error('invalid_owner_response'));
             sent = true;
             const remainingMs = workDeadlineAt - Date.now();
             if (remainingMs <= 0) return finish(new Error(isSummon ? 'summon_wait_timeout' : 'owner_unavailable'));
             clearTimeout(timer);
             timer = setTimeout(() => finish(new Error(isSummon ? 'summon_wait_timeout' : 'owner_unavailable')), Math.max(1,responseDeadlineAt - Date.now()));
-            const frame = JSON.stringify({ version:1,requestId,worldProfileId:this.worldProfileId,ownerEpoch:value.ownerEpoch,operation,args,expiresAtUtc:workDeadlineAt });
+            const frame = JSON.stringify({ version:1,requestId,worldProfileId:this.worldProfileId,ownerEpoch:value.ownerEpoch,operation,args,expiresAtUtc:workDeadlineAt,...readHostContext(value) });
             if (Buffer.byteLength(frame) > 16384) return finish(new Error('owner_request_limit'));
             socket.write(frame + '\n');
           } else {

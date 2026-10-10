@@ -1,3 +1,4 @@
+import {verifyDialogueKnowledgePayload} from './verifyDialogueKnowledgePayload.mjs';
 import { createRequire } from 'node:module';
 import { createHash } from 'node:crypto';
 import { copyFile, mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises';
@@ -15,7 +16,7 @@ const acorn = require('./vendor/acorn');
 const expectedBundleHash = '5d81de4217bd103316a1083e482ded1bddc791314abf671d686036175c0475f2';
 const expectedDllHash = '9b6de42d4c464901d859dd95e17e100e4fa9ef6074bfbb0cf3a57a76f6ddd653';
 const expectedNativeMetadataHash = '18edd2b47ffde748388b07a4a2d023793e183b882fe638acb5276440d45a2d23';
-const expectedPatchCount = 48;
+const expectedPatchCount = 70;
 const launcherName = 'server.bundle.mjs';
 const stockBundleDefault = path.resolve(root, 'upstream/server.bundle.mjs');
 const stockDllDefault = path.resolve(root, 'upstream/LosSantosAlive.dll');
@@ -70,6 +71,12 @@ export function patchSource(source) {
   if (!kKStatement) throw new Error('kK declaration statement missing.');
   insert(kKStatement.end, `\nglobalThis.__LSA_E1_RUNTIME = __LSA_E1_RUNTIME;\n__LSA_E1_RUNTIME.attachBridge({\n` +
     `  retireMatchingSession(session, reason) { const live = A.sessionsByPedId.get(session.pedId); if (live?.provider !== "openai" || live.nonce !== session.sessionNonce || iP(session.pedId) !== session.sessionNonce) return false; const turn=le.getActiveTurnForPed(session.pedId); if (turn?.metadata?.provider === "openai" && turn.metadata.sessionNonce === session.sessionNonce && !Vt(turn.status)) Zt(turn.id, ke.CANCELLED, new Error("identity_retired")); return Ei(session.pedId, "identity_retired"); },\n` +
+    `  directorTurnPrioritySnapshot() { try { const m=A.mic; if(!m || !Array.isArray(m.pendingChunks) || typeof m.status !== "string" || typeof m.activeTurnId !== "string" || typeof m.releasedBeforeContextReady !== "boolean") return null; const maps=[A.turnsById,A.activeTurnIdByPedId,A.sessionOpenPromisesByPedId,A.pendingOutputOwnerByPedId,A.retiringOutputOwnerByPedId,A.outputOwnerByPedId,A.pendingPlayerContextByPedId,A.pendingConversationContextByPedId,A.playerTurnRecoveryByTurnId]; if(!maps.every(v=>v instanceof Map))return null; return __LSA_E1_RUNTIME.inspectOriginalTurnPriority({micStatus:m.status,micActiveTurnId:m.activeTurnId,micReleasedBeforeContextReady:m.releasedBeforeContextReady,micBufferedChunks:m.pendingChunks.length,liveTurns:[...A.turnsById.values()].filter(t=>t && !Vt(t.status)).length,activeTurnMappings:A.activeTurnIdByPedId.size,pendingSessionOpens:A.sessionOpenPromisesByPedId.size,pendingOutputOwners:A.pendingOutputOwnerByPedId.size,retiringOutputOwners:A.retiringOutputOwnerByPedId.size,activeOutputOwners:A.outputOwnerByPedId.size,pendingPlayerContext:A.pendingPlayerContextByPedId.size,pendingConversationContext:A.pendingConversationContextByPedId.size,playerTurnRecoveries:A.playerTurnRecoveryByTurnId.size}); } catch { return null; } },\n` +
+    `  directorReserveOriginalTurn(ticketId) { const evidence=this.directorTurnPrioritySnapshot(); return evidence ? __LSA_E1_RUNTIME.acquireOriginalTurn(ticketId,evidence) : null; },\n` +
+    `  directorCheckOriginalTurn(ticketId) { const evidence=this.directorTurnPrioritySnapshot(); return evidence ? __LSA_E1_RUNTIME.checkOriginalTurn(ticketId,evidence) : null; },\n` +
+    `  directorReleaseOriginalTurn(ticketId) { return __LSA_E1_RUNTIME.releaseOriginalTurn(ticketId); },\n` +
+     `  directorBeginOriginalTurn(ticketId) { const evidence=this.directorTurnPrioritySnapshot(); return evidence ? __LSA_E1_RUNTIME.beginDirectorOriginalTurn(ticketId,evidence) : false; },\n` +
+     `  directorOriginalPhase(ticketId) { return __LSA_E1_RUNTIME.directorOriginalPhase(ticketId); },\n` +
     `  isCurrent(identity) { const turn = le.getTurn(identity.turnId); const session = A.sessionsByPedId.get(identity.pedId); return !!turn && !Vt(turn.status) && turn.metadata?.provider === "openai" && turn.metadata?.sessionNonce === identity.sessionNonce && turn.pedId === identity.pedId && turn.generationId === identity.generationId && le.isCurrentGeneration(turn) && iP(identity.pedId) === identity.sessionNonce && session?.provider === "openai" && session.nonce === identity.sessionNonce; },\n` +
     `  reportTargetRejection(turn, error) { const reason = ["target_changed","target_missing","target_invalid"].includes(error?.code) ? error.code : ""; if (!reason || !turn || turn.metadata?.targetRejectionReported) return false; turn.metadata.targetRejectionReported = true; try { __LSA_E1_RUNTIME.telemetry?.emit(reason, { pedId: turn.pedId, turnId: turn.id, generationId: turn.generationId, sessionNonce: turn.metadata.sessionNonce }, turn.source, { reason, outcome: "rejected" }); } catch {} return true; },\n` +
     `  reportReferenceMapChange(turn, snapshot, actor) { if (!turn || turn.metadata?.referenceMapChangeReported) return false; const currentMap = __LSA_E1_RUNTIME.captureReferenceMap(actor); const stableMap = value => JSON.stringify(Object.fromEntries(Object.entries(value || {}).sort(([left],[right]) => left.localeCompare(right)))); if (stableMap(snapshot?.persons) === stableMap(currentMap.persons) && stableMap(snapshot?.vehicles) === stableMap(currentMap.vehicles)) return false; turn.metadata.referenceMapChangeReported = true; try { __LSA_E1_RUNTIME.telemetry?.emit("reference_map_revision_changed", { pedId: turn.pedId, turnId: turn.id, generationId: turn.generationId, sessionNonce: turn.metadata.sessionNonce }, turn.source, { reason: "reference_map_revision_changed", outcome: "changed" }); } catch {} return true; },\n` +
@@ -101,13 +108,48 @@ export function patchSource(source) {
   insert(resumeRetry.arguments[0].start + 1, 'world: w, ', 'resume fallback world');
 
 
+  // Original backend lifecycle *entry* instrumentation, including async
+  // terminal/reset paths, not a timer-based quiet poll. A transition is
+  // recorded BEFORE stock execution to close fast busy/idle ABA. The
+  // observer does not change original function arguments, return values,
+  // activity, playback or turn/session ownership. All named functions are
+  // AST-pinned under the source bundle hash at build time.
+  for (const [original,event] of [
+    ['Xn','turn_intake'],['Xi','turn_allocate'],['Zt','turn_terminal'],
+    ['hK','turn_cancel'],['WP','session_open'],
+    ['Ei','session_retire'],['el','mic_reset'],
+    ['kb','special_dispatch'],
+  ]) {
+    const owner=original==='kb'?'t?.directorTicket?.ticketId':
+      original==='Xi'?'t?.metadata?.directorTicket?.ticketId':
+      original==='Xn'?'le.getTurn(t)?.metadata?.directorTicket?.ticketId':
+      original==='WP'?'__lsaDirectorSessionTicket?.ticketId':'null';
+    const stage=original==='Xi'?'turn_allocate':
+      original==='Xn'?'turn_intake':original==='WP'?'session_open':null;
+    const trace=stage?
+      `if(${owner}) __LSA_E1_RUNTIME.directorHandoff("${stage}","started","stock_entry");`:'';
+    insert(functionBody(ast,original).start+1,
+      trace+`__LSA_E1_RUNTIME.originalTurnTransition("${event}",${owner});`, `PS6 original lifecycle ${original}`);
+  }
+
   // Bind native identity before the controller sends text or microphone input.
   const xnBody = functionBody(ast, 'Xn');
   const ownerBind = one((() => { const all = []; walk(xnBody, node => { if (node.type === 'CallExpression' && node.callee.name === 'tP') all.push(node); }); return all; })(), 'Xn native owner registration');
   insert(ownerBind.start, '(e.provider !== "openai" && ', 'OpenAI bypasses Gemini owner registration');
-  insert(ownerBind.end, `), (i.metadata.provider = e.provider || "gemini", i.metadata.sessionNonce = e.nonce, (() => { const __lsaTurnActor = Object.prototype.hasOwnProperty.call(i.metadata, "actorContext") ? i.metadata.actorContext : e.actorContext; const __lsaTurnListener = Object.prototype.hasOwnProperty.call(i.metadata, "targetContext") ? i.metadata.targetContext : e.targetContext; const __lsaTurnWorld = Object.prototype.hasOwnProperty.call(i.metadata, "world") ? i.metadata.world : e.world; i.metadata.actorContext = __lsaTurnActor; i.metadata.targetContext = __lsaTurnListener; i.metadata.world = __lsaTurnWorld; if (e.provider === "openai") { e.connection.beginTurn({ identity: { pedId: i.pedId, turnId: i.id, generationId: i.generationId, sessionNonce: e.nonce }, source: i.source, context: { systemInstruction: e.systemInstruction, actor: __lsaTurnActor, listener: __lsaTurnListener, listenerState: i.metadata.listenerState, world: __lsaTurnWorld, capturedAt: i.metadata.contextCapturedAt, revision: i.metadata.contextRevision, contextText: String(i.input?.contextText || ""), inputText: String(i.input?.transcript || i.input?.text || ""), internalEvent: i.source === Ht.SPECIAL_EVENT ? String(i.input?.text || i.input?.contextText || "") : "" } }); i.metadata.contextSnapshot = e.connection.turnSnapshot; } })())`, 'generation identity bind');
+  insert(ownerBind.end, `), (i.metadata.provider = e.provider || "gemini", i.metadata.sessionNonce = e.nonce, (() => { const __lsaTurnActor = Object.prototype.hasOwnProperty.call(i.metadata, "actorContext") ? i.metadata.actorContext : e.actorContext; const __lsaTurnListener = Object.prototype.hasOwnProperty.call(i.metadata, "targetContext") ? i.metadata.targetContext : e.targetContext; const __lsaTurnWorld = Object.prototype.hasOwnProperty.call(i.metadata, "world") ? i.metadata.world : e.world; i.metadata.actorContext = __lsaTurnActor; i.metadata.targetContext = __lsaTurnListener; i.metadata.world = __lsaTurnWorld; if (e.provider === "openai") { e.connection.beginTurn({ identity: { pedId: i.pedId, turnId: i.id, generationId: i.generationId, sessionNonce: e.nonce }, source: i.source, context: { systemInstruction: e.systemInstruction, actor: __lsaTurnActor, listener: __lsaTurnListener, listenerState: i.metadata.listenerState, world: __lsaTurnWorld, capturedAt: i.metadata.contextCapturedAt, revision: i.metadata.contextRevision, directorTicket: i.metadata.directorTicket ?? null, contextText: String(i.input?.contextText || ""), inputText: String(i.input?.transcript || i.input?.text || ""), internalEvent: i.source === Ht.SPECIAL_EVENT ? String(i.input?.text || i.input?.contextText || "") : "" } }); i.metadata.contextSnapshot = e.connection.turnSnapshot; } })())`, 'generation identity bind');
 
   // Route pinned HTTP output directly to the stock coordinator. Never infer identity from the active speaker.
+  // 3B: export ONLY the exact original stock Xn generation after Core
+  // registration and before speech input. A missing native relay rejects
+  // Director, but ordinary Essential stock and player events are untouched.
+  const genEvent=one((() => { const all=[];walk(xnBody,node=>{
+    if(node.type==='CallExpression' && node.callee.name==='pt' &&
+       sourceSlice(source,node.arguments[0])==='Pe.GENERATION_STARTED')all.push(node);
+  });return all; })(),'Xn original generation publication');
+  replace(genEvent.start,genEvent.end,
+    '(i.metadata?.directorTicket && __LSA_E1_RUNTIME.intelligence?.sendDirectorOriginalTurnBinding?.(i.metadata.directorTicket,{pedId:i.pedId,turnId:i.id,generationId:i.generationId,sessionNonce:e.nonce})!==true ? (()=>{throw new Error("director_original_binding_failed");})() : null, '+sourceSlice(source,genEvent)+')',
+    'PS6 original Xn generation native binding');
+
   prelude('rP', 'if (t?.provider === "openai") return await globalThis.__LSA_E1_RUNTIME.host.routePinnedEvent(t);');
   prelude('_P', 'if (t?.metadata?.provider === "openai") return !1;');
   prelude('Sd', 'if (le.getTurn(t)?.metadata?.provider === "openai") return !1;');
@@ -125,7 +167,7 @@ export function patchSource(source) {
   replace(audioBufferPush.start, audioBufferPush.end, '(t.metadata?.provider !== "openai" && ' + source.slice(audioBufferPush.start, audioBufferPush.end) + ')', 'isolate Gemini debug PCM');
   prelude('CP', 'if (t?.metadata?.provider === "openai" && (!globalThis.__LSA_E1_RUNTIME.host.isCurrent({ pedId: t.pedId, turnId: t.id, generationId: t.generationId, sessionNonce: t.metadata.sessionNonce }) || !t.audio.accepted || t.audio.rejected || t.audio.streamEnded)) throw new Error("E1 PCM has no current native authorization.");');
   prelude('IP', 'if (t?.metadata?.provider === "openai" && (!globalThis.__LSA_E1_RUNTIME.host.isCurrent({ pedId: t.pedId, turnId: t.id, generationId: t.generationId, sessionNonce: t.metadata.sessionNonce }) || !t.audio.accepted || t.audio.rejected)) throw new Error("E1 stream end has no current native authorization.");');
-  prelude('Rb', 'if (t?.metadata?.provider === "openai" && (!globalThis.__LSA_E1_RUNTIME.host.isCurrent({ pedId: t.pedId, turnId: t.id, generationId: t.generationId, sessionNonce: t.metadata.sessionNonce }) || !globalThis.__LSA_E1_RUNTIME.host.validateTurnAction(t))) return false;');
+  prelude('Rb', 'if(t?.metadata?.directorTicket) return false; if (t?.metadata?.provider === "openai" && (!globalThis.__LSA_E1_RUNTIME.host.isCurrent({ pedId: t.pedId, turnId: t.id, generationId: t.generationId, sessionNonce: t.metadata.sessionNonce }) || !globalThis.__LSA_E1_RUNTIME.host.validateTurnAction(t))) return false;');
   // Stock cancellation did not interrupt authorized audio. OpenAI requires exact cleanup.
   insert(functionBody(ast, 'hK').start + 1, 'const __lsaE1Cancel = le.getTurn(t); if (__lsaE1Cancel?.metadata?.provider === "openai" && !Vt(__lsaE1Cancel.status) && __lsaE1Cancel.audio.authorized) Ey(yi(), _i(__lsaE1Cancel), "openai_cancel");', 'exact OpenAI cancellation');
 
@@ -152,14 +194,28 @@ export function patchSource(source) {
   insert(bkParams[2].end, ',__lsaWorldSnapshot', 'BK explicit world snapshot parameter');
   const bkWorld = one((() => { const all = []; walk(functionBody(ast,'BK'), node => { if (node.type === 'Property' && node.key?.name === 'world') all.push(node); }); return all; })(), 'BK current world property');
   replace(bkWorld.value.start, bkWorld.value.end, '__lsaWorldSnapshot&&typeof __lsaWorldSnapshot==="object"?{gameTime:__lsaWorldSnapshot.gameTime??"unknown",weather:__lsaWorldSnapshot.weather??"unknown",streetName:__lsaWorldSnapshot.streetName??"unknown",crossingStreetName:__lsaWorldSnapshot.crossingStreetName??"unknown",zoneCode:__lsaWorldSnapshot.zoneCode??"unknown"}:{gameTime:"unknown",weather:"unknown",streetName:"unknown",crossingStreetName:"unknown",zoneCode:"unknown"}', 'world context has explicit unknown semantics');
-  prelude('BK', 'if (__LSA_E1_RUNTIME.identityService || __LSA_E1_RUNTIME.characterService) { t=__LSA_E1_RUNTIME.modelActor(t); e=__LSA_E1_RUNTIME.modelActor(e); }');
+
+  const bkReturns=[];walk(functionBody(ast,'BK'),node=>{if(node.type==='ReturnStatement')bkReturns.push(node);});
+  const npcReturn=one(bkReturns,'BK speech-mode return').argument;
+  if(npcReturn?.type!=='ConditionalExpression' || npcReturn.alternate?.type!=='BinaryExpression' || npcReturn.alternate.operator!=='+' || npcReturn.alternate.right?.type!=='TemplateLiteral' || npcReturn.alternate.right.expressions.length)throw new Error('BK trusted NPC speech suffix changed.');
+  const npcSuffix=sourceSlice(source,npcReturn.alternate.right);
+  prelude('BK', `t=__LSA_E1_RUNTIME.modelActor(t); e=__LSA_E1_RUNTIME.modelActor(e); if(__LSA_E1_RUNTIME.config.provider==="openai") return __LSA_E1_RUNTIME.separateKnowledgeInstruction(dM(t)) + (String(n||"").toLowerCase()==="npc"&&e?${npcSuffix}:"");`);
+
+  // Exact return seams: capture source presence before AO/CO's alias/default
+  // transformations can turn omission into an apparently known false value.
+  for(const [name,shape] of [['ia','direct'],['AO','actor'],['CO','listener'],['eo','hydrated']]) {
+    const returns=[];walk(functionBody(ast,name),node=>{if(node.type==='ReturnStatement')returns.push(node);});
+    const value=one(returns,`${name} normalization return`).argument;
+    replace(value.start,value.end,`__LSA_E1_RUNTIME.captureNormalizedActor((${sourceSlice(source,value)}),t,"${shape}")`,`${name} private source presence`);
+  }
+
 
   // Reserved identity evidence never flattens into native fields/capabilities,
   // including when P1 is disabled or a forged/unsupported block is supplied.
   const eoIdentityGuard = one((() => { const all = []; walk(functionBody(ast, 'EO'), node => {
     if (node.type === 'BinaryExpression' && sourceSlice(source,node) === 'o!=="raw"') all.push(node);
   }); return all; })(), 'EO reserved identity namespace');
-  replace(eoIdentityGuard.start, eoIdentityGuard.end, '(o!=="raw"&&o!=="sessionIdentity")', 'keep identity evidence namespaced');
+  replace(eoIdentityGuard.start, eoIdentityGuard.end, '(o!=="raw"&&o!=="sessionIdentity"&&o!=="characterProfile"&&o!=="turnKnowledge")', 'keep private evidence namespaced');
 
   const ziBody = functionBody(ast, 'Zi');
   const ziParam = functions(ast, 'Zi')[0].params[0];
@@ -182,8 +238,18 @@ export function patchSource(source) {
   const ibTurnOptions = ibTurn.arguments[0];
   const ibMetadata = one(ibTurnOptions.properties.filter(property => property.key?.name === 'metadata'), 'ib turn metadata');
   insert(ibMetadata.value.start + 1, 'world: __lsaWorld, listenerState: __lsaListenerProvided ? (n === null ? "explicitly_cleared" : "present") : "omitted", contextCapturedAt: new Date().toISOString(), contextRevision: e?.snapshotRevision ?? e?.revision ?? null, ', 'typed turn context capture metadata');
+  const hydrationListenerCopy=[];
+  walk(functionBody(ast,'M4'),node=>{if(node.type==='ObjectExpression' && sourceSlice(source,node)==='{...i,pedId:e,id:e}')hydrationListenerCopy.push(node);});
+  const hydratedCopy=one(hydrationListenerCopy,'M4 hydrated listener presence copy');
+  replace(hydratedCopy.start,hydratedCopy.end,`__LSA_E1_RUNTIME.copyActorPresence(i,${sourceSlice(source,hydratedCopy)})`,'M4 preserve hydrated listener presence');
+
   const ibEnsure = one((() => { const all = []; walk(ibBody, node => { if (node.type === 'CallExpression' && node.callee.name === 'Zi') all.push(node); }); return all; })(), 'ib session setup');
   insert(ibEnsure.arguments[0].start + 1, 'world: __lsaWorld, listenerProvided: __lsaListenerProvided, ', 'typed session listener and world association');
+
+  const actorCopyReturns=[];
+  walk(functionBody(ast,'pd'),node=>{if(node.type==='ReturnStatement')actorCopyReturns.push(node);});
+  const actorCopy=one(actorCopyReturns,'pd normalized actor copy').argument;
+  replace(actorCopy.start,actorCopy.end,`(__LSA_E1_RUNTIME.copyActorPresence(t,(${sourceSlice(source,actorCopy)})))`,'pd preserve private actor presence');
 
   // Microphone hydration refreshes the turn from the same addressed actor before the provider binds identity.
   const wdBody = functionBody(ast, 'wd');
@@ -192,13 +258,61 @@ export function patchSource(source) {
   const wdEnsure = one((() => { const all = []; walk(wdBody, node => { if (node.type === 'CallExpression' && node.callee.name === 'Zi') all.push(node); }); return all; })(), 'wd session setup');
   insert(wdEnsure.arguments[0].start + 1, 'world: __lsaMicWorld, listenerProvided: __lsaMicListenerProvided, ', 'microphone session listener and world association');
 
+  // Exact authorized stock-session ticket follows only the original
+  // Zi -> WP call, never any global/current NPC inferred from active sessions.
+  const ziDirectorBody=functionBody(ast,'Zi');
+  const ziParams=functions(ast,'Zi')[0].params[0]?.left;
+  if(ziParams?.type!=='ObjectPattern')throw new Error('Zi director options changed');
+  insert(ziParams.start+1,'directorTicket: __lsaDirectorSessionTicket, ',
+    'PS6 original Zi director ticket option');
+  const ziWP=one((()=>{const all=[];walk(ziDirectorBody,node=>{
+    if(node.type==='CallExpression' && node.callee.name==='WP')all.push(node);
+  });return all;})(),'Zi stock session open');
+  insert(ziWP.arguments[0].start+1,'directorTicket: __lsaDirectorSessionTicket, ',
+    'PS6 original Zi to WP ticket');
+  const wpDirectorOptions=functions(ast,'WP')[0].params[0];
+  insert(wpDirectorOptions.start+1,'directorTicket: __lsaDirectorSessionTicket, ',
+    'PS6 original WP director ticket option');
+
   // Internal/special events already hydrate actor, listener and world together in M4.
   const kbBody = functionBody(ast, 'kb');
+  // A claimed PS6 ticket (or reserved namespace) must have independent
+  // same-user native admission BEFORE stock M4 performs any async hydration.
+  // All ordinary Essential special events retain the stock path.
+  insert(kbBody.start+1, 'if ((t?.directorTicket !== undefined || String(t?.dedupeKey || "").startsWith("ps:") || t?.reason === "ps6_observer") && __LSA_E1_RUNTIME.directorPreflight(t) !== true) return false;', 'PS6 original ticket checked before kb hydration');
   const kbEnsure = one((() => { const all = []; walk(kbBody, node => { if (node.type === 'CallExpression' && node.callee.name === 'Zi') all.push(node); }); return all; })(), 'kb special-event session setup');
-  insert(kbEnsure.arguments[0].start + 1, 'world: h.world, ', 'special-event session world association');
+  insert(kbEnsure.arguments[0].start + 1, 'directorTicket: t?.directorTicket, world: h.world, ', 'special-event session world association');
   const kbTurn = one((() => { const all = []; walk(kbBody, node => { if (node.type === 'CallExpression' && node.callee.name === 'Xi') all.push(node); }); return all; })(), 'kb special-event turn creation');
+  // Core-to-companion submission is not a playback/authorization ACK.
+  // The original source must await the exact native bound result BEFORE
+  // sending any Director text to the model. Stock player/event vi unchanged.
+  const kbModelSend=one((()=>{const calls=[];walk(kbBody,node=>{
+    if(node.type==='CallExpression' && node.callee.name==='vi')calls.push(node);
+  });return calls;})(),'kb original vi model input');
+  replace(kbModelSend.start,kbModelSend.end,
+    '(t?.directorTicket && !await __LSA_E1_RUNTIME.awaitDirectorNativeBinding(t.directorTicket) ? (()=>{throw new Error("director_native_binding_denied");})() : '+sourceSlice(source,kbModelSend)+')',
+    'PS6 exact native binding ACK before original model input');
+
   const kbMetadata = one(kbTurn.arguments[0].properties.filter(property => property.key?.name === 'metadata'), 'kb special-event turn metadata');
-  insert(kbMetadata.value.start + 1, 'listenerState: n ? "present" : "explicitly_cleared", contextCapturedAt: new Date().toISOString(), contextRevision: h.actorContext?.snapshotRevision ?? h.actorContext?.revision ?? null, ', 'special-event context capture metadata');
+  insert(kbMetadata.value.start + 1, 'directorTicket: t?.directorTicket ? __LSA_E1_RUNTIME.requireDirectorTicket(t,h) : undefined, listenerState: n ? "present" : "explicitly_cleared", contextCapturedAt: new Date().toISOString(), contextRevision: h.actorContext?.snapshotRevision ?? h.actorContext?.revision ?? null, ', 'special-event context capture metadata');
+
+  // Director is speech-only even if the model returns text resembling a
+  // valid stock DO action. N4/Rb is the real stock action dispatch path and
+  // yK can initiate an approach before Rb, so BOTH are independently vetoed.
+  // No global action policy changes for unrelated Essential turns.
+
+  prelude('yK','if(t?.metadata?.directorTicket) return null;');
+  // Reject the observed transcript itself before routing it to audio when a
+  // stock Director model disobeys the dialogue-only contract.
+  const apDirectorBody=functionBody(ast,'AP');
+  const apTurnRead=one((()=>{const all=[];walk(apDirectorBody,node=>{
+    if(node.type==='VariableDeclaration' && node.declarations.some(d=>
+      d.id?.name==='e' && d.init?.type==='CallExpression' &&
+      memberName(d.init.callee)==='getTurn'))all.push(node);
+  });return all;})(),'AP original turn read');
+  insert(apTurnRead.end,
+    'if(e?.metadata?.directorTicket && (t.type===Ee.OUTPUT_TRANSCRIPT || t.type===Ee.GENERATION_COMPLETE || t.type===Ee.TURN_COMPLETE) && /(^|\\r?\\n)[ \\t]*DO[ \\t]*:?[ \\t]+/.test(String(e.output?.transcript||"")+String(t.text||""))) { Zt(e.id,ke.GEMINI_ERROR,new Error("director_speech_only"));return false; }',
+    'PS6 original speech-only transcript veto');
 
   const apBody = functionBody(ast, 'AP');
   const completeCall = one((() => { const all = []; walk(apBody, node => { if (node.type === 'CallExpression' && node.callee.name === 'wP') all.push(node); }); return all; })(), 'AP TURN_COMPLETE');
@@ -249,7 +363,7 @@ async function directoryDigest(directory) {
   return hash.digest('hex');
 }
 
-export async function buildCandidate({ sourcePath = stockBundleDefault, outputPath = path.join(root, 'dist/plugins/LosSantosAliveServer') } = {}) {
+export async function buildCandidate({ nativePayloadPath, sourcePath = stockBundleDefault, outputPath = path.join(root, 'dist/plugins/LosSantosAliveServer') } = {}) {
   const target = await assertNoLinkedOutput(outputPath);
   const source = await readFile(sourcePath, 'utf8');
   const sourceHash = digest(source);
@@ -260,6 +374,7 @@ export async function buildCandidate({ sourcePath = stockBundleDefault, outputPa
   const identityContract = await verifyIdentityContract(dllHash);
   const characterContract = await verifyCharactersContract(dllHash);
   const perceptionContract = await verifyPerceptionContract(dllHash);
+  const knowledgePayload=await verifyDialogueKnowledgePayload(nativePayloadPath,perceptionContract);
   const patched = patchSource(source);
   if (patched.edits.length !== expectedPatchCount) throw new Error(`AST patch inventory changed: expected ${expectedPatchCount}, found ${patched.edits.length}. Re-audit the source seam list before building.`);
   const entry = path.join(target, launcherName);
@@ -269,9 +384,10 @@ export async function buildCandidate({ sourcePath = stockBundleDefault, outputPa
   await mkdir(target, { recursive: true });
   await writeFile(entry, patched.output, 'utf8');
   await copyDirectory(src, stagedE1);
-  await mkdir(path.join(target, 'data'), { recursive: true });
-  await copyFile(path.join(root, 'data', 'radioTrackTextIds.v2.json'), path.join(target, 'data', 'radioTrackTextIds.v2.json'));
   await copyFile(path.join(root, 'e1.config.example.json'), path.join(target, 'e1.config.example.json'));
+  // Runtime bootstrap resolves this from ../data relative to e1/bootstrap.mjs.
+  await mkdir(path.join(target,'data'),{recursive:true});
+  await copyFile(path.join(root,'data','radioTrackTextIds.v2.json'),path.join(target,'data','radioTrackTextIds.v2.json'));
   const e1SourceTreeSha256 = await directoryDigest(stagedE1);
   const releasePayloadSha256 = await directoryDigest(target);
   const manifest = {
@@ -279,11 +395,14 @@ export async function buildCandidate({ sourcePath = stockBundleDefault, outputPa
     identityContract,
     characterContract,
     perceptionContract,
-    stage: 'RADIO V2 TEXT-ID + R5 CONTEXT PROJECTION + PS3/PS2/PS1/PS0/P2', foundationStage: 'P2+P0+P1+E1.1+E2+E3+E5+E6', status: 'candidate-built-offline-radio-v2-gta-text-id-validation-pending', observabilitySchemaVersion: 1, dialogueTraceSchemaVersion: 1,
+    dialogueKnowledgeContract:knowledgePayload.contract,
+    dialogueKnowledgeNativePayload:knowledgePayload.nativePayload,
+    stage: 'PS4 DIALOGUE KNOWLEDGE + PS3/PS2/PS1/PS0/P2', foundationStage: 'P2+P0+P1+E1.1+E2+E3+E5+E6', status: 'candidate-built-offline-ps4-gta-pending', observabilitySchemaVersion: 1, dialogueTraceSchemaVersion: 1,
     features: { structuredStreaming: true, earlySegmentedTts: true, defaultEnabled: false, earlyTtsMode: 'dialogue_only', ttsConcurrency: 1,
       sessionIdentity: { defaultEnabled: false, modes: ['shadow','voices'], storeSchemaVersion: 1, nativeAddressing: 'unchanged' },
       promotedCharacters: { defaultEnabled:false,profileStoreSchemaVersion:1,manualMemoryOnly:true,requiresAuthoredP1Owner:true,nativeAddressing:'unchanged',summonWaitMs:30000,maxSummonWaitMs:60000 },
-      intelligence: {defaultMode:'off',modes:['off','shadow'],radioDefault:'off',radioModes:['off','shadow'],radioIdentity:'trackTextId_v2',radioSoundHashRole:'secondary_container_evidence',radioCatalog:'research_candidate_gta_validation_pending',radioKnowledge:'ps2_same_vehicle_shadow',radioSalience:'ps3_low_priority_shadow',radioContext:'selected_player_turn_only',saliencePolicyVersion:2,phases:['PS0','PS1','PS2','PS3'],witness:'source_sample_visual',playerSpeech:'disabled_unsupported_capture_receipt',salience:'deterministic_local',responderSelection:false,modelContext:true,automaticMemory:false,initiative:false},
+      intelligence: {defaultMode:'off',modes:['off','shadow'],radioDefault:'off',radioModes:['off','shadow'],radioIdentity:'trackTextId_v2',radioSoundHashRole:'secondary_container_evidence',radioCatalog:'research_candidate_gta_validation_pending',radioKnowledge:'PS2 same-vehicle shadow',radioContext:'PS4 frozen direct-question only',phases:['PS0','PS1','PS2','PS3'],witness:'source_sample_visual',playerSpeech:'disabled_unsupported_capture_receipt',salience:'deterministic_local',responderSelection:false,modelContext:knowledgePayload.contract.available,automaticMemory:false,initiative:false},
+      dialogueKnowledge:{safeBase:true,frameVersion:1,optionalPerceptionDelivery:knowledgePayload.contract.available,sourcePresence:true,frameBytes:112*1024,requestBytes:160*1024},
       dialogueLogging: { defaultEnabled:false,provider:'openai',storage:'rotating-jsonl' } },
     launcherEntry: launcherName, upstreamBundleSha256: sourceHash,
     stockDllReferenceSha256: dllHash, builtBundleSha256: digest(patched.output),
@@ -298,6 +417,6 @@ export async function buildCandidate({ sourcePath = stockBundleDefault, outputPa
 
 const invoked = process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
 if (invoked) {
-  const result = await buildCandidate({ sourcePath: process.env.LSA_E1_SOURCE || stockBundleDefault });
+  const result = await buildCandidate({ sourcePath: process.env.LSA_E1_SOURCE || stockBundleDefault,nativePayloadPath:process.env.LSA_PS4_NATIVE_PAYLOAD });
   console.log(JSON.stringify({ target: result.target, status: result.manifest.status, hash: result.manifest.builtBundleSha256, patchCount: result.manifest.astPatchCount }, null, 2));
 }

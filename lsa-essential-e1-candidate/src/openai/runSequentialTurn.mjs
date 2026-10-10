@@ -1,3 +1,4 @@
+import {assertDirectorSpeechDecision} from '../perception/directorDecisionGuard.mjs';
 const PLAYER_SOURCES = new Set(['player_text', 'player_mic']);
 
 function terminalForNativeEvent(event) {
@@ -190,32 +191,18 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
     if (isPlayer && !String(finalInput || '').trim()) throw new Error('player_input_empty');
     if (isPlayer) dialogueTurn?.input(finalInput);
 
-    let contextProjection = null;
-    if (isPlayer) {
-      try {
-        const selected = services.projectTurnContext?.({ input: finalInput, source, identity }) ?? null;
-        const projectedText = typeof selected?.text === 'string' ? selected.text.trim() : '';
-        if (selected?.kind === 'radio' && projectedText && projectedText.length <= 512) {
-          const block = `[SELECTED AUDIBLE ENVIRONMENT]\n${projectedText}\nTreat this as current perceptual context only; do not infer preference, recognition, or memory from it.\n[/SELECTED AUDIBLE ENVIRONMENT]`;
-          const base = String(context?.contextText || '');
-          if (Buffer.byteLength(base) + Buffer.byteLength(block) + 2 <= 12_000) {
-            contextProjection = selected;
-            context = Object.freeze({ ...context, contextText: [base, block].filter(Boolean).join('\n\n') });
-            metrics?.event('context_projection_selected', { kind: 'radio', revision: selected.revision, chars: projectedText.length });
-          } else metrics?.event('context_projection_omitted', { kind: 'radio', reason: 'context_budget' });
-        }
-      } catch { metrics?.event('context_projection_omitted', { kind: 'radio', reason: 'projection_failed' }); }
-    }
-
     // Snapshot the old history first so the current utterance is not duplicated in
     // both the history and the current user message sent to Luna.
-    const priorHistory = history.readForSession(identity.pedId, identity.sessionNonce);
+    const priorHistory = turn.priorHistory ?? history.readForSession(identity.pedId, identity.sessionNonce);
     if (isPlayer) {
       const committed = history.commitPlayerInput({ identity, input: finalInput });
       metrics?.count(committed ? 'playerCommitted' : 'playerDuplicateCount');
       metrics?.event(committed ? 'player_history_committed' : 'history_duplicate_prevented', { role: 'user', inputChars: String(finalInput).length });
     }
     transition('model_running');
+    if(services.finalizeKnowledgeFrame)turn.knowledgeProjection=services.finalizeKnowledgeFrame(turn,{input:finalInput,history:priorHistory,source});
+    turn.knowledgeDelivery?.watch(listener=>services.subscribeKnowledgeInvalidation?.(listener) ?? (()=>{}),error=>controller.abort(error));
+    const recordReasoningSuccess=decision=>{check();turn.knowledgeDelivery?.success(decision);};
     let decision;
     let streamedSegments = [];
     let streamMode = null;
@@ -223,7 +210,7 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
     if (services.config.structuredStreamingEnabled === true) {
       const allowEarlyTts = services.config.earlyTtsEnabled === true;
       const modelOptions = ({ signal, timeoutMs, telemetry, dialogueAttempt }) => services.providerStack.decideStreaming({
-        identity, context: { ...context, source }, source,
+        identity, context: { ...context, source }, source,knowledgeProjection:turn.knowledgeProjection,knowledgeDelivery:turn.knowledgeDelivery,
         input: isPlayer ? finalInput : '', history: priorHistory, signal, timeoutMs, telemetry, dialogueAttempt,
       });
       if (!allowEarlyTts) {
@@ -280,7 +267,7 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
         });
         const modelTask = performProvider('model', services.providerStack.reasoning.id,
           ({ signal, timeoutMs, telemetry, isActive, dialogueAttempt }) => services.providerStack.decideStreaming({
-            identity, context: { ...context, source }, source,
+            identity, context: { ...context, source }, source,knowledgeProjection:turn.knowledgeProjection,knowledgeDelivery:turn.knowledgeDelivery,
             input: isPlayer ? finalInput : '', history: priorHistory, signal, timeoutMs, telemetry, dialogueAttempt,
             onSegment: async (segment, mode) => {
               if (!isActive()) throw new Error('provider_attempt_inactive');
@@ -288,6 +275,8 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
               if (!mode) throw new Error('stream_mode_missing_before_segment');
               if (streamMode && streamMode !== mode) throw new Error('stream_mode_changed');
               streamMode = mode;
+              if (turn.directorTicket || source === 'scene_director')
+                assertDirectorSpeechDecision({command:''}, {source,directorTicket:turn.directorTicket,streamMode:mode});
               if (mode === 'dialogue_only') {
                 streamedSegments.push(segment);
                 metrics?.count('segmentCount');
@@ -299,6 +288,7 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
           const result = await modelTask;
           decision = result.decision;
           streamMode = result.mode;
+          recordReasoningSuccess(decision);
           closeQueue();
           // A final command is invalid in dialogue_only mode (also checked by the
           // strict decoder); the normal stock validator remains the action gate.
@@ -314,16 +304,14 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
       }
     } else {
       decision = await performProvider('model', services.providerStack?.reasoning.id || 'openai.reasoning',
-        ({ signal, timeoutMs, telemetry, dialogueAttempt }) => services.decide({ identity, context: { ...context, source }, source,
+        ({ signal, timeoutMs, telemetry, dialogueAttempt }) => services.decide({ identity, context: { ...context, source }, source,knowledgeProjection:turn.knowledgeProjection,knowledgeDelivery:turn.knowledgeDelivery,
           input: isPlayer ? finalInput : '', history: priorHistory, signal, timeoutMs, telemetry, dialogueAttempt }));
     }
+    // Validate the PS6 passive-speech restriction before the stock action
+    // validator or output_transcript, which can synchronously dispatch effects.
+    assertDirectorSpeechDecision(decision,{source,directorTicket:turn.directorTicket,streamMode});
+    recordReasoningSuccess(decision);
     check();
-    if (contextProjection) {
-      try {
-        const acknowledged = services.acknowledgeTurnContext?.(contextProjection,'delivered') === true;
-        metrics?.event('context_projection_consumed', { kind: 'radio', revision: contextProjection.revision, outcome: acknowledged ? 'delivered' : 'stale' });
-      } catch { metrics?.event('context_projection_consumed', { kind: 'radio', revision: contextProjection.revision, outcome: 'unavailable' }); }
-    }
     transition('decision_validation');
     const validateSpan = metrics?.startSpan('decision_validation');
     let validated;
@@ -346,6 +334,11 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
     // Stock action listener preserves timing, including final-only actions.
     // Stock action listeners may dispatch synchronously on this transcript event.
     const hasAction = validated.actionCount > 0;
+    // Passive C-05 observation runs synchronously before the stock listener.
+    // It may capture already-validated data, never await, dispatch or veto.
+    if(hasAction && services.recordDialogueActionPublication){
+      try {const result=services.recordDialogueActionPublication({turn,validated,publishedAtMs:Date.now()});result?.catch?.(()=>{});}catch{}
+    }
     await emit({ type: 'output_transcript', text: validated.internalTranscript });
     check();
     transition('tts_running');
@@ -396,6 +389,7 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
     metrics?.finish({ reason: 'completed', stage: state, pcmBytes: pcmBytesTotal, audioDurationMs: expectedDurationMs, traceComplete: true, assistantCommitted: true });
     return { status: 'completed', terminalReason: 'completed', audioBytes: pcmBytesTotal, discardedTrailingByte: audio.discardedTrailingByte };
   } catch (error) {
+    turn.knowledgeDelivery?.finish();
     const stageAtFailure = state;
     providerWorkDone?.('failed', { code: /^[A-Za-z][A-Za-z0-9_]{0,63}$/.test(error?.code || '') ? error.code : 'provider_work_failed' });
     if (!terminalReason) chooseTerminal(controller.signal.aborted ? terminalForAbort(controller.signal) : terminalForError(error, state));
@@ -411,6 +405,12 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
     host.log?.(identity, 'terminal', { source, reason: terminalReason, stage: state, cause });
     try { await host.failTurn(identity, Object.assign(new Error(terminalReason), { code: cause?.code || terminalReason }), { source, reason: terminalReason, stage: state, cause }); }
     catch { /* Keep the original terminal cause if native cleanup itself fails. */ }
+    // Provider/segment/TTS failure can end before a Core playback callback.
+    // Fail only its native-bound Director waiter instead of waiting 120 s.
+    if (turn.directorTicket) {
+      try { host.failDirectorTurn?.(turn.directorTicket,identity); }
+      catch { /* Failure notification never grants playback. */ }
+    }
     if (terminalReason === 'provider_timeout') state = 'deadline';
     else if (terminalReason === 'cancelled' || terminalReason === 'superseded' || terminalReason === 'disconnected' || terminalReason === 'playback_interrupted') state = 'cancelled';
     else if (terminalReason === 'playback_ack_timeout') state = 'ack_timeout';
@@ -422,6 +422,7 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
     retired = true;
     history.discard(identity);
     observation?.dispose();
+    turn.knowledgeDelivery?.dispose();
     clearTimeout(providerTimer);
     controller.signal.removeEventListener('abort', abortListener);
     connection.detachAbort(identity, controller);
