@@ -142,3 +142,32 @@ export function serializeDirectorStockIntake(ticket,context) {
     throw new TypeError('director_stock_intake_invalid');
   return JSON.stringify(payload)+'\n';
 }
+
+ 
+// #3B source-only original turn/generation report. This is never a grant:
+// native compares it with its already-spent stock scheduling claim and P2/PS3
+// authorities. No optional fields, JS-unsafe Int64, or callback-supplied proof.
+export function serializeDirectorOriginalTurnBinding(source,identity) {
+  const payload={
+    version:1,type:'director.original_turn_bound',
+    ticketId:source?.ticketId,sourceRun:source?.sourceRun,
+    sourceRevision:source?.sourceRevision,
+    hostRunId:source?.hostRunId,worldEpoch:source?.worldEpoch,
+    speakerCaptureRef:source?.speakerCaptureRef,
+    pedId:identity?.pedId,turnId:identity?.turnId,
+    generationId:identity?.generationId,sessionNonce:identity?.sessionNonce,
+  };
+  if(![payload.ticketId,payload.sourceRun,payload.hostRunId,
+       payload.speakerCaptureRef].every(isUuid) ||
+     !Number.isSafeInteger(payload.sourceRevision)||payload.sourceRevision<1||
+     !Number.isSafeInteger(payload.worldEpoch)||payload.worldEpoch<1||
+     typeof payload.pedId!=='string'||!/^(0|[1-9][0-9]{0,9})$/.test(payload.pedId)||
+     Number(payload.pedId)>4294967295 ||
+     typeof payload.turnId!=='string'||!payload.turnId.trim()||
+     payload.turnId.length>128||/[\\r\\n\\0]/.test(payload.turnId)||
+     !Number.isSafeInteger(payload.generationId)||payload.generationId<0||
+     !Number.isSafeInteger(payload.sessionNonce)||payload.sessionNonce<1||
+     payload.sessionNonce>2147483647)
+    throw new TypeError('director_original_turn_binding_invalid');
+  return JSON.stringify(payload)+'\\n';
+}
