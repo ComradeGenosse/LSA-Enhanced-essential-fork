@@ -310,7 +310,8 @@ export class IntelligenceClient {
     try {current=this.originalBackendEvidence(this.originalTurnCurrent(ticket.ticketId));}
     catch{return false;}
     return !!current && current.sourceRun===claim.record.run &&
-      current.revision===claim.record.revision;
+      current.revision===claim.record.revision+1 &&
+      this.originalTurnPhase(ticket.ticketId)==='dispatch';
   }
   // Called only from the actual source-pinned Xn generation path, after the
   // stock kb ticket was independently hydrated. Never acknowledges playback.
@@ -318,8 +319,10 @@ export class IntelligenceClient {
   // speaker/player anchor before it binds once on the native owner fiber.
   sendDirectorOriginalTurnBinding(ticket,identity) {
     const id=ticket?.ticketId,record=this.directorOwnerReservations.get(id);
+    const claimed=this.directorStockClaims.get(id);
     if(this.closed || this.config.mode!=='shadow' ||
-       !this.runtime.epoch || !this.directorStockDispatched.has(id) ||
+       !this.runtime.epoch || claimed?.ticket!==ticket ||
+       this.originalTurnPhase(id)!=='generation' ||
        !record || ticket.dedupeKey!==`ps:${id}` ||
        !this.directorOriginalEntitlement(record.proposal,record.stamp) ||
        !this.socket || this.socket.destroyed || !this.socket.writable ||
@@ -333,7 +336,7 @@ export class IntelligenceClient {
       },identity);
     }catch{return false;}
     if(Buffer.byteLength(line)>BOUNDS.frameBytes)return false;
-    this.directorStockDispatched.delete(id); // no retry or identity reassignment
+    this.directorStockClaims.delete(id); // no retry or identity reassignment
     try {this.socket.write(line);return true;}catch{return false;}
   }
   acceptDirectorResponse(payload) {
@@ -358,11 +361,12 @@ export class IntelligenceClient {
     this.directorOwnerReservations.clear();this.directorNativeSubmitted.clear();this.directorStockDispatched.clear();this.directorStockContexts.clear();this.directorStockClaims.clear();
   }
 
-  constructor(config,{connect=options=>net.createConnection(options),now,situationFor,originalTurnPriority=()=>null,originalTurnReserve=()=>null,originalTurnCurrent=()=>null,originalTurnRelease=()=>false,report=summary=>console.info('[PS] companion_shadow '+JSON.stringify(summary)),telemetry=()=>{}}={}) {
+  constructor(config,{connect=options=>net.createConnection(options),now,situationFor,originalTurnPriority=()=>null,originalTurnReserve=()=>null,originalTurnCurrent=()=>null,originalTurnRelease=()=>false,originalTurnPhase=()=>null,report=summary=>console.info('[PS] companion_shadow '+JSON.stringify(summary)),telemetry=()=>{}}={}) {
     this.knowledgeListeners=new Set();this.config=config;this.connect=connect;this.runtime=new ShadowRuntime({mode:config.mode,now,situationFor});this.report=report;this.telemetry=telemetry;this.originalTurnPriority=typeof originalTurnPriority==='function'?originalTurnPriority:()=>null;
     this.originalTurnReserve=typeof originalTurnReserve==='function'?originalTurnReserve:()=>null;
     this.originalTurnCurrent=typeof originalTurnCurrent==='function'?originalTurnCurrent:()=>null;
     this.originalTurnRelease=typeof originalTurnRelease==='function'?originalTurnRelease:()=>false;
+    this.originalTurnPhase=typeof originalTurnPhase==='function'?originalTurnPhase:()=>null;
     this.closed=false;this.socket=null;this.lastReport=0;this.directorPending=new Map();this.directorOwnerReservations=new Map();this.directorNativeSubmitted=new Set();this.directorStockDispatched=new Set();this.directorStockContexts=new Map();this.directorStockClaims=new Map();
   }
   persist(event,data={}) { try { this.telemetry(event,data); } catch {} }
