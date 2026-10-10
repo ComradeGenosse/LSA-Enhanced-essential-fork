@@ -30,6 +30,9 @@ namespace LSA.Intelligence
             public string TurnId;
             // Core NpcPlaybackStarted/EndedEvent.GenerationId is Int64.
             public long GenerationId;
+            // Original Essential special-turn revision at native reserve time.
+            // It is only a takeover veto; never a global idle permission.
+            public long SpecialTurnVersion=-1;
             public int SessionNonce;
             public string PedId;
             public long PlaybackExpiresAt;
@@ -45,6 +48,7 @@ namespace LSA.Intelligence
         readonly Func<Request,string,bool> independentlySafe;
         readonly Func<string> currentHost;
         readonly Func<int> currentWorld;
+        readonly Func<long> specialTurnSource;
         readonly Dictionary<string,Reservation> pending=new Dictionary<string,Reservation>();
         readonly Queue<long> attempts=new Queue<long>();
         readonly Dictionary<string,long> seen=new Dictionary<string,long>();
@@ -53,17 +57,23 @@ namespace LSA.Intelligence
         bool enabled;
 
         internal DirectorAdmission(Func<long> clock,Func<Request,bool> independentlySafe,
-          Func<string> currentHost,Func<int> currentWorld,bool enabled=false)
+          Func<string> currentHost,Func<int> currentWorld,bool enabled=false,
+          Func<long> specialTurnSource=null)
           :this(clock,independentlySafe==null?null:
               new Func<Request,string,bool>((request,stage)=>independentlySafe(request)),
-              currentHost,currentWorld,enabled) {}
+              currentHost,currentWorld,enabled,specialTurnSource) {}
         internal DirectorAdmission(Func<long> clock,Func<Request,string,bool> independentlySafe,
-          Func<string> currentHost,Func<int> currentWorld,bool enabled=false)
+          Func<string> currentHost,Func<int> currentWorld,bool enabled=false,
+          Func<long> specialTurnSource=null)
         {
             this.clock=clock??throw new ArgumentNullException(nameof(clock));
             this.independentlySafe=independentlySafe??throw new ArgumentNullException(nameof(independentlySafe));
             this.currentHost=currentHost??throw new ArgumentNullException(nameof(currentHost));
             this.currentWorld=currentWorld??throw new ArgumentNullException(nameof(currentWorld));
+            // Without the actual Core revision source, enabled tickets cannot
+            // be reserved, submitted or marked delivered. Isolated tests inject
+            // a deterministic source; production uses the pinned Core reader.
+            this.specialTurnSource=specialTurnSource;
             this.enabled=enabled;
         }
         static bool Uuid(string value)=>value!=null && Regex.IsMatch(value,
@@ -84,6 +94,21 @@ namespace LSA.Intelligence
             if(!enabled||!Valid(r)||r.HostRunId!=currentHost()||
                 r.WorldEpoch!=currentWorld())return false;
             try {return independentlySafe(r,stage)==true;}catch{return false;}
+        }
+        bool ReadSpecial(out long version)
+        {
+            version=-1;
+            if(specialTurnSource==null)return false;
+            try {version=specialTurnSource();return version>=0;}
+            catch {return false;}
+        }
+        bool SafeReserved(Reservation original,string stage)
+        {
+            long before,after;
+            return original!=null && original.SpecialTurnVersion>=0 &&
+                ReadSpecial(out before) && before==original.SpecialTurnVersion &&
+                Safe(original.Request,stage) &&
+                ReadSpecial(out after) && after==original.SpecialTurnVersion;
         }
         void Trim(long now)
         {
@@ -130,9 +155,13 @@ namespace LSA.Intelligence
                     pending.Count>=MaxTickets||attempts.Count>=MaxAttempts||seen.Count>=512)
                     return new Receipt(request.TicketId,"busy");
                 attempts.Enqueue(now);seen.Add(request.TicketId,now);seenOrder.Enqueue(new KeyValuePair<string,long>(request.TicketId,now));
-                if(!Safe(request,"reserve"))return new Receipt(request.TicketId,"unsafe");
+                long initial,after;
+                if(!ReadSpecial(out initial) || !Safe(request,"reserve") ||
+                   !ReadSpecial(out after) || after!=initial)
+                    return new Receipt(request.TicketId,"unsafe");
                 pending[request.TicketId]=new Reservation{
-                    Request=request,ExpiresAt=now+TicketTtlMs
+                    Request=request,ExpiresAt=now+TicketTtlMs,
+                    SpecialTurnVersion=initial
                 };
                 activeTicket=request.TicketId;
                 return new Receipt(request.TicketId,"reserved");
@@ -141,7 +170,7 @@ namespace LSA.Intelligence
             if(!pending.TryGetValue(request.TicketId,out reservation)||
                 activeTicket!=request.TicketId||reservation.Used||
                 !Same(reservation.Request,request))return new Receipt(request.TicketId,"stale");
-            if(!Safe(request,"submit")) {
+            if(!SafeReserved(reservation,"submit")) {
                 pending.Remove(request.TicketId);activeTicket=null;
                 return new Receipt(request.TicketId,"unsafe");
             }
@@ -169,7 +198,7 @@ namespace LSA.Intelligence
                 !r.Used||r.TurnId!=null||clock()>=r.ExpiresAt||
                 string.IsNullOrWhiteSpace(pedId)||!Key(turnId)||generationId<0||generationId>MaxExactWireGeneration||nonce<=0)
                 return false;
-            if(!Safe(r.Request,"bind")) {
+            if(!SafeReserved(r,"bind")) {
                 pending.Remove(ticket);activeTicket=null;return false;
             }
             r.PedId=pedId;r.TurnId=turnId;r.GenerationId=generationId;r.SessionNonce=nonce;
@@ -189,7 +218,7 @@ namespace LSA.Intelligence
                 r.PedId!=pedId || r.TurnId!=turnId ||
                 r.GenerationId!=generationId || r.SessionNonce!=nonce ||
                 clock()>=r.PlaybackExpiresAt)return false;
-            if(!Safe(r.Request,"playback_started")) {
+            if(!SafeReserved(r,"playback_started")) {
                 pending.Remove(ticket);activeTicket=null;return false;
             }
             r.NativePlaybackStarted=true;
@@ -236,7 +265,7 @@ namespace LSA.Intelligence
             pending.Remove(ticket);activeTicket=null;
             // Only a matching native complete-playback receipt permits a
             // separate, checked PS3 ps6_ticket acknowledgement.
-            return withinPlaybackLease&&r.NativePlaybackStarted&&complete&&!interrupted&&hadAudio&&playbackStarted&&Safe(r.Request,"complete");
+            return withinPlaybackLease&&r.NativePlaybackStarted&&complete&&!interrupted&&hadAudio&&playbackStarted&&SafeReserved(r,"complete");
         }
     }
 }
