@@ -1,4 +1,5 @@
 import {selectDirectorIntent} from './sceneDirector.mjs';
+import {renderDirectorEventContext} from './directorContext.mjs';
 
 // Coordinator for the existing PS3 -> C-11 -> Essential seam. No world scan,
 // second executor, retry policy, provider, memory writer or TASK is created.
@@ -45,6 +46,11 @@ export class SceneDirectorSpeech {
     const proposal=selectDirectorIntent(candidates,facts);
     if(!proposal)return Object.freeze({status:'no_eligible_evidence'});
     if(this.mode==='shadow')return Object.freeze({status:'shadow',observationId:proposal.observationId});
+    // Resolve one exact, original PS2 observation to Luna-visible context.
+    // The native stock Content parameter is never made from proposal IDs,
+    // player free text, an inferred scene, or a stale alternative candidate.
+    const eventContext=renderDirectorEventContext(proposal,candidates);
+    if(!eventContext)return Object.freeze({status:'event_context_unavailable'});
     // A real current companion PS3 observation+grant is independently
     // mandatory even if the caller injects an all-positive mock C-06.
     // Native still must independently authorize after this source check.
@@ -81,7 +87,7 @@ export class SceneDirectorSpeech {
           this.admission.beforePublication(ticket.ticketId,stamp),
       });
       const result=await this.dispatch(Object.freeze({
-        ticket,proposal,stamp,gates,
+        ticket,proposal,stamp,gates,eventContext,
         source:'scene_director',reason:'ps6_observer',
         faceListener:false,interruptExisting:false,delayMs:0,
       }));
