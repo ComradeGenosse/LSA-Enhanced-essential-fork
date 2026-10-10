@@ -124,8 +124,12 @@ export function patchSource(source) {
       original==='Xi'?'t?.metadata?.directorTicket?.ticketId':
       original==='Xn'?'le.getTurn(t)?.metadata?.directorTicket?.ticketId':
       original==='WP'?'__lsaDirectorSessionTicket?.ticketId':'null';
+    const stage=original==='Xi'?'turn_allocate':
+      original==='Xn'?'turn_intake':original==='WP'?'session_open':null;
+    const trace=stage?
+      `if(${owner}) __LSA_E1_RUNTIME.directorHandoff("${stage}","started","stock_entry");`:'';
     insert(functionBody(ast,original).start+1,
-      `__LSA_E1_RUNTIME.originalTurnTransition("${event}",${owner});`, `PS6 original lifecycle ${original}`);
+      trace+`__LSA_E1_RUNTIME.originalTurnTransition("${event}",${owner});`, `PS6 original lifecycle ${original}`);
   }
 
   // Bind native identity before the controller sends text or microphone input.
