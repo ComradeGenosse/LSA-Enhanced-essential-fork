@@ -371,6 +371,12 @@ namespace LSA.Intelligence
                 var currentSpeaker=NpcTargeting.GetCurrentSpeakerPed();
                 proof.ConversationStateKnown=true;
                 proof.ConversationIdle=conversation==null && currentSpeaker==null;
+                // These flags observe the *actual* Core input UI; they do
+                // not attest to queued or already-submitted text inference.
+                proof.TextInputIdle=!LosSantosAlive.Input.TextInputService.IsOpen;
+                proof.TextInputKnown=true;
+                proof.ControlsInputIdle=!LosSantosAlive.Core.LsaControlsMenu.BlocksLsaInput;
+                proof.ControlsInputKnown=true;
                 // Pinned Essential public APIs: the special-turn revision is
                 // only a partial player-priority signal, never a global idle
                 // authorization. An unreadable Core sample fails closed.
