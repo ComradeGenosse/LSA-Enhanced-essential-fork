@@ -51,3 +51,42 @@ export function serializeDirectorRequest({operation,ticket,proposal,stamp,ageMs}
   // additional fields. No network operation is performed by this serializer.
   return JSON.stringify(value)+'\n';
 }
+
+
+// Distinct one-way original-PS3 producer message, ordered before a Director
+// reserve on the SAME native pipe. The native server requires its own recent
+// challenge and source signal; a matching request alone cannot grant C-06.
+const receiptKeys=Object.freeze([
+ 'version','type','source','challenge','ticketId','hostRunId','worldEpoch',
+ 'speakerCaptureRef','playerCaptureRef','ownerIncarnationId','proofRevision',
+ 'situationRevision','signalId','observationId','observationRevision',
+ 'decisionKey','policyVersion','ageMs',
+]);
+export function serializeDirectorPs3Receipt(ticket,proof) {
+ const value={
+  version:1,type:'director.ps3_receipt',source:proof?.source,
+  challenge:proof?.challenge,ticketId:ticket?.ticketId,
+  hostRunId:proof?.hostRunId,worldEpoch:proof?.worldEpoch,
+  speakerCaptureRef:proof?.speakerCaptureRef,playerCaptureRef:proof?.playerCaptureRef,
+  ownerIncarnationId:proof?.ownerIncarnationId,proofRevision:proof?.proofRevision,
+  situationRevision:proof?.situationRevision,signalId:proof?.signalId,
+  observationId:proof?.observationId,observationRevision:proof?.observationRevision,
+  decisionKey:proof?.decisionKey,policyVersion:proof?.policyVersion,
+  ageMs:proof?.ageMs,
+ };
+ if(Object.keys(value).length!==receiptKeys.length ||
+    !receiptKeys.every(k=>Object.hasOwn(value,k))||
+    value.source!=='original_companion_ps2_ps3' ||
+    ![value.challenge,value.ticketId,value.hostRunId,value.speakerCaptureRef,
+      value.playerCaptureRef,value.ownerIncarnationId,value.signalId,
+      value.observationId].every(isUuid)||
+    !positive(value.worldEpoch)||!positive(value.proofRevision)||
+    !positive(value.situationRevision)||value.situationRevision>2147483647||
+    !positive(value.observationRevision)||value.policyVersion!==1||
+    !integer(value.ageMs)||value.ageMs>=2000||
+    typeof value.decisionKey!=='string'||!value.decisionKey.length||
+    value.decisionKey.length>160||/[\\u0000-\\u001f\\u007f]/.test(value.decisionKey)||
+    Buffer.byteLength(JSON.stringify(value))>8192)
+    throw new TypeError('original_ps3_receipt_invalid');
+ return JSON.stringify(value)+'\\n';
+}
