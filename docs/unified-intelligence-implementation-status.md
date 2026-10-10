@@ -1300,3 +1300,44 @@ The companion requires the original exclusive lease at **both** reserve and subm
 ### Exact boundary before Piece #3
 
 **Piece #2 implementation and offline contract verification are complete. Runtime GTA/Harmony timing is not yet accepted and no production speech mode has been enabled.** Piece #3 must now **connect the actual stock `SpecialGeminiTurnScheduler.Submit`/existing `kb` path**, consume a native-authorized one-shot Director ticket, bind the **real original Essential Ped/TurnId/generation/session nonce**, recheck native and backend authority at original async hydration/publication/playback callbacks, and treat that exact Director turn as its own occupied playback rather than importing a new idle snapshot. #3 cannot bypass either owner's live ticket or reconstruct identity from the latest speaker. In-game acceptance/deploy, default-off staging, and end-to-end timing review remain future validation. No Director/PS2/PS3/ACT/P2/UX mode was activated, no live GTA files modified, no merge, and no unrelated phase or Phase 10a.
+
+
+## Checkpoint 91: Phase 13a Architectural Piece #3A — real Essential stock scheduler adapter (October 10, 2026)
+
+**Verified implementation code HEAD:** `79cbbb65a193828cf07894722f85a2b5618e2f75`. [**GitHub Actions 38049476841**](https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/actions/runs/38049476841): **SUCCESS on Windows and Linux**. **Piece #3A's scheduler admission/dispatch adapter is implemented and verified offline.** This is **NOT #3B**, not activation, not GTA runtime acceptance, and not proof of actual playback. Draft PR #23 remains open/unmerged.
+
+### Native real stock scheduler entry, one-shot safety and verified Core ABI
+
+- `native/intelligence/DirectorSchedulerIntake.cs` now binds **the real pinned original `LosSantosAlive.Bridge.SpecialTurns.SpecialGeminiTurnScheduler.Submit(SpecialGeminiTurnRequest)`** through exactly one production stock delegate. The existing real DLL SHA/metadata verifier confirms this is public, static and has the exact `bool Submit(SpecialGeminiTurnRequest)` ABI. **No separate speech engine, LLM provider, TASK, new session constructor or alternate command path** was introduced.
+- A newly distinct `DirectorAdmission.TryClaimStockIntake(ticket)` consumes an *already submitted* C-11 reservation **once**; it rereads original C-06, current Core special/player takeover revisions, actual host/world, original backend turn-owner source receipt, PS3 grant and exact P2 ownership before any stock invocation. The source request and resolved native Ped anchors are owned by the original reservation; a caller cannot provide arbitrary speaker/target or substitute the latest conversation focus. Rejected or throwing `Submit` retires the ticket immediately without a replay; an accepted scheduler attempt remains reserved for later #3B tuple binding.
+- `DirectorStockTurnRequest.Prepare` remains the single bounded DTO mapper, using the exact native-owned speaker and local player with `Reason="ps6_observer"`, `DedupeKey="ps:"+ticket`, `FaceListener=false`, `InterruptExisting=false`, `DelayMilliseconds=0`, `CancelIfPlayerStartsTurn=true`, `RequireCurrentPlayerConversation=false` and `SkipIfSpeakerBusy=true`. The bounded observation context is nonempty, at most 160 characters and excludes CR/LF/NUL/tab. It never injects an action or orders a model to execute GTA effects.
+- `DirectorSchedulerIntake.Production(director,false)` is constructed by the native integration with **the production dispatch gate hard-OFF**. `DirectorAdmission` also remains `enabled:false`. Thus neither a crafted source frame nor a positive test-only fixture can start spontaneous speech on an installed build until the separate 3B activation review. Tests inject an enabled fake stock delegate to prove the one-shot call shape; no game Core/stock method is executed in unit tests.
+
+### Separate strict companion → native intake vocabulary
+
+- `lsa-essential-e1-candidate/src/perception/directorWire.mjs` and `native/intelligence/DirectorStockIntakeCodec.cs` implement an exact **six-field `director.stock_intake`** message (`version`, `type`, `ticketId`, `dedupeKey`, `reason`, `context`). Unknown fields, altered names/IDs, malicious type, malformed text, speaker PedId, arbitrary commands and oversize payloads are rejected. A stock intake message is **never** a C-06, source identity or playback receipt.
+- The companion `IntelligenceClient.sendDirectorStockIntake(ticket,context)` is only callable after the exact authenticated native `submitted` response for the same one-shot ticket; it separately rechecks current PS2/PS3 entitlement and the unrevoked exclusive original backend turn lease (source run/revision), sends a fresh original ownership receipt on the **same user-ACL PS pipe**, and then queues the closed intake frame. It consumes its one-shot entitlement **before** enqueueing and cannot retry after a failure. Its return value means **queued**, not “spoken”, “native accepted” or “playback complete”.
+- The native `IntelligenceIntegration.TryDirectorStockIntake` maps an exact submitted reservation back to immutable speaker/player capture refs, verifies the original PS3 grant is reserved and the independently sealed original backend owner receipt is current, requires the referenced player be the actual local player, samples live C-06 on the owner fiber, and calls the single `DirectorSchedulerIntake` adapter. It does not trust any player/speaker tuple from the wire. Owner/world/P2/Core changes or source loss deny the call.
+
+### Precise boundary with #3B
+
+**The genuine stock scheduler API is connected, but live dispatch remains OFF.** In the original pinned stock Node `kb` path, the Core scheduler's initial DTO supplies the reason/dedupe but **does not yet carry an independently hydrated native Director ticket**. The original backend intentionally refuses that DTO without matching authenticated original ticket evidence; an explicit new offline regression proves that the source-pinned `kb` cannot infer permission from a `ps:` dedupe string or a native-positive stub. This is safe and intentional.
+
+**#3B must** attach the native-authorized ticket to the original asynchronous stock `kb` hydration/turn-creation path, bind **the exact original** PedId/TurnId/GenerationId/SessionNonce (not guessed from a later speaker), keep the current player/Essential source lease and callback ordering valid across the initial stock allocation, consume the original playback-start and terminal events, retire on cancellation/interruption/timeout, confirm no unrelated NPC callback can consume a ticket, and only then consider gated GTA acceptance and runtime activation. No #3B work, GTA installation, default-on flag or merge was performed.
+
+### Matching implementation-HEAD automated acceptance actually executed
+
+| Suite | Verified result |
+| --- | --- |
+| Ubuntu isolated full Node | **728 passed / 71 files / 0 failed** |
+| Windows isolated full Node | **728 passed / 71 files / 0 failed** |
+| Focused Phase 13a | **44/44 passed on each OS** |
+| Real pinned Essential Core SHA/metadata + stock scheduler `Submit` ABI + original mic, text, target, speaker alias | **PASS (Windows)** |
+| Native Director/PS3/stock C-11 intake | **294 assertions PASS (Windows)** |
+| ACT native | **263 assertions PASS (Windows)** |
+| Shared PS/ACT native | **115 assertions PASS (Windows)** |
+| Native P2 lifecycle | **194 assertions PASS (Windows)** |
+| Native HostContext | **62 assertions PASS (Windows)** |
+| Production-source PS host integration with stubbed Core boundary | **151 assertions PASS (Windows)** |
+
+New tests enforce default-off actual scheduler binding, reserve-vs-submit vs stock-dispatch distinction, immutable exact request shape, one-shot native intake, native player-takeover rejection, immediate reservation release on scheduler failure, strict wire parse against injected fields/text, companion enqueue only after actual native submitted receipt, original owner revision takeover veto, companion cancellation after submit, and stock `kb` refusal until the forthcoming authenticated #3B tuple handoff. **No live GTA runtime, Harmony installation, stock speech event or audio played during tests.**
