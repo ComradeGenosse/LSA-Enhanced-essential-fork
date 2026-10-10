@@ -389,6 +389,36 @@ export class SalienceCache {
     if(diagnostics)Object.assign(diagnostics,counts);
     return Object.freeze(orderSalienceDecisions(result));
   }
+  // PS4's P0 frame is immutable, while PS3 may legitimately recalculate its
+  // current decision key before the model finishes. The caller has just
+  // revalidated the frozen frame, owner, refs and channel at model completion.
+  // Reconcile only the exact same live observation; never borrow a later
+  // revision/actor or a retired payload, and never change PS6 grant semantics.
+  acknowledgeFrozenContext(decisionKeyValue, frozenPair, outcome) {
+    const original = frozenPair?.observation, decision = frozenPair?.decision;
+    if (typeof decisionKeyValue !== 'string' ||
+        !['delivered', 'rejected', 'expired'].includes(outcome) ||
+        !original || !decision ||
+        decision.decisionKey !== decisionKeyValue ||
+        decision.observationId !== original.observationId ||
+        decision.revision !== original.revision ||
+        decision.policyVersion !== SALIENCE_POLICY_VERSION) return false;
+    const entry = this.ledger.get(original.observationId);
+    const currentPair = entry?.pair, now = this.now();
+    if (!currentPair ||
+        entry.expires <= now ||
+        entry.revision !== original.revision ||
+        entry.decisionKey !== currentPair.decision.decisionKey ||
+        currentPair.decision.revision !== original.revision ||
+        original.expiresAtMonotonicMs <= now ||
+        decision.expiresAtMonotonicMs <= now ||
+        currentPair.observation.expiresAtMonotonicMs <= now ||
+        currentPair.decision.expiresAtMonotonicMs <= now ||
+        JSON.stringify(currentPair.observation) !== JSON.stringify(original)) return false;
+    // Consumption remains scoped to PS4 context; the current PS6 key/grant
+    // never becomes usable through the frozen key.
+    return this.acknowledge(entry.decisionKey, 'ps4_context', outcome);
+  }
   acknowledge(decisionKeyValue, consumer, outcome) {
     if (typeof decisionKeyValue !== 'string' || !['ps4_context', 'ps6_ticket', 'ps5_memory'].includes(consumer) || !['delivered', 'rejected', 'expired'].includes(outcome)) return false;
     const hit = [...this.ledger.entries()].find(([, entry]) => entry.decisionKey === decisionKeyValue);
