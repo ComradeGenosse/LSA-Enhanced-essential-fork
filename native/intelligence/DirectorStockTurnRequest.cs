@@ -41,7 +41,11 @@ namespace LSA.Intelligence
                 DelayMilliseconds=0,
                 CancelIfPlayerStartsTurn=true,
                 RequireCurrentPlayerConversation=false,
-                SkipIfSpeakerBusy=true
+                // P2 follow is not an exclusive dialogue turn. C-06 already
+                // verified original identity, owner mode, mic/conversation,
+                // playback, actor reflex and player-priority fences.
+                // Preserve stock's busy veto for every other speaker state.
+                SkipIfSpeakerBusy=!nativeProof.SpeakerFollowCompatible
             };
         }
     }
