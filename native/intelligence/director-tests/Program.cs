@@ -77,6 +77,10 @@ class Program
         var claim=stock.TryClaimStockIntake(a.TicketId);
         Check(claim!=null&&claim.Operation=="submit","stock one-time native claim");
         Check(stock.TryClaimStockIntake(a.TicketId)==null,"stock duplicate claim veto");
+        Check(stock.AbandonStockIntake(a.TicketId) && !stock.HasActive,
+              "failed stock scheduler can retire reserved ticket without replay");
+        Check(!stock.AbandonStockIntake(a.TicketId),
+              "failed stock ticket retirement is exactly once");
         var changed=New();a=Request(103);
         Check(changed.Handle(a).Status=="reserved" &&
               changed.Handle(Request(103,"submit")).Status=="submitted",
