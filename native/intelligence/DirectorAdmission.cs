@@ -307,6 +307,19 @@ namespace LSA.Intelligence
             r.NativePlaybackStarted=true;
             return true;
         }
+        // Read the previously bound original ticket, never infer a ticket
+        // from callback PedId/turn/generation or reserve a new session.
+        internal string OriginalBoundTicket(string speakerCaptureRef,
+            string pedId,string turnId,long generationId)
+        {
+            Reservation r;
+            if(!enabled || activeTicket==null ||
+                !pending.TryGetValue(activeTicket,out r) || !r.Used ||
+                r.TurnId==null || r.Request.SpeakerCaptureRef!=speakerCaptureRef ||
+                r.PedId!=pedId || r.TurnId!=turnId ||
+                r.GenerationId!=generationId)return null;
+            return activeTicket;
+        }
         // Core PlaybackStarted/Ended events carry PedId, TurnId and Int64
         // GenerationId, but NOT SessionNonce or any PS6 ticket ID. Only the
         // original native binding supplies those; never accept callbacks as a
