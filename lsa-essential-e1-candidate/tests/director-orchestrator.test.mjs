@@ -13,8 +13,8 @@ const stamp={hostRunId:'a1111111-1111-4111-8111-111111111111',
  proofRevision:1,playerTurnVersion:1,policyVersion:1};
 const candidate={
  entitlementCurrent:true,observedAtMonotonicMs:now-100,
- observation:{observationId,revision:1,observer:{captureRef:speaker,kind:'ped'},
-   expiresAtMonotonicMs:now+5000,claims:[{certainty:'supported',evidence:{channel:'visual'}}]},
+ observation:{observationId,revision:1,eventType:'firing_burst',severity:'danger',observer:{captureRef:speaker,kind:'ped'},
+   expiresAtMonotonicMs:now+5000,claims:[{kind:'firing',certainty:'supported',evidence:{channel:'visual'}}]},
  decision:{observationId,revision:1,decisionKey:'ps3-original-decision',
    policyVersion:1,response:'eligible',expiresAtMonotonicMs:now+5000},
  situation:{lifetimeCurrent:true,channelHealthy:true,perceptionSupported:true,playerCaptureRef:player},
@@ -63,6 +63,9 @@ test('complete exact native reserve/submit/hydration/publication/playback consum
  assert.equal(f.dispatches.length,1);
  assert.deepEqual(f.acknowledgements,[['ps3-original-decision','ps6_ticket','delivered']]);
  assert.equal(f.admission.active,null);
+ assert.match(f.dispatches[0].eventContext,/seen gunfire/);
+ assert.match(f.dispatches[0].eventContext,/dialogue only, no actions/);
+ assert.ok(f.dispatches[0].eventContext.length<=160);
  assert.equal(f.dispatches[0].faceListener,false);
  assert.equal(f.dispatches[0].interruptExisting,false);
 });
