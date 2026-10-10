@@ -105,6 +105,80 @@ class Program
               DirectorStockTurnRequest.Prepare(c06request,preparedProof,actor,actor,
               "context")==null,
               "newline and self-target forbidden");
+        // #3A source-compatible *actual* stock Submit boundary. Offline
+        // enabling below is deliberately local to a test fixture only.
+        // Production's static factory is unconditionally disabled until #3B.
+        var productionOffAdmission=new DirectorAdmission(()=>1000L,r=>true,
+            ()=>c06request.HostRunId,()=>c06request.WorldEpoch,true,
+            ()=>0L,()=>1L);
+        var productionOff=DirectorSchedulerIntake.Production(productionOffAdmission);
+        int stockBefore=LosSantosAlive.Bridge.SpecialTurns.SpecialGeminiTurnScheduler.Calls;
+        Check(!productionOff.Dispatch(c06request.TicketId,"A nearby incident.",
+            preparedProof,actor,player) &&
+            LosSantosAlive.Bridge.SpecialTurns.SpecialGeminiTurnScheduler.Calls==stockBefore,
+            "production 3A default-off cannot invoke real stock scheduler");
+        var preparedNative=new DirectorAdmission(()=>1000L,
+            (r,stage)=>DirectorC06Policy.Safe(r,preparedProof),
+            ()=>c06request.HostRunId,()=>c06request.WorldEpoch,true,
+            ()=>0L,()=>1L);
+        var nativeReserve=new DirectorAdmission.Request {
+            Version=1,Operation="reserve",TicketId=c06request.TicketId,
+            DedupeKey="ps:"+c06request.TicketId,HostRunId=c06request.HostRunId,
+            WorldEpoch=c06request.WorldEpoch,SpeakerCaptureRef=c06request.SpeakerCaptureRef,
+            PlayerCaptureRef=c06request.PlayerCaptureRef,OwnerIncarnationId=c06request.OwnerIncarnationId,
+            ProofRevision=c06request.ProofRevision,PlayerTurnVersion=c06request.PlayerTurnVersion,
+            PolicyVersion=1,ObservationId=c06request.ObservationId,
+            ObservationRevision=1,DecisionKey=c06request.DecisionKey,AgeMs=100
+        };
+        Check(preparedNative.Handle(nativeReserve).Status=="reserved" &&
+            preparedNative.Handle(new DirectorAdmission.Request {
+                Version=nativeReserve.Version,Operation="submit",
+                TicketId=nativeReserve.TicketId,DedupeKey=nativeReserve.DedupeKey,
+                HostRunId=nativeReserve.HostRunId,WorldEpoch=nativeReserve.WorldEpoch,
+                SpeakerCaptureRef=nativeReserve.SpeakerCaptureRef,
+                PlayerCaptureRef=nativeReserve.PlayerCaptureRef,
+                OwnerIncarnationId=nativeReserve.OwnerIncarnationId,
+                ProofRevision=nativeReserve.ProofRevision,PlayerTurnVersion=nativeReserve.PlayerTurnVersion,
+                PolicyVersion=nativeReserve.PolicyVersion,ObservationId=nativeReserve.ObservationId,
+                ObservationRevision=nativeReserve.ObservationRevision,
+                DecisionKey=nativeReserve.DecisionKey,AgeMs=nativeReserve.AgeMs
+            }).Status=="submitted","native stock adapter requires real reserve then submit");
+        int calls=0;
+        var testIntake=new DirectorSchedulerIntake(preparedNative,req=>{
+            calls++;
+            return req.SpeakerPed==actor && req.ListenerPed==player &&
+                req.SpeechTargetPed==player && req.Reason=="ps6_observer" &&
+                !req.FaceListener && !req.InterruptExisting &&
+                req.CancelIfPlayerStartsTurn && req.SkipIfSpeakerBusy &&
+                req.DedupeKey=="ps:"+c06request.TicketId;
+        },true);
+        Check(!testIntake.Dispatch(nativeReserve.TicketId,"\nInjected command",
+            preparedProof,actor,player) && calls==0,
+            "unbounded context never calls stock");
+        Check(testIntake.Dispatch(nativeReserve.TicketId,
+            "A brief nearby incident.",preparedProof,actor,player) && calls==1,
+            "one-shot dispatch invokes source-compatible original stock Submit");
+        Check(!testIntake.Dispatch(nativeReserve.TicketId,
+            "A brief nearby incident.",preparedProof,actor,player) && calls==1,
+            "duplicate native intake cannot reschedule original ticket");
+        // Decode only transport fields; never acquire PS3/native permission.
+        var intakeJson=new JavaScriptSerializer().Serialize(new {
+            version=1,type="director.stock_intake",
+            ticketId=nativeReserve.TicketId,dedupeKey=nativeReserve.DedupeKey,
+            reason="ps6_observer",context="Nearby trouble."
+        });
+        DirectorStockIntakeCodec.Frame intakeFrame;
+        Check(DirectorStockIntakeCodec.TryDecode(intakeJson,out intakeFrame) &&
+            intakeFrame.TicketId==nativeReserve.TicketId &&
+            intakeFrame.Context=="Nearby trouble.",
+            "exact bounded stock intake payload decoded");
+        Check(!DirectorStockIntakeCodec.TryDecode(
+            intakeJson.Replace("director.stock_intake","native.execute"),out intakeFrame) &&
+            !DirectorStockIntakeCodec.TryDecode(
+            intakeJson.Replace("Nearby trouble.","DO FOLLOW\\n"),out intakeFrame) &&
+            !DirectorStockIntakeCodec.TryDecode(
+            intakeJson.Substring(0,intakeJson.Length-1)+",\\\"pedId\\\":\\\"17\\\"}",out intakeFrame),
+            "stock intake refuses command types, newlines and forged PedId");
         c06request.Operation="reserve";
         Check(DirectorStockTurnRequest.Prepare(c06request,preparedProof,actor,player,
               "context")==null,"non-submitted ticket cannot become stock request");
