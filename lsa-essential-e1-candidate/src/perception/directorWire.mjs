@@ -121,3 +121,24 @@ export function serializeDirectorOriginalOwnerReceipt(ticket,stamp,owner) {
     throw new TypeError('original_owner_receipt_unverified');
   return JSON.stringify(value)+'\n';
 }
+
+// 13a/#3A: distinct, bounded stock scheduler intake after a native submit.
+// It is deliberately NOT a native authorization, audio receipt or #3B turn
+// binding. No arbitrary scheduler command, action, PedId or session nonce.
+export function serializeDirectorStockIntake(ticket,context) {
+  const payload={
+    version:1,type:'director.stock_intake',
+    ticketId:ticket?.ticketId,dedupeKey:ticket?.dedupeKey,
+    reason:'ps6_observer',context,
+  };
+  if(Object.keys(payload).length!==6 ||
+     payload.version!==1 || !isUuid(payload.ticketId) ||
+     payload.dedupeKey!==`ps:${payload.ticketId}` ||
+     typeof payload.context!=='string' ||
+     payload.context.length<1 || payload.context.length>160 ||
+     !payload.context.trim() ||
+     /[\r\n\0\t]/.test(payload.context) ||
+     Buffer.byteLength(JSON.stringify(payload))>8192)
+    throw new TypeError('director_stock_intake_invalid');
+  return JSON.stringify(payload)+'\n';
+}
