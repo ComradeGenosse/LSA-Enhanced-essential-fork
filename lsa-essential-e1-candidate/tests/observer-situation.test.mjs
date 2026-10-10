@@ -92,6 +92,14 @@ test('native source P2 proof revision preserves exact incarnation and rejects st
  assert.equal(f.runtime.directorOwnerProofFor(f.captureRef),null);
  f.runtime.retire(f.captureRef);
  assert.equal(f.runtime.directorOwnerProofFor(f.captureRef),null);
+ const stale=fixture({version:1,owned:true});
+ const late=rowFor=>( {captureRef:stale.captureRef,sampledGameTick:10,
+   activity:'idle',situationRevision:rowFor.situationRevision,
+   primaryOwner:owner,ownerProofRevision:rowFor.ownerProofRevision});
+ assert.equal(stale.send('observer_situation',[late({situationRevision:1,ownerProofRevision:12})]),true);
+ assert.equal(stale.send('observer_situation',[late({situationRevision:2,ownerProofRevision:11})]),false);
+ assert.equal(stale.runtime.epoch,null);
+ assert.equal(stale.runtime.directorOwnerProofFor(stale.captureRef),null);
 });
 test('native owner revision is optional, rejects zero/unowned/forged and is never PS3 grant',()=>{
  const originalRow=f=>({captureRef:f.captureRef,sampledGameTick:10,
