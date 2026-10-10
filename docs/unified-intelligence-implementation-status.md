@@ -1022,3 +1022,42 @@ Intermediate CI found a test-only bad newline fixture (literal escaped character
 `DirectorAdmission(...,enabled:false)` **still prevents live Director speech**. The bridge cannot bind a real Essential tuple because no source-verified native/companion intake yet obtains the original full turn/generation/**sessionNonce** after a real stock `kb` request. Neither the compiled Core special-turn revision nor queued-audio idle sample establishes the complete global player text/microphone arbitration or active Essential hydration/turn state. P2 does not yet publish a source-authoritative monotonic owner proof revision into the native-to-companion stamp. The original PS3 observation and salience grant are still companion-owned: matching IDs or an injected test-all-positive `Snapshot` cannot authorize a live native ticket, and no separately original native PS3 grant receipt exists. Stock `Submit` is **not called**. Consequently player priority, full source authorization, live cancellation and Phase 13a spontaneous speech scheduling remain incomplete.
 
 Baseline PS4 audit stays at **22/81** individually verified oracles; the unreviewed cases are not closed by aggregate test counts. Native Phase 6 / PS4 full acceptance, pinned production Release addon and payload hashes, GTA PS4 G7 and Phase 13a A33/A34/A39/A40 remain outstanding. No merge, installation, deployment, feature enablement, Phase 10a, or other deferred phase.
+
+
+## Checkpoint 84: genuine P2 native owner-proof revision propagated to PS6 companion (October 10, 2026)
+
+**Verified production/test code head:** `39b43b574f2ccab8eeca5514cbdfd7d8c4ad2b19`. [GitHub Actions run 38010438187](https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/actions/runs/38010438187) completed **SUCCESS on Linux and Windows**. This increment narrows an earlier source-authority blocker without enabling speech.
+
+### Native original owner authority
+
+- The **existing actual P2 `Encounter`** now owns a monotonic `DirectorProofRevision` starting positive. Its immutable `PrimaryBehaviorOwner` setter increments only when the original owner token actually changes; `Suspended` setter increments on transitions. This catches rapid A→B→A mode/ownership changes even when the later idle mode looks the same and the game tick has not advanced. Idempotent mode/suspension updates do not increment. Integer exhaustion permanently switches the revision to zero/unknown—no wrap or nonce recycling.
+- The original P2 `PerceptionRoster` returns the source revision only for its **exact still-registered encounter**. `ReadDirectorC06` reads that revision as `OwnerProofRevision`, so a candidate with an older requested proof revision fails the existing exact owner comparison. It never derives revision from a Ped handle, clock, model, request field, or legacy `primaryOwner.since`.
+- The native PS `observer_situation` sample now also carries optional `ownerProofRevision` from its independently current original P2 association, alongside the existing `primaryOwner`. Missing/unreadable, unowned, retired or overflowed producer state remains **null** and does not become positive authority.
+
+### Source-scoped companion receipt
+
+- The existing strictly authenticated perception stream accepts the optional v1 `ownerProofRevision` only when it is a positive exact 32-bit integer and the original valid `primaryOwner` exists. The receiver additionally requires a live **owned native `observer_index` with an original incarnation ID** for any positive revision. Valid-but-contradictory ownership and a rollback from revision N to an earlier revision during the same lifetime retire the stream; malformed frames are simply rejected without accepting proof, preserving original parser semantics.
+- New `ShadowRuntime.directorOwnerProofFor(captureRef)` exposes a frozen, source-produced owner proof tuple (`hostRunId,worldEpoch,speakerCaptureRef,ownerIncarnationId,proofRevision`) only while the native observer, matching registered ownership, and owner situation sample remain current. Expiry, retirement, world reset, missing proof, and unowned/legacy input yield null. This is **native-source observation evidence**, not permission to speak, a PS3 response entitlement, a full global player turn/version, nor an Essential scheduling claim. The active Director orchestrator is **not** enabled or granted authority by this method.
+
+### Matching-HEAD executed tests
+
+| Suite | Result |
+| --- | --- |
+| Linux full isolated Node | **704 passed / 70 files / no failing files** |
+| Windows full isolated Node | **704 passed / 70 files / no failing files** |
+| Focused Phase 13a Node tests | **33/33 each OS** |
+| Windows real pinned Essential Core metadata ABI | **PASS** |
+| Windows ACT native contracts | **263 assertions passed** |
+| Windows shared PS intelligence native | **115 assertions passed** |
+| Windows Director/C06 native | **187 assertions passed** |
+| Windows actual P2 owner lifecycle | **194 assertions passed** |
+| Windows HostContext/anchors | **62 assertions passed** |
+| Windows production-source PS host integration test doubles | **128 assertions passed** |
+
+The first intermediate Linux test run rejected malformed owner revisions correctly but its new test mistakenly expected a **stream disconnect** instead of the existing parser's malformed-frame drop behavior. The test was corrected to verify the actual no-permission/no-sample invariant. No permission check, validator, or regression assertion was weakened. The matching-source full run above is green.
+
+### Still not functional Phase 13a
+
+The source-owned P2 revision is **now available**, replacing the previous unknown native owner-revision evidence gap. However, the complete **player text/microphone/Essential turn-priority arbiter**, independently original **PS3 observation and response-entitlement** admission record, production **real stock `kb` Submit** with original ticket, original **Core-produced full session nonce / generation / turn binding**, and accepted in-game callback path are **still not established**. Companion source proof is a separate optional fact; a full C06 stamp is not synthesized. The native constructor still supplies `enabled:false` and its shadow preview rejects speech; other independent unknown C06/PS3 gates still refuse. No production RPH Release build, verified payload hashes, GTA PS4 G7, or Phase 13a A33/A34/A39/A40 acceptance executed.
+
+PS4 audit remains **22/81** individually verified cases; Phase 6 overall, remaining PS4, Phase 13a and all physical gates are **not complete**. No merge, installation, deployment, feature enablement, scheduler call, Phase 10a or deferred phase.
