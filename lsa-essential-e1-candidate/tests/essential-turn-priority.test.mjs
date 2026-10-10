@@ -124,3 +124,44 @@ test('pinned AST modifies original lifecycle entrypoints rather than polling alo
    assert.ok(patched.output.includes('originalTurnTransition("'+event+'")'));
  assert.match(patched.output,/inspectOriginalTurnPriority/);
 });
+
+
+test('source-side original backend lease is exclusive, native ticket-specific, and cannot survive a mic/text ABA',()=>{
+ let now=1000;
+ const timeline=new OriginalEssentialTurnTimeline({now:()=>now});
+ const a='71111111-1111-4111-8111-111111111111',b='81111111-1111-4111-8111-111111111111';
+ const first=timeline.sample(clear());
+ assert.ok(timeline.acquire(a,first));
+ assert.equal(timeline.leaseCount,1);
+ assert.equal(timeline.acquire(b,first),null,'a second candidate cannot borrow owner lease');
+ assert.ok(timeline.check(a,timeline.sample(clear())));
+ timeline.transition('turn_intake');
+ timeline.transition('turn_terminal');
+ assert.equal(timeline.leaseCount,0,'stock async takeover retires lease before another poll');
+ assert.equal(timeline.check(a,timeline.sample(clear())),null);
+ assert.equal(timeline.acquire(a,timeline.sample(clear())),null,'same ticket cannot rebase');
+ assert.ok(timeline.acquire(b,timeline.sample(clear())),'new ticket can use later truly idle state');
+ assert.equal(timeline.release(a),false,'foreign cancellation cannot free active lease');
+ assert.equal(timeline.leaseCount,1);
+ assert.equal(timeline.release(b),true);
+ assert.equal(timeline.leaseCount,0);
+ assert.equal(timeline.acquire(b,timeline.sample(clear())),null,'canceled ticket cannot be revived');
+});
+
+test('original backend ownership lease expires and revokes on hidden map mutation',()=>{
+ let now=1000;
+ const t=new OriginalEssentialTurnTimeline({now:()=>now});
+ const ticket='91111111-1111-4111-8111-111111111111';
+ const snapshot=t.sample(clear());
+ assert.ok(t.acquire(ticket,snapshot,200));
+ assert.ok(t.check(ticket,t.sample(clear())));
+ const ownerChanged=t.sample({...clear(),pendingSessionOpens:1});
+ assert.equal(ownerChanged.quiet,false);
+ assert.equal(t.check(ticket,ownerChanged),null);
+ assert.equal(t.acquire(ticket,t.sample(clear())),null);
+ const next='a1111111-1111-4111-8111-111111111111';
+ assert.ok(t.acquire(next,t.sample(clear()),200));
+ now+=201;
+ assert.equal(t.check(next,t.sample(clear())),null,'expiry cannot refresh the lease');
+ assert.equal(t.acquire(next,t.sample(clear())),null,'expired lease is terminal');
+});
