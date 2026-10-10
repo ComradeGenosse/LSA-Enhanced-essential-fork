@@ -21,19 +21,28 @@ export class DirectorObservationPump {
     this.lastDiagnostic={reason,at};
     try{this.onDiagnostic(Object.freeze({reason}));}catch{}
   }
+  // Diagnostic-only read of the existing current native source proofs.
+  stampVetoReason(proposal) {
+    const runtime=this.client.runtime, owner=runtime.directorOwnerProofFor(proposal.speakerCaptureRef);
+    if(!owner)return 'owner_proof_unavailable';
+    const priority=runtime.directorPriority,now=this.now();
+    if(!priority)return 'player_priority_missing';
+    if(!priority.experimentalEnabled)return 'native_director_not_enabled';
+    if(!Number.isSafeInteger(priority.playerTurnVersion) ||
+       priority.playerTurnVersion<0 || !Number.isSafeInteger(priority.receivedAt))
+      return 'player_priority_invalid';
+    if(now<priority.receivedAt || now-priority.receivedAt>1500)return 'player_priority_stale';
+    if(priority.hostRunId!==owner.hostRunId ||
+       priority.worldEpoch!==owner.worldEpoch)return 'player_priority_host_mismatch';
+    if(!runtime.current(proposal.playerCaptureRef))return 'player_anchor_unavailable';
+    return null;
+  }
   // The original P2 source supplies ownership; the native Core read supplies
   // the actual current player-turn revision. No JS zero/quiet fallback.
   currentStamp(proposal) {
-    const runtime=this.client.runtime, priority=runtime.directorPriority;
+    if(this.stampVetoReason(proposal))return null;
+    const runtime=this.client.runtime,priority=runtime.directorPriority;
     const owner=runtime.directorOwnerProofFor(proposal.speakerCaptureRef);
-    const now=this.now();
-    if(!priority || !priority.experimentalEnabled || !owner ||
-       !Number.isSafeInteger(priority.playerTurnVersion) ||
-       priority.playerTurnVersion<0 || !Number.isSafeInteger(priority.receivedAt) ||
-       now<priority.receivedAt || now-priority.receivedAt>1500 ||
-       priority.hostRunId!==owner.hostRunId ||
-       priority.worldEpoch!==owner.worldEpoch || !runtime.current(proposal.playerCaptureRef))
-      return null;
     return Object.freeze({...owner,
       playerCaptureRef:proposal.playerCaptureRef,
       playerTurnVersion:priority.playerTurnVersion,
@@ -88,11 +97,16 @@ export class DirectorObservationPump {
     try {
       let stamp=null;
       try {stamp=this.stampFor(selected.proposal,selected.facts);}catch{}
-      if(!stamp)this.diagnose('player_priority_or_owner_stamp_unavailable');
+      if(!stamp)this.diagnose(this.stampVetoReason(selected.proposal)??'stamp_provider_unavailable');
       const outcome=await this.coordinator.attempt({
         candidates:selected.candidates,facts:selected.facts,stamp,
       });
-      try {this.onResult(outcome);}catch{}
+      // A missing stamp previously appeared as a misleading PS3 grant failure.
+      // Preserve the coordinator's status and execution behavior.
+      const diagnosticReason=outcome?.status==='original_ps3_unavailable' ?
+        (stamp?'original_ps3_entitlement_unverified':'stamp_unavailable'):null;
+      try {this.onResult(diagnosticReason?
+        Object.freeze({...outcome,diagnosticReason}):outcome);}catch{}
       return outcome;
     } catch {
       const result=Object.freeze({status:'producer_failed'});

@@ -53,6 +53,7 @@ namespace LSA.Intelligence
         readonly Func<int> currentWorld;
         readonly Func<long> specialTurnSource;
         readonly Func<long> playerPrioritySource;
+        readonly Action<string,string> diagnostic;
         readonly Dictionary<string,Reservation> pending=new Dictionary<string,Reservation>();
         readonly Queue<long> attempts=new Queue<long>();
         readonly Dictionary<string,long> seen=new Dictionary<string,long>();
@@ -62,13 +63,15 @@ namespace LSA.Intelligence
 
         internal DirectorAdmission(Func<long> clock,Func<Request,bool> independentlySafe,
           Func<string> currentHost,Func<int> currentWorld,bool enabled=false,
-          Func<long> specialTurnSource=null,Func<long> playerPrioritySource=null)
+          Func<long> specialTurnSource=null,Func<long> playerPrioritySource=null,
+          Action<string,string> diagnostic=null)
           :this(clock,independentlySafe==null?null:
               new Func<Request,string,bool>((request,stage)=>independentlySafe(request)),
-              currentHost,currentWorld,enabled,specialTurnSource,playerPrioritySource) {}
+              currentHost,currentWorld,enabled,specialTurnSource,playerPrioritySource,diagnostic) {}
         internal DirectorAdmission(Func<long> clock,Func<Request,string,bool> independentlySafe,
           Func<string> currentHost,Func<int> currentWorld,bool enabled=false,
-          Func<long> specialTurnSource=null,Func<long> playerPrioritySource=null)
+          Func<long> specialTurnSource=null,Func<long> playerPrioritySource=null,
+          Action<string,string> diagnostic=null)
         {
             this.clock=clock??throw new ArgumentNullException(nameof(clock));
             this.independentlySafe=independentlySafe??throw new ArgumentNullException(nameof(independentlySafe));
@@ -81,7 +84,12 @@ namespace LSA.Intelligence
             // No proven end-to-end Essential text/mic/dialogue epoch source is
             // wired in production yet. Missing is a hard veto, not epoch zero.
             this.playerPrioritySource=playerPrioritySource;
+            this.diagnostic=diagnostic;
             this.enabled=enabled;
+        }
+        void NoteVeto(string stage,string reason)
+        {
+            try {diagnostic?.Invoke(stage,reason);} catch {}
         }
         static bool Uuid(string value)=>value!=null && Regex.IsMatch(value,
           "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
@@ -98,9 +106,13 @@ namespace LSA.Intelligence
           r.AgeMs>=0 && r.AgeMs<=2000;
         bool Safe(Request r,string stage)
         {
-            if(!enabled||!Valid(r)||r.HostRunId!=currentHost()||
-                r.WorldEpoch!=currentWorld())return false;
-            try {return independentlySafe(r,stage)==true;}catch{return false;}
+            if(!enabled){NoteVeto(stage,"director_disabled");return false;}
+            if(!Valid(r)){NoteVeto(stage,"request_invalid");return false;}
+            if(r.HostRunId!=currentHost() || r.WorldEpoch!=currentWorld()){
+                NoteVeto(stage,"host_world_mismatch");return false;
+            }
+            try {return independentlySafe(r,stage)==true;}
+            catch {NoteVeto(stage,"c06_source_read_failed");return false;}
         }
         bool ReadSpecial(out long version)
         {
@@ -119,13 +131,17 @@ namespace LSA.Intelligence
         bool SafeReserved(Reservation original,string stage)
         {
             long specialBefore,specialAfter,playerBefore,playerAfter;
-            return original!=null && original.SpecialTurnVersion>=0 &&
-                original.PlayerPriorityRevision>=0 &&
-                ReadSpecial(out specialBefore) && specialBefore==original.SpecialTurnVersion &&
-                ReadPlayerPriority(out playerBefore) && playerBefore==original.PlayerPriorityRevision &&
-                Safe(original.Request,stage) &&
-                ReadPlayerPriority(out playerAfter) && playerAfter==original.PlayerPriorityRevision &&
-                ReadSpecial(out specialAfter) && specialAfter==original.SpecialTurnVersion;
+            if(original==null || original.SpecialTurnVersion<0 || original.PlayerPriorityRevision<0){NoteVeto(stage,"reservation_source_unavailable");return false;}
+            if(!ReadSpecial(out specialBefore)){NoteVeto(stage,"special_turn_source_unavailable");return false;}
+            if(specialBefore!=original.SpecialTurnVersion){NoteVeto(stage,"special_turn_version_changed");return false;}
+            if(!ReadPlayerPriority(out playerBefore)){NoteVeto(stage,"player_priority_source_unavailable");return false;}
+            if(playerBefore!=original.PlayerPriorityRevision){NoteVeto(stage,"player_priority_changed");return false;}
+            if(!Safe(original.Request,stage))return false;
+            if(!ReadPlayerPriority(out playerAfter)){NoteVeto(stage,"player_priority_source_unavailable");return false;}
+            if(playerAfter!=original.PlayerPriorityRevision){NoteVeto(stage,"player_priority_changed");return false;}
+            if(!ReadSpecial(out specialAfter)){NoteVeto(stage,"special_turn_source_unavailable");return false;}
+            if(specialAfter!=original.SpecialTurnVersion){NoteVeto(stage,"special_turn_version_changed");return false;}
+            return true;
         }
         void Trim(long now)
         {
@@ -173,11 +189,31 @@ namespace LSA.Intelligence
                     return new Receipt(request.TicketId,"busy");
                 attempts.Enqueue(now);seen.Add(request.TicketId,now);seenOrder.Enqueue(new KeyValuePair<string,long>(request.TicketId,now));
                 long initial,after,playerInitial,playerAfter;
-                if(!ReadSpecial(out initial) || !ReadPlayerPriority(out playerInitial) ||
-                   !Safe(request,"reserve") ||
-                   !ReadPlayerPriority(out playerAfter) || playerAfter!=playerInitial ||
-                   !ReadSpecial(out after) || after!=initial)
+                if(!ReadSpecial(out initial)) {
+                    NoteVeto("reserve","special_turn_source_unavailable");
                     return new Receipt(request.TicketId,"unsafe");
+                }
+                if(!ReadPlayerPriority(out playerInitial)) {
+                    NoteVeto("reserve","player_priority_source_unavailable");
+                    return new Receipt(request.TicketId,"unsafe");
+                }
+                if(!Safe(request,"reserve"))return new Receipt(request.TicketId,"unsafe");
+                if(!ReadPlayerPriority(out playerAfter)) {
+                    NoteVeto("reserve","player_priority_source_unavailable");
+                    return new Receipt(request.TicketId,"unsafe");
+                }
+                if(playerAfter!=playerInitial) {
+                    NoteVeto("reserve","player_priority_changed");
+                    return new Receipt(request.TicketId,"unsafe");
+                }
+                if(!ReadSpecial(out after)) {
+                    NoteVeto("reserve","special_turn_source_unavailable");
+                    return new Receipt(request.TicketId,"unsafe");
+                }
+                if(after!=initial) {
+                    NoteVeto("reserve","special_turn_version_changed");
+                    return new Receipt(request.TicketId,"unsafe");
+                }
                 pending[request.TicketId]=new Reservation{
                     Request=request,ExpiresAt=now+TicketTtlMs,
                     SpecialTurnVersion=initial,PlayerPriorityRevision=playerInitial

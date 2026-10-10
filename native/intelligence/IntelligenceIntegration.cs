@@ -111,6 +111,11 @@ namespace LSA.Intelligence
         int Age(long timestamp)=>timestamp<0?int.MaxValue:Clamp(host.MonotonicMs-timestamp);
         internal string RuntimeStatus()=>"available="+IsAvailable+" update_calls="+UpdateCalls+" update_completed="+CompletedUpdates+" last_update_age_ms="+Age(Interlocked.Read(ref lastUpdateMs))+" last_completed_age_ms="+Age(Interlocked.Read(ref lastCompletedMs))+" last_game_tick="+callbackTick+" shutdown_reason="+ShutdownReason;
         internal static void LogStatus(string message) {try{Game.LogTrivial(message);}catch{}}
+        // Fixed diagnostic codes only. Never log any GTA entity or ticket ID.
+        void LogDirectorVeto(string stage,string reason)
+        {
+            if(directorShadow)LogStatus("[PS] director_admission_veto stage="+stage+" reason="+reason);
+        }
         static readonly string[] capabilityNames={"snapshot","pedDamage","playerDamage","vehicleDamage","shooting","state","action","playback","witness","awareness","playerSpeech"};
         public IntelligenceIntegration(Func<OwnedParticipant[]> roster,string pipeName="LSA.Intelligence.v1",HostContext host=null,bool directorShadow=false,bool directorExperimental=false) {
             if(pipeName==null||!System.Text.RegularExpressions.Regex.IsMatch(pipeName,"^[A-Za-z0-9_.-]{1,80}$")) throw new ArgumentException();
@@ -123,9 +128,17 @@ namespace LSA.Intelligence
                 ()=>LSA.PromotedCharacters.EssentialPlayerPriorityMonitor.Read());
             // This preview endpoint never acquires C-11 speech authority.
             // Verified native C-06 + Essential intake are deliberately absent.
-            director=new DirectorAdmission(()=>this.host.MonotonicMs,(r,stage)=>(stage=="playback_started" || stage=="complete") ? DirectorC06Policy.CurrentOccupiedPlayback(r,ReadDirectorC06(r)) : stage=="bind" ? DirectorC06Policy.CurrentOccupiedPlayback(r,ReadDirectorC06(r)) : DirectorC06Policy.Safe(r,ReadDirectorC06(r)),()=>this.host.HostRunId,()=>this.host.WorldEpoch,directorExperimental,
+            director=new DirectorAdmission(()=>this.host.MonotonicMs,(r,stage)=>{
+                var snapshot=ReadDirectorC06(r);
+                bool occupied=stage=="bind" || stage=="playback_started" || stage=="complete";
+                bool safe=occupied ? DirectorC06Policy.CurrentOccupiedPlayback(r,snapshot) :
+                    DirectorC06Policy.Safe(r,snapshot);
+                if(!safe)LogDirectorVeto(stage,DirectorC06Policy.FirstVeto(r,snapshot,stage));
+                return safe;
+            },()=>this.host.HostRunId,()=>this.host.WorldEpoch,directorExperimental,
                 ()=>LosSantosAlive.Bridge.SpecialTurns.SpecialGeminiTurnService.ReadPlayerTurnVersion(),
-                 ()=>this.directorShadow ? LSA.PromotedCharacters.EssentialPlayerPriorityMonitor.Read() : -1);
+                ()=>this.directorShadow ? LSA.PromotedCharacters.EssentialPlayerPriorityMonitor.Read() : -1,
+                (stage,reason)=>LogDirectorVeto(stage,reason));
             // #3A compiles and binds the real pinned Essential Submit method.
             // This adapter is intentionally, unconditionally DEFAULT-OFF:
             // #3B must bind native callback tuple before activation.

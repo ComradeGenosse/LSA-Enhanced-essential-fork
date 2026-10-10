@@ -177,7 +177,9 @@ export async function createRuntimeForBundle(options = {}) {
       },
       onResult:outcome=>{
         try {telemetry?.emit?.('director_candidate',null,'internal',{
-          status:outcome?.status??'unknown',nativeReason:outcome?.nativeReason,configuredMode:config.spontaneousSpeech.mode,
+          status:outcome?.status??'unknown',nativeReason:outcome?.nativeReason,
+          diagnosticReason:outcome?.diagnosticReason??null,
+          configuredMode:config.spontaneousSpeech.mode,
           executionAvailable:experimental &&
             client.runtime.directorPriority?.experimentalEnabled===true,
         },'internal');}catch{}

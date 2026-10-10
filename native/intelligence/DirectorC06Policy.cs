@@ -35,6 +35,54 @@ namespace LSA.Intelligence
             public bool ScriptStateKnown,ScriptSafe,ActorReflexKnown,ActorReflexIdle;
             public bool ObservationReceiptCurrent,ResponseGrantCurrent;
         }
+
+        // Read-only diagnosis of the FIRST already-enforced C-06 veto.
+        // Closed strings only: no actor/ticket identifiers or PS2 claim text.
+        internal static string FirstVeto(DirectorAdmission.Request r,Snapshot s,string stage)
+        {
+            bool occupied=stage=="bind" || stage=="playback_started" || stage=="complete";
+            if(occupied ? CurrentOccupiedPlayback(r,s) : Safe(r,s))return null;
+            if(r==null || s==null)return "missing_request_or_snapshot";
+            if(string.IsNullOrWhiteSpace(r.HostRunId) || string.IsNullOrWhiteSpace(r.SpeakerCaptureRef) || string.IsNullOrWhiteSpace(r.PlayerCaptureRef) || string.IsNullOrWhiteSpace(r.OwnerIncarnationId))return "request_identity_missing";
+            if(r.HostRunId!=s.HostRunId || r.WorldEpoch<=0 || r.WorldEpoch!=s.WorldEpoch)return "host_world_mismatch";
+            if(r.SpeakerCaptureRef!=s.SpeakerCaptureRef || r.PlayerCaptureRef!=s.PlayerCaptureRef || r.OwnerIncarnationId!=s.OwnerIncarnationId || r.ProofRevision<=0 || r.ProofRevision!=s.OwnerProofRevision)return "owner_identity_or_revision_mismatch";
+            if(!s.SpeakerAnchorCurrent)return "speaker_anchor_missing";
+            if(!s.SpeakerOwned)return "speaker_not_owned";
+            if(!s.SpeakerObserver)return "speaker_not_observer";
+            if(!s.SpeakerAlive)return "speaker_not_alive";
+            if(!s.PlayerAnchorCurrent)return "player_anchor_missing";
+            if(!s.PlayerIsLocal)return "player_not_local";
+            if(!s.PlayerAlive)return "player_not_alive";
+            if(!s.OwnerProofCurrent)return "owner_proof_missing";
+            if(!s.OwnerPrimaryModeKnown)return "owner_mode_unknown";
+            if(!s.MicStateKnown)return "mic_state_unknown";
+            if(!s.MicIdle)return "mic_busy";
+            if(!s.ConversationStateKnown)return "conversation_state_unknown";
+            if(!s.TextInputKnown)return "text_input_unknown";
+            if(!s.TextInputIdle)return "text_input_busy";
+            if(!s.ControlsInputKnown)return "controls_input_unknown";
+            if(!s.ControlsInputIdle)return "controls_input_busy";
+            if(!s.ScriptStateKnown)return "script_state_unknown";
+            if(!s.ScriptSafe)return "script_state_unsafe";
+            if(!s.ActorReflexKnown)return "actor_reflex_unknown";
+            if(!s.ActorReflexIdle)return "actor_reflex_busy";
+            if(occupied)return "occupied_playback_unclassified";
+            if(string.IsNullOrWhiteSpace(r.ObservationId) || string.IsNullOrWhiteSpace(r.DecisionKey) || r.ObservationRevision<=0)return "original_observation_identity_missing";
+            if(!s.PlayerTurnSourceCurrent)return "player_turn_source_unavailable";
+            if(r.PlayerTurnVersion!=s.PlayerTurnVersion)return "player_turn_version_mismatch";
+            if(!s.PlayerTurnIdle)return "player_turn_busy";
+            if(r.PolicyVersion!=s.PolicyVersion)return "policy_version_mismatch";
+            if(!s.ObservationReceiptCurrent)return "original_ps3_receipt_missing";
+            if(!s.ResponseGrantCurrent)return "original_ps3_grant_missing";
+            if(r.ObservationId!=s.ObservationId || r.ObservationRevision!=s.ObservationRevision || r.DecisionKey!=s.DecisionKey)return "original_ps3_identity_mismatch";
+            if(!s.EssentialTurnKnown)return "essential_turn_unknown";
+            if(!s.OwnerIdle)return "owner_busy";
+            if(!s.EssentialTurnIdle)return "essential_turn_busy";
+            if(!s.PlaybackKnown)return "playback_state_unknown";
+            if(!s.PlaybackIdle)return "playback_busy";
+            if(!s.ConversationIdle)return "conversation_busy";
+            return "c06_unclassified";
+        }
         // Admission must be idle; playback completion may be legitimately busy.
         internal static bool Safe(DirectorAdmission.Request r,Snapshot s)
         {
