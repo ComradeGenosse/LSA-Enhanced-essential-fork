@@ -28,6 +28,7 @@ test('verified-ticket test double enforces no DO before stock action events',asy
  // ONLY a fake acceptance here; production native preview cannot do this.
  h.runtime.directorPreflight=()=>true;
  h.runtime.requireDirectorTicket=()=>ticket;
+ h.runtime.intelligence={sendDirectorOriginalTurnBinding:()=>true}; // native Xn test relay
  h.runtime.services.decide=async()=>({dialogue:'I see trouble.',command:'DO FOLLOW'});
  const turn=await h.evaluate('kb(directorArgs)');
  assert.ok(turn);
@@ -70,6 +71,21 @@ test('3A Core scheduler DTO cannot bypass backend ticket hydration while 3B rema
  const result=await h.evaluate('kb(directorArgs)');
  assert.equal(result,false);
  assert.equal(decisions,0);
+ assert.equal(h.actions.length,0);
+ session.connection.close();
+});
+
+test('source-pinned Xn cannot start Director model speech without exact binding relay',async()=>{
+ const h=await stockHarness('openai');
+ const session=await h.openAIControllerSession({actorContext:{pedId:'17'}});
+ h.context.directorArgs={...args,reason:'ps6_observer'};
+ h.runtime.directorPreflight=()=>true;
+ h.runtime.requireDirectorTicket=()=>ticket;
+ let decisions=0;
+ h.runtime.services.decide=async()=>{decisions++;return {dialogue:'Denied.',command:''};};
+ const result=await h.evaluate('kb(directorArgs)');
+ assert.equal(result,false,'native binding failure kills the original stock turn');
+ assert.equal(decisions,0,'no unbound model request');
  assert.equal(h.actions.length,0);
  session.connection.close();
 });
