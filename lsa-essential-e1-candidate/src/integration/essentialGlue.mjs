@@ -149,6 +149,9 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
     // effect, turn creation, artificial terminal or stock scheduling.
     originalTurnTransition:event=>originalTurnTimeline.transition(event),
     inspectOriginalTurnPriority:raw=>originalTurnTimeline.sample(raw),
+    acquireOriginalTurn:(ticketId,snapshot)=>originalTurnTimeline.acquire(ticketId,snapshot),
+    checkOriginalTurn:(ticketId,snapshot)=>originalTurnTimeline.check(ticketId,snapshot),
+    releaseOriginalTurn:ticketId=>originalTurnTimeline.release(ticketId),
     directorPreflight(input) {
       if(!input?.directorTicket || input?.interruptExisting===true ||
          input?.faceListener===true || input?.reason!=='ps6_observer' ||
