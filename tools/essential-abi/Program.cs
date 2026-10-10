@@ -185,57 +185,120 @@ foreach (var handle in metadata.TypeDefinitions)
 }
 
 
-// Candidate IL edges for the stock player-input transitions. Exact method
-// bodies, not their names, are necessary before treating a counter as global.
-// The opcode scan is exploratory (operands can resemble opcodes): it prints
-// possible direct callers but is never used as an admission verdict.
-var transitionNames = new HashSet<string>(StringComparer.Ordinal) {
-    "NotifyPlayerTurnStarted", "SendMicStart", "SendMicStop",
-    "SendTextPrompt", "BeginMicTurn", "MarkMicReleased", "StartTextInputMode"
-};
-var transitionTokens = new Dictionary<int,string>();
-foreach (var h in metadata.TypeDefinitions)
+// Source inspection only, never executed inside Essential or used for admission.
+// Decode *actual* IL instructions rather than looking for call bytes inside
+// arguments/strings. Print small, relevant transition maps for offline audit.
+var opcodeMap=new Dictionary<ushort,System.Reflection.Emit.OpCode>();
+foreach(var field in typeof(System.Reflection.Emit.OpCodes).GetFields(
+    BindingFlags.Static|BindingFlags.Public))
 {
-    var t = metadata.GetTypeDefinition(h);
-    var n = metadata.GetString(t.Namespace)+"."+metadata.GetString(t.Name);
-    foreach (var m in t.GetMethods())
-    {
-        var d = metadata.GetMethodDefinition(m);
-        var methodName = metadata.GetString(d.Name);
-        if (transitionNames.Contains(methodName) &&
-            (n.StartsWith("LosSantosAlive.Input.") ||
-             n.StartsWith("LosSantosAlive.Context.") ||
-             n.StartsWith("LosSantosAlive.Bridge.SpecialTurns.")))
-            transitionTokens[System.Reflection.Metadata.Ecma335.MetadataTokens.GetToken(m)] = n+"."+methodName;
+    if(field.GetValue(null) is System.Reflection.Emit.OpCode op)
+        opcodeMap[unchecked((ushort)op.Value)]=op;
+}
+string MemberName(int token)
+{
+    try {
+        var h=System.Reflection.Metadata.Ecma335.MetadataTokens.EntityHandle(token);
+        switch(h.Kind) {
+            case HandleKind.MethodDefinition:
+                return metadata.GetString(metadata.GetMethodDefinition((MethodDefinitionHandle)h).Name);
+            case HandleKind.MemberReference:
+                var mr=metadata.GetMemberReference((MemberReferenceHandle)h);
+                return metadata.GetString(mr.Name);
+            case HandleKind.FieldDefinition:
+                return metadata.GetString(metadata.GetFieldDefinition((FieldDefinitionHandle)h).Name);
+            case HandleKind.MethodSpecification:
+                var spec=metadata.GetMethodSpecification((MethodSpecificationHandle)h);
+                return MemberName(System.Reflection.Metadata.Ecma335.MetadataTokens.GetToken(spec.Method));
+            case HandleKind.TypeDefinition:
+                return metadata.GetString(metadata.GetTypeDefinition((TypeDefinitionHandle)h).Name);
+            case HandleKind.TypeReference:
+                return metadata.GetString(metadata.GetTypeReference((TypeReferenceHandle)h).Name);
+        }
+    } catch {}
+    return "token_0x"+token.ToString("X8");
+}
+IEnumerable<(int Offset,string Op,string Operand)> Disassemble(byte[] bytes)
+{
+    int i=0;
+    while(i<bytes.Length) {
+        int offset=i;
+        ushort code=bytes[i++];
+        if(code==0xfe && i<bytes.Length)code=(ushort)(0xfe00|bytes[i++]);
+        if(!opcodeMap.TryGetValue(code,out var op))yield break;
+        int operandSize=0;
+        switch(op.OperandType) {
+            case System.Reflection.Emit.OperandType.InlineNone:break;
+            case System.Reflection.Emit.OperandType.ShortInlineBrTarget:
+            case System.Reflection.Emit.OperandType.ShortInlineI:
+            case System.Reflection.Emit.OperandType.ShortInlineVar:operandSize=1;break;
+            case System.Reflection.Emit.OperandType.InlineVar:operandSize=2;break;
+            case System.Reflection.Emit.OperandType.InlineI:
+            case System.Reflection.Emit.OperandType.InlineBrTarget:
+            case System.Reflection.Emit.OperandType.InlineField:
+            case System.Reflection.Emit.OperandType.InlineMethod:
+            case System.Reflection.Emit.OperandType.InlineSig:
+            case System.Reflection.Emit.OperandType.InlineString:
+            case System.Reflection.Emit.OperandType.InlineTok:
+            case System.Reflection.Emit.OperandType.InlineType:
+            case System.Reflection.Emit.OperandType.ShortInlineR:operandSize=4;break;
+            case System.Reflection.Emit.OperandType.InlineI8:
+            case System.Reflection.Emit.OperandType.InlineR:operandSize=8;break;
+            case System.Reflection.Emit.OperandType.InlineSwitch:
+                if(i+4>bytes.Length)yield break;
+                operandSize=4+4*BitConverter.ToInt32(bytes,i);break;
+        }
+        if(operandSize<0 || i+operandSize>bytes.Length)yield break;
+        string operand="";
+        if(operandSize==4 && (op.OperandType==System.Reflection.Emit.OperandType.InlineField ||
+             op.OperandType==System.Reflection.Emit.OperandType.InlineMethod ||
+             op.OperandType==System.Reflection.Emit.OperandType.InlineTok ||
+             op.OperandType==System.Reflection.Emit.OperandType.InlineType))
+            operand=MemberName(BitConverter.ToInt32(bytes,i));
+        else if(op.OperandType==System.Reflection.Emit.OperandType.InlineString) {
+            try {operand=metadata.GetUserString(System.Reflection.Metadata.Ecma335.MetadataTokens.UserStringHandle(BitConverter.ToInt32(bytes,i)));}catch{}
+            if(operand.Length>70)operand=operand.Substring(0,70);
+        } else if(op.OperandType==System.Reflection.Emit.OperandType.InlineI ||
+                  op.OperandType==System.Reflection.Emit.OperandType.ShortInlineI)
+            operand=operandSize==4?BitConverter.ToInt32(bytes,i).ToString():((sbyte)bytes[i]).ToString();
+        i+=operandSize;
+        yield return (offset,op.Name??"unknown",operand);
     }
 }
-foreach (var h in metadata.TypeDefinitions)
+var interested=new Dictionary<string,HashSet<string>> {
+    ["LosSantosAlive.Input.InputController"]=new HashSet<string> {
+        "Update","SendMicStart","SendMicStop","SendTextPrompt"},
+    ["LosSantosAlive.Input.TextInputService"]=new HashSet<string>{
+        "StartTextInputMode","get_IsOpen"},
+    ["LosSantosAlive.Context.ConversationHydrationCoordinator"]=new HashSet<string>{
+        "BeginMicTurn","MarkMicReleased","Update"},
+    ["LosSantosAlive.Bridge.SpecialTurns.SpecialGeminiTurnService"]=new HashSet<string>{
+        "NotifyPlayerTurnStarted","ReadPlayerTurnVersion","SendNow"},
+    ["LosSantosAlive.NPC.NpcTargeting"]=new HashSet<string>{
+        "SetPlayerConversationPed","ClearPlayerConversationPed","GetPlayerConversationPed",
+        "ActivateAttention","GetCurrentSpeakerPed","ClearCurrentSpeaker"}
+};
+var watched=new HashSet<string> {
+    "NotifyPlayerTurnStarted","SendMicStart","SendMicStop","SendTextPrompt",
+    "BeginMicTurn","MarkMicReleased","StartTextInputMode"};
+foreach(var handle in metadata.TypeDefinitions)
 {
-    var t = metadata.GetTypeDefinition(h);
-    var n = metadata.GetString(t.Namespace)+"."+metadata.GetString(t.Name);
-    foreach (var m in t.GetMethods())
-    {
-        var d = metadata.GetMethodDefinition(m);
-        if (d.RelativeVirtualAddress == 0) continue;
-        var bytes = pe.GetMethodBody(d.RelativeVirtualAddress).GetILBytes().ToArray();
-        var methodName = metadata.GetString(d.Name);
-        foreach (var token in transitionTokens)
-        {
-            bool maybeCalls = false;
-            for (int i=0;i+4<bytes.Length;i++)
-            {
-                if (bytes[i]!=0x28 && bytes[i]!=0x6f) continue;
-                if (BitConverter.ToInt32(bytes,i+1)==token.Key) {maybeCalls = true; break;}
-            }
-            if (maybeCalls) Console.WriteLine("ABI_TRANSITION_EDGE " + n+"."+methodName+" => "+token.Value);
+    var type=metadata.GetTypeDefinition(handle);
+    var typeName=metadata.GetString(type.Namespace)+"."+metadata.GetString(type.Name);
+    foreach(var mh in type.GetMethods()) {
+        var m=metadata.GetMethodDefinition(mh);
+        if(m.RelativeVirtualAddress==0)continue;
+        string mn=metadata.GetString(m.Name);
+        var il=Disassemble(pe.GetMethodBody(m.RelativeVirtualAddress).GetILBytes().ToArray()).ToList();
+        if(interested.TryGetValue(typeName,out var methods) && methods.Contains(mn)) {
+            var edges=il.Where(x=>x.Op=="call"||x.Op=="callvirt"||
+                x.Op=="newobj"||x.Op=="ldsfld"||x.Op=="stsfld"||
+                x.Op=="ldsflda"||x.Op=="stfld"||x.Op=="ldfld"||x.Op=="ldstr")
+                .Take(90).Select(x=>x.Offset.ToString("X4")+":"+x.Op+" "+x.Operand);
+            Console.WriteLine("ABI_OWNER_IL "+typeName+"."+mn+" "+
+                string.Join(" ; ",edges));
         }
-        if ((n=="LosSantosAlive.Input.InputController" &&
-                new[]{"SendMicStart","SendMicStop","SendTextPrompt"}.Contains(methodName)) ||
-            (n=="LosSantosAlive.Context.ConversationHydrationCoordinator" &&
-                new[]{"BeginMicTurn","MarkMicReleased","Update"}.Contains(methodName)) ||
-            (n=="LosSantosAlive.Bridge.SpecialTurns.SpecialGeminiTurnService" &&
-                new[]{"NotifyPlayerTurnStarted","ReadPlayerTurnVersion"}.Contains(methodName)))
-            Console.WriteLine("ABI_TRANSITION_IL " + n+"."+methodName+
-                " size="+bytes.Length+" prefix="+Convert.ToHexString(bytes.Take(1024).ToArray()));
+        foreach(var instr in il.Where(x=>(x.Op=="call"||x.Op=="callvirt")&&watched.Contains(x.Operand)))
+            Console.WriteLine("ABI_OWNER_CALLER "+typeName+"."+mn+" -> "+instr.Operand+" @"+instr.Offset.ToString("X4"));
     }
 }
