@@ -1341,3 +1341,50 @@ The companion requires the original exclusive lease at **both** reserve and subm
 | Production-source PS host integration with stubbed Core boundary | **151 assertions PASS (Windows)** |
 
 New tests enforce default-off actual scheduler binding, reserve-vs-submit vs stock-dispatch distinction, immutable exact request shape, one-shot native intake, native player-takeover rejection, immediate reservation release on scheduler failure, strict wire parse against injected fields/text, companion enqueue only after actual native submitted receipt, original owner revision takeover veto, companion cancellation after submit, and stock `kb` refusal until the forthcoming authenticated #3B tuple handoff. **No live GTA runtime, Harmony installation, stock speech event or audio played during tests.**
+
+
+## Phase 6 closure checkpoint 92 — C-05 / C-06 / ACT SELF (October 10, 2026)
+
+**Result: CLOSED for the scoped LSA v1.0 OFFLINE implementation and automated acceptance standard; NOT GTA-accepted, deployed, enabled, or merged.** Reviewed from the original branch head `8270b9cf62a555862ad4871af41fb206b7bcd28e` against the frozen master-plan Phase 6, C-05, C-06, C-11, ACT0–ACT2, milestone and PR #21 obligations. **Matching implementation source head: `12a6dd55ff5c4fbd869a55d1a1c4711ed284d575`.** Matching CI: [LSA v1 Offline Verification run 38055244520](https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/actions/runs/38055244520), **SUCCESS** on Ubuntu and Windows. GitHub Actions checks the PR's synthetic merge of this branch into main; no other feature changes were introduced after the matching source commit. This status-file-only checkpoint is not a new source validation.
+
+### Already implemented and directly reverified — do not reimplement
+
+| Phase 6 requirement | Production path and actually executed offline evidence | Result and scope |
+| --- | --- | --- |
+| C-05 frozen production publication | `prepareDialogueActionPublication` validates the original P0 tuple, canonical action, current capture/P1 ownership proof and unchanged host; `ActivityRuntime.recordDialogueActionPublication` emits the closed annotation to `ActivitySession.AcceptClient`. Node `dialogue-action-publication.test.mjs`, `dialogue-action-knowledge.test.mjs`, `frozen-character-inputs.test.mjs` and native ACT contract suite ran in this CI. | PASS offline. No fabricated publication from validation failure or missing proof. |
+| C-05 source callback and independent receipt correlation | Real `PromotedCharactersIntegration.ApplyActionState` and `OnNpcActionExecuted` enqueue source-time `before/after/executed`; owner-fiber `DrainActivityRing` resolves current C-02 exact physical body/capture and invokes `DialogueActionCorrelator.Match`; `ActivitySession.PublishDialogueReceipt` returns a closed handler-only response. The native ACT suite, native P2 lifecycle suite and Windows actual compiled .NET↔Node `dialogue-action-interop.test.mjs` ran (interop fixture **66 checks**). | PASS source-built/interop. The Windows pipe fixture injects deterministic callbacks, **not an executed GTA action**. |
+| C-05 overlapping/failed/late/ambiguous source evidence | Existing `native/activities/tests/Program.cs`, `dialogue-action-receipts.test.mjs` and Windows interop prove same-action overlap quarantine, callback fence and before→executed ordering, handler-false, mismatched tuple, body replacement/incarnation/world, expiry, callback-loss/overflow, old callback and no replay. Only `HANDLER_ACCEPTED` (handler_only) or `FAILED` facts project, never physically completed. | PASS offline. Unknown outcomes stay unknown. |
+| C-06 P2/ACT primary owner and safe residual behavior | `PrimaryBehaviorOwner`, `RefreshPrimaryOwner`, `ActivityDispatch.BeginOwnership/EndOwnership`, `StepRunner` and original sampled NpcState preserve `p2`, `act`, `essential_residual` and `unknown`; do not silently equate task detach with idle. Native P2 lifecycle 196, ACT 267 and host 62 assertions executed, including owned-turn/preemption/clock-reset cases. | PASS offline/source-built. Real residual follow/wait/sit behavior still has separate GTA physical probes. |
+| C-06 player/Essential and playback priority | Existing source/ABI-pinned `EssentialPlayerPriorityMonitor`, `DirectorOriginalTurnReceipts`, `DirectorC06Policy`, production integration/Director tests, original backend priority timeline, stock `kb`/actual tuple binding and occupied-owned-playback gates recheck independent player/Core/P2/host/world revisions. Native Director 314, native production-source integration 151, focused Phase 13a Node 48 and full Node regression executed. | PASS offline; original owned playback does not require perpetual pre-admission idle. Source hooks were **not** installed in a running GTA/RPH instance by this CI. |
+| ACT SELF qualification | `StepRunner` receipt origin/lease/incarnation gates and `CompletionAdapters` distinguish `HANDLER_ACCEPTED`, `MODE_ESTABLISHED` (follow/wait/sit), failed/interrupted/cancelled/detached/timed out, and genuinely `PHYSICALLY_COMPLETED`; `ActivityEngine` captures scoped facts and `activityKnowledge.mjs` / `dialogueActionKnowledge.mjs` project frozen, provenance-checked SELF text via the existing PS4 one-writer lane. Native ACT and Node `activity-knowledge.test.mjs`, `dialogue-action-knowledge.test.mjs`, `activity-facts-fencing.test.mjs`, `knowledge-active-integration.test.mjs` ran. | PASS offline; no handler receipt asserts arrival, injury cause or physical completion. Strong ambient continuity is unavailable from stock public data and `resume_ambient` conservatively leaves completion unproved (known ACT2/R1 physical acceptance gate), not fabricated. |
+
+### Genuine production defects repaired in this checkpoint
+
+- `native/activities/StepRunner.cs` and `native/activities/StepMachine.cs`: previously an `after` modifier with unknown success could become `HANDLER_ACCEPTED`. Now **only `phase == "executed" && succeeded == true`** can authorize acceptance. Explicit executed-false remains failed; after/before and unknown executed never grant handler/physical outcome. Targeted checks were inserted into the existing native ACT suite, not a new harness.
+- `native/activities/SupersessionMonitor.cs` and `native/promoted-characters/ActivityCommands.cs`: clear pending old-world callback records during the real activity world-reset path and on activity disable/shutdown while **preserving the monotonic callback capture sequence**. Old queued callbacks cannot be drained into newly recreated ACT state after clock/host reset. Focused native ring and actual P2 integration callback-producer/lifecycle assertions verify the path.
+- The first CI pass [38055143738](https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/actions/runs/38055143738) exposed a simple missing parenthesis in the edited StepRunner guard; corrected in `12a6dd5`. Its failed Windows compilation is **superseded by** the green matching-code run 38055244520; assertions were not weakened.
+
+### Matching source/PR CI receipts — 38055244520
+
+| Executed suite / build | Ubuntu | Windows |
+| --- | --- | --- |
+| Full normal-Node isolated regression | **734 passed / 71 files / 0 failed** | **734 passed / 71 files / 0 failed** |
+| Focused Phase 13a Node isolation (preservation only; no new Phase 13a work) | **48/48** | **48/48** |
+| Native ACT C-05/ACT/SELF compiled from source | N/A | **267 assertions PASS** |
+| Shared native PS/ACT intelligence | N/A | **115 assertions PASS** |
+| Director/PS3/C-06/owner arbitration and callback admission | N/A | **314 assertions PASS** |
+| Production P2/ACT/UX lifecycle and clock-reset | N/A | **196 assertions PASS** |
+| Shared native host/anchor clock-reset | N/A | **62 assertions PASS** |
+| Production intelligence integration with offline Core/RAGE stubs | N/A | **151 assertions PASS** |
+| Real pinned Essential Core DLL hash / original public ABI and source-time hook metadata | N/A | **PASS, metadata/IL only** |
+| Windows C-05 compiled native helper and .NET↔Node pipe interop | N/A | **PASS; 66 checked interactions** |
+
+All workflow steps completed successfully. The isolated Node approach is deliberate: the documented aggregate-process Node crash is not silently reclassified as fixed.
+
+### Outstanding EXTERNAL GTA acceptance gates — do not mark passed
+
+- **Phase 6 A13–A15 and PR21 G8 applicable ACT contributors:** launch the **exact matching pinned production RPH/GTA addon and companion payloads**, record builds/hashes, source commit, enabled test configuration, mode, world/session, scenario/callback trace and bounded evidence hash. Verify actual normal and owned publication→before→executed association, interrupted speech/DO, handler false, ambiguous overlap, delayed callback, overflow, retired body/recreated body, reset-before/after-callback, and no action history from missing callbacks.
+- **Q1/F1/K1/R1/FR1 and ACT1 Q2/PT1/X1/M1 as applicable:** physically check follow, wait, sit, lost target, player preemption, reflex/script takeover, activity cancellation, ownership restoration versus genuine Essential residual behavior, control loss/recreation and resume-ambient strong-continuity limitations. No source-unsupported completion or arrival may be inferred or unlocked by toggling a probe identifier.
+- Verify real original Essential Core callback timing/Harmony patch installation, player mic/text versus owned NPC turns, and live RPH addon/production Release build/hashes on a Windows GTA installation. Source-build stubs, pinned metadata, and cross-language synthetic callbacks **cannot** satisfy these runtime gates. Record a genuine external blocker if those assets are unavailable; do not manufacture GTA success receipts.
+
+**Stop here.** Scope boundary honored: no baseline PS4 T01–T81/G0–G7 closure, no new Phase 13a implementation or activation, no conditional gaze/Phase 10a, no final project-wide review, no PR merge, no GTA install/deploy and no enabled capability. Production defaults remain OFF. **Next separately authorized task is baseline PS4 automated acceptance.**
