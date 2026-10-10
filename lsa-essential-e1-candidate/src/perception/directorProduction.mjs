@@ -13,6 +13,24 @@ export class DirectorObservationPump {
     this.seen=new Set();this.epoch=null;this.inFlight=false;this.stopped=false;
   }
   stop() {this.stopped=true;this.seen.clear();}
+  // The original P2 source supplies ownership; the native Core read supplies
+  // the actual current player-turn revision. No JS zero/quiet fallback.
+  currentStamp(proposal) {
+    const runtime=this.client.runtime, priority=runtime.directorPriority;
+    const owner=runtime.directorOwnerProofFor(proposal.speakerCaptureRef);
+    const now=this.now();
+    if(!priority || !priority.experimentalEnabled || !owner ||
+       !Number.isSafeInteger(priority.playerTurnVersion) ||
+       priority.playerTurnVersion<0 || !Number.isSafeInteger(priority.receivedAt) ||
+       now<priority.receivedAt || now-priority.receivedAt>1500 ||
+       priority.hostRunId!==owner.hostRunId ||
+       priority.worldEpoch!==owner.worldEpoch || !runtime.current(proposal.playerCaptureRef))
+      return null;
+    return Object.freeze({...owner,
+      playerCaptureRef:proposal.playerCaptureRef,
+      playerTurnVersion:priority.playerTurnVersion,
+      policyVersion:proposal.policyVersion});
+  }
   async tick() {
     if(this.stopped || this.inFlight)return null;
     const runtime=this.client.runtime,epoch=runtime.epoch;
