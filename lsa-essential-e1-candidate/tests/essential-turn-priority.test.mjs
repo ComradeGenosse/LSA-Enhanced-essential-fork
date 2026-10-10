@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
-import {projectOriginalTurnPriority} from '../src/perception/essentialTurnPriority.mjs';
+import {projectOriginalTurnPriority,OriginalEssentialTurnTimeline} from '../src/perception/essentialTurnPriority.mjs';
 import {patchSource} from '../tools/buildCandidate.mjs';
 
 const clear=()=>({
@@ -67,4 +67,60 @@ test('source-pinned backend bridge reads stock A state; no scheduler or syntheti
   assert.match(output,/A\.pendingOutputOwnerByPedId\.size/);
   assert.match(output,/projectOriginalTurnPriority/);
   assert.doesNotMatch(output,/directorTurnPrioritySnapshot\(\)[^}]{0,300}SpecialGeminiTurnScheduler/);
+});
+
+test('original backend lifecycle revision rejects fast busy-idle-busy ABA even when final store counts match',()=>{
+ const timeline=new OriginalEssentialTurnTimeline();
+ const first=timeline.sample(clear());
+ assert.equal(first.quiet,true);
+ assert.equal(first.grantsNativeAdmission,false);
+ timeline.transition('turn_intake');
+ timeline.transition('turn_terminal');
+ timeline.transition('turn_intake');
+ const next=timeline.sample(clear());
+ assert.equal(next.quiet,true);
+ assert.equal(next.revision,first.revision+3);
+ assert.notEqual(next.revision,first.revision);
+});
+
+test('async text/model terminal and session-retire boundaries advance a single source revision',()=>{
+ const timeline=new OriginalEssentialTurnTimeline();
+ let earlier=timeline.sample(clear()).revision;
+ for(const event of ['turn_intake','turn_terminal','turn_cancel','session_open',
+    'session_retire','mic_reset','special_dispatch']) {
+   assert.equal(timeline.transition(event),true);
+   const sampled=timeline.sample(clear());
+   assert.equal(sampled.revision,earlier+1,event);
+   assert.equal(sampled.grantsNativeAdmission,false,event);
+   earlier=sampled.revision;
+ }
+});
+
+test('original backend source invalidation, wrap and malformed state are permanent',()=>{
+ const t=new OriginalEssentialTurnTimeline({maxRevision:3});
+ assert.ok(t.sample(clear()));
+ t.transition('turn_intake');
+ assert.ok(t.sample(clear()));
+ t.transition('turn_terminal');
+ assert.ok(t.sample(clear()));
+ assert.equal(t.transition('turn_intake'),false);
+ assert.equal(t.sample(clear()),null);
+ assert.equal(t.revision,-1);
+ const missing=new OriginalEssentialTurnTimeline();
+ assert.equal(missing.sample({}),null);
+ assert.equal(missing.sample(clear()),null);
+ const unknown=new OriginalEssentialTurnTimeline();
+ assert.equal(unknown.transition('fabricated_terminal'),false);
+ assert.equal(unknown.sample(clear()),null);
+});
+
+test('pinned AST modifies original lifecycle entrypoints rather than polling alone',async()=>{
+ const source=await readFile(new URL('../upstream/server.bundle.mjs',import.meta.url),'utf8');
+ const patched=patchSource(source);
+ for(const boundary of ['Xn','Zt','hK','WP','Ei','el','kb'])
+   assert.ok(patched.edits.some(edit=>edit.label===boundary+' body hook'));
+ for(const event of ['turn_intake','turn_terminal','turn_cancel','session_open',
+  'session_retire','mic_reset','special_dispatch'])
+   assert.ok(patched.output.includes('originalTurnTransition("'+event+'")'));
+ assert.match(patched.output,/inspectOriginalTurnPriority/);
 });
