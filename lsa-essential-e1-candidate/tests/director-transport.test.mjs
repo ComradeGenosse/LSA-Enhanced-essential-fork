@@ -17,6 +17,20 @@ const hello={
 };
 const response={version:1,type:'director_response',adapterEpoch:uuid,streamId:stream,
  sequence:1,payload:{directorRequestVersion:1,ticketId:ticket,status:'busy'}};
+// The fixture is a substitute only for *the companion ledger read*. Native
+// tests independently verify issued challenge + sent signal + source identity.
+const originalProof=(proposal,stamp)=>Object.freeze({
+ source:'original_companion_ps2_ps3',
+ challenge:'51111111-1111-4111-8111-111111111111',
+ signalId:'61111111-1111-4111-8111-111111111111',
+ situationRevision:2,ageMs:100,
+ hostRunId:stamp.hostRunId,worldEpoch:stamp.worldEpoch,
+ speakerCaptureRef:proposal.speakerCaptureRef,
+ playerCaptureRef:proposal.playerCaptureRef,
+ ownerIncarnationId:stamp.ownerIncarnationId,proofRevision:stamp.proofRevision,
+ observationId:proposal.observationId,observationRevision:proposal.observationRevision,
+ decisionKey:proposal.decisionKey,policyVersion:proposal.policyVersion,
+});
 test('negotiated response is bounded inert preview not a salience grant',()=>{
  let now=1000;const ps=new ShadowRuntime({mode:'shadow',now:()=>now});
  assert.equal(validateFrame(hello),true);
@@ -76,7 +90,7 @@ test('exact native PS6 request response binds once with independent status and d
  // The transport protocol test isolates native status matching. Production
  // source truth remains the original PS3 ledger; this stub grants *only*
  // transport exercise and cannot turn on native admission.
- const originalGrant=()=>Object.freeze({source:'test-original-ledger'});
+ const originalGrant=originalProof;
  client.runtime.directorOriginalEntitlementFor=originalGrant;
  const original={operation:'reserve',ticket:{ticketId:ticket,dedupeKey:'ps:'+ticket},
   proposal:{speakerCaptureRef:'e1111111-1111-4111-8111-111111111111',
@@ -87,7 +101,9 @@ test('exact native PS6 request response binds once with independent status and d
    ownerIncarnationId:'91111111-1111-4111-8111-111111111111',
    proofRevision:1,playerTurnVersion:0},ageMs:100};
  const waiting=client.requestDirector(original);
- assert.equal(writes.length,1);
+ assert.equal(writes.length,4);
+ assert.equal(writes[0].type,'director.ps3_receipt');
+ assert.equal(writes[1].type,'director.request');
  assert.equal((await client.requestDirector(original)),null);
  assert.equal(client.acceptDirectorResponse({ticketId:'00000000-0000-4000-8000-000000000000',status:'reserved'}),false);
  assert.equal(client.acceptDirectorResponse({ticketId:ticket,status:'reserved'}),true);
@@ -125,22 +141,22 @@ test('native transport refuses reserve/submit without live original PS3 ledger; 
  assert.equal(await client.requestDirector({...original,operation:'submit'}),null);
  assert.equal(writes,0,'no outbound native reserve or submit without original PS3');
  let present=true;
- client.runtime.directorOriginalEntitlementFor=()=>present?
-   Object.freeze({source:'original_companion_ps2_ps3'}):null;
+ client.runtime.directorOriginalEntitlementFor=(proposal,stamp)=>present?
+   originalProof(proposal,stamp):null;
  const first=client.requestDirector(original);
- assert.equal(writes,1);
+ assert.equal(writes,2);
  assert.equal(client.acceptDirectorResponse({ticketId:ticket,status:'reserved'}),true);
  assert.deepEqual(await first,{ticketId:ticket,status:'reserved'});
  present=false;
  assert.equal(await client.requestDirector({...original,operation:'submit'}),null);
- assert.equal(writes,1,'revocation after reserve vetoes native submit');
+ assert.equal(writes,2,'revocation after reserve vetoes native submit');
  const cancellation=client.requestDirector({...original,operation:'cancel'});
- assert.equal(writes,2,'native cancel remains possible after the original PS3 grant disappears');
+ assert.equal(writes,3,'native cancel remains possible after the original PS3 grant disappears');
  assert.equal(client.acceptDirectorResponse({ticketId:ticket,status:'cancelled'}),true);
  assert.deepEqual(await cancellation,{ticketId:ticket,status:'cancelled'});
  client.runtime.reset('disconnect');
  present=true;
  assert.equal(await client.requestDirector(original),null);
- assert.equal(writes,2,'disconnect invalidates any forged future companion source read');
+ assert.equal(writes,3,'disconnect invalidates any forged future companion source read');
  client.stop();
 });
