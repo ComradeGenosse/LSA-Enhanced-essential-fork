@@ -1,4 +1,5 @@
 import {randomUUID} from 'node:crypto';
+import {performance} from 'node:perf_hooks';
 // Read-only projection of the *original stock backend* conversation stores.
 // Does not allocate a turn, call stock kb or certify native C-06. The backend
 // owns its full lifecycle; the companion may only inspect a synchronous
@@ -59,11 +60,20 @@ export class OriginalEssentialTurnTimeline {
   #observations=0;
   #lastSignature=null;
   #lastEvidence=null;
-  constructor({maxRevision=Number.MAX_SAFE_INTEGER}={}) {
+  #lease=null;
+  #retiredTickets=new Set();
+  constructor({maxRevision=Number.MAX_SAFE_INTEGER,now=()=>performance.now()}={}) {
+    if(typeof now!=='function')throw new TypeError('original_owner_clock');
+    this.now=now;
     if(!Number.isSafeInteger(maxRevision)||maxRevision<2)throw new TypeError('revision_bound');
     this.maxRevision=maxRevision;
   }
+  #retireLease() {
+    if(this.#lease)this.#retiredTickets.add(this.#lease.ticketId);
+    this.#lease=null;
+  }
   transition(event) {
+    this.#retireLease();
     if(!originalEntrypoints.has(event)) {
       this.#invalid=true;
       return false;
@@ -83,6 +93,7 @@ export class OriginalEssentialTurnTimeline {
       // Missing original maps or a backend read error must permanently
       // retire this incarnation, rather than resetting a revision.
       this.#invalid=true;
+      this.#retireLease();
       return null;
     }
     // Signature is bounded, non-sensitive scalar evidence only. This
@@ -91,6 +102,7 @@ export class OriginalEssentialTurnTimeline {
     // cannot be dismissed by this signature: transitions cover the starts.
     const signature=JSON.stringify(projection);
     if(this.#lastSignature!==null && signature!==this.#lastSignature) {
+      this.#retireLease();
       if(this.#revision>=this.maxRevision) {
         this.#invalid=true;
         return null;
@@ -114,7 +126,42 @@ export class OriginalEssentialTurnTimeline {
       evidence:projection,
     });
   }
+  // Source-side serial admission on the ORIGINAL backend's JS event loop.
+  // An already acquired foreign lease, source change, terminal callback,
+  // player mic/text entry or unexpected stock state permanently revokes the
+  // ticket. No user input is delayed or blocked by this lease.
+  acquire(ticketId,snapshot,leaseMs=2000) {
+    const now=this.now();
+    if(typeof ticketId!=='string' || !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(ticketId) ||
+       !Number.isFinite(now) || leaseMs<1 || leaseMs>2000 ||
+       !Number.isSafeInteger(leaseMs) || this.#invalid ||
+       this.#retiredTickets.has(ticketId) || this.#retiredTickets.size>=512 ||
+       !snapshot || snapshot.sourceRun!==this.sourceRun ||
+       snapshot.revision!==this.#revision || !snapshot.quiet ||
+       snapshot.grantsNativeAdmission!==false || this.#dirty ||
+       this.#lease!==null)return null;
+    this.#lease=Object.freeze({ticketId,revision:this.#revision,
+      sourceRun:this.sourceRun,expiresAt:now+leaseMs});
+    return snapshot;
+  }
+  check(ticketId,snapshot) {
+    const lease=this.#lease,now=this.now();
+    if(this.#invalid||!lease||lease.ticketId!==ticketId ||
+       !Number.isFinite(now) || now>=lease.expiresAt ||
+       !snapshot || snapshot.quiet!==true ||
+       snapshot.sourceRun!==lease.sourceRun ||
+       snapshot.revision!==lease.revision || this.#dirty) {
+      if(lease?.ticketId===ticketId)this.#retireLease();
+      return null;
+    }
+    return snapshot;
+  }
+  release(ticketId) {
+    if(this.#lease?.ticketId!==ticketId)return false;
+    this.#retireLease();return true;
+  }
+  get leaseCount(){return this.#lease?1:0;}
   get revision(){return this.#invalid?-1:this.#revision;}
   get current(){return !this.#invalid&&!this.#dirty?this.#lastEvidence:null;}
-  invalidate(){this.#invalid=true;this.#lastEvidence=null;}
+  invalidate(){this.#retireLease();this.#invalid=true;this.#lastEvidence=null;}
 }
