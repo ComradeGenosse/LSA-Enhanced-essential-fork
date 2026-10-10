@@ -52,8 +52,7 @@ export function validateFrame(v) {
   if (v.type==='observer_situation') return Array.isArray(v.payload) && v.payload.length<=32 && v.payload.every(row=>keys(row,['captureRef','sampledGameTick','activity','situationRevision'],['primaryOwner','ownerProofRevision','ps3Challenge']) && (row.ps3Challenge===undefined || row.ps3Challenge===null || isUuid(row.ps3Challenge) && row.ownerProofRevision>0) && (row.primaryOwner===undefined || row.primaryOwner===null || readPrimaryBehaviorOwner(row.primaryOwner)!==null) && (row.ownerProofRevision===undefined || row.ownerProofRevision===null || integer(row.ownerProofRevision,2147483647) && row.ownerProofRevision>0 && readPrimaryBehaviorOwner(row.primaryOwner)!==null) && isUuid(row.captureRef) && integer(row.sampledGameTick,0xffffffff) && integer(row.situationRevision) && row.situationRevision>0 && ['idle','driving','passenger','in_vehicle','conversation','following','waiting','unknown'].includes(row.activity)) && new Set(v.payload.map(row=>row.captureRef)).size===v.payload.length;
   if (v.type==='observer_index') return Array.isArray(v.payload) && v.payload.length<=32 && v.payload.every(validateObserverIndex) && new Set(v.payload.map(row=>row.captureRef)).size===v.payload.length;
   if (v.type==='world_epoch') return validateWorldEpoch(v.payload);
-  if(v.type==='director_priority') return
-    keys(v.payload,['playerTurnVersion','experimentalEnabled']) &&
+  if(v.type==='director_priority') return keys(v.payload,['playerTurnVersion','experimentalEnabled']) &&
     integer(v.payload.playerTurnVersion,2147483647) &&
     typeof v.payload.experimentalEnabled==='boolean';
   if(v.type==='director_response') return keys(v.payload,['directorRequestVersion','ticketId','status']) &&
