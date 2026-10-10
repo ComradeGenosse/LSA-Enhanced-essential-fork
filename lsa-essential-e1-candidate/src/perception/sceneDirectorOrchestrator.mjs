@@ -4,6 +4,11 @@ import {renderDirectorEventContext} from './directorContext.mjs';
 // Coordinator for the existing PS3 -> C-11 -> Essential seam. No world scan,
 // second executor, retry policy, provider, memory writer or TASK is created.
 // The native request and actual kb driver are mandatory injected authorities.
+// Native admission statuses are a small fixed protocol vocabulary; never log
+// arbitrary response bodies, claim text, ticket IDs or owner identity.
+const NATIVE_VETOES = new Set(['unsafe','busy','stale','invalid','not_found']);
+const nativeVeto = receipt => NATIVE_VETOES.has(receipt?.status) ? receipt.status : 'unknown';
+
 export class SceneDirectorSpeech {
   constructor({admission,nativeRequest,dispatch,now,originalEntitlement,mode='off'}={}) {
     if(!admission || typeof nativeRequest!=='function' ||
@@ -68,7 +73,7 @@ export class SceneDirectorSpeech {
     try {
       let receipt=await request('reserve');
       if(receipt?.ticketId!==ticket.ticketId || receipt.status!=='reserved')
-        return Object.freeze({status:'native_rejected'});
+        return Object.freeze({status:'native_rejected',nativeReason:nativeVeto(receipt)});
       nativeReserved=true;
       if(!this.originalGrantCurrent(proposal,stamp) ||
          !this.admission.consume(ticket.ticketId,stamp))
@@ -77,7 +82,7 @@ export class SceneDirectorSpeech {
         return Object.freeze({status:'stale_before_submit'});
       receipt=await request('submit');
       if(receipt?.ticketId!==ticket.ticketId || receipt.status!=='submitted')
-        return Object.freeze({status:'native_submit_rejected'});
+        return Object.freeze({status:'native_submit_rejected',nativeReason:nativeVeto(receipt)});
       if(!this.originalGrantCurrent(proposal,stamp))
         return Object.freeze({status:'stale_before_intake'});
       let hydrated=false,publication=false;
