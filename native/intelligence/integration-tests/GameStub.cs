@@ -90,3 +90,12 @@ namespace LosSantosAlive.Bridge.SpecialTurns {
         public static long ReadPlayerTurnVersion() {if(ThrowRead)throw new Exception("Core special-turn version unreadable");return Version;}
     }
 }
+
+namespace LosSantosAlive.Bridge.SpecialTurns {
+    public sealed class SpecialGeminiTurnRequest {
+        public Rage.Ped SpeakerPed,ListenerPed,SpeechTargetPed;
+        public string Content,Reason,DedupeKey;
+        public bool FaceListener,InterruptExisting,CancelIfPlayerStartsTurn,RequireCurrentPlayerConversation,SkipIfSpeakerBusy;
+        public int DelayMilliseconds;
+    }
+}
