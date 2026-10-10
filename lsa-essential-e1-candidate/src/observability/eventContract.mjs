@@ -15,7 +15,7 @@ export const EVENT_NAMES = new Set([
   'identity_resolved','identity_binding_created','identity_binding_retired','identity_conflict','identity_evidence_stale','identity_store_unavailable','persistent_voice_loaded',
   'session_profile_created','character_name_assigned','promotion_started','promotion_completed','promotion_failed','persistent_profile_loaded','character_spawned','character_dismissed','character_profile_edited','character_memory_created','character_memory_edited','character_memory_deleted','character_unpromoted','character_safe_failure','character_canon_projected','character_reasoning_request_composed',
   'intelligence_status','companion_shadow','knowledge_frame_projected','knowledge_delivery',
-  'intelligence_frame_rejected','director_gate','director_candidate',
+  'intelligence_frame_rejected','director_gate','director_candidate','director_handoff',
   'activity_admitted','activity_rejected','activity_step_started','activity_receipt','activity_paused','activity_resumed','activity_terminal','activity_lease_lost','activity_breaker_tripped',
 ]);
 
@@ -89,12 +89,24 @@ const safeTokens = new Set([
   'profile_store_unavailable','promotion_failed','owner_unavailable','scripted_state','ownership_conflict','native_operation_failed','identity_unavailable','unsafe_spawn_location','appearance_unavailable','invalid_ped_model','profile_projection_failed',
 ]);
 
+// Closed PS6 reason vocabulary: preserve diagnostics without arbitrary text.
+const safeDirectorReasons = new Set([
+  'invalid_or_disabled','invalid_clock','ticket_already_active',
+  'decision_already_attempted','rate_limited','scene_or_speaker_cooldown',
+  'evidence_expired','source_or_safety_veto','ticket_id_unavailable',
+  'reservation_unavailable','original_ps3_entitlement_changed',
+  'reservation_recheck_veto','completion_tuple_invalid',
+  'native_playback_unverified','completion_safety_veto',
+  'ps6_ack_rejected','completion_unclassified',
+]);
 function safeScalar(key, value) {
   if (value === null || typeof value === 'boolean') return value;
   if (typeof value === 'number') return Number.isFinite(value) && Math.abs(value) < 1e15 ? value : null;
   if (typeof value !== 'string' || !safeKeys.has(key)) return undefined;
   const token = value.trim();
   if (safeTokens.has(token.toLowerCase())) return token.toLowerCase();
+  if (['diagnosticReason','reason','terminalReason'].includes(key) &&
+      safeDirectorReasons.has(token)) return token;
   if (key === 'code' && /^[A-Za-z][A-Za-z0-9_]{0,63}$/.test(token)) return token;
   if (['nativeReason','nativeType','errorType','actionName','stage','operation'].includes(key) && /^[A-Za-z][A-Za-z0-9_]{0,63}$/.test(token)) return token;
   if (key === 'requestId' && /^rid_[a-f0-9]{16}$/.test(token)) return token;

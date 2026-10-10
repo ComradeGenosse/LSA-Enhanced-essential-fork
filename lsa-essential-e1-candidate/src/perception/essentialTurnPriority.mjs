@@ -99,8 +99,14 @@ export class OriginalEssentialTurnTimeline {
     if(d && this.#lease && ownedTicket===d.ticketId &&
        Number.isFinite(now) && now<d.expiresAt) {
       if(event==='special_dispatch' && d.stage==='reserved')next='dispatch';
-      else if(event==='turn_allocate' && d.stage==='dispatch')next='allocation';
-      else if(event==='session_open' && d.stage==='allocation')next='session';
+      // Original kb hydrates, then Zi can open WP *before* Xi allocates the
+      // special turn. A previously open session skips WP. Both exact source
+      // orders are legitimate; a foreign ticket or repeated transition still
+      // retires the original lease.
+      else if(event==='session_open' &&
+        (d.stage==='dispatch'||d.stage==='allocation'))next='session';
+      else if(event==='turn_allocate' &&
+        (d.stage==='dispatch'||d.stage==='session'))next='allocation';
       else if(event==='turn_intake' &&
         (d.stage==='allocation'||d.stage==='session'))next='generation';
     }

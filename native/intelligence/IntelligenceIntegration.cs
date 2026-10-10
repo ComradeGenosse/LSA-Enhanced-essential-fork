@@ -83,6 +83,10 @@ namespace LSA.Intelligence
         readonly System.Web.Script.Serialization.JavaScriptSerializer captureJson=new System.Web.Script.Serialization.JavaScriptSerializer {MaxJsonLength=8192};
         readonly List<string> pendingRetirements=new List<string>();
         string conversationRef;
+        // Exact native P0/P2 lifetime, never a PedId or character-name fallback.
+        // Keep the last qualified promoted turn actor eligible when Essential
+        // releases or changes the current conversation target.
+        string promotedTurnObserverRef;
         PerceptionSnapshot discoverySnapshot;
         Ped discoveryPlayer;
         OwnedParticipant[] discoveryOwned=new OwnedParticipant[0];
@@ -116,6 +120,13 @@ namespace LSA.Intelligence
         {
             if(directorShadow)LogStatus("[PS] director_admission_veto stage="+stage+" reason="+reason);
         }
+        // Fixed literals only. No ticket, Ped, context, character or freeform
+        // exception text can reach the GTA diagnostic log.
+        void LogDirectorHandoff(string stage,string status,string reason)
+        {
+            if(directorShadow)LogStatus("[PS] director_handoff stage="+stage+
+                " status="+status+" reason="+reason);
+        }
         static readonly string[] capabilityNames={"snapshot","pedDamage","playerDamage","vehicleDamage","shooting","state","action","playback","witness","awareness","playerSpeech"};
         public IntelligenceIntegration(Func<OwnedParticipant[]> roster,string pipeName="LSA.Intelligence.v1",HostContext host=null,bool directorShadow=false,bool directorExperimental=false) {
             if(pipeName==null||!System.Text.RegularExpressions.Regex.IsMatch(pipeName,"^[A-Za-z0-9_.-]{1,80}$")) throw new ArgumentException();
@@ -142,13 +153,14 @@ namespace LSA.Intelligence
             // #3A compiles and binds the real pinned Essential Submit method.
             // This adapter is intentionally, unconditionally DEFAULT-OFF:
             // #3B must bind native callback tuple before activation.
-            stockScheduler=DirectorSchedulerIntake.Production(director,directorExperimental);
+            stockScheduler=DirectorSchedulerIntake.Production(director,directorExperimental,
+                (status,reason)=>LogDirectorHandoff("scheduler",status,reason));
             this.host.WorldChanged+=WorldChanged;capabilities=capabilityNames.ToDictionary(k=>k,k=>false);
         }
         void WorldChanged(int epoch,string reason) {
             if(!IsAvailable) return;
             director.Reset();ps3Receipts.Reset();originalTurns.Reset();lock(directorPlaybackGate) {directorPlaybackEvents.Clear();directorPlaybackOverflow=false;}sensors.Reset();lock(rosterGate) {publishedAnchorStates.Clear();publishedObserverIndex.Clear();sampledSituations.Clear();}pendingRetirements.Clear();
-            conversationRef=null;discoverySnapshot=null;discoveryOwned=new OwnedParticipant[0];UpdateIndexes();
+            conversationRef=null;promotedTurnObserverRef=null;discoverySnapshot=null;discoveryOwned=new OwnedParticipant[0];UpdateIndexes();
             // Ordered control fact invalidates all prior observer state. Losing
             // it closes the bounded channel; reconnect republishes current host.
             if(channel?.Send("world_epoch",new {epoch,reason})!=true) {
@@ -211,7 +223,7 @@ namespace LSA.Intelligence
             if(a?.Consumers?.Contains(AnchorConsumer.TurnActor)==true)
                 LogStatus("[PS] turn_actor_retired reason="+reason.ToString().ToLowerInvariant());
         }
-        void OnRetired(EntityAnchor a) {ps3Receipts.Retire(a.OwnerLifetime);retiredAnchors=Math.Min(int.MaxValue,retiredAnchors+1);sensors.Retire(a.CaptureRef);lock(rosterGate) {publishedAnchorStates.Remove(a.CaptureRef);publishedObserverIndex.Remove(a.CaptureRef);sampledSituations.Remove(a.CaptureRef);}if(pendingRetirements.Count<256) pendingRetirements.Add(a.CaptureRef);else channel?.Dispose();}
+        void OnRetired(EntityAnchor a) {if(a.CaptureRef==promotedTurnObserverRef) promotedTurnObserverRef=null;ps3Receipts.Retire(a.OwnerLifetime);retiredAnchors=Math.Min(int.MaxValue,retiredAnchors+1);sensors.Retire(a.CaptureRef);lock(rosterGate) {publishedAnchorStates.Remove(a.CaptureRef);publishedObserverIndex.Remove(a.CaptureRef);sampledSituations.Remove(a.CaptureRef);}if(pendingRetirements.Count<256) pendingRetirements.Add(a.CaptureRef);else channel?.Dispose();}
         void FlushControls(bool refreshRoster=false)
         {
             lock(rosterGate) {
@@ -298,10 +310,34 @@ namespace LSA.Intelligence
                     if(selected==player) selected=null;
                     var selectedOwner=owned.FirstOrDefault(p=>p?.Ped!=null && ReferenceEquals(p.Ped,selected));
                     var orderedOwned=owned.Where(p=>p?.Ped!=null).OrderBy(p=>p.Lifetime,StringComparer.Ordinal).ToArray();
-                    var ownedPriority=orderedOwned.Where(p=>selectedOwner==null || p.Lifetime!=selectedOwner.Lifetime).Take(selected==null?16:15).ToList();
-                    if(selectedOwner!=null) ownedPriority.Insert(0,selectedOwner);
+                    // Discovery used to overwrite the observer promotion from
+                    // EnrichActor on the next 200 ms tick. In a full roster a
+                    // different current target could evict the same live P2
+                    // actor before its next voice/typed P0 capture.
+                    var recentTurn=promotedTurnObserverRef==null?null:anchors.Current.FirstOrDefault(a=>
+                        a.CaptureRef==promotedTurnObserverRef && a.Kind=="ped" && a.OwnerLifetime!=null);
+                    var recentTurnOwner=recentTurn==null?null:orderedOwned.FirstOrDefault(p=>
+                        p.Lifetime==recentTurn.OwnerLifetime && ReferenceEquals(p.Ped,recentTurn.Entity));
+                    if(recentTurnOwner!=null) {
+                        // Revalidate the original native wrapper, handle,
+                        // address, owner incarnation and current P2 claim.
+                        // Never transfer priority to a replacement lifetime.
+                        var retained=Retain(recentTurnOwner.Ped,"ped",recentTurnOwner.Lifetime,false,recentTurnOwner.Current);
+                        if(retained?.CaptureRef!=promotedTurnObserverRef ||
+                           anchors.Resolve(promotedTurnObserverRef)==null) recentTurnOwner=null;
+                    }
+                    if(recentTurnOwner==null) promotedTurnObserverRef=null;
+                    var ownedPriority=new List<OwnedParticipant>();
+                    if(selectedOwner!=null) ownedPriority.Add(selectedOwner);
+                    if(recentTurnOwner!=null && !ownedPriority.Any(p=>p.Lifetime==recentTurnOwner.Lifetime))
+                        ownedPriority.Add(recentTurnOwner);
+                    foreach(var p in orderedOwned) {
+                        if(ownedPriority.Count>= (selected==null?16:15)) break;
+                        if(!ownedPriority.Any(candidate=>candidate.Lifetime==p.Lifetime)) ownedPriority.Add(p);
+                    }
                     var ownedRetained=orderedOwned.Take(16).ToList();
                     if(selectedOwner!=null && !ownedRetained.Any(p=>p.Lifetime==selectedOwner.Lifetime)) ownedRetained.Add(selectedOwner);
+                    if(recentTurnOwner!=null && !ownedRetained.Any(p=>p.Lifetime==recentTurnOwner.Lifetime)) ownedRetained.Add(recentTurnOwner);
                     // Retain before applying the priority list, without claiming slots
                     // incrementally. This lets the current conversation displace a
                     // stale/lower priority observer in the same bounded discovery tick.
@@ -462,8 +498,20 @@ namespace LSA.Intelligence
                         (mode.Mode=="idle" || mode.Mode=="unknown" ||
                          mode.Mode=="follow" || mode.Mode=="wait" ||
                          mode.Mode=="sit" || mode.Mode=="activity");
+                    // A P2 follow order owns locomotion, not the voice turn.
+                    // Permit the same live, unsuspended follower to speak
+                    // spontaneously; C-06 independently rejects mic, text,
+                    // conversation, pending audio, reflex and script conflicts.
+                    // ACT tasks, residual/unknown modes and suspension stay busy.
                     proof.OwnerIdle=proof.OwnerPrimaryModeKnown && !mode.Suspended &&
-                        mode.Owner=="none" && mode.Mode=="idle";
+                        (mode.Owner=="none" && mode.Mode=="idle" ||
+                         mode.Owner=="p2" && mode.Mode=="follow");
+                    // Following controls movement, not dialogue. Source
+                    // proof is from this exact native P2 owner incarnation.
+                    // An unknown, ACT, or suspended owner never qualifies.
+                    proof.CompatibleLocomotion=proof.OwnerPrimaryModeKnown &&
+                        !mode.Suspended && mode.Owner=="p2" && mode.Mode=="follow"
+                        ? "p2_follow" : null;
                     // Source-pinned Core NpcStateStore is used by existing ACT
                     // preflight; no state is UNKNOWN, not absence of a reflex.
                     var state=NpcStateStore.TryGetState((Ped)speaker.Entity);
@@ -524,18 +572,35 @@ namespace LSA.Intelligence
         {
             if(!directorShadow || input==null)return false;
             var original=director.SubmittedForStockIntake(input.TicketId);
-            if(original==null || input.DedupeKey!=original.DedupeKey ||
-                !ps3Receipts.IsReserved(original) ||
-                originalTurns.OriginalFor(original)==null)return false;
+            if(original==null || input.DedupeKey!=original.DedupeKey) {
+                LogDirectorHandoff("native_intake","rejected","ticket_not_submitted");
+                return false;
+            }
+            if(!ps3Receipts.IsReserved(original)) {
+                LogDirectorHandoff("native_intake","rejected","ps3_grant_not_reserved");
+                return false;
+            }
+            if(originalTurns.OriginalFor(original)==null) {
+                LogDirectorHandoff("native_intake","rejected","backend_owner_not_current");
+                return false;
+            }
             var speaker=anchors.Resolve(original.SpeakerCaptureRef)?.Entity as Ped;
             var player=anchors.Resolve(original.PlayerCaptureRef)?.Entity as Ped;
             // Resolve through the *original native reservation*, never
             // a claimed PedId, latest focus or replacement owner.
             if(speaker==null||player==null||
-                !ReferenceEquals(player,Game.LocalPlayer.Character))return false;
-            if(!originalTurns.CaptureForBinding(original))return false;
+                !ReferenceEquals(player,Game.LocalPlayer.Character)) {
+                LogDirectorHandoff("native_intake","rejected","native_anchor_mismatch");
+                return false;
+            }
+            if(!originalTurns.CaptureForBinding(original)) {
+                LogDirectorHandoff("native_intake","rejected","binding_source_capture_denied");
+                return false;
+            }
             bool submitted=stockScheduler.Dispatch(input.TicketId,input.Context,
                 ReadDirectorC06(original),speaker,player);
+            LogDirectorHandoff("native_intake",submitted?"accepted":"rejected",
+                submitted?"scheduler_submission_accepted":"scheduler_submission_denied");
             if(!submitted)originalTurns.Retire(input.TicketId);
             return submitted;
         }
@@ -550,22 +615,32 @@ namespace LSA.Intelligence
             var request=director.ClaimedForOriginalBinding(frame.TicketId);
             if(request==null || frame.HostRunId!=request.HostRunId ||
                frame.WorldEpoch!=request.WorldEpoch ||
-               frame.SpeakerCaptureRef!=request.SpeakerCaptureRef)return false;
+               frame.SpeakerCaptureRef!=request.SpeakerCaptureRef) {
+                LogDirectorHandoff("native_binding","rejected","ticket_or_epoch_mismatch");
+                return false;
+            }
             var source=originalTurns.SealedForBinding(request);
             if(source==null || frame.SourceRun!=source.SourceRun ||
                frame.SourceRevision!=source.Revision ||
-               !ps3Receipts.IsReserved(request))return false;
+               !ps3Receipts.IsReserved(request)) {
+                LogDirectorHandoff("native_binding","rejected","original_source_or_grant_expired");
+                return false;
+            }
             var originalSpeaker=anchors.Resolve(request.SpeakerCaptureRef)?.Entity as Ped;
             var originalPlayer=anchors.Resolve(request.PlayerCaptureRef)?.Entity as Ped;
-            uint nativePed;
             if(originalSpeaker==null || originalPlayer==null ||
                !originalSpeaker.Exists() || originalSpeaker.IsDead ||
                !originalPlayer.Exists() || originalPlayer.IsDead ||
                !ReferenceEquals(originalPlayer,Game.LocalPlayer.Character) ||
-               !uint.TryParse(frame.PedId,out nativePed) ||
-               Convert.ToUInt64(originalSpeaker.Handle)!=nativePed)return false;
+               !string.Equals(frame.PedId,originalSpeaker.Handle.ToString(),
+                   StringComparison.Ordinal)) {
+                LogDirectorHandoff("native_binding","rejected","actor_or_player_identity_invalid");
+                return false;
+            }
             bool bound=director.BindActualTuple(frame.TicketId,frame.PedId,
                 frame.TurnId,frame.GenerationId,frame.SessionNonce);
+            LogDirectorHandoff("native_binding",bound?"accepted":"rejected",
+                bound?"original_tuple_bound":"original_tuple_denied");
             // Binding consumes the sealed pre-turn source identity. Subsequent
             // playback checks use the immutable native admission reservation.
             originalTurns.Retire(frame.TicketId);
@@ -773,7 +848,10 @@ namespace LSA.Intelligence
         }
         void Lifecycle(string kind,string pedId,object entity,bool interrupted,bool hadAudio)
         {
-            if(!uint.TryParse(pedId,out var handle)) return;var target=CallbackAnchor(handle,entity,false);
+            var speaker=entity as Ped;
+            if(speaker==null || !speaker.Exists() ||
+                !string.Equals(pedId,speaker.Handle.ToString(),StringComparison.Ordinal))return;
+            var target=CallbackAnchor(Convert.ToUInt32(speaker.Handle),speaker,false);
             sensors.Enqueue(new RawSignal {producer="playback",kind=kind,target=target,gameTick=callbackTick,receivedMs=host.MonotonicMs,facts=new Dictionary<string,object>{{"interrupted",interrupted},{"hadAudio",hadAudio}}});
         }
         void EnqueueDirectorPlayback(DirectorPlaybackEvent item)
@@ -786,10 +864,12 @@ namespace LSA.Intelligence
                 } else if(!directorPlaybackOverflow)directorPlaybackEvents.Enqueue(item);
             }
         }
-        // Owner fiber ONLY. Callback PedId/turn/generation are native evidence;
-        // the callback contains NO session nonce or original PS6 ticket. An
-        // earlier native BindActualTuple is mandatory. Wrong/reused ped wrappers
-        // or world-retired capture refs cannot inherit an existing ticket.
+        // Owner fiber ONLY. Essential can construct a *different Ped wrapper*
+        // for the very same physical actor during playback callbacks. A CLR
+        // ReferenceEquals test (or CallbackAnchor's reference-keyed lookup)
+        // silently loses valid Core start/end receipts. Resolve instead through
+        // the original, still-live P0/P2 anchor with matching native handle
+        // AND memory address. Never infer a PS6 ticket from a callback.
         void DrainDirectorCorePlayback()
         {
             bool overflow;DirectorPlaybackEvent[] events;
@@ -801,28 +881,72 @@ namespace LSA.Intelligence
             }
             if(overflow) {director.Reset();return;}
             foreach(var e in events) {
+                // Don't emit diagnostics for unrelated Core playback.
+                if(!director.HasActive)continue;
+                LogDirectorHandoff("native_playback", "started",
+                    e?.Started==true?"core_start_received":"core_end_received");
                 if(e?.Speaker==null || string.IsNullOrWhiteSpace(e.PedId) ||
-                    string.IsNullOrWhiteSpace(e.TurnId) || e.GenerationId<0)continue;
-                if(!uint.TryParse(e.PedId,out var pedHandle) ||
-                    Convert.ToUInt64(e.Speaker.Handle)!=pedHandle || !e.Speaker.Exists())continue;
-                var token=CallbackAnchor(pedHandle,e.Speaker,false);
-                var anchor=token==null?null:anchors.Resolve(token);
-                if(anchor==null || !ReferenceEquals(anchor.Entity,e.Speaker))continue;
-                // The callback is not a ticket. Match the previously bound
-                // native original tuple before emitting a status on the same
-                // authenticated PS channel. A failed playback never consumes
-                // the companion's PS3 grant.
-                var ticket=director.OriginalBoundTicket(token,e.PedId,e.TurnId,e.GenerationId);
-                if(ticket==null)continue;
+                    string.IsNullOrWhiteSpace(e.TurnId) || e.GenerationId<0) {
+                    LogDirectorHandoff("native_playback","rejected","callback_identity_missing");
+                    continue;
+                }
+                ulong nativeHandle;IntPtr nativeAddress;
+                try {
+                    if(!e.Speaker.Exists() ||
+                        !string.Equals(e.PedId,e.Speaker.Handle.ToString(),
+                            StringComparison.Ordinal)) {
+                        LogDirectorHandoff("native_playback","rejected","callback_ped_invalid");
+                        continue;
+                    }
+                    nativeHandle=Convert.ToUInt64(e.Speaker.Handle);
+                    nativeAddress=e.Speaker.MemoryAddress;
+                } catch {
+                    LogDirectorHandoff("native_playback","rejected","callback_ped_invalid");
+                    continue;
+                }
+                if(nativeAddress==IntPtr.Zero) {
+                    LogDirectorHandoff("native_playback","rejected","callback_ped_invalid");
+                    continue;
+                }
+                string token=null,ticket=null;
+                foreach(var candidate in anchors.Current) {
+                    if(candidate.Kind!="ped" || candidate.OwnerLifetime==null ||
+                       candidate.Handle!=nativeHandle ||
+                       candidate.Address!=nativeAddress)continue;
+                    var current=anchors.Resolve(candidate.CaptureRef);
+                    if(!ReferenceEquals(current,candidate) ||
+                       !(current.Entity is Ped retained) ||
+                       !Live(retained,nativeHandle,nativeAddress) ||
+                       !Live(e.Speaker,nativeHandle,nativeAddress))continue;
+                    // Exact original reservation AND bound Core PedId/TurnId/
+                    // GenerationId remain mandatory. The original nonce stays
+                    // sealed in DirectorAdmission, never inferred from Core.
+                    var matched=director.OriginalBoundTicket(current.CaptureRef,
+                        e.PedId,e.TurnId,e.GenerationId);
+                    if(matched==null)continue;
+                    token=current.CaptureRef;ticket=matched;break;
+                }
+                if(ticket==null) {
+                    LogDirectorHandoff("native_playback","rejected",
+                        "anchor_or_bound_tuple_missing");
+                    continue;
+                }
                 if(e.Started) {
-                    if(director.ObserveCorePlaybackStarted(token,e.PedId,e.TurnId,e.GenerationId))
-                        channel?.Send("director_response",new {
-                            directorRequestVersion=1,ticketId=ticket,status="started"});
+                    bool started=director.ObserveCorePlaybackStarted(token,
+                        e.PedId,e.TurnId,e.GenerationId);
+                    LogDirectorHandoff("native_playback",started?"accepted":"rejected",
+                        started?"original_start_verified":"original_start_veto");
+                    if(started)channel?.Send("director_response",new {
+                        directorRequestVersion=1,ticketId=ticket,status="started"});
                 } else {
-                    bool delivered=director.ObserveCorePlaybackEnded(token,e.PedId,e.TurnId,e.GenerationId,
-                        e.Reason,e.Interrupted,e.HadAudio,e.PlaybackStarted);
+                    bool delivered=director.ObserveCorePlaybackEnded(token,e.PedId,
+                        e.TurnId,e.GenerationId,e.Reason,e.Interrupted,
+                        e.HadAudio,e.PlaybackStarted);
+                    LogDirectorHandoff("native_playback",delivered?"accepted":"rejected",
+                        delivered?"original_completion_verified":"original_completion_veto");
                     channel?.Send("director_response",new {
-                        directorRequestVersion=1,ticketId=ticket,status=delivered?"completed":"failed"});
+                        directorRequestVersion=1,ticketId=ticket,
+                        status=delivered?"completed":"failed"});
                 }
             }
         }
@@ -884,7 +1008,13 @@ namespace LSA.Intelligence
                     LogStatus("[PS] turn_actor_capture_unavailable reason=observer_slot_unavailable");return;
                 }
                 var block=new Dictionary<string,object>{{"version",1},{"hostRunId",host.HostRunId},{"worldEpoch",host.WorldEpoch},{"captureRef",anchor.CaptureRef},{"sampledGameTick",unchecked((uint)Game.GameTime)}};
-                var association=Association(anchor);if(association!=null) {block["encounterId"]=association.EncounterId;block["incarnationId"]=association.Lifetime;}
+                var association=Association(anchor);if(association!=null) {
+                    // Only an exact current P2 registration can receive
+                    // continuing priority. Ordinary P0 witnesses stay bounded
+                    // by regular discovery/selection and do not gain ownership.
+                    promotedTurnObserverRef=anchor.CaptureRef;
+                    block["encounterId"]=association.EncounterId;block["incarnationId"]=association.Lifetime;
+                }
                 context.IntegrationBlocks.Add(new IntegrationJsonBlock("turnKnowledge",captureJson.Serialize(block)));
                 UpdateIndexes();FlushControls();
                 LogStatus("[PS] turn_actor_capture_created");

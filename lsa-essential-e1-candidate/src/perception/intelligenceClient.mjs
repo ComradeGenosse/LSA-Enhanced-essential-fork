@@ -154,6 +154,17 @@ export class IntelligenceClient {
   // Negative/late/ambiguous receipts never become Essential authorization.
   requestDirector(args,{timeoutMs=900}={}) {
     const ticketId=args?.ticket?.ticketId;
+    // Release local source authority even if native cancel cannot be sent.
+    // A rejected reserve must not block every subsequent Director attempt.
+    if(args?.operation==='cancel' && typeof ticketId==='string') {
+      this.directorOwnerReservations.delete(ticketId);
+      this.directorNativeSubmitted.delete(ticketId);
+      this.directorStockDispatched.delete(ticketId);
+      this.directorStockContexts.delete(ticketId);
+      this.directorStockClaims.delete(ticketId);
+      this.directorPlaybacks.clear(ticketId);
+      try {this.originalTurnRelease(ticketId);}catch{}
+    }
     // Every reserve/submit must re-read the original companion ledger as an
     // independent source. Cancel remains available after grant expiration so
     // a previously reserved native ticket can always be retired.
@@ -174,6 +185,14 @@ export class IntelligenceClient {
     }
     if(args?.operation!=='cancel' && (!original || !owner))
       return Promise.resolve(null);
+    // The coordinator's ageMs starts at Director selection, not at the
+    // witnessed event. Native PS3 admission compares against the original
+    // PS2 observation age sealed in the one-use producer receipt. Reuse
+    // that independently checked source age for this exact request so
+    // the two ordered frames cannot falsely report grant_age_regressed.
+    // Do not change cancellation or relax native age/expiry validation.
+    const nativeArgs=args.operation==='cancel'?args:
+      {...args,ageMs:original.ageMs};
     const prior=this.directorOwnerReservations.get(ticketId);
     // A newly observed source revision after reserve is a player/Essential
     // takeover, even if its final state is quiet again. It cannot be
@@ -205,18 +224,10 @@ export class IntelligenceClient {
       if(args.operation==='reserve' && !this.sendDirectorPs3Receipt(args.ticket,original)) {
         finish(null);return;
       }
-      if(!this.sendDirectorPreview(args)) {finish(null);return;}
+      if(!this.sendDirectorPreview(nativeArgs)) {finish(null);return;}
       if(args.operation==='reserve')this.directorOwnerReservations.set(ticketId,
-        {run:owner.sourceRun,revision:owner.revision,stamp:args.stamp,proposal:args.proposal});
-      if(args.operation==='cancel') {
-        this.directorOwnerReservations.delete(ticketId);
-        this.directorNativeSubmitted.delete(ticketId);
-        this.directorStockDispatched.delete(ticketId);
-        this.directorStockContexts.delete(ticketId);
-        this.directorStockClaims.delete(ticketId);
-        this.directorPlaybacks.clear(ticketId);
-        try {this.originalTurnRelease(ticketId);}catch{}
-      }
+        {run:owner.sourceRun,revision:owner.revision,stamp:args.stamp,
+         proposal:args.proposal,priority:args.ticket.priority});
     });
   }
   // Bounded 3A intake for a *previously native-submitted* ticket only.
@@ -228,27 +239,36 @@ export class IntelligenceClient {
        this.runtime.directorRequestVersion!==1 || !this.runtime.epoch ||
        !this.directorNativeSubmitted.has(id) || !record ||
        ticket.dedupeKey!==`ps:${id}` ||
-       !this.directorOriginalEntitlement(record.proposal,record.stamp))
+       !this.directorOriginalEntitlement(record.proposal,record.stamp)) {
+      this.handoff('stock_intake','rejected','missing_source_or_submission');
       return false;
+    }
     let current;
     try {current=this.originalBackendEvidence(this.originalTurnCurrent(id));}
-    catch{return false;}
+    catch{this.handoff('stock_intake','rejected','backend_read_failed');return false;}
     if(!current || current.sourceRun!==record.run ||
-       current.revision!==record.revision)return false;
+       current.revision!==record.revision) {
+      this.handoff('stock_intake','rejected','backend_revision_mismatch');return false;
+    }
     let line;
     try {line=serializeDirectorStockIntake(ticket,context);}
-    catch{return false;}
+    catch{this.handoff('stock_intake','rejected','invalid_wire_context');return false;}
     // One shot is spent before any writable checks or sends.
     this.directorNativeSubmitted.delete(id);
     if(!this.sendDirectorOwnerReceipt(ticket,record.stamp,current) ||
        !this.socket || this.socket.destroyed || !this.socket.writable ||
-       this.socket.writableLength>BOUNDS.frameBytes)return false;
+       this.socket.writableLength>BOUNDS.frameBytes) {
+      this.handoff('stock_intake','rejected','owner_receipt_or_pipe_unavailable');return false;
+    }
     try {
       this.socket.write(line);
       this.directorStockDispatched.add(id);
       this.directorStockContexts.set(id,context);
+      this.handoff('stock_intake','accepted','queued_on_pipe');
       return true;
-    }catch{return false;}
+    }catch{
+      this.handoff('stock_intake','rejected','pipe_write_failed');return false;
+    }
   }
   // The stock kb payload itself is UNTRUSTED. Match an exact content/Ped
   // invocation to a locally retained native-submitted AND subsequently
@@ -288,6 +308,7 @@ export class IntelligenceClient {
       observationRevision:record.proposal.observationRevision,
       decisionKey:record.proposal.decisionKey,
       policyVersion:record.proposal.policyVersion,
+      priority:record.priority,
       sourceRun:record.run,sourceRevision:record.revision,
     });
     this.directorStockDispatched.delete(id);
@@ -300,20 +321,39 @@ export class IntelligenceClient {
   // source lease that has not been rebased by intervening player activity.
   verifyDirectorTicket(ticket,input,hydrated) {
     const claim=this.directorStockClaims.get(ticket?.ticketId);
-    if(!claim || claim.ticket!==ticket || claim.input!==input ||
-       !this.runtime.epoch ||
-       !this.runtime.current(claim.record.proposal.speakerCaptureRef) ||
-       !this.runtime.current(claim.record.proposal.playerCaptureRef) ||
-       String(hydrated?.actorContext?.pedId||'')!==claim.pedId ||
-       String(hydrated?.targetContext?.pedId||'')!==claim.playerId ||
-       !this.directorOriginalEntitlement(claim.record.proposal,claim.record.stamp))
-       return false;
+    if(!claim || claim.ticket!==ticket || claim.input!==input || !this.runtime.epoch) {
+      this.handoff('post_hydration','rejected','claim_or_epoch_missing');return false;
+    }
+    if(!this.runtime.current(claim.record.proposal.speakerCaptureRef) ||
+       !this.runtime.current(claim.record.proposal.playerCaptureRef)) {
+      this.handoff('post_hydration','rejected','actor_or_player_retired');return false;
+    }
+    if(String(hydrated?.actorContext?.pedId||'')!==claim.pedId ||
+       String(hydrated?.targetContext?.pedId||'')!==claim.playerId) {
+      this.handoff('post_hydration','rejected','hydrated_ped_mismatch');return false;
+    }
+    if(!this.directorOriginalEntitlement(claim.record.proposal,claim.record.stamp)) {
+      this.handoff('post_hydration','rejected','original_grant_expired');return false;
+    }
     let current;
     try {current=this.originalBackendEvidence(this.originalTurnCurrent(ticket.ticketId));}
-    catch{return false;}
-    return !!current && current.sourceRun===claim.record.run &&
-      current.revision===claim.record.revision+1 &&
-      this.originalTurnPhase(ticket.ticketId)==='dispatch';
+    catch{this.handoff('post_hydration','rejected','backend_read_failed');return false;}
+    // On a warm actor session, kb goes directly from special_dispatch to
+    // Xi; on the first encounter its stock Zi->WP session_open happens
+    // before Xi. Require the exact phase AND source revision for either
+    // original lifecycle path, never an arbitrary new quiet snapshot.
+    const phase=this.originalTurnPhase(ticket.ticketId);
+    const expectedAdvance=phase==='dispatch'?1:phase==='session'?2:null;
+    if(!current || current.sourceRun!==claim.record.run) {
+      this.handoff('post_hydration','rejected','backend_source_mismatch');return false;
+    }
+    if(expectedAdvance===null) {
+      this.handoff('post_hydration','rejected','unexpected_stock_phase');return false;
+    }
+    if(current.revision!==claim.record.revision+expectedAdvance) {
+      this.handoff('post_hydration','rejected','backend_revision_mismatch');return false;
+    }
+    return true;
   }
   // Called only from the actual source-pinned Xn generation path, after the
   // stock kb ticket was independently hydrated. Never acknowledges playback.
@@ -321,10 +361,30 @@ export class IntelligenceClient {
   // speaker/player anchor before it binds once on the native owner fiber.
   // The source Core kb path is the only place these hydration/publication
   // hooks run. A coordinator-side early callback cannot substitute for them.
-  confirmDirectorHydration(ticket) {return !this.directorProductionRequired || this.directorPlaybacks.hydration(ticket);}
+  confirmDirectorHydration(ticket) {
+    if(!this.directorProductionRequired)return true;
+    // requireDirectorTicket called verifyDirectorTicket on this same frozen
+    // kb claim before reaching here. Recheck its exact retained reference:
+    // no copied ticket, arbitrary ps: key or latest conversation target can
+    // become the owner of an already reserved Director playback.
+    const claimed=this.directorStockClaims.get(ticket?.ticketId);
+    if(claimed?.ticket!==ticket ||
+       !this.directorPlaybacks.registerVerifiedClaim(ticket)) {
+      this.handoff('post_hydration','rejected','playback_ticket_identity_mismatch');
+      return false;
+    }
+    return this.directorPlaybacks.hydration(ticket);
+  }
+  // OpenAI snapshots the source-verified kb claim, rather than retaining
+  // its JS reference. A matching native-bound turn tuple is also mandatory.
+  failDirectorOriginalTurn(ticket,identity) {
+    const failed=this.directorPlaybacks.failVerifiedTurn(ticket,identity);
+    if(failed)this.handoff('binding_wait','failed','original_turn_failed');
+    return failed;
+  }
   async dispatchDirector({ticket,gates,eventContext}) {
     const original=this.directorPlaybacks.begin(ticket,gates);
-    if(!original)return null;
+    if(!original){this.handoff('binding_wait','rejected','playback_slot_unavailable');return null;}
     if(!this.sendDirectorStockIntake(ticket,eventContext)) {
       this.directorPlaybacks.clear(ticket.ticketId);return null;
     }
@@ -341,7 +401,9 @@ export class IntelligenceClient {
        !record || ticket.dedupeKey!==`ps:${id}` ||
        !this.directorOriginalEntitlement(record.proposal,record.stamp) ||
        !this.socket || this.socket.destroyed || !this.socket.writable ||
-       this.socket.writableLength>BOUNDS.frameBytes)return false;
+       this.socket.writableLength>BOUNDS.frameBytes) {
+      this.handoff('binding_emit','rejected','source_phase_or_pipe_denied');return false;
+    }
     let line;
     try {
       line=serializeDirectorOriginalTurnBinding({
@@ -349,12 +411,16 @@ export class IntelligenceClient {
         hostRunId:record.stamp.hostRunId,worldEpoch:record.stamp.worldEpoch,
         speakerCaptureRef:record.proposal.speakerCaptureRef,
       },identity);
-    }catch{return false;}
-    if(Buffer.byteLength(line)>BOUNDS.frameBytes)return false;
+    }catch{this.handoff('binding_emit','rejected','binding_encoding_failed');return false;}
+    if(Buffer.byteLength(line)>BOUNDS.frameBytes) {
+      this.handoff('binding_emit','rejected','binding_frame_oversize');return false;
+    }
     // The original source cannot consume a queued wire write as permission.
     // A separate, exact ticket-bound native response resolves this waiter.
     // The timeout covers a missed/late native drain without a model call.
-    if(this.directorBindingPending.has(id) || this.directorProductionRequired && !this.directorPlaybacks.identify(ticket,identity))return false;
+    if(this.directorBindingPending.has(id) || this.directorProductionRequired && !this.directorPlaybacks.identify(ticket,identity)) {
+      this.handoff('binding_emit','rejected','identity_or_pending_conflict');return false;
+    }
     let finish;
     const result=new Promise(resolve=>{
       finish=accepted=>{
@@ -364,19 +430,33 @@ export class IntelligenceClient {
         resolve(accepted===true);
       };
     });
-    const timeout=setTimeout(()=>finish(false),900);
+    const timeout=setTimeout(()=>{
+      this.handoff('binding_ack','timeout','native_ack_timeout');
+      finish(false);
+    },900);
     timeout.unref?.();
     this.directorBindingPending.set(id,{ticket,finish,timeout,result});
     this.directorStockClaims.delete(id); // no retry or identity reassignment
-    try {this.socket.write(line);return true;}
-    catch{finish(false);return false;}
+    try {
+      this.socket.write(line);
+      this.handoff('binding_emit','accepted','queued_on_pipe');return true;
+    }catch{
+      this.handoff('binding_emit','rejected','pipe_write_failed');
+      finish(false);return false;
+    }
   }
   async awaitDirectorNativeBinding(ticket) {
     const id=ticket?.ticketId,pending=this.directorBindingPending.get(id);
-    if(!pending || pending.ticket!==ticket)return false;
+    if(!pending || pending.ticket!==ticket) {
+      this.handoff('binding_ack','rejected','binding_waiter_missing');return false;
+    }
     try {
       const accepted=await pending.result===true;
-      return accepted && (!this.directorProductionRequired || this.directorPlaybacks.publication(ticket));
+      if(!accepted)return false;
+      const published=!this.directorProductionRequired || this.directorPlaybacks.publication(ticket);
+      this.handoff('binding_ack',published?'accepted':'rejected',
+        published?'generation_published':'publication_gate_denied');
+      return published;
     }
     finally {
       if(this.directorBindingPending.get(id)===pending)this.directorBindingPending.delete(id);
@@ -388,6 +468,8 @@ export class IntelligenceClient {
       return this.directorPlaybacks.onNativeStatus(payload.ticketId,payload.status);
     const nativeBinding=this.directorBindingPending.get(payload.ticketId);
     if(nativeBinding && (payload.status==='bound'||payload.status==='unsafe')) {
+      this.handoff('binding_ack',payload.status==='bound'?'accepted':'rejected',
+        payload.status==='bound'?'native_bound':'native_binding_denied');
       nativeBinding.finish(payload.status==='bound');
       return true;
     }
@@ -421,10 +503,17 @@ export class IntelligenceClient {
     this.originalTurnRelease=typeof originalTurnRelease==='function'?originalTurnRelease:()=>false;
     this.originalTurnPhase=typeof originalTurnPhase==='function'?originalTurnPhase:()=>null;
     this.directorProductionRequired=directorProductionRequired===true;
-    this.directorPlaybacks=new DirectorPlaybackRegistry();
+    this.directorPlaybacks=new DirectorPlaybackRegistry({
+      onTimeout:code=>this.handoff('binding_wait','timeout',code),
+    });
     this.closed=false;this.socket=null;this.lastReport=0;this.frameRejections=new Map();this.directorPending=new Map();this.directorOwnerReservations=new Map();this.directorNativeSubmitted=new Set();this.directorStockDispatched=new Set();this.directorStockContexts=new Map();this.directorStockClaims=new Map();this.directorBindingPending=new Map();
   }
   persist(event,data={}) { try { this.telemetry(event,data); } catch {} }
+  handoff(stage,status,code) {
+    // Fixed diagnostic strings only. Never persist the private ticket, actor,
+    // source observation, model prompt or native identifiers.
+    this.persist('director_handoff',{stage,status,code});
+  }
   summary(finalSnapshot=false) {
     const diagnostics=this.runtime.diagnostics;
     return {

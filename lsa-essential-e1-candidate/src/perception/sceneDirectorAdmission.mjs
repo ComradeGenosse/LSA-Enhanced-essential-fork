@@ -48,13 +48,13 @@ export class DirectorSpeechReservations {
     this.now=now;this.checkCurrent=checkCurrent;this.acknowledge=acknowledge;
     this.uuid=uuid;this.enabled=enabled === true;
     this.active=null;this.attempts=[];this.speakerAt=new Map();
-    this.sceneAt=-Infinity;this.attemptedKeys=new Map();
+    this.sceneAt=-Infinity;this.attemptedKeys=new Map();this.lastReserveFailure=null;
   }
   // A mode transition or host/world reset retires reservations without a retry.
   setEnabled(value) {if(value!==true)this.reset();this.enabled=value===true;}
   reset() {
     this.active=null;this.attempts=[];this.speakerAt.clear();
-    this.sceneAt=-Infinity;this.attemptedKeys.clear();
+    this.sceneAt=-Infinity;this.attemptedKeys.clear();this.lastReserveFailure=null;
   }
   safe(proposal,stamp,stage,record=null) {
     if(!this.enabled || !validProposal(proposal) ||
@@ -69,21 +69,36 @@ export class DirectorSpeechReservations {
   // Counts attempts even if the final safety check rejects. Selection alone
   // does not count; no implicit fallback speaker is ever selected.
   reserve(proposal,stamp) {
-    if(!this.enabled || !validProposal(proposal))return null;
+    this.lastReserveFailure=null;
+    if(!this.enabled || !validProposal(proposal)) {
+      this.lastReserveFailure='invalid_or_disabled';return null;
+    }
     const at=this.now();
-    if(!integer(at) || this.active || this.attemptedKeys.has(proposal.decisionKey))return null;
+    if(!integer(at)) {this.lastReserveFailure='invalid_clock';return null;}
+    if(this.active) {this.lastReserveFailure='ticket_already_active';return null;}
+    if(this.attemptedKeys.has(proposal.decisionKey)) {
+      this.lastReserveFailure='decision_already_attempted';return null;
+    }
     this.attempts=this.attempts.filter(t=>t>at-LIMITS.attemptWindowMs);
     // Bounded historical suppression: retired evidence is no longer selectable
     // and does not grow the in-memory key table for an entire GTA session.
     for(const [key,time] of this.attemptedKeys)if(time<=at-600_000)this.attemptedKeys.delete(key);
-    if(this.attempts.length>=LIMITS.attemptsPerMinute)return null;
+    if(this.attempts.length>=LIMITS.attemptsPerMinute) {
+      this.lastReserveFailure='rate_limited';return null;
+    }
     const cooldown=proposal.urgency==='urgent' ? LIMITS.urgentSpeakerCooldownMs : LIMITS.routineSpeakerCooldownMs;
     if(at-this.sceneAt<LIMITS.sceneGapMs ||
-        at-(this.speakerAt.get(proposal.speakerCaptureRef)??-Infinity)<cooldown)return null;
+        at-(this.speakerAt.get(proposal.speakerCaptureRef)??-Infinity)<cooldown) {
+      this.lastReserveFailure='scene_or_speaker_cooldown';return null;
+    }
     this.attempts.push(at);
-    if(!this.safe(proposal,stamp,'reserve'))return null;
+    if(!this.safe(proposal,stamp,'reserve')) {
+      this.lastReserveFailure=proposal.expiresAtMonotonicMs<=at?
+        'evidence_expired':'source_or_safety_veto';
+      return null;
+    }
     const id=this.uuid();
-    if(!text(id))return null;
+    if(!text(id)) {this.lastReserveFailure='ticket_id_unavailable';return null;}
     const record={
       id,proposal:Object.freeze({...proposal}),stamp:Object.freeze({...stamp}),
       expiresAt:Math.min(at+LIMITS.ticketTtlMs,proposal.expiresAtMonotonicMs),
@@ -127,19 +142,28 @@ export class DirectorSpeechReservations {
   // An earlier reasoning success, partial PCM, wrong generation, audio-less
   // playback or interruption must never consume the PS6 grant.
   finish(ticketId,tuple,receipt) {
+    this.lastFinishFailure=null;
     const r=this.active;
-    if(!r || r.id!==ticketId || r.state!=='bound' || !tupleMatches(r.tuple,tuple))
-      return false;
+    if(!r || r.id!==ticketId || r.state!=='bound' || !tupleMatches(r.tuple,tuple)) {
+      this.lastFinishFailure='completion_tuple_invalid';return false;
+    }
     const success=receipt?.type==='playback_ended' &&
       receipt.reason==='completed' && receipt.wasInterrupted===false &&
       receipt.hadAudio===true && receipt.playbackStarted===true;
-    if(!success) {this.cancel(ticketId);return false;}
+    if(!success) {
+      this.lastFinishFailure='native_playback_unverified';
+      this.cancel(ticketId);return false;
+    }
     // Final gate still applies: a retired/changed actor must not speak using
     // a late receipt. Use recorded stamp, never 'latest target' reconstruction.
-    if(!this.safe(r.proposal,r.stamp,'complete',r)) {this.cancel(ticketId);return false;}
+    if(!this.safe(r.proposal,r.stamp,'complete',r)) {
+      this.lastFinishFailure='completion_safety_veto';
+      this.cancel(ticketId);return false;
+    }
     let delivered=false;
     try {delivered=this.acknowledge(r.proposal.decisionKey,'ps6_ticket','delivered')===true;}
     catch {delivered=false;}
+    if(!delivered)this.lastFinishFailure='ps6_ack_rejected';
     this.active=null;return delivered;
   }
   cancel(ticketId) {

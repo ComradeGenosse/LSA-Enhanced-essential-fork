@@ -72,7 +72,7 @@ test('complete exact native reserve/submit/hydration/publication/playback consum
 test('native admission denial never asks Essential to speak',async()=>{
  const f=fixture({nativeStatus:{reserve:'busy'}});
  assert.deepEqual(await f.director.attempt({candidates:[candidate],facts,stamp}),{status:'native_rejected',nativeReason:'busy'});
- assert.deepEqual(f.native.map(r=>r.operation),['reserve']);
+ assert.deepEqual(f.native.map(r=>r.operation),['reserve','cancel']);
  assert.equal(f.dispatches.length,0);
  assert.equal(f.acknowledgements.length,0);
 });

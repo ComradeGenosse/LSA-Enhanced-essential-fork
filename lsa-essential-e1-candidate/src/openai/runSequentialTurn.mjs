@@ -405,6 +405,12 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
     host.log?.(identity, 'terminal', { source, reason: terminalReason, stage: state, cause });
     try { await host.failTurn(identity, Object.assign(new Error(terminalReason), { code: cause?.code || terminalReason }), { source, reason: terminalReason, stage: state, cause }); }
     catch { /* Keep the original terminal cause if native cleanup itself fails. */ }
+    // Provider/segment/TTS failure can end before a Core playback callback.
+    // Fail only its native-bound Director waiter instead of waiting 120 s.
+    if (turn.directorTicket) {
+      try { host.failDirectorTurn?.(turn.directorTicket,identity); }
+      catch { /* Failure notification never grants playback. */ }
+    }
     if (terminalReason === 'provider_timeout') state = 'deadline';
     else if (terminalReason === 'cancelled' || terminalReason === 'superseded' || terminalReason === 'disconnected' || terminalReason === 'playback_interrupted') state = 'cancelled';
     else if (terminalReason === 'playback_ack_timeout') state = 'ack_timeout';

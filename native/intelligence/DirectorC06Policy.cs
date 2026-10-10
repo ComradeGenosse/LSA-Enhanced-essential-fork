@@ -17,6 +17,10 @@ namespace LSA.Intelligence
             public bool SpeakerAnchorCurrent,SpeakerOwned,SpeakerObserver,SpeakerAlive;
             public bool PlayerAnchorCurrent,PlayerIsLocal,PlayerAlive;
             public bool OwnerProofCurrent,OwnerPrimaryModeKnown,OwnerIdle;
+            // Optional source-verified compatible movement; null is never
+            // proof of idle or permission to bypass a mandatory C-06 field.
+            // Keep this separate from mandatory boolean safety fields.
+            public string CompatibleLocomotion;
             public bool PlayerTurnSourceCurrent,PlayerTurnIdle,MicStateKnown,MicIdle;
             // Source-pinned NpcTargeting negative player/dialogue state. The
             // pinned GetCurrentSpeakerPed forwards to GetPlayerConversationPed:

@@ -190,6 +190,42 @@ test('director own-stock lifecycle preserves only its exact authorized staged tr
  assert.equal(t.acquire(own,t.sample(clear())),null,'retired ticket cannot reauthorize');
 });
 
+test('original first-contact special turn accepts source-pinned WP before Xi, not a foreign session',()=>{
+ let now=1000;const ticket='d1111111-1111-4111-8111-111111111111';
+ const t=new OriginalEssentialTurnTimeline({now:()=>now});
+ const first=t.sample(clear());
+ assert.ok(t.acquire(ticket,first));
+ assert.ok(t.beginDirector(ticket,t.sample(clear())));
+ assert.equal(t.transition('special_dispatch',ticket),true);
+ assert.equal(t.directorPhase(ticket),'dispatch');
+ assert.equal(t.transition('session_open',ticket),true);
+ assert.equal(t.directorPhase(ticket),'session','Zi opens stock WP before Xi');
+ const source=t.sample(clear());
+ assert.equal(source.revision,first.revision+2);
+ assert.ok(t.check(ticket,source),'ordered original session open retains exclusive ticket');
+ assert.equal(t.transition('turn_allocate',ticket),true);
+ assert.equal(t.directorPhase(ticket),'allocation');
+ assert.equal(t.transition('turn_intake',ticket),true);
+ assert.equal(t.directorPhase(ticket),'generation');
+
+ const foreign=new OriginalEssentialTurnTimeline({now:()=>now});
+ assert.ok(foreign.acquire(ticket,foreign.sample(clear())));
+ assert.ok(foreign.beginDirector(ticket,foreign.sample(clear())));
+ assert.equal(foreign.transition('special_dispatch',ticket),true);
+ assert.equal(foreign.transition('session_open','f1111111-1111-4111-8111-111111111111'),true);
+ assert.equal(foreign.directorPhase(ticket),null,
+   'foreign WP opens must retire a source lease');
+
+ const duplicate=new OriginalEssentialTurnTimeline({now:()=>now});
+ assert.ok(duplicate.acquire(ticket,duplicate.sample(clear())));
+ assert.ok(duplicate.beginDirector(ticket,duplicate.sample(clear())));
+ assert.equal(duplicate.transition('special_dispatch',ticket),true);
+ assert.equal(duplicate.transition('session_open',ticket),true);
+ assert.equal(duplicate.transition('session_open',ticket),true);
+ assert.equal(duplicate.directorPhase(ticket),null,
+   'duplicate stock WP cannot renew an already-spent source claim');
+});
+
 test('player takeover, wrong source transition and expiration veto Director allocation',()=>{
  const id='e1111111-1111-4111-8111-111111111111',alt='f1111111-1111-4111-8111-111111111111';
  let now=1000;const t=new OriginalEssentialTurnTimeline({now:()=>now});

@@ -124,8 +124,12 @@ export function patchSource(source) {
       original==='Xi'?'t?.metadata?.directorTicket?.ticketId':
       original==='Xn'?'le.getTurn(t)?.metadata?.directorTicket?.ticketId':
       original==='WP'?'__lsaDirectorSessionTicket?.ticketId':'null';
+    const stage=original==='Xi'?'turn_allocate':
+      original==='Xn'?'turn_intake':original==='WP'?'session_open':null;
+    const trace=stage?
+      `if(${owner}) __LSA_E1_RUNTIME.directorHandoff("${stage}","started","stock_entry");`:'';
     insert(functionBody(ast,original).start+1,
-      `__LSA_E1_RUNTIME.originalTurnTransition("${event}",${owner});`, `PS6 original lifecycle ${original}`);
+      trace+`__LSA_E1_RUNTIME.originalTurnTransition("${event}",${owner});`, `PS6 original lifecycle ${original}`);
   }
 
   // Bind native identity before the controller sends text or microphone input.
@@ -307,7 +311,7 @@ export function patchSource(source) {
       memberName(d.init.callee)==='getTurn'))all.push(node);
   });return all;})(),'AP original turn read');
   insert(apTurnRead.end,
-    'if(e?.metadata?.directorTicket && (t.type===Ee.OUTPUT_TRANSCRIPT || t.type===Ee.GENERATION_COMPLETE || t.type===Ee.TURN_COMPLETE) && /(^|\\\\r?\\\\n)[ \\t]*DO[ \\t]*:?[ \\t]+/i.test(String(e.output?.transcript||"")+String(t.text||""))) { Zt(e.id,ke.GEMINI_ERROR,new Error("director_speech_only"));return false; }',
+    'if(e?.metadata?.directorTicket && (t.type===Ee.OUTPUT_TRANSCRIPT || t.type===Ee.GENERATION_COMPLETE || t.type===Ee.TURN_COMPLETE) && /(^|\\r?\\n)[ \\t]*DO[ \\t]*:?[ \\t]+/.test(String(e.output?.transcript||"")+String(t.text||""))) { Zt(e.id,ke.GEMINI_ERROR,new Error("director_speech_only"));return false; }',
     'PS6 original speech-only transcript veto');
 
   const apBody = functionBody(ast, 'AP');

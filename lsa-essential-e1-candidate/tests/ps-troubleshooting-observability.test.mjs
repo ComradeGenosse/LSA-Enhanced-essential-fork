@@ -62,3 +62,20 @@ test('P0 actor admission diagnostics survive telemetry without any source identi
    summarizeKnowledgeSelection({anchorStatus:'private-ref-do-not-leak',pairs:[]},null));
  assert.equal(recordWithoutIdentity.data.captureAnchorStatus,undefined);
 });
+
+test('Director handoff stages persist reason codes but never ticket, NPC or spoken contents',()=>{
+ const privateData={
+   ticketId:'private-ticket',speakerCaptureRef:'private-npc',
+   playerCaptureRef:'private-player',content:'SECRET NPC RESPONSE',
+   sourceText:'SECRET PLAYER TRANSCRIPT',prompt:'SECRET PROMPT',
+ };
+ for(const stage of ['stock_intake','preflight','post_hydration',
+   'turn_allocate','turn_intake','session_open','binding_emit',
+   'binding_ack','binding_wait']) {
+   const row=record('director_handoff',{stage,status:'rejected',
+     code:'backend_revision_mismatch',...privateData});
+   assert.deepEqual(row.data,{stage,status:'rejected',code:'backend_revision_mismatch'});
+   assert.equal(JSON.stringify(row).includes('SECRET'),false);
+   assert.equal(JSON.stringify(row).includes('private-'),false);
+ }
+});

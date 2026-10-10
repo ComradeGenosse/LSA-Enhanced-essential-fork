@@ -64,8 +64,8 @@ export class SceneDirectorSpeech {
     // Active is impossible with the current native preview-only endpoint; the
     // caller must supply an authenticated native submit and exact stock driver.
     const ticket=this.admission.reserve(proposal,stamp);
-    if(!ticket)return Object.freeze({status:'not_admitted'});
-    let nativeReserved=false;
+    if(!ticket)return Object.freeze({status:'not_admitted',
+      diagnosticReason:this.admission.lastReserveFailure??'reservation_unavailable'});
     const currentAge=()=>Math.max(0,this.now()-facts.nowMonotonicMs);
     const request=async operation=>this.nativeRequest({operation,ticket,proposal,stamp,
       // Cancellation remains legal long after the original candidate TTL.
@@ -74,10 +74,14 @@ export class SceneDirectorSpeech {
       let receipt=await request('reserve');
       if(receipt?.ticketId!==ticket.ticketId || receipt.status!=='reserved')
         return Object.freeze({status:'native_rejected',nativeReason:nativeVeto(receipt)});
-      nativeReserved=true;
-      if(!this.originalGrantCurrent(proposal,stamp) ||
-         !this.admission.consume(ticket.ticketId,stamp))
-        return Object.freeze({status:'stale_after_reserve'});
+      // Distinguish PS3/P2 source changes from an independent C-11 ticket,
+      // cooldown, expiry or player-priority fence. Never retry a spent ticket.
+      if(!this.originalGrantCurrent(proposal,stamp))
+        return Object.freeze({status:'stale_after_reserve',
+          diagnosticReason:'original_ps3_entitlement_changed'});
+      if(!this.admission.consume(ticket.ticketId,stamp))
+        return Object.freeze({status:'stale_after_reserve',
+          diagnosticReason:'reservation_recheck_veto'});
       if(!this.originalGrantCurrent(proposal,stamp))
         return Object.freeze({status:'stale_before_submit'});
       receipt=await request('submit');
@@ -105,12 +109,14 @@ export class SceneDirectorSpeech {
         return Object.freeze({status:'tuple_rejected'});
       const outcome=await result.terminal;
       const delivered=this.admission.finish(ticket.ticketId,result.tuple,outcome);
-      return Object.freeze({status:delivered?'delivered':'not_delivered'});
+      return Object.freeze(delivered?{status:'delivered'}:
+        {status:'not_delivered',diagnosticReason:this.admission.lastFinishFailure??'completion_unclassified'});
     } catch {
       return Object.freeze({status:'failed'});
     } finally {
       this.admission.cancel(ticket.ticketId);
-      if(nativeReserved)try{await request('cancel');}catch{}
+      // Release even after a native veto; cancel never grants authority.
+      try{await request('cancel');}catch{}
     }
   }
 }

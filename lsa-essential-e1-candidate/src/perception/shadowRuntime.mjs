@@ -4,7 +4,7 @@ import { ObservationStore } from './observationStore.mjs';
 import { EpisodeStore } from './episodeStore.mjs';
 import { EpisodeCorrelator } from './episodeCorrelator.mjs';
 import { SharedTranscriptStore } from './sharedTranscriptStore.mjs';
-import { SalienceCache, situationFromCharacterView } from './salienceEngine.mjs';
+import { SalienceCache, situationFromCharacterView, sameSalienceSituationPolicy } from './salienceEngine.mjs';
 import { readHostContext } from '../context/hostContext.mjs';
 
 const MAX_COUNTER = 2147483647;
@@ -195,7 +195,7 @@ export class ShadowRuntime {
   situationFor(ref,playerCaptureRef=null) {
     let view={};try {view=this.situationProvider(ref)??{};} catch {}
     const sample=this.observerSituations.get(ref),live=sample && sample.expires>this.now() && this.current(ref);
-    return situationFromCharacterView({...view,bindings:[],nowMonotonicMs:this.now(),lifetimeCurrent:this.current(ref),channelHealthy:Boolean(this.epoch),perceptionSupported:true,playerCaptureRef,activity:live?sample.activity:'unknown',primaryOwner:live?sample.primaryOwner:null,situationRevision:live?sample.situationRevision:0});
+    return situationFromCharacterView({...view,bindings:[],nowMonotonicMs:this.now(),lifetimeCurrent:this.current(ref),channelHealthy:Boolean(this.epoch),perceptionSupported:true,playerCaptureRef,activity:live?sample.activity:'unknown',primaryOwner:live?sample.primaryOwner:null,ownerProofRevision:live?sample.ownerProofRevision:0,situationRevision:live?sample.situationRevision:0});
   }
   // Native P2-origin, incarnation-scoped source revision. This is
   // transport evidence ONLY, never a grant or global player-turn version.
@@ -268,8 +268,14 @@ export class ShadowRuntime {
          grant.pair.observation.observationId!==observation.observationId ||
          grant.pair.observation.revision!==observation.revision ||
          grant.pair.decision.decisionKey!==decision.decisionKey ||
-         grant.pair.situation.situationRevision!==
-           (this.observerSituations.get(proposal.speakerCaptureRef)?.situationRevision??0))
+         // A new native situation sample is not new decision authority.
+         // Retain the originally qualified decision ONLY while current
+         // source-backed P2 owner revision and all salience policy inputs
+         // remain identical. Actual ownership/policy changes still retire it.
+         !sameSalienceSituationPolicy(grant.pair.situation,
+           this.situationFor(proposal.speakerCaptureRef,proposal.playerCaptureRef),
+           observation) ||
+         grant.pair.situation.ownerProofRevision!==owner.proofRevision)
           continue;
       // Independently re-evaluate the original source-clock window; PS0/PS1
       // must not import the PS6 selector or the stock turn scheduler. If

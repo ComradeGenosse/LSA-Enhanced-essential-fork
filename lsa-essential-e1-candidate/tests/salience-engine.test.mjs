@@ -147,6 +147,42 @@ test('player harm and self harm stay distinct', () => {
   assert.ok(playerDecision.reasons.includes('safety_player_harm'));
 });
 
+test('verified gunfire and stranger injury permit a bounded spontaneous reaction while following', () => {
+  const observer=randomUUID(),player=randomUUID(),stranger=randomUUID();
+  const following=view({activity:'following',playerCaptureRef:player});
+  const gunfire=observation({observer,eventType:'firing_burst',severity:'routine',
+    claims:[claim({kind:'firing',channel:'auditory',basis:'audibility_model',
+      source:player,sourceKind:'player'})]});
+  const cache=new SalienceCache({now:()=>NOW});
+  const first=cache.evaluate(gunfire,following);
+  assert.equal(first.response,'eligible','verified nearby shots need no relationship binding');
+  assert.equal(first.context,'candidate');
+  assert.equal(first.memory,'none');
+  assert.ok(first.reasons.includes('safety_nearby_threat'));
+  assert.ok(!first.reasons.includes('relationship_close'));
+  assert.equal(cache.evaluate(gunfire,following).response,'none',
+    'repeated PS3 evaluation cannot grant a second reaction');
+  assert.equal(cache.acknowledge(first.decisionKey,'ps6_ticket','delivered'),true);
+  assert.equal(cache.evaluate(gunfire,following).response,'none',
+    'successful speech consumes that event response');
+
+  const injured=observation({observer,eventType:'injury',severity:'danger',
+    claims:[injuryOf(stranger)]});
+  const injuryDecision=evaluateSalience(injured,following);
+  assert.equal(injuryDecision.response,'eligible','someone getting shot merits a response');
+  assert.equal(injuryDecision.context,'candidate',
+    'ordinary stranger injury should not displace PS4 reserved danger context');
+  assert.equal(injuryDecision.memory,'none','strangers do not gain a fabricated memory link');
+
+  const uncertain=observation({observer,eventType:'firing_burst',severity:'routine',
+    claims:[claim({kind:'firing',channel:'auditory',basis:'audibility_model',
+      certainty:'uncertain'})]});
+  assert.equal(evaluateSalience(uncertain,following).response,'none',
+    'unverified shots cannot cause unsolicited speech');
+  assert.equal(evaluateSalience(gunfire,view({activity:'following',lifetimeCurrent:false,
+    playerCaptureRef:player})).response,'none','retired actor cannot speak');
+});
+
 test('driving suppresses routine presence and keeps vehicle danger', () => {
   const observer = randomUUID(), other = randomUUID();
   const parked = observation({ observer, eventType: 'character_present', severity: 'routine', claims: [claim({ kind: 'presence', channel: 'visual', basis: 'sampled_state', target: other })] });
@@ -474,6 +510,16 @@ test('Phase 13a validates exact original PS2/PS3 grant and P2 source proof witho
   assert.equal(checked.signalId,seen.claims[0].details.eventSignalId);
   assert.equal(checked.situationRevision,1);
   assert.equal(checked.ageMs,100);
+  // Native samples tick frequently even when policy and P2 owner have not
+  // changed. A fresh sample must not retire/re-grant the original PS3 key.
+  ps.observerSituations.set(speaker,Object.freeze({
+    ...ps.observerSituations.get(speaker),situationRevision:2,sampledGameTick:11}));
+  ps.refreshSalience(speaker);
+  const sampled=ps.directorOriginalEntitlementFor(proposal,stamp);
+  assert.equal(sampled?.decisionKey,checked.decisionKey);
+  assert.equal(sampled?.situationRevision,2);
+  assert.equal(sampled?.ageMs,100);
+  assert.equal(ps.salience.ledger.get(seen.observationId).consumed,false);
   assert.notEqual(checked.signalId,proposal.observationId,
     'original native signal identity differs from companion-issued observation UUID');
   assert.ok(Object.isFrozen(checked));
@@ -532,4 +578,43 @@ test('Phase 13a original PS3 proof rejects expired native source evidence withou
   time=NOW+1901;ps.lastReceipt=time;
   assert.equal(ps.directorOriginalEntitlementFor(proposal,stamp),null,
     'original urgent source timestamp expires despite valid original PS3 ledger');
+});
+
+test('PS4 frozen decision acknowledges the same live observation after PS3 changes its policy key',()=>{
+  const cache=new SalienceCache({now:()=>NOW}),victim=randomUUID();
+  const seen=observation({eventType:'death_seen',severity:'critical',claims:[claim({kind:'dead',channel:'visual',basis:'sampled_state',target:victim})]});
+  const original=cache.evaluate(seen,view({activity:'idle'}));
+  const frozen=cache.ledger.get(seen.observationId).pair;
+  const refreshed=cache.evaluate(seen,view({activity:'conversation'}));
+  assert.notEqual(refreshed.decisionKey,original.decisionKey);
+  assert.equal(cache.acknowledge(original.decisionKey,'ps4_context','delivered'),false,'old key was retired in the current ledger');
+  assert.equal(cache.acknowledgeFrozenContext(original.decisionKey,frozen,'delivered'),true);
+  assert.equal(cache.ledger.get(seen.observationId).decisionKey,refreshed.decisionKey);
+  assert.equal(cache.ledger.get(seen.observationId).consumedBy.has('ps4_context'),true);
+  assert.equal(cache.ledger.get(seen.observationId).consumed,false,'PS4 cannot consume a PS6 ticket');
+  assert.equal(cache.acknowledge(original.decisionKey,'ps6_ticket','delivered'),false);
+});
+
+test('PS4 frozen acknowledgment refuses expired, retired, changed-revision, and substituted evidence',()=>{
+  const setup=()=>{let time=NOW;const victim=randomUUID(),cache=new SalienceCache({now:()=>time});
+    const seen=observation({eventType:'death_seen',severity:'critical',expiresAtMonotonicMs:NOW+100,
+      claims:[claim({kind:'dead',channel:'visual',basis:'sampled_state',target:victim})]});
+    const original=cache.evaluate(seen,view()),frozen=cache.ledger.get(seen.observationId).pair;
+    cache.evaluate(seen,view({activity:'conversation'}));
+    return {cache,victim,seen,original,frozen,setTime:value=>{time=value;}};
+  };
+  const expired=setup();expired.setTime(NOW+100);
+  assert.equal(expired.cache.acknowledgeFrozenContext(expired.original.decisionKey,expired.frozen,'delivered'),false);
+  const retired=setup();retired.cache.releaseReference(retired.victim);
+  assert.equal(retired.cache.acknowledgeFrozenContext(retired.original.decisionKey,retired.frozen,'delivered'),false);
+  const revised=setup();const s=revised.seen;
+  revised.cache.evaluate(observation({observationId:s.observationId,episodeId:s.episodeId,observer:s.observer.captureRef,
+    nativeRun:s.observedAt.nativeRun,revision:2,eventType:s.eventType,severity:s.severity,claims:s.claims}),view());
+  assert.equal(revised.cache.acknowledgeFrozenContext(revised.original.decisionKey,revised.frozen,'delivered'),false);
+  const replaced=setup();
+  assert.equal(replaced.cache.acknowledgeFrozenContext('not-the-frozen-key',replaced.frozen,'delivered'),false);
+  const reset=setup();reset.cache.clear();
+  assert.equal(reset.cache.acknowledgeFrozenContext(reset.original.decisionKey,reset.frozen,'delivered'),false);
+  for(const fixture of [expired,retired,revised,replaced,reset])
+    assert.equal([...fixture.cache.ledger.values()].some(row=>row.consumedBy.has('ps4_context')),false);
 });

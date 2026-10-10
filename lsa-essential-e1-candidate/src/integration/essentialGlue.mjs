@@ -94,7 +94,14 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
       turn.knowledgeDelivery=createKnowledgeDelivery({frame:selected,baseFrame:base,isCurrent:()=>runtime.host.isCurrent(turn.identity) && (!identityService || identityService.current(turn.identity)),
         prune:frame=>pruneKnowledgeFrame(frame,item=>!validateKnowledge({delivery:[item]}),item=>!validateKnowledge({delivery:[],activityReferences:[item]}),item=>!validateKnowledge({delivery:[],dialogueReferences:[item]})),
         validate:validateKnowledge,
-        acknowledge:(key,consumer,outcome)=>runtime.intelligence?.runtime.salience.acknowledge(key,consumer,outcome),
+        acknowledge:(key,consumer,outcome)=>{
+          const salience=runtime.intelligence?.runtime.salience;
+          if(consumer==='ps4_context' && outcome==='delivered'){
+            const frozen=turn.knowledgeInputs?.pairs.find(pair=>pair.decision.decisionKey===key);
+            return salience?.acknowledgeFrozenContext(key,frozen,outcome)===true;
+          }
+          return salience?.acknowledge(key,consumer,outcome)===true;
+        },
         onOutcome:result=>{turn.knowledgeOutcome=result;try{telemetry?.emit('knowledge_delivery',turn.identity,source,{outcome:result.outcome,selectedObservations:result.selectedObservations,acknowledgedObservations:result.acknowledged,retiredAcknowledgements:result.retired,knowledgeRequestHash:result.requestHash,projectionHash:result.projectionHash,reason:result.retired?'ack_key_retired':null});}catch{}}});
       return selected;
     },
@@ -156,35 +163,62 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
     acquireOriginalTurn:(ticketId,snapshot)=>originalTurnTimeline.acquire(ticketId,snapshot),
     checkOriginalTurn:(ticketId,snapshot)=>originalTurnTimeline.check(ticketId,snapshot),
     releaseOriginalTurn:ticketId=>originalTurnTimeline.release(ticketId),
+    // Only fixed, non-sensitive stage codes; never ticket IDs, speech text,
+    // capture references, player context, or arbitrary exception messages.
+    directorHandoff(stage,status,code) {
+      const stages=['preflight','post_hydration','turn_allocate','turn_intake',
+        'session_open','binding_emit','binding_ack','binding_wait','stock_intake'];
+      if(!stages.includes(stage) || !['started','accepted','rejected','timeout','failed'].includes(status) ||
+         typeof code!=='string' || !/^[a-z][a-z0-9_]{0,63}$/.test(code))return false;
+      try{telemetry?.emit('director_handoff',null,'internal',{stage,status,code});}catch{}
+      return true;
+    },
     directorPreflight(input) {
       if(input?.directorTicket!==undefined || input?.interruptExisting===true ||
          input?.faceListener===true || input?.reason!=='ps6_observer' ||
          typeof input?.dedupeKey!=='string' ||
-         !/^ps:[0-9a-f-]{36}$/.test(input.dedupeKey))return false;
+         !/^ps:[0-9a-f-]{36}$/.test(input.dedupeKey)) {
+        runtime.directorHandoff('preflight','rejected','input_contract');
+        return false;
+      }
       try {
-        // The stock DTO is NEVER an authority. Resolve its exact invocation
-        // through the original companion's authenticated, native-submitted
-        // one-shot dispatch ledger; caller-chosen ticket fields are forbidden.
+        // Never treat the stock DTO as authority. Check the original backend
+        // lease and native-submitted one-shot ticket independently.
         const id=input.dedupeKey.slice(3);
-        if(runtime.host.directorCheckOriginalTurn(id)?.quiet!==true)return false;
+        if(runtime.host.directorCheckOriginalTurn(id)?.quiet!==true) {
+          runtime.directorHandoff('preflight','rejected','backend_not_quiet');return false;
+        }
         const ticket=runtime.intelligence?.claimDirectorStockTicket?.(input);
-        if(!ticket || ticket.ticketId!==id ||
-           ticket.dedupeKey!==input.dedupeKey)return false;
-        if(runtime.host.directorBeginOriginalTurn(id)!==true)return false;
+        if(!ticket || ticket.ticketId!==id || ticket.dedupeKey!==input.dedupeKey) {
+          runtime.directorHandoff('preflight','rejected','stock_ticket_unclaimed');return false;
+        }
+        if(runtime.host.directorBeginOriginalTurn(id)!==true) {
+          runtime.directorHandoff('preflight','rejected','source_transition_denied');return false;
+        }
         input.directorTicket=ticket;
+        runtime.directorHandoff('preflight','accepted','stock_ticket_claimed');
         return true;
-      }catch{return false;}
+      }catch{
+        runtime.directorHandoff('preflight','failed','preflight_exception');return false;
+      }
     },
     requireDirectorTicket(input,hydrated) {
-      // A source-backed and native-claimed ticket is checked again AFTER
-      // asynchronous actor hydration. A same-key foreign call or player
-      // takeover cannot adopt the claim; no fallback to a ps: key.
-      if(input?.interruptExisting===true || input?.faceListener===true ||
-         !input?.directorTicket || !hydrated?.actorContext ||
-         runtime.host.directorCheckOriginalTurn(input.directorTicket.ticketId)?.quiet!==true ||
-         (runtime.intelligence?.verifyDirectorTicket?.(input.directorTicket,input,hydrated)!==true ||
-         runtime.intelligence?.confirmDirectorHydration?.(input.directorTicket)!==true))
+      // Check only the actual pinned post-M4 hydration path; preserve all
+      // original native/owner checks and throw the same stock veto on failure.
+      const reject=code=>{
+        runtime.directorHandoff('post_hydration','rejected',code);
         throw new TypeError('director_ticket_unverified');
+      };
+      if(input?.interruptExisting===true || input?.faceListener===true ||
+         !input?.directorTicket || !hydrated?.actorContext)
+        return reject('hydration_contract');
+      if(runtime.host.directorCheckOriginalTurn(input.directorTicket.ticketId)?.quiet!==true)
+        return reject('backend_lease_invalid');
+      if(runtime.intelligence?.verifyDirectorTicket?.(input.directorTicket,input,hydrated)!==true)
+        return reject('hydrated_ticket_invalid');
+      if(runtime.intelligence?.confirmDirectorHydration?.(input.directorTicket)!==true)
+        return reject('hydration_gate_denied');
+      runtime.directorHandoff('post_hydration','accepted','ticket_verified');
       return input.directorTicket;
     },
     validateDecisionShape,
@@ -236,6 +270,7 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
         observe: (identity, signal, onTerminal, onObserved) => observeNative(bridge, identity, signal, onTerminal, onObserved),
         authorize: identity => bridge.authorize(identity),
         failTurn: (identity, error, details) => bridge.failMatchingTurn(identity, error, details),
+        failDirectorTurn: (ticket,identity) => runtime.intelligence?.failDirectorOriginalTurn?.(ticket,identity) === true,
         log: (identity, event, details) => bridge.log?.(identity, event, details),
         telemetry,
       };

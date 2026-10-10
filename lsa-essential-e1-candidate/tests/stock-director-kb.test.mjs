@@ -103,7 +103,7 @@ test('original kb hydrates one native-submitted source-backed Director tuple thr
  const reservation=h.runtime.host.directorReserveOriginalTurn(ticket.ticketId);
  assert.ok(reservation?.quiet,'source stock A maps issued exclusive original lease');
  const client=new IntelligenceClient({mode:'shadow',pipeName:'LSA.Intelligence.v1'},
-   {now:()=>1000,report:()=>{},
+   {now:()=>1000,report:()=>{},directorProductionRequired:true,
     originalTurnCurrent:id=>h.runtime.host.directorCheckOriginalTurn(id),
     originalTurnPhase:id=>h.runtime.host.directorOriginalPhase(id)});
  const frames=[];
@@ -135,8 +135,22 @@ test('original kb hydrates one native-submitted source-backed Director tuple thr
  // are independently tested from the production C# sources.
  client.runtime.current=()=>true;
  client.runtime.directorOriginalEntitlementFor=()=>({source:'test_ps3'});
+ // The Director reservation and original Core hydrated ticket are two
+ // independent objects with overlapping immutable source identities.
+ const directorTicket=Object.freeze({
+   schemaVersion:1,ticketId:ticket.ticketId,dedupeKey:ticket.dedupeKey,
+   speakerCaptureRef:proposal.speakerCaptureRef,
+   playerCaptureRef:proposal.playerCaptureRef,
+   decisionKey:proposal.decisionKey,priority:'director_routine',
+   expiresAtMonotonicMs:10000,
+ });
+ const playback=client.directorPlaybacks.begin(directorTicket,{
+   hydrated:()=>true,publication:()=>true,
+ });
+ assert.ok(playback,'production registry has the original Director reservation');
  client.directorOwnerReservations.set(ticket.ticketId,{
-   run:reservation.sourceRun,revision:reservation.revision,proposal,stamp});
+   run:reservation.sourceRun,revision:reservation.revision,proposal,stamp,
+   priority:directorTicket.priority});
  client.directorStockDispatched.add(ticket.ticketId);
  client.directorStockContexts.set(ticket.ticketId,'Nearby danger.');
  h.runtime.intelligence=client;
@@ -144,10 +158,20 @@ test('original kb hydrates one native-submitted source-backed Director tuple thr
    reason:'ps6_observer',dedupeKey:ticket.dedupeKey,
    content:'Nearby danger.',faceListener:false,interruptExisting:false};
  h.context.directorArgs=dto;
+ // The production stock Zi can enter WP to create a new actor session BEFORE
+ // Xi allocates the special turn. This harness stubs Zi, so emit that exact
+ // source-owned lifecycle entry here instead of bypassing the first-contact
+ // path as earlier tests did.
+ h.evaluate('var __lsaStockZi=Zi; Zi=async o=>{ __LSA_E1_RUNTIME.originalTurnTransition("session_open",o.directorTicket?.ticketId); return __lsaStockZi(o); };');
  h.runtime.services.decide=async()=>({dialogue:'Stay back from the danger.',command:''});
  const turn=await h.evaluate('kb(directorArgs)');
  assert.ok(turn,'actual source-pinned stock Xi and Xn allocated turn');
  assert.equal(dto.directorTicket?.ticketId,ticket.ticketId);
+ assert.notEqual(dto.directorTicket,directorTicket,
+   'actual source kb claim reconstructs a different ticket object');
+ assert.equal(client.directorPlaybacks.entry(dto.directorTicket)?.published,true,
+   'source-verified kb hydrated, bound, and published the original reservation');
+ assert.equal((await playback.bound)?.tuple?.turnId,turn.id);
  assert.equal(h.runtime.host.directorOriginalPhase(ticket.ticketId),'generation');
  const bound=frames.filter(f=>f.type==='director.original_turn_bound');
  assert.equal(bound.length,1);

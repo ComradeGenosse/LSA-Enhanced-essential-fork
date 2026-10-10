@@ -289,6 +289,13 @@ class Program
         Check(receipts.Current(req) && receipts.OriginalFor(req)?.ObservationId==proof.ObservationId &&
               !ReferenceEquals(receipts.OriginalFor(req),proof),
             "source-origin PS3 sealed receipt is independently copied, never request-owned");
+        var regressedAge=Request(59);regressedAge.AgeMs=99;
+        Check(!receipts.Current(regressedAge) &&
+              receipts.LastCurrentFailure=="grant_age_regressed",
+            "native rejects an age genuinely older than the sealed original PS3 receipt");
+        var advancedAge=Request(59);advancedAge.AgeMs=150;
+        Check(receipts.Current(advancedAge),
+            "native permits increasing age on the same exact original witness and ticket");
         Check(receipts.Reserve(req) && receipts.IsReserved(req),
             "one native ticket can claim original producer grant");
         Check(!receipts.Reserve(req),"already reserved original grant cannot be claimed twice");

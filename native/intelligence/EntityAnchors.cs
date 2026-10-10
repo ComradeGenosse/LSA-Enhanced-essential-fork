@@ -40,9 +40,13 @@ namespace LSA.Intelligence
         // priority anchors are demoted in place, preserving their exact lifetime.
         public void SetObserverPriority(IEnumerable<string> orderedCaptureRefs)
         {
+            // Materialize before clearing flags. EnrichActor supplies a lazy
+            // enumeration of the CURRENT observer set; evaluating it after
+            // the demotion erased all previous observers on every P0 turn.
+            var priority=(orderedCaptureRefs??Enumerable.Empty<string>()).ToArray();
             foreach(var a in entries.Values) a.Observer=false;
             var admitted=new HashSet<string>();
-            foreach(var captureRef in orderedCaptureRefs??Enumerable.Empty<string>()) {
+            foreach(var captureRef in priority) {
                 if(admitted.Count>=ObserverLimit) break;
                 if(captureRef==null || admitted.Contains(captureRef) || !entries.TryGetValue(captureRef,out var a) || a.Kind!="ped") continue;
                 admitted.Add(captureRef);a.Observer=true;
