@@ -55,6 +55,55 @@ class Program
             SpeakerCaptureRef=c06speaker.CaptureRef,PlayerCaptureRef=c06player.CaptureRef,
             OwnerIncarnationId=lifetime,ProofRevision=1,PlayerTurnVersion=0,PolicyVersion=1
         };
+        // All-positive fixture tests a *pure stock request DTO*, not an
+        // actual Core/PS3 authorization, scheduling effect, or GTA runtime.
+        c06request.TicketId=Guid.NewGuid().ToString("D");
+        c06request.ObservationId=Guid.NewGuid().ToString("D");
+        c06request.DecisionKey="original-ps3-grant";
+        c06request.ObservationRevision=1;
+        var preparedProof=new DirectorC06Policy.Snapshot {
+            HostRunId=c06request.HostRunId,WorldEpoch=c06request.WorldEpoch,
+            SpeakerCaptureRef=c06request.SpeakerCaptureRef,PlayerCaptureRef=c06request.PlayerCaptureRef,
+            OwnerIncarnationId=c06request.OwnerIncarnationId,OwnerProofRevision=c06request.ProofRevision,
+            PlayerTurnVersion=c06request.PlayerTurnVersion,PolicyVersion=c06request.PolicyVersion,
+            ObservationId=c06request.ObservationId,ObservationRevision=c06request.ObservationRevision,
+            DecisionKey=c06request.DecisionKey,
+            SpeakerAnchorCurrent=true,SpeakerOwned=true,SpeakerObserver=true,SpeakerAlive=true,
+            PlayerAnchorCurrent=true,PlayerIsLocal=true,PlayerAlive=true,
+            OwnerProofCurrent=true,OwnerPrimaryModeKnown=true,OwnerIdle=true,
+            PlayerTurnSourceCurrent=true,PlayerTurnIdle=true,MicStateKnown=true,MicIdle=true,
+            EssentialTurnKnown=true,EssentialTurnIdle=true,PlaybackKnown=true,PlaybackIdle=true,
+            ScriptStateKnown=true,ScriptSafe=true,ActorReflexKnown=true,ActorReflexIdle=true,
+            ObservationReceiptCurrent=true,ResponseGrantCurrent=true
+        };
+        Check(DirectorStockTurnRequest.Prepare(c06request,null,actor,player,
+              "brief relevant reaction")==null,
+              "missing C06 snapshot cannot construct Essential request");
+        var prepared=DirectorStockTurnRequest.Prepare(c06request,preparedProof,actor,player,"brief relevant reaction");
+        Check(prepared!=null && ReferenceEquals(prepared.SpeakerPed,actor) &&
+              ReferenceEquals(prepared.ListenerPed,player) &&
+              ReferenceEquals(prepared.SpeechTargetPed,player) &&
+              prepared.Content=="brief relevant reaction" &&
+              prepared.Reason=="ps6_observer" &&
+              prepared.DedupeKey=="ps:"+c06request.TicketId,
+              "stock kb request carries exact speaker, original ticket and listener");
+        Check(!prepared.FaceListener&&!prepared.InterruptExisting &&
+              prepared.DelayMilliseconds==0 && prepared.CancelIfPlayerStartsTurn &&
+              !prepared.RequireCurrentPlayerConversation && prepared.SkipIfSpeakerBusy,
+              "stock kb safety fields are noninterrupting and zero-delay");
+        Check(DirectorStockTurnRequest.Prepare(c06request,preparedProof,actor,player,
+              "unsafe\\ncommand")==null &&
+              DirectorStockTurnRequest.Prepare(c06request,preparedProof,actor,actor,
+              "context")==null,
+              "newline and self-target forbidden");
+        preparedProof.ObservationReceiptCurrent=false;
+        Check(DirectorStockTurnRequest.Prepare(c06request,preparedProof,actor,player,
+              "context")==null,"missing original PS3 receipt refuses stock request");
+        preparedProof.ObservationReceiptCurrent=true;
+        preparedProof.EssentialTurnKnown=false;
+        Check(DirectorStockTurnRequest.Prepare(c06request,preparedProof,actor,player,
+              "context")==null,"unknown Essential turn refuses stock request");
+
         var c06probe=(DirectorC06Policy.Snapshot)integration.GetType().GetMethod(
             "ReadDirectorC06",BindingFlags.NonPublic|BindingFlags.Instance).Invoke(integration,new object[]{c06request});
         Check(c06probe.SpeakerAnchorCurrent && c06probe.SpeakerOwned && c06probe.SpeakerObserver &&
