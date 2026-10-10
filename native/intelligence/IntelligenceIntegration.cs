@@ -121,7 +121,7 @@ namespace LSA.Intelligence
                 ()=>LSA.PromotedCharacters.EssentialPlayerPriorityMonitor.Read());
             // This preview endpoint never acquires C-11 speech authority.
             // Verified native C-06 + Essential intake are deliberately absent.
-            director=new DirectorAdmission(()=>this.host.MonotonicMs,(r,stage)=>(stage=="bind" || stage=="playback_started" || stage=="complete") ? DirectorC06Policy.CurrentPlayback(r,ReadDirectorC06(r)) : DirectorC06Policy.Safe(r,ReadDirectorC06(r)),()=>this.host.HostRunId,()=>this.host.WorldEpoch,false,
+            director=new DirectorAdmission(()=>this.host.MonotonicMs,(r,stage)=>(stage=="playback_started" || stage=="complete") ? DirectorC06Policy.CurrentOccupiedPlayback(r,ReadDirectorC06(r)) : stage=="bind" ? DirectorC06Policy.CurrentPlayback(r,ReadDirectorC06(r)) : DirectorC06Policy.Safe(r,ReadDirectorC06(r)),()=>this.host.HostRunId,()=>this.host.WorldEpoch,false,
                 ()=>LosSantosAlive.Bridge.SpecialTurns.SpecialGeminiTurnService.ReadPlayerTurnVersion(),
                  ()=>directorShadow ? LSA.PromotedCharacters.EssentialPlayerPriorityMonitor.Read() : -1);
             // #3A compiles and binds the real pinned Essential Submit method.
