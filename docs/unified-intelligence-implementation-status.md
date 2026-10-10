@@ -1147,3 +1147,48 @@ A superseded intermediate Windows run revealed an incorrect idle fixture: the in
 - **Global player/Essential priority remains unresolved:** special-turn revision and target/current-speaker busy-state are useful negative checks but do not cover every player text/microphone/active Essential turn. Complete independent `PlayerTurnSourceCurrent` / `EssentialTurnKnown` remain unknown.
 - **Actual stock Essential `kb` `Submit` / original tuple / nonce correlation and production playback acceptance remain unimplemented.** `DirectorStockTurnRequest.Prepare` is still pure and no stock scheduler is called. `DirectorAdmission(enabled:false)` rejects live reservations.
 - No production RPH Release build, installed GTA smoke acceptance or verified deployment hashes. PS4 remains 22/81 individually accepted; G7 / Phase 13a A33/A34/A39/A40 and Phase 6 full acceptance remain open. **PR draft/open/unmerged, no deploy, install, feature enable, Phase 10a, or deferred phases.**
+
+
+## Checkpoint 87: original PS3 source-bound native receipt bridge (October 10, 2026)
+
+**Matching implementation/test code HEAD:** `a3db1bd8d48be0ac8af0ebf52b392c08150c4c6a`; **[GitHub Actions run 38043181447](https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/actions/runs/38043181447) SUCCESS on Linux and Windows**. This is the bounded PS3-authorization slice on draft PR #23, with **no stock speech scheduler, native Director gate enablement, installation, or merge**.
+
+### Producer receipt originated from the original PS2 + PS3 state, not a request echo
+
+1. The native owner-fiber producer `IntelligenceIntegration.Sample` now issues a **native UUID challenge** only for an authentic current P2-owned observer with a positive original P2 `DirectorProofRevision`. The challenge is carried as optional `ps3Challenge` in the existing `observer_situation` v1 factual stream, bound to the original host/world/speaker/owner/revision/sampled situation. Changes, expiry, owner retirement, connection loss, and world reset invalidate challenges.
+2. The native publisher independently remembers `RawSignal.signalId` **only after successful outbound native factual signal enqueue** and only for an original native witness or native source/target self-involvement. The ledger stores which observer was entitled to that native event. Signal ID was already in the original PS2 claim's immutable `details.eventSignalId`; the companion does **not** obtain this evidence from a request field.
+3. `ShadowRuntime.directorOriginalEntitlementFor` (Checkpoint 85) continues to check the original stored PS2 observation, unconsumed PS3 salience decision/grant/pair, positive source claims, age/expiry and exact current native P2 proof. It now also extracts original **native claim signalId**, actual native `observer_situation.ps3Challenge` and situation revision, and age in milliseconds. Missing source facts remain null: they are never synthesized from a requested ticket or an LLM assertion.
+4. Companion `IntelligenceClient.requestDirector` emits a **separate, strictly closed 18-field `director.ps3_receipt` version 1** over the *existing* user-ACL named pipe **before** a native `director.request reserve` and only after an original PS3 source check. The submit operation rechecks original producer truth but does not forge a second receipt. A cancel is always allowed even if the original PS3 grant has expired. No new pipe, other service, token signer, or Essential action was created.
+
+### Native source proof and once-only admission
+
+- The existing native pipe reader queues these two messages FIFO and the native **owner fiber** dispatches them through separate strict `DirectorPs3ReceiptCodec` and `DirectorFrameCodec` contracts. Receipt frames cannot decode as Director commands, and unknown, noninteger, extra, or malformed fields are refused.
+- New bounded `DirectorPs3Receipts` stores at most **16 original observer challenges**, **256 native source-signal/observer matches**, **32 original PS3 grants**. It independently checks the challenge, original signal witness, native host/world, speaker and original P2 owner incarnation/revision, situation revision range, source PS3 decision/observation identity, policy version and bounded source age. Issued challenge and native source signal each redeem once, with challenge/signal/accepted-grant leases **3000/10000/at most 2000 ms** (accepted grant TTL is shortened by original evidence age).
+- `DirectorAdmission` remains the separate, default-disabled source of one-use C-11 speech reservation. If it ever returns an authorized native reserve, the original PS3 ledger must claim the exact matching ticket once. Source grant cleanup occurs on exact cancel, P2 owner retirement, anchor retirement, disconnected native connection, host/world reset and shutdown.
+- Most importantly, `ReadDirectorC06` now sets `ObservationReceiptCurrent`, `ResponseGrantCurrent`, `ObservationId`, `ObservationRevision` and `DecisionKey` **only** from a validated **native-stored independent receipt**, never by copying the inbound `director.request` fields. The stored receipt is sealed by scalar copy so mutating the decoded input or returned copy cannot alter authority. Forged request host/world/owner/player, ticket/observation ID, PS3 decision/revision, duplicate receipt, different original native witness, borrowed native challenge, future situation, expiry and revoked ownership all fail closed.
+- **Trust-boundary qualification:** Native proves that the receipt was delivered on its existing same-user ACL pipe and corroborates native-origin observer/owner/source-signal/challenge evidence independently. Native does **not** reproduce the PS3 salience-policy calculation; the original companion PS3 ledger remains the authority for decision eligibility and its response grant. The source message is not a cryptographic attestation against malicious same-user code with pipe access.
+
+### Matching-HEAD automated acceptance
+
+| Test suite | Result |
+| --- | --- |
+| Linux isolated Node full | **711 tests / 70 files / 0 failed** |
+| Windows isolated Node full | **711 tests / 70 files / 0 failed** |
+| Focused Phase 13a Node | **38/38 on each OS** |
+| Real pinned Essential DLL metadata ABI (Windows) | **PASS** |
+| ACT native contracts (Windows) | **263 assertions PASS** |
+| Shared PS/ACT intelligence (Windows) | **115 assertions PASS** |
+| **Director + actual native PS3 receipt ledger (Windows)** | **237 assertions PASS** |
+| Actual P2 lifecycle/clock (Windows) | **194 assertions PASS** |
+| Shared host/anchor (Windows) | **62 assertions PASS** |
+| **Native production-source PS host integration (Windows)** | **137 assertions PASS** |
+
+Regression specifics: the new native ledger has source-identity, distinct original observation/decision/owner/world fields, replay and zero-proof rejection, original native source signal/vs unrelated observer, unissued challenge, future situation, immutable input copies, monotonic expiry, owner retirement and reset tests. Tests also use the **actual production `ReadDirectorC06` method** with independently seeded native P2/signal/PS3 receipt; it sees the original PS3 approval, while **still refusing speech** because the separate global player-turn and Essential authority flags remain unknown. Companion tests confirm original PS3 ledger-sourced signal and challenge and strict two-message native FIFO.
+
+Intermediate checks caught and corrected a double-escaped JS receipt wire newline/control-character regex, and a native ledger predicate missing the **second comparison** of host/world fields to the original *ticket* (as opposed to checking only the live host/world). The final matching-code CI receipt above includes both fixes and passes. The owner-retirement test was also strengthened to prove the receipt was truly live *before* it was revoked.
+
+### Milestone and remaining blockers
+
+**This slice implements the PS3 producer-to-native receipt transport and proof ledger.** It resolves the missing native PS3 grant-source integration **at the offline contract/test level**; production GTA reception and behavior remain unverified. It does *not* mean native independently recalculates PS3's policy, authenticates against adversarial same-user processes, or permits live speech.
+
+**Still incomplete:** full global player text/mic/Essential-turn arbitration, source-verified actual stock `SpecialGeminiTurnScheduler.Submit` and original session nonce/turn/generation binding, and production GTA acceptance. Native `DirectorAdmission(...,enabled:false)` is **still disabled**, no `kb` is invoked, and baseline PS4 remains **22/81** individually verified; Phase 6 full acceptance, G7, A33/A34/A39/A40, pinned RPH production Release build and verified deployment are outstanding. No merge, installation, deployment, enablement, Phase 10a or deferred phase.
