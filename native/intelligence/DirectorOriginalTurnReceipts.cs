@@ -23,6 +23,11 @@ namespace LSA.Intelligence
             internal Evidence Data;
             internal long NativeRevision,ExpiresAt;
         }
+        // After the initial synchronized idle admission, retain only its
+        // immutable source identity for stock generation binding. This is NOT
+        // a renewed quiet proof. Core transition epoch still must match.
+        readonly Dictionary<string,Stored> bindingClaims=new Dictionary<string,Stored>();
+        internal const long BindLeaseMs=2000;
         internal const long LeaseMs=250;
         internal const int MaxTickets=32;
         internal const long MaxExactWireNumber=9007199254740991L;
@@ -112,10 +117,36 @@ namespace LSA.Intelligence
             if(epoch<0 || epoch!=state.NativeRevision)return null;
             return Copy(state.Data);
         }
-        internal void Retire(string ticket) {if(ticket!=null)tickets.Remove(ticket);}
+        internal bool CaptureForBinding(DirectorAdmission.Request request)
+        {
+            var original=OriginalFor(request);
+            if(original==null || bindingClaims.ContainsKey(request.TicketId) ||
+               bindingClaims.Count>=MaxTickets)return false;
+            long native;
+            try {native=inputEpoch();}catch{return false;}
+            if(native<0)return false;
+            bindingClaims[request.TicketId]=new Stored {
+                Data=original,NativeRevision=native,ExpiresAt=clock()+BindLeaseMs};
+            return true;
+        }
+        internal Evidence SealedForBinding(DirectorAdmission.Request request)
+        {
+            Stored state;
+            if(request==null || !DirectorAdmission.Valid(request) ||
+               !bindingClaims.TryGetValue(request.TicketId,out state) ||
+               clock()>=state.ExpiresAt ||
+               request.HostRunId!=state.Data.HostRunId ||
+               request.WorldEpoch!=state.Data.WorldEpoch ||
+               request.PlayerTurnVersion!=state.Data.PlayerTurnVersion)
+                return null;
+            long epoch;
+            try {epoch=inputEpoch();}catch{return null;}
+            return epoch>=0 && epoch==state.NativeRevision ? Copy(state.Data):null;
+        }
+        internal void Retire(string ticket) {if(ticket!=null){tickets.Remove(ticket);bindingClaims.Remove(ticket);}}
         // Reset on disconnect, host/world replacement, or source fault. A
         // subsequent connection is a new authenticated producer incarnation.
-        internal void Reset() {tickets.Clear();poisonedTickets.Clear();originalSourceRun=null;lastSerial=0;}
+        internal void Reset() {tickets.Clear();bindingClaims.Clear();poisonedTickets.Clear();originalSourceRun=null;lastSerial=0;}
         internal int Pending {get {Trim();return tickets.Count;} }
     }
 }
