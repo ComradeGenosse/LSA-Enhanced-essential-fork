@@ -51,12 +51,18 @@ function familyKey(observation) {
   const family = HARM_EVENTS.has(observation.eventType) ? 'harm' : observation.eventType === 'firing_burst' ? 'firing' : observation.eventType;
   return `${observation.observer.captureRef}|${family}|${participantRefs(observation).sort().join(',')}`;
 }
+function samePrimaryBehaviorOwner(a,b) {
+  return (!a && !b) || (!!a && !!b &&
+    a.owner===b.owner && a.mode===b.mode && a.since===b.since);
+}
+
 // Compare policy-relevant state without equating a fresh native sample with
 // new PS3 authority. The original response key/TTL is never renewed here.
 export function sameSalienceSituationPolicy(sealed,live,observation) {
   return !!sealed && !!live && !!observation &&
     sealed.profileRevision===live.profileRevision &&
     sealed.ownerProofRevision===live.ownerProofRevision &&
+    samePrimaryBehaviorOwner(sealed.primaryOwner,live.primaryOwner) &&
     sealed.playerCaptureRef===live.playerCaptureRef &&
     sealed.lifetimeCurrent===true && live.lifetimeCurrent===true &&
     sealed.channelHealthy===true && live.channelHealthy===true &&
@@ -389,6 +395,7 @@ export class SalienceCache {
     if(!pair || pair.observation.revision!==observation.revision)return false;
     return pair.situation.profileRevision!==situation.profileRevision ||
       pair.situation.ownerProofRevision!==situation.ownerProofRevision ||
+      !samePrimaryBehaviorOwner(pair.situation.primaryOwner,situation.primaryOwner) ||
       pair.situation.lifetimeCurrent!==situation.lifetimeCurrent ||
       pair.situation.channelHealthy!==situation.channelHealthy ||
       pair.situation.perceptionSupported!==situation.perceptionSupported ||
