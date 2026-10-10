@@ -30,6 +30,7 @@ namespace LSA.Intelligence
         readonly Func<string> host;
         readonly Func<int> world;
         readonly Dictionary<string,Stored> tickets=new Dictionary<string,Stored>();
+        readonly HashSet<string> poisonedTickets=new HashSet<string>();
         string originalSourceRun;
         long lastSerial;
         internal DirectorOriginalTurnReceipts(Func<long> clock,Func<string> host,
@@ -67,7 +68,8 @@ namespace LSA.Intelligence
                 incoming.Revision>MaxExactWireNumber||
                 incoming.ObservationSerial<=0||
                 incoming.ObservationSerial>MaxExactWireNumber||
-                !incoming.Quiet||clock()<0)return false;
+                !incoming.Quiet||clock()<0||
+                poisonedTickets.Contains(incoming.TicketId)||poisonedTickets.Count>=512)return false;
             // Every observation must be a strictly new original backend
             // sample on this authenticated channel, not a replay.
             if(originalSourceRun!=null && incoming.SourceRun!=originalSourceRun)return false;
@@ -83,6 +85,7 @@ namespace LSA.Intelligence
                     previous.Data.SourceRun!=incoming.SourceRun ||
                     previous.Data.PlayerTurnVersion!=incoming.PlayerTurnVersion) {
                     tickets.Remove(incoming.TicketId);
+                    poisonedTickets.Add(incoming.TicketId);
                     return false;
                 }
             } else if(tickets.Count>=MaxTickets)return false;
@@ -112,7 +115,7 @@ namespace LSA.Intelligence
         internal void Retire(string ticket) {if(ticket!=null)tickets.Remove(ticket);}
         // Reset on disconnect, host/world replacement, or source fault. A
         // subsequent connection is a new authenticated producer incarnation.
-        internal void Reset() {tickets.Clear();originalSourceRun=null;lastSerial=0;}
+        internal void Reset() {tickets.Clear();poisonedTickets.Clear();originalSourceRun=null;lastSerial=0;}
         internal int Pending {get {Trim();return tickets.Count;} }
     }
 }
