@@ -14,7 +14,14 @@ let built;
 export async function stockHarness(provider = 'openai', { config = {}, env = {}, telemetry = null, identityEvidence, identityStore, profileStore,nativeOwner,fetchImpl = () => { throw new Error('network forbidden'); } } = {}) {
   built ||= buildCandidate(); await built;
   const source = await readFile(new URL('../dist/plugins/LosSantosAliveServer/server.bundle.mjs', import.meta.url), 'utf8');
-  const ast = acorn.parse(source, { ecmaVersion: 'latest', sourceType: 'module' });
+  let ast;
+  try { ast=acorn.parse(source, { ecmaVersion: 'latest', sourceType: 'module' }); }
+  catch(error) {
+    const lines=source.split('\\n'),line=(error?.loc?.line||1)-1,
+      column=error?.loc?.column||0,actual=lines[line]||'';
+    throw new SyntaxError('Patched stock source syntax '+line+':'+column+
+      ' ... '+actual.slice(Math.max(0,column-210),column+210));
+  }
   const variables = new Map();
   for (const statement of ast.body) if (statement.type === 'VariableDeclaration') for (const d of statement.declarations) variables.set(d.id.name, source.slice(d.start,d.end));
   const select = ['Ht','Z','Pe','ke','Ee','BM','$M','hy','Va','It','ae','yn','hv','Nd','u4','p4','b4'];
