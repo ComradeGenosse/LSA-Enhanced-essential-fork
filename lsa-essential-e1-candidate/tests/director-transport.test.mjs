@@ -101,7 +101,7 @@ test('exact native PS6 request response binds once with independent status and d
    ownerIncarnationId:'91111111-1111-4111-8111-111111111111',
    proofRevision:1,playerTurnVersion:0},ageMs:100};
  const waiting=client.requestDirector(original);
- assert.equal(writes.length,4);
+ assert.equal(writes.length,2);
  assert.equal(writes[0].type,'director.ps3_receipt');
  assert.equal(writes[1].type,'director.request');
  assert.equal((await client.requestDirector(original)),null);
@@ -110,12 +110,12 @@ test('exact native PS6 request response binds once with independent status and d
  assert.deepEqual(await waiting,{ticketId:ticket,status:'reserved'});
  assert.equal(client.directorPending.size,0);
  const submitted=client.requestDirector({...original,operation:'submit'});
- assert.equal(writes.length,2);
+ assert.equal(writes.length,3);
  assert.equal(client.acceptDirectorResponse({ticketId:ticket,status:'reserved'}),true);
  assert.equal(await submitted,null); // a late reserve is never a submit
  assert.equal(client.directorPending.size,0);
  const late=client.requestDirector({...original,operation:'submit'});
- assert.equal(writes.length,3);
+ assert.equal(writes.length,4);
  client.cancelDirectorRequests();
  assert.equal(await late,null);
  assert.equal(client.directorPending.size,0);
