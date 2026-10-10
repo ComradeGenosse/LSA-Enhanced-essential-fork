@@ -4,6 +4,14 @@
   "pipeName": "LSA.PromotedCharacters.v1",
   "identityPipeName": "LSA.SessionIdentity.v1",
   "editorPort": 37921,
-  "intelligence": { "mode": "off", "pipeName": "LSA.Intelligence.v1" },
-  "activities": { "mode": "off", "pipeName": "LSA.Activities.v1", "dialogueReceipts": false }
+  "intelligence": {
+    "mode": "off",
+    "pipeName": "LSA.Intelligence.v1",
+    "directorMode": "off"
+  },
+  "activities": {
+    "mode": "off",
+    "pipeName": "LSA.Activities.v1",
+    "dialogueReceipts": false
+  }
 }
