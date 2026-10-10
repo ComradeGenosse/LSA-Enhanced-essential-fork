@@ -1,0 +1,62 @@
+import {selectDirectorIntent} from './sceneDirector.mjs';
+
+// Bounded companion-side source adapter. Runs only when the authenticated PS
+// pipeline changes; it never scans GTA, drives kb, creates turns, or fabricates
+// source receipts. The coordinator owns all native and stock admission gates.
+export class DirectorObservationPump {
+  constructor({client,coordinator,now=()=>client.runtime.now(),stampFor=()=>null,onResult=()=>{}}={}) {
+    if(!client?.runtime || typeof coordinator?.attempt!=='function' ||
+       typeof now!=='function' || typeof stampFor!=='function' ||
+       typeof onResult!=='function')throw new TypeError('director_pump_dependencies');
+    this.client=client;this.coordinator=coordinator;
+    this.now=now;this.stampFor=stampFor;this.onResult=onResult;
+    this.seen=new Set();this.epoch=null;this.inFlight=false;this.stopped=false;
+  }
+  stop() {this.stopped=true;this.seen.clear();}
+  async tick() {
+    if(this.stopped || this.inFlight)return null;
+    const runtime=this.client.runtime,epoch=runtime.epoch;
+    if(epoch!==this.epoch){this.seen.clear();this.epoch=epoch;}
+    if(!epoch || runtime.directorRequestVersion!==1)return null;
+    const players=[...runtime.anchors.values()].filter(a=>a.kind==='player' && runtime.current(a.captureRef));
+    if(players.length!==1)return null;
+    const player=players[0].captureRef,now=this.now();
+    if(!Number.isSafeInteger(now) || now<0)return null;
+    // Native observer membership and P2 owner lifetime are prerequisite
+    // evidence. Never infer ownership from the latest conversation target.
+    const eligible=[];
+    for(const [speaker,index] of runtime.observerIndex) {
+      if(eligible.length>=16)break;
+      if(!index?.owned || index.kind!=='ped' || !runtime.current(speaker) ||
+         !runtime.directorOwnerProofFor(speaker))continue;
+      const candidates=runtime.directorCandidatesFor(speaker);
+      const facts={speakerCaptureRef:speaker,playerCaptureRef:player,nowMonotonicMs:now};
+      const proposal=selectDirectorIntent(candidates,facts);
+      if(!proposal || this.seen.has(proposal.decisionKey))continue;
+      eligible.push({speaker,candidates,facts,proposal});
+    }
+    eligible.sort((a,b)=>(b.proposal.urgency==='urgent')-(a.proposal.urgency==='urgent') ||
+      a.proposal.expiresAtMonotonicMs-b.proposal.expiresAtMonotonicMs ||
+      a.proposal.observationId.localeCompare(b.proposal.observationId));
+    const selected=eligible[0];
+    if(!selected)return null;
+    // An attempted original decision key is spent for this producer epoch.
+    // Capacity exhaustion is a veto, never implicit eviction/retry.
+    if(this.seen.size>=128)return null;
+    this.seen.add(selected.proposal.decisionKey);
+    this.inFlight=true;
+    try {
+      let stamp=null;
+      try {stamp=this.stampFor(selected.proposal,selected.facts);}catch{}
+      const outcome=await this.coordinator.attempt({
+        candidates:selected.candidates,facts:selected.facts,stamp,
+      });
+      try {this.onResult(outcome);}catch{}
+      return outcome;
+    } catch {
+      const result=Object.freeze({status:'producer_failed'});
+      try {this.onResult(result);}catch{}
+      return result;
+    } finally {this.inFlight=false;}
+  }
+}
