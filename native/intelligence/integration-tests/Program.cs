@@ -125,6 +125,46 @@ class Program
               "native C06 samples explicit idle P2 mode, Core reflex and GTA scripted state");
         Check(c06probe.OwnerProofRevision==2 && !DirectorC06Policy.Safe(c06request,c06probe),
               "original P2 owner revision sampled but never synthesizes global permission");
+        // Execute the real production C06 sampler against a separate
+        // independently sourced PS3 grant; no request echo can set the flags.
+        c06request.ProofRevision=2;
+        var ps3Ledger=(DirectorPs3Receipts)Get(integration,"ps3Receipts");
+        var originalSignal=Guid.NewGuid().ToString("D");
+        var originalChallenge=ps3Ledger.Issue(c06speaker.CaptureRef,lifetime,2,3);
+        ps3Ledger.SentSignal(originalSignal,new[]{c06speaker.CaptureRef});
+        var nativeOriginal=new DirectorPs3Receipts.Grant {
+            Version=1,Source="original_companion_ps2_ps3",
+            Challenge=originalChallenge,TicketId=c06request.TicketId,
+            HostRunId=c06request.HostRunId,WorldEpoch=c06request.WorldEpoch,
+            SpeakerCaptureRef=c06speaker.CaptureRef,PlayerCaptureRef=c06player.CaptureRef,
+            OwnerIncarnationId=lifetime,ProofRevision=2,SituationRevision=3,
+            SignalId=originalSignal,ObservationId=c06request.ObservationId,
+            ObservationRevision=c06request.ObservationRevision,
+            DecisionKey=c06request.DecisionKey,PolicyVersion=1,AgeMs=100
+        };
+        Check(ps3Ledger.Accept(nativeOriginal),"native original P2 and PS2 signal proof independently accepted");
+        var validated=(DirectorC06Policy.Snapshot)integration.GetType().GetMethod(
+            "ReadDirectorC06",BindingFlags.NonPublic|BindingFlags.Instance)
+                .Invoke(integration,new object[]{c06request});
+        Check(validated.ObservationReceiptCurrent&&validated.ResponseGrantCurrent &&
+              validated.ObservationId==nativeOriginal.ObservationId &&
+              validated.DecisionKey==nativeOriginal.DecisionKey &&
+              !DirectorC06Policy.Safe(c06request,validated),
+              "real native C06 reads sealed source PS3 grant without inventing global player-turn permission");
+        nativeOriginal.ObservationId=Guid.NewGuid().ToString("D");
+        var cloned=(DirectorC06Policy.Snapshot)integration.GetType().GetMethod(
+            "ReadDirectorC06",BindingFlags.NonPublic|BindingFlags.Instance)
+                .Invoke(integration,new object[]{c06request});
+        Check(!cloned.ObservationReceiptCurrent && !cloned.ResponseGrantCurrent,
+              "producer receipt mutation cannot alter original request identity or grant permission");
+        nativeOriginal.ObservationId=c06request.ObservationId;
+        ps3Ledger.Retire(lifetime);
+        var revoked=(DirectorC06Policy.Snapshot)integration.GetType().GetMethod(
+            "ReadDirectorC06",BindingFlags.NonPublic|BindingFlags.Instance)
+                .Invoke(integration,new object[]{c06request});
+        Check(!revoked.ObservationReceiptCurrent && !revoked.ResponseGrantCurrent,
+              "original P2 retirement immediately revokes native PS3 grant");
+        c06request.ProofRevision=1;
         directorMode.Revision=3;
         var changedOwnerVersion=(DirectorC06Policy.Snapshot)integration.GetType().GetMethod(
             "ReadDirectorC06",BindingFlags.NonPublic|BindingFlags.Instance).Invoke(integration,new object[]{c06request});
