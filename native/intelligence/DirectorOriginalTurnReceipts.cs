@@ -60,6 +60,8 @@ namespace LSA.Intelligence
             long now=clock();
             foreach(var item in tickets.Where(pair=>pair.Value.ExpiresAt<=now).Select(pair=>pair.Key).ToArray())
                 tickets.Remove(item);
+            foreach(var item in bindingClaims.Where(pair=>pair.Value.ExpiresAt<=now).Select(pair=>pair.Key).ToArray())
+                bindingClaims.Remove(item);
         }
         internal bool Accept(Evidence incoming)
         {
