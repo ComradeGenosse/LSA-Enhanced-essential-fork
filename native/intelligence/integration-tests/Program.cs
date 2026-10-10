@@ -28,6 +28,11 @@ class Program
     {try{Run();}catch(Exception e){Console.Error.WriteLine(e.ToString());Environment.ExitCode=1;}}
     static void Run()
     {
+        Check(LSA.PromotedCharacters.EssentialPlayerPriorityMonitor.Read()==-1,
+              "unattached real original Core input source is explicitly unavailable");
+        Check(!LSA.PromotedCharacters.EssentialPlayerPriorityMonitor.Attach() &&
+              LSA.PromotedCharacters.EssentialPlayerPriorityMonitor.Read()==-1,
+              "offline stub cannot impersonate pinned original Core input monitor");
         var unavailable=new IntelligenceIntegration(()=>new OwnedParticipant[0]);unavailable.Initialize();unavailable.Update();Check(!unavailable.IsAvailable,"missing pinned core fails closed");Check(Rage.Native.NativeFunction.Reads==0,"missing capability no game work");
         Check(unavailable.UpdateCalls==0&&unavailable.CompletedUpdates==0&&unavailable.RuntimeStatus().Contains("last_update_age_ms=2147483647"),"unavailable adapter does not invent update receipts");
         var player=new Ped {Handle=1,MemoryAddress=new IntPtr(1)};var actor=new Ped {Handle=2,MemoryAddress=new IntPtr(2)};
