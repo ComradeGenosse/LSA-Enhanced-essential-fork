@@ -92,6 +92,17 @@ namespace LosSantosAlive.Bridge.SpecialTurns {
 }
 
 namespace LosSantosAlive.Bridge.SpecialTurns {
+    public static class SpecialGeminiTurnScheduler {
+        public static int Calls;
+        public static bool Result=true,ThrowSubmit;
+        public static bool Submit(SpecialGeminiTurnRequest request) {
+            Calls++;
+            if(ThrowSubmit)throw new Exception("stock scheduler fault");
+            return Result;
+        }
+    }
+}
+namespace LosSantosAlive.Bridge.SpecialTurns {
     public sealed class SpecialGeminiTurnRequest {
         public Rage.Ped SpeakerPed,ListenerPed,SpeechTargetPed;
         public string Content,Reason,DedupeKey;
