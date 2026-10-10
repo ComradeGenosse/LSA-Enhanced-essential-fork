@@ -278,6 +278,39 @@ class Program
         Check(ReferenceEquals(SampleOwner(),ownerToken),"C06 samples exact current owned participant token without a parallel store");
         ownerCurrent=false;Check(SampleOwner()==null,"C06 omits retired ownership association");ownerCurrent=true;
         participant.PrimaryOwner=()=>throw new Exception("optional owner sample");Check(SampleOwner()==null,"C06 getter fault omits only optional metadata");
+        // Core callback threads do not get access to the Director admission
+        // dictionary. Queue only scalar/native event identity and drain it on
+        // the host fiber; no injected original bound ticket means no admission.
+        var callbackBridge=new IntelligenceIntegration(()=>sharedRoster.ToArray(),
+            "LSA.Callback.Tests."+Guid.NewGuid().ToString("N"),host,true);
+        Set(callbackBridge,"started",true);
+        Call(callbackBridge,"UpdateIndexes");
+        int Queued()=> (int)Get(callbackBridge,"directorPlaybackEvents").GetType()
+            .GetProperty("Count").GetValue(Get(callbackBridge,"directorPlaybackEvents"));
+        void StartCallback(Ped speaker,string pedId,string turnId,long generation)
+        {
+            Call(callbackBridge,"PlaybackStarted",new LosSantosAlive.Audio.NpcPlaybackStartedEvent{
+                SpeakerPed=speaker,PedId=pedId,TurnId=turnId,GenerationId=generation});
+        }
+        StartCallback(ownerPed,ownerPed.Handle.ToString(),"real-core-turn",long.MaxValue);
+        Check(Queued()==1,"Core start callback queued off owner fiber without executing Director");
+        Call(callbackBridge,"DrainDirectorCorePlayback");
+        Check(Queued()==0 &&
+            !((DirectorAdmission)Get(callbackBridge,"director")).HasActive,
+            "source callback without original reserved/bound native ticket does not become permission");
+        for(int i=0;i<33;i++)StartCallback(ownerPed,ownerPed.Handle.ToString(),
+            "callback-overflow",i);
+        Check(Queued()==0 && (bool)Get(callbackBridge,"directorPlaybackOverflow"),
+            "overflow closes bounded Core callback queue and poisons current batch");
+        Call(callbackBridge,"DrainDirectorCorePlayback");
+        Check(Queued()==0 && !(bool)Get(callbackBridge,"directorPlaybackOverflow"),
+            "owner-fiber overflow path resets native Director and drops untrusted batch");
+        StartCallback(ownerPed,ownerPed.Handle.ToString(),"reset-core",3);
+        Check(Queued()==1,"late callback queued before reset");
+        Call(callbackBridge,"WorldChanged",host.WorldEpoch+1,"unit_reset");
+        Check(Queued()==0,"world reset retires callback queue");
+        callbackBridge.Shutdown();
+        Check(Queued()==0,"shutdown keeps callback queue retired");
         shared.Shutdown();Check(host.Anchors.Resolve(kept.CaptureRef)!=null,"optional PS shutdown cannot clear another consumer's shared lifetime");
         host.Shutdown();Check(host.Anchors.Count==0,"host teardown clears shared table");
         Console.WriteLine("PASS "+assertions+" production integration assertions including lifecycle telemetry");
