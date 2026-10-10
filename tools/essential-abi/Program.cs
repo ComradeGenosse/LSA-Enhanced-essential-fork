@@ -85,4 +85,52 @@ foreach (string evt in new[] {
 }
 PublicField("LosSantosAlive.Audio.NpcPlaybackEndedEvent",
     "PlaybackStarted", 0x02); // System.Boolean
-Console.WriteLine("PASS pinned Essential SHA-256 + public method and playback tuple metadata");
+
+// The stock Essential special-turn seam is *real*. This is only a
+// source-compatibility receipt, not native permission to call Submit.
+void StaticPublicSignature(string typeName,string methodName,string expectedHex)
+{
+    var t=Type(typeName);
+    foreach(var h in t.GetMethods())
+    {
+        var m=metadata.GetMethodDefinition(h);
+        if(metadata.GetString(m.Name)!=methodName) continue;
+        if((m.Attributes & MethodAttributes.MemberAccessMask)!=MethodAttributes.Public ||
+           (m.Attributes & MethodAttributes.Static)==0)
+            throw new Exception(typeName+"."+methodName+" is not public static");
+        var actual=Convert.ToHexString(metadata.GetBlobBytes(m.Signature));
+        if(!actual.Equals(expectedHex,StringComparison.OrdinalIgnoreCase))
+            throw new Exception("Unexpected signature for "+typeName+"."+methodName+
+                ": "+actual);
+        return;
+    }
+    throw new Exception("Core method absent: "+typeName+"."+methodName);
+}
+const string request="LosSantosAlive.Bridge.SpecialTurns.SpecialGeminiTurnRequest";
+const string scheduler="LosSantosAlive.Bridge.SpecialTurns.SpecialGeminiTurnScheduler";
+const string service="LosSantosAlive.Bridge.SpecialTurns.SpecialGeminiTurnService";
+foreach(var field in new[]{"SpeakerPed","ListenerPed","SpeechTargetPed"})
+{
+    // Rage.Ped field (TypeDefOrRef token 0x31).
+    var type=Type(request);bool matched=false;
+    foreach(var handle in type.GetFields())
+    {
+        var definition=metadata.GetFieldDefinition(handle);
+        if(metadata.GetString(definition.Name)!=field)continue;
+        if((definition.Attributes & FieldAttributes.FieldAccessMask)!=FieldAttributes.Public ||
+           Convert.ToHexString(metadata.GetBlobBytes(definition.Signature))!="061231")
+            throw new Exception("Unexpected Ped ABI for "+field);
+        matched=true;break;
+    }
+    if(!matched)throw new Exception("Essential request Ped field absent: "+field);
+}
+foreach(var field in new[]{"Content","Reason","DedupeKey"})
+    PublicField(request,field,0x0e);
+foreach(var field in new[]{"FaceListener","InterruptExisting","CancelIfPlayerStartsTurn",
+    "RequireCurrentPlayerConversation","SkipIfSpeakerBusy"})
+    PublicField(request,field,0x02);
+PublicField(request,"DelayMilliseconds",0x08);
+StaticPublicSignature(scheduler,"Submit","000102128A14");
+StaticPublicSignature(scheduler,"SubmitAfterCurrentTurn","000102128A14");
+StaticPublicSignature(service,"SendNow","000102128A14");
+Console.WriteLine("PASS pinned Essential SHA-256 + playback callbacks + stock kb scheduler request ABI");
