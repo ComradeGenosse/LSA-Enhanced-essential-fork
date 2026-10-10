@@ -208,3 +208,79 @@ test('source-verified original backend priority blocks mic, text, pending speech
  assert.deepEqual(await cancel,{ticketId:ticket,status:'cancelled'});
  client.stop();
 });
+
+
+test('3A stock intake queues once only after genuine matching native submitted receipt and current original owner',async()=>{
+ let serial=0,revision=2,releaseCount=0;
+ const sample=()=>({schemaVersion:1,source:'original_essential_backend_lifecycle',
+   sourceRun:uuid,revision,observationSerial:++serial,quiet:true,
+   grantsNativeAdmission:false,evidence:{source:'original_essential_server_turn_stores',quiet:true}});
+ const client=new IntelligenceClient({mode:'shadow',pipeName:'LSA.Intelligence.v1'},
+   {now:()=>1000,originalTurnPriority:sample,originalTurnReserve:()=>sample(),
+    originalTurnCurrent:()=>sample(),originalTurnRelease:()=>{releaseCount++;return true;}});
+ const writes=[];
+ client.socket={destroyed:false,writable:true,writableLength:0,
+   write:line=>{writes.push(JSON.parse(line));return true;},destroy:()=>{}};
+ assert.equal(client.runtime.ingest(hello,{authenticated:true}),true);
+ client.runtime.directorOriginalEntitlementFor=originalProof;
+ const args={operation:'reserve',ticket:{ticketId:ticket,dedupeKey:'ps:'+ticket},
+   proposal:{kind:'speech',speakerCaptureRef:'e1111111-1111-4111-8111-111111111111',
+     playerCaptureRef:'f1111111-1111-4111-8111-111111111111',
+     observationId:'81111111-1111-4111-8111-111111111111',
+     observationRevision:1,decisionKey:'ps3:qualified',policyVersion:1},
+   stamp:{hostRunId:host,worldEpoch:1,
+     ownerIncarnationId:'91111111-1111-4111-8111-111111111111',
+     proofRevision:1,playerTurnVersion:0},ageMs:100};
+ assert.equal(client.sendDirectorStockIntake(args.ticket,'No native submit yet.'),false);
+ const reserving=client.requestDirector(args);
+ assert.equal(client.acceptDirectorResponse({ticketId:ticket,status:'reserved'}),true);
+ assert.equal((await reserving)?.status,'reserved');
+ assert.equal(client.sendDirectorStockIntake(args.ticket,'Still not submitted.'),false);
+ const submitting=client.requestDirector({...args,operation:'submit'});
+ assert.equal(client.acceptDirectorResponse({ticketId:ticket,status:'submitted'}),true);
+ assert.equal((await submitting)?.status,'submitted');
+ const prior=writes.length;
+ assert.equal(client.sendDirectorStockIntake(args.ticket,'A nearby event occurred.'),true);
+ assert.equal(writes.length,prior+2);
+ assert.equal(writes[prior].type,'director.original_owner_receipt');
+ assert.equal(writes[prior+1].type,'director.stock_intake');
+ assert.equal(writes[prior+1].context,'A nearby event occurred.');
+ assert.equal(client.sendDirectorStockIntake(args.ticket,'No second intake.'),false);
+ assert.equal(writes.length,prior+2,'one-shot dispatch despite repeated callers');
+ const cancelling=client.requestDirector({...args,operation:'cancel'});
+ assert.equal(client.acceptDirectorResponse({ticketId:ticket,status:'cancelled'}),true);
+ assert.equal((await cancelling)?.status,'cancelled');
+ assert.equal(releaseCount>0,true);
+ client.stop();
+});
+
+test('3A source revision change prevents native-submitted stock intake after player takeover',async()=>{
+ let serial=0,revision=8;
+ const sample=()=>({schemaVersion:1,source:'original_essential_backend_lifecycle',
+   sourceRun:uuid,revision,observationSerial:++serial,quiet:true,
+   grantsNativeAdmission:false,evidence:{source:'original_essential_server_turn_stores',quiet:true}});
+ const client=new IntelligenceClient({mode:'shadow',pipeName:'LSA.Intelligence.v1'},
+   {now:()=>1000,originalTurnReserve:()=>sample(),
+    originalTurnCurrent:()=>sample(),originalTurnRelease:()=>true});
+ let writes=0;
+ client.socket={destroyed:false,writable:true,writableLength:0,
+   write:()=>{writes++;return true;},destroy:()=>{}};
+ client.runtime.ingest(hello,{authenticated:true});
+ client.runtime.directorOriginalEntitlementFor=originalProof;
+ const args={operation:'reserve',ticket:{ticketId:ticket,dedupeKey:'ps:'+ticket},
+   proposal:{speakerCaptureRef:'e1111111-1111-4111-8111-111111111111',
+     playerCaptureRef:'f1111111-1111-4111-8111-111111111111',
+     observationId:'81111111-1111-4111-8111-111111111111',
+     observationRevision:1,decisionKey:'ps3:qualified',policyVersion:1},
+   stamp:{hostRunId:host,worldEpoch:1,
+     ownerIncarnationId:'91111111-1111-4111-8111-111111111111',
+     proofRevision:1,playerTurnVersion:0},ageMs:100};
+ const reserve=client.requestDirector(args);
+ client.acceptDirectorResponse({ticketId:ticket,status:'reserved'});await reserve;
+ const submit=client.requestDirector({...args,operation:'submit'});
+ client.acceptDirectorResponse({ticketId:ticket,status:'submitted'});await submit;
+ const before=writes;revision++;
+ assert.equal(client.sendDirectorStockIntake(args.ticket,'Player already took over.'),false);
+ assert.equal(writes,before,'no ownership receipt or scheduler message after takeover');
+ client.stop();
+});
