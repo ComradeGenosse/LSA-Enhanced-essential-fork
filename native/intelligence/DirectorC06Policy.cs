@@ -17,6 +17,10 @@ namespace LSA.Intelligence
             public bool SpeakerAnchorCurrent,SpeakerOwned,SpeakerObserver,SpeakerAlive;
             public bool PlayerAnchorCurrent,PlayerIsLocal,PlayerAlive;
             public bool OwnerProofCurrent,OwnerPrimaryModeKnown,OwnerIdle;
+            // Exact native P2 follower ownership, never inferred from a
+            // request or the companion's candidate. Only alters stock's
+            // broad speaker-busy heuristic after all C-06 checks pass.
+            public bool SpeakerFollowCompatible;
             public bool PlayerTurnSourceCurrent,PlayerTurnIdle,MicStateKnown,MicIdle;
             // Source-pinned NpcTargeting negative player/dialogue state. The
             // pinned GetCurrentSpeakerPed forwards to GetPlayerConversationPed:
