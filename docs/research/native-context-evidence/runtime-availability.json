@@ -1,0 +1,22 @@
+{
+  "checkedAtUtc": "2026-10-02T11:52:24.3996987Z",
+  "gamePathScope": "Named GTA V Enhanced installation directory",
+  "runningProcesses": [],
+  "expectedProviderBinaries": [
+    {
+      "name": "LSPD First Response.dll",
+      "matchesInGameDirectory": []
+    },
+    {
+      "name": "PolicingRedefined.dll",
+      "matchesInGameDirectory": []
+    },
+    {
+      "name": "CommonDataFramework.dll",
+      "matchesInGameDirectory": []
+    }
+  ],
+  "gtaProbeExecuted": false,
+  "gameActionsExecuted": false,
+  "scopeLimit": "No whole-machine absence or loaded-provider-version claim."
+}

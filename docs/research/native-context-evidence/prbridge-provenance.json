@@ -1,0 +1,38 @@
+{
+  "dllSha256": "712f9491c0693d496ea82b1e4cefaa03c0575408a2fefa8d9e295bb516e5ad3e",
+  "tableSha256": "4d7b63c357ffe405d0972c46956a1551878e5898be1da01820c1365d1527c5d7",
+  "assemblyRefs": [
+    {
+      "name": "mscorlib",
+      "version": "4.0.0.0"
+    },
+    {
+      "name": "RagePluginHook",
+      "version": "0.0.0.0"
+    },
+    {
+      "name": "LSPD First Response",
+      "version": "0.4.9572.22921"
+    },
+    {
+      "name": "System.Core",
+      "version": "4.0.0.0"
+    },
+    {
+      "name": "CommonDataFramework",
+      "version": "1.0.0.6"
+    },
+    {
+      "name": "System",
+      "version": "4.0.0.0"
+    },
+    {
+      "name": "PolicingRedefined",
+      "version": "1.0.0.5"
+    },
+    {
+      "name": "Microsoft.CSharp",
+      "version": "4.0.0.0"
+    }
+  ]
+}

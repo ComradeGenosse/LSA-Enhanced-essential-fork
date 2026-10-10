@@ -1,0 +1,229 @@
+{
+  "scope": "Offline main code; synthetic optional PR refresh, stub provider HTTP and native playback acknowledgements; no GTA, actual PR delay, real API or audible playback.",
+  "baselineAgeOld": "older",
+  "config": {
+    "speechVoices": [
+      "nova",
+      "shimmer",
+      "ash",
+      "onyx"
+    ],
+    "voiceAssignment": "character-aware-session",
+    "actingEnabled": true,
+    "speechVoiceProfiles": {
+      "nova": {
+        "genders": [
+          "female"
+        ],
+        "ageBands": [
+          "young",
+          "adult"
+        ]
+      },
+      "shimmer": {
+        "genders": [
+          "female"
+        ],
+        "ageBands": [
+          "mature",
+          "older",
+          "senior"
+        ]
+      },
+      "ash": {
+        "genders": [
+          "male"
+        ],
+        "ageBands": [
+          "young",
+          "adult"
+        ]
+      },
+      "onyx": {
+        "genders": [
+          "male"
+        ],
+        "ageBands": [
+          "mature",
+          "older",
+          "senior"
+        ]
+      }
+    },
+    "retry": {
+      "baseDelayMs": 1,
+      "maxDelayMs": 1
+    }
+  },
+  "results": [
+    {
+      "case": "A_unknown_custom",
+      "pedId": "17",
+      "sessionNonce": 1,
+      "profile": {
+        "profileId": "vp_0dc5c45f41c5b134b88d",
+        "voice": "onyx",
+        "gender": "unknown",
+        "ageBand": "unknown",
+        "matchReason": "character-aware-exact",
+        "selectionMode": "character-aware-session"
+      },
+      "completedTurns": 2,
+      "connectionAssignments": 1,
+      "integrationIdentityIgnored": true,
+      "tts": [
+        {
+          "voice": "onyx",
+          "model": "gpt-4o-mini-tts"
+        },
+        {
+          "voice": "onyx",
+          "model": "gpt-4o-mini-tts"
+        }
+      ]
+    },
+    {
+      "case": "A_supported_schema_private_gender_counterexample",
+      "scope": "Synthetic accepted schema; inspected bridge does not emit identity.gender",
+      "nativeGender": "unknown",
+      "normalizedGender": "female",
+      "assignedProfile": {
+        "profileId": "vp_0dc5c45f41c5b134b88d",
+        "voice": "shimmer",
+        "gender": "female",
+        "ageBand": "unknown",
+        "matchReason": "character-aware-exact",
+        "selectionMode": "character-aware-session"
+      },
+      "directCoreProfile": {
+        "profileId": "vp_0dc5c45f41c5b134b88d",
+        "voice": "onyx",
+        "gender": "unknown",
+        "ageBand": "unknown",
+        "matchReason": "character-aware-exact",
+        "selectionMode": "character-aware-session"
+      },
+      "proposedGuardPreservesCore": true,
+      "additionalSyntheticAddonGuard": {
+        "native": {
+          "gender": "male",
+          "ageRange": "old"
+        },
+        "before": {
+          "gender": "female",
+          "ageRange": "young"
+        },
+        "guarded": {
+          "gender": "male",
+          "ageRange": "old"
+        }
+      }
+    },
+    {
+      "case": "B_delayed_optional_PR",
+      "pedId": "18",
+      "sessionNonce": 1,
+      "coreAtBeginTurn": {
+        "gender": "female",
+        "ageRange": "old"
+      },
+      "profile": {
+        "profileId": "vp_eede2604db2941d0bed0",
+        "voice": "shimmer",
+        "gender": "female",
+        "ageBand": "older",
+        "matchReason": "character-aware-exact",
+        "selectionMode": "character-aware-session"
+      },
+      "prAtAssignment": "pending",
+      "prAtNextTurn": "ready",
+      "refreshedConnectionReused": true,
+      "connectionAssignments": 1,
+      "tts": [
+        {
+          "voice": "shimmer",
+          "model": "gpt-4o-mini-tts"
+        },
+        {
+          "voice": "shimmer",
+          "model": "gpt-4o-mini-tts"
+        }
+      ]
+    },
+    {
+      "case": "B_optional_PR_omitted",
+      "coreAtBeginTurn": {
+        "gender": "female",
+        "ageRange": "old"
+      },
+      "profile": {
+        "profileId": "vp_eede2604db2941d0bed0",
+        "voice": "shimmer",
+        "gender": "female",
+        "ageBand": "older",
+        "matchReason": "character-aware-exact",
+        "selectionMode": "character-aware-session"
+      },
+      "completedTurns": 1,
+      "connectionAssignments": 1
+    },
+    {
+      "case": "C_stock_force_new_session",
+      "pedId": "17",
+      "oldSessionNonce": 1,
+      "newSessionNonce": 3,
+      "oldProfile": {
+        "profileId": "vp_0dc5c45f41c5b134b88d",
+        "voice": "onyx",
+        "gender": "unknown",
+        "ageBand": "unknown",
+        "matchReason": "character-aware-exact",
+        "selectionMode": "character-aware-session"
+      },
+      "newProfile": {
+        "profileId": "vp_83c92d8e4e0cade346fd",
+        "voice": "ash",
+        "gender": "unknown",
+        "ageBand": "unknown",
+        "matchReason": "character-aware-exact",
+        "selectionMode": "character-aware-session"
+      },
+      "recoveryReason": "force_new_session",
+      "retryVoices": [
+        {
+          "voice": "onyx",
+          "model": "gpt-4o-mini-tts"
+        },
+        {
+          "voice": "onyx",
+          "model": "gpt-4o-mini-tts"
+        }
+      ],
+      "voiceChanged": true,
+      "staleNativeEventRejected": true
+    },
+    {
+      "case": "C_default_singleton",
+      "oldSessionNonce": 1,
+      "newSessionNonce": 3,
+      "oldProfile": {
+        "profileId": "vp_faa43a7c684e7a463ce9",
+        "voice": "nova",
+        "gender": "unknown",
+        "ageBand": "unknown",
+        "matchReason": "deterministic-session",
+        "selectionMode": "deterministic-session"
+      },
+      "newProfile": {
+        "profileId": "vp_99ad4555795df69d0644",
+        "voice": "nova",
+        "gender": "unknown",
+        "ageBand": "unknown",
+        "matchReason": "deterministic-session",
+        "selectionMode": "deterministic-session"
+      },
+      "voiceChanged": false
+    }
+  ],
+  "status": "passed"
+}

@@ -1,0 +1,100 @@
+Remaining native context audit: offline validation
+Baseline: main 612dd99b5a5442dd973f975a71abd91920b8a4fe
+Date: 2026-10-02
+Branch: research/remaining-native-context-audit
+
+Inputs
+Essential SHA256: 9b6de42d4c464901d859dd95e17e100e4fa9ef6074bfbb0cf3a57a76f6ddd653
+Stock bundle SHA256: 5d81de4217bd103316a1083e482ded1bddc791314abf671d686036175c0475f2
+PR bridge SHA256: 712f9491c0693d496ea82b1e4cefaa03c0575408a2fefa8d9e295bb516e5ad3e
+CDF public NuGet 1.0.0.6 SHA256: d0a81554ff66ea344a6e778f8c7faa6292201a45854ea89b83ced5b6814c24fc
+CDF source commit: 2bc4da26bd2f88fec422b89dbe3a9dedbcde1e13
+
+Tools observed
+dotnet SDK 10.0.301
+Python 3.10.11
+Node v24.19.0
+ILSpy 11.1.0.9782 (navigation; pinned normalized IL is authoritative)
+Framework64 v4.0.30319 csc
+Public RagePluginHook SDK NuGet 1.124.0 (compile only)
+
+Baseline checks, run BEFORE new edge probes
+cwd lsa-essential-e1-candidate:
+  node tools/runTests.mjs
+    tests 168; pass 168; fail 0; skipped 0; cancelled 0.
+    Included actor-voice-traits exact native-vocabulary regression.
+  node tests/voice-profile.test.mjs
+    pass 15; fail 0.
+    Used direct invocation after node --test child spawn hit sandbox EPERM.
+  node tools/buildCandidate.mjs
+    passed; patchCount 25.
+    build hash 0443800cf148f10baa58558f106baa1e97e6edc2d227c0d48cf8fef15c457ed9.
+    Inherited builder label includes live-api-verified: NO fresh live API
+    verification was performed by this audit.
+
+Static tools (scratch input/output paths abbreviated; see tools README)
+  dotnet build docs/research/native-context-tools/NativeAudit.csproj --no-restore -v quiet
+    Build succeeded. 0 warnings, 0 errors.
+    HandleProbe.cs excluded from this separate metadata-reader project.
+  dotnet .../NativeAudit.dll <pinned Essential> <essential-il.json>
+    PEReader only; no Assembly.Load, game dependencies or module initializer.
+    Repeated extraction after final build was byte-identical to first extraction.
+  dotnet .../NativeAudit.dll <pinned PR bridge> <prbridge-il.json>
+  dotnet .../NativeAudit.dll <public CDF 1.0.0.6> <cdf-il.json>
+    Metadata/IL extracted; targets were not executed.
+  python docs/research/native-context-tools/audit.py <essential-il.json> docs/research/native-context-evidence
+    cases 2827; status passed; exact pinned Essential SHA256 checked.
+    Three real classifier IL graphs vs readable expected logic; ASCII adapters.
+  python docs/research/native-context-tools/audit.py <prbridge-il.json> docs/research/native-context-evidence --bridge
+    Exact bridge hash checked; normalized identity/callout/state IL and provenance.
+  python docs/research/native-context-tools/inventory.py <essential-il.json> docs/research/native-context-evidence/scope-index.json --bridge-il <prbridge-il.json> --cdf-il <cdf-il.json>
+    All 651 Essential types / 5588 methods; field writes/GUID references indexed.
+    Public CDF hash checked; getter/cache/prune/unload excerpt generated.
+  node docs/research/native-context-tools/stock-functions.mjs ia hO lO EO Ev _O yO mT sM aM Jv Zi WP Ei qK pd Ed Xn
+    AST source read only. Output normalized to UTF-8 in stock-boundaries.txt.
+
+Runtime-code characterization (OFFLINE)
+  node docs/research/native-context-tools/openai-edges.mjs docs/research/native-context-evidence/openai-edges.json
+    status passed; cases 6.
+    A bridge-shaped unknown custom: 2 completed turns, one assignment, onyx.
+    A accepted private-gender counterexample: unknown -> female, onyx -> shimmer.
+    VM-only proposed guard preserved native unknown; additional synthetic addon
+      pair preserved male/old instead of promoted female/young.
+    B delayed optional PR: pending at assignment, ready on reused connection;
+      female/old -> female/older; one assignment, shimmer retained for 2 turns.
+    B omitted PR: completed, female/older shimmer.
+    C real stock forceNew: nonce 1 -> 3; onyx -> ash; force_new_session;
+      old connection closed; old ACK rejected; HTTP 503 retry onyx -> onyx.
+    C default singleton: nonce 1 -> 3; profileId changes, nova remains nova.
+    Real current-main normalizer/session/resolver/connection/retry code.
+    Synthetic provider HTTP/native playback/prompt/diagnostic doubles only as
+      documented in source and README; retired-turn sweep doubled after settled turns.
+    No GTA, real PR timing, real API, actual playback or audible-quality result.
+
+Observational probe preparation
+  Framework csc /nologo /target:library /out:<scratch HandleProbe.dll>
+    /reference:<public SDK lib\net472\RagePluginHook.dll> <absolute HandleProbe.cs>
+    Exit 0; compiled DLL 10240 bytes. SDK and output DLL NOT committed.
+    An earlier relative source path with forward slashes was misparsed by csc;
+      rerun with absolute/backslash arguments succeeded.
+    Compile confirms SDK API availability only, not Enhanced runtime compatibility.
+    Probe NOT installed, loaded or run. No in-game CSV exists.
+
+Proposal applicability
+  git apply --cached --check docs/research/native-context-tools/proposed-demographic-guard.patch
+  git apply --check docs/research/native-context-tools/proposed-demographic-guard.patch
+    Both exit 0; no patch applied. Initial newline-normalized draft failed against
+      baseline CRLF context; final diff preserves source Git blob line endings.
+  git diff --quiet -- lsa-essential-e1-candidate
+    Exit 0; production sources unchanged.
+
+Runtime availability
+  See runtime-availability.json: timestamped process and bounded provider-file
+    inventory from named GTA V Enhanced installation. No running GTA/RPH and no
+    expected LSPDFR/PR/CDF binaries there at the recorded check. Not a whole-machine
+    absence claim and not evidence about previously loaded runtime components.
+
+Execution limits
+No game behavior, native assembly execution, live provider/API calls, persona or
+private record logging, installation, deployment, or production feature mutation.
+Synthetic probe labels and fixture descriptions are not real NPC/private data.

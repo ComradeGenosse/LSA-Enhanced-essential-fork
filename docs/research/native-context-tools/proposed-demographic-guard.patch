@@ -1,0 +1,12 @@
+--- a/lsa-essential-e1-candidate/tools/buildCandidate.mjs
++++ b/lsa-essential-e1-candidate/tools/buildCandidate.mjs
+@@ -61,6 +61,9 @@
+   const kKDeclarator = one(ast.body.flatMap(statement => statement.type === 'VariableDeclaration' ? statement.declarations : []).filter(item => item.id?.name === 'kK'), 'transport factory kK');
+   if (kKDeclarator.init?.type !== 'ArrowFunctionExpression') throw new Error('kK factory no longer uses an arrow function.');
+   replace(kKDeclarator.init.start, kKDeclarator.init.end, '() => __LSA_E1_RUNTIME.createTransport(() => new dd)', 'provider transport factory');
++
++  // Preserve native demographic fields when flattening optional integrations.
++  prelude('_O', 'if (__LSA_E1_RUNTIME.config.provider === "openai" && (t === "gender" || t === "ageRange")) return true;');
+ 
+   const kKStatement = ast.body.find(statement => statement.type === 'VariableDeclaration' && statement.declarations.includes(kKDeclarator));
+   if (!kKStatement) throw new Error('kK declaration statement missing.');
