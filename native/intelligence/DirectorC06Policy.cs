@@ -22,6 +22,10 @@ namespace LSA.Intelligence
             // here only means no selected/current Core conversation or speaker;
             // it never substitutes for the independent global player arbiter.
             public bool ConversationStateKnown,ConversationIdle;
+            // The public Essential text editor and controls menu are genuine
+            // player-input negative signals. Neither proves that a submitted
+            // or remotely executing text turn has completed.
+            public bool TextInputKnown,TextInputIdle,ControlsInputKnown,ControlsInputIdle;
             // The pinned Core exposes a narrower special-turn revision, not a
             // complete global player-turn arbiter. Diagnostic only, never a grant.
             public bool SpecialTurnVersionKnown;
@@ -69,6 +73,8 @@ namespace LSA.Intelligence
                 s.PlayerTurnSourceCurrent && s.PlayerTurnIdle &&
                 s.MicStateKnown && s.MicIdle &&
                 s.ConversationStateKnown &&
+                s.TextInputKnown && s.TextInputIdle &&
+                s.ControlsInputKnown && s.ControlsInputIdle &&
                 s.EssentialTurnKnown &&
                 s.PlaybackKnown &&
                 s.ScriptStateKnown && s.ScriptSafe &&
