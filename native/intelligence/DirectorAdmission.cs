@@ -71,7 +71,7 @@ namespace LSA.Intelligence
           RegexOptions.CultureInvariant);
         static bool Key(string value)=>!string.IsNullOrWhiteSpace(value) &&
           value.Length<=160 && value.IndexOfAny(new[]{'\r','\n','\0'})<0;
-        static bool Valid(Request r)=>r!=null && r.Version==1 &&
+        internal static bool Valid(Request r)=>r!=null && r.Version==1 &&
           (r.Operation=="reserve"||r.Operation=="submit"||r.Operation=="cancel") &&
           Uuid(r.TicketId) && r.DedupeKey=="ps:"+r.TicketId && Uuid(r.HostRunId) &&
           Uuid(r.SpeakerCaptureRef) && Uuid(r.PlayerCaptureRef) &&
