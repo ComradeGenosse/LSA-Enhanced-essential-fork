@@ -16,7 +16,7 @@ const acorn = require('./vendor/acorn');
 const expectedBundleHash = '5d81de4217bd103316a1083e482ded1bddc791314abf671d686036175c0475f2';
 const expectedDllHash = '9b6de42d4c464901d859dd95e17e100e4fa9ef6074bfbb0cf3a57a76f6ddd653';
 const expectedNativeMetadataHash = '18edd2b47ffde748388b07a4a2d023793e183b882fe638acb5276440d45a2d23';
-const expectedPatchCount = 62;
+const expectedPatchCount = 63;
 const launcherName = 'server.bundle.mjs';
 const stockBundleDefault = path.resolve(root, 'upstream/server.bundle.mjs');
 const stockDllDefault = path.resolve(root, 'upstream/LosSantosAlive.dll');
@@ -113,7 +113,7 @@ export function patchSource(source) {
   // activity, playback or turn/session ownership. All named functions are
   // AST-pinned under the source bundle hash at build time.
   for (const [original,event] of [
-    ['Xn','turn_intake'],['Zt','turn_terminal'],
+    ['Xn','turn_intake'],['Xi','turn_allocate'],['Zt','turn_terminal'],
     ['hK','turn_cancel'],['WP','session_open'],
     ['Ei','session_retire'],['el','mic_reset'],
     ['kb','special_dispatch'],
