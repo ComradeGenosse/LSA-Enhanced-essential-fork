@@ -15,7 +15,7 @@ export const EVENT_NAMES = new Set([
   'identity_resolved','identity_binding_created','identity_binding_retired','identity_conflict','identity_evidence_stale','identity_store_unavailable','persistent_voice_loaded',
   'session_profile_created','character_name_assigned','promotion_started','promotion_completed','promotion_failed','persistent_profile_loaded','character_spawned','character_dismissed','character_profile_edited','character_memory_created','character_memory_edited','character_memory_deleted','character_unpromoted','character_safe_failure','character_canon_projected','character_reasoning_request_composed',
   'intelligence_status','companion_shadow','knowledge_frame_projected','knowledge_delivery',
-  'intelligence_frame_rejected','director_gate','director_candidate',
+  'intelligence_frame_rejected','director_gate','director_candidate','director_handoff',
   'activity_admitted','activity_rejected','activity_step_started','activity_receipt','activity_paused','activity_resumed','activity_terminal','activity_lease_lost','activity_breaker_tripped',
 ]);
 
