@@ -83,7 +83,8 @@ test('capability-gated companion preview queues exactly one closed native packet
 });
 
 test('exact native PS6 request response binds once with independent status and disconnect cleanup',async()=>{
- const client=new IntelligenceClient({mode:'shadow',pipeName:'LSA.Intelligence.v1'},{now:()=>1000,report:()=>{},originalTurnPriority:()=>({schemaVersion:1,source:'original_essential_backend_lifecycle',revision:2,quiet:true,grantsNativeAdmission:false,evidence:{source:'original_essential_server_turn_stores',quiet:true}})});
+ let serial=0;
+ const client=new IntelligenceClient({mode:'shadow',pipeName:'LSA.Intelligence.v1'},{now:()=>1000,report:()=>{},originalTurnPriority:()=>({schemaVersion:1,source:'original_essential_backend_lifecycle',sourceRun:uuid,revision:2,observationSerial:++serial,quiet:true,grantsNativeAdmission:false,evidence:{source:'original_essential_server_turn_stores',quiet:true}})});
  const writes=[];
  client.socket={destroyed:false,writable:true,writableLength:0,write:line=>{writes.push(JSON.parse(line));return true;},destroy:()=>{}};
  assert.equal(client.runtime.ingest(hello,{authenticated:true}),true);
@@ -101,9 +102,11 @@ test('exact native PS6 request response binds once with independent status and d
    ownerIncarnationId:'91111111-1111-4111-8111-111111111111',
    proofRevision:1,playerTurnVersion:0},ageMs:100};
  const waiting=client.requestDirector(original);
- assert.equal(writes.length,2);
- assert.equal(writes[0].type,'director.ps3_receipt');
- assert.equal(writes[1].type,'director.request');
+ assert.equal(writes.length,3);
+ assert.equal(writes[0].type,'director.original_owner_receipt');
+ assert.equal(writes[0].revision,2);
+ assert.equal(writes[1].type,'director.ps3_receipt');
+ assert.equal(writes[2].type,'director.request');
  assert.equal((await client.requestDirector(original)),null);
  assert.equal(client.acceptDirectorResponse({ticketId:'00000000-0000-4000-8000-000000000000',status:'reserved'}),false);
  assert.equal(client.acceptDirectorResponse({ticketId:ticket,status:'reserved'}),true);
@@ -115,7 +118,7 @@ test('exact native PS6 request response binds once with independent status and d
  assert.equal(await submitted,null); // a late reserve is never a submit
  assert.equal(client.directorPending.size,0);
  const late=client.requestDirector({...original,operation:'submit'});
- assert.equal(writes.length,4);
+ assert.equal(writes.length,7);
  client.cancelDirectorRequests();
  assert.equal(await late,null);
  assert.equal(client.directorPending.size,0);
@@ -123,8 +126,9 @@ test('exact native PS6 request response binds once with independent status and d
 });
 
 test('native transport refuses reserve/submit without live original PS3 ledger; cancellation survives revocation',async()=>{
+ let serial=0;
  const client=new IntelligenceClient({mode:'shadow',pipeName:'LSA.Intelligence.v1'},
-  {now:()=>1000,report:()=>{},originalTurnPriority:()=>({schemaVersion:1,source:'original_essential_backend_lifecycle',revision:2,quiet:true,grantsNativeAdmission:false,evidence:{source:'original_essential_server_turn_stores',quiet:true}})});
+  {now:()=>1000,report:()=>{},originalTurnPriority:()=>({schemaVersion:1,source:'original_essential_backend_lifecycle',sourceRun:uuid,revision:2,observationSerial:++serial,quiet:true,grantsNativeAdmission:false,evidence:{source:'original_essential_server_turn_stores',quiet:true}})});
  let writes=0;client.socket={destroyed:false,writable:true,writableLength:0,
   write:()=>{writes++;return true;},destroy:()=>{}};
  assert.equal(client.runtime.ingest(hello,{authenticated:true}),true);
@@ -144,20 +148,20 @@ test('native transport refuses reserve/submit without live original PS3 ledger; 
  client.runtime.directorOriginalEntitlementFor=(proposal,stamp)=>present?
    originalProof(proposal,stamp):null;
  const first=client.requestDirector(original);
- assert.equal(writes,2);
+ assert.equal(writes,3);
  assert.equal(client.acceptDirectorResponse({ticketId:ticket,status:'reserved'}),true);
  assert.deepEqual(await first,{ticketId:ticket,status:'reserved'});
  present=false;
  assert.equal(await client.requestDirector({...original,operation:'submit'}),null);
- assert.equal(writes,2,'revocation after reserve vetoes native submit');
+ assert.equal(writes,3,'revocation after reserve vetoes native submit');
  const cancellation=client.requestDirector({...original,operation:'cancel'});
- assert.equal(writes,3,'native cancel remains possible after the original PS3 grant disappears');
+ assert.equal(writes,4,'native cancel remains possible after the original PS3 grant disappears');
  assert.equal(client.acceptDirectorResponse({ticketId:ticket,status:'cancelled'}),true);
  assert.deepEqual(await cancellation,{ticketId:ticket,status:'cancelled'});
  client.runtime.reset('disconnect');
  present=true;
  assert.equal(await client.requestDirector(original),null);
- assert.equal(writes,3,'disconnect invalidates any forged future companion source read');
+ assert.equal(writes,4,'disconnect invalidates any forged future companion source read');
  client.stop();
 });
 
