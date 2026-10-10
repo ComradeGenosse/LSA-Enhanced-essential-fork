@@ -541,9 +541,15 @@ namespace LSA.Intelligence
             for(int n=0;n<4 && channel.TryTakeDirectorFrame(out var frame);n++) {
                 DirectorOriginalTurnBindingCodec.Frame originalBinding;
                 if(DirectorOriginalTurnBindingCodec.TryDecode(frame,out originalBinding)) {
-                    // Source callbacks only bind to the original consumed claim.
-                    // PlaybackStarted/Ended are separately correlated later.
-                    TryDirectorOriginalTurnBinding(originalBinding);
+                    // Core/source/P2/C-06 are authoritative here; the JS
+                    // write itself is not acceptance. A bounded one-shot
+                    // source waiter must receive this authenticated result
+                    // before passing any Director text to the model.
+                    bool bound=TryDirectorOriginalTurnBinding(originalBinding);
+                    channel.Send("director_response",new {
+                        directorRequestVersion=1,ticketId=originalBinding.TicketId,
+                        status=bound?"bound":"unsafe"
+                    });
                     continue;
                 }
                 DirectorStockIntakeCodec.Frame stockIntake;
