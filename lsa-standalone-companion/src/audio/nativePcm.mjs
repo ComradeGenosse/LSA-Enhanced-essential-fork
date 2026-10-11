@@ -1,5 +1,7 @@
 // Production transport for raw PCM16LE mono 24 kHz. Native buffer credits
 // indicate accepted bytes passed to an output sink, never physical audibility.
+import { awaitNativePhysicalPlayback } from './physicalPlayback.mjs';
+
 export const PCM_RATE = 24000;
 export const MAX_PCM_BYTES = 1_440_000; // 30 seconds per authenticated turn
 export const MAX_CHUNK_BYTES = 3000;
@@ -38,7 +40,9 @@ const pause = (ms, signal) => new Promise((resolve, reject) => {
 // A streaming producer (e.g., OpenAI PCM HTTP response). Never materializes
 // all TTS bytes in RAM; preserves 16-bit sample alignment across arbitrary
 // HTTP chunk boundaries. No audio source is treated as already played.
-export async function stageNativePcmStream(client, nativeTurn, source, { signal } = {}) {
+export async function stageNativePcmStream(client, nativeTurn, source, {
+  signal, confirmPlayback = false, onPlaybackProgress
+} = {}) {
   if (!client || typeof client.request !== 'function' || !nativeTurn ||
       !source || typeof source[Symbol.asyncIterator] !== 'function')
     throw new Error('invalid_pcm_stream');
@@ -114,8 +118,14 @@ export async function stageNativePcmStream(client, nativeTurn, source, { signal 
       ...claims, chunkCount: index, totalBytes: total
     });
     if (response.status !== 'sealed_not_played') throw new Error('pcm_not_sealed');
+    const physicalReceipt = confirmPlayback
+      ? await awaitNativePhysicalPlayback(client, claims, {
+          expectedBytes: total, expectedSegments: 1, signal,
+          onProgress: onPlaybackProgress
+        }) : null;
     return { status: 'sealed_not_played', streamId: claims.streamId,
-      bufferedBytes: total, chunkCount: index, playback: false };
+      bufferedBytes: total, chunkCount: index, playback: false,
+      ...(physicalReceipt ? { physicalReceipt } : {}) };
   } catch (error) {
     try { await client.request('audio.cancel', claims); } catch {}
     throw error;
