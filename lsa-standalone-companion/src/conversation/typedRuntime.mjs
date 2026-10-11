@@ -1,4 +1,4 @@
-import { PendingDialogue, handleNextTypedTurn } from './typedTurn.js.mjs';
+import { NativePlayerContext, PendingDialogue, handleNextTypedTurn } from './typedTurn.js.mjs';
 
 // One model request at a time, from exactly one native connection. This is
 // intentionally more restrictive than the eventual multi-NPC arbiter.
@@ -9,6 +9,7 @@ export async function runTypedTurnSession({
       pollMs < 50 || pollMs > 5000 || typeof onStatus !== 'function')
     throw new Error('invalid_typed_runtime');
   const staged = new PendingDialogue();
+  const playerContext = new NativePlayerContext();
   const retired = new AbortController();
   const stop = () => retired.abort();
   signal?.addEventListener('abort', stop, { once: true });
@@ -30,7 +31,7 @@ export async function runTypedTurnSession({
     while (!retired.signal.aborted) {
       try {
         const result = await handleNextTypedTurn(client, provider, {
-          signal: retired.signal, pending: staged,
+          signal: retired.signal, pending: staged, playerContext,
           onStage: () => onStatus('typed_reply_staged')
         });
         if (result.state !== 'none' && result.state !== 'staged_not_played')
@@ -52,6 +53,7 @@ export async function runTypedTurnSession({
   } finally {
     stop();
     staged.retireAll(); // never carry unplayed conversation into a new transport
+    playerContext.retireAll();
     signal?.removeEventListener('abort', stop);
   }
 }
