@@ -20,7 +20,7 @@ const PS3_REASON_COUNTERS = Object.freeze({
 });
 
 export class ShadowRuntime {
-  constructor({ mode='off', radio='off', radioCatalog=RadioTrackTextCatalog.unavailable(), now=()=>Math.floor(performance.now()), situationFor=()=>({}) }={}) {
+  constructor({ mode='off', radio='off', radioCatalog=RadioTrackTextCatalog.unavailable(), now=()=>Math.floor(performance.now()), situationFor=()=>({}), acceptedObservationTap=null }={}) {
     this.mode=mode;this.radio=radio==='shadow'?'shadow':'off';this.radioCatalog=radioCatalog??RadioTrackTextCatalog.unavailable();this.now=now;this.anchors=new Map();this.signals=[];this.sequence=0;this.producers=new Map();this.epoch=null;this.stream=null;this.lastReceipt=0;
     this.hostContext=null;this.observerIndexVersion=null;this.observerIndex=new Map();this.observerSituations=new Map();this.observerSituationVersion=null;this.primaryBehaviorOwnerVersion=null;this.directorRequestVersion=null;this.directorPriority=null;this.directorReceipts=[];this.situationProvider=situationFor;
     this.counters=Object.fromEntries(['received','dropped','stale','malformed','duplicate','gaps','expired','resets'].map(k=>[k,0]));
@@ -37,7 +37,37 @@ export class ShadowRuntime {
     this.transcripts=new SharedTranscriptStore({now,current:ref=>this.current(ref)});
     this.salience=new SalienceCache({now});
     this.ps2Diagnostics={correlated:0,witnessed:0,duplicates:0,dropped:0,speechGate:'unsupported_capture_receipt'};
+    // M3 opt-in synchronous acceptance tap. Off by default. It may enqueue a
+    // frozen receipt, never do async SQLite or let an exception break PS2.
+    this.acceptedObservationTap=typeof acceptedObservationTap==='function'?acceptedObservationTap:null;
+    this.memoryTapDiagnostics={delivered:0,rejected:0,faults:0};
     this.ps3Diagnostics={decisions:0,urgent:0,eligible:0,staged:0,suppressed:0,faults:0,reasons:Object.fromEntries(Object.values(PS3_REASON_COUNTERS).map(k=>[k,0]))};
+  }
+  tapAcceptedObservation(observation) {
+    if(!this.acceptedObservationTap)return;
+    const ref=observation?.observer?.captureRef;
+    const row=this.observerIndex.get(ref);
+    const anchor=this.anchors.get(ref);
+    // Correlator's observations come only from successfully stored PS2 source
+    // receipts. Never use name, proximity or a retired ped handle as proof.
+    if(!this.hostContext || !this.current(ref) || !anchor?.observer ||
+       !row?.owned || !row.encounterId || !row.incarnationId) {
+      this.bump(this.memoryTapDiagnostics,'rejected');return;
+    }
+    try {
+      const result=this.acceptedObservationTap(Object.freeze({
+        observation,adapterEpoch:this.epoch,
+        hostRunId:this.hostContext.hostRunId,worldEpoch:this.hostContext.worldEpoch,
+        observerIndex:row
+      }));
+      if(result && typeof result.then==='function')
+        throw new Error('async_memory_tap_not_supported');
+      this.bump(this.memoryTapDiagnostics,'delivered');
+    } catch {
+      // Memory tap is non-authoritative for game behavior. Missed persistence
+      // is counted, not silently treated as a confirmed journal write.
+      this.bump(this.memoryTapDiagnostics,'faults');
+    }
   }
   bump(target,k) { target[k]=Math.min(MAX_COUNTER,(target[k]||0)+1); }
   count(k) { this.bump(this.counters,k); }
@@ -189,7 +219,7 @@ export class ShadowRuntime {
       else if(correlated.accepted) {this.ps2Diagnostics.correlated=Math.min(MAX_COUNTER,this.ps2Diagnostics.correlated+Number(Boolean(correlated.episodeId)));this.ps2Diagnostics.witnessed=Math.min(MAX_COUNTER,this.ps2Diagnostics.witnessed+correlated.observations.length);}
       if(!correlated.accepted) this.ps2Diagnostics.dropped=Math.min(MAX_COUNTER,this.ps2Diagnostics.dropped+1);
       for(const observationId of correlated.removedObservationIds||[]) this.salience.forgetObservation(observationId);
-      for(const observation of correlated.observations||[]) this.noteSalience(observation);
+      for(const observation of correlated.observations||[]) {this.tapAcceptedObservation(observation);this.noteSalience(observation);}
       // R4 ranks radio locally only. R5 remains responsible for model-visible projection.
       return true;
     }
@@ -203,7 +233,7 @@ export class ShadowRuntime {
     if(correlated.duplicate) this.ps2Diagnostics.duplicates=Math.min(MAX_COUNTER,this.ps2Diagnostics.duplicates+1);
     else if(correlated.accepted) {this.ps2Diagnostics.correlated=Math.min(MAX_COUNTER,this.ps2Diagnostics.correlated+Number(Boolean(correlated.episodeId)));this.ps2Diagnostics.witnessed=Math.min(MAX_COUNTER,this.ps2Diagnostics.witnessed+correlated.observations.length);}
     if(!correlated.accepted) this.ps2Diagnostics.dropped=Math.min(MAX_COUNTER,this.ps2Diagnostics.dropped+1);
-    for(const observation of correlated.observations||[]) this.noteSalience(observation);
+    for(const observation of correlated.observations||[]) {this.tapAcceptedObservation(observation);this.noteSalience(observation);}
     // Raw signals are retained only for bounded diagnostics. Retention pressure
     // must never reject an otherwise valid signal before PS2/PS3 processing.
     this.retainSignal(value,critical,this.now()+BOUNDS.signalTtlMs-s.ageMs);
