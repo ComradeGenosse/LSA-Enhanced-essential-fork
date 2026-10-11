@@ -30,12 +30,12 @@ export class UtteranceLifecycle {
   clear() {this.entries.clear();this.active=null;this.pending=null;}
   trim() {
     const now=this.now();
-    for(const [id,e] of this.entries) if(now-e.receivedAt>30000) {
+    for(const [id,e] of this.entries) if(now-e.receivedAt>(e.ended?30000:35000)) {
       this.entries.delete(id);if(this.active===id)this.active=null;
       if(this.pending?.utteranceId===id)this.pending=null;
       this.diagnostics.expired++;
     }
-    if(this.pending && now-this.pending.at>3000) {
+    if(this.pending && now-this.pending.at>65000) {
       this.pending=null;this.diagnostics.unmatched++;
     }
   }
