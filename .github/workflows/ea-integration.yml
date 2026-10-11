@@ -24,6 +24,9 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
       - name: EA0-EA4 targeted tests, provider regression and streaming safety
         working-directory: lsa-essential-e1-candidate
         run: >
@@ -47,3 +50,53 @@ jobs:
         env:
           LSA_CI_FAILURE_DETAILS: '1'
         run: npm test
+      - name: Isolated cross-module offline harness
+        env:
+          LSA_CI_FAILURE_DETAILS: '1'
+        shell: bash
+        run: python tools/isolated-offline-tests/run.py "$GITHUB_WORKSPACE/lsa-essential-e1-candidate"
+
+  native-contracts:
+    name: Production native and ABI contracts (Windows)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Compile production GTA native plugin against pinned public SDK
+        shell: bash
+        run: node tools/native-sdk/compileProductionNative.mjs
+      - name: Validate Essential Core ABI metadata
+        shell: pwsh
+        run: dotnet run --project tools/essential-abi/EssentialAbi.csproj --configuration Release
+      - name: Compile and execute ACT native contracts
+        shell: pwsh
+        run: |
+          dotnet build native/activities/tests/ActivityTests.csproj --configuration Debug
+          & .\\native\\activities\\tests\\bin\\Debug\\net481\\ActivityTests.exe
+      - name: Compile and execute intelligence owner/evidence contracts
+        shell: pwsh
+        run: |
+          dotnet build native/intelligence/tests/IntelligenceTests.csproj --configuration Debug
+          & .\\native\\intelligence\\tests\\bin\\Debug\\net481\\IntelligenceTests.exe
+      - name: Compile and execute director native admission contracts
+        shell: pwsh
+        run: |
+          dotnet build native/intelligence/director-tests/DirectorTests.csproj --configuration Debug
+          & .\\native\\intelligence\\director-tests\\bin\\Debug\\net481\\DirectorTests.exe
+      - name: Compile and execute promoted-owner lifecycle contracts
+        shell: pwsh
+        run: |
+          dotnet build native/promoted-characters/lifecycle-tests/LifecycleTests.csproj --configuration Debug
+          & .\\native\\promoted-characters\\lifecycle-tests\\bin\\Debug\\net481\\LifecycleTests.exe
+      - name: Compile and execute native host epoch/reset contracts
+        shell: pwsh
+        run: |
+          dotnet build native/promoted-characters/host-context-tests/HostContextTests.csproj --configuration Debug
+          & .\\native\\promoted-characters\\host-context-tests\\bin\\Debug\\net481\\HostContextTests.exe
+      - name: Compile and execute PS native host integration stubs
+        shell: pwsh
+        run: |
+          dotnet build native/intelligence/integration-tests/IntegrationTests.csproj --configuration Debug
+          & .\\native\\intelligence\\integration-tests\\bin\\Debug\\net481\\IntegrationTests.exe
