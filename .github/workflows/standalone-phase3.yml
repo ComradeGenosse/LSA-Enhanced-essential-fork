@@ -1,0 +1,79 @@
+name: Standalone Phase 3 Typed Turn
+
+on:
+  pull_request:
+    branches:
+      - feature/standalone-phase2-host-transport
+      - main
+    paths:
+      - 'native/standalone/**'
+      - 'native/standalone-host/**'
+      - 'lsa-standalone-companion/**'
+      - 'docs/standalone-replacement/**'
+      - '.github/workflows/standalone-phase3.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  node-typed:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Run independent turn/provider and prior IPC tests
+        run: node --test lsa-standalone-companion/tests/*.test.mjs
+
+  net481-typed:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - name: Release compile and real native authority simulation
+        shell: pwsh
+        run: |
+          dotnet build native/standalone/LSA.Standalone.Core.csproj -f net481 -c Release
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          dotnet run --project native/standalone/tests/LSA.Standalone.Core.Tests.csproj -f net10.0 -c Release
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Compile real net481 host and test harness (no GTA deployment)
+        shell: pwsh
+        run: |
+          dotnet build native/standalone-host/tests/FakeRphSdk.csproj -c Release
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $stub = (Resolve-Path 'native/standalone-host/tests/bin/Release/net481/RagePluginHook.dll').Path
+          dotnet build native/standalone-host/LSA.Standalone.RageHost.csproj -c Release "-p:RphReferencePath=$stub"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          dotnet build native/standalone-host/tests/Phase2PipeHarness.csproj -c Release
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          dotnet restore native/standalone-host/tests/RealRphReference.csproj
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $sdk = Get-ChildItem -Path (Join-Path $env:USERPROFILE '.nuget/packages/ragepluginhook/1.124.0') -Filter RagePluginHook.dll -Recurse -File |
+            Select-Object -First 1 -ExpandProperty FullName
+          if (-not $sdk) { throw 'Official RPH reference unavailable' }
+          dotnet build native/standalone-host/LSA.Standalone.RageHost.csproj -c Release "-p:RphReferencePath=$sdk"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Native-owned typed turn to fixture AI to staged native reply
+        shell: pwsh
+        run: |
+          $exe = (Resolve-Path 'native/standalone-host/tests/bin/Release/net481/Phase2PipeHarness.exe').Path
+          $hostProcess = Start-Process -FilePath $exe -PassThru
+          try {
+            $ok = $false
+            for ($attempt = 1; $attempt -le 12; $attempt++) {
+              node lsa-standalone-companion/tools/typed-turn-fixture.mjs
+              if ($LASTEXITCODE -eq 0) { $ok = $true; break }
+              Start-Sleep -Milliseconds 250
+            }
+            if (-not $ok) { throw 'Native typed turn to AI fixture interop failed' }
+          } finally {
+            Stop-Process -Id $hostProcess.Id -Force -ErrorAction SilentlyContinue
+          }
