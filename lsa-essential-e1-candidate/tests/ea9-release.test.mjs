@@ -44,7 +44,7 @@ async function fixture(){
   const files=Object.entries(staged).map(([p,v])=>({path:p,sha256:hash(v)})).sort((a,b)=>a.path<b.path?-1:a.path>b.path?1:0);
   const nativeOutputs=files.filter(x=>x.path.endsWith('.dll')).map(x=>x.path);
   await put(path.join(release,'ea9-release-manifest.json'),JSON.stringify({
-    schemaVersion:1,sourceHead:head,files,nativeOutputs:nativeOutputs.map(staged=>({staged}))}));
+    schemaVersion:1,sourceHead:head,files,candidate:{builtBundleSha256:hash('// patched offline server')},nativeOutputs:nativeOutputs.map(staged=>({staged,compiled:'fixture',sha256:files.find(x=>x.path===staged).sha256}))}));
   const statePaths=path.join(temp,'extras.json');
   await writeFile(statePaths,JSON.stringify(['data/voice-assignments.json']));
   const common=['--target',target,'--backup-root',backup,'--expected-head',head,'--ack-isolated'];
