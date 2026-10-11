@@ -3,6 +3,7 @@
 import {createHash} from 'node:crypto';
 import {isUuid} from '../util/identity.mjs';
 import {readVerifiedEventEvidence} from './journalSqlite.mjs';
+import {listSuppressedMemoryIds,readCorrectionOverlays} from './integratedSqlite.mjs';
 
 const fail = reason => {throw new Error(reason);};
 const sha = value => createHash('sha256').update(value).digest('hex');
@@ -110,10 +111,19 @@ export function readP2ReplayPage(db,{scope,cursor=null,limit=256},world){
   const after=decode(scope,cursor);
   const entries=db.prepare('SELECT sequence AS seq,kind,record_id AS id FROM p2_memory_replay_feed WHERE '+
     where+' AND sequence>? ORDER BY sequence ASC LIMIT ?').all(...scopeKey(scope),after,limit+1);
-  const page=entries.slice(0,limit),items=[],rejected=[];
+  const page=entries.slice(0,limit),items=[],rejected=[],skipped=[];
+  const suppressed=new Set(listSuppressedMemoryIds(db,scope,world));
+  for(const correction of readCorrectionOverlays(db,scope,world))
+    if(isUuid(correction.targetId))suppressed.add(correction.targetId);
   const line=db.prepare('SELECT * FROM dialogue_journal WHERE record_id=? AND '+
     'world_profile_id=? AND character_id=? AND timeline_id=? AND protagonist=?');
   for(const entry of page){
+    // A correction or forget immediately masks immutable evidence, including
+    // its transitive derivatives. Only an authorized restore may clear it.
+    if(suppressed.has(entry.id)){
+      skipped.push({recordId:entry.id,reason:'forgotten_or_superseded'});
+      continue;
+    }
     if(entry.kind==='dialogue'){
       const row=line.get(entry.id,...scopeKey(scope));
       if(!row){rejected.push({recordId:entry.id,reason:'source_removed'});continue;}
@@ -131,6 +141,7 @@ export function readP2ReplayPage(db,{scope,cursor=null,limit=256},world){
   return Object.freeze({version:1,scope:{...scope},cursor:encode(scope,next),
     fromCursor:encode(scope,after),lastSequence:next,scannedCount:page.length,
     items:Object.freeze(items),rejected:Object.freeze(rejected),
+    skipped:Object.freeze(skipped),
     hasMore:entries.length>limit,status:rejected.length?'incomplete_evidence':'complete'});
 }
 export function readP2ReplayCursor(db,{scope,consumerId},world){
