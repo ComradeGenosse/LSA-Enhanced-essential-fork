@@ -15,14 +15,25 @@ namespace Rage.Attributes
 }
 namespace Rage
 {
+    public struct Vector3 {}
+    public sealed class GameConsole
+    {
+        public void Print(string value) {}
+    }
     public struct PoolHandle
     {
-        public PoolHandle(uint raw) {}
+        public PoolHandle(uint raw) { Value = raw; }
+        public uint Value { get; set; }
     }
     public class Ped
     {
         public bool Exists() => false;
         public bool IsDead => false;
+        public PoolHandle Handle => new PoolHandle(1);
+        public Ped[] GetNearbyPeds(int maximumCount) => new Ped[0];
+        public Vector3 GetOffsetPositionFront(float distance) => new Vector3();
+        public float DistanceTo(Ped other) => 0;
+        public float DistanceTo(Vector3 other) => 0;
         public IntPtr MemoryAddress => IntPtr.Zero;
         public static bool operator ==(Ped a, Ped b) => object.ReferenceEquals(a, b);
         public static bool operator !=(Ped a, Ped b) => !object.ReferenceEquals(a, b);
@@ -42,6 +53,7 @@ namespace Rage
     {
         public static int GameTime => 0;
         public static LocalPlayer LocalPlayer => new LocalPlayer();
+        public static GameConsole Console => new GameConsole();
         public static void LogTrivial(string message) {}
     }
     public static class GameFiber
@@ -55,5 +67,15 @@ namespace Rage.Native
     public static class NativeFunction
     {
         public static T CallByName<T>(string name, params object[] arguments) { return default(T); }
+    }
+}
+
+namespace Rage.Attributes
+{
+    [AttributeUsage(AttributeTargets.Method)]
+    public sealed class ConsoleCommandAttribute : Attribute
+    {
+        public string Name { get; set; }
+        public string Description { get; set; }
     }
 }
