@@ -40,17 +40,27 @@ export function selectKnowledge(inputs,{includePerceived=true,radioInput=''}={})
   const omissions={unsupported_claim_detail:0,revision_mismatch:0,no_matching_salience:0,budget_excluded:0,safety_overflow:0};
   const result={observations:[],selected:[],omissions,safetyBudget:{reservedBytes:KNOWLEDGE_LIMITS.safetyReserveBytes,usedBytes:0,remainingBytes:KNOWLEDGE_LIMITS.safetyReserveBytes}};
   if(!includePerceived || inputs?.ownerPendingProof || inputs?.reason || !inputs?.association || !Array.isArray(inputs.pairs)) return immutableSnapshot(result);
+  const radioRequested=radioTurnRelevant(radioInput);
   const observer=inputs.association.captureRef,counts=new Map();for(const pair of inputs.pairs) counts.set(pair?.observation?.observationId,(counts.get(pair?.observation?.observationId)||0)+1);
   const valid=[];
   for(const pair of inputs.pairs) {
     const o=pair?.observation,d=pair?.decision;
     // Only an explicit player radio question may select a frozen radio fact.
-    if(o?.eventType==='radio_heard' && !radioTurnRelevant(radioInput)) continue;
+    if(o?.eventType==='radio_heard' && !radioRequested) continue;
     if(!validateObservation(o) || o.observer.captureRef!==observer || o.observedAt.nativeRun!==inputs.psAdapterEpoch || o.expiresAtMonotonicMs<=inputs.frozenAt || !o.claims.every(claim=>[claim.source,claim.target].every(ref=>!ref || inputs.liveReferences?.[ref.captureRef]===ref.kind) && (!claim.details?.vehicle || inputs.liveReferences?.[claim.details.vehicle]==='vehicle')) || counts.get(o.observationId)!==1) {omissions.revision_mismatch++;continue;}
     if(!pair.situation || !Array.isArray(pair.situation.traitPolicies) || !validDecision(d) || d.observationId!==o.observationId || d.revision!==o.revision || d.policyVersion!==SALIENCE_POLICY_VERSION || typeof d.decisionKey!=='string' || !d.decisionKey.startsWith(`${o.observationId}:${o.revision}:${SALIENCE_POLICY_VERSION}:`) || !/^\d+:[0-9a-f]{8}$/.test(d.decisionKey.slice(`${o.observationId}:${o.revision}:${SALIENCE_POLICY_VERSION}:`.length)) || d.expiresAtMonotonicMs<=inputs.frozenAt || !['candidate','must_include','omit'].includes(d.context)) {omissions.no_matching_salience++;continue;}
     if(d.context!=='omit') valid.push(pair);
   }
-  let poolBytes=0;const ordered=orderSalienceDecisions(valid).filter((pair,index)=>{
+  // Direct radio questions prioritize a verified radio observation above
+  // unrelated routine items, never above mandatory safety context. The
+  // bounded pool and eight-item frame retain all original validation gates.
+  const ranked=orderSalienceDecisions(valid);
+  const prioritized=radioRequested ? [
+    ...ranked.filter(pair=>pair.decision.context==='must_include'),
+    ...ranked.filter(pair=>pair.decision.context!=='must_include' && pair.observation.eventType==='radio_heard'),
+    ...ranked.filter(pair=>pair.decision.context!=='must_include' && pair.observation.eventType!=='radio_heard'),
+  ] : ranked;
+  let poolBytes=0;const ordered=prioritized.filter((pair,index)=>{
     const bytes=jsonBytes(pair);if(index>=KNOWLEDGE_LIMITS.poolCount || poolBytes+bytes>KNOWLEDGE_LIMITS.poolBytes) {omissions.budget_excluded++;return false;}poolBytes+=bytes;return true;
   });
   for(const pair of [...ordered.filter(p=>p.decision.context==='must_include'),...ordered.filter(p=>p.decision.context!=='must_include')]) {

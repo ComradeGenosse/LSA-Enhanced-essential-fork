@@ -47,6 +47,11 @@ namespace LSA.Intelligence
         readonly Func<long> clock;
         readonly Func<string> host;
         readonly Func<int> world;
+        internal int ChallengeIssued {get;private set;}
+        internal int ChallengeExpired {get;private set;}
+        internal int ChallengeRetired {get;private set;}
+        internal int ChallengeCapacityRejected {get;private set;}
+        internal int ActiveChallenges=>challenges.Count;
         readonly Dictionary<string,Challenge> challenges=new Dictionary<string,Challenge>();
         readonly Dictionary<string,Signal> signals=new Dictionary<string,Signal>();
         readonly Dictionary<string,Stored> grants=new Dictionary<string,Stored>();
@@ -72,7 +77,9 @@ namespace LSA.Intelligence
         {
             var now=clock();
             foreach(var s in signals.Where(x=>x.Value.Expires<=now).Select(x=>x.Key).ToArray())signals.Remove(s);
-            foreach(var s in challenges.Where(x=>x.Value.Expires<=now).Select(x=>x.Key).ToArray())challenges.Remove(s);
+            foreach(var s in challenges.Where(x=>x.Value.Expires<=now).Select(x=>x.Key).ToArray()){
+                challenges.Remove(s);if(ChallengeExpired<int.MaxValue)ChallengeExpired++;
+            }
             foreach(var s in grants.Where(x=>x.Value.Expires<=now).Select(x=>x.Key).ToArray())grants.Remove(s);
         }
         // The challenge is bound to the REAL native P2 participant and
@@ -92,12 +99,12 @@ namespace LSA.Intelligence
                 return prior.Token;
             }
             challenges.Remove(speaker);
-            if(challenges.Count>=MaxChallenges)return null;
+            if(challenges.Count>=MaxChallenges){if(ChallengeCapacityRejected<int.MaxValue)ChallengeCapacityRejected++;return null;}
             var next=new Challenge{Token=Guid.NewGuid().ToString("D"),Speaker=speaker,
                 Owner=owner,Revision=ownerRevision,Host=host(),World=world(),
                 FirstSituation=situationRevision,LastSituation=situationRevision,
                 Expires=clock()+ChallengeLeaseMs};
-            challenges.Add(speaker,next);return next.Token;
+            challenges.Add(speaker,next);if(ChallengeIssued<int.MaxValue)ChallengeIssued++;return next.Token;
         }
         // Called ONLY after a native factual signal was actually enqueued
         // onto the existing authenticated PS outbound pipe. Each observer
@@ -235,7 +242,9 @@ namespace LSA.Intelligence
         }
         internal void Retire(string owner)
         {
-            foreach(var k in challenges.Where(x=>x.Value.Owner==owner).Select(x=>x.Key).ToArray())challenges.Remove(k);
+            foreach(var k in challenges.Where(x=>x.Value.Owner==owner).Select(x=>x.Key).ToArray()){
+                challenges.Remove(k);if(ChallengeRetired<int.MaxValue)ChallengeRetired++;
+            }
             foreach(var k in grants.Where(x=>x.Value.Grant.OwnerIncarnationId==owner).Select(x=>x.Key).ToArray())grants.Remove(k);
         }
         internal void ClearGrant(string ticket){if(ticket!=null)grants.Remove(ticket);}

@@ -516,7 +516,8 @@ namespace LSA.Intelligence
                     var damageCallbacks=sensors.DamageCallbacks;
                     var radio=new {samples=Clamp(sensors.RadioSamples),edges=Clamp(sensors.RadioEdges),nativeFailures=Clamp(sensors.RadioNativeFailures),witnessed=Clamp(radioWitnessed),witnessUnknown=Clamp(radioWitnessUnknown)};
                     channel.Send("diagnostics",new {anchors=anchors.Count,observers=anchors.ObserverCount,snapshotAgeMs=age,snapshotCadenceMs=Clamp(snapshotCadence),dropped=Clamp(sensors.Dropped+channel.Dropped),staleRejected=Clamp(staleRejected),retiredAnchors=Clamp(retiredAnchors),deferredDiscovery=Clamp(deferredDiscovery),updateMicros=Clamp((long)(budget.Elapsed.TotalMilliseconds*1000)),capabilities,signals,damageCallbacks,witnessDeferred=Clamp(witnessDeferred),witnessUnknown=Clamp(witnessUnknown),witnessRejected=Clamp(witnessRejected),playerSpeechGate="unsupported_capture_receipt",radio});
-                    if(now>=nextLog) {nextLog=now+10000;Game.LogTrivial("[PS] shadow anchors="+anchors.Count+" observers="+anchors.ObserverCount+" snapshot_age_ms="+age+" snapshot_cadence_ms="+Clamp(snapshotCadence)+" dropped="+Clamp(sensors.Dropped+channel.Dropped)+" stale="+Clamp(staleRejected)+" retired="+Clamp(retiredAnchors)+" deferred="+Clamp(deferredDiscovery)+" update_us="+Clamp((long)(budget.Elapsed.TotalMilliseconds*1000))+" capabilities="+string.Join(",",capabilities.Where(c=>c.Value).Select(c=>c.Key))+" damage_callbacks=ped:"+damageCallbacks["ped_damage"]+",player:"+damageCallbacks["player_damage"]+",vehicle:"+damageCallbacks["vehicle_damage"]+" radio="+radio.samples+":"+radio.edges+":"+radio.nativeFailures+" radio_routes="+RadioRoutes()+" radio_witness="+radio.witnessed+":"+radio.witnessUnknown+" event_trace_suppressed="+Clamp(eventTraceSuppressed)+" owner_stalls="+Clamp(ownerStalls)+":"+Clamp(ownerStallMaxMs)+" signals="+string.Join(",",signals.Select(c=>c.Key+":"+c.Value)));}
+                    if(now>=nextLog) {nextLog=now+10000;Game.LogTrivial("[PS] shadow anchors="+anchors.Count+" observers="+anchors.ObserverCount+" snapshot_age_ms="+age+" snapshot_cadence_ms="+Clamp(snapshotCadence)+" dropped="+Clamp(sensors.Dropped+channel.Dropped)+" stale="+Clamp(staleRejected)+" retired="+Clamp(retiredAnchors)+" deferred="+Clamp(deferredDiscovery)+" update_us="+Clamp((long)(budget.Elapsed.TotalMilliseconds*1000))+" capabilities="+string.Join(",",capabilities.Where(c=>c.Value).Select(c=>c.Key))+" damage_callbacks=ped:"+damageCallbacks["ped_damage"]+",player:"+damageCallbacks["player_damage"]+",vehicle:"+damageCallbacks["vehicle_damage"]+" radio="+radio.samples+":"+radio.edges+":"+radio.nativeFailures+" radio_routes="+RadioRoutes()+" radio_witness="+radio.witnessed+":"+radio.witnessUnknown+
+                          " director_challenges="+ps3Receipts.ActiveChallenges+":"+ps3Receipts.ChallengeIssued+":"+ps3Receipts.ChallengeExpired+":"+ps3Receipts.ChallengeRetired+":"+ps3Receipts.ChallengeCapacityRejected+" event_trace_suppressed="+Clamp(eventTraceSuppressed)+" owner_stalls="+Clamp(ownerStalls)+":"+Clamp(ownerStallMaxMs)+" signals="+string.Join(",",signals.Select(c=>c.Key+":"+c.Value)));}
                 }
                 Count(ref completedUpdates);Interlocked.Exchange(ref lastCompletedMs,host.MonotonicMs);
             } catch {LogStatus("[PS] optional_update_failed");Shutdown("update_failed");}
@@ -631,11 +632,19 @@ namespace LSA.Intelligence
                 }
                 // P2 already uses these exact GTA scripted-state natives.
                 // Every read must succeed before "safe" can be asserted.
-                proof.ScriptSafe=!NativeFunction.CallByName<bool>("IS_CUTSCENE_ACTIVE") &&
-                    !NativeFunction.CallByName<bool>("IS_CUTSCENE_PLAYING") &&
-                    !NativeFunction.CallByName<bool>("IS_PLAYER_SWITCH_IN_PROGRESS") &&
-                    !NativeFunction.CallByName<bool>("GET_MISSION_FLAG") &&
-                    !NativeFunction.CallByName<bool>("NETWORK_IS_SESSION_ACTIVE");
+                // Sample every required safety fence so a legitimate busy state
+                // can be distinguished from a failed native/unknown state.
+                bool cutsceneActive=NativeFunction.CallByName<bool>("IS_CUTSCENE_ACTIVE");
+                bool cutscenePlaying=NativeFunction.CallByName<bool>("IS_CUTSCENE_PLAYING");
+                bool playerSwitch=NativeFunction.CallByName<bool>("IS_PLAYER_SWITCH_IN_PROGRESS");
+                bool missionActive=NativeFunction.CallByName<bool>("GET_MISSION_FLAG");
+                bool networkActive=NativeFunction.CallByName<bool>("NETWORK_IS_SESSION_ACTIVE");
+                proof.ScriptUnsafeReason=cutsceneActive?"script_cutscene_active":
+                    cutscenePlaying?"script_cutscene_playing":
+                    playerSwitch?"script_player_switch":
+                    missionActive?"script_mission_flag":
+                    networkActive?"script_network_session":null;
+                proof.ScriptSafe=proof.ScriptUnsafeReason==null;
                 proof.ScriptStateKnown=true;
                 // Original native P2/source-signal evidence and independently
                 // received authenticated companion PS3 receipt must match.

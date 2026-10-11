@@ -37,6 +37,8 @@ namespace LSA.Intelligence
             public long SpecialTurnVersion=-1;
             public bool EssentialTurnKnown,EssentialTurnIdle,PlaybackKnown,PlaybackIdle;
             public bool ScriptStateKnown,ScriptSafe,ActorReflexKnown,ActorReflexIdle;
+            // Closed native veto classification, never a script/mission title.
+            public string ScriptUnsafeReason;
             public bool ObservationReceiptCurrent,ResponseGrantCurrent;
         }
 
@@ -88,7 +90,7 @@ namespace LSA.Intelligence
             if(!s.ControlsInputKnown)return "controls_input_unknown";
             if(!s.ControlsInputIdle)return "controls_input_busy";
             if(!s.ScriptStateKnown)return "script_state_unknown";
-            if(!s.ScriptSafe)return "script_state_unsafe";
+            if(!s.ScriptSafe)return s.ScriptUnsafeReason??"script_state_unsafe";
             if(!s.ActorReflexKnown)return "actor_reflex_unknown";
             if(!s.ActorReflexIdle)return "actor_reflex_busy";
             if(occupied)return "occupied_playback_unclassified";

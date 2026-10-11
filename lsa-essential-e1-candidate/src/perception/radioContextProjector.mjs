@@ -1,4 +1,9 @@
 const DIRECT_RADIO_PATTERNS = Object.freeze([
+  // Natural spoken questions, including punctuation-free ASR transcripts.
+  /\b(?:do|did|can|could|would)\s+(?:you|ya)\s+(?:hear|recognize|recognise|identify|catch)\s+(?:(?:that|this|the|a)\s+)?(?:song|track|music|radio)\b/i,
+  /\b(?:you|ya)\s+(?:hear|heard|hearing|recognize|recognise|listening to)\s+(?:(?:that|this|the|a)\s+)?(?:song|track|music|radio)\b/i,
+  /\b(?:hear|hearing|heard|listening to)\s+(?:that|this|the)\s+(?:song|track|music|radio)\b/i,
+  /\bwhat (?:do|did) (?:you|ya) think (?:of|about) (?:that|this|the) (?:song|track|music)\b/i,
   /\bwhat(?:'s| is) (?:this|that|the) (?:song|track|music)\b/i,
   /\bwhat(?:'s| is) playing\b/i,
   /\bwhat(?:'s| is) on (?:the )?radio\b/i,

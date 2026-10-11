@@ -259,8 +259,20 @@ export class ShadowRuntime {
       const catalog=s.kind==='radio_stopped'?'stopped':!normalized?'invalid':normalized.contentKind==='off'?'off':
         normalized.trackKnown?'known':normalized.catalogMismatch?'mismatch':'unknown';
       if(['known','unknown','mismatch','off'].includes(catalog)) this.bump(this.radioDiagnostics,catalog);
-      const radioReceipts=s.witnessReceipts||[],radioWitnesses=this.qualifiedObservers(radioReceipts);
-      const radioTrace={traceCode:traceCode(s.signalId),signalKind:s.kind,catalog,receipts:radioReceipts.length,
+      const catalogRow=s.kind==='radio_changed' ? this.radioCatalog?.tracks?.[String(s.facts.trackTextId)] : null;
+       const catalogReason=s.kind==='radio_stopped'?'radio_stopped':
+         !this.radioCatalog?.loaded?'catalog_unavailable':
+         !Number.isSafeInteger(s.facts.trackTextId)||s.facts.trackTextId<=0?'text_id_unavailable':
+         !catalogRow?'text_id_not_cataloged':
+         !catalogRow.stations.includes(s.facts.station)?'station_mismatch':
+         normalized?.contentKind==='off'?'semantic_off':
+         normalized?.trackKnown?'resolved':'catalog_metadata_incomplete';
+       const radioReceipts=s.witnessReceipts||[],radioWitnesses=this.qualifiedObservers(radioReceipts);
+      const radioTrace={traceCode:traceCode(s.signalId),signalKind:s.kind,catalog,catalogReason,
+         trackTextId:Number.isSafeInteger(s.facts.trackTextId)?s.facts.trackTextId:0,
+         soundHashPresent:Number.isSafeInteger(s.facts.soundHash)&&s.facts.soundHash!==0,
+         catalogStationCount:Array.isArray(catalogRow?.stations)?catalogRow.stations.length:0,
+         stationCataloged:Boolean(this.radioCatalog?.stations?.[s.facts.station]),receipts:radioReceipts.length,
         qualified:radioWitnesses.size,ownedQualified:[...radioWitnesses].filter(ref=>this.owned(ref)).length,
         ownedObservers:[...this.observerIndex.values()].filter(row=>row.owned && this.current(row.captureRef)).length,
         ps2:'dropped',ps2Reason:'none',observations:0,ownedObservations:0,ps3Owned:'not_evaluated',ps3Reason:'none'};

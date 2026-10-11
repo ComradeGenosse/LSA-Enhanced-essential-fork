@@ -37,7 +37,7 @@ function runtimeFixture({known=true,conversation=true}={}) {
 }
 
 test('radio selector recognizes direct music questions but not incidental radio words',()=>{
-  for(const input of ["what song is this?","what's playing?","what station is this?","who sings this song?","what's on the radio?","can you identify this track?"]) assert.equal(radioTurnRelevant(input),true,input);
+  for(const input of ["what song is this?","what's playing?","what station is this?","who sings this song?","what's on the radio?","can you identify this track?","you hear that song man","you hear that song?","can you hear the music?","did you hear that track","what do you think of this song?"]) assert.equal(radioTurnRelevant(input),true,input);
   for(const input of ["I bought a radio yesterday.","Turn left at the station.","Music is important to me.","How are you?","Drive faster."]) assert.equal(radioTurnRelevant(input),false,input);
 });
 
@@ -51,6 +51,7 @@ test('R5 selects only the current conversation observer and renders one bounded 
   assert.match(selected.text,/Track A/);assert.match(selected.text,/Artist A/);assert.match(selected.text,/Test Radio/);
   assert.doesNotMatch(selected.text,/Wrong Passenger Track|captureRef|RADIO_TEST_A|same_vehicle_radio/);
   assert.equal(selectRadioContext(f.runtime,'How are you?'),null);
+  assert.match(selectRadioContext(f.runtime,'you hear that song man').text,/Track A/);
 });
 
 test('R5 omits when actor hearing is ambiguous or missing',()=>{

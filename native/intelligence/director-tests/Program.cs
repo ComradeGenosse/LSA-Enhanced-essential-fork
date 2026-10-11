@@ -722,7 +722,10 @@ class Program
         proof.ActorReflexKnown=true;proof.ScriptSafe=false;
         Check(!DirectorC06Policy.RetainedTargetIdle(proof,true,true),
             "unsafe scripted state blocks retained selection release");
-        proof.ScriptSafe=true;
+        proof.ScriptUnsafeReason="script_mission_flag";
+        Check(DirectorC06Policy.FirstVeto(req,proof,"reserve")=="script_mission_flag",
+            "native script veto identifies exact protective flag without weakening admission");
+        proof.ScriptSafe=true;proof.ScriptUnsafeReason=null;
         proof.ConversationIdle=DirectorC06Policy.RetainedTargetIdle(proof,true,true);
         Check(DirectorC06Policy.Safe(req,proof),
             "authenticated stable retained target can pass unchanged full Director policy");
