@@ -9,8 +9,10 @@ const statuses=new Set(['did_not_witness','unknown','unavailable']);
 const fail=s=>{throw new Error(s);};
 export const M3_COVERAGE_DDL=`
 CREATE TABLE IF NOT EXISTS m3_coverage (
- world_profile_id TEXT NOT NULL, timeline_id TEXT NOT NULL,
- character_id TEXT NOT NULL, observation_id TEXT NOT NULL,
+ world_profile_id TEXT NOT NULL,
+ timeline_id TEXT NOT NULL REFERENCES timelines(timeline_id) ON DELETE CASCADE,
+ character_id TEXT NOT NULL REFERENCES promoted_profiles(character_id) ON DELETE CASCADE,
+ observation_id TEXT NOT NULL,
  status TEXT NOT NULL CHECK(status IN ('did_not_witness','unknown','unavailable')),
  evidence_json TEXT NOT NULL, evidence_hash TEXT NOT NULL,
  PRIMARY KEY(world_profile_id,timeline_id,character_id,observation_id)
