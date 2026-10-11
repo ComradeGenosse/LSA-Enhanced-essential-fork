@@ -146,3 +146,35 @@ test('Bounds: no more than 128 sources, rejects invalid input, projections byte-
  assert.ok(res.totalBytes<=700);
  assert.ok(res.totalBytes===Buffer.byteLength(JSON.stringify(res),'utf8'));
 });
+
+
+test('Three distinct promoted characters replay equivalent qualified corpus with equal facts and separate opinions',()=>{
+ const base=dataset(),styles=[{humor:{style:'goofy'},caution:.1},
+  {humor:{style:'dry'},caution:.95},{humor:{style:'sarcastic'},caution:.1}];
+ const results=styles.map((personality,i)=>{
+  const s={...scope,characterId:uuid()};
+  const sources=base.sources.map(({record})=>{
+   const cloned=structuredClone(record);
+   cloned.characterId=s.characterId;
+   if(cloned.kind==='journal_event')cloned.ownerProof.ownerAlias='promoted.'+s.characterId;
+   return committed(cloned);
+  });
+  return evaluateM8({scope:s,sources,personality,nowUtc:t(30)});
+ });
+ const factual=results.map(r=>r.facts.map(f=>({sourceKind:f.sourceKind,mode:f.mode,content:f.content})));
+ assert.deepEqual(factual[0],factual[1]);assert.deepEqual(factual[1],factual[2]);
+ assert.equal(new Set(results.map(r=>r.interpretations[0].opinion)).size,3);
+ assert.equal(new Set(results.map(r=>r.jokes[0].id)).size,3);
+ for(let i=0;i<results.length;i++)for(let j=0;j<results.length;j++)if(i!==j)
+  assert.ok(results[i].interpretations.every(k=>!results[j].interpretations.some(l=>k.id===l.id)));
+});
+
+test('Old joke motifs decay into resting and cannot emit opt-in callbacks until new sourced occurrence',()=>{
+ const data=dataset(),old=evaluateM8({scope,sources:data.sources,nowUtc:t(90*86400),
+  personality:{humor:{style:'goofy'}}});
+ assert.equal(old.jokes[0].state,'resting');
+ assert.ok(old.jokes[0].confidence<.1);
+ assert.equal(selectM8JokeCue({projection:old,scope,optIn:true,actorIdle:true,
+  nowUtc:t(90*86400+1000),secondsSincePlayerTurn:90,
+  cue:{kind:'event_type',eventType:'crash',sourceVerified:true}}),null);
+});
