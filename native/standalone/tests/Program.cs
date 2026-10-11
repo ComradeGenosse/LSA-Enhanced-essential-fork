@@ -517,6 +517,55 @@ internal static class Program
         host.Stop();
     }
 
+    private static void PreconfirmationCancelReleasesActor()
+    {
+        var game = new SimulatedGame();
+        game.Spawn(144, 0xC100, lifetimeTag: 9221);
+        var host = new NativeAuthority(game, game, game, game);
+        var actor = Register(host, 144);
+        var tickets = new NativeTurnRegistry(host);
+        string reason;
+        NativeTurnPermit offer;
+        Check(tickets.TryIssueTyped(actor, "unconfirmed", 4000, out offer, out reason),
+            "issue unconfirmed native offer");
+        Check(!tickets.TryCancel(offer.TurnId.ToString("D"),
+            Guid.NewGuid().ToString("D"), offer.Generation,
+            offer.ActorIncarnationId.ToString("D")), "wrong lease cannot cancel unconfirmed offer");
+        Check(!tickets.TryCancel(offer.TurnId.ToString("D"),
+            offer.LeaseId.ToString("D"), offer.Generation,
+            Guid.NewGuid().ToString("D")), "wrong incarnation cannot cancel");
+        Check(!tickets.TryCancel(offer.TurnId.ToString("D"),
+            offer.LeaseId.ToString("D"), "987654321",
+            offer.ActorIncarnationId.ToString("D")), "wrong generation cannot cancel");
+        Check(tickets.TryCancel(offer.TurnId.ToString("D"),
+            offer.LeaseId.ToString("D"), offer.Generation,
+            offer.ActorIncarnationId.ToString("D")), "native unconfirmed lease immediately retired");
+        Check(!tickets.TryConfirm(offer.TurnId.ToString("D"),
+            offer.SessionNonce.ToString("D"), offer.ActorIncarnationId.ToString("D"),
+            offer.LeaseId.ToString("D"), offer.Generation, offer.Source, out reason),
+            "cancelled offer cannot later confirm");
+        NativeTurnPermit next;
+        Check(tickets.TryIssueTyped(actor, "new after cancel", 4000,
+            out next, out reason), "actor immediately reacquired after cancelled offer");
+        Check(next.LeaseId != offer.LeaseId, "new turn never reuses prior lease");
+        Check(tickets.TryConfirm(next.TurnId.ToString("D"),
+            next.SessionNonce.ToString("D"), next.ActorIncarnationId.ToString("D"),
+            next.LeaseId.ToString("D"), next.Generation, next.Source, out reason),
+            "second offer valid independently");
+        Check(tickets.TryStageReply(next.TurnId.ToString("D"),
+            next.LeaseId.ToString("D"), next.Generation,
+            next.ActorIncarnationId.ToString("D"), "not played", out reason),
+            "staging before explicit cancel");
+        Check(tickets.TryCancel(next.TurnId.ToString("D"),
+            next.LeaseId.ToString("D"), next.Generation,
+            next.ActorIncarnationId.ToString("D")), "staged reply can be cancelled");
+        Check(!tickets.TryStageReply(next.TurnId.ToString("D"),
+            next.LeaseId.ToString("D"), next.Generation,
+            next.ActorIncarnationId.ToString("D"), "late", out reason),
+            "cancelled staged reply never resurrected");
+        host.Stop();
+    }
+
     private static void Main()
     {
         IdentityAndLeases();
@@ -527,6 +576,7 @@ internal static class Program
         SeededSafetyScenarios();
         DecoratorReuseAndNativeTurnAdmission();
         NativeTypedTextAndStagedReply();
+        PreconfirmationCancelReleasesActor();
         Console.WriteLine("PASS " + assertions +
             " standalone native core assertions; no Essential/RAGE/game assembly loaded.");
     }
