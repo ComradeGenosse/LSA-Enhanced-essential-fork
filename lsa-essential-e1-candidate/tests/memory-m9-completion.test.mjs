@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { M9NativeEventProducer } from '../../lsa-shared-brain/src/events/m9EventProducers.mjs';
-import { M9MemoryCueCandidates } from '../../lsa-shared-brain/src/events/m9MemoryCues.mjs';
+import { M9MemoryCueCandidates, M9_CUE_LIMITS } from '../../lsa-shared-brain/src/events/m9MemoryCues.mjs';
 
 const id=n=>'10000000-0000-4000-8000-'+String(n).padStart(12,'0');
 const run=id(1),epoch=id(2),player=id(3),vehicle=id(4);
@@ -17,7 +17,7 @@ const sample=(t,o={})=>({
   vehicleCaptureRef:vehicle,gameTick:t,sampledAtMs:t,
   wantedLevel:0,vehicle:vehicleState(),outcome:null,...o
 });
-function detector(initialNow=1000,verifySource=null) {
+function detector(initialNow=1000,verifySource=()=>true) {
   let now=initialNow;
   const instance=new M9NativeEventProducer({now:()=>now,verifySource});
   return {instance,setNow:value=>now=value,run:(ms,props={})=>{
@@ -70,7 +70,7 @@ test('M9 rejects collision-free speed dips and under-threshold classified damage
 });
 test('M9 stable event IDs survive producer replay and dedupe same callback receipt',()=>{
   const d=detector();d.run(100);
-  const collision=vehicleState({collision:{nativeReceiptId:id(42),speedDeltaKph:21}});
+  const collision=vehicleState({collision:{nativeReceiptId:id(42),sourceType:'native_collision_callback',speedDeltaKph:21}});
   const a=d.run(200,{vehicle:collision}).candidates;
   assert.equal(a.length,1);
   assert.deepEqual(d.run(300,{vehicle:collision}).candidates,[]);
@@ -91,7 +91,7 @@ test('M9 resets physics on sparse samples and vehicle incarnation changes',()=>{
 });
 test('M9 retains wrap-safe native tick order and refuses regressions',()=>{
   let now=250;
-  const p=new M9NativeEventProducer({now:()=>now});
+  const p=new M9NativeEventProducer({now:()=>now,verifySource:()=>true});
   const base=sample(100,{gameTick:0xfffffffe});
   assert.equal(p.ingest({snapshot:base,source}).accepted,true);
   const wrapped=sample(200,{gameTick:2,wantedLevel:2});
@@ -182,8 +182,8 @@ test('M9 per-NPC cooldown defers another accident but does not forge a memory',(
   now=1100;
   assert.equal(cues.propose({candidate:next,witness:qualified(next),
     priority:allSafe}).reason,'cooldown');
-  now=200000;
-  const late={...next,eventId:id(82),observedAtMonotonicMs:199900};
+  now=700000;
+  const late={...next,eventId:id(82),observedAtMonotonicMs:699900};
   assert.equal(cues.propose({candidate:late,witness:qualified(late),
     priority:allSafe}).accepted,true);
 });
@@ -241,4 +241,35 @@ test('M9 refuses unspecified and unknown witness modality despite direct label',
     const witness={...qualified(e),modality};
     assert.equal(cues.propose({candidate:e,witness,priority:allSafe}).accepted,false);
   }
+});
+
+test('M9 refuses native-shaped JSON without an independent verifier',()=>{
+  assert.throws(()=>new M9NativeEventProducer(),/verified_native_source_port_required/);
+  const p=new M9NativeEventProducer({now:()=>100,verifySource:()=>false});
+  assert.equal(p.ingest({snapshot:sample(100),source}).accepted,false);
+});
+test('M9 partial native proof cannot imply motion, rollover, water or wanted edges',()=>{
+  const d=detector();
+  const unknown=vehicleState({airborne:null,grounded:null,inWater:null,
+    submerged:null,rollDegrees:null,speedKph:null});
+  d.run(100,{wantedLevel:null,vehicle:unknown});
+  assert.deepEqual(d.run(200,{wantedLevel:null,vehicle:unknown}).candidates,[]);
+  assert.equal(d.run(300,{wantedLevel:null,vehicle:{...unknown,collision:{
+    sourceType:'damage_tracker_vehicle_collision',damage:50,nativeReceiptId:id(68)
+  }}}).candidates[0]?.eventType,'vehicle_crash');
+});
+test('M9 high-speed label requires source proved speed before collision',()=>{
+  const d=detector();d.run(100);
+  const missing=d.run(200,{vehicle:vehicleState({collision:{
+    sourceType:'native_collision_callback',nativeReceiptId:id(69),speedDeltaKph:25
+  }})}).candidates[0];
+  assert.equal(missing.evidence.severity,'significant_delta');
+  const proven=d.run(300,{vehicle:vehicleState({collision:{
+    sourceType:'native_collision_callback',nativeReceiptId:id(70),
+    speedDeltaKph:25,speedBeforeKph:105
+  }})}).candidates[0];
+  assert.equal(proven.evidence.severity,'high_speed_verified');
+});
+test('M9 minimum cue cooldown is ten minutes',()=>{
+  assert.ok(M9_CUE_LIMITS.perCharacterCooldownMs>=600000);
 });
