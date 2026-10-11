@@ -1,6 +1,6 @@
-# M1 — SQLite P2 foundation and shared host adapters (increments 1–2)
+# M1 — SQLite P2 foundation, shared host adapters and guarded integration (increments 1–3)
 
-**Status: M1 increment 2 source implemented, still NOT enabled in the live companion.** This PR sits on M0 PR #51. M0 + architecture PR #49 must be integrated in order; M1 does not assume they have merged. The standalone replacement stack (#50/#53) is **independent** and has NOT been merged into this memory branch.
+**Status: M1 increments 1–3 implemented in source; SQLite is opt-in, NOT enabled in the live installed GTA companion, and no real GTA test has been accepted.** This PR sits on M0 PR #51. M0 + architecture PR #49 must be integrated in order; M1 does not assume they have merged. The standalone replacement stack (#50/#53) is **independent** and has NOT been merged into this memory branch.
 
 ## Implemented in this increment
 
@@ -22,6 +22,15 @@ The shared source of truth is now `lsa-shared-brain/src/`, completely free of Es
 - Essential candidate build copies the shared source into distributable `e1/_shared/`, rewriting only staged import locations. The installed package must **not** depend on the developer's Git checkout. The standalone *future* packager must analogously include the shared brain when #50 is reconciled; no standalone packaged integration is claimed yet.
 - `editorServer.mjs` gets a hidden-by-default SQLite-only timeline panel: list, create (does NOT select), explicit confirmation and writable/suspended diagnostics. Native clock-regression notifications/F11 timeline UX are **not** wired yet, so no automatic lineage recognition is claimed.
 
+## Increment 3 — source-verified world reset gating, rollback and packaging
+
+- **C-13 native source:** `IntelligenceClient.subscribeWorldBoundary` forwards only a **post-validation, authenticated, correctly sequenced** PS `world_epoch` change with an exact matching host run and +1 epoch. No callback for duplicates, invalid jumps, missing C-13 context or rejected frames. The existing Essential bootstrap routes those accepted events to the opt-in SQLite `TimelineGuard` before the native perception pump starts, and a boundary received during initial SQLite migration retains its write veto after initialization. **Native clock/save signal generation itself is preexisting and still needs real GTA acceptance.** This hook requires the PS shadow channel; absence of that channel does not prove timeline continuity.
+- **Explicit rollback snapshot:** `P2SqliteProfileStore.exportRollbackSnapshot` creates a *new* checksummed, versioned-identity-equivalent **P2 v1 JSON profile** export using exclusive file creation, fsync, transaction serialization, and validation; it NEVER overwrites the historical JSON or SQLite. An authenticated SQLite-only editor button initiates this export. Manual intervention is required to switch runtimes back; **M2/M3 journals/timeline history will not be represented in this v1 format** and must never be silently discarded.
+- **Actual P2 lifecycle in SQLite mode:** an integration test runs `CharacterService.promote/edit/memory/control/remove` against the shared SQLite store and verifies P1-owned control behavior, one profile identity, and export contents. Another test runs the **staged candidate's** memory adapter through create/edit/export, exercising packaging rather than only verifying import syntax.
+- **Legacy Node compatibility:** the SQLite dependency is an optional dynamic import rather than a mandatory static `node:sqlite` load on every Essential JSON startup. JSON remains the default, even when the installed Node runtime cannot provide SQLite/FTS5. A dedicated Node 20/22 Windows+Linux import check guards against regressing this guarantee; Node 24 must still prove FTS5 for SQLite opt-in.
+- **Packaging compatibility:** shared source staging is idempotent if a preexisting candidate output directory exists (as the concurrent stock-controller tests require). Existing source hash validation and staged import rewriting remain intact; no runtime source is loaded from the developer checkout after staging.
+- **Negative cases:** stale `.writer.lock` is never stolen automatically; no concurrent Essential/standalone SQLite writer; no invalid native epoch can authorize timeline reassignment; archive source files remain intact, and rollback export does not mutate the active store.
+
 ## Tests and validation for increment 2
 
 - New `tests/m1-shared-memory-parity.test.mjs`: shared command behavior, JSON import parity, SQLite CRUD, singleton writer lock, both adapters taking turns with one DB, guarded timelines, authenticated editor confirmation, staged-package import regression.
@@ -31,9 +40,9 @@ The shared source of truth is now `lsa-shared-brain/src/`, completely free of Es
 
 ## Remaining M1 gates before activating SQLite in real GTA
 
-1. Exact Windows Node 24 CI PASS for increment 2, ideally targeted existing full P2 editor/character regression and candidate build manifest on the new branch head.
+1. CI PASS on **the exact final head**, including Node 20/22 JSON compatibility, Node 24 FTS5 on Windows/Linux, expanded P2/source-packaging tests, and a fully isolated candidate build manifest.
 2. **Implemented as source opt-in:** `CharacterService` supports explicit `storageMode: 'sqlite'`; finish full editor/promote lifecycle and rollback proof against *actual packaged Essential* before recommending in-GTA opt-in. Never silently change an existing `profiles.v1.json` user's store.
-3. Bridge GTA clock/save/WorldEpoch signals into `TimelineGuard.onBoundary`, then confirm the right save lineage with the player; suspend timeline-scoped writes while ambiguous.
+3. **Source bridge implemented:** verify the authenticated C-13 world-epoch signal and user timeline confirmation in **actual GTA**, including no-signal/disabled-PS, pause/reload, gameplay/save rollback and disconnection. Never claim coverage when the channel is unavailable.
 4. Finish standalone packager integration and actor owner proof when that independent stack is reconciled; the adapter file here is not evidence of running standalone memory.
 5. Test profile editing, promotions, deletion, manual notes, restart/crash, corrupted DB, last-writer locks, version mismatch, and restore in an **isolated hash-pinned GTA deployment** before changing the default.
 6. Confirm any future ElevenLabs/Qwen voice assignment schema extension separately; the current v1 P2 `voiceReference` still validates its historical OpenAI shape. A speech-provider switch must not mutate character identity or memory facts.
@@ -44,13 +53,13 @@ Memory capabilities are implemented **once** in `lsa-shared-brain`. Neither M2 j
 
 ## Deliberate limits / next M1 increments
 
-- **Current live P2 still uses `ProfileStore` JSON by default.** The new foundation has no production service/editor switch yet. That's intentional: we must prove full P2 create/edit/memory/delete parity, startup paths and downgrade/export safety before flipping the format.
+- **Live P2 still uses `ProfileStore` JSON by default.** A guarded, explicit SQLite service/editor switch exists in source, but its packaged Windows/GTA activation and rollback remain unaccepted; do not flip the user default.
 - SQLite's profile snapshot follows the existing **v1 profile shape**; the v2 storage envelope does not yet add structured relationship/personality fields or automatic memories. Future M2/M3 journal tables remain a separate, versioned migration.
-- Timeline changes are currently explicit API calls; no F11/editor timeline picker or GTA clock signal wiring is implemented yet. A `TimelineGuard` selection alone does not commit a SQLite active-timeline change; callers must perform both after user confirmation.
+- Timeline changes have an editor confirmation panel and a verified C-13 PS-pipe consumer in source. In-game source coverage, disconnected/disabled PS channels and GTAV save-lineage accuracy are still GTA test gates; a `TimelineGuard` selection alone is not a native proof.
 - Verify `node:sqlite` and FTS5 **on the actual bundled Windows Node 24 binary**, not just a development Node. The connector environment cannot run local GTA; exact Windows binary acceptance is still open.
 - Existing source JSON is not deleted, renamed or overwritten during import. Recovery/backup inspection is intentionally left visible to the user.
 - **No local AI model:** this phase only uses SQLite and deterministic identity/timeline guards. Later memory curation remains existing Luna cloud inference.
 
 ## Acceptance evidence / remaining checks
 
-The new focused tests are part of existing `tools/runTests.mjs` discovery, but **CI on this stacked branch must be checked** before claiming completion. This is M1 implementation progress, not full M1 acceptance. The full M1 gate additionally requires profile/editor API parity, safe activation/rollback, timeline UI, stress/corruption testing and bundled Windows feature probe.
+The focused tests are included in the Node test suite and the M1 GitHub Actions matrix. **Check the exact current-head CI result**; an intermediate pass does not certify a later edit. This is M1 implementation progress, not full M1 acceptance. The full M1 gate additionally requires profile/editor API parity, safe activation/rollback, timeline UI, stress/corruption testing and bundled Windows feature probe.
