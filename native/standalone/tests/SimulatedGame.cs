@@ -7,13 +7,32 @@ namespace LSA.Standalone.Tests
     internal sealed class SimulatedGame : IGameClock, IGameWorld, IActorResolver, IOwnerContext
     {
         private readonly Dictionary<int, ActorObservation> observations = new Dictionary<int, ActorObservation>();
-        public long MonotonicMilliseconds { get; private set; }
-        public bool AllowsNpcControl { get; set; } = true;
+        private long milliseconds;
+        private bool permitsControl = true;
+        public bool ThrowOnClockRead { get; set; }
+        public bool ThrowOnWorldRead { get; set; }
+        public long MonotonicMilliseconds
+        {
+            get
+            {
+                if (ThrowOnClockRead) throw new InvalidOperationException("simulated_clock_failure");
+                return milliseconds;
+            }
+        }
+        public bool AllowsNpcControl
+        {
+            get
+            {
+                if (ThrowOnWorldRead) throw new InvalidOperationException("simulated_world_failure");
+                return permitsControl;
+            }
+            set { permitsControl = value; }
+        }
         public bool IsOwner { get; set; } = true;
         public bool ThrowOnObserve { get; set; }
 
-        public void Advance(long duration) { MonotonicMilliseconds += duration; }
-        public void Regress(long elapsed) { MonotonicMilliseconds = elapsed; }
+        public void Advance(long duration) { milliseconds += duration; }
+        public void Regress(long elapsed) { milliseconds = elapsed; }
 
         public void Spawn(int handle, ulong address, bool scripted = false)
         {
