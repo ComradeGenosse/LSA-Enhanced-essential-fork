@@ -74,29 +74,33 @@ export class M3ObserverOwnerBinder {
     } else if(!profile||native.promoted!==true)return null;
     let participantProofs=[];
     if(promoted&&this.#participant){
-      const proof=sync(this.#participant(Object.freeze({
-        observation:source,hostRunId:host.hostRunId,worldEpoch:host.worldEpoch,
-        adapterEpoch:ps.epoch,ownerProof:native.ownerProof
-      })));
-      if(!Array.isArray(proof)||proof.length>16)return null;
-      const refs=new Set();
-      for(const p of proof){
-        if(!isUuid(p?.captureRef)||refs.has(p.captureRef)||p.verified!==true||p.nativeVerified!==true||
+      let raw=null;
+      try {
+        raw=sync(this.#participant(Object.freeze({
+          observation:source,hostRunId:host.hostRunId,worldEpoch:host.worldEpoch,
+          adapterEpoch:ps.epoch,ownerProof:native.ownerProof
+        })));
+      } catch {/* Missing participant authority is not missing PS2 witnessing. */}
+      const proofs=Array.isArray(raw)&&raw.length<=16?raw:[];
+      // Ambiguous duplicate capture refs prove *no* participant identity.
+      const counts=new Map();
+      for(const p of proofs)if(isUuid(p?.captureRef))
+        counts.set(p.captureRef,(counts.get(p.captureRef)??0)+1);
+      for(const p of proofs){
+        if(!isUuid(p?.captureRef)||counts.get(p.captureRef)!==1||
+           p.verified!==true||p.nativeVerified!==true||
            p.hostRunId!==host.hostRunId||p.worldEpoch!==host.worldEpoch||
            p.adapterEpoch!==ps.epoch||!ps.current(p.captureRef)||
            !['character','protagonist'].includes(p.subjectKind)||
            (p.subjectKind==='character'?!isUuid(p.subjectKey):
-             !['franklin','michael','trevor'].includes(p.subjectKey)))return null;
-        refs.add(p.captureRef);
-        // Subject identity is attributed to a claim only if the independent
-        // native participant ledger attests the source captureRef at *that*
-        // claim's evidence tick. A generic current-player identity must never
-        // become every actor in an entire multi-tick PS2 episode.
+             !['franklin','michael','trevor'].includes(p.subjectKey)))continue;
+        // A native participant identity is scoped to the claim evidence tick.
+        // Invalid, partial, conflicting or missing actor proof stays unknown;
+        // it must not discard the real PS2 witnessed observation itself.
         const atClaims=source.claims.filter(c=>c.source?.captureRef===p.captureRef ||
           c.target?.captureRef===p.captureRef);
         if(!atClaims.length || !Number.isSafeInteger(p.sampledGameTick) ||
-           atClaims.some(c=>c.evidence.sampledGameTick!==p.sampledGameTick))
-          continue; // retain witnessed claim, but unknown durable actor
+           atClaims.some(c=>c.evidence.sampledGameTick!==p.sampledGameTick))continue;
         participantProofs.push(p);
       }
     }
