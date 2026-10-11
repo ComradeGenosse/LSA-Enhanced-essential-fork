@@ -1,5 +1,8 @@
 import { isDelivery } from './deliveryContract.mjs';
 
+// EA0's original six-value map remains compatible with its frozen contract.
+// EA8's additional verified v4 mapping is intentionally separate until the
+// shared EA2 resolver is updated by the final integration owner.
 export const ELEVEN_TAG_FOR_DELIVERY = Object.freeze({
   whisper: '[whispers]',
   excited: '[excited]',
@@ -8,24 +11,60 @@ export const ELEVEN_TAG_FOR_DELIVERY = Object.freeze({
   sad: '[sad]',
   sarcastic: '[sarcastic]',
 });
+
+// ElevenLabs' September 30, 2026 official Eleven v4 audio-tag guide includes
+// [scared], explicitly supported on v4 Turbo. "concerned" remains untagged:
+// substituting [anxious] or [thoughtful] would change its intended emotion.
+export const ELEVEN_V4_VERIFIED_TAG_FOR_DELIVERY = Object.freeze({
+  ...ELEVEN_TAG_FOR_DELIVERY,
+  fearful: '[scared]',
+});
 export const ELEVEN_SPEECH_MAX_CHARS = 3000;
 
-// Only this pure renderer can add trusted vendor syntax. A Luna/user-authored
-// bracket span is *always* neutralized in the experimental TTS-only copy, even
-// for unsupported or neutral intents. Off/shadow must call with enabled=false
-// and remain byte-identical to the original provider input.
-export function renderElevenSpeech({ dialogue, delivery = null, enabled = false } = {}) {
+const BRACKET_TO_QUOTE = Object.freeze({
+  '[': '\u201c', ']': '\u201d',
+  '\uff3b': '\u201c', '\uff3d': '\u201d',
+  '\u3010': '\u201c', '\u3011': '\u201d',
+  '\ufe5d': '\u201c', '\ufe5e': '\u201d',
+});
+const BRACKET_PATTERN = /[\[\]\uff3b\uff3d\u3010\u3011\ufe5d\ufe5e]/g;
+
+// The conservative 3000 limit is counted in UTF-16 code units: a surrogate
+// pair costs two units, never less than the vendor's Unicode character count.
+// Reject malformed UTF-16 instead of silently sending replacement glyphs.
+export function validateElevenSpeechDialogue(dialogue) {
   if (typeof dialogue !== 'string' || !dialogue.trim())
     throw new TypeError('ElevenLabs dialogue must be nonempty text.');
   if (dialogue.length > ELEVEN_SPEECH_MAX_CHARS)
     throw new RangeError('ElevenLabs dialogue exceeds 3000 characters.');
+  for (let i = 0; i < dialogue.length; i++) {
+    const unit = dialogue.charCodeAt(i);
+    if (unit >= 0xd800 && unit <= 0xdbff) {
+      const next = dialogue.charCodeAt(++i);
+      if (!(next >= 0xdc00 && next <= 0xdfff))
+        throw new TypeError('ElevenLabs dialogue contains invalid Unicode.');
+    } else if (unit >= 0xdc00 && unit <= 0xdfff) {
+      throw new TypeError('ElevenLabs dialogue contains invalid Unicode.');
+    }
+  }
+  return dialogue;
+}
+
+// Raw dialogue can contain arbitrary [audio tags]. Only a validated internal
+// intent is permitted to introduce bracket syntax into the temporary TTS copy.
+// Never normalize canonical dialogue, early segments, histories, or memory.
+export function sanitizeElevenSpeechDialogue(dialogue) {
+  return validateElevenSpeechDialogue(dialogue).replace(BRACKET_PATTERN,
+    bracket => BRACKET_TO_QUOTE[bracket]);
+}
+
+export function renderElevenSpeech({ dialogue, delivery = null, enabled = false } = {}) {
+  validateElevenSpeechDialogue(dialogue);
   if (typeof enabled !== 'boolean') throw new TypeError('enabled must be a boolean.');
-  if (!enabled) return dialogue;
-  // Quoted bracket contents survive verbatim; only punctuation changes in this
-  // temporary speech copy. Prevents arbitrary [sfx]/[whispers] injection.
-  const safeText = dialogue.replaceAll('[', '\u201c').replaceAll(']', '\u201d');
-  const tag = isDelivery(delivery) && Object.hasOwn(ELEVEN_TAG_FOR_DELIVERY, delivery.value)
-    ? ELEVEN_TAG_FOR_DELIVERY[delivery.value] : null;
+  if (!enabled) return dialogue; // off/shadow: exact original provider bytes
+  const safeText = sanitizeElevenSpeechDialogue(dialogue);
+  const tag = isDelivery(delivery) && Object.hasOwn(ELEVEN_V4_VERIFIED_TAG_FOR_DELIVERY, delivery.value)
+    ? ELEVEN_V4_VERIFIED_TAG_FOR_DELIVERY[delivery.value] : null;
   return tag && tag.length + 1 + safeText.length <= ELEVEN_SPEECH_MAX_CHARS
     ? tag + ' ' + safeText : safeText;
 }
