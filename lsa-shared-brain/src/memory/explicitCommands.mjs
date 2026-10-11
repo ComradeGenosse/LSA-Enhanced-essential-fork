@@ -53,12 +53,15 @@ export function detectExplicitMemoryCommand(raw, lunaInterpretation = null) {
   } else return null;
 
   // Luna may supply a *proposed exact span*, never a new fact or authority.
-  if (lunaInterpretation && ['remember','forget','correct'].includes(intent) &&
-      lunaInterpretation.intent === intent &&
+  if (lunaInterpretation && intent === 'remember' &&
+      lunaInterpretation.intent === 'remember' &&
+      lunaInterpretation.targetType === 'statement' &&
       typeof lunaInterpretation.content === 'string' &&
-      raw.includes(lunaInterpretation.content) &&
-      lunaInterpretation.content.trim() &&
-      !content && selector === 'claim') content=lunaInterpretation.content;
+      raw.includes(lunaInterpretation.content) && lunaInterpretation.content.trim() &&
+      selector === 'referent') {
+    selector='claim';
+    content=lunaInterpretation.content;
+  }
   return { intent, selector, content, topic, pin, correctionMode };
 }
 
@@ -67,7 +70,8 @@ function eligible(candidate, scope, line, operation, selector) {
       candidate.recordId === line.recordId || candidate.forgotten || candidate.deleted) return false;
   if (!['dialogue_line','journal_event','permanent_memory','manual_memory'].includes(candidate.kind)) return false;
   if (typeof candidate.content !== 'string' || !candidate.content.trim()) return false;
-  if (!Number.isFinite(Date.parse(candidate.occurredAtUtc))) return false;
+  if (!Number.isFinite(Date.parse(candidate.occurredAtUtc)) ||
+      Date.parse(candidate.occurredAtUtc)>Date.parse(line.committedAtUtc)) return false;
   if (candidate.kind === 'journal_event' && candidate.receiptStatus !== 'witnessed') return false;
   if (candidate.kind === 'dialogue_line' &&
       !(candidate.speaker === 'player' && candidate.delivery === 'accepted' ||
@@ -115,9 +119,11 @@ function actionBase(scope, line, commandId, operation) {
   };
 }
 function result(base, outcome, extras={}) {
+  // Keep the strict memoryAction v1 shape (additionalProperties:false).
   const successfulOutcome=['saved','forgotten','corrected'].includes(outcome);
-  return Object.freeze({...base,...extras,outcome,
-    durableCommit:successfulOutcome});
+  return Object.freeze({...base,outcome,durableCommit:successfulOutcome,
+    evidenceRecordIds:extras.evidenceRecordIds??base.evidenceRecordIds,
+    memoryId:extras.memoryId??base.memoryId});
 }
 function validateInput({line, commandId, scope, store}) {
   if (!line || !scope || !uuid(commandId) || ![scope.characterId,scope.worldProfileId,scope.timelineId,line.recordId].every(uuid) ||
@@ -145,12 +151,19 @@ export async function handleExplicitMemoryCommand(input) {
     } catch {return {kind:'memory_read',operation:parsed.intent,status:'unavailable'};}
   }
   const base=actionBase(scope,line,commandId,parsed.intent);
+  const clarify=(prompt,alternatives=[])=>{
+    if (typeof input.onClarification==='function') input.onClarification({
+      commandId,requestedByLineId:line.recordId,scope:clone(scope),prompt,
+      alternatives:clone(alternatives)
+    });
+    return result(base,'clarify');
+  };
   try {
     const old=await store.verifyCommand({scope,commandId});
     if (old) return verifiedAction(old,base);
     let selected=null, alternatives=[], content=parsed.content;
     if (parsed.selector==='claim') {
-      if (!content || !content.trim()) return result(base,'clarify');
+      if (!content || !content.trim()) return clarify('What should I remember?');
       // Never invent current radio, location, vehicle, or named subject.
       if (/\b(?:this song|right here|over here|this car|that guy)\b/i.test(content) &&
           !input.verifiedContext?.referents?.some(r=>typeof r.phrase==='string' &&
@@ -158,7 +171,7 @@ export async function handleExplicitMemoryCommand(input) {
             typeof r.value==='string' && r.value.trim() &&
             r.verified === true && r.worldProfileId===scope.worldProfileId &&
             r.timelineId===scope.timelineId))
-        return result(base,'clarify',{clarification:'Which song, place, vehicle, or person do you mean?'});
+        return clarify('Which song, place, vehicle, or person do you mean?');
     } else {
       const parsedSelector=parsed.intent==='correct' && parsed.correctionMode==='transcript' ? 'transcript' : parsed.selector;
       const candidates=await store.findCandidates({
@@ -169,11 +182,10 @@ export async function handleExplicitMemoryCommand(input) {
       const resolved=resolve(candidates,scope,line,{...parsed,selector:parsedSelector},
         Number.isFinite(Date.parse(line.committedAtUtc))?Date.parse(line.committedAtUtc):Date.now());
       selected=resolved.candidate;alternatives=resolved.alternatives;
-      if (!selected) return result(base,'clarify',{alternatives,
-        clarification: alternatives.length===2 ? 'Which one: '+alternatives[0].label+' or '+alternatives[1].label+'?' :
-        'Which specific memory or moment do you mean?'});
-      if (parsed.intent==='correct' && !content) return result(base,'clarify',
-        {clarification:'What is the corrected wording?'});
+      if (!selected) return clarify(alternatives.length===2 ?
+        'Which one: '+alternatives[0].label+' or '+alternatives[1].label+'?' :
+        'Which specific memory or moment do you mean?',alternatives);
+      if (parsed.intent==='correct' && !content) return clarify('What is the corrected wording?');
       if (!content) content=selected.content;
     }
     const evidenceRecordIds=selected?[selected.recordId,line.recordId]:[line.recordId];
@@ -202,7 +214,8 @@ export async function handleExplicitMemoryCommand(input) {
 
 function verifiedAction(receipt,base,evidenceRecordIds=null) {
   if (!receipt || receipt.commandId!==base.commandId ||
-      receipt.operation!==base.operation || receipt.status!=='committed' ||
+      receipt.operation!==base.operation || receipt.requestedByLineId!==base.requestedByLineId ||
+      receipt.status!=='committed' ||
       receipt.durableCommit!==true || !uuid(receipt.memoryId) ||
       !Array.isArray(receipt.evidenceRecordIds) || !receipt.evidenceRecordIds.every(uuid) ||
       !receipt.evidenceRecordIds.includes(base.requestedByLineId))
@@ -221,7 +234,7 @@ export function memoryActionAcknowledgement(action) {
   if (action.durableCommit===true && action.outcome==='saved') return 'I saved that memory.';
   if (action.durableCommit===true && action.outcome==='forgotten') return 'I forgot that memory.';
   if (action.durableCommit===true && action.outcome==='corrected') return 'I recorded your correction.';
-  if (action.outcome==='clarify') return action.clarification||'Which memory do you mean?';
+  if (action.outcome==='clarify') return 'Which memory do you mean?';
   if (action.outcome==='failed') return 'I could not confirm the memory change.';
   return 'That memory change is still pending.';
 }
