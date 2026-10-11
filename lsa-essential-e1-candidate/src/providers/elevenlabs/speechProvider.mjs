@@ -17,6 +17,47 @@ function fault(code, cause) {
   if (cause?.status) error.status = cause.status;
   return error;
 }
+// ElevenLabs can report errors using nested error/detail objects or a
+// top-level status. Map them to fixed diagnostic categories. Never persist
+// vendor-provided text (which may echo dialogue, keys or account data).
+export function classifyElevenLabsError(frame) {
+  if (!frame || typeof frame !== 'object' || Array.isArray(frame)) return 'elevenlabs_remote_error';
+  const error = frame.error && typeof frame.error === 'object' ? frame.error : {};
+  const detail = frame.detail && typeof frame.detail === 'object' ? frame.detail : {};
+  const nested = error.detail && typeof error.detail === 'object' ? error.detail : {};
+  const tokens = [
+    frame.code, frame.status, frame.type,
+    error.code, error.status, error.type,
+    detail.code, detail.status, detail.type,
+    nested.code, nested.status, nested.type,
+  ].filter(v => typeof v === 'string' && v.length <= 128 && /^[a-zA-Z0-9_-]+$/.test(v))
+    .join(' ').toLowerCase();
+  // Unstructured error strings and messages are inspected ONLY for a fixed
+  // set of literal indicators, NEVER logged, included in thrown errors, or
+  // copied into telemetry.
+  const descriptions = [
+    typeof frame.error === 'string' ? frame.error : '',
+    typeof frame.detail === 'string' ? frame.detail : '',
+    error.message, detail.message, nested.message,
+  ].filter(v => typeof v === 'string' && v.length <= 2048).join(' ').toLowerCase();
+  const has = expression => expression.test(tokens) || expression.test(descriptions);
+  if (has(/(credit|quota|balance|payment_required|insufficient_funds|subscription|billing)/))
+    return 'elevenlabs_credits_unavailable';
+  if (has(/(permission|unauthori|invalid_api_key|authenticat|forbidden|scope|api_key)/))
+    return 'elevenlabs_auth_failed';
+  if (has(/(rate.limit|too_many|concurren|capacity)/))
+    return 'elevenlabs_rate_limited';
+  if (has(/(model.not|model.unavailable|model.not.found|model_not_supported|alpha_access|model access|unsupported.model)/))
+    return 'elevenlabs_model_unavailable';
+  if (has(/(output.format|pcm_24000|sample.rate|format.not.supported|audio.format|tier.*format)/))
+    return 'elevenlabs_output_format_unavailable';
+  if (has(/(voice.not|voice.unavailable|voice.not.found|voice access|voice.not.supported)/))
+    return 'elevenlabs_voice_unavailable';
+  if (has(/(validation|invalid_request|unprocessable|bad_request|schema|invalid.input)/))
+    return 'elevenlabs_request_rejected';
+  return 'elevenlabs_remote_error';
+}
+
 function safeTime(clock) {
   const value = clock();
   if (!Number.isFinite(value)) throw new TypeError('ElevenLabs needs a monotonic clock.');
@@ -68,7 +109,7 @@ export function createElevenLabsSpeechProvider({
       // Browser-style WebSocket works in Node 22; never place credentials in URL.
       let completed = false, failed = null, closed = false, generatedBytes = 0;
       let chunks = 0, firstAudioAt = null, forwardedBytes = 0, forwardedChunks = 0;
-      let queueBytes = 0, drained = false, sendChain = Promise.resolve(), wake = null;
+      let queueBytes = 0, drained = false, wake = null;
       let resolveFinished, rejectFinished;
       const finished = new Promise((resolve, reject) => { resolveFinished = resolve; rejectFinished = reject; });
       finished.catch(() => {}); // suppress unhandled rejection during streaming.
@@ -149,18 +190,8 @@ export function createElevenLabsSpeechProvider({
           const message = JSON.parse(raw);
           if (!message || typeof message !== 'object' || Array.isArray(message))
             throw fault('elevenlabs_invalid_message');
-          if (message.error) {
-            // Never include the provider's raw error or echoed request content
-            // in telemetry. Only allow recognized, bounded operational codes.
-            const source = message.error;
-            const rawCode = typeof source === 'object' && source
-              ? (source.code ?? source.status ?? source.type ?? '') : '';
-            const status = String(rawCode).toLowerCase().slice(0, 64);
-            if (/auth|key|permission|unauthori/.test(status)) throw fault('elevenlabs_auth_failed');
-            if (/credit|quota|payment|balance|subscription/.test(status))
-              throw fault('elevenlabs_credits_unavailable');
-            throw fault('elevenlabs_remote_error');
-          }
+          if (message.error || message.detail?.status === 'error' || message.type === 'error')
+            throw fault(classifyElevenLabsError(message));
           if (message.audio !== undefined && message.audio !== null)
             enqueue(decodePcmAudio(message.audio, Math.min(maxBytes - generatedBytes, MAX_AUDIO_BYTES)));
           if (message.is_final === true) {
@@ -174,8 +205,17 @@ export function createElevenLabsSpeechProvider({
         }
       };
       const onError = () => fail(fault('elevenlabs_connection_error'));
-      const onClose = () => {
-        if (!completed && !failed) fail(fault('elevenlabs_connection_closed'));
+      const onClose = (event) => {
+        if (!completed && !failed) {
+          // The numeric WebSocket close code is protocol metadata, not
+          // vendor-supplied text. Keep it bounded and never log the reason.
+          const code = event?.code;
+          const closeCategory = Number.isInteger(code) && code >= 1000 && code <= 4999
+            ? (code === 1008 ? 'elevenlabs_policy_closed' :
+              code === 1013 ? 'elevenlabs_rate_limited' : 'elevenlabs_connection_closed')
+            : 'elevenlabs_connection_closed';
+          fail(fault(closeCategory));
+        }
       };
       socket.addEventListener('open', onOpen);
       socket.addEventListener('message', onMessage);
