@@ -113,7 +113,7 @@ test('PS2 native bullet callback joins only a recent same-observer visually seen
  now=3500;
  const stale=correlation.ingest({nativeRun:run,signal:{...damage,signalId:randomUUID(),
    producerSequence:2,gameTick:3500},witnessReceipts:[sight(3500,false,true)]});
- assert.equal(stale.observations[0].claims[0].source,undefined);
+ assert.equal(stale.observations[0].claims.at(-1).source,undefined);
  correlation.clear();
  assert.equal(correlation.visualShots.size,0);
 });
