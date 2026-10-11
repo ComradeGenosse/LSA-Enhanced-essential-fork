@@ -32,7 +32,8 @@ export class UtteranceLifecycle {
     if(!host || !isUuid(host.hostRunId) || !Number.isSafeInteger(host.worldEpoch) ||
        host.worldEpoch<1 || typeof identity?.pedId!=='string' ||
        !Number.isSafeInteger(identity?.sessionNonce) || identity.sessionNonce<1 ||
-       !Number.isSafeInteger(identity?.turnId) || identity.turnId<1 ||
+       !(Number.isSafeInteger(identity?.turnId) && identity.turnId>=1 ||
+         typeof identity?.turnId==='string' && identity.turnId.length>0 && identity.turnId.length<=128) ||
        !Number.isSafeInteger(identity?.generationId) || identity.generationId<0) return false;
     const now=this.now();
     for(const [id,e] of this.entries) if(now-e.receivedAt>30000)
