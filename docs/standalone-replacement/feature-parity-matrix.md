@@ -1,6 +1,6 @@
 # Phase 0 — feature parity and migration decisions
 
-**Status:** preliminary source-backed matrix; final priority/omission and in-game baseline evidence not yet signed off.  
+**Status:** source-backed initial Milestone A scope selected; Milestones B/C feature-level parity and real-game baseline remain later review gates.  
 **Reference:** `main` `79a0aa6eb5f6b655afde65993d5d68cba269bca7` on 2026-10-11. Open #32, #35 and #37 are **not** accepted `main` features.  
 **Legend:** **A** = Milestone A (typed conversation prototype); **B** = Milestone B (playable standalone); **C** = Milestone C (retirement/parity); **D** = intentionally defer/omit unless a later scoped feature requires it.
 
@@ -50,10 +50,10 @@
 
 [Canonical action catalog](../research/domains/essential/essential-action-catalog.json) establishes stock name/alias exposure and handler acceptance, but **not** physical completion. The [later native activity evidence](../research/domains/activities/activity-native-evidence.json) finds unused activity/destination paths, despite exposing some corresponding public methods. Phase 7 should implement the small documented **player-visible** subset and truthful postconditions first, not assume that an exposed handler is a reliable action or required for parity.
 
-## Scope freeze decisions required before Phase 1
+## Follow-up implementation and physical acceptance decisions (Phase 1 onward)
 
-1. Explicitly accept Milestone A **typed dialogue only**; microphone/UX4/ACT/perception are deferred to B, with the current version left usable.
-2. Decide whether lip sync must pass in the first physical GTA gate or whether audio-only can establish a **technical** go/no-go; do not call the result full conversation parity without it.
+1. Milestone A is **typed dialogue only** as described in the adopted 10-phase plan; microphone/UX4/ACT/perception remain deliberately deferred to B, with the current Essential version left usable.
+2. **Technical Phase 5 gate:** audible spatial NPC speech, identity, interruption and history correctness. Lip sync can remain a tracked **visual parity** gate for later phases; do not call audio-only testing complete conversation parity.
 3. Decide whether Milestone B requires the same stock behavior under missions, vehicles and third-party mods or a consciously narrower supported matrix.
 4. Verify current open branches (#32/#35/#37) and future `main` changes before using their production code or asserting parity.
 5. Define external licensing/asset ownership for any audio, fonts, config/data or libraries; do not redistribute Essential's binaries by default.
