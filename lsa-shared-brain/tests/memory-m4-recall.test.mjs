@@ -1,3 +1,4 @@
+import {createHash} from 'node:crypto';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
@@ -143,5 +144,124 @@ test('recent speaker line, conservative oldest and chronological followup remain
   const begin=await recall(f,s,'what did I say?',{intent:'exact_quote'});
   const prior=await recall(f,s,'before that?',{intent:'exact_quote',followup:begin.continuation});
   assert.equal(prior.bundle.items[0].content,'one more banana');
+ }finally{f.close();}
+});
+
+test('strict v1 bundle schema includes exact self-accounted UTF-8 bytes and rejects malformed projections',async()=>{
+ const f=fixture(),s=scope();try{
+  f.add(s,dialogue(s,'🚗 gingerbread special'));
+  const q=query(s,'what did I say about gingerbread?',{intent:'exact_quote'});
+  const {bundle}=await recallMemory({query:q,readAdapter:f.adapter,protagonistKey:s.protagonistKey,nowUtc:clock});
+  assert.equal(bundle.totalBytes,Buffer.byteLength(JSON.stringify(bundle),'utf8'));
+  assert.ok(bundle.totalBytes<=q.maxBytes);
+  assert.throws(()=>toPs4RecallContribution({...bundle,totalBytes:undefined}),/strict_v1/);
+  assert.throws(()=>toPs4RecallContribution({...bundle,unrecognized:true}),/strict_v1/);
+  assert.throws(()=>toPs4RecallContribution({...bundle,totalBytes:bundle.totalBytes+1}),/byte_accounting/);
+  await assert.rejects(recallMemory({query:{...q,additionalField:'forbidden'},readAdapter:f.adapter,
+    protagonistKey:s.protagonistKey,nowUtc:clock}),/strict_v1/);
+ }finally{f.close();}
+});
+
+test('v1 retains 3072-unit exact lines and safely abstains on 3073-unit lines',async()=>{
+ const f=fixture(),s=scope();try{
+  const good='snowflake '+('x'.repeat(3072-'snowflake '.length));
+  f.add(s,dialogue(s,good));
+  const a=(await recall(f,s,'what did I say about snowflake?',{intent:'exact_quote',maxBytes:14336})).bundle;
+  assert.equal(a.items[0].content,good);
+  const bad='firecracker '+('y'.repeat(3073-'firecracker '.length));
+  f.add(s,dialogue(s,bad));
+  const b=(await recall(f,s,'what did I say about firecracker?',{intent:'exact_quote'})).bundle;
+  assert.equal(b.status,'unavailable');assert.equal(b.items.length,0);
+  assert.equal(b.totalBytes,Buffer.byteLength(JSON.stringify(b)));
+ }finally{f.close();}
+});
+
+test('malicious verified output marked superseded or forgotten cannot reach the model',async()=>{
+ const s=scope(),e=dialogue(s,'forgotten secret');
+ const make=flag=>({read:async()=>({rows:[{...s,recordId:e.recordId,sourceKind:e.kind,
+   atUtc:e.committedAtUtc,evidenceState:'verified',envelope:e,[flag]:true}],coverageComplete:true})});
+ for(const flag of ['forgotten','superseded','suppressed']){
+  const b=(await recallMemory({query:query(s,'forgotten secret',{intent:'exact_quote'}),
+   readAdapter:make(flag),protagonistKey:s.protagonistKey,nowUtc:clock})).bundle;
+  assert.equal(b.status,'unavailable');
+ }
+});
+
+function integratedFixture(){
+ const db=new DatabaseSync(':memory:');
+ db.exec("CREATE TABLE dialogue_journal(record_id TEXT PRIMARY KEY,world_profile_id TEXT,character_id TEXT,timeline_id TEXT,protagonist TEXT,speaker TEXT,source TEXT,delivery TEXT,committed_at_utc TEXT,content TEXT,content_sha256 TEXT,envelope_json TEXT,envelope_sha256 TEXT)");
+ db.exec("CREATE VIRTUAL TABLE dialogue_journal_fts USING fts5(content,content='dialogue_journal',content_rowid='rowid')");
+ db.exec("CREATE TRIGGER dialogue_fts_insert AFTER INSERT ON dialogue_journal BEGIN INSERT INTO dialogue_journal_fts(rowid,content) VALUES(new.rowid,new.content); END");
+ db.exec("CREATE TABLE memory_records(memory_id TEXT PRIMARY KEY,world_profile_id TEXT,character_id TEXT,timeline_id TEXT,protagonist_key TEXT,content TEXT,content_sha256 TEXT,mode TEXT,evidence_ids_json TEXT,created_at_utc TEXT)");
+ db.exec("CREATE TABLE memory_tombstones(world_profile_id TEXT,character_id TEXT,timeline_id TEXT,target_id TEXT)");
+ db.exec("CREATE TABLE memory_commands(command_id TEXT PRIMARY KEY,protagonist_key TEXT)");
+ db.exec("CREATE TABLE memory_corrections(command_id TEXT PRIMARY KEY,world_profile_id TEXT,character_id TEXT,timeline_id TEXT,target_id TEXT,preferred_text TEXT,content_sha256 TEXT,created_at_utc TEXT)");
+ db.exec("CREATE TABLE event_journal(record_id TEXT PRIMARY KEY,world_profile_id TEXT,character_id TEXT,timeline_id TEXT,received_at_utc TEXT,envelope_json TEXT,envelope_sha256 TEXT)");
+ db.exec("CREATE TABLE event_source_evidence(record_id TEXT PRIMARY KEY,source_evidence_json TEXT,source_evidence_sha256 TEXT)");
+ const digest=v=>createHash('sha256').update(v,'utf8').digest('hex');
+ const ins=db.prepare('INSERT INTO dialogue_journal VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)');
+ const mem=db.prepare('INSERT INTO memory_records VALUES(?,?,?,?,?,?,?,?,?,?)');
+ const corr=db.prepare('INSERT INTO memory_corrections VALUES(?,?,?,?,?,?,?,?)');
+ return {db,adapter:new SQLiteRecallReadAdapter({db}),digest,
+  dialogue(s,text,opts={}){
+   const e=dialogue(s,text,opts),raw=JSON.stringify(e);
+   ins.run(e.recordId,s.worldProfileId,s.characterId,s.timelineId,opts.protagonistKey??s.protagonistKey,
+     e.speaker,e.source,e.delivery,e.committedAtUtc,e.content,digest(e.content),raw,digest(raw));return e;
+  },
+  correction(s,target,preferred,at=clock){
+   const id=U();db.prepare('INSERT INTO memory_commands VALUES(?,?)').run(id,s.protagonistKey);
+   corr.run(id,s.worldProfileId,s.characterId,s.timelineId,target,preferred,digest(preferred),at);return id;
+  },
+  memory(s,content,evidence){
+   const id=U();mem.run(id,s.worldProfileId,s.characterId,s.timelineId,s.protagonistKey,content,digest(content),
+    'reported_claim',JSON.stringify(evidence),clock);return id;
+  },
+  close(){db.close();}
+ };
+}
+
+test('real v4 read projection: source hashes, archived FTS, correction overlays and recursive forgets',async()=>{
+ const f=integratedFixture(),s=scope();try{
+  const old=f.dialogue(s,'I said RED beans and 🚗',{at:'2023-01-01T00:00:00.000Z'});
+  const unrelated=f.dialogue(s,'classified Trevor pudding',{protagonistKey:'trevor'});
+  const raw=await recallMemory({query:query(s,'what did I say about RED beans?',{intent:'exact_quote'}),
+    readAdapter:f.adapter,protagonistKey:s.protagonistKey,nowUtc:clock});
+  assert.equal(raw.bundle.items[0].recordId,old.recordId);assert.equal(raw.bundle.items[0].freshness,'archive');
+  const target=f.correction(s,old.recordId,'BLUE beans');
+  let b=(await recallMemory({query:query(s,'tell me about beans'),readAdapter:f.adapter,protagonistKey:s.protagonistKey,nowUtc:clock})).bundle;
+  assert.ok(b.items.some(x=>x.recordId===target&&x.mode==='reported_claim'&&x.content.includes('BLUE beans')));
+  assert.ok(!b.items.some(x=>x.recordId===old.recordId));
+  const stable=f.memory(s,'original faulty memory',[old.recordId]);
+  b=(await recallMemory({query:query(s,'faulty memory'),readAdapter:f.adapter,protagonistKey:s.protagonistKey,nowUtc:clock})).bundle;
+  assert.ok(!b.items.some(x=>x.recordId===stable));
+  assert.equal((await recallMemory({query:query(s,'Trevor pudding'),readAdapter:f.adapter,
+   protagonistKey:s.protagonistKey,nowUtc:clock})).bundle.items.length,0);
+  f.db.prepare('INSERT INTO memory_tombstones VALUES(?,?,?,?)').run(s.worldProfileId,s.characterId,s.timelineId,old.recordId);
+  b=(await recallMemory({query:query(s,'tell me about BLUE beans'),readAdapter:f.adapter,
+   protagonistKey:s.protagonistKey,nowUtc:clock})).bundle;
+  assert.ok(!b.items.some(x=>x.recordId===target));
+  assert.ok(!b.items.some(x=>x.recordId===old.recordId));
+  assert.ok(!b.items.some(x=>x.recordId===stable));
+  assert.equal(unrelated.kind,'dialogue_line');
+ }finally{f.close();}
+});
+
+test('real v4 projection 10k-record p95 retrieval target is measured, not GTA acceptance',async()=>{
+ const f=integratedFixture(),s=scope();try{
+  f.db.exec('BEGIN');
+  for(let i=0;i<10000;i++)f.dialogue(s,i===13?'meticulous alpaca clock':'ordinary filler '+i,{
+   at:new Date(Date.parse(clock)-i*1000).toISOString()});
+  f.db.exec('COMMIT');
+  const q=query(s,'what did I say about meticulous alpaca?',{intent:'exact_quote'}),samples=[];
+  for(let i=0;i<35;i++){
+   const t=performance.now();
+   const {bundle}=await recallMemory({query:q,readAdapter:f.adapter,protagonistKey:s.protagonistKey,nowUtc:clock});
+   samples.push(performance.now()-t);
+   assert.equal(bundle.items[0].content,'meticulous alpaca clock');
+   assert.ok(bundle.totalBytes<=q.maxBytes);
+  }
+  samples.sort((a,b)=>a-b);const p95=samples[Math.ceil(samples.length*.95)-1];
+  console.log('M4 integrated 10k v4 p95 ms:',p95.toFixed(2),'target <=40ms (environment dependent)');
+  assert.ok(Number.isFinite(p95));
  }finally{f.close();}
 });
