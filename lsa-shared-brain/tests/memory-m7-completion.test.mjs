@@ -6,6 +6,9 @@ import {mkdtempSync,rmSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import path from 'node:path';
 import {selectAutomaticMemories} from '../src/memory/selection.mjs';
+import {validateM7Consent,validateM7IdleProof,validateM7Pricing} from '../src/memory/m7Consent.mjs';
+import {readPermanentMemoryRows} from '../src/memory/integratedSqlite.mjs';
+import {createHash} from 'node:crypto';
 import {makeQueueJob} from '../src/memory/queueContract.mjs';
 import {ensureIntegratedMemorySchema} from '../src/memory/integratedSqlite.mjs';
 import {ensureCurationSchema,enqueueCuration,claimCuration,completeCuration,
@@ -124,30 +127,59 @@ test('M7 scoped claims cannot transport a different promoted NPC',t=>{
  assert.equal(claim(f,{characterId:id(55)}).length,0);
  assert.equal(claim(f).length,1);
 });
+const consent=(overrides={})=>({mode:'experimental',cloudOptIn:true,
+ consentSource:'explicit_player_settings',offTurnEvidenceUploadAccepted:true,
+ consentedAtUtc:at(0),dailyUsd:.20,monthlyUsd:2,maxBatchUsd:.02,...overrides});
+const pricedConfig=()=>({provider:'openai',reasoningModel:'gpt-6-luna',
+ reasoningBaseUrl:'https://api.openai.com/v1',
+ curatorPricing:{model:'gpt-6-luna',source:'operator_verified',verifiedAtUtc:at(0),
+ inputUsdPerMillionTokens:1,outputUsdPerMillionTokens:1}});
+function nativeFixture(f,store){
+ let listener=null;
+ const state={kind:'verified_native_idle_v1',nativeVerified:true,
+   observedAtUtc:at(2),hostRunId:id(70),worldEpoch:1,
+   sessionId:id(71),incarnationId:id(72),encounterId:id(73),observerIndex:0,
+   characterId:f.scope.characterId,worldProfileId:f.scope.worldProfileId,
+   timelineId:f.scope.timelineId,idle:true,idleForMs:3000,micActive:false,
+   playerSpeechActive:false,directorBusy:false,gamePaused:false};
+ return {state,snapshot:()=>({...state}),
+   subscribeInvalidation(fn){listener=fn;return ()=>{if(listener===fn)listener=null;};},
+   invalidate(patch={}){Object.assign(state,patch);listener?.();}};
+}
+function hFixture(f,{provider,allowReserve=true}={}){
+ const calls=[],store={worldProfileId:f.scope.worldProfileId,
+   activeTimelineId:f.scope.timelineId,timelineWritable:true,
+   verifiedHostContext:{hostRunId:id(70),worldEpoch:1},
+   get:x=>x===f.scope.characterId?{}:null};
+ const nativeIdle=nativeFixture(f,store);
+ const queue={enqueueIfAbsent:async()=>{},
+   claimDue:async()=>{calls.push('claim');return claim(f,{atMinute:2,until:4});},
+   completeLeased:async a=>{calls.push('commit');return completeCuration(f.db,{...a,nowUtc:at(3)},f.scope.worldProfileId,f.scope.timelineId);},
+   retryLeased:async a=>{calls.push('retry');return retryCuration(f.db,a,f.scope.worldProfileId,f.scope.timelineId);},
+   releaseLeased:async a=>{calls.push('release');return releaseCuration(f.db,a,f.scope.worldProfileId,f.scope.timelineId);}};
+ const ledger={budgetLimits:{dailyUsd:.20,monthlyUsd:2},
+   reconcile:async()=>{calls.push('reconcile');return reconcileCurationBudgets(f.db,{beforeUtc:at(2),worldProfileId:f.scope.worldProfileId});},
+   reserve:async a=>{calls.push('reserve');return allowReserve&&reserveCurationBudget(f.db,a,f.scope.worldProfileId,{dailyUsd:.20,monthlyUsd:2});},
+   settle:async a=>{calls.push('settle');return finishCurationBudget(f.db,a,f.scope.worldProfileId,'settled');},
+   release:async a=>{calls.push('releaseBudget');return finishCurationBudget(f.db,a,f.scope.worldProfileId,'released');}};
+ const cloud=provider??{estimateMaxCostUsd:()=>.005,async curateBatch(){calls.push('cloud');return [f.appraisal];}};
+ return {calls,store,nativeIdle,queue,ledger,provider:cloud,
+   make:(args={})=>createIdleCurationScheduler({store,nativeIdle,queue,ledger,provider:cloud,
+     now:()=>at(2),minIntervalMs:0,maxProviderMs:1000,leaseMs:6000,...args})};
+}
 test('M7 idle scheduler defaults off, shadows without charges and refuses unverified source',async t=>{
- const f=fixture(t),log=[];
- const store={worldProfileId:f.scope.worldProfileId,activeTimelineId:f.scope.timelineId,timelineWritable:true,
-   verifiedHostContext:{hostRunId:id(70),worldEpoch:1},get:x=>x===f.scope.characterId?{}:null};
- const provider={async curateBatch(){log.push('cloud');return [f.appraisal]}};
- const queue={async claimDue(a){log.push('claim');const x=claim(f,{atMinute:2,until:4});return x;},
-   async completeLeased(a){return completeCuration(f.db,{...a,nowUtc:at(3)},f.scope.worldProfileId,f.scope.timelineId);},
-   async releaseLeased(a){return releaseCuration(f.db,a,f.scope.worldProfileId,f.scope.timelineId);},
-   async retryLeased(a){return retryCuration(f.db,a,f.scope.worldProfileId,f.scope.timelineId);},
-   async enqueueIfAbsent(){}};
- const ledger={reserve:async a=>reserveCurationBudget(f.db,a,f.scope.worldProfileId,{dailyUsd:1,monthlyUsd:1}),
-   settle:async a=>finishCurationBudget(f.db,a,f.scope.worldProfileId,'settled'),
-   release:async a=>finishCurationBudget(f.db,a,f.scope.worldProfileId,'released')};
- const s=createIdleCurationScheduler({store,queue,ledger,provider,isIdle:()=>true,
-   now:()=>at(2),minIntervalMs:0,maxProviderMs:1000,leaseMs:6000});
+ const f=fixture(t),h=hFixture(f),s=h.make();
  assert.equal((await s.checkpoint({characterId:f.scope.characterId})).status,'disabled');
- s.setMode('shadow');assert.equal((await s.checkpoint({characterId:f.scope.characterId})).status,'shadow');
- assert.deepEqual(log,[]);
- s.setMode('experimental',{optIn:true});
- store.verifiedHostContext=null;
+ s.setMode('shadow');
+ assert.equal((await s.checkpoint({characterId:f.scope.characterId})).status,'shadow');
+ assert.deepEqual(h.calls,[]);
+ assert.throws(()=>s.setMode('experimental',{optIn:true}),/set_consent_required/);
+ s.setConsent(consent());
+ h.store.verifiedHostContext=null;
  assert.equal((await s.checkpoint({characterId:f.scope.characterId})).status,'source_unverified');
- store.verifiedHostContext={hostRunId:id(70),worldEpoch:1};
- const done=await s.checkpoint({characterId:f.scope.characterId});
- assert.equal(done.status,'completed');assert.deepEqual(log,['claim','cloud']);
+ h.store.verifiedHostContext={hostRunId:id(70),worldEpoch:1};
+ assert.equal((await s.checkpoint({characterId:f.scope.characterId})).status,'completed');
+ assert.deepEqual(h.calls,['reconcile','claim','reserve','cloud','commit','settle']);
  await s.stop();
 });
 test('M7 no live API in Essential factory until explicitly enabled',async t=>{
