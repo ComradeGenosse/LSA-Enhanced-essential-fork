@@ -21,6 +21,8 @@ namespace LSA.Standalone
         internal int Bytes;
         internal int PendingBytes;
         internal int ForwardedBytes;
+        internal int MarkedSegments;
+        internal int MarkedBytes;
         internal bool OutputStarted;
         public int BufferedBytes { get { return Bytes; } }
         public int QueuedBytes { get { return PendingBytes; } }
@@ -149,6 +151,26 @@ namespace LSA.Standalone
             return true;
         }
 
+        // Each speech segment's PCM boundary must be acknowledged in order
+        // before the next segment is permitted. A marker can only follow
+        // actual native-accepted bytes and current source-time speech text.
+        public bool TryMarkSegment(string streamId, string audioLeaseId, string generation,
+            string turnId, string actorId, int segmentIndex, int cumulativeBytes,
+            out string reason)
+        {
+            if (!TryCurrent(streamId, audioLeaseId, generation, turnId, actorId,
+                out var stream, out reason)) return false;
+            reason = "segment_audio_invalid";
+            if (stream.Sealed || stream.Turn.StagedReply != null ||
+                segmentIndex != stream.MarkedSegments || cumulativeBytes <= stream.MarkedBytes ||
+                cumulativeBytes != stream.Bytes ||
+                !turns.IsSpeechSegmentCurrent(stream.Turn, segmentIndex)) return false;
+            stream.MarkedBytes = cumulativeBytes;
+            stream.MarkedSegments++;
+            reason = "segment_audio_buffered_not_played";
+            return true;
+        }
+
         public bool TrySeal(string streamId, string audioLeaseId, string generation,
             string turnId, string actorId, int chunkCount, int totalBytes, out string reason)
         {
@@ -158,7 +180,11 @@ namespace LSA.Standalone
             if (stream.Sealed) return false;
             reason = "audio_incomplete";
             if (chunkCount < 1 || chunkCount != stream.NextIndex ||
-                totalBytes != stream.Bytes) return false;
+                totalBytes != stream.Bytes ||
+                (stream.Turn.StagedReply == null &&
+                    (!stream.Turn.SpeechFinal ||
+                     stream.MarkedSegments != stream.Turn.SpeechSegments.Count ||
+                     stream.MarkedBytes != stream.Bytes))) return false;
             stream.Sealed = true;
             // No IAudioOutput/device has accepted these buffers yet.
             reason = "sealed_not_played";
