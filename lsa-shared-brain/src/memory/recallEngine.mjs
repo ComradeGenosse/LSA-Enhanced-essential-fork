@@ -188,8 +188,10 @@ export async function recallMemory({query,readAdapter,protagonistKey,nowUtc=new 
       if(r.content.length>3072||!r.content.length)continue;
       const item={sourceKind:r.sourceKind,recordId:r.recordId,mode:r.mode,content:r.content,freshness:freshness(r,nowMs)};
       const candidate={...bundle,items:[...bundle.items,item],coverage:{...bundle.coverage,returnedCount:bundle.items.length+1}};
-      sealRecallBundle(candidate);
-      if(candidate.totalBytes<=query.maxBytes)bundle.items.push(item);
+      if(jsonBytes(candidate)<=query.maxBytes){
+        sealRecallBundle(candidate);
+        if(candidate.totalBytes<=query.maxBytes)bundle.items.push(item);
+      }
     }
     bundle.coverage.returnedCount=bundle.items.length;
     if(!bundle.items.length){bundle.status='unavailable';bundle.coverage.status='unavailable';}
