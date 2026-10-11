@@ -55,6 +55,13 @@ namespace LSA.Standalone.RageHost
             worldEpoch = epoch;
         }
 
+        public void Start()
+        {
+            if (worker != null) throw new InvalidOperationException("already_running");
+            worker = new Thread(Serve) { Name = "LSA standalone named pipe", IsBackground = true };
+            worker.Start();
+        }
+
         // Native events only. Do not call on an IPC worker; phase 3 game sources
         // can offer exact, native-issued conversation permits.
         public bool Offer(NativeTurnPermit permit)
@@ -96,8 +103,7 @@ namespace LSA.Standalone.RageHost
                     if (pendingOffers.TryDequeue(out var offer))
                     {
                         if (offer.WorldEpoch == authority.WorldEpoch &&
-                            authority.IsActorCurrent(offer.Lease.Actor) &&
-                            authority.IsLeaseCurrent(offer.Lease))
+                            turns.IsOfferedPermitCurrent(offer))
                         {
                             reply["status"] = "ok";
                             reply["turnId"] = offer.TurnId.ToString("D");
