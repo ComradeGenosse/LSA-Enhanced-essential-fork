@@ -19,5 +19,20 @@ Base PR #68 exact `4cad39198478d7f03bb8ec6657b674e52fa659dd`; M1 provenance PR #
 ## Safety
 No automatic selection; no fabricated save/protagonist ID; no SQLite failure fallback to JSON for timeline-scoped authority. Player-edited global P2 notes remain separate from source-scoped memories. Corrupt/unknown SQLite stays untouched. Restart may expose the previously selected timeline ID as read-only but cannot authorize writes until a new native event AND explicit operator confirmation. No native or provider files modified.
 
-## Verification
-The new `tests/ea6-storage-timeline.test.mjs` is written and requires Node 24+ (`node:sqlite`). Standalone execution and CI status must be reported separately from this source delivery; no tests are claimed as passing solely because they were committed.
+## Exact source + actual offline verification
+- Source head validated: `f151dbf906fbc08e249eda7862abea6994169e67` (all EA6 application changes, before this handoff-only update).
+- [GitHub Actions run 38183235033](https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/actions/runs/38183235033): **Windows and Ubuntu completed successfully**. Each ran Node **24.21.0** SQLite EA6 + existing P2 profile regression: **34/34 tests passed**. Separate Node **22.23.3** legacy JSON P2 test command completed successfully on both platforms. These are offline tests, not native in-game, real source-client, or GTA receipts.
+- Earlier runs **38183047157** and **38183147639** caught an undeclared UUID import and replayed C-13 epoch acceptance respectively; both bugs were corrected before the green run. Do not cite those runs as acceptance.
+- New tests also verify corrupt SQLite keeps the original legacy JSON and its .pre-sqlite backup byte-for-byte, concurrent writer lock exclusion, stale queued writes, unknown versions and strict source revocation.
+- **Not executed here:** full Essential/npm + native GTA/ABI suites, M2–M7 PR #61 integration tests, bundled-install Node 24, actual GTA saves, and paid ElevenLabs acoustic validation. Those remain final-integrator/release gates.
+
+## Exact changed-file handoff
+- Core imports from M1: `lsa-shared-brain/src/util/identity.mjs`, `lsa-shared-brain/src/characters/{profileSchema,profileCommands,sqliteFoundation,sqliteProfileStore,timelineGuard}.mjs`.
+- Essential adapters from M1: `lsa-essential-e1-candidate/src/characters/{memoryStorageAdapter,sqliteFoundation,timelineGuard}.mjs` and `lsa-essential-e1-candidate/tools/inspectM1Sqlite.mjs`.
+- Reconciled M1 + EA application source: `lsa-essential-e1-candidate/src/characters/{characterService,profileStore,editorServer}.mjs`. The default JSON ProfileStore now imports the **same** M1 schema and commands as SQLite, with PR #68 ElevenLabs/Qwen voice compatibility retained in the shared validator.
+- New EA6 trusted-source bridge: `lsa-essential-e1-candidate/src/characters/timelineSourceBridge.mjs`; verifies the post-validated C-13 host callback precedes an ordered world_epoch boundary and refuses repeated/out-of-order epochs. Both subscriptions are mandatory and native disconnect revokes.
+- Tests: `lsa-essential-e1-candidate/tests/ea6-storage-timeline.test.mjs`.
+- Dedicated isolated CI: `.github/workflows/ea6-sqlite-timeline.yml`.
+- Handoff: `docs/handoffs/EA6.md`.
+
+**Operator safety:** This PR is a draft source implementation. No file in the installed GTA profile was read or changed; no PRs #52, #61 or #68 were merged. Save authority only becomes possible after authenticated M1 C-13 bootstrap wiring and explicit editor confirmation of an existing timeline.
