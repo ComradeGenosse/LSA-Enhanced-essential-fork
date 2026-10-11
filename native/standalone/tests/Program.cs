@@ -453,6 +453,56 @@ internal static class Program
         host.Stop();
     }
 
+    private static void NativeTypedTextAndStagedReply()
+    {
+        var game = new SimulatedGame();
+        game.Spawn(92, 0xA220, lifetimeTag: 123);
+        var host = new NativeAuthority(game, game, game, game);
+        var actor = Register(host, 92);
+        var tickets = new NativeTurnRegistry(host);
+        NativeTurnPermit permit;
+        string reason;
+        Check(!tickets.TryIssueTyped(actor, "   ", 1000, out permit, out reason)
+            && reason == "invalid_native_text", "blank native typed turn rejected");
+        Check(!tickets.TryIssueTyped(actor, new string('x', 1025), 1000, out permit, out reason)
+            && reason == "invalid_native_text", "oversized player text rejected");
+        Check(!tickets.TryIssueTyped(actor, "unsafe" + (char)0 + "text", 1000,
+            out permit, out reason), "embedded NUL rejected");
+        Check(tickets.TryIssueTyped(actor, "Where are we?", 1000, out permit, out reason),
+            "typed source issues native conversation");
+        Check(permit.Source == "player_text" && permit.PlayerText == "Where are we?",
+            "typed text bound to immutable native-issued permit");
+        Check(tickets.TryConfirm(permit.TurnId.ToString("D"),
+            permit.SessionNonce.ToString("D"), permit.ActorIncarnationId.ToString("D"),
+            permit.LeaseId.ToString("D"), permit.Generation, permit.Source, out reason),
+            "native confirmation before any staged reply");
+        Check(!tickets.TryStageReply(permit.TurnId.ToString("D"),
+            Guid.NewGuid().ToString("D"), permit.Generation,
+            permit.ActorIncarnationId.ToString("D"), "spoofed", out reason),
+            "fabricated effect claim rejected");
+        Check(tickets.TryStageReply(permit.TurnId.ToString("D"),
+            permit.LeaseId.ToString("D"), permit.Generation,
+            permit.ActorIncarnationId.ToString("D"), "Right here.", out reason)
+            && reason == "staged_not_played" && permit.StagedReply == "Right here.",
+            "text staged but NEVER counted as playback");
+        Check(!tickets.TryStageReply(permit.TurnId.ToString("D"),
+            permit.LeaseId.ToString("D"), permit.Generation,
+            permit.ActorIncarnationId.ToString("D"), "double stage", out reason)
+            && reason == "reply_already_staged", "double reply stages fail");
+        Check(!tickets.TryStageReply(permit.TurnId.ToString("D"),
+            permit.LeaseId.ToString("D"), permit.Generation,
+            permit.ActorIncarnationId.ToString("D"), new string('q', 2049), out reason)
+            && reason == "invalid_reply", "oversized response refused");
+        game.Spawn(92, 0xA220, lifetimeTag: 456);
+        Check(!tickets.TryStageReply(permit.TurnId.ToString("D"),
+            permit.LeaseId.ToString("D"), permit.Generation,
+            permit.ActorIncarnationId.ToString("D"), "stale", out reason),
+            "same-handle and same-address ABA kills staged output authorization");
+        tickets.RetireAll();
+        Check(!host.IsActorCurrent(actor), "physical identity retired after ABA");
+        host.Stop();
+    }
+
     private static void Main()
     {
         IdentityAndLeases();
@@ -462,6 +512,7 @@ internal static class Program
         UnavailableWorldAndClock();
         SeededSafetyScenarios();
         DecoratorReuseAndNativeTurnAdmission();
+        NativeTypedTextAndStagedReply();
         Console.WriteLine("PASS " + assertions +
             " standalone native core assertions; no Essential/RAGE/game assembly loaded.");
     }
