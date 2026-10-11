@@ -208,3 +208,19 @@ test('M5 authorized scope-wide trash is atomic and leaves foreign protagonist in
  assert.ok(!(await x.store.listSuppressedMemoryIds(x.scope)).includes(a.recordId));
  await m5.close();await x.store.close();
 });
+
+test('M5 rejects source record ID paired with altered accepted bytes',async t=>{
+ const x=await setup(t),line=await x.record('Remember that pizza is good','accepted');
+ const m5=createM5SqliteServices({store:x.store,filePath:x.filePath,authorize:allowed});
+ await m5.ready(x.scope);
+ const cmd=id();
+ const fake={...line,content:'Remember that pizza is terrible'};
+ const denied=await handleExplicitMemoryCommand({line:fake,scope:x.scope,commandId:cmd,
+   store:m5.bindCommands()});
+ assert.equal(denied.outcome,'failed');
+ assert.equal((await x.store.verifyCommand({scope:x.scope,commandId:cmd})),null);
+ const accepted=await handleExplicitMemoryCommand({line,scope:x.scope,commandId:cmd,store:m5.bindCommands()});
+ assert.equal(accepted.outcome,'saved');
+ assert.equal(accepted.durableCommit,true);
+ await m5.close();await x.store.close();
+});
