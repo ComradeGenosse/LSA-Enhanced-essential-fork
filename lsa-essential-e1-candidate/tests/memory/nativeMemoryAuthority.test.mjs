@@ -5,6 +5,7 @@ import {createNativeMemoryAuthority} from '../../src/memory/nativeMemoryAuthorit
 const RUN='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 const STREAM='bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
 const STREAM2='eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee';
+const STREAM3='ffffffff-ffff-4fff-8fff-ffffffffffff';
 const EPOCH='cccccccc-cccc-4ccc-8ccc-cccccccccccc';
 const A='dddddddd-dddd-4ddd-8ddd-dddddddddddd';
 const B='22222222-2222-4222-8222-222222222222';
@@ -106,7 +107,7 @@ test('owner retirement, reconnection, epoch boundaries and delayed replay fail c
   assert.equal(h.authority.resolveNativeOwner(request(a))?.characterId,A);
   h.setWorld(2);h.emit({owners:[{...a,worldEpoch:2}]});
   assert.equal(h.authority.resolveNativeOwner(request(a)),null);
-  h.setStream(STREAM);h.setWorld(1);h.emit();
+  h.setStream(STREAM3);h.setWorld(1);h.emit();
   assert.equal(h.authority.resolveNativeOwner(request(a))?.characterId,A);
   h.setTime(1101);
   assert.equal(h.authority.resolveNativeOwner(request(a)),null);
