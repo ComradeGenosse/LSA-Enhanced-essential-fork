@@ -68,7 +68,8 @@ function nativeClaims(offer) {
 
 export async function handleNextTypedTurn(client, provider, {
   signal, pending = new PendingDialogue(),
-  playerContext = new NativePlayerContext(), onStage = () => {}
+  playerContext = new NativePlayerContext(), onStage = () => {},
+  onReplyStaged = null
 } = {}) {
   if (!client || typeof client.request !== 'function' || !provider ||
       typeof provider.complete !== 'function') throw new Error('invalid_pipeline');
@@ -107,6 +108,14 @@ export async function handleNextTypedTurn(client, provider, {
       // RAM only. Never claim playback or promote to durable history.
       pending.stage(offer.hostRunId, offer, replyText);
       onStage({ status: 'staged_not_played', turnId: offer.turnId });
+      if (onReplyStaged) {
+        const audio = await onReplyStaged({
+          client, offer, claims, replyText, signal: perTurn.signal
+        });
+        if (!audio || audio.status !== 'sealed_not_played' || audio.playback !== false)
+          throw new Error('invalid_audio_stage_receipt');
+        return { state: 'pcm_sealed_not_played', turnId: offer.turnId };
+      }
       return { state: 'staged_not_played', turnId: offer.turnId };
     } finally {
       signal?.removeEventListener('abort', onAbort);
