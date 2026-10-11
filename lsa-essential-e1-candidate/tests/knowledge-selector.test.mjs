@@ -116,3 +116,18 @@ test('PS4 witnessed firing identifies native-verified player and never promotes 
    modality:'auditory',certainty:'supported',kind:'gunfire_sound',origin:'unidentified'
  });
 });
+
+test('PS4 bullet injury keeps proven player causality and redacts unspecified shooter',()=>{
+ const observer=randomUUID(),player=randomUUID(),victim=randomUUID();
+ const injured={claimId:randomUUID(),kind:'injured',certainty:'supported',
+   evidence:{channel:'visual',basis:'sampled_state',sampledGameTick:100},
+   source:{captureRef:player,kind:'player'},target:{captureRef:victim,kind:'ped'},
+   details:{eventSignalId:randomUUID(),reason:'visual_clear',classification:'bullet'}};
+ const o={eventType:'injury'};
+ assert.deepEqual(projectKnowledgeClaim(injured,o,observer,player),{
+   modality:'visual',certainty:'supported',kind:'injured',subject:'anonymous person',
+   cause:'gunshot',causedBy:'player'});
+ const missing=projectKnowledgeClaim(injured,o,observer,null);
+ assert.equal('cause' in missing,false);
+ assert.equal('causedBy' in missing,false);
+});
