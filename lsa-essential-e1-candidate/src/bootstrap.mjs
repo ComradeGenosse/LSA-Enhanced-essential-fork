@@ -131,7 +131,16 @@ export async function createRuntimeForBundle(options = {}) {
           try { suppliedIntelligenceTelemetry?.(event,data); } catch {}
           try { telemetry?.emit?.(event,null,'internal',data,'internal'); } catch {}
         }};
-        runtime.intelligence=new IntelligenceClient(config.intelligence,intelligenceOptions);runtime.intelligence.start();
+        runtime.intelligence=new IntelligenceClient(config.intelligence,intelligenceOptions);
+        if(config.promotedCharacters.storageMode==='sqlite' && runtime.characterService?.store?.onBoundary) {
+          // Receive only post-validation C-13 native world epochs. No inference
+          // from a model turn, OS clock, gameplay timestamp or stale channel.
+          runtime.intelligence.subscribeWorldBoundary(boundary=>{
+            try {runtime.characterService.store.onBoundary({reason:boundary.reason});}
+            catch {runtime.characterService.emit('character_safe_failure',{reason:'timeline_write_suspended'});}
+          });
+        }
+        runtime.intelligence.start();
       }catch{try{console.warn('[PS] optional_channel_unavailable');}catch{}}
     } else try {console.warn('[PS] optional_perception_contract_unavailable');}catch{}
   }
