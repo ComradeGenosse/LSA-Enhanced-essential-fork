@@ -1,4 +1,5 @@
 import { assertOperationInput } from '../providerContract.mjs';
+import { isDelivery } from '../../voice/emotion/deliveryContract.mjs';
 import {
   ELEVEN_V4_VERIFIED_TAG_FOR_DELIVERY, ELEVEN_SPEECH_MAX_CHARS,
   sanitizeElevenSpeechDialogue, validateElevenSpeechDialogue,
@@ -38,7 +39,7 @@ const DELIVERY_CONFIDENCES = new Set(['supported','soft']);
 // Do not invoke getters from model-authored or otherwise untrusted objects.
 function validDelivery(delivery) {
   try {
-    if (!delivery || typeof delivery !== 'object' || Array.isArray(delivery) ||
+    if (!isDelivery(delivery) || Array.isArray(delivery) ||
         ![Object.prototype, null].includes(Object.getPrototypeOf(delivery)) ||
         Object.getOwnPropertySymbols(delivery).length) return false;
     const descriptors = Object.getOwnPropertyDescriptors(delivery);
