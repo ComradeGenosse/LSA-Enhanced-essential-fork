@@ -107,6 +107,8 @@ namespace LSA.Standalone.RageHost
                         {
                             reply["status"] = "ok";
                             reply["turnId"] = offer.TurnId.ToString("D");
+                            reply["conversationId"] = offer.ConversationId.ToString("D");
+                            reply["turnOrdinal"] = offer.TurnOrdinal;
                             reply["sessionNonce"] = offer.SessionNonce.ToString("D");
                             reply["actorIncarnationId"] = offer.ActorIncarnationId.ToString("D");
                             reply["leaseId"] = offer.LeaseId.ToString("D");
