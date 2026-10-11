@@ -99,7 +99,10 @@ export async function createRuntimeForBundle(options = {}) {
     shutdownFlushRegistered = true;
     process.once('beforeExit', async () => { for (const closer of shutdownClosers) await closer.close().catch(() => {}); });
   }
-  const runtime = createRuntime(config, { ...options, telemetry, dialogueTrace });
+  // Live bootstrap does not admit caller-supplied protagonist proof.
+  // Direct createRuntime test fixtures remain separate from production.
+  const {verifiedProtagonistAuthority:ignoredTestAuthority,...safeRuntimeOptions}=options;
+  const runtime = createRuntime(config, { ...safeRuntimeOptions, telemetry, dialogueTrace });
   let capabilityManifest=null,capabilityPayloadHash=null,capabilityValidation=Object.freeze([]);
   try {const bytes=await readFile(new URL('../build-manifest.json',import.meta.url));capabilityManifest=JSON.parse(bytes);capabilityPayloadHash=createHash('sha256').update(bytes).digest('hex');}catch{}
   capabilityValidation=await loadCapabilityValidation(options.capabilityValidationPath??path.resolve(process.cwd(),'diagnostics/validation.v1.json'));
