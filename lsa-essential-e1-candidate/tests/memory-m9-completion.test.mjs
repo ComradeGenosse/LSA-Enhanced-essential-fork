@@ -233,3 +233,12 @@ test('M9 cue rejects expired source and never refreshes it during interruption',
   assert.equal(cues.propose({candidate:e,witness:qualified(e),priority:allSafe}).reason,
     'stale_candidate');
 });
+
+test('M9 refuses unspecified and unknown witness modality despite direct label',()=>{
+  const e=accident();
+  const cues=new M9MemoryCueCandidates({authorizeWitness:()=>true,now:()=>1000});
+  for(const modality of [undefined,'unknown','report']) {
+    const witness={...qualified(e),modality};
+    assert.equal(cues.propose({candidate:e,witness,priority:allSafe}).accepted,false);
+  }
+});
