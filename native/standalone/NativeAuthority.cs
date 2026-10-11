@@ -201,7 +201,7 @@ namespace LSA.Standalone
 
             ActorState state; ActorObservation observed;
             if (!TryState(actor, out state, out observed, out reason)) return false;
-            if (!CanControl(observed, out reason)) return false;
+            if (!CanControl(observed, out reason)) { state.Leases.Clear(); return false; }
             OwnershipLease current;
             if (state.Leases.TryGetValue(kind, out current))
             {
@@ -231,7 +231,7 @@ namespace LSA.Standalone
                 reason = "lease_expired";
                 return false;
             }
-            if (!CanControl(observed, out reason)) return false;
+            if (!CanControl(observed, out reason)) { state.Leases.Clear(); return false; }
             reason = "current";
             return true;
         }
