@@ -84,7 +84,7 @@ export class FixtureMemoryCommandStore {
         typeof candidate.content!=='string' || !candidate.content.trim() ||
         !Number.isFinite(Date.parse(candidate.occurredAtUtc))) fail('invalid_fixture_candidate');
     return this.#serial(async()=>{
-      this.#assertWrite(this.scope);
+      if (this.#assertWrite(this.scope)!==true) fail('timeline_write_suspended');
       const data=await this.#load();
       if (data.candidates.some(c=>c.recordId===candidate.recordId))fail('duplicate_fixture_candidate');
       data.candidates.push(candidate);
@@ -96,7 +96,8 @@ export class FixtureMemoryCommandStore {
     this.#assertScope(scope);
     const data=await this.#load();
     const suppressed=new Set(data.tombstones.map(t=>t.targetRecordId));
-    const stored=data.memories.filter(m=>!suppressed.has(m.memoryId)).map(m=>({
+    const stored=data.memories.filter(m=>!suppressed.has(m.memoryId) &&
+      !(arguments[0]?.operation==='remember' && m.targetRecordId)).map(m=>({
       recordId:m.memoryId,kind:'permanent_memory',
       characterId:scope.characterId,worldProfileId:scope.worldProfileId,timelineId:scope.timelineId,
       protagonistKey:scope.protagonistKey,occurredAtUtc:m.requestedAtUtc,
