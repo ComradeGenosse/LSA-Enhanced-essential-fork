@@ -59,17 +59,14 @@ test('failed owner, native turn and PS2 lifetime proofs are never upgraded',()=>
     f=>{f.identityService.evidence.isCurrent=()=>false;},
     f=>{f.perception.current=()=>false;},
     f=>{f.perception.observerIndex.clear();},
-    f=>{f.perception.directorOwnerProofFor=()=>({...f.perception.directorOwnerProofFor(),worldEpoch:99});},
+    f=>{f.perception.directorOwnerProofFor=()=>({speakerCaptureRef:REF,hostRunId:HOST,worldEpoch:99,ownerIncarnationId:INC,proofRevision:7});},
     f=>{f.perception.channelFresh=()=>false;},
     f=>{f.perception.epoch=HOST;},
   ];
   // Isolate every mutation from the next one.
   for(const change of checks){
     const f=fixture();
-    if(change.toString().includes('directorOwnerProofFor=')){
-      f.perception.directorOwnerProofFor=()=>({speakerCaptureRef:REF,hostRunId:HOST,
-        worldEpoch:99,ownerIncarnationId:INC,proofRevision:7});
-    } else change(f);
+    change(f);
     assert.equal(projectActingEvidence(f),null);
   }
 });
