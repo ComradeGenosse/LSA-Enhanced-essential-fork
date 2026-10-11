@@ -62,7 +62,7 @@ export function projectConversation(history,input,source,directorEventContext=nu
 }
 // Pure projection only: callers must supply the canon already released by P1/P2.
 // Private turn/delivery metadata is never part of modelAllocation.
-export function renderKnowledge({turn,frozenAt,profile,persistent=false,knowledgeInputs,actor,listener,world,referenceMap,presence,history,input,source,directorEventContext=null,includePerceived=false,activityInputs=null,includeActivityFacts=false,dialogueInputs=null,includeDialogueReceipts=false,preparedRecall=null}) {
+export function renderKnowledge({turn,frozenAt,profile,persistent=false,knowledgeInputs,actor,listener,world,referenceMap,presence,history,input,source,directorEventContext=null,includePerceived=false,activityInputs=null,includeActivityFacts=false,dialogueInputs=null,includeDialogueReceipts=false,preparedRecall=null,recallAuthorization=null}) {
  let canonProjection=narrativeProfileWithDiagnostics(profile,persistent);
  let narrative=canonProjection.narrative;
  // Reserve actual lane-wrapper overhead while reusing P2's established field
@@ -80,7 +80,10 @@ export function renderKnowledge({turn,frozenAt,profile,persistent=false,knowledg
  const recalled=memories.map(({category,importance,text})=>({category:['note','relationship','promise','event','biography','other'].includes(category)?category:'other',importance:Number.isInteger(importance)&&importance>=0&&importance<=100?importance:0,text}));
  const perceived=selectKnowledge(knowledgeInputs,{includePerceived,radioInput:['player_text','player_mic'].includes(source)?input:''});
  const conversation=projectConversation(history,input,source,directorEventContext);
- const recall=projectPreparedRecall(preparedRecall);
+ // K supplies a synchronous P2/native-authoritative admission check.
+ let canAdmit=false;
+ try{canAdmit=typeof recallAuthorization==='function'&&recallAuthorization(preparedRecall)===true;}catch{}
+ const recall=projectPreparedRecall(canAdmit?preparedRecall:null);
  const recallReferences=[...recall.references];
  const lanes={SELF:{canon:narrative?canonData(canon):null,selfFacts:[]},PERCEIVED:{observations:[...perceived.observations]},RECALLED:{memories:wellFormedData(recalled)},SITUATION:projectSituation(world),COMPAT:projectCompatibility({actor,listener,referenceMap,presence})};
  if(recallReferences.length){
