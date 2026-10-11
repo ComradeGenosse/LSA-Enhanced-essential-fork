@@ -24,6 +24,23 @@ The [speech architecture upgrade](speech-architecture-upgrade.md) incorporates t
 
 **Not Phase 4:** Independent microphone start/stop, PCM capture, OpenAI/local STT, native utterance ID, one STT reused for multiple source-time verified listeners, and UX4 PTT belong to **Phase 6 M1–M2**. They receive interface/schema planning now so Phase 4 segments/audio do not create an incompatible microphone or history model. Phase 5's first GTA slice remains *typed input*; do not make Phase 5 contingent on completed STT. Both provider adapters and mic-hearing grants must still respect the same native physical actor/turn/epoch fences.
 
+## Phase 4 S1 — provider-neutral OpenAI / Faster Qwen3-TTS (implemented in source; GTA not tested)
+
+- The new `speechContract.mjs` validates `pcm_s16le_mono_24000` provider capabilities, profiles, and deterministic per-actor voice routing. `service.mjs` now selects OpenAI or local Qwen via `createConfiguredSpeechRouter` without changing native PCM leases.
+- `qwenSpeechProvider.mjs` adapts the independently authored local sidecar from PR #39. Only literal loopback IP endpoints are permitted, with registered voice IDs, strict 24-kHz sample-rate header, 30-second PCM budget, deadlines/cancellation, and **no OpenAI credentials ever sent to Qwen**.
+- `tools/qwen/lsa_qwen_server.py` and `voices.example.json` are included independently in the standalone companion. The sidecar offers registered cloned voices, CustomVoice speakers, and VoiceDesign, with one resident GPU model family at a time. Real Qwen models/voice references are **not** included or executed in CI.
+- OpenAI TTS accepts provider-neutral per-request voice/instruction overrides; no provider controls NPC identity or claims audible playback.
+- `voice-assignments.example.json` illustrates the versioned `worldProfileId + characterId` persistent assignment schema. **Production does NOT yet apply promoted-character assignments:** an exact native character-to-actor binding resolver is required before using them. No name/Ped-handle guessing or spoofable Node identity is allowed. In the meantime, a configured optional voice pool assigns a deterministic voice **for one actor incarnation**, not permanently.
+- Tests exercise OpenAI/Qwen provider swapping, local credential isolation, cancellation, invalid voices, forged binding rejection, PCM/sample boundaries and an actual separate native↔Node↔local Qwen HTTP fixture. This is offline evidence, not tested spatial audio.
+
+### Isolated local configuration (not a GTA deployment instruction)
+
+For Qwen synthesis set `LSA_STANDALONE_TTS_MODE=enabled`, `LSA_STANDALONE_TTS_PROVIDER=faster-qwen3-tts`, `LSA_STANDALONE_TTS_VOICE=nathan`, `LSA_STANDALONE_QWEN_VOICES=nathan,aiden_local`, and optionally `LSA_STANDALONE_QWEN_URL=http://127.0.0.1:8000/v1`. The voice IDs must exist in the private sidecar `voices.json`. Optional `LSA_STANDALONE_TTS_SESSION_VOICES` chooses a subset for ephemeral NPC voice variation. These Qwen TTS calls use **no OpenAI TTS credentials**, although Luna reasoning separately requires its configured API credentials.
+
+For OpenAI TTS the default `LSA_STANDALONE_TTS_PROVIDER=openai` uses `OPENAI_API_KEY`, `LSA_STANDALONE_TTS_MODEL`, and `LSA_STANDALONE_TTS_VOICE`. Optional `LSA_STANDALONE_VOICE_ASSIGNMENTS` loads a private versioned file, but is inert for persistent identities until native binding is proven. Private registries and clone recordings are gitignored.
+
+To run the *already installed* Qwen Python environment locally: `python lsa-standalone-companion/tools/qwen/lsa_qwen_server.py --voices lsa-standalone-companion/tools/qwen/voices.json --port 8000 --device cuda`. Model weights, local voices, and the suitable Python environment must be installed separately; no automatic downloads or live calls were performed.
+
 ## Local runtime switches — future isolated profile only
 
 `LSA_STANDALONE_TYPED_MODE=enabled`, `OPENAI_API_KEY`, `LSA_STANDALONE_MODEL` enable Phase 3 AI text. Independently set `LSA_STANDALONE_TTS_MODE=enabled`, `LSA_STANDALONE_TTS_MODEL`, `LSA_STANDALONE_TTS_VOICE` to enable the optional Phase 4 PCM source; `LSA_STANDALONE_TTS_INSTRUCTIONS` is optional. No configuration template carries a secret. **Do not attempt GTA cutover until actor and output gates pass.**
