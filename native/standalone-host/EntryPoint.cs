@@ -105,7 +105,13 @@ namespace LSA.Standalone.RageHost
                     try
                     {
                         scope.Enter();
-                        try { turns?.RetireAll(); authority.Stop(); } finally { scope.Exit(); }
+                        try
+                        {
+                            StandaloneTypedCommands.StopOnOwner(scope);
+                            turns?.RetireAll();
+                            authority.Stop();
+                        }
+                        finally { scope.Exit(); }
                     }
                     catch { Game.LogTrivial("[LSA-S2] host_stop_owner_unavailable"); }
                 }
