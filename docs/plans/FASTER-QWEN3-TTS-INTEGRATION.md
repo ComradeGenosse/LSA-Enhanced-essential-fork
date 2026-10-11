@@ -54,3 +54,51 @@ The Base, CustomVoice and VoiceDesign variants have different weights. They cann
 **C — later (not implemented):** benchmark RTX 5090 VRAM and GTA frame pacing, model load/warmup, GPU contention, prompt/conditioning cache, different NPC families, language/expressiveness fidelity, streaming gaps and optional prewarming policy. Only then choose default production model.
 
 **GTA gate:** the exact installed companion and DLL hash, radio and PS4 baseline still need separate verification. Do not merge PR #32 merely because this provider PR is ready; avoid any GTA deployment or modifying private config until authorized.
+
+## Offline Luna-to-Qwen conversation smoke (no GTA required)
+
+This PR includes a **runnable, end-to-end local turn test** that uses the real
+patched LSA stock controller, validates a Luna-format dialogue decision, calls
+the production Faster Qwen speech provider, streams 24-kHz PCM through the
+real LSA authorization and history gates, and simulates matching native
+`npcAudioTurnAccepted` / `npcPlaybackEnded` receipts. The generated voice is
+saved as a WAV so you can hear it outside GTA. This is **not** a native DLL
+execution or real GTA audio-rendering test.
+
+With the Faster Qwen service running, and a private `e1.config.json` configured
+with your registered Qwen voice(s), run from `lsa-essential-e1-candidate`:
+
+```powershell
+npm run smoke:qwen -- --voice nathan --reply "Hey, it's Nathan. How do I sound?"
+```
+
+- This sends **no OpenAI request** by default. It simulates Luna returning the
+  exact `{ dialogue, command: "" }` shape used in the non-streaming pipeline.
+  It sends a **real HTTP request** to your local Qwen service and saves
+  `outputs/qwen-smoke/nathan.wav`.
+- To exercise an **actual Luna API decision** immediately followed by local
+  Qwen TTS, run:
+  ```powershell
+  npm run smoke:qwen -- --voice nathan --live-luna --prompt "Nathan, say a quick hello."
+  ```
+  This mode **uses your OpenAI reasoning API key and incurs API usage**. The key
+  is read from the existing private `.env` or environment variables, never
+  transmitted to the local Qwen service. The validated Luna dialogue (not
+  model-generated arbitrary instructions) is forwarded as Qwen's text input.
+- Choose a unique `--out` path to retain multiple WAV comparisons. `--voice`
+  must be an ID from the configured `qwenTts.speechVoices` list and local
+  `voices.json`. The test does not edit those files, your character store,
+  game settings, radio installation or GTA directory.
+- This deliberately exercises the **buffered single-response** path. The
+  existing early segmented streaming path has separate tests and still needs
+  physical GTA acceptance. Simulated native acknowledgment demonstrates
+  in-process sequencing, **not** actual native playback quality or the real
+  Essential DLL.
+- Check `status: completed`, `pcmBytes > 0`, the selected voice, and the
+  saved WAV. If local Qwen is not running or returns invalid audio, the test
+  fails without writing a pretend successful WAV.
+
+CI tests use deterministic fake HTTP Responses and run without GPU, OpenAI
+credits or GTA. They exercise both simulated and opt-in Luna routes, ensure
+Qwen never receives the OpenAI key, verify the PCM/WAV format and playback
+history contract, and check fail-closed cases.

@@ -12,3 +12,4 @@ tools/native-metadata/obj/
 /outputs/api-smoke/
 tools/qwen/voices.json
 tools/qwen/voices/
+/outputs/qwen-smoke/
