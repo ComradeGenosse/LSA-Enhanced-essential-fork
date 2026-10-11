@@ -63,8 +63,11 @@ namespace LSA.Standalone
     // or physical completion until its own device and playback callbacks prove it.
     public interface IAudioOutput
     {
-        bool TryBegin(ActorRef speaker, Guid playbackId, int sampleRate, out string rejection);
-        bool TryPush(Guid playbackId, byte[] pcm16Mono, out string rejection);
+        // Before *every* effect, the native adapter must revalidate audioLease
+        // via NativeAuthority.IsLeaseCurrent and require Kind == Audio.
+        bool TryBegin(OwnershipLease audioLease, Guid playbackId, int sampleRate, out string rejection);
+        bool TryPush(OwnershipLease audioLease, Guid playbackId, byte[] pcm16Mono, out string rejection);
+        // Stopping a precisely identified retired stream is permitted for cleanup.
         bool TryStop(Guid playbackId, string reason);
     }
 
@@ -77,6 +80,8 @@ namespace LSA.Standalone
 
     public interface IActionExecutor
     {
-        ActionDispatchState Dispatch(ActorRef actor, string action, out string reason);
+        // A dispatched request is not a claim that the game effect completed.
+        // The adapter must require a current PhysicalAction lease on the owner fiber.
+        ActionDispatchState Dispatch(OwnershipLease physicalActionLease, string action, out string reason);
     }
 }
