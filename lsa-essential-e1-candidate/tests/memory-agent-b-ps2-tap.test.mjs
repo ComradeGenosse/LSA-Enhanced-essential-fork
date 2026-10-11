@@ -38,6 +38,8 @@ test('M3 PS2 tap receives only authenticated, correlated and indexed observers',
   assert.equal(accepted[0].hostRunId,f.hostRunId);
   assert.equal(accepted[0].worldEpoch,4);
   assert.equal(accepted[0].observation.observer.captureRef,f.observer);
+  assert.equal(Object.isFrozen(accepted[0].observation.claims[0]),true);
+  assert.throws(()=>{accepted[0].observation.claims[0].kind='invented';},TypeError);
   assert.equal(f.runtime.memoryTapDiagnostics.delivered,1);
   assert.equal(f.runtime.ingest({version:1,type:'signal',adapterEpoch:f.adapterEpoch,
     streamId:id(2),sequence:999,payload:f.signal()},{authenticated:false}),false);
