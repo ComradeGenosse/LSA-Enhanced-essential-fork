@@ -25,6 +25,7 @@ namespace LSA.Standalone
         internal int MarkedBytes;
         internal readonly List<int> SegmentEndBytes = new List<int>();
         internal int LastPhysicalPlayedBytes;
+        internal int LastLipPresentedBytes;
         internal int LastPhysicalCompletedSegments;
         internal bool PhysicalFailed;
         internal bool OutputStarted;
@@ -67,17 +68,21 @@ namespace LSA.Standalone
         private readonly NativeAuthority authority;
         private readonly NativeTurnRegistry turns;
         private readonly IAudioOutput output;
+        private readonly ILipSyncPresenter lip;
         private readonly Dictionary<Guid, NativeAudioTicket> streams =
             new Dictionary<Guid, NativeAudioTicket>();
 
         public NativeAudioRegistry(NativeAuthority authority, NativeTurnRegistry turns,
-            IAudioOutput output = null)
+            IAudioOutput output = null, ILipSyncPresenter lip = null)
         {
             this.authority = authority ?? throw new ArgumentNullException(nameof(authority));
             this.turns = turns ?? throw new ArgumentNullException(nameof(turns));
             // Null means NO output backend, not a silent sink. Queue eventually
             // backpressures. Never discard accepted PCM to fake progress.
             this.output = output;
+            if (lip != null && !(output is IPhysicalAudioOutput))
+                throw new ArgumentException("lip_requires_physical_output");
+            this.lip = lip;
         }
 
         public bool TryOpen(string turnId, string actorId, string conversationLeaseId,
@@ -376,6 +381,44 @@ namespace LSA.Standalone
                 turnId, actorId, out snapshot, out completed, out marked, out final);
         }
 
+        // S3 presentation: only device-progress-backed PCM energy may cue
+        // a game-facing facial effect. Never use TTS-time / queued bytes.
+        // No device, no presenter, no current actor, no advancing actual
+        // playback, and no non-silent envelope => NO facial side effect.
+        public int PumpLipSyncOnOwner(int budget)
+        {
+            if (budget < 0 || budget > MaxStreams)
+                throw new ArgumentOutOfRangeException(nameof(budget));
+            Sweep();
+            if (budget == 0 || lip == null || !(output is IPhysicalAudioOutput))
+                return 0;
+            int cues = 0, visited = 0;
+            foreach (NativeAudioTicket stream in new List<NativeAudioTicket>(streams.Values))
+            {
+                if (visited++ >= budget) break;
+                if (stream.Retired || !stream.OutputStarted) continue;
+                AudioPlaybackSnapshot snapshot;
+                int completed, marked; bool final;
+                if (!TryPhysicalProgress(stream.StreamId.ToString("D"),
+                    stream.AudioLeaseId.ToString("D"), stream.AudioGeneration,
+                    stream.TurnId.ToString("D"), stream.ActorIncarnationId.ToString("D"),
+                    out snapshot, out completed, out marked, out final)) continue;
+                if (snapshot.PlayedSourceBytes <= stream.LastLipPresentedBytes ||
+                    snapshot.State != "playback_started" ||
+                    snapshot.MouthLevel < 12) continue;
+                stream.LastLipPresentedBytes = snapshot.PlayedSourceBytes;
+                try
+                {
+                    // Presenter MUST re-check current native actor/lease,
+                    // combat arbitration and its own rate cap.
+                    if (lip.TryPulse(stream.Lease, stream.StreamId,
+                        snapshot.MouthLevel)) cues++;
+                }
+                catch { } // no guessed mouth motion on exception
+            }
+            return cues;
+        }
+
         // One-shot, exact native device-completion acknowledgment. This only
         // releases native output resources; it does NOT commit conversation
         // history or assert that any in-world observer heard the words.
@@ -401,6 +444,9 @@ namespace LSA.Standalone
             if (stream.Retired) return;
             stream.Retired = true;
             streams.Remove(stream.StreamId);
+            // Forget only: stale/recycled entities must NEVER be modified
+            // during cleanup, even if this stream previously animated them.
+            try { lip?.Forget(stream.StreamId); } catch { }
             // Drop all raw PCM on cancel, shutdown, actor invalidation, or
             // transport reset; there is no durable audio file.
             stream.Chunks.Clear();
