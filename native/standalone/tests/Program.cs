@@ -782,6 +782,9 @@ internal static class Program
         Check(audio.TryMarkSegment(sid,alid,agen,tid,aid,0,4,out reason) &&
             reason=="segment_audio_buffered_not_played",
             "native PCM boundary validated but never played");
+        Check(!audio.TryAppend(sid,alid,agen,tid,aid,1,
+            new byte[]{5,6},out reason) && reason=="segment_not_authorized",
+            "cannot enqueue PCM for a speech segment not yet admitted");
         Check(!audio.TrySeal(sid,alid,agen,tid,aid,1,4,out reason),
             "segment marker is not final turn and cannot EOS");
         Check(turns.TryStageSpeechSegment(tid,lease,gen,aid,1,
