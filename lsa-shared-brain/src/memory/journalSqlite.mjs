@@ -3,7 +3,9 @@
 import {createHash} from 'node:crypto';
 import {isUuid,immutableSnapshot} from '../util/identity.mjs';
 import {evidenceHash} from '../events/journalEventNormalizer.mjs';
-export const JOURNAL_SCHEMA_VERSION=3;
+import {ensureIntegratedMemorySchema} from './integratedSqlite.mjs';
+import {ensureCurationSchema} from './curationSqlite.mjs';
+export const JOURNAL_SCHEMA_VERSION=4;
 const hash=s=>createHash('sha256').update(s,'utf8').digest('hex');
 const hex=s=>typeof s==='string'&&/^[0-9a-f]{64}$/.test(s);
 const utc=s=>typeof s==='string'&&/^\d{4}-\d\d-\d\dT/.test(s)&&!Number.isNaN(Date.parse(s));
@@ -58,22 +60,23 @@ const DDL=[
 "CREATE INDEX event_type_recent ON event_journal(character_id,timeline_id,event_type,received_at_utc DESC);",
 "CREATE TABLE IF NOT EXISTS event_source_evidence (record_id TEXT PRIMARY KEY REFERENCES event_journal(record_id) ON DELETE CASCADE, source_evidence_json TEXT NOT NULL, source_evidence_sha256 TEXT NOT NULL);"
 ].join('\n');
-const tables=['dialogue_journal','dialogue_journal_fts','event_journal','event_source_evidence'];
+const tables=['dialogue_journal','dialogue_journal_fts','event_journal','event_source_evidence','memory_records','memory_commands','memory_tombstones','memory_curation_jobs','memory_budget_reservations','memory_luna_appraisals'];
 const sidecarDDL="CREATE TABLE IF NOT EXISTS event_source_evidence (record_id TEXT PRIMARY KEY REFERENCES event_journal(record_id) ON DELETE CASCADE, source_evidence_json TEXT NOT NULL, source_evidence_sha256 TEXT NOT NULL)";
 export function migrateJournalSchema(db){
   const v=db.prepare('PRAGMA user_version').get().user_version;
-  if(v!==2&&v!==JOURNAL_SCHEMA_VERSION)fail('unsupported_sqlite_profile_schema');
-  if(v===JOURNAL_SCHEMA_VERSION){
-    // Older never-deployed v3 fixtures may lack the optional M3 evidence table.
-    // Add it without rewriting a single immutable journal envelope.
-    db.exec('BEGIN IMMEDIATE');
-    try{db.exec(sidecarDDL);db.exec('COMMIT');}catch(error){try{db.exec('ROLLBACK');}catch{}throw error;}
-    assertJournalSchema(db);
-    return v;
-  }
+  if(![2,3,JOURNAL_SCHEMA_VERSION].includes(v))fail('unsupported_sqlite_profile_schema');
+  if(v===JOURNAL_SCHEMA_VERSION){assertJournalSchema(db);return v;}
+  // Entire v2/v3 -> v4 migration commits atomically; no mixed schema state.
   db.exec('BEGIN IMMEDIATE');
-  try{db.exec(DDL);db.exec('PRAGMA user_version=3');db.exec('COMMIT');return JOURNAL_SCHEMA_VERSION;}
-  catch(error){try{db.exec('ROLLBACK');}catch{}throw error;}
+  try{
+    if(v===2)db.exec(DDL);
+    else db.exec(sidecarDDL); // Existing v3 journal bytes are never rebuilt.
+    ensureIntegratedMemorySchema(db);
+    ensureCurationSchema(db);
+    db.exec('PRAGMA user_version=4');
+    db.exec('COMMIT');
+    return JOURNAL_SCHEMA_VERSION;
+  }catch(error){try{db.exec('ROLLBACK');}catch{}throw error;}
 }
 export function assertJournalSchema(db){
   if(db.prepare('PRAGMA user_version').get().user_version!==JOURNAL_SCHEMA_VERSION)fail('sqlite_journal_schema_missing');
