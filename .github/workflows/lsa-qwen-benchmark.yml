@@ -8,6 +8,9 @@ on:
       - fix/radio-hearing-retention-stability-20261011
     paths:
       - 'lsa-essential-e1-candidate/tools/qwen/compare_tts_benchmark.mjs'
+      - 'lsa-essential-e1-candidate/tools/qwen/profile_qwen_latency.mjs'
+      - 'lsa-essential-e1-candidate/tests/qwen-latency-profile.test.mjs'
+      - 'lsa-essential-e1-candidate/tools/qwen/lsa_qwen_server.py'
       - 'lsa-essential-e1-candidate/tests/qwen-benchmark.test.mjs'
       - 'lsa-essential-e1-candidate/src/providers/**'
       - '.github/workflows/lsa-qwen-benchmark.yml'
@@ -31,6 +34,12 @@ jobs:
       - name: Validate benchmark script syntax
         working-directory: lsa-essential-e1-candidate
         run: node --check tools/qwen/compare_tts_benchmark.mjs
+      - name: Validate Qwen profiler syntax
+        working-directory: lsa-essential-e1-candidate
+        run: node --check tools/qwen/profile_qwen_latency.mjs
       - name: Execute offline mocked-provider benchmark regression
         working-directory: lsa-essential-e1-candidate
         run: node --test tests/qwen-benchmark.test.mjs
+      - name: Execute offline Qwen profiling regression
+        working-directory: lsa-essential-e1-candidate
+        run: node --test tests/qwen-latency-profile.test.mjs
