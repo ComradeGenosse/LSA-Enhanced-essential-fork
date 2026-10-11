@@ -32,7 +32,23 @@ export function createLunaCurationAdapter({requestJson,config}){
   if(typeof model!=='string'||!model.trim()||typeof baseUrl!=='string'||!baseUrl.trim())
     throw new Error('curation_missing_reasoning_config');
   // Caller may inject existing E1 openai/request.mjs requestJson; key only read on enabled calls.
-  return Object.freeze({id:'existing-cloud-luna',async curateBatch(proposals,{signal}={}){
+  return Object.freeze({id:'existing-cloud-luna',
+    estimateMaxCostUsd(proposals){
+      const pricing=config.curatorPricing;
+      if(!pricing||!Number.isFinite(pricing.inputUsdPerMillionTokens)||
+         !Number.isFinite(pricing.outputUsdPerMillionTokens)||
+         pricing.inputUsdPerMillionTokens<0||pricing.outputUsdPerMillionTokens<0)
+        throw new Error('curation_verified_luna_pricing_required');
+      if(!Array.isArray(proposals)||proposals.length<1||proposals.length>4)
+        throw new Error('curation_invalid_batch');
+      // Upper-bound input tokens by UTF-8 bytes, with conservative request
+      // instructions/metadata overhead; output tokens are explicitly capped.
+      const inputBytes=Buffer.byteLength(JSON.stringify(proposals),'utf8')+4096;
+      const outputTokens=Math.min(1600,config.curatorMaxOutputTokens??1200);
+      return (inputBytes*pricing.inputUsdPerMillionTokens+
+        outputTokens*pricing.outputUsdPerMillionTokens)/1e6*1.2+0.000001;
+    },
+    async curateBatch(proposals,{signal}={}){
     if(!Array.isArray(proposals)||!proposals.length||proposals.length>4)throw new Error('curation_invalid_batch');
     if(signal?.aborted)throw signal.reason??new Error('curation_cancelled');
     const instructions='You appraise fictional GTA roleplay memories. Output only JSON: {"items":[{"proposalId":...,"characterId":...,"worldProfileId":...,"timelineId":...,"batchId":...,"evidenceRecordIds":[...],"candidate":"episode|semantic|relationship|joke","notability":0.0,"groundedSummary":"unchanged literal","inCharacterTake":"subjective opinion"}]}. Never alter groundedSummary, IDs, source facts or add observations. Interpretations are only opinions; no claims that a character witnessed something not in sources. Humor and inside jokes can be highly salient.';
@@ -138,6 +154,14 @@ export async function processIdleCuration({enabled=false,mode,queue,provider,led
      await authorized(isAuthorized,job);
    }
    if(signal?.aborted)throw abortError();
+   // Cloud request must be bounded using known model pricing; never make
+   // a billable request with an estimated ceiling below the worst case.
+   if(typeof provider.estimateMaxCostUsd==='function'){
+     const cost=provider.estimateMaxCostUsd(claimed.map(x=>x.job.proposal));
+     if(!Number.isFinite(cost)||cost>estimatedMaxCostUsd)
+       throw Object.assign(new Error('curation_estimate_exceeds_budget'),
+         {code:'estimate_exceeds_budget'});
+   }
    batchKey=claimed.map(x=>x.job.jobId+':'+x.leaseToken).sort().join(':');
    reserved=await ledger.reserve({batchKey,maxUsd:estimatedMaxCostUsd,nowUtc});
    if(!reserved){
@@ -171,7 +195,7 @@ export async function processIdleCuration({enabled=false,mode,queue,provider,led
      return {status:'completed',processed:completed.size};
    }catch{return {status:'settlement_pending',processed:completed.size};}
  }catch(error){
-   const cancelled=signal?.aborted===true||error?.code==='scope_revoked';
+   const cancelled=signal?.aborted===true||error?.code==='scope_revoked'||error?.code==='estimate_exceeds_budget';
    const retryAfterMs=Number.isFinite(error?.retryAfterMs)&&error.retryAfterMs>=0?error.retryAfterMs:0;
    const permanent=error?.status>=400&&error?.status<500&&![408,409,425,429].includes(error.status)||
        error?.code==='curation_ungrounded_appraisal'||error?.code==='curation_cross_scope_batch';
