@@ -69,7 +69,7 @@ test('invalid or unknown evidence cannot be promoted, no evidence disappears fro
   assert.equal(choose([r]).length,0);
   const good=event(2),result=choose([good,event(3,'crash',{receiptStatus:'reported'})]);
   assert.equal(result.length,1);assert.deepEqual(result[0].evidenceRecordIds,[good.recordId]);
-  assert.equal(choose(Array.from({length:10001},()=>good)).length,0); // not reached: throws
+  assert.throws(()=>choose(Array.from({length:10001},()=>good)),/batch_limit/);
 });
 test('consolidation links only exact automatic duplicates, leaves explicit user saves and other identities untouched',()=>{
   const [a]=choose([event(1)]),[b]=choose([event(2)]);
