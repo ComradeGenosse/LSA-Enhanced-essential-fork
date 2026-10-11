@@ -55,6 +55,7 @@
   ],
   "voiceAssignment": "character-aware-session",
   "ttsSpeed": 1,
+  "ttsVolume": 1.0,
   "actingEnabled": true,
   "maxOutputTokens": 300,
   "providerWorkDeadlineMs": 45000,

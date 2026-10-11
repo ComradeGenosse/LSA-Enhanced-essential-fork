@@ -142,6 +142,34 @@ companion restarted.** OpenAI and Qwen voice settings are otherwise unchanged.
   underruns from network chunk gaps alone. Existing cloud reasoning/STT,
   memory/voice assignment, radio and native ownership behavior are unchanged.
 
+## Global TTS playback volume
+
+Change the numeric `ttsVolume` key in the **installed companion**
+`e1.config.json`, for example:
+
+```json
+{
+  "ttsVolume": 0.75
+}
+```
+
+- `1.0` (100%) is the default, with bit-identical PCM passthrough.
+- `0.5` is 50%, `0` mutes generated NPC speech, and `1.5`
+  boosts it to 150%. Range: **0.0 through 2.0**.
+- Above 100%, loud audio may clip; output saturates safely rather than
+  overflowing the 16-bit range. For clean sound, prefer 0.5–1.0.
+- Works for **both** OpenAI TTS and Faster Qwen3-TTS, including normal,
+  typed, early-streamed, and spontaneous NPC speech. It does not modify
+  GTA music, effects, microphone input, radio, voice identity, the
+  original synthesized recording, native PCM duration or chunk timing.
+- The setting is read when the companion launches: edit the installed
+  file and **restart the companion** to apply a new volume. Do not
+  replace the rest of your `e1.config.json` with this short example.
+- The multiplier is applied once at the shared PCM-to-native boundary,
+  after turn authorization, and never alters sample count or game audio
+  device state. The microphone, native completion receipts and
+  cancellation behavior retain their original contracts.
+
 ## Remaining acceptance and phased upgrades
 
 **A — now implemented, GTA pending:** test new provider against the existing radio-deployed companion; verify server health, first PCM, correct voice for Nathan, response cancellation under player takeover, exact-generation native authorization and final PlaybackEnded receipt, no stale history or audio, hot reuse, failure behavior and return to OpenAI. Do not treat offline evidence as physical GTA acceptance.

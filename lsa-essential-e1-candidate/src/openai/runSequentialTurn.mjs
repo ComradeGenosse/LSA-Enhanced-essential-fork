@@ -1,4 +1,5 @@
 import {assertDirectorSpeechDecision} from '../perception/directorDecisionGuard.mjs';
+import {scalePcm16} from '../voice/pcmVolume.mjs';
 const PLAYER_SOURCES = new Set(['player_text', 'player_mic']);
 
 function terminalForNativeEvent(event) {
@@ -134,7 +135,9 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
     }
     await authorization;
     check();
-    await emit({ type: 'audio', chunk });
+    // One gain stage after either TTS provider, before native playback.
+    // The PCM dimensions and owner/turn receipts remain identical.
+    await emit({ type: 'audio', chunk: scalePcm16(chunk, services.config.ttsVolume ?? 1) });
     pcmBytesTotal += chunk.byteLength;
     pcmChunksTotal += 1;
     metrics?.audioPcm(chunk.byteLength);

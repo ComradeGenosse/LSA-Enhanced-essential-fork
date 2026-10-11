@@ -173,6 +173,10 @@ export function normalizeConfig(input = {}, env = process.env) {
   const speechVoices = voiceInput.map(voice => explicitVoicePool ? voice.trim().toLowerCase() : voice.trim());
   if (speechVoices.some(voice => !voice || voice.length > 128 || (explicitVoicePool && !/^[a-z][a-z0-9_-]{0,31}$/.test(voice)))) throw new TypeError('speechVoices contains an invalid voice name.');
   if (new Set(speechVoices).size !== speechVoices.length) throw new TypeError('speechVoices cannot contain duplicates.');
+  // Post-synthesis gain shared by OpenAI and Qwen; 1.0 is bit-exact passthrough.
+  const ttsVolume = input.ttsVolume ?? 1;
+  if (typeof ttsVolume !== 'number' || !Number.isFinite(ttsVolume) || ttsVolume < 0 || ttsVolume > 2)
+    throw new TypeError('ttsVolume must be a number between 0 and 2.');
   const ttsSpeed = Number(speechProvider === 'faster-qwen3-tts' ? 1 : (input.ttsSpeed ?? 1));
   if (!Number.isFinite(ttsSpeed) || ttsSpeed < 0.25 || ttsSpeed > 4) throw new TypeError('ttsSpeed must be between 0.25 and 4.0.');
   const speechInstructionsSupported = speechProvider === 'faster-qwen3-tts' ||
@@ -225,7 +229,7 @@ export function normalizeConfig(input = {}, env = process.env) {
     activities: normalizeActivityConfig(input.activities),
     dialogueLogging: normalizeDialogueLoggingConfig(input.dialogueLogging, boundedInteger),
     reasoningModel, reasoningEffort, transcriptionModel, ttsModel, ttsVoice,
-    speechVoices: Object.freeze(speechVoices), speechVoiceProfiles, voiceAssignment, ttsSpeed, actingEnabled, speechInstructionsSupported,
+    speechVoices: Object.freeze(speechVoices), speechVoiceProfiles, voiceAssignment, ttsSpeed, ttsVolume, actingEnabled, speechInstructionsSupported,
     reasoningBaseUrl: baseUrl(input.reasoningBaseUrl ?? env.OPENAI_REASONING_BASE_URL, 'https://api.openai.com/v1', 'reasoningBaseUrl'),
     transcriptionBaseUrl: baseUrl(input.transcriptionBaseUrl ?? env.OPENAI_TRANSCRIPTION_BASE_URL, 'https://api.openai.com/v1', 'transcriptionBaseUrl'),
     ttsBaseUrl: baseUrl(input.ttsBaseUrl ?? env.OPENAI_TTS_BASE_URL, 'https://api.openai.com/v1', 'ttsBaseUrl'),
