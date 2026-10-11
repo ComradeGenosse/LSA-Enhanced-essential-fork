@@ -105,15 +105,32 @@ namespace LSA.Intelligence
         internal void SentSignal(string id,IEnumerable<string> witnessedObservers)
         {
             Trim();
-            if(!Uuid(id)||witnessedObservers==null||signals.Count>=MaxSignals)return;
+            if(!Uuid(id)||witnessedObservers==null)return;
             foreach(var observer in witnessedObservers.Distinct(StringComparer.Ordinal)) {
-                if(!Uuid(observer)||signals.Count>=MaxSignals)continue;
+                if(!Uuid(observer))continue;
                 string key=id+"|"+observer;
-                if(!signals.ContainsKey(key))signals.Add(key,new Signal {
+                if(signals.ContainsKey(key))continue;
+                // Capacity evicts the OLDEST record (earliest expiry) rather
+                // than ignoring the newest event. An evicted record can only
+                // make a later grant fail closed (signal_missing); a receipt
+                // is never fabricated or extended.
+                while(signals.Count>=MaxSignals) {
+                    string oldest=null;long oldestExpiry=long.MaxValue;
+                    foreach(var pair in signals) if(pair.Value.Expires<oldestExpiry) {oldestExpiry=pair.Value.Expires;oldest=pair.Key;}
+                    if(oldest==null)break;
+                    signals.Remove(oldest);
+                }
+                signals.Add(key,new Signal {
                     Id=id,Observer=observer,Host=host(),World=world(),
                     Expires=clock()+SignalLeaseMs
                 });
             }
+        }
+        // Diagnostic correlation only: the native signal behind a sealed grant.
+        internal string SignalIdFor(string ticketId)
+        {
+            Stored stored;
+            return ticketId!=null && grants.TryGetValue(ticketId,out stored) ? stored.Grant.SignalId : null;
         }
         internal bool Accept(Grant grant)
         {

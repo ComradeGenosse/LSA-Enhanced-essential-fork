@@ -1,5 +1,10 @@
 # October 11 radio and spontaneous-speech GTA regression gate
 
+> **Follow-up:** the October 11 logs have since been root-caused in
+> [perception-pipeline-investigation-20261011.md](perception-pipeline-investigation-20261011.md)
+> (PS2 replay-ledger saturation, by-name radio native failure, SDK build
+> mismatch). That document supersedes the acceptance steps below.
+
 This PR is based on the merged radio v2 `main`. It is a **diagnostic and
 safe-idle correction**, not a physical validation receipt or new response
 entitlement. Retain the existing native and companion opt-ins.

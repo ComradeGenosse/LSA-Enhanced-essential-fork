@@ -106,6 +106,47 @@ namespace LSA.Intelligence
         RadioProbeState radioProbe;
         string lastRadioFailure="";
         long nextRadioFailureLog;
+        // GTA Enhanced radio natives are bound by their universal native hash
+        // first: the pinned Essential RadioContextProvider reads station and
+        // audible text ID that way in the same RPH 1.132 runtime, while the
+        // RPH name table threw ArgumentException (HRESULT 0x80070057) for
+        // GET_CURRENT_TRACK_SOUND_NAME on every October 11 GTA sample, which
+        // aborted the read before the audible text ID. A route that fails
+        // three consecutive samples falls back hash -> name -> retired for the
+        // current world epoch. Only the station is required: a retired station
+        // stops radio sampling (no fabricated "off"); sound name, text ID and
+        // play time are optional facts and a retired one reads as 0/unknown.
+        // A transient (not yet retired) failure still aborts that sample, so
+        // an intermittent optional read cannot make the tuple flap.
+        internal sealed class RadioNativeRoute
+        {
+            internal readonly string Stage,Name;internal readonly ulong Hash;internal readonly bool Required;
+            internal string Route="hash";internal int Failures;
+            internal RadioNativeRoute(string stage,string name,ulong hash,bool required){Stage=stage;Name=name;Hash=hash;Required=required;}
+            internal void Reset(){Route="hash";Failures=0;}
+        }
+        internal readonly RadioNativeRoute radioStationNative=new RadioNativeRoute("station_name","GET_PLAYER_RADIO_STATION_NAME",0xF6D733C32076AD03UL,true);
+        internal readonly RadioNativeRoute radioSoundNative=new RadioNativeRoute("sound_name","GET_CURRENT_TRACK_SOUND_NAME",0x34D66BC058019CE0UL,false);
+        internal readonly RadioNativeRoute radioTextIdNative=new RadioNativeRoute("track_text_id","GET_AUDIBLE_MUSIC_TRACK_TEXT_ID",0x50B196FC9ED6545BUL,false);
+        internal readonly RadioNativeRoute radioPlayTimeNative=new RadioNativeRoute("play_time","GET_CURRENT_TRACK_PLAY_TIME",0xE9EA16D6E54CDCA4UL,false);
+        string radioFailureRoute="hash";
+        T RadioCall<T>(RadioNativeRoute native,Func<ulong,T> byHash,Func<string,T> byName,T retired)
+        {
+            if(native.Route=="unsupported") return retired;
+            radioFailureRoute=native.Route;
+            try {
+                var value=native.Route=="hash"?byHash(native.Hash):byName(native.Name);
+                native.Failures=0;return value;
+            } catch {
+                if(++native.Failures>=3) {
+                    native.Failures=0;native.Route=native.Route=="hash"?"name":"unsupported";
+                    LogStatus("[PS] radio_native_route native="+native.Stage+" route="+native.Route+" required="+(native.Required?"1":"0"));
+                }
+                throw;
+            }
+        }
+        void ResetRadioRoutes(){radioStationNative.Reset();radioSoundNative.Reset();radioTextIdNative.Reset();radioPlayTimeNative.Reset();}
+        string RadioRoutes()=>radioStationNative.Route+"/"+radioSoundNative.Route+"/"+radioTextIdNative.Route+"/"+radioPlayTimeNative.Route;
         int discoveryCursor,stateCursor,connectionVersion;
         long staleRejected,retiredAnchors,witnessDeferred,witnessUnknown,witnessRejected,radioWitnessed,radioWitnessUnknown;
         int lineOfSightBudget;
@@ -128,16 +169,49 @@ namespace LSA.Intelligence
         internal string RuntimeStatus()=>"available="+IsAvailable+" update_calls="+UpdateCalls+" update_completed="+CompletedUpdates+" last_update_age_ms="+Age(Interlocked.Read(ref lastUpdateMs))+" last_completed_age_ms="+Age(Interlocked.Read(ref lastCompletedMs))+" last_game_tick="+callbackTick+" shutdown_reason="+ShutdownReason;
         internal static void LogStatus(string message) {try{Game.LogTrivial(message);}catch{}}
         // Fixed diagnostic codes only. Never log any GTA entity or ticket ID.
-        void LogDirectorVeto(string stage,string reason)
+        // trace= is the one-way code of the original native event signal
+        // (TraceCode), never a ticket, Ped, observation or decision ID.
+        void LogDirectorVeto(string stage,string reason,string trace=null,string detail=null)
         {
-            if(directorShadow)LogStatus("[PS] director_admission_veto stage="+stage+" reason="+reason);
+            if(directorShadow)LogStatus("[PS] director_admission_veto stage="+stage+" reason="+reason+
+                (detail==null?"":" detail="+detail)+(trace==null?"":" trace="+trace));
         }
         // Fixed literals only. No ticket, Ped, context, character or freeform
         // exception text can reach the GTA diagnostic log.
-        void LogDirectorHandoff(string stage,string status,string reason)
+        void LogDirectorHandoff(string stage,string status,string reason,string trace=null)
         {
             if(directorShadow)LogStatus("[PS] director_handoff stage="+stage+
-                " status="+status+" reason="+reason);
+                " status="+status+" reason="+reason+(trace==null?"":" trace="+trace));
+        }
+        // One-way 40-bit correlation code, identical to the companion's
+        // traceCode(): GTA and companion logs join without any raw identifier.
+        internal static string TraceCode(string id)
+        {
+            if(string.IsNullOrEmpty(id) || id.Length>128) return "none";
+            using(var sha=SHA256.Create()) {
+                var bytes=sha.ComputeHash(System.Text.Encoding.UTF8.GetBytes("lsa-trace-v1:"+id));
+                var text=new System.Text.StringBuilder(10);
+                for(int i=0;i<5;i++) text.Append(bytes[i].ToString("x2"));
+                return text.ToString();
+            }
+        }
+        string TraceForTicket(string ticketId)
+        {
+            var signal=ps3Receipts.SignalIdFor(ticketId);
+            return signal==null?null:TraceCode(signal);
+        }
+        // Bounded per-event witness diagnostics: at most 8 owned-relevant and
+        // 4 other lines per 10 s; the remainder is only counted.
+        long eventTraceWindow=-1,eventTraceSuppressed,ownerStalls,ownerStallMaxMs;
+        int eventTraceOwned,eventTraceOther;
+        void EventTrace(RawSignal signal,int witnesses,long now)
+        {
+            if(eventTraceWindow<0 || now<eventTraceWindow || now-eventTraceWindow>=10000) {eventTraceWindow=now;eventTraceOwned=0;eventTraceOther=0;}
+            bool owned=signal.OwnedWitness=="witnessed" || signal.OwnedWitness=="self";
+            if(owned ? eventTraceOwned>=8 : eventTraceOther>=4) {eventTraceSuppressed=Math.Min(int.MaxValue,eventTraceSuppressed+1);return;}
+            if(owned) eventTraceOwned++; else eventTraceOther++;
+            LogStatus("[PS] event_trace kind="+signal.kind+" trace="+TraceCode(signal.signalId)+
+                " owned_witness="+(signal.OwnedWitness??"not_evaluated")+" witnesses="+witnesses);
         }
         static readonly string[] capabilityNames={"snapshot","pedDamage","playerDamage","vehicleDamage","shooting","state","action","playback","witness","awareness","playerSpeech"};
         public IntelligenceIntegration(Func<OwnedParticipant[]> roster,string pipeName="LSA.Intelligence.v1",HostContext host=null,bool directorShadow=false,bool directorExperimental=false,string radioMode="off",int directorAttemptsPerMinute=DirectorAdmission.NormalMaxAttempts) {
@@ -156,7 +230,14 @@ namespace LSA.Intelligence
                 bool occupied=stage=="bind" || stage=="playback_started" || stage=="complete";
                 bool safe=occupied ? DirectorC06Policy.CurrentOccupiedPlayback(r,snapshot) :
                     DirectorC06Policy.Safe(r,snapshot);
-                if(!safe)LogDirectorVeto(stage,DirectorC06Policy.FirstVeto(r,snapshot,stage));
+                if(!safe) {
+                    var veto=DirectorC06Policy.FirstVeto(r,snapshot,stage);
+                    // PS3 receipt detail only when it IS the first veto. Occupied
+                    // playback stages legitimately outlive the 2 s PS3 grant.
+                    var detail=veto=="original_ps3_receipt_missing"||veto=="original_ps3_grant_missing"
+                        ? ps3Receipts.LastCurrentFailure : null;
+                    LogDirectorVeto(stage,veto,TraceForTicket(r?.TicketId),detail);
+                }
                 return safe;
             },()=>this.host.HostRunId,()=>this.host.WorldEpoch,directorExperimental,
                 ()=>LosSantosAlive.Bridge.SpecialTurns.SpecialGeminiTurnService.ReadPlayerTurnVersion(),
@@ -173,7 +254,7 @@ namespace LSA.Intelligence
         }
         void WorldChanged(int epoch,string reason) {
             if(!IsAvailable) return;
-            director.Reset();ps3Receipts.Reset();originalTurns.Reset();lock(directorPlaybackGate) {directorPlaybackEvents.Clear();directorPlaybackOverflow=false;}sensors.Reset();radioProbe=null;nextRadio=0;lastRadioFailure="";nextRadioFailureLog=0;lock(rosterGate) {publishedAnchorStates.Clear();publishedObserverIndex.Clear();sampledSituations.Clear();}pendingRetirements.Clear();
+            director.Reset();ps3Receipts.Reset();originalTurns.Reset();lock(directorPlaybackGate) {directorPlaybackEvents.Clear();directorPlaybackOverflow=false;}sensors.Reset();radioProbe=null;nextRadio=0;lastRadioFailure="";nextRadioFailureLog=0;ResetRadioRoutes();lock(rosterGate) {publishedAnchorStates.Clear();publishedObserverIndex.Clear();sampledSituations.Clear();}pendingRetirements.Clear();
             conversationRef=null;promotedTurnObserverRef=null;discoverySnapshot=null;discoveryOwned=new OwnedParticipant[0];UpdateIndexes();
             // Ordered control fact invalidates all prior observer state. Losing
             // it closes the bounded channel; reconnect republishes current host.
@@ -307,7 +388,13 @@ namespace LSA.Intelligence
         {
             if(!IsAvailable) return;
             var budget=Stopwatch.StartNew();long now=host.MonotonicMs;
-            Count(ref updateCalls);Interlocked.Exchange(ref lastUpdateMs,now);
+            Count(ref updateCalls);long previousUpdate=Interlocked.Exchange(ref lastUpdateMs,now);
+            // Essential text entry / pause blocks this owner fiber; the
+            // companion pauses leases for such a bounded stall. One line each.
+            if(previousUpdate>=0 && now-previousUpdate>1500) {
+                ownerStalls=Math.Min(int.MaxValue,ownerStalls+1);ownerStallMaxMs=Math.Max(ownerStallMaxMs,Math.Min(int.MaxValue,now-previousUpdate));
+                LogStatus("[PS] owner_stall_resumed gap_ms="+Clamp(now-previousUpdate)+" count="+ownerStalls);
+            }
             try {
                 if(damageReady && damage==null) TryDamage();
                 if(!damageReady && damage!=null) {damage.Dispose();damage=null;}
@@ -429,7 +516,7 @@ namespace LSA.Intelligence
                     var damageCallbacks=sensors.DamageCallbacks;
                     var radio=new {samples=Clamp(sensors.RadioSamples),edges=Clamp(sensors.RadioEdges),nativeFailures=Clamp(sensors.RadioNativeFailures),witnessed=Clamp(radioWitnessed),witnessUnknown=Clamp(radioWitnessUnknown)};
                     channel.Send("diagnostics",new {anchors=anchors.Count,observers=anchors.ObserverCount,snapshotAgeMs=age,snapshotCadenceMs=Clamp(snapshotCadence),dropped=Clamp(sensors.Dropped+channel.Dropped),staleRejected=Clamp(staleRejected),retiredAnchors=Clamp(retiredAnchors),deferredDiscovery=Clamp(deferredDiscovery),updateMicros=Clamp((long)(budget.Elapsed.TotalMilliseconds*1000)),capabilities,signals,damageCallbacks,witnessDeferred=Clamp(witnessDeferred),witnessUnknown=Clamp(witnessUnknown),witnessRejected=Clamp(witnessRejected),playerSpeechGate="unsupported_capture_receipt",radio});
-                    if(now>=nextLog) {nextLog=now+10000;Game.LogTrivial("[PS] shadow anchors="+anchors.Count+" observers="+anchors.ObserverCount+" snapshot_age_ms="+age+" snapshot_cadence_ms="+Clamp(snapshotCadence)+" dropped="+Clamp(sensors.Dropped+channel.Dropped)+" stale="+Clamp(staleRejected)+" retired="+Clamp(retiredAnchors)+" deferred="+Clamp(deferredDiscovery)+" update_us="+Clamp((long)(budget.Elapsed.TotalMilliseconds*1000))+" capabilities="+string.Join(",",capabilities.Where(c=>c.Value).Select(c=>c.Key))+" damage_callbacks=ped:"+damageCallbacks["ped_damage"]+",player:"+damageCallbacks["player_damage"]+",vehicle:"+damageCallbacks["vehicle_damage"]+" radio="+radio.samples+":"+radio.edges+":"+radio.nativeFailures+" radio_witness="+radio.witnessed+":"+radio.witnessUnknown+" signals="+string.Join(",",signals.Select(c=>c.Key+":"+c.Value)));}
+                    if(now>=nextLog) {nextLog=now+10000;Game.LogTrivial("[PS] shadow anchors="+anchors.Count+" observers="+anchors.ObserverCount+" snapshot_age_ms="+age+" snapshot_cadence_ms="+Clamp(snapshotCadence)+" dropped="+Clamp(sensors.Dropped+channel.Dropped)+" stale="+Clamp(staleRejected)+" retired="+Clamp(retiredAnchors)+" deferred="+Clamp(deferredDiscovery)+" update_us="+Clamp((long)(budget.Elapsed.TotalMilliseconds*1000))+" capabilities="+string.Join(",",capabilities.Where(c=>c.Value).Select(c=>c.Key))+" damage_callbacks=ped:"+damageCallbacks["ped_damage"]+",player:"+damageCallbacks["player_damage"]+",vehicle:"+damageCallbacks["vehicle_damage"]+" radio="+radio.samples+":"+radio.edges+":"+radio.nativeFailures+" radio_routes="+RadioRoutes()+" radio_witness="+radio.witnessed+":"+radio.witnessUnknown+" event_trace_suppressed="+Clamp(eventTraceSuppressed)+" owner_stalls="+Clamp(ownerStalls)+":"+Clamp(ownerStallMaxMs)+" signals="+string.Join(",",signals.Select(c=>c.Key+":"+c.Value)));}
                 }
                 Count(ref completedUpdates);Interlocked.Exchange(ref lastCompletedMs,host.MonotonicMs);
             } catch {LogStatus("[PS] optional_update_failed");Shutdown("update_failed");}
@@ -553,9 +640,9 @@ namespace LSA.Intelligence
                 // Original native P2/source-signal evidence and independently
                 // received authenticated companion PS3 receipt must match.
                 // Only original fields from this sealed receipt populate C06.
+                // A missing receipt is reported by the caller only when it is
+                // the actual first veto for the evaluated stage (see admission).
                 var original=ps3Receipts.OriginalFor(r);
-                if(original==null)
-                    LogDirectorVeto("ps3_current",ps3Receipts.LastCurrentFailure??"grant_unknown");
                 if(original!=null) {
                     proof.ObservationId=original.ObservationId;
                     proof.ObservationRevision=original.ObservationRevision;
@@ -637,7 +724,8 @@ namespace LSA.Intelligence
             bool submitted=stockScheduler.Dispatch(input.TicketId,input.Context,
                 ReadDirectorC06(original),speaker,player);
             LogDirectorHandoff("native_intake",submitted?"accepted":"rejected",
-                submitted?"scheduler_submission_accepted":"scheduler_submission_denied");
+                submitted?"scheduler_submission_accepted":"scheduler_submission_denied",
+                TraceForTicket(input.TicketId));
             if(!submitted)originalTurns.Retire(input.TicketId);
             return submitted;
         }
@@ -677,7 +765,7 @@ namespace LSA.Intelligence
             bool bound=director.BindActualTuple(frame.TicketId,frame.PedId,
                 frame.TurnId,frame.GenerationId,frame.SessionNonce);
             LogDirectorHandoff("native_binding",bound?"accepted":"rejected",
-                bound?"original_tuple_bound":"original_tuple_denied");
+                bound?"original_tuple_bound":"original_tuple_denied",TraceForTicket(frame.TicketId));
             // Binding consumes the sealed pre-turn source identity. Subsequent
             // playback checks use the immutable native admission reservation.
             originalTurns.Retire(frame.TicketId);
@@ -722,7 +810,8 @@ namespace LSA.Intelligence
                     // frame. Issue/challenge and native original source signal
                     // validation are independent of the request vocabulary.
                     if(!ps3Receipts.Accept(sourceGrant))
-                        LogDirectorVeto("ps3_accept",ps3Receipts.LastAcceptFailure??"grant_unknown");
+                        LogDirectorVeto("ps3_accept",ps3Receipts.LastAcceptFailure??"grant_unknown",
+                            TraceCode(sourceGrant.SignalId));
                     continue;
                 }
                 if(!DirectorFrameCodec.TryDecode(frame,out var request))continue;
@@ -763,19 +852,20 @@ namespace LSA.Intelligence
                 error is MissingMethodException ? "missing_method" :
                 error is ArgumentException ? "bad_argument" :
                 error is NotSupportedException ? "unsupported" : "other";
-            string signature=stage+":"+type;
+            string signature=stage+":"+type+":"+radioFailureRoute;
             if(signature==lastRadioFailure && now<nextRadioFailureLog)return;
             lastRadioFailure=signature;
             nextRadioFailureLog=now+10000;
             LogStatus("[PS] radio_read_failure stage="+stage+" type="+type+
+                " route="+radioFailureRoute+
                 " count="+Clamp(sensors.RadioNativeFailures)+
                 " hresult="+unchecked((uint)error.HResult).ToString("X8"));
         }
         void SampleRadio(uint tick,long now)
         {
-            if(!radioEnabled) return;
+            if(!radioEnabled || radioStationNative.Route=="unsupported") return;
             sensors.NoteRadioSample();
-            string stage="player";
+            string stage="player";radioFailureRoute="none";
             try {
                 var player=Game.LocalPlayer.Character;
                 if(player==null || !player.Exists()) { CommitRadio(RadioOff(),tick,now); return; }
@@ -791,31 +881,47 @@ namespace LSA.Intelligence
         {
             var reading=new RadioProbeState {Vehicle=vehicleRef,InVehicle=true,Station="",RejectedClasses=""};
             stage="station_name";
-            string raw=NativeFunction.CallByName<string>("GET_PLAYER_RADIO_STATION_NAME");
+            // RPH 1.124's generic CallByName/CallByHash require a value type;
+            // reference returns use the SDK's non-generic Type overloads.
+            string raw=RadioCall(radioStationNative,
+                hash=>NativeFunction.CallByHash(hash,typeof(string)) as string,
+                name=>NativeFunction.CallByName(name,typeof(string)) as string,null);
             if(!SensorAdapters.ValidRadioStation(raw)) {
                 if(!string.IsNullOrEmpty(raw)) { reading.Rejected=true; reading.RejectedLength=raw.Length; reading.RejectedClasses=SensorAdapters.RadioStationClasses(raw); }
                 return reading;
             }
             reading.Station=raw;
             stage="sound_name";
-            reading.SoundHash=unchecked((uint)NativeFunction.CallByName<int>("GET_CURRENT_TRACK_SOUND_NAME",raw));
+            reading.SoundHash=unchecked((uint)RadioCall(radioSoundNative,
+                hash=>NativeFunction.CallByHash<int>(hash,raw),
+                name=>NativeFunction.CallByName<int>(name,raw),0));
             stage="track_text_id";
-            reading.TrackTextId=NativeFunction.CallByName<int>("GET_AUDIBLE_MUSIC_TRACK_TEXT_ID");
+            reading.TrackTextId=RadioCall(radioTextIdNative,
+                hash=>NativeFunction.CallByHash<int>(hash),
+                name=>NativeFunction.CallByName<int>(name),0);
             stage="commit";
             return reading;
         }
         void CommitRadio(RadioProbeState reading,uint tick,long now)
         {
-            sensors.Radio(reading.Vehicle,reading.Station,reading.SoundHash,reading.TrackTextId,tick,now);
+            var edge=sensors.Radio(reading.Vehicle,reading.Station,reading.SoundHash,reading.TrackTextId,tick,now);
             if(radioProbe!=null && radioProbe.Same(reading)) return;
             if(reading.Station.Length>0) {
-                try { int play=NativeFunction.CallByName<int>("GET_CURRENT_TRACK_PLAY_TIME",reading.Station); reading.PlayMs=play<0?-1:play; }
+                // Diagnostic only; a failed play-time read never invalidates a sampled track.
+                try { int play=RadioCall(radioPlayTimeNative,
+                        hash=>NativeFunction.CallByHash<int>(hash,reading.Station),
+                        name=>NativeFunction.CallByName<int>(name,reading.Station),-1);
+                      reading.PlayMs=play<0?-1:play; }
                 catch(Exception error) { reading.PlayMs=-1; RadioFailure("play_time",error,now); }
             }
             radioProbe=reading;
             string line="[RADIO_PROBE] vehicle="+(reading.InVehicle?"1":"0")+" station="+reading.Station+" sound="+reading.SoundHash.ToString("X8")+" text_id="+reading.TrackTextId+" play_ms="+reading.PlayMs;
             if(reading.Rejected) line+=" rejected=station_grammar len="+Math.Min(Math.Max(reading.RejectedLength,0),9999)+" classes="+reading.RejectedClasses;
             else if(reading.InVehicle && reading.Station.Length==0) line+=" state=blank_station";
+            // Native binding route per read (station/sound/text/playtime) and the
+            // one-way trace code that joins this edge to companion radio_trace.
+            line+=" routes="+RadioRoutes();
+            if(edge!=null) line+=" trace="+TraceCode(edge.signalId);
             try { Game.LogTrivial(line); } catch {}
         }
         List<WitnessReceipt> CaptureWitnesses(RawSignal signal)
@@ -841,6 +947,15 @@ namespace LSA.Intelligence
             string participantRef=kind=="firing"?signal.source:signal.target;
             var participant=anchors.Resolve(participantRef);
             if(participant==null||!(participant.Entity is Ped subject)) return result;
+            // Diagnostic-only: the best outcome for P2-owned observers, so the
+            // GTA log distinguishes "Nathan never witnessed it" from later loss.
+            string ownedOutcome=participant.OwnerLifetime!=null?"self":null;
+            void NoteOwned(EntityAnchor candidate,string outcome)
+            {
+                if(candidate?.OwnerLifetime==null || ownedOutcome=="witnessed" || ownedOutcome=="self") return;
+                if(outcome=="witnessed" || ownedOutcome==null) ownedOutcome=outcome;
+            }
+            bool anyOwned=participant.OwnerLifetime!=null;
             // Give the finite native LOS budget to actual P2-owned companions first.
             // Equal-priority observers are nearest-first with a stable private
             // tie-breaker. This does not broaden witness geometry or invent proof.
@@ -848,10 +963,11 @@ namespace LSA.Intelligence
                 .OrderByDescending(a=>a.OwnerLifetime!=null)
                 .ThenBy(a=>a.Entity is Ped p ? p.Position.DistanceTo(subject.Position) : float.MaxValue)
                 .ThenBy(a=>a.CaptureRef,StringComparer.Ordinal)) {
-                if(!(observer.Entity is Ped witness) || witness.Position.DistanceTo(subject.Position)>WitnessPolicy.VisualRange(kind)) continue;
-                if(lineOfSightBudget<=0) {witnessDeferred=Math.Min(int.MaxValue,witnessDeferred+1);continue;}
+                anyOwned|=observer.OwnerLifetime!=null;
+                if(!(observer.Entity is Ped witness) || witness.Position.DistanceTo(subject.Position)>WitnessPolicy.VisualRange(kind)) {NoteOwned(observer,"out_of_range");continue;}
+                if(lineOfSightBudget<=0) {witnessDeferred=Math.Min(int.MaxValue,witnessDeferred+1);NoteOwned(observer,"los_budget");continue;}
                 var live=anchors.Resolve(observer.CaptureRef);
-                if(live==null||!ReferenceEquals(live.Entity,witness)) continue;
+                if(live==null||!ReferenceEquals(live.Entity,witness)) {NoteOwned(observer,"not_live");continue;}
                 lineOfSightBudget--;
                 try {
                     var distance=witness.Position.DistanceTo(subject.Position);
@@ -882,8 +998,10 @@ namespace LSA.Intelligence
                         SourceVehicle=openAcoustics?"open":"unknown",
                         ObserverVehicle=openAcoustics?"open":"unknown"});
                     if(receipt.Status=="witnessed") result.Add(receipt);else if(receipt.Status=="unknown") witnessUnknown=Math.Min(int.MaxValue,witnessUnknown+1);else witnessRejected=Math.Min(int.MaxValue,witnessRejected+1);
-                } catch { witnessUnknown=Math.Min(int.MaxValue,witnessUnknown+1); }
+                    NoteOwned(observer,receipt.Status=="witnessed"?"witnessed":receipt.Reason??receipt.Status);
+                } catch { witnessUnknown=Math.Min(int.MaxValue,witnessUnknown+1);NoteOwned(observer,"read_failed"); }
             }
+            signal.OwnedWitness=ownedOutcome??(anyOwned?"not_evaluated":"no_owned_observer");
             return result;
         }
         object SamplePrimaryOwner(EntityAnchor anchor) {try{return Association(anchor)?.PrimaryOwner?.Invoke();}catch{return null;}}
@@ -962,7 +1080,13 @@ namespace LSA.Intelligence
                     var actor=reference==null?null:anchors.Resolve(reference);
                     if(actor?.Observer==true && actor.Kind=="ped")nativeWitnesses.Add(reference);
                 }
-                ps3Receipts.SentSignal(signal.signalId,nativeWitnesses);
+                // Only a P2-owned speaker can ever redeem a PS3 receipt (native
+                // challenges are issued to owned observers only). Recording
+                // ambient observers filled the bounded table in busy scenes.
+                ps3Receipts.SentSignal(signal.signalId,nativeWitnesses.Where(reference=>anchors.Resolve(reference)?.OwnerLifetime!=null));
+                if(signal.kind=="firing" || signal.kind=="death" ||
+                   signal.kind=="injury_state" && signal.facts.TryGetValue("injured",out var injured) && injured is bool hurt && hurt)
+                    EventTrace(signal,witnessReceipts.Length,now);
             }
         }
         void Lifecycle(string kind,string pedId,object entity,bool interrupted,bool hadAudio)

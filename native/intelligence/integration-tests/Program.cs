@@ -65,7 +65,7 @@ class Program
                     var opened=ReadUntil(reader,"\"type\":\"diagnostics\"");
                     Check(opened.All(line=>!line.Contains("\"producer\":\"radio\"")),"first v2 radio sample establishes baseline only");
                     Check(opened.Last().Contains("\"radio\":{\"samples\":1,\"edges\":0,\"nativeFailures\":0,\"witnessed\":0,\"witnessUnknown\":0}"),"diagnostics expose bounded radio counters");
-                    Check(Game.Logs.Skip(logStart).Any(line=>line=="[RADIO_PROBE] vehicle=1 station=RADIO_01_CLASS_ROCK sound=00000001 text_id=1004 play_ms=42113"),"probe logs sound hash and text ID");
+                    Check(Game.Logs.Skip(logStart).Any(line=>line.StartsWith("[RADIO_PROBE] vehicle=1 station=RADIO_01_CLASS_ROCK sound=00000001 text_id=1004 play_ms=42113 routes=hash/hash/hash/hash")),"probe logs sound hash, text ID and hash-first native routes");
 
                     Set(integration,"nextDiagnostics",long.MaxValue);Set(integration,"nextDiscovery",long.MaxValue);Set(integration,"nextState",long.MaxValue);Set(integration,"nextShot",long.MaxValue);Set(integration,"nextRefresh",long.MaxValue);
                     int plays=Rage.Native.NativeFunction.RadioPlayReads;Rage.Native.NativeFunction.RadioPlayTime=99999;Set(integration,"nextRadio",0L);Game.GameTime+=50;integration.Update();

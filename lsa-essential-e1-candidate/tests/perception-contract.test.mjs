@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { CAPABILITIES, normalizePerceptionConfig,validateFrame,validateSignal,validateObservation } from '../src/perception/contracts.mjs';
-import { ShadowRuntime } from '../src/perception/shadowRuntime.mjs';
+import { ShadowRuntime, OWNER_STALL_BOUNDS } from '../src/perception/shadowRuntime.mjs';
 import { ObservationStore } from '../src/perception/observationStore.mjs';
 import { verifyPerceptionContract } from '../tools/verifyPerceptionContract.mjs';
 import { perceptionContractSupported } from '../src/perception/nativeSupport.mjs';
@@ -86,7 +86,10 @@ test('retirement purges old lifetime facts; same handle replacement cannot use o
   const replacement=randomUUID();f.ingest(f.frame('anchors',[{captureRef:replacement,kind:'ped',observer:true}]));assert.equal(f.ingest(f.frame('signal',f.signal())),false);assert.equal(f.runtime.current(replacement),true);
 });
 test('expiry and stalled native validation cannot revive anchors from queued frames',()=>{
-  const f=fixture();f.advance(3001);f.runtime.expire();assert.equal(f.runtime.anchors.size,0);assert.equal(f.runtime.epoch,null);
+  // A bounded owner-fiber stall pauses leases; it neither expires nor renews.
+  const f=fixture();f.advance(3001);f.runtime.expire();assert.equal(f.runtime.epoch!==null,true);assert.equal(f.runtime.current(f.ped),true);assert.equal(f.runtime.stalled(),true);
+  // Silence past the bound tears the stream down; queued frames cannot revive it.
+  f.advance(OWNER_STALL_BOUNDS.resetMs);f.runtime.expire();assert.equal(f.runtime.anchors.size,0);assert.equal(f.runtime.epoch,null);
   assert.equal(f.ingest(f.frame('signal',f.signal())),false);
 });
 test('history expiry is diagnostic ageing, not an expired input or semantic drop',()=>{

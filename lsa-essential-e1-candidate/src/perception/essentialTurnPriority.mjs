@@ -70,7 +70,15 @@ export class OriginalEssentialTurnTimeline {
     this.maxRevision=maxRevision;
   }
   #retireLease() {
-    if(this.#lease)this.#retiredTickets.add(this.#lease.ticketId);
+    if(this.#lease) {
+      // Ticket IDs are single-use random UUIDs with a <=2 s lease. Remember
+      // the most recent 512 to reject replays; evict the oldest instead of
+      // permanently refusing every Director lease after 512 attempts.
+      this.#retiredTickets.delete(this.#lease.ticketId);
+      this.#retiredTickets.add(this.#lease.ticketId);
+      while(this.#retiredTickets.size>512)
+        this.#retiredTickets.delete(this.#retiredTickets.values().next().value);
+    }
     this.#lease=null;
     this.#director=null;
   }
@@ -176,7 +184,7 @@ export class OriginalEssentialTurnTimeline {
     if(typeof ticketId!=='string' || !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(ticketId) ||
        !Number.isFinite(now) || leaseMs<1 || leaseMs>2000 ||
        !Number.isSafeInteger(leaseMs) || this.#invalid ||
-       this.#retiredTickets.has(ticketId) || this.#retiredTickets.size>=512 ||
+       this.#retiredTickets.has(ticketId) ||
        !snapshot || snapshot.sourceRun!==this.sourceRun ||
        snapshot.revision!==this.#revision || !snapshot.quiet ||
        snapshot.grantsNativeAdmission!==false || this.#dirty ||

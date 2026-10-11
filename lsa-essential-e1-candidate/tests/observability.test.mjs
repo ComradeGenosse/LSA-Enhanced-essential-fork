@@ -76,6 +76,13 @@ test('intelligence telemetry keeps only bounded lifecycle and PS2/PS3 scalar dia
     ps3ReasonSafetySelfDanger: 37, ps3ReasonSafetyPlayerHarm: 38, ps3ReasonSafetyNearbyThreat: 39,
     ps3ReasonRepetitionSuppressed: 40, ps3ReasonRevisionStale: 41, ps3ReasonNoveltyEscalation: 42, ps3ReasonSuppressionCapacity: 43,
     radioUnknownTextIds: 0, radioCatalogMismatches: 0,
+    ps2OwnedWitnessed: 0, ps2DedupeEvicted: 0, ps2DropInvalidInput: 0, ps2DropRadioIdentityMismatch: 0, ps2DropUnsupportedEvent: 0,
+    ps2DropEpisodeClaimCapacity: 0, ps2DropEpisodeRejected: 0, ps2DropObservationClaimCapacity: 0, ps2DropObservationRejected: 0,
+    ps3OwnedDecisions: 0, ps3OwnedEligible: 0, ps3OwnedUrgent: 0,
+    radioChanged: 0, radioStopped: 0, radioKnown: 0, radioUnknown: 0, radioMismatch: 0, radioOff: 0, radioObservations: 0, radioOwnedObservations: 0,
+    nativeRadioSamples: 0, nativeRadioEdges: 0, nativeRadioFailures: 0, nativeRadioWitnessed: 0, nativeRadioWitnessUnknown: 0,
+    nativeWitnessDeferred: 0, nativeWitnessUnknown: 0, nativeWitnessRejected: 0,
+    ownerStalls: 0, ownerStallMaxMs: 0, traceEmitted: 0, traceSuppressed: 0,
     finalSnapshot: true,
   });
   const row = createTelemetryRecord({ sequence: 1, runId: 'test', originMs: 0, event: 'companion_shadow', provider: 'internal', data: { ...projection, text: 'PRIVATE', profile: 'PRIVATE' }, now: 1 });
