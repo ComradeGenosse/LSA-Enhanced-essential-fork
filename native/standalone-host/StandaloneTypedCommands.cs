@@ -163,7 +163,10 @@ namespace LSA.Standalone.RageHost
                     out probeReason))
                     Game.Console.Print("LSA standalone: " + probeReason + ".");
                 else
+                {
                     Game.Console.Print("LSA standalone: probe_started; keep NPC in view, then run LSAStandaloneStatus.");
+                    Game.LogTrivial("[LSA-ACTOR] probe_started " + resolver.DiagnosticState);
+                }
             }
             string probeEvent = resolver.TickProbe();
             if (probeEvent != null)
@@ -238,6 +241,8 @@ namespace LSA.Standalone.RageHost
                 return;
             }
             Game.Console.Print("LSA standalone: typed turn offered to Luna; see companion and listen for output.");
+            Game.LogTrivial("[LSA-ACTOR] native_typed_offer actor_handle=" + handle +
+                " turn_ordinal=" + permit.TurnOrdinal + " result=offered");
         }
 
         private static Ped NearestPedAhead()
