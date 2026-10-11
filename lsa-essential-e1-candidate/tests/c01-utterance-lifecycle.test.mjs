@@ -65,6 +65,20 @@ test('C-01 host changes and legacy hello do not inherit recordings',()=>{
   assert.equal(legacy.utterances.entries.size,0);
 });
 
+test('C-01 typed player turns carry the exact Essential tuple with zero acoustic observers',()=>{
+  const {runtime}=setup();
+  const turn={pedId:'abc123',sessionNonce:4,turnId:'turn-7',generationId:2};
+  assert.equal(runtime.utterances.recordTyped(turn,runtime.hostContext),true);
+  const record=[...runtime.utterances.entries.values()][0];
+  assert.equal(record.started.inputSource,'typed');
+  assert.equal(record.started.durationMs,0);
+  assert.equal(record.started.acousticObservers,0);
+  assert.deepEqual(record.started.identity,turn);
+  assert.equal(runtime.utterances.diagnostics.typed,1);
+  assert.equal(runtime.transcripts.entries.size,0);
+  assert.equal(runtime.observations.entries.size,0);
+});
+
 test('C-01 ledger applies finite capacity and timeout, never invents missing start',()=>{
   let now=0;const ledger=new UtteranceLifecycle({now:()=>now});
   const host={hostRunId:randomUUID(),worldEpoch:1},id=randomUUID();
