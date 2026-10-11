@@ -50,7 +50,7 @@ function correctionRows(db,scope,forgotten){
       characterId:scope.characterId,worldProfileId:scope.worldProfileId,timelineId:scope.timelineId,
       content:'Player correction (reported): '+c.content,mode:'reported_claim',sourceEvidenceIds:[c.target]};
     overlays.push({...scope,recordId:c.id,sourceKind:'permanent_memory',atUtc:c.atUtc,
-      evidenceState:'verified',envelope});
+      isCorrectionOverlay:true,evidenceState:'verified',envelope});
   }
   return {corrected,overlays};
 }
@@ -93,7 +93,15 @@ export function readIntegratedRecall(db,{scope,terms=[],fromUtc=null,toUtc=null,
   if((!sourceKind||sourceKind==='journal_event')&&scope.protagonistKey==='unknown'){
     const {clause,args}=sourceFilters(scope,{fromUtc,toUtc}),where=clause.replaceAll('TIME_COLUMN','received_at_utc');
     const cols='SELECT e.record_id AS recordId,e.received_at_utc AS atUtc,e.envelope_json AS raw,e.envelope_sha256 AS rawHash,s.source_evidence_json AS evidence,s.source_evidence_sha256 AS evidenceHash';
-    const rows=all(db,cols+' FROM event_journal e JOIN event_source_evidence s ON s.record_id=e.record_id WHERE '+where.replaceAll(/\b(world_profile_id|character_id|timeline_id|received_at_utc)\b/g,'e.$1')+' ORDER BY e.received_at_utc DESC,e.rowid DESC',args,limit);
+    const scoped=where.replaceAll(/\b(world_profile_id|character_id|timeline_id|received_at_utc)\b/g,'e.$1');
+    const base=cols+' FROM event_journal e JOIN event_source_evidence s ON s.record_id=e.record_id WHERE '+scoped;
+    const rows=[];
+    if(tokens.length){
+      const filtered=tokens.slice(0,6);
+      rows.push(...all(db,base+' AND ('+filtered.map(()=> 'e.event_type LIKE ?').join(' OR ')+') ORDER BY e.received_at_utc DESC,e.rowid DESC',
+        [...args,...filtered.map(t=>'%'+t+'%')],Math.min(128,Math.floor(limit/3))));
+    }
+    rows.push(...all(db,base+' ORDER BY e.received_at_utc DESC,e.rowid DESC',args,limit-Math.min(128,Math.floor(limit/3))));
     for(const r of rows){
       const e=verifyEnvelope(r.raw,r.rawHash),proof=verifyEnvelope(r.evidence,r.evidenceHash);
       if(e.recordId!==r.recordId||proof.sourceHash!==e.sourceHash||
@@ -105,12 +113,12 @@ export function readIntegratedRecall(db,{scope,terms=[],fromUtc=null,toUtc=null,
         evidenceState:'verified',envelope:e});
     }
   }
-  if(!sourceKind||sourceKind==='permanent_memory'){
+  if(!sourceKind||sourceKind==='permanent_memory'||sourceKind==='dialogue_line'){
     const {clause,args}=sourceFilters(scope,{fromUtc,toUtc});
     let where=clause.replaceAll('TIME_COLUMN','created_at_utc')+' AND protagonist_key=?';
     const values=[...args,scope.protagonistKey];
     const sql='SELECT memory_id AS recordId,content,content_sha256 AS digest,mode,created_at_utc AS atUtc,evidence_ids_json AS evidence FROM memory_records WHERE '+where;
-    const rows=all(db,sql+' ORDER BY created_at_utc DESC, memory_id DESC',values,Math.min(limit,384));
+    const rows=sourceKind==='dialogue_line'?[]:all(db,sql+' ORDER BY created_at_utc DESC, memory_id DESC',values,Math.min(limit,384));
     for(const r of rows){
       if(!uuid.test(r.recordId)||sha(r.content)!==r.digest)throw new Error('m4_corrupt_memory');
       const evidence=parse(r.evidence);
