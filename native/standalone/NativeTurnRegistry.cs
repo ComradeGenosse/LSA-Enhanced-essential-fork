@@ -23,6 +23,9 @@ namespace LSA.Standalone
         public readonly string Generation;
         public readonly string PlayerText; // null unless source is native player_text
         public string StagedReply { get; private set; } // NOT playback/history confirmation
+        internal readonly List<string> SpeechSegments = new List<string>();
+        internal int SpeechChars;
+        internal bool SpeechFinal;
         internal readonly OwnershipLease Lease;
         internal bool Confirmed;
         internal bool Retired;
@@ -45,7 +48,7 @@ namespace LSA.Standalone
 
         internal bool StageReply(string text)
         {
-            if (!Confirmed || Retired || StagedReply != null) return false;
+            if (!Confirmed || Retired || StagedReply != null || SpeechSegments.Count != 0) return false;
             StagedReply = text; // prevalidated; no game effect here
             return true;
         }
@@ -153,7 +156,8 @@ namespace LSA.Standalone
             int discarded = 0;
             foreach (NativeTurnPermit permit in new List<NativeTurnPermit>(live.Values))
             {
-                if (permit.StagedReply != null && permit.Lease.Actor.Equals(actor))
+                if ((permit.StagedReply != null || permit.SpeechSegments.Count > 0) &&
+                    permit.Lease.Actor.Equals(actor))
                 {
                     Retire(permit);
                     discarded++;
@@ -248,6 +252,54 @@ namespace LSA.Standalone
             return true;
         }
 
+        // Phase 4 S2: native-owned, ordered speech segment ledger.
+        // Every segment is fenced to the original confirmed native lease;
+        // none claims history or physical playback.
+        public const int MaxSpeechSegments = 12;
+        public bool TryStageSpeechSegment(string turnId, string leaseId, string generation,
+            string actorIncarnationId, int segmentIndex, string text, out string reason)
+        {
+            reason = "invalid_speech_segment";
+            if (!ValidText(text, 500)) return false;
+            reason = "stale_turn";
+            if (!IsCurrent(turnId, leaseId, generation, actorIncarnationId)) return false;
+            var permit = live[Guid.Parse(turnId)];
+            reason = "speech_mode_conflict";
+            if (permit.StagedReply != null || permit.SpeechFinal) return false;
+            reason = "segment_out_of_order";
+            if (segmentIndex != permit.SpeechSegments.Count) return false;
+            reason = "segment_capacity";
+            if (permit.SpeechSegments.Count >= MaxSpeechSegments ||
+                permit.SpeechChars > 2048 - text.Length) return false;
+            permit.SpeechSegments.Add(text);
+            permit.SpeechChars += text.Length;
+            reason = "segment_staged_not_played";
+            return true;
+        }
+
+        public bool TryFinishSpeechSegments(string turnId, string leaseId, string generation,
+            string actorIncarnationId, int segmentCount, out string reason)
+        {
+            reason = "stale_turn";
+            if (!IsCurrent(turnId, leaseId, generation, actorIncarnationId)) return false;
+            var permit = live[Guid.Parse(turnId)];
+            reason = "invalid_segment_final";
+            if (permit.StagedReply != null || permit.SpeechFinal ||
+                segmentCount < 1 || segmentCount != permit.SpeechSegments.Count)
+                return false;
+            permit.SpeechFinal = true;
+            reason = "segments_final_not_played";
+            return true;
+        }
+
+        public bool IsSpeechSegmentCurrent(NativeTurnPermit permit, int index)
+        {
+            return permit != null && permit.StagedReply == null &&
+                index >= 0 && index < permit.SpeechSegments.Count &&
+                IsCurrent(permit.TurnId.ToString("D"), permit.LeaseId.ToString("D"),
+                    permit.Generation, permit.ActorIncarnationId.ToString("D"));
+        }
+
         // Audio can only be opened for text already staged under this
         // exact native turn and still-current physical actor.
         public bool TryGetStagedPermit(string turnId, string leaseId,
@@ -257,14 +309,15 @@ namespace LSA.Standalone
             if (!IsCurrent(turnId, leaseId, generation, actorIncarnationId))
                 return false;
             var candidate = live[Guid.Parse(turnId)];
-            if (candidate.StagedReply == null) return false;
+            if (candidate.StagedReply == null && candidate.SpeechSegments.Count == 0) return false;
             permit = candidate;
             return true;
         }
 
         public bool IsStagedPermitCurrent(NativeTurnPermit permit)
         {
-            return permit != null && permit.StagedReply != null &&
+            return permit != null && (permit.StagedReply != null ||
+                permit.SpeechSegments.Count > 0) &&
                 IsCurrent(permit.TurnId.ToString("D"),
                     permit.LeaseId.ToString("D"), permit.Generation,
                     permit.ActorIncarnationId.ToString("D"));
