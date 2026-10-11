@@ -8,9 +8,8 @@ const EVENTS=new Set(['vehicle_crash','vehicle_rollover','airborne_stunt',
   'vehicle_entered_water','vehicle_submerged','wanted_level_changed',
   'wasted','busted']);
 const valid=c=>c?.kind==='m9_candidate' && isUuid(c.eventId) &&
-  EVENTS.has(c.eventType) && isUuid(c.nativeEvidenceId)===false &&
-  typeof c.nativeEvidenceId==='string' && c.nativeEvidenceId.length>0 &&
-  c.nativeEvidenceId.length<=80 && isUuid(c.nativeRun) &&
+  EVENTS.has(c.eventType) && typeof c.nativeEvidenceId==='string' && c.nativeEvidenceId.length>0 &&
+  c.nativeEvidenceId.length<=80 && /^[a-zA-Z0-9:_-]+$/.test(c.nativeEvidenceId) && isUuid(c.nativeRun) &&
   isUuid(c.hostRunId) && isUuid(c.playerCaptureRef) &&
   (c.participantCaptureRef===null || isUuid(c.participantCaptureRef)) &&
   Number.isSafeInteger(c.worldEpoch) && c.worldEpoch>=0 &&
