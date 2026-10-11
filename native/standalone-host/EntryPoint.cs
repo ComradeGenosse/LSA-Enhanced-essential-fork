@@ -37,6 +37,7 @@ namespace LSA.Standalone.RageHost
             NativeAuthority authority = null;
             NativeTurnRegistry turns = null;
             NativeAudioRegistry audio = null;
+            WaveOutSpatialOutput physicalAudio = null;
             try
             {
                 stopping = false;
@@ -66,7 +67,16 @@ namespace LSA.Standalone.RageHost
                     authority = new NativeAuthority(new MonotonicClock(), new RageWorld(),
                         resolver, scope);
                     turns = new NativeTurnRegistry(authority);
-                    audio = new NativeAudioRegistry(authority, turns);
+                    // Explicitly opt in to an independent Windows output device;
+                    // default remains null/safe, with zero audio side effects.
+                    if (string.Equals(Environment.GetEnvironmentVariable(
+                        "LSA_STANDALONE_AUDIO_OUTPUT"), "waveout_experimental",
+                        StringComparison.Ordinal))
+                    {
+                        var spatial = new RageSpatialAudioSource(scope, resolver);
+                        physicalAudio = new WaveOutSpatialOutput(authority, scope, spatial.Sample);
+                    }
+                    audio = new NativeAudioRegistry(authority, turns, physicalAudio);
                 }
                 finally { scope.Exit(); }
 
@@ -86,7 +96,7 @@ namespace LSA.Standalone.RageHost
                         previousGameTick = currentGameTick;
                         authority.Reconcile();
                         server.DrainOwnerRequests(authority, turns, audio, 8);
-                        audio.DrainOnOwner(4); // no backend in GTA until device accepted
+                        audio.DrainOnOwner(4); // only opt-in WaveOut can accept device bytes
                         StandaloneTypedCommands.Pump(scope, resolver, authority, turns, server);
                     }
                     finally { scope.Exit(); }
@@ -113,6 +123,7 @@ namespace LSA.Standalone.RageHost
                         {
                             StandaloneTypedCommands.StopOnOwner(scope);
                             audio?.RetireAll();
+                            physicalAudio?.Dispose();
                             turns?.RetireAll();
                             authority.Stop();
                         }
