@@ -119,8 +119,10 @@ test('EA4 uses exact promoted owner and current native proof, never another char
   const f=fixture(),first=f.makeTurn(),next=f.makeTurn(5),foreign=f.makeTurn(5,R);
   assert.equal(f.mood.onSpeechCompleted({...first,delivery,
     receipt:receipt(first.identity)}),true);
-  assert.equal(f.mood.readMood(foreign),null);
   assert.equal(f.mood.readMood(next).value,'amused');
+  // A failed/mismatched ownership attempt clears rather than borrowing mood.
+  assert.equal(f.mood.readMood(foreign),null);
+  assert.equal(f.mood.readMood(next),null;
 });
 test('EA4 expires without timers and refuses forged protobuf-style model data',()=>{
   const f=fixture(),first=f.makeTurn(),next=f.makeTurn(5);
