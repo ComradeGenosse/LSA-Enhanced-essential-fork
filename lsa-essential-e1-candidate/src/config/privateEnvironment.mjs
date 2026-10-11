@@ -3,7 +3,7 @@ import { parseEnv } from 'node:util';
 import { fileURLToPath } from 'node:url';
 
 export const defaultEnvFilePath = fileURLToPath(new URL('../../.env', import.meta.url));
-const credentialNames = ['OPENAI_API_KEY', 'OPENAI_REASONING_API_KEY', 'OPENAI_TRANSCRIPTION_API_KEY', 'OPENAI_TTS_API_KEY'];
+const credentialNames = ['OPENAI_API_KEY', 'OPENAI_REASONING_API_KEY', 'OPENAI_TRANSCRIPTION_API_KEY', 'OPENAI_TTS_API_KEY', 'ELEVENLABS_API_KEY'];
 
 // The native launcher starts Node without dotenv or --env-file. Import only
 // credentials; old-branch settings must not configure the Essential companion.
