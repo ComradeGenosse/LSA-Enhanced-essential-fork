@@ -70,6 +70,7 @@ export async function scan(root, sourceRoots = SOURCE_ROOTS) {
     schemaVersion: 1,
     note: 'Pattern/line inventory only. Review false positives, reflection and implicit protocol dependencies; does not prove runtime parity.',
     sourceRoots: [...sourceRoots],
+    scannedFiles: files.map(file => file.split(path.sep).join('/')),
     filesScanned: files.length,
     filesWithMatches: results.length,
     filesByRule: counts,
