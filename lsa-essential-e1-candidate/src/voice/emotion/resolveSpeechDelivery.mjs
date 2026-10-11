@@ -41,8 +41,8 @@ function receiptKeysMismatch(receipt, identity) {
     Object.hasOwn(receipt,key) && receipt[key] !== identity?.[key]);
 }
 
-function safeTelemetry(telemetry, data) {
-  try { telemetry?.event?.('acting_decision', data); }
+function safeTelemetry(telemetry, data, event='acting_decision') {
+  try { telemetry?.event?.(event, data); }
   catch { /* Telemetry must not break speech. */ }
 }
 
@@ -162,7 +162,7 @@ export function createSpeechDeliveryResolver({
       safeTelemetry(telemetry,{
         mode, tagApplied:true, segmentSequence:sequence,
         selected:delivery.value,
-      });
+      },'acting_tag_confirmed');
       return true;
     },
     // Agent F MUST call this exactly once only after the complete
