@@ -10,6 +10,7 @@ namespace LSA.Standalone.Tests
         public long MonotonicMilliseconds { get; private set; }
         public bool AllowsNpcControl { get; set; } = true;
         public bool IsOwner { get; set; } = true;
+        public bool ThrowOnObserve { get; set; }
 
         public void Advance(long duration) { MonotonicMilliseconds += duration; }
         public void Regress(long elapsed) { MonotonicMilliseconds = elapsed; }
@@ -37,6 +38,7 @@ namespace LSA.Standalone.Tests
 
         public bool TryObserve(int handle, out ActorObservation observation)
         {
+            if (ThrowOnObserve) throw new InvalidOperationException("simulated_game_observation_failure");
             return observations.TryGetValue(handle, out observation);
         }
     }
