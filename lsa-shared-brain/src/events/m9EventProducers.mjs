@@ -146,6 +146,7 @@ export class M9NativeEventProducer {
         if(v.airborne===null || v.grounded===null)next.airborneStart=null;
       } else {
         if(v.rollDegrees!==null && old.rollDegrees!==null &&
+           old.rollDegrees<LIMITS.rollAngleDegrees &&
            v.rollDegrees>=LIMITS.rollAngleDegrees && !next.rollHigh) {
           next.rollHigh=true;
           emit('vehicle_rollover','roll:'+snapshot.gameTick,{
@@ -154,6 +155,7 @@ export class M9NativeEventProducer {
           });
         }
         if(v.rollDegrees===null)next.rollHigh=false;
+        else if(old.rollDegrees===null)next.rollHigh=v.rollDegrees>=LIMITS.rollAngleDegrees;
         else if(v.rollDegrees<50) next.rollHigh=false;
         if(v.airborne===true && old.airborne===false)
           next.airborneStart=snapshot.sampledAtMs;
