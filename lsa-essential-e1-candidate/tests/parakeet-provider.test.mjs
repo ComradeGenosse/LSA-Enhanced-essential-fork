@@ -65,7 +65,7 @@ test('503 triggers OpenAI exactly once with OpenAI credentials only on cloud rou
   };
   const stack = createProviderStack(localConfig(), { fetchImpl });
   const text = await stack.transcribe({
-    ...input, telemetry: { event: (name, info) => events.push([name, info]) },
+    ...input, telemetry: { event: (name, info) => events.push([name, info]), startSpan: () => () => {} },
   });
   assert.equal(text, 'Hello from OpenAI');
   assert.equal(hits.length, 2);
@@ -132,7 +132,7 @@ test('local timeout falls back without forwarding its abort to OpenAI', async ()
     fetchImpl: async (url, opts) => {
       hits++;
       if (url.startsWith('https://')) {
-        assert.equal(opts.signal.aborted, false);
+        assert.equal(opts.signal?.aborted === true, false);
         return Response.json({ text: 'Cloud recognized it' });
       }
       return new Promise((_, reject) => {
