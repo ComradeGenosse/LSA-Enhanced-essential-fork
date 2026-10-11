@@ -67,6 +67,31 @@ Known wrong-station mappings fail closed. Unknown positive IDs stay unknown and 
 
 Real GTA metadata containing ordinary `/` characters is accepted; control characters/newlines remain rejected.
 
+## Long-running song freshness (October 11 radio integration fix)
+
+Radio is **current perception, not persistent music memory**. A witnessed song
+had an initial PS2 observation TTL of 120 seconds. Native R0–R2 originally
+published only tuple changes; a long unchanged song could expire even while
+still playing. The radio integration branch now:
+
+- Samples GTA's station/sound/text-ID tuple every 250 ms while radio is enabled.
+- After a normal baseline or change, reconfirms the **unchanged, still-playing
+  tuple at most once per 60 seconds**, using a fresh native GTA read, a new
+  bounded signal ID, and freshly qualified same-vehicle PS2 witness receipts.
+- Reuses the existing `radio_changed` wire contract for source-verified
+  revalidation (not a new song-transition claim); **does not increment the
+  native real-change `radioEdges` counter** or add PS6 speech/memory authority.
+- Renews the active R3 observation/episode (120-second TTL from each accepted
+  confirmation). Repeated confirmations keep the same song available beyond
+  two minutes **only while source + witness remain current**.
+- Does not refresh when radio is off, the player is out of a vehicle, the
+  native read fails, or the source is otherwise unverified. Existing stop,
+  world reset, observer-lifetime, channel freshness and expiry gates remain.
+
+Matching native integration and companion correlation tests cover a same-song
+reconfirmation without a fake change counter, a multi-minute continuous track,
+and radio-off expiry. GTA Enhanced acceptance remains outstanding.
+
 ## Validation status
 
 The feature branch intentionally goes beyond the research plan's probe-only staging so the complete R0–R5 stack can be reviewed together, but **research Gate B has not been satisfied in GTA V Enhanced yet**.

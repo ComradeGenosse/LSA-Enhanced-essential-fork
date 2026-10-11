@@ -83,10 +83,28 @@ class Program
                     var soundChanged=ReadUntil(reader,"\"producer\":\"radio\"").Last();
                     Check(soundChanged.Contains("\"soundHash\":2481236011")&&soundChanged.Contains("\"trackTextId\":1005"),"soundHash-only container transition remains material");
                     Check(Game.Logs.Skip(logStart).Any(line=>line.Contains("sound=93E4A82B text_id=1005")),"probe retains hexadecimal sound evidence");
+                    
+                    // Reconfirm an unchanged playing track using a fresh GTA read
+                    // and current passenger evidence, not a fabricated new song edge.
+                    int realEdges=(int)sensors.RadioEdges;
+                    long refreshDue=(long)Get(sensors,"nextRadioRevalidate");
+                    Set(integration,"nextRadio",0L);Game.GameTime+=50;integration.Update();
+                    Check((long)Get(sensors,"nextRadioRevalidate")==refreshDue && sensors.RadioEdges==realEdges,
+                        "unchanged radio inside revalidation interval adds no event or edge");
+                    Set(sensors,"nextRadioRevalidate",0L);Set(integration,"nextRadio",0L);Game.GameTime+=50;integration.Update();
+                    var confirmed=ReadUntil(reader,"\"producer\":\"radio\"").Last();
+                    Check(confirmed.Contains("\"kind\":\"radio_changed\"") && confirmed.Contains("\"trackTextId\":1005") &&
+                          confirmed.Contains(passengerRef) && !confirmed.Contains(outsiderRef) && sensors.RadioEdges==realEdges,
+                        "unchanged song revalidates from fresh GTA tuple and same-car witness without inventing a music edge");
+                    Check((long)Get(sensors,"nextRadioRevalidate")>0,
+                        "successful source revalidation restarts bounded 60-second interval");
 
                     player.CurrentVehicle=null;Set(integration,"nextRadio",0L);Game.GameTime+=50;integration.Update();
                     var stopped=ReadUntil(reader,"\"kind\":\"radio_stopped\"").Last();
                     Check(stopped.Contains("\"target\":")&&stopped.Contains("\"station\":\"\"")&&stopped.Contains("\"soundHash\":0")&&stopped.Contains("\"trackTextId\":0")&&!stopped.Contains("\"channel\":\"auditory\""),"vehicle exit clears v2 identifiers and keeps prior source for episode closure");
+                    Set(sensors,"nextRadioRevalidate",0L);Set(integration,"nextRadio",0L);Game.GameTime+=50;integration.Update();
+                    Check((long)Get(sensors,"nextRadioRevalidate")==0L,
+                        "radio off and vehicle exit never fabricate a source revalidation");
                 }
             }
 

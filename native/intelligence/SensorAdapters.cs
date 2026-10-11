@@ -31,8 +31,11 @@ namespace LSA.Intelligence
         public bool Enabled {get;set;}
         public long Dropped {get;private set;}
         public int Count {get {lock(gate) return queue.Count;}}
+        // A 60s source-verified revalidation keeps an unchanged playing track
+        // within PS2's 120s observation TTL without extending an unobserved fact.
+        const long RadioRevalidateMs=60000;
         RadioSample radioBaseline;
-        long radioSamples,radioEdges,radioNativeFailures;
+        long nextRadioRevalidate,radioSamples,radioEdges,radioNativeFailures;
         public long RadioSamples {get {lock(gate) return radioSamples;}}
         public long RadioEdges {get {lock(gate) return radioEdges;}}
         public long RadioNativeFailures {get {lock(gate) return radioNativeFailures;}}
@@ -140,12 +143,20 @@ namespace LSA.Intelligence
             if(!ValidRadioStation(station)) { station=""; soundHash=0; trackTextId=0; }
             var current=new RadioSample {Vehicle=vehicle,Station=station??"",SoundHash=soundHash,TrackTextId=trackTextId};
             if(current.Station.Length==0) {current.SoundHash=0;current.TrackTextId=0;}
-            if(radioBaseline!=null && radioBaseline.Vehicle==current.Vehicle && radioBaseline.Station==current.Station && radioBaseline.SoundHash==current.SoundHash && radioBaseline.TrackTextId==current.TrackTextId) return;
             var previous=radioBaseline;
+            bool same=previous!=null && previous.Vehicle==current.Vehicle && previous.Station==current.Station && previous.SoundHash==current.SoundHash && previous.TrackTextId==current.TrackTextId;
+            // No synthetic radio event on an unchanged off/unknown state.
+            // The native owner just re-read this exact tuple from GTA; only a
+            // live in-vehicle track may be reconfirmed, at most once per 60s.
+            if(same && (string.IsNullOrEmpty(current.Vehicle) || current.Station.Length==0 || now<nextRadioRevalidate)) return;
             bool establishing=previous==null;
             radioBaseline=current;
+            nextRadioRevalidate=now+RadioRevalidateMs;
             if(establishing) return;
-            lock(gate) Note(ref radioEdges);
+            // Revalidation traverses the existing radio_changed / R3 witness
+            // pipeline to renew bounded context. It is NOT a station/song edge;
+            // no new speech, memory, or extra producer is authorized.
+            if(!same) lock(gate) Note(ref radioEdges);
             bool stopped=current.Station.Length==0;
             var signalTarget=stopped?(current.Vehicle??previous?.Vehicle):current.Vehicle;
             Enqueue(Prepare(new RawSignal {
@@ -154,7 +165,7 @@ namespace LSA.Intelligence
             }));
         }
         public void Retire(string captureRef) { baselines.Remove(captureRef); baselines.Remove("shot:"+captureRef); lastShot.Remove(captureRef);vehicles.Remove(captureRef);foreach(var state in baselines.Values) if(state.Vehicle==captureRef) state.VehicleBaseline=false; }
-        public void Reset() { lock(gate) {queue.Clear();sequences.Clear();baselines.Clear();lastShot.Clear();vehicles.Clear();received.Clear();radioBaseline=null;radioSamples=0;radioEdges=0;radioNativeFailures=0;foreach(var k in damageCallbacks.Keys.ToArray()) damageCallbacks[k]=0;Dropped=0;} }
+        public void Reset() { lock(gate) {queue.Clear();sequences.Clear();baselines.Clear();lastShot.Clear();vehicles.Clear();received.Clear();radioBaseline=null;nextRadioRevalidate=0;radioSamples=0;radioEdges=0;radioNativeFailures=0;foreach(var k in damageCallbacks.Keys.ToArray()) damageCallbacks[k]=0;Dropped=0;} }
     }
     public sealed class StateSample
     {

@@ -99,7 +99,30 @@ test('radio R3 keeps hearing observer-scoped, revises current track, and clears 
   const secondSignal={...firstSignal,signalId:randomUUID(),producerSequence:2,gameTick:1100,facts:{station:'RADIO_TEST_A',soundHash:1,trackTextId:1005}};
   const second=correlator.ingest({nativeRun:run,signal:secondSignal,witnessReceipts:[witness(1100)],radio:{eventSignalId:secondSignal.signalId,sourceVehicleCaptureRef:vehicle,gameTick:1100,station:'RADIO_TEST_A',soundHash:1,trackTextId:1005,trackKnown:true,stationName:'Test Radio',artist:'Artist B',title:'Track B',contentKind:'music'}});
   assert.equal(second.episodeId,first.episodeId);assert.equal(second.observations[0].revision,2);assert.equal(second.observations[0].claims.length,1);assert.equal(second.observations[0].claims[0].details.title,'Track B');
-  const stop={signalId:randomUUID(),producer:'radio',producerSequence:3,kind:'radio_stopped',target:vehicle,source:null,gameTick:1200,ageMs:0,facts:{station:'',soundHash:0,trackTextId:0}};
+  // A native revalidation is an unchanged, newly sampled radio tuple with
+  // fresh PS2 hearing receipts. It renews only the same observer's current
+  // bounded episode, without accumulating historical song claims.
+  for (let refresh=0;refresh<3;refresh++) {
+    now+=60000;
+    const tick=61100+refresh*60000;
+    const sameTrack={...secondSignal,signalId:randomUUID(),producerSequence:3+refresh,gameTick:tick};
+    const result=correlator.ingest({nativeRun:run,signal:sameTrack,witnessReceipts:[witness(tick)],radio:{
+      eventSignalId:sameTrack.signalId,sourceVehicleCaptureRef:vehicle,gameTick:tick,
+      station:'RADIO_TEST_A',soundHash:1,trackTextId:1005,trackKnown:true,
+      stationName:'Test Radio',artist:'Artist B',title:'Track B',contentKind:'music',
+    }});
+    assert.equal(result.accepted,true);
+    assert.equal(result.episodeId,first.episodeId);
+    assert.equal(result.observations.length,1);
+    assert.equal(result.observations[0].observationId,first.observations[0].observationId);
+    assert.equal(result.observations[0].revision,3+refresh);
+    assert.equal(result.observations[0].claims.length,1);
+    assert.equal(result.observations[0].claims[0].details.title,'Track B');
+    assert.ok(result.observations[0].expiresAtMonotonicMs>now+119000);
+    assert.equal([...observations.entries.values()].some(e=>e.value.observer.captureRef===outsider),false);
+  }
+  assert.ok(now>120000,'song remained current for more than the original two minutes');
+  const stop={signalId:randomUUID(),producer:'radio',producerSequence:6,kind:'radio_stopped',target:vehicle,source:null,gameTick:181200,ageMs:0,facts:{station:'',soundHash:0,trackTextId:0}};
   const stopped=correlator.ingest({nativeRun:run,signal:stop,witnessReceipts:[]});
   assert.equal(stopped.accepted,true);assert.equal(observations.entries.size,0);assert.equal(episodes.entries.has(first.episodeId),false);
 });
