@@ -23,7 +23,7 @@ const setup=()=>{
 test('C-01 exact source-time frames are opt-in, bounded and never speech knowledge',()=>{
   const {runtime,frame,fact}=setup(),id=randomUUID();
   const start=fact(id,'started',null,100),end=fact(id,'ended','released',180);
-  assert.equal(validateFrame(frame('utterance',start)),true);
+  assert.equal(validateUtteranceFact(start),true);
   assert.equal(runtime.ingest(frame('utterance',start),{authenticated:true}),true);
   assert.equal(runtime.utterances.active,id);
   assert.equal(runtime.ingest(frame('utterance',end),{authenticated:true}),true);
@@ -38,16 +38,12 @@ test('C-01 exact source-time frames are opt-in, bounded and never speech knowled
 
 test('C-01 fails closed on mismatched run, epoch, duplicate starts, and fabricated text',()=>{
   const {runtime,frame,fact}=setup(),id=randomUUID(),start=fact(id,'started',null,10);
+  for(const invalid of [{...start,hostRunId:randomUUID()},{...start,worldEpoch:2}])
+    assert.equal(runtime.ingest(frame('utterance',invalid),{authenticated:true}),false);
   for(const invalid of [
-    {...start,hostRunId:randomUUID()},{...start,worldEpoch:2},
     {...start,inputSource:'ux4_ptt'}, {...start,transcript:'private data'},
     {...start,micPedRef:'fake'}, {...start,phase:'ended',terminal:null},
-  ]) {
-    if(validateUtteranceFact(invalid))
-      assert.equal(runtime.ingest(frame('utterance',invalid),{authenticated:true}),false);
-    else
-      assert.equal(validateFrame(frame('utterance',invalid)),false);
-  }
+  ]) assert.equal(validateUtteranceFact(invalid),false);
   assert.equal(runtime.ingest(frame('utterance',start),{authenticated:true}),true);
   assert.equal(runtime.ingest(frame('utterance',start),{authenticated:true}),false);
   assert.equal(runtime.ingest(frame('utterance',fact(id,'ended','released',9)),{authenticated:true}),false);
