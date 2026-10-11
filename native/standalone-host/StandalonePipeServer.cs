@@ -13,58 +13,127 @@ using LSA.Standalone;
 
 namespace LSA.Standalone.RageHost
 {
-    // Phase 2 transport skeleton. This service does not permit actor or audio
-    // effects: only bounded health and an owner-fiber-authorized snapshot.
-    // The API is deliberately disjoint from every Essential named pipe.
+    /// <summary>
+    /// Native-owned, single-client, SID-restricted duplex transport. The IPC worker
+    /// parses bytes only. All lease minting/confirmation/cancellation and game reads
+    /// are routed through DrainOwnerRequests on the single native owner fiber.
+    /// </summary>
     internal sealed class StandalonePipeServer : IDisposable
     {
         public const string PipeName = "LSA.Standalone.Phase2.v1";
         private const int MaxFrameBytes = 8192;
-        private const int MaxPendingOwnerQueries = 32;
+        private const int MaxQueued = 32;
         private readonly Guid hostRunId;
         private readonly Func<int> worldEpoch;
         private readonly ConcurrentQueue<OwnerQuery> requests = new ConcurrentQueue<OwnerQuery>();
+        private readonly ConcurrentQueue<NativeTurnPermit> pendingOffers = new ConcurrentQueue<NativeTurnPermit>();
         private readonly CancellationTokenSource stopping = new CancellationTokenSource();
         private readonly object pipeLock = new object();
         private readonly UTF8Encoding utf8 = new UTF8Encoding(false, true);
-        private readonly JavaScriptSerializer json = new JavaScriptSerializer { MaxJsonLength = MaxFrameBytes, RecursionLimit = 8 };
+        private readonly JavaScriptSerializer json = new JavaScriptSerializer
+            { MaxJsonLength = MaxFrameBytes, RecursionLimit = 8 };
         private Thread worker;
         private NamedPipeServerStream active;
-        private int pendingCount;
+        private int pendingCount, resetSignal, resetApplied;
 
         private sealed class OwnerQuery
         {
             public int Epoch;
-            public readonly TaskCompletionSource<int> Completion =
-                new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
+            public int ResetGeneration;
+            public string Type;
+            public Dictionary<string, object> Frame;
+            public readonly TaskCompletionSource<Dictionary<string, object>> Completion =
+                new TaskCompletionSource<Dictionary<string, object>>(
+                    TaskCreationOptions.RunContinuationsAsynchronously);
         }
 
         public StandalonePipeServer(Guid run, Func<int> epoch)
         {
-            if (run == Guid.Empty || epoch == null || epoch() < 1) throw new ArgumentException("invalid_host");
-            hostRunId = run; worldEpoch = epoch;
+            if (run == Guid.Empty || epoch == null || epoch() < 1)
+                throw new ArgumentException("invalid_host");
+            hostRunId = run;
+            worldEpoch = epoch;
         }
 
-        public void Start()
+        // Native events only. Do not call on an IPC worker; phase 3 game sources
+        // can offer exact, native-issued conversation permits.
+        public bool Offer(NativeTurnPermit permit)
         {
-            if (worker != null) throw new InvalidOperationException("already_running");
-            worker = new Thread(Serve) { Name = "LSA standalone named pipe", IsBackground = true };
-            worker.Start();
+            if (permit == null || permit.HostRunId != hostRunId ||
+                permit.WorldEpoch != worldEpoch() || pendingOffers.Count >= 16 ||
+                stopping.IsCancellationRequested) return false;
+            pendingOffers.Enqueue(permit);
+            return true;
         }
 
-        public void DrainOwnerRequests(NativeAuthority authority, int budget)
+        public void DrainOwnerRequests(NativeAuthority authority, NativeTurnRegistry turns, int budget)
         {
-            if (authority == null || budget < 0 || budget > 32) throw new ArgumentException("invalid_budget");
-            for (int n = 0; n < budget && requests.TryDequeue(out var request); n++)
+            if (authority == null || turns == null || budget < 0 || budget > 32)
+                throw new ArgumentException("invalid_owner_dispatch");
+            int signal = Volatile.Read(ref resetSignal);
+            if (signal != resetApplied)
+            {
+                turns.RetireAll();
+                while (pendingOffers.TryDequeue(out _)) { }
+                resetApplied = signal;
+            }
+            turns.Sweep();
+            for (int n = 0; n < budget && requests.TryDequeue(out var req); n++)
             {
                 Interlocked.Decrement(ref pendingCount);
-                // TrackedActors requires the true owner fiber; this is the only
-                // location where a transport query calls production core state.
-                if (stopping.IsCancellationRequested || request.Epoch != authority.WorldEpoch)
-                    request.Completion.TrySetResult(-1);
-                else
-                    request.Completion.TrySetResult(authority.TrackedActors);
+                var reply = new Dictionary<string, object> { { "status", "rejected" } };
+                if (stopping.IsCancellationRequested || req.Epoch != authority.WorldEpoch ||
+                    req.ResetGeneration != Volatile.Read(ref resetSignal))
+                    reply["status"] = "stale_connection";
+                else if (req.Type == "host.snapshot")
+                {
+                    reply["status"] = "ok";
+                    reply["trackedActors"] = authority.TrackedActors;
+                }
+                else if (req.Type == "turn.next")
+                {
+                    // A server-selected offer is never a Node-minted actor.
+                    if (pendingOffers.TryDequeue(out var offer))
+                    {
+                        if (offer.WorldEpoch == authority.WorldEpoch &&
+                            authority.IsActorCurrent(offer.Lease.Actor) &&
+                            authority.IsLeaseCurrent(offer.Lease))
+                        {
+                            reply["status"] = "ok";
+                            reply["turnId"] = offer.TurnId.ToString("D");
+                            reply["sessionNonce"] = offer.SessionNonce.ToString("D");
+                            reply["actorIncarnationId"] = offer.ActorIncarnationId.ToString("D");
+                            reply["leaseId"] = offer.LeaseId.ToString("D");
+                            reply["generation"] = offer.Generation;
+                            reply["source"] = offer.Source;
+                        }
+                        else reply["status"] = "offer_retired";
+                    }
+                    else reply["status"] = "none";
+                }
+                else if (req.Type == "turn.confirm")
+                {
+                    string reason;
+                    bool accepted = turns.TryConfirm(Claim(req.Frame, "turnId"),
+                        Claim(req.Frame, "sessionNonce"), Claim(req.Frame, "actorIncarnationId"),
+                        Claim(req.Frame, "leaseId"), Claim(req.Frame, "generation"),
+                        Claim(req.Frame, "source"), out reason);
+                    reply["status"] = accepted ? "ok" : reason;
+                }
+                else if (req.Type == "turn.cancel")
+                {
+                    bool cancelled = turns.TryCancel(Claim(req.Frame, "turnId"),
+                        Claim(req.Frame, "leaseId"), Claim(req.Frame, "generation"),
+                        Claim(req.Frame, "actorIncarnationId"));
+                    reply["status"] = cancelled ? "ok" : "stale_turn";
+                }
+                req.Completion.TrySetResult(reply);
             }
+        }
+
+        private static string Claim(Dictionary<string, object> value, string key)
+        {
+            return value.TryGetValue(key, out var raw) && raw is string ? (string)raw : null;
         }
 
         private void Serve()
@@ -78,16 +147,20 @@ namespace LSA.Standalone.RageHost
                     var security = new PipeSecurity();
                     security.SetAccessRuleProtection(true, false);
                     security.SetOwner(sid);
-                    security.AddAccessRule(new PipeAccessRule(sid, PipeAccessRights.FullControl, AccessControlType.Allow));
+                    security.AddAccessRule(new PipeAccessRule(sid,
+                        PipeAccessRights.FullControl, AccessControlType.Allow));
                     pipe = new NamedPipeServerStream(PipeName, PipeDirection.InOut, 1,
                         PipeTransmissionMode.Byte, PipeOptions.Asynchronous, 8192, 8192, security);
                     lock (pipeLock) { if (stopping.IsCancellationRequested) break; active = pipe; }
                     pipe.WaitForConnectionAsync(stopping.Token).GetAwaiter().GetResult();
                     if (!stopping.IsCancellationRequested) ServeClient(pipe);
                 }
-                catch (Exception) { if (!stopping.IsCancellationRequested) Thread.Sleep(100); }
+                catch { if (!stopping.IsCancellationRequested) Thread.Sleep(100); }
                 finally
                 {
+                    // This guarantees old connection-owned native permits are
+                    // retired before the next owner-fiber dispatch, not replayed.
+                    Interlocked.Increment(ref resetSignal);
                     lock (pipeLock) { if (ReferenceEquals(active, pipe)) active = null; }
                     try { pipe?.Dispose(); } catch {}
                 }
@@ -96,61 +169,89 @@ namespace LSA.Standalone.RageHost
 
         private void ServeClient(NamedPipeServerStream pipe)
         {
-            // A stuck peer cannot monopolize the one-client authority channel.
             using (var watchdog = new Timer(_ => { try { pipe.Dispose(); } catch {} },
                 null, 7000, Timeout.Infinite))
             {
-                Guid connection = Guid.NewGuid();
+                Guid transport = Guid.NewGuid();
                 int epoch = worldEpoch();
-                int outboundSeq = 0;
-                int inboundSeq = 1;
-                Send(pipe, Envelope("host.hello", connection, epoch, outboundSeq));
-                Dictionary<string, object> hello = Receive(pipe);
-                if (!Valid(hello, "client.hello", connection, epoch, inboundSeq, false))
+                int nextOutbound = 0;
+                int nextInbound = 1;
+                int generation = Volatile.Read(ref resetSignal);
+                Send(pipe, Envelope("host.hello", transport, epoch, nextOutbound));
+                var hello = Receive(pipe);
+                if (!Valid(hello, "client.hello", transport, epoch, nextInbound, false))
                     return;
-                Send(pipe, Envelope("host.ready", connection, epoch, ++outboundSeq));
+                Send(pipe, Envelope("host.ready", transport, epoch, ++nextOutbound));
                 while (!stopping.IsCancellationRequested)
                 {
                     watchdog.Change(7000, Timeout.Infinite);
-                    var request = Receive(pipe);
-                    if (worldEpoch() != epoch || inboundSeq == int.MaxValue || outboundSeq == int.MaxValue ||
-                        !Valid(request, null, connection, epoch, ++inboundSeq, true))
+                    var frame = Receive(pipe);
+                    if (worldEpoch() != epoch || generation != Volatile.Read(ref resetSignal) ||
+                        nextInbound == int.MaxValue || nextOutbound == int.MaxValue ||
+                        !Valid(frame, null, transport, epoch, ++nextInbound, true))
                         return;
-                    string requestId = (string)request["requestId"];
-                    string type = (string)request["type"];
-                    var response = Envelope(
-                        type == "health.ping" ? "health.pong" :
-                        type == "host.snapshot" ? "host.snapshot.result" : "request.rejected",
-                        connection, epoch, ++outboundSeq);
-                    response["requestId"] = requestId;
+                    string type = (string)frame["type"];
+                    string requestId = (string)frame["requestId"];
+                    string responseType = type == "health.ping" ? "health.pong" :
+                        type == "host.snapshot" ? "host.snapshot.result" :
+                        type == "turn.next" ? "turn.next.result" :
+                        type == "turn.confirm" ? "turn.confirm.result" :
+                        type == "turn.cancel" ? "turn.cancel.result" : "request.rejected";
+                    var payload = new Dictionary<string, object>();
                     if (type == "health.ping")
-                        response["status"] = "ok";
-                    else if (type == "host.snapshot")
+                        payload["status"] = "ok";
+                    else if (type == "host.snapshot" || type == "turn.next" ||
+                             type == "turn.confirm" || type == "turn.cancel")
                     {
-                        if (Interlocked.Increment(ref pendingCount) > MaxPendingOwnerQueries)
+                        if (!ValidCommandFields(type, frame)) return;
+                        if (Interlocked.Increment(ref pendingCount) > MaxQueued)
                         {
                             Interlocked.Decrement(ref pendingCount);
-                            return; // Queue overflow invalidates this connection.
+                            return;
                         }
-                        var ownerQuery = new OwnerQuery { Epoch = epoch };
-                        requests.Enqueue(ownerQuery);
-                        if (!ownerQuery.Completion.Task.Wait(1500) || ownerQuery.Completion.Task.Result < 0)
-                            return; // Stale world/owner unavailable; no synthetic snapshot.
-                        response["status"] = "ok";
-                        response["trackedActors"] = ownerQuery.Completion.Task.Result;
+                        var query = new OwnerQuery {
+                            Epoch = epoch, ResetGeneration = generation,
+                            Type = type, Frame = frame
+                        };
+                        requests.Enqueue(query);
+                        if (!query.Completion.Task.Wait(1500)) return;
+                        payload = query.Completion.Task.Result;
                     }
-                    else
-                        response["status"] = "unsupported"; // No actor effects in Phase 2 bootstrap.
-                    if (worldEpoch() != epoch) return;
+                    else payload["status"] = "unsupported";
+                    if (worldEpoch() != epoch || generation != Volatile.Read(ref resetSignal))
+                        return;
+                    var response = Envelope(responseType, transport, epoch, ++nextOutbound);
+                    response["requestId"] = requestId;
+                    foreach (var field in payload) response[field.Key] = field.Value;
                     Send(pipe, response);
                 }
             }
         }
 
+        private static bool ValidCommandFields(string type, Dictionary<string, object> frame)
+        {
+            int count = type == "turn.confirm" ? 13 : type == "turn.cancel" ? 11 : 7;
+            if (frame.Count != count) return false;
+            if (type == "turn.confirm")
+                return Fields(frame, "turnId", "sessionNonce", "actorIncarnationId",
+                    "leaseId", "generation", "source");
+            if (type == "turn.cancel")
+                return Fields(frame, "turnId", "actorIncarnationId", "leaseId", "generation");
+            return true;
+        }
+
+        private static bool Fields(Dictionary<string, object> frame, params string[] names)
+        {
+            foreach (string name in names)
+                if (!frame.TryGetValue(name, out var raw) || !(raw is string) ||
+                    ((string)raw).Length == 0 || ((string)raw).Length > 80)
+                    return false;
+            return true;
+        }
+
         private Dictionary<string, object> Envelope(string type, Guid transport, int epoch, int seq)
         {
-            return new Dictionary<string, object>
-            {
+            return new Dictionary<string, object> {
                 {"v", 1}, {"type", type}, {"hostRunId", hostRunId.ToString("D")},
                 {"worldEpoch", epoch}, {"transportId", transport.ToString("D")}, {"seq", seq}
             };
@@ -159,7 +260,7 @@ namespace LSA.Standalone.RageHost
         private bool Valid(Dictionary<string, object> value, string expectedType,
             Guid transport, int epoch, int seq, bool withRequestId)
         {
-            if (value == null || value.Count != (withRequestId ? 7 : 6) ||
+            if (value == null || value.Count < (withRequestId ? 7 : 6) ||
                 !value.TryGetValue("v", out var version) || !(version is int) || (int)version != 1 ||
                 !value.TryGetValue("type", out var kind) || !(kind is string) ||
                 (expectedType != null && (string)kind != expectedType) ||
@@ -170,16 +271,23 @@ namespace LSA.Standalone.RageHost
                 (string)id != transport.ToString("D") ||
                 !value.TryGetValue("seq", out var actual) || !(actual is int) || (int)actual != seq)
                 return false;
-            if (!withRequestId) return true;
-            return value.TryGetValue("requestId", out var request) &&
-                request is string && Guid.TryParseExact((string)request, "D", out _);
+            if (!withRequestId) return value.Count == 6;
+            if (!value.TryGetValue("requestId", out var request) ||
+                !(request is string) || !Guid.TryParseExact((string)request, "D", out _))
+                return false;
+            string type = (string)kind;
+            // Unknown requests get a bounded reject, but cannot smuggle additional
+            // ambiguous identity or actor claims.
+            return type == "turn.confirm" ? value.Count == 13 :
+                type == "turn.cancel" ? value.Count == 11 : value.Count == 7;
         }
 
         private Dictionary<string, object> Receive(Stream stream)
         {
             byte[] header = Exact(stream, 4);
             uint length = BitConverter.ToUInt32(header, 0);
-            if (length == 0 || length > MaxFrameBytes) throw new InvalidDataException("invalid_frame_length");
+            if (length == 0 || length > MaxFrameBytes)
+                throw new InvalidDataException("invalid_frame_length");
             string value = utf8.GetString(Exact(stream, (int)length));
             var result = json.Deserialize<Dictionary<string, object>>(value);
             if (result == null) throw new InvalidDataException("invalid_json");
@@ -189,7 +297,8 @@ namespace LSA.Standalone.RageHost
         private void Send(Stream stream, object value)
         {
             byte[] data = utf8.GetBytes(json.Serialize(value));
-            if (data.Length == 0 || data.Length > MaxFrameBytes) throw new InvalidDataException("invalid_frame_length");
+            if (data.Length == 0 || data.Length > MaxFrameBytes)
+                throw new InvalidDataException("invalid_frame_length");
             byte[] header = BitConverter.GetBytes((uint)data.Length);
             stream.Write(header, 0, 4);
             stream.Write(data, 0, data.Length);
@@ -213,10 +322,11 @@ namespace LSA.Standalone.RageHost
             if (stopping.IsCancellationRequested) return;
             stopping.Cancel();
             lock (pipeLock) { try { active?.Dispose(); } catch {} }
-            while (requests.TryDequeue(out var request))
+            while (requests.TryDequeue(out var req))
             {
                 Interlocked.Decrement(ref pendingCount);
-                request.Completion.TrySetResult(-1);
+                req.Completion.TrySetResult(new Dictionary<string, object>
+                    { { "status", "native_stopping" } });
             }
         }
 
