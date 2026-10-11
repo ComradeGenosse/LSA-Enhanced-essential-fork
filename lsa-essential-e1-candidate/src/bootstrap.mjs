@@ -205,6 +205,9 @@ export async function createRuntimeForBundle(options = {}) {
     client.subscribeKnowledgeInvalidation(()=>{void pump.tick();});
   }
   runtime.services.acceptPlayerTranscript = input => runtime.intelligence?.acceptPlayerTranscript(input) ?? {accepted:false,reason:'unsupported_capture_receipt'};
+  runtime.services.acceptCapturedPlayerUtterance = input =>
+    runtime.intelligence?.acceptCapturedPlayerUtterance(input) ??
+      {accepted:false,reason:'c01_unavailable'};
   if(config.activities.mode==='shadow' || config.activities.mode==='on') {
     try {
       const notifyKnowledge=()=>{try{runtime.intelligence?.notifyKnowledgeInvalidation();}catch{}};
