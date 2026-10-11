@@ -20,8 +20,7 @@ export async function audit(root) {
   const symbolSites = {};
   const hotspots = [];
   const families = {};
-  for (const entry of inventory.files) {
-    const relative = entry.path;
+  for (const relative of inventory.scannedFiles) {
     const contents = await readFile(path.join(root, relative), 'utf8');
     const lines = contents.split(/\r?\n/);
     const familiesHere = [];
