@@ -1,6 +1,6 @@
 # Phase 0 — evidence-based baseline and dependency inventory
 
-**Status:** IN PROGRESS (source audit started; runtime baseline and exhaustive call-site closure pending).  
+**Status:** source/architecture research completed for Milestone A; exact installed GTA baseline and physical output remain pre-deployment gates.  
 **Frozen comparison point:** `main` `79a0aa6eb5f6b655afde65993d5d68cba269bca7`, captured 2026-10-11.  
 **Scope of this branch:** documentation and inventory; **no native code, deployment tooling, settings, DLLs or runtime behavior changed**. Later `main` commits must be evaluated separately.
 
@@ -76,5 +76,7 @@ The source code supports many expected capabilities, but a baseline is only GTA-
 
 Begin by isolating contracts `IGameClock`, `IActorResolver`, `IGameWorld`, `IInputSource`, `IAudioOutput`, `IActionExecutor` and defining a testable immutable reference envelope `{hostRunId, worldEpoch, actorRef, incarnation, conversationId, turnId, generationId, source}`. These are proposed interface names/shape, **not** an existing wire schema. Retire stale envelopes on disconnect/world reset, and require exact matching owner before each side effect. Start with a one-actor, typed-turn simulation; live spatial playback is the main Phase 5 go/no-go.
 
-**Open Phase 0 items are tracked in [phase-0-acceptance.md](phase-0-acceptance.md); [feature-parity-matrix.md](feature-parity-matrix.md) is the feature-level scoping record.**
+**Phase 0 source and protocol investigation findings:** [server lifecycle and replacement protocol](phase-0-protocol-audio.md), [RAGE/NAudio and rights feasibility](phase-0-audio-host-licensing.md), and [automated full-source audit](../../tools/standalone/phase0-static-review.mjs) with CI artifacts. Direct textual references and reflection review candidates have been enumerated; unknown obfuscated implementation behavior is not silently considered proven.
+
+**External-only gates:** [Phase 0 accepted research vs physical prerequisites](phase-0-acceptance.md) and [installed GTA fingerprint/rollback plan](phase-0-gta-baseline.md). [Feature-parity matrix](feature-parity-matrix.md) remains the user-visible scope source.
 
