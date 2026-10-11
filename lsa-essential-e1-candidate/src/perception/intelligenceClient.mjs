@@ -75,6 +75,16 @@ export function createCompanionShadowTelemetry(summary = {}) {
 export class IntelligenceClient {
   // C-13: accepted, authenticated native epoch changes only. Subscribing does
   // not authorize any native effect, memory fact or timeline switch.
+  subscribeVerifiedHostContext(listener) {
+    if (typeof listener !== 'function' || this.hostContextListeners.size >= 16)
+      throw new Error('host_context_listener_capacity');
+    this.hostContextListeners.add(listener);
+    return () => this.hostContextListeners.delete(listener);
+  }
+  publishHostContext(context) {
+    for (const listener of [...this.hostContextListeners])
+      try { listener(context); } catch {}
+  }
   subscribeWorldBoundary(listener) {
     if (typeof listener !== 'function' || this.worldBoundaryListeners.size >= 16)
       throw new Error('world_boundary_listener_capacity');
@@ -508,7 +518,7 @@ export class IntelligenceClient {
   }
 
   constructor(config,{connect=options=>net.createConnection(options),directorProductionRequired=false,now,situationFor,radioCatalog,originalTurnPriority=()=>null,originalTurnReserve=()=>null,originalTurnCurrent=()=>null,originalTurnRelease=()=>false,originalTurnPhase=()=>null,report=summary=>console.info('[PS] companion_shadow '+JSON.stringify(summary)),telemetry=()=>{}}={}) {
-    this.worldBoundaryListeners=new Set();this.knowledgeListeners=new Set();this.config=config;this.connect=connect;this.runtime=new ShadowRuntime({mode:config.mode,radio:config.radio,radioCatalog,now,situationFor});this.report=report;this.telemetry=telemetry;this.originalTurnPriority=typeof originalTurnPriority==='function'?originalTurnPriority:()=>null;
+    this.hostContextListeners=new Set();this.worldBoundaryListeners=new Set();this.knowledgeListeners=new Set();this.config=config;this.connect=connect;this.runtime=new ShadowRuntime({mode:config.mode,radio:config.radio,radioCatalog,now,situationFor});this.report=report;this.telemetry=telemetry;this.originalTurnPriority=typeof originalTurnPriority==='function'?originalTurnPriority:()=>null;
     this.originalTurnReserve=typeof originalTurnReserve==='function'?originalTurnReserve:()=>null;
     this.originalTurnCurrent=typeof originalTurnCurrent==='function'?originalTurnCurrent:()=>null;
     this.originalTurnRelease=typeof originalTurnRelease==='function'?originalTurnRelease:()=>false;
@@ -583,6 +593,7 @@ export class IntelligenceClient {
               frameType,reason,count,frameBytes:Buffer.byteLength(JSON.stringify(v),'utf8')});
         }
         if(accepted && v?.type!=='hello') {sawLiveFrame=true;this.emptyHelloStreak=0;}
+        if (accepted && v?.type==='hello') this.publishHostContext(this.runtime.hostContext);
         if(accepted && v?.type==='world_epoch') {
           this.cancelDirectorRequests();
           // Ignore a duplicate epoch receipt. No callback on an invalid
@@ -592,6 +603,7 @@ export class IntelligenceClient {
               next.hostRunId===beforeHost.hostRunId &&
               next.worldEpoch===beforeHost.worldEpoch+1 &&
               v.payload.epoch===next.worldEpoch) {
+            this.publishHostContext(next);
             const boundary=Object.freeze({
               reason:v.payload.reason,hostRunId:next.hostRunId,
               previousEpoch:beforeHost.worldEpoch,worldEpoch:next.worldEpoch
@@ -624,7 +636,7 @@ export class IntelligenceClient {
     socket.on('close',()=>{
       if(hello) this.emitReport(true);
       this.persist('intelligence_status',{stage:'disconnected'});
-      if(this.work) clearImmediate(this.work);this.work=null;frames=[];this.cancelDirectorRequests();this.socket=null;this.runtime.reset('disconnect');this.notifyKnowledgeInvalidation();
+      if(this.work) clearImmediate(this.work);this.work=null;frames=[];this.cancelDirectorRequests();this.socket=null;this.runtime.reset('disconnect');this.publishHostContext(null);this.notifyKnowledgeInvalidation();
       // While GTA is paused, hello may succeed but no owner-fiber data arrive.
       // Keep the 3s freshness veto; only bound empty-handshake retry churn.
       this.emptyHelloStreak=hello&&!sawLiveFrame
@@ -633,7 +645,7 @@ export class IntelligenceClient {
       if(!this.closed)this.retry=setTimeout(()=>this.start(),retryMs).unref();
     });
     this.watch=setInterval(()=>{
-      this.runtime.expire();this.runtime.refreshSalience();this.notifyKnowledgeInvalidation();if(!this.runtime.epoch && hello) fail();
+      this.runtime.expire();if (!this.runtime.epoch) this.publishHostContext(null);this.runtime.refreshSalience();this.notifyKnowledgeInvalidation();if(!this.runtime.epoch && hello) fail();
       if(this.runtime.epoch && this.runtime.now()-this.lastReport>=10000) {
         this.lastReport=this.runtime.now();
         this.emitReport(false);
@@ -644,6 +656,6 @@ export class IntelligenceClient {
   }
   stop() {
     this.cancelDirectorRequests();this.closed=true;clearTimeout(this.retry);clearInterval(this.watch);clearTimeout(this.helloDeadline);if(this.work) clearImmediate(this.work);
-    if(this.socket) this.socket.destroy(); else if(this.runtime.epoch) {this.emitReport(true);this.runtime.reset('disconnect');this.notifyKnowledgeInvalidation();}
+    if(this.socket) this.socket.destroy(); else if(this.runtime.epoch) {this.emitReport(true);this.runtime.reset('disconnect');this.publishHostContext(null);this.notifyKnowledgeInvalidation();}
   }
 }
