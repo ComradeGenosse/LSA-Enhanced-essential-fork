@@ -108,14 +108,18 @@ export function normalizeConfig(input = {}, env = process.env) {
     throw new TypeError('speechProvider must be openai or faster-qwen3-tts.');
   const qwenInput = input.qwenTts ?? {};
   if (!qwenInput || typeof qwenInput !== 'object' || Array.isArray(qwenInput) ||
-      Object.keys(qwenInput).some(k => !['baseUrl','speechVoices','speechVoiceProfiles'].includes(k)))
+      Object.keys(qwenInput).some(k => !['baseUrl','speechVoices','speechVoiceProfiles','playbackBufferMode'].includes(k)))
     throw new TypeError('qwenTts has unknown or invalid fields.');
   const qwenVoiceInput = qwenInput.speechVoices ?? ['nathan'];
   if (!Array.isArray(qwenVoiceInput) || qwenVoiceInput.length < 1 || qwenVoiceInput.length > 32 ||
       qwenVoiceInput.some(v => typeof v !== 'string' || !/^[a-z][a-z0-9_-]{0,31}$/.test(v)) ||
       new Set(qwenVoiceInput).size !== qwenVoiceInput.length)
     throw new TypeError('qwenTts.speechVoices must contain 1–32 unique lowercase voice identifiers.');
+  const playbackBufferMode = qwenInput.playbackBufferMode ?? 'complete-utterance';
+  if (!['complete-utterance','streaming'].includes(playbackBufferMode))
+    throw new TypeError('qwenTts.playbackBufferMode must be complete-utterance or streaming.');
   const qwenTts = Object.freeze({
+    playbackBufferMode,
     baseUrl: baseUrl(qwenInput.baseUrl, 'http://127.0.0.1:8000/v1', 'qwenTts.baseUrl'),
     speechVoices: Object.freeze([...qwenVoiceInput]),
   });

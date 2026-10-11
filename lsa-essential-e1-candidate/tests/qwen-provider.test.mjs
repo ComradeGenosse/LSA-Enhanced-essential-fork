@@ -64,7 +64,7 @@ test('Qwen streams 24kHz PCM with split-sample alignment and never forwards Open
   assert.equal(stack.transcription.id,'openai.transcription');
   assert.equal(stack.speech.id,'qwen.speech');
   assert.equal(sound.bytes,6);
-  assert.deepEqual(pcm,[[1,2],[3,4,5,6]]);
+  assert.deepEqual(pcm,[[1,2,3,4,5,6]]);
   assert.equal(requests[0].url,'http://127.0.0.1:8000/v1/audio/speech');
   assert.ok(!JSON.stringify(requests[0]).includes('secret-cloud-only'));
   assert.equal(requests[0].options.headers.authorization,undefined);
@@ -119,4 +119,53 @@ test('P1 durable registry accepts versioned Qwen voices and reloads them after r
   const restarted=await new CharacterStore({filePath,worldProfileId}).load();
   assert.deepEqual(restarted.characters[0].voiceAssignment,record.voiceAssignment);
   assert.equal(await fs.readFile(filePath,'utf8'),bytes);
+});
+
+test('Qwen complete-utterance mode buffers slow PCM and only releases it once generation finishes',async()=>{
+  const config=normalizeConfig(qwen,{});
+  let release, firstRead;
+  const begun=new Promise(resolve=>{firstRead=resolve;});
+  const gate=new Promise(resolve=>{release=resolve;});
+  const output=[];
+  const events=[];
+  const stack=createProviderStack(config,{fetchImpl:async()=>new Response(new ReadableStream({
+    async start(controller){
+      controller.enqueue(Uint8Array.from([1,2,3,4]));
+      firstRead();
+      await gate;
+      controller.enqueue(Uint8Array.from([5,6]));
+      controller.close();
+    },
+  }),{headers:{'x-lsa-sample-rate':'24000','x-lsa-request-id':'rid_123456789abcdef0'}})});
+  const pending=stack.speak({identity,dialogue:'A test',onPcm:async c=>output.push([...c]),
+    telemetry:{audioRaw(){},event(name,data){events.push({name,data});}}});
+  await begun;
+  await new Promise(resolve=>setImmediate(resolve));
+  assert.deepEqual(output,[]);
+  release();
+  const result=await pending;
+  assert.equal(result.bytes,6);
+  assert.deepEqual(output,[[1,2,3,4,5,6]]);
+  assert.ok(events.some(x=>x.name==='qwen_tts_buffer_ready'));
+  assert.equal(events.find(x=>x.name==='qwen_tts_timing_summary')?.data.requestId,'rid_123456789abcdef0');
+});
+test('Qwen streaming compatibility mode still forwards aligned chunks immediately',async()=>{
+  const config=normalizeConfig({...qwen,qwenTts:{...qwen.qwenTts,playbackBufferMode:'streaming'}},{});
+  const output=[];
+  const stack=createProviderStack(config,{fetchImpl:async()=>new Response(new ReadableStream({
+    start(controller){controller.enqueue(Uint8Array.from([1,2,3]));controller.enqueue(Uint8Array.from([4,5,6]));controller.close();}
+  }),{headers:{'x-lsa-sample-rate':'24000'}})});
+  await stack.speak({identity,dialogue:'A test',onPcm:async c=>output.push([...c])});
+  assert.deepEqual(output,[[1,2],[3,4,5,6]]);
+});
+test('Buffered Qwen never forwards malformed or over-budget output to native',async()=>{
+  const tooLarge=normalizeConfig({...qwen,streamingMaxPcmBytes:48000},{});
+  const output=[];
+  const fake=body=>createProviderStack(tooLarge,{fetchImpl:async()=>new Response(new ReadableStream({
+    start(controller){body.forEach(b=>controller.enqueue(b));controller.close();}
+  }),{headers:{'x-lsa-sample-rate':'24000'}})});
+  await assert.rejects(fake([Uint8Array.of(1)]).speak({identity,dialogue:'test',onPcm:async c=>output.push(c)}),/malformed/);
+  await assert.rejects(fake([new Uint8Array(48002)]).speak({identity,dialogue:'test',onPcm:async c=>output.push(c)}),e=>e.code==='tts_pcm_limit');
+  assert.deepEqual(output,[]);
+  assert.throws(()=>normalizeConfig({...qwen,qwenTts:{...qwen.qwenTts,playbackBufferMode:'unknown'}},{}),/playbackBufferMode/);
 });

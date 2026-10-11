@@ -1,6 +1,6 @@
 # Faster Qwen3-TTS: implementation, setup, and acceptance
 
-**Base:** Radio v2 PR #32, commit ee0cfe55a8a8d7d029cde870224ba14df4bbab56, already synchronized with main at that checkpoint. New PR targets the radio branch; no radio or native DLL changes.
+**Current PR base:** PR #46, `fix/radio-hearing-retention-stability-20261011` (radio reliability). Qwen integration is stacked on #46 without modifying its radio/native features.
 
 ## Implemented in this PR
 
@@ -63,6 +63,45 @@ installation's `.venv` and local Hugging Face cache in offline mode. The
 VoiceDesign model must already be cached. The GUI routes Python stdout/stderr
 to its local log when launched with `pythonw.exe`, so generation errors remain
 available without a console window.
+
+## October 11: smooth-playback and failure-diagnostic follow-up
+
+The first in-GTA sample showed repeated Luna `invalid_response` rejections for
+single overlong structured speech segments (including one typed conversation),
+and Qwen's PCM reception below real-time playback speed.
+
+- **Long replies:** Luna is instructed to keep each item under 200 characters;
+  the incremental structured decoder now safely reflows any longer complete
+  speech item at word boundaries into <=240-character segments. It preserves
+  the original hard 6-segment / 1200-character budgets and forbidden command
+  checks. Unrecoverable outputs are rejected with distinct `segment_*`
+  codes, with non-content `model_decision_validation_failure` telemetry.
+- **Smoother Qwen playback:** `qwenTts.playbackBufferMode` now defaults to
+  `complete-utterance`. For Qwen, even if the global early-TTS setting is
+  enabled, the controller waits for the validated Luna decision, generates
+  one complete PCM utterance, checks format and size, then forwards small
+  frames through the same native authorization pathway. This prevents
+  mid-utterance underruns when Qwen produces PCM slower than playback.
+  It **trades higher response latency for continuity**; it does not
+  accelerate inference or guarantee no playback glitch under native pressure.
+  To A/B test the old lower-latency path, use
+  `"playbackBufferMode": "streaming"` in `qwenTts`.
+- **Correlated diagnostics:** The local Python sidecar now logs a
+  `rid_...` request ID, model-lock wait, first-PCM time, slow generation
+  chunks, audio duration, and producer queue blocking. The Node provider
+  records `qwen_tts_chunk_gap`, `qwen_tts_buffer_ready`,
+  `qwen_pcm_forward_slow`, and a final `qwen_tts_timing_summary`
+  with that same ID. Per-turn native playback records remain separate.
+  These logs do not contain transcript text or API credentials.
+- **Failure classes:** `segment_budget_exceeded`,
+  `segment_unbreakable`, `segment_invalid_text`, `tts_pcm_limit`,
+  `invalid_pcm_format`, and timeout/cancellation codes distinguish
+  validation, audio integrity, queue contention, and lifecycle failures.
+  The existing private dialogue trace can still be consulted if enabled.
+- **GTA check:** verify no 240-character failures on counting/long
+  sentence tests; compare typed/mic; review TTS stream rates and native
+  completion; and record whether the increased first-playback latency
+  is acceptable. No physical GTA acceptance is implied by offline CI.
 
 ## Remaining acceptance and phased upgrades
 

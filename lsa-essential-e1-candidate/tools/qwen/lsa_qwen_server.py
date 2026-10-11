@@ -15,6 +15,8 @@ from pathlib import Path
 import queue
 import re
 import threading
+import time
+import uuid
 
 import numpy as np
 import torch
@@ -153,10 +155,23 @@ async def speech(payload: SpeechRequest, request: Request):
     messages = queue.Queue(maxsize=8)
     ended = threading.Event()
     done = object()
+    request_id = "rid_" + uuid.uuid4().hex[:16]
+    started = time.perf_counter()
+    LOGGER.info("tts_request id=%s mode=%s text_chars=%d", request_id, voice["mode"], len(payload.input))
 
     def produce():
+        samples = 0
+        chunks = 0
+        lock_wait_ms = 0.0
+        blocked_ms = 0.0
+        max_gap_ms = 0.0
+        first_pcm_ms = None
+        last_pcm_at = None
+        outcome = "finished"
         try:
+            lock_started = time.perf_counter()
             with gpu_lock:
+                lock_wait_ms = (time.perf_counter() - lock_started) * 1000
                 model = get_model(voice["mode"])
                 for chunk, sr, _ in generate(model, voice, payload.input, payload.instructions):
                     if ended.is_set():
@@ -165,14 +180,29 @@ async def speech(payload: SpeechRequest, request: Request):
                         raise RuntimeError("Unexpected sample rate")
                     pcm = np.asarray(chunk, dtype=np.float32).reshape(-1)
                     raw = (np.clip(pcm, -1, 1) * 32767).astype("<i2").tobytes()
+                    now = time.perf_counter()
+                    if last_pcm_at is not None:
+                        gap_ms = (now - last_pcm_at) * 1000
+                        max_gap_ms = max(max_gap_ms, gap_ms)
+                        if gap_ms > 350 and chunks < 20:
+                            LOGGER.warning("tts_chunk_gap id=%s gap_ms=%.1f chunk=%d",
+                                           request_id, gap_ms, chunks + 1)
+                    elif first_pcm_ms is None:
+                        first_pcm_ms = (now - started) * 1000
+                    last_pcm_at = now
+                    samples += pcm.size
+                    chunks += 1
+                    queue_started = time.perf_counter()
                     while not ended.is_set():
                         try:
                             messages.put(raw, timeout=0.1)
                             break
                         except queue.Full:
                             pass
+                    blocked_ms += (time.perf_counter() - queue_started) * 1000
         except Exception:
-            LOGGER.exception("Qwen generation failed")
+            outcome = "failed"
+            LOGGER.exception("Qwen generation failed id=%s", request_id)
             while not ended.is_set():
                 try:
                     messages.put(RuntimeError("Qwen generation failed"), timeout=0.1)
@@ -180,6 +210,16 @@ async def speech(payload: SpeechRequest, request: Request):
                 except queue.Full:
                     pass
         finally:
+            if ended.is_set() and outcome == "finished":
+                outcome = "cancelled"
+            LOGGER.info(
+                "tts_summary id=%s outcome=%s mode=%s wall_ms=%.1f lock_wait_ms=%.1f "
+                "first_pcm_ms=%s chunks=%d audio_ms=%.1f max_chunk_gap_ms=%.1f "
+                "queue_wait_ms=%.1f",
+                request_id, outcome, voice["mode"], (time.perf_counter() - started) * 1000,
+                lock_wait_ms, round(first_pcm_ms, 1) if first_pcm_ms is not None else None,
+                chunks, samples / 24.0, max_gap_ms, blocked_ms
+            )
             while not ended.is_set():
                 try:
                     messages.put(done, timeout=0.1)
@@ -205,7 +245,8 @@ async def speech(payload: SpeechRequest, request: Request):
             ended.set()
 
     return StreamingResponse(audio(), media_type="audio/pcm",
-                             headers={"x-lsa-sample-rate": "24000", "cache-control": "no-store"})
+                             headers={"x-lsa-sample-rate": "24000", "cache-control": "no-store",
+                                      "x-lsa-request-id": request_id})
 
 
 def main():

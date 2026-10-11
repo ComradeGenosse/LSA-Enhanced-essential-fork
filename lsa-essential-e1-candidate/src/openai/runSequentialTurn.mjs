@@ -25,7 +25,7 @@ function terminalForAbort(signal) {
 function terminalForError(error, stage) {
   const code = String(error?.code || '').toLowerCase();
   const message = String(error?.message || '').toLowerCase();
-  if (['invalid_response','incomplete_response','response_too_large'].includes(code)) return 'invalid_decision';
+  if (['invalid_response','incomplete_response','response_too_large'].includes(code) || code.startsWith('segment_')) return 'invalid_decision';
   if (['timeout','attempt_timeout','deadline_exceeded'].includes(code) || message.includes('deadline')) return 'provider_timeout';
   if (message.includes('refused')) return 'model_refusal';
   if (message.includes('invalid decision') || message.includes('decision must') || message.includes('decision fields') ||
@@ -208,7 +208,12 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
     let streamMode = null;
     let earlyAudio = null;
     if (services.config.structuredStreamingEnabled === true) {
-      const allowEarlyTts = services.config.earlyTtsEnabled === true;
+      // Qwen's real-time factor can drop below 1x in GTA. In buffered mode
+      // synthesize one validated utterance and queue all PCM before playback,
+      // avoiding gaps between TTS requests for consecutive speech segments.
+      const qwenBuffered = services.config.speechProvider === 'faster-qwen3-tts' &&
+        services.config.qwenTts?.playbackBufferMode !== 'streaming';
+      const allowEarlyTts = services.config.earlyTtsEnabled === true && !qwenBuffered;
       const modelOptions = ({ signal, timeoutMs, telemetry, dialogueAttempt }) => services.providerStack.decideStreaming({
         identity, context: { ...context, source }, source,knowledgeProjection:turn.knowledgeProjection,knowledgeDelivery:turn.knowledgeDelivery,
         input: isPlayer ? finalInput : '', history: priorHistory, signal, timeoutMs, telemetry, dialogueAttempt,

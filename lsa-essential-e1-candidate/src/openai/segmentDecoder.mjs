@@ -45,14 +45,15 @@ export function createSegmentDecoder({
     },
     finish() {
       const decision = parseJsonNoDuplicateKeys(source);
-      validateDecision(decision, { maxSegments, maxSegmentChars, maxDialogueChars });
-      if (decision.segments.length !== emitted) {
+      const normalized = validateDecision(decision, { maxSegments, maxSegmentChars, maxDialogueChars });
+      if (normalized.length !== emitted) {
         throw new Error("Final segment count did not match the segments observed in the stream.");
       }
-      const dialogue = decision.segments.map(segment => segment.text.trim()).join(' ');
+      const dialogue = normalized.map(segment => segment.text).join(' ');
       return Object.freeze({
         mode: decision.mode,
-        segments: Object.freeze(decision.segments.map(segment => Object.freeze({ text: segment.text.trim() }))),
+        segments: Object.freeze(normalized.map(segment => Object.freeze({ text: segment.text }))),
+        reflowedSegments: normalized.length - decision.segments.length,
         decision: parseDecisionJson(JSON.stringify({ dialogue, command: decision.command })),
       });
     },
@@ -62,30 +63,62 @@ export function createSegmentDecoder({
   };
 }
 
-function validateDecision(value, { maxSegments, maxSegmentChars, maxDialogueChars }) {
+// Reflow an overlong *complete* JSON speech segment without raising the
+// 240-character ceiling. All content remains in-order; count and total-dialogue
+// budgets remain hard limits. Never make unvalidated partial text audible.
+function segmentFailure(code, message) {
+  return Object.assign(new Error(message), { code });
+}
+function validateSegment(value, maxDialogueChars) {
+  assertExactKeys(value, ['text'], 'segment');
+  if (typeof value.text !== 'string' || !value.text.trim())
+    throw segmentFailure('segment_invalid_text', 'Speech segment text is empty.');
+  if (/[|\\r\\n\\u0000-\\u001f\\u007f]/.test(value.text) ||
+      /(^|\\n)\\s*DO\\s*:?\\s+[A-Za-z]/i.test(value.text))
+    throw segmentFailure('segment_invalid_text', 'Speech segment contains a control command or invalid character.');
+  if (value.text.trim().length > maxDialogueChars)
+    throw segmentFailure('segment_budget_exceeded', 'Speech segment exceeds dialogue budget.');
+  return value.text.trim();
+}
+function reflowSegment(value, maxSegmentChars, maxDialogueChars) {
+  let remaining = validateSegment(value, maxDialogueChars);
+  const pieces = [];
+  while (remaining.length > maxSegmentChars) {
+    // Split at a real word boundary, never truncate speech or change a word.
+    const cut = remaining.lastIndexOf(' ', maxSegmentChars);
+    if (cut < 1) throw segmentFailure('segment_unbreakable', 'Speech segment has an unsplittable word.');
+    pieces.push({ text: remaining.slice(0, cut).trimEnd() });
+    remaining = remaining.slice(cut).trimStart();
+  }
+  if (remaining) pieces.push({ text: remaining });
+  for (const piece of pieces) validateSegment(piece, maxDialogueChars);
+  return pieces;
+}
+function normalizeSegments(segments, limits) {
+  const normalized = [];
+  let total = 0;
+  for (const raw of segments) {
+    for (const segment of reflowSegment(raw, limits.maxSegmentChars, limits.maxDialogueChars)) {
+      normalized.push(segment);
+      total += segment.text.length;
+      if (normalized.length > limits.maxSegments)
+        throw segmentFailure('segment_budget_exceeded', 'Decision exceeded speech segment count.');
+      if (total > limits.maxDialogueChars)
+        throw segmentFailure('segment_budget_exceeded', 'Decision dialogue exceeds its size limit.');
+    }
+  }
+  return normalized;
+}
+function validateDecision(value, limits) {
   assertExactKeys(value, ['mode', 'segments', 'command'], 'decision');
   if (!['dialogue_only', 'buffered_action'].includes(value.mode)) throw new Error('Decision mode is invalid.');
-  if (!Array.isArray(value.segments) || value.segments.length < 1 || value.segments.length > maxSegments) {
-    throw new Error(`Decision must contain between 1 and ${maxSegments} speech segments.`);
-  }
-  let total = 0;
-  for (const segment of value.segments) total += validateSegment(segment, maxSegmentChars);
-  if (total > maxDialogueChars) throw new Error('Decision dialogue exceeds its size limit.');
+  if (!Array.isArray(value.segments) || value.segments.length < 1 || value.segments.length > limits.maxSegments)
+    throw segmentFailure('segment_budget_exceeded', 'Decision segment count is invalid.');
+  const normalized = normalizeSegments(value.segments, limits);
   if (typeof value.command !== 'string' || value.command.length > 300) throw new Error('Decision command is invalid or too long.');
-  if (value.mode === 'dialogue_only' && value.command.trim()) {
+  if (value.mode === 'dialogue_only' && value.command.trim())
     throw new Error('Dialogue-only stream produced a command after speech was released.');
-  }
-}
-
-function validateSegment(value, maxChars) {
-  assertExactKeys(value, ['text'], 'segment');
-  if (typeof value.text !== "string" || !value.text.trim() || value.text.length > maxChars) {
-    throw new Error("Speech segment text is empty or exceeds the segment size limit.");
-  }
-  if (/[|\r\n\u0000-\u001f\u007f]/.test(value.text) || /(^|\n)\s*DO\s*:?\s+[A-Za-z]/i.test(value.text)) {
-    throw new Error('Speech segment contains a control command or invalid character.');
-  }
-  return value.text.trim().length;
+  return normalized;
 }
 
 function assertExactKeys(value, expected, label) {
@@ -108,10 +141,9 @@ function extractCompleteSegments(source, maxSegments, maxChars, maxDialogueChars
     const end = findCompositeEnd(source, position);
     if (end == null) break;
     const segment = parseJsonNoDuplicateKeys(source.slice(position, end));
-    validateSegment(segment, maxChars);
-    segments.push(segment);
-    if (segments.length > maxSegments) throw new Error(`Decision exceeded ${maxSegments} speech segments.`);
-    if (segments.reduce((sum, item) => sum + item.text.trim().length, 0) > maxDialogueChars) throw new Error('Decision dialogue exceeds its size limit.');
+    segments.push(...reflowSegment(segment, maxChars, maxDialogueChars));
+    if (segments.length > maxSegments) throw segmentFailure('segment_budget_exceeded', 'Decision exceeded speech segment count.');
+    if (segments.reduce((sum, item) => sum + item.text.length, 0) > maxDialogueChars) throw segmentFailure('segment_budget_exceeded', 'Decision dialogue exceeds its size limit.');
     position = end;
   }
   return segments;

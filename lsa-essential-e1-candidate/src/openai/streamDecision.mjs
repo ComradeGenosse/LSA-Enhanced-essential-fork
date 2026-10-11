@@ -100,7 +100,10 @@ export async function streamDecision({
           segments = decoder.takeNewSegments();
         } catch (error) {
           if (error instanceof ProviderRequestError) throw error;
-          throw new ProviderRequestError('OpenAI streamed an invalid structured decision.', { code: 'invalid_response' });
+          const code = /^segment_[a-z_]+$/.test(error?.code || '') ? error.code : 'invalid_response';
+          telemetry?.event('model_decision_validation_failure', {stage:'incremental', code,
+            responseChars: decoder.responseChars, maxSegmentChars, maxDialogueChars});
+          throw new ProviderRequestError('OpenAI streamed an invalid structured decision.', { code });
         }
         for (const segment of segments) {
           try { dialogueAttempt?.segment({ sequence: segment.sequence, text: segment.text, mode: decoder.mode }); } catch {}
@@ -149,7 +152,16 @@ export async function streamDecision({
     if (!terminalText || terminalText !== decoder.text) throw new ProviderRequestError('OpenAI stream text did not match its completed response.', { code: 'invalid_response' });
     let result;
     try { result = decoder.finish(); }
-    catch { throw new ProviderRequestError('OpenAI completed an invalid structured decision.', { code: 'invalid_response' }); }
+    catch (error) {
+      const code = /^segment_[a-z_]+$/.test(error?.code || '') ? error.code : 'invalid_response';
+      telemetry?.event('model_decision_validation_failure', {stage:'final', code,
+        responseChars: decoder.responseChars, maxSegmentChars, maxDialogueChars});
+      throw new ProviderRequestError('OpenAI completed an invalid structured decision.', { code });
+    }
+    if (result.reflowedSegments) telemetry?.event('stream_segments_reflowed', {
+      reflowedSegments: result.reflowedSegments, segmentCount: result.segments.length,
+      maxSegmentChars, maxDialogueChars,
+    });
     telemetry?.event('model_usage', {
       inputTokens: Number.isFinite(terminal.usage?.input_tokens) ? terminal.usage.input_tokens : null,
       outputTokens: Number.isFinite(terminal.usage?.output_tokens) ? terminal.usage.output_tokens : null,
