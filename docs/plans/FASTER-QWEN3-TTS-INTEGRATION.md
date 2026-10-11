@@ -103,6 +103,45 @@ and Qwen's PCM reception below real-time playback speed.
   completion; and record whether the increased first-playback latency
   is acceptable. No physical GTA acceptance is implied by offline CI.
 
+## October 11: adaptive Qwen prebuffering with safe fallback
+
+Adaptive mode (`"qwenTts": {"playbackBufferMode":"adaptive"}`) is the new
+default for fresh configurations. **Existing installed configs explicitly set to
+`"complete-utterance"` will stay in that mode until changed and the
+companion restarted.** OpenAI and Qwen voice settings are otherwise unchanged.
+
+- The sidecar is still responsible for generating 24-kHz mono PCM. The
+  companion observes complete aligned chunks, estimates generation
+  throughput/gaps, and waits for a conservative initial audio reserve.
+  Defaults: `adaptiveMinBufferMs=2500`, `adaptiveMaxBufferMs=4500`,
+  `adaptiveSafetyMs=1100` (all three bounded/validated). It only hands off
+  before generation completes when the predicted safety margin fits in the
+  configured maximum. This improves time to first voice when Qwen can build
+  sufficient headroom, **without promising a specific improvement**.
+- Reader and native PCM forwarding now run independently once the buffer
+  threshold is reached. Each native chunk remains sample-aligned and goes
+  through existing authorization and turn-lifecycle checks.
+- A native playback-start notification is used with the cumulative supplied
+  PCM duration to **estimate** buffer exhaustion. This does not measure the
+  actual GTA audio engine queue or prove an audible underrun. Telemetry:
+  `qwen_tts_adaptive_start`, `qwen_tts_underrun_risk`,
+  `qwen_tts_adaptive_fallback`, and `qwen_tts_timing_summary`
+  (`underrunRiskCount`, `fallbackUsed`). No dialogue or credentials.
+- If an estimated underrun occurs, that voice is pinned to
+  full-utterance buffering for the rest of the companion runtime. The current
+  utterance can already be playing, so **the current glitch cannot be undone**;
+  the next turn is protected. If the generator is too slow or the utterance is
+  short, adaptive mode simply uses full buffering for that turn without
+  latching a permanent fallback.
+- The explicit settings `"complete-utterance"` and `"streaming"`
+  remain available for an A/B comparison. Full buffering is the
+  recommended one-step rollback if GTA audio stutters.
+- Validate in GTA with identical typed/mic prompts, measure
+  `qwen_tts_adaptive_start`, `native_playback_started`, and
+  `qwen_tts_underrun_risk` by turn identity. Do not infer native
+  underruns from network chunk gaps alone. Existing cloud reasoning/STT,
+  memory/voice assignment, radio and native ownership behavior are unchanged.
+
 ## Remaining acceptance and phased upgrades
 
 **A — now implemented, GTA pending:** test new provider against the existing radio-deployed companion; verify server health, first PCM, correct voice for Nathan, response cancellation under player takeover, exact-generation native authorization and final PlaybackEnded receipt, no stale history or audio, hot reuse, failure behavior and return to OpenAI. Do not treat offline evidence as physical GTA acceptance.

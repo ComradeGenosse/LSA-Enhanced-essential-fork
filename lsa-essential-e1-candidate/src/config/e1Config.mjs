@@ -108,18 +108,23 @@ export function normalizeConfig(input = {}, env = process.env) {
     throw new TypeError('speechProvider must be openai or faster-qwen3-tts.');
   const qwenInput = input.qwenTts ?? {};
   if (!qwenInput || typeof qwenInput !== 'object' || Array.isArray(qwenInput) ||
-      Object.keys(qwenInput).some(k => !['baseUrl','speechVoices','speechVoiceProfiles','playbackBufferMode'].includes(k)))
+      Object.keys(qwenInput).some(k => !['baseUrl','speechVoices','speechVoiceProfiles','playbackBufferMode','adaptiveMinBufferMs','adaptiveMaxBufferMs','adaptiveSafetyMs'].includes(k)))
     throw new TypeError('qwenTts has unknown or invalid fields.');
   const qwenVoiceInput = qwenInput.speechVoices ?? ['nathan'];
   if (!Array.isArray(qwenVoiceInput) || qwenVoiceInput.length < 1 || qwenVoiceInput.length > 32 ||
       qwenVoiceInput.some(v => typeof v !== 'string' || !/^[a-z][a-z0-9_-]{0,31}$/.test(v)) ||
       new Set(qwenVoiceInput).size !== qwenVoiceInput.length)
     throw new TypeError('qwenTts.speechVoices must contain 1–32 unique lowercase voice identifiers.');
-  const playbackBufferMode = qwenInput.playbackBufferMode ?? 'complete-utterance';
-  if (!['complete-utterance','streaming'].includes(playbackBufferMode))
-    throw new TypeError('qwenTts.playbackBufferMode must be complete-utterance or streaming.');
+  const playbackBufferMode = qwenInput.playbackBufferMode ?? 'adaptive';
+  if (!['adaptive','complete-utterance','streaming'].includes(playbackBufferMode))
+    throw new TypeError('qwenTts.playbackBufferMode must be adaptive, complete-utterance or streaming.');
+  const adaptiveMinBufferMs = boundedInteger(qwenInput.adaptiveMinBufferMs, 2500, 250, 10000, 'qwenTts.adaptiveMinBufferMs');
+  const adaptiveMaxBufferMs = boundedInteger(qwenInput.adaptiveMaxBufferMs, 4500, 500, 20000, 'qwenTts.adaptiveMaxBufferMs');
+  const adaptiveSafetyMs = boundedInteger(qwenInput.adaptiveSafetyMs, 1100, 250, 6000, 'qwenTts.adaptiveSafetyMs');
+  if (adaptiveMaxBufferMs < adaptiveMinBufferMs)
+    throw new TypeError('qwenTts.adaptiveMaxBufferMs must be >= adaptiveMinBufferMs.');
   const qwenTts = Object.freeze({
-    playbackBufferMode,
+    playbackBufferMode, adaptiveMinBufferMs, adaptiveMaxBufferMs, adaptiveSafetyMs,
     baseUrl: baseUrl(qwenInput.baseUrl, 'http://127.0.0.1:8000/v1', 'qwenTts.baseUrl'),
     speechVoices: Object.freeze([...qwenVoiceInput]),
   });

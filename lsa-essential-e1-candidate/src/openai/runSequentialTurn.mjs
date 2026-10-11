@@ -62,6 +62,7 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
   let authorization;
   let retired = false;
   let endSent = false;
+  let nativePlaybackStartedAt = null;
   let providerTimer = null;
   const metrics = host.telemetry?.beginTurn(identity, source, { inputChars: String(input || '').length, bytes: pcm?.byteLength || 0, sampleRate: sampleRate || 0 }) || null;
 
@@ -161,6 +162,7 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
       };
       const type = map[event.type];
       if (!type) return;
+      if (event.type === 'playback_started') nativePlaybackStartedAt = performance.now();
       dialogueTurn?.native({ type: event.type, reason: event.reason || null, wasInterrupted: event.wasInterrupted ?? null, hadAudio: event.hadAudio ?? null, playbackStarted: event.playbackStarted ?? null });
       const key = type === 'native_playback_started' ? 'playbackStartedCount' : type === 'native_playback_ended' ? 'playbackEndedCount' : type === 'native_authorization_accepted' ? 'authorizationAcceptedCount' : 'authorizationRejectedCount';
       metrics?.count(key);
@@ -254,6 +256,7 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
             const audio = await performProvider('tts', services.providerStack.speech.id,
               ({ signal, timeoutMs, telemetry, isActive: active }) => services.speak({
                 identity, dialogue: segment.text, speechProfile: turn.speechProfile, signal, timeoutMs, telemetry,
+                playbackStartedAt: () => nativePlaybackStartedAt,
                 onPcm: chunk => forwardPcm(chunk, active),
               }), () => !nativeHandoffStarted);
             if (!audio?.bytes) throw new Error('empty_segment_audio');
@@ -352,6 +355,7 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
       audio = await performProvider('tts', services.providerStack?.speech.id || 'openai.speech',
         ({ signal, timeoutMs, telemetry, isActive }) => services.speak({
           identity, dialogue: decision.dialogue, speechProfile: turn.speechProfile, signal, timeoutMs, telemetry,
+          playbackStartedAt: () => nativePlaybackStartedAt,
           onPcm: chunk => forwardPcm(chunk, isActive),
         }), () => !hasAction && !nativeHandoffStarted);
     }
