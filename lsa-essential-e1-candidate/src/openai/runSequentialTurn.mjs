@@ -196,6 +196,12 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
     const priorHistory = turn.priorHistory ?? history.readForSession(identity.pedId, identity.sessionNonce);
     if (isPlayer) {
       const committed = history.commitPlayerInput({ identity, input: finalInput });
+      // M2: the RAM history is intentionally trimmed, but the immutable SQLite
+      // journal receives the full accepted input with source attribution.
+      if (committed && services.recordM2Player) {
+        try { await services.recordM2Player({turn,text:finalInput,source}); }
+        catch { metrics?.event('memory_journal_not_committed', {role:'player'}); }
+      }
       metrics?.count(committed ? 'playerCommitted' : 'playerDuplicateCount');
       metrics?.event(committed ? 'player_history_committed' : 'history_duplicate_prevented', { role: 'user', inputChars: String(finalInput).length });
     }
@@ -381,6 +387,12 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
     }
     chooseTerminal('completed');
     if (!history.acceptPlaybackResult({ ...result, playbackSucceeded: true })) throw new Error('history_commit_rejected');
+    // Only the terminal native playback receipt admitted by RAM history may
+    // commit an NPC line. Never journal generated-but-unplayed speech.
+    if (services.recordM2Npc) {
+      try { await services.recordM2Npc({turn,text:decision.dialogue,receipt:result}); }
+      catch { metrics?.event('memory_journal_not_committed', {role:'npc'}); }
+    }
     metrics?.count('assistantCommitCount');
     metrics?.event('assistant_history_committed', { outputChars: String(decision.dialogue || '').length, playbackEndedCount: 1 });
     dialogueTurn?.finish({ reason: 'completed', stage: 'completed', assistantCommitted: true, assistantDiscarded: false });
