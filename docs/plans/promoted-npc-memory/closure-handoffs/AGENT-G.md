@@ -4,14 +4,14 @@
 **Dedicated PR:** https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/pull/82  
 **Branch:** feature/memory-close-g-deterministic-lifecycle-20261011  
 **Base:** integration/memory-completion-h-review-20261011  
-**Exact last implementation-code SHA:** bc96c7d1c212200e68d3286faf27e878109d54b4. The documentation commit is an additional PR-head commit; inspect PR #82 for its final document-inclusive SHA.  
+**Exact last source-and-test implementation commit:** 48b53b48b86dbaa248d6c3a88d9af425808eb85d. The last runtime-source code change is bc96c7d1c212200e68d3286faf27e878109d54b4. The documentation commit is an additional PR-head commit; inspect PR #82 for its final document-inclusive SHA.  
 **Disposition:** Offline source code and mocked P2 cursor tests delivered. Production integration NOT proven. No merge, install, paid Luna call or GTA acceptance.
 
 ## Changed files (owned)
 
 - lsa-shared-brain/src/memory/m6Coordinator.mjs — durable cursor-scoped selection, scene close/idle/recovery hooks, privacy/source rechecks, retry-safe saves and optional queue insertion before cursor ack
 - lsa-shared-brain/src/memory/m6CursorConsumer.mjs — strict versioned P2 source-hashed, append-sequenced, paginated cursor consumer
-- lsa-shared-brain/tests/memory-m6-cursor-lifecycle.test.mjs — 2,500-source restart, page/send/save/queue/ack crash matrix, privacy, false witness, different owner/protagonists, timeline switch, cloud-off cases
+- lsa-shared-brain/tests/memory-m6-cursor-lifecycle.test.mjs — 2,500-source restart, read/save/queue/ack crash matrix, privacy, false witness, different owner/protagonists, timeline switch, cloud-off cases
 - lsa-shared-brain/tests/memory-m6-completion.test.mjs — imports cursor tests in existing CI entry point, explicitly enables bounded legacy test-only fixture
 - lsa-shared-brain/tests/memory-m6-sqlite.test.mjs — pins legacy SQLite smoke test to explicitly bounded compatibility fixture
 
