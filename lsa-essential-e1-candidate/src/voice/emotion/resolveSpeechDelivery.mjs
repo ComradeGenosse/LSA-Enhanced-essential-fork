@@ -4,7 +4,7 @@ import { ELEVEN_TAG_FOR_DELIVERY, ELEVEN_SPEECH_MAX_CHARS } from './elevenTags.m
 // This module never writes to canonical dialogue, history or the memory journal.
 const MODES = new Set(['shadow', 'experimental']);
 const VALUES = new Set(['neutral','whisper','excited','fearful','angry','amused','sad','sarcastic','concerned']);
-const SOURCES = new Set(['verified_scene','luna_hint','dialogue_cue','neutral']);
+const SOURCES = new Set(['verified_scene','luna_hint','dialogue_cue','ephemeral_mood','neutral']);
 const TAGGABLE = new Set(['whisper','excited','angry','amused','sad','sarcastic']);
 const CONFIDENCES = new Set(['supported','soft']);
 const INTENSITIES = new Set(['subtle','normal','expressive']);
@@ -115,10 +115,10 @@ export function createSpeechDeliveryResolver({
       try { adapter.onSpeechCompleted?.({identity,turn,delivery,receipt}); }
       catch { /* Ephemeral mood may never interrupt PCM forwarding. */ }
     },
-    retire() {
+    retire(completed = false) {
       if (retired) return;
       retired = true;
-      try { adapter.retireTurn?.({identity,turn}); }
+      try { adapter.retireTurn?.({identity,turn,completed:completed === true}); }
       catch { /* No process-global mood may outlive a failed/retired turn. */ }
     },
   });

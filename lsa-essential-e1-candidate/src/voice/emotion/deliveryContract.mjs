@@ -7,7 +7,7 @@ const VALUES = [
 ];
 export const DELIVERY_VALUES = Object.freeze(VALUES);
 export const DELIVERY_SOURCES = Object.freeze([
-  'neutral', 'verified_scene', 'luna_hint', 'dialogue_cue',
+  'neutral', 'verified_scene', 'luna_hint', 'dialogue_cue', 'ephemeral_mood',
 ]);
 export const DELIVERY_CONFIDENCES = Object.freeze(['supported', 'soft']);
 export const DELIVERY_INTENSITIES = Object.freeze(['subtle', 'normal', 'expressive']);

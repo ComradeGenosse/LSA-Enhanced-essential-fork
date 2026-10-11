@@ -184,11 +184,16 @@ export function resolveDelivery({
 
   const traits = traitsForOwner(identity, actorTraits);
   const scene = bestVerifiedScene(identity, currentSceneEvidence, nowMonotonicMs, traits);
+  // A soft mood is style-only; it is NEVER promoted to scene evidence, and
+  // freshly witnessed danger or the speaker's current words outrank it.
+  const mood = priorEphemeralMood && Object.isFrozen(priorEphemeralMood) &&
+    ['amused','sad','concerned','fearful','whisper'].includes(priorEphemeralMood.value)
+    ? {value:priorEphemeralMood.value,source:'ephemeral_mood',confidence:'soft'} : null;
   const candidate = scene
     ? { value: scene.value, source: 'verified_scene', confidence: 'supported',
         evidenceRef: scene.evidenceRef }
     : conversationalCue(segmentText, traits) ?? (LUNA_SOFT.has(lunaHint)
-      ? {value:lunaHint, source:'luna_hint', confidence:'soft'} : null);
+      ? {value:lunaHint, source:'luna_hint', confidence:'soft'} : mood);
   if (!candidate) return NEUTRAL;
   // Suppress repeated performance, never carrying a scene event over into a
   // future segment/turn without freshly verified evidence. Agent EA4 owns mood.
