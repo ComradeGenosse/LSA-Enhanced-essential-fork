@@ -77,6 +77,14 @@ class Program
                     Check(joined.Contains("\"trackTextId\":1004")&&joined.Contains("\"channel\":\"auditory\""),
                         "existing song refreshes immediately for a new native-verified passenger");
 
+                    // One transient metadata tuple must never become a radio
+                    // edge or source-hearing observation during retuning.
+                    var beforeTransient=sensors.RadioEdges;
+                    Rage.Native.NativeFunction.RadioTextId=9999;
+                    Set(integration,"nextRadio",0L);Game.GameTime+=250;integration.Update();
+                    Rage.Native.NativeFunction.RadioTextId=1004;
+                    Set(integration,"nextRadio",0L);Game.GameTime+=250;integration.Update();
+                    Check(sensors.RadioEdges==beforeTransient,"one-sample track-ID race is not published");
                     Rage.Native.NativeFunction.RadioTextId=1005;
                     for(int n=0;n<3;n++){Set(integration,"nextRadio",0L);Game.GameTime+=250;integration.Update();}
                     var changed=ReadUntil(reader,"\"producer\":\"radio\"").Last();
@@ -106,6 +114,13 @@ class Program
                         "unchanged song revalidates from fresh GTA tuple and same-car witness without inventing a music edge");
                     Check((long)Get(sensors,"nextRadioRevalidate")>0,
                         "successful source revalidation restarts bounded 60-second interval");
+                    // Leaving and re-entering with an unchanged song must
+                    // revoke old listener coverage and immediately prove it again.
+                    passenger.CurrentVehicle=null;Set(integration,"nextRadio",0L);Game.GameTime+=250;integration.Update();
+                    passenger.CurrentVehicle=vehicle;Set(integration,"nextRadio",0L);Game.GameTime+=250;integration.Update();
+                    var rejoined=ReadUntil(reader,"\"producer\":\"radio\"").Last();
+                    Check(rejoined.Contains("\"trackTextId\":1005")&&rejoined.Contains(passengerRef) &&
+                          sensors.RadioEdges==realEdges,"same-car listener rejoining rechecks live hearing before 60 seconds");
 
                     player.CurrentVehicle=null;Set(integration,"nextRadio",0L);Game.GameTime+=50;integration.Update();
                     var stopped=ReadUntil(reader,"\"kind\":\"radio_stopped\"").Last();
