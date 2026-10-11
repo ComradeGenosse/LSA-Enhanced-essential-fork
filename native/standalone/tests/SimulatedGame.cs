@@ -34,9 +34,9 @@ namespace LSA.Standalone.Tests
         public void Advance(long duration) { milliseconds += duration; }
         public void Regress(long elapsed) { milliseconds = elapsed; }
 
-        public void Spawn(int handle, ulong address, bool scripted = false)
+        public void Spawn(int handle, ulong address, bool scripted = false, ulong lifetimeTag = 0)
         {
-            observations[handle] = new ActorObservation(handle, address, true, scripted);
+            observations[handle] = new ActorObservation(handle, address, true, scripted, lifetimeTag);
         }
 
         public void Kill(int handle)
