@@ -112,6 +112,20 @@ export class M5SqliteServices{
      }
      verifyOwner(this.#db,scope);
      this.#db.exec(sql);
+     // Catch legacy M5 "forget" commands already durably committed by PR #61.
+     // The core tombstone suppresses retrieval immediately; this additive
+     // bookkeeping makes seven-day restore/purge available after reconnect.
+     transaction(this.#db,()=>{
+       const forgotten=this.#db.prepare(`SELECT t.target_id AS targetId,
+         t.command_id AS commandId,t.created_at_utc AS createdAtUtc
+         FROM memory_tombstones t JOIN memory_commands c ON c.command_id=t.command_id
+         WHERE t.world_profile_id=? AND t.character_id=? AND t.timeline_id=?
+           AND c.protagonist_key=? AND c.operation='forget'`).all(...scopeKey(scope));
+       const insert=this.#db.prepare('INSERT OR IGNORE INTO m5_trash VALUES(?,?,?,?,?,?,?,?,?,NULL,NULL)');
+       for(const item of forgotten)insert.run(item.commandId,item.commandId,item.targetId,
+         ...scopeKey(scope),item.createdAtUtc,
+         new Date(Date.parse(item.createdAtUtc)+7*DAY).toISOString());
+     });
      return true;
    });
  }
@@ -181,8 +195,16 @@ export class M5SqliteServices{
  bindCommands(){
    return Object.freeze({
      findCandidates:params=>this.#store.findCandidates(params),
-     commitCommand:op=>this.#store.commitCommand(op),
-     verifyCommand:params=>this.#store.verifyCommand(params),
+     commitCommand:async op=>{
+       const receipt=await this.#store.commitCommand(op);
+       if(op.operation==='forget' && receipt?.durableCommit)await this.ready(op.scope);
+       return receipt;
+     },
+     verifyCommand:async params=>{
+       const receipt=await this.#store.verifyCommand(params);
+       if(receipt?.operation==='forget' && receipt?.durableCommit)await this.ready(params.scope);
+       return receipt;
+     },
      saveClarification:params=>this.saveClarification(params),
      getClarification:params=>this.getClarification(params),
      completeClarification:params=>this.completeClarification(params),
@@ -293,7 +315,31 @@ export class M5SqliteServices{
      const ids=new Set(due.map(x=>x.id));
      // Never delete sources belonging to another protagonist. Closure only
      // follows memories authored for this protagonist, not source parents.
-     for(const id of dependentIds(db,scope,ids)){
+     const closure=dependentIds(db,scope,ids);
+     // Purge stored derivatives, curator jobs, appraisals and audit receipts
+     // that include purged evidence, not merely the primary journal row.
+     const tainted=new Set(closure);
+     for(const row of db.prepare('SELECT job_id AS id,job_json AS json FROM memory_curation_jobs WHERE world_profile_id=? AND character_id=? AND timeline_id=?')
+       .all(scope.worldProfileId,scope.characterId,scope.timelineId)){
+       const job=JSON.parse(row.json);
+       if(job.proposal?.evidenceRecordIds?.some(id=>tainted.has(id)) || tainted.has(job.proposal?.proposalId))
+         db.prepare('DELETE FROM memory_curation_jobs WHERE job_id=?').run(row.id);
+     }
+     for(const row of db.prepare('SELECT proposal_id AS id,original_proposal_json AS json FROM memory_luna_appraisals WHERE world_profile_id=? AND character_id=? AND timeline_id=?')
+       .all(scope.worldProfileId,scope.characterId,scope.timelineId)){
+       const proposal=JSON.parse(row.json);
+       if(tainted.has(row.id)||proposal.evidenceRecordIds?.some(id=>tainted.has(id)))
+         db.prepare('DELETE FROM memory_luna_appraisals WHERE proposal_id=?').run(row.id);
+     }
+     for(const row of db.prepare('SELECT command_id AS id,requested_by_line_id AS lineId,receipt_json AS json FROM memory_commands WHERE '+scopeWhere)
+       .all(...scopeKey(scope))){
+       const command=JSON.parse(row.json);
+       if(tainted.has(row.lineId)||command.evidenceRecordIds?.some(id=>tainted.has(id))){
+         db.prepare('DELETE FROM memory_corrections WHERE command_id=?').run(row.id);
+         db.prepare('DELETE FROM memory_commands WHERE command_id=?').run(row.id);
+       }
+     }
+     for(const id of closure){
        db.prepare('DELETE FROM memory_records WHERE memory_id=? AND world_profile_id=? AND character_id=? AND timeline_id=? AND protagonist_key=?').run(id,...scopeKey(scope));
        db.prepare('DELETE FROM dialogue_journal WHERE record_id=? AND world_profile_id=? AND character_id=? AND timeline_id=? AND protagonist=?')
          .run(id,scope.worldProfileId,scope.characterId,scope.timelineId,scope.protagonistKey??'unknown');
