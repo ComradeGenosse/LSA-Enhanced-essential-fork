@@ -28,6 +28,16 @@ const safe=(root,relative)=>{
   const p=path.resolve(root,...relative.split('/'));
   if(!inside(root,p)||p===root)fail('path_escape');return p;
 };
+async function denyLinkedAncestors(relative){
+  let current=target;
+  for(const part of relative.split('/')){
+    current=path.join(current,part);
+    try{
+      const stat=await lstat(current);
+      if(stat.isSymbolicLink())fail('linked_target_path_forbidden:'+relative);
+    }catch(error){if(error.code==='ENOENT')break;throw error;}
+  }
+}
 const sha=async p=>createHash('sha256').update(await readFile(p)).digest('hex');
 const exists=async p=>{try{await access(p);return true;}catch{return false;}};
 async function scan(root){
@@ -101,6 +111,7 @@ if(mode==='deploy'){
   for(const relative of extras){
     if(relative==='plugins'||relative.startsWith('plugins/'))continue;
     const p=safe(target,relative);
+    await denyLinkedAncestors(relative);
     additional.push({relative,wasPresent:await exists(p)});
   }
   await mkdir(backup,{recursive:false});
@@ -127,6 +138,7 @@ if(mode==='deploy'){
       fail('backup_hash_verification_failed');
     for(const item of listed){
       const dest=safe(target,item.path),src=safe(release,item.path);
+      await denyLinkedAncestors(item.path);
       await mkdir(path.dirname(dest),{recursive:true});
       await cp(src,dest,{force:true});
       if(await sha(dest)!==item.sha256)fail('installed_file_mismatch:'+item.path);
@@ -157,6 +169,7 @@ if(mode==='deploy'){
       await cp(path.join(backup,'plugins'),path.join(target,'plugins'),{recursive:true});
     for(const x of receipt.additional){
       const dest=safe(target,x.relative);
+      await denyLinkedAncestors(x.relative);
       await rm(dest,{recursive:true,force:true});
       if(x.wasPresent){
         await mkdir(path.dirname(dest),{recursive:true});
