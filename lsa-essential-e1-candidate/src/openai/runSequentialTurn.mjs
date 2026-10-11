@@ -185,8 +185,12 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
       if (source === 'player_mic') {
         // One provider STT, bound to the exact source-time mic and native turn
         // only if both lifecycle and P0 proof pass. No PS2 hearing grant.
-        try { services.acceptCapturedPlayerUtterance?.({identity,text:finalInput}); }
-        catch { /* Optional C-01 evidence cannot affect player dialogue. */ }
+        try {
+          if (typeof services.acceptCapturedPlayerUtterance==='function')
+            services.acceptCapturedPlayerUtterance({identity,text:finalInput});
+          else
+            services.acceptPlayerTranscript?.({text:finalInput,receipt:null});
+        } catch { /* Optional C-01 evidence cannot affect player dialogue. */ }
       }
     }
     if (isPlayer && !String(finalInput || '').trim()) throw new Error('player_input_empty');
