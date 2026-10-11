@@ -72,7 +72,7 @@ test('ten real-adapter TTS pairs preserve identical text, validate PCM and do no
     assert.equal(pair.find(r => !r.hasAuthorization).voice, 'nathan');
   }
   assert.equal(summarize(rows, 'tts').pairedSamples, 10);
-  assert.equal(renderReport(rows, {mode:'tts',head:'fixture'}).includes('ten identical text fixtures'), true);
+  assert.equal(renderReport(rows, {mode:'tts',head:'fixture'}).includes('TTS phase: identical ten text fixtures'), true);
 });
 
 test('real patched controller compares early streaming OpenAI and buffered Qwen with mocked network', { timeout: 60000 }, async t => {
