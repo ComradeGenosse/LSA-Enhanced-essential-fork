@@ -6,6 +6,7 @@ export const EVENT_NAMES = new Set([
   'decision_validated','decision_rejected','pcm_first_ready','pcm_delivery_summary','native_authorization_requested',
   'native_authorization_accepted','native_authorization_rejected','native_playback_started','native_stream_end_handoff',
   'native_playback_ended','provider_deadline_fired','playback_watchdog_armed','playback_watchdog_fired','late_pcm_ignored',
+  'stt_route','stt_local_result','stt_fallback',
   'provider_selected','provider_attempt_started','provider_attempt_succeeded','provider_retry_scheduled','provider_retry_skipped','provider_retry_exhausted','provider_retry_recovered',
   'player_history_committed','history_duplicate_prevented','assistant_history_staged','assistant_history_committed',
   'assistant_history_discarded','history_trimmed','action_validated','action_dispatch_attempted',
@@ -30,6 +31,7 @@ const safeKeys = new Set([
   'perceivedUnsupportedClaims','perceivedRevisionMismatch','perceivedUnmatchedSalience',
   'perceivedBudgetExcluded','perceivedSafetyOverflow',
   'stage','operation','terminalReason','reason','code','nativeType','nativeReason','errorType','actionName',
+  'phase','fallback','from','to',
   'requestId','model','effort','source','provider','role','outcome','eventType','httpStatus','durationMs',
   'bytes','rawBytes','pcmBytes','wavBytes','bodyReadMs','handoffMs','chunks','sampleRate','channels','inputChars','outputChars','inputTokens',
   'outputTokens','totalTokens','cachedInputTokens','reasoningTokens','audioTokens','audioDurationMs',
@@ -75,6 +77,7 @@ const safeTokens = new Set([
   'stale_before_intake','incomplete_intake','tuple_rejected','not_delivered',
   'verified_observer','contract_unavailable','missing','index_missing','lease_expired','not_observer','kind_mismatch',
   'off','shadow','active','unsupported_contract','no_actor_capture','no_observer_index','wrong_actor','host_mismatch','world_epoch_changed','channel_unhealthy','anchor_expired','participant_retired','owner_unverified','projection_failed',
+  'primary','success','local_stt_unavailable','local_stt_timeout','local_stt_bad_request','invalid_transcript','parakeet-ultra',
   'openai','gemini','player_text','player_mic','special_event','system','internal','completed','failed',
   'cancelled','superseded','disconnected','provider_timeout','stt_error','model_error','model_refusal',
   'invalid_decision','tts_error','native_auth_rejected','playback_error','playback_interrupted',
@@ -110,7 +113,10 @@ function safeScalar(key, value) {
   if (key === 'code' && /^[A-Za-z][A-Za-z0-9_]{0,63}$/.test(token)) return token;
   if (['nativeReason','nativeType','errorType','actionName','stage','operation'].includes(key) && /^[A-Za-z][A-Za-z0-9_]{0,63}$/.test(token)) return token;
   if (key === 'requestId' && /^rid_[a-f0-9]{16}$/.test(token)) return token;
+  if (key === 'model' && token === 'moondream/parakeet-ultra') return token;
   if (key === 'model' && /^(gpt|whisper|tts)[-_][A-Za-z0-9._-]{1,80}$/i.test(token)) return token;
+  if (key === 'phase' && ['primary','fallback'].includes(token)) return token;
+  if (['from','to'].includes(key) && ['parakeet-ultra','openai'].includes(token)) return token;
   if (['bundleHash','dllHash','frameHash','knowledgeRequestHash','projectionHash'].includes(key) && /^[a-f0-9]{64}$/i.test(token)) return token.toLowerCase();
   if (['canonHash','systemPromptHash','runtimePromptHash','finalReasoningRequestHash'].includes(key) && /^[a-f0-9]{64}$/i.test(token)) return token.toLowerCase();
   if (key === 'generatedPersonaPolicy' && ['suppressed','subordinate'].includes(token.toLowerCase())) return token.toLowerCase();
@@ -119,7 +125,7 @@ function safeScalar(key, value) {
   if (key === 'profileId' && /^vp_[a-f0-9]{20}$/.test(token)) return token;
   if (key === 'voice' && /^[a-z][a-z0-9_-]{0,31}$/.test(token)) return token;
   if (key === 'speechProvider' && /^[a-z][a-z0-9._-]{0,63}$/.test(token)) return token;
-  if (key === 'provider' && /^openai\.(reasoning|transcription|speech)$/.test(token)) return token;
+  if (key === 'provider' && (/^openai\.(reasoning|transcription|speech)$/.test(token) || ['parakeet-ultra','parakeet.transcription'].includes(token))) return token;
   if (key === 'attemptId' && /^(stt|model|tts):[12]$/.test(token)) return token;
   if (key === 'activityId' && /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(token)) return token;
   if (key === 'intent' && /^(hold_position|accompany|resume_previous|sit_here|scenario_here|scenario_at|move_to_and_hold|approach_and_face|hang_out_with|board_vehicle|ride_along|exit_vehicle_and_hold|leave_scene|take_cover_and_hold|go_to_place|vehicle_trip)$/.test(token)) return token;
