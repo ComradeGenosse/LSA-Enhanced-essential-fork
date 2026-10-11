@@ -21,7 +21,7 @@ function mockProvider({failAt=null, mode='normal'}={}){
       }
       await onPcm(new Uint8Array(bytes));
       await onPcm(new Uint8Array(bytes));
-      return {bytes, chunks:2, sampleRate:24000, channels:1};
+      return {bytes:bytes * 2, chunks:2, sampleRate:24000, channels:1};
     },
   };
 }
