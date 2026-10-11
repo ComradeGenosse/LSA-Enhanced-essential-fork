@@ -14,3 +14,4 @@ tools/qwen/voices.json
 tools/qwen/voices/
 /outputs/qwen-smoke/
 /outputs/qwen-benchmark/
+/outputs/qwen-profile/
