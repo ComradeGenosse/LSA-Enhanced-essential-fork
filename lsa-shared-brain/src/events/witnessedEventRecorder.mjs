@@ -10,6 +10,12 @@ function sync(value) {
   if(isPromise(value)) throw new Error('async_commit_refused');
   return value;
 }
+const matchesCandidate=(proof,candidate)=>!!proof && !!candidate &&
+  proof.characterId===candidate.characterId &&
+  proof.worldProfileId===candidate.worldProfileId &&
+  proof.timelineId===candidate.timelineId &&
+  proof.adapterEpoch===candidate.adapterEpoch &&
+  samePhysicalOwner(proof.ownerProof,candidate.ownerProof);
 const accepted = result => result?.inserted===true || result?.duplicate===true;
 export class WitnessedEventRecorder {
   #authorize; #withTimelineWrite; #port; #now; #grace=[]; #seen=new Map();
@@ -33,7 +39,7 @@ export class WitnessedEventRecorder {
   bufferBeforePromotion({observation,candidate}={}) {
     this.#trim();
     const stamp=sync(this.#authorize({observation,candidate,stage:'prepromotion'}));
-    if(!stamp || stamp.promoted!==false || !stamp.current || !Number.isSafeInteger(this.#now()) ||
+    if(!stamp || !matchesCandidate(stamp,candidate) || stamp.promoted!==false || !stamp.current || !Number.isSafeInteger(this.#now()) ||
        !stamp.ownerProof || !stamp.adapterEpoch) return {accepted:false,reason:'prepromotion_proof_missing'};
     const reason=validatePs2MemoryInput(observation,{...stamp,promoted:true});
     if(reason) return {accepted:false,reason};
@@ -52,7 +58,7 @@ export class WitnessedEventRecorder {
     if(!candidate?.timelineId) return {accepted:false,reason:'timeline_not_selected'};
     return await this.#withTimelineWrite(candidate.timelineId,(db,snapshot)=>{
       const identity=sync(this.#authorize({observation,candidate,stage:'commit'}));
-      if(!identity || identity.promoted!==true || identity.timelineId!==candidate.timelineId)
+      if(!identity || !matchesCandidate(identity,candidate) || identity.promoted!==true)
         return {accepted:false,reason:'owner_not_current'};
       const result=normalizeWitnessedObservation({observation,identity,participantProofs});
       if(!result.accepted)return result;
@@ -74,7 +80,7 @@ export class WitnessedEventRecorder {
       if(this.#now()<entry.capturedAt || this.#now()-entry.capturedAt>GRACE_MS)continue;
       const outcome=await this.#withTimelineWrite(candidate.timelineId,(db,snapshot)=>{
         const identity=sync(this.#authorize({observation:entry.observation,candidate,stage:'promotion_commit'}));
-        if(!identity || !identity.promoted || identity.timelineId!==candidate.timelineId ||
+        if(!identity || !matchesCandidate(identity,candidate) || !identity.promoted ||
            !samePhysicalOwner(identity.ownerProof,entry.prePromotionProof) ||
            identity.adapterEpoch!==entry.adapterEpoch) return {accepted:false,reason:'grace_owner_mismatch'};
         const normalized=normalizeWitnessedObservation({
@@ -100,7 +106,7 @@ export class WitnessedEventRecorder {
       return {accepted:false,reason:'negative_coverage_not_supported'};
     return await this.#withTimelineWrite(candidate.timelineId,(db,snapshot)=>{
       const identity=sync(this.#authorize({observation:null,candidate,stage:'coverage_commit'}));
-      if(!identity?.promoted || identity.timelineId!==candidate.timelineId)
+      if(!identity?.promoted || !matchesCandidate(identity,candidate))
         return {accepted:false,reason:'owner_not_current'};
       const record=immutableSnapshot({
         characterId:identity.characterId,worldProfileId:identity.worldProfileId,
