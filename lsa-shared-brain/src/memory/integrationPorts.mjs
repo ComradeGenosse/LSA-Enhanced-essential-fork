@@ -54,7 +54,10 @@ export class SharedJournalRecallAdapter{
     if(this.store.worldProfileId!==scope.worldProfileId)throw new Error('recall_world_mismatch');
     const wanted=sourceKind===null?['dialogue_line','journal_event']:[sourceKind];
     const unique=new Map();
+    const suppressed=new Set(typeof this.store.listSuppressedMemoryIds==='function'
+      ?await this.store.listSuppressedMemoryIds(scope):[]);
     const include=(envelope,sourceKind,protagonistKey,atUtc)=>{
+      if(suppressed.has(envelope?.recordId))return;
       if(!envelope||envelope.characterId!==scope.characterId||
          envelope.worldProfileId!==scope.worldProfileId||envelope.timelineId!==scope.timelineId||
          protagonistKey!==scope.protagonistKey||typeof atUtc!=='string'||
