@@ -78,6 +78,25 @@ Only after reading preflight output, optionally rerun one short preview with `--
 
 Compare the official current [v4 streaming TTD guide](https://elevenlabs.io/docs/eleven-api/guides/how-to/websockets/realtime-tdd) and [model discovery endpoint](https://elevenlabs.io/docs/api-reference/models/list). If preflight is successful but synthesis still returns `elevenlabs_remote_error`, collect the sanitized category and socket close code (no raw response, credential, dialogue, or voice owner's private information) and ask ElevenLabs support to identify the rejected field/entitlement. Avoid switching to an MP3 output and treating compressed frames as 24k PCM.
 
+## Repeatable ElevenLabs latency benchmark (October 11)
+
+The original single-shot smoke still works. For a more representative standalone TTS latency comparison, from `lsa-essential-e1-candidate`:
+
+```powershell
+node tools/elevenlabs/voice_smoke.mjs --voice nathan --runs 10 --allow-billing
+```
+
+- Runs the **same fixed Nathan line** through the actual v4 Turbo production provider, one request after another; `--runs` ranges from 1 to 20. This does **not** launch GTA, exercise Luna/STT, or measure in-game audible playback.
+- **Ten measured requests plus one real warmup** (11 potentially billable requests). The warmup is explicitly excluded from measured statistics. `--no-warmup` disables it. Existing no-flag single-shot invocation defaults to **one request, no warmup**.
+- `--allow-billing` is mandatory for every actual synthesis, including `--runs 1`. Without it, the CLI exits **before reading private configuration or making any network request**. On the first error, the run stops immediately so failures don't burn the remaining allowance.
+- Each successful run records **time to first PCM**, **total synthesis wall time**, 24-kHz PCM duration, and ratio of audio duration to wall time. Summary reports min, **mean**, median, interpolated p90, and max, plus failures. Reports do not contain dialogue text, keys, or vendor voice IDs.
+- The first **successful measured** request supplies the WAV preview at `outputs/elevenlabs-smoke/nathan.wav` (or `--out local-preview.wav`). All samples are measured, but only one WAV is saved by default.
+- Multi-run outputs: ignored `outputs/elevenlabs-smoke/benchmark/results.json` and `report.md`, also customizable with `--report-dir`. Repeating the command replaces those local reports.
+- Reports include successful and attempted character counts and credit **estimates**, using a configurable illustrative assumption of `--credits-per-character 0.5`. **Those estimates are not actual usage:** if rejected requests or vendor billing policies differ, only your ElevenLabs billing dashboard tells you the exact debits. Warmup usage is included in both estimates and attempted count.
+- `node --test tests/elevenlabs-smoke-benchmark.test.mjs` uses a mocked synthesis provider and incurs **no API charges**. Do not use the `--allow-billing` flag when running tests.
+
+Do not interpret the direct-first-PCM metric as Nathan's time to speak in GTA. That also depends on Luna generation, structured segmentation, provider handoff, native authorization, and in-game playback.
+
 ## Acceptance plan
 
 1. Run offline tests (never bill ElevenLabs): `node --test tests/elevenlabs-provider.test.mjs`.
