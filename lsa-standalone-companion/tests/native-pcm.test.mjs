@@ -19,7 +19,7 @@ function fixture({ failIndex = -1 } = {}) {
     if (type === 'audio.chunk') {
       assert.equal(claims.chunkIndex, next);
       assert.equal(claims.audioLeaseId, stream.audioLeaseId);
-      if (next === failIndex) throw new Error('native_rejected_audio_backpressure');
+      if (next === failIndex) throw new Error('native_rejected_audio_sealed');
       const raw = Buffer.from(claims.pcmBase64, 'base64');
       assert.equal(raw.length % 2, 0);
       assert.ok(raw.length <= 3000);
@@ -81,7 +81,7 @@ test('reject odd byte alignment and zero-length PCM before reserving native stre
 test('native rejection midway cancels the exact stream, never seals or replays', async () => {
   const { turn, calls, client } = fixture({ failIndex: 1 });
   await assert.rejects(stageNativePcm(client, turn, Buffer.alloc(6500)),
-    /native_rejected_audio_backpressure/);
+    /native_rejected_audio_sealed/);
   assert.deepEqual(calls.map(x => x.type), [
     'audio.open', 'audio.chunk', 'audio.chunk', 'audio.cancel'
   ]);
