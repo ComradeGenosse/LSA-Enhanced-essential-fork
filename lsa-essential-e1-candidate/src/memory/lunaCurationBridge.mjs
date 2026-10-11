@@ -10,7 +10,10 @@ export function createEssentialLunaCurator(config,{fetchImpl=globalThis.fetch}={
  if(config?.provider!=='openai')throw new Error('curation_requires_existing_openai_provider');
  if(!/luna/i.test(config?.reasoningModel??''))throw new Error('curation_requires_luna_model');
  validateM7Pricing(config);
- return createLunaCurationAdapter({config,requestJson:args=>requestJson({...args,fetchImpl})});
+ // Pin the selected model and verified price together. Host config changes
+ // between estimation and dispatch must never spend against an old ceiling.
+ const pinned=Object.freeze({...config,curatorPricing:Object.freeze({...config.curatorPricing})});
+ return createLunaCurationAdapter({config:pinned,requestJson:args=>requestJson({...args,fetchImpl})});
 }
 
 /**
@@ -40,9 +43,15 @@ export function createEssentialM7Scheduler({config,store,queue,ledger,
       typeof ledger.reconcile!=='function')
      throw new Error('m7_durable_budget_caps_and_recovery_required');
  }
+ // Freeze the complete consented Luna pricing/model pair for the lifetime
+ // of this scheduler; reconfiguration requires construction under a new
+ // verified settings revision and fresh consent/source proof.
+ const pinned=approved.mode==='experimental'
+   ?Object.freeze({...config,curatorPricing:Object.freeze({...config.curatorPricing})})
+   :config;
  // Lazy transport only. The cost estimator is intentionally forwarded, so a
  // real batch cannot bypass the ceiling with a wrapper missing this method.
- const existing=()=>createEssentialLunaCurator(config,{fetchImpl});
+ const existing=()=>createEssentialLunaCurator(pinned,{fetchImpl});
  const provider=Object.freeze({
    estimateMaxCostUsd:proposals=>existing().estimateMaxCostUsd(proposals),
    curateBatch:(proposals,options)=>existing().curateBatch(proposals,options)
