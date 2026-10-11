@@ -6,9 +6,12 @@ import {validateCurationJob} from './queueContract.mjs';
 import {validateLunaAppraisal} from './lunaCurator.mjs';
 const fail=x=>{throw new Error(x)};
 const scoped=(db,job,world,timeline)=>{
- if(job?.worldProfileId!==world||job.timelineId!==timeline||!isUuid(job.characterId))
+ const worldId=job?.worldProfileId??job?.world_profile_id;
+ const timelineId=job?.timelineId??job?.timeline_id;
+ const characterId=job?.characterId??job?.character_id;
+ if(worldId!==world||timelineId!==timeline||!isUuid(characterId))
    fail('curation_scope_mismatch');
- if(!db.prepare('SELECT character_id FROM promoted_profiles WHERE character_id=?').get(job.characterId))
+ if(!db.prepare('SELECT character_id FROM promoted_profiles WHERE character_id=?').get(characterId))
    fail('curation_character_not_promoted');
 };
 const tx=(db,fn)=>{db.exec('BEGIN IMMEDIATE');try{
