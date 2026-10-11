@@ -150,8 +150,11 @@ export function createM6SelectionCoordinator({store,now=()=>new Date().toISOStri
       // Checkpointed count is fixed until CAS ack. Never derive this from
       // records saved in this unacknowledged batch: crash replay must yield
       // identical proposal IDs even if some writes already committed.
+      const hourBucket=cutoffUtc.slice(0,13); // UTC hour is the fallback; K may use co-present active-hour IDs in P2.
+      const existingInHour=scan.checkpoint.hourBucket===hourBucket?
+        scan.checkpoint.activeHourCount:0;
       const evaluated=evaluateAutomaticMemoryBatch(qualified.accepted,{
-        existingInHour:scan.checkpoint.activeHourCount,softTargetPerHour,minScore});
+        existingInHour,softTargetPerHour,minScore});
       rejected.push(...evaluated.rejected);
       const saved=[],savedIds=[];
       let queued=0;
@@ -186,7 +189,7 @@ export function createM6SelectionCoordinator({store,now=()=>new Date().toISOStri
       if(scan.toCursor!==scan.fromCursor){
         const ack=await store.ackM6Checkpoint({scope,expectedCursor:scan.fromCursor,
           nextCursor:scan.toCursor,sourceHashes:scan.sourceHashes,
-          savedProposalIds:savedIds,rejected,cutoffUtc,cloudQueueEnabled});
+          savedProposalIds:savedIds,rejected,cutoffUtc,hourBucket,cloudQueueEnabled});
         if(ack?.committed!==true||ack.cursor!==scan.toCursor)
           fail('m6_durable_cursor_ack_unconfirmed');
         acknowledged=true;
