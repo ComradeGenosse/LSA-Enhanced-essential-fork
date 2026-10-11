@@ -1,6 +1,6 @@
 # LSA Standalone Native Replacement — phased roadmap
 
-**Status:** proposed parallel migration; Phase 0 in progress, implementation phases not started.  
+**Status:** proposed parallel migration; **Phase 0 source/protocol/host research complete, local GTA baseline and physical validation gated**; implementation phases not started.  
 **Baseline:** `main` at `79a0aa6eb5f6b655afde65993d5d68cba269bca7` (2026-10-11).  
 **Do not treat:** documentation, merge, offline compilation, packaging, GTA installation, and real-game acceptance as equivalent.
 
@@ -50,7 +50,7 @@ These are *sequential gates*, not claims that a later implementation is impossib
 
 ## Phase 0 handoff and first coding boundary
 
-Phase 0 materials: [scope / evidence baseline](phase-0-baseline.md), [feature-parity matrix](feature-parity-matrix.md), [open gates and acceptance checklist](phase-0-acceptance.md). Phase 0 is *not yet complete*: installed-payload backup/hash receipts, exhaustive direct Essential symbol inventory and chosen audio-platform spike remain open.
+Phase 0 materials: [scope / evidence baseline](phase-0-baseline.md), [feature-parity matrix](feature-parity-matrix.md), [source/server protocol](phase-0-protocol-audio.md), [audio and RAGE feasibility](phase-0-audio-host-licensing.md), and [completed-research / outstanding physical gates](phase-0-acceptance.md). The source census is implemented and produces reproducible CI artifacts; an exact installed GTA baseline and physical audio proof remain **pre-deployment gates**, not source facts. See [local capture](phase-0-gta-baseline.md).
 
-When Phase 0 is accepted, **Phase 1 PR** should start by adding only independent interfaces and the real identity/ownership state machine with game fakes and tests. The current `LSA.PromotedCharacters.Runtime` assembly and production installer stay unmodified.
+With Phase 0 research completed, **Phase 1 PR** should start by adding only independent interfaces and the real identity/ownership state machine with game fakes and tests. The current `LSA.PromotedCharacters.Runtime` assembly and production installer stay unmodified.
 
