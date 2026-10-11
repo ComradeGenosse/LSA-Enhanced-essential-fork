@@ -5,12 +5,14 @@ on:
     branches:
       - feature/standalone-phase3-typed-turn
       - feature/standalone-phase4-audio-escrow
+      - feature/standalone-s3-waveout-playback
       - main
     paths:
       - 'native/standalone/**'
       - 'native/standalone-host/**'
       - 'lsa-standalone-companion/**'
       - 'docs/standalone-replacement/**'
+      - 'tools/standalone-gta-smoke/**'
       - '.github/workflows/standalone-phase4.yml'
   workflow_dispatch:
 
@@ -101,3 +103,55 @@ jobs:
               Wait-Process -Id $hostProcess.Id -Timeout 5 -ErrorAction SilentlyContinue
             }
           }
+      - name: Assemble isolated GTA smoke-test bundle (NO RPH/Essential redistribution)
+        shell: pwsh
+        run: |
+          $root = 'out/lsa-standalone-gta-smoke'
+          New-Item -ItemType Directory -Force "$root/payload" | Out-Null
+          New-Item -ItemType Directory -Force "$root/companion" | Out-Null
+          Copy-Item 'native/standalone-host/bin/Release/net481/LSA.Standalone.RageHost.dll' "$root/payload/"
+          Copy-Item 'native/standalone/bin/Release/net481/LSA.Standalone.Core.dll' "$root/payload/"
+          Set-Content -Path "$root/payload/LSA.Standalone.enabled" -Value "Explicit isolated test profile only." -Encoding UTF8
+          Copy-Item 'lsa-standalone-companion/src' "$root/companion/src" -Recurse
+          Copy-Item 'lsa-standalone-companion/service.mjs' "$root/companion/"
+          Copy-Item 'lsa-standalone-companion/package.json' "$root/companion/"
+          Copy-Item 'tools/standalone-gta-smoke/*.ps1' "$root/"
+          Copy-Item 'tools/standalone-gta-smoke/README.md' "$root/"
+          $manifest = Get-ChildItem -LiteralPath $root -File -Recurse | ForEach-Object {
+            $relative = $_.FullName.Substring((Resolve-Path $root).Path.Length + 1).Replace('\','/')
+            "$(Get-FileHash -Algorithm SHA256 -LiteralPath $_.FullName | Select-Object -ExpandProperty Hash)  $relative"
+          }
+          $manifest | Set-Content "$root/SHA256SUMS.txt" -Encoding ascii
+          $zip = 'out/lsa-standalone-gta-smoke.zip'
+          Compress-Archive -Path "$root/*" -DestinationPath $zip -Force
+          if (-not (Test-Path $zip)) { throw 'Bundle creation failed' }
+      - name: Prove create-only deploy, legacy exclusion and exact rollback offline
+        shell: pwsh
+        run: |
+          $fixture = Join-Path $env:RUNNER_TEMP 'isolated-gta-smoke-fixture'
+          New-Item -ItemType Directory -Force "$fixture/Plugins" | Out-Null
+          Set-Content "$fixture/GTA5_Enhanced.exe" 'not a real game'
+          Set-Content "$fixture/RAGEPluginHook.exe" 'not a real loader'
+          Set-Content "$fixture/Plugins/LosSantosAlive.dll" 'legacy marker'
+          $root = (Resolve-Path 'out/lsa-standalone-gta-smoke').Path
+          $denied = $false
+          try { & "$root/Install-Standalone.ps1" -GamePath $fixture -IsolatedProfile }
+          catch { $denied = $true }
+          if (-not $denied) { throw 'Legacy coexistence was not rejected' }
+          Remove-Item "$fixture/Plugins/LosSantosAlive.dll"
+          & "$root/Install-Standalone.ps1" -GamePath $fixture -IsolatedProfile
+          if (-not (Test-Path "$fixture/Plugins/LSA.Standalone.RageHost.dll")) {
+            throw 'Host deployment missing'
+          }
+          & "$root/Undo-Standalone.ps1" -GamePath $fixture
+          if ((Test-Path "$fixture/Plugins/LSA.Standalone.RageHost.dll") -or
+              (Test-Path "$fixture/Plugins/LSA.Standalone.enabled") -or
+              (Test-Path "$fixture/.LSAStandaloneSmoke")) {
+            throw 'Rollback failed to remove managed files'
+          }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: standalone-gta-smoke-${{ github.sha }}
+          path: out/lsa-standalone-gta-smoke.zip
+          if-no-files-found: error
+          retention-days: 7
