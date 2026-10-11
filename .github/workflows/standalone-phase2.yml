@@ -25,7 +25,7 @@ jobs:
         with:
           node-version: '22'
       - name: Validate Phase 2 Node transport framing and lifecycle
-        run: node --test lsa-standalone-companion/tests/phase2-wire.test.mjs
+        run: node --test lsa-standalone-companion/tests/*.test.mjs
 
   windows-framework-ipc:
     runs-on: windows-latest
