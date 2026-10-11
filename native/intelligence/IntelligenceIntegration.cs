@@ -587,13 +587,13 @@ namespace LSA.Intelligence
                 // This does not make a selected NPC a source of turn authority.
                 if(!proof.ConversationIdle && speaker?.Entity is Ped selected &&
                     conversation!=null && ReferenceEquals(conversation,selected) &&
-                    (currentSpeaker==null || ReferenceEquals(currentSpeaker,conversation)) &&
-                    DirectorC06Policy.RetainedTargetIdle(proof,true,true)) {
+                    (currentSpeaker==null || ReferenceEquals(currentSpeaker,conversation))) {
                     var finalConversation=NpcTargeting.GetPlayerConversationPed();
                     var finalSpeaker=NpcTargeting.GetCurrentSpeakerPed();
-                    if(ReferenceEquals(finalConversation,conversation) &&
-                       ReferenceEquals(finalSpeaker,currentSpeaker))
-                        proof.ConversationIdle=true;
+                    bool stable=ReferenceEquals(finalConversation,conversation) &&
+                        ReferenceEquals(finalSpeaker,currentSpeaker);
+                    proof.ConversationIdle=DirectorC06Policy.RetainedTargetIdle(
+                        proof,true,stable);
                 }
                 // This proves an ordered *past* backend sample and a live Core
                 // negative fence. A backend transition after the sample must
