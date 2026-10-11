@@ -4,13 +4,13 @@
 
 ## Passive fingerprint capture (read-only)
 
-Use the repository's \`tools/standalone/capture-installed-baseline.ps1\` on Windows PowerShell 5.1 or later:
+Use the repository's `tools/standalone/capture-installed-baseline.ps1` on Windows PowerShell 5.1 or later:
 
-\`\`\`powershell
+```powershell
 powershell -NoProfile -File .\tools\standalone\capture-installed-baseline.ps1 -GameRoot "C:\path\to\Grand Theft Auto V Enhanced"
-\`\`\`
+```
 
-This prints JSON with **relative paths and SHA-256 fingerprints only** for \`GTA5_Enhanced.exe\`, RAGE executable/DLL, Essential core and selected P2 binaries. Missing files appear as \`present:false\`. It deliberately **does not open configs, profiles, keys, logs or audio captures**, and it never alters the game. Optional \`-OutputPath\` writes the JSON to a **new** local file in an existing directory; existing files are never overwritten. The game-root absolute path is not included in the JSON. Review any generated evidence before sharing it.
+This prints JSON with **relative paths and SHA-256 fingerprints only** for `GTA5_Enhanced.exe`, RAGE executable/DLL, Essential core and selected P2 binaries. Missing files appear as `present:false`. It deliberately **does not open configs, profiles, keys, logs or audio captures**, and it never alters the game. Optional `-OutputPath` writes the JSON to a **new** local file in an existing directory; existing files are never overwritten. The game-root absolute path is not included in the JSON. Review any generated evidence before sharing it.
 
 The script is staged on GitHub and **has not been run against the user's GTA installation**. No observed file fingerprint should be invented.
 
