@@ -12,8 +12,8 @@ const FAMILIES=Object.freeze({
   wasted:'player_outcome',busted:'player_outcome'
 });
 export const M9_CUE_LIMITS=Object.freeze({
-  maxCandidateAgeMs:30000,perCharacterCooldownMs:45000,
-  perFamilyCooldownMs:180000,maxDedupe:256
+  maxCandidateAgeMs:30000,perCharacterCooldownMs:600000,
+  perFamilyCooldownMs:600000,maxDedupe:256
 });
 const validPriority=p=>p?.known===true && p.playerIdle===true &&
   p.micIdle===true && p.interruptionFree===true &&
@@ -107,6 +107,7 @@ export class M9MemoryCueCandidates {
       proposedAtMonotonicMs:now,
       expiresAtMonotonicMs:Math.min(Number.MAX_SAFE_INTEGER,now+2000),
       requiresDirectorAdmission:true,
+      // Nothing here authorizes spontaneous speech or materializes a fact.
       spokenText:null
     });
     this.#seen.add(dedupe);this.#order.push(dedupe);
