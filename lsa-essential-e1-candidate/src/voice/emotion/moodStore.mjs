@@ -76,7 +76,16 @@ export class MoodStore {
     if (!Number.isFinite(nowMs) || nowMs < 0) return false;
     if (nowMs < this.#lastNow) this.clear(); // clock/reload ambiguity: fail closed
     this.#lastNow = nowMs;
-    for (const [key, entry] of this.#entries) if (entry.expiresAt <= nowMs) this.#entries.delete(key);
+    // Expiration removes the SOFT VALUE but retains a bounded high-water mark
+    // for the completed native generation. Otherwise a replayed old callback
+    // arriving AFTER 22 seconds can revive expired mood indefinitely.
+    // Tombstones share the SAME max-128 map; there is no second unbounded cache.
+    for (const entry of this.#entries.values()) {
+      if (entry.expiresAt <= nowMs) {
+        entry.value = null;
+        entry.usedBy = 'expired';
+      }
+    }
     return true;
   }
   #isolate(key) {
@@ -94,7 +103,7 @@ export class MoodStore {
     if (!key) return null;
     this.#isolate(key);
     const entry = this.#entries.get(key.key);
-    if (!entry) return null;
+    if (!entry || entry.value === null) return null;
     if (entry.usedBy === key.turn) return prior(entry.value);
     if (entry.usedBy !== null || key.generation <= entry.generation || key.turn === entry.turn) return null;
     entry.usedBy = key.turn; // another turn cannot consume the same prior
@@ -140,6 +149,10 @@ export class MoodStore {
   /** Call on world-epoch, game reload, save timeline, protagonist or host
    * changes; also on companion shutdown. There is deliberately NO disk API. */
   clear() { this.#entries.clear(); this.#lastNow = -1; }
-  get size() { return this.#entries.size; }
+  get size() {
+    let count = 0;
+    for (const entry of this.#entries.values()) if (entry.value !== null) count++;
+    return count;
+  }
 }
 export function createMoodStore(options) { return new MoodStore(options); }
