@@ -12,6 +12,8 @@ export function projectKnowledgeClaim(claim,observation,observer) {
   if(claim.kind==='dead' && modality==='visual' && claim.target) return {...common,kind:'dead',subject:subject(claim.target,observer)};
   if(claim.kind==='firing' && modality==='visual' && claim.source) return {...common,kind:'firing',subject:subject(claim.source,observer)};
   if(claim.kind==='firing' && modality==='self' && claim.source?.captureRef===observer) return {...common,kind:'firing',subject:'self'};
+  if(modality==='auditory' && observation.eventType==='speech_heard' && claim.kind==='sound')
+    return {...common,kind:'overheard_speech_presence',origin:'unidentified_player_voice'};
   if(modality==='auditory' && observation.eventType==='firing_burst' && ['sound','firing'].includes(claim.kind)) return {...common,kind:'gunfire_sound',origin:claim.source?subject(claim.source,observer):'unidentified'};
   const detail=claim.details;
   if(modality==='self' && claim.target?.captureRef===observer && detail) {
@@ -48,6 +50,15 @@ export function selectKnowledge(inputs,{includePerceived=true}={}) {
   });
   for(const pair of [...ordered.filter(p=>p.decision.context==='must_include'),...ordered.filter(p=>p.decision.context!=='must_include')]) {
     const claims=pair.observation.claims.map(claim=>projectKnowledgeClaim(claim,pair.observation,observer)).filter(Boolean);
+    // A source-time full-coverage per-observer grant is required for quoted
+    // words. Presence-only reports never borrow the current actor's input.
+    const words=inputs.speechEvidence?.[o.observationId];
+    if(o.eventType==='speech_heard' && typeof words==='string' &&
+       words.trim() && words.length<=512 &&
+       claims.some(c=>c.kind==='overheard_speech_presence')) {
+      claims.push({kind:'overheard_player_words',modality:'auditory',
+        certainty:'supported',asReportedSpeech:true,text:words.toWellFormed()});
+    }
     omissions.unsupported_claim_detail+=pair.observation.claims.length-claims.length;if(!claims.length) continue;
     const item={event:pair.observation.eventType,claims,freshness:'recent'};
     const safety=pair.decision.context==='must_include',bytes=jsonBytes({observations:[...result.observations,item]}),limit=KNOWLEDGE_LIMITS.perceivedBytes-(safety?0:result.safetyBudget.remainingBytes);
