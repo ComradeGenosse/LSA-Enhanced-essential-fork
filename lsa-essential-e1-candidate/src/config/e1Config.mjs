@@ -106,6 +106,26 @@ export function normalizeConfig(input = {}, env = process.env) {
   const speechProvider = String(input.speechProvider ?? 'openai').trim().toLowerCase();
   if (!['openai','faster-qwen3-tts'].includes(speechProvider))
     throw new TypeError('speechProvider must be openai or faster-qwen3-tts.');
+  // Choose speech recognition separately from speech synthesis and reasoning.
+  const transcriptionProvider = String(input.transcriptionProvider ?? 'openai').trim().toLowerCase();
+  if (!['openai', 'parakeet-ultra'].includes(transcriptionProvider))
+    throw new TypeError('transcriptionProvider must be openai or parakeet-ultra.');
+  const parakeetInput = input.parakeetStt ?? {};
+  if (!parakeetInput || typeof parakeetInput !== 'object' || Array.isArray(parakeetInput) ||
+      Object.keys(parakeetInput).some(k => !['baseUrl','timeoutMs','fallback'].includes(k)))
+    throw new TypeError('parakeetStt has unknown or invalid fields.');
+  const parakeetStt = Object.freeze({
+    baseUrl: baseUrl(parakeetInput.baseUrl, 'http://127.0.0.1:8001/v1', 'parakeetStt.baseUrl'),
+    timeoutMs: boundedInteger(parakeetInput.timeoutMs, 2000, 200, 10000, 'parakeetStt.timeoutMs'),
+    fallback: String(parakeetInput.fallback ?? 'openai').trim().toLowerCase(),
+  });
+  if (!['openai', 'off'].includes(parakeetStt.fallback))
+    throw new TypeError('parakeetStt.fallback must be openai or off.');
+  const parakeetEndpoint = new URL(parakeetStt.baseUrl);
+  if (parakeetEndpoint.protocol !== 'http:' || !['127.0.0.1','[::1]'].includes(parakeetEndpoint.hostname))
+    throw new TypeError('parakeetStt.baseUrl must be a local HTTP loopback IP URL.');
+  if (transcriptionProvider === 'parakeet-ultra' && selectedProvider !== 'openai')
+    throw new TypeError('Parakeet STT requires the E1 OpenAI reasoning route.');
   const qwenInput = input.qwenTts ?? {};
   if (!qwenInput || typeof qwenInput !== 'object' || Array.isArray(qwenInput) ||
       Object.keys(qwenInput).some(k => !['baseUrl','speechVoices','speechVoiceProfiles'].includes(k)))
@@ -208,6 +228,7 @@ export function normalizeConfig(input = {}, env = process.env) {
   return Object.freeze({
     provider: selectedProvider,
     speechProvider, qwenTts,
+    transcriptionProvider, parakeetStt,
     persistentIdentity: normalizeIdentityConfig(input.persistentIdentity),
     promotedCharacters: normalizeCharacterConfig(input.promotedCharacters),
     intelligence: normalizePerceptionConfig(input.intelligence),
