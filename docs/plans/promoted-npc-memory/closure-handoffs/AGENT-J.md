@@ -1,7 +1,7 @@
 # Closure Agent J — M9 GTA candidates, PS2 and PS6 callback fences
 
 **Immutable source**: PR #75 `8443a8adec9433626902b46b81bd3e58fc382fb2`.
-**Agent J final source-code commit** (before this handoff update): `c05ebb88daf85e0ff354a5e7f81ec6819443c1e9`. Subsequent documentation-only commit changes the branch head but not that tested source tree.
+**Agent J final source-code commit** (before this handoff update): `e06e1e08798d6cc0c7dd5cd6ed5ecf30672363cf`. Subsequent documentation-only commit changes the branch head but not that tested source tree.
 **Feature branch**: `feature/memory-close-j-m9-events-director-20261011`.
 **PR base**: `integration/memory-completion-h-review-20261011`.
 **Status**: **offline review only**. No GTA installation, actual native GTA event-source acceptance, full PS2 -> M3 durable acceptance, cloud calls, PS4 acceptance, or merge.
@@ -55,7 +55,7 @@ dotnet run --project native/intelligence/m9-tests/M9NativeTests.csproj --configu
 
 **At authoring time**: commands are specified but **not personally run in a cloned repository**. Agent J's local environment lacked GitHub network cloning and a .NET installation. The PR's native and Node GitHub Actions must be read at the exact final head; pending checks are **not** passing checks. Native harness stubs are not proof of game-native API availability.
 
-Coverage includes verified vs missing collision impact proof, high-speed vs unproven prior velocity, partial physics unknown; ordered stable IDs/replay/epoch/handle retirement; wanted/outcome callback and no inferred Wasted/Busted; unrelated spectator, PS2 two-observer isolation baseline, no false coverage; refused original PS3 grant, PS4 missing, mic/typed/combat/stock priority, Director lease refusal, interrupted sound, >=600000ms cooldown and dedupe. Native fixtures test same source/mismatched epoch, missing/retired player and vehicle, optional getter unknown states and separately verified terminal callback.
+Coverage includes verified vs missing collision impact proof, high-speed vs unproven prior velocity, partial physics unknown; ordered stable IDs/replay/epoch/handle retirement; wanted/outcome callback and no inferred Wasted/Busted; positive/negative rollover, airtime/landing, water/submersion and repeated wanted changes with host restart; unrelated spectator, PS2 two-observer isolation baseline, no false coverage; refused original PS3 grant, PS4 missing, mic/typed/combat/stock priority, Director lease refusal, interrupted sound, >=600000ms cooldown and dedupe. Native fixtures test same source/mismatched epoch, missing/retired player and vehicle, optional getter unknown states and separately verified terminal callback.
 
 ## Outstanding gates (K/authorized operator)
 
