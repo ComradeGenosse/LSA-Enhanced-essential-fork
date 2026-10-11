@@ -16,8 +16,11 @@ export function createEssentialM7Scheduler({config,store,queue,ledger,
   mode='off',cloudOptIn=false,isIdle,fetchImpl=globalThis.fetch,
   ownerId,now,onError,maxBatch,estimatedMaxCostUsd,leaseMs,maxProviderMs,
   maxAttempts,intervalMs,minIntervalMs}={}){
- const provider=mode==='experimental'&&cloudOptIn?
-   createEssentialLunaCurator(config,{fetchImpl}):null;
+ const provider=Object.freeze({async curateBatch(proposals,options){
+   // Lazily resolve the existing transport only after explicit consent; a
+   // scheduler created off/shadow can later be deliberately enabled.
+   return createEssentialLunaCurator(config,{fetchImpl}).curateBatch(proposals,options);
+ }});
  return createIdleCurationScheduler({store,queue,ledger,provider,mode,
    cloudOptIn,isIdle,ownerId,now,onError,maxBatch,estimatedMaxCostUsd,
    leaseMs,maxProviderMs,maxAttempts,intervalMs,minIntervalMs});
