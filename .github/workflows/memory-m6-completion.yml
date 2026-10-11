@@ -1,0 +1,45 @@
+name: M6 deterministic memory completion
+on:
+  push:
+    branches:
+      - feature/m6-completion-deterministic-coordinator-20261011
+  pull_request:
+    paths:
+      - 'lsa-shared-brain/src/memory/evidence.mjs'
+      - 'lsa-shared-brain/src/memory/selection.mjs'
+      - 'lsa-shared-brain/src/memory/consolidation.mjs'
+      - 'lsa-shared-brain/src/memory/m6Coordinator.mjs'
+      - 'lsa-shared-brain/tests/memory-m6-completion.test.mjs'
+      - '.github/workflows/memory-m6-completion.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  m6-offline:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        node: ['20.19.0', '24']
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+      - name: Check module syntax
+        shell: bash
+        run: |
+          node --check lsa-shared-brain/src/memory/evidence.mjs
+          node --check lsa-shared-brain/src/memory/selection.mjs
+          node --check lsa-shared-brain/src/memory/consolidation.mjs
+          node --check lsa-shared-brain/src/memory/m6Coordinator.mjs
+      - name: Verify new and existing M6 M7 deterministic contracts
+        shell: bash
+        run: |
+          node --test lsa-shared-brain/tests/memory-m6-completion.test.mjs
+          node --test lsa-essential-e1-candidate/tests/memory-agent-e.test.mjs
+      - name: Verify cross-agent SQLite integration
+        if: matrix.node == '24'
+        shell: bash
+        run: node --test lsa-shared-brain/tests/memory-integrated-storage.test.mjs
