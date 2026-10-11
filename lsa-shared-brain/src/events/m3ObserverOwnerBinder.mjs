@@ -14,13 +14,14 @@ const matches=(a,b)=>a&&b&&['characterId','worldProfileId','timelineId','adapter
 const sync=v=>{if(v&&typeof v.then==='function')throw new Error('m3_async_authority_refused');return v;};
 
 export class M3ObserverOwnerBinder {
-  #ps2;#p2;#native;#participant;#prepromotion;#pre=new Map();
-  constructor({ps2,p2,resolveNativeOwner,resolveParticipants=null,resolvePrepromotion=null}={}){
+  #ps2;#p2;#native;#participant;#prepromotion;#verifyCoverage;#pre=new Map();
+  constructor({ps2,p2,resolveNativeOwner,resolveParticipants=null,resolvePrepromotion=null,verifyNativeCoverage=null}={}){
     if(!ps2||typeof ps2.current!=='function'||!ps2.observations?.entries||
        !ps2.observerIndex||!ps2.anchors||!p2||typeof resolveNativeOwner!=='function')
       throw new TypeError('m3_verified_ps2_p2_ports_required');
     this.#ps2=ps2;this.#p2=p2;this.#native=resolveNativeOwner;
     this.#participant=resolveParticipants;this.#prepromotion=resolvePrepromotion;
+    this.#verifyCoverage=verifyNativeCoverage;
   }
   #key(observation){return [observation.observedAt?.nativeRun,observation.observer?.captureRef,observation.observationId,observation.revision].join(':');}
   #verify(observation,stage,receipt=null,allowArchived=false) {
@@ -116,7 +117,7 @@ export class M3ObserverOwnerBinder {
   reset(){this.#pre.clear();}
   // No negative event is inferred from the absence of a PS2 observation.
   // Coverage requires a separately source-authenticated native receipt.
-  authorizeCoverage({candidate,nativeCoverage}={}){
+  authorizeCoverage({candidate,coverageReceipt,status}={}){
     const ps=this.#ps2,ref=candidate?.ownerProof?.observerCaptureRef;
     const row=ps.observerIndex.get(ref),anchor=ps.anchors.get(ref);
     const host=ps.hostContext,p2host=this.#p2.verifiedHostContext;
@@ -132,9 +133,17 @@ export class M3ObserverOwnerBinder {
     if(!current?.current||current.promoted!==true||!profile||
        !samePhysicalOwner(current.ownerProof,candidate.ownerProof)||
        candidate.worldProfileId!==this.#p2.worldProfileId)return null;
-    // An independently verified native negative can be passed only by the
-    // installed authority adapter, not accepted from candidate JSON.
-    return immutableSnapshot({...candidate,current:true,promoted:true,
-      nativeCoverage:nativeCoverage??null});
+    let nativeCoverage=null;
+    if(status==='did_not_witness'){
+      if(typeof this.#verifyCoverage!=='function')return null;
+      nativeCoverage=sync(this.#verifyCoverage({candidate,coverageReceipt,
+        hostRunId:host.hostRunId,worldEpoch:host.worldEpoch,observerCaptureRef:ref}));
+      if(!nativeCoverage||nativeCoverage.certified!==true||
+         nativeCoverage.status!=='did_not_witness'||
+         nativeCoverage.observerCaptureRef!==ref||
+         nativeCoverage.hostRunId!==host.hostRunId||
+         nativeCoverage.worldEpoch!==host.worldEpoch)return null;
+    }
+    return immutableSnapshot({...candidate,current:true,promoted:true,nativeCoverage});
   }
 }
