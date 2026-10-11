@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { selectDirectorIntent, DIRECTOR_SPEECH_LIMITS } from '../src/perception/sceneDirector.mjs';
+import { selectDirectorIntent, DIRECTOR_SPEECH_LIMITS, directorSpeechLimitsForPreset } from '../src/perception/sceneDirector.mjs';
 
 const speaker = 'd34713cd-ff8e-4ab3-9f83-241a8cf812c7';
 const player = '24846870-fdcc-444f-9aca-7487d4c01048';
@@ -82,4 +82,16 @@ test('selection stays deterministic and safely bounded', () => {
   assert.equal(selectDirectorIntent(Array.from({length:129},()=>base),facts),null);
   assert.equal(DIRECTOR_SPEECH_LIMITS.attemptsPerMinute,4);
   assert.equal(DIRECTOR_SPEECH_LIMITS.ticketTtlMs,2000);
+});
+
+
+test('testing chatter preset never widens PS3 event freshness or ticket lease',()=>{
+ const normal=directorSpeechLimitsForPreset('normal'),testing=directorSpeechLimitsForPreset('testing');
+ for(const key of ['urgentCandidateTtlMs','routineCandidateTtlMs','ticketTtlMs',
+  'globalInFlight','sceneReservations','pendingTickets'])
+  assert.equal(testing[key],normal[key],key);
+ assert.equal(normal.attemptsPerMinute,4);
+ assert.equal(testing.attemptsPerMinute,12);
+ assert(Object.isFrozen(testing));
+ assert.throws(()=>directorSpeechLimitsForPreset('unlimited'));
 });

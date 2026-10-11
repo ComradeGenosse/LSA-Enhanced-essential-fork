@@ -15,6 +15,23 @@ export const DIRECTOR_SPEECH_LIMITS = Object.freeze({
   ticketTtlMs: 2_000,
 });
 
+// Experimental testing changes pacing and the bounded attempt budget,
+// not PS3 evidence freshness, dedupe, or native C-06 admission.
+// Native runtime independently requires its own matching testing preset.
+// Deliberately fixed presets: do not accept arbitrary user-supplied limits.
+export const DIRECTOR_TESTING_LIMITS = Object.freeze({
+  ...DIRECTOR_SPEECH_LIMITS,
+  routineSpeakerCooldownMs: 5_000,
+  urgentSpeakerCooldownMs: 2_000,
+  sceneGapMs: 2_000,
+  attemptsPerMinute: 12,
+});
+export function directorSpeechLimitsForPreset(preset='normal') {
+  if(preset==='normal')return DIRECTOR_SPEECH_LIMITS;
+  if(preset==='testing')return DIRECTOR_TESTING_LIMITS;
+  throw new TypeError('unsupported_director_speech_preset');
+}
+
 const positive = n => Number.isSafeInteger(n) && n >= 0;
 const ref = n => typeof n === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(n);
 const responseRank = value => value === 'urgent' ? 2 : value === 'eligible' ? 1 : 0;

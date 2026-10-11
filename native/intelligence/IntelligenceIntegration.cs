@@ -128,7 +128,7 @@ namespace LSA.Intelligence
                 " status="+status+" reason="+reason);
         }
         static readonly string[] capabilityNames={"snapshot","pedDamage","playerDamage","vehicleDamage","shooting","state","action","playback","witness","awareness","playerSpeech"};
-        public IntelligenceIntegration(Func<OwnedParticipant[]> roster,string pipeName="LSA.Intelligence.v1",HostContext host=null,bool directorShadow=false,bool directorExperimental=false) {
+        public IntelligenceIntegration(Func<OwnedParticipant[]> roster,string pipeName="LSA.Intelligence.v1",HostContext host=null,bool directorShadow=false,bool directorExperimental=false,int directorAttemptsPerMinute=DirectorAdmission.NormalMaxAttempts) {
             if(pipeName==null||!System.Text.RegularExpressions.Regex.IsMatch(pipeName,"^[A-Za-z0-9_.-]{1,80}$")) throw new ArgumentException();
             this.roster=roster;this.pipeName=pipeName;ownsHost=host==null;this.host=host??new HostContext();anchors=this.host.Anchors;
             this.directorShadow=directorShadow || directorExperimental;
@@ -149,7 +149,9 @@ namespace LSA.Intelligence
             },()=>this.host.HostRunId,()=>this.host.WorldEpoch,directorExperimental,
                 ()=>LosSantosAlive.Bridge.SpecialTurns.SpecialGeminiTurnService.ReadPlayerTurnVersion(),
                 ()=>this.directorShadow ? LSA.PromotedCharacters.EssentialPlayerPriorityMonitor.Read() : -1,
-                (stage,reason)=>LogDirectorVeto(stage,reason));
+                (stage,reason)=>LogDirectorVeto(stage,reason),
+                directorExperimental ? directorAttemptsPerMinute : DirectorAdmission.NormalMaxAttempts);
+            if(this.directorShadow)LogStatus("[PS] director_native_attempt_limit="+director.AttemptLimitPerMinute);
             // #3A compiles and binds the real pinned Essential Submit method.
             // This adapter is intentionally, unconditionally DEFAULT-OFF:
             // #3B must bind native callback tuple before activation.

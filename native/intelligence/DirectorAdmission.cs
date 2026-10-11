@@ -46,7 +46,10 @@ namespace LSA.Intelligence
         // this range cannot be matched exactly without changing the protocol.
         internal const long MaxExactWireGeneration=9007199254740991L;
         internal const long TicketTtlMs=2000;
-        internal const int MaxAttempts=4;
+        internal const int NormalMaxAttempts=4;
+        internal const int TestingMaxAttempts=12;
+        readonly int maxAttemptsPerMinute;
+        internal int AttemptLimitPerMinute=>maxAttemptsPerMinute;
         readonly Func<long> clock;
         readonly Func<Request,string,bool> independentlySafe;
         readonly Func<string> currentHost;
@@ -64,15 +67,19 @@ namespace LSA.Intelligence
         internal DirectorAdmission(Func<long> clock,Func<Request,bool> independentlySafe,
           Func<string> currentHost,Func<int> currentWorld,bool enabled=false,
           Func<long> specialTurnSource=null,Func<long> playerPrioritySource=null,
-          Action<string,string> diagnostic=null)
+          Action<string,string> diagnostic=null,int maxAttemptsPerMinute=NormalMaxAttempts)
           :this(clock,independentlySafe==null?null:
               new Func<Request,string,bool>((request,stage)=>independentlySafe(request)),
-              currentHost,currentWorld,enabled,specialTurnSource,playerPrioritySource,diagnostic) {}
+              currentHost,currentWorld,enabled,specialTurnSource,playerPrioritySource,diagnostic,maxAttemptsPerMinute) {}
         internal DirectorAdmission(Func<long> clock,Func<Request,string,bool> independentlySafe,
           Func<string> currentHost,Func<int> currentWorld,bool enabled=false,
           Func<long> specialTurnSource=null,Func<long> playerPrioritySource=null,
-          Action<string,string> diagnostic=null)
+          Action<string,string> diagnostic=null,int maxAttemptsPerMinute=NormalMaxAttempts)
         {
+            if(maxAttemptsPerMinute!=NormalMaxAttempts &&
+               maxAttemptsPerMinute!=TestingMaxAttempts)
+                throw new ArgumentOutOfRangeException(nameof(maxAttemptsPerMinute));
+            this.maxAttemptsPerMinute=maxAttemptsPerMinute;
             this.clock=clock??throw new ArgumentNullException(nameof(clock));
             this.independentlySafe=independentlySafe??throw new ArgumentNullException(nameof(independentlySafe));
             this.currentHost=currentHost??throw new ArgumentNullException(nameof(currentHost));
@@ -185,7 +192,7 @@ namespace LSA.Intelligence
             }
             if(request.Operation=="reserve") {
                 if(!enabled||activeTicket!=null||seen.ContainsKey(request.TicketId)||
-                    pending.Count>=MaxTickets||attempts.Count>=MaxAttempts||seen.Count>=512)
+                    pending.Count>=MaxTickets||attempts.Count>=maxAttemptsPerMinute||seen.Count>=512)
                     return new Receipt(request.TicketId,"busy");
                 attempts.Enqueue(now);seen.Add(request.TicketId,now);seenOrder.Enqueue(new KeyValuePair<string,long>(request.TicketId,now));
                 long initial,after,playerInitial,playerAfter;

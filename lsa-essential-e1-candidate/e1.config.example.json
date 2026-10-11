@@ -120,6 +120,7 @@
     }
   },
   "spontaneousSpeech": {
-    "mode": "off"
+    "mode": "off",
+    "preset": "normal"
   }
 }
