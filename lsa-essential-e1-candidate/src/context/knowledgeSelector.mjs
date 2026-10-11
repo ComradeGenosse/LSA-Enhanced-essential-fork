@@ -5,7 +5,7 @@ import { immutableSnapshot } from './turnSnapshot.mjs';
 export const KNOWLEDGE_LIMITS=Object.freeze({poolCount:128,poolBytes:256*1024,observations:8,perceivedBytes:8*1024,safetyReserveBytes:2*1024,canonBytes:16*1024,historyBytes:8*1024,currentBytes:72*1024,converseBytes:80*1024,situationBytes:1024,compatBytes:4*1024,frameBytes:112*1024,instructionBytes:16*1024,requestBytes:160*1024});
 export const jsonBytes=value=>Buffer.byteLength(JSON.stringify(value),'utf8');
 const subject=(ref,observer)=>ref?.captureRef===observer?'self':ref?.kind==='vehicle'?'anonymous vehicle':'anonymous person';
-export function projectKnowledgeClaim(claim,observation,observer) {
+export function projectKnowledgeClaim(claim,observation,observer,radioCurrentlyPlaying=true) {
   if(!validateClaim(claim)) return null;
   const modality=claim.evidence.channel;if(!['self','visual','auditory'].includes(modality)) return null;
   const common={modality,certainty:claim.certainty};
@@ -15,7 +15,7 @@ export function projectKnowledgeClaim(claim,observation,observer) {
   if(claim.kind==='firing' && modality==='self' && claim.source?.captureRef===observer) return {...common,kind:'firing',subject:'self'};
   if(modality==='auditory' && observation.eventType==='firing_burst' && ['sound','firing'].includes(claim.kind)) return {...common,kind:'gunfire_sound',origin:claim.source?subject(claim.source,observer):'unidentified'};
   if(claim.kind==='sound' && modality==='auditory' && observation.eventType==='radio_heard' && claim.details?.soundType==='radio') {
-    const rendered=renderRadioContext(observation);
+    const rendered=renderRadioContext(observation,{currentlyPlaying:radioCurrentlyPlaying});
     return rendered?{...common,kind:'audible_radio',description:rendered}:null;
   }
   const detail=claim.details;
@@ -51,10 +51,19 @@ export function selectKnowledge(inputs,{includePerceived=true,radioInput=''}={})
     if(!pair.situation || !Array.isArray(pair.situation.traitPolicies) || !validDecision(d) || d.observationId!==o.observationId || d.revision!==o.revision || d.policyVersion!==SALIENCE_POLICY_VERSION || typeof d.decisionKey!=='string' || !d.decisionKey.startsWith(`${o.observationId}:${o.revision}:${SALIENCE_POLICY_VERSION}:`) || !/^\d+:[0-9a-f]{8}$/.test(d.decisionKey.slice(`${o.observationId}:${o.revision}:${SALIENCE_POLICY_VERSION}:`.length)) || d.expiresAtMonotonicMs<=inputs.frozenAt || !['candidate','must_include','omit'].includes(d.context)) {omissions.no_matching_salience++;continue;}
     if(d.context!=='omit') valid.push(pair);
   }
+  // Keep only the most recent independently witnessed radio event per turn.
+  // Never mix the previous station/song with the currently heard one.
+  const radioPairs=valid.filter(pair=>pair.observation.eventType==='radio_heard');
+  const currentEpisodes=new Set(inputs.radioCurrentEpisodeIds||[]);
+  const newestRadio=radioPairs.sort((a,b)=>
+    Number(currentEpisodes.has(b.observation.episodeId))-Number(currentEpisodes.has(a.observation.episodeId)) ||
+    b.observation.observedAt.gameTick-a.observation.observedAt.gameTick)[0];
+  const scoped=radioRequested && newestRadio ? valid.filter(pair=>
+    pair.observation.eventType!=='radio_heard' || pair===newestRadio) : valid;
   // Answer a direct radio question before unrelated routine context without
   // displacing mandatory safety, danger/critical, or speech-eligible evidence.
   // Run this before the bounded pool; all existing validity gates still apply.
-  const ranked=orderSalienceDecisions(valid);
+  const ranked=orderSalienceDecisions(scoped);
   const protectedContext=pair=>pair.decision.context==='must_include' ||
     pair.decision.response!=='none' || ['danger','critical'].includes(pair.observation.severity);
   const prioritized=radioRequested ? [
@@ -66,7 +75,9 @@ export function selectKnowledge(inputs,{includePerceived=true,radioInput=''}={})
     const bytes=jsonBytes(pair);if(index>=KNOWLEDGE_LIMITS.poolCount || poolBytes+bytes>KNOWLEDGE_LIMITS.poolBytes) {omissions.budget_excluded++;return false;}poolBytes+=bytes;return true;
   });
   for(const pair of [...ordered.filter(p=>p.decision.context==='must_include'),...ordered.filter(p=>p.decision.context!=='must_include')]) {
-    const claims=pair.observation.claims.map(claim=>projectKnowledgeClaim(claim,pair.observation,observer)).filter(Boolean);
+    const radioCurrentlyPlaying=inputs.radioCurrentEpisodeIds===undefined ||
+      inputs.radioCurrentEpisodeIds.includes(pair.observation.episodeId);
+    const claims=pair.observation.claims.map(claim=>projectKnowledgeClaim(claim,pair.observation,observer,radioCurrentlyPlaying)).filter(Boolean);
     omissions.unsupported_claim_detail+=pair.observation.claims.length-claims.length;if(!claims.length) continue;
     const item={event:pair.observation.eventType,claims,freshness:'recent'};
     const safety=pair.decision.context==='must_include',bytes=jsonBytes({observations:[...result.observations,item]}),limit=KNOWLEDGE_LIMITS.perceivedBytes-(safety?0:result.safetyBudget.remainingBytes);

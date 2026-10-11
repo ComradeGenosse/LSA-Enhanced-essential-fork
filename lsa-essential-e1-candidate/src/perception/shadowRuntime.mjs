@@ -260,14 +260,14 @@ export class ShadowRuntime {
         normalized.trackKnown?'known':normalized.catalogMismatch?'mismatch':'unknown';
       if(['known','unknown','mismatch','off'].includes(catalog)) this.bump(this.radioDiagnostics,catalog);
       const catalogRow=s.kind==='radio_changed' ? this.radioCatalog?.tracks?.[String(s.facts.trackTextId)] : null;
-       const catalogReason=s.kind==='radio_stopped'?'radio_stopped':
+      const catalogReason=s.kind==='radio_stopped'?'radio_stopped':
          !this.radioCatalog?.loaded?'catalog_unavailable':
          !Number.isSafeInteger(s.facts.trackTextId)||s.facts.trackTextId<=0?'text_id_unavailable':
          !catalogRow?'text_id_not_cataloged':
          !catalogRow.stations.includes(s.facts.station)?'station_mismatch':
          normalized?.contentKind==='off'?'semantic_off':
          normalized?.trackKnown?'resolved':'catalog_metadata_incomplete';
-       const radioReceipts=s.witnessReceipts||[],radioWitnesses=this.qualifiedObservers(radioReceipts);
+      const radioReceipts=s.witnessReceipts||[],radioWitnesses=this.qualifiedObservers(radioReceipts);
       const radioTrace={traceCode:traceCode(s.signalId),signalKind:s.kind,catalog,catalogReason,
          trackTextId:Number.isSafeInteger(s.facts.trackTextId)?s.facts.trackTextId:0,
          soundHashPresent:Number.isSafeInteger(s.facts.soundHash)&&s.facts.soundHash!==0,

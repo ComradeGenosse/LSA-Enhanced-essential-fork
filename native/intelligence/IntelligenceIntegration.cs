@@ -104,6 +104,21 @@ namespace LSA.Intelligence
         long nextDiscovery,nextState,nextShot,nextRadio,nextRefresh,nextDiagnostics,nextLog,snapshotChangedAt,snapshotCadence;
         readonly bool radioEnabled;
         RadioProbeState radioProbe;
+        readonly HashSet<string> radioCoveredOwned=new HashSet<string>();
+        // Only actual current native P2-owned, observer-qualified same-car
+        // Ped lifetimes can trigger immediate revalidation after boarding.
+        HashSet<string> CurrentOwnedRadioListeners(string vehicleRef) {
+            var result=new HashSet<string>();
+            var source=anchors.Resolve(vehicleRef);
+            if(source==null || source.Kind!="vehicle" || !(source.Entity is Vehicle))return result;
+            foreach(var a in anchors.Current.Where(a=>a.OwnerLifetime!=null && a.Observer && a.Kind=="ped")) {
+                if(!(a.Entity is Ped ped) || !Live(ped,a.Handle,a.Address))continue;
+                try {var vehicle=ped.CurrentVehicle;
+                    if(vehicle!=null && Live(vehicle,source.Handle,source.Address))result.Add(a.CaptureRef);
+                } catch {}
+            }
+            return result;
+        }
         string lastRadioFailure="";
         long nextRadioFailureLog;
         // GTA Enhanced radio natives are bound by their universal native hash
@@ -128,7 +143,7 @@ namespace LSA.Intelligence
         internal readonly RadioNativeRoute radioStationNative=new RadioNativeRoute("station_name","GET_PLAYER_RADIO_STATION_NAME",0xF6D733C32076AD03UL,true);
         internal readonly RadioNativeRoute radioSoundNative=new RadioNativeRoute("sound_name","GET_CURRENT_TRACK_SOUND_NAME",0x34D66BC058019CE0UL,false);
         internal readonly RadioNativeRoute radioTextIdNative=new RadioNativeRoute("track_text_id","GET_AUDIBLE_MUSIC_TRACK_TEXT_ID",0x50B196FC9ED6545BUL,false);
-        internal readonly RadioNativeRoute radioPlayTimeNative=new RadioNativeRoute("play_time","GET_CURRENT_TRACK_PLAY_TIME",0xE9EA16D6E54CDCA4UL,false);
+        internal readonly RadioNativeRoute radioPlayTimeNative=new RadioNativeRoute("play_time","GET_CURRENT_TRACK_PLAY_TIME",0x3E65CDE5215832C1UL,false);
         string radioFailureRoute="hash";
         T RadioCall<T>(RadioNativeRoute native,Func<ulong,T> byHash,Func<string,T> byName,T retired)
         {
@@ -254,7 +269,7 @@ namespace LSA.Intelligence
         }
         void WorldChanged(int epoch,string reason) {
             if(!IsAvailable) return;
-            director.Reset();ps3Receipts.Reset();originalTurns.Reset();lock(directorPlaybackGate) {directorPlaybackEvents.Clear();directorPlaybackOverflow=false;}sensors.Reset();radioProbe=null;nextRadio=0;lastRadioFailure="";nextRadioFailureLog=0;ResetRadioRoutes();lock(rosterGate) {publishedAnchorStates.Clear();publishedObserverIndex.Clear();sampledSituations.Clear();}pendingRetirements.Clear();
+            director.Reset();ps3Receipts.Reset();originalTurns.Reset();lock(directorPlaybackGate) {directorPlaybackEvents.Clear();directorPlaybackOverflow=false;}sensors.Reset();radioProbe=null;radioCoveredOwned.Clear();nextRadio=0;lastRadioFailure="";nextRadioFailureLog=0;ResetRadioRoutes();lock(rosterGate) {publishedAnchorStates.Clear();publishedObserverIndex.Clear();sampledSituations.Clear();}pendingRetirements.Clear();
             conversationRef=null;promotedTurnObserverRef=null;discoverySnapshot=null;discoveryOwned=new OwnedParticipant[0];UpdateIndexes();
             // Ordered control fact invalidates all prior observer state. Losing
             // it closes the bounded channel; reconnect republishes current host.
@@ -900,20 +915,38 @@ namespace LSA.Intelligence
                 return reading;
             }
             reading.Station=raw;
-            stage="sound_name";
-            reading.SoundHash=unchecked((uint)RadioCall(radioSoundNative,
-                hash=>NativeFunction.CallByHash<int>(hash,raw),
-                name=>NativeFunction.CallByName<int>(name,raw),0));
+            // The text ID is the catalog key. An unsupported optional sound
+            // native must never prevent a valid text ID from reaching PS2.
             stage="track_text_id";
             reading.TrackTextId=RadioCall(radioTextIdNative,
                 hash=>NativeFunction.CallByHash<int>(hash),
                 name=>NativeFunction.CallByName<int>(name),0);
+            stage="station_recheck";
+            string after=RadioCall(radioStationNative,
+                hash=>NativeFunction.CallByHash(hash,typeof(string)) as string,
+                name=>NativeFunction.CallByName(name,typeof(string)) as string,null);
+            if(raw!=after) throw new InvalidOperationException("radio_station_changed_during_sample");
+            stage="sound_name";
+            try {reading.SoundHash=unchecked((uint)RadioCall(radioSoundNative,
+                hash=>NativeFunction.CallByHash<int>(hash,raw),
+                name=>NativeFunction.CallByName<int>(name,raw),0));}
+            catch(Exception error) {reading.SoundHash=0;RadioFailure("sound_name",error,host.MonotonicMs);}
             stage="commit";
             return reading;
         }
         void CommitRadio(RadioProbeState reading,uint tick,long now)
         {
-            var edge=sensors.Radio(reading.Vehicle,reading.Station,reading.SoundHash,reading.TrackTextId,tick,now);
+            var listeners=reading.Station.Length>0 ? CurrentOwnedRadioListeners(reading.Vehicle) : new HashSet<string>();
+            radioCoveredOwned.IntersectWith(listeners);
+            bool newListener=listeners.Any(refId=>!radioCoveredOwned.Contains(refId));
+            var edge=sensors.Radio(reading.Vehicle,reading.Station,reading.SoundHash,reading.TrackTextId,tick,now,newListener);
+            if(edge!=null) {
+                // Coverage means an actual native hearing receipt was emitted,
+                // not simply proximity or presence inside the car.
+                radioCoveredOwned.Clear();
+                foreach(var witness in edge.witnessReceipts ?? new List<WitnessReceipt>())
+                    if(witness.Status=="witnessed" && listeners.Contains(witness.Observer))radioCoveredOwned.Add(witness.Observer);
+            }
             if(radioProbe!=null && radioProbe.Same(reading)) return;
             if(reading.Station.Length>0) {
                 // Diagnostic only; a failed play-time read never invalidates a sampled track.

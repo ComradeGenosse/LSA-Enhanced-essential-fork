@@ -32,7 +32,7 @@ export const PS2_DROP_REASONS = Object.freeze(['invalid_input','radio_derived_id
 export class EpisodeCorrelator {
   constructor({ episodes, observations, now = () => Math.floor(performance.now()), current = () => false, anchor = () => null, utc = () => new Date().toISOString() } = {}) {
     this.episodes = episodes; this.observations = observations; this.now = now; this.current = current; this.anchor = anchor; this.utc = utc;
-    this.seen = new Map(); this.latest = new Map(); this.radioCurrent = new Map(); this.dropped = 0; this.duplicates = 0;
+    this.seen = new Map(); this.latest = new Map(); this.radioCurrent = new Map(); this.radioSignature = new Map(); this.dropped = 0; this.duplicates = 0;
     // Process-cumulative, bounded diagnostics. Never cleared by a channel
     // reset so a session log can attribute every PS2 loss to one reason.
     this.dedupeEvicted = 0;
@@ -67,11 +67,14 @@ export class EpisodeCorrelator {
     const qualified = witnessReceipts.filter(r => r && (r.status === 'witnessed' || r.status === 'reported') && r.evidence && this.current(r.observer?.captureRef) && this.anchor(r.observer.captureRef)?.kind==='ped');
     let removedObservationIds=[];
     if(signal.kind==='radio_changed' && signal.target) {
-      const currentEpisode=this.radioCurrent.get(signal.target);
-      if(currentEpisode) removedObservationIds=this.observations.retainEpisodeObservers(currentEpisode,new Set(qualified.map(r=>r.observer.captureRef)));
+      const signature=signal.facts.station+'|'+signal.facts.trackTextId+'|'+signal.facts.soundHash;
+      if(this.radioSignature.get(signal.target)!==signature) this.closeRadioVehicle(signal.target);
       if(!qualified.length) {
-        const closed=this.closeRadioVehicle(signal.target);removedObservationIds=[...new Set([...removedObservationIds,...closed.removedObservationIds])];
-        this.remember(eventKey,{episodeId:closed.episodeId});return {accepted:true,duplicate:false,episodeId:closed.episodeId,observations:[],removedObservationIds};
+        // There is no fresh hearing proof. End current playback, but retain
+        // old independently witnessed facts for their original TTL.
+        this.closeRadioVehicle(signal.target);
+        this.remember(eventKey,{episodeId:null});
+        return {accepted:true,duplicate:false,episodeId:null,observations:[],removedObservationIds};
       }
     }
     if (!qualified.length) { this.remember(eventKey, { episodeId: null }); return { accepted: true, duplicate: false, episodeId: null, observations: [] }; }
@@ -81,7 +84,8 @@ export class EpisodeCorrelator {
     const incidentKey = signal.incidentKey || defaultIncidentKey(signal, family);
     const matchParticipants = family === 'harm' && signal.target ? participants.filter(p => p.captureRef === signal.target) : participants;
     const radioEpisodeId = family==='radio' && signal.target ? this.radioCurrent.get(signal.target) : null;
-    const existing = radioEpisodeId ? this.episodes.entries.get(radioEpisodeId) : this.findContinuation(nativeRun, family, incidentKey, matchParticipants, signal.gameTick);
+    const existing = family==='radio' ? (radioEpisodeId ? this.episodes.entries.get(radioEpisodeId) : null) :
+      this.findContinuation(nativeRun, family, incidentKey, matchParticipants, signal.gameTick);
     const episodeId = existing?.episodeId || randomUUID();
     const now = this.now(); const expiresAtMonotonicMs = family==='radio' ? now + CAP.radioEpisodeMs : Math.min(now + CAP.episodeMs, existing?.expiresAtMonotonicMs || now + CAP.episodeMs);
     const episodeClaims = family==='radio' ? [] : existing ? [...existing.claims] : [];
@@ -105,7 +109,7 @@ export class EpisodeCorrelator {
       if (old?.claims.some(c => c.details?.eventSignalId === signal.signalId)) continue;
       if (old && old.claims.length >= CAP.perObservationClaims) { this.noteDrop('observation_claim_capacity'); rejected++; continue; }
       const mappedKind = receipt.evidence.channel === 'report' ? 'report' : event[2];
-      const claim = { claimId: randomUUID(), kind: mappedKind, certainty: receipt.certainty === 'uncertain' ? 'uncertain' : 'supported', evidence: { ...receipt.evidence }, ...(receipt.knowsSource && sourceRef ? { source: sourceRef } : {}), ...(receipt.knowsTarget && targetRef ? { target: targetRef } : {}), details: signal.kind==='radio_changed' && radio ? {eventSignalId:signal.signalId,reason:receipt.reason,soundType:'radio',station:radio.station,trackKnown:radio.trackKnown,...(radio.stationName?{stationName:radio.stationName}:{}),...(radio.trackKnown?{artist:radio.artist,title:radio.title,contentKind:radio.contentKind}:{})} : qualifiedDetails(signal,receipt,this.anchor) };
+      const claim = { claimId: randomUUID(), kind: mappedKind, certainty: receipt.certainty === 'uncertain' ? 'uncertain' : 'supported', evidence: { ...receipt.evidence }, ...(receipt.knowsSource && sourceRef ? { source: sourceRef } : {}), ...(receipt.knowsTarget && targetRef && family!=='radio' ? { target: targetRef } : {}), details: signal.kind==='radio_changed' && radio ? {eventSignalId:signal.signalId,reason:receipt.reason,soundType:'radio',station:radio.station,trackKnown:radio.trackKnown,...(radio.stationName?{stationName:radio.stationName}:{}),...(radio.trackKnown?{artist:radio.artist,title:radio.title,contentKind:radio.contentKind}:{})} : qualifiedDetails(signal,receipt,this.anchor) };
       const observation = {
         version: 1, observationId: old?.observationId || randomUUID(), episodeId, revision: (old?.revision || 0) + 1,
         observer: { captureRef: observerRef, kind: 'ped' }, observedAt: { nativeRun, gameTick: receipt.evidence.sampledGameTick, receivedUtc: this.utc() },
@@ -115,7 +119,10 @@ export class EpisodeCorrelator {
       if (this.observations.put(observation,{sourceAgeMs:signal.ageMs})) emitted.push(observation);
       else { this.noteDrop('observation_rejected'); rejected++; }
     }
-    if(family==='radio' && signal.target) this.radioCurrent.set(signal.target,episodeId);
+    if(family==='radio' && signal.target) {
+      this.radioCurrent.set(signal.target,episodeId);
+      this.radioSignature.set(signal.target,signal.facts.station+'|'+signal.facts.trackTextId+'|'+signal.facts.soundHash);
+    }
     this.remember(eventKey, { episodeId });
     return { accepted: true, duplicate: false, episodeId, observations: emitted, removedObservationIds, qualified: qualified.length, observationRejected: rejected };
   }
@@ -124,10 +131,9 @@ export class EpisodeCorrelator {
     const episodeId=vehicle ? this.radioCurrent.get(vehicle) : null;
     let removedObservationIds=[];
     if(episodeId) {
-      removedObservationIds=this.observations.removeEpisode(episodeId);
-      this.episodes.remove(episodeId);
+      // A stop is not an eraser for a previously heard song.
       this.radioCurrent.delete(vehicle);
-      for(const [key,value] of this.latest) if(value.episodeId===episodeId) this.latest.delete(key);
+      this.radioSignature.delete(vehicle);
     }
     return {episodeId:episodeId||null,removedObservationIds};
   }
@@ -153,10 +159,10 @@ export class EpisodeCorrelator {
   expire() {
     const now=this.now();
     for (const [key, value] of this.seen) { if (value.expires > now) break; this.seen.delete(key); }
-    for (const [key, value] of this.latest) if (!this.episodes.entries.has(value.episodeId)) this.latest.delete(key); for(const [vehicle,episodeId] of this.radioCurrent) if(!this.episodes.entries.has(episodeId)) {this.observations.removeEpisode(episodeId);this.radioCurrent.delete(vehicle);}
+    for (const [key, value] of this.latest) if (!this.episodes.entries.has(value.episodeId)) this.latest.delete(key); for(const [vehicle,episodeId] of this.radioCurrent) if(!this.episodes.entries.has(episodeId)) {this.radioCurrent.delete(vehicle);this.radioSignature.delete(vehicle);}
   }
   // A channel reset discards correlation state; loss diagnostics stay cumulative.
-  clear() { this.seen.clear(); this.latest.clear(); this.radioCurrent.clear(); this.duplicates = 0; }
+  clear() { this.seen.clear(); this.latest.clear(); this.radioCurrent.clear(); this.radioSignature.clear(); this.duplicates = 0; }
 }
 
 function defaultIncidentKey(signal, family) {
