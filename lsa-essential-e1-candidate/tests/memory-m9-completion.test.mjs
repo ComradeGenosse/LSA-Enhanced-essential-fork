@@ -438,3 +438,58 @@ test('M9 cannot produce an invented rollover edge after unknown orientation',()=
   assert.deepEqual(d.run(500,{vehicle:vehicleState({rollDegrees:160})}).candidates.map(x=>x.eventType),
     ['vehicle_rollover']);
 });
+
+test('M9 emits only proved positive roll, airborne landing and water edges',()=>{
+  const d=detector();
+  d.run(100);
+  const roll=d.run(200,{vehicle:vehicleState({rollDegrees:150})});
+  assert.deepEqual(roll.candidates.map(x=>x.eventType),['vehicle_rollover']);
+  assert.deepEqual(d.run(300,{vehicle:vehicleState({rollDegrees:155})}).candidates,[]);
+  d.run(400,{vehicle:vehicleState({airborne:true,grounded:false})});
+  const land=d.run(1100,{vehicle:vehicleState({airborne:false,grounded:true})});
+  assert.deepEqual(land.candidates.map(x=>x.eventType),['airborne_stunt']);
+  assert.equal(land.candidates[0].evidence.airborneMs,700);
+  assert.deepEqual(d.run(1200,{vehicle:vehicleState({inWater:true,submerged:false})})
+    .candidates.map(x=>x.eventType),['vehicle_entered_water']);
+  assert.deepEqual(d.run(1300,{vehicle:vehicleState({inWater:true,submerged:true})})
+    .candidates.map(x=>x.eventType),['vehicle_submerged']);
+  assert.deepEqual(d.run(1400,{vehicle:vehicleState({inWater:true,submerged:true})})
+    .candidates,[]);
+});
+test('M9 wanted-level changes require two proven adjacent samples, not repeats',()=>{
+  const d=detector();
+  d.run(100,{wantedLevel:null});
+  assert.deepEqual(d.run(200,{wantedLevel:2}).candidates,[]);
+  assert.deepEqual(d.run(300,{wantedLevel:2}).candidates,[]);
+  assert.deepEqual(d.run(400,{wantedLevel:3}).candidates.map(x=>x.eventType),
+    ['wanted_level_changed']);
+  assert.deepEqual(d.run(500,{wantedLevel:3}).candidates,[]);
+  assert.deepEqual(d.run(600,{wantedLevel:null}).candidates,[]);
+  assert.deepEqual(d.run(700,{wantedLevel:0}).candidates,[]);
+  assert.deepEqual(d.run(800,{wantedLevel:2}).candidates.map(x=>x.eventType),
+    ['wanted_level_changed']);
+});
+test('M9 host/epoch restart cannot join old samples into an event',()=>{
+  const d=detector();
+  d.run(100,{wantedLevel:0});
+  const nextSource={...source,hostRunId:id(301),adapterEpoch:id(302),worldEpoch:2};
+  d.setNow(200);
+  const first=d.instance.ingest({snapshot:sample(200,{
+    hostRunId:nextSource.hostRunId,nativeRun:nextSource.adapterEpoch,
+    worldEpoch:2,wantedLevel:4}),source:nextSource});
+  assert.equal(first.accepted,true);
+  assert.deepEqual(first.candidates,[]);
+  d.setNow(300);
+  const second=d.instance.ingest({snapshot:sample(300,{
+    hostRunId:nextSource.hostRunId,nativeRun:nextSource.adapterEpoch,
+    worldEpoch:2,wantedLevel:5}),source:nextSource});
+  assert.deepEqual(second.candidates.map(x=>x.eventType),['wanted_level_changed']);
+});
+test('M9 cues preserve unknown protagonist rather than inferring one',()=>{
+  const e=accident(),w=qualified(e);
+  const c=new M9MemoryCueCandidates({authorizeWitness:()=>true,now:()=>1000})
+    .propose({candidate:e,witness:w,priority:allSafe});
+  assert.equal(c.accepted,true);
+  assert.equal(c.cue.protagonistKey,'unknown');
+  assert.equal(c.cue.spokenText,null);
+});
