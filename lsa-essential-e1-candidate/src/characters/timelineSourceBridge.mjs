@@ -50,11 +50,10 @@ export function bindTrustedTimelineSource({store,intelligenceClient}={}) {
     try {
       lastBoundary={hostRunId:event.hostRunId,worldEpoch:event.worldEpoch};
       store.onBoundary({reason});
-      // host_reload also invalidates the core's source cache; explicitly
-      // reinstate only the independently accepted preceding C-13 receipt.
-      // This never restores the required manual timeline confirmation.
-      if(reason==='host_reload')
-        store.setVerifiedHostContext({hostContextVersion:1,...lastTrustedHost});
+      // host_reload revokes even the newly published context. Do not
+      // reconstruct a C-13 receipt from cached scalars; a subsequent accepted
+      // native HELLO is required before the operator may confirm again.
+      if (reason==='host_reload') lastTrustedHost=null;
     } catch {revoke('unknown_source');}
   };
   // Both subscriptions are required; roll back partial setup safely.
