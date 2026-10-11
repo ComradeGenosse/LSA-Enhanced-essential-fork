@@ -97,7 +97,12 @@ function bestVerifiedScene(identity, evidence, now, traits) {
   for (const row of evidence.observations) {
     const observation = row?.observation;
     const observedAt = row?.observedAtMonotonicMs;
-    if (!row || !Object.isFrozen(row) || !observation || !validateObservation(observation) ||
+    // The PS validator is a closed schema validator, but malformed nested
+    // detail objects may throw instead of returning false. This hot-path
+    // caller must never let corrupt/untrusted evidence interrupt TTS.
+    let schemaValid = false;
+    try { schemaValid = validateObservation(observation); } catch { /* fail neutral */ }
+    if (!row || !Object.isFrozen(row) || !schemaValid ||
         observation.observer.captureRef !== identity.observerCaptureRef ||
         observation.observedAt.nativeRun !== identity.nativeRun ||
         !Number.isSafeInteger(observedAt) || observedAt < 0 || observedAt > now ||
