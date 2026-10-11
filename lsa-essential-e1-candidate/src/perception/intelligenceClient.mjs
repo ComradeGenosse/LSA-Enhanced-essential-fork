@@ -95,7 +95,7 @@ export class IntelligenceClient {
   acceptCapturedPlayerUtterance({identity,text}) {
     if(this.runtime.utteranceLifecycleVersion!==1 || !this.runtime.epoch)
       return {accepted:false,reason:'c01_unavailable'};
-    return this.runtime.utterances.acceptStt({identity,text,host:this.runtime.hostContext});
+    return this.runtime.acceptCapturedPlayerUtterance({identity,text});
   }
   // Preview-only in v1.0's unaccepted native stage: no PS6 decisions are
   // selected here and the native preview endpoint cannot admit Essential turns.
