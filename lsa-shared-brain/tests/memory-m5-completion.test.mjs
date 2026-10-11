@@ -184,3 +184,27 @@ test('M5 source tombstone cascades into deterministic derived memories without e
    timelineId:x.scope.timelineId,quote:source.content})).length,1);
  await m5.close();await x.store.close();
 });
+
+test('M5 authorized scope-wide trash is atomic and leaves foreign protagonist intact',async t=>{
+ const x=await setup(t);
+ const a=await x.record('Franklin secret alpha','a');
+ const b=await x.record('Franklin secret beta','b');
+ const other=await x.record('Trevor secret gamma','c','trevor');
+ const m5=createM5SqliteServices({store:x.store,filePath:x.filePath,authorize:allowed});
+ await m5.ready(x.scope);
+ const op=id(),result=await m5.trashScope({scope:x.scope,operationId:op});
+ assert.equal(result.operation,'trash_scope');
+ assert.ok(result.targetIds.includes(a.recordId));
+ assert.ok(result.targetIds.includes(b.recordId));
+ assert.ok(!result.targetIds.includes(other.recordId));
+ const suppressed=await x.store.listSuppressedMemoryIds(x.scope);
+ assert.ok(suppressed.includes(a.recordId)&&suppressed.includes(b.recordId));
+ const foreign=await x.store.findCandidates({scope:{...x.scope,protagonistKey:'trevor'}});
+ assert.ok(foreign.some(item=>item.recordId===other.recordId));
+ const trash=(await m5.inspect({scope:x.scope})).trash.filter(r=>!r.restoredAtUtc);
+ assert.ok(trash.length>=2);
+ const restored=await m5.restore({scope:x.scope,trashId:trash[0].trashId,operationId:id()});
+ assert.equal(restored.operation,'restore');
+ assert.ok(!(await x.store.listSuppressedMemoryIds(x.scope)).includes(a.recordId));
+ await m5.close();await x.store.close();
+});
