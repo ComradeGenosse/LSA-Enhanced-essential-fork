@@ -41,7 +41,9 @@ namespace LSA.PromotedCharacters
             public Ped Ped;
             public IntPtr Address;
             public long Started;
+            public uint StartTick;
             public int WorldEpoch;
+            public bool Prepared;
         }
         sealed class StopSample
         {
@@ -85,7 +87,7 @@ namespace LSA.PromotedCharacters
                 // After first successful install, rebind the receiver on host reload
                 // rather than adding a second Harmony patch to Core.
                 if(!patched) {
-                    patch.Invoke(instance,new object[]{start,null,M("AfterStart"),null,null});
+                    patch.Invoke(instance,new object[]{start,M("BeforeStart"),M("AfterStart"),null,null});
                     patch.Invoke(instance,new object[]{stop,M("BeforeStop"),M("AfterStop"),null,null});
                     patched=true;
                 }
@@ -99,9 +101,33 @@ namespace LSA.PromotedCharacters
                 return null;
             }
         }
+        static void BeforeStart(object[] __args)
+        {
+            try {installed?.PrepareStart(__args);}catch {installed?.Disable();}
+        }
         static void AfterStart()
         {
             try {installed?.ObserveStart();}catch {installed?.Disable();}
+        }
+        // Mint ahead of Core's hydration/EnrichActor callback when its pinned
+        // shared start signature actually carries a Ped. The postfix confirms
+        // Core owns that microphone before emitting an authoritative start.
+        // If the signature does not expose a Ped, retain the old fail-closed
+        // postfix-only source behavior rather than synthesizing a target.
+        void PrepareStart(object[] args)
+        {
+            if(disabled || args==null)return;
+            var ped=args.OfType<Ped>().FirstOrDefault();
+            if(ped==null || !ped.Exists())return;
+            IntPtr address;try{address=ped.MemoryAddress;}catch{return;}
+            if(address==IntPtr.Zero)return;
+            lock(gate) {
+                if(disabled || current!=null)return;
+                current=new Live{Id=Guid.NewGuid().ToString("D"),
+                    Ped=ped,Address=address,Started=host.MonotonicMs,
+                    StartTick=unchecked((uint)Game.GameTime),
+                    WorldEpoch=host.WorldEpoch,Prepared=true};
+            }
         }
         static void BeforeStop(ref StopSample __state)
         {
@@ -132,7 +158,10 @@ namespace LSA.PromotedCharacters
         }
         void ObserveStart()
         {
-            if(disabled || !mic.TryRead(out var ped) || ped==null)return;
+            if(disabled || !mic.TryRead(out var ped) || ped==null) {
+                lock(gate)if(current?.Prepared==true)current=null;
+                return;
+            }
             IntPtr address;
             try {address=ped.MemoryAddress;}catch{return;}
             if(address==IntPtr.Zero)return;
@@ -140,10 +169,16 @@ namespace LSA.PromotedCharacters
             lock(gate) {
                 if(disabled)return;
                 if(current!=null) {
-                    if(SamePed(current.Ped,ped,current.Address) && current.Address==address)return;
-                    Emit("ended","replaced",current,tick,now);
+                    if(SamePed(current.Ped,ped,current.Address) && current.Address==address) {
+                        if(current.Prepared) {
+                            current.Prepared=false;
+                            Emit("started",null,current,current.StartTick,current.Started);
+                        }
+                        return;
+                    }
+                    if(!current.Prepared)Emit("ended","replaced",current,tick,now);
                 }
-                current=new Live{Id=Guid.NewGuid().ToString("D"),Ped=ped,Address=address,Started=now,WorldEpoch=host.WorldEpoch};
+                current=new Live{Id=Guid.NewGuid().ToString("D"),Ped=ped,Address=address,Started=now,StartTick=tick,WorldEpoch=host.WorldEpoch};
                 Emit("started",null,current,tick,now);
             }
         }
@@ -171,7 +206,7 @@ namespace LSA.PromotedCharacters
             IntPtr address=IntPtr.Zero;
             try {if(active!=null)address=active.MemoryAddress;}catch{valid=false;}
             lock(gate) {
-                if(current==null || disabled)return;
+                if(current==null || disabled || current.Prepared)return;
                 string reason=current.WorldEpoch!=host.WorldEpoch?"world_reset":
                     now-current.Started>TimeoutMs?"timeout":
                     !valid?"unknown_mic_state":
