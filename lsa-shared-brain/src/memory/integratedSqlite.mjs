@@ -216,3 +216,26 @@ export function readPermanentMemoryRows(db,scope,world,{limit=200}={}){
    };
  }));
 }
+
+/** A correction is player-reported counterevidence, NEVER a rewrite of source text. */
+export function readCorrectionOverlays(db,scope,world){
+ dbOwnerScope(db,scope,world);
+ const data=db.prepare(`SELECT c.command_id AS commandId,c.target_id AS targetId,
+   c.preferred_text AS content,c.content_sha256 AS checksum,c.created_at_utc AS atUtc
+   FROM memory_corrections c JOIN memory_commands m ON m.command_id=c.command_id
+   WHERE c.world_profile_id=? AND c.character_id=? AND c.timeline_id=? AND m.protagonist_key=?
+   ORDER BY c.created_at_utc DESC`).all(...stmtScope(scope),scope.protagonistKey??'unknown');
+ const records=[];
+ for(const c of data){
+   if(digest(c.content)!==c.checksum)fail('memory_correction_integrity_failed');
+   records.push({characterId:scope.characterId,worldProfileId:scope.worldProfileId,
+     timelineId:scope.timelineId,protagonistKey:scope.protagonistKey??'unknown',
+     recordId:c.commandId,sourceKind:'permanent_memory',atUtc:c.atUtc,evidenceState:'verified',
+     targetId:c.targetId,
+     envelope:{version:1,kind:'permanent_memory',recordId:c.commandId,
+       characterId:scope.characterId,worldProfileId:scope.worldProfileId,timelineId:scope.timelineId,
+       content:'Player correction (reported): '+c.content,mode:'reported_claim',
+       sourceEvidenceIds:[c.targetId]}});
+ }
+ return immutableSnapshot(records);
+}
