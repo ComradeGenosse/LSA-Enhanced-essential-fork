@@ -1,10 +1,8 @@
 # LSA Research Corpus — Current Architectural Truth
 
-**Active delivery boundary — October 9, 2026:** The current feature branch follows the [playable LSA v1.0 milestone](../lsa-v1-implementation-milestone.md), retaining settled architecture and the original PR #21 specification. Finish Phase 6 and baseline PS4 validation, then Phase 13a; 10a is conditional on demonstrated Essential gaze insufficiency. All other unfinished master phases are deferred. Use the implementation ledger for branch progress; earlier main/deployment statements below are the recorded baseline.
+**Repository reconciliation — October 11, 2026.** The [playable LSA v1.0 milestone](../lsa-v1-implementation-milestone.md) is still the **scoped implementation boundary**; its October 9 execution language and the [October 8 master plan](UNIFIED-LSA-INTELLIGENCE-IMPLEMENTATION-PLAN-20261008.md) are retained as dated implementation specifications. They do not supersede later merged source and observed GTA evidence. Phase 6/PS4/early PS6 are now merged experimentally, without closing all GTA gates. Radio and ballistics remain open draft PRs.
 
-Updated: 2026-10-08. Source reconciliation: `main@7e54b17` and PR #21; this update is planning only.
-
-This document summarizes **what the research corpus currently believes**. It is not the implementation/deployment ledger; use [../ROADMAP.md](../ROADMAP.md) for that.
+This document summarizes **current architectural ownership and repository interpretation**. For exact merge/deployment/acceptance status, prefer [../ROADMAP.md](../ROADMAP.md) and the [implementation evidence ledger](../unified-intelligence-implementation-status.md). Normative D-001–D-017 and C-01–C-15 are unchanged.
 
 ## One-sentence architecture
 
@@ -29,11 +27,15 @@ This document summarizes **what the research corpus currently believes**. It is 
 
 ## Current repository state
 
-Current `main` contains the dialogue/provider foundation E1–E6, P0–P2, UX0–UX4, PS0–PS3, ACT0–ACT2, and bounded intelligence JSONL telemetry. PS3 is deployed in shadow and live PS2→PS3 evaluation/telemetry has been exercised. ACT0–ACT2 merged through PR #18 on October 6; the 83-file install and integrated GTA smoke test are recorded, while focused capability probes/default-off gates remain open.
+Current `main` has E1–E6, P0–P2, UX0–UX4, PS0–PS3 and ACT0–ACT2. The October 5 PS2→PS3 shadow telemetry and October 6 ACT smoke test remain prior GTA evidence, not proof that today's main was redeployed. **Phase 6 C-05/C-06, PS4 TurnKnowledgeFrame and early PS6/Phase 13a Director speech are also merged experimentally** via [PR #23](https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/pull/23), with subsequent [#27–#30](https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/pull/30), [#31](https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/pull/31) and [#33](https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/pull/33) reliability/acknowledgment/grounding fixes.
 
-Radio R0–R5/v2 is implemented on the unmerged `feature/radio-track-perception-v2-text-id@ad6cad61` stack; its fresh offline/build/GTA/catalog release gates are not closed. Its R5 live observer/contextText writer must be converted to the frozen C-04 seam before incorporation. CGE, proximity routing and PS4+ remain planned/researched rather than implemented. Existing P2 canon/manual memories already enrich dialogue; PS2/PS3 world awareness still stops before Luna requests.
+PR #23 recorded **one actual PS4→Luna supported gunfire-observation exchange in GTA** with the model response played. Troubleshooting also observed native Director playback start/completion; the fixes for rejected grant acknowledgment, missing Director context and reconnect churn were subsequently merged. Full baseline PS4 audit, exact new installed payload, repeated contextual spontaneous speech, native grant consumption and phase-specific GTA acceptance remain open. Do not convert a passing CI run or one exchange into a v1.0 release claim.
 
-For exact gates and GTA acceptance state, use [../ROADMAP.md](../ROADMAP.md).
+The [PS6 testing preset PR #34](https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/pull/34) is merged and **opt-in**: normal 4 attempts/minute and testing 12 attempts/minute enforced separately by both companion and native DLL. Activation requires rebuilding/installing both layers plus compatible experimental settings, without relaxing real safety/identity/PS3 gates. See [preset guide](../ps6-testing-chatter-preset.md).
+
+[Radio R0–R5/v2 PR #32](https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/pull/32) and [contextual ballistics R0 PR #35](https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/pull/35) are **unmerged draft branches** with independent reconciliation, build, physical producer and GTA acceptance gates. The current radio PR uses the existing PS4 selector, not a second model-facing writer. Contextual ballistics does not yet establish precise air/ground/surface impact classification. CGE, C-01/proximity hearing, automatic PS5 memory, PS7, advanced ACT and memory-aware PS6 remain separate future deliverables.
+
+The older `main@7e54b17` source pins and research proposals inside the master plan document **its October 8 audit**, not a claim that PS4 is still unimplemented on today's `main`.
 
 ## Locked / settled architecture
 
@@ -98,9 +100,11 @@ PS5 + 13a → optional memory-aware reactions (13b; same Director pipeline)
 
 ## Current next-work interpretation
 
-The [unified intelligence master plan](UNIFIED-LSA-INTELLIGENCE-IMPLEMENTATION-PLAN-20261008.md) is the implementation sequencing blueprint. Preserve the [PR #21 PS4 code-level plan](PS4-code-level-implementation-plan-20261008.md) as its detailed MVP specification. Next: C-02/C-13 actor/host association → qualified PS2/C-14 → frozen C-04 → all Luna request paths → controlled MVP acceptance. ACT0–ACT2 do not need rebuilding/remerging. Fresh UX4 physical acceptance and focused ACT probes remain separate validation obligations.
+The immediate work is now **integration and physical acceptance of already merged experimental PS4/Phase 6/PS6**, rather than rebuilding baseline C-02/C-13, C-04 or early Director from scratch. Verify the exact matching native DLL/companion version and mode first. Exercise supported witness facts all the way to real Luna requested-turn input, sustained observer/PS3 continuity, Director ticket/turn/playback and the original grant-consumption receipt. In [PR #33](https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/pull/33), deterministic Director event text can be delivered on a special turn even if optional PS4 `PERCEIVED` is unavailable on the installed build; those are distinct tests.
 
-After accepted baseline PS4, prioritize C-06/admission and early PS6 passive speech (13a), plus independently probed playback-only gaze (10a). PS5 is not required for transient reactions; C-01 is required for player-listening (10b), not native playback engagement. ACT/C-05 self-knowledge, radio, hearing, timeline-safe automatic memory and advanced social/physical autonomy retain their separate gates. Optional radio, gaze, proximity, Genesis and autonomy never block baseline PS4. ACT3 can develop after shared references; advanced physical execution still needs its own probes. Reuse existing PS2 stores, providers, P2 persistence and ACT engine; no new event ledger, service, database or inference router is required. Future decision-policy variation replaces only a bounded Director selection function; all policies share C-11 validation/tickets, quotas/receipts and ACT/Essential authority. No alternative production policy is added.
+Next reconcile [radio #32](https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/pull/32) and [ballistics #35](https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/pull/35) separately against fresh `main` and close each matching source/CI/native/GTA gate before considering merge. Existing ACT0–ACT2 require focused physical probes, not remerging. Gaze 10a remains conditional on an Essential look-mechanism probe, while player-listening 10b requires C-01. PS5 memory requires the settled timeline-safe P2 migration; PS7/social and ACT7 physical proposals require later scoped evidence/authority.
+
+Preserve the [original PR #21 PS4 specification](PS4-code-level-implementation-plan-20261008.md), [master plan](UNIFIED-LSA-INTELLIGENCE-IMPLEMENTATION-PLAN-20261008.md) and locked architecture as design/provenance; keep actual implementation, deployment, activation and acceptance recorded distinctly in the [roadmap](../ROADMAP.md). No new event ledger, parallel executor, shadow speech-hearing inference or automatic durable memory is licensed by this reconciliation.
 
 ## Important historical-status rule
 
