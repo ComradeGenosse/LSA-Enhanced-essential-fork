@@ -32,6 +32,11 @@ namespace LSA.Standalone.RageHost
             this.owner = owner ?? throw new ArgumentNullException(nameof(owner));
             this.resolver = resolver ?? throw new ArgumentNullException(nameof(resolver));
             this.clock = clock ?? throw new ArgumentNullException(nameof(clock));
+            if (!owner.IsOwner) throw new InvalidOperationException("lip_owner_required");
+            // Preload the fixed facial clip while the host has an owner fiber,
+            // never on an IPC/worker thread and never from a model-supplied path.
+            try { NativeFunction.CallByName<int>("REQUEST_ANIM_DICT", "mp_facial"); }
+            catch { } // TryPulse will fail closed until the dictionary exists
         }
 
         public bool TryPulse(OwnershipLease lease, Guid streamId, int level)
@@ -76,6 +81,15 @@ namespace LSA.Standalone.RageHost
                     NativeFunction.CallByName<bool>("IS_PED_SHOOTING", actor.Handle) ||
                     NativeFunction.CallByName<bool>("IS_PED_IN_COMBAT", actor.Handle, 0))
                     return false;
+
+                // Asynchronous GTA streaming: do not attempt the clip before
+                // its fixed dictionary is available. Never wait/yield here.
+                if (!NativeFunction.CallByName<bool>("HAS_ANIM_DICT_LOADED",
+                    "mp_facial"))
+                {
+                    NativeFunction.CallByName<int>("REQUEST_ANIM_DICT", "mp_facial");
+                    return false;
+                }
 
                 // No untrusted animation names and no arbitrary target from
                 // Node. Source-only visual gesture; no tasks or session reset.
