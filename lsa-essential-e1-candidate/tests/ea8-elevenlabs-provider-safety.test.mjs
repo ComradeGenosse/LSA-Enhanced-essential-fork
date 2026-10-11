@@ -65,7 +65,7 @@ test('EA8 documented v4 Turbo map includes only a verified fearful style, not fa
       value==='concerned' ? createDelivery({value,source:'verified_scene',confidence:'supported'}):
       intent(value);
     const tag=ELEVEN_V4_VERIFIED_TAG_FOR_DELIVERY[value];
-    assert.equal(renderElevenSpeech({dialogue:'Okay.',delivery:d,enabled:true}),
+    assert.equal(renderElevenSpeech({dialogue:'Okay.',delivery:d,enabled:true,modelId:'eleven_v4_turbo'}),
       tag ? tag+' Okay.' : 'Okay.');
   }
   assert.equal(Object.isFrozen(ELEVEN_V4_VERIFIED_TAG_FOR_DELIVERY),true);
@@ -91,7 +91,7 @@ test('Unicode is conservatively bounded without truncation or surrogate splits',
   const text=smile.repeat(max/2);
   assert.equal(text.length,max);
   assert.equal(renderElevenSpeech({dialogue:text,delivery:intent('fearful'),
-    enabled:true}),text,'tag omitted when it would cross 3000 UTF-16 units');
+    enabled:true,modelId:'eleven_v4_turbo'}),text,'tag omitted when it would cross 3000 UTF-16 units');
   for(const malformed of ['x\ud800','\udc00x','ok\ud83d x']) {
     assert.throws(()=>renderElevenSpeech({dialogue:malformed,enabled:false}),/Unicode/);
     const socket=wsFactory();
@@ -104,7 +104,7 @@ test('Unicode is conservatively bounded without truncation or surrogate splits',
     assert.equal(socket.sockets.length,0);
   }
   assert.equal(renderElevenSpeech({dialogue:'x'.repeat(2992),
-    delivery:intent('fearful'),enabled:true}),'x'.repeat(2992));
+    delivery:intent('fearful'),enabled:true,modelId:'eleven_v4_turbo'}),'x'.repeat(2992));
 });
 
 test('early-segment and buffered/final calls take the same trusted provider path',async()=>{
