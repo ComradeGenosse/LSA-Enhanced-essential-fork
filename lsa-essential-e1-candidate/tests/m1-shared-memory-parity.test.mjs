@@ -26,6 +26,8 @@ async function workspace(t) {
 
 test('one shared M1 mutation policy preserves deterministic editor inputs', () => {
   const npc = profile();
+  const later = new Date(Date.now()+10_000).toISOString();
+  const later2 = new Date(Date.now()+11_000).toISOString();
   const first = addProfile([], npc);
   assert.deepEqual(first, [npc]);
   assert.equal(addProfile(first,npc),first);
@@ -33,13 +35,13 @@ test('one shared M1 mutation policy preserves deterministic editor inputs', () =
     characterId:npc.characterId,
     promotion:{...npc.promotion,ownerAlias:'promoted.'+randomUUID()}
   })),/ownership_conflict/);
-  const edited = editProfile(first,npc.characterId,{ name:'Shared NPC' },npc.revision,'2026-10-11T20:00:00.000Z');
+  const edited = editProfile(first,npc.characterId,{ name:'Shared NPC' },npc.revision,later);
   assert.equal(edited[0].name,'Shared NPC');
   assert.equal(edited[0].revision,npc.revision+1);
   assert.throws(()=>editProfile(edited,npc.characterId,{name:'stale'},npc.revision),/profile_revision_conflict/);
   const added=changeMemory(edited,npc.characterId,'create',{
     expectedRevision:edited[0].revision,patch:{text:'A memorable stunt'}
-  },{now:'2026-10-11T20:00:01.000Z',newMemoryId:randomUUID()});
+  },{now:later2,newMemoryId:randomUUID()});
   assert.equal(added.profiles[0].memories.at(-1).text,'A memorable stunt');
   assert.throws(()=>removeProfile(added.profiles,npc.characterId,'wrong',added.profiles[0].revision),/explicit_confirmation_required/);
   assert.deepEqual(removeProfile(added.profiles,npc.characterId,npc.characterId,added.profiles[0].revision),[]);
