@@ -128,6 +128,7 @@ namespace LSA.Intelligence
                 speechWindow=null;speechRejected++;return;
             }
             int relative=(int)Math.Max(0,now-w.StartMs);
+            int speechLosBudget=Math.Min(3,lineOfSightBudget);
             foreach(var a in anchors.Current.Where(a=>a.Observer && a.Kind=="ped")
                 .OrderByDescending(a=>a.OwnerLifetime!=null)
                 .ThenBy(a=>a.Entity is Ped ped ? ped.Position.DistanceTo(player.Position):float.MaxValue)
@@ -165,8 +166,8 @@ namespace LSA.Intelligence
                     if(!allowed) {l.Path="unknown";l.Reason="vehicle_policy_reject";l.LastSample=-1;continue;}
                     if(distance>radius) {l.Path="blocked";l.Reason="out_of_range";l.LastSample=-1;continue;}
                     // Share the existing native LOS limit with shooting witnesses.
-                    if(lineOfSightBudget<=0) {l.Path="unknown";l.Reason="sampling_budget";l.LastSample=-1;continue;}
-                    lineOfSightBudget--;
+                    if(speechLosBudget<=0 || lineOfSightBudget<=0) {l.Path="unknown";l.Reason="sampling_budget";l.LastSample=-1;continue;}
+                    speechLosBudget--;lineOfSightBudget--;
                     if(!NativeFunction.CallByName<bool>("HAS_ENTITY_CLEAR_LOS_TO_ENTITY",observer,player,17)) {
                         l.Path="blocked";l.Reason="acoustic_path_blocked";l.LastSample=-1;continue;
                     }
