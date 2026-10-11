@@ -77,3 +77,11 @@ Franklin, Michael, Trevor, F→M→F ABA, unknown/cutscene, world/load/reconnect
 **Production-ready: NO, additionally needs approved vendor-audio A/B and rollout signoff.**
 
 All upstream PRs unchanged, final PR remains DRAFT against PR #68, no main merge, no installed GTA writes, no ElevenLabs billing.
+
+## Audited final source freeze (post-A–D reconciliation)
+
+**Latest independently identified source commit prior to this report update:** `db1df7229d761bc072a402c3e60b4af3860c1845`. This incorporates security patch `5621d451738a22c08c754e4b7c8883bf700509cb` (production bootstrap strips caller-provided protagonist authority); matrix coverage patch `6b390ce883ef69377fa1653e59510e541817a634` (runs EA-A/EA-B/EA-C/EA-F dedicated suites), plus original EA6/EA7/EA8 handoffs restored exactly from source to complete EA0–EA9 documentation. Source branch has 69 changed files at freeze and final PR #96 remains draft targeting PR #68, with no main merge.
+
+**GitHub workflow observation at source freeze:** EA0–EA9 [push run 38185509264](https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/actions/runs/38185509264), [PR run 38185513309](https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/actions/runs/38185513309), and [EA6-specific run 38185513330](https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/actions/runs/38185513330) all reported **QUEUED**, with no accepted job/test outcome. Previous source-replaced runs were cancelled, not green. The documentation commit changes `HEAD` again; inspect **that exact final commit's workflows** before attempting acceptance. No offline pass inferred from any queued/cancelled run.
+
+**Current source verdict remains NO** for offline-ready, shadow GTA-ready, experimental GTA-ready, and production-ready; v4 SQLite compatibility/isolated compiled package/GTA and vendor gates remain blocked/not-run. An accepted CI outcome requires new evidence explicitly added to this report after its source commit, followed by the same-head matrix. Do not deploy on the strength of this handoff.
