@@ -265,3 +265,33 @@ test('real v4 projection 10k-record p95 retrieval target is measured, not GTA ac
   assert.ok(Number.isFinite(p95));
  }finally{f.close();}
 });
+
+test('PS4 source priority, frozen turn ownership, deadline and send-time revalidation',async()=>{
+ const {preparePs4Recall,verifyPs4RecallCurrent}=await import('../src/memory/ps4RecallContribution.mjs');
+ const f=fixture(),s=scope(),turnIdentityHash=SHA;
+ try{
+  f.add(s,dialogue(s,'safe memory raccoon'));
+  const q=query(s,'what did I say about raccoon?',{intent:'exact_quote'});
+  let identity={...s,turnIdentityHash,hostRunId:U(),worldEpoch:1,
+    incarnationId:U(),encounterId:U(),turnId:U()};
+  const accepted=await preparePs4Recall({query:q,readAdapter:f.adapter,
+    snapshot:identity,currentIdentity:()=>identity,protagonistKey:s.protagonistKey,
+    nowUtc:clock,deadlineMs:200});
+  assert.equal(accepted.status,'ready');
+  assert.equal(accepted.contribution.items[0].content,'safe memory raccoon');
+  assert.ok(verifyPs4RecallCurrent(accepted,{currentIdentity:()=>identity}));
+  identity={...identity,worldEpoch:2};
+  assert.equal(verifyPs4RecallCurrent(accepted,{currentIdentity:()=>identity}),false);
+  const stale=await preparePs4Recall({query:q,readAdapter:f.adapter,snapshot:accepted.stamp,
+    currentIdentity:()=>identity,protagonistKey:s.protagonistKey,nowUtc:clock});
+  assert.equal(stale.reason,'stale_before_read');
+  const blocked=await preparePs4Recall({query:{...q,intent:'spontaneous'},
+    readAdapter:f.adapter,snapshot:identity,currentIdentity:()=>identity,
+    protagonistKey:s.protagonistKey,source:'player_text',playerActive:true,nowUtc:clock});
+  assert.equal(blocked.reason,'player_priority');
+  const slow={read:()=>new Promise(resolve=>setTimeout(()=>resolve({rows:[],coverageComplete:false}),60))};
+  const late=await preparePs4Recall({query:q,readAdapter:slow,snapshot:identity,
+    currentIdentity:()=>identity,protagonistKey:s.protagonistKey,nowUtc:clock,deadlineMs:5});
+  assert.equal(late.reason,'deadline');
+ }finally{f.close();}
+});
