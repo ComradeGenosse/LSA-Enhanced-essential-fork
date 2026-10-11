@@ -12,6 +12,10 @@ function editorHtml(token, summonWaitMs) {
 <style>body{font:16px system-ui;background:#151b24;color:#e4eaf4;max-width:1100px;margin:32px auto;padding:0 20px}button,input,textarea,select{font:inherit;padding:8px;margin:5px 0;border-radius:5px;border:1px solid #596779;background:#202a38;color:inherit}button{cursor:pointer}main{display:grid;grid-template-columns:260px 1fr;gap:24px}label{display:block}input,textarea{box-sizing:border-box;width:100%}textarea{min-height:65px}#list button{display:block;width:100%;text-align:left}.controls{display:flex;gap:8px;flex-wrap:wrap}.danger{border-color:#da6373}#status{white-space:pre-wrap}small{color:#aebcce}@media(max-width:700px){main{display:block}}</style>
 <h1>LSA Characters</h1><p>Promote the NPC currently selected in Essential, then keep their character, voice, and memories between game sessions.</p>
 <div class="controls"><button id="promote">Promote current NPC</button><button id="refresh">Refresh</button></div><p id="status" role="status"></p>
+<details id="exportPanel" hidden><summary>Back up current SQLite profiles</summary>
+<p><small>Creates a NEW rollback snapshot; never overwrites existing JSON. This is not an automatic rollback and does not contain future episodic journals.</small></p>
+<button id="exportProfiles" type="button">Export rollback profile snapshot</button>
+<p id="exportStatus" role="status"></p></details>
 <details id="timelinePanel" hidden><summary>Playthrough timeline (SQLite mode only)</summary>
 <p><small>Choose the correct GTA save lineage explicitly after any rollback warning. Creating a timeline does not activate it.</small></p>
 <select id="timelineChoices" aria-label="Playthrough timeline"></select>
@@ -39,6 +43,7 @@ function lines(text){return text.split('\\n').map(value=>value.trim()).filter(Bo
 async function refreshTimelines(){
   const view=await api('timeline_list'),panel=$('timelinePanel');
   panel.hidden=!view.supported;
+  $('exportPanel').hidden=!view.supported;
   if(!view.supported)return;
   $('timelineChoices').replaceChildren();
   for(const item of view.timelines){
@@ -61,6 +66,12 @@ $('createTimeline').onclick=()=>run(async()=>{
   if(!label||!confirm('Create a new save-lineage timeline? It will not be activated automatically.'))return;
   await api('timeline_create',{label});
   await refreshTimelines();
+});
+$('exportProfiles').onclick=()=>run(async()=>{
+  if(!confirm('Create a new profile-only rollback snapshot on this computer?'))return;
+  const saved=await api('profile_export');
+  $('exportStatus').textContent='Saved profile snapshot: '+saved.path+
+    ' (revision '+saved.revision+', '+saved.profileCount+' profiles).';
 });
 function select(profile){current=profile;editingMemory=null;$('detail').hidden=false;$('title').textContent=profile.name;$('identity').textContent=profile.characterId+' · '+profile.gender+' · '+profile.ageBand+' · '+profile.runtimeStatus+' · voice '+(profile.voiceReference?.voice||'pending');
 $('metadata').textContent=JSON.stringify({modelHash:profile.modelHash,appearance:profile.appearance,voiceReference:profile.voiceReference,promotedAtUtc:profile.promotion.promotedAtUtc,createdAtUtc:profile.createdAtUtc,updatedAtUtc:profile.updatedAtUtc,revision:profile.revision},null,2);
@@ -96,6 +107,11 @@ export async function startCharacterEditor(service,{ port = service.config.promo
       let result;
       switch (body.action) {
         case 'list': result = await service.list(); break;
+        case 'profile_export':
+          if (typeof service.store?.exportRollbackSnapshot !== 'function')
+            throw new Error('profile_export_unavailable');
+          result = await service.store.exportRollbackSnapshot();
+          break;
         case 'timeline_list':
           result = typeof service.store?.listTimelines === 'function'
             ? {supported:true,timelines:await service.store.listTimelines(),
