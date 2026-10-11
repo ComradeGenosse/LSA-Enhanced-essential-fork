@@ -175,6 +175,15 @@ export class OpenAIConnection {
     this.#mic = [];
     this.#micBytes = 0;
     this.#micOverflow = false;
+    // Associate only THIS native Essential turn with THIS immutable P0 actor.
+    try {
+      this.#runtime.intelligence?.reserveMicUtterance?.({
+        identity:this.#turn.identity,
+        actorRef:this.#turn.knowledgeInputs?.association?.captureRef,
+        hostRunId:this.#turn.knowledgeInputs?.hostRunId,
+        worldEpoch:this.#turn.knowledgeInputs?.worldEpoch,
+      });
+    } catch {}
     return Promise.resolve(true);
   }
 
@@ -218,6 +227,7 @@ export class OpenAIConnection {
     this.#micBytes = 0;
     this.#metrics?.event('input_ready', { bytes: pcm.length, sampleRate: 16_000, channels: 1, role: 'microphone' });
     if (!pcm.length) throw new Error('PTT input did not contain microphone audio.');
+    try {this.#runtime.intelligence?.finishMicUtterance?.(this.#turn.identity,pcm.length);} catch {}
     this.#launch({ pcm: new Uint8Array(pcm), sampleRate: 16_000 });
     return Promise.resolve(true);
   }
@@ -247,6 +257,7 @@ export class OpenAIConnection {
   abortTurn(identity, reason = 'cancelled') {
     if (!sameIdentity(this.#turn?.identity, identity)) return false;
     this.#retired = true;
+    try {this.#runtime.intelligence?.cancelMicUtterance?.(identity);} catch {}
     this.#metrics?.event(String(reason).includes('supersed') ? 'supersession_requested' : 'cancellation_requested', { reason });
     this.#inputStarted = false;
     this.#mic = [];
