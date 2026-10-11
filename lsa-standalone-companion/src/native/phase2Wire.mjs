@@ -62,6 +62,10 @@ export class Phase2NativeClient {
   #connectReject;
   #deadline;
   #heartbeat;
+  #closedResolve;
+  #closed = new Promise(resolve => { this.#closedResolve = resolve; });
+
+  get closed() { return this.#closed; }
 
   constructor({ pipePath = '\\\\.\\pipe\\LSA.Standalone.Phase2.v1', timeoutMs = 3000 } = {}) {
     if (typeof pipePath !== 'string' || pipePath.length < 1 ||
@@ -201,6 +205,7 @@ export class Phase2NativeClient {
       pending.reject(error);
     }
     this.#pending.clear();
+    this.#closedResolve?.(error.message);
   }
 
   close() { this.#abort(new Error('native_disconnected')); }
