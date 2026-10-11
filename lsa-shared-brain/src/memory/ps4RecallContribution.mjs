@@ -22,8 +22,8 @@ export function createAcceptedRecallQuery({acceptedTurn,snapshot,queryId,maxByte
    acceptedTurn.text.length>12000||!uuid.test(queryId))
    throw new TypeError('m4_unverified_accepted_turn');
  const question=acceptedTurn.text;
- const intent=/\\b(quote|word for word|exact words|what (?:did|have) (?:i|you) say|what (?:i|you) said)\\b/i.test(question)
-   ?'exact_quote':/\\b(remember|recall|earlier|before|last time|previous|ago)\\b/i.test(question)
+ const intent=/\b(quote|word for word|exact words|what (?:did|have) (?:i|you) say|what (?:i|you) said)\b/i.test(question)
+   ?'exact_quote':/\b(remember|recall|earlier|before|last time|previous|ago)\b/i.test(question)
      ?'open_recall':'recent_fact';
  return validateRecallQuery({version:1,kind:'recall_query',
   characterId:snapshot.characterId,worldProfileId:snapshot.worldProfileId,
