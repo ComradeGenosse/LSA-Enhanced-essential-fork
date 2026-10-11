@@ -130,6 +130,23 @@ test('EA Final B: OpenAI, Qwen, ElevenLabs assignments migrate byte-preservingly
   }finally{await store.close();}
 });
 
+test('EA Final B: qualified host reload cannot reconstruct missing native proof',async t=>{
+  const {store,source,save}=await start(t);
+  const first=host(),next=host(first.hostRunId,2);
+  source.host(first);
+  await store.confirmTimeline(save,{confirmation:save});
+  source.host(next);
+  source.boundary({reason:'host_reload',hostRunId:next.hostRunId,
+    previousEpoch:1,worldEpoch:2});
+  assert.equal(store.timelineSourceStatus,'unavailable');
+  assert.equal(store.timelineWritable,false);
+  await assert.rejects(store.confirmTimeline(save,{confirmation:save}),/timeline_write_suspended/);
+  // Only a subsequent accepted C-13 native callback may reopen the gate.
+  source.host(host());
+  await store.confirmTimeline(save,{confirmation:save});
+  assert.equal(store.timelineWritable,true);
+});
+
 test('EA Final B: v4 journal is preserved unchanged and never downgraded by M1 v2',async t=>{
   const {files,store}=await start(t);
   await store.close();
