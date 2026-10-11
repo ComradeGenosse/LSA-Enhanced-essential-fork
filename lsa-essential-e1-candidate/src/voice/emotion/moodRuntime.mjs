@@ -20,7 +20,9 @@ export function createMoodRuntime({ getRuntime, protagonistAuthority = null,
     // recorded by a newer native turn. Reads/commits still fail closed and
     // flush state if the live authority cannot be established.
     const reject = () => forRetirement ? null : deny();
-    const runtime = getRuntime();
+    let runtime;
+    try { runtime = getRuntime(); }
+    catch { return reject(); } // disconnected/unavailable trusted runtime: neutral
     const identityService = runtime?.identityService;
     const characterStore = runtime?.characterService?.store;
     const perception = runtime?.intelligence?.runtime;
