@@ -54,8 +54,9 @@ export function createIdleCurationScheduler({store,queue,ledger,provider,mode='o
    },
    cancel(){controller?.abort(new Error('curation_interrupted'));},
    async checkpoint({characterId}={}){
-     if(mode==='off'||!cloudOptIn)return result('disabled');
+     if(mode==='off')return result('disabled');
      if(mode==='shadow')return result('shadow');
+     if(!cloudOptIn)return result('disabled');
      if(stopped)return result('stopped');
      if(busy)return result('busy');
      if(!isUuid(characterId))return result('no_character');
@@ -71,7 +72,7 @@ export function createIdleCurationScheduler({store,queue,ledger,provider,mode='o
      lastRun=stamp;
      controller=new AbortController();
      const job=processIdleCuration({mode:'experimental',queue,ledger,provider,ownerId,
-       nowUtc:new Date(stamp).toISOString(),maxBatch,estimatedMaxCostUsd,leaseMs,
+       nowUtc:new Date(stamp).toISOString(),maxBatch,characterId,estimatedMaxCostUsd,leaseMs,
        maxProviderMs,maxAttempts,signal:controller.signal,
        isAuthorized:j=>authorize(snapshot,j)});
      busy=job;
