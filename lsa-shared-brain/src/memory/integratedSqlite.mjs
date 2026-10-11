@@ -45,7 +45,6 @@ function validScope(scope,world){
  if(!scope||!isUuid(scope.characterId)||!isUuid(scope.timelineId)||scope.worldProfileId!==world||
     !['franklin','michael','trevor','unknown'].includes(scope.protagonistKey??'unknown'))
    fail('memory_invalid_scope');
- const actor=dbOwnerScope;
  return scope;
 }
 function dbOwnerScope(db,scope,world){
@@ -99,7 +98,6 @@ export function verifyPersistedMemoryCommand(db,{scope,commandId},world){
  const row=db.prepare('SELECT * FROM memory_commands WHERE command_id=? AND world_profile_id=? AND character_id=? AND timeline_id=? AND protagonist_key=?')
  .get(commandId,...stmtScope(scope),scope.protagonistKey??'unknown');
  if(!row)return null;
- if(digest(row.receipt_json)!==row.request_sha256.slice(64)){} // no-op: request hash is independent from receipt.
  const receipt=JSON.parse(row.receipt_json);
  if(receipt.commandId!==commandId||receipt.requestedByLineId!==row.requested_by_line_id||receipt.operation!==row.operation||
     receipt.durableCommit!==true||receipt.status!=='committed')fail('memory_corrupted_command_receipt');
