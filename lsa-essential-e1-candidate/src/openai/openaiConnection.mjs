@@ -180,6 +180,7 @@ export class OpenAIConnection {
       this.#runtime.intelligence?.reserveMicUtterance?.({
         identity:this.#turn.identity,
         actorRef:this.#turn.knowledgeInputs?.association?.captureRef,
+        utteranceId:this.#turn.knowledgeInputs?.micUtteranceId,
         hostRunId:this.#turn.knowledgeInputs?.hostRunId,
         worldEpoch:this.#turn.knowledgeInputs?.worldEpoch,
       });
