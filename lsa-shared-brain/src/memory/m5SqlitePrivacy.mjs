@@ -176,7 +176,11 @@ export class M5SqliteServices{
      if(!row || row.done || Date.parse(row.until)<=Date.parse(this.#clock())||
         atUtc&&(!timestamp(atUtc)||Date.parse(atUtc)>Date.parse(row.until)))return null;
      if(sha(row.raw)!==row.checksum)fail('m5_clarification_corrupt');
-     return JSON.parse(row.raw);
+     const saved=JSON.parse(row.raw);
+     // A later forget must revoke previously offered evidence immediately.
+     if(saved.alternatives.some(item=>activeTombstone(db,scope,item.recordId)))
+       return null;
+     return saved;
    });
  }
  async completeClarification({scope,commandId}){
@@ -230,11 +234,27 @@ export class M5SqliteServices{
      const events=(scope.protagonistKey??'unknown')==='unknown'
        ?db.prepare('SELECT envelope_json AS json FROM event_journal WHERE world_profile_id=? AND character_id=? AND timeline_id=? ORDER BY received_at_utc,record_id').all(scope.worldProfileId,scope.characterId,scope.timelineId).map(x=>JSON.parse(x.json)):[];
      const memories=db.prepare('SELECT * FROM memory_records WHERE '+scopeWhere+' ORDER BY created_at_utc,memory_id').all(...scopeKey(scope));
+     const sidecars=(scope.protagonistKey??'unknown')==='unknown'
+       ?db.prepare('SELECT v.record_id AS recordId,v.source_evidence_json AS evidenceJson,v.source_evidence_sha256 AS checksum FROM event_source_evidence v JOIN event_journal e ON e.record_id=v.record_id WHERE e.world_profile_id=? AND e.character_id=? AND e.timeline_id=? ORDER BY e.received_at_utc,e.record_id')
+         .all(scope.worldProfileId,scope.characterId,scope.timelineId)
+         .map(x=>({recordId:x.recordId,evidence:JSON.parse(x.evidenceJson),sha256:x.checksum})):[];
+     const memoIds=new Set(memories.map(m=>m.memory_id));
+     const curationJobs=db.prepare('SELECT job_json AS json FROM memory_curation_jobs WHERE world_profile_id=? AND character_id=? AND timeline_id=?')
+       .all(scope.worldProfileId,scope.characterId,scope.timelineId)
+       .map(x=>JSON.parse(x.json)).filter(j=>memoIds.has(j.proposal?.proposalId));
+     const appraisals=db.prepare('SELECT proposal_id AS id,appraisal_json AS json FROM memory_luna_appraisals WHERE world_profile_id=? AND character_id=? AND timeline_id=?')
+       .all(scope.worldProfileId,scope.characterId,scope.timelineId)
+       .filter(x=>memoIds.has(x.id)).map(x=>JSON.parse(x.json));
+     const pending=db.prepare('SELECT state_json AS json,state_sha256 AS checksum FROM m5_clarifications WHERE '+scopeWhere)
+       .all(...scopeKey(scope)).map(row=>{
+         if(sha(row.json)!==row.checksum)fail('m5_clarification_corrupt');
+         return JSON.parse(row.json);
+       });
      const commands=db.prepare('SELECT receipt_json AS json FROM memory_commands WHERE '+scopeWhere+' ORDER BY requested_by_line_id,command_id').all(...scopeKey(scope)).map(x=>JSON.parse(x.json));
      const tombstones=db.prepare('SELECT t.* FROM memory_tombstones t WHERE t.world_profile_id=? AND t.character_id=? AND t.timeline_id=?').all(scope.worldProfileId,scope.characterId,scope.timelineId).filter(row=>!!evidence(db,scope,row.target_id));
      const corrections=db.prepare('SELECT c.* FROM memory_corrections c JOIN memory_commands m ON m.command_id=c.command_id WHERE c.world_profile_id=? AND c.character_id=? AND c.timeline_id=? AND m.protagonist_key=?').all(...scopeKey(scope));
      const trash=db.prepare('SELECT * FROM m5_trash WHERE '+scopeWhere).all(...scopeKey(scope));
-     const raw=JSON.stringify({format:'m5-promoted-memory-archive-v1',scope,dialogue,events,memories,commands,tombstones,corrections,trash})+'\n';
+     const raw=JSON.stringify({format:'m5-promoted-memory-archive-v1',scope,dialogue,events,sidecars,memories,curationJobs,appraisals,commands,tombstones,corrections,trash,pending})+'\n';
      return {format:'m5-promoted-memory-archive-v1',sha256:sha(raw),byteLength:Buffer.byteLength(raw),json:raw};
    });
  }
@@ -261,6 +281,13 @@ export class M5SqliteServices{
      if(!evidence(db,scope,targetId))fail('m5_trash_missing_evidence');
      if(activeTombstone(db,scope,targetId))fail('m5_already_suppressed');
      const closure=dependentIds(db,scope,[targetId]);
+     for(const row of db.prepare('SELECT command_id AS id,state_json AS json FROM m5_clarifications WHERE '+scopeWhere)
+       .all(...scopeKey(scope))){
+       const pending=JSON.parse(row.json);
+       if(tainted.has(pending.requestedByLineId) ||
+          pending.alternatives?.some(x=>tainted.has(x.recordId)))
+         db.prepare('DELETE FROM m5_clarifications WHERE command_id=?').run(row.id);
+     }
      for(const id of closure){
        if(!activeTombstone(db,scope,id))
          db.prepare('INSERT INTO memory_tombstones VALUES(?,?,?,?,?,?)')
