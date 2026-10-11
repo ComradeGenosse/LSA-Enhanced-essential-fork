@@ -92,16 +92,16 @@ function sourceAuthorized(db,job,world,timeline){
   return true;
  }catch{return false;}
 }
-export function claimCuration(db,{limit,nowUtc,leaseUntilUtc,ownerId},world,timeline){
- if(!isUuid(ownerId)||!Number.isSafeInteger(limit)||limit<1||limit>4||
+export function claimCuration(db,{limit,nowUtc,leaseUntilUtc,ownerId,characterId=null},world,timeline){
+ if(!isUuid(ownerId)||(characterId!==null&&!isUuid(characterId))||!Number.isSafeInteger(limit)||limit<1||limit>4||
     !Number.isFinite(Date.parse(nowUtc))||!Number.isFinite(Date.parse(leaseUntilUtc))||
     Date.parse(leaseUntilUtc)<=Date.parse(nowUtc))fail('curation_invalid_claim');
  return tx(db,()=>{
   const rows=db.prepare(`SELECT q.* FROM memory_curation_jobs q JOIN promoted_profiles p ON p.character_id=q.character_id
-    WHERE q.world_profile_id=? AND q.timeline_id=? AND
+    WHERE q.world_profile_id=? AND q.timeline_id=? AND (? IS NULL OR q.character_id=?) AND
     ((q.state='pending' AND q.next_attempt_at_utc<=?) OR
     (q.state='leased' AND q.lease_until_utc<=?))
-    ORDER BY q.next_attempt_at_utc,q.job_id LIMIT ?`).all(world,timeline,nowUtc,nowUtc,Math.min(128,limit*16));
+    ORDER BY q.next_attempt_at_utc,q.job_id LIMIT ?`).all(world,timeline,characterId,characterId,nowUtc,nowUtc,Math.min(128,limit*16));
   const claimed=[];let oneCharacter=null;
   for(const row of rows){
    if(claimed.length>=limit)break;
