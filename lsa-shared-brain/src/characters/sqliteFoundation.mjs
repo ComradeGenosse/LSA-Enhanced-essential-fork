@@ -93,7 +93,7 @@ async function backupOnce(sourcePath,raw) {
   await syncFile(backup);
 }
 function verifyExisting(db,worldProfileId) {
-  if(![SQLITE_PROFILE_SCHEMA,JOURNAL_SCHEMA_VERSION].includes(db.prepare('PRAGMA user_version').get().user_version))fail('unsupported_sqlite_profile_schema');
+  if(![SQLITE_PROFILE_SCHEMA,3,JOURNAL_SCHEMA_VERSION].includes(db.prepare('PRAGMA user_version').get().user_version))fail('unsupported_sqlite_profile_schema');
   if(db.prepare('PRAGMA quick_check').get().quick_check!=='ok')fail('sqlite_integrity_failed');
   const row=db.prepare('SELECT * FROM p2_store WHERE singleton=1').get();
   if(!row || row.world_profile_id!==worldProfileId)fail('sqlite_profile_world_conflict');
