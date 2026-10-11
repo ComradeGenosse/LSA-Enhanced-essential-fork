@@ -73,6 +73,19 @@ namespace LSA.Standalone
             return true;
         }
 
+        public bool IsOfferedPermitCurrent(NativeTurnPermit permit)
+        {
+            if (permit == null || permit.Retired || permit.Confirmed ||
+                !live.TryGetValue(permit.TurnId, out var stored) ||
+                !ReferenceEquals(stored, permit)) return false;
+            if (!authority.IsLeaseCurrent(permit.Lease))
+            {
+                Retire(permit);
+                return false;
+            }
+            return true;
+        }
+
         public bool TryConfirm(string turnId, string sessionNonce, string actorIncarnationId,
             string leaseId, string generation, string source, out string reason)
         {
