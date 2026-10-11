@@ -248,6 +248,28 @@ namespace LSA.Standalone
             return true;
         }
 
+        // Audio can only be opened for text already staged under this
+        // exact native turn and still-current physical actor.
+        public bool TryGetStagedPermit(string turnId, string leaseId,
+            string generation, string actorIncarnationId, out NativeTurnPermit permit)
+        {
+            permit = null;
+            if (!IsCurrent(turnId, leaseId, generation, actorIncarnationId))
+                return false;
+            var candidate = live[Guid.Parse(turnId)];
+            if (candidate.StagedReply == null) return false;
+            permit = candidate;
+            return true;
+        }
+
+        public bool IsStagedPermitCurrent(NativeTurnPermit permit)
+        {
+            return permit != null && permit.StagedReply != null &&
+                IsCurrent(permit.TurnId.ToString("D"),
+                    permit.LeaseId.ToString("D"), permit.Generation,
+                    permit.ActorIncarnationId.ToString("D"));
+        }
+
         public bool TryCancel(string turnId, string leaseId, string generation, string actorIncarnationId)
         {
             // Exact cancel works before or after turn.confirm. It must not
