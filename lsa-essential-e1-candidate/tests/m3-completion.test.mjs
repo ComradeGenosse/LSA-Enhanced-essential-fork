@@ -1,3 +1,4 @@
+import './m3-closure-agent-d.test.mjs';
 import {test} from 'node:test';
 import {IntelligenceClient} from '../src/perception/intelligenceClient.mjs';
 import assert from 'node:assert/strict';
@@ -40,14 +41,18 @@ function fixture({secondWitness=false,pre=false,participants=false}={}){
     verifiedHostContext:{hostRunId:HOST,worldEpoch:2},
     snapshot:{profiles:pre?[]:[{characterId:A,promotion:{ownerAlias:alias(A)},status:'available'},
       {characterId:B,promotion:{ownerAlias:alias(B)},status:'available'}]}};
-  const resolveNativeOwner=({observerCaptureRef})=>{
+  const resolveNativeOwner=({observerCaptureRef,adapterEpoch,observedGameTick})=>{
     const proof=proofs.get(observerCaptureRef);
-    return proof?{current:true,promoted:true,characterId:observerCaptureRef===OA?A:B,
-      ownerAlias:proof.ownerAlias,ownerProof:proof}:null;
+    return proof?{current:true,nativeVerified:true,promoted:true,characterId:observerCaptureRef===OA?A:B,
+      ownerAlias:proof.ownerAlias,ownerProof:proof,
+      sourceAtObservation:{nativeVerified:true,gameTick:observedGameTick,adapterEpoch,
+        hostRunId:HOST,worldEpoch:2,observerCaptureRef,
+        ownerAlias:proof.ownerAlias,incarnationId:proof.incarnationId,
+        encounterId:proof.encounterId}}:null;
   };
   const binder=new M3ObserverOwnerBinder({ps2,p2,resolveNativeOwner,
     ...(participants?{resolveParticipants:()=>[{captureRef:PLAYER,subjectKind:'protagonist',
-      subjectKey:'franklin',verified:true,hostRunId:HOST,worldEpoch:2,adapterEpoch:EPOCH}]}:{})});
+      subjectKey:'franklin',verified:true,nativeVerified:true,sampledGameTick:100,hostRunId:HOST,worldEpoch:2,adapterEpoch:EPOCH}]}:{})});
   const receipt=observation=>({observation,adapterEpoch:EPOCH,hostRunId:HOST,worldEpoch:2,
     observerIndex:observerIndex.get(observation.observer.captureRef)});
   return {ps2,p2,binder,receipt,obsA,obsB,resolveNativeOwner};
@@ -78,7 +83,11 @@ test('protagonist is proven only by checked source-backed native resolver',()=>{
     participantProofs:i.participantProofs});
   assert.equal(n.event.claims[0].durableSubject,'protagonist:franklin');
   x.ps2.anchors.delete(PLAYER);
-  assert.equal(x.binder.authorize({observation:a.observation,candidate:a.candidate,stage:'commit'}),null);
+  const after=x.binder.authorize({observation:a.observation,candidate:a.candidate,stage:'commit'});
+  assert.equal(after.current,true); // PS2 witness remains; participant identity became unavailable
+  const unknown=normalizeWitnessedObservation({observation:a.observation,identity:after,
+    participantProofs:after.participantProofs});
+  assert.equal(unknown.event.claims[0].durableSubject,`unresolved:${CLAIM}`);
 });
 test('PS2 source versus target roles preserve shooter/victim attribution',()=>{
   const x=fixture(),bound=x.binder.bindAcceptedReceipt(x.receipt(x.obsA));
@@ -154,10 +163,13 @@ test('coverage is unknown by default and native negatives require source certifi
     db.prepare('INSERT INTO timelines(timeline_id) VALUES (?)').run(LINE);
     ensureM3CoverageSchema(db);
     const scope={characterId:A,worldProfileId:WORLD,timelineId:LINE,observationId:OBS};
-    assert.equal(readM3Coverage(db,scope).status,'unavailable');
-    const row={...scope,status:'did_not_witness',reason:'native_no_los',ownerProof:proofs.get(OA)};
+    assert.equal(readM3Coverage(db,scope).status,'unknown');
+    const row={...scope,status:'did_not_witness',reason:'native_no_los',
+      adapterEpoch:EPOCH,ownerProof:proofs.get(OA)};
     assert.throws(()=>appendM3Coverage(db,row),/m3_negative_not_certified/);
-    const receipt={certified:true,sourceReceiptId:id(60),status:'did_not_witness',
+    const receipt={certified:true,nativeVerified:true,sourceReceiptId:id(60),
+      observationId:OBS,adapterEpoch:EPOCH,ownerAlias:proofs.get(OA).ownerAlias,
+      incarnationId:INC_A,encounterId:ENC_A,status:'did_not_witness',
       observerCaptureRef:OA,hostRunId:HOST,worldEpoch:2,sampledGameTick:100,
       channel:'visual',basis:'native_awareness'};
     assert.equal(appendM3Coverage(db,{...row,nativeCoverage:receipt}).inserted,true);
@@ -165,7 +177,7 @@ test('coverage is unknown by default and native negatives require source certifi
     assert.equal(appendM3Coverage(db,{...row,nativeCoverage:receipt}).duplicate,true);
     assert.throws(()=>appendM3Coverage(db,{...row,status:'unknown',nativeCoverage:null}),/conflicting/);
     db.prepare('DELETE FROM promoted_profiles WHERE character_id=?').run(A);
-    assert.equal(readM3Coverage(db,scope).status,'unavailable');
+    assert.equal(readM3Coverage(db,scope).status,'unknown');
   }finally{db.close();}
 });
 

@@ -24,6 +24,7 @@ export function ensureM3CoverageSchema(db){db.exec(M3_COVERAGE_DDL);}
 export function validateM3Coverage(record){
   if(!record||!isUuid(record.characterId)||!isUuid(record.worldProfileId)||
      !isUuid(record.timelineId)||!isUuid(record.observationId)||
+     !isUuid(record.adapterEpoch)||
      !statuses.has(record.status)||typeof record.reason!=='string'||
      record.reason.length>80||!validOwnerProof(record.ownerProof))
     fail('m3_coverage_invalid');
@@ -32,7 +33,12 @@ export function validateM3Coverage(record){
     // This fact must be supplied by the binder's checked native authority, NOT
     // from a model, absence of a PS2 observation, or a generic listener.
     const c=record.nativeCoverage;
-    if(!c||c.certified!==true||!isUuid(c.sourceReceiptId)||
+    if(!c||c.certified!==true||c.nativeVerified!==true||
+       !isUuid(c.sourceReceiptId)||c.observationId!==record.observationId||
+       c.adapterEpoch!==record.adapterEpoch||
+       c.ownerAlias!==record.ownerProof.ownerAlias||
+       c.incarnationId!==record.ownerProof.incarnationId||
+       c.encounterId!==record.ownerProof.encounterId||
        c.status!=='did_not_witness'||c.observerCaptureRef!==record.ownerProof.observerCaptureRef||
        c.hostRunId!==record.ownerProof.hostRunId||
        c.worldEpoch!==record.ownerProof.worldEpoch||
@@ -62,9 +68,11 @@ export function readM3Coverage(db,{characterId,worldProfileId,timelineId,observa
   if(![characterId,worldProfileId,timelineId,observationId].every(isUuid))fail('m3_coverage_invalid_scope');
   const row=db.prepare('SELECT evidence_json,evidence_hash FROM m3_coverage WHERE world_profile_id=? AND timeline_id=? AND character_id=? AND observation_id=?')
     .get(worldProfileId,timelineId,characterId,observationId);
-  if(!row)return Object.freeze({status:'unavailable',certified:false});
+  if(!row)return Object.freeze({status:'unknown',certified:false,
+    evidencePresent:false,reason:'no_source_qualified_coverage'});
   const record=JSON.parse(row.evidence_json);
   if(hash(record)!==row.evidence_hash)fail('m3_coverage_corrupt');
   validateM3Coverage(record);
-  return Object.freeze({status:record.status,certified:record.status==='did_not_witness',record:immutableSnapshot(record)});
+  return Object.freeze({status:record.status,certified:record.status==='did_not_witness',
+    evidencePresent:true,record:immutableSnapshot(record)});
 }

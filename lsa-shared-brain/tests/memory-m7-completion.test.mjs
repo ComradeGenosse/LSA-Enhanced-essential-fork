@@ -6,6 +6,9 @@ import {mkdtempSync,rmSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import path from 'node:path';
 import {selectAutomaticMemories} from '../src/memory/selection.mjs';
+import {validateM7Consent,validateM7IdleProof,validateM7Pricing,M7_PRIORITY_QUIET_FIELDS} from '../src/memory/m7Consent.mjs';
+import {readPermanentMemoryRows} from '../src/memory/integratedSqlite.mjs';
+import {createHash} from 'node:crypto';
 import {makeQueueJob} from '../src/memory/queueContract.mjs';
 import {ensureIntegratedMemorySchema} from '../src/memory/integratedSqlite.mjs';
 import {ensureCurationSchema,enqueueCuration,claimCuration,completeCuration,
@@ -124,30 +127,61 @@ test('M7 scoped claims cannot transport a different promoted NPC',t=>{
  assert.equal(claim(f,{characterId:id(55)}).length,0);
  assert.equal(claim(f).length,1);
 });
+const consent=(overrides={})=>({mode:'experimental',cloudOptIn:true,
+ consentSource:'explicit_player_settings',offTurnEvidenceUploadAccepted:true,
+ consentedAtUtc:at(0),dailyUsd:.20,monthlyUsd:2,maxBatchUsd:.02,...overrides});
+const pricedConfig=()=>({provider:'openai',reasoningModel:'gpt-6-luna',
+ reasoningBaseUrl:'https://api.openai.com/v1',
+ curatorPricing:{model:'gpt-6-luna',source:'operator_verified',verifiedAtUtc:at(0),
+ inputUsdPerMillionTokens:1,outputUsdPerMillionTokens:1}});
+function nativeFixture(f,store){
+ let listener=null;
+ const state={kind:'verified_native_idle_v1',nativeVerified:true,
+   observedAtUtc:at(2),hostRunId:id(70),worldEpoch:1,
+   sessionId:id(71),incarnationId:id(72),encounterId:id(73),observerIndex:0,
+   characterId:f.scope.characterId,worldProfileId:f.scope.worldProfileId,
+   timelineId:f.scope.timelineId,
+   priorityEvidence:Object.fromEntries(M7_PRIORITY_QUIET_FIELDS.map(k=>[k,true])),
+   idle:true,idleForMs:3000,micActive:false,
+   playerSpeechActive:false,directorBusy:false,gamePaused:false};
+ return {state,snapshot:()=>({...state}),
+   subscribeInvalidation(fn){listener=fn;return ()=>{if(listener===fn)listener=null;};},
+   invalidate(patch={}){Object.assign(state,patch);listener?.();}};
+}
+function hFixture(f,{provider,allowReserve=true}={}){
+ const calls=[],store={worldProfileId:f.scope.worldProfileId,
+   activeTimelineId:f.scope.timelineId,timelineWritable:true,
+   verifiedHostContext:{hostRunId:id(70),worldEpoch:1},
+   get:x=>x===f.scope.characterId?{}:null};
+ const nativeIdle=nativeFixture(f,store);
+ const queue={enqueueIfAbsent:async()=>{},
+   claimDue:async()=>{calls.push('claim');return claim(f,{atMinute:2,until:4});},
+   completeLeased:async a=>{calls.push('commit');return completeCuration(f.db,{...a,nowUtc:at(3)},f.scope.worldProfileId,f.scope.timelineId);},
+   retryLeased:async a=>{calls.push('retry');return retryCuration(f.db,a,f.scope.worldProfileId,f.scope.timelineId);},
+   releaseLeased:async a=>{calls.push('release');return releaseCuration(f.db,a,f.scope.worldProfileId,f.scope.timelineId);}};
+ const ledger={budgetLimits:{dailyUsd:.20,monthlyUsd:2},
+   reconcile:async()=>{calls.push('reconcile');return reconcileCurationBudgets(f.db,{beforeUtc:at(2),worldProfileId:f.scope.worldProfileId});},
+   reserve:async a=>{calls.push('reserve');return allowReserve&&reserveCurationBudget(f.db,a,f.scope.worldProfileId,{dailyUsd:.20,monthlyUsd:2});},
+   settle:async a=>{calls.push('settle');return finishCurationBudget(f.db,a,f.scope.worldProfileId,'settled');},
+   release:async a=>{calls.push('releaseBudget');return finishCurationBudget(f.db,a,f.scope.worldProfileId,'released');}};
+ const cloud=provider??{estimateMaxCostUsd:()=>.005,async curateBatch(){calls.push('cloud');return [f.appraisal];}};
+ return {calls,store,nativeIdle,queue,ledger,provider:cloud,
+   make:(args={})=>createIdleCurationScheduler({store,nativeIdle,queue,ledger,provider:cloud,
+     now:()=>at(2),minIntervalMs:0,maxProviderMs:1000,leaseMs:6000,...args})};
+}
 test('M7 idle scheduler defaults off, shadows without charges and refuses unverified source',async t=>{
- const f=fixture(t),log=[];
- const store={worldProfileId:f.scope.worldProfileId,activeTimelineId:f.scope.timelineId,timelineWritable:true,
-   verifiedHostContext:{hostRunId:id(70),worldEpoch:1},get:x=>x===f.scope.characterId?{}:null};
- const provider={async curateBatch(){log.push('cloud');return [f.appraisal]}};
- const queue={async claimDue(a){log.push('claim');const x=claim(f,{atMinute:2,until:4});return x;},
-   async completeLeased(a){return completeCuration(f.db,{...a,nowUtc:at(3)},f.scope.worldProfileId,f.scope.timelineId);},
-   async releaseLeased(a){return releaseCuration(f.db,a,f.scope.worldProfileId,f.scope.timelineId);},
-   async retryLeased(a){return retryCuration(f.db,a,f.scope.worldProfileId,f.scope.timelineId);},
-   async enqueueIfAbsent(){}};
- const ledger={reserve:async a=>reserveCurationBudget(f.db,a,f.scope.worldProfileId,{dailyUsd:1,monthlyUsd:1}),
-   settle:async a=>finishCurationBudget(f.db,a,f.scope.worldProfileId,'settled'),
-   release:async a=>finishCurationBudget(f.db,a,f.scope.worldProfileId,'released')};
- const s=createIdleCurationScheduler({store,queue,ledger,provider,isIdle:()=>true,
-   now:()=>at(2),minIntervalMs:0,maxProviderMs:1000,leaseMs:6000});
+ const f=fixture(t),h=hFixture(f),s=h.make();
  assert.equal((await s.checkpoint({characterId:f.scope.characterId})).status,'disabled');
- s.setMode('shadow');assert.equal((await s.checkpoint({characterId:f.scope.characterId})).status,'shadow');
- assert.deepEqual(log,[]);
- s.setMode('experimental',{optIn:true});
- store.verifiedHostContext=null;
+ s.setMode('shadow');
+ assert.equal((await s.checkpoint({characterId:f.scope.characterId})).status,'shadow');
+ assert.deepEqual(h.calls,[]);
+ assert.throws(()=>s.setMode('experimental',{optIn:true}),/set_consent_required/);
+ s.setConsent(consent());
+ h.store.verifiedHostContext=null;
  assert.equal((await s.checkpoint({characterId:f.scope.characterId})).status,'source_unverified');
- store.verifiedHostContext={hostRunId:id(70),worldEpoch:1};
- const done=await s.checkpoint({characterId:f.scope.characterId});
- assert.equal(done.status,'completed');assert.deepEqual(log,['claim','cloud']);
+ h.store.verifiedHostContext={hostRunId:id(70),worldEpoch:1};
+ assert.equal((await s.checkpoint({characterId:f.scope.characterId})).status,'completed');
+ assert.deepEqual(h.calls,['reconcile','claim','reserve','cloud','commit','settle']);
  await s.stop();
 });
 test('M7 no live API in Essential factory until explicitly enabled',async t=>{
@@ -205,4 +239,210 @@ test('M7 privacy purge hides persisted Luna opinion immediately, even with no to
  // An authorized future privacy purge may hard-delete a source row.
  f.db.prepare('DELETE FROM dialogue_journal WHERE record_id=?').run(f.proposal.evidenceRecordIds[0]);
  assert.equal(read().length,0);
+});
+
+
+test('M7 consent rejects toggle-only permission, budget escalation and unpriced/mismatched Luna',()=>{
+ assert.equal(validateM7Consent().mode,'off');
+ assert.equal(validateM7Consent({mode:'shadow'}).cloudOptIn,false);
+ assert.throws(()=>validateM7Consent({mode:'experimental',cloudOptIn:true}),/consent_and_budget/);
+ assert.throws(()=>validateM7Consent(consent({dailyUsd:.001})),/consent_and_budget/);
+ assert.throws(()=>validateM7Consent(consent({consentSource:'automatic'})),/consent_and_budget/);
+ assert.throws(()=>validateM7Consent(consent({offTurnEvidenceUploadAccepted:false})),/consent_and_budget/);
+ assert.equal(validateM7Consent(consent()).maxBatchUsd,.02);
+ assert.equal(validateM7Pricing(pricedConfig()).model,'gpt-6-luna');
+ const wrong=pricedConfig();wrong.curatorPricing.model='some-other-model';
+ assert.throws(()=>validateM7Pricing(wrong),/verified_luna_pricing/);
+ assert.throws(()=>validateM7Pricing({provider:'local',reasoningModel:'gpt-6-luna'}),/verified_luna_pricing/);
+});
+
+test('M7 native idle source denies guessed NPCs, stale receipts, mic, Director and divergent timelines',t=>{
+ const f=fixture(t),h=hFixture(f),p=h.nativeIdle.state;
+ const verify=(override={})=>validateM7IdleProof({...p,...override},{
+   store:h.store,characterId:f.scope.characterId,nowUtc:at(2)});
+ assert.equal(verify().characterId,f.scope.characterId);
+ for(const invalid of [
+   {nativeVerified:false},{kind:'timer_idle'},{characterId:id(66)},
+   {sessionId:null},{incarnationId:null},{observerIndex:-1},
+   {priorityEvidence:null},{priorityEvidence:{ownerIdle:true}},
+   {observedAtUtc:at(1)},{worldEpoch:2},{idle:false},
+   {micActive:true},{playerSpeechActive:true},{directorBusy:true},
+   {gamePaused:true},{idleForMs:100}])
+   assert.throws(()=>verify(invalid),/native_idle_proof_required/);
+ h.store.timelineWritable=false;
+ assert.throws(()=>verify(),/native_idle_proof_required/);
+});
+
+test('M7 never starts off/shadow timers, queue claims, budget reservation or paid transport',async t=>{
+ const f=fixture(t),h=hFixture(f);
+ const s=h.make();
+ assert.equal(s.start(),false);
+ assert.equal(s.running,false);
+ assert.equal((await s.checkpoint()).status,'disabled');
+ s.setMode('shadow');
+ assert.equal(s.start(),false);
+ assert.equal((await s.checkpoint()).status,'shadow');
+ assert.deepEqual(h.calls,[]);
+ await s.stop();
+});
+
+test('M7 late cloud completion cannot commit after synchronous microphone interruption',async t=>{
+ const f=fixture(t);
+ let resolveRemote,signal,started;
+ const onStart=new Promise(resolve=>{started=resolve;});
+ const h=hFixture(f,{provider:{
+   estimateMaxCostUsd:()=>.005,
+   curateBatch(_proposals,opts){signal=opts.signal;started();
+     return new Promise(resolve=>{resolveRemote=resolve;});}
+ }});
+ const s=h.make({consent:consent()});
+ const pending=s.checkpoint();
+ await onStart;
+ assert.equal(s.busy,true);
+ assert.equal((await s.checkpoint()).status,'busy');
+ h.nativeIdle.invalidate({micActive:true,idle:false});
+ assert.equal(signal.aborted,true);
+ const outcome=await pending;
+ assert.equal(outcome.status,'cancelled');
+ resolveRemote([f.appraisal]);
+ await new Promise(resolve=>setImmediate(resolve));
+ assert.equal(h.calls.includes('commit'),false);
+ assert.equal(f.db.prepare('SELECT state FROM memory_curation_jobs').get().state,'pending');
+ const reservation=f.db.prepare('SELECT state,amount_usd FROM memory_budget_reservations').get();
+ assert.equal(reservation.state,'settled');
+ assert.equal(reservation.amount_usd,.02); // Cost unknown after transport start.
+ await s.stop();
+});
+
+test('M7 session/owner/epoch invalidations cancel while provider is pending',async t=>{
+ for(const change of [
+   {sessionId:id(81)},{incarnationId:id(82)},{encounterId:id(83)},
+   {worldEpoch:2},{characterId:id(84)},{timelineId:id(85)},
+   {playerSpeechActive:true},{directorBusy:true}
+ ]){
+   const f=fixture(t,{lineId:40+Number(Object.values(change)[0]===true?4:3)}),startedHolder={};
+   let resolveRemote,start;
+   const started=new Promise(resolve=>{start=resolve;});
+   const h=hFixture(f,{provider:{
+     estimateMaxCostUsd:()=>.005,
+     curateBatch(){start();return new Promise(resolve=>{resolveRemote=resolve;});}
+   }});
+   const s=h.make({consent:consent()});
+   const pending=s.checkpoint();
+   await started;
+   h.nativeIdle.invalidate(change);
+   assert.equal((await pending).status,'cancelled');
+   resolveRemote([f.appraisal]);
+   await new Promise(resolve=>setImmediate(resolve));
+   assert.equal(h.calls.includes('commit'),false);
+   await s.stop();
+ }
+});
+
+test('M7 reserve rejection refuses cloud; offline deterministic M6 memory remains readable after outage',async t=>{
+ const f=fixture(t),h=hFixture(f,{allowReserve:false});
+ const s=h.make({consent:consent()});
+ assert.equal((await s.checkpoint()).status,'budget_blocked');
+ assert.equal(h.calls.includes('cloud'),false);
+ assert.equal(f.db.prepare('SELECT state FROM memory_curation_jobs').get().state,'pending');
+ await s.stop();
+ const f2=fixture(t,{lineId:33}),h2=hFixture(f2,{provider:{
+   estimateMaxCostUsd:()=>.005,async curateBatch(){throw new Error('offline_mock');}
+ }});
+ const s2=h2.make({consent:consent()});
+ assert.equal((await s2.checkpoint()).status,'retry_scheduled');
+ const hash=createHash('sha256').update(f2.proposal.groundedSummary).digest('hex');
+ f2.db.prepare('UPDATE memory_records SET content_sha256=? WHERE memory_id=?').run(hash,f2.proposal.proposalId);
+ // The tiny M7 queue fixture omits M1 timeline tables; install the M1
+ // owner/timeline read precondition to exercise the ACTUAL M4 deterministic reader.
+ f2.db.exec('CREATE TABLE timelines (timeline_id TEXT PRIMARY KEY,world_profile_id TEXT NOT NULL)');
+ f2.db.prepare('INSERT INTO timelines(timeline_id,world_profile_id) VALUES(?,?)')
+   .run(f2.scope.timelineId,f2.scope.worldProfileId);
+ const records=readPermanentMemoryRows(f2.db,{...f2.scope,protagonistKey:'franklin'},f2.scope.worldProfileId);
+ assert.equal(records.length,1);
+ assert.equal(records[0].envelope.content,f2.proposal.groundedSummary);
+ assert.deepEqual(records[0].envelope.sourceEvidenceIds,f2.proposal.evidenceRecordIds);
+ assert.equal(readCurationAppraisals(f2.db,{...f2.scope,protagonistKey:'franklin'},f2.scope.worldProfileId).length,0);
+ await s2.stop();
+});
+
+test('M7 reconciles orphaned reservations before cloud work and halts after uncertain cost overrun',async t=>{
+ const f=fixture(t);
+ assert.equal(reserveCurationBudget(f.db,{batchKey:'old-process',maxUsd:.02,nowUtc:at(0)},f.scope.worldProfileId,
+   {dailyUsd:.20,monthlyUsd:2}),true);
+ const h=hFixture(f,{provider:{
+   estimateMaxCostUsd:()=>.005,
+   async curateBatch(){const xs=[f.appraisal];Object.defineProperty(xs,'actualUsd',{value:.03});return xs;}
+ }});
+ const s=h.make({consent:consent()});
+ const r=await s.checkpoint();
+ assert.equal(r.status,'cost_overrun');
+ assert.equal(f.db.prepare("SELECT state FROM memory_budget_reservations WHERE batch_key='old-process'").get().state,'settled');
+ assert.equal((await s.checkpoint()).status,'cost_suspended');
+ assert.equal(h.calls.filter(k=>k==='claim').length,1);
+ await s.stop();
+});
+
+test('M7 production Essential bridge refuses missing cost attestation and runtime ledger mismatch',async t=>{
+ const f=fixture(t),h=hFixture(f);
+ assert.throws(()=>createEssentialM7Scheduler({store:h.store,queue:h.queue,ledger:h.ledger,
+   nativeIdle:h.nativeIdle,consent:consent(),config:null}),/verified_luna_pricing/);
+ assert.throws(()=>createEssentialM7Scheduler({store:h.store,queue:h.queue,
+   ledger:{...h.ledger,budgetLimits:{dailyUsd:.3,monthlyUsd:2}},
+   nativeIdle:h.nativeIdle,consent:consent(),config:pricedConfig()}),/durable_budget_caps/);
+ const denied=h.make();
+ assert.throws(()=>denied.setConsent(consent({dailyUsd:.3})),/budget_limit_mismatch/);
+ await denied.stop();
+});
+
+test('M7 Essential pricing estimator blocks a billable fetch before reservation',async t=>{
+ const f=fixture(t),h=hFixture(f),seen=[];
+ const config={...pricedConfig(),reasoningKey:'offline-only-fake-token'};
+ const s=createEssentialM7Scheduler({config,store:h.store,queue:h.queue,ledger:h.ledger,
+   nativeIdle:h.nativeIdle,consent:consent({maxBatchUsd:.000001}),
+   now:()=>at(2),minIntervalMs:0,leaseMs:6000,maxProviderMs:1000,
+   fetchImpl:async()=>{seen.push('billable');throw new Error('network forbidden');}});
+ const result=await s.checkpoint();
+ assert.equal(result.status,'budget_estimate_exceeded');
+ assert.deepEqual(seen,[]);
+ assert.equal(h.calls.includes('reserve'),false);
+ assert.equal(h.calls.includes('release'),true);
+ await s.stop();
+});
+
+
+test('M7 denies two overlapping batches even through separate same-world P2 store handles',async t=>{
+ const f=fixture(t);
+ let releaseRemote,notifyStart;
+ const started=new Promise(resolve=>{notifyStart=resolve;});
+ const h=hFixture(f,{provider:{
+   estimateMaxCostUsd:()=>.005,
+   async curateBatch(){notifyStart();return new Promise(resolve=>{releaseRemote=resolve;});}
+ }});
+ const a=h.make({consent:consent()}),b=h.make({consent:consent(),store:{...h.store}});
+ const running=a.checkpoint();
+ await started;
+ assert.equal((await b.checkpoint()).status,'busy');
+ assert.equal(h.calls.filter(x=>x==='claim').length,1);
+ h.nativeIdle.invalidate({micActive:true});
+ assert.equal((await running).status,'cancelled');
+ releaseRemote([f.appraisal]);
+ await new Promise(resolve=>setImmediate(resolve));
+ await Promise.all([a.stop(),b.stop()]);
+});
+
+test('M7 enforces timeout, no late SQLite commit and uncertain reservation settlement',async t=>{
+ const f=fixture(t),h=hFixture(f,{provider:{
+   estimateMaxCostUsd:()=>.005,
+   async curateBatch(){
+     return new Promise(resolve=>setTimeout(()=>resolve([f.appraisal]),1500));
+   }
+ }});
+ const s=h.make({consent:consent(),maxProviderMs:1000});
+ const result=await s.checkpoint();
+ assert.equal(result.status,'retry_scheduled');
+ assert.equal(h.calls.includes('commit'),false);
+ assert.equal(f.db.prepare('SELECT state FROM memory_budget_reservations').get().state,'settled');
+ assert.equal(f.db.prepare('SELECT state FROM memory_curation_jobs').get().state,'pending');
+ await s.stop();
 });

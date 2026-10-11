@@ -96,9 +96,9 @@ test('scene grouping records jokes, relationships and strange crashes without fu
 test('M6 coordinator selects committed funny dialogue and journals ordinary speech without promoting it',async()=>{
  const ordinary=line(1,'Hello, nice weather.'),joke=line(10,'That was hilarious!');
  const store=fakeStore({lines:[ordinary,joke]});
- const coordinator=createM6SelectionCoordinator({store});
+ const coordinator=createM6SelectionCoordinator({store,allowLegacyBoundedReplay:true});
  const result=await coordinator.onSceneClose({scope,atUtc:time(20)});
- assert.equal(result.status,'complete');
+ assert.equal(result.status,'legacy_bounded');
  assert.equal(result.candidateCount,1);
  assert.equal(store._permanent.length,1);
  assert.equal(store._permanent[0].envelope.sourceEvidenceIds.includes(joke.recordId),true);
@@ -110,7 +110,7 @@ test('M6 queue retry reconstructs saved proposals after crash between save and e
  const input=line(1,'That was hilarious!');
  const store=fakeStore({lines:[input]});
  store.failNextQueue();
- const coordinator=createM6SelectionCoordinator({store,cloudQueueEnabled:true});
+ const coordinator=createM6SelectionCoordinator({store,cloudQueueEnabled:true,allowLegacyBoundedReplay:true});
  await assert.rejects(coordinator.onSceneClose({scope,atUtc:time(10)}),/queue_write_failed/);
  assert.equal(store._permanent.length,1);
  assert.equal(store._jobs.size,0);
@@ -127,13 +127,13 @@ test('M6 suppresses forgotten and superseded evidence before scene selection',as
  const store=fakeStore({lines:[a,b]});
  store._suppressed.push(a.recordId);
  store._corrections.push({targetId:b.recordId});
- const outcome=await createM6SelectionCoordinator({store}).onSceneClose({scope,atUtc:time(10)});
+ const outcome=await createM6SelectionCoordinator({store,allowLegacyBoundedReplay:true}).onSceneClose({scope,atUtc:time(10)});
  assert.equal(outcome.qualifiedCount,0);
  assert.equal(store._permanent.length,0);
 });
 test('M6 refuses sidecar-less witness claims, cross-timeline and coverage exhaustion',async()=>{
  const e=event(1),store=fakeStore({events:[e],sidecars:false});
- const runner=createM6SelectionCoordinator({store});
+ const runner=createM6SelectionCoordinator({store,allowLegacyBoundedReplay:true});
  const result=await runner.onSceneClose({scope,atUtc:time(10)});
  assert.equal(result.status,'partial_evidence');
  assert.equal(result.candidateCount,0);
@@ -141,12 +141,12 @@ test('M6 refuses sidecar-less witness claims, cross-timeline and coverage exhaus
  store.timelineWritable=false;
  await assert.rejects(runner.onIdle({scope,atUtc:time(300)}),/m6_timeline_not_writable/);
  const overflow=fakeStore({lines:[line(1,'That was hilarious!'),line(2,'Another joke!')]});
- await assert.rejects(createM6SelectionCoordinator({store:overflow,maxRead:2})
+ await assert.rejects(createM6SelectionCoordinator({store:overflow,maxRead:2,allowLegacyBoundedReplay:true})
    .recover({scope,atUtc:time(300)}),/m6_journal_replay_window_exhausted/);
 });
 test('M6 never requires provider or GPU and does not queue automatically by default',async()=>{
  const store=fakeStore({lines:[line(1,'That was hilarious!')],queueEnabled:false});
- const outcome=await createM6SelectionCoordinator({store}).onSceneClose({scope,atUtc:time(10)});
+ const outcome=await createM6SelectionCoordinator({store,allowLegacyBoundedReplay:true}).onSceneClose({scope,atUtc:time(10)});
  assert.equal(outcome.candidateCount,1);
  assert.equal(store._permanent.length,1);
  assert.equal(store._jobs.size,0);
@@ -158,3 +158,6 @@ test('M6 idempotent deterministic proposal IDs use canonical immutable evidence 
  assert.equal(a.proposalId,stableUuid('auto-memory-v1',scope.characterId,
    scope.worldProfileId,scope.timelineId,a.evidenceRecordIds));
 });
+
+// Run durable P2-cursor lifecycle adversarial cases in the pinned M6 CI suite.
+import './memory-m6-cursor-lifecycle.test.mjs';

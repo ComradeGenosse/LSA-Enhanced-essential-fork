@@ -14,14 +14,14 @@ const matches=(a,b)=>a&&b&&['characterId','worldProfileId','timelineId','adapter
 const sync=v=>{if(v&&typeof v.then==='function')throw new Error('m3_async_authority_refused');return v;};
 
 export class M3ObserverOwnerBinder {
-  #ps2;#p2;#native;#participant;#prepromotion;#verifyCoverage;#pre=new Map();
-  constructor({ps2,p2,resolveNativeOwner,resolveParticipants=null,resolvePrepromotion=null,verifyNativeCoverage=null}={}){
+  #ps2;#p2;#native;#participant;#prepromotion;#verifyCoverage;#requireSourceTime;#pre=new Map();
+  constructor({ps2,p2,resolveNativeOwner,resolveParticipants=null,resolvePrepromotion=null,verifyNativeCoverage=null,requireSourceTimeProof=true}={}){
     if(!ps2||typeof ps2.current!=='function'||!ps2.observations?.entries||
        !ps2.observerIndex||!ps2.anchors||!p2||typeof resolveNativeOwner!=='function')
       throw new TypeError('m3_verified_ps2_p2_ports_required');
     this.#ps2=ps2;this.#p2=p2;this.#native=resolveNativeOwner;
     this.#participant=resolveParticipants;this.#prepromotion=resolvePrepromotion;
-    this.#verifyCoverage=verifyNativeCoverage;
+    this.#verifyCoverage=verifyNativeCoverage;this.#requireSourceTime=requireSourceTimeProof;
   }
   #key(observation){return [observation.observedAt?.nativeRun,observation.observer?.captureRef,observation.observationId,observation.revision].join(':');}
   #verify(observation,stage,receipt=null,allowArchived=false) {
@@ -47,10 +47,21 @@ export class M3ObserverOwnerBinder {
     const resolver=stage==='prepromotion'?this.#prepromotion:this.#native;
     if(typeof resolver!=='function')return null;
     const native=sync(resolver(Object.freeze({observerCaptureRef:ref,observerIndex:row,
-      hostRunId:host.hostRunId,worldEpoch:host.worldEpoch,adapterEpoch:ps.epoch})));
-    if(!native?.current||!currentProof(native.ownerProof,row,host)||
+      hostRunId:host.hostRunId,worldEpoch:host.worldEpoch,adapterEpoch:ps.epoch,
+      observedGameTick:observation.observedAt.gameTick,observationId:observation.observationId,
+      observationRevision:observation.revision})));
+    if(!native?.current||native.nativeVerified!==true||!currentProof(native.ownerProof,row,host)||
        native.ownerProof.ownerAlias!==native.ownerAlias||
        !isUuid(native.characterId))return null;
+    // A source-time ledger attests ownership of this exact observer at the PS2
+    // observation's game tick. Current ownership alone cannot prove historical
+    // witnessing after a ped handle/encounter has been recycled.
+    const at=native.sourceAtObservation;
+    if(this.#requireSourceTime && (!at||at.nativeVerified!==true||
+       at.gameTick!==observation.observedAt.gameTick||at.adapterEpoch!==ps.epoch||
+       at.hostRunId!==host.hostRunId||at.worldEpoch!==host.worldEpoch||
+       at.observerCaptureRef!==ref||at.ownerAlias!==native.ownerAlias||
+       at.incarnationId!==row.incarnationId||at.encounterId!==row.encounterId))return null;
     const selected=this.#p2.activeTimelineId,world=this.#p2.worldProfileId;
     if(!isUuid(selected)||!isUuid(world)||this.#p2.timelineWritable!==true)return null;
     const profile=(this.#p2.snapshot?.profiles||[]).find(p=>
@@ -63,22 +74,35 @@ export class M3ObserverOwnerBinder {
     } else if(!profile||native.promoted!==true)return null;
     let participantProofs=[];
     if(promoted&&this.#participant){
-      const proof=sync(this.#participant(Object.freeze({
-        observation:source,hostRunId:host.hostRunId,worldEpoch:host.worldEpoch,
-        adapterEpoch:ps.epoch,ownerProof:native.ownerProof
-      })));
-      if(!Array.isArray(proof)||proof.length>16)return null;
-      const refs=new Set();
-      for(const p of proof){
-        if(!isUuid(p?.captureRef)||refs.has(p.captureRef)||p.verified!==true||
+      let raw=null;
+      try {
+        raw=sync(this.#participant(Object.freeze({
+          observation:source,hostRunId:host.hostRunId,worldEpoch:host.worldEpoch,
+          adapterEpoch:ps.epoch,ownerProof:native.ownerProof
+        })));
+      } catch {/* Missing participant authority is not missing PS2 witnessing. */}
+      const proofs=Array.isArray(raw)&&raw.length<=16?raw:[];
+      // Ambiguous duplicate capture refs prove *no* participant identity.
+      const counts=new Map();
+      for(const p of proofs)if(isUuid(p?.captureRef))
+        counts.set(p.captureRef,(counts.get(p.captureRef)??0)+1);
+      for(const p of proofs){
+        if(!isUuid(p?.captureRef)||counts.get(p.captureRef)!==1||
+           p.verified!==true||p.nativeVerified!==true||
            p.hostRunId!==host.hostRunId||p.worldEpoch!==host.worldEpoch||
            p.adapterEpoch!==ps.epoch||!ps.current(p.captureRef)||
            !['character','protagonist'].includes(p.subjectKind)||
            (p.subjectKind==='character'?!isUuid(p.subjectKey):
-             !['franklin','michael','trevor'].includes(p.subjectKey)))return null;
-        refs.add(p.captureRef);
+             !['franklin','michael','trevor'].includes(p.subjectKey)))continue;
+        // A native participant identity is scoped to the claim evidence tick.
+        // Invalid, partial, conflicting or missing actor proof stays unknown;
+        // it must not discard the real PS2 witnessed observation itself.
+        const atClaims=source.claims.filter(c=>c.source?.captureRef===p.captureRef ||
+          c.target?.captureRef===p.captureRef);
+        if(!atClaims.length || !Number.isSafeInteger(p.sampledGameTick) ||
+           atClaims.some(c=>c.evidence.sampledGameTick!==p.sampledGameTick))continue;
+        participantProofs.push(p);
       }
-      participantProofs=proof;
     }
     return immutableSnapshot({promoted,current:true,characterId:native.characterId,
       worldProfileId:world,timelineId:selected,adapterEpoch:ps.epoch,
@@ -117,7 +141,7 @@ export class M3ObserverOwnerBinder {
   reset(){this.#pre.clear();}
   // No negative event is inferred from the absence of a PS2 observation.
   // Coverage requires a separately source-authenticated native receipt.
-  authorizeCoverage({candidate,coverageReceipt,status}={}){
+  authorizeCoverage({candidate,coverageReceipt,status,observationId}={}){
     const ps=this.#ps2,ref=candidate?.ownerProof?.observerCaptureRef;
     const row=ps.observerIndex.get(ref),anchor=ps.anchors.get(ref);
     const host=ps.hostContext,p2host=this.#p2.verifiedHostContext;
@@ -130,19 +154,26 @@ export class M3ObserverOwnerBinder {
       hostRunId:host.hostRunId,worldEpoch:host.worldEpoch,adapterEpoch:ps.epoch}));
     const profile=this.#p2.snapshot?.profiles?.find(p=>p.characterId===candidate.characterId&&
       p.promotion?.ownerAlias===candidate.ownerProof.ownerAlias&&p.status!=='retired');
-    if(!current?.current||current.promoted!==true||!profile||
+    if(!current?.current||current.nativeVerified!==true||current.promoted!==true||
+       current.characterId!==candidate.characterId||current.ownerAlias!==candidate.ownerProof.ownerAlias||!profile||
        !samePhysicalOwner(current.ownerProof,candidate.ownerProof)||
        candidate.worldProfileId!==this.#p2.worldProfileId)return null;
     let nativeCoverage=null;
     if(status==='did_not_witness'){
       if(typeof this.#verifyCoverage!=='function')return null;
       nativeCoverage=sync(this.#verifyCoverage({candidate,coverageReceipt,
-        hostRunId:host.hostRunId,worldEpoch:host.worldEpoch,observerCaptureRef:ref}));
+        hostRunId:host.hostRunId,worldEpoch:host.worldEpoch,adapterEpoch:ps.epoch,
+        observerCaptureRef:ref,observationId}));
       if(!nativeCoverage||nativeCoverage.certified!==true||
          nativeCoverage.status!=='did_not_witness'||
          nativeCoverage.observerCaptureRef!==ref||
          nativeCoverage.hostRunId!==host.hostRunId||
-         nativeCoverage.worldEpoch!==host.worldEpoch)return null;
+         nativeCoverage.worldEpoch!==host.worldEpoch||
+         nativeCoverage.adapterEpoch!==ps.epoch||
+         nativeCoverage.observationId!==observationId||
+         nativeCoverage.ownerAlias!==candidate.ownerProof.ownerAlias||
+         nativeCoverage.incarnationId!==row.incarnationId||
+         nativeCoverage.encounterId!==row.encounterId)return null;
     }
     return immutableSnapshot({...candidate,current:true,promoted:true,nativeCoverage});
   }

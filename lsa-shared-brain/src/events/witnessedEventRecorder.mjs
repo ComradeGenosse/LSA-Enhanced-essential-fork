@@ -88,6 +88,7 @@ export class WitnessedEventRecorder {
     this.#trim();
     if(!candidate?.timelineId)return {accepted:false,reason:'timeline_not_selected',imported:0};
     let imported=0,duplicates=0,rejected=0;
+    const completed=new Set();
     // Multiple observers can be waiting for separate promotions. Importing A
     // must not consume B's pre-promotion evidence.
     const batch=this.#grace.filter(entry=>
@@ -112,12 +113,17 @@ export class WitnessedEventRecorder {
         if(!accepted(status))throw new Error('m3_journal_commit_unconfirmed');
         return {accepted:true,inserted:status.inserted===true,duplicate:status.duplicate===true};
       });
-      if(outcome.accepted){imported+=Number(outcome.inserted);duplicates+=Number(outcome.duplicate);}
+      if(outcome.accepted){completed.add(entry);imported+=Number(outcome.inserted);duplicates+=Number(outcome.duplicate);}
       else rejected++;
     }
     // Remove only this native owner after a completed attempt. Failed SQL
     // raises before here and remains retryable until the two-minute TTL.
-    const handled=new Set(batch);
+    const handled=new Set(batch.filter(entry=>{
+      // Successful append/dedupe is drained; unresolved native proof stays
+      // eligible for a later verified retry until the bounded grace expires.
+      // Failure to resolve must not fabricate an import.
+      return completed.has(entry);
+    }));
     this.#grace=this.#grace.filter(entry=>!handled.has(entry));
     return {accepted:true,imported,duplicates,rejected};
   }
@@ -131,7 +137,7 @@ export class WitnessedEventRecorder {
        typeof this.#authorizeCoverage!=='function')
       return {accepted:false,reason:'negative_coverage_not_supported'};
     return await this.#withTimelineWrite(candidate.timelineId,(db,snapshot)=>{
-      const identity=sync(this.#authorizeCoverage({candidate,coverageReceipt,status}));
+      const identity=sync(this.#authorizeCoverage({candidate,coverageReceipt,status,observationId}));
       if(!identity?.promoted||!matchesCandidate(identity,candidate))
         return {accepted:false,reason:'coverage_owner_not_current'};
       if(status==='did_not_witness'&&!identity.nativeCoverage?.certified)
@@ -139,7 +145,8 @@ export class WitnessedEventRecorder {
       const record=immutableSnapshot({
         characterId:identity.characterId,worldProfileId:identity.worldProfileId,
         timelineId:identity.timelineId,observationId,status,reason,
-        ownerProof:identity.ownerProof,nativeCoverage:identity.nativeCoverage??null
+        adapterEpoch:identity.adapterEpoch,ownerProof:identity.ownerProof,
+        nativeCoverage:identity.nativeCoverage??null
       });
       const receipt=sync(this.#port.recordCoverage(record,db,snapshot));
       if(!accepted(receipt))throw new Error('m3_coverage_commit_unconfirmed');

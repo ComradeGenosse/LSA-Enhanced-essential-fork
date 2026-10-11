@@ -117,12 +117,17 @@ const tryAll=async actions=>Promise.allSettled(actions.map(action=>Promise.resol
  */
 export async function processIdleCuration({enabled=false,mode,queue,provider,ledger,ownerId,nowUtc=new Date().toISOString(),
   maxBatch=4,characterId=null,estimatedMaxCostUsd=.02,leaseMs=90000,maxProviderMs=45000,
-  maxAttempts=8,signal,isAuthorized}={}){
+  maxAttempts=8,signal,isAuthorized,enforcePricing=false,strictAck=false}={}){
  const effectiveMode=mode??(enabled?'experimental':'off');
  if(!['off','shadow','experimental'].includes(effectiveMode))throw new Error('curation_invalid_mode');
  if(effectiveMode==='off')return {status:'disabled',processed:0};
  if(effectiveMode==='shadow')return {status:'shadow',processed:0};
  if(signal?.aborted)return {status:'cancelled',processed:0};
+ // Strict production path never claims a lease or reserves funds without a
+ // verified model-dependent cost upper bound. Legacy mock-only unit fixtures
+ // may omit estimation; Essential always sets enforcePricing=true.
+ if(enforcePricing&&typeof provider?.estimateMaxCostUsd!=='function')
+   return {status:'pricing_unavailable',processed:0};
  requireDurableQueueAdapter(queue);checkBudget(ledger);
  if(typeof provider?.curateBatch!=='function'||!isUuid(ownerId)||
    !Number.isInteger(maxBatch)||maxBatch<1||maxBatch>4||(characterId!==null&&!isUuid(characterId))||
@@ -131,7 +136,8 @@ export async function processIdleCuration({enabled=false,mode,queue,provider,led
    !Number.isInteger(maxProviderMs)||maxProviderMs<1000||maxProviderMs>=leaseMs-1000||
    !Number.isInteger(maxAttempts)||maxAttempts<1||maxAttempts>32||
    !Number.isFinite(Date.parse(nowUtc))||
-   (isAuthorized!==undefined&&typeof isAuthorized!=='function'))
+   (isAuthorized!==undefined&&typeof isAuthorized!=='function')||
+   typeof enforcePricing!=='boolean'||typeof strictAck!=='boolean')
    throw new Error('curation_invalid_runtime');
  const leaseUntilUtc=new Date(Date.parse(nowUtc)+leaseMs).toISOString();
  const claimed=await queue.claimDue({limit:maxBatch,nowUtc,leaseUntilUtc,ownerId,characterId});
@@ -159,7 +165,7 @@ export async function processIdleCuration({enabled=false,mode,queue,provider,led
    // a billable request with an estimated ceiling below the worst case.
    if(typeof provider.estimateMaxCostUsd==='function'){
      const cost=provider.estimateMaxCostUsd(claimed.map(x=>x.job.proposal));
-     if(!Number.isFinite(cost)||cost>estimatedMaxCostUsd)
+     if(!Number.isFinite(cost)||cost<=0||cost>estimatedMaxCostUsd)
        throw Object.assign(new Error('curation_estimate_exceeds_budget'),
          {code:'estimate_exceeds_budget'});
    }
@@ -185,15 +191,22 @@ export async function processIdleCuration({enabled=false,mode,queue,provider,led
      const item=claimed[i];
      // SQLite rechecks source evidence and lease expiration inside the one
      // P2 transaction; this async recheck alone is not authorization.
-     await queue.completeLeased({jobId:item.job.jobId,leaseToken:item.leaseToken,
+     const ack=await queue.completeLeased({jobId:item.job.jobId,leaseToken:item.leaseToken,
         proposal:validated[i]});
+     if(strictAck&&ack?.durableCommit!==true)
+       throw Object.assign(new Error('curation_ack_not_durable'),{code:'ack_not_durable'});
      completed.add(item.job.jobId);
    }
    const actualUsd=Array.isArray(response)?response.actualUsd:response?.actualUsd;
+   // Usage counters are estimates derived from verified token pricing, not an
+   // invoice. Unknown usage conservatively consumes the full reservation.
+   // If a provider reports an overrun, stop additional work rather than hiding
+   // a cap violation behind a fictitious low settlement.
+   const overrun=Number.isFinite(actualUsd)&&actualUsd>estimatedMaxCostUsd;
    try{
      await ledger.settle({batchKey,maxUsd:estimatedMaxCostUsd,
        ...(Number.isFinite(actualUsd)&&actualUsd>=0&&actualUsd<=estimatedMaxCostUsd?{actualUsd}:{})});
-     return {status:'completed',processed:completed.size};
+     return {status:overrun?'cost_overrun':'completed',processed:completed.size};
    }catch{return {status:'settlement_pending',processed:completed.size};}
  }catch(error){
    const noBudget=error?.code==='estimate_exceeds_budget'||error?.message==='curation_verified_luna_pricing_required';

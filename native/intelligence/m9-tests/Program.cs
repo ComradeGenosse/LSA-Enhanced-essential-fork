@@ -75,6 +75,103 @@ internal static class Program
         playerLive=false;
         Check(!adapter.TryExtract(source,pa.CaptureRef,501,1100,out evidence),
             "stale player fails closed");
+        // Frame adaptation against same retained identities; no GTA native
+        // source is claimed by this isolated verifier fixture.
+        var fs=new EntityAnchors();
+        bool sourceLive=true, framePlayerLive=true, frameVehicleLive=true;
+        var fa=fs.Retain(new object(),40,new IntPtr(404),"player",null,
+            ()=>framePlayerLive,100);
+        var fv=fs.Retain(new object(),41,new IntPtr(405),"vehicle",null,
+            ()=>frameVehicleLive,100);
+        var nativeRun=Guid.NewGuid().ToString("D");
+        var hostRun=Guid.NewGuid().ToString("D");
+        bool baseProof=true, motionProof=true, wantedProof=true;
+        bool collisionProof=false, terminalProof=false;
+        var frames=new M9NativeFrameAdapter(fs,
+            r=>baseProof && sourceLive,
+            (r,field)=>field=="vehicle_motion"?motionProof:
+                field=="wanted_level" && wantedProof,
+            c=>collisionProof,t=>terminalProof,
+            ()=>nativeRun,()=>hostRun,()=>1L);
+        var data=new M9RawNativeRead {
+            nativeRun=nativeRun,hostRunId=hostRun,worldEpoch=1,
+            playerCaptureRef=fa.CaptureRef,vehicleCaptureRef=fv.CaptureRef,
+            gameTick=400,sampledAtMs=1000,wantedLevel=2,
+            airborne=false,grounded=true,inWater=false,submerged=false,
+            rollDegrees=0,speedKph=95
+        };
+        M9NativeFrame frame;
+        Check(frames.TryBuild(data,1050,out frame),
+            "current source-attested M9 native frame");
+        Check(frame.wantedLevel==2 && frame.vehicle.speedKph==95 &&
+            frame.vehicle.grounded==true && frame.outcome==null,
+            "proven wanted/motion, unknown terminal");
+        wantedProof=false;motionProof=false;
+        Check(frames.TryBuild(data,1050,out frame) &&
+            frame.wantedLevel==null && frame.vehicle.airborne==null &&
+            frame.vehicle.speedKph==null,
+            "unsupported native readers stay unknown, not false edges");
+        collisionProof=true;
+        data.collision=new M9CollisionEvidence {
+            nativeReceiptId=Guid.NewGuid().ToString("D"),damage=50,
+            playerCaptureRef=fa.CaptureRef,vehicleCaptureRef=fv.CaptureRef,
+            gameTick=400,sampledAtMs=1000
+        };
+        Check(frames.TryBuild(data,1050,out frame) &&
+            frame.vehicle.collision!=null && frame.vehicle.speedKph==null,
+            "pinned collision-only callback with unknown motion");
+        collisionProof=false;
+        Check(frames.TryBuild(data,1050,out frame) &&
+            frame.vehicle.collision==null,
+            "unproven collision refused");
+        collisionProof=true;data.collision.gameTick=1;
+        Check(frames.TryBuild(data,1050,out frame) &&
+            frame.vehicle.collision==null,
+            "unrelated old collision tick refused");
+        data.collision.gameTick=400;collisionProof=false;
+        data.terminal=new M9TerminalReceipt {
+            kind="busted",nativeReceiptId=Guid.NewGuid().ToString("D"),
+            playerCaptureRef=fa.CaptureRef,gameTick=400,sampledAtMs=1000
+        };
+        Check(frames.TryBuild(data,1050,out frame) && frame.outcome==null,
+            "unproven busted may not follow a wanted change");
+        terminalProof=true;
+        Check(frames.TryBuild(data,1050,out frame) &&
+            frame.outcome.kind=="busted",
+            "source-pinned terminal outcome fixture");
+        data.terminal.sampledAtMs=1200;
+        Check(frames.TryBuild(data,1050,out frame) && frame.outcome==null,
+            "future terminal callback cannot attach to earlier frame");
+        data.terminal.sampledAtMs=1000;data.terminal.gameTick=1;
+        Check(frames.TryBuild(data,1050,out frame) && frame.outcome==null,
+            "unrelated terminal tick cannot attach to frame");
+        data.terminal.gameTick=400;
+        Check(!frames.TryBuild(data,5000,out frame),
+            "stale read is rejected, not replayed");
+        var foreign=Guid.NewGuid().ToString("D");
+        data.playerCaptureRef=foreign;
+        Check(!frames.TryBuild(data,1050,out frame),
+            "missing native player proof rejected");
+        data.playerCaptureRef=fa.CaptureRef;
+        frameVehicleLive=false;
+        Check(!frames.TryBuild(data,1050,out frame),
+            "retired vehicle incarnation rejected");
+        frameVehicleLive=true;
+        data.vehicleCaptureRef=null;
+        Check(frames.TryBuild(data,1050,out frame) && frame.vehicle==null &&
+            frame.outcome!=null,
+            "no vehicle yields only independently pinned terminal");
+        data.vehicleCaptureRef=fv.CaptureRef;
+        baseProof=false;
+        Check(!frames.TryBuild(data,1050,out frame),"base origin veto");
+        baseProof=true;sourceLive=false;
+        Check(!frames.TryBuild(data,1050,out frame),"retired host origin veto");
+        sourceLive=true;
+        framePlayerLive=false;
+        Check(!frames.TryBuild(data,1050,out frame),"recycled player handle veto");
+        framePlayerLive=true;
+        data.hostRunId=foreign;
+        Check(!frames.TryBuild(data,1050,out frame),"restart host fence");
         Console.WriteLine("M9 native: "+checks+" assertions passed");
     }
 }

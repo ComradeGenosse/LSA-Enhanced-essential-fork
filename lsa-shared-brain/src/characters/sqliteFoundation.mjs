@@ -16,6 +16,8 @@ import { ensureIntegratedMemorySchema, listMemoryCandidates, listSuppressedMemor
 import {ensureCurationSchema,enqueueCuration,claimCuration,completeCuration,retryCuration,releaseCuration,reserveCurationBudget,finishCurationBudget} from '../memory/curationSqlite.mjs';
 import {ensureM3CoverageSchema,appendM3Coverage,readM3Coverage} from '../events/m3CoverageSqlite.mjs';
 import {readIntegratedRecall} from '../memory/sqliteIntegratedRecallProjection.mjs';
+import {ensureP2ReplaySchema,readP2ReplayPage,readP2ReplayCursor,acknowledgeP2ReplayCursor} from '../memory/p2ReplayCursor.mjs';
+import {ensureM5PrivacySchema} from '../memory/m5SqlitePrivacy.mjs';
 
 export const SQLITE_PROFILE_SCHEMA = 2;
 const fail = code => { throw new Error(code); };
@@ -65,10 +67,25 @@ function insertSnapshot(db, snapshot, raw) {
   const insert = db.prepare('INSERT INTO promoted_profiles(character_id,owner_alias,position,revision,profile_json) VALUES (?,?,?,?,?)');
   snapshot.profiles.forEach((p,i) => insert.run(p.characterId,p.promotion.ownerAlias,i,p.revision,JSON.stringify(p)));
 }
+let savepointCounter=0;
 function transaction(db, operation) {
-  db.exec('BEGIN IMMEDIATE');
-  try { const result=operation(); db.exec('COMMIT'); return result; }
-  catch(error) { try { db.exec('ROLLBACK'); } catch {} throw error; }
+  // A nested P2 operation uses a SQLite SAVEPOINT, never a second writer
+  // connection or BEGIN inside an existing transaction.
+  const nested=db.isTransaction===true;
+  const savepoint=nested?'p2_nested_'+(++savepointCounter):null;
+  db.exec(nested?'SAVEPOINT '+savepoint:'BEGIN IMMEDIATE');
+  try {
+    const result=operation();
+    if(result?.then)fail('p2_sqlite_async_transaction');
+    db.exec(nested?'RELEASE SAVEPOINT '+savepoint:'COMMIT');
+    return result;
+  } catch(error) {
+    try{
+      if(nested){db.exec('ROLLBACK TO SAVEPOINT '+savepoint);db.exec('RELEASE SAVEPOINT '+savepoint);}
+      else db.exec('ROLLBACK');
+    }catch{}
+    throw error;
+  }
 }
 async function syncFile(file) {
   const handle=await fs.open(file,'r+');
@@ -193,6 +210,9 @@ export class P2SqliteFoundation {
       ensureCurationSchema(db);
       // Additive only: M3 negative coverage shares this exact P2 connection.
       ensureM3CoverageSchema(db);
+      // Additive v4 extensions, installed under the original P2 writer lock.
+      // They do not change the M1 snapshot or PRAGMA user_version=4.
+      transaction(db,()=>{ensureM5PrivacySchema(db);ensureP2ReplaySchema(db);});
       this.#db=db;
       return this.#snapshot;
     } catch(e){try {db?.close();}catch{}throw e;}
@@ -218,7 +238,8 @@ export class P2SqliteFoundation {
         if(!nextIds.has(previous.characterId)){
           removeDialogue.run(previous.characterId);
           removeEvents.run(previous.characterId);
-          for(const table of ['memory_records','memory_commands','memory_tombstones','memory_corrections','memory_curation_jobs','memory_luna_appraisals']){
+          for(const table of ['memory_records','memory_commands','memory_tombstones','memory_corrections','memory_curation_jobs','memory_luna_appraisals',
+            'm5_clarifications','m5_trash','m5_privacy_ops','p2_memory_replay_feed','p2_memory_replay_cursors','m3_coverage']){
             this.#db.prepare('DELETE FROM '+table+' WHERE character_id=?').run(previous.characterId);
           }
         }
@@ -272,6 +293,21 @@ export class P2SqliteFoundation {
   readVerifiedEventEvidence(scope){
     if(!this.#db)fail('sqlite_profile_uninitialized');
     return readVerifiedEventEvidence(this.#db,scope,this.worldProfileId);
+  }
+  withP2SqliteRead(operation){
+    if(!this.#db||typeof operation!=='function')fail('p2_sqlite_operation_unavailable');
+    const result=operation(this.#db);
+    if(result?.then)fail('p2_sqlite_async_read_not_supported');
+    return result;
+  }
+  withP2SqliteTransaction(operation){
+    if(!this.#db||typeof operation!=='function')fail('p2_sqlite_operation_unavailable');
+    return transaction(this.#db,()=>operation(this.#db));
+  }
+  readReplayPage(request){return readP2ReplayPage(this.#db,request,this.worldProfileId);}
+  readReplayCursor(request){return readP2ReplayCursor(this.#db,request,this.worldProfileId);}
+  acknowledgeReplayCursor(request){
+    return transaction(this.#db,()=>acknowledgeP2ReplayCursor(this.#db,request,this.worldProfileId));
   }
   listMemoryCandidates(scope,options){return listMemoryCandidates(this.#db,scope,this.worldProfileId,options);}
   listSuppressedMemoryIds(scope){return listSuppressedMemoryIds(this.#db,scope,this.worldProfileId);}

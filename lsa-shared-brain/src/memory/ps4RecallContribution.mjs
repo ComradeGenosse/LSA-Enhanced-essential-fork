@@ -13,6 +13,23 @@ const verified=s=>s&&['characterId','worldProfileId','timelineId','hostRunId','i
   typeof s.turnIdentityHash==='string'&&/^[0-9a-f]{64}$/.test(s.turnIdentityHash);
 const safelyCurrent=read=>{try{return read()}catch{return null}};
 const freezeIdentity=v=>Object.freeze(Object.fromEntries(keys.map(k=>[k,v?.[k]])));
+/** Build M4 queries from a verified accepted player turn, never inferred intent. */
+export function createAcceptedRecallQuery({acceptedTurn,snapshot,queryId,maxBytes=4096}={}){
+ if(!verified(snapshot)||!acceptedTurn||acceptedTurn.accepted!==true||
+   !['player_text','player_mic'].includes(acceptedTurn.source)||
+   acceptedTurn.turnIdentityHash!==snapshot.turnIdentityHash||
+   typeof acceptedTurn.text!=='string'||acceptedTurn.text.length<1||
+   acceptedTurn.text.length>12000||!uuid.test(queryId))
+   throw new TypeError('m4_unverified_accepted_turn');
+ const question=acceptedTurn.text;
+ const intent=/\b(quote|word for word|exact words|what (?:did|have) (?:i|you) say|what (?:i|you) said)\b/i.test(question)
+   ?'exact_quote':/\b(remember|recall|earlier|before|last time|previous|ago)\b/i.test(question)
+     ?'open_recall':'recent_fact';
+ return validateRecallQuery({version:1,kind:'recall_query',
+  characterId:snapshot.characterId,worldProfileId:snapshot.worldProfileId,
+  timelineId:snapshot.timelineId,queryId,turnIdentityHash:snapshot.turnIdentityHash,
+  intent,question,maxBytes});
+}
 const dropped=reason=>Object.freeze({status:'dropped',reason,contribution:null,stamp:null});
 /**
  * Called by authenticated turn ownership before PS4 freezes its frame.
@@ -22,13 +39,13 @@ const dropped=reason=>Object.freeze({status:'dropped',reason,contribution:null,s
  */
 export async function preparePs4Recall({query,readAdapter,snapshot,currentIdentity,
   protagonistKey,source='player_text',playerActive=false,nowUtc=new Date().toISOString(),
-  deadlineMs=40,maxContributionBytes=4096,followup=null}={}){
+  deadlineMs=40,maxContributionBytes=4096,followup=null,directorAdmitted=false}={}){
   validateRecallQuery(query);
   if(!verified(snapshot)||typeof currentIdentity!=='function'||!identical(snapshot,{
     ...snapshot,characterId:query.characterId,worldProfileId:query.worldProfileId,
     timelineId:query.timelineId,turnIdentityHash:query.turnIdentityHash,protagonistKey
   }))return dropped('unverified_turn');
-  if(query.intent==='spontaneous'&&(playerActive||['player_text','player_mic'].includes(source)))
+  if(query.intent==='spontaneous'&&(playerActive||source!=='special_event'||directorAdmitted!==true))
     return dropped('player_priority');
   if(!Number.isSafeInteger(deadlineMs)||deadlineMs<1||deadlineMs>200||
     !Number.isSafeInteger(maxContributionBytes)||maxContributionBytes<512||maxContributionBytes>14336)
@@ -45,14 +62,21 @@ export async function preparePs4Recall({query,readAdapter,snapshot,currentIdenti
   if(!answer)return dropped('deadline');
   if(performance.now()-started>deadlineMs)return dropped('deadline');
   if(!identical(snapshot,safelyCurrent(currentIdentity)))return dropped('stale_after_read');
-  return Object.freeze({status:'ready',reason:null,
-    stamp,contribution:toPs4RecallContribution(answer.bundle,{maxBytes:maxContributionBytes}),
+  let contribution;
+  try{contribution=toPs4RecallContribution(answer.bundle,{maxBytes:maxContributionBytes});}
+  catch{return dropped('invalid_projection');}
+  if(contribution.status!=='matched'||!contribution.items.length)return dropped('no_verified_evidence');
+  return Object.freeze({status:'ready',reason:null,stamp,contribution,
     continuation:answer.continuation});
 }
 /** Run again just before the single PS4 model allocation is sent to Luna. */
 export function verifyPs4RecallCurrent(prepared,{currentIdentity,playerActive=false,
-  source='player_text'}={}){
+  source='player_text',directorAdmitted=false,validateEvidence=null}={}){
   return !!prepared&&prepared.status==='ready'&&
     typeof currentIdentity==='function'&&identical(prepared.stamp,safelyCurrent(currentIdentity))&&
-    !(playerActive&&source==='special_event');
+    !(source==='special_event'&&(playerActive||directorAdmitted!==true))&&
+    // Revalidate tombstones, corrections and retained source visibility against
+    // P2 at the very last provider-send/retry boundary. Unknown fails closed.
+    typeof validateEvidence==='function'&&
+    (()=>{try{return validateEvidence(prepared.contribution.items.map(item=>item.recordId),prepared.stamp)===true;}catch{return false;}})();
 }

@@ -2,11 +2,13 @@ import {createHash} from 'node:crypto';
 import {validateDecisionShape} from './essentialDecision.mjs';
 const hash=value=>createHash('sha256').update(JSON.stringify(value)).digest('hex');
 // Per-generation request state only; the existing salience ledger owns consumption.
-export function createKnowledgeDelivery({frame,baseFrame=frame,isCurrent,validate=()=>null,prune=frame=>frame,acknowledge=()=>false,onOutcome=()=>{}}) {
+export function createKnowledgeDelivery({frame,baseFrame=frame,isCurrent,validate=()=>null,prune=frame=>frame,pruneRecall=null,recallCurrent=()=>false,acknowledge=()=>false,onOutcome=()=>{}}) {
  let projection=frame,sent=false,terminal=false,requestHash=null,projectionHash=null,unsubscribe=null;
  const dispose=()=>{unsubscribe?.();unsubscribe=null;};
- const hasOptional=()=>projection.delivery.length>0 || (projection.activityReferences?.length??0)>0 || (projection.dialogueReferences?.length??0)>0;
- const currentReason=()=>!isCurrent()?'superseded':hasOptional()?validate(projection):null;
+ const hasOptional=()=>projection.delivery.length>0 || (projection.activityReferences?.length??0)>0 ||
+ (projection.dialogueReferences?.length??0)>0 || (projection.recallReferences?.length??0)>0;
+ const recallFresh=()=>{try{return recallCurrent(projection.recallReferences??[],projection.recallStamp)===true;}catch{return false;}};
+ const currentReason=()=>!isCurrent()?'superseded':(projection.recallReferences?.length&&!recallFresh())?'recall_stale':hasOptional()?validate(projection):null;
  const fail=reason=>{throw Object.assign(new Error('knowledge_request_stale'),{code:'knowledge_request_stale',reason});};
  const report=outcome=>{
   if(terminal)return null;terminal=true;dispose();
@@ -27,8 +29,11 @@ export function createKnowledgeDelivery({frame,baseFrame=frame,isCurrent,validat
 
   prepare(){
    if(!sent && isCurrent())projection=prune(projection);
-   const reason=currentReason();
-   if(reason){if(sent || reason==='superseded')fail(reason);projection=baseFrame;}
+   let reason=currentReason();
+   if(!sent&&reason==='recall_stale'&&typeof pruneRecall==='function'){
+     projection=pruneRecall(projection);reason=currentReason();
+   }
+   if(reason){if(sent || reason==='superseded'||reason==='recall_stale')fail(reason);projection=baseFrame;}
    return projection;
   },
   beforeRequest(body){

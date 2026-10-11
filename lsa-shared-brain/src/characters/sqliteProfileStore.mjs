@@ -226,6 +226,61 @@ export class P2SqliteProfileStore {
       return result;
     });
   }
+  // Synchronous callbacks only: never await or call another queued store
+  // method from inside these callbacks. The original P2 writer is the ONLY
+  // mutable SQLite connection; this preserves the editor/profile CAS queue.
+  #assertMemoryScope(scope) {
+    if(!scope||scope.worldProfileId!==this.worldProfileId||
+       typeof scope.characterId!=='string'||!this.#db.get(scope.characterId))
+      fail('p2_memory_owner_or_world_missing');
+    this.assertTimelineWrite(scope.timelineId);
+  }
+  async withP2SqliteRead(scope,operation) {
+    if(typeof operation!=='function')throw new TypeError('p2_sqlite_callback_required');
+    await this.initialize();
+    return this.#serial(()=>{
+      if(!this.available)fail('profile_store_unavailable');
+      this.#assertMemoryScope(scope);
+      return this.#db.withP2SqliteRead(operation);
+    });
+  }
+  async withP2SqliteTransaction(scope,operation) {
+    if(typeof operation!=='function')throw new TypeError('p2_sqlite_callback_required');
+    return this.withTimelineWrite(scope?.timelineId,foundation=>{
+      this.#assertMemoryScope(scope);
+      return foundation.withP2SqliteTransaction(db=>{
+        const result=operation(db);
+        // Recheck synchronously INSIDE P2's transaction immediately before
+        // COMMIT; source invalidation in the callback rolls everything back.
+        this.#assertMemoryScope(scope);
+        return result;
+      });
+    });
+  }
+  // API consumed by M5; alias documents that ALL privacy commits are part of
+  // P2's write queue and source/timeline gate at actual SQLite COMMIT.
+  async withTimelineSqliteWrite(scope,operation) {
+    return this.withP2SqliteTransaction(scope,operation);
+  }
+  // Append/update feed includes every committed M2 line and each M3 event
+  // revision. Scanning is bounded; cursor ack is durable and independently
+  // gated to prevent crash loss, rollback escapes, and cross-owner leakage.
+  async readCommittedEvidencePage({scope,cursor=null,limit=256}) {
+    return this.withP2SqliteRead(scope,()=>this.#db.readReplayPage({scope,cursor,limit}));
+  }
+  async readCommittedEvidenceCursor({scope,consumerId}) {
+    return this.withP2SqliteRead(scope,()=>this.#db.readReplayCursor({scope,consumerId}));
+  }
+  async ackCommittedEvidenceCursor({scope,consumerId,cursor,expectedCursor=null}) {
+    return this.withTimelineWrite(scope?.timelineId,foundation=>{
+      this.#assertMemoryScope(scope);
+      return foundation.withP2SqliteTransaction(()=>{
+        const receipt=foundation.acknowledgeReplayCursor({scope,consumerId,cursor,expectedCursor});
+        this.#assertMemoryScope(scope);
+        return receipt;
+      });
+    });
+  }
   // Scoped journal writes are serialized WITH the M1 source/lineage check.
   // A player/NPC acknowledgment from a stale native host is never durable.
   async appendDialogueLine(line,attribution) {

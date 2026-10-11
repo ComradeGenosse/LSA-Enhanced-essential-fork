@@ -64,3 +64,31 @@ export function selectKnowledge(inputs,{includePerceived=true,radioInput=''}={})
   }
   return immutableSnapshot(result);
 }
+
+/** Strictly optional M4 evidence from a preflight source-fenced preparation. */
+export function projectPreparedRecall(prepared,{maxBytes=4096}={}){
+ const out={evidence:[],earlierArchivedConversation:[],references:[],dropped:0};
+ const contribution=prepared?.status==='ready'?prepared.contribution:null;
+ if(contribution?.contributor!=='m4_recall'||contribution.lane!=='RECALLED'||
+   contribution.status!=='matched'||!Array.isArray(contribution.items)||
+   contribution.items.length>32||!Number.isSafeInteger(maxBytes)||maxBytes<0||maxBytes>14336)return out;
+ const valid=item=>item&&typeof item==='object'&&
+  Object.keys(item).sort().join(',')==='content,freshness,mode,recordId,sourceKind'&&
+  /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(item.recordId)&&
+  ['journal_event','dialogue_line','permanent_memory','canon'].includes(item.sourceKind)&&
+  ['exact_quote','observed_fact','reported_claim','opinion'].includes(item.mode)&&
+  ['live','recent','archive','permanent'].includes(item.freshness)&&
+  typeof item.content==='string'&&[...item.content].length>=1&&[...item.content].length<=3072&&
+  item.content===item.content.toWellFormed();
+ const seen=new Set();
+ for(const item of contribution.items){
+  if(!valid(item)||seen.has(item.recordId)){out.dropped++;continue;}
+  seen.add(item.recordId);
+  const section=item.sourceKind==='dialogue_line'&&item.freshness==='archive'?'earlierArchivedConversation':'evidence';
+  if(jsonBytes({evidence:out.evidence,earlierArchivedConversation:out.earlierArchivedConversation,
+   [section]:[...out[section],item]})>maxBytes){out.dropped++;continue;}
+  out[section].push({...item});
+  out.references.push({recordId:item.recordId,sourceKind:item.sourceKind,mode:item.mode,freshness:item.freshness,section});
+ }
+ return out;
+}

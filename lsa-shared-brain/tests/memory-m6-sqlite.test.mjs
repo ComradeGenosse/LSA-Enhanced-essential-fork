@@ -31,7 +31,7 @@ test('M6 committed SQLite journal creates a permanent memory and replays exactly
     sessionNonce:'m6-test'},text,source:'typed',
    attribution:{protagonist:'franklin'}});
   originalId=result.recordId;
-  const coordinator=createM6SelectionCoordinator({store});
+  const coordinator=createM6SelectionCoordinator({store,allowLegacyBoundedReplay:true});
   const checkpoint=await coordinator.onSceneClose({scope,atUtc:new Date().toISOString()});
   assert.equal(checkpoint.saved.length,1);
   assert.equal(checkpoint.saved[0].inserted,true);
@@ -44,11 +44,11 @@ test('M6 committed SQLite journal creates a permanent memory and replays exactly
  const reopened=createP2MemoryStorage({filePath,worldProfileId,sourceRequired:true});
  await reopened.initialize();
  try{
-  await assert.rejects(createM6SelectionCoordinator({store:reopened})
+  await assert.rejects(createM6SelectionCoordinator({store:reopened,allowLegacyBoundedReplay:true})
    .recover({scope,atUtc:new Date(Date.now()+120000).toISOString()}),/m6_timeline_not_writable/);
   reopened.setVerifiedHostContext({...host,hostRunId:randomUUID(),worldEpoch:5});
   await reopened.confirmTimeline(timelineId);
-  const recovered=await createM6SelectionCoordinator({store:reopened})
+  const recovered=await createM6SelectionCoordinator({store:reopened,allowLegacyBoundedReplay:true})
    .recover({scope,atUtc:new Date(Date.now()+120000).toISOString()});
   assert.equal(recovered.saved.length,0);
   const rows=await reopened.readPermanentMemoryRows({...scope,protagonistKey:'franklin'});

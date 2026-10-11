@@ -1,26 +1,29 @@
-// M6 scene-close / idle / restart coordinator. No daemon and no cloud calls.
-// Every accepted candidate comes back from the committed P2 journal and is
-// saved by the existing timeline-serialized SQLite API before optional queueing.
+// M6 deterministic permanent-memory lifecycle. No Luna/provider calls.
+// All journals, checkpoints, memories, and optional M7 jobs belong to P2 SQLite.
 import {isUuid,stableUuid,scopeOf,normalizedEvidence} from './evidence.mjs';
 import {evaluateAutomaticMemoryBatch,selectAutomaticMemories} from './selection.mjs';
 import {makeQueueJob} from './queueContract.mjs';
+import {createM6CursorConsumer,requireM6CursorStore} from './m6CursorConsumer.mjs';
 
 const PROTAGONISTS=Object.freeze(['unknown','franklin','michael','trevor']);
 const fail=code=>{throw new Error(code);};
 const safeClock=t=>typeof t==='string'&&Number.isFinite(Date.parse(t));
 const sourceKey=row=>stableUuid('auto-memory-v1',row.characterId,row.worldProfileId,
   row.timelineId,[...row.envelope.sourceEvidenceIds].sort());
-const isDeterministicMemory=row=>
-  Array.isArray(row?.envelope?.sourceEvidenceIds)&&
+const isDeterministicMemory=row=>Array.isArray(row?.envelope?.sourceEvidenceIds)&&
   row.envelope.sourceEvidenceIds.length>0&&row.envelope.sourceEvidenceIds.length<=64&&
   row.envelope.sourceEvidenceIds.every(isUuid)&&row.recordId===sourceKey(row);
-
-function requireStore(store){
-  for(const key of ['readDialogueLines','readJournalEvents','readVerifiedEventEvidence',
-    'readPermanentMemoryRows','listSuppressedMemoryIds','readCorrectionOverlays','saveDeterministicMemory']){
+function requireStore(store,{allowLegacyBoundedReplay,cloudQueueEnabled}){
+  for(const key of ['listSuppressedMemoryIds','readCorrectionOverlays','saveDeterministicMemory',
+    'readVerifiedEventEvidence']){
     if(typeof store?.[key]!=='function')throw new TypeError('m6_store_missing_'+key);
   }
-  return store;
+  if(cloudQueueEnabled&&typeof store.enqueueCurationJob!=='function')
+    throw new TypeError('m6_durable_curation_queue_required');
+  if(!allowLegacyBoundedReplay)requireM6CursorStore(store);
+  else for(const key of ['readDialogueLines','readJournalEvents','readPermanentMemoryRows']){
+    if(typeof store?.[key]!=='function')throw new TypeError('m6_legacy_store_missing_'+key);
+  }
 }
 function checkBoundary(store,scope){
   scopeOf(scope);
@@ -30,25 +33,72 @@ function checkBoundary(store,scope){
   if(typeof store.get==='function'&&!store.get(scope.characterId))
     fail('m6_character_not_promoted');
 }
-async function readCommitted(store,scope,maxRead){
-  const args={characterId:scope.characterId,timelineId:scope.timelineId,limit:maxRead};
-  const lines=await store.readDialogueLines(args),events=await store.readJournalEvents(args);
-  // The v4 journal API offers bounded latest-N reads, but no archive cursor.
-  // Never report successful full replay if older unchecked evidence may exist.
-  if(!Array.isArray(lines)||!Array.isArray(events)||lines.length>=maxRead||events.length>=maxRead)
-    fail('m6_journal_replay_window_exhausted');
+async function suppression(store,scope){
+  const blocked=new Set(await store.listSuppressedMemoryIds({...scope,protagonistKey:'unknown'}));
+  for(const protagonistKey of PROTAGONISTS){
+    const corrections=await store.readCorrectionOverlays({...scope,protagonistKey});
+    if(!Array.isArray(corrections))fail('m6_correction_scan_unavailable');
+    for(const correction of corrections)
+      if(isUuid(correction.targetId))blocked.add(correction.targetId);
+  }
+  return blocked;
+}
+function reason(error){return error instanceof Error?error.message:'m6_source_rejected';}
+async function qualifyCommitted(store,scope,raw,blocked){
+  const accepted=[],rejected=[],ids=new Map();
+  for(const item of raw){
+    if(blocked.has(item?.recordId)){
+      rejected.push({recordId:item.recordId,reason:'m6_suppressed_source'});
+      continue;
+    }
+    try{
+      const normalized=normalizedEvidence(item);
+      if(normalized.worldProfileId!==scope.worldProfileId||
+         normalized.timelineId!==scope.timelineId||
+         normalized.characterId!==scope.characterId)fail('m6_source_scope_mismatch');
+      if(normalized.kind==='journal_event'){
+        // A "reported" or unsupported PS2 event is rejected by normalizedEvidence
+        // before a sidecar is ever read. Missing native proof must never be
+        // inferred, accepted, or silently cursor-acknowledged.
+        const sidecar=await store.readVerifiedEventEvidence({...scope,recordId:item.recordId});
+        if(!sidecar||sidecar.event?.recordId!==item.recordId||
+           sidecar.event?.sourceHash!==item.sourceHash||!sidecar.sourceEvidence)
+          fail('m6_verified_event_sidecar_missing');
+      }
+      const old=ids.get(normalized.recordId);
+      if(old){
+        if(JSON.stringify(old)!==JSON.stringify(normalized))
+          fail('m6_conflicting_committed_record');
+        continue;
+      }
+      ids.set(normalized.recordId,normalized);
+      accepted.push(item);
+    }catch(error){
+      if(['m6_verified_event_sidecar_missing','m6_source_scope_mismatch',
+        'm6_conflicting_committed_record'].includes(error?.message))throw error;
+      rejected.push({recordId:isUuid(item?.recordId)?item.recordId:null,reason:reason(error)});
+    }
+  }
+  return {accepted,rejected};
+}
+// An explicit compatibility path exists ONLY for pinned pre-B SQLite tests.
+// It never advances a cursor, refuses a full latest-N window, and cannot
+// certify durable full-archive replay. Do not enable in production bootstrap.
+async function legacySnapshot(store,scope,maxRead,cutoffUtc){
+  const args={...scope,limit:maxRead};
+  const lines=await store.readDialogueLines(args);
+  const events=await store.readJournalEvents(args);
+  if(!Array.isArray(lines)||!Array.isArray(events)||lines.length>=maxRead||
+     events.length>=maxRead)fail('m6_journal_replay_window_exhausted');
   const raw=[...lines],rejected=[];
   for(const event of events){
     try{
-      const proof=await store.readVerifiedEventEvidence({...args,recordId:event.recordId});
-      if(!proof||proof.event?.recordId!==event.recordId||
-         proof.event.sourceHash!==event.sourceHash||!proof.sourceEvidence)
-        throw new Error('m6_verified_event_sidecar_missing');
-      raw.push(proof.event);
-    }catch(error){
-      rejected.push(Object.freeze({recordId:event.recordId,
-        reason:error instanceof Error?error.message:'m6_event_evidence_unavailable'}));
-    }
+      const sidecar=await store.readVerifiedEventEvidence({...scope,recordId:event.recordId});
+      if(!sidecar||sidecar.event?.recordId!==event.recordId||
+         sidecar.event?.sourceHash!==event.sourceHash||!sidecar.sourceEvidence)
+        fail('m6_verified_event_sidecar_missing');
+      raw.push(sidecar.event);
+    }catch(error){rejected.push({recordId:event.recordId,reason:reason(error)});}
   }
   const permanent=[];
   for(const protagonistKey of PROTAGONISTS){
@@ -56,82 +106,114 @@ async function readCommitted(store,scope,maxRead){
     if(!Array.isArray(part)||part.length>=1000)fail('m6_permanent_replay_window_exhausted');
     permanent.push(...part);
   }
-  const suppress=new Set(await store.listSuppressedMemoryIds({...scope,protagonistKey:'unknown'}));
-  for(const protagonistKey of PROTAGONISTS){
-    const corrections=await store.readCorrectionOverlays({...scope,protagonistKey});
-    if(!Array.isArray(corrections))fail('m6_correction_scan_unavailable');
-    for(const c of corrections)if(isUuid(c.targetId))suppress.add(c.targetId);
-  }
-  return {raw,rejected,permanent,suppress};
-}
-function qualifiedSources({raw,rejected,suppress},cutoffUtc){
-  const accepted=[];
-  const ids=new Map();
-  for(const item of raw){
-    if(suppress.has(item?.recordId))continue;
-    try{
-      const record=normalizedEvidence(item);
-      if(Date.parse(record.when)>Date.parse(cutoffUtc))continue;
-      const previous=ids.get(record.recordId);
-      if(previous){
-        if(JSON.stringify(previous)!==JSON.stringify(record))fail('m6_conflicting_committed_record');
-        continue;
-      }
-      ids.set(record.recordId,record);
-      accepted.push(item);
-    }catch(error){
-      if(error?.message==='m6_conflicting_committed_record')throw error;
-      rejected.push(Object.freeze({recordId:isUuid(item?.recordId)?item.recordId:null,
-        reason:error instanceof Error?error.message:'m6_source_rejected'}));
-    }
-  }
-  return accepted;
+  const blocked=await suppression(store,scope);
+  const {accepted,rejected:bad}=await qualifyCommitted(store,scope,raw,blocked);
+  rejected.push(...bad);
+  return {raw,eligible:accepted.filter(x=>Date.parse(
+      x.kind==='journal_event'?x.receivedAtUtc:x.committedAtUtc)<=Date.parse(cutoffUtc)),
+    rejected,blocked,permanent};
 }
 /**
- * createM6SelectionCoordinator({store,now,quietMs,maxRead,cloudQueueEnabled})
+ * Production: requires B's P2 readM6Checkpoint/readM6JournalPage/ackM6Checkpoint.
+ * These are serialized, source-hashed and timeline-gated by P2. Page reads do
+ * not commit. Save, optional queue enqueue, then cursor CAS ack; a crash
+ * anywhere earlier replays exactly the same evidence and selection pressure.
  *
- * Agent H calls onSceneClose({scope,atUtc}) AFTER the scene's last M2/M3
- * journal commit; onIdle({scope,atUtc}) at a safe non-dialogue checkpoint;
- * recover({scope,atUtc}) after P2 initialization, native epoch verification
- * and explicit timeline confirmation. Calls are safe to repeat. The scope
- * must be supplied by the trusted P2 promoted owner binder, NOT from a model.
- *
- * No raw event/utterance payload is accepted here. Enabling cloudQueueEnabled
- * only enqueues jobs and never starts Luna or reserves user spend.
+ * Only K wires onSceneClose/onIdle/recover AFTER trusted owner/source admission
+ * and journal commits. None of these hooks may run on the native player fiber.
  */
 export function createM6SelectionCoordinator({store,now=()=>new Date().toISOString(),
-  quietMs=90_000,maxRead=1000,cloudQueueEnabled=false,
+  quietMs=90_000,pageSize=250,maxRows=8192,maxPages=64,maxRead=1000,
+  allowLegacyBoundedReplay=false,cloudQueueEnabled=false,
   softTargetPerHour=6,minScore=.56}={}){
-  requireStore(store);
+  requireStore(store,{allowLegacyBoundedReplay,cloudQueueEnabled});
   if(typeof now!=='function'||!Number.isSafeInteger(quietMs)||quietMs<0||
     !Number.isSafeInteger(maxRead)||maxRead<1||maxRead>1000||
     typeof cloudQueueEnabled!=='boolean'||!Number.isSafeInteger(softTargetPerHour)||
     softTargetPerHour<1||!Number.isFinite(minScore)||minScore<0||minScore>1)
     throw new TypeError('m6_invalid_coordinator_options');
-  if(cloudQueueEnabled&&typeof store.enqueueCurationJob!=='function')
-    throw new TypeError('m6_durable_curation_queue_required');
-
+  const consumer=allowLegacyBoundedReplay?null:createM6CursorConsumer({
+    store,pageSize,maxRows,maxPages});
+  const inflight=new Map();
   async function checkpoint({scope,atUtc=now(),phase='idle',activeHourCount=null}={}){
     if(!['scene_close','idle','recovery'].includes(phase)||!safeClock(atUtc)||
-      activeHourCount!==null&&(!Number.isSafeInteger(activeHourCount)||activeHourCount<0))
+       activeHourCount!==null&&(!Number.isSafeInteger(activeHourCount)||activeHourCount<0))
       fail('m6_invalid_checkpoint');
     checkBoundary(store,scope);
     const cutoffUtc=new Date(Date.parse(atUtc)-(phase==='scene_close'?0:quietMs)).toISOString();
-    const snapshot=await readCommitted(store,scope,maxRead);
-    const eligible=qualifiedSources(snapshot,cutoffUtc);
+    if(consumer){
+      const scan=await consumer.readBatch({scope,cutoffUtc});
+      checkBoundary(store,scope);
+      const blocked=await suppression(store,scope);
+      const qualified=await qualifyCommitted(store,scope,scan.rows,blocked);
+      const rejected=[...qualified.rejected];
+      // Checkpointed count is fixed until CAS ack. Never derive this from
+      // records saved in this unacknowledged batch: crash replay must yield
+      // identical proposal IDs even if some writes already committed.
+      const hourBucket=cutoffUtc.slice(0,13); // UTC hour is the fallback; K may use co-present active-hour IDs in P2.
+      const existingInHour=scan.checkpoint.hourBucket===hourBucket?
+        scan.checkpoint.activeHourCount:0;
+      const evaluated=evaluateAutomaticMemoryBatch(qualified.accepted,{
+        existingInHour,softTargetPerHour,minScore});
+      rejected.push(...evaluated.rejected);
+      const saved=[],savedIds=[];
+      let queued=0;
+      for(const proposal of evaluated.proposals){
+        checkBoundary(store,scope);
+        // Privacy can change while selecting; reread before each write.
+        const latest=await suppression(store,scope);
+        if(proposal.evidenceRecordIds.some(id=>latest.has(id))){
+          rejected.push({recordId:proposal.proposalId,reason:'m6_source_changed_before_save'});
+          continue;
+        }
+        const receipt=await store.saveDeterministicMemory(proposal);
+        if(!receipt||receipt.recordId!==proposal.proposalId||typeof receipt.inserted!=='boolean')
+          fail('m6_durable_save_unconfirmed');
+        saved.push(Object.freeze({proposalId:proposal.proposalId,inserted:receipt.inserted,
+          evidenceRecordIds:proposal.evidenceRecordIds}));
+        savedIds.push(proposal.proposalId);
+        if(cloudQueueEnabled){
+          checkBoundary(store,scope);
+          const beforeQueue=await suppression(store,scope);
+          if(proposal.evidenceRecordIds.some(id=>beforeQueue.has(id)))
+            fail('m6_source_changed_before_queue');
+          const job=makeQueueJob(proposal,atUtc);
+          const ack=await store.enqueueCurationJob({job});
+          if(!ack||ack.jobId!==job.jobId||typeof ack.inserted!=='boolean')
+            fail('m6_durable_enqueue_unconfirmed');
+          if(ack.inserted)queued++;
+        }
+      }
+      checkBoundary(store,scope);
+      const finalBlocked=await suppression(store,scope);
+      if(saved.some(r=>r.evidenceRecordIds.some(id=>finalBlocked.has(id))))
+        fail('m6_source_changed_before_cursor_ack');
+      let acknowledged=false;
+      if(scan.toCursor!==scan.fromCursor){
+        const ack=await store.ackM6Checkpoint({scope,expectedCursor:scan.fromCursor,
+          nextCursor:scan.toCursor,sourceHashes:scan.sourceHashes,
+          savedProposalIds:savedIds,rejected,cutoffUtc,hourBucket,cloudQueueEnabled});
+        if(ack?.committed!==true||ack.cursor!==scan.toCursor)
+          fail('m6_durable_cursor_ack_unconfirmed');
+        acknowledged=true;
+      }
+      return Object.freeze({status:rejected.length?'partial_evidence':'complete',
+        phase,cutoffUtc,readCount:scan.rows.length,
+        qualifiedCount:qualified.accepted.length,candidateCount:evaluated.proposals.length,
+        saved:Object.freeze(saved),queued,rejected:Object.freeze(rejected),
+        fromCursor:scan.fromCursor,toCursor:scan.toCursor,acknowledged,
+        archiveComplete:scan.atEnd,blockedByQuiet:scan.blockedByQuiet});
+    }
+    const snapshot=await legacySnapshot(store,scope,maxRead,cutoffUtc);
     const existing=snapshot.permanent.filter(row=>isDeterministicMemory(row)&&
-      !snapshot.suppress.has(row.recordId)&&
-      !row.envelope.sourceEvidenceIds.some(id=>snapshot.suppress.has(id)));
+      !snapshot.blocked.has(row.recordId)&&
+      !row.envelope.sourceEvidenceIds.some(id=>snapshot.blocked.has(id)));
     const consumed=new Set(existing.flatMap(row=>row.envelope.sourceEvidenceIds));
-    const byId=new Map(eligible.map(row=>[row.recordId,row]));
-    // Explicit memories are never counted as automatic and never change this
-    // pressure. Co-present activity can be supplied by Agent H; otherwise
-    // a rolling wall-hour is a safe heuristic, not a hard quota.
-    const existingInHour=activeHourCount??existing.filter(row=>
-      safeClock(row.atUtc)&&Date.parse(row.atUtc)>Date.parse(atUtc)-3_600_000&&
-      Date.parse(row.atUtc)<=Date.parse(atUtc)).length;
-    const toSelect=eligible.filter(row=>!consumed.has(row.recordId));
-    const evaluated=evaluateAutomaticMemoryBatch(toSelect,
+    const byId=new Map(snapshot.eligible.map(row=>[row.recordId,row]));
+    const existingInHour=activeHourCount??existing.filter(row=>safeClock(row.atUtc)&&
+      Date.parse(row.atUtc)>Date.parse(atUtc)-3600000&&Date.parse(row.atUtc)<=Date.parse(atUtc)).length;
+    const evaluated=evaluateAutomaticMemoryBatch(
+      snapshot.eligible.filter(row=>!consumed.has(row.recordId)),
       {existingInHour,softTargetPerHour,minScore});
     snapshot.rejected.push(...evaluated.rejected);
     const saved=[];
@@ -143,20 +225,15 @@ export function createM6SelectionCoordinator({store,now=()=>new Date().toISOStri
       saved.push(Object.freeze({proposalId:proposal.proposalId,inserted:receipt.inserted,
         evidenceRecordIds:proposal.evidenceRecordIds}));
     }
-
     let queued=0;
     if(cloudQueueEnabled){
-      // Retry queue insertion even for already-durable deterministic records.
-      // If a crash occurred between save and enqueue, recovery reconstructs
-      // the original proposal from its immutable evidence links.
       const queueProposals=[...evaluated.proposals];
       for(const row of existing){
-        if(!row.envelope.sourceEvidenceIds.every(id=>byId.has(id))){
+        if(!row.envelope.sourceEvidenceIds.every(id=>byId.has(id)))
           fail('m6_queue_replay_evidence_unavailable');
-        }
-        const candidates=selectAutomaticMemories(
-          row.envelope.sourceEvidenceIds.map(id=>byId.get(id)),{minScore:0});
-        const original=candidates.find(p=>p.proposalId===row.recordId);
+        const proposals=selectAutomaticMemories(row.envelope.sourceEvidenceIds.map(id=>byId.get(id)),
+          {minScore:0});
+        const original=proposals.find(p=>p.proposalId===row.recordId);
         if(!original)fail('m6_queue_proposal_reconstruction_failed');
         queueProposals.push(original);
       }
@@ -169,16 +246,24 @@ export function createM6SelectionCoordinator({store,now=()=>new Date().toISOStri
         if(ack.inserted)queued++;
       }
     }
-    return Object.freeze({status:snapshot.rejected.length?'partial_evidence':'complete',
-      phase,cutoffUtc,readCount:snapshot.raw.length,
-      qualifiedCount:eligible.length,candidateCount:evaluated.proposals.length,
-      saved:Object.freeze(saved),queued,
-      rejected:Object.freeze(snapshot.rejected)});
+    return Object.freeze({status:snapshot.rejected.length?'partial_evidence':'legacy_bounded',
+      phase,cutoffUtc,readCount:snapshot.raw.length,qualifiedCount:snapshot.eligible.length,
+      candidateCount:evaluated.proposals.length,saved:Object.freeze(saved),queued,
+      rejected:Object.freeze(snapshot.rejected),archiveComplete:false,acknowledged:false});
   }
-
+  function schedule(args,phase){
+    // Serialize checkpoint triggers for the same promoted source scope in this
+    // runtime. B's P2 cursor CAS remains the cross-runtime authority.
+    const scope=scopeOf(args?.scope),key=Object.values(scope).join(':');
+    const previous=inflight.get(key)??Promise.resolve();
+    const next=previous.catch(()=>{}).then(()=>checkpoint({...args,phase}));
+    inflight.set(key,next);
+    void next.finally(()=>{if(inflight.get(key)===next)inflight.delete(key);}).catch(()=>{});
+    return next;
+  }
   return Object.freeze({
-    onSceneClose:args=>checkpoint({...args,phase:'scene_close'}),
-    onIdle:args=>checkpoint({...args,phase:'idle'}),
-    recover:args=>checkpoint({...args,phase:'recovery'}),
+    onSceneClose:args=>schedule(args,'scene_close'),
+    onIdle:args=>schedule(args,'idle'),
+    recover:args=>schedule(args,'recovery'),
   });
 }
