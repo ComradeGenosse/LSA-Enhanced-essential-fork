@@ -53,7 +53,7 @@ namespace LSA.PromotedCharacters
                        world,claim.worldProfileId,
                        anchor.Observer,Alive(encounter),
                        Object.ReferenceEquals(Host.Anchors.Resolve(anchor.CaptureRef),anchor),
-                       Object.ReferenceEquals(encounter.Registration,encounter.Registration)))
+                       encounter.Registration!=null))
                     return null;
                 result.Add(new {
                     observerCaptureRef=anchor.CaptureRef,
