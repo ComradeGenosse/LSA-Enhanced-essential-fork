@@ -7,7 +7,7 @@ import {randomUUID,createHash} from 'node:crypto';
 import {createP2MemoryStorage} from '../src/characters/sqliteProfileStore.mjs';
 import {createConversationJournalRecorder} from '../src/memory/conversationRecorder.mjs';
 import {handleExplicitMemoryCommand} from '../src/memory/explicitCommands.mjs';
-import {recallFromSharedJournal,createDurableCurationAdapters} from '../src/memory/integrationPorts.mjs';
+import {recallFromSharedJournal,createDurableCurationAdapters,createM3WitnessRecorder} from '../src/memory/integrationPorts.mjs';
 import {selectAutomaticMemories} from '../src/memory/selection.mjs';
 import {makeQueueJob} from '../src/memory/queueContract.mjs';
 import {processIdleCuration} from '../src/memory/lunaCurator.mjs';
@@ -133,5 +133,37 @@ test('M6 automatic memory and M7 Luna queue use durable leases, source links and
   const read=await x.store.readPermanentMemoryRows(x.scope);
   assert.equal(read.length,1);
   assert.deepEqual(read[0].envelope.sourceEvidenceIds,[row.recordId]);
+ }finally{await x.store.close()}
+});
+
+test('M3 real SQLite stores exact authenticated sidecar, dedupes and rejects revision rollback',async t=>{
+ const x=await setup(t);
+ try{
+  const adapterEpoch=id(),captureRef=id(),incarnationId=id(),encounterId=id(),
+   episodeId=id(),observationId=id(),claimId=id();
+  const ownerProof={ownerAlias:x.store.get(x.scope.characterId).promotion.ownerAlias,
+   incarnationId,encounterId,hostRunId:x.host.hostRunId,worldEpoch:x.host.worldEpoch,
+   observerCaptureRef:captureRef};
+  const identity={promoted:true,current:true,characterId:x.scope.characterId,
+    worldProfileId:x.scope.worldProfileId,timelineId:x.scope.timelineId,
+    adapterEpoch,ownerProof};
+  const observation={version:1,observationId,episodeId,revision:1,
+    observer:{captureRef,kind:'ped'},
+    observedAt:{nativeRun:adapterEpoch,gameTick:100,receivedUtc:new Date().toISOString()},
+    eventType:'firing_burst',claims:[{claimId,kind:'firing',certainty:'supported',
+      evidence:{channel:'visual',basis:'sampled_state',sampledGameTick:100}}]};
+  const recorder=createM3WitnessRecorder({store:x.store,
+    authorize:()=>identity});
+  assert.equal((await recorder.capture({candidate:identity,observation})).inserted,true);
+  assert.equal((await recorder.capture({candidate:identity,observation})).duplicate,true);
+  const events=await x.store.readJournalEvents({characterId:x.scope.characterId,timelineId:x.scope.timelineId});
+  assert.equal(events.length,1);
+  const sidecar=await x.store.readVerifiedEventEvidence({characterId:x.scope.characterId,timelineId:x.scope.timelineId,
+    recordId:events[0].recordId});
+  assert.equal(sidecar.sourceEvidence.observation.observationId,observationId);
+  assert.equal(sidecar.event.sourceHash,sidecar.sourceEvidence.sourceHash);
+  const updated={...observation,revision:2};
+  assert.equal((await recorder.capture({candidate:identity,observation:updated})).inserted,true);
+  await assert.rejects(recorder.capture({candidate:identity,observation}),/journal_stale_event_revision/);
  }finally{await x.store.close()}
 });
