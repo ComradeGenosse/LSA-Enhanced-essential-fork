@@ -144,6 +144,11 @@ export async function handleExplicitMemoryCommand(input) {
   const parsed=input.parsedOverride??detectExplicitMemoryCommand(line.content,input.lunaInterpretation);
   if (!parsed || (input.parsedOverride &&
       !detectExplicitMemoryCommands(line.content)?.some(p=>JSON.stringify(p.parsed)===JSON.stringify(parsed)))) return null;
+  if(typeof store.verifyAcceptedLine==='function' &&
+      !await store.verifyAcceptedLine({scope,line}))
+    return ['inspect','export'].includes(parsed.intent)
+      ?{kind:'memory_read',operation:parsed.intent,status:'unavailable'}
+      :result(actionBase(scope,line,commandId,parsed.intent),'failed');
   if (parsed.intent==='inspect' || parsed.intent==='export') {
     if (typeof store[parsed.intent] !== 'function') return {kind:'memory_read',operation:parsed.intent,status:'unavailable'};
     try {
@@ -291,6 +296,10 @@ export async function handleMemoryClarificationReply({line,scope,store,clarifica
   const saved=await store.getClarification({scope,commandId:clarificationId,atUtc:line?.committedAtUtc});
   if(!saved)return null;
   validateInput({line,scope,store,commandId:clarificationId});
+  if(typeof store.verifyAcceptedLine==='function' &&
+     (!await store.verifyAcceptedLine({scope,line}) ||
+      !await store.verifyAcceptedLine({scope,line:saved.line})))
+    return result(actionBase(scope,saved.line,clarificationId,saved.parsed.intent),'failed');
   if(!same(saved.scope,scope) || !same(saved.line,scope) ||
      !Array.isArray(saved.frozen) || !Array.isArray(saved.alternatives))return null;
   const text=line.content.trim();
