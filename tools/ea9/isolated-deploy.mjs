@@ -92,7 +92,12 @@ if(mode==='deploy'){
       await cp(source,dest,{recursive:true,force:false,errorOnExist:true});
     }
     const extraHashes=[];
-    for(const x of additional)if(x.wasPresent)extraHashes.push({relative:x.relative,files:await inventory(safe(target,x.relative))});
+    for(const x of additional)if(x.wasPresent){
+      const source=safe(target,x.relative),stat=await lstat(source);
+      if(stat.isSymbolicLink())fail('linked_extra_state');
+      extraHashes.push({relative:x.relative,kind:stat.isDirectory()?'directory':'file',
+        contents:stat.isDirectory()?await inventory(source):await sha(source)});
+    }
     const receipt={version:1,sourceHead:head,target,backup,originalPluginsPresent:original,
       pluginsBefore:before,additional,extraHashes,staged:listed,
       createdAt:new Date().toISOString(),rollbackVerified:false};
@@ -120,6 +125,11 @@ if(mode==='deploy'){
     fail('backup_tampered');
   for(const x of receipt.additional)if(x.wasPresent&&!await exists(safe(backup,x.relative)))
     fail('additional_backup_missing:'+x.relative);
+  for(const x of receipt.extraHashes||[]){
+    const saved=safe(backup,x.relative);
+    const current=x.kind==='directory'?await inventory(saved):await sha(saved);
+    if(JSON.stringify(current)!==JSON.stringify(x.contents))fail('additional_state_backup_tampered:'+x.relative);
+  }
   if(mode==='rollback'){
     await rm(path.join(target,'plugins'),{recursive:true,force:true});
     if(receipt.originalPluginsPresent)
@@ -134,7 +144,18 @@ if(mode==='deploy'){
     }
   }
   const current=await inventory(path.join(target,'plugins'));
-  const restored=JSON.stringify(current)===JSON.stringify(receipt.pluginsBefore);
+  let restored=JSON.stringify(current)===JSON.stringify(receipt.pluginsBefore);
+  if(mode==='rollback'){
+    for(const x of receipt.extraHashes||[]){
+      const actual=safe(target,x.relative);
+      const now=x.kind==='directory'?await inventory(actual):await sha(actual);
+      if(JSON.stringify(now)!==JSON.stringify(x.contents))restored=false;
+    }
+  } else if(mode==='verify'){
+    for(const item of receipt.staged||[])
+      if(!await exists(safe(target,item.path))||await sha(safe(target,item.path))!==item.sha256)
+        fail('deployed_package_hash_mismatch:'+item.path);
+  }
   if(mode==='rollback'&&!restored)fail('rollback_hash_mismatch');
   console.log(JSON.stringify({status:mode==='rollback'?'rollback_hash_verified':'backup_hash_verified',
     restored:mode==='rollback'?restored:null,sourceHead:head,originalFiles:receipt.pluginsBefore.length}));
