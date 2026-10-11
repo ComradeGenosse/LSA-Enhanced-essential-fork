@@ -809,6 +809,7 @@ class Program
         Check(Queued()==0,"shutdown keeps callback queue retired");
         shared.Shutdown();Check(host.Anchors.Resolve(kept.CaptureRef)!=null,"optional PS shutdown cannot clear another consumer's shared lifetime");
         host.Shutdown();Check(host.Anchors.Count==0,"host teardown clears shared table");
-        Console.WriteLine("PASS "+assertions+" production integration assertions including lifecycle telemetry");
+        EA5TestCases.Run(Check);
+        Console.WriteLine("PASS "+assertions+" production integration assertions including lifecycle telemetry and EA5 native proof");
     }
 }
