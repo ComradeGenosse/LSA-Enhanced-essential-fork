@@ -545,7 +545,10 @@ export class IntelligenceClient {
       capabilities:this.runtime.capabilities,
       damageCallbacks:diagnostics?.damageCallbacks??{ped_damage:0,player_damage:0,vehicle_damage:0},
       ps2:{...this.runtime.ps2Diagnostics,playerSpeechGate:diagnostics?.playerSpeechGate??'unsupported_capture_receipt',speech:this.runtime.transcripts.diagnostics},
-      c01:{...this.runtime.utterances.diagnostics,enabled:this.runtime.utteranceLifecycleVersion===1},
+      c01:{...this.runtime.utterances.diagnostics,
+        ...this.runtime.speechDiagnostics,
+        enabled:this.runtime.utteranceLifecycleVersion===1,
+        proximityEnabled:this.runtime.capabilities.playerSpeech===true},
       ps3:{...this.runtime.ps3Diagnostics,reasons:{...this.runtime.ps3Diagnostics.reasons}},
       finalSnapshot,
     };
