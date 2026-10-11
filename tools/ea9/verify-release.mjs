@@ -22,6 +22,11 @@ const inputFile=arg('--native-inputs')||die('native_inputs_required');
 if(!/^[0-9a-f]{40}$/i.test(expected))die('invalid_expected_head');
 const actualHead=execFileSync('git',['rev-parse','HEAD'],{cwd:repo,encoding:'utf8'}).trim();
 if(actualHead!==expected)die('head_mismatch:'+actualHead);
+if(Number(process.versions.node.split('.')[0])<24)die('node24_required_for_sqlite_release');
+const dirty=execFileSync('git',['status','--porcelain','--untracked-files=all','--',
+  'lsa-essential-e1-candidate/src','lsa-shared-brain/src','native',
+  'lsa-essential-e1-candidate/tools/buildCandidate.mjs','tools/native-sdk'],{cwd:repo,encoding:'utf8'}).trim();
+if(dirty)die('source_checkout_dirty_or_untracked:'+dirty.slice(0,250));
 const inside=(base,p)=>p===base||p.startsWith(base+path.sep);
 if(inside(repo,release) && inside(path.join(repo,'lsa-essential-e1-candidate','src'),release))die('source_folder_not_stage');
 const sha=bytes=>createHash('sha256').update(bytes).digest('hex');
@@ -74,6 +79,8 @@ const required=[
   'plugins/LosSantosAliveServer/e1/characters/timelineSourceBridge.mjs'
 ];
 for(const f of required)if(!await exists(pathFor(release,f)))die('missing_required_module:'+f);
+if(legacy?.nativeContract?.dllSha256 && legacy.nativeContract.dllSha256!==legacy.stockDllReferenceSha256)
+  die('native_contract_and_build_manifest_disagree');
 if(!legacy?.builtBundleSha256||!legacy?.e1SourceTreeSha256||
    !legacy?.upstreamBundleSha256||!legacy?.stockDllReferenceSha256||
    !Number.isInteger(legacy.astPatchCount))die('candidate_manifest_incomplete');
@@ -122,6 +129,8 @@ for(const item of nativeInputs){
 }
 for(const f of expectedNative)if(!collected.has(f))die('missing_native_compilation:'+f);
 const names=(await inventory(release)).filter(n=>n!=='ea9-release-manifest.json');
+if(names.some(n=>/(?:^|\/)\.env(?:\.|$)|(?:^|\/)node_modules\/|(?:^|\/)\.git\//i.test(n)))
+  die('private_or_dependency_cache_in_release');
 const entries=[];
 for(const f of names)entries.push({path:f,sha256:await shaFile(pathFor(release,f))});
 if(mode==='seal'){
