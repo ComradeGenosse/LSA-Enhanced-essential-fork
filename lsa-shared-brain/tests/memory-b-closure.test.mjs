@@ -171,6 +171,9 @@ test('B: M5 single-connection privacy is serialized and cannot restore purged or
   assert.equal(first.durableCommit,true);
   assert.deepEqual(first,duplicate);
   assert.ok((await x.store.listSuppressedMemoryIds(x.scope)).includes(target));
+  const masked=await x.store.readCommittedEvidencePage({scope:x.scope});
+  assert.equal(masked.items.some(row=>row.recordId===target),false);
+  assert.ok(masked.skipped.some(row=>row.recordId===target));
   assert.equal((await m5.inspect({scope:{...x.scope,protagonistKey:'trevor'}})).records.length,0);
   const exported=await m5.exportArchive({scope:x.scope});
   assert.equal(exported.sha256,sum(exported.json));
