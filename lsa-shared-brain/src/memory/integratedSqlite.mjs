@@ -50,7 +50,7 @@ function validScope(scope,world){
 function dbOwnerScope(db,scope,world){
  validScope(scope,world);
  if(!db.prepare('SELECT character_id FROM promoted_profiles WHERE character_id=?').get(scope.characterId)||
-    !db.prepare('SELECT timeline_id FROM timelines WHERE timeline_id=? AND world_profile_id=?').get(scope.timelineId))
+    !db.prepare('SELECT timeline_id FROM timelines WHERE timeline_id=? AND world_profile_id=?').get(scope.timelineId,world))
    fail('memory_owner_or_timeline_unknown');
 }
 const stmtScope=(scope)=>[scope.worldProfileId,scope.characterId,scope.timelineId];
