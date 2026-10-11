@@ -195,13 +195,14 @@ export async function processIdleCuration({enabled=false,mode,queue,provider,led
      return {status:'completed',processed:completed.size};
    }catch{return {status:'settlement_pending',processed:completed.size};}
  }catch(error){
-   const cancelled=signal?.aborted===true||error?.code==='scope_revoked'||error?.code==='estimate_exceeds_budget';
+   const noBudget=error?.code==='estimate_exceeds_budget'||error?.message==='curation_verified_luna_pricing_required';
+   const cancelled=signal?.aborted===true||error?.code==='scope_revoked';
    const retryAfterMs=Number.isFinite(error?.retryAfterMs)&&error.retryAfterMs>=0?error.retryAfterMs:0;
    const permanent=error?.status>=400&&error?.status<500&&![408,409,425,429].includes(error.status)||
        error?.code==='curation_ungrounded_appraisal'||error?.code==='curation_cross_scope_batch';
    const retry=claimed.filter(x=>!completed.has(x.job.jobId));
    await tryAll(retry.map(x=>async()=>{
-     if(cancelled&&!transportStarted){
+     if((cancelled||noBudget)&&!transportStarted){
        await queue.releaseLeased({jobId:x.job.jobId,leaseToken:x.leaseToken});
      }else{
        const attempt=x.job.attempt+1;
@@ -218,7 +219,7 @@ export async function processIdleCuration({enabled=false,mode,queue,provider,led
        else await ledger.release({batchKey,maxUsd:estimatedMaxCostUsd});
      }catch{return {status:'settlement_pending',processed:completed.size};}
    }
-   return {status:cancelled?'cancelled':completed.size?'partially_completed':'retry_scheduled',
+   return {status:noBudget?'budget_estimate_exceeded':cancelled?'cancelled':completed.size?'partially_completed':'retry_scheduled',
      processed:completed.size};
  }
 }
