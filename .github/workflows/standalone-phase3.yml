@@ -65,15 +65,24 @@ jobs:
         shell: pwsh
         run: |
           $exe = (Resolve-Path 'native/standalone-host/tests/bin/Release/net481/Phase2PipeHarness.exe').Path
-          $hostProcess = Start-Process -FilePath $exe -PassThru
-          try {
-            $ok = $false
-            for ($attempt = 1; $attempt -le 12; $attempt++) {
-              node lsa-standalone-companion/tools/typed-turn-fixture.mjs
-              if ($LASTEXITCODE -eq 0) { $ok = $true; break }
-              Start-Sleep -Milliseconds 250
+          foreach ($mode in @('direct_fixture','loopback_responses')) {
+            # Each mode gets its own genuine native host process and lease;
+            # no cancelled native turn is silently replayed between fixtures.
+            $hostProcess = Start-Process -FilePath $exe -PassThru
+            try {
+              $ok = $false
+              for ($attempt = 1; $attempt -le 12; $attempt++) {
+                if ($mode -eq 'loopback_responses') {
+                  node lsa-standalone-companion/tools/typed-turn-fixture.mjs --http-stub
+                } else {
+                  node lsa-standalone-companion/tools/typed-turn-fixture.mjs
+                }
+                if ($LASTEXITCODE -eq 0) { $ok = $true; break }
+                Start-Sleep -Milliseconds 250
+              }
+              if (-not $ok) { throw "Typed turn interop failed: $mode" }
+            } finally {
+              Stop-Process -Id $hostProcess.Id -Force -ErrorAction SilentlyContinue
+              Wait-Process -Id $hostProcess.Id -Timeout 5 -ErrorAction SilentlyContinue
             }
-            if (-not $ok) { throw 'Native typed turn to AI fixture interop failed' }
-          } finally {
-            Stop-Process -Id $hostProcess.Id -Force -ErrorAction SilentlyContinue
           }
