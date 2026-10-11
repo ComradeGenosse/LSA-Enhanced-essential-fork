@@ -78,7 +78,7 @@ function rig({scheduler,gate,pre=false}={}){
   };
   const nativeAuthority={resolveNativeOwner:ownerProof,resolvePrepromotion:ownerProof,
     resolveParticipants:()=>state.protagonist?[{nativeVerified:true,verified:true,
-      captureRef:PLAYER,subjectKind:'protagonist',subjectKey:'franklin',
+      captureRef:PLAYER,subjectKind:'protagonist',subjectKey:'franklin',sampledGameTick:100,
       hostRunId:R,worldEpoch:3,adapterEpoch:E}]:[],
     verifyNativeCoverage:({candidate,observationId})=>state.negative?{
       nativeVerified:true,certified:true,status:'did_not_witness',sourceReceiptId:id(900),
