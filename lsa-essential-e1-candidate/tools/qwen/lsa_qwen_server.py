@@ -115,12 +115,21 @@ def get_model(family):
     if torch.cuda.is_available():
         torch.cuda.empty_cache()
     from faster_qwen3_tts import FasterQwen3TTS
+    model_load_started = time.perf_counter()
     model = FasterQwen3TTS.from_pretrained(
         MODEL_IDS[family], device=device, dtype=torch.bfloat16 if device == "cuda" else torch.float32
     )
     if model.sample_rate != 24000:
         raise RuntimeError("LSA requires 24kHz output; never reinterpret or forward a different sample rate")
+    model_load_ms = (time.perf_counter() - model_load_started) * 1000
+    warmup_started = time.perf_counter()
     model.warmup(prefill_len=100)
+    warmup_ms = (time.perf_counter() - warmup_started) * 1000
+    if profile_enabled:
+        gpu_name = torch.cuda.get_device_name(torch.cuda.current_device()) if device == "cuda" and torch.cuda.is_available() else "cpu"
+        LOGGER.info("tts_model_init family=%s device=%s gpu=%s torch=%s load_ms=%.1f warmup_ms=%.1f "
+                    "cuda_graph_status=unverified",
+                    family, device, gpu_name.replace(" ", "_"), torch.__version__, model_load_ms, warmup_ms)
     active_model, active_family = model, family
     LOGGER.info("Ready: %s at 24000 Hz", family)
     return model
@@ -148,7 +157,8 @@ def generate(model, voice, text, instructions):
 @app.get("/health")
 def health():
     return {"status": "ok", "active_model_family": active_family,
-            "voice_count": len(voices), "sample_rate": 24000}
+            "voice_count": len(voices), "sample_rate": 24000,
+            "device": device, "profiling": profile_enabled, "cuda_sync": profile_cuda_sync}
 
 
 @app.post("/v1/audio/speech")
