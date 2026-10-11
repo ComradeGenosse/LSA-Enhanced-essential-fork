@@ -6,7 +6,7 @@ import { NativePlayerContext, PendingDialogue, handleNextTypedTurn } from './typ
 // intentionally more restrictive than the eventual multi-NPC arbiter.
 export async function runTypedTurnSession({
   client, provider, tts = null, earlySpeech = false,
-  signal, pollMs = 250, onStatus = () => {}
+  confirmPlayback = false, signal, pollMs = 250, onStatus = () => {}
 } = {}) {
   if (!client || !provider || !Number.isInteger(pollMs) ||
       pollMs < 50 || pollMs > 5000 || typeof onStatus !== 'function')
@@ -40,13 +40,31 @@ export async function runTypedTurnSession({
             ? ({ client: native, offer, claims, modelSegments, signal: turnSignal }) =>
                 stageNativeSpeechSegments({
                   client: native, offer, claims, modelSegments,
-                  tts, signal: turnSignal
+                  tts, signal: turnSignal, confirmPlayback,
+                  onPlaybackProgress: progress =>
+                    onStatus('physical_segment_progress', {
+                      completedSegments: progress.completedSegments,
+                      expectedSegments: progress.expectedSegments
+                    })
+                }).then(receipt => {
+                  if (receipt.physicalReceipt)
+                    onStatus('physical_playback_completed_no_history');
+                  return receipt;
                 })
             : null,
           onReplyStaged: tts ? ({ client: native, claims, offer, replyText, signal: turnSignal }) =>
             stageNativePcmStream(native, claims,
               tts.streamPcm({ text: replyText, identity: offer, signal: turnSignal }),
-              { signal: turnSignal }) : null
+              { signal: turnSignal, confirmPlayback,
+                onPlaybackProgress: progress =>
+                  onStatus('physical_segment_progress', {
+                    completedSegments: progress.completedSegments,
+                    expectedSegments: progress.expectedSegments
+                  }) }).then(receipt => {
+                if (receipt.physicalReceipt)
+                  onStatus('physical_playback_completed_no_history');
+                return receipt;
+              }) : null
         });
         if (result.state === 'speech_segments_sealed_not_played')
           onStatus('speech_segments_sealed_not_played');
@@ -69,6 +87,9 @@ export async function runTypedTurnSession({
           'speech_too_long', 'speech_invalid_pcm_length',
           'pcm_stream_capacity', 'pcm_no_native_output_credit',
           'pcm_transfer_cancelled',
+          'playback_cancelled', 'playback_deadline',
+          'playback_device_stalled', 'playback_device_failed',
+          'invalid_native_physical_progress', 'playback_ack_rejected',
           'speech_text_capacity', 'speech_segment_capacity',
           'provider_stream_invalid', 'provider_stream_failure',
           'provider_stream_unavailable', 'provider_unsupported_output'
