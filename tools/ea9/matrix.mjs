@@ -21,12 +21,12 @@ const suites=[
   ['EA2 delivery and receipts',['ea2-speech-delivery.test.mjs','ea2-turn-lifecycle.test.mjs','elevenlabs-provider.test.mjs']],
   ['EA3 strict streaming',['ea3-delivery-hints.test.mjs','streaming-decision.test.mjs','decisions-and-requests.test.mjs']],
   ['EA4 lifetime',['ea4-runtime-integration.test.mjs','emotional-mood-continuity.test.mjs']],
-  ['EA5 native protagonist',['ea5-native-protagonist-authority.test.mjs']],
-  ['EA6 M1 SQLite',['ea6-storage-timeline.test.mjs']],
+  ['EA5 authenticated native protagonist',['ea5-native-protagonist-authority.test.mjs','ea-final-a-native-intake.test.mjs']],
+  ['EA6 native-confirmed M1 SQLite',['ea6-storage-timeline.test.mjs','ea-final-b-timeline.test.mjs']],
   ['EA7 continuity',['ea7-emotional-continuity-completion.test.mjs']],
-  ['EA8 vendor tag safety',['ea8-elevenlabs-provider-safety.test.mjs']],
-  ['EA9 release and rollback',['ea9-release.test.mjs']],
-  ['Legacy P2 JSON',['p2-authority.test.mjs','p2-contract.test.mjs']],
+  ['EA8 verified vendor/applied tag',['ea8-elevenlabs-provider-safety.test.mjs','ea-final-c-emotional-delivery.test.mjs']],
+  ['EA9 full runtime and rollback',['ea9-release.test.mjs','ea-final-integration-wiring.test.mjs']],
+  ['Legacy P2 JSON',['p2-authority.test.mjs','p2-contract.test.mjs','p2-profiles.test.mjs']],
   ['Director/controller/native bridge',['director-wire.test.mjs','director-transport.test.mjs','native-lifecycle.test.mjs']]
 ];
 const result={schemaVersion:1,head,expectedHead:expected,branch:process.env.GITHUB_HEAD_REF||process.env.GITHUB_REF_NAME||null,
