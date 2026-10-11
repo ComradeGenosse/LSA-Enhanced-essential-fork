@@ -178,6 +178,24 @@ namespace LSA.Standalone.RageHost
                         ClaimInt(req.Frame, "chunkIndex"), bytes, out reason);
                     reply["status"] = accepted ? "buffered_not_played" : reason;
                 }
+                else if (req.Type == "audio.status")
+                {
+                    int queued, accepted, forwarded;
+                    bool sealedAudio;
+                    bool valid = audio.TryStatus(Claim(req.Frame, "streamId"),
+                        Claim(req.Frame, "audioLeaseId"), Claim(req.Frame, "audioGeneration"),
+                        Claim(req.Frame, "turnId"), Claim(req.Frame, "actorIncarnationId"),
+                        out queued, out accepted, out forwarded, out sealedAudio);
+                    reply["status"] = valid ? "not_played" : "stale_audio";
+                    if (valid)
+                    {
+                        reply["queuedBytes"] = queued;
+                        reply["acceptedBytes"] = accepted;
+                        reply["forwardedBytes"] = forwarded;
+                        reply["creditsBytes"] = NativeAudioRegistry.MaxPendingBytes - queued;
+                        reply["sealed"] = sealedAudio;
+                    }
+                }
                 else if (req.Type == "audio.end")
                 {
                     string reason;
@@ -280,6 +298,7 @@ namespace LSA.Standalone.RageHost
                         type == "turn.reply" ? "turn.reply.result" :
                         type == "audio.open" ? "audio.open.result" :
                         type == "audio.chunk" ? "audio.chunk.result" :
+                        type == "audio.status" ? "audio.status.result" :
                         type == "audio.end" ? "audio.end.result" :
                         type == "audio.cancel" ? "audio.cancel.result" : "request.rejected";
                     var payload = new Dictionary<string, object>();
@@ -289,7 +308,8 @@ namespace LSA.Standalone.RageHost
                              type == "turn.confirm" || type == "turn.cancel" ||
                              type == "turn.reply" ||
                              type == "audio.open" || type == "audio.chunk" ||
-                             type == "audio.end" || type == "audio.cancel")
+                             type == "audio.end" || type == "audio.cancel" ||
+                             type == "audio.status")
                     {
                         if (!ValidCommandFields(type, frame)) return;
                         if (Interlocked.Increment(ref pendingCount) > MaxQueued)
@@ -320,7 +340,8 @@ namespace LSA.Standalone.RageHost
         {
             int count = type == "turn.confirm" ? 13 :
                 type == "turn.cancel" ? 11 : type == "turn.reply" ? 12 :
-                type == "audio.open" || type == "audio.cancel" ? 12 :
+                type == "audio.open" || type == "audio.cancel" ||
+                type == "audio.status" ? 12 :
                 type == "audio.chunk" || type == "audio.end" ? 14 : 7;
             if (frame.Count != count) return false;
             if (type == "turn.confirm")
@@ -338,7 +359,7 @@ namespace LSA.Standalone.RageHost
                 return Fields(frame, "turnId", "actorIncarnationId", "leaseId", "generation") &&
                     IntField(frame, "sampleRate", NativeAudioRegistry.Rate,
                         NativeAudioRegistry.Rate);
-            if (type == "audio.cancel")
+            if (type == "audio.cancel" || type == "audio.status")
                 return Fields(frame, "streamId", "audioLeaseId", "audioGeneration",
                     "turnId", "actorIncarnationId");
             if (type == "audio.chunk")
@@ -403,7 +424,8 @@ namespace LSA.Standalone.RageHost
             return type == "turn.confirm" ? value.Count == 13 :
                 type == "turn.cancel" ? value.Count == 11 :
                 type == "turn.reply" ? value.Count == 12 :
-                type == "audio.open" || type == "audio.cancel" ? value.Count == 12 :
+                type == "audio.open" || type == "audio.cancel" ||
+                type == "audio.status" ? value.Count == 12 :
                 type == "audio.chunk" || type == "audio.end" ? value.Count == 14 :
                 value.Count == 7;
         }
