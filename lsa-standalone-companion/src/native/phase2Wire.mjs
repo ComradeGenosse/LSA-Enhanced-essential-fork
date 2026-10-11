@@ -135,22 +135,36 @@ export class Phase2NativeClient {
       'turn.next': 'turn.next.result',
       'turn.confirm': 'turn.confirm.result',
       'turn.cancel': 'turn.cancel.result',
-      'turn.reply': 'turn.reply.result'
+      'turn.reply': 'turn.reply.result',
+      'audio.open': 'audio.open.result',
+      'audio.chunk': 'audio.chunk.result',
+      'audio.end': 'audio.end.result',
+      'audio.cancel': 'audio.cancel.result'
     })[reply.type];
     if (!expected) throw new Error('unsupported_native_reply');
     const isOffer = expected === 'turn.next.result' && value.status === 'ok';
+    const isAudioOpen = expected === 'audio.open.result' &&
+      value.status === 'audio_authorized_not_playing';
     const fields = isOffer
       ? ['requestId', 'status', 'turnId', 'sessionNonce', 'actorIncarnationId',
           'leaseId', 'generation', 'source', ...(Object.hasOwn(value, 'playerText') ? ['playerText'] : []),
           ...(Object.hasOwn(value, 'conversationId') ? ['conversationId', 'turnOrdinal'] : [])]
       : expected === 'host.snapshot.result'
         ? ['requestId', 'status', 'trackedActors']
-        : ['requestId', 'status'];
+        : isAudioOpen
+          ? ['requestId', 'status', 'streamId', 'audioLeaseId',
+              'audioGeneration', 'sampleRate']
+          : ['requestId', 'status'];
     verify(value, expected, this.#binding, ++this.#incoming, fields);
     if (typeof value.status !== 'string' ||
         (value.type === 'host.snapshot.result' &&
           (!Number.isSafeInteger(value.trackedActors) || value.trackedActors < 0)))
       throw new Error('invalid_native_reply');
+    if (isAudioOpen &&
+        (!UUID.test(value.streamId) || !UUID.test(value.audioLeaseId) ||
+         !/^[1-9][0-9]{0,18}$/.test(value.audioGeneration) ||
+         value.sampleRate !== 24000))
+      throw new Error('invalid_native_audio_lease');
     if (isOffer && Object.hasOwn(value, 'playerText') &&
         (value.source !== 'player_text' || typeof value.playerText !== 'string' ||
          !value.playerText.trim() || value.playerText.length > 1024 ||
@@ -172,14 +186,18 @@ export class Phase2NativeClient {
     this.#pending.delete(value.requestId);
     clearTimeout(reply.timer);
     if (value.status === 'ok' || (reply.type === 'turn.next' && value.status === 'none') ||
-        (reply.type === 'turn.reply' && value.status === 'staged_not_played'))
+        (reply.type === 'turn.reply' && value.status === 'staged_not_played') ||
+        (reply.type === 'audio.open' && value.status === 'audio_authorized_not_playing') ||
+        (reply.type === 'audio.chunk' && value.status === 'buffered_not_played') ||
+        (reply.type === 'audio.end' && value.status === 'sealed_not_played'))
       reply.resolve(value);
     else reply.reject(new Error('native_rejected_' + value.status));
   }
 
   request(type, claims = {}) {
     if (this.#state !== 'ready') return Promise.reject(new Error('native_not_ready'));
-    if (!['health.ping', 'host.snapshot', 'turn.next', 'turn.confirm', 'turn.cancel', 'turn.reply'].includes(type))
+    if (!['health.ping', 'host.snapshot', 'turn.next', 'turn.confirm', 'turn.cancel',
+      'turn.reply', 'audio.open', 'audio.chunk', 'audio.end', 'audio.cancel'].includes(type))
       return Promise.reject(new Error('unsupported_request'));
     if (this.#pending.size >= 8 || this.#outgoing >= 0x7fffffff)
       return Promise.reject(new Error('native_backpressure'));
@@ -188,17 +206,43 @@ export class Phase2NativeClient {
       : type === 'turn.cancel'
         ? ['turnId', 'actorIncarnationId', 'leaseId', 'generation']
         : type === 'turn.reply'
-          ? ['turnId', 'actorIncarnationId', 'leaseId', 'generation', 'replyText'] : [];
+          ? ['turnId', 'actorIncarnationId', 'leaseId', 'generation', 'replyText']
+          : type === 'audio.open'
+            ? ['turnId', 'actorIncarnationId', 'leaseId', 'generation', 'sampleRate']
+            : type === 'audio.cancel'
+              ? ['streamId', 'audioLeaseId', 'audioGeneration', 'turnId', 'actorIncarnationId']
+              : type === 'audio.chunk'
+                ? ['streamId', 'audioLeaseId', 'audioGeneration', 'turnId',
+                    'actorIncarnationId', 'chunkIndex', 'pcmBase64']
+                : type === 'audio.end'
+                  ? ['streamId', 'audioLeaseId', 'audioGeneration', 'turnId',
+                      'actorIncarnationId', 'chunkCount', 'totalBytes'] : [];
+    const numeric = ['sampleRate', 'chunkIndex', 'chunkCount', 'totalBytes'];
+    const words = ['generation', 'audioGeneration', 'source', 'replyText', 'pcmBase64'];
     if (!exact(claims, required) ||
-        required.some(key => typeof claims[key] !== 'string') ||
-        required.filter(key => !['generation', 'source', 'replyText'].includes(key))
+        required.some(key => numeric.includes(key)
+          ? !Number.isSafeInteger(claims[key]) : typeof claims[key] !== 'string') ||
+        required.filter(key => !numeric.includes(key) && !words.includes(key))
           .some(key => !UUID.test(claims[key])) ||
         (required.includes('generation') && !/^[1-9][0-9]{0,18}$/.test(claims.generation)) ||
+        (required.includes('audioGeneration') &&
+          !/^[1-9][0-9]{0,18}$/.test(claims.audioGeneration)) ||
         (required.includes('source') &&
           !['player_text', 'player_mic', 'special_event'].includes(claims.source)) ||
         (required.includes('replyText') &&
           (!claims.replyText.trim() || claims.replyText.length > 2048 ||
-           /[\u0000-\u0008\u000b-\u001f\u007f]/.test(claims.replyText))))
+           /[\u0000-\u0008\u000b-\u001f\u007f]/.test(claims.replyText))) ||
+        (required.includes('sampleRate') && claims.sampleRate !== 24000) ||
+        (required.includes('chunkIndex') &&
+          (claims.chunkIndex < 0 || claims.chunkIndex >= 64)) ||
+        (required.includes('chunkCount') &&
+          (claims.chunkCount < 1 || claims.chunkCount > 64)) ||
+        (required.includes('totalBytes') &&
+          (claims.totalBytes < 2 || claims.totalBytes > 192000)) ||
+        (required.includes('pcmBase64') &&
+          (!/^[A-Za-z0-9+/]+={0,2}$/.test(claims.pcmBase64) ||
+            claims.pcmBase64.length > 4000 ||
+            claims.pcmBase64.length < 4)))
       return Promise.reject(new Error('invalid_wire_claim'));
     const requestId = randomUUID();
     return new Promise((resolve, reject) => {
