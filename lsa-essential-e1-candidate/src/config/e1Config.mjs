@@ -103,6 +103,26 @@ export function normalizeConfig(input = {}, env = process.env) {
   if(speechMode!=='off' && input.intelligence?.mode!=='shadow')
     throw new TypeError('spontaneousSpeech requires intelligence.mode=shadow.');
   const selectedProvider = String(input.provider ?? env.AI_PROVIDER ?? 'openai').trim().toLowerCase();
+  const speechProvider = String(input.speechProvider ?? 'openai').trim().toLowerCase();
+  if (!['openai','faster-qwen3-tts'].includes(speechProvider))
+    throw new TypeError('speechProvider must be openai or faster-qwen3-tts.');
+  const qwenInput = input.qwenTts ?? {};
+  if (!qwenInput || typeof qwenInput !== 'object' || Array.isArray(qwenInput) ||
+      Object.keys(qwenInput).some(k => !['baseUrl','speechVoices','speechVoiceProfiles'].includes(k)))
+    throw new TypeError('qwenTts has unknown or invalid fields.');
+  const qwenVoiceInput = qwenInput.speechVoices ?? ['nathan'];
+  if (!Array.isArray(qwenVoiceInput) || qwenVoiceInput.length < 1 || qwenVoiceInput.length > 32 ||
+      qwenVoiceInput.some(v => typeof v !== 'string' || !/^[a-z][a-z0-9_-]{0,31}$/.test(v)) ||
+      new Set(qwenVoiceInput).size !== qwenVoiceInput.length)
+    throw new TypeError('qwenTts.speechVoices must contain 1–32 unique lowercase voice identifiers.');
+  const qwenTts = Object.freeze({
+    baseUrl: baseUrl(qwenInput.baseUrl, 'http://127.0.0.1:8000/v1', 'qwenTts.baseUrl'),
+    speechVoices: Object.freeze([...qwenVoiceInput]),
+  });
+  // The local runtime must never forward a real OpenAI API credential to this endpoint.
+  const local = new URL(qwenTts.baseUrl);
+  if (local.protocol !== 'http:' || !['localhost','127.0.0.1','[::1]'].includes(local.hostname))
+    throw new TypeError('qwenTts.baseUrl must be an HTTP loopback URL.
   if (!['openai', 'gemini'].includes(selectedProvider)) throw new TypeError('E1 provider must be openai or gemini.');
   const defaults = {
     reasoningModel: 'gpt-6-luna', reasoningEffort: 'low', transcriptionModel: 'gpt-transcribe',
@@ -118,8 +138,10 @@ export function normalizeConfig(input = {}, env = process.env) {
   };
   const reasoningModel = String(input.reasoningModel ?? env.OPENAI_REASONING_MODEL ?? defaults.reasoningModel).trim();
   const transcriptionModel = String(input.transcriptionModel ?? env.OPENAI_TRANSCRIPTION_MODEL ?? defaults.transcriptionModel).trim();
-  const ttsModel = String(input.ttsModel ?? env.OPENAI_TTS_MODEL ?? defaults.ttsModel).trim();
-  const ttsVoice = String(input.ttsVoice ?? env.OPENAI_TTS_VOICE ?? defaults.ttsVoice).trim();
+  const ttsModel = speechProvider === 'faster-qwen3-tts'
+    ? 'qwen3-tts' : String(input.ttsModel ?? env.OPENAI_TTS_MODEL ?? defaults.ttsModel).trim();
+  const ttsVoice = speechProvider === 'faster-qwen3-tts' ? qwenTts.speechVoices[0]
+    : String(input.ttsVoice ?? env.OPENAI_TTS_VOICE ?? defaults.ttsVoice).trim();
   const reasoningEffort = String(input.reasoningEffort ?? env.OPENAI_REASONING_EFFORT ?? defaults.reasoningEffort).trim().toLowerCase();
   if (input.observabilityEnabled !== undefined && typeof input.observabilityEnabled !== 'boolean') throw new TypeError('observabilityEnabled must be a boolean.');
   if (input.actingEnabled !== undefined && typeof input.actingEnabled !== 'boolean') throw new TypeError('actingEnabled must be a boolean.');
@@ -134,20 +156,22 @@ export function normalizeConfig(input = {}, env = process.env) {
   }
   if (!['none', 'low', 'medium', 'high', 'xhigh', 'max'].includes(reasoningEffort)) throw new TypeError('reasoningEffort is unsupported.');
 
-  const explicitVoicePool = input.speechVoices !== undefined && input.speechVoices !== null;
-  const voiceInput = explicitVoicePool ? input.speechVoices : [ttsVoice];
+  const explicitVoicePool = speechProvider === 'faster-qwen3-tts' || (input.speechVoices !== undefined && input.speechVoices !== null);
+  const voiceInput = speechProvider === 'faster-qwen3-tts' ? qwenTts.speechVoices : (explicitVoicePool ? input.speechVoices : [ttsVoice]);
   if (!Array.isArray(voiceInput) || voiceInput.length === 0 || voiceInput.length > 32 || voiceInput.some(voice => typeof voice !== 'string')) {
     throw new TypeError('speechVoices must be a nonempty array of at most 32 voice names.');
   }
   const speechVoices = voiceInput.map(voice => explicitVoicePool ? voice.trim().toLowerCase() : voice.trim());
   if (speechVoices.some(voice => !voice || voice.length > 128 || (explicitVoicePool && !/^[a-z][a-z0-9_-]{0,31}$/.test(voice)))) throw new TypeError('speechVoices contains an invalid voice name.');
   if (new Set(speechVoices).size !== speechVoices.length) throw new TypeError('speechVoices cannot contain duplicates.');
-  const ttsSpeed = Number(input.ttsSpeed ?? 1);
+  const ttsSpeed = Number(speechProvider === 'faster-qwen3-tts' ? 1 : (input.ttsSpeed ?? 1));
   if (!Number.isFinite(ttsSpeed) || ttsSpeed < 0.25 || ttsSpeed > 4) throw new TypeError('ttsSpeed must be between 0.25 and 4.0.');
-  const speechInstructionsSupported = /^gpt-4o-mini-tts(?:-|$)/.test(ttsModel);
+  const speechInstructionsSupported = speechProvider === 'faster-qwen3-tts' ||
+    /^gpt-4o-mini-tts(?:-|$)/.test(ttsModel);
   const actingEnabled = input.actingEnabled ?? false;
   if (actingEnabled && !speechInstructionsSupported) throw new TypeError('actingEnabled requires a TTS model that supports speech instructions.');
-  const supportedVoices = supportedVoicesForModel(ttsModel, speechInstructionsSupported);
+  const supportedVoices = speechProvider === 'faster-qwen3-tts' ? qwenTts.speechVoices
+    : supportedVoicesForModel(ttsModel, speechInstructionsSupported);
   if (explicitVoicePool && speechVoices.length > 1) {
     if (!supportedVoices) throw new TypeError('Cannot validate a multi-voice pool for the configured TTS model.');
     if (speechVoices.some(voice => !supportedVoices.includes(voice))) throw new TypeError('speechVoices contains a voice unsupported by the configured TTS model.');
@@ -156,7 +180,10 @@ export function normalizeConfig(input = {}, env = process.env) {
   if (!['deterministic-session', 'character-aware-session'].includes(voiceAssignment)) {
     throw new TypeError('voiceAssignment must be deterministic-session or character-aware-session.');
   }
-  const speechVoiceProfiles = normalizeSpeechVoiceProfiles(input.speechVoiceProfiles, { speechVoices, supportedVoices, voiceAssignment });
+  const speechVoiceProfiles = normalizeSpeechVoiceProfiles(
+    speechProvider === 'faster-qwen3-tts' ? (qwenInput.speechVoiceProfiles ??
+      Object.fromEntries(qwenTts.speechVoices.map(voice => [voice, {genders:['any'],ageBands:['any']}])))
+      : input.speechVoiceProfiles, { speechVoices, supportedVoices, voiceAssignment });
 
   const providerWorkDeadlineMs = boundedInteger(input.providerWorkDeadlineMs ?? input.turnDeadlineMs, defaults.turnDeadlineMs, 5_000, 120_000, 'providerWorkDeadlineMs');
   const retryInput = input.retry ?? defaults.retry;
@@ -180,6 +207,7 @@ export function normalizeConfig(input = {}, env = process.env) {
 
   return Object.freeze({
     provider: selectedProvider,
+    speechProvider, qwenTts,
     persistentIdentity: normalizeIdentityConfig(input.persistentIdentity),
     promotedCharacters: normalizeCharacterConfig(input.promotedCharacters),
     intelligence: normalizePerceptionConfig(input.intelligence),
