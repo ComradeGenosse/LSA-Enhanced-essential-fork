@@ -64,6 +64,10 @@ function evidence(db,s,id){
  }
  return null;
 }
+function superseded(db,s,id){
+ return !!db.prepare('SELECT c.command_id FROM memory_corrections c JOIN memory_commands m ON m.command_id=c.command_id WHERE c.world_profile_id=? AND c.character_id=? AND c.timeline_id=? AND m.protagonist_key=? AND c.target_id=? LIMIT 1')
+   .get(...scopeKey(s),id);
+}
 function activeTombstone(db,s,id) {
  return db.prepare('SELECT command_id AS commandId FROM memory_tombstones WHERE world_profile_id=? AND character_id=? AND timeline_id=? AND target_id=?').get(s.worldProfileId,s.characterId,s.timelineId,id);
 }
@@ -156,7 +160,7 @@ export class M5SqliteServices{
      if(!source)fail('m5_clarification_line_not_accepted');
      for(const alt of frozen){
        const current=evidence(db,scope,alt.recordId);
-       if(!current || current.content!==alt.content || activeTombstone(db,scope,alt.recordId))
+       if(!current || current.content!==alt.content || activeTombstone(db,scope,alt.recordId) || superseded(db,scope,alt.recordId))
          fail('m5_clarification_evidence_changed');
      }
      const old=db.prepare('SELECT state_sha256 FROM m5_clarifications WHERE command_id=?').get(commandId);
@@ -178,7 +182,7 @@ export class M5SqliteServices{
      if(sha(row.raw)!==row.checksum)fail('m5_clarification_corrupt');
      const saved=JSON.parse(row.raw);
      // A later forget must revoke previously offered evidence immediately.
-     if(saved.alternatives.some(item=>activeTombstone(db,scope,item.recordId)))
+     if(saved.alternatives.some(item=>activeTombstone(db,scope,item.recordId) || superseded(db,scope,item.recordId)))
        return null;
      return saved;
    });
@@ -198,7 +202,15 @@ export class M5SqliteServices{
   */
  bindCommands(){
    return Object.freeze({
-     findCandidates:params=>this.#store.findCandidates(params),
+     findCandidates:async params=>{
+       const [rows,suppressed,overlays]=await Promise.all([
+         this.#store.findCandidates(params),
+         this.#store.listSuppressedMemoryIds(params.scope),
+         this.#store.readCorrectionOverlays(params.scope)
+       ]);
+       const hidden=new Set([...suppressed,...overlays.map(x=>x.targetId)]);
+       return rows.filter(x=>!hidden.has(x.recordId));
+     },
      commitCommand:async op=>{
        const receipt=await this.#store.commitCommand(op);
        if(op.operation==='forget' && receipt?.durableCommit)await this.ready(op.scope);
