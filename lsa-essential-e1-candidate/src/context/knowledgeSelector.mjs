@@ -13,7 +13,7 @@ export function projectKnowledgeClaim(claim,observation,observer,playerRef=null)
   if(claim.kind==='dead' && modality==='visual' && claim.target) return {...common,kind:'dead',subject:subject(claim.target,observer,playerRef)};
   if(claim.kind==='firing' && modality==='visual' && claim.source) return {...common,kind:'firing',subject:subject(claim.source,observer,playerRef)};
   if(claim.kind==='firing' && modality==='self' && claim.source?.captureRef===observer) return {...common,kind:'firing',subject:'self'};
-  if(modality==='auditory' && observation.eventType==='firing_burst' && ['sound','firing'].includes(claim.kind)) return {...common,kind:'gunfire_sound',origin:claim.source?subject(claim.source,observer,playerRef):'unidentified'};
+  if(modality==='auditory' && observation.eventType==='firing_burst' && ['sound','firing'].includes(claim.kind)) return {...common,kind:'gunfire_sound',origin:'unidentified'};
   const detail=claim.details;
   if(modality==='self' && claim.target?.captureRef===observer && detail) {
     if(claim.kind==='action' && ['followtarget','waithere'].includes(detail.action)) return {...common,kind:'handler_outcome',action:detail.action==='followtarget'?'follow request':'wait request',outcome:detail.succeeded?'accepted':'failed',physicalCompletion:'unknown'};
