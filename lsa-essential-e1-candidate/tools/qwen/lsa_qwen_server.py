@@ -39,6 +39,15 @@ device = "cuda"
 active_model = None
 active_family = None
 gpu_lock = threading.Lock()
+profile_enabled = False
+profile_cuda_sync = False
+
+
+def cuda_memory_mib():
+    """A snapshot, not total GPU usage (other processes are excluded)."""
+    if device != "cuda" or not torch.cuda.is_available():
+        return None
+    return round(torch.cuda.memory_allocated() / (1024 * 1024), 1)
 
 
 class SpeechRequest(BaseModel):
@@ -160,6 +169,14 @@ async def speech(payload: SpeechRequest, request: Request):
     LOGGER.info("tts_request id=%s mode=%s text_chars=%d", request_id, voice["mode"], len(payload.input))
 
     def produce():
+        model_ready_ms = 0.0
+        model_switched = False
+        generator_next_ms = 0.0
+        max_next_ms = 0.0
+        convert_ms = 0.0
+        first_generator_yield_ms = None
+        memory_before_mib = None
+        memory_after_mib = None
         samples = 0
         chunks = 0
         lock_wait_ms = 0.0
@@ -172,14 +189,36 @@ async def speech(payload: SpeechRequest, request: Request):
             lock_started = time.perf_counter()
             with gpu_lock:
                 lock_wait_ms = (time.perf_counter() - lock_started) * 1000
+                model_switched = voice["mode"] != active_family
+                model_start = time.perf_counter()
                 model = get_model(voice["mode"])
-                for chunk, sr, _ in generate(model, voice, payload.input, payload.instructions):
-                    if ended.is_set():
+                model_ready_ms = (time.perf_counter() - model_start) * 1000
+                if profile_enabled:
+                    memory_before_mib = cuda_memory_mib()
+                stream = iter(generate(model, voice, payload.input, payload.instructions))
+                while not ended.is_set():
+                    # Synchronization is intentionally OFF by default: it can
+                    # serialize CUDA work and alter the latency under study.
+                    if profile_cuda_sync and device == "cuda" and torch.cuda.is_available():
+                        torch.cuda.synchronize()
+                    next_started = time.perf_counter()
+                    try:
+                        chunk, sr, _ = next(stream)
+                        if profile_cuda_sync and device == "cuda" and torch.cuda.is_available():
+                            torch.cuda.synchronize()
+                    except StopIteration:
                         break
+                    next_elapsed_ms = (time.perf_counter() - next_started) * 1000
+                    generator_next_ms += next_elapsed_ms
+                    max_next_ms = max(max_next_ms, next_elapsed_ms)
+                    if first_generator_yield_ms is None:
+                        first_generator_yield_ms = (time.perf_counter() - started) * 1000
                     if sr != 24000:
                         raise RuntimeError("Unexpected sample rate")
+                    convert_started = time.perf_counter()
                     pcm = np.asarray(chunk, dtype=np.float32).reshape(-1)
                     raw = (np.clip(pcm, -1, 1) * 32767).astype("<i2").tobytes()
+                    convert_ms += (time.perf_counter() - convert_started) * 1000
                     now = time.perf_counter()
                     if last_pcm_at is not None:
                         gap_ms = (now - last_pcm_at) * 1000
@@ -210,6 +249,23 @@ async def speech(payload: SpeechRequest, request: Request):
                 except queue.Full:
                     pass
         finally:
+            if profile_enabled:
+                try:
+                    memory_after_mib = cuda_memory_mib()
+                except Exception:
+                    # Profiling must never cause an otherwise successful TTS failure.
+                    memory_after_mib = None
+                LOGGER.info(
+                    "tts_profile id=%s outcome=%s mode=%s device=%s chunk_size=%d "
+                    "cuda_sync=%s switched=%s model_ready_ms=%.1f generator_next_ms=%.1f "
+                    "generator_next_max_ms=%.1f first_generator_yield_ms=%s convert_ms=%.1f "
+                    "queue_wait_ms=%.1f audio_ms=%.1f chunks=%d "
+                    "torch_mem_before_mib=%s torch_mem_after_mib=%s",
+                    request_id, outcome, voice["mode"], device, voice["chunk_size"],
+                    profile_cuda_sync, model_switched, model_ready_ms, generator_next_ms,
+                    max_next_ms, round(first_generator_yield_ms, 1) if first_generator_yield_ms is not None else None,
+                    convert_ms, blocked_ms, samples / 24.0, chunks, memory_before_mib, memory_after_mib
+                )
             if ended.is_set() and outcome == "finished":
                 outcome = "cancelled"
             LOGGER.info(
@@ -250,15 +306,25 @@ async def speech(payload: SpeechRequest, request: Request):
 
 
 def main():
-    global voices, device
+    global voices, device, profile_enabled, profile_cuda_sync
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--voices", required=True, help="Local voice registry JSON")
     parser.add_argument("--port", type=int, default=8000)
     parser.add_argument("--device", choices=["cuda", "cpu"], default="cuda")
+    parser.add_argument("--profile", action="store_true",
+                        help="Log per-request inference, conversion, warmup, queue and PyTorch memory timings")
+    parser.add_argument("--profile-cuda-sync", action="store_true",
+                        help="EXPERIMENTAL: synchronize every model chunk to attribute GPU work; changes latency")
     args = parser.parse_args()
     logging.basicConfig(level=logging.INFO)
     voices = load_voices(args.voices)
     device = args.device
+    profile_enabled = args.profile or args.profile_cuda_sync
+    profile_cuda_sync = args.profile_cuda_sync
+    if profile_cuda_sync and device != "cuda":
+        parser.error("--profile-cuda-sync requires --device cuda")
+    LOGGER.info("Qwen profile enabled=%s cuda_sync=%s (GPU synchronization changes timing)",
+                profile_enabled, profile_cuda_sync)
     uvicorn.run(app, host="127.0.0.1", port=args.port)
 
 
