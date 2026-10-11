@@ -36,6 +36,7 @@ namespace LSA.Standalone.RageHost
             OwnerScope scope = null;
             NativeAuthority authority = null;
             NativeTurnRegistry turns = null;
+            NativeAudioRegistry audio = null;
             try
             {
                 stopping = false;
@@ -65,6 +66,7 @@ namespace LSA.Standalone.RageHost
                     authority = new NativeAuthority(new MonotonicClock(), new RageWorld(),
                         resolver, scope);
                     turns = new NativeTurnRegistry(authority);
+                    audio = new NativeAudioRegistry(authority, turns);
                 }
                 finally { scope.Exit(); }
 
@@ -83,7 +85,7 @@ namespace LSA.Standalone.RageHost
                             authority.WorldChanged();
                         previousGameTick = currentGameTick;
                         authority.Reconcile();
-                        server.DrainOwnerRequests(authority, turns, 8);
+                        server.DrainOwnerRequests(authority, turns, audio, 8);
                         StandaloneTypedCommands.Pump(scope, resolver, authority, turns, server);
                     }
                     finally { scope.Exit(); }
@@ -109,6 +111,7 @@ namespace LSA.Standalone.RageHost
                         try
                         {
                             StandaloneTypedCommands.StopOnOwner(scope);
+                            audio?.RetireAll();
                             turns?.RetireAll();
                             authority.Stop();
                         }
