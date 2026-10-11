@@ -4,7 +4,11 @@ import * as fs from 'node:fs/promises';
 import { constants as fsConstants } from 'node:fs';
 import path from 'node:path';
 import { randomUUID, createHash } from 'node:crypto';
-import { DatabaseSync } from 'node:sqlite';
+// SQLite is an explicit opt-in. Older Node versions used by a legacy
+// Essential install must be able to START IN JSON MODE without this module.
+let DatabaseSync = null;
+try { ({ DatabaseSync } = await import('node:sqlite')); } catch {}
+
 import { isUuid } from '../util/identity.mjs';
 import { PROFILE_LIMITS, validateProfiles } from './profileSchema.mjs';
 
