@@ -226,6 +226,10 @@ export async function createRuntimeForBundle(options = {}) {
     } catch { try { console.warn('[ACT] optional_channel_unavailable'); } catch {} }
   }
   if (runtime.characterService) {
+    // Opt-in SQLite writer must release its explicit cross-host lock at orderly shutdown.
+    // No JSON default store or native effect ownership is changed.
+    if (config.promotedCharacters.storageMode === 'sqlite')
+      shutdownClosers.add({ close: () => runtime.characterService.closeStorage() });
     await runtime.characterService.initialize();
     if (runtime.characterService.ready && options.startCharacterEditor !== false) try {
       // Per-user endpoint file for the native console bridge; null disables it.
