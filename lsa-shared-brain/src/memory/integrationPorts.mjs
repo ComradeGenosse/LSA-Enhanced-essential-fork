@@ -56,8 +56,11 @@ export class SharedJournalRecallAdapter{
     const unique=new Map();
     const suppressed=new Set(typeof this.store.listSuppressedMemoryIds==='function'
       ?await this.store.listSuppressedMemoryIds(scope):[]);
+    const corrections=typeof this.store.readCorrectionOverlays==='function'
+      ?await this.store.readCorrectionOverlays(scope):[];
+    const corrected=new Set(corrections.map(row=>row.targetId));
     const include=(envelope,sourceKind,protagonistKey,atUtc)=>{
-      if(suppressed.has(envelope?.recordId))return;
+      if(suppressed.has(envelope?.recordId)||corrected.has(envelope?.recordId))return;
       if(!envelope||envelope.characterId!==scope.characterId||
          envelope.worldProfileId!==scope.worldProfileId||envelope.timelineId!==scope.timelineId||
          protagonistKey!==scope.protagonistKey||typeof atUtc!=='string'||
@@ -102,6 +105,13 @@ export class SharedJournalRecallAdapter{
       const memories=await this.store.readPermanentMemoryRows(scope,{limit:Math.min(limit,200)});
       for(const row of memories){
         if(suppressed.has(row.recordId)||row.envelope?.sourceEvidenceIds?.some(id=>suppressed.has(id))||
+           (fromUtc&&row.atUtc<fromUtc)||(toUtc&&row.atUtc>=toUtc))continue;
+        unique.set(row.recordId,row);
+      }
+    }
+    if((wanted.includes('permanent_memory'))&&Array.isArray(corrections)){
+      for(const row of corrections){
+        if(suppressed.has(row.recordId)||suppressed.has(row.targetId)||
            (fromUtc&&row.atUtc<fromUtc)||(toUtc&&row.atUtc>=toUtc))continue;
         unique.set(row.recordId,row);
       }
