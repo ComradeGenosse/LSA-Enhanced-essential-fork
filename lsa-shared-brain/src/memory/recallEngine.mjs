@@ -96,7 +96,7 @@ function supportedRow(row,scope) {
   return {...row,mode,content,atMs:Date.parse(row.atUtc)};
 }
 function similarity(row,terms,nowMs,focusKind,speaker) {
-  if(speaker&&row.envelope?.speaker!==speaker)return -Infinity;
+  if(speaker&&row.envelope?.speaker!==speaker&&!(speaker==='player'&&row.isCorrectionOverlay===true))return -Infinity;
   if(focusKind&&row.sourceKind!==focusKind&&!(focusKind==='dialogue_line'&&row.isCorrectionOverlay===true))return -Infinity;
   const txt=tokenize(row.sourceKind==='dialogue_line'?row.envelope.content:row.content);
   const hay=new Set(txt);
