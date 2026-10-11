@@ -40,7 +40,7 @@ test('visual source-time player attribution is allowed only for the exact native
   kind:'firing',certainty:'supported',evidence:{channel:'visual'},source:{kind:'player',captureRef:player}
  }]}};
  const recognized=renderDirectorEventContext(proposal,[visual],player);
- assert.match(recognized,/seen the player firing a gun/);
+ assert.match(recognized,/saw the player firing a gun/);
  assert.ok(recognized.length<=160);
  assert.doesNotMatch(renderDirectorEventContext(proposal,[visual],'eac3f5f3-fb96-4e65-8495-122bac53d114'),/player firing/);
  assert.doesNotMatch(renderDirectorEventContext(proposal,[visual],null),/player firing/);
