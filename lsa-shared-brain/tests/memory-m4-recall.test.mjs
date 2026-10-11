@@ -353,3 +353,6 @@ test('real v4 event archive validates actual M3 sidecar and never invents witnes
   assert.equal(tampered.status,'unavailable');
  }finally{f.close();}
 });
+
+// Run the focused PS4 closure/adversarial suites in the established M4 CI gate.
+import '../../lsa-essential-e1-candidate/tests/memory-m4-closure.test.mjs';
