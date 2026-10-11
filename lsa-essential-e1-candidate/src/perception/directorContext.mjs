@@ -14,7 +14,7 @@ const CLAIM=new Set(['sound','firing','injured','dead','attack','location','acti
 const CHANNEL=new Set(['self','visual','auditory']);
 const SEVERITY=new Set(['routine','notable','danger','critical']);
 
-export function renderDirectorEventContext(proposal,candidates) {
+export function renderDirectorEventContext(proposal,candidates,verifiedPlayerCaptureRef=null) {
   if(!proposal || !Array.isArray(candidates))return null;
   const pair=candidates.find(c=>c?.observation?.observationId===proposal.observationId &&
     c.observation.revision===proposal.observationRevision &&
@@ -27,7 +27,10 @@ export function renderDirectorEventContext(proposal,candidates) {
   const claim=observation.claims.find(c=>c?.certainty==='supported' &&
     CLAIM.has(c.kind) && CHANNEL.has(c.evidence?.channel));
   if(!claim)return null;
-  const event=EVENT[observation.eventType];
+  const playerFired=observation.eventType==='firing_burst' &&
+    claim.kind==='firing' && claim.evidence.channel==='visual' &&
+    claim.source?.kind==='player' && claim.source.captureRef===verifiedPlayerCaptureRef;
+  const event=playerFired?'the player firing a gun':EVENT[observation.eventType];
   const source=claim.evidence.channel==='self'?'personally experienced':
     claim.evidence.channel==='visual'?'seen':'heard';
   const detail=claim.kind==='action' && ['followtarget','waithere'].includes(claim.details?.action)
