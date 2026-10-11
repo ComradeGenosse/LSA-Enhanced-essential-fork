@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net481</TargetFramework>
+    <AssemblyName>LSA.Standalone.RageHost</AssemblyName>
+    <RootNamespace>LSA.Standalone.RageHost</RootNamespace>
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <Deterministic>true</Deterministic>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="EntryPoint.cs;RageWorldAdapters.cs;StandalonePipeServer.cs" />
+    <ProjectReference Include="../standalone/LSA.Standalone.Core.csproj" SetTargetFramework="TargetFramework=net481" />
+    <Reference Include="RagePluginHook">
+      <HintPath>$(RphReferencePath)</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="System.Web.Extensions" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies.net481" Version="1.0.3" PrivateAssets="all" />
+  </ItemGroup>
+  <Target Name="RequireRealRphSdk" BeforeTargets="ResolveReferences" Condition="'$(RphReferencePath)' == '' or !Exists('$(RphReferencePath)')">
+    <Error Text="Supply -p:RphReferencePath=&lt;installed approved RagePluginHook.dll&gt;; no RPH SDK is bundled." />
+  </Target>
+</Project>
