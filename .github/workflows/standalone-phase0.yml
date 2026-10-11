@@ -1,0 +1,29 @@
+name: Standalone Phase 0 Source Inventory
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'docs/standalone-replacement/**'
+      - 'tools/standalone/**'
+      - '.github/workflows/standalone-phase0.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  phase0-read-only:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate static scanner with isolated fixtures
+        run: node --test tools/standalone/phase0-inventory.test.mjs
+      - name: Generate and structurally validate source dependency inventory
+        run: |
+          node tools/standalone/phase0-inventory.mjs > "$RUNNER_TEMP/standalone-phase0-inventory.json"
+          node -e 'const x=require("node:fs");const r=JSON.parse(x.readFileSync(process.env.RUNNER_TEMP+"/standalone-phase0-inventory.json","utf8"));if(r.schemaVersion!==1||r.filesScanned<1||!Array.isArray(r.files))process.exit(1);console.log("Scanned source files:",r.filesScanned,"candidate dependency files:",r.filesWithMatches)'
