@@ -248,7 +248,13 @@ export class P2SqliteProfileStore {
     if(typeof operation!=='function')throw new TypeError('p2_sqlite_callback_required');
     return this.withTimelineWrite(scope?.timelineId,foundation=>{
       this.#assertMemoryScope(scope);
-      return foundation.withP2SqliteTransaction(operation);
+      return foundation.withP2SqliteTransaction(db=>{
+        const result=operation(db);
+        // Recheck synchronously INSIDE P2's transaction immediately before
+        // COMMIT; source invalidation in the callback rolls everything back.
+        this.#assertMemoryScope(scope);
+        return result;
+      });
     });
   }
   // API consumed by M5; alias documents that ALL privacy commits are part of
@@ -268,7 +274,11 @@ export class P2SqliteProfileStore {
   async ackCommittedEvidenceCursor({scope,consumerId,cursor,expectedCursor=null}) {
     return this.withTimelineWrite(scope?.timelineId,foundation=>{
       this.#assertMemoryScope(scope);
-      return foundation.acknowledgeReplayCursor({scope,consumerId,cursor,expectedCursor});
+      return foundation.withP2SqliteTransaction(()=>{
+        const receipt=foundation.acknowledgeReplayCursor({scope,consumerId,cursor,expectedCursor});
+        this.#assertMemoryScope(scope);
+        return receipt;
+      });
     });
   }
   // Scoped journal writes are serialized WITH the M1 source/lineage check.
