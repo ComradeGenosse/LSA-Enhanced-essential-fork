@@ -180,7 +180,7 @@ test('M9 refuses fake proof and unverified narratives; initializes without spuri
   assert.equal(producer.ingest({snapshot:snap(100),source:{...source,authenticated:false}}).accepted,false);
   const initial=producer.ingest({snapshot:snap(100,{wantedLevel:5}),source});
   assert.deepEqual(initial.candidates,[]);
-  const noCrash=producer.ingest({snapshot:snap(200,{vehicle:{...snap(200).vehicle,speedKph:0}}),source});
+  const noCrash=producer.ingest({snapshot:snap(200,{wantedLevel:5,vehicle:{...snap(200).vehicle,speedKph:0}}),source});
   assert.deepEqual(noCrash.candidates,[]);
   assert.equal(producer.ingest({snapshot:snap(150),source}).accepted,false);
 });
