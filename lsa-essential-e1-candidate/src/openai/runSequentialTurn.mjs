@@ -173,6 +173,13 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
       check();
       context = turn.context;
     }
+    // Freeze M2 source identity after P2 turn hydration, before STT/provider work.
+    // The optional native binder returns null unless exact lifetime and host
+    // evidence exist. A later reconnect cannot re-authorize this old turn.
+    if(services.bindM2Turn){
+      try{turn.m2Capture=services.bindM2Turn({turn,isCurrent:valid})??null;}
+      catch{turn.m2Capture=null;}
+    }
 
     let finalInput = input;
     if (pcm) {
@@ -211,6 +218,7 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
     const recordReasoningSuccess=decision=>{check();turn.knowledgeDelivery?.success(decision);};
     let decision;
     let streamedSegments = [];
+    const spokenTtsSegments = []; // exact accepted speech-provider source strings
     let streamMode = null;
     let earlyAudio = null;
     if (services.config.structuredStreamingEnabled === true) {
@@ -261,6 +269,7 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
             if (audio.discardedTrailingByte) throw Object.assign(new Error('partial_pcm16_sample'), { code: 'partial_pcm16_sample' });
             bytes += audio.bytes;
             chunks += audio.chunks || 0;
+            spokenTtsSegments.push(segment.text);
             metrics?.event('stream_tts_segment_finished', { segmentSequence: segment.sequence, bytes: audio.bytes, chunks: audio.chunks || 0 });
           }
           return { bytes, chunks, discardedTrailingByte: false };
@@ -349,6 +358,7 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
     check();
     transition('tts_running');
     let audio = earlyAudio?.bytes > 0 ? earlyAudio : null;
+    const successfulEarlySpeech = !!audio && spokenTtsSegments.length>0;
     if (!audio) {
       audio = await performProvider('tts', services.providerStack?.speech.id || 'openai.speech',
         ({ signal, timeoutMs, telemetry, isActive }) => services.speak({
@@ -390,7 +400,10 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
     // Only the terminal native playback receipt admitted by RAM history may
     // commit an NPC line. Never journal generated-but-unplayed speech.
     if (services.recordM2Npc) {
-      try { await services.recordM2Npc({turn,text:decision.dialogue,receipt:result}); }
+      try { await services.recordM2Npc({turn,
+        text:successfulEarlySpeech?spokenTtsSegments.join(''):decision.dialogue,
+        receipt:result,mode:successfulEarlySpeech?'early_streamed':'buffered',
+        spokenSegments:successfulEarlySpeech?spokenTtsSegments:null}); }
       catch { metrics?.event('memory_journal_not_committed', {role:'npc'}); }
     }
     metrics?.count('assistantCommitCount');
@@ -432,6 +445,7 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
     return { status: state, terminalReason, stage: state, cause };
   } finally {
     retired = true;
+    try{turn.m2Capture?.retire();}catch{}
     history.discard(identity);
     observation?.dispose();
     turn.knowledgeDelivery?.dispose();

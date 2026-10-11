@@ -16,7 +16,7 @@ import { decide } from '../openai/decide.mjs';
 import { transcribePcm } from '../openai/transcribe.mjs';
 import { speak } from '../openai/speak.mjs';
 import { DialogueHistory } from '../memory/dialogueHistory.mjs';
-import { createConversationJournalRecorder } from '../../../lsa-shared-brain/src/memory/conversationRecorder.mjs';
+import {createM2TurnCapture} from '../../../lsa-shared-brain/src/memory/m2TurnCapture.mjs';
 import { validateDecisionShape } from '../context/essentialDecision.mjs';
 import { validateStockDecision } from '../context/decisionValidator.mjs';
 import { createProviderStack } from '../providers/providerStack.mjs';
@@ -27,7 +27,7 @@ import { IdentityResolver } from '../identity/identityResolver.mjs';
 import { CharacterService,withoutCharacterTransport } from '../characters/characterService.mjs';
 import { createNoopDialogueTrace } from '../observability/dialogueTrace.mjs';
 
-export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry = null, dialogueTrace = null, providers = {}, identityEvidence, identityStore, profileStore, nativeOwner } = {}) {
+export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry = null, dialogueTrace = null, providers = {}, identityEvidence, identityStore, profileStore, nativeOwner, memoryNativeAuthority = null } = {}) {
   const actorPresence=new ActorPresenceStore();
   const originalTurnTimeline=new OriginalEssentialTurnTimeline();
   dialogueTrace ||= createNoopDialogueTrace();
@@ -51,25 +51,61 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
   characterService?.initialize().catch(() => {});
   // Optional SQLite path only. The existing JSON backend stays unchanged.
   const journalStore=characterService?.store;
-  const conversationJournal=typeof journalStore?.appendDialogueLine==='function'
-    ? createConversationJournalRecorder(journalStore):null;
   const journalCharacter=turn=>turn.characterProjection?.persistent===true
     && turn.characterProjection.profile?.characterId===turn.characterInputs?.profile?.characterId
     ? turn.characterProjection.profile.characterId:null;
+  // This is an optional verified-native authority, NOT a hint from a model,
+  // ped handle, room proximity, or a UI-generated 'trusted' flag. Missing
+  // current host + exact owner/turn/protagonist proof disables M2 writes.
   const services = {
-    async recordM2Player({turn,text,source}) {
+    bindM2Turn({turn,isCurrent}={}) {
       const characterId=journalCharacter(turn);
-      if(!conversationJournal||!characterId||!['player_text','player_mic'].includes(source))return null;
-      return conversationJournal.recordPlayerAccepted({
-        characterId,identity:turn.identity,text,source:source==='player_mic'?'stt':'typed',
+      const alias=turn?.characterProjection?.profile?.promotion?.ownerAlias;
+      if(!characterId||!alias||typeof isCurrent!=='function'||
+         typeof memoryNativeAuthority?.verifyCurrentTurn!=='function'||
+         typeof journalStore?.withTimelineWrite!=='function'||
+         config.promotedCharacters?.storageMode!=='sqlite')return null;
+      const verify=()=>{
+        try {
+          const host=journalStore.verifiedHostContext;
+          if(!host||journalStore.timelineWritable!==true)return null;
+          const result=memoryNativeAuthority.verifyCurrentTurn({
+            identity:turn.identity,characterId,ownerAlias:alias,
+            hostRunId:host.hostRunId,worldEpoch:host.worldEpoch
+          });
+          if(!result||typeof result.then==='function'||result.current!==true||
+             result.nativeVerified!==true||result.characterId!==characterId||
+             result.ownerAlias!==alias||result.hostRunId!==host.hostRunId||
+             result.worldEpoch!==host.worldEpoch||
+             !['franklin','michael','trevor','unknown'].includes(result.protagonistKey))
+            return null;
+          return result;
+        }catch{return null;}
+      };
+      const evidence=verify();
+      if(!evidence||!isCurrent())return null;
+      try {
+        return createM2TurnCapture({
+          store:journalStore,characterId,identity:turn.identity,ownerAlias:alias,
+          protagonist:evidence.protagonistKey,
+          isCurrent:()=>isCurrent()&&verify()!==null,
+          currentProtagonist:()=>verify()?.protagonistKey??null
+        });
+      }catch{return null;}
+    },
+    async recordM2Player({turn,text,source}) {
+      if(!turn?.m2Capture||!['player_text','player_mic'].includes(source))return null;
+      return turn.m2Capture.recordPlayerAccepted({
+        accepted:true,text,source:source==='player_mic'?'stt':'typed',
         transcription:source==='player_mic'
           ? {provider:providerStack?.transcription?.id??'unknown',model:'unknown',confidence:null}:null
       });
     },
-    async recordM2Npc({turn,text,receipt}) {
-      const characterId=journalCharacter(turn);
-      if(!conversationJournal||!characterId)return null;
-      return conversationJournal.recordNpcCompleted({characterId,identity:turn.identity,text,receipt});
+    async recordM2Npc({turn,text,receipt,mode='buffered',spokenSegments=null}) {
+      if(!turn?.m2Capture)return null;
+      return turn.m2Capture.recordNpcCompleted({
+        historyAccepted:true,text,receipt,mode,spokenSegments
+      });
     },
     recordDialogueActionPublication({turn,validated,publishedAtMs}){
       if(config.provider!=='openai' || config.activities?.dialogueReceipts!==true || !runtime.dialogueKnowledgeBuildSupported)return null;
