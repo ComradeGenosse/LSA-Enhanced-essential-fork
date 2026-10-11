@@ -120,7 +120,11 @@ namespace LSA.Intelligence.M9
                read.collision.damage>=35 && read.collision.damage<=100000 &&
                read.collision.playerCaptureRef==player.CaptureRef &&
                read.collision.vehicleCaptureRef==vehicle.CaptureRef &&
-               read.collision.sampledAtMs>=0 && now>=read.collision.sampledAtMs &&
+               read.collision.sampledAtMs>=0 &&
+               read.sampledAtMs>=read.collision.sampledAtMs &&
+               read.sampledAtMs-read.collision.sampledAtMs<=1500 &&
+               unchecked(read.gameTick-read.collision.gameTick)<=1500 &&
+               now>=read.collision.sampledAtMs &&
                now-read.collision.sampledAtMs<=MaxSampleAgeMs &&
                Safe(()=>verifyCollisionReceipt(read.collision)))
                 collision=read.collision;
@@ -128,6 +132,9 @@ namespace LSA.Intelligence.M9
             if(read.terminal!=null && Uuid(read.terminal.nativeReceiptId) &&
                (read.terminal.kind=="wasted" || read.terminal.kind=="busted") &&
                read.terminal.playerCaptureRef==player.CaptureRef &&
+               read.sampledAtMs>=read.terminal.sampledAtMs &&
+               read.sampledAtMs-read.terminal.sampledAtMs<=1500 &&
+               unchecked(read.gameTick-read.terminal.gameTick)<=1500 &&
                now>=read.terminal.sampledAtMs &&
                now-read.terminal.sampledAtMs<=MaxSampleAgeMs &&
                Safe(()=>verifyTerminalReceipt(read.terminal)))
