@@ -113,6 +113,18 @@ export class UtteranceLifecycle {
       typeof text==='string' && text.trim().length>0 &&
       Buffer.byteLength(text,'utf8')<=4096 &&
       !entry.transcript && !entry.sttConsumed;
+    // Provider STT can finish before the native terminal frame crosses the
+    // pipe. Retain its one accepted result privately; do not publish speech
+    // until a matching real Core release arrives. Never retry STT.
+    if(lease && entry && !entry.ended && entry.join===lease &&
+       sameTurn(lease.identity,identity) && lease.pcmFinished &&
+       host?.hostRunId===lease.hostRunId && host?.worldEpoch===lease.worldEpoch &&
+       this.current(lease.actorRef) && !entry.earlyTranscript &&
+       typeof text==='string' && text.trim() &&
+       Buffer.byteLength(text,'utf8')<=4096) {
+      entry.earlyTranscript=text;
+      return {accepted:true,utteranceId:entry.started.utteranceId,pending:true};
+    }
     // Whether accepted or rejected, this exact association is one-use.
     if(lease && sameTurn(lease.identity,identity))this.pending=null;
     if(!complete) {this.diagnostics.sttRejected++;return {accepted:false,reason:'c01_unverified_source'};}
@@ -157,6 +169,11 @@ export class UtteranceLifecycle {
       this.diagnostics.rejected++;return false;
     }
     e.ended=p;e.receivedAt=now;this.active=null;this.diagnostics.ended++;
+    if(p.terminal==='released' && e.earlyTranscript && e.join) {
+      const text=e.earlyTranscript;
+      e.earlyTranscript=null;
+      this.acceptStt({identity:e.join.identity,text,host});
+    }
     // A cancellation/timeout/target swap retires ONLY its own pending turn;
     // it cannot attach the next actor's STT to a prior mic generation.
     if(p.terminal!=='released' && this.pending?.utteranceId===p.utteranceId)
