@@ -205,7 +205,7 @@ test('M2 intact v2 P2 database is migrated additively, unknown versions refused'
     const reopened=createEssentialMemoryStorage({filePath:x.filePath,worldProfileId,sourceRequired:true});
     await reopened.initialize();await reopened.close();
     db=new DatabaseSync(x.filePath);
-    assert.equal(db.prepare('PRAGMA user_version').get().user_version,3);
+    assert.equal(db.prepare('PRAGMA user_version').get().user_version,JOURNAL_SCHEMA_VERSION);
     assert.equal(db.prepare('SELECT snapshot_json FROM p2_store').get().snapshot_json,snapshot);
     db.exec('PRAGMA user_version=88');db.close();
     const unsupported=createEssentialMemoryStorage({filePath:x.filePath,worldProfileId});
