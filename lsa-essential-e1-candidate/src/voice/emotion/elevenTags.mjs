@@ -58,13 +58,17 @@ export function sanitizeElevenSpeechDialogue(dialogue) {
     bracket => BRACKET_TO_QUOTE[bracket]);
 }
 
-export function renderElevenSpeech({ dialogue, delivery = null, enabled = false } = {}) {
+export function renderElevenSpeech({ dialogue, delivery = null, enabled = false, modelId = null } = {}) {
   validateElevenSpeechDialogue(dialogue);
   if (typeof enabled !== 'boolean') throw new TypeError('enabled must be a boolean.');
   if (!enabled) return dialogue; // off/shadow: exact original provider bytes
   const safeText = sanitizeElevenSpeechDialogue(dialogue);
-  const tag = isDelivery(delivery) && Object.hasOwn(ELEVEN_V4_VERIFIED_TAG_FOR_DELIVERY, delivery.value)
-    ? ELEVEN_V4_VERIFIED_TAG_FOR_DELIVERY[delivery.value] : null;
+  // Unspecified models retain EA0's frozen six-value behavior. The new
+  // fearful tag is enabled only with an explicit verified v4 Turbo model.
+  const tags = modelId === 'eleven_v4_turbo'
+    ? ELEVEN_V4_VERIFIED_TAG_FOR_DELIVERY : ELEVEN_TAG_FOR_DELIVERY;
+  const tag = isDelivery(delivery) && Object.hasOwn(tags, delivery.value)
+    ? tags[delivery.value] : null;
   return tag && tag.length + 1 + safeText.length <= ELEVEN_SPEECH_MAX_CHARS
     ? tag + ' ' + safeText : safeText;
 }
