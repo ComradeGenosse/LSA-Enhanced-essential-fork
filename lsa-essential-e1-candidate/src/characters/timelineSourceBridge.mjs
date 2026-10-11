@@ -9,6 +9,7 @@ export function bindTrustedTimelineSource({store,intelligenceClient}={}) {
     throw new Error('authenticated_timeline_source_unavailable');
   let closed=false;
   let lastTrustedHost=null;
+  let lastBoundary=null; // same native incarnation must never replay an epoch boundary
   const revoke=(reason='unknown_source')=>{
     lastTrustedHost=null;
     try {store.setVerifiedHostContext(null);} finally {
@@ -39,12 +40,15 @@ export function bindTrustedTimelineSource({store,intelligenceClient}={}) {
     const qualified=lastTrustedHost && event?.hostRunId===lastTrustedHost.hostRunId &&
       event?.worldEpoch===lastTrustedHost.worldEpoch &&
       Number.isSafeInteger(event?.previousEpoch) && event.previousEpoch>0 &&
-      event.worldEpoch===event.previousEpoch+1;
+      event.worldEpoch===event.previousEpoch+1 &&
+      !(lastBoundary?.hostRunId===event.hostRunId &&
+        event.worldEpoch<=lastBoundary.worldEpoch);
     if(!qualified || ['native_disconnect','unknown_source','source_change'].includes(reason)){
       revoke(reason==='native_disconnect' ? reason : 'unknown_source');
       return;
     }
     try {
+      lastBoundary={hostRunId:event.hostRunId,worldEpoch:event.worldEpoch};
       store.onBoundary({reason});
       // host_reload also invalidates the core's source cache; explicitly
       // reinstate only the independently accepted preceding C-13 receipt.
