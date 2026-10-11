@@ -22,9 +22,8 @@ import { ActivityClient } from './activities/activityClient.mjs';
 import { ActivityRuntime } from './activities/activityRuntime.mjs';
 import { perceptionContractSupported } from './perception/nativeSupport.mjs';
 import { createDialogueTrace, createNoopDialogueTrace } from './observability/dialogueTrace.mjs';
-import {M3ObserverOwnerBinder} from '../../lsa-shared-brain/src/events/m3ObserverOwnerBinder.mjs';
-import {M3BoundedIntake} from '../../lsa-shared-brain/src/events/m3BoundedIntake.mjs';
-import {createM3WitnessRecorder} from '../../lsa-shared-brain/src/memory/integrationPorts.mjs';
+import {createM3Ps2ObserverAdapter} from '../../lsa-shared-brain/src/events/m3Ps2ObserverAdapter.mjs';
+import {createNativeMemoryAuthority} from './memory/nativeMemoryAuthority.mjs';
 
 const shutdownClosers = new Set();
 let shutdownFlushRegistered = false;
@@ -101,7 +100,19 @@ export async function createRuntimeForBundle(options = {}) {
     shutdownFlushRegistered = true;
     process.once('beforeExit', async () => { for (const closer of shutdownClosers) await closer.close().catch(() => {}); });
   }
-  const runtime = createRuntime(config, { ...options, telemetry, dialogueTrace });
+  // The existing host starts before the authenticated native pipe. Keep a
+  // single source-fenced read-through authority; absence must stay unknown.
+  let connectedMemoryAuthority=null;
+  const memoryAuthorityPort=Object.freeze({
+    verifyCurrentTurn:x=>connectedMemoryAuthority?.verifyCurrentTurn(x)??null,
+    resolveNativeOwner:x=>connectedMemoryAuthority?.resolveNativeOwner(x)??null,
+    resolveParticipants:x=>connectedMemoryAuthority?.resolveParticipants(x)??null,
+    resolvePrepromotion:x=>connectedMemoryAuthority?.resolvePrepromotion(x)??null,
+    verifyNativeCoverage:x=>connectedMemoryAuthority?.verifyNativeCoverage(x)??null
+  });
+  const runtime = createRuntime(config, { ...options,
+    memoryNativeAuthority:options.memoryNativeAuthority??memoryAuthorityPort,
+    telemetry, dialogueTrace });
   let capabilityManifest=null,capabilityPayloadHash=null,capabilityValidation=Object.freeze([]);
   try {const bytes=await readFile(new URL('../build-manifest.json',import.meta.url));capabilityManifest=JSON.parse(bytes);capabilityPayloadHash=createHash('sha256').update(bytes).digest('hex');}catch{}
   capabilityValidation=await loadCapabilityValidation(options.capabilityValidationPath??path.resolve(process.cwd(),'diagnostics/validation.v1.json'));
@@ -123,12 +134,12 @@ export async function createRuntimeForBundle(options = {}) {
         }
         let memoryIntake=null;
         const memoryStore=runtime.characterService?.store;
-        const memoryNative=options.memoryNativeAuthority;
+        const memoryNative=options.memoryNativeAuthority??memoryAuthorityPort;
         const canBindMemory=config.promotedCharacters.storageMode==='sqlite' &&
           typeof memoryStore?.withTimelineWrite==='function' &&
           typeof memoryNative?.resolveNativeOwner==='function';
         // Strict synchronous verified PS2 tap; never execute SQLite here.
-        const memoryObservationTap=receipt=>memoryIntake?.offer(receipt) ??
+        const memoryObservationTap=receipt=>memoryIntake?.acceptedObservationTap(receipt) ??
           {accepted:false,reason:'m3_owner_ledger_unavailable'};
         const intelligenceOptions={radioCatalog,situationFor:ref=>runtime.situationFor(ref),
           directorProductionRequired:config.spontaneousSpeech.mode==='experimental',
@@ -146,37 +157,39 @@ export async function createRuntimeForBundle(options = {}) {
           try { telemetry?.emit?.(event,null,'internal',data,'internal'); } catch {}
         }};
         runtime.intelligence=new IntelligenceClient(config.intelligence,intelligenceOptions);
+        // One genuine authenticated ledger for M2/M3. Any explicit test-only
+        // injected authority remains isolated; normal production never trusts a
+        // caller-supplied nativeVerified flag or model-generated owner claim.
+        if(canBindMemory && !options.memoryNativeAuthority) {
+          try {
+            connectedMemoryAuthority=createNativeMemoryAuthority({
+              subscribeAuthenticatedNativeFrames:(onFrame,onRetire)=>
+                runtime.intelligence.subscribeAuthenticatedNativeMemoryAuthority(onFrame,onRetire),
+              profileForAlias:alias=>{
+                if(memoryStore?.timelineWritable!==true||!memoryStore.verifiedHostContext||
+                   !memoryStore.worldProfileId)return null;
+                return memoryStore.list().find(p=>p?.promotion?.ownerAlias===alias &&
+                  p.worldProfileId===memoryStore.worldProfileId && p.status!=='retired')??null;
+              }
+            });
+            shutdownClosers.add({close:async()=>connectedMemoryAuthority?.close()});
+          }catch{connectedMemoryAuthority=null;}
+        }
          if(canBindMemory){
            try{
-             const checkedOwner=input=>{
-               try{
-                 const owner=memoryNative.resolveNativeOwner(input);
-                 return owner&&!owner.then&&owner.nativeVerified===true?owner:null;
-               }catch{return null;}
-             };
-             const checkedParticipants=typeof memoryNative.resolveParticipants==='function'
-               ?input=>{
-                 try{
-                   const proof=memoryNative.resolveParticipants(input);
-                   return Array.isArray(proof)&&proof.every(p=>p?.nativeVerified===true)
-                     ? proof : null;
-                 }catch{return null;}
-               }:null;
-             const binder=new M3ObserverOwnerBinder({ps2:runtime.intelligence.runtime,
-               p2:memoryStore,resolveNativeOwner:checkedOwner,
-               resolveParticipants:checkedParticipants});
-             const recorder=createM3WitnessRecorder({store:memoryStore,
-               authorize:args=>binder.authorize(args),
-               authorizeCoverage:args=>binder.authorizeCoverage(args)});
-             memoryIntake=new M3BoundedIntake({binder,recorder,onFailure:stage=>{
-               try{telemetry?.emit?.('memory_m3_intake_loss',null,'internal',{stage},'internal');}catch{}
-             }});
+             memoryIntake=createM3Ps2ObserverAdapter({
+               ps2:runtime.intelligence.runtime,p2:memoryStore,store:memoryStore,
+               nativeAuthority:memoryNative,
+               onLoss:stage=>{
+                 try{telemetry?.emit?.('memory_m3_intake_loss',null,'internal',{stage},'internal');}catch{}
+               }
+             });
              let memoryEpoch=null;
              runtime.intelligence.subscribeVerifiedHostContext(host=>{
                const stamp=host?host.hostRunId+':'+host.worldEpoch:null;
-               if(stamp!==memoryEpoch){memoryIntake.retire();binder.reset();memoryEpoch=stamp;}
+               if(stamp!==memoryEpoch){memoryIntake.retire();memoryEpoch=stamp;}
              });
-             runtime.intelligence.subscribeWorldBoundary(()=>{memoryIntake.retire();binder.reset();});
+             runtime.intelligence.subscribeWorldBoundary(()=>{memoryIntake.retire();});
              runtime.memoryM3=Object.freeze({snapshot:()=>memoryIntake.snapshot(),
                close:()=>memoryIntake.close()});
              shutdownClosers.add({close:async()=>{memoryIntake.close();}});
