@@ -24,6 +24,20 @@ namespace LSA.Standalone.RageHost
             new ConcurrentQueue<QueuedText>();
         private static readonly StandaloneOnscreenInput keyboard = new StandaloneOnscreenInput();
         private static int queued;
+        private static int accepting;
+
+        public static void OpenAdmission()
+        {
+            // A plugin reload cannot inherit a typed prompt left in this AppDomain.
+            Clear();
+            Volatile.Write(ref accepting, 1);
+        }
+
+        public static void CloseAdmission()
+        {
+            Volatile.Write(ref accepting, 0);
+            Clear();
+        }
 
         [ConsoleCommand(Name = "LSAStandaloneAsk",
             Description = "Ask the nearest pedestrian ahead (standalone; requires verified GTA actor lifecycle).")]
@@ -39,12 +53,22 @@ namespace LSA.Standalone.RageHost
             Description = "Open GTA's native text keyboard for a standalone NPC conversation.")]
         public static void Compose()
         {
+            if (Volatile.Read(ref accepting) == 0)
+            {
+                Game.Console.Print("LSA standalone: native_host_not_ready.");
+                return;
+            }
             keyboard.RequestOpen();
             Game.Console.Print("LSA standalone: keyboard requested.");
         }
 
         private static void Enqueue(string phrase)
         {
+            if (Volatile.Read(ref accepting) == 0)
+            {
+                Game.Console.Print("LSA standalone: native_host_not_ready.");
+                return;
+            }
             if (!Valid(phrase))
             {
                 Game.Console.Print("LSA standalone: enter 1-1024 printable characters.");
@@ -87,7 +111,7 @@ namespace LSA.Standalone.RageHost
         public static void StopOnOwner(OwnerScope scope)
         {
             keyboard.StopOnOwner(scope);
-            Clear();
+            CloseAdmission();
         }
 
         // ONLY the owning game fiber calls Pump, within its synchronous scope.
@@ -96,6 +120,7 @@ namespace LSA.Standalone.RageHost
         {
             if (scope == null || !scope.IsOwner)
                 throw new InvalidOperationException("owner_scope_required");
+            if (Volatile.Read(ref accepting) == 0) return;
             keyboard.Tick(scope, Enqueue);
             if (!pending.TryDequeue(out QueuedText entry)) return;
             Interlocked.Decrement(ref queued);
