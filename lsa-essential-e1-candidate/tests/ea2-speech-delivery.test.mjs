@@ -69,7 +69,7 @@ test('EA2 accepts only normalized selector results, forwards optional EA3 propos
   assert.equal(seen[0].lunaHint,'sarcastic');
   assert.equal(seen[0].nowMonotonicMs,123);
   assert.equal(seen[0].currentSceneEvidence[0].verified,true);
-  resolver.synthesized(first);
+  resolver.synthesized(first, {ok:true,type:'playback_ended',wasInterrupted:false,hadAudio:true,playbackStarted:true});
   assert.equal(resolver.forSegment({text:'replay',sequence:1}),null);
   assert.ok(resolver.forSegment({text:'Second',sequence:2}));
   assert.equal(resolver.forSegment({text:'Third',sequence:3}),null,'no third tag');
