@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import {randomUUID} from 'node:crypto';
+import {randomUUID,createHash} from 'node:crypto';
 import {DatabaseSync} from 'node:sqlite';
 import {createP2MemoryStorage} from '../src/characters/sqliteProfileStore.mjs';
 import {createConversationJournalRecorder} from '../src/memory/conversationRecorder.mjs';
@@ -12,6 +12,7 @@ import {handleExplicitMemoryCommand,handleMemoryClarificationReply,detectExplici
   handleExplicitMemoryCommands} from '../src/memory/explicitCommands.mjs';
 import {profile} from '../../lsa-essential-e1-candidate/tests/p2-fixtures.mjs';
 import {worldProfileId} from '../../lsa-essential-e1-candidate/tests/identity-fixtures.mjs';
+import {selectAutomaticMemories} from '../src/memory/selection.mjs';
 
 const id=()=>randomUUID();
 const identity=n=>({pedId:101,turnId:n,generationId:'g1',sessionNonce:'m5-completion'});
@@ -142,4 +143,44 @@ test('M5 executes at most two explicitly segmented commands with exact accepted 
  assert.deepEqual(actions.map(a=>a.outcome),['saved','saved']);
  assert.equal((await x.store.readDialogueLines({characterId:x.scope.characterId,timelineId:x.scope.timelineId}))[0].content,raw);
  await x.store.close();
+});
+
+test('M5 reconciles preexisting PR #61 forget tombstones into seven-day recoverable trash',async t=>{
+ const x=await setup(t);
+ const source=await x.record('a blue spaceship hidden in the alley','source');
+ const cmd=await x.record('Forget that spaceship','cmd');
+ const commandId=id(),content=source.content;
+ const op={scope:x.scope,commandId,requestedByLineId:cmd.recordId,
+   operation:'forget',origin:'explicit_player',recordType:'dialogue_line',
+   content,contentHash:createHash('sha256').update(content).digest('hex'),
+   pin:false,evidenceRecordIds:[source.recordId,cmd.recordId],targetRecordId:source.recordId,
+   correctionMode:null,subjectCertainty:null,requestedAtUtc:cmd.committedAtUtc};
+ assert.equal((await x.store.commitCommand(op)).durableCommit,true);
+ const m5=createM5SqliteServices({store:x.store,filePath:x.filePath,authorize:allowed});
+ await m5.ready(x.scope);
+ const inspector=await m5.inspect({scope:x.scope});
+ assert.ok(inspector.trash.some(item=>item.trashId===commandId&&item.targetId===source.recordId));
+ assert.ok((await x.store.listSuppressedMemoryIds(x.scope)).includes(source.recordId));
+ const restored=await m5.restore({scope:x.scope,trashId:commandId,operationId:id()});
+ assert.equal(restored.operation,'restore');
+ assert.ok(!(await x.store.listSuppressedMemoryIds(x.scope)).includes(source.recordId));
+ await m5.close();await x.store.close();
+});
+
+test('M5 source tombstone cascades into deterministic derived memories without erasing source until purge',async t=>{
+ const x=await setup(t);
+ const source=await x.record('That was a hilarious and embarrassing scooter crash!','derivation');
+ const proposals=selectAutomaticMemories([source]);
+ assert.equal(proposals.length,1);
+ const saved=await x.store.saveDeterministicMemory(proposals[0]);
+ assert.equal(saved.inserted,true);
+ const m5=createM5SqliteServices({store:x.store,filePath:x.filePath,authorize:allowed});
+ await m5.ready(x.scope);
+ await m5.trash({scope:x.scope,targetId:source.recordId,operationId:id()});
+ const suppressed=await x.store.listSuppressedMemoryIds(x.scope);
+ assert.ok(suppressed.includes(source.recordId));
+ assert.ok(suppressed.includes(proposals[0].proposalId));
+ assert.equal((await x.store.findExactQuote({characterId:x.scope.characterId,
+   timelineId:x.scope.timelineId,quote:source.content})).length,1);
+ await m5.close();await x.store.close();
 });
