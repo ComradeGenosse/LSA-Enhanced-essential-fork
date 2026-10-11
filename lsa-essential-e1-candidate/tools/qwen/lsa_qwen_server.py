@@ -173,8 +173,12 @@ async def speech(payload: SpeechRequest, request: Request):
                             pass
         except Exception:
             LOGGER.exception("Qwen generation failed")
-            try: messages.put_nowait(RuntimeError("Qwen generation failed"))
-            except queue.Full: pass
+            while not ended.is_set():
+                try:
+                    messages.put(RuntimeError("Qwen generation failed"), timeout=0.1)
+                    break
+                except queue.Full:
+                    pass
         finally:
             while not ended.is_set():
                 try:

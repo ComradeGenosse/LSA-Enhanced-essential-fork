@@ -10,3 +10,5 @@ tools/native-metadata/bin/
 tools/native-metadata/obj/
 .build-check-*/
 /outputs/api-smoke/
+tools/qwen/voices.json
+tools/qwen/voices/
