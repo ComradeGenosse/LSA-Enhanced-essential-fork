@@ -5,7 +5,10 @@ export const MAX_PCM_BYTES = 1_440_000; // 30 seconds per authenticated turn
 export const MAX_CHUNK_BYTES = 3000;
 export const MAX_CHUNKS = 480;
 export const MAX_PENDING_BYTES = 192000; // at most 4s resident on native
-const CREDIT_TIMEOUT_MS = 2200;
+// Credits follow actual device acceptance. A fast TTS producer must tolerate
+// a full real-time playback queue, but may not wait forever on a dead device.
+const CREDIT_STALL_MS = 6500;
+const MAX_CREDIT_WAIT_MS = 90000;
 
 export async function stageNativePcm(client, nativeTurn, pcm16, { signal } = {}) {
   if (!client || !nativeTurn || !Buffer.isBuffer(pcm16))
@@ -57,7 +60,8 @@ export async function stageNativePcmStream(client, nativeTurn, source, { signal 
       throw new Error('pcm_stream_capacity');
     const packet = { ...claims, chunkIndex: index,
       pcmBase64: bytes.toString('base64') };
-    const deadline = Date.now() + CREDIT_TIMEOUT_MS;
+    const absoluteDeadline = Date.now() + MAX_CREDIT_WAIT_MS;
+    let lastProgressAt = Date.now(), lastForwarded = -1;
     while (true) {
       if (signal?.aborted) throw new Error('pcm_transfer_cancelled');
       try {
@@ -69,11 +73,16 @@ export async function stageNativePcmStream(client, nativeTurn, source, { signal 
         return;
       } catch (error) {
         if (error.message !== 'native_rejected_audio_backpressure') throw error;
-        if (Date.now() >= deadline)
-          throw new Error('pcm_no_native_output_credit');
         const credit = await client.request('audio.status', claims);
         if (credit.status !== 'not_played' || credit.sealed)
           throw new Error('pcm_invalid_output_state');
+        const now = Date.now();
+        if (credit.forwardedBytes > lastForwarded) {
+          lastForwarded = credit.forwardedBytes;
+          lastProgressAt = now;
+        }
+        if (now >= absoluteDeadline || now - lastProgressAt > CREDIT_STALL_MS)
+          throw new Error('pcm_no_native_output_credit');
         if (credit.creditsBytes < bytes.length)
           await pause(40, signal);
         // The same chunkIndex is retried only if native explicitly rejected
