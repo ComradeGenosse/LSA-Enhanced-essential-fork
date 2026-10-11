@@ -177,3 +177,15 @@ test('Old joke motifs decay into resting and cannot emit opt-in callbacks until 
   nowUtc:t(90*86400+1000),secondsSincePlayerTurn:90,
   cue:{kind:'event_type',eventType:'crash',sourceVerified:true}}),null);
 });
+
+
+test('M8 evidence-backed affinities and embarrassment remain subjective and do not edit canon',()=>{
+ const music=event(10,'music'),blunder=event(15,'blunder');
+ const x=run({sources:[committed(music),committed(blunder)]},{interests:['music'],humor:{style:'sarcastic'}});
+ assert.deepEqual(x.interpretations.map(i=>i.kind),['affinity','embarrassment']);
+ assert.ok(x.interpretations.every(i=>i.sourceEvidenceIds.length===1&&i.verifiedWorldFact===false));
+ assert.ok(x.facts.every(f=>f.mode==='observed_fact'));
+ assert.equal(x.relationship.canonRelationshipUnchanged,true);
+ const noInterest=run({sources:[committed(music)]},{interests:[]});
+ assert.deepEqual(noInterest.interpretations,[]);
+});
