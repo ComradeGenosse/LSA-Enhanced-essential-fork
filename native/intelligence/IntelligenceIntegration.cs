@@ -836,6 +836,15 @@ namespace LSA.Intelligence
         {
             if(now-signal.receivedMs>=30000) {staleRejected++;return;}
             if((signal.source!=null && anchors.Resolve(signal.source)==null) || (signal.target!=null && anchors.Resolve(signal.target)==null)) {staleRejected++;return;}
+            // DamageTracker callbacks can occur off the game owner fiber: never run
+            // GTA LOS natives there. Qualify a near-time visual target witness
+            // only on the owner fiber, within a strict 150ms callback freshness
+            // window. This does NOT prove the observer saw the attacker or the
+            // actual bullet impact; PS2 must separately establish shooter sight.
+            if(signal.kind=="damage" && signal.producer=="ped_damage" &&
+               signal.witnessReceipts.Count==0 && now>=signal.receivedMs &&
+               now-signal.receivedMs<=150)
+                signal.witnessReceipts=CaptureWitnesses(signal);
             var witnessReceipts=(signal.witnessReceipts??new List<WitnessReceipt>()).Where(w=>w!=null&&w.Status=="witnessed"&&w.Channel!=null&&w.Basis!=null).Select(w=>new {observer=new {captureRef=w.Observer,kind="ped"},sampledGameTick=w.SampledGameTick,status=w.Status,reason=w.Reason,knowsSource=w.KnowsSource,knowsTarget=w.KnowsTarget,evidence=new {channel=w.Channel,basis=w.Basis,sampledGameTick=w.SampledGameTick}}).ToArray();
             if(channel?.Send("signal",new {signal.signalId,signal.producer,signal.producerSequence,signal.kind,signal.target,signal.source,signal.gameTick,ageMs=Clamp(now-signal.receivedMs),signal.facts,witnessReceipts})==true) {
                 var nativeWitnesses=witnessReceipts.Select(w=>w.observer.captureRef).ToList();

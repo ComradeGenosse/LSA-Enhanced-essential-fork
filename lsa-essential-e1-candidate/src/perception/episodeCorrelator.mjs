@@ -1,6 +1,7 @@
 import { validateSignal, validateWitnessReceipt } from './contracts.mjs';
 import { isUuid } from '../identity/identityContract.mjs';
 import { randomUUID } from 'node:crypto';
+import {witnessedBulletAttribution} from './contextualBallistics.mjs';
 
 const EVENT = Object.freeze({
   firing: ['firing_burst', 'routine', 'firing'],
@@ -22,7 +23,7 @@ const CAP = Object.freeze({ episodes: 256, dedupe: 1024, dedupeTtlMs: 10*60*1000
 export class EpisodeCorrelator {
   constructor({ episodes, observations, now = () => Math.floor(performance.now()), current = () => false, anchor = () => null, utc = () => new Date().toISOString() } = {}) {
     this.episodes = episodes; this.observations = observations; this.now = now; this.current = current; this.anchor = anchor; this.utc = utc;
-    this.seen = new Map(); this.latest = new Map(); this.dropped = 0; this.duplicates = 0;
+    this.seen = new Map(); this.latest = new Map(); this.visualShots = new Map(); this.dropped = 0; this.duplicates = 0;
   }
 
   ingest({ nativeRun, signal, witnessReceipts = [] }) {
@@ -40,6 +41,16 @@ export class EpisodeCorrelator {
 
     const qualified = witnessReceipts.filter(r => r && (r.status === 'witnessed' || r.status === 'reported') && r.evidence && this.current(r.observer?.captureRef) && this.anchor(r.observer.captureRef)?.kind==='ped');
     if (!qualified.length) { this.remember(eventKey, { episodeId: null }); return { accepted: true, duplicate: false, episodeId: null, observations: [] }; }
+    // A native shooting signal carries the shooter anchor, but only visually
+    // source-qualified observers acquire that fact. Keep at most 64 short-lived
+    // proofs; losing a proof is safer than widening a callback association.
+    if(signal.kind==='firing' && signal.source) for(const receipt of qualified) {
+      if(receipt.evidence.channel!=='visual' || receipt.knowsSource!==true)continue;
+      const key=`${nativeRun}:${receipt.observer.captureRef}:${signal.source}`;
+      if(!this.visualShots.has(key) && this.visualShots.size>=64)continue;
+      this.visualShots.set(key,{nativeRun,observer:receipt.observer.captureRef,
+        shooter:signal.source,gameTick:signal.gameTick,monotonicMs:this.now()});
+    }
     const participants = [signal.source && { captureRef: signal.source, kind: this.anchor(signal.source)?.kind }, signal.target && { captureRef: signal.target, kind: this.anchor(signal.target)?.kind }]
       .filter(r => r && r.kind && this.current(r.captureRef));
     const family = ['damage', 'injury_state', 'death'].includes(signal.kind) ? 'harm' : event[0];
@@ -69,7 +80,13 @@ export class EpisodeCorrelator {
       if (old?.claims.some(c => c.details?.eventSignalId === signal.signalId)) continue;
       if (old && old.claims.length >= CAP.perObservationClaims) { this.dropped++; continue; }
       const mappedKind = receipt.evidence.channel === 'report' ? 'report' : event[2];
-      const claim = { claimId: randomUUID(), kind: mappedKind, certainty: receipt.certainty === 'uncertain' ? 'uncertain' : 'supported', evidence: { ...receipt.evidence }, ...(receipt.knowsSource && sourceRef ? { source: sourceRef } : {}), ...(receipt.knowsTarget && targetRef ? { target: targetRef } : {}), details: qualifiedDetails(signal,receipt,this.anchor) };
+      const priorFiring=this.visualShots.get(`${nativeRun}:${observerRef}:${signal.source}`);
+      const joined=witnessedBulletAttribution({signal,receipt,priorFiring,
+        nativeRun,nowMonotonicMs:this.now()});
+      const knowsSource=receipt.knowsSource===true || joined;
+      const details=qualifiedDetails(signal,receipt,this.anchor);
+      if(joined) details.classification='bullet';
+      const claim = { claimId: randomUUID(), kind: mappedKind, certainty: receipt.certainty === 'uncertain' ? 'uncertain' : 'supported', evidence: { ...receipt.evidence }, ...(knowsSource && sourceRef ? { source: sourceRef } : {}), ...(receipt.knowsTarget && targetRef ? { target: targetRef } : {}), details };
       const observation = {
         version: 1, observationId: old?.observationId || randomUUID(), episodeId, revision: (old?.revision || 0) + 1,
         observer: { captureRef: observerRef, kind: 'ped' }, observedAt: { nativeRun, gameTick: receipt.evidence.sampledGameTick, receivedUtc: this.utc() },
@@ -91,8 +108,8 @@ export class EpisodeCorrelator {
     return episode && episode.claims.length < CAP.perEpisodeClaims ? episode : null;
   }
   remember(key, value) { this.seen.set(key, { ...value, expires: this.now() + CAP.dedupeTtlMs }); }
-  expire() { for (const [key, value] of this.seen) if (value.expires <= this.now()) this.seen.delete(key); for (const [key, value] of this.latest) if (!this.episodes.entries.has(value.episodeId)) this.latest.delete(key); }
-  clear() { this.seen.clear(); this.latest.clear(); this.dropped = 0; this.duplicates = 0; }
+  expire() { for(const [key,value] of this.visualShots)if(this.now()-value.monotonicMs>750 || !this.current(value.observer) || !this.current(value.shooter))this.visualShots.delete(key); for (const [key, value] of this.seen) if (value.expires <= this.now()) this.seen.delete(key); for (const [key, value] of this.latest) if (!this.episodes.entries.has(value.episodeId)) this.latest.delete(key); }
+  clear() { this.seen.clear(); this.latest.clear(); this.visualShots.clear(); this.dropped = 0; this.duplicates = 0; }
 }
 
 function defaultIncidentKey(signal, family) {
