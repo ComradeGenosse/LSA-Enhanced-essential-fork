@@ -24,7 +24,7 @@ const dataset=()=>{
 const run=(data,personality,extra={})=>evaluateM8({scope,sources:data.sources,personality,
  nowUtc:t(30),maxBytes:4096,...extra});
 
-test('S06: three personalities interpret identical committed fountain/crash and quote without changing facts',()=>{
+test('S06: three personalities interpret identical committed fountain/crash and Unicode quote without changing facts',()=>{
  const d=dataset();
  const a=run(d,{humor:{style:'goofy',teasing:.8},caution:.1,loyalty:.9});
  const b=run(d,{humor:{style:'dry',teasing:.1},caution:.9,loyalty:.2});
@@ -146,7 +146,6 @@ test('Bounds: no more than 128 sources, rejects invalid input, projections byte-
  assert.ok(res.totalBytes<=700);
  assert.ok(res.totalBytes===Buffer.byteLength(JSON.stringify(res),'utf8'));
 });
-
 
 test('Three distinct promoted characters replay equivalent qualified corpus with equal facts and separate opinions',()=>{
  const base=dataset(),styles=[{humor:{style:'goofy'},caution:.1},
