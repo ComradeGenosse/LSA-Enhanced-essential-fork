@@ -1,7 +1,6 @@
-// M5-owned additive SQLite services. ONE P2 database file, not a memory
-// database or daemon. This module never accesses the foundation's private db.
-// Every mutation enters the P2 serialized timeline/source gate first.
-import { DatabaseSync } from 'node:sqlite';
+// P2-owned SQLite privacy services. The original P2 connection, writer queue,
+// transaction and source/timeline fence own ALL M5 reads and mutations.
+// No independently committing SQLite connection or memory database.
 import { createHash, randomUUID } from 'node:crypto';
 import * as fs from 'node:fs/promises';
 import path from 'node:path';
@@ -36,10 +35,8 @@ CREATE TABLE IF NOT EXISTS m5_privacy_ops (
  receipt_json TEXT NOT NULL);
 `;
 
-function transaction(db,fn){
- db.exec('BEGIN IMMEDIATE');
- try {const value=fn();if(value?.then)fail('m5_async_transaction');db.exec('COMMIT');return value;}
- catch(e){try{db.exec('ROLLBACK');}catch{}throw e;}
+export function ensureM5PrivacySchema(db){
+ db.exec(sql);
 }
 function validateScope(s,store){
  if(!s || ![s.characterId,s.worldProfileId,s.timelineId].every(isUuid) ||
@@ -86,6 +83,17 @@ function dependentIds(db,s,ids){
  }
  return [...found];
 }
+function revokePendingClarifications(db,s,tainted){
+  for(const row of db.prepare('SELECT command_id AS id,state_json AS json,state_sha256 AS checksum FROM m5_clarifications WHERE '+scopeWhere)
+    .all(...scopeKey(s))){
+    if(sha(row.json)!==row.checksum)fail('m5_clarification_corrupt');
+    const pending=JSON.parse(row.json);
+    if(tainted.has(pending.requestedByLineId) ||
+       pending.alternatives?.some(x=>tainted.has(x.recordId)) ||
+       pending.frozen?.some(x=>tainted.has(x.recordId)))
+      db.prepare('DELETE FROM m5_clarifications WHERE command_id=?').run(row.id);
+  }
+}
 function authorizeRequest(authorize,s,operation){
  if(typeof authorize!=='function'||authorize({scope:{...s},operation})!==true)
    fail('m5_privacy_authorization_required');
@@ -95,13 +103,15 @@ const receipt = (operationId,operation,targetIds,atUtc)=>Object.freeze({
   committedAtUtc:atUtc,durableCommit:true
 });
 
-/** A gated auxiliary connection to the EXISTING P2 file. Constructor does not
- * create a DB or bypass P2 native authority. Call ready() before use.
+/** Every method routes through the single P2 serialized reader or writer.
+ * SQLite callbacks must be synchronous; nested store queue calls are not
+ * permitted. Private tables are additive to the existing v4 P2 database.
  */
 export class M5SqliteServices{
- #db=null;#store;#clock;#authorize;
+ #store;#clock;#authorize;
  constructor({store,filePath,clock=()=>new Date().toISOString(),authorize}={}){
-   if(!store||typeof store.withTimelineWrite!=='function'||!store.filePath||
+   if(!store||typeof store.withTimelineSqliteWrite!=='function'||
+      typeof store.withP2SqliteRead!=='function'||!store.filePath||
       path.resolve(filePath??'')!==path.resolve(store.filePath))fail('m5_p2_store_required');
    this.filePath=path.resolve(filePath);
    this.#store=store;this.#clock=clock;this.#authorize=authorize;
@@ -109,40 +119,33 @@ export class M5SqliteServices{
  async ready(scope){
    validateScope(scope,this.#store);
    await this.#store.initialize();
-   return this.#store.withTimelineWrite(scope.timelineId,()=>{
-     if(!this.#db){
-       this.#db=new DatabaseSync(this.filePath);
-       this.#db.exec('PRAGMA foreign_keys=ON; PRAGMA busy_timeout=5000; PRAGMA synchronous=FULL;');
-     }
-     verifyOwner(this.#db,scope);
-     this.#db.exec(sql);
-     // Catch legacy M5 "forget" commands already durably committed by PR #61.
-     // The core tombstone suppresses retrieval immediately; this additive
-     // bookkeeping makes seven-day restore/purge available after reconnect.
-     transaction(this.#db,()=>{
-       const forgotten=this.#db.prepare(`SELECT t.target_id AS targetId,
-         t.command_id AS commandId,t.created_at_utc AS createdAtUtc
-         FROM memory_tombstones t JOIN memory_commands c ON c.command_id=t.command_id
-         WHERE t.world_profile_id=? AND t.character_id=? AND t.timeline_id=?
-           AND c.protagonist_key=? AND c.operation='forget'`).all(...scopeKey(scope));
-       const insert=this.#db.prepare('INSERT OR IGNORE INTO m5_trash VALUES(?,?,?,?,?,?,?,?,?,NULL,NULL)');
-       for(const item of forgotten)insert.run(item.commandId,item.commandId,item.targetId,
-         ...scopeKey(scope),item.createdAtUtc,
-         new Date(Date.parse(item.createdAtUtc)+7*DAY).toISOString());
-     });
+   return this.#store.withTimelineSqliteWrite(scope,db=>{
+     verifyOwner(db,scope);
+     ensureM5PrivacySchema(db);
+     // Reconcile old M5 forget receipts under the same P2 transaction.
+     // Tombstones already suppress recall; this records seven-day recovery.
+     const forgotten=db.prepare('SELECT t.target_id AS targetId,'+
+       ' t.command_id AS commandId,t.created_at_utc AS createdAtUtc'+
+       ' FROM memory_tombstones t JOIN memory_commands c ON c.command_id=t.command_id'+
+       ' WHERE t.world_profile_id=? AND t.character_id=? AND t.timeline_id=?'+
+       " AND c.protagonist_key=? AND c.operation='forget'").all(...scopeKey(scope));
+     const insert=db.prepare('INSERT OR IGNORE INTO m5_trash VALUES(?,?,?,?,?,?,?,?,?,NULL,NULL)');
+     for(const item of forgotten)insert.run(item.commandId,item.commandId,item.targetId,
+       ...scopeKey(scope),item.createdAtUtc,
+       new Date(Date.parse(item.createdAtUtc)+7*DAY).toISOString());
      return true;
    });
  }
- async close(){if(this.#db){this.#db.close();this.#db=null;}}
- #read(s,fn){
-   if(!this.#db)fail('m5_not_ready');
-   validateScope(s,this.#store);verifyOwner(this.#db,s);
-   return fn(this.#db);
+ async close(){ /* P2 is sole connection owner; the M5 facade never closes it. */ }
+ async #read(s,fn){
+   validateScope(s,this.#store);
+   await this.ready(s);
+   return this.#store.withP2SqliteRead(s,db=>{verifyOwner(db,s);return fn(db);});
  }
  async #write(s,fn){
    validateScope(s,this.#store);
    await this.ready(s);
-   return this.#store.withTimelineWrite(s.timelineId,()=>this.#read(s,db=>transaction(db,()=>fn(db))));
+   return this.#store.withTimelineSqliteWrite(s,db=>{verifyOwner(db,s);return fn(db);});
  }
  async saveClarification({scope,commandId,requestedByLineId,line,parsed,alternatives,frozen,createdAtUtc}){
    if(![commandId,requestedByLineId].every(isUuid)||line?.recordId!==requestedByLineId||
@@ -234,7 +237,7 @@ export class M5SqliteServices{
        const receipt=await this.#store.verifyCommand(params);
        if(receipt?.operation==='forget' && receipt?.durableCommit){
          await this.ready(params.scope);
-         const restored=this.#read(params.scope,db=>db.prepare(
+         const restored=await this.#read(params.scope,db=>db.prepare(
            'SELECT trash_id FROM m5_trash WHERE operation_id=? AND '+scopeWhere+
            ' AND restored_at_utc IS NOT NULL LIMIT 1'
          ).get(params.commandId,...scopeKey(params.scope)));
@@ -318,14 +321,7 @@ export class M5SqliteServices{
      const closure=dependentIds(db,scope,[targetId]);
      // Pending choices whose original source is now suppressed are revoked
      // within the same privacy transaction, before retrieval can expose them.
-     const tainted=new Set(closure);
-     for(const row of db.prepare('SELECT command_id AS id,state_json AS json FROM m5_clarifications WHERE '+scopeWhere)
-       .all(...scopeKey(scope))){
-       const pending=JSON.parse(row.json);
-       if(tainted.has(pending.requestedByLineId) ||
-          pending.alternatives?.some(x=>tainted.has(x.recordId)))
-         db.prepare('DELETE FROM m5_clarifications WHERE command_id=?').run(row.id);
-     }
+     revokePendingClarifications(db,scope,new Set(closure));
      for(const id of closure){
        if(!activeTombstone(db,scope,id))
          db.prepare('INSERT INTO memory_tombstones VALUES(?,?,?,?,?,?)')
@@ -362,6 +358,9 @@ export class M5SqliteServices{
      const unique=[...new Set(ids)].sort();
      if(unique.length>100000)fail('m5_scope_delete_quota_exceeded');
      const pending=unique.filter(id=>!activeTombstone(db,scope,id));
+     // Compound scope forget must invalidate all offered alternatives in the
+     // same commit, never permitting a stale clarification to revive evidence.
+     revokePendingClarifications(db,scope,new Set(unique));
      for(const id of pending){
        db.prepare('INSERT INTO memory_tombstones VALUES(?,?,?,?,?,?)')
          .run(scope.characterId,scope.worldProfileId,scope.timelineId,id,operationId,now);
@@ -374,7 +373,7 @@ export class M5SqliteServices{
    });
    return this.verifyPrivacy({scope,operationId});
  }
- verifyPrivacy({scope,operationId}){
+ async verifyPrivacy({scope,operationId}){
    if(!isUuid(operationId))fail('m5_invalid_operation_id');
    return this.#read(scope,db=>{
      const row=db.prepare('SELECT receipt_json AS json FROM m5_privacy_ops WHERE operation_id=? AND '+scopeWhere).get(operationId,...scopeKey(scope));
@@ -419,6 +418,7 @@ export class M5SqliteServices{
      // Purge stored derivatives, curator jobs, appraisals and audit receipts
      // that include purged evidence, not merely the primary journal row.
      const tainted=new Set(closure);
+     revokePendingClarifications(db,scope,tainted);
      for(const row of db.prepare('SELECT job_id AS id,job_json AS json FROM memory_curation_jobs WHERE world_profile_id=? AND character_id=? AND timeline_id=?')
        .all(scope.worldProfileId,scope.characterId,scope.timelineId)){
        const job=JSON.parse(row.json);
@@ -447,6 +447,8 @@ export class M5SqliteServices{
          db.prepare('DELETE FROM event_journal WHERE record_id=? AND world_profile_id=? AND character_id=? AND timeline_id=?').run(id,scope.worldProfileId,scope.characterId,scope.timelineId);
        db.prepare('DELETE FROM memory_corrections WHERE target_id=? AND world_profile_id=? AND character_id=? AND timeline_id=?').run(id,scope.worldProfileId,scope.characterId,scope.timelineId);
        db.prepare('DELETE FROM memory_tombstones WHERE target_id=? AND world_profile_id=? AND character_id=? AND timeline_id=?').run(id,scope.worldProfileId,scope.characterId,scope.timelineId);
+       db.prepare('DELETE FROM p2_memory_replay_feed WHERE record_id=? AND world_profile_id=? AND character_id=? AND timeline_id=? AND protagonist_key=?')
+         .run(id,...scopeKey(scope));
        db.prepare('DELETE FROM memory_commands WHERE requested_by_line_id=? AND '+scopeWhere).run(id,...scopeKey(scope));
      }
      for(const x of due)db.prepare('UPDATE m5_trash SET purged_at_utc=? WHERE operation_id=? AND target_id=? AND '+scopeWhere).run(now,x.parent,x.id,...scopeKey(scope));
