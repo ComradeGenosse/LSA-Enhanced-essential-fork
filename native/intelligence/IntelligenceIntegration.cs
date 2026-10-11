@@ -572,7 +572,9 @@ namespace LSA.Intelligence
                         if(item==null)break;
                         // Ephemeral identity: an absent/mismatched mic Ped stays unbound.
                         var anchor=anchors.Current.FirstOrDefault(a=>a.Kind=="ped" &&
-                            ReferenceEquals(a.Entity,item.Ped) && a.Address==item.Address);
+                            a.Entity is Ped retained && SamePhysicalPed(retained,item.Ped) &&
+                            a.Handle==Convert.ToUInt64(item.Ped.Handle) && a.Address==item.Address &&
+                            anchors.Resolve(a.CaptureRef)!=null);
                         if(proximityExperimental && item.worldEpoch==host.WorldEpoch) {
                             if(item.phase=="started")StartSpeechWindow(item);
                             else CompleteSpeechWindow(item);
@@ -1184,8 +1186,10 @@ namespace LSA.Intelligence
         {
             if(!IsAvailable || context?.IntegrationBlocks==null || ped==null || context.PedId!=ped.Handle.ToString()) return;
             try {
-                var existing=anchors.Current.FirstOrDefault(a=>a.Kind=="ped" && ReferenceEquals(a.Entity,ped));
-                var owner=(roster()??new OwnedParticipant[0]).FirstOrDefault(p=>p!=null && ReferenceEquals(p.Ped,ped) && p.Current?.Invoke()==true);
+                var existing=anchors.Current.FirstOrDefault(a=>a.Kind=="ped" &&
+                    a.Entity is Ped retained && SamePhysicalPed(retained,ped));
+                var owner=(roster()??new OwnedParticipant[0]).FirstOrDefault(p=>p!=null &&
+                    SamePhysicalPed(p.Ped,ped) && p.Current?.Invoke()==true);
                 if(existing?.OwnerLifetime!=null && owner?.Lifetime!=existing.OwnerLifetime) {
                     LogStatus("[PS] turn_actor_capture_unavailable reason=owner_changed");return;
                 }
