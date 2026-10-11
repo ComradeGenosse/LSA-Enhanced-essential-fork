@@ -8,6 +8,7 @@ import { promisify } from 'node:util';
 import { randomUUID } from 'node:crypto';
 import { DatabaseSync } from 'node:sqlite';
 import { inspectP2Sqlite } from '../../lsa-shared-brain/src/characters/sqliteFoundation.mjs';
+import { JOURNAL_SCHEMA_VERSION } from '../../lsa-shared-brain/src/memory/journalSqlite.mjs';
 import { createEssentialMemoryStorage } from '../src/characters/memoryStorageAdapter.mjs';
 import { parseInspectArgs } from '../tools/inspectM1Sqlite.mjs';
 import { worldProfileId } from './identity-fixtures.mjs';
@@ -31,7 +32,7 @@ test('M1 offline recovery inspection validates exact DB without changing its byt
   const result=await inspectP2Sqlite({filePath,worldProfileId});
   assert.deepEqual(result,{
     status:'verified',revision:1,profileCount:1,timelineCount:1,
-    activeTimelineId:id,schemaVersion:3
+    activeTimelineId:id,schemaVersion:JOURNAL_SCHEMA_VERSION
   });
   assert.deepEqual(await fs.readFile(filePath),before);
   const tool=path.resolve(import.meta.dirname,'../tools/inspectM1Sqlite.mjs');
