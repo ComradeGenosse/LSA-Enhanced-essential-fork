@@ -318,6 +318,83 @@ internal static class Program
             "re-register of script-controlled actor revokes all pre-takeover claims");
     }
 
+    private static void SeededSafetyScenarios()
+    {
+        // Model-independent invariant: once an exact lease becomes invalid, no
+        // future event may ever make the identical lease current again.
+        for (uint seed = 1; seed <= 24; seed++)
+        {
+            var game = new SimulatedGame();
+            game.Spawn(41, 0x4100);
+            var host = new NativeAuthority(game, game, game, game);
+            ActorRef active = Register(host, 41);
+            var all = new List<OwnershipLease>();
+            var retired = new HashSet<Guid>();
+            uint random = seed;
+            for (int tick = 0; tick < 90; tick++)
+            {
+                random = unchecked(random * 1664525U + 1013904223U);
+                switch ((int)(random % 9))
+                {
+                    case 0:
+                        host.WorldChanged();
+                        active = Register(host, 41);
+                        break;
+                    case 1:
+                        game.Spawn(41, (ulong)(0x5000 + tick + seed * 100));
+                        active = Register(host, 41);
+                        break;
+                    case 2:
+                        game.ScriptControl(41, true);
+                        host.Reconcile();
+                        game.ScriptControl(41, false);
+                        break;
+                    case 3:
+                        game.AllowsNpcControl = false;
+                        host.Reconcile();
+                        game.AllowsNpcControl = true;
+                        break;
+                    case 4:
+                        game.Advance(1200);
+                        break;
+                    case 5:
+                        game.Kill(41);
+                        host.Reconcile();
+                        game.Spawn(41, (ulong)(0x6000 + tick + seed * 100));
+                        active = Register(host, 41);
+                        break;
+                    case 6:
+                    case 7:
+                        OwnershipLease acquired;
+                        string reject;
+                        if (host.TryAcquire(active, (LeaseKind)((random >> 8) % 4 + 1),
+                            "owner", 1000, out acquired, out reject)) all.Add(acquired);
+                        break;
+                    case 8:
+                        if (all.Count > 0)
+                        {
+                            var old = all[(int)((random >> 12) % (uint)all.Count)];
+                            OwnershipLease replacement;
+                            string reason;
+                            if (host.TrySupersede(old, "new-owner", 1000, out replacement, out reason))
+                                all.Add(replacement);
+                        }
+                        break;
+                }
+                foreach (var token in all)
+                {
+                    bool valid = host.IsLeaseCurrent(token);
+                    if (retired.Contains(token.LeaseId))
+                        Check(!valid, "seed " + seed + " resurrected retired lease after step " + tick);
+                    else if (!valid) retired.Add(token.LeaseId);
+                }
+            }
+            host.Stop();
+            foreach (var token in all)
+                Check(!host.IsLeaseCurrent(token), "seed " + seed + " cleanup retained lease");
+        }
+    }
+
     private static void Main()
     {
         IdentityAndLeases();
@@ -325,6 +402,7 @@ internal static class Program
         DeterministicScenarioReplay();
         ReconciliationAndTrace();
         UnavailableWorldAndClock();
+        SeededSafetyScenarios();
         Console.WriteLine("PASS " + assertions +
             " standalone native core assertions; no Essential/RAGE/game assembly loaded.");
     }
