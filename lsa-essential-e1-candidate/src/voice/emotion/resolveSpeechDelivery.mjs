@@ -29,8 +29,9 @@ function normalizeHint(candidate, intensity) {
       !['version','value','source','confidence','intensity','evidenceRef'].includes(key))) return null;
   // EA0's renderer accepts only locally branded, validated intents. The
   // injected selector is an internal trust boundary, never raw Luna JSON.
-  try { return isDelivery(candidate) ? candidate : createDelivery(candidate); }
-  catch { return null; }
+  // A selector returning Luna JSON, a spread copy or a fixture-shaped object
+  // must not gain a brand here. Only the trusted EA1 factory can authorize it.
+  return isDelivery(candidate) ? candidate : null;
 }
 
 function receiptKeysMismatch(receipt, identity) {
