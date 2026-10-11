@@ -10,6 +10,37 @@ const MAX_AUDIO_BYTES = 24_000_000;
 const CHUNK_BYTES = 24_000; // 500 ms native forwarding, matching Qwen.
 const VOICE_ID = /^[A-Za-z0-9]{20}$/;
 const BASE64 = /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/;
+// Defense in depth: a vendor tag is never accepted as an input parameter.
+// The only acting-capable extension is EA0's injected trusted renderer.
+const ALLOWED_TAG = Object.freeze({
+  whisper:'[whispers] ', excited:'[excited] ', angry:'[angry] ',
+  amused:'[laughs] ', sad:'[sad] ', sarcastic:'[sarcastic] ',
+});
+const DELIVERY_SOURCES = new Set(['verified_scene','luna_hint','dialogue_cue','ephemeral_mood','neutral']);
+const DELIVERY_CONFIDENCES = new Set(['supported','soft']);
+function validDelivery(delivery) {
+  return delivery && typeof delivery === 'object' && !Array.isArray(delivery) &&
+    delivery.version === 1 && Object.hasOwn(ALLOWED_TAG, delivery.value) &&
+    DELIVERY_SOURCES.has(delivery.source) && DELIVERY_CONFIDENCES.has(delivery.confidence) &&
+    ['subtle','normal','expressive'].includes(delivery.intensity) &&
+    (delivery.evidenceRef === null ||
+      (typeof delivery.evidenceRef === 'string' && delivery.evidenceRef.length <= 128)) &&
+    Object.keys(delivery).length === 6 &&
+    Object.keys(delivery).every(key => ['version','value','source','confidence','intensity','evidenceRef'].includes(key));
+}
+function speechTextForSocket(dialogue, delivery, mode, renderSpeech) {
+  if (mode !== 'experimental' || !validDelivery(delivery) || typeof renderSpeech !== 'function')
+    return {text: dialogue, tagged: false};
+  // Only accept exactly one approved prefix attached to unchanged canonical text.
+  // An EA0 renderer that strips suspicious bracket markup can simply decline to
+  // tag it; the integration reviewer can extend this validation after EA0 lands.
+  try {
+    const rendered = renderSpeech({dialogue, delivery, enabled:true});
+    if (rendered === ALLOWED_TAG[delivery.value] + dialogue && rendered.length <= 3000)
+      return {text: rendered, tagged: true};
+  } catch { /* An invalid renderer is a neutral fallback, not a failed call. */ }
+  return {text: dialogue, tagged: false};
+}
 
 function fault(code, cause) {
   const error = new Error(code);
@@ -75,6 +106,7 @@ export function decodePcmAudio(encoded, maxBytes) {
 }
 export function createElevenLabsSpeechProvider({
   config, WebSocketImpl = globalThis.WebSocket, clock = () => performance.now(),
+  renderSpeech = null,
 } = {}) {
   return Object.freeze({
     id: 'elevenlabs.speech',
@@ -99,6 +131,8 @@ export function createElevenLabsSpeechProvider({
       const key = config.elevenLabs.apiKey;
       if (typeof key !== 'string' || !key.trim()) throw fault('elevenlabs_missing_key');
       if (signal?.aborted) throw fault('cancelled');
+      const actingMode = config.expressiveDelivery?.mode ?? 'off';
+      const speechPayload = speechTextForSocket(dialogue, input.delivery, actingMode, renderSpeech);
       const maxBytes = Math.min(config.streamingMaxPcmBytes ?? MAX_AUDIO_BYTES, MAX_AUDIO_BYTES);
       const timeoutMs = Math.min(input.timeoutMs ?? config.providerWorkDeadlineMs ?? 45_000, 120_000);
       const started = safeTime(clock);
@@ -177,7 +211,7 @@ export function createElevenLabsSpeechProvider({
           // Dedicated per-turn connection. Key is only sent inside authenticated
           // TLS socket, never as a URL or telemetry field.
           socket.send(JSON.stringify({voices:[voiceId],xi_api_key:key}));
-          socket.send(JSON.stringify({inputs:[{text:dialogue,voice_id:voiceId,new_turn:false}]}));
+          socket.send(JSON.stringify({inputs:[{text:speechPayload.text,voice_id:voiceId,new_turn:false}]}));
           socket.send(JSON.stringify({close_socket:true}));
         } catch { fail(fault('elevenlabs_send_failed')); }
       };
@@ -226,6 +260,18 @@ export function createElevenLabsSpeechProvider({
         if (failed) throw failed;
         if (!drained || !forwardedBytes || forwardedBytes !== generatedBytes)
           throw fault('elevenlabs_invalid_audio');
+        if (actingMode !== 'off') telemetry?.event('acting_tts_delivery', {
+          mode: actingMode, tagged: speechPayload.tagged,
+          selected: validDelivery(input.delivery) ? input.delivery.value : 'neutral',
+        });
+        if (actingMode === 'experimental' && input.actingBenchmark === true &&
+            Number.isFinite(input.actingBaselineFirstPcmMs) && input.actingBaselineFirstPcmMs >= 0 &&
+            input.actingBaselineFirstPcmMs <= 120_000) {
+          telemetry?.event('acting_tts_first_pcm_delta', {
+            durationMs: firstAudioAt - started - input.actingBaselineFirstPcmMs,
+            tagged: speechPayload.tagged,
+          });
+        }
         record('elevenlabs_tts_timing_summary', {
           outcome:'finished', firstPcmMs:firstAudioAt-started,
           wallMs:safeTime(clock)-started, audioDurationMs:forwardedBytes*1000/PCM_BYTES_PER_SECOND,
