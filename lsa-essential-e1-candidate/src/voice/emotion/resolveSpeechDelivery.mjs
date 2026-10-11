@@ -1,9 +1,9 @@
-// EA2 adapter seam. No dependency on EA0/EA1/EA3/EA4 while the stacked
-// branches are independent. Only an injected trusted selector may request acting.
+// EA2 integration adapter. Only the locally injected, trusted selector may request acting.
+import { createDelivery, isDelivery } from './deliveryContract.mjs';
 // This module never writes to canonical dialogue, history or the memory journal.
 const MODES = new Set(['shadow', 'experimental']);
 const VALUES = new Set(['neutral','whisper','excited','fearful','angry','amused','sad','sarcastic','concerned']);
-const SOURCES = new Set(['verified_scene','luna_hint','dialogue_cue','ephemeral_mood','neutral']);
+const SOURCES = new Set(['verified_scene','luna_hint','dialogue_cue','neutral']);
 const TAGGABLE = new Set(['whisper','excited','angry','amused','sad','sarcastic']);
 const CONFIDENCES = new Set(['supported','soft']);
 const INTENSITIES = new Set(['subtle','normal','expressive']);
@@ -22,10 +22,10 @@ function normalizeHint(candidate, intensity) {
   // No extra vendor tags, display strings or private fields can pass this seam.
   if (Object.keys(candidate).some(key =>
       !['version','value','source','confidence','intensity','evidenceRef'].includes(key))) return null;
-  return Object.freeze({
-    version: 1, value: candidate.value, source: candidate.source,
-    confidence: candidate.confidence, intensity, evidenceRef: candidate.evidenceRef,
-  });
+  // EA0's renderer accepts only locally branded, validated intents. The
+  // injected selector is an internal trust boundary, never raw Luna JSON.
+  try { return isDelivery(candidate) ? candidate : createDelivery(candidate); }
+  catch { return null; }
 }
 
 function safeTelemetry(telemetry, data) {

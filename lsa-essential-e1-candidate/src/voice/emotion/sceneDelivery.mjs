@@ -1,4 +1,5 @@
 import { isUuid } from '../../identity/identityContract.mjs';
+import { createDelivery, NEUTRAL_DELIVERY } from './deliveryContract.mjs';
 import { validateObservation } from '../../perception/contracts.mjs';
 
 // EA1 is a pure intent selector. No TTS tags, network calls, storage, native
@@ -13,10 +14,7 @@ export const SCENE_DELIVERY_BOUNDS = Object.freeze({
   defaultMaxTaggedSegmentsPerTurn: 2,
 });
 
-const NEUTRAL = Object.freeze({
-  version: 1, value: 'neutral', source: 'neutral',
-  confidence: 'soft', intensity: 'subtle', evidenceRef: null,
-});
+const NEUTRAL = NEUTRAL_DELIVERY;
 const SOURCE = new Set(['player_text', 'player_mic', 'special_event', 'scene_director', 'director', 'internal']);
 const INTENSITIES = new Set(['subtle', 'normal', 'expressive']);
 const IDENTITY_KEYS = Object.freeze([
@@ -26,6 +24,7 @@ const IDENTITY_KEYS = Object.freeze([
 ]);
 const UUID_KEYS = new Set(['characterId', 'observerCaptureRef', 'incarnationId', 'hostRunId', 'nativeRun']);
 const DIRECT = new Set(['self', 'visual', 'auditory']);
+const LUNA_SOFT = new Set(['amused', 'sad', 'sarcastic', 'whisper', 'excited']);
 const PRIORITIES = Object.freeze({ danger: 5, death: 4, injury: 3, impact: 2 });
 const AGE = Object.freeze({ danger: 6000, death: 12000, injury: 12000, impact: 8000 });
 
@@ -154,7 +153,7 @@ function priorForIdentity(identity, prior, now) {
 }
 
 function delivery(value, source, confidence, intensity, evidenceRef = null) {
-  return Object.freeze({ version: 1, value, source, confidence, intensity, evidenceRef });
+  return createDelivery({ version: 1, value, source, confidence, intensity, evidenceRef });
 }
 
 /**
@@ -165,7 +164,7 @@ function delivery(value, source, confidence, intensity, evidenceRef = null) {
  */
 export function resolveDelivery({
   identity, segmentText, source, nowMonotonicMs,
-  currentSceneEvidence, actorTraits, priorEphemeralMood, config,
+  currentSceneEvidence, actorTraits, priorEphemeralMood, config, lunaHint = null,
 } = {}) {
   if (config?.mode !== 'shadow' && config?.mode !== 'experimental') return NEUTRAL;
   if (!validIdentity(identity) || !SOURCE.has(source) ||
@@ -188,7 +187,8 @@ export function resolveDelivery({
   const candidate = scene
     ? { value: scene.value, source: 'verified_scene', confidence: 'supported',
         evidenceRef: scene.evidenceRef }
-    : conversationalCue(segmentText, traits);
+    : conversationalCue(segmentText, traits) ?? (LUNA_SOFT.has(lunaHint)
+      ? {value:lunaHint, source:'luna_hint', confidence:'soft'} : null);
   if (!candidate) return NEUTRAL;
   // Suppress repeated performance, never carrying a scene event over into a
   // future segment/turn without freshly verified evidence. Agent EA4 owns mood.
