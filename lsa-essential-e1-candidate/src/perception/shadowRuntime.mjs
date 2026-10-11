@@ -43,7 +43,7 @@ export class ShadowRuntime {
     this.memoryTapDiagnostics={delivered:0,rejected:0,faults:0};
     this.ps3Diagnostics={decisions:0,urgent:0,eligible:0,staged:0,suppressed:0,faults:0,reasons:Object.fromEntries(Object.values(PS3_REASON_COUNTERS).map(k=>[k,0]))};
   }
-  tapAcceptedObservation(observation) {
+  #tapAcceptedObservation(observation) {
     if(!this.acceptedObservationTap)return;
     const ref=observation?.observer?.captureRef;
     const row=this.observerIndex.get(ref);
@@ -219,7 +219,7 @@ export class ShadowRuntime {
       else if(correlated.accepted) {this.ps2Diagnostics.correlated=Math.min(MAX_COUNTER,this.ps2Diagnostics.correlated+Number(Boolean(correlated.episodeId)));this.ps2Diagnostics.witnessed=Math.min(MAX_COUNTER,this.ps2Diagnostics.witnessed+correlated.observations.length);}
       if(!correlated.accepted) this.ps2Diagnostics.dropped=Math.min(MAX_COUNTER,this.ps2Diagnostics.dropped+1);
       for(const observationId of correlated.removedObservationIds||[]) this.salience.forgetObservation(observationId);
-      for(const observation of correlated.observations||[]) {this.tapAcceptedObservation(observation);this.noteSalience(observation);}
+      for(const observation of correlated.observations||[]) {this.#tapAcceptedObservation(observation);this.noteSalience(observation);}
       // R4 ranks radio locally only. R5 remains responsible for model-visible projection.
       return true;
     }
@@ -233,7 +233,7 @@ export class ShadowRuntime {
     if(correlated.duplicate) this.ps2Diagnostics.duplicates=Math.min(MAX_COUNTER,this.ps2Diagnostics.duplicates+1);
     else if(correlated.accepted) {this.ps2Diagnostics.correlated=Math.min(MAX_COUNTER,this.ps2Diagnostics.correlated+Number(Boolean(correlated.episodeId)));this.ps2Diagnostics.witnessed=Math.min(MAX_COUNTER,this.ps2Diagnostics.witnessed+correlated.observations.length);}
     if(!correlated.accepted) this.ps2Diagnostics.dropped=Math.min(MAX_COUNTER,this.ps2Diagnostics.dropped+1);
-    for(const observation of correlated.observations||[]) {this.tapAcceptedObservation(observation);this.noteSalience(observation);}
+    for(const observation of correlated.observations||[]) {this.#tapAcceptedObservation(observation);this.noteSalience(observation);}
     // Raw signals are retained only for bounded diagnostics. Retention pressure
     // must never reject an otherwise valid signal before PS2/PS3 processing.
     this.retainSignal(value,critical,this.now()+BOUNDS.signalTtlMs-s.ageMs);
