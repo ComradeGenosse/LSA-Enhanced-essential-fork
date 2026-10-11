@@ -1,6 +1,6 @@
 # Speech architecture upgrade — Qwen / OpenAI TTS, streaming dialogue and independent STT
 
-**Status:** IMPLEMENTATION PLAN ONLY (11 October 2026). No new game capability is activated by this document. This plan refines [Phase 4](phase-4-status.md), [Phase 6](roadmap.md#phases-and-exit-gates), and the Phase 5 GTA vertical slice. Phase 4 PR #44 already provides native audio leases, 24-kHz PCM, a rolling queue, truthful `sealed_not_played` receipts, and an opt-in OpenAI TTS adapter; it **does not** implement the features below.
+**Status (11 October 2026):** Phase 4 **S1 provider-neutral routing has a source implementation** on PR #44; full promoted-character binding, device playback and GTA acceptance remain open. **S2–S4 and Phase 6 M1–M2 are still plans, not shipped code.** No new game capability is activated by this document. This plan refines [Phase 4](phase-4-status.md), [Phase 6](roadmap.md#phases-and-exit-gates), and the Phase 5 GTA vertical slice. Phase 4 PR #44 provides native audio leases, 24-kHz PCM, a rolling queue, truthful `sealed_not_played` receipts, and opt-in **OpenAI/Qwen** speech adapters with per-incarnation voice pools. It **does not** implement early native speech segments, verified output playback, or independent microphone capture. Persistent voice assignments have a versioned schema but cannot activate without trusted native character binding.
 
 **Reference implementations (do not blindly merge stock Essential dependencies):**
 - [PR #39: Faster Qwen3-TTS](https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/pull/39): local Python loopback sidecar, Base clone / CustomVoice / VoiceDesign voice registry, 24-kHz PCM streaming, cancellation, deterministic provider switching, character voice persistence and offline benchmark harness. The original implementation targets the existing Essential-based pipeline.
@@ -74,7 +74,7 @@
 
 | Order | Target | Deliverable | Merge/deploy gate |
 | --- | --- | --- | --- |
-| **A** | Phase 4 PR #44 follow-up | Provider-neutral speech interface, independent Faster Qwen3-TTS sidecar adapter, per-NPC voice reference contract | Adapter unit tests, same PCM fixtures, no keys to localhost, no Essential imports; no GTA activation |
+| **A** | Phase 4 PR #44 — **implemented source, validation in progress** | Common PCM contract, OpenAI/Qwen adapters, localhost sidecar, per-incarnation voice pool, private versioned assignment registry (persistent binding still pending) | Adapter unit tests, native↔Node Qwen loopback fixture, no credentials sent to localhost, no Essential imports; no GTA activation |
 | **B** | Phase 4 follow-up | Structured early Luna segments, native segment-specific admission, cancellation and ordered TTS/audio | Incremental-stream and actor ABA tests; no simulated audio claimed as heard |
 | **C** | Phase 4 follow-up | Output-credit watchdog, verified device-playback lifecycle and lip-sync interfaces, model-family scheduling | Real Windows test output fixtures + SDK build; device/spatial behavior remains GTA gate |
 | **D** | Phase 5 GTA vertical slice | One explicitly chosen NPC with source-time typed input, provider-switched speech, physical output and interruption | Exact deployed DLL/Node hashes, Essential disabled, real spatial/device completion proof |
