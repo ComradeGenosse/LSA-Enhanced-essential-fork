@@ -65,14 +65,16 @@ jobs:
         shell: pwsh
         run: |
           $exe = (Resolve-Path 'native/standalone-host/tests/bin/Release/net481/Phase2PipeHarness.exe').Path
-          foreach ($mode in @('direct_fixture','loopback_responses','pcm_escrow')) {
+          foreach ($mode in @('direct_fixture','loopback_responses','pcm_escrow','pcm_rolling')) {
             # Each mode gets its own genuine native host process and lease;
             # no cancelled native turn is silently replayed between fixtures.
             $hostProcess = Start-Process -FilePath $exe -PassThru
             try {
               $ok = $false
               for ($attempt = 1; $attempt -le 12; $attempt++) {
-                if ($mode -eq 'pcm_escrow') {
+                if ($mode -eq 'pcm_rolling') {
+                  node lsa-standalone-companion/tools/audio-rolling-fixture.mjs
+                } elseif ($mode -eq 'pcm_escrow') {
                   node lsa-standalone-companion/tools/audio-escrow-fixture.mjs
                 } elseif ($mode -eq 'loopback_responses') {
                   node lsa-standalone-companion/tools/typed-turn-fixture.mjs --http-stub
