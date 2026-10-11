@@ -168,7 +168,8 @@ export class Phase2NativeClient {
                 'forwardedBytes', 'creditsBytes', 'sealed']
             : isPlaybackReceipt
               ? ['requestId', 'status', 'playbackState', 'playedBytes',
-                  'submittedBytes', 'mouthLevel', 'sealed']
+                  'submittedBytes', 'mouthLevel', 'sealed',
+                  'completedSegments', 'markedSegments', 'finalSegments']
               : ['requestId', 'status'];
     verify(value, expected, this.#binding, ++this.#incoming, fields);
     if (typeof value.status !== 'string' ||
@@ -192,6 +193,17 @@ export class Phase2NativeClient {
         value.submittedBytes > 1440000 ||
         value.mouthLevel > 100 ||
         typeof value.sealed !== 'boolean' ||
+        typeof value.finalSegments !== 'boolean' ||
+        value.finalSegments !== value.sealed ||
+        !Number.isSafeInteger(value.completedSegments) ||
+        !Number.isSafeInteger(value.markedSegments) ||
+        value.completedSegments < 0 ||
+        value.markedSegments < 0 ||
+        value.completedSegments > value.markedSegments ||
+        value.markedSegments > 12 ||
+        (value.status === 'playback_completed' &&
+          (value.completedSegments !== value.markedSegments ||
+           value.markedSegments < 1)) ||
         (value.status === 'playback_completed') !==
           (value.playbackState === 'playback_completed') ||
         (value.status === 'device_failed') !== (value.playbackState === 'failed') ||
