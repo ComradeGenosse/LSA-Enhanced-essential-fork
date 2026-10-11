@@ -54,22 +54,25 @@ export class UtteranceLifecycle {
   // A real Essential turn is the only origin of the tuple. The captured P0
   // observer must name exactly the same native Ped/host. No "latest NPC",
   // name/handle lookup or redirect is permitted. One pending lease at a time.
-  reserveMicTurn({identity,actorRef,hostRunId,worldEpoch},host) {
+  reserveMicTurn({identity,actorRef,hostRunId,worldEpoch,utteranceId=null},host) {
     this.trim();
     if(!validTurn(identity) || !isUuid(actorRef) || !this.current(actorRef) ||
        !host || hostRunId!==host.hostRunId || worldEpoch!==host.worldEpoch ||
-       !isUuid(hostRunId) || this.pending || this.entries.size>=32) {
+       !isUuid(hostRunId) || utteranceId!==null && !isUuid(utteranceId) || this.pending || this.entries.size>=32) {
       this.diagnostics.unmatched++;return false;
     }
     const candidate={identity:Object.freeze({...identity}),actorRef,hostRunId,worldEpoch,
-      at:this.now(),pcmBytes:0,pcmFinished:false,utteranceId:null,cancelled:false};
+      at:this.now(),pcmBytes:0,pcmFinished:false,utteranceId:null,
+      expectedId:utteranceId,cancelled:false};
     // The native pipe may deliver its start immediately before the local
     // connection's capture callback. Use ONLY one still-open source-lifetime
     // with matching exact captureRef and a very short arrival window.
     const e=this.active && this.entries.get(this.active);
-    if(e && !e.join && !e.retired && e.started.micPedRef===actorRef &&
+    if(e && !e.join && !e.retired &&
+       (utteranceId===null || e.started.utteranceId===utteranceId) &&
+       e.started.micPedRef===actorRef &&
        e.started.hostRunId===hostRunId && e.started.worldEpoch===worldEpoch &&
-       candidate.at-e.receivedAt>=0 && candidate.at-e.receivedAt<=1500) {
+       (utteranceId!==null || candidate.at-e.receivedAt>=0 && candidate.at-e.receivedAt<=1500)) {
       e.join=candidate;candidate.utteranceId=e.started.utteranceId;
       this.diagnostics.joined++;
     } else if(e) {
@@ -137,7 +140,8 @@ export class UtteranceLifecycle {
       this.active=p.utteranceId;this.entries.set(p.utteranceId,e);
       const lease=this.pending;
       if(lease && !lease.utteranceId &&
-         now-lease.at>=0 && now-lease.at<=1500 &&
+         (lease.expectedId===null && now-lease.at>=0 && now-lease.at<=1500 ||
+          lease.expectedId===p.utteranceId) &&
          p.micPedRef===lease.actorRef && p.hostRunId===lease.hostRunId &&
          p.worldEpoch===lease.worldEpoch) {
         e.join=lease;lease.utteranceId=p.utteranceId;this.diagnostics.joined++;
