@@ -284,12 +284,47 @@ internal static class Program
             "bounded trace discards oldest records rather than reordering");
     }
 
+    private static void UnavailableWorldAndClock()
+    {
+        var game = new SimulatedGame();
+        game.Spawn(23, 0x2300);
+        var host = new NativeAuthority(game, game, game, game);
+        var actor = Register(host, 23);
+        var lease = Acquire(host, actor, LeaseKind.Conversation, "speaker");
+        game.ThrowOnWorldRead = true;
+        host.Reconcile();
+        Check(!host.IsLeaseCurrent(lease), "world query failure retires earlier lease");
+        game.ThrowOnWorldRead = false;
+        Check(!host.IsLeaseCurrent(lease), "world recovery does not revive old lease");
+
+        var later = Acquire(host, actor, LeaseKind.Conversation, "later");
+        game.ThrowOnClockRead = true;
+        Check(!host.IsLeaseCurrent(later) && host.WorldEpoch == 2,
+            "clock query failure revokes world epoch and all lease authority");
+        game.ThrowOnClockRead = false;
+        Check(!host.IsActorCurrent(actor), "clock recovery requires new actor incarnation");
+        var refreshed = Register(host, 23);
+        Check(refreshed.WorldEpoch == 2 && refreshed.IncarnationId != actor.IncarnationId,
+            "new epoch cannot borrow old physical identity");
+
+        var another = Acquire(host, refreshed, LeaseKind.PhysicalAction, "act");
+        game.ScriptControl(23, true);
+        ActorRef duplicate;
+        string reason;
+        Check(host.TryRegister(23, out duplicate, out reason) && duplicate.Equals(refreshed),
+            "idempotent registration observes current actor while script-controlled");
+        game.ScriptControl(23, false);
+        Check(!host.IsLeaseCurrent(another),
+            "re-register of script-controlled actor revokes all pre-takeover claims");
+    }
+
     private static void Main()
     {
         IdentityAndLeases();
         ClockAndThreadSafety();
         DeterministicScenarioReplay();
         ReconciliationAndTrace();
+        UnavailableWorldAndClock();
         Console.WriteLine("PASS " + assertions +
             " standalone native core assertions; no Essential/RAGE/game assembly loaded.");
     }
