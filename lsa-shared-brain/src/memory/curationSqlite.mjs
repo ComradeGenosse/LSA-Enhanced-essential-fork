@@ -238,6 +238,12 @@ export function readCurationAppraisals(db,{characterId,timelineId,protagonistKey
   const original=JSON.parse(row.original_proposal_json),appraisal=JSON.parse(row.appraisal_json);
   if(original.proposalId!==row.proposal_id||appraisal.proposalId!==row.proposal_id||
      appraisal.evidenceRecordIds.some(id=>suppressed.has(id)))continue;
+  // A privacy purge may physically remove sources without retaining a
+  // tombstone. Never surface an old appraisal unless every source STILL exists.
+  const job={version:1,jobId:row.proposal_id,proposal:original,
+    characterId,worldProfileId:world,timelineId,state:'completed',
+    attempt:0,nextAttemptAtUtc:row.completed_at_utc};
+  if(!sourceAuthorized(db,job,world,timelineId))continue;
   try{validateLunaAppraisal(appraisal,original);}
   catch{continue;}
   out.push(Object.freeze({proposalId:row.proposal_id,characterId,worldProfileId:world,
