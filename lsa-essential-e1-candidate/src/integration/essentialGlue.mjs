@@ -20,6 +20,8 @@ import { DialogueHistory } from '../memory/dialogueHistory.mjs';
 import { validateDecisionShape } from '../context/essentialDecision.mjs';
 import { validateStockDecision } from '../context/decisionValidator.mjs';
 import { createProviderStack } from '../providers/providerStack.mjs';
+import { resolveDelivery as resolveVerifiedSceneDelivery } from '../voice/emotion/sceneDelivery.mjs';
+import { projectActingEvidence } from '../voice/emotion/sceneOwnerProjection.mjs';
 import { VoiceResolver } from '../voice/voiceResolver.mjs';
 import { executeProviderOperation } from '../reliability/providerExecutor.mjs';
 import { captureReferenceMap } from '../context/turnSnapshot.mjs';
@@ -50,6 +52,20 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
     ? new CharacterService(config,{identityService,voiceResolver,store:profileStore,nativeOwner,telemetry}) : null;
   characterService?.initialize().catch(() => {});
   const services = {
+    // Every segment rechecks real P1 binding and PS2 observer lifetime.
+    emotionalActing: config.speechProvider === 'elevenlabs' &&
+      ['shadow','experimental'].includes(config.expressiveDelivery?.mode)
+      ? Object.freeze({
+          resolveDelivery:resolveVerifiedSceneDelivery,
+          getSceneEvidence:({identity,turn})=>projectActingEvidence({
+            identity,turn,perception:runtime.intelligence?.runtime,identityService,
+          }),
+          getActorTraits:({turn})=>{
+            const id=turn?.characterSnapshot?.resolution?.characterId;
+            const profile=id && characterService?.store?.get(id);
+            return profile ? Object.freeze({characterId:id,personality:profile.personality}) : null;
+          },
+        }) : null,
     recordDialogueActionPublication({turn,validated,publishedAtMs}){
       if(config.provider!=='openai' || config.activities?.dialogueReceipts!==true || !runtime.dialogueKnowledgeBuildSupported)return null;
       const publication=prepareDialogueActionPublication({turn,validated,publishedAtMs,perception:runtime.intelligence?.runtime,identityService,activities:runtime.activities});

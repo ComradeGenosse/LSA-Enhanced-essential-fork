@@ -73,10 +73,11 @@ export function createSpeechDeliveryResolver({
       lastSequence = sequence;
       let candidate = null;
       try {
+        const currentSceneEvidence = adapter.getSceneEvidence?.({identity,turn,source}) ?? null;
         candidate = adapter.resolveDelivery({
-          identity, segmentText: text, sequence, source,
-          nowMonotonicMs: clock(),
-          currentSceneEvidence: adapter.getSceneEvidence?.({identity,turn,source}) ?? null,
+          identity: currentSceneEvidence?.identity ?? identity, segmentText: text, sequence, source,
+          nowMonotonicMs: Math.floor(clock()),
+          currentSceneEvidence,
           actorTraits: adapter.getActorTraits?.({identity,turn}) ?? null,
           priorEphemeralMood: adapter.readMood?.({identity,turn}) ?? null,
           config: settings,
