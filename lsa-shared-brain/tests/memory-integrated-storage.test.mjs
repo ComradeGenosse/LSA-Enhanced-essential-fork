@@ -167,3 +167,31 @@ test('M3 real SQLite stores exact authenticated sidecar, dedupes and rejects rev
   await assert.rejects(recorder.capture({candidate:identity,observation}),/journal_stale_event_revision/);
  }finally{await x.store.close()}
 });
+
+test('M5 corrections remain reported overlays; original transcript is unchanged',async t=>{
+ const x=await setup(t);
+ try{
+  const before='I said red beans yesterday';
+  await x.recorder.recordPlayerAccepted({characterId:x.scope.characterId,identity:identity('mistake'),
+    text:before,source:'typed',attribution:{protagonist:'franklin'}});
+  await x.recorder.recordPlayerAccepted({characterId:x.scope.characterId,identity:identity('correction'),
+    text:'No, I said blue beans yesterday',source:'typed',attribution:{protagonist:'franklin'}});
+  const [cmd,original]=await x.store.readDialogueLines({characterId:x.scope.characterId,timelineId:x.scope.timelineId});
+  const corrected='blue beans yesterday';
+  const receipt=await x.store.commitCommand({scope:x.scope,commandId:id(),
+    requestedByLineId:cmd.recordId,operation:'correct',origin:'explicit_player',
+    recordType:'correction',content:corrected,
+    contentHash:createHash('sha256').update(corrected).digest('hex'),
+    pin:false,evidenceRecordIds:[original.recordId,cmd.recordId],
+    targetRecordId:original.recordId,correctionMode:'transcript',
+    subjectCertainty:'reported',requestedAtUtc:cmd.committedAtUtc});
+  assert.equal(receipt.durableCommit,true);
+  assert.equal((await x.store.findExactQuote({characterId:x.scope.characterId,
+    timelineId:x.scope.timelineId,quote:before}))[0].content,before);
+  const recalls=await recallFromSharedJournal({store:x.store,
+    query:{...request(x.scope,'Tell me about blue beans'),intent:'open_recall'},
+    protagonistKey:'franklin',nowUtc:new Date().toISOString()});
+  assert.ok(recalls.bundle.items.some(item=>item.mode==='reported_claim'&&item.content.includes(corrected)));
+  assert.ok(!recalls.bundle.items.some(item=>item.content===before));
+ }finally{await x.store.close()}
+});
