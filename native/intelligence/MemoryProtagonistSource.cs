@@ -35,9 +35,7 @@ namespace LSA.Intelligence
                     a.Address==player.MemoryAddress).Take(2).ToArray();
                 if(anchors.Length!=1 ||
                    host.Anchors.Resolve(anchors[0].CaptureRef)==null)return null;
-                string key=model==0x9B22DBAFu?"franklin":
-                           model==0x0D7114C9u?"michael":
-                           model==0x9B810FA2u?"trevor":"unknown";
+                string key=MemoryOwnerProofPolicy.ProtagonistKey(model);
                 return new {
                     key,source="native_player_model",
                     playerCaptureRef=anchors[0].CaptureRef,
