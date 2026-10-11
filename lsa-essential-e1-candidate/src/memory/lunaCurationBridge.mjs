@@ -6,7 +6,9 @@ export function createEssentialLunaCurator(config,{fetchImpl=globalThis.fetch}={
   if(config?.provider!=='openai')throw new Error('curation_requires_existing_openai_provider');
   if(!/luna/i.test(config?.reasoningModel??''))throw new Error('curation_requires_luna_model');
   if(!config?.curatorPricing||!Number.isFinite(config.curatorPricing.inputUsdPerMillionTokens)||
-     !Number.isFinite(config.curatorPricing.outputUsdPerMillionTokens))
+     !Number.isFinite(config.curatorPricing.outputUsdPerMillionTokens)||
+     config.curatorPricing.inputUsdPerMillionTokens<=0||
+     config.curatorPricing.outputUsdPerMillionTokens<=0)
     throw new Error('curation_verified_luna_pricing_required');
   return createLunaCurationAdapter({config,requestJson:args=>requestJson({...args,fetchImpl})});
 }
