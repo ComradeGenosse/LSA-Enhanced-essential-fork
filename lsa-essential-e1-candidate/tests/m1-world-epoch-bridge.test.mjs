@@ -36,10 +36,11 @@ function frame(adapterEpoch,streamId,sequence,epoch,reason='clock_regression') {
 test('M1 only an authenticated ordered native epoch change can suspend timeline writes',async t=>{
   const filePath=await tempStore(t);
   const store=createEssentialMemoryStorage({filePath,worldProfileId});
+  try {
   await store.initialize();
   const id=await store.createTimeline({label:'A'});
   await store.confirmTimeline(id);
-  t.after(()=>store.close());
+
   const socket=nativePipe(t);
   const client=new IntelligenceClient({mode:'shadow',radio:'off',pipeName:'m1-fixture'},{
     connect:()=>socket,report:()=>{},telemetry:()=>{},now:()=>100
@@ -70,6 +71,7 @@ test('M1 only an authenticated ordered native epoch change can suspend timeline 
   send(frame(adapterEpoch,streamId,4,3));await settled();
   assert.equal(observed.length,1);
   assert.equal(socket.destroyed,true);
+  } finally { await store.close(); }
 });
 
 test('M1 retains an early verified rollback freeze across pending SQLite initialization',async t=>{
