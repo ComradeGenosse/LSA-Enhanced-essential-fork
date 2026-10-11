@@ -113,6 +113,7 @@ export function createCompanionShadowTelemetry(summary = {}) {
 export class IntelligenceClient {
   #nativeAuthority;
   #nativeSessionToken=null;
+  #lastAdmittedSequence=0;
 
   // Proof comes from the admitted socket/hello/runtime, never protagonist JSON.
   getNativeStream() {
@@ -128,11 +129,12 @@ export class IntelligenceClient {
       streamId:authenticated?this.runtime.stream:null,
       hostRunId:authenticated?context.hostRunId:null,
       worldEpoch:authenticated?context.worldEpoch:null,
-      lastSequence:authenticated?this.runtime.sequence:0,
+      lastSequence:authenticated?this.#lastAdmittedSequence:0,
     });
   }
   #revokeNative() {
     this.#nativeSessionToken=null;
+    this.#lastAdmittedSequence=0;
     this.#nativeAuthority?.revoke();
   }
   // M1 C-13: native accepted context, never a sender-authentication shortcut.
@@ -683,8 +685,10 @@ export class IntelligenceClient {
         if(accepted && v?.type==='hello') {
           // Session token minted ONCE per accepted hello and actual socket.
           this.#nativeSessionToken=Object.freeze({});
+          this.#lastAdmittedSequence=0;
           this.publishHostContext(this.runtime.hostContext);
         }
+        if(accepted && v?.type!=='hello') this.#lastAdmittedSequence=v.sequence;
         if(accepted && v?.type==='world_epoch') {
           this.#nativeAuthority.revoke(); // before notifying any consumers
           this.cancelDirectorRequests();
