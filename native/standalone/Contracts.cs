@@ -77,6 +77,36 @@ namespace LSA.Standalone
         bool TryStop(Guid playbackId, string reason);
     }
 
+    // Device-reported output progress, not proof a human heard a speaker.
+    // Only the native owner fiber may query a physical adapter; worker threads
+    // and provider code cannot fabricate a completion receipt.
+    public sealed class AudioPlaybackSnapshot
+    {
+        public readonly string State;
+        public readonly int PlayedSourceBytes;
+        public readonly int SubmittedSourceBytes;
+        public readonly int MouthLevel; // 0..100, playback-timed PCM envelope, NOT GTA lip animation
+        public AudioPlaybackSnapshot(string state, int playedSourceBytes,
+            int submittedSourceBytes, int mouthLevel)
+        {
+            State = state;
+            PlayedSourceBytes = playedSourceBytes;
+            SubmittedSourceBytes = submittedSourceBytes;
+            MouthLevel = mouthLevel;
+        }
+    }
+
+    public interface IPhysicalAudioOutput : IAudioOutput
+    {
+        // EOS only after native PCM and final segment accounting are sealed
+        // AND every native queue chunk was accepted by this exact sink.
+        bool TrySeal(OwnershipLease audioLease, Guid playbackId,
+            int exactSourceBytes, out string rejection);
+        // A driver/device-proven progress snapshot, never provider-time data.
+        bool TryRead(OwnershipLease audioLease, Guid playbackId,
+            out AudioPlaybackSnapshot snapshot);
+    }
+
     public enum ActionDispatchState
     {
         Rejected,
