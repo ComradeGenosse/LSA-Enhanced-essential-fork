@@ -117,7 +117,10 @@ export class MoodStore {
         receipt.generationId !== context.identity.generationId ||
         receipt.pedId !== context.identity.pedId || receipt.sessionNonce !== context.identity.sessionNonce) return false;
     const existing = this.#entries.get(key.key);
-    if (existing && key.generation < existing.generation) return false; // late old playback
+    // At most one accepted playback_ended per native generation. A duplicate
+    // receipt must not change the selected mood or refresh its expiry, and
+    // a late older-generation receipt cannot overwrite a newer completion.
+    if (existing && key.generation <= existing.generation) return false;
     this.#entries.delete(key.key);
     while (this.#entries.size >= this.maxEntries) this.#entries.delete(this.#entries.keys().next().value);
     this.#entries.set(key.key, { ...key, value, expiresAt: nowMs + this.ttlMs, usedBy: null });
