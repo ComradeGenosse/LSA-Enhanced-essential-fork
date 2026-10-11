@@ -52,7 +52,7 @@ export class SharedJournalRecallAdapter{
        !Number.isSafeInteger(limit)||limit<1||limit>384)
       throw new TypeError('recall_invalid_scope');
     if(this.store.worldProfileId!==scope.worldProfileId)throw new Error('recall_world_mismatch');
-    const wanted=sourceKind===null?['dialogue_line','journal_event']:[sourceKind];
+    const wanted=sourceKind===null?['dialogue_line','journal_event','permanent_memory']:[sourceKind];
     const unique=new Map();
     const suppressed=new Set(typeof this.store.listSuppressedMemoryIds==='function'
       ?await this.store.listSuppressedMemoryIds(scope):[]);
@@ -96,6 +96,14 @@ export class SharedJournalRecallAdapter{
           characterId:scope.characterId,timelineId:scope.timelineId,recordId:e.recordId});
         if(!evidence||evidence.event.sourceHash!==e.sourceHash)continue;
         include(e,'journal_event','unknown',e.receivedAtUtc);
+      }
+    }
+    if(wanted.includes('permanent_memory')&&typeof this.store.readPermanentMemoryRows==='function'){
+      const memories=await this.store.readPermanentMemoryRows(scope,{limit:Math.min(limit,200)});
+      for(const row of memories){
+        if(suppressed.has(row.recordId)||row.envelope?.sourceEvidenceIds?.some(id=>suppressed.has(id))||
+           (fromUtc&&row.atUtc<fromUtc)||(toUtc&&row.atUtc>=toUtc))continue;
+        unique.set(row.recordId,row);
       }
     }
     const rows=[...unique.values()].sort((a,b)=>b.atUtc.localeCompare(a.atUtc)||a.recordId.localeCompare(b.recordId));
