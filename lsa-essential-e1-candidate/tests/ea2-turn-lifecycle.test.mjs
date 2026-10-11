@@ -72,7 +72,7 @@ async function execute({early=false,structured=false,source='player_text',
       return {bytes:4,chunks:1,discardedTrailingByte:false};
     },
   };
-  const turn={identity,source,input:'Typed words unchanged.',context:{},
+  const turn={identity:ID,source,input:'Typed words unchanged.',context:{},
     priorHistory:[],speechProfile:{provider:'elevenlabs',voice:'nathan'},
     ...(source==='player_mic' ? {pcm:Uint8Array.from([0,0]),sampleRate:16000} : {}),
     ...(source==='scene_director' ? {directorTicket} : {})};
