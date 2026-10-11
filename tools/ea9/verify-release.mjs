@@ -95,6 +95,15 @@ const e1Hash=await directoryHash(e1);
 if(e1Hash!==legacy.e1SourceTreeSha256)die('candidate_e1_tree_hash_mismatch');
 const originalTree=await directoryHash(path.join(repo,'lsa-essential-e1-candidate/src'));
 if(e1Hash!==originalTree)die('candidate_source_does_not_match_checkout');
+const sharedCheckout=path.join(repo,'lsa-shared-brain/src');
+if(await exists(sharedCheckout)){
+  // EA6/M1 must ship the exact current shared brain, not merely *a*
+  // syntactically importable copy from an older branch or SQLite schema.
+  const sharedStage=pathFor(release,'plugins/lsa-shared-brain/src');
+  if(!await exists(sharedStage))die('missing_pinned_shared_sqlite_source');
+  if(await directoryHash(sharedStage)!==await directoryHash(sharedCheckout))
+    die('mixed_branch_shared_sqlite_source');
+}
 const stockDll='plugins/LosSantosAlive.dll';
 if(!await exists(pathFor(release,stockDll)) ||
    await shaFile(pathFor(release,stockDll))!==legacy.stockDllReferenceSha256)
