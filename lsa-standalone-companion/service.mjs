@@ -1,7 +1,7 @@
 import { runSessionSupervisor } from './src/native/sessionSupervisor.mjs';
 import { runTypedTurnSession } from './src/conversation/typedRuntime.mjs';
 import { createResponsesProvider } from './src/conversation/responsesProvider.mjs';
-import { createSpeechPcmProvider } from './src/audio/speechProvider.mjs';
+import { createConfiguredSpeechRouter } from './src/audio/speechSetup.mjs';
 
 // Independent Node entry point: no stock server.bundle.mjs, no Essential.
 // Explicitly opt-in to provider calls. It is safe to run health-only without
@@ -19,7 +19,7 @@ if (typedMode) {
 }
 let tts = null;
 if (typedMode && process.env.LSA_STANDALONE_TTS_MODE === 'enabled') {
-  try { tts = createSpeechPcmProvider(); }
+  try { tts = await createConfiguredSpeechRouter(); }
   catch {
     console.log(JSON.stringify({ component: 'lsa_standalone',
       event: 'tts_provider_not_configured' }));
