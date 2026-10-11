@@ -38,6 +38,7 @@ namespace LSA.Standalone.RageHost
             NativeTurnRegistry turns = null;
             NativeAudioRegistry audio = null;
             WaveOutSpatialOutput physicalAudio = null;
+            bool facialEnabled = false;
             try
             {
                 stopping = false;
@@ -83,7 +84,10 @@ namespace LSA.Standalone.RageHost
                     if (physicalAudio != null && string.Equals(
                         Environment.GetEnvironmentVariable("LSA_STANDALONE_LIPSYNC"),
                         "facial_experimental", StringComparison.Ordinal))
+                    {
                         face = new RageLipSyncPresenter(authority, scope, resolver, clock);
+                        facialEnabled = true;
+                    }
                     audio = new NativeAudioRegistry(authority, turns, physicalAudio, face);
                 }
                 finally { scope.Exit(); }
@@ -91,7 +95,9 @@ namespace LSA.Standalone.RageHost
                 server = new StandalonePipeServer(authority.HostRunId, () => authority.WorldEpoch);
                 server.Start();
                 StandaloneTypedCommands.OpenAdmission();
-                Game.LogTrivial("[LSA-S2] started actor_effects=disabled transport=phase2");
+                Game.LogTrivial("[LSA-S3] started actor_adoption=disabled transport=phase2" +
+                    " waveout=" + (physicalAudio == null ? "off" : "experimental") +
+                    " facial=" + (facialEnabled ? "experimental" : "off"));
                 uint previousGameTick = unchecked((uint)Game.GameTime);
                 while (!stopping)
                 {
