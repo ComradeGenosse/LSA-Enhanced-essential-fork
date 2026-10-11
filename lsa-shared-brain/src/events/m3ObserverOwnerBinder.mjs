@@ -93,7 +93,7 @@ export class M3ObserverOwnerBinder {
       const key=this.#key(receipt.observation),now=performance.now();
       for(const [k,v] of this.#pre)if(now-v.at>120000)this.#pre.delete(k);
       if(this.#pre.size>=128)this.#pre.delete(this.#pre.keys().next().value);
-      this.#pre.set(key,{at:now,proof:identity.ownerProof,raw:JSON.stringify(receipt.observation)});
+      this.#pre.set(key,{at:now,proof:identity.ownerProof,characterId:identity.characterId,raw:JSON.stringify(receipt.observation)});
     }
     return Object.freeze({accepted:true,observation:receipt.observation,
       candidate:immutableSnapshot({characterId:identity.characterId,
@@ -105,7 +105,7 @@ export class M3ObserverOwnerBinder {
     if(!['commit','promotion_commit','prepromotion'].includes(stage))return null;
     if(stage==='promotion_commit'){
       const past=this.#pre.get(this.#key(observation));
-      if(!past||performance.now()-past.at>120000||
+      if(!past||past.characterId!==candidate?.characterId||performance.now()-past.at>120000||
          past.raw!==JSON.stringify(observation)||
          !samePhysicalOwner(past.proof,prePromotionProof))return null;
       const identity=this.#verify(observation,'commit',null,true);
