@@ -104,8 +104,28 @@ export function normalizeConfig(input = {}, env = process.env) {
     throw new TypeError('spontaneousSpeech requires intelligence.mode=shadow.');
   const selectedProvider = String(input.provider ?? env.AI_PROVIDER ?? 'openai').trim().toLowerCase();
   const speechProvider = String(input.speechProvider ?? 'openai').trim().toLowerCase();
-  if (!['openai','faster-qwen3-tts'].includes(speechProvider))
-    throw new TypeError('speechProvider must be openai or faster-qwen3-tts.');
+  if (!['openai','faster-qwen3-tts','elevenlabs'].includes(speechProvider))
+    throw new TypeError('speechProvider must be openai, faster-qwen3-tts, or elevenlabs.');
+  const elevenInput = input.elevenLabs ?? {};
+  if (!elevenInput || typeof elevenInput !== 'object' || Array.isArray(elevenInput) ||
+      Object.keys(elevenInput).some(k => !['modelId','voices','speechVoiceProfiles'].includes(k)))
+    throw new TypeError('elevenLabs has unknown or invalid fields.');
+  const elevenModel = elevenInput.modelId ?? 'eleven_v4_turbo';
+  if (elevenModel !== 'eleven_v4_turbo')
+    throw new TypeError('elevenLabs.modelId must be eleven_v4_turbo for dialogue streaming.');
+  const elevenVoiceInput = elevenInput.voices ?? {};
+  if (!elevenVoiceInput || typeof elevenVoiceInput !== 'object' || Array.isArray(elevenVoiceInput) ||
+      Object.keys(elevenVoiceInput).length > 32 ||
+      Object.entries(elevenVoiceInput).some(([alias,id]) => !/^[a-z][a-z0-9_-]{0,31}$/.test(alias) ||
+        typeof id !== 'string' || !/^[A-Za-z0-9]{20}$/.test(id)) ||
+      new Set(Object.values(elevenVoiceInput)).size !== Object.values(elevenVoiceInput).length)
+    throw new TypeError('elevenLabs.voices must map up to 32 unique aliases to unique 20-character voice IDs.');
+  if (speechProvider === 'elevenlabs' && Object.keys(elevenVoiceInput).length === 0)
+    throw new TypeError('elevenLabs.voices needs at least one voice alias.');
+  const elevenLabs = Object.freeze({
+    modelId: elevenModel, voices: Object.freeze({...elevenVoiceInput}),
+    apiKey: String(env.ELEVENLABS_API_KEY ?? ''),
+  });
   const qwenInput = input.qwenTts ?? {};
   if (!qwenInput || typeof qwenInput !== 'object' || Array.isArray(qwenInput) ||
       Object.keys(qwenInput).some(k => !['baseUrl','speechVoices','speechVoiceProfiles','playbackBufferMode','adaptiveMinBufferMs','adaptiveMaxBufferMs','adaptiveSafetyMs'].includes(k)))
@@ -147,9 +167,11 @@ export function normalizeConfig(input = {}, env = process.env) {
   };
   const reasoningModel = String(input.reasoningModel ?? env.OPENAI_REASONING_MODEL ?? defaults.reasoningModel).trim();
   const transcriptionModel = String(input.transcriptionModel ?? env.OPENAI_TRANSCRIPTION_MODEL ?? defaults.transcriptionModel).trim();
-  const ttsModel = speechProvider === 'faster-qwen3-tts'
-    ? 'qwen3-tts' : String(input.ttsModel ?? env.OPENAI_TTS_MODEL ?? defaults.ttsModel).trim();
-  const ttsVoice = speechProvider === 'faster-qwen3-tts' ? qwenTts.speechVoices[0]
+  const ttsModel = speechProvider === 'elevenlabs' ? elevenLabs.modelId
+    : speechProvider === 'faster-qwen3-tts' ? 'qwen3-tts'
+    : String(input.ttsModel ?? env.OPENAI_TTS_MODEL ?? defaults.ttsModel).trim();
+  const ttsVoice = speechProvider === 'elevenlabs' ? Object.keys(elevenLabs.voices)[0]
+    : speechProvider === 'faster-qwen3-tts' ? qwenTts.speechVoices[0]
     : String(input.ttsVoice ?? env.OPENAI_TTS_VOICE ?? defaults.ttsVoice).trim();
   const reasoningEffort = String(input.reasoningEffort ?? env.OPENAI_REASONING_EFFORT ?? defaults.reasoningEffort).trim().toLowerCase();
   if (input.observabilityEnabled !== undefined && typeof input.observabilityEnabled !== 'boolean') throw new TypeError('observabilityEnabled must be a boolean.');
@@ -165,8 +187,11 @@ export function normalizeConfig(input = {}, env = process.env) {
   }
   if (!['none', 'low', 'medium', 'high', 'xhigh', 'max'].includes(reasoningEffort)) throw new TypeError('reasoningEffort is unsupported.');
 
-  const explicitVoicePool = speechProvider === 'faster-qwen3-tts' || (input.speechVoices !== undefined && input.speechVoices !== null);
-  const voiceInput = speechProvider === 'faster-qwen3-tts' ? qwenTts.speechVoices : (explicitVoicePool ? input.speechVoices : [ttsVoice]);
+  const explicitVoicePool = ['faster-qwen3-tts','elevenlabs'].includes(speechProvider) ||
+    (input.speechVoices !== undefined && input.speechVoices !== null);
+  const voiceInput = speechProvider === 'elevenlabs' ? Object.keys(elevenLabs.voices)
+    : speechProvider === 'faster-qwen3-tts' ? qwenTts.speechVoices
+    : (explicitVoicePool ? input.speechVoices : [ttsVoice]);
   if (!Array.isArray(voiceInput) || voiceInput.length === 0 || voiceInput.length > 32 || voiceInput.some(voice => typeof voice !== 'string')) {
     throw new TypeError('speechVoices must be a nonempty array of at most 32 voice names.');
   }
@@ -177,13 +202,16 @@ export function normalizeConfig(input = {}, env = process.env) {
   const ttsVolume = input.ttsVolume ?? 1;
   if (typeof ttsVolume !== 'number' || !Number.isFinite(ttsVolume) || ttsVolume < 0 || ttsVolume > 2)
     throw new TypeError('ttsVolume must be a number between 0 and 2.');
-  const ttsSpeed = Number(speechProvider === 'faster-qwen3-tts' ? 1 : (input.ttsSpeed ?? 1));
+  const ttsSpeed = Number(['faster-qwen3-tts','elevenlabs'].includes(speechProvider) ? 1 : (input.ttsSpeed ?? 1));
   if (!Number.isFinite(ttsSpeed) || ttsSpeed < 0.25 || ttsSpeed > 4) throw new TypeError('ttsSpeed must be between 0.25 and 4.0.');
   const speechInstructionsSupported = speechProvider === 'faster-qwen3-tts' ||
     /^gpt-4o-mini-tts(?:-|$)/.test(ttsModel);
   const actingEnabled = input.actingEnabled ?? false;
-  if (actingEnabled && !speechInstructionsSupported) throw new TypeError('actingEnabled requires a TTS model that supports speech instructions.');
-  const supportedVoices = speechProvider === 'faster-qwen3-tts' ? qwenTts.speechVoices
+  // v4 acts on inline delivery tags, NOT on OpenAI natural-language instructions.
+  if (actingEnabled && !speechInstructionsSupported && speechProvider !== 'elevenlabs')
+    throw new TypeError('actingEnabled requires a TTS model that supports speech instructions.');
+  const supportedVoices = speechProvider === 'elevenlabs' ? Object.keys(elevenLabs.voices)
+    : speechProvider === 'faster-qwen3-tts' ? qwenTts.speechVoices
     : supportedVoicesForModel(ttsModel, speechInstructionsSupported);
   if (explicitVoicePool && speechVoices.length > 1) {
     if (!supportedVoices) throw new TypeError('Cannot validate a multi-voice pool for the configured TTS model.');
@@ -194,9 +222,11 @@ export function normalizeConfig(input = {}, env = process.env) {
     throw new TypeError('voiceAssignment must be deterministic-session or character-aware-session.');
   }
   const speechVoiceProfiles = normalizeSpeechVoiceProfiles(
-    speechProvider === 'faster-qwen3-tts' ? (qwenInput.speechVoiceProfiles ??
+    (speechProvider === 'elevenlabs' ? (elevenInput.speechVoiceProfiles ??
+      Object.fromEntries(Object.keys(elevenLabs.voices).map(voice => [voice, {genders:['any'],ageBands:['any']}])))
+    : speechProvider === 'faster-qwen3-tts' ? (qwenInput.speechVoiceProfiles ??
       Object.fromEntries(qwenTts.speechVoices.map(voice => [voice, {genders:['any'],ageBands:['any']}])))
-      : input.speechVoiceProfiles, { speechVoices, supportedVoices, voiceAssignment });
+      : input.speechVoiceProfiles), { speechVoices, supportedVoices, voiceAssignment });
 
   const providerWorkDeadlineMs = boundedInteger(input.providerWorkDeadlineMs ?? input.turnDeadlineMs, defaults.turnDeadlineMs, 5_000, 120_000, 'providerWorkDeadlineMs');
   const retryInput = input.retry ?? defaults.retry;
@@ -220,7 +250,7 @@ export function normalizeConfig(input = {}, env = process.env) {
 
   return Object.freeze({
     provider: selectedProvider,
-    speechProvider, qwenTts,
+    speechProvider, qwenTts, elevenLabs,
     persistentIdentity: normalizeIdentityConfig(input.persistentIdentity),
     promotedCharacters: normalizeCharacterConfig(input.promotedCharacters),
     intelligence: normalizePerceptionConfig(input.intelligence),
