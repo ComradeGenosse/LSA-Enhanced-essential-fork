@@ -11,6 +11,7 @@ try { ({ DatabaseSync } = await import('node:sqlite')); } catch {}
 
 import { isUuid } from '../util/identity.mjs';
 import { PROFILE_LIMITS, validateProfiles } from './profileSchema.mjs';
+import { JOURNAL_SCHEMA_VERSION, migrateJournalSchema, appendDialogue, appendEvent, readDialogue, findExactQuote, searchDialogue, readEvents } from '../memory/journalSqlite.mjs';
 
 export const SQLITE_PROFILE_SCHEMA = 2;
 const fail = code => { throw new Error(code); };
@@ -90,7 +91,7 @@ async function backupOnce(sourcePath,raw) {
   await syncFile(backup);
 }
 function verifyExisting(db,worldProfileId) {
-  if(db.prepare('PRAGMA user_version').get().user_version!==SQLITE_PROFILE_SCHEMA)fail('unsupported_sqlite_profile_schema');
+  if(![SQLITE_PROFILE_SCHEMA,JOURNAL_SCHEMA_VERSION].includes(db.prepare('PRAGMA user_version').get().user_version))fail('unsupported_sqlite_profile_schema');
   if(db.prepare('PRAGMA quick_check').get().quick_check!=='ok')fail('sqlite_integrity_failed');
   const row=db.prepare('SELECT * FROM p2_store WHERE singleton=1').get();
   if(!row || row.world_profile_id!==worldProfileId)fail('sqlite_profile_world_conflict');
@@ -130,7 +131,7 @@ export async function inspectP2Sqlite({filePath,worldProfileId}) {
       status:'verified',revision:snapshot.revision,
       profileCount:snapshot.profiles.length,timelineCount:timelines.length,
       activeTimelineId:active[0]?.timelineId??null,
-      schemaVersion:SQLITE_PROFILE_SCHEMA
+      schemaVersion:db.prepare('PRAGMA user_version').get().user_version
     });
   } finally {db.close();}
 }
@@ -179,6 +180,9 @@ export class P2SqliteFoundation {
       db=new DatabaseSync(this.filePath);
       this.#snapshot=verifyExisting(db,this.worldProfileId);
       db.exec('PRAGMA foreign_keys=ON; PRAGMA busy_timeout=5000; PRAGMA journal_mode=WAL; PRAGMA synchronous=FULL');
+      // Additive and transactional: v2 P2 snapshot/profile bytes remain untouched.
+      // The single M1 writer lock is held before migrating or accepting appends.
+      migrateJournalSchema(db);
       this.#db=db;
       return this.#snapshot;
     } catch(e){try {db?.close();}catch{}throw e;}
@@ -230,5 +234,19 @@ export class P2SqliteFoundation {
     if(!this.#db)fail('sqlite_profile_uninitialized');
     return this.#db.prepare('SELECT timeline_id AS timelineId FROM timelines WHERE active=1').get()?.timelineId??null;
   }
+  // These are the only journal SQL entrypoints. The P2 store keeps this
+  // foundation private and invokes writes through its withTimelineWrite fence.
+  appendDialogueLine(line,attribution){
+    if(!this.#db)fail('sqlite_profile_uninitialized');
+    return transaction(this.#db,()=>appendDialogue(this.#db,line,attribution,this.worldProfileId));
+  }
+  appendJournalEvent(event,options={}){
+    if(!this.#db)fail('sqlite_profile_uninitialized');
+    return transaction(this.#db,()=>appendEvent(this.#db,event,this.worldProfileId,options));
+  }
+  readDialogueLines(scope){if(!this.#db)fail('sqlite_profile_uninitialized');return readDialogue(this.#db,scope,this.worldProfileId);}
+  findExactQuote(scope){if(!this.#db)fail('sqlite_profile_uninitialized');return findExactQuote(this.#db,scope,this.worldProfileId);}
+  searchDialogue(scope){if(!this.#db)fail('sqlite_profile_uninitialized');return searchDialogue(this.#db,scope,this.worldProfileId);}
+  readJournalEvents(scope){if(!this.#db)fail('sqlite_profile_uninitialized');return readEvents(this.#db,scope,this.worldProfileId);}
   close(){if(this.#db){this.#db.close();this.#db=null;this.#snapshot=null;this.#init=null;}}
 }
