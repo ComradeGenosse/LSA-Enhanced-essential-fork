@@ -13,6 +13,9 @@ const clockUtc=now=>{
 };
 const sameAuthority=(a,b)=>!!a&&!!b&&Object.keys(a).every(k=>a[k]===b[k]);
 const activeStores=new WeakSet();
+// Also gate two scheduler instances pointing at separate handles for the same
+// P2 world. Cross-process exclusivity remains the transactional SQLite lease.
+const activeWorlds=new Set();
 
 /**
  * Native adapter contract:
@@ -93,7 +96,8 @@ export function createIdleCurationScheduler({store,queue,ledger,provider,
      if(policy.mode==='shadow')return empty('shadow');
      if(stopped)return empty('stopped');
      if(costSuspended)return empty('cost_suspended');
-     if(busy||activeStores.has(store))return empty('busy');
+     if(busy||activeStores.has(store)||activeWorlds.has(store.worldProfileId))
+       return empty('busy');
      if(characterId!==undefined&&!isUuid(characterId))return empty('no_character');
      if(typeof provider?.curateBatch!=='function'||
         typeof provider?.estimateMaxCostUsd!=='function')
@@ -115,6 +119,7 @@ export function createIdleCurationScheduler({store,queue,ledger,provider,
      lastRun=started;
      controller=new AbortController();
      activeStores.add(store);
+     activeWorlds.add(snapshot.worldProfileId);
      const run=async()=>{
        let unsubscribe=null;
        try{
@@ -152,6 +157,7 @@ export function createIdleCurationScheduler({store,queue,ledger,provider,
      finally{
        if(busy===promise){busy=null;controller=null;}
        activeStores.delete(store);
+       activeWorlds.delete(snapshot.worldProfileId);
      }
    },
    /** Optional one bounded timer; OFF/shadow never keep a timer alive. */
