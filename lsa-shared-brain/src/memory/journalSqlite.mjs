@@ -46,7 +46,7 @@ export function validateJournalEvent(e,world){
   return immutableSnapshot(e);
 }
 const DDL=[
-"CREATE TABLE dialogue_journal (record_id TEXT PRIMARY KEY,world_profile_id TEXT NOT NULL,timeline_id TEXT NOT NULL REFERENCES timelines(timeline_id),character_id TEXT NOT NULL,session_id TEXT NOT NULL,protagonist TEXT NOT NULL CHECK(protagonist IN ('franklin','michael','trevor','unknown')),host_run_id TEXT,world_epoch INTEGER,speaker TEXT NOT NULL,source TEXT NOT NULL,delivery TEXT NOT NULL,turn_identity_hash TEXT NOT NULL,committed_at_utc TEXT NOT NULL,content TEXT NOT NULL,content_sha256 TEXT NOT NULL,receipt_id TEXT,envelope_json TEXT NOT NULL,UNIQUE(character_id,timeline_id,speaker,turn_identity_hash));",
+"CREATE TABLE dialogue_journal (record_id TEXT PRIMARY KEY,world_profile_id TEXT NOT NULL,timeline_id TEXT NOT NULL REFERENCES timelines(timeline_id),character_id TEXT NOT NULL,session_id TEXT NOT NULL,protagonist TEXT NOT NULL CHECK(protagonist IN ('franklin','michael','trevor','unknown')),host_run_id TEXT,world_epoch INTEGER,speaker TEXT NOT NULL,source TEXT NOT NULL,delivery TEXT NOT NULL,turn_identity_hash TEXT NOT NULL,committed_at_utc TEXT NOT NULL,content TEXT NOT NULL,content_sha256 TEXT NOT NULL,receipt_id TEXT,envelope_json TEXT NOT NULL,envelope_sha256 TEXT NOT NULL,UNIQUE(character_id,timeline_id,speaker,turn_identity_hash));",
 "CREATE INDEX dialogue_scope_recent ON dialogue_journal(world_profile_id,character_id,timeline_id,committed_at_utc DESC);",
 "CREATE INDEX dialogue_session_recent ON dialogue_journal(character_id,timeline_id,session_id,committed_at_utc DESC);",
 "CREATE VIRTUAL TABLE dialogue_journal_fts USING fts5(content,content='dialogue_journal',content_rowid='rowid',tokenize='unicode61');",
@@ -61,7 +61,7 @@ export function migrateJournalSchema(db){
   const v=db.prepare('PRAGMA user_version').get().user_version;
   if(v!==2&&v!==JOURNAL_SCHEMA_VERSION)fail('unsupported_sqlite_profile_schema');
   if(v===JOURNAL_SCHEMA_VERSION){
-    for(const name of tables)if(!db.prepare('SELECT name FROM sqlite_master WHERE name=?').get(name))fail('sqlite_journal_schema_incomplete');
+    assertJournalSchema(db);
     return v;
   }
   db.exec('BEGIN IMMEDIATE');
@@ -71,6 +71,8 @@ export function migrateJournalSchema(db){
 export function assertJournalSchema(db){
   if(db.prepare('PRAGMA user_version').get().user_version!==JOURNAL_SCHEMA_VERSION)fail('sqlite_journal_schema_missing');
   for(const name of tables)if(!db.prepare('SELECT name FROM sqlite_master WHERE name=?').get(name))fail('sqlite_journal_schema_incomplete');
+  if(!db.prepare('PRAGMA table_info(dialogue_journal)').all().some(c=>c.name==='envelope_sha256'))
+    fail('sqlite_journal_schema_incomplete');
 }
 function owner(db,e,world){
   const p=db.prepare('SELECT owner_alias FROM promoted_profiles WHERE character_id=?').get(e.characterId);
@@ -85,22 +87,23 @@ export function appendDialogue(db,line,attribution,world){
     !(attribution.hostRunId===null||isUuid(attribution.hostRunId))||
     !(attribution.worldEpoch===null||Number.isSafeInteger(attribution.worldEpoch)&&attribution.worldEpoch>=0)||
     (attribution.hostRunId===null)!==(attribution.worldEpoch===null))fail('journal_invalid_attribution');
-  const old=db.prepare('SELECT envelope_json,content_sha256,session_id,protagonist,host_run_id,world_epoch FROM dialogue_journal WHERE character_id=? AND timeline_id=? AND speaker=? AND turn_identity_hash=?')
+  const old=db.prepare('SELECT envelope_json,envelope_sha256,content_sha256,session_id,protagonist,host_run_id,world_epoch FROM dialogue_journal WHERE character_id=? AND timeline_id=? AND speaker=? AND turn_identity_hash=?')
     .get(e.characterId,e.timelineId,e.speaker,e.turnIdentityHash);
   if(old){
     const previous=JSON.parse(old.envelope_json),
       {recordId:ignored,committedAtUtc:originalAcceptedTime,...a}=previous,
       {recordId:ignored2,committedAtUtc:replayAcceptedTime,...b}=e;
-    if(JSON.stringify(a)!==JSON.stringify(b)||old.content_sha256!==hash(e.content)||
+    if(hash(old.envelope_json)!==old.envelope_sha256||JSON.stringify(a)!==JSON.stringify(b)||old.content_sha256!==hash(e.content)||
       old.session_id!==attribution.sessionId||old.protagonist!==attribution.protagonist||
       old.host_run_id!==attribution.hostRunId||old.world_epoch!==attribution.worldEpoch)
       fail('journal_replay_conflict');
     return Object.freeze({inserted:false,recordId:previous.recordId});
   }
-  db.prepare('INSERT INTO dialogue_journal (record_id,world_profile_id,timeline_id,character_id,session_id,protagonist,host_run_id,world_epoch,speaker,source,delivery,turn_identity_hash,committed_at_utc,content,content_sha256,receipt_id,envelope_json) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)')
+  const raw=JSON.stringify(e);
+  db.prepare('INSERT INTO dialogue_journal (record_id,world_profile_id,timeline_id,character_id,session_id,protagonist,host_run_id,world_epoch,speaker,source,delivery,turn_identity_hash,committed_at_utc,content,content_sha256,receipt_id,envelope_json,envelope_sha256) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)')
     .run(e.recordId,e.worldProfileId,e.timelineId,e.characterId,attribution.sessionId,attribution.protagonist,attribution.hostRunId,
       attribution.worldEpoch,e.speaker,e.source,e.delivery,e.turnIdentityHash,e.committedAtUtc,e.content,hash(e.content),
-      e.deliveryReceiptId,JSON.stringify(e));
+      e.deliveryReceiptId,raw,hash(raw));
   return Object.freeze({inserted:true,recordId:e.recordId});
 }
 export function appendEvent(db,event,world,{hostContext=null}={}){
@@ -108,11 +111,11 @@ export function appendEvent(db,event,world,{hostContext=null}={}){
   if(alias!==e.ownerProof.ownerAlias)fail('journal_owner_proof_mismatch');
   if(hostContext&&(hostContext.hostRunId!==e.ownerProof.hostRunId||hostContext.worldEpoch!==e.ownerProof.worldEpoch))
     fail('journal_source_epoch_mismatch');
-  const old=db.prepare('SELECT envelope_json FROM event_journal WHERE character_id=? AND timeline_id=? AND observation_id=? AND revision=?')
+  const old=db.prepare('SELECT envelope_json,envelope_sha256 FROM event_journal WHERE character_id=? AND timeline_id=? AND observation_id=? AND revision=?')
     .get(e.characterId,e.timelineId,e.observationId,e.revision);
   if(old){
     const previous=JSON.parse(old.envelope_json),{recordId:ignored,...a}=previous,{recordId:ignored2,...b}=e;
-    if(JSON.stringify(a)!==JSON.stringify(b))fail('journal_replay_conflict');
+    if(hash(old.envelope_json)!==old.envelope_sha256||JSON.stringify(a)!==JSON.stringify(b))fail('journal_replay_conflict');
     return Object.freeze({inserted:false,recordId:previous.recordId});
   }
   const raw=JSON.stringify(e);
@@ -130,7 +133,7 @@ function readScope(s,world,defaultLimit=200){
 }
 function decodeLine(row){
   const value=JSON.parse(row.envelope_json);
-  if(value.content!==row.content||hash(value.content)!==row.content_sha256)fail('journal_content_integrity_failed');
+  if(hash(row.envelope_json)!==row.envelope_sha256||value.content!==row.content||hash(value.content)!==row.content_sha256)fail('journal_content_integrity_failed');
   return immutableSnapshot({...value,attribution:{sessionId:row.session_id,protagonist:row.protagonist,
     hostRunId:row.host_run_id,worldEpoch:row.world_epoch}});
 }
