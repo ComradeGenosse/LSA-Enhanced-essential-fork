@@ -27,6 +27,8 @@ All seven \`agent-handoffs/M*-COMPLETION.md\` exist and were read. The actual ch
 4. **Combined CI** (\`ed64f0ea\`): Add \`.github/workflows/memory-h-integration.yml\` for Node 24 on Ubuntu and Windows covering strict memory schema, all agent suites, cross-agent real SQLite, changed production syntax, and isolated M9 .NET 8/Framework 4.8.1 native harness. This is an offline workflow, **not physical GTA acceptance**.
 5. **M3 PS2 registration seam** (\`2ca0fe68\`): Forward synchronous \`acceptedObservationTap\` through \`IntelligenceClient\` to the PS2-correlator-verified acceptance callback. Bootstrap creates M3 binder/intake/recorder only with a P2 SQLite timeline and a separately supplied \`memoryNativeAuthority.resolveNativeOwner\` returning \`nativeVerified:true\` and checked owner proof. Buffered callback does not await SQLite, counts losses, retires on C-13 host/world boundaries. No PS3 salience threshold or invented actor ownership.
 
+6. **M5 privacy/clarification regression** (`ce20c80a`): Correct the formerly undefined `tainted` dependency set in `M5SqliteServices.trash` before invalidating pending frozen clarifications. Earlier M5 unit tests did not exercise trash with a pending two-choice clarification; add a real SQLite regression asserting that source deletion revokes that pending choice. This change has not passed combined CI at document time.
+
 **Safety condition:** \`memoryNativeAuthority\` is not implemented by the pinned native GTA owner; the injected resolver remains absent in the current shipped runtime. A source-fenced opt-in adapter is **not proof that the live game can provide its source evidence.**
 
 ## 3. Non-negotiable architecture review
@@ -41,7 +43,7 @@ All seven \`agent-handoffs/M*-COMPLETION.md\` exist and were read. The actual ch
 
 ## 4. Test evidence and outstanding verification
 
-**Observed at review time:** PR #61's six workflows reported success; PR #67 and PR #74 had successful exact-head workflows. Other completion heads had workflow runs queued during inspection. PR #75's combined workflows were queued/not yet reported complete at the time this document was written. **Therefore the newly combined tree is NOT CI-accepted.**
+**Observed at review time:** PR #61's six workflows reported success; PR #67 and PR #74 had successful exact-head workflows. PR #70, #69 and #73 subsequently also reported successful exact-head checks; PR #71 and #72 still had selected checks queued or running at last poll. PR #75's combined workflows were queued/not yet reported complete at the time this document was written. **Therefore the newly combined tree is NOT CI-accepted.**
 
 \`memory-h-integration.yml\` specifies these offline checks:
 
