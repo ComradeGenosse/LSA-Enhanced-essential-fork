@@ -4,6 +4,31 @@ using System.Threading;
 using LSA.Standalone;
 using LSA.Standalone.Tests;
 
+internal sealed class SimulatedAcceptedOutput : IAudioOutput
+{
+    public bool Ready;
+    public int Started, ForwardedBytes, Stopped;
+    public bool TryBegin(OwnershipLease lease, Guid stream, int rate, out string reason)
+    {
+        reason = "test_only";
+        if (!Ready || lease.Kind != LeaseKind.Audio || rate != 24000) return false;
+        Started++;
+        return true;
+    }
+    public bool TryPush(OwnershipLease lease, Guid stream, byte[] pcm, out string reason)
+    {
+        reason = "test_only";
+        if (!Ready || lease.Kind != LeaseKind.Audio) return false;
+        ForwardedBytes += pcm.Length;
+        return true; // simulated sink ACCEPTANCE, NEVER physical playback
+    }
+    public bool TryStop(Guid playbackId, string reason)
+    {
+        Stopped++;
+        return true;
+    }
+}
+
 internal static class Program
 {
     private static int assertions;
@@ -651,6 +676,68 @@ internal static class Program
         host.Stop();
     }
 
+    private static void RollingPcmQueueAndBackpressure()
+    {
+        var game = new SimulatedGame();
+        game.Spawn(732, 0xE200, lifetimeTag: 77889);
+        var authority = new NativeAuthority(game, game, game, game);
+        var actor = Register(authority, 732);
+        var turns = new NativeTurnRegistry(authority);
+        var sink = new SimulatedAcceptedOutput();
+        var audio = new NativeAudioRegistry(authority, turns, sink);
+        NativeTurnPermit permit; string reason;
+        Check(turns.TryIssueTyped(actor, "Test longer audio", 45000,
+            out permit, out reason), "native longer audio turn");
+        string tid = permit.TurnId.ToString("D"), actorId = permit.ActorIncarnationId.ToString("D"),
+            lease = permit.LeaseId.ToString("D"), gen = permit.Generation;
+        Check(turns.TryConfirm(tid, permit.SessionNonce.ToString("D"),
+            actorId, lease, gen, permit.Source, out reason), "confirm native long stream");
+        Check(turns.TryStageReply(tid, lease, gen, actorId, "Long sample.", out reason),
+            "stage long stream text");
+        NativeAudioTicket stream;
+        Check(audio.TryOpen(tid, actorId, lease, gen, 24000, out stream, out reason),
+            "open native rolling PCM stream");
+        string sid = stream.StreamId.ToString("D"), alid = stream.AudioLeaseId.ToString("D"),
+            agen = stream.AudioGeneration;
+        byte[] pcm = new byte[3000];
+        for (int i = 0; i < 64; i++)
+            Check(audio.TryAppend(sid, alid, agen, tid, actorId, i, pcm, out reason),
+                "fill four-second bounded native backlog");
+        Check(!audio.TryAppend(sid, alid, agen, tid, actorId, 64, pcm, out reason) &&
+            reason == "audio_backpressure", "native queue cannot expand without output credit");
+        int queued, accepted, forwarded; bool sealedState;
+        Check(audio.TryStatus(sid, alid, agen, tid, actorId,
+            out queued, out accepted, out forwarded, out sealedState) &&
+            queued == 192000 && accepted == 192000 && forwarded == 0,
+            "backlog status never claims output acceptance");
+        Check(audio.DrainOnOwner(8) == 0 && sink.ForwardedBytes == 0,
+            "unready output cannot silently discard PCM");
+        sink.Ready = true;
+        Check(audio.DrainOnOwner(8) == 8 && sink.ForwardedBytes == 24000,
+            "output-sink acceptance creates eight chunk credits, NOT playback");
+        for (int i = 64; i < 220; i++)
+        {
+            Check(audio.TryAppend(sid, alid, agen, tid, actorId, i, pcm, out reason),
+                "append sequential long stream");
+            audio.DrainOnOwner(8);
+        }
+        Check(audio.TrySeal(sid, alid, agen, tid, actorId, 220, 660000,
+            out reason) && reason == "sealed_not_played",
+            "long stream sealed with no physical playback receipt");
+        while (audio.DrainOnOwner(64) != 0) {}
+        Check(audio.TryStatus(sid, alid, agen, tid, actorId,
+            out queued, out accepted, out forwarded, out sealedState) &&
+            queued == 0 && accepted == 660000 && forwarded == 660000 &&
+            sealedState, "all 13.75 seconds forwarded to simulation not a real device");
+        Check(audio.TryCancel(sid, alid, agen, tid, actorId) &&
+            sink.Stopped == 1, "stop callback only after exact native audio cancellation");
+        Check(!audio.TryStatus(sid, alid, agen, tid, actorId,
+            out queued, out accepted, out forwarded, out sealedState),
+            "retired stream cannot create new credits or receipts");
+        turns.RetireAll();
+        authority.Stop();
+    }
+
     private static void Main()
     {
         IdentityAndLeases();
@@ -663,6 +750,7 @@ internal static class Program
         NativeTypedTextAndStagedReply();
         PreconfirmationCancelReleasesActor();
         BoundedNativePcmAndTruthfulReceipts();
+        RollingPcmQueueAndBackpressure();
         Console.WriteLine("PASS " + assertions +
             " standalone native core assertions; no Essential/RAGE/game assembly loaded.");
     }
