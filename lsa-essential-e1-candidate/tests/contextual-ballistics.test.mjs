@@ -16,7 +16,7 @@ function fixture() {
 
 test('player firing and a verified visible head injury can be attributed', () => {
   const f = fixture();
-  const impact = f.row('ped_damage', {proof: 'native_damage_callback', targetCaptureRef: randomUUID(),
+  const impact = f.row('ped_damage', {proof: 'native_damage_callback', classification: 'bullet', targetCaptureRef: randomUUID(),
     bodyRegion: 'head', boneVerified: true});
   const result = projectContextualBallistics({...f, evidence: [impact]});
   assert.deepEqual(result, {event: 'gunfire_context', witnessedAs: 'seen',
@@ -28,7 +28,7 @@ test('player firing and a verified visible head injury can be attributed', () =>
 
 test('sound alone does not identify player, target, surfaces or direction', () => {
   const f = fixture();
-  const evidence = [f.row('ped_damage', {proof: 'native_damage_callback', targetCaptureRef: randomUUID(),
+  const evidence = [f.row('ped_damage', {proof: 'native_damage_callback', classification: 'bullet', targetCaptureRef: randomUUID(),
     bodyRegion: 'head', boneVerified: true})];
   const result = projectContextualBallistics({...f,
     witness: {...f.witness, channel: 'auditory'}, evidence});
@@ -65,17 +65,25 @@ test('trajectory is qualified geometry, not a verified hit or shooter intention'
   assert.equal('intent' in result, false);
 });
 
+test('non-bullet damage never becomes a confirmed ballistic hit', () => {
+  const f = fixture();
+  const result = projectContextualBallistics({...f,
+    evidence: [f.row('ped_damage', {proof: 'native_damage_callback', classification: 'explosion',
+      targetCaptureRef: randomUUID(), bodyRegion: 'head', boneVerified: true})]});
+  assert.deepEqual(result.impact, {kind: 'unconfirmed'});
+});
+
 test('unverified bone never becomes headshot but confirmed injury remains', () => {
   const f = fixture();
   const result = projectContextualBallistics({...f,
-    evidence: [f.row('ped_damage', {proof: 'native_damage_callback', targetCaptureRef: randomUUID(),
+    evidence: [f.row('ped_damage', {proof: 'native_damage_callback', classification: 'bullet', targetCaptureRef: randomUUID(),
       bodyRegion: 'head', boneVerified: false})]});
   assert.deepEqual(result.impact, {kind: 'person_hit'});
 });
 
 test('wrong player anchor, source visibility, or original correlation cannot fabricate attribution', () => {
   const f = fixture();
-  const evidence = [f.row('ped_damage', {proof: 'native_damage_callback', targetCaptureRef: randomUUID()})];
+  const evidence = [f.row('ped_damage', {proof: 'native_damage_callback', classification: 'bullet', targetCaptureRef: randomUUID()})];
   assert.equal(projectContextualBallistics({...f, verifiedPlayerCaptureRef: randomUUID(), evidence}).shooter,
     'another_person');
   assert.equal(projectContextualBallistics({...f, verifiedPlayerCaptureRef: null, evidence}).shooter,
