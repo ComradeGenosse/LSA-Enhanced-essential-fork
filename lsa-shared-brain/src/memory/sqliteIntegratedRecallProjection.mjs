@@ -1,6 +1,7 @@
 // M4-only read projection over the actual M2/M3/M5/M6 v4 P2 SQLite schema.
 // No migrations, writes, native owner selection, or speculative witness claims.
 import {createHash} from 'node:crypto';
+import {normalizeWitnessedObservation} from '../events/journalEventNormalizer.mjs';
 const sha=s=>createHash('sha256').update(s,'utf8').digest('hex');
 const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const token=s=>typeof s==='string'&&/^[\p{L}\p{N}]{2,48}$/u.test(s);
@@ -108,6 +109,18 @@ export function readIntegratedRecall(db,{scope,terms=[],fromUtc=null,toUtc=null,
         proof.observation?.observationId!==e.observationId||
         proof.observation?.revision!==e.revision||proof.ownerProof?.hostRunId!==e.ownerProof?.hostRunId||
         proof.ownerProof?.worldEpoch!==e.ownerProof?.worldEpoch)throw new Error('m4_corrupt_event_proof');
+      // Replay the deterministic M3 claim mapper using the authenticated
+      // sidecar; forged or altered observation details fail closed.
+      const replay=normalizeWitnessedObservation({
+        observation:proof.observation,
+        identity:{promoted:true,current:true,characterId:scope.characterId,
+          worldProfileId:scope.worldProfileId,timelineId:scope.timelineId,
+          adapterEpoch:proof.nativeAdapterEpoch,ownerProof:proof.ownerProof},
+        participantProofs:proof.participantProofs,
+        prePromotionProof:proof.prePromotionProof??null});
+      if(!replay.accepted||JSON.stringify(replay.event)!==r.raw||
+         replay.sourceEvidence.sourceHash!==proof.sourceHash)
+        throw new Error('m4_unverified_event');
       // Events remain under 'unknown': no observed player identity can be deduced.
       add({...scope,recordId:r.recordId,sourceKind:'journal_event',atUtc:r.atUtc,
         evidenceState:'verified',envelope:e});
