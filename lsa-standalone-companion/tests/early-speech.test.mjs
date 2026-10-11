@@ -182,3 +182,55 @@ test('rejects excessive unpunctuated stream before native segment staging', asyn
     for await (const _ of ai.streamSpeechSegments({text:'Hi'})) {}
   })(), /speech_segment_capacity/);
 });
+
+test('Luna reasoning item is ignored; SSE CRLF fragmentation still emits only prose', async () => {
+  const event = p => 'data: ' + JSON.stringify(p) + '\r\n\r\n';
+  const stream = event({
+    type:'response.output_item.added', item:{type:'reasoning'}
+  }) + event({
+    type:'response.output_text.delta', delta:'A car drove away.'
+  }) + event({
+    type:'response.completed',
+    response:{status:'completed',output:[
+      {type:'reasoning',summary:[]},
+      {type:'message',role:'assistant',
+        content:[{type:'output_text',text:'A car drove away.'}]}
+    ]}
+  });
+  const encoded = new TextEncoder().encode(stream);
+  const ai = createStreamingResponsesProvider({
+    apiKey:'test', model:'test-model', fetchImpl: async () => ({
+      ok:true, body: new ReadableStream({
+        start(c) {
+          for (let i=0; i<encoded.length; i+=7)
+            c.enqueue(encoded.subarray(i, i+7));
+          c.close();
+        }
+      })
+    })
+  });
+  const segments = [];
+  for await (const s of ai.streamSpeechSegments({text:'Where did it go?'}))
+    segments.push(s);
+  assert.deepEqual(segments,['A car drove away.']);
+});
+
+test('model-produced action JSON is not sent to TTS', async () => {
+  const ai = createStreamingResponsesProvider({
+    apiKey:'test', model:'test-model', fetchImpl:async () => ({
+      ok:true,body:new ReadableStream({
+        start(c) {
+          const out = 'data: ' + JSON.stringify({
+            type:'response.output_text.delta',
+            delta:'{"action":"attack"}. '
+          }) + '\n\n';
+          c.enqueue(new TextEncoder().encode(out));
+          c.close();
+        }
+      })
+    })
+  });
+  await assert.rejects((async () => {
+    for await (const _ of ai.streamSpeechSegments({text:'Do something'})) {}
+  })(), /provider_unsupported_output/);
+});
