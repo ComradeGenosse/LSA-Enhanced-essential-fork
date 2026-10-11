@@ -147,11 +147,13 @@ namespace LSA.Standalone.RageHost
         {
             DemandOwner();
             if (probedHandle == 0) return null;
-            if (!ProbeStillCurrent())
+            string change;
+            if (!ProbeStillCurrent(out change))
             {
+                int staleHandle = probedHandle;
                 Disarm();
-                lastProbeReason = "probe_lost_or_recycled";
-                return lastProbeReason;
+                lastProbeReason = change;
+                return change + " handle=" + staleHandle;
             }
             long now = Stopwatch.GetTimestamp();
             if (now < startedAt || now - startedAt >
@@ -204,6 +206,8 @@ namespace LSA.Standalone.RageHost
                     " probe=" + lastProbeReason +
                     " frames=" + stableSamples +
                     " actor_handle=" + probedHandle +
+                    " address=0x" + probedAddress.ToString("x") +
+                    " cookie=0x" + probedCookie.ToString("x") +
                     " cookie_readback=" + (probedCookie != 0 ? "ok" : "none") +
                     " adoption=" + (armed ? "armed_exact_actor" : "closed");
             }
@@ -223,16 +227,30 @@ namespace LSA.Standalone.RageHost
 
         private bool ProbeStillCurrent()
         {
+            string ignored;
+            return ProbeStillCurrent(out ignored);
+        }
+
+        private bool ProbeStillCurrent(out string reason)
+        {
+            reason = "actor_despawned";
+            if (probedHandle <= 0 || probedCookie == 0) return false;
             try
             {
-                if (probedHandle <= 0 || probedCookie == 0) return false;
                 Ped p = PedFor(probedHandle);
-                return p != null && p != Game.LocalPlayer.Character &&
-                    !NativeFunction.CallByName<bool>("IS_ENTITY_A_MISSION_ENTITY", probedHandle) &&
-                    unchecked((ulong)p.MemoryAddress.ToInt64()) == probedAddress &&
-                    ReadCookie(probedHandle) == probedCookie;
+                if (p == null || p == Game.LocalPlayer.Character) return false;
+                reason = "actor_became_mission_entity";
+                if (NativeFunction.CallByName<bool>("IS_ENTITY_A_MISSION_ENTITY", probedHandle))
+                    return false;
+                reason = "actor_address_changed";
+                if (unchecked((ulong)p.MemoryAddress.ToInt64()) != probedAddress)
+                    return false;
+                reason = "actor_cookie_changed_or_reused";
+                if (ReadCookie(probedHandle) != probedCookie) return false;
+                reason = "current";
+                return true;
             }
-            catch { return false; }
+            catch { reason = "actor_observation_exception"; return false; }
         }
 
         // Control is restricted to the SINGLE probed ped for the first GTA
