@@ -79,6 +79,24 @@ test('protagonist is proven only by checked source-backed native resolver',()=>{
   x.ps2.anchors.delete(PLAYER);
   assert.equal(x.binder.authorize({observation:a.observation,candidate:a.candidate,stage:'commit'}),null);
 });
+test('PS2 source versus target roles preserve shooter/victim attribution',()=>{
+  const x=fixture(),bound=x.binder.bindAcceptedReceipt(x.receipt(x.obsA));
+  const identity=x.binder.authorize({observation:bound.observation,candidate:bound.candidate,stage:'commit'});
+  const evidence=[
+    {captureRef:PLAYER,subjectKind:'protagonist',subjectKey:'franklin',
+      verified:true,hostRunId:HOST,worldEpoch:2,adapterEpoch:EPOCH},
+    {captureRef:OB,subjectKind:'character',subjectKey:B,
+      verified:true,hostRunId:HOST,worldEpoch:2,adapterEpoch:EPOCH},
+  ];
+  const shooting={...x.obsA,claims:[{...x.obsA.claims[0],target:{captureRef:OB,kind:'ped'}}]};
+  const fired=normalizeWitnessedObservation({observation:shooting,identity,participantProofs:evidence});
+  assert.equal(fired.event.claims[0].durableSubject,'protagonist:franklin');
+  const hurt={...shooting,eventType:'injury',claims:[{...shooting.claims[0],kind:'injured'}]};
+  const injured=normalizeWitnessedObservation({observation:hurt,identity,participantProofs:evidence});
+  assert.equal(injured.event.claims[0].durableSubject,`character:${B}`);
+  const missingTarget=normalizeWitnessedObservation({observation:{...hurt,claims:[{...hurt.claims[0],target:undefined}]},identity,participantProofs:evidence});
+  assert.equal(missingTarget.event.claims[0].durableSubject,`unresolved:${CLAIM}`);
+});
 test('native ownership and timeline are rechecked after queue acceptance',()=>{
   const x=fixture();
   const r=x.binder.bindAcceptedReceipt(x.receipt(x.obsA));
