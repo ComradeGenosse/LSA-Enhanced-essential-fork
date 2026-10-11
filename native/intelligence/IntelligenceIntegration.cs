@@ -104,6 +104,8 @@ namespace LSA.Intelligence
         long nextDiscovery,nextState,nextShot,nextRadio,nextRefresh,nextDiagnostics,nextLog,snapshotChangedAt,snapshotCadence;
         readonly bool radioEnabled;
         RadioProbeState radioProbe;
+        string lastRadioFailure="";
+        long nextRadioFailureLog;
         int discoveryCursor,stateCursor,connectionVersion;
         long staleRejected,retiredAnchors,witnessDeferred,witnessUnknown,witnessRejected,radioWitnessed,radioWitnessUnknown;
         int lineOfSightBudget;
@@ -171,7 +173,7 @@ namespace LSA.Intelligence
         }
         void WorldChanged(int epoch,string reason) {
             if(!IsAvailable) return;
-            director.Reset();ps3Receipts.Reset();originalTurns.Reset();lock(directorPlaybackGate) {directorPlaybackEvents.Clear();directorPlaybackOverflow=false;}sensors.Reset();radioProbe=null;nextRadio=0;lock(rosterGate) {publishedAnchorStates.Clear();publishedObserverIndex.Clear();sampledSituations.Clear();}pendingRetirements.Clear();
+            director.Reset();ps3Receipts.Reset();originalTurns.Reset();lock(directorPlaybackGate) {directorPlaybackEvents.Clear();directorPlaybackOverflow=false;}sensors.Reset();radioProbe=null;nextRadio=0;lastRadioFailure="";nextRadioFailureLog=0;lock(rosterGate) {publishedAnchorStates.Clear();publishedObserverIndex.Clear();sampledSituations.Clear();}pendingRetirements.Clear();
             conversationRef=null;promotedTurnObserverRef=null;discoverySnapshot=null;discoveryOwned=new OwnedParticipant[0];UpdateIndexes();
             // Ordered control fact invalidates all prior observer state. Losing
             // it closes the bounded channel; reconnect republishes current host.
@@ -467,6 +469,11 @@ namespace LSA.Intelligence
                 var currentSpeaker=NpcTargeting.GetCurrentSpeakerPed();
                 proof.ConversationStateKnown=true;
                 proof.ConversationIdle=conversation==null && currentSpeaker==null;
+                // This pinned Core's current-speaker getter forwards to its
+                // player-conversation selection. A retained target is not, by
+                // itself, evidence that a turn is still executing. We resolve
+                // the selected speaker only after all independent idle fences
+                // have been sampled below. Unknown/other targets still veto.
                 // These flags observe the *actual* Core input UI; they do
                 // not attest to queued or already-submitted text inference.
                 proof.TextInputIdle=!LosSantosAlive.Input.TextInputService.IsOpen;
@@ -572,6 +579,21 @@ namespace LSA.Intelligence
                     proof.PlayerTurnIdle=owner.Quiet;
                     proof.EssentialTurnKnown=true;
                     proof.EssentialTurnIdle=owner.Quiet;
+                }
+                // Treat a retained selection of this EXACT current speaker
+                // as idle only when original backend evidence and every
+                // independently read player/owner/actor protection are idle.
+                // Re-read Core selection to reject a focus change mid-sample.
+                // This does not make a selected NPC a source of turn authority.
+                if(!proof.ConversationIdle && speaker?.Entity is Ped selected &&
+                    conversation!=null && ReferenceEquals(conversation,selected) &&
+                    (currentSpeaker==null || ReferenceEquals(currentSpeaker,conversation)) &&
+                    DirectorC06Policy.RetainedTargetIdle(proof,true,true)) {
+                    var finalConversation=NpcTargeting.GetPlayerConversationPed();
+                    var finalSpeaker=NpcTargeting.GetCurrentSpeakerPed();
+                    if(ReferenceEquals(finalConversation,conversation) &&
+                       ReferenceEquals(finalSpeaker,currentSpeaker))
+                        proof.ConversationIdle=true;
                 }
                 // This proves an ordered *past* backend sample and a live Core
                 // negative fence. A backend transition after the sample must
@@ -729,29 +751,57 @@ namespace LSA.Intelligence
         }
         static int Clamp(long n)=>(int)Math.Min(int.MaxValue,Math.Max(0,n));
         static RadioProbeState RadioOff()=>new RadioProbeState {Vehicle=null,Station="",RejectedClasses=""};
+        // Bounded per-stage failure reporting: no free-form exception
+        // messages, entity identifiers, paths, station strings or song text.
+        // First failure and changed signatures report immediately, continuing
+        // identical failures report at most once per ten seconds.
+        void RadioFailure(string stage,Exception error,long now)
+        {
+            sensors.NoteRadioNativeFailure();
+            string type=error is InvalidOperationException ? "invalid_operation" :
+                error is EntryPointNotFoundException ? "missing_entrypoint" :
+                error is MissingMethodException ? "missing_method" :
+                error is ArgumentException ? "bad_argument" :
+                error is NotSupportedException ? "unsupported" : "other";
+            string signature=stage+":"+type;
+            if(signature==lastRadioFailure && now<nextRadioFailureLog)return;
+            lastRadioFailure=signature;
+            nextRadioFailureLog=now+10000;
+            LogStatus("[PS] radio_read_failure stage="+stage+" type="+type+
+                " count="+Clamp(sensors.RadioNativeFailures)+
+                " hresult="+unchecked((uint)error.HResult).ToString("X8"));
+        }
         void SampleRadio(uint tick,long now)
         {
             if(!radioEnabled) return;
             sensors.NoteRadioSample();
+            string stage="player";
             try {
                 var player=Game.LocalPlayer.Character;
                 if(player==null || !player.Exists()) { CommitRadio(RadioOff(),tick,now); return; }
+                stage="vehicle";
                 var vehicle=player.CurrentVehicle;
                 if(vehicle==null || !vehicle.Exists()) { CommitRadio(RadioOff(),tick,now); return; }
-                CommitRadio(ReadRadio(Retain(vehicle,"vehicle")?.CaptureRef),tick,now);
-            } catch { sensors.NoteRadioNativeFailure(); }
+                stage="vehicle_anchor";
+                string vehicleRef=Retain(vehicle,"vehicle")?.CaptureRef;
+                CommitRadio(ReadRadio(vehicleRef,ref stage),tick,now);
+            } catch(Exception error) { RadioFailure(stage,error,now); }
         }
-        RadioProbeState ReadRadio(string vehicleRef)
+        RadioProbeState ReadRadio(string vehicleRef,ref string stage)
         {
             var reading=new RadioProbeState {Vehicle=vehicleRef,InVehicle=true,Station="",RejectedClasses=""};
+            stage="station_name";
             string raw=NativeFunction.CallByName<string>("GET_PLAYER_RADIO_STATION_NAME");
             if(!SensorAdapters.ValidRadioStation(raw)) {
                 if(!string.IsNullOrEmpty(raw)) { reading.Rejected=true; reading.RejectedLength=raw.Length; reading.RejectedClasses=SensorAdapters.RadioStationClasses(raw); }
                 return reading;
             }
             reading.Station=raw;
+            stage="sound_name";
             reading.SoundHash=unchecked((uint)NativeFunction.CallByName<int>("GET_CURRENT_TRACK_SOUND_NAME",raw));
+            stage="track_text_id";
             reading.TrackTextId=NativeFunction.CallByName<int>("GET_AUDIBLE_MUSIC_TRACK_TEXT_ID");
+            stage="commit";
             return reading;
         }
         void CommitRadio(RadioProbeState reading,uint tick,long now)
@@ -760,11 +810,12 @@ namespace LSA.Intelligence
             if(radioProbe!=null && radioProbe.Same(reading)) return;
             if(reading.Station.Length>0) {
                 try { int play=NativeFunction.CallByName<int>("GET_CURRENT_TRACK_PLAY_TIME",reading.Station); reading.PlayMs=play<0?-1:play; }
-                catch { reading.PlayMs=-1; }
+                catch(Exception error) { reading.PlayMs=-1; RadioFailure("play_time",error,now); }
             }
             radioProbe=reading;
             string line="[RADIO_PROBE] vehicle="+(reading.InVehicle?"1":"0")+" station="+reading.Station+" sound="+reading.SoundHash.ToString("X8")+" text_id="+reading.TrackTextId+" play_ms="+reading.PlayMs;
             if(reading.Rejected) line+=" rejected=station_grammar len="+Math.Min(Math.Max(reading.RejectedLength,0),9999)+" classes="+reading.RejectedClasses;
+            else if(reading.InVehicle && reading.Station.Length==0) line+=" state=blank_station";
             try { Game.LogTrivial(line); } catch {}
         }
         List<WitnessReceipt> CaptureWitnesses(RawSignal signal)
