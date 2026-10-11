@@ -55,7 +55,7 @@
   ],
   "voiceAssignment": "character-aware-session",
   "ttsSpeed": 1,
-  "ttsVolume": 1.0,
+  "ttsVolume": 1,
   "actingEnabled": true,
   "maxOutputTokens": 300,
   "providerWorkDeadlineMs": 45000,
@@ -145,5 +145,9 @@
         ]
       }
     }
+  },
+  "elevenLabs": {
+    "modelId": "eleven_v4_turbo",
+    "voices": {}
   }
 }
