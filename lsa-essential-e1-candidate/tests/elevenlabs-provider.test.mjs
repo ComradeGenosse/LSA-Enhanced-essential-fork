@@ -4,7 +4,6 @@ import { normalizeConfig } from '../src/config/e1Config.mjs';
 import { createProviderStack } from '../src/providers/providerStack.mjs';
 import { createElevenLabsSpeechProvider, decodePcmAudio } from '../src/providers/elevenlabs/speechProvider.mjs';
 import { createPersistentVoiceAssignment, resolvePersistentVoiceProfile } from '../src/voice/voiceProfile.mjs';
-import { validateStore } from '../src/identity/characterStore.mjs';
 import { validateProfile } from '../src/characters/profileStore.mjs';
 import { profile } from './p2-fixtures.mjs';
 
@@ -124,6 +123,6 @@ test('persisted original OpenAI/Qwen voice references survive provider switching
   const authored=createPersistentVoiceAssignment({characterId,worldProfileId,actor,config});
   assert.equal(authored.assignmentVersion,3);
   assert.equal(authored.provider,'elevenlabs');
-  const old=validateProfile({...profile,voiceReference:original});
+  const old=validateProfile(profile({voiceReference:original}));
   assert.equal(old.voiceReference.provider,'faster-qwen3-tts');
 });
