@@ -101,3 +101,47 @@ test('M1 does not suspend a previously selected timeline for harmless host reloa
   store.assertTimelineWrite(id);
   await store.close();
 });
+
+test('M1 verified native hello authorizes selection but disconnection revokes timeline writes',async t=>{
+  const filePath=await tempStore(t);
+  const store=createEssentialMemoryStorage({filePath,worldProfileId,sourceRequired:true});
+  try {
+    await store.initialize();
+    const id=await store.createTimeline({label:'Native-linked save'});
+    const socket=nativePipe(t);
+    const client=new IntelligenceClient({mode:'shadow',radio:'off',pipeName:'m1-linked'},{
+      connect:()=>socket,report:()=>{},telemetry:()=>{},now:()=>100
+    });
+    t.after(()=>client.stop());
+    const hosts=[];
+    client.subscribeVerifiedHostContext(value=>{
+      hosts.push(value);
+      store.setVerifiedHostContext(value);
+    });
+    client.subscribeWorldBoundary(boundary=>store.onBoundary({reason:boundary.reason}));
+    client.start();
+    const epoch=randomUUID(),stream=randomUUID(),run=randomUUID();
+    const send=body=>socket.emit('data',Buffer.from(JSON.stringify(body)+'\n'));
+    send(hello(run,epoch,stream));
+    await settled();
+    assert.equal(hosts.length,1);
+    assert.equal(store.timelineWritable,false);
+    assert.equal(store.timelineSourceStatus,'confirmation_required');
+    await store.confirmTimeline(id);
+    let operations=0;
+    await store.withTimelineWrite(id,()=>++operations);
+    send(frame(epoch,stream,1,2,'timeline_change'));
+    await settled();
+    assert.equal(store.timelineWritable,false);
+    assert.equal(store.timelinePendingReason,'timeline_change');
+    await assert.rejects(store.withTimelineWrite(id,()=>++operations),/timeline_write_suspended/);
+    await store.confirmTimeline(id);
+    assert.equal(store.timelineWritable,true);
+    socket.destroy();
+    await settled();
+    assert.equal(store.timelineWritable,false);
+    assert.equal(store.timelineSourceStatus,'unavailable');
+    await assert.rejects(store.withTimelineWrite(id,()=>++operations),/timeline_write_suspended/);
+    assert.equal(operations,1);
+  } finally {await store.close();}
+});
