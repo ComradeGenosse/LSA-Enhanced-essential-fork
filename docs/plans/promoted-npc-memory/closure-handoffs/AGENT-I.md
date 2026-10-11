@@ -4,15 +4,15 @@
 **Exact source base:** PR #75, `8443a8adec9433626902b46b81bd3e58fc382fb2`  
 **Branch:** `feature/memory-close-i-m8-personality-jokes-20261011`  
 **Target base:** `integration/memory-completion-h-review-20261011`  
-**Exact tested source-and-test implementation SHA (before this handoff-only commit):** `b5c614afe07287aa71fbb32d0c922012664350c5`.  
-**Final PR head SHA:** read the immutable `head.sha` displayed by this branch's PR, because a Git commit cannot embed its own final hash in a file it contains. Source and test blob hashes: `be5d188fa856b39a923e2a536c876c31ef2c3468`, `4e63ad8f5b3e07b95512312eea262b6d9142fb5f`.
+**Exact tested source-and-test implementation SHA (before this handoff-only commit):** `39f22197f2e6b2e04e40277becb9ba3c8df903a1`.  
+**Final PR head SHA:** read the immutable `head.sha` displayed by this branch's PR, because a Git commit cannot embed its own final hash in a file it contains. Source and test blob hashes: `93ebb3784dab3f00daf38e32d9472185314b8ef1`, `50113a10a62e8ab7f378ef9574d2136f02988c0d`.
 
 **Status:** Working standalone interpretation/evaluator and read adapter; **NOT wired to P2/PS4/PS6, NOT deployment-ready**. No main merge, GTA installation, actual native receipt, cloud payment, daemon or local AI model.
 
 ## Owned changes
 
 - `lsa-shared-brain/src/memory/m8Interpretation.mjs`: conservative typed interpretation, immutable fact projection, separately labeled opinions, relationship deltas, repeated-source running-joke motifs, archive decay, opt-in proposed cue selector, completed-delivery use ledger evolution, serialized P2 read-port adapter.
-- `lsa-shared-brain/tests/memory-m8-closure.test.mjs`: 13 local offline Node tests with positive and adversarial source fixtures.
+- `lsa-shared-brain/tests/memory-m8-closure.test.mjs`: 15 local offline Node tests with positive and adversarial source fixtures.
 - This `closure-handoffs/AGENT-I.md`. No edits to the SQL layer, native owner, PS4 renderer, shared bootstrap, integration ports, central config or original editor.
 
 ## Exported API (K)
@@ -64,7 +64,7 @@ node --check tests/memory-m8-closure.test.mjs
 node --test tests/memory-m8-closure.test.mjs
 ```
 
-**Result:** 13 tests / 13 passed / 0 failed, local offline fixtures. Includes identical factual events and different takes for three distinct promoted identities; unsupported fountain location remains unknown despite a player utterance; uncommitted/unverified sidecar, reported event and inferred claim refused; tombstone/correction removes joke immediately; protagonist/timeline/world/character fences; Luna injection discarded; OFF no cloud; joke cooldown/player priority; identity swap during await; 128-source and UTF-8 byte caps; archived jokes rest; explicit affinity/embarrassment. Current `tools/memory-sim/scenarios.v0.json` **must not** be marked implemented. Node24/Windows CI, cross-agent real SQLite and native harness were **not** run for this standalone handoff.
+**Result:** 15 tests / 15 passed / 0 failed, local offline fixtures. Includes identical factual events and different takes for three distinct promoted identities; unsupported fountain location remains unknown despite a player utterance; uncommitted/unverified sidecar, reported event and inferred claim refused; tombstone/correction removes joke immediately; protagonist/timeline/world/character fences; Luna injection discarded; OFF no cloud; joke cooldown/player priority; identity swap during await; 128-source and UTF-8 byte caps; archived jokes rest; explicit affinity/embarrassment; future-dated rows refused; reported modality kept as reported, and invalid cooldown timestamps fail closed. Current `tools/memory-sim/scenarios.v0.json` **must not** be marked implemented. Node24/Windows CI, cross-agent real SQLite and native harness were **not** run for this standalone handoff.
 
 ## Remaining blockers / honest status
 
