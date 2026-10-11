@@ -34,7 +34,7 @@
 - The approved full-character unpromotion/purge must be implemented inside **P2's profile deletion transaction** (shared owner code) so it also clears these M5-specific tables; this branch does not change that transaction. Do not interpret current per-timeline `purgeExpired` as full-character erase.
 - The seven-day **scheduled worker** is not installed. `purgeExpired` is an explicit gated API, not an invisible background timer. An offline game cannot purge itself until the source guard permits.
 - Existing PR #61 `forget` commits and M5 trash bookkeeping are separate transactions because editing `integratedSqlite.mjs` is outside this branch. Tombstone suppression is immediate; `ready` reconciles missing trash rows. Agent H should consider folding them into one future shared migration and ensure atomic privacy backup/restore.
-- Archive JSON is a scoped **export**, not a full transactionally consistent P2 snapshot backup or a mechanism to erase all external exports, installed legacy backups, game files or third-party data. Agent H must handle end-user backup/export destination policy and any restore workflow.
+- Archive JSON is a scoped **export**, not a full transactionally consistent P2 snapshot backup or a mechanism to erase all external exports, installed legacy backups, game files or third-party data. Agent H must handle end-user backup/export destination policy and any restore workflow. Call \`await m5.close()\` before closing the owning P2 store.
 - Legacy `memory_tombstones` and `memory_corrections` do not contain protagonist columns; the M5 facade uses existing command receipt ownership and evidence scope to avoid cross-protagonist exports, but shared schema and M4-level source fences remain integration responsibilities.
 - No in-game test, production runtime change, compiled native binary, model call or GTA deployment was performed here.
 
@@ -44,7 +44,7 @@
 | --- | --- | --- |
 | Durable pending choice with frozen IDs | M5 SQLite service | Requires production facade/accepted-line hookup |
 | Expiry/reconnect and scope fences | M5 SQLite service | Requires valid host timeline confirmation |
-| Up to two explicit compounds | Core parser/runner | Conservative syntax; no guessed implicit commands |
+| Up to two explicit compounds | Core parser/runner | Conservative syntax; no guessed implicit commands; independent partial successes |
 | Read/export/item and scope-wide trash/restore/physical expiry purge | M5 SQLite service | User authorization and scheduling are integration-owned |
 | Retain provenance before purge | Original journal + reversible tombstones | External archives/backups not erased |
 | Derived suppression | Tombstones plus dependent closure | Review preexisting M4 traversal |
