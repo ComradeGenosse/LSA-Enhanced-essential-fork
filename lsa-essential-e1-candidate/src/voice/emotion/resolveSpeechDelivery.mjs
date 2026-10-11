@@ -1,5 +1,6 @@
 // EA2 integration adapter. Only the locally injected, trusted selector may request acting.
 import { createDelivery, isDelivery } from './deliveryContract.mjs';
+import { ELEVEN_TAG_FOR_DELIVERY, ELEVEN_SPEECH_MAX_CHARS } from './elevenTags.mjs';
 // This module never writes to canonical dialogue, history or the memory journal.
 const MODES = new Set(['shadow', 'experimental']);
 const VALUES = new Set(['neutral','whisper','excited','fearful','angry','amused','sad','sarcastic','concerned']);
@@ -87,8 +88,12 @@ export function createSpeechDeliveryResolver({
         });
       } catch { /* A resolver failure always falls back to neutral speech. */ }
       const normalized = normalizeHint(candidate, intensity);
+      const tag = normalized && ELEVEN_TAG_FOR_DELIVERY[normalized.value];
+      // A rendered prefix cannot be added above ElevenLabs' 3000-character
+      // ceiling. Do not spend a turn's tag allowance on untaggable text.
       const isTag = normalized && TAGGABLE.has(normalized.value) &&
-        normalized.value !== 'neutral' && taggedCount < max;
+        normalized.value !== 'neutral' && taggedCount < max &&
+        typeof tag === 'string' && text.length + tag.length + 1 <= ELEVEN_SPEECH_MAX_CHARS;
       const delivery = isTag ? normalized : null;
       if (delivery) taggedCount++;
       // Strict categorical telemetry only. Never include raw dialogue, owner,
