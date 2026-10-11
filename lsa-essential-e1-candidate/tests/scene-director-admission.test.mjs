@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {DirectorSpeechReservations} from '../src/perception/sceneDirectorAdmission.mjs';
+import {directorSpeechLimitsForPreset} from '../src/perception/sceneDirector.mjs';
 const speaker='d34713cd-ff8e-4ab3-9f83-241a8cf812c7';
 const player='24846870-fdcc-444f-9aca-7487d4c01048';
 const p={kind:'speech',speakerCaptureRef:speaker,playerCaptureRef:player,
@@ -93,4 +94,27 @@ test('pre-admission evidence expiry does not retroactively cancel a long success
  now=140000; // playback completed after original candidate TTL, with exact live host/owner retained
  assert.equal(c.finish(t.ticketId,tuple,{type:'playback_ended',reason:'completed',wasInterrupted:false,hadAudio:true,playbackStarted:true}),true);
  assert.deepEqual(acks,[['decision-1','ps6_ticket','delivered']]);
+});
+
+
+test('testing preset lowers routine/urgent/scene cooldowns, preserving source gates and native rate ceiling',()=>{
+ const limits=directorSpeechLimitsForPreset('testing');
+ assert.equal(limits.routineSpeakerCooldownMs,5000);
+ assert.equal(limits.urgentSpeakerCooldownMs,2000);
+ assert.equal(limits.sceneGapMs,2000);
+ assert.equal(limits.attemptsPerMinute,4);
+ const c=harness({limits});
+ const first=c.reserve(p,stamp);
+ assert.ok(first);assert.equal(c.cancel(first.ticketId),true);
+ now+=2000;
+ assert.equal(c.reserve({...p,decisionKey:'next-2'},stamp),null,'routine cooldown still applies');
+ now+=3000;
+ const second=c.reserve({...p,decisionKey:'next-3'},stamp);
+ assert.ok(second,'routine speech can occur after five seconds');
+ assert.equal(c.active?.id,second.ticketId);
+ // Do not permit more than one outstanding reservation even in testing.
+ assert.equal(c.reserve({...p,decisionKey:'other'},stamp),null);
+ const normal=harness({limits:directorSpeechLimitsForPreset('normal')});
+ const a=normal.reserve(p,stamp);normal.cancel(a.ticketId);
+ now+=5000;assert.equal(normal.reserve({...p,decisionKey:'other'},stamp),null);
 });

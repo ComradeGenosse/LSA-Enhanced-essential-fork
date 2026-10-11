@@ -14,6 +14,7 @@ import { defaultControlEndpointPath } from './control/endpointFile.mjs';
 import { characterContractSupported } from './characters/nativeSupport.mjs';
 import { IntelligenceClient } from './perception/intelligenceClient.mjs';
 import {DirectorObservationPump} from './perception/directorProduction.mjs';
+import {directorSpeechLimitsForPreset} from './perception/sceneDirector.mjs';
 import {DirectorSpeechReservations} from './perception/sceneDirectorAdmission.mjs';
 import {SceneDirectorSpeech} from './perception/sceneDirectorOrchestrator.mjs';
 import { ActivityClient } from './activities/activityClient.mjs';
@@ -157,6 +158,7 @@ export async function createRuntimeForBundle(options = {}) {
     };
     const admission=new DirectorSpeechReservations({
       now,enabled:experimental,checkCurrent:sourceCheck,
+      limits:directorSpeechLimitsForPreset(config.spontaneousSpeech.preset),
       acknowledge:(decisionKey,consumer,outcome,proposal)=>
         consumer==='ps6_ticket' && outcome==='delivered' && proposal?.decisionKey===decisionKey
           ? client.runtime.salience.acknowledgeDirectorCompletion(proposal,client.runtime.epoch)
@@ -190,6 +192,11 @@ export async function createRuntimeForBundle(options = {}) {
     runtime.director=pump;
     runtime.services.spontaneousSpeechStatus=()=>Object.freeze({
       requested:config.spontaneousSpeech.mode,
+      preset:config.spontaneousSpeech.preset,
+      routineSpeakerCooldownMs:admission.limits.routineSpeakerCooldownMs,
+      urgentSpeakerCooldownMs:admission.limits.urgentSpeakerCooldownMs,
+      sceneGapMs:admission.limits.sceneGapMs,
+      attemptsPerMinute:admission.limits.attemptsPerMinute,
       executionAvailable:experimental &&
         client.runtime.directorPriority?.experimentalEnabled===true &&
         client.runtime.directorRequestVersion===1,

@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { DIRECTOR_SPEECH_LIMITS as LIMITS } from './sceneDirector.mjs';
+import { DIRECTOR_SPEECH_LIMITS } from './sceneDirector.mjs';
 
 // Candidate selection is not admission. This RAM-only shell does not perform
 // any native dispatch, provider request, turn allocation or physical effect.
@@ -41,12 +41,15 @@ const validProposal = p => !!p && p.kind === 'speech' &&
  * is always a veto. An independent native one-shot check remains mandatory.
  */
 export class DirectorSpeechReservations {
-  constructor({now,checkCurrent,acknowledge,enabled=false,uuid=randomUUID} = {}) {
+  constructor({now,checkCurrent,acknowledge,enabled=false,uuid=randomUUID,limits=DIRECTOR_SPEECH_LIMITS} = {}) {
     if (typeof now !== 'function' || typeof checkCurrent !== 'function' ||
         typeof acknowledge !== 'function' || typeof uuid !== 'function')
       throw new TypeError('director_dependencies_required');
     this.now=now;this.checkCurrent=checkCurrent;this.acknowledge=acknowledge;
     this.uuid=uuid;this.enabled=enabled === true;
+    // Only named, frozen presets created in our trusted module are supplied
+    // by bootstrap. Keep the native four-attempt cap independently enforced.
+    this.limits=limits;
     this.active=null;this.attempts=[];this.speakerAt=new Map();
     this.sceneAt=-Infinity;this.attemptedKeys=new Map();this.lastReserveFailure=null;
   }
@@ -79,15 +82,15 @@ export class DirectorSpeechReservations {
     if(this.attemptedKeys.has(proposal.decisionKey)) {
       this.lastReserveFailure='decision_already_attempted';return null;
     }
-    this.attempts=this.attempts.filter(t=>t>at-LIMITS.attemptWindowMs);
+    this.attempts=this.attempts.filter(t=>t>at-this.limits.attemptWindowMs);
     // Bounded historical suppression: retired evidence is no longer selectable
     // and does not grow the in-memory key table for an entire GTA session.
     for(const [key,time] of this.attemptedKeys)if(time<=at-600_000)this.attemptedKeys.delete(key);
-    if(this.attempts.length>=LIMITS.attemptsPerMinute) {
+    if(this.attempts.length>=this.limits.attemptsPerMinute) {
       this.lastReserveFailure='rate_limited';return null;
     }
-    const cooldown=proposal.urgency==='urgent' ? LIMITS.urgentSpeakerCooldownMs : LIMITS.routineSpeakerCooldownMs;
-    if(at-this.sceneAt<LIMITS.sceneGapMs ||
+    const cooldown=proposal.urgency==='urgent' ? this.limits.urgentSpeakerCooldownMs : this.limits.routineSpeakerCooldownMs;
+    if(at-this.sceneAt<this.limits.sceneGapMs ||
         at-(this.speakerAt.get(proposal.speakerCaptureRef)??-Infinity)<cooldown) {
       this.lastReserveFailure='scene_or_speaker_cooldown';return null;
     }
@@ -101,7 +104,7 @@ export class DirectorSpeechReservations {
     if(!text(id)) {this.lastReserveFailure='ticket_id_unavailable';return null;}
     const record={
       id,proposal:Object.freeze({...proposal}),stamp:Object.freeze({...stamp}),
-      expiresAt:Math.min(at+LIMITS.ticketTtlMs,proposal.expiresAtMonotonicMs),
+      expiresAt:Math.min(at+this.limits.ticketTtlMs,proposal.expiresAtMonotonicMs),
       state:'reserved',tuple:null,
     };
     this.active=record;this.sceneAt=at;this.speakerAt.set(proposal.speakerCaptureRef,at);

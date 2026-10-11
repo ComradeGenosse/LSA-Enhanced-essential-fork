@@ -1,4 +1,5 @@
 import {normalizeDialogueKnowledge} from './dialogueKnowledge.mjs';
+import {directorSpeechLimitsForPreset} from '../perception/sceneDirector.mjs';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -90,11 +91,15 @@ export function normalizeConfig(input = {}, env = process.env) {
   // separately verified native/Essential runtime capability gate.
   const speechInput=input.spontaneousSpeech===undefined ? {} : input.spontaneousSpeech;
   if(!speechInput || typeof speechInput!=='object' || Array.isArray(speechInput) ||
-     Object.keys(speechInput).some(key=>key!=='mode'))
-    throw new TypeError('spontaneousSpeech must contain only a mode.');
+     Object.keys(speechInput).some(key=>!['mode','preset'].includes(key)))
+    throw new TypeError('spontaneousSpeech supports only mode and preset.');
   const speechMode=speechInput.mode ?? 'off';
   if(!['off','shadow','experimental'].includes(speechMode))
     throw new TypeError('spontaneousSpeech.mode must be off, shadow, or experimental.');
+  const speechPreset=speechInput.preset ?? 'normal';
+  directorSpeechLimitsForPreset(speechPreset); // strict closed preset set
+  if(speechPreset==='testing' && speechMode!=='experimental')
+    throw new TypeError('spontaneousSpeech.preset testing requires experimental mode.');
   if(speechMode!=='off' && input.intelligence?.mode!=='shadow')
     throw new TypeError('spontaneousSpeech requires intelligence.mode=shadow.');
   const selectedProvider = String(input.provider ?? env.AI_PROVIDER ?? 'openai').trim().toLowerCase();
@@ -178,7 +183,7 @@ export function normalizeConfig(input = {}, env = process.env) {
     persistentIdentity: normalizeIdentityConfig(input.persistentIdentity),
     promotedCharacters: normalizeCharacterConfig(input.promotedCharacters),
     intelligence: normalizePerceptionConfig(input.intelligence),
-    spontaneousSpeech: Object.freeze({mode:speechMode}),
+    spontaneousSpeech: Object.freeze({mode:speechMode,preset:speechPreset}),
     dialogueKnowledge: normalizeDialogueKnowledge(input.dialogueKnowledge),
     activities: normalizeActivityConfig(input.activities),
     dialogueLogging: normalizeDialogueLoggingConfig(input.dialogueLogging, boundedInteger),

@@ -4,6 +4,7 @@ import { mkdtemp,writeFile,rm } from 'node:fs/promises';
 import path from 'node:path';
 import { EventEmitter } from 'node:events';
 import { createRuntimeForBundle } from '../src/bootstrap.mjs';
+import {normalizeConfig} from '../src/config/e1Config.mjs';
 import { verifyPerceptionContract } from '../tools/verifyPerceptionContract.mjs';
 test('bootstrap off/shadow parity: no provider, profile store, owner command or model context side effect',async()=>{
   const temp=await mkdtemp(path.resolve('.build-check-perception-'));const contract=await verifyPerceptionContract();let calls=0,connects=0;
@@ -34,4 +35,14 @@ test('bootstrap knowledge support is separate from PS collection and requires bo
    assert.equal(runtime.dialogueKnowledgeBuildSupported,supported);assert.equal(runtime.intelligence,undefined);assert.equal(runtime.config.dialogueKnowledge.mode,'shadow');
   }
  }finally {await rm(temp,{recursive:true,force:true});}
+});
+
+
+test('spontaneous speech testing preset is explicit opt-in and strictly validated',()=>{
+ const base={intelligence:{mode:'shadow'},spontaneousSpeech:{mode:'experimental'}};
+ assert.equal(normalizeConfig(base,{}).spontaneousSpeech.preset,'normal');
+ assert.equal(normalizeConfig({...base,spontaneousSpeech:{mode:'experimental',preset:'testing'}},{}).spontaneousSpeech.preset,'testing');
+ for(const spontaneousSpeech of [{mode:'shadow',preset:'testing'},{mode:'off',preset:'testing'},
+  {mode:'experimental',preset:'unlimited'},{mode:'experimental',preset:'testing',attemptsPerMinute:999}])
+  assert.throws(()=>normalizeConfig({...base,spontaneousSpeech},{}));
 });
