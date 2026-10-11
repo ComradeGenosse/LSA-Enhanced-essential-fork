@@ -1,6 +1,6 @@
 # LSA Standalone Native Replacement — phased roadmap
 
-**Status (2026-10-11):** Phase 0 research and Phases 1–3 offline implementation are represented in stacked draft PRs; **Phase 4 source integration is in progress** on [PR #44](https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/pull/44). Source/CI success is not GTA acceptance; standalone actor adoption, spatial playback and independent mic/STT are still unverified.  
+**Status (2026-10-11):** Phases 0–4, S3 device-receipt work and an isolated GTA test package exist on the unmerged stacked source branch through [draft PR #50](https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/pull/50). **No GTA physical acceptance** of independent actor adoption, spatial audio, typed conversation, microphone/STT or overall replacement is claimed. The architecture review identified source/simulation risks; see the [**hardened source-backed R0–R5 plan**](architecture-review-hardened-plan-20261011.md) for *proposed* sequencing and acceptance gates. The historical Phase 0–9 table below remains a scope/parity inventory pending explicit adoption of the revised plan.  
 **Historical planning baseline:** `main` at `79a0aa6eb5f6b655afde65993d5d68cba269bca7` (2026-10-11). This is not a claim about the current `main` head.  
 **Do not treat:** documentation, merge, offline compilation, packaging, GTA installation, and real-game acceptance as equivalent.
 
