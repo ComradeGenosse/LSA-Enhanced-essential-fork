@@ -35,7 +35,7 @@ export class ShadowRuntime {
     this.episodes=new EpisodeStore({now,current:ref=>this.current(ref)});
     this.correlator=new EpisodeCorrelator({episodes:this.episodes,observations:this.observations,now,current:ref=>this.current(ref),anchor:ref=>this.anchors.get(ref)});
     this.transcripts=new SharedTranscriptStore({now,current:ref=>this.current(ref)});
-    this.utterances=new UtteranceLifecycle({now});
+    this.utterances=new UtteranceLifecycle({now,current:ref=>this.current(ref)});
     this.salience=new SalienceCache({now});
     this.ps2Diagnostics={correlated:0,witnessed:0,duplicates:0,dropped:0,speechGate:'unsupported_capture_receipt'};
     this.ps3Diagnostics={decisions:0,urgent:0,eligible:0,staged:0,suppressed:0,faults:0,reasons:Object.fromEntries(Object.values(PS3_REASON_COUNTERS).map(k=>[k,0]))};
