@@ -7,7 +7,7 @@ const INSTRUCTIONS_MAX = 512;
 export function isVoiceSupportedByModel(model, voice) {
   const id = String(voice || '').trim().toLowerCase();
   if (!VOICE_ID.test(id)) return false;
-  if (model === 'qwen3-tts') return true; // Registry admission checks the configured pool.
+  if (model === 'qwen3-tts' || model === 'eleven_v4_turbo') return true; // Registry admission checks the configured pool.
   if (model === 'tts-1' || model === 'tts-1-hd') {
     return ['alloy', 'ash', 'coral', 'echo', 'fable', 'onyx', 'nova', 'sage', 'shimmer'].includes(id);
   }
@@ -151,7 +151,7 @@ export function resolveVoiceProfile({ identity, actor = {}, config }) {
     : selectLegacyVoice(identity, config);
   const digest = digestFor(identity, assignmentVersion);
   const instructionTraits = characterAware ? traits : {};
-  const instructions = buildVoiceInstructions({ enabled: config.actingEnabled === true, traits: instructionTraits });
+  const instructions = buildVoiceInstructions({ enabled: config.actingEnabled === true && config.speechInstructionsSupported === true, traits: instructionTraits });
   if (instructions && config.speechInstructionsSupported !== true) throw new TypeError('The configured TTS model does not support speech instructions.');
 
   return Object.freeze({
@@ -176,13 +176,13 @@ export function createPersistentVoiceAssignment({ characterId, worldProfileId, a
   const selection = config.voiceAssignment === 'character-aware-session'
     ? selectCharacterVoice(null, traits, config, digest) : selectLegacyVoice(null, config, digest);
   if (!isVoiceSupportedByModel(config.ttsModel, selection.voice)) throw new TypeError('persistent_voice_incompatible');
-  return Object.freeze({ assignmentVersion: (config.speechProvider === 'faster-qwen3-tts' ? 2 : 1), profileId: `vp_${digest.subarray(0, 10).toString('hex')}`,
+  return Object.freeze({ assignmentVersion: (config.speechProvider === 'elevenlabs' ? 3 : config.speechProvider === 'faster-qwen3-tts' ? 2 : 1), profileId: `vp_${digest.subarray(0, 10).toString('hex')}`,
     provider: config.speechProvider ?? 'openai', voice: selection.voice,
     poolVersion: createHash('sha256').update(JSON.stringify([config.speechVoices, config.speechVoiceProfiles, config.voiceAssignment])).digest('hex') });
 }
 
 export function resolvePersistentVoiceProfile({ assignment, actor = {}, config }) {
-  if (!assignment || ![1,2].includes(assignment.assignmentVersion) ||
+  if (!assignment || ![1,2,3].includes(assignment.assignmentVersion) ||
       !/^vp_[a-f0-9]{20}$/.test(assignment.profileId))
     throw new TypeError('persistent_voice_incompatible');
   const provider = config.speechProvider ?? 'openai';
@@ -203,7 +203,7 @@ export function resolvePersistentVoiceProfile({ assignment, actor = {}, config }
   if ((provider !== 'openai' && !config.speechVoices.includes(chosenVoice)) ||
       !isVoiceSupportedByModel(config.ttsModel, chosenVoice))
     throw new TypeError('persistent_voice_incompatible');
-  const instructions = buildVoiceInstructions({ enabled: config.actingEnabled === true,
+  const instructions = buildVoiceInstructions({ enabled: config.actingEnabled === true && config.speechInstructionsSupported === true,
     traits: config.voiceAssignment === 'character-aware-session' ? traits : {} });
   if (instructions && !config.speechInstructionsSupported) throw new TypeError('persistent_voice_incompatible');
   return Object.freeze({ profileId: assignment.profileId, provider, model: config.ttsModel,
