@@ -45,7 +45,7 @@ export function createIdleCurationScheduler({store,queue,ledger,provider,
    throw new Error('curation_invalid_scheduler');
  let policy=validateM7Consent(consent),revision=0;
  let busy=null,controller=null,loop=null,stopped=false,lastRun=-Infinity;
- let recoveryKey=null;
+ let recoveryKey=null,costSuspended=false;
  const reportError=e=>{try{onError(e?.code||e?.message||'m7_scheduler_failure');}catch{}};
  const takeSnapshot=(characterId,stamp)=>{
    if(typeof nativeIdle?.snapshot!=='function')throw new Error('m7_native_idle_adapter_missing');
@@ -72,7 +72,7 @@ export function createIdleCurationScheduler({store,queue,ledger,provider,
    /** Replaces policy only on an explicit trusted settings action, not on speech. */
    setConsent(value){
      const next=validateM7Consent(value);
-     cancel();policy=next;revision++;recoveryKey=null;
+     cancel();policy=next;revision++;recoveryKey=null;costSuspended=false;
      if(policy.mode!=='experimental'&&loop!==null){clearTimeout(loop);loop=null;}
    },
    /** Backwards-compatible disabling; never grants paid consent. */
@@ -87,6 +87,7 @@ export function createIdleCurationScheduler({store,queue,ledger,provider,
      if(policy.mode==='off')return empty('disabled');
      if(policy.mode==='shadow')return empty('shadow');
      if(stopped)return empty('stopped');
+     if(costSuspended)return empty('cost_suspended');
      if(busy||activeStores.has(store))return empty('busy');
      if(characterId!==undefined&&!isUuid(characterId))return empty('no_character');
      if(typeof provider?.curateBatch!=='function'||
@@ -126,13 +127,17 @@ export function createIdleCurationScheduler({store,queue,ledger,provider,
              return empty('cancelled');
            recoveryKey=key;
          }
-         return await processIdleCuration({mode:'experimental',queue,ledger,provider,
+         const outcome=await processIdleCuration({mode:'experimental',queue,ledger,provider,
            ownerId,nowUtc:stamp,maxBatch,characterId:npc,
            estimatedMaxCostUsd:policy.maxBatchUsd,leaseMs,maxProviderMs,maxAttempts,
-           signal:controller.signal,enforcePricing:true,
+           signal:controller.signal,enforcePricing:true,strictAck:true,
            isAuthorized:job=>entitled(snapshot,rev,npc)&&
              job.characterId===npc&&job.worldProfileId===snapshot.worldProfileId&&
              job.timelineId===snapshot.timelineId});
+         if(outcome.status==='cost_overrun'||outcome.status==='settlement_pending'){
+           costSuspended=true;reportError(outcome.status);
+         }
+         return outcome;
        }finally{try{unsubscribe?.();}catch{}}
      };
      const promise=run();
