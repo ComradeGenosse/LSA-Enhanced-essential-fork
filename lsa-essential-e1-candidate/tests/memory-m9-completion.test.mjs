@@ -428,3 +428,13 @@ test('M9 PS6 rejects forged original observer, missing witness and stale PS3',as
     ps3Candidates:[ps3()],facts:{...ps6Facts(),nowMonotonicMs:1501},
     stamp:{}})).status,'original_ps3_not_eligible');
 });
+
+test('M9 cannot produce an invented rollover edge after unknown orientation',()=>{
+  const d=detector();
+  d.run(100,{vehicle:vehicleState({rollDegrees:null})});
+  assert.deepEqual(d.run(200,{vehicle:vehicleState({rollDegrees:160})}).candidates,[]);
+  assert.deepEqual(d.run(300,{vehicle:vehicleState({rollDegrees:165})}).candidates,[]);
+  d.run(400,{vehicle:vehicleState({rollDegrees:30})});
+  assert.deepEqual(d.run(500,{vehicle:vehicleState({rollDegrees:160})}).candidates.map(x=>x.eventType),
+    ['vehicle_rollover']);
+});
