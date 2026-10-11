@@ -125,6 +125,8 @@ test('production refuses missing P2 cursor methods, even for an apparently small
 test('2,500 committed source rows paginate beyond latest 1,000; restart uses checkpoint',async()=>{
   const records=Array.from({length:2500},(_,i)=>line(a,i*2,
     i%64===0?'That was hilarious!':'Just driving.'));
+  const commonHost=uuid(),commonSession=uuid();
+  for(const record of records){record.attribution.hostRunId=commonHost;record.attribution.sessionId=commonSession;}
   const store=mockP2(records),coordinator=make(store);
   const result=await coordinator.recover({scope:a,atUtc:at(6000)});
   assert.equal(result.readCount,2500);
@@ -213,11 +215,16 @@ test('forget and correction suppress sources; no accidental privacy resurrection
   assert.equal(store.checkpoints.get(A).cursor,'2');
 });
 
-test('250 extraordinary jokes exceed target softly; routine utterances alone stay archived',async()=>{
-  const rows=Array.from({length:250},(_,i)=>line(a,i*120,
-    i%2===0?'That was hilarious!':'A bizarre, ridiculous prank!'));
+test('25 distinct extraordinary jokes within one hour exceed the soft six target',async()=>{
+  const commonHost=uuid(),commonSession=uuid();
+  const rows=Array.from({length:25},(_,i)=>{
+    const record=line(a,i*130,i%2===0?'That was hilarious!':'A bizarre, ridiculous prank!');
+    record.attribution.hostRunId=commonHost;
+    record.attribution.sessionId=commonSession;
+    return record;
+  });
   const store=mockP2(rows);
-  const r=await make(store).onSceneClose({scope:a,atUtc:at(31000)});
+  const r=await make(store).onSceneClose({scope:a,atUtc:at(3400)});
   assert.ok(r.saved.length>6);
   assert.equal(store.memory.size,r.saved.length);
   const boring=mockP2([line(a,0,'Hi there')]);
