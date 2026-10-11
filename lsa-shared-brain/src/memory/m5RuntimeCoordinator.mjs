@@ -7,7 +7,7 @@ import {detectExplicitMemoryCommands,handleExplicitMemoryCommands,
 import {isUuid} from '../util/identity.mjs';
 
 const protagonists=new Set(['franklin','michael','trevor','unknown']);
-const choice=/^(?:the\\s+)?(?:first|second|one|two|1|2)(?:\\s+one)?[.!]?$/i;
+const choice=/^(?:the\s+)?(?:first|second|one|two|1|2)(?:\s+one)?[.!]?$/i;
 const safeStatuses=new Set(['saved','forgotten','corrected','clarify','failed']);
 const freeze=o=>Object.freeze(o);
 const validScope=s=>!!s && [s.characterId,s.worldProfileId,s.timelineId].every(isUuid) &&
