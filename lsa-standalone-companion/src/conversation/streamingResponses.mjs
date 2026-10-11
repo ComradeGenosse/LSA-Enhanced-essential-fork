@@ -13,6 +13,13 @@ export function extractSpeechSegments() {
       throw new Error('invalid_speech_delta');
     return s;
   };
+  // Action JSON, code fences and XML-like instructions are not audible prose.
+  // Profanity and ordinary fiction dialogue are intentionally not filtered.
+  const prose = s => {
+    if (/^\s*(?:[\{\[]|```|<[^>]+>)/.test(s))
+      throw new Error('provider_unsupported_output');
+    return s;
+  };
   return {
     push(delta) {
       valid(delta);
@@ -34,7 +41,7 @@ export function extractSpeechSegments() {
         const segment = pending.slice(0, boundary).trim();
         if (!segment) { pending = pending.slice(boundary); continue; }
         if (emitted >= MAX_SEGMENTS) throw new Error('speech_segment_capacity');
-        ready.push(segment); emitted++;
+        ready.push(prose(segment)); emitted++;
         pending = pending.slice(boundary).trimStart();
       }
       if (pending.length > MAX_SEGMENT)
@@ -49,7 +56,7 @@ export function extractSpeechSegments() {
         if (emitted >= MAX_SEGMENTS || tail.length > MAX_SEGMENT)
           throw new Error('speech_segment_capacity');
         emitted++; pending = '';
-        return [tail];
+        return [prose(tail)];
       }
       return [];
     }
@@ -110,7 +117,8 @@ export function createStreamingResponsesProvider({
             throw new Error('provider_stream_invalid');
           observed += packet.value.length;
           if (observed > 128000) throw new Error('provider_stream_capacity');
-          pending += decoder.decode(packet.value, { stream: true }).replace(/\r\n/g, '\n');
+          pending = (pending + decoder.decode(packet.value, { stream: true }))
+            .replace(/\r\n/g, '\n');
           if (pending.length > 8192) throw new Error('provider_stream_capacity');
           while (pending.includes('\n\n')) {
             const cut = pending.indexOf('\n\n');
@@ -126,13 +134,21 @@ export function createStreamingResponsesProvider({
             } else if (message.type === 'response.completed') {
               if (message.response?.status !== 'completed')
                 throw new Error('provider_incomplete');
+              // Luna reasoning items are legitimate but are never spoken.
+              // Tool and refusal items are never quietly rendered as speech.
+              if (Array.isArray(message.response?.output) &&
+                  message.response.output.some(item =>
+                    !['message', 'reasoning'].includes(item?.type) ||
+                    item.type === 'message' && (item.role !== 'assistant' ||
+                      item.content?.some(part => part.type === 'refusal'))))
+                throw new Error('provider_unsupported_output');
               complete = true; break;
             } else if (message.type === 'response.failed' ||
                        message.type === 'response.incomplete' ||
                        message.type === 'response.refusal.delta' ||
                        message.type === 'response.function_call_arguments.delta' ||
                        message.type === 'response.output_item.added' &&
-                         message.item?.type !== 'message')
+                         !['message', 'reasoning'].includes(message.item?.type))
               throw new Error('provider_unsupported_output');
           }
         }
