@@ -6,6 +6,7 @@ on:
       - 'lsa-shared-brain/**'
       - 'lsa-essential-e1-candidate/**'
       - 'lsa-standalone-companion/**'
+      - 'docs/plans/promoted-npc-memory/**'
       - '.github/workflows/memory-m1-portability.yml'
   workflow_dispatch:
 
