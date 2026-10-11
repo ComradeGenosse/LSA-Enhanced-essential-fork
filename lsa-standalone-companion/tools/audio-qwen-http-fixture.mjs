@@ -54,7 +54,7 @@ try {
     async complete() { return 'Fixture generated answer.'; }
   }, {
     pending,
-    onReplyStaged: ({ client: native, claims, replyText, signal }) =>
+    onReplyStaged: ({ client: native, claims, offer, replyText, signal }) =>
       stageNativePcmStream(native, claims,
         tts.streamPcm({ text: replyText, identity: offer, signal }), { signal })
   });
