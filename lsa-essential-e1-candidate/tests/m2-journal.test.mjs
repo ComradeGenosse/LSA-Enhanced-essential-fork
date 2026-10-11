@@ -352,7 +352,8 @@ test('M2 completion never silently rebinds old turns across disconnected host, r
       'once a suspended host was observed an old capture cannot resurrect');
     x.store.setVerifiedHostContext(native(x.host.hostRunId,2));
     await x.store.confirmTimeline(x.timeline);
-    assert.equal((await old.recordPlayerAccepted({accepted:true,source:'typed',text:'new epoch same turn'})).reason,'m2_host_epoch_changed');
+    assert.equal((await old.recordPlayerAccepted({accepted:true,source:'typed',text:'new epoch same turn'})).reason,'m2_turn_retired',
+      'retirement on disconnect is sticky even after host epoch changes');
     const fresh=bindM2(x,'fresh-host').capture;
     assert.equal((await fresh.recordPlayerAccepted({accepted:true,source:'typed',text:'new epoch new turn'})).status,'stored');
     const other=await x.store.createTimeline({label:'Another save'});
