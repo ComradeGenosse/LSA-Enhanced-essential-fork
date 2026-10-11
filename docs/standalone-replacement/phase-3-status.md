@@ -1,24 +1,31 @@
-# Phase 3 implementation — native-owned typed dialogue (first increment)
+# Phase 3 — independent native-authoritative typed conversation
 
-**Status:** Phase 3 coding started on `feature/standalone-phase3-typed-turn`, stacked on [Phase 2 PR #42](https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/pull/42). The separate core and standalone Node companion do **not** load the Essential binary or patched stock server. **No GTA deployment and no real NPC playback is claimed.**
+**Status:** implementation substantially extended on `feature/standalone-phase3-typed-turn`, stacked on [Phase 2 PR #42](https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/pull/42). **Not deployed in GTA; physical actor authority remains disabled** until verified. The final standalone architecture does not depend on Essential or its Node bundle.
 
-## This first Phase 3 increment
+## Implemented in independent source
 
-- `NativeTurnRegistry.TryIssueTyped` accepts a native-validated player text message bound to the exact `ActorRef`, conversation lease, native generation, turn ID and session nonce. Node **cannot fabricate a player actor, typed input, or lease**.
-- The Phase 2 duplex pipe's `turn.next.result` optionally provides native-issued `playerText` (strict bounded text). `turn.confirm` remains exact; `turn.reply` newly validates the full native actor incarnation/lease/generation on the RAGE owner fiber and stages **one** text reply with a truthful `staged_not_played` receipt. A second reply, wrong actor, expired lease or reincarnated handle is rejected. `turn.cancel` retires it. **This is not an action or audio completion receipt.**
-- `responsesProvider.mjs` offers an independent OpenAI Responses adapter configured using `OPENAI_API_KEY` and `LSA_STANDALONE_MODEL`. It does not rely on stock launcher/Gemini. It uses `store:false`, finite output, a deadline, abort support and no credentials logged. A deterministic offline fixture is used for CI; **no live model request was tested**.
-- `typedTurn.js.mjs` implements typed offer → exact native confirm → provider fixture/adapter → validated `turn.reply` staging, with exact cancellation on provider failure and disconnect. `PendingDialogue` is volatile/uncommitted and intentionally has **no** history commit operation until a matching actual Phase 4 native playback receipt exists.
-- `tools/typed-turn-fixture.mjs` exercises the real net481 server and independent Node client using native-issued typed text with a deterministic provider. The native harness uses a fake game adapter, not an RPH or GTA process.
+1. **Native text and target selection** — `LSAStandaloneAsk "Your message"` is a separate RAGE console command. Callback only enqueues bounded player text; the approved game fiber independently selects the nearest living pedestrian **ahead** within 4 meters, verifies Ped identity and mission safety, then issues a turn. The native resolver still uses `allowExperimentalAdoption=false`; **no NPC can be admitted in GTA until the real decorator/ABA lifetime gate is accepted**. The command returns a clear refusal rather than attempting unsafe NPC takeover. This is not yet UX4 menu/controller selection.
+2. **Actor-scoped conversation identity** — native `NativeTurnRegistry` mints `ConversationId` and increasing `TurnOrdinal` per physical actor incarnation, while each turn gets new lease/generation/session nonce. A new native player turn may explicitly *discard* an older **unplayed** staged reply; that does not mark it played. Actor death/replacement and transport/world reset retire the session. No persistent CharacterId can control a GTA handle.
+3. **Secure native↔Node admission** — `turn.next` carries source-time player text and native conversation identity. Node must confirm the exact turn, actor incarnation, lease, generation and source before making a model request. `turn.reply` is owner-fiber validated and only returns `staged_not_played`; wrong-identity, duplicate and late replies cannot become game effects or committed history.
+4. **Production Node service enabled by explicit opt-in** — `service.mjs` launches independently and can run health-only without provider credentials. To enable the typed poller, set `LSA_STANDALONE_TYPED_MODE=enabled`, `OPENAI_API_KEY` and `LSA_STANDALONE_MODEL` in the **local runtime environment**. No credentials are committed or logged. One provider request runs at a time. Each native transport change aborts in-flight model activity and clears per-transport session/history. No automatic physical replay.
+5. **Live provider adapter** — an independently authored OpenAI Responses API adapter uses finite request/output bounds, a 20-second deadline, `store: false`, and fail-closed parsing. Native-sourced conversation continuity supplies up to six previous **player utterances only** to the provider. **Unplayed assistant replies are never inserted as if heard, nor written as durable character memories**.
+6. **Staged history** — strictly bounded volatile `PendingDialogue` holds unplayed response candidates, supersedes older unplayed candidates in the same native session and has intentionally **no history commit operation** until Phase 4 exact native playback receipts.
 
-## Verification
+## Verified offline
 
-New tests in `lsa-standalone-companion/tests/typed-turn.test.mjs` check confirmed offer, missing source-time text, provider failure, disconnect mid-model, no durable/history commit, malformed/incomplete provider responses and no-offer. New C# native authority tests check typed text bounds, effect-token forgery, duplicate/stale staging, same-handle+same-address ABA retirement. CI uses **real net481 assembly** and **real separate Node process**; it compiles the RPH host against the published reference API but cannot prove in-game hosting.
+- .NET Framework production core and published RAGE SDK host compilation, including independent RAGE console command bindings.
+- Simulated physical ABA (same handle and address, new lifetime tag), native exact lease validation and actor-scoped ordinal reuse/retirement, invalid/superseded/duplicate reply tests.
+- Node provider parsing, user-only conversation continuity, disconnect while model waits, no-effect staging, bounded polling, no secrets in status and fresh-session reconnect.
+- Real separate net481 process ↔ independent Node fixture provider ↔ exact native staged reply. **The fixture is not GTA or a paid/live model request.**
 
-## Remaining Phase 3 work
+Test receipts must refer to the actual final branch commit/workflow run; successful intermediate commits do not imply final approval.
 
-1. **Actual game-sourced target and text input.** Add a RAGE-selected conversation target and real typed-input/onscreen keyboard adapter, **only after the Phase 2 entity-lifetime gate**. Current host has no adopted NPC or player text producer; test harness alone simulates a native producer.
-2. **Runtime service hookup.** Run native typed-turn polling in the independent `service.mjs` with one active provider pipeline per source-time turn, safe abort/retirement, observation-context integration and bounded model inflight capacity. The first slice is callable but **not active in the production service**.
-3. **Native session ownership and multi-turn state.** Add owner-aware session establishment, player arbitration vs spontaneous events, robust generations and durable profile-independent history staging. Existing exact single-turn permits are a foundation, not the final session lifecycle.
-4. **Phase 4 dependency.** The output remains *staged not played*. No TTS, PCM, lip sync, actual audibility, or post-playback history commit can be claimed here.
+## Remaining gates and limitations
 
-See [standalone roadmap](roadmap.md). **Phase 3 started—not declared complete or GTA-safe.** No Essential removal, merge, or deployment was performed.
+- **Physical GTA acceptance (blocking game activation):** confirm the installed Enhanced RPH API, plugin load/unload/fiber sequencing and DECOR registration/cookie behavior under deletion/handle+address reuse. There is no proven universal game entity destruction hook. The explicit `false` lifetime gate must remain until real tests pass.
+- **Real player UX:** the independent console bridge is implemented but **cannot authorize an NPC while the gate is closed**; GTA on-screen keyboard/menu/controller target picker remains an integration step, not a proven feature.
+- **Actual provider/live dialogue:** offline uses deterministic fixtures and simulated authority; no live Responses API call, game target, playback or lip sync was exercised.
+- **History/continuity boundary:** session IDs and prior *player text* are retained for modeling within an active transport. Since Phase 4 native audible success has not occurred, the system cannot claim completed NPC turns or durable multi-turn assistant history.
+- **Later phases:** Phase 4 implements real PCM/audio, source receipts and history commit; Phase 5 performs the first end-to-end GTA vertical slice; Phase 6 adds PTT and UX4 targeting. Gameplay parity with Essential is not yet achieved.
+
+**Disposition:** ready for further isolated Phase 3 offline integration; NO-GO for replacing Essential in the installed game today. No original files are modified, merged or deployed.
