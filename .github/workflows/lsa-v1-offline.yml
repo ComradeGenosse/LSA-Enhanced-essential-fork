@@ -40,6 +40,7 @@ jobs:
       - name: Validate Phase 13a modules and run focused tests
         working-directory: lsa-essential-e1-candidate
         run: |
+          python -m py_compile tools/qwen/lsa_qwen_server.py
           node --check src/perception/sceneDirector.mjs
           node --check src/perception/sceneDirectorAdmission.mjs
           node --check src/perception/directorWire.mjs
