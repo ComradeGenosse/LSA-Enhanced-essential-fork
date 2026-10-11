@@ -8,7 +8,9 @@ export function bindTrustedTimelineSource({store,intelligenceClient}={}) {
       typeof intelligenceClient?.subscribeWorldBoundary !== 'function')
     throw new Error('authenticated_timeline_source_unavailable');
   let closed=false;
+  let lastTrustedHost=null;
   const revoke=(reason='unknown_source')=>{
+    lastTrustedHost=null;
     try {store.setVerifiedHostContext(null);} finally {
       store.onBoundary({reason});
     }
@@ -23,6 +25,7 @@ export function bindTrustedTimelineSource({store,intelligenceClient}={}) {
         revoke('unknown_source');return;
       }
       store.setVerifiedHostContext(context);
+      lastTrustedHost=Object.freeze({hostRunId:context.hostRunId,worldEpoch:context.worldEpoch});
     } catch {revoke('unknown_source');}
   };
   const boundary=(event)=>{
@@ -30,7 +33,25 @@ export function bindTrustedTimelineSource({store,intelligenceClient}={}) {
     const reason=['clock_regression','timeline_change','host_reload','world_epoch',
       'save_fork','native_disconnect','unknown_source','source_change'].includes(event?.reason)
         ? event.reason : 'unknown_source';
-    revoke(reason);
+    // M1 C-13 publishes the accepted NEW host context before the ordered
+    // world_epoch boundary. Preserve ONLY that authenticated new context,
+    // never the old epoch or a free-floating boundary payload.
+    const qualified=lastTrustedHost && event?.hostRunId===lastTrustedHost.hostRunId &&
+      event?.worldEpoch===lastTrustedHost.worldEpoch &&
+      Number.isSafeInteger(event?.previousEpoch) && event.previousEpoch>0 &&
+      event.worldEpoch===event.previousEpoch+1;
+    if(!qualified || ['native_disconnect','unknown_source','source_change'].includes(reason)){
+      revoke(reason==='native_disconnect' ? reason : 'unknown_source');
+      return;
+    }
+    try {
+      store.onBoundary({reason});
+      // host_reload also invalidates the core's source cache; explicitly
+      // reinstate only the independently accepted preceding C-13 receipt.
+      // This never restores the required manual timeline confirmation.
+      if(reason==='host_reload')
+        store.setVerifiedHostContext({hostContextVersion:1,...lastTrustedHost});
+    } catch {revoke('unknown_source');}
   };
   // Both subscriptions are required; roll back partial setup safely.
   let stopHost,stopBoundary;
