@@ -38,6 +38,10 @@ jobs:
           tests/elevenlabs-provider.test.mjs
           tests/streaming-decision.test.mjs
           tests/decisions-and-requests.test.mjs
+      - name: Compile native C05 test helper required by the full suite
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: dotnet build native/activities/tests/ActivityTests.csproj --configuration Debug
       - name: All Essential Node tests (no billable provider requests)
         working-directory: lsa-essential-e1-candidate
         env:
