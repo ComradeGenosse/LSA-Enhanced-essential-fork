@@ -80,10 +80,12 @@ export class M9NativeEventProducer {
   reset() { this.#last=null;this.#seen.clear();this.#seenOrder=[]; }
   ingest({snapshot,source}={}) {
     const now=this.#now();
-    if (!Number.isSafeInteger(now) || !validSnap(snapshot) ||
+    let authorized=true;
+    try {if(this.#verify)authorized=this.#verify({snapshot,source})===true;}
+    catch {authorized=false;}
+    if (!authorized || !Number.isSafeInteger(now) || !validSnap(snapshot) ||
         !nativeSource(source,snapshot) ||
-        snapshot.sampledAtMs > now || now-snapshot.sampledAtMs > LIMITS.maxAgeMs ||
-        (this.#verify && this.#verify({snapshot,source}) !== true))
+        snapshot.sampledAtMs > now || now-snapshot.sampledAtMs > LIMITS.maxAgeMs)
       return {accepted:false,reason:'invalid_or_stale_native_sample',candidates:[]};
     if (this.#last && scope(this.#last.sample)!==scope(snapshot)) this.reset();
     const last=this.#last;
