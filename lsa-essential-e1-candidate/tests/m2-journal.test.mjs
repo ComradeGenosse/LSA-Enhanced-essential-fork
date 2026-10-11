@@ -1,4 +1,5 @@
 import {createM2TurnCapture} from '../../lsa-shared-brain/src/memory/m2TurnCapture.mjs';
+import {createM2EssentialCapture} from '../src/memory/m2EssentialCapture.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as fs from 'node:fs/promises';
@@ -411,5 +412,198 @@ test('M2 completion retains 205 bound accepted turns for restart and byte-exact 
       assert.equal((await reopened.findExactQuote({characterId:x.a.characterId,
         timelineId:x.timeline,quote:first}))[0].content,first);
     }finally{await reopened.close();}
+  }finally{await x.store.close();}
+});
+
+function essentialM2(x,id='essential',{characterId=x.a.characterId}={}){
+  const identity=turn(id);
+  const state={live:true,protagonist:'unknown',generation:identity.generationId,
+    epoch:x.host.worldEpoch,incarnationId:randomUUID(),encounterId:randomUUID(),
+    alias:x.a.promotion.ownerAlias,observerIndex:3,acceptedInput:null,
+    historyReceipt:null,speechSegments:new Map()};
+  const cloneIdentity=()=>({...identity});
+  const verifySource=(a,b)=>a?.pedId===b?.pedId&&a?.turnId===b?.turnId&&
+    a?.generationId===b?.generationId&&a?.sessionNonce===b?.sessionNonce;
+  const nativeAuthority={verifyCurrentTurn:({identity:requested,characterId:cid,ownerAlias,hostRunId,worldEpoch})=>{
+    if(!state.live||!verifySource(requested,identity)||cid!==characterId||
+       ownerAlias!==state.alias||worldEpoch!==state.epoch||
+       hostRunId!==x.host.hostRunId)return null;
+    return {nativeVerified:true,current:true,identity:cloneIdentity(),
+      characterId,ownerAlias:state.alias,hostRunId,worldEpoch,
+      protagonistKey:state.protagonist,incarnationId:state.incarnationId,
+      encounterId:state.encounterId,observerIndex:state.observerIndex};
+  }};
+  const acceptedInput={verifyAccepted:({identity:given,source,text})=>
+    verifySource(given,identity)&&state.acceptedInput?.source===source&&
+    state.acceptedInput.text===text ? {...state.acceptedInput,identity:cloneIdentity()}:null};
+  const playbackHistory={verifyCompleted:({identity:given,receipt:got})=>
+    verifySource(given,identity)&&state.historyReceipt===got ?
+      {nativeVerified:true,historyAccepted:true,identity:cloneIdentity(),receipt:got}:null};
+  const speechTransport={verifyForwardedSegment:({identity:given,segment})=>{
+    const real=state.speechSegments.get(segment?.sequence);
+    return verifySource(given,identity)&&real&&
+      real.text===segment.text&&real.audioBytes===segment.audioBytes&&
+      real.forwardedBytes===segment.forwardedBytes ?
+      {accepted:true,identity:cloneIdentity(),...real}:null;
+  }};
+  const args={store:x.store,characterId,ownerAlias:state.alias,identity,
+    isCurrent:()=>state.live&&state.generation===identity.generationId,
+    nativeAuthority,acceptedInput,playbackHistory,speechTransport};
+  return {args,state,identity,
+    make:()=>createM2EssentialCapture(args),
+    commitInput:({source='typed',text,final=true}={})=>{
+      state.acceptedInput={accepted:true,final,source,text};},
+    stageSpeech:(sequence,text,{audioBytes=64,forwardedBytes=64}={})=>{
+      const a={sequence,text,audioBytes,forwardedBytes};
+      state.speechSegments.set(sequence,a);return a;},
+    admitPlayback:(nativeReceipt)=>{state.historyReceipt=nativeReceipt;},
+  };
+}
+
+test('M2 closure cannot be authorized by caller current callback without A native and host ledgers',async t=>{
+  const x=await setup(t);
+  try {
+    const e=essentialM2(x,'no-proof');
+    e.commitInput({text:'  unverified claim  '});
+    e.state.live=false;
+    assert.throws(()=>e.make(),/m2_native_owner_unverified/);
+    e.state.live=true;
+    assert.throws(()=>createM2EssentialCapture({...e.args,nativeAuthority:null}),
+      /m2_trusted_ports_required/);
+    assert.throws(()=>createM2EssentialCapture({...e.args,acceptedInput:null}),
+      /m2_trusted_ports_required/);
+    assert.throws(()=>createM2EssentialCapture({...e.args,playbackHistory:null}),
+      /m2_trusted_ports_required/);
+    assert.throws(()=>createM2EssentialCapture({...e.args,speechTransport:null}),
+      /m2_trusted_ports_required/);
+    const cap=e.make();
+    assert.equal((await cap.acceptPlayer({source:'typed',text:'  unverified  '})).status,'not_stored');
+    assert.equal((await read(x)).length,0);
+  }finally{await x.store.close();}
+});
+test('M2 closure stores literal FINAL STT bytes only after source ledger admission and rejects changed input',async t=>{
+  const x=await setup(t);
+  try{
+    const e=essentialM2(x,'unicode-stt');
+    const cap=e.make();
+    const raw='  Fuck, "déjà vu" 🛻\n中文\tend  ';
+    e.commitInput({source:'stt',text:raw,final:false});
+    const args={source:'stt',text:raw,transcription:{provider:'openai',
+      model:'gpt-transcribe',confidence:null}};
+    assert.equal((await cap.acceptPlayer(args)).reason,'m2_player_source_unverified');
+    e.commitInput({source:'stt',text:raw,final:true});
+    assert.equal((await cap.acceptPlayer({...args,text:raw.trim()})).reason,'m2_player_source_unverified');
+    assert.equal((await cap.acceptPlayer(args)).status,'stored');
+    assert.equal((await cap.acceptPlayer(args)).status,'duplicate');
+    const actual=await read(x);
+    assert.equal(actual.length,1);
+    assert.equal(actual[0].source,'stt');
+    assert.equal(Buffer.compare(Buffer.from(actual[0].content),Buffer.from(raw)),0);
+    assert.equal(actual[0].transcription.confidence,null);
+    e.commitInput({source:'stt',text:'STT changed',final:true});
+    assert.equal((await cap.acceptPlayer({...args,text:'STT changed'})).reason,'journal_replay_conflict');
+    assert.equal((await read(x)).length,1);
+  }finally{await x.store.close();}
+});
+test('M2 closure records only full buffered PCM-backed speech with completed native receipt and accepted history',async t=>{
+  const x=await setup(t);
+  try{
+    const e=essentialM2(x,'buffered-m2'),cap=e.make(),raw='  NPC actually said: "Nice!" 🚘 ';
+    const segment=e.stageSpeech(0,raw);
+    assert.equal(cap.admitSpeechSegment({mode:'buffered',...segment}).status,'admitted');
+    const r=receipt(e.identity);
+    assert.equal((await cap.completeNpc({receipt:r})).reason,'m2_playback_source_unverified');
+    assert.equal((await read(x)).length,0);
+    const newE=essentialM2(x,'buffered-okay'),next=newE.make();
+    const original='NPC final TTS line, not edited decision dialogue.';
+    assert.equal(next.admitSpeechSegment({mode:'buffered',...newE.stageSpeech(0,original)}).status,'admitted');
+    const correct=receipt(newE.identity);newE.admitPlayback(correct);
+    assert.equal((await next.completeNpc({receipt:correct})).status,'stored');
+    assert.equal((await read(x))[0].content,original);
+  }finally{await x.store.close();}
+});
+test('M2 closure preserves only actual early-segment streamed TTS text, never an unsaid final Luna draft',async t=>{
+  const x=await setup(t);
+  try{
+    const e=essentialM2(x,'early-m2'),cap=e.make();
+    const parts=['Whoa—','don\'t ', 'fucking move! 🛞'];
+    for(let i=0;i<parts.length;i++)
+      assert.equal(cap.admitSpeechSegment({mode:'early_streamed',
+        ...e.stageSpeech(i,parts[i])}).status,'admitted');
+    const r=receipt(e.identity);e.admitPlayback(r);
+    assert.equal((await cap.completeNpc({receipt:r})).status,'stored');
+    const row=(await read(x))[0];
+    assert.equal(row.content,parts.join(''));
+    assert.notEqual(row.content,'Whoa, I did not say any of that.');
+    assert.equal(row.delivery,'completed');
+    assert.equal(row.deliveryReceiptId!==null,true);
+  }finally{await x.store.close();}
+});
+test('M2 closure denies unforwarded audio, unfinished segments and forged late/interrupted playback',async t=>{
+  const x=await setup(t);
+  try{
+    const dropped=essentialM2(x,'dropped'),a=dropped.make();
+    const bad=dropped.stageSpeech(0,'partly played',{audioBytes:64,forwardedBytes:4});
+    assert.equal(a.admitSpeechSegment({mode:'buffered',...bad}).reason,'m2_speech_proof_incomplete');
+    assert.equal((await a.completeNpc({receipt:receipt(dropped.identity)})).status,'not_stored');
+    const stale=essentialM2(x,'stale-play'),b=stale.make();
+    b.admitSpeechSegment({mode:'buffered',...stale.stageSpeech(0,'Never persist')});
+    const interrupted={...receipt(stale.identity),wasInterrupted:true,reason:'interrupted'};
+    stale.admitPlayback(interrupted);
+    assert.equal((await b.completeNpc({receipt:interrupted})).status,'not_stored');
+    const mismatched=essentialM2(x,'bad-receipt'),c=mismatched.make();
+    c.admitSpeechSegment({mode:'buffered',...mismatched.stageSpeech(0,'Never persist either')});
+    const forged=receipt(turn('other-generation'));mismatched.admitPlayback(forged);
+    assert.equal((await c.completeNpc({receipt:forged})).status,'not_stored');
+    assert.equal((await read(x)).length,0);
+  }finally{await x.store.close();}
+});
+test('M2 closure never resurrects a host, ped incarnation, protagonist, or timeline after source loss',async t=>{
+  const x=await setup(t);
+  try{
+    const e=essentialM2(x,'life'),cap=e.make();
+    e.commitInput({text:'Before retirement'});
+    assert.equal((await cap.acceptPlayer({source:'typed',text:'Before retirement'})).status,'stored');
+    e.state.incarnationId=randomUUID();
+    assert.equal((await cap.acceptPlayer({source:'typed',text:'Before retirement'})).reason,
+      'm2_native_lifetime_changed');
+    const second=essentialM2(x,'change-protagonist'),b=second.make();
+    second.commitInput({text:'Wrong protagonist'});
+    second.state.protagonist='trevor';
+    assert.equal((await b.acceptPlayer({source:'typed',text:'Wrong protagonist'})).reason,
+      'm2_protagonist_changed');
+    const third=essentialM2(x,'rollback'),c=third.make();
+    third.commitInput({text:'Suspended save'});
+    x.store.setVerifiedHostContext(null);
+    assert.equal((await c.acceptPlayer({source:'typed',text:'Suspended save'})).status,'not_stored');
+    x.store.setVerifiedHostContext(x.host);await x.store.confirmTimeline(x.timeline);
+    assert.equal((await c.acceptPlayer({source:'typed',text:'Suspended save'})).status,'not_stored');
+    assert.equal((await read(x)).length,1);
+  }finally{await x.store.close();}
+});
+test('M2 closure rechecks actual source and memory-owner status after delayed SQLite writer slot',async t=>{
+  const x=await setup(t);
+  try{
+    const e=essentialM2(x,'queued-source'),cap=e.make();
+    e.commitInput({text:'Queued, but source revoked'});
+    const original=x.store.withTimelineWrite.bind(x.store);let go;
+    x.store.withTimelineWrite=(timeline,commit)=>new Promise((resolve,reject)=>{
+      go=()=>original(timeline,commit).then(resolve,reject);
+    });
+    const promise=cap.acceptPlayer({source:'typed',text:'Queued, but source revoked'});
+    assert.equal(typeof go,'function');
+    e.state.acceptedInput=null;
+    go();
+    assert.equal((await promise).reason,'m2_player_source_unverified');
+    assert.equal((await read(x)).length,0);
+  }finally{await x.store.close();}
+});
+test('M2 closure rejects non-roundtrippable UTF-16 rather than silently replacing UTF-8 bytes',async t=>{
+  const x=await setup(t);
+  try{
+    const e=essentialM2(x,'bad-utf8'),cap=e.make(),invalid='hi\ud800 there';
+    e.commitInput({text:invalid});
+    assert.equal((await cap.acceptPlayer({source:'typed',text:invalid})).reason,'journal_invalid_utf8');
+    assert.equal((await read(x)).length,0);
   }finally{await x.store.close();}
 });
