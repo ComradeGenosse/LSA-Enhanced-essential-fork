@@ -34,6 +34,7 @@ namespace LSA.Standalone.RageHost
             RageActorResolver resolver = null;
             OwnerScope scope = null;
             NativeAuthority authority = null;
+            NativeTurnRegistry turns = null;
             try
             {
                 stopping = false;
@@ -62,6 +63,7 @@ namespace LSA.Standalone.RageHost
                     resolver = new RageActorResolver(scope, false);
                     authority = new NativeAuthority(new MonotonicClock(), new RageWorld(),
                         resolver, scope);
+                    turns = new NativeTurnRegistry(authority);
                 }
                 finally { scope.Exit(); }
 
@@ -79,7 +81,7 @@ namespace LSA.Standalone.RageHost
                             authority.WorldChanged();
                         previousGameTick = currentGameTick;
                         authority.Reconcile();
-                        server.DrainOwnerRequests(authority, 8);
+                        server.DrainOwnerRequests(authority, turns, 8);
                     }
                     finally { scope.Exit(); }
                     // No owner scope survives this yield.
@@ -100,7 +102,7 @@ namespace LSA.Standalone.RageHost
                     try
                     {
                         scope.Enter();
-                        try { authority.Stop(); } finally { scope.Exit(); }
+                        try { turns?.RetireAll(); authority.Stop(); } finally { scope.Exit(); }
                     }
                     catch { Game.LogTrivial("[LSA-S2] host_stop_owner_unavailable"); }
                 }
