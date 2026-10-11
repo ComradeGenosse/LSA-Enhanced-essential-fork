@@ -9,6 +9,7 @@ namespace LSA.Standalone
         private sealed class ActorState
         {
             public ActorRef Reference;
+            public ulong LifetimeTag;
             public long NextGeneration;
             public readonly Dictionary<LeaseKind, OwnershipLease> Leases = new Dictionary<LeaseKind, OwnershipLease>();
         }
@@ -170,7 +171,8 @@ namespace LSA.Standalone
                 ActorObservation observed;
                 if (!TryObserve(other.Reference.Handle, out observed) || observed == null ||
                     !observed.IsAlive || observed.Handle != other.Reference.Handle ||
-                    observed.Address != other.Reference.Address)
+                    observed.Address != other.Reference.Address ||
+                    observed.LifetimeTag != other.LifetimeTag)
                 {
                     stale.Add(other);
                     continue;
@@ -183,7 +185,8 @@ namespace LSA.Standalone
             }
             foreach (ActorState old in stale) Forget(old, "actor_invalid");
             ActorState current;
-            if (actors.TryGetValue(handle, out current) && current.Reference.Address == sample.Address)
+            if (actors.TryGetValue(handle, out current) && current.Reference.Address == sample.Address &&
+                current.LifetimeTag == sample.LifetimeTag)
             {
                 string blocked;
                 if (!CanControl(sample, out blocked)) RevokeLeases(current, blocked);
@@ -194,7 +197,8 @@ namespace LSA.Standalone
             // Recycled handle or address requires a fresh incarnation and no old lease.
             if (current != null) Forget(current, "actor_replaced");
             var next = new ActorState {
-                Reference = new ActorRef(HostRunId, WorldEpoch, handle, sample.Address, Guid.NewGuid())
+                Reference = new ActorRef(HostRunId, WorldEpoch, handle, sample.Address, Guid.NewGuid()),
+                LifetimeTag = sample.LifetimeTag
             };
             actors[handle] = next;
             reference = next.Reference;
@@ -224,7 +228,8 @@ namespace LSA.Standalone
                 return false;
 
             if (!TryObserve(reference.Handle, out observed) || observed == null ||
-                !observed.IsAlive || observed.Address != reference.Address || observed.Handle != reference.Handle)
+                !observed.IsAlive || observed.Address != reference.Address || observed.Handle != reference.Handle ||
+                observed.LifetimeTag != state.LifetimeTag)
             {
                 // An observer mismatch revokes all claims; new actor must be re-registered.
                 Forget(state, "actor_invalid");
@@ -258,7 +263,8 @@ namespace LSA.Standalone
                 ActorObservation observed;
                 if (!TryObserve(state.Reference.Handle, out observed) || observed == null ||
                     !observed.IsAlive || observed.Handle != state.Reference.Handle ||
-                    observed.Address != state.Reference.Address)
+                    observed.Address != state.Reference.Address ||
+                    observed.LifetimeTag != state.LifetimeTag)
                 {
                     Forget(state, "actor_invalid");
                     continue;
