@@ -1,3 +1,4 @@
+import './m3-closure-agent-d.test.mjs';
 import {test} from 'node:test';
 import {IntelligenceClient} from '../src/perception/intelligenceClient.mjs';
 import assert from 'node:assert/strict';
