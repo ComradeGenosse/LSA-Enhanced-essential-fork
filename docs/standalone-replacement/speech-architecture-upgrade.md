@@ -1,0 +1,91 @@
+# Speech architecture upgrade — Qwen / OpenAI TTS, streaming dialogue and independent STT
+
+**Status:** IMPLEMENTATION PLAN ONLY (11 October 2026). No new game capability is activated by this document. This plan refines [Phase 4](phase-4-status.md), [Phase 6](roadmap.md#phases-and-exit-gates), and the Phase 5 GTA vertical slice. Phase 4 PR #44 already provides native audio leases, 24-kHz PCM, a rolling queue, truthful `sealed_not_played` receipts, and an opt-in OpenAI TTS adapter; it **does not** implement the features below.
+
+**Reference implementations (do not blindly merge stock Essential dependencies):**
+- [PR #39: Faster Qwen3-TTS](https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/pull/39): local Python loopback sidecar, Base clone / CustomVoice / VoiceDesign voice registry, 24-kHz PCM streaming, cancellation, deterministic provider switching, character voice persistence and offline benchmark harness. The original implementation targets the existing Essential-based pipeline.
+- [PR #37: C-01 player-microphone and proximity hearing](https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/pull/37): exact utterance IDs, source-time mic start/release facts, one STT-to-many qualified listeners, partial/full acoustic coverage, conservative cross-clock normalization. **Its Harmony hooks into Essential must not be ported.**
+- [Qwen A/B benchmark plan](../plans/QWEN-TTS-AB-BENCHMARK.md): early *structured* OpenAI speech begins during model generation, while the then-current Qwen path waited for a buffered full reply. Consequently conversation timing cannot be explained by TTS-only first-PCM numbers.
+
+## Fundamental ownership split
+
+| Concern | Authority | Strict boundary |
+| --- | --- | --- |
+| NPC / player / mic physical identity, source start/end and world epoch | Independent RAGE native owner fiber | No Node-generated actor, inferred microphone Ped, stale lease or legacy Essential controller |
+| Recognized speech and dialogue reasoning | Node providers | Pure outputs; never authorizes an NPC/observer, physical action or persisted history |
+| Speech segments, audio lease and ordering | Native turn + segment admission protocol, Node sequencer | Each segment bound to native host/epoch, actor incarnation, conversation ID, turn ID, native source and immutable ordinal |
+| TTS and PCM generation | OpenAI / Faster Qwen3-TTS adapter | Provider cannot choose speaker, change target or write history; all output canonical PCM16LE mono 24 kHz |
+| Output device, speaker location and lip-sync | Native output adapter owning game effects and physical device callbacks | Buffer accepted/forwarded/EOS are not audible started/completed events |
+| Proximity knowledge and observer rights | Native capture receipt + per-observer hearing rights | Single STT transcript cannot be broadcast as words to unqualified listeners |
+| Stable character voice choice | Persistent character/voice registry independent of ped handle | Profile voice may survive actor respawns; authorization to speak does not |
+
+### P4-S1. Provider-neutral TTS and stable voice identities — **first implementation priority**
+
+- Introduce `SpeechProvider` capability contract: `streamPcm({text, voiceRef, instructions, signal, deadline})` returns validated async PCM chunks with canonical `pcm_s16le_mono_24000`, cancellation, chunk alignment and bounded output. Provider IDs: `openai`, `faster-qwen3-tts`; refuse unknown capabilities. Keep the native `IAudioOutput` separate from provider selection.
+- Adapt the independently authored Qwen provider and its localhost-only sidecar from PR #39. Require fixed `127.0.0.1` / `::1` allowlisted endpoints, no supplied file paths/model downloads, no `OPENAI_API_KEY` forwarding to Qwen, and bounded health/warmup/generation timeouts. Shared format, not shared legacy Essential session objects.
+- Separate **voice identity** (`characterId`, `voiceAssignmentVersion`, `provider`, `voiceId`, `profileRevision`, optional registered clone reference) from **physical authorization** (`ActorRef`, lease, `turnId`). A persistent promoted character's voice survives summon/respawn; never use `characterId` to authorize a game effect. Changes are versioned and reversible, with no fake OpenAI IDs in Qwen voice pools.
+- Persist references/registry metadata only; original voice clips, clone samples, generated audio and private configs stay local/ignored. Preserve existing voice assignments during provider switching; an incompatible voice is rejected or explicitly reselected, **not silently mapped**. VoiceDesign draft is not a guaranteed stable clone until explicitly promoted to a revisioned approved voice.
+- Provider selection is per NPC/conversation where possible, with a global default only as fallback. Existing OpenAI TTS remains supported with explicit opt-in and no unintended billing.
+- **Offline exit:** OpenAI and Qwen local HTTP fixtures exercise the *same* segment/PCM contract; sample-rate mismatches, odd bytes, empty output, identity swap, bad voice ID, cancelled generation, provider outage and missing keys all fail closed. No source file in the independent package imports Essential.
+
+### P4-S2. Native-authorized *early* Luna→TTS streaming — **before finalizing the output backend**
+
+- Current `NativeTurnRegistry.TryStageReply` stages **one full answer per turn**; `typedRuntime` waits for `provider.complete()` before TTS. Keep that as a safe compatibility path while adding a **versioned** `turn.segment.offer/confirm` (illustrative names; finalize and freeze wire schemas before coding).
+- The model may emit validated **spoken text segments** as early as sentence/clause boundaries, but not untrusted structured partial JSON or half-validated action decisions. Any commands/tool instructions must be separated, fully validated and native-authorized; only validated speech goes to TTS. Use bounded segment count, word/character budget, deterministic ordering, and one synthesis job at a time initially.
+- Each segment must bind `hostRunId, worldEpoch, actorIncarnationId, conversationId, turnId, turnGeneration, segmentIndex, segmentNonce`; the *native* admission ledger authorizes exactly one monotonic sequence. TTS chunks bind a segment-specific audio stream and cannot jump ahead, replay across a new actor or attach to an earlier conversation.
+- Permit Luna to continue streaming segments while segment N is synthesized/queued; native playback remains ordered N, N+1, ... . Explicit `turn.final` / last-segment receipt determines when more text can no longer arrive. Never synthesize speculative invalid text. Segment acknowledgement != spoken/heard/history-complete.
+- A new player PTT/typed turn, target change, combat takeover, death, host reset or service disconnect cancels **model generation, pending segment-TTS and native audio**, fencing every provider callback. Do not continue playing synthesized later segments from a cancelled turn. Define exact arbitration for currently speaking NPC vs spontaneous Director proposals.
+- **Offline exit:** mock incremental Luna output where TTS starts before final reasoning completion; partial JSON/invalid actions produce no TTS; 2+ segments play in order through a fake output with intermittent credits; dedup, stale turn/actor ABA, cancellation between segments, provider retry and stop-before-final cases pass. Compare real first-*audible* times only after device backend acceptance, not by conflating first PCM with audible output.
+
+### P4-S3. Output-backed speech lifecycle, flow control and lip-sync contracts
+
+- Retain the existing bounded native 4-second queue / 30-second total PCM limits as initial safety caps. Audit the **2.2-second credit wait**: waiting is normal when synthesis runs ahead of real-time playback. Replace fixed producer-side timeout with a native **forward-progress watchdog** (queue capacity, last device-accepted bytes, overall turn deadline, capped jitter/wait), while preserving bounded memory and fail-closed behavior for stalled devices. No unknown-timed-out write replay.
+- Establish strict native lifecycle states, e.g. `authorized → queued → device_accepted → playback_started → playback_completed | interrupted | failed`. Distinguish *device accepted* from *physically audible*; require matching stream/segment/lease/generation and actual started/audio progress/terminal callback to emit a completion receipt.
+- Build an independent Windows audio output adapter with exact NPC position/attenuation/vehicle routing and game-fiber-safe state. The device callback/worker must never call unsafe GTA natives. Lip-sync consumes **verified playback PCM energy/timing** from the physical output path, not the synthetic TTS network timeline.
+- For multiple segments, commit completed spoken segments or the full final dialogue **only according to a deliberate documented policy** based on native completion receipts, never when the provider finishes or when `audio.end` is sealed. Interrupted speech must not be committed as a completed answer. No speech history, playback timestamps or listener acoustic rights from a simulated output sink.
+- **Offline exit:** at least 2 independent NPC streams, device-rejection/backpressure, split chunks, 30-second bound, pause/resume, stop mid-segment, actor ABA, audio-device reset, fake callback replay and multi-segment completion/partial-interrupt matrices; native receipt validation and exact once-only history semantics. **GTA gate:** spatialized audibility, true device lifecycle and mouth sync must be observed in a standalone, Essential-disabled profile.
+
+### P4-S4. Local GPU residency, priority and measurable latency
+
+- One owner of local Qwen GPU work; retain PR #39's single-resident model-family switch (clone/custom/design), serialized load/inference and warmup behavior. Avoid surprise model-family reload on every NPC turn; use a voice-family assignment policy or prioritized, bounded queue. Do not assume a single warm result predicts gameplay latency.
+- Define priority `player-directed speech > urgent native-verified interruption > spontaneous/director proposal > optional warmup` (review with existing Director arbitration); never preempt native/player mic ownership based only on provider queue state. No uncontrolled concurrent inference against GTA GPU load.
+- Add non-content telemetry at source-time microphone release, STT final, first validated model segment, first TTS request, first useful PCM, native queue acceptance, device start, and device completion. Record cold vs warm model family, Qwen GPU VRAM, queue wait, first/inter-chunk gaps, synthesis real-time factor, GTA frametime and cancellation; correlate with **an opaque turn ID**, avoid transcripts, private keys and clone paths in log output.
+- Keep A/B comparisons fair: same speech fixtures for TTS-only paired runs; independent model responses for conversational runs must be labeled as such. Compare OpenAI and Qwen with and without early segmentation; count interruptions/failures. Set latency budgets **from measurements**, not invented targets.
+- **Offline exit:** mocked GPU load/serialize/warmup, switch/cancel/backpressure invariants, reproducible benchmark suite; warm/cold timings clearly separated. **GTA gate:** 5090/Qwen stability and frame pacing during busy scenes and multiple NPCs.
+
+### P6-M1. **Independent** native microphone, recording and STT provider contract
+
+- Do not transplant PR #37's pinned Essential `InputController` Harmony hooks. Replace them with an independent `IInputSource` / owner-fiber PTT + microphone control adapter, with `mic.start → PCM captured → mic.release | mic.cancel` native lifecycle. An exact `utteranceId` and capture/owner epoch are minted at **source start**; audio capture destination is not inferred from the nearest current NPC.
+- Define a `CaptureEnvelope`: native host/epoch, player identity, immutable `utteranceId`, source kind (`player_mic` vs `typed`), start/end native monotonic times, capture lease/generation, source location/vehicle and bounded audio-duration/size fields. Use **native end-age** when rebasing to Node time, never equate .NET monotonic clock directly with Node clock.
+- For PCM payload, use a separate bounded binary frame/data plane (or rigorously bounded dedicated binary transport) from the tiny versioned JSON owner/control plane. Enforce identity, framing, 16-kHz STT capture format or explicit resample, privacy, and max 30-second capture. A typed message has **no acoustic interval**, even when the text is later read aloud.
+- Introduce `TranscriptionProvider.transcribe({audio, sampleRate, language?, vocabularyHints?, signal, deadline})`. Start with the existing OpenAI STT provider adapted independently; keep pluggable local providers (e.g. Whistle/Whisper) behind the same capability-checked contract. Hints are advisory, never a source of word-level certainty or game-world knowledge. If provider supports interim transcript, mark it `provisional`; **only one exact final transcript** may be authorized for a released utterance.
+- Source release can race the STT response: hold an early final transcript privately until a matching native release. Cancel/target swap/world reset revoke it. A failed or empty capture never generates speech evidence. No duplicate STT per NPC listener.
+- **Offline exit:** missing capture/start, early STT, cancelled capture, target changes, native host reboot, same-handle ABA, malformed PCM, huge audio, duplicate/mismatched finals, source-local time rebasing and provider swaps all fail closed. **GTA gate:** actual microphone device, key/chord PTT behavior, input priority and recording/playback feedback-loop suppression.
+
+### P6-M2. One STT result → per-observer justified proximity hearing
+
+- Reuse the **conceptual** v2 C-01 acoustic receipt from PR #37: source-time sampling, max 16 observers, small bounded LOS budget, interior/vehicle acoustic restrictions, interval coverage and expiry, explicit `captureReceiptRef`/utterance join. Make the independent native adapter the trusted sampler; never import Essential's source callbacks.
+- A released, valid microphone utterance receives exactly one final transcript; publish separately to each observer with verified hearing interval. **Full coverage** may authorize quoted words; **partial coverage** yields only `speech_present`; no coverage yields nothing. An observer's name, prior conversation or proximity at **transcription completion** does not grant hearing.
+- Preserve C-01 PS2/PS3/PS4 observation/event schemas where compatible; audit version and producer/source namespace before migrating. No raw transcripts in public observation claims; separately scoped short-lived word rights. No long-term memory / PS7 NPC-to-NPC fanout without its own evidence/consent/rights contract.
+- A separate future capability, *NPC dialogue heard by other NPCs*, must derive from **actual output playback intervals and acoustic model**; `audio.end` or Qwen text synthesis does not prove a sound reached a listener.
+- **Offline exit:** full/partial/none coverage matrices, LOS/vehicle changes mid-utterance, player swaps, late releases, cancelled capture, STT once-only count and negative privacy/over-sharing tests. **GTA gate:** measured distances/LOS/vehicle constraints and transcript association verified in the same scene.
+
+## Integration / rollout order (small reviewable PRs)
+
+| Order | Target | Deliverable | Merge/deploy gate |
+| --- | --- | --- | --- |
+| **A** | Phase 4 PR #44 follow-up | Provider-neutral speech interface, independent Faster Qwen3-TTS sidecar adapter, per-NPC voice reference contract | Adapter unit tests, same PCM fixtures, no keys to localhost, no Essential imports; no GTA activation |
+| **B** | Phase 4 follow-up | Structured early Luna segments, native segment-specific admission, cancellation and ordered TTS/audio | Incremental-stream and actor ABA tests; no simulated audio claimed as heard |
+| **C** | Phase 4 follow-up | Output-credit watchdog, verified device-playback lifecycle and lip-sync interfaces, model-family scheduling | Real Windows test output fixtures + SDK build; device/spatial behavior remains GTA gate |
+| **D** | Phase 5 GTA vertical slice | One explicitly chosen NPC with source-time typed input, provider-switched speech, physical output and interruption | Exact deployed DLL/Node hashes, Essential disabled, real spatial/device completion proof |
+| **E** | Phase 6 follow-up | Native mic ownership + binary PCM input + provider-neutral one-final STT, UX4 PTT/selector | One captured utterance → one authorized transcript; no legacy Harmony |
+| **F** | Phase 6 follow-up | C-01 independent acoustic source sampling and per-observer PS2/PS3/PS4 speech evidence | GTA hearing/vehicles/LOS source-time receipt acceptance and no private-word leaks |
+| **G** | Phases 7–9 | Voice studio/profile authoring, GPU performance policy, multiple NPCs, spontaneous speech, durable migration | Full parity matrix, soak and explicit cutover approval |
+
+**Versioning rule:** Add new native protocol / store schema versions and compatibility tests before changing `TryStageReply`, audio EOS semantics, stored `voiceAssignment`, or STT receipts. Do not silently broaden Phase 3 one-shot admission or downgrade security for first-PCM gains. Existing draft PR #39/#37 work is **reference material**, not validated standalone production code.
+
+## Final acceptance and current NO-GO
+
+- CI can demonstrate format, one-to-one source identity, exact native leases, stream order, callback fences, provider switching and fake device accounting; **it cannot certify physical audibility, player mic timing, lip-sync, acoustic coverage or GTA frame pacing**.
+- Current standalone `RageActorResolver` still has `allowExperimentalAdoption=false`; Phase 2 physical entity-lifetime/DECOR ABA and mixed-Essential exclusion remain mandatory before any NPC effects.
+- Do not replace `LosSantosAlive.dll`, alter the installed GTA profile, migrate characters or enable live TTS/STT billing as part of this plan-only change.
