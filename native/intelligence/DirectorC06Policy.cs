@@ -40,6 +40,27 @@ namespace LSA.Intelligence
             public bool ObservationReceiptCurrent,ResponseGrantCurrent;
         }
 
+        // The pinned Essential Core aliases current-speaker to its selected
+        // conversation target. Keeping the same target selected after a turn
+        // must not indefinitely veto Director, but selection cannot grant
+        // authority either. Permit it ONLY with a stable exact speaker and
+        // independently authenticated current quiet/backend and native idle
+        // proofs. A new player turn or unreadable signal stays a hard veto.
+        internal static bool RetainedTargetIdle(Snapshot s,bool exactSpeaker,bool stableSelection)
+        {
+            return s!=null && exactSpeaker && stableSelection &&
+                s.ConversationStateKnown &&
+                s.PlayerTurnSourceCurrent && s.PlayerTurnIdle &&
+                s.EssentialTurnKnown && s.EssentialTurnIdle &&
+                s.MicStateKnown && s.MicIdle &&
+                s.TextInputKnown && s.TextInputIdle &&
+                s.ControlsInputKnown && s.ControlsInputIdle &&
+                s.PlaybackKnown && s.PlaybackIdle &&
+                s.OwnerProofCurrent && s.OwnerIdle &&
+                s.ActorReflexKnown && s.ActorReflexIdle &&
+                s.ScriptStateKnown && s.ScriptSafe;
+        }
+
         // Read-only diagnosis of the FIRST already-enforced C-06 veto.
         // Closed strings only: no actor/ticket identifiers or PS2 claim text.
         internal static string FirstVeto(DirectorAdmission.Request r,Snapshot s,string stage)
