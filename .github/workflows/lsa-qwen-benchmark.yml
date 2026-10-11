@@ -14,6 +14,8 @@ on:
       - 'lsa-essential-e1-candidate/tools/qwen/lsa_qwen_server.py'
       - 'lsa-essential-e1-candidate/tests/qwen-benchmark.test.mjs'
       - 'lsa-essential-e1-candidate/tests/elevenlabs-provider.test.mjs'
+      - 'lsa-essential-e1-candidate/tests/elevenlabs-smoke-benchmark.test.mjs'
+      - 'lsa-essential-e1-candidate/tools/elevenlabs/voice_smoke.mjs'
       - 'lsa-essential-e1-candidate/src/providers/**'
       - '.github/workflows/lsa-qwen-benchmark.yml'
   workflow_dispatch:
@@ -45,6 +47,11 @@ jobs:
       - name: ElevenLabs provider offline tests (no API calls)
         working-directory: lsa-essential-e1-candidate
         run: node --test tests/elevenlabs-provider.test.mjs
+      - name: ElevenLabs repeated smoke benchmark offline tests (no billing)
+        working-directory: lsa-essential-e1-candidate
+        run: |
+          node --check tools/elevenlabs/voice_smoke.mjs
+          node --test tests/elevenlabs-smoke-benchmark.test.mjs
       - name: Execute offline Qwen profiling regression
         working-directory: lsa-essential-e1-candidate
         run: node --test tests/qwen-latency-profile.test.mjs
