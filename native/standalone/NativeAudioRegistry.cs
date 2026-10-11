@@ -376,6 +376,26 @@ namespace LSA.Standalone
                 turnId, actorId, out snapshot, out completed, out marked, out final);
         }
 
+        // One-shot, exact native device-completion acknowledgment. This only
+        // releases native output resources; it does NOT commit conversation
+        // history or assert that any in-world observer heard the words.
+        public bool TryAcknowledgePlayback(string streamId, string audioLeaseId,
+            string generation, string turnId, string actorId)
+        {
+            AudioPlaybackSnapshot value;
+            int completed, marked; bool final;
+            if (!TryPhysicalProgress(streamId, audioLeaseId, generation,
+                turnId, actorId, out value, out completed, out marked, out final) ||
+                value.State != "playback_completed" || !final ||
+                marked < 1 || completed != marked) return false;
+            NativeAudioTicket stream;
+            string reason;
+            if (!TryCurrent(streamId, audioLeaseId, generation, turnId, actorId,
+                out stream, out reason)) return false;
+            Retire(stream);
+            return true;
+        }
+
         private void Retire(NativeAudioTicket stream)
         {
             if (stream.Retired) return;
