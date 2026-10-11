@@ -1,6 +1,6 @@
 # PS5 promoted-NPC memory: implementation roadmap
 
-**Status: approved design proposal, not implemented.** [Accepted decisions](approved-decisions.md) are normative for this initiative; [research report](architecture-study-20261011.md) provides audit, schemas, examples and risks. Never treat source design, merged code, locally installed code and GTA acceptance as interchangeable.
+**Status: approved architecture; M0 source contracts and M1 offline implementation exist in stacked PRs #51/#52. M2 may begin after exact-head M1 CI acceptance. Real GTA and standalone integration remain pending.** [Accepted decisions](approved-decisions.md) are normative for this initiative; [research report](architecture-study-20261011.md) provides audit, schemas, examples and risks. Never treat source design, merged code, locally installed code and GTA acceptance as interchangeable.
 
 **Scope:** promoted NPCs only. Build one host-agnostic memory package owned by P2, fed by source-qualified PS2 evidence and accepted conversation commits; PS4 remains the single writer of Luna's knowledge frame. No new local curator / embeddings process; **Luna is the off-path cloud curator**, with deterministic offline fallback. The design must survive eventual standalone RAGE hosting without taking native authority from the current owner prematurely.
 
