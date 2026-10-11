@@ -25,6 +25,7 @@ namespace LSA.Standalone.RageHost
             // ExitPoint may run on a different fiber: never touch the game here.
             stopping = true;
             try { server?.StopAdmission(); } catch {}
+            StandaloneTypedCommands.Clear();
         }
 
         public static void Main()
@@ -82,6 +83,7 @@ namespace LSA.Standalone.RageHost
                         previousGameTick = currentGameTick;
                         authority.Reconcile();
                         server.DrainOwnerRequests(authority, turns, 8);
+                        StandaloneTypedCommands.Pump(scope, resolver, authority, turns, server);
                     }
                     finally { scope.Exit(); }
                     // No owner scope survives this yield.
@@ -96,6 +98,7 @@ namespace LSA.Standalone.RageHost
             finally
             {
                 stopping = true;
+                StandaloneTypedCommands.Clear();
                 try { server?.StopAdmission(); } catch {}
                 if (scope != null && authority != null)
                 {
