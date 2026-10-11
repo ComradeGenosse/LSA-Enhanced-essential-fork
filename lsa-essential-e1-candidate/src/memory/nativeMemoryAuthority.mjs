@@ -56,7 +56,7 @@ export function createNativeMemoryAuthority({
   const accept=receipt=>{
     // The native pipe owns the envelope. A JS-origin nativeVerified flag is
     // ignored. A stream switch invalidates ALL prior owner/turn/subject proof.
-    if(!receipt||receipt.trustedTransport!==true||!receipt.frame)return clear();
+    if(!receipt?.frame)return clear();
     const f=receipt.frame,p=f.payload;
     if(f.version!==1||f.type!=='memory_authority'||!isUUID(f.streamId)||
        !isUUID(f.adapterEpoch)||!whole(f.sequence)||f.sequence<1||
