@@ -100,7 +100,7 @@ const tryAll=async actions=>Promise.allSettled(actions.map(action=>Promise.resol
  * full reservation and retry source-safe jobs later.
  */
 export async function processIdleCuration({enabled=false,mode,queue,provider,ledger,ownerId,nowUtc=new Date().toISOString(),
-  maxBatch=4,estimatedMaxCostUsd=.02,leaseMs=90000,maxProviderMs=45000,
+  maxBatch=4,characterId=null,estimatedMaxCostUsd=.02,leaseMs=90000,maxProviderMs=45000,
   maxAttempts=8,signal,isAuthorized}={}){
  const effectiveMode=mode??(enabled?'experimental':'off');
  if(!['off','shadow','experimental'].includes(effectiveMode))throw new Error('curation_invalid_mode');
@@ -109,7 +109,7 @@ export async function processIdleCuration({enabled=false,mode,queue,provider,led
  if(signal?.aborted)return {status:'cancelled',processed:0};
  requireDurableQueueAdapter(queue);checkBudget(ledger);
  if(typeof provider?.curateBatch!=='function'||!isUuid(ownerId)||
-   !Number.isInteger(maxBatch)||maxBatch<1||maxBatch>4||
+   !Number.isInteger(maxBatch)||maxBatch<1||maxBatch>4||(characterId!==null&&!isUuid(characterId))||
    !Number.isFinite(estimatedMaxCostUsd)||estimatedMaxCostUsd<=0||
    !Number.isInteger(leaseMs)||leaseMs<5000||leaseMs>300000||
    !Number.isInteger(maxProviderMs)||maxProviderMs<1000||maxProviderMs>=leaseMs-1000||
@@ -118,7 +118,7 @@ export async function processIdleCuration({enabled=false,mode,queue,provider,led
    (isAuthorized!==undefined&&typeof isAuthorized!=='function'))
    throw new Error('curation_invalid_runtime');
  const leaseUntilUtc=new Date(Date.parse(nowUtc)+leaseMs).toISOString();
- const claimed=await queue.claimDue({limit:maxBatch,nowUtc,leaseUntilUtc,ownerId});
+ const claimed=await queue.claimDue({limit:maxBatch,nowUtc,leaseUntilUtc,ownerId,characterId});
  if(!Array.isArray(claimed)||claimed.length>maxBatch)throw new Error('curation_bad_claim');
  if(!claimed.length)return {status:'empty',processed:0};
  let batchKey=null,reserved=false,transportStarted=false;
