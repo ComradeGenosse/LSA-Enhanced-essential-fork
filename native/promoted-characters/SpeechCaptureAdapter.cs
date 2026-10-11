@@ -140,7 +140,7 @@ namespace LSA.PromotedCharacters
             lock(gate) {
                 if(disabled)return;
                 if(current!=null) {
-                    if(ReferenceEquals(current.Ped,ped) && current.Address==address)return;
+                    if(SamePed(current.Ped,ped,current.Address) && current.Address==address)return;
                     Emit("ended","replaced",current,tick,now);
                 }
                 current=new Live{Id=Guid.NewGuid().ToString("D"),Ped=ped,Address=address,Started=now,WorldEpoch=host.WorldEpoch};
@@ -152,9 +152,9 @@ namespace LSA.PromotedCharacters
             if(disabled || before==null)return;
             var readable=mic.TryRead(out var after);
             bool stillOwned=false;
-            try {stillOwned=readable && after!=null && ReferenceEquals(after,before.Ped) && after.MemoryAddress==before.Address;} catch {readable=false;}
+            try {stillOwned=readable && after!=null && SamePed(after,before.Ped,before.Address);} catch {readable=false;}
             lock(gate) {
-                if(disabled || current==null || !ReferenceEquals(before.Ped,current.Ped) || before.Address!=current.Address)return;
+                if(disabled || current==null || !SamePed(before.Ped,current.Ped,current.Address) || before.Address!=current.Address)return;
                 // A failed SendMicStop is not a terminal event. Clock is sampled
                 // after the Core stop, not at the earlier prefix.
                 if(stillOwned)return;
@@ -175,11 +175,27 @@ namespace LSA.PromotedCharacters
                 string reason=current.WorldEpoch!=host.WorldEpoch?"world_reset":
                     now-current.Started>TimeoutMs?"timeout":
                     !valid?"unknown_mic_state":
-                    !ReferenceEquals(active,current.Ped)||address!=current.Address?"ownership_lost":null;
+                    !SamePed(active,current.Ped,current.Address)||address!=current.Address?"ownership_lost":null;
                 if(reason!=null) {
                     Emit("ended",reason,current,unchecked((uint)Game.GameTime),now);
                     current=null;
                 }
+            }
+        }
+        // A source-pinned P0 actor may be rewrapped by Essential. Never require
+        // CLR reference equality for the same live native Ped.
+        static bool SamePed(Ped a,Ped b,IntPtr address)
+        {
+            try {return a!=null && b!=null && a.Exists() && b.Exists() &&
+                a.Handle==b.Handle && a.MemoryAddress==address && b.MemoryAddress==address &&
+                address!=IntPtr.Zero;}catch{return false;}
+        }
+        internal string ActiveIdFor(Ped target)
+        {
+            if(disabled)return null;
+            lock(gate) {
+                return current!=null && current.WorldEpoch==host.WorldEpoch &&
+                    SamePed(current.Ped,target,current.Address) ? current.Id : null;
             }
         }
         internal Fact Take() {lock(gate)return pending.Count==0?null:pending.Dequeue();}
