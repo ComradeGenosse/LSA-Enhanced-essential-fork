@@ -64,7 +64,8 @@ namespace LSA.Standalone.RageHost
                     // The physical RPH resolver exists but independent adoption is
                     // explicitly gated until a real GTA cookie/reuse test.
                     resolver = new RageActorResolver(scope, false);
-                    authority = new NativeAuthority(new MonotonicClock(), new RageWorld(),
+                    var clock = new MonotonicClock();
+                    authority = new NativeAuthority(clock, new RageWorld(),
                         resolver, scope);
                     turns = new NativeTurnRegistry(authority);
                     // Explicitly opt in to an independent Windows output device;
@@ -76,7 +77,14 @@ namespace LSA.Standalone.RageHost
                         var spatial = new RageSpatialAudioSource(scope, resolver);
                         physicalAudio = new WaveOutSpatialOutput(authority, scope, spatial.Sample);
                     }
-                    audio = new NativeAudioRegistry(authority, turns, physicalAudio);
+                    // Facial animation is separately opt-in and requires a
+                    // real physical output presenter (not provider PCM arrival).
+                    ILipSyncPresenter face = null;
+                    if (physicalAudio != null && string.Equals(
+                        Environment.GetEnvironmentVariable("LSA_STANDALONE_LIPSYNC"),
+                        "facial_experimental", StringComparison.Ordinal))
+                        face = new RageLipSyncPresenter(authority, scope, resolver, clock);
+                    audio = new NativeAudioRegistry(authority, turns, physicalAudio, face);
                 }
                 finally { scope.Exit(); }
 
@@ -97,6 +105,7 @@ namespace LSA.Standalone.RageHost
                         authority.Reconcile();
                         server.DrainOwnerRequests(authority, turns, audio, 8);
                         audio.DrainOnOwner(4); // only opt-in WaveOut can accept device bytes
+                        audio.PumpLipSyncOnOwner(4); // game-fiber only, actual-playback gated
                         StandaloneTypedCommands.Pump(scope, resolver, authority, turns, server);
                     }
                     finally { scope.Exit(); }
