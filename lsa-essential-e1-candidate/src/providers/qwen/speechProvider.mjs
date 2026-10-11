@@ -53,6 +53,7 @@ export function createFasterQwenSpeechProvider({ config, fetchImpl = globalThis.
       const timer = setTimeout(() => controller.abort(new Error('tts_timeout')), timeoutMs);
       const started = safeClock(clock);
       let reader, fullyRead = false, tail = null, requestId = null;
+      let headersAt = null, generationFinishedAt = null;
       let receivedBytes = 0, receivedChunks = 0, forwardedBytes = 0, forwardedChunks = 0;
       let firstPcmAt = null, lastPcmAt = null, slowGaps = 0, maxGap = 0, maxForwardWait = 0;
       let forwardMs = 0, slowForwards = 0, firstForwardAt = null;
@@ -172,6 +173,7 @@ export function createFasterQwenSpeechProvider({ config, fetchImpl = globalThis.
           }),
         });
         controller.signal.throwIfAborted();
+        headersAt = now();
         requestId = response.headers?.get?.('x-lsa-request-id') || null;
         if (requestId && !/^rid_[a-f0-9]{16}$/.test(requestId)) requestId = null;
         if (!response.ok) throw Object.assign(new Error('Qwen TTS request failed.'), {
@@ -226,6 +228,7 @@ export function createFasterQwenSpeechProvider({ config, fetchImpl = globalThis.
         if (tail !== null || !receivedBytes)
           throw Object.assign(new Error('Qwen returned malformed or empty PCM.'), { code:'invalid_pcm_format' });
         const generatedAt = now();
+        generationFinishedAt = generatedAt;
         generationDone = true;
         wake();
 
@@ -267,6 +270,12 @@ export function createFasterQwenSpeechProvider({ config, fetchImpl = globalThis.
           receivedChunks, chunks:forwardedChunks, pcmBytes:receivedBytes,
           audioDurationMs: receivedBytes/PCM_BYTES_PER_MS, generationDurationMs:generatedAt-started,
           forwardDurationMs:forwardMs, maxChunkGapMs:maxGap, p95ChunkGapMs:p95,
+          headersLatencyMs: headersAt === null ? null : headersAt-started,
+          firstReadLatencyMs: firstPcmAt === null ? null : firstPcmAt-started,
+          firstForwardLatencyMs: firstForwardAt === null ? null : firstForwardAt-started,
+          bufferedBeforeForwardMs: firstPcmAt === null || firstForwardAt === null ? null : firstForwardAt-firstPcmAt,
+          readCompletionLatencyMs: generatedAt-started,
+          deliveryCompletionLatencyMs: now()-started,
           slowChunkCount:slowGaps, forwardWaitMaxMs:maxForwardWait,
           streamRate:rate, underRealtime:rate > 0 && rate < 1,
           playbackBufferMode:bufferMode, outcome:'finished',
@@ -287,6 +296,10 @@ export function createFasterQwenSpeechProvider({ config, fetchImpl = globalThis.
         record('qwen_tts_timing_summary', {
           receivedChunks, chunks:forwardedChunks, pcmBytes:receivedBytes,
           generationDurationMs:now()-started, forwardDurationMs:forwardMs,
+          headersLatencyMs: headersAt === null ? null : headersAt-started,
+          firstReadLatencyMs: firstPcmAt === null ? null : firstPcmAt-started,
+          firstForwardLatencyMs: firstForwardAt === null ? null : firstForwardAt-started,
+          readCompletionLatencyMs: generationFinishedAt === null ? null : generationFinishedAt-started,
           maxChunkGapMs:maxGap, slowChunkCount:slowGaps, forwardWaitMaxMs:maxForwardWait,
           underrunRiskCount:underrunEstimate ? 1 : 0, code, outcome:'failed',
         });
