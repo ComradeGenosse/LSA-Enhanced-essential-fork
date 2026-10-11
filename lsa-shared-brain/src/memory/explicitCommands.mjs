@@ -18,6 +18,11 @@ const clone = value => JSON.parse(JSON.stringify(value));
 export function detectExplicitMemoryCommand(raw, lunaInterpretation = null) {
   if (typeof raw !== 'string' || !raw.trim() || raw.length > 12000) return null;
   const text = raw.replace(commandPrefix, '').trim();
+  // Questions and conversational recollections are NOT instructions to save.
+  // Do not let a paid/model interpretation turn them into a write.
+  if (/\?$/.test(text) && !/^(?:show|list|inspect|export|back up|backup|what do you remember|tell me what you remember|do you remember|can you remember)\b/i.test(text)) return null;
+  if (/^remember\s+(?:when|how|why|whether|if|to|me\b|us\b)\b/i.test(text)) return null;
+  if (/^(?:remember|keep in mind)\s+(?:the time|back when)\b/i.test(text)) return null;
   if (/^(?:do you remember|can you remember|what do you remember|tell me what you remember)\b/i.test(text))
     return { intent:'inspect', content:null, selector:'all', pin:false };
   if (/^(?:show|list|inspect)\s+(?:(?:me|your|my)\s+)?(?:memories|memory|what you remember)\b/i.test(text))
@@ -52,16 +57,8 @@ export function detectExplicitMemoryCommand(raw, lunaInterpretation = null) {
     correctionMode=/^(?:no[,\s]+i (?:actually )?said|i meant)/i.test(text) ? 'transcript' : 'counter_claim';
   } else return null;
 
-  // Luna may supply a *proposed exact span*, never a new fact or authority.
-  if (lunaInterpretation && intent === 'remember' &&
-      lunaInterpretation.intent === 'remember' &&
-      lunaInterpretation.targetType === 'statement' &&
-      typeof lunaInterpretation.content === 'string' &&
-      raw.includes(lunaInterpretation.content) && lunaInterpretation.content.trim() &&
-      selector === 'referent') {
-    selector='claim';
-    content=lunaInterpretation.content;
-  }
+  // Raw, durably accepted player bytes are the ONLY command authority.
+  // lunaInterpretation is deliberately ignored (legacy signature retained).
   return { intent, selector, content, topic, pin, correctionMode };
 }
 
@@ -141,7 +138,7 @@ function validateInput({line, commandId, scope, store}) {
 export async function handleExplicitMemoryCommand(input) {
   validateInput(input);
   const { line,scope,store,commandId }=input;
-  const parsed=input.parsedOverride??detectExplicitMemoryCommand(line.content,input.lunaInterpretation);
+  const parsed=input.parsedOverride??detectExplicitMemoryCommand(line.content);
   if (!parsed || (input.parsedOverride &&
       !detectExplicitMemoryCommands(line.content)?.some(p=>JSON.stringify(p.parsed)===JSON.stringify(parsed)))) return null;
   if(typeof store.verifyAcceptedLine==='function' &&
@@ -158,14 +155,13 @@ export async function handleExplicitMemoryCommand(input) {
   }
   const base=actionBase(scope,line,commandId,parsed.intent);
   const clarify=async(prompt,alternatives=[],frozen=[])=>{
-    // Never announce alternatives as pending before their exact record IDs are
-    // durably saved. The old fixture adapter remains an intentionally ephemeral
-    // backward-compatible fallback; production must supply saveClarification.
-    if (typeof store.saveClarification==='function') {
-      await store.saveClarification({scope:clone(scope),commandId,requestedByLineId:line.recordId,
-        line:clone(line),parsed:clone(parsed),alternatives:clone(alternatives),
-        frozen:clone(frozen),createdAtUtc:line.committedAtUtc});
-    }
+    // No ephemeral prompts: a reconnect must be able to recover the same
+    // frozen evidence set or fail closed.
+    if (typeof store.saveClarification!=='function')
+      return result(base,'failed');
+    await store.saveClarification({scope:clone(scope),commandId,requestedByLineId:line.recordId,
+      line:clone(line),parsed:clone(parsed),alternatives:clone(alternatives),
+      frozen:clone(frozen),createdAtUtc:line.committedAtUtc});
     if (typeof input.onClarification==='function') input.onClarification({
       commandId,requestedByLineId:line.recordId,scope:clone(scope),prompt,
       alternatives:clone(alternatives)
@@ -196,8 +192,9 @@ export async function handleExplicitMemoryCommand(input) {
       const resolved=resolve(candidates,scope,line,{...parsed,selector:parsedSelector},
         Number.isFinite(Date.parse(line.committedAtUtc))?Date.parse(line.committedAtUtc):Date.now());
       selected=resolved.candidate;alternatives=resolved.alternatives;frozen=resolved.frozen??[];
+      // Never put private evidence or untrusted source text into spoken prompts.
       if (!selected) return await clarify(alternatives.length===2 ?
-        'Which one: '+alternatives[0].label+' or '+alternatives[1].label+'?' :
+        'Do you mean the first or second memory?' :
         'Which specific memory or moment do you mean?',alternatives,frozen);
       if (parsed.intent==='correct' && !content) return await clarify('What is the corrected wording?',alternatives,frozen);
       if (!content) content=selected.content;
