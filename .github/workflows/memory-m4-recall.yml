@@ -1,0 +1,26 @@
+name: M4 recall fixtures
+on:
+  push:
+    branches:
+      - feature/memory-agent-c-m4-recall
+  pull_request:
+    paths:
+      - 'lsa-shared-brain/src/memory/**'
+      - 'lsa-shared-brain/tests/memory-m4-recall.test.mjs'
+      - '.github/workflows/memory-m4-recall.yml'
+jobs:
+  recall:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Node and SQLite FTS5 diagnostics
+        run: node -e "const {DatabaseSync}=require('node:sqlite');const d=new DatabaseSync(':memory:');d.exec('CREATE VIRTUAL TABLE f USING fts5(text)');console.log(process.version,d.prepare('SELECT sqlite_version() AS v').get().v)"
+      - name: Agent C M4 tests
+        run: node --test lsa-shared-brain/tests/memory-m4-recall.test.mjs
