@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net481</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="Program.cs" />
+    <Compile Include="../m9/M9NativeDamageAdapter.cs" Link="M9NativeDamageAdapter.cs" />
+    <Compile Include="../EntityAnchors.cs" Link="EntityAnchors.cs" />
+    <Compile Include="../SensorAdapters.cs" Link="SensorAdapters.cs" />
+    <Compile Include="../WitnessPolicy.cs" Link="WitnessPolicy.cs" />
+  </ItemGroup>
+</Project>
