@@ -1,7 +1,7 @@
 # Closure Agent J — M9 GTA candidates, PS2 and PS6 callback fences
 
 **Immutable source**: PR #75 `8443a8adec9433626902b46b81bd3e58fc382fb2`.
-**Agent J final source-code commit** (before this handoff update): `e06e1e08798d6cc0c7dd5cd6ed5ecf30672363cf`. Subsequent documentation-only commit changes the branch head but not that tested source tree.
+**Agent J final source-code commit** (before this handoff update): `e145e4ae40465cd5c4df75f49bb21a5e82621400`. Subsequent documentation-only commit changes the branch head but not that tested source tree.
 **Feature branch**: `feature/memory-close-j-m9-events-director-20261011`.
 **PR base**: `integration/memory-completion-h-review-20261011`.
 **Status**: **offline review only**. No GTA installation, actual native GTA event-source acceptance, full PS2 -> M3 durable acceptance, cloud calls, PS4 acceptance, or merge.
@@ -12,7 +12,7 @@
 - `lsa-shared-brain/src/events/m9MemoryCues.mjs`: per-promoted-NPC and event-family cooldowns are **600,000ms** (at least ten minutes), independent current `authorizeWitness` is mandatory. Cue retains player capture identity; candidate/witness proof and in-memory dedupe remain bounded. No text, PS3 grant, stock action or memory write.
 - `lsa-shared-brain/src/events/m9Ps2CandidateBridge.mjs`: explicit typed `m9.ps2_qualification_request`, **not** the current closed PS2 `signal` frame; never manufactures an `Observation`, `WitnessReceipt` or SQLite event. Returned state is only `pending_ps2_witness_qualification` and never an M3 commit. The port must be independently source-verified, reject unsupported PS2 v1, preserve unknown coverage and bounded IDs.
 - `lsa-essential-e1-candidate/src/perception/m9DirectorCueAdmission.mjs`: requires a genuine **existing** PS3 Director candidate and `originalGrantCurrent`, the same actor/player capture, verified M3 witness, current certified mic/typed/combat/stock/player idle, and a registered PS4 C-04 contribution. Calls **only** `existingSceneDirector.attempt` for C-06/C-11/native one-shot/stock playback authorization, with cleanup in `finally`. Never invents a PS3 entitlement or a second speech executor. `director_delivered` only means the supplied original Director driver reported `delivered`; final PS4 evidence playback receipt remains K-owned.
-- `native/intelligence/m9/M9NativeFrameAdapter.cs`: pure pinned-compatible, owner-fiber bridge for source-proven player+vehicle `EntityAnchors`, DamageTracker collision receipts, optional vehicle motion, wanted-level and exact terminal callbacks. Requires five authoritative verifier/current-context ports, checks age<=3s and epoch/anchor lifetime. Absent or unproved APIs export `null`. It does not claim to call an undocumented GTA native.
+- `native/intelligence/m9/M9NativeFrameAdapter.cs`: pure pinned-compatible, owner-fiber bridge for source-proven player+vehicle `EntityAnchors`, DamageTracker collision receipts, optional vehicle motion, wanted-level and exact terminal callbacks. Requires five authoritative verifier/current-context ports, checks age<=3s, callback-to-snapshot tick/1.5s time attachment, and epoch/anchor lifetime. Absent or unproved APIs export `null`. It does not claim to call an undocumented GTA native.
 - `native/intelligence/m9-tests/Program.cs` and `M9NativeTests.csproj`: isolated non-GTA .NET Framework test harness includes new adapter.
 - `lsa-essential-e1-candidate/tests/memory-m9-completion.test.mjs`: amended existing tests and added PS2/PS6 adversarial regressions.
 
