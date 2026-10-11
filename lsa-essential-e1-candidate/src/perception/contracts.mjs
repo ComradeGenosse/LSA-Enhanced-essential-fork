@@ -1,5 +1,6 @@
 import {readPrimaryBehaviorOwner} from '../context/primaryBehaviorOwner.mjs';
 import { isUuid } from '../identity/identityContract.mjs';
+import { readProtagonistFrame, PROTAGONIST_EVENT } from './protagonistProtocol.mjs';
 import { validateHostEnvelope, validateWorldEpoch } from '../context/hostContext.mjs';
 
 export const BOUNDS = Object.freeze({ observers:16, anchors:256, rawSignals:256, criticalReserve:64, nativeFrames:64, companionFrames:256, frameBytes:8192, observationsPerObserver:128, observations:2048, observationBytes:2*1024*1024, signalTtlMs:30000, anchorLeaseMs:3000 });
@@ -59,6 +60,7 @@ export function validateFrame(v) {
   if (v.type==='observer_situation') return Array.isArray(v.payload) && v.payload.length<=32 && v.payload.every(row=>keys(row,['captureRef','sampledGameTick','activity','situationRevision'],['primaryOwner','ownerProofRevision','ps3Challenge']) && (row.ps3Challenge===undefined || row.ps3Challenge===null || isUuid(row.ps3Challenge) && row.ownerProofRevision>0) && (row.primaryOwner===undefined || row.primaryOwner===null || readPrimaryBehaviorOwner(row.primaryOwner)!==null) && (row.ownerProofRevision===undefined || row.ownerProofRevision===null || integer(row.ownerProofRevision,2147483647) && row.ownerProofRevision>0 && readPrimaryBehaviorOwner(row.primaryOwner)!==null) && isUuid(row.captureRef) && integer(row.sampledGameTick,0xffffffff) && integer(row.situationRevision) && row.situationRevision>0 && ['idle','driving','passenger','in_vehicle','conversation','following','waiting','unknown'].includes(row.activity)) && new Set(v.payload.map(row=>row.captureRef)).size===v.payload.length;
   if (v.type==='observer_index') return Array.isArray(v.payload) && v.payload.length<=32 && v.payload.every(validateObserverIndex) && new Set(v.payload.map(row=>row.captureRef)).size===v.payload.length;
   if (v.type==='world_epoch') return validateWorldEpoch(v.payload);
+  if (v.type===PROTAGONIST_EVENT) return readProtagonistFrame(v)!==null;
   if(v.type==='director_priority') return keys(v.payload,['playerTurnVersion','experimentalEnabled']) &&
     integer(v.payload.playerTurnVersion,2147483647) &&
     typeof v.payload.experimentalEnabled==='boolean';
