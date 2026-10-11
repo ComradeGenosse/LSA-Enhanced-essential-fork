@@ -4,7 +4,7 @@
 import { immutableSnapshot } from '../util/identity.mjs';
 import { normalizeWitnessedObservation, samePhysicalOwner, validatePs2MemoryInput } from './journalEventNormalizer.mjs';
 
-const MAX_GRACE=128, GRACE_MS=120000;
+const MAX_GRACE=128, GRACE_MS=120000, MAX_SEEN=1024;
 const isPromise=x=>x && typeof x.then==='function';
 function sync(value) {
   if(isPromise(value)) throw new Error('async_commit_refused');
@@ -33,6 +33,7 @@ export class WitnessedEventRecorder {
     this.#grace=this.#grace.filter(e=>now>=e.capturedAt && now-e.capturedAt<=GRACE_MS);
     if(this.#grace.length>MAX_GRACE)this.#grace.splice(0,this.#grace.length-MAX_GRACE);
     for(const [key,value] of this.#seen) if(now-value>GRACE_MS)this.#seen.delete(key);
+    while(this.#seen.size>MAX_SEEN)this.#seen.delete(this.#seen.keys().next().value);
   }
   // Authenticated PS2 intake only: allow source-qualified observations made
   // before promotion, but do not persist them or call the character promoted.
@@ -47,6 +48,7 @@ export class WitnessedEventRecorder {
       stamp.ownerProof.incarnationId,observation.observationId,observation.revision].join(':');
     if(this.#seen.has(key))return {accepted:false,reason:'duplicate_buffer'};
     this.#seen.set(key,this.#now());
+    while(this.#seen.size>MAX_SEEN)this.#seen.delete(this.#seen.keys().next().value);
     this.#grace.push(immutableSnapshot({observation,prePromotionProof:stamp.ownerProof,
       adapterEpoch:stamp.adapterEpoch,capturedAt:this.#now()}));
     this.#trim();
