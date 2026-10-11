@@ -4,6 +4,13 @@ namespace LSA.Standalone
 {
     // None of these interfaces references RAGE, Essential, a game-thread type, or a network library.
     // Phase 2 supplies a real host adapter; Phase 1 tests run the same production state machine.
+    // The production host will check RAGE game-fiber ownership here; OS thread
+    // affinity alone is not sufficient when multiple fibers share a thread.
+    public interface IOwnerContext
+    {
+        bool IsOwner { get; }
+    }
+
     public interface IGameClock
     {
         long MonotonicMilliseconds { get; }
