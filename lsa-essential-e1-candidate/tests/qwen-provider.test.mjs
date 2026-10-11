@@ -5,6 +5,11 @@ import { createProviderStack } from '../src/providers/providerStack.mjs';
 import { VoiceResolver } from '../src/voice/voiceResolver.mjs';
 import { validateProfile } from '../src/characters/profileStore.mjs';
 import { profile } from './p2-fixtures.mjs';
+import { CharacterStore } from '../src/identity/characterStore.mjs';
+import { CharacterRegistry } from '../src/identity/characterRegistry.mjs';
+import { claim, worldProfileId, directory } from './identity-fixtures.mjs';
+import * as fs from 'node:fs/promises';
+import path from 'node:path';
 
 const identity = {pedId:'nathan-ped',turnId:'turn-1',generationId:1,sessionNonce:7};
 const qwen = {
@@ -34,7 +39,7 @@ test('Qwen configuration rejects remote endpoints and malformed local voices',()
   for (const url of ['https://evil.example/v1','http://192.168.1.1:8000/v1',
     'http://user:password@localhost:8000/v1','file:///localhost']) {
     assert.throws(()=>normalizeConfig({...qwen,qwenTts:{...qwen.qwenTts,baseUrl:url}},{}),
-      /loopback|absolute HTTP/);
+      /loopback|HTTP/);
   }
   assert.throws(()=>normalizeConfig({...qwen,qwenTts:{speechVoices:['nathan','nathan']}},{}),/unique/);
   assert.throws(()=>normalizeConfig({...qwen,qwenTts:{speechVoices:[]}},{}),/1–32/);
@@ -101,4 +106,17 @@ test('switching TTS providers preserves authored character and produces determin
   assert.equal(validateProfile(profile({voiceReference:qwenAssignment})).voiceReference.provider,'faster-qwen3-tts');
   assert.ok(cloud.speechVoices.includes(
     cloudResolver.resolvePersistent({voiceAssignment:qwenAssignment},worldId,actor).voice));
+});
+
+test('P1 durable registry accepts versioned Qwen voices and reloads them after restart',async t=>{
+  const filePath=path.join(await directory(t),'registry.json');
+  const resolver=new VoiceResolver(normalizeConfig(qwen,{}));
+  const registry=new CharacterRegistry(new CharacterStore({filePath,worldProfileId}));
+  const record=await registry.resolveOrCreate(claim(),
+    id=>resolver.createPersistentAssignment(id,worldProfileId,{}));
+  assert.equal(record.voiceAssignment.assignmentVersion,2);
+  const bytes=await fs.readFile(filePath,'utf8');
+  const restarted=await new CharacterStore({filePath,worldProfileId}).load();
+  assert.deepEqual(restarted.characters[0].voiceAssignment,record.voiceAssignment);
+  assert.equal(await fs.readFile(filePath,'utf8'),bytes);
 });

@@ -191,6 +191,8 @@ export function resolvePersistentVoiceProfile({ assignment, actor = {}, config }
     isVoiceSupportedByModel(config.ttsModel, assignment.voice);
   // Preserve the authored reference on disk while switching providers. The new
   // active voice is deterministic from the persisted profile ID, not a ped ID.
+  if (assignment.provider === provider && !sameProvider)
+    throw new TypeError('persistent_voice_incompatible');
   const traits = actorVoiceTraits(actor);
   const seed = createHash('sha256').update('lsa-provider-switch\0v1\0')
     .update(assignment.profileId).update(provider).digest();
