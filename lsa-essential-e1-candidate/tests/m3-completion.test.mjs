@@ -130,6 +130,9 @@ test('coverage is unknown by default and native negatives require source certifi
   try{({DatabaseSync:DB}=await import('node:sqlite'));}catch{t.skip('node:sqlite unavailable on this Node');return;}
   const db=new DB(':memory:');
   try{
+    db.exec('CREATE TABLE promoted_profiles(character_id TEXT PRIMARY KEY); CREATE TABLE timelines(timeline_id TEXT PRIMARY KEY);');
+    db.prepare('INSERT INTO promoted_profiles(character_id) VALUES (?)').run(A);
+    db.prepare('INSERT INTO timelines(timeline_id) VALUES (?)').run(LINE);
     ensureM3CoverageSchema(db);
     const scope={characterId:A,worldProfileId:WORLD,timelineId:LINE,observationId:OBS};
     assert.equal(readM3Coverage(db,scope).status,'unavailable');
@@ -142,5 +145,7 @@ test('coverage is unknown by default and native negatives require source certifi
     assert.equal(readM3Coverage(db,scope).certified,true);
     assert.equal(appendM3Coverage(db,{...row,nativeCoverage:receipt}).duplicate,true);
     assert.throws(()=>appendM3Coverage(db,{...row,status:'unknown',nativeCoverage:null}),/conflicting/);
+    db.prepare('DELETE FROM promoted_profiles WHERE character_id=?').run(A);
+    assert.equal(readM3Coverage(db,scope).status,'unavailable');
   }finally{db.close();}
 });
