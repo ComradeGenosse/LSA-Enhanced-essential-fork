@@ -53,6 +53,8 @@ namespace LSA.PromotedCharacters
                         try {
                             intelligence=new LSA.Intelligence.IntelligenceIntegration(integration.PerceptionRoster,config.intelligence.pipeName,host,config.intelligence.directorMode=="shadow" || config.intelligence.directorMode=="experimental",config.intelligence.directorMode=="experimental",directorAttemptsPerMinute);
                             if(config.intelligence.captureMode=="shadow") intelligence.EnableCaptureShadow();
+                            else if(config.intelligence.captureMode=="experimental")
+                                intelligence.EnableCaptureExperimental();
                             integration.OwnerRetired+=intelligence.OwnerRetired;
                             IntegrationManager.Register(intelligence);intelligence.Initialize();
                         } catch {Game.LogTrivial("[PS] optional_host_unavailable");}
