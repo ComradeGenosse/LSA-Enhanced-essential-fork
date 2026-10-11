@@ -99,3 +99,11 @@ test('EA9 refuses unmarked installations and forbids active Steam/Program Files 
     assert.match(a.stderr,/isolation_marker_invalid/);
   }finally{await rm(f.temp,{recursive:true,force:true});}
 });
+
+test('EA9 paid A/B preflight defaults to DENY and performs no synthesis',async()=>{
+  const script=path.join(repo,'tools/ea9/paid-ab-preflight.mjs');
+  const result=spawnSync(process.execPath,[script],{encoding:'utf8',
+    env:{...process.env,LSA_EA9_BILLING_APPROVED:'0',ELEVENLABS_API_KEY:''}});
+  assert.notEqual(result.status,0);
+  assert.match(result.stderr,/EA9_BILLING_NOT_AUTHORIZED:explicit_flag_missing/);
+});
