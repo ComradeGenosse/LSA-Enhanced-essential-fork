@@ -27,6 +27,7 @@ internal static class Program
         var game = new FakeGame();
         var authority = new NativeAuthority(game, game, game, game);
         var turns = new NativeTurnRegistry(authority);
+        var audio = new NativeAudioRegistry(authority, turns);
         if (!authority.TryRegister(17, out var actor, out var reason))
             throw new InvalidOperationException("fixture_actor_missing:" + reason);
         if (!turns.TryIssueTyped(actor, "Can you describe the scene?", 20000, out var permit, out reason))
@@ -41,9 +42,10 @@ internal static class Program
             while (elapsed.ElapsedMilliseconds < 30000)
             {
                 authority.Reconcile();
-                server.DrainOwnerRequests(authority, turns, 8);
+                server.DrainOwnerRequests(authority, turns, audio, 8);
                 Thread.Sleep(10);
             }
+            audio.RetireAll();
             turns.RetireAll();
             authority.Stop();
         }
