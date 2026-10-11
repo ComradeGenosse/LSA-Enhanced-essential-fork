@@ -105,7 +105,7 @@ function resolve(candidates, scope, line, parsed, now) {
   const best=ranked[0], second=ranked[1];
   if (!best || best.score < 0.65 ||
       (second && best.score-second.score < 0.20)) {
-    return {candidate:null, alternatives:ranked.slice(0,2).map(c=>({recordId:c.recordId,label:c.label||c.content.slice(0,96)}))};
+    return {candidate:null, alternatives:ranked.slice(0,2).map(c=>({recordId:c.recordId,label:c.label||c.content.slice(0,96)})), frozen:ranked.slice(0,2)};
   }
   return {candidate:best,alternatives:[]};
 }
@@ -151,7 +151,15 @@ export async function handleExplicitMemoryCommand(input) {
     } catch {return {kind:'memory_read',operation:parsed.intent,status:'unavailable'};}
   }
   const base=actionBase(scope,line,commandId,parsed.intent);
-  const clarify=(prompt,alternatives=[])=>{
+  const clarify=async(prompt,alternatives=[],frozen=[])=>{
+    // Never announce alternatives as pending before their exact record IDs are
+    // durably saved. The old fixture adapter remains an intentionally ephemeral
+    // backward-compatible fallback; production must supply saveClarification.
+    if (typeof store.saveClarification==='function') {
+      await store.saveClarification({scope:clone(scope),commandId,requestedByLineId:line.recordId,
+        line:clone(line),parsed:clone(parsed),alternatives:clone(alternatives),
+        frozen:clone(frozen),createdAtUtc:line.committedAtUtc});
+    }
     if (typeof input.onClarification==='function') input.onClarification({
       commandId,requestedByLineId:line.recordId,scope:clone(scope),prompt,
       alternatives:clone(alternatives)
@@ -161,9 +169,9 @@ export async function handleExplicitMemoryCommand(input) {
   try {
     const old=await store.verifyCommand({scope,commandId});
     if (old) return verifiedAction(old,base);
-    let selected=null, alternatives=[], content=parsed.content;
+    let selected=null, alternatives=[], frozen=[], content=parsed.content;
     if (parsed.selector==='claim') {
-      if (!content || !content.trim()) return clarify('What should I remember?');
+      if (!content || !content.trim()) return await clarify('What should I remember?');
       // Never invent current radio, location, vehicle, or named subject.
       if (/\b(?:this song|right here|over here|this car|that guy)\b/i.test(content) &&
           !input.verifiedContext?.referents?.some(r=>typeof r.phrase==='string' &&
@@ -171,7 +179,7 @@ export async function handleExplicitMemoryCommand(input) {
             typeof r.value==='string' && r.value.trim() &&
             r.verified === true && r.worldProfileId===scope.worldProfileId &&
             r.timelineId===scope.timelineId))
-        return clarify('Which song, place, vehicle, or person do you mean?');
+        return await clarify('Which song, place, vehicle, or person do you mean?');
     } else {
       const parsedSelector=parsed.intent==='correct' && parsed.correctionMode==='transcript' ? 'transcript' : parsed.selector;
       const candidates=await store.findCandidates({
@@ -181,11 +189,11 @@ export async function handleExplicitMemoryCommand(input) {
       if (!Array.isArray(candidates)) return result(base,'failed');
       const resolved=resolve(candidates,scope,line,{...parsed,selector:parsedSelector},
         Number.isFinite(Date.parse(line.committedAtUtc))?Date.parse(line.committedAtUtc):Date.now());
-      selected=resolved.candidate;alternatives=resolved.alternatives;
-      if (!selected) return clarify(alternatives.length===2 ?
+      selected=resolved.candidate;alternatives=resolved.alternatives;frozen=resolved.frozen??[];
+      if (!selected) return await clarify(alternatives.length===2 ?
         'Which one: '+alternatives[0].label+' or '+alternatives[1].label+'?' :
-        'Which specific memory or moment do you mean?',alternatives);
-      if (parsed.intent==='correct' && !content) return clarify('What is the corrected wording?');
+        'Which specific memory or moment do you mean?',alternatives,frozen);
+      if (parsed.intent==='correct' && !content) return await clarify('What is the corrected wording?',alternatives,frozen);
       if (!content) content=selected.content;
     }
     const evidenceRecordIds=selected?[selected.recordId,line.recordId]:[line.recordId];
@@ -237,4 +245,86 @@ export function memoryActionAcknowledgement(action) {
   if (action.outcome==='clarify') return 'Which memory do you mean?';
   if (action.outcome==='failed') return 'I could not confirm the memory change.';
   return 'That memory change is still pending.';
+}
+
+
+/** Split *only* on an unmistakable second command introducer; never let a
+ * conjunction inside reported speech silently execute as another command.
+ * Three or more commands fail closed rather than running a partial prefix.
+ */
+export function detectExplicitMemoryCommands(raw) {
+  if (typeof raw!=='string' || raw.length>12000) return null;
+  const parts=raw.split(/\s*(?:;\s*|,\s+and\s+|\s+and\s+)(?=(?:remember|never\s+forget|don't\s+forget|forget|erase|delete|correct\s+that|i\s+meant|no,?\s+i\s+said)\b)/i);
+  if(parts.length>2 || parts.some(p=>!detectExplicitMemoryCommand(p))) return null;
+  return parts.map((part,index)=>({index,raw:part,parsed:detectExplicitMemoryCommand(part)}));
+}
+const compoundId=(id,index)=>{
+  if(index===0)return id;
+  const h=createHash('sha256').update(id+':m5:'+index).digest('hex');
+  return h.slice(0,8)+'-'+h.slice(8,12)+'-4'+h.slice(13,16)+'-a'+h.slice(17,20)+'-'+h.slice(20,32);
+};
+/** Conservative max-two command entrypoint. Each source line ID remains exact;
+ * each derived command UUID remains deterministic across reconnect/retry.
+ * Caller must not speak a blanket success if any member fails or clarifies.
+ */
+export async function handleExplicitMemoryCommands(input) {
+  const parts=detectExplicitMemoryCommands(input?.line?.content);
+  if(!parts)return null;
+  const actions=[];
+  for(const item of parts){
+    const action=await handleExplicitMemoryCommand({...input,
+      commandId:compoundId(input.commandId,item.index),
+      line:{...input.line,content:item.raw}});
+    actions.push(action);
+    if(!action || (action.kind==='memory_action' && !['saved','forgotten','corrected'].includes(action.outcome))) break;
+  }
+  return actions;
+}
+
+/** Resolve a durable clarification strictly against the originally offered
+ * evidence IDs. This API intentionally never performs a new ranked search
+ * to replace the frozen set. The accepted reply is an additional source row.
+ */
+export async function handleMemoryClarificationReply({line,scope,store,clarificationId}={}){
+  if(typeof store?.getClarification!=='function' || !uuid(clarificationId))throw new TypeError('m5_clarification_adapter_required');
+  const saved=await store.getClarification({scope,commandId:clarificationId,atUtc:line?.committedAtUtc});
+  if(!saved)return null;
+  validateInput({line,scope,store,commandId:clarificationId});
+  if(!same(saved.scope,scope) || !same(saved.line,scope) ||
+     !Array.isArray(saved.frozen) || !Array.isArray(saved.alternatives))return null;
+  const text=line.content.trim();
+  const index=/^(?:(?:the )?(?:first|one|1)(?: one)?)[.!]?$/i.test(text)?0:
+    /^(?:(?:the )?(?:second|two|2)(?: one)?)[.!]?$/i.test(text)?1:-1;
+  if(index<0 || index>=saved.alternatives.length)return result(
+    actionBase(scope,saved.line,clarificationId,saved.parsed.intent),'clarify');
+  const frozen=saved.frozen[index],offered=saved.alternatives[index];
+  if(!frozen || frozen.recordId!==offered.recordId || !uuid(frozen.recordId))return null;
+  const base=actionBase(scope,saved.line,clarificationId,saved.parsed.intent);
+  try{
+    const existing=await store.verifyCommand({scope,commandId:clarificationId});
+    if(existing)return verifiedAction(existing,base);
+    const current=await store.findCandidates({scope,operation:saved.parsed.intent,
+      selector:saved.parsed.selector,topic:null,beforeUtc:saved.line.committedAtUtc,
+      excludeRecordId:saved.line.recordId});
+    const selected=current?.find(c=>c.recordId===frozen.recordId);
+    if(!selected || !eligible(selected,scope,saved.line,saved.parsed.intent,saved.parsed.selector) ||
+       ['kind','content','occurredAtUtc','speaker','source','delivery','receiptStatus']
+        .some(k=>(selected[k]??null)!==(frozen[k]??null)))return result(base,'failed');
+    const content=saved.parsed.content || selected.content;
+    if(saved.parsed.intent==='correct' && !saved.parsed.content)return result(base,'clarify');
+    const evidenceRecordIds=[selected.recordId,saved.line.recordId,line.recordId];
+    const op={scope:clone(scope),commandId:clarificationId,requestedByLineId:saved.line.recordId,
+      operation:saved.parsed.intent,origin:'explicit_player',
+      recordType:saved.parsed.intent==='correct'?'correction':selected.kind,
+      content,contentHash:hash(content),pin:saved.parsed.pin,
+      evidenceRecordIds,targetRecordId:selected.recordId,
+      correctionMode:saved.parsed.correctionMode,subjectCertainty:null,
+      requestedAtUtc:saved.line.committedAtUtc};
+    const receipt=await store.commitCommand(op);
+    if(!receipt || !receipt.durableCommit || receipt.status!=='committed')return result(base,'failed');
+    const verified=verifiedAction(await store.verifyCommand({scope,commandId:clarificationId}),base,evidenceRecordIds);
+    if(verified.durableCommit && typeof store.completeClarification==='function')
+      await store.completeClarification({scope,commandId:clarificationId});
+    return verified;
+  }catch{return result(base,'failed');}
 }
