@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "worldProfileId": "11111111-2222-4333-8444-555555555555",
+  "assignments": [
+    {
+      "characterId": "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
+      "assignmentVersion": 1,
+      "recordRevision": 1,
+      "profile": {
+        "provider": "faster-qwen3-tts",
+        "voice": "nathan",
+        "profileRevision": 1,
+        "instructions": "Speak naturally in this character's established voice."
+      }
+    }
+  ]
+}
