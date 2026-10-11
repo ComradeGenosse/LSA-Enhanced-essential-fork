@@ -9,7 +9,17 @@ export class PendingDialogue {
         typeof reply !== 'string' || !reply.trim()) throw new Error('invalid_staged_reply');
     const key = nativeRun + ':' + offer.turnId;
     if (this.#pending.has(key)) throw new Error('duplicate_staged_history');
-    this.#pending.set(key, { actorIncarnationId: offer.actorIncarnationId, reply });
+    // Each new unplayed reply supersedes any earlier unplayed reply from
+    // the same native conversation. None becomes durable model history.
+    const conversationId = offer.conversationId ?? offer.actorIncarnationId;
+    for (const [oldKey, record] of this.#pending)
+      if (record.run === nativeRun && record.conversationId === conversationId)
+        this.#pending.delete(oldKey);
+    if (this.#pending.size >= 16) throw new Error('staged_history_capacity');
+    this.#pending.set(key, {
+      run: nativeRun, conversationId, actorIncarnationId: offer.actorIncarnationId,
+      turnOrdinal: offer.turnOrdinal ?? null, reply
+    });
   }
   retireAll() { this.#pending.clear(); }
   // Intentionally no commit method until a verified Phase 4 playback receipt.
