@@ -34,9 +34,9 @@ export async function runTypedTurnSession({
         const result = await handleNextTypedTurn(client, provider, {
           signal: retired.signal, pending: staged, playerContext,
           onStage: () => onStatus('typed_reply_staged'),
-          onReplyStaged: tts ? ({ client: native, claims, replyText, signal: turnSignal }) =>
+          onReplyStaged: tts ? ({ client: native, claims, offer, replyText, signal: turnSignal }) =>
             stageNativePcmStream(native, claims,
-              tts.streamPcm({ text: replyText, signal: turnSignal }),
+              tts.streamPcm({ text: replyText, identity: offer, signal: turnSignal }),
               { signal: turnSignal }) : null
         });
         if (result.state === 'pcm_sealed_not_played')
