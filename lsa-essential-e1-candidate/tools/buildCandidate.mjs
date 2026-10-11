@@ -384,6 +384,13 @@ export async function buildCandidate({ nativePayloadPath, sourcePath = stockBund
   await mkdir(target, { recursive: true });
   await writeFile(entry, patched.output, 'utf8');
   await copyDirectory(src, stagedE1);
+  // Stage the EXACT M1/P2 shared-brain dependency at the existing import path
+  // ../../../lsa-shared-brain (from e1/characters), not a host global copy.
+  const sharedCheckout=path.join(root,'..','lsa-shared-brain','src');
+  const sharedStage=await assertNoLinkedOutput(path.join(path.dirname(target),'lsa-shared-brain'));
+  await rm(sharedStage,{recursive:true,force:true});
+  await copyDirectory(sharedCheckout,path.join(sharedStage,'src'));
+  const sharedBrainSourceTreeSha256=await directoryDigest(path.join(sharedStage,'src'));
   await copyFile(path.join(root, 'e1.config.example.json'), path.join(target, 'e1.config.example.json'));
   // Runtime bootstrap resolves this from ../data relative to e1/bootstrap.mjs.
   await mkdir(path.join(target,'data'),{recursive:true});
@@ -406,7 +413,7 @@ export async function buildCandidate({ nativePayloadPath, sourcePath = stockBund
       dialogueLogging: { defaultEnabled:false,provider:'openai',storage:'rotating-jsonl' } },
     launcherEntry: launcherName, upstreamBundleSha256: sourceHash,
     stockDllReferenceSha256: dllHash, builtBundleSha256: digest(patched.output),
-    e1SourceTreeSha256, releasePayloadSha256,
+    e1SourceTreeSha256, sharedBrainSourceTreeSha256, releasePayloadSha256,
     astPatchCount: patched.edits.length, astPatches: patched.edits,
     externalRuntimePackaging: 'not included; no GTA-folder deployment performed',
     realApiCalls: false, gtaRuntimeTest: false,

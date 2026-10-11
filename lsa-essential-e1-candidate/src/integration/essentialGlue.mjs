@@ -52,8 +52,20 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
   const characterService = config.provider === 'openai' && config.promotedCharacters?.enabled
     ? new CharacterService(config,{identityService,voiceResolver,store:profileStore,nativeOwner,telemetry}) : null;
   characterService?.initialize().catch(() => {});
+  // The production authority is the actual post-validation IntelligenceClient.
+  // An unavailable/replaced native stream must produce neutral mood.
+  const liveNativeProtagonist=Object.freeze({
+    readVerified() {
+      try {return runtime.intelligence?.protagonistAuthority?.readVerified?.()??null;}
+      catch {return null;}
+    },
+    isCurrent(record) {
+      try {return runtime.intelligence?.protagonistAuthority?.isCurrent?.(record)===true;}
+      catch {return false;}
+    }
+  });
   const emotionalMood = createMoodRuntime({getRuntime:()=>runtime,
-    protagonistAuthority:verifiedProtagonistAuthority});
+    protagonistAuthority:verifiedProtagonistAuthority??liveNativeProtagonist});
   const services = {
     // Every segment rechecks real P1 binding and PS2 observer lifetime.
     emotionalActing: config.speechProvider === 'elevenlabs' &&

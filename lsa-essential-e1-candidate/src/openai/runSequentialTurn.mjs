@@ -219,7 +219,7 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
     let streamMode = null;
     let earlyAudio = null;
     let bufferedLunaHint = null;
-    const renderedDeliveries = [];
+    const renderedDeliveries = []; // exact segment delivery + speak() result
     const lunaDeliveryVersion = services.config.expressiveDelivery?.mode === 'experimental'
       ? services.config.expressiveDelivery.lunaDeliveryVersion ?? 0 : 0;
     if (services.config.structuredStreamingEnabled === true) {
@@ -280,7 +280,7 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
               }), () => !nativeHandoffStarted);
             if (!audio?.bytes) throw new Error('empty_segment_audio');
             if (audio.discardedTrailingByte) throw Object.assign(new Error('partial_pcm16_sample'), { code: 'partial_pcm16_sample' });
-            if (delivery) renderedDeliveries.push(delivery);
+            if (delivery) renderedDeliveries.push({delivery,providerResult:audio});
             bytes += audio.bytes;
             chunks += audio.chunks || 0;
             metrics?.event('stream_tts_segment_finished', { segmentSequence: segment.sequence, bytes: audio.bytes, chunks: audio.chunks || 0 });
@@ -384,7 +384,7 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
           playbackStartedAt: () => nativePlaybackStartedAt,
           onPcm: chunk => forwardPcm(chunk, isActive),
         }), () => !hasAction && !nativeHandoffStarted);
-      if (audio?.bytes && delivery) renderedDeliveries.push(delivery);
+      if (audio?.bytes && delivery) renderedDeliveries.push({delivery,providerResult:audio});
     }
     check();
     if (!authorizationRequested || !audio?.bytes || !pcmBytesTotal) throw new Error('empty_audio');
@@ -420,7 +420,11 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
     playbackCommitted = true;
     // Mood callbacks are authorized only AFTER native playback and history's
     // exact-turn receipt acceptance, never at mere synthesis completion.
-    for (const delivery of renderedDeliveries) speechDelivery.synthesized(delivery, result);
+    for (const {delivery,providerResult} of renderedDeliveries)
+      speechDelivery.synthesized(delivery,result,providerResult);
+    // Exactly one completion AFTER stock history acceptance, and only when
+    // ElevenLabs can prove that a verified tag actually reached the socket.
+    speechDelivery.complete(result,{historyAccepted:true});
     metrics?.count('assistantCommitCount');
     metrics?.event('assistant_history_committed', { outputChars: String(decision.dialogue || '').length, playbackEndedCount: 1 });
     dialogueTurn?.finish({ reason: 'completed', stage: 'completed', assistantCommitted: true, assistantDiscarded: false });
