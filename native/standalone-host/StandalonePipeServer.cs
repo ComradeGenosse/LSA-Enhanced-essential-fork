@@ -228,10 +228,13 @@ namespace LSA.Standalone.RageHost
                     if (current)
                     {
                         AudioPlaybackSnapshot proof;
-                        if (audio.TryPhysicalStatus(Claim(req.Frame, "streamId"),
+                        int completedSegments, markedSegments;
+                        bool finalSegments;
+                        if (audio.TryPhysicalProgress(Claim(req.Frame, "streamId"),
                             Claim(req.Frame, "audioLeaseId"), Claim(req.Frame, "audioGeneration"),
                             Claim(req.Frame, "turnId"), Claim(req.Frame, "actorIncarnationId"),
-                            out proof))
+                            out proof, out completedSegments, out markedSegments,
+                            out finalSegments))
                         {
                             reply["status"] = proof.State == "playback_completed"
                                 ? "playback_completed" :
@@ -241,6 +244,9 @@ namespace LSA.Standalone.RageHost
                             reply["submittedBytes"] = proof.SubmittedSourceBytes;
                             reply["mouthLevel"] = proof.MouthLevel;
                             reply["sealed"] = sealedInput;
+                            reply["completedSegments"] = completedSegments;
+                            reply["markedSegments"] = markedSegments;
+                            reply["finalSegments"] = finalSegments;
                         }
                     }
                 }
