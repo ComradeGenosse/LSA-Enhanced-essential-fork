@@ -69,7 +69,7 @@ export class M9NativeEventProducer {
       if(collision && collision.speedDeltaKph>=LIMITS.crashDeltaKph)
         emit('vehicle_crash',collision.nativeReceiptId,{
           basis:'native_collision_callback',speedDeltaKph:collision.speedDeltaKph});
-      if(!before || snapshot.vehicleCaptureRef!==before.sample.vehicleCaptureRef){
+      if(!before || !old || snapshot.vehicleCaptureRef!==before.sample.vehicleCaptureRef){
         next.airborneStart=v.airborne?snapshot.sampledAtMs:null;
         next.rollHigh=v.rollDegrees>=LIMITS.rollAngleDegrees;
         next.water=v.inWater;next.submerged=v.submerged;
