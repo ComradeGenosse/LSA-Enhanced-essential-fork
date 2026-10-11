@@ -187,7 +187,7 @@ export function resolvePersistentVoiceProfile({ assignment, actor = {}, config }
     throw new TypeError('persistent_voice_incompatible');
   const provider = config.speechProvider ?? 'openai';
   const sameProvider = assignment.provider === provider &&
-    config.speechVoices.includes(assignment.voice) &&
+    (provider === 'openai' || config.speechVoices.includes(assignment.voice)) &&
     isVoiceSupportedByModel(config.ttsModel, assignment.voice);
   // Preserve the authored reference on disk while switching providers. The new
   // active voice is deterministic from the persisted profile ID, not a ped ID.
@@ -198,7 +198,7 @@ export function resolvePersistentVoiceProfile({ assignment, actor = {}, config }
     ? selectCharacterVoice(null, traits, config, seed)
     : selectLegacyVoice(null, config, seed);
   const chosenVoice = sameProvider ? assignment.voice : selection.voice;
-  if (!config.speechVoices.includes(chosenVoice) ||
+  if ((provider !== 'openai' && !config.speechVoices.includes(chosenVoice)) ||
       !isVoiceSupportedByModel(config.ttsModel, chosenVoice))
     throw new TypeError('persistent_voice_incompatible');
   const instructions = buildVoiceInstructions({ enabled: config.actingEnabled === true,
