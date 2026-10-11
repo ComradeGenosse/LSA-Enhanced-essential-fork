@@ -156,7 +156,14 @@ export class OpenAIConnection {
   sendText(text) {
     this.#ensureTurn();
     this.#metrics?.event('input_ready', { inputChars: String(this.#turn.inputText || text || '').trim().length, role: 'typed' });
-    return Promise.resolve(this.#launch({ input: this.#turn.inputText || String(text || '').trim() }));
+    const input = this.#turn.inputText || String(text || '').trim();
+    const launched = this.#launch({input});
+    if(launched && this.#turn.source==='player_text' && input.trim()) {
+      // C-01 typed: exact current Essential tuple, zero acoustic duration.
+      // Optional diagnostics only. Never invents a microphone or a listener.
+      try { this.#runtime.intelligence?.recordTypedUtterance?.(this.#turn.identity); } catch {}
+    }
+    return Promise.resolve(launched);
   }
 
   startRealtimeInput() {
