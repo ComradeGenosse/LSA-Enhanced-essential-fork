@@ -18,6 +18,7 @@ namespace LSA.PromotedCharacters
         const int StartToken = 0x0600016f, StopToken = 0x06000170;
         const int Limit = 32, TimeoutMs = 30000;
         static SpeechCaptureAdapter installed;
+        static bool patched;
         readonly HostContext host;
         readonly EssentialMicState mic = new EssentialMicState();
         readonly Queue<Fact> pending = new Queue<Fact>();
@@ -80,9 +81,13 @@ namespace LSA.PromotedCharacters
                 var instance=Activator.CreateInstance(harmony,new object[]{"comrade.lsa.c01-mic-lifecycle"});
                 var patch=harmony.GetMethods().Single(m=>m.Name=="Patch"&&m.GetParameters().Length==5);
                 object M(string name)=>Activator.CreateInstance(harmonyMethod,new object[]{typeof(SpeechCaptureAdapter).GetMethod(name,BindingFlags.Static|BindingFlags.NonPublic)});
-                // Install patches BEFORE exposing the receiver; hooks fail closed.
-                patch.Invoke(instance,new object[]{start,null,M("AfterStart"),null,null});
-                patch.Invoke(instance,new object[]{stop,M("BeforeStop"),M("AfterStop"),null,null});
+                // After first successful install, rebind the receiver on host reload
+                // rather than adding a second Harmony patch to Core.
+                if(!patched) {
+                    patch.Invoke(instance,new object[]{start,null,M("AfterStart"),null,null});
+                    patch.Invoke(instance,new object[]{stop,M("BeforeStop"),M("AfterStop"),null,null});
+                    patched=true;
+                }
                 installed=candidate;
                 Game.LogTrivial("[C01] mic_hooks=attached source=pinned_core mode=shadow");
                 return candidate;
@@ -143,7 +148,11 @@ namespace LSA.PromotedCharacters
             if(disabled || before==null || current==null)return;
             if(!ReferenceEquals(before.Ped,current.Ped) || before.Address!=current.Address)return;
             // A failed SendMicStop is not a terminal event.
-            if(mic.TryRead(out var after) && after!=null && ReferenceEquals(after,before.Ped) && after.MemoryAddress==before.Address)return;
+            if(!mic.TryRead(out var after)) {
+                Emit("ended","unknown_mic_state",current,before.Tick,before.Time);
+                current=null;return;
+            }
+            if(after!=null && ReferenceEquals(after,before.Ped) && after.MemoryAddress==before.Address)return;
             Emit("ended","released",current,before.Tick,before.Time);
             current=null;
         }
@@ -171,6 +180,11 @@ namespace LSA.PromotedCharacters
         internal void Disable()
         {
             disabled=true;overflow=true;Reset();
+        }
+        internal void Detach()
+        {
+            Reset();disabled=true;
+            if(ReferenceEquals(installed,this))installed=null;
         }
         internal bool Available => !disabled;
         internal bool Overflowed => overflow;
