@@ -132,6 +132,24 @@ namespace LSA.Standalone.RageHost
                         Claim(req.Frame, "source"), out reason);
                     reply["status"] = accepted ? "ok" : reason;
                 }
+                else if (req.Type == "turn.segment")
+                {
+                    string reason;
+                    bool staged = turns.TryStageSpeechSegment(Claim(req.Frame, "turnId"),
+                        Claim(req.Frame, "leaseId"), Claim(req.Frame, "generation"),
+                        Claim(req.Frame, "actorIncarnationId"), ClaimInt(req.Frame, "segmentIndex"),
+                        Claim(req.Frame, "segmentText"), out reason);
+                    reply["status"] = staged ? "segment_staged_not_played" : reason;
+                }
+                else if (req.Type == "turn.segments.end")
+                {
+                    string reason;
+                    bool finished = turns.TryFinishSpeechSegments(Claim(req.Frame, "turnId"),
+                        Claim(req.Frame, "leaseId"), Claim(req.Frame, "generation"),
+                        Claim(req.Frame, "actorIncarnationId"), ClaimInt(req.Frame, "segmentCount"),
+                        out reason);
+                    reply["status"] = finished ? "segments_final_not_played" : reason;
+                }
                 else if (req.Type == "turn.reply")
                 {
                     string reason;
@@ -195,6 +213,16 @@ namespace LSA.Standalone.RageHost
                         reply["creditsBytes"] = NativeAudioRegistry.MaxPendingBytes - queued;
                         reply["sealed"] = sealedAudio;
                     }
+                }
+                else if (req.Type == "audio.segment")
+                {
+                    string reason;
+                    bool marked = audio.TryMarkSegment(Claim(req.Frame, "streamId"),
+                        Claim(req.Frame, "audioLeaseId"), Claim(req.Frame, "audioGeneration"),
+                        Claim(req.Frame, "turnId"), Claim(req.Frame, "actorIncarnationId"),
+                        ClaimInt(req.Frame, "segmentIndex"), ClaimInt(req.Frame, "totalBytes"),
+                        out reason);
+                    reply["status"] = marked ? "segment_audio_buffered_not_played" : reason;
                 }
                 else if (req.Type == "audio.end")
                 {
@@ -296,17 +324,21 @@ namespace LSA.Standalone.RageHost
                         type == "turn.confirm" ? "turn.confirm.result" :
                         type == "turn.cancel" ? "turn.cancel.result" :
                         type == "turn.reply" ? "turn.reply.result" :
+                        type == "turn.segment" ? "turn.segment.result" :
+                        type == "turn.segments.end" ? "turn.segments.end.result" :
                         type == "audio.open" ? "audio.open.result" :
                         type == "audio.chunk" ? "audio.chunk.result" :
                         type == "audio.status" ? "audio.status.result" :
                         type == "audio.end" ? "audio.end.result" :
+                        type == "audio.segment" ? "audio.segment.result" :
                         type == "audio.cancel" ? "audio.cancel.result" : "request.rejected";
                     var payload = new Dictionary<string, object>();
                     if (type == "health.ping")
                         payload["status"] = "ok";
                     else if (type == "host.snapshot" || type == "turn.next" ||
                              type == "turn.confirm" || type == "turn.cancel" ||
-                             type == "turn.reply" ||
+                             type == "turn.reply" || type == "turn.segment" ||
+                             type == "turn.segments.end" || type == "audio.segment" ||
                              type == "audio.open" || type == "audio.chunk" ||
                              type == "audio.end" || type == "audio.cancel" ||
                              type == "audio.status")
@@ -340,13 +372,24 @@ namespace LSA.Standalone.RageHost
         {
             int count = type == "turn.confirm" ? 13 :
                 type == "turn.cancel" ? 11 : type == "turn.reply" ? 12 :
+                type == "turn.segment" ? 13 :
+                type == "turn.segments.end" ? 12 :
                 type == "audio.open" || type == "audio.cancel" ||
                 type == "audio.status" ? 12 :
-                type == "audio.chunk" || type == "audio.end" ? 14 : 7;
+                type == "audio.chunk" || type == "audio.end" ||
+                type == "audio.segment" ? 14 : 7;
             if (frame.Count != count) return false;
             if (type == "turn.confirm")
                 return Fields(frame, "turnId", "sessionNonce", "actorIncarnationId",
                     "leaseId", "generation", "source");
+            if (type == "turn.segment")
+                return Fields(frame, "turnId", "actorIncarnationId", "leaseId", "generation") &&
+                    IntField(frame, "segmentIndex", 0, NativeTurnRegistry.MaxSpeechSegments - 1) &&
+                    frame.TryGetValue("segmentText", out var segment) && segment is string &&
+                    ((string)segment).Length > 0 && ((string)segment).Length <= 500;
+            if (type == "turn.segments.end")
+                return Fields(frame, "turnId", "actorIncarnationId", "leaseId", "generation") &&
+                    IntField(frame, "segmentCount", 1, NativeTurnRegistry.MaxSpeechSegments);
             if (type == "turn.reply")
                 return Fields(frame, "turnId", "actorIncarnationId",
                     "leaseId", "generation") &&
@@ -368,6 +411,11 @@ namespace LSA.Standalone.RageHost
                     IntField(frame, "chunkIndex", 0, NativeAudioRegistry.MaxChunks - 1) &&
                     frame.TryGetValue("pcmBase64", out var pcm) && pcm is string &&
                     ((string)pcm).Length > 0 && ((string)pcm).Length <= 4000;
+            if (type == "audio.segment")
+                return Fields(frame, "streamId", "audioLeaseId", "audioGeneration",
+                        "turnId", "actorIncarnationId") &&
+                    IntField(frame, "segmentIndex", 0, NativeTurnRegistry.MaxSpeechSegments - 1) &&
+                    IntField(frame, "totalBytes", 2, NativeAudioRegistry.MaxStreamBytes);
             if (type == "audio.end")
                 return Fields(frame, "streamId", "audioLeaseId", "audioGeneration",
                         "turnId", "actorIncarnationId") &&
@@ -423,10 +471,12 @@ namespace LSA.Standalone.RageHost
             // ambiguous identity or actor claims.
             return type == "turn.confirm" ? value.Count == 13 :
                 type == "turn.cancel" ? value.Count == 11 :
-                type == "turn.reply" ? value.Count == 12 :
+                type == "turn.reply" || type == "turn.segments.end" ? value.Count == 12 :
+                type == "turn.segment" ? value.Count == 13 :
                 type == "audio.open" || type == "audio.cancel" ||
                 type == "audio.status" ? value.Count == 12 :
-                type == "audio.chunk" || type == "audio.end" ? value.Count == 14 :
+                type == "audio.chunk" || type == "audio.end" ||
+                type == "audio.segment" ? value.Count == 14 :
                 value.Count == 7;
         }
 
