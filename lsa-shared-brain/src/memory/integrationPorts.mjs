@@ -113,3 +113,29 @@ export class SharedJournalRecallAdapter{
 export async function recallFromSharedJournal({store,query,protagonistKey,nowUtc,followup}){
   return recallMemory({query,readAdapter:new SharedJournalRecallAdapter(store),protagonistKey,nowUtc,followup});
 }
+
+/**
+ * Real M7 ports. Never schedule or enable Luna here: the host must explicitly
+ * authorize cloud curation, set budget caps, and call worker only while idle.
+ */
+export function createDurableCurationAdapters(store,{dailyUsd,monthlyUsd}={}){
+ const methods=['enqueueCurationJob','claimCurationDue','completeCurationLease','retryCurationLease',
+   'releaseCurationLease','reserveCurationBudget','finishCurationBudget'];
+ if(!store||methods.some(k=>typeof store[k]!=='function')||
+    !Number.isFinite(dailyUsd)||dailyUsd<=0||!Number.isFinite(monthlyUsd)||monthlyUsd<=0)
+   throw new TypeError('curation_persistent_store_and_budget_required');
+ const queue=Object.freeze({
+   enqueueIfAbsent:args=>store.enqueueCurationJob(args),
+   claimDue:args=>store.claimCurationDue(args),
+   completeLeased:args=>store.completeCurationLease(args),
+   retryLeased:args=>store.retryCurationLease(args),
+   releaseLeased:args=>store.releaseCurationLease(args)
+ });
+ const budget=Object.freeze({dailyUsd,monthlyUsd});
+ const ledger=Object.freeze({
+   reserve:args=>store.reserveCurationBudget(args,budget),
+   settle:args=>store.finishCurationBudget(args,'settled'),
+   release:args=>store.finishCurationBudget(args,'released')
+ });
+ return Object.freeze({queue,ledger});
+}
