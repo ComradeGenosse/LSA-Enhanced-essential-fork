@@ -60,6 +60,9 @@ namespace LSA.Intelligence
             public bool Started,Interrupted,HadAudio,PlaybackStarted;
         }
         EssentialMicState directorMic;
+        LSA.PromotedCharacters.SpeechCaptureAdapter speechCapture;
+        bool captureShadow;
+        public void EnableCaptureShadow() { if(!started) captureShadow=true; }
         IntelligenceChannel channel;
         IDamageSensors damage;
         volatile HashSet<string> criticalIndex=new HashSet<string>();
@@ -160,13 +163,14 @@ namespace LSA.Intelligence
             this.host.WorldChanged+=WorldChanged;capabilities=capabilityNames.ToDictionary(k=>k,k=>false);
         }
         void WorldChanged(int epoch,string reason) {
+            speechCapture?.Reset();
             if(!IsAvailable) return;
             director.Reset();ps3Receipts.Reset();originalTurns.Reset();lock(directorPlaybackGate) {directorPlaybackEvents.Clear();directorPlaybackOverflow=false;}sensors.Reset();lock(rosterGate) {publishedAnchorStates.Clear();publishedObserverIndex.Clear();sampledSituations.Clear();}pendingRetirements.Clear();
             conversationRef=null;promotedTurnObserverRef=null;discoverySnapshot=null;discoveryOwned=new OwnedParticipant[0];UpdateIndexes();
             // Ordered control fact invalidates all prior observer state. Losing
             // it closes the bounded channel; reconnect republishes current host.
             if(channel?.Send("world_epoch",new {epoch,reason})!=true) {
-                channel?.Dispose();channel=new IntelligenceChannel(pipeName,Guid.NewGuid().ToString("D"),()=>capabilities,host.HostRunId,()=>host.WorldEpoch,true,directorShadow);channel.Start();connectionVersion=0;
+                channel?.Dispose();channel=new IntelligenceChannel(pipeName,Guid.NewGuid().ToString("D"),()=>capabilities,host.HostRunId,()=>host.WorldEpoch,true,directorShadow,captureShadow);channel.Start();connectionVersion=0;
             }
             nextRefresh=nextDiscovery=nextState=nextShot=0;
             LogStatus("[PS] clock_reset");
@@ -192,7 +196,8 @@ namespace LSA.Intelligence
                 AppDomain.CurrentDomain.AssemblyLoad+=AssemblyLoaded;QueueDamagePin();
                 try {NpcPlaybackCoordinator.PlaybackStarted+=PlaybackStarted;NpcPlaybackCoordinator.PlaybackEnded+=PlaybackEnded;playback=true;capabilities["playback"]=true;}
                 catch {try{NpcPlaybackCoordinator.PlaybackStarted-=PlaybackStarted;NpcPlaybackCoordinator.PlaybackEnded-=PlaybackEnded;}catch{}}
-                channel=new IntelligenceChannel(pipeName,Guid.NewGuid().ToString("D"),()=>capabilities,host.HostRunId,()=>host.WorldEpoch,true,directorShadow);channel.Start();
+                channel=new IntelligenceChannel(pipeName,Guid.NewGuid().ToString("D"),()=>capabilities,host.HostRunId,()=>host.WorldEpoch,true,directorShadow,captureShadow);channel.Start();
+                if(captureShadow) speechCapture=LSA.PromotedCharacters.SpeechCaptureAdapter.Attach(host);
                 previousTick=unchecked((uint)Game.GameTime);started=true;Game.LogTrivial("[PS] native_adapter_loaded shadow");
             } catch {Shutdown("initialization_failed");LogStatus("[PS] optional_initialization_failed");}
         }
@@ -302,6 +307,20 @@ namespace LSA.Intelligence
                 if(ownsHost) host.ObserveGameTick(tick);
                 previousTick=tick;
                 lineOfSightBudget=8;
+                if(speechCapture!=null) {
+                    speechCapture.Reconcile();
+                    for(int c01=0;c01<8;c01++) {
+                        var item=speechCapture.Take();
+                        if(item==null)break;
+                        // Ephemeral identity: an absent/mismatched mic Ped stays unbound.
+                        var anchor=anchors.Current.FirstOrDefault(a=>a.Kind=="ped" &&
+                            ReferenceEquals(a.Entity,item.Ped) && a.Address==item.Address);
+                        if(item.worldEpoch==host.WorldEpoch)
+                            channel.Send("utterance",new {utteranceVersion=1,item.utteranceId,item.phase,item.terminal,
+                                item.hostRunId,item.worldEpoch,item.gameTick,item.monotonicMs,
+                                item.inputSource,micPedRef=anchor?.CaptureRef});
+                    }
+                }
                 if(channel.ConnectionVersion!=connectionVersion) {ps3Receipts.Reset();director.Reset();connectionVersion=channel.ConnectionVersion;lock(rosterGate) {publishedAnchorStates.Clear();publishedObserverIndex.Clear();sampledSituations.Clear();}nextRefresh=0;}
                 if(now>=nextDiscovery) {
                     nextDiscovery=now+200;
