@@ -31,7 +31,12 @@ export class P2SqliteProfileStore {
   get timelineSourceStatus() { return !this.#sourceRequired ? 'not_required' : !this.#sourceContext ? 'unavailable' : this.#confirmedSource !== this.#sourceKey(this.#sourceContext) ? 'confirmation_required' : 'verified'; }
   #sourceKey(context) { return context?.hostRunId + ':' + context?.worldEpoch; }
   #sourceValid() { return !this.#sourceRequired || this.#sourceContext !== null && this.#confirmedSource === this.#sourceKey(this.#sourceContext); }
-  get timelinePendingReason() { return this.#timeline.pendingReason; }
+  get timelinePendingReason() {
+    if (this.#timeline.pendingReason) return this.#timeline.pendingReason;
+    if (this.#sourceRequired && !this.#sourceContext) return 'native_source_unavailable';
+    if (this.#sourceRequired && !this.#sourceValid()) return 'native_source_confirmation_required';
+    return null;
+  }
   get snapshot() { return this.#db.snapshot; }
   // Runtime adapters may only call this from an authenticated, accepted native
   // C-13 hello/world epoch. Never accept direct model/ped/user text as proof.
@@ -210,7 +215,9 @@ export class P2SqliteProfileStore {
     return this.#serial(() => {
       if (!this.available) fail('profile_store_unavailable');
       this.assertTimelineWrite(timelineId);
-      return commit(this.#db, this.#db.snapshot);
+      const result = commit(this.#db, this.#db.snapshot);
+      if (result && typeof result.then === 'function') fail('timeline_write_async_not_supported');
+      return result;
     });
   }
   async close() {
