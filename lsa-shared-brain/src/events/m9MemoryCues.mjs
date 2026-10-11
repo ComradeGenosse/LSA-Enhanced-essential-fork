@@ -31,7 +31,9 @@ const validWitness=(c,w)=>w?.status==='witnessed' &&
   isUuid(w.observationId) && isUuid(w.witnessReceiptId) &&
   isUuid(w.journalRecordId) && isUuid(w.characterId) &&
   isUuid(w.worldProfileId) && isUuid(w.timelineId) &&
-  isUuid(w.observerCaptureRef) && w.candidateEventId===c.eventId &&
+  isUuid(w.observerCaptureRef) && w.playerCaptureRef===c.playerCaptureRef &&
+  ['franklin','michael','trevor','unknown'].includes(w.protagonistKey) &&
+  w.candidateEventId===c.eventId &&
   w.nativeRun===c.nativeRun && w.hostRunId===c.hostRunId &&
   w.worldEpoch===c.worldEpoch;
 function id(parts) {
@@ -65,9 +67,8 @@ export class M9MemoryCueCandidates {
        !validWitness(candidate,witness))
       return {accepted:false,reason:'missing_qualified_witness'};
     const scope=[candidate.nativeRun,candidate.hostRunId,candidate.worldEpoch,
+      candidate.playerCaptureRef,witness.protagonistKey,
       witness.worldProfileId,witness.timelineId].join(':');
-    if(this.#scope!==null && this.#scope!==scope)this.reset();
-    this.#scope=scope;
     if(candidate.observedAtMonotonicMs>now ||
        now-candidate.observedAtMonotonicMs>M9_CUE_LIMITS.maxCandidateAgeMs)
       return {accepted:false,reason:'stale_candidate'};
@@ -78,6 +79,9 @@ export class M9MemoryCueCandidates {
     if(!authorized)return {accepted:false,reason:'witness_not_authorized'};
     if(!validPriority(priority))
       return {accepted:false,reason:'player_priority_or_director_veto'};
+    // Rejected/forged scopes never flush genuine cooldown or dedupe state.
+    if(this.#scope!==null && this.#scope!==scope)this.reset();
+    this.#scope=scope;
     const dedupe=[scope,witness.characterId,candidate.eventId].join(':');
     if(this.#seen.has(dedupe))
       return {accepted:false,reason:'duplicate_candidate'};
@@ -92,6 +96,7 @@ export class M9MemoryCueCandidates {
       cueId:id(['M9-CUE',dedupe,witness.journalRecordId]),
       eventId:candidate.eventId,eventType:candidate.eventType,
       family,characterId:witness.characterId,
+      protagonistKey:witness.protagonistKey,
       worldProfileId:witness.worldProfileId,timelineId:witness.timelineId,
       hostRunId:candidate.hostRunId,nativeRun:candidate.nativeRun,
       worldEpoch:candidate.worldEpoch,
