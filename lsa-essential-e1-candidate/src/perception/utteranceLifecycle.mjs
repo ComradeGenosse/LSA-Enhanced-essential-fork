@@ -67,7 +67,7 @@ export class UtteranceLifecycle {
     // connection's capture callback. Use ONLY one still-open source-lifetime
     // with matching exact captureRef and a very short arrival window.
     const e=this.active && this.entries.get(this.active);
-    if(e && !e.join && e.started.micPedRef===actorRef &&
+    if(e && !e.join && !e.retired && e.started.micPedRef===actorRef &&
        e.started.hostRunId===hostRunId && e.started.worldEpoch===worldEpoch &&
        candidate.at-e.receivedAt>=0 && candidate.at-e.receivedAt<=1500) {
       e.join=candidate;candidate.utteranceId=e.started.utteranceId;
@@ -87,7 +87,7 @@ export class UtteranceLifecycle {
   cancelTurn(identity) {
     if(!sameTurn(this.pending?.identity,identity))return false;
     const id=this.pending.utteranceId,e=id&&this.entries.get(id);
-    if(e?.join===this.pending)e.join=null;
+    if(e) {if(e.join===this.pending)e.join=null;e.retired=true;}
     this.pending=null;this.diagnostics.cancelled++;return true;
   }
   // The single STT operation calls this ONCE after the native transcript
