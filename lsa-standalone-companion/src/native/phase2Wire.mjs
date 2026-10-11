@@ -141,7 +141,8 @@ export class Phase2NativeClient {
     const isOffer = expected === 'turn.next.result' && value.status === 'ok';
     const fields = isOffer
       ? ['requestId', 'status', 'turnId', 'sessionNonce', 'actorIncarnationId',
-          'leaseId', 'generation', 'source', ...(Object.hasOwn(value, 'playerText') ? ['playerText'] : [])]
+          'leaseId', 'generation', 'source', ...(Object.hasOwn(value, 'playerText') ? ['playerText'] : []),
+          ...(Object.hasOwn(value, 'conversationId') ? ['conversationId', 'turnOrdinal'] : [])]
       : expected === 'host.snapshot.result'
         ? ['requestId', 'status', 'trackedActors']
         : ['requestId', 'status'];
@@ -155,6 +156,14 @@ export class Phase2NativeClient {
          !value.playerText.trim() || value.playerText.length > 1024 ||
          /[\u0000-\u0008\u000b-\u001f\u007f]/.test(value.playerText)))
       throw new Error('invalid_native_text');
+    if (isOffer && Object.hasOwn(value, 'conversationId') &&
+        (!UUID.test(value.conversationId) ||
+         !Number.isSafeInteger(value.turnOrdinal) || value.turnOrdinal < 1 ||
+         value.turnOrdinal > 0x7fffffff))
+      throw new Error('invalid_native_conversation');
+    if (isOffer && !Object.hasOwn(value, 'conversationId') &&
+        Object.hasOwn(value, 'turnOrdinal'))
+      throw new Error('invalid_native_conversation');
     if (isOffer && (!UUID.test(value.turnId) || !UUID.test(value.sessionNonce) ||
         !UUID.test(value.actorIncarnationId) || !UUID.test(value.leaseId) ||
         !/^[1-9][0-9]{0,18}$/.test(value.generation) ||
