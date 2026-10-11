@@ -83,7 +83,11 @@ test('protagonist is proven only by checked source-backed native resolver',()=>{
     participantProofs:i.participantProofs});
   assert.equal(n.event.claims[0].durableSubject,'protagonist:franklin');
   x.ps2.anchors.delete(PLAYER);
-  assert.equal(x.binder.authorize({observation:a.observation,candidate:a.candidate,stage:'commit'}),null);
+  const after=x.binder.authorize({observation:a.observation,candidate:a.candidate,stage:'commit'});
+  assert.equal(after.current,true); // PS2 witness remains; participant identity became unavailable
+  const unknown=normalizeWitnessedObservation({observation:a.observation,identity:after,
+    participantProofs:after.participantProofs});
+  assert.equal(unknown.event.claims[0].durableSubject,`unresolved:${CLAIM}`);
 });
 test('PS2 source versus target roles preserve shooter/victim attribution',()=>{
   const x=fixture(),bound=x.binder.bindAcceptedReceipt(x.receipt(x.obsA));
