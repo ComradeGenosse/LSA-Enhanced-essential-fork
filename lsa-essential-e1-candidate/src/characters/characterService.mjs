@@ -1,6 +1,7 @@
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { ProfileStore,validateProfile,validateAppearance } from './profileStore.mjs';
+import { createEssentialMemoryStorage } from './memoryStorageAdapter.mjs';
 import { SessionProfiles,narrativeProfileWithDiagnostics } from './sessionProfiles.mjs';
 import { buildCharacterAuthority,sha256,suppressGeneratedPersona } from './characterAuthority.mjs';
 import { NativeOwnerClient } from './nativeOwnerClient.mjs';
@@ -23,22 +24,42 @@ export function withoutCharacterTransport(actor) {
 }
 
 export function normalizeCharacterConfig(value = {}) {
-  if (!value || typeof value !== 'object' || Array.isArray(value) || Object.keys(value).some(key => !['enabled','storePath','pipeName','editorPort','summonWaitMs'].includes(key)) || (value.enabled !== undefined && typeof value.enabled !== 'boolean')) throw new TypeError('Invalid promotedCharacters configuration.');
+  if (!value || typeof value !== 'object' || Array.isArray(value) || Object.keys(value).some(key => !['enabled','storePath','storageMode','sqliteStorePath','pipeName','editorPort','summonWaitMs'].includes(key)) || (value.enabled !== undefined && typeof value.enabled !== 'boolean')) throw new TypeError('Invalid promotedCharacters configuration.');
   const storePath = value.storePath ?? 'characters/profiles.v1.json',pipeName = value.pipeName ?? 'LSA.PromotedCharacters.v1',editorPort = value.editorPort ?? 37921;
+  const storageMode = value.storageMode ?? 'json';
+  const sqliteStorePath = value.sqliteStorePath ?? 'characters/profiles.v2.sqlite';
+  if (!['json','sqlite'].includes(storageMode) ||
+      typeof sqliteStorePath !== 'string' || !sqliteStorePath.trim() ||
+      sqliteStorePath.length > 512 ||
+      path.resolve(sqliteStorePath).toLowerCase() === path.resolve(storePath).toLowerCase())
+    throw new TypeError('Invalid promotedCharacters storage configuration.');
   const summonWaitMs = value.summonWaitMs ?? 30_000;
   if (typeof storePath !== 'string' || !storePath.trim() || storePath.length > 512 || typeof pipeName !== 'string' || !/^[A-Za-z0-9_.-]{1,80}$/.test(pipeName) || !Number.isSafeInteger(editorPort) || editorPort < 1024 || editorPort > 65535 || !Number.isSafeInteger(summonWaitMs) || summonWaitMs < 5000 || summonWaitMs > 60_000) throw new TypeError('Invalid promotedCharacters configuration.');
-  return Object.freeze({ enabled:value.enabled === true,storePath,pipeName,editorPort,summonWaitMs });
+  return Object.freeze({ enabled:value.enabled === true,storePath,storageMode,sqliteStorePath,pipeName,editorPort,summonWaitMs });
 }
 export class CharacterService {
   #queue = Promise.resolve(); #initializing; #syncing; #lastSync = 0;
   constructor(config,{ identityService,voiceResolver,store,nativeOwner,telemetry } = {}) {
     this.config = config; this.identity = identityService; this.voice = voiceResolver; this.telemetry = telemetry;
-    this.store = store || new ProfileStore({ filePath:config.promotedCharacters.storePath,worldProfileId:config.persistentIdentity.worldProfileId });
+    // Explicit opt-in only. JSON is the unchanged production default.
+    const storageConfig = config.promotedCharacters;
+    this.store = store || (storageConfig.storageMode === 'sqlite'
+      ? createEssentialMemoryStorage({
+          filePath:storageConfig.sqliteStorePath,
+          legacyJsonPath:storageConfig.storePath,
+          worldProfileId:config.persistentIdentity.worldProfileId
+        })
+      : new ProfileStore({
+          filePath:storageConfig.storePath,
+          worldProfileId:config.persistentIdentity.worldProfileId
+        }));
     this.native = nativeOwner || new NativeOwnerClient({ ...config.promotedCharacters,worldProfileId:config.persistentIdentity.worldProfileId });
     this.sessions = new SessionProfiles({ onEvent:(event,data) => this.emit(event,data) });
     this.ready = false;
   }
   bindActivities(runtime) { this.activities = runtime; }
+  // Release only the store owned by this service. No native task or P1 owner is closed here.
+  async closeStorage() { await this.store?.close?.(); }
   emit(event,data = {},identity = null,source = null) { try { this.telemetry?.emit(event,identity,source,data); } catch {} }
   initialize() { return this.#initializing ||= (async () => {
     try {
