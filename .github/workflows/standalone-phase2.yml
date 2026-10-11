@@ -54,6 +54,17 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           dotnet build native/standalone-host/tests/Phase2PipeHarness.csproj -c Release
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Compile standalone host against published RPH SDK (no redistribution)
+        shell: pwsh
+        run: |
+          dotnet restore native/standalone-host/tests/RealRphReference.csproj
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $cache = Join-Path $env:USERPROFILE '.nuget/packages/ragepluginhook/1.124.0'
+          $sdk = Get-ChildItem -Path $cache -Filter RagePluginHook.dll -Recurse -File |
+            Select-Object -First 1 -ExpandProperty FullName
+          if (-not $sdk) { throw 'Cannot locate official published RagePluginHook.dll' }
+          dotnet build native/standalone-host/LSA.Standalone.RageHost.csproj -c Release "-p:RphReferencePath=$sdk"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Exercise real net481 named-pipe server and independent Node process
         shell: pwsh
         run: |
@@ -62,7 +73,7 @@ jobs:
           try {
             $accepted = $false
             for ($attempt = 1; $attempt -le 12; $attempt++) {
-              node lsa-standalone-companion/tools/health-check.mjs
+              node lsa-standalone-companion/tools/health-check.mjs --fixture-turn
               if ($LASTEXITCODE -eq 0) { $accepted = $true; break }
               Start-Sleep -Milliseconds 250
             }
