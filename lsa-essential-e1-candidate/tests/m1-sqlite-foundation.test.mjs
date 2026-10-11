@@ -50,7 +50,7 @@ test('M1 performs CAS profile writes transactionally and enforces ownership uniq
   const result=foundation.replaceSnapshot(next,0);
   assert.equal(result.revision,1);
   assert.equal(foundation.get(a.characterId).promotion.ownerAlias,a.promotion.ownerAlias);
-  assert.throws(()=>foundation.replaceSnapshot({...next,revision:2},0),/sqlite_revision_conflict/);
+  assert.throws(()=>foundation.replaceSnapshot({...next,revision:1},0),/sqlite_revision_conflict/);
   const duplicate=profile({characterId:randomUUID(),promotion:a.promotion});
   assert.throws(()=>foundation.replaceSnapshot({...next,revision:2,profiles:[a,duplicate]},1),/invalid_profile_store/);
   foundation.close();
