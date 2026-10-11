@@ -33,13 +33,19 @@ namespace LSA.Standalone
         public readonly ulong Address;
         public readonly bool IsAlive;
         public readonly bool IsScriptControlled;
+        // Native proof of physical incarnation. Zero is unverified legacy/simulation.
+        public readonly ulong LifetimeTag;
 
         public ActorObservation(int handle, ulong address, bool isAlive, bool isScriptControlled)
+            : this(handle, address, isAlive, isScriptControlled, 0UL) {}
+
+        public ActorObservation(int handle, ulong address, bool isAlive, bool isScriptControlled, ulong lifetimeTag)
         {
             Handle = handle;
             Address = address;
             IsAlive = isAlive;
             IsScriptControlled = isScriptControlled;
+            LifetimeTag = lifetimeTag;
         }
     }
 
