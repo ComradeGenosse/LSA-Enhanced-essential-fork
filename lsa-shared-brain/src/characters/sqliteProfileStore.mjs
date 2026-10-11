@@ -258,6 +258,13 @@ export class P2SqliteProfileStore {
     await this.initialize();
     return this.#serial(()=>{if(!this.available)fail('profile_store_unavailable');return this.#db.readJournalEvents(scope);});
   }
+  async readVerifiedEventEvidence(scope) {
+    await this.initialize();
+    return this.#serial(()=>{
+      if(!this.available)fail('profile_store_unavailable');
+      return this.#db.readVerifiedEventEvidence(scope);
+    });
+  }
   async close() {
     if (this.#closed) return;
     this.#closed = true;
