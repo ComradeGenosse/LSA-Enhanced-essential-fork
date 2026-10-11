@@ -195,3 +195,14 @@ test('M7 pricing-enforced maximum rejects costly cloud batch before billing or r
  assert.equal(cloud,0);assert.equal(reservations,0);assert.equal(releases,1);
  assert.equal(f.db.prepare('SELECT state FROM memory_curation_jobs').get().state,'pending');
 });
+
+test('M7 privacy purge hides persisted Luna opinion immediately, even with no tombstone',t=>{
+ const f=fixture(t),[x]=claim(f);
+ assert.equal(complete(f,x).durableCommit,true);
+ const read=()=>readCurationAppraisals(f.db,{characterId:f.scope.characterId,
+   timelineId:f.scope.timelineId,protagonistKey:'franklin'},f.scope.worldProfileId);
+ assert.equal(read().length,1);
+ // An authorized future privacy purge may hard-delete a source row.
+ f.db.prepare('DELETE FROM dialogue_journal WHERE record_id=?').run(f.proposal.evidenceRecordIds[0]);
+ assert.equal(read().length,0);
+});
