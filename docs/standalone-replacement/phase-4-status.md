@@ -11,6 +11,19 @@
 5. **OpenAI TTS production adapter**, independent of Essential: `createSpeechPcmProvider` sends `POST /v1/audio/speech` with `response_format: "pcm"`, configured model/voice, and streams raw binary frames. `stageNativePcmStream` preserves even PCM16 samples across arbitrarily split HTTP chunks without materializing the full TTS output. A finite deadline, abort and 30-second audio budget apply. API credentials are read only from the local environment.
 6. **Optional typed dialogue → speech**: once an independently produced AI text reply is staged, the standalone `service.mjs` may invoke the PCM speech provider and pass bytes to the native host. Successful result is **`pcm_sealed_not_played`**, not conversation history completion. Without TTS opt-in, existing typed conversations remain text-only.
 
+## Approved direction for the next Phase 4 engineering slices — **planned, not coded**
+
+The [speech architecture upgrade](speech-architecture-upgrade.md) incorporates the separate Qwen TTS [PR #39](https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/pull/39), proximity/microphone [PR #37](https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/pull/37), and their performance/identity lessons. It is a **versioned extension** of the existing standalone architecture, not an automatic merge of Essential-dependent components.
+
+| Slice | Next implementation deliverable | Current blocker / acceptance |
+| --- | --- | --- |
+| **S1 Provider-neutral speech** | OpenAI and local Faster Qwen3-TTS `streamPcm` adapters; per-NPC versioned/persisted voice assignment; safe reversible switching; local GPU model family registry | Current standalone `createSpeechPcmProvider` and `service.mjs` are OpenAI/global-env only. Validate Qwen localhost/no-key isolation, clone/custom/design voice contract and PCM format with fixtures before gameplay. |
+| **S2 Early dialogue segments** | Luna verified structured text segments -> bounded ordered per-segment TTS; new native segment identity, generation, acknowledgement and cancellation | Existing Phase 3 `TryStageReply` stages **one complete answer only**. Do not claim early TTS or patch segment messages into one-shot audio protocol without schema change. |
+| **S3 Playback-first lifecycle** | Native output-backed audio progress, safe 4-second rolling credit window, start/interrupted/completed terminal receipts and later lipsync | Existing audio records `buffered/forwarded/sealed_not_played`. Device/spatial audio backend is missing; adjust 2.2-second credit timeout using real device-progress watchdog rather than assuming Qwen-fast generation is a stall. |
+| **S4 GPU and voice performance** | Qwen GPU single-family residency and prioritized warmup/cancellation; matched TTS-only and separate full-conversation latency benchmarks | First PCM != first audible. Measure GPU frame pacing, cold/warm loads, queue pressure and voiced-NPC identity under verified game workload. |
+
+**Not Phase 4:** Independent microphone start/stop, PCM capture, OpenAI/local STT, native utterance ID, one STT reused for multiple source-time verified listeners, and UX4 PTT belong to **Phase 6 M1–M2**. They receive interface/schema planning now so Phase 4 segments/audio do not create an incompatible microphone or history model. Phase 5's first GTA slice remains *typed input*; do not make Phase 5 contingent on completed STT. Both provider adapters and mic-hearing grants must still respect the same native physical actor/turn/epoch fences.
+
 ## Local runtime switches — future isolated profile only
 
 `LSA_STANDALONE_TYPED_MODE=enabled`, `OPENAI_API_KEY`, `LSA_STANDALONE_MODEL` enable Phase 3 AI text. Independently set `LSA_STANDALONE_TTS_MODE=enabled`, `LSA_STANDALONE_TTS_MODEL`, `LSA_STANDALONE_TTS_VOICE` to enable the optional Phase 4 PCM source; `LSA_STANDALONE_TTS_INSTRUCTIONS` is optional. No configuration template carries a secret. **Do not attempt GTA cutover until actor and output gates pass.**
