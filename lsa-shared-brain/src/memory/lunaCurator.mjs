@@ -146,7 +146,8 @@ export async function processIdleCuration({enabled=false,mode,queue,provider,led
        !sameScope(job,job.proposal)||job.lease?.leaseToken&&job.lease.leaseToken!==leaseToken)
        throw new Error('curation_bad_lease');
      // Per-character provider isolation, including multi-NPC contention.
-     if(job.characterId!==claimed[0].job.characterId||
+     if((characterId!==null&&job.characterId!==characterId)||
+        job.characterId!==claimed[0].job.characterId||
         job.worldProfileId!==claimed[0].job.worldProfileId||
         job.timelineId!==claimed[0].job.timelineId)
        throw new Error('curation_cross_scope_batch');
