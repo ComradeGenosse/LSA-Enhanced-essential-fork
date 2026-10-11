@@ -13,3 +13,4 @@ tools/native-metadata/obj/
 tools/qwen/voices.json
 tools/qwen/voices/
 /outputs/qwen-smoke/
+/outputs/qwen-benchmark/
