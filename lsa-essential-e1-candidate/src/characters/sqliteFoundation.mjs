@@ -136,7 +136,7 @@ export class P2SqliteFoundation {
         db.close();db=null;
         await syncFile(stage);
         // Never replace an existing SQLite database if another process won the race.
-        await fs.copyFile(stage,this.filePath,fsConstants.COPYFILE_EXCL);
+        await fs.link(stage,this.filePath);
         await syncFile(this.filePath);
       } finally {
         try {db?.close();}catch{}
