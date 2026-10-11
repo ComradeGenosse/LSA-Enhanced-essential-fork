@@ -206,6 +206,14 @@ test('M9 refuses fake proof and unverified narratives; initializes without spuri
   assert.deepEqual(noCrash.candidates,[]);
   assert.equal(producer.ingest({snapshot:snap(150),source}).accepted,false);
 });
+test('M9 re-establishes physics baseline after an unavailable native vehicle snapshot',()=>{
+  let now=500;const producer=new M9NativeEventProducer({now:()=>now});
+  const first=producer.ingest({snapshot:snap(100,{vehicle:null}),source});
+  assert.equal(first.accepted,true);
+  const next=producer.ingest({snapshot:snap(200,{vehicle:{...snap(200).vehicle,rollDegrees:160}}),source});
+  assert.equal(next.accepted,true);
+  assert.deepEqual(next.candidates,[]); // no invented rollover from missing earlier orientation
+});
 test('M9 suppresses repeated native collision receipts',()=>{
   let now=1000;const producer=new M9NativeEventProducer({now:()=>now});
   producer.ingest({snapshot:snap(100),source});
