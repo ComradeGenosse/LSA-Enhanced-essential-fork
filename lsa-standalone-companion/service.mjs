@@ -60,7 +60,11 @@ await runSessionSupervisor({
       earlySpeech: earlySpeech &&
         typeof provider.streamSpeechSegments === 'function', signal, pollMs: 250,
       onStatus: (event, metadata = {}) => console.log(JSON.stringify({
-        component: 'lsa_standalone', event, reason: metadata.reason
+        component: 'lsa_standalone', event, reason: metadata.reason,
+        completedSegments: event === 'physical_segment_progress'
+          ? metadata.completedSegments : undefined,
+        expectedSegments: event === 'physical_segment_progress'
+          ? metadata.expectedSegments : undefined
       }))
     }) : null,
   onStatus(type, fields) {
