@@ -224,3 +224,14 @@ test('M3: stale native negative certificate never authorizes no-witness',async()
     observationId:x.b.observationId,status:'did_not_witness'});
   assert.equal(result.accepted,false);assert.equal(x.coverage.size,0);
 });
+
+test('M3: unavailable or throwing native participant identity retains witnessed PS2 event',async()=>{
+  for(const unavailable of [()=>null,()=>{throw new Error('participant_source_offline');}]){
+    const x=rig();x.nativeAuthority.resolveParticipants=unavailable;
+    assert.equal(x.adapter.acceptedObservationTap(x.receipt(x.a)).queued,true);
+    await x.adapter.idle();
+    assert.equal(x.journal.size,1);
+    assert.equal([...x.journal.values()][0].event.receiptStatus,'witnessed');
+    assert.match([...x.journal.values()][0].event.claims[0].durableSubject,/^unresolved:/);
+  }
+});
