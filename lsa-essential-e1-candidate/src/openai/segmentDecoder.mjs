@@ -85,7 +85,11 @@ function reflowSegment(value, maxSegmentChars, maxDialogueChars) {
   const pieces = [];
   while (remaining.length > maxSegmentChars) {
     // Split at a real word boundary, never truncate speech or change a word.
-    const cut = remaining.lastIndexOf(' ', maxSegmentChars);
+    let cut = remaining.lastIndexOf(' ', maxSegmentChars);
+    // A split must not manufacture a new safe fragment by dividing a
+    // native-style uppercase "DO Action" command after its DO token.
+    if (cut > 0 && /\bDO$/.test(remaining.slice(0, cut)))
+      cut = remaining.lastIndexOf(' ', cut - 1);
     if (cut < 1) throw segmentFailure('segment_unbreakable', 'Speech segment has an unsplittable word.');
     pieces.push({ text: remaining.slice(0, cut).trimEnd() });
     remaining = remaining.slice(cut).trimStart();
