@@ -61,6 +61,7 @@ export class Phase2NativeClient {
   #connectResolve;
   #connectReject;
   #deadline;
+  #heartbeat;
 
   constructor({ pipePath = '\\\\.\\pipe\\LSA.Standalone.Phase2.v1', timeoutMs = 3000 } = {}) {
     if (typeof pipePath !== 'string' || pipePath.length < 1 ||
@@ -109,6 +110,13 @@ export class Phase2NativeClient {
       clearTimeout(this.#deadline);
       const resolve = this.#connectResolve;
       this.#connectResolve = null; this.#connectReject = null;
+      // The native watchdog is intentionally short. Keep the current
+      // connection alive, but never auto-replay a failed turn or effect.
+      this.#heartbeat = setInterval(() => {
+        if (this.#state === 'ready')
+          this.request('health.ping').catch(() => {});
+      }, 2000);
+      this.#heartbeat.unref?.();
       resolve({ ...this.#binding });
       return;
     }
@@ -184,6 +192,7 @@ export class Phase2NativeClient {
     if (this.#state === 'closed') return;
     this.#state = 'closed';
     clearTimeout(this.#deadline);
+    clearInterval(this.#heartbeat);
     this.#socket?.destroy();
     this.#connectReject?.(error);
     this.#connectResolve = null; this.#connectReject = null;
