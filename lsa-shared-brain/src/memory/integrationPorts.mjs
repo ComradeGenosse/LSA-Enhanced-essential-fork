@@ -134,6 +134,11 @@ export class SharedJournalRecallAdapter{
     return {rows:rows.slice(0,limit),coverageComplete:false};
   }
 }
+export function createP2IntegratedRecallAdapter(store){
+  if(!store||typeof store.readIntegratedRecall!=='function')
+    throw new TypeError('m4_integrated_p2_reader_required');
+  return Object.freeze({read:args=>store.readIntegratedRecall(args)});
+}
 export async function recallFromSharedJournal({store,query,protagonistKey,nowUtc,followup}){
   return recallMemory({query,readAdapter:new SharedJournalRecallAdapter(store),protagonistKey,nowUtc,followup});
 }

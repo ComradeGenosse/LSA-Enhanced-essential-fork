@@ -8,7 +8,8 @@ import {DatabaseSync} from 'node:sqlite';
 import {createP2MemoryStorage} from '../src/characters/sqliteProfileStore.mjs';
 import {createConversationJournalRecorder} from '../src/memory/conversationRecorder.mjs';
 import {handleExplicitMemoryCommand} from '../src/memory/explicitCommands.mjs';
-import {recallFromSharedJournal,createDurableCurationAdapters,createM3WitnessRecorder,createM3JournalPorts} from '../src/memory/integrationPorts.mjs';
+import {recallFromSharedJournal,createP2IntegratedRecallAdapter,createDurableCurationAdapters,createM3WitnessRecorder,createM3JournalPorts} from '../src/memory/integrationPorts.mjs';
+import {recallMemory} from '../src/memory/recallEngine.mjs';
 import {selectAutomaticMemories} from '../src/memory/selection.mjs';
 import {makeQueueJob} from '../src/memory/queueContract.mjs';
 import {processIdleCuration} from '../src/memory/lunaCurator.mjs';
@@ -262,5 +263,25 @@ test('H: M3 certified negative coverage uses one P2 transaction and survives res
      assert.equal((await reopened.readM3Coverage(scope)).certified,true);
      assert.equal((await reopened.readM3Coverage({...scope,characterId:id()})).status,'unavailable');
    }finally{await reopened.close();}
+ }finally{await x.store.close()}
+});
+
+test('H: strict M4 integrated projection uses existing P2 SQLite connection and byte-exact original quote',async t=>{
+ const x=await setup(t);
+ try{
+   const exact='  permanent blue lighthouse \u{1F680}  ';
+   await x.recorder.recordPlayerAccepted({characterId:x.scope.characterId,
+     identity:identity('h-m4-lighthouse'),text:exact,source:'typed',
+     attribution:{protagonist:'franklin'}});
+   const readAdapter=createP2IntegratedRecallAdapter(x.store);
+   const query=request(x.scope,'what did I say about lighthouse?');
+   const result=await recallMemory({query,readAdapter,
+     protagonistKey:'franklin',nowUtc:new Date().toISOString()});
+   assert.equal(result.bundle.status,'matched');
+   assert.equal(result.bundle.items[0].content,exact);
+   assert.equal(result.bundle.totalBytes,Buffer.byteLength(JSON.stringify(result.bundle),'utf8'));
+   const other=await recallMemory({query,readAdapter,protagonistKey:'trevor',
+     nowUtc:new Date().toISOString()});
+   assert.equal(other.bundle.status,'unavailable');
  }finally{await x.store.close()}
 });

@@ -15,6 +15,7 @@ import { JOURNAL_SCHEMA_VERSION, migrateJournalSchema, assertJournalSchema, appe
 import { ensureIntegratedMemorySchema, listMemoryCandidates, listSuppressedMemoryIds, verifyPersistedMemoryCommand, commitPersistedMemoryCommand, persistDeterministicMemory, readPermanentMemoryRows, readCorrectionOverlays } from '../memory/integratedSqlite.mjs';
 import {ensureCurationSchema,enqueueCuration,claimCuration,completeCuration,retryCuration,releaseCuration,reserveCurationBudget,finishCurationBudget} from '../memory/curationSqlite.mjs';
 import {ensureM3CoverageSchema,appendM3Coverage,readM3Coverage} from '../events/m3CoverageSqlite.mjs';
+import {readIntegratedRecall} from '../memory/sqliteIntegratedRecallProjection.mjs';
 
 export const SQLITE_PROFILE_SCHEMA = 2;
 const fail = code => { throw new Error(code); };
@@ -279,6 +280,11 @@ export class P2SqliteFoundation {
   persistDeterministicMemory(proposal){return persistDeterministicMemory(this.#db,proposal,this.worldProfileId);}
   readPermanentMemoryRows(scope,options){return readPermanentMemoryRows(this.#db,scope,this.worldProfileId,options);}
   readCorrectionOverlays(scope){return readCorrectionOverlays(this.#db,scope,this.worldProfileId);}
+  readIntegratedRecall(query){
+    if(!this.#db)fail('sqlite_profile_uninitialized');
+    if(query?.scope?.worldProfileId!==this.worldProfileId)fail('m4_recall_wrong_world');
+    return readIntegratedRecall(this.#db,query);
+  }
   appendM3Coverage(record){
     if(!this.#db)fail('sqlite_profile_uninitialized');
     if(record?.worldProfileId!==this.worldProfileId)fail('m3_coverage_wrong_world');
