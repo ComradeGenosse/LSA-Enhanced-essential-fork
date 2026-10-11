@@ -73,6 +73,14 @@ export function createCompanionShadowTelemetry(summary = {}) {
 
 // Fixed same-user native factual endpoint; no actor integration blocks or commands.
 export class IntelligenceClient {
+  // C-13: accepted, authenticated native epoch changes only. Subscribing does
+  // not authorize any native effect, memory fact or timeline switch.
+  subscribeWorldBoundary(listener) {
+    if (typeof listener !== 'function' || this.worldBoundaryListeners.size >= 16)
+      throw new Error('world_boundary_listener_capacity');
+    this.worldBoundaryListeners.add(listener);
+    return () => this.worldBoundaryListeners.delete(listener);
+  }
   subscribeKnowledgeInvalidation(listener) {
     if(typeof listener!=='function' || this.knowledgeListeners.size>=32)throw new Error('knowledge_listener_capacity');
     this.knowledgeListeners.add(listener);return ()=>this.knowledgeListeners.delete(listener);
@@ -500,7 +508,7 @@ export class IntelligenceClient {
   }
 
   constructor(config,{connect=options=>net.createConnection(options),directorProductionRequired=false,now,situationFor,radioCatalog,originalTurnPriority=()=>null,originalTurnReserve=()=>null,originalTurnCurrent=()=>null,originalTurnRelease=()=>false,originalTurnPhase=()=>null,report=summary=>console.info('[PS] companion_shadow '+JSON.stringify(summary)),telemetry=()=>{}}={}) {
-    this.knowledgeListeners=new Set();this.config=config;this.connect=connect;this.runtime=new ShadowRuntime({mode:config.mode,radio:config.radio,radioCatalog,now,situationFor});this.report=report;this.telemetry=telemetry;this.originalTurnPriority=typeof originalTurnPriority==='function'?originalTurnPriority:()=>null;
+    this.worldBoundaryListeners=new Set();this.knowledgeListeners=new Set();this.config=config;this.connect=connect;this.runtime=new ShadowRuntime({mode:config.mode,radio:config.radio,radioCatalog,now,situationFor});this.report=report;this.telemetry=telemetry;this.originalTurnPriority=typeof originalTurnPriority==='function'?originalTurnPriority:()=>null;
     this.originalTurnReserve=typeof originalTurnReserve==='function'?originalTurnReserve:()=>null;
     this.originalTurnCurrent=typeof originalTurnCurrent==='function'?originalTurnCurrent:()=>null;
     this.originalTurnRelease=typeof originalTurnRelease==='function'?originalTurnRelease:()=>false;
@@ -556,6 +564,7 @@ export class IntelligenceClient {
           this.persist('intelligence_frame_rejected',{frameType:'hello',reason:'invalid_order',count:1});fail();return;
         }
         const before={malformed:this.runtime.counters.malformed,gaps:this.runtime.counters.gaps,faults:this.runtime.resetDiagnostics.faults};
+        const beforeHost=this.runtime.hostContext;
         const accepted=this.runtime.ingest(v,{authenticated:true});
         if(!accepted) {
           // Never include source payloads, NPC identities or raw frames in
@@ -574,7 +583,23 @@ export class IntelligenceClient {
               frameType,reason,count,frameBytes:Buffer.byteLength(JSON.stringify(v),'utf8')});
         }
         if(accepted && v?.type!=='hello') {sawLiveFrame=true;this.emptyHelloStreak=0;}
-        if(accepted && v?.type==='world_epoch')this.cancelDirectorRequests();
+        if(accepted && v?.type==='world_epoch') {
+          this.cancelDirectorRequests();
+          // Ignore a duplicate epoch receipt. No callback on an invalid
+          // frame/sequence, mismatched host, or legacy peer without C-13.
+          const next=this.runtime.hostContext;
+          if(beforeHost && next &&
+              next.hostRunId===beforeHost.hostRunId &&
+              next.worldEpoch===beforeHost.worldEpoch+1 &&
+              v.payload.epoch===next.worldEpoch) {
+            const boundary=Object.freeze({
+              reason:v.payload.reason,hostRunId:next.hostRunId,
+              previousEpoch:beforeHost.worldEpoch,worldEpoch:next.worldEpoch
+            });
+            for(const listener of [...this.worldBoundaryListeners])
+              try {listener(boundary);}catch{}
+          }
+        }
         if(accepted && v?.type==='director_response')this.acceptDirectorResponse(v.payload);
         this.notifyKnowledgeInvalidation();
         if(!hello && !accepted || !this.runtime.epoch) {fail();return;}
