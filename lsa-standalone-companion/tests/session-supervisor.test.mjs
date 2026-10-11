@@ -42,8 +42,13 @@ test('independent supervisor obtains fresh transport ID after connection retirem
   });
   const abort = new AbortController();
   const sessions = [];
+  const retiredHandlers = [];
   const running = runSessionSupervisor({
     pipePath: address, timeoutMs: 1000, retryMs: 50, signal: abort.signal,
+    onConnected(_client, session, connectionSignal) {
+      connectionSignal.addEventListener('abort', () =>
+        retiredHandlers.push(session.transportId), { once: true });
+    },
     onStatus(kind, fields) {
       if (kind === 'native_connected') {
         sessions.push(fields.transportId);
@@ -55,4 +60,6 @@ test('independent supervisor obtains fresh transport ID after connection retirem
   assert.ok(connections >= 2);
   assert.equal(sessions.length, 2);
   assert.notEqual(sessions[0], sessions[1]);
+  assert.ok(retiredHandlers.includes(sessions[0]),
+    'first provider task is aborted before replacement connection');
 });
