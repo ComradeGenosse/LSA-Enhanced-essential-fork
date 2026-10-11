@@ -30,6 +30,8 @@ namespace LSA.Standalone.RageHost
             internal readonly List<Buffer> Buffers = new List<Buffer>();
             internal readonly List<byte> Envelope = new List<byte>(); // 20ms windows
             internal int Submitted, Played;
+            internal long WindowEnergy;
+            internal int WindowSamples;
             internal bool Sealed, Failed;
             internal int EndBytes;
         }
@@ -37,7 +39,8 @@ namespace LSA.Standalone.RageHost
         private const int Rate = 24000, SourceBytesPerSecond = Rate * 2;
         private const int MaxDevicePending = SourceBytesPerSecond; // 1s per actor
         private const int MMSYSERR_NOERROR = 0, WAVERR_STILLPLAYING = 33;
-        private const uint TIME_BYTES = 4, WAVE_FORMAT_PCM = 1;
+        private const uint TIME_BYTES = 4;
+        private const ushort WAVE_FORMAT_PCM = 1;
         private const uint WHDR_DONE = 1;
         private readonly NativeAuthority authority;
         private readonly IOwnerContext owner;
@@ -161,17 +164,19 @@ namespace LSA.Standalone.RageHost
                 v.Submitted += pcm.Length;
                 // Store amplitude from OUTPUT PCM, not predicted TTS text time.
                 // No GTA face animation is claimed at this stage.
-                for (int start = 0; start < stereo.Length; start += 1920)
+                for (int j = 0; j + 3 < stereo.Length; j += 4)
                 {
-                    long energy = 0; int count = 0;
-                    for (int j = start; j + 3 < Math.Min(stereo.Length, start + 1920); j += 4)
+                    short l = (short)(stereo[j] | stereo[j + 1] << 8);
+                    short r = (short)(stereo[j + 2] | stereo[j + 3] << 8);
+                    v.WindowEnergy += Math.Abs((int)l) + Math.Abs((int)r);
+                    v.WindowSamples += 2;
+                    if (v.WindowSamples == 960) // exact contiguous 20ms playback window
                     {
-                        short l = (short)(stereo[j] | stereo[j + 1] << 8);
-                        short r = (short)(stereo[j + 2] | stereo[j + 3] << 8);
-                        energy += Math.Abs((int)l) + Math.Abs((int)r); count += 2;
+                        v.Envelope.Add((byte)Math.Min(100,
+                            v.WindowEnergy * 100 / (v.WindowSamples * 16384L)));
+                        v.WindowEnergy = 0;
+                        v.WindowSamples = 0;
                     }
-                    v.Envelope.Add((byte)Math.Min(100, count == 0 ? 0 :
-                        energy * 100 / (count * 16384L)));
                 }
                 rejection = "device_buffer_accepted_not_played";
                 return true;
@@ -197,6 +202,12 @@ namespace LSA.Standalone.RageHost
                 sourceBytes < 2 || sourceBytes != v.Submitted) return false;
             v.Sealed = true;
             v.EndBytes = sourceBytes;
+            if (v.WindowSamples > 0)
+            {
+                v.Envelope.Add((byte)Math.Min(100,
+                    v.WindowEnergy * 100 / (v.WindowSamples * 16384L)));
+                v.WindowSamples = 0; v.WindowEnergy = 0;
+            }
             rejection = "awaiting_device_playback";
             return true;
         }
