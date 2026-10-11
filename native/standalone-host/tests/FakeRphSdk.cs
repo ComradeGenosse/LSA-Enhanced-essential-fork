@@ -54,6 +54,6 @@ namespace Rage.Native
 {
     public static class NativeFunction
     {
-        public static T CallByName<T>(string name) { return default(T); }
+        public static T CallByName<T>(string name, params object[] arguments) { return default(T); }
     }
 }
