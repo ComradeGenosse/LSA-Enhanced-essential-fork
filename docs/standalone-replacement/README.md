@@ -1,6 +1,6 @@
 # Standalone LSA Native Replacement
 
-**Status:** exploratory parallel migration; **Phase 0 is in progress**. No standalone native binary exists or has been deployed. Existing Essential-based LSA on `main` is unchanged.
+**Status:** exploratory parallel migration; **Phase 0 research completed with GTA/deployment gates still open**. No standalone native binary exists or has been deployed. Existing Essential-based LSA on `main` is unchanged.
 
 This program is scoped separately from the [currently active playable v1.0 roadmap](../ROADMAP.md). The new project aims to remove our dependency on the Essential DLL and stock-server source patches **only after** independently authored runtime behavior has passed offline and staged GTA gates.
 
@@ -9,13 +9,17 @@ Start here:
 1. [**Phased roadmap**](roadmap.md) — Phase 0–9 implementation, offline tests, GTA gates and Milestones A/B/C.
 2. [**Phase 0 evidence baseline**](phase-0-baseline.md) — exact Essential and source revisions, native and Node dependency seams, reusable functionality, omitted stock features.
 3. [**Feature parity matrix**](feature-parity-matrix.md) — retain/replace/defer by user-visible feature, with offline and actual-GTA proof requirements.
-4. [**Phase 0 acceptance and blockers**](phase-0-acceptance.md) — explicit PASS/OPEN/BLOCKED items before marking research complete.
+4. [**Phase 0 acceptance and blockers**](phase-0-acceptance.md) — research findings, completed CI checks, and gates explicitly deferred to a real GTA deployment.
+5. [**Stock server/turn/audio protocol map**](phase-0-protocol-audio.md) — independent Node transport contract, exact tuple and terminal behavior.
+6. [**RAGE host, audio, and licensing feasibility**](phase-0-audio-host-licensing.md) — verified NAudio API references and the required spatial-audio spike.
+7. [**Installed GTA baseline and rollback**](phase-0-gta-baseline.md) — local read-only fingerprint tool and physical scenario checklist.
 
 ### Repeatable preliminary inventory
 
 ```bash
 node tools/standalone/phase0-inventory.mjs > phase0-inventory.json
-node --test tools/standalone/phase0-inventory.test.mjs
+node tools/standalone/phase0-static-review.mjs > phase0-static-review.json
+node --test tools/standalone/phase0-inventory.test.mjs tools/standalone/phase0-static-review.test.mjs
 ```
 
 The script is read-only and finds **candidate** direct source dependencies. It is not a static compiler, IL call graph, reflective resolution audit, runtime simulator, or evidence of GTA acceptance. The generated JSON is for local review; do not commit arbitrary generated data or environment-private information.
