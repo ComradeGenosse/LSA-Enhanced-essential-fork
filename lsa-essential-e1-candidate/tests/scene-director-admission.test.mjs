@@ -102,7 +102,7 @@ test('testing preset lowers routine/urgent/scene cooldowns, preserving source ga
  assert.equal(limits.routineSpeakerCooldownMs,5000);
  assert.equal(limits.urgentSpeakerCooldownMs,2000);
  assert.equal(limits.sceneGapMs,2000);
- assert.equal(limits.attemptsPerMinute,4);
+ assert.equal(limits.attemptsPerMinute,12);
  const c=harness({limits});
  const first=c.reserve(p,stamp);
  assert.ok(first);assert.equal(c.cancel(first.ticketId),true);
@@ -117,4 +117,18 @@ test('testing preset lowers routine/urgent/scene cooldowns, preserving source ga
  const normal=harness({limits:directorSpeechLimitsForPreset('normal')});
  const a=normal.reserve(p,stamp);normal.cancel(a.ticketId);
  now+=5000;assert.equal(normal.reserve({...p,decisionKey:'other'},stamp),null);
+});
+
+
+
+test('testing preset allows up to twelve rejected attempts per minute and rejects the thirteenth',()=>{
+ const c=harness({limits:directorSpeechLimitsForPreset('testing')});
+ allowed=false;
+ for(let i=0;i<12;i++)
+  assert.equal(c.reserve({...p,decisionKey:'test-unique-'+i},stamp),null);
+ assert.equal(c.reserve({...p,decisionKey:'test-unique-12'},stamp),null);
+ assert.equal(c.lastReserveFailure,'rate_limited');
+ now+=60001;allowed=true;
+ const retry=c.reserve({...p,decisionKey:'new-window',expiresAtMonotonicMs:180000},stamp);
+ assert.ok(retry,'quota resets only after elapsed window');
 });

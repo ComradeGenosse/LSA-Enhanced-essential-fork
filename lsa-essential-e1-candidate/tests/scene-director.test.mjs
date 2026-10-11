@@ -88,8 +88,10 @@ test('selection stays deterministic and safely bounded', () => {
 test('testing chatter preset never widens PS3 event freshness or ticket lease',()=>{
  const normal=directorSpeechLimitsForPreset('normal'),testing=directorSpeechLimitsForPreset('testing');
  for(const key of ['urgentCandidateTtlMs','routineCandidateTtlMs','ticketTtlMs',
-  'globalInFlight','sceneReservations','pendingTickets','attemptsPerMinute'])
+  'globalInFlight','sceneReservations','pendingTickets'])
   assert.equal(testing[key],normal[key],key);
+ assert.equal(normal.attemptsPerMinute,4);
+ assert.equal(testing.attemptsPerMinute,12);
  assert(Object.isFrozen(testing));
  assert.throws(()=>directorSpeechLimitsForPreset('unlimited'));
 });

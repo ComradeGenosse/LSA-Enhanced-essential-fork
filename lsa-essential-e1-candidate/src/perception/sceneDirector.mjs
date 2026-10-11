@@ -15,14 +15,16 @@ export const DIRECTOR_SPEECH_LIMITS = Object.freeze({
   ticketTtlMs: 2_000,
 });
 
-// Experimental testing changes pacing only, not PS3 evidence freshness,
-// per-observation dedupe, the native four-attempt backstop, or C-06 admission.
+// Experimental testing changes pacing and the bounded attempt budget,
+// not PS3 evidence freshness, dedupe, or native C-06 admission.
+// Native runtime independently requires its own matching testing preset.
 // Deliberately fixed presets: do not accept arbitrary user-supplied limits.
 export const DIRECTOR_TESTING_LIMITS = Object.freeze({
   ...DIRECTOR_SPEECH_LIMITS,
   routineSpeakerCooldownMs: 5_000,
   urgentSpeakerCooldownMs: 2_000,
   sceneGapMs: 2_000,
+  attemptsPerMinute: 12,
 });
 export function directorSpeechLimitsForPreset(preset='normal') {
   if(preset==='normal')return DIRECTOR_SPEECH_LIMITS;

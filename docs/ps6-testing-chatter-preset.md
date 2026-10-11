@@ -1,8 +1,12 @@
 # PS6 spontaneous speech — testing chatter preset
 
-The Director's pacing thresholds are implemented in JavaScript, not currently editable individual values in `e1.config.json`. This patch introduces a **named preset** selected in the config that is loaded when the companion starts.
+The Director's behavioral pacing is now a **strict opt-in testing preset**. It is not a change to the normal production limits.
 
-For an **already deployed experimental Director installation**, change only its existing `spontaneousSpeech` object:
+## Enable 12 attempts/minute
+
+Both the companion and the native C# host enforce a separate minute budget. After installing a **rebuilt native DLL and companion** containing this patch, configure **both** files before launching GTA.
+
+1. Your existing `plugins/LosSantosAliveServer/e1.config.json`:
 
 ```json
 "spontaneousSpeech": {
@@ -11,15 +15,29 @@ For an **already deployed experimental Director installation**, change only its 
 }
 ```
 
-Leave `intelligence.mode` set to `shadow` and preserve the other existing deployment settings. Restart the companion/server after editing `e1.config.json`.
+Keep `intelligence.mode` set to `shadow`, along with all existing identity, voice, and knowledge settings.
 
-| Limit | `normal` (default) | `testing` |
+2. Your existing **`plugins/LSA.PromotedCharacters.json`**, inside its `intelligence` object:
+
+```json
+"intelligence": {
+  "mode": "shadow",
+  "pipeName": "LSA.Intelligence.v1",
+  "directorMode": "experimental",
+  "directorAttemptPreset": "testing"
+}
+```
+
+Preserve the rest of that native file, notably `enabled`, `worldProfileId`, `pipeName`, `identityPipeName`, `activities`, and any other installed fields. Restart **GTA/RAGE and companion/server**, since the native preset is read during GTA startup. The RAGE log should include `[PS] director_native_attempt_limit=12` when active. Missing or invalid native preset, or a nonexperimental native Director mode, retains a four-attempt cap even if the companion requests twelve.
+
+| Limit | `normal` | `testing` |
 | --- | ---: | ---: |
 | Routine speaker cooldown | 20 seconds | 5 seconds |
 | Urgent speaker cooldown | 5 seconds | 2 seconds |
 | Scene-wide gap | 8 seconds | 2 seconds |
-| Companion attempts per minute | 4 | 4 (**native C# maximum**) |
+| Companion maximum attempts per minute | 4 | 12 |
+| Native maximum reserve attempts per minute | 4 | 12 |
 
-**Scope and safety:** The independent native C# `DirectorAdmission.MaxAttempts=4` is unchanged; this preset therefore cannot produce more than four native reserve attempts per minute. PS3 same-event suppression, event age/TTL, native one-shot lease, actor/player ownership and arbitration, and all audio-delivery checks are unchanged. This is for testing responsiveness to multiple *distinct supported observations*, not a promise that every gunshot gets a reaction.
+Only *one* original Essential speech turn may be reserved at a time. The native 12 cap counts unsafe attempts too. Not all 12 requests will produce speech. PS2 observation TTLs, PS3 same-incident suppression, one-shot ticket lease, world/owner/player identity, C-06, native Core playback receipts, and other safety checks are **unchanged**.
 
-To restore original behavior, change `"preset": "normal"` (or omit it) and restart. If a higher-than-four native attempt rate is desirable, that needs a separate, explicitly gated native change, rebuilt DLL and GTA acceptance.
+To restore normal mode, change both presets to `normal` (or omit them) and restart GTA and the companion. The shipped example files remain disabled by default with normal limits.

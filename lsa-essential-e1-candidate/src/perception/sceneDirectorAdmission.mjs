@@ -48,7 +48,7 @@ export class DirectorSpeechReservations {
     this.now=now;this.checkCurrent=checkCurrent;this.acknowledge=acknowledge;
     this.uuid=uuid;this.enabled=enabled === true;
     // Only named, frozen presets created in our trusted module are supplied
-    // by bootstrap. Keep the native four-attempt cap independently enforced.
+    // by bootstrap. Native independently caps to 4 or (if opted in) 12.
     this.limits=limits;
     this.active=null;this.attempts=[];this.speakerAt=new Map();
     this.sceneAt=-Infinity;this.attemptedKeys=new Map();this.lastReserveFailure=null;

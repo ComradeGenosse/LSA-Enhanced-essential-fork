@@ -80,8 +80,36 @@ class Program
               "caller authorization flag is forbidden");
     }
 
+    static void NativeAttemptPresetContract()
+    {
+        long at=1000;
+        var regular=new DirectorAdmission(()=>at,r=>false,()=>host,()=>world,true,
+            ()=>special,()=>playerEpoch);
+        for(int i=1000;i<1004;i++)
+            Check(regular.Handle(Request(i)).Status=="unsafe",
+                "normal cap counts unsafe admission attempts");
+        Check(regular.Handle(Request(1004)).Status=="busy","native default remains 4/min");
+
+        var testing=new DirectorAdmission(()=>at,r=>false,()=>host,()=>world,true,
+            ()=>special,()=>playerEpoch,null,DirectorAdmission.TestingMaxAttempts);
+        Check(testing.AttemptLimitPerMinute==12,"explicit native testing preset exactly 12/min");
+        for(int i=1100;i<1112;i++)
+            Check(testing.Handle(Request(i)).Status=="unsafe",
+                "native test cap counts all 12 unsafe attempts");
+        Check(testing.Handle(Request(1112)).Status=="busy","native testing refuses 13th attempt");
+        at+=60001;
+        Check(testing.Handle(Request(1113)).Status=="unsafe",
+            "native test cap resets after 60 seconds");
+        bool rejected=false;
+        try {
+            new DirectorAdmission(()=>at,r=>true,()=>host,()=>world,true,
+                ()=>special,()=>playerEpoch,null,1000);
+        }catch(ArgumentOutOfRangeException){rejected=true;}
+        Check(rejected,"arbitrary native attempt overrides are rejected");
+    }
     static void Run()
     {
+        NativeAttemptPresetContract();
         OriginalTurnBindingFrameContract();
         var off=New(false);
         Check(off.Handle(Request()).Status=="busy","default off rejects reserve");
