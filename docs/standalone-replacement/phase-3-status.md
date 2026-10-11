@@ -20,11 +20,19 @@
 
 Test receipts must refer to the actual final branch commit/workflow run; successful intermediate commits do not imply final approval.
 
+
+## Phase 3 continuation — lifecycle and input hardening
+
+- **Native cancellation fixed:** a Node rejection before `turn.confirm` can now retire its exact native conversation lease immediately. The cancel path validates turn ID, actor incarnation, lease and generation, and still rejects wrong-identity/replayed requests. Native focused tests verify that a new turn may reacquire the actor immediately and an old offer cannot later be confirmed.
+- **Independent on-screen text adapter:** `LSAStandaloneCompose` requests GTA's 256-character native keyboard. Only the game-fiber owner may invoke keyboard natives or receive typed results; all text goes through the same bounded console-text/actor checks. A cancelled keyboard cannot issue a turn. Late queued text expires after 2 seconds to avoid target drift, and input admission is closed on startup failure, shutdown or reload.
+- **Two-process provider verification:** the Windows integration suite launches a genuine `net481` host with a native-issued typed offer, then runs the independent Node pipeline with a deterministic fixture **and independently** with the production `createResponsesProvider` code making a real HTTP POST to a local mock endpoint. The latter confirms `store:false`, exact source-time input, a single provider call, response decoding and a `staged_not_played` acknowledgment without touching the actual OpenAI API.
+- **Acceptance boundary remains unchanged:** passing compilation and local HTTP tests do not prove that the on-screen keyboard, GTA entity adoption, decorated lifetime cookies or plugin lifecycle work inside GTA. No real NPC actions, TTS, PCM, history commitment or Essential cutover is enabled.
+
 ## Remaining gates and limitations
 
 - **Physical GTA acceptance (blocking game activation):** confirm the installed Enhanced RPH API, plugin load/unload/fiber sequencing and DECOR registration/cookie behavior under deletion/handle+address reuse. There is no proven universal game entity destruction hook. The explicit `false` lifetime gate must remain until real tests pass.
-- **Real player UX:** the independent console bridge is implemented but **cannot authorize an NPC while the gate is closed**; GTA on-screen keyboard/menu/controller target picker remains an integration step, not a proven feature.
-- **Actual provider/live dialogue:** offline uses deterministic fixtures and simulated authority; no live Responses API call, game target, playback or lip sync was exercised.
+- **Real player UX:** both `LSAStandaloneAsk "text"` (RPH console) and `LSAStandaloneCompose` (GTA on-screen keyboard) are independently compiled. They refuse NPC admission while the physical lifetime gate is closed. No live in-game keyboard, menu or controller targeting was tested; the full UX4 picker belongs to Phase 6.
+- **Actual provider/live dialogue:** offline uses a deterministic fixture and a real loopback HTTP server exercised through the production Responses adapter, plus the independent .NET Framework native host. No live OpenAI service call, game target, playback or lip sync was exercised.
 - **History/continuity boundary:** session IDs and prior *player text* are retained for modeling within an active transport. Since Phase 4 native audible success has not occurred, the system cannot claim completed NPC turns or durable multi-turn assistant history.
 - **Later phases:** Phase 4 implements real PCM/audio, source receipts and history commit; Phase 5 performs the first end-to-end GTA vertical slice; Phase 6 adds PTT and UX4 targeting. Gameplay parity with Essential is not yet achieved.
 
