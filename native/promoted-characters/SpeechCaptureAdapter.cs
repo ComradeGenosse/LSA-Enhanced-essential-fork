@@ -17,7 +17,8 @@ namespace LSA.PromotedCharacters
         const string CoreHash = "9b6de42d4c464901d859dd95e17e100e4fa9ef6074bfbb0cf3a57a76f6ddd653";
         const int StartToken = 0x0600016f, StopToken = 0x06000170;
         const int Limit = 32, TimeoutMs = 30000;
-        static SpeechCaptureAdapter installed;
+        static volatile SpeechCaptureAdapter installed;
+        readonly object gate = new object();
         static bool patched;
         readonly HostContext host;
         readonly EssentialMicState mic = new EssentialMicState();
@@ -136,51 +137,54 @@ namespace LSA.PromotedCharacters
             try {address=ped.MemoryAddress;}catch{return;}
             if(address==IntPtr.Zero)return;
             long now=host.MonotonicMs;uint tick=unchecked((uint)Game.GameTime);
-            if(current!=null) {
-                if(ReferenceEquals(current.Ped,ped) && current.Address==address)return;
-                Emit("ended","replaced",current,tick,now);
+            lock(gate) {
+                if(disabled)return;
+                if(current!=null) {
+                    if(ReferenceEquals(current.Ped,ped) && current.Address==address)return;
+                    Emit("ended","replaced",current,tick,now);
+                }
+                current=new Live{Id=Guid.NewGuid().ToString("D"),Ped=ped,Address=address,Started=now,WorldEpoch=host.WorldEpoch};
+                Emit("started",null,current,tick,now);
             }
-            current=new Live{Id=Guid.NewGuid().ToString("D"),Ped=ped,Address=address,Started=now,WorldEpoch=host.WorldEpoch};
-            Emit("started",null,current,tick,now);
         }
         void ObserveStop(StopSample before)
         {
-            if(disabled || before==null || current==null)return;
-            if(!ReferenceEquals(before.Ped,current.Ped) || before.Address!=current.Address)return;
-            // A failed SendMicStop is not a terminal event.
-            if(!mic.TryRead(out var after)) {
-                Emit("ended","unknown_mic_state",current,before.Tick,before.Time);
-                current=null;return;
+            if(disabled || before==null)return;
+            var readable=mic.TryRead(out var after);
+            bool stillOwned=false;
+            try {stillOwned=readable && after!=null && ReferenceEquals(after,before.Ped) && after.MemoryAddress==before.Address;} catch {readable=false;}
+            lock(gate) {
+                if(disabled || current==null || !ReferenceEquals(before.Ped,current.Ped) || before.Address!=current.Address)return;
+                // A failed SendMicStop is not a terminal event. Clock is sampled
+                // after the Core stop, not at the earlier prefix.
+                if(stillOwned)return;
+                Emit("ended",readable?"released":"unknown_mic_state",current,
+                    unchecked((uint)Game.GameTime),host.MonotonicMs);
+                current=null;
             }
-            if(after!=null && ReferenceEquals(after,before.Ped) && after.MemoryAddress==before.Address)return;
-            Emit("ended","released",current,before.Tick,before.Time);
-            current=null;
         }
         internal void Reconcile()
         {
-            if(disabled || current==null)return;
+            if(disabled)return;
             long now=host.MonotonicMs;
             bool valid=mic.TryRead(out var active);
             IntPtr address=IntPtr.Zero;
             try {if(active!=null)address=active.MemoryAddress;}catch{valid=false;}
-            string reason=current.WorldEpoch!=host.WorldEpoch?"world_reset":
-                now-current.Started>TimeoutMs?"timeout":
-                !valid?"unknown_mic_state":
-                !ReferenceEquals(active,current.Ped)||address!=current.Address?"ownership_lost":null;
-            if(reason!=null) {
-                Emit("ended",reason,current,unchecked((uint)Game.GameTime),now);
-                current=null;
+            lock(gate) {
+                if(current==null || disabled)return;
+                string reason=current.WorldEpoch!=host.WorldEpoch?"world_reset":
+                    now-current.Started>TimeoutMs?"timeout":
+                    !valid?"unknown_mic_state":
+                    !ReferenceEquals(active,current.Ped)||address!=current.Address?"ownership_lost":null;
+                if(reason!=null) {
+                    Emit("ended",reason,current,unchecked((uint)Game.GameTime),now);
+                    current=null;
+                }
             }
         }
-        internal Fact Take() => pending.Count==0?null:pending.Dequeue();
-        internal void Reset()
-        {
-            current=null;pending.Clear();
-        }
-        internal void Disable()
-        {
-            disabled=true;overflow=true;Reset();
-        }
+        internal Fact Take() {lock(gate)return pending.Count==0?null:pending.Dequeue();}
+        internal void Reset() {lock(gate) {current=null;pending.Clear();}}
+        internal void Disable() {lock(gate) {disabled=true;overflow=true;current=null;pending.Clear();}}
         internal void Detach()
         {
             Reset();disabled=true;
