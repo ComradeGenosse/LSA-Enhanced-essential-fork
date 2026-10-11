@@ -305,12 +305,12 @@ export async function handleMemoryClarificationReply({line,scope,store,clarifica
   // Correction may combine the frozen ordinal with exact replacement bytes in
   // one accepted reply: "first: it was blue". A one-candidate clarification
   // also accepts an explicit "I actually said blue" response.
-  const choice=/^(?:the )?(first|one|1|second|two|2)(?: one)?(?:\\s*[:,-]\\s*(.+))?[.!]?$/i.exec(text);
+  const choice=/^(?:the )?(first|one|1|second|two|2)(?: one)?(?:\s*[:,-]\s*(.+))?[.!]?$/i.exec(text);
   let index=choice ? /^(?:first|one|1)$/i.test(choice[1])?0:1:-1;
   let correctionContent=choice?.[2]?.trim() || null;
   if(index<0 && saved.parsed.intent==='correct' &&
       saved.alternatives.length===1 && !saved.parsed.content) {
-    const replacement=/^(?:no[,]?\\s*)?(?:i\\s+(?:actually\\s+)?(?:said|meant)|it\\s+was|the\\s+correct(?:ed)?\\s+(?:wording|text)\\s+is)\\s+(.+)$/i.exec(text);
+    const replacement=/^(?:no[,]?\s*)?(?:i\s+(?:actually\s+)?(?:said|meant)|it\s+was|the\s+correct(?:ed)?\s+(?:wording|text)\s+is)\s+(.+)$/i.exec(text);
     if(replacement){index=0;correctionContent=replacement[1].trim();}
   }
   if(index<0 || index>=saved.alternatives.length)return result(
