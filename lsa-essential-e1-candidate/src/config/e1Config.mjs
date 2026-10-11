@@ -122,7 +122,7 @@ export function normalizeConfig(input = {}, env = process.env) {
   // The local runtime must never forward a real OpenAI API credential to this endpoint.
   const local = new URL(qwenTts.baseUrl);
   if (local.protocol !== 'http:' || !['localhost','127.0.0.1','[::1]'].includes(local.hostname))
-    throw new TypeError('qwenTts.baseUrl must be an HTTP loopback URL.
+    throw new TypeError('qwenTts.baseUrl must be an HTTP loopback URL.');
   if (!['openai', 'gemini'].includes(selectedProvider)) throw new TypeError('E1 provider must be openai or gemini.');
   const defaults = {
     reasoningModel: 'gpt-6-luna', reasoningEffort: 'low', transcriptionModel: 'gpt-transcribe',
