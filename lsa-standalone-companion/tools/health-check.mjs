@@ -30,6 +30,25 @@ try {
     try { await client.request('turn.confirm', claims); }
     catch (error) { replayDenied = error.message === 'native_rejected_invalid_ticket'; }
     if (!replayDenied) throw new Error('duplicate_confirmation_accepted');
+    // The reply is only staged for Phase 4 playback; it is not a receipt
+    // asserting that the NPC spoke or that dialogue history can be committed.
+    const staged = await client.request('turn.reply', {
+      turnId: claims.turnId, actorIncarnationId: claims.actorIncarnationId,
+      leaseId: claims.leaseId, generation: claims.generation,
+      replyText: 'Fixture answer, not played.'
+    });
+    if (staged.status !== 'staged_not_played') throw new Error('reply_not_staged');
+    let duplicateDenied = false;
+    try {
+      await client.request('turn.reply', {
+        turnId: claims.turnId, actorIncarnationId: claims.actorIncarnationId,
+        leaseId: claims.leaseId, generation: claims.generation,
+        replyText: 'Duplicate should fail.'
+      });
+    } catch (error) {
+      duplicateDenied = error.message === 'native_rejected_reply_already_staged';
+    }
+    if (!duplicateDenied) throw new Error('duplicate_reply_accepted');
     const { sessionNonce, source, ...cancelClaims } = claims;
     const cancelled = await client.request('turn.cancel', cancelClaims);
     if (cancelled.status !== 'ok') throw new Error('fixture_cancel_failed');
