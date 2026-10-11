@@ -65,7 +65,7 @@ function evidence(db,s,id){
  return null;
 }
 function activeTombstone(db,s,id) {
- return db.prepare('SELECT command_id AS commandId FROM memory_tombstones WHERE world_profile_id=? AND character_id=? AND timeline_id=? AND target_id=?').get(s.characterId,s.worldProfileId,s.timelineId,id);
+ return db.prepare('SELECT command_id AS commandId FROM memory_tombstones WHERE world_profile_id=? AND character_id=? AND timeline_id=? AND target_id=?').get(s.worldProfileId,s.characterId,s.timelineId,id);
 }
 function dependentIds(db,s,ids){
  const found=new Set(ids);
