@@ -1,0 +1,68 @@
+name: Memory H combined integration acceptance
+on:
+  pull_request:
+    paths:
+      - 'lsa-shared-brain/**'
+      - 'lsa-essential-e1-candidate/src/**'
+      - 'lsa-essential-e1-candidate/tests/memory*.test.mjs'
+      - 'lsa-essential-e1-candidate/tests/m2-journal.test.mjs'
+      - 'lsa-essential-e1-candidate/tests/m3-completion.test.mjs'
+      - 'contracts/memory.v1.json'
+      - 'native/intelligence/m9/**'
+      - 'native/intelligence/m9-tests/**'
+      - 'docs/plans/promoted-npc-memory/MEMORY-INTEGRATION-ACCEPTANCE.md'
+      - '.github/workflows/memory-h-integration.yml'
+  push:
+    branches:
+      - integration/memory-completion-h-review-20261011
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  merged-js:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        node: [24]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+      - name: Static source syntax, including modified production seams
+        run: |
+          node --check lsa-essential-e1-candidate/src/bootstrap.mjs
+          node --check lsa-essential-e1-candidate/src/integration/essentialGlue.mjs
+          node --check lsa-essential-e1-candidate/src/openai/runSequentialTurn.mjs
+          node --check lsa-shared-brain/src/characters/sqliteFoundation.mjs
+          node --check lsa-shared-brain/src/characters/sqliteProfileStore.mjs
+          node --check lsa-shared-brain/src/memory/integrationPorts.mjs
+          node --check lsa-shared-brain/src/memory/m2TurnCapture.mjs
+          node --check lsa-shared-brain/src/memory/sqliteIntegratedRecallProjection.mjs
+          node --check lsa-shared-brain/src/memory/recallSchemaV1.mjs
+          node --check lsa-shared-brain/src/memory/explicitCommands.mjs
+          node --check lsa-shared-brain/src/memory/m5SqlitePrivacy.mjs
+          node --check lsa-shared-brain/src/memory/m6Coordinator.mjs
+          node --check lsa-shared-brain/src/memory/idleCurationScheduler.mjs
+          node --check lsa-shared-brain/src/memory/lunaCurator.mjs
+          node --check lsa-shared-brain/src/events/m3ObserverOwnerBinder.mjs
+          node --check lsa-shared-brain/src/events/m3CoverageSqlite.mjs
+          node --check lsa-shared-brain/src/events/m9EventProducers.mjs
+          node --check lsa-shared-brain/src/events/m9MemoryCues.mjs
+      - name: Memory v1 schema and M2 M3 M9 evidence
+        run: |
+          node --test lsa-essential-e1-candidate/tests/memory-contract-v1.test.mjs lsa-essential-e1-candidate/tests/m2-journal.test.mjs lsa-essential-e1-candidate/tests/m3-completion.test.mjs lsa-essential-e1-candidate/tests/memory-agent-b-events.test.mjs lsa-essential-e1-candidate/tests/memory-m9-completion.test.mjs
+      - name: M4 M5 M6 M7 and cross-agent real SQLite
+        run: |
+          node --test lsa-shared-brain/tests/memory-m4-recall.test.mjs lsa-shared-brain/tests/memory-m5-completion.test.mjs lsa-shared-brain/tests/memory-m6-completion.test.mjs lsa-shared-brain/tests/memory-m6-sqlite.test.mjs lsa-shared-brain/tests/memory-m7-completion.test.mjs lsa-shared-brain/tests/memory-integrated-storage.test.mjs
+  pinned-native:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - name: Isolated M9 DamageTracker source adapter harness (NOT GTA)
+        run: dotnet run --project native/intelligence/m9-tests/M9NativeTests.csproj --configuration Release
