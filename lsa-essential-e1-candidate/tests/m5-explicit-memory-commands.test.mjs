@@ -114,10 +114,23 @@ test('M5 ambiguous this asks rather than selecting a moment at random',async t=>
   assert.equal(response.durableCommit,false);
   assert.equal((await store.inspect({scope})).memoryCount,0);
 });
+test('M5 ambiguity exposes bounded alternatives in a sideband, not in memoryAction',async t=>{
+  const {store}=await setup(t);
+  await store.seedCandidate(candidate('Crash one',-5));
+  await store.seedCandidate(candidate('Crash two',-6));
+  let prompt;
+  const response=await act(store,line('Remember this'),{
+    onClarification: info=>{prompt=info;}
+  });
+  isAction(response);
+  assert.equal(response.outcome,'clarify');
+  assert.equal(prompt.alternatives.length,2);
+  assert.match(prompt.prompt,/Which one/);
+});
 test('M5 reported or cross-world evidence is ineligible',async t=>{
   const {store}=await setup(t);
   await store.seedCandidate(candidate('An unverified crash',-5,{receiptStatus:'reported'}));
-  await store.seedCandidate(candidate('A crash by Michael',-6,{protagonistKey:'michael'}));
+  await assert.rejects(store.seedCandidate(candidate('A crash by Michael',-6,{protagonistKey:'michael'})),/memory_scope_conflict/);
   const response=await act(store,line('Remember this crash'));
   assert.equal(response.outcome,'clarify');
 });
