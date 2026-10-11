@@ -19,6 +19,9 @@ namespace LSA.Standalone
         internal readonly List<byte[]> Chunks = new List<byte[]>();
         internal int NextIndex;
         internal int Bytes;
+        public int BufferedBytes { get { return Bytes; } }
+        public int BufferedChunks { get { return NextIndex; } }
+        public bool IsSealed { get { return Sealed; } }
         internal bool Sealed;
         internal bool Retired;
         internal NativeAudioTicket(NativeTurnPermit turn, OwnershipLease lease, int sampleRate)
