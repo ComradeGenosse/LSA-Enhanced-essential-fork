@@ -79,6 +79,11 @@ export function createNativeMemoryAuthority({
     for(const o of p.owners){
       if(!validOwner(o)||o.hostRunId!==next.hostRunId||
          o.worldEpoch!==next.worldEpoch||copy.has(o.observerCaptureRef))return clear();
+      // Native captureRefs are incarnation-scoped; any same-stream recycling
+      // across owners is a source-fence violation, even if the handle matches.
+      const old=owners.get(o.observerCaptureRef);
+      if(context&&f.streamId===context.streamId&&old&&
+         !same(old,o,ownerKeys))return clear();
       copy.set(o.observerCaptureRef,immutable(o));
     }
     let subject=null;
