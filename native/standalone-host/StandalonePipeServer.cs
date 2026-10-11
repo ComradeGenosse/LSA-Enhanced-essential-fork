@@ -214,6 +214,36 @@ namespace LSA.Standalone.RageHost
                         reply["sealed"] = sealedAudio;
                     }
                 }
+                else if (req.Type == "audio.playback")
+                {
+                    // Separate opt-in receipt message. Existing audio.status
+                    // retains its v1 byte-credit schema and stays NOT PLAYED.
+                    int queued, accepted, forwarded;
+                    bool sealedInput;
+                    bool current = audio.TryStatus(Claim(req.Frame, "streamId"),
+                        Claim(req.Frame, "audioLeaseId"), Claim(req.Frame, "audioGeneration"),
+                        Claim(req.Frame, "turnId"), Claim(req.Frame, "actorIncarnationId"),
+                        out queued, out accepted, out forwarded, out sealedInput);
+                    reply["status"] = current ? "device_unavailable" : "stale_audio";
+                    if (current)
+                    {
+                        AudioPlaybackSnapshot proof;
+                        if (audio.TryPhysicalStatus(Claim(req.Frame, "streamId"),
+                            Claim(req.Frame, "audioLeaseId"), Claim(req.Frame, "audioGeneration"),
+                            Claim(req.Frame, "turnId"), Claim(req.Frame, "actorIncarnationId"),
+                            out proof))
+                        {
+                            reply["status"] = proof.State == "playback_completed"
+                                ? "playback_completed" :
+                                proof.State == "failed" ? "device_failed" : "device_progress";
+                            reply["playbackState"] = proof.State;
+                            reply["playedBytes"] = proof.PlayedSourceBytes;
+                            reply["submittedBytes"] = proof.SubmittedSourceBytes;
+                            reply["mouthLevel"] = proof.MouthLevel;
+                            reply["sealed"] = sealedInput;
+                        }
+                    }
+                }
                 else if (req.Type == "audio.segment")
                 {
                     string reason;
@@ -329,6 +359,7 @@ namespace LSA.Standalone.RageHost
                         type == "audio.open" ? "audio.open.result" :
                         type == "audio.chunk" ? "audio.chunk.result" :
                         type == "audio.status" ? "audio.status.result" :
+                        type == "audio.playback" ? "audio.playback.result" :
                         type == "audio.end" ? "audio.end.result" :
                         type == "audio.segment" ? "audio.segment.result" :
                         type == "audio.cancel" ? "audio.cancel.result" : "request.rejected";
@@ -341,7 +372,7 @@ namespace LSA.Standalone.RageHost
                              type == "turn.segments.end" || type == "audio.segment" ||
                              type == "audio.open" || type == "audio.chunk" ||
                              type == "audio.end" || type == "audio.cancel" ||
-                             type == "audio.status")
+                             type == "audio.status" || type == "audio.playback")
                     {
                         if (!ValidCommandFields(type, frame)) return;
                         if (Interlocked.Increment(ref pendingCount) > MaxQueued)
@@ -375,7 +406,7 @@ namespace LSA.Standalone.RageHost
                 type == "turn.segment" ? 13 :
                 type == "turn.segments.end" ? 12 :
                 type == "audio.open" || type == "audio.cancel" ||
-                type == "audio.status" ? 12 :
+                type == "audio.status" || type == "audio.playback" ? 12 :
                 type == "audio.chunk" || type == "audio.end" ||
                 type == "audio.segment" ? 14 : 7;
             if (frame.Count != count) return false;
@@ -402,7 +433,8 @@ namespace LSA.Standalone.RageHost
                 return Fields(frame, "turnId", "actorIncarnationId", "leaseId", "generation") &&
                     IntField(frame, "sampleRate", NativeAudioRegistry.Rate,
                         NativeAudioRegistry.Rate);
-            if (type == "audio.cancel" || type == "audio.status")
+            if (type == "audio.cancel" || type == "audio.status" ||
+                type == "audio.playback")
                 return Fields(frame, "streamId", "audioLeaseId", "audioGeneration",
                     "turnId", "actorIncarnationId");
             if (type == "audio.chunk")
@@ -474,7 +506,8 @@ namespace LSA.Standalone.RageHost
                 type == "turn.reply" || type == "turn.segments.end" ? value.Count == 12 :
                 type == "turn.segment" ? value.Count == 13 :
                 type == "audio.open" || type == "audio.cancel" ||
-                type == "audio.status" ? value.Count == 12 :
+                type == "audio.status" || type == "audio.playback" ?
+                    value.Count == 12 :
                 type == "audio.chunk" || type == "audio.end" ||
                 type == "audio.segment" ? value.Count == 14 :
                 value.Count == 7;
