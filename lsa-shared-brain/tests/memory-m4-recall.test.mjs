@@ -133,3 +133,15 @@ test('archived quote FTS and 10k-record retrieval p95 measurement',async()=>{
   assert.ok(Number.isFinite(p95));
  }finally{f.close();}
 });
+
+test('recent speaker line, conservative oldest and chronological followup remain safe',async()=>{
+ const f=fixture(),s=scope();try{
+  f.add(s,dialogue(s,'one more banana',{at:'2026-10-11T19:00:00.000Z'}));
+  f.add(s,dialogue(s,'newest pineapple'));
+  assert.equal((await recall(f,s,'what did I just say?',{intent:'exact_quote'})).bundle.items[0].content,'newest pineapple');
+  assert.equal((await recall(f,s,'what was the first thing I said?',{intent:'exact_quote'})).bundle.status,'unavailable');
+  const begin=await recall(f,s,'what did I say?',{intent:'exact_quote'});
+  const prior=await recall(f,s,'before that?',{intent:'exact_quote',followup:begin.continuation});
+  assert.equal(prior.bundle.items[0].content,'one more banana');
+ }finally{f.close();}
+});

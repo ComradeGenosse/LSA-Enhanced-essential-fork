@@ -121,8 +121,8 @@ export async function recallMemory({query,readAdapter,protagonistKey,nowUtc=new 
   assert(readAdapter&&typeof readAdapter.read==='function','missing_recall_adapter');
   const scope={characterId:query.characterId,worldProfileId:query.worldProfileId,timelineId:query.timelineId,protagonistKey};
   const follow=isFollowup(query.question)&&followup&&followup.scopeKey===scopeKey(scope)&&Array.isArray(followup.terms)&&validTime(followup.expiresAtUtc)&&Date.parse(followup.expiresAtUtc)>=Date.parse(nowUtc);
-  const terms=follow?followup.terms.filter(t=>typeof t==='string').slice(0,12):compactTerms(query.question);
-  const window=timeWindow(query.question,Date.parse(nowUtc));
+  const cleanQuestion=query.question.replace(/\b20\d{2}-\d{2}-\d{2}\b/g,' ').replace(/\b(?:last|past)\s+(?:two|2|few|couple of|24|60)\s+(?:minutes?|hours?|days?)\b/gi,' ');\n  const terms=follow?followup.terms.filter(t=>typeof t==='string'&&/^[\p{L}\p{N}]{2,48}$/u.test(t)).slice(0,12):compactTerms(cleanQuestion);
+  const window=timeWindow(query.question,Date.parse(nowUtc));\n  // Do not claim all-time oldest from a bounded candidate page.\n  if(/\b(first|earliest|oldest)\b/i.test(query.question))return {bundle:emptyBundle(query,'unavailable'),continuation:null};\n  if(follow&&validTime(followup.anchorUtc)){\n    if(/\bbefore that\b/i.test(query.question))window.toUtc=!window.toUtc||followup.anchorUtc<window.toUtc?followup.anchorUtc:window.toUtc;\n    if(/\bafter that\b/i.test(query.question))window.fromUtc=!window.fromUtc||followup.anchorUtc>window.fromUtc?followup.anchorUtc:window.fromUtc;\n  }
   const focusKind=kindForQuestion(query)??(follow?followup.sourceKind??null:null);
   const speaker=focusKind==='dialogue_line'?findSpeaker(query.question)??(follow?followup.speaker??null:null):null;
   let result;
@@ -156,6 +156,6 @@ export async function recallMemory({query,readAdapter,protagonistKey,nowUtc=new 
     bundle.coverage.returnedCount=bundle.items.length;
     if(!bundle.items.length){bundle.status='unavailable';bundle.coverage.status='unavailable';}
   }
-  const continuation=matchedCount?{scopeKey:scopeKey(scope),terms,sourceKind:focusKind,speaker,expiresAtUtc:utc(nowMs+300000)}:null;
+  const continuation=matchedCount?{scopeKey:scopeKey(scope),terms,sourceKind:focusKind,speaker,anchorUtc:rows[0]?.atUtc??null,expiresAtUtc:utc(nowMs+300000)}:null;
   return {bundle,continuation};
 }
