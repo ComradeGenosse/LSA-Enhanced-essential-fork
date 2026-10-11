@@ -25,10 +25,10 @@ function fixture({authority=true,sqlite=true}={}){
     characterId:C,pedId:ID.pedId,sessionNonce:ID.sessionNonce,claim});
   const frame=Object.freeze({version:1,protagonist:'franklin',revision:1,
     source:'native_player_model',hostRunId:H,worldEpoch:2});
-  let authCurrent=true,now=1000;
+  let activeFrame=frame,authCurrent=true,now=1000;
   const protagonistAuthority=authority?{
-    readVerified:()=>frame,
-    isCurrent:target=>authCurrent && target === frame,
+    readVerified:()=>activeFrame,
+    isCurrent:target=>authCurrent && target === activeFrame,
   }:null;
   const perception={epoch:R,stream:'test-stream',hostContext:hc,
     channelFresh:()=>true,now:()=>10000,current:()=>true,
@@ -59,7 +59,10 @@ function fixture({authority=true,sqlite=true}={}){
   const mood=createMoodRuntime({getRuntime:()=>runtime,
     protagonistAuthority,clock:()=>now});
   return {runtime,mood,db,perception,identityService,frame,makeTurn,
-    setNow:v=>{now=v;},revokeAuthority:()=>{authCurrent=false;}};
+    setNow:v=>{now=v;},revokeAuthority:()=>{authCurrent=false;},
+    switchProtagonist:(protagonist,revision)=>{
+      activeFrame=Object.freeze({...activeFrame,protagonist,revision});
+    }};
 }
 
 test('EA4 carries only one next-generation soft hint after verified native playback',()=>{
@@ -131,4 +134,22 @@ test('EA4 expires without timers and refuses forged protobuf-style model data',(
   f.setNow(23000);
   assert.equal(f.mood.readMood(next),null);
   assert.throws(()=>{f.frame.protagonist='trevor';},TypeError);
+});
+
+test('EA4 protagonist switch including Franklin→Michael→Franklin ABA never resurrects mood',()=>{
+  const f=fixture(),first=f.makeTurn(),next=f.makeTurn(5);
+  assert.equal(f.mood.onSpeechCompleted({...first,delivery,
+    receipt:receipt(first.identity)}),true);
+  f.switchProtagonist('michael',2);
+  assert.equal(f.mood.readMood(next),null);
+  f.switchProtagonist('franklin',3);
+  assert.equal(f.mood.readMood(next),null);
+  assert.equal(f.mood.size,0);
+});
+test('EA4 unavailable native protagonist report never fabricates a current hero',()=>{
+  const f=fixture(),first=f.makeTurn();
+  f.switchProtagonist('unknown',2);
+  assert.equal(f.mood.onSpeechCompleted({...first,delivery,
+    receipt:receipt(first.identity)}),false);
+  assert.equal(f.mood.size,0);
 });
