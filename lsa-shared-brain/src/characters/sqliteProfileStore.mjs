@@ -7,6 +7,7 @@ import { P2SqliteFoundation } from './sqliteFoundation.mjs';
 import { validateProfile, validateProfiles } from './profileSchema.mjs';
 import { addProfile, editProfile, changeMemory, removeProfile } from './profileCommands.mjs';
 import { TimelineGuard } from './timelineGuard.mjs';
+import { isUuid } from '../util/identity.mjs';
 
 const fail = code => { throw new Error(code); };
 
