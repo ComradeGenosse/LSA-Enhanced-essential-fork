@@ -51,7 +51,7 @@ async function inventory(root){
 }
 const canonicalTarget=await realpath(target);
 if(canonicalTarget!==target)fail('target_alias_or_symlink_forbidden');
-if(/[\\/]Program Files(?: \\(x86\\))?[\\/]/i.test(canonicalTarget)||
+if(/[\\/]Program Files(?: \(x86\))?[\\/]/i.test(canonicalTarget)||
    /[\\/]steamapps[\\/]common[\\/]/i.test(canonicalTarget))fail('active_game_real_location_forbidden');
 const markerPath=path.join(target,'.ea9-isolated-test-install.json');
 const marker=JSON.parse(await readFile(markerPath,'utf8'));
