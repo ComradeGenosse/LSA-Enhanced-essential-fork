@@ -406,3 +406,40 @@ test('M7 Essential pricing estimator blocks a billable fetch before reservation'
  assert.equal(h.calls.includes('release'),true);
  await s.stop();
 });
+
+
+test('M7 denies two overlapping batches even through separate same-world P2 store handles',async t=>{
+ const f=fixture(t);
+ let releaseRemote,notifyStart;
+ const started=new Promise(resolve=>{notifyStart=resolve;});
+ const h=hFixture(f,{provider:{
+   estimateMaxCostUsd:()=>.005,
+   async curateBatch(){notifyStart();return new Promise(resolve=>{releaseRemote=resolve;});}
+ }});
+ const a=h.make({consent:consent()}),b=h.make({consent:consent(),store:{...h.store}});
+ const running=a.checkpoint();
+ await started;
+ assert.equal((await b.checkpoint()).status,'busy');
+ assert.equal(h.calls.filter(x=>x==='claim').length,1);
+ h.nativeIdle.invalidate({micActive:true});
+ assert.equal((await running).status,'cancelled');
+ releaseRemote([f.appraisal]);
+ await new Promise(resolve=>setImmediate(resolve));
+ await Promise.all([a.stop(),b.stop()]);
+});
+
+test('M7 enforces timeout, no late SQLite commit and uncertain reservation settlement',async t=>{
+ const f=fixture(t),h=hFixture(f,{provider:{
+   estimateMaxCostUsd:()=>.005,
+   async curateBatch(){
+     return new Promise(resolve=>setTimeout(()=>resolve([f.appraisal]),1500));
+   }
+ }});
+ const s=h.make({consent:consent(),maxProviderMs:1000});
+ const result=await s.checkpoint();
+ assert.equal(result.status,'retry_scheduled');
+ assert.equal(h.calls.includes('commit'),false);
+ assert.equal(f.db.prepare('SELECT state FROM memory_budget_reservations').get().state,'settled');
+ assert.equal(f.db.prepare('SELECT state FROM memory_curation_jobs').get().state,'pending');
+ await s.stop();
+});
