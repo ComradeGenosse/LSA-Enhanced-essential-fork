@@ -1,4 +1,5 @@
 import {verifyDialogueKnowledgePayload} from './verifyDialogueKnowledgePayload.mjs';
+import { stageSharedMemory } from './stageSharedMemory.mjs';
 import { createRequire } from 'node:module';
 import { createHash } from 'node:crypto';
 import { copyFile, mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises';
@@ -384,6 +385,9 @@ export async function buildCandidate({ nativePayloadPath, sourcePath = stockBund
   await mkdir(target, { recursive: true });
   await writeFile(entry, patched.output, 'utf8');
   await copyDirectory(src, stagedE1);
+  // Copy the canonical host-neutral memory modules into the distributable E1 tree.
+  // Runtime imports must not rely on the source repository layout.
+  await stageSharedMemory({ projectRoot:root, stagedE1 });
   await copyFile(path.join(root, 'e1.config.example.json'), path.join(target, 'e1.config.example.json'));
   // Runtime bootstrap resolves this from ../data relative to e1/bootstrap.mjs.
   await mkdir(path.join(target,'data'),{recursive:true});
