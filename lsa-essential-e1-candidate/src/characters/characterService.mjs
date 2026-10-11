@@ -46,6 +46,7 @@ export class CharacterService {
     this.store = store || (storageConfig.storageMode === 'sqlite'
       ? createEssentialMemoryStorage({
           filePath:storageConfig.sqliteStorePath,
+          sourceRequired:true, // live M2 timelines must have verified native provenance
           legacyJsonPath:storageConfig.storePath,
           worldProfileId:config.persistentIdentity.worldProfileId
         })
