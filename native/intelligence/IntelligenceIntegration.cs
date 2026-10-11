@@ -307,20 +307,6 @@ namespace LSA.Intelligence
                 if(ownsHost) host.ObserveGameTick(tick);
                 previousTick=tick;
                 lineOfSightBudget=8;
-                if(speechCapture!=null) {
-                    speechCapture.Reconcile();
-                    for(int c01=0;c01<8;c01++) {
-                        var item=speechCapture.Take();
-                        if(item==null)break;
-                        // Ephemeral identity: an absent/mismatched mic Ped stays unbound.
-                        var anchor=anchors.Current.FirstOrDefault(a=>a.Kind=="ped" &&
-                            ReferenceEquals(a.Entity,item.Ped) && a.Address==item.Address);
-                        if(item.worldEpoch==host.WorldEpoch)
-                            channel.Send("utterance",new {utteranceVersion=1,item.utteranceId,item.phase,item.terminal,
-                                item.hostRunId,item.worldEpoch,item.gameTick,item.monotonicMs,
-                                item.inputSource,micPedRef=anchor?.CaptureRef});
-                    }
-                }
                 if(channel.ConnectionVersion!=connectionVersion) {ps3Receipts.Reset();director.Reset();connectionVersion=channel.ConnectionVersion;lock(rosterGate) {publishedAnchorStates.Clear();publishedObserverIndex.Clear();sampledSituations.Clear();}nextRefresh=0;}
                 if(now>=nextDiscovery) {
                     nextDiscovery=now+200;
@@ -399,6 +385,23 @@ namespace LSA.Intelligence
                         if(e==null||!e.Exists()||e==discoveryPlayer||e.Position.DistanceTo(discoveryPlayer.Position)>100) continue;
                         var p=e as Ped;var ownership=p==null?null:discoveryOwned.FirstOrDefault(o=>o.Ped==p);
                         Retain(ownership?.Ped??e,p==null?"vehicle":"ped",ownership?.Lifetime,false,ownership?.Current);
+                    }
+                }
+                // Drain C-01 only after the owner's regular anchor discovery and
+                // observer roster update. A Ped without an exact, current
+                // shared captureRef remains unbound, never inferred by name.
+                if(speechCapture!=null) {
+                    speechCapture.Reconcile();
+                    for(int c01=0;c01<8;c01++) {
+                        var item=speechCapture.Take();
+                        if(item==null)break;
+                        // Ephemeral identity: an absent/mismatched mic Ped stays unbound.
+                        var anchor=anchors.Current.FirstOrDefault(a=>a.Kind=="ped" &&
+                            ReferenceEquals(a.Entity,item.Ped) && a.Address==item.Address);
+                        if(item.worldEpoch==host.WorldEpoch)
+                            channel.Send("utterance",new {utteranceVersion=1,item.utteranceId,item.phase,item.terminal,
+                                item.hostRunId,item.worldEpoch,item.gameTick,item.monotonicMs,
+                                item.inputSource,micPedRef=anchor?.CaptureRef});
                     }
                 }
                 DrainDirectorCorePlayback();
