@@ -211,8 +211,13 @@ export async function runConversations({ rawConfig, env = {}, fetchImpl = global
         }
         const response = await fetchImpl(url, opts);
         if (!isModel || !response.body) return response;
+        // Record the last consumed model chunk. SSE consumers can stop at
+        // response.completed and cancel without ever reaching stream flush().
         const stream = response.body.pipeThrough(new TransformStream({
-          flush() { mark.model_end = clock() - started; },
+          transform(chunk, controller) {
+            mark.model_end = clock() - started;
+            controller.enqueue(chunk);
+          },
         }));
         return new Response(stream, { status: response.status, statusText: response.statusText,
           headers: response.headers });
