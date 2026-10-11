@@ -87,7 +87,8 @@ test('EA5 wrong host, wrong epoch, unsequenced and forged channel frames deny',(
       hostRunId:OTHER,worldEpoch:1,revision:5}};
   assert.equal(h.authority.acceptAuthenticatedFrame(fake),false);
   assert.equal(h.authority.isCurrent(old),false);
-  assert.equal(h.emit('michael',5,{sequence:501}).result,false);
+  assert.equal(h.emit('michael',5).result,true,'genuine next native frame can restore');
+  assert.equal(h.emit('michael',4).result,false,'older revision cannot replay');
   assert.equal(h.authority.readVerified(),null);
   assert.equal(h.emit('michael',6).result,true);
   h.setSource({worldEpoch:2});
