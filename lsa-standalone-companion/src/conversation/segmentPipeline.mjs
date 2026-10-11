@@ -34,7 +34,8 @@ export async function stageNativeSpeechSegments({
       audioGeneration: audio.audioGeneration,
       turnId: exact.turnId, actorIncarnationId: exact.actorIncarnationId
     };
-    const deadline = Date.now() + 2200;
+    const absoluteDeadline = Date.now() + 90000;
+    let lastProgressAt = Date.now(), lastForwarded = -1;
     for (;;) {
       try {
         const result = await client.request('audio.chunk', {
@@ -46,10 +47,16 @@ export async function stageNativeSpeechSegments({
         return;
       } catch (error) {
         if (error.message !== 'native_rejected_audio_backpressure') throw error;
-        if (Date.now() >= deadline) throw new Error('pcm_no_native_output_credit');
         const progress = await client.request('audio.status', envelope);
         if (progress.status !== 'not_played' || progress.sealed)
           throw new Error('pcm_invalid_output_state');
+        const now = Date.now();
+        if (progress.forwardedBytes > lastForwarded) {
+          lastForwarded = progress.forwardedBytes;
+          lastProgressAt = now;
+        }
+        if (now >= absoluteDeadline || now - lastProgressAt > 6500)
+          throw new Error('pcm_no_native_output_credit');
         if (progress.creditsBytes < data.length) await nap(40, signal);
       }
     }
