@@ -11,7 +11,7 @@ try { ({ DatabaseSync } = await import('node:sqlite')); } catch {}
 
 import { isUuid } from '../util/identity.mjs';
 import { PROFILE_LIMITS, validateProfiles } from './profileSchema.mjs';
-import { JOURNAL_SCHEMA_VERSION, migrateJournalSchema, assertJournalSchema, appendDialogue, appendEvent, readDialogue, findExactQuote, searchDialogue, readEvents } from '../memory/journalSqlite.mjs';
+import { JOURNAL_SCHEMA_VERSION, migrateJournalSchema, assertJournalSchema, appendDialogue, appendEvent, readDialogue, findExactQuote, searchDialogue, readEvents, readVerifiedEventEvidence } from '../memory/journalSqlite.mjs';
 
 export const SQLITE_PROFILE_SCHEMA = 2;
 const fail = code => { throw new Error(code); };
@@ -257,6 +257,10 @@ export class P2SqliteFoundation {
   appendJournalEvent(event,options={}){
     if(!this.#db)fail('sqlite_profile_uninitialized');
     return transaction(this.#db,()=>appendEvent(this.#db,event,this.worldProfileId,options));
+  }
+  readVerifiedEventEvidence(scope){
+    if(!this.#db)fail('sqlite_profile_uninitialized');
+    return readVerifiedEventEvidence(this.#db,scope,this.worldProfileId);
   }
   readDialogueLines(scope){if(!this.#db)fail('sqlite_profile_uninitialized');return readDialogue(this.#db,scope,this.worldProfileId);}
   findExactQuote(scope){if(!this.#db)fail('sqlite_profile_uninitialized');return findExactQuote(this.#db,scope,this.worldProfileId);}
