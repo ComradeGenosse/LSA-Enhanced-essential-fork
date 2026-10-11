@@ -77,6 +77,10 @@ export function validateClaim(c) {
   const provenance=['eventSignalId','reason'];
   if (!isUuid(c.details.eventSignalId) || !label(c.details.reason)) return false;
   if (keys(c.details,provenance)) return true;
+  // Source-verified native bullet damage joined to separately witnessed firing.
+  if(c.kind==='injured' && c.evidence.channel==='visual' && c.source && c.target &&
+     keys(c.details,[...provenance,'classification']))
+    return c.details.classification==='bullet';
   const self=c.evidence.channel==='self',sampled=self && c.evidence.basis==='sampled_state';
   if(c.kind==='injured' && self && c.evidence.basis==='native_callback' && keys(c.details,[...provenance,'damageDelta','armourDelta'])) return integer(c.details.damageDelta,100000) && integer(c.details.armourDelta,100000);
   if(c.kind==='action' && self && c.evidence.basis==='native_callback' && keys(c.details,[...provenance,'action','succeeded'])) return ['followtarget','waithere'].includes(c.details.action) && typeof c.details.succeeded==='boolean';
