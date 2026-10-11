@@ -37,6 +37,6 @@ export function renderDirectorEventContext(proposal,candidates,verifiedPlayerCap
     ? ', action '+claim.details.action :
     claim.kind==='location' && /^[A-Z0-9_]{1,16}$/.test(claim.details?.location)
       ? ', location '+claim.details.location : '';
-  const context=`You ${source} ${event} (${observation.severity}, ${claim.kind}${detail}). React briefly in character to this event; dialogue only, no actions.`;
+  const context=`${playerFired?'You saw':'You '+source} ${event} (${observation.severity}, ${claim.kind}${detail}). React briefly in character to this event; dialogue only, no actions.`;
   return context.length<=160 && !/[\r\n\t\0]/.test(context)?context:null;
 }
