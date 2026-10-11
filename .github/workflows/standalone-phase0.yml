@@ -21,9 +21,43 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Validate static scanner with isolated fixtures
-        run: node --test tools/standalone/phase0-inventory.test.mjs
-      - name: Generate and structurally validate source dependency inventory
+      - name: Validate source-audit code with isolated fixtures
+        run: node --test tools/standalone/phase0-inventory.test.mjs tools/standalone/phase0-static-review.test.mjs
+      - name: Generate full native/Node source census
         run: |
           node tools/standalone/phase0-inventory.mjs > "$RUNNER_TEMP/standalone-phase0-inventory.json"
-          node -e 'const x=require("node:fs");const r=JSON.parse(x.readFileSync(process.env.RUNNER_TEMP+"/standalone-phase0-inventory.json","utf8"));if(r.schemaVersion!==1||r.filesScanned<1||!Array.isArray(r.files))process.exit(1);console.log("Scanned source files:",r.filesScanned,"candidate dependency files:",r.filesWithMatches)'
+          node tools/standalone/phase0-static-review.mjs > "$RUNNER_TEMP/standalone-phase0-static-review.json"
+          node - <<'NODE'
+          const fs = require('node:fs');
+          const root = process.env.RUNNER_TEMP;
+          const inventory = JSON.parse(fs.readFileSync(root + '/standalone-phase0-inventory.json','utf8'));
+          const report = JSON.parse(fs.readFileSync(root + '/standalone-phase0-static-review.json','utf8'));
+          if (inventory.schemaVersion !== 1 || report.schemaVersion !== 1 ||
+              inventory.filesScanned !== report.filesScanned || report.filesScanned < 173 ||
+              !Array.isArray(inventory.scannedFiles) || inventory.scannedFiles.length !== report.filesScanned ||
+              report.directSymbolCount < 10 ||
+              !report.reviewFamilies.runtimeDomain?.length ||
+              !report.reviewFamilies.stockPatch?.length) throw Error('Phase 0 source coverage unexpectedly reduced');
+          const lines = [
+            '## Phase 0 static dependency census',
+            '',
+            '- Production source files scanned: **' + report.filesScanned + '**',
+            '- Files with original scanner candidate matches: **' + report.candidateDependencyFiles + '**',
+            '- Distinct direct native member names detected: **' + report.directSymbolCount + '**',
+            '- Reflective/native-review candidate files: **' + (report.reviewFamilies.nativeReflection?.length || 0) + '**',
+            '- Stock-patch candidate files: **' + (report.reviewFamilies.stockPatch?.length || 0) + '**',
+            '',
+            'Static source and CI test evidence only; **no RAGE/GTA runtime, physical audio or user install was tested**.',
+          ];
+          fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, lines.join('\n') + '\n');
+          console.log(lines.join('\n'));
+          NODE
+      - name: Retain replayable dependency-audit artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: standalone-phase0-dependency-inventory
+          path: |
+            ${{ runner.temp }}/standalone-phase0-inventory.json
+            ${{ runner.temp }}/standalone-phase0-static-review.json
+          if-no-files-found: error
+          retention-days: 30
