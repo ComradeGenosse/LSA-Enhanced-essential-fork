@@ -152,7 +152,8 @@ test('M1 editor hides unsupported mode and requires explicit timeline confirmati
     list:async()=>[]
   };
   const editor=await startCharacterEditor(service,{port:0});
-  t.after(async()=>{await editor.close();await store.close();});
+  // Close Windows SQLite WAL handles BEFORE workspace() removes the temp directory.
+  try {
   const html=await (await fetch(editor.url)).text();
   assert.match(html,/id="timelinePanel" hidden/);
   const token=html.match(/const auth="([a-f0-9]{64})"/)?.[1];
@@ -179,4 +180,8 @@ test('M1 editor hides unsupported mode and requires explicit timeline confirmati
   assert.equal((await api('timeline_list')).value.writable,true);
   store.onBoundary({reason:'clock_regression'});
   assert.equal((await api('timeline_list')).value.writable,false);
+  } finally {
+    await editor.close();
+    await store.close();
+  }
 });
