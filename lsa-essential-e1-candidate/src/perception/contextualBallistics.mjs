@@ -85,3 +85,27 @@ export function projectContextualBallistics({firing, witness, evidence = [], ver
   }
   return Object.freeze(item);
 }
+
+
+// Only a verified bullet-damage callback may be causally associated with
+// a separately witnessed firing event. Both observations must belong to
+// this exact observer, attacker, native adapter run and bounded game-tick
+// window. Native target sight is still required independently.
+export function witnessedBulletAttribution({signal,receipt,priorFiring,nativeRun,nowMonotonicMs}={}) {
+  if(signal?.kind!=='damage' || signal.producer!=='ped_damage' ||
+     signal.facts?.classification!=='bullet' || !uuid(signal.source) ||
+     !uuid(signal.target) || !tick(signal.gameTick) ||
+     receipt?.status!=='witnessed' || receipt.evidence?.channel!=='visual' ||
+     receipt.knowsTarget!==true || !uuid(receipt.observer?.captureRef) ||
+     !priorFiring || priorFiring.nativeRun!==nativeRun ||
+     priorFiring.observer!==receipt.observer.captureRef ||
+     priorFiring.shooter!==signal.source ||
+     !tick(priorFiring.gameTick) ||
+     !Number.isSafeInteger(nowMonotonicMs) ||
+     !Number.isSafeInteger(priorFiring.monotonicMs) ||
+     nowMonotonicMs<priorFiring.monotonicMs ||
+     nowMonotonicMs-priorFiring.monotonicMs>750 ||
+     ((signal.gameTick-priorFiring.gameTick)>>>0)>750)
+    return false;
+  return true;
+}
