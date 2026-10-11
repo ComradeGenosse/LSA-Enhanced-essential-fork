@@ -332,23 +332,20 @@ See:
 
 ## Current status
 
-Current `main` includes the production dialogue stack plus the merged identity, promoted-character, UX, perception and salience foundations:
+**Repository snapshot — October 11, 2026.** Current `main` includes the production E1–E6 dialogue stack, P0–P2 identities and promoted characters, UX0–UX4, PS0–PS3, ACT0–ACT2, plus the **experimental Phase 6 / PS4 / Phase 13a (PS6 Director)** integration merged by [PR #23](https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/pull/23) and subsequent fixes. **Merged does not mean installed, enabled, release-ready, or GTA-accepted.**
 
-- E1/E1.1, E2, E3, E4, E5 and E6 are implemented. E6 remains worth stress-testing for audible pre-terminal audio and real multi-segment continuation, but it no longer blocks roadmap progression.
-- P0 TURN_CONTEXT is merged and used by later stages. Its original standalone GTA checklist remains useful regression coverage rather than evidence that P0 is uninstalled.
-- P1 SESSION_IDENTITY is merged and is exercised by the live P2 promoted-character path.
-- P2 PROMOTED_CHARACTERS is merged and has been exercised in GTA for promotion, editor/profile memory editing, summon, follow/wait and native vehicle/driver behavior.
-- UX0–UX3 are merged: command bridge, gesture router, F11 menu, Current NPC / Characters / Controls / AI / Diagnostics.
-- **UX4 is now merged to `main`.** The current interaction is: normal hold = direct Talk with no selector bracket; tap = explicit target selection; repeated taps = cycle; explicit selection survives after the bracket fades and is used by the next hold. Shared Essential Talk-key interception is supported, so the existing controller binding can stay unchanged.
-- PS0/PS1, PS2 and corrected PS3 are merged. PS3 is deployed in shadow and live JSONL persistence plus real PS2→PS3 evaluation were verified in GTA. The October 5 run also exercised retained-history pressure without admission drops. The controlled native damage-callback probe remains open.
-- Player-speech witnessing remains intentionally disabled until a source-time capture/utterance receipt is proven. Post-STT text is not treated as hearing.
-- ACT0/ACT1 and ACT2 are substantial **implemented but unmerged** branches. They require reconciliation onto current `main`, post-hardening regression/build reruns and GTA probes before production enablement.
-- Radio R0–R2 is implemented on an unmerged branch as raw factual sampling only. CGE conversation gaze/engagement is planned/documented but not implemented.
-- PS4+ and ACT3+ remain future implementation work under the convergence architecture.
+- **E1–E6 / P0–P2 / UX0–UX4:** merged. P2 promotion, editor/manual memories, summon and controls have GTA evidence. Shared Essential Talk interception has GTA evidence; direct-hold/explicit-selector UX4 regression acceptance remains a separate gate.
+- **PS0–PS3:** merged; prior shadow GTA runs verified native PS2→PS3 evaluation, bounded JSONL persistence and retained-history pressure. Structured witness scenarios and the controlled damage-callback probe are still open. Player-speech hearing stays disabled without native source-time utterance proof.
+- **ACT0–ACT2:** merged by [PR #18](https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/pull/18), recorded hash-installed and GTA smoke-tested October 6. Individual ACT capability/default-off/physical-completion gates remain open.
+- **Phase 6 (C-05/C-06) and PS4:** implemented in the merged experimental baseline. PR #23 confirmed **one real GTA PS4→Luna gunfire-knowledge exchange** with actual generated speech and playback; that single success does **not** close the full 81-requirement PS4 acceptance audit or every Phase 6 physical gate.
+- **PS4 reliability fixes:** [PRs #27–#30](https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/pull/30) merged observer continuity, frozen knowledge acknowledgment, original PS3 grant age, and Director ticket/hydration repairs. These fix known code paths, not a blanket sustained-gameplay acceptance claim.
+- **PS6 / Phase 13a:** speech-only Director scheduling, guarded native admission, existing Essential turn/playback binding and lifecycle corrections are on `main` after [PR #31](https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/pull/31) and [PR #33](https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/pull/33). Native Director playback evidence was captured in troubleshooting, but post-fix reliable contextual spontaneous speech, entitlement consumption and end-to-end GTA acceptance remain to be reverified on the exact installed payload.
+- **PS6 chatter preset:** [PR #34](https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/pull/34) merged an **opt-in testing** preset: independently bounded 12 attempts/minute in companion and native admission versus the normal 4/minute. It requires a freshly built/installed native DLL and coordinated experimental configs; nothing is automatically enabled. See [testing preset configuration](docs/ps6-testing-chatter-preset.md).
+- **Radio R0–R5/v2:** integrated with PS4 on **open draft [PR #32](https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/pull/32)**; not on `main`, not GTA-accepted. Radio native text-ID, catalog and physical evidence gates are open.
+- **Contextual ballistics:** visual shooter/injury evidence work exists on **open draft [PR #35](https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/pull/35)**; not on `main`, and live damage-callback, native build and GTA gates remain open. Air/ground/surface precision is not claimed implemented.
+- **Later roadmap:** PS5 automatic experiential memory, memory-aware PS6 (13b), CGE, C-01/proximity hearing, PS7/social coordination, ACT3–ACT7 and E7 integrated soak/release acceptance remain distinct future phases.
 
-The latest live UX4/PS3 run is documented in [docs/ux4-ps3-run-analysis-20261005.md](docs/ux4-ps3-run-analysis-20261005.md). It verified shared Mouse4 suppression, three clean microphone turns, PS3 evaluation, JSONL persistence and history-pressure behavior. It did **not** validate the later direct-talk/explicit-selector UX refinement now on `main`; that refinement still needs a fresh GTA acceptance pass.
-
-Build/deployment state and physical acceptance are intentionally tracked separately. A phase can be merged without being physically accepted, and a local installation can lag repository `main`.
+The [October 5 UX4/PS3 run](docs/ux4-ps3-run-analysis-20261005.md), [playable v1.0 milestone](docs/lsa-v1-implementation-milestone.md), [PS4 acceptance audit](docs/ps4-v1-acceptance-audit.md) and [project roadmap](docs/ROADMAP.md) preserve the evidence and remaining gates. Keep **code merge, local GTA installation, experimental mode, and physical acceptance** as four different facts.
 
 ## Project layout
 
@@ -359,8 +356,8 @@ Build/deployment state and physical acceptance are intentionally tracked separat
 - [docs/ROADMAP.md](docs/ROADMAP.md) — authoritative current roadmap and implementation/deployment/acceptance distinctions.
 - [docs/UX4-talk-targeting-status.md](docs/UX4-talk-targeting-status.md) and [docs/UX4-talk-targeting-gta-acceptance.md](docs/UX4-talk-targeting-gta-acceptance.md) — merged UX4 behavior and its remaining GTA gates.
 - [docs/PS3-deterministic-salience-status.md](docs/PS3-deterministic-salience-status.md) and [docs/ux4-ps3-run-analysis-20261005.md](docs/ux4-ps3-run-analysis-20261005.md) — current PS3 implementation and live-run evidence.
-- [docs/ACT0-ACT1-status.md](docs/ACT0-ACT1-status.md) and [docs/ACT2-status.md](docs/ACT2-status.md) — implemented-but-unmerged activity work and open GTA gates.
-- [docs/radio-track-perception-r0-r2-status.md](docs/radio-track-perception-r0-r2-status.md) — implemented-but-unmerged raw radio sampler.
+- [docs/ACT0-ACT1-status.md](docs/ACT0-ACT1-status.md) and [docs/ACT2-status.md](docs/ACT2-status.md) — merged activity foundation, October 6 GTA smoke record and remaining capability gates.
+- [docs/radio-track-perception-r0-r2-status.md](docs/radio-track-perception-r0-r2-status.md) — early radio sampler history; current unmerged integration is draft PR #32.
 - [docs/plans/conversation-gaze-engagement/](docs/plans/conversation-gaze-engagement/) — bounded CGE head/eye attention plan.
 - [docs/research/system-convergence-architecture.md](docs/research/system-convergence-architecture.md), [dependency graph](docs/research/system-convergence-dependency-graph.md), [contract register](docs/research/system-contract-register.md), and [risk register](docs/research/system-convergence-risks.md) — forward system architecture and dependency constraints.
 - [docs/controller-setup.md](docs/controller-setup.md) — current controller/shared-Talk setup.
@@ -369,31 +366,25 @@ Build/deployment state and physical acceptance are intentionally tracked separat
 
 ## Roadmap
 
-At a glance:
+As of October 11 (see the [authoritative detailed roadmap](docs/ROADMAP.md)):
 
 ~~~text
-✅ E1/E1.1 · E2 · E3 · E4 · E5 · E6
-✅ P0 · P1 · P2
-✅ UX0–UX4
-✅ PS0/PS1 · PS2 · PS3   (shadow; damage-callback probe still open)
-
-🟡 ACT0/ACT1 implemented on branch, unmerged
-🟡 ACT2 implemented on branch, unmerged
-🟡 Radio R0–R2 implemented on branch, unmerged
-🔵 CGE planned
-→ PS4 TurnKnowledgeFrame / epistemic firewall
-→ ACT3 rich player activities
-→ Profile v2 / TimelineGuard / SubjectRef
-→ PS5 memory
-→ PS6 initiative ∥ ACT5 model-proposed activities
-→ PS7 social routing ⇄ ACT7 commitments/director integration
-→ ACT6 navigation ∥ PS8 verified sensors
-→ E7 integrated soak / acceptance
+✅ E1–E6 · P0–P2 · UX0–UX4
+✅ PS0–PS3 (shadow producer/evaluation evidence; acceptance partial)
+✅ ACT0–ACT2 (merged, GTA smoke-tested; individual physical gates open)
+🟡 Phase 6 / PS4: experimental code merged; one PS4→Luna GTA exchange verified
+🟡 PS6 / Phase 13a: experimental Director code and fixes merged; live acceptance open
+🟡 PS6 testing preset: opt-in 12/minute in both layers; requires rebuild/config
+🟡 Radio R0–R5/v2: draft PR #32, not merged or physically accepted
+🟡 Contextual ballistics R0: draft PR #35, not merged or physically accepted
+🔵 CGE, C-01/proximity hearing, PS5 memory, PS7 social routing: planned
+→ Validate exact deployed PS4/PS6 behavior, PS4 audit, Phase 6 and PS6 receipts
+→ Finish radio/ballistics separate source, build and GTA gates
+→ Optional playback-only gaze, ACT3–ACT7, memory-aware 13b and later phases
+→ E7 integrated regression, long-session acceptance and release gating
 ~~~
 
-The immediate consolidation order is: fresh UX4 GTA acceptance on current `main`; reconcile and merge ACT0/ACT1; reconcile and merge ACT2; then proceed with PS4 and ACT3 in parallel under the system-convergence contracts.
-
-See the full [project roadmap](docs/ROADMAP.md).
+The [October 9 playable v1.0 milestone](docs/lsa-v1-implementation-milestone.md) remains the **scope boundary** for the experimental implementation, not a statement that all physical GTA acceptance gates have passed. Original master-plan and research documents remain preserved as design/provenance, not a current branch-status inventory.
 
 ## Project relationship to the old custom LSA 2.1 branch
 
