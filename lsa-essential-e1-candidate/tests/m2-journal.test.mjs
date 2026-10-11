@@ -213,6 +213,20 @@ test('M2 intact v2 P2 database is migrated additively, unknown versions refused'
     await unsupported.close();
   }finally{await x.store.close();}
 });
+test('M2 explicit character removal deletes its dialogue in the same transaction',async t=>{
+  const x=await setup(t);
+  try{
+    await player(x);
+    assert.equal((await read(x)).length,1);
+    await x.store.remove(x.a.characterId,x.a.characterId,x.a.revision);
+    assert.equal((await read(x)).length,0);
+    const db=new DatabaseSync(x.filePath);
+    try{
+      assert.equal(db.prepare('SELECT count(*) n FROM dialogue_journal').get().n,0);
+      assert.equal(db.prepare('SELECT count(*) n FROM dialogue_journal_fts').get().n,0);
+    }finally{db.close();}
+  }finally{await x.store.close();}
+});
 test('M2 journal detects post-commit content tampering without leaking text in telemetry',async t=>{
   const x=await setup(t);
   try{
