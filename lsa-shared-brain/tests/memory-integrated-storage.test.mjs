@@ -285,3 +285,7 @@ test('H: strict M4 integrated projection uses existing P2 SQLite connection and 
    assert.equal(other.bundle.status,'unavailable');
  }finally{await x.store.close()}
 });
+
+// The combined PR #75 workflow runs this DB-owned suite explicitly.
+// Include closure-B adversarial fixtures without changing K-owned CI.
+import './memory-b-closure.test.mjs';
