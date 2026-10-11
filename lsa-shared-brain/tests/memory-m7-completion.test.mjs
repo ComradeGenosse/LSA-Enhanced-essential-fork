@@ -17,9 +17,10 @@ import {createEssentialM7Scheduler} from '../../lsa-essential-e1-candidate/src/m
 const id=n=>'00000000-0000-4000-8000-'+n.toString(16).padStart(12,'0');
 const at=n=>new Date(Date.UTC(2026,9,11,16,n)).toISOString();
 function fixture(t,{npc=1,world=2,timeline=3,lineId=4}={}){
- const root=mkdtempSync(path.join(tmpdir(),'m7-offline-'));t.after(()=>rmSync(root,{recursive:true,force:true}));
+ const root=mkdtempSync(path.join(tmpdir(),'m7-offline-'));
  const file=path.join(root,'memory.sqlite'),db=new DatabaseSync(file);
- t.after(()=>{try{db.close()}catch{}});
+ // Windows keeps SQLite files locked until the DatabaseSync handle closes.
+ t.after(()=>{try{db.close()}catch{} rmSync(root,{recursive:true,force:true});});
  db.exec('CREATE TABLE promoted_profiles (character_id TEXT PRIMARY KEY); CREATE TABLE dialogue_journal (record_id TEXT PRIMARY KEY,world_profile_id TEXT,timeline_id TEXT,character_id TEXT,speaker TEXT,source TEXT,delivery TEXT,receipt_id TEXT,protagonist TEXT); CREATE TABLE event_journal (record_id TEXT PRIMARY KEY,world_profile_id TEXT,timeline_id TEXT,character_id TEXT,receipt_status TEXT,source_hash TEXT); CREATE TABLE event_source_evidence (record_id TEXT PRIMARY KEY,source_evidence_json TEXT);');
  ensureIntegratedMemorySchema(db);ensureCurationSchema(db);
  const scope={characterId:id(npc),worldProfileId:id(world),timelineId:id(timeline)};
