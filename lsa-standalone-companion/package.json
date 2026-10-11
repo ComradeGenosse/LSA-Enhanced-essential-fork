@@ -4,7 +4,8 @@
   "type": "module",
   "scripts": {
     "test": "node --test tests/*.test.mjs",
-    "health": "node tools/health-check.mjs"
+    "health": "node tools/health-check.mjs",
+    "start": "node service.mjs"
   },
   "engines": { "node": ">=20" }
 }
