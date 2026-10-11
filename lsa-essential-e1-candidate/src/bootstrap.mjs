@@ -131,7 +131,13 @@ export async function createRuntimeForBundle(options = {}) {
           try { suppliedIntelligenceTelemetry?.(event,data); } catch {}
           try { telemetry?.emit?.(event,null,'internal',data,'internal'); } catch {}
         }};
-        runtime.intelligence=new IntelligenceClient(config.intelligence,intelligenceOptions);runtime.intelligence.start();
+        runtime.intelligence=new IntelligenceClient(config.intelligence,intelligenceOptions);
+        // EA4 is non-durable; clear on M1-authenticated save / native boundaries.
+        if(typeof runtime.intelligence.subscribeWorldBoundary==='function')
+          runtime.intelligence.subscribeWorldBoundary(()=>runtime.emotionalMood?.clear());
+        if(typeof runtime.intelligence.subscribeVerifiedHostContext==='function')
+          runtime.intelligence.subscribeVerifiedHostContext(()=>runtime.emotionalMood?.clear());
+        runtime.intelligence.start();
       }catch{try{console.warn('[PS] optional_channel_unavailable');}catch{}}
     } else try {console.warn('[PS] optional_perception_contract_unavailable');}catch{}
   }
