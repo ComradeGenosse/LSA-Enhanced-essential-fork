@@ -12,9 +12,13 @@ export function createResponsesProvider({
   if (typeof fetchImpl !== 'function') throw new Error('provider_fetch_missing');
 
   return {
-    async complete({ text, signal }) {
+    async complete({ text, previousPlayerInputs = [], signal }) {
       if (typeof text !== 'string' || !text.trim() || text.length > 1024)
         throw new Error('invalid_player_text');
+      if (!Array.isArray(previousPlayerInputs) || previousPlayerInputs.length > 6 ||
+          previousPlayerInputs.some(entry => typeof entry !== 'string' ||
+            !entry.trim() || entry.length > 1024))
+        throw new Error('invalid_source_time_context');
       const deadline = AbortSignal.timeout(20000);
       const bound = signal ? AbortSignal.any([signal, deadline]) : deadline;
       let response;
@@ -28,7 +32,11 @@ export function createResponsesProvider({
           body: JSON.stringify({
             model, store: false,
             instructions: 'You are a fictional GTA character speaking with the player. Answer naturally and briefly. Do not claim to have witnessed events unless verified world facts were provided. No actions or game effects are available.',
-            input: text,
+            // Only earlier *player* text is eligible before native playback
+            // completes. No unplayed assistant response enters model history.
+            input: previousPlayerInputs.length
+              ? [...previousPlayerInputs, text].map(value =>
+                  ({ role: 'user', content: value })) : text,
             max_output_tokens: 350
           }),
           signal: bound
