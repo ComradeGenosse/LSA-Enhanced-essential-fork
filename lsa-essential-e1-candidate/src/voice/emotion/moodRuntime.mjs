@@ -14,6 +14,7 @@ export function createMoodRuntime({ getRuntime, protagonistAuthority = null,
   clock = () => Math.floor(performance.now()), store = new MoodStore() } = {}) {
   if (typeof getRuntime !== 'function') throw new TypeError('mood_runtime_required');
   let lastLineage = null;
+  const deny = () => {store.clear();lastLineage=null;return null;};
   const current = ({identity,turn} = {}) => {
     const runtime = getRuntime();
     const identityService = runtime?.identityService;
@@ -27,23 +28,23 @@ export function createMoodRuntime({ getRuntime, protagonistAuthority = null,
         !isUuid(characterStore?.activeTimelineId) ||
         typeof protagonistAuthority?.readVerified !== 'function' ||
         typeof protagonistAuthority?.isCurrent !== 'function' ||
-        !perception || !identityService) return null;
+        !perception || !identityService) return deny();
     const host = identityService.evidence?.hostContext;
-    if (!sameHostContext(host,perception.hostContext)) return null;
+    if (!sameHostContext(host,perception.hostContext)) return deny();
     const ownerEvidence = projectActingEvidence({
       identity,turn,perception,identityService,
     });
     if (!ownerEvidence || ownerEvidence.identity.characterId !==
-        turn.characterSnapshot.resolution?.characterId) return null;
+        turn.characterSnapshot.resolution?.characterId) return deny();
     let verified;
-    try { verified = protagonistAuthority.readVerified(); } catch { return null; }
+    try { verified = protagonistAuthority.readVerified(); } catch { return deny(); }
     if (!verified || !Object.isFrozen(verified) || verified.version !== 1 ||
         verified.source !== 'native_player_model' ||
         !PROTAGONISTS.has(verified.protagonist) ||
         !isUuid(verified.hostRunId) || verified.hostRunId !== host.hostRunId ||
         verified.worldEpoch !== host.worldEpoch ||
         !Number.isSafeInteger(verified.revision) || verified.revision < 1 ||
-        protagonistAuthority.isCurrent(verified) !== true) return null;
+        (()=>{try{return protagonistAuthority.isCurrent(verified)===true;}catch{return false;}})() !== true) return deny();
     const lineage = JSON.stringify([characterStore.activeTimelineId,host.hostRunId,
       host.worldEpoch,verified.protagonist,verified.revision]);
     // Revocation, protagonist ABA, save switch and host rollover clear old mood.
@@ -82,7 +83,7 @@ export function createMoodRuntime({ getRuntime, protagonistAuthority = null,
         } catch { return false; }
       },
     };
-    return context.isCurrent() ? Object.freeze(context) : null;
+    return context.isCurrent() ? Object.freeze(context) : deny();
   };
   return Object.freeze({
     readMood({identity,turn}) {
