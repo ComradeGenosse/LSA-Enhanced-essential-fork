@@ -2,13 +2,15 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createSpeechDeliveryResolver} from '../src/voice/emotion/resolveSpeechDelivery.mjs';
 import {createElevenLabsSpeechProvider} from '../src/providers/elevenlabs/speechProvider.mjs';
+import {createDelivery} from '../src/voice/emotion/deliveryContract.mjs';
+import {emitTagged} from './helpers/eaFinalApplied.mjs';
 
 const ID=Object.freeze({pedId:'17',turnId:'a',generationId:2,sessionNonce:5});
-const DELIVERY=Object.freeze({
+const DELIVERY=createDelivery({
   version:1,value:'amused',source:'dialogue_cue',confidence:'soft',
   intensity:'subtle',evidenceRef:null,
 });
-const CONFIG=Object.freeze({speechProvider:'elevenlabs',
+const CONFIG=Object.freeze({speechProvider:'elevenlabs',elevenLabs:{modelId:'eleven_v4_turbo'},
   expressiveDelivery:{mode:'experimental',intensity:'subtle',maxTaggedSegmentsPerTurn:2}});
 const voiceId='JBFqnCBsd6RMkjVDRZzb';
 const voiceConfig=mode=>({
@@ -53,7 +55,7 @@ test('EA2 resolver is disabled by default and never invokes scene or mood adapte
   assert.equal(calls,0);
 });
 
-test('EA2 accepts only normalized selector results, forwards optional EA3 proposal as untrusted, and obeys per-turn budget',()=>{
+test('EA2 accepts only normalized selector results, forwards optional EA3 proposal as untrusted, and obeys per-turn budget',async()=>{
   const seen=[], events=[],done=[];
   const adapter={
     resolveDelivery:args=>{seen.push(args);return DELIVERY;},
@@ -69,15 +71,22 @@ test('EA2 accepts only normalized selector results, forwards optional EA3 propos
   assert.equal(seen[0].lunaHint,'sarcastic');
   assert.equal(seen[0].nowMonotonicMs,123);
   assert.equal(seen[0].currentSceneEvidence[0].verified,true);
-  resolver.synthesized(first, {ok:true,type:'playback_ended',wasInterrupted:false,hadAudio:true,playbackStarted:true});
+  const receipt={...ID,ok:true,type:'playback_ended',reason:'completed',
+    wasInterrupted:false,hadAudio:true,playbackStarted:true};
+  const {result:applied}=await emitTagged({identity:ID,delivery:first});
+  assert.equal(resolver.synthesized(first,receipt,applied),true);
+  resolver.complete(receipt,{historyAccepted:true});
   assert.equal(resolver.forSegment({text:'replay',sequence:1}),null);
   assert.ok(resolver.forSegment({text:'Second',sequence:2}));
   assert.equal(resolver.forSegment({text:'Third',sequence:3}),null,'no third tag');
   resolver.retire();resolver.retire();
   assert.equal(resolver.forSegment({text:'late',sequence:4}),null);
   assert.deepEqual(done,[first,'retired']);
-  assert.equal(events.length,3);
-  assert.deepEqual(events.map(x=>x.data.acted),[true,true,false]);
+  assert.equal(events.filter(e=>e.name==='acting_decision').length,3);
+  assert.deepEqual(events.filter(e=>e.name==='acting_decision').map(x=>x.data.eligible),
+    [true,true,false]);
+  assert.equal(events.filter(e=>e.name==='acting_tag_confirmed').length,0);
+  assert.equal(events.filter(e=>e.name==='acting_decision').every(e=>e.data.acted===false),true);
   assert.ok(!JSON.stringify(events).includes('First private sentence'));
   assert.ok(!JSON.stringify(events).includes('shortTerm'));
   assert.ok(!JSON.stringify(events).includes('"pedId"'));
