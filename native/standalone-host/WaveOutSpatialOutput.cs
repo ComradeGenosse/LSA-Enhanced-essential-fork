@@ -162,15 +162,17 @@ namespace LSA.Standalone.RageHost
                 if (waveOutWrite(v.Device, b.Header, size) != MMSYSERR_NOERROR)
                     throw new InvalidOperationException("write_failed");
                 v.Submitted += pcm.Length;
-                // Store amplitude from OUTPUT PCM, not predicted TTS text time.
-                // No GTA face animation is claimed at this stage.
-                for (int j = 0; j + 3 < stereo.Length; j += 4)
+                // The lip envelope comes from source PCM accepted by this
+                // exact device, and is indexed by driver-played sample count.
+                // Do NOT multiply by listener attenuation: a talking NPC
+                // keeps moving its mouth even when the player stands far away.
+                // Network/TTS availability alone never advances this clock.
+                for (int j = 0; j + 1 < pcm.Length; j += 2)
                 {
-                    short l = (short)(stereo[j] | stereo[j + 1] << 8);
-                    short r = (short)(stereo[j + 2] | stereo[j + 3] << 8);
-                    v.WindowEnergy += Math.Abs((int)l) + Math.Abs((int)r);
-                    v.WindowSamples += 2;
-                    if (v.WindowSamples == 960) // exact contiguous 20ms playback window
+                    short sample = (short)(pcm[j] | (pcm[j + 1] << 8));
+                    v.WindowEnergy += Math.Abs((int)sample);
+                    v.WindowSamples++;
+                    if (v.WindowSamples == 480) // 20ms at 24k mono
                     {
                         v.Envelope.Add((byte)Math.Min(100,
                             v.WindowEnergy * 100 / (v.WindowSamples * 16384L)));
