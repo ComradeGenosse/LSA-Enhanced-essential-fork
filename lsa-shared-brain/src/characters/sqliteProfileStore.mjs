@@ -220,6 +220,38 @@ export class P2SqliteProfileStore {
       return result;
     });
   }
+  // Scoped journal writes are serialized WITH the M1 source/lineage check.
+  // A player/NPC acknowledgment from a stale native host is never durable.
+  async appendDialogueLine(line,attribution) {
+    return this.withTimelineWrite(line?.timelineId,db=>{
+      if(this.#sourceRequired &&
+          (!this.#sourceContext || attribution?.hostRunId!==this.#sourceContext.hostRunId ||
+           attribution?.worldEpoch!==this.#sourceContext.worldEpoch)) fail('journal_source_epoch_mismatch');
+      return db.appendDialogueLine(line,attribution);
+    });
+  }
+  async appendJournalEvent(event) {
+    return this.withTimelineWrite(event?.timelineId,db=>
+      db.appendJournalEvent(event,{hostContext:this.#sourceContext}));
+  }
+  // Reads never switch save lineage or restore revoked write authorization;
+  // callers must supply their requested character AND explicit timeline.
+  async readDialogueLines(scope) {
+    await this.initialize();
+    return this.#serial(()=>{if(!this.available)fail('profile_store_unavailable');return this.#db.readDialogueLines(scope);});
+  }
+  async findExactQuote(scope) {
+    await this.initialize();
+    return this.#serial(()=>{if(!this.available)fail('profile_store_unavailable');return this.#db.findExactQuote(scope);});
+  }
+  async searchDialogue(scope) {
+    await this.initialize();
+    return this.#serial(()=>{if(!this.available)fail('profile_store_unavailable');return this.#db.searchDialogue(scope);});
+  }
+  async readJournalEvents(scope) {
+    await this.initialize();
+    return this.#serial(()=>{if(!this.available)fail('profile_store_unavailable');return this.#db.readJournalEvents(scope);});
+  }
   async close() {
     if (this.#closed) return;
     this.#closed = true;
