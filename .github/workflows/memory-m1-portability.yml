@@ -1,0 +1,41 @@
+name: M1 Shared Memory Portability
+
+on:
+  pull_request:
+    paths:
+      - 'lsa-shared-brain/**'
+      - 'lsa-essential-e1-candidate/**'
+      - 'lsa-standalone-companion/**'
+      - '.github/workflows/memory-m1-portability.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  memory-m1:
+    name: Node 24 / ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Probe SQLite and FTS5 (real runtime)
+        shell: bash
+        run: |
+          node -e "const {DatabaseSync}=require('node:sqlite'); const d=new DatabaseSync(':memory:');d.exec('CREATE VIRTUAL TABLE t USING fts5(body)');d.close(); console.log('SQLite FTS5 available on',process.version)"
+      - name: Exercise M1 migration and both host adapters
+        shell: bash
+        run: |
+          node --test lsa-essential-e1-candidate/tests/m1-sqlite-foundation.test.mjs lsa-essential-e1-candidate/tests/m1-shared-memory-parity.test.mjs
+      - name: Parse portable source and candidate packager
+        shell: bash
+        run: |
+          node --check lsa-shared-brain/src/characters/sqliteFoundation.mjs
+          node --check lsa-shared-brain/src/characters/sqliteProfileStore.mjs
+          node --check lsa-essential-e1-candidate/tools/buildCandidate.mjs
