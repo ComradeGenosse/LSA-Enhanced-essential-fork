@@ -49,9 +49,14 @@ export function createProtagonistAuthority({
       // One native host's revisions MUST advance through connection
       // replacement, world epoch and protagonist ABA; never rebase them
       // merely because the companion reconnected to a new stream.
-      if(host===lineage && payload.revision<=maxRevision) {
-        drop();return false;
-      }
+      const sameStream=source.sessionToken===session && last &&
+        frame.adapterEpoch===last.adapterEpoch && frame.streamId===last.streamId &&
+        payload.hostRunId===last.hostRunId && payload.worldEpoch===last.worldEpoch;
+      const heartBeat=host===lineage && sameStream &&
+        payload.revision===maxRevision &&
+        (current?.protagonist??'unknown')===payload.protagonist;
+      if(host===lineage && (payload.revision<maxRevision ||
+          (payload.revision===maxRevision && !heartBeat))) {drop();return false;}
       if(last && source.sessionToken===session &&
          (frame.adapterEpoch!==last.adapterEpoch ||
           frame.streamId!==last.streamId ||
@@ -67,7 +72,8 @@ export function createProtagonistAuthority({
       acceptedAt=now;
       // Even valid source-certified UNKNOWN never becomes the last good
       // known protagonist; it actively revokes that record.
-      current=payload.protagonist==='unknown'?null:Object.freeze({...payload});
+      current=payload.protagonist==='unknown'?null:
+        heartBeat ? current : Object.freeze({...payload});
       return true;
     },
     readVerified() {if(!current || !live())return null;return current;},
