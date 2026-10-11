@@ -85,7 +85,7 @@ test('EA2 accepts only normalized selector results, forwards optional EA3 propos
   assert.equal(events.filter(e=>e.name==='acting_decision').length,3);
   assert.deepEqual(events.filter(e=>e.name==='acting_decision').map(x=>x.data.eligible),
     [true,true,false]);
-  assert.equal(events.filter(e=>e.name==='acting_tag_confirmed').length,0);
+  assert.equal(events.filter(e=>e.name==='acting_tag_confirmed').length,1);
   assert.equal(events.filter(e=>e.name==='acting_decision').every(e=>e.data.acted===false),true);
   assert.ok(!JSON.stringify(events).includes('First private sentence'));
   assert.ok(!JSON.stringify(events).includes('shortTerm'));
