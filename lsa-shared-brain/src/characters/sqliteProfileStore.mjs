@@ -60,7 +60,12 @@ export class P2SqliteProfileStore {
         await this.#writer.sync();
         await this.#db.initialize();
         const selected = this.#db.activeTimelineId();
+        // A trusted reset can arrive before async SQLite bootstrap finishes.
+        // Never allow bootstrap to silently clear that pending write veto.
+        const pending = this.#timeline.pendingReason;
         this.#timeline = new TimelineGuard({ timelineId:selected });
+        if (pending === 'clock_regression' || pending === 'timeline_change')
+          this.#timeline.onBoundary({ reason:pending });
         return this.#db.snapshot;
       } catch (error) {
         this.#available = false;
