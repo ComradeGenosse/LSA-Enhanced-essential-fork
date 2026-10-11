@@ -172,6 +172,7 @@ export function resolveDelivery({
       !Number.isSafeInteger(nowMonotonicMs) || nowMonotonicMs < 0 ||
       typeof segmentText !== 'string' || !segmentText.trim() ||
       segmentText.length > SCENE_DELIVERY_BOUNDS.maxSegmentChars ||
+      /^\s*\[[^\]\r\n]{1,48}\]\s*$/.test(segmentText) ||
       !eligibleProjection(identity, currentSceneEvidence)) return NEUTRAL;
 
   const intensitySetting = INTENSITIES.has(config.intensity) ? config.intensity : 'subtle';
