@@ -112,6 +112,8 @@ namespace LSA.Standalone.RageHost
                             reply["leaseId"] = offer.LeaseId.ToString("D");
                             reply["generation"] = offer.Generation;
                             reply["source"] = offer.Source;
+                            if (offer.Source == "player_text" && offer.PlayerText != null)
+                                reply["playerText"] = offer.PlayerText;
                         }
                         else reply["status"] = "offer_retired";
                     }
@@ -125,6 +127,15 @@ namespace LSA.Standalone.RageHost
                         Claim(req.Frame, "leaseId"), Claim(req.Frame, "generation"),
                         Claim(req.Frame, "source"), out reason);
                     reply["status"] = accepted ? "ok" : reason;
+                }
+                else if (req.Type == "turn.reply")
+                {
+                    string reason;
+                    bool staged = turns.TryStageReply(Claim(req.Frame, "turnId"),
+                        Claim(req.Frame, "leaseId"), Claim(req.Frame, "generation"),
+                        Claim(req.Frame, "actorIncarnationId"),
+                        Claim(req.Frame, "replyText"), out reason);
+                    reply["status"] = staged ? "staged_not_played" : reason;
                 }
                 else if (req.Type == "turn.cancel")
                 {
@@ -202,12 +213,14 @@ namespace LSA.Standalone.RageHost
                         type == "host.snapshot" ? "host.snapshot.result" :
                         type == "turn.next" ? "turn.next.result" :
                         type == "turn.confirm" ? "turn.confirm.result" :
-                        type == "turn.cancel" ? "turn.cancel.result" : "request.rejected";
+                        type == "turn.cancel" ? "turn.cancel.result" :
+                        type == "turn.reply" ? "turn.reply.result" : "request.rejected";
                     var payload = new Dictionary<string, object>();
                     if (type == "health.ping")
                         payload["status"] = "ok";
                     else if (type == "host.snapshot" || type == "turn.next" ||
-                             type == "turn.confirm" || type == "turn.cancel")
+                             type == "turn.confirm" || type == "turn.cancel" ||
+                             type == "turn.reply")
                     {
                         if (!ValidCommandFields(type, frame)) return;
                         if (Interlocked.Increment(ref pendingCount) > MaxQueued)
@@ -236,11 +249,18 @@ namespace LSA.Standalone.RageHost
 
         private static bool ValidCommandFields(string type, Dictionary<string, object> frame)
         {
-            int count = type == "turn.confirm" ? 13 : type == "turn.cancel" ? 11 : 7;
+            int count = type == "turn.confirm" ? 13 :
+                type == "turn.cancel" ? 11 : type == "turn.reply" ? 12 : 7;
             if (frame.Count != count) return false;
             if (type == "turn.confirm")
                 return Fields(frame, "turnId", "sessionNonce", "actorIncarnationId",
                     "leaseId", "generation", "source");
+            if (type == "turn.reply")
+                return Fields(frame, "turnId", "actorIncarnationId",
+                    "leaseId", "generation") &&
+                    frame.TryGetValue("replyText", out var reply) &&
+                    reply is string && ((string)reply).Length > 0 &&
+                    ((string)reply).Length <= 2048;
             if (type == "turn.cancel")
                 return Fields(frame, "turnId", "actorIncarnationId", "leaseId", "generation");
             return true;
@@ -285,7 +305,8 @@ namespace LSA.Standalone.RageHost
             // Unknown requests get a bounded reject, but cannot smuggle additional
             // ambiguous identity or actor claims.
             return type == "turn.confirm" ? value.Count == 13 :
-                type == "turn.cancel" ? value.Count == 11 : value.Count == 7;
+                type == "turn.cancel" ? value.Count == 11 :
+                type == "turn.reply" ? value.Count == 12 : value.Count == 7;
         }
 
         private Dictionary<string, object> Receive(Stream stream)
