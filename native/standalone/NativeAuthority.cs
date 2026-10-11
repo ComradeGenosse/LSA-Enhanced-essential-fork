@@ -108,7 +108,14 @@ namespace LSA.Standalone
 
         private bool PollClock(out long now)
         {
-            now = clock.MonotonicMilliseconds;
+            try { now = clock.MonotonicMilliseconds; }
+            catch
+            {
+                ClearWorld("clock_unavailable");
+                lastObservedMs = 0;
+                now = 0;
+                return false;
+            }
             if (now >= 0 && now >= lastObservedMs)
             {
                 lastObservedMs = now;
@@ -268,7 +275,10 @@ namespace LSA.Standalone
 
         private bool CanControl(ActorObservation observed, out string reason)
         {
-            if (!world.AllowsNpcControl) { reason = "world_unsafe"; return false; }
+            bool permitsControl;
+            try { permitsControl = world.AllowsNpcControl; }
+            catch { reason = "world_unavailable"; return false; }
+            if (!permitsControl) { reason = "world_unsafe"; return false; }
             if (observed.IsScriptControlled) { reason = "script_controlled"; return false; }
             reason = "accepted"; return true;
         }
