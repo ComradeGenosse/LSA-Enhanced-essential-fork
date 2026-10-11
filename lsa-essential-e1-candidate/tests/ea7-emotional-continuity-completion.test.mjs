@@ -4,12 +4,14 @@ import { MoodStore } from '../src/voice/emotion/moodStore.mjs';
 import { createSpeechDeliveryResolver } from '../src/voice/emotion/resolveSpeechDelivery.mjs';
 import { createMoodRuntime } from '../src/voice/emotion/moodRuntime.mjs';
 import { resolveDelivery } from '../src/voice/emotion/sceneDelivery.mjs';
+import { createDelivery } from '../src/voice/emotion/deliveryContract.mjs';
+import { emitTagged } from './helpers/eaFinalApplied.mjs';
 
 const uuid = n => '00000000-0000-4000-8000-' + String(n).padStart(12,'0');
 const identity = generationId => Object.freeze({
   pedId:'17', sessionNonce:2, turnId:'turn-'+generationId, generationId,
 });
-const eligible = (value, source='dialogue_cue') => Object.freeze({
+const eligible = (value, source='dialogue_cue') => createDelivery({
   version:1,value,source,confidence:'soft',intensity:'subtle',evidenceRef:null,
 });
 const nativeReceipt = id => ({
@@ -17,7 +19,7 @@ const nativeReceipt = id => ({
   playbackStarted:true, hadAudio:true, wasInterrupted:false,
 });
 const config = mode => ({
-  speechProvider:'elevenlabs',
+  speechProvider:'elevenlabs',elevenLabs:{modelId:'eleven_v4_turbo'},
   expressiveDelivery:{mode,intensity:'subtle',maxTaggedSegmentsPerTurn:2},
 });
 function speechFixture(mode='experimental', decisions={}) {
@@ -27,7 +29,7 @@ function speechFixture(mode='experimental', decisions={}) {
     isActive:()=>true,clock:()=>1000,
     adapter:{
       resolveDelivery:({segmentText}) => decisions[segmentText] ?? null,
-      onSpeechCompleted:x=>calls.push(x),
+      onSpeechCompleted:x=>{calls.push(x);return true;},
     },
   });
   return {calls,id,resolver};
@@ -52,54 +54,71 @@ const played = ctx => ({
   wasInterrupted:false,...ctx.identity,
 });
 
-test('EA7 selects the last eligible audible intent, not the first native completion callback',()=>{
+const proof = async (id,delivery) => (await emitTagged({identity:id,delivery})).result;
+const commit = async (mood,args) =>
+  mood.onSpeechCompleted({...args,providerResult:await proof(args.identity,args.delivery),
+    historyAccepted:true});
+
+test('EA7 commits the last applied audible intent by sequence, not callback order',async()=>{
   const f=speechFixture('experimental',{first:eligible('sad'),last:eligible('amused')});
   const first=f.resolver.forSegment({text:'first',sequence:1});
   const last=f.resolver.forSegment({text:'last',sequence:2});
   assert.equal(first.value,'sad');
   assert.equal(last.value,'amused');
-  f.resolver.synthesized(first,nativeReceipt(f.id));
-  f.resolver.synthesized(last,nativeReceipt(f.id));
-  f.resolver.synthesized(first,nativeReceipt(f.id));
-  f.resolver.synthesized(last,nativeReceipt(f.id));
-  assert.equal(f.calls.length,1,'exactly one completion from the complete turn');
+  const r=nativeReceipt(f.id);
+  const firstAudio=await proof(f.id,first),lastAudio=await proof(f.id,last);
+  assert.equal(f.resolver.synthesized(last,r,lastAudio),true);
+  assert.equal(f.resolver.synthesized(first,r,firstAudio),true);
+  assert.equal(f.resolver.synthesized(first,r,firstAudio),false);
+  assert.equal(f.resolver.complete(r,{historyAccepted:true}),true);
+  assert.equal(f.resolver.complete(r,{historyAccepted:true}),false);
+  assert.equal(f.calls.length,1);
   assert.equal(f.calls[0].delivery.value,'amused');
 });
 
-test('EA7 ignores re-derived ephemeral mood as a fresh origin',()=>{
+test('EA7 ignores derived ephemeral mood even if its tag really reached provider',async()=>{
   const f=speechFixture('experimental',{
     first:eligible('sad'),later:eligible('amused','ephemeral_mood'),
   });
   const a=f.resolver.forSegment({text:'first',sequence:1});
   const b=f.resolver.forSegment({text:'later',sequence:2});
   assert.equal(b.source,'ephemeral_mood');
-  f.resolver.synthesized(a,nativeReceipt(f.id));
-  f.resolver.synthesized(b,nativeReceipt(f.id));
+  const r=nativeReceipt(f.id);
+  f.resolver.synthesized(a,r,await proof(f.id,a));
+  f.resolver.synthesized(b,r,await proof(f.id,b));
+  assert.equal(f.resolver.complete(r,{historyAccepted:true}),true);
   assert.deepEqual(f.calls.map(c=>c.delivery.value),['sad']);
 });
 
-test('EA7 never commits shadow-only or interrupted, failed, unplayed and foreign-native receipts',()=>{
+test('EA7 fails neutral for shadow, rejected receipts, failed history and omitted tag',async()=>{
   for(const mode of ['shadow','experimental']) {
     const f=speechFixture(mode,{first:eligible('amused')});
     const first=f.resolver.forSegment({text:'first',sequence:1});
+    const result=await proof(f.id,first);
     for(const delta of [{ok:false},{wasInterrupted:true},{hadAudio:false},
-      {type:'playback_started'},{pedId:'other'},{turnId:'another-turn'},
-      {generationId:99},{sessionNonce:4}])
-      f.resolver.synthesized(first,{...nativeReceipt(f.id),...delta});
+      {type:'playback_started'},{reason:'superseded'},{pedId:'other'},
+      {turnId:'another-turn'},{generationId:99},{sessionNonce:4}])
+      assert.equal(f.resolver.synthesized(first,{...nativeReceipt(f.id),...delta},result),false);
+    assert.equal(f.resolver.complete(nativeReceipt(f.id),{historyAccepted:false}),false);
     assert.equal(f.calls.length,0);
-    f.resolver.synthesized(first,nativeReceipt(f.id));
+    assert.equal(f.resolver.synthesized(first,nativeReceipt(f.id),{tagApplied:true}),false);
+    assert.equal(f.resolver.synthesized(first,nativeReceipt(f.id),result),
+      mode==='experimental');
+    assert.equal(f.resolver.complete(nativeReceipt(f.id),{historyAccepted:true}),
+      mode==='experimental');
     assert.equal(f.calls.length,mode==='experimental'?1:0);
   }
 });
 
-test('EA7 resolver retirement and native callback replay are idempotent',()=>{
+test('EA7 no duplicate callback or retirement replay',async()=>{
   const f=speechFixture('experimental',{first:eligible('amused')});
-  const a=f.resolver.forSegment({text:'first',sequence:1});
-  f.resolver.synthesized(a,nativeReceipt(f.id));
-  f.resolver.synthesized(a,nativeReceipt(f.id));
-  f.resolver.retire(true);
-  f.resolver.retire(false);
-  f.resolver.synthesized(a,nativeReceipt(f.id));
+  const d=f.resolver.forSegment({text:'first',sequence:1});
+  const r=nativeReceipt(f.id),applied=await proof(f.id,d);
+  assert.equal(f.resolver.synthesized(d,r,applied),true);
+  assert.equal(f.resolver.synthesized(d,r,applied),false);
+  assert.equal(f.resolver.complete(r,{historyAccepted:true}),true);
+  f.resolver.retire(true);f.resolver.retire(false);
+  assert.equal(f.resolver.synthesized(d,r,applied),false);
   assert.equal(f.calls.length,1);
 });
 
@@ -162,13 +181,13 @@ function runtimeFixture() {
     mood:createMoodRuntime({getRuntime:()=>runtime,protagonistAuthority,clock:()=>now})};
 }
 
-test('EA7 stale cancellation cannot erase a newer native generation mood',()=>{
+test('EA7 stale cancellation cannot erase a newer native generation mood',async()=>{
   const f=runtimeFixture(),first=f.makeTurn(4),next=f.makeTurn(5),later=f.makeTurn(6);
-  assert.equal(f.mood.onSpeechCompleted({...first,delivery:eligible('sad'),
+  assert.equal(await commit(f.mood,{...first,delivery:eligible('sad'),
     receipt:nativeReceipt(first.identity)}),true);
   assert.equal(f.mood.readMood(next)?.value,'sad');
   f.advance(1200);
-  assert.equal(f.mood.onSpeechCompleted({...next,delivery:eligible('amused'),
+  assert.equal(await commit(f.mood,{...next,delivery:eligible('amused'),
     receipt:nativeReceipt(next.identity)}),true);
   // The host has now retired generation four. Its late finally callback
   // cannot turn failed proof into a global clear.
@@ -177,9 +196,9 @@ test('EA7 stale cancellation cannot erase a newer native generation mood',()=>{
   assert.equal(f.mood.readMood(later)?.value,'amused');
 });
 
-test('EA7 runtime still fails neutral on revoked M1 approval or native identity',()=>{
+test('EA7 runtime still fails neutral on revoked M1 approval or native identity',async()=>{
   const f=runtimeFixture(),a=f.makeTurn(4),b=f.makeTurn(5);
-  assert.equal(f.mood.onSpeechCompleted({...a,delivery:eligible('amused'),
+  assert.equal(await commit(f.mood,{...a,delivery:eligible('amused'),
     receipt:nativeReceipt(a.identity)}),true);
   f.db.timelineWritable=false;
   assert.equal(f.mood.readMood(b),null);
