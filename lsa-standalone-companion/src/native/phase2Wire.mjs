@@ -153,7 +153,7 @@ export class Phase2NativeClient {
     if (isOffer && Object.hasOwn(value, 'playerText') &&
         (value.source !== 'player_text' || typeof value.playerText !== 'string' ||
          !value.playerText.trim() || value.playerText.length > 1024 ||
-         /[\\u0000-\\u0008\\u000b-\\u001f\\u007f]/.test(value.playerText)))
+         /[\u0000-\u0008\u000b-\u001f\u007f]/.test(value.playerText)))
       throw new Error('invalid_native_text');
     if (isOffer && (!UUID.test(value.turnId) || !UUID.test(value.sessionNonce) ||
         !UUID.test(value.actorIncarnationId) || !UUID.test(value.leaseId) ||
@@ -189,7 +189,7 @@ export class Phase2NativeClient {
           !['player_text', 'player_mic', 'special_event'].includes(claims.source)) ||
         (required.includes('replyText') &&
           (!claims.replyText.trim() || claims.replyText.length > 2048 ||
-           /[\\u0000-\\u0008\\u000b-\\u001f\\u007f]/.test(claims.replyText))))
+           /[\u0000-\u0008\u000b-\u001f\u007f]/.test(claims.replyText))))
       return Promise.reject(new Error('invalid_wire_claim'));
     const requestId = randomUUID();
     return new Promise((resolve, reject) => {
