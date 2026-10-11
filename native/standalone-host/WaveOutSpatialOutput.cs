@@ -39,7 +39,7 @@ namespace LSA.Standalone.RageHost
         private const int Rate = 24000, SourceBytesPerSecond = Rate * 2;
         private const int MaxDevicePending = SourceBytesPerSecond; // 1s per actor
         private const int MMSYSERR_NOERROR = 0, WAVERR_STILLPLAYING = 33;
-        private const uint TIME_BYTES = 4;
+        private const uint TIME_MS = 1, TIME_SAMPLES = 2, TIME_BYTES = 4;
         private const ushort WAVE_FORMAT_PCM = 1;
         private const uint WHDR_DONE = 1;
         private readonly NativeAuthority authority;
@@ -232,13 +232,22 @@ namespace LSA.Standalone.RageHost
         private static bool Refresh(Voice v)
         {
             if (v.Failed) return false;
-            var time = new MmTime { Type = TIME_BYTES };
+            // Microsoft recommends TIME_SAMPLES; WinMM drivers may return
+            // a different supported MMTIME format. Never misinterpret bytes
+            // (stereo device) as samples (per channel).
+            var time = new MmTime { Type = TIME_SAMPLES };
             uint timeSize = (uint)Marshal.SizeOf(typeof(MmTime));
-            if (waveOutGetPosition(v.Device, ref time, timeSize) != MMSYSERR_NOERROR ||
-                time.Type != TIME_BYTES) return false;
-            // 2-channel device output => 2x source PCM bytes.
-            int reported = (int)Math.Min(v.Submitted,
-                (long)(time.Value / 4) * 2);
+            if (waveOutGetPosition(v.Device, ref time, timeSize) != MMSYSERR_NOERROR)
+                return false;
+            long sourceBytes;
+            if (time.Type == TIME_SAMPLES)
+                sourceBytes = (long)time.Value * 2L; // mono 16-bit source
+            else if (time.Type == TIME_BYTES)
+                sourceBytes = (long)(time.Value / 4) * 2L; // stereo 16-bit device
+            else if (time.Type == TIME_MS)
+                sourceBytes = (long)time.Value * Rate * 2L / 1000L;
+            else return false; // unsupported output position representation
+            int reported = (int)Math.Min(v.Submitted, sourceBytes);
             if (reported < v.Played) return false; // regression/device reset
             v.Played = reported;
             uint headerSize = (uint)Marshal.SizeOf(typeof(WaveHeader));
