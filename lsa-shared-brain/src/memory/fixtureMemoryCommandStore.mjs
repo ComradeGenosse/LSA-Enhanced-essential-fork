@@ -92,12 +92,12 @@ export class FixtureMemoryCommandStore {
       return candidate.recordId;
     });
   }
-  async findCandidates({scope}) {
+  async findCandidates({scope,operation=null}) {
     this.#assertScope(scope);
     const data=await this.#load();
     const suppressed=new Set(data.tombstones.map(t=>t.targetRecordId));
     const stored=data.memories.filter(m=>!suppressed.has(m.memoryId) &&
-      !(arguments[0]?.operation==='remember' && m.targetRecordId)).map(m=>({
+      !(operation==='remember' && m.targetRecordId)).map(m=>({
       recordId:m.memoryId,kind:'permanent_memory',
       characterId:scope.characterId,worldProfileId:scope.worldProfileId,timelineId:scope.timelineId,
       protagonistKey:scope.protagonistKey,occurredAtUtc:m.requestedAtUtc,
