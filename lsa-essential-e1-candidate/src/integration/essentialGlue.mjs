@@ -22,6 +22,7 @@ import { validateStockDecision } from '../context/decisionValidator.mjs';
 import { createProviderStack } from '../providers/providerStack.mjs';
 import { resolveDelivery as resolveVerifiedSceneDelivery } from '../voice/emotion/sceneDelivery.mjs';
 import { projectActingEvidence } from '../voice/emotion/sceneOwnerProjection.mjs';
+import { createMoodRuntime } from '../voice/emotion/moodRuntime.mjs';
 import { VoiceResolver } from '../voice/voiceResolver.mjs';
 import { executeProviderOperation } from '../reliability/providerExecutor.mjs';
 import { captureReferenceMap } from '../context/turnSnapshot.mjs';
@@ -29,7 +30,7 @@ import { IdentityResolver } from '../identity/identityResolver.mjs';
 import { CharacterService,withoutCharacterTransport } from '../characters/characterService.mjs';
 import { createNoopDialogueTrace } from '../observability/dialogueTrace.mjs';
 
-export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry = null, dialogueTrace = null, providers = {}, identityEvidence, identityStore, profileStore, nativeOwner } = {}) {
+export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry = null, dialogueTrace = null, providers = {}, identityEvidence, identityStore, profileStore, nativeOwner, verifiedProtagonistAuthority = null } = {}) {
   const actorPresence=new ActorPresenceStore();
   const originalTurnTimeline=new OriginalEssentialTurnTimeline();
   dialogueTrace ||= createNoopDialogueTrace();
@@ -51,12 +52,17 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
   const characterService = config.provider === 'openai' && config.promotedCharacters?.enabled
     ? new CharacterService(config,{identityService,voiceResolver,store:profileStore,nativeOwner,telemetry}) : null;
   characterService?.initialize().catch(() => {});
+  const emotionalMood = createMoodRuntime({getRuntime:()=>runtime,
+    protagonistAuthority:verifiedProtagonistAuthority});
   const services = {
     // Every segment rechecks real P1 binding and PS2 observer lifetime.
     emotionalActing: config.speechProvider === 'elevenlabs' &&
       ['shadow','experimental'].includes(config.expressiveDelivery?.mode)
       ? Object.freeze({
           resolveDelivery:resolveVerifiedSceneDelivery,
+          readMood:emotionalMood.readMood,
+          onSpeechCompleted:emotionalMood.onSpeechCompleted,
+          retireTurn:emotionalMood.retireTurn,
           getSceneEvidence:({identity,turn})=>projectActingEvidence({
             identity,turn,perception:runtime.intelligence?.runtime,identityService,
           }),
@@ -132,7 +138,7 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
     executeProvider: providerStack ? args => executeProviderOperation({ ...args, retryConfig: config.retry, telemetry: args.telemetry }) : null,
   };
   const runtime = {
-    config, history, services, telemetry, dialogueTrace, providerStack, voiceResolver, identityService,characterService,
+    config, history, services, telemetry, dialogueTrace, providerStack, voiceResolver, identityService,characterService,emotionalMood,
     separateKnowledgeInstruction,
     captureNormalizedActor: (actor,raw,shape)=>actorPresence.capture(actor,raw,shape),
     actorSourcePresence: actor=>actorPresence.read(actor),

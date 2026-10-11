@@ -65,6 +65,7 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
   let retired = false;
   let endSent = false;
   let nativePlaybackStartedAt = null;
+  let playbackCommitted = false;
   let providerTimer = null;
   const metrics = host.telemetry?.beginTurn(identity, source, { inputChars: String(input || '').length, bytes: pcm?.byteLength || 0, sampleRate: sampleRate || 0 }) || null;
 
@@ -416,6 +417,7 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
     }
     chooseTerminal('completed');
     if (!history.acceptPlaybackResult({ ...result, playbackSucceeded: true })) throw new Error('history_commit_rejected');
+    playbackCommitted = true;
     // Mood callbacks are authorized only AFTER native playback and history's
     // exact-turn receipt acceptance, never at mere synthesis completion.
     for (const delivery of renderedDeliveries) speechDelivery.synthesized(delivery, result);
@@ -457,7 +459,7 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
     metrics?.finish({ reason: terminalReason, stage: stageAtFailure, cause, assistantCommitted: false });
     return { status: state, terminalReason, stage: state, cause };
   } finally {
-    speechDelivery.retire();
+    speechDelivery.retire(playbackCommitted);
     retired = true;
     history.discard(identity);
     observation?.dispose();
