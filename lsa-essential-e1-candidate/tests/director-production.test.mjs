@@ -21,7 +21,7 @@ const candidate={
    playerCaptureRef:player},
 };
 test('default off and strict experimental configuration require real PS collection',()=>{
- assert.deepEqual(normalizeConfig({},{}).spontaneousSpeech,{mode:'off'});
+ assert.deepEqual(normalizeConfig({},{}).spontaneousSpeech,{mode:'off',preset:'normal'});
  assert.equal(normalizeConfig({intelligence:{mode:'shadow'},spontaneousSpeech:{mode:'shadow'}},{}).spontaneousSpeech.mode,'shadow');
  assert.equal(normalizeConfig({intelligence:{mode:'shadow'},spontaneousSpeech:{mode:'experimental'}},{}).spontaneousSpeech.mode,'experimental');
  for(const value of [{mode:'active'},{mode:'experimental',enabled:true},true,null])
@@ -95,7 +95,10 @@ test('experimental config never starts production native or provider without pro
    });
    assert.ok(runtime.director);
    assert.deepEqual(runtime.services.spontaneousSpeechStatus(),{
-     requested:'experimental',executionAvailable:false,
+     requested:'experimental',preset:'normal',
+     routineSpeakerCooldownMs:20000,urgentSpeakerCooldownMs:5000,
+     sceneGapMs:8000,attemptsPerMinute:4,
+     executionAvailable:false,
      reason:'native_opt_in_and_live_C06_required',
    });
    assert.equal((await runtime.director.tick()),null);

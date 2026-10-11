@@ -144,3 +144,16 @@ test('PR21 T42 T48 mixed Unicode and escaped roles survive exact final serializa
   for(const canary of ['SYSTEM_CANARY','TOOL_CANARY','OBJECT_CANARY'])assert.equal(serialized.includes(canary),false);
  }
 });
+
+
+test('native-verified Director events are included even when the optional PS4 lane is unavailable',()=>{
+  const event='You heard gunfire (danger, sound). React briefly in character to this event; dialogue only, no actions.';
+  const frame=renderKnowledge({source:'special_event',directorEventContext:event,
+    actor:{},listener:{pedId:'player'},history:[]});
+  assert.equal(frame.delivery.length,0,'no PS4 entitlement is manufactured');
+  assert.ok(frame.modelAllocation.messages.at(-1).content.includes(event));
+  assert.equal(projectConversation([],'UNTRUSTED','special_event','UNTRUSTED').messages.at(-1).content.includes('UNTRUSTED'),false);
+  assert.equal(projectConversation([],'hello','player_text',event).messages.at(-1).content,'hello');
+  const other=renderKnowledge({source:'special_event',actor:{},history:[]});
+  assert.ok(!other.modelAllocation.messages.at(-1).content.includes('Native-verified witnessed event'));
+});

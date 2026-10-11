@@ -8,7 +8,8 @@
     "mode": "off",
     "pipeName": "LSA.Intelligence.v1",
     "directorMode": "off",
-    "radio": "off"
+    "radio": "off",
+    "directorAttemptPreset": "normal"
   },
   "activities": {
     "mode": "off",

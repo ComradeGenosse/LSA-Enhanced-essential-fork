@@ -30,7 +30,7 @@ function fixture({mode='active',nativeStatus,terminal=completed,gateOk=true,appr
  const admission=new DirectorSpeechReservations({now:()=>now,enabled:mode==='active',
   checkCurrent:()=>approve,
   uuid:()=>`00000000-0000-4000-8000-${String(++counter).padStart(12,'0')}`,
-  acknowledge:(...args)=>{acknowledgements.push(args);return true;}});
+  acknowledge:(...args)=>{acknowledgements.push(args.slice(0,3));return true;}});
  const director=new SceneDirectorSpeech({admission,now:()=>now,mode,
   originalEntitlement:(proposal,s)=>sourceCurrent?sourceTransform({
     source:'original_companion_ps2_ps3',

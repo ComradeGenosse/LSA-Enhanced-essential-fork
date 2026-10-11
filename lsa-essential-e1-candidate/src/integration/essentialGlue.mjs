@@ -61,7 +61,9 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
       const args={turn:turn.identity,frozenAt:turn.knowledgeInputs?.frozenAt??0,
         profile:character?.profile,persistent:character?.persistent===true,knowledgeInputs:turn.knowledgeInputs,
         actor:turn.context.actor,listener:turn.context.listener,world:turn.context.world,referenceMap:turn.context.referenceMap,
-        presence:turn.sourcePresence,history,input,source};
+        presence:turn.sourcePresence,history,input,source,
+        directorEventContext:turn.directorTicket && source==='special_event'
+          ? turn.context.internalEvent:null};
       const base=renderKnowledge({...args,includePerceived:false});
       const mode=config.dialogueKnowledge?.mode??'off',ps=runtime.intelligence?.runtime;
       let reason=mode==='off'?'disabled':'unsupported_contract',preview=null;
