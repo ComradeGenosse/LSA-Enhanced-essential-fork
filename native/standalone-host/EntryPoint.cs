@@ -86,6 +86,7 @@ namespace LSA.Standalone.RageHost
                         previousGameTick = currentGameTick;
                         authority.Reconcile();
                         server.DrainOwnerRequests(authority, turns, audio, 8);
+                        audio.DrainOnOwner(4); // no backend in GTA until device accepted
                         StandaloneTypedCommands.Pump(scope, resolver, authority, turns, server);
                     }
                     finally { scope.Exit(); }
