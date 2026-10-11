@@ -1,0 +1,74 @@
+name: Memory K final source and offline acceptance
+on:
+  pull_request:
+    paths:
+      - 'lsa-shared-brain/**'
+      - 'lsa-essential-e1-candidate/**'
+      - 'native/**'
+      - 'contracts/**'
+      - '.github/workflows/memory-k-final-acceptance.yml'
+      - 'docs/plans/promoted-npc-memory/MEMORY-INTEGRATION-ACCEPTANCE.md'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  node24:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Check actual shared/native application runtime modules
+        run: |
+          node --check lsa-essential-e1-candidate/src/bootstrap.mjs
+          node --check lsa-essential-e1-candidate/src/perception/contracts.mjs
+          node --check lsa-essential-e1-candidate/src/perception/shadowRuntime.mjs
+          node --check lsa-essential-e1-candidate/src/perception/intelligenceClient.mjs
+          node --check lsa-essential-e1-candidate/src/memory/nativeMemoryAuthority.mjs
+          node --check lsa-essential-e1-candidate/src/memory/m2EssentialCapture.mjs
+          node --check lsa-shared-brain/src/events/m3Ps2ObserverAdapter.mjs
+          node --check lsa-shared-brain/src/memory/m5RuntimeCoordinator.mjs
+          node --check lsa-shared-brain/src/memory/m6CursorConsumer.mjs
+          node --check lsa-shared-brain/src/memory/m8Interpretation.mjs
+      - name: Source, SQLite, lifecycle, commands, curation, recall, personality and event regression
+        run: |
+          node --test lsa-essential-e1-candidate/tests/memory-k-native-intake.test.mjs lsa-essential-e1-candidate/tests/memory/nativeMemoryAuthority.test.mjs lsa-essential-e1-candidate/tests/m2-journal.test.mjs lsa-essential-e1-candidate/tests/m3-completion.test.mjs lsa-essential-e1-candidate/tests/memory-m4-closure.test.mjs lsa-essential-e1-candidate/tests/memory-m9-completion.test.mjs
+          node --test lsa-shared-brain/tests/memory-b-closure.test.mjs lsa-shared-brain/tests/memory-m5-closure.test.mjs lsa-shared-brain/tests/memory-m6-cursor-lifecycle.test.mjs lsa-shared-brain/tests/memory-m7-completion.test.mjs lsa-shared-brain/tests/memory-m8-closure.test.mjs lsa-shared-brain/tests/memory-integrated-storage.test.mjs
+      - name: Strict shared memory v1 schema
+        run: node --test lsa-essential-e1-candidate/tests/memory-contract-v1.test.mjs
+      - name: Original pinned Essential patch and package build
+        working-directory: lsa-essential-e1-candidate
+        run: npm run build
+  native-harness:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - name: Pinned Essential ABI source verification
+        run: dotnet run --project tools/essential-abi/EssentialAbi.csproj --configuration Release
+      - name: A native protagonist/owner policy harness (NOT GTA)
+        run: dotnet run --project native/intelligence/memory-authority-tests/MemoryAuthorityTests.csproj --configuration Release
+      - name: J native M9 event policy harness (NOT GTA)
+        run: dotnet run --project native/intelligence/m9-tests/M9NativeTests.csproj --configuration Release
+      - name: Original native integration/PS6 harness compilation
+        run: |
+          dotnet build native/intelligence/integration-tests/IntegrationTests.csproj --configuration Debug
+          dotnet build native/intelligence/director-tests/DirectorTests.csproj --configuration Debug
+  m0-scenario-gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: S01-S10 are real implemented replays, not proposed checklist items
+        shell: bash
+        run: |
+          node --input-type=module -e "import {readFileSync} from 'node:fs';const m=JSON.parse(readFileSync('tools/memory-sim/scenarios.v0.json','utf8'));const missing=m.scenarios.filter(x=>x.implemented!==true);if(missing.length){console.error('NO-GO: missing verified scenario replays: '+missing.map(x=>x.id).join(','));process.exitCode=1}"
