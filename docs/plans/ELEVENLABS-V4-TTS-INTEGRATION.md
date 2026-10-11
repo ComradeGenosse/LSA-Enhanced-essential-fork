@@ -57,6 +57,27 @@ Documentation sources:
 - Every Luna speech segment generates its own isolated ElevenLabs request. Natural streaming within each text segment works; no persistent cross-segment WebSocket reuse or experimental source mixing is performed.
 - Provider rollback: set `speechProvider` to `faster-qwen3-tts` and restart the Qwen sidecar, or to `openai` to recover the prior cloud voice. Existing P1/P2 identities, character memories and original vendor voice references remain unchanged.
 
+## After first ElevenLabs preview fails (October 11)
+
+First real synthesis attempt returned `elevenlabs_remote_error` without WAV or timings. Independent `GET /v1/voices/{voice_id}` succeeded (HTTP 200); this proves key/voice lookup only, **not** voice synthesis authorization or specific model/audio-format access. Do not repeat paid attempts blindly.
+
+Run **non-billed** diagnostics first:
+
+```powershell
+node tools/elevenlabs/preflight.mjs --voice nathan
+```
+
+This reads existing private `.env` and ignored config locally and sends only GETs to `/v1/models` and the selected voice endpoint. It prints only model-listed/voice-available booleans and numeric HTTP statuses; no key, dialogue, account metadata or full vendor payload. The model list is evidence of model discovery **only**; it does not guarantee the requested v4 model is enabled for speech or that `pcm_24000` is permitted. The key may allow GET voice but deny synthesis.
+
+The new provider-side error mapper translates nested `error` / `detail` code/status values and limited textual error indicators into fixed buckets:
+`elevenlabs_auth_failed`, `elevenlabs_credits_unavailable`, `elevenlabs_model_unavailable`, `elevenlabs_output_format_unavailable`, `elevenlabs_voice_unavailable`, `elevenlabs_rate_limited`, `elevenlabs_request_rejected`, `elevenlabs_policy_closed`, or `elevenlabs_remote_error`. Raw vendor errors are never logged or surfaced. Categories are heuristic diagnoses, **not** proof of an exact provider-side cause.
+
+Only after reading preflight output, optionally rerun one short preview with `--allow-billing`. Real verification is impossible without another synthesis request; it may consume ElevenLabs credits even if the service rejects later in the stream. Do **not** put the credential in a terminal argument or in a GitHub issue/PR.
+
+### Investigate if still generic
+
+Compare the official current [v4 streaming TTD guide](https://elevenlabs.io/docs/eleven-api/guides/how-to/websockets/realtime-tdd) and [model discovery endpoint](https://elevenlabs.io/docs/api-reference/models/list). If preflight is successful but synthesis still returns `elevenlabs_remote_error`, collect the sanitized category and socket close code (no raw response, credential, dialogue, or voice owner's private information) and ask ElevenLabs support to identify the rejected field/entitlement. Avoid switching to an MP3 output and treating compressed frames as 24k PCM.
+
 ## Acceptance plan
 
 1. Run offline tests (never bill ElevenLabs): `node --test tests/elevenlabs-provider.test.mjs`.
