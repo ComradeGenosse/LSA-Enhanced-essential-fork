@@ -28,7 +28,7 @@ function groupRecords(records){
   for(const r of sorted){
     const prev=scenes.at(-1),last=prev?.at(-1);
     const linked=last&&sameScope(r,last)&&Date.parse(r.when)-Date.parse(last.when)<=windowMs&&
-      (r.sceneId===last.sceneId||!r.sceneId&&!last.sceneId)&&r.epoch===last.epoch&&prev.length<64;
+      (r.sceneId===last.sceneId||!r.sceneId&&!last.sceneId)&&(r.epoch===null||last.epoch===null||r.epoch===last.epoch)&&prev.length<64;
     if(linked)prev.push(r);else scenes.push([r]);
   }
   return scenes;
@@ -63,6 +63,6 @@ export function selectAutomaticMemories(rawRecords,{existingInHour=0,softTargetP
     return [Object.freeze({...scope,kind:'curation_proposal',version:1,
       proposalId:stableUuid(...key),provider:'deterministic',evidenceRecordIds:ids,
       candidate,notability:score,groundedSummary:summary,inCharacterTake:'No interpretation recorded.',
-      batchId:sceneBatch,selectionSignature:signature,source:'automatic'})];
+      batchId:sceneBatch})];
   });
 }

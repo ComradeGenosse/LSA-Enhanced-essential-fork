@@ -4,7 +4,7 @@ const words=s=>String(s).toLowerCase().replace(/[^a-z0-9 ]/g,' ').replace(/\s+/g
 export function consolidationKey(record){
   if(!record||!['joke','relationship','episode','semantic'].includes(record.candidate))return null;
   // No semantic fuzzy join: only exact normalized subject+signature from verified sources.
-  const signature=record.selectionSignature;
+  const signature=record.selectionSignature??record.groundedSummary;
   return typeof signature==='string'&&signature.length?record.candidate+':'+words(signature):null;
 }
 export function consolidateCandidates(existing,incoming){
