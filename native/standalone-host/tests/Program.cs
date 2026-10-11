@@ -29,7 +29,7 @@ internal static class Program
         var turns = new NativeTurnRegistry(authority);
         if (!authority.TryRegister(17, out var actor, out var reason))
             throw new InvalidOperationException("fixture_actor_missing:" + reason);
-        if (!turns.TryIssue(actor, "player_text", 20000, out var permit, out reason))
+        if (!turns.TryIssueTyped(actor, "Can you describe the scene?", 20000, out var permit, out reason))
             throw new InvalidOperationException("fixture_turn_missing:" + reason);
         using (var server = new StandalonePipeServer(authority.HostRunId, () => authority.WorldEpoch))
         {
