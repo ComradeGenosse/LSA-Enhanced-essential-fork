@@ -6,6 +6,7 @@ on:
       - integration/radio-v2-main-ps4-20261010
       - main
       - fix/radio-hearing-retention-stability-20261011
+      - feature/faster-qwen3-tts-provider-radio-v2
     paths:
       - 'lsa-essential-e1-candidate/tools/qwen/compare_tts_benchmark.mjs'
       - 'lsa-essential-e1-candidate/tools/qwen/profile_qwen_latency.mjs'
