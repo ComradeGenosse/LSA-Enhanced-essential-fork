@@ -38,6 +38,7 @@ jobs:
           tests/ea2-turn-lifecycle.test.mjs
           tests/ea3-delivery-hints.test.mjs
           tests/emotional-mood-continuity.test.mjs
+          tests/ea4-runtime-integration.test.mjs
           tests/elevenlabs-provider.test.mjs
           tests/streaming-decision.test.mjs
           tests/decisions-and-requests.test.mjs
