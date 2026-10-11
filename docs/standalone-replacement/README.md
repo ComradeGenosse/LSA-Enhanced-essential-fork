@@ -1,12 +1,13 @@
 # Standalone LSA Native Replacement
 
-**Status:** exploratory parallel migration; **Phase 0 research completed with GTA/deployment gates still open**. No standalone native binary exists or has been deployed. Existing Essential-based LSA on `main` is unchanged.
+**Status (2026-10-11):** isolated standalone **source/CI candidate** through draft [PR #50](https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/pull/50), including a compiled host and reversible test packaging. **Not GTA-accepted, not merged into main, and not a live Essential replacement.** Existing Essential-based LSA on `main` is unchanged.
 
 This program is scoped separately from the [currently active playable v1.0 roadmap](../ROADMAP.md). The new project aims to remove our dependency on the Essential DLL and stock-server source patches **only after** independently authored runtime behavior has passed offline and staged GTA gates.
 
 Start here:
 
-1. [**Phased roadmap**](roadmap.md) — Phase 0–9 implementation, offline tests, GTA gates and Milestones A/B/C.
+1. [**Source-backed hardened architecture / implementation plan (Oct 11)**](architecture-review-hardened-plan-20261011.md) — reviewed F1–F18, retained brain/body/voice design, source pins, physical probes, protocol contracts, phase PRs and acceptance gates (**proposed; no code enabled**).
+8. [**Phased roadmap**](roadmap.md) — Phase 0–9 implementation, offline tests, GTA gates and Milestones A/B/C.
 2. [**Phase 0 evidence baseline**](phase-0-baseline.md) — exact Essential and source revisions, native and Node dependency seams, reusable functionality, omitted stock features.
 3. [**Feature parity matrix**](feature-parity-matrix.md) — retain/replace/defer by user-visible feature, with offline and actual-GTA proof requirements.
 4. [**Phase 0 acceptance and blockers**](phase-0-acceptance.md) — research findings, completed CI checks, and gates explicitly deferred to a real GTA deployment.
