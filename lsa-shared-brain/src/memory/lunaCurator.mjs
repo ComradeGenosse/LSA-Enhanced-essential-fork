@@ -83,14 +83,16 @@ export async function processIdleCuration({enabled=false,queue,provider,ledger,o
       tokens.add(item.leaseToken);
     }
     // Capacity must be reserved durably BEFORE billable transport.
-    const batchKey=claimed.map(x=>x.job.jobId).sort().join(':');
+    const batchKey=claimed.map(x=>x.job.jobId+':'+x.leaseToken).sort().join(':');
     const reserved=await ledger.reserve({batchKey,maxUsd:estimatedMaxCostUsd,nowUtc});
     if(!reserved){
       await Promise.all(claimed.map(x=>queue.releaseLeased({jobId:x.job.jobId,leaseToken:x.leaseToken})));
       return {status:'budget_blocked',processed:0};
     }
+    let transportStarted=false;
     try{
       if(signal?.aborted)throw signal.reason??new Error('curation_cancelled');
+      transportStarted=true;
       const appraisals=await provider.curateBatch(claimed.map(x=>x.job.proposal),{signal});
       if(!Array.isArray(appraisals)||appraisals.length!==claimed.length)throw new Error('curation_partial_batch');
       // Validate full batch BEFORE committing any item.
@@ -118,7 +120,8 @@ export async function processIdleCuration({enabled=false,queue,provider,ledger,o
       }));
       // A provider request may be billable even after failure. Conservatively settle reserved ceiling
       // unless the injected ledger can reconcile exact provider usage.
-      await ledger.settle({batchKey,maxUsd:estimatedMaxCostUsd});
+      if(transportStarted)await ledger.settle({batchKey,maxUsd:estimatedMaxCostUsd});
+      else await ledger.release({batchKey});
       return {status:cancelled?'cancelled':'retry_scheduled',processed:0};
     }
   }catch(error){

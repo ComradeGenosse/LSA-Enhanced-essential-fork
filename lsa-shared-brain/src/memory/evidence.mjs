@@ -20,7 +20,11 @@ export function normalizedEvidence(record){
   if(record.kind==='journal_event'){
     if(record.receiptStatus!=='witnessed'||!isUuid(record.observationId)||!Array.isArray(record.claims)||
        !/^[a-f0-9]{64}$/i.test(record.sourceHash||'')||!record.ownerProof?.ownerAlias||
-       !isUuid(record.ownerProof?.hostRunId)||!isUuid(record.ownerProof?.observerCaptureRef))
+       !isUuid(record.ownerProof?.hostRunId)||!isUuid(record.ownerProof?.observerCaptureRef)||
+       !isUuid(record.ownerProof?.incarnationId)||!isUuid(record.ownerProof?.encounterId)||
+       !Number.isSafeInteger(record.ownerProof?.worldEpoch)||record.ownerProof.worldEpoch<0||
+       !/^promoted\.[a-f0-9-]{36}$/i.test(record.ownerProof.ownerAlias)||
+       !isUuid(record.ownerProof.ownerAlias.slice(9)))
       throw new Error('curation_unverified_event');
     const claims=record.claims.filter(c=>isUuid(c?.sourceEvidenceId)&&['direct','reported'].includes(c.certainty)&&
       ['self','visual','auditory','report'].includes(c.modality)&&typeof c.durableSubject==='string'&&

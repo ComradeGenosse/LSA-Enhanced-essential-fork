@@ -1,5 +1,5 @@
 // Agent E: deterministic, offline M6 scene selection. Journal capture is NEVER gated by this module.
-import { stableUuid, normalizedEvidence, sameScope, factDigest, frozenEvidenceIds, scopeOf } from './evidence.mjs';
+import { stableUuid, isUuid, normalizedEvidence, sameScope, factDigest, frozenEvidenceIds, scopeOf } from './evidence.mjs';
 const windowMs=90_000;
 const priority=[
   [/inside_?joke|running_?joke|prank|laugh|funny|humor|joke/i,.92,'joke'],
@@ -51,7 +51,7 @@ export function selectAutomaticMemories(rawRecords,{existingInHour=0,softTargetP
   const pressure=Math.min(.26,Math.max(0,existingInHour-softTargetPerHour)*.04);
   const threshold=Math.min(.84,minScore+pressure);
   return groupRecords(qualified).flatMap(scene=>{
-    const {score,candidate,signature}=sceneScore(scene);
+    const {score,candidate}=sceneScore(scene);
     if(score<threshold&&score<.86)return [];
     const scope=scopeOf(scene[0]),ids=frozenEvidenceIds(scene);
     const significant=[...scene].sort((a,b)=>recordSignal(b).score-recordSignal(a).score||
@@ -59,7 +59,7 @@ export function selectAutomaticMemories(rawRecords,{existingInHour=0,softTargetP
     const summary=significant.slice(0,4).map(factDigest).join(' ').slice(0,2400);
     const key=['auto-memory-v1',...Object.values(scope),ids];
     const sceneBatch=batchId??stableUuid('m6-batch',...key);
-    if(!/^[0-9a-f-]{36}$/i.test(sceneBatch))throw new Error('curation_invalid_batch');
+    if(!isUuid(sceneBatch))throw new Error('curation_invalid_batch');
     return [Object.freeze({...scope,kind:'curation_proposal',version:1,
       proposalId:stableUuid(...key),provider:'deterministic',evidenceRecordIds:ids,
       candidate,notability:score,groundedSummary:summary,inCharacterTake:'No interpretation recorded.',

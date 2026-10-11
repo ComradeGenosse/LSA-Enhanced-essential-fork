@@ -73,8 +73,9 @@ test('invalid or unknown evidence cannot be promoted, no evidence disappears fro
 });
 test('consolidation links only exact automatic duplicates, leaves explicit user saves and other identities untouched',()=>{
   const [a]=choose([event(1)]),[b]=choose([event(2)]);
-  assert.equal(consolidateCandidates([a],b).action,'link_duplicate');
-  assert.deepEqual(consolidateCandidates([a],b).evidenceRecordIds,[id(101),id(102)]);
+  assert.equal(consolidateCandidates([a],b).action,'insert'); // separate crashes are distinct episodes
+  assert.equal(consolidateCandidates([a],{...b,evidenceRecordIds:[id(101),id(102)]}).action,'link_duplicate');
+  assert.deepEqual(consolidateCandidates([a],{...b,evidenceRecordIds:[id(101),id(102)]}).evidenceRecordIds,[id(101),id(102)]);
   assert.equal(consolidateCandidates([{...a,source:'player'}],b).action,'insert');
   assert.equal(consolidateCandidates([a],{...b,characterId:id(55)}).action,'insert');
   assert.equal(consolidateCandidates([a],{...b,groundedSummary:'Observed unrelated event.'}).action,'insert');

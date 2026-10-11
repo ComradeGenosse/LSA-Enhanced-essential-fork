@@ -12,8 +12,12 @@ export function consolidateCandidates(existing,incoming){
     throw new Error('curation_invalid_candidate');
   if(incoming.source==='player'||incoming.explicit===true)return {action:'preserve_explicit',candidate:incoming};
   const key=consolidationKey(incoming);
+  const incomingIds=new Set(incoming.evidenceRecordIds);
   const match=key&&existing.find(r=>r.source!=='player'&&r.explicit!==true&&sameScope(r,incoming)&&
-    consolidationKey(r)===key&&r.deleted!==true);
+    consolidationKey(r)===key&&r.deleted!==true&&Array.isArray(r.evidenceRecordIds)&&
+    // A shared immutable source ID proves the same underlying episode; similar
+    // summaries alone (e.g. two separate crashes) must NEVER merge.
+    r.evidenceRecordIds.some(id=>incomingIds.has(id)));
   if(!match)return {action:'insert',candidate:incoming};
   const ids=[...new Set([...match.evidenceRecordIds,...incoming.evidenceRecordIds])].sort();
   if(ids.length>64)return {action:'insert',candidate:incoming,reason:'evidence_limit'};
