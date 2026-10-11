@@ -196,3 +196,23 @@ export function persistDeterministicMemory(db,proposal,world){
    return {inserted:true,recordId:proposal.proposalId};
  });
 }
+
+/** Read-only typed M4 projection; never uses model-generated factual authority. */
+export function readPermanentMemoryRows(db,scope,world,{limit=200}={}){
+ dbOwnerScope(db,scope,world);
+ if(!Number.isSafeInteger(limit)||limit<1||limit>1000)fail('memory_invalid_limit');
+ const data=db.prepare('SELECT * FROM memory_records WHERE world_profile_id=? AND character_id=? AND timeline_id=? AND protagonist_key=? ORDER BY created_at_utc DESC LIMIT ?')
+  .all(...stmtScope(scope),scope.protagonistKey??'unknown',limit);
+ return immutableSnapshot(data.map(row=>{
+   if(digest(row.content)!==row.content_sha256)fail('memory_content_integrity_failed');
+   const sourceEvidenceIds=JSON.parse(row.evidence_ids_json);
+   if(!Array.isArray(sourceEvidenceIds)||!sourceEvidenceIds.every(isUuid))fail('memory_source_integrity_failed');
+   return {characterId:scope.characterId,worldProfileId:scope.worldProfileId,
+     timelineId:scope.timelineId,protagonistKey:scope.protagonistKey??'unknown',recordId:row.memory_id,
+     sourceKind:'permanent_memory',evidenceState:'verified',atUtc:row.created_at_utc,
+     envelope:{version:1,kind:'permanent_memory',characterId:scope.characterId,
+       worldProfileId:scope.worldProfileId,timelineId:scope.timelineId,recordId:row.memory_id,
+       content:row.content,mode:row.mode,sourceEvidenceIds}
+   };
+ }));
+}
