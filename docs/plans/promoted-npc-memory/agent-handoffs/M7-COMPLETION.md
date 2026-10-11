@@ -35,7 +35,7 @@ Essential cloud bridge, opt-in idle scheduler, mock-only regression tests and CI
   worldProfileId)`: read-only P2 SQLite helper for future M8/PS4 integration.
   Produces `epistemicStatus:'character_opinion'`, immutable source links,
   original factual digest and separate `opinion`; returns zero items after
-  source suppression or across protagonists. H must wrap it through the
+  source suppression, hard deletion of underlying evidence, or across protagonists. H must wrap it through the
   serialized P2 read port; this branch does **not** edit locked P2 store.
 - `reconcileCurationBudgets(db,{beforeUtc,worldProfileId})` conservatively
   settles unresolved reservations at the charged ceiling. H may provide an
@@ -75,9 +75,16 @@ Essential cloud bridge, opt-in idle scheduler, mock-only regression tests and CI
   wire scene-close and idle checkpoints, the verified owner binder, and
   necessary P2 read/maintenance port wrappers; no Essential bootstrap, P2
   store, `integrationPorts.mjs`, PS4/C-04 or deterministic M6 code was edited.
-- Confirm the chosen Luna model's effective input/output price and bounded
-  request token limits before authorizing any expense. USD limits are
-  reservations, not the OpenAI billing dashboard.
+- Supply verified model-pricing configuration before any cloud opt-in:
+  `config.curatorPricing={inputUsdPerMillionTokens,outputUsdPerMillionTokens}`
+  using the correct positive USD rates for the existing chosen Luna model.
+  The adapter's `estimateMaxCostUsd(proposals)` conservatively bounds
+  input UTF-8 bytes plus overhead and the configured maximum output tokens;
+  it refuses transport if this exceeds `estimatedMaxCostUsd`. Without
+  configured prices, the Essential cloud bridge fails closed.
+  Do not infer prices, promise exact invoices or enable a smaller user budget
+  than this upper bound. Once the provider reports actual token usage, the
+  ledger may settle the corresponding verified estimate below its reservation.
 - After H integration, verify cloud-data consent UX, actual save/load epoch
   transition handling, provider outages/Retry-After under load, privacy
   propagation into M8/PS4, four-hour multi-NPC soak, native receipts and
@@ -95,3 +102,11 @@ and Ubuntu, module syntax checks, `memory-m7-completion.test.mjs`,
 offline/mocked transport; no Luna billable test calls.
 **CI exact-head results must be inspected separately; this handoff alone is
 not an acceptance receipt.**
+
+### CI diagnostic record
+
+The early offline workflow run on the initial PR head passed Ubuntu Node 22/24
+but failed Windows because test cleanup tried to delete a still-open SQLite file.
+Fixture teardown has since been corrected to close database handles first.
+**Do not report final green CI until the latest head's Windows and Ubuntu
+checks finish.**
