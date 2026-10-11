@@ -566,6 +566,91 @@ internal static class Program
         host.Stop();
     }
 
+    private static void BoundedNativePcmAndTruthfulReceipts()
+    {
+        var game = new SimulatedGame();
+        game.Spawn(345, 0xD000, lifetimeTag: 4001);
+        var host = new NativeAuthority(game, game, game, game);
+        var actor = Register(host, 345);
+        var turns = new NativeTurnRegistry(host);
+        var audio = new NativeAudioRegistry(host, turns);
+        string reason;
+        NativeTurnPermit turn;
+        Check(turns.TryIssueTyped(actor, "Can you speak?", 45000, out turn, out reason),
+            "issue source-time text turn for audio");
+        string id = turn.TurnId.ToString("D"), aid = turn.ActorIncarnationId.ToString("D"),
+            lease = turn.LeaseId.ToString("D"), gen = turn.Generation;
+        NativeAudioTicket stream;
+        Check(!audio.TryOpen(id, aid, lease, gen, 24000, out stream, out reason) &&
+            reason == "stale_or_unstaged_turn", "unconfirmed text cannot allocate audio lease");
+        Check(turns.TryConfirm(id, turn.SessionNonce.ToString("D"), aid, lease,
+            gen, turn.Source, out reason), "confirm text before audio");
+        Check(!audio.TryOpen(id, aid, lease, gen, 24000, out stream, out reason),
+            "must stage AI answer before PCM allocation");
+        Check(turns.TryStageReply(id, lease, gen, aid, "Ready to speak.", out reason),
+            "native source reply staged");
+        Check(!audio.TryOpen(id, aid, lease, gen, 44100, out stream, out reason) &&
+            reason == "invalid_audio_format", "unsupported 44.1k format denied");
+        Check(!audio.TryOpen(id, Guid.NewGuid().ToString("D"), lease, gen, 24000,
+            out stream, out reason), "wrong actor denied");
+        Check(audio.TryOpen(id, aid, lease, gen, 24000, out stream, out reason) &&
+            reason == "audio_authorized_not_playing", "native audio lease acquired");
+        Check(!audio.TryOpen(id, aid, lease, gen, 24000, out var duplicate, out reason) &&
+            reason == "duplicate_audio_open", "one audio stream per native turn");
+        string sid = stream.StreamId.ToString("D"), audioLease = stream.AudioLeaseId.ToString("D"),
+            audioGen = stream.AudioGeneration;
+        byte[] pcm = new byte[] { 0, 1, 255, 254, 44, 35, 0, 0 };
+        Check(!audio.TryAppend(sid, Guid.NewGuid().ToString("D"), audioGen,
+            id, aid, 0, pcm, out reason), "wrong audio lease cannot buffer PCM");
+        Check(!audio.TryAppend(sid, audioLease, audioGen,
+            id, aid, 1, pcm, out reason) &&
+            reason == "audio_out_of_order", "gap/reordered chunks rejected");
+        Check(!audio.TryAppend(sid, audioLease, audioGen,
+            id, aid, 0, new byte[] { 1, 2, 3 }, out reason) &&
+            reason == "bad_pcm_chunk", "non-aligned PCM16 rejected");
+        Check(audio.TryAppend(sid, audioLease, audioGen,
+            id, aid, 0, pcm, out reason) &&
+            reason == "buffered_not_played", "first valid PCM bytes buffered only");
+        pcm[0] = 255; // escrow owns a deep copy, not producer memory
+        Check(!audio.TryAppend(sid, audioLease, audioGen,
+            id, aid, 0, pcm, out reason), "replayed chunk rejected");
+        Check(!audio.TrySeal(sid, audioLease, audioGen,
+            id, aid, 2, 16, out reason) && reason == "audio_incomplete",
+            "mismatched EOS count rejected");
+        Check(audio.TryAppend(sid, audioLease, audioGen,
+            id, aid, 1, new byte[] { 11, 22, 33, 44 }, out reason),
+            "second contiguous PCM chunk accepted");
+        Check(stream.BufferedChunks == 2 && stream.BufferedBytes == 12,
+            "exact byte and chunk accounting");
+        Check(audio.TrySeal(sid, audioLease, audioGen,
+            id, aid, 2, 12, out reason) &&
+            reason == "sealed_not_played" && stream.IsSealed,
+            "EOS explicitly NOT playback-completed");
+        Check(!audio.TryAppend(sid, audioLease, audioGen,
+            id, aid, 2, pcm, out reason) &&
+            reason == "audio_sealed", "sealed audio rejects late bytes");
+        Check(!audio.TrySeal(sid, audioLease, audioGen,
+            id, aid, 2, 12, out reason), "EOS replay rejected");
+        Check(audio.TryCancel(sid, audioLease, audioGen, id, aid),
+            "exact cancellation disposes sealed audio escrow");
+        Check(stream.BufferedBytes == 12 && stream.Chunks.Count == 0,
+            "retirement purges all raw PCM buffers");
+        Check(!audio.TryCancel(sid, audioLease, audioGen, id, aid),
+            "double audio cancel denied");
+        Check(audio.TryOpen(id, aid, lease, gen, 24000, out var retry, out reason),
+            "a new audio lease can open once old audio explicitly retires");
+        Check(retry.StreamId != stream.StreamId &&
+            retry.AudioLeaseId != stream.AudioLeaseId, "old audio id not reused");
+        game.Spawn(345, 0xD000, lifetimeTag: 4002);
+        audio.Sweep();
+        Check(!audio.TryAppend(retry.StreamId.ToString("D"), retry.AudioLeaseId.ToString("D"),
+            retry.AudioGeneration, id, aid, 0, pcm, out reason),
+            "same-address-and-handle actor recycling destroys audio authority");
+        audio.RetireAll();
+        turns.RetireAll();
+        host.Stop();
+    }
+
     private static void Main()
     {
         IdentityAndLeases();
@@ -577,6 +662,7 @@ internal static class Program
         DecoratorReuseAndNativeTurnAdmission();
         NativeTypedTextAndStagedReply();
         PreconfirmationCancelReleasesActor();
+        BoundedNativePcmAndTruthfulReceipts();
         Console.WriteLine("PASS " + assertions +
             " standalone native core assertions; no Essential/RAGE/game assembly loaded.");
     }
