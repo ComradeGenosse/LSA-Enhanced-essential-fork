@@ -132,6 +132,13 @@ namespace LSA.Standalone
                 out var stream, out reason)) return false;
             reason = "audio_sealed";
             if (stream.Sealed) return false;
+            // Segment mode can only enqueue PCM for an already admitted,
+            // not-yet-marked native text segment. A malicious/stale producer
+            // cannot put extra bytes between speech segments or after final.
+            reason = "segment_not_authorized";
+            if (stream.Turn.StagedReply == null &&
+                stream.MarkedSegments >= stream.Turn.SpeechSegments.Count)
+                return false;
             reason = "bad_pcm_chunk";
             if (pcm == null || pcm.Length < 2 || pcm.Length > MaxChunkBytes ||
                 (pcm.Length & 1) != 0) return false;
