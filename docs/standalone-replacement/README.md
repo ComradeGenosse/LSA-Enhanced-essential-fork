@@ -7,13 +7,13 @@ This program is scoped separately from the [currently active playable v1.0 roadm
 Start here:
 
 1. [**Source-backed hardened architecture / implementation plan (Oct 11)**](architecture-review-hardened-plan-20261011.md) — reviewed F1–F18, retained brain/body/voice design, source pins, physical probes, protocol contracts, phase PRs and acceptance gates (**proposed; no code enabled**).
-8. [**Phased roadmap**](roadmap.md) — Phase 0–9 implementation, offline tests, GTA gates and Milestones A/B/C.
-2. [**Phase 0 evidence baseline**](phase-0-baseline.md) — exact Essential and source revisions, native and Node dependency seams, reusable functionality, omitted stock features.
-3. [**Feature parity matrix**](feature-parity-matrix.md) — retain/replace/defer by user-visible feature, with offline and actual-GTA proof requirements.
-4. [**Phase 0 acceptance and blockers**](phase-0-acceptance.md) — research findings, completed CI checks, and gates explicitly deferred to a real GTA deployment.
-5. [**Stock server/turn/audio protocol map**](phase-0-protocol-audio.md) — independent Node transport contract, exact tuple and terminal behavior.
-6. [**RAGE host, audio, and licensing feasibility**](phase-0-audio-host-licensing.md) — verified NAudio API references and the required spatial-audio spike.
-7. [**Installed GTA baseline and rollback**](phase-0-gta-baseline.md) — local read-only fingerprint tool and physical scenario checklist.
+2. [**Phased roadmap**](roadmap.md) — Phase 0–9 implementation, offline tests, GTA gates and Milestones A/B/C.
+3. [**Phase 0 evidence baseline**](phase-0-baseline.md) — exact Essential and source revisions, native and Node dependency seams, reusable functionality, omitted stock features.
+4. [**Feature parity matrix**](feature-parity-matrix.md) — retain/replace/defer by user-visible feature, with offline and actual-GTA proof requirements.
+5. [**Phase 0 acceptance and blockers**](phase-0-acceptance.md) — research findings, completed CI checks, and gates explicitly deferred to a real GTA deployment.
+6. [**Stock server/turn/audio protocol map**](phase-0-protocol-audio.md) — independent Node transport contract, exact tuple and terminal behavior.
+7. [**RAGE host, audio, and licensing feasibility**](phase-0-audio-host-licensing.md) — verified NAudio API references and the required spatial-audio spike.
+8. [**Installed GTA baseline and rollback**](phase-0-gta-baseline.md) — local read-only fingerprint tool and physical scenario checklist.
 
 ### Repeatable preliminary inventory
 
