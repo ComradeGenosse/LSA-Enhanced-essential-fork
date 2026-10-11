@@ -2,6 +2,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { M9NativeEventProducer } from '../../lsa-shared-brain/src/events/m9EventProducers.mjs';
 import { M9MemoryCueCandidates, M9_CUE_LIMITS } from '../../lsa-shared-brain/src/events/m9MemoryCues.mjs';
+import { M9Ps2CandidateBridge } from '../../lsa-shared-brain/src/events/m9Ps2CandidateBridge.mjs';
+import { M9DirectorCueAdmission } from '../src/perception/m9DirectorCueAdmission.mjs';
 
 const id=n=>'10000000-0000-4000-8000-'+String(n).padStart(12,'0');
 const run=id(1),epoch=id(2),player=id(3),vehicle=id(4);
@@ -272,4 +274,157 @@ test('M9 high-speed label requires source proved speed before collision',()=>{
 });
 test('M9 minimum cue cooldown is ten minutes',()=>{
   assert.ok(M9_CUE_LIMITS.perCharacterCooldownMs>=600000);
+});
+
+const ps3=(observer=id(14),observationId=id(11))=>({
+  observation:{observer:{kind:'ped',captureRef:observer},
+    observationId,revision:1,expiresAtMonotonicMs:1500,
+    claims:[{certainty:'supported',evidence:{channel:'visual'}}]},
+  decision:{observationId,revision:1,decisionKey:'genuine-ps3-decision',
+    policyVersion:1,response:'eligible',expiresAtMonotonicMs:1500},
+  situation:{lifetimeCurrent:true,channelHealthy:true,
+    perceptionSupported:true,playerCaptureRef:player},
+  entitlementCurrent:true,observedAtMonotonicMs:990
+});
+const ps6Facts=(observer=id(14))=>({
+  nowMonotonicMs:1000,speakerCaptureRef:observer,playerCaptureRef:player
+});
+const safePs6={...allSafe,typedIdle:true,combatIdle:true,stockIdle:true};
+function ps6Harness({original=true,priority=safePs6,delivery='delivered',
+  registration=true,authorize=()=>true}={}) {
+  const calls={attempt:0,registered:0,unregistered:0};
+  const cues=new M9MemoryCueCandidates({authorizeWitness:authorize,now:()=>1000});
+  const existingSceneDirector={
+    originalGrantCurrent:()=>original,
+    attempt:async()=>{calls.attempt++;return {status:delivery};}
+  };
+  const adapter=new M9DirectorCueAdmission({cueCandidates:cues,
+    existingSceneDirector,readCurrentPriority:()=>priority,
+    registerPs4MemoryCue:({cue})=>{
+      calls.registered++;
+      return registration?{status:'registered',cueId:cue.cueId,
+        unregister:()=>calls.unregistered++}:null;
+    }
+  });
+  return {adapter,calls,cues};
+}
+test('M9 PS2 bridge only enqueues source-checked candidates, not memories',()=>{
+  const e=accident();
+  let received=null;
+  const intake=new M9Ps2CandidateBridge({
+    verifyNativeCandidate:({candidate,nativeReceipt})=>
+      candidate.eventId===e.eventId && nativeReceipt?.fromOwnerFiber===true,
+    submitForPs2Qualification:envelope=>{
+      received=envelope;
+      return {status:'accepted_for_qualification',
+        candidateEventId:envelope.candidateEventId};
+    },now:()=>1000
+  });
+  assert.equal(intake.submit({candidate:e}).reason,'native_event_unverified');
+  assert.equal(received,null);
+  const admitted=intake.submit({candidate:e,
+    nativeReceipt:{fromOwnerFiber:true}});
+  assert.equal(admitted.status,'pending_ps2_witness_qualification');
+  assert.equal(received.type,'m9.ps2_qualification_request');
+  assert.equal(received.observers,null);
+  assert.equal(received.coverage,'unknown');
+  assert.equal(received.memoryCommitted,false);
+  assert.equal(intake.submit({candidate:e,
+    nativeReceipt:{fromOwnerFiber:true}}).reason,'duplicate_candidate');
+  intake.reset();
+  assert.equal(intake.submit({candidate:e,
+    nativeReceipt:{fromOwnerFiber:true}}).accepted,true);
+});
+test('M9 PS2 bridge rejects unsupported v1 PS2 wire and fake grants',()=>{
+  const e=accident();
+  let send=()=>({status:'unsupported'});
+  const b=new M9Ps2CandidateBridge({verifyNativeCandidate:()=>true,
+    submitForPs2Qualification:x=>send(x),now:()=>1000});
+  assert.equal(b.submit({candidate:e}).reason,'ps2_qualification_unavailable');
+  send=x=>({status:'accepted_for_qualification',candidateEventId:x.candidateEventId,
+    grantsWitness:true});
+  assert.equal(b.submit({candidate:e}).accepted,false);
+  send=x=>({status:'accepted_for_qualification',candidateEventId:x.candidateEventId,
+    memoryCommitted:true});
+  assert.equal(b.submit({candidate:e}).accepted,false);
+});
+test('M9 PS6 cues only enter an already entitled original stock Director turn',async()=>{
+  const e=accident(),w=qualified(e),h=ps6Harness();
+  const result=await h.adapter.attempt({candidate:e,witness:w,
+    ps3Candidates:[ps3()],facts:ps6Facts(),stamp:{}});
+  assert.equal(result.status,'director_delivered');
+  assert.equal(result.requiresVerifiedPs4Receipt,true);
+  assert.equal(h.calls.attempt,1);
+  assert.equal(h.calls.registered,1);
+  assert.equal(h.calls.unregistered,1);
+});
+test('M9 PS6 cannot invent an original PS3 entitlement or PS4 memory',async()=>{
+  const e=accident(),w=qualified(e);
+  for (const setting of [{original:false},{registration:false}]) {
+    const h=ps6Harness(setting);
+    const r=await h.adapter.attempt({candidate:e,witness:w,
+      ps3Candidates:[ps3()],facts:ps6Facts(),stamp:{}});
+    assert.notEqual(r.status,'director_delivered');
+    assert.equal(h.calls.attempt,0);
+  }
+  const h=ps6Harness();
+  assert.equal((await h.adapter.attempt({candidate:e,witness:w,
+    ps3Candidates:[],facts:ps6Facts(),stamp:{}})).status,
+    'missing_original_ps3_source');
+  assert.equal(h.calls.attempt,0);
+});
+test('M9 PS6 unrelated spectator without durable witnessed proof is never eligible',async()=>{
+  const e=accident();
+  const h=ps6Harness({authorize:({witness})=>witness.characterId===charA});
+  const spectator=qualified(e,charB);
+  const outcome=await h.adapter.attempt({candidate:e,witness:spectator,
+    ps3Candidates:[ps3(id(15))],facts:ps6Facts(id(15)),stamp:{}});
+  assert.equal(outcome.status,'cue_refused');
+  assert.equal(h.calls.attempt,0);
+});
+test('M9 PS6 mic, typed player input, combat, stock turn and unknown veto',async()=>{
+  const e=accident(),w=qualified(e);
+  for(const key of ['known','micIdle','typedIdle','combatIdle','stockIdle',
+    'interruptionFree','playerIdle']) {
+    const h=ps6Harness({priority:{...safePs6,[key]:false}});
+    const result=await h.adapter.attempt({candidate:e,witness:w,
+      ps3Candidates:[ps3()],facts:ps6Facts(),stamp:{}});
+    assert.equal(result.status,'player_or_combat_priority',key);
+    assert.equal(h.calls.attempt,0);
+  }
+});
+test('M9 PS6 native Director lease refusal and interrupted sound cannot claim playback',async()=>{
+  const e=accident(),w=qualified(e);
+  for(const delivery of ['not_admitted','not_delivered']) {
+    const h=ps6Harness({delivery});
+    const result=await h.adapter.attempt({candidate:e,witness:w,
+      ps3Candidates:[ps3()],facts:ps6Facts(),stamp:{}});
+    assert.equal(result.status,'director_not_delivered');
+    assert.equal(result.directorStatus,delivery);
+    assert.equal(h.calls.unregistered,1);
+  }
+});
+test('M9 PS6 cooldown is not reset by another event and survives rejected replay',async()=>{
+  const e=accident(),h=ps6Harness(),w=qualified(e);
+  assert.equal((await h.adapter.attempt({candidate:e,witness:w,
+    ps3Candidates:[ps3()],facts:ps6Facts(),stamp:{}})).status,
+    'director_delivered');
+  const next={...e,eventId:id(88)};
+  const result=await h.adapter.attempt({candidate:next,
+    witness:qualified(next),ps3Candidates:[ps3()],facts:ps6Facts(),stamp:{}});
+  assert.equal(result.status,'cue_refused');
+  assert.equal(result.reason,'cooldown');
+  assert.equal(h.calls.attempt,1);
+});
+test('M9 PS6 rejects forged original observer, missing witness and stale PS3',async()=>{
+  const e=accident(),h=ps6Harness(),w=qualified(e);
+  assert.equal((await h.adapter.attempt({candidate:e,witness:w,
+    ps3Candidates:[ps3(id(15))],facts:ps6Facts(id(15)),stamp:{}})).status,
+    'original_ps3_not_eligible');
+  assert.equal((await h.adapter.attempt({candidate:e,
+    ps3Candidates:[ps3()],facts:ps6Facts(),stamp:{}})).status,
+    'missing_original_ps3_source');
+  assert.equal((await h.adapter.attempt({candidate:e,witness:w,
+    ps3Candidates:[ps3()],facts:{...ps6Facts(),nowMonotonicMs:1501},
+    stamp:{}})).status,'original_ps3_not_eligible');
 });
