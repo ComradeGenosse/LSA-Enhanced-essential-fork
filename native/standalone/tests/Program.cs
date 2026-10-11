@@ -444,7 +444,9 @@ internal static class Program
         Check(tickets.TryIssue(second, "player_mic", 1000, out var later, out reason),
             "new source can acquire after exact release");
         tickets.RetireAll();
-        Check(!host.IsLeaseCurrent(later.Lease), "disconnect retires conversation");
+        Check(tickets.TryIssue(second, "player_text", 1000, out var afterRestart, out reason),
+            "disconnect releases exact native conversation lease");
+        tickets.RetireAll();
         Check(!tickets.TryConfirm(later.TurnId.ToString("D"), later.SessionNonce.ToString("D"),
             later.ActorIncarnationId.ToString("D"), later.LeaseId.ToString("D"),
             later.Generation, later.Source, out reason), "stale reconnect cannot confirm");
