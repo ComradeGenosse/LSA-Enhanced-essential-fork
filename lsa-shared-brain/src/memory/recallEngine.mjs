@@ -97,7 +97,7 @@ function supportedRow(row,scope) {
 }
 function similarity(row,terms,nowMs,focusKind,speaker) {
   if(speaker&&row.envelope?.speaker!==speaker)return -Infinity;
-  if(focusKind&&row.sourceKind!==focusKind)return -Infinity;
+  if(focusKind&&row.sourceKind!==focusKind&&!(focusKind==='dialogue_line'&&row.isCorrectionOverlay===true))return -Infinity;
   const txt=tokenize(row.sourceKind==='dialogue_line'?row.envelope.content:row.content);
   const hay=new Set(txt);
   const matches=terms.filter(t=>hay.has(t)).length;
