@@ -5,6 +5,17 @@ const modes=new Set(['off','shadow','experimental']);
 const finitePositive=x=>Number.isFinite(x)&&x>0;
 export const M7_OFF_CONSENT=Object.freeze({mode:'off',cloudOptIn:false});
 export const M7_IDLE_PROOF_KIND='verified_native_idle_v1';
+// Negative gameplay/turn authority must be source-known AND idle. An idle
+// timestamp or an arbitrary absence of callbacks cannot certify these states.
+// These are C-06-derived quiet fields only; not a PS6 Director response grant.
+export const M7_PRIORITY_QUIET_FIELDS=Object.freeze([
+ 'ownerProofCurrent','speakerOwned','speakerAlive','playerIsLocal','playerAlive',
+ 'ownerPrimaryModeKnown','ownerIdle','micStateKnown','micIdle',
+ 'conversationStateKnown','conversationIdle','textInputKnown','textInputIdle',
+ 'controlsInputKnown','controlsInputIdle','scriptStateKnown','scriptSafe',
+ 'actorReflexKnown','actorReflexIdle','playerTurnSourceCurrent','playerTurnIdle',
+ 'essentialTurnKnown','essentialTurnIdle','playbackKnown','playbackIdle']);
+
 
 /**
  * Host must persist explicit player approval of off-turn evidence upload and
@@ -61,6 +72,7 @@ export function validateM7IdleProof(proof,{store,characterId,nowUtc,maxAgeMs=300
    !isUuid(proof.sessionId)||!isUuid(proof.incarnationId)||!isUuid(proof.encounterId)||
    !Number.isSafeInteger(proof.observerIndex)||proof.observerIndex<0||
    !isUuid(proof.characterId)||!isUuid(proof.worldProfileId)||!isUuid(proof.timelineId)||
+   !M7_PRIORITY_QUIET_FIELDS.every(k=>proof.priorityEvidence?.[k]===true)||
    proof.idle!==true||proof.micActive!==false||proof.playerSpeechActive!==false||
    proof.directorBusy!==false||proof.gamePaused!==false||
    !Number.isFinite(proof.idleForMs)||proof.idleForMs<1500||
