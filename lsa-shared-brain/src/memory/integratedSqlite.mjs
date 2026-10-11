@@ -90,7 +90,23 @@ export function listMemoryCandidates(db,scope,world,{beforeUtc=null,excludeRecor
 }
 export function listSuppressedMemoryIds(db,scope,world){
  dbOwnerScope(db,scope,world);
- return Object.freeze(db.prepare('SELECT target_id FROM memory_tombstones WHERE world_profile_id=? AND character_id=? AND timeline_id=?').all(...stmtScope(scope)).map(x=>x.target_id));
+ const ids=new Set(db.prepare('SELECT target_id FROM memory_tombstones WHERE world_profile_id=? AND character_id=? AND timeline_id=?').all(...stmtScope(scope)).map(x=>x.target_id));
+ // Forgetting a derived memory also suppresses its original evidence from
+ // model recall without rewriting immutable journal rows.
+ const links=db.prepare('SELECT memory_id,evidence_ids_json FROM memory_records WHERE world_profile_id=? AND character_id=? AND timeline_id=?').all(...stmtScope(scope));
+ let changed=true;
+ while(changed){
+   changed=false;
+   for(const row of links){
+     const sources=JSON.parse(row.evidence_ids_json);
+     if(ids.has(row.memory_id)){
+       for(const source of sources)if(!ids.has(source)){ids.add(source);changed=true;}
+     }else if(sources.some(source=>ids.has(source))){
+       ids.add(row.memory_id);changed=true;
+     }
+   }
+ }
+ return Object.freeze([...ids]);
 }
 export function verifyPersistedMemoryCommand(db,{scope,commandId},world){
  dbOwnerScope(db,scope,world);
