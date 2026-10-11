@@ -80,6 +80,23 @@ export class IntelligenceClient {
   assertKnowledgeCurrent(inputs) {return assertKnowledgeCurrent(inputs,this.runtime);}
   acceptPlayerTranscript(input) {return this.runtime.acceptPlayerTranscript(input);}
   recordTypedUtterance(identity) {return this.runtime.utteranceLifecycleVersion===1 && this.runtime.utterances.recordTyped(identity,this.runtime.hostContext);}
+  reserveMicUtterance(input) {
+    if(this.runtime.utteranceLifecycleVersion!==1 || !this.runtime.epoch)return false;
+    return this.runtime.utterances.reserveMicTurn(input,this.runtime.hostContext);
+  }
+  finishMicUtterance(identity,pcmBytes) {
+    return this.runtime.utteranceLifecycleVersion===1 &&
+      this.runtime.utterances.finishPcm(identity,pcmBytes);
+  }
+  cancelMicUtterance(identity) {
+    return this.runtime.utteranceLifecycleVersion===1 &&
+      this.runtime.utterances.cancelTurn(identity);
+  }
+  acceptCapturedPlayerUtterance({identity,text}) {
+    if(this.runtime.utteranceLifecycleVersion!==1 || !this.runtime.epoch)
+      return {accepted:false,reason:'c01_unavailable'};
+    return this.runtime.utterances.acceptStt({identity,text,host:this.runtime.hostContext});
+  }
   // Preview-only in v1.0's unaccepted native stage: no PS6 decisions are
   // selected here and the native preview endpoint cannot admit Essential turns.
   // Future admitted requests MUST use the same closed v1 encoder.
