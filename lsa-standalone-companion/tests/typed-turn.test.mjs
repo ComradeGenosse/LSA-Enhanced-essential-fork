@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
-import { PendingDialogue, handleNextTypedTurn } from '../src/conversation/typedTurn.js.mjs';
+import { NativePlayerContext, PendingDialogue, handleNextTypedTurn } from '../src/conversation/typedTurn.js.mjs';
 import { createResponsesProvider } from '../src/conversation/responsesProvider.mjs';
 
 function fixture() {
@@ -165,4 +165,40 @@ test('two native turns on same actor keep a conversation identity without replay
   assert.equal(pending.pendingCount, 2, 'two unrelated NPCs remain isolated');
   pending.retireAll();
   assert.equal(pending.pendingCount, 0);
+});
+
+test('native conversation ordinals preserve only prior player statements', async () => {
+  const run = randomUUID(), actor = randomUUID(), conversationId = randomUUID();
+  const context = new NativePlayerContext();
+  const first = { hostRunId: run, actorIncarnationId: actor,
+    conversationId, turnOrdinal: 1, playerText: 'Where are we?' };
+  assert.deepEqual(context.record(first), []);
+  assert.deepEqual(context.record({ ...first, turnOrdinal: 2,
+    playerText: 'What was my question?' }), ['Where are we?']);
+  assert.throws(() => context.record(first), /stale_native_conversation/);
+  assert.throws(() => context.record({ ...first, turnOrdinal: 3,
+    actorIncarnationId: randomUUID() }), /stale_native_conversation/);
+  context.retireAll();
+  assert.deepEqual(context.record(first), [], 'reconnection clears all prior text');
+});
+
+test('provider API includes only source-time player history, never unplayed NPC replies', async () => {
+  let sent;
+  const provider = createResponsesProvider({
+    apiKey: 'fake-local', model: 'fixture-model',
+    fetchImpl: async (_url, init) => {
+      sent = JSON.parse(init.body);
+      return { ok: true, async json() {
+        return { status: 'completed', output: [{ type: 'message',
+          role: 'assistant', content: [{ type: 'output_text', text: 'Fine.' }] }] };
+      } };
+    }
+  });
+  await provider.complete({ text: 'Second question',
+    previousPlayerInputs: ['First question'] });
+  assert.deepEqual(sent.input, [
+    { role: 'user', content: 'First question' },
+    { role: 'user', content: 'Second question' }
+  ]);
+  assert.ok(!JSON.stringify(sent.input).includes('unplayed'));
 });
