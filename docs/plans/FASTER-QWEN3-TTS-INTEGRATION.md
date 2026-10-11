@@ -45,6 +45,25 @@
 
 The Base, CustomVoice and VoiceDesign variants have different weights. They cannot all be served as features of one Base model; our sidecar selects the appropriate upstream method/model. The wrapped engine uses exactly one model family in VRAM at a time. `ttsSpeed` is effectively fixed at 1 for Qwen (no fabricated speed control). `actingEnabled` can provide bounded style instructions to Base/CustomVoice, but voice consistency requires listening tests. VoiceDesign uses its fixed registry instruction. For lowest latency during gameplay keep frequently used NPC voices in the same family.
 
+### Optional Windows VoiceDesign desktop helper
+
+`lsa-essential-e1-candidate/tools/qwen/voice_design_gui.py` is a standalone
+local utility for entering text and a VoiceDesign instruction, generating
+speech, and saving a WAV. It is separate from the LSA service and
+does not change `e1.config.json`, the voice registry, or GTA files. It loads
+only the cached VoiceDesign model and keeps it resident while the window is
+open; close the window to release GPU memory. WAVs and the GUI diagnostic log
+are written under `voice-design-output` in the Faster Qwen installation.
+
+On Windows, launch `tools/qwen/launch_voice_design_gui.bat`. By default the
+launcher expects the Faster Qwen installation at
+`%USERPROFILE%\Documents\Codex\faster-qwen3-tts`; set
+`FASTER_QWEN_TTS_HOME` first if it is elsewhere. The launcher uses that
+installation's `.venv` and local Hugging Face cache in offline mode. The
+VoiceDesign model must already be cached. The GUI routes Python stdout/stderr
+to its local log when launched with `pythonw.exe`, so generation errors remain
+available without a console window.
+
 ## Remaining acceptance and phased upgrades
 
 **A — now implemented, GTA pending:** test new provider against the existing radio-deployed companion; verify server health, first PCM, correct voice for Nathan, response cancellation under player takeover, exact-generation native authorization and final PlaybackEnded receipt, no stale history or audio, hot reuse, failure behavior and return to OpenAI. Do not treat offline evidence as physical GTA acceptance.
