@@ -1,6 +1,6 @@
-# M1 — SQLite P2 foundation, shared host adapters and guarded integration (increments 1–3)
+# M1 — SQLite P2 foundation, shared adapters and offline acceptance (increments 1–4)
 
-**Status: M1 increments 1–3 implemented in source; SQLite is opt-in, NOT enabled in the live installed GTA companion, and no real GTA test has been accepted.** This PR sits on M0 PR #51. M0 + architecture PR #49 must be integrated in order; M1 does not assume they have merged. The standalone replacement stack (#50/#53) is **independent** and has NOT been merged into this memory branch.
+**Status: M1 increments 1–4 implemented in source; final CI is the offline acceptance gate for M2. SQLite remains opt-in and NOT enabled in installed GTA; no real GTA test has been accepted.** See [M1 offline acceptance and M2 handoff](M1-offline-acceptance-and-M2-handoff.md). This PR sits on M0 PR #51. M0 + architecture PR #49 must be integrated in order; M1 does not assume they have merged. The standalone replacement stack (#50/#53) is **independent** and has NOT been merged into this memory branch.
 
 ## Implemented in this increment
 
@@ -30,6 +30,14 @@ The shared source of truth is now `lsa-shared-brain/src/`, completely free of Es
 - **Legacy Node compatibility:** the SQLite dependency is an optional dynamic import rather than a mandatory static `node:sqlite` load on every Essential JSON startup. JSON remains the default, even when the installed Node runtime cannot provide SQLite/FTS5. A dedicated Node 20/22 Windows+Linux import check guards against regressing this guarantee; Node 24 must still prove FTS5 for SQLite opt-in.
 - **Packaging compatibility:** shared source staging is idempotent if a preexisting candidate output directory exists (as the concurrent stock-controller tests require). Existing source hash validation and staged import rewriting remain intact; no runtime source is loaded from the developer checkout after staging.
 - **Negative cases:** stale `.writer.lock` is never stolen automatically; no concurrent Essential/standalone SQLite writer; no invalid native epoch can authorize timeline reassignment; archive source files remain intact, and rollback export does not mutate the active store.
+
+## Increment 4 — source-fenced timeline writes and recovery verification
+
+- `P2SqliteProfileStore.withTimelineWrite(timelineId, synchronousCommit)` is the **serialized writer** gate for M2: rejects wrong timeline, suspended save lineage, lost/unverified native source and unconfirmed host epoch. Future M2 journal inserts must use this gate. Existing P2 player-authored profile fields and manual notes are global v1 metadata, not fabricated timeline observations.
+- Essential SQLite uses `sourceRequired:true`. Authenticated PS hello and accepted C-13 `world_epoch` connect source provenance; disconnect and runtime restart revoke permission until explicit confirmation. Offline adapters use `sourceRequired:false` for storage-only tests.
+- Read-only `inspectP2Sqlite` and `tools/inspectM1Sqlite.mjs` check schema, world, checksums, profile indexes and timeline state without creating or mutating the DB, clearing stale locks or revealing NPC memory text.
+- Added source/queue/disconnect/restart tests, real PS hello/epoch fixtures and corrupt-index/CLI tests. CI runs on Windows+Ubuntu Node24 with Node20/22 backward-compatibility checks. Serial test-file execution eliminates races in shared-output stock-controller regression tests.
+- See [offline acceptance/M2 handoff](M1-offline-acceptance-and-M2-handoff.md). **M2 source development may begin after final M1 CI passes; GTA testing is deferred, not silently waived.**
 
 ## Tests and validation for increment 2
 
