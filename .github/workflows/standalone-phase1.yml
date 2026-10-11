@@ -1,0 +1,42 @@
+name: Standalone Phase 1 Native Core
+
+on:
+  pull_request:
+    branches:
+      - feature/standalone-replacement-phase0
+      - main
+    paths:
+      - 'native/standalone/**'
+      - 'docs/standalone-replacement/**'
+      - '.github/workflows/standalone-phase1.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  native-core:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - name: Restore independent production and test projects
+        run: |
+          dotnet restore native/standalone/LSA.Standalone.Core.csproj
+          dotnet restore native/standalone/tests/LSA.Standalone.Core.Tests.csproj
+      - name: Compile the actual independent .NET Framework 4.8.1 binary
+        run: dotnet build native/standalone/LSA.Standalone.Core.csproj --no-restore -f net481 -c Release
+      - name: Run production-core state machines against simulated GTA world
+        run: dotnet run --project native/standalone/tests/LSA.Standalone.Core.Tests.csproj -f net10.0 -c Release
+      - name: Assert no game/Essential assemblies are referenced
+        shell: pwsh
+        run: |
+          $dll = Resolve-Path 'native/standalone/bin/Release/net481/LSA.Standalone.Core.dll'
+          $asm = [System.Reflection.Assembly]::LoadFrom($dll.Path)
+          $names = @($asm.GetReferencedAssemblies() | ForEach-Object { $_.Name })
+          foreach ($forbidden in @('LosSantosAlive','RagePluginHook','NAudio','LSA.SessionIdentity','LSA.PromotedCharacters.Runtime')) {
+            if ($names -contains $forbidden) { throw "Standalone native DLL unexpectedly references $forbidden" }
+          }
+          Write-Host "Verified net481 assembly references: $($names -join ', ')"
