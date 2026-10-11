@@ -1,0 +1,72 @@
+name: Standalone Phase 2 Host and IPC
+
+on:
+  pull_request:
+    branches:
+      - feature/standalone-native-core-phase1
+      - main
+    paths:
+      - 'native/standalone/**'
+      - 'native/standalone-host/**'
+      - 'lsa-standalone-companion/**'
+      - 'docs/standalone-replacement/**'
+      - '.github/workflows/standalone-phase2.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  node-wire:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate Phase 2 Node transport framing and lifecycle
+        run: node --test lsa-standalone-companion/tests/phase2-wire.test.mjs
+
+  windows-framework-ipc:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - name: Compile genuine independent core and exercise existing Phase 1 invariants
+        shell: pwsh
+        run: |
+          dotnet build native/standalone/LSA.Standalone.Core.csproj -f net481 -c Release
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          dotnet run --project native/standalone/tests/LSA.Standalone.Core.Tests.csproj -f net10.0 -c Release
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Compile standalone host against an explicit local RPH API stub (NOT real SDK)
+        shell: pwsh
+        run: |
+          dotnet build native/standalone-host/tests/FakeRphSdk.csproj -c Release
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $sdk = (Resolve-Path 'native/standalone-host/tests/bin/Release/net481/RagePluginHook.dll').Path
+          dotnet build native/standalone-host/LSA.Standalone.RageHost.csproj -c Release "-p:RphReferencePath=$sdk"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          dotnet build native/standalone-host/tests/Phase2PipeHarness.csproj -c Release
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Exercise real net481 named-pipe server and independent Node process
+        shell: pwsh
+        run: |
+          $exe = (Resolve-Path 'native/standalone-host/tests/bin/Release/net481/Phase2PipeHarness.exe').Path
+          $hostProcess = Start-Process -FilePath $exe -PassThru
+          try {
+            $accepted = $false
+            for ($attempt = 1; $attempt -le 12; $attempt++) {
+              node lsa-standalone-companion/tools/health-check.mjs
+              if ($LASTEXITCODE -eq 0) { $accepted = $true; break }
+              Start-Sleep -Milliseconds 250
+            }
+            if (-not $accepted) { throw 'Native net481 + Node two-process handshake/snapshot failed' }
+          } finally {
+            Stop-Process -Id $hostProcess.Id -Force -ErrorAction SilentlyContinue
+          }
