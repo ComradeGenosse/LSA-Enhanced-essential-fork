@@ -9,7 +9,12 @@ export function projectKnowledgeClaim(claim,observation,observer,playerRef=null)
   if(!validateClaim(claim)) return null;
   const modality=claim.evidence.channel;if(!['self','visual','auditory'].includes(modality)) return null;
   const common={modality,certainty:claim.certainty};
-  if(claim.kind==='injured' && (modality==='visual' && claim.target || modality==='self' && claim.target?.captureRef===observer)) return {...common,kind:'injured',subject:subject(claim.target,observer,playerRef)};
+  if(claim.kind==='injured' && (modality==='visual' && claim.target || modality==='self' && claim.target?.captureRef===observer)) {
+    const playerShot=modality==='visual' && claim.details?.classification==='bullet' &&
+      claim.source?.kind==='player' && claim.source.captureRef===playerRef;
+    return {...common,kind:'injured',subject:subject(claim.target,observer,playerRef),
+      ...(playerShot?{cause:'gunshot',causedBy:'player'}:{})};
+  }
   if(claim.kind==='dead' && modality==='visual' && claim.target) return {...common,kind:'dead',subject:subject(claim.target,observer,playerRef)};
   if(claim.kind==='firing' && modality==='visual' && claim.source) return {...common,kind:'firing',subject:subject(claim.source,observer,playerRef)};
   if(claim.kind==='firing' && modality==='self' && claim.source?.captureRef===observer) return {...common,kind:'firing',subject:'self'};
