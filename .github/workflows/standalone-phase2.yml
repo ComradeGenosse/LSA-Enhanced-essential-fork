@@ -77,10 +77,10 @@ jobs:
           foreach ($file in @("LSA.Standalone.enabled","LSA.Standalone.RageHost.dll","LSA.Standalone.Core.dll")) {
             New-Item -ItemType File -Path (Join-Path $plugins $file) -Force | Out-Null
           }
-          & "./tools/standalone/verify-standalone-profile.ps1" -GameRoot $root
+          & pwsh -NoProfile -File "./tools/standalone/verify-standalone-profile.ps1" -GameRoot $root
           if ($LASTEXITCODE -ne 0) { throw "Valid isolated profile was incorrectly rejected" }
           New-Item -ItemType File -Path (Join-Path $plugins "LSA.PromotedCharacters.json") -Force | Out-Null
-          & "./tools/standalone/verify-standalone-profile.ps1" -GameRoot $root
+          & pwsh -NoProfile -File "./tools/standalone/verify-standalone-profile.ps1" -GameRoot $root
           if ($LASTEXITCODE -ne 2) { throw "Legacy Essential payload was not refused" }
       - name: Exercise real net481 named-pipe server and independent Node process
         shell: pwsh
