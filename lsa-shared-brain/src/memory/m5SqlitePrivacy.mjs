@@ -232,7 +232,16 @@ export class M5SqliteServices{
      },
      verifyCommand:async params=>{
        const receipt=await this.#store.verifyCommand(params);
-       if(receipt?.operation==='forget' && receipt?.durableCommit)await this.ready(params.scope);
+       if(receipt?.operation==='forget' && receipt?.durableCommit){
+         await this.ready(params.scope);
+         const restored=this.#read(params.scope,db=>db.prepare(
+           'SELECT trash_id FROM m5_trash WHERE operation_id=? AND '+scopeWhere+
+           ' AND restored_at_utc IS NOT NULL LIMIT 1'
+         ).get(params.commandId,...scopeKey(params.scope)));
+         // Historical command receipts cannot acknowledge an effect the player
+         // explicitly restored after the original SQLite commit.
+         if(restored)return {...receipt,status:'restored',durableCommit:false};
+       }
        return receipt;
      },
      saveClarification:params=>this.saveClarification(params),
