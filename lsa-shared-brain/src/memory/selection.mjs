@@ -89,11 +89,14 @@ export function evaluateAutomaticMemoryBatch(rawRecords,
     }
   }
   // A *soft* pressure on ordinary scenes, never a hard count limit.
-  const pressure=Math.min(.26,Math.max(0,existingInHour-softTargetPerHour)*.04);
-  const threshold=Math.min(.84,minScore+pressure);
+  // Account for admissions IN this checkpoint, so one 40-scene batch cannot
+  // bypass the approximate six-per-active-hour target entirely.
   const proposals=[];
   for(const scene of groupQualifiedScenes(qualified)){
     const {ranked,score,candidate}=scoreScene(scene);
+    const pressure=Math.min(.26,Math.max(0,
+      existingInHour+proposals.length-softTargetPerHour)*.04);
+    const threshold=Math.min(.84,minScore+pressure);
     if(score<threshold&&score<.86)continue;
     const scope=scopeOf(scene[0]),ids=frozenEvidenceIds(scene);
     const summary=ranked.slice(0,4).map(x=>factDigest(x.record)).join(' ').slice(0,2400);
