@@ -6,7 +6,7 @@
 
 ## What is completed in code
 
-- One host-independent source implementation in `lsa-shared-brain/src`: P2 profile validation and mutations, additive SQLite storage schema v2, manual memory CRUD, timeline guards and identity constraints. Essential and standalone use small importing adapters, not two databases.
+- One host-independent source implementation in `lsa-shared-brain/src`: P2 profile validation and mutations, additive SQLite storage schema v2, manual memory CRUD, timeline guards and identity constraints. Essential and standalone use small importing adapters, not two databases. **The standalone adapter defaults to sourceRequired:true**, so future native timeline writes cannot begin until authenticated host/epoch evidence is wired; explicit sourceRequired:false is for isolated, host-free storage tests only.
 - Schema v2 is a **SQLite storage envelope**, not a new automatic-memory profile format. Existing P2 `profileVersion:1` JSON/manual memory records are preserved, validated and indexed during one-time import; source JSON remains unchanged and has an exclusive `.pre-sqlite.bak` backup.
 - SQLite write CAS, integrity and per-character ownership checks, WAL/FULL synchronous durability, explicit timelines and fail-closed schema version/world mismatch handling. Only one writer can claim the lock. Stale crash locks are never automatically cleared.
 - Full Essential P2 promotion/edit/manual memory/control/removal can work through opt-in SQLite, including staged-import packaging; **JSON remains the default**. Standalone's memory storage adapter exists, but standalone native identity and playback are M10 integration concerns.
