@@ -141,8 +141,9 @@ function validateInput({line, commandId, scope, store}) {
 export async function handleExplicitMemoryCommand(input) {
   validateInput(input);
   const { line,scope,store,commandId }=input;
-  const parsed=detectExplicitMemoryCommand(line.content,input.lunaInterpretation);
-  if (!parsed) return null;
+  const parsed=input.parsedOverride??detectExplicitMemoryCommand(line.content,input.lunaInterpretation);
+  if (!parsed || (input.parsedOverride &&
+      !detectExplicitMemoryCommands(line.content)?.some(p=>JSON.stringify(p.parsed)===JSON.stringify(parsed)))) return null;
   if (parsed.intent==='inspect' || parsed.intent==='export') {
     if (typeof store[parsed.intent] !== 'function') return {kind:'memory_read',operation:parsed.intent,status:'unavailable'};
     try {
@@ -274,7 +275,7 @@ export async function handleExplicitMemoryCommands(input) {
   for(const item of parts){
     const action=await handleExplicitMemoryCommand({...input,
       commandId:compoundId(input.commandId,item.index),
-      line:{...input.line,content:item.raw}});
+      parsedOverride:item.parsed});
     actions.push(action);
     if(!action || (action.kind==='memory_action' && !['saved','forgotten','corrected'].includes(action.outcome))) break;
   }
