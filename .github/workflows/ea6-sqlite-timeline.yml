@@ -1,0 +1,39 @@
+name: EA6 M1 SQLite Timeline Source Verification
+
+on:
+  push:
+    branches:
+      - feature/ea6-m1-timeline-storage-20261011
+  pull_request:
+    branches:
+      - integration/elevenlabs-emotional-acting-ea0-ea4-20261011
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  storage-portability:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: EA6 authenticated save timeline and P2 regression
+        working-directory: lsa-essential-e1-candidate
+        run: >
+          node --test
+          tests/ea6-storage-timeline.test.mjs
+          tests/p2-profiles.test.mjs
+      - name: Verify default JSON startup remains compatible with Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Legacy P2 profile regression on Node 22
+        working-directory: lsa-essential-e1-candidate
+        run: node --test tests/p2-profiles.test.mjs
