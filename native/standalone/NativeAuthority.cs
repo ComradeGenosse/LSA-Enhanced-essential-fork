@@ -19,12 +19,50 @@ namespace LSA.Standalone
         private readonly IOwnerContext ownerContext;
         private readonly int constructingThread;
         private readonly Dictionary<int, ActorState> actors = new Dictionary<int, ActorState>();
+        private readonly AuthorityTrace trace = new AuthorityTrace();
         private bool stopped;
         private long lastObservedMs;
 
         public readonly Guid HostRunId;
         public int WorldEpoch { get; private set; }
         public int TrackedActors { get { DemandOwner(); return actors.Count; } }
+        public long DroppedTraceEvents { get { DemandOwner(); return trace.Dropped; } }
+        public IReadOnlyList<AuthorityEvent> ReadTrace()
+        {
+            DemandOwner();
+            return trace.Snapshot();
+        }
+
+        private void Record(string name, string reason, ActorRef actor = null, OwnershipLease lease = null)
+        {
+            trace.Add(lastObservedMs, HostRunId, WorldEpoch, actor, lease, name, reason);
+        }
+
+        private bool TryObserve(int handle, out ActorObservation observed)
+        {
+            try { return resolver.TryObserve(handle, out observed); }
+            catch
+            {
+                // Failure to read a live actor can never authorize a stale lease.
+                observed = null;
+                return false;
+            }
+        }
+
+        private void RevokeLeases(ActorState state, string reason)
+        {
+            foreach (OwnershipLease lease in state.Leases.Values)
+                Record("lease_revoked", reason, state.Reference, lease);
+            state.Leases.Clear();
+        }
+
+        private void Forget(ActorState state, string reason)
+        {
+            if (state == null) return;
+            RevokeLeases(state, reason);
+            actors.Remove(state.Reference.Handle);
+            Record("actor_retired", reason, state.Reference);
+        }
 
         public NativeAuthority(IGameClock clock, IGameWorld world, IActorResolver resolver, IOwnerContext ownerContext)
         {
@@ -50,9 +88,16 @@ namespace LSA.Standalone
                 throw new InvalidOperationException("native_owner_required");
         }
 
-        private void ClearWorld()
+        private void ClearWorld(string reason)
         {
+            // Snapshot before clearing: no stale identity may survive a host epoch change.
+            foreach (ActorState state in actors.Values)
+            {
+                RevokeLeases(state, reason);
+                Record("actor_retired", reason, state.Reference);
+            }
             actors.Clear();
+            Record("world_retired", reason);
             if (WorldEpoch == int.MaxValue)
             {
                 stopped = true;
@@ -70,7 +115,7 @@ namespace LSA.Standalone
                 return true;
             }
             // Clock regression invalidates *all* actor refs and leased effects.
-            ClearWorld();
+            ClearWorld("clock_regressed");
             lastObservedMs = now < 0 ? 0 : now;
             return false;
         }
@@ -79,7 +124,7 @@ namespace LSA.Standalone
         {
             DemandOwner();
             if (stopped) return;
-            ClearWorld();
+            ClearWorld("world_changed");
             long now = clock.MonotonicMilliseconds;
             lastObservedMs = now >= 0 ? now : 0;
         }
@@ -88,8 +133,9 @@ namespace LSA.Standalone
         {
             DemandOwner();
             if (stopped) return;
+            ClearWorld("host_stopped");
             stopped = true;
-            actors.Clear();
+            Record("host_stopped", "stopped");
         }
 
         public bool TryRegister(int handle, out ActorRef reference, out string reason)
