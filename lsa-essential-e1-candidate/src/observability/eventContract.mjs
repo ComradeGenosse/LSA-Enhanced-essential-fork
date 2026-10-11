@@ -16,6 +16,7 @@ export const EVENT_NAMES = new Set([
   'session_profile_created','character_name_assigned','promotion_started','promotion_completed','promotion_failed','persistent_profile_loaded','character_spawned','character_dismissed','character_profile_edited','character_memory_created','character_memory_edited','character_memory_deleted','character_unpromoted','character_safe_failure','character_canon_projected','character_reasoning_request_composed',
   'intelligence_status','companion_shadow','knowledge_frame_projected','knowledge_delivery',
   'intelligence_frame_rejected','director_gate','director_candidate','director_handoff',
+  'perception_trace','radio_trace',
   'activity_admitted','activity_rejected','activity_step_started','activity_receipt','activity_paused','activity_resumed','activity_terminal','activity_lease_lost','activity_breaker_tripped',
 ]);
 
@@ -55,6 +56,34 @@ const safeKeys = new Set([
   'traitsIncluded','memoryCount','biographyIncluded','relationshipIncluded','generatedPersonaPolicy',
   'truncatedFields','truncatedFieldCount','droppedMemoryCount',
   'activityId','intent','capability','receiptState','stepIndex',
+  // Bounded PS2/PS3/PS6 correlation diagnostics (closed vocabularies below).
+  'captureEventRadio','selectedRadio','radioQuestion',
+  'traceCode','signalKind','producer','catalog','receipts','selfReceipts','qualified','ownedQualified','ownedObservers',
+  'ps2','ps2Reason','observations','ownedObservations','ps3Owned','ps3Reason','urgency',
+  'ps2OwnedWitnessed','ps2DedupeEvicted','ps2DropInvalidInput','ps2DropRadioIdentityMismatch','ps2DropUnsupportedEvent',
+  'ps2DropEpisodeClaimCapacity','ps2DropEpisodeRejected','ps2DropObservationClaimCapacity','ps2DropObservationRejected',
+  'ps3OwnedDecisions','ps3OwnedEligible','ps3OwnedUrgent',
+  'radioChanged','radioStopped','radioKnown','radioUnknown','radioMismatch','radioOff','radioObservations','radioOwnedObservations',
+  'nativeRadioSamples','nativeRadioEdges','nativeRadioFailures','nativeRadioWitnessed','nativeRadioWitnessUnknown',
+  'nativeWitnessDeferred','nativeWitnessUnknown','nativeWitnessRejected',
+  'ownerStalls','ownerStallMaxMs','traceEmitted','traceSuppressed',
+]);
+// Per-key closed vocabularies for the correlation diagnostics. Anything else
+// is dropped by the sanitizer, so no actor, ref, transcript or content leaks.
+const closedValues = new Map([
+  ['signalKind', new Set(['firing','damage','death','injury_state','radio_changed','radio_stopped'])],
+  ['producer', new Set(['shooting','ped_damage','player_damage','vehicle_damage','state','action','playback','radio'])],
+  ['catalog', new Set(['known','unknown','mismatch','off','stopped','invalid'])],
+  ['ps2', new Set(['accepted','unwitnessed','duplicate','dropped'])],
+  ['ps2Reason', new Set(['none','invalid_input','radio_derived_identity_mismatch','unsupported_event','episode_claim_capacity',
+    'episode_rejected','unsupported_claim_detail','radio_normalization_failed'])],
+  ['ps3Owned', new Set(['urgent','eligible','none','not_evaluated'])],
+  ['ps3Reason', new Set(['none','evidence_expired','evidence_lifetime_ended','evidence_channel_unhealthy','evidence_unsupported',
+    'evidence_uncertain','revision_stale','repetition_suppressed','suppression_capacity','safety_self_danger','safety_player_harm',
+    'safety_nearby_threat','involvement_self','involvement_player','relationship_close','relationship_conflict','prior_memory',
+    'novelty_escalation','novelty_material','situation_occupied','situation_conversation','trait_policy','environment_requested',
+    'routine_low_relevance'])],
+  ['urgency', new Set(['urgent','routine'])],
 ]);
 const safeTokens = new Set([
   'delivered','expired','ack_key_retired','observation_expired',
@@ -64,6 +93,7 @@ const safeTokens = new Set([
   'channel_or_protocol_unavailable','player_anchor_unavailable','no_owned_observer',
   'owner_proof_unavailable','no_ps3_response_candidate','candidate_filtered',
   'dedupe_capacity','player_priority_or_owner_stamp_unavailable','producer_failed',
+  'native_owner_stalled','deferred_ticket_already_active','deferred_rate_limited','deferred_scene_or_speaker_cooldown',
   'player_priority_missing','native_director_not_enabled','player_priority_invalid','player_priority_stale','player_priority_host_mismatch','stamp_provider_unavailable',
   'stamp_unavailable','original_ps3_entitlement_unverified',
   'retire','retire_batch','lease_expired','not_tracked','none',
@@ -104,6 +134,8 @@ function safeScalar(key, value) {
   if (typeof value === 'number') return Number.isFinite(value) && Math.abs(value) < 1e15 ? value : null;
   if (typeof value !== 'string' || !safeKeys.has(key)) return undefined;
   const token = value.trim();
+  if (key === 'traceCode') return /^[0-9a-f]{10}$/.test(token) ? token : undefined;
+  if (closedValues.has(key)) return closedValues.get(key).has(token) ? token : undefined;
   if (safeTokens.has(token.toLowerCase())) return token.toLowerCase();
   if (['diagnosticReason','reason','terminalReason'].includes(key) &&
       safeDirectorReasons.has(token)) return token;

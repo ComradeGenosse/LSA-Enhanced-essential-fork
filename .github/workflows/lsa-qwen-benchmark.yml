@@ -5,6 +5,7 @@ on:
     branches:
       - integration/radio-v2-main-ps4-20261010
       - main
+      - fix/radio-hearing-retention-stability-20261011
     paths:
       - 'lsa-essential-e1-candidate/tools/qwen/compare_tts_benchmark.mjs'
       - 'lsa-essential-e1-candidate/tests/qwen-benchmark.test.mjs'

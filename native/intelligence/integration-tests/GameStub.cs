@@ -10,16 +10,53 @@ namespace Rage {
     public static class Game {public static int GameTime;public static bool ThrowLogs;public static Player LocalPlayer=new Player();public static List<string> Logs=new List<string>();public static void LogTrivial(string text) {if(ThrowLogs)throw new Exception("test sink failure");Logs.Add(text);}}
 }
 namespace Rage.Native {
+    // Mirrors the pinned RagePluginHook 1.124.0 SDK surface exactly where the
+    // production adapter uses it: generic CallByName/CallByHash constrain the
+    // return type to a value type, reference returns go through the
+    // non-generic Type overloads, and arguments are NativeArgument values.
+    // CallByName<string>(...) compiled against the old object[] stub but not
+    // against the real SDK (CS0453), which broke the PR #41 production build.
+    public sealed class NativeArgument {
+        internal readonly object Value;
+        NativeArgument(object value){Value=value;}
+        public static implicit operator NativeArgument(string value)=>new NativeArgument(value);
+        public static implicit operator NativeArgument(int value)=>new NativeArgument(value);
+        public static implicit operator NativeArgument(uint value)=>new NativeArgument(value);
+        public static implicit operator NativeArgument(long value)=>new NativeArgument(value);
+        public static implicit operator NativeArgument(ulong value)=>new NativeArgument(value);
+        public static implicit operator NativeArgument(float value)=>new NativeArgument(value);
+        public static implicit operator NativeArgument(bool value)=>new NativeArgument(value);
+        public static implicit operator NativeArgument(byte value)=>new NativeArgument(value);
+        public static implicit operator NativeArgument(IntPtr value)=>new NativeArgument(value);
+        // The SDK converts any IHandleable; Entity is the stub's handleable root.
+        public static implicit operator NativeArgument(Rage.Entity value)=>new NativeArgument(value);
+    }
     public static class NativeFunction {
-        public static int Reads,Effects,RadioStationReads,RadioTrackReads,RadioTextIdReads,RadioPlayReads;
+        public static int Reads,Effects,RadioStationReads,RadioTrackReads,RadioTextIdReads,RadioPlayReads,HashCalls,NameCalls;
         public static string RadioStation="";
         public static int RadioTrack,RadioTextId,RadioPlayTime;
-        public static bool RadioThrow,RadioTextIdThrow,RadioPlayThrow;
+        public static bool RadioThrow,RadioSoundThrow,RadioTextIdThrow,RadioPlayThrow;
+        // Route-specific failure injection (e.g. a native absent from the RPH
+        // name table throws ArgumentException only when called by name).
+        public static readonly HashSet<string> NameRouteFails=new HashSet<string>(),HashRouteFails=new HashSet<string>();
         public static bool Scripted,ThrowSafetyRead;
         public static bool FrontLos=true,AcousticLos=true;
         static IntPtr zone=Marshal.StringToHGlobalAnsi("ZONE1");
-        public static T CallByName<T>(string name,params object[] args) {
-            Reads++;object result;
+        static readonly Dictionary<ulong,string> universal=new Dictionary<ulong,string>{
+            {0xF6D733C32076AD03UL,"GET_PLAYER_RADIO_STATION_NAME"},{0x34D66BC058019CE0UL,"GET_CURRENT_TRACK_SOUND_NAME"},
+            {0x50B196FC9ED6545BUL,"GET_AUDIBLE_MUSIC_TRACK_TEXT_ID"},{0x3E65CDE5215832C1UL,"GET_CURRENT_TRACK_PLAY_TIME"}};
+        public static T CallByName<T>(string name,params NativeArgument[] args) where T:struct {NameCalls++;return (T)Invoke(name,args,NameRouteFails);}
+        public static object CallByName(string name,Type returnType,params NativeArgument[] args) {NameCalls++;return Typed(Invoke(name,args,NameRouteFails),returnType);}
+        public static T CallByHash<T>(ulong hash,params NativeArgument[] args) where T:struct {HashCalls++;return (T)Invoke(Name(hash),args,HashRouteFails);}
+        public static object CallByHash(ulong hash,Type returnType,params NativeArgument[] args) {HashCalls++;return Typed(Invoke(Name(hash),args,HashRouteFails),returnType);}
+        static string Name(ulong hash) {if(!universal.TryGetValue(hash,out var name)){Effects++;throw new Exception("Unexpected native hash: 0x"+hash.ToString("X16"));}return name;}
+        static object Typed(object value,Type returnType) {
+            if(value!=null && !returnType.IsInstanceOfType(value))throw new InvalidOperationException("Unexpected native return type");
+            return value;
+        }
+        static object Invoke(string name,NativeArgument[] arguments,HashSet<string> routeFails) {
+            Reads++;object result;var args=Array.ConvertAll(arguments??new NativeArgument[0],a=>a?.Value);
+            if(routeFails.Contains(name))throw new ArgumentException("native route unavailable: "+name);
             switch(name) {
                 case "IS_PED_SHOOTING":result=((Rage.Ped)args[0]).Shooting;break;
                 case "IS_PED_IN_ANY_VEHICLE":result=((Rage.Ped)args[0]).CurrentVehicle!=null;break;
@@ -33,7 +70,7 @@ namespace Rage.Native {
                 case "GET_PLAYER_RADIO_STATION_NAME":
                     RadioStationReads++;if(RadioThrow)throw new InvalidOperationException("radio unavailable");result=RadioStation;break;
                 case "GET_CURRENT_TRACK_SOUND_NAME":
-                    RadioTrackReads++;if(RadioThrow)throw new InvalidOperationException("radio unavailable");result=RadioTrack;break;
+                    RadioTrackReads++;if(RadioThrow || RadioSoundThrow)throw new InvalidOperationException("radio sound unavailable");result=RadioTrack;break;
                 case "GET_AUDIBLE_MUSIC_TRACK_TEXT_ID":
                     RadioTextIdReads++;if(RadioTextIdThrow)throw new InvalidOperationException("radio text ID unavailable");result=RadioTextId;break;
                 case "GET_CURRENT_TRACK_PLAY_TIME":
@@ -46,7 +83,7 @@ namespace Rage.Native {
                 case "GET_ENTITY_SPEED":result=0f;break;
                 default:Effects++;throw new Exception("Unexpected native operation: "+name);
             }
-            return (T)result;
+            return result;
         }
     }
 }

@@ -21,6 +21,11 @@ export function createCompanionShadowTelemetry(summary = {}) {
   const damage = summary?.damageCallbacks && typeof summary.damageCallbacks === 'object' ? summary.damageCallbacks : {};
   const native = summary?.nativeDiagnostics && typeof summary.nativeDiagnostics === 'object' ? summary.nativeDiagnostics : {};
   const radioCatalog = summary?.radioCatalog && typeof summary.radioCatalog === 'object' ? summary.radioCatalog : {};
+  const ps2Drops = ps2?.dropReasons && typeof ps2.dropReasons === 'object' ? ps2.dropReasons : {};
+  const radio = summary?.radio && typeof summary.radio === 'object' ? summary.radio : {};
+  const stall = summary?.ownerStall && typeof summary.ownerStall === 'object' ? summary.ownerStall : {};
+  const trace = summary?.trace && typeof summary.trace === 'object' ? summary.trace : {};
+  const nativeRadio = native?.radio && typeof native.radio === 'object' ? native.radio : {};
   return Object.freeze({
     anchors: counter(summary.anchors),
     retainedSignals: counter(summary.retainedSignals),
@@ -52,12 +57,24 @@ export function createCompanionShadowTelemetry(summary = {}) {
     ps2Witnessed: counter(ps2.witnessed),
     ps2Duplicates: counter(ps2.duplicates),
     ps2Dropped: counter(ps2.dropped),
+    ps2OwnedWitnessed: counter(ps2.ownedWitnessed),
+    ps2DedupeEvicted: counter(ps2.dedupeEvicted),
+    ps2DropInvalidInput: counter(ps2Drops.invalid_input),
+    ps2DropRadioIdentityMismatch: counter(ps2Drops.radio_derived_identity_mismatch),
+    ps2DropUnsupportedEvent: counter(ps2Drops.unsupported_event),
+    ps2DropEpisodeClaimCapacity: counter(ps2Drops.episode_claim_capacity),
+    ps2DropEpisodeRejected: counter(ps2Drops.episode_rejected),
+    ps2DropObservationClaimCapacity: counter(ps2Drops.observation_claim_capacity),
+    ps2DropObservationRejected: counter(ps2Drops.observation_rejected),
     ps3Decisions: counter(ps3.decisions),
     ps3Urgent: counter(ps3.urgent),
     ps3Eligible: counter(ps3.eligible),
     ps3Staged: counter(ps3.staged),
     ps3Suppressed: counter(ps3.suppressed),
     ps3Faults: counter(ps3.faults),
+    ps3OwnedDecisions: counter(ps3.ownedDecisions),
+    ps3OwnedEligible: counter(ps3.ownedEligible),
+    ps3OwnedUrgent: counter(ps3.ownedUrgent),
     ps3ReasonSafetySelfDanger: counter(reasons.safetySelfDanger),
     ps3ReasonSafetyPlayerHarm: counter(reasons.safetyPlayerHarm),
     ps3ReasonSafetyNearbyThreat: counter(reasons.safetyNearbyThreat),
@@ -67,6 +84,26 @@ export function createCompanionShadowTelemetry(summary = {}) {
     ps3ReasonSuppressionCapacity: counter(reasons.suppressionCapacity),
     radioUnknownTextIds: counter(radioCatalog.unknownTextIds),
     radioCatalogMismatches: counter(radioCatalog.catalogMismatches),
+    radioChanged: counter(radio.changed),
+    radioStopped: counter(radio.stopped),
+    radioKnown: counter(radio.known),
+    radioUnknown: counter(radio.unknown),
+    radioMismatch: counter(radio.mismatch),
+    radioOff: counter(radio.off),
+    radioObservations: counter(radio.observations),
+    radioOwnedObservations: counter(radio.ownedObservations),
+    nativeRadioSamples: counter(nativeRadio.samples),
+    nativeRadioEdges: counter(nativeRadio.edges),
+    nativeRadioFailures: counter(nativeRadio.nativeFailures),
+    nativeRadioWitnessed: counter(nativeRadio.witnessed),
+    nativeRadioWitnessUnknown: counter(nativeRadio.witnessUnknown),
+    nativeWitnessDeferred: counter(native.witnessDeferred),
+    nativeWitnessUnknown: counter(native.witnessUnknown),
+    nativeWitnessRejected: counter(native.witnessRejected),
+    ownerStalls: counter(stall.stalls),
+    ownerStallMaxMs: counter(stall.maxMs),
+    traceEmitted: counter(trace.emitted),
+    traceSuppressed: counter(trace.suppressed),
     finalSnapshot: summary.finalSnapshot === true,
   });
 }
@@ -500,7 +537,11 @@ export class IntelligenceClient {
   }
 
   constructor(config,{connect=options=>net.createConnection(options),directorProductionRequired=false,now,situationFor,radioCatalog,originalTurnPriority=()=>null,originalTurnReserve=()=>null,originalTurnCurrent=()=>null,originalTurnRelease=()=>false,originalTurnPhase=()=>null,report=summary=>console.info('[PS] companion_shadow '+JSON.stringify(summary)),telemetry=()=>{}}={}) {
-    this.knowledgeListeners=new Set();this.config=config;this.connect=connect;this.runtime=new ShadowRuntime({mode:config.mode,radio:config.radio,radioCatalog,now,situationFor});this.report=report;this.telemetry=telemetry;this.originalTurnPriority=typeof originalTurnPriority==='function'?originalTurnPriority:()=>null;
+    this.knowledgeListeners=new Set();this.config=config;this.connect=connect;
+    // Bounded fixed-vocabulary diagnostics only (see ShadowRuntime.emitTrace).
+    this.runtime=new ShadowRuntime({mode:config.mode,radio:config.radio,radioCatalog,now,situationFor,
+      trace:(event,record)=>this.persist(event,record),
+      stall:info=>this.persist('intelligence_status',{stage:info.stage==='stalled'?'owner_stalled':'owner_resumed',durationMs:info.stallMs})});this.report=report;this.telemetry=telemetry;this.originalTurnPriority=typeof originalTurnPriority==='function'?originalTurnPriority:()=>null;
     this.originalTurnReserve=typeof originalTurnReserve==='function'?originalTurnReserve:()=>null;
     this.originalTurnCurrent=typeof originalTurnCurrent==='function'?originalTurnCurrent:()=>null;
     this.originalTurnRelease=typeof originalTurnRelease==='function'?originalTurnRelease:()=>false;
@@ -526,12 +567,17 @@ export class IntelligenceClient {
       history:{...this.runtime.historyDiagnostics},
       dropReasons:{...this.runtime.dropDiagnostics},
       resetReasons:{...this.runtime.resetDiagnostics},
-      nativeDiagnostics:{dropped:diagnostics?.dropped??0,staleRejected:diagnostics?.staleRejected??0},
+      nativeDiagnostics:{dropped:diagnostics?.dropped??0,staleRejected:diagnostics?.staleRejected??0,
+        witnessDeferred:diagnostics?.witnessDeferred??0,witnessUnknown:diagnostics?.witnessUnknown??0,
+        witnessRejected:diagnostics?.witnessRejected??0,radio:diagnostics?.radio?{...diagnostics.radio}:{}},
       capabilities:this.runtime.capabilities,
       damageCallbacks:diagnostics?.damageCallbacks??{ped_damage:0,player_damage:0,vehicle_damage:0},
-      ps2:{...this.runtime.ps2Diagnostics,playerSpeechGate:diagnostics?.playerSpeechGate??'unsupported_capture_receipt',speech:this.runtime.transcripts.diagnostics},
+      ps2:{...this.runtime.ps2Diagnostics,dropReasons:{...this.runtime.correlator.dropReasons},dedupeEvicted:this.runtime.correlator.dedupeEvicted,playerSpeechGate:diagnostics?.playerSpeechGate??'unsupported_capture_receipt',speech:this.runtime.transcripts.diagnostics},
       ps3:{...this.runtime.ps3Diagnostics,reasons:{...this.runtime.ps3Diagnostics.reasons}},
       radioCatalog:{unknownTextIds:counter(this.runtime.radioCatalog?.unknownTextIds),catalogMismatches:counter(this.runtime.radioCatalog?.catalogMismatches)},
+      radio:{...this.runtime.radioDiagnostics},
+      ownerStall:{...this.runtime.stallDiagnostics},
+      trace:{...this.runtime.traceDiagnostics},
       finalSnapshot,
     };
   }
@@ -601,7 +647,8 @@ export class IntelligenceClient {
       this.persist('intelligence_status',{stage:'disconnected'});
       if(this.work) clearImmediate(this.work);this.work=null;frames=[];this.cancelDirectorRequests();this.socket=null;this.runtime.reset('disconnect');this.notifyKnowledgeInvalidation();
       // While GTA is paused, hello may succeed but no owner-fiber data arrive.
-      // Keep the 3s freshness veto; only bound empty-handshake retry churn.
+      // The runtime tolerates a bounded owner stall (OWNER_STALL_BOUNDS) and
+      // resets beyond it; only bound empty-handshake retry churn here.
       this.emptyHelloStreak=hello&&!sawLiveFrame
         ?Math.min(3,this.emptyHelloStreak+1):0;
       const retryMs=1000*Math.min(4,2**Math.max(0,this.emptyHelloStreak-1));
