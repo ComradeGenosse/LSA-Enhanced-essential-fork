@@ -1,6 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createMoodRuntime } from '../src/voice/emotion/moodRuntime.mjs';
+import { createDelivery } from '../src/voice/emotion/deliveryContract.mjs';
+import { emitTagged } from './helpers/eaFinalApplied.mjs';
 
 const ID=Object.freeze({pedId:'17',sessionNonce:2,turnId:'turn-1',generationId:4});
 const H='11111111-1111-4111-8111-111111111111';
@@ -13,11 +15,15 @@ const B='77777777-7777-4777-8777-777777777777';
 const S='88888888-8888-4888-8888-888888888888';
 const claim=Object.freeze({worldProfileId:R,sourceNamespace:'comrade.authored',
   sourceKey:'p2.owned',adapterEpoch:R,incarnationId:I,claimRevision:1});
-const delivery=Object.freeze({version:1,value:'amused',source:'dialogue_cue',
+const delivery=createDelivery({version:1,value:'amused',source:'dialogue_cue',
   confidence:'soft',intensity:'subtle',evidenceRef:null});
 function receipt(identity){
   return {...identity,ok:true,type:'playback_ended',wasInterrupted:false,
-    hadAudio:true,playbackStarted:true};
+    hadAudio:true,playbackStarted:true,reason:'completed'};
+}
+async function authorized(mood,args){
+  const {result}=await emitTagged({identity:args.identity,delivery:args.delivery});
+  return mood.onSpeechCompleted({...args,providerResult:result,historyAccepted:true});
 }
 function fixture({authority=true,sqlite=true}={}){
   const hc=Object.freeze({hostContextVersion:1,hostRunId:H,worldEpoch:2});
@@ -65,10 +71,10 @@ function fixture({authority=true,sqlite=true}={}){
     }};
 }
 
-test('EA4 carries only one next-generation soft hint after verified native playback',()=>{
+test('EA4 carries only one next-generation soft hint after verified native playback',async()=>{
   const f=fixture(),first=f.makeTurn(),next=f.makeTurn(5),third=f.makeTurn(6);
   assert.equal(f.mood.readMood(first),null);
-  assert.equal(f.mood.onSpeechCompleted({...first,delivery,
+  assert.equal(await authorized(f.mood,{...first,delivery,
     receipt:receipt(first.identity)}),true);
   assert.equal(f.mood.size,1);
   assert.equal(f.mood.readMood(first),null);
@@ -82,24 +88,24 @@ test('EA4 carries only one next-generation soft hint after verified native playb
   f.mood.retireTurn({...next,completed:false});
   assert.equal(f.mood.size,0,'failed follow-up clears consumed mood');
 });
-test('EA4 never persists mood without M1 verified timeline and native protagonist authority',()=>{
+test('EA4 never persists mood without M1 verified timeline and native protagonist authority',async()=>{
   for(const variant of [{authority:false},{sqlite:false}]){
     const f=fixture(variant),first=f.makeTurn();
-    assert.equal(f.mood.onSpeechCompleted({...first,delivery,
+    assert.equal(await authorized(f.mood,{...first,delivery,
       receipt:receipt(first.identity)}),false);
     assert.equal(f.mood.readMood(f.makeTurn(5)),null);
   }
 });
-test('EA4 rejects unaccepted, interrupted and mismatched playback receipts',()=>{
+test('EA4 rejects unaccepted, interrupted and mismatched playback receipts',async()=>{
   const f=fixture(),first=f.makeTurn();
   for(const changes of [{ok:false},{wasInterrupted:true},{type:'playback_started'},
     {turnId:'other'},{sessionNonce:500},{hadAudio:false}]){
-    assert.equal(f.mood.onSpeechCompleted({...first,delivery,
+    assert.equal(await authorized(f.mood,{...first,delivery,
       receipt:{...receipt(first.identity),...changes}}),false);
   }
   assert.equal(f.mood.size,0);
 });
-test('EA4 invalidates on host epoch, timeline, protagonist revision, PS2 owner and P1 binding changes',()=>{
+test('EA4 invalidates on host epoch, timeline, protagonist revision, PS2 owner and P1 binding changes',async()=>{
   for(const invalidate of [
     f=>{f.db.activeTimelineId=R;},
     f=>{f.db.timelineWritable=false;},
@@ -112,33 +118,33 @@ test('EA4 invalidates on host epoch, timeline, protagonist revision, PS2 owner a
     f=>{f.perception.hostContext={...f.perception.hostContext,worldEpoch:3};},
   ]){
     const f=fixture(),first=f.makeTurn(),next=f.makeTurn(5);
-    assert.equal(f.mood.onSpeechCompleted({...first,delivery,
+    assert.equal(await authorized(f.mood,{...first,delivery,
       receipt:receipt(first.identity)}),true);
     invalidate(f);
     assert.equal(f.mood.readMood(next),null);
   }
 });
-test('EA4 uses exact promoted owner and current native proof, never another character',()=>{
+test('EA4 uses exact promoted owner and current native proof, never another character',async()=>{
   const f=fixture(),first=f.makeTurn(),next=f.makeTurn(5),foreign=f.makeTurn(5,R);
-  assert.equal(f.mood.onSpeechCompleted({...first,delivery,
+  assert.equal(await authorized(f.mood,{...first,delivery,
     receipt:receipt(first.identity)}),true);
   assert.equal(f.mood.readMood(next).value,'amused');
   // A failed/mismatched ownership attempt clears rather than borrowing mood.
   assert.equal(f.mood.readMood(foreign),null);
-  assert.equal(f.mood.readMood(next),null;
+  assert.equal(f.mood.readMood(next),null);
 });
-test('EA4 expires without timers and refuses forged protobuf-style model data',()=>{
+test('EA4 expires without timers and refuses forged protobuf-style model data',async()=>{
   const f=fixture(),first=f.makeTurn(),next=f.makeTurn(5);
-  assert.equal(f.mood.onSpeechCompleted({...first,delivery,
+  assert.equal(await authorized(f.mood,{...first,delivery,
     receipt:receipt(first.identity)}),true);
   f.setNow(23000);
   assert.equal(f.mood.readMood(next),null);
   assert.throws(()=>{f.frame.protagonist='trevor';},TypeError);
 });
 
-test('EA4 protagonist switch including Franklin→Michael→Franklin ABA never resurrects mood',()=>{
+test('EA4 protagonist switch including Franklin→Michael→Franklin ABA never resurrects mood',async()=>{
   const f=fixture(),first=f.makeTurn(),next=f.makeTurn(5);
-  assert.equal(f.mood.onSpeechCompleted({...first,delivery,
+  assert.equal(await authorized(f.mood,{...first,delivery,
     receipt:receipt(first.identity)}),true);
   f.switchProtagonist('michael',2);
   assert.equal(f.mood.readMood(next),null);
@@ -146,10 +152,10 @@ test('EA4 protagonist switch including Franklin→Michael→Franklin ABA never r
   assert.equal(f.mood.readMood(next),null);
   assert.equal(f.mood.size,0);
 });
-test('EA4 unavailable native protagonist report never fabricates a current hero',()=>{
+test('EA4 unavailable native protagonist report never fabricates a current hero',async()=>{
   const f=fixture(),first=f.makeTurn();
   f.switchProtagonist('unknown',2);
-  assert.equal(f.mood.onSpeechCompleted({...first,delivery,
+  assert.equal(await authorized(f.mood,{...first,delivery,
     receipt:receipt(first.identity)}),false);
   assert.equal(f.mood.size,0);
 });
