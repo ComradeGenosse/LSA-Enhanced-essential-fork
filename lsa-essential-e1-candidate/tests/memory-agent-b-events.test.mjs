@@ -170,6 +170,7 @@ test('M3 prepromotion ring and dedupe are bounded under 10k-observation bursts',
     observation:observation({observationId:id(1000+i)}),candidate:identity()
   });
   assert.equal(r.recorder.bufferedCount,PROMOTION_GRACE_LIMITS.maxObservations);
+  assert.equal(r.recorder.graceDiagnostics.evicted,10000-PROMOTION_GRACE_LIMITS.maxObservations);
 });
 function snap(ms,overrides={}){
   return {nativeRun:EPOCH,hostRunId:RUN,worldEpoch:4,playerCaptureRef:OTHER,
