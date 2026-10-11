@@ -56,8 +56,14 @@ Write-Host "Standalone mode: $ActorMode, typed Luna client configured; no actor 
 Write-Host 'RPH console: LSAStandaloneProbe -> LSAStandaloneStatus -> (experimental only) LSAStandaloneArm -> LSAStandaloneCompose.'
 Write-Host 'Do not load LosSantosAlive.dll or other Essential-dependent plugins in this isolated GTA profile.'
 $companionProc=$null
+$logs=Join-Path $PSScriptRoot 'logs'
+New-Item -ItemType Directory -Force -Path $logs | Out-Null
+$stamp=[DateTime]::UtcNow.ToString('yyyyMMdd-HHmmss')
+$stdout=Join-Path $logs "companion-$stamp.stdout.log"
+$stderr=Join-Path $logs "companion-$stamp.stderr.log"
+Write-Host "Companion diagnostic output: $stdout (RPH game-side logs are separate)."
 try {
-  $companionProc=Start-Process -FilePath $node.Source -ArgumentList ('"' + $service + '"') -WorkingDirectory $companion -PassThru
+  $companionProc=Start-Process -FilePath $node.Source -ArgumentList ('"' + $service + '"') -WorkingDirectory $companion -PassThru -RedirectStandardOutput $stdout -RedirectStandardError $stderr
   $rph=Start-Process -FilePath (Join-Path $game 'RAGEPluginHook.exe') -WorkingDirectory $game -PassThru
   $sawGame = $false
   $start = [DateTime]::UtcNow
