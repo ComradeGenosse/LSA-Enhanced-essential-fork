@@ -25,8 +25,11 @@ experimental test slice; MP8/Phase 9 GTA acceptance is not yet complete.
 - Private central InputController mic start: metadata token `0x0600016F`.
 - `InputController.SendMicStop()`: `0x06000170`.
 - Existing `EssentialMicState` derives the active-mic Ped field from
-  `SendMicStop` IL. We check the current state after the start method returns
-  and capture the pre-stop Ped before Essential clears it; the stop postfix
+  `SendMicStop` IL. The passive start prefix mints a provisional microphone ID when the
+  pinned helper exposes a physical Ped; only the postfix, after Core owns
+  the active mic, emits the authoritative start. If the Core helper lacks a
+  readable Ped, the postfix remains the safe fallback. We capture the
+  pre-stop Ped before Essential clears it; the stop postfix
   checks whether the Ped actually changed. A stop call that leaves it active
   does not count as released.
 - Hook setup reuses Harmony already supplied to the P2 native loader. No Core
@@ -122,8 +125,14 @@ long-term memories.
 Record the exact DLL and bundle hashes, game session, captures/terminals and
 observed failures for the source-hook acceptance gate. The joined transcript remains private to the bounded C-01 runtime ledger.
 Because Core/native and companion do not currently exchange a direct shared
-turn token, admission additionally requires unique in-flight mic ownership,
-a proven current P0 captureRef and a 1.5-second bounded association window.
+turn token, shadow diagnostics may additionally use a unique in-flight mic,
+a proven P0 captureRef and a 1.5-second bounded association window.
+**This bounded inference cannot authorize nearby NPCs' words.**
+Experimental proximity requires an exact `micUtteranceId` recorded in the
+native P0 `turnKnowledge` block, confirmed by source start/end and the
+same accepted STT. If Essential invokes P0 before even the native start
+prefix, proximity will reject the attempt, and the GTA callback-order
+trace will identify that integration gap.
 That pairing still needs the GTA A19/A20 receipt to establish real-world
 correctness. Any uncertain pairing remains unsupported, not assumed true.
 The v2 receipt is now implemented in code, but the **physical GTA
