@@ -97,6 +97,8 @@ class Program
             Check(testing.Handle(Request(i)).Status=="unsafe",
                 "native test cap counts all 12 unsafe attempts");
         Check(testing.Handle(Request(1112)).Status=="busy","native testing refuses 13th attempt");
+        Check(testing.Handle(Request(1100,"cancel")).Status=="not_found",
+            "rate exhaustion cannot block the native cancellation operation");
         at+=60001;
         Check(testing.Handle(Request(1113)).Status=="unsafe",
             "native test cap resets after 60 seconds");
