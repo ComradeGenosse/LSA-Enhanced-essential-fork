@@ -46,9 +46,14 @@ namespace LSA.PromotedCharacters
                    !Guid.TryParseExact(encounter.Registration.IncarnationId,"D",out var incGuid))
                     return null;
                 if(!identity.Owner.TryResolveCurrent(encounter.Ped,out var claim) ||
-                   claim==null || claim.worldProfileId!=world ||
-                   claim.sourceKey!=encounter.OwnerAlias ||
-                   claim.incarnationId!=encounter.Registration.IncarnationId)
+                   claim==null ||
+                   !MemoryOwnerProofPolicy.ExactOwner(
+                       encounter.OwnerAlias,claim.sourceKey,
+                       encounter.Registration.IncarnationId,claim.incarnationId,
+                       world,claim.worldProfileId,
+                       anchor.Observer,Alive(encounter),
+                       Object.ReferenceEquals(Host.Anchors.Resolve(anchor.CaptureRef),anchor),
+                       Object.ReferenceEquals(encounter.Registration,encounter.Registration)))
                     return null;
                 result.Add(new {
                     observerCaptureRef=anchor.CaptureRef,
