@@ -107,6 +107,20 @@ namespace LSA.Standalone
             out AudioPlaybackSnapshot snapshot);
     }
 
+    // Presentation is a separate, optional native-owned effect. Unlike TTS
+    // synthesis, this must be driven only by observed physical output progress.
+    // A stream ID cannot authorize speech animation without a live Audio lease.
+    public interface ILipSyncPresenter
+    {
+        // Called only on the native owner fiber after current actor + output
+        // proof. Implementations MUST repeat the native lease/actor check.
+        // This is an approximate speech gesture, NOT phoneme-level visemes.
+        bool TryPulse(OwnershipLease audioLease, Guid playbackId, int level);
+        // Bookkeeping only. May be called after actor death/ABA; MUST NOT
+        // touch game state or clear another plugin's facial animation.
+        void Forget(Guid playbackId);
+    }
+
     public enum ActionDispatchState
     {
         Rejected,
