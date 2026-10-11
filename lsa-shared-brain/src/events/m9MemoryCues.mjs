@@ -27,7 +27,7 @@ const validCandidate=c=>c?.kind==='m9_candidate' &&
   Number.isSafeInteger(c.observedAtMonotonicMs) &&
   c.observedAtMonotonicMs>=0 && c.requiresPs2WitnessReceipt===true;
 const validWitness=(c,w)=>w?.status==='witnessed' &&
-  w.modality!=='report' && w.certainty==='direct' &&
+  ['self','visual','auditory'].includes(w.modality) && w.certainty==='direct' &&
   isUuid(w.observationId) && isUuid(w.witnessReceiptId) &&
   isUuid(w.journalRecordId) && isUuid(w.characterId) &&
   isUuid(w.worldProfileId) && isUuid(w.timelineId) &&
