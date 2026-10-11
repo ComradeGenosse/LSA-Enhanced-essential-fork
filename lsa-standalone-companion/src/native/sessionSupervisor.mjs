@@ -15,7 +15,7 @@ export async function runSessionSupervisor({
     signal?.addEventListener('abort', done, { once: true });
   });
   while (!signal?.aborted) {
-    const client = new Phase2NativeClient({ pipePath, timeoutMs });
+    const client = new Phase2NativeClient(pipePath === undefined ? { timeoutMs } : { pipePath, timeoutMs });
     const cancel = () => client.close();
     signal?.addEventListener('abort', cancel, { once: true });
     try {
