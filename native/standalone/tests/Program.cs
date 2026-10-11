@@ -33,6 +33,7 @@ internal sealed class SimulatedPhysicalOutput : IPhysicalAudioOutput
 {
     public int Submitted, Played, Stops, Seals;
     public bool FalseComplete, RealComplete;
+    public int MouthLevel = 32;
     public bool TryBegin(OwnershipLease lease, Guid stream, int rate, out string reason)
     { reason = "fixture"; return lease.Kind == LeaseKind.Audio && rate == 24000; }
     public bool TryPush(OwnershipLease lease, Guid stream, byte[] pcm, out string reason)
@@ -43,10 +44,30 @@ internal sealed class SimulatedPhysicalOutput : IPhysicalAudioOutput
     {
         proof = new AudioPlaybackSnapshot(FalseComplete || RealComplete
             ? "playback_completed" : Played > 0 ? "playback_started" : "device_accepted",
-            FalseComplete || RealComplete ? Submitted : Played, Submitted, 32);
+            FalseComplete || RealComplete ? Submitted : Played, Submitted, MouthLevel);
         return true; // simulated driver, not actual audibility
     }
     public bool TryStop(Guid stream, string reason) { Stops++; return true; }
+}
+
+internal sealed class SimulatedLipPresenter : ILipSyncPresenter
+{
+    public int Pulses, Forgotten;
+    public Guid LastStream;
+    public int LastLevel;
+    public bool TryPulse(OwnershipLease lease, Guid playbackId, int level)
+    {
+        if (lease == null || lease.Kind != LeaseKind.Audio ||
+            playbackId == Guid.Empty || level < 12 || level > 100)
+            throw new InvalidOperationException("invalid_fixture_lip_pulse");
+        Pulses++; LastLevel = level; LastStream = playbackId;
+        return true;
+    }
+    public void Forget(Guid playbackId)
+    {
+        Forgotten++; LastStream = playbackId;
+        // No game effect even on recycled actor.
+    }
 }
 
 internal static class Program
@@ -976,6 +997,66 @@ internal static class Program
         turns.RetireAll(); host.Stop();
     }
 
+    private static void S3MouthPresentationOnlyOnRealProgress()
+    {
+        var game = new SimulatedGame();
+        game.Spawn(811, 0xEFAA, lifetimeTag: 99112);
+        var host = new NativeAuthority(game, game, game, game);
+        var actor = Register(host, 811);
+        var turns = new NativeTurnRegistry(host);
+        var sink = new SimulatedPhysicalOutput();
+        var lip = new SimulatedLipPresenter();
+        bool rejected = false;
+        try { new NativeAudioRegistry(host, turns, new SimulatedAcceptedOutput(), lip); }
+        catch (ArgumentException) { rejected = true; }
+        Check(rejected, "S3 no facial output without physical device adapter");
+        var audio = new NativeAudioRegistry(host, turns, sink, lip);
+        NativeTurnPermit offer; string reason;
+        Check(turns.TryIssueTyped(actor,"Say something.",30000,out offer,out reason),
+            "S3 lip actor native turn issued");
+        string tid=offer.TurnId.ToString("D"), aid=offer.ActorIncarnationId.ToString("D"),
+            lid=offer.LeaseId.ToString("D"), gen=offer.Generation;
+        Check(turns.TryConfirm(tid,offer.SessionNonce.ToString("D"),aid,
+            lid,gen,offer.Source,out reason),"S3 lip actor turn confirmed");
+        Check(turns.TryStageReply(tid,lid,gen,aid,"Hello.",out reason),
+            "S3 lip actor reply staged");
+        NativeAudioTicket t;
+        Check(audio.TryOpen(tid,aid,lid,gen,24000,out t,out reason),
+            "S3 lip stream actor-bound");
+        Check(audio.PumpLipSyncOnOwner(4)==0 && lip.Pulses==0,
+            "S3 no facial native on only opened stream");
+        string sid=t.StreamId.ToString("D"), alid=t.AudioLeaseId.ToString("D"),
+            agen=t.AudioGeneration;
+        Check(audio.TryAppend(sid,alid,agen,tid,aid,0,new byte[960],out reason),
+            "S3 lip accepts first PCM");
+        Check(audio.PumpLipSyncOnOwner(4)==0,
+            "S3 queued synthesized audio is not speaking");
+        Check(audio.DrainOnOwner(4)==1,"S3 lip device accepted source");
+        Check(audio.PumpLipSyncOnOwner(4)==0,
+            "S3 device acceptance without playback must not animate");
+        sink.Played=480;
+        Check(audio.PumpLipSyncOnOwner(4)==1 && lip.Pulses==1 &&
+            lip.LastStream==t.StreamId && lip.LastLevel==32,
+            "S3 real device playback may trigger one exact speaking cue");
+        Check(audio.PumpLipSyncOnOwner(4)==0 && lip.Pulses==1,
+            "S3 frozen device position must not continuously animate");
+        sink.MouthLevel=0;
+        sink.Played=960;
+        Check(audio.PumpLipSyncOnOwner(4)==0 && lip.Pulses==1,
+            "S3 silence during advancing device bytes is not speech animation");
+        sink.Played=480; // regress: must not cue again
+        Check(audio.PumpLipSyncOnOwner(4)==0,
+            "S3 regressed driver position cannot animate");
+        game.Spawn(811,0xEFAA,lifetimeTag:99113);
+        audio.Sweep();
+        Check(audio.PumpLipSyncOnOwner(4)==0 && lip.Pulses==1 &&
+            lip.Forgotten==1 && sink.Stops==1,
+            "S3 recycled ped never receives or clears old speaking animation");
+        Check(!audio.TryPhysicalStatus(sid,alid,agen,tid,aid,
+            out AudioPlaybackSnapshot _), "S3 stale lip stream has no device proof");
+        turns.RetireAll(); host.Stop();
+    }
+
     private static void Main()
     {
         IdentityAndLeases();
@@ -992,6 +1073,7 @@ internal static class Program
         EarlySpeechSegmentFences();
         S3PhysicalPlaybackReceiptFences();
         S3PerSegmentPhysicalProgress();
+        S3MouthPresentationOnlyOnRealProgress();
         Console.WriteLine("PASS " + assertions +
             " standalone native core assertions; no Essential/RAGE/game assembly loaded.");
     }
