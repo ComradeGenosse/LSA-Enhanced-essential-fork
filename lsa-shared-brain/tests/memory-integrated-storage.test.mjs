@@ -7,7 +7,10 @@ import {randomUUID,createHash} from 'node:crypto';
 import {createP2MemoryStorage} from '../src/characters/sqliteProfileStore.mjs';
 import {createConversationJournalRecorder} from '../src/memory/conversationRecorder.mjs';
 import {handleExplicitMemoryCommand} from '../src/memory/explicitCommands.mjs';
-import {recallFromSharedJournal} from '../src/memory/integrationPorts.mjs';
+import {recallFromSharedJournal,createDurableCurationAdapters} from '../src/memory/integrationPorts.mjs';
+import {selectAutomaticMemories} from '../src/memory/selection.mjs';
+import {makeQueueJob} from '../src/memory/queueContract.mjs';
+import {processIdleCuration} from '../src/memory/lunaCurator.mjs';
 import {profile} from '../../lsa-essential-e1-candidate/tests/p2-fixtures.mjs';
 import {worldProfileId} from '../../lsa-essential-e1-candidate/tests/identity-fixtures.mjs';
 
@@ -105,5 +108,30 @@ test('M5 durable forget suppresses M4 recall but preserves immutable journal byt
   assert.equal(lookup.bundle.status,'unavailable');
   assert.equal((await x.store.findExactQuote({characterId:x.scope.characterId,timelineId:x.scope.timelineId,
     quote:words}))[0].content,words);
+ }finally{await x.store.close()}
+});
+
+test('M6 automatic memory and M7 Luna queue use durable leases, source links and budget ledger',async t=>{
+ const x=await setup(t);
+ try{
+  await x.recorder.recordPlayerAccepted({characterId:x.scope.characterId,identity:identity('curate'),
+    text:'That was hilarious and embarrassing!',source:'typed',attribution:{protagonist:'franklin'}});
+  const row=(await x.store.readDialogueLines({characterId:x.scope.characterId,timelineId:x.scope.timelineId}))[0];
+  const proposals=selectAutomaticMemories([row]);
+  assert.equal(proposals.length,1);
+  const proposal=proposals[0],saved=await x.store.saveDeterministicMemory(proposal);
+  assert.equal(saved.inserted,true);
+  const ports=createDurableCurationAdapters(x.store,{dailyUsd:.05,monthlyUsd:.2});
+  const job=makeQueueJob(proposal,new Date(Date.now()-1000).toISOString());
+  assert.equal((await ports.queue.enqueueIfAbsent({job})).inserted,true);
+  const provider={curateBatch:async originals=>originals.map(p=>({...p,provider:'luna',inCharacterTake:'That was a ridiculous day.'}))};
+  const a=await processIdleCuration({enabled:true,queue:ports.queue,ledger:ports.ledger,
+    provider,ownerId:id(),nowUtc:new Date().toISOString(),estimatedMaxCostUsd:.02});
+  assert.deepEqual(a,{status:'completed',processed:1});
+  assert.equal((await processIdleCuration({enabled:true,queue:ports.queue,ledger:ports.ledger,
+    provider,ownerId:id(),nowUtc:new Date().toISOString(),estimatedMaxCostUsd:.02})).status,'empty');
+  const read=await x.store.readPermanentMemoryRows(x.scope);
+  assert.equal(read.length,1);
+  assert.deepEqual(read[0].envelope.sourceEvidenceIds,[row.recordId]);
  }finally{await x.store.close()}
 });
