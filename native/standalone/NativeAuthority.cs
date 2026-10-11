@@ -146,35 +146,52 @@ namespace LSA.Standalone
             long now;
             if (stopped || !PollClock(out now)) return false;
             ActorObservation sample;
-            if (handle <= 0 || !resolver.TryObserve(handle, out sample) || sample == null ||
+            if (handle <= 0 || !TryObserve(handle, out sample) || sample == null ||
                 sample.Handle != handle || sample.Address == 0 || !sample.IsAlive)
             {
                 reason = "actor_invalid";
-                // Retire known actor if the game reports its old entity dead/missing.
-                actors.Remove(handle);
+                ActorState retired;
+                if (actors.TryGetValue(handle, out retired)) Forget(retired, reason);
                 return false;
             }
+            // Address collision is only a conflict if the *other* tracked actor
+            // still physically exists at that address. Sweep stale observations.
+            var stale = new List<ActorState>();
             foreach (ActorState other in actors.Values)
             {
-                if (other.Reference.Handle != handle && other.Reference.Address == sample.Address)
+                if (other.Reference.Handle == handle) continue;
+                ActorObservation observed;
+                if (!TryObserve(other.Reference.Handle, out observed) || observed == null ||
+                    !observed.IsAlive || observed.Handle != other.Reference.Handle ||
+                    observed.Address != other.Reference.Address)
+                {
+                    stale.Add(other);
+                    continue;
+                }
+                if (other.Reference.Address == sample.Address)
                 {
                     reason = "address_conflict";
                     return false;
                 }
             }
+            foreach (ActorState old in stale) Forget(old, "actor_invalid");
             ActorState current;
             if (actors.TryGetValue(handle, out current) && current.Reference.Address == sample.Address)
             {
+                string blocked;
+                if (!CanControl(sample, out blocked)) RevokeLeases(current, blocked);
                 reference = current.Reference;
                 reason = "current";
                 return true;
             }
-            // Handle reuse with changed address revokes all previous leases.
+            // Recycled handle or address requires a fresh incarnation and no old lease.
+            if (current != null) Forget(current, "actor_replaced");
             var next = new ActorState {
                 Reference = new ActorRef(HostRunId, WorldEpoch, handle, sample.Address, Guid.NewGuid())
             };
             actors[handle] = next;
             reference = next.Reference;
+            Record("actor_registered", "registered", reference);
             reason = "registered";
             return true;
         }
@@ -185,7 +202,7 @@ namespace LSA.Standalone
             if (stopped || reference == null) return false;
             ActorState state;
             if (!actors.TryGetValue(reference.Handle, out state) || !state.Reference.Equals(reference)) return false;
-            actors.Remove(reference.Handle);
+            Forget(state, "explicit_retire");
             return true;
         }
 
@@ -199,11 +216,11 @@ namespace LSA.Standalone
                 !state.Reference.Equals(reference))
                 return false;
 
-            if (!resolver.TryObserve(reference.Handle, out observed) || observed == null ||
+            if (!TryObserve(reference.Handle, out observed) || observed == null ||
                 !observed.IsAlive || observed.Address != reference.Address || observed.Handle != reference.Handle)
             {
                 // An observer mismatch revokes all claims; new actor must be re-registered.
-                actors.Remove(reference.Handle);
+                Forget(state, "actor_invalid");
                 state = null;
                 observed = null;
                 return false;
@@ -219,6 +236,29 @@ namespace LSA.Standalone
             if (!PollClock(out now)) return false;
             ActorState state; ActorObservation observed; string reason;
             return TryState(reference, out state, out observed, out reason);
+        }
+
+        // Call once per native owner-fiber update. A transient scripting/world takeover
+        // observed here permanently retires affected leases even if control later returns.
+        public void Reconcile()
+        {
+            DemandOwner();
+            long now;
+            if (stopped || !PollClock(out now)) return;
+            var snapshot = new List<ActorState>(actors.Values);
+            foreach (ActorState state in snapshot)
+            {
+                ActorObservation observed;
+                if (!TryObserve(state.Reference.Handle, out observed) || observed == null ||
+                    !observed.IsAlive || observed.Handle != state.Reference.Handle ||
+                    observed.Address != state.Reference.Address)
+                {
+                    Forget(state, "actor_invalid");
+                    continue;
+                }
+                string reason;
+                if (!CanControl(observed, out reason)) RevokeLeases(state, reason);
+            }
         }
 
         private static bool KindValid(LeaseKind kind)
