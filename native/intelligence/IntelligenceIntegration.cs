@@ -61,8 +61,13 @@ namespace LSA.Intelligence
         }
         EssentialMicState directorMic;
         LSA.PromotedCharacters.SpeechCaptureAdapter speechCapture;
-        bool captureShadow;
+        bool captureShadow,proximityExperimental;
         public void EnableCaptureShadow() { if(!started) captureShadow=true; }
+        // Native-owner opt-in only. Never take permission from a companion
+        // request or a model decision.
+        public void EnableCaptureExperimental() {
+            if(!started) {captureShadow=true;proximityExperimental=true;}
+        }
         IntelligenceChannel channel;
         IDamageSensors damage;
         volatile HashSet<string> criticalIndex=new HashSet<string>();
@@ -197,6 +202,8 @@ namespace LSA.Intelligence
                 try {NpcPlaybackCoordinator.PlaybackStarted+=PlaybackStarted;NpcPlaybackCoordinator.PlaybackEnded+=PlaybackEnded;playback=true;capabilities["playback"]=true;}
                 catch {try{NpcPlaybackCoordinator.PlaybackStarted-=PlaybackStarted;NpcPlaybackCoordinator.PlaybackEnded-=PlaybackEnded;}catch{}}
                 if(captureShadow) speechCapture=LSA.PromotedCharacters.SpeechCaptureAdapter.Attach(host);
+                if(proximityExperimental && speechCapture!=null)
+                    capabilities["playerSpeech"]=true;
                 channel=new IntelligenceChannel(pipeName,Guid.NewGuid().ToString("D"),()=>capabilities,host.HostRunId,()=>host.WorldEpoch,true,directorShadow,speechCapture!=null);channel.Start();
                 previousTick=unchecked((uint)Game.GameTime);started=true;Game.LogTrivial("[PS] native_adapter_loaded shadow");
             } catch {Shutdown("initialization_failed");LogStatus("[PS] optional_initialization_failed");}
