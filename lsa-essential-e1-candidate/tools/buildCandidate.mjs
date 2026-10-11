@@ -385,6 +385,9 @@ export async function buildCandidate({ nativePayloadPath, sourcePath = stockBund
   await writeFile(entry, patched.output, 'utf8');
   await copyDirectory(src, stagedE1);
   await copyFile(path.join(root, 'e1.config.example.json'), path.join(target, 'e1.config.example.json'));
+  // Runtime bootstrap resolves this from ../data relative to e1/bootstrap.mjs.
+  await mkdir(path.join(target,'data'),{recursive:true});
+  await copyFile(path.join(root,'data','radioTrackTextIds.v2.json'),path.join(target,'data','radioTrackTextIds.v2.json'));
   const e1SourceTreeSha256 = await directoryDigest(stagedE1);
   const releasePayloadSha256 = await directoryDigest(target);
   const manifest = {
@@ -398,7 +401,7 @@ export async function buildCandidate({ nativePayloadPath, sourcePath = stockBund
     features: { structuredStreaming: true, earlySegmentedTts: true, defaultEnabled: false, earlyTtsMode: 'dialogue_only', ttsConcurrency: 1,
       sessionIdentity: { defaultEnabled: false, modes: ['shadow','voices'], storeSchemaVersion: 1, nativeAddressing: 'unchanged' },
       promotedCharacters: { defaultEnabled:false,profileStoreSchemaVersion:1,manualMemoryOnly:true,requiresAuthoredP1Owner:true,nativeAddressing:'unchanged',summonWaitMs:30000,maxSummonWaitMs:60000 },
-      intelligence: {defaultMode:'off',modes:['off','shadow'],phases:['PS0','PS1','PS2','PS3'],witness:'source_sample_visual',playerSpeech:'disabled_unsupported_capture_receipt',salience:'deterministic_local',responderSelection:false,modelContext:knowledgePayload.contract.available,automaticMemory:false,initiative:false},
+      intelligence: {defaultMode:'off',modes:['off','shadow'],radioDefault:'off',radioModes:['off','shadow'],radioIdentity:'trackTextId_v2',radioSoundHashRole:'secondary_container_evidence',radioCatalog:'research_candidate_gta_validation_pending',radioKnowledge:'PS2 same-vehicle shadow',radioContext:'PS4 frozen direct-question only',phases:['PS0','PS1','PS2','PS3'],witness:'source_sample_visual',playerSpeech:'disabled_unsupported_capture_receipt',salience:'deterministic_local',responderSelection:false,modelContext:knowledgePayload.contract.available,automaticMemory:false,initiative:false},
       dialogueKnowledge:{safeBase:true,frameVersion:1,optionalPerceptionDelivery:knowledgePayload.contract.available,sourcePresence:true,frameBytes:112*1024,requestBytes:160*1024},
       dialogueLogging: { defaultEnabled:false,provider:'openai',storage:'rotating-jsonl' } },
     launcherEntry: launcherName, upstreamBundleSha256: sourceHash,

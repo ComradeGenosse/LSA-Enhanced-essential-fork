@@ -12,7 +12,7 @@ export const REASON_CODES = Object.freeze([
   'involvement_self', 'involvement_player',
   'relationship_close', 'relationship_conflict',
   'prior_memory', 'novelty_escalation', 'novelty_material',
-  'situation_occupied', 'situation_conversation', 'trait_policy', 'routine_low_relevance',
+  'situation_occupied', 'situation_conversation', 'trait_policy', 'environment_requested', 'routine_low_relevance',
 ]);
 export const TRAIT_POLICIES = Object.freeze(['protective', 'cautious', 'loyal', 'bold']);
 export const SALIENCE_POLICY_VERSION = 1;
@@ -24,7 +24,7 @@ const RELATIONSHIPS = new Set(['associate', 'friend', 'trusted', 'strained', 'ne
 const ACTIVITIES = new Set(['unknown', 'idle', 'driving', 'passenger', 'in_vehicle', 'conversation', 'following', 'waiting']);
 const CLOSE = new Set(['friend', 'trusted']);
 const OCCUPIED = new Set(['driving', 'passenger', 'in_vehicle']);
-const ROUTINE_EVENTS = new Set(['character_present', 'location_changed', 'activity_changed', 'speech_heard', 'action_observed', 'vehicle_transition']);
+const ROUTINE_EVENTS = new Set(['character_present', 'location_changed', 'activity_changed', 'speech_heard', 'radio_heard', 'action_observed', 'vehicle_transition']);
 const HARM_EVENTS = new Set(['injury', 'death_seen', 'body_found', 'vehicle_impact', 'threat']);
 const SEVERITY = Object.freeze({ routine: 0, notable: 1, danger: 2, critical: 3 });
 const RESPONSE_RANK = Object.freeze({ none: 0, eligible: 1, urgent: 2 });
@@ -202,6 +202,11 @@ function classify(observation, situation) {
   const supported = observation.claims.filter(claim => claim.certainty === 'supported' && claim.evidence.channel !== 'report');
   if (!supported.length) return { context: 'candidate', memory: 'none', response: 'none', reasons: ['evidence_uncertain'], closed: true };
 
+  // Radio is a low-priority factual candidate only. PS4's frozen, direct-question
+  // selector determines visibility; no automatic memory or speech entitlement.
+  if(observation.eventType==='radio_heard' && supported.some(claim=>claim.kind==='sound'&&claim.evidence.channel==='auditory'&&claim.details?.soundType==='radio')) {
+    return {context:'candidate',memory:'none',response:'none',reasons:['routine_low_relevance'],closed:false};
+  }
   const selfRef = observation.observer.captureRef;
   const playerRef = situation.playerCaptureRef;
   const kindOf = kind => supported.some(claim => claim.kind === kind);
@@ -419,6 +424,12 @@ export class SalienceCache {
       const latest=this.latestById.get(pair.observation.observationId);if(latest?.pair===pair) this.latestById.set(pair.observation.observationId,Object.freeze({decision:latest.decision,profileRevision:latest.profileRevision,policy:latest.policy}));
       bytes-=pairs.get(pair);
     }
+  }
+  forgetObservation(observationId) {
+    if(!isUuid(observationId))return false;
+    const found=this.decisions.has(observationId)||this.ledger.has(observationId)||this.latestById.has(observationId);
+    this.decisions.delete(observationId);this.ledger.delete(observationId);this.latestById.delete(observationId);
+    return found;
   }
   snapshotForObserver(observerRef,observations,now=this.now(),diagnostics=null) {
     this.expire(now);const result=[],counts={observations:0,observationExpired:0,noMatchingSalience:0,revisionMismatch:0};

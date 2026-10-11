@@ -4,7 +4,8 @@
   },
   "intelligence": {
     "mode": "off",
-    "pipeName": "LSA.Intelligence.v1"
+    "pipeName": "LSA.Intelligence.v1",
+    "radio": "off"
   },
   "activities": {
     "mode": "off",

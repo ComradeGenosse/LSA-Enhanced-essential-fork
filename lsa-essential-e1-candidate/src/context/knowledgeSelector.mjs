@@ -1,3 +1,4 @@
+import { radioTurnRelevant,renderRadioContext } from '../perception/radioContextProjector.mjs';
 import { validateObservation,validateClaim } from '../perception/contracts.mjs';
 import { orderSalienceDecisions,SALIENCE_POLICY_VERSION,REASON_CODES } from '../perception/salienceEngine.mjs';
 import { immutableSnapshot } from './turnSnapshot.mjs';
@@ -13,6 +14,10 @@ export function projectKnowledgeClaim(claim,observation,observer) {
   if(claim.kind==='firing' && modality==='visual' && claim.source) return {...common,kind:'firing',subject:subject(claim.source,observer)};
   if(claim.kind==='firing' && modality==='self' && claim.source?.captureRef===observer) return {...common,kind:'firing',subject:'self'};
   if(modality==='auditory' && observation.eventType==='firing_burst' && ['sound','firing'].includes(claim.kind)) return {...common,kind:'gunfire_sound',origin:claim.source?subject(claim.source,observer):'unidentified'};
+  if(claim.kind==='sound' && modality==='auditory' && observation.eventType==='radio_heard' && claim.details?.soundType==='radio') {
+    const rendered=renderRadioContext(observation);
+    return rendered?{...common,kind:'audible_radio',description:rendered}:null;
+  }
   const detail=claim.details;
   if(modality==='self' && claim.target?.captureRef===observer && detail) {
     if(claim.kind==='action' && ['followtarget','waithere'].includes(detail.action)) return {...common,kind:'handler_outcome',action:detail.action==='followtarget'?'follow request':'wait request',outcome:detail.succeeded?'accepted':'failed',physicalCompletion:'unknown'};
@@ -31,7 +36,7 @@ function validDecision(d) {
     Array.isArray(d.reasons) && d.reasons.length<=4 && new Set(d.reasons).size===d.reasons.length && d.reasons.every(reason=>REASON_CODES.includes(reason)) &&
     Number.isSafeInteger(d.expiresAtMonotonicMs);
 }
-export function selectKnowledge(inputs,{includePerceived=true}={}) {
+export function selectKnowledge(inputs,{includePerceived=true,radioInput=''}={}) {
   const omissions={unsupported_claim_detail:0,revision_mismatch:0,no_matching_salience:0,budget_excluded:0,safety_overflow:0};
   const result={observations:[],selected:[],omissions,safetyBudget:{reservedBytes:KNOWLEDGE_LIMITS.safetyReserveBytes,usedBytes:0,remainingBytes:KNOWLEDGE_LIMITS.safetyReserveBytes}};
   if(!includePerceived || inputs?.ownerPendingProof || inputs?.reason || !inputs?.association || !Array.isArray(inputs.pairs)) return immutableSnapshot(result);
@@ -39,6 +44,8 @@ export function selectKnowledge(inputs,{includePerceived=true}={}) {
   const valid=[];
   for(const pair of inputs.pairs) {
     const o=pair?.observation,d=pair?.decision;
+    // Only an explicit player radio question may select a frozen radio fact.
+    if(o?.eventType==='radio_heard' && !radioTurnRelevant(radioInput)) continue;
     if(!validateObservation(o) || o.observer.captureRef!==observer || o.observedAt.nativeRun!==inputs.psAdapterEpoch || o.expiresAtMonotonicMs<=inputs.frozenAt || !o.claims.every(claim=>[claim.source,claim.target].every(ref=>!ref || inputs.liveReferences?.[ref.captureRef]===ref.kind) && (!claim.details?.vehicle || inputs.liveReferences?.[claim.details.vehicle]==='vehicle')) || counts.get(o.observationId)!==1) {omissions.revision_mismatch++;continue;}
     if(!pair.situation || !Array.isArray(pair.situation.traitPolicies) || !validDecision(d) || d.observationId!==o.observationId || d.revision!==o.revision || d.policyVersion!==SALIENCE_POLICY_VERSION || typeof d.decisionKey!=='string' || !d.decisionKey.startsWith(`${o.observationId}:${o.revision}:${SALIENCE_POLICY_VERSION}:`) || !/^\d+:[0-9a-f]{8}$/.test(d.decisionKey.slice(`${o.observationId}:${o.revision}:${SALIENCE_POLICY_VERSION}:`.length)) || d.expiresAtMonotonicMs<=inputs.frozenAt || !['candidate','must_include','omit'].includes(d.context)) {omissions.no_matching_salience++;continue;}
     if(d.context!=='omit') valid.push(pair);

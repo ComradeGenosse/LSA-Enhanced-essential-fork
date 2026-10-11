@@ -6,6 +6,7 @@ import { EpisodeCorrelator } from './episodeCorrelator.mjs';
 import { SharedTranscriptStore } from './sharedTranscriptStore.mjs';
 import { SalienceCache, situationFromCharacterView, sameSalienceSituationPolicy } from './salienceEngine.mjs';
 import { readHostContext } from '../context/hostContext.mjs';
+import { RadioTrackTextCatalog, normalizeRadioSignal } from './radioTrackTextCatalog.mjs';
 
 const MAX_COUNTER = 2147483647;
 const PS3_REASON_COUNTERS = Object.freeze({
@@ -19,8 +20,8 @@ const PS3_REASON_COUNTERS = Object.freeze({
 });
 
 export class ShadowRuntime {
-  constructor({ mode='off', now=()=>Math.floor(performance.now()), situationFor=()=>({}) }={}) {
-    this.mode=mode;this.now=now;this.anchors=new Map();this.signals=[];this.sequence=0;this.producers=new Map();this.epoch=null;this.stream=null;this.lastReceipt=0;
+  constructor({ mode='off', radio='off', radioCatalog=RadioTrackTextCatalog.unavailable(), now=()=>Math.floor(performance.now()), situationFor=()=>({}) }={}) {
+    this.mode=mode;this.radio=radio==='shadow'?'shadow':'off';this.radioCatalog=radioCatalog??RadioTrackTextCatalog.unavailable();this.now=now;this.anchors=new Map();this.signals=[];this.sequence=0;this.producers=new Map();this.epoch=null;this.stream=null;this.lastReceipt=0;
     this.hostContext=null;this.observerIndexVersion=null;this.observerIndex=new Map();this.observerSituations=new Map();this.observerSituationVersion=null;this.primaryBehaviorOwnerVersion=null;this.directorRequestVersion=null;this.directorPriority=null;this.directorReceipts=[];this.situationProvider=situationFor;
     this.counters=Object.fromEntries(['received','dropped','stale','malformed','duplicate','gaps','expired','resets'].map(k=>[k,0]));
     this.historyDiagnostics={expired:0,evicted:0,skipped:0,highWater:0};
@@ -159,9 +160,10 @@ export class ShadowRuntime {
     }
     if(v.type==='retire') {this.retire(v.payload.captureRef);return true;}
     if(v.type==='retire_batch') {for(const ref of v.payload) this.retire(ref,'retire_batch');return true;}
-    if(v.type==='diagnostics') {this.diagnostics=Object.freeze({...v.payload,damageCallbacks:Object.freeze({...v.payload.damageCallbacks})});this.capabilities=Object.freeze({...v.payload.capabilities});return true;}
+    if(v.type==='diagnostics') {const radio=v.payload.radio?Object.freeze({...v.payload.radio}):undefined;this.diagnostics=Object.freeze({...v.payload,damageCallbacks:Object.freeze({...v.payload.damageCallbacks}),...(radio?{radio}:{})});this.capabilities=Object.freeze({...v.payload.capabilities});return true;}
     const s=v.payload, cap={ped_damage:'pedDamage',player_damage:'playerDamage',vehicle_damage:'vehicleDamage',shooting:'shooting',state:'state',action:'action',playback:'playback'}[s.producer];
-    if(!this.capabilities[cap]) {this.count('stale');return false;}
+    if(s.producer==='radio') { if(this.radio!=='shadow') {this.count('stale');return false;} }
+    else if(!this.capabilities[cap]) {this.count('stale');return false;}
     if(s.witnessReceipts?.length && !this.capabilities.witness) {this.count('stale');return false;}
     if(s.producerSequence<=(this.producers.get(s.producer)||0)) {this.count('duplicate');return false;}
     // Producer gaps reflect bounded callback loss, never proof of an outcome.
@@ -170,12 +172,27 @@ export class ShadowRuntime {
     if([s.target,s.source,s.facts.vehicle].some(ref=>ref && !this.current(ref))) {this.count('stale');return false;}
     if(s.kind==='vehicle_transition' && s.facts.vehicle && this.anchors.get(s.facts.vehicle)?.kind!=='vehicle') {this.count('stale');return false;}
     if(s.source && this.anchors.get(s.source).kind==='vehicle' || s.kind==='vehicle_state' && s.facts.driver && (!this.current(s.facts.driver) || this.anchors.get(s.facts.driver).kind==='vehicle')) {this.count('stale');return false;}
-    if(s.target && ((['vehicle_damage','vehicle_state'].includes(s.kind)) !== (this.anchors.get(s.target).kind==='vehicle')) || s.producer==='player_damage' && s.target && this.anchors.get(s.target).kind!=='player') {this.count('stale');return false;}
+    if(s.target && ((['vehicle_damage','vehicle_state','radio_changed','radio_stopped'].includes(s.kind)) !== (this.anchors.get(s.target).kind==='vehicle')) || s.producer==='player_damage' && s.target && this.anchors.get(s.target).kind!=='player') {this.count('stale');return false;}
     if(s.ageMs>=BOUNDS.signalTtlMs) {this.count('expired');return false;}
     const critical=s.kind==='death' || ['damage','vehicle_damage'].includes(s.kind) && Boolean(this.anchors.get(s.target)?.observer || this.anchors.get(s.target)?.kind==='player');
     const facts={...s.facts};if(facts.collision) facts.collision=Object.freeze({...facts.collision});
     const value=Object.freeze({...s,facts:Object.freeze(facts)});
     this.count('received');
+    if(s.producer==='radio') {
+      this.retainSignal(value,false,this.now()+BOUNDS.signalTtlMs-s.ageMs);
+      const normalized=s.kind==='radio_changed'?normalizeRadioSignal(s,this.radioCatalog):null;
+      if(s.kind==='radio_changed' && !normalized) {this.ps2Diagnostics.dropped=Math.min(MAX_COUNTER,this.ps2Diagnostics.dropped+1);return true;}
+      const semanticOff=normalized?.contentKind==='off';
+      const correlationSignal=semanticOff?{...s,kind:'radio_stopped',facts:{station:'',soundHash:0,trackTextId:0}}:s;
+      const correlated=this.correlator.ingest({nativeRun:this.epoch,signal:correlationSignal,radio:semanticOff?null:normalized,witnessReceipts:semanticOff?[]:(s.witnessReceipts||[])});
+      if(correlated.duplicate) this.ps2Diagnostics.duplicates=Math.min(MAX_COUNTER,this.ps2Diagnostics.duplicates+1);
+      else if(correlated.accepted) {this.ps2Diagnostics.correlated=Math.min(MAX_COUNTER,this.ps2Diagnostics.correlated+Number(Boolean(correlated.episodeId)));this.ps2Diagnostics.witnessed=Math.min(MAX_COUNTER,this.ps2Diagnostics.witnessed+correlated.observations.length);}
+      if(!correlated.accepted) this.ps2Diagnostics.dropped=Math.min(MAX_COUNTER,this.ps2Diagnostics.dropped+1);
+      for(const observationId of correlated.removedObservationIds||[]) this.salience.forgetObservation(observationId);
+      for(const observation of correlated.observations||[]) this.noteSalience(observation);
+      // R4 ranks radio locally only. R5 remains responsible for model-visible projection.
+      return true;
+    }
     const selfReceipts=[];
     for(const anchor of this.anchors.values()) {
       if(!anchor.observer || anchor.kind!=='ped') continue;
@@ -379,7 +396,8 @@ export class ShadowRuntime {
         const key=PS3_REASON_COUNTERS[reason];
         if(key) stats.reasons[key]=Math.min(MAX_COUNTER,stats.reasons[key]+1);
       }
-    } catch { this.ps3Diagnostics.faults=Math.min(MAX_COUNTER,this.ps3Diagnostics.faults+1); }
+      return decision;
+    } catch { this.ps3Diagnostics.faults=Math.min(MAX_COUNTER,this.ps3Diagnostics.faults+1); return null; }
   }
   acceptPlayerTranscript({text,receipt=null}={}) {
     return this.transcripts.accept({capability:this.capabilities.playerSpeech===true,receipt,text});

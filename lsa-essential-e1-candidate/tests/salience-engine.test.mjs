@@ -48,10 +48,25 @@ function view(patch = {}) {
     channelHealthy: patch.channelHealthy,
     perceptionSupported: patch.perceptionSupported,
     distanceBand: patch.distanceBand,
+    requestedEnvironmentChannels: patch.requestedEnvironmentChannels,
   });
 }
 function injuryOf(target, channel = 'visual') {
   return claim({ kind: 'injured', channel, basis: channel === 'self' ? 'native_callback' : 'sampled_state', target, targetKind: target ? 'ped' : undefined });
+}
+
+function radioClaim({ vehicle = randomUUID(), title = 'Track A', artist = 'Artist A', station = 'RADIO_TEST_A' } = {}) {
+  return {
+    claimId: randomUUID(),
+    kind: 'sound',
+    certainty: 'supported',
+    evidence: { channel: 'auditory', basis: 'audibility_model', sampledGameTick: 1 },
+    target: { captureRef: vehicle, kind: 'vehicle' },
+    details: {
+      eventSignalId: randomUUID(), reason: 'same_vehicle_radio', soundType: 'radio',
+      station, trackKnown: true, stationName: 'Test Radio', artist, title, contentKind: 'music',
+    },
+  };
 }
 
 test('missing activity evidence stays unknown in normalization and shadow salience', () => {
@@ -199,6 +214,46 @@ test('driving suppresses routine presence and keeps vehicle danger', () => {
   assert.equal(danger.reasons.includes('situation_occupied'), false);
   assert.equal(urgent.response, 'urgent');
   assert.equal(urgent.reasons.includes('situation_occupied'), false);
+});
+
+test('radio R4 is low priority by default and explicit environment relevance only enables context', () => {
+  const vehicle = randomUUID(), characterId = randomUUID();
+  const seen = observation({ eventType: 'radio_heard', severity: 'routine', claims: [radioClaim({ vehicle })] });
+  const plain = evaluateSalience(seen, view({ traits: ['protective','loyal'], bindings: [{ captureRef: vehicle, characterId, recognized: true, relationship: 'trusted' }], memories: [{ memoryId: randomUUID(), importance: 90, relatedCharacterIds: [characterId] }] }));
+  assert.equal(plain.context, 'candidate');assert.equal(plain.memory, 'none');assert.equal(plain.response, 'none');assert.ok(plain.reasons.includes('routine_low_relevance'));
+  const requested = evaluateSalience(seen, view({ requestedEnvironmentChannels: ['radio'] }));
+  assert.equal(requested.context, 'candidate');assert.equal(requested.memory, 'none');assert.equal(requested.response, 'none');assert.ok(requested.reasons.includes('routine_low_relevance'));
+  const normalized = normalizeSalienceSituation({ requestedEnvironmentChannels: ['radio','radio','music','speech'] });
+  assert.equal(normalized.requestedEnvironmentChannels,undefined,'only frozen PS4 input selection can authorize a radio mention');
+});
+
+test('radio R5 explicit questions remain context-eligible after delivery and track revisions stay current', () => {
+  const cache = new SalienceCache(), vehicle = randomUUID(), observationId = randomUUID(), episodeId = randomUUID(), nativeRun = randomUUID();
+  const firstSeen = observation({ observationId, episodeId, nativeRun, revision: 1, eventType: 'radio_heard', severity: 'routine', claims: [radioClaim({ vehicle, title: 'Track A' })] });
+  const relevant = view({ requestedEnvironmentChannels: ['radio'] });
+  const first = cache.evaluate(firstSeen, relevant);
+  assert.equal(first.context, 'candidate');assert.equal(first.response, 'none');assert.equal(first.memory, 'none');
+  assert.equal(cache.acknowledge(first.decisionKey, 'ps4_context', 'delivered'), true);
+  const repeatedQuestion = cache.evaluate(firstSeen, relevant);
+  assert.equal(repeatedQuestion.context, 'candidate');assert.equal(repeatedQuestion.response, 'none');assert.equal(repeatedQuestion.memory, 'none');
+  const unrelated = cache.evaluate(firstSeen, view());
+  assert.equal(unrelated.context, 'candidate');assert.equal(unrelated.response, 'none');assert.equal(unrelated.memory, 'none');
+  const secondSeen = observation({ observationId, episodeId, nativeRun, revision: 2, eventType: 'radio_heard', severity: 'routine', gameTick: 20, claims: [radioClaim({ vehicle, title: 'Track B' })] });
+  const changed = cache.evaluate(secondSeen, relevant);
+  assert.equal(changed.context, 'candidate');assert.equal(changed.response, 'none');assert.equal(changed.memory, 'none');
+});
+
+test('radio R4 never outranks supported danger', () => {
+  const radio = observation({ eventType: 'radio_heard', severity: 'routine', claims: [radioClaim()] });
+  const danger = observation({ eventType: 'injury', severity: 'danger', claims: [injuryOf(randomUUID())] });
+  const radioDecision = evaluateSalience(radio, view({ requestedEnvironmentChannels: ['radio'] }));
+  const dangerDecision = evaluateSalience(danger, view());
+  const ordered = orderSalienceDecisions([
+    { decision: radioDecision, observation: radio, situation: view({ requestedEnvironmentChannels: ['radio'] }) },
+    { decision: dangerDecision, observation: danger, situation: view() },
+  ]);
+  assert.equal(ordered[0].decision.observationId, danger.observationId);
+  assert.equal(radioDecision.response, 'none');assert.equal(radioDecision.memory, 'none');
 });
 
 test('relevant prior memory raises routine presence without staging a new memory', () => {
