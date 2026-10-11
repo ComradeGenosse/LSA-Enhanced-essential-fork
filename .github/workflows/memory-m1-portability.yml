@@ -32,7 +32,7 @@ jobs:
       - name: Exercise M1 migration and both host adapters
         shell: bash
         run: |
-          node --test lsa-essential-e1-candidate/tests/m1-sqlite-foundation.test.mjs lsa-essential-e1-candidate/tests/m1-shared-memory-parity.test.mjs
+          node --test lsa-essential-e1-candidate/tests/m1-sqlite-foundation.test.mjs lsa-essential-e1-candidate/tests/m1-shared-memory-parity.test.mjs lsa-essential-e1-candidate/tests/m1-world-epoch-bridge.test.mjs
       - name: Regress existing Essential P2 editor, identity, profile and lifecycle
         shell: bash
         run: |
