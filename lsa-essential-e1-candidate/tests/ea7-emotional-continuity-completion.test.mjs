@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { MoodStore } from '../src/voice/emotion/moodStore.mjs';
 import { createSpeechDeliveryResolver } from '../src/voice/emotion/resolveSpeechDelivery.mjs';
 import { createMoodRuntime } from '../src/voice/emotion/moodRuntime.mjs';
+import { resolveDelivery } from '../src/voice/emotion/sceneDelivery.mjs';
 
 const uuid = n => '00000000-0000-4000-8000-' + String(n).padStart(12,'0');
 const identity = generationId => Object.freeze({
@@ -195,4 +196,28 @@ test('EA7 normal lifecycle never stores transcript, eyewitness facts or permanen
   assert.deepEqual(hint,{value:'amused',confidence:'soft',intensity:'subtle'});
   assert.equal(JSON.stringify(hint).includes('Secret'),false);
   assert.equal(hint.evidenceRef,undefined);
+});
+
+test('EA7 current NPC reassurance overrides old soft mood but ordinary speech can retain it',()=>{
+  const uid=n=>'00000000-0000-4000-8000-'+String(n).padStart(12,'0');
+  const actor=Object.freeze({
+    characterId:uid(100),observerCaptureRef:uid(101),incarnationId:uid(102),
+    ownerProofRevision:1,hostRunId:uid(103),worldEpoch:1,
+    nativeRun:uid(104),pedId:'17',sessionNonce:2,
+    turnId:'turn-5',generationId:5,timelineId:uid(105),
+  });
+  const projection=Object.freeze({
+    verifiedOwner:true,lifetimeCurrent:true,channelHealthy:true,
+    identity:Object.freeze({...actor}),observations:Object.freeze([]),
+  });
+  const prior=Object.freeze({value:'sad',confidence:'soft',intensity:'subtle'});
+  const call=segmentText=>resolveDelivery({
+    identity:actor,segmentText,source:'player_text',nowMonotonicMs:1000,
+    currentSceneEvidence:projection,actorTraits:null,priorEphemeralMood:prior,
+    config:{mode:'experimental',intensity:'subtle',maxTaggedSegmentsPerTurn:2},
+  });
+  assert.equal(call("I'm fine now.").value,'neutral');
+  assert.equal(call("I'm not sad anymore.").value,'neutral');
+  assert.equal(call("There's nothing to worry about.").value,'neutral');
+  assert.equal(call('We should go to Sandy Shores.').source,'ephemeral_mood');
 });
