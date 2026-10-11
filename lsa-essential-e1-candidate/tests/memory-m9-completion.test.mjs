@@ -33,6 +33,7 @@ const qualified=(event,characterId=charA)=>({
   candidateEventId:event.eventId,observationId:id(11),
   witnessReceiptId:id(12),journalRecordId:id(13),
   characterId,worldProfileId:world,timelineId:timeline,
+  playerCaptureRef:player,protagonistKey:'unknown',
   observerCaptureRef:id(characterId===charA?14:15),
   nativeRun:epoch,hostRunId:run,worldEpoch:1
 });
