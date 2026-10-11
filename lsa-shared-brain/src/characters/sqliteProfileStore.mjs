@@ -13,7 +13,10 @@ const fail = code => { throw new Error(code); };
 export class P2SqliteProfileStore {
   #db; #writer; #token; #initializing; #queue = Promise.resolve();
   #available = true; #closed = false; #timeline = new TimelineGuard();
-  constructor({ filePath, worldProfileId, legacyJsonPath = null }) {
+  #sourceRequired; #sourceContext = null; #confirmedSource = null;
+  constructor({ filePath, worldProfileId, legacyJsonPath = null, sourceRequired = false }) {
+    if (typeof sourceRequired !== 'boolean') throw new TypeError('invalid_timeline_source_config');
+    this.#sourceRequired = sourceRequired;
     if (typeof filePath !== 'string' || !filePath.trim()) throw new TypeError('invalid_sqlite_profile_config');
     this.filePath = path.resolve(filePath);
     this.lockPath = this.filePath + '.writer.lock';
@@ -24,9 +27,33 @@ export class P2SqliteProfileStore {
   get loaded() { return this.#db.initialized; }
   get available() { return this.#available && !this.#closed; }
   get activeTimelineId() { return this.#timeline.activeTimelineId; }
-  get timelineWritable() { return this.#timeline.writable; }
+  get timelineWritable() { return this.#timeline.writable && this.#sourceValid(); }
+  get timelineSourceStatus() { return !this.#sourceRequired ? 'not_required' : !this.#sourceContext ? 'unavailable' : this.#confirmedSource !== this.#sourceKey(this.#sourceContext) ? 'confirmation_required' : 'verified'; }
+  #sourceKey(context) { return context?.hostRunId + ':' + context?.worldEpoch; }
+  #sourceValid() { return !this.#sourceRequired || this.#sourceContext !== null && this.#confirmedSource === this.#sourceKey(this.#sourceContext); }
   get timelinePendingReason() { return this.#timeline.pendingReason; }
   get snapshot() { return this.#db.snapshot; }
+  // Runtime adapters may only call this from an authenticated, accepted native
+  // C-13 hello/world epoch. Never accept direct model/ped/user text as proof.
+  setVerifiedHostContext(context) {
+    if (!this.#sourceRequired) return false;
+    if (context === null) {
+      this.#sourceContext = null;
+      this.#confirmedSource = null;
+      return false;
+    }
+    if (!context || context.hostContextVersion !== 1 ||
+        typeof context.hostRunId !== 'string' ||
+        !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(context.hostRunId) ||
+        !Number.isSafeInteger(context.worldEpoch) || context.worldEpoch < 1 || context.worldEpoch > 0x7fffffff)
+      throw new TypeError('invalid_timeline_source_context');
+    // Any host incarnation/epoch change requires a fresh explicit user
+    // confirmation even when the stored active timeline id remains unchanged.
+    if (!this.#sourceContext || this.#sourceKey(context) !== this.#sourceKey(this.#sourceContext))
+      this.#confirmedSource = null;
+    this.#sourceContext = Object.freeze({hostRunId:context.hostRunId,worldEpoch:context.worldEpoch});
+    return true;
+  }
   #serial(operation) {
     const job = this.#queue.then(operation);
     this.#queue = job.catch(() => {});
@@ -149,18 +176,43 @@ export class P2SqliteProfileStore {
     await this.initialize();
     return this.#serial(() => this.#db.listTimelines());
   }
-  onBoundary(boundary) { return this.#timeline.onBoundary(boundary); }
+  onBoundary(boundary) {
+    // Invalidate verified native source on any actual epoch transition; the
+    // next trusted hello/epoch establishes new provenance but not permission.
+    if (boundary?.reason === 'clock_regression' || boundary?.reason === 'timeline_change') {
+      if (this.#sourceRequired) this.#confirmedSource = null;
+    }
+    return this.#timeline.onBoundary(boundary);
+  }
   async confirmTimeline(timelineId) {
     await this.initialize();
     return this.#serial(() => {
       // Native/UX layer must ask the user when clock/save-lineage is ambiguous.
       // Never auto-create/select from an unverified host assertion.
+      // A user can select a timeline offline, but cannot enable provenance-
+      // scoped writes until current native source exists and is verified.
       this.#db.activateTimeline(timelineId);
       this.#timeline.selectTimeline(timelineId);
+      this.#confirmedSource = this.#sourceContext ? this.#sourceKey(this.#sourceContext) : null;
       return this.#timeline.activeTimelineId;
     });
   }
-  assertTimelineWrite(timelineId) { this.#timeline.assertWrite(timelineId); }
+  assertTimelineWrite(timelineId) {
+    this.#timeline.assertWrite(timelineId);
+    if (!this.#sourceValid()) fail('timeline_write_suspended');
+  }
+  // M2+ may only write timeline-scoped evidence through an operation that
+  // checks provenance INSIDE the serialized writer queue, immediately before
+  // invoking the durable commit. Profile/editor metadata remains global.
+  async withTimelineWrite(timelineId, commit) {
+    if (typeof commit !== 'function') throw new TypeError('invalid_timeline_operation');
+    await this.initialize();
+    return this.#serial(() => {
+      if (!this.available) fail('profile_store_unavailable');
+      this.assertTimelineWrite(timelineId);
+      return commit(this.#db, this.#db.snapshot);
+    });
+  }
   async close() {
     if (this.#closed) return;
     this.#closed = true;
