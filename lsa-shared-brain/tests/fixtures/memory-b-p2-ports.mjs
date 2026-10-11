@@ -52,7 +52,7 @@ export function createMockP2ReplayPort({scope,pages=[]}={}){
         skipped=deep(fixture.skipped??[]);
       if(items.length+rejected.length+skipped.length>limit)throw new Error('p2_replay_fixture_page_overflow');
       return {version:1,scope:deep(scope),cursor:token(Math.min(n+1,pages.length)),
-        fromCursor:token(n),lastSequence:n+1,scannedCount:items.length+rejected.length+skipped.length,
+        fromCursor:token(n),lastSequence:Math.min(n+1,pages.length),scannedCount:items.length+rejected.length+skipped.length,
         items,rejected,skipped,hasMore:fixture.hasMore??n+1<pages.length,
         status:rejected.length?'incomplete_evidence':'complete'};
     },
