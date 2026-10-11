@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
-import {projectContextualBallistics, BALLISTICS_R0_LIMITS} from '../src/perception/contextualBallistics.mjs';
+import {projectContextualBallistics, witnessedBulletAttribution, BALLISTICS_R0_LIMITS} from '../src/perception/contextualBallistics.mjs';
 
 function fixture() {
   const player = randomUUID(), signalId = randomUUID();
@@ -114,4 +114,26 @@ test('crossing native uint gameTick wrap still permits a brief verified callback
   const evidence = [f.row('world_impact', {proof: 'native_impact', surface: 'ground', gameTick: 2})];
   assert.deepEqual(projectContextualBallistics({...f, firing, witness, evidence}).impact,
     {kind: 'surface_hit', surface: 'ground'});
+});
+
+test('bullet victim attribution requires same original witnessed visual firing and callback',()=>{
+ const f=fixture(),nativeRun=randomUUID(),observer=f.witness.observerCaptureRef, target=randomUUID();
+ const signal={kind:'damage',producer:'ped_damage',source:f.firing.sourceCaptureRef,
+   target,gameTick:600,facts:{classification:'bullet'}};
+ const receipt={status:'witnessed',observer:{captureRef:observer},knowsTarget:true,
+   evidence:{channel:'visual'}};
+ const priorFiring={nativeRun,observer,shooter:f.firing.sourceCaptureRef,
+   gameTick:500,monotonicMs:5000};
+ const args={signal,receipt,priorFiring,nativeRun,nowMonotonicMs:5100};
+ assert.equal(witnessedBulletAttribution(args),true);
+ for(const change of [
+   {signal:{...signal,source:randomUUID()}},
+   {signal:{...signal,facts:{classification:'explosion'}}},
+   {signal:{...signal,gameTick:1800}},
+   {receipt:{...receipt,evidence:{channel:'auditory'}}},
+   {receipt:{...receipt,knowsTarget:false}},
+   {priorFiring:{...priorFiring,observer:randomUUID()}},
+   {priorFiring:{...priorFiring,nativeRun:randomUUID()}},
+   {nowMonotonicMs:6000}
+ ]) assert.equal(witnessedBulletAttribution({...args,...change}),false);
 });
