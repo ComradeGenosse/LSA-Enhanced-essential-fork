@@ -74,15 +74,17 @@ test('M1 verifies timeline provenance after a queued write, not only before enqu
     const origin=host();
     store.setVerifiedHostContext(origin);
     await store.confirmTimeline(id);
-    let resolve;
-    const blocked=new Promise(r=>resolve=r);
-    // Hold the single P2 writer queue while a later write is enqueued.
-    const first=store.withTimelineWrite(id,()=>blocked);
-    const later=store.withTimelineWrite(id,()=>{throw new Error('should_never_execute');});
+    let committed=0;
+    const queued=store.withTimelineWrite(id,()=>++committed);
+    // This source revocation occurs after submitting the operation but before
+    // the serialized callback receives the writer. It must be rechecked there.
     store.setVerifiedHostContext(null);
-    resolve(null);
-    await assert.rejects(first,/timeline_write_async_not_supported/);
-    await assert.rejects(later,/timeline_write_suspended/);
+    await assert.rejects(queued,/timeline_write_suspended/);
+    assert.equal(committed,0);
+    store.setVerifiedHostContext(origin);
+    await store.confirmTimeline(id);
+    await assert.rejects(store.withTimelineWrite(id,()=>Promise.resolve('bad')),
+      /timeline_write_async_not_supported/);
   } finally {await store.close();}
 });
 
