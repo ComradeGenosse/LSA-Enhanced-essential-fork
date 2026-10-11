@@ -633,7 +633,7 @@ internal static class Program
             id, aid, 2, 12, out reason), "EOS replay rejected");
         Check(audio.TryCancel(sid, audioLease, audioGen, id, aid),
             "exact cancellation disposes sealed audio escrow");
-        Check(stream.BufferedBytes == 12 && stream.Chunks.Count == 0,
+        Check(stream.BufferedBytes == 12 && stream.RetainedChunks == 0,
             "retirement purges all raw PCM buffers");
         Check(!audio.TryCancel(sid, audioLease, audioGen, id, aid),
             "double audio cancel denied");
