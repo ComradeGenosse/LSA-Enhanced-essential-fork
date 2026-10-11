@@ -69,23 +69,28 @@ export function validatePs2MemoryInput(observation, identity) {
   return null;
 }
 function subjectFor(claim, identity, participantProofs) {
+  // A v1 claim has ONE durable subject. Choose the semantically relevant
+  // actor from the source claim; never mistake the shot victim for the shooter.
+  // If PS2 did not establish that actor, no identity can be inferred from
+  // nearby anchors, the opposite participant, or the controlling protagonist.
+  const subjectRef=['injured','dead'].includes(claim.kind)?claim.target:
+    ['firing','attack'].includes(claim.kind)?claim.source:
+    ['sound','action','location','presence','report'].includes(claim.kind)?
+      (claim.source??claim.target):null;
+  if(!subjectRef)return `unresolved:${claim.claimId}`;
   const observer=identity.ownerProof.observerCaptureRef;
-  if(claim.evidence.channel==='self' && [claim.source?.captureRef,claim.target?.captureRef].includes(observer))
-    return `character:${identity.characterId}`;
-  for(const actor of [claim.target,claim.source]) {
-    if(!actor) continue;
-    if(actor.captureRef===observer) return `character:${identity.characterId}`;
-    const verified=participantProofs.find(p=>p?.captureRef===actor.captureRef && p.verified===true &&
-      p.hostRunId===identity.ownerProof.hostRunId && p.worldEpoch===identity.ownerProof.worldEpoch &&
-      p.adapterEpoch===identity.adapterEpoch);
-    if(!verified) continue;
-    if(verified.subjectKind==='character' && isUuid(verified.subjectKey)) return `character:${verified.subjectKey}`;
-    if(verified.subjectKind==='protagonist' && ['franklin','michael','trevor'].includes(verified.subjectKey))
-      return `protagonist:${verified.subjectKey}`;
-  }
-  // A scene-local unresolved marker is NOT a durable ped/player identity.
+  if(subjectRef.captureRef===observer)return `character:${identity.characterId}`;
+  const verified=participantProofs.find(p=>p?.captureRef===subjectRef.captureRef &&
+    p.verified===true && p.hostRunId===identity.ownerProof.hostRunId &&
+    p.worldEpoch===identity.ownerProof.worldEpoch && p.adapterEpoch===identity.adapterEpoch);
+  if(verified?.subjectKind==='character'&&isUuid(verified.subjectKey))
+    return `character:${verified.subjectKey}`;
+  if(verified?.subjectKind==='protagonist'&&
+     ['franklin','michael','trevor'].includes(verified.subjectKey))
+    return `protagonist:${verified.subjectKey}`;
   return `unresolved:${claim.claimId}`;
 }
+
 export function normalizeWitnessedObservation({observation,identity,participantProofs=[],prePromotionProof=null}={}) {
   const reason=validatePs2MemoryInput(observation,identity);
   if(reason) return Object.freeze({accepted:false,reason});
