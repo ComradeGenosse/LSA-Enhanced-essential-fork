@@ -205,11 +205,91 @@ internal static class Program
         }
     }
 
+
+    private static void ReconciliationAndTrace()
+    {
+        var game = new SimulatedGame();
+        game.Spawn(11, 0xB100);
+        var host = new NativeAuthority(game, game, game, game);
+        var original = Register(host, 11);
+        var first = Acquire(host, original, LeaseKind.Conversation, "private-scoped-owner");
+        var second = Acquire(host, original, LeaseKind.Audio, "voice");
+
+        // Script control can start and end between user commands. A native game
+        // fiber should reconcile observations continuously, not only at dispatch.
+        game.ScriptControl(11, true);
+        host.Reconcile();
+        Check(!host.IsLeaseCurrent(first) && !host.IsLeaseCurrent(second),
+            "reconcile retires claims on script takeover");
+        game.ScriptControl(11, false);
+        Check(!host.IsLeaseCurrent(first) && !host.IsLeaseCurrent(second),
+            "script handback must not resurrect old leases");
+        var after = Acquire(host, original, LeaseKind.Conversation, "new");
+
+        game.AllowsNpcControl = false;
+        host.Reconcile();
+        game.AllowsNpcControl = true;
+        Check(!host.IsLeaseCurrent(after), "temporary unsafe game state permanently revokes");
+        var fresh = Acquire(host, original, LeaseKind.Audio, "fresh");
+        game.ThrowOnObserve = true;
+        Check(!host.IsLeaseCurrent(fresh), "native reader throwing fails closed");
+        game.ThrowOnObserve = false;
+        Check(!host.IsActorCurrent(original), "failed native reader retires actor incarnation");
+
+        game.Spawn(12, 0xB200);
+        var gone = Register(host, 12);
+        game.Despawn(12);
+        game.Spawn(13, 0xB200);
+        Check(Register(host, 13) != null && !host.IsActorCurrent(gone),
+            "stale old address does not block independent new actor");
+        game.Spawn(14, 0xC300);
+        var leaseActor = Register(host, 14);
+        var lease = Acquire(host, leaseActor, LeaseKind.PhysicalAction, "follow");
+        Check(host.RetireActor(leaseActor) && !host.IsLeaseCurrent(lease),
+            "explicit actor retire terminates exact physical lease");
+        Check(host.ReadTrace().Count > 0, "trace contains lifecycle evidence");
+        var trace = host.ReadTrace();
+        long previous = 0;
+        bool sawScriptRevocation = false;
+        bool sawRetirement = false;
+        bool sawActionAcquisition = false;
+        foreach (var item in trace)
+        {
+            Check(item.Sequence > previous, "strictly increasing trace sequence");
+            previous = item.Sequence;
+            Check(item.HostRunId == host.HostRunId, "trace binds host run");
+            Check(item.Reason != "private-scoped-owner" && item.Reason != "voice",
+                "trace excludes potentially sensitive owner strings");
+            if (item.Event == "lease_revoked" && item.Reason == "script_controlled" &&
+                item.LeaseId == first.LeaseId) sawScriptRevocation = true;
+            if (item.Event == "actor_retired" && item.Handle == 14 &&
+                item.IncarnationId == leaseActor.IncarnationId) sawRetirement = true;
+            if (item.Event == "lease_acquired" && item.LeaseId == lease.LeaseId &&
+                item.Kind == LeaseKind.PhysicalAction) sawActionAcquisition = true;
+        }
+        Check(sawScriptRevocation && sawRetirement && sawActionAcquisition,
+            "exact trace captures grants, revocations and actor retirement");
+
+        // A bounded tracing subsystem cannot grow memory with long gameplay sessions.
+        game.Spawn(15, 0xD400);
+        var boundedActor = Register(host, 15);
+        for (int i = 0; i < 400; i++)
+        {
+            var token = Acquire(host, boundedActor, LeaseKind.Input, "bounded");
+            Check(host.TryRelease(token), "repeated release");
+        }
+        Check(host.ReadTrace().Count == 256 && host.DroppedTraceEvents > 0,
+            "trace bounded to 256 records with explicit loss counter");
+        Check(host.ReadTrace()[0].Sequence > 1,
+            "bounded trace discards oldest records rather than reordering");
+    }
+
     private static void Main()
     {
         IdentityAndLeases();
         ClockAndThreadSafety();
         DeterministicScenarioReplay();
+        ReconciliationAndTrace();
         Console.WriteLine("PASS " + assertions +
             " standalone native core assertions; no Essential/RAGE/game assembly loaded.");
     }
