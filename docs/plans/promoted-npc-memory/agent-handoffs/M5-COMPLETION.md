@@ -45,7 +45,7 @@
 | Durable pending choice with frozen IDs | M5 SQLite service | Requires production facade/accepted-line hookup |
 | Expiry/reconnect and scope fences | M5 SQLite service | Requires valid host timeline confirmation |
 | Up to two explicit compounds | Core parser/runner | Conservative syntax; no guessed implicit commands |
-| Read/export/trash/restore/physical expiry purge | M5 SQLite service | User authorization and scheduling are integration-owned |
+| Read/export/item and scope-wide trash/restore/physical expiry purge | M5 SQLite service | User authorization and scheduling are integration-owned |
 | Retain provenance before purge | Original journal + reversible tombstones | External archives/backups not erased |
 | Derived suppression | Tombstones plus dependent closure | Review preexisting M4 traversal |
 | Durable action acknowledgements | Existing PR #61 SQLite receipt + strict wrapper | Never treat `clarify` as committed action |
