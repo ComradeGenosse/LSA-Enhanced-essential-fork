@@ -14,6 +14,7 @@ import { P2SqliteProfileStore } from '../../lsa-shared-brain/src/characters/sqli
 import { addProfile, editProfile, changeMemory, removeProfile } from '../../lsa-shared-brain/src/characters/profileCommands.mjs';
 import { stageSharedMemory } from '../tools/stageSharedMemory.mjs';
 import { startCharacterEditor } from '../src/characters/editorServer.mjs';
+import { CharacterService, normalizeCharacterConfig } from '../src/characters/characterService.mjs';
 
 async function workspace(t) {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), 'lsa-memory-portable-'));
@@ -184,4 +185,28 @@ test('M1 editor hides unsupported mode and requires explicit timeline confirmati
     await editor.close();
     await store.close();
   }
+});
+
+test('M1 production configuration leaves JSON default and requires explicit safe SQLite choice',async t=>{
+  const p=await workspace(t);
+  const defaults=normalizeCharacterConfig({enabled:true,storePath:p.json});
+  assert.equal(defaults.storageMode,'json');
+  const ordinary=new CharacterService({
+    promotedCharacters:defaults,
+    persistentIdentity:{worldProfileId,storePath:path.join(p.root,'identity.json')}
+  },{identityService:{}});
+  assert.ok(ordinary.store instanceof ProfileStore);
+  const opted=normalizeCharacterConfig({
+    enabled:true,storePath:p.json,storageMode:'sqlite',sqliteStorePath:p.sqlite
+  });
+  const runtime=new CharacterService({
+    promotedCharacters:opted,
+    persistentIdentity:{worldProfileId,storePath:path.join(p.root,'identity.json')}
+  },{identityService:{}});
+  assert.ok(runtime.store instanceof P2SqliteProfileStore);
+  assert.equal(runtime.store.legacyJsonPath,p.json);
+  await runtime.closeStorage();
+  assert.throws(()=>normalizeCharacterConfig({
+    storePath:p.json,storageMode:'sqlite',sqliteStorePath:p.json
+  }),/Invalid promotedCharacters storage configuration/);
 });
