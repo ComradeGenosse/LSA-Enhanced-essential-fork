@@ -189,3 +189,25 @@ test('M8 evidence-backed affinities and embarrassment remain subjective and do n
  const noInterest=run({sources:[committed(music)]},{interests:[]});
  assert.deepEqual(noInterest.interpretations,[]);
 });
+
+
+test('Reported-modality receipts are never mislabeled observed, and future-dated rows are excluded',()=>{
+ const reported=event(4,'crash');
+ reported.claims[0].modality='report';reported.claims[0].certainty='direct';
+ const future=event(100000,'crash');
+ const r=run({sources:[committed(reported),committed(future)]},{});
+ assert.equal(r.facts.length,1);
+ assert.equal(r.facts[0].mode,'reported_claim');
+ assert.equal(r.facts[0].recordId,reported.recordId);
+});
+
+test('Corrupted cooldown timestamps fail closed; unknown reaction cannot erase annoyance history',()=>{
+ const d=dataset(),projection=run(d,{}),id=projection.jokes[0].id;
+ const args={scope,projection,nowUtc:t(7000),optIn:true,actorIdle:true,
+  secondsSincePlayerTurn:60,cue:{kind:'event_type',eventType:'crash',sourceVerified:true}};
+ assert.equal(selectM8JokeCue({...args,lastGlobalCallbackAtUtc:'invalid'}),null);
+ assert.equal(selectM8JokeCue({...args,jokeState:{[id]:{lastUsedAtUtc:'invalid'}}}),null);
+ const v=recordM8JokeUse({consecutiveNegativeReactions:1},{completed:true,sourceVerified:true,
+  jokeId:id,atUtc:t(100),reaction:'unknown'});
+ assert.equal(v.consecutiveNegativeReactions,1);
+});
