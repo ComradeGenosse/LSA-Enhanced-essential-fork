@@ -61,7 +61,8 @@ export function projectContextualBallistics({firing, witness, evidence = [], ver
   const visibleImpact = witness.sawImpact === true && witness.knowsTarget === true;
   if (visibleImpact) {
     const damage = correlated.find(row => row.kind === 'ped_damage' &&
-      row.proof === 'native_damage_callback' && uuid(row.targetCaptureRef));
+      row.proof === 'native_damage_callback' && row.classification === 'bullet' &&
+      uuid(row.targetCaptureRef));
     if (damage) {
       const region = damage.boneVerified === true && bodyRegions.has(damage.bodyRegion)
         ? {bodyRegion: damage.bodyRegion} : {};
