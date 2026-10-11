@@ -2,10 +2,11 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { normalizeConfig } from '../src/config/e1Config.mjs';
 import { createProviderStack } from '../src/providers/providerStack.mjs';
-import { createElevenLabsSpeechProvider, decodePcmAudio } from '../src/providers/elevenlabs/speechProvider.mjs';
+import { createElevenLabsSpeechProvider, decodePcmAudio, classifyElevenLabsError } from '../src/providers/elevenlabs/speechProvider.mjs';
 import { createPersistentVoiceAssignment, resolvePersistentVoiceProfile } from '../src/voice/voiceProfile.mjs';
 import { validateProfile } from '../src/characters/profileStore.mjs';
 import { profile } from './p2-fixtures.mjs';
+import { checkElevenLabs } from '../tools/elevenlabs/preflight.mjs';
 
 const voiceId='JBFqnCBsd6RMkjVDRZzb';
 const identity={pedId:'npc-1', turnId:'turn-1', generationId:1, sessionNonce:7};
@@ -125,4 +126,61 @@ test('persisted original OpenAI/Qwen voice references survive provider switching
   assert.equal(authored.provider,'elevenlabs');
   const old=validateProfile(profile({voiceReference:original}));
   assert.equal(old.voiceReference.provider,'faster-qwen3-tts');
+});
+
+
+test('safe error classifier inspects provider details without revealing raw messages',async()=>{
+  const cases=[
+    [{error:{code:'insufficient_credits',message:'secret-key-123 account email'}},'elevenlabs_credits_unavailable'],
+    [{error:{status:'invalid_api_key',message:'private-eleven-key'}},'elevenlabs_auth_failed'],
+    [{error:'The output_format pcm_24000 is not supported'},'elevenlabs_output_format_unavailable'],
+    [{error:{code:'model_not_found'}},'elevenlabs_model_unavailable'],
+    [{error:{code:'validation_error'}},'elevenlabs_request_rejected'],
+    [{error:{message:'loud_unknown_failure'}},'elevenlabs_remote_error'],
+    [{detail:{status:'error',code:'concurrency_limit'}},'elevenlabs_rate_limited'],
+  ];
+  for(const [frame,expected] of cases){
+    assert.equal(classifyElevenLabsError(frame),expected);
+    // All emitted errors must be fixed categories, never arbitrary vendor text.
+    const {FakeSocket}=socketFactory([frame]);
+    const p=createElevenLabsSpeechProvider({config:configured(),WebSocketImpl:FakeSocket});
+    await assert.rejects(p.synthesize({identity,dialogue:'Hello there',onPcm:async()=>{}}),e=>{
+      assert.equal(e.code,expected);
+      assert.ok(!String(e).includes('secret-key'));
+      assert.ok(!String(e).includes('private-eleven-key'));
+      return true;
+    });
+  }
+});
+
+test('free preflight calls only vendor GET model and voice endpoints, never synthesizes',async()=>{
+  const requests=[];
+  const mockFetch=async (url,options)=>{
+    requests.push({url,options});
+    if(url==='https://api.elevenlabs.io/v1/models')
+      return new Response(JSON.stringify([{model_id:'eleven_v4_turbo',requires_alpha_access:false}]),{status:200});
+    if(url==='https://api.elevenlabs.io/v1/voices/'+voiceId)
+      return new Response(JSON.stringify({voice_id:voiceId,name:'Nathan'}),{status:200});
+    throw new Error('Unexpected network call');
+  };
+  const result=await checkElevenLabs({config:configured(),voiceAlias:'nathan',fetchImpl:mockFetch});
+  assert.deepEqual(requests.map(x=>x.options.method),['GET','GET']);
+  assert.equal(result.modelListed,true);
+  assert.equal(result.voiceAccessible,true);
+  assert.equal(result.readyToAttemptSpeech,true);
+  assert.equal(result.modelRequiresAlphaAccess,false);
+  assert.ok(result.caveat.includes('cannot confirm'));
+  assert.ok(!JSON.stringify(result).includes('private-eleven-key'));
+  assert.ok(!JSON.stringify(result).includes(voiceId));
+  assert.ok(!requests.some(x=>x.url.includes('stream-input')||x.url.includes('text-to-speech')));
+});
+test('preflight reports model unavailable or voice restricted without billing',async()=>{
+  const result=await checkElevenLabs({config:configured(),fetchImpl:async (url)=>{
+    if(url.endsWith('/models')) return new Response('[]',{status:200});
+    return new Response('hidden',{status:403});
+  }});
+  assert.equal(result.modelListed,false);
+  assert.equal(result.voiceAccessible,false);
+  assert.equal(result.readyToAttemptSpeech,false);
+  assert.equal(result.voiceLookupHttp,403);
 });
