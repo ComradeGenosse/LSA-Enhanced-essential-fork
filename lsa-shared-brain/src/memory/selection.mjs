@@ -41,13 +41,20 @@ function contiguous(a,b){
 export function groupQualifiedScenes(records){
   const sorted=[...records].sort((a,b)=>Date.parse(a.when)-Date.parse(b.when)||
     a.recordId.localeCompare(b.recordId));
-  const scenes=[];
+  const scenes=[],activeByOwner=new Map();
   for(const record of sorted){
-    const prior=scenes.at(-1),last=prior?.at(-1);
+    // Other protagonists and unknown-source event streams can interleave in
+    // the journal. They must not break an otherwise contiguous proven scene.
+    const key=[record.worldProfileId,record.timelineId,record.characterId,
+      record.protagonistKey].join(':');
+    const prior=activeByOwner.get(key),last=prior?.at(-1);
     if(prior&&prior.length<64&&contiguous(last,record))prior.push(record);
-    else scenes.push([record]);
+    else {
+      const scene=[record];scenes.push(scene);activeByOwner.set(key,scene);
+    }
   }
-  return scenes;
+  return scenes.sort((a,b)=>Date.parse(a[0].when)-Date.parse(b[0].when)||
+    a[0].recordId.localeCompare(b[0].recordId));
 }
 function scoreScene(scene){
   const ranked=scene.map(r=>({record:r,...signal(r)})).sort((a,b)=>b.score-a.score||
