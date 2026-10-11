@@ -141,3 +141,17 @@ test('EA-A: native sequence gaps preserve fault reset and stream retirement',asy
   assert.ok(x.client.runtime.resetDiagnostics.faults>=1);
   assert.equal(x.client.protagonistAuthority.readVerified(),null);
 });
+
+test('EA-A: last admitted sequence excludes logically rejected native frames',async t=>{
+  const x=create(t);await x.hello();await x.model('franklin',1);
+  const before=x.client.getNativeStream();
+  assert.equal(before.lastSequence,1);
+  // Contract-valid director frame, but no negotiated native director receiver.
+  // The runtime orders/processes it, yet does NOT admit the event.
+  await x.send({version:1,type:'director_priority',adapterEpoch:x.adapterEpoch,
+    streamId:x.streamId,sequence:2,
+    payload:{playerTurnVersion:1,experimentalEnabled:false}});
+  assert.equal(x.client.runtime.sequence,2);
+  assert.equal(x.client.getNativeStream().lastSequence,1);
+  assert.equal(x.client.protagonistAuthority.readVerified()?.protagonist,'franklin');
+});
