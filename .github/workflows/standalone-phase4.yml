@@ -68,14 +68,16 @@ jobs:
         shell: pwsh
         run: |
           $exe = (Resolve-Path 'native/standalone-host/tests/bin/Release/net481/Phase2PipeHarness.exe').Path
-          foreach ($mode in @('direct_fixture','loopback_responses','pcm_escrow','pcm_rolling','tts_http','qwen_http','early_speech')) {
+          foreach ($mode in @('direct_fixture','loopback_responses','pcm_escrow','pcm_rolling','tts_http','qwen_http','early_speech','physical_receipt')) {
             # Each mode gets its own genuine native host process and lease;
             # no cancelled native turn is silently replayed between fixtures.
             $hostProcess = Start-Process -FilePath $exe -PassThru
             try {
               $ok = $false
               for ($attempt = 1; $attempt -le 12; $attempt++) {
-                if ($mode -eq 'early_speech') {
+                if ($mode -eq 'physical_receipt') {
+                  node lsa-standalone-companion/tools/physical-playback-pipe-fixture.mjs
+                } elseif ($mode -eq 'early_speech') {
                   node lsa-standalone-companion/tools/early-speech-fixture.mjs
                 } elseif ($mode -eq 'qwen_http') {
                   node lsa-standalone-companion/tools/audio-qwen-http-fixture.mjs
