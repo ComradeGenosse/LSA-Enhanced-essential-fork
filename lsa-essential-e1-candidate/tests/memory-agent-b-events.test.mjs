@@ -133,8 +133,8 @@ test('M3 prepromotion grace cannot borrow another lifetime, epoch or stale physi
   r.recorder.bufferBeforePromotion({observation:observation({observationId:id(20)}),candidate:identity()});
   r.setPromoted(true);r.setActor(B);
   result=await r.recorder.importOnPromotion({candidate:identity({characterId:B})});
-  assert.equal(result.imported,1); // must be the freshly authorized promoted ID for this lifetime
-  assert.equal(r.entries.size,2);
+  assert.equal(result.imported,0); // reserved CharacterId A cannot silently become B
+  assert.equal(r.entries.size,1);
 });
 test('M3 grace rejects recycled captureRef, changed incarnation and new native epoch',async()=>{
   const original=observation({observationId:id(71)});
