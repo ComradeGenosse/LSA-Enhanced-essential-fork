@@ -2,7 +2,7 @@
 // It is NOT automatically enabled in the Essential runtime or standalone host.
 import * as fs from 'node:fs/promises';
 import path from 'node:path';
-import { randomUUID } from 'node:crypto';
+import { randomUUID, createHash } from 'node:crypto';
 import { P2SqliteFoundation } from './sqliteFoundation.mjs';
 import { validateProfile, validateProfiles } from './profileSchema.mjs';
 import { addProfile, editProfile, changeMemory, removeProfile } from './profileCommands.mjs';
@@ -112,6 +112,34 @@ export class P2SqliteProfileStore {
   async remove(characterId,confirmation,expectedRevision) {
     await this.#mutate(profiles => removeProfile(profiles,characterId,confirmation,expectedRevision));
     return true;
+  }
+  // Safely materialize a new v1 profile snapshot for an explicitly supervised
+  // downgrade/rollback. Never overwrite either the old JSON or active SQLite.
+  // Future M2+ journals/timeline records are NOT represented by v1 JSON.
+  async exportRollbackSnapshot() {
+    await this.initialize();
+    return this.#serial(async () => {
+      if (!this.available) fail('profile_store_unavailable');
+      const output = this.filePath + '.rollback-' + randomUUID() + '.json';
+      const raw = this.#db.exportSnapshot();
+      const value = validateProfiles(JSON.parse(raw), this.worldProfileId);
+      let handle=null, created=false;
+      try {
+        handle=await fs.open(output, 'wx', 0o600);
+        created=true;
+        await handle.writeFile(raw, 'utf8');
+        await handle.sync();
+        await handle.close();handle=null;
+        return Object.freeze({
+          path:output, revision:value.revision, profileCount:value.profiles.length,
+          sha256:createHash('sha256').update(raw).digest('hex')
+        });
+      } catch (error) {
+        if (handle) await handle.close().catch(()=>{});
+        if (created) await fs.rm(output,{force:true}).catch(()=>{});
+        throw error;
+      }
+    });
   }
   async createTimeline(options = {}) {
     await this.initialize();
