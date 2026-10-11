@@ -162,6 +162,22 @@ export function commitPersistedMemoryCommand(db,o,world){
 export function persistDeterministicMemory(db,proposal,world){
  const scope={characterId:proposal?.characterId,worldProfileId:proposal?.worldProfileId,timelineId:proposal?.timelineId,protagonistKey:'unknown'};
  dbOwnerScope(db,scope,world);
+ // The M0 proposal has no protagonist property. Resolve it exclusively from
+ // committed evidence, never guess from a name or the current player's ped.
+ const protagonists=new Set();
+ for(const evidenceId of proposal?.evidenceRecordIds??[]){
+   const dialogue=db.prepare('SELECT protagonist FROM dialogue_journal WHERE record_id=? AND world_profile_id=? AND character_id=? AND timeline_id=?')
+     .get(evidenceId,...stmtScope(scope));
+   if(dialogue)protagonists.add(dialogue.protagonist);
+   else {
+     const event=db.prepare('SELECT e.record_id FROM event_journal e JOIN event_source_evidence s ON s.record_id=e.record_id WHERE e.record_id=? AND e.world_profile_id=? AND e.character_id=? AND e.timeline_id=?')
+       .get(evidenceId,...stmtScope(scope));
+     if(!event)fail('memory_unverified_curation_source');
+     protagonists.add('unknown');
+   }
+ }
+ if(protagonists.size!==1)fail('memory_mixed_protagonists');
+ scope.protagonistKey=[...protagonists][0];
  if(proposal?.kind!=='curation_proposal'||proposal.provider!=='deterministic'||
     !isUuid(proposal.proposalId)||!Array.isArray(proposal.evidenceRecordIds)||!proposal.evidenceRecordIds.length||
     proposal.evidenceRecordIds.length>64||!Number.isFinite(proposal.notability)||proposal.notability<0||proposal.notability>1||
@@ -175,7 +191,7 @@ export function persistDeterministicMemory(db,proposal,world){
        fail('memory_source_forgotten');
    }
    db.prepare('INSERT INTO memory_records(memory_id,character_id,world_profile_id,timeline_id,protagonist_key,origin,content,content_sha256,mode,pin,notability,evidence_ids_json,created_at_utc,proposal_json) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)')
-     .run(proposal.proposalId,scope.characterId,scope.worldProfileId,scope.timelineId,'unknown','deterministic',proposal.groundedSummary,
+     .run(proposal.proposalId,scope.characterId,scope.worldProfileId,scope.timelineId,scope.protagonistKey,'deterministic',proposal.groundedSummary,
        digest(proposal.groundedSummary),'reported_claim',0,proposal.notability,JSON.stringify(proposal.evidenceRecordIds),new Date().toISOString(),JSON.stringify(proposal));
    return {inserted:true,recordId:proposal.proposalId};
  });
