@@ -16,6 +16,7 @@ import { decide } from '../openai/decide.mjs';
 import { transcribePcm } from '../openai/transcribe.mjs';
 import { speak } from '../openai/speak.mjs';
 import { DialogueHistory } from '../memory/dialogueHistory.mjs';
+import { createConversationJournalRecorder } from '../../../lsa-shared-brain/src/memory/conversationRecorder.mjs';
 import { validateDecisionShape } from '../context/essentialDecision.mjs';
 import { validateStockDecision } from '../context/decisionValidator.mjs';
 import { createProviderStack } from '../providers/providerStack.mjs';
@@ -48,7 +49,28 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
   const characterService = config.provider === 'openai' && config.promotedCharacters?.enabled
     ? new CharacterService(config,{identityService,voiceResolver,store:profileStore,nativeOwner,telemetry}) : null;
   characterService?.initialize().catch(() => {});
+  // Optional SQLite path only. The existing JSON backend stays unchanged.
+  const journalStore=characterService?.store;
+  const conversationJournal=typeof journalStore?.appendDialogueLine==='function'
+    ? createConversationJournalRecorder(journalStore):null;
+  const journalCharacter=turn=>turn.characterProjection?.persistent===true
+    && turn.characterProjection.profile?.characterId===turn.characterInputs?.profile?.characterId
+    ? turn.characterProjection.profile.characterId:null;
   const services = {
+    async recordM2Player({turn,text,source}) {
+      const characterId=journalCharacter(turn);
+      if(!conversationJournal||!characterId||!['player_text','player_mic'].includes(source))return null;
+      return conversationJournal.recordPlayerAccepted({
+        characterId,identity:turn.identity,text,source:source==='player_mic'?'stt':'typed',
+        transcription:source==='player_mic'
+          ? {provider:providerStack?.transcription?.id??'unknown',model:'unknown',confidence:null}:null
+      });
+    },
+    async recordM2Npc({turn,text,receipt}) {
+      const characterId=journalCharacter(turn);
+      if(!conversationJournal||!characterId)return null;
+      return conversationJournal.recordNpcCompleted({characterId,identity:turn.identity,text,receipt});
+    },
     recordDialogueActionPublication({turn,validated,publishedAtMs}){
       if(config.provider!=='openai' || config.activities?.dialogueReceipts!==true || !runtime.dialogueKnowledgeBuildSupported)return null;
       const publication=prepareDialogueActionPublication({turn,validated,publishedAtMs,perception:runtime.intelligence?.runtime,identityService,activities:runtime.activities});
