@@ -22,7 +22,7 @@ namespace LSA.Intelligence
     public static class WitnessPolicy
     {
         public static double VisualRange(string kind) {
-            switch(kind) {case "firing":return 50;case "injury_state":case "death":return 35;case "vehicle_transition":return 40;case "location_changed":case "activity_changed":return 35;default:return 0;}
+            switch(kind) {case "firing":return 50;case "injury_state":case "damage":case "death":return 35;case "vehicle_transition":return 40;case "location_changed":case "activity_changed":return 35;default:return 0;}
         }
         public static WitnessReceipt Evaluate(WitnessGeometry g)
         {
