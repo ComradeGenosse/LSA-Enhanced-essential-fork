@@ -1,12 +1,23 @@
 # C-01 source-time microphone lifecycle — experimental GTA test
 
-**Scope:** C-01's experimental native/companion source-time capture,
-exact P0-to-native mic turn association and one-STT acceptance. The join is
-strictly bound to a current captureRef, host run/epoch, native release and one
-Essential player turn tuple. It can fail closed if Core and companion callbacks
-arrive outside the bounded association window. **Proximity hearing, observer
-acoustic coverage, speech-to-PS2 observations and PS7 social routing are not enabled and must not be inferred from these frames.** This is NOT a
-claim that the entire Phase 8/MP8 acceptance gate is complete.
+**Scope:** C-01's optional native microphone lifecycle and experimental
+Phase 9 proximity listener. The **shadow** setting collects source-time
+microphone/turn diagnostics, without distributing speech. The **experimental**
+setting additionally samples native per-observer geometry and sends v2 speech
+receipts over the existing authenticated perception pipe. Only one accepted
+STT, real native release, matching private P0 turn identity and verified
+observer-specific audible intervals can authorize speech knowledge.
+
+Source-time microphone IDs are attached to Essential's existing private
+`turnKnowledge` block when its active mic is already known at P0. If native
+Core callback ordering has not yet made that ID available, the older strictly
+bounded one-active-mic join is still a provisional fallback; this boundary
+**must be validated in GTA**. No new microphone engine, pipe, chat session,
+persistent speech store or per-listener STT call is introduced.
+
+**Scope exclusions:** PS7 group response routing, unconditional speech memory
+writes and NPC-to-NPC playback transcription remain disabled. This is an
+experimental test slice; MP8/Phase 9 GTA acceptance is not yet complete.
 
 ## Pinned Essential boundary
 
@@ -55,7 +66,7 @@ In `plugins/LSA.PromotedCharacters.json`, enable collection independently:
     "mode": "shadow",
     "pipeName": "LSA.Intelligence.v1",
     "directorMode": "experimental",
-    "captureMode": "shadow"
+    "captureMode": "experimental"
   }
 }
 ```
@@ -65,8 +76,13 @@ Preserve the other working keys (enabled/worldProfileId/other modes). The
 `directorMode` shown is the current experimental baseline, **not** a
 prerequisite for capture; keep your actual director mode unchanged.
 
-The default/example `captureMode` is `off`. No new PS4 knowledge,
-PS6 speech triggers or second transcription are authorized by this switch.
+The default/example `captureMode` is `off`. Keep `shadow` for the
+previous C-01-only diagnostics. Set `experimental` **only** for the new
+proximity-hearing test: this advertises the native `playerSpeech` capability
+only after the pinned Harmony hooks attach. It allows verified overheard
+speech into PS2/PS3 and subsequently PS4, subject to the original PS6
+admission gates. It does **not** start another transcription or auto-write
+long-term memories.
 
 ## In-game checks
 
@@ -88,7 +104,19 @@ PS6 speech triggers or second transcription are authorized by this switch.
    turn whose promoted NPC has a current P0 capture reference. Missing native
    actor association, early cancellation, no PCM or stale epoch must not
    advance `sttAccepted`. The STT provider must still run only once.
-6. Confirm existing requested dialogue, PS4 event knowledge, Director speech
+6. Under `experimental`, have Nathan listen while Sarah is nearby. Speak
+   once to Nathan; check `companion_shadow.c01.receipts`, `.accepted` and
+   `.observations`. Ask Sarah on a **later** turn what she heard while her
+   observation/transcript window is current. Full-coverage listeners may quote
+   the actual STT; partial-coverage listeners may know speech was present but
+   **not** the words. An NPC beyond 12 m (6 m in the verified enclosed
+   shared-vehicle case), across blocked interiors, or with an unknown acoustic
+   path must not receive words. Only source-time, current observers count.
+7. Repeat with Nathan and Sarah swapping locations or entering/leaving
+   vehicles during speech, a cancelled recording, and a short mic/turn swap.
+   Missing samples, LOS-budget exhaustion, lost native owner, and invalid
+   source-time receipt must drop hearing authority, not produce false quotes.
+8. Confirm existing requested dialogue, PS4 event knowledge, Director speech
    and controller/UX4 ownership continue to behave as before.
 
 Record the exact DLL and bundle hashes, game session, captures/terminals and
@@ -98,7 +126,13 @@ turn token, admission additionally requires unique in-flight mic ownership,
 a proven current P0 captureRef and a 1.5-second bounded association window.
 That pairing still needs the GTA A19/A20 receipt to establish real-world
 correctness. Any uncertain pairing remains unsupported, not assumed true.
-Next: collect actual source-time observer coverage before enabling PS2 hearing.
+The v2 receipt is now implemented in code, but the **physical GTA
+sampling, Core callback order and the P0 microphone token availability**
+remain acceptance probes. Native monotonic time is translated at receipt into
+the companion's clock domain using the native end-age, preserving exact native
+start/end **duration** without comparing unrelated absolute timestamps.
+`SharedTranscriptStore` authorizes verbatim quotes only for complete
+bounded intervals, subject to the current 30-second speech TTL.
 
 ## Fail-closed guarantees
 
