@@ -6,6 +6,9 @@ import path from 'node:path';
 import {randomUUID,createHash} from 'node:crypto';
 import {detectExplicitMemoryCommand,handleExplicitMemoryCommand,memoryActionAcknowledgement} from '../../lsa-shared-brain/src/memory/explicitCommands.mjs';
 import {FixtureMemoryCommandStore} from '../../lsa-shared-brain/src/memory/fixtureMemoryCommandStore.mjs';
+import {inspectP2ManualMemories,changeP2ManualMemory,exportP2ManualMemories} from '../../lsa-shared-brain/src/memory/p2ManualMemoryInspector.mjs';
+import {ProfileStore} from '../src/characters/profileStore.mjs';
+import {profile} from './p2-fixtures.mjs';
 
 const scope={
   characterId:'11111111-1111-4111-8111-111111111111',
@@ -247,4 +250,28 @@ test('M5 inspector and export are read-only and restartable',async t=>{
   const raw=await fs.readFile(exp.data.path,'utf8');
   assert.equal(createHash('sha256').update(raw).digest('hex'),exp.data.sha256);
   assert.equal((await store.inspect({scope})).memoryCount,1);
+});
+
+test('M5 P2 manual-memory view edits/deletes only player-created global notes',async t=>{
+  const root=await fs.mkdtemp(path.join(os.tmpdir(),'lsa-p2-m5-'));
+  t.after(()=>fs.rm(root,{recursive:true,force:true}));
+  const store=new ProfileStore({filePath:path.join(root,'profiles.json'),worldProfileId:scope.worldProfileId});
+  await store.initialize();
+  const npc=await store.create(profile());
+  const saved=await changeP2ManualMemory({profileStore:store,characterId:npc.characterId,
+    operation:'create',expectedRevision:npc.revision,patch:{text:'Player-edited reminder'}});
+  assert.equal(saved.verifiedReadback,true);
+  const view=inspectP2ManualMemories({profileStore:store,characterId:npc.characterId});
+  assert.equal(view.scope,'global_profile_metadata');
+  assert.equal(view.memories[0].text,'Player-edited reminder');
+  const edited=await changeP2ManualMemory({profileStore:store,characterId:npc.characterId,
+    operation:'edit',memoryId:saved.memoryId,expectedRevision:view.profileRevision,patch:{text:'Revised by player'}});
+  const output=exportP2ManualMemories({profileStore:store,characterId:npc.characterId});
+  assert.equal(output.includesJournal,false);
+  assert.equal(JSON.parse(output.json).memories[0].text,'Revised by player');
+  await assert.rejects(changeP2ManualMemory({profileStore:store,characterId:npc.characterId,
+    operation:'delete',memoryId:saved.memoryId,expectedRevision:view.profileRevision}),/profile_revision_conflict/);
+  await changeP2ManualMemory({profileStore:store,characterId:npc.characterId,
+    operation:'delete',memoryId:saved.memoryId,expectedRevision:edited.profileRevision});
+  assert.equal(inspectP2ManualMemories({profileStore:store,characterId:npc.characterId}).memories.length,0);
 });
