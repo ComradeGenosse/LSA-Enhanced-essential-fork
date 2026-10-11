@@ -291,7 +291,7 @@ test('PS4 source priority, frozen turn ownership, deadline and send-time revalid
     nowUtc:clock,deadlineMs:200});
   assert.equal(accepted.status,'ready');
   assert.equal(accepted.contribution.items[0].content,'safe memory raccoon');
-  assert.ok(verifyPs4RecallCurrent(accepted,{currentIdentity:()=>identity}));
+  assert.ok(verifyPs4RecallCurrent(accepted,{currentIdentity:()=>identity,validateEvidence:()=>true}));
   identity={...identity,worldEpoch:2};
   assert.equal(verifyPs4RecallCurrent(accepted,{currentIdentity:()=>identity}),false);
   const stale=await preparePs4Recall({query:q,readAdapter:f.adapter,snapshot:accepted.stamp,
