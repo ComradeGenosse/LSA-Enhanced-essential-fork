@@ -41,7 +41,7 @@ async function fixture(){
     'plugins/LSA.PromotedCharacters/LSA.PromotedCharacters.Runtime.dll':'new runtime',
     'plugins/LSA.PromotedCharacters/LSA.SessionIdentity.dll':'new identity'};
   for(const [f,v] of Object.entries(staged))await put(path.join(release,f),v);
-  const files=Object.entries(staged).map(([p,v])=>({path:p,sha256:hash(v)})).sort((a,b)=>a.path.localeCompare(b.path));
+  const files=Object.entries(staged).map(([p,v])=>({path:p,sha256:hash(v)})).sort((a,b)=>a.path<b.path?-1:a.path>b.path?1:0);
   const nativeOutputs=files.filter(x=>x.path.endsWith('.dll')).map(x=>x.path);
   await put(path.join(release,'ea9-release-manifest.json'),JSON.stringify({
     schemaVersion:1,sourceHead:head,files,nativeOutputs:nativeOutputs.map(staged=>({staged}))}));
