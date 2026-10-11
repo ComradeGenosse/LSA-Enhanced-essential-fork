@@ -44,6 +44,10 @@ export function createIdleCurationScheduler({store,queue,ledger,provider,
    maxIdleProofAgeMs>10000||typeof requireRecovery!=='boolean')
    throw new Error('curation_invalid_scheduler');
  let policy=validateM7Consent(consent),revision=0;
+ const limitsMatch=p=>p.mode!=='experimental'||(
+   ledger?.budgetLimits?.dailyUsd===p.dailyUsd&&
+   ledger?.budgetLimits?.monthlyUsd===p.monthlyUsd);
+ if(!limitsMatch(policy))throw new Error('m7_budget_limit_mismatch');
  let busy=null,controller=null,loop=null,stopped=false,lastRun=-Infinity;
  let recoveryKey=null,costSuspended=false;
  const reportError=e=>{try{onError(e?.code||e?.message||'m7_scheduler_failure');}catch{}};
@@ -56,7 +60,7 @@ export function createIdleCurationScheduler({store,queue,ledger,provider,
      nowUtc:stamp,maxAgeMs:maxIdleProofAgeMs});
  };
  const entitled=(snapshot,rev,characterId)=>{
-   if(stopped||policy.mode!=='experimental'||!policy.cloudOptIn||revision!==rev)
+   if(stopped||policy.mode!=='experimental'||!policy.cloudOptIn||!limitsMatch(policy)||revision!==rev)
      return false;
    try{return sameAuthority(snapshot,takeSnapshot(characterId,clockUtc(now)));}
    catch{return false;}
@@ -72,6 +76,7 @@ export function createIdleCurationScheduler({store,queue,ledger,provider,
    /** Replaces policy only on an explicit trusted settings action, not on speech. */
    setConsent(value){
      const next=validateM7Consent(value);
+     if(!limitsMatch(next))throw new Error('m7_budget_limit_mismatch');
      cancel();policy=next;revision++;recoveryKey=null;costSuspended=false;
      if(policy.mode!=='experimental'&&loop!==null){clearTimeout(loop);loop=null;}
    },
