@@ -144,13 +144,13 @@ test('M3 grace rejects recycled captureRef, changed incarnation and new native e
   const replacement={...originalProof,incarnationId:id(72)};
   r.setProof(replacement);
   const mismatch=await r.recorder.importOnPromotion({candidate:identity({ownerProof:replacement})});
-  assert.equal(mismatch.imported,0);assert.equal(mismatch.rejected,1);
+  assert.equal(mismatch.imported,0);assert.equal(mismatch.rejected,0); // different owner evidence remains isolated
   assert.equal(r.entries.size,0);
   r.setPromoted(false);r.setProof(originalProof);
   assert.equal(r.recorder.bufferBeforePromotion({observation:observation({observationId:id(73)}),candidate:identity()}).accepted,true);
   r.setPromoted(true);r.setEpoch(id(74));
   const changed=await r.recorder.importOnPromotion({candidate:identity({adapterEpoch:id(74)})});
-  assert.equal(changed.imported,0);assert.equal(changed.rejected,1);
+  assert.equal(changed.imported,0);assert.equal(changed.rejected,0); // changed adapter run cannot consume older buffer
   assert.equal(r.entries.size,0);
 });
 test('M3 grace expiry, cold start and negative coverage do not invent witnessed events',async()=>{
@@ -160,8 +160,8 @@ test('M3 grace expiry, cold start and negative coverage do not invent witnessed 
   assert.equal((await r.recorder.importOnPromotion({candidate:identity()})).imported,0);
   assert.equal(r.entries.size,0);
   assert.equal((await r.recorder.recordNegativeCoverage({candidate:identity(),observationId:id(60),
-    status:'did_not_witness',reason:'blocked'})).accepted,true);
-  assert.equal(r.entries.size,0);assert.equal(r.negative[0].status,'did_not_witness');
+    status:'did_not_witness',reason:'blocked'})).accepted,false); // no signed negative native proof
+  assert.equal(r.entries.size,0);assert.equal(r.negative.length,0);
   r.recorder.reset();assert.equal(r.recorder.bufferedCount,0);
 });
 test('M3 prepromotion ring and dedupe are bounded under 10k-observation bursts',()=>{
