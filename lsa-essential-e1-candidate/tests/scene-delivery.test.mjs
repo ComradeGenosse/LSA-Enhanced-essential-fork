@@ -273,3 +273,23 @@ test('pure scene selection is bounded and sub-millisecond on ordinary fixtures',
   assert.ok(measurements[Math.floor(measurements.length * 0.9)] < 1,
     'p90 scene selector should stay under 1ms per segment on a small fixture');
 });
+
+test('EA4 mood is only soft delivery; newer PS2 evidence and current dialogue outrank it',()=>{
+  const a=actor(),prior=freeze({value:'amused',confidence:'soft',intensity:'subtle'});
+  const mood=call(a,projection(a),{segmentText:'The street is quiet.',priorEphemeralMood:prior});
+  assert.deepEqual([mood.value,mood.source,mood.confidence,mood.evidenceRef],
+    ['amused','ephemeral_mood','soft',null]);
+  const urgent=call(a,projection(a,[observation(a)]),{
+    segmentText:'The street is quiet.',priorEphemeralMood:prior});
+  assert.equal(urgent.source,'verified_scene');
+  assert.equal(urgent.value,'fearful');
+  const cue=call(a,projection(a),{
+    segmentText:'Haha, fair enough.',priorEphemeralMood:freeze({
+      value:'sad',confidence:'soft',intensity:'subtle',
+    })});
+  assert.equal(cue.source,'dialogue_cue');
+  assert.equal(cue.value,'amused');
+  expectNeutral(call(a,projection(a),{
+    segmentText:'Nothing notable.',priorEphemeralMood:{value:'amused'},
+  }));
+});
