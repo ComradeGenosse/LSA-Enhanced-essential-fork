@@ -527,6 +527,7 @@ export class IntelligenceClient {
       capabilities:this.runtime.capabilities,
       damageCallbacks:diagnostics?.damageCallbacks??{ped_damage:0,player_damage:0,vehicle_damage:0},
       ps2:{...this.runtime.ps2Diagnostics,playerSpeechGate:diagnostics?.playerSpeechGate??'unsupported_capture_receipt',speech:this.runtime.transcripts.diagnostics},
+      c01:{...this.runtime.utterances.diagnostics,enabled:this.runtime.utteranceLifecycleVersion===1},
       ps3:{...this.runtime.ps3Diagnostics,reasons:{...this.runtime.ps3Diagnostics.reasons}},
       finalSnapshot,
     };
@@ -558,7 +559,7 @@ export class IntelligenceClient {
           // persistent diagnostics. A strict invalid frame stays invalid.
           const allowed=['hello','anchors','retire','retire_batch','observer_index',
             'observer_situation','world_epoch','director_priority','director_response',
-            'signal','diagnostics'];
+            'signal','diagnostics','utterance'];
           const frameType=allowed.includes(v?.type)?v.type:'other';
           const reason=this.runtime.counters.malformed>before.malformed?'invalid_contract':
             this.runtime.counters.gaps>before.gaps?'sequence_gap':
