@@ -15,6 +15,9 @@ export class P2SqliteProfileStore {
   #db; #writer; #token; #initializing; #queue = Promise.resolve();
   #available = true; #closed = false; #timeline = new TimelineGuard();
   #sourceRequired; #sourceContext = null; #confirmedSource = null;
+  // Increment on every trusted receipt, revocation and operator confirmation.
+  // A stale queued operation must never borrow a later authorization (ABA).
+  #authorityGeneration = 0;
   constructor({ filePath, worldProfileId, legacyJsonPath = null, sourceRequired = false }) {
     if (typeof sourceRequired !== 'boolean') throw new TypeError('invalid_timeline_source_config');
     this.#sourceRequired = sourceRequired;
@@ -30,7 +33,11 @@ export class P2SqliteProfileStore {
   get activeTimelineId() { return this.#timeline.activeTimelineId; }
   get timelineWritable() { return this.available && this.loaded && this.#sourceRequired &&
     this.#timeline.writable && this.#sourceValid(); }
-  get timelineSourceStatus() { return !this.#sourceRequired ? 'not_required' : !this.#sourceContext ? 'unavailable' : this.#timeline.writable && this.#confirmedSource === this.#sourceKey(this.#sourceContext) ? 'verified' : 'confirmation_required'; }
+  get timelineSourceStatus() {
+    if (!this.#sourceRequired) return 'not_required';
+    if (!this.available || !this.loaded || !this.#sourceContext) return 'unavailable';
+    return this.timelineWritable ? 'verified' : 'confirmation_required';
+  }
   #sourceKey(context) { return context?.hostRunId + ':' + context?.worldEpoch; }
   #sourceValid() { return !this.#sourceRequired || this.#sourceContext !== null && this.#confirmedSource === this.#sourceKey(this.#sourceContext); }
   get timelinePendingReason() {
@@ -45,6 +52,7 @@ export class P2SqliteProfileStore {
   setVerifiedHostContext(context) {
     if (!this.#sourceRequired) return false;
     if (context === null) {
+      this.#authorityGeneration++;
       this.#sourceContext = null;
       this.#confirmedSource = null;
       return false;
@@ -54,10 +62,11 @@ export class P2SqliteProfileStore {
         !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(context.hostRunId) ||
         !Number.isSafeInteger(context.worldEpoch) || context.worldEpoch < 1 || context.worldEpoch > 0x7fffffff)
       throw new TypeError('invalid_timeline_source_context');
-    // Any host incarnation/epoch change requires a fresh explicit user
-    // confirmation even when the stored active timeline id remains unchanged.
-    if (!this.#sourceContext || this.#sourceKey(context) !== this.#sourceKey(this.#sourceContext))
-      this.#confirmedSource = null;
+    // C-13 emits accepted HELLO/boundary receipts, not periodic cached status.
+    // Even an identical host/epoch following disconnect can be a recycled
+    // channel. A new receipt always requires fresh operator confirmation.
+    this.#authorityGeneration++;
+    this.#confirmedSource = null;
     this.#sourceContext = Object.freeze({hostRunId:context.hostRunId,worldEpoch:context.worldEpoch});
     return true;
   }
@@ -190,6 +199,7 @@ export class P2SqliteProfileStore {
     if (!['clock_regression','timeline_change','host_reload','world_epoch',
            'save_fork','native_disconnect','unknown_source','source_change'].includes(reason))
       throw new TypeError('invalid_timeline_boundary');
+    this.#authorityGeneration++;
     this.#confirmedSource = null;
     if (['native_disconnect','unknown_source','host_reload','source_change'].includes(reason))
       this.#sourceContext = null;
@@ -200,15 +210,22 @@ export class P2SqliteProfileStore {
     // Native proof and selected persisted save must both still exist at commit.
     if (!isUuid(timelineId) || confirmation !== timelineId)
       fail('explicit_confirmation_required');
+    // Capture the exact accepted source before any async lock/initialization.
+    // Do not approve an unrelated host or a newer identical-looking receipt.
+    const expectedContext = this.#sourceContext;
+    const expectedGeneration = this.#authorityGeneration;
+    if (!this.#sourceRequired || !expectedContext) fail('timeline_write_suspended');
     await this.initialize();
     return this.#serial(() => {
-      if (!this.available || !this.#sourceRequired || !this.#sourceContext)
+      if (!this.available || this.#sourceContext !== expectedContext ||
+          this.#authorityGeneration !== expectedGeneration)
         fail('timeline_write_suspended');
       if (!this.#db.listTimelines().some(item => item.timelineId === timelineId))
         fail('timeline_unknown');
       this.#db.activateTimeline(timelineId);
       this.#timeline.selectTimeline(timelineId);
       this.#confirmedSource = this.#sourceKey(this.#sourceContext);
+      this.#authorityGeneration++;
       return this.#timeline.activeTimelineId;
     });
   }
@@ -221,9 +238,17 @@ export class P2SqliteProfileStore {
   // invoking the durable commit. Profile/editor metadata remains global.
   async withTimelineWrite(timelineId, commit) {
     if (typeof commit !== 'function') throw new TypeError('invalid_timeline_operation');
+    // A write queued under an old session can never execute under a later
+    // native receipt or player re-confirmation of the same save UUID.
+    const expectedContext = this.#sourceContext;
+    const expectedGeneration = this.#authorityGeneration;
+    if (!this.timelineWritable || timelineId !== this.activeTimelineId)
+      fail('timeline_write_suspended');
     await this.initialize();
     return this.#serial(() => {
       if (!this.available) fail('profile_store_unavailable');
+      if (this.#authorityGeneration !== expectedGeneration ||
+          this.#sourceContext !== expectedContext) fail('timeline_write_suspended');
       this.assertTimelineWrite(timelineId);
       const result = commit(this.#db, this.#db.snapshot);
       if (result && typeof result.then === 'function') fail('timeline_write_async_not_supported');
