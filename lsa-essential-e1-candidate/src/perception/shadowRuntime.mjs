@@ -48,15 +48,18 @@ export class ShadowRuntime {
     const ref=observation?.observer?.captureRef;
     const row=this.observerIndex.get(ref);
     const anchor=this.anchors.get(ref);
+    const stored=this.observations.entries.get(`${ref}:${observation.episodeId}`)?.value;
     // Correlator's observations come only from successfully stored PS2 source
     // receipts. Never use name, proximity or a retired ped handle as proof.
     if(!this.hostContext || !this.current(ref) || !anchor?.observer ||
-       !row?.owned || !row.encounterId || !row.incarnationId) {
+       !row?.owned || !row.encounterId || !row.incarnationId ||
+       !stored || stored.observationId!==observation.observationId ||
+       stored.revision!==observation.revision) {
       this.bump(this.memoryTapDiagnostics,'rejected');return;
     }
     try {
       const result=this.acceptedObservationTap(Object.freeze({
-        observation,adapterEpoch:this.epoch,
+        observation:stored,adapterEpoch:this.epoch,
         hostRunId:this.hostContext.hostRunId,worldEpoch:this.hostContext.worldEpoch,
         observerIndex:row
       }));
