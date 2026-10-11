@@ -37,12 +37,6 @@ test('M2 -> real M5 command writes -> readback -> reopen without false acknowled
    characterId:x.scope.characterId,identity:identity('one'),source:'typed',
    text:'Remember that I hate olives',attribution:{protagonist:'franklin'}});
   const line=(await x.store.readDialogueLines({characterId:x.scope.characterId,timelineId:x.scope.timelineId}))[0];
-  const directId=id();
-  await x.store.commitCommand({scope:x.scope,commandId:directId,requestedByLineId:line.recordId,
-    operation:'remember',origin:'explicit_player',recordType:'player_claim',content:'I hate olives',
-    contentHash:createHash('sha256').update('I hate olives').digest('hex'),pin:false,
-    evidenceRecordIds:[line.recordId],targetRecordId:null,correctionMode:null,subjectCertainty:'reported',
-    requestedAtUtc:line.committedAtUtc});
   const commandId=id();
   const a=await handleExplicitMemoryCommand({line,scope:x.scope,commandId,store:x.store});
   assert.equal(a.outcome,'saved');assert.equal(a.durableCommit,true);
@@ -85,5 +79,31 @@ test('M1 source revocation makes real M5 commit fail without acknowledging succe
   x.store.setVerifiedHostContext(null);
   const response=await handleExplicitMemoryCommand({line,scope:x.scope,commandId:id(),store:x.store});
   assert.equal(response.outcome,'failed');assert.equal(response.durableCommit,false);
+ }finally{await x.store.close()}
+});
+
+test('M5 durable forget suppresses M4 recall but preserves immutable journal bytes',async t=>{
+ const x=await setup(t);
+ try{
+  const words='  gingerbread olives on a purple scooter  ';
+  await x.recorder.recordPlayerAccepted({characterId:x.scope.characterId,identity:identity('original'),
+    text:words,source:'typed',attribution:{protagonist:'franklin'}});
+  await x.recorder.recordPlayerAccepted({characterId:x.scope.characterId,identity:identity('forget'),
+    text:'Forget that scooter phrase',source:'typed',attribution:{protagonist:'franklin'}});
+  const lines=await x.store.readDialogueLines({characterId:x.scope.characterId,timelineId:x.scope.timelineId});
+  const [requestLine,sourceLine]=lines;
+  const operation={scope:x.scope,commandId:id(),requestedByLineId:requestLine.recordId,operation:'forget',
+   origin:'explicit_player',recordType:'dialogue_line',content:sourceLine.content,
+   contentHash:createHash('sha256').update(sourceLine.content).digest('hex'),pin:false,
+   evidenceRecordIds:[sourceLine.recordId,requestLine.recordId],targetRecordId:sourceLine.recordId,
+   correctionMode:null,subjectCertainty:null,requestedAtUtc:requestLine.committedAtUtc};
+  assert.equal((await x.store.commitCommand(operation)).status,'committed');
+  assert.ok((await x.store.listSuppressedMemoryIds(x.scope)).includes(sourceLine.recordId));
+  const lookup=await recallFromSharedJournal({store:x.store,
+    query:request(x.scope,'what did I say about gingerbread olives?'),protagonistKey:'franklin',
+    nowUtc:new Date().toISOString()});
+  assert.equal(lookup.bundle.status,'unavailable');
+  assert.equal((await x.store.findExactQuote({characterId:x.scope.characterId,timelineId:x.scope.timelineId,
+    quote:words}))[0].content,words);
  }finally{await x.store.close()}
 });
