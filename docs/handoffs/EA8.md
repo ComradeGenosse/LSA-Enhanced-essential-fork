@@ -33,7 +33,8 @@ Latest code commit prior to this handoff: `50b9c08ef48582b356f3f25a9d8068e59ea75
 
 ## Test plan and verification status
 
-- Static JavaScript syntax parse of all three changed `.mjs` files: **PASS** (source fetched from EA8 branch, exports/imports stripped for syntax parse in the available V8 sandbox).
+- Static JavaScript syntax parse of all three changed `.mjs` files: **PASS** (source fetched from EA8 branch, imports/exports stripped for syntax parse in the available V8 sandbox).
+- **17 direct pure-function assertions PASS**, executing the actual fetched EA0 contract, EA8 renderer and provider preflight functions in the isolated V8 runtime: base EA0 behavior, explicit Turbo fearful tag, concerned fallback, Unicode bracket neutralization, off/shadow provider byte parity, unsupported-model neutralization, forged intent rejection, accessor rejection, and Unicode/limit validation. No WebSocket or PCM execution is implied by this result.
 - Actual Node tests **not executed in the current environment**: the repository could not be cloned from this runner (outbound GitHub DNS disabled), and the connector cannot execute `node --test`. Do **not** represent the static parse as a test pass.
 - Commands to execute in full checkout:
   ```sh
