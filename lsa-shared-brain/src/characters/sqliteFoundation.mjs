@@ -108,6 +108,33 @@ function verifyExisting(db,worldProfileId) {
   return data;
 }
 
+/**
+ * Read-only operator preflight for offline recovery. Never creates a DB,
+ * selects a timeline, removes a stale writer lock or rewrites a profile.
+ * Inspecting a running game is not a substitute for stopping the writer.
+ */
+export async function inspectP2Sqlite({filePath,worldProfileId}) {
+  if (typeof filePath !== 'string' || !filePath.trim() || !isUuid(worldProfileId))
+    fail('invalid_sqlite_profile_config');
+  const resolved=path.resolve(filePath);
+  const stat=await fs.stat(resolved);
+  if (!stat.isFile()) fail('sqlite_profile_not_file');
+  if (!DatabaseSync) fail('sqlite_feature_unavailable');
+  const db=new DatabaseSync(resolved,{readOnly:true});
+  try {
+    const snapshot=verifyExisting(db,worldProfileId);
+    const timelines=db.prepare('SELECT timeline_id AS timelineId,active FROM timelines ORDER BY timeline_id').all();
+    const active=timelines.filter(t=>t.active===1);
+    if(active.length>1)fail('sqlite_timeline_integrity_failed');
+    return Object.freeze({
+      status:'verified',revision:snapshot.revision,
+      profileCount:snapshot.profiles.length,timelineCount:timelines.length,
+      activeTimelineId:active[0]?.timelineId??null,
+      schemaVersion:SQLITE_PROFILE_SCHEMA
+    });
+  } finally {db.close();}
+}
+
 export class P2SqliteFoundation {
   #db=null; #init=null; #snapshot=null;
   constructor({filePath,worldProfileId,legacyJsonPath=null}) {
