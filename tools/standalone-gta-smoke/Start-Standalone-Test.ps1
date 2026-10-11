@@ -59,7 +59,22 @@ $companionProc=$null
 try {
   $companionProc=Start-Process -FilePath $node.Source -ArgumentList ('"' + $service + '"') -WorkingDirectory $companion -PassThru
   $rph=Start-Process -FilePath (Join-Path $game 'RAGEPluginHook.exe') -WorkingDirectory $game -PassThru
-  Wait-Process -Id $rph.Id
+  $sawGame = $false
+  $start = [DateTime]::UtcNow
+  while ($true) {
+    if ($companionProc.HasExited) { throw 'Standalone Node companion exited; check its console configuration and API model.' }
+    $loader = Get-Process -Id $rph.Id -ErrorAction SilentlyContinue
+    $runningGame = @(Get-Process -Name GTA5_Enhanced -ErrorAction SilentlyContinue)
+    if ($runningGame.Count -gt 0) { $sawGame = $true }
+    # RPH may spawn GTA and exit its own launcher process. Keep Node
+    # alive for the entire actual game session, not just RPH startup.
+    if ($sawGame -and -not $loader -and $runningGame.Count -eq 0) { break }
+    if (-not $sawGame -and -not $loader -and
+        ([DateTime]::UtcNow - $start).TotalSeconds -gt 30) {
+      throw 'RPH ended without starting GTA Enhanced in this profile.'
+    }
+    Start-Sleep -Seconds 1
+  }
 } finally {
   if ($companionProc) {
     Stop-Process -Id $companionProc.Id -Force -ErrorAction SilentlyContinue
