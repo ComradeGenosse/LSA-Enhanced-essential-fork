@@ -113,9 +113,9 @@ test('out of order replies cannot authorize the next request', async t => {
       requests.push(value);
       if (requests.length === 2) {
         const later = requests[1], first = requests[0];
-        s.write(encodeWireFrame(frame('health.pong', 2,
-          { requestId: later.requestId, status: 'ok' })));
         s.write(encodeWireFrame(frame('health.pong', 3,
+          { requestId: later.requestId, status: 'ok' })));
+        s.write(encodeWireFrame(frame('health.pong', 2,
           { requestId: first.requestId, status: 'ok' })));
       }
     }
@@ -140,8 +140,8 @@ test('disconnect retires in-flight request; no auto-replay', async t => {
 
 test('duplicate handshake frame fails closed', async t => {
   const endpoint = await fixture(t, (socket, errors) => {
-    respond(socket, { errors });
-    socket.write(encodeWireFrame(frame('host.ready', 1)));
+    socket.write(encodeWireFrame(frame('host.hello', 0)));
+    socket.write(encodeWireFrame(frame('host.hello', 0)));
   });
   const client = new Phase2NativeClient({ pipePath: endpoint, timeoutMs: 800 });
   await assert.rejects(client.connect());
