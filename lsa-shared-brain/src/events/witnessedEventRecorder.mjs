@@ -51,6 +51,7 @@ export class WitnessedEventRecorder {
     this.#seen.set(key,this.#now());
     while(this.#seen.size>MAX_SEEN)this.#seen.delete(this.#seen.keys().next().value);
     this.#grace.push(immutableSnapshot({observation,prePromotionProof:stamp.ownerProof,
+      prePromotionCharacterId:stamp.characterId,
       adapterEpoch:stamp.adapterEpoch,capturedAt:this.#now()}));
     this.#trim();
     return {accepted:true,buffered:true};
@@ -84,6 +85,7 @@ export class WitnessedEventRecorder {
     // must not consume B's pre-promotion evidence.
     const batch=this.#grace.filter(entry=>
       samePhysicalOwner(entry.prePromotionProof,candidate.ownerProof)&&
+      entry.prePromotionCharacterId===candidate.characterId&&
       entry.adapterEpoch===candidate.adapterEpoch);
     // Snapshot because another native intake could retire/replace this buffer.
     for(const entry of batch){
