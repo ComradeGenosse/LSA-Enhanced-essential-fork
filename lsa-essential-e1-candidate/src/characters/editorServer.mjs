@@ -12,6 +12,13 @@ function editorHtml(token, summonWaitMs) {
 <style>body{font:16px system-ui;background:#151b24;color:#e4eaf4;max-width:1100px;margin:32px auto;padding:0 20px}button,input,textarea,select{font:inherit;padding:8px;margin:5px 0;border-radius:5px;border:1px solid #596779;background:#202a38;color:inherit}button{cursor:pointer}main{display:grid;grid-template-columns:260px 1fr;gap:24px}label{display:block}input,textarea{box-sizing:border-box;width:100%}textarea{min-height:65px}#list button{display:block;width:100%;text-align:left}.controls{display:flex;gap:8px;flex-wrap:wrap}.danger{border-color:#da6373}#status{white-space:pre-wrap}small{color:#aebcce}@media(max-width:700px){main{display:block}}</style>
 <h1>LSA Characters</h1><p>Promote the NPC currently selected in Essential, then keep their character, voice, and memories between game sessions.</p>
 <div class="controls"><button id="promote">Promote current NPC</button><button id="refresh">Refresh</button></div><p id="status" role="status"></p>
+<details id="timelinePanel" hidden><summary>Playthrough timeline (SQLite mode only)</summary>
+<p><small>Choose the correct GTA save lineage explicitly after any rollback warning. Creating a timeline does not activate it.</small></p>
+<select id="timelineChoices" aria-label="Playthrough timeline"></select>
+<button id="confirmTimeline" type="button">Confirm selected timeline</button>
+<label>New timeline label<input id="timelineLabel" maxlength="80" placeholder="e.g. Franklin main save"></label>
+<button id="createTimeline" type="button">Create timeline (not activated)</button>
+<p id="timelineStatus" role="status"></p></details>
 <main><aside id="list"></aside><section id="detail" hidden><h2 id="title"></h2><small id="identity"></small>
 <details><summary>Read-only profile information</summary><pre id="metadata" style="white-space:pre-wrap"></pre></details>
 <div class="controls" id="controls"></div><form id="profile"><label>Name<input name="name" maxlength="80" required></label>
@@ -29,6 +36,32 @@ const $=id=>document.getElementById(id),status=text=>$('status').textContent=tex
 async function api(action,data={}){const response=await fetch('/api',{method:'POST',headers:{'content-type':'application/json','x-lsa-editor':auth},body:JSON.stringify({action,...data})});const result=await response.json();if(!response.ok)throw Error(result.error);return result;}
 async function run(job){try{status('Working…');await job();status('Saved.');}catch(error){status(error.message.replaceAll('_',' '));}}
 function lines(text){return text.split('\\n').map(value=>value.trim()).filter(Boolean);}
+async function refreshTimelines(){
+  const view=await api('timeline_list'),panel=$('timelinePanel');
+  panel.hidden=!view.supported;
+  if(!view.supported)return;
+  $('timelineChoices').replaceChildren();
+  for(const item of view.timelines){
+    const option=document.createElement('option');option.value=item.timelineId;
+    option.textContent=item.label+(item.timelineId===view.activeTimelineId?' (active)':'');
+    $('timelineChoices').append(option);
+  }
+  if(view.activeTimelineId)$('timelineChoices').value=view.activeTimelineId;
+  $('timelineStatus').textContent=view.writable?'Timeline confirmed: new scoped writes permitted.':
+    'Timeline write suspended: '+(view.pendingReason||'selection_required')+'. Confirm the correct save timeline.';
+}
+$('confirmTimeline').onclick=()=>run(async()=>{
+  const timelineId=$('timelineChoices').value;
+  if(!timelineId||!confirm('Use the selected timeline for this GTA save?'))return;
+  await api('timeline_confirm',{timelineId,confirmation:timelineId});
+  await refreshTimelines();
+});
+$('createTimeline').onclick=()=>run(async()=>{
+  const label=$('timelineLabel').value.trim();
+  if(!label||!confirm('Create a new save-lineage timeline? It will not be activated automatically.'))return;
+  await api('timeline_create',{label});
+  await refreshTimelines();
+});}
 function select(profile){current=profile;editingMemory=null;$('detail').hidden=false;$('title').textContent=profile.name;$('identity').textContent=profile.characterId+' · '+profile.gender+' · '+profile.ageBand+' · '+profile.runtimeStatus+' · voice '+(profile.voiceReference?.voice||'pending');
 $('metadata').textContent=JSON.stringify({modelHash:profile.modelHash,appearance:profile.appearance,voiceReference:profile.voiceReference,promotedAtUtc:profile.promotion.promotedAtUtc,createdAtUtc:profile.createdAtUtc,updatedAtUtc:profile.updatedAtUtc,revision:profile.revision},null,2);
 const form=$('profile');for(const field of ['name','biography','playerNotes'])form.elements[field].value=profile[field];form.elements.nicknames.value=profile.nicknames.join('\\n');form.elements.personality.value=profile.personality.description;form.elements.traits.value=profile.personality.traits.join('\\n');form.elements.relationshipState.value=profile.relationship.state;form.elements.relationship.value=profile.relationship.description;form.elements.availability.value=profile.status;
@@ -41,7 +74,7 @@ async function summon(button){if(summonPending||!current)return;const characterI
 $('profile').onsubmit=event=>{event.preventDefault();run(async()=>{const f=event.target.elements;await api('edit',{characterId:current.characterId,expectedRevision:current.revision,patch:{name:f.name.value.trim(),nicknames:lines(f.nicknames.value),biography:f.biography.value,personality:{description:f.personality.value,traits:lines(f.traits.value)},relationship:{state:f.relationshipState.value,description:f.relationship.value},playerNotes:f.playerNotes.value,status:f.availability.value}});await refresh();});};
 $('memory').onsubmit=event=>{event.preventDefault();run(async()=>{const f=event.target.elements;await api('memory',{characterId:current.characterId,operation:editingMemory?'edit':'create',memoryId:editingMemory,expectedRevision:current.revision,patch:{text:f.text.value,category:f.category.value,importance:Number(f.importance.value),selectedForContext:f.selected.checked}});await refresh();$('memory').querySelector('button').textContent='Add memory';});};
 $('cancelMemory').onclick=()=>{editingMemory=null;$('memory').reset();$('memory').querySelector('button').textContent='Add memory';};
-$('remove').onclick=()=>run(async()=>{const confirmation=prompt('This permanently deletes the profile and its memories. Type the CharacterId to confirm:', '');if(confirmation!==current.characterId)return;await api('remove',{characterId:current.characterId,confirmation,expectedRevision:current.revision});await refresh();});run(()=>refresh());
+$('remove').onclick=()=>run(async()=>{const confirmation=prompt('This permanently deletes the profile and its memories. Type the CharacterId to confirm:', '');if(confirmation!==current.characterId)return;await api('remove',{characterId:current.characterId,confirmation,expectedRevision:current.revision});await refresh();});run(()=>refresh());run(()=>refreshTimelines());
 </script></html>`;
 }
 export async function startCharacterEditor(service,{ port = service.config.promotedCharacters.editorPort,endpointPath = null } = {}) {
@@ -63,6 +96,25 @@ export async function startCharacterEditor(service,{ port = service.config.promo
       let result;
       switch (body.action) {
         case 'list': result = await service.list(); break;
+        case 'timeline_list':
+          result = typeof service.store?.listTimelines === 'function'
+            ? {supported:true,timelines:await service.store.listTimelines(),
+               activeTimelineId:service.store.activeTimelineId,
+               writable:service.store.timelineWritable,
+               pendingReason:service.store.timelinePendingReason} : {supported:false};
+          break;
+        case 'timeline_create':
+          if (typeof service.store?.createTimeline !== 'function') throw new Error('timeline_unavailable');
+          if (typeof body.label !== 'string' || !body.label.trim() || body.label.length > 80)
+            throw new Error('invalid_timeline');
+          result = {timelineId:await service.store.createTimeline({label:body.label.trim()})};
+          break;
+        case 'timeline_confirm':
+          if (typeof service.store?.confirmTimeline !== 'function') throw new Error('timeline_unavailable');
+          if (body.confirmation !== body.timelineId || !isUuid(body.timelineId))
+            throw new Error('explicit_confirmation_required');
+          result = {timelineId:await service.store.confirmTimeline(body.timelineId)};
+          break;
         case 'promote': result = await service.promote(expectedEncounter(body.expectedEncounterId)); break;
         case 'edit': result = await service.edit(body.characterId,body.patch,body.expectedRevision); break;
         case 'memory': result = await service.memory(body.characterId,body.operation,{memoryId:body.memoryId,patch:body.patch,expectedRevision:body.expectedRevision}); break;
