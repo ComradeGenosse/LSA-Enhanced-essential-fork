@@ -1047,6 +1047,7 @@ namespace LSA.Intelligence
         internal void Shutdown(string reason)
         {
             if(stopped) return;shutdownReason=reason;stopped=true;sensors.Enabled=false;
+            speechCapture?.Detach();speechCapture=null;
             LogStatus("[PS] shutdown "+RuntimeStatus());
             AppDomain.CurrentDomain.AssemblyLoad-=AssemblyLoaded;
             try{damage?.Dispose();}catch{}damage=null;
