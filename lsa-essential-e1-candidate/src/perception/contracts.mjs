@@ -49,6 +49,29 @@ export function validateObserverIndex(row) {
     (Object.hasOwn(row,'encounterId')===Object.hasOwn(row,'incarnationId')) &&
     (!Object.hasOwn(row,'encounterId') || row.owned && row.kind==='ped' && isUuid(row.encounterId) && isUuid(row.incarnationId));
 }
+// Strict positive-only native memory owner proof. The pinned host has no
+// authenticated normal C-01 accepted turns, certified negatives or prepromotion.
+export function validateMemoryAuthorityPayload(p) {
+  const tick=x=>integer(x,0xffffffff);
+  const validAlias=x=>typeof x==='string'&&/^promoted\.[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(x);
+  if(!keys(p,['memoryProofVersion','hostRunId','worldEpoch','sampledGameTick','owners','protagonist','acceptedTurns'])||
+      p.memoryProofVersion!==1||!isUuid(p.hostRunId)||!integer(p.worldEpoch,2147483647)||p.worldEpoch===0||
+      !tick(p.sampledGameTick)||!Array.isArray(p.owners)||p.owners.length>16||
+      !Array.isArray(p.acceptedTurns)||p.acceptedTurns.length!==0)return false;
+  const observed=new Set();
+  for(const o of p.owners){
+    if(!keys(o,['observerCaptureRef','ownerAlias','hostRunId','worldEpoch','incarnationId','encounterId','sampledGameTick'])||
+        !isUuid(o.observerCaptureRef)||!validAlias(o.ownerAlias)||!isUuid(o.incarnationId)||!isUuid(o.encounterId)||
+        o.hostRunId!==p.hostRunId||o.worldEpoch!==p.worldEpoch||o.sampledGameTick!==p.sampledGameTick||
+        observed.has(o.observerCaptureRef))return false;
+    observed.add(o.observerCaptureRef);
+  }
+  const s=p.protagonist;
+  return s===null || keys(s,['source','key','playerCaptureRef','sampledGameTick'])&&
+    s.source==='native_player_model'&&['franklin','michael','trevor','unknown'].includes(s.key)&&
+    isUuid(s.playerCaptureRef)&&s.sampledGameTick===p.sampledGameTick;
+}
+
 export function validateFrame(v) {
   if (!v || Buffer.byteLength(JSON.stringify(v))>BOUNDS.frameBytes) return false;
   if (v.type==='hello') return validateHostEnvelope(v,['version','type','adapterEpoch','streamId','capabilities',...(Object.hasOwn(v,'observerIndexVersion') ? ['observerIndexVersion'] : []),...(Object.hasOwn(v,'observerSituationVersion') ? ['observerSituationVersion'] : []),...(Object.hasOwn(v,'primaryBehaviorOwnerVersion') ? ['primaryBehaviorOwnerVersion'] : []),...(Object.hasOwn(v,'directorRequestVersion') ? ['directorRequestVersion'] : [])]) && (!Object.hasOwn(v,'observerIndexVersion') || v.hostContextVersion===1 && v.observerIndexVersion===1) && (!Object.hasOwn(v,'observerSituationVersion') || v.hostContextVersion===1 && v.observerIndexVersion===1 && v.observerSituationVersion===1) && (!Object.hasOwn(v,'primaryBehaviorOwnerVersion') || v.observerSituationVersion===1 && v.primaryBehaviorOwnerVersion===1) && (!Object.hasOwn(v,'directorRequestVersion') || v.hostContextVersion===1 && v.directorRequestVersion===1) && v.version===1 && isUuid(v.adapterEpoch) && isUuid(v.streamId) && keys(v.capabilities,CAPABILITIES) && Object.values(v.capabilities).every(x=>typeof x==='boolean');
@@ -65,6 +88,7 @@ export function validateFrame(v) {
   if(v.type==='director_response') return keys(v.payload,['directorRequestVersion','ticketId','status']) &&
     v.payload.directorRequestVersion===1 && isUuid(v.payload.ticketId) &&
     ['invalid','busy','unsafe','stale','cancelled','not_found','reserved','submitted','bound','started','completed','failed'].includes(v.payload.status);
+  if (v.type==='memory_authority') return validateMemoryAuthorityPayload(v.payload);
   if (v.type==='signal') return validateSignal(v.payload);
   if (v.type==='diagnostics') return keys(v.payload,['anchors','observers','snapshotAgeMs','snapshotCadenceMs','dropped','staleRejected','retiredAnchors','deferredDiscovery','updateMicros','capabilities','signals','damageCallbacks','witnessDeferred','witnessUnknown','witnessRejected','playerSpeechGate'],['radio']) && integer(v.payload.anchors,256) && integer(v.payload.observers,16) && ['snapshotAgeMs','snapshotCadenceMs','dropped','staleRejected','retiredAnchors','deferredDiscovery','updateMicros','witnessDeferred','witnessUnknown','witnessRejected'].every(k=>integer(v.payload[k],2147483647)) && v.payload.playerSpeechGate==='unsupported_capture_receipt' && keys(v.payload.capabilities,CAPABILITIES) && Object.values(v.payload.capabilities).every(x=>typeof x==='boolean') && v.payload.capabilities.playerSpeech===false && v.payload.signals && typeof v.payload.signals==='object' && !Array.isArray(v.payload.signals) && Object.entries(v.payload.signals).every(([k,n])=>['damage','vehicle_damage','firing','death','injury_state','vehicle_transition','vehicle_state','activity_changed','presence_changed','location_changed','action_callback','playback_started','playback_ended','radio_changed','radio_stopped'].includes(k) && integer(n,2147483647)) && keys(v.payload.damageCallbacks,['ped_damage','player_damage','vehicle_damage']) && Object.values(v.payload.damageCallbacks).every(n=>integer(n,2147483647)) && (!Object.hasOwn(v.payload,'radio') || keys(v.payload.radio,['samples','edges','nativeFailures','witnessed','witnessUnknown']) && ['samples','edges','nativeFailures','witnessed','witnessUnknown'].every(k=>integer(v.payload.radio[k],2147483647)));
   return false;

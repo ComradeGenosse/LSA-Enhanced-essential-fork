@@ -135,6 +135,16 @@ export class ShadowRuntime {
       this.reset('manual');this.observerIndexVersion=observerIndexVersion;this.observerSituationVersion=observerSituationVersion;this.primaryBehaviorOwnerVersion=primaryBehaviorOwnerVersion;this.directorRequestVersion=directorRequestVersion;this.directorPriority=null;this.hostContext=context;this.epoch=epoch;this.stream=stream;this.sequence=sequence;
       this.capabilities=capabilities;this.transcripts.setActiveRun(epoch);this.lastReceipt=this.now();return true;
     }
+    if(v.type==='memory_authority') {
+      if(!this.hostContext||v.payload.hostRunId!==this.hostContext.hostRunId||
+         v.payload.worldEpoch!==this.hostContext.worldEpoch)return false;
+      // Native owner frame must agree with already accepted PS2 index.
+      return v.payload.owners.every(o=>{
+        const row=this.observerIndex.get(o.observerCaptureRef);
+        return this.current(o.observerCaptureRef)&&row?.owned===true&&
+          row.incarnationId===o.incarnationId&&row.encounterId===o.encounterId;
+      });
+    }
     if(v.type==='director_priority') {
       if(this.directorRequestVersion!==1 || !this.hostContext) return false;
       this.directorPriority=Object.freeze({...v.payload,receivedAt:this.now(),
