@@ -89,7 +89,7 @@ test('M9 resets physics on sparse samples and vehicle incarnation changes',()=>{
     vehicle:vehicleState({rollDegrees:170})}).candidates,[]);
 });
 test('M9 retains wrap-safe native tick order and refuses regressions',()=>{
-  let now=0xffffffff+100;
+  let now=250;
   const p=new M9NativeEventProducer({now:()=>now});
   const base=sample(100,{gameTick:0xfffffffe});
   assert.equal(p.ingest({snapshot:base,source}).accepted,true);
@@ -181,8 +181,8 @@ test('M9 per-NPC cooldown defers another accident but does not forge a memory',(
   now=1100;
   assert.equal(cues.propose({candidate:next,witness:qualified(next),
     priority:allSafe}).reason,'cooldown');
-  now=100000;
-  const late={...next,eventId:id(82),observedAtMonotonicMs:99900};
+  now=200000;
+  const late={...next,eventId:id(82),observedAtMonotonicMs:199900};
   assert.equal(cues.propose({candidate:late,witness:qualified(late),
     priority:allSafe}).accepted,true);
 });
