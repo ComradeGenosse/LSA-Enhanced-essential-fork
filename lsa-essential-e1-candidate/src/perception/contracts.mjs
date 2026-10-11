@@ -1,6 +1,7 @@
 import {readPrimaryBehaviorOwner} from '../context/primaryBehaviorOwner.mjs';
 import { isUuid } from '../identity/identityContract.mjs';
 import { validateUtteranceFact } from './utteranceLifecycle.mjs';
+import {validateSpeechReceiptV2Shape} from './speechReceiptV2.mjs';
 import { validateHostEnvelope, validateWorldEpoch } from '../context/hostContext.mjs';
 
 export const BOUNDS = Object.freeze({ observers:16, anchors:256, rawSignals:256, criticalReserve:64, nativeFrames:64, companionFrames:256, frameBytes:8192, observationsPerObserver:128, observations:2048, observationBytes:2*1024*1024, signalTtlMs:30000, anchorLeaseMs:3000 });
@@ -60,6 +61,7 @@ export function validateFrame(v) {
     v.payload.directorRequestVersion===1 && isUuid(v.payload.ticketId) &&
     ['invalid','busy','unsafe','stale','cancelled','not_found','reserved','submitted','bound','started','completed','failed'].includes(v.payload.status);
   if (v.type==='utterance') return validateUtteranceFact(v.payload);
+  if (v.type==='speech_receipt') return validateSpeechReceiptV2Shape(v.payload);
   if (v.type==='signal') return validateSignal(v.payload);
   if (v.type==='diagnostics') return keys(v.payload,['anchors','observers','snapshotAgeMs','snapshotCadenceMs','dropped','staleRejected','retiredAnchors','deferredDiscovery','updateMicros','capabilities','signals','damageCallbacks','witnessDeferred','witnessUnknown','witnessRejected','playerSpeechGate']) && integer(v.payload.anchors,256) && integer(v.payload.observers,16) && ['snapshotAgeMs','snapshotCadenceMs','dropped','staleRejected','retiredAnchors','deferredDiscovery','updateMicros','witnessDeferred','witnessUnknown','witnessRejected'].every(k=>integer(v.payload[k],2147483647)) && v.payload.playerSpeechGate==='unsupported_capture_receipt' && keys(v.payload.capabilities,CAPABILITIES) && Object.values(v.payload.capabilities).every(x=>typeof x==='boolean') && v.payload.capabilities.playerSpeech===false && v.payload.signals && typeof v.payload.signals==='object' && !Array.isArray(v.payload.signals) && Object.entries(v.payload.signals).every(([k,n])=>['damage','vehicle_damage','firing','death','injury_state','vehicle_transition','vehicle_state','activity_changed','presence_changed','location_changed','action_callback','playback_started','playback_ended'].includes(k) && integer(n,2147483647)) && keys(v.payload.damageCallbacks,['ped_damage','player_damage','vehicle_damage']) && Object.values(v.payload.damageCallbacks).every(n=>integer(n,2147483647));
   return false;
