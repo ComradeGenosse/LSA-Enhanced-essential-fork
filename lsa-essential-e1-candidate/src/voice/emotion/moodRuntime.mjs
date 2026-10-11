@@ -2,6 +2,7 @@ import { MoodStore } from './moodStore.mjs';
 import { isUuid } from '../../identity/identityContract.mjs';
 import { sameHostContext } from '../../context/hostContext.mjs';
 import { projectActingEvidence } from './sceneOwnerProjection.mjs';
+import { wasElevenTagApplied } from '../../providers/elevenlabs/speechProvider.mjs';
 
 // No game actor JSON, LLM content, PedId, or profile name can establish these
 // authorities. The trusted bootstrap must provide an actual native-protagonist
@@ -97,10 +98,13 @@ export function createMoodRuntime({ getRuntime, protagonistAuthority = null,
       if (!context) return null;
       return store.take({context,nowMs:clock()});
     },
-    onSpeechCompleted({identity,turn,delivery,receipt}) {
+    onSpeechCompleted({identity,turn,delivery,receipt,providerResult,historyAccepted=false}) {
       const context=current({identity,turn});
       if (!context || !receipt || receipt.type !== 'playback_ended' ||
-          receipt.ok !== true || receipt.wasInterrupted !== false ||
+          receipt.ok !== true || receipt.reason !== 'completed' ||
+          historyAccepted !== true ||
+          !wasElevenTagApplied(providerResult,{delivery,identity}) ||
+          receipt.wasInterrupted !== false ||
           receipt.hadAudio !== true || receipt.playbackStarted !== true ||
           !receiptKeys.every(key=>receipt[key] === identity[key])) return false;
       // Called only AFTER the stock native observation and history receipt
@@ -108,7 +112,7 @@ export function createMoodRuntime({ getRuntime, protagonistAuthority = null,
       return store.commitPlayed({
         context,nowMs:clock(),delivery,
         receipt:{
-          verified:true,playbackSucceeded:true,playbackStarted:true,
+          verified:true,historyAccepted:true,playbackSucceeded:true,playbackStarted:true,
           hadAudio:true,wasInterrupted:false,
           pedId:identity.pedId,sessionNonce:identity.sessionNonce,
           turnId:identity.turnId,generationId:identity.generationId,
