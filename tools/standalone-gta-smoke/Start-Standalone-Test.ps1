@@ -57,7 +57,7 @@ Write-Host 'RPH console: LSAStandaloneProbe -> LSAStandaloneStatus -> (experimen
 Write-Host 'Do not load LosSantosAlive.dll or other Essential-dependent plugins in this isolated GTA profile.'
 $companionProc=$null
 try {
-  $companionProc=Start-Process -FilePath $node.Source -ArgumentList @($service) -WorkingDirectory $companion -PassThru
+  $companionProc=Start-Process -FilePath $node.Source -ArgumentList ('"' + $service + '"') -WorkingDirectory $companion -PassThru
   $rph=Start-Process -FilePath (Join-Path $game 'RAGEPluginHook.exe') -WorkingDirectory $game -PassThru
   Wait-Process -Id $rph.Id
 } finally {
