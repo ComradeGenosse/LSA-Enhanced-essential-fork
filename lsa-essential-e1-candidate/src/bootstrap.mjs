@@ -133,6 +133,10 @@ export async function createRuntimeForBundle(options = {}) {
         }};
         runtime.intelligence=new IntelligenceClient(config.intelligence,intelligenceOptions);
         if(config.promotedCharacters.storageMode==='sqlite' && runtime.characterService?.store?.onBoundary) {
+          runtime.intelligence.subscribeVerifiedHostContext(context=>{
+            try {runtime.characterService.store.setVerifiedHostContext(context);}
+            catch {runtime.characterService.emit('character_safe_failure',{reason:'timeline_write_suspended'});}
+          });
           // Receive only post-validation C-13 native world epochs. No inference
           // from a model turn, OS clock, gameplay timestamp or stale channel.
           runtime.intelligence.subscribeWorldBoundary(boundary=>{
