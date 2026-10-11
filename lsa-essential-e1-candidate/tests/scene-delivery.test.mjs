@@ -226,7 +226,7 @@ test('bounded budget, owner-bound cooldown and no emotion bleed after promotion/
   });
   expectNeutral(call(a, scene, { priorEphemeralMood: prior }));
   assert.equal(call(a, scene, { priorEphemeralMood: freeze({ ...prior, lastTaggedAtMonotonicMs: 1000 }) }).value, 'fearful');
-  expectNeutral(call(a, scene, { priorEphemeralMood: freeze({ ...prior, taggedSegmentsInTurn: 2 }), nowMonotonicMs: 18000 }));
+  expectNeutral(call(a, scene, { priorEphemeralMood: freeze({ ...prior, taggedSegmentsInTurn: 2 }), nowMonotonicMs: 10000 }));
   assert.equal(call(a, scene, { priorEphemeralMood: freeze({ ...prior, identity: { ...b } }) }).value, 'fearful');
   assert.equal(call(a, scene, { priorEphemeralMood: prior, segmentText: 'Haha!' }).value, 'neutral');
   expectNeutral(call({ ...a, incarnationId: uuid() }, scene, { priorEphemeralMood: prior }));
