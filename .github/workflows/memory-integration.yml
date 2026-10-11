@@ -1,0 +1,31 @@
+name: Memory A-E integrated journal
+on:
+  pull_request:
+    paths:
+      - 'lsa-shared-brain/**'
+      - 'lsa-essential-e1-candidate/src/memory/**'
+      - '.github/workflows/memory-integration.yml'
+  push:
+    branches:
+      - 'integration/memory-m2-m7-reconcile-20261011'
+jobs:
+  integration:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        node: [24]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+      - name: Verify shared-brain source syntax
+        run: |
+          node --check lsa-shared-brain/src/memory/journalSqlite.mjs
+          node --check lsa-shared-brain/src/memory/integratedSqlite.mjs
+          node --check lsa-shared-brain/src/memory/integrationPorts.mjs
+          node --check lsa-shared-brain/src/characters/sqliteFoundation.mjs
+      - name: Exercise real P2 SQLite integration
+        run: node --test lsa-shared-brain/tests/memory-integrated-storage.test.mjs
