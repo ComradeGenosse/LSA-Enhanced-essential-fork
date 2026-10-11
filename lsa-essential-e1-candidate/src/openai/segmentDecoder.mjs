@@ -1,4 +1,4 @@
-import { parseDecisionJson } from '../context/essentialDecision.mjs';
+import { parseDecisionJson, LUNA_SEGMENT_DELIVERY_V1 } from '../context/essentialDecision.mjs';
 
 const MAX_JSON_DEPTH = 32;
 
@@ -15,23 +15,31 @@ export function createSegmentDecoder({
   maxSegmentChars = 240,
   maxDialogueChars = 1200,
   maxResponseChars = 32_768,
+  lunaDeliveryVersion = 0,
 } = {}) {
+  if (lunaDeliveryVersion !== 0 && lunaDeliveryVersion !== 1)
+    throw new TypeError('Unsupported Luna segment delivery protocol version.');
   let source = "";
   let emitted = 0;
   let first = null;
   let newSegments = [];
+  const emittedSegments = [];
 
   return {
     append(delta) {
       if (typeof delta !== "string") throw new TypeError("Streaming text delta must be a string.");
       source += delta;
       if (source.length > maxResponseChars) throw new Error("Structured response exceeded the probe size limit.");
-      const segments = extractCompleteSegments(source, maxSegments, maxSegmentChars, maxDialogueChars);
+      const segments = extractCompleteSegments(source, maxSegments, maxSegmentChars, maxDialogueChars, lunaDeliveryVersion);
+      // Do not hand audio to early TTS while the mode is invalid or unknown.
+      if (lunaDeliveryVersion === 1 && !extractMode(source)) return first;
       while (emitted < segments.length) {
         const segment = Object.freeze({
           sequence: emitted + 1,
           text: segments[emitted].text,
+          ...(lunaDeliveryVersion === 1 ? { delivery: segments[emitted].delivery } : {}),
         });
+        emittedSegments.push(segment);
         emitted += 1;
         if (!first) first = segment;
         newSegments.push(segment);
@@ -45,14 +53,19 @@ export function createSegmentDecoder({
     },
     finish() {
       const decision = parseJsonNoDuplicateKeys(source);
-      const normalized = validateDecision(decision, { maxSegments, maxSegmentChars, maxDialogueChars });
-      if (normalized.length !== emitted) {
-        throw new Error("Final segment count did not match the segments observed in the stream.");
+      const normalized = validateDecision(decision, { maxSegments, maxSegmentChars, maxDialogueChars, lunaDeliveryVersion });
+      if (normalized.length !== emitted || normalized.some((segment, i) =>
+        segment.text !== emittedSegments[i]?.text ||
+        (lunaDeliveryVersion === 1 && segment.delivery !== emittedSegments[i]?.delivery))) {
+        throw new Error("Final segments did not match the segments observed in the stream.");
       }
       const dialogue = normalized.map(segment => segment.text).join(' ');
       return Object.freeze({
         mode: decision.mode,
-        segments: Object.freeze(normalized.map(segment => Object.freeze({ text: segment.text }))),
+        segments: Object.freeze(normalized.map(segment => Object.freeze({
+          text: segment.text,
+          ...(lunaDeliveryVersion === 1 ? { delivery: segment.delivery } : {}),
+        }))),
         reflowedSegments: normalized.length - decision.segments.length,
         decision: parseDecisionJson(JSON.stringify({ dialogue, command: decision.command })),
       });
@@ -69,8 +82,14 @@ export function createSegmentDecoder({
 function segmentFailure(code, message) {
   return Object.assign(new Error(message), { code });
 }
-function validateSegment(value, maxDialogueChars) {
-  assertExactKeys(value, ['text'], 'segment');
+function validateSegment(value, maxDialogueChars, lunaDeliveryVersion = 0) {
+  assertExactKeys(value, lunaDeliveryVersion === 1 ? ['delivery', 'text'] : ['text'], 'segment');
+  if (lunaDeliveryVersion === 1) {
+    if (Object.keys(value)[0] !== 'delivery' || Object.keys(value)[1] !== 'text')
+      throw segmentFailure('segment_invalid_delivery', 'Acting delivery must precede speech text.');
+    if (typeof value.delivery !== 'string' || !LUNA_SEGMENT_DELIVERY_V1.includes(value.delivery))
+      throw segmentFailure('segment_invalid_delivery', 'Speech delivery is not an approved intent.');
+  }
   if (typeof value.text !== 'string' || !value.text.trim())
     throw segmentFailure('segment_invalid_text', 'Speech segment text is empty.');
   if (/[|\r\n\u0000-\u001f\u007f]/.test(value.text) ||
@@ -80,8 +99,8 @@ function validateSegment(value, maxDialogueChars) {
     throw segmentFailure('segment_budget_exceeded', 'Speech segment exceeds dialogue budget.');
   return value.text.trim();
 }
-function reflowSegment(value, maxSegmentChars, maxDialogueChars) {
-  let remaining = validateSegment(value, maxDialogueChars);
+function reflowSegment(value, maxSegmentChars, maxDialogueChars, lunaDeliveryVersion = 0) {
+  let remaining = validateSegment(value, maxDialogueChars, lunaDeliveryVersion);
   const pieces = [];
   while (remaining.length > maxSegmentChars) {
     // Split at a real word boundary, never truncate speech or change a word.
@@ -91,18 +110,22 @@ function reflowSegment(value, maxSegmentChars, maxDialogueChars) {
     if (cut > 0 && /\bDO$/.test(remaining.slice(0, cut)))
       cut = remaining.lastIndexOf(' ', cut - 1);
     if (cut < 1) throw segmentFailure('segment_unbreakable', 'Speech segment has an unsplittable word.');
-    pieces.push({ text: remaining.slice(0, cut).trimEnd() });
+    pieces.push(lunaDeliveryVersion === 1
+      ? { delivery: value.delivery, text: remaining.slice(0, cut).trimEnd() }
+      : { text: remaining.slice(0, cut).trimEnd() });
     remaining = remaining.slice(cut).trimStart();
   }
-  if (remaining) pieces.push({ text: remaining });
-  for (const piece of pieces) validateSegment(piece, maxDialogueChars);
+  if (remaining) pieces.push(lunaDeliveryVersion === 1
+    ? { delivery: value.delivery, text: remaining }
+    : { text: remaining });
+  for (const piece of pieces) validateSegment(piece, maxDialogueChars, lunaDeliveryVersion);
   return pieces;
 }
 function normalizeSegments(segments, limits) {
   const normalized = [];
   let total = 0;
   for (const raw of segments) {
-    for (const segment of reflowSegment(raw, limits.maxSegmentChars, limits.maxDialogueChars)) {
+    for (const segment of reflowSegment(raw, limits.maxSegmentChars, limits.maxDialogueChars, limits.lunaDeliveryVersion)) {
       normalized.push(segment);
       total += segment.text.length;
       if (normalized.length > limits.maxSegments)
@@ -133,7 +156,7 @@ function assertExactKeys(value, expected, label) {
   }
 }
 
-function extractCompleteSegments(source, maxSegments, maxChars, maxDialogueChars) {
+function extractCompleteSegments(source, maxSegments, maxChars, maxDialogueChars, lunaDeliveryVersion = 0) {
   const arrayStart = locateSegmentsArray(source);
   if (arrayStart == null) return [];
   const segments = [];
@@ -145,7 +168,7 @@ function extractCompleteSegments(source, maxSegments, maxChars, maxDialogueChars
     const end = findCompositeEnd(source, position);
     if (end == null) break;
     const segment = parseJsonNoDuplicateKeys(source.slice(position, end));
-    segments.push(...reflowSegment(segment, maxChars, maxDialogueChars));
+    segments.push(...reflowSegment(segment, maxChars, maxDialogueChars, lunaDeliveryVersion));
     if (segments.length > maxSegments) throw segmentFailure('segment_budget_exceeded', 'Decision exceeded speech segment count.');
     if (segments.reduce((sum, item) => sum + item.text.length, 0) > maxDialogueChars) throw segmentFailure('segment_budget_exceeded', 'Decision dialogue exceeds its size limit.');
     position = end;
