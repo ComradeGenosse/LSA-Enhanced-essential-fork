@@ -1,3 +1,5 @@
+import { PCM_FORMAT } from './speechContract.mjs';
+
 // Standalone OpenAI speech source. Raw output is PCM16LE mono at 24 kHz,
 // NOT WAV and NOT confirmation that a physical NPC spoke.
 // The provider is optional and never runs until locally enabled by the user.
@@ -19,10 +21,21 @@ export function createSpeechPcmProvider({
     throw new Error('speech_provider_instructions_invalid');
 
   return {
-    async *streamPcm({ text, signal }) {
+    id: 'openai',
+    capabilities: Object.freeze({
+      cancellation: true, streaming: true, outputFormat: PCM_FORMAT
+    }),
+    async *streamPcm({ text, voice: requestedVoice, instructions: requestedInstructions, signal }) {
       if (typeof text !== 'string' || !text.trim() || text.length > 2048 ||
           /[\u0000-\u0008\u000b-\u001f\u007f]/.test(text))
         throw new Error('invalid_speech_text');
+      const activeVoice = requestedVoice ?? voice;
+      const activeInstructions = requestedInstructions ?? instructions;
+      if (typeof activeVoice !== 'string' || !/^[a-z][a-z0-9_-]{0,31}$/.test(activeVoice) ||
+          (activeInstructions !== undefined &&
+            (typeof activeInstructions !== 'string' || activeInstructions.length > 1024 ||
+             /[\u0000-\u0008\u000b-\u001f\u007f]/.test(activeInstructions))))
+        throw new Error('invalid_speech_profile');
       const timeout = AbortSignal.timeout(25000);
       const bound = signal ? AbortSignal.any([signal, timeout]) : timeout;
       let response;
@@ -35,8 +48,8 @@ export function createSpeechPcmProvider({
             Accept: 'application/octet-stream'
           },
           body: JSON.stringify({
-            model, voice, input: text, response_format: 'pcm',
-            ...(instructions ? { instructions } : {})
+            model, voice: activeVoice, input: text, response_format: 'pcm',
+            ...(activeInstructions ? { instructions: activeInstructions } : {})
           }),
           signal: bound
         });
