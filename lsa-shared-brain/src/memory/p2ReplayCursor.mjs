@@ -20,6 +20,7 @@ const SCHEMA = [
   '  record_id TEXT NOT NULL, source_at_utc TEXT NOT NULL);',
   'CREATE INDEX IF NOT EXISTS p2_memory_replay_scope ON p2_memory_replay_feed',
   '  (world_profile_id,character_id,timeline_id,protagonist_key,sequence);',
+  'CREATE INDEX IF NOT EXISTS p2_memory_replay_identity ON p2_memory_replay_feed(kind,record_id);',
   'CREATE TABLE IF NOT EXISTS p2_memory_replay_cursors (',
   '  consumer_id TEXT NOT NULL,world_profile_id TEXT NOT NULL,character_id TEXT NOT NULL,',
   '  timeline_id TEXT NOT NULL,protagonist_key TEXT NOT NULL,after_sequence INTEGER NOT NULL',
