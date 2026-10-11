@@ -1,0 +1,35 @@
+name: Qwen TTS AB Benchmark Offline Tests
+
+on:
+  pull_request:
+    branches:
+      - integration/radio-v2-main-ps4-20261010
+      - main
+    paths:
+      - 'lsa-essential-e1-candidate/tools/qwen/compare_tts_benchmark.mjs'
+      - 'lsa-essential-e1-candidate/tests/qwen-benchmark.test.mjs'
+      - 'lsa-essential-e1-candidate/src/providers/**'
+      - '.github/workflows/lsa-qwen-benchmark.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  deterministic-no-network:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate benchmark script syntax
+        working-directory: lsa-essential-e1-candidate
+        run: node --check tools/qwen/compare_tts_benchmark.mjs
+      - name: Execute offline mocked-provider benchmark regression
+        working-directory: lsa-essential-e1-candidate
+        run: node --test tests/qwen-benchmark.test.mjs
