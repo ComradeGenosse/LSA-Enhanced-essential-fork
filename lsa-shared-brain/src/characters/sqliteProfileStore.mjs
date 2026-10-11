@@ -28,6 +28,12 @@ export class P2SqliteProfileStore {
   get available() { return this.#available && !this.#closed; }
   get activeTimelineId() { return this.#timeline.activeTimelineId; }
   get timelineWritable() { return this.#timeline.writable && this.#sourceValid(); }
+  // Read-only source used for journal attribution; only verified/current after
+  // an explicit timeline confirmation. No unverified native input is exposed.
+  get verifiedHostContext() {
+    return this.timelineWritable && this.#sourceContext
+      ? Object.freeze({...this.#sourceContext}) : null;
+  }
   get timelineSourceStatus() { return !this.#sourceRequired ? 'not_required' : !this.#sourceContext ? 'unavailable' : this.#confirmedSource !== this.#sourceKey(this.#sourceContext) ? 'confirmation_required' : 'verified'; }
   #sourceKey(context) { return context?.hostRunId + ':' + context?.worldEpoch; }
   #sourceValid() { return !this.#sourceRequired || this.#sourceContext !== null && this.#confirmedSource === this.#sourceKey(this.#sourceContext); }
