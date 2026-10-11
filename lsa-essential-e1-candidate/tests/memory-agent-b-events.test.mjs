@@ -164,9 +164,9 @@ test('M3 grace expiry, cold start and negative coverage do not invent witnessed 
   assert.equal(r.entries.size,0);assert.equal(r.negative[0].status,'did_not_witness');
   r.recorder.reset();assert.equal(r.recorder.bufferedCount,0);
 });
-test('M3 prepromotion ring capacity is bounded under bursts',()=>{
+test('M3 prepromotion ring and dedupe are bounded under 10k-observation bursts',()=>{
   const r=rig({promoted:false});
-  for(let i=0;i<400;i++)r.recorder.bufferBeforePromotion({
+  for(let i=0;i<10000;i++)r.recorder.bufferBeforePromotion({
     observation:observation({observationId:id(1000+i)}),candidate:identity()
   });
   assert.equal(r.recorder.bufferedCount,PROMOTION_GRACE_LIMITS.maxObservations);
