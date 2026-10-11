@@ -11,7 +11,7 @@ try { ({ DatabaseSync } = await import('node:sqlite')); } catch {}
 
 import { isUuid } from '../util/identity.mjs';
 import { PROFILE_LIMITS, validateProfiles } from './profileSchema.mjs';
-import { JOURNAL_SCHEMA_VERSION, migrateJournalSchema, appendDialogue, appendEvent, readDialogue, findExactQuote, searchDialogue, readEvents } from '../memory/journalSqlite.mjs';
+import { JOURNAL_SCHEMA_VERSION, migrateJournalSchema, assertJournalSchema, appendDialogue, appendEvent, readDialogue, findExactQuote, searchDialogue, readEvents } from '../memory/journalSqlite.mjs';
 
 export const SQLITE_PROFILE_SCHEMA = 2;
 const fail = code => { throw new Error(code); };
@@ -124,6 +124,8 @@ export async function inspectP2Sqlite({filePath,worldProfileId}) {
   const db=new DatabaseSync(resolved,{readOnly:true});
   try {
     const snapshot=verifyExisting(db,worldProfileId);
+    if(db.prepare('PRAGMA user_version').get().user_version===JOURNAL_SCHEMA_VERSION)
+      assertJournalSchema(db);
     const timelines=db.prepare('SELECT timeline_id AS timelineId,active FROM timelines ORDER BY timeline_id').all();
     const active=timelines.filter(t=>t.active===1);
     if(active.length>1)fail('sqlite_timeline_integrity_failed');
