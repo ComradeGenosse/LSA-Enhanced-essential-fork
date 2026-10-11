@@ -174,6 +174,9 @@ export function createM6SelectionCoordinator({store,now=()=>new Date().toISOStri
         savedIds.push(proposal.proposalId);
         if(cloudQueueEnabled){
           checkBoundary(store,scope);
+          const beforeQueue=await suppression(store,scope);
+          if(proposal.evidenceRecordIds.some(id=>beforeQueue.has(id)))
+            fail('m6_source_changed_before_queue');
           const job=makeQueueJob(proposal,atUtc);
           const ack=await store.enqueueCurationJob({job});
           if(!ack||ack.jobId!==job.jobId||typeof ack.inserted!=='boolean')
