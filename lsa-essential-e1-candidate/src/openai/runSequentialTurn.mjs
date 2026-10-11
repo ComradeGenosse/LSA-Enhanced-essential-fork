@@ -1,5 +1,6 @@
 import {assertDirectorSpeechDecision} from '../perception/directorDecisionGuard.mjs';
 import {scalePcm16} from '../voice/pcmVolume.mjs';
+import {createSpeechDeliveryResolver} from '../voice/emotion/resolveSpeechDelivery.mjs';
 const PLAYER_SOURCES = new Set(['player_text', 'player_mic']);
 
 function terminalForNativeEvent(event) {
@@ -70,6 +71,10 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
   const transition = next => { state = next; metrics?.stage(next); host.log?.(identity, next, { source }); };
   const chooseTerminal = reason => { if (!terminalReason) terminalReason = reason; return terminalReason; };
   const valid = () => !retired && !controller.signal.aborted && host.isCurrent(identity);
+  const speechDelivery = createSpeechDeliveryResolver({
+    config: services.config, identity, source, turn,
+    adapter: services.emotionalActing, telemetry: metrics, isActive: valid,
+  });
   const check = () => {
     if (valid()) return;
     if (!controller.signal.aborted && !host.isCurrent(identity)) chooseTerminal('superseded');
@@ -256,14 +261,19 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
             }
             transition('tts_running');
             metrics?.event('stream_tts_segment_started', { segmentSequence: segment.sequence });
+            const delivery = speechDelivery.forSegment({
+              text: segment.text, sequence: segment.sequence, lunaHint: segment.delivery,
+            });
             const audio = await performProvider('tts', services.providerStack.speech.id,
               ({ signal, timeoutMs, telemetry, isActive: active }) => services.speak({
-                identity, dialogue: segment.text, speechProfile: turn.speechProfile, signal, timeoutMs, telemetry,
+                identity, dialogue: segment.text, ...(delivery ? {delivery} : {}),
+                speechProfile: turn.speechProfile, signal, timeoutMs, telemetry,
                 playbackStartedAt: () => nativePlaybackStartedAt,
                 onPcm: chunk => forwardPcm(chunk, active),
               }), () => !nativeHandoffStarted);
             if (!audio?.bytes) throw new Error('empty_segment_audio');
             if (audio.discardedTrailingByte) throw Object.assign(new Error('partial_pcm16_sample'), { code: 'partial_pcm16_sample' });
+            speechDelivery.synthesized(delivery);
             bytes += audio.bytes;
             chunks += audio.chunks || 0;
             metrics?.event('stream_tts_segment_finished', { segmentSequence: segment.sequence, bytes: audio.bytes, chunks: audio.chunks || 0 });
@@ -355,12 +365,18 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
     transition('tts_running');
     let audio = earlyAudio?.bytes > 0 ? earlyAudio : null;
     if (!audio) {
+      const delivery = speechDelivery.forSegment({
+        text: decision.dialogue, sequence: 1,
+        lunaHint: decision.structuredSegments?.length === 1 ? decision.structuredSegments[0].delivery : null,
+      });
       audio = await performProvider('tts', services.providerStack?.speech.id || 'openai.speech',
         ({ signal, timeoutMs, telemetry, isActive }) => services.speak({
-          identity, dialogue: decision.dialogue, speechProfile: turn.speechProfile, signal, timeoutMs, telemetry,
+          identity, dialogue: decision.dialogue, ...(delivery ? {delivery} : {}),
+          speechProfile: turn.speechProfile, signal, timeoutMs, telemetry,
           playbackStartedAt: () => nativePlaybackStartedAt,
           onPcm: chunk => forwardPcm(chunk, isActive),
         }), () => !hasAction && !nativeHandoffStarted);
+      if (audio?.bytes) speechDelivery.synthesized(delivery);
     }
     check();
     if (!authorizationRequested || !audio?.bytes || !pcmBytesTotal) throw new Error('empty_audio');
@@ -431,6 +447,7 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
     metrics?.finish({ reason: terminalReason, stage: stageAtFailure, cause, assistantCommitted: false });
     return { status: state, terminalReason, stage: state, cause };
   } finally {
+    speechDelivery.retire();
     retired = true;
     history.discard(identity);
     observation?.dispose();
