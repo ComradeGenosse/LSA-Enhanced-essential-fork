@@ -738,6 +738,79 @@ internal static class Program
         authority.Stop();
     }
 
+    private static void EarlySpeechSegmentFences()
+    {
+        var game = new SimulatedGame();
+        game.Spawn(758, 0xDA70, lifetimeTag: 4441);
+        var host = new NativeAuthority(game, game, game, game);
+        var actor = Register(host, 758);
+        var turns = new NativeTurnRegistry(host);
+        var audio = new NativeAudioRegistry(host, turns);
+        NativeTurnPermit offer; string reason;
+        Check(turns.TryIssueTyped(actor, "What did you see?", 45000,
+            out offer, out reason), "issue early speech native offer");
+        string tid = offer.TurnId.ToString("D");
+        string aid = offer.ActorIncarnationId.ToString("D");
+        string lease = offer.LeaseId.ToString("D");
+        string gen = offer.Generation;
+        Check(!turns.TryStageSpeechSegment(tid,lease,gen,aid,0,
+            "Not confirmed.",out reason), "no segment before native confirmation");
+        Check(turns.TryConfirm(tid,offer.SessionNonce.ToString("D"),
+            aid,lease,gen,offer.Source,out reason), "confirm native speech turn");
+        Check(!turns.TryStageSpeechSegment(tid,lease,gen,aid,1,
+            "Wrong first segment.",out reason) && reason=="segment_out_of_order",
+            "reject gap before first segment");
+        Check(!turns.TryStageSpeechSegment(tid,lease,gen,Guid.NewGuid().ToString("D"),0,
+            "Wrong speaker.",out reason), "reject foreign actor");
+        Check(turns.TryStageSpeechSegment(tid,lease,gen,aid,0,
+            "A shot rang out.",out reason) && reason=="segment_staged_not_played",
+            "stage first clause before final answer");
+        Check(!turns.TryStageReply(tid,lease,gen,aid,"Bad old path.",out reason),
+            "old one-shot reply may not mix with streaming");
+        NativeAudioTicket stream;
+        Check(audio.TryOpen(tid,aid,lease,gen,24000,out stream,out reason),
+            "audio stream opens after first authorized clause");
+        string sid=stream.StreamId.ToString("D");
+        string alid=stream.AudioLeaseId.ToString("D");
+        string agen=stream.AudioGeneration;
+        Check(audio.TryAppend(sid,alid,agen,tid,aid,0,
+            new byte[]{1,2,3,4},out reason), "first segment accepted PCM");
+        Check(!audio.TryMarkSegment(sid,alid,agen,tid,aid,1,4,out reason),
+            "cannot mark future segment");
+        Check(!audio.TryMarkSegment(sid,alid,agen,tid,aid,0,6,out reason),
+            "cannot invent bytes for segment");
+        Check(audio.TryMarkSegment(sid,alid,agen,tid,aid,0,4,out reason) &&
+            reason=="segment_audio_buffered_not_played",
+            "native PCM boundary validated but never played");
+        Check(!audio.TrySeal(sid,alid,agen,tid,aid,1,4,out reason),
+            "segment marker is not final turn and cannot EOS");
+        Check(turns.TryStageSpeechSegment(tid,lease,gen,aid,1,
+            "Then somebody ran.",out reason), "append a second clause");
+        Check(audio.TryAppend(sid,alid,agen,tid,aid,1,
+            new byte[]{5,6,7,8},out reason), "second clause PCM");
+        Check(audio.TryMarkSegment(sid,alid,agen,tid,aid,1,8,out reason),
+            "second PCM boundary after exact accepted bytes");
+        Check(!audio.TryMarkSegment(sid,alid,agen,tid,aid,1,8,out reason),
+            "duplicate marker rejected");
+        Check(!turns.TryFinishSpeechSegments(tid,lease,gen,aid,1,out reason),
+            "mismatched total segments denied");
+        Check(turns.TryFinishSpeechSegments(tid,lease,gen,aid,2,out reason) &&
+            reason=="segments_final_not_played", "explicit final clauses receipt");
+        Check(!turns.TryStageSpeechSegment(tid,lease,gen,aid,2,
+            "Not permitted after final.",out reason),
+            "post-final text refused");
+        Check(audio.TrySeal(sid,alid,agen,tid,aid,2,8,out reason) &&
+            reason=="sealed_not_played", "EOS after final only, not audible");
+        Check(!turns.TryFinishSpeechSegments(tid,lease,gen,aid,2,out reason),
+            "duplicate final denied");
+        Check(turns.TryCancel(tid,lease,gen,aid), "cancel exact native speech turn");
+        audio.Sweep();
+        Check(!audio.TryAppend(sid,alid,agen,tid,aid,2,
+            new byte[]{9,10},out reason), "retired turn cannot resume audio");
+        audio.RetireAll();
+        host.Stop();
+    }
+
     private static void Main()
     {
         IdentityAndLeases();
@@ -751,6 +824,7 @@ internal static class Program
         PreconfirmationCancelReleasesActor();
         BoundedNativePcmAndTruthfulReceipts();
         RollingPcmQueueAndBackpressure();
+        EarlySpeechSegmentFences();
         Console.WriteLine("PASS " + assertions +
             " standalone native core assertions; no Essential/RAGE/game assembly loaded.");
     }
