@@ -1,4 +1,5 @@
 import { isUuid } from '../identity/identityContract.mjs';
+import { randomUUID } from 'node:crypto';
 
 const u32 = n => Number.isSafeInteger(n) && n >= 0 && n <= 0xffffffff;
 const monotonic = n => Number.isSafeInteger(n) && n >= 0;
@@ -23,7 +24,25 @@ export function validateUtteranceFact(p) {
 export class UtteranceLifecycle {
   constructor({now=()=>Math.floor(performance.now())}={}) {
     this.now=now;this.entries=new Map();this.active=null;
-    this.diagnostics={started:0,ended:0,rejected:0,expired:0};
+    this.diagnostics={started:0,ended:0,typed:0,rejected:0,expired:0};
+  }
+  // One typed turn is a zero-duration non-acoustic annotation. The exact
+  // identity is supplied by Essential; it never creates native mic evidence.
+  recordTyped(identity,host) {
+    if(!host || !isUuid(host.hostRunId) || !Number.isSafeInteger(host.worldEpoch) ||
+       host.worldEpoch<1 || typeof identity?.pedId!=='string' ||
+       !Number.isSafeInteger(identity?.sessionNonce) || identity.sessionNonce<1 ||
+       !Number.isSafeInteger(identity?.turnId) || identity.turnId<1 ||
+       !Number.isSafeInteger(identity?.generationId) || identity.generationId<0) return false;
+    const now=this.now();
+    for(const [id,e] of this.entries) if(now-e.receivedAt>30000)
+      this.entries.delete(id);
+    if(this.entries.size>=32)return false;
+    const id=randomUUID(),stamp={hostRunId:host.hostRunId,worldEpoch:host.worldEpoch,
+      utteranceId:id,inputSource:'typed',durationMs:0,acousticObservers:0,
+      identity:Object.freeze({...identity})};
+    this.entries.set(id,{started:stamp,ended:stamp,receivedAt:now});
+    this.diagnostics.typed++;return true;
   }
   clear() {this.entries.clear();this.active=null;}
   accept(p,host) {
