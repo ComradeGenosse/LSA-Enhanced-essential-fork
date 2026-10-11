@@ -163,6 +163,7 @@ test('M5 reconciles preexisting PR #61 forget tombstones into seven-day recovera
  assert.ok((await x.store.listSuppressedMemoryIds(x.scope)).includes(source.recordId));
  const restored=await m5.restore({scope:x.scope,trashId:commandId,operationId:id()});
  assert.equal(restored.operation,'restore');
+ assert.equal((await m5.bindCommands().verifyCommand({scope:x.scope,commandId})).durableCommit,false);
  assert.ok(!(await x.store.listSuppressedMemoryIds(x.scope)).includes(source.recordId));
  await m5.close();await x.store.close();
 });
