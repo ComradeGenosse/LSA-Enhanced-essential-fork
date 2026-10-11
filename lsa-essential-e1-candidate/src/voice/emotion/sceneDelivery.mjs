@@ -141,6 +141,13 @@ function conversationalCue(text, traits) {
   return null;
 }
 
+function currentDialogueResetsMood(text) {
+  // An NPC's own clear, present-tense denial of a previous feeling defeats
+  // soft carry. This is NOT native evidence and does not claim a scene event.
+  // Keep the anchors conservative; ordinary topic changes may retain mood.
+  return /^\s*(?:(?:i['’]m|i am)\s+(?:fine|okay|alright|all right|calm)(?:\s+now)?|(?:i['’]m|i am)\s+not\s+(?:sad|scared|afraid|upset)(?:\s+(?:now|anymore))?|(?:there['’]s|there is)\s+nothing\s+to\s+worry\s+about)[.!?]?\s*$/i.test(text);
+}
+
 function priorForIdentity(identity, prior, now) {
   if (!prior || !Object.isFrozen(prior) || !Object.isFrozen(prior.identity) ||
       !sameIdentity(identity, prior.identity)) return null;
@@ -192,8 +199,9 @@ export function resolveDelivery({
   const candidate = scene
     ? { value: scene.value, source: 'verified_scene', confidence: 'supported',
         evidenceRef: scene.evidenceRef }
-    : conversationalCue(segmentText, traits) ?? (LUNA_SOFT.has(lunaHint)
-      ? {value:lunaHint, source:'luna_hint', confidence:'soft'} : mood);
+    : conversationalCue(segmentText, traits) ??
+      (currentDialogueResetsMood(segmentText) ? null : (LUNA_SOFT.has(lunaHint)
+        ? {value:lunaHint, source:'luna_hint', confidence:'soft'} : mood));
   if (!candidate) return NEUTRAL;
   // Suppress repeated performance, never carrying a scene event over into a
   // future segment/turn without freshly verified evidence. Agent EA4 owns mood.

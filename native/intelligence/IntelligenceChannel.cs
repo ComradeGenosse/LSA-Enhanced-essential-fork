@@ -26,6 +26,7 @@ namespace LSA.Intelligence
         long sequence;
         volatile bool stopping,connected;
         public int ConnectionVersion {get;private set;}
+        public bool Connected => connected && !stopping;
         public long Dropped {get;private set;}
         public IntelligenceChannel(string name,string epoch,Func<object> capabilities,string hostRunId=null,Func<int> worldEpoch=null,bool observerIndex=false,bool directorRequests=false) {
             if((hostRunId==null)!=(worldEpoch==null) || hostRunId!=null && !System.Text.RegularExpressions.Regex.IsMatch(hostRunId,"^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$")) throw new ArgumentException("invalid_host_context");

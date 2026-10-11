@@ -2,6 +2,7 @@ import { MoodStore } from './moodStore.mjs';
 import { isUuid } from '../../identity/identityContract.mjs';
 import { sameHostContext } from '../../context/hostContext.mjs';
 import { projectActingEvidence } from './sceneOwnerProjection.mjs';
+import { wasElevenTagApplied } from '../../providers/elevenlabs/speechProvider.mjs';
 
 // No game actor JSON, LLM content, PedId, or profile name can establish these
 // authorities. The trusted bootstrap must provide an actual native-protagonist
@@ -15,8 +16,14 @@ export function createMoodRuntime({ getRuntime, protagonistAuthority = null,
   if (typeof getRuntime !== 'function') throw new TypeError('mood_runtime_required');
   let lastLineage = null;
   const deny = () => {store.clear();lastLineage=null;return null;};
-  const current = ({identity,turn} = {}) => {
-    const runtime = getRuntime();
+  const current = ({identity,turn} = {}, { forRetirement = false } = {}) => {
+    // A stale turn's finally/cancellation must not wipe mood legitimately
+    // recorded by a newer native turn. Reads/commits still fail closed and
+    // flush state if the live authority cannot be established.
+    const reject = () => forRetirement ? null : deny();
+    let runtime;
+    try { runtime = getRuntime(); }
+    catch { return reject(); } // disconnected/unavailable trusted runtime: neutral
     const identityService = runtime?.identityService;
     const characterStore = runtime?.characterService?.store;
     const perception = runtime?.intelligence?.runtime;
@@ -28,23 +35,23 @@ export function createMoodRuntime({ getRuntime, protagonistAuthority = null,
         !isUuid(characterStore?.activeTimelineId) ||
         typeof protagonistAuthority?.readVerified !== 'function' ||
         typeof protagonistAuthority?.isCurrent !== 'function' ||
-        !perception || !identityService) return deny();
+        !perception || !identityService) return reject();
     const host = identityService.evidence?.hostContext;
-    if (!sameHostContext(host,perception.hostContext)) return deny();
+    if (!sameHostContext(host,perception.hostContext)) return reject();
     const ownerEvidence = projectActingEvidence({
       identity,turn,perception,identityService,
     });
     if (!ownerEvidence || ownerEvidence.identity.characterId !==
-        turn.characterSnapshot.resolution?.characterId) return deny();
+        turn.characterSnapshot.resolution?.characterId) return reject();
     let verified;
-    try { verified = protagonistAuthority.readVerified(); } catch { return deny(); }
+    try { verified = protagonistAuthority.readVerified(); } catch { return reject(); }
     if (!verified || !Object.isFrozen(verified) || verified.version !== 1 ||
         verified.source !== 'native_player_model' ||
         !PROTAGONISTS.has(verified.protagonist) ||
         !isUuid(verified.hostRunId) || verified.hostRunId !== host.hostRunId ||
         verified.worldEpoch !== host.worldEpoch ||
         !Number.isSafeInteger(verified.revision) || verified.revision < 1 ||
-        (()=>{try{return protagonistAuthority.isCurrent(verified)===true;}catch{return false;}})() !== true) return deny();
+        (()=>{try{return protagonistAuthority.isCurrent(verified)===true;}catch{return false;}})() !== true) return reject();
     const lineage = JSON.stringify([characterStore.activeTimelineId,host.hostRunId,
       host.worldEpoch,verified.protagonist,verified.revision]);
     // Revocation, protagonist ABA, save switch and host rollover clear old mood.
@@ -83,7 +90,7 @@ export function createMoodRuntime({ getRuntime, protagonistAuthority = null,
         } catch { return false; }
       },
     };
-    return context.isCurrent() ? Object.freeze(context) : deny();
+    return context.isCurrent() ? Object.freeze(context) : reject();
   };
   return Object.freeze({
     readMood({identity,turn}) {
@@ -91,10 +98,13 @@ export function createMoodRuntime({ getRuntime, protagonistAuthority = null,
       if (!context) return null;
       return store.take({context,nowMs:clock()});
     },
-    onSpeechCompleted({identity,turn,delivery,receipt}) {
+    onSpeechCompleted({identity,turn,delivery,receipt,providerResult,historyAccepted=false}) {
       const context=current({identity,turn});
       if (!context || !receipt || receipt.type !== 'playback_ended' ||
-          receipt.ok !== true || receipt.wasInterrupted !== false ||
+          receipt.ok !== true || receipt.reason !== 'completed' ||
+          historyAccepted !== true ||
+          !wasElevenTagApplied(providerResult,{delivery,identity}) ||
+          receipt.wasInterrupted !== false ||
           receipt.hadAudio !== true || receipt.playbackStarted !== true ||
           !receiptKeys.every(key=>receipt[key] === identity[key])) return false;
       // Called only AFTER the stock native observation and history receipt
@@ -102,7 +112,7 @@ export function createMoodRuntime({ getRuntime, protagonistAuthority = null,
       return store.commitPlayed({
         context,nowMs:clock(),delivery,
         receipt:{
-          verified:true,playbackSucceeded:true,playbackStarted:true,
+          verified:true,historyAccepted:true,playbackSucceeded:true,playbackStarted:true,
           hadAudio:true,wasInterrupted:false,
           pedId:identity.pedId,sessionNonce:identity.sessionNonce,
           turnId:identity.turnId,generationId:identity.generationId,
@@ -113,8 +123,11 @@ export function createMoodRuntime({ getRuntime, protagonistAuthority = null,
       // Completion retains its just-played soft tendency for one subsequent
       // turn. Failed/cancelled turns revoke any tendency consumed by this turn.
       if (completed === true) return;
-      const context=current({identity,turn});
-      if (!context) {store.clear();return;}
+      const context=current({identity,turn},{forRetirement:true});
+      // Missing/retired proof for this OLD turn is not evidence to clear a
+      // NEWER turn. Actual global host/save/source revocations call clear(),
+      // and any later read/commit also flushes on missing authority.
+      if (!context) return;
       store.invalidate({context,scope:'turn'});
     },
     clear() { lastLineage=null;store.clear(); },
