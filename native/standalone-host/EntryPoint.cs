@@ -62,9 +62,13 @@ namespace LSA.Standalone.RageHost
                 scope.Enter();
                 try
                 {
-                    // The physical RPH resolver exists but independent adoption is
-                    // explicitly gated until a real GTA cookie/reuse test.
-                    resolver = new RageActorResolver(scope, false);
+                    // A process-level opt-in alone never grants adoption.
+                    // RPH owner-fiber probe + stable decorator readback +
+                    // separate deliberate in-game Arm are all required.
+                    string actorMode = Environment.GetEnvironmentVariable(
+                        "LSA_STANDALONE_ACTOR_MODE") ?? "off";
+                    resolver = new RageActorResolver(scope,
+                        actorMode == "experimental", actorMode == "diagnostic");
                     var clock = new MonotonicClock();
                     authority = new NativeAuthority(clock, new RageWorld(),
                         resolver, scope);
@@ -95,8 +99,10 @@ namespace LSA.Standalone.RageHost
                 server = new StandalonePipeServer(authority.HostRunId, () => authority.WorldEpoch);
                 server.Start();
                 StandaloneTypedCommands.OpenAdmission();
-                Game.LogTrivial("[LSA-S3] started actor_adoption=disabled transport=phase2" +
-                    " waveout=" + (physicalAudio == null ? "off" : "experimental") +
+                Game.LogTrivial("[LSA-S3] started actor_adoption=locked_until_live_probe" +
+                    " actor_mode=" + (Environment.GetEnvironmentVariable(
+                        "LSA_STANDALONE_ACTOR_MODE") ?? "off") +
+                    " transport=phase2 waveout=" + (physicalAudio == null ? "off" : "experimental") +
                     " facial=" + (facialEnabled ? "experimental" : "off"));
                 uint previousGameTick = unchecked((uint)Game.GameTime);
                 while (!stopping)
@@ -106,7 +112,10 @@ namespace LSA.Standalone.RageHost
                     {
                         uint currentGameTick = unchecked((uint)Game.GameTime);
                         if (unchecked(currentGameTick - previousGameTick) > int.MaxValue)
+                        {
+                            resolver.Disarm();
                             authority.WorldChanged();
+                        }
                         previousGameTick = currentGameTick;
                         authority.Reconcile();
                         server.DrainOwnerRequests(authority, turns, audio, 8);
