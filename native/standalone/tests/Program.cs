@@ -395,6 +395,62 @@ internal static class Program
         }
     }
 
+    private static void DecoratorReuseAndNativeTurnAdmission()
+    {
+        var game = new SimulatedGame();
+        game.Spawn(17, 0xA100, lifetimeTag: 111);
+        var host = new NativeAuthority(game, game, game, game);
+        var first = Register(host, 17);
+        var oldLease = Acquire(host, first, LeaseKind.Audio, "old-audio");
+
+        // Critical hidden ABA: identical handle AND address, but the native
+        // physical lifetime tag changes between owner samples.
+        game.Spawn(17, 0xA100, lifetimeTag: 222);
+        Check(!host.IsLeaseCurrent(oldLease), "tagged hidden ABA revokes audio");
+        var second = Register(host, 17);
+        Check(second.IncarnationId != first.IncarnationId,
+            "tag mismatch creates a new native incarnation");
+        Check(!host.IsActorCurrent(first), "old same-address actor retired");
+
+        var tickets = new NativeTurnRegistry(host);
+        NativeTurnPermit permit; string reason;
+        Check(tickets.TryIssue(second, "player_text", 1000, out permit, out reason),
+            "native source creates single permitted turn");
+        Check(!tickets.TryConfirm(permit.TurnId.ToString("D"), permit.SessionNonce.ToString("D"),
+            first.IncarnationId.ToString("D"), permit.LeaseId.ToString("D"),
+            permit.Generation, permit.Source, out reason),
+            "old incarnation cannot confirm native permit");
+        Check(!tickets.TryConfirm(permit.TurnId.ToString("D"), permit.SessionNonce.ToString("D"),
+            permit.ActorIncarnationId.ToString("D"), Guid.NewGuid().ToString("D"),
+            permit.Generation, permit.Source, out reason),
+            "fabricated lease cannot confirm native permit");
+        Check(tickets.TryConfirm(permit.TurnId.ToString("D"), permit.SessionNonce.ToString("D"),
+            permit.ActorIncarnationId.ToString("D"), permit.LeaseId.ToString("D"),
+            permit.Generation, permit.Source, out reason),
+            "exact native ticket accepted once");
+        Check(!tickets.TryConfirm(permit.TurnId.ToString("D"), permit.SessionNonce.ToString("D"),
+            permit.ActorIncarnationId.ToString("D"), permit.LeaseId.ToString("D"),
+            permit.Generation, permit.Source, out reason),
+            "replay of acknowledged native turn rejected");
+        Check(tickets.IsCurrent(permit.TurnId.ToString("D"), permit.LeaseId.ToString("D"),
+            permit.Generation, permit.ActorIncarnationId.ToString("D")),
+            "confirmed native ticket is still live");
+        Check(tickets.TryCancel(permit.TurnId.ToString("D"), permit.LeaseId.ToString("D"),
+            permit.Generation, permit.ActorIncarnationId.ToString("D")), "exact cancel");
+        Check(!tickets.TryCancel(permit.TurnId.ToString("D"), permit.LeaseId.ToString("D"),
+            permit.Generation, permit.ActorIncarnationId.ToString("D")),
+            "retired ticket cannot be replayed");
+
+        Check(tickets.TryIssue(second, "player_mic", 1000, out var later, out reason),
+            "new source can acquire after exact release");
+        tickets.RetireAll();
+        Check(!host.IsLeaseCurrent(later.Lease), "disconnect retires conversation");
+        Check(!tickets.TryConfirm(later.TurnId.ToString("D"), later.SessionNonce.ToString("D"),
+            later.ActorIncarnationId.ToString("D"), later.LeaseId.ToString("D"),
+            later.Generation, later.Source, out reason), "stale reconnect cannot confirm");
+        host.Stop();
+    }
+
     private static void Main()
     {
         IdentityAndLeases();
@@ -403,6 +459,7 @@ internal static class Program
         ReconciliationAndTrace();
         UnavailableWorldAndClock();
         SeededSafetyScenarios();
+        DecoratorReuseAndNativeTurnAdmission();
         Console.WriteLine("PASS " + assertions +
             " standalone native core assertions; no Essential/RAGE/game assembly loaded.");
     }
