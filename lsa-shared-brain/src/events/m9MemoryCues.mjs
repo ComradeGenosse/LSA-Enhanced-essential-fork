@@ -99,7 +99,7 @@ export class M9MemoryCueCandidates {
       protagonistKey:witness.protagonistKey,
       worldProfileId:witness.worldProfileId,timelineId:witness.timelineId,
       hostRunId:candidate.hostRunId,nativeRun:candidate.nativeRun,
-      worldEpoch:candidate.worldEpoch,
+      worldEpoch:candidate.worldEpoch,playerCaptureRef:candidate.playerCaptureRef,
       observationId:witness.observationId,
       witnessReceiptId:witness.witnessReceiptId,
       journalRecordId:witness.journalRecordId,
