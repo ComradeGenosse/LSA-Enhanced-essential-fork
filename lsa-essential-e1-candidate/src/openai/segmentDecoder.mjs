@@ -73,8 +73,8 @@ function validateSegment(value, maxDialogueChars) {
   assertExactKeys(value, ['text'], 'segment');
   if (typeof value.text !== 'string' || !value.text.trim())
     throw segmentFailure('segment_invalid_text', 'Speech segment text is empty.');
-  if (/[|\\r\\n\\u0000-\\u001f\\u007f]/.test(value.text) ||
-      /(^|\\n)\\s*DO\\s*:?\\s+[A-Za-z]/i.test(value.text))
+  if (/[|\r\n\u0000-\u001f\u007f]/.test(value.text) ||
+      /(^|\n)\s*DO\s*:?\s+[A-Za-z]/i.test(value.text))
     throw segmentFailure('segment_invalid_text', 'Speech segment contains a control command or invalid character.');
   if (value.text.trim().length > maxDialogueChars)
     throw segmentFailure('segment_budget_exceeded', 'Speech segment exceeds dialogue budget.');

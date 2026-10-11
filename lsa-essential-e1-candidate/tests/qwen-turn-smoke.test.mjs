@@ -41,7 +41,7 @@ test('offline simulated Luna -> actual Qwen adapter -> patched native turn -> WA
   assert.equal(result.voice, 'nathan');
   assert.equal(result.transcript, 'Yes, I hear you. My Qwen voice is working.');
   assert.equal(result.pcmBytes, 6);
-  assert.equal(result.qwenChunks, 2);
+  assert.equal(result.qwenChunks, 1); // Full-utterance buffering sends a single aligned frame.
   assert.equal(result.simulatedNativePlayback, true);
   assert.equal(network.length, 1);
   assert.equal(network[0].url, 'http://127.0.0.1:8000/v1/audio/speech');
