@@ -37,7 +37,7 @@ function mockP2(evidence,{missingSidecar=false}={}){
   let failStage=null,readPageHook=null;
   const cpFor=s=>{
     if(!checkpoints.has(s.characterId))checkpoints.set(s.characterId,
-      {version:M6_CURSOR_CONTRACT_VERSION,cursor:null,activeHourCount:0});
+      {version:M6_CURSOR_CONTRACT_VERSION,cursor:null,activeHourCount:0,hourBucket:null});
     return checkpoints.get(s.characterId);
   };
   const fail=(stage,after=false)=>{
@@ -86,7 +86,7 @@ function mockP2(evidence,{missingSidecar=false}={}){
       return {jobId:job.jobId,inserted:!was};
     },
     ackM6Checkpoint:async({scope,expectedCursor,nextCursor,sourceHashes,
-      savedProposalIds,rejected,cloudQueueEnabled})=>{
+      savedProposalIds,rejected,cloudQueueEnabled,hourBucket})=>{
       fail('ack');
       const cp=cpFor(scope);
       if(cp.cursor!==expectedCursor)throw Error('cursor_cas_rejected');
@@ -102,7 +102,7 @@ function mockP2(evidence,{missingSidecar=false}={}){
       audit.push({scope:scope.characterId,expectedCursor,nextCursor,
         rejected:[...rejected],savedProposalIds:[...savedProposalIds]});
       const admitted=cp.activeHourCount+savedProposalIds.length;
-      checkpoints.set(scope.characterId,{version:1,cursor:nextCursor,activeHourCount:admitted});
+      checkpoints.set(scope.characterId,{version:1,cursor:nextCursor,hourBucket,activeHourCount:admitted});
       fail('ack',true);
       return {committed:true,cursor:nextCursor};
     },
