@@ -265,6 +265,50 @@ export class P2SqliteProfileStore {
       return this.#db.readVerifiedEventEvidence(scope);
     });
   }
+  // M5 command adapter: all durable changes revalidate M1 lineage/source in
+  // the same serialized writer queue, then commit and verify separately.
+  async findCandidates({scope,...options}) {
+    await this.initialize();
+    return this.#serial(()=>{
+      if(!this.available)fail('profile_store_unavailable');
+      return this.#db.listMemoryCandidates(scope,options);
+    });
+  }
+  async commitCommand(operation){
+    return this.withTimelineWrite(operation?.scope?.timelineId,foundation=>{
+      if(this.#sourceRequired&&!this.verifiedHostContext)fail('memory_native_host_unconfirmed');
+      return foundation.commitMemoryCommand(operation);
+    });
+  }
+  async verifyCommand({scope,commandId}){
+    await this.initialize();
+    return this.#serial(()=>{
+      if(!this.available)fail('profile_store_unavailable');
+      return this.#db.verifyMemoryCommand({scope,commandId});
+    });
+  }
+  async listSuppressedMemoryIds(scope){
+    await this.initialize();
+    return this.#serial(()=>{
+      if(!this.available)fail('profile_store_unavailable');
+      return this.#db.listSuppressedMemoryIds(scope);
+    });
+  }
+  async saveDeterministicMemory(proposal){
+    return this.withTimelineWrite(proposal?.timelineId,foundation=>{
+      if(this.#sourceRequired&&!this.verifiedHostContext)fail('memory_native_host_unconfirmed');
+      return foundation.persistDeterministicMemory(proposal);
+    });
+  }
+  async inspect({scope}){
+    return this.findCandidates({scope,limit:200});
+  }
+  async export({scope}){
+    // Non-destructive content export. Caller is responsible for access-control
+    // to the real promoted character and user-selected save lineage.
+    const records=await this.inspect({scope});
+    return Object.freeze({version:1,scope,records});
+  }
   async close() {
     if (this.#closed) return;
     this.#closed = true;
