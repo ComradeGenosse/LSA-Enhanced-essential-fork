@@ -2,9 +2,10 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {runSequentialTurn} from '../src/openai/runSequentialTurn.mjs';
 import {DialogueHistory} from '../src/memory/dialogueHistory.mjs';
+import {createDelivery} from '../src/voice/emotion/deliveryContract.mjs';
 
 const ID=Object.freeze({pedId:'17',turnId:'turn-a',generationId:8,sessionNonce:2});
-const DELIVERY=Object.freeze({version:1,value:'excited',source:'verified_scene',
+const DELIVERY=createDelivery({version:1,value:'excited',source:'verified_scene',
   confidence:'supported',intensity:'subtle',evidenceRef:'opaque-receipt'});
 const directorTicket=Object.freeze({schemaVersion:1,
   ticketId:'123e4567-e89b-42d3-a456-426614174000',
@@ -46,7 +47,8 @@ async function execute({early=false,structured=false,source='player_text',
   };
   const speech=[],tokens=[];
   const services={
-    config:{speechProvider:'elevenlabs',ttsVolume:1,turnDeadlineMs:3000,
+    config:{speechProvider:'elevenlabs',elevenLabs:{modelId:'eleven_v4_turbo'},
+      ttsVolume:1,turnDeadlineMs:3000,
       providerWorkDeadlineMs:3000,structuredStreamingEnabled:structured,
       earlyTtsEnabled:early,streamingMaxPcmBytes:200_000,streamingMaxSegments:6,
       expressiveDelivery:{mode:'experimental',intensity:'subtle',
@@ -107,7 +109,9 @@ test('early speech receives one hint per segment but never double-speaks buffere
   assert.equal(x.emitted.find(x=>x.type==='output_transcript').text,x.canonical);
   assert.equal(x.history.readForSession('17',2).at(-1).content,x.canonical);
   assert.equal(x.emitted.filter(e=>e.type==='audio').length,2);
-  assert.equal(x.moods.filter(x=>x.completed).length,2);
+  // This legacy fake speak() cannot produce a branded ElevenLabs applied tag,
+  // so it must NOT commit soft mood. Agent F wires per-segment real receipts.
+  assert.equal(x.moods.filter(x=>x.completed).length,0);
 });
 
 test('buffered structured speech gets exactly one hint and one synthesis call',async()=>{
