@@ -36,6 +36,9 @@ namespace LSA.Intelligence
     {
         readonly EntityAnchors anchors;
         readonly HostContext host;
+        // Positive memory owner evidence is sampled only on existing Core owner fiber.
+        readonly Func<object> memoryAuthoritySample;
+        long nextMemoryAuthority;
         readonly bool ownsHost;
         readonly SensorAdapters sensors=new SensorAdapters();
         // Every retained lifetime uses the host's monotonic time axis.
@@ -138,9 +141,10 @@ namespace LSA.Intelligence
                 " status="+status+" reason="+reason);
         }
         static readonly string[] capabilityNames={"snapshot","pedDamage","playerDamage","vehicleDamage","shooting","state","action","playback","witness","awareness","playerSpeech"};
-        public IntelligenceIntegration(Func<OwnedParticipant[]> roster,string pipeName="LSA.Intelligence.v1",HostContext host=null,bool directorShadow=false,bool directorExperimental=false,string radioMode="off",int directorAttemptsPerMinute=DirectorAdmission.NormalMaxAttempts) {
+        public IntelligenceIntegration(Func<OwnedParticipant[]> roster,string pipeName="LSA.Intelligence.v1",HostContext host=null,bool directorShadow=false,bool directorExperimental=false,string radioMode="off",int directorAttemptsPerMinute=DirectorAdmission.NormalMaxAttempts,Func<object> memoryAuthoritySample=null) {
             if(pipeName==null||!System.Text.RegularExpressions.Regex.IsMatch(pipeName,"^[A-Za-z0-9_.-]{1,80}$")) throw new ArgumentException();
             this.roster=roster;this.pipeName=pipeName;radioEnabled=radioMode=="shadow";ownsHost=host==null;this.host=host??new HostContext();anchors=this.host.Anchors;
+            this.memoryAuthoritySample=memoryAuthoritySample;
             this.directorShadow=directorShadow || directorExperimental;
             this.directorExperimental=directorExperimental;
             ps3Receipts=new DirectorPs3Receipts(()=>this.host.MonotonicMs,()=>this.host.HostRunId,()=>this.host.WorldEpoch);
@@ -410,6 +414,13 @@ namespace LSA.Intelligence
                 if(radioEnabled && now>=nextRadio) {nextRadio=now+250;SampleRadio(tick,now);}
                 bool refreshRoster=now>=nextRefresh;if(refreshRoster) nextRefresh=now+1000;
                 FlushControls(refreshRoster);
+                // Source-fenced, positive-only owner frame. Unsupported normal
+                // accepted turns, negatives and prepromotion remain unavailable.
+                if(memoryAuthoritySample!=null && now>=nextMemoryAuthority) {
+                    nextMemoryAuthority=now+250;
+                    try {var sample=memoryAuthoritySample();if(sample!=null)channel?.Send("memory_authority",sample);}
+                    catch { /* Unavailable native source never grants memory authority. */ }
+                }
                 for(int n=0;n<32;n++) {var signal=sensors.Take();if(signal==null) break;Publish(signal,now);}
                 if(now>=nextDiagnostics) {
                     nextDiagnostics=now+1000;
