@@ -1,27 +1,31 @@
-# Phase 4 — independent native audio streaming (first implementation)
+# Phase 4 — standalone audio: production PCM TTS and bounded native queue
 
-**Branch:** `feature/standalone-phase4-audio-escrow`, stacked on Phase 3 PR #43. **State:** initial native PCM protocol and offline fixture; NOT GTA-deployed or verified audible. The complete replacement must not load Essential.
+**Branch:** `feature/standalone-phase4-audio-escrow`, PR #44 stacked on Phase 3 PR #43. **NOT installed in GTA, NOT physically audible, and NO Essential loaded in standalone source.** The current Essential-based installation and `main` are untouched.
 
 ## Implemented
 
-- `NativeAudioRegistry`: native-only audio authority minted **only after** a current native-confirmed turn has a staged AI text reply. Issues a separate `LeaseKind.Audio` claim and a fresh stream ID, audio lease ID and generation, all bound to host run, world epoch, actor incarnation and exact turn. No Node-created actor/audio lease.
-- Signed 16-bit little-endian **mono 24,000 Hz** PCM, explicitly bounded to 3,000 bytes per chunk, 64 sequential chunks and 192,000 bytes per stream (4 seconds). At most four active streams and under 768 KB of retained raw PCM, with physical byte copies not caller-backed buffers. This deliberately declines longer TTS output rather than silently dropping audio; streaming drain/backpressure is a follow-up.
-- Native owner-fiber IPC adds `audio.open`, `audio.chunk`, `audio.end`, `audio.cancel`. Strict host/session/world/transport/seq/request ID checks remain in force. Each audio command validates actor incarnation, turn, lease and generation and rejects missing, repeated or out-of-order chunks. Untrusted Base64 must decode canonically and respect frame bounds.
-- `audio.end` verifies exact chunk count and total PCM bytes, then responds **`sealed_not_played`**. `buffered_not_played` and `audio_authorized_not_playing` are likewise honest. Sealing is not a playback or history receipt. Duplicate EOS, additional PCM after EOS and stale cancellation fail closed.
-- Actor expiry, actor ABA, turn cancel, world reset, transport reconnect or shutdown purges all PCM and retires its lease. No audio calls on IPC background worker or output effects from this first slice.
-- `stageNativePcm` validates and partitions Node PCM bytes into bounded sequential frames, performs exact native open/chunk/EOS and best-effort cancellation on any failure. Production has **no enabled TTS-to-device bridge** yet.
+1. **Exact audio authority.** Only a native-confirmed, staged, physically current `NativeTurnPermit` can open a separate `LeaseKind.Audio`. Every IPC write validates host run, world epoch, connection, actor incarnation, conversation turn, audio lease ID, generation, and strict sequence. Node cannot mint an actor or audio owner.
+2. **24 kHz raw PCM16LE mono** frames use canonical Base64 over the existing bounded local pipe. Up to 3,000 bytes per chunk, **480 chunks / 1,440,000 total bytes (30 seconds)** per stream, at most four live streams. Every chunk index and exact total byte count must match.
+3. **Rolling output queue.** A stream may send up to 30 seconds while **only 192,000 bytes / 4 seconds per stream** are waiting in native memory. Only `IAudioOutput.TryPush` acceptance, on the owner fiber with the exact audio lease rechecked, releases these credits. A null/unaccepted physical sink cannot drain or silently discard audio. `audio.status` reports `queuedBytes, acceptedBytes, forwardedBytes, creditsBytes, sealed`. These are queue/acceptance counters, **not physical played-byte counters**.
+4. **Interrupt and backpressure.** Unknown/replayed/out-of-order packets fail. Explicit backpressure can be retried at the same index only after confirmed rejection, bounded by a 2.2-second credit wait; unknown timeouts or disconnect do **not** replay audio. Abort/cancel, native actor recycling, world reset or transport retirement releases buffers/leases. No durable audio files or user speech logs.
+5. **OpenAI TTS production adapter**, independent of Essential: `createSpeechPcmProvider` sends `POST /v1/audio/speech` with `response_format: "pcm"`, configured model/voice, and streams raw binary frames. `stageNativePcmStream` preserves even PCM16 samples across arbitrarily split HTTP chunks without materializing the full TTS output. A finite deadline, abort and 30-second audio budget apply. API credentials are read only from the local environment.
+6. **Optional typed dialogue → speech**: once an independently produced AI text reply is staged, the standalone `service.mjs` may invoke the PCM speech provider and pass bytes to the native host. Successful result is **`pcm_sealed_not_played`**, not conversation history completion. Without TTS opt-in, existing typed conversations remain text-only.
 
-## Tests
+## Local runtime switches — future isolated profile only
 
-- Native core deterministic tests: input format, no unstaged/audio-before-confirmation, wrong actor/lease, identity replay, out-of-order chunks, invalid PCM alignment, EOS length/count mismatch, cancellation, deep copy, separate lease on retry, hidden handle+address ABA, and no false audible claim.
-- Node tests: strict PCM bounds and chunk ordering, 192 KB max, abort before/after start, backpressure cancellation, and `sealed_not_played` result.
-- Windows CI builds the real `net481` host against a **published RAGE Plugin Hook SDK**, exercises existing typed-turn fixtures, then runs a dedicated **separate .NET Framework process ↔ Node PCM escrow fixture**. No game, hardware audio or paid TTS request runs in CI.
+`LSA_STANDALONE_TYPED_MODE=enabled`, `OPENAI_API_KEY`, `LSA_STANDALONE_MODEL` enable Phase 3 AI text. Independently set `LSA_STANDALONE_TTS_MODE=enabled`, `LSA_STANDALONE_TTS_MODEL`, `LSA_STANDALONE_TTS_VOICE` to enable the optional Phase 4 PCM source; `LSA_STANDALONE_TTS_INSTRUCTIONS` is optional. No configuration template carries a secret. **Do not attempt GTA cutover until actor and output gates pass.**
 
-## Remaining Phase 4 implementation / acceptance
+## Verified offline
 
-1. Independent TTS PCM production adapter and **continuous playback queue with drain**, not just short bounded escrow. Verify precise buffer credits and mid-sentence abort over a genuinely bounded memory budget.
-2. An actual native output backend that routes the correct NPC's audio to a speaker in game, with spatialization, device handling and independently verified *started / audible / completed / interrupted* callbacks. Prior `IAudioOutput` remains an interface, not a real GTA implementation.
-3. Only exact physical playback completion (not Node byte/IO/EOS acknowledgment) may commit an NPC utterance to durable history or enable lipsync success. These operations are **not implemented or claimed** yet.
-4. Real GTA Enhanced RPH plugin startup, physical actor decorator/ABA validation, spatial audio and lip-sync tests cannot be validated from CI. Native physical actor adoption remains disabled.
+- Core safety and rolling-queue simulation: exact lease, wrong actor, audio-before-staged denial, stale/reordered PCM, byte alignment, duplicate EOS, queue full with no sink, drain credits only when a **simulated test sink** accepts bytes, 13.75-second PCM transfer under a 4-second native memory budget, cancellation and actor ABA.
+- Node tests: production speech request shape, raw HTTP response streaming, odd frame boundaries, bounded total bytes, error and abort paths, explicit backpressure retries and verified `sealed_not_played` without history mutation.
+- Windows CI builds net481 native plugin against the public RPH SDK and executes a separate .NET Framework native process ↔ Node stream, including a loopback HTTP TTS provider with the production speech adapter. **No real OpenAI call or in-game device is used.**
 
-**Go for further Phase 4 engineering; NO-GO for GTA deployment/cutover.** Existing Essential-based GTA installation and `main` remain untouched.
+## Remaining Phase 4 requirements and safety gates
+
+- **Actual RAGE-targeted output backend:** route stream PCM to the correct NPC through a verified real audio device with spatial position, occlusion/attenuation if applicable, speaker association, and safe concurrent arbitration. Production host currently constructs `NativeAudioRegistry` with **no** `IAudioOutput`. This is intentional; a long stream then stalls after four seconds and fails closed.
+- **Physical callback receipts:** distinguish device accepted, audible playback started, interrupted and physically completed before allowing any `PendingDialogue`/character history commit. Neither native FIFO acceptance nor EOS alone can assert speech completion. Device-backed lip sync remains unimplemented.
+- **GTA acceptance:** validate installed RAGE SDK, actual plugin fibers and native DECOR actor lifetime/reuse under live GTA Enhanced conditions. The standalone actor adoption gate remains `allowExperimentalAdoption=false`.
+- **No rollout, merge or playable replacement claim.** Phase 4 audio pipeline is source-integrated and offline tested only.
+
+The [OpenAI Audio API reference](https://platform.openai.com/docs/api-reference/audio) documents the speech endpoint and raw PCM response format; actual output sample conventions/device routing must still be validated with real output in game.
