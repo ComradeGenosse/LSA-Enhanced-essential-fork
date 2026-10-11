@@ -312,7 +312,15 @@ export async function handleMemoryClarificationReply({line,scope,store,clarifica
   const base=actionBase(scope,saved.line,clarificationId,saved.parsed.intent);
   try{
     const existing=await store.verifyCommand({scope,commandId:clarificationId});
-    if(existing)return verifiedAction(existing,base);
+    if(existing) {
+      // A persisted answer belongs to the exact accepted reply source. A
+      // second, different choice may not re-label its committed result.
+      if(!existing.evidenceRecordIds?.includes(line.recordId))return result(base,'failed');
+      const replay=verifiedAction(existing,base);
+      if(replay.durableCommit && typeof store.completeClarification==='function')
+        await store.completeClarification({scope,commandId:clarificationId});
+      return replay;
+    }
     const current=await store.findCandidates({scope,operation:saved.parsed.intent,
       selector:saved.parsed.selector,topic:null,beforeUtc:saved.line.committedAtUtc,
       excludeRecordId:saved.line.recordId});
