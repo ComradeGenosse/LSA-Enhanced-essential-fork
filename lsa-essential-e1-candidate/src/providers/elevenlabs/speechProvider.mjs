@@ -149,7 +149,18 @@ export function createElevenLabsSpeechProvider({
           const message = JSON.parse(raw);
           if (!message || typeof message !== 'object' || Array.isArray(message))
             throw fault('elevenlabs_invalid_message');
-          if (message.error) throw fault('elevenlabs_remote_error');
+          if (message.error) {
+            // Never include the provider's raw error or echoed request content
+            // in telemetry. Only allow recognized, bounded operational codes.
+            const source = message.error;
+            const rawCode = typeof source === 'object' && source
+              ? (source.code ?? source.status ?? source.type ?? '') : '';
+            const status = String(rawCode).toLowerCase().slice(0, 64);
+            if (/auth|key|permission|unauthori/.test(status)) throw fault('elevenlabs_auth_failed');
+            if (/credit|quota|payment|balance|subscription/.test(status))
+              throw fault('elevenlabs_credits_unavailable');
+            throw fault('elevenlabs_remote_error');
+          }
           if (message.audio !== undefined && message.audio !== null)
             enqueue(decodePcmAudio(message.audio, Math.min(maxBytes - generatedBytes, MAX_AUDIO_BYTES)));
           if (message.is_final === true) {
@@ -158,7 +169,9 @@ export function createElevenLabsSpeechProvider({
             signalWake();
             resolveFinished();
           }
-        } catch { fail(fault('elevenlabs_invalid_message')); }
+        } catch (error) {
+          fail(error?.code?.startsWith?.('elevenlabs_') ? error : fault('elevenlabs_invalid_message'));
+        }
       };
       const onError = () => fail(fault('elevenlabs_connection_error'));
       const onClose = () => {
