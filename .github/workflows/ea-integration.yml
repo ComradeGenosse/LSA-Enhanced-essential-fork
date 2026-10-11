@@ -30,6 +30,7 @@ jobs:
           node --test
           tests/elevenlabs-emotional-acting.test.mjs
           tests/scene-delivery.test.mjs
+          tests/ea-integration-owner-projection.test.mjs
           tests/ea2-speech-delivery.test.mjs
           tests/ea2-turn-lifecycle.test.mjs
           tests/ea3-delivery-hints.test.mjs
