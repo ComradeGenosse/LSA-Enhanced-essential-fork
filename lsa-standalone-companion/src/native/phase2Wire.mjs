@@ -138,6 +138,7 @@ export class Phase2NativeClient {
       'turn.reply': 'turn.reply.result',
       'audio.open': 'audio.open.result',
       'audio.chunk': 'audio.chunk.result',
+      'audio.status': 'audio.status.result',
       'audio.end': 'audio.end.result',
       'audio.cancel': 'audio.cancel.result'
     })[reply.type];
@@ -145,6 +146,8 @@ export class Phase2NativeClient {
     const isOffer = expected === 'turn.next.result' && value.status === 'ok';
     const isAudioOpen = expected === 'audio.open.result' &&
       value.status === 'audio_authorized_not_playing';
+    const isAudioStatus = expected === 'audio.status.result' &&
+      value.status === 'not_played';
     const fields = isOffer
       ? ['requestId', 'status', 'turnId', 'sessionNonce', 'actorIncarnationId',
           'leaseId', 'generation', 'source', ...(Object.hasOwn(value, 'playerText') ? ['playerText'] : []),
@@ -154,12 +157,23 @@ export class Phase2NativeClient {
         : isAudioOpen
           ? ['requestId', 'status', 'streamId', 'audioLeaseId',
               'audioGeneration', 'sampleRate']
-          : ['requestId', 'status'];
+          : isAudioStatus
+            ? ['requestId', 'status', 'queuedBytes', 'acceptedBytes',
+                'forwardedBytes', 'creditsBytes', 'sealed']
+            : ['requestId', 'status'];
     verify(value, expected, this.#binding, ++this.#incoming, fields);
     if (typeof value.status !== 'string' ||
         (value.type === 'host.snapshot.result' &&
           (!Number.isSafeInteger(value.trackedActors) || value.trackedActors < 0)))
       throw new Error('invalid_native_reply');
+    if (isAudioStatus && (
+        !['queuedBytes','acceptedBytes','forwardedBytes','creditsBytes'].every(
+          name => Number.isSafeInteger(value[name]) && value[name] >= 0) ||
+        value.queuedBytes > 192000 || value.creditsBytes > 192000 ||
+        value.queuedBytes + value.creditsBytes !== 192000 ||
+        value.forwardedBytes + value.queuedBytes !== value.acceptedBytes ||
+        value.acceptedBytes > 1440000 || typeof value.sealed !== 'boolean'))
+      throw new Error('invalid_native_audio_status');
     if (isAudioOpen &&
         (!UUID.test(value.streamId) || !UUID.test(value.audioLeaseId) ||
          !/^[1-9][0-9]{0,18}$/.test(value.audioGeneration) ||
@@ -189,7 +203,8 @@ export class Phase2NativeClient {
         (reply.type === 'turn.reply' && value.status === 'staged_not_played') ||
         (reply.type === 'audio.open' && value.status === 'audio_authorized_not_playing') ||
         (reply.type === 'audio.chunk' && value.status === 'buffered_not_played') ||
-        (reply.type === 'audio.end' && value.status === 'sealed_not_played'))
+        (reply.type === 'audio.end' && value.status === 'sealed_not_played') ||
+        (reply.type === 'audio.status' && value.status === 'not_played'))
       reply.resolve(value);
     else reply.reject(new Error('native_rejected_' + value.status));
   }
@@ -197,7 +212,8 @@ export class Phase2NativeClient {
   request(type, claims = {}) {
     if (this.#state !== 'ready') return Promise.reject(new Error('native_not_ready'));
     if (!['health.ping', 'host.snapshot', 'turn.next', 'turn.confirm', 'turn.cancel',
-      'turn.reply', 'audio.open', 'audio.chunk', 'audio.end', 'audio.cancel'].includes(type))
+      'turn.reply', 'audio.open', 'audio.chunk', 'audio.end',
+      'audio.cancel', 'audio.status'].includes(type))
       return Promise.reject(new Error('unsupported_request'));
     if (this.#pending.size >= 8 || this.#outgoing >= 0x7fffffff)
       return Promise.reject(new Error('native_backpressure'));
@@ -209,7 +225,7 @@ export class Phase2NativeClient {
           ? ['turnId', 'actorIncarnationId', 'leaseId', 'generation', 'replyText']
           : type === 'audio.open'
             ? ['turnId', 'actorIncarnationId', 'leaseId', 'generation', 'sampleRate']
-            : type === 'audio.cancel'
+            : type === 'audio.cancel' || type === 'audio.status'
               ? ['streamId', 'audioLeaseId', 'audioGeneration', 'turnId', 'actorIncarnationId']
               : type === 'audio.chunk'
                 ? ['streamId', 'audioLeaseId', 'audioGeneration', 'turnId',
@@ -234,11 +250,11 @@ export class Phase2NativeClient {
            /[\u0000-\u0008\u000b-\u001f\u007f]/.test(claims.replyText))) ||
         (required.includes('sampleRate') && claims.sampleRate !== 24000) ||
         (required.includes('chunkIndex') &&
-          (claims.chunkIndex < 0 || claims.chunkIndex >= 64)) ||
+          (claims.chunkIndex < 0 || claims.chunkIndex >= 480)) ||
         (required.includes('chunkCount') &&
-          (claims.chunkCount < 1 || claims.chunkCount > 64)) ||
+          (claims.chunkCount < 1 || claims.chunkCount > 480)) ||
         (required.includes('totalBytes') &&
-          (claims.totalBytes < 2 || claims.totalBytes > 192000)) ||
+          (claims.totalBytes < 2 || claims.totalBytes > 1440000)) ||
         (required.includes('pcmBase64') &&
           (!/^[A-Za-z0-9+/]+={0,2}$/.test(claims.pcmBase64) ||
             claims.pcmBase64.length > 4000 ||
