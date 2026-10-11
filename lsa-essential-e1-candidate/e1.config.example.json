@@ -24,6 +24,8 @@
   "promotedCharacters": {
     "enabled": false,
     "storePath": "characters/profiles.v1.json",
+    "storageMode": "json",
+    "sqliteStorePath": "characters/profiles.v2.sqlite",
     "pipeName": "LSA.PromotedCharacters.v1",
     "editorPort": 37921,
     "summonWaitMs": 30000
