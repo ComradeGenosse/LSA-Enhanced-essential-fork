@@ -158,3 +158,6 @@ test('M6 idempotent deterministic proposal IDs use canonical immutable evidence 
  assert.equal(a.proposalId,stableUuid('auto-memory-v1',scope.characterId,
    scope.worldProfileId,scope.timelineId,a.evidenceRecordIds));
 });
+
+// Run durable P2-cursor lifecycle adversarial cases in the pinned M6 CI suite.
+import './memory-m6-cursor-lifecycle.test.mjs';
