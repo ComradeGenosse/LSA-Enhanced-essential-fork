@@ -170,7 +170,7 @@ namespace LSA.Intelligence
             // Ordered control fact invalidates all prior observer state. Losing
             // it closes the bounded channel; reconnect republishes current host.
             if(channel?.Send("world_epoch",new {epoch,reason})!=true) {
-                channel?.Dispose();channel=new IntelligenceChannel(pipeName,Guid.NewGuid().ToString("D"),()=>capabilities,host.HostRunId,()=>host.WorldEpoch,true,directorShadow,captureShadow);channel.Start();connectionVersion=0;
+                channel?.Dispose();channel=new IntelligenceChannel(pipeName,Guid.NewGuid().ToString("D"),()=>capabilities,host.HostRunId,()=>host.WorldEpoch,true,directorShadow,speechCapture!=null);channel.Start();connectionVersion=0;
             }
             nextRefresh=nextDiscovery=nextState=nextShot=0;
             LogStatus("[PS] clock_reset");
@@ -196,8 +196,8 @@ namespace LSA.Intelligence
                 AppDomain.CurrentDomain.AssemblyLoad+=AssemblyLoaded;QueueDamagePin();
                 try {NpcPlaybackCoordinator.PlaybackStarted+=PlaybackStarted;NpcPlaybackCoordinator.PlaybackEnded+=PlaybackEnded;playback=true;capabilities["playback"]=true;}
                 catch {try{NpcPlaybackCoordinator.PlaybackStarted-=PlaybackStarted;NpcPlaybackCoordinator.PlaybackEnded-=PlaybackEnded;}catch{}}
-                channel=new IntelligenceChannel(pipeName,Guid.NewGuid().ToString("D"),()=>capabilities,host.HostRunId,()=>host.WorldEpoch,true,directorShadow,captureShadow);channel.Start();
                 if(captureShadow) speechCapture=LSA.PromotedCharacters.SpeechCaptureAdapter.Attach(host);
+                channel=new IntelligenceChannel(pipeName,Guid.NewGuid().ToString("D"),()=>capabilities,host.HostRunId,()=>host.WorldEpoch,true,directorShadow,speechCapture!=null);channel.Start();
                 previousTick=unchecked((uint)Game.GameTime);started=true;Game.LogTrivial("[PS] native_adapter_loaded shadow");
             } catch {Shutdown("initialization_failed");LogStatus("[PS] optional_initialization_failed");}
         }
