@@ -224,6 +224,14 @@ test('real v4 read projection: source hashes, archived FTS, correction overlays 
  const f=integratedFixture(),s=scope();try{
   const old=f.dialogue(s,'I said RED beans and 🚗',{at:'2023-01-01T00:00:00.000Z'});
   const unrelated=f.dialogue(s,'classified Trevor pudding',{protagonistKey:'trevor'});
+  const forgedCorrection=f.correction(s,unrelated.recordId,'cross-protagonist false correction');
+  const forgedMemory=f.memory(s,'orphaned evidence claim',[U()]);
+  const forgedLookup=(await recallMemory({query:query(s,'orphaned evidence claim'),
+    readAdapter:f.adapter,protagonistKey:s.protagonistKey,nowUtc:clock})).bundle;
+  assert.ok(!forgedLookup.items.some(x=>x.recordId===forgedMemory));
+  const forgedReport=(await recallMemory({query:query(s,'cross-protagonist false correction'),
+    readAdapter:f.adapter,protagonistKey:s.protagonistKey,nowUtc:clock})).bundle;
+  assert.ok(!forgedReport.items.some(x=>x.recordId===forgedCorrection));
   const raw=await recallMemory({query:query(s,'what did I say about RED beans?',{intent:'exact_quote'}),
     readAdapter:f.adapter,protagonistKey:s.protagonistKey,nowUtc:clock});
   assert.equal(raw.bundle.items[0].recordId,old.recordId);assert.equal(raw.bundle.items[0].freshness,'archive');
