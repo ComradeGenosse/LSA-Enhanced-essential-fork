@@ -27,12 +27,19 @@ export class WitnessedEventRecorder {
     this.#withTimelineWrite=withTimelineWrite;
     this.#port=journalPort;this.#now=now;
   }
-  reset(){this.#grace=[];this.#seen.clear();}
+  graceDiagnostics={evicted:0,expired:0,duplicates:0,retired:0};
+  reset(){this.graceDiagnostics.retired+=this.#grace.length;this.#grace=[];this.#seen.clear();}
   get bufferedCount(){return this.#grace.length;}
   #trim(){
     const now=this.#now();
+    const before=this.#grace.length;
     this.#grace=this.#grace.filter(e=>now>=e.capturedAt && now-e.capturedAt<=GRACE_MS);
-    if(this.#grace.length>MAX_GRACE)this.#grace.splice(0,this.#grace.length-MAX_GRACE);
+    this.graceDiagnostics.expired+=before-this.#grace.length;
+    if(this.#grace.length>MAX_GRACE){
+      const overflow=this.#grace.length-MAX_GRACE;
+      this.graceDiagnostics.evicted+=overflow;
+      this.#grace.splice(0,overflow);
+    }
     for(const [key,value] of this.#seen) if(now-value>GRACE_MS)this.#seen.delete(key);
     while(this.#seen.size>MAX_SEEN)this.#seen.delete(this.#seen.keys().next().value);
   }
@@ -47,7 +54,7 @@ export class WitnessedEventRecorder {
     if(reason) return {accepted:false,reason};
     const key=[stamp.adapterEpoch,stamp.ownerProof.worldEpoch,stamp.ownerProof.observerCaptureRef,
       stamp.ownerProof.incarnationId,observation.observationId,observation.revision].join(':');
-    if(this.#seen.has(key))return {accepted:false,reason:'duplicate_buffer'};
+    if(this.#seen.has(key)){this.graceDiagnostics.duplicates++;return {accepted:false,reason:'duplicate_buffer'};}
     this.#seen.set(key,this.#now());
     while(this.#seen.size>MAX_SEEN)this.#seen.delete(this.#seen.keys().next().value);
     this.#grace.push(immutableSnapshot({observation,prePromotionProof:stamp.ownerProof,
