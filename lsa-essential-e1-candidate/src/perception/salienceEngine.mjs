@@ -462,6 +462,34 @@ export class SalienceCache {
     // never becomes usable through the frozen key.
     return this.acknowledge(entry.decisionKey, 'ps4_context', outcome);
   }
+  // PS6 consumption is downstream of a verified native playback completion.
+  // The ledger may have rotated its PS3 key during TTS: use immutable original
+  // observation/owner/run identity, never this method for a new speech grant.
+  acknowledgeDirectorCompletion(proposal,adapterEpoch) {
+    if(!proposal || typeof proposal.decisionKey!=='string' ||
+       typeof proposal.observationId!=='string' ||
+       !Number.isSafeInteger(proposal.observationRevision) ||
+       proposal.observationRevision<=0 ||
+       proposal.policyVersion!==SALIENCE_POLICY_VERSION ||
+       !proposal.decisionKey.startsWith(
+         `${proposal.observationId}:${proposal.observationRevision}:${proposal.policyVersion}:`) ||
+       typeof proposal.speakerCaptureRef!=='string' ||
+       typeof adapterEpoch!=='string' || !adapterEpoch)return false;
+    const entry=this.ledger.get(proposal.observationId),now=this.now();
+    if(!entry || entry.expires<=now || entry.consumed ||
+       entry.consumedBy?.has('ps6_ticket') ||
+       entry.revision!==proposal.observationRevision ||
+       entry.policyVersion!==proposal.policyVersion ||
+       entry.observerRef!==proposal.speakerCaptureRef ||
+       entry.adapterEpoch!==adapterEpoch || !entry.familyKey ||
+       entry.pair && (
+         entry.pair.observation?.observationId!==proposal.observationId ||
+         entry.pair.observation?.revision!==proposal.observationRevision ||
+         entry.pair.observation?.observer?.captureRef!==proposal.speakerCaptureRef ||
+         entry.pair.observation?.observedAt?.nativeRun!==adapterEpoch
+       ))return false;
+    return this.acknowledge(entry.decisionKey,'ps6_ticket','delivered');
+  }
   acknowledge(decisionKeyValue, consumer, outcome) {
     if (typeof decisionKeyValue !== 'string' || !['ps4_context', 'ps6_ticket', 'ps5_memory'].includes(consumer) || !['delivered', 'rejected', 'expired'].includes(outcome)) return false;
     const hit = [...this.ledger.entries()].find(([, entry]) => entry.decisionKey === decisionKeyValue);
@@ -546,6 +574,9 @@ export class SalienceCache {
         decisionKey: decision.decisionKey,
         grantEpoch: draft.grantEpoch || existing?.grantEpoch || 0,
         familyKey: familyKey(observation),
+        observerRef:observation.observer.captureRef,
+        adapterEpoch:observation.observedAt.nativeRun,
+        policyVersion:decision.policyVersion,
         memoryStaged: Boolean(existing?.memoryStaged) || decision.memory === 'stage',
         expires,
       });

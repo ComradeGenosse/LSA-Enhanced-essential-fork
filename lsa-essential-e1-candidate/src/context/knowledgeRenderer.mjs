@@ -44,8 +44,16 @@ export function projectSituation(world) {
  result.zoneCode=typeof world?.zoneCode==='string'&&/^[A-Z0-9_]{1,16}$/.test(world.zoneCode)?world.zoneCode:'unknown';
  for(const key of ['crossingStreetName','streetName','weather','gameTime'])if(jsonBytes(result)>KNOWLEDGE_LIMITS.situationBytes)result[key]='unknown';return result;
 }
-export function projectConversation(history,input,source) {
- const current=['player_text','player_mic'].includes(source)?String(input??'').toWellFormed():'No player utterance was received. Respond only to supported current context.';
+export function projectConversation(history,input,source,directorEventContext=null) {
+ // Only the independently verified PS6 original stock kb context may be added.
+ // Accept precisely the deterministic 160-unit native Director event grammar.
+ const directorEvent=source==='special_event' &&
+   typeof directorEventContext==='string' && directorEventContext.length<=160 &&
+   /^You (?:heard|seen|personally experienced) (?:gunfire|someone injured|a witnessed death|a body found|a nearby threat|a vehicle impact|an observed action|a location change|an activity change|a vehicle movement|someone nearby|speech overheard|a reported event) \((?:routine|notable|danger|critical), (?:sound|firing|injured|dead|attack|location|action|presence)(?:, (?:action (?:followtarget|waithere)|location [A-Z0-9_]{1,16}))?\)\. React briefly in character to this event; dialogue only, no actions\.$/.test(directorEventContext);
+ const current=directorEvent
+   ? 'No player utterance was received. Native-verified witnessed event: '+directorEventContext
+   : ['player_text','player_mic'].includes(source)?String(input??'').toWellFormed()
+     :'No player utterance was received. Respond only to supported current context.';
  if(current.length>12000)throw new RangeError('knowledge_current_input_units');
  const currentMessage={role:'user',content:current};if(jsonBytes(currentMessage)>KNOWLEDGE_LIMITS.currentBytes)throw new RangeError('knowledge_current_input_bytes');
  const prior=(Array.isArray(history)?history:[]).filter(item=>item&&['user','assistant'].includes(item.role)&&typeof item.content==='string').slice(-12).map(({role,content})=>({role,content:content.toWellFormed()}));
@@ -54,7 +62,7 @@ export function projectConversation(history,input,source) {
 }
 // Pure projection only: callers must supply the canon already released by P1/P2.
 // Private turn/delivery metadata is never part of modelAllocation.
-export function renderKnowledge({turn,frozenAt,profile,persistent=false,knowledgeInputs,actor,listener,world,referenceMap,presence,history,input,source,includePerceived=false,activityInputs=null,includeActivityFacts=false,dialogueInputs=null,includeDialogueReceipts=false}) {
+export function renderKnowledge({turn,frozenAt,profile,persistent=false,knowledgeInputs,actor,listener,world,referenceMap,presence,history,input,source,directorEventContext=null,includePerceived=false,activityInputs=null,includeActivityFacts=false,dialogueInputs=null,includeDialogueReceipts=false}) {
  let canonProjection=narrativeProfileWithDiagnostics(profile,persistent);
  let narrative=canonProjection.narrative;
  // Reserve actual lane-wrapper overhead while reusing P2's established field
@@ -71,7 +79,7 @@ export function renderKnowledge({turn,frozenAt,profile,persistent=false,knowledg
  const {memories=[],...canon}=narrative||{};
  const recalled=memories.map(({category,importance,text})=>({category:['note','relationship','promise','event','biography','other'].includes(category)?category:'other',importance:Number.isInteger(importance)&&importance>=0&&importance<=100?importance:0,text}));
  const perceived=selectKnowledge(knowledgeInputs,{includePerceived});
- const conversation=projectConversation(history,input,source);
+ const conversation=projectConversation(history,input,source,directorEventContext);
  const lanes={SELF:{canon:narrative?canonData(canon):null,selfFacts:[]},PERCEIVED:{observations:[...perceived.observations]},RECALLED:{memories:wellFormedData(recalled)},SITUATION:projectSituation(world),COMPAT:projectCompatibility({actor,listener,referenceMap,presence})};
  if(jsonBytes({SELF:lanes.SELF,RECALLED:lanes.RECALLED})>KNOWLEDGE_LIMITS.canonBytes) {
   while(lanes.RECALLED.memories.length&&jsonBytes({SELF:lanes.SELF,RECALLED:lanes.RECALLED})>KNOWLEDGE_LIMITS.canonBytes)lanes.RECALLED.memories.pop();

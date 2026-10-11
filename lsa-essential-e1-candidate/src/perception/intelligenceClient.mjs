@@ -506,7 +506,7 @@ export class IntelligenceClient {
     this.directorPlaybacks=new DirectorPlaybackRegistry({
       onTimeout:code=>this.handoff('binding_wait','timeout',code),
     });
-    this.closed=false;this.socket=null;this.lastReport=0;this.frameRejections=new Map();this.directorPending=new Map();this.directorOwnerReservations=new Map();this.directorNativeSubmitted=new Set();this.directorStockDispatched=new Set();this.directorStockContexts=new Map();this.directorStockClaims=new Map();this.directorBindingPending=new Map();
+    this.closed=false;this.socket=null;this.emptyHelloStreak=0;this.lastReport=0;this.frameRejections=new Map();this.directorPending=new Map();this.directorOwnerReservations=new Map();this.directorNativeSubmitted=new Set();this.directorStockDispatched=new Set();this.directorStockContexts=new Map();this.directorStockClaims=new Map();this.directorBindingPending=new Map();
   }
   persist(event,data={}) { try { this.telemetry(event,data); } catch {} }
   handoff(stage,status,code) {
@@ -540,7 +540,7 @@ export class IntelligenceClient {
     if(this.config.mode!=='shadow' || this.closed || this.socket) return;
     this.persist('intelligence_status',{stage:'connecting'});
     const socket=this.connect({path:`\\\\.\\pipe\\${this.config.pipeName}`});this.socket=socket;
-    let buffer=Buffer.alloc(0),frames=[],hello=false;
+    let buffer=Buffer.alloc(0),frames=[],hello=false,sawLiveFrame=false;
     const fail=()=>socket.destroy();
     const processFrames=()=>{
       this.work=null;
@@ -569,6 +569,7 @@ export class IntelligenceClient {
             this.persist('intelligence_frame_rejected',{
               frameType,reason,count,frameBytes:Buffer.byteLength(JSON.stringify(v),'utf8')});
         }
+        if(accepted && v?.type!=='hello') {sawLiveFrame=true;this.emptyHelloStreak=0;}
         if(accepted && v?.type==='world_epoch')this.cancelDirectorRequests();
         if(accepted && v?.type==='director_response')this.acceptDirectorResponse(v.payload);
         this.notifyKnowledgeInvalidation();
@@ -594,7 +595,13 @@ export class IntelligenceClient {
     socket.on('close',()=>{
       if(hello) this.emitReport(true);
       this.persist('intelligence_status',{stage:'disconnected'});
-      if(this.work) clearImmediate(this.work);this.work=null;frames=[];this.cancelDirectorRequests();this.socket=null;this.runtime.reset('disconnect');this.notifyKnowledgeInvalidation();if(!this.closed) this.retry=setTimeout(()=>this.start(),1000).unref();
+      if(this.work) clearImmediate(this.work);this.work=null;frames=[];this.cancelDirectorRequests();this.socket=null;this.runtime.reset('disconnect');this.notifyKnowledgeInvalidation();
+      // While GTA is paused, hello may succeed but no owner-fiber data arrive.
+      // Keep the 3s freshness veto; only bound empty-handshake retry churn.
+      this.emptyHelloStreak=hello&&!sawLiveFrame
+        ?Math.min(3,this.emptyHelloStreak+1):0;
+      const retryMs=1000*Math.min(4,2**Math.max(0,this.emptyHelloStreak-1));
+      if(!this.closed)this.retry=setTimeout(()=>this.start(),retryMs).unref();
     });
     this.watch=setInterval(()=>{
       this.runtime.expire();this.runtime.refreshSalience();this.notifyKnowledgeInvalidation();if(!this.runtime.epoch && hello) fail();

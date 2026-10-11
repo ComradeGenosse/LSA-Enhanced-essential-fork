@@ -25,6 +25,15 @@ namespace LSA.PromotedCharacters
             // Keep the raw optional value: serializer bool conversion can
             // accept strings. Only a literal JSON true opts into collection.
             bool collectDialogueReceipts=config.activities?.dialogueReceipts is bool && (bool)config.activities.dialogueReceipts;
+            // This setting comes from the native-owned Plugins/LSA.PromotedCharacters.json,
+            // not an untrusted PS6 request. Only exact literal strings count.
+            // Misconfigured or missing values always retain the native 4/min limit.
+            int directorAttemptsPerMinute=config.intelligence?.mode=="shadow" &&
+                config.intelligence?.directorMode=="experimental" &&
+                config.intelligence?.directorAttemptPreset is string &&
+                (string)config.intelligence.directorAttemptPreset=="testing"
+                ? LSA.Intelligence.DirectorAdmission.TestingMaxAttempts
+                : LSA.Intelligence.DirectorAdmission.NormalMaxAttempts;
             // Remoting can call Start concurrently. Only one caller may create
             // the owner fiber, including before that fiber has initialized.
             if(Interlocked.CompareExchange(ref startClaim,1,0)!=0) return false;
@@ -42,7 +51,7 @@ namespace LSA.PromotedCharacters
                     IntegrationManager.Register(integration);
                     if(config.intelligence?.mode=="shadow") {
                         try {
-                            intelligence=new LSA.Intelligence.IntelligenceIntegration(integration.PerceptionRoster,config.intelligence.pipeName,host,config.intelligence.directorMode=="shadow" || config.intelligence.directorMode=="experimental",config.intelligence.directorMode=="experimental");
+                            intelligence=new LSA.Intelligence.IntelligenceIntegration(integration.PerceptionRoster,config.intelligence.pipeName,host,config.intelligence.directorMode=="shadow" || config.intelligence.directorMode=="experimental",config.intelligence.directorMode=="experimental",directorAttemptsPerMinute);
                             integration.OwnerRetired+=intelligence.OwnerRetired;
                             IntegrationManager.Register(intelligence);intelligence.Initialize();
                         } catch {Game.LogTrivial("[PS] optional_host_unavailable");}
@@ -92,7 +101,7 @@ namespace LSA.PromotedCharacters
             public IntelligenceConfig intelligence {get;set;}=new IntelligenceConfig();
             public ActivitiesConfig activities {get;set;}=new ActivitiesConfig();
         }
-        public sealed class IntelligenceConfig {public string mode {get;set;}="off";public string directorMode {get;set;}="off";public string pipeName {get;set;}="LSA.Intelligence.v1";}
+        public sealed class IntelligenceConfig {public string mode {get;set;}="off";public string directorMode {get;set;}="off";public object directorAttemptPreset {get;set;}="normal";public string pipeName {get;set;}="LSA.Intelligence.v1";}
         public sealed class ActivitiesConfig {public object dialogueReceipts {get;set;}=false;public string mode {get;set;}="off";public string pipeName {get;set;}="LSA.Activities.v1";}
     }
 }

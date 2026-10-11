@@ -618,3 +618,31 @@ test('PS4 frozen acknowledgment refuses expired, retired, changed-revision, and 
   for(const fixture of [expired,retired,revised,replaced,reset])
     assert.equal([...fixture.cache.ledger.values()].some(row=>row.consumedBy.has('ps4_context')),false);
 });
+
+
+test('PS6 completes a native-verified original turn after PS3 decision-key rotation without replay or identity substitution',()=>{
+  let now=NOW;
+  const cache=new SalienceCache({now:()=>now});
+  const witness=randomUUID(),target=randomUUID(),run=randomUUID();
+  const seen=observation({observer:witness,nativeRun:run,eventType:'injury',
+    claims:[injuryOf(target)]});
+  const original=cache.evaluate(seen,view({activity:'idle'}));
+  const proposal={observationId:seen.observationId,observationRevision:seen.revision,
+    speakerCaptureRef:witness,policyVersion:original.policyVersion,
+    decisionKey:original.decisionKey};
+  const refreshed=cache.evaluate(seen,view({activity:'conversation'}));
+  assert.notEqual(refreshed.decisionKey,original.decisionKey);
+  assert.equal(cache.acknowledge(original.decisionKey,'ps6_ticket','delivered'),false);
+  for(const [altered,epoch] of [
+    [{...proposal,speakerCaptureRef:randomUUID()},run],
+    [{...proposal,observationRevision:proposal.observationRevision+1},run],
+    [proposal,randomUUID()],
+  ])assert.equal(cache.acknowledgeDirectorCompletion(altered,epoch),false);
+  assert.equal(cache.acknowledgeDirectorCompletion(proposal,run),true);
+  assert.equal(cache.ledger.get(seen.observationId).consumed,true);
+  assert.equal(cache.acknowledgeDirectorCompletion(proposal,run),false);
+  const late=new SalienceCache({now:()=>now});
+  late.evaluate(seen,view({activity:'idle'}));
+  now+=SALIENCE_BOUNDS.suppressionTtlMs+1;
+  assert.equal(late.acknowledgeDirectorCompletion(proposal,run),false);
+});
