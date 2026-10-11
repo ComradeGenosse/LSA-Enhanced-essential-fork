@@ -123,6 +123,21 @@ test('B: nested savepoint failure rolls back only inner transaction; no second w
   assert.deepEqual(answer,[1,3]);
   await x.store.close();
 });
+test('B: native revocation inside transaction rolls back before physical SQLite COMMIT',async t=>{
+  const x=await fixture(t);
+  await assert.rejects(x.store.withTimelineSqliteWrite(x.scope,db=>{
+    db.exec('CREATE TABLE revocation_probe(n INTEGER)');
+    db.exec('INSERT INTO revocation_probe VALUES(99)');
+    x.store.setVerifiedHostContext(null);
+    return 'must-not-commit';
+  }),/timeline_write_suspended/);
+  x.store.setVerifiedHostContext({...x.host,hostRunId:id(),worldEpoch:2});
+  await x.store.confirmTimeline(x.scope.timelineId);
+  const count=await x.store.withP2SqliteRead(x.scope,db=>
+    db.prepare("SELECT count(*) AS n FROM sqlite_master WHERE name='revocation_probe'").get().n);
+  assert.equal(count,0);
+  await x.store.close();
+});
 test('B: unverified native event stays a rejection, never a witnessed NPC fact',async t=>{
   const x=await fixture(t),scope={...x.scope,protagonistKey:'unknown'},recordId=id();
   const envelope=JSON.stringify({version:1,recordId,characterId:scope.characterId,
