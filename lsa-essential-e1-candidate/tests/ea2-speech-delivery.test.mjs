@@ -184,3 +184,15 @@ test('experimental cannot smuggle bracketed vendor directions with no delivery',
   assert.equal(untagged.sockets[0].sent[1].inputs[0].text,
     'Literal “laughs” and “explosion”.');
 });
+
+test('oversized tag prefix preserves next segment quota and canonical speech',()=>{
+  const config={...CONFIG,expressiveDelivery:{...CONFIG.expressiveDelivery,maxTaggedSegmentsPerTurn:1}};
+  const adapter={resolveDelivery:()=>DELIVERY};
+  const resolver=createSpeechDeliveryResolver({config,identity:ID,source:'player_text',
+    turn:{},adapter,isActive:()=>true});
+  const untaggable=resolver.forSegment({text:'x'.repeat(2997),sequence:1});
+  assert.equal(untaggable,null);
+  const next=resolver.forSegment({text:'Ha!',sequence:2});
+  assert.equal(next.value,'amused');
+  assert.equal(resolver.forSegment({text:'Again!',sequence:3}),null);
+});
