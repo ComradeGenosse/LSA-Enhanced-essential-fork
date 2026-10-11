@@ -53,7 +53,7 @@ function speechTextForSocket(dialogue, delivery, mode, modelId, renderSpeech) {
       !validDelivery(delivery) || typeof renderSpeech !== 'function')
     return {text: safeText, tagged: false};
   try {
-    const rendered = renderSpeech({dialogue, delivery, enabled: true});
+    const rendered = renderSpeech({dialogue, delivery, enabled: true, modelId});
     const allowed = ALLOWED_TAG[delivery.value] + safeText;
     if (rendered === allowed && rendered.length <= ELEVEN_SPEECH_MAX_CHARS)
       return {text: rendered, tagged: true};
