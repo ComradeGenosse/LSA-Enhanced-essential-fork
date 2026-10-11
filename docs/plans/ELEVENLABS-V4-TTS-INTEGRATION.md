@@ -60,7 +60,7 @@ Documentation sources:
 ## Acceptance plan
 
 1. Run offline tests (never bill ElevenLabs): `node --test tests/elevenlabs-provider.test.mjs`.
-2. Test one short cloud phrase with ElevenLabs credits and output format `pcm_24000`. Confirm first audio, generated output and timing, then compare the same Nathan line with Qwen/OpenAI and listen (never infer expressiveness from vendor marketing latency).
+2. Test one short, **explicitly billed** preview (requires valid local config, private key and voice ID). From `lsa-essential-e1-candidate`, run `node tools/elevenlabs/voice_smoke.mjs --voice nathan --allow-billing`. It creates ignored `outputs/elevenlabs-smoke/nathan.wav` and prints first-PCM and total synthesis time without disclosing the key or spoken text. Without `--allow-billing`, the tool refuses all external synthesis. Confirm first audio, generated output and timing, then compare the same Nathan line with Qwen/OpenAI and listen (never infer expressiveness from vendor marketing latency).
 3. Test one player text turn, one microphone turn, cancellation while speaking, repeated quick NPC requests, character swap, interruption during combat, and one promoted Nathan conversation in GTA. Verify exact owner/turn receipts, TTS volume, E1 observational logging and absence of key/transcript leaks.
 4. Record **full turn** time from Luna start to first native playable/audio start, not just vendor-reported inferencing; compare typical, p50 and p90 along with any stutter, voice continuity, credits spent, and monthly expected costs.
 5. Only after passing GTA acceptance, merge in stack order (#46 → #39 → this PR) or rebase cleanly onto the final base once those predecessors land.
