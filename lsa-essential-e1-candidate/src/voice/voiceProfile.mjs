@@ -7,6 +7,7 @@ const INSTRUCTIONS_MAX = 512;
 export function isVoiceSupportedByModel(model, voice) {
   const id = String(voice || '').trim().toLowerCase();
   if (!VOICE_ID.test(id)) return false;
+  if (model === 'qwen3-tts') return true; // Registry admission checks the configured pool.
   if (model === 'tts-1' || model === 'tts-1-hd') {
     return ['alloy', 'ash', 'coral', 'echo', 'fable', 'onyx', 'nova', 'sage', 'shimmer'].includes(id);
   }
@@ -155,7 +156,7 @@ export function resolveVoiceProfile({ identity, actor = {}, config }) {
 
   return Object.freeze({
     profileId: `vp_${digest.subarray(0, 10).toString('hex')}`,
-    provider: 'openai',
+    provider: config.speechProvider ?? 'openai',
     model: config.ttsModel,
     voice: selection.voice,
     speed: config.ttsSpeed,
@@ -175,19 +176,37 @@ export function createPersistentVoiceAssignment({ characterId, worldProfileId, a
   const selection = config.voiceAssignment === 'character-aware-session'
     ? selectCharacterVoice(null, traits, config, digest) : selectLegacyVoice(null, config, digest);
   if (!isVoiceSupportedByModel(config.ttsModel, selection.voice)) throw new TypeError('persistent_voice_incompatible');
-  return Object.freeze({ assignmentVersion: 1, profileId: `vp_${digest.subarray(0, 10).toString('hex')}`,
-    provider: 'openai', voice: selection.voice,
+  return Object.freeze({ assignmentVersion: (config.speechProvider === 'faster-qwen3-tts' ? 2 : 1), profileId: `vp_${digest.subarray(0, 10).toString('hex')}`,
+    provider: config.speechProvider ?? 'openai', voice: selection.voice,
     poolVersion: createHash('sha256').update(JSON.stringify([config.speechVoices, config.speechVoiceProfiles, config.voiceAssignment])).digest('hex') });
 }
 
 export function resolvePersistentVoiceProfile({ assignment, actor = {}, config }) {
-  if (!assignment || assignment.assignmentVersion !== 1 || assignment.provider !== 'openai' ||
-      !isVoiceSupportedByModel(config.ttsModel, assignment.voice)) throw new TypeError('persistent_voice_incompatible');
+  if (!assignment || ![1,2].includes(assignment.assignmentVersion) ||
+      !/^vp_[a-f0-9]{20}$/.test(assignment.profileId))
+    throw new TypeError('persistent_voice_incompatible');
+  const provider = config.speechProvider ?? 'openai';
+  const sameProvider = assignment.provider === provider &&
+    config.speechVoices.includes(assignment.voice) &&
+    isVoiceSupportedByModel(config.ttsModel, assignment.voice);
+  // Preserve the authored reference on disk while switching providers. The new
+  // active voice is deterministic from the persisted profile ID, not a ped ID.
   const traits = actorVoiceTraits(actor);
+  const seed = createHash('sha256').update('lsa-provider-switch\0v1\0')
+    .update(assignment.profileId).update(provider).digest();
+  const selection = config.voiceAssignment === 'character-aware-session'
+    ? selectCharacterVoice(null, traits, config, seed)
+    : selectLegacyVoice(null, config, seed);
+  const chosenVoice = sameProvider ? assignment.voice : selection.voice;
+  if (!config.speechVoices.includes(chosenVoice) ||
+      !isVoiceSupportedByModel(config.ttsModel, chosenVoice))
+    throw new TypeError('persistent_voice_incompatible');
   const instructions = buildVoiceInstructions({ enabled: config.actingEnabled === true,
     traits: config.voiceAssignment === 'character-aware-session' ? traits : {} });
   if (instructions && !config.speechInstructionsSupported) throw new TypeError('persistent_voice_incompatible');
-  return Object.freeze({ profileId: assignment.profileId, provider: 'openai', model: config.ttsModel,
-    voice: assignment.voice, speed: config.ttsSpeed, instructions, assignmentVersion: 3,
-    selectionMode: 'persistent-character', gender: traits.gender, ageBand: traits.ageBand, matchReason: 'persistent-character' });
+  return Object.freeze({ profileId: assignment.profileId, provider, model: config.ttsModel,
+    voice: chosenVoice, speed: config.ttsSpeed, instructions, assignmentVersion: 3,
+    selectionMode: 'persistent-character', gender: traits.gender,
+    ageBand: traits.ageBand,
+    matchReason: sameProvider ? 'persistent-character' : 'provider-switch-compatible' });
 }
