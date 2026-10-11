@@ -38,6 +38,21 @@ function suppression(db,scope){
   }
   return forgotten;
 }
+// A reported correction or derived memory must point to evidence belonging to
+// precisely this character/world/timeline/protagonist. Unknown is not a joker.
+function sourceInScope(db,scope,id){
+  if(!uuid.test(id))return false;
+  const args=[id,scope.worldProfileId,scope.characterId,scope.timelineId];
+  const dialogue=db.prepare('SELECT protagonist FROM dialogue_journal WHERE record_id=? AND world_profile_id=? AND character_id=? AND timeline_id=?').get(...args);
+  if(dialogue)return dialogue.protagonist===scope.protagonistKey;
+  const memory=db.prepare('SELECT protagonist_key FROM memory_records WHERE memory_id=? AND world_profile_id=? AND character_id=? AND timeline_id=?').get(...args);
+  if(memory)return memory.protagonist_key===scope.protagonistKey;
+  if(scope.protagonistKey==='unknown'){
+    const event=db.prepare('SELECT 1 FROM event_journal e JOIN event_source_evidence s ON s.record_id=e.record_id WHERE e.record_id=? AND e.world_profile_id=? AND e.character_id=? AND e.timeline_id=?').get(...args);
+    return !!event;
+  }
+  return false;
+}
 function correctionRows(db,scope,forgotten){
   const args=[scope.worldProfileId,scope.characterId,scope.timelineId,scope.protagonistKey];
   const source=db.prepare('SELECT c.command_id AS id,c.target_id AS target,c.preferred_text AS content,c.content_sha256 AS digest,c.created_at_utc AS atUtc FROM memory_corrections c JOIN memory_commands m ON m.command_id=c.command_id WHERE c.world_profile_id=? AND c.character_id=? AND c.timeline_id=? AND m.protagonist_key=? ORDER BY c.created_at_utc DESC,c.command_id DESC').all(...args);
@@ -45,7 +60,8 @@ function correctionRows(db,scope,forgotten){
   const overlays=[],seenTargets=new Set();
   for(const c of source){
     if(!uuid.test(c.id)||!uuid.test(c.target)||sha(c.content)!==c.digest)throw new Error('m4_corrupt_correction');
-    if(seenTargets.has(c.target)||forgotten.has(c.target)||forgotten.has(c.id)||corrected.has(c.id))continue;
+    if(seenTargets.has(c.target)||forgotten.has(c.target)||forgotten.has(c.id)||corrected.has(c.id)||
+       !sourceInScope(db,scope,c.target))continue;
     seenTargets.add(c.target);
     const envelope={version:1,kind:'permanent_memory',recordId:c.id,
       characterId:scope.characterId,worldProfileId:scope.worldProfileId,timelineId:scope.timelineId,
@@ -102,7 +118,7 @@ export function readIntegratedRecall(db,{scope,terms=[],fromUtc=null,toUtc=null,
       rows.push(...all(db,base+' AND ('+filtered.map(()=> 'e.event_type LIKE ?').join(' OR ')+') ORDER BY e.received_at_utc DESC,e.rowid DESC',
         [...args,...filtered.map(t=>'%'+t+'%')],Math.min(128,Math.floor(limit/3))));
     }
-    rows.push(...all(db,base+' ORDER BY e.received_at_utc DESC,e.rowid DESC',args,limit-Math.min(128,Math.floor(limit/3))));
+    rows.push(...all(db,base+' ORDER BY e.received_at_utc DESC,e.rowid DESC',args,tokens.length?Math.min(limit,64):limit));
     for(const r of rows){
       const e=verifyEnvelope(r.raw,r.rawHash),proof=verifyEnvelope(r.evidence,r.evidenceHash);
       if(e.recordId!==r.recordId||proof.sourceHash!==e.sourceHash||
@@ -136,7 +152,7 @@ export function readIntegratedRecall(db,{scope,terms=[],fromUtc=null,toUtc=null,
       if(!uuid.test(r.recordId)||sha(r.content)!==r.digest)throw new Error('m4_corrupt_memory');
       const evidence=parse(r.evidence);
       if(!Array.isArray(evidence)||evidence.some(id=>!uuid.test(id)))throw new Error('m4_corrupt_memory_sources');
-      if(evidence.some(id=>forgotten.has(id)||corrected.has(id)))continue;
+      if(evidence.some(id=>forgotten.has(id)||corrected.has(id)||!sourceInScope(db,scope,id)))continue;
       const e={version:1,kind:'permanent_memory',recordId:r.recordId,
         characterId:scope.characterId,worldProfileId:scope.worldProfileId,timelineId:scope.timelineId,
         content:r.content,mode:r.mode,sourceEvidenceIds:evidence};
