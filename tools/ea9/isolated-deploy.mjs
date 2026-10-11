@@ -4,7 +4,7 @@
 // commands: deploy|rollback|verify --target <isolated GTA> --backup-root <NEW folder>
 //   --release-root <sealed stage> --expected-head <SHA> --ack-isolated
 // Optional: --state-paths <JSON array of target-relative additional voice/config/DB files>
-import { cp, mkdir, rm, readFile, writeFile, readdir, lstat, access } from 'node:fs/promises';
+import { cp, mkdir, rm, readFile, writeFile, readdir, lstat, access, realpath } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import path from 'node:path';
 const argv=process.argv.slice(2), mode=argv[0];
@@ -49,6 +49,10 @@ async function inventory(root){
   for(const f of await scan(root))result.push({path:f,sha256:await sha(safe(root,f))});
   return result;
 }
+const canonicalTarget=await realpath(target);
+if(canonicalTarget!==target)fail('target_alias_or_symlink_forbidden');
+if(/[\\/]Program Files(?: \\(x86\\))?[\\/]/i.test(canonicalTarget)||
+   /[\\/]steamapps[\\/]common[\\/]/i.test(canonicalTarget))fail('active_game_real_location_forbidden');
 const markerPath=path.join(target,'.ea9-isolated-test-install.json');
 const marker=JSON.parse(await readFile(markerPath,'utf8'));
 if(marker?.ea9IsolatedTest!==true || marker?.notActiveInstall!==true ||
@@ -64,9 +68,21 @@ const receiptPath=path.join(backup,'ea9-backup-receipt.json');
 if(mode==='deploy'){
   if(await exists(backup))fail('backup_already_exists');
   const manifest=JSON.parse(await readFile(path.join(release,'ea9-release-manifest.json'),'utf8'));
-  if(manifest?.sourceHead!==head||!Array.isArray(manifest.files)||
-     manifest.files.length===0||!Array.isArray(manifest.nativeOutputs)||
-     manifest.nativeOutputs.length<4)fail('unsealed_or_wrong_head');
+  if(manifest?.schemaVersion!==1||manifest?.sourceHead!==head||
+     !Array.isArray(manifest.files)||manifest.files.length===0||
+     !Array.isArray(manifest.nativeOutputs)||manifest.nativeOutputs.length<4||
+     !manifest.candidate?.builtBundleSha256)fail('unsealed_or_wrong_head');
+  const mustHaveNative=[
+    'plugins/LSA.PromotedCharacters.dll',
+    'plugins/LSA.PromotedCharacters/LSA.PromotedCharacters.Bootstrap.dll',
+    'plugins/LSA.PromotedCharacters/LSA.PromotedCharacters.Runtime.dll',
+    'plugins/LSA.PromotedCharacters/LSA.SessionIdentity.dll'
+  ];
+  for(const required of mustHaveNative){
+    const evidence=manifest.nativeOutputs.find(x=>x.staged===required);
+    if(!evidence||!evidence.sha256||!manifest.files.some(x=>
+       x.path===required&&x.sha256===evidence.sha256))fail('native_receipt_incomplete:'+required);
+  }
   const staged=await inventory(release);
   const listed=manifest.files;
   if(JSON.stringify(staged.filter(x=>x.path!=='ea9-release-manifest.json'))!==JSON.stringify(listed))
