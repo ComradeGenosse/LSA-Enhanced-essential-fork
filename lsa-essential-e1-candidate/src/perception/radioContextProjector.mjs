@@ -8,7 +8,7 @@ const DIRECT_RADIO_PATTERNS = Object.freeze([
   /\bwhat(?:'s|s| is| was) playing\b/i,
   /\b(?:whats|what is|what's) (?:that|this) (?:song|track|music)\b/i,
   /\b(?:do|did|can|could) (?:you|ya) (?:hear|remember) (?:the|that|this) (?:song|music|radio)\b/i,
-  /\bwhat(?:'s| is) on (?:the )?radio\b/i,
+  /\bwhat(?:'s|s| is) on (?:the )?radio\b/i,
   /\bwhat (?:radio )?station (?:is this|is that|are we listening to|is playing)\b/i,
   /\bwho (?:sings|is singing|performs|performed) (?:this|that|it|the song|the track)\b/i,
   /\b(?:song|track|music|radio|station|artist)\b[^?!.]{0,80}\b(?:playing|called|name|hear|hearing|listening to|this|that)\b/i,

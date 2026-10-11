@@ -39,11 +39,10 @@ namespace LSA.Intelligence
         const long RadioRevalidateMs=60000;
         RadioSample radioBaseline,pendingRadio;
         int pendingRadioSamples;
-        long pendingRadioSince;
-        // Three equal native tuples over >= 500 ms before publishing a new
-        // song/station, so a transient previous-station text ID is not trusted.
+        // Require three matching successive native samples (normally 250 ms
+        // apart) before publishing a changed station/song. Do not hold an
+        // unchanged verified track or a radio-off event behind this gate.
         const int RadioStableSamples=3;
-        const long RadioStableMs=500;
         long nextRadioRevalidate,radioSamples,radioEdges,radioNativeFailures;
         public long RadioSamples {get {lock(gate) return radioSamples;}}
         public long RadioEdges {get {lock(gate) return radioEdges;}}
@@ -166,9 +165,9 @@ namespace LSA.Intelligence
                 bool pendingSame=pendingRadio!=null && pendingRadio.Vehicle==current.Vehicle &&
                     pendingRadio.Station==current.Station && pendingRadio.SoundHash==current.SoundHash &&
                     pendingRadio.TrackTextId==current.TrackTextId;
-                if(!pendingSame) {pendingRadio=current;pendingRadioSamples=1;pendingRadioSince=now;return null;}
+                if(!pendingSame) {pendingRadio=current;pendingRadioSamples=1;return null;}
                 pendingRadioSamples++;
-                if(pendingRadioSamples<RadioStableSamples || now-pendingRadioSince<RadioStableMs)return null;
+                if(pendingRadioSamples<RadioStableSamples)return null;
             }
             pendingRadio=null;pendingRadioSamples=0;
             radioBaseline=current;
@@ -186,7 +185,7 @@ namespace LSA.Intelligence
             return Enqueue(edge)?edge:null;
         }
         public void Retire(string captureRef) { baselines.Remove(captureRef); baselines.Remove("shot:"+captureRef); lastShot.Remove(captureRef);vehicles.Remove(captureRef);foreach(var state in baselines.Values) if(state.Vehicle==captureRef) state.VehicleBaseline=false; }
-        public void Reset() { lock(gate) {queue.Clear();sequences.Clear();baselines.Clear();lastShot.Clear();vehicles.Clear();received.Clear();radioBaseline=null;pendingRadio=null;pendingRadioSamples=0;pendingRadioSince=0;nextRadioRevalidate=0;radioSamples=0;radioEdges=0;radioNativeFailures=0;foreach(var k in damageCallbacks.Keys.ToArray()) damageCallbacks[k]=0;Dropped=0;} }
+        public void Reset() { lock(gate) {queue.Clear();sequences.Clear();baselines.Clear();lastShot.Clear();vehicles.Clear();received.Clear();radioBaseline=null;pendingRadio=null;pendingRadioSamples=0;nextRadioRevalidate=0;radioSamples=0;radioEdges=0;radioNativeFailures=0;foreach(var k in damageCallbacks.Keys.ToArray()) damageCallbacks[k]=0;Dropped=0;} }
     }
     public sealed class StateSample
     {

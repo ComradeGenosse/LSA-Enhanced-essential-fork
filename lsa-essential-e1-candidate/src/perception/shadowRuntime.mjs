@@ -21,7 +21,7 @@ const MAX_COUNTER = 2147483647;
 export const OWNER_STALL_BOUNDS = Object.freeze({ startMs: 1500, resetMs: 60000 });
 // Per-event PS2/PS3 traces are rate-bounded: no per-frame logging. Events
 // involving an owned (P2) observer get the larger budget.
-export const PERCEPTION_TRACE_BOUNDS = Object.freeze({ windowMs: 10000, owned: 20, other: 6 });
+export const PERCEPTION_TRACE_BOUNDS = Object.freeze({ windowMs: 10000, owned: 20, other: 6, radio: 16 });
 const TRACED_KINDS = new Set(['firing','damage','death','injury_state']);
 const RESPONSE_ORDER = Object.freeze({ not_evaluated: -1, none: 0, eligible: 1, urgent: 2 });
 const PS3_REASON_COUNTERS = Object.freeze({
@@ -41,7 +41,7 @@ export class ShadowRuntime {
     this.onTrace=typeof trace==='function'?trace:null;this.onStall=typeof stall==='function'?stall:null;
     // Lease clock: wall time minus native owner-stall time beyond startMs.
     this.leaseBase=0;this.stallNotified=false;this.stallDiagnostics={stalls:0,maxMs:0};
-    this.traceWindow={start:-Infinity,owned:0,other:0};this.traceDiagnostics={emitted:0,suppressed:0};
+    this.traceWindow={start:-Infinity,owned:0,other:0,radio:0};this.traceDiagnostics={emitted:0,suppressed:0};
     this.radioDiagnostics={changed:0,stopped:0,known:0,unknown:0,mismatch:0,off:0,observations:0,ownedObservations:0};
     this.hostContext=null;this.observerIndexVersion=null;this.observerIndex=new Map();this.observerSituations=new Map();this.observerSituationVersion=null;this.primaryBehaviorOwnerVersion=null;this.directorRequestVersion=null;this.directorPriority=null;this.directorReceipts=[];this.situationProvider=situationFor;
     this.counters=Object.fromEntries(['received','dropped','stale','malformed','duplicate','gaps','expired','resets'].map(k=>[k,0]));
@@ -87,8 +87,8 @@ export class ShadowRuntime {
   emitTrace(event,ownedRelevant,record) {
     if(!this.onTrace) return;
     const now=this.now(),window=this.traceWindow;
-    if(!(now>=window.start && now-window.start<PERCEPTION_TRACE_BOUNDS.windowMs)) {window.start=now;window.owned=0;window.other=0;}
-    const lane=ownedRelevant?'owned':'other';
+    if(!(now>=window.start && now-window.start<PERCEPTION_TRACE_BOUNDS.windowMs)) {window.start=now;window.owned=0;window.other=0;window.radio=0;}
+    const lane=event==='radio_trace'?'radio':ownedRelevant?'owned':'other';
     if(window[lane]>=PERCEPTION_TRACE_BOUNDS[lane]) {this.bump(this.traceDiagnostics,'suppressed');return;}
     window[lane]++;this.bump(this.traceDiagnostics,'emitted');
     try {this.onTrace(event,Object.freeze(record));} catch {}

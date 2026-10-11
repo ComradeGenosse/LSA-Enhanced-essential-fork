@@ -224,8 +224,9 @@ test('radio v2 keeps R3-R5 observer knowledge keyed to live text ID rather than 
 
   const sameContainerNextSong=live.signal({gameTick:2,witnessReceipts:[{...witness,sampledGameTick:2,evidence:{...witness.evidence,sampledGameTick:2}}],facts:{station:'RADIO_01_CLASS_ROCK',soundHash:1,trackTextId:1005}});
   assert.equal(live.ingest(live.frame('signal',sameContainerNextSong)),true);
-  observation=[...live.runtime.observations.entries.values()][0].value;
-  assert.equal(observation.revision,2);assert.equal(observation.claims[0].details.title,'Track B');assert.equal(observation.claims[0].details.artist,'Artist B');
+  assert.equal(live.runtime.observations.entries.size,2,'prior witnessed track is retained');
+  observation=[...live.runtime.observations.entries.values()].at(-1).value;
+  assert.equal(observation.revision,1);assert.equal(observation.claims[0].details.title,'Track B');assert.equal(observation.claims[0].details.artist,'Artist B');
   assert.equal(live.runtime.radioCatalog.unknownTextIds,0);assert.equal(live.runtime.radioCatalog.catalogMismatches,0);
 
   const defaultDecision=live.runtime.salience.latestById.get(observation.observationId).decision;
@@ -238,8 +239,9 @@ test('radio v2 keeps R3-R5 observer knowledge keyed to live text ID rather than 
 
   const offMarker=live.signal({gameTick:3,witnessReceipts:[witness],facts:{station:'RADIO_01_CLASS_ROCK',soundHash:9,trackTextId:2095}});
   assert.equal(live.ingest(live.frame('signal',offMarker)),true);
-  assert.equal(live.runtime.observations.entries.size,0,'cataloged off marker clears current radio knowledge');
-  assert.equal(live.runtime.salience.latestById.has(observation.observationId),false);
+  assert.equal(live.runtime.correlator.radioCurrent.size,0,'cataloged off marker clears only current playback');
+  assert.equal(live.runtime.observations.entries.size,2,'cataloged off marker retains source-qualified prior song history');
+  assert.equal(live.runtime.salience.latestById.has(observation.observationId),true);
 
   const stop=live.signal({kind:'radio_stopped',target:live.vehicle,facts:{station:'',soundHash:0,trackTextId:0},witnessReceipts:[]});
   assert.equal(live.ingest(live.frame('signal',stop)),true);

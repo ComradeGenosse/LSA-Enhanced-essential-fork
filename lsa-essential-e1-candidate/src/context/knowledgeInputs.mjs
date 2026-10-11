@@ -61,8 +61,8 @@ export function captureKnowledgeInputs({identity,source,p0Snapshot,perception,id
   captureDiagnostics.retainedPairs=pairs.length;captureDiagnostics.poolBytes=poolBytes;
   // Freeze active radio episode IDs at P0. This is a playback-status hint,
   // never source hearing proof: only the native-witnessed claims above qualify.
-  const inVehicle=['driving','passenger','in_vehicle'].includes(perception.observerSituations.get(block.captureRef)?.activity);
-  const radioCurrentEpisodeIds=inVehicle ? [...perception.correlator.radioCurrent.entries()]
+  const inVehicle=['driving','passenger','in_vehicle'].includes(perception.observerSituations?.get?.(block.captureRef)?.activity);
+  const radioCurrentEpisodeIds=inVehicle && perception.correlator?.radioCurrent ? [...perception.correlator.radioCurrent.entries()]
     .filter(([vehicle])=>perception.current(vehicle)).map(([,episodeId])=>episodeId) : [];
   return finish({reason:null,anchorStatus:'verified_observer',captureDiagnostics,hostRunId:block.hostRunId,worldEpoch:block.worldEpoch,psAdapterEpoch:perception.epoch,psStreamId:perception.stream,association:{...index,sampledGameTick:block.sampledGameTick},ownerClaim,ownerPendingProof:!!index.owned,pairs,liveReferences,radioCurrentEpisodeIds});
 }

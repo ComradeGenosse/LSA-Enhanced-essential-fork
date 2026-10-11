@@ -44,7 +44,7 @@ namespace Rage.Native {
         static IntPtr zone=Marshal.StringToHGlobalAnsi("ZONE1");
         static readonly Dictionary<ulong,string> universal=new Dictionary<ulong,string>{
             {0xF6D733C32076AD03UL,"GET_PLAYER_RADIO_STATION_NAME"},{0x34D66BC058019CE0UL,"GET_CURRENT_TRACK_SOUND_NAME"},
-            {0x50B196FC9ED6545BUL,"GET_AUDIBLE_MUSIC_TRACK_TEXT_ID"},{0xE9EA16D6E54CDCA4UL,"GET_CURRENT_TRACK_PLAY_TIME"}};
+            {0x50B196FC9ED6545BUL,"GET_AUDIBLE_MUSIC_TRACK_TEXT_ID"},{0x3E65CDE5215832C1UL,"GET_CURRENT_TRACK_PLAY_TIME"}};
         public static T CallByName<T>(string name,params NativeArgument[] args) where T:struct {NameCalls++;return (T)Invoke(name,args,NameRouteFails);}
         public static object CallByName(string name,Type returnType,params NativeArgument[] args) {NameCalls++;return Typed(Invoke(name,args,NameRouteFails),returnType);}
         public static T CallByHash<T>(ulong hash,params NativeArgument[] args) where T:struct {HashCalls++;return (T)Invoke(Name(hash),args,HashRouteFails);}

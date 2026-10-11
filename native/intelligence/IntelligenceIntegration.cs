@@ -1117,6 +1117,12 @@ namespace LSA.Intelligence
             if((signal.source!=null && anchors.Resolve(signal.source)==null) || (signal.target!=null && anchors.Resolve(signal.target)==null)) {staleRejected++;return;}
             var witnessReceipts=(signal.witnessReceipts??new List<WitnessReceipt>()).Where(w=>w!=null&&w.Status=="witnessed"&&w.Channel!=null&&w.Basis!=null).Select(w=>new {observer=new {captureRef=w.Observer,kind="ped"},sampledGameTick=w.SampledGameTick,status=w.Status,reason=w.Reason,knowsSource=w.KnowsSource,knowsTarget=w.KnowsTarget,evidence=new {channel=w.Channel,basis=w.Basis,sampledGameTick=w.SampledGameTick}}).ToArray();
             if(channel?.Send("signal",new {signal.signalId,signal.producer,signal.producerSequence,signal.kind,signal.target,signal.source,signal.gameTick,ageMs=Clamp(now-signal.receivedMs),signal.facts,witnessReceipts})==true) {
+                if(signal.kind=="radio_changed") {
+                    int ownedVerified=witnessReceipts.Count(w=>anchors.Resolve(w.observer.captureRef)?.OwnerLifetime!=null);
+                    LogStatus("[PS] radio_witness_trace trace="+TraceCode(signal.signalId)+
+                        " verified="+witnessReceipts.Length+" owned_verified="+ownedVerified+
+                        " owned_observers="+anchors.Current.Count(a=>a.Kind=="ped"&&a.Observer&&a.OwnerLifetime!=null));
+                }
                 var nativeWitnesses=witnessReceipts.Select(w=>w.observer.captureRef).ToList();
                 foreach(var reference in new[]{signal.source,signal.target}) {
                     var actor=reference==null?null:anchors.Resolve(reference);

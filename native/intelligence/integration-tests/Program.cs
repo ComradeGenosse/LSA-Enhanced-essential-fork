@@ -69,9 +69,16 @@ class Program
 
                     Set(integration,"nextDiagnostics",long.MaxValue);Set(integration,"nextDiscovery",long.MaxValue);Set(integration,"nextState",long.MaxValue);Set(integration,"nextShot",long.MaxValue);Set(integration,"nextRefresh",long.MaxValue);
                     int plays=Rage.Native.NativeFunction.RadioPlayReads;Rage.Native.NativeFunction.RadioPlayTime=99999;Set(integration,"nextRadio",0L);Game.GameTime+=50;integration.Update();
-                    Check(Rage.Native.NativeFunction.RadioPlayReads==plays,"play-time-only changes do not drive probe or event edges");
+                    Check(Rage.Native.NativeFunction.RadioPlayReads==plays,"play-time-only changes do not drive probe or station edges");
+                    // The native radio was already playing when the promoted
+                    // observer joined. The first subsequent sample must send
+                    // source-verified hearing without waiting 60 seconds.
+                    var joined=ReadUntil(reader,"\"producer\":\"radio\"").Last();
+                    Check(joined.Contains("\"trackTextId\":1004")&&joined.Contains("\"channel\":\"auditory\""),
+                        "existing song refreshes immediately for a new native-verified passenger");
 
-                    Rage.Native.NativeFunction.RadioTextId=1005;Set(integration,"nextRadio",0L);Game.GameTime+=50;integration.Update();
+                    Rage.Native.NativeFunction.RadioTextId=1005;
+                    for(int n=0;n<3;n++){Set(integration,"nextRadio",0L);Game.GameTime+=250;integration.Update();}
                     var changed=ReadUntil(reader,"\"producer\":\"radio\"").Last();
                     Check(changed.Contains("\"kind\":\"radio_changed\"")&&changed.Contains("\"soundHash\":1")&&changed.Contains("\"trackTextId\":1005")&&!changed.Contains("artist")&&!changed.Contains("title"),"text-ID-only transition crosses raw wire");
                     var radioAnchors=(EntityAnchors)Get(integration,"anchors");var passengerRef=radioAnchors.Current.Single(a=>ReferenceEquals(a.Entity,passenger)).CaptureRef;var outsiderRef=radioAnchors.Current.Single(a=>ReferenceEquals(a.Entity,outsider)).CaptureRef;
@@ -79,7 +86,8 @@ class Program
                     Check(!changed.Contains(outsiderRef),"outside observer gets no radio witness receipt");
                     Check(Game.Logs.Skip(logStart).Any(line=>line.Contains("sound=00000001 text_id=1005")),"probe changes when text ID changes");
 
-                    Rage.Native.NativeFunction.RadioTrack=unchecked((int)2481236011);Set(integration,"nextRadio",0L);Game.GameTime+=50;integration.Update();
+                    Rage.Native.NativeFunction.RadioTrack=unchecked((int)2481236011);
+                    for(int n=0;n<3;n++){Set(integration,"nextRadio",0L);Game.GameTime+=250;integration.Update();}
                     var soundChanged=ReadUntil(reader,"\"producer\":\"radio\"").Last();
                     Check(soundChanged.Contains("\"soundHash\":2481236011")&&soundChanged.Contains("\"trackTextId\":1005"),"soundHash-only container transition remains material");
                     Check(Game.Logs.Skip(logStart).Any(line=>line.Contains("sound=93E4A82B text_id=1005")),"probe retains hexadecimal sound evidence");
