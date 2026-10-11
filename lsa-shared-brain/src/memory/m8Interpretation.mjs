@@ -104,7 +104,7 @@ export function evaluateM8({scope,personality={},sources=[],memories=[],appraisa
  const suppressed=new Set([...suppressedIds,...correctedIds]);
  const known=new Map();
  for(const entry of sources){
-  const r=sourceEnvelope(entry,s);if(!r||suppressed.has(r.recordId))continue;
+  const r=sourceEnvelope(entry,s);if(!r||suppressed.has(r.recordId)||ms(r.when)>now+1000)continue;
   if(known.has(r.recordId))throw Error('m8_duplicate_source');
   known.set(r.recordId,r);
  }
@@ -128,7 +128,7 @@ export function evaluateM8({scope,personality={},sources=[],memories=[],appraisa
  }
  const rows=[...known.values()].sort((a,b)=>ms(a.when)-ms(b.when)||a.recordId.localeCompare(b.recordId));
  const facts=rows.slice(-24).map(r=>frozen({recordId:r.recordId,sourceKind:r.kind,
-   mode:r.kind==='dialogue_line'?'exact_quote':r.claims.some(c=>c.certainty==='reported')?'reported_claim':'observed_fact',
+   mode:r.kind==='dialogue_line'?'exact_quote':r.claims.some(c=>c.certainty==='reported'||c.modality==='report')?'reported_claim':'observed_fact',
    content:r.kind==='dialogue_line'?r.content:factDigest(r),freshness:freshness(r.when,now)}));
  const interpretations=[],byTheme=new Map();
  let affection=0,trust=0,familiarity=0;
@@ -188,11 +188,14 @@ export function selectM8JokeCue({projection,scope,jokeState={},cue,nowUtc,
  if(!projection||!sameScope(projection,s)||projection.protagonistKey!==s.protagonistKey||
     !Number.isFinite(now)||optIn!==true||actorIdle!==true||playerActive||combatActive||
     secondsSincePlayerTurn<30||cue?.sourceVerified!==true||cue?.kind!=='event_type'||
-    (Number.isFinite(ms(lastGlobalCallbackAtUtc))&&now-ms(lastGlobalCallbackAtUtc)<GLOBAL_MS))return null;
+    (lastGlobalCallbackAtUtc!==null&&(!Number.isFinite(ms(lastGlobalCallbackAtUtc))||
+     now-ms(lastGlobalCallbackAtUtc)<GLOBAL_MS)))return null;
  for(const j of projection.jokes??[]){
   if(j.motif!==cue.eventType||j.state==='resting'||j.sourceEvidenceIds.some(id=>!isUuid(id)))continue;
   const state=jokeState[j.id]??{},last=ms(state.lastUsedAtUtc);
+  if(state.lastUsedAtUtc!==undefined&&(!Number.isFinite(last)||now<last))continue;
   if(Number.isFinite(last)&&now-last<COOLDOWN_MS)continue;
+  if(state.uses!==undefined&&!Array.isArray(state.uses))continue;
   const recent=(state.uses??[]).filter(t=>Number.isFinite(ms(t))&&now-ms(t)>=0&&now-ms(t)<=TWO_HOURS);
   if(recent.length>=5||state.consecutiveNegativeReactions>=2||state.resting===true)continue;
   return frozen({kind:'m8_joke_candidate',...s,jokeId:j.id,motif:j.motif,
@@ -208,7 +211,8 @@ export function recordM8JokeUse(previous={},receipt={}){
  const times=(Array.isArray(previous.uses)?previous.uses:[]).filter(t=>Number.isFinite(ms(t))&&
   ms(receipt.atUtc)-ms(t)<=TWO_HOURS&&ms(receipt.atUtc)>=ms(t)).slice(-4);
  const consecutiveNegativeReactions=['annoyed','ignored'].includes(receipt.reaction)?
-  Math.min(2,(previous.consecutiveNegativeReactions??0)+1):0;
+  Math.min(2,(previous.consecutiveNegativeReactions??0)+1):
+  receipt.reaction==='engaged'?0:(previous.consecutiveNegativeReactions??0);
  times.push(receipt.atUtc);
  return frozen({lastUsedAtUtc:receipt.atUtc,uses:frozen(times),consecutiveNegativeReactions,
   resting:times.length>=5||consecutiveNegativeReactions>=2});
