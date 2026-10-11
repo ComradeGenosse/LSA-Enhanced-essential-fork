@@ -316,6 +316,9 @@ export class M5SqliteServices{
      if(!evidence(db,scope,targetId))fail('m5_trash_missing_evidence');
      if(activeTombstone(db,scope,targetId))fail('m5_already_suppressed');
      const closure=dependentIds(db,scope,[targetId]);
+     // Pending choices whose original source is now suppressed are revoked
+     // within the same privacy transaction, before retrieval can expose them.
+     const tainted=new Set(closure);
      for(const row of db.prepare('SELECT command_id AS id,state_json AS json FROM m5_clarifications WHERE '+scopeWhere)
        .all(...scopeKey(scope))){
        const pending=JSON.parse(row.json);

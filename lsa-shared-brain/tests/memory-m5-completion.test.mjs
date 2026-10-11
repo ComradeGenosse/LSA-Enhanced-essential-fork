@@ -225,3 +225,23 @@ test('M5 rejects source record ID paired with altered accepted bytes',async t=>{
  assert.equal(accepted.durableCommit,true);
  await m5.close();await x.store.close();
 });
+
+test('H: trash invalidates pending frozen clarification when offered evidence is revoked',async t=>{
+ const x=await setup(t);
+ const first=await x.record('The red scooter incident','source-one');
+ await x.record('The blue scooter incident','source-two');
+ const command=await x.record('Remember the scooter','clarify-command');
+ const m5=createM5SqliteServices({store:x.store,filePath:x.filePath,authorize:allowed});
+ try{
+   await m5.ready(x.scope);
+   const cid=id();
+   const action=await handleExplicitMemoryCommand({line:command,
+     scope:x.scope,commandId:cid,store:m5.bindCommands()});
+   assert.equal(action.outcome,'clarify');
+   const before=await m5.getClarification({scope:x.scope,commandId:cid});
+   assert.ok(before?.alternatives?.some(a=>a.recordId===first.recordId));
+   const privacy=await m5.trash({scope:x.scope,targetId:first.recordId,operationId:id()});
+   assert.equal(privacy.durableCommit,true);
+   assert.equal(await m5.getClarification({scope:x.scope,commandId:cid}),null);
+ }finally{await m5.close();await x.store.close();}
+});
