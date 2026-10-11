@@ -29,6 +29,26 @@ internal sealed class SimulatedAcceptedOutput : IAudioOutput
     }
 }
 
+internal sealed class SimulatedPhysicalOutput : IPhysicalAudioOutput
+{
+    public int Submitted, Played, Stops, Seals;
+    public bool FalseComplete, RealComplete;
+    public bool TryBegin(OwnershipLease lease, Guid stream, int rate, out string reason)
+    { reason = "fixture"; return lease.Kind == LeaseKind.Audio && rate == 24000; }
+    public bool TryPush(OwnershipLease lease, Guid stream, byte[] pcm, out string reason)
+    { reason = "fixture"; Submitted += pcm.Length; return true; }
+    public bool TrySeal(OwnershipLease lease, Guid stream, int bytes, out string reason)
+    { reason = "fixture"; if (bytes != Submitted) return false; Seals++; return true; }
+    public bool TryRead(OwnershipLease lease, Guid stream, out AudioPlaybackSnapshot proof)
+    {
+        proof = new AudioPlaybackSnapshot(FalseComplete || RealComplete
+            ? "playback_completed" : Played > 0 ? "playback_started" : "device_accepted",
+            FalseComplete || RealComplete ? Submitted : Played, Submitted, 32);
+        return true; // simulated driver, not actual audibility
+    }
+    public bool TryStop(Guid stream, string reason) { Stops++; return true; }
+}
+
 internal static class Program
 {
     private static int assertions;
@@ -814,6 +834,64 @@ internal static class Program
         host.Stop();
     }
 
+    private static void S3PhysicalPlaybackReceiptFences()
+    {
+        var game = new SimulatedGame();
+        game.Spawn(799, 0xEE33, lifetimeTag: 7890);
+        var host = new NativeAuthority(game, game, game, game);
+        var actor = Register(host, 799);
+        var turns = new NativeTurnRegistry(host);
+        var sink = new SimulatedPhysicalOutput();
+        var audio = new NativeAudioRegistry(host, turns, sink);
+        NativeTurnPermit offer; string reason;
+        Check(turns.TryIssueTyped(actor, "Speak.", 30000, out offer, out reason),
+            "S3 issue current native turn");
+        var tid = offer.TurnId.ToString("D");
+        var aid = offer.ActorIncarnationId.ToString("D");
+        var lease = offer.LeaseId.ToString("D");
+        var gen = offer.Generation;
+        Check(turns.TryConfirm(tid,offer.SessionNonce.ToString("D"),aid,
+            lease,gen,offer.Source,out reason), "S3 confirm current turn");
+        Check(turns.TryStageReply(tid,lease,gen,aid,"Hello.",out reason),
+            "S3 native-authorized speech text");
+        NativeAudioTicket t;
+        Check(audio.TryOpen(tid,aid,lease,gen,24000,out t,out reason),
+            "S3 open physical output escrow");
+        var sid=t.StreamId.ToString("D"); var alid=t.AudioLeaseId.ToString("D");
+        var agen=t.AudioGeneration;
+        Check(audio.TryAppend(sid,alid,agen,tid,aid,0,new byte[960],
+            out reason), "S3 first 20ms PCM");
+        Check(audio.DrainOnOwner(2)==1 && sink.Submitted==960,
+            "S3 native accepted not device played");
+        AudioPlaybackSnapshot proof;
+        Check(audio.TryPhysicalStatus(sid,alid,agen,tid,aid,out proof) &&
+            proof.State=="device_accepted" && proof.PlayedSourceBytes==0,
+            "device accepted cannot be mistaken for audible progress");
+        sink.FalseComplete=true;
+        Check(!audio.TryPhysicalStatus(sid,alid,agen,tid,aid,out proof),
+            "forged premature completed callback cannot skip native EOS");
+        sink.FalseComplete=false;
+        Check(audio.TrySeal(sid,alid,agen,tid,aid,1,960,out reason),
+            "native source EOS remains not played");
+        Check(audio.DrainOnOwner(2)==0 && sink.Seals==1,
+            "physical EOS follows exact forwarded source bytes");
+        sink.Played=480;
+        Check(audio.TryPhysicalStatus(sid,alid,agen,tid,aid,out proof) &&
+            proof.State=="playback_started" && proof.PlayedSourceBytes==480,
+            "real callback signature remains progress, not completion");
+        sink.RealComplete=true;
+        Check(audio.TryPhysicalStatus(sid,alid,agen,tid,aid,out proof) &&
+            proof.State=="playback_completed" && proof.PlayedSourceBytes==960,
+            "native sealed + exact device reported progress permits completion");
+        Check(!audio.TryPhysicalStatus(sid,alid,agen,tid,Guid.NewGuid().ToString("D"),out proof),
+            "wrong physical actor cannot read completion");
+        game.Spawn(799,0xEE33,lifetimeTag:7891);
+        audio.Sweep();
+        Check(!audio.TryPhysicalStatus(sid,alid,agen,tid,aid,out proof) &&
+            sink.Stops==1, "same-pointer replacement retires device and all receipts");
+        turns.RetireAll(); host.Stop();
+    }
+
     private static void Main()
     {
         IdentityAndLeases();
@@ -828,6 +906,7 @@ internal static class Program
         BoundedNativePcmAndTruthfulReceipts();
         RollingPcmQueueAndBackpressure();
         EarlySpeechSegmentFences();
+        S3PhysicalPlaybackReceiptFences();
         Console.WriteLine("PASS " + assertions +
             " standalone native core assertions; no Essential/RAGE/game assembly loaded.");
     }
