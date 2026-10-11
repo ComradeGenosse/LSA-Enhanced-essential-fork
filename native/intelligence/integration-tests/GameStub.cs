@@ -14,7 +14,7 @@ namespace Rage.Native {
         public static int Reads,Effects,RadioStationReads,RadioTrackReads,RadioTextIdReads,RadioPlayReads;
         public static string RadioStation="";
         public static int RadioTrack,RadioTextId,RadioPlayTime;
-        public static bool RadioThrow,RadioTextIdThrow,RadioPlayThrow;
+        public static bool RadioThrow,RadioSoundThrow,RadioTextIdThrow,RadioPlayThrow;
         public static bool Scripted,ThrowSafetyRead;
         public static bool FrontLos=true,AcousticLos=true;
         static IntPtr zone=Marshal.StringToHGlobalAnsi("ZONE1");
@@ -33,7 +33,7 @@ namespace Rage.Native {
                 case "GET_PLAYER_RADIO_STATION_NAME":
                     RadioStationReads++;if(RadioThrow)throw new InvalidOperationException("radio unavailable");result=RadioStation;break;
                 case "GET_CURRENT_TRACK_SOUND_NAME":
-                    RadioTrackReads++;if(RadioThrow)throw new InvalidOperationException("radio unavailable");result=RadioTrack;break;
+                    RadioTrackReads++;if(RadioThrow || RadioSoundThrow)throw new InvalidOperationException("radio sound unavailable");result=RadioTrack;break;
                 case "GET_AUDIBLE_MUSIC_TRACK_TEXT_ID":
                     RadioTextIdReads++;if(RadioTextIdThrow)throw new InvalidOperationException("radio text ID unavailable");result=RadioTextId;break;
                 case "GET_CURRENT_TRACK_PLAY_TIME":
