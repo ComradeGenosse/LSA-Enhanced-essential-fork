@@ -7,10 +7,10 @@
 One opt-in P2 SQLite database is migrated transactionally from PRAGMA user_version **2 to 3** under M1's one-writer lock. This does not introduce another database, local model or alternate profile format, and does not modify source v1 JSON or its backup. The M1 profile-only rollback export still deliberately excludes experiential journals. Existing unknown schema versions fail closed; the M1 inspection utility reports version 3.
 
 - **dialogue_journal:** immutable accepted verbatim text, content SHA256, complete dialogueLine v1 envelope, provenance, character/world/timeline/session/protagonist/host/epoch, turn hash and delivery receipt. No age-based deletion or automatic archive pruning.
-- **event_journal:** immutable complete journalEvent v1 envelopes, owner evidence, receipt status, original source hash and integrity checksum. Indexed by character, timeline, event type and occurrence time.
+- **event_journal:** immutable complete journalEvent v1 envelopes, owner evidence, receipt status, original source hash and integrity checksum; dialogue envelopes and original content are both integrity-hashed. Indexed by character, timeline, event type and occurrence time.
 - **dialogue_journal_fts:** FTS5 phrase index, used without a local embedding model. Both journals have indexed scope/recency paths.
 
-Journal rows intentionally do not foreign-key directly to promoted_profiles: M1's normal profile edit CAS replaces those rows, so a cascading FK would delete user history and a restricting FK would break profile edits. Inserts verify promoted ownership independently. M5 must implement scoped manual deletion and derivative invalidation.
+Journal rows intentionally do not foreign-key directly to promoted_profiles: M1's normal profile edit CAS replaces those rows, so a cascading FK would delete user history and a restricting FK would break profile edits. Inserts verify promoted ownership independently. **Explicit P2 character removal now transactionally purges that character's dialogue and event journals**, including FTS5 entries. M5 must implement record-level manual deletion, export, and derivative invalidation.
 
 ## Public integration APIs
 
@@ -59,7 +59,7 @@ Essential integrates only when opt-in SQLite is enabled, a captured promoted cha
 
 ## Tests and validation boundary
 
-New suite: lsa-essential-e1-candidate/tests/m2-journal.test.mjs. The Windows/Ubuntu Node 24 workflow also runs prior M1/editor/identity regressions and Node 20/22 JSON startup checks. Tests cover transactional migration; both adapters; exact UTF-8 including Unicode/profanity/whitespace; STT uncertainty; FTS/quote lookups; 230+ lines with years-old quotes; replay, reconnect and restart; native receipt admission; timeline/epoch suspension; event contract/dedup/owner checks; profile edit preservation; and tamper detection.
+New suite: lsa-essential-e1-candidate/tests/m2-journal.test.mjs. The Windows/Ubuntu Node 24 workflow also runs prior M1/editor/identity regressions and Node 20/22 JSON startup checks. Tests cover transactional migration; both adapters; exact UTF-8 including Unicode/profanity/whitespace; STT uncertainty; FTS/quote lookups; 230+ lines with years-old quotes; explicit character removal/FTS purge; replay, reconnect and restart; native receipt admission; timeline/epoch suspension; event contract/dedup/owner checks; profile edit preservation; and tamper detection.
 
 **Check the CI checks on the exact draft PR head before claiming green status. These are offline source tests, not GTA acceptance.**
 
