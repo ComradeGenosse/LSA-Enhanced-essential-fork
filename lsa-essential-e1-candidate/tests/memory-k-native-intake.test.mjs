@@ -36,7 +36,7 @@ function makeFixture(){
     capabilities:Object.fromEntries(CAPABILITIES.map(x=>[x,x==='snapshot'||x==='witness']))};
   let sequence=0,retired=0;
   const emit=async(type,body)=>{
-    socket.emit('data',Buffer.from(JSON.stringify(frame(hello,type,body,++sequence))+'\\n'));
+    socket.emit('data',Buffer.from(JSON.stringify(frame(hello,type,body,++sequence))+'\n'));
     await next();
   };
   const authority=createNativeMemoryAuthority({
@@ -79,7 +79,7 @@ test('K v1 contract rejects fabricated C-01 turn, alias, epoch and oversize rost
 test('K authenticated socket admits two distinct P2 owners and all protagonist modes, never inventing normal-turn proof',async()=>{
   const x=makeFixture();
   try{
-    x.socket.emit('data',Buffer.from(JSON.stringify(x.hello)+'\\n'));await next();
+    x.socket.emit('data',Buffer.from(JSON.stringify(x.hello)+'\n'));await next();
     await x.emit('anchors',refs.map(captureRef=>({
       captureRef,kind:'ped',observer:true,owned:true
     })).concat([{captureRef:playerRef,kind:'player',observer:false}]));
