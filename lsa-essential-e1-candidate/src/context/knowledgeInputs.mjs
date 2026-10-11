@@ -52,7 +52,15 @@ export function captureKnowledgeInputs({identity,source,p0Snapshot,perception,id
     const bytes=jsonBytes(pair);if(index>=KNOWLEDGE_LIMITS.poolCount || poolBytes+bytes>KNOWLEDGE_LIMITS.poolBytes){captureDiagnostics.budgetExcluded++;return false;}poolBytes+=bytes;return true;
   });
   captureDiagnostics.retainedPairs=pairs.length;captureDiagnostics.poolBytes=poolBytes;
-  return finish({reason:null,...(block.micUtteranceId?{micUtteranceId:block.micUtteranceId}:{}),anchorStatus:'verified_observer',captureDiagnostics,hostRunId:block.hostRunId,worldEpoch:block.worldEpoch,psAdapterEpoch:perception.epoch,psStreamId:perception.stream,association:{...index,sampledGameTick:block.sampledGameTick},ownerClaim,ownerPendingProof:!!index.owned,pairs,liveReferences});
+  // Freeze only this observer's authorized words from a fully heard utterance.
+  // Raw STT remains in SharedTranscriptStore, never in PS2 public claims.
+  const speechEvidence=Object.fromEntries(pairs.filter(pair=>
+    pair.observation.eventType==='speech_heard').map(pair=>{
+    const id=pair.observation.observationId;
+    const words=perception.resolveSpeechForObserver?.(id,block.captureRef);
+    return [id,typeof words==='string'&&words.trim()?words.slice(0,512):null];
+  }).filter(([,words])=>words!==null));
+  return finish({speechEvidence,reason:null,...(block.micUtteranceId?{micUtteranceId:block.micUtteranceId}:{}),anchorStatus:'verified_observer',captureDiagnostics,hostRunId:block.hostRunId,worldEpoch:block.worldEpoch,psAdapterEpoch:perception.epoch,psStreamId:perception.stream,association:{...index,sampledGameTick:block.sampledGameTick},ownerClaim,ownerPendingProof:!!index.owned,pairs,liveReferences});
 }
 
 export function assertKnowledgeCurrent(inputs,perception) {
