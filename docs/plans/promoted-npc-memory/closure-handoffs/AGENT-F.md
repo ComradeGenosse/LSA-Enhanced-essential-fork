@@ -1,13 +1,14 @@
 # Memory Closure Agent F — M5 command/UX handoff
 
 **Source authority:** draft PR #75, exact starting SHA `8443a8adec9433626902b46b81bd3e58fc382fb2`; branch `feature/memory-close-f-explicit-ux-20261011`; PR base `integration/memory-completion-h-review-20261011`.
-**Implementation source SHA before this handoff:** `4ceb16ebd427b3495121d437abf16f77a5e13e91`. Use the dedicated PR HEAD for the subsequent documentation commit; the PR HEAD is the authoritative final source revision, not the old integration head. **Status:** isolated offline implementation; **NOT** integrated or deployed. No GTA source receipts, installer build, standalone runtime acceptance, or paid model calls.
+**Implementation source SHA before this handoff revision:** `6495526125fbedc623565d790a9b9a6ae185dd0c`. Use the dedicated PR HEAD for the subsequent documentation commit; the PR HEAD is the authoritative final source revision, not the old integration head. **Status:** isolated offline implementation; **NOT** integrated or deployed. No GTA source receipts, installer build, standalone runtime acceptance, or paid model calls.
 
 ## Changed files (F-exclusive)
 
 - `lsa-shared-brain/src/memory/explicitCommands.mjs`: rule-based admission rejects conversational "remember when/how/to", no Luna interpretation authorizes writes, durable frozen-choice save required before asking, private labels never placed in spoken prompts, and exact accepted correction-reply wording with frozen evidence provenance.
 - `lsa-shared-brain/src/memory/m5RuntimeCoordinator.mjs` (new): verified-M2-entrypoint with scoped deterministic v4 command IDs, per-member compound typed acknowledgments from underlying SQLite verification, durable-choice lookup/reconnect, source lifecycle rechecks, fail-closed original accepted text/identity, private-editor route for inspect/export, no raw content telemetry.
 - `lsa-shared-brain/src/memory/m5ScopedPrivacyFacade.mjs` (new): authenticated exact-scope editor operations `inspect/export/trash/trash_scope/restore/purge`, one P2 privacy store port, stable mutation IDs, commit/verifyPrivacy matching for trash/restore, postauthorization recheck and zero source content in telemetry. Purge explicitly returns `verification_required` until B provides post-purge readback.
+- `lsa-shared-brain/tests/memory-m5-completion.test.mjs`: imports the F closure fixture so existing M5 completion/combined CI actually executes the new suite without any K-owned workflow changes.
 - `lsa-shared-brain/tests/memory-m5-closure.test.mjs` (new): host-neutral positive/adversarial fixture cases for casual remember, model influence, exact accepted bytes and secrets, stable idempotence, two NPC/scope changes, timeline retirement, reconnect/expiry/deleted choice, correction overlays, DB exceptions/lost readback, mixed compounds, private-editor redirection, privileged export, and missing/forged privacy receipts.
 
 **No changes** to B's `m5SqlitePrivacy.mjs` or foundation, K's turn-runner/editor/bootstrap/glue, model knowledge renderer, config, native owner, or CI.
@@ -97,7 +98,7 @@ node --test lsa-shared-brain/tests/memory-m5-completion.test.mjs
 node --test lsa-shared-brain/tests/memory-integrated-storage.test.mjs
 ```
 
-**Execution evidence:** NOT RUN locally in this session: repository clone/network and Node test runtime are not available through this connector-only working environment. Files and adversarial test cases were written to GitHub, but writing tests is not equivalent to a green run. PR #75 combined workflow does not yet invoke the new `memory-m5-closure.test.mjs` file or check its two new production modules; **K MUST add those commands to K-owned combined CI and obtain exact-head Windows + Linux logs before offline GO**. Existing PR #75 CI results cannot be reinterpreted as testing these additions. No paid Luna calls, physical GTA receipts, merged main, or installation.
+**Execution evidence:** NOT RUN locally in this session: repository clone/network and Node test runtime are not available through this connector-only working environment. Files and adversarial test cases were written to GitHub, but writing tests is not equivalent to a green run. The original M5 completion test now imports the new F closure suite, allowing the existing M5/H workflows to execute its cases on the PR head; this still requires exact-head Windows + Linux green logs before offline GO. K should also add explicit syntax checks and a direct new-suite command to K-owned final combined CI. Existing PR #75 CI results cannot be reinterpreted as testing these additions. No paid Luna calls, physical GTA receipts, merged main, or installation.
 
 ## Remaining hazards
 
