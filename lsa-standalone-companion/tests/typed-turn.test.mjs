@@ -144,3 +144,25 @@ test('poll no pending native offer skips model and history entirely', async () =
   assert.equal(out.state, 'none');
   assert.deepEqual(events, ['turn.next']);
 });
+
+test('two native turns on same actor keep a conversation identity without replaying unplayed history', () => {
+  const pending = new PendingDialogue();
+  const nativeRun = randomUUID(), actorIncarnationId = randomUUID();
+  const conversationId = randomUUID();
+  pending.stage(nativeRun, {
+    turnId: randomUUID(), actorIncarnationId, conversationId, turnOrdinal: 1
+  }, 'first not yet played');
+  assert.equal(pending.pendingCount, 1);
+  pending.stage(nativeRun, {
+    turnId: randomUUID(), actorIncarnationId, conversationId, turnOrdinal: 2
+  }, 'second not yet played');
+  assert.equal(pending.pendingCount, 1,
+    'superseded reply is discarded, never promoted to completed dialogue');
+  pending.stage(nativeRun, {
+    turnId: randomUUID(), actorIncarnationId: randomUUID(),
+    conversationId: randomUUID(), turnOrdinal: 1
+  }, 'other NPC');
+  assert.equal(pending.pendingCount, 2, 'two unrelated NPCs remain isolated');
+  pending.retireAll();
+  assert.equal(pending.pendingCount, 0);
+});
