@@ -350,6 +350,11 @@ test('M7 reserve rejection refuses cloud; offline deterministic M6 memory remain
  assert.equal((await s2.checkpoint()).status,'retry_scheduled');
  const hash=createHash('sha256').update(f2.proposal.groundedSummary).digest('hex');
  f2.db.prepare('UPDATE memory_records SET content_sha256=? WHERE memory_id=?').run(hash,f2.proposal.proposalId);
+ // The tiny M7 queue fixture omits M1 timeline tables; install the M1
+ // owner/timeline read precondition to exercise the ACTUAL M4 deterministic reader.
+ f2.db.exec('CREATE TABLE timelines (timeline_id TEXT PRIMARY KEY,world_profile_id TEXT NOT NULL)');
+ f2.db.prepare('INSERT INTO timelines(timeline_id,world_profile_id) VALUES(?,?)')
+   .run(f2.scope.timelineId,f2.scope.worldProfileId);
  const records=readPermanentMemoryRows(f2.db,{...f2.scope,protagonistKey:'franklin'},f2.scope.worldProfileId);
  assert.equal(records.length,1);
  assert.equal(records[0].envelope.content,f2.proposal.groundedSummary);
