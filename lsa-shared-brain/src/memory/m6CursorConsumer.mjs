@@ -12,12 +12,12 @@ export const M6_CURSOR_CONTRACT_VERSION=1;
 /**
  * Required P2 cursor interface (single SQLite owner, same serialized gate):
  * readM6Checkpoint({scope}) ->
- *   {version:1,cursor:string|null,activeHourCount:number}
+ *   {version:1,cursor:string|null,activeHourCount:number,hourBucket?:string}
  * readM6JournalPage({scope,afterCursor,limit}) ->
  *   {rows:[{cursor:string,sourceHash:sha256(JSON.stringify(evidence)),
  *            evidence:committedJournalEnvelope}],hasMore:boolean}
  * ackM6Checkpoint({scope,expectedCursor,nextCursor,sourceHashes,
- *   savedProposalIds,rejected,cutoffUtc,cloudQueueEnabled}) ->
+ *   savedProposalIds,rejected,cutoffUtc,hourBucket,cloudQueueEnabled}) ->
  *   {committed:true,cursor:nextCursor}
  *
  * P2 must compare-and-swap the cursor under its checked timeline transaction,
