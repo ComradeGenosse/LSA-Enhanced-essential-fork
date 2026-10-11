@@ -22,6 +22,9 @@ import { ActivityClient } from './activities/activityClient.mjs';
 import { ActivityRuntime } from './activities/activityRuntime.mjs';
 import { perceptionContractSupported } from './perception/nativeSupport.mjs';
 import { createDialogueTrace, createNoopDialogueTrace } from './observability/dialogueTrace.mjs';
+import {M3ObserverOwnerBinder} from '../../lsa-shared-brain/src/events/m3ObserverOwnerBinder.mjs';
+import {M3BoundedIntake} from '../../lsa-shared-brain/src/events/m3BoundedIntake.mjs';
+import {createM3WitnessRecorder} from '../../lsa-shared-brain/src/memory/integrationPorts.mjs';
 
 const shutdownClosers = new Set();
 let shutdownFlushRegistered = false;
@@ -118,6 +121,15 @@ export async function createRuntimeForBundle(options = {}) {
         if(radioCatalog===undefined && config.intelligence.radio==='shadow') {
           try {radioCatalog=loadRadioTrackTextCatalog(await readFile(new URL('../data/radioTrackTextIds.v2.json',import.meta.url),'utf8'));} catch {}
         }
+        let memoryIntake=null;
+        const memoryStore=runtime.characterService?.store;
+        const memoryNative=options.memoryNativeAuthority;
+        const canBindMemory=config.promotedCharacters.storageMode==='sqlite' &&
+          typeof memoryStore?.withTimelineWrite==='function' &&
+          typeof memoryNative?.resolveNativeOwner==='function';
+        // Strict synchronous verified PS2 tap; never execute SQLite here.
+        const memoryObservationTap=receipt=>memoryIntake?.offer(receipt) ??
+          {accepted:false,reason:'m3_owner_ledger_unavailable'};
         const intelligenceOptions={radioCatalog,situationFor:ref=>runtime.situationFor(ref),
           directorProductionRequired:config.spontaneousSpeech.mode==='experimental',
           // Original stock A turn/mic/output stores; every missing bridge or
@@ -127,11 +139,49 @@ export async function createRuntimeForBundle(options = {}) {
           originalTurnCurrent:ticket=>{try{return runtime.host.directorCheckOriginalTurn(ticket);}catch{return null;}},
           originalTurnRelease:ticket=>{try{return runtime.host.directorReleaseOriginalTurn(ticket);}catch{return false;}},
           originalTurnPhase:ticket=>{try{return runtime.host.directorOriginalPhase(ticket);}catch{return null;}},
-          ...options.intelligenceOptions,telemetry:(event,data)=>{
+          ...options.intelligenceOptions,
+           acceptedObservationTap:canBindMemory?memoryObservationTap:null,
+           telemetry:(event,data)=>{
           try { suppliedIntelligenceTelemetry?.(event,data); } catch {}
           try { telemetry?.emit?.(event,null,'internal',data,'internal'); } catch {}
         }};
         runtime.intelligence=new IntelligenceClient(config.intelligence,intelligenceOptions);
+         if(canBindMemory){
+           try{
+             const checkedOwner=input=>{
+               try{
+                 const owner=memoryNative.resolveNativeOwner(input);
+                 return owner&&!owner.then&&owner.nativeVerified===true?owner:null;
+               }catch{return null;}
+             };
+             const checkedParticipants=typeof memoryNative.resolveParticipants==='function'
+               ?input=>{
+                 try{
+                   const proof=memoryNative.resolveParticipants(input);
+                   return Array.isArray(proof)&&proof.every(p=>p?.nativeVerified===true)
+                     ? proof : null;
+                 }catch{return null;}
+               }:null;
+             const binder=new M3ObserverOwnerBinder({ps2:runtime.intelligence.runtime,
+               p2:memoryStore,resolveNativeOwner:checkedOwner,
+               resolveParticipants:checkedParticipants});
+             const recorder=createM3WitnessRecorder({store:memoryStore,
+               authorize:args=>binder.authorize(args),
+               authorizeCoverage:args=>binder.authorizeCoverage(args)});
+             memoryIntake=new M3BoundedIntake({binder,recorder,onFailure:stage=>{
+               try{telemetry?.emit?.('memory_m3_intake_loss',null,'internal',{stage},'internal');}catch{}
+             }});
+             let memoryEpoch=null;
+             runtime.intelligence.subscribeVerifiedHostContext(host=>{
+               const stamp=host?host.hostRunId+':'+host.worldEpoch:null;
+               if(stamp!==memoryEpoch){memoryIntake.retire();binder.reset();memoryEpoch=stamp;}
+             });
+             runtime.intelligence.subscribeWorldBoundary(()=>{memoryIntake.retire();binder.reset();});
+             runtime.memoryM3=Object.freeze({snapshot:()=>memoryIntake.snapshot(),
+               close:()=>memoryIntake.close()});
+             shutdownClosers.add({close:async()=>{memoryIntake.close();}});
+           }catch{memoryIntake=null;try{console.warn('[M3] verified_owner_binder_unavailable');}catch{}}
+         }
         if(config.promotedCharacters.storageMode==='sqlite' && runtime.characterService?.store?.onBoundary) {
           runtime.intelligence.subscribeVerifiedHostContext(context=>{
             try {runtime.characterService.store.setVerifiedHostContext(context);}

@@ -1,4 +1,5 @@
 import {test} from 'node:test';
+import {IntelligenceClient} from '../src/perception/intelligenceClient.mjs';
 import assert from 'node:assert/strict';
 import {M3ObserverOwnerBinder} from '../../lsa-shared-brain/src/events/m3ObserverOwnerBinder.mjs';
 import {M3BoundedIntake} from '../../lsa-shared-brain/src/events/m3BoundedIntake.mjs';
@@ -166,4 +167,18 @@ test('coverage is unknown by default and native negatives require source certifi
     db.prepare('DELETE FROM promoted_profiles WHERE character_id=?').run(A);
     assert.equal(readM3Coverage(db,scope).status,'unavailable');
   }finally{db.close();}
+});
+
+test('H: live intelligence client forwards a synchronous authenticated M3 tap to PS2 runtime',()=>{
+ const accepted=()=>({accepted:true,queued:true});
+ const client=new IntelligenceClient({mode:'shadow',radio:'off'},{
+   acceptedObservationTap:accepted,connect:()=>{throw new Error('must_not_connect');},
+   telemetry:()=>{},report:()=>{}
+ });
+ assert.equal(client.runtime.acceptedObservationTap,accepted);
+ const unbound=new IntelligenceClient({mode:'shadow',radio:'off'},{
+   acceptedObservationTap:null,connect:()=>{throw new Error('must_not_connect');},
+   telemetry:()=>{},report:()=>{}
+ });
+ assert.equal(unbound.runtime.acceptedObservationTap,null);
 });
