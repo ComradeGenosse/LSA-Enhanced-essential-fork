@@ -194,3 +194,26 @@ test('TTS payload never exceeds the provider limit; no truncation or mutation', 
   assert.throws(()=>renderElevenSpeech({dialogue:full+'x',delivery:intent,enabled:true}),RangeError);
   assert.throws(()=>renderElevenSpeech({dialogue:' ',enabled:true}),TypeError);
 });
+
+
+test('EA3 strict streaming hints require separately validated experimental opt-in', () => {
+  const config = currentConfig({...eleven,expressiveDelivery:{
+    mode:'experimental',intensity:'subtle',maxTaggedSegmentsPerTurn:2,lunaDeliveryVersion:1,
+  }});
+  assert.equal(config.expressiveDelivery.lunaDeliveryVersion,1);
+  assert.equal(currentConfig({...eleven,expressiveDelivery:{mode:'shadow',lunaDeliveryVersion:0}})
+    .expressiveDelivery.lunaDeliveryVersion,0);
+  for(const bad of [null,-1,2,'1',true,1.1]){
+    assert.throws(()=>currentConfig({...eleven,expressiveDelivery:{
+      mode:'experimental',lunaDeliveryVersion:bad,
+    }}),TypeError);
+  }
+  assert.throws(()=>currentConfig({...eleven,expressiveDelivery:{
+    mode:'shadow',lunaDeliveryVersion:1,
+  }}),TypeError);
+  const disabled=currentConfig({speechProvider:'openai',expressiveDelivery:{
+    mode:'experimental',lunaDeliveryVersion:1,
+  }});
+  assert.equal(disabled.expressiveDelivery.mode,'off');
+  assert.equal(disabled.expressiveDelivery.lunaDeliveryVersion,0);
+});

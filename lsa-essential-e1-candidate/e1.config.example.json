@@ -153,6 +153,7 @@
   "expressiveDelivery": {
     "mode": "off",
     "intensity": "subtle",
-    "maxTaggedSegmentsPerTurn": 2
+    "maxTaggedSegmentsPerTurn": 2,
+    "lunaDeliveryVersion": 0
   }
 }

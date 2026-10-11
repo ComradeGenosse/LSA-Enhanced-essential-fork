@@ -217,7 +217,10 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
     let streamedSegments = [];
     let streamMode = null;
     let earlyAudio = null;
+    let bufferedLunaHint = null;
     const renderedDeliveries = [];
+    const lunaDeliveryVersion = services.config.expressiveDelivery?.mode === 'experimental'
+      ? services.config.expressiveDelivery.lunaDeliveryVersion ?? 0 : 0;
     if (services.config.structuredStreamingEnabled === true) {
       // Qwen's real-time factor can drop below 1x in GTA. In buffered mode
       // synthesize one validated utterance and queue all PCM before playback,
@@ -228,11 +231,13 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
       const modelOptions = ({ signal, timeoutMs, telemetry, dialogueAttempt }) => services.providerStack.decideStreaming({
         identity, context: { ...context, source }, source,knowledgeProjection:turn.knowledgeProjection,knowledgeDelivery:turn.knowledgeDelivery,
         input: isPlayer ? finalInput : '', history: priorHistory, signal, timeoutMs, telemetry, dialogueAttempt,
+        lunaDeliveryVersion,
       });
       if (!allowEarlyTts) {
         const result = await performProvider('model', services.providerStack.reasoning.id, modelOptions);
         decision = result.decision;
         streamMode = result.mode;
+        if (result.segments?.length === 1) bufferedLunaHint = result.segments[0].delivery ?? null;
       } else {
         let queueClosed = false;
         let queueFailure = null;
@@ -291,6 +296,7 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
           ({ signal, timeoutMs, telemetry, isActive, dialogueAttempt }) => services.providerStack.decideStreaming({
             identity, context: { ...context, source }, source,knowledgeProjection:turn.knowledgeProjection,knowledgeDelivery:turn.knowledgeDelivery,
             input: isPlayer ? finalInput : '', history: priorHistory, signal, timeoutMs, telemetry, dialogueAttempt,
+            lunaDeliveryVersion,
             onSegment: async (segment, mode) => {
               if (!isActive()) throw new Error('provider_attempt_inactive');
               check();
@@ -368,7 +374,7 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
     if (!audio) {
       const delivery = speechDelivery.forSegment({
         text: decision.dialogue, sequence: 1,
-        lunaHint: decision.structuredSegments?.length === 1 ? decision.structuredSegments[0].delivery : null,
+        lunaHint: bufferedLunaHint,
       });
       audio = await performProvider('tts', services.providerStack?.speech.id || 'openai.speech',
         ({ signal, timeoutMs, telemetry, isActive }) => services.speak({
