@@ -34,6 +34,13 @@ jobs:
         shell: bash
         run: |
           node --test lsa-essential-e1-candidate/tests/m1-sqlite-foundation.test.mjs lsa-essential-e1-candidate/tests/m1-shared-memory-parity.test.mjs lsa-essential-e1-candidate/tests/m1-world-epoch-bridge.test.mjs lsa-essential-e1-candidate/tests/m1-source-write-gate.test.mjs lsa-essential-e1-candidate/tests/m1-offline-inspection.test.mjs
+      - name: M2 durable conversation and M3 journal contract matrix
+        shell: bash
+        run: |
+          node --test lsa-essential-e1-candidate/tests/m2-journal.test.mjs
+          node --check lsa-shared-brain/src/memory/journalSqlite.mjs
+          node --check lsa-shared-brain/src/memory/conversationRecorder.mjs
+          node --check lsa-essential-e1-candidate/src/openai/runSequentialTurn.mjs
       - name: Regress existing Essential P2 editor, identity, profile and lifecycle
         shell: bash
         run: |
