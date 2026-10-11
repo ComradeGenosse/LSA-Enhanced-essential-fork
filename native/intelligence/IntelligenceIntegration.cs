@@ -75,8 +75,9 @@ namespace LSA.Intelligence
         sealed class SpeechSpan {public int Start,End;}
         sealed class SpeechListener {
             public string Ref;
-            public uint Tick;
-            public double Distance;
+            public uint Tick,PositiveTick;
+            public double Distance,PositiveDistance;
+            public string PositiveSourceVehicle="unknown",PositiveObserverVehicle="unknown";
             public long LastSample=-1;
             public string Path="unknown",SourceVehicle="unknown",ObserverVehicle="unknown",Interior="unknown",Reason="acoustic_unknown";
             public bool Overflow;
@@ -170,6 +171,8 @@ namespace LSA.Intelligence
                         l.Path="blocked";l.Reason="acoustic_path_blocked";l.LastSample=-1;continue;
                     }
                     l.Path="clear";l.Reason="heard";speechProbes++;
+                    l.PositiveTick=l.Tick;l.PositiveDistance=l.Distance;
+                    l.PositiveSourceVehicle=vehicleSource;l.PositiveObserverVehicle=vehicleObserver;
                     int from=l.LastSample>=0 && relative-l.LastSample<=150?
                         (int)l.LastSample:relative;
                     // A source-edge sample within one native sweep is treated
@@ -209,15 +212,15 @@ namespace LSA.Intelligence
                 bool audible=segments.Any(i=>i.End>i.Start);
                 if(!audible)continue; // no positive source-time witness
                 witnesses.Add(new {observer=new {captureRef=l.Ref,kind="ped"},
-                    sampledGameTick=l.Tick,distanceMeters=l.Distance,
-                    acousticPath=l.Path=="clear"?"clear":"unknown",
+                    sampledGameTick=l.PositiveTick,distanceMeters=l.PositiveDistance,
+                    acousticPath="clear",
                     audibleIntervalsMs=segments.Where(i=>i.End>i.Start)
                         .Select(i=>new {start=i.Start,end=i.End}).ToArray(),
-                    hearing=l.Path=="clear"?"heard":"unknown",
-                    reasonCodes=l.Path=="clear"?new[]{"sampled_speech"}:new[]{l.Reason},
-                    acousticContext=new {occlusion=l.Path=="clear"?"clear":"unknown",
-                        interior=l.Interior,sourceVehicle=l.SourceVehicle,
-                        observerVehicle=l.ObserverVehicle,
+                    hearing="heard",
+                    reasonCodes=new[]{"sampled_speech"},
+                    acousticContext=new {occlusion="clear",
+                        interior="same",sourceVehicle=l.PositiveSourceVehicle,
+                        observerVehicle=l.PositiveObserverVehicle,
                         sourceFacingToObserver="unknown",attention="unknown"}});
             }
             // All time values below are NATIVE-HOST monotonic, not Node time.
@@ -225,7 +228,7 @@ namespace LSA.Intelligence
             channel?.Send("speech_receipt",new {speechVersion=2,
                 nativeHostRunId=w.HostRunId,worldEpoch=w.WorldEpoch,
                 fact.utteranceId,source=new {captureRef=w.SourceRef,kind="player"},
-                w.StartTick,startGameTick=w.StartTick,endGameTick=fact.gameTick,
+                startGameTick=w.StartTick,endGameTick=fact.gameTick,
                 startMonotonicMs=w.StartMs,endMonotonicMs=fact.monotonicMs,
                 durationMs=duration,ageMs=Math.Min(30000,Math.Max(0,host.MonotonicMs-fact.monotonicMs)),
                 producerSequence=++speechSequence,captureReceiptRef=Guid.NewGuid().ToString("D"),
