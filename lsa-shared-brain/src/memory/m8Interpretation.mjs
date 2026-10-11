@@ -21,9 +21,9 @@ function personalityOf(raw){
  const h=raw?.humor??{};
  return frozen({style:STYLES.has(h.style)?h.style:'dry',teasing:num(h.teasing,0),
    caution:num(raw?.caution,.5),loyalty:num(raw?.loyalty,.5),
-   nostalgia:num(raw?.nostalgia,.5),bravado:num(raw?.bravado,.5)});
+   nostalgia:num(raw?.nostalgia,.5),bravado:num(raw?.bravado,.5),
+   interests:frozen((Array.isArray(raw?.interests)?raw.interests:[]).filter(x=>['cars','music','food','travel'].includes(x)).slice(0,8))});
 }
-const fit=(v,max)=>typeof v==='string'&&v.length<=max?v:null;
 function sourceEnvelope(row,scope){
  if(!row||row.committed!==true||row.sourceVerified!==true||!row.record||
     !sameScope(row.record,scope))return null;
@@ -34,13 +34,14 @@ function sourceEnvelope(row,scope){
  if(e.protagonistKey!==scope.protagonistKey)return null;
  return e;
 }
-function subjectOf(row){return row.kind==='journal_event'?row.eventType:'dialogue';}
 function categoryOf(row){
  if(row.kind==='journal_event'){
   const s=[row.eventType,...row.claims.map(x=>x.kind)].join(' ');
   if(/crash|rollover|collision|impact|flip/i.test(s))return 'crash';
   if(/funny|joke|prank|laugh/i.test(s))return 'humor';
   if(/rescued|rescue|help|saved/i.test(s))return 'help';
+  if(/embarrass|blunder|fumbled|stumble/i.test(s))return 'embarrassment';
+  if(/music|radio|song/i.test(s))return 'music';
   return null;
  }
  const x=row.content;
@@ -57,6 +58,9 @@ function feeling(cat,p){
   return ['surprise','That crash caught my attention.',.15];
  }
  if(cat==='help')return ['appreciation','That help matters to me.',.6*p.loyalty];
+ if(cat==='embarrassment')return p.style==='sarcastic'?['awkwardness','That blunder is painfully awkward to me.',-.2]:
+   ['embarrassment','That blunder feels embarrassing to me.',-.25];
+ if(cat==='music')return p.interests.includes('music')?['affinity','I tend to notice music.',.25]:null;
  if(cat==='gratitude')return ['warmth','I feel appreciated by those words.',.6*p.loyalty];
  if(cat==='crash_joke'||cat==='humor_quote'||cat==='humor'){
   return p.style==='sarcastic'?['amusement','I find that joke deliciously dry.',.55]:
@@ -135,7 +139,8 @@ export function evaluateM8({scope,personality={},sources=[],memories=[],appraisa
   const appraisal=memory&&approvedAppraisals.get(memory.memoryId);
   const confidence=Number((r.kind==='journal_event'?.77:.52).toFixed(2));
   interpretations.push(frozen({id:stableUuid('m8-opinion',...Object.values(s),r.recordId),
-   kind:cat==='gratitude'?'social_impression':cat.includes('joke')||cat==='humor'?'funny_moment':'belief',
+   kind:cat==='gratitude'?'social_impression':cat==='music'?'affinity':
+     cat==='embarrassment'?'embarrassment':cat.includes('joke')||cat==='humor'?'funny_moment':'belief',
    epistemicStatus:'character_opinion',verifiedWorldFact:false,about:'experience',tone,
    opinion:text,confidence,freshness:freshness(r.when,now),valence,
    sourceEvidenceIds:ids,appraisalSource:appraisal?'luna':'deterministic'}));
