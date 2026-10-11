@@ -221,3 +221,14 @@ test('EA7 current NPC reassurance overrides old soft mood but ordinary speech ca
   assert.equal(call("There's nothing to worry about.").value,'neutral');
   assert.equal(call('We should go to Sandy Shores.').source,'ephemeral_mood');
 });
+
+test('EA7 disconnected runtime supplier fails neutral without throwing or reviving stale state',()=>{
+  const mood=createMoodRuntime({getRuntime:()=>{throw new Error('connection lost');},
+    clock:()=>1000});
+  const a={identity:identity(4),turn:{characterSnapshot:null}};
+  assert.equal(mood.readMood(a),null);
+  assert.equal(mood.onSpeechCompleted({...a,delivery:eligible('sad'),
+    receipt:nativeReceipt(a.identity)}),false);
+  mood.retireTurn({...a,completed:false});
+  assert.equal(mood.size,0);
+});
