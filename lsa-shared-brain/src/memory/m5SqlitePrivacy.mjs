@@ -231,7 +231,7 @@ export class M5SqliteServices{
        ?db.prepare('SELECT envelope_json AS json FROM event_journal WHERE world_profile_id=? AND character_id=? AND timeline_id=? ORDER BY received_at_utc,record_id').all(scope.worldProfileId,scope.characterId,scope.timelineId).map(x=>JSON.parse(x.json)):[];
      const memories=db.prepare('SELECT * FROM memory_records WHERE '+scopeWhere+' ORDER BY created_at_utc,memory_id').all(...scopeKey(scope));
      const commands=db.prepare('SELECT receipt_json AS json FROM memory_commands WHERE '+scopeWhere+' ORDER BY requested_by_line_id,command_id').all(...scopeKey(scope)).map(x=>JSON.parse(x.json));
-     const tombstones=db.prepare('SELECT t.* FROM memory_tombstones t WHERE t.world_profile_id=? AND t.character_id=? AND t.timeline_id=?').all(scope.worldProfileId,scope.characterId,scope.timelineId);
+     const tombstones=db.prepare('SELECT t.* FROM memory_tombstones t WHERE t.world_profile_id=? AND t.character_id=? AND t.timeline_id=?').all(scope.worldProfileId,scope.characterId,scope.timelineId).filter(row=>!!evidence(db,scope,row.target_id));
      const corrections=db.prepare('SELECT c.* FROM memory_corrections c JOIN memory_commands m ON m.command_id=c.command_id WHERE c.world_profile_id=? AND c.character_id=? AND c.timeline_id=? AND m.protagonist_key=?').all(...scopeKey(scope));
      const trash=db.prepare('SELECT * FROM m5_trash WHERE '+scopeWhere).all(...scopeKey(scope));
      const raw=JSON.stringify({format:'m5-promoted-memory-archive-v1',scope,dialogue,events,memories,commands,tombstones,corrections,trash})+'\n';
