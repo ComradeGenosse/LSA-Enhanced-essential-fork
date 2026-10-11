@@ -111,7 +111,10 @@ test('M3 per-character isolation even with identical observation ID',async()=>{
   const r=rig();
   await r.recorder.capture({observation:observation(),candidate:identity()});
   r.setActor(B);
-  await r.recorder.capture({observation:observation(),candidate:identity()});
+  const rejected=await r.recorder.capture({observation:observation(),candidate:identity()});
+  assert.equal(rejected.accepted,false); // old candidate cannot be silently rebound to B
+  assert.equal(r.entries.size,1);
+  await r.recorder.capture({observation:observation(),candidate:identity({characterId:B})});
   assert.equal(r.entries.size,2);
   const ids=[...r.entries.values()].map(x=>x.event.recordId);
   assert.notEqual(ids[0],ids[1]);
@@ -127,8 +130,8 @@ test('M3 prepromotion grace cannot borrow another lifetime, epoch or stale physi
   r.setPromoted(false);r.setClock(2000);
   r.recorder.bufferBeforePromotion({observation:observation({observationId:id(20)}),candidate:identity()});
   r.setPromoted(true);r.setActor(B);
-  result=await r.recorder.importOnPromotion({candidate:identity()});
-  assert.equal(result.imported,1); // same physical owner: new promoted CharacterId can legitimately own it
+  result=await r.recorder.importOnPromotion({candidate:identity({characterId:B})});
+  assert.equal(result.imported,1); // must be the freshly authorized promoted ID for this lifetime
   assert.equal(r.entries.size,2);
 });
 test('M3 grace expiry, cold start and negative coverage do not invent witnessed events',async()=>{
