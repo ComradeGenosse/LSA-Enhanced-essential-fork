@@ -1,4 +1,8 @@
 import { assertOperationInput } from '../providerContract.mjs';
+import {
+  ELEVEN_V4_VERIFIED_TAG_FOR_DELIVERY, ELEVEN_SPEECH_MAX_CHARS,
+  sanitizeElevenSpeechDialogue, validateElevenSpeechDialogue,
+} from '../../voice/emotion/elevenTags.mjs';
 
 // Eleven v4 Turbo is served via Text-to-Dialogue WebSocket, NOT the legacy
 // Text-to-Speech stream-input protocol. Each synthesis has its own socket:
@@ -12,33 +16,46 @@ const VOICE_ID = /^[A-Za-z0-9]{20}$/;
 const BASE64 = /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/;
 // Defense in depth: a vendor tag is never accepted as an input parameter.
 // The only acting-capable extension is EA0's injected trusted renderer.
-const ALLOWED_TAG = Object.freeze({
-  whisper:'[whispers] ', excited:'[excited] ', angry:'[angry] ',
-  amused:'[laughs] ', sad:'[sad] ', sarcastic:'[sarcastic] ',
-});
+const ALLOWED_TAG = Object.freeze(Object.fromEntries(
+  Object.entries(ELEVEN_V4_VERIFIED_TAG_FOR_DELIVERY).map(([value, tag]) => [value, tag + ' '])
+));
 const DELIVERY_SOURCES = new Set(['verified_scene','luna_hint','dialogue_cue','ephemeral_mood','neutral']);
 const DELIVERY_CONFIDENCES = new Set(['supported','soft']);
+// Defense in depth before the trusted EA0 renderer's in-process brand check.
+// Do not invoke getters from model-authored or otherwise untrusted objects.
 function validDelivery(delivery) {
-  return delivery && typeof delivery === 'object' && !Array.isArray(delivery) &&
-    delivery.version === 1 && Object.hasOwn(ALLOWED_TAG, delivery.value) &&
-    DELIVERY_SOURCES.has(delivery.source) && DELIVERY_CONFIDENCES.has(delivery.confidence) &&
-    ['subtle','normal','expressive'].includes(delivery.intensity) &&
-    (delivery.evidenceRef === null ||
-      (typeof delivery.evidenceRef === 'string' && delivery.evidenceRef.length <= 128)) &&
-    Object.keys(delivery).length === 6 &&
-    Object.keys(delivery).every(key => ['version','value','source','confidence','intensity','evidenceRef'].includes(key));
+  try {
+    if (!delivery || typeof delivery !== 'object' || Array.isArray(delivery) ||
+        ![Object.prototype, null].includes(Object.getPrototypeOf(delivery)) ||
+        Object.getOwnPropertySymbols(delivery).length) return false;
+    const descriptors = Object.getOwnPropertyDescriptors(delivery);
+    const keys = Object.keys(descriptors);
+    if (keys.length !== 6 || keys.some(key =>
+      !['version','value','source','confidence','intensity','evidenceRef'].includes(key) ||
+      !descriptors[key].enumerable || !Object.hasOwn(descriptors[key], 'value'))) return false;
+    const d = Object.fromEntries(keys.map(key => [key, descriptors[key].value]));
+    return d.version === 1 && Object.hasOwn(ALLOWED_TAG, d.value) &&
+      DELIVERY_SOURCES.has(d.source) && DELIVERY_CONFIDENCES.has(d.confidence) &&
+      ['subtle','normal','expressive'].includes(d.intensity) &&
+      (d.evidenceRef === null ||
+        (typeof d.evidenceRef === 'string' && /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/.test(d.evidenceRef))) &&
+      (d.source === 'verified_scene' ? d.confidence === 'supported' :
+        d.confidence === 'soft' && d.evidenceRef === null) &&
+      (d.source !== 'neutral' || d.value === 'neutral');
+  } catch { return false; }
 }
-function speechTextForSocket(dialogue, delivery, mode, renderSpeech) {
-  // Only experimental mode is permitted to modify the original provider input.
-  // In that mode, even untagged text must not smuggle raw vendor commands.
+function speechTextForSocket(dialogue, delivery, mode, modelId, renderSpeech) {
+  // Off and shadow must remain byte-identical to the existing socket payload.
   if (mode !== 'experimental') return {text: dialogue, tagged: false};
-  const safeText = dialogue.replaceAll('[', '\u201c').replaceAll(']', '\u201d');
-  if (!validDelivery(delivery) || typeof renderSpeech !== 'function')
+  // Do not claim support on other/unknown models; still neutralize raw commands.
+  const safeText = sanitizeElevenSpeechDialogue(dialogue);
+  if (modelId !== 'eleven_v4_turbo' ||
+      !validDelivery(delivery) || typeof renderSpeech !== 'function')
     return {text: safeText, tagged: false};
   try {
-    const rendered = renderSpeech({dialogue, delivery, enabled: true});
+    const rendered = renderSpeech({dialogue, delivery, enabled: true, modelId});
     const allowed = ALLOWED_TAG[delivery.value] + safeText;
-    if (rendered === allowed && rendered.length <= 3000)
+    if (rendered === allowed && rendered.length <= ELEVEN_SPEECH_MAX_CHARS)
       return {text: rendered, tagged: true};
   } catch { /* Fail closed to a sanitized, untagged TTS copy. */ }
   return {text: safeText, tagged: false};
@@ -121,9 +138,9 @@ export function createElevenLabsSpeechProvider({
       assertOperationInput(input, 'speech');
       if (typeof WebSocketImpl !== 'function') throw fault('elevenlabs_websocket_unavailable');
       const { dialogue, identity, speechProfile, signal, onPcm, telemetry } = input;
-      if (typeof onPcm !== 'function' || typeof dialogue !== 'string' ||
-          !dialogue.trim() || dialogue.length > 3000)
+      if (typeof onPcm !== 'function')
         throw new TypeError('ElevenLabs dialogue and PCM callback are required and bounded.');
+      validateElevenSpeechDialogue(dialogue);
       if (speechProfile?.provider && speechProfile.provider !== 'elevenlabs')
         throw new TypeError('ElevenLabs provider mismatch.');
       const alias = speechProfile?.voice ?? config.ttsVoice;
@@ -134,7 +151,8 @@ export function createElevenLabsSpeechProvider({
       if (typeof key !== 'string' || !key.trim()) throw fault('elevenlabs_missing_key');
       if (signal?.aborted) throw fault('cancelled');
       const actingMode = config.expressiveDelivery?.mode ?? 'off';
-      const speechPayload = speechTextForSocket(dialogue, input.delivery, actingMode, renderSpeech);
+      const speechPayload = speechTextForSocket(
+        dialogue, input.delivery, actingMode, config.elevenLabs.modelId, renderSpeech);
       const maxBytes = Math.min(config.streamingMaxPcmBytes ?? MAX_AUDIO_BYTES, MAX_AUDIO_BYTES);
       const timeoutMs = Math.min(input.timeoutMs ?? config.providerWorkDeadlineMs ?? 45_000, 120_000);
       const started = safeTime(clock);
@@ -157,7 +175,7 @@ export function createElevenLabsSpeechProvider({
         try { socket.close(1000); } catch {}
       };
       const fail = error => {
-        if (failed || completed) return;
+        if (failed || (completed && drained)) return;
         failed = error;
         signalWake();
         rejectFinished(error);
@@ -199,7 +217,11 @@ export function createElevenLabsSpeechProvider({
           for (let at=0; at<pcm.length; at+=CHUNK_BYTES) {
             if (failed) throw failed;
             const part = pcm.subarray(at, Math.min(at+CHUNK_BYTES, pcm.length));
+            if (signal?.aborted) throw fault('cancelled');
             await onPcm(new Uint8Array(part));
+            // A final WebSocket frame does NOT authorize forwarding audio after
+            // a native turn has been interrupted during the asynchronous callback.
+            if (failed || signal?.aborted) throw failed || fault('cancelled');
             forwardedBytes += part.byteLength;
             forwardedChunks++;
           }
