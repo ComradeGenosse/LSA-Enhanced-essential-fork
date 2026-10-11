@@ -2,6 +2,7 @@ import { assertOperationInput } from '../providerContract.mjs';
 import {
   ELEVEN_V4_VERIFIED_TAG_FOR_DELIVERY, ELEVEN_SPEECH_MAX_CHARS,
   sanitizeElevenSpeechDialogue, validateElevenSpeechDialogue,
+  verifiedElevenTagForDelivery,
 } from '../../voice/emotion/elevenTags.mjs';
 
 // Eleven v4 Turbo is served via Text-to-Dialogue WebSocket, NOT the legacy
@@ -19,6 +20,18 @@ const BASE64 = /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$
 const ALLOWED_TAG = Object.freeze(Object.fromEntries(
   Object.entries(ELEVEN_V4_VERIFIED_TAG_FOR_DELIVERY).map(([value, tag]) => [value, tag + ' '])
 ));
+// A provider-result object is branded ONLY after the actual WebSocket text
+// was sent, final PCM was forwarded, and synthesis finished without abort.
+// This proves directive emission, not that a voice performed it effectively.
+const appliedResults = new WeakMap();
+export function wasElevenTagApplied(result, {delivery, identity} = {}) {
+  try {
+    const proof = appliedResults.get(result);
+    return !!proof && proof.delivery === delivery && proof.identity === identity &&
+      proof.modelId === 'eleven_v4_turbo' &&
+      proof.tag === verifiedElevenTagForDelivery(delivery?.value, proof.modelId);
+  } catch { return false; }
+}
 const DELIVERY_SOURCES = new Set(['verified_scene','luna_hint','dialogue_cue','ephemeral_mood','neutral']);
 const DELIVERY_CONFIDENCES = new Set(['supported','soft']);
 // Defense in depth before the trusted EA0 renderer's in-process brand check.
@@ -46,17 +59,17 @@ function validDelivery(delivery) {
 }
 function speechTextForSocket(dialogue, delivery, mode, modelId, renderSpeech) {
   // Off and shadow must remain byte-identical to the existing socket payload.
-  if (mode !== 'experimental') return {text: dialogue, tagged: false};
+  if (mode !== 'experimental') return {text: dialogue, tagged: false, tag: null};
   // Do not claim support on other/unknown models; still neutralize raw commands.
   const safeText = sanitizeElevenSpeechDialogue(dialogue);
   if (modelId !== 'eleven_v4_turbo' ||
       !validDelivery(delivery) || typeof renderSpeech !== 'function')
-    return {text: safeText, tagged: false};
+    return {text: safeText, tagged: false, tag: null};
   try {
     const rendered = renderSpeech({dialogue, delivery, enabled: true, modelId});
     const allowed = ALLOWED_TAG[delivery.value] + safeText;
     if (rendered === allowed && rendered.length <= ELEVEN_SPEECH_MAX_CHARS)
-      return {text: rendered, tagged: true};
+      return {text: rendered, tagged: true, tag: verifiedElevenTagForDelivery(delivery.value, modelId)};
   } catch { /* Fail closed to a sanitized, untagged TTS copy. */ }
   return {text: safeText, tagged: false};
 }
@@ -282,6 +295,7 @@ export function createElevenLabsSpeechProvider({
       try {
         const [_, __] = await Promise.all([pump(), finished]);
         if (failed) throw failed;
+        if (signal?.aborted) throw fault('cancelled');
         if (!drained || !forwardedBytes || forwardedBytes !== generatedBytes)
           throw fault('elevenlabs_invalid_audio');
         if (actingMode !== 'off') telemetry?.event('acting_tts_delivery', {
@@ -306,7 +320,20 @@ export function createElevenLabsSpeechProvider({
           audioDurationMs:forwardedBytes*1000/PCM_BYTES_PER_SECOND,
           sampleRate:24000, channels:1,
         });
-        return {bytes:forwardedBytes, chunks:forwardedChunks, sampleRate:24000, channels:1};
+        if (signal?.aborted) throw fault('cancelled');
+        const result = Object.freeze({
+          bytes:forwardedBytes, chunks:forwardedChunks, sampleRate:24000, channels:1,
+          // Diagnostic only. The authoritative check is wasElevenTagApplied
+          // (unforgeable WeakMap membership + same delivery and native identity).
+          tagApplied:speechPayload.tagged, appliedTag:speechPayload.tag,
+        });
+        if (speechPayload.tagged && speechPayload.tag !== null) {
+          appliedResults.set(result, {
+            delivery:input.delivery, identity, modelId:config.elevenLabs.modelId,
+            tag:speechPayload.tag,
+          });
+        }
+        return result;
       } catch(error) {
         fail(error);
         record('elevenlabs_tts_timing_summary', {
