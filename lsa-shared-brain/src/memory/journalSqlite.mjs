@@ -2,6 +2,7 @@
 // Write entry points are synchronous and ONLY legal under withTimelineWrite.
 import {createHash} from 'node:crypto';
 import {isUuid,immutableSnapshot} from '../util/identity.mjs';
+import {evidenceHash} from '../events/journalEventNormalizer.mjs';
 export const JOURNAL_SCHEMA_VERSION=3;
 const hash=s=>createHash('sha256').update(s,'utf8').digest('hex');
 const hex=s=>typeof s==='string'&&/^[0-9a-f]{64}$/.test(s);
@@ -54,13 +55,19 @@ const DDL=[
 "CREATE TRIGGER dialogue_fts_delete AFTER DELETE ON dialogue_journal BEGIN INSERT INTO dialogue_journal_fts(dialogue_journal_fts,rowid,content) VALUES('delete',old.rowid,old.content); END;",
 "CREATE TABLE event_journal (record_id TEXT PRIMARY KEY,world_profile_id TEXT NOT NULL,timeline_id TEXT NOT NULL REFERENCES timelines(timeline_id),character_id TEXT NOT NULL,observation_id TEXT NOT NULL,revision INTEGER NOT NULL,event_type TEXT NOT NULL,received_at_utc TEXT NOT NULL,source_hash TEXT NOT NULL,receipt_status TEXT NOT NULL,envelope_json TEXT NOT NULL,envelope_sha256 TEXT NOT NULL,UNIQUE(character_id,timeline_id,observation_id,revision));",
 "CREATE INDEX event_scope_recent ON event_journal(world_profile_id,character_id,timeline_id,received_at_utc DESC);",
-"CREATE INDEX event_type_recent ON event_journal(character_id,timeline_id,event_type,received_at_utc DESC);"
+"CREATE INDEX event_type_recent ON event_journal(character_id,timeline_id,event_type,received_at_utc DESC);",
+"CREATE TABLE event_source_evidence (record_id TEXT PRIMARY KEY REFERENCES event_journal(record_id) ON DELETE CASCADE, source_evidence_json TEXT NOT NULL, source_evidence_sha256 TEXT NOT NULL);"
 ].join('\n');
-const tables=['dialogue_journal','dialogue_journal_fts','event_journal'];
+const tables=['dialogue_journal','dialogue_journal_fts','event_journal','event_source_evidence'];
+const sidecarDDL="CREATE TABLE IF NOT EXISTS event_source_evidence (record_id TEXT PRIMARY KEY REFERENCES event_journal(record_id) ON DELETE CASCADE, source_evidence_json TEXT NOT NULL, source_evidence_sha256 TEXT NOT NULL)";
 export function migrateJournalSchema(db){
   const v=db.prepare('PRAGMA user_version').get().user_version;
   if(v!==2&&v!==JOURNAL_SCHEMA_VERSION)fail('unsupported_sqlite_profile_schema');
   if(v===JOURNAL_SCHEMA_VERSION){
+    // Older never-deployed v3 fixtures may lack the optional M3 evidence table.
+    // Add it without rewriting a single immutable journal envelope.
+    db.exec('BEGIN IMMEDIATE');
+    try{db.exec(sidecarDDL);db.exec('COMMIT');}catch(error){try{db.exec('ROLLBACK');}catch{}throw error;}
     assertJournalSchema(db);
     return v;
   }
@@ -106,22 +113,56 @@ export function appendDialogue(db,line,attribution,world){
       e.deliveryReceiptId,raw,hash(raw));
   return Object.freeze({inserted:true,recordId:e.recordId});
 }
-export function appendEvent(db,event,world,{hostContext=null}={}){
+function verifiedEvidence(event,sidecar) {
+  if(!sidecar||sidecar.format!=='ps2-observation-v1'||sidecar.sourceHash!==event.sourceHash||
+     sidecar.observation?.observationId!==event.observationId||
+     sidecar.observation?.revision!==event.revision||
+     sidecar.observation?.observedAt?.receivedUtc!==event.receivedAtUtc||
+     !sidecar.ownerProof||JSON.stringify(sidecar.ownerProof)!==JSON.stringify(event.ownerProof)||
+     !isUuid(sidecar.nativeAdapterEpoch)||!Array.isArray(sidecar.participantProofs)||
+     !sidecar.observation || !Array.isArray(sidecar.observation.claims))
+    fail('journal_evidence_mismatch');
+  const material={observation:sidecar.observation,identity:{
+    characterId:event.characterId,worldProfileId:event.worldProfileId,
+    timelineId:event.timelineId,ownerProof:sidecar.ownerProof,
+    adapterEpoch:sidecar.nativeAdapterEpoch
+  },participantProofs:sidecar.participantProofs,prePromotionProof:sidecar.prePromotionProof??null};
+  if(evidenceHash(material)!==event.sourceHash)fail('journal_evidence_hash_mismatch');
+  const sourceClaims=new Set(sidecar.observation.claims.map(c=>c.claimId));
+  if(event.claims.some(c=>!sourceClaims.has(c.sourceEvidenceId)))fail('journal_evidence_claim_mismatch');
+  return immutableSnapshot(sidecar);
+}
+export function appendEvent(db,event,world,{hostContext=null,sourceEvidence=null}={}){
   assertJournalSchema(db);const e=validateJournalEvent(event,world),alias=owner(db,e,world);
   if(alias!==e.ownerProof.ownerAlias)fail('journal_owner_proof_mismatch');
   if(hostContext&&(hostContext.hostRunId!==e.ownerProof.hostRunId||hostContext.worldEpoch!==e.ownerProof.worldEpoch))
     fail('journal_source_epoch_mismatch');
+  const evidence=sourceEvidence===null?null:verifiedEvidence(e,sourceEvidence);
+  // A newer accepted revision may never be rolled back by a late/replayed PS2 receipt.
+  const newest=db.prepare('SELECT MAX(revision) AS revision FROM event_journal WHERE world_profile_id=? AND character_id=? AND timeline_id=? AND observation_id=?')
+    .get(e.worldProfileId,e.characterId,e.timelineId,e.observationId)?.revision;
+  if(newest!==null&&newest!==undefined&&newest>e.revision)fail('journal_stale_event_revision');
   const old=db.prepare('SELECT envelope_json,envelope_sha256 FROM event_journal WHERE character_id=? AND timeline_id=? AND observation_id=? AND revision=?')
     .get(e.characterId,e.timelineId,e.observationId,e.revision);
   if(old){
     const previous=JSON.parse(old.envelope_json),{recordId:ignored,...a}=previous,{recordId:ignored2,...b}=e;
     if(hash(old.envelope_json)!==old.envelope_sha256||JSON.stringify(a)!==JSON.stringify(b))fail('journal_replay_conflict');
+    const existing=db.prepare('SELECT source_evidence_json AS json,source_evidence_sha256 AS digest FROM event_source_evidence WHERE record_id=?').get(previous.recordId);
+    if(evidence){
+      if(!existing||hash(existing.json)!==existing.digest||existing.json!==JSON.stringify(evidence))
+        fail('journal_evidence_replay_conflict');
+    }
     return Object.freeze({inserted:false,recordId:previous.recordId});
   }
   const raw=JSON.stringify(e);
   db.prepare('INSERT INTO event_journal(record_id,world_profile_id,timeline_id,character_id,observation_id,revision,event_type,received_at_utc,source_hash,receipt_status,envelope_json,envelope_sha256) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)')
     .run(e.recordId,e.worldProfileId,e.timelineId,e.characterId,e.observationId,e.revision,e.eventType,e.receivedAtUtc,
       e.sourceHash,e.receiptStatus,raw,hash(raw));
+  if(evidence){
+    const original=JSON.stringify(evidence);
+    db.prepare('INSERT INTO event_source_evidence(record_id,source_evidence_json,source_evidence_sha256) VALUES (?,?,?)')
+      .run(e.recordId,original,hash(original));
+  }
   return Object.freeze({inserted:true,recordId:e.recordId});
 }
 function readScope(s,world,defaultLimit=200){
@@ -168,4 +209,18 @@ export function readEvents(db,s,world){
   if(s.eventType!==undefined){if(!validText(s.eventType,1,48))fail('journal_invalid_query');filter=' AND event_type=?';args.push(s.eventType);}
   return Object.freeze(db.prepare('SELECT * FROM event_journal WHERE world_profile_id=? AND character_id=? AND timeline_id=?'+filter+' ORDER BY received_at_utc DESC,rowid DESC LIMIT ?')
     .all(...args,limit).map(decodeEvent));
+}
+
+/** Only M3's verified sidecars qualify for full witness recall and curation. */
+export function readVerifiedEventEvidence(db,{characterId,timelineId,recordId},world){
+  if(!isUuid(characterId)||!isUuid(timelineId)||!isUuid(recordId))fail('journal_invalid_scope');
+  assertJournalSchema(db);
+  const row=db.prepare('SELECT e.envelope_json,e.envelope_sha256,s.source_evidence_json,s.source_evidence_sha256 FROM event_journal e JOIN event_source_evidence s ON s.record_id=e.record_id WHERE e.world_profile_id=? AND e.character_id=? AND e.timeline_id=? AND e.record_id=?')
+    .get(world,characterId,timelineId,recordId);
+  if(!row)return null;
+  if(hash(row.envelope_json)!==row.envelope_sha256||hash(row.source_evidence_json)!==row.source_evidence_sha256)
+    fail('journal_content_integrity_failed');
+  const event=JSON.parse(row.envelope_json),sourceEvidence=JSON.parse(row.source_evidence_json);
+  verifiedEvidence(event,sourceEvidence);
+  return immutableSnapshot({event,sourceEvidence});
 }
