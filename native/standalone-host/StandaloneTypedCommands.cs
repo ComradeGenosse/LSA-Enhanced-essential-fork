@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Concurrent;
+using System.Diagnostics;
 using System.Threading;
 using LSA.Standalone;
 using Rage;
@@ -14,7 +15,14 @@ namespace LSA.Standalone.RageHost
     {
         private const int Capacity = 8;
         private const int MaxText = 1024;
-        private static readonly ConcurrentQueue<string> pending = new ConcurrentQueue<string>();
+        private sealed class QueuedText
+        {
+            public string Text;
+            public long SourceTick;
+        }
+        private static readonly ConcurrentQueue<QueuedText> pending =
+            new ConcurrentQueue<QueuedText>();
+        private static readonly StandaloneOnscreenInput keyboard = new StandaloneOnscreenInput();
         private static int queued;
 
         [ConsoleCommand(Name = "LSAStandaloneAsk",
@@ -24,6 +32,19 @@ namespace LSA.Standalone.RageHost
             if (phrase != null && phrase.Length >= 2 &&
                 phrase[0] == '"' && phrase[phrase.Length - 1] == '"')
                 phrase = phrase.Substring(1, phrase.Length - 2);
+            Enqueue(phrase);
+        }
+
+        [ConsoleCommand(Name = "LSAStandaloneCompose",
+            Description = "Open GTA's native text keyboard for a standalone NPC conversation.")]
+        public static void Compose()
+        {
+            keyboard.RequestOpen();
+            Game.Console.Print("LSA standalone: keyboard requested.");
+        }
+
+        private static void Enqueue(string phrase)
+        {
             if (!Valid(phrase))
             {
                 Game.Console.Print("LSA standalone: enter 1-1024 printable characters.");
@@ -35,21 +56,38 @@ namespace LSA.Standalone.RageHost
                 Game.Console.Print("LSA standalone: typed input queue full.");
                 return;
             }
-            pending.Enqueue(phrase);
+            pending.Enqueue(new QueuedText { Text = phrase, SourceTick = Stopwatch.GetTimestamp() });
             Game.Console.Print("LSA standalone: input queued for native validation.");
         }
 
         private static bool Valid(string phrase)
         {
             if (string.IsNullOrWhiteSpace(phrase) || phrase.Length > MaxText) return false;
-            foreach (char c in phrase)
-                if (char.IsControl(c) || c == '\uFFFD') return false;
+            for (int i = 0; i < phrase.Length; i++)
+            {
+                char ch = phrase[i];
+                if (char.IsControl(ch) || ch == '\uFFFD') return false;
+                if (char.IsHighSurrogate(ch))
+                {
+                    if (i + 1 >= phrase.Length || !char.IsLowSurrogate(phrase[i + 1]))
+                        return false;
+                    i++;
+                }
+                else if (char.IsLowSurrogate(ch)) return false;
+            }
             return true;
         }
 
         public static void Clear()
         {
+            keyboard.ClearAdmission();
             while (pending.TryDequeue(out _)) Interlocked.Decrement(ref queued);
+        }
+
+        public static void StopOnOwner(OwnerScope scope)
+        {
+            keyboard.StopOnOwner(scope);
+            Clear();
         }
 
         // ONLY the owning game fiber calls Pump, within its synchronous scope.
@@ -58,8 +96,19 @@ namespace LSA.Standalone.RageHost
         {
             if (scope == null || !scope.IsOwner)
                 throw new InvalidOperationException("owner_scope_required");
-            if (!pending.TryDequeue(out string phrase)) return;
+            keyboard.Tick(scope, Enqueue);
+            if (!pending.TryDequeue(out QueuedText entry)) return;
             Interlocked.Decrement(ref queued);
+            // Console input is not a persistent command queue. If the player
+            // moves away during a load/stall, refuse instead of targeting a
+            // different ped long after their request.
+            long ageTicks = Stopwatch.GetTimestamp() - entry.SourceTick;
+            if (ageTicks < 0 || ageTicks > (long)Stopwatch.Frequency * 2)
+            {
+                Game.Console.Print("LSA standalone: typed_input_expired.");
+                return;
+            }
+            string phrase = entry.Text;
 
             // Absolutely no tentative claim if the actual GTA decorator
             // adoption proof has not been approved and explicitly enabled.
