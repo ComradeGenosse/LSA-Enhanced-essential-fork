@@ -19,11 +19,13 @@ namespace LSA.Standalone
         public readonly string Source;
         public readonly Guid LeaseId;
         public readonly string Generation;
+        public readonly string PlayerText; // null unless source is native player_text
+        public string StagedReply { get; private set; } // NOT playback/history confirmation
         internal readonly OwnershipLease Lease;
         internal bool Confirmed;
         internal bool Retired;
 
-        internal NativeTurnPermit(Guid id, Guid nonce, string source, OwnershipLease lease)
+        internal NativeTurnPermit(Guid id, Guid nonce, string source, OwnershipLease lease, string playerText)
         {
             TurnId = id;
             SessionNonce = nonce;
@@ -31,9 +33,17 @@ namespace LSA.Standalone
             HostRunId = lease.Actor.HostRunId;
             WorldEpoch = lease.Actor.WorldEpoch;
             Source = source;
+            PlayerText = playerText;
             LeaseId = lease.LeaseId;
             Generation = lease.Generation.ToString(CultureInfo.InvariantCulture);
             Lease = lease;
+        }
+
+        internal bool StageReply(string text)
+        {
+            if (!Confirmed || Retired || StagedReply != null) return false;
+            StagedReply = text; // prevalidated; no game effect here
+            return true;
         }
     }
 
@@ -57,6 +67,34 @@ namespace LSA.Standalone
         public bool TryIssue(ActorRef actor, string nativeSource, long ttlMs,
             out NativeTurnPermit permit, out string reason)
         {
+            return IssueCore(actor, nativeSource, null, ttlMs, out permit, out reason);
+        }
+
+        // The text is supplied by a validated native input source on the
+        // owner fiber; no corresponding Node operation can mint text or actor.
+        public bool TryIssueTyped(ActorRef actor, string playerText, long ttlMs,
+            out NativeTurnPermit permit, out string reason)
+        {
+            if (!ValidText(playerText, 1024))
+            {
+                permit = null;
+                reason = "invalid_native_text";
+                return false;
+            }
+            return IssueCore(actor, "player_text", playerText, ttlMs, out permit, out reason);
+        }
+
+        private static bool ValidText(string text, int maxLength)
+        {
+            if (string.IsNullOrWhiteSpace(text) || text.Length > maxLength) return false;
+            foreach (char ch in text)
+                if (char.IsControl(ch) && ch != '\n' && ch != '\t') return false;
+            return true;
+        }
+
+        private bool IssueCore(ActorRef actor, string nativeSource, string playerText,
+            long ttlMs, out NativeTurnPermit permit, out string reason)
+        {
             permit = null;
             reason = "invalid_native_source";
             if (nativeSource != "player_text" && nativeSource != "player_mic" &&
@@ -67,7 +105,7 @@ namespace LSA.Standalone
             OwnershipLease lease;
             if (!authority.TryAcquire(actor, LeaseKind.Conversation, "standalone-native-turn",
                 ttlMs, out lease, out reason)) return false;
-            permit = new NativeTurnPermit(Guid.NewGuid(), Guid.NewGuid(), nativeSource, lease);
+            permit = new NativeTurnPermit(Guid.NewGuid(), Guid.NewGuid(), nativeSource, lease, playerText);
             live.Add(permit.TurnId, permit);
             reason = "offered";
             return true;
@@ -124,6 +162,29 @@ namespace LSA.Standalone
                 Retire(permit);
                 return false;
             }
+            return true;
+        }
+
+        // Accept AI text for future audio adaptation, but never treat it as
+        // playback success. Idempotency is deliberately reject-on-replay.
+        public bool TryStageReply(string turnId, string leaseId, string generation,
+            string actorIncarnationId, string replyText, out string reason)
+        {
+            reason = "stale_turn";
+            if (!ValidText(replyText, 2048))
+            {
+                reason = "invalid_reply";
+                return false;
+            }
+            if (!IsCurrent(turnId, leaseId, generation, actorIncarnationId))
+                return false;
+            NativeTurnPermit permit = live[Guid.Parse(turnId)];
+            if (!permit.StageReply(replyText))
+            {
+                reason = "reply_already_staged";
+                return false;
+            }
+            reason = "staged_not_played";
             return true;
         }
 
