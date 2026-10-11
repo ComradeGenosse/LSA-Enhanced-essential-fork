@@ -80,7 +80,7 @@ function sampleGpu(index) {
     });
   });
 }
-async function runCase(args,fixture,run,fetchImpl=globalThis.fetch) {
+export async function runCase(args,fixture,run,fetchImpl=globalThis.fetch) {
   const samples=[], t0=performance.now();
   let sampling=true, busy=false;
   const tick=async()=>{
