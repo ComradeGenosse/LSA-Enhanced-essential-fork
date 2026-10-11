@@ -11,7 +11,7 @@ import {ensureIntegratedMemorySchema} from '../src/memory/integratedSqlite.mjs';
 import {ensureCurationSchema,enqueueCuration,claimCuration,completeCuration,
   retryCuration,releaseCuration,reserveCurationBudget,finishCurationBudget,
   reconcileCurationBudgets,readCurationAppraisals} from '../src/memory/curationSqlite.mjs';
-import {processIdleCuration} from '../src/memory/lunaCurator.mjs';
+import {processIdleCuration,createLunaCurationAdapter} from '../src/memory/lunaCurator.mjs';
 import {createIdleCurationScheduler} from '../src/memory/idleCurationScheduler.mjs';
 import {createEssentialM7Scheduler} from '../../lsa-essential-e1-candidate/src/memory/lunaCurationBridge.mjs';
 const id=n=>'00000000-0000-4000-8000-'+n.toString(16).padStart(12,'0');
@@ -174,4 +174,24 @@ test('M7 worker retries mock rate limit and respects provider Retry-After withou
  const q=f.db.prepare('SELECT state,next_attempt_at_utc FROM memory_curation_jobs').get();
  assert.equal(q.state,'pending');
  assert.equal(q.next_attempt_at_utc,new Date(Date.parse(at(2))+20000).toISOString());
+});
+
+test('M7 pricing-enforced maximum rejects costly cloud batch before billing or reservation',async t=>{
+ const f=fixture(t);let cloud=0,reservations=0,releases=0;
+ const provider=createLunaCurationAdapter({
+   config:{reasoningModel:'gpt-6-luna',reasoningBaseUrl:'https://api.openai.com/v1',
+     curatorPricing:{inputUsdPerMillionTokens:10,outputUsdPerMillionTokens:20}},
+   requestJson:async()=>{cloud++;throw new Error('unexpected cloud call');}});
+ assert.ok(provider.estimateMaxCostUsd([f.proposal])>.001);
+ const queue={enqueueIfAbsent:async()=>{},claimDue:async()=>claim(f),
+   completeLeased:async()=>{throw new Error('should not commit');},
+   retryLeased:async()=>{throw new Error('should not retry');},
+   releaseLeased:async a=>{releases++;return releaseCuration(f.db,a,f.scope.worldProfileId,f.scope.timelineId);}};
+ const ledger={reserve:async()=>{reservations++;return true;},
+   settle:async()=>{},release:async()=>{}};
+ const outcome=await processIdleCuration({enabled:true,ownerId:id(90),nowUtc:at(2),
+   maxProviderMs:1000,leaseMs:6000,provider,queue,ledger,estimatedMaxCostUsd:.0001});
+ assert.equal(outcome.status,'budget_estimate_exceeded');
+ assert.equal(cloud,0);assert.equal(reservations,0);assert.equal(releases,1);
+ assert.equal(f.db.prepare('SELECT state FROM memory_curation_jobs').get().state,'pending');
 });
