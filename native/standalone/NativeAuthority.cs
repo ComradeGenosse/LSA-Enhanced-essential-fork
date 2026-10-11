@@ -287,16 +287,18 @@ namespace LSA.Standalone
 
             ActorState state; ActorObservation observed;
             if (!TryState(actor, out state, out observed, out reason)) return false;
-            if (!CanControl(observed, out reason)) { state.Leases.Clear(); return false; }
+            if (!CanControl(observed, out reason)) { RevokeLeases(state, reason); return false; }
             OwnershipLease current;
             if (state.Leases.TryGetValue(kind, out current))
             {
                 if (current.ExpiresAtMs > now) { reason = "owner_busy"; return false; }
                 state.Leases.Remove(kind);
+                Record("lease_expired", "expired", actor, current);
             }
             if (state.NextGeneration == long.MaxValue) { reason = "generation_exhausted"; return false; }
             lease = new OwnershipLease(Guid.NewGuid(), actor, kind, owner, ++state.NextGeneration, now + ttlMs);
             state.Leases.Add(kind, lease);
+            Record("lease_acquired", "acquired", actor, lease);
             reason = "acquired";
             return true;
         }
@@ -314,10 +316,11 @@ namespace LSA.Standalone
             if (current.ExpiresAtMs <= now)
             {
                 state.Leases.Remove(lease.Kind);
+                Record("lease_expired", "expired", lease.Actor, lease);
                 reason = "lease_expired";
                 return false;
             }
-            if (!CanControl(observed, out reason)) { state.Leases.Clear(); return false; }
+            if (!CanControl(observed, out reason)) { RevokeLeases(state, reason); return false; }
             reason = "current";
             return true;
         }
@@ -338,7 +341,9 @@ namespace LSA.Standalone
             if (stopped || !PollClock(out now)) return false;
             ActorState state; string reason;
             if (!FindCurrentLease(lease, now, out state, out reason)) return false;
-            return state.Leases.Remove(lease.Kind);
+            bool removed = state.Leases.Remove(lease.Kind);
+            if (removed) Record("lease_released", "released", lease.Actor, lease);
+            return removed;
         }
 
         // Supersession requires the *current full token*, never an actor name or an
@@ -360,6 +365,8 @@ namespace LSA.Standalone
             replacement = new OwnershipLease(Guid.NewGuid(), expected.Actor, expected.Kind,
                 nextOwner, ++state.NextGeneration, now + ttlMs);
             state.Leases[expected.Kind] = replacement;
+            Record("lease_revoked", "superseded", expected.Actor, expected);
+            Record("lease_acquired", "superseded", expected.Actor, replacement);
             reason = "superseded";
             return true;
         }
