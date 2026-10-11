@@ -2,7 +2,7 @@
 
 **Scope:** The first deployable C-01 native/companion slice. Source-time
 mic start/end is implemented as passive, bounded, explicitly opt-in diagnostic
-evidence. **Proximity hearing, STT/turn association, typed-utterance joins,
+evidence. **Proximity hearing, native mic/STT turn association,
 observer acoustic coverage, speech-to-PS2 observations and PS7 social routing
 are not enabled and must not be inferred from these frames.** This is NOT a
 claim that the entire Phase 8/MP8 acceptance gate is complete.
@@ -79,14 +79,15 @@ PS6 speech triggers or second transcription are authorized by this switch.
 3. Test an early cancellation, actor removal, stop after a target swap,
    pause/resume, repeated stop and world reload; no orphan start/end may
    become a valid transcript or leak another NPC's identity.
-4. Confirm typed input does not emit a native microphone start. Typed input's
-   full C-01 zero-duration association is a **subsequent** integration gate.
+4. Confirm typed input does not emit a native microphone start. An accepted
+   typed turn gets a companion-local, exact Essential-tuple, zero-duration
+   annotation with **no acoustic observers**.
 5. Confirm existing requested dialogue, PS4 event knowledge, Director speech
    and controller/UX4 ownership continue to behave as before.
 
 Record the exact DLL and bundle hashes, game session, captures/terminals and
 observed failures for the source-hook acceptance gate. The next C-01 code
-slice must bind **the exact Essential turn tuple to the immutable utteranceId
+slice must bind **the exact Essential mic turn tuple to the immutable utteranceId
 and one accepted STT** before any PS2 acoustic receipt or proximity hearing
 can be enabled.
 
