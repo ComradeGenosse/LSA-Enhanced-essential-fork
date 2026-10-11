@@ -104,7 +104,7 @@ export class M9NativeEventProducer {
       emit('wanted_level_changed',`wanted:${snapshot.gameTick}`,{
         basis:'native_wanted_level_edge',from:before.sample.wantedLevel,to:snapshot.wantedLevel
       },snapshot.playerCaptureRef);
-    if(snapshot.outcome && !before?.sample.outcome?.nativeReceiptId?.includes(snapshot.outcome.nativeReceiptId))
+    if(snapshot.outcome && before?.sample.outcome?.nativeReceiptId!==snapshot.outcome.nativeReceiptId)
       emit(snapshot.outcome.kind,snapshot.outcome.nativeReceiptId,{
         basis:'native_outcome_receipt',outcome:snapshot.outcome.kind
       },snapshot.playerCaptureRef);
