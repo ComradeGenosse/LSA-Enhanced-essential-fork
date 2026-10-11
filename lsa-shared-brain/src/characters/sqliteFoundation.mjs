@@ -198,6 +198,18 @@ export class P2SqliteFoundation {
     transaction(this.#db,()=>{
       const current=this.#db.prepare('SELECT revision FROM p2_store WHERE singleton=1').get();
       if(!current || current.revision!==expectedRevision)fail('sqlite_revision_conflict');
+      // Explicit character deletion must also remove its private experiential
+      // history, in this SAME profile CAS transaction. Ordinary P2 edits are
+      // never destructive to journal evidence.
+      const nextIds=new Set(data.profiles.map(profile=>profile.characterId));
+      const removeDialogue=this.#db.prepare('DELETE FROM dialogue_journal WHERE character_id=?');
+      const removeEvents=this.#db.prepare('DELETE FROM event_journal WHERE character_id=?');
+      for(const previous of this.#snapshot.profiles){
+        if(!nextIds.has(previous.characterId)){
+          removeDialogue.run(previous.characterId);
+          removeEvents.run(previous.characterId);
+        }
+      }
       this.#db.exec('DELETE FROM promoted_profiles');
       const insert=this.#db.prepare('INSERT INTO promoted_profiles(character_id,owner_alias,position,revision,profile_json) VALUES (?,?,?,?,?)');
       data.profiles.forEach((p,i)=>insert.run(p.characterId,p.promotion.ownerAlias,i,p.revision,JSON.stringify(p)));
