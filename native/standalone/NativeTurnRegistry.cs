@@ -111,6 +111,24 @@ namespace LSA.Standalone
             return true;
         }
 
+        // Called only on a fresh physical player input to discard an older
+        // reply that never played. This is NOT completion/history commit.
+        // Never interrupts a provider turn that has not yet staged a reply.
+        public int DiscardStagedForActor(ActorRef actor)
+        {
+            if (actor == null) return 0;
+            int discarded = 0;
+            foreach (NativeTurnPermit permit in new List<NativeTurnPermit>(live.Values))
+            {
+                if (permit.StagedReply != null && permit.Lease.Actor.Equals(actor))
+                {
+                    Retire(permit);
+                    discarded++;
+                }
+            }
+            return discarded;
+        }
+
         public bool IsOfferedPermitCurrent(NativeTurnPermit permit)
         {
             if (permit == null || permit.Retired || permit.Confirmed ||
