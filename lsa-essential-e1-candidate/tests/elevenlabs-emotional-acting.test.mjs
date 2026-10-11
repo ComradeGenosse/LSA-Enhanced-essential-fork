@@ -82,7 +82,7 @@ test('Intent enums and branded contracts are immutable and exact', () => {
     'neutral', 'whisper', 'excited', 'fearful', 'angry',
     'amused', 'sad', 'sarcastic', 'concerned',
   ]);
-  assert.deepEqual([...DELIVERY_SOURCES], ['neutral', 'verified_scene', 'luna_hint', 'dialogue_cue']);
+  assert.deepEqual([...DELIVERY_SOURCES], ['neutral', 'verified_scene', 'luna_hint', 'dialogue_cue', 'ephemeral_mood']);
   assert.deepEqual([...DELIVERY_CONFIDENCES], ['supported', 'soft']);
   assert.equal(isDelivery(NEUTRAL_DELIVERY), true);
   assert.deepEqual(NEUTRAL_DELIVERY, {
@@ -216,4 +216,16 @@ test('EA3 strict streaming hints require separately validated experimental opt-i
   }});
   assert.equal(disabled.expressiveDelivery.mode,'off');
   assert.equal(disabled.expressiveDelivery.lunaDeliveryVersion,0);
+});
+
+test('EA4 ephemeral mood is a soft vendor-neutral direction, not replayable scene proof',()=>{
+  const tagged=createDelivery({value:'amused',source:'ephemeral_mood',
+    confidence:'soft',intensity:'subtle'});
+  assert.equal(isDelivery(tagged),true);
+  assert.equal(renderElevenSpeech({dialogue:'Same conversation.',delivery:tagged,
+    enabled:true}),'[laughs] Same conversation.');
+  assert.throws(()=>createDelivery({value:'amused',source:'ephemeral_mood',
+    confidence:'supported'}),/inconsistent/);
+  assert.throws(()=>createDelivery({value:'amused',source:'ephemeral_mood',
+    confidence:'soft',evidenceRef:'fake_observation'}),/inconsistent/);
 });
