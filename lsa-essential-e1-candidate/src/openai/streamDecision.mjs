@@ -1,6 +1,7 @@
 import {KNOWLEDGE_LIMITS,jsonBytes} from '../context/knowledgeSelector.mjs';
 import { ProviderRequestError, endpoint, responseFailure, safeRequestId } from './request.mjs';
 import { createSegmentDecoder } from './segmentDecoder.mjs';
+import { LUNA_SEGMENT_DELIVERY_V1 } from '../context/essentialDecision.mjs';
 
 const MAX_EVENT_BYTES = 64 * 1024;
 const MAX_RESPONSE_BYTES = 256 * 1024;
@@ -20,14 +21,42 @@ export const segmentedDecisionSchema = Object.freeze({
   },
 });
 
+// Mirrored with the request schema in essentialDecision.mjs. Keep both
+// versions in sync; strict JSON schemas do not allow optional properties.
+export const segmentedDeliveryV1Schema = Object.freeze({
+  type: 'object', additionalProperties: false,
+  required: ['mode', 'segments', 'command'],
+  properties: {
+    mode: { type: 'string', enum: ['dialogue_only', 'buffered_action'] },
+    segments: {
+      type: 'array', items: {
+        type: 'object', additionalProperties: false, required: ['delivery', 'text'],
+        properties: {
+          delivery: { type: 'string', enum: [...LUNA_SEGMENT_DELIVERY_V1] },
+          text: { type: 'string' },
+        },
+      },
+    },
+    command: { type: 'string' },
+  },
+});
+
 // Emits only complete segment objects after local schema and text validation.
 // The original JSON object remains buffered and is strictly reconciled at EOF.
 export async function streamDecision({
   config, body, signal, timeoutMs = config.providerWorkDeadlineMs, fetchImpl = globalThis.fetch,
-  telemetry, onSegment = () => {}, dialogueAttempt, beforeRequest, maxSegments = 6, maxSegmentChars = 240, maxDialogueChars = 1200,
+  telemetry, onSegment = () => {}, dialogueAttempt, beforeRequest, maxSegments = 6, maxSegmentChars = 240, maxDialogueChars = 1200, lunaDeliveryVersion = 0,
 }) {
   if (!String(config.reasoningKey || '').trim()) throw new ProviderRequestError('The selected OpenAI credential is missing.', { code: 'missing_credential' });
-  const decoder = createSegmentDecoder({ maxSegments, maxSegmentChars, maxDialogueChars });
+  if (lunaDeliveryVersion !== 0 && lunaDeliveryVersion !== 1)
+    throw new TypeError('Unsupported Luna segment delivery protocol version.');
+  const expectedSchemaName = lunaDeliveryVersion === 1 ? 'e1_segmented_delivery_v1' : 'e1_segmented_decision';
+  // Fail before any network request if caller and strict wire schema disagree.
+  if (lunaDeliveryVersion === 1 && body?.text?.format?.name !== expectedSchemaName)
+    throw new TypeError('Luna segment delivery version does not match the requested schema.');
+  if (lunaDeliveryVersion === 0 && body?.text?.format?.name === 'e1_segmented_delivery_v1')
+    throw new TypeError('Luna segment delivery v1 requires explicit opt-in.');
+  const decoder = createSegmentDecoder({ maxSegments, maxSegmentChars, maxDialogueChars, lunaDeliveryVersion });
   const streamStartedAt = performance.now();
   const controller = new AbortController();
   const abort = () => controller.abort(signal?.reason || new Error('turn_aborted'));
