@@ -171,5 +171,6 @@ test('M7 worker retries mock rate limit and respects provider Retry-After withou
    provider:{async curateBatch(){throw failure;}}});
  assert.equal(response.status,'retry_scheduled');
  const q=f.db.prepare('SELECT state,next_attempt_at_utc FROM memory_curation_jobs').get();
- assert.equal(q.state,'pending');assert.equal(q.next_attempt_at_utc,at(2).replace('02:00','02:20')===q.next_attempt_at_utc? q.next_attempt_at_utc : new Date(Date.parse(at(2))+20000).toISOString());
+ assert.equal(q.state,'pending');
+ assert.equal(q.next_attempt_at_utc,new Date(Date.parse(at(2))+20000).toISOString());
 });
