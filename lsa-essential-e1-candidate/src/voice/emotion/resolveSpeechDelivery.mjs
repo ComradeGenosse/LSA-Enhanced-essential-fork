@@ -102,9 +102,11 @@ export function createSpeechDeliveryResolver({
       });
       return delivery;
     },
-    synthesized(delivery) {
-      if (!active() || !delivery) return;
-      try { adapter.onSpeechCompleted?.({identity,turn,delivery}); }
+    synthesized(delivery, receipt) {
+      if (!active() || !delivery || !receipt || receipt.ok !== true ||
+          receipt.type !== 'playback_ended' || receipt.wasInterrupted !== false ||
+          receipt.hadAudio !== true || receipt.playbackStarted !== true) return;
+      try { adapter.onSpeechCompleted?.({identity,turn,delivery,receipt}); }
       catch { /* Ephemeral mood may never interrupt PCM forwarding. */ }
     },
     retire() {

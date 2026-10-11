@@ -217,6 +217,7 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
     let streamedSegments = [];
     let streamMode = null;
     let earlyAudio = null;
+    const renderedDeliveries = [];
     if (services.config.structuredStreamingEnabled === true) {
       // Qwen's real-time factor can drop below 1x in GTA. In buffered mode
       // synthesize one validated utterance and queue all PCM before playback,
@@ -273,7 +274,7 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
               }), () => !nativeHandoffStarted);
             if (!audio?.bytes) throw new Error('empty_segment_audio');
             if (audio.discardedTrailingByte) throw Object.assign(new Error('partial_pcm16_sample'), { code: 'partial_pcm16_sample' });
-            speechDelivery.synthesized(delivery);
+            if (delivery) renderedDeliveries.push(delivery);
             bytes += audio.bytes;
             chunks += audio.chunks || 0;
             metrics?.event('stream_tts_segment_finished', { segmentSequence: segment.sequence, bytes: audio.bytes, chunks: audio.chunks || 0 });
@@ -376,7 +377,7 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
           playbackStartedAt: () => nativePlaybackStartedAt,
           onPcm: chunk => forwardPcm(chunk, isActive),
         }), () => !hasAction && !nativeHandoffStarted);
-      if (audio?.bytes) speechDelivery.synthesized(delivery);
+      if (audio?.bytes && delivery) renderedDeliveries.push(delivery);
     }
     check();
     if (!authorizationRequested || !audio?.bytes || !pcmBytesTotal) throw new Error('empty_audio');
@@ -409,6 +410,9 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
     }
     chooseTerminal('completed');
     if (!history.acceptPlaybackResult({ ...result, playbackSucceeded: true })) throw new Error('history_commit_rejected');
+    // Mood callbacks are authorized only AFTER native playback and history's
+    // exact-turn receipt acceptance, never at mere synthesis completion.
+    for (const delivery of renderedDeliveries) speechDelivery.synthesized(delivery, result);
     metrics?.count('assistantCommitCount');
     metrics?.event('assistant_history_committed', { outputChars: String(decision.dialogue || '').length, playbackEndedCount: 1 });
     dialogueTurn?.finish({ reason: 'completed', stage: 'completed', assistantCommitted: true, assistantDiscarded: false });
