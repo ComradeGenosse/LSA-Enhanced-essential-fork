@@ -41,7 +41,12 @@ async function scan(root){
       else fail('unsupported_filesystem_entry:'+p);
     }
   }
-  if(await exists(root))await visit(root);
+  if(await exists(root)){
+    const rootStat=await lstat(root);
+    if(rootStat.isSymbolicLink())fail('linked_root_forbidden:'+root);
+    if(!rootStat.isDirectory())fail('inventory_root_not_directory:'+root);
+    await visit(root);
+  }
   return list.sort();
 }
 async function inventory(root){
