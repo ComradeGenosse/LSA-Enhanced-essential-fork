@@ -307,6 +307,32 @@ export class P2SqliteProfileStore {
       return foundation.persistDeterministicMemory(proposal);
     });
   }
+  async enqueueCurationJob({job}){
+    return this.withTimelineWrite(job?.timelineId,foundation=>
+      foundation.enqueueCuration({job},job.timelineId));
+  }
+  async claimCurationDue(args){
+    const timelineId=this.activeTimelineId;
+    return this.withTimelineWrite(timelineId,foundation=>foundation.claimCuration(args,timelineId));
+  }
+  async completeCurationLease(args){
+    const timelineId=this.activeTimelineId;
+    return this.withTimelineWrite(timelineId,foundation=>foundation.completeCuration(args,timelineId));
+  }
+  async retryCurationLease(args){
+    const timelineId=this.activeTimelineId;
+    return this.withTimelineWrite(timelineId,foundation=>foundation.retryCuration(args,timelineId));
+  }
+  async releaseCurationLease(args){
+    const timelineId=this.activeTimelineId;
+    return this.withTimelineWrite(timelineId,foundation=>foundation.releaseCuration(args,timelineId));
+  }
+  async reserveCurationBudget(args,budget){
+    return this.withTimelineWrite(this.activeTimelineId,foundation=>foundation.reserveCurationBudget(args,budget));
+  }
+  async finishCurationBudget(args,state){
+    return this.withTimelineWrite(this.activeTimelineId,foundation=>foundation.finishCurationBudget(args,state));
+  }
   async inspect({scope}){
     return this.findCandidates({scope,limit:200});
   }
