@@ -6,11 +6,12 @@ import { sameHostContext } from './hostContext.mjs';
 import { isUuid, actorClaim, sameAssociation } from '../identity/identityContract.mjs';
 
 const required=['version','hostRunId','worldEpoch','captureRef','sampledGameTick'];
-const optional=['encounterId','incarnationId'];
+const optional=['encounterId','incarnationId','micUtteranceId'];
 export function validateActorCapture(value) {
   return value && typeof value==='object' && !Array.isArray(value) && required.every(key=>Object.hasOwn(value,key)) && Object.keys(value).every(key=>required.includes(key)||optional.includes(key)) &&
     value.version===1 && isUuid(value.hostRunId) && Number.isSafeInteger(value.worldEpoch) && value.worldEpoch>0 && value.worldEpoch<=0x7fffffff && isUuid(value.captureRef) && Number.isSafeInteger(value.sampledGameTick) && value.sampledGameTick>=0 && value.sampledGameTick<=0xffffffff &&
-    Object.hasOwn(value,'encounterId')===Object.hasOwn(value,'incarnationId') && (!Object.hasOwn(value,'encounterId') || isUuid(value.encounterId) && isUuid(value.incarnationId));
+    Object.hasOwn(value,'encounterId')===Object.hasOwn(value,'incarnationId') && (!Object.hasOwn(value,'encounterId') || isUuid(value.encounterId) && isUuid(value.incarnationId)) &&
+    (!Object.hasOwn(value,'micUtteranceId') || isUuid(value.micUtteranceId));
 }
 
 // Synchronous private capture at P0. No lookup by current conversation, display
@@ -51,7 +52,7 @@ export function captureKnowledgeInputs({identity,source,p0Snapshot,perception,id
     const bytes=jsonBytes(pair);if(index>=KNOWLEDGE_LIMITS.poolCount || poolBytes+bytes>KNOWLEDGE_LIMITS.poolBytes){captureDiagnostics.budgetExcluded++;return false;}poolBytes+=bytes;return true;
   });
   captureDiagnostics.retainedPairs=pairs.length;captureDiagnostics.poolBytes=poolBytes;
-  return finish({reason:null,anchorStatus:'verified_observer',captureDiagnostics,hostRunId:block.hostRunId,worldEpoch:block.worldEpoch,psAdapterEpoch:perception.epoch,psStreamId:perception.stream,association:{...index,sampledGameTick:block.sampledGameTick},ownerClaim,ownerPendingProof:!!index.owned,pairs,liveReferences});
+  return finish({reason:null,...(block.micUtteranceId?{micUtteranceId:block.micUtteranceId}:{}),anchorStatus:'verified_observer',captureDiagnostics,hostRunId:block.hostRunId,worldEpoch:block.worldEpoch,psAdapterEpoch:perception.epoch,psStreamId:perception.stream,association:{...index,sampledGameTick:block.sampledGameTick},ownerClaim,ownerPendingProof:!!index.owned,pairs,liveReferences});
 }
 
 export function assertKnowledgeCurrent(inputs,perception) {
