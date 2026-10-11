@@ -4,6 +4,7 @@ on:
   pull_request:
     branches:
       - feature/standalone-phase3-typed-turn
+      - feature/standalone-phase4-audio-escrow
       - main
     paths:
       - 'native/standalone/**'
