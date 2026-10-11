@@ -23,6 +23,10 @@ namespace LSA.Standalone
         internal int ForwardedBytes;
         internal int MarkedSegments;
         internal int MarkedBytes;
+        internal readonly List<int> SegmentEndBytes = new List<int>();
+        internal int LastPhysicalPlayedBytes;
+        internal int LastPhysicalCompletedSegments;
+        internal bool PhysicalFailed;
         internal bool OutputStarted;
         internal bool OutputSealed;
         public int BufferedBytes { get { return Bytes; } }
@@ -174,6 +178,7 @@ namespace LSA.Standalone
                 cumulativeBytes != stream.Bytes ||
                 !turns.IsSpeechSegmentCurrent(stream.Turn, segmentIndex)) return false;
             stream.MarkedBytes = cumulativeBytes;
+            stream.SegmentEndBytes.Add(cumulativeBytes);
             stream.MarkedSegments++;
             reason = "segment_audio_buffered_not_played";
             return true;
@@ -290,14 +295,17 @@ namespace LSA.Standalone
             return true;
         }
 
-        // Optional S3 physical feedback, sourced exclusively from a native
-        // device driver after the current actor/lease is revalidated. This is
-        // NOT generated for fake sinks, null output, or queued-only PCM.
-        public bool TryPhysicalStatus(string streamId, string audioLeaseId,
+        // Native-exclusive projection from the physical device into exact
+        // admitted PCM segment boundaries. These are monotonic observations,
+        // NOT conversation-history mutations or claims that a listener heard.
+        public bool TryPhysicalProgress(string streamId, string audioLeaseId,
             string generation, string turnId, string actorId,
-            out AudioPlaybackSnapshot snapshot)
+            out AudioPlaybackSnapshot snapshot, out int completedSegments,
+            out int markedSegments, out bool finalSegments)
         {
             snapshot = null;
+            completedSegments = markedSegments = 0;
+            finalSegments = false;
             NativeAudioTicket stream;
             string reason;
             if (!TryCurrent(streamId, audioLeaseId, generation, turnId, actorId,
@@ -309,16 +317,63 @@ namespace LSA.Standalone
                 AudioPlaybackSnapshot value;
                 if (!physical.TryRead(stream.Lease, stream.StreamId, out value) ||
                     value == null || value.PlayedSourceBytes < 0 ||
+                    value.PlayedSourceBytes < stream.LastPhysicalPlayedBytes ||
                     value.PlayedSourceBytes > stream.ForwardedBytes ||
                     value.SubmittedSourceBytes != stream.ForwardedBytes ||
+                    value.MouthLevel < 0 || value.MouthLevel > 100 ||
+                    (value.State != "authorized" && value.State != "device_accepted" &&
+                     value.State != "playback_started" &&
+                     value.State != "playback_completed" && value.State != "failed") ||
+                    (value.State == "authorized" && value.PlayedSourceBytes != 0) ||
+                    (value.State == "device_accepted" && value.PlayedSourceBytes != 0) ||
+                    (value.State == "playback_started" && value.PlayedSourceBytes == 0) ||
                     (value.State == "playback_completed" &&
                       (!stream.Sealed || !stream.OutputSealed ||
-                       value.PlayedSourceBytes != stream.Bytes)))
+                       value.PlayedSourceBytes != stream.Bytes)) ||
+                    (stream.PhysicalFailed && value.State != "failed"))
                     return false;
+
+                // Legacy full-answer PCM becomes one segment ONLY after EOS.
+                // Streaming has explicit native-validated monotonic boundaries.
+                bool legacy = stream.Turn.StagedReply != null;
+                markedSegments = legacy ? (stream.Sealed ? 1 : 0) :
+                    stream.SegmentEndBytes.Count;
+                if (legacy)
+                    completedSegments = stream.Sealed &&
+                        value.PlayedSourceBytes >= stream.Bytes ? 1 : 0;
+                else
+                    foreach (int boundary in stream.SegmentEndBytes)
+                    {
+                        if (boundary > value.PlayedSourceBytes) break;
+                        completedSegments++;
+                    }
+                if (completedSegments < stream.LastPhysicalCompletedSegments ||
+                    completedSegments > markedSegments) return false;
+                // Only a confirmed native final turn and native source EOS
+                // permits finalSegments, never mere device acceptance.
+                finalSegments = stream.Sealed &&
+                    (legacy || stream.Turn.SpeechFinal);
+                if (value.State == "playback_completed" &&
+                    (!finalSegments || completedSegments != markedSegments))
+                    return false;
+                stream.LastPhysicalPlayedBytes = value.PlayedSourceBytes;
+                stream.LastPhysicalCompletedSegments = completedSegments;
+                if (value.State == "failed") stream.PhysicalFailed = true;
                 snapshot = value;
                 return true;
             }
             catch { return false; }
+        }
+
+        // Retained for native callers that only need output lifecycle, not
+        // the exact segment-prefix proof.
+        public bool TryPhysicalStatus(string streamId, string audioLeaseId,
+            string generation, string turnId, string actorId,
+            out AudioPlaybackSnapshot snapshot)
+        {
+            int completed, marked; bool final;
+            return TryPhysicalProgress(streamId, audioLeaseId, generation,
+                turnId, actorId, out snapshot, out completed, out marked, out final);
         }
 
         private void Retire(NativeAudioTicket stream)
