@@ -6,7 +6,7 @@
 //             "compiled":"native/promoted-characters/bin/Release/net481/LSA.PromotedCharacters.dll"}, ...]
 // Repeat for Bootstrap, Runtime, SessionIdentity. Compiled paths are repository-relative.
 import { createHash } from 'node:crypto';
-import { readdir, readFile, writeFile, lstat, access } from 'node:fs/promises';
+import { readdir, readFile, writeFile, lstat, access, realpath } from 'node:fs/promises';
 import { execFileSync } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -17,6 +17,9 @@ const arg=name=>{const i=argv.indexOf(name);return i<0?null:argv[i+1];};
 const die=message=>{throw Error('EA9_RELEASE_REJECTED: '+message);};
 if(!['seal','verify'].includes(mode))die('mode_must_be_seal_or_verify');
 const release=path.resolve(arg('--release-root')||die('release_root_required'));
+if(await realpath(release)!==release)die('release_root_alias_or_symlink_forbidden');
+if(/[\\/]Program Files(?: \(x86\))?[\\/]/i.test(release)||
+   /[\\/]steamapps[\\/]common[\\/]/i.test(release))die('active_game_release_root_forbidden');
 const expected=arg('--expected-head')||die('expected_head_required');
 const inputFile=arg('--native-inputs')||die('native_inputs_required');
 if(!/^[0-9a-f]{40}$/i.test(expected))die('invalid_expected_head');
@@ -51,6 +54,8 @@ async function inventory(root){
       else die('unsupported_path_type:'+p);
     }
   }
+  const rootStat=await lstat(root);
+  if(rootStat.isSymbolicLink()||!rootStat.isDirectory())die('inventory_root_not_plain_directory:'+root);
   await go(root);return files.sort();
 }
 async function directoryHash(root,skip=new Set()){
