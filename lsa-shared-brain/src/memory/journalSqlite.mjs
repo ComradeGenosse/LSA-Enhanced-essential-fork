@@ -56,7 +56,7 @@ const DDL=[
 "CREATE TABLE event_journal (record_id TEXT PRIMARY KEY,world_profile_id TEXT NOT NULL,timeline_id TEXT NOT NULL REFERENCES timelines(timeline_id),character_id TEXT NOT NULL,observation_id TEXT NOT NULL,revision INTEGER NOT NULL,event_type TEXT NOT NULL,received_at_utc TEXT NOT NULL,source_hash TEXT NOT NULL,receipt_status TEXT NOT NULL,envelope_json TEXT NOT NULL,envelope_sha256 TEXT NOT NULL,UNIQUE(character_id,timeline_id,observation_id,revision));",
 "CREATE INDEX event_scope_recent ON event_journal(world_profile_id,character_id,timeline_id,received_at_utc DESC);",
 "CREATE INDEX event_type_recent ON event_journal(character_id,timeline_id,event_type,received_at_utc DESC);",
-"CREATE TABLE event_source_evidence (record_id TEXT PRIMARY KEY REFERENCES event_journal(record_id) ON DELETE CASCADE, source_evidence_json TEXT NOT NULL, source_evidence_sha256 TEXT NOT NULL);"
+"CREATE TABLE IF NOT EXISTS event_source_evidence (record_id TEXT PRIMARY KEY REFERENCES event_journal(record_id) ON DELETE CASCADE, source_evidence_json TEXT NOT NULL, source_evidence_sha256 TEXT NOT NULL);"
 ].join('\n');
 const tables=['dialogue_journal','dialogue_journal_fts','event_journal','event_source_evidence'];
 const sidecarDDL="CREATE TABLE IF NOT EXISTS event_source_evidence (record_id TEXT PRIMARY KEY REFERENCES event_journal(record_id) ON DELETE CASCADE, source_evidence_json TEXT NOT NULL, source_evidence_sha256 TEXT NOT NULL)";
