@@ -141,6 +141,7 @@ export class Phase2NativeClient {
       'audio.open': 'audio.open.result',
       'audio.chunk': 'audio.chunk.result',
       'audio.status': 'audio.status.result',
+      'audio.playback': 'audio.playback.result',
       'audio.end': 'audio.end.result',
       'audio.segment': 'audio.segment.result',
       'audio.cancel': 'audio.cancel.result'
@@ -151,6 +152,8 @@ export class Phase2NativeClient {
       value.status === 'audio_authorized_not_playing';
     const isAudioStatus = expected === 'audio.status.result' &&
       value.status === 'not_played';
+    const isPlaybackReceipt = expected === 'audio.playback.result' &&
+      ['device_progress', 'playback_completed', 'device_failed'].includes(value.status);
     const fields = isOffer
       ? ['requestId', 'status', 'turnId', 'sessionNonce', 'actorIncarnationId',
           'leaseId', 'generation', 'source', ...(Object.hasOwn(value, 'playerText') ? ['playerText'] : []),
@@ -163,7 +166,10 @@ export class Phase2NativeClient {
           : isAudioStatus
             ? ['requestId', 'status', 'queuedBytes', 'acceptedBytes',
                 'forwardedBytes', 'creditsBytes', 'sealed']
-            : ['requestId', 'status'];
+            : isPlaybackReceipt
+              ? ['requestId', 'status', 'playbackState', 'playedBytes',
+                  'submittedBytes', 'mouthLevel', 'sealed']
+              : ['requestId', 'status'];
     verify(value, expected, this.#binding, ++this.#incoming, fields);
     if (typeof value.status !== 'string' ||
         (value.type === 'host.snapshot.result' &&
@@ -177,6 +183,21 @@ export class Phase2NativeClient {
         value.forwardedBytes + value.queuedBytes !== value.acceptedBytes ||
         value.acceptedBytes > 1440000 || typeof value.sealed !== 'boolean'))
       throw new Error('invalid_native_audio_status');
+    if (isPlaybackReceipt && (
+        !['authorized', 'device_accepted', 'playback_started',
+          'playback_completed', 'failed'].includes(value.playbackState) ||
+        !['playedBytes', 'submittedBytes', 'mouthLevel'].every(k =>
+          Number.isSafeInteger(value[k]) && value[k] >= 0) ||
+        value.playedBytes > value.submittedBytes ||
+        value.submittedBytes > 1440000 ||
+        value.mouthLevel > 100 ||
+        typeof value.sealed !== 'boolean' ||
+        (value.status === 'playback_completed') !==
+          (value.playbackState === 'playback_completed') ||
+        (value.status === 'device_failed') !== (value.playbackState === 'failed') ||
+        (value.status === 'playback_completed' &&
+          (!value.sealed || value.playedBytes !== value.submittedBytes))))
+      throw new Error('invalid_physical_playback_receipt');
     if (isAudioOpen &&
         (!UUID.test(value.streamId) || !UUID.test(value.audioLeaseId) ||
          !/^[1-9][0-9]{0,18}$/.test(value.audioGeneration) ||
@@ -210,7 +231,10 @@ export class Phase2NativeClient {
         (reply.type === 'turn.segment' && value.status === 'segment_staged_not_played') ||
         (reply.type === 'turn.segments.end' && value.status === 'segments_final_not_played') ||
         (reply.type === 'audio.segment' && value.status === 'segment_audio_buffered_not_played') ||
-        (reply.type === 'audio.status' && value.status === 'not_played'))
+        (reply.type === 'audio.status' && value.status === 'not_played') ||
+        (reply.type === 'audio.playback' &&
+          ['device_progress', 'playback_completed', 'device_failed',
+            'device_unavailable'].includes(value.status)))
       reply.resolve(value);
     else reply.reject(new Error('native_rejected_' + value.status));
   }
@@ -220,7 +244,7 @@ export class Phase2NativeClient {
     if (!['health.ping', 'host.snapshot', 'turn.next', 'turn.confirm', 'turn.cancel',
       'turn.reply', 'turn.segment', 'turn.segments.end',
       'audio.open', 'audio.chunk', 'audio.end', 'audio.segment',
-      'audio.cancel', 'audio.status'].includes(type))
+      'audio.cancel', 'audio.status', 'audio.playback'].includes(type))
       return Promise.reject(new Error('unsupported_request'));
     if (this.#pending.size >= 8 || this.#outgoing >= 0x7fffffff)
       return Promise.reject(new Error('native_backpressure'));
@@ -237,7 +261,8 @@ export class Phase2NativeClient {
               ? ['turnId', 'actorIncarnationId', 'leaseId', 'generation', 'segmentCount']
           : type === 'audio.open'
             ? ['turnId', 'actorIncarnationId', 'leaseId', 'generation', 'sampleRate']
-            : type === 'audio.cancel' || type === 'audio.status'
+            : type === 'audio.cancel' || type === 'audio.status' ||
+                type === 'audio.playback'
               ? ['streamId', 'audioLeaseId', 'audioGeneration', 'turnId', 'actorIncarnationId']
               : type === 'audio.chunk'
                 ? ['streamId', 'audioLeaseId', 'audioGeneration', 'turnId',
