@@ -19,7 +19,7 @@ This pure code **cannot authenticate input data**. Tags like `proof: native_impa
 | --- | --- | --- |
 | Nathan visually witnessed the source, current native source matches player anchor | `shooter: player` | player did it merely because Nathan heard the sound |
 | Gunfire only heard | `witnessedAs: heard; shooter: unidentified` | bullet target, hit location, direction |
-| Native callback attributed to same shot + impact and target truly visible to Nathan | `impact: person_hit` | physical hit from aim alone |
+| Verified bullet-class native callback attributed to same shot + impact and target truly visible to Nathan | `impact: person_hit` | physical hit from aim alone |
 | Verified impact-associated damaged bone | `bodyRegion: head/torso/limb` | a headshot from stale or absent bone metadata |
 | Actual native world impact + visible impact | `surface_hit: wall/ground/vehicle/other` | collision based only on raycast |
 | Native line-of-fire geometry that Nathan saw | `trajectory: skyward/downward/toward_person/other` | a hit, miss, or shooter intention |
@@ -49,6 +49,6 @@ This pure code **cannot authenticate input data**. Tags like `proof: native_impa
 
 ## Acceptance
 
-R0: nine isolated Node tests covering visual player attribution, auditory redaction, no fake misses, wall/ground proof, trajectory ambiguity, verified body region, source and player spoofing, timing/receipt limits and uint game-tick wrap. Syntax checked, no full suite or native build in this branch. Exact branch and test status should be revalidated after further edits.
+R0: ten isolated Node tests covering visual player attribution, auditory redaction, no fake misses, wall/ground proof, trajectory ambiguity, verified body region, source and player spoofing, timing/receipt limits and uint game-tick wrap. Syntax checked, no full suite or native build in this branch. Exact branch and test status should be revalidated after further edits.
 
 R2/R3 must undergo controlled GTA tests: wall, ground, sky, vehicle, NPC miss, NPC injury/head/leg, automatic fire, gunfire behind Nathan, occlusion, different shooter, multiple hits, player switch, delayed callback and world reset. Confirm correct source-time proof, no hallucinated recognition, native callback availability, unchanged ordinary conversation, and rate/ownership/full-playback safety. Record exact companion/native build and deployment hashes separately. Until then, **this branch is only the initial implementation plan and testable pure projection**.
