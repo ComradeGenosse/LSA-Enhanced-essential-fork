@@ -5,7 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { pathToFileURL } from 'node:url';
-import { profile } from './p2-fixtures.mjs';
+import { profile, fixture } from './p2-fixtures.mjs';
 import { worldProfileId } from './identity-fixtures.mjs';
 import { ProfileStore, validateProfile } from '../src/characters/profileStore.mjs';
 import { createEssentialMemoryStorage } from '../src/characters/memoryStorageAdapter.mjs';
@@ -209,4 +209,79 @@ test('M1 production configuration leaves JSON default and requires explicit safe
   assert.throws(()=>normalizeCharacterConfig({
     storePath:p.json,storageMode:'sqlite',sqliteStorePath:p.json
   }),/Invalid promotedCharacters storage configuration/);
+});
+
+test('M1 SQLite-backed full CharacterService supports real P2 promote/edit/memory/controls/remove',async t=>{
+  const p=await workspace(t);
+  const sqlite=createEssentialMemoryStorage({filePath:p.sqlite,worldProfileId});
+  try {
+    const f=await fixture(t,{store:sqlite});
+    const first=await f.service.promote();
+    const second=await f.service.promote();
+    assert.equal(second.characterId,first.characterId);
+    assert.equal(sqlite.list().length,1);
+    const edited=await f.service.edit(first.characterId,{name:'SQLite Nathan'},first.revision);
+    const note=await f.service.memory(first.characterId,'create',{
+      expectedRevision:edited.revision,
+      patch:{text:'I remember the fountain crash',selectedForContext:true}
+    });
+    assert.equal(note.profile.memories.at(-1).text,'I remember the fountain crash');
+    await f.service.control(first.characterId,'wait');
+    await f.service.control(first.characterId,'dismiss');
+    await f.service.control(first.characterId,'summon');
+    assert.equal(f.native.owned.size,1);
+    const exported=await sqlite.exportRollbackSnapshot();
+    assert.equal(exported.profileCount,1);
+    const legacy=new ProfileStore({filePath:exported.path,worldProfileId});
+    await legacy.initialize();
+    assert.equal(legacy.get(first.characterId).name,'SQLite Nathan');
+    assert.equal(legacy.get(first.characterId).memories.at(-1).text,
+      'I remember the fountain crash');
+    await f.service.remove(first.characterId,first.characterId,note.profile.revision);
+    assert.equal(sqlite.list().length,0);
+    assert.equal(legacy.list().length,1,'rollback export is immutable snapshot, not live mirror');
+  } finally {await sqlite.close();}
+});
+
+test('M1 export preserves prior v1 source bytes, emits a distinct checked rollback file',async t=>{
+  const p=await workspace(t);
+  const old=new ProfileStore({filePath:p.json,worldProfileId});
+  await old.initialize();
+  const npc=await old.create(profile());
+  const original=await fs.readFile(p.json,'utf8');
+  const store=createEssentialMemoryStorage({filePath:p.sqlite,worldProfileId,legacyJsonPath:p.json});
+  try {
+    await store.initialize();
+    const edited=await store.edit(npc.characterId,{name:'New sqlite edits'},npc.revision);
+    const result=await store.exportRollbackSnapshot();
+    assert.ok(result.path.startsWith(p.sqlite+'.rollback-'));
+    assert.notEqual(result.path,p.json);
+    assert.equal(result.revision,store.snapshot.revision);
+    assert.equal(await fs.readFile(p.json,'utf8'),original);
+    assert.equal(await fs.readFile(p.json+'.pre-sqlite.bak','utf8'),original);
+    const exportStore=new ProfileStore({filePath:result.path,worldProfileId});
+    await exportStore.initialize();
+    assert.equal(exportStore.get(npc.characterId).name,'New sqlite edits');
+    const second=await store.exportRollbackSnapshot();
+    assert.notEqual(second.path,result.path);
+    assert.equal(await fs.readFile(result.path,'utf8'),await fs.readFile(second.path,'utf8'));
+    assert.equal(edited.revision,npc.revision+1);
+  } finally {await store.close();}
+});
+
+test('M1 refuses ambiguous stale writer lock rather than automatically stealing database ownership',async t=>{
+  const p=await workspace(t);
+  const original=createEssentialMemoryStorage({filePath:p.sqlite,worldProfileId});
+  await original.initialize();
+  const snapshot=original.snapshot;
+  await original.close();
+  await fs.writeFile(p.sqlite+'.writer.lock','unknown-crashed-writer\n');
+  const newWriter=createStandaloneMemoryStorage({filePath:p.sqlite,worldProfileId});
+  await assert.rejects(newWriter.initialize(),/sqlite_writer_busy/);
+  assert.equal((await fs.readFile(p.sqlite+'.writer.lock','utf8')),'unknown-crashed-writer\n');
+  await fs.rm(p.sqlite+'.writer.lock');
+  const safe=createEssentialMemoryStorage({filePath:p.sqlite,worldProfileId});
+  await safe.initialize();
+  assert.deepEqual(safe.snapshot,snapshot);
+  await safe.close();
 });
