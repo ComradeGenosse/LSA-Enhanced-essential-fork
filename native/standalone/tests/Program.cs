@@ -962,8 +962,14 @@ internal static class Program
             out completed,out marked,out final) &&
             proof.State=="playback_completed" && completed==2 &&
             marked==2 && final,"S3 exact final two-segment device completion");
-        Check(audio.TryCancel(sid,alid,agen,tid,aid),
-            "S3 retire exact audio after completed play");
+        Check(!audio.TryAcknowledgePlayback(sid,alid,agen,tid,
+            Guid.NewGuid().ToString("D")),
+            "S3 forged actor cannot acknowledge completed speech");
+        Check(audio.TryAcknowledgePlayback(sid,alid,agen,tid,aid),
+            "S3 native verifies terminal proof before one-shot ack");
+        Check(!audio.TryAcknowledgePlayback(sid,alid,agen,tid,aid),
+            "S3 completion receipt cannot be acknowledged twice");
+        Check(sink.Stops==1, "S3 one-shot ack releases exact device handle");
         Check(!audio.TryPhysicalProgress(sid,alid,agen,tid,aid,out proof,
             out completed,out marked,out final),
             "S3 retired stream cannot replay completed segment receipts");
