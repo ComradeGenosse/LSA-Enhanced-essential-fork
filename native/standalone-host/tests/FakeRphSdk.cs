@@ -15,7 +15,12 @@ namespace Rage.Attributes
 }
 namespace Rage
 {
-    public struct Vector3 {}
+    public struct Vector3
+    {
+        public float X, Y, Z;
+        public static Vector3 operator -(Vector3 a, Vector3 b) =>
+            new Vector3 { X = a.X-b.X, Y = a.Y-b.Y, Z = a.Z-b.Z };
+    }
     public sealed class GameConsole
     {
         public void Print(string value) {}
@@ -29,6 +34,8 @@ namespace Rage
     {
         public bool Exists() => false;
         public bool IsDead => false;
+        public Vector3 Position => new Vector3();
+        public Vector3 RightVector => new Vector3();
         public PoolHandle Handle => new PoolHandle(1);
         public Ped[] GetNearbyPeds(int maximumCount) => new Ped[0];
         public Vector3 GetOffsetPositionFront(float distance) => new Vector3();
