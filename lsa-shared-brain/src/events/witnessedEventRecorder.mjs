@@ -54,13 +54,13 @@ export class WitnessedEventRecorder {
   }
   // A future M2 journal implementation supplies append({event,sourceEvidence},db,snapshot)
   // synchronously; the DB must dedupe by character/timeline/observation/revision.
-  async capture({observation,candidate,participantProofs=[]}={}) {
+  async capture({observation,candidate}={}) {
     if(!candidate?.timelineId) return {accepted:false,reason:'timeline_not_selected'};
     return await this.#withTimelineWrite(candidate.timelineId,(db,snapshot)=>{
       const identity=sync(this.#authorize({observation,candidate,stage:'commit'}));
       if(!identity || !matchesCandidate(identity,candidate) || identity.promoted!==true)
         return {accepted:false,reason:'owner_not_current'};
-      const result=normalizeWitnessedObservation({observation,identity,participantProofs});
+      const result=normalizeWitnessedObservation({observation,identity,participantProofs:identity.participantProofs??[]});
       if(!result.accepted)return result;
       const committed=sync(this.#port.append({event:result.event,sourceEvidence:result.sourceEvidence},db,snapshot));
       if(!accepted(committed)) throw new Error('m3_journal_commit_unconfirmed');
@@ -71,7 +71,7 @@ export class WitnessedEventRecorder {
   // Promotion grace is bounded to same physical actor, native run, world
   // epoch and last two minutes. Failed/rejected entries cannot leak into a
   // different promoted actor, even if a ped handle was recycled.
-  async importOnPromotion({candidate,participantProofs=[]}={}) {
+  async importOnPromotion({candidate}={}) {
     this.#trim();
     if(!candidate?.timelineId)return {accepted:false,reason:'timeline_not_selected',imported:0};
     let imported=0,duplicates=0,rejected=0;
@@ -84,7 +84,7 @@ export class WitnessedEventRecorder {
            !samePhysicalOwner(identity.ownerProof,entry.prePromotionProof) ||
            identity.adapterEpoch!==entry.adapterEpoch) return {accepted:false,reason:'grace_owner_mismatch'};
         const normalized=normalizeWitnessedObservation({
-          observation:entry.observation,identity,participantProofs,prePromotionProof:entry.prePromotionProof
+          observation:entry.observation,identity,participantProofs:identity.participantProofs??[],prePromotionProof:entry.prePromotionProof
         });
         if(!normalized.accepted)return normalized;
         const status=sync(this.#port.append({event:normalized.event,sourceEvidence:normalized.sourceEvidence},db,snapshot));
