@@ -299,7 +299,12 @@ namespace LSA.Standalone.RageHost
         {
             DemandOwner();
             observation = null;
-            if (!enabled || !decoratorsAvailable) return false;
+            // Manual Disarm must revoke EXISTING speech/audio authority as
+            // well as deny new turns. Only a currently armed, identical
+            // incarnation may be observed by NativeAuthority.
+            if (!experimentalRequested || !armed || !probePassed ||
+                !enabled || !decoratorsAvailable || handle != probedHandle ||
+                !ProbeStillCurrent()) return false;
             try
             {
                 Ped ped = PedFor(handle);
