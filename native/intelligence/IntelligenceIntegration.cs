@@ -1032,6 +1032,11 @@ namespace LSA.Intelligence
                     LogStatus("[PS] turn_actor_capture_unavailable reason=observer_slot_unavailable");return;
                 }
                 var block=new Dictionary<string,object>{{"version",1},{"hostRunId",host.HostRunId},{"worldEpoch",host.WorldEpoch},{"captureRef",anchor.CaptureRef},{"sampledGameTick",unchecked((uint)Game.GameTime)}};
+                // The original Core microphone already owns the unique ID.
+                // Capture it only when this *same physical Ped* is its active
+                // target. Missing/order-ambiguous mic state never mints a guess.
+                var exactMic=speechCapture?.ActiveIdFor(ped);
+                if(exactMic!=null)block["micUtteranceId"]=exactMic;
                 var association=Association(anchor);if(association!=null) {
                     // Only an exact current P2 registration can receive
                     // continuing priority. Ordinary P0 witnesses stay bounded
