@@ -81,3 +81,39 @@ test('reported evidence passes the closed contract and remains hearsay in observ
   assert.equal(claim.kind,'report');assert.equal(claim.evidence.channel,'report');assert.equal(claim.evidence.reportRef,report.evidence.reportRef);
   assert.equal(claim.source,undefined);assert.equal(claim.target,undefined);
 });
+
+test('PS2 native bullet callback joins only a recent same-observer visually seen shooter',()=>{
+ let now=1000;const run=randomUUID(),observer=randomUUID(),player=randomUUID(),victim=randomUUID();
+ const live=new Set([observer,player,victim]),anchors=new Map([
+   [observer,{captureRef:observer,kind:'ped'}],
+   [player,{captureRef:player,kind:'player'}],
+   [victim,{captureRef:victim,kind:'ped'}]]);
+ const episodes=new EpisodeStore({now:()=>now,current:ref=>live.has(ref)});
+ const observations=new ObservationStore({now:()=>now,current:ref=>live.has(ref)});
+ const correlation=new EpisodeCorrelator({episodes,observations,now:()=>now,
+   current:ref=>live.has(ref),anchor:ref=>anchors.get(ref),utc:()=>new Date(0).toISOString()});
+ const sight=(tick,knowsSource,knowsTarget)=>({
+   observer:{captureRef:observer,kind:'ped'},sampledGameTick:tick,status:'witnessed',
+   reason:'visual_clear',knowsSource,knowsTarget,
+   evidence:{channel:'visual',basis:'sampled_state',sampledGameTick:tick}});
+ const fire={signalId:randomUUID(),producer:'shooting',producerSequence:1,
+   kind:'firing',source:player,target:null,gameTick:1000,ageMs:0,facts:{}};
+ const seen=correlation.ingest({nativeRun:run,signal:fire,witnessReceipts:[sight(1000,true,false)]});
+ assert.equal(seen.observations[0].claims[0].source.kind,'player');
+ now=1200;
+ const damage={signalId:randomUUID(),producer:'ped_damage',producerSequence:1,
+   kind:'damage',source:player,target:victim,gameTick:1200,ageMs:0,
+   facts:{classification:'bullet',damage:15,armour:0}};
+ const hit=correlation.ingest({nativeRun:run,signal:damage,witnessReceipts:[sight(1200,false,true)]});
+ const claim=hit.observations[0].claims[0];
+ assert.equal(claim.kind,'injured');
+ assert.equal(claim.source.captureRef,player);
+ assert.equal(claim.target.captureRef,victim);
+ assert.equal(claim.details.classification,'bullet');
+ now=3500;
+ const stale=correlation.ingest({nativeRun:run,signal:{...damage,signalId:randomUUID(),
+   producerSequence:2,gameTick:3500},witnessReceipts:[sight(3500,false,true)]});
+ assert.equal(stale.observations[0].claims[0].source,undefined);
+ correlation.clear();
+ assert.equal(correlation.visualShots.size,0);
+});
