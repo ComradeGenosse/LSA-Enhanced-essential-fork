@@ -294,6 +294,13 @@ export class P2SqliteProfileStore {
       return this.#db.listSuppressedMemoryIds(scope);
     });
   }
+  async readPermanentMemoryRows(scope,options){
+    await this.initialize();
+    return this.#serial(()=>{
+      if(!this.available)fail('profile_store_unavailable');
+      return this.#db.readPermanentMemoryRows(scope,options);
+    });
+  }
   async saveDeterministicMemory(proposal){
     return this.withTimelineWrite(proposal?.timelineId,foundation=>{
       if(this.#sourceRequired&&!this.verifiedHostContext)fail('memory_native_host_unconfirmed');
