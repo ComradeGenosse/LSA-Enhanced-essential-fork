@@ -1,10 +1,11 @@
 # C-01 source-time microphone lifecycle — experimental GTA test
 
-**Scope:** The first deployable C-01 native/companion slice. Source-time
-mic start/end is implemented as passive, bounded, explicitly opt-in diagnostic
-evidence. **Proximity hearing, native mic/STT turn association,
-observer acoustic coverage, speech-to-PS2 observations and PS7 social routing
-are not enabled and must not be inferred from these frames.** This is NOT a
+**Scope:** C-01's experimental native/companion source-time capture,
+exact P0-to-native mic turn association and one-STT acceptance. The join is
+strictly bound to a current captureRef, host run/epoch, native release and one
+Essential player turn tuple. It can fail closed if Core and companion callbacks
+arrive outside the bounded association window. **Proximity hearing, observer
+acoustic coverage, speech-to-PS2 observations and PS7 social routing are not enabled and must not be inferred from these frames.** This is NOT a
 claim that the entire Phase 8/MP8 acceptance gate is complete.
 
 ## Pinned Essential boundary
@@ -82,14 +83,22 @@ PS6 speech triggers or second transcription are authorized by this switch.
 4. Confirm typed input does not emit a native microphone start. An accepted
    typed turn gets a companion-local, exact Essential-tuple, zero-duration
    annotation with **no acoustic observers**.
-5. Confirm existing requested dialogue, PS4 event knowledge, Director speech
+5. After releasing the mic, inspect `companion_shadow.c01.joined` and
+   `companion_shadow.c01.sttAccepted`. Both should advance for a player-mic
+   turn whose promoted NPC has a current P0 capture reference. Missing native
+   actor association, early cancellation, no PCM or stale epoch must not
+   advance `sttAccepted`. The STT provider must still run only once.
+6. Confirm existing requested dialogue, PS4 event knowledge, Director speech
    and controller/UX4 ownership continue to behave as before.
 
 Record the exact DLL and bundle hashes, game session, captures/terminals and
-observed failures for the source-hook acceptance gate. The next C-01 code
-slice must bind **the exact Essential mic turn tuple to the immutable utteranceId
-and one accepted STT** before any PS2 acoustic receipt or proximity hearing
-can be enabled.
+observed failures for the source-hook acceptance gate. The joined transcript remains private to the bounded C-01 runtime ledger.
+Because Core/native and companion do not currently exchange a direct shared
+turn token, admission additionally requires unique in-flight mic ownership,
+a proven current P0 captureRef and a 1.5-second bounded association window.
+That pairing still needs the GTA A19/A20 receipt to establish real-world
+correctness. Any uncertain pairing remains unsupported, not assumed true.
+Next: collect actual source-time observer coverage before enabling PS2 hearing.
 
 ## Fail-closed guarantees
 
