@@ -65,6 +65,23 @@ jobs:
           if (-not $sdk) { throw 'Cannot locate official published RagePluginHook.dll' }
           dotnet build native/standalone-host/LSA.Standalone.RageHost.csproj -c Release "-p:RphReferencePath=$sdk"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Verify standalone-only loader profile fails closed
+        shell: pwsh
+        run: |
+          $root = Join-Path $env:RUNNER_TEMP "LSA-Standalone-Profile-Test"
+          $plugins = Join-Path $root "Plugins"
+          New-Item -ItemType Directory -Path $plugins -Force | Out-Null
+          foreach ($file in @("GTA5_Enhanced.exe")) {
+            New-Item -ItemType File -Path (Join-Path $root $file) -Force | Out-Null
+          }
+          foreach ($file in @("LSA.Standalone.enabled","LSA.Standalone.RageHost.dll","LSA.Standalone.Core.dll")) {
+            New-Item -ItemType File -Path (Join-Path $plugins $file) -Force | Out-Null
+          }
+          & "./tools/standalone/verify-standalone-profile.ps1" -GameRoot $root
+          if ($LASTEXITCODE -ne 0) { throw "Valid isolated profile was incorrectly rejected" }
+          New-Item -ItemType File -Path (Join-Path $plugins "LSA.PromotedCharacters.json") -Force | Out-Null
+          & "./tools/standalone/verify-standalone-profile.ps1" -GameRoot $root
+          if ($LASTEXITCODE -ne 2) { throw "Legacy Essential payload was not refused" }
       - name: Exercise real net481 named-pipe server and independent Node process
         shell: pwsh
         run: |
