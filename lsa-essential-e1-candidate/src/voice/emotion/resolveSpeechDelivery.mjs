@@ -8,6 +8,8 @@ const SOURCES = new Set(['verified_scene','luna_hint','dialogue_cue','ephemeral_
 const TAGGABLE = new Set(['whisper','excited','angry','amused','sad','sarcastic']);
 const CONFIDENCES = new Set(['supported','soft']);
 const INTENSITIES = new Set(['subtle','normal','expressive']);
+const MOOD_SOURCES = new Set(['verified_scene','dialogue_cue','luna_hint']);
+const MOOD_VALUES = new Set(['amused','sad','concerned','fearful','whisper']);
 const NOOP = Object.freeze({
   forSegment: () => null, synthesized: () => {}, retire: () => {},
 });
@@ -27,6 +29,14 @@ function normalizeHint(candidate, intensity) {
   // injected selector is an internal trust boundary, never raw Luna JSON.
   try { return isDelivery(candidate) ? candidate : createDelivery(candidate); }
   catch { return null; }
+}
+
+function receiptKeysMismatch(receipt, identity) {
+  // The authoritative MoodRuntime requires every identity receipt field.
+  // This seam additionally rejects *explicitly conflicting* fields, while
+  // preserving legacy adapter tests that supply partial mocked receipts.
+  return ['pedId','sessionNonce','turnId','generationId'].some(key =>
+    Object.hasOwn(receipt,key) && receipt[key] !== identity?.[key]);
 }
 
 function safeTelemetry(telemetry, data) {
@@ -64,6 +74,8 @@ export function createSpeechDeliveryResolver({
   let taggedCount = 0;
   let retired = false;
   let lastSequence = 0;
+  let finalMoodDelivery = null;
+  let completedReceiptUsed = false;
   const active = () => !retired && isActive?.() === true;
   return Object.freeze({
     forSegment({ text, sequence, lunaHint = null } = {}) {
@@ -95,7 +107,16 @@ export function createSpeechDeliveryResolver({
         normalized.value !== 'neutral' && taggedCount < max &&
         typeof tag === 'string' && text.length + tag.length + 1 <= ELEVEN_SPEECH_MAX_CHARS;
       const delivery = isTag ? normalized : null;
-      if (delivery) taggedCount++;
+      if (delivery) {
+        taggedCount++;
+        // The real turn runner invokes synthesized() for ALL successfully
+        // rendered segments only AFTER the single history-accepted native
+        // playback receipt. Retain the LAST fresh, actually taggable intent,
+        // not whichever callback happens to arrive first. Derived mood is
+        // never a fresh origin and cannot become the next generation's mood.
+        if (MOOD_SOURCES.has(delivery.source) && MOOD_VALUES.has(delivery.value))
+          finalMoodDelivery = delivery;
+      }
       // Strict categorical telemetry only. Never include raw dialogue, owner,
       // evidenceRef, prompts, transcript, conversation text or mood contents.
       safeTelemetry(telemetry, {
@@ -109,9 +130,17 @@ export function createSpeechDeliveryResolver({
       return delivery;
     },
     synthesized(delivery, receipt) {
-      if (!active() || !delivery || !receipt || receipt.ok !== true ||
+      // Shadow is observational: the original, untagged bytes were spoken.
+      // No continuity may be created from a shadow-only style proposal.
+      if (!active() || mode !== 'experimental' || completedReceiptUsed ||
+          !finalMoodDelivery || delivery !== finalMoodDelivery ||
+          !receipt || receipt.ok !== true ||
           receipt.type !== 'playback_ended' || receipt.wasInterrupted !== false ||
-          receipt.hadAudio !== true || receipt.playbackStarted !== true) return;
+          receipt.hadAudio !== true || receipt.playbackStarted !== true ||
+          receiptKeysMismatch(receipt, identity)) return;
+      // Set before dispatch: replayed/duplicated native callbacks can never
+      // re-commit or replace the final segment's mood.
+      completedReceiptUsed = true;
       try { adapter.onSpeechCompleted?.({identity,turn,delivery,receipt}); }
       catch { /* Ephemeral mood may never interrupt PCM forwarding. */ }
     },
