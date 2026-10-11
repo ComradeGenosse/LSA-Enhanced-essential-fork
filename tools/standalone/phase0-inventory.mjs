@@ -11,7 +11,7 @@ export const SOURCE_ROOTS = Object.freeze([
 ]);
 
 export const RULES = Object.freeze({
-  essentialNamespace: /\bLosSantosAlive(?:\.|\b)/,
+  essentialNamespace: /\b(?:using\s+LosSantosAlive(?:\.[A-Za-z]\w*)*(?:;|\s)|LosSantosAlive\.[A-Z]\w*)/,
   essentialAssembly: /(?:LosSantosAlive\.dll|<Reference\s+Include=["']LosSantosAlive["'])/,
   essentialNpcState: /\b(?:NpcStateStore|NpcActions|NpcTargeting|NpcFocus)\b/,
   essentialInput: /\b(?:InputController|EssentialMicState|TextInputService)\b/,
