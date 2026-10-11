@@ -1,9 +1,10 @@
+import { stageNativePcmStream } from '../audio/nativePcm.mjs';
 import { NativePlayerContext, PendingDialogue, handleNextTypedTurn } from './typedTurn.js.mjs';
 
 // One model request at a time, from exactly one native connection. This is
 // intentionally more restrictive than the eventual multi-NPC arbiter.
 export async function runTypedTurnSession({
-  client, provider, signal, pollMs = 250, onStatus = () => {}
+  client, provider, tts = null, signal, pollMs = 250, onStatus = () => {}
 } = {}) {
   if (!client || !provider || !Number.isInteger(pollMs) ||
       pollMs < 50 || pollMs > 5000 || typeof onStatus !== 'function')
@@ -32,9 +33,16 @@ export async function runTypedTurnSession({
       try {
         const result = await handleNextTypedTurn(client, provider, {
           signal: retired.signal, pending: staged, playerContext,
-          onStage: () => onStatus('typed_reply_staged')
+          onStage: () => onStatus('typed_reply_staged'),
+          onReplyStaged: tts ? ({ client: native, claims, replyText, signal: turnSignal }) =>
+            stageNativePcmStream(native, claims,
+              tts.streamPcm({ text: replyText, signal: turnSignal }),
+              { signal: turnSignal }) : null
         });
-        if (result.state !== 'none' && result.state !== 'staged_not_played')
+        if (result.state === 'pcm_sealed_not_played')
+          onStatus('pcm_sealed_not_played');
+        if (result.state !== 'none' && result.state !== 'staged_not_played' &&
+            result.state !== 'pcm_sealed_not_played')
           throw new Error('unknown_typed_outcome');
       } catch (error) {
         if (retired.signal.aborted) break;
@@ -43,7 +51,12 @@ export async function runTypedTurnSession({
           'provider_transport_failure', 'provider_http_failure',
           'provider_invalid_json', 'provider_incomplete', 'provider_invalid_answer',
           'typed_turn_cancelled', 'native_request_timeout',
-          'native_disconnected', 'unknown_typed_outcome'
+          'native_disconnected', 'unknown_typed_outcome',
+          'speech_http_failure', 'speech_transport_failure',
+          'speech_stream_failure', 'speech_stream_unavailable',
+          'speech_too_long', 'speech_invalid_pcm_length',
+          'pcm_stream_capacity', 'pcm_no_native_output_credit',
+          'pcm_transfer_cancelled'
         ]);
         const code = permitted.has(error?.message) ? error.message : 'typed_turn_rejected';
         onStatus('typed_turn_failed', { reason: code });
