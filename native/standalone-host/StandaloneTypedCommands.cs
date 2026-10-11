@@ -151,9 +151,13 @@ namespace LSA.Standalone.RageHost
             }
             if (Interlocked.Exchange(ref probeRequested, 0) == 1)
             {
-                Ped candidate = NearestPedAhead();
+                bool safeWorld = false;
+                try { safeWorld = new RageWorld().AllowsNpcControl; } catch {}
+                Ped candidate = safeWorld ? NearestPedAhead() : null;
                 string probeReason;
-                if (candidate == null)
+                if (!safeWorld)
+                    Game.Console.Print("LSA standalone: world_unsafe_for_probe.");
+                else if (candidate == null)
                     Game.Console.Print("LSA standalone: probe_no_eligible_target.");
                 else if (!resolver.TryBeginProbe(unchecked((int)candidate.Handle.Value),
                     out probeReason))
@@ -169,8 +173,10 @@ namespace LSA.Standalone.RageHost
             }
             if (Interlocked.Exchange(ref armRequested, 0) == 1)
             {
-                string armReason;
-                bool ok = resolver.TryArmProbe(out armReason);
+                bool safeWorld = false;
+                try { safeWorld = new RageWorld().AllowsNpcControl; } catch {}
+                string armReason = "world_unsafe_for_arm";
+                bool ok = safeWorld && resolver.TryArmProbe(out armReason);
                 Game.Console.Print("LSA standalone: " + armReason + ".");
                 Game.LogTrivial("[LSA-ACTOR] " + armReason + " " + resolver.DiagnosticState);
             }
