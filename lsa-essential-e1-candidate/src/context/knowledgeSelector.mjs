@@ -51,14 +51,16 @@ export function selectKnowledge(inputs,{includePerceived=true,radioInput=''}={})
     if(!pair.situation || !Array.isArray(pair.situation.traitPolicies) || !validDecision(d) || d.observationId!==o.observationId || d.revision!==o.revision || d.policyVersion!==SALIENCE_POLICY_VERSION || typeof d.decisionKey!=='string' || !d.decisionKey.startsWith(`${o.observationId}:${o.revision}:${SALIENCE_POLICY_VERSION}:`) || !/^\d+:[0-9a-f]{8}$/.test(d.decisionKey.slice(`${o.observationId}:${o.revision}:${SALIENCE_POLICY_VERSION}:`.length)) || d.expiresAtMonotonicMs<=inputs.frozenAt || !['candidate','must_include','omit'].includes(d.context)) {omissions.no_matching_salience++;continue;}
     if(d.context!=='omit') valid.push(pair);
   }
-  // Direct radio questions prioritize a verified radio observation above
-  // unrelated routine items, never above mandatory safety context. The
-  // bounded pool and eight-item frame retain all original validation gates.
+  // Answer a direct radio question before unrelated routine context without
+  // displacing mandatory safety, danger/critical, or speech-eligible evidence.
+  // Run this before the bounded pool; all existing validity gates still apply.
   const ranked=orderSalienceDecisions(valid);
+  const protectedContext=pair=>pair.decision.context==='must_include' ||
+    pair.decision.response!=='none' || ['danger','critical'].includes(pair.observation.severity);
   const prioritized=radioRequested ? [
-    ...ranked.filter(pair=>pair.decision.context==='must_include'),
-    ...ranked.filter(pair=>pair.decision.context!=='must_include' && pair.observation.eventType==='radio_heard'),
-    ...ranked.filter(pair=>pair.decision.context!=='must_include' && pair.observation.eventType!=='radio_heard'),
+    ...ranked.filter(protectedContext),
+    ...ranked.filter(pair=>!protectedContext(pair) && pair.observation.eventType==='radio_heard'),
+    ...ranked.filter(pair=>!protectedContext(pair) && pair.observation.eventType!=='radio_heard'),
   ] : ranked;
   let poolBytes=0;const ordered=prioritized.filter((pair,index)=>{
     const bytes=jsonBytes(pair);if(index>=KNOWLEDGE_LIMITS.poolCount || poolBytes+bytes>KNOWLEDGE_LIMITS.poolBytes) {omissions.budget_excluded++;return false;}poolBytes+=bytes;return true;
