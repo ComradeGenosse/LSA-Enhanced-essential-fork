@@ -124,6 +124,11 @@ internal static class Program
         Check(frames.TryBuild(data,1050,out frame) &&
             frame.vehicle.collision==null,
             "unproven collision refused");
+        collisionProof=true;data.collision.gameTick=1;
+        Check(frames.TryBuild(data,1050,out frame) &&
+            frame.vehicle.collision==null,
+            "unrelated old collision tick refused");
+        data.collision.gameTick=400;collisionProof=false;
         data.terminal=new M9TerminalReceipt {
             kind="busted",nativeReceiptId=Guid.NewGuid().ToString("D"),
             playerCaptureRef=fa.CaptureRef,gameTick=400,sampledAtMs=1000
@@ -134,6 +139,13 @@ internal static class Program
         Check(frames.TryBuild(data,1050,out frame) &&
             frame.outcome.kind=="busted",
             "source-pinned terminal outcome fixture");
+        data.terminal.sampledAtMs=1200;
+        Check(frames.TryBuild(data,1050,out frame) && frame.outcome==null,
+            "future terminal callback cannot attach to earlier frame");
+        data.terminal.sampledAtMs=1000;data.terminal.gameTick=1;
+        Check(frames.TryBuild(data,1050,out frame) && frame.outcome==null,
+            "unrelated terminal tick cannot attach to frame");
+        data.terminal.gameTick=400;
         Check(!frames.TryBuild(data,5000,out frame),
             "stale read is rejected, not replayed");
         var foreign=Guid.NewGuid().ToString("D");
