@@ -892,6 +892,84 @@ internal static class Program
         turns.RetireAll(); host.Stop();
     }
 
+    private static void S3PerSegmentPhysicalProgress()
+    {
+        var game = new SimulatedGame();
+        game.Spawn(803, 0xEF12, lifetimeTag: 91011);
+        var host = new NativeAuthority(game, game, game, game);
+        var actor = Register(host, 803);
+        var turns = new NativeTurnRegistry(host);
+        var sink = new SimulatedPhysicalOutput();
+        var audio = new NativeAudioRegistry(host, turns, sink);
+        NativeTurnPermit offer; string reason;
+        Check(turns.TryIssueTyped(actor, "Tell me two things.", 40000,
+            out offer, out reason), "S3 per-segment issue native turn");
+        string tid = offer.TurnId.ToString("D"), aid = offer.ActorIncarnationId.ToString("D"),
+            lid = offer.LeaseId.ToString("D"), gen = offer.Generation;
+        Check(turns.TryConfirm(tid,offer.SessionNonce.ToString("D"),
+            aid,lid,gen,offer.Source,out reason), "S3 per-segment native confirm");
+        Check(turns.TryStageSpeechSegment(tid,lid,gen,aid,0,
+            "First sentence.",out reason), "S3 stage first sentence");
+        NativeAudioTicket t;
+        Check(audio.TryOpen(tid,aid,lid,gen,24000,out t,out reason),
+            "S3 physical stream authorized");
+        string sid=t.StreamId.ToString("D"), alid=t.AudioLeaseId.ToString("D"),
+            agen=t.AudioGeneration;
+        Check(audio.TryAppend(sid,alid,agen,tid,aid,0,new byte[960],out reason),
+            "S3 native first segment PCM");
+        Check(audio.TryMarkSegment(sid,alid,agen,tid,aid,0,960,out reason),
+            "S3 first exact PCM segment boundary");
+        Check(audio.DrainOnOwner(1)==1,"S3 first 960 bytes reached device");
+        int completed, marked; bool final;
+        AudioPlaybackSnapshot proof;
+        Check(audio.TryPhysicalProgress(sid,alid,agen,tid,aid,out proof,
+            out completed,out marked,out final) &&
+            completed==0 && marked==1 && !final,
+            "S3 buffered segment is NOT yet physically completed");
+        sink.Played=960;
+        Check(audio.TryPhysicalProgress(sid,alid,agen,tid,aid,out proof,
+            out completed,out marked,out final) &&
+            proof.State=="playback_started" && completed==1 && marked==1 && !final,
+            "S3 device position crosses exact first sentence boundary");
+        Check(turns.TryStageSpeechSegment(tid,lid,gen,aid,1,
+            "Second sentence.",out reason), "S3 stage second native sentence");
+        Check(audio.TryAppend(sid,alid,agen,tid,aid,1,new byte[960],out reason),
+            "S3 native second segment PCM");
+        Check(audio.TryMarkSegment(sid,alid,agen,tid,aid,1,1920,out reason),
+            "S3 second cumulative boundary");
+        Check(audio.DrainOnOwner(1)==1, "S3 second 960 bytes forwarded");
+        sink.Played=480;
+        Check(!audio.TryPhysicalProgress(sid,alid,agen,tid,aid,out proof,
+            out completed,out marked,out final),
+            "S3 regressed device position cannot retract completed prefix");
+        sink.Played=1440;
+        Check(audio.TryPhysicalProgress(sid,alid,agen,tid,aid,out proof,
+            out completed,out marked,out final) &&
+            completed==1 && marked==2 && !final,
+            "S3 partial second sentence must not be marked complete");
+        Check(turns.TryFinishSpeechSegments(tid,lid,gen,aid,2,out reason),
+            "S3 native final segment count");
+        Check(audio.TrySeal(sid,alid,agen,tid,aid,2,1920,out reason),
+            "S3 native EOS after both markers");
+        audio.DrainOnOwner(1);
+        Check(sink.Seals==1,"S3 physical EOS follows all forwarded bytes");
+        Check(audio.TryPhysicalProgress(sid,alid,agen,tid,aid,out proof,
+            out completed,out marked,out final) &&
+            completed==1 && marked==2 && final,
+            "S3 sealed 2 segments are NOT both played");
+        sink.RealComplete=true;
+        Check(audio.TryPhysicalProgress(sid,alid,agen,tid,aid,out proof,
+            out completed,out marked,out final) &&
+            proof.State=="playback_completed" && completed==2 &&
+            marked==2 && final,"S3 exact final two-segment device completion");
+        Check(audio.TryCancel(sid,alid,agen,tid,aid),
+            "S3 retire exact audio after completed play");
+        Check(!audio.TryPhysicalProgress(sid,alid,agen,tid,aid,out proof,
+            out completed,out marked,out final),
+            "S3 retired stream cannot replay completed segment receipts");
+        turns.RetireAll(); host.Stop();
+    }
+
     private static void Main()
     {
         IdentityAndLeases();
@@ -907,6 +985,7 @@ internal static class Program
         RollingPcmQueueAndBackpressure();
         EarlySpeechSegmentFences();
         S3PhysicalPlaybackReceiptFences();
+        S3PerSegmentPhysicalProgress();
         Console.WriteLine("PASS " + assertions +
             " standalone native core assertions; no Essential/RAGE/game assembly loaded.");
     }
