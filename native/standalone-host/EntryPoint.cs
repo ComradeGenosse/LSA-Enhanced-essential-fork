@@ -30,8 +30,8 @@ namespace LSA.Standalone.RageHost
         public static void Main()
         {
             if (Interlocked.CompareExchange(ref running, 1, 0) != 0) return;
-            Mutex exclusive = null;
-            bool mutexOwned = false;
+            FileStream exclusive = null;
+            RageActorResolver resolver = null;
             OwnerScope scope = null;
             NativeAuthority authority = null;
             try
@@ -43,23 +43,31 @@ namespace LSA.Standalone.RageHost
                     Game.LogTrivial("[LSA-S2] refused " + reason);
                     return;
                 }
-                exclusive = new Mutex(false, @"Local\LSA.Standalone.NativeController");
-                try { mutexOwned = exclusive.WaitOne(0, false); }
-                catch (AbandonedMutexException) { Game.LogTrivial("[LSA-S2] refused abandoned_controller_lock"); return; }
-                if (!mutexOwned) { Game.LogTrivial("[LSA-S2] refused duplicate_controller"); return; }
+                // Exclusive OS file handle works across independent RPH AppDomains and
+                // survives fiber/thread migration; it is released on process crash.
+                try
+                {
+                    exclusive = new FileStream(Path.Combine(Path.GetTempPath(),
+                        "LSA.Standalone.controller.lock"), FileMode.OpenOrCreate,
+                        FileAccess.ReadWrite, FileShare.None);
+                }
+                catch (IOException) { Game.LogTrivial("[LSA-S2] refused duplicate_controller"); return; }
 
                 scope = new OwnerScope();
                 scope.Enter();
                 try
                 {
+                    // The physical RPH resolver exists but independent adoption is
+                    // explicitly gated until a real GTA cookie/reuse test.
+                    resolver = new RageActorResolver(scope, false);
                     authority = new NativeAuthority(new MonotonicClock(), new RageWorld(),
-                        new UnverifiedRageActorResolver(), scope);
+                        resolver, scope);
                 }
                 finally { scope.Exit(); }
 
                 server = new StandalonePipeServer(authority.HostRunId, () => authority.WorldEpoch);
                 server.Start();
-                Game.LogTrivial("[LSA-S2] started actor_effects=disabled transport=health_only");
+                Game.LogTrivial("[LSA-S2] started actor_effects=disabled transport=phase2");
                 uint previousGameTick = unchecked((uint)Game.GameTime);
                 while (!stopping)
                 {
@@ -98,7 +106,7 @@ namespace LSA.Standalone.RageHost
                 }
                 try { server?.Dispose(); } catch {}
                 server = null;
-                if (mutexOwned) { try { exclusive.ReleaseMutex(); } catch {} }
+                try { resolver?.Dispose(); } catch {}
                 try { exclusive?.Dispose(); } catch {}
                 Interlocked.Exchange(ref running, 0);
                 Game.LogTrivial("[LSA-S2] stopped");
