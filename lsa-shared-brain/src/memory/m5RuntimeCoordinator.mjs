@@ -7,7 +7,8 @@ import {detectExplicitMemoryCommands,handleExplicitMemoryCommands,
 import {isUuid} from '../util/identity.mjs';
 
 const protagonists=new Set(['franklin','michael','trevor','unknown']);
-const choice=/^(?:the\s+)?(?:first|second|one|two|1|2)(?:\s+one)?[.!]?$/i;
+const choice=/^(?:the\s+)?(?:first|second|one|two|1|2)(?:\s+one)?(?:\s*[:,-]\s*.+)?[.!]?$/i;
+const correctionReply=/^(?:no[,]?\s*)?(?:i\s+(?:actually\s+)?(?:said|meant)|it\s+was|the\s+correct(?:ed)?\s+(?:wording|text)\s+is)\s+.+$/i;
 const safeStatuses=new Set(['saved','forgotten','corrected','clarify','failed']);
 const freeze=o=>Object.freeze(o);
 const validScope=s=>!!s && [s.characterId,s.worldProfileId,s.timelineId].every(isUuid) &&
@@ -86,8 +87,9 @@ export function createM5RuntimeCoordinator({
       return blocked('invalid_source');
     const parts=detectExplicitMemoryCommands(line.content);
     const isChoice=choice.test(line.content.trim());
+    const isCorrectionReply=correctionReply.test(line.content.trim());
     // Normal dialogue including casual "remember when" must flow to Luna.
-    if(!parts && !isChoice)return freeze({handled:false});
+    if(!parts && !isChoice && !isCorrectionReply)return freeze({handled:false});
     const args={line,scope,sourceProof};
     if(!current(args,'before_read'))return blocked('source_unavailable');
     try{
@@ -95,7 +97,7 @@ export function createM5RuntimeCoordinator({
         return blocked('unverified_accepted_line');
       if(!current(args,'after_read'))return blocked('source_unavailable');
       let pending=null;
-      if(isChoice){
+      if(isChoice || isCorrectionReply){
         if(pendingClarifications){
           const found=await pendingClarifications.findPendingClarification({
             scope,atUtc:line.committedAtUtc,excludeLineId:line.recordId
@@ -120,6 +122,9 @@ export function createM5RuntimeCoordinator({
           report('expired_or_revoked','clarification');
           return blocked('expired_or_revoked');
         }
+        // An open "remember" choice must not hijack conversational corrections.
+        if(isCorrectionReply && !isChoice && frozen.parsed?.intent!=='correct')
+          return freeze({handled:false});
         const action=await handleMemoryClarificationReply({
           line,scope,store:commandStore,clarificationId:pending
         });
