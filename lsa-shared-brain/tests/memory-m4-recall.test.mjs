@@ -228,6 +228,10 @@ test('real v4 read projection: source hashes, archived FTS, correction overlays 
     readAdapter:f.adapter,protagonistKey:s.protagonistKey,nowUtc:clock});
   assert.equal(raw.bundle.items[0].recordId,old.recordId);assert.equal(raw.bundle.items[0].freshness,'archive');
   const target=f.correction(s,old.recordId,'BLUE beans');
+  const quoteCorrection=(await recallMemory({query:query(s,'what did I say about beans?',{intent:'exact_quote'}),
+    readAdapter:f.adapter,protagonistKey:s.protagonistKey,nowUtc:clock})).bundle;
+  assert.ok(quoteCorrection.items.some(item=>item.recordId===target&&item.mode==='reported_claim'));
+  assert.ok(!quoteCorrection.items.some(item=>item.recordId===old.recordId));
   let b=(await recallMemory({query:query(s,'tell me about beans'),readAdapter:f.adapter,protagonistKey:s.protagonistKey,nowUtc:clock})).bundle;
   assert.ok(b.items.some(x=>x.recordId===target&&x.mode==='reported_claim'&&x.content.includes('BLUE beans')));
   assert.ok(!b.items.some(x=>x.recordId===old.recordId));
