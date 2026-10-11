@@ -25,7 +25,7 @@ namespace LSA.Standalone.RageHost
             // ExitPoint may run on a different fiber: never touch the game here.
             stopping = true;
             try { server?.StopAdmission(); } catch {}
-            StandaloneTypedCommands.Clear();
+            StandaloneTypedCommands.CloseAdmission();
         }
 
         public static void Main()
@@ -70,6 +70,7 @@ namespace LSA.Standalone.RageHost
 
                 server = new StandalonePipeServer(authority.HostRunId, () => authority.WorldEpoch);
                 server.Start();
+                StandaloneTypedCommands.OpenAdmission();
                 Game.LogTrivial("[LSA-S2] started actor_effects=disabled transport=phase2");
                 uint previousGameTick = unchecked((uint)Game.GameTime);
                 while (!stopping)
@@ -98,7 +99,7 @@ namespace LSA.Standalone.RageHost
             finally
             {
                 stopping = true;
-                StandaloneTypedCommands.Clear();
+                StandaloneTypedCommands.CloseAdmission();
                 try { server?.StopAdmission(); } catch {}
                 if (scope != null && authority != null)
                 {
