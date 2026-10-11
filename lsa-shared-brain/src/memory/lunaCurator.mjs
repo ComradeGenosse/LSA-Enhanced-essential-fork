@@ -37,7 +37,7 @@ export function createLunaCurationAdapter({requestJson,config}){
       const pricing=config.curatorPricing;
       if(!pricing||!Number.isFinite(pricing.inputUsdPerMillionTokens)||
          !Number.isFinite(pricing.outputUsdPerMillionTokens)||
-         pricing.inputUsdPerMillionTokens<0||pricing.outputUsdPerMillionTokens<0)
+         pricing.inputUsdPerMillionTokens<=0||pricing.outputUsdPerMillionTokens<=0)
         throw new Error('curation_verified_luna_pricing_required');
       if(!Array.isArray(proposals)||proposals.length<1||proposals.length>4)
         throw new Error('curation_invalid_batch');
