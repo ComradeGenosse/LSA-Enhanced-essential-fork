@@ -183,9 +183,10 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
       await emit({ type: 'input_transcript', text: finalInput });
       check();
       if (source === 'player_mic') {
-        // One observer-independent callback after accepted STT. No current
-        // Essential/native hook supplies a matched source-time capture receipt.
-        try { services.acceptPlayerTranscript?.({ text: finalInput, receipt: null }); } catch { /* Optional shadow perception cannot affect the turn. */ }
+        // One provider STT, bound to the exact source-time mic and native turn
+        // only if both lifecycle and P0 proof pass. No PS2 hearing grant.
+        try { services.acceptCapturedPlayerUtterance?.({identity,text:finalInput}); }
+        catch { /* Optional C-01 evidence cannot affect player dialogue. */ }
       }
     }
     if (isPlayer && !String(finalInput || '').trim()) throw new Error('player_input_empty');
