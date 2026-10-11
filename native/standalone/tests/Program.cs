@@ -1,0 +1,216 @@
+using System;
+using System.Collections.Generic;
+using System.Threading;
+using LSA.Standalone;
+using LSA.Standalone.Tests;
+
+internal static class Program
+{
+    private static int assertions;
+    private static void Check(bool condition, string label)
+    {
+        assertions++;
+        if (!condition) throw new InvalidOperationException("Assertion " + assertions + " failed: " + label);
+    }
+
+    private static ActorRef Register(NativeAuthority host, int handle)
+    {
+        ActorRef actor;
+        string reason;
+        Check(host.TryRegister(handle, out actor, out reason) && actor != null,
+            "register actor " + handle + ": " + reason);
+        return actor;
+    }
+
+    private static OwnershipLease Acquire(NativeAuthority host, ActorRef actor, LeaseKind kind, string owner, long ttl = 1000)
+    {
+        OwnershipLease lease;
+        string reason;
+        Check(host.TryAcquire(actor, kind, owner, ttl, out lease, out reason) && lease != null,
+            "acquire " + kind + " for " + owner + ": " + reason);
+        return lease;
+    }
+
+    private static void Refuse(NativeAuthority host, ActorRef actor, LeaseKind kind, string owner, string expected)
+    {
+        OwnershipLease lease;
+        string reason;
+        Check(!host.TryAcquire(actor, kind, owner, 1000, out lease, out reason) &&
+            lease == null && reason == expected, "reject " + expected + ", got " + reason);
+    }
+
+    private static void IdentityAndLeases()
+    {
+        var game = new SimulatedGame();
+        game.Spawn(17, 0xA100);
+        var host = new NativeAuthority(game, game, game, game);
+        var actor = Register(host, 17);
+        Check(actor.HostRunId == host.HostRunId && actor.WorldEpoch == 1 &&
+            actor.Handle == 17 && actor.Address == 0xA100 && actor.IncarnationId != Guid.Empty,
+            "independent run, epoch, handle, address and incarnation");
+        ActorRef same; string reason;
+        Check(host.TryRegister(17, out same, out reason) && actor.Equals(same) && reason == "current",
+            "observing same physical actor is idempotent");
+        Check(host.IsActorCurrent(actor) && host.TrackedActors == 1, "current actor valid");
+        var claim = Acquire(host, actor, LeaseKind.Conversation, "targeter");
+        Check(host.IsLeaseCurrent(claim), "exact token current");
+        Refuse(host, actor, LeaseKind.Conversation, "other", "owner_busy");
+        Check(Acquire(host, actor, LeaseKind.Audio, "voice") != null, "audio lane separate");
+        Check(Acquire(host, actor, LeaseKind.PhysicalAction, "actor") != null, "physical lane separate");
+        OwnershipLease replacement;
+        Check(host.TrySupersede(claim, "new-targeter", 1000, out replacement, out reason) &&
+            replacement.Generation > claim.Generation && reason == "superseded", "compare-and-swap supersede");
+        Check(!host.IsLeaseCurrent(claim) && !host.TryRelease(claim) &&
+            host.IsLeaseCurrent(replacement), "old lease cannot mutate new ownership");
+        OwnershipLease fake;
+        Check(!host.TrySupersede(claim, "hijack", 1000, out fake, out reason) &&
+            reason == "stale_lease" && fake == null, "old lease cannot supersede future owner");
+        Check(host.TryRelease(replacement) && !host.TryRelease(replacement), "exact single release");
+        Check(Acquire(host, actor, LeaseKind.Conversation, "reacquired") != null, "reacquire after release");
+
+        game.Advance(1000);
+        Refuse(host, actor, (LeaseKind)99, "bad", "invalid_lease_request");
+        var later = Acquire(host, actor, LeaseKind.Conversation, "after-expiry");
+        Check(host.IsLeaseCurrent(later), "expiry permits new owner without old token");
+        game.Advance(1000);
+        Check(!host.IsLeaseCurrent(later), "expiry at boundary fails closed");
+        Refuse(host, actor, LeaseKind.Conversation, "", "invalid_lease_request");
+
+        game.Spawn(17, 0xB200);
+        Check(!host.IsActorCurrent(actor) && !host.IsLeaseCurrent(later),
+            "address change retires old actor and all leases");
+        var replacementActor = Register(host, 17);
+        Check(replacementActor.IncarnationId != actor.IncarnationId &&
+            replacementActor.WorldEpoch == actor.WorldEpoch &&
+            !host.IsActorCurrent(actor), "recycled native handle is not old incarnation");
+        Check(!host.RetireActor(actor), "old retired actor cannot evict new identity");
+        Check(host.RetireActor(replacementActor), "explicit retirement");
+        var samePointerNewLifetime = Register(host, 17);
+        Check(samePointerNewLifetime.IncarnationId != replacementActor.IncarnationId,
+            "same handle/address after explicit retire gets new incarnation");
+
+        game.Spawn(19, 0xB200);
+        ActorRef colliding;
+        Check(!host.TryRegister(19, out colliding, out reason) && reason == "address_conflict" &&
+            colliding == null, "one address cannot back two live actor handles");
+        game.Spawn(19, 0xC300);
+        Check(Register(host, 19) != null, "independent second actor");
+
+        var token = Acquire(host, samePointerNewLifetime, LeaseKind.Audio, "narrator");
+        game.ScriptControl(17, true);
+        Check(!host.IsLeaseCurrent(token), "script takeover cancels active leases");
+        Refuse(host, samePointerNewLifetime, LeaseKind.Audio, "narrator", "script_controlled");
+        game.ScriptControl(17, false);
+        Check(!host.IsLeaseCurrent(token), "released script control cannot resurrect old lease");
+        var newToken = Acquire(host, samePointerNewLifetime, LeaseKind.Audio, "resume");
+        game.AllowsNpcControl = false;
+        Check(!host.IsLeaseCurrent(newToken), "unsafe mission state cancels active lease");
+        game.AllowsNpcControl = true;
+        Check(!host.IsLeaseCurrent(newToken), "safe again does not revive stale work");
+
+        game.Kill(17);
+        Check(!host.IsActorCurrent(samePointerNewLifetime), "death retires actor");
+        Refuse(host, samePointerNewLifetime, LeaseKind.Conversation, "actor", "actor_retired");
+        game.Spawn(17, 0xB200);
+        var newborn = Register(host, 17);
+        Check(newborn.IncarnationId != samePointerNewLifetime.IncarnationId, "resurrected actor must re-register");
+        var priorEpochLease = Acquire(host, newborn, LeaseKind.Input, "input");
+        host.WorldChanged();
+        Check(host.WorldEpoch == 2 && host.TrackedActors == 0 &&
+            !host.IsActorCurrent(newborn) && !host.IsLeaseCurrent(priorEpochLease), "world reset retires all actors and leases");
+        var afterWorld = Register(host, 17);
+        Check(afterWorld.WorldEpoch == 2 && afterWorld.HostRunId == host.HostRunId, "new epoch identity");
+        host.Stop();
+        Check(!host.IsActorCurrent(afterWorld) && !host.TryRegister(17, out colliding, out reason) &&
+            !host.TryRelease(priorEpochLease), "stop prevents all future mutations");
+        host.Stop();
+    }
+
+    private static void ClockAndThreadSafety()
+    {
+        var game = new SimulatedGame();
+        game.Spawn(1, 0x1000);
+        var host = new NativeAuthority(game, game, game, game);
+        var ref1 = Register(host, 1);
+        var first = Acquire(host, ref1, LeaseKind.Audio, "test");
+        game.Advance(400);
+        Check(host.IsLeaseCurrent(first), "monotonic time before lease expiry");
+        game.Regress(20);
+        Check(!host.IsLeaseCurrent(first) && host.WorldEpoch == 2 &&
+            !host.IsActorCurrent(ref1), "clock regression revokes all authority and bumps epoch");
+        var ref2 = Register(host, 1);
+        Check(ref2.WorldEpoch == 2 && !ref1.Equals(ref2), "clock regression requires new actor registration");
+
+        game.IsOwner = false;
+        bool refusedFiber = false;
+        try { host.WorldChanged(); }
+        catch (InvalidOperationException e) { refusedFiber = e.Message == "native_owner_required"; }
+        Check(refusedFiber && host.WorldEpoch == 2, "wrong RAGE fiber refused without changing state");
+        game.IsOwner = true;
+
+        bool refusedThread = false;
+        var worker = new Thread(() => {
+            try { host.TryRegister(1, out _, out _); }
+            catch (InvalidOperationException e) { refusedThread = e.Message == "native_owner_required"; }
+        });
+        worker.Start();
+        worker.Join();
+        Check(refusedThread && host.WorldEpoch == 2, "wrong OS thread refused even if context says owner");
+
+        OwnershipLease invalid;
+        string reason;
+        Check(!host.TryAcquire(ref2, LeaseKind.Input, "oversized", 60001, out invalid, out reason) &&
+            reason == "invalid_lease_request", "bounded TTL");
+        Check(!host.TryAcquire(ref2, LeaseKind.Input, new string('x', 129), 100, out invalid, out reason) &&
+            reason == "invalid_lease_request", "bounded owner identity");
+        game.Despawn(1);
+        Check(!host.IsActorCurrent(ref2), "lost resolver observation retires actor");
+    }
+
+    private static void DeterministicScenarioReplay()
+    {
+        // Repeat exactly the same logical event sequence with a deterministic clock;
+        // assert that no stale lease from the previous world/actor can take effect.
+        for (int pass = 0; pass < 25; pass++)
+        {
+            var game = new SimulatedGame();
+            game.Spawn(7, 0x7000);
+            var host = new NativeAuthority(game, game, game, game);
+            var oldActor = Register(host, 7);
+            var past = Acquire(host, oldActor, LeaseKind.PhysicalAction, "old");
+            for (int step = 0; step < 10; step++)
+            {
+                game.Advance(5);
+                if (step % 3 == 0)
+                {
+                    game.Spawn(7, (ulong)(0x7100 + step));
+                    var present = Register(host, 7);
+                    Check(!host.IsLeaseCurrent(past), "past physical command can't cross reincarnation");
+                    past = Acquire(host, present, LeaseKind.PhysicalAction, "new");
+                }
+                else if (step % 3 == 1)
+                {
+                    var newLease = Acquire(host, past.Actor, LeaseKind.Audio, "voice");
+                    Check(host.IsLeaseCurrent(newLease), "new audio lease");
+                }
+                else
+                {
+                    host.WorldChanged();
+                    Check(!host.IsLeaseCurrent(past), "past command can't cross world epoch");
+                    past = Acquire(host, Register(host, 7), LeaseKind.PhysicalAction, "fresh");
+                }
+            }
+            host.Stop();
+            Check(!host.IsLeaseCurrent(past), "host stop terminates all authority");
+        }
+    }
+
+    private static void Main()
+    {
+        IdentityAndLeases();
+        ClockAndThreadSafety();
+        DeterministicScenarioReplay();
+        Console.WriteLine("PASS " + assertions +
+            " standalone native core assertions; no Essential/RAGE/game assembly loaded.");
+    }
+}
