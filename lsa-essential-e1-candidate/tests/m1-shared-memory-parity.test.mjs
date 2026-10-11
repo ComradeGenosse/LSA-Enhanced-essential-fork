@@ -13,6 +13,7 @@ import { createStandaloneMemoryStorage } from '../../lsa-standalone-companion/sr
 import { P2SqliteProfileStore } from '../../lsa-shared-brain/src/characters/sqliteProfileStore.mjs';
 import { addProfile, editProfile, changeMemory, removeProfile } from '../../lsa-shared-brain/src/characters/profileCommands.mjs';
 import { stageSharedMemory } from '../tools/stageSharedMemory.mjs';
+import { startCharacterEditor } from '../src/characters/editorServer.mjs';
 
 async function workspace(t) {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), 'lsa-memory-portable-'));
@@ -137,4 +138,43 @@ test('M1 distributable Essential copies the canonical shared module, never depen
   assert.equal(typeof sqlite.P2SqliteFoundation,'function');
   const mem=await import(pathToFileURL(path.join(e1,'characters','memoryStorageAdapter.mjs')).href);
   assert.equal(typeof mem.createEssentialMemoryStorage,'function');
+});
+
+test('M1 editor hides unsupported mode and requires explicit timeline confirmation',async t=>{
+  const p=await workspace(t);
+  const store=createEssentialMemoryStorage({filePath:p.sqlite,worldProfileId});
+  await store.initialize();
+  const service={
+    config:{promotedCharacters:{editorPort:0,summonWaitMs:30000}},
+    store,emit() {},
+    list:async()=>[]
+  };
+  const editor=await startCharacterEditor(service,{port:0});
+  t.after(async()=>{await editor.close();await store.close();});
+  const html=await (await fetch(editor.url)).text();
+  assert.match(html,/id="timelinePanel" hidden/);
+  const token=html.match(/const auth="([a-f0-9]{64})"/)?.[1];
+  assert.ok(token);
+  const api=async(action,payload={})=>{
+    const res=await fetch(editor.url+'/api',{
+      method:'POST',headers:{'content-type':'application/json',
+        'x-lsa-editor':token,origin:editor.url},
+      body:JSON.stringify({action,...payload})
+    });
+    return {code:res.status,value:await res.json()};
+  };
+  const initial=await api('timeline_list');
+  assert.equal(initial.value.supported,true);
+  assert.equal(initial.value.writable,false);
+  const created=await api('timeline_create',{label:'My save'});
+  assert.equal(created.code,200);
+  const timelineId=created.value.timelineId;
+  const denied=await api('timeline_confirm',{timelineId,confirmation:'no'});
+  assert.equal(denied.code,400);
+  assert.equal((await api('timeline_list')).value.activeTimelineId,null);
+  const allowed=await api('timeline_confirm',{timelineId,confirmation:timelineId});
+  assert.equal(allowed.code,200);
+  assert.equal((await api('timeline_list')).value.writable,true);
+  store.onBoundary({reason:'clock_regression'});
+  assert.equal((await api('timeline_list')).value.writable,false);
 });
