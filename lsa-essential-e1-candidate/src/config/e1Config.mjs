@@ -1,3 +1,4 @@
+import { normalizeExpressiveDeliveryConfig } from '../voice/emotion/deliveryContract.mjs';
 import {normalizeDialogueKnowledge} from './dialogueKnowledge.mjs';
 import {directorSpeechLimitsForPreset} from '../perception/sceneDirector.mjs';
 import { readFile } from 'node:fs/promises';
@@ -251,6 +252,7 @@ export function normalizeConfig(input = {}, env = process.env) {
   return Object.freeze({
     provider: selectedProvider,
     speechProvider, qwenTts, elevenLabs,
+    expressiveDelivery: normalizeExpressiveDeliveryConfig(input.expressiveDelivery, { speechProvider }),
     persistentIdentity: normalizeIdentityConfig(input.persistentIdentity),
     promotedCharacters: normalizeCharacterConfig(input.promotedCharacters),
     intelligence: normalizePerceptionConfig(input.intelligence),

@@ -149,5 +149,10 @@
   "elevenLabs": {
     "modelId": "eleven_v4_turbo",
     "voices": {}
+  },
+  "expressiveDelivery": {
+    "mode": "off",
+    "intensity": "subtle",
+    "maxTaggedSegmentsPerTurn": 2
   }
 }
