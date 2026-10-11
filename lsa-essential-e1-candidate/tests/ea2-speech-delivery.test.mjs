@@ -168,8 +168,8 @@ test('a malicious model hint or renderer cannot inject arbitrary ElevenLabs cont
   const oversized=socketsFor();
   const p3=createElevenLabsSpeechProvider({config:voiceConfig('experimental'),
     WebSocketImpl:oversized.FakeSocket,renderSpeech:mockRenderer});
-  await p3.synthesize({identity:ID,dialogue:'X'.repeat(2990),
+  await p3.synthesize({identity:ID,dialogue:'X'.repeat(2995),
     delivery:DELIVERY,onPcm:async()=>{}});
-  assert.equal(oversized.sockets[0].sent[1].inputs[0].text,'X'.repeat(2990),
+  assert.equal(oversized.sockets[0].sent[1].inputs[0].text,'X'.repeat(2995),
     'tag plus dialogue cannot exceed 3000 chars');
 });
