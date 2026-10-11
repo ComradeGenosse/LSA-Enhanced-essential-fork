@@ -12,6 +12,8 @@ namespace LSA.Standalone
     public sealed class NativeTurnPermit
     {
         public readonly Guid TurnId;
+        public readonly Guid ConversationId;
+        public readonly int TurnOrdinal;
         public readonly Guid SessionNonce;
         public readonly Guid ActorIncarnationId;
         public readonly Guid HostRunId;
@@ -25,9 +27,11 @@ namespace LSA.Standalone
         internal bool Confirmed;
         internal bool Retired;
 
-        internal NativeTurnPermit(Guid id, Guid nonce, string source, OwnershipLease lease, string playerText)
+        internal NativeTurnPermit(Guid id, Guid nonce, string source, OwnershipLease lease, string playerText, Guid conversationId, int turnOrdinal)
         {
             TurnId = id;
+            ConversationId = conversationId;
+            TurnOrdinal = turnOrdinal;
             SessionNonce = nonce;
             ActorIncarnationId = lease.Actor.IncarnationId;
             HostRunId = lease.Actor.HostRunId;
@@ -55,6 +59,14 @@ namespace LSA.Standalone
     public sealed class NativeTurnRegistry
     {
         private const int MaxTurns = 16;
+        private const int MaxSessions = 16;
+        private sealed class Conversation
+        {
+            public readonly Guid Id = Guid.NewGuid();
+            public int Ordinal;
+        }
+        private readonly Dictionary<Guid, Conversation> sessions =
+            new Dictionary<Guid, Conversation>();
         private readonly NativeAuthority authority;
         private readonly Dictionary<Guid, NativeTurnPermit> live =
             new Dictionary<Guid, NativeTurnPermit>();
@@ -105,7 +117,26 @@ namespace LSA.Standalone
             OwnershipLease lease;
             if (!authority.TryAcquire(actor, LeaseKind.Conversation, "standalone-native-turn",
                 ttlMs, out lease, out reason)) return false;
-            permit = new NativeTurnPermit(Guid.NewGuid(), Guid.NewGuid(), nativeSource, lease, playerText);
+            Guid actorId = lease.Actor.IncarnationId;
+            if (!sessions.TryGetValue(actorId, out var session))
+            {
+                if (sessions.Count >= MaxSessions)
+                {
+                    authority.TryRelease(lease);
+                    reason = "session_capacity";
+                    return false;
+                }
+                session = new Conversation();
+                sessions.Add(actorId, session);
+            }
+            if (session.Ordinal == int.MaxValue)
+            {
+                authority.TryRelease(lease);
+                reason = "session_ordinal_exhausted";
+                return false;
+            }
+            permit = new NativeTurnPermit(Guid.NewGuid(), Guid.NewGuid(),
+                nativeSource, lease, playerText, session.Id, ++session.Ordinal);
             live.Add(permit.TurnId, permit);
             reason = "offered";
             return true;
@@ -245,6 +276,7 @@ namespace LSA.Standalone
         {
             foreach (NativeTurnPermit permit in new List<NativeTurnPermit>(live.Values))
                 Retire(permit);
+            sessions.Clear(); // world/transport changed; never link new owner to old identity
         }
     }
 }
