@@ -154,6 +154,17 @@ jobs:
           if (-not (Test-Path "$fixture/Plugins/LSA.Standalone.RageHost.dll")) {
             throw 'Host deployment missing'
           }
+          # Tampering must fail atomically, without deleting any other
+          # installed managed file or manifest. Restore known bundle bytes.
+          Set-Content "$fixture/Plugins/LSA.Standalone.RageHost.dll" 'tampered'
+          $tamperDenied = $false
+          try { & "$root/Undo-Standalone.ps1" -GamePath $fixture }
+          catch { $tamperDenied = $true }
+          if (-not $tamperDenied -or
+              -not (Test-Path "$fixture/Plugins/LSA.Standalone.enabled")) {
+            throw 'Tampered rollback was not safely rejected'
+          }
+          Copy-Item "$root/payload/LSA.Standalone.RageHost.dll" "$fixture/Plugins/LSA.Standalone.RageHost.dll" -Force
           & "$root/Undo-Standalone.ps1" -GamePath $fixture
           if ((Test-Path "$fixture/Plugins/LSA.Standalone.RageHost.dll") -or
               (Test-Path "$fixture/Plugins/LSA.Standalone.enabled") -or
