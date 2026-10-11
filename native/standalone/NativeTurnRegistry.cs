@@ -63,7 +63,9 @@ namespace LSA.Standalone
         private sealed class Conversation
         {
             public readonly Guid Id = Guid.NewGuid();
+            public readonly ActorRef Actor;
             public int Ordinal;
+            public Conversation(ActorRef actor) { Actor = actor; }
         }
         private readonly Dictionary<Guid, Conversation> sessions =
             new Dictionary<Guid, Conversation>();
@@ -126,7 +128,7 @@ namespace LSA.Standalone
                     reason = "session_capacity";
                     return false;
                 }
-                session = new Conversation();
+                session = new Conversation(lease.Actor);
                 sessions.Add(actorId, session);
             }
             if (session.Ordinal == int.MaxValue)
@@ -268,6 +270,10 @@ namespace LSA.Standalone
             var snapshot = new List<NativeTurnPermit>(live.Values);
             foreach (NativeTurnPermit permit in snapshot)
                 if (!authority.IsLeaseCurrent(permit.Lease)) Retire(permit);
+            // Physical death/ABA removes conversation identity, not merely
+            // its active turn. Prevents stale sessions exhausting the 16 slots.
+            foreach (var item in new List<KeyValuePair<Guid, Conversation>>(sessions))
+                if (!authority.IsActorCurrent(item.Value.Actor)) sessions.Remove(item.Key);
         }
 
         // Invalidates all outstanding conversations before a transport restart,
