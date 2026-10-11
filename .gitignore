@@ -65,3 +65,9 @@
 /deployment/install-plan.json
 /deployment/deployment-receipt.json
 /deployment/deployment-verification.json
+
+# Standalone private Qwen voice registries, personal references and character choices
+/lsa-standalone-companion/tools/qwen/voices.json
+/lsa-standalone-companion/tools/qwen/voices/
+/lsa-standalone-companion/voice-assignments*.json
+/lsa-standalone-companion/tools/qwen/__pycache__/
