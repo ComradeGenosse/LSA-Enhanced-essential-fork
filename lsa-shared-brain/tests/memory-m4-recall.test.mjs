@@ -196,7 +196,7 @@ function integratedFixture(){
  db.exec("CREATE TABLE memory_tombstones(world_profile_id TEXT,character_id TEXT,timeline_id TEXT,target_id TEXT)");
  db.exec("CREATE TABLE memory_commands(command_id TEXT PRIMARY KEY,protagonist_key TEXT)");
  db.exec("CREATE TABLE memory_corrections(command_id TEXT PRIMARY KEY,world_profile_id TEXT,character_id TEXT,timeline_id TEXT,target_id TEXT,preferred_text TEXT,content_sha256 TEXT,created_at_utc TEXT)");
- db.exec("CREATE TABLE event_journal(record_id TEXT PRIMARY KEY,world_profile_id TEXT,character_id TEXT,timeline_id TEXT,received_at_utc TEXT,envelope_json TEXT,envelope_sha256 TEXT)");
+ db.exec("CREATE TABLE event_journal(record_id TEXT PRIMARY KEY,world_profile_id TEXT,character_id TEXT,timeline_id TEXT,event_type TEXT,received_at_utc TEXT,envelope_json TEXT,envelope_sha256 TEXT)");
  db.exec("CREATE TABLE event_source_evidence(record_id TEXT PRIMARY KEY,source_evidence_json TEXT,source_evidence_sha256 TEXT)");
  const digest=v=>createHash('sha256').update(v,'utf8').digest('hex');
  const ins=db.prepare('INSERT INTO dialogue_journal VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)');
@@ -293,5 +293,51 @@ test('PS4 source priority, frozen turn ownership, deadline and send-time revalid
   const late=await preparePs4Recall({query:q,readAdapter:slow,snapshot:identity,
     currentIdentity:()=>identity,protagonistKey:s.protagonistKey,nowUtc:clock,deadlineMs:5});
   assert.equal(late.reason,'deadline');
+ }finally{f.close();}
+});
+
+test('real v4 event archive validates actual M3 sidecar and never invents witnessing',async()=>{
+ const {normalizeWitnessedObservation}=await import('../src/events/journalEventNormalizer.mjs');
+ const f=integratedFixture(),s={...scope(),protagonistKey:'unknown'};
+ const make=(type,kind,channel,at)=>{
+  const ownerProof={ownerAlias:'npc.test',incarnationId:U(),encounterId:U(),hostRunId:U(),
+    worldEpoch:1,observerCaptureRef:U()};
+  const identity={promoted:true,current:true,characterId:s.characterId,
+    worldProfileId:s.worldProfileId,timelineId:s.timelineId,adapterEpoch:U(),ownerProof};
+  const observation={version:1,observationId:U(),episodeId:U(),revision:1,
+    observer:{kind:'ped',captureRef:ownerProof.observerCaptureRef},
+    observedAt:{nativeRun:identity.adapterEpoch,gameTick:10,receivedUtc:at},
+    eventType:type,claims:[{claimId:U(),kind,certainty:'supported',
+      evidence:{channel,basis:channel==='report'?'dialogue_report':'sampled_state',
+        sampledGameTick:10,...(channel==='report'?{reportRef:U()}:{})}}]};
+  return normalizeWitnessedObservation({observation,identity});
+ };
+ const add=v=>{
+  assert.equal(v.accepted,true);
+  const e=v.event,raw=JSON.stringify(e),side=JSON.stringify(v.sourceEvidence);
+  f.db.prepare('INSERT INTO event_journal VALUES(?,?,?,?,?,?,?,?)')
+    .run(e.recordId,s.worldProfileId,s.characterId,s.timelineId,e.eventType,
+      e.receivedAtUtc,raw,f.digest(raw));
+  f.db.prepare('INSERT INTO event_source_evidence VALUES(?,?,?)')
+    .run(e.recordId,side,f.digest(side));
+  return e;
+ };
+ try{
+  const old=add(make('firing_burst','firing','visual','2023-01-01T00:00:00.000Z'));
+  f.db.exec('BEGIN');
+  for(let i=0;i<400;i++)add(make('character_present','presence','visual',
+     new Date(Date.parse(clock)-i*1000).toISOString()));
+  f.db.exec('COMMIT');
+  const b=(await recallMemory({query:query(s,'did you witness firing?'),
+    readAdapter:f.adapter,protagonistKey:'unknown',nowUtc:clock})).bundle;
+  assert.ok(b.items.some(x=>x.recordId===old.recordId&&x.mode==='observed_fact'));
+  const other=(await recallMemory({query:query(s,'did you witness firing?'),
+    readAdapter:f.adapter,protagonistKey:'franklin',nowUtc:clock})).bundle;
+  assert.equal(other.items.length,0);
+  f.db.prepare('UPDATE event_source_evidence SET source_evidence_json=? WHERE record_id=?')
+    .run('{}',old.recordId);
+  const tampered=(await recallMemory({query:query(s,'did you witness firing?'),
+    readAdapter:f.adapter,protagonistKey:'unknown',nowUtc:clock})).bundle;
+  assert.equal(tampered.status,'unavailable');
  }finally{f.close();}
 });
