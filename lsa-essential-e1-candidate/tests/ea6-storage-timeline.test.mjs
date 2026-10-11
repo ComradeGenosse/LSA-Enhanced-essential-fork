@@ -172,3 +172,63 @@ test('EA6 trust bridge refuses unsupported native clients and revokes on close',
   assert.equal(store.timelineWritable,false);
   await store.close();
 });
+
+test('EA6 accepts only ordered C-13 epoch evidence before re-confirmation',async t=>{
+  const p=await workspace(t);
+  const store=createEssentialMemoryStorage({filePath:p.db,worldProfileId,sourceRequired:true});
+  const source=emitter(),bridge=bindTrustedTimelineSource({store,intelligenceClient:source});
+  try{
+    await store.initialize();
+    const id=await store.createTimeline({label:'Selected save'});
+    const initial=host();
+    source.host(initial);
+    await store.confirmTimeline(id,{confirmation:id});
+    assert.equal(store.timelineWritable,true);
+    const next=host(initial.hostRunId,2);
+    // The production C-13 callback first publishes the accepted new context.
+    source.host(next);
+    source.boundary({reason:'clock_regression',hostRunId:next.hostRunId,
+      previousEpoch:1,worldEpoch:2});
+    assert.equal(store.timelineWritable,false);
+    assert.equal(store.timelineSourceStatus,'confirmation_required',
+      'verified *new* epoch may be reconfirmed, but is not implicitly approved');
+    await store.confirmTimeline(id,{confirmation:id});
+    assert.equal(store.timelineWritable,true);
+    // Forged/misordered data cannot reuse the prior confirmation.
+    source.boundary({reason:'timeline_change',hostRunId:initial.hostRunId,
+      previousEpoch:1,worldEpoch:2});
+    assert.equal(store.timelineSourceStatus,'unavailable');
+    assert.equal(store.timelineWritable,false);
+  }finally{bridge.close();await store.close();}
+});
+test('EA6 damaged SQLite remains authoritative failure and preserves rollback data',async t=>{
+  const p=await workspace(t);
+  const original=new ProfileStore({filePath:p.json,worldProfileId});
+  await original.initialize();await original.create(profile());
+  const snapshot=await fs.readFile(p.json,'utf8');
+  const first=createEssentialMemoryStorage({filePath:p.db,legacyJsonPath:p.json,
+    worldProfileId,sourceRequired:true});
+  await first.initialize();await first.close();
+  const corruption=Buffer.from('corrupt sqlite content');
+  await fs.writeFile(p.db,corruption);
+  const broken=createEssentialMemoryStorage({filePath:p.db,legacyJsonPath:p.json,
+    worldProfileId,sourceRequired:true});
+  await assert.rejects(broken.initialize());
+  assert.equal(broken.timelineWritable,false);
+  assert.deepEqual(await fs.readFile(p.db),corruption);
+  assert.equal(await fs.readFile(p.json,'utf8'),snapshot);
+  assert.equal(await fs.readFile(p.json+'.pre-sqlite.bak','utf8'),snapshot);
+});
+test('EA6 does not break existing writer lock or permit concurrent cross-host writers',async t=>{
+  const p=await workspace(t);
+  const first=createEssentialMemoryStorage({filePath:p.db,worldProfileId,sourceRequired:true});
+  const second=createEssentialMemoryStorage({filePath:p.db,worldProfileId,sourceRequired:true});
+  await first.initialize();
+  await assert.rejects(second.initialize(),/sqlite_writer_busy/);
+  assert.ok((await fs.readFile(p.db+'.writer.lock','utf8')).trim());
+  await first.close();
+  const third=createEssentialMemoryStorage({filePath:p.db,worldProfileId,sourceRequired:true});
+  await third.initialize();
+  assert.equal(third.timelineWritable,false);
+  await third.close();
+});
