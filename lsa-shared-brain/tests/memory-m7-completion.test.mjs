@@ -6,7 +6,7 @@ import {mkdtempSync,rmSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import path from 'node:path';
 import {selectAutomaticMemories} from '../src/memory/selection.mjs';
-import {validateM7Consent,validateM7IdleProof,validateM7Pricing} from '../src/memory/m7Consent.mjs';
+import {validateM7Consent,validateM7IdleProof,validateM7Pricing,M7_PRIORITY_QUIET_FIELDS} from '../src/memory/m7Consent.mjs';
 import {readPermanentMemoryRows} from '../src/memory/integratedSqlite.mjs';
 import {createHash} from 'node:crypto';
 import {makeQueueJob} from '../src/memory/queueContract.mjs';
@@ -140,7 +140,9 @@ function nativeFixture(f,store){
    observedAtUtc:at(2),hostRunId:id(70),worldEpoch:1,
    sessionId:id(71),incarnationId:id(72),encounterId:id(73),observerIndex:0,
    characterId:f.scope.characterId,worldProfileId:f.scope.worldProfileId,
-   timelineId:f.scope.timelineId,idle:true,idleForMs:3000,micActive:false,
+   timelineId:f.scope.timelineId,
+   priorityEvidence:Object.fromEntries(M7_PRIORITY_QUIET_FIELDS.map(k=>[k,true])),
+   idle:true,idleForMs:3000,micActive:false,
    playerSpeechActive:false,directorBusy:false,gamePaused:false};
  return {state,snapshot:()=>({...state}),
    subscribeInvalidation(fn){listener=fn;return ()=>{if(listener===fn)listener=null;};},
@@ -262,6 +264,7 @@ test('M7 native idle source denies guessed NPCs, stale receipts, mic, Director a
  for(const invalid of [
    {nativeVerified:false},{kind:'timer_idle'},{characterId:id(66)},
    {sessionId:null},{incarnationId:null},{observerIndex:-1},
+   {priorityEvidence:null},{priorityEvidence:{ownerIdle:true}},
    {observedAtUtc:at(1)},{worldEpoch:2},{idle:false},
    {micActive:true},{playerSpeechActive:true},{directorBusy:true},
    {gamePaused:true},{idleForMs:100}])
