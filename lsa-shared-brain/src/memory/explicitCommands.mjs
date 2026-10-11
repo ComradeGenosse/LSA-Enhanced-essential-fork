@@ -196,7 +196,9 @@ export async function handleExplicitMemoryCommand(input) {
       if (!selected) return await clarify(alternatives.length===2 ?
         'Do you mean the first or second memory?' :
         'Which specific memory or moment do you mean?',alternatives,frozen);
-      if (parsed.intent==='correct' && !content) return await clarify('What is the corrected wording?',alternatives,frozen);
+      if (parsed.intent==='correct' && !content) return await clarify(
+        'What is the corrected wording?',
+        [{recordId:selected.recordId,label:'selected evidence'}],[selected]);
       if (!content) content=selected.content;
     }
     const evidenceRecordIds=selected?[selected.recordId,line.recordId]:[line.recordId];
@@ -300,8 +302,17 @@ export async function handleMemoryClarificationReply({line,scope,store,clarifica
   if(!same(saved.scope,scope) || !same(saved.line,scope) ||
      !Array.isArray(saved.frozen) || !Array.isArray(saved.alternatives))return null;
   const text=line.content.trim();
-  const index=/^(?:(?:the )?(?:first|one|1)(?: one)?)[.!]?$/i.test(text)?0:
-    /^(?:(?:the )?(?:second|two|2)(?: one)?)[.!]?$/i.test(text)?1:-1;
+  // Correction may combine the frozen ordinal with exact replacement bytes in
+  // one accepted reply: "first: it was blue". A one-candidate clarification
+  // also accepts an explicit "I actually said blue" response.
+  const choice=/^(?:the )?(first|one|1|second|two|2)(?: one)?(?:\\s*[:,-]\\s*(.+))?[.!]?$/i.exec(text);
+  let index=choice ? /^(?:first|one|1)$/i.test(choice[1])?0:1:-1;
+  let correctionContent=choice?.[2]?.trim() || null;
+  if(index<0 && saved.parsed.intent==='correct' &&
+      saved.alternatives.length===1 && !saved.parsed.content) {
+    const replacement=/^(?:no[,]?\\s*)?(?:i\\s+(?:actually\\s+)?(?:said|meant)|it\\s+was|the\\s+correct(?:ed)?\\s+(?:wording|text)\\s+is)\\s+(.+)$/i.exec(text);
+    if(replacement){index=0;correctionContent=replacement[1].trim();}
+  }
   if(index<0 || index>=saved.alternatives.length)return result(
     actionBase(scope,saved.line,clarificationId,saved.parsed.intent),'clarify');
   const frozen=saved.frozen[index],offered=saved.alternatives[index];
@@ -325,8 +336,9 @@ export async function handleMemoryClarificationReply({line,scope,store,clarifica
     if(!selected || !eligible(selected,scope,saved.line,saved.parsed.intent,saved.parsed.selector) ||
        ['kind','content','occurredAtUtc','speaker','source','delivery','receiptStatus']
         .some(k=>(selected[k]??null)!==(frozen[k]??null)))return result(base,'failed');
-    const content=saved.parsed.content || selected.content;
-    if(saved.parsed.intent==='correct' && !saved.parsed.content)return result(base,'clarify');
+    const content=saved.parsed.content || correctionContent || selected.content;
+    if(saved.parsed.intent==='correct' && !saved.parsed.content &&
+       (!correctionContent || !correctionContent.trim()))return result(base,'clarify');
     const evidenceRecordIds=[selected.recordId,saved.line.recordId,line.recordId];
     const op={scope:clone(scope),commandId:clarificationId,requestedByLineId:saved.line.recordId,
       operation:saved.parsed.intent,origin:'explicit_player',
