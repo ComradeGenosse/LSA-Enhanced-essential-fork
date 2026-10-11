@@ -3,13 +3,13 @@
 Date: 2026-10-11
 Base: PR #68 exact immutable planning commit `4cad39198478d7f03bb8ec6657b674e52fa659dd`
 Branch: `feature/ea7-emotional-continuity-completion-20261011`
-Source code/test commit: `953b03b875321d69d816270c8203bf48d25fbfa3` (cumulative EA7 changes).
+Source code/test commit: `f3786fa6f6e5245a18b45e4728136df77875edb2` (cumulative EA7 changes).
 No EA5 native or EA6 SQLite implementation is represented as integrated or installed.
 
 ## Actual changes (only EA7 owned paths)
 
 - `lsa-essential-e1-candidate/src/voice/emotion/moodStore.mjs`: duplicate completion of the SAME native generation is now rejected, instead of resetting the mood and extending the 22-second expiry. A delayed older-generation callback cannot undo a newer completed turn.
-- `lsa-essential-e1-candidate/src/voice/emotion/moodRuntime.mjs`: invalid/retired OLD-turn cancellation no longer performs a global mood clear and erases a NEWER generation. Fail-closed reads/commits still clear when live proof is missing; clear() remains the lifecycle hook for real save/host/source revocations.
+- `lsa-essential-e1-candidate/src/voice/emotion/moodRuntime.mjs`: invalid/retired OLD-turn cancellation no longer performs a global mood clear and erases a NEWER generation. Failing/throwing trusted runtime suppliers now return neutral instead of raising; fail-closed reads/commits still clear when live proof is missing; clear() remains the lifecycle hook for real save/host/source revocations.
 - `lsa-essential-e1-candidate/src/voice/emotion/resolveSpeechDelivery.mjs`: of all completed audio segments, select the LAST fresh, eligible, actually taggable delivery for the full native playback-accepted turn, NOT first callback order. Ignore `ephemeral_mood` as a fresh source; only allow one native completion callback per turn. Reject explicitly mismatched native receipt tuple fields. Do not commit a shadow-only acting proposal, since shadow sends unmodified provider speech.
 - `lsa-essential-e1-candidate/src/voice/emotion/sceneDelivery.mjs`: after higher-priority current verified scene evidence and anchored current speech cues, recognize narrowly anchored present-tense NPC statements (e.g. **I'm fine now**) that explicitly repudiate an older soft mood; do not treat this as a newly witnessed event or general sentiment inference.
 - `lsa-essential-e1-candidate/tests/ea7-emotional-continuity-completion.test.mjs`: dedicated native receipt, last-segment, shadow, stale cancellation, replay, TTL, current-speech override, source and isolation regressions.
@@ -35,7 +35,7 @@ Adjacent regressions:
 node --test tests/ea7-emotional-continuity-completion.test.mjs tests/ea4-runtime-integration.test.mjs tests/emotional-mood-continuity.test.mjs tests/ea2-speech-delivery.test.mjs tests/scene-delivery.test.mjs
 npm test
 ```
-Execution evidence: The actual changed module source and checked-in EA7 test source from exact commit `953b03b...` were executed together in a strict in-memory V8 harness with non-EA7 native/perception imports replaced by trusted fixtures: **10/10 EA7 cases passed**. The existing `emotional-mood-continuity.test.mjs` test source was likewise executed with the actual MoodStore source: **14/14 passed**. The original EA4 runtime suite produced **8/8 passes** only after one *in-memory* parse repair, described below, against actual moodRuntime/sceneOwnerProjection/knowledgeInputs source with external service stubs. Aggregate executed behavioral checks: **32/32 passing in the harness**. These are not the stock Node `node:test` CLI, GitHub Actions, real native runtime or GTA.
+Execution evidence: The actual changed module source and checked-in EA7 test source from exact commit `f3786fa...` were executed together in a strict in-memory V8 harness with non-EA7 native/perception imports replaced by trusted fixtures: **11/11 EA7 cases passed**. The existing `emotional-mood-continuity.test.mjs` test source was likewise executed with the actual MoodStore source: **14/14 passed**. The original EA4 runtime suite produced **8/8 passes** only after one *in-memory* parse repair, described below, against actual moodRuntime/sceneOwnerProjection/knowledgeInputs source with external service stubs. Aggregate executed behavioral checks: **33/33 passing in the harness**. These are not the stock Node `node:test` CLI, GitHub Actions, real native runtime or GTA.
  
 **Inherited blocker requiring integrator/EA9 ownership resolution:** Existing PR #68 file `lsa-essential-e1-candidate/tests/ea4-runtime-integration.test.mjs` line 128 literally contains `assert.equal(f.mood.readMood(next),null;` (missing a right parenthesis). It fails JS parsing and consequently prevents the existing EA4 targeted/full Node CI from passing until corrected. EA7 intentionally did not modify another phase's original test file. After temporary *in-memory-only* parse repair, its eight fixtures passed. The repo remains unmodified at that path.
  
