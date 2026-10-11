@@ -1,6 +1,7 @@
 import {
   PCM_RATE, MAX_CHUNK_BYTES, MAX_CHUNKS, MAX_PCM_BYTES
 } from '../audio/nativePcm.mjs';
+import { awaitNativePhysicalPlayback } from '../audio/physicalPlayback.mjs';
 
 // S2 uses ONE native stream for a whole AI turn, with explicit audio segment
 // boundaries. TTS produces segment N before the model must finish the entire
@@ -13,7 +14,8 @@ const nap = (ms, signal) => new Promise((resolve, reject) => {
   signal?.addEventListener('abort', cancel, { once: true });
 });
 export async function stageNativeSpeechSegments({
-  client, offer, claims, modelSegments, tts, signal
+  client, offer, claims, modelSegments, tts, signal,
+  confirmPlayback = false, onPlaybackProgress
 }) {
   if (!client?.request || !offer?.turnId || !tts?.streamPcm ||
       !modelSegments?.[Symbol.asyncIterator])
@@ -117,8 +119,16 @@ export async function stageNativeSpeechSegments({
       chunkCount: chunkIndex, totalBytes: bytes
     });
     if (end.status !== 'sealed_not_played') throw new Error('native_pcm_not_sealed');
+    const physicalReceipt = confirmPlayback
+      ? await awaitNativePhysicalPlayback(client, {
+          streamId: audio.streamId, audioLeaseId: audio.audioLeaseId,
+          audioGeneration: audio.audioGeneration,
+          turnId: exact.turnId, actorIncarnationId: exact.actorIncarnationId
+        }, { expectedBytes: bytes, expectedSegments: index, signal,
+          onProgress: onPlaybackProgress }) : null;
     return { status: 'sealed_not_played', playback: false,
-      segmentCount: index, bytes, text: text.join(' ') };
+      segmentCount: index, bytes, text: text.join(' '),
+      ...(physicalReceipt ? { physicalReceipt } : {}) };
   } catch (error) {
     if (audio) {
       try {
