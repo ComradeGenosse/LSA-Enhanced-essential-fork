@@ -105,7 +105,8 @@ test('M1 SQLite explicit timeline confirmation is durable and freezes on rollbac
   const restored=createStandaloneMemoryStorage({filePath:p.sqlite,worldProfileId});
   await restored.initialize();
   assert.equal(restored.activeTimelineId,id);
-  assert.equal(restored.timelineWritable,true);
+  assert.equal(restored.timelineWritable,false,'standalone must fail closed until its own native host proof arrives');
+  assert.equal(restored.timelineSourceStatus,'unavailable');
   await restored.close();
 });
 
