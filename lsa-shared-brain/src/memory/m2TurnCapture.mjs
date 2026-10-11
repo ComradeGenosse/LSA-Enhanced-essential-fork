@@ -128,7 +128,8 @@ export function createM2TurnCapture({
   let retired = false;
 
   function assertBoundTurn() {
-    if (retired || !isCurrent()) fail('m2_turn_retired');
+    if (retired) fail('m2_turn_retired');
+    if (!isCurrent()) {retired=true;fail('m2_turn_retired');}
     if (currentProtagonist() !== protagonist) {retired=true;fail('m2_protagonist_changed');}
     if (store.worldProfileId !== worldProfileId ||
         store.activeTimelineId !== timelineId ||
@@ -139,7 +140,8 @@ export function createM2TurnCapture({
     if (store.get(characterId)?.promotion?.ownerAlias !== boundAlias) {
       retired=true;fail('m2_owner_retired');
     }
-    const now=readNativeProof();
+    let now;
+    try {now=readNativeProof();} catch(error) {retired=true;throw error;}
     if(now.incarnationId!==nativeLifetime.incarnationId||
        now.encounterId!==nativeLifetime.encounterId||
        now.observerIndex!==nativeLifetime.observerIndex){

@@ -628,3 +628,23 @@ test('M2 closure refuses even native playback_ended(completed) when early TTS ha
     assert.equal((await read(x)).length,0);
   }finally{await x.store.close();}
 });
+
+test('M2 closure source loss from a native-verifier null or superseded currentness is permanently sticky',async t=>{
+  const x=await setup(t);
+  try{
+    const e=essentialM2(x,'drop-native'),cap=e.make();
+    e.commitInput({text:'No replay after native owner loss'});
+    e.state.live=false;
+    assert.equal((await cap.acceptPlayer({source:'typed',text:'No replay after native owner loss'})).status,'not_stored');
+    e.state.live=true;
+    assert.equal((await cap.acceptPlayer({source:'typed',text:'No replay after native owner loss'})).reason,'m2_turn_retired');
+    const other=essentialM2(x,'superposed'),b=other.make();
+    other.state.live=false;
+    assert.equal(b.admitSpeechSegment({mode:'buffered',sequence:0,text:'x',
+      audioBytes:50,forwardedBytes:50}).reason,'m2_turn_retired');
+    other.state.live=true;
+    other.commitInput({text:'should not survive'});
+    assert.equal((await b.acceptPlayer({source:'typed',text:'should not survive'})).reason,'m2_turn_retired');
+    assert.equal((await read(x)).length,0);
+  }finally{await x.store.close();}
+});

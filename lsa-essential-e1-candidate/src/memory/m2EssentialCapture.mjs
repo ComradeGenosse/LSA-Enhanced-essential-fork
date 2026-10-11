@@ -82,7 +82,10 @@ export function createM2EssentialCapture({
   });
   let retired=false,mode=null,sealed=false;
   const segments=[];
-  const check=()=>{if(retired||!isCurrent())fail('m2_turn_retired');};
+  const check=()=>{
+    if(retired)fail('m2_turn_retired');
+    if(!isCurrent()){retired=true;bound.retire();fail('m2_turn_retired');}
+  };
   return Object.freeze({
     // Call only after the runner's accepted final typed/STT intake and successful
     // DialogueHistory.commitPlayerInput; the trusted port must confirm both.
