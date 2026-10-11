@@ -25,6 +25,38 @@ export class PendingDialogue {
   // Intentionally no commit method until a verified Phase 4 playback receipt.
 }
 
+// Source-time user statements only. This never treats a staged assistant
+// response as audible, completed or suitable for model conversation history.
+// Exactly one instance is owned by each live native transport supervisor.
+export class NativePlayerContext {
+  #sessions = new Map();
+
+  record(offer) {
+    if (!ID.test(offer.hostRunId) || !ID.test(offer.conversationId) ||
+        !ID.test(offer.actorIncarnationId) ||
+        !Number.isSafeInteger(offer.turnOrdinal) || offer.turnOrdinal < 1 ||
+        typeof offer.playerText !== 'string' || !offer.playerText.trim())
+      throw new Error('invalid_native_conversation');
+    const key = offer.hostRunId + ':' + offer.conversationId;
+    let slot = this.#sessions.get(key);
+    if (!slot) {
+      if (this.#sessions.size >= 16) throw new Error('conversation_capacity');
+      slot = { actorIncarnationId: offer.actorIncarnationId, ordinal: 0, inputs: [] };
+      this.#sessions.set(key, slot);
+    }
+    if (slot.actorIncarnationId !== offer.actorIncarnationId ||
+        offer.turnOrdinal <= slot.ordinal)
+      throw new Error('stale_native_conversation');
+    const previous = slot.inputs.slice();
+    slot.ordinal = offer.turnOrdinal;
+    slot.inputs.push(offer.playerText);
+    if (slot.inputs.length > 6) slot.inputs.shift();
+    return previous;
+  }
+
+  retireAll() { this.#sessions.clear(); }
+}
+
 function nativeClaims(offer) {
   return {
     turnId: offer.turnId,
@@ -35,7 +67,8 @@ function nativeClaims(offer) {
 }
 
 export async function handleNextTypedTurn(client, provider, {
-  signal, pending = new PendingDialogue(), onStage = () => {}
+  signal, pending = new PendingDialogue(),
+  playerContext = new NativePlayerContext(), onStage = () => {}
 } = {}) {
   if (!client || typeof client.request !== 'function' || !provider ||
       typeof provider.complete !== 'function') throw new Error('invalid_pipeline');
@@ -53,6 +86,8 @@ export async function handleNextTypedTurn(client, provider, {
       sessionNonce: offer.sessionNonce,
       source: 'player_text'
     });
+    const previousPlayerInputs = offer.conversationId
+      ? playerContext.record(offer) : [];
     const perTurn = new AbortController();
     const onAbort = () => perTurn.abort();
     signal?.addEventListener('abort', onAbort, { once: true });
@@ -60,6 +95,7 @@ export async function handleNextTypedTurn(client, provider, {
     try {
       const replyText = await provider.complete({
         text: offer.playerText,
+        previousPlayerInputs,
         signal: perTurn.signal
       });
       if (perTurn.signal.aborted || signal?.aborted) throw new Error('typed_turn_cancelled');
