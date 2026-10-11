@@ -52,3 +52,67 @@ export async function stageNativePcm(client, nativeTurn, pcm16, { signal } = {})
     throw error;
   }
 }
+
+
+// True incremental PCM transfer: does not materialize all TTS audio in Node.
+// Handles odd byte boundaries from arbitrary HTTP chunks and propagates
+// bounded native backpressure. Deliberately refuses streams longer than the
+// four-second native escrow while no physical output consumer is installed.
+export async function stageNativePcmStream(client, nativeTurn, source, { signal } = {}) {
+  if (!client || typeof client.request !== 'function' || !nativeTurn ||
+      !source || typeof source[Symbol.asyncIterator] !== 'function')
+    throw new Error('invalid_pcm_stream');
+  if (signal?.aborted) throw new Error('pcm_transfer_cancelled');
+  const { turnId, actorIncarnationId, leaseId, generation } = nativeTurn;
+  const opened = await client.request('audio.open', {
+    turnId, actorIncarnationId, leaseId, generation, sampleRate: PCM_RATE
+  });
+  if (opened.status !== 'audio_authorized_not_playing')
+    throw new Error('pcm_lease_not_authorized');
+  const claims = {
+    streamId: opened.streamId, audioLeaseId: opened.audioLeaseId,
+    audioGeneration: opened.audioGeneration, turnId, actorIncarnationId
+  };
+  let index = 0, total = 0, carry = null;
+  const push = async bytes => {
+    if (signal?.aborted) throw new Error('pcm_transfer_cancelled');
+    if (index >= MAX_CHUNKS || total + bytes.length > MAX_PCM_BYTES)
+      throw new Error('pcm_buffer_capacity');
+    const result = await client.request('audio.chunk', {
+      ...claims, chunkIndex: index, pcmBase64: bytes.toString('base64')
+    });
+    if (result.status !== 'buffered_not_played') throw new Error('pcm_not_buffered');
+    total += bytes.length;
+    index++;
+  };
+  try {
+    for await (const frame of source) {
+      if (signal?.aborted) throw new Error('pcm_transfer_cancelled');
+      if (!(frame instanceof Uint8Array)) throw new Error('invalid_pcm_frame');
+      if (frame.length === 0) continue;
+      let bytes = Buffer.from(frame.buffer, frame.byteOffset, frame.byteLength);
+      if (carry !== null) {
+        bytes = Buffer.concat([Buffer.from([carry]), bytes]);
+        carry = null;
+      }
+      const usable = bytes.length & ~1;
+      for (let offset = 0; offset < usable; offset += MAX_CHUNK_BYTES) {
+        const part = bytes.subarray(offset, Math.min(usable, offset + MAX_CHUNK_BYTES));
+        if (part.length < 2 || part.length % 2) throw new Error('invalid_pcm_frame');
+        await push(part);
+      }
+      if (usable !== bytes.length) carry = bytes[bytes.length - 1];
+    }
+    if (signal?.aborted) throw new Error('pcm_transfer_cancelled');
+    if (carry !== null || total < 2) throw new Error('invalid_pcm_length');
+    const result = await client.request('audio.end', {
+      ...claims, chunkCount: index, totalBytes: total
+    });
+    if (result.status !== 'sealed_not_played') throw new Error('pcm_not_sealed');
+    return { status: 'sealed_not_played', streamId: claims.streamId,
+      bufferedBytes: total, chunkCount: index, playback: false };
+  } catch (error) {
+    try { await client.request('audio.cancel', claims); } catch {}
+    throw error;
+  }
+}
