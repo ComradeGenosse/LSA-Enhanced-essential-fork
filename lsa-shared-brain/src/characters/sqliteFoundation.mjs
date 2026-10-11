@@ -14,6 +14,7 @@ import { PROFILE_LIMITS, validateProfiles } from './profileSchema.mjs';
 import { JOURNAL_SCHEMA_VERSION, migrateJournalSchema, assertJournalSchema, appendDialogue, appendEvent, readDialogue, findExactQuote, searchDialogue, readEvents, readVerifiedEventEvidence } from '../memory/journalSqlite.mjs';
 import { ensureIntegratedMemorySchema, listMemoryCandidates, listSuppressedMemoryIds, verifyPersistedMemoryCommand, commitPersistedMemoryCommand, persistDeterministicMemory, readPermanentMemoryRows, readCorrectionOverlays } from '../memory/integratedSqlite.mjs';
 import {ensureCurationSchema,enqueueCuration,claimCuration,completeCuration,retryCuration,releaseCuration,reserveCurationBudget,finishCurationBudget} from '../memory/curationSqlite.mjs';
+import {ensureM3CoverageSchema,appendM3Coverage,readM3Coverage} from '../events/m3CoverageSqlite.mjs';
 
 export const SQLITE_PROFILE_SCHEMA = 2;
 const fail = code => { throw new Error(code); };
@@ -189,6 +190,8 @@ export class P2SqliteFoundation {
       migrateJournalSchema(db);
       ensureIntegratedMemorySchema(db);
       ensureCurationSchema(db);
+      // Additive only: M3 negative coverage shares this exact P2 connection.
+      ensureM3CoverageSchema(db);
       this.#db=db;
       return this.#snapshot;
     } catch(e){try {db?.close();}catch{}throw e;}
@@ -276,6 +279,16 @@ export class P2SqliteFoundation {
   persistDeterministicMemory(proposal){return persistDeterministicMemory(this.#db,proposal,this.worldProfileId);}
   readPermanentMemoryRows(scope,options){return readPermanentMemoryRows(this.#db,scope,this.worldProfileId,options);}
   readCorrectionOverlays(scope){return readCorrectionOverlays(this.#db,scope,this.worldProfileId);}
+  appendM3Coverage(record){
+    if(!this.#db)fail('sqlite_profile_uninitialized');
+    if(record?.worldProfileId!==this.worldProfileId)fail('m3_coverage_wrong_world');
+    return transaction(this.#db,()=>appendM3Coverage(this.#db,record));
+  }
+  readM3Coverage(scope){
+    if(!this.#db)fail('sqlite_profile_uninitialized');
+    if(scope?.worldProfileId!==this.worldProfileId)fail('m3_coverage_wrong_world');
+    return readM3Coverage(this.#db,scope);
+  }
   enqueueCuration(args,timelineId){return enqueueCuration(this.#db,args,this.worldProfileId,timelineId);}
   claimCuration(args,timelineId){return claimCuration(this.#db,args,this.worldProfileId,timelineId);}
   completeCuration(args,timelineId){return completeCuration(this.#db,args,this.worldProfileId,timelineId);}

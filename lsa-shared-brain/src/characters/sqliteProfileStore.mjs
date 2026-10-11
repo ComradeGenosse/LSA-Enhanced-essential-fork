@@ -308,6 +308,15 @@ export class P2SqliteProfileStore {
       return this.#db.readCorrectionOverlays(scope);
     });
   }
+  // Read-only M3 coverage projection. Writes are deliberately available only
+  // via the verified binder -> recorder -> M1 fenced foundation port.
+  async readM3Coverage(scope){
+    await this.initialize();
+    return this.#serial(()=>{
+      if(!this.available)fail('profile_store_unavailable');
+      return this.#db.readM3Coverage(scope);
+    });
+  }
   async saveDeterministicMemory(proposal){
     return this.withTimelineWrite(proposal?.timelineId,foundation=>{
       if(this.#sourceRequired&&!this.verifiedHostContext)fail('memory_native_host_unconfirmed');

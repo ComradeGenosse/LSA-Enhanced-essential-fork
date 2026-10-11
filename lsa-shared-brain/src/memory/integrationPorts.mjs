@@ -26,12 +26,26 @@ export function createM3JournalPorts(store){
           throw new Error('m3_commit_unconfirmed');
         return Object.freeze(receipt.inserted?{inserted:true}:{duplicate:true});
       },
+      recordCoverage:(record,foundation)=>{
+        const host=store.verifiedHostContext;
+        if(!host || host.hostRunId!==record?.ownerProof?.hostRunId ||
+           host.worldEpoch!==record.ownerProof.worldEpoch ||
+           record.worldProfileId!==store.worldProfileId ||
+           record.timelineId!==store.activeTimelineId ||
+           store.timelineWritable!==true ||
+           store.get(record.characterId)?.promotion?.ownerAlias!==record.ownerProof.ownerAlias)
+          throw new Error('m3_coverage_owner_or_epoch_unconfirmed');
+        const receipt=foundation.appendM3Coverage(record);
+        if(!receipt || !(receipt.inserted===true || receipt.duplicate===true))
+          throw new Error('m3_coverage_commit_unconfirmed');
+        return Object.freeze(receipt);
+      },
     }),
   });
 }
-export function createM3WitnessRecorder({store,authorize,now}={}){
+export function createM3WitnessRecorder({store,authorize,authorizeCoverage=null,now}={}){
   if(typeof authorize!=='function')throw new TypeError('m3_owner_binder_required');
-  return new WitnessedEventRecorder({...createM3JournalPorts(store),authorize,now});
+  return new WitnessedEventRecorder({...createM3JournalPorts(store),authorize,authorizeCoverage,now});
 }
 
 /**

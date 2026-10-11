@@ -8,7 +8,7 @@ import {DatabaseSync} from 'node:sqlite';
 import {createP2MemoryStorage} from '../src/characters/sqliteProfileStore.mjs';
 import {createConversationJournalRecorder} from '../src/memory/conversationRecorder.mjs';
 import {handleExplicitMemoryCommand} from '../src/memory/explicitCommands.mjs';
-import {recallFromSharedJournal,createDurableCurationAdapters,createM3WitnessRecorder} from '../src/memory/integrationPorts.mjs';
+import {recallFromSharedJournal,createDurableCurationAdapters,createM3WitnessRecorder,createM3JournalPorts} from '../src/memory/integrationPorts.mjs';
 import {selectAutomaticMemories} from '../src/memory/selection.mjs';
 import {makeQueueJob} from '../src/memory/queueContract.mjs';
 import {processIdleCuration} from '../src/memory/lunaCurator.mjs';
@@ -223,5 +223,44 @@ test('existing M2 v3 journal upgrades atomically to v4 without touching raw dial
     assert.equal(verify.prepare("SELECT count(*) AS n FROM sqlite_master WHERE name='memory_luna_appraisals'").get().n,1);
    }finally{verify.close()}
   }finally{await reopened.close()}
+ }finally{await x.store.close()}
+});
+
+test('H: M3 certified negative coverage uses one P2 transaction and survives restart without cross-owner leakage',async t=>{
+ const x=await setup(t);
+ const observationId=id();
+ const ownerProof={ownerAlias:x.store.get(x.scope.characterId).promotion.ownerAlias,
+   incarnationId:id(),encounterId:id(),hostRunId:x.host.hostRunId,
+   worldEpoch:x.host.worldEpoch,observerCaptureRef:id()};
+ const scope={characterId:x.scope.characterId,worldProfileId:x.scope.worldProfileId,
+   timelineId:x.scope.timelineId,observationId};
+ const receipt={certified:true,sourceReceiptId:id(),status:'did_not_witness',
+   observerCaptureRef:ownerProof.observerCaptureRef,hostRunId:ownerProof.hostRunId,
+   worldEpoch:ownerProof.worldEpoch,sampledGameTick:123,channel:'visual',basis:'native_awareness'};
+ const record={...scope,status:'did_not_witness',reason:'fixture_native_negative',
+   ownerProof,nativeCoverage:receipt};
+ try{
+   const ports=createM3JournalPorts(x.store);
+   assert.equal((await x.store.readM3Coverage(scope)).status,'unavailable');
+   await assert.rejects(x.store.withTimelineWrite(scope.timelineId,foundation=>
+     ports.journalPort.recordCoverage({...record,nativeCoverage:null},foundation)),/m3_negative_not_certified/);
+   assert.equal((await x.store.readM3Coverage(scope)).certified,false);
+   assert.equal((await x.store.withTimelineWrite(scope.timelineId,foundation=>
+     ports.journalPort.recordCoverage(record,foundation))).inserted,true);
+   assert.equal((await x.store.withTimelineWrite(scope.timelineId,foundation=>
+     ports.journalPort.recordCoverage(record,foundation))).duplicate,true);
+   const stored=await x.store.readM3Coverage(scope);
+   assert.equal(stored.certified,true);
+   assert.equal(stored.record.ownerProof.observerCaptureRef,ownerProof.observerCaptureRef);
+   x.store.setVerifiedHostContext(null);
+   await assert.rejects(x.store.withTimelineWrite(scope.timelineId,foundation=>
+     ports.journalPort.recordCoverage(record,foundation)),/timeline_write_suspended/);
+   await x.store.close();
+   const reopened=createP2MemoryStorage({filePath:x.filePath,worldProfileId,sourceRequired:true});
+   await reopened.initialize();
+   try{
+     assert.equal((await reopened.readM3Coverage(scope)).certified,true);
+     assert.equal((await reopened.readM3Coverage({...scope,characterId:id()})).status,'unavailable');
+   }finally{await reopened.close();}
  }finally{await x.store.close()}
 });
