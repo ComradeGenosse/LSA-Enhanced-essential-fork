@@ -1,3 +1,4 @@
+import {createM2TurnCapture} from '../../lsa-shared-brain/src/memory/m2TurnCapture.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as fs from 'node:fs/promises';
@@ -234,5 +235,157 @@ test('M2 journal detects post-commit content tampering without leaking text in t
     const db=new DatabaseSync(x.filePath);
     db.exec("UPDATE dialogue_journal SET content='tampered'");db.close();
     await assert.rejects(read(x),/journal_content_integrity_failed/);
+  }finally{await x.store.close();}
+});
+
+function bindM2(x,id,{protagonist='franklin',sessionId=null}={}) {
+  const state={live:true,protagonist};
+  const capture=createM2TurnCapture({
+    store:x.store,characterId:x.a.characterId,identity:turn(id),protagonist,
+    ownerAlias:x.a.promotion.ownerAlias,sessionId,
+    isCurrent:()=>state.live,currentProtagonist:()=>state.protagonist,
+  });
+  return {capture,state};
+}
+
+test('M2 completion binding records accepted literal typed and STT text, not interim text',async t=>{
+  const x=await setup(t);
+  try {
+    const {capture}=bindM2(x,'accepted-typed');
+    const literal='  "Exactly as typed"\nnot normalized 🚗  ';
+    assert.deepEqual(await capture.recordPlayerAccepted({accepted:false,text:literal,source:'typed'}),
+      {status:'not_stored',reason:'m2_player_not_accepted'});
+    const a=await capture.recordPlayerAccepted({accepted:true,text:literal,source:'typed'});
+    assert.equal(a.status,'stored');
+    const again=await capture.recordPlayerAccepted({accepted:true,text:literal,source:'typed'});
+    assert.equal(again.status,'duplicate');
+    assert.equal(again.recordId,a.recordId);
+    const b=bindM2(x,'accepted-stt').capture;
+    const transcript=' STT said: "go left!"\n';
+    assert.equal((await b.recordPlayerAccepted({accepted:true,text:transcript,source:'stt',
+      transcription:{provider:'openai',model:'stt-live',confidence:null}})).status,'stored');
+    const rows=await read(x);
+    assert.equal(rows.length,2);
+    assert.equal(rows[0].content,transcript);
+    assert.equal(rows[1].content,literal);
+    assert.equal(Buffer.compare(Buffer.from(rows[1].content),Buffer.from(literal)),0);
+  }finally{await x.store.close();}
+});
+test('M2 completion binds buffered and early stream speech to completed native receipt plus RAM history admission',async t=>{
+  const x=await setup(t);
+  try {
+    const one=bindM2(x,'buffered').capture;
+    const text='The final buffered utterance.';
+    assert.equal((await one.recordNpcCompleted({historyAccepted:false,text,receipt:receipt(turn('buffered'))})).status,'not_stored');
+    assert.equal((await one.recordNpcCompleted({historyAccepted:true,text,receipt:{...receipt(turn('buffered')),reason:'interrupted'}})).status,'not_stored');
+    assert.equal((await one.recordNpcCompleted({historyAccepted:true,text,receipt:receipt(turn('wrong'))})).status,'not_stored');
+    assert.equal((await one.recordNpcCompleted({historyAccepted:true,text,receipt:receipt(turn('buffered'))})).status,'stored');
+    assert.equal((await one.recordNpcCompleted({historyAccepted:true,text,receipt:receipt(turn('buffered'))})).status,'duplicate');
+    const streamed=bindM2(x,'streamed').capture;
+    const parts=['No, ', 'wait!',' 🚗'];
+    assert.deepEqual(await streamed.recordNpcCompleted({historyAccepted:true,
+      mode:'early_streamed',spokenSegments:parts,text:'No, wait!',
+      receipt:receipt(turn('streamed'))}),{status:'not_stored',reason:'m2_stream_text_mismatch'});
+    assert.equal((await streamed.recordNpcCompleted({historyAccepted:true,
+      mode:'early_streamed',spokenSegments:parts,text:parts.join(''),
+      receipt:receipt(turn('streamed'))})).status,'stored');
+    const rows=await read(x);
+    assert.equal(rows.length,2);
+    assert.equal(rows[0].content,parts.join(''));
+    assert.equal(rows[1].content,text);
+  }finally{await x.store.close();}
+});
+test('M2 completion refuses late native receipt after supersession or owner retirement',async t=>{
+  const x=await setup(t);
+  try {
+    const retired=bindM2(x,'retired');
+    retired.capture.retire();
+    assert.deepEqual(await retired.capture.recordNpcCompleted({
+      historyAccepted:true,text:'late playback',receipt:receipt(turn('retired')),
+    }),{status:'not_stored',reason:'m2_turn_retired'});
+    const superseded=bindM2(x,'superseded');
+    superseded.state.live=false;
+    assert.equal((await superseded.capture.recordPlayerAccepted({
+      accepted:true,text:'unbound late player',source:'typed'
+    })).reason,'m2_turn_retired');
+    const changed=bindM2(x,'protagonist');
+    changed.state.protagonist='michael';
+    assert.equal((await changed.capture.recordPlayerAccepted({
+      accepted:true,text:'wrong character player',source:'typed'
+    })).reason,'m2_protagonist_changed');
+    assert.equal((await read(x)).length,0);
+  }finally{await x.store.close();}
+});
+test('M2 completion never silently rebinds old turns across disconnected host, reauthorization, epoch, or save lineage',async t=>{
+  const x=await setup(t);
+  try {
+    const old=bindM2(x,'old-host').capture;
+    x.store.setVerifiedHostContext(null);
+    assert.equal((await old.recordPlayerAccepted({accepted:true,source:'typed',text:'offline'})).status,'not_stored');
+    x.store.setVerifiedHostContext(x.host);
+    await x.store.confirmTimeline(x.timeline);
+    assert.equal((await old.recordPlayerAccepted({accepted:true,source:'typed',text:'reconnected'})).status,'stored');
+    x.store.setVerifiedHostContext(native(x.host.hostRunId,2));
+    await x.store.confirmTimeline(x.timeline);
+    assert.equal((await old.recordPlayerAccepted({accepted:true,source:'typed',text:'new epoch same turn'})).reason,'m2_host_epoch_changed');
+    const fresh=bindM2(x,'fresh-host').capture;
+    assert.equal((await fresh.recordPlayerAccepted({accepted:true,source:'typed',text:'new epoch new turn'})).status,'stored');
+    const other=await x.store.createTimeline({label:'Another save'});
+    await x.store.confirmTimeline(other);
+    assert.equal((await fresh.recordNpcCompleted({historyAccepted:true,
+      text:'delayed from other timeline',receipt:receipt(turn('fresh-host'))})).reason,
+      'timeline_write_suspended');
+    assert.equal((await read(x)).length,2);
+  }finally{await x.store.close();}
+});
+test('M2 completion catches queued retirement at SQLite commit boundary, not only hook time',async t=>{
+  const x=await setup(t);
+  try {
+    const bound=bindM2(x,'queued-retire');
+    const original=x.store.withTimelineWrite.bind(x.store);
+    let release;
+    x.store.withTimelineWrite=(timelineId,commit)=>new Promise((resolve,reject)=>{
+      release=()=>original(timelineId,commit).then(resolve,reject);
+    });
+    const pending=bound.capture.recordPlayerAccepted({accepted:true,
+      text:'Never commit after host owner retirement',source:'typed'});
+    assert.equal(typeof release,'function');
+    bound.state.live=false;
+    release();
+    assert.deepEqual(await pending,{status:'not_stored',reason:'m2_turn_retired'});
+    assert.equal((await read(x)).length,0);
+  }finally{await x.store.close();}
+});
+test('M2 completion storage exception is not a success receipt and cannot disrupt normal turn history',async t=>{
+  const x=await setup(t);
+  try {
+    const cap=bindM2(x,'write-error').capture;
+    x.store.withTimelineWrite=()=>Promise.reject(new Error('SQLITE_ERROR private utterance'));
+    const result=await cap.recordPlayerAccepted({accepted:true,
+      text:'Private utterance should not be echoed in error telemetry',source:'typed'});
+    assert.deepEqual(result,{status:'not_stored',reason:'m2_storage_failed'});
+    assert.equal((await read(x)).length,0);
+  }finally{await x.store.close();}
+});
+test('M2 completion retains 205 bound accepted turns for restart and byte-exact archive retrieval',async t=>{
+  const x=await setup(t);
+  const first='  years-old line\n\"turbo chicken\" 🚙  ';
+  try {
+    for(let n=0;n<205;n++){
+      const cap=bindM2(x,'bound-'+n).capture;
+      const result=await cap.recordPlayerAccepted({accepted:true,
+        text:n===0?first:'literal number '+n,source:'typed',
+        committedAtUtc:n===0?'2020-01-01T00:00:00.000Z':
+          new Date(Date.UTC(2026,9,11,0,0,n)).toISOString()});
+      assert.equal(result.status,'stored');
+    }
+    await x.store.close();
+    const reopened=createEssentialMemoryStorage({filePath:x.filePath,worldProfileId,sourceRequired:true});
+    await reopened.initialize();
+    try {
+      assert.equal((await reopened.readDialogueLines({characterId:x.a.characterId,timelineId:x.timeline,limit:1000})).length,205);
+      assert.equal((await reopened.findExactQuote({characterId:x.a.characterId,
+        timelineId:x.timeline,quote:first}))[0].content,first);
+    }finally{await reopened.close();}
   }finally{await x.store.close();}
 });
