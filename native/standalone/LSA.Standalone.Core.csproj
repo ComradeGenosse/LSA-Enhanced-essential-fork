@@ -17,6 +17,7 @@
     <Compile Include="NativeAuthority.cs" />
     <Compile Include="AuthorityTrace.cs" />
     <Compile Include="NativeTurnRegistry.cs" />
+    <Compile Include="NativeAudioRegistry.cs" />
   </ItemGroup>
   <ItemGroup Condition="'$(TargetFramework)' == 'net481'">
     <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies.net481" Version="1.0.3" PrivateAssets="all" />
