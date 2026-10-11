@@ -421,7 +421,7 @@ function essentialM2(x,id='essential',{characterId=x.a.characterId}={}){
   const state={live:true,protagonist:'unknown',generation:identity.generationId,
     epoch:x.host.worldEpoch,incarnationId:randomUUID(),encounterId:randomUUID(),
     alias:x.a.promotion.ownerAlias,observerIndex:3,acceptedInput:null,
-    historyReceipt:null,speechSegments:new Map()};
+    historyReceipt:null,speechSegments:new Map(),audioFinalized:false};
   const cloneIdentity=()=>({...identity});
   const verifySource=(a,b)=>a?.pedId===b?.pedId&&a?.turnId===b?.turnId&&
     a?.generationId===b?.generationId&&a?.sessionNonce===b?.sessionNonce;
@@ -440,7 +440,11 @@ function essentialM2(x,id='essential',{characterId=x.a.characterId}={}){
   const playbackHistory={verifyCompleted:({identity:given,receipt:got})=>
     verifySource(given,identity)&&state.historyReceipt===got ?
       {nativeVerified:true,historyAccepted:true,identity:cloneIdentity(),receipt:got}:null};
-  const speechTransport={verifyForwardedSegment:({identity:given,segment})=>{
+  const speechTransport={verifyFinalizedAudio:({identity:given,mode,segments,receipt:got})=>
+    state.audioFinalized&&got===state.historyReceipt&&verifySource(given,identity)&&
+    Array.isArray(segments)&&segments.length===state.speechSegments.size ?
+      {complete:true,identity:cloneIdentity(),mode,segmentCount:segments.length,receipt:got}:null,
+    verifyForwardedSegment:({identity:given,segment})=>{
     const real=state.speechSegments.get(segment?.sequence);
     return verifySource(given,identity)&&real&&
       real.text===segment.text&&real.audioBytes===segment.audioBytes&&
@@ -457,7 +461,8 @@ function essentialM2(x,id='essential',{characterId=x.a.characterId}={}){
     stageSpeech:(sequence,text,{audioBytes=64,forwardedBytes=64}={})=>{
       const a={sequence,text,audioBytes,forwardedBytes};
       state.speechSegments.set(sequence,a);return a;},
-    admitPlayback:(nativeReceipt)=>{state.historyReceipt=nativeReceipt;},
+    admitPlayback:(nativeReceipt,{audioFinalized=true}={})=>{
+      state.historyReceipt=nativeReceipt;state.audioFinalized=audioFinalized;},
   };
 }
 
@@ -477,6 +482,9 @@ test('M2 closure cannot be authorized by caller current callback without A nativ
       /m2_trusted_ports_required/);
     assert.throws(()=>createM2EssentialCapture({...e.args,speechTransport:null}),
       /m2_trusted_ports_required/);
+    assert.throws(()=>createM2EssentialCapture({...e.args,speechTransport:{
+      verifyForwardedSegment:e.args.speechTransport.verifyForwardedSegment
+    }}),/m2_trusted_ports_required/);
     const cap=e.make();
     assert.equal((await cap.acceptPlayer({source:'typed',text:'  unverified  '})).status,'not_stored');
     assert.equal((await read(x)).length,0);
@@ -605,6 +613,18 @@ test('M2 closure rejects non-roundtrippable UTF-16 rather than silently replacin
     const e=essentialM2(x,'bad-utf8'),cap=e.make(),invalid='hi\ud800 there';
     e.commitInput({text:invalid});
     assert.equal((await cap.acceptPlayer({source:'typed',text:invalid})).reason,'journal_invalid_utf8');
+    assert.equal((await read(x)).length,0);
+  }finally{await x.store.close();}
+});
+
+test('M2 closure refuses even native playback_ended(completed) when early TTS has not finalized',async t=>{
+  const x=await setup(t);
+  try{
+    const e=essentialM2(x,'early-partial'),cap=e.make();
+    const part=e.stageSpeech(0,'This first segment is NOT a final accepted turn.');
+    assert.equal(cap.admitSpeechSegment({mode:'early_streamed',...part}).status,'admitted');
+    const r=receipt(e.identity);e.admitPlayback(r,{audioFinalized:false});
+    assert.equal((await cap.completeNpc({receipt:r})).reason,'m2_playback_source_unverified');
     assert.equal((await read(x)).length,0);
   }finally{await x.store.close();}
 });

@@ -27,7 +27,8 @@ export function createM2EssentialCapture({
      typeof nativeAuthority?.verifyCurrentTurn!=='function' ||
      typeof acceptedInput?.verifyAccepted!=='function' ||
      typeof playbackHistory?.verifyCompleted!=='function' ||
-     typeof speechTransport?.verifyForwardedSegment!=='function')
+     typeof speechTransport?.verifyForwardedSegment!=='function' ||
+     typeof speechTransport?.verifyFinalizedAudio!=='function')
     throw new TypeError('m2_trusted_ports_required');
   const frozenIdentity=immutable(Object.fromEntries(identityKeys.map(k=>[k,identity[k]])));
   const host=store.verifiedHostContext;
@@ -56,6 +57,16 @@ export function createM2EssentialCapture({
          admission.nativeVerified!==true||admission.historyAccepted!==true||
          admission.receipt!==receipt||!same(admission.identity,identity))
         return null;
+      // The host must attest final TTS reconciliation + complete forwarding.
+      // A single successful early segment is not a completed stream.
+      const finalized=speechTransport.verifyFinalizedAudio(immutable({
+        identity,mode:speechProof?.mode,segments:speechProof?.segments,
+        receipt,host:originalHost
+      }));
+      if(!finalized||typeof finalized.then==='function'||
+         finalized.complete!==true||!same(finalized.identity,identity)||
+         finalized.receipt!==receipt||finalized.mode!==speechProof?.mode||
+         finalized.segmentCount!==speechProof?.segments?.length)return null;
       if(!Array.isArray(speechProof?.segments)||speechProof.segments.some(segment=>{
         const a=speechTransport.verifyForwardedSegment(immutable({
           identity,segment,host:originalHost
@@ -107,6 +118,8 @@ export function createM2EssentialCapture({
         return immutable({status:'admitted',segments:segments.length});
       }catch(e){return result(/^m2_[a-z_]+$/.test(e?.message)?e.message:'m2_speech_source_unverified');}
     },
+    // The native terminal and source-owned stream-finalization ledger must
+    // both agree; an early partial stream is never replayed as final speech.
     // Final Luna draft is intentionally NOT an argument. The only text eligible
     // for the journal is ordered, fully PCM-forwarded TTS source text.
     completeNpc({receipt}={}){
