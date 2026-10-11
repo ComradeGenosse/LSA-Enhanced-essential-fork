@@ -31,7 +31,7 @@ test('M1 offline recovery inspection validates exact DB without changing its byt
   const result=await inspectP2Sqlite({filePath,worldProfileId});
   assert.deepEqual(result,{
     status:'verified',revision:1,profileCount:1,timelineCount:1,
-    activeTimelineId:id,schemaVersion:2
+    activeTimelineId:id,schemaVersion:3
   });
   assert.deepEqual(await fs.readFile(filePath),before);
   const tool=path.resolve(import.meta.dirname,'../tools/inspectM1Sqlite.mjs');
