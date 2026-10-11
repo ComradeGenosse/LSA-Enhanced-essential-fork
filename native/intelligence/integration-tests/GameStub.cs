@@ -85,6 +85,7 @@ namespace LSA.PromotedCharacters {
             public Rage.Ped Ped; public System.IntPtr Address;
         }
         internal static SpeechCaptureAdapter Attach(HostContext host) => new SpeechCaptureAdapter();
+        internal string ActiveIdFor(Rage.Ped ped) => null;
         internal void Reconcile() { }
         internal Fact Take() => null;
         internal void Reset() { }
