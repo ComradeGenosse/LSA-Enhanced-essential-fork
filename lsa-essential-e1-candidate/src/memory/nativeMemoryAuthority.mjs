@@ -41,7 +41,12 @@ export function createNativeMemoryAuthority({
     throw new TypeError('memory_native_authenticated_ports_required');
   let context=null,owners=new Map(),player=null,turns=new Map(),seq=-1,lastAt=-1;
   let disconnect=null;
+  const retiredStreams=new Set();
   const clear=()=>{
+    if(context?.streamId){
+      retiredStreams.add(context.streamId);
+      if(retiredStreams.size>64)retiredStreams.delete(retiredStreams.values().next().value);
+    }
     context=null;owners=new Map();player=null;turns=new Map();seq=-1;lastAt=-1;
   };
   const live=()=>context&&lastAt>=0&&Number.isFinite(now())&&
@@ -66,6 +71,8 @@ export function createNativeMemoryAuthority({
        !Array.isArray(p.owners)||p.owners.length>maxOwners||
        !Array.isArray(p.acceptedTurns||[])||(p.acceptedTurns||[]).length>32)
       return clear();
+    if(!context&&retiredStreams.has(f.streamId))return;
+    if(context&&context.streamId!==f.streamId&&retiredStreams.has(f.streamId))return clear();
     // A reconnected authenticated stream must first publish a fresh host
     // snapshot. Monotonic sequence is required *within* each stream.
     if(context&&f.streamId===context.streamId&&
@@ -108,6 +115,7 @@ export function createNativeMemoryAuthority({
       if(turnMap.has(k))return clear();
       turnMap.set(k,immutable(t));
     }
+    if(context&&context.streamId!==next.streamId)retiredStreams.add(context.streamId);
     context=next;owners=copy;player=subject;turns=turnMap;seq=f.sequence;lastAt=now();
   };
   // Called by K's native-validated pipe adapter. An untrusted direct
