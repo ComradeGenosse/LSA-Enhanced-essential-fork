@@ -232,3 +232,31 @@ test('Privacy verifies AFTER read and rejects lost principal or forged SQL recei
  privacyPort.inspect=async()=>{access=false;return {content:'private'};};
  assert.equal((await facade.execute({operation:'inspect',scope:s,access:'owner'})).status,'denied');
 });
+
+test('Correction clarification preserves original STT evidence and accepts exact typed replacement',async()=>{
+ const s=scope(),r=rig(s),wrong={...evidence(s,'The sign said light'),source:'stt'};
+ r.candidates.push(wrong);r.accept(wrong);
+ const cmd=line(s,'Correct that');r.accept(cmd);
+ const question=await r.make().acceptAcceptedPlayerLine({line:cmd,scope:s});
+ assert.equal(question.actions[0].outcome,'clarify');
+ assert.deepEqual(question.clarification.choices,[1]);
+ const answer=line(s,'I actually said night');r.accept(answer);
+ const correction=await r.make().acceptAcceptedPlayerLine({line:answer,scope:s});
+ assert.equal(correction.actions[0].outcome,'corrected');
+ assert.deepEqual(correction.actions[0].evidenceRecordIds,
+   [wrong.recordId,cmd.recordId,answer.recordId]);
+ assert.equal(wrong.content,'The sign said light');
+});
+
+test('Pending correction never substitutes a newly surfaced candidate for a frozen source',async()=>{
+ const s=scope(),r=rig(s),first=evidence(s,'That sign was blue');
+ const second=evidence(s,'That sign was red');
+ r.candidates.push(first,second);r.accept(first);r.accept(second);
+ const cmd=line(s,'Correct that');r.accept(cmd);
+ assert.equal((await r.make().acceptAcceptedPlayerLine({line:cmd,scope:s})).actions[0].outcome,'clarify');
+ const reply=line(s,'first: it was green');r.accept(reply);
+ r.candidates[0]={...first,content:'Changed behind your back'};
+ const blocked=await r.make().acceptAcceptedPlayerLine({line:reply,scope:s});
+ assert.equal(blocked.actions[0].outcome,'failed');
+ assert.equal(r.commitsAttempted,0);
+});
