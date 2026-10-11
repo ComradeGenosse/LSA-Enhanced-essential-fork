@@ -261,6 +261,7 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
     attach(connection) { connections.add(connection); telemetry?.emit('bridge_ready', null, null, { provider: 'openai' }); },
     detach(connection) {
       connections.delete(connection);
+      emotionalMood.clear(); // No emotion crosses an Essential connection retirement.
         identityService?.detach(connection.sessionIdentity);
         characterService?.sessions.detach(connection.sessionIdentity);
         history.clearSession(connection.sessionIdentity?.pedId, connection.sessionIdentity?.sessionNonce);
@@ -271,6 +272,7 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
         if (typeof value?.[name] !== 'function') throw new Error(`Missing Essential lifecycle capability: ${name}`);
       }
       if (identityService && typeof value?.retireMatchingSession !== 'function') throw new Error('Identity requires exact Essential session retirement.');
+      emotionalMood.clear(); // A newly attached native bridge is a new proof epoch.
       bridge = value;
     },
     abortTurn(identity, reason) {
