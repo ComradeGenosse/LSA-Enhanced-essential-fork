@@ -12,6 +12,7 @@ on:
       - 'lsa-essential-e1-candidate/tests/qwen-latency-profile.test.mjs'
       - 'lsa-essential-e1-candidate/tools/qwen/lsa_qwen_server.py'
       - 'lsa-essential-e1-candidate/tests/qwen-benchmark.test.mjs'
+      - 'lsa-essential-e1-candidate/tests/elevenlabs-provider.test.mjs'
       - 'lsa-essential-e1-candidate/src/providers/**'
       - '.github/workflows/lsa-qwen-benchmark.yml'
   workflow_dispatch:
@@ -40,6 +41,9 @@ jobs:
       - name: Execute offline mocked-provider benchmark regression
         working-directory: lsa-essential-e1-candidate
         run: node --test tests/qwen-benchmark.test.mjs
+      - name: ElevenLabs provider offline tests (no API calls)
+        working-directory: lsa-essential-e1-candidate
+        run: node --test tests/elevenlabs-provider.test.mjs
       - name: Execute offline Qwen profiling regression
         working-directory: lsa-essential-e1-candidate
         run: node --test tests/qwen-latency-profile.test.mjs
