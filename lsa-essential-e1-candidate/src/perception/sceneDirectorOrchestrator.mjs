@@ -54,7 +54,7 @@ export class SceneDirectorSpeech {
     // Resolve one exact, original PS2 observation to Luna-visible context.
     // The native stock Content parameter is never made from proposal IDs,
     // player free text, an inferred scene, or a stale alternative candidate.
-    const eventContext=renderDirectorEventContext(proposal,candidates);
+    const eventContext=renderDirectorEventContext(proposal,candidates,facts?.playerCaptureRef);
     if(!eventContext)return Object.freeze({status:'event_context_unavailable'});
     // A real current companion PS3 observation+grant is independently
     // mandatory even if the caller injects an all-positive mock C-06.
