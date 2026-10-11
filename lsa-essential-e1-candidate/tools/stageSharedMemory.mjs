@@ -15,7 +15,11 @@ export async function stageSharedMemory({ projectRoot, stagedE1 }) {
   const canonical = path.resolve(projectRoot, '../lsa-shared-brain/src');
   const destination = path.join(stagedE1, '_shared');
   // cp fails if the shared source is unavailable; never ship unresolved imports.
-  await cp(canonical, destination, { recursive:true, force:false, errorOnExist:true });
+  // The candidate test harness can invoke concurrent builds into the same
+  // preexisting output directory. Source files are byte-identical; directory
+  // existence is not an installation conflict. Only invalid adapter imports
+  // are fatal.
+  await cp(canonical, destination, { recursive:true, force:true, errorOnExist:false });
   const patched = [];
   for (const name of ADAPTERS) {
     const file = path.join(stagedE1, 'characters', name);
