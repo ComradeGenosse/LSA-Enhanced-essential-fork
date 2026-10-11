@@ -10,8 +10,9 @@
 - `IOwnerContext`: future real RAGE adapter verifies game **fiber** ownership; the core also checks constructing OS thread. Simulation changes `IsOwner` to check fail-closed behavior.
 - `IGameWorld`, `IGameClock`: safe world gate and monotonic source time. Clock regression bumps the world epoch and revokes all outstanding actors/leases.
 - `IInputSource`, `IAudioOutput`, `IActionExecutor`: explicit contracts for later phases. Action dispatch acknowledges an accepted request separately from `PhysicalCompletionConfirmed`.
-- `NativeAuthority`: authoritative actor tracking and per-lane (`Conversation`, `Audio`, `PhysicalAction`, `Input`) exact-generation ownership leases. Supersession is compare-and-swap, not an unbounded force switch. Scripts/world safety invalidate held claims rather than allowing work to reappear afterward.
-- `tests/SimulatedGame.cs`: deterministic fake world and actor resolver. It substitutes only game observation/time; all lease logic is **the same production code**.
+- `NativeAuthority`: authoritative actor tracking and per-lane (`Conversation`, `Audio`, `PhysicalAction`, `Input`) exact-generation ownership leases. Supersession is compare-and-swap, not an unbounded force switch. Scripts/world safety invalidate held claims rather than allowing work to reappear afterward. Call **`Reconcile()` once per native owner-fiber update** to revoke leases on observed transient script/mission takeovers, lost ped observations, and deaths. Current actor identity alone never licenses effects: game adapters must check the exact current lease immediately before each effect.
+- `AuthorityTrace.cs`: owner-fiber-only, immutable, monotonically ordered event snapshots for actor registration/retirement, lease acquisition/release/revocation/expiry and world reset; at most 256 retained events with a dropped counter; excludes owner IDs and dialogue.
+- `tests/SimulatedGame.cs`: deterministic fake world and actor resolver. It substitutes only game observation/time; all lease logic is **the same production code**. A 24-seed scenario suite asserts that retired exact ownership tokens never become current again, including on exceptions.
 
 **Identity limitation:** without an actual GTA entity-lifetime signal, identical handle+address recycled without a terminal observation cannot be detected from static snapshots alone. The real adapter **must** revoke an actor incarnation on despawn/invalidity/world switch or stronger native lifetime evidence. This remains a Phase 2/5 physical acceptance gate, not a proven solution.
 
@@ -27,4 +28,4 @@ dotnet run --project native/standalone/tests/LSA.Standalone.Core.Tests.csproj -f
 
 ## Current phase gate
 
-Phase 1 is an **initial independent core implementation**, not an integration candidate. Before beginning Phase 2 we should close remaining interface/schema decisions, add one actor/lease event trace export, and verify the `net481` release build and safety matrix in CI. Real RAGE plugin load and two-process transport remain Phase 2; real spatial playback remains Phase 4–5.
+Phase 1 native-core implementation, source-owned interfaces, bounded actor/lease trace, and deterministic safety scenarios are included. Matching Windows CI must pass before declaring **Phase 1 offline accepted**. [See the exact gate and Phase 2 handoff](../../docs/standalone-replacement/phase-1-acceptance.md). Real RAGE plugin load and two-process transport remain Phase 2; real spatial playback remains Phases 4–5. No GTA deployment or physical runtime parity is implied.
