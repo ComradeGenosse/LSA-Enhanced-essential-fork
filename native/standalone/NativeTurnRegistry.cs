@@ -250,9 +250,20 @@ namespace LSA.Standalone
 
         public bool TryCancel(string turnId, string leaseId, string generation, string actorIncarnationId)
         {
-            if (!IsCurrent(turnId, leaseId, generation, actorIncarnationId))
+            // Exact cancel works before or after turn.confirm. It must not
+            // require confirmation: a rejected/invalid player-text offer is
+            // still a native lease requiring immediate explicit retirement.
+            if (!Guid.TryParseExact(turnId, "D", out var id) ||
+                !live.TryGetValue(id, out var permit) ||
+                permit.Retired || leaseId != permit.LeaseId.ToString("D") ||
+                generation != permit.Generation ||
+                actorIncarnationId != permit.ActorIncarnationId.ToString("D"))
                 return false;
-            var permit = live[Guid.Parse(turnId)];
+            if (!authority.IsLeaseCurrent(permit.Lease))
+            {
+                Retire(permit);
+                return false;
+            }
             Retire(permit);
             return true;
         }
