@@ -200,8 +200,22 @@ export class M5SqliteServices{
  /** The original store performs immutable journal command transaction+readback.
   * This facade adds only clarification persistence, never fakes commit receipts.
   */
+ async verifyAcceptedLine({scope,line}){
+   if(!line || !isUuid(line.recordId)||line.kind!=='dialogue_line'||
+      line.speaker!=='player'||line.delivery!=='accepted'||
+      !['typed','stt'].includes(line.source)||typeof line.content!=='string')return false;
+   await this.ready(scope);
+   return this.#read(scope,db=>{
+     const row=db.prepare('SELECT content,source,speaker,delivery,committed_at_utc AS atUtc FROM dialogue_journal WHERE world_profile_id=? AND character_id=? AND timeline_id=? AND protagonist=? AND record_id=?')
+       .get(...scopeKey(scope),line.recordId);
+     return !!row && row.content===line.content && row.source===line.source &&
+       row.speaker===line.speaker && row.delivery===line.delivery &&
+       row.atUtc===line.committedAtUtc;
+   });
+ }
  bindCommands(){
    return Object.freeze({
+     verifyAcceptedLine:args=>this.verifyAcceptedLine(args),
      findCandidates:async params=>{
        const [rows,suppressed,overlays]=await Promise.all([
          this.#store.findCandidates(params),
