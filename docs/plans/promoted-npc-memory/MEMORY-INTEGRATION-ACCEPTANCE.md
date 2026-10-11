@@ -1,3 +1,48 @@
+# Memory Closure K — final A–J integration review (supersedes H verdict)
+
+**Review date:** 2026-10-11. **Exact reviewed K source SHA:** `9708e104e74b12ff9c3a242f5094fb726f05a1a5` (parent of this review commit). **Baseline:** PR #75 `8443a8adec9433626902b46b81bd3e58fc382fb2`. **Draft final PR:** [#94](https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/pull/94) against `integration/memory-completion-h-review-20261011`. **Current disposition: NO-GO for separately authorized controlled GTA testing**, not merely NO-GO for main/deployment. Review status may change only with **new exact-SHA results and re-review**.
+
+## K.1 Exact assembled source evidence
+
+The 67 disjoint changed source/handoff paths from all ten feature PR heads were assembled in commit `26d5a483beb4f2b2603f4a487d4a0b7e976d260e`, with PR #75 as first parent and all ten agents as additional parents. A #90 `e53e3c843fe14ff50b73e239e670d61fc5304cdc`; B #83 `dc7a69ec4c5a8a529e1b39e1904ac4130042a4a5`; C #81 `9774f0c6564a13ae74658f02d068de701a1f8d54`; D #84 `dda6d8ef17e8c6755df44b8d907734db74cca423`; E #85 `e55026de0e2b2e5e996998c9bd3cc5f76e34a7af`; F #88 `b0f50a92f1207ebcfad48af5829245e6f508d95e`; G #82 `91cf5da80219d3da3765d45042b37570f3d4d7c9`; H #86 `4f05cdf0d713ef960c0177453a00550a03ba8502`; I #89 `dd3e0b28514cddd26966f26f6517541911f3ac9c`; J #87 `26d424fbbe5018f246776cb2cc9ce17773d32299`. Each has a changed `closure-handoffs/AGENT-X.md` **and actual code**. These are source-presence receipts, not integrated behavioral acceptance.
+
+K changed the **real** native assembly's explicit compile list and existing native owner-fiber Intelligence channel (`native/promoted-characters/PromotedCharacters.csproj`, `RuntimeEntry.cs`, `native/intelligence/IntelligenceIntegration.cs`); closed protocol schema, world/index checks and post-authenticated-frame callbacks (`lsa-essential-e1-candidate/src/perception/contracts.mjs`, `shadowRuntime.mjs`, `intelligenceClient.mjs`); and Essential bootstrap's singleton A authority with D's PS2 adapter (`bootstrap.mjs`). The original P2 SQLite backend remains the only writer, normal source proof is **not** spoofed, and missing proof remains a write veto. The isolated K native-intake socket fixture and complete-vs-source acceptance workflow were added; no GTA installation occurred.
+
+## K.2 Acceptance matrix — separate evidence columns
+
+| Capability | Source implementation / activation | Exact-SHA offline / CI | Physical GTA |
+| --- | --- | --- | --- |
+| A native owner/protagonist | **Partial:** native model/owner sampler registered, authenticated strict v1 `memory_authority` positive-only frame, P2 live-profile lookup. No C-01 turn producer or source-time ledger | K socket fixture added; **queued, no passing receipt** | Not run |
+| B single P2 SQLite + replay | Source landed: P2-owned serialized transaction, privacy/savepoint and cursor APIs; B's 2,101-line real SQLite fixture is not a 2,500-event integrated proof | Agent fixture source reviewed, **K final exact-SHA CI queued** | Not run |
+| C accepted player + completed NPC speech | **Blocked:** C strict capture exists but `essentialGlue.mjs` still constructs pre-C `createM2TurnCapture` and has no original source C-01 acceptance / exact audible PCM receipts | Agent C mock tests exist; integrated runtime acceptance **not verified** | Not run |
+| D source-time M3 PS2 witnessing | **Blocked:** K registered D adapter, but `m3ObserverOwnerBinder.mjs` requires `sourceAtObservation`; A snapshot proves only current owner. Certified negatives & prepromotion unavailable | Unit fixtures only, no production PS2-to-SQLite receipt | Not run |
+| E sole PS4 recall | Strict M4 projection/render helper source present, **not** prepared/revalidated in actual `essentialGlue.mjs` model request path | Strict tests present; not integrated | Not run |
+| F M5 commands/privacy | SQLite privacy facade and clarification coordinator present; no original runner after-commit/before-Luna durable command hook, no live editor authorization | Mock + standalone SQLite tests; integrated UX **not verified** | Not run |
+| G M6 cursor/lifecycle | Source modules and B durable cursor present, no real scene-close, idle, restart/resume callback in production bootstrap | Standalone backlog/restart fixtures; runtime orchestration **not verified** | Not run |
+| H M7 consented Luna | Durable consent/queue/ledger/provider modules present, **not** started without authenticated native idle source and consent; correct fail-closed | Cloud-offline/budget fixtures only, no live billing | Not run |
+| I M8 interpretations | Per-personality derived-opinion selector source present; absent in **sole** PS4 knowledge frame | M8 source tests; no turn-to-turn PS4 replay | Not run |
+| J M9 events/Director callbacks | Native frame policy and PS2 candidate/Director guards exist; native gameplay producer registration and exact PS6 application unverified | Native isolated mock harnesses; production callback receipt **missing** | Not run |
+| Original pinned build / package | Source pinned tools present; newly added C# files are in explicit compile list | **Not executed on reviewed K SHA**; native pack requires supplied pinned compile-only SDK references | Not installed |
+| S01–S10 / soak | All ten `tools/memory-sim/scenarios.v0.json` statuses remain `implemented:false` | K mandatory replay gate intentionally **fails until real S01–S10**; no 2,500-event integrated replay or 4-hour soak | Not run |
+
+## K.3 SHA-specific CI and unavailable receipts
+
+- PR #75 source baseline `8443a8adec9433626902b46b81bd3e58fc382fb2`: [Memory H combined success](https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/actions/runs/38182498979) and other baseline workflows completed successfully. **This is not a receipt for new A–J code.**
+- Current K reviewed source `9708e104e74b12ff9c3a242f5094fb726f05a1a5`: [K final acceptance workflow run 38184992529](https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/actions/runs/38184992529) **queued, conclusion unavailable**; [M1 shared portability run 38184992524](https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/actions/runs/38184992524) **queued**; [H combined run 38184992548](https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/actions/runs/38184992548) **queued**. These statuses are exact to the poll; they are **not successful offline logs**.
+- No local Windows/Linux Node 24 execution, complete .NET native build against pinned GTA references, actual bundled Essential patch smoke, live ElevenLabs/Luna request, sustained GTA soak, or physical GTA receipts were obtained in this review. Workflow configuration/agent handoff/fixtures are not substitutes.
+- K's workflow `.github/workflows/memory-k-final-acceptance.yml` includes Node 24 Ubuntu/Windows, original pinned Essential build, full listed A–J tests, isolated native A/J and original PS6 harnesses and explicit S01–S10 manifest blocker. Evaluate step logs **only when run completes**. Green mock-only suites without original runtime and native source callbacks do not clear this gate.
+
+## K.4 Exact NO-GO blockers and release conditions
+
+1. `native/promoted-characters/MemoryOwnerAuthority.cs`: `acceptedTurns=new object[0]`; implement original normal-player-turn C-01 authenticated source and exact protagonist/owner evidence. `lsa-essential-e1-candidate/src/memory/nativeMemoryAuthority.mjs` must reject stale/mismatched generations and report no proof until certified. `essentialGlue.mjs` must adopt C's strict accepted-input / audible-transmission capture ports; **never infer completion from synthesized TTS**.
+2. `lsa-shared-brain/src/events/m3ObserverOwnerBinder.mjs`: `native.sourceAtObservation` is mandatory. Supply native *source-time* ownership, participant tick and explicit negative coverage/prepromotion attestations; don't derive historical owner from a current sample. Preserve recycled handles/epoch gates.
+3. `lsa-essential-e1-candidate/src/openai/runSequentialTurn.mjs` and `src/integration/essentialGlue.mjs`: introduce source-confirmed M2 durable accepted-line receipt, M5 command/clarification only after durable SQLite commit and before Luna, E recall/M8 opinions through a **single** PS4 knowledge frame, exact `RecallBundle.totalBytes`, source/tombstone recheck immediately before request/retries.
+4. `lsa-essential-e1-candidate/src/bootstrap.mjs` and `lsa-shared-brain/src/memory/integrationPorts.mjs`: activate B/G M6 page cursor and scene-close/idle/restart recovery only on proven source boundaries; connect H M7 with explicit persisted user consent, native verified idle and budget/cancellation/recovery; no producer may silently lose accepted evidence.
+5. `native/intelligence/m9/M9NativeFrameAdapter.cs` and `lsa-essential-e1-candidate/src/perception/m9DirectorCueAdmission.mjs`: register authenticated actual supported gameplay event producers; PS2 qualification before journaling; PS6 Director admission, cooldown and exact original player speech priority always win.
+6. Complete **all** Node 24 Windows/Linux, C# net481/8 harnesses, pinned Essential build/packaging (including precise source/metadata hashes), 200+ lines, 2,500+ events, multiple observers, all three protagonists+unknown, stale receipts, rollback/restart, privacy trash lifecycle, cloud outage/budget, M8 divergence and M9 player-priority source replays. Then implement and pass original M0 S01–S10. Only afterward can an agent reassess **GO for separately authorized controlled GTA testing**. Do **not** merge to main, install GTA assets, run physical GTA or claim acceptance based on this draft.
+
+---
+
 # Memory Integration Acceptance — Agent H
 
 **Date:** 2026-10-11  
