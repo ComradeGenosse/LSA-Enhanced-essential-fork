@@ -62,7 +62,7 @@ function transaction(db, operation) {
   catch(error) { try { db.exec('ROLLBACK'); } catch {} throw error; }
 }
 async function syncFile(file) {
-  const handle=await fs.open(file,'r');
+  const handle=await fs.open(file,'r+');
   try { await handle.sync(); } finally { await handle.close(); }
 }
 async function sourceSnapshot(sourcePath, worldProfileId) {
