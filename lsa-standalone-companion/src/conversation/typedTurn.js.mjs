@@ -69,7 +69,7 @@ function nativeClaims(offer) {
 export async function handleNextTypedTurn(client, provider, {
   signal, pending = new PendingDialogue(),
   playerContext = new NativePlayerContext(), onStage = () => {},
-  onReplyStaged = null
+  onReplyStaged = null, onStreamingSegments = null
 } = {}) {
   if (!client || typeof client.request !== 'function' || !provider ||
       typeof provider.complete !== 'function') throw new Error('invalid_pipeline');
@@ -94,6 +94,27 @@ export async function handleNextTypedTurn(client, provider, {
     signal?.addEventListener('abort', onAbort, { once: true });
     client.closed?.then(onAbort);
     try {
+      // Phase 4 S2 is an explicit opt-in: use a versioned native speech
+      // segment ledger; never send turn.reply in the same native turn.
+      if (onStreamingSegments) {
+        if (typeof provider.streamSpeechSegments !== 'function')
+          throw new Error('streaming_model_provider_missing');
+        const result = await onStreamingSegments({
+          client, offer, claims, signal: perTurn.signal,
+          modelSegments: provider.streamSpeechSegments({
+            text: offer.playerText, previousPlayerInputs, signal: perTurn.signal
+          })
+        });
+        if (perTurn.signal.aborted || signal?.aborted)
+          throw new Error('typed_turn_cancelled');
+        if (!result || result.status !== 'sealed_not_played' ||
+            result.playback !== false || !result.segmentCount ||
+            typeof result.text !== 'string' || !result.text.trim())
+          throw new Error('invalid_segment_audio_receipt');
+        pending.stage(offer.hostRunId, offer, result.text);
+        return { state: 'speech_segments_sealed_not_played',
+          turnId: offer.turnId, segmentCount: result.segmentCount };
+      }
       const replyText = await provider.complete({
         text: offer.playerText,
         previousPlayerInputs,
