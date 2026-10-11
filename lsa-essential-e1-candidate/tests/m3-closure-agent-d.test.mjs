@@ -199,3 +199,28 @@ test('M3: source evidence hash tampering cannot silently rewrite claim modality'
     claims:[{...x.a.claims[0],evidence:{channel:'auditory',basis:'audibility_model',sampledGameTick:100}}]}};
   assert.equal(verifyM3DerivedEvent(normalized.event,altered).valid,false);
 });
+
+test('M3: mismatched source-time native ledger must not bind PS2 observation',()=>{
+  const x=rig(),original=x.nativeAuthority.resolveNativeOwner;
+  x.nativeAuthority.resolveNativeOwner=input=>{
+    const n=original(input);
+    return {...n,sourceAtObservation:{...n.sourceAtObservation,gameTick:101}};
+  };
+  assert.equal(x.adapter.acceptedObservationTap(x.receipt(x.a)).accepted,false);
+  assert.equal(x.journal.size,0);
+});
+test('M3: protagonist proof is per-claim tick, not entire episode identity',async()=>{
+  const x=rig();x.state.protagonist=true;
+  const later=observed(OA,129);
+  x.ps2.observations.entries.set(`${OA}:${EP}`,{value:later});
+  x.adapter.acceptedObservationTap(x.receipt(later));await x.adapter.idle();
+  assert.match([...x.journal.values()][0].event.claims[0].durableSubject,/^unresolved:/);
+});
+test('M3: stale native negative certificate never authorizes no-witness',async()=>{
+  const x=rig();x.state.negative=true;
+  const original=x.nativeAuthority.verifyNativeCoverage;
+  x.nativeAuthority.verifyNativeCoverage=args=>({...original(args),observationId:id(12345)});
+  const result=await x.adapter.recordNegativeCoverage({candidate:x.candidate(OB),
+    observationId:x.b.observationId,status:'did_not_witness'});
+  assert.equal(result.accepted,false);assert.equal(x.coverage.size,0);
+});
