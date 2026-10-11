@@ -20,6 +20,24 @@ internal sealed class FakeGame : IOwnerContext, IGameClock, IGameWorld, IActorRe
     }
 }
 
+// Deterministic test output only: buffers are accepted into a fake sink,
+// NEVER heard, never spatialized, and never a completion callback.
+internal sealed class FixtureOutput : IAudioOutput
+{
+    public bool TryBegin(OwnershipLease lease, Guid playbackId, int rate, out string rejection)
+    {
+        rejection = "fixture_only";
+        return lease != null && lease.Kind == LeaseKind.Audio && rate == 24000;
+    }
+    public bool TryPush(OwnershipLease lease, Guid playbackId, byte[] pcm, out string rejection)
+    {
+        rejection = "fixture_only";
+        return lease != null && lease.Kind == LeaseKind.Audio && pcm != null &&
+            pcm.Length >= 2 && pcm.Length % 2 == 0;
+    }
+    public bool TryStop(Guid playbackId, string reason) { return true; }
+}
+
 internal static class Program
 {
     public static int Main(string[] args)
@@ -27,7 +45,7 @@ internal static class Program
         var game = new FakeGame();
         var authority = new NativeAuthority(game, game, game, game);
         var turns = new NativeTurnRegistry(authority);
-        var audio = new NativeAudioRegistry(authority, turns);
+        var audio = new NativeAudioRegistry(authority, turns, new FixtureOutput());
         if (!authority.TryRegister(17, out var actor, out var reason))
             throw new InvalidOperationException("fixture_actor_missing:" + reason);
         if (!turns.TryIssueTyped(actor, "Can you describe the scene?", 20000, out var permit, out reason))
@@ -43,6 +61,7 @@ internal static class Program
             {
                 authority.Reconcile();
                 server.DrainOwnerRequests(authority, turns, audio, 8);
+                audio.DrainOnOwner(8);
                 Thread.Sleep(10);
             }
             audio.RetireAll();
