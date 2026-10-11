@@ -197,3 +197,39 @@ test('M9 timeline switch resets cooldown and rejects old-scoped evidence',()=>{
   assert.equal(cues.propose({candidate:newCandidate,witness:foreign,
     priority:allSafe}).accepted,false);
 });
+
+test('M9 10k callback burst preserves event IDs and bounded candidate output',()=>{
+  const d=detector();
+  d.run(100);
+  const observed=new Set();
+  for(let i=0;i<10000;i++) {
+    const ms=200+i;
+    const receipt=id(10000+i);
+    const one=d.run(ms,{vehicle:vehicleState({
+      collision:{sourceType:'damage_tracker_vehicle_collision',
+        damage:50,nativeReceiptId:receipt}
+    })});
+    assert.equal(one.accepted,true);
+    assert.equal(one.candidates.length,1);
+    assert.equal(one.candidates[0].kind,'m9_candidate');
+    assert.ok(!observed.has(one.candidates[0].eventId));
+    observed.add(one.candidates[0].eventId);
+  }
+  assert.equal(observed.size,10000);
+});
+test('M9 cue refuses cross-player capture and unsupported protagonist',()=>{
+  const e=accident();
+  const cues=new M9MemoryCueCandidates({authorizeWitness:()=>true,now:()=>1000});
+  assert.equal(cues.propose({candidate:e,witness:{
+    ...qualified(e),playerCaptureRef:id(220)
+  },priority:allSafe}).accepted,false);
+  assert.equal(cues.propose({candidate:e,witness:{
+    ...qualified(e),protagonistKey:'guessed_person'
+  },priority:allSafe}).accepted,false);
+});
+test('M9 cue rejects expired source and never refreshes it during interruption',()=>{
+  const e=accident();
+  const cues=new M9MemoryCueCandidates({authorizeWitness:()=>true,now:()=>40000});
+  assert.equal(cues.propose({candidate:e,witness:qualified(e),priority:allSafe}).reason,
+    'stale_candidate');
+});
