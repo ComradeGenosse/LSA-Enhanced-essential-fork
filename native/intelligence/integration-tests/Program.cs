@@ -114,12 +114,36 @@ class Program
             player.CurrentVehicle=vehicle;Rage.Native.NativeFunction.RadioStation="RADIO_01_CLASS_ROCK";Rage.Native.NativeFunction.RadioTrack=1;Rage.Native.NativeFunction.RadioTextId=1004;
             Rage.Native.NativeFunction.RadioTextIdThrow=true;Set(integration,"nextRadio",0L);Game.GameTime=100;integration.Update();
             Check(integration.IsAvailable&&sensors.RadioNativeFailures>=1&&sensors.RadioEdges==0,"text-ID native failure is contained and does not fabricate an edge");
+            Check(Game.Logs.Any(line=>line.Contains("[PS] radio_read_failure stage=track_text_id type=invalid_operation")&&line.Contains("count=1")),
+                "failed text-ID native identifies its precise read stage and bounded error type");
+            int failureLines=Game.Logs.Count(line=>line.Contains("radio_read_failure stage=track_text_id"));
+            Set(integration,"nextRadio",0L);Game.GameTime+=50;integration.Update();
+            Check(Game.Logs.Count(line=>line.Contains("radio_read_failure stage=track_text_id"))==failureLines &&
+                sensors.RadioNativeFailures>=2,
+                "identical 250ms failure is counted without flooding RAGE log");
             Rage.Native.NativeFunction.RadioTextIdThrow=false;
 
+            Rage.Native.NativeFunction.RadioSoundThrow=true;Set(integration,"nextRadio",0L);Game.GameTime+=50;integration.Update();
+            Check(Game.Logs.Any(line=>line.Contains("radio_read_failure stage=sound_name type=invalid_operation")),
+                "sound-name native errors are attributed independently of station and text-ID");
+            Rage.Native.NativeFunction.RadioSoundThrow=false;
+
+            Rage.Native.NativeFunction.RadioPlayThrow=true;Set(integration,"nextRadio",0L);Game.GameTime+=50;integration.Update();
+            Check(integration.IsAvailable && Game.Logs.Any(line=>line.Contains("radio_read_failure stage=play_time type=invalid_operation")) &&
+                Game.Logs.Any(line=>line.Contains("[RADIO_PROBE] vehicle=1 station=RADIO_01_CLASS_ROCK")&&line.Contains("play_ms=-1")),
+                "optional play-time native failure is logged yet does not suppress a valid song identity");
+            Rage.Native.NativeFunction.RadioPlayThrow=false;
+
+            Rage.Native.NativeFunction.RadioStation="";Set(integration,"nextRadio",0L);Game.GameTime+=50;integration.Update();
+            Check(Game.Logs.Any(line=>line.Contains("[RADIO_PROBE] vehicle=1 station= sound=00000000 text_id=0 play_ms=-1 state=blank_station")),
+                "empty in-vehicle station is explicit instead of indistinguishable from leaving vehicle");
+
             Rage.Native.NativeFunction.RadioThrow=true;Set(integration,"nextRadio",0L);Game.GameTime+=50;integration.Update();
-            Check(integration.IsAvailable&&sensors.RadioNativeFailures>=2,"station/sound native failure does not tear down intelligence");
+            Check(integration.IsAvailable&&sensors.RadioNativeFailures>=4 &&
+                Game.Logs.Any(line=>line.Contains("radio_read_failure stage=station_name type=invalid_operation")),
+                "station native failure identifies exact failing API without tearing down intelligence");
         } finally {
-            Rage.Native.NativeFunction.RadioThrow=false;Rage.Native.NativeFunction.RadioTextIdThrow=false;Rage.Native.NativeFunction.RadioPlayThrow=false;
+            Rage.Native.NativeFunction.RadioThrow=false;Rage.Native.NativeFunction.RadioSoundThrow=false;Rage.Native.NativeFunction.RadioTextIdThrow=false;Rage.Native.NativeFunction.RadioPlayThrow=false;
             integration.Shutdown();PerceptionSystem.Snapshot=null;
         }
         Check(Rage.Native.NativeFunction.Effects==effects,"radio v2 coverage performs no unexpected native effects");
