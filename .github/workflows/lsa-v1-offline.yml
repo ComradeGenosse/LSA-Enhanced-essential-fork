@@ -41,6 +41,8 @@ jobs:
         working-directory: lsa-essential-e1-candidate
         run: |
           python -m py_compile tools/qwen/lsa_qwen_server.py
+          node --check tools/qwen/lsa_turn_smoke.mjs
+          node --test tests/qwen-turn-smoke.test.mjs
           node --check src/perception/sceneDirector.mjs
           node --check src/perception/sceneDirectorAdmission.mjs
           node --check src/perception/directorWire.mjs
