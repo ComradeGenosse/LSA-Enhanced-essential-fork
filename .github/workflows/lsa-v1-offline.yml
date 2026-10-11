@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - fix/radio-hearing-retention-stability-20261011
+      - feature/faster-qwen3-tts-provider-radio-v2
     paths:
       - 'lsa-essential-e1-candidate/**'
       - 'native/**'
