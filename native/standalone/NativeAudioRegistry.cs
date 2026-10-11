@@ -19,7 +19,12 @@ namespace LSA.Standalone
         internal readonly List<byte[]> Chunks = new List<byte[]>();
         internal int NextIndex;
         internal int Bytes;
+        internal int PendingBytes;
+        internal int ForwardedBytes;
+        internal bool OutputStarted;
         public int BufferedBytes { get { return Bytes; } }
+        public int QueuedBytes { get { return PendingBytes; } }
+        public int ForwardedNotPlayedBytes { get { return ForwardedBytes; } }
         public int BufferedChunks { get { return NextIndex; } }
         public int RetainedChunks { get { return Chunks.Count; } }
         public bool IsSealed { get { return Sealed; } }
@@ -48,18 +53,24 @@ namespace LSA.Standalone
     {
         public const int Rate = 24000;
         public const int MaxChunkBytes = 3000;
-        public const int MaxChunks = 64;
-        public const int MaxStreamBytes = 192000; // 4s @ 24k mono PCM16
+        public const int MaxChunks = 480; // 30s maximum, not a 30s RAM allocation
+        public const int MaxStreamBytes = 1440000; // 30s @ 24k mono PCM16
+        public const int MaxPendingBytes = 192000; // only 4s may queue per actor
         public const int MaxStreams = 4;
         private readonly NativeAuthority authority;
         private readonly NativeTurnRegistry turns;
+        private readonly IAudioOutput output;
         private readonly Dictionary<Guid, NativeAudioTicket> streams =
             new Dictionary<Guid, NativeAudioTicket>();
 
-        public NativeAudioRegistry(NativeAuthority authority, NativeTurnRegistry turns)
+        public NativeAudioRegistry(NativeAuthority authority, NativeTurnRegistry turns,
+            IAudioOutput output = null)
         {
             this.authority = authority ?? throw new ArgumentNullException(nameof(authority));
             this.turns = turns ?? throw new ArgumentNullException(nameof(turns));
+            // Null means NO output backend, not a silent sink. Queue eventually
+            // backpressures. Never discard accepted PCM to fake progress.
+            this.output = output;
         }
 
         public bool TryOpen(string turnId, string actorId, string conversationLeaseId,
@@ -125,13 +136,15 @@ namespace LSA.Standalone
             reason = "audio_out_of_order";
             if (chunkIndex != stream.NextIndex) return false;
             reason = "audio_backpressure";
-            if (stream.NextIndex >= MaxChunks || stream.Bytes > MaxStreamBytes - pcm.Length)
+            if (stream.NextIndex >= MaxChunks || stream.Bytes > MaxStreamBytes - pcm.Length ||
+                stream.PendingBytes > MaxPendingBytes - pcm.Length)
                 return false;
             var copy = new byte[pcm.Length];
             Buffer.BlockCopy(pcm, 0, copy, 0, pcm.Length);
             stream.Chunks.Add(copy);
             stream.NextIndex++;
             stream.Bytes += copy.Length;
+            stream.PendingBytes += copy.Length;
             reason = "buffered_not_played";
             return true;
         }
@@ -161,6 +174,74 @@ namespace LSA.Standalone
             return true;
         }
 
+
+        // The only component allowed to grant queue credits is a native
+        // IAudioOutput implementation that accepted the exact bytes. Device
+        // *acceptance* is NOT audibility, lip-sync or completion; those require
+        // separate physical callbacks and are not synthesized by this class.
+        public int DrainOnOwner(int maxChunks)
+        {
+            if (maxChunks < 0 || maxChunks > 64)
+                throw new ArgumentOutOfRangeException(nameof(maxChunks));
+            Sweep();
+            if (output == null || maxChunks == 0) return 0;
+            int forwarded = 0;
+            foreach (NativeAudioTicket stream in new List<NativeAudioTicket>(streams.Values))
+            {
+                if (forwarded >= maxChunks) break;
+                if (!authority.IsLeaseCurrent(stream.Lease) ||
+                    !turns.IsStagedPermitCurrent(stream.Turn))
+                { Retire(stream); continue; }
+                if (!stream.OutputStarted)
+                {
+                    bool accepted = false;
+                    try
+                    {
+                        accepted = output.TryBegin(stream.Lease, stream.StreamId,
+                            stream.SampleRate, out _);
+                    }
+                    catch { }
+                    if (!accepted) continue;
+                    stream.OutputStarted = true;
+                }
+                while (stream.Chunks.Count > 0 && forwarded < maxChunks)
+                {
+                    if (!authority.IsLeaseCurrent(stream.Lease) ||
+                        !turns.IsStagedPermitCurrent(stream.Turn))
+                    { Retire(stream); break; }
+                    byte[] front = stream.Chunks[0];
+                    bool accepted = false;
+                    try
+                    {
+                        accepted = output.TryPush(stream.Lease, stream.StreamId,
+                            front, out _);
+                    }
+                    catch { }
+                    if (!accepted) break; // device rejected; no credit minting
+                    stream.Chunks.RemoveAt(0);
+                    stream.PendingBytes -= front.Length;
+                    stream.ForwardedBytes += front.Length;
+                    forwarded++;
+                }
+            }
+            return forwarded;
+        }
+
+        public bool TryStatus(string streamId, string audioLeaseId, string generation,
+            string turnId, string actorId, out int queuedBytes,
+            out int acceptedBytes, out int forwardedBytes, out bool sealedStream)
+        {
+            queuedBytes = acceptedBytes = forwardedBytes = 0;
+            sealedStream = false;
+            if (!TryCurrent(streamId, audioLeaseId, generation, turnId, actorId,
+                out var stream, out _)) return false;
+            queuedBytes = stream.PendingBytes;
+            acceptedBytes = stream.Bytes;
+            forwardedBytes = stream.ForwardedBytes;
+            sealedStream = stream.Sealed;
+            return true;
+        }
+
         private void Retire(NativeAudioTicket stream)
         {
             if (stream.Retired) return;
@@ -169,6 +250,11 @@ namespace LSA.Standalone
             // Drop all raw PCM on cancel, shutdown, actor invalidation, or
             // transport reset; there is no durable audio file.
             stream.Chunks.Clear();
+            stream.PendingBytes = 0;
+            if (stream.OutputStarted && output != null)
+            {
+                try { output.TryStop(stream.StreamId, "native_retired"); } catch {}
+            }
             authority.TryRelease(stream.Lease);
         }
 
