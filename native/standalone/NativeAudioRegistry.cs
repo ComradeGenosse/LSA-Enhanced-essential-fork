@@ -24,6 +24,7 @@ namespace LSA.Standalone
         internal int MarkedSegments;
         internal int MarkedBytes;
         internal bool OutputStarted;
+        internal bool OutputSealed;
         public int BufferedBytes { get { return Bytes; } }
         public int QueuedBytes { get { return PendingBytes; } }
         public int ForwardedNotPlayedBytes { get { return ForwardedBytes; } }
@@ -256,6 +257,20 @@ namespace LSA.Standalone
                     stream.ForwardedBytes += front.Length;
                     forwarded++;
                 }
+                // Source EOS and device EOS are different events. Seal output
+                // only after every source byte has reached this physical sink.
+                var physical = output as IPhysicalAudioOutput;
+                if (!stream.Retired && physical != null && stream.Sealed &&
+                    !stream.OutputSealed && stream.ForwardedBytes == stream.Bytes)
+                {
+                    try
+                    {
+                        if (physical.TrySeal(stream.Lease, stream.StreamId,
+                            stream.Bytes, out _))
+                            stream.OutputSealed = true;
+                    }
+                    catch { } // no receipt on an unknown outcome
+                }
             }
             return forwarded;
         }
@@ -273,6 +288,37 @@ namespace LSA.Standalone
             forwardedBytes = stream.ForwardedBytes;
             sealedStream = stream.Sealed;
             return true;
+        }
+
+        // Optional S3 physical feedback, sourced exclusively from a native
+        // device driver after the current actor/lease is revalidated. This is
+        // NOT generated for fake sinks, null output, or queued-only PCM.
+        public bool TryPhysicalStatus(string streamId, string audioLeaseId,
+            string generation, string turnId, string actorId,
+            out AudioPlaybackSnapshot snapshot)
+        {
+            snapshot = null;
+            NativeAudioTicket stream;
+            string reason;
+            if (!TryCurrent(streamId, audioLeaseId, generation, turnId, actorId,
+                out stream, out reason)) return false;
+            var physical = output as IPhysicalAudioOutput;
+            if (physical == null || !stream.OutputStarted) return false;
+            try
+            {
+                AudioPlaybackSnapshot value;
+                if (!physical.TryRead(stream.Lease, stream.StreamId, out value) ||
+                    value == null || value.PlayedSourceBytes < 0 ||
+                    value.PlayedSourceBytes > stream.ForwardedBytes ||
+                    value.SubmittedSourceBytes != stream.ForwardedBytes ||
+                    (value.State == "playback_completed" &&
+                      (!stream.Sealed || !stream.OutputSealed ||
+                       value.PlayedSourceBytes != stream.Bytes)))
+                    return false;
+                snapshot = value;
+                return true;
+            }
+            catch { return false; }
         }
 
         private void Retire(NativeAudioTicket stream)
