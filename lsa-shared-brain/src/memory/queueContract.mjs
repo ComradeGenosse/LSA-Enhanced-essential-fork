@@ -6,11 +6,15 @@ export const CURATION_QUEUE_STATES=Object.freeze(['pending','leased','completed'
 export function validateCurationJob(job){
   const scope=scopeOf(job);
   if(job.version!==1||!isUuid(job.jobId)||!isUuid(job.proposal?.proposalId)||
+    job.jobId!==job.proposal.proposalId||job.proposal.kind!=='curation_proposal'||
     !sameScope(scope,job.proposal)||job.proposal.provider!=='deterministic'||
     !['pending','leased','completed','dead_letter'].includes(job.state)||
     !Number.isSafeInteger(job.attempt)||job.attempt<0||
     !Number.isFinite(Date.parse(job.nextAttemptAtUtc))||
-    !Array.isArray(job.proposal.evidenceRecordIds)||!job.proposal.evidenceRecordIds.length)
+    !Array.isArray(job.proposal.evidenceRecordIds)||!job.proposal.evidenceRecordIds.length||
+    job.proposal.evidenceRecordIds.length>64||
+    !job.proposal.evidenceRecordIds.every(isUuid)||
+    new Set(job.proposal.evidenceRecordIds).size!==job.proposal.evidenceRecordIds.length)
     throw new Error('curation_invalid_job');
   return job;
 }
@@ -25,9 +29,11 @@ export function makeQueueJob(proposal,nowUtc){
   return validateCurationJob(job);
 }
 export function retryDelayMs(attempt,{baseMs=1000,maxMs=300000,retryAfterMs=0}={}){
-  if(!Number.isSafeInteger(attempt)||attempt<1)throw new Error('curation_invalid_attempt');
+  if(!Number.isSafeInteger(attempt)||attempt<1||
+     !Number.isFinite(baseMs)||baseMs<100||!Number.isFinite(maxMs)||maxMs<baseMs||
+     !Number.isFinite(retryAfterMs)||retryAfterMs<0)throw new Error('curation_invalid_attempt');
   // Deterministic (no jitter) for repeatable scheduling/recovery; provider Retry-After respected.
-  return Math.max(Math.max(0,retryAfterMs),Math.min(maxMs,baseMs*2**Math.min(20,attempt-1)));
+  return Math.min(30*24*3600*1000,Math.max(retryAfterMs,Math.min(maxMs,baseMs*2**Math.min(20,attempt-1))));
 }
 export function requireDurableQueueAdapter(store){
   for(const fn of ['enqueueIfAbsent','claimDue','completeLeased','retryLeased','releaseLeased']){

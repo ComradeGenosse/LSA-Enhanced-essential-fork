@@ -1,11 +1,12 @@
 // M4 source-only CPU recall. No database writes, model inference, or native authority.
+import {assertRecallV1,sealRecallBundle,recallJsonBytes} from './recallSchemaV1.mjs';
 // The read adapter yields scope-fenced M0 envelopes with trustworthy coverage metadata.
 const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const SHA=/^[0-9a-f]{64}$/;
 const INTENTS=new Set(['recent_fact','exact_quote','open_recall','spontaneous']);
 const SOURCES=new Set(['dialogue_line','journal_event','permanent_memory','canon']);
 const STOP=new Set('a an and are as at be before can did do does for from had has have how i in is it just me my of on or our say said she so that the their there these this those to us was were what when where which who why with would you your about happened happen remember recall tell told please thing things something anything ever again more then ago very we they him her his he yesterday today last latest recent first earliest oldest minute minutes hour hours week weeks past'.split(' '));
-const jsonBytes=value=>Buffer.byteLength(JSON.stringify(value),'utf8');
+const jsonBytes=recallJsonBytes;
 const tokenize=value=>(String(value??'').toLowerCase().match(/[\p{L}\p{N}]+/gu)??[]);
 const compactTerms=value=>[...new Set(tokenize(value).filter(t=>t.length>=2&&!STOP.has(t)))].slice(0,12);
 const validTime=value=>typeof value==='string'&&Number.isFinite(Date.parse(value));
@@ -19,7 +20,7 @@ export function validateRecallQuery(query) {
   assert(fenceKeys.every(k=>UUID.test(query[k]))&&SHA.test(query.turnIdentityHash),'invalid_recall_scope');
   assert(INTENTS.has(query.intent)&&typeof query.question==='string'&&query.question.length>0&&query.question.length<=12000,'invalid_recall_query');
   assert(Number.isSafeInteger(query.maxBytes)&&query.maxBytes>=1024&&query.maxBytes<=14336,'invalid_recall_budget');
-  return query;
+  return assertRecallV1(query,'recallQuery');
 }
 function timeWindow(question,nowMs) {
   const q=question.toLowerCase();
@@ -27,11 +28,19 @@ function timeWindow(question,nowMs) {
   let begin=null,end=null;
   if(/\byesterday\b/.test(q)){begin=today.getTime()-86400000;end=today.getTime();}
   else if(/\btoday\b/.test(q)){begin=today.getTime();end=today.getTime()+86400000;}
-  else if(/\b(last|past)\s+(hour|60 minutes)\b/.test(q)){begin=nowMs-3600000;end=nowMs+1;}
-  else if(/\b(last|past)\s+(week|seven days)\b/.test(q)){begin=nowMs-604800000;end=nowMs+1;}
-  else if(/\b(last|past)\s+(two|2|couple of|few)\s+minutes\b/.test(q)){begin=nowMs-180000;end=nowMs+1;}
-  else if(/\b(last|past)\s+24\s+hours\b/.test(q)){begin=nowMs-86400000;end=nowMs+1;}
-  else {const date=q.match(/\b20\d{2}-\d{2}-\d{2}\b/);if(date&&validTime(date[0])){begin=Date.parse(date[0]+'T00:00:00Z');end=begin+86400000;}}
+  else {
+    const duration=q.match(/\b(?:last|past)\s+(?:(\d{1,3})|a|an|one|two|few|couple of|seven)\s+(minutes?|hours?|days?|weeks?)\b/);
+    if(duration){
+      const word=duration[0].match(/(?:a|an|one|two|few|couple of|seven)(?=\s+(?:minutes?|hours?|days?|weeks?)\b)/)?.[0];
+      const count=duration[1]?Number(duration[1]):({a:1,an:1,one:1,two:2,few:3,'couple of':2,seven:7}[word]??1);
+      const unit=duration[2].startsWith('minute')?60000:duration[2].startsWith('hour')?3600000:duration[2].startsWith('day')?86400000:604800000;
+      begin=nowMs-count*unit;end=nowMs+1;
+    }else if(/\b(?:last|past)\s+week\b/.test(q)){begin=nowMs-604800000;end=nowMs+1;}
+    else {
+      const date=q.match(/\b20\d{2}-\d{2}-\d{2}\b/);
+      if(date&&validTime(date[0]+'T00:00:00Z')){begin=Date.parse(date[0]+'T00:00:00Z');end=begin+86400000;}
+    }
+  }
   return {fromUtc:begin===null?null:utc(begin),toUtc:end===null?null:utc(end)};
 }
 function findSpeaker(question) {
@@ -54,7 +63,7 @@ function supportedRow(row,scope) {
   if(!UUID.test(row.recordId)||!validTime(row.atUtc))return null;
   const e=row.envelope;
   if(!e||e.version!==1||e.kind!==row.sourceKind||e.recordId!==row.recordId||fenceKeys.some(k=>e[k]!==scope[k]))return null;
-  if(row.evidenceState!=='verified')return null;
+  if(row.evidenceState!=='verified'||row.forgotten===true||row.superseded===true||row.suppressed===true)return null;
   let mode,content;
   if(row.sourceKind==='dialogue_line'){
     if(!['player','npc'].includes(e.speaker)||!['typed','stt','npc_generated'].includes(e.source))return null;
@@ -62,6 +71,10 @@ function supportedRow(row,scope) {
     if(e.speaker==='player'&&!(e.delivery==='accepted'&&['typed','stt'].includes(e.source)))return null;
     if(e.speaker==='npc'&&!(e.source==='npc_generated'&&e.delivery==='completed'&&UUID.test(e.deliveryReceiptId)))return null;
     if(row.atUtc!==e.committedAtUtc)return null;
+    if(row.sourceKind==='dialogue_line'&&row.contentSha256&&row.contentSha256!==undefined&&row.contentSha256!==null){
+      // Hash provenance belongs to the source adapter; mismatches are never projected.
+      if(row.contentVerified!==true)return null;
+    }
     mode='exact_quote';content=e.content;
   }else if(row.sourceKind==='journal_event'){
     if(!UUID.test(e.observationId)||!SHA.test(e.sourceHash)||!validTime(e.receivedAtUtc)||row.atUtc!==e.receivedAtUtc)return null;
@@ -83,8 +96,8 @@ function supportedRow(row,scope) {
   return {...row,mode,content,atMs:Date.parse(row.atUtc)};
 }
 function similarity(row,terms,nowMs,focusKind,speaker) {
-  if(speaker&&row.envelope?.speaker!==speaker)return -Infinity;
-  if(focusKind&&row.sourceKind!==focusKind)return -Infinity;
+  if(speaker&&row.envelope?.speaker!==speaker&&!(speaker==='player'&&row.isCorrectionOverlay===true))return -Infinity;
+  if(focusKind&&row.sourceKind!==focusKind&&!(focusKind==='dialogue_line'&&row.isCorrectionOverlay===true))return -Infinity;
   const txt=tokenize(row.sourceKind==='dialogue_line'?row.envelope.content:row.content);
   const hay=new Set(txt);
   const matches=terms.filter(t=>hay.has(t)).length;
@@ -95,7 +108,7 @@ function similarity(row,terms,nowMs,focusKind,speaker) {
   return (terms.length?12*ratio+matches:0)+recency+(row.sourceKind==='dialogue_line'&&focusKind==='dialogue_line'?2:0);
 }
 function emptyBundle(query,status) {
-  return {version:1,characterId:query.characterId,worldProfileId:query.worldProfileId,timelineId:query.timelineId,kind:'recall_bundle',queryId:query.queryId,status,items:[],coverage:{status,returnedCount:0,matchedCount:0}};
+  return sealRecallBundle({version:1,characterId:query.characterId,worldProfileId:query.worldProfileId,timelineId:query.timelineId,kind:'recall_bundle',queryId:query.queryId,status,items:[],coverage:{status,returnedCount:0,matchedCount:0},totalBytes:0},query.maxBytes);
 }
 function freshness(row,nowMs){
   if(['permanent_memory','canon'].includes(row.sourceKind))return 'permanent';
@@ -103,12 +116,27 @@ function freshness(row,nowMs){
   if(row.atMs>nowMs-172800000)return 'recent';
   return 'archive';
 }
-export function toPs4RecallContribution(bundle) {
-  if(!bundle||bundle.version!==1||bundle.kind!=='recall_bundle'||!['matched','not_recorded','unavailable'].includes(bundle.status)||!Array.isArray(bundle.items))throw new TypeError('invalid_recall_bundle');
-  // Typed contribution only. PS4/C-04 alone owns the authoritative scene
-  // allocator; this is NOT a second system prompt or direct context mutation.
-  return Object.freeze({version:1,contributor:'m4_recall',lane:'RECALLED',queryId:bundle.queryId,status:bundle.status,coverage:bundle.coverage,items:bundle.items.map(item=>({...item}))});
+export function toPs4RecallContribution(bundle,{maxBytes=4096}={}) {
+  assertRecallV1(bundle,'recallBundle');
+  if(!Number.isSafeInteger(maxBytes)||maxBytes<512||maxBytes>14336)throw new TypeError('invalid_ps4_recall_budget');
+  // A typed, bounded optional contribution. The sole PS4 knowledge-frame
+  // allocator chooses whether and where to admit it; never construct a prompt.
+  const contribution={version:1,contributor:'m4_recall',lane:'RECALLED',
+    queryId:bundle.queryId,status:bundle.status,
+    coverage:{...bundle.coverage,returnedCount:0},items:[]};
+  for(const item of bundle.items){
+    const candidate={...contribution,items:[...contribution.items,item],
+      coverage:{...contribution.coverage,returnedCount:contribution.items.length+1}};
+    if(jsonBytes(candidate)>maxBytes)break;
+    contribution.items.push(Object.freeze({...item}));
+  }
+  contribution.coverage.returnedCount=contribution.items.length;
+  if(contribution.status==='matched'&&!contribution.items.length) {
+    contribution.status='unavailable';contribution.coverage.status='unavailable';
+  }
+  return Object.freeze({...contribution,coverage:Object.freeze(contribution.coverage),items:Object.freeze(contribution.items)});
 }
+
 /**
  * readAdapter.read({scope,terms,fromUtc,toUtc,sourceKind,limit}) ->
  * {rows: M0 evidence-envelopes[], coverageComplete:boolean}.
@@ -137,8 +165,9 @@ export async function recallMemory({query,readAdapter,protagonistKey,nowUtc=new 
   catch{return {bundle:emptyBundle(query,'unavailable'),continuation:null};}
   if(!result||!Array.isArray(result.rows)||result.rows.length>384)return {bundle:emptyBundle(query,'unavailable'),continuation:null};
   const nowMs=Date.parse(nowUtc);
+  const rejectedEvidence=result.rows.some(r=>r?.evidenceState==='verified'&&!supportedRow(r,scope));
   let rows=result.rows.map(r=>supportedRow(r,scope)).filter(Boolean)
-    .filter(r=>(!window.fromUtc||r.atUtc>=window.fromUtc)&&(!window.toUtc||r.atUtc<window.toUtc));
+    .filter(r=>r.atMs<=nowMs+60000&&(!window.fromUtc||r.atUtc>=window.fromUtc)&&(!window.toUtc||r.atUtc<window.toUtc));
   const sortRecent=/\b(last|latest|most recent|just|earlier today)\b/i.test(query.question);
   const sortOldest=/\b(first|earliest|oldest)\b/i.test(query.question);
   rows=rows.map(row=>({...row,score:similarity(row,terms,nowMs,focusKind,speaker)}))
@@ -146,23 +175,28 @@ export async function recallMemory({query,readAdapter,protagonistKey,nowUtc=new 
     .sort((a,b)=>(sortRecent||sortOldest?0:b.score-a.score)||(sortOldest?a.atMs-b.atMs:b.atMs-a.atMs)||a.recordId.localeCompare(b.recordId));
   const distinct=new Set();rows=rows.filter(r=>{if(distinct.has(r.recordId))return false;distinct.add(r.recordId);return true;});
   const matchedCount=rows.length;
-  const status=matchedCount?'matched':result.coverageComplete===true?'not_recorded':'unavailable';
+  const status=matchedCount?'matched':!rejectedEvidence&&result.coverageComplete===true?'not_recorded':'unavailable';
   const bundle=emptyBundle(query,status);
   bundle.coverage.matchedCount=matchedCount;
   if(matchedCount){
     const cap=query.intent==='spontaneous'?3:query.intent==='exact_quote'?4:12;
     for(const r of rows){
       if(bundle.items.length>=cap)break;
+      if(query.intent==='exact_quote'&&r===rows[0]&&r.content.length>3072)break;
       // The v1 recallItem cannot hold >3072 Unicode code units. Never
       // truncate an exact quote and falsely label it byte-exact.
       if(r.content.length>3072||!r.content.length)continue;
       const item={sourceKind:r.sourceKind,recordId:r.recordId,mode:r.mode,content:r.content,freshness:freshness(r,nowMs)};
       const candidate={...bundle,items:[...bundle.items,item],coverage:{...bundle.coverage,returnedCount:bundle.items.length+1}};
-      if(jsonBytes(candidate)<=query.maxBytes)bundle.items.push(item);
+      if(jsonBytes(candidate)<=query.maxBytes){
+        sealRecallBundle(candidate);
+        if(candidate.totalBytes<=query.maxBytes)bundle.items.push(item);
+      }
     }
     bundle.coverage.returnedCount=bundle.items.length;
     if(!bundle.items.length){bundle.status='unavailable';bundle.coverage.status='unavailable';}
   }
-  const continuation=matchedCount?{scopeKey:scopeKey(scope),terms,sourceKind:focusKind,speaker,anchorUtc:rows[0]?.atUtc??null,expiresAtUtc:utc(nowMs+300000)}:null;
+  sealRecallBundle(bundle,query.maxBytes);
+  const continuation=bundle.status==='matched'?{scopeKey:scopeKey(scope),terms,sourceKind:focusKind,speaker,anchorUtc:rows[0]?.atUtc??null,expiresAtUtc:utc(nowMs+300000)}:null;
   return {bundle,continuation};
 }

@@ -1,68 +1,115 @@
-// Agent E: deterministic, offline M6 scene selection. Journal capture is NEVER gated by this module.
-import { stableUuid, isUuid, normalizedEvidence, sameScope, factDigest, frozenEvidenceIds, scopeOf } from './evidence.mjs';
-const windowMs=90_000;
-const priority=[
-  [/inside_?joke|running_?joke|prank|laugh|funny|humor|joke/i,.92,'joke'],
-  [/crash|rollover|flip|airborne|explosion|stunt|water|fall|launch|wasted|busted/i,.87,'episode'],
-  [/embarrass|fail|blunder|misfire|accident|ridiculous|strange|bizarre/i,.84,'episode'],
-  [/resc(u|ue)|saved|help|protect|betray|bond|gift|promise|friend|relationship/i,.77,'relationship'],
-  [/wanted|chase|fight|escape|arrest|police|gunfire/i,.69,'episode'],
-  [/travel|mission|drive|arriv|depart|greet/i,.43,'episode'],
+// Deterministic selection runs only over committed M2/M3 journal evidence.
+// Rejections are diagnostics, never a reason to delete or suppress source rows.
+import {stableUuid,isUuid,normalizedEvidence,sameScope,factDigest,frozenEvidenceIds,scopeOf} from './evidence.mjs';
+
+const SCENE_GAP_MS=90_000;
+const eventRules=[
+  [/inside_?joke|running_?joke|prank|laug(h|hing)|funny|humor|joke|comic/i,.94,'joke'],
+  [/bizarre|absurd|ridiculous|embarrass|blunder|fail|misfire|fumbled/i,.89,'episode'],
+  [/crash|rollover|flip|airborne|explosion|stunt|water|fall|launch|wasted|busted|collision/i,.87,'episode'],
+  [/resc(u|ue)|saved|help|protect|betray|bond|gift|promise|friend|relationship|reunion/i,.79,'relationship'],
+  [/wanted|chase|fight|escape|arrest|police|gunfire|shootout/i,.69,'episode'],
+  [/travel|mission|drive|arriv|depart|greet|walking/i,.40,'episode'],
 ];
-const salientSpeech=/\b(remember when|inside joke|never forget|so embarrassing|hilarious|that was funny|i promise|i love you|you saved me|we did it|ridiculous)\b/i;
-function recordSignal(record){
-  if(record.kind==='journal_event'){
-    const source=[record.eventType,...record.claims.map(c=>c.kind)].join(' ');
-    const hit=priority.find(([re])=>re.test(source));
-    return {score:hit?.[1]??.28,candidate:hit?.[2]??'episode',
-      signature:record.eventType.toLowerCase()+':'+record.claims.map(c=>c.durableSubject.toLowerCase()).sort().join(',')};
+const speechRules=[
+  [/inside joke|running joke|remember when|prank|hilarious|that was funny|laugh|jok(e|ing)/i,.91,'joke'],
+  [/so embarrassing|embarrass|i messed up|my bad|ridiculous|what a disaster|i failed|that was weird/i,.85,'episode'],
+  [/i promise|you saved me|i love you|i trust you|you betrayed me|best friend|never forget|we did it/i,.79,'relationship'],
+  [/that was crazy|unbelievable|what just happened|what a stunt/i,.72,'episode'],
+];
+function signal(r){
+  if(r.kind==='journal_event'){
+    // Direct claims and reported claims remain explicitly different in the digest.
+    const words=[r.eventType,...r.claims.map(c=>c.kind)].join(' ');
+    const found=eventRules.find(([re])=>re.test(words));
+    return {score:found?.[1]??.27,candidate:found?.[2]??'episode'};
   }
-  return {score:record.speaker==='player'&&salientSpeech.test(record.content)? .73:.16,
-    candidate:record.speaker==='player'&&/inside joke|hilarious|that was funny/i.test(record.content)?'joke':'semantic',
-    signature:record.speaker+':'+record.content.toLowerCase().trim().replace(/\s+/g,' ').slice(0,120)};
+  const found=speechRules.find(([re])=>re.test(r.content));
+  return {score:r.speaker==='player'?(found?.[1]??.12):(found?.[1]??.12)*.89,
+    candidate:found?.[2]??'semantic'};
 }
-function groupRecords(records){
-  const sorted=[...new Map(records.map(r=>[r.recordId,r])).values()].sort((a,b)=>
-    Date.parse(a.when)-Date.parse(b.when)||a.recordId.localeCompare(b.recordId));
-  const scenes=[];
-  for(const r of sorted){
-    const prev=scenes.at(-1),last=prev?.at(-1);
-    const linked=last&&sameScope(r,last)&&Date.parse(r.when)-Date.parse(last.when)<=windowMs&&
-      (r.sceneId===last.sceneId||!r.sceneId&&!last.sceneId)&&(r.epoch===null||last.epoch===null||r.epoch===last.epoch)&&prev.length<64;
-    if(linked)prev.push(r);else scenes.push([r]);
+function contiguous(a,b){
+  if(!sameScope(a,b)||a.protagonistKey!==b.protagonistKey)return false;
+  const dt=Date.parse(b.when)-Date.parse(a.when);
+  if(dt<0||dt>SCENE_GAP_MS)return false;
+  // Missing epochs/lifetimes are not evidence that distinct proven epochs match.
+  if(a.epoch!==null&&b.epoch!==null&&a.epoch!==b.epoch)return false;
+  if(a.ownerLifetime&&b.ownerLifetime&&a.ownerLifetime!==b.ownerLifetime)return false;
+  if(a.sceneId||b.sceneId)return a.sceneId!==null&&a.sceneId===b.sceneId;
+  return true;
+}
+export function groupQualifiedScenes(records){
+  const sorted=[...records].sort((a,b)=>Date.parse(a.when)-Date.parse(b.when)||
+    a.recordId.localeCompare(b.recordId));
+  const scenes=[],activeByOwner=new Map();
+  for(const record of sorted){
+    // Other protagonists and unknown-source event streams can interleave in
+    // the journal. They must not break an otherwise contiguous proven scene.
+    const key=[record.worldProfileId,record.timelineId,record.characterId,
+      record.protagonistKey].join(':');
+    const prior=activeByOwner.get(key),last=prior?.at(-1);
+    if(prior&&prior.length<64&&contiguous(last,record))prior.push(record);
+    else {
+      const scene=[record];scenes.push(scene);activeByOwner.set(key,scene);
+    }
   }
-  return scenes;
+  return scenes.sort((a,b)=>Date.parse(a[0].when)-Date.parse(b[0].when)||
+    a[0].recordId.localeCompare(b[0].recordId));
 }
-function sceneScore(scene){
-  const signals=scene.map(recordSignal).sort((a,b)=>b.score-a.score);
-  const best=signals[0];
-  return {score:Math.min(1,Number((best.score+Math.min(.1,Math.log2(scene.length)*.034)).toFixed(3))),
-    candidate:best.candidate,signature:signals.map(s=>s.signature).sort().join('|').slice(0,500)};
+function scoreScene(scene){
+  const ranked=scene.map(r=>({record:r,...signal(r)})).sort((a,b)=>b.score-a.score||
+    a.record.recordId.localeCompare(b.record.recordId));
+  // More independent evidence is interesting, but a pile of idle movement
+  // should not automatically become permanent memory.
+  const bonus=Math.min(.085,Math.log2(scene.length)*.029);
+  return {ranked,score:Math.min(1,Number((ranked[0].score+bonus).toFixed(3))),
+    candidate:ranked[0].candidate};
 }
-export function selectAutomaticMemories(rawRecords,{existingInHour=0,softTargetPerHour=6,batchId=null,minScore=.56}={}){
+export function evaluateAutomaticMemoryBatch(rawRecords,
+    {existingInHour=0,softTargetPerHour=6,batchId=null,minScore=.56}={}){
   if(!Array.isArray(rawRecords)||rawRecords.length>10000)throw new Error('curation_batch_limit');
-  if(!Number.isSafeInteger(existingInHour)||existingInHour<0||!Number.isSafeInteger(softTargetPerHour)||softTargetPerHour<1)
+  if(!Number.isSafeInteger(existingInHour)||existingInHour<0||
+     !Number.isSafeInteger(softTargetPerHour)||softTargetPerHour<1||
+     !Number.isFinite(minScore)||minScore<0||minScore>1)
     throw new Error('curation_invalid_budget');
-  const qualified=[];
+  if(batchId!==null&&!isUuid(batchId))throw new Error('curation_invalid_batch');
+  const qualified=[],rejected=[],byId=new Map();
   for(const row of rawRecords){
-    try{qualified.push(normalizedEvidence(row));}catch{/* Unqualified input is never promoted. */ }
+    try{
+      const item=normalizedEvidence(row),old=byId.get(item.recordId);
+      if(old){
+        if(JSON.stringify(old)!==JSON.stringify(item))throw new Error('curation_conflicting_evidence_id');
+        continue;
+      }
+      byId.set(item.recordId,item);qualified.push(item);
+    }catch(error){
+      if(error?.message==='curation_conflicting_evidence_id')throw error;
+      rejected.push(Object.freeze({recordId:isUuid(row?.recordId)?row.recordId:null,
+        reason:error instanceof Error?error.message:'curation_invalid_evidence'}));
+    }
   }
-  // A bounded adaptive threshold reduces mundane selection, but cannot cap exceptional scenes.
-  const pressure=Math.min(.26,Math.max(0,existingInHour-softTargetPerHour)*.04);
-  const threshold=Math.min(.84,minScore+pressure);
-  return groupRecords(qualified).flatMap(scene=>{
-    const {score,candidate}=sceneScore(scene);
-    if(score<threshold&&score<.86)return [];
+  // A *soft* pressure on ordinary scenes, never a hard count limit.
+  // Account for admissions IN this checkpoint, so one 40-scene batch cannot
+  // bypass the approximate six-per-active-hour target entirely.
+  const proposals=[];
+  for(const scene of groupQualifiedScenes(qualified)){
+    const {ranked,score,candidate}=scoreScene(scene);
+    const pressure=Math.min(.26,Math.max(0,
+      existingInHour+proposals.length-softTargetPerHour)*.04);
+    const threshold=Math.min(.84,minScore+pressure);
+    if(score<threshold&&score<.86)continue;
     const scope=scopeOf(scene[0]),ids=frozenEvidenceIds(scene);
-    const significant=[...scene].sort((a,b)=>recordSignal(b).score-recordSignal(a).score||
-      a.recordId.localeCompare(b.recordId));
-    const summary=significant.slice(0,4).map(factDigest).join(' ').slice(0,2400);
+    const summary=ranked.slice(0,4).map(x=>factDigest(x.record)).join(' ').slice(0,2400);
     const key=['auto-memory-v1',...Object.values(scope),ids];
     const sceneBatch=batchId??stableUuid('m6-batch',...key);
-    if(!isUuid(sceneBatch))throw new Error('curation_invalid_batch');
-    return [Object.freeze({...scope,kind:'curation_proposal',version:1,
+    proposals.push(Object.freeze({...scope,kind:'curation_proposal',version:1,
       proposalId:stableUuid(...key),provider:'deterministic',evidenceRecordIds:ids,
-      candidate,notability:score,groundedSummary:summary,inCharacterTake:'No interpretation recorded.',
-      batchId:sceneBatch})];
-  });
+      candidate,notability:score,groundedSummary:summary,
+      inCharacterTake:'No interpretation recorded.',batchId:sceneBatch}));
+  }
+  return Object.freeze({proposals:Object.freeze(proposals),
+    rejected:Object.freeze(rejected),qualifiedCount:qualified.length});
+}
+export function selectAutomaticMemories(records,options={}){
+  return evaluateAutomaticMemoryBatch(records,options).proposals;
 }

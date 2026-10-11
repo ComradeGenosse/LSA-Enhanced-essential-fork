@@ -1,4 +1,5 @@
 // M4 read-only SQLite boundary. M2/M3 own migrations, FTS population and coverage.
+import {readIntegratedRecall} from './sqliteIntegratedRecallProjection.mjs';
 let DatabaseSync=null;
 try {({DatabaseSync}=await import('node:sqlite'));}catch {}
 const escapeFts=term=>'"'+term.replace(/"/g,'""')+'"';
@@ -17,16 +18,19 @@ Required future M2/M3 read projection (real migrations owned elsewhere):
  No schema or FTS triggers are created by this reader.
 */
 export class SQLiteRecallReadAdapter {
-  #db;#owned;
+  #db;#owned;#integrated;
   constructor({db=null,filePath=null}={}){
     if(!db && (!DatabaseSync||typeof filePath!=='string'||!filePath.trim()))throw new TypeError('sqlite_recall_unavailable');
     this.#db=db??new DatabaseSync(filePath,{readOnly:true});
     this.#owned=!db;
     if(this.#owned)this.#db.exec('PRAGMA query_only=ON');
+    const has=name=>!!this.#db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?").get(name);
+    this.#integrated=!has('m4_recall_records_v1')&&has('dialogue_journal');
   }
   close(){if(this.#owned)this.#db.close();}
   read({scope,terms=[],fromUtc=null,toUtc=null,sourceKind=null,speaker=null,limit=384}={}){
     if(!scope||!['franklin','michael','trevor','unknown'].includes(scope.protagonistKey))throw new TypeError('invalid_read_scope');
+    if(this.#integrated)return readIntegratedRecall(this.#db,{scope,terms,fromUtc,toUtc,sourceKind,speaker,limit});
     if(!Number.isSafeInteger(limit)||limit<1||limit>768)throw new TypeError('invalid_read_limit');
     const where=['r.character_id=?','r.world_profile_id=?','r.timeline_id=?','r.protagonist_key=?','r.evidence_state=?'];
     const args=[scope.characterId,scope.worldProfileId,scope.timelineId,scope.protagonistKey,'verified'];

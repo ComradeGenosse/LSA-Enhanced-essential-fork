@@ -1,11 +1,12 @@
 name: Memory Agent B M3 M9 offline
 on:
   push:
-    branches: [feature/memory-agent-b-m3-events]
+    branches: [feature/memory-agent-b-m3-events, feature/m3-completion-witness-owner-coverage]
   pull_request:
     paths:
       - 'lsa-shared-brain/src/events/**'
       - 'lsa-essential-e1-candidate/tests/memory-agent-b-events.test.mjs'
+      - 'lsa-essential-e1-candidate/tests/m3-completion.test.mjs'
       - 'lsa-essential-e1-candidate/tests/memory-agent-b-ps2-tap.test.mjs'
       - 'lsa-essential-e1-candidate/src/perception/shadowRuntime.mjs'
       - '.github/workflows/memory-agent-b-events.yml'
@@ -24,4 +25,4 @@ jobs:
         with:
           node-version: ${{ matrix.node }}
       - name: Verify M3/M9 and existing memory contract
-        run: node --test lsa-essential-e1-candidate/tests/memory-agent-b-events.test.mjs lsa-essential-e1-candidate/tests/memory-agent-b-ps2-tap.test.mjs lsa-essential-e1-candidate/tests/memory-contract-v1.test.mjs
+        run: node --test lsa-essential-e1-candidate/tests/m3-completion.test.mjs lsa-essential-e1-candidate/tests/memory-agent-b-events.test.mjs lsa-essential-e1-candidate/tests/memory-agent-b-ps2-tap.test.mjs lsa-essential-e1-candidate/tests/memory-contract-v1.test.mjs

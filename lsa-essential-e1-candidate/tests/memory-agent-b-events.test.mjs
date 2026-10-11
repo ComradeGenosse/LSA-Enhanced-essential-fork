@@ -91,7 +91,7 @@ test('M3 only promotes participant identity with matching native epoch and run p
   const yes=normalizeWitnessedObservation({observation:observation(),identity:identity(),participantProofs:[base]});
   assert.equal(yes.event.claims[0].durableSubject,expected);
   const no=normalizeWitnessedObservation({observation:observation(),identity:identity(),participantProofs:[{...base,worldEpoch:3}]});
-  assert.equal(no.event.claims[0].durableSubject,`unresolved:${CLAIM}`);
+  assert.equal(no.accepted,false); // stale claimed identity proof now rejects the entire derivation
 });
 test('M3 hearsay remains reported instead of firsthand witnessed',()=>{
   const claim={claimId:CLAIM,kind:'report',certainty:'supported',evidence:{
@@ -133,8 +133,8 @@ test('M3 prepromotion grace cannot borrow another lifetime, epoch or stale physi
   r.recorder.bufferBeforePromotion({observation:observation({observationId:id(20)}),candidate:identity()});
   r.setPromoted(true);r.setActor(B);
   result=await r.recorder.importOnPromotion({candidate:identity({characterId:B})});
-  assert.equal(result.imported,1); // must be the freshly authorized promoted ID for this lifetime
-  assert.equal(r.entries.size,2);
+  assert.equal(result.imported,0); // reserved CharacterId A cannot silently become B
+  assert.equal(r.entries.size,1);
 });
 test('M3 grace rejects recycled captureRef, changed incarnation and new native epoch',async()=>{
   const original=observation({observationId:id(71)});
@@ -144,13 +144,13 @@ test('M3 grace rejects recycled captureRef, changed incarnation and new native e
   const replacement={...originalProof,incarnationId:id(72)};
   r.setProof(replacement);
   const mismatch=await r.recorder.importOnPromotion({candidate:identity({ownerProof:replacement})});
-  assert.equal(mismatch.imported,0);assert.equal(mismatch.rejected,1);
+  assert.equal(mismatch.imported,0);assert.equal(mismatch.rejected,0); // different owner evidence remains isolated
   assert.equal(r.entries.size,0);
   r.setPromoted(false);r.setProof(originalProof);
   assert.equal(r.recorder.bufferBeforePromotion({observation:observation({observationId:id(73)}),candidate:identity()}).accepted,true);
   r.setPromoted(true);r.setEpoch(id(74));
   const changed=await r.recorder.importOnPromotion({candidate:identity({adapterEpoch:id(74)})});
-  assert.equal(changed.imported,0);assert.equal(changed.rejected,1);
+  assert.equal(changed.imported,0);assert.equal(changed.rejected,0); // changed adapter run cannot consume older buffer
   assert.equal(r.entries.size,0);
 });
 test('M3 grace expiry, cold start and negative coverage do not invent witnessed events',async()=>{
@@ -160,8 +160,8 @@ test('M3 grace expiry, cold start and negative coverage do not invent witnessed 
   assert.equal((await r.recorder.importOnPromotion({candidate:identity()})).imported,0);
   assert.equal(r.entries.size,0);
   assert.equal((await r.recorder.recordNegativeCoverage({candidate:identity(),observationId:id(60),
-    status:'did_not_witness',reason:'blocked'})).accepted,true);
-  assert.equal(r.entries.size,0);assert.equal(r.negative[0].status,'did_not_witness');
+    status:'did_not_witness',reason:'blocked'})).accepted,false); // no signed negative native proof
+  assert.equal(r.entries.size,0);assert.equal(r.negative.length,0);
   r.recorder.reset();assert.equal(r.recorder.bufferedCount,0);
 });
 test('M3 prepromotion ring and dedupe are bounded under 10k-observation bursts',()=>{
@@ -170,6 +170,7 @@ test('M3 prepromotion ring and dedupe are bounded under 10k-observation bursts',
     observation:observation({observationId:id(1000+i)}),candidate:identity()
   });
   assert.equal(r.recorder.bufferedCount,PROMOTION_GRACE_LIMITS.maxObservations);
+  assert.equal(r.recorder.graceDiagnostics.evicted,10000-PROMOTION_GRACE_LIMITS.maxObservations);
 });
 function snap(ms,overrides={}){
   return {nativeRun:EPOCH,hostRunId:RUN,worldEpoch:4,playerCaptureRef:OTHER,

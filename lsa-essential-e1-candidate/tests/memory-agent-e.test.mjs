@@ -16,7 +16,7 @@ const clock=n=>new Date(Date.UTC(2026,9,11,16,0,n)).toISOString();
 function event(n,type='crash',{subject='franklin',characterId=scope.characterId,timelineId=scope.timelineId,time=n,epoch=1,receiptStatus='witnessed'}={}){
   return {version:1,...scope,characterId,timelineId,kind:'journal_event',recordId:id(100+n),
     observationId:id(200+n),revision:1,eventType:type,receivedAtUtc:clock(time),
-    sourceHash:'a'.repeat(64),ownerProof:{...proof,worldEpoch:epoch},receiptStatus,
+    sourceHash:'a'.repeat(64),ownerProof:{...proof,ownerAlias:'promoted.'+characterId,worldEpoch:epoch},receiptStatus,
     claims:[{kind:type,modality:'visual',certainty:'direct',durableSubject:subject,sourceEvidenceId:id(300+n)}]};
 }
 function line(n,content,{characterId=scope.characterId,delivery='accepted',speaker='player',
