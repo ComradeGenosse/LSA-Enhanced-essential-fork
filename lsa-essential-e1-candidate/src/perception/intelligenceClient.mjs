@@ -79,6 +79,7 @@ export class IntelligenceClient {
   captureKnowledgeInputs(input) {return captureKnowledgeInputs({...input,perception:this.runtime});}
   assertKnowledgeCurrent(inputs) {return assertKnowledgeCurrent(inputs,this.runtime);}
   acceptPlayerTranscript(input) {return this.runtime.acceptPlayerTranscript(input);}
+  recordTypedUtterance(identity) {return this.runtime.utteranceLifecycleVersion===1 && this.runtime.utterances.recordTyped(identity,this.runtime.hostContext);}
   // Preview-only in v1.0's unaccepted native stage: no PS6 decisions are
   // selected here and the native preview endpoint cannot admit Essential turns.
   // Future admitted requests MUST use the same closed v1 encoder.
