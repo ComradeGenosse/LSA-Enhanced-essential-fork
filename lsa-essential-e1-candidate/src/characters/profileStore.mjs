@@ -53,6 +53,10 @@ export function validateProfiles(value, worldProfileId) {
 export class ProfileStore {
   #queue = Promise.resolve(); #loading; #data; #available = true;
   constructor({ filePath, worldProfileId, fileSystem = fs }) { this.filePath = path.resolve(filePath); this.worldProfileId = worldProfileId; this.fs = fileSystem; }
+  // JSON profiles are global P2 metadata, never a verified save lineage.
+  get activeTimelineId() { return null; }
+  get timelineWritable() { return false; }
+  get timelineSourceStatus() { return 'unavailable'; }
   get available() { return this.#available; }
   get loaded() { return !!this.#data; }
   #serial(operation) { const job = this.#queue.then(operation); this.#queue = job.catch(() => {}); return job; }
