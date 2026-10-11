@@ -76,7 +76,7 @@ function sourceAuthorized(db,job,world,timeline){
   if(suppressed.has(job.proposal.proposalId))return false;
   for(const id of ids){
    if(suppressed.has(id))return false;
-   const dialogue=db.prepare('SELECT speaker,source,delivery,delivery_receipt_id AS receipt,protagonist FROM dialogue_journal WHERE record_id=? AND world_profile_id=? AND character_id=? AND timeline_id=?')
+   const dialogue=db.prepare('SELECT speaker,source,delivery,receipt_id AS receipt,protagonist FROM dialogue_journal WHERE record_id=? AND world_profile_id=? AND character_id=? AND timeline_id=?')
      .get(id,world,job.characterId,timeline);
    if(dialogue){
      const accepted=dialogue.speaker==='player'&&['typed','stt'].includes(dialogue.source)&&dialogue.delivery==='accepted';
@@ -84,9 +84,9 @@ function sourceAuthorized(db,job,world,timeline){
      if((!accepted&&!played)||dialogue.protagonist!==memory.protagonist_key)return false;
      continue;
    }
-   const event=db.prepare('SELECT e.receipt_status AS status,e.source_hash AS hash,s.source_hash AS sidecar FROM event_journal e JOIN event_source_evidence s ON s.record_id=e.record_id WHERE e.record_id=? AND e.world_profile_id=? AND e.character_id=? AND e.timeline_id=?')
+   const event=db.prepare('SELECT e.receipt_status AS status,e.source_hash AS hash,s.source_evidence_json AS sidecarJson FROM event_journal e JOIN event_source_evidence s ON s.record_id=e.record_id WHERE e.record_id=? AND e.world_profile_id=? AND e.character_id=? AND e.timeline_id=?')
      .get(id,world,job.characterId,timeline);
-   if(!event||event.status!=='witnessed'||event.hash!==event.sidecar||
+   if(!event||event.status!=='witnessed'||JSON.parse(event.sidecarJson)?.sourceHash!==event.hash||
       memory.protagonist_key!=='unknown')return false;
   }
   return true;
