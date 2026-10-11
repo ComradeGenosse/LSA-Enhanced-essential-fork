@@ -141,6 +141,21 @@ test('M1 distributable Essential copies the canonical shared module, never depen
   assert.equal(typeof sqlite.P2SqliteFoundation,'function');
   const mem=await import(pathToFileURL(path.join(e1,'characters','memoryStorageAdapter.mjs')).href);
   assert.equal(typeof mem.createEssentialMemoryStorage,'function');
+  const packaged=mem.createEssentialMemoryStorage({
+    filePath:path.join(p.root,'installed-profile.sqlite'),worldProfileId
+  });
+  try {
+    await packaged.initialize();
+    const npc=profile();
+    const made=await packaged.create(npc);
+    assert.equal(made.characterId,npc.characterId);
+    const edited=await packaged.edit(npc.characterId,{name:'Installed candidate'},made.revision);
+    assert.equal(edited.name,'Installed candidate');
+    const snapshot=await packaged.exportRollbackSnapshot();
+    const exported=await fs.readFile(snapshot.path,'utf8');
+    assert.equal(JSON.parse(exported).profiles[0].name,'Installed candidate');
+    assert.ok(snapshot.profileCount===1);
+  } finally { await packaged.close(); }
 });
 
 test('M1 editor hides unsupported mode and requires explicit timeline confirmation',async t=>{
