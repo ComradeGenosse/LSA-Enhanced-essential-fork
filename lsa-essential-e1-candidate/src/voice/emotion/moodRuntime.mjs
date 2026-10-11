@@ -87,7 +87,7 @@ export function createMoodRuntime({ getRuntime, protagonistAuthority = null,
         } catch { return false; }
       },
     };
-    return context.isCurrent() ? Object.freeze(context) : deny();
+    return context.isCurrent() ? Object.freeze(context) : reject();
   };
   return Object.freeze({
     readMood({identity,turn}) {
