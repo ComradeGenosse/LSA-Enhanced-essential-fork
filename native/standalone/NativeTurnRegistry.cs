@@ -129,6 +129,15 @@ namespace LSA.Standalone
             return discarded;
         }
 
+        public bool TryRetireOfferedPermit(NativeTurnPermit permit)
+        {
+            if (permit == null || permit.Retired || permit.Confirmed ||
+                !live.TryGetValue(permit.TurnId, out var stored) ||
+                !ReferenceEquals(stored, permit)) return false;
+            Retire(permit);
+            return true;
+        }
+
         public bool IsOfferedPermitCurrent(NativeTurnPermit permit)
         {
             if (permit == null || permit.Retired || permit.Confirmed ||
