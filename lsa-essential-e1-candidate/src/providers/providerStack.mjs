@@ -3,11 +3,16 @@ import { createOpenAIReasoningProvider } from './openai/reasoningProvider.mjs';
 import { createOpenAITranscriptionProvider } from './openai/transcriptionProvider.mjs';
 import { createOpenAISpeechProvider } from './openai/speechProvider.mjs';
 import { createFasterQwenSpeechProvider } from './qwen/speechProvider.mjs';
+import { createParakeetTranscriptionProvider } from './parakeet/transcriptionProvider.mjs';
 
 export function createProviderStack(config, { fetchImpl = globalThis.fetch, providers = {} } = {}) {
   if (config?.provider !== 'openai') throw new TypeError('The E1 provider stack only serves the OpenAI route.');
   const reasoning = assertProvider(providers.reasoning || createOpenAIReasoningProvider({ config, fetchImpl }), { operation: 'decide', requiredCapabilities: ['cancellation', 'strictDecisionParsing'] });
-  const transcription = assertProvider(providers.transcription || createOpenAITranscriptionProvider({ config, fetchImpl }), { operation: 'transcribe', requiredCapabilities: ['cancellation', 'pcm16MonoInput'] });
+  const openAITranscription = createOpenAITranscriptionProvider({ config, fetchImpl });
+  const transcription = assertProvider(providers.transcription || (
+    config.transcriptionProvider === 'parakeet-ultra'
+      ? createParakeetTranscriptionProvider({ config, fetchImpl, fallbackProvider: openAITranscription })
+      : openAITranscription), { operation: 'transcribe', requiredCapabilities: ['cancellation', 'pcm16MonoInput'] });
   const speech = assertProvider(providers.speech || (config.speechProvider === 'faster-qwen3-tts'
     ? createFasterQwenSpeechProvider({ config, fetchImpl })
     : createOpenAISpeechProvider({ config, fetchImpl })), { operation: 'synthesize', requiredCapabilities: ['cancellation', 'awaitedPcmCallback'] });
