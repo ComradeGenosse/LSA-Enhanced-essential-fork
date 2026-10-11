@@ -493,11 +493,25 @@ internal static class Program
             permit.LeaseId.ToString("D"), permit.Generation,
             permit.ActorIncarnationId.ToString("D"), new string('q', 2049), out reason)
             && reason == "invalid_reply", "oversized response refused");
+        Check(tickets.DiscardStagedForActor(actor) == 1,
+            "next physical player turn discards unplayed reply, not commits it");
+        NativeTurnPermit next;
+        Check(tickets.TryIssueTyped(actor, "One more question", 1000,
+            out next, out reason), "new typed turn permitted after explicitly discarded reply");
+        Check(next.ConversationId == permit.ConversationId &&
+            next.TurnOrdinal == permit.TurnOrdinal + 1,
+            "same actor retains native conversation ID with strictly increasing ordinal");
+        Check(next.TurnId != permit.TurnId && next.LeaseId != permit.LeaseId,
+            "conversation continuity never means reusing a native turn or lease");
+        Check(tickets.TryConfirm(next.TurnId.ToString("D"),
+            next.SessionNonce.ToString("D"), next.ActorIncarnationId.ToString("D"),
+            next.LeaseId.ToString("D"), next.Generation, next.Source, out reason),
+            "second turn confirmed independently");
         game.Spawn(92, 0xA220, lifetimeTag: 456);
-        Check(!tickets.TryStageReply(permit.TurnId.ToString("D"),
-            permit.LeaseId.ToString("D"), permit.Generation,
-            permit.ActorIncarnationId.ToString("D"), "stale", out reason),
-            "same-handle and same-address ABA kills staged output authorization");
+        Check(!tickets.TryStageReply(next.TurnId.ToString("D"),
+            next.LeaseId.ToString("D"), next.Generation,
+            next.ActorIncarnationId.ToString("D"), "stale", out reason),
+            "same-handle and same-address ABA kills second turn authorization");
         tickets.RetireAll();
         Check(!host.IsActorCurrent(actor), "physical identity retired after ABA");
         host.Stop();
