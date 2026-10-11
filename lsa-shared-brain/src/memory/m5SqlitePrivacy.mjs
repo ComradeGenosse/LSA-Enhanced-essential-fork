@@ -313,6 +313,41 @@ export class M5SqliteServices{
    });
    return this.verifyPrivacy({scope,operationId});
  }
+ /** Explicitly authorized entire current protagonist/timeline archive deletion.
+  * This is not P2 unpromotion nor cross-timeline profile destruction.
+  * Rollback is all-or-none; previously suppressed rows keep their own schedule.
+  */
+ async trashScope({scope,operationId=randomUUID()}){
+   authorizeRequest(this.#authorize,scope,'trash_scope');
+   if(!isUuid(operationId))fail('m5_invalid_operation_id');
+   const now=this.#clock(),until=new Date(Date.parse(now)+7*DAY).toISOString();
+   const reqHash=sha(JSON.stringify({scope,operationId,operation:'trash_scope'}));
+   await this.#write(scope,db=>{
+     const old=db.prepare('SELECT request_sha256 AS hash FROM m5_privacy_ops WHERE operation_id=?').get(operationId);
+     if(old){if(old.hash!==reqHash)fail('m5_privacy_replay_conflict');return;}
+     const ids=[
+       ...db.prepare('SELECT record_id AS id FROM dialogue_journal WHERE world_profile_id=? AND character_id=? AND timeline_id=? AND protagonist=?')
+         .all(scope.worldProfileId,scope.characterId,scope.timelineId,scope.protagonistKey??'unknown').map(x=>x.id),
+       ...db.prepare('SELECT memory_id AS id FROM memory_records WHERE '+scopeWhere).all(...scopeKey(scope)).map(x=>x.id)
+     ];
+     if((scope.protagonistKey??'unknown')==='unknown')
+       ids.push(...db.prepare('SELECT e.record_id AS id FROM event_journal e JOIN event_source_evidence s ON s.record_id=e.record_id WHERE e.world_profile_id=? AND e.character_id=? AND e.timeline_id=?')
+         .all(scope.worldProfileId,scope.characterId,scope.timelineId).map(x=>x.id));
+     const unique=[...new Set(ids)].sort();
+     if(unique.length>100000)fail('m5_scope_delete_quota_exceeded');
+     const pending=unique.filter(id=>!activeTombstone(db,scope,id));
+     for(const id of pending){
+       db.prepare('INSERT INTO memory_tombstones VALUES(?,?,?,?,?,?)')
+         .run(scope.characterId,scope.worldProfileId,scope.timelineId,id,operationId,now);
+       db.prepare('INSERT INTO m5_trash VALUES(?,?,?,?,?,?,?,?,?,NULL,NULL)')
+         .run(randomUUID(),operationId,id,...scopeKey(scope),now,until);
+     }
+     const result=receipt(operationId,'trash_scope',pending,now);
+     db.prepare('INSERT INTO m5_privacy_ops VALUES(?,?,?,?,?,?,?)')
+       .run(operationId,...scopeKey(scope),reqHash,JSON.stringify(result));
+   });
+   return this.verifyPrivacy({scope,operationId});
+ }
  verifyPrivacy({scope,operationId}){
    if(!isUuid(operationId))fail('m5_invalid_operation_id');
    return this.#read(scope,db=>{
