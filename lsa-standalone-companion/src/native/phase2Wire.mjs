@@ -142,6 +142,7 @@ export class Phase2NativeClient {
       'audio.chunk': 'audio.chunk.result',
       'audio.status': 'audio.status.result',
       'audio.playback': 'audio.playback.result',
+      'audio.playback.ack': 'audio.playback.ack.result',
       'audio.end': 'audio.end.result',
       'audio.segment': 'audio.segment.result',
       'audio.cancel': 'audio.cancel.result'
@@ -256,7 +257,8 @@ export class Phase2NativeClient {
     if (!['health.ping', 'host.snapshot', 'turn.next', 'turn.confirm', 'turn.cancel',
       'turn.reply', 'turn.segment', 'turn.segments.end',
       'audio.open', 'audio.chunk', 'audio.end', 'audio.segment',
-      'audio.cancel', 'audio.status', 'audio.playback'].includes(type))
+      'audio.cancel', 'audio.status', 'audio.playback',
+      'audio.playback.ack'].includes(type))
       return Promise.reject(new Error('unsupported_request'));
     if (this.#pending.size >= 8 || this.#outgoing >= 0x7fffffff)
       return Promise.reject(new Error('native_backpressure'));
@@ -274,7 +276,7 @@ export class Phase2NativeClient {
           : type === 'audio.open'
             ? ['turnId', 'actorIncarnationId', 'leaseId', 'generation', 'sampleRate']
             : type === 'audio.cancel' || type === 'audio.status' ||
-                type === 'audio.playback'
+                type === 'audio.playback' || type === 'audio.playback.ack'
               ? ['streamId', 'audioLeaseId', 'audioGeneration', 'turnId', 'actorIncarnationId']
               : type === 'audio.chunk'
                 ? ['streamId', 'audioLeaseId', 'audioGeneration', 'turnId',
