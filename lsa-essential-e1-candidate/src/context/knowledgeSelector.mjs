@@ -49,6 +49,7 @@ export function selectKnowledge(inputs,{includePerceived=true}={}) {
     const bytes=jsonBytes(pair);if(index>=KNOWLEDGE_LIMITS.poolCount || poolBytes+bytes>KNOWLEDGE_LIMITS.poolBytes) {omissions.budget_excluded++;return false;}poolBytes+=bytes;return true;
   });
   for(const pair of [...ordered.filter(p=>p.decision.context==='must_include'),...ordered.filter(p=>p.decision.context!=='must_include')]) {
+    const o=pair.observation;
     const claims=pair.observation.claims.map(claim=>projectKnowledgeClaim(claim,pair.observation,observer)).filter(Boolean);
     // A source-time full-coverage per-observer grant is required for quoted
     // words. Presence-only reports never borrow the current actor's input.
@@ -59,7 +60,7 @@ export function selectKnowledge(inputs,{includePerceived=true}={}) {
       claims.push({kind:'overheard_player_words',modality:'auditory',
         certainty:'supported',asReportedSpeech:true,text:words.toWellFormed()});
     }
-    omissions.unsupported_claim_detail+=pair.observation.claims.length-claims.length;if(!claims.length) continue;
+    omissions.unsupported_claim_detail+=Math.max(0,pair.observation.claims.length-claims.length);if(!claims.length) continue;
     const item={event:pair.observation.eventType,claims,freshness:'recent'};
     const safety=pair.decision.context==='must_include',bytes=jsonBytes({observations:[...result.observations,item]}),limit=KNOWLEDGE_LIMITS.perceivedBytes-(safety?0:result.safetyBudget.remainingBytes);
     if(result.observations.length>=KNOWLEDGE_LIMITS.observations || bytes>limit) {omissions.budget_excluded++;if(pair.decision.context==='must_include') omissions.safety_overflow++;continue;}
