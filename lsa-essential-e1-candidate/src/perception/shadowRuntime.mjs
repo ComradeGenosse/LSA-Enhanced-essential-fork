@@ -427,6 +427,10 @@ export class ShadowRuntime {
        entry.ended.monotonicMs!==entry.proximity.sourceEnd ||
        entry.ended.gameTick!==entry.proximity.endTick ||
        !entry.started.micPedRef ||
+       // Hearing grants require the *explicit native P0 microphone ID*.
+       // Shadow diagnostics may retain bounded timestamp association, but
+       // it is not strong enough to fan speech out to other observers.
+       entry.join?.expectedId!==utteranceId ||
        !this.current(entry.started.micPedRef) ||
        this.capabilities.playerSpeech!==true)return false;
     // Only accepted, current Essential/P0 player_mic turn data can cross
