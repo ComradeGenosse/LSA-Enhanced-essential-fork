@@ -136,10 +136,13 @@ export class Phase2NativeClient {
       'turn.confirm': 'turn.confirm.result',
       'turn.cancel': 'turn.cancel.result',
       'turn.reply': 'turn.reply.result',
+      'turn.segment': 'turn.segment.result',
+      'turn.segments.end': 'turn.segments.end.result',
       'audio.open': 'audio.open.result',
       'audio.chunk': 'audio.chunk.result',
       'audio.status': 'audio.status.result',
       'audio.end': 'audio.end.result',
+      'audio.segment': 'audio.segment.result',
       'audio.cancel': 'audio.cancel.result'
     })[reply.type];
     if (!expected) throw new Error('unsupported_native_reply');
@@ -204,6 +207,9 @@ export class Phase2NativeClient {
         (reply.type === 'audio.open' && value.status === 'audio_authorized_not_playing') ||
         (reply.type === 'audio.chunk' && value.status === 'buffered_not_played') ||
         (reply.type === 'audio.end' && value.status === 'sealed_not_played') ||
+        (reply.type === 'turn.segment' && value.status === 'segment_staged_not_played') ||
+        (reply.type === 'turn.segments.end' && value.status === 'segments_final_not_played') ||
+        (reply.type === 'audio.segment' && value.status === 'segment_audio_buffered_not_played') ||
         (reply.type === 'audio.status' && value.status === 'not_played'))
       reply.resolve(value);
     else reply.reject(new Error('native_rejected_' + value.status));
@@ -212,7 +218,8 @@ export class Phase2NativeClient {
   request(type, claims = {}) {
     if (this.#state !== 'ready') return Promise.reject(new Error('native_not_ready'));
     if (!['health.ping', 'host.snapshot', 'turn.next', 'turn.confirm', 'turn.cancel',
-      'turn.reply', 'audio.open', 'audio.chunk', 'audio.end',
+      'turn.reply', 'turn.segment', 'turn.segments.end',
+      'audio.open', 'audio.chunk', 'audio.end', 'audio.segment',
       'audio.cancel', 'audio.status'].includes(type))
       return Promise.reject(new Error('unsupported_request'));
     if (this.#pending.size >= 8 || this.#outgoing >= 0x7fffffff)
@@ -223,6 +230,11 @@ export class Phase2NativeClient {
         ? ['turnId', 'actorIncarnationId', 'leaseId', 'generation']
         : type === 'turn.reply'
           ? ['turnId', 'actorIncarnationId', 'leaseId', 'generation', 'replyText']
+          : type === 'turn.segment'
+            ? ['turnId', 'actorIncarnationId', 'leaseId', 'generation',
+                'segmentIndex', 'segmentText']
+            : type === 'turn.segments.end'
+              ? ['turnId', 'actorIncarnationId', 'leaseId', 'generation', 'segmentCount']
           : type === 'audio.open'
             ? ['turnId', 'actorIncarnationId', 'leaseId', 'generation', 'sampleRate']
             : type === 'audio.cancel' || type === 'audio.status'
@@ -232,9 +244,12 @@ export class Phase2NativeClient {
                     'actorIncarnationId', 'chunkIndex', 'pcmBase64']
                 : type === 'audio.end'
                   ? ['streamId', 'audioLeaseId', 'audioGeneration', 'turnId',
-                      'actorIncarnationId', 'chunkCount', 'totalBytes'] : [];
-    const numeric = ['sampleRate', 'chunkIndex', 'chunkCount', 'totalBytes'];
-    const words = ['generation', 'audioGeneration', 'source', 'replyText', 'pcmBase64'];
+                      'actorIncarnationId', 'chunkCount', 'totalBytes']
+                  : type === 'audio.segment'
+                    ? ['streamId', 'audioLeaseId', 'audioGeneration', 'turnId',
+                        'actorIncarnationId', 'segmentIndex', 'totalBytes'] : [];
+    const numeric = ['sampleRate', 'chunkIndex', 'chunkCount', 'totalBytes', 'segmentIndex', 'segmentCount'];
+    const words = ['generation', 'audioGeneration', 'source', 'replyText', 'segmentText', 'pcmBase64'];
     if (!exact(claims, required) ||
         required.some(key => numeric.includes(key)
           ? !Number.isSafeInteger(claims[key]) : typeof claims[key] !== 'string') ||
@@ -248,6 +263,13 @@ export class Phase2NativeClient {
         (required.includes('replyText') &&
           (!claims.replyText.trim() || claims.replyText.length > 2048 ||
            /[\u0000-\u0008\u000b-\u001f\u007f]/.test(claims.replyText))) ||
+        (required.includes('segmentText') &&
+          (!claims.segmentText.trim() || claims.segmentText.length > 500 ||
+           /[\u0000-\u0008\u000b-\u001f\u007f]/.test(claims.segmentText))) ||
+        (required.includes('segmentIndex') &&
+          (claims.segmentIndex < 0 || claims.segmentIndex >= 12)) ||
+        (required.includes('segmentCount') &&
+          (claims.segmentCount < 1 || claims.segmentCount > 12)) ||
         (required.includes('sampleRate') && claims.sampleRate !== 24000) ||
         (required.includes('chunkIndex') &&
           (claims.chunkIndex < 0 || claims.chunkIndex >= 480)) ||
