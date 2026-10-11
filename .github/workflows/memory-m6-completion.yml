@@ -10,6 +10,7 @@ on:
       - 'lsa-shared-brain/src/memory/consolidation.mjs'
       - 'lsa-shared-brain/src/memory/m6Coordinator.mjs'
       - 'lsa-shared-brain/tests/memory-m6-completion.test.mjs'
+      - 'lsa-shared-brain/tests/memory-m6-sqlite.test.mjs'
       - '.github/workflows/memory-m6-completion.yml'
   workflow_dispatch:
 permissions:
@@ -42,4 +43,6 @@ jobs:
       - name: Verify cross-agent SQLite integration
         if: matrix.node == '24'
         shell: bash
-        run: node --test lsa-shared-brain/tests/memory-integrated-storage.test.mjs
+        run: |
+          node --test lsa-shared-brain/tests/memory-integrated-storage.test.mjs
+          node --test lsa-shared-brain/tests/memory-m6-sqlite.test.mjs
