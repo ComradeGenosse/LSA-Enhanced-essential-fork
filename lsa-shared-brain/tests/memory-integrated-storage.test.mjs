@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import {randomUUID} from 'node:crypto';
+import {randomUUID,createHash} from 'node:crypto';
 import {createP2MemoryStorage} from '../src/characters/sqliteProfileStore.mjs';
 import {createConversationJournalRecorder} from '../src/memory/conversationRecorder.mjs';
 import {handleExplicitMemoryCommand} from '../src/memory/explicitCommands.mjs';
@@ -37,6 +37,12 @@ test('M2 -> real M5 command writes -> readback -> reopen without false acknowled
    characterId:x.scope.characterId,identity:identity('one'),source:'typed',
    text:'Remember that I hate olives',attribution:{protagonist:'franklin'}});
   const line=(await x.store.readDialogueLines({characterId:x.scope.characterId,timelineId:x.scope.timelineId}))[0];
+  const directId=id();
+  await x.store.commitCommand({scope:x.scope,commandId:directId,requestedByLineId:line.recordId,
+    operation:'remember',origin:'explicit_player',recordType:'player_claim',content:'I hate olives',
+    contentHash:createHash('sha256').update('I hate olives').digest('hex'),pin:false,
+    evidenceRecordIds:[line.recordId],targetRecordId:null,correctionMode:null,subjectCertainty:'reported',
+    requestedAtUtc:line.committedAtUtc});
   const commandId=id();
   const a=await handleExplicitMemoryCommand({line,scope:x.scope,commandId,store:x.store});
   assert.equal(a.outcome,'saved');assert.equal(a.durableCommit,true);
