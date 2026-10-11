@@ -46,13 +46,13 @@ export function validateJournalEvent(e,world){
   return immutableSnapshot(e);
 }
 const DDL=[
-"CREATE TABLE dialogue_journal (record_id TEXT PRIMARY KEY,world_profile_id TEXT NOT NULL,timeline_id TEXT NOT NULL REFERENCES timelines(timeline_id),character_id TEXT NOT NULL REFERENCES promoted_profiles(character_id),session_id TEXT NOT NULL,protagonist TEXT NOT NULL CHECK(protagonist IN ('franklin','michael','trevor','unknown')),host_run_id TEXT,world_epoch INTEGER,speaker TEXT NOT NULL,source TEXT NOT NULL,delivery TEXT NOT NULL,turn_identity_hash TEXT NOT NULL,committed_at_utc TEXT NOT NULL,content TEXT NOT NULL,content_sha256 TEXT NOT NULL,receipt_id TEXT,envelope_json TEXT NOT NULL,UNIQUE(character_id,timeline_id,speaker,turn_identity_hash));",
+"CREATE TABLE dialogue_journal (record_id TEXT PRIMARY KEY,world_profile_id TEXT NOT NULL,timeline_id TEXT NOT NULL REFERENCES timelines(timeline_id),character_id TEXT NOT NULL,session_id TEXT NOT NULL,protagonist TEXT NOT NULL CHECK(protagonist IN ('franklin','michael','trevor','unknown')),host_run_id TEXT,world_epoch INTEGER,speaker TEXT NOT NULL,source TEXT NOT NULL,delivery TEXT NOT NULL,turn_identity_hash TEXT NOT NULL,committed_at_utc TEXT NOT NULL,content TEXT NOT NULL,content_sha256 TEXT NOT NULL,receipt_id TEXT,envelope_json TEXT NOT NULL,UNIQUE(character_id,timeline_id,speaker,turn_identity_hash));",
 "CREATE INDEX dialogue_scope_recent ON dialogue_journal(world_profile_id,character_id,timeline_id,committed_at_utc DESC);",
 "CREATE INDEX dialogue_session_recent ON dialogue_journal(character_id,timeline_id,session_id,committed_at_utc DESC);",
 "CREATE VIRTUAL TABLE dialogue_journal_fts USING fts5(content,content='dialogue_journal',content_rowid='rowid',tokenize='unicode61');",
 "CREATE TRIGGER dialogue_fts_insert AFTER INSERT ON dialogue_journal BEGIN INSERT INTO dialogue_journal_fts(rowid,content) VALUES(new.rowid,new.content); END;",
 "CREATE TRIGGER dialogue_fts_delete AFTER DELETE ON dialogue_journal BEGIN INSERT INTO dialogue_journal_fts(dialogue_journal_fts,rowid,content) VALUES('delete',old.rowid,old.content); END;",
-"CREATE TABLE event_journal (record_id TEXT PRIMARY KEY,world_profile_id TEXT NOT NULL,timeline_id TEXT NOT NULL REFERENCES timelines(timeline_id),character_id TEXT NOT NULL REFERENCES promoted_profiles(character_id),observation_id TEXT NOT NULL,revision INTEGER NOT NULL,event_type TEXT NOT NULL,received_at_utc TEXT NOT NULL,source_hash TEXT NOT NULL,receipt_status TEXT NOT NULL,envelope_json TEXT NOT NULL,envelope_sha256 TEXT NOT NULL,UNIQUE(character_id,timeline_id,observation_id,revision));",
+"CREATE TABLE event_journal (record_id TEXT PRIMARY KEY,world_profile_id TEXT NOT NULL,timeline_id TEXT NOT NULL REFERENCES timelines(timeline_id),character_id TEXT NOT NULL,observation_id TEXT NOT NULL,revision INTEGER NOT NULL,event_type TEXT NOT NULL,received_at_utc TEXT NOT NULL,source_hash TEXT NOT NULL,receipt_status TEXT NOT NULL,envelope_json TEXT NOT NULL,envelope_sha256 TEXT NOT NULL,UNIQUE(character_id,timeline_id,observation_id,revision));",
 "CREATE INDEX event_scope_recent ON event_journal(world_profile_id,character_id,timeline_id,received_at_utc DESC);",
 "CREATE INDEX event_type_recent ON event_journal(character_id,timeline_id,event_type,received_at_utc DESC);"
 ].join('\n');
@@ -85,11 +85,16 @@ export function appendDialogue(db,line,attribution,world){
     !(attribution.hostRunId===null||isUuid(attribution.hostRunId))||
     !(attribution.worldEpoch===null||Number.isSafeInteger(attribution.worldEpoch)&&attribution.worldEpoch>=0)||
     (attribution.hostRunId===null)!==(attribution.worldEpoch===null))fail('journal_invalid_attribution');
-  const old=db.prepare('SELECT envelope_json,content_sha256 FROM dialogue_journal WHERE character_id=? AND timeline_id=? AND speaker=? AND turn_identity_hash=?')
+  const old=db.prepare('SELECT envelope_json,content_sha256,session_id,protagonist,host_run_id,world_epoch FROM dialogue_journal WHERE character_id=? AND timeline_id=? AND speaker=? AND turn_identity_hash=?')
     .get(e.characterId,e.timelineId,e.speaker,e.turnIdentityHash);
   if(old){
-    const previous=JSON.parse(old.envelope_json),{recordId:ignored,...a}=previous,{recordId:ignored2,...b}=e;
-    if(JSON.stringify(a)!==JSON.stringify(b)||old.content_sha256!==hash(e.content))fail('journal_replay_conflict');
+    const previous=JSON.parse(old.envelope_json),
+      {recordId:ignored,committedAtUtc:originalAcceptedTime,...a}=previous,
+      {recordId:ignored2,committedAtUtc:replayAcceptedTime,...b}=e;
+    if(JSON.stringify(a)!==JSON.stringify(b)||old.content_sha256!==hash(e.content)||
+      old.session_id!==attribution.sessionId||old.protagonist!==attribution.protagonist||
+      old.host_run_id!==attribution.hostRunId||old.world_epoch!==attribution.worldEpoch)
+      fail('journal_replay_conflict');
     return Object.freeze({inserted:false,recordId:previous.recordId});
   }
   db.prepare('INSERT INTO dialogue_journal (record_id,world_profile_id,timeline_id,character_id,session_id,protagonist,host_run_id,world_epoch,speaker,source,delivery,turn_identity_hash,committed_at_utc,content,content_sha256,receipt_id,envelope_json) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)')
