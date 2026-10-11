@@ -167,7 +167,7 @@ export async function recallMemory({query,readAdapter,protagonistKey,nowUtc=new 
   const nowMs=Date.parse(nowUtc);
   const rejectedEvidence=result.rows.some(r=>r?.evidenceState==='verified'&&!supportedRow(r,scope));
   let rows=result.rows.map(r=>supportedRow(r,scope)).filter(Boolean)
-    .filter(r=>(!window.fromUtc||r.atUtc>=window.fromUtc)&&(!window.toUtc||r.atUtc<window.toUtc));
+    .filter(r=>r.atMs<=nowMs+60000&&(!window.fromUtc||r.atUtc>=window.fromUtc)&&(!window.toUtc||r.atUtc<window.toUtc));
   const sortRecent=/\b(last|latest|most recent|just|earlier today)\b/i.test(query.question);
   const sortOldest=/\b(first|earliest|oldest)\b/i.test(query.question);
   rows=rows.map(row=>({...row,score:similarity(row,terms,nowMs,focusKind,speaker)}))
