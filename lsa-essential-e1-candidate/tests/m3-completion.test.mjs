@@ -52,7 +52,7 @@ function fixture({secondWitness=false,pre=false,participants=false}={}){
   };
   const binder=new M3ObserverOwnerBinder({ps2,p2,resolveNativeOwner,
     ...(participants?{resolveParticipants:()=>[{captureRef:PLAYER,subjectKind:'protagonist',
-      subjectKey:'franklin',verified:true,nativeVerified:true,hostRunId:HOST,worldEpoch:2,adapterEpoch:EPOCH}]}:{})});
+      subjectKey:'franklin',verified:true,nativeVerified:true,sampledGameTick:100,hostRunId:HOST,worldEpoch:2,adapterEpoch:EPOCH}]}:{})});
   const receipt=observation=>({observation,adapterEpoch:EPOCH,hostRunId:HOST,worldEpoch:2,
     observerIndex:observerIndex.get(observation.observer.captureRef)});
   return {ps2,p2,binder,receipt,obsA,obsB,resolveNativeOwner};
