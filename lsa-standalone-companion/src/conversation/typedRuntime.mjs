@@ -1,10 +1,12 @@
+import { stageNativeSpeechSegments } from './segmentPipeline.mjs';
 import { stageNativePcmStream } from '../audio/nativePcm.mjs';
 import { NativePlayerContext, PendingDialogue, handleNextTypedTurn } from './typedTurn.js.mjs';
 
 // One model request at a time, from exactly one native connection. This is
 // intentionally more restrictive than the eventual multi-NPC arbiter.
 export async function runTypedTurnSession({
-  client, provider, tts = null, signal, pollMs = 250, onStatus = () => {}
+  client, provider, tts = null, earlySpeech = false,
+  signal, pollMs = 250, onStatus = () => {}
 } = {}) {
   if (!client || !provider || !Number.isInteger(pollMs) ||
       pollMs < 50 || pollMs > 5000 || typeof onStatus !== 'function')
@@ -34,15 +36,25 @@ export async function runTypedTurnSession({
         const result = await handleNextTypedTurn(client, provider, {
           signal: retired.signal, pending: staged, playerContext,
           onStage: () => onStatus('typed_reply_staged'),
+          onStreamingSegments: earlySpeech && tts
+            ? ({ client: native, offer, claims, modelSegments, signal: turnSignal }) =>
+                stageNativeSpeechSegments({
+                  client: native, offer, claims, modelSegments,
+                  tts, signal: turnSignal
+                })
+            : null,
           onReplyStaged: tts ? ({ client: native, claims, offer, replyText, signal: turnSignal }) =>
             stageNativePcmStream(native, claims,
               tts.streamPcm({ text: replyText, identity: offer, signal: turnSignal }),
               { signal: turnSignal }) : null
         });
+        if (result.state === 'speech_segments_sealed_not_played')
+          onStatus('speech_segments_sealed_not_played');
         if (result.state === 'pcm_sealed_not_played')
           onStatus('pcm_sealed_not_played');
         if (result.state !== 'none' && result.state !== 'staged_not_played' &&
-            result.state !== 'pcm_sealed_not_played')
+            result.state !== 'pcm_sealed_not_played' &&
+            result.state !== 'speech_segments_sealed_not_played')
           throw new Error('unknown_typed_outcome');
       } catch (error) {
         if (retired.signal.aborted) break;
@@ -56,7 +68,10 @@ export async function runTypedTurnSession({
           'speech_stream_failure', 'speech_stream_unavailable',
           'speech_too_long', 'speech_invalid_pcm_length',
           'pcm_stream_capacity', 'pcm_no_native_output_credit',
-          'pcm_transfer_cancelled'
+          'pcm_transfer_cancelled',
+          'speech_text_capacity', 'speech_segment_capacity',
+          'provider_stream_invalid', 'provider_stream_failure',
+          'provider_stream_unavailable', 'provider_unsupported_output'
         ]);
         const code = permitted.has(error?.message) ? error.message : 'typed_turn_rejected';
         onStatus('typed_turn_failed', { reason: code });
