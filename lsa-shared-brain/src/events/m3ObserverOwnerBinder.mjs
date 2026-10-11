@@ -88,8 +88,17 @@ export class M3ObserverOwnerBinder {
            (p.subjectKind==='character'?!isUuid(p.subjectKey):
              !['franklin','michael','trevor'].includes(p.subjectKey)))return null;
         refs.add(p.captureRef);
+        // Subject identity is attributed to a claim only if the independent
+        // native participant ledger attests the source captureRef at *that*
+        // claim's evidence tick. A generic current-player identity must never
+        // become every actor in an entire multi-tick PS2 episode.
+        const atClaims=source.claims.filter(c=>c.source?.captureRef===p.captureRef ||
+          c.target?.captureRef===p.captureRef);
+        if(!atClaims.length || !Number.isSafeInteger(p.sampledGameTick) ||
+           atClaims.some(c=>c.evidence.sampledGameTick!==p.sampledGameTick))
+          continue; // retain witnessed claim, but unknown durable actor
+        participantProofs.push(p);
       }
-      participantProofs=proof;
     }
     return immutableSnapshot({promoted,current:true,characterId:native.characterId,
       worldProfileId:world,timelineId:selected,adapterEpoch:ps.epoch,
