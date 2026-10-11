@@ -91,7 +91,7 @@ test('M3 only promotes participant identity with matching native epoch and run p
   const yes=normalizeWitnessedObservation({observation:observation(),identity:identity(),participantProofs:[base]});
   assert.equal(yes.event.claims[0].durableSubject,expected);
   const no=normalizeWitnessedObservation({observation:observation(),identity:identity(),participantProofs:[{...base,worldEpoch:3}]});
-  assert.equal(no.event.claims[0].durableSubject,`unresolved:${CLAIM}`);
+  assert.equal(no.accepted,false); // stale claimed identity proof now rejects the entire derivation
 });
 test('M3 hearsay remains reported instead of firsthand witnessed',()=>{
   const claim={claimId:CLAIM,kind:'report',certainty:'supported',evidence:{
