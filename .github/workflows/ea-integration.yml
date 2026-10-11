@@ -64,7 +64,7 @@ jobs:
         shell: bash
         run: node tools/ea9/matrix.mjs --run --expected-head "$EA_EXPECTED_HEAD" --report ea9-matrix-report.json
       - name: Enforce all EA phases for manual F combined-head acceptance
-        if: ${{ inputs.require_combined == true }}
+        if: ${{ inputs.require_combined == true || github.head_ref == 'integration/elevenlabs-emotional-acting-final-20261011' || github.ref_name == 'integration/elevenlabs-emotional-acting-final-20261011' }}
         shell: bash
         run: node tools/ea9/matrix.mjs --require-combined --expected-head "$EA_EXPECTED_HEAD" --report ea9-combined-readiness.json
       - name: Full Essential offline Node suite
