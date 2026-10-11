@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { normalizeConfig } from '../src/config/e1Config.mjs';
 import { createProviderStack } from '../src/providers/providerStack.mjs';
+import { createTelemetryRecord } from '../src/observability/eventContract.mjs';
 
 const identity = { pedId: '17', turnId: 'turn-2', generationId: 3, sessionNonce: 9 };
 const pcm = new Uint8Array([1, 0, 2, 0]);
@@ -141,4 +142,21 @@ test('local timeout falls back without forwarding its abort to OpenAI', async ()
   });
   assert.equal(await stack.transcribe(input), 'Cloud recognized it');
   assert.equal(hits, 2);
+});
+
+test('STT route/fallback events survive the real telemetry allowlist', () => {
+  for (const event of ['stt_route','stt_local_result','stt_fallback']) {
+    const record = createTelemetryRecord({
+      sequence: 1, runId: 'test', originMs: 0, event,
+      data: { provider: 'parakeet-ultra', from: 'parakeet-ultra', to: 'openai',
+        phase: 'primary', outcome: 'failed', fallback: true,
+        reason: 'local_stt_timeout', durationMs: 123 },
+    });
+    assert.equal(record.event, event);
+    assert.equal(record.data.provider, 'parakeet-ultra');
+    assert.equal(record.data.from, 'parakeet-ultra');
+    assert.equal(record.data.to, 'openai');
+    assert.equal(record.data.reason, 'local_stt_timeout');
+    assert.equal(record.data.fallback, true);
+  }
 });
