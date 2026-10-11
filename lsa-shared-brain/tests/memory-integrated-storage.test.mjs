@@ -4,6 +4,7 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import {randomUUID,createHash} from 'node:crypto';
+import {DatabaseSync} from 'node:sqlite';
 import {createP2MemoryStorage} from '../src/characters/sqliteProfileStore.mjs';
 import {createConversationJournalRecorder} from '../src/memory/conversationRecorder.mjs';
 import {handleExplicitMemoryCommand} from '../src/memory/explicitCommands.mjs';
@@ -193,5 +194,34 @@ test('M5 corrections remain reported overlays; original transcript is unchanged'
     protagonistKey:'franklin',nowUtc:new Date().toISOString()});
   assert.ok(recalls.bundle.items.some(item=>item.mode==='reported_claim'&&item.content.includes(corrected)));
   assert.ok(!recalls.bundle.items.some(item=>item.content===before));
+ }finally{await x.store.close()}
+});
+
+test('existing M2 v3 journal upgrades atomically to v4 without touching raw dialogue',async t=>{
+ const x=await setup(t);
+ const exact='Unchanged historical dialogue 🚗  ';
+ try{
+  await x.recorder.recordPlayerAccepted({characterId:x.scope.characterId,identity:identity('legacy'),
+   source:'typed',text:exact,attribution:{protagonist:'franklin'}});
+  await x.store.close();
+  const db=new DatabaseSync(x.filePath);
+  try{
+   for(const table of ['memory_luna_appraisals','memory_curation_jobs','memory_budget_reservations',
+     'memory_corrections','memory_tombstones','memory_commands','memory_records']){
+    db.exec('DROP TABLE '+table);
+   }
+   db.exec('PRAGMA user_version=3');
+  }finally{db.close()}
+  const reopened=createP2MemoryStorage({filePath:x.filePath,worldProfileId,sourceRequired:true});
+  await reopened.initialize();
+  try{
+   const rows=await reopened.findExactQuote({characterId:x.scope.characterId,timelineId:x.scope.timelineId,quote:exact});
+   assert.equal(rows.length,1);assert.equal(rows[0].content,exact);
+   const verify=new DatabaseSync(x.filePath,{readOnly:true});
+   try{
+    assert.equal(verify.prepare('PRAGMA user_version').get().user_version,4);
+    assert.equal(verify.prepare("SELECT count(*) AS n FROM sqlite_master WHERE name='memory_luna_appraisals'").get().n,1);
+   }finally{verify.close()}
+  }finally{await reopened.close()}
  }finally{await x.store.close()}
 });
