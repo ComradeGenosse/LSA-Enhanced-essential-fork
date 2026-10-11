@@ -13,6 +13,7 @@ import { isUuid } from '../util/identity.mjs';
 import { PROFILE_LIMITS, validateProfiles } from './profileSchema.mjs';
 import { JOURNAL_SCHEMA_VERSION, migrateJournalSchema, assertJournalSchema, appendDialogue, appendEvent, readDialogue, findExactQuote, searchDialogue, readEvents, readVerifiedEventEvidence } from '../memory/journalSqlite.mjs';
 import { ensureIntegratedMemorySchema, listMemoryCandidates, listSuppressedMemoryIds, verifyPersistedMemoryCommand, commitPersistedMemoryCommand, persistDeterministicMemory, readPermanentMemoryRows } from '../memory/integratedSqlite.mjs';
+import {ensureCurationSchema,enqueueCuration,claimCuration,completeCuration,retryCuration,releaseCuration,reserveCurationBudget,finishCurationBudget} from '../memory/curationSqlite.mjs';
 
 export const SQLITE_PROFILE_SCHEMA = 2;
 const fail = code => { throw new Error(code); };
@@ -187,6 +188,7 @@ export class P2SqliteFoundation {
       // The single M1 writer lock is held before migrating or accepting appends.
       migrateJournalSchema(db);
       ensureIntegratedMemorySchema(db);
+      ensureCurationSchema(db);
       this.#db=db;
       return this.#snapshot;
     } catch(e){try {db?.close();}catch{}throw e;}
@@ -212,7 +214,7 @@ export class P2SqliteFoundation {
         if(!nextIds.has(previous.characterId)){
           removeDialogue.run(previous.characterId);
           removeEvents.run(previous.characterId);
-          for(const table of ['memory_records','memory_commands','memory_tombstones','memory_corrections','memory_curation_jobs']){
+          for(const table of ['memory_records','memory_commands','memory_tombstones','memory_corrections','memory_curation_jobs','memory_luna_appraisals']){
             this.#db.prepare('DELETE FROM '+table+' WHERE character_id=?').run(previous.characterId);
           }
         }
@@ -273,6 +275,13 @@ export class P2SqliteFoundation {
   commitMemoryCommand(args){return commitPersistedMemoryCommand(this.#db,args,this.worldProfileId);}
   persistDeterministicMemory(proposal){return persistDeterministicMemory(this.#db,proposal,this.worldProfileId);}
   readPermanentMemoryRows(scope,options){return readPermanentMemoryRows(this.#db,scope,this.worldProfileId,options);}
+  enqueueCuration(args,timelineId){return enqueueCuration(this.#db,args,this.worldProfileId,timelineId);}
+  claimCuration(args,timelineId){return claimCuration(this.#db,args,this.worldProfileId,timelineId);}
+  completeCuration(args,timelineId){return completeCuration(this.#db,args,this.worldProfileId,timelineId);}
+  retryCuration(args,timelineId){return retryCuration(this.#db,args,this.worldProfileId,timelineId);}
+  releaseCuration(args,timelineId){return releaseCuration(this.#db,args,this.worldProfileId,timelineId);}
+  reserveCurationBudget(args,budget){return reserveCurationBudget(this.#db,args,this.worldProfileId,budget);}
+  finishCurationBudget(args,state){return finishCurationBudget(this.#db,args,this.worldProfileId,state);}
   readDialogueLines(scope){if(!this.#db)fail('sqlite_profile_uninitialized');return readDialogue(this.#db,scope,this.worldProfileId);}
   findExactQuote(scope){if(!this.#db)fail('sqlite_profile_uninitialized');return findExactQuote(this.#db,scope,this.worldProfileId);}
   searchDialogue(scope){if(!this.#db)fail('sqlite_profile_uninitialized');return searchDialogue(this.#db,scope,this.worldProfileId);}
