@@ -29,17 +29,19 @@ function validDelivery(delivery) {
     Object.keys(delivery).every(key => ['version','value','source','confidence','intensity','evidenceRef'].includes(key));
 }
 function speechTextForSocket(dialogue, delivery, mode, renderSpeech) {
-  if (mode !== 'experimental' || !validDelivery(delivery) || typeof renderSpeech !== 'function')
-    return {text: dialogue, tagged: false};
-  // Only accept exactly one approved prefix attached to unchanged canonical text.
-  // An EA0 renderer that strips suspicious bracket markup can simply decline to
-  // tag it; the integration reviewer can extend this validation after EA0 lands.
+  // Only experimental mode is permitted to modify the original provider input.
+  // In that mode, even untagged text must not smuggle raw vendor commands.
+  if (mode !== 'experimental') return {text: dialogue, tagged: false};
+  const safeText = dialogue.replaceAll('[', '\u201c').replaceAll(']', '\u201d');
+  if (!validDelivery(delivery) || typeof renderSpeech !== 'function')
+    return {text: safeText, tagged: false};
   try {
-    const rendered = renderSpeech({dialogue, delivery, enabled:true});
-    if (rendered === ALLOWED_TAG[delivery.value] + dialogue && rendered.length <= 3000)
+    const rendered = renderSpeech({dialogue, delivery, enabled: true});
+    const allowed = ALLOWED_TAG[delivery.value] + safeText;
+    if (rendered === allowed && rendered.length <= 3000)
       return {text: rendered, tagged: true};
-  } catch { /* An invalid renderer is a neutral fallback, not a failed call. */ }
-  return {text: dialogue, tagged: false};
+  } catch { /* Fail closed to a sanitized, untagged TTS copy. */ }
+  return {text: safeText, tagged: false};
 }
 
 function fault(code, cause) {

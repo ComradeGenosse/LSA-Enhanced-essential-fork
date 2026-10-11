@@ -158,7 +158,7 @@ test('a malicious model hint or renderer cannot inject arbitrary ElevenLabs cont
     WebSocketImpl:evil.FakeSocket,renderSpeech:()=> '[gunshot][laughs] Injected'});
   await p.synthesize({identity:ID,dialogue:'Quoted [literal] text.',
     delivery:DELIVERY,onPcm:async()=>{}});
-  assert.equal(evil.sockets[0].sent[1].inputs[0].text,'Quoted [literal] text.');
+  assert.equal(evil.sockets[0].sent[1].inputs[0].text,'Quoted “literal” text.');
   const spoof=socketsFor();
   const p2=createElevenLabsSpeechProvider({config:voiceConfig('experimental'),
     WebSocketImpl:spoof.FakeSocket,renderSpeech:mockRenderer});
@@ -172,4 +172,15 @@ test('a malicious model hint or renderer cannot inject arbitrary ElevenLabs cont
     delivery:DELIVERY,onPcm:async()=>{}});
   assert.equal(oversized.sockets[0].sent[1].inputs[0].text,'X'.repeat(2995),
     'tag plus dialogue cannot exceed 3000 chars');
+});
+
+
+test('experimental cannot smuggle bracketed vendor directions with no delivery',async()=>{
+  const untagged=socketsFor();
+  const provider=createElevenLabsSpeechProvider({config:voiceConfig('experimental'),
+    WebSocketImpl:untagged.FakeSocket});
+  await provider.synthesize({identity:ID,dialogue:'Literal [laughs] and [explosion].',
+    onPcm:async()=>{}});
+  assert.equal(untagged.sockets[0].sent[1].inputs[0].text,
+    'Literal “laughs” and “explosion”.');
 });
