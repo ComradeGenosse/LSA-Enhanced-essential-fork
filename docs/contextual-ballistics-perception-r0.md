@@ -1,7 +1,15 @@
 # Contextual Ballistics Perception — R0 branch and implementation sequence
 
 Branch: `feature/contextual-ballistics-perception-r0`, based on `main@c5da20a`.
-Status: **standalone tested code sketch, not wired into runtime, not deployed or GTA-accepted**.
+Status: **R1 and bounded R2 bullet-callback attribution wired in code; other ballistics inputs still planned; not deployed or GTA-accepted**.
+
+## Current implementation update — October 10
+
+**Implemented on this branch, not deployed:** R1 player attribution now flows from the original PS2 visually witnessed source and the current single native player anchor through PS4 and the existing bounded PS6 Director context. Audio-only witnesses never gain source identity. A native damage callback is now checked for *near-time visual target visibility* on the GTA owner fiber (at most 150ms after receipt), without granting attacker knowledge. PS2 also retains at most 64 same-observer visually witnessed source proofs for 750ms and may join an exact bullet-class ped-damage callback to an already witnessed firing source. The frozen PS4 knowledge and existing PS6 context can then say the player shot and injured someone, subject to all other unchanged gates.
+
+**Still not implemented or GTA-verified:** impact normals/material classification (wall/ground/car), per-bullet round counts, reliable skyward trajectory, body-bone linkage, precise hit location, robust multi-weapon ballistic attribution, and material-death causality. The standalone R0 `projectContextualBallistics` surface/body evidence renderer is deliberately not production-authoritative. The source-witness join helper from that file **is** integrated into PS2. Current DamageTracker callback live availability was historically unproven; code changes do not establish that it runs in GTA Enhanced. No new config flag or inference provider has been activated.
+
+Acceptance requires source-matched native Windows build, offline tests, and a controlled in-game callback/witness probe before enabling or claiming physical accuracy. This scope intentionally does not change PS5 experiential memory, PS6 rate ceilings, Essential arbitration, or player conversation priority.
 
 ## Architecture
 
