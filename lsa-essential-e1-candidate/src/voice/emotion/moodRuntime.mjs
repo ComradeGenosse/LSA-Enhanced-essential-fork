@@ -15,7 +15,11 @@ export function createMoodRuntime({ getRuntime, protagonistAuthority = null,
   if (typeof getRuntime !== 'function') throw new TypeError('mood_runtime_required');
   let lastLineage = null;
   const deny = () => {store.clear();lastLineage=null;return null;};
-  const current = ({identity,turn} = {}) => {
+  const current = ({identity,turn} = {}, { forRetirement = false } = {}) => {
+    // A stale turn's finally/cancellation must not wipe mood legitimately
+    // recorded by a newer native turn. Reads/commits still fail closed and
+    // flush state if the live authority cannot be established.
+    const reject = () => forRetirement ? null : deny();
     const runtime = getRuntime();
     const identityService = runtime?.identityService;
     const characterStore = runtime?.characterService?.store;
@@ -28,23 +32,23 @@ export function createMoodRuntime({ getRuntime, protagonistAuthority = null,
         !isUuid(characterStore?.activeTimelineId) ||
         typeof protagonistAuthority?.readVerified !== 'function' ||
         typeof protagonistAuthority?.isCurrent !== 'function' ||
-        !perception || !identityService) return deny();
+        !perception || !identityService) return reject();
     const host = identityService.evidence?.hostContext;
-    if (!sameHostContext(host,perception.hostContext)) return deny();
+    if (!sameHostContext(host,perception.hostContext)) return reject();
     const ownerEvidence = projectActingEvidence({
       identity,turn,perception,identityService,
     });
     if (!ownerEvidence || ownerEvidence.identity.characterId !==
-        turn.characterSnapshot.resolution?.characterId) return deny();
+        turn.characterSnapshot.resolution?.characterId) return reject();
     let verified;
-    try { verified = protagonistAuthority.readVerified(); } catch { return deny(); }
+    try { verified = protagonistAuthority.readVerified(); } catch { return reject(); }
     if (!verified || !Object.isFrozen(verified) || verified.version !== 1 ||
         verified.source !== 'native_player_model' ||
         !PROTAGONISTS.has(verified.protagonist) ||
         !isUuid(verified.hostRunId) || verified.hostRunId !== host.hostRunId ||
         verified.worldEpoch !== host.worldEpoch ||
         !Number.isSafeInteger(verified.revision) || verified.revision < 1 ||
-        (()=>{try{return protagonistAuthority.isCurrent(verified)===true;}catch{return false;}})() !== true) return deny();
+        (()=>{try{return protagonistAuthority.isCurrent(verified)===true;}catch{return false;}})() !== true) return reject();
     const lineage = JSON.stringify([characterStore.activeTimelineId,host.hostRunId,
       host.worldEpoch,verified.protagonist,verified.revision]);
     // Revocation, protagonist ABA, save switch and host rollover clear old mood.
@@ -113,8 +117,11 @@ export function createMoodRuntime({ getRuntime, protagonistAuthority = null,
       // Completion retains its just-played soft tendency for one subsequent
       // turn. Failed/cancelled turns revoke any tendency consumed by this turn.
       if (completed === true) return;
-      const context=current({identity,turn});
-      if (!context) {store.clear();return;}
+      const context=current({identity,turn},{forRetirement:true});
+      // Missing/retired proof for this OLD turn is not evidence to clear a
+      // NEWER turn. Actual global host/save/source revocations call clear(),
+      // and any later read/commit also flushes on missing authority.
+      if (!context) return;
       store.invalidate({context,scope:'turn'});
     },
     clear() { lastLineage=null;store.clear(); },
