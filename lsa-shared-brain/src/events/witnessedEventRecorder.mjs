@@ -2,7 +2,7 @@
 // withTimelineWrite MUST be the M1 serialized write fence; never call a port
 // outside that fence. Authorization is rechecked at commit time.
 import { immutableSnapshot } from '../util/identity.mjs';
-import { normalizeWitnessedObservation, samePhysicalOwner, validatePs2MemoryInput } from './journalEventNormalizer.mjs';
+import { normalizeWitnessedObservation, samePhysicalOwner, validatePs2MemoryInput, verifyM3DerivedEvent } from './journalEventNormalizer.mjs';
 
 const MAX_GRACE=128, GRACE_MS=120000, MAX_SEEN=1024;
 const isPromise=x=>x && typeof x.then==='function';
@@ -18,12 +18,13 @@ const matchesCandidate=(proof,candidate)=>!!proof && !!candidate &&
   samePhysicalOwner(proof.ownerProof,candidate.ownerProof);
 const accepted = result => result?.inserted===true || result?.duplicate===true;
 export class WitnessedEventRecorder {
-  #authorize; #withTimelineWrite; #port; #now; #grace=[]; #seen=new Map();
-  constructor({authorize,withTimelineWrite,journalPort,now=()=>Math.floor(performance.now())}={}) {
+  #authorize; #authorizeCoverage; #withTimelineWrite; #port; #now; #grace=[]; #seen=new Map();
+  constructor({authorize,authorizeCoverage=null,withTimelineWrite,journalPort,now=()=>Math.floor(performance.now())}={}) {
     if(typeof authorize!=='function' || typeof withTimelineWrite!=='function' ||
        typeof journalPort?.append!=='function' || typeof now!=='function')
       throw new TypeError('m3_requires_authoritative_source_and_journal_ports');
-    this.#authorize=authorize; this.#withTimelineWrite=withTimelineWrite;
+    this.#authorize=authorize;this.#authorizeCoverage=authorizeCoverage;
+    this.#withTimelineWrite=withTimelineWrite;
     this.#port=journalPort;this.#now=now;
   }
   reset(){this.#grace=[];this.#seen.clear();}
@@ -64,6 +65,8 @@ export class WitnessedEventRecorder {
         return {accepted:false,reason:'owner_not_current'};
       const result=normalizeWitnessedObservation({observation,identity,participantProofs:identity.participantProofs??[]});
       if(!result.accepted)return result;
+      if(!verifyM3DerivedEvent(result.event,result.sourceEvidence).valid)
+        throw new Error('m3_source_derivation_mismatch');
       const committed=sync(this.#port.append({event:result.event,sourceEvidence:result.sourceEvidence},db,snapshot));
       if(!accepted(committed)) throw new Error('m3_journal_commit_unconfirmed');
       return {accepted:true,inserted:committed.inserted===true,duplicate:committed.duplicate===true,
@@ -77,11 +80,16 @@ export class WitnessedEventRecorder {
     this.#trim();
     if(!candidate?.timelineId)return {accepted:false,reason:'timeline_not_selected',imported:0};
     let imported=0,duplicates=0,rejected=0;
+    // Multiple observers can be waiting for separate promotions. Importing A
+    // must not consume B's pre-promotion evidence.
+    const batch=this.#grace.filter(entry=>
+      samePhysicalOwner(entry.prePromotionProof,candidate.ownerProof)&&
+      entry.adapterEpoch===candidate.adapterEpoch);
     // Snapshot because another native intake could retire/replace this buffer.
-    for(const entry of [...this.#grace]){
+    for(const entry of batch){
       if(this.#now()<entry.capturedAt || this.#now()-entry.capturedAt>GRACE_MS)continue;
       const outcome=await this.#withTimelineWrite(candidate.timelineId,(db,snapshot)=>{
-        const identity=sync(this.#authorize({observation:entry.observation,candidate,stage:'promotion_commit'}));
+        const identity=sync(this.#authorize({observation:entry.observation,candidate,stage:'promotion_commit',prePromotionProof:entry.prePromotionProof}));
         if(!identity || !matchesCandidate(identity,candidate) || !identity.promoted ||
            !samePhysicalOwner(identity.ownerProof,entry.prePromotionProof) ||
            identity.adapterEpoch!==entry.adapterEpoch) return {accepted:false,reason:'grace_owner_mismatch'};
@@ -89,6 +97,8 @@ export class WitnessedEventRecorder {
           observation:entry.observation,identity,participantProofs:identity.participantProofs??[],prePromotionProof:entry.prePromotionProof
         });
         if(!normalized.accepted)return normalized;
+        if(!verifyM3DerivedEvent(normalized.event,normalized.sourceEvidence).valid)
+          throw new Error('m3_source_derivation_mismatch');
         const status=sync(this.#port.append({event:normalized.event,sourceEvidence:normalized.sourceEvidence},db,snapshot));
         if(!accepted(status))throw new Error('m3_journal_commit_unconfirmed');
         return {accepted:true,inserted:status.inserted===true,duplicate:status.duplicate===true};
@@ -96,27 +106,35 @@ export class WitnessedEventRecorder {
       if(outcome.accepted){imported+=Number(outcome.inserted);duplicates+=Number(outcome.duplicate);}
       else rejected++;
     }
-    // Zeroize after one cutover attempt: do not rebind old NPC histories later.
-    this.#grace=[];
+    // Remove only this native owner after a completed attempt. Failed SQL
+    // raises before here and remains retryable until the two-minute TTL.
+    const handled=new Set(batch);
+    this.#grace=this.#grace.filter(entry=>!handled.has(entry));
     return {accepted:true,imported,duplicates,rejected};
   }
-  // Negative witness coverage is not a journalEvent and can NEVER be recalled
-  // as a positive witness assertion. M2 can persist it through a separate port.
-  async recordNegativeCoverage({candidate,observationId,status,reason}={}) {
-    if(!['did_not_witness','unknown','unavailable'].includes(status) || typeof reason!=='string' ||
-       !candidate?.timelineId || typeof this.#port.recordCoverage!=='function')
+  // Negative coverage has its own durable SQL table; never transform it into a
+  // journalEvent. Only a separately verified native coverage receipt may
+  // establish did_not_witness, and missing data is unavailable, never negative.
+  async recordNegativeCoverage({candidate,observationId,status,reason='',coverageReceipt=null}={}){
+    if(!['did_not_witness','unknown','unavailable'].includes(status)||
+       typeof reason!=='string'||reason.length>80||
+       !candidate?.timelineId||!this.#port.recordCoverage||
+       typeof this.#authorizeCoverage!=='function')
       return {accepted:false,reason:'negative_coverage_not_supported'};
     return await this.#withTimelineWrite(candidate.timelineId,(db,snapshot)=>{
-      const identity=sync(this.#authorize({observation:null,candidate,stage:'coverage_commit'}));
-      if(!identity?.promoted || !matchesCandidate(identity,candidate))
-        return {accepted:false,reason:'owner_not_current'};
+      const identity=sync(this.#authorizeCoverage({candidate,coverageReceipt,status}));
+      if(!identity?.promoted||!matchesCandidate(identity,candidate))
+        return {accepted:false,reason:'coverage_owner_not_current'};
+      if(status==='did_not_witness'&&!identity.nativeCoverage?.certified)
+        return {accepted:false,reason:'native_negative_not_certified'};
       const record=immutableSnapshot({
         characterId:identity.characterId,worldProfileId:identity.worldProfileId,
-        timelineId:identity.timelineId,observationId:observationId??null,
-        status,reason:reason.slice(0,80),ownerProof:identity.ownerProof
+        timelineId:identity.timelineId,observationId,status,reason,
+        ownerProof:identity.ownerProof,nativeCoverage:identity.nativeCoverage??null
       });
-      sync(this.#port.recordCoverage(record,db,snapshot));
-      return {accepted:true,status};
+      const receipt=sync(this.#port.recordCoverage(record,db,snapshot));
+      if(!accepted(receipt))throw new Error('m3_coverage_commit_unconfirmed');
+      return {accepted:true,status,inserted:receipt.inserted===true,duplicate:receipt.duplicate===true};
     });
   }
 }
