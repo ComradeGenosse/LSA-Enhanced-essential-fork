@@ -26,6 +26,8 @@ jobs:
           node-version: '22'
       - name: Run native PCM, conversation and transport tests
         run: node --test lsa-standalone-companion/tests/*.test.mjs
+      - name: Validate Qwen sidecar Python syntax without downloading models
+        run: python -c "import ast, pathlib; ast.parse(pathlib.Path('lsa-standalone-companion/tools/qwen/lsa_qwen_server.py').read_text(encoding='utf-8'))"
 
   net481-audio:
     runs-on: windows-latest
@@ -65,14 +67,16 @@ jobs:
         shell: pwsh
         run: |
           $exe = (Resolve-Path 'native/standalone-host/tests/bin/Release/net481/Phase2PipeHarness.exe').Path
-          foreach ($mode in @('direct_fixture','loopback_responses','pcm_escrow','pcm_rolling','tts_http')) {
+          foreach ($mode in @('direct_fixture','loopback_responses','pcm_escrow','pcm_rolling','tts_http','qwen_http')) {
             # Each mode gets its own genuine native host process and lease;
             # no cancelled native turn is silently replayed between fixtures.
             $hostProcess = Start-Process -FilePath $exe -PassThru
             try {
               $ok = $false
               for ($attempt = 1; $attempt -le 12; $attempt++) {
-                if ($mode -eq 'tts_http') {
+                if ($mode -eq 'qwen_http') {
+                  node lsa-standalone-companion/tools/audio-qwen-http-fixture.mjs
+                } elseif ($mode -eq 'tts_http') {
                   node lsa-standalone-companion/tools/audio-tts-http-fixture.mjs
                 } elseif ($mode -eq 'pcm_rolling') {
                   node lsa-standalone-companion/tools/audio-rolling-fixture.mjs
