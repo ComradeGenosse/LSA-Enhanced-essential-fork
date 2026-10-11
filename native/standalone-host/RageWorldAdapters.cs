@@ -58,6 +58,10 @@ namespace LSA.Standalone.RageHost
         private readonly bool enabled;
         private readonly RandomNumberGenerator entropy = RandomNumberGenerator.Create();
         private bool decoratorsAvailable;
+        public bool IsPhysicalActorProofEnabled
+        {
+            get { DemandOwner(); return enabled && decoratorsAvailable; }
+        }
 
         public RageActorResolver(IOwnerContext owner, bool allowExperimentalAdoption)
         {
