@@ -240,11 +240,34 @@ test('M2 journal detects post-commit content tampering without leaking text in t
 
 function bindM2(x,id,{protagonist='franklin',sessionId=null}={}) {
   const state={live:true,protagonist};
-  const capture=createM2TurnCapture({
-    store:x.store,characterId:x.a.characterId,identity:turn(id),protagonist,
+  const identity=turn(id);
+  const nativeProof=()=>({current:state.live,nativeVerified:true,identity,
+    characterId:x.a.characterId,ownerAlias:x.a.promotion.ownerAlias,
+    hostRunId:x.store.verifiedHostContext?.hostRunId,
+    worldEpoch:x.store.verifiedHostContext?.worldEpoch,
+    protagonistKey:state.protagonist,incarnationId:'2ed7962c-a0cb-4b00-9e3b-291ab9bf8f82',
+    encounterId:'ad15aa65-4357-457d-a2b6-6f9148d6c2fb',observerIndex:2});
+  const raw=createM2TurnCapture({
+    store:x.store,characterId:x.a.characterId,identity,protagonist,
     ownerAlias:x.a.promotion.ownerAlias,sessionId,
     isCurrent:()=>state.live,currentProtagonist:()=>state.protagonist,
+    verifyNative:nativeProof,
+    verifyAcceptedPlayer:({identity,source,text})=>({accepted:true,final:true,identity,source,text}),
+    verifyCompletedPlayback:({identity,receipt})=>({identity,receipt,nativeVerified:true,
+      historyAccepted:true,speechVerified:true}),
   });
+  const capture={
+    recordPlayerAccepted:args=>raw.recordPlayerAccepted(args),
+    retire:()=>raw.retire(),
+    recordNpcCompleted:args=>{
+      const mode=args.mode??'buffered';
+      const parts=mode==='early_streamed'?args.spokenSegments:[args.text];
+      const speechProof={sealed:true,mode,identity,segments:(parts||[]).map((text,sequence)=>({
+        sequence,text,providerCompleted:true,audioBytes:64,forwardedBytes:64
+      }))};
+      return raw.recordNpcCompleted({...args,speechProof});
+    }
+  };
   return {capture,state};
 }
 
@@ -324,7 +347,8 @@ test('M2 completion never silently rebinds old turns across disconnected host, r
     assert.equal((await old.recordPlayerAccepted({accepted:true,source:'typed',text:'offline'})).status,'not_stored');
     x.store.setVerifiedHostContext(x.host);
     await x.store.confirmTimeline(x.timeline);
-    assert.equal((await old.recordPlayerAccepted({accepted:true,source:'typed',text:'reconnected'})).status,'stored');
+    assert.equal((await old.recordPlayerAccepted({accepted:true,source:'typed',text:'reconnected'})).status,'not_stored',
+      'once a suspended host was observed an old capture cannot resurrect');
     x.store.setVerifiedHostContext(native(x.host.hostRunId,2));
     await x.store.confirmTimeline(x.timeline);
     assert.equal((await old.recordPlayerAccepted({accepted:true,source:'typed',text:'new epoch same turn'})).reason,'m2_host_epoch_changed');
@@ -335,7 +359,7 @@ test('M2 completion never silently rebinds old turns across disconnected host, r
     assert.equal((await fresh.recordNpcCompleted({historyAccepted:true,
       text:'delayed from other timeline',receipt:receipt(turn('fresh-host'))})).reason,
       'timeline_write_suspended');
-    assert.equal((await read(x)).length,2);
+    assert.equal((await read(x)).length,1);
   }finally{await x.store.close();}
 });
 test('M2 completion catches queued retirement at SQLite commit boundary, not only hook time',async t=>{
