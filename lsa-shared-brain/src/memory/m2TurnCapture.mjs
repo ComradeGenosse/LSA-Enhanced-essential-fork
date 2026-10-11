@@ -6,6 +6,33 @@ import {isUuid} from '../util/identity.mjs';
 const fail = code => { throw new Error(code); };
 const protagonists = new Set(['franklin','michael','trevor','unknown']);
 const identityKeys = ['pedId','turnId','generationId','sessionNonce'];
+const sameIdentity=(a,b)=>validIdentity(a)&&validIdentity(b)&&
+  identityKeys.every(k=>a[k]===b[k]);
+const fullNativeProof=(p,{identity,characterId,ownerAlias,host,protagonist})=>
+  p?.nativeVerified===true&&p.current===true&&
+  p.characterId===characterId&&p.ownerAlias===ownerAlias&&
+  p.hostRunId===host.hostRunId&&p.worldEpoch===host.worldEpoch&&
+  p.protagonistKey===protagonist&&sameIdentity(p.identity,identity)&&
+  isUuid(p.incarnationId)&&isUuid(p.encounterId)&&
+  Number.isSafeInteger(p.observerIndex)&&p.observerIndex>=0;
+const validSpeechProof=(p,mode,text,spokenSegments,identity)=>{
+  if(!p||p.sealed!==true||p.mode!==mode||!sameIdentity(p.identity,identity)||
+     !Array.isArray(p.segments)||p.segments.length<1||p.segments.length>128)return false;
+  if(mode==='buffered'&&p.segments.length!==1)return false;
+  if(mode==='early_streamed'&&
+     (!Array.isArray(spokenSegments)||spokenSegments.length!==p.segments.length))return false;
+  let content='';
+  for(let i=0;i<p.segments.length;i++){
+    const segment=p.segments[i];
+    if(segment.sequence!==i||typeof segment.text!=='string'||!segment.text||
+       segment.providerCompleted!==true||
+       !Number.isSafeInteger(segment.audioBytes)||segment.audioBytes<=0||
+       segment.forwardedBytes!==segment.audioBytes||
+       (mode==='early_streamed'&&segment.text!==spokenSegments[i]))return false;
+    content+=segment.text;
+  }
+  return content===text;
+};
 const validIdentity = identity => !!identity && identityKeys.every(k =>
   identity[k] !== null && identity[k] !== undefined &&
   String(identity[k]).length > 0 && String(identity[k]).length <= 128);
@@ -39,13 +66,17 @@ const capture = async operation => {
  */
 export function createM2TurnCapture({
   store, characterId, identity, ownerAlias, protagonist='unknown',
-  isCurrent, currentProtagonist, sessionId=null,
+  isCurrent, currentProtagonist, verifyNative, verifyAcceptedPlayer,
+  verifyCompletedPlayback, sessionId=null,
 }={}) {
   if (!store || typeof store.withTimelineWrite !== 'function' ||
       typeof store.get !== 'function' || typeof store.appendDialogueLine !== 'function')
     throw new TypeError('m2_shared_store_required');
   if (!isUuid(characterId) || !validIdentity(identity) ||
       typeof isCurrent !== 'function' || typeof currentProtagonist !== 'function' ||
+      typeof verifyNative !== 'function' ||
+      typeof verifyAcceptedPlayer !== 'function' ||
+      typeof verifyCompletedPlayback !== 'function' ||
       !protagonists.has(protagonist) || (sessionId !== null && !isUuid(sessionId)))
     throw new TypeError('m2_verified_turn_required');
   const frozenIdentity = Object.freeze(Object.fromEntries(identityKeys.map(k => [k, identity[k]])));
@@ -60,19 +91,60 @@ export function createM2TurnCapture({
       profile?.promotion?.ownerAlias !== boundAlias)
     throw new Error('m2_source_unconfirmed');
   const origin = Object.freeze({hostRunId:host.hostRunId,worldEpoch:host.worldEpoch});
+  const verifiedArgs={identity:frozenIdentity,characterId,ownerAlias:boundAlias,
+    host:origin,protagonist};
+  // Native proof must be synchronous and source-qualified. A caller's isCurrent
+  // Boolean (even if true) has no recording authority without this proof.
+  function readNativeProof(){
+    let proof;
+    try{proof=verifyNative();}catch{fail('m2_native_owner_unverified');}
+    if(proof&&typeof proof.then==='function')fail('m2_native_owner_unverified');
+    if(!fullNativeProof(proof,verifiedArgs))fail('m2_native_owner_unverified');
+    return proof;
+  }
+  const initial=readNativeProof();
+  const nativeLifetime=Object.freeze({incarnationId:initial.incarnationId,
+    encounterId:initial.encounterId,observerIndex:initial.observerIndex});
+  function verifyAcceptedLine(line){
+    let accepted;
+    try{accepted=verifyAcceptedPlayer({identity:frozenIdentity,source:line.source,
+      text:line.content});}catch{fail('m2_player_source_unverified');}
+    if(!accepted||typeof accepted.then==='function'||
+       accepted.accepted!==true||accepted.final!==true||
+       accepted.source!==line.source||accepted.text!==line.content||
+       !sameIdentity(accepted.identity,frozenIdentity))
+      fail('m2_player_source_unverified');
+  }
+  function verifyPlayedLine(line,receipt,speechProof){
+    let played;
+    try{played=verifyCompletedPlayback({identity:frozenIdentity,receipt,
+      speechProof,text:line.content});}catch{fail('m2_playback_source_unverified');}
+    if(!played||typeof played.then==='function'||played.nativeVerified!==true||
+       played.historyAccepted!==true||played.speechVerified!==true||
+       !sameIdentity(played.identity,frozenIdentity)||
+       played.receipt!==receipt)
+      fail('m2_playback_source_unverified');
+  }
   let retired = false;
 
   function assertBoundTurn() {
     if (retired || !isCurrent()) fail('m2_turn_retired');
-    if (currentProtagonist() !== protagonist) fail('m2_protagonist_changed');
+    if (currentProtagonist() !== protagonist) {retired=true;fail('m2_protagonist_changed');}
     if (store.worldProfileId !== worldProfileId ||
         store.activeTimelineId !== timelineId ||
-        store.timelineWritable !== true) fail('timeline_write_suspended');
+        store.timelineWritable !== true) {retired=true;fail('timeline_write_suspended');}
     const currentHost = store.verifiedHostContext;
     if (!currentHost || currentHost.hostRunId !== origin.hostRunId ||
-        currentHost.worldEpoch !== origin.worldEpoch) fail('m2_host_epoch_changed');
-    if (store.get(characterId)?.promotion?.ownerAlias !== boundAlias)
-      fail('m2_owner_retired');
+        currentHost.worldEpoch !== origin.worldEpoch) {retired=true;fail('m2_host_epoch_changed');}
+    if (store.get(characterId)?.promotion?.ownerAlias !== boundAlias) {
+      retired=true;fail('m2_owner_retired');
+    }
+    const now=readNativeProof();
+    if(now.incarnationId!==nativeLifetime.incarnationId||
+       now.encounterId!==nativeLifetime.encounterId||
+       now.observerIndex!==nativeLifetime.observerIndex){
+      retired=true;fail('m2_native_lifetime_changed');
+    }
   }
 
   // The wrapper is intentionally limited to the recorder's existing interface.
@@ -82,7 +154,7 @@ export function createM2TurnCapture({
     worldProfileId, activeTimelineId:timelineId,
     verifiedHostContext:origin,
     get: id => id === characterId ? profile : null,
-    appendDialogueLine(line, attribution) {
+    appendDialogueLine(line, attribution,proofContext) {
       assertBoundTurn();
       if (line?.characterId !== characterId ||
           line.worldProfileId !== worldProfileId ||
@@ -92,12 +164,17 @@ export function createM2TurnCapture({
           attribution?.protagonist !== protagonist) fail('m2_binding_mismatch');
       return store.withTimelineWrite(timelineId, foundation => {
         assertBoundTurn();
+        if(line.speaker==='player')verifyAcceptedLine(line);
+        else if(line.speaker==='npc')verifyPlayedLine(line,proofContext?.receipt,proofContext?.speechProof);
+        else fail('m2_binding_mismatch');
         if (typeof foundation.appendDialogueLine !== 'function')
           fail('m2_journal_writer_missing');
         return foundation.appendDialogueLine(line,attribution);
       });
     },
   };
+  // Recorder writes flow through this same boundStore. Per-call context cannot
+  // be kept in mutable shared state because M1 may delay queued callbacks.
   const recorder = createConversationJournalRecorder(boundStore);
   const attribution = Object.freeze({
     protagonist,hostRunId:origin.hostRunId,worldEpoch:origin.worldEpoch,
@@ -112,13 +189,14 @@ export function createM2TurnCapture({
       return capture(() => {
         if (accepted !== true) fail('m2_player_not_accepted');
         assertBoundTurn();
+        verifyAcceptedLine({source,content:text});
         return recorder.recordPlayerAccepted({characterId,identity:frozenIdentity,
           text,source,utteranceId,transcription:transcription===null ? null :
             {...transcription},committedAtUtc,attribution});
       });
     },
     recordNpcCompleted({historyAccepted=false,text,receipt,mode='buffered',
-      spokenSegments=null,committedAtUtc}={}) {
+      spokenSegments=null,speechProof=null,committedAtUtc}={}) {
       // For early streamed audio, H must pass the exact ordered text actually
       // submitted to TTS. Final Luna output is not independently playback proof.
       return capture(() => {
@@ -129,9 +207,16 @@ export function createM2TurnCapture({
             (!Array.isArray(spokenSegments) || spokenSegments.length < 1 ||
              !spokenSegments.every(s=>typeof s==='string') ||
              spokenSegments.join('') !== text)) fail('m2_stream_text_mismatch');
+        if(!validSpeechProof(speechProof,mode,text,spokenSegments,frozenIdentity))
+          fail('m2_speech_proof_incomplete');
+        verifyPlayedLine({content:text},receipt,speechProof);
         assertBoundTurn();
-        return recorder.recordNpcCompleted({characterId,identity:frozenIdentity,
-          text,receipt,attribution,committedAtUtc});
+        // The recorder's direct writer must bind the proof to the queued
+        // insert, not a mutable "current speech" on the capture instance.
+        const verifiedStore=Object.create(boundStore);
+        verifiedStore.appendDialogueLine=(line,attrs)=>boundStore.appendDialogueLine(line,attrs,{receipt,speechProof});
+        return createConversationJournalRecorder(verifiedStore).recordNpcCompleted({
+          characterId,identity:frozenIdentity,text,receipt,attribution,committedAtUtc});
       });
     },
     // H must retire on owner loss, supersession, abort, protagonist change,

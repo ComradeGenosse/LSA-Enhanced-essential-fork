@@ -26,6 +26,7 @@ function scope(store,characterId,identity,attribution){
   if(!isUuid(characterId)||!acceptedIdentity(identity))fail('journal_invalid_turn_identity');
   if(!store?.activeTimelineId||!isUuid(store.activeTimelineId))fail('timeline_write_suspended');
   if(!store.get(characterId))fail('journal_character_not_promoted');
+  if(!isUuid(store.worldProfileId))fail('journal_invalid_world');
   return {worldProfileId:store.worldProfileId,timelineId:store.activeTimelineId,
     attribution:attrs(identity,attribution,store.verifiedHostContext)};
 }
@@ -33,6 +34,10 @@ const validateText=text=>{
   // NEVER .trim(), sanitize, or truncate the accepted source string.
   if(typeof text!=='string'||text.length<1||text.length>12000||!text.trim())
     fail('journal_invalid_verbatim');
+  // SQLite stores UTF-8, not JS UTF-16. An unpaired surrogate would silently
+  // become U+FFFD and would not be a byte-exact transcription.
+  if(Buffer.from(text,'utf8').toString('utf8')!==text)
+    fail('journal_invalid_utf8');
   return text;
 };
 export function createConversationJournalRecorder(store){
