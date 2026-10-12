@@ -77,7 +77,7 @@ export class SharedJournalRecallAdapter{
       if(suppressed.has(envelope?.recordId)||corrected.has(envelope?.recordId))return;
       if(!envelope||envelope.characterId!==scope.characterId||
          envelope.worldProfileId!==scope.worldProfileId||envelope.timelineId!==scope.timelineId||
-         protagonistKey!==scope.protagonistKey||typeof atUtc!=='string'||
+         typeof atUtc!=='string'||
          (fromUtc&&atUtc<fromUtc)||(toUtc&&atUtc>=toUtc)||
          (speaker&&sourceKind==='dialogue_line'&&envelope.speaker!==speaker))return;
       unique.set(envelope.recordId,{characterId:scope.characterId,worldProfileId:scope.worldProfileId,
@@ -108,7 +108,7 @@ export class SharedJournalRecallAdapter{
       for(const e of events){
         // M3 has no trusted controlling-protagonist field yet. Do not silently
         // assign a native event to Franklin/Michael/Trevor by proximity.
-        if(scope.protagonistKey!=='unknown')continue;
+        // Historical events require proof, not an assumed controlling avatar.
         const evidence=await this.store.readVerifiedEventEvidence({
           characterId:scope.characterId,timelineId:scope.timelineId,recordId:e.recordId});
         if(!evidence||evidence.event.sourceHash!==e.sourceHash)continue;
