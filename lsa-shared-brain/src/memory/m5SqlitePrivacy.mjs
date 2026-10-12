@@ -11,7 +11,9 @@ const fail = code => { throw new Error(code); };
 const timestamp = value => typeof value==='string' && Number.isFinite(Date.parse(value));
 const protagonists = new Set(['franklin','michael','trevor','unknown']);
 const scopeKey = s => [s.worldProfileId,s.characterId,s.timelineId,s.protagonistKey??'unknown'];
-const scopeWhere = 'world_profile_id=? AND character_id=? AND timeline_id=? AND protagonist_key=?';
+const scopeWhere = 'world_profile_id=? AND character_id=? AND timeline_id=? AND protagonist_key=?'; // historical command provenance
+const ownerKey = s => [s.worldProfileId,s.characterId,s.timelineId];
+const ownerWhere = 'world_profile_id=? AND character_id=? AND timeline_id=?';
 const DAY = 86400000;
 const CLARIFY_MS = 5*60000;
 const sql = `
@@ -52,26 +54,24 @@ function evidence(db,s,id){
  if(!isUuid(id))return null;
  const args=[s.worldProfileId,s.characterId,s.timelineId,id];
  const dialogue=db.prepare('SELECT content,protagonist AS protagonistKey FROM dialogue_journal WHERE world_profile_id=? AND character_id=? AND timeline_id=? AND record_id=?').get(...args);
- if(dialogue && dialogue.protagonistKey===(s.protagonistKey??'unknown'))return {kind:'dialogue_line',content:dialogue.content};
+ if(dialogue)return {kind:'dialogue_line',content:dialogue.content};
  const memory=db.prepare('SELECT content,protagonist_key AS protagonistKey FROM memory_records WHERE world_profile_id=? AND character_id=? AND timeline_id=? AND memory_id=?').get(...args);
- if(memory && memory.protagonistKey===(s.protagonistKey??'unknown'))return {kind:'permanent_memory',content:memory.content};
- if((s.protagonistKey??'unknown')==='unknown'){
-   const event=db.prepare('SELECT e.envelope_json AS content FROM event_journal e JOIN event_source_evidence v ON v.record_id=e.record_id WHERE e.world_profile_id=? AND e.character_id=? AND e.timeline_id=? AND e.record_id=? AND e.receipt_status=?').get(...args,'witnessed');
+ if(memory)return {kind:'permanent_memory',content:memory.content};
+ const event=db.prepare('SELECT e.envelope_json AS content FROM event_journal e JOIN event_source_evidence v ON v.record_id=e.record_id WHERE e.world_profile_id=? AND e.character_id=? AND e.timeline_id=? AND e.record_id=? AND e.receipt_status=?').get(...args,'witnessed');
    if(event)return {kind:'journal_event',content:event.content};
- }
  return null;
 }
 function superseded(db,s,id){
- return !!db.prepare('SELECT c.command_id FROM memory_corrections c JOIN memory_commands m ON m.command_id=c.command_id WHERE c.world_profile_id=? AND c.character_id=? AND c.timeline_id=? AND m.protagonist_key=? AND c.target_id=? LIMIT 1')
-   .get(...scopeKey(s),id);
+ return !!db.prepare('SELECT c.command_id FROM memory_corrections c JOIN memory_commands m ON m.command_id=c.command_id WHERE c.world_profile_id=? AND c.character_id=? AND c.timeline_id=? AND c.target_id=? LIMIT 1')
+   .get(...ownerKey(s),id);
 }
 function activeTombstone(db,s,id) {
  return db.prepare('SELECT command_id AS commandId FROM memory_tombstones WHERE world_profile_id=? AND character_id=? AND timeline_id=? AND target_id=?').get(s.worldProfileId,s.characterId,s.timelineId,id);
 }
 function dependentIds(db,s,ids){
  const found=new Set(ids);
- const rows=db.prepare('SELECT memory_id AS id,evidence_ids_json AS sources FROM memory_records WHERE world_profile_id=? AND character_id=? AND timeline_id=? AND protagonist_key=?')
-   .all(...scopeKey(s));
+ const rows=db.prepare('SELECT memory_id AS id,evidence_ids_json AS sources FROM memory_records WHERE world_profile_id=? AND character_id=? AND timeline_id=?')
+   .all(...ownerKey(s));
  let grew=true;
  while(grew){
    grew=false;
@@ -84,8 +84,8 @@ function dependentIds(db,s,ids){
  return [...found];
 }
 function revokePendingClarifications(db,s,tainted){
-  for(const row of db.prepare('SELECT command_id AS id,state_json AS json,state_sha256 AS checksum FROM m5_clarifications WHERE '+scopeWhere)
-    .all(...scopeKey(s))){
+  for(const row of db.prepare('SELECT command_id AS id,state_json AS json,state_sha256 AS checksum FROM m5_clarifications WHERE '+ownerWhere)
+    .all(...ownerKey(s))){
     if(sha(row.json)!==row.checksum)fail('m5_clarification_corrupt');
     const pending=JSON.parse(row.json);
     if(tainted.has(pending.requestedByLineId) ||
@@ -125,13 +125,13 @@ export class M5SqliteServices{
      // Reconcile old M5 forget receipts under the same P2 transaction.
      // Tombstones already suppress recall; this records seven-day recovery.
      const forgotten=db.prepare('SELECT t.target_id AS targetId,'+
-       ' t.command_id AS commandId,t.created_at_utc AS createdAtUtc'+
+       ' t.command_id AS commandId,t.created_at_utc AS createdAtUtc,c.protagonist_key AS sourceAvatar'+
        ' FROM memory_tombstones t JOIN memory_commands c ON c.command_id=t.command_id'+
        ' WHERE t.world_profile_id=? AND t.character_id=? AND t.timeline_id=?'+
-       " AND c.protagonist_key=? AND c.operation='forget'").all(...scopeKey(scope));
+       " AND c.operation='forget'").all(...ownerKey(scope));
      const insert=db.prepare('INSERT OR IGNORE INTO m5_trash VALUES(?,?,?,?,?,?,?,?,?,NULL,NULL)');
      for(const item of forgotten)insert.run(item.commandId,item.commandId,item.targetId,
-       ...scopeKey(scope),item.createdAtUtc,
+       ...ownerKey(scope),item.sourceAvatar,item.createdAtUtc,
        new Date(Date.parse(item.createdAtUtc)+7*DAY).toISOString());
      return true;
    });
@@ -178,8 +178,8 @@ export class M5SqliteServices{
  async getClarification({scope,commandId,atUtc=null}){
    if(!isUuid(commandId))fail('m5_invalid_command');
    return this.#read(scope,db=>{
-     const row=db.prepare('SELECT state_json AS raw,state_sha256 AS checksum,expires_at_utc AS until,completed_at_utc AS done FROM m5_clarifications WHERE command_id=? AND '+scopeWhere)
-       .get(commandId,...scopeKey(scope));
+     const row=db.prepare('SELECT state_json AS raw,state_sha256 AS checksum,expires_at_utc AS until,completed_at_utc AS done FROM m5_clarifications WHERE command_id=? AND '+ownerWhere)
+     .get(commandId,...ownerKey(scope));
      if(!row || row.done || Date.parse(row.until)<=Date.parse(this.#clock())||
         atUtc&&(!timestamp(atUtc)||Date.parse(atUtc)>Date.parse(row.until)))return null;
      if(sha(row.raw)!==row.checksum)fail('m5_clarification_corrupt');
@@ -193,10 +193,10 @@ export class M5SqliteServices{
  async completeClarification({scope,commandId}){
    if(!isUuid(commandId))fail('m5_invalid_command');
    await this.#write(scope,db=>{
-     if(!db.prepare('SELECT command_id FROM memory_commands WHERE command_id=? AND world_profile_id=? AND character_id=? AND timeline_id=? AND protagonist_key=?')
-       .get(commandId,...scopeKey(scope)))fail('m5_uncommitted_resolution');
-     db.prepare('UPDATE m5_clarifications SET completed_at_utc=COALESCE(completed_at_utc,?) WHERE command_id=? AND '+scopeWhere)
-       .run(this.#clock(),commandId,...scopeKey(scope));
+     if(!db.prepare('SELECT command_id FROM memory_commands WHERE command_id=? AND world_profile_id=? AND character_id=? AND timeline_id=?')
+     .get(commandId,...ownerKey(scope)))fail('m5_uncommitted_resolution');
+     db.prepare('UPDATE m5_clarifications SET completed_at_utc=COALESCE(completed_at_utc,?) WHERE command_id=? AND '+ownerWhere)
+     .run(this.#clock(),commandId,...ownerKey(scope));
    });
    return true;
  }
