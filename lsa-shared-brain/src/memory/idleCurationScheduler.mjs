@@ -3,7 +3,7 @@
 import {randomUUID} from 'node:crypto';
 import {processIdleCuration} from './lunaCurator.mjs';
 import {isUuid} from './evidence.mjs';
-import {validateM7Consent,validateM7IdleProof,M7_OFF_CONSENT} from './m7Consent.mjs';
+import {validateM7Consent,validateM7IdleProof,validateM7PersistedApproval,M7_OFF_CONSENT} from './m7Consent.mjs';
 
 const empty=status=>Object.freeze({status,processed:0});
 const clockUtc=now=>{
@@ -33,7 +33,8 @@ export function createIdleCurationScheduler({store,queue,ledger,provider,
   consent=M7_OFF_CONSENT,nativeIdle=null,now=()=>Date.now(),ownerId=randomUUID(),
   maxBatch=4,leaseMs=90000,maxProviderMs=45000,maxAttempts=8,
   intervalMs=60000,minIntervalMs=30000,maxIdleProofAgeMs=3000,
-  onError=()=>{},requireRecovery=true}={}){
+  onError=()=>{},requireRecovery=true,requirePersistedConsent=false,
+  requireAuthenticatedNative=false,requiredModel=null}={}){
  if(typeof store?.get!=='function'||typeof store?.activeTimelineId!=='string'||
    typeof store.timelineWritable!=='boolean'||typeof now!=='function'||
    !isUuid(ownerId)||typeof onError!=='function'||
@@ -44,7 +45,9 @@ export function createIdleCurationScheduler({store,queue,ledger,provider,
    !Number.isSafeInteger(intervalMs)||intervalMs<1000||intervalMs>3600000||
    !Number.isSafeInteger(minIntervalMs)||minIntervalMs<0||minIntervalMs>3600000||
    !Number.isSafeInteger(maxIdleProofAgeMs)||maxIdleProofAgeMs<100||
-   maxIdleProofAgeMs>10000||typeof requireRecovery!=='boolean')
+   maxIdleProofAgeMs>10000||typeof requireRecovery!=='boolean'||
+   typeof requirePersistedConsent!=='boolean'||typeof requireAuthenticatedNative!=='boolean'||
+   (requirePersistedConsent&&typeof requiredModel!=='string'))
    throw new Error('curation_invalid_scheduler');
  let policy=validateM7Consent(consent),revision=0;
  const limitsMatch=p=>p.mode!=='experimental'||(
@@ -58,6 +61,10 @@ export function createIdleCurationScheduler({store,queue,ledger,provider,
    if(typeof nativeIdle?.snapshot!=='function')throw new Error('m7_native_idle_adapter_missing');
    const proof=nativeIdle.snapshot();
    if(proof&&typeof proof.then==='function')throw new Error('m7_async_idle_proof');
+   // Authenticated pipe verification MUST be supplied by K's native C-13 port.
+   // A caller-constructed nativeVerified:true object is insufficient in production.
+   if(requireAuthenticatedNative&&nativeIdle.verifyAuthenticatedSource?.(proof)!==true)
+     throw new Error('m7_authenticated_native_source_missing');
    return validateM7IdleProof(proof,{store,
      characterId:characterId??proof?.characterId,
      nowUtc:stamp,maxAgeMs:maxIdleProofAgeMs});
@@ -67,6 +74,17 @@ export function createIdleCurationScheduler({store,queue,ledger,provider,
      return false;
    try{return sameAuthority(snapshot,takeSnapshot(characterId,clockUtc(now)));}
    catch{return false;}
+ };
+ const persistentlyEntitled=async(snapshot,rev,characterId)=>{
+   if(!entitled(snapshot,rev,characterId))return false;
+   if(requirePersistedConsent){
+     let persisted;
+     try{persisted=await store.readM7Consent({worldProfileId:snapshot.worldProfileId,
+       timelineId:snapshot.timelineId,characterId});}
+     catch{return false;}
+     if(!validateM7PersistedApproval(persisted,policy,{store,model:requiredModel}))return false;
+   }
+   return entitled(snapshot,rev,characterId);
  };
  const cancel=()=>{
    controller?.abort(Object.assign(new Error('m7_activity_or_source_changed'),{code:'cancelled'}));
@@ -110,6 +128,12 @@ export function createIdleCurationScheduler({store,queue,ledger,provider,
        .every(fn=>typeof queue[fn]==='function'))return empty('queue_unavailable');
      if(typeof nativeIdle?.subscribeInvalidation!=='function')
        return empty('activity_subscriber_missing');
+     if(requirePersistedConsent&&(typeof store?.readM7Consent!=='function'||
+       typeof store?.subscribeM7ConsentInvalidation!=='function'||
+       !isUuid(policy.approvalId)||!Number.isSafeInteger(policy.consentRevision)))
+       return empty('consent_unverified');
+     if(requireAuthenticatedNative&&typeof nativeIdle?.verifyAuthenticatedSource!=='function')
+       return empty('source_unverified');
      const stamp=clockUtc(now),started=Date.parse(stamp);
      let snapshot;
      try{snapshot=takeSnapshot(characterId,stamp);}
@@ -121,34 +145,58 @@ export function createIdleCurationScheduler({store,queue,ledger,provider,
      activeStores.add(store);
      activeWorlds.add(snapshot.worldProfileId);
      const run=async()=>{
-       let unsubscribe=null;
+       let unsubscribe=null,unsubscribeConsent=null;
        try{
          unsubscribe=nativeIdle.subscribeInvalidation(()=>cancel());
          if(typeof unsubscribe!=='function')throw new Error('m7_subscription_missing_dispose');
-         if(!entitled(snapshot,rev,npc)||controller.signal.aborted)
-           return empty('source_unverified');
+         if(requirePersistedConsent){
+           unsubscribeConsent=store.subscribeM7ConsentInvalidation(()=>cancel());
+           if(typeof unsubscribeConsent!=='function')throw new Error('m7_consent_subscription_missing_dispose');
+         }
+         if(!await persistentlyEntitled(snapshot,rev,npc)||controller.signal.aborted)
+           return empty('consent_or_source_unverified');
          // Reconcile outstanding reservations conservatively at the ceiling on
          // first checkpoint after process/session restart; never refund an
          // uncertain cloud transport. B owns the transactional SQL port.
          const key=snapshot.worldProfileId+':'+snapshot.hostRunId+':'+snapshot.sessionId;
          if(requireRecovery&&recoveryKey!==key){
            await ledger.reconcile({beforeUtc:stamp,worldProfileId:snapshot.worldProfileId});
-           if(!entitled(snapshot,rev,npc)||controller.signal.aborted)
+           if(!await persistentlyEntitled(snapshot,rev,npc)||controller.signal.aborted)
              return empty('cancelled');
            recoveryKey=key;
          }
-         const outcome=await processIdleCuration({mode:'experimental',queue,ledger,provider,
+         // Guard each asynchronous boundary, including durable claim/reserve,
+         // the billable send, provider receipt and CAS commit. P2 must still
+         // enforce host/timeline/source validity INSIDE the SQLite transaction.
+         const requireAuthority=async()=>{
+           if(controller.signal.aborted||!await persistentlyEntitled(snapshot,rev,npc))
+             throw Object.assign(new Error('curation_scope_revoked'),{code:'scope_revoked'});
+         };
+         const guardedQueue=Object.freeze({...queue,
+           claimDue:async args=>{await requireAuthority();return queue.claimDue(args);},
+           completeLeased:async args=>{await requireAuthority();return queue.completeLeased(args);}});
+         const guardedLedger=Object.freeze({...ledger,
+           reserve:async args=>{await requireAuthority();return ledger.reserve(args);}});
+         const guardedProvider=Object.freeze({...provider,
+           curateBatch:async(proposals,options)=>{
+             await requireAuthority();
+             const result=await provider.curateBatch(proposals,options);
+             await requireAuthority();
+             return result;
+           }});
+         const outcome=await processIdleCuration({mode:'experimental',queue:guardedQueue,
+           ledger:guardedLedger,provider:guardedProvider,
            ownerId,nowUtc:stamp,maxBatch,characterId:npc,
            estimatedMaxCostUsd:policy.maxBatchUsd,leaseMs,maxProviderMs,maxAttempts,
            signal:controller.signal,enforcePricing:true,strictAck:true,
-           isAuthorized:job=>entitled(snapshot,rev,npc)&&
+           isAuthorized:async job=>await persistentlyEntitled(snapshot,rev,npc)&&
              job.characterId===npc&&job.worldProfileId===snapshot.worldProfileId&&
              job.timelineId===snapshot.timelineId});
          if(outcome.status==='cost_overrun'||outcome.status==='settlement_pending'){
            costSuspended=true;reportError(outcome.status);
          }
          return outcome;
-       }finally{try{unsubscribe?.();}catch{}}
+       }finally{try{unsubscribe?.();}catch{}try{unsubscribeConsent?.();}catch{}}
      };
      const promise=run();
      busy=promise;

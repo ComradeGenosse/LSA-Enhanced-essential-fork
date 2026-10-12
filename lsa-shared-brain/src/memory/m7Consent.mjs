@@ -5,6 +5,10 @@ const modes=new Set(['off','shadow','experimental']);
 const finitePositive=x=>Number.isFinite(x)&&x>0;
 export const M7_OFF_CONSENT=Object.freeze({mode:'off',cloudOptIn:false});
 export const M7_IDLE_PROOF_KIND='verified_native_idle_v1';
+export const M7_PRICING_SOURCE_URL='https://developers.openai.com/api/docs/pricing';
+// Published 2026-10-12 standard GPT-6 Luna long-context upper tier.
+// This is a CONSERVATIVE RESERVATION price, not the charged invoice rate.
+export const M7_LUNA_STANDARD_UPPER_BOUND=Object.freeze({model:'gpt-6-luna',inputUsdPerMillionTokens:0.20,outputUsdPerMillionTokens:0.75});
 // Negative gameplay/turn authority must be source-known AND idle. An idle
 // timestamp or an arbitrary absence of callbacks cannot certify these states.
 // These are C-06-derived quiet fields only; not a PS6 Director response grant.
@@ -29,12 +33,16 @@ export function validateM7Consent(value=M7_OFF_CONSENT){
    value.offTurnEvidenceUploadAccepted!==true||!Number.isFinite(Date.parse(value.consentedAtUtc))||
    !finitePositive(value.dailyUsd)||!finitePositive(value.monthlyUsd)||
    !finitePositive(value.maxBatchUsd)||value.maxBatchUsd>value.dailyUsd||
-   value.maxBatchUsd>value.monthlyUsd||value.dailyUsd>100||value.monthlyUsd>1000)
+   value.maxBatchUsd>value.monthlyUsd||value.dailyUsd>100||value.monthlyUsd>1000||
+   (value.consentRevision!==undefined&&(!Number.isSafeInteger(value.consentRevision)||value.consentRevision<1))||
+   (value.approvalId!==undefined&&!isUuid(value.approvalId)))
    throw new Error('m7_explicit_consent_and_budget_required');
  return Object.freeze({mode:'experimental',cloudOptIn:true,
    consentSource:value.consentSource,offTurnEvidenceUploadAccepted:true,
    consentedAtUtc:new Date(value.consentedAtUtc).toISOString(),
-   dailyUsd:value.dailyUsd,monthlyUsd:value.monthlyUsd,maxBatchUsd:value.maxBatchUsd});
+   dailyUsd:value.dailyUsd,monthlyUsd:value.monthlyUsd,maxBatchUsd:value.maxBatchUsd,
+   ...(value.consentRevision!==undefined?{consentRevision:value.consentRevision}:{}),
+   ...(value.approvalId!==undefined?{approvalId:value.approvalId}:{})});
 }
 
 /**
@@ -43,7 +51,7 @@ export function validateM7Consent(value=M7_OFF_CONSENT){
  */
 export function validateM7Pricing(config){
  const p=config?.curatorPricing,model=config?.reasoningModel;
- if(config?.provider!=='openai'||typeof model!=='string'||!/luna/i.test(model)||
+ if(config?.provider!=='openai'||model!=='gpt-6-luna'||
    typeof config.reasoningBaseUrl!=='string'||!/^https:\/\//.test(config.reasoningBaseUrl)||
    !p||p.model!==model||p.source!=='operator_verified'||
    !Number.isFinite(Date.parse(p.verifiedAtUtc))||
@@ -91,4 +99,43 @@ export function validateM7IdleProof(proof,{store,characterId,nowUtc,maxAgeMs=300
    characterId:proof.characterId,worldProfileId:proof.worldProfileId,
    timelineId:proof.timelineId
  });
+}
+
+/** Price verification required for the LIVE Essential transport (not test fixtures).
+ * Only standard OpenAI-hosted GPT-6 Luna, with no custom server, fast tier,
+ * or unpriced regional uplift. The caller pins independently reviewed rates
+ * that upper-bound long-context standard rates; usage is not an invoice. */
+export function validateM7ProductionPricing(config,{nowUtc=new Date().toISOString()}={}){
+ const price=validateM7Pricing(config);
+ const p=config.curatorPricing;
+ const base=new URL(config.reasoningBaseUrl);
+ const verified=Date.parse(p.verifiedAtUtc),current=Date.parse(nowUtc);
+ if(base.origin!=='https://api.openai.com'||!['/v1','/v1/'].includes(base.pathname)||
+    base.search||base.hash||p.pricingTier!=='standard'||
+    p.officialPricingUrl!==M7_PRICING_SOURCE_URL||
+    !Number.isFinite(current)||verified>current+300000||current-verified>30*86400000||
+    price.inputUsdPerMillionTokens<M7_LUNA_STANDARD_UPPER_BOUND.inputUsdPerMillionTokens||
+    price.outputUsdPerMillionTokens<M7_LUNA_STANDARD_UPPER_BOUND.outputUsdPerMillionTokens)
+   throw new Error('m7_official_standard_luna_price_attestation_required');
+ return price;
+}
+
+/** Independent P2 readback of an explicit, revisioned player settings approval.
+ * Call after EVERY await boundary; a mere config mode is not persisted consent.
+ * K/W06 must provide a serialized P2 port, not a JavaScript settings echo. */
+export function validateM7PersistedApproval(record,policy,{store,model}={}){
+ if(policy?.mode!=='experimental'||!policy.cloudOptIn||
+    !isUuid(policy.approvalId)||!Number.isSafeInteger(policy.consentRevision)||
+    policy.consentRevision<1||!record||
+    record.source!=='p2_explicit_player_settings'||record.mode!=='experimental'||
+    record.cloudOptIn!==true||record.offTurnEvidenceUploadAccepted!==true||
+    record.approvalId!==policy.approvalId||record.consentRevision!==policy.consentRevision||
+    record.model!==model||record.worldProfileId!==store?.worldProfileId||
+    record.timelineId!==store?.activeTimelineId||
+    !Number.isFinite(Date.parse(record.persistedAtUtc))||
+    !Number.isFinite(Date.parse(record.consentedAtUtc))||
+    new Date(record.consentedAtUtc).toISOString()!==policy.consentedAtUtc||
+    record.dailyUsd!==policy.dailyUsd||record.monthlyUsd!==policy.monthlyUsd||
+    record.maxBatchUsd!==policy.maxBatchUsd)return false;
+ return true;
 }
