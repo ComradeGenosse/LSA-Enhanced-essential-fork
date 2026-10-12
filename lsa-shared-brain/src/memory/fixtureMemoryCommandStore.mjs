@@ -42,12 +42,13 @@ export class FixtureMemoryCommandStore {
     try {raw=await fs.readFile(this.filePath,'utf8');}
     catch(error){if(error.code==='ENOENT') return {
       version:1,scope:this.scope,candidates:[],memories:[],commands:[],
-      tombstones:[],corrections:[]
+      tombstones:[],corrections:[],clarifications:[]
     }; throw error;}
     const data=JSON.parse(raw);
     if (data.version!==1 || !same(data.scope,this.scope) ||
       !['candidates','memories','commands','tombstones','corrections'].every(k=>Array.isArray(data[k])))
       fail('fixture_corrupt');
+    if(!Array.isArray(data.clarifications))data.clarifications=[]; // legacy fixture files
     return data;
   }
   async #write(data) {
@@ -174,6 +175,57 @@ export class FixtureMemoryCommandStore {
       data.commands.push(receipt);
       await this.#write(data);
       return snapshot(receipt);
+    });
+  }
+  // Durable, source-frozen clarification state for the offline fixture tests.
+  // The production path uses M5SqliteServices on P2's single SQLite writer.
+  async saveClarification({scope,commandId,requestedByLineId,line,parsed,
+      alternatives=[],frozen=[],createdAtUtc}={}) {
+    this.#assertScope(scope);
+    if(!isUuid(commandId)||!isUuid(requestedByLineId)||line?.recordId!==requestedByLineId||
+       !Array.isArray(alternatives)||!Array.isArray(frozen)||alternatives.length>2||
+       frozen.length!==alternatives.length||!Number.isFinite(Date.parse(createdAtUtc))||
+       alternatives.some((a,i)=>!isUuid(a?.recordId)||a.recordId!==frozen[i]?.recordId))
+      fail('invalid_fixture_clarification');
+    const saved=snapshot({scope,line,parsed,alternatives,frozen,requestedByLineId,
+      commandId,createdAtUtc,completed:false});
+    return this.#serial(async()=>{
+      if(this.#assertWrite(scope)!==true)fail('timeline_write_suspended');
+      const data=await this.#load();
+      const prior=data.clarifications.find(x=>x.commandId===commandId);
+      if(prior){if(JSON.stringify(prior)!==JSON.stringify(saved))fail('fixture_clarification_replay_conflict');}
+      else data.clarifications.push(saved);
+      await this.#write(data);
+      const persisted=await this.#load();
+      if(!persisted.clarifications.some(x=>JSON.stringify(x)===JSON.stringify(saved)))
+        fail('fixture_clarification_readback_failed');
+      return {commandId,durableCommit:true};
+    });
+  }
+  async getClarification({scope,commandId,atUtc=null}={}) {
+    this.#assertScope(scope);
+    if(!isUuid(commandId))fail('invalid_fixture_clarification');
+    const data=await this.#load();
+    const saved=data.clarifications.find(x=>x.commandId===commandId);
+    if(!saved||saved.completed||atUtc&&Date.parse(atUtc)>Date.parse(saved.createdAtUtc)+300000)
+      return null;
+    const blocked=new Set(data.tombstones.map(t=>t.targetRecordId));
+    if(saved.alternatives.some(x=>blocked.has(x.recordId)))return null;
+    const {completed,...payload}=saved;
+    return snapshot(payload);
+  }
+  async completeClarification({scope,commandId}={}) {
+    this.#assertScope(scope);
+    if(!isUuid(commandId))fail('invalid_fixture_clarification');
+    return this.#serial(async()=>{
+      if(this.#assertWrite(scope)!==true)fail('timeline_write_suspended');
+      const data=await this.#load();
+      if(!data.commands.some(x=>x.commandId===commandId))fail('fixture_uncommitted_clarification');
+      const row=data.clarifications.find(x=>x.commandId===commandId);
+      if(!row)fail('fixture_clarification_missing');
+      row.completed=true;
+      await this.#write(data);
+      return true;
     });
   }
   async inspect({scope}) {
