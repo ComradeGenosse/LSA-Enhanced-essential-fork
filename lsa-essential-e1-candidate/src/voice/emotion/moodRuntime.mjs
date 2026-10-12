@@ -59,8 +59,13 @@ export function createMoodRuntime({ getRuntime, protagonistAuthority = null,
         !PROTAGONISTS.has(verified.protagonist) ||
         !isUuid(verified.hostRunId) || verified.hostRunId !== host.hostRunId ||
         verified.worldEpoch !== host.worldEpoch ||
-        !Number.isSafeInteger(verified.revision) || verified.revision < 1 ||
-        (()=>{try{return protagonistAuthority.isCurrent(verified)===true;}catch{return false;}})() !== true) return reject();
+        !Number.isSafeInteger(verified.revision) || verified.revision < 1) return reject();
+    // A valid-shaped but temporarily revoked native record is not current.
+    // Retain only the bounded, inert soft mood while trusted NPC/save/host
+    // evidence above remains stable. Never authorize an action without a
+    // separately live proof, and never reuse old turnSource after ABA.
+    try { if (protagonistAuthority.isCurrent(verified) !== true) return suspend(); }
+    catch { return suspend(); }
     const lineage = JSON.stringify([characterStore.activeTimelineId,host.hostRunId,
       host.worldEpoch]);
     // Only a genuinely different save/host/world invalidates this lineage.
