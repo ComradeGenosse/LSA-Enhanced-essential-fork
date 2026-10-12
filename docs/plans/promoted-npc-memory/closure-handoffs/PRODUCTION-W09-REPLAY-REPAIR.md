@@ -19,6 +19,32 @@
 5. Existing 205-dialogue, 2,501-sidecar-event real SQLite simulation is preserved. A new real SQLite source-fixture test stores Franklin, Michael and Trevor provenance for ONE human's NPC conversation, reads all three for the same NPC, and verifies a different NPC has no inherited knowledge. This checks the journal, NOT a completed v4 permanent-memory one-human migration.
 6. Replaced the stale unconditional M6 missing-adapter expectation. A distinct legacy/missing-interface negative test remains. A positive production P2 readM6Checkpoint/readM6JournalPage/ackM6Checkpoint, cursor CAS and restart test is written and runs ONLY once the actual T6 adapter is merged; on this exact T9 base it is explicitly skipped with SOURCE_BLOCKED_T6_SQLITE_CURSOR_ADAPTER_NOT_YET_MERGED_INTO_T9. Do not set A06 true because a test is skipped.
 
+
+### Additional T6 durability adversarial case
+
+The specialist source simulation also contains a separately T6-gated real
+SQLite test that injects failure in `ackM6Checkpoint` AFTER actual
+deterministic proposal saving and actual durable curation queue enqueue.
+It checks the P2 checkpoint remains unchanged, the proposal and queue rows
+are already committed in the original SQLite file, and recovery after the
+failed ack progresses the checkpoint without duplicating either row.
+It uses `cloudQueueEnabled:true`, separate from the default non-cloud
+cursor CAS/restart test. Because T6 is not in this pinned T9 starting commit,
+both T6-positive tests explicitly skip on this branch rather than
+fabricating the method or weakening the acceptance gate.
+
+### Exact HEAD integrity recheck receipt
+
+On code SHA `6eb51b2bf884b1ea532a7ac691b34f7af0eae993`, [W09 run
+38250975048](https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/actions/runs/38250975048)
+confirmed `exact-committed-source-hashes: PASS`, and the adversarial
+`forged-success-receipt-rejected: PASS` on Ubuntu Node24. Independently
+measured V8 coverage showed the original runner and P2 constructor actually
+entered in all ten scenario child processes; SQLite was valid but zero
+accepted source rows were present. The overall original A10 job correctly
+failed, not passed. Source simulation passed on BOTH Windows and Linux;
+Windows pinned native/package remains blocked. No source simulation is GTA.
+
 ## Scope and trust boundary
 
 A test that merely prints a receipt is categorically insufficient. A successful Node process and a committed SQLite dialogue row are insufficient too, because T9's currently pinned source lacks the actual D01 original-backend accepted player input, the independently source-authenticated D02 current native owner/player proof and K's atomic P2 writer receipt. No nativeAcceptedTurnReceipt, nativeVerified boolean, simulated owner, mock Luna response, provider result, test-created transcript or imported file name establishes authority.
