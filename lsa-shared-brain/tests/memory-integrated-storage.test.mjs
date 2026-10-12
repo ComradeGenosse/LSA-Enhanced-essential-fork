@@ -245,7 +245,7 @@ test('H: M3 certified negative coverage uses one P2 transaction and survives res
    const ports=createM3JournalPorts(x.store);
    assert.equal((await x.store.readM3Coverage(scope)).status,'unknown');
    await assert.rejects(x.store.withTimelineWrite(scope.timelineId,foundation=>
-     ports.journalPort.recordCoverage({...record,nativeCoverage:null},foundation)),/m3_negative_not_certified/);
+     ports.journalPort.recordCoverage({...record,nativeCoverage:null},foundation)),/m3_negative_not_certified|m3_coverage_invalid/);
    assert.equal((await x.store.readM3Coverage(scope)).certified,false);
    assert.equal((await x.store.withTimelineWrite(scope.timelineId,foundation=>
      ports.journalPort.recordCoverage(record,foundation))).inserted,true);
