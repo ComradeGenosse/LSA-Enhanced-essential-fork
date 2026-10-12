@@ -72,6 +72,8 @@ export function createM5RuntimeCoordinator({
       typeof onTelemetry!=='function')
     throw new TypeError('m5_verified_p2_ports_required');
 
+  const clarifications=pendingClarifications ??
+    (typeof commandStore.findPendingClarification==='function'?commandStore:null);
   const current=(args,stage)=>{
     try{return authority.assertCurrent({...args,stage})===true;}catch{return false;}
   };
@@ -98,8 +100,8 @@ export function createM5RuntimeCoordinator({
       if(!current(args,'after_read'))return blocked('source_unavailable');
       let pending=null;
       if(isChoice || isCorrectionReply){
-        if(pendingClarifications){
-          const found=await pendingClarifications.findPendingClarification({
+        if(clarifications){
+          const found=await clarifications.findPendingClarification({
             scope,atUtc:line.committedAtUtc,excludeLineId:line.recordId
           });
           if(found!==null && found!==undefined){
@@ -145,6 +147,62 @@ export function createM5RuntimeCoordinator({
         return freeze({handled:true,route:'private_editor',
           status:'authorization_required',operation:parts[0].parsed.intent,
           actions:freeze([]),acknowledgements:freeze([])});
+      }
+      // The legacy multi-command helper commits sequentially. For two commands,
+      // its planning pass MUST NOT write SQLite or emit its optimistic status:
+      // stage complete, then commit all members in one P2 transaction.
+      if(parts.length===2){
+        if(typeof commandStore.commitCommandBatch!=='function')
+          return blocked('atomic_writer_unavailable');
+        const staged=[],simulated=new Map();
+        const planner=Object.freeze({
+          verifyAcceptedLine:params=>commandStore.verifyAcceptedLine(params),
+          findCandidates:params=>commandStore.findCandidates(params),
+          verifyCommand:async params=>simulated.get(params.commandId) ??
+            commandStore.verifyCommand(params),
+          commitCommand:async op=>{
+            const fake={commandId:op.commandId,requestedByLineId:op.requestedByLineId,
+              operation:op.operation,status:'committed',durableCommit:true,
+              memoryId:op.commandId,evidenceRecordIds:op.evidenceRecordIds};
+            // Only internal planning can see these synthetic receipts. They
+            // NEVER flow to UI, voice, telemetry or any durable queue.
+            staged.push(op);simulated.set(op.commandId,fake);
+            return fake;
+          },
+          saveClarification:async()=>{throw new Error('m5_compound_needs_disambiguation');}
+        });
+        const proposed=await handleExplicitMemoryCommands({
+          line,scope,store:planner,commandId:stableM5CommandId({line,scope})
+        });
+        if(proposed?.length!==2||proposed.some(x=>x?.kind!=='memory_action'||
+           !['saved','forgotten','corrected'].includes(x.outcome)))
+          return blocked('compound_unresolved_no_mutation');
+        // A partially committed legacy replay is not allowed to be disguised
+        // as a completed atomic batch.
+        if(staged.length===1)return blocked('compound_partial_replay');
+        if(staged.length===2){
+          if(!current(args,'before_atomic_commit'))return blocked('source_unavailable');
+          await commandStore.commitCommandBatch({scope,line,operations:staged});
+        }
+        if(!current(args,'after_atomic_commit'))return blocked('source_unavailable');
+        const receipts=await Promise.all(proposed.map(x=>commandStore.verifyCommand({
+          scope,commandId:x.commandId
+        })));
+        if(!current(args,'after_atomic_readback'))return blocked('source_unavailable');
+        if(receipts.some((r,i)=>!r||r.commandId!==proposed[i].commandId||
+           r.operation!==proposed[i].operation||r.requestedByLineId!==line.recordId||
+           r.status!=='committed'||r.durableCommit!==true||
+           !isUuid(r.memoryId)||!Array.isArray(r.evidenceRecordIds)||
+           !r.evidenceRecordIds.includes(line.recordId)))
+          return blocked('atomic_readback_failed');
+        const actions=freeze(proposed.map((a,i)=>freeze({
+          ...a,memoryId:receipts[i].memoryId,
+          evidenceRecordIds:freeze(receipts[i].evidenceRecordIds),durableCommit:true
+        })));
+        const acknowledgements=freeze(publicActions(actions));
+        report('processed','atomic_compound');
+        return freeze({handled:true,route:'command',status:'processed',
+          actions,acknowledgements});
       }
       let clarification=null;
       const actions=await handleExplicitMemoryCommands({
