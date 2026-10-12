@@ -108,6 +108,15 @@ export function ensureM6P2ReplaySchema(db){
       after_sequence INTEGER NOT NULL, prior_sequence INTEGER NOT NULL,
       request_hash TEXT NOT NULL,at_utc TEXT NOT NULL,
       PRIMARY KEY(world_profile_id,character_id,timeline_id,after_sequence));
+    -- M5 authorized physical purge deletes B's replay entry. No W06 archive
+    -- may retain identifying provenance after that deletion.
+    CREATE TRIGGER IF NOT EXISTS m6_p2_replay_feed_ad AFTER DELETE ON p2_memory_replay_feed BEGIN
+      DELETE FROM m6_p2_source_receipts WHERE sequence=OLD.sequence;
+      DELETE FROM m6_p2_rejections WHERE sequence=OLD.sequence;
+      DELETE FROM m6_p2_ack_diagnostics WHERE world_profile_id=OLD.world_profile_id
+        AND character_id=OLD.character_id AND timeline_id=OLD.timeline_id
+        AND record_id=OLD.record_id;
+    END;
   `);
 }
 export function readM6CheckpointSql(db,{scope},world){
