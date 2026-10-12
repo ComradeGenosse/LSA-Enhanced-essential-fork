@@ -245,7 +245,7 @@ export function createNativeMemoryAuthority({
        (input.adapterEpoch!==undefined&&input.adapterEpoch!==context.adapterEpoch)||
        (input.protagonistKey!==undefined&&input.protagonistKey!==t.protagonist.key)||
        ![...owners.values()].some(o=>same(o,t.ownerProof,ownerKeys)))return null;
-    const p=profileFor(t.ownerAlias);
+    const p=profileFor(t.ownerProof.ownerAlias);
     if(!p||p.characterId!==input.characterId)return null;
     return immutable({nativeVerified:true,current:true,identity:immutable(t.identity),
       characterId:p.characterId,ownerAlias:t.ownerProof.ownerAlias,
