@@ -7,6 +7,8 @@ This plan turns every audit finding into owned, testable work and records progre
 
 **Evidence labels** (as in the audit): **SOURCE VERIFIED** (read in code), **OFFLINE TESTED** (real modules or suites re-run by the orchestrator), **NATIVE COMPILED** (production `net481` project compiled in the sandbox against NuGet reference assemblies; not the approved-SDK gate and not a GTA build), **GTA VERIFIED** (physical game receipts; none exist), **BLOCKED**, **UNTESTED**.
 
+Session provenance, toolchain, measurements and blockers: [complete session record](memory-k-production/SESSION-RECORD-20261012.md).
+
 ## 1. Non-negotiables
 
 1. **The original plan is the acceptance authority.** No workstream may reduce scope, weaken privacy, redefine acceptance or drop planned functionality. Deviations are allowed only as an explicit decision record (`docs/research/DECISIONS.md` or the amendment table in `approved-decisions.md`) and must be listed in §8.

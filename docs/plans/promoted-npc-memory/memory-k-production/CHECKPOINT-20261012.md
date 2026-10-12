@@ -2,6 +2,8 @@
 
 Development stopped at the owner's request. Nothing was pushed, because the git proxy refused the repository. Everything below is local, then backed up as a git bundle and a ZIP.
 
+Full detail — toolchain, measurements, topology, decisions, blockers — is in the [complete session record](SESSION-RECORD-20261012.md).
+
 ## Finished (committed on `integration/memory-k-production-20261012`)
 
 | Commit | Content |
