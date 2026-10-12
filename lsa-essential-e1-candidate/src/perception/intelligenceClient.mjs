@@ -106,9 +106,9 @@ export class IntelligenceClient {
     this.currentOwnerPlayerSubscriptions.add(item);
     return ()=>this.currentOwnerPlayerSubscriptions.delete(item);
   }
-  retireAuthenticatedNativeOwnerPlayer() {
+  retireAuthenticatedNativeOwnerPlayer(reason='terminal') {
     for(const item of [...this.currentOwnerPlayerSubscriptions])
-      try{item.onRetire();}catch{}
+      try{item.onRetire(reason);}catch{}
   }
   subscribeWorldBoundary(listener) {
     if (typeof listener !== 'function' || this.worldBoundaryListeners.size >= 16)
@@ -621,9 +621,10 @@ export class IntelligenceClient {
         if(accepted&&(v?.type==='hello'||v?.type==='world_epoch'))this.retireAuthenticatedNativeMemoryAuthority();
         // Any source/protocol fault, anchor/owner change or epoch boundary
         // invalidates in-flight leases, not merely the next TTL refresh.
-        if(!accepted || ['hello','world_epoch','anchors','observer_index',
-           'retire','retire_batch'].includes(v?.type))
-          this.retireAuthenticatedNativeOwnerPlayer();
+        if(!accepted || v?.type==='hello' || v?.type==='world_epoch')
+          this.retireAuthenticatedNativeOwnerPlayer('terminal');
+        else if(['anchors','observer_index','retire','retire_batch'].includes(v?.type))
+          this.retireAuthenticatedNativeOwnerPlayer('roster');
         if(accepted&&v?.type==='memory_authority')for(const sub of [...this.memoryAuthoritySubscriptions]){
           try{sub.listener(Object.freeze({frame:v}));}catch{try{sub.onRetire();}catch{}}
         }
