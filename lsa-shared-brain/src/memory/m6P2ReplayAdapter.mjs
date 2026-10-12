@@ -84,7 +84,7 @@ export function ensureM6P2ReplaySchema(db){
   db.exec(`
     CREATE TABLE IF NOT EXISTS m6_p2_checkpoints (
       world_profile_id TEXT NOT NULL,character_id TEXT NOT NULL,timeline_id TEXT NOT NULL,
-      after_sequence INTEGER NOT NULL CHECK(after_sequence>=0),last_cutoff_utc TEXT,
+      after_sequence INTEGER NOT NULL CHECK(after_sequence>=0),last_cutoff_utc TEXT,last_source_utc TEXT,
       hour_bucket TEXT,active_hour_count INTEGER NOT NULL DEFAULT 0 CHECK(active_hour_count>=0),
       PRIMARY KEY(world_profile_id,character_id,timeline_id));
     CREATE TABLE IF NOT EXISTS m6_p2_source_receipts (
@@ -106,7 +106,7 @@ export function readM6CheckpointSql(db,{scope},world){
   const cp=current(db,scope);
   return Object.freeze({version:1,cursor:cp?String(cp.after_sequence):null,
     activeHourCount:cp?.active_hour_count??0,hourBucket:cp?.hour_bucket??null,
-    lastCutoffUtc:cp?.last_cutoff_utc??null});
+    lastCutoffUtc:cp?.last_cutoff_utc??null,lastSourceUtc:cp?.last_source_utc??null});
 }
 export function readM6JournalPageSql(db,{scope,afterCursor=null,limit=250},world){
   validate(db,scope,world);
@@ -125,18 +125,18 @@ export function readM6JournalPageSql(db,{scope,afterCursor=null,limit=250},world
 }
 export function ackM6CheckpointSql(db,request,world){
   const {scope,expectedCursor=null,nextCursor,sourceHashes,savedProposalIds=[],rejected=[],
-    cutoffUtc,hourBucket,cloudQueueEnabled=false}=request??{};
+    cutoffUtc,hourBucket,lastSourceUtc=null,cloudQueueEnabled=false}=request??{};
   validate(db,scope,world);
   if(!Array.isArray(sourceHashes)||!Array.isArray(savedProposalIds)||!Array.isArray(rejected)||
      !validTime(cutoffUtc)||typeof hourBucket!=='string'||hourBucket!==cutoffUtc.slice(0,13)||
-     typeof cloudQueueEnabled!=='boolean')fail('m6_p2_bad_ack');
+     (lastSourceUtc!==null&&!validTime(lastSourceUtc))||typeof cloudQueueEnabled!=='boolean')fail('m6_p2_bad_ack');
   const prior=seq(expectedCursor),next=seq(nextCursor),cp=current(db,scope);
   const old=cp?.after_sequence??0;
   if(next<=prior)fail('m6_p2_nonadvancing_ack');
   if(cp?.last_cutoff_utc&&Date.parse(cutoffUtc)<Date.parse(cp.last_cutoff_utc))
     fail('m6_p2_clock_regression');
   const requestHash=hash({scope,expectedCursor,nextCursor,sourceHashes,
-    savedProposalIds,rejected,cutoffUtc,hourBucket,cloudQueueEnabled});
+    savedProposalIds,rejected,cutoffUtc,hourBucket,lastSourceUtc,cloudQueueEnabled});
   if(old!==prior){
     const previous=db.prepare('SELECT request_hash,prior_sequence FROM m6_p2_ack_receipts WHERE '+
       SCOPE+' AND after_sequence=?').get(...entryScope(scope),next);
@@ -150,6 +150,7 @@ export function ackM6CheckpointSql(db,request,world){
   if(!entries.length||entries.at(-1).sequence!==next||entries.length!==sourceHashes.length)
     fail('m6_p2_ack_skips_or_loses_feed');
   const ban=blocked(db,scope,world),invalid=new Set(),observed=new Set();
+  let previousSource=cp?.last_source_utc?Date.parse(cp.last_source_utc):null;
   for(let i=0;i<entries.length;i++){
     const entry=entries[i],proof=sourceHashes[i];
     if(!proof||proof.cursor!==String(entry.sequence)||proof.recordId!==entry.record_id||
@@ -162,8 +163,16 @@ export function ackM6CheckpointSql(db,request,world){
     else{
       try{normalizedEvidence(evidence);}catch{invalid.add(entry.record_id);}
     }
+    const sourceTime=stamp(evidence);
+    if(validTime(sourceTime)){
+      const t=Date.parse(sourceTime);
+      if(previousSource!==null&&t<previousSource)fail('m6_p2_source_clock_regression');
+      previousSource=t;
+    }
     observed.add(entry.record_id);
   }
+  const expectedSource=previousSource===null?null:new Date(previousSource).toISOString();
+  if(lastSourceUtc!==expectedSource)fail('m6_p2_last_source_mismatch');
   for(const id of invalid)
     if(!rejected.some(r=>r.recordId===id))fail('m6_p2_unaccounted_invalid_source');
   const unique=new Set();
@@ -204,8 +213,8 @@ export function ackM6CheckpointSql(db,request,world){
         .run(...entryScope(scope),entry.sequence,entry.record_id,r.reason);
   }
   const count=(cp?.hour_bucket===hourBucket?cp.active_hour_count:0)+unique.size;
-  db.prepare('INSERT INTO m6_p2_checkpoints(world_profile_id,character_id,timeline_id,after_sequence,last_cutoff_utc,hour_bucket,active_hour_count) VALUES(?,?,?,?,?,?,?) ON CONFLICT(world_profile_id,character_id,timeline_id) DO UPDATE SET after_sequence=excluded.after_sequence,last_cutoff_utc=excluded.last_cutoff_utc,hour_bucket=excluded.hour_bucket,active_hour_count=excluded.active_hour_count')
-    .run(...entryScope(scope),next,cutoffUtc,hourBucket,count);
+  db.prepare('INSERT INTO m6_p2_checkpoints(world_profile_id,character_id,timeline_id,after_sequence,last_cutoff_utc,last_source_utc,hour_bucket,active_hour_count) VALUES(?,?,?,?,?,?,?,?) ON CONFLICT(world_profile_id,character_id,timeline_id) DO UPDATE SET after_sequence=excluded.after_sequence,last_cutoff_utc=excluded.last_cutoff_utc,last_source_utc=excluded.last_source_utc,hour_bucket=excluded.hour_bucket,active_hour_count=excluded.active_hour_count')
+    .run(...entryScope(scope),next,cutoffUtc,lastSourceUtc,hourBucket,count);
   db.prepare('INSERT INTO m6_p2_ack_receipts VALUES(?,?,?,?,?, ?, ?)')
     .run(...entryScope(scope),next,prior,requestHash,new Date().toISOString());
   return Object.freeze({committed:true,cursor:String(next),idempotent:false});
