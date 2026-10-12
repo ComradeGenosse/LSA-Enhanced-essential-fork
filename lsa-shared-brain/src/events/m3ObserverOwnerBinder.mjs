@@ -119,7 +119,10 @@ export class M3ObserverOwnerBinder {
     }
     return immutableSnapshot({promoted,current:true,characterId:native.characterId,
       worldProfileId:world,timelineId:selected,adapterEpoch:ps.epoch,
-      ownerProof:native.ownerProof,participantProofs});
+      ownerProof:native.ownerProof,participantProofs,
+      // K's sidecar integration must persist this immutable source ticket
+      // alongside original PS2 evidence under the SAME serialized writer.
+      sourceTimeEvidence:at});
   }
   // Called only from ShadowRuntime.acceptedObservationTap, which authenticates
   // its wire input and verifies the correlator actually accepted this receipt.
