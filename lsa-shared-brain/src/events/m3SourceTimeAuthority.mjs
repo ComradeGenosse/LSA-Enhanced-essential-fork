@@ -92,7 +92,15 @@ export function createM3SourceTimeAuthority({subscribeAuthenticatedNativeFrames,
     throw new TypeError('m3_authenticated_subscription_invalid');
   const live=(input)=>connected&&context&&input?.hostRunId===context.hostRunId&&
     input?.worldEpoch===context.worldEpoch&&input?.adapterEpoch===context.adapterEpoch;
-  const get=(signalId,ref)=>entries.get(srcKey(context.hostRunId,context.worldEpoch,signalId,ref))?.proof;
+  const get=(signalId,ref)=>{
+    const key=srcKey(context.hostRunId,context.worldEpoch,signalId,ref);
+    const row=entries.get(key),stamp=now();
+    if(!row||!Number.isFinite(stamp)||stamp<row.receivedAt||
+      stamp-row.receivedAt>maxAgeMs){
+      if(row)entries.delete(key);return null;
+    }
+    return row.proof;
+  };
   function resolveNativeOwner(input={}){
     if(!live(input)||!uuid(input.observationId)||!Number.isSafeInteger(input.observationRevision)||
       input.observationRevision<1||!Array.isArray(input.observation?.claims)||
