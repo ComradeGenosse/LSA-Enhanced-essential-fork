@@ -187,10 +187,11 @@ test('W09/P2 stress: 201+ player lines, 2501+ verified PS2 source-sidecar events
       assert.equal(result.rejected.length,0);
       assert.equal(result.items.filter(i=>i.kind==='event').length,
         which===0?1251:1250);
-      for(const item of result.items){
+      for(const item of result.items.filter(row=>row.kind==='event')){
         assert.equal(item.envelope.characterId,x.characters[which].characterId);
         assert.equal(item.sourceEvidence.ownerProof.ownerAlias,x.characters[which].promotion.ownerAlias);
       }
+      assert.ok(result.items.every(row=>row.kind==='event'||row.kind==='dialogue'));
       total+=result.items.length;
     }
     assert.equal(total,N);
