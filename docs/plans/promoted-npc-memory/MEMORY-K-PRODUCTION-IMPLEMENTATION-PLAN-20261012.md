@@ -52,7 +52,7 @@ Every audit finding, the new finding K-22, and every deviation the audit lists u
 
 | ID | Sev | Finding (short) | Owner | Status | Evidence |
 | --- | --- | --- | --- | --- | --- |
-| K-01 | P0 | Packaged backend fails to start (shared imports not rewritten; contracts not staged) | WS-1 | Open | Reproduced at baseline |
+| K-01 | P0 | Packaged backend fails to start (shared imports not rewritten; contracts not staged) | WS-1 | Fixed (offline tested) | Staging rewrites `lsa-shared-brain/src` at any depth, stages `contracts/`, excludes the non-runtime acorn audit module and fails the build on any residual reference; `packaged-import-smoke.test.mjs` imports every `e1/**/*.mjs` from an empty directory. Not GTA verified. |
 | K-02 | P0 | No production read path (M4/M8 frame, CONVERSE from journal, M5 dispatch, M6/M7/M9 callers) | WS-6a, WS-6b, WS-7a–c | Open | — |
 | K-03 | P0 | No production write path: (a) D01 issuer, (b) actor ledger, (c) NPC capture, (d) M3 source proof, (e) coverage/prepromotion stubs, (f) `worldProfileId` predicates | (a)(b)(f-D02) PR #132; (c) WS-5a; (d)(f-M3) WS-5b; (e) WS-5b coverage, WS-5c prepromotion | Partly integrated (#132) | #132 OFFLINE TESTED per audit §D; re-verified by WS-5a |
 | K-04 | P1 | D02 lease lifetime makes the D03 join unreachable | PR #132; WS-5a verifies and bounds total latency | Integrated (#132), re-verify | Audit §D probes A–H |
