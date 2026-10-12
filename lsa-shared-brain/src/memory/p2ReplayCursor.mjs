@@ -26,14 +26,14 @@ const SCHEMA = [
   '  consumer_id TEXT NOT NULL,world_profile_id TEXT NOT NULL,character_id TEXT NOT NULL,',
   '  timeline_id TEXT NOT NULL,protagonist_key TEXT NOT NULL,after_sequence INTEGER NOT NULL',
   '  CHECK(after_sequence >= 0),updated_at_utc TEXT NOT NULL,',
-  '  PRIMARY KEY(consumer_id,world_profile_id,character_id,timeline_id,protagonist_key))',
+  '  PRIMARY KEY(consumer_id,world_profile_id,character_id,timeline_id,protagonist_key));',
   // Preserve v1 cursor rows and replay from source evidence under v2 owner scope.
   // Do NOT collapse v1 per-avatar high-water marks (would skip other avatars).
   'CREATE TABLE IF NOT EXISTS p2_memory_replay_player_cursors (',
   '  consumer_id TEXT NOT NULL,world_profile_id TEXT NOT NULL,character_id TEXT NOT NULL,',
   '  timeline_id TEXT NOT NULL,after_sequence INTEGER NOT NULL CHECK(after_sequence >= 0),',
   '  updated_at_utc TEXT NOT NULL,',
-  '  PRIMARY KEY(consumer_id,world_profile_id,character_id,timeline_id))',
+  '  PRIMARY KEY(consumer_id,world_profile_id,character_id,timeline_id));',
   'CREATE INDEX IF NOT EXISTS p2_memory_replay_player_scope ON p2_memory_replay_feed',
   '  (world_profile_id,character_id,timeline_id,sequence)'
 ].join(' ');
