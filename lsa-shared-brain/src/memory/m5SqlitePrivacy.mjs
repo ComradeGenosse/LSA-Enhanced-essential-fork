@@ -486,6 +486,7 @@ export class M5SqliteServices{
    const now=this.#clock(),until=new Date(Date.parse(now)+7*DAY).toISOString();
    const reqHash=sha(JSON.stringify({scope,targetId,operationId,operation:'trash'}));
    await this.#write(scope,db=>{
+     authorizeRequest(this.#authorize,scope,'trash'); // reauthorize at commit
      const old=db.prepare('SELECT request_sha256 AS hash FROM m5_privacy_ops WHERE operation_id=?').get(operationId);
      if(old){if(old.hash!==reqHash)fail('m5_privacy_replay_conflict');return;}
      if(!evidence(db,scope,targetId))fail('m5_trash_missing_evidence');
@@ -517,6 +518,7 @@ export class M5SqliteServices{
    const now=this.#clock(),until=new Date(Date.parse(now)+7*DAY).toISOString();
    const reqHash=sha(JSON.stringify({scope,operationId,operation:'trash_scope'}));
    await this.#write(scope,db=>{
+     authorizeRequest(this.#authorize,scope,'trash_scope'); // reauthorize at commit
      const old=db.prepare('SELECT request_sha256 AS hash FROM m5_privacy_ops WHERE operation_id=?').get(operationId);
      if(old){if(old.hash!==reqHash)fail('m5_privacy_replay_conflict');return;}
      const ids=[
@@ -570,6 +572,7 @@ export class M5SqliteServices{
    if(!isUuid(trashId)||!isUuid(operationId))fail('m5_invalid_restore');
    const now=this.#clock(),reqHash=sha(JSON.stringify({scope,trashId,operationId,operation:'restore'}));
    await this.#write(scope,db=>{
+     authorizeRequest(this.#authorize,scope,'restore'); // reauthorize at commit
      const old=db.prepare('SELECT request_sha256 AS hash FROM m5_privacy_ops WHERE operation_id=?').get(operationId);
      if(old){if(old.hash!==reqHash)fail('m5_privacy_replay_conflict');return;}
      const target=db.prepare('SELECT operation_id AS parent,target_id AS target,purge_after_utc AS expiry,restored_at_utc AS restored,purged_at_utc AS purged FROM m5_trash WHERE trash_id=? AND '+scopeWhere).get(trashId,...scopeKey(scope));
@@ -595,6 +598,7 @@ export class M5SqliteServices{
      fail('m5_invalid_limit');
    const now=this.#clock(),requestHash=sha(JSON.stringify({scope,limit,operationId,operation:'purge'}));
    return this.#write(scope,db=>{
+     authorizeRequest(this.#authorize,scope,'purge'); // reauthorize at commit
      const old=db.prepare('SELECT request_sha256 AS hash,receipt_json AS json FROM m5_privacy_ops WHERE operation_id=?').get(operationId);
      if(old){
        if(old.hash!==requestHash)fail('m5_purge_replay_conflict');
