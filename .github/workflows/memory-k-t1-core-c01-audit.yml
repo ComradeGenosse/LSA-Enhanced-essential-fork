@@ -27,6 +27,7 @@ jobs:
           $a = Get-Content -Raw evidence/core-c01-callgraph.json | ConvertFrom-Json
           Write-Host "Original DLL: $($a.dllSha256)"
           Write-Host "Methods: $($a.methodCount); calls: $($a.scannedCallCount); candidates: $($a.candidateMethods.Count)"
+          if (@($a.candidateMethods | Where-Object { $_.label -match 'InputController::SendTextPrompt' }).Count -ne 1) { throw "missing pinned text input audit candidate" }
           Write-Host "Native C-01 accepted verified: $($a.nativeAcceptedTurnReceiptVerified) (always false until separately proven)"
           $a.candidateMethods | Where-Object { $_.Label -match 'SendTextPrompt|TextInput|InputController|ConversationHydration|Accept|Transcri|Turn' } | Select-Object -First 80 | ForEach-Object { Write-Host $_.Label }
       - name: Upload provenance audit (research evidence, NOT native acceptance)

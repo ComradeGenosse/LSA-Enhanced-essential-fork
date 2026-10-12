@@ -21,3 +21,22 @@ The audit has a deliberately fixed `nativeAcceptedTurnReceiptVerified:false` and
 If no original post-acceptance native signal exists, do not fake an IL hook: either extend a new **approved, separately versioned** original backend acceptance + native corroboration contract, or keep M2 C-01 disabled. A changed trust model must be reviewed explicitly against PR #97; it cannot be silently represented as a native-original callback.
 
 **No product code or GTA binaries are mutated by this investigation; A01 and controlled-GTA remain NO-GO.**
+
+## Pinned original DLL audit receipt — exact SHA `9d126189c4d498475a4b7b3d10fc1c7301854b66`
+
+[Windows .NET 10 source audit run 38244034930](https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/actions/runs/38244034930) successfully pinned SHA-256 `9b6de42d4c464901d859dd95e17e100e4fa9ef6074bfbb0cf3a57a76f6ddd653`, traversed **5,588** original Core methods and **67,258** IL calls, and uploaded a read-only JSON callgraph artifact. The initial artifact's `candidateMethods` values were accidentally empty objects due to default ValueTuple serialization; later commits fix that reporting bug. The call edges themselves are meaningful.
+
+Direct IL edges for ordinary typed input are:
+
+- `TextInputService.StartTextInputMode()` -> `InputController.SendTextPrompt(Ped,string)` at IL 371.
+- `InputController.SendTextPrompt(Ped,string)` -> `GeminiBridgeClient.SendJson(string)` at IL 216.
+- `InputController.SendMicStop()` -> `GeminiBridgeClient.SendJson(string)` at IL 147.
+- `SpecialGeminiTurnService.NotifyPlayerTurnStarted()` increments/reads player-turn version only, not the four original C-01 accepted backend generation identifiers.
+
+These are *submission* calls to an asynchronous backend, not a demonstration of the final accepted typed/STT turn with `pedId/turnId/generationId/sessionNonce`. A Harmony prefix/postfix of those native entrypoints would attest only submission and could misclassify rejected input as accepted. **A01 remains blocked.**
+
+### Concrete architecture decision needed to unblock
+
+The technically workable source of accepted input is the **original backend after it allocates/admits the complete turn identity and STT final text**, combined with independently authenticated current native P2 owner/protagonist evidence and binding validity rechecked at SQLite commit. This is a **different two-origin contract** from PR #97's `original_native_c01_accepted_callback` requirement. Implement it only with an explicitly reviewed contract revision and tests proving no JS transcript/history-only authentication, no delayed/superseded generation, exact source owner equality, no cross-protagonist/timeline leakage and zero writes when native proof is missing. Do not relabel a server receipt as native or silently modify `OriginalC01SourceGate.PinnedSourceExposed`.
+
+No authenticated original-native *post-acceptance* callback has been proven by this audit.

@@ -140,7 +140,8 @@ bool IsInteresting(string value) {
 var anchors = methods.Select(kv => (Token: MetadataTokens.GetToken(kv.Key),
                                    Label: methodNames[kv.Key]))
     .Where(x => IsInteresting(x.Label))
-    .OrderBy(x => x.Label, StringComparer.Ordinal).ToArray();
+    .OrderBy(x => x.Label, StringComparer.Ordinal)
+    .Select(x => new { token = x.Token, label = x.Label }).ToArray();
 var relevant = calls.Where(c => IsInteresting(c.Caller) || IsInteresting(c.Callee))
     .OrderBy(x => x.Caller, StringComparer.Ordinal).ThenBy(x => x.IlOffset)
     .Take(20_000).Select(c => new {
