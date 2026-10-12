@@ -97,3 +97,14 @@ dotnet run --project native/intelligence/memory-authority-tests/MemoryAuthorityT
 **A01 remains BLOCKED**. A source-authenticated ordinary typed/STT Core callback must be demonstrated before K can mark A01 complete. No `nativeVerified:true` mock, source-mode string, JS callback, normal transcript, v2 hypothetical example, stock Director tuple, model/provider output, or passing policy fixture is that proof. Existing memory capture remains disabled if original acceptance cannot be demonstrated.
 
 **Integration owner:** K. Other agents may consume the proposed verifier interface but may not activate it or alter shared files. No merge to main, GTA installation, production memory enablement, or physical testing was performed.
+
+## Initial draft-PR CI links (not passing receipts)
+
+For initial draft PR head `9d7c15ca44e9962cb6961577f762ae934973807a`, GitHub reported the following workflow runs **queued with no conclusion** when polled; these URLs do not prove successful execution:
+
+- [Memory K final source and offline acceptance — run 38240352606](https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/actions/runs/38240352606)
+- [Memory H combined integration acceptance — run 38240352567](https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/actions/runs/38240352567)
+- [M1 Shared Memory Portability — run 38240352566](https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/actions/runs/38240352566)
+- [Memory A-E integrated journal — run 38240352608](https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/actions/runs/38240352608)
+
+The final handoff commit is newer than that initial head; K must pin and check the **final head** and per-step logs separately before any CI claims.
