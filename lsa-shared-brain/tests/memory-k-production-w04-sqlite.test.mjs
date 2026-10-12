@@ -17,7 +17,7 @@ const id=()=>randomUUID();
 const at=(ms)=>new Date(ms).toISOString();
 async function fixture(t) {
  const root=await fs.mkdtemp(path.join(os.tmpdir(),'memory-k-w04-'));
- t.after(()=>fs.rm(root,{recursive:true,force:true}));
+ t.after(async()=>{await store.close();await fs.rm(root,{recursive:true,force:true});});
  const filePath=path.join(root,'p2.sqlite');
  const store=createP2MemoryStorage({filePath,worldProfileId,sourceRequired:true});
  await store.initialize();
@@ -28,7 +28,7 @@ async function fixture(t) {
  await store.confirmTimeline(timelineId);
  const scope={worldProfileId,characterId:first.characterId,timelineId,protagonistKey:'franklin'};
  let now=Date.now();
- const service=createM5SqliteServices({store,filePath,authorize:()=>true,clock:()=>at(now)});
+ const service=createM5SqliteServices({store,filePath,authorize:({scope:requested})=>requested.worldProfileId===scope.worldProfileId&&requested.characterId===scope.characterId&&requested.timelineId===scope.timelineId&&requested.protagonistKey===scope.protagonistKey,clock:()=>at(now)});
  await service.ready(scope);
  const commands=service.bindCommands();
  const proof={hostRunId:host.hostRunId,worldEpoch:1,turn:'verified_fixture'};
@@ -56,7 +56,6 @@ async function fixture(t) {
    memories:db.prepare('SELECT count(*) AS n FROM memory_records').get().n,
    tombstones:db.prepare('SELECT count(*) AS n FROM memory_tombstones').get().n
  }));
- t.after(async()=>store.close());
  return {filePath,root,store,scope,host,service,commands,runtime,proof,accept,dispatch,counts,
    advance:ms=>{now+=ms;}};
 }
