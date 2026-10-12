@@ -109,17 +109,11 @@ namespace LSA.Intelligence.MemoryM3
                 if(run()!=host||worldEpoch()!=epoch||adapterEpoch()!=adapter||
                     nativeGameTick()!=witness.SampledGameTick){Denied++;return false;}
             }
-            var proof=new SourceTimeWitnessProof {
-                sourceReceiptId=Guid.NewGuid().ToString("D"),signalId=signalId,
-                source="original_native_ps2_witness_sample",
-                hostRunId=host,worldEpoch=epoch,adapterEpoch=adapter,
-                observerCaptureRef=owner.ObserverCaptureRef,
-                ownerAlias=owner.OwnerAlias,incarnationId=owner.IncarnationId,
-                encounterId=owner.EncounterId,sampledGameTick=witness.SampledGameTick,
-                status=witness.Channel=="report"?"reported":"witnessed",
-                channel=witness.Channel,basis=witness.Basis,
-                participants=participants.ToArray()
-            };
+            var proof=new SourceTimeWitnessProof(
+                Guid.NewGuid().ToString("D"),signalId,host,epoch,adapter,
+                owner,witness.SampledGameTick,
+                witness.Channel=="report"?"reported":"witnessed",
+                witness.Channel,witness.Basis,participants.ToArray());
             if(retained.Count>=Capacity) {
                 var evicted=order.Dequeue();retained.Remove(evicted);Overflow++;
             }
@@ -183,11 +177,28 @@ namespace LSA.Intelligence.MemoryM3
     }
     public sealed class SourceTimeWitnessProof
     {
-        public string sourceReceiptId,signalId,source,hostRunId,adapterEpoch;
-        public int worldEpoch;
-        public string observerCaptureRef,ownerAlias,incarnationId,encounterId;
-        public uint sampledGameTick;
-        public string status,channel,basis;
-        public SourceTimeParticipant[] participants;
+        public readonly string sourceReceiptId,signalId,source,hostRunId,adapterEpoch;
+        public readonly int worldEpoch;
+        public readonly string observerCaptureRef,ownerAlias,incarnationId,encounterId;
+        public readonly uint sampledGameTick;
+        public readonly string status,channel,basis;
+        readonly SourceTimeParticipant[] storedParticipants;
+        // JSON serializer gets a fresh array. Neither a subscriber nor native
+        // batch consumer can change the retained source-time participant list.
+        public SourceTimeParticipant[] participants {
+            get {return (SourceTimeParticipant[])storedParticipants.Clone();}
+        }
+        public SourceTimeWitnessProof(string receiptId,string signal,string host,int epoch,
+          string adapter,SourceTimeOwner owner,uint tick,string status,string channel,
+          string basis,SourceTimeParticipant[] participants)
+        {
+            sourceReceiptId=receiptId;signalId=signal;
+            source="original_native_ps2_witness_sample";
+            hostRunId=host;worldEpoch=epoch;adapterEpoch=adapter;
+            observerCaptureRef=owner.ObserverCaptureRef;ownerAlias=owner.OwnerAlias;
+            incarnationId=owner.IncarnationId;encounterId=owner.EncounterId;
+            sampledGameTick=tick;this.status=status;this.channel=channel;this.basis=basis;
+            storedParticipants=(SourceTimeParticipant[])(participants??new SourceTimeParticipant[0]).Clone();
+        }
     }
 }
