@@ -263,3 +263,26 @@ test('Pending correction never substitutes a newly surfaced candidate for a froz
  assert.equal(blocked.actions[0].outcome,'failed');
  assert.equal(r.commitsAttempted,0);
 });
+
+test('Private M5 editor cannot acknowledge a write after scope revocation during verification',async()=>{
+  const s=scope(),operationId=id(),recordId=id();let current=true;
+  const signed={operationId,operation:'trash',targetIds:[recordId],durableCommit:true};
+  const privacyPort={
+    inspect:async()=>({}),exportArchive:async()=>({}),trash:async()=>signed,
+    trashScope:async()=>signed,restore:async()=>signed,
+    purgeExpired:async()=>({kind:'m5_purge_result',purgedIds:[recordId]}),
+    verifyPrivacy:async()=>{current=false;return signed;},
+    verifyPurge:async()=>{current=false;return {confirmed:true};}
+  };
+  const editor=createM5ScopedPrivacyFacade({
+    privacyPort,authorize:()=>current,assertScopeCurrent:()=>current
+  });
+  const result=await editor.execute({operation:'trash',scope:s,access:'owner',
+    operationId,recordId});
+  assert.equal(result.status,'denied');
+  assert.equal(result.code,'scope_changed');
+  current=true;
+  const purge=await editor.execute({operation:'purge',scope:s,access:'owner'});
+  assert.equal(purge.status,'denied');
+  assert.equal(purge.code,'scope_changed');
+});
