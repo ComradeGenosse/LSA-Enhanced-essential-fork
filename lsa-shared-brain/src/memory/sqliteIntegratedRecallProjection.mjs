@@ -102,7 +102,7 @@ export function readIntegratedRecall(db,{scope,terms=[],fromUtc=null,toUtc=null,
     let where=clause.replaceAll('TIME_COLUMN','committed_at_utc');
     const values=[...args];
     if(speaker){where+=' AND speaker=?';values.push(speaker);}
-    const cols='SELECT d.record_id AS recordId,d.committed_at_utc AS atUtc,d.protagonist AS protagonistKey,d.content AS text,d.content_sha256 AS textHash,d.envelope_json AS raw,d.envelope_sha256 AS rawHash';
+    const cols='SELECT d.record_id AS recordId,d.committed_at_utc AS atUtc,d.protagonist AS protagonistKey,d.speaker AS storedSpeaker,d.source AS storedSource,d.delivery AS storedDelivery,d.content AS text,d.content_sha256 AS textHash,d.envelope_json AS raw,d.envelope_sha256 AS rawHash';
     const rows=[];
     if(limitLex){
       const fts=' FROM dialogue_journal_fts JOIN dialogue_journal d ON d.rowid=dialogue_journal_fts.rowid WHERE '+where.replaceAll(/\b(world_profile_id|character_id|timeline_id|committed_at_utc|protagonist|speaker)\b/g,'d.$1')+' AND dialogue_journal_fts MATCH ? ORDER BY bm25(dialogue_journal_fts),d.committed_at_utc DESC';
@@ -111,7 +111,9 @@ export function readIntegratedRecall(db,{scope,terms=[],fromUtc=null,toUtc=null,
     rows.push(...all(db,cols+' FROM dialogue_journal d WHERE '+where.replaceAll(/\b(world_profile_id|character_id|timeline_id|committed_at_utc|protagonist|speaker)\b/g,'d.$1')+' ORDER BY d.committed_at_utc DESC,d.rowid DESC',values,limit-limitLex));
     for(const r of rows){
       const e=verifyEnvelope(r.raw,r.rawHash);
-      if(!uuid.test(e.recordId)||e.recordId!==r.recordId||sha(r.text)!==r.textHash||e.content!==r.text||
+      if(!uuid.test(e.recordId)||e.recordId!==r.recordId||sha(r.text)!==r.textHash||
+        e.content!==r.text||e.speaker!==r.storedSpeaker||
+        e.source!==r.storedSource||e.delivery!==r.storedDelivery||
         e.attribution?.protagonist&&e.attribution.protagonist!==r.protagonistKey)
         throw new Error('m4_corrupt_dialogue');
       if(!((e.speaker==='player'&&['typed','stt'].includes(e.source)&&e.delivery==='accepted')||

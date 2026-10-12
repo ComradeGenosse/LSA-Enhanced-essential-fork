@@ -104,8 +104,9 @@ export function listMemoryCandidates(db,scope,world,{beforeUtc=null,excludeRecor
  const permanent=db.prepare('SELECT memory_id AS recordId,content,created_at_utc AS occurredAtUtc,protagonist_key AS protagonistKey FROM memory_records WHERE world_profile_id=? AND character_id=? AND timeline_id=? ORDER BY created_at_utc DESC LIMIT 200').all(...stmtScope(scope));
  for(const p of permanent)if(knownEvidence(db,scope,p.recordId))
    rows.push({...scope,...p,kind:'permanent_memory'});
- const suppressed=new Set(db.prepare('SELECT target_id FROM memory_tombstones WHERE world_profile_id=? AND character_id=? AND timeline_id=?').all(...stmtScope(scope)).map(x=>x.target_id));
- return immutableSnapshot(rows.filter(x=>!suppressed.has(x.recordId)&&x.recordId!==excludeRecordId&&(!beforeUtc||x.occurredAtUtc<=beforeUtc)));
+ const suppressed=new Set(listSuppressedMemoryIds(db,scope,world));
+ const corrected=new Set(db.prepare('SELECT target_id FROM memory_corrections WHERE world_profile_id=? AND character_id=? AND timeline_id=?').all(...stmtScope(scope)).map(x=>x.target_id));
+ return immutableSnapshot(rows.filter(x=>!suppressed.has(x.recordId)&&!corrected.has(x.recordId)&&x.recordId!==excludeRecordId&&(!beforeUtc||x.occurredAtUtc<=beforeUtc)));
 }
 export function listSuppressedMemoryIds(db,scope,world){
  dbOwnerScope(db,scope,world);
@@ -224,6 +225,7 @@ export function readPermanentMemoryRows(db,scope,world,{limit=200}={}){
  const data=db.prepare('SELECT * FROM memory_records WHERE world_profile_id=? AND character_id=? AND timeline_id=? ORDER BY created_at_utc DESC LIMIT ?')
   .all(...stmtScope(scope),limit);
  const suppressed=new Set(listSuppressedMemoryIds(db,scope,world));
+ const corrected=new Set(db.prepare('SELECT target_id FROM memory_corrections WHERE world_profile_id=? AND character_id=? AND timeline_id=?').all(...stmtScope(scope)).map(x=>x.target_id));
  return immutableSnapshot(data.flatMap(row=>{
    if(digest(row.content)!==row.content_sha256)fail('memory_content_integrity_failed');
    const sourceEvidenceIds=JSON.parse(row.evidence_ids_json);
@@ -232,7 +234,8 @@ export function readPermanentMemoryRows(db,scope,world,{limit=200}={}){
    // The stored source avatar is immutable provenance. The current avatar is
    // never a filter, but missing, unaccepted, corrected or forgotten sources
    // must not be elevated to verified permanent knowledge.
-   if(suppressed.has(row.memory_id)||sourceEvidenceIds.some(id=>suppressed.has(id))||
+   if(suppressed.has(row.memory_id)||corrected.has(row.memory_id)||
+      sourceEvidenceIds.some(id=>suppressed.has(id)||corrected.has(id))||
       !knownEvidence(db,scope,row.memory_id))return [];
    return [{characterId:scope.characterId,worldProfileId:scope.worldProfileId,
      timelineId:scope.timelineId,protagonistKey:row.protagonist_key,recordId:row.memory_id,
