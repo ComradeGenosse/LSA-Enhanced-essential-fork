@@ -120,9 +120,14 @@ test('W02: journal accepts exact signal once, rejects uncorrelated revised claim
 test('W02: reports are not upgraded to firsthand; unverified report remains unknown',async()=>{
   const x=setup(),m=x.members[0],o=observed(m,100,'report');
   x.ps2.observations.entries.set(`${m.ref}:${EP}`,{value:o});
-  x.frame([x.native(m,100,'report')]); // no witness claim unless native report support exists
-  const result=x.offer(o);assert.equal(result.accepted,false);
-  assert.equal(x.journal.size,0);
+  assert.equal(x.offer(o).accepted,false); // no source
+  x.frame([x.native(m,100,'report')]); // explicitly sourced report only
+  assert.equal(x.offer(o).queued,true);
+  await x.adapter.idle();
+  assert.equal(x.journal.size,1);
+  const event=[...x.journal.values()][0].event;
+  assert.equal(event.receiptStatus,'reported');
+  assert.equal(event.claims[0].modality,'report');
 });
 test('W02: native frame conflict and replay revoke source ownership rather than retcon',()=>{
   const x=setup(),m=x.members[0];x.frame([x.native(m)]);
