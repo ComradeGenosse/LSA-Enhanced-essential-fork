@@ -40,7 +40,7 @@ function socketFactory(messages=[{audio:Buffer.alloc(4800).toString('base64')},
   }
   return {sockets,FakeSocket};
 }
-test('strict ElevenLabs config does not expose vendor key to Qwen or cloud providers',()=>{
+test('strict ElevenLabs config isolates vendor key from OpenAI providers',()=>{
   const c=configured();
   assert.equal(c.speechProvider,'elevenlabs');
   assert.equal(c.ttsModel,'eleven_v4_turbo');
@@ -110,7 +110,7 @@ test('missing ElevenLabs key errors before network and never falls back silently
   const p=createElevenLabsSpeechProvider({config:configured({}),WebSocketImpl:FakeSocket});
   await assert.rejects(p.synthesize({identity,dialogue:'Hello',onPcm:async()=>{}}),/missing_key/);
 });
-test('persisted original OpenAI/Qwen voice references survive provider switching',()=>{
+test('historical voice assignments remain readable when switching providers',()=>{
   const config=configured(),actor={gender:'Male',ageRange:'35-45'};
   const characterId='b9951130-7950-41b1-89a8-b93fe26d058d';
   const worldProfileId='758c56f9-9740-484c-a696-14f3be9bbb55';
@@ -121,6 +121,8 @@ test('persisted original OpenAI/Qwen voice references survive provider switching
   assert.equal(resolved.voice,'nathan');
   assert.equal(original.provider,'faster-qwen3-tts');
   assert.equal(original.profileId,resolved.profileId);
+  assert.throws(()=>normalizeConfig({speechProvider:'faster-qwen3-tts'}),/speechProvider must be openai or elevenlabs/);
+  assert.equal(normalizeConfig({...base,qwenTts:{baseUrl:'http://127.0.0.1:8000/v1'}}).qwenTts,undefined);
   const authored=createPersistentVoiceAssignment({characterId,worldProfileId,actor,config});
   assert.equal(authored.assignmentVersion,3);
   assert.equal(authored.provider,'elevenlabs');

@@ -8,7 +8,7 @@ import path from 'node:path';
 import { defaultConfigPath, normalizeConfig } from '../../src/config/e1Config.mjs';
 import { loadPrivateEnvironment } from '../../src/config/privateEnvironment.mjs';
 import { createElevenLabsSpeechProvider } from '../../src/providers/elevenlabs/speechProvider.mjs';
-import { pcmToWav } from '../qwen/lsa_turn_smoke.mjs';
+import { pcmToWav } from '../../src/voice/pcmWav.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const LINE = 'Hey, it is Nathan. I am ready to get moving whenever you are.';

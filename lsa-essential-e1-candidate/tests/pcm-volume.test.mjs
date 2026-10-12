@@ -40,9 +40,9 @@ test('gain rejects invalid PCM and invalid volume without altering the input', (
   assert.throws(() => scalePcm16(new Uint8Array(3), .5), /PCM16/);
   assert.throws(() => scalePcm16([0, 0], .5), /PCM/);
 });
-test('ttsVolume configuration is shared by OpenAI and Qwen; absent config remains unity', () => {
-  for (const speechProvider of ['openai', 'faster-qwen3-tts']) {
-    const options = { speechProvider };
+test('ttsVolume configuration is shared by OpenAI and ElevenLabs; absent config remains unity', () => {
+  for (const speechProvider of ['openai', 'elevenlabs']) {
+    const options = { speechProvider, ...(speechProvider === 'elevenlabs' ? {elevenLabs:{voices:{nathan:'JBFqnCBsd6RMkjVDRZzb'}}} : {}) };
     assert.equal(normalizeConfig(options, {}).ttsVolume, 1);
     assert.equal(normalizeConfig({...options, ttsVolume: 0}, {}).ttsVolume, 0);
     assert.equal(normalizeConfig({...options, ttsVolume: 0.8}, {}).ttsVolume, .8);
@@ -52,9 +52,10 @@ test('ttsVolume configuration is shared by OpenAI and Qwen; absent config remain
     }
   }
 });
-test('stock native playback gets volume-scaled PCM for both Qwen and OpenAI without changing turn completion', {timeout:20000}, async()=>{
-  for (const speechProvider of ['openai','faster-qwen3-tts']) {
-    const h = await stockHarness('openai',{config:{speechProvider,ttsVolume:0.5}});
+test('stock native playback gets volume-scaled PCM for both ElevenLabs and OpenAI without changing turn completion', {timeout:20000}, async()=>{
+  for (const speechProvider of ['openai','elevenlabs']) {
+    const speechConfig={speechProvider,ttsVolume:0.5,...(speechProvider === 'elevenlabs' ? {elevenLabs:{voices:{nathan:'JBFqnCBsd6RMkjVDRZzb'}}} : {})};
+    const h = await stockHarness('openai',{config:speechConfig});
     const {connection,autoNativeAcks}=await h.openAIControllerSession();
     autoNativeAcks({completePlayback:true});
     h.runtime.services.decide=async()=>({dialogue:'Testing volume.',command:''});
