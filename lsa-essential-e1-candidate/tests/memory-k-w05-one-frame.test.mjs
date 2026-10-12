@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import {DatabaseSync} from 'node:sqlite';
 import {prepareOriginalPs4Recall,verifyPs4RecallCurrent} from '../../lsa-shared-brain/src/memory/ps4RecallContribution.mjs';
 import {SQLiteRecallReadAdapter} from '../../lsa-shared-brain/src/memory/sqliteRecallReadAdapter.mjs';
-import {sealRecallBundle,toPs4RecallContribution} from '../../lsa-shared-brain/src/memory/recallEngine.mjs';
+import {toPs4RecallContribution} from '../../lsa-shared-brain/src/memory/recallEngine.mjs';
+import {sealRecallBundle} from '../../lsa-shared-brain/src/memory/recallSchemaV1.mjs';
 import {evaluateM8,preparePs4M8,verifyPs4M8Current} from '../../lsa-shared-brain/src/memory/m8Interpretation.mjs';
 import {projectPreparedRecall,projectPreparedM8,KNOWLEDGE_LIMITS,jsonBytes} from '../src/context/knowledgeSelector.mjs';
 import {renderKnowledge,pruneKnowledgeFrame} from '../src/context/knowledgeRenderer.mjs';
@@ -28,6 +29,10 @@ function realSqlite(text='I said zephyr 🦊 with two  spaces!'){
  db.prepare('INSERT INTO m4_recall_records_v1(character_id,world_profile_id,timeline_id,protagonist_key,record_id,source_kind,speaker,timestamp_utc,evidence_state,envelope_json,surface_text) VALUES(?,?,?,?,?,?,?,?,?,?,?)')
   .run(stamp.characterId,stamp.worldProfileId,stamp.timelineId,stamp.protagonistKey,U(10),'dialogue_line','player',NOW,'verified',JSON.stringify(envelope),text);
  db.prepare('INSERT INTO m4_recall_fts_v1(rowid,surface_text) VALUES(1,?)').run(text);
+ const accepted={...envelope,recordId:U(9),content:receipt().text};
+ db.prepare('INSERT INTO m4_recall_records_v1(character_id,world_profile_id,timeline_id,protagonist_key,record_id,source_kind,speaker,timestamp_utc,evidence_state,envelope_json,surface_text) VALUES(?,?,?,?,?,?,?,?,?,?,?)')
+  .run(stamp.characterId,stamp.worldProfileId,stamp.timelineId,stamp.protagonistKey,U(9),'dialogue_line','player',NOW,'verified',JSON.stringify(accepted),accepted.content);
+ db.prepare('INSERT INTO m4_recall_fts_v1(rowid,surface_text) VALUES(2,?)').run(accepted.content);
  return {db,reader:new SQLiteRecallReadAdapter({db})};
 }
 const render=(m4=null,m8=null)=>renderKnowledge({
