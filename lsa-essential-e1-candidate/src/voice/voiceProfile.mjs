@@ -7,7 +7,7 @@ const INSTRUCTIONS_MAX = 512;
 export function isVoiceSupportedByModel(model, voice) {
   const id = String(voice || '').trim().toLowerCase();
   if (!VOICE_ID.test(id)) return false;
-  if (model === 'qwen3-tts' || model === 'eleven_v4_turbo') return true; // Registry admission checks the configured pool.
+  if (model === 'eleven_v4_turbo') return true; // Registry admission checks the configured pool.
   if (model === 'tts-1' || model === 'tts-1-hd') {
     return ['alloy', 'ash', 'coral', 'echo', 'fable', 'onyx', 'nova', 'sage', 'shimmer'].includes(id);
   }
@@ -176,12 +176,13 @@ export function createPersistentVoiceAssignment({ characterId, worldProfileId, a
   const selection = config.voiceAssignment === 'character-aware-session'
     ? selectCharacterVoice(null, traits, config, digest) : selectLegacyVoice(null, config, digest);
   if (!isVoiceSupportedByModel(config.ttsModel, selection.voice)) throw new TypeError('persistent_voice_incompatible');
-  return Object.freeze({ assignmentVersion: (config.speechProvider === 'elevenlabs' ? 3 : config.speechProvider === 'faster-qwen3-tts' ? 2 : 1), profileId: `vp_${digest.subarray(0, 10).toString('hex')}`,
+  return Object.freeze({ assignmentVersion: (config.speechProvider === 'elevenlabs' ? 3 : 1), profileId: `vp_${digest.subarray(0, 10).toString('hex')}`,
     provider: config.speechProvider ?? 'openai', voice: selection.voice,
     poolVersion: createHash('sha256').update(JSON.stringify([config.speechVoices, config.speechVoiceProfiles, config.voiceAssignment])).digest('hex') });
 }
 
 export function resolvePersistentVoiceProfile({ assignment, actor = {}, config }) {
+  // Historic v2 Qwen assignments remain readable, but the retired provider cannot be invoked.
   if (!assignment || ![1,2,3].includes(assignment.assignmentVersion) ||
       !/^vp_[a-f0-9]{20}$/.test(assignment.profileId))
     throw new TypeError('persistent_voice_incompatible');

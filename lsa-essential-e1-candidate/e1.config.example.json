@@ -126,26 +126,6 @@
     "preset": "normal"
   },
   "speechProvider": "openai",
-  "qwenTts": {
-    "baseUrl": "http://127.0.0.1:8000/v1",
-    "playbackBufferMode": "adaptive",
-    "adaptiveMinBufferMs": 2500,
-    "adaptiveMaxBufferMs": 4500,
-    "adaptiveSafetyMs": 1100,
-    "speechVoices": [
-      "nathan"
-    ],
-    "speechVoiceProfiles": {
-      "nathan": {
-        "genders": [
-          "any"
-        ],
-        "ageBands": [
-          "any"
-        ]
-      }
-    }
-  },
   "elevenLabs": {
     "modelId": "eleven_v4_turbo",
     "voices": {}

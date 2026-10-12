@@ -213,12 +213,7 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
     let streamMode = null;
     let earlyAudio = null;
     if (services.config.structuredStreamingEnabled === true) {
-      // Qwen's real-time factor can drop below 1x in GTA. In buffered mode
-      // synthesize one validated utterance and queue all PCM before playback,
-      // avoiding gaps between TTS requests for consecutive speech segments.
-      const qwenBuffered = services.config.speechProvider === 'faster-qwen3-tts' &&
-        services.config.qwenTts?.playbackBufferMode !== 'streaming';
-      const allowEarlyTts = services.config.earlyTtsEnabled === true && !qwenBuffered;
+      const allowEarlyTts = services.config.earlyTtsEnabled === true;
       const modelOptions = ({ signal, timeoutMs, telemetry, dialogueAttempt }) => services.providerStack.decideStreaming({
         identity, context: { ...context, source }, source,knowledgeProjection:turn.knowledgeProjection,knowledgeDelivery:turn.knowledgeDelivery,
         input: isPlayer ? finalInput : '', history: priorHistory, signal, timeoutMs, telemetry, dialogueAttempt,
