@@ -92,6 +92,11 @@ try {
     // Keep logs paired with this exact checkout for failed-gate investigation.
     stdoutTail:(run.stdout||'').slice(-10000),stderrTail:(run.stderr||'').slice(-8000)
   };
+  if(run.status!==0){
+    console.error('W09 SOURCE-SIM FAILURE -- original node:test output follows:');
+    console.error((run.stdout||'').slice(-30000));
+    console.error((run.stderr||'').slice(-10000));
+  }
   gate('P2-source-simulation',run.status===0,'201+ dialogue and 2501+ sidecar-backed events, source fences, restart, privacy and rollback');
   if(sourceOnly){
     gate('source-simulation-only-not-production',true,
