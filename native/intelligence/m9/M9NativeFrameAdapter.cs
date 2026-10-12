@@ -123,7 +123,10 @@ namespace LSA.Intelligence.M9
                read.collision.sampledAtMs>=0 &&
                read.sampledAtMs>=read.collision.sampledAtMs &&
                read.sampledAtMs-read.collision.sampledAtMs<=1500 &&
-               unchecked(read.gameTick-read.collision.gameTick)<=1500 &&
+               // A several-hundred-tick-old callback is not an exact source-linked
+               // observation of this frame, even if its wall clock is fresh.
+               // Require native callback/frame tick identity; no inferred join.
+               read.gameTick==read.collision.gameTick &&
                now>=read.collision.sampledAtMs &&
                now-read.collision.sampledAtMs<=MaxSampleAgeMs &&
                Safe(()=>verifyCollisionReceipt(read.collision)))
@@ -134,7 +137,7 @@ namespace LSA.Intelligence.M9
                read.terminal.playerCaptureRef==player.CaptureRef &&
                read.sampledAtMs>=read.terminal.sampledAtMs &&
                read.sampledAtMs-read.terminal.sampledAtMs<=1500 &&
-               unchecked(read.gameTick-read.terminal.gameTick)<=1500 &&
+               read.gameTick==read.terminal.gameTick &&
                now>=read.terminal.sampledAtMs &&
                now-read.terminal.sampledAtMs<=MaxSampleAgeMs &&
                Safe(()=>verifyTerminalReceipt(read.terminal)))
