@@ -16,7 +16,6 @@ const n=()=>randomUUID();
 const stamp='2026-10-12T13:00:00.000Z';
 async function fixture(t){
  const dir=await mkdtemp(path.join(tmpdir(),'d03-source-unit-'));
- t.after(()=>rm(dir,{recursive:true,force:true}));
  const store=createP2MemoryStorage({filePath:path.join(dir,'p2.sqlite'),
    worldProfileId,sourceRequired:true});
  await store.initialize();
@@ -25,7 +24,7 @@ async function fixture(t){
  const host={hostContextVersion:1,hostRunId:n(),worldEpoch:1};
  store.setVerifiedHostContext(host);
  await store.confirmTimeline(timelineId);
- t.after(async()=>{try{await store.close()}catch{}});
+ t.after(async()=>{try{await store.close()}catch{}await rm(dir,{recursive:true,force:true});});
  const identity={pedId:'101',turnId:n(),generationId:1,sessionNonce:1};
  const captureRef=n(),incarnationId=n(),encounterId=n(),playerCaptureRef=n(),streamId=n(),adapterEpoch=n();
  const state={actor:true,d02:true,backend:true,source:true,avatar:'franklin',revision:1,
