@@ -1,0 +1,34 @@
+name: Unified player NPC memory (cross-avatar SQLite)
+on:
+  pull_request:
+    paths:
+      - 'lsa-shared-brain/src/**'
+      - 'lsa-shared-brain/tests/memory-unified-player-avatars.test.mjs'
+      - 'lsa-shared-brain/tests/memory-integrated-storage.test.mjs'
+      - 'lsa-shared-brain/tests/memory-m4-recall.test.mjs'
+      - 'lsa-shared-brain/tests/memory-m5-completion.test.mjs'
+      - 'lsa-shared-brain/tests/memory-m7-completion.test.mjs'
+      - 'lsa-shared-brain/tests/memory-m8-closure.test.mjs'
+      - 'lsa-shared-brain/tests/memory-b-closure.test.mjs'
+      - '.github/workflows/memory-unified-player-avatars.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  sqlite:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Syntax checks (all changed runtime modules)
+        shell: bash
+        run: |
+          for file in lsa-shared-brain/src/memory/{integratedSqlite,sqliteIntegratedRecallProjection,sqliteRecallReadAdapter,recallEngine,integrationPorts,consolidation,curationSqlite,m8Interpretation,m5SqlitePrivacy,p2ReplayCursor}.mjs lsa-shared-brain/src/characters/sqliteFoundation.mjs; do node --check "$file" || exit 1; done
+      - name: Real P2 SQLite and historical-protagonist regression
+        run: node --test lsa-shared-brain/tests/memory-unified-player-avatars.test.mjs lsa-shared-brain/tests/memory-integrated-storage.test.mjs lsa-shared-brain/tests/memory-m4-recall.test.mjs lsa-shared-brain/tests/memory-m5-completion.test.mjs lsa-shared-brain/tests/memory-m7-completion.test.mjs lsa-shared-brain/tests/memory-m8-closure.test.mjs lsa-shared-brain/tests/memory-b-closure.test.mjs
