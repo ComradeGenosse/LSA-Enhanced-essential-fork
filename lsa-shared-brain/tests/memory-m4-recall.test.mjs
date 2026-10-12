@@ -196,7 +196,7 @@ function integratedFixture(){
  db.exec("CREATE TABLE memory_tombstones(world_profile_id TEXT,character_id TEXT,timeline_id TEXT,target_id TEXT)");
  db.exec("CREATE TABLE memory_commands(command_id TEXT PRIMARY KEY,protagonist_key TEXT)");
  db.exec("CREATE TABLE memory_corrections(command_id TEXT PRIMARY KEY,world_profile_id TEXT,character_id TEXT,timeline_id TEXT,target_id TEXT,preferred_text TEXT,content_sha256 TEXT,created_at_utc TEXT)");
- db.exec("CREATE TABLE event_journal(record_id TEXT PRIMARY KEY,world_profile_id TEXT,character_id TEXT,timeline_id TEXT,event_type TEXT,received_at_utc TEXT,envelope_json TEXT,envelope_sha256 TEXT)");
+ db.exec("CREATE TABLE event_journal(record_id TEXT PRIMARY KEY,world_profile_id TEXT,character_id TEXT,timeline_id TEXT,event_type TEXT,received_at_utc TEXT,envelope_json TEXT,envelope_sha256 TEXT,receipt_status TEXT)");
  db.exec("CREATE TABLE event_source_evidence(record_id TEXT PRIMARY KEY,source_evidence_json TEXT,source_evidence_sha256 TEXT)");
  const digest=v=>createHash('sha256').update(v,'utf8').digest('hex');
  const ins=db.prepare('INSERT INTO dialogue_journal VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)');
@@ -327,9 +327,9 @@ test('real v4 event archive validates actual M3 sidecar and never invents witnes
  const add=v=>{
   assert.equal(v.accepted,true);
   const e=v.event,raw=JSON.stringify(e),side=JSON.stringify(v.sourceEvidence);
-  f.db.prepare('INSERT INTO event_journal VALUES(?,?,?,?,?,?,?,?)')
+  f.db.prepare('INSERT INTO event_journal VALUES(?,?,?,?,?,?,?,?,?)')
     .run(e.recordId,s.worldProfileId,s.characterId,s.timelineId,e.eventType,
-      e.receivedAtUtc,raw,f.digest(raw));
+      e.receivedAtUtc,raw,f.digest(raw),e.receiptStatus);
   f.db.prepare('INSERT INTO event_source_evidence VALUES(?,?,?)')
     .run(e.recordId,side,f.digest(side));
   return e;
