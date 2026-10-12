@@ -148,8 +148,7 @@ try {
     gate('A09-pinned-package-and-native',existsSync(path.join(root,
       'artifacts/memory-k/w09-pinned-package-receipt.json')) &&
       (()=>{try{const receipt=JSON.parse(fileText(
-        'artifacts/memory-k/w09-pinned-package-receipt.json'));return
-          receipt.headSha===headSha&&receipt.status==='pass'}catch{return false}})(),
+        'artifacts/memory-k/w09-pinned-package-receipt.json'));return receipt.headSha===headSha&&receipt.status==='pass'}catch{return false}})(),
       'separate pinned AST/build/package/native-compiled verification must pass on same SHA');
   }
 } catch(error){
