@@ -182,6 +182,30 @@ function dependentIds(db,s,ids){
  }
  return [...found];
 }
+
+/** Privacy purge must remove the same-scope source ancestry or a deleted
+ * permanent memory's original accepted dialogue becomes recallable again. */
+function purgeClosure(db,s,roots){
+ const rows=db.prepare('SELECT memory_id AS id,evidence_ids_json AS raw FROM memory_records WHERE '+scopeWhere)
+   .all(...scopeKey(s)).map(row=>({id:row.id,sources:JSON.parse(row.raw)}));
+ if(rows.some(row=>!Array.isArray(row.sources)||row.sources.some(id=>!isUuid(id))))
+   fail('m5_corrupt_source_lineage');
+ const found=new Set(roots);
+ let progress=true;
+ while(progress){
+   progress=false;
+   for(const row of rows){
+     if(found.has(row.id)||row.sources.some(id=>found.has(id))){
+       for(const id of [row.id,...row.sources])if(!found.has(id)){
+         if(!evidence(db,s,id))fail('m5_purge_cross_scope_evidence');
+         found.add(id);progress=true;
+       }
+     }
+   }
+ }
+ return [...found].sort();
+}
+
 function revokePendingClarifications(db,s,tainted){
   for(const row of db.prepare('SELECT command_id AS id,state_json AS json,state_sha256 AS checksum FROM m5_clarifications WHERE '+scopeWhere)
     .all(...scopeKey(s))){
@@ -568,7 +592,7 @@ export class M5SqliteServices{
      const ids=new Set(due.map(x=>x.id));
      // Never delete sources belonging to another protagonist. Closure only
      // follows memories authored for this protagonist, not source parents.
-     const closure=dependentIds(db,scope,ids);
+     const closure=purgeClosure(db,scope,ids);
      // Purge stored derivatives, curator jobs, appraisals and audit receipts
      // that include purged evidence, not merely the primary journal row.
      const tainted=new Set(closure);
@@ -607,7 +631,17 @@ export class M5SqliteServices{
          .run(id,...scopeKey(scope));
        db.prepare('DELETE FROM memory_commands WHERE requested_by_line_id=? AND '+scopeWhere).run(id,...scopeKey(scope));
      }
-     for(const id of closure)
+          // An ancestor could have been suppressed by provenance rather than a
+     // direct trash ticket. Persist a final purge marker for every such ID.
+     for(const id of closure){
+       const ticket=db.prepare('SELECT 1 FROM m5_trash WHERE target_id=? AND '+scopeWhere)
+         .get(id,...scopeKey(scope));
+       if(!ticket)
+         db.prepare('INSERT INTO m5_trash VALUES(?,?,?,?,?,?,?,?,?,NULL,?)')
+           .run(randomUUID(),operationId,id,...scopeKey(scope),
+             new Date(Date.parse(now)-7*DAY).toISOString(),now,now);
+     }
+for(const id of closure)
         db.prepare('UPDATE m5_trash SET purged_at_utc=? WHERE target_id=? AND '+scopeWhere+
           ' AND restored_at_utc IS NULL AND purged_at_utc IS NULL').run(now,id,...scopeKey(scope));
       const result={kind:'m5_purge_result',operationId,operation:'purge',
