@@ -407,7 +407,7 @@ test('M7 production refuses billable fetch without durable player approval befor
  assert.equal(result.status,'consent_unverified');
  assert.deepEqual(seen,[]);
  assert.equal(h.calls.includes('reserve'),false);
- assert.equal(h.calls.includes('release'),true);
+ assert.equal(h.calls.includes('release'),false); // no lease was ever taken
  await s.stop();
 });
 
