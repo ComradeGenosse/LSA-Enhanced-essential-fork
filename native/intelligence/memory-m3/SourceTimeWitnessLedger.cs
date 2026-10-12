@@ -1,0 +1,119 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+
+namespace LSA.Intelligence.MemoryM3
+{
+    // W02 native-only positive source ledger. This class must be constructed on
+    // the existing Intelligence owner fiber with authentic Host/P2 resolvers.
+    // K must call Record ONLY inside the original witness source callback,
+    // never when a later PS2 observation arrives. No JS-origin registration.
+    public sealed class SourceTimeOwner
+    {
+        public readonly string ObserverCaptureRef, OwnerAlias, IncarnationId, EncounterId;
+        public SourceTimeOwner(string observer, string alias, string incarnation, string encounter)
+        { ObserverCaptureRef=observer; OwnerAlias=alias; IncarnationId=incarnation; EncounterId=encounter; }
+    }
+
+    public sealed class SourceTimeWitnessLedger
+    {
+        const int Capacity=2048, MaxFrameProofs=16;
+        readonly Func<string> run, adapterEpoch;
+        readonly Func<int> worldEpoch;
+        readonly Func<uint> nativeGameTick;
+        readonly Func<string,SourceTimeOwner> resolveP2AtSource;
+        readonly Dictionary<string,SourceTimeWitnessProof> retained=new Dictionary<string,SourceTimeWitnessProof>();
+        readonly Queue<string> order=new Queue<string>();
+        public long Accepted {get;private set;}
+        public long Denied {get;private set;}
+        public long Overflow {get;private set;}
+        public long Duplicates {get;private set;}
+        public long Retired {get;private set;}
+        public SourceTimeWitnessLedger(Func<string> run,Func<int> worldEpoch,Func<string> adapterEpoch,
+            Func<uint> nativeGameTick,Func<string,SourceTimeOwner> resolveP2AtSource)
+        {
+            if(run==null||worldEpoch==null||adapterEpoch==null||nativeGameTick==null||
+                resolveP2AtSource==null)throw new ArgumentNullException("native_source_ports");
+            this.run=run;this.worldEpoch=worldEpoch;this.adapterEpoch=adapterEpoch;
+            this.nativeGameTick=nativeGameTick;this.resolveP2AtSource=resolveP2AtSource;
+        }
+        static bool Id(string s) {Guid parsed;return s!=null&&Guid.TryParseExact(s,"D",out parsed)&&
+            parsed.ToString("D")==s;}
+        static bool Alias(string s)=>s!=null&&s.StartsWith("promoted.",StringComparison.Ordinal)&&
+            s.Length==45&&Id(s.Substring(9));
+        static bool Modality(WitnessReceipt r)=>
+            (r.Channel=="visual"&&(r.Basis=="sampled_state"||r.Basis=="native_awareness"))||
+            (r.Channel=="auditory"&&(r.Basis=="audibility_model"||r.Basis=="native_awareness"))||
+            (r.Channel=="self"&&(r.Basis=="sampled_state"||r.Basis=="native_callback"))||
+            (r.Channel=="report"&&r.Basis=="dialogue_report");
+        static string Key(string run,int epoch,string signal,string refId)=>
+            run+"|"+epoch+"|"+signal+"|"+refId;
+        // Witness receipt is created by WitnessPolicy on the original native
+        // sample. Source tick must equal the native clock NOW: a delayed callback
+        // cannot use its old signal.gameTick to backdate a new owner lookup.
+        public bool Record(string signalId,WitnessReceipt witness)
+        {
+            if(witness==null||witness.Status!="witnessed"||!Modality(witness)||
+                !Id(signalId)||!Id(witness.Observer)||
+                nativeGameTick()!=witness.SampledGameTick){Denied++;return false;}
+            var host=run();var epoch=worldEpoch();var adapter=adapterEpoch();
+            if(!Id(host)||epoch<=0||!Id(adapter)){Denied++;return false;}
+            SourceTimeOwner owner=null;
+            try{owner=resolveP2AtSource(witness.Observer);}catch{}
+            if(owner==null||owner.ObserverCaptureRef!=witness.Observer||
+                !Alias(owner.OwnerAlias)||!Id(owner.IncarnationId)||!Id(owner.EncounterId)||
+                run()!=host||worldEpoch()!=epoch||adapterEpoch()!=adapter||
+                nativeGameTick()!=witness.SampledGameTick){Denied++;return false;}
+            var key=Key(host,epoch,signalId,witness.Observer);
+            if(retained.ContainsKey(key)){Duplicates++;return false;}
+            var proof=new SourceTimeWitnessProof {
+                sourceReceiptId=Guid.NewGuid().ToString("D"),signalId=signalId,
+                source="original_native_ps2_witness_sample",
+                hostRunId=host,worldEpoch=epoch,adapterEpoch=adapter,
+                observerCaptureRef=owner.ObserverCaptureRef,
+                ownerAlias=owner.OwnerAlias,incarnationId=owner.IncarnationId,
+                encounterId=owner.EncounterId,sampledGameTick=witness.SampledGameTick,
+                status=witness.Channel=="report"?"reported":"witnessed",
+                channel=witness.Channel,basis=witness.Basis
+            };
+            if(retained.Count>=Capacity) {
+                var evicted=order.Dequeue();retained.Remove(evicted);Overflow++;
+            }
+            retained.Add(key,proof);order.Enqueue(key);Accepted++;
+            return true;
+        }
+        // Only a bounded batch crosses the 8192-byte original pipe.
+        // Source evidence is copied (not retroactively recomputed on demand).
+        // K MUST check the actual serialized byte length and Send() success,
+        // fail closed on connection loss and never ack an untransmitted proof.
+        public object DrainBatch()
+        {
+            if(order.Count==0)return null;
+            var first=retained[order.Peek()];
+            var batch=new List<SourceTimeWitnessProof>();
+            while(batch.Count<MaxFrameProofs&&order.Count>0) {
+                var key=order.Peek();var row=retained[key];
+                if(row.hostRunId!=first.hostRunId||row.worldEpoch!=first.worldEpoch||
+                    row.adapterEpoch!=first.adapterEpoch)break;
+                batch.Add(row);order.Dequeue();retained.Remove(key);
+            }
+            return new {sourceProofVersion=1,hostRunId=first.hostRunId,
+                worldEpoch=first.worldEpoch,proofs=batch.ToArray()};
+        }
+        public void Retire(){Retired+=retained.Count;retained.Clear();order.Clear();}
+        public object Diagnostics()=>new {accepted=Accepted,denied=Denied,duplicate=Duplicates,
+            overflow=Overflow,retired=Retired,queued=retained.Count,
+            negativeCoverageAvailable=false,prepromotionAvailable=false};
+    }
+
+    // Immutable after Record: one exact native source-tick observation lifetime,
+    // never current-owner lookup and never a guessed participant/protagonist.
+    public sealed class SourceTimeWitnessProof
+    {
+        public string sourceReceiptId,signalId,source,hostRunId,adapterEpoch;
+        public int worldEpoch;
+        public string observerCaptureRef,ownerAlias,incarnationId,encounterId;
+        public uint sampledGameTick;
+        public string status,channel,basis;
+    }
+}
