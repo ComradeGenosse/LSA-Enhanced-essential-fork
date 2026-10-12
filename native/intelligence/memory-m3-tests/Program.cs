@@ -81,7 +81,7 @@ internal static class Program
 
         for(var i=0;i<2050;i++)CheckQuiet(ledger.Record(Id(),newWitness),"bounded");
         Check(ledger.Overflow==2,"native queue bounded with explicit overflow count");
-        Check(ledger.PeekBatch().proofs.Length==16,"pipe frame batch maximum");
+        Check(ledger.PeekBatch().proofs.Length==8,"pipe frame batch maximum");
         Check(failures==0,"all native W02 policies passed");
         if(failures!=0)Environment.ExitCode=1;
     }
