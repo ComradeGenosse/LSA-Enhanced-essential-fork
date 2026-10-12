@@ -25,6 +25,19 @@ const fixture=({negotiated=true}={})=>{
         retired++;onRetire(reason,refs);
       }),
     profileForAlias:requested=>requested===alias?profile:null,
+    sourceStillCurrent:(context,owner,player)=>{
+      const s=client.runtime,row=s.observerIndex.get(owner.observerCaptureRef);
+      return s.epoch===context?.adapterEpoch &&
+        s.stream===context?.streamId &&
+        s.hostContext?.hostRunId===context?.hostRunId &&
+        s.hostContext?.worldEpoch===context?.worldEpoch &&
+        s.current(owner.observerCaptureRef) &&
+        s.current(player.playerCaptureRef) &&
+        s.anchors.get(owner.observerCaptureRef)?.observer===true &&
+        row?.incarnationId===owner.incarnationId &&
+        row?.encounterId===owner.encounterId &&
+        s.anchors.get(player.playerCaptureRef)?.kind==='player';
+    },
     now:()=>clock
   });
   const hello={version:1,type:'hello',hostContextVersion:1,hostRunId:run,
@@ -155,6 +168,18 @@ test('D02 denies avatar switch during proof, keeps human player scope for next t
     f.next();await f.send('memory_current_owner_player',f.proof('trevor'));
     assert.equal(f.verify(newLease)?.humanPlayerScope,'single_local_human');
     assert.equal(f.verify(newLease)?.avatarKey,'trevor');
+  }finally{f.close();}
+});
+
+test('D02 synchronous read-through rejects locally expired source anchors',async()=>{
+  const f=fixture();
+  try{
+    await f.establish();await f.send('memory_current_owner_player',f.proof());
+    const lease=f.bind();f.next();await f.send('memory_current_owner_player',f.proof());
+    assert.ok(f.verify(lease));
+    f.client.runtime.anchors.get(f.npcRef).expires=0;
+    assert.equal(f.verify(lease),null,'native roster must remain current at verification time');
+    assert.equal(f.bind(),null);
   }finally{f.close();}
 });
 
