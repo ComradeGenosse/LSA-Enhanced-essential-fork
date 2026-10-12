@@ -68,6 +68,10 @@ source.disconnect();
 node --test lsa-essential-e1-candidate/tests/memory/originalBackendAcceptedInput.test.mjs lsa-essential-e1-candidate/tests/memory/originalBackendSourceTransitions.test.mjs
 ```
 
-The dedicated CI workflow pins Node24, runs on Ubuntu/Windows, checks original source hashes and these tests. Record its **actual exact-head Actions results** independently; do not call green source checks proof of A01a. Required acceptance case 'test that actual final original backend acceptance transition occurred' is **not executable** until the original source/binary contract changes.
+The dedicated CI workflow pins Node24, runs on Ubuntu/Windows and checks original source hashes and these tests.
+
+**Verified specialist source CI for code commit `484020be45d9654e37277e81f566aaa349232f70`:** [Actions run 38265443751](https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/actions/runs/38265443751): Ubuntu Node24 **11/11 PASS, 0 fail** (job `114866320561`); Windows Node24 **11/11 PASS, 0 fail** (job `114866321012`). Both verified bundle and Core SHA-256 above; syntax and original source execution checks passed. The preceding run `38265321225` failed one newly added retired-session denial assertion; the actual missing source-run/session revocation checks were added at `484020be...`, after which both OS jobs passed. All successful tests are **source-only negative evidence**; A01a remains blocked.
+
+This handoff documentation update itself creates a later commit. Recheck latest PR head and its exact-head CI; do not attribute the prior successful receipt to a later commit or describe it as proof of A01a. Required acceptance case 'test that actual final original backend acceptance transition occurred' is **not executable** until the original source/binary contract changes.
 
 **Status: D01 feasible source auditing and negative controls implemented; A01a final typed/STT source capability missing. A01/A09/A10 and controlled GTA remain NO-GO.**
