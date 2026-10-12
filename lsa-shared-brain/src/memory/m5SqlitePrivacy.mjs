@@ -12,6 +12,8 @@ const timestamp = value => typeof value==='string' && Number.isFinite(Date.parse
 const protagonists = new Set(['franklin','michael','trevor','unknown']);
 const scopeKey = s => [s.worldProfileId,s.characterId,s.timelineId,s.protagonistKey??'unknown'];
 const ownerKey = s => [s.worldProfileId,s.characterId,s.timelineId];
+// A stable privacy operation belongs to the human/NPC save, not an avatar.
+const privacyHash = (s,fields) => sha(JSON.stringify({owner:ownerKey(s),...fields}));
 const ownerWhere = 'world_profile_id=? AND character_id=? AND timeline_id=?';
 const DAY = 86400000;
 const CLARIFY_MS = 5*60000;
@@ -210,7 +212,9 @@ export class M5SqliteServices{
    return this.#read(scope,db=>{
      const row=db.prepare('SELECT content,source,speaker,delivery,committed_at_utc AS atUtc FROM dialogue_journal WHERE world_profile_id=? AND character_id=? AND timeline_id=? AND protagonist=? AND record_id=?')
        .get(...scopeKey(scope),line.recordId);
-     return !!row && row.content===line.content && row.source===line.source &&
+     return (!('protagonistKey' in line) || line.protagonistKey===scope.protagonistKey) &&
+       (!line.attribution?.protagonist || line.attribution.protagonist===scope.protagonistKey) &&
+       !!row && row.content===line.content && row.source===line.source &&
        row.speaker===line.speaker && row.delivery===line.delivery &&
        row.atUtc===line.committedAtUtc;
    });
@@ -309,7 +313,7 @@ export class M5SqliteServices{
    authorizeRequest(this.#authorize,scope,'trash');
    if(!isUuid(targetId)||!isUuid(operationId))fail('m5_invalid_trash');
    const now=this.#clock(),until=new Date(Date.parse(now)+7*DAY).toISOString();
-   const reqHash=sha(JSON.stringify({scope,targetId,operationId,operation:'trash'}));
+   const reqHash=privacyHash(scope,{targetId,operationId,operation:'trash'});
    await this.#write(scope,db=>{
      const old=db.prepare('SELECT request_sha256 AS hash FROM m5_privacy_ops WHERE operation_id=?').get(operationId);
      if(old){if(old.hash!==reqHash)fail('m5_privacy_replay_conflict');return;}
@@ -340,7 +344,7 @@ export class M5SqliteServices{
    authorizeRequest(this.#authorize,scope,'trash_scope');
    if(!isUuid(operationId))fail('m5_invalid_operation_id');
    const now=this.#clock(),until=new Date(Date.parse(now)+7*DAY).toISOString();
-   const reqHash=sha(JSON.stringify({scope,operationId,operation:'trash_scope'}));
+   const reqHash=privacyHash(scope,{operationId,operation:'trash_scope'});
    await this.#write(scope,db=>{
      const old=db.prepare('SELECT request_sha256 AS hash FROM m5_privacy_ops WHERE operation_id=?').get(operationId);
      if(old){if(old.hash!==reqHash)fail('m5_privacy_replay_conflict');return;}
@@ -379,7 +383,7 @@ export class M5SqliteServices{
  async restore({scope,trashId,operationId=randomUUID()}){
    authorizeRequest(this.#authorize,scope,'restore');
    if(!isUuid(trashId)||!isUuid(operationId))fail('m5_invalid_restore');
-   const now=this.#clock(),reqHash=sha(JSON.stringify({scope,trashId,operationId,operation:'restore'}));
+   const now=this.#clock(),reqHash=privacyHash(scope,{trashId,operationId,operation:'restore'});
    await this.#write(scope,db=>{
      const old=db.prepare('SELECT request_sha256 AS hash FROM m5_privacy_ops WHERE operation_id=?').get(operationId);
      if(old){if(old.hash!==reqHash)fail('m5_privacy_replay_conflict');return;}
@@ -397,6 +401,28 @@ export class M5SqliteServices{
    });
    return this.verifyPrivacy({scope,operationId});
  }
+ /** Source-bound durable purge verification for the privileged editor. */
+ async verifyPurge({scope,result}){
+   authorizeRequest(this.#authorize,scope,'purge');
+   if(result?.kind!=='m5_purge_result' || !Array.isArray(result.purgedIds) ||
+      !result.purgedIds.every(isUuid) || new Set(result.purgedIds).size!==result.purgedIds.length ||
+      !timestamp(result.committedAtUtc))return {confirmed:false};
+   return this.#read(scope,db=>{
+     for(const id of result.purgedIds){
+       const mark=db.prepare('SELECT 1 AS ok FROM m5_trash WHERE '+ownerWhere+
+         ' AND target_id=? AND purged_at_utc=? LIMIT 1')
+         .get(...ownerKey(scope),id,result.committedAtUtc);
+       if(!mark)return {confirmed:false};
+       for(const [table,column] of [['dialogue_journal','record_id'],
+         ['event_journal','record_id'],['memory_records','memory_id']]){
+         if(db.prepare('SELECT 1 AS ok FROM '+table+' WHERE '+ownerWhere+
+           ' AND '+column+'=? LIMIT 1').get(...ownerKey(scope),id))
+           return {confirmed:false};
+       }
+     }
+     return {confirmed:true};
+   });
+ }
  /** Destructive, explicit 7-day purge for trash past retention. Caller must
   * actively authorize this operation. Physical deletes happen in one TX.
   */
@@ -405,8 +431,15 @@ export class M5SqliteServices{
    if(!Number.isSafeInteger(limit)||limit<1||limit>1000)fail('m5_invalid_limit');
    const now=this.#clock();
    return this.#write(scope,db=>{
-     const due=db.prepare('SELECT target_id AS id,operation_id AS parent FROM m5_trash WHERE '+ownerWhere+' AND restored_at_utc IS NULL AND purged_at_utc IS NULL AND purge_after_utc<=? ORDER BY purge_after_utc LIMIT ?')
-       .all(...ownerKey(scope),now,limit);
+     // Purge complete operation bundles, never a row-count subset that leaves
+     // recoverable trash records pointing at physically deleted evidence.
+     const due=db.prepare('SELECT target_id AS id,operation_id AS parent FROM m5_trash WHERE '+ownerWhere+
+       ' AND restored_at_utc IS NULL AND purged_at_utc IS NULL AND purge_after_utc<=?'+
+       ' AND operation_id IN (SELECT operation_id FROM m5_trash WHERE '+ownerWhere+
+       ' AND restored_at_utc IS NULL AND purged_at_utc IS NULL AND purge_after_utc<=?'+
+       ' GROUP BY operation_id ORDER BY MIN(purge_after_utc),operation_id LIMIT ?)'+
+       ' ORDER BY operation_id,target_id')
+       .all(...ownerKey(scope),now,...ownerKey(scope),now,limit);
      const ids=new Set(due.map(x=>x.id));
      // Purge only this verified NPC and save timeline, across its historical avatars.
      const closure=dependentIds(db,scope,ids);
