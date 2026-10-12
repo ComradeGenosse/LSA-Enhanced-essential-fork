@@ -70,10 +70,15 @@ function feeling(cat,p){
  return null;
 }
 function freshness(at,now){const age=now-ms(at);return age<=120_000?'live':age<=7*86400000?'recent':'archive';}
-function trimProjection(project,maxBytes){
+function trimProjection(project,maxBytes,{preferDurableJokes=false}={}){
  const bytes=()=>Buffer.byteLength(JSON.stringify(project),'utf8');
  while(bytes()>maxBytes){
-  if(project.jokes.length)project.jokes.pop();
+  // Long-term relationship and joke summaries should survive a crowded
+  // recent-facts projection; never make durable friendship disappear because
+  // unrelated conversations exhausted the PS4 byte budget.
+  if(preferDurableJokes&&project.facts.length)project.facts.pop();
+  else if(preferDurableJokes&&project.interpretations.length)project.interpretations.pop();
+  else if(project.jokes.length)project.jokes.pop();
   else if(project.interpretations.length)project.interpretations.pop();
   else if(project.facts.length)project.facts.pop();
   else break;
@@ -224,7 +229,7 @@ export function evaluateM8({scope,personality={},sources=[],memories=[],appraisa
     sourceEvidenceIds:frozen(relationshipIds),
     canonRelationshipUnchanged:true},
   totalBytes:0};
- return trimProjection(result,maxBytes);
+ return trimProjection(result,maxBytes,{preferDurableJokes:relationshipHistory!==null});
 }
 
 /** Opt-in candidate ONLY. PS6 Director retains sole callback admission authority. */
