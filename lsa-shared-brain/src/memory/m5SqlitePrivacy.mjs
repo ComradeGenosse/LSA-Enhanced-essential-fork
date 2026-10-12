@@ -521,7 +521,7 @@ export class M5SqliteServices{
      const valid=receipt.targetIds.every(id=>{
        const active=activeTombstone(db,scope,id);
        const entry=db.prepare('SELECT restored_at_utc AS restored,purged_at_utc AS purged FROM m5_trash WHERE target_id=? AND '+scopeWhere+
-         ' ORDER BY created_at_utc DESC LIMIT 1').get(id,...scopeKey(scope));
+         ' ORDER BY rowid DESC LIMIT 1').get(id,...scopeKey(scope));
        return receipt.operation==='restore'?(!active&&!!entry?.restored):
          (!!active&&!!entry&&!entry.restored&&!entry.purged);
      });
