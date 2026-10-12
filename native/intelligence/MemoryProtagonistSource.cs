@@ -34,8 +34,8 @@ namespace LSA.Intelligence
                     a.Handle==unchecked((ulong)player.Handle) &&
                     a.Address==player.MemoryAddress).Take(2).ToArray();
                 if(anchors.Length!=1 ||
-                   !Object.ReferenceEquals(anchors[0].Entity,player) ||
-                   !Object.ReferenceEquals(host.Anchors.Resolve(anchors[0].CaptureRef),anchors[0]))
+                   !object.ReferenceEquals(anchors[0].Entity,player) ||
+                   !object.ReferenceEquals(host.Anchors.Resolve(anchors[0].CaptureRef),anchors[0]))
                     return null;
                 string key=MemoryOwnerProofPolicy.ProtagonistKey(model);
                 return new {

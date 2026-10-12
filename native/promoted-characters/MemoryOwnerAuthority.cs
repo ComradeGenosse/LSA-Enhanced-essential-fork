@@ -35,12 +35,12 @@ namespace LSA.PromotedCharacters
             var pedIds=new System.Collections.Generic.HashSet<string>(StringComparer.Ordinal);
             foreach(var anchor in anchors)
             {
-                if(!Object.ReferenceEquals(Host.Anchors.Resolve(anchor.CaptureRef),anchor))
+                if(!object.ReferenceEquals(Host.Anchors.Resolve(anchor.CaptureRef),anchor))
                     return null;
                 if(anchor.OwnerLifetime==null) continue; // ambient != promoted
                 var matches=encounters.Values.Where(e=>e.Registration!=null &&
                     e.Ped!=null && anchor.Entity is Ped &&
-                    Object.ReferenceEquals(anchor.Entity,e.Ped) &&
+                    object.ReferenceEquals(anchor.Entity,e.Ped) &&
                     e.Handle==anchor.Handle && e.Address==anchor.Address &&
                     e.CaptureRef==anchor.CaptureRef &&
                     e.Registration.IncarnationId==anchor.OwnerLifetime &&
@@ -58,17 +58,17 @@ namespace LSA.PromotedCharacters
                        e.Registration.IncarnationId,claim.incarnationId,
                        world,claim.worldProfileId,
                        anchor.Observer,Alive(e),
-                       Object.ReferenceEquals(Host.Anchors.Resolve(anchor.CaptureRef),anchor),
+                       object.ReferenceEquals(Host.Anchors.Resolve(anchor.CaptureRef),anchor),
                        e.Registration!=null))
                     return null;
-                string pedId=e.Ped.Handle.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                string pedId=e.Ped.Handle.ToString();
                 if(!MemoryOwnerProofPolicy.ExactActorLifetime(
                      pedId,pedId,e.CaptureRef,anchor.CaptureRef,
                      e.Registration.IncarnationId,anchor.OwnerLifetime,
                      e.Id,e.Id,
-                     Object.ReferenceEquals(e.Ped,anchor.Entity),
+                     object.ReferenceEquals(e.Ped,anchor.Entity),
                      e.Address!=IntPtr.Zero && e.Address==anchor.Address,
-                     Object.ReferenceEquals(Host.Anchors.Resolve(anchor.CaptureRef),anchor),
+                     object.ReferenceEquals(Host.Anchors.Resolve(anchor.CaptureRef),anchor),
                      Alive(e)) ||
                    !aliases.Add(e.OwnerAlias) || !pedIds.Add(pedId))
                     return null;
@@ -82,7 +82,7 @@ namespace LSA.PromotedCharacters
             }
             var playerAfter=MemoryProtagonistSource.Sample(Host,tick);
             if(!IsReady || Host.WorldEpoch!=epoch || Host.HostRunId!=run ||
-               playerAfter==null || !Object.Equals(playerBefore,playerAfter))
+               playerAfter==null || !object.Equals(playerBefore,playerAfter))
                 return null;
             // This source describes a contemporaneous native snapshot, NOT
             // the original backend's final accepted player dialogue.
@@ -114,13 +114,13 @@ namespace LSA.PromotedCharacters
             foreach(var anchor in list)
             {
                 var current=Host.Anchors.Resolve(anchor.CaptureRef);
-                if(!Object.ReferenceEquals(current,anchor)) return null;
+                if(!object.ReferenceEquals(current,anchor)) return null;
                 // An ambient observer has no P2 owner. It must NOT be
                 // attributed to a nearby promoted companion.
                 if(anchor.OwnerLifetime==null) continue;
                 var matches=encounters.Values.Where(e=>e.Registration!=null &&
                     e.Ped!=null && anchor.Entity is Ped &&
-                    Object.ReferenceEquals(anchor.Entity,e.Ped) &&
+                    object.ReferenceEquals(anchor.Entity,e.Ped) &&
                     e.Handle==anchor.Handle && e.Address==anchor.Address &&
                     e.Registration.IncarnationId==anchor.OwnerLifetime &&
                     Alive(e)).Take(2).ToArray();
@@ -139,7 +139,7 @@ namespace LSA.PromotedCharacters
                        encounter.Registration.IncarnationId,claim.incarnationId,
                        world,claim.worldProfileId,
                        anchor.Observer,Alive(encounter),
-                       Object.ReferenceEquals(Host.Anchors.Resolve(anchor.CaptureRef),anchor),
+                       object.ReferenceEquals(Host.Anchors.Resolve(anchor.CaptureRef),anchor),
                        encounter.Registration!=null))
                     return null;
                 result.Add(new {
@@ -154,7 +154,7 @@ namespace LSA.PromotedCharacters
             var protagonistAfter=MemoryProtagonistSource.Sample(Host,tick);
             if(Host.WorldEpoch!=epoch || Host.HostRunId!=run || !IsReady ||
                protagonistAfter==null ||
-               !Object.Equals(protagonistBefore,protagonistAfter))
+               !object.Equals(protagonistBefore,protagonistAfter))
                 return null;
             return new {
                 memoryProofVersion=1,hostRunId=run,worldEpoch=epoch,
