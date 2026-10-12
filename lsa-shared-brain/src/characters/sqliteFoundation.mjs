@@ -241,7 +241,8 @@ export class P2SqliteFoundation {
           removeEvents.run(previous.characterId);
           for(const table of ['memory_records','memory_commands','memory_tombstones','memory_corrections','memory_curation_jobs','memory_luna_appraisals',
             'm5_clarifications','m5_trash','m5_privacy_ops','p2_memory_replay_feed','p2_memory_replay_cursors','m3_coverage',
-            'm6_p2_checkpoints','m6_p2_source_receipts','m6_p2_rejections','m6_p2_ack_receipts']){
+            'm6_p2_checkpoints','m6_p2_source_receipts','m6_p2_rejections',
+            'm6_p2_ack_diagnostics','m6_p2_ack_receipts']){
             this.#db.prepare('DELETE FROM '+table+' WHERE character_id=?').run(previous.characterId);
           }
         }
