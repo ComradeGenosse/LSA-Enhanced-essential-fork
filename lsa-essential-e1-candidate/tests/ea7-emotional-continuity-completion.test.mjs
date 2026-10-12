@@ -5,6 +5,7 @@ import { createProtagonistAuthority } from '../src/perception/protagonistAuthori
 import { createSpeechDeliveryResolver } from '../src/voice/emotion/resolveSpeechDelivery.mjs';
 import { createMoodRuntime } from '../src/voice/emotion/moodRuntime.mjs';
 import { resolveDelivery } from '../src/voice/emotion/sceneDelivery.mjs';
+import { projectActingEvidence } from '../src/voice/emotion/sceneOwnerProjection.mjs';
 import { createDelivery } from '../src/voice/emotion/deliveryContract.mjs';
 import { emitTagged } from './helpers/eaFinalApplied.mjs';
 
@@ -183,6 +184,61 @@ function runtimeFixture({authority=null}={}) {
   return {runtime,db,identityService,makeTurn,advance:t=>{now=t;},
     mood:createMoodRuntime({getRuntime:()=>runtime,protagonistAuthority,clock:()=>now})};
 }
+
+test('EA118 real mood store timestamps suppress same emotion across turn and repeat within turn',async()=>{
+  const f=runtimeFixture(),first=f.makeTurn(4),next=f.makeTurn(5);
+  assert.equal(await commit(f.mood,{...first,delivery:eligible('amused'),
+    receipt:nativeReceipt(first.identity)}),true);
+  const previous=f.mood.readCooldown(next);
+  assert.ok(Object.isFrozen(previous));
+  assert.equal(previous.lastValue,'amused');
+  assert.equal(previous.lastTaggedAtMonotonicMs,1000);
+  assert.equal(previous.taggedSegmentsInTurn,0);
+  assert.equal(previous.identity.turnId,next.identity.turnId);
+  assert.equal(Object.hasOwn(previous,'dialogue'),false);
+  // Read once to consume the allowed follow-up mood. A second segment of the
+  // same turn may still see this timestamp, but a third turn may not.
+  let time=1100;
+  const resolver=createSpeechDeliveryResolver({
+    config:config('experimental'),identity:next.identity,source:'player_text',
+    turn:next.turn,isActive:()=>true,clock:()=>time,
+    adapter:{
+      resolveDelivery,
+      getSceneEvidence:({identity,turn})=>{
+        return projectActingEvidence({identity,turn,perception:f.runtime.intelligence.runtime,
+          identityService:f.identityService});
+      },
+      readMood:f.mood.readMood,
+      readCooldown:f.mood.readCooldown,
+    },
+  });
+  assert.equal(resolver.forSegment({text:'Haha, very funny!',sequence:1}),null,
+    'same amused tag must cool down after a genuinely accepted previous playback');
+  const changed=resolver.forSegment({text:'Are you hurt?',sequence:2});
+  assert.equal(changed?.value,'concerned','a new emotional delivery is allowed');
+  assert.equal(resolver.forSegment({text:'Are you okay?',sequence:3}),null,
+    'second concerned tag cannot bypass the per-turn 6500ms cooldown');
+  time=7501;f.advance(time);
+  assert.equal(resolver.forSegment({text:'Haha, that was good!',sequence:4})?.value,'amused',
+    'cross-turn cooldown expires without extending the 22-second mood lifetime');
+  assert.equal(f.mood.readCooldown(f.makeTurn(6)),null,
+    'the prior played mood cannot supply cooldown evidence to a second follow-up');
+});
+
+test('EA118 cooldown fails closed on unverified mood owner, revoked save, and restart',()=>{
+  const s=new MoodStore(),a=moodContext(4),b=moodContext(5);
+  assert.equal(s.commitPlayed({context:a,nowMs:1000,delivery:eligible('sad'),receipt:played(a)}),true);
+  assert.deepEqual(s.readCooldown({context:b,nowMs:1100}),
+    {lastValue:'sad',lastTaggedAtMonotonicMs:1000});
+  assert.equal(s.readCooldown({context:{...b,isCurrent:()=>false},nowMs:1100}),null);
+  assert.equal(s.readCooldown({context:{...b,timelineId:uuid(900)},nowMs:1200}),null);
+  assert.equal(s.readCooldown({context:b,nowMs:1300}),null,
+    'save change permanently retires prior emotional state');
+  assert.equal(s.commitPlayed({context:a,nowMs:1400,delivery:eligible('sad'),receipt:played(a)}),true);
+  s.clear();
+  assert.equal(s.readCooldown({context:b,nowMs:1450}),null,
+    'cooldown is not persisted across a process restart');
+});
 
 test('EA7 stale cancellation cannot erase a newer native generation mood',async()=>{
   const f=runtimeFixture(),first=f.makeTurn(4),next=f.makeTurn(5),later=f.makeTurn(6);
