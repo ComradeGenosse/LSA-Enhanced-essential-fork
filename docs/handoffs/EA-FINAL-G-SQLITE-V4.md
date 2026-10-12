@@ -25,7 +25,7 @@
 - Protected source-qualified memory reads against queued ABA via context/generation checking. M3 appends may supply verified source evidence while the hostContext is always taken from the trusted adapter.
 - Added a read-only integrity/world/schema preflight for existing DB files before writable SQLite open or journaling mode selection. v4 assertions are mandatory; future versions fail closed. M3/M5/replay extension DDL/backfill is one additive transaction after approved v2/v3->v4 journal migration.
 - Retained the existing CharacterService.store adapter and bootstrap bindTrustedTimelineSource / teardown, without touching native, provider or Agent H-owned files.
-- Replaced the EA6 workflow triggers with G-branch and target-branch Node24 Windows/Linux SQLite tests and Node22 JSON profile regression. Added isolated G01-G12 SQLite adversarial tests.
+- Replaced the EA6 workflow triggers with G-branch and target-branch Node24 Windows/Linux SQLite tests and Node22 JSON profile regression. Added isolated G01-G13 SQLite adversarial tests.
 
 ## Migration and non-mutation acceptance
 

@@ -62,21 +62,26 @@ const DDL=[
 ].join('\n');
 const tables=['dialogue_journal','dialogue_journal_fts','event_journal','event_source_evidence','memory_records','memory_commands','memory_tombstones','memory_curation_jobs','memory_budget_reservations','memory_luna_appraisals'];
 const sidecarDDL="CREATE TABLE IF NOT EXISTS event_source_evidence (record_id TEXT PRIMARY KEY REFERENCES event_journal(record_id) ON DELETE CASCADE, source_evidence_json TEXT NOT NULL, source_evidence_sha256 TEXT NOT NULL)";
-export function migrateJournalSchema(db){
+export function migrateJournalSchema(db,{externalTransaction=false}={}){
   const v=db.prepare('PRAGMA user_version').get().user_version;
   if(![2,3,JOURNAL_SCHEMA_VERSION].includes(v))fail('unsupported_sqlite_profile_schema');
   if(v===JOURNAL_SCHEMA_VERSION){assertJournalSchema(db);return v;}
-  // Entire v2/v3 -> v4 migration commits atomically; no mixed schema state.
-  db.exec('BEGIN IMMEDIATE');
+  // The P2 foundation may compose M2-M9 additive extension tables with the
+  // SAME v2/v3->v4 transaction. Direct callers retain the legacy atomic API.
+  if(externalTransaction!==true) db.exec('BEGIN IMMEDIATE');
+  else if(db.isTransaction!==true) fail('sqlite_migration_transaction_required');
   try{
     if(v===2)db.exec(DDL);
-    else db.exec(sidecarDDL); // Existing v3 journal bytes are never rebuilt.
+    else db.exec(sidecarDDL); // Never rebuild pre-existing v3 journal rows.
     ensureIntegratedMemorySchema(db);
     ensureCurationSchema(db);
     db.exec('PRAGMA user_version=4');
-    db.exec('COMMIT');
+    if(externalTransaction!==true)db.exec('COMMIT');
     return JOURNAL_SCHEMA_VERSION;
-  }catch(error){try{db.exec('ROLLBACK');}catch{}throw error;}
+  }catch(error){
+    if(externalTransaction!==true)try{db.exec('ROLLBACK');}catch{}
+    throw error;
+  }
 }
 export function assertJournalSchema(db){
   if(db.prepare('PRAGMA user_version').get().user_version!==JOURNAL_SCHEMA_VERSION)fail('sqlite_journal_schema_missing');

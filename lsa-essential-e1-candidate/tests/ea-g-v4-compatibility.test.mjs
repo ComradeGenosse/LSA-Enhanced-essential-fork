@@ -233,3 +233,24 @@ test('G12: JSON default remains selected without SQLite authorization',async t=>
   await service.initialize();
   await service.closeStorage();
 });
+test('G13: migration failure rolls back v2 data, schema, and original user_version',async t=>{
+  const p=await fixture(t),legacy=new ProfileStore({filePath:p.json,worldProfileId});
+  await legacy.initialize();await legacy.create(profile());
+  const snapshot=JSON.parse(await fs.readFile(p.json,'utf8'));
+  originalV2(p.db,snapshot);
+  const db=new DatabaseSync(p.db);
+  try{
+    // Deliberate approved-archive incompatibility; CREATE TABLE must fail.
+    db.exec('CREATE TABLE dialogue_journal (bad_column TEXT)');
+  }finally{db.close();}
+  await assert.rejects(storage(p).initialize());
+  const ro=new DatabaseSync(p.db,{readOnly:true});
+  try{
+    assert.equal(ro.prepare('PRAGMA user_version').get().user_version,2);
+    assert.equal(ro.prepare('SELECT name FROM sqlite_master WHERE name=?').get('m5_privacy_ops'),undefined);
+    assert.equal(ro.prepare('SELECT name FROM sqlite_master WHERE name=?').get('memory_records'),undefined);
+    assert.equal(ro.prepare('SELECT bad_column FROM dialogue_journal').all().length,0);
+    assert.equal(ro.prepare('SELECT revision FROM p2_store WHERE singleton=1').get().revision,snapshot.revision);
+    assert.equal(ro.prepare('SELECT COUNT(*) AS n FROM promoted_profiles').get().n,1);
+  }finally{ro.close();}
+});

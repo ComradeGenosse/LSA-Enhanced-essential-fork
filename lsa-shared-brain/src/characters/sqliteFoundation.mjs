@@ -215,13 +215,11 @@ export class P2SqliteFoundation {
       db=new DatabaseSync(this.filePath);
       this.#snapshot=verifyExisting(db,this.worldProfileId);
       db.exec('PRAGMA foreign_keys=ON; PRAGMA busy_timeout=5000; PRAGMA synchronous=FULL');
-      // Only approved 2->4 / 3->4 migrations run; they are atomic SQL
-      // transactions and do not reconstruct the existing profile or journal.
-      migrateJournalSchema(db);
-      // M3/M5/replay additive extensions share the SAME original P2 writer.
-      // Keep all extension DDL, cursor backfill and index work in one
-      // transaction, so partial extension setup cannot be mistaken for success.
+      // Entire approved 2->4 / 3->4 migration AND M3/M5/replay extension
+      // DDL/backfill commit in ONE transaction. Failure rolls back user_version,
+      // journal, indexes, privacy, cursors and profile without partial upgrades.
       transaction(db,()=>{
+        migrateJournalSchema(db,{externalTransaction:true});
         ensureIntegratedMemorySchema(db);
         ensureCurationSchema(db);
         ensureM3CoverageSchema(db);
