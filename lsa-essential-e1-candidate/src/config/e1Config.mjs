@@ -195,7 +195,7 @@ export function normalizeConfig(input = {}, env = process.env) {
     speechProvider === 'elevenlabs'
       ? (elevenInput.speechVoiceProfiles ?? Object.fromEntries(
         Object.keys(elevenLabs.voices).map(voice => [voice, {genders:['any'],ageBands:['any']}]))
-      ))
+      )
       : input.speechVoiceProfiles,
     { speechVoices, supportedVoices, voiceAssignment });
 
