@@ -77,8 +77,11 @@ export function createOriginalBackendAcceptedInput(){
     if(originalBundleSha256!==undefined&&originalBundleSha256!==ORIGINAL_BACKEND_PIN.originalBundleSha256)
       return frozen({status:'not_accepted',reason:'pinned_build_mismatch'});
     if(!sessionConnected)return frozen({status:'not_accepted',reason:'disconnected_session'});
+    if(retiredRuns.has(sourceRunId))return frozen({status:'not_accepted',reason:'retired_source_run'});
     if(retired.has(keyOf(identity)))return frozen({status:'not_accepted',reason:'retired_identity'});
     const lifetimeKey=identity.pedId+'\u0000'+identity.sessionNonce;
+    if(retiredSessions.has(lifetimeKey))
+      return frozen({status:'not_accepted',reason:'retired_session'});
     const previous=latestGeneration.get(lifetimeKey);
     if(previous!==undefined&&identity.generationId<previous)
       return frozen({status:'not_accepted',reason:'superseded_generation'});
