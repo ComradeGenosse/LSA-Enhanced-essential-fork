@@ -281,6 +281,20 @@ export class P2SqliteProfileStore {
       });
     });
   }
+  // W06: source-qualified append-order M6 replay, separate from B's per-protagonist
+  // consumer cursor. Every read and CAS runs through the original P2 queue.
+  async readM6Checkpoint({scope}){
+    return this.withP2SqliteRead(scope,()=>this.#db.readM6Checkpoint({scope}));
+  }
+  async readM6JournalPage({scope,afterCursor=null,limit=250}){
+    return this.withP2SqliteRead(scope,()=>
+      this.#db.readM6JournalPage({scope,afterCursor,limit}));
+  }
+  async ackM6Checkpoint(request){
+    const scope=request?.scope;
+    return this.withP2SqliteTransaction(scope,()=>
+      this.#db.ackM6Checkpoint(request));
+  }
   // Scoped journal writes are serialized WITH the M1 source/lineage check.
   // A player/NPC acknowledgment from a stale native host is never durable.
   async appendDialogueLine(line,attribution) {
