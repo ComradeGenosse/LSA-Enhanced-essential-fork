@@ -254,3 +254,68 @@ test('G13: migration failure rolls back v2 data, schema, and original user_versi
     assert.equal(ro.prepare('SELECT COUNT(*) AS n FROM promoted_profiles').get().n,1);
   }finally{ro.close();}
 });
+
+test('G14: derived v3 journal fixture upgrades additively without rewriting accepted lines',async testContext=>{
+  const p=await fixture(testContext),{store,npc}=await preparedStore(p);
+  const {timelineId,proof}=await approved(store);
+  const content='Archive line from v3, including accents: naïve déjà vu';
+  const line={version:1,characterId:npc.characterId,worldProfileId,timelineId,
+    kind:'dialogue_line',recordId:randomUUID(),speaker:'player',source:'typed',
+    content,delivery:'accepted',committedAtUtc:new Date().toISOString(),
+    turnIdentityHash:digest('v3-original'),utteranceId:null,transcription:null,deliveryReceiptId:null};
+  await store.appendDialogueLine(line,{sessionId:randomUUID(),protagonist:'franklin',
+    hostRunId:proof.hostRunId,worldEpoch:proof.worldEpoch});
+  await store.close();
+  const seed=new DatabaseSync(p.db);
+  try{
+    // Derive a v3-style fixture in a temp file only. A real/user DB is NEVER
+    // downgraded. A missing v4 sidecar must be added without journal rebuild.
+    seed.exec('DROP TABLE event_source_evidence; PRAGMA user_version=3');
+  }finally{seed.close();}
+  const reopened=storage(p);await reopened.initialize();
+  await reopened.close();
+  const inspect=new DatabaseSync(p.db,{readOnly:true});
+  try{
+    assert.equal(inspect.prepare('PRAGMA user_version').get().user_version,4);
+    assert.equal(inspect.prepare('SELECT content FROM dialogue_journal WHERE record_id=?').get(line.recordId).content,content);
+    assert.ok(inspect.prepare("SELECT name FROM sqlite_master WHERE name='event_source_evidence'").get());
+  }finally{inspect.close();}
+});
+test('G15: populated v4 permanent memory, correction, privacy and curation rows survive re-open',async testContext=>{
+  const p=await fixture(testContext),{store,npc}=await preparedStore(p);
+  const {timelineId}=await approved(store);
+  const relationship=npc.relationship;
+  await store.close();
+  const ids={memory:randomUUID(),command:randomUUID(),correction:randomUUID(),
+    privacy:randomUUID(),job:randomUUID(),target:randomUUID()};
+  const now=new Date().toISOString(),content='Do not discard this private memory 🗝';
+  const raw=new DatabaseSync(p.db);
+  try{
+    raw.prepare('INSERT INTO memory_records VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)').run(
+      ids.memory,npc.characterId,worldProfileId,timelineId,'franklin','deterministic',
+      content,digest(content),'permanent',1,0.9,'[]',now,null);
+    raw.prepare('INSERT INTO memory_commands VALUES (?,?,?,?,?,?,?,?,?)').run(
+      ids.command,npc.characterId,worldProfileId,timelineId,'franklin',
+      randomUUID(),'edit',digest('edit'),'{}');
+    raw.prepare('INSERT INTO memory_corrections VALUES (?,?,?,?,?,?,?,?)').run(
+      ids.correction,npc.characterId,worldProfileId,timelineId,ids.target,
+      'Corrected fact',digest('Corrected fact'),now);
+    raw.prepare('INSERT INTO m5_privacy_ops VALUES (?,?,?,?,?,?,?)').run(
+      ids.privacy,worldProfileId,npc.characterId,timelineId,'franklin',
+      digest('privacy'),'{}');
+    raw.prepare('INSERT INTO memory_curation_jobs VALUES (?,?,?,?,?,?,?,?,?,?,?)').run(
+      ids.job,npc.characterId,worldProfileId,timelineId,'{}','pending',now,0,null,null,null);
+  }finally{raw.close();}
+  const resumed=storage(p);await resumed.initialize();
+  assert.deepEqual(resumed.get(npc.characterId).relationship,relationship);
+  assert.equal(resumed.timelineWritable,false);
+  await resumed.close();
+  const ro=new DatabaseSync(p.db,{readOnly:true});
+  try{
+    assert.equal(ro.prepare('SELECT content FROM memory_records WHERE memory_id=?').get(ids.memory).content,content);
+    assert.ok(ro.prepare('SELECT 1 FROM memory_commands WHERE command_id=?').get(ids.command));
+    assert.equal(ro.prepare('SELECT preferred_text FROM memory_corrections WHERE command_id=?').get(ids.correction).preferred_text,'Corrected fact');
+    assert.ok(ro.prepare('SELECT 1 FROM m5_privacy_ops WHERE operation_id=?').get(ids.privacy));
+    assert.ok(ro.prepare('SELECT 1 FROM memory_curation_jobs WHERE job_id=?').get(ids.job));
+  }finally{ro.close();}
+});
