@@ -131,7 +131,16 @@ export async function prepareOriginalPs4Recall({snapshot,queryId,
  catch{return dropped('invalid_original_query');}
  const remaining=Math.floor(deadlineMs-(performance.now()-start));
  if(remaining<1)return dropped('deadline');
- const prepared=await preparePs4Recall({query,readAdapter,snapshot,currentIdentity,
+ // A just-committed question cannot become its own recalled earlier answer.
+ // A thin view over the original P2 adapter excludes precisely that verified
+ // accepted source record, without changing or copying the SQLite writer.
+ const previousOnly={read:async options=>{
+  const result=await readAdapter.read(options);
+  if(!result||!Array.isArray(result.rows))return result;
+  const rows=result.rows.filter(row=>row?.recordId!==accepted.recordId);
+  return {...result,rows,coverageComplete:false};
+ }};
+ const prepared=await preparePs4Recall({query,readAdapter:previousOnly,snapshot,currentIdentity,
    protagonistKey:snapshot.protagonistKey,source:accepted.source,playerActive,
    deadlineMs:remaining,maxContributionBytes,nowUtc,followup});
  if(prepared.status!=='ready')return prepared;
