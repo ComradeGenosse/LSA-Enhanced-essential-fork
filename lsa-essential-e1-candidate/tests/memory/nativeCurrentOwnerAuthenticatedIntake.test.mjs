@@ -75,7 +75,7 @@ const fixture=({negotiated=true}={})=>{
   const verify=lease=>authority.verifyCurrentOwnerAndPlayer({
     lease,identity,characterId,ownerAlias:alias
   });
-  const next=()=>{clock+=10;tick+=10;};
+  const next=(delta=10)=>{clock+=delta;tick+=delta;};
   const close=()=>{socket.destroy();authority.close();client.stop();};
   return {client,socket,authority,hello,helloFrame,send,establish,proof,owner,
     bind,verify,next,close,identity,npcRef,otherRef,playerRef,run,alias,
@@ -142,18 +142,89 @@ test('D02 retires active lease synchronously on native NPC retirement',async()=>
   }finally{f.close();}
 });
 
-test('D02 roster refresh revokes old leases but permits new real frame on SAME stream',async()=>{
+// Native FlushControls(refreshRoster) re-sends anchors + observer_index for
+// every anchor each 1000 ms. That maintenance is not an owner change: it must
+// unsettle verification until a NEWER complete owner sample re-confirms the
+// identical owner record, but it must not revoke a live pre-acceptance lease.
+async function identicalRosterRefresh(f){
+  await f.send('anchors',[
+    {captureRef:f.npcRef,kind:'ped',observer:true,owned:true},
+    {captureRef:f.playerRef,kind:'player',observer:false}
+  ]);
+  await f.send('observer_index',[{captureRef:f.npcRef,kind:'ped',owned:true,
+    incarnationId:f.incarnation,encounterId:f.encounter}]);
+}
+test('D02 identical roster refresh unsettles proof but keeps the live lease until a newer owner sample re-confirms it',async()=>{
   const f=fixture();
   try{
     await f.establish();await f.send('memory_current_owner_player',f.proof());
-    const old=f.bind();
-    await f.send('anchors',[{captureRef:f.npcRef,kind:'ped',observer:true,owned:true}]);
-    assert.equal(f.verify(old),null);
+    const old=f.bind();assert.ok(old);
+    await identicalRosterRefresh(f);
+    assert.equal(f.verify(old),null,'roster frame newer than the last owner sample: unsettled');
+    assert.equal(f.authority.status().settled,false);
+    const duringRefresh=f.bind();
+    assert.ok(duringRefresh,'binding while unsettled is still checked against the live roster');
     f.next();await f.send('memory_current_owner_player',f.proof());
-    const fresh=f.bind();assert.ok(fresh);
+    assert.equal(f.authority.status().settled,true);
+    assert.ok(f.verify(old),'identical refresh did not revoke the pre-acceptance lease');
+    assert.ok(f.verify(duringRefresh));
+    const fresh=f.bind();
     f.next();await f.send('memory_current_owner_player',f.proof());
     assert.ok(f.verify(fresh),'same stream remains usable after roster maintenance');
-    assert.equal(f.verify(old),null);
+  }finally{f.close();}
+});
+
+test('D02 roster demotion and owner drop-out across a refresh revoke permanently on the same stream',async()=>{
+  const f=fixture();
+  try{
+    await f.establish();await f.send('memory_current_owner_player',f.proof());
+    const lease=f.bind();assert.ok(lease);
+    // Native demotes the observer; the next complete owner sample omits it.
+    await f.send('anchors',[{captureRef:f.npcRef,kind:'ped',observer:false,owned:false}]);
+    f.next();await f.send('memory_current_owner_player',{...f.proof(),owners:[]});
+    assert.equal(f.verify(lease),null,'owner missing from the newest sample');
+    // Even if a later sample re-advertises the old captureRef, it was retired
+    // by the drop-out diff that now spans roster maintenance.
+    await identicalRosterRefresh(f);
+    f.next();await f.send('memory_current_owner_player',f.proof());
+    assert.equal(f.verify(lease),null,'drop-out across roster maintenance cannot be resurrected');
+    assert.equal(f.bind(),null);
+  }finally{f.close();}
+});
+
+test('D02 lease survives an STT-length turn across repeated refreshes but not a stale source or the backstop',async()=>{
+  const f=fixture();
+  try{
+    await f.establish();await f.send('memory_current_owner_player',f.proof());
+    const lease=f.bind();assert.ok(lease);
+    // 4 s of native cadence: owner samples every 250 ms, full roster refresh
+    // every 1000 ms, as published by IntelligenceIntegration.Update().
+    for(let ms=250;ms<=4000;ms+=250){
+      f.next(250);
+      if(ms%1000===0)await identicalRosterRefresh(f);
+      await f.send('memory_current_owner_player',f.proof());
+    }
+    assert.ok(f.verify(lease),'continuous membership across >1 s and four roster refreshes');
+    f.next(800);
+    assert.equal(f.verify(lease),null,'newest owner sample older than maxAge is not current');
+    f.next(1);await f.send('memory_current_owner_player',f.proof());
+    assert.ok(f.verify(lease),'a fresh sample restores currency without a new bind');
+    // Keep the native cadence running until the turn-scale backstop passes.
+    // Bound at clock 500; 5301 + 55000 stays inside the 60 s backstop.
+    for(let ms=0;ms<55_000;ms+=250){
+      f.next(250);
+      if(ms%1000===0)await identicalRosterRefresh(f);
+      await f.send('memory_current_owner_player',f.proof());
+    }
+    assert.ok(f.verify(lease),'still continuously corroborated just under the backstop');
+    for(let ms=0;ms<=1000;ms+=250){
+      f.next(250);
+      if(ms%1000===0)await identicalRosterRefresh(f);
+      await f.send('memory_current_owner_player',f.proof());
+    }
+    assert.ok(f.client.runtime.current(f.npcRef),'roster itself is still live');
+    assert.equal(f.authority.status().settled,true);
+    assert.equal(f.verify(lease),null,'absolute lease backstop');
   }finally{f.close();}
 });
 
