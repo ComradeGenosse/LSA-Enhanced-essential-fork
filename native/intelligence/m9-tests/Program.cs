@@ -174,8 +174,11 @@ internal static class Program
         Check(!frames.TryBuild(data,1050,out frame),"restart host fence");
         // Isolated harness only: same object as the pinned DamageSensors
         // callback-created RawSignal, never a constructed GTA live receipt.
+        bool occupantAtSource=true;
         var sourceProducer=new M9OriginalVehicleCollisionProducer(fs,
-            ()=>nativeRun,()=>hostRun,()=>1L);
+            ()=>nativeRun,()=>hostRun,()=>1L,
+            (callback,actor)=>occupantAtSource &&
+                callback.target==fv.CaptureRef && actor==fa.CaptureRef);
         var actualCallback=new RawSignal {
             producer="vehicle_damage",kind="vehicle_damage",
             signalId=Guid.NewGuid().ToString("D"),target=fv.CaptureRef,
@@ -210,6 +213,10 @@ internal static class Program
             fa.CaptureRef),"stale frame staged");
         Check(!sourceProducer.TryTake(5000,6000,out occurrence),
             "stale callback never becomes event");
+        occupantAtSource=false;
+        Check(!sourceProducer.Capture(actualCallback,nativeRun,hostRun,1,
+            fa.CaptureRef),"collision does not prove player involvement");
+        occupantAtSource=true;
         sourceProducer.Retire();
         Check(!sourceProducer.Capture(actualCallback,nativeRun,hostRun,1,
             fa.CaptureRef),"producer retirement disables new proof");
