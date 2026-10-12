@@ -189,6 +189,7 @@ test('EA118 real mood store timestamps suppress same emotion across turn and rep
   const f=runtimeFixture(),first=f.makeTurn(4),next=f.makeTurn(5);
   assert.equal(await commit(f.mood,{...first,delivery:eligible('amused'),
     receipt:nativeReceipt(first.identity)}),true);
+  assert.equal(f.mood.readMood(next)?.value,'amused');
   const previous=f.mood.readCooldown(next);
   assert.ok(Object.isFrozen(previous));
   assert.equal(previous.lastValue,'amused');
@@ -228,6 +229,9 @@ test('EA118 real mood store timestamps suppress same emotion across turn and rep
 test('EA118 cooldown fails closed on unverified mood owner, revoked save, and restart',()=>{
   const s=new MoodStore(),a=moodContext(4),b=moodContext(5);
   assert.equal(s.commitPlayed({context:a,nowMs:1000,delivery:eligible('sad'),receipt:played(a)}),true);
+  assert.equal(s.readCooldown({context:b,nowMs:1050}),null,
+    'cooldown cannot be read before authentic mood consumption');
+  assert.equal(s.take({context:b,nowMs:1050})?.value,'sad');
   assert.deepEqual(s.readCooldown({context:b,nowMs:1100}),
     {lastValue:'sad',lastTaggedAtMonotonicMs:1000});
   assert.equal(s.readCooldown({context:{...b,isCurrent:()=>false},nowMs:1100}),null);
