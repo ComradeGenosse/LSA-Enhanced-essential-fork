@@ -62,6 +62,23 @@ internal static class Program
         Check(ledger.PeekBatch()==null,"host epoch retires old evidence");
         Check(ledger.Record(Id(),newWitness),"fresh host context can begin new ledger");
         ledger.Retire();Check(ledger.PeekBatch()==null,"owner retirement removes unqueued proofs");
+        var actor=Id();
+        var nativeOnly=new SourceTimeWitnessLedger(()=>run,()=>epoch,()=>adapter,()=>tick,
+          o=>aliases.ContainsKey(o)?aliases[o]:null,
+          o=>o==actor?new SourceTimeParticipant(o,"protagonist","trevor"):null);
+        var witnessed=Witness(a);
+        witnessed.KnowsSource=true;
+        var raw=new RawSignal {signalId=Id(),source=actor,gameTick=tick};
+        Check(nativeOnly.Record(raw,witnessed),"native source carries exact participant");
+        var sampled=nativeOnly.PeekBatch().proofs[0].participants;
+        Check(sampled.Length==1&&sampled[0].captureRef==actor&&
+          sampled[0].subjectKey=="trevor","native source tick protagonist proof");
+        witnessed.KnowsSource=false;raw.signalId=Id();
+        Check(nativeOnly.Record(raw,witnessed),"unidentified participant keeps witnessing");
+        Check(nativeOnly.PeekBatch().proofs[0].participants.Length==1,
+          "later signal does not rewrite earlier source proof");
+        nativeOnly.Retire();
+
         for(var i=0;i<2050;i++)CheckQuiet(ledger.Record(Id(),newWitness),"bounded");
         Check(ledger.Overflow==2,"native queue bounded with explicit overflow count");
         Check(ledger.PeekBatch().proofs.Length==16,"pipe frame batch maximum");
