@@ -57,6 +57,7 @@ test('EA2 resolver is disabled by default and never invokes scene or mood adapte
 
 test('EA2 accepts only normalized selector results, forwards optional EA3 proposal as untrusted, and obeys per-turn budget',async()=>{
   const seen=[], events=[],done=[];
+  let now=123;
   const adapter={
     resolveDelivery:args=>{seen.push(args);return DELIVERY;},
     getSceneEvidence:()=>Object.freeze([{verified:true}]),
@@ -65,7 +66,7 @@ test('EA2 accepts only normalized selector results, forwards optional EA3 propos
     retireTurn:()=>done.push('retired'),
   };
   const resolver=createSpeechDeliveryResolver({config:CONFIG,identity:ID,source:'player_text',
-    turn:{},adapter,telemetry:{event:(name,data)=>events.push({name,data})},isActive:()=>true,clock:()=>123});
+    turn:{},adapter,telemetry:{event:(name,data)=>events.push({name,data})},isActive:()=>true,clock:()=>now});
   const first=resolver.forSegment({text:'First private sentence',sequence:1,lunaHint:'sarcastic'});
   assert.equal(first.value,'amused');assert.ok(Object.isFrozen(first));
   assert.equal(seen[0].lunaHint,'sarcastic');
@@ -77,6 +78,9 @@ test('EA2 accepts only normalized selector results, forwards optional EA3 propos
   assert.equal(resolver.synthesized(first,receipt,applied),true);
   resolver.complete(receipt,{historyAccepted:true});
   assert.equal(resolver.forSegment({text:'replay',sequence:1}),null);
+  // This case specifically tests the independent two-tag budget; move time
+  // beyond the newly enforced 6.5s repeat window.
+  now=6624;
   assert.ok(resolver.forSegment({text:'Second',sequence:2}));
   assert.equal(resolver.forSegment({text:'Third',sequence:3}),null,'no third tag');
   resolver.retire();resolver.retire();

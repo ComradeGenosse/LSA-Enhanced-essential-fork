@@ -3,6 +3,7 @@ import { createDelivery, isDelivery } from './deliveryContract.mjs';
 import { ELEVEN_SPEECH_MAX_CHARS, validateElevenSpeechDialogue,
   verifiedElevenTagForDelivery } from './elevenTags.mjs';
 import { wasElevenTagApplied } from '../../providers/elevenlabs/speechProvider.mjs';
+import { SCENE_DELIVERY_BOUNDS } from './sceneDelivery.mjs';
 // This module never writes to canonical dialogue, history or the memory journal.
 const MODES = new Set(['shadow', 'experimental']);
 const VALUES = new Set(['neutral','whisper','excited','fearful','angry','amused','sad','sarcastic','concerned']);
@@ -90,6 +91,8 @@ export function createSpeechDeliveryResolver({
   let selectedCount = 0;
   let retired = false;
   let lastSequence = 0;
+  let lastSelectedValue = null;
+  let lastSelectedAt = null;
   let completedReceiptUsed = false;
   const byDelivery = new WeakMap(); // segment-scoped, not a shared Luna object
   const acknowledgments = new Map(); // only real provider-completed tags
@@ -102,15 +105,18 @@ export function createSpeechDeliveryResolver({
       lastSequence = sequence;
       try { validateElevenSpeechDialogue(text); } catch { return null; }
       let candidate = null;
+      let nowMonotonicMs = null;
       try {
         const currentSceneEvidence = adapter.getSceneEvidence?.({identity,turn,source}) ?? null;
+        nowMonotonicMs = Math.floor(clock());
         candidate = adapter.resolveDelivery({
           identity: currentSceneEvidence?.identity ?? identity,
           segmentText:text, sequence, source,
-          nowMonotonicMs:Math.floor(clock()),
+          nowMonotonicMs,
           currentSceneEvidence,
           actorTraits:adapter.getActorTraits?.({identity,turn}) ?? null,
           priorEphemeralMood:adapter.readMood?.({identity,turn}) ?? null,
+          priorCooldown:adapter.readCooldown?.({identity,turn}) ?? null,
           config:settings,
           lunaHint:VALUES.has(lunaHint) ? lunaHint : null,
         });
@@ -120,8 +126,15 @@ export function createSpeechDeliveryResolver({
       // verified Turbo, concerned remains unsupported on every model.
       const tag = normalized
         ? verifiedElevenTagForDelivery(normalized.value, modelId) : null;
+      // The real per-turn delivery history must also enforce EA1's 6.5-second
+      // repeated-value rule: a second segment has no prior MoodStore commit yet.
+      const repeated = mode === 'experimental' && normalized &&
+        lastSelectedValue === normalized.value &&
+        Number.isSafeInteger(nowMonotonicMs) && lastSelectedAt !== null &&
+        nowMonotonicMs >= lastSelectedAt &&
+        nowMonotonicMs - lastSelectedAt < SCENE_DELIVERY_BOUNDS.repeatedValueCooldownMs;
       const eligible = typeof tag === 'string' && selectedCount < max &&
-        text.length + tag.length + 1 <= ELEVEN_SPEECH_MAX_CHARS;
+        !repeated && text.length + tag.length + 1 <= ELEVEN_SPEECH_MAX_CHARS;
       // Mint a fresh, branded intent per segment. A selector may reuse the
       // SAME frozen object, but duplicate/late callbacks must not impersonate
       // a different segment or overwrite the actual final audible choice.
@@ -137,6 +150,10 @@ export function createSpeechDeliveryResolver({
       }
       if (delivery) {
         selectedCount++;
+        if (mode === 'experimental') {
+          lastSelectedValue = delivery.value;
+          lastSelectedAt = nowMonotonicMs;
+        }
         byDelivery.set(delivery,sequence);
       }
       safeTelemetry(telemetry,{

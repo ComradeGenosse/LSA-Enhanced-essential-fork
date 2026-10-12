@@ -171,7 +171,8 @@ function delivery(value, source, confidence, intensity, evidenceRef = null) {
  */
 export function resolveDelivery({
   identity, segmentText, source, nowMonotonicMs,
-  currentSceneEvidence, actorTraits, priorEphemeralMood, config, lunaHint = null,
+  currentSceneEvidence, actorTraits, priorEphemeralMood, priorCooldown = null,
+  config, lunaHint = null,
 } = {}) {
   if (config?.mode !== 'shadow' && config?.mode !== 'experimental') return NEUTRAL;
   if (!validIdentity(identity) || !SOURCE.has(source) ||
@@ -186,7 +187,9 @@ export function resolveDelivery({
     ? SCENE_DELIVERY_BOUNDS.defaultMaxTaggedSegmentsPerTurn
     : config.maxTaggedSegmentsPerTurn;
   if (!Number.isSafeInteger(budget) || budget < 0 || budget > 8) return NEUTRAL;
-  const prior = priorForIdentity(identity, priorEphemeralMood, nowMonotonicMs);
+  // The ephemeral mood remains a soft style cue. A separately authenticated
+  // playback timestamp supplies cooldown without changing that mood's shape.
+  const prior = priorForIdentity(identity, priorCooldown ?? priorEphemeralMood, nowMonotonicMs);
   if (prior && prior.count >= budget || budget === 0) return NEUTRAL;
 
   const traits = traitsForOwner(identity, actorTraits);

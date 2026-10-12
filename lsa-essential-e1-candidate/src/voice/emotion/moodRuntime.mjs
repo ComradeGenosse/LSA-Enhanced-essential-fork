@@ -76,6 +76,7 @@ export function createMoodRuntime({ getRuntime, protagonistAuthority = null,
     const owner = ownerEvidence.identity;
     const context = {
       identity,characterSnapshot:turn.characterSnapshot,binding,
+      actingIdentity:ownerEvidence.identity, // current owned native/PS projection only
       hostContext:host,timelineId:characterStore.activeTimelineId,
       protagonist:verified.protagonist, nativeSourceProof:verified,
       isCurrent: () => {
@@ -121,6 +122,21 @@ export function createMoodRuntime({ getRuntime, protagonistAuthority = null,
       if (recorded && recorded !== context.nativeSourceProof) return null;
       if (!recorded) turnSource.set(turn,context.nativeSourceProof);
       return store.take({context,nowMs:clock()});
+    },
+    // Return only an authenticated prior playback timestamp, fenced to the
+    // present native turn and owner; never promote old mood to PS2 scene proof.
+    readCooldown({identity,turn}) {
+      const context=current({identity,turn});
+      if (!context || !turn || typeof turn !== 'object') return null;
+      const recorded=turnSource.get(turn);
+      if (recorded && recorded !== context.nativeSourceProof) return null;
+      if (!recorded) turnSource.set(turn,context.nativeSourceProof);
+      const previous=store.readCooldown({context,nowMs:clock()});
+      return previous ? Object.freeze({
+        identity:context.actingIdentity,
+        taggedSegmentsInTurn:0,
+        ...previous,
+      }) : null;
     },
     onSpeechCompleted({identity,turn,delivery,receipt,providerResult,historyAccepted=false}) {
       const context=current({identity,turn});

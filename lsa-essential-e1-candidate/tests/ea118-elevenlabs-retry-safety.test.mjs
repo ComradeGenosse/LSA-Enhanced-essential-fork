@@ -274,7 +274,8 @@ test('R2.06 off/shadow serialized WebSocket frames are byte identical and untagg
   assertClosed(shadow);
   const early=await runCase({early:true,behavior:'success'});
   assert.equal(early.result.status,'completed');
-  assert.deepEqual(textSubmissions(early),['[laughs] '+FIRST,'[laughs] '+SECOND]);
+  assert.deepEqual(textSubmissions(early),['[laughs] '+FIRST,SECOND],
+    'repeat acting is suppressed but both distinct speech segments still submit once');
   assert.equal(ttsAttemptStarts(early).length,2,
     'distinct valid speech segments still have independent vendor operations');
   assert.equal(early.moods.length,1);
