@@ -57,34 +57,36 @@ const stmtScope=(scope)=>[scope.worldProfileId,scope.characterId,scope.timelineI
 function knownEvidence(db,scope,id){
  let row=db.prepare('SELECT record_id AS recordId,content,committed_at_utc AS occurredAtUtc, speaker,source,delivery,protagonist AS protagonistKey FROM dialogue_journal WHERE world_profile_id=? AND character_id=? AND timeline_id=? AND record_id=?').get(...stmtScope(scope),id);
  if(row){
-   if(row.protagonistKey!==(scope.protagonistKey??'unknown')||row.speaker==='player'&&row.delivery!=='accepted'||row.speaker==='npc'&&row.delivery!=='completed')return null;
+   // The model is immutable source provenance, NOT the player-memory subject.
+   if(row.speaker==='player'&&row.delivery!=='accepted'||
+      row.speaker==='npc'&&row.delivery!=='completed')return null;
    return {...row,kind:'dialogue_line'};
  }
  row=db.prepare('SELECT e.record_id AS recordId,e.envelope_json AS json,e.receipt_status AS receiptStatus,e.received_at_utc AS occurredAtUtc FROM event_journal e JOIN event_source_evidence s ON s.record_id=e.record_id WHERE e.world_profile_id=? AND e.character_id=? AND e.timeline_id=? AND e.record_id=?').get(...stmtScope(scope),id);
  if(row){
-   // Events have no authenticated controlling-protagonist attribute in v1.
-   if((scope.protagonistKey??'unknown')!=='unknown')return null;
+   // M3 sidecar qualifies this NPC's witness, irrespective of player body.
    const e=JSON.parse(row.json);
    if(row.receiptStatus!=='witnessed')return null;
    return {...row,kind:'journal_event',content:e.eventType+': '+e.claims.map(c=>c.kind+' '+c.durableSubject).join('; '),eventType:e.eventType};
  }
  row=db.prepare('SELECT memory_id AS recordId,content,created_at_utc AS occurredAtUtc,protagonist_key AS protagonistKey FROM memory_records WHERE world_profile_id=? AND character_id=? AND timeline_id=? AND memory_id=?').get(...stmtScope(scope),id);
- if(row&&row.protagonistKey===(scope.protagonistKey??'unknown'))return {...row,kind:'permanent_memory'};
+ if(row)return {...row,kind:'permanent_memory'};
  return null;
 }
 export function listMemoryCandidates(db,scope,world,{beforeUtc=null,excludeRecordId=null}={}){
  dbOwnerScope(db,scope,world);
  const rows=[];
  const dialogue=db.prepare('SELECT record_id AS recordId,content,committed_at_utc AS occurredAtUtc,speaker,source,delivery,protagonist AS protagonistKey FROM dialogue_journal WHERE world_profile_id=? AND character_id=? AND timeline_id=? ORDER BY committed_at_utc DESC LIMIT 200').all(...stmtScope(scope));
- for(const d of dialogue)if(d.protagonistKey===(scope.protagonistKey??'unknown'))
-   rows.push({...d,kind:'dialogue_line',...scope});
+ for(const d of dialogue)if(d.speaker==='player'&&d.delivery==='accepted'||
+    d.speaker==='npc'&&d.delivery==='completed')
+   rows.push({...scope,...d,kind:'dialogue_line'});
  const events=db.prepare('SELECT e.record_id AS recordId,e.envelope_json AS json,e.receipt_status AS receiptStatus,e.received_at_utc AS occurredAtUtc FROM event_journal e JOIN event_source_evidence s ON s.record_id=e.record_id WHERE e.world_profile_id=? AND e.character_id=? AND e.timeline_id=? ORDER BY e.received_at_utc DESC LIMIT 200').all(...stmtScope(scope));
- if((scope.protagonistKey??'unknown')==='unknown')for(const e of events){
+ for(const e of events){
    const env=JSON.parse(e.json);rows.push({...scope,kind:'journal_event',recordId:e.recordId,receiptStatus:e.receiptStatus,
      occurredAtUtc:e.occurredAtUtc,eventType:env.eventType,content:env.eventType+': '+env.claims.map(c=>c.kind+' '+c.durableSubject).join('; ')});
  }
  const permanent=db.prepare('SELECT memory_id AS recordId,content,created_at_utc AS occurredAtUtc,protagonist_key AS protagonistKey FROM memory_records WHERE world_profile_id=? AND character_id=? AND timeline_id=? ORDER BY created_at_utc DESC LIMIT 200').all(...stmtScope(scope));
- for(const p of permanent)if(p.protagonistKey===(scope.protagonistKey??'unknown'))rows.push({...scope,...p,kind:'permanent_memory'});
+ for(const p of permanent)rows.push({...scope,...p,kind:'permanent_memory'});
  const suppressed=new Set(db.prepare('SELECT target_id FROM memory_tombstones WHERE world_profile_id=? AND character_id=? AND timeline_id=?').all(...stmtScope(scope)).map(x=>x.target_id));
  return immutableSnapshot(rows.filter(x=>!suppressed.has(x.recordId)&&x.recordId!==excludeRecordId&&(!beforeUtc||x.occurredAtUtc<=beforeUtc)));
 }
@@ -111,8 +113,8 @@ export function listSuppressedMemoryIds(db,scope,world){
 export function verifyPersistedMemoryCommand(db,{scope,commandId},world){
  dbOwnerScope(db,scope,world);
  if(!isUuid(commandId))fail('memory_invalid_command_id');
- const row=db.prepare('SELECT * FROM memory_commands WHERE command_id=? AND world_profile_id=? AND character_id=? AND timeline_id=? AND protagonist_key=?')
- .get(commandId,...stmtScope(scope),scope.protagonistKey??'unknown');
+ const row=db.prepare('SELECT * FROM memory_commands WHERE command_id=? AND world_profile_id=? AND character_id=? AND timeline_id=?')
+ .get(commandId,...stmtScope(scope));
  if(!row)return null;
  const receipt=JSON.parse(row.receipt_json);
  if(receipt.commandId!==commandId||receipt.requestedByLineId!==row.requested_by_line_id||receipt.operation!==row.operation||
@@ -176,8 +178,10 @@ export function persistDeterministicMemory(db,proposal,world){
      protagonists.add('unknown');
    }
  }
- if(protagonists.size!==1)fail('memory_mixed_protagonists');
- scope.protagonistKey=[...protagonists][0];
+ // Qualified evidence from multiple controlled story avatars belongs to one
+ // human player; the original journal keeps each observation's provenance.
+ if(protagonists.size===0)fail('memory_missing_qualified_evidence');
+ scope.protagonistKey=protagonists.size===1?[...protagonists][0]:'multi_avatar';
  if(proposal?.kind!=='curation_proposal'||proposal.provider!=='deterministic'||
     !isUuid(proposal.proposalId)||!Array.isArray(proposal.evidenceRecordIds)||!proposal.evidenceRecordIds.length||
     proposal.evidenceRecordIds.length>64||!Number.isFinite(proposal.notability)||proposal.notability<0||proposal.notability>1||
@@ -201,14 +205,14 @@ export function persistDeterministicMemory(db,proposal,world){
 export function readPermanentMemoryRows(db,scope,world,{limit=200}={}){
  dbOwnerScope(db,scope,world);
  if(!Number.isSafeInteger(limit)||limit<1||limit>1000)fail('memory_invalid_limit');
- const data=db.prepare('SELECT * FROM memory_records WHERE world_profile_id=? AND character_id=? AND timeline_id=? AND protagonist_key=? ORDER BY created_at_utc DESC LIMIT ?')
-  .all(...stmtScope(scope),scope.protagonistKey??'unknown',limit);
+ const data=db.prepare('SELECT * FROM memory_records WHERE world_profile_id=? AND character_id=? AND timeline_id=? ORDER BY created_at_utc DESC LIMIT ?')
+  .all(...stmtScope(scope),limit);
  return immutableSnapshot(data.map(row=>{
    if(digest(row.content)!==row.content_sha256)fail('memory_content_integrity_failed');
    const sourceEvidenceIds=JSON.parse(row.evidence_ids_json);
    if(!Array.isArray(sourceEvidenceIds)||!sourceEvidenceIds.every(isUuid))fail('memory_source_integrity_failed');
    return {characterId:scope.characterId,worldProfileId:scope.worldProfileId,
-     timelineId:scope.timelineId,protagonistKey:scope.protagonistKey??'unknown',recordId:row.memory_id,
+     timelineId:scope.timelineId,protagonistKey:row.protagonist_key,recordId:row.memory_id,
      sourceKind:'permanent_memory',evidenceState:'verified',atUtc:row.created_at_utc,
      envelope:{version:1,kind:'permanent_memory',characterId:scope.characterId,
        worldProfileId:scope.worldProfileId,timelineId:scope.timelineId,recordId:row.memory_id,
@@ -221,15 +225,15 @@ export function readPermanentMemoryRows(db,scope,world,{limit=200}={}){
 export function readCorrectionOverlays(db,scope,world){
  dbOwnerScope(db,scope,world);
  const data=db.prepare(`SELECT c.command_id AS commandId,c.target_id AS targetId,
-   c.preferred_text AS content,c.content_sha256 AS checksum,c.created_at_utc AS atUtc
+   c.preferred_text AS content,c.content_sha256 AS checksum,c.created_at_utc AS atUtc,m.protagonist_key AS sourceAvatar
    FROM memory_corrections c JOIN memory_commands m ON m.command_id=c.command_id
-   WHERE c.world_profile_id=? AND c.character_id=? AND c.timeline_id=? AND m.protagonist_key=?
-   ORDER BY c.created_at_utc DESC`).all(...stmtScope(scope),scope.protagonistKey??'unknown');
+   WHERE c.world_profile_id=? AND c.character_id=? AND c.timeline_id=?
+   ORDER BY c.created_at_utc DESC`).all(...stmtScope(scope));
  const records=[];
  for(const c of data){
    if(digest(c.content)!==c.checksum)fail('memory_correction_integrity_failed');
    records.push({characterId:scope.characterId,worldProfileId:scope.worldProfileId,
-     timelineId:scope.timelineId,protagonistKey:scope.protagonistKey??'unknown',
+     timelineId:scope.timelineId,protagonistKey:c.sourceAvatar,
      recordId:c.commandId,sourceKind:'permanent_memory',atUtc:c.atUtc,evidenceState:'verified',
      targetId:c.targetId,
      envelope:{version:1,kind:'permanent_memory',recordId:c.commandId,
