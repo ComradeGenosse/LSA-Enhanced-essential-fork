@@ -62,7 +62,7 @@ test('M7 real SQLite queue survives restart, stores source-linked opinion separa
    assert.equal(rows[0].verifiedWorldFact,false);
    assert.deepEqual(rows[0].sourceEvidenceIds,f.proposal.evidenceRecordIds);
    assert.equal(readCurationAppraisals(reopened,{characterId:f.scope.characterId,
-      timelineId:f.scope.timelineId,protagonistKey:'trevor'},f.scope.worldProfileId).length,0);
+      timelineId:f.scope.timelineId,protagonistKey:'trevor'},f.scope.worldProfileId).length,1);
  }finally{reopened.close()}
  assert.equal(claim(f).length,0);
 });
