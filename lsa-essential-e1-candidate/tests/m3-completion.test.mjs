@@ -41,14 +41,20 @@ function fixture({secondWitness=false,pre=false,participants=false}={}){
     verifiedHostContext:{hostRunId:HOST,worldEpoch:2},
     snapshot:{profiles:pre?[]:[{characterId:A,promotion:{ownerAlias:alias(A)},status:'available'},
       {characterId:B,promotion:{ownerAlias:alias(B)},status:'available'}]}};
-  const resolveNativeOwner=({observerCaptureRef,adapterEpoch,observedGameTick})=>{
+  const resolveNativeOwner=({observerCaptureRef,adapterEpoch,observedGameTick,observation,observationId,observationRevision})=>{
     const proof=proofs.get(observerCaptureRef);
     return proof?{current:true,nativeVerified:true,promoted:true,characterId:observerCaptureRef===OA?A:B,
       ownerAlias:proof.ownerAlias,ownerProof:proof,
-      sourceAtObservation:{nativeVerified:true,gameTick:observedGameTick,adapterEpoch,
+      sourceAtObservation:{nativeVerified:true,source:'original_native_ps2_witness_sample',
+        gameTick:observedGameTick,adapterEpoch,observationId,revision:observationRevision,
         hostRunId:HOST,worldEpoch:2,observerCaptureRef,
         ownerAlias:proof.ownerAlias,incarnationId:proof.incarnationId,
-        encounterId:proof.encounterId}}:null;
+        encounterId:proof.encounterId,
+        signalProofs:observation.claims.map(claim=>({
+          claimId:claim.claimId,signalId:claim.details.eventSignalId,
+          sourceReceiptId:id(100+Number(claim.evidence.sampledGameTick)),
+          sampledGameTick:claim.evidence.sampledGameTick,
+          channel:claim.evidence.channel,basis:claim.evidence.basis}))}}:null;
   };
   const binder=new M3ObserverOwnerBinder({ps2,p2,resolveNativeOwner,
     ...(participants?{resolveParticipants:()=>[{captureRef:PLAYER,subjectKind:'protagonist',
