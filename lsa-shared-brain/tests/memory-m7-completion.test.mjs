@@ -6,7 +6,7 @@ import {mkdtempSync,rmSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import path from 'node:path';
 import {selectAutomaticMemories} from '../src/memory/selection.mjs';
-import {validateM7Consent,validateM7IdleProof,validateM7Pricing,M7_PRIORITY_QUIET_FIELDS} from '../src/memory/m7Consent.mjs';
+import {validateM7Consent,validateM7IdleProof,validateM7Pricing,validateM7ProductionPricing,validateM7PersistedApproval,M7_PRIORITY_QUIET_FIELDS,M7_PRICING_SOURCE_URL} from '../src/memory/m7Consent.mjs';
 import {readPermanentMemoryRows} from '../src/memory/integratedSqlite.mjs';
 import {createHash} from 'node:crypto';
 import {makeQueueJob} from '../src/memory/queueContract.mjs';
@@ -129,11 +129,13 @@ test('M7 scoped claims cannot transport a different promoted NPC',t=>{
 });
 const consent=(overrides={})=>({mode:'experimental',cloudOptIn:true,
  consentSource:'explicit_player_settings',offTurnEvidenceUploadAccepted:true,
- consentedAtUtc:at(0),dailyUsd:.20,monthlyUsd:2,maxBatchUsd:.02,...overrides});
+ consentedAtUtc:at(0),dailyUsd:.20,monthlyUsd:2,maxBatchUsd:.02,
+ consentRevision:1,approvalId:id(98),...overrides});
 const pricedConfig=()=>({provider:'openai',reasoningModel:'gpt-6-luna',
  reasoningBaseUrl:'https://api.openai.com/v1',
  curatorPricing:{model:'gpt-6-luna',source:'operator_verified',verifiedAtUtc:at(0),
- inputUsdPerMillionTokens:1,outputUsdPerMillionTokens:1}});
+ inputUsdPerMillionTokens:1,outputUsdPerMillionTokens:1,
+ pricingTier:'standard',officialPricingUrl:M7_PRICING_SOURCE_URL}});
 function nativeFixture(f,store){
  let listener=null;
  const state={kind:'verified_native_idle_v1',nativeVerified:true,
@@ -145,14 +147,26 @@ function nativeFixture(f,store){
    idle:true,idleForMs:3000,micActive:false,
    playerSpeechActive:false,directorBusy:false,gamePaused:false};
  return {state,snapshot:()=>({...state}),
+   // Explicitly TEST-ONLY fake source; production must use authenticated C-13.
+   verifyAuthenticatedSource:p=>p?.kind==='verified_native_idle_v1',
    subscribeInvalidation(fn){listener=fn;return ()=>{if(listener===fn)listener=null;};},
    invalidate(patch={}){Object.assign(state,patch);listener?.();}};
 }
 function hFixture(f,{provider,allowReserve=true}={}){
- const calls=[],store={worldProfileId:f.scope.worldProfileId,
+ const calls=[],settings={approval:null,listener:null};
+ const store={worldProfileId:f.scope.worldProfileId,
    activeTimelineId:f.scope.timelineId,timelineWritable:true,
    verifiedHostContext:{hostRunId:id(70),worldEpoch:1},
-   get:x=>x===f.scope.characterId?{}:null};
+   get:x=>x===f.scope.characterId?{}:null,
+   readM7Consent:async()=>settings.approval,
+   subscribeM7ConsentInvalidation:fn=>{settings.listener=fn;return ()=>{if(settings.listener===fn)settings.listener=null;}}};
+ const persist=(approval=consent())=>{
+   settings.approval={...approval,source:'p2_explicit_player_settings',
+     model:'gpt-6-luna',worldProfileId:f.scope.worldProfileId,
+     timelineId:f.scope.timelineId,persistedAtUtc:at(0)};
+   settings.listener?.();
+ };
+ persist();
  const nativeIdle=nativeFixture(f,store);
  const queue={enqueueIfAbsent:async()=>{},
    claimDue:async()=>{calls.push('claim');return claim(f,{atMinute:2,until:4});},
@@ -165,7 +179,8 @@ function hFixture(f,{provider,allowReserve=true}={}){
    settle:async a=>{calls.push('settle');return finishCurationBudget(f.db,a,f.scope.worldProfileId,'settled');},
    release:async a=>{calls.push('releaseBudget');return finishCurationBudget(f.db,a,f.scope.worldProfileId,'released');}};
  const cloud=provider??{estimateMaxCostUsd:()=>.005,async curateBatch(){calls.push('cloud');return [f.appraisal];}};
- return {calls,store,nativeIdle,queue,ledger,provider:cloud,
+ return {calls,store,nativeIdle,queue,ledger,provider:cloud,persist,
+   revoke:()=>{settings.approval=null;settings.listener?.();},
    make:(args={})=>createIdleCurationScheduler({store,nativeIdle,queue,ledger,provider:cloud,
      now:()=>at(2),minIntervalMs:0,maxProviderMs:1000,leaseMs:6000,...args})};
 }
@@ -251,6 +266,7 @@ test('M7 consent rejects toggle-only permission, budget escalation and unpriced/
  assert.throws(()=>validateM7Consent(consent({offTurnEvidenceUploadAccepted:false})),/consent_and_budget/);
  assert.equal(validateM7Consent(consent()).maxBatchUsd,.02);
  assert.equal(validateM7Pricing(pricedConfig()).model,'gpt-6-luna');
+ assert.equal(validateM7ProductionPricing(pricedConfig(),{nowUtc:at(2)}).model,'gpt-6-luna');
  const wrong=pricedConfig();wrong.curatorPricing.model='some-other-model';
  assert.throws(()=>validateM7Pricing(wrong),/verified_luna_pricing/);
  assert.throws(()=>validateM7Pricing({provider:'local',reasoningModel:'gpt-6-luna'}),/verified_luna_pricing/);
@@ -398,8 +414,10 @@ test('M7 production Essential bridge refuses missing cost attestation and runtim
 test('M7 Essential pricing estimator blocks a billable fetch before reservation',async t=>{
  const f=fixture(t),h=hFixture(f),seen=[];
  const config={...pricedConfig(),reasoningKey:'offline-only-fake-token'};
+ const narrowConsent=consent({maxBatchUsd:.000001});
+ h.persist(narrowConsent);
  const s=createEssentialM7Scheduler({config,store:h.store,queue:h.queue,ledger:h.ledger,
-   nativeIdle:h.nativeIdle,consent:consent({maxBatchUsd:.000001}),
+   nativeIdle:h.nativeIdle,consent:narrowConsent,
    now:()=>at(2),minIntervalMs:0,leaseMs:6000,maxProviderMs:1000,
    fetchImpl:async()=>{seen.push('billable');throw new Error('network forbidden');}});
  const result=await s.checkpoint();
@@ -445,4 +463,96 @@ test('M7 enforces timeout, no late SQLite commit and uncertain reservation settl
  assert.equal(f.db.prepare('SELECT state FROM memory_budget_reservations').get().state,'settled');
  assert.equal(f.db.prepare('SELECT state FROM memory_curation_jobs').get().state,'pending');
  await s.stop();
+});
+
+test('W07 production denies paid transport when durable approval or authenticated pipe source is missing',async t=>{
+ const f=fixture(t),h=hFixture(f),request=[];
+ const approval=consent();
+ const full={...pricedConfig(),reasoningKey:'offline-test-only'};
+ const make=()=>createEssentialM7Scheduler({config:full,store:h.store,queue:h.queue,
+   ledger:h.ledger,nativeIdle:h.nativeIdle,consent:approval,now:()=>at(2),
+   minIntervalMs:0,leaseMs:6000,maxProviderMs:1000,
+   fetchImpl:async()=>{request.push('outbound');throw Error('forbidden network');}});
+ h.revoke();
+ const denied=make();
+ assert.equal((await denied.checkpoint()).status,'consent_or_source_unverified');
+ assert.deepEqual(request,[]);
+ assert.deepEqual(h.calls,[]);
+ await denied.stop();
+ const noNative=make();
+ delete h.nativeIdle.verifyAuthenticatedSource; // JS fixture deliberately loses K's trusted port
+ assert.equal((await noNative.checkpoint()).status,'source_unverified');
+ assert.deepEqual(request,[]);
+ await noNative.stop();
+});
+
+test('W07 persistent approval readback is revision/scoped/model-fenced',t=>{
+ const f=fixture(t),h=hFixture(f),policy=validateM7Consent(consent());
+ const read=()=>h.store.readM7Consent();
+ return read().then(record=>{
+   const verify=x=>validateM7PersistedApproval(x,policy,{store:h.store,model:'gpt-6-luna'});
+   assert.equal(verify(record),true);
+   for(const broken of [
+     {...record,source:'config_toggle'}, {...record,consentRevision:2},
+     {...record,approvalId:id(96)}, {...record,model:'gpt-6-sol'},
+     {...record,timelineId:id(43)}, {...record,offTurnEvidenceUploadAccepted:false},
+     {...record,cloudOptIn:false}, {...record,monthlyUsd:999}])
+      assert.equal(verify(broken),false);
+ });
+});
+
+test('W07 denied native quiet fields, stale proof and consent withdrawal result in zero cloud',async t=>{
+ for(const failure of M7_PRIORITY_QUIET_FIELDS){
+   const f=fixture(t),h=hFixture(f),cfg={requiredModel:'gpt-6-luna',
+     requireAuthenticatedNative:true,requirePersistedConsent:true,
+     consent:consent()};
+   h.nativeIdle.state.priorityEvidence={...h.nativeIdle.state.priorityEvidence,[failure]:false};
+   const s=h.make(cfg);
+   const result=await s.checkpoint();
+   assert.equal(result.status,'source_unverified',failure);
+   assert.equal(h.calls.some(x=>['reserve','cloud','commit','claim'].includes(x)),false,failure);
+   await s.stop();
+ }
+ const f=fixture(t),h=hFixture(f),s=h.make({consent:consent(),
+   requiredModel:'gpt-6-luna',requireAuthenticatedNative:true,
+   requirePersistedConsent:true});
+ h.nativeIdle.state.observedAtUtc=at(0);
+ assert.equal((await s.checkpoint()).status,'source_unverified');
+ assert.deepEqual(h.calls,[]);
+ await s.stop();
+});
+
+test('W07 persisted withdrawal instantly aborts fake provider; no late CAS after a billed reservation',async t=>{
+ const f=fixture(t);let begin,finish;
+ const started=new Promise(resolve=>begin=resolve);
+ const h=hFixture(f,{provider:{
+   estimateMaxCostUsd:()=>.005,
+   curateBatch:()=>{begin();return new Promise(resolve=>finish=resolve);}
+ }});
+ const s=h.make({consent:consent(),requiredModel:'gpt-6-luna',
+   requireAuthenticatedNative:true,requirePersistedConsent:true});
+ const pending=s.checkpoint();
+ await started;
+ h.revoke();
+ const result=await pending;
+ assert.equal(result.status,'cancelled');
+ finish([f.appraisal]);
+ await new Promise(resolve=>setImmediate(resolve));
+ assert.equal(h.calls.includes('commit'),false);
+ assert.equal(f.db.prepare('SELECT state,amount_usd FROM memory_budget_reservations').get().state,'settled');
+ assert.equal(f.db.prepare('SELECT state,amount_usd FROM memory_budget_reservations').get().amount_usd,.02);
+ await s.stop();
+});
+
+test('W07 production requires official model/tier/endpoint pricing attestation',()=>{
+ const base=pricedConfig(),price={...base.curatorPricing};
+ const fail=config=>assert.throws(()=>validateM7ProductionPricing(config,{nowUtc:at(2)}),
+   /official_standard_luna_price_attestation_required|verified_luna_pricing_required/);
+ fail({...base,reasoningModel:'gpt-6-sol'});
+ fail({...base,reasoningBaseUrl:'https://luna.example/v1'});
+ fail({...base,curatorPricing:{...price,pricingTier:'fast'}});
+ fail({...base,curatorPricing:{...price,officialPricingUrl:'https://pricing.example'}});
+ fail({...base,curatorPricing:{...price,inputUsdPerMillionTokens:.01}});
+ fail({...base,curatorPricing:{...price,outputUsdPerMillionTokens:.05}});
+ assert.equal(validateM7ProductionPricing(base,{nowUtc:at(2)}).model,'gpt-6-luna');
 });
