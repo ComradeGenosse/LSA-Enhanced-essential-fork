@@ -175,6 +175,11 @@ test('W04 privacy trash suppresses immediately, restore is scoped and purge afte
  const purge=await request('purge',{limit:100});
  assert.equal(purge.status,'ok');
  assert.equal((await x.counts()).memories,0);
+ // Purge cannot remove only the derivative and expose its original source
+ // journal text to the M4 retriever after seven days.
+ const sourceRows=await x.store.readDialogueLines({
+   characterId:x.scope.characterId,timelineId:x.scope.timelineId});
+ assert.equal(sourceRows.some(item=>item.recordId===line.recordId),false);
  assert.notEqual((await request('restore',{trashId:ticket.trashId})).status,'ok');
  assert.equal((await port.verifyPurge({scope:x.scope,result:await port.purgeExpired({
    scope:x.scope,limit:100,operationId:id()})})).confirmed,true);
