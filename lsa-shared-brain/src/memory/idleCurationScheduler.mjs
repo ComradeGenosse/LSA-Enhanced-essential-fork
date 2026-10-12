@@ -47,7 +47,7 @@ export function createIdleCurationScheduler({store,queue,ledger,provider,
    !Number.isSafeInteger(maxIdleProofAgeMs)||maxIdleProofAgeMs<100||
    maxIdleProofAgeMs>10000||typeof requireRecovery!=='boolean'||
    typeof requirePersistedConsent!=='boolean'||typeof requireAuthenticatedNative!=='boolean'||
-   (requirePersistedConsent&&typeof requiredModel!=='string'))
+   (requirePersistedConsent&&consent?.mode==='experimental'&&typeof requiredModel!=='string'))
    throw new Error('curation_invalid_scheduler');
  let policy=validateM7Consent(consent),revision=0;
  const limitsMatch=p=>p.mode!=='experimental'||(
