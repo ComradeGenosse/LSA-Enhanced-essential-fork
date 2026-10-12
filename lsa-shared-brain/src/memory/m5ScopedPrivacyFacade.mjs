@@ -16,7 +16,8 @@ const readonly=(object)=>Object.freeze(object);
 
 /**
  * `authorize` proves the authenticated PLAYER is permitted to access this
- * EXACT character/world/timeline/protagonist, not merely that UI is open.
+ * EXACT NPC/world/timeline and CURRENT native source, not merely that UI is open.
+ * The avatar is authentication metadata, not a permanent-memory ownership key.
  * `assertScopeCurrent` checks the P2 timeline/writer/owner and active principal.
  * B must *also* enforce authorization inside its SQL port transaction.
  */
