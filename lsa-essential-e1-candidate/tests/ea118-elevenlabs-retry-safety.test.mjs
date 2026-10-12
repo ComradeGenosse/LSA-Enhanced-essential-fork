@@ -234,6 +234,8 @@ test('R2.04 failure after partial audio never commits assistant, mood or playbac
   assert.equal(ttsAttemptStarts(x).length,1);
   assert.notEqual(x.result.status,'completed');
   assert.equal(x.completionCalls,0);
+  assert.ok(x.nativeEvents.some(e=>e.type==='audio'),
+    'partial PCM really crossed the native side-effect boundary');
   assert.equal(x.nativeEvents.some(e=>e.type==='turn_complete'),false);
   assert.equal(x.history.readForSession(ID.pedId,ID.sessionNonce)
     .some(m=>m.role==='assistant'),false);
@@ -297,6 +299,9 @@ test('R2.07 reasoning, transcription and stock OpenAI/Qwen speech retain retries
   const sideEffect=await runCase({speechProvider:'openai',partialThenFailure:true});
   assert.notEqual(sideEffect.result.status,'completed');
   assert.equal(sideEffect.ttsAttempts,1,'native PCM side-effect fence still blocks retries');
+  const action=await runCase({speechProvider:'openai',ttsFailures:1,actions:1});
+  assert.notEqual(action.result.status,'completed');
+  assert.equal(action.ttsAttempts,1,'published action still blocks pre-PCM retry');
 });
 
 test('R2.08 cancellation and stale-generation retirement close sockets and do not retry',async()=>{
