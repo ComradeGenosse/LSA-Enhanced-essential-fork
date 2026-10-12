@@ -1,5 +1,6 @@
 // M8: pure, source-linked interpretation. Never mutates P2 evidence or writes PS4 frames.
 import {isUuid, normalizedEvidence, sameScope, stableUuid, factDigest} from './evidence.mjs';
+import {performance} from 'node:perf_hooks';
 
 const PROTAGONISTS=new Set(['franklin','michael','trevor','unknown']);
 const STYLES=new Set(['goofy','sarcastic','dry','dark','wholesome']);
@@ -270,13 +271,14 @@ export async function preparePs4M8({scope,authority,personality,readAdapter,
   return w05Drop('unverified_original_owner');
  const stamp=w05Stamp(authority);
  if(!w05Same(stamp,w05Current(currentIdentity)))return w05Drop('stale_before_read');
+ const started=performance.now();
  let timer;
  const timeout=new Promise(resolve=>{timer=setTimeout(()=>resolve(null),deadlineMs);});
  let projection;
  try{projection=await Promise.race([readAdapter.project({scope,authority,personality,nowUtc,maxBytes}),timeout]);}
  catch{return w05Drop('p2_projection_unavailable');}
  finally{clearTimeout(timer);}
- if(!projection)return w05Drop('unavailable_or_deadline');
+ if(!projection||performance.now()-started>deadlineMs)return w05Drop('unavailable_or_deadline');
  if(!w05Same(stamp,w05Current(currentIdentity)))return w05Drop('stale_after_read');
  if(projection.version!==1||projection.kind!=='m8_typed_projection'||
     !sameScope(projection,scope)||projection.protagonistKey!==scope.protagonistKey||
