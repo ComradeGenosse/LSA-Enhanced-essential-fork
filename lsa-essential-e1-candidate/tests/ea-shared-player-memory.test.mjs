@@ -14,7 +14,13 @@ async function setup(t){
   const dir=await mkdtemp(path.join(tmpdir(),'lsa-shared-player-v4-'));
   const store=createEssentialMemoryStorage({filePath:path.join(dir,'memory.sqlite'),
     worldProfileId,sourceRequired:true});
-  t.after(async()=>{await store.close();await rm(dir,{recursive:true,force:true});});
+  // Windows cannot delete WAL/SHM until ALL reopened readers are closed.
+  // Do not rely on LIFO ordering of test.after() hooks.
+  const closers=[()=>store.close()];
+  t.after(async()=>{
+    for(const close of closers.reverse())await close();
+    await rm(dir,{recursive:true,force:true});
+  });
   await store.initialize();
   const npc=await store.create(profile());
   const timelineId=await store.createTimeline({label:'Explicit shared-save fixture'});
@@ -43,7 +49,7 @@ async function setup(t){
     });
     return id;
   }
-  return {store,npc,timelineId,proof,scope,line,memory};
+  return {store,npc,timelineId,proof,scope,line,memory,registerCloser:fn=>closers.push(fn)};
 }
 test('Unified player: Franklin accepted dialogue/memory is available as Michael and Trevor',async t=>{
   const f=await setup(t);
@@ -150,7 +156,7 @@ test('Shared-player persistent recall survives restart, but same-save authorizat
   await f.store.close();
   const opened=createEssentialMemoryStorage({filePath:f.store.filePath,
     worldProfileId,sourceRequired:true});
-  t.after(()=>opened.close());
+  f.registerCloser(()=>opened.close());
   await opened.initialize();
   await assert.rejects(opened.readIntegratedRecall({scope:f.scope('trevor')}),/timeline_write_suspended/);
   opened.setVerifiedHostContext({hostContextVersion:1,hostRunId:randomUUID(),worldEpoch:1});
