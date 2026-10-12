@@ -21,8 +21,8 @@ const fixture=({negotiated=true}={})=>{
     timelineWritable:true,worldEpoch:1};
   const authority=createNativeCurrentOwnerPlayerAuthority({
     subscribeAuthenticatedNativeOwnerPlayerFrames:(onFrame,onRetire)=>
-      client.subscribeAuthenticatedNativeOwnerPlayer(onFrame,reason=>{
-        retired++;onRetire(reason);
+      client.subscribeAuthenticatedNativeOwnerPlayer(onFrame,(reason,refs)=>{
+        retired++;onRetire(reason,refs);
       }),
     profileForAlias:requested=>requested===alias?profile:null,
     now:()=>clock
@@ -119,6 +119,13 @@ test('D02 retires active lease synchronously on native NPC retirement',async()=>
     assert.equal(f.verify(lease),null);
     assert.equal(f.bind(),null);
     assert.ok(f.retired()>0);
+    // A retired captureRef cannot be resurrected on this same stream even
+    // if a future actor advertises the old UUID and lifetime again.
+    await f.send('anchors',[{captureRef:f.npcRef,kind:'ped',observer:true,owned:true}]);
+    await f.send('observer_index',[{captureRef:f.npcRef,kind:'ped',owned:true,
+      incarnationId:f.incarnation,encounterId:f.encounter}]);
+    f.next();await f.send('memory_current_owner_player',f.proof());
+    assert.equal(f.bind(),null,'retired native capture reference is irrevocable');
   }finally{f.close();}
 });
 
