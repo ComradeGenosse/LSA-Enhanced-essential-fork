@@ -58,7 +58,11 @@ const fullJournalSchemas=new WeakMap();
 function fullDialogueIntegritySchema(db){
  if(!fullJournalSchemas.has(db)){
    const cols=new Set(db.prepare('PRAGMA table_info(dialogue_journal)').all().map(x=>x.name));
-   fullJournalSchemas.set(db,['content','content_sha256','envelope_json','envelope_sha256','committed_at_utc'].every(x=>cols.has(x)));
+   const full=['content','content_sha256','envelope_json','envelope_sha256','committed_at_utc'].every(x=>cols.has(x));
+   // Production v4 cannot downgrade into the fixture-only source reader.
+   if(!full&&db.prepare('PRAGMA user_version').get().user_version===4)
+     fail('memory_journal_integrity_schema_missing');
+   fullJournalSchemas.set(db,full);
  }
  return fullJournalSchemas.get(db);
 }
@@ -86,7 +90,9 @@ function knownEvidence(db,scope,id,parents=new Set()){
    const played=row.speaker==='npc'&&row.source==='npc_generated'&&row.delivery==='completed';
    return accepted||played?{...row,kind:'dialogue_line'}:null;
  }
- row=db.prepare('SELECT e.record_id AS recordId,e.envelope_json AS json,e.envelope_sha256 AS envelopeHash,e.source_hash AS eventHash,e.receipt_status AS receiptStatus,e.received_at_utc AS occurredAtUtc,s.source_evidence_json AS sidecar,s.source_evidence_sha256 AS sidecarHash FROM event_journal e JOIN event_source_evidence s ON s.record_id=e.record_id WHERE e.world_profile_id=? AND e.character_id=? AND e.timeline_id=? AND e.record_id=?').get(...stmtScope(scope),id);
+ // Only a complete P2 v4 event journal can attest witnessed evidence. Offline
+ // curation fixtures omit that schema and never certify native events.
+ row=full?db.prepare('SELECT e.record_id AS recordId,e.envelope_json AS json,e.envelope_sha256 AS envelopeHash,e.source_hash AS eventHash,e.receipt_status AS receiptStatus,e.received_at_utc AS occurredAtUtc,s.source_evidence_json AS sidecar,s.source_evidence_sha256 AS sidecarHash FROM event_journal e JOIN event_source_evidence s ON s.record_id=e.record_id WHERE e.world_profile_id=? AND e.character_id=? AND e.timeline_id=? AND e.record_id=?').get(...stmtScope(scope),id):null;
  if(row){
    if(row.receiptStatus!=='witnessed'||digest(row.json)!==row.envelopeHash||digest(row.sidecar)!==row.sidecarHash)return null;
    try{
