@@ -57,6 +57,10 @@ jobs:
           tests/ea8-elevenlabs-provider-safety.test.mjs
           tests/ea-final-integration-wiring.test.mjs
           tests/ea-final-b-timeline.test.mjs
+          tests/ea-g-v4-compatibility.test.mjs
+          tests/ea6-storage-timeline.test.mjs
+          tests/ea-final-c-emotional-delivery.test.mjs
+          tests/p2-profiles.test.mjs
           tests/ea9-release.test.mjs
       - name: Check consolidated EA0-EA9 source inventory at exact HEAD
         shell: bash
