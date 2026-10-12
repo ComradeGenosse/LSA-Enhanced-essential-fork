@@ -2,6 +2,7 @@
 // not a second dialogue recorder, SQLite store, or native playback observer.
 import {createConversationJournalRecorder} from './conversationRecorder.mjs';
 import {isUuid} from '../util/identity.mjs';
+import {createHash} from 'node:crypto';
 
 const fail = code => { throw new Error(code); };
 const protagonists = new Set(['franklin','michael','trevor','unknown']);
@@ -91,6 +92,8 @@ export function createM2TurnCapture({
       profile?.promotion?.ownerAlias !== boundAlias)
     throw new Error('m2_source_unconfirmed');
   const origin = Object.freeze({hostRunId:host.hostRunId,worldEpoch:host.worldEpoch});
+  const scope=Object.freeze({worldProfileId,timelineId,characterId});
+  const sha256=text=>createHash('sha256').update(text,'utf8').digest('hex');
   const verifiedArgs={identity:frozenIdentity,characterId,ownerAlias:boundAlias,
     host:origin,protagonist};
   // Native proof must be synchronous and source-qualified. A caller's isCurrent
@@ -152,6 +155,38 @@ export function createM2TurnCapture({
   // The wrapper is intentionally limited to the recorder's existing interface.
   // It calls the same shared foundation writer under M1's *one* queue/transaction,
   // with an additional native-turn lifetime check at the real commit boundary.
+  // The P2 writer returning a record ID is not itself a durable M5 receipt.
+  // Verify the committed row through P2's serialized SQLite reader after the
+  // transaction has resolved, and preserve the precise original C-01 scope.
+  async function verifyDurablePlayerReceipt(receipt,{text,source}) {
+    if(receipt.status!=='stored'&&receipt.status!=='duplicate')return receipt;
+    try {
+      assertBoundTurn();
+      if(typeof store.findExactQuote!=='function')fail('m2_commit_readback_unverified');
+      const rows=await store.findExactQuote({...scope,quote:text,limit:20});
+      assertBoundTurn();
+      const row=Array.isArray(rows)&&rows.find(r=>r.recordId===receipt.recordId);
+      if(!row||row.kind!=='dialogue_line'||row.speaker!=='player'||
+         row.delivery!=='accepted'||row.source!==source||row.content!==text||
+         row.characterId!==characterId||row.timelineId!==timelineId||
+         row.worldProfileId!==worldProfileId||
+         row.attribution?.hostRunId!==origin.hostRunId||
+         row.attribution?.worldEpoch!==origin.worldEpoch||
+         row.attribution?.protagonist!==protagonist)
+        fail('m2_commit_readback_unverified');
+      // proof is a scoped durable receipt for M5, not a transferable native
+      // capability. K must recheck current native turn before M5 dispatch.
+      const proof=Object.freeze({kind:'original_c01_accepted_turn',
+        identity:frozenIdentity,ownerAlias:boundAlias,protagonistKey:protagonist,
+        hostRunId:origin.hostRunId,worldEpoch:origin.worldEpoch,
+        incarnationId:nativeLifetime.incarnationId,
+        encounterId:nativeLifetime.encounterId,
+        observerIndex:nativeLifetime.observerIndex,
+        contentSha256:sha256(text),source});
+      return Object.freeze({...receipt,durable:true,scope,proof});
+    }catch(error){return Object.freeze({status:'not_stored',reason:safeReason(error)});}
+  }
+
   const boundStore = {
     worldProfileId, activeTimelineId:timelineId,
     verifiedHostContext:origin,
@@ -184,11 +219,11 @@ export function createM2TurnCapture({
   });
 
   return Object.freeze({
-    recordPlayerAccepted({accepted=false,text,source,utteranceId=null,
+    async recordPlayerAccepted({accepted=false,text,source,utteranceId=null,
       transcription=null,committedAtUtc}={}) {
       // H must call this only after accepted typed/STT intake, not interim STT
       // or speculative text. Preserve the original string, including whitespace.
-      return capture(() => {
+      const receipt=await capture(() => {
         if (accepted !== true) fail('m2_player_not_accepted');
         assertBoundTurn();
         verifyAcceptedLine({source,content:text});
@@ -196,6 +231,7 @@ export function createM2TurnCapture({
           text,source,utteranceId,transcription:transcription===null ? null :
             {...transcription},committedAtUtc,attribution});
       });
+      return verifyDurablePlayerReceipt(receipt,{text,source});
     },
     recordNpcCompleted({historyAccepted=false,text,receipt,mode='buffered',
       spokenSegments=null,speechProof=null,committedAtUtc}={}) {
@@ -221,6 +257,7 @@ export function createM2TurnCapture({
           characterId,identity:frozenIdentity,text,receipt,attribution,committedAtUtc});
       });
     },
+    assertSourceCurrent() {assertBoundTurn();return true;},
     // H must retire on owner loss, supersession, abort, protagonist change,
     // connection replacement or native session close. Never retro-authorize.
     retire() { retired = true; },
