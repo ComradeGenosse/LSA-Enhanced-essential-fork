@@ -124,15 +124,23 @@ export async function d01Harness(t,{config={},corroboration=true}={}){
     h.context.d01Typed={type,pedId:'17',speaker:a,target:{pedId:'player'},text};
     return h.evaluate('ib(d01Typed)');
   };
-  // Real original mic path: lb (micStart) -> wd (micHydration) -> audio ->
-  // $y (finish: activityEnd -> OpenAIConnection.endRealtimeInput).
+  // Real original mic path: lb (micStart) -> wd (hydration, inside lb) ->
+  // t4 (chunk intake -> fb -> gd -> sendRealtimeAudio) -> ub (micStop:
+  // draining) -> $y (drain completion: _d -> endRealtimeInput -> launch).
+  // Only the device listener (By) and the timing tracer (Te) are stubbed; the
+  // original timers that would call $y after quiet/max drain are not awaited.
   const mic=async({audio=[1,2,3,4]}={})=>{
     h.context.d01Mic={type:'micStart',pedId:'17',speaker:a,target:{pedId:'player'}};
-    h.evaluate('By=()=>{};gb=()=>{};pb=()=>{};wy=()=>{};Te=()=>{};hb=()=>{};mb=()=>{};OK=false;'+
-      'if(!A.mic)A.mic={status:"idle",nonce:0,pendingChunks:[],pendingBuffer:Buffer.alloc(0),sendChain:Promise.resolve()};');
+    h.context.performance??=globalThis.performance; // Node global used by fb
+    // OK is the pinned debug-print flag for realtime context (Ly console dump).
+    h.evaluate('var Zr=16e3,ob=12e3,qy=900,ab=180,e4=240,OK=false;By=()=>{};Te=()=>{};'+
+      'if(!A.mic)A.mic=ND();if(!A.playerTurnRecoveryByTurnId)A.playerTurnRecoveryByTurnId=new Map();'+
+      'if(!A.sentToGeminiChunks)A.sentToGeminiChunks=[];');
     const turn=await h.evaluate('lb(d01Mic)');
     if(!turn)throw new Error('mic turn not created');
-    await session.connection.sendRealtimeAudio(new Uint8Array(audio));
+    h.context.d01Chunk=Buffer.from(audio);
+    h.evaluate('t4(d01Chunk)');
+    await h.evaluate('ub()');
     h.context.d01MicTurn=turn;
     await h.evaluate('$y(d01MicTurn,d01MicTurn.metadata.sessionRecord)');
     return turn;

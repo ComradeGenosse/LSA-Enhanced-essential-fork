@@ -175,7 +175,7 @@ export function createD03OriginalDialogueJoin({store,backend,d02,originalActor,
     const consistent=x=>same(x.b,first.b,RECEIPT_KEYS)&&
        JSON.stringify(x.b.retirementIdentity)===JSON.stringify(first.b.retirementIdentity)&&
        same(x.n,first.n,NATIVE_KEYS);
-    const proof=()=>{
+    const proof=()=> {
       const x=read(text,source);
       if(x.lost==='native')stop(NATIVE_LOST);
       if(!x.b||!consistent(x))stop('d03_source_changed_or_retired');
@@ -183,7 +183,7 @@ export function createD03OriginalDialogueJoin({store,backend,d02,originalActor,
     };
     let persisted=null;
     for(let attempt=0;!persisted;attempt++){
-     try {
+    try {
       // All source reads are synchronous INSIDE the existing P2 serialized
       // transaction. The outer transaction includes both dialogue and source.
       persisted=await store.withP2SqliteTransaction(scope,db=>{
@@ -219,14 +219,14 @@ export function createD03OriginalDialogueJoin({store,backend,d02,originalActor,
         return {recordId:receipt.recordId,inserted:receipt.inserted,
           sourceSha256:sha(evidence)};
       });
-     }catch(error){
+    }catch(error){
       // Only a lost native corroboration (e.g. a roster frame interleaved
       // before the queued COMMIT) is retried, with a full fresh corroboration
       // against the SAME receipt and owner record. Everything rolled back.
       if(error?.message!==NATIVE_LOST||attempt>=2)return denied('d03_transaction_rejected');
       const again=await corroborate(text,source,deadline);
       if(!again||!consistent(again))return denied('d03_transaction_rejected');
-     }
+    }
     }
     try{
       // Independent P2 readback after transaction; an INSERT return value

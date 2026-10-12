@@ -73,17 +73,16 @@ export function createNativeCurrentOwnerPlayerAuthority({
   // subject, sequence and leases, but unsettles verification. Terminal source
   // faults retire the stream until a new authenticated hello.
   const clear=(reason='terminal',revokedRefs=[])=>{
-    if(reason==='roster') {
-      if(Array.isArray(revokedRefs))
-        for(const ref of revokedRefs)if(uuid(ref))retiredRefs.add(ref);
-      settled=false;
-      return;
+    if(reason==='roster' && Array.isArray(revokedRefs))
+      for(const ref of revokedRefs)if(uuid(ref))retiredRefs.add(ref);
+    if(reason==='roster'){settled=false;return;}
+    if(reason!=='roster') {
+      if(context?.streamId) {
+        retiredStreams.add(context.streamId);
+        if(retiredStreams.size>64)retiredStreams.delete(retiredStreams.values().next().value);
+      }
+      ownerHistory.clear();retiredRefs.clear();
     }
-    if(context?.streamId) {
-      retiredStreams.add(context.streamId);
-      if(retiredStreams.size>64)retiredStreams.delete(retiredStreams.values().next().value);
-    }
-    ownerHistory.clear();retiredRefs.clear();
     context=null;owners=new Map();subject=null;sequence=-1;
     gameTick=-1;receivedAt=-1;leases=new WeakMap();settled=false;
   };
