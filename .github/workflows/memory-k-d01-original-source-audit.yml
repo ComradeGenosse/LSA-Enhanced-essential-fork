@@ -1,0 +1,54 @@
+name: Memory K D01 original backend source audit (A01a blocked)
+on:
+  push:
+    branches:
+      - fix/memory-k-d01-original-backend-acceptance-20261012
+  pull_request:
+    paths:
+      - 'lsa-essential-e1-candidate/src/memory/originalBackendAcceptedInput.mjs'
+      - 'lsa-essential-e1-candidate/src/memory/originalBackendSourceAudit.mjs'
+      - 'lsa-essential-e1-candidate/tests/memory/originalBackend*'
+      - 'lsa-essential-e1-candidate/upstream/server.bundle.mjs'
+      - 'lsa-essential-e1-candidate/patches/essential-hooks.json'
+      - '.github/workflows/memory-k-d01-original-source-audit.yml'
+  workflow_dispatch:
+
+jobs:
+  pinned-source-and-adversarial-tests:
+    name: Source tests only — original A01a remains BLOCKED (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Verify original source hashes and exact source revision
+        shell: bash
+        run: |
+          node --input-type=module -e '
+            import {readFileSync} from "node:fs";
+            import {createHash} from "node:crypto";
+            import {ORIGINAL_BACKEND_PIN} from "./lsa-essential-e1-candidate/src/memory/originalBackendAcceptedInput.mjs";
+            const targets=[
+              ["lsa-essential-e1-candidate/upstream/server.bundle.mjs",ORIGINAL_BACKEND_PIN.originalBundleSha256],
+              ["lsa-essential-e1-candidate/upstream/LosSantosAlive.dll",ORIGINAL_BACKEND_PIN.stockCoreDllSha256],
+            ];
+            for(const [file,pin] of targets){
+              const actual=createHash("sha256").update(readFileSync(file)).digest("hex");
+              if(actual!==pin)throw new Error(file+" pinned source hash mismatch "+actual);
+              console.log(file+" SHA-256 "+actual);
+            }
+            if(ORIGINAL_BACKEND_PIN.acceptedSourceHookAvailable!==false)
+              throw new Error("Unexpected D01 acceptance capability claim");
+            console.log("A01a remains SOURCE BLOCKED; hashes are not an accepted-input receipt");
+          '
+      - name: Syntax and original source path tests
+        shell: bash
+        run: |
+          node --check lsa-essential-e1-candidate/src/memory/originalBackendAcceptedInput.mjs
+          node --check lsa-essential-e1-candidate/src/memory/originalBackendSourceAudit.mjs
+          node --test lsa-essential-e1-candidate/tests/memory/originalBackendAcceptedInput.test.mjs lsa-essential-e1-candidate/tests/memory/originalBackendSourceTransitions.test.mjs
