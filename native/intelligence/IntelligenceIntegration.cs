@@ -38,6 +38,8 @@ namespace LSA.Intelligence
         readonly HostContext host;
         // Positive memory owner evidence is sampled only on existing Core owner fiber.
         readonly Func<object> memoryAuthoritySample;
+        // D02 is separate CURRENT native corroboration, never accepted speech.
+        readonly Func<object> memoryCurrentOwnerPlayerSample;
         long nextMemoryAuthority;
         readonly bool ownsHost;
         readonly SensorAdapters sensors=new SensorAdapters();
@@ -141,10 +143,11 @@ namespace LSA.Intelligence
                 " status="+status+" reason="+reason);
         }
         static readonly string[] capabilityNames={"snapshot","pedDamage","playerDamage","vehicleDamage","shooting","state","action","playback","witness","awareness","playerSpeech"};
-        public IntelligenceIntegration(Func<OwnedParticipant[]> roster,string pipeName="LSA.Intelligence.v1",HostContext host=null,bool directorShadow=false,bool directorExperimental=false,string radioMode="off",int directorAttemptsPerMinute=DirectorAdmission.NormalMaxAttempts,Func<object> memoryAuthoritySample=null) {
+        public IntelligenceIntegration(Func<OwnedParticipant[]> roster,string pipeName="LSA.Intelligence.v1",HostContext host=null,bool directorShadow=false,bool directorExperimental=false,string radioMode="off",int directorAttemptsPerMinute=DirectorAdmission.NormalMaxAttempts,Func<object> memoryAuthoritySample=null,Func<object> memoryCurrentOwnerPlayerSample=null) {
             if(pipeName==null||!System.Text.RegularExpressions.Regex.IsMatch(pipeName,"^[A-Za-z0-9_.-]{1,80}$")) throw new ArgumentException();
             this.roster=roster;this.pipeName=pipeName;radioEnabled=radioMode=="shadow";ownsHost=host==null;this.host=host??new HostContext();anchors=this.host.Anchors;
             this.memoryAuthoritySample=memoryAuthoritySample;
+            this.memoryCurrentOwnerPlayerSample=memoryCurrentOwnerPlayerSample;
             this.directorShadow=directorShadow || directorExperimental;
             this.directorExperimental=directorExperimental;
             ps3Receipts=new DirectorPs3Receipts(()=>this.host.MonotonicMs,()=>this.host.HostRunId,()=>this.host.WorldEpoch);
@@ -180,7 +183,7 @@ namespace LSA.Intelligence
             // Ordered control fact invalidates all prior observer state. Losing
             // it closes the bounded channel; reconnect republishes current host.
             if(channel?.Send("world_epoch",new {epoch,reason})!=true) {
-                channel?.Dispose();channel=new IntelligenceChannel(pipeName,Guid.NewGuid().ToString("D"),()=>capabilities,host.HostRunId,()=>host.WorldEpoch,true,directorShadow);channel.Start();connectionVersion=0;
+                channel?.Dispose();channel=new IntelligenceChannel(pipeName,Guid.NewGuid().ToString("D"),()=>capabilities,host.HostRunId,()=>host.WorldEpoch,true,directorShadow,memoryCurrentOwnerPlayerSample!=null);channel.Start();connectionVersion=0;
             }
             nextRefresh=nextDiscovery=nextState=nextShot=0;
             LogStatus("[PS] clock_reset");
@@ -206,7 +209,7 @@ namespace LSA.Intelligence
                 AppDomain.CurrentDomain.AssemblyLoad+=AssemblyLoaded;QueueDamagePin();
                 try {NpcPlaybackCoordinator.PlaybackStarted+=PlaybackStarted;NpcPlaybackCoordinator.PlaybackEnded+=PlaybackEnded;playback=true;capabilities["playback"]=true;}
                 catch {try{NpcPlaybackCoordinator.PlaybackStarted-=PlaybackStarted;NpcPlaybackCoordinator.PlaybackEnded-=PlaybackEnded;}catch{}}
-                channel=new IntelligenceChannel(pipeName,Guid.NewGuid().ToString("D"),()=>capabilities,host.HostRunId,()=>host.WorldEpoch,true,directorShadow);channel.Start();
+                channel=new IntelligenceChannel(pipeName,Guid.NewGuid().ToString("D"),()=>capabilities,host.HostRunId,()=>host.WorldEpoch,true,directorShadow,memoryCurrentOwnerPlayerSample!=null);channel.Start();
                 previousTick=unchecked((uint)Game.GameTime);started=true;Game.LogTrivial("[PS] native_adapter_loaded shadow");
                 if(radioEnabled)Game.LogTrivial("[PS] radio_shadow");
             } catch {Shutdown("initialization_failed");LogStatus("[PS] optional_initialization_failed");}
@@ -420,6 +423,12 @@ namespace LSA.Intelligence
                     nextMemoryAuthority=now+250;
                     try {var sample=memoryAuthoritySample();if(sample!=null)channel?.Send("memory_authority",sample);}
                     catch { /* Unavailable native source never grants memory authority. */ }
+                    // Execute on the same owner fiber, after P2 roster/index
+                    // publication. No second sampler, alias guess or accepted turn.
+                    try {
+                        var current=memoryCurrentOwnerPlayerSample?.Invoke();
+                        if(current!=null)channel?.Send("memory_current_owner_player",current);
+                    } catch { /* Missing native evidence is never a positive receipt. */ }
                 }
                 for(int n=0;n<32;n++) {var signal=sensors.Take();if(signal==null) break;Publish(signal,now);}
                 if(now>=nextDiagnostics) {

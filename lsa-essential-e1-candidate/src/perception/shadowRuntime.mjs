@@ -22,7 +22,7 @@ const PS3_REASON_COUNTERS = Object.freeze({
 export class ShadowRuntime {
   constructor({ mode='off', radio='off', radioCatalog=RadioTrackTextCatalog.unavailable(), now=()=>Math.floor(performance.now()), situationFor=()=>({}), acceptedObservationTap=null }={}) {
     this.mode=mode;this.radio=radio==='shadow'?'shadow':'off';this.radioCatalog=radioCatalog??RadioTrackTextCatalog.unavailable();this.now=now;this.anchors=new Map();this.signals=[];this.sequence=0;this.producers=new Map();this.epoch=null;this.stream=null;this.lastReceipt=0;
-    this.hostContext=null;this.observerIndexVersion=null;this.observerIndex=new Map();this.observerSituations=new Map();this.observerSituationVersion=null;this.primaryBehaviorOwnerVersion=null;this.directorRequestVersion=null;this.directorPriority=null;this.directorReceipts=[];this.situationProvider=situationFor;
+    this.hostContext=null;this.observerIndexVersion=null;this.memoryCurrentOwnerPlayerVersion=null;this.observerIndex=new Map();this.observerSituations=new Map();this.observerSituationVersion=null;this.primaryBehaviorOwnerVersion=null;this.directorRequestVersion=null;this.directorPriority=null;this.directorReceipts=[];this.situationProvider=situationFor;
     this.counters=Object.fromEntries(['received','dropped','stale','malformed','duplicate','gaps','expired','resets'].map(k=>[k,0]));
     this.historyDiagnostics={expired:0,evicted:0,skipped:0,highWater:0};
     this.dropDiagnostics={anchorCapacity:0,observerCapacity:0};
@@ -90,7 +90,7 @@ export class ShadowRuntime {
     const kind=['initialization','disconnect','fault','timeout','manual'].includes(reason)?reason:'manual';
     this.lastResetReason='reset_'+kind;
     for(const ref of this.anchors.keys())this.recordMissingRef(ref,this.lastResetReason);
-    this.hostContext=null;this.observerIndexVersion=null;this.observerIndex.clear();this.observerSituations.clear();this.observerSituationVersion=null;this.primaryBehaviorOwnerVersion=null;this.directorRequestVersion=null;this.directorPriority=null;this.directorReceipts=[];
+    this.hostContext=null;this.observerIndexVersion=null;this.memoryCurrentOwnerPlayerVersion=null;this.observerIndex.clear();this.observerSituations.clear();this.observerSituationVersion=null;this.primaryBehaviorOwnerVersion=null;this.directorRequestVersion=null;this.directorPriority=null;this.directorReceipts=[];
     this.anchors.clear();this.signals=[];this.producers.clear();this.observations.clear();this.episodes.clear();this.correlator.clear();this.salience.clear();this.transcripts.setActiveRun(null);this.epoch=null;this.stream=null;this.sequence=0;this.lastReceipt=0;this.diagnostics=null;this.capabilities=Object.fromEntries(CAPABILITIES.map(k=>[k,false]));this.count('resets');
     const key={initialization:'initializations',disconnect:'disconnects',fault:'faults',timeout:'timeouts',manual:'manual'}[reason]||'manual';this.bump(this.resetDiagnostics,key);
   }
@@ -121,7 +121,7 @@ export class ShadowRuntime {
     if(this.mode!=='shadow' || !authenticated) return false;
     this.expire();
     if(!validateFrame(v)) {this.count('malformed');return false;}
-    if(v.type==='hello') {this.reset('initialization');this.epoch=v.adapterEpoch;this.stream=v.streamId;this.hostContext=readHostContext(v);this.observerIndexVersion=v.observerIndexVersion??null;this.observerSituationVersion=v.observerSituationVersion??null;this.primaryBehaviorOwnerVersion=v.primaryBehaviorOwnerVersion??null;this.directorRequestVersion=v.directorRequestVersion??null;this.capabilities=Object.freeze({...v.capabilities});this.transcripts.setActiveRun(this.epoch);this.lastReceipt=this.now();return true;}
+    if(v.type==='hello') {this.reset('initialization');this.epoch=v.adapterEpoch;this.stream=v.streamId;this.hostContext=readHostContext(v);this.observerIndexVersion=v.observerIndexVersion??null;this.memoryCurrentOwnerPlayerVersion=v.memoryCurrentOwnerPlayerVersion??null;this.observerSituationVersion=v.observerSituationVersion??null;this.primaryBehaviorOwnerVersion=v.primaryBehaviorOwnerVersion??null;this.directorRequestVersion=v.directorRequestVersion??null;this.capabilities=Object.freeze({...v.capabilities});this.transcripts.setActiveRun(this.epoch);this.lastReceipt=this.now();return true;}
     if(v.adapterEpoch!==this.epoch || v.streamId!==this.stream) {this.count('stale');return false;}
     if(v.sequence<=this.sequence) {this.count('duplicate');return false;}
     if(v.sequence!==this.sequence+1) {this.count('gaps');this.reset('fault');return false;}
@@ -131,8 +131,8 @@ export class ShadowRuntime {
       if(v.payload.epoch===this.hostContext.worldEpoch) return true;
       const context=Object.freeze({...this.hostContext,worldEpoch:v.payload.epoch});
       const epoch=this.epoch,stream=this.stream,sequence=this.sequence,capabilities=this.capabilities;
-      const observerIndexVersion=this.observerIndexVersion,observerSituationVersion=this.observerSituationVersion,primaryBehaviorOwnerVersion=this.primaryBehaviorOwnerVersion,directorRequestVersion=this.directorRequestVersion;
-      this.reset('manual');this.observerIndexVersion=observerIndexVersion;this.observerSituationVersion=observerSituationVersion;this.primaryBehaviorOwnerVersion=primaryBehaviorOwnerVersion;this.directorRequestVersion=directorRequestVersion;this.directorPriority=null;this.hostContext=context;this.epoch=epoch;this.stream=stream;this.sequence=sequence;
+      const memoryCurrentOwnerPlayerVersion=this.memoryCurrentOwnerPlayerVersion,observerIndexVersion=this.observerIndexVersion,observerSituationVersion=this.observerSituationVersion,primaryBehaviorOwnerVersion=this.primaryBehaviorOwnerVersion,directorRequestVersion=this.directorRequestVersion;
+      this.reset('manual');this.memoryCurrentOwnerPlayerVersion=memoryCurrentOwnerPlayerVersion;this.observerIndexVersion=observerIndexVersion;this.observerSituationVersion=observerSituationVersion;this.primaryBehaviorOwnerVersion=primaryBehaviorOwnerVersion;this.directorRequestVersion=directorRequestVersion;this.directorPriority=null;this.hostContext=context;this.epoch=epoch;this.stream=stream;this.sequence=sequence;
       this.capabilities=capabilities;this.transcripts.setActiveRun(epoch);this.lastReceipt=this.now();return true;
     }
     if(v.type==='memory_authority') {
@@ -144,6 +144,35 @@ export class ShadowRuntime {
         return this.current(o.observerCaptureRef)&&row?.owned===true&&
           row.incarnationId===o.incarnationId&&row.encounterId===o.encounterId;
       });
+    }
+    if(v.type==='memory_current_owner_player') {
+      const p=v.payload;
+      // Only negotiated native owner-fiber samples, after authenticated
+      // stream/sequence and exact current P2 incarnation/encounter admission.
+      if(this.memoryCurrentOwnerPlayerVersion!==1 || !this.hostContext ||
+         p.hostRunId!==this.hostContext.hostRunId ||
+         p.worldEpoch!==this.hostContext.worldEpoch ||
+         !this.current(p.protagonist.playerCaptureRef) ||
+         this.anchors.get(p.protagonist.playerCaptureRef)?.kind!=='player')
+        return false;
+      const seen=new Set();
+      for(const owner of p.owners) {
+        const row=this.observerIndex.get(owner.observerCaptureRef);
+        const anchor=this.anchors.get(owner.observerCaptureRef);
+        if(!this.current(owner.observerCaptureRef) ||
+           !anchor?.observer || !anchor.owned || anchor.kind!=='ped' ||
+           !row?.owned || row.kind!=='ped' ||
+           row.incarnationId!==owner.incarnationId ||
+           row.encounterId!==owner.encounterId)return false;
+        seen.add(owner.observerCaptureRef);
+      }
+      // Native snapshots are full, not convenient subsets. Missing a live
+      // owned P2 observer must never silently authorize a different NPC.
+      for(const [ref,row] of this.observerIndex) {
+        if(this.current(ref) && this.anchors.get(ref)?.observer &&
+           row.kind==='ped' && row.owned && !seen.has(ref))return false;
+      }
+      return true;
     }
     if(v.type==='director_priority') {
       if(this.directorRequestVersion!==1 || !this.hostContext) return false;

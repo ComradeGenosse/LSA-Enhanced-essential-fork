@@ -41,28 +41,45 @@ const PAYLOAD=['nativeOwnerPlayerProofVersion','source','hostRunId',
 export function createNativeCurrentOwnerPlayerAuthority({
   subscribeAuthenticatedNativeOwnerPlayerFrames,
   profileForAlias,
+  sourceStillCurrent=null,
   now=()=>performance.now(),
   maxAgeMs=750,
   leaseMs=1000
 }={}) {
   if(typeof subscribeAuthenticatedNativeOwnerPlayerFrames!=='function'||
      typeof profileForAlias!=='function'||typeof now!=='function'||
+     (sourceStillCurrent!==null&&typeof sourceStillCurrent!=='function')||
      !Number.isSafeInteger(maxAgeMs)||maxAgeMs<1||maxAgeMs>1000||
      !Number.isSafeInteger(leaseMs)||leaseMs<1||leaseMs>1000)
     throw new TypeError('native_current_owner_private_ports_required');
   let context=null, owners=new Map(), subject=null, sequence=-1,
     gameTick=-1, receivedAt=-1, stop=null, leases=new WeakMap();
-  const retiredStreams=new Set(), retiredRefs=new Set();
-  const clear=()=>{
-    if(context?.streamId){
-      retiredStreams.add(context.streamId);
-      if(retiredStreams.size>64)retiredStreams.delete(retiredStreams.values().next().value);
+  const retiredStreams=new Set(), retiredRefs=new Set(), ownerHistory=new Map();
+  // A live roster refresh invalidates preturn leases, but does not forbid the
+  // next genuine native frame on the same authenticated stream. Terminal
+  // source faults do retire the stream until a new authenticated hello.
+  const clear=(reason='terminal',revokedRefs=[])=>{
+    if(reason==='roster' && Array.isArray(revokedRefs))
+      for(const ref of revokedRefs)if(uuid(ref))retiredRefs.add(ref);
+    if(reason!=='roster') {
+      if(context?.streamId) {
+        retiredStreams.add(context.streamId);
+        if(retiredStreams.size>64)retiredStreams.delete(retiredStreams.values().next().value);
+      }
+      ownerHistory.clear();retiredRefs.clear();
     }
     context=null;owners=new Map();subject=null;sequence=-1;
-    gameTick=-1;receivedAt=-1;leases=new WeakMap();retiredRefs.clear();
+    gameTick=-1;receivedAt=-1;leases=new WeakMap();
   };
   const live=()=>!!context&&Number.isFinite(now())&&
     now()>=receivedAt&&now()-receivedAt<=maxAgeMs;
+  // K's synchronous live ShadowRuntime check detects expiry or owner retirement
+  // even between source-frame deliveries. The optional port is supplied by
+  // the production bootstrap; fixture-only standalone policy tests omit it.
+  const current=(owner,player)=>{
+    try{return sourceStillCurrent===null || sourceStillCurrent(context,owner,player)===true;}
+    catch{return false;}
+  };
   const profile=alias=>{
     try {
       const p=profileForAlias(alias);
@@ -93,10 +110,11 @@ export function createNativeCurrentOwnerPlayerAuthority({
          aliases.has(o.ownerAlias)||peds.has(o.nativeActorPedId)||
          retiredRefs.has(o.observerCaptureRef))return clear();
       // A captureRef cannot be rebased to another incarnation/owner/Ped.
-      const prior=owners.get(o.observerCaptureRef);
+      const prior=ownerHistory.get(o.observerCaptureRef);
       if(prior&&!same(prior,o,ownerFields.filter(k=>k!=='sampledGameTick')))
         return clear();
       nextOwners.set(o.observerCaptureRef,freeze(o));
+      ownerHistory.set(o.observerCaptureRef,freeze(o));
       aliases.add(o.ownerAlias);peds.add(o.nativeActorPedId);
     }
     for(const ref of owners.keys())if(!nextOwners.has(ref))retiredRefs.add(ref);
@@ -123,7 +141,7 @@ export function createNativeCurrentOwnerPlayerAuthority({
       o.nativeActorPedId===pedId&&o.ownerAlias===ownerAlias);
     if(matches.length!==1)return null;
     const o=matches[0],p=profile(o.ownerAlias);
-    if(!p||p.characterId!==characterId)return null;
+    if(!p||p.characterId!==characterId||!current(o,subject))return null;
     const lease=Object.freeze({kind:'native_actor_lifetime_lease_v1'});
     leases.set(lease,{owner:o,player:subject,context,
       pedId,characterId,ownerAlias,sequence,startedAt:now(),identity:null});
@@ -149,7 +167,7 @@ export function createNativeCurrentOwnerPlayerAuthority({
     if(!owner||!same(owner,record.owner,
        ownerFields.filter(k=>k!=='sampledGameTick')))return null;
     const p=profile(owner.ownerAlias);
-    if(!p||p.characterId!==characterId)return null;
+    if(!p||p.characterId!==characterId||!current(owner,subject))return null;
     if(record.identity&&!same(record.identity,identity,turnFields))return null;
     if(!record.identity)record.identity=freeze({...identity});
     return freeze({
