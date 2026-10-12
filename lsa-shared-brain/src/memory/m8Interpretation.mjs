@@ -108,7 +108,7 @@ export function evaluateM8({scope,personality={},sources=[],memories=[],appraisa
        !Number.isSafeInteger(x.count)||x.count<0||
        !Array.isArray(x.sourceEvidenceIds)||x.sourceEvidenceIds.length>16||
        x.sourceEvidenceIds.some(id=>!isUuid(id))||
-       (x.lastAtUtc!==null&&!Number.isFinite(ms(x.lastAtUtc)))))
+       (x.lastAtUtc!==null&&!Number.isFinite(ms(x.lastAtUtc))))))
    throw Error('m8_invalid_history');
  const suppressed=new Set([...suppressedIds,...correctedIds]);
  const known=new Map();
