@@ -20,7 +20,7 @@ const witness={status:'witnessed',certainty:'direct',modality:'visual',
   protagonistKey:'unknown'};
 const native={authenticated:true,current:true,timelineWritable:true,
   nativeRun,hostRunId,worldEpoch:3,playerCaptureRef,gameTick:115,
-  observerCaptureRef,incarnationId,encounterId,
+  observerCaptureRef,incarnationId,encounterId,characterId,
   protagonistKey:'unknown',worldProfileId,timelineId};
 const sourceAtObservation={nativeVerified:true,gameTick:110,nativeRun,
   hostRunId,worldEpoch:3,observerCaptureRef,incarnationId,encounterId};

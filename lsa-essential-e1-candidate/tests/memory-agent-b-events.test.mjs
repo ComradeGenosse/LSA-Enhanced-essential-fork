@@ -185,7 +185,7 @@ test('M9 detects collision, roll, stunt, water, wanted levels and native Wasted/
   const events=[];
   const run=(ms,overrides)=>{now=ms;const r=producer.ingest({snapshot:snap(ms,overrides),source});
     assert.equal(r.accepted,true);events.push(...r.candidates);};
-  run(100,{vehicle:{...snap(100).vehicle,collision:{nativeReceiptId:id(91),speedDeltaKph:30}}});
+  run(100,{vehicle:{...snap(100).vehicle,collision:{sourceType:'native_collision_callback',nativeReceiptId:id(91),speedDeltaKph:30}}});
   run(200,{vehicle:{...snap(200).vehicle,rollDegrees:155}});
   run(300,{vehicle:{...snap(300).vehicle,airborne:true}});
   run(1100,{vehicle:{...snap(1100).vehicle,grounded:true}});
@@ -218,7 +218,7 @@ test('M9 re-establishes physics baseline after an unavailable native vehicle sna
 test('M9 suppresses repeated native collision receipts',()=>{
   let now=1000;const producer=new M9NativeEventProducer({now:()=>now,verifySource:({source:provided})=>provided===source});
   producer.ingest({snapshot:snap(100),source});
-  const collision={nativeReceiptId:id(99),speedDeltaKph:50};
+  const collision={sourceType:'native_collision_callback',nativeReceiptId:id(99),speedDeltaKph:50};
   const a=producer.ingest({snapshot:snap(200,{vehicle:{...snap(200).vehicle,collision}}),source});
   const b=producer.ingest({snapshot:snap(300,{vehicle:{...snap(300).vehicle,collision}}),source});
   assert.equal(a.candidates.length,1);assert.equal(b.candidates.length,0);

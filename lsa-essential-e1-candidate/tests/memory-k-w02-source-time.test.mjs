@@ -40,6 +40,8 @@ function setup({limit=8,maxBytes=65536}={}){
     anchors.set(m.ref,{observer:true,kind:'ped',owned:true});
     profiles.push({characterId:m.char,promotion:{ownerAlias:owner(m).ownerAlias},status:'available'});
   }
+  // Native source-tick proof AND PS2 current capture are required.
+  anchors.set(PLAYER,{observer:false,kind:'ped',owned:true});
   const ps2={epoch:ADAPTER,hostContext:{hostRunId:RUN,worldEpoch:2},
     observerIndex:rows,anchors,observations:{entries:entry},current:x=>anchors.has(x)};
   const state={writable:true,timeline:TIMELINE};

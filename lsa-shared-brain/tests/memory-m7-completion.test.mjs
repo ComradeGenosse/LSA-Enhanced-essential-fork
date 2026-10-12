@@ -396,7 +396,7 @@ test('M7 production Essential bridge refuses missing cost attestation and runtim
  await denied.stop();
 });
 
-test('M7 Essential pricing estimator blocks a billable fetch before reservation',async t=>{
+test('M7 production refuses billable fetch without durable player approval before budget estimation',async t=>{
  const f=fixture(t),h=hFixture(f),seen=[];
  const config={...pricedConfig(),reasoningKey:'offline-only-fake-token'};
  const s=createEssentialM7Scheduler({config,store:h.store,queue:h.queue,ledger:h.ledger,
@@ -404,7 +404,7 @@ test('M7 Essential pricing estimator blocks a billable fetch before reservation'
    now:()=>at(2),minIntervalMs:0,leaseMs:6000,maxProviderMs:1000,
    fetchImpl:async()=>{seen.push('billable');throw new Error('network forbidden');}});
  const result=await s.checkpoint();
- assert.equal(result.status,'budget_estimate_exceeded');
+ assert.equal(result.status,'consent_unverified');
  assert.deepEqual(seen,[]);
  assert.equal(h.calls.includes('reserve'),false);
  assert.equal(h.calls.includes('release'),true);
