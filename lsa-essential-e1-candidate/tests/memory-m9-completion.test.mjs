@@ -28,6 +28,7 @@ function detector(initialNow=1000,verifySource=()=>true) {
   }};
 }
 const allSafe={known:true,playerIdle:true,micIdle:true,
+  typedIdle:true,combatIdle:true,stockIdle:true,
   interruptionFree:true,directorAvailable:true,ownerCurrent:true,
   timelineWritable:true};
 const qualified=(event,characterId=charA)=>({
@@ -291,7 +292,8 @@ const ps6Facts=(observer=id(14))=>({
 });
 const safePs6={...allSafe,typedIdle:true,combatIdle:true,stockIdle:true};
 function ps6Harness({original=true,priority=safePs6,delivery='delivered',
-  registration=true,authorize=()=>true}={}) {
+  registration=true,authorize=()=>true,
+  committed=()=>({authorized:true})}={}) {
   const calls={attempt:0,registered:0,unregistered:0};
   const cues=new M9MemoryCueCandidates({authorizeWitness:authorize,now:()=>1000});
   const existingSceneDirector={
@@ -300,6 +302,7 @@ function ps6Harness({original=true,priority=safePs6,delivery='delivered',
   };
   const adapter=new M9DirectorCueAdmission({cueCandidates:cues,
     existingSceneDirector,readCurrentPriority:()=>priority,
+    committedWitnessAuthority:{check:committed},
     registerPs4MemoryCue:({cue})=>{
       calls.registered++;
       return registration?{status:'registered',cueId:cue.cueId,
@@ -352,8 +355,9 @@ test('M9 PS6 cues only enter an already entitled original stock Director turn',a
   const e=accident(),w=qualified(e),h=ps6Harness();
   const result=await h.adapter.attempt({candidate:e,witness:w,
     ps3Candidates:[ps3()],facts:ps6Facts(),stamp:{}});
-  assert.equal(result.status,'director_delivered');
+  assert.equal(result.status,'director_submitted_audio_unverified');
   assert.equal(result.requiresVerifiedPs4Receipt,true);
+  assert.equal(result.requiresNativePlaybackCompletionReceipt,true);
   assert.equal(h.calls.attempt,1);
   assert.equal(h.calls.registered,1);
   assert.equal(h.calls.unregistered,1);
@@ -364,7 +368,7 @@ test('M9 PS6 cannot invent an original PS3 entitlement or PS4 memory',async()=>{
     const h=ps6Harness(setting);
     const r=await h.adapter.attempt({candidate:e,witness:w,
       ps3Candidates:[ps3()],facts:ps6Facts(),stamp:{}});
-    assert.notEqual(r.status,'director_delivered');
+    assert.notEqual(r.status,'director_submitted_audio_unverified');
     assert.equal(h.calls.attempt,0);
   }
   const h=ps6Harness();
@@ -408,7 +412,7 @@ test('M9 PS6 cooldown is not reset by another event and survives rejected replay
   const e=accident(),h=ps6Harness(),w=qualified(e);
   assert.equal((await h.adapter.attempt({candidate:e,witness:w,
     ps3Candidates:[ps3()],facts:ps6Facts(),stamp:{}})).status,
-    'director_delivered');
+    'director_submitted_audio_unverified');
   const next={...e,eventId:id(88)};
   const result=await h.adapter.attempt({candidate:next,
     witness:qualified(next),ps3Candidates:[ps3()],facts:ps6Facts(),stamp:{}});
