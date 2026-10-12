@@ -15,10 +15,7 @@ function idsOf(candidate){
 }
 function sameOrigin(a,b){
   if(!sameScope(a,b))return false;
-  // If a protagonist is proven on either side, require an equally proven
-  // identical attribution on the other. No unknown->known promotion by text.
-  if(a.protagonistKey!==undefined||b.protagonistKey!==undefined)
-    return a.protagonistKey===b.protagonistKey;
+  // A verified player's evidence can legitimately span historical source avatars.
   return true;
 }
 export function consolidateCandidates(existing,incoming){
