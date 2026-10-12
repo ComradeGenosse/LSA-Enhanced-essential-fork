@@ -239,7 +239,7 @@ export class P2SqliteFoundation {
           removeDialogue.run(previous.characterId);
           removeEvents.run(previous.characterId);
           for(const table of ['memory_records','memory_commands','memory_tombstones','memory_corrections','memory_curation_jobs','memory_luna_appraisals',
-            'm5_clarifications','m5_trash','m5_privacy_ops','p2_memory_replay_feed','p2_memory_replay_cursors','m3_coverage']){
+            'm5_clarifications','m5_trash','m5_privacy_ops','p2_memory_replay_feed','p2_memory_replay_cursors','p2_memory_replay_player_cursors','m3_coverage']){
             this.#db.prepare('DELETE FROM '+table+' WHERE character_id=?').run(previous.characterId);
           }
         }
