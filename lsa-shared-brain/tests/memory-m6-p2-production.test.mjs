@@ -173,6 +173,9 @@ test('W06 A06: CAS fails on missing queue, source deletion, hash corruption and 
     const audit=await x.store.withP2SqliteRead(scope,db=>db.prepare(
       'SELECT count(*) AS n FROM m6_p2_rejections WHERE character_id=?').get(scope.characterId).n);
     assert.equal(audit,1);
+    const diagnostic=await x.store.withP2SqliteRead(scope,db=>db.prepare(
+      'SELECT reason FROM m6_p2_ack_diagnostics WHERE character_id=?').get(scope.characterId));
+    assert.equal(diagnostic.reason,'source_removed');
     const later=await accepted(x.store,scope,4);
     await x.store.withTimelineSqliteWrite(scope,db=>
       db.prepare('UPDATE dialogue_journal SET content_sha256=? WHERE record_id=?')
@@ -181,5 +184,43 @@ test('W06 A06: CAS fails on missing queue, source deletion, hash corruption and 
       afterCursor:(await x.store.readM6Checkpoint({scope})).cursor}),/m6_p2_source_hash_corrupt/);
     x.store.onBoundary({reason:'clock_regression'});
     await assert.rejects(x.store.readM6Checkpoint({scope}),/timeline_write_suspended|timeline/);
+  }finally{await x.store.close();}
+});
+
+test('W06 A06: bounded read prefixes resume without losing an old backlog; tombstone changes veto stale ack',async t=>{
+  const x=await create(t),scope=x.scopes[0];
+  try{
+    for(let i=0;i<51;i++)await accepted(x.store,scope,i,'Hilarious unexpected incident');
+    const coordinator=createM6SelectionCoordinator({store:createM6P2ReplayAdapter(x.store),
+      quietMs:0,pageSize:7,maxRows:14,maxPages:2});
+    let seen=0,rounds=0,final;
+    do{
+      const result=rounds===0?await coordinator.onSceneClose({scope,atUtc:future()}):
+        await coordinator.onIdle({scope,atUtc:future()});
+      assert.ok(result.readCount>0&&result.readCount<=14);
+      seen+=result.readCount;
+      rounds++;final=result;
+      assert.ok(rounds<10);
+    }while(!final.archiveComplete);
+    assert.equal(seen,51);
+    assert.ok(rounds>=4);
+    const cp=await x.store.readM6Checkpoint({scope});
+    assert.equal((await x.store.readM6JournalPage({scope,afterCursor:cp.cursor})).rows.length,0);
+    await assert.rejects(coordinator.recover({scope,atUtc:'2001-01-01T00:00:00.000Z'}),
+      /m6_source_clock_regression/);
+    const target=await accepted(x.store,scope,100,'That was hilarious and unforgettable');
+    const stale=(await x.store.readM6JournalPage({scope,afterCursor:cp.cursor})).rows[0];
+    const [proposal]=selectAutomaticMemories([stale.evidence]);
+    await x.store.saveDeterministicMemory(proposal);
+    await x.store.withTimelineSqliteWrite(scope,db=>
+      db.prepare('INSERT INTO memory_tombstones(character_id,world_profile_id,timeline_id,target_id,command_id,created_at_utc) VALUES(?,?,?,?,?,?)')
+        .run(scope.characterId,worldProfileId,scope.timelineId,target.recordId,id(),new Date().toISOString()));
+    await assert.rejects(x.store.ackM6Checkpoint({scope,expectedCursor:cp.cursor,nextCursor:stale.cursor,
+      sourceHashes:[{cursor:stale.cursor,sourceHash:stale.sourceHash,recordId:target.recordId}],
+      savedProposalIds:[proposal.proposalId],rejected:[],cutoffUtc:future(),
+      hourBucket:future().slice(0,13),lastSourceUtc:new Date(
+        Date.parse(stale.evidence.committedAtUtc)).toISOString(),cloudQueueEnabled:false}),
+      /m6_p2_ack_source_mutated/);
+    assert.equal((await x.store.readM6Checkpoint({scope})).cursor,cp.cursor);
   }finally{await x.store.close();}
 });
