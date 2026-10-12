@@ -53,7 +53,7 @@ export async function preparePs4Recall({query,readAdapter,snapshot,currentIdenti
   if(!identical(snapshot,safelyCurrent(currentIdentity)))return dropped('stale_before_read');
   const stamp=freezeIdentity(snapshot),started=performance.now();
   let timer=null;
-  const timeout=new Promise(resolve=>{timer=setTimeout(()=>resolve(null),deadlineMs);timer.unref?.();});
+  const timeout=new Promise(resolve=>{timer=setTimeout(()=>resolve(null),deadlineMs);});
   let answer;
   try{
     answer=await Promise.race([recallMemory({query,readAdapter,protagonistKey,nowUtc,followup}),timeout]);
@@ -117,7 +117,7 @@ export async function prepareOriginalPs4Recall({snapshot,queryId,
  };
  if(!current())return dropped('stale_before_accepted');
  let timer;
- const timeout=new Promise(resolve=>{timer=setTimeout(()=>resolve(null),deadlineMs);timer.unref?.();});
+ const timeout=new Promise(resolve=>{timer=setTimeout(()=>resolve(null),deadlineMs);});
  let accepted;
  try{accepted=await Promise.race([Promise.resolve().then(()=>readVerifiedAccepted({stamp})),timeout]);}
  catch{return dropped('accepted_read_unavailable');}
