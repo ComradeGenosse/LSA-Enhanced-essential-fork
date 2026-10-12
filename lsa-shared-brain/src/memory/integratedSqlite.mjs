@@ -81,7 +81,7 @@ export function listMemoryCandidates(db,scope,world,{beforeUtc=null,excludeRecor
  for(const d of dialogue)if(d.speaker==='player'&&d.delivery==='accepted'||
     d.speaker==='npc'&&d.delivery==='completed'&&isUuid(d.receipt))
    rows.push({...scope,...d,kind:'dialogue_line'});
- const events=db.prepare('SELECT e.record_id AS recordId,e.envelope_json AS json,e.receipt_status AS receiptStatus,e.received_at_utc AS occurredAtUtc FROM event_journal e JOIN event_source_evidence s ON s.record_id=e.record_id WHERE e.world_profile_id=? AND e.character_id=? AND e.timeline_id=? AND e.receipt_status='witnessed' ORDER BY e.received_at_utc DESC LIMIT 200').all(...stmtScope(scope));
+ const events=db.prepare('SELECT e.record_id AS recordId,e.envelope_json AS json,e.receipt_status AS receiptStatus,e.received_at_utc AS occurredAtUtc FROM event_journal e JOIN event_source_evidence s ON s.record_id=e.record_id WHERE e.world_profile_id=? AND e.character_id=? AND e.timeline_id=? AND e.receipt_status=\'witnessed\' ORDER BY e.received_at_utc DESC LIMIT 200').all(...stmtScope(scope));
  for(const e of events){
    const verified=readVerifiedEventEvidence(db,{characterId:scope.characterId,timelineId:scope.timelineId,recordId:e.recordId},world);
    if(!verified)continue;
