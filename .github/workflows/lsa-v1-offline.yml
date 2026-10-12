@@ -5,7 +5,7 @@ on:
     branches:
       - main
       - fix/radio-hearing-retention-stability-20261011
-      - feature/faster-qwen3-tts-provider-radio-v2
+      - feature/elevenlabs-v4-tts-provider-20261011
     paths:
       - 'lsa-essential-e1-candidate/**'
       - 'native/**'
@@ -43,9 +43,8 @@ jobs:
       - name: Validate Phase 13a modules and run focused tests
         working-directory: lsa-essential-e1-candidate
         run: |
-          python -m py_compile tools/qwen/lsa_qwen_server.py
-          node --check tools/qwen/lsa_turn_smoke.mjs
-          node --test tests/qwen-turn-smoke.test.mjs
+          node --check tools/elevenlabs/voice_smoke.mjs
+          node --test tests/elevenlabs-provider.test.mjs tests/elevenlabs-smoke-benchmark.test.mjs
           node --check src/perception/sceneDirector.mjs
           node --check src/perception/sceneDirectorAdmission.mjs
           node --check src/perception/directorWire.mjs
