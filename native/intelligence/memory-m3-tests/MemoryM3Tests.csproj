@@ -8,6 +8,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="../WitnessPolicy.cs" Link="WitnessPolicy.cs" />
+    <Compile Include="../SensorAdapters.cs" Link="SensorAdapters.cs" />
     <Compile Include="../memory-m3/SourceTimeWitnessLedger.cs" Link="SourceTimeWitnessLedger.cs" />
     <Compile Include="Program.cs" />
   </ItemGroup>
