@@ -87,19 +87,31 @@ try {
     const compiled=nativeFiles.filter(p=>existsSync(file(p)));
     check('native-explicit-sources',compiled.length===nativeFiles.length,
       'every Compile Include in original production native project must exist');
-    // Do not infer implementation from class files merely being present.
-    const registered=compiled.map(p=>({path:p,body:read(p).toString()}));
-    const hooks=[
-      ['C01-original-accepted-turn','OriginalAcceptedTurn'],
-      ['M3-source-time-owner','SourceTimeObservationOwner'],
-      ['M7-native-idle-priority','NativeIdlePriority'],
-      ['M9-verified-gameplay-event','VerifiedGameplayEvent']
-    ];
-    for(const [key,token] of hooks){
-      const matching=registered.filter(p=>p.body.includes(token));
-      check('compiled-producer:'+key,matching.length>0,
-        'required source ABI '+token+' must be in main native Compile list; not only unit-test project');
-      report.sourceSha256['producer:'+key]=matching.map(f=>({path:f.path,sha256:sha(f.body)}));
+    // K supplies the actual, audited production producer paths after merging
+    // T1/T2/T7/T8. Unknown symbols are NOT guessed. Each declared file must
+    // physically exist AND be compiled by the ORIGINAL production project.
+    const inventoryPath='tools/memory-sim/closure-native-producers.v1.json';
+    let inventory=null;
+    try{inventory=JSON.parse(read(inventoryPath).toString('utf8'));}
+    catch{}
+    check('native-producer-inventory',
+      inventory?.schemaVersion===1&&Array.isArray(inventory.required)&&
+      inventory.required.length===4&&inventory.productionProject===csproj,
+      'four required producer contracts must be declared by K and reviewed');
+    if(inventory?.required){
+      for(const item of inventory.required){
+        const paths=item.sourcePaths;
+        const valid=Array.isArray(paths)&&paths.length>0&&
+          paths.every(p=>typeof p==='string'&&p.startsWith('native/')&&
+            !p.includes('..')&&compiled.includes(p)&&
+            read(p).length>=(item.minimumCompilableSourceBytes??128));
+        check('compiled-producer:'+item.id,valid,
+          'reviewed native production sourcePaths must be nonempty and compiled via original main .csproj');
+        report.sourceSha256['producer:'+item.id]=Array.isArray(paths)?
+          paths.filter(p=>typeof p==='string'&&existsSync(file(p))).map(p=>({
+            path:p,sha256:digest(p),compiled:compiled.includes(p)
+          })):[];
+      }
     }
     const nativeBuild=run('dotnet',['build',csproj,'--configuration','Release',
       '-p:Deterministic=true','-v:minimal']);
