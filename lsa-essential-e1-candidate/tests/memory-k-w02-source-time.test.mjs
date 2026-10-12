@@ -162,3 +162,23 @@ test('W02: bounded native intake evicts rather than guessing missed history',()=
   assert.ok(x.authority.status().accepted>=70);
   assert.equal(x.authority.status().negativeCoverageSupported,false);
 });
+
+test('W02: only source-tick native protagonist proof attributes a PS2 claim',async()=>{
+  const x=setup(),m=x.members[0];x.frame([{...x.native(m),
+    participants:[{captureRef:PLAYER,subjectKind:'protagonist',subjectKey:'michael'}]}]);
+  assert.equal(x.offer(observed(m)).queued,true);
+  await x.adapter.idle();
+  const saved=[...x.journal.values()][0].event;
+  assert.equal(saved.claims[0].durableSubject,'protagonist:michael');
+  const y=setup(),n=y.members[0];y.frame([{...y.native(n),
+    participants:[{captureRef:id(1999),subjectKind:'protagonist',subjectKey:'trevor'}]}]);
+  y.offer(observed(n));await y.adapter.idle();
+  assert.match([...y.journal.values()][0].event.claims[0].durableSubject,/^unresolved:/);
+});
+test('W02: malformed native participant/unknown protagonist invalidates frame, not an identity guess',()=>{
+  const x=setup(),m=x.members[0];
+  x.frame([{...x.native(m),participants:[
+    {captureRef:PLAYER,subjectKind:'protagonist',subjectKey:'unknown'}]}]);
+  assert.equal(x.offer(observed(m)).accepted,false);
+  assert.equal(x.journal.size,0);
+});
