@@ -10,8 +10,12 @@ const commandPrefix = /^(?:(?:hey|yo|please)[\s,]+)?(?:(?:nathan|buddy)[\s,]+)?(
 const successful = { remember:'saved', forget:'forgotten', correct:'corrected' };
 const uuid = value => typeof value === 'string' && isUuid(value);
 const same = (record, scope) => record.characterId === scope.characterId &&
-  record.worldProfileId === scope.worldProfileId && record.timelineId === scope.timelineId &&
-  (!('protagonistKey' in record) || record.protagonistKey === scope.protagonistKey);
+  record.worldProfileId === scope.worldProfileId && record.timelineId === scope.timelineId;
+// Only the NEW accepted command needs current native/avatar attribution.
+// A pre-existing candidate may have been witnessed under another GTA avatar.
+const acceptedAvatar = (record, scope) =>
+  (!('protagonistKey' in record) || record.protagonistKey === scope.protagonistKey) &&
+  (!record.attribution?.protagonist || record.attribution.protagonist === scope.protagonistKey);
 const clone = value => JSON.parse(JSON.stringify(value));
 
 /** Detection does not turn questions or conversational idioms into writes. */
@@ -124,7 +128,7 @@ function result(base, outcome, extras={}) {
 }
 function validateInput({line, commandId, scope, store}) {
   if (!line || !scope || !uuid(commandId) || ![scope.characterId,scope.worldProfileId,scope.timelineId,line.recordId].every(uuid) ||
-      !same(line,scope) || line.kind !== 'dialogue_line' ||
+      !same(line,scope) || !acceptedAvatar(line,scope) || line.kind !== 'dialogue_line' ||
       line.speaker !== 'player' || !['typed','stt'].includes(line.source) ||
       line.delivery !== 'accepted' || typeof line.content !== 'string' ||
       !line.content.trim() || typeof store?.findCandidates !== 'function' ||
