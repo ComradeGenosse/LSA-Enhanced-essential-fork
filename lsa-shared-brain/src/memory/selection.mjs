@@ -32,8 +32,11 @@ function contiguous(a,b){
   if(!sameScope(a,b))return false;
   const dt=Date.parse(b.when)-Date.parse(a.when);
   if(dt<0||dt>SCENE_GAP_MS)return false;
-  // A native-proven event/turn must never borrow a scene from a source with
-  // missing host/owner proof. Within a proved host epoch, avatars may differ.
+  // Unknown host/owner evidence is not evidence of SAME host/owner.
+  // Preserve legacy same-avatar offline grouping, but never join two story
+  // avatars unless each independently carries matching host and lifetime proof.
+  if(a.protagonistKey!==b.protagonistKey &&
+     (a.epoch===null||b.epoch===null||!a.ownerLifetime||!b.ownerLifetime))return false;
   if((a.epoch===null)!==(b.epoch===null)||a.epoch!==b.epoch)return false;
   if(Boolean(a.ownerLifetime)!==Boolean(b.ownerLifetime)||
      a.ownerLifetime&&a.ownerLifetime!==b.ownerLifetime)return false;
