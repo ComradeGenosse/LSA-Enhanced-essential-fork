@@ -8,8 +8,12 @@ import {listSuppressedMemoryIds,readCorrectionOverlays} from './integratedSqlite
 const fail = reason => {throw new Error(reason);};
 const sha = value => createHash('sha256').update(value).digest('hex');
 const keys = new Set(['franklin','michael','trevor','unknown']);
-const scopeKey = s => [s.worldProfileId,s.characterId,s.timelineId,s.protagonistKey];
-const where = 'world_profile_id=? AND character_id=? AND timeline_id=? AND protagonist_key=?';
+// Existing feed rows keep exact source model provenance. A new canonical
+// cursor namespace follows the ONE player across all story avatars.
+const ownerKey = s => [s.worldProfileId,s.characterId,s.timelineId];
+const cursorKey = s => [...ownerKey(s),'shared_player_v1'];
+const ownerWhere = 'world_profile_id=? AND character_id=? AND timeline_id=?';
+const cursorWhere = ownerWhere+' AND protagonist_key=?';
 const MAX_PAGE = 512;
 const MAX_CONSUMER = 80;
 const SCHEMA = [
@@ -67,9 +71,9 @@ function validateOwner(db,scope){
       !db.prepare('SELECT 1 FROM timelines WHERE timeline_id=? AND world_profile_id=?').get(scope.timelineId,scope.worldProfileId))
     fail('p2_replay_owner_or_timeline_missing');
 }
-function cursorDigest(scope) {return sha(JSON.stringify(scopeKey(scope)));}
+function cursorDigest(scope) {return sha(JSON.stringify(cursorKey(scope)));}
 function encode(scope,sequence){
-  return Buffer.from(JSON.stringify({v:1,scope:cursorDigest(scope),after:sequence}),'utf8').toString('base64url');
+  return Buffer.from(JSON.stringify({v:2,scope:cursorDigest(scope),after:sequence}),'utf8').toString('base64url');
 }
 function decode(scope,opaque){
   if(opaque === null || opaque === undefined)return 0;
@@ -77,7 +81,12 @@ function decode(scope,opaque){
     fail('p2_replay_invalid_cursor');
   try {
     const value=JSON.parse(Buffer.from(opaque,'base64url').toString('utf8'));
-    if(value.v!==1 || value.scope!==cursorDigest(scope) ||
+    // A v1 token was bound to one model. Never reuse its offset to skip
+    // possibly-unseen evidence from other avatars; replay from zero instead.
+    if(value.v===1 && keys.has(scope.protagonistKey) &&
+       value.scope===sha(JSON.stringify([...ownerKey(scope),scope.protagonistKey])) &&
+       Number.isSafeInteger(value.after) && value.after>=0)return 0;
+    if(value.v!==2 || value.scope!==cursorDigest(scope) ||
        !Number.isSafeInteger(value.after) || value.after<0 ||
        encode(scope,value.after)!==opaque)fail('p2_replay_invalid_cursor');
     return value.after;
@@ -111,13 +120,12 @@ export function readP2ReplayPage(db,{scope,cursor=null,limit=256},world){
   if(!Number.isSafeInteger(limit)||limit<1||limit>MAX_PAGE)fail('p2_replay_invalid_limit');
   const after=decode(scope,cursor);
   const entries=db.prepare('SELECT sequence AS seq,kind,record_id AS id FROM p2_memory_replay_feed WHERE '+
-    where+' AND sequence>? ORDER BY sequence ASC LIMIT ?').all(...scopeKey(scope),after,limit+1);
+    ownerWhere+' AND sequence>? ORDER BY sequence ASC LIMIT ?').all(...ownerKey(scope),after,limit+1);
   const page=entries.slice(0,limit),items=[],rejected=[],skipped=[];
   const suppressed=new Set(listSuppressedMemoryIds(db,scope,world));
   for(const correction of readCorrectionOverlays(db,scope,world))
     if(isUuid(correction.targetId))suppressed.add(correction.targetId);
-  const line=db.prepare('SELECT * FROM dialogue_journal WHERE record_id=? AND '+
-    'world_profile_id=? AND character_id=? AND timeline_id=? AND protagonist=?');
+  const line=db.prepare('SELECT * FROM dialogue_journal WHERE record_id=? AND '+ownerWhere);
   for(const entry of page){
     // A correction or forget immediately masks immutable evidence, including
     // its transitive derivatives. Only an authorized restore may clear it.
@@ -126,8 +134,11 @@ export function readP2ReplayPage(db,{scope,cursor=null,limit=256},world){
       continue;
     }
     if(entry.kind==='dialogue'){
-      const row=line.get(entry.id,...scopeKey(scope));
-      if(!row){rejected.push({recordId:entry.id,reason:'source_removed'});continue;}
+      const row=line.get(entry.id,...ownerKey(scope));
+      if(!row || !(row.speaker==='player'&&row.delivery==='accepted'&&['typed','stt'].includes(row.source)||
+        row.speaker==='npc'&&row.delivery==='completed'&&isUuid(row.receipt_id))){
+        rejected.push({recordId:entry.id,reason:'source_not_accepted_or_removed'});continue;
+      }
       items.push(Object.freeze({kind:'dialogue',sequence:entry.seq,recordId:entry.id,
         envelope:verifiedLine(row)}));
     }else{
@@ -148,7 +159,7 @@ export function readP2ReplayPage(db,{scope,cursor=null,limit=256},world){
 export function readP2ReplayCursor(db,{scope,consumerId},world){
   validatedScope(scope,world);validateOwner(db,scope);checkedConsumer(consumerId);
   const row=db.prepare('SELECT after_sequence AS seq FROM p2_memory_replay_cursors WHERE consumer_id=? AND '+
-    where).get(consumerId,...scopeKey(scope));
+    cursorWhere).get(consumerId,...cursorKey(scope));
   const seq=row?.seq??0;
   return Object.freeze({cursor:encode(scope,seq),lastSequence:seq,consumerId});
 }
@@ -163,12 +174,12 @@ export function acknowledgeP2ReplayCursor(db,{scope,consumerId,cursor,expectedCu
   if(requested===old)return Object.freeze({committed:true,idempotent:true,cursor:encode(scope,old)});
   if(old!==expected||requested<old)fail('p2_replay_cursor_conflict');
   if(requested!==0){
-    const point=db.prepare('SELECT sequence FROM p2_memory_replay_feed WHERE '+where+
-      ' AND sequence=?').get(...scopeKey(scope),requested);
+    const point=db.prepare('SELECT sequence FROM p2_memory_replay_feed WHERE '+ownerWhere+
+      ' AND sequence=?').get(...ownerKey(scope),requested);
     if(!point)fail('p2_replay_cursor_not_committed_evidence');
   }
   const now=new Date().toISOString();
   db.prepare('INSERT INTO p2_memory_replay_cursors VALUES(?,?,?,?,?,?,?) ON CONFLICT(consumer_id,world_profile_id,character_id,timeline_id,protagonist_key) DO UPDATE SET after_sequence=excluded.after_sequence,updated_at_utc=excluded.updated_at_utc')
-    .run(consumerId,...scopeKey(scope),requested,now);
+    .run(consumerId,...cursorKey(scope),requested,now);
   return Object.freeze({committed:true,idempotent:false,cursor:encode(scope,requested)});
 }
