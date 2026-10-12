@@ -262,7 +262,7 @@ test('H: M3 certified negative coverage uses one P2 transaction and survives res
    await reopened.initialize();
    try{
      assert.equal((await reopened.readM3Coverage(scope)).certified,true);
-     assert.equal((await reopened.readM3Coverage({...scope,characterId:id()})).status,'unavailable');
+     assert.equal((await reopened.readM3Coverage({...scope,characterId:id()})).status,'unknown');
    }finally{await reopened.close();}
  }finally{await x.store.close()}
 });
@@ -283,7 +283,8 @@ test('H: strict M4 integrated projection uses existing P2 SQLite connection and 
    assert.equal(result.bundle.totalBytes,Buffer.byteLength(JSON.stringify(result.bundle),'utf8'));
    const other=await recallMemory({query,readAdapter,protagonistKey:'trevor',
      nowUtc:new Date().toISOString()});
-   assert.equal(other.bundle.status,'unavailable');
+   assert.equal(other.bundle.status,'matched');
+   assert.ok(other.bundle.items.some(item=>item.content===exact));
  }finally{await x.store.close()}
 });
 
