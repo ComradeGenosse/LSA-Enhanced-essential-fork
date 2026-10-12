@@ -198,7 +198,7 @@ function assertClosed(x) {
 
 test('R2.01/R2.09 buffered accepted ElevenLabs input times out once despite two-attempt policy',async()=>{
   const x=await runCase();
-  assert.deepEqual(textSubmissions(x),[FIRST],
+  assert.deepEqual(textSubmissions(x),['[laughs] '+FIRST],
     'a second WebSocket text submission is a duplicate paid-request risk');
   assert.equal(x.transport.sockets.length,1);
   assert.equal(ttsAttemptStarts(x).length,1,'real executor MUST observe retry denial');
@@ -210,7 +210,7 @@ test('R2.01/R2.09 buffered accepted ElevenLabs input times out once despite two-
 
 test('R2.02/R2.09 structured early segment cannot be submitted twice or advance on failure',async()=>{
   const x=await runCase({early:true});
-  assert.deepEqual(textSubmissions(x),[FIRST]);
+  assert.deepEqual(textSubmissions(x),['[laughs] '+FIRST]);
   assert.equal(ttsAttemptStarts(x).length,1);
   assert.equal(x.transport.sockets.length,1);
   assertNoFalseCompletion(x);
@@ -230,7 +230,7 @@ test('R2.03 failed before input and error after input never retries ElevenLabs',
 
 test('R2.04 failure after partial audio never commits assistant, mood or playback',async()=>{
   const x=await runCase({behavior:'partial'});
-  assert.deepEqual(textSubmissions(x),[FIRST]);
+  assert.deepEqual(textSubmissions(x),['[laughs] '+FIRST]);
   assert.equal(ttsAttemptStarts(x).length,1);
   assert.notEqual(x.result.status,'completed');
   assert.equal(x.completionCalls,0);
