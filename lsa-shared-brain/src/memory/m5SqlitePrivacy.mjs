@@ -10,8 +10,11 @@ const sha = value => createHash('sha256').update(value).digest('hex');
 const fail = code => { throw new Error(code); };
 const timestamp = value => typeof value==='string' && Number.isFinite(Date.parse(value));
 const protagonists = new Set(['franklin','michael','trevor','unknown']);
-const scopeKey = s => [s.worldProfileId,s.characterId,s.timelineId,s.protagonistKey??'unknown'];
-const scopeWhere = 'world_profile_id=? AND character_id=? AND timeline_id=? AND protagonist_key=?';
+// All avatars are one human; every M5 action remains restricted to the
+// confirmed world/timeline and exact NPC. The source model is audit provenance.
+const scopeKey = s => [s.worldProfileId,s.characterId,s.timelineId];
+const sourceScopeKey = s => [...scopeKey(s),s.protagonistKey??'unknown'];
+const scopeWhere = 'world_profile_id=? AND character_id=? AND timeline_id=?';
 const DAY = 86400000;
 const CLARIFY_MS = 5*60000;
 const sql = `
@@ -52,17 +55,17 @@ function evidence(db,s,id){
  if(!isUuid(id))return null;
  const args=[s.worldProfileId,s.characterId,s.timelineId,id];
  const dialogue=db.prepare('SELECT content,protagonist AS protagonistKey FROM dialogue_journal WHERE world_profile_id=? AND character_id=? AND timeline_id=? AND record_id=?').get(...args);
- if(dialogue && dialogue.protagonistKey===(s.protagonistKey??'unknown'))return {kind:'dialogue_line',content:dialogue.content};
+ if(dialogue)return {kind:'dialogue_line',content:dialogue.content};
  const memory=db.prepare('SELECT content,protagonist_key AS protagonistKey FROM memory_records WHERE world_profile_id=? AND character_id=? AND timeline_id=? AND memory_id=?').get(...args);
- if(memory && memory.protagonistKey===(s.protagonistKey??'unknown'))return {kind:'permanent_memory',content:memory.content};
- if((s.protagonistKey??'unknown')==='unknown'){
+ if(memory)return {kind:'permanent_memory',content:memory.content};
+ {
    const event=db.prepare('SELECT e.envelope_json AS content FROM event_journal e JOIN event_source_evidence v ON v.record_id=e.record_id WHERE e.world_profile_id=? AND e.character_id=? AND e.timeline_id=? AND e.record_id=? AND e.receipt_status=?').get(...args,'witnessed');
    if(event)return {kind:'journal_event',content:event.content};
  }
  return null;
 }
 function superseded(db,s,id){
- return !!db.prepare('SELECT c.command_id FROM memory_corrections c JOIN memory_commands m ON m.command_id=c.command_id WHERE c.world_profile_id=? AND c.character_id=? AND c.timeline_id=? AND m.protagonist_key=? AND c.target_id=? LIMIT 1')
+ return !!db.prepare('SELECT c.command_id FROM memory_corrections c JOIN memory_commands m ON m.command_id=c.command_id WHERE c.world_profile_id=? AND c.character_id=? AND c.timeline_id=? AND c.target_id=? LIMIT 1')
    .get(...scopeKey(s),id);
 }
 function activeTombstone(db,s,id) {
@@ -70,7 +73,7 @@ function activeTombstone(db,s,id) {
 }
 function dependentIds(db,s,ids){
  const found=new Set(ids);
- const rows=db.prepare('SELECT memory_id AS id,evidence_ids_json AS sources FROM memory_records WHERE world_profile_id=? AND character_id=? AND timeline_id=? AND protagonist_key=?')
+ const rows=db.prepare('SELECT memory_id AS id,evidence_ids_json AS sources FROM memory_records WHERE world_profile_id=? AND character_id=? AND timeline_id=?')
    .all(...scopeKey(s));
  let grew=true;
  while(grew){
@@ -125,13 +128,13 @@ export class M5SqliteServices{
      // Reconcile old M5 forget receipts under the same P2 transaction.
      // Tombstones already suppress recall; this records seven-day recovery.
      const forgotten=db.prepare('SELECT t.target_id AS targetId,'+
-       ' t.command_id AS commandId,t.created_at_utc AS createdAtUtc'+
+       ' t.command_id AS commandId,t.created_at_utc AS createdAtUtc,c.protagonist_key AS sourceAvatar'+
        ' FROM memory_tombstones t JOIN memory_commands c ON c.command_id=t.command_id'+
        ' WHERE t.world_profile_id=? AND t.character_id=? AND t.timeline_id=?'+
-       " AND c.protagonist_key=? AND c.operation='forget'").all(...scopeKey(scope));
+       " AND c.operation='forget'").all(...scopeKey(scope));
      const insert=db.prepare('INSERT OR IGNORE INTO m5_trash VALUES(?,?,?,?,?,?,?,?,?,NULL,NULL)');
      for(const item of forgotten)insert.run(item.commandId,item.commandId,item.targetId,
-       ...scopeKey(scope),item.createdAtUtc,
+       ...scopeKey(scope),item.sourceAvatar,item.createdAtUtc,
        new Date(Date.parse(item.createdAtUtc)+7*DAY).toISOString());
      return true;
    });
@@ -169,7 +172,7 @@ export class M5SqliteServices{
      const old=db.prepare('SELECT state_sha256 FROM m5_clarifications WHERE command_id=?').get(commandId);
      if(old){if(old.state_sha256!==checksum)fail('m5_clarification_replay_conflict');return;}
      db.prepare('INSERT INTO m5_clarifications VALUES(?,?,?,?,?,?,?,?,?,NULL)')
-       .run(commandId,...scopeKey(scope),requestedByLineId,raw,checksum,until);
+       .run(commandId,...sourceScopeKey(scope),requestedByLineId,raw,checksum,until);
    });
    const persisted=await this.getClarification({scope,commandId});
    if(!persisted||sha(JSON.stringify(persisted))!==checksum)fail('m5_clarification_readback_failed');
@@ -193,7 +196,7 @@ export class M5SqliteServices{
  async completeClarification({scope,commandId}){
    if(!isUuid(commandId))fail('m5_invalid_command');
    await this.#write(scope,db=>{
-     if(!db.prepare('SELECT command_id FROM memory_commands WHERE command_id=? AND world_profile_id=? AND character_id=? AND timeline_id=? AND protagonist_key=?')
+     if(!db.prepare('SELECT command_id FROM memory_commands WHERE command_id=? AND world_profile_id=? AND character_id=? AND timeline_id=?')
        .get(commandId,...scopeKey(scope)))fail('m5_uncommitted_resolution');
      db.prepare('UPDATE m5_clarifications SET completed_at_utc=COALESCE(completed_at_utc,?) WHERE command_id=? AND '+scopeWhere)
        .run(this.#clock(),commandId,...scopeKey(scope));
@@ -210,7 +213,7 @@ export class M5SqliteServices{
    await this.ready(scope);
    return this.#read(scope,db=>{
      const row=db.prepare('SELECT content,source,speaker,delivery,committed_at_utc AS atUtc FROM dialogue_journal WHERE world_profile_id=? AND character_id=? AND timeline_id=? AND protagonist=? AND record_id=?')
-       .get(...scopeKey(scope),line.recordId);
+       .get(...sourceScopeKey(scope),line.recordId);
      return !!row && row.content===line.content && row.source===line.source &&
        row.speaker===line.speaker && row.delivery===line.delivery &&
        row.atUtc===line.committedAtUtc;
@@ -258,24 +261,22 @@ export class M5SqliteServices{
    authorizeRequest(this.#authorize,scope,'inspect');
    if(!Number.isSafeInteger(limit)||limit<1||limit>1000)fail('m5_invalid_limit');
    return this.#read(scope,db=>{
-     const records=db.prepare('SELECT memory_id AS recordId,content,origin,pin,created_at_utc AS atUtc,evidence_ids_json AS evidenceJson FROM memory_records WHERE world_profile_id=? AND character_id=? AND timeline_id=? AND protagonist_key=? ORDER BY created_at_utc DESC LIMIT ?').all(...scopeKey(scope),limit)
+     const records=db.prepare('SELECT memory_id AS recordId,content,origin,pin,created_at_utc AS atUtc,evidence_ids_json AS evidenceJson FROM memory_records WHERE world_profile_id=? AND character_id=? AND timeline_id=? ORDER BY created_at_utc DESC LIMIT ?').all(...scopeKey(scope),limit)
        .map(m=>({...m,evidenceRecordIds:JSON.parse(m.evidenceJson)}));
      const trash=db.prepare('SELECT trash_id AS trashId,target_id AS targetId,created_at_utc AS createdAtUtc,purge_after_utc AS purgeAfterUtc,restored_at_utc AS restoredAtUtc,purged_at_utc AS purgedAtUtc FROM m5_trash WHERE '+scopeWhere+' ORDER BY created_at_utc DESC LIMIT ?').all(...scopeKey(scope),limit);
-     const corrections=db.prepare('SELECT c.target_id AS targetId,c.preferred_text AS reportedCorrection,c.created_at_utc AS atUtc FROM memory_corrections c JOIN memory_commands m ON m.command_id=c.command_id WHERE c.world_profile_id=? AND c.character_id=? AND c.timeline_id=? AND m.protagonist_key=? ORDER BY c.created_at_utc DESC LIMIT ?').all(...scopeKey(scope),limit);
+     const corrections=db.prepare('SELECT c.target_id AS targetId,c.preferred_text AS reportedCorrection,c.created_at_utc AS atUtc FROM memory_corrections c JOIN memory_commands m ON m.command_id=c.command_id WHERE c.world_profile_id=? AND c.character_id=? AND c.timeline_id=? ORDER BY c.created_at_utc DESC LIMIT ?').all(...scopeKey(scope),limit);
      return {version:1,scope:{...scope},records,trash,corrections};
    });
  }
  async exportArchive({scope}){
    authorizeRequest(this.#authorize,scope,'export');
    return this.#read(scope,db=>{
-     const dialogue=db.prepare('SELECT envelope_json AS json FROM dialogue_journal WHERE world_profile_id=? AND character_id=? AND timeline_id=? AND protagonist=? ORDER BY committed_at_utc,record_id').all(scope.worldProfileId,scope.characterId,scope.timelineId,scope.protagonistKey??'unknown').map(x=>JSON.parse(x.json));
-     const events=(scope.protagonistKey??'unknown')==='unknown'
-       ?db.prepare('SELECT envelope_json AS json FROM event_journal WHERE world_profile_id=? AND character_id=? AND timeline_id=? ORDER BY received_at_utc,record_id').all(scope.worldProfileId,scope.characterId,scope.timelineId).map(x=>JSON.parse(x.json)):[];
+     const dialogue=db.prepare('SELECT envelope_json AS json FROM dialogue_journal WHERE world_profile_id=? AND character_id=? AND timeline_id=? ORDER BY committed_at_utc,record_id').all(...scopeKey(scope)).map(x=>JSON.parse(x.json));
+     const events=db.prepare('SELECT envelope_json AS json FROM event_journal WHERE world_profile_id=? AND character_id=? AND timeline_id=? ORDER BY received_at_utc,record_id').all(...scopeKey(scope)).map(x=>JSON.parse(x.json));
      const memories=db.prepare('SELECT * FROM memory_records WHERE '+scopeWhere+' ORDER BY created_at_utc,memory_id').all(...scopeKey(scope));
-     const sidecars=(scope.protagonistKey??'unknown')==='unknown'
-       ?db.prepare('SELECT v.record_id AS recordId,v.source_evidence_json AS evidenceJson,v.source_evidence_sha256 AS checksum FROM event_source_evidence v JOIN event_journal e ON e.record_id=v.record_id WHERE e.world_profile_id=? AND e.character_id=? AND e.timeline_id=? ORDER BY e.received_at_utc,e.record_id')
+     const sidecars=db.prepare('SELECT v.record_id AS recordId,v.source_evidence_json AS evidenceJson,v.source_evidence_sha256 AS checksum FROM event_source_evidence v JOIN event_journal e ON e.record_id=v.record_id WHERE e.world_profile_id=? AND e.character_id=? AND e.timeline_id=? ORDER BY e.received_at_utc,e.record_id')
          .all(scope.worldProfileId,scope.characterId,scope.timelineId)
-         .map(x=>({recordId:x.recordId,evidence:JSON.parse(x.evidenceJson),sha256:x.checksum})):[];
+         .map(x=>({recordId:x.recordId,evidence:JSON.parse(x.evidenceJson),sha256:x.checksum}));
      const memoIds=new Set(memories.map(m=>m.memory_id));
      const curationJobs=db.prepare('SELECT job_json AS json FROM memory_curation_jobs WHERE world_profile_id=? AND character_id=? AND timeline_id=?')
        .all(scope.worldProfileId,scope.characterId,scope.timelineId)
@@ -290,7 +291,7 @@ export class M5SqliteServices{
        });
      const commands=db.prepare('SELECT receipt_json AS json FROM memory_commands WHERE '+scopeWhere+' ORDER BY requested_by_line_id,command_id').all(...scopeKey(scope)).map(x=>JSON.parse(x.json));
      const tombstones=db.prepare('SELECT t.* FROM memory_tombstones t WHERE t.world_profile_id=? AND t.character_id=? AND t.timeline_id=?').all(scope.worldProfileId,scope.characterId,scope.timelineId).filter(row=>!!evidence(db,scope,row.target_id));
-     const corrections=db.prepare('SELECT c.* FROM memory_corrections c JOIN memory_commands m ON m.command_id=c.command_id WHERE c.world_profile_id=? AND c.character_id=? AND c.timeline_id=? AND m.protagonist_key=?').all(...scopeKey(scope));
+     const corrections=db.prepare('SELECT c.* FROM memory_corrections c JOIN memory_commands m ON m.command_id=c.command_id WHERE c.world_profile_id=? AND c.character_id=? AND c.timeline_id=? ').all(...scopeKey(scope));
      const trash=db.prepare('SELECT * FROM m5_trash WHERE '+scopeWhere).all(...scopeKey(scope));
      const raw=JSON.stringify({format:'m5-promoted-memory-archive-v1',scope,dialogue,events,sidecars,memories,curationJobs,appraisals,commands,tombstones,corrections,trash,pending})+'\n';
      return {format:'m5-promoted-memory-archive-v1',sha256:sha(raw),byteLength:Buffer.byteLength(raw),json:raw};
@@ -327,11 +328,11 @@ export class M5SqliteServices{
          db.prepare('INSERT INTO memory_tombstones VALUES(?,?,?,?,?,?)')
            .run(scope.characterId,scope.worldProfileId,scope.timelineId,id,operationId,now);
        db.prepare('INSERT INTO m5_trash VALUES(?,?,?,?,?,?,?,?,?,NULL,NULL)')
-         .run(id===targetId?operationId:randomUUID(),operationId,id,...scopeKey(scope),now,until);
+         .run(id===targetId?operationId:randomUUID(),operationId,id,...sourceScopeKey(scope),now,until);
      }
      const r=receipt(operationId,'trash',closure,now);
      db.prepare('INSERT INTO m5_privacy_ops VALUES(?,?,?,?,?,?,?)')
-       .run(operationId,...scopeKey(scope),reqHash,JSON.stringify(r));
+       .run(operationId,...sourceScopeKey(scope),reqHash,JSON.stringify(r));
    });
    return this.verifyPrivacy({scope,operationId});
  }
@@ -365,11 +366,11 @@ export class M5SqliteServices{
        db.prepare('INSERT INTO memory_tombstones VALUES(?,?,?,?,?,?)')
          .run(scope.characterId,scope.worldProfileId,scope.timelineId,id,operationId,now);
        db.prepare('INSERT INTO m5_trash VALUES(?,?,?,?,?,?,?,?,?,NULL,NULL)')
-         .run(randomUUID(),operationId,id,...scopeKey(scope),now,until);
+         .run(randomUUID(),operationId,id,...sourceScopeKey(scope),now,until);
      }
      const result=receipt(operationId,'trash_scope',pending,now);
      db.prepare('INSERT INTO m5_privacy_ops VALUES(?,?,?,?,?,?,?)')
-       .run(operationId,...scopeKey(scope),reqHash,JSON.stringify(result));
+       .run(operationId,...sourceScopeKey(scope),reqHash,JSON.stringify(result));
    });
    return this.verifyPrivacy({scope,operationId});
  }
@@ -397,7 +398,7 @@ export class M5SqliteServices{
      db.prepare('UPDATE m5_trash SET restored_at_utc=? WHERE operation_id=? AND '+scopeWhere+' AND restored_at_utc IS NULL')
        .run(now,target.parent,...scopeKey(scope));
      const r=receipt(operationId,'restore',bundle.map(x=>x.id),now);
-     db.prepare('INSERT INTO m5_privacy_ops VALUES(?,?,?,?,?,?,?)').run(operationId,...scopeKey(scope),reqHash,JSON.stringify(r));
+     db.prepare('INSERT INTO m5_privacy_ops VALUES(?,?,?,?,?,?,?)').run(operationId,...sourceScopeKey(scope),reqHash,JSON.stringify(r));
    });
    return this.verifyPrivacy({scope,operationId});
  }
