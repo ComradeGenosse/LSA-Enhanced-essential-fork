@@ -289,6 +289,10 @@ test('M6 three-avatar scenes consolidate only with shared verified lifetime and 
  const unproved=line(4,'Inside joke, remember?',{attribution:{protagonist:'trevor'}});
  assert.equal(selectAutomaticMemories([a,unproved]).length,2,
    'missing source lifetime cannot borrow the verified Franklin scene');
+ const unprovedFranklin=line(5,'Inside joke with you!',{attribution:{protagonist:'franklin'}});
+ const unprovedTrevor=line(6,'That was hilarious!',{attribution:{protagonist:'trevor'}});
+ assert.equal(selectAutomaticMemories([unprovedFranklin,unprovedTrevor]).length,2,
+   'two missing native owners do not become matching owners across avatars');
  assert.equal(consolidateCandidates([earlier],
    {...updated,worldProfileId:uuid()}).action,'insert');
  assert.equal(consolidateCandidates([earlier],
