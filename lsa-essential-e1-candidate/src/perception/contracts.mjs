@@ -72,9 +72,38 @@ export function validateMemoryAuthorityPayload(p) {
     isUuid(s.playerCaptureRef)&&s.sampledGameTick===p.sampledGameTick;
 }
 
+
+// Distinct D02 negotiated CURRENT-only native evidence. No accepted dialogue.
+export function validateMemoryCurrentOwnerPlayerPayload(p) {
+  const uuid4=x=>typeof x==='string'&&/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(x);
+  const alias=x=>typeof x==='string'&&/^promoted\.[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(x);
+  const ped=x=>typeof x==='string'&&/^[1-9][0-9]{0,9}$/.test(x)&&Number(x)<=2147483647;
+  const tick=x=>integer(x,0xffffffff);
+  if(!keys(p,['nativeOwnerPlayerProofVersion','source','hostRunId','worldEpoch','sampledGameTick','owners','protagonist'])||
+    p.nativeOwnerPlayerProofVersion!==1||p.source!=='native_p2_owner_fiber_current_only'||
+    !uuid4(p.hostRunId)||!integer(p.worldEpoch,2147483647)||p.worldEpoch===0||
+    !tick(p.sampledGameTick)||!Array.isArray(p.owners)||p.owners.length>16)return false;
+  const captures=new Set(),aliases=new Set(),peds=new Set();
+  for(const o of p.owners) {
+    if(!keys(o,['observerCaptureRef','incarnationId','encounterId','ownerAlias','hostRunId','worldEpoch','nativeActorPedId','sampledGameTick'])||
+      !uuid4(o.observerCaptureRef)||!uuid4(o.incarnationId)||!uuid4(o.encounterId)||
+      !alias(o.ownerAlias)||!ped(o.nativeActorPedId)||
+      o.hostRunId!==p.hostRunId||o.worldEpoch!==p.worldEpoch||
+      o.sampledGameTick!==p.sampledGameTick||
+      captures.has(o.observerCaptureRef)||aliases.has(o.ownerAlias)||peds.has(o.nativeActorPedId))return false;
+    captures.add(o.observerCaptureRef);aliases.add(o.ownerAlias);peds.add(o.nativeActorPedId);
+  }
+  const s=p.protagonist;
+  return keys(s,['source','key','playerCaptureRef','sampledGameTick'])&&
+    s.source==='native_player_model'&&
+    ['franklin','michael','trevor','unknown'].includes(s.key)&&
+    uuid4(s.playerCaptureRef)&&s.sampledGameTick===p.sampledGameTick&&
+    !captures.has(s.playerCaptureRef);
+}
+
 export function validateFrame(v) {
   if (!v || Buffer.byteLength(JSON.stringify(v))>BOUNDS.frameBytes) return false;
-  if (v.type==='hello') return validateHostEnvelope(v,['version','type','adapterEpoch','streamId','capabilities',...(Object.hasOwn(v,'observerIndexVersion') ? ['observerIndexVersion'] : []),...(Object.hasOwn(v,'observerSituationVersion') ? ['observerSituationVersion'] : []),...(Object.hasOwn(v,'primaryBehaviorOwnerVersion') ? ['primaryBehaviorOwnerVersion'] : []),...(Object.hasOwn(v,'directorRequestVersion') ? ['directorRequestVersion'] : [])]) && (!Object.hasOwn(v,'observerIndexVersion') || v.hostContextVersion===1 && v.observerIndexVersion===1) && (!Object.hasOwn(v,'observerSituationVersion') || v.hostContextVersion===1 && v.observerIndexVersion===1 && v.observerSituationVersion===1) && (!Object.hasOwn(v,'primaryBehaviorOwnerVersion') || v.observerSituationVersion===1 && v.primaryBehaviorOwnerVersion===1) && (!Object.hasOwn(v,'directorRequestVersion') || v.hostContextVersion===1 && v.directorRequestVersion===1) && v.version===1 && isUuid(v.adapterEpoch) && isUuid(v.streamId) && keys(v.capabilities,CAPABILITIES) && Object.values(v.capabilities).every(x=>typeof x==='boolean');
+  if (v.type==='hello') return validateHostEnvelope(v,['version','type','adapterEpoch','streamId','capabilities',...(Object.hasOwn(v,'observerIndexVersion') ? ['observerIndexVersion'] : []),...(Object.hasOwn(v,'observerSituationVersion') ? ['observerSituationVersion'] : []),...(Object.hasOwn(v,'primaryBehaviorOwnerVersion') ? ['primaryBehaviorOwnerVersion'] : []),...(Object.hasOwn(v,'directorRequestVersion') ? ['directorRequestVersion'] : []),...(Object.hasOwn(v,'memoryCurrentOwnerPlayerVersion') ? ['memoryCurrentOwnerPlayerVersion'] : [])]) && (!Object.hasOwn(v,'observerIndexVersion') || v.hostContextVersion===1 && v.observerIndexVersion===1) && (!Object.hasOwn(v,'observerSituationVersion') || v.hostContextVersion===1 && v.observerIndexVersion===1 && v.observerSituationVersion===1) && (!Object.hasOwn(v,'primaryBehaviorOwnerVersion') || v.observerSituationVersion===1 && v.primaryBehaviorOwnerVersion===1) && (!Object.hasOwn(v,'directorRequestVersion') || v.hostContextVersion===1 && v.directorRequestVersion===1) && (!Object.hasOwn(v,'memoryCurrentOwnerPlayerVersion') || v.hostContextVersion===1 && v.observerIndexVersion===1 && v.memoryCurrentOwnerPlayerVersion===1) && v.version===1 && isUuid(v.adapterEpoch) && isUuid(v.streamId) && keys(v.capabilities,CAPABILITIES) && Object.values(v.capabilities).every(x=>typeof x==='boolean');
   if (!keys(v,['version','type','adapterEpoch','streamId','sequence','payload']) || v.version!==1 || !isUuid(v.adapterEpoch) || !isUuid(v.streamId) || !integer(v.sequence) || v.sequence===0) return false;
   if (v.type==='anchors') return Array.isArray(v.payload) && v.payload.length<=32 && v.payload.every(a=>keys(a,['captureRef','kind','observer'],['owned','conversation']) && isUuid(a.captureRef) && ['ped','player','vehicle'].includes(a.kind) && typeof a.observer==='boolean' && (!a.observer || a.kind==='ped') && ['owned','conversation'].every(k=>a[k]===undefined || typeof a[k]==='boolean' && (!a[k] || a.kind==='ped'))) && new Set(v.payload.map(a=>a.captureRef)).size===v.payload.length;
   if (v.type==='retire') return keys(v.payload,['captureRef']) && isUuid(v.payload.captureRef);
@@ -89,6 +118,7 @@ export function validateFrame(v) {
     v.payload.directorRequestVersion===1 && isUuid(v.payload.ticketId) &&
     ['invalid','busy','unsafe','stale','cancelled','not_found','reserved','submitted','bound','started','completed','failed'].includes(v.payload.status);
   if (v.type==='memory_authority') return validateMemoryAuthorityPayload(v.payload);
+  if (v.type==='memory_current_owner_player') return validateMemoryCurrentOwnerPlayerPayload(v.payload);
   if (v.type==='signal') return validateSignal(v.payload);
   if (v.type==='diagnostics') return keys(v.payload,['anchors','observers','snapshotAgeMs','snapshotCadenceMs','dropped','staleRejected','retiredAnchors','deferredDiscovery','updateMicros','capabilities','signals','damageCallbacks','witnessDeferred','witnessUnknown','witnessRejected','playerSpeechGate'],['radio']) && integer(v.payload.anchors,256) && integer(v.payload.observers,16) && ['snapshotAgeMs','snapshotCadenceMs','dropped','staleRejected','retiredAnchors','deferredDiscovery','updateMicros','witnessDeferred','witnessUnknown','witnessRejected'].every(k=>integer(v.payload[k],2147483647)) && v.payload.playerSpeechGate==='unsupported_capture_receipt' && keys(v.payload.capabilities,CAPABILITIES) && Object.values(v.payload.capabilities).every(x=>typeof x==='boolean') && v.payload.capabilities.playerSpeech===false && v.payload.signals && typeof v.payload.signals==='object' && !Array.isArray(v.payload.signals) && Object.entries(v.payload.signals).every(([k,n])=>['damage','vehicle_damage','firing','death','injury_state','vehicle_transition','vehicle_state','activity_changed','presence_changed','location_changed','action_callback','playback_started','playback_ended','radio_changed','radio_stopped'].includes(k) && integer(n,2147483647)) && keys(v.payload.damageCallbacks,['ped_damage','player_damage','vehicle_damage']) && Object.values(v.payload.damageCallbacks).every(n=>integer(n,2147483647)) && (!Object.hasOwn(v.payload,'radio') || keys(v.payload.radio,['samples','edges','nativeFailures','witnessed','witnessUnknown']) && ['samples','edges','nativeFailures','witnessed','witnessUnknown'].every(k=>integer(v.payload.radio[k],2147483647)));
   return false;
