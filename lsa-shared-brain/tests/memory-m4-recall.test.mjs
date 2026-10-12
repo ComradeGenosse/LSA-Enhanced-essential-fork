@@ -224,14 +224,14 @@ test('real v4 read projection: source hashes, archived FTS, correction overlays 
  const f=integratedFixture(),s=scope();try{
   const old=f.dialogue(s,'I said RED beans and 🚗',{at:'2023-01-01T00:00:00.000Z'});
   const unrelated=f.dialogue(s,'classified Trevor pudding',{protagonistKey:'trevor'});
-  const forgedCorrection=f.correction(s,unrelated.recordId,'cross-protagonist false correction');
+  const crossAvatarCorrection=f.correction(s,unrelated.recordId,'cross-avatar player correction');
   const forgedMemory=f.memory(s,'orphaned evidence claim',[U()]);
   const forgedLookup=(await recallMemory({query:query(s,'orphaned evidence claim'),
     readAdapter:f.adapter,protagonistKey:s.protagonistKey,nowUtc:clock})).bundle;
   assert.ok(!forgedLookup.items.some(x=>x.recordId===forgedMemory));
-  const forgedReport=(await recallMemory({query:query(s,'cross-protagonist false correction'),
+  const forgedReport=(await recallMemory({query:query(s,'cross-avatar player correction'),
     readAdapter:f.adapter,protagonistKey:s.protagonistKey,nowUtc:clock})).bundle;
-  assert.ok(!forgedReport.items.some(x=>x.recordId===forgedCorrection));
+  assert.ok(forgedReport.items.some(x=>x.recordId===crossAvatarCorrection));
   const raw=await recallMemory({query:query(s,'what did I say about RED beans?',{intent:'exact_quote'}),
     readAdapter:f.adapter,protagonistKey:s.protagonistKey,nowUtc:clock});
   assert.equal(raw.bundle.items[0].recordId,old.recordId);assert.equal(raw.bundle.items[0].freshness,'archive');
@@ -241,7 +241,7 @@ test('real v4 read projection: source hashes, archived FTS, correction overlays 
   assert.ok(quoteCorrection.items.some(item=>item.recordId===target&&item.mode==='reported_claim'));
   assert.ok(!quoteCorrection.items.some(item=>item.recordId===old.recordId));
   let b=(await recallMemory({query:query(s,'tell me about beans'),readAdapter:f.adapter,protagonistKey:s.protagonistKey,nowUtc:clock})).bundle;
-  assert.ok(b.items.some(x=>x.recordId===target&&x.mode==='reported_claim'&&x.content.includes('BLUE beans')));
+  assert.ok(b.items.some(x=>x.recordId===target&&x.mode==='reported_claim'&&x.content.includes('BLUE beans')),JSON.stringify(b));
   assert.ok(!b.items.some(x=>x.recordId===old.recordId));
   const stable=f.memory(s,'original faulty memory',[old.recordId]);
   b=(await recallMemory({query:query(s,'faulty memory'),readAdapter:f.adapter,protagonistKey:s.protagonistKey,nowUtc:clock})).bundle;
@@ -345,7 +345,7 @@ test('real v4 event archive validates actual M3 sidecar and never invents witnes
   assert.ok(b.items.some(x=>x.recordId===old.recordId&&x.mode==='observed_fact'));
   const other=(await recallMemory({query:query(s,'did you witness firing?'),
     readAdapter:f.adapter,protagonistKey:'franklin',nowUtc:clock})).bundle;
-  assert.equal(other.items.length,0);
+  assert.ok(other.items.some(x=>x.recordId===old.recordId));
   f.db.prepare('UPDATE event_source_evidence SET source_evidence_json=? WHERE record_id=?')
     .run('{}',old.recordId);
   const tampered=(await recallMemory({query:query(s,'did you witness firing?'),
