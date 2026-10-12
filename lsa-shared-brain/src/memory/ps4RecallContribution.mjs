@@ -150,6 +150,7 @@ export async function prepareOriginalPs4Recall({snapshot,queryId,
    protagonistKey:snapshot.protagonistKey,source:accepted.source,playerActive,
    deadlineMs:remaining,maxContributionBytes,nowUtc,followup});
  if(prepared.status!=='ready')return prepared;
+ if(performance.now()-start>deadlineMs)return dropped('deadline');
  if(!current())return dropped('stale_after_recall');
  // Include the question's source record in the last-second P2 validity check:
  // corrections to the triggering utterance also invalidate the old query.
