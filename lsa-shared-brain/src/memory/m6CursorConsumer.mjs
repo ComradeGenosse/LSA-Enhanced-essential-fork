@@ -56,10 +56,11 @@ export function createM6CursorConsumer({store,pageSize=250,maxRows=8192,maxPages
       // A bounded scan is a checkpointable PREFIX, not an overflowed latest-N snapshot.
       // The next invocation resumes after the durable CAS, preserving all backlog.
       if(pagesRead>=maxPages||rows.length>=maxRows){hasMore=true;break;}
+      const requestedLimit=Math.min(pageSize,maxRows-rows.length);
       const page=await store.readM6JournalPage({scope,afterCursor:after,
-        limit:Math.min(pageSize,maxRows-rows.length)});
+        limit:requestedLimit});
       pagesRead++;
-      if(!page||!Array.isArray(page.rows)||page.rows.length>pageSize||
+      if(!page||!Array.isArray(page.rows)||page.rows.length>requestedLimit||
          typeof page.hasMore!=='boolean'||(page.hasMore&&page.rows.length===0))
         fail('m6_invalid_p2_page');
       hasMore=page.hasMore;
