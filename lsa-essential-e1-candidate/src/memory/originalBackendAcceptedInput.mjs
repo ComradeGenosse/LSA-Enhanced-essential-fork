@@ -108,7 +108,7 @@ export function createOriginalBackendAcceptedInput(){
     },
     retireSession({pedId,sessionNonce}={}){
       if(typeof pedId!=='string'||!pedId||!Number.isSafeInteger(sessionNonce)||sessionNonce<1)return false;
-      retiredSessions.add(pedId+'\\u0000'+sessionNonce);
+      retiredSessions.add(pedId+'\u0000'+sessionNonce);
       return true;
     },
     retireSourceRun(sourceRunId){
