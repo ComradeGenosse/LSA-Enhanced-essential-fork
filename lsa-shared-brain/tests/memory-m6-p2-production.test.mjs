@@ -224,3 +224,26 @@ test('W06 A06: bounded read prefixes resume without losing an old backlog; tombs
     assert.equal((await x.store.readM6Checkpoint({scope})).cursor,cp.cursor);
   }finally{await x.store.close();}
 });
+
+test('W06 A06: persisted checkpoint and immutable SHA receipt corruption fail closed after commit',async t=>{
+  const x=await create(t),scope=x.scopes[0];
+  try{
+    await accepted(x.store,scope,200,'That was hilarious!');
+    const m6=createM6SelectionCoordinator({store:createM6P2ReplayAdapter(x.store),quietMs:0});
+    const done=await m6.onSceneClose({scope,atUtc:future()});
+    assert.equal(done.acknowledged,true);
+    const checkpoint=await x.store.readM6Checkpoint({scope});
+    assert.ok(checkpoint.cursor);
+    await x.store.withTimelineSqliteWrite(scope,db=>
+      db.prepare('UPDATE m6_p2_checkpoints SET after_sequence=? WHERE world_profile_id=? AND character_id=? AND timeline_id=?')
+        .run(Number(checkpoint.cursor)+200,...[scope.worldProfileId,scope.characterId,scope.timelineId]));
+    await assert.rejects(x.store.readM6Checkpoint({scope}),/m6_p2_corrupt_checkpoint_receipt/);
+    await x.store.withTimelineSqliteWrite(scope,db=>
+      db.prepare('UPDATE m6_p2_checkpoints SET after_sequence=? WHERE world_profile_id=? AND character_id=? AND timeline_id=?')
+        .run(Number(checkpoint.cursor),...[scope.worldProfileId,scope.characterId,scope.timelineId]));
+    await x.store.withTimelineSqliteWrite(scope,db=>
+      db.prepare('UPDATE m6_p2_source_receipts SET source_hash=? WHERE sequence=?')
+        .run('f'.repeat(64),Number(checkpoint.cursor)));
+    await assert.rejects(x.store.readM6Checkpoint({scope}),/m6_p2_corrupt_checkpoint_source_hash/);
+  }finally{await x.store.close();}
+});
