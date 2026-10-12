@@ -16,7 +16,7 @@ import { decide } from '../openai/decide.mjs';
 import { transcribePcm } from '../openai/transcribe.mjs';
 import { speak } from '../openai/speak.mjs';
 import { DialogueHistory } from '../memory/dialogueHistory.mjs';
-import {createM2EssentialCapture} from '../memory/m2EssentialCapture.mjs';
+import {createD03OriginalDialogueJoin} from '../memory/d03OriginalDialogueJoin.mjs';
 import {createOriginalBackendAcceptedInput,ORIGINAL_BACKEND_PIN} from '../memory/originalBackendAcceptedInput.mjs';
 import { validateDecisionShape } from '../context/essentialDecision.mjs';
 import { validateStockDecision } from '../context/decisionValidator.mjs';
@@ -65,33 +65,24 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
   const services = {
     bindM2Turn({turn,isCurrent}={}) {
       const characterId=journalCharacter(turn);
-      const alias=turn?.characterProjection?.profile?.promotion?.ownerAlias;
-      // A RAM-history commit, typed submit, STT transcript, or optimistic
-      // boolean cannot authorize M2; demand the pinned original post-accept
-      // source AND independently verified native and playback source ledgers.
-      if(ORIGINAL_BACKEND_PIN.acceptedSourceHookAvailable!==true ||
-         !characterId||!alias||typeof isCurrent!=='function'||
-         typeof memoryNativeAuthority?.verifyCurrentTurn!=='function'||
-         typeof journalStore?.withTimelineWrite!=='function'||
-         config.promotedCharacters?.storageMode!=='sqlite')return null;
-      try {
-        const source=runtime.host?.memorySourceLedgers;
-        if(typeof source?.playbackHistory?.verifyCompleted!=='function'||
-           typeof source?.speechTransport?.verifyForwardedSegment!=='function'||
-           typeof source?.speechTransport?.verifyFinalizedAudio!=='function')
-          return null;
-        // Uses W03's strict adapter. It independently verifies original
-        // accepted input + current native owner BEFORE the one P2 writer,
-        // and terminal playback/TTS source at final NPC commit.
-        return createM2EssentialCapture({
-          store:journalStore,characterId,ownerAlias:alias,
-          identity:turn.identity,isCurrent,
-          nativeAuthority:memoryNativeAuthority,
-          acceptedInput:originalAcceptedInput,
-          playbackHistory:source.playbackHistory,
-          speechTransport:source.speechTransport
-        });
-      }catch{return null;}
+      const ownerAlias=turn?.characterProjection?.profile?.promotion?.ownerAlias;
+      if(!characterId||!ownerAlias||typeof isCurrent!=='function'||
+         config.promotedCharacters?.storageMode!=='sqlite'||
+         typeof journalStore?.withP2SqliteTransaction!=='function')
+        return null;
+      // D01 is a pinned original BACKEND final-acceptance source. D02 is
+      // independently authenticated native current player/NPC ownership.
+      // The original actor lease is acquired here AFTER original turn
+      // hydration and BEFORE STT/provider intake; no post-hoc ped inference.
+      let ledgers=null;
+      try{ledgers=runtime.host?.memorySourceLedgers??null;}catch{}
+      const join=createD03OriginalDialogueJoin({
+        store:journalStore,backend:originalAcceptedInput,
+        d02:runtime.memoryD02??null,
+        originalActor:ledgers?.originalActor??null
+      });
+      return join.begin({identity:turn.identity,characterId,ownerAlias,
+        isCurrent});
     },
     async recordM2Player({turn,text,source}) {
       if(!turn?.m2Capture||!['player_text','player_mic'].includes(source))
@@ -106,14 +97,14 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
     admitM2SpeechSegment({turn,mode,sequence,text,audioBytes,forwardedBytes}) {
       // Caller-chosen audio counts are inert. W03 independently compares
       // each segment to native-source PCM forwarding and TTS completion.
-      try{return turn?.m2Capture?.admitSpeechSegment({
+      try{return turn?.m2Capture?.admitSpeechSegment?.({
         mode,sequence,text,audioBytes,forwardedBytes})??null;}
       catch{return null;}
     },
     async recordM2Npc({turn,receipt}) {
       // W03 uses only ordered source-verified TTS segment text, never the
       // final Luna draft; requires completed native playback + RAM history.
-      return turn?.m2Capture?.completeNpc({receipt})??null;
+      return turn?.m2Capture?.completeNpc?.({receipt})??null;
     },
     recordDialogueActionPublication({turn,validated,publishedAtMs}){
       if(config.provider!=='openai' || config.activities?.dialogueReceipts!==true || !runtime.dialogueKnowledgeBuildSupported)return null;
