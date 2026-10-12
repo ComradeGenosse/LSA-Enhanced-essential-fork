@@ -15,6 +15,34 @@ const expectations=Object.freeze({
   ZP:['HP','Xn'],
   vi:['sendText'],
 });
+// Fail closed on the actual minified input-admission edges, not merely on
+// function names. These are the exact original code paths pinned by the
+// complete upstream SHA-256 above. The transport ACK has no final-input
+// revision; the transcript event is a mutating merge, not a final acceptance.
+const sourcePathWitnesses=Object.freeze([
+  Object.freeze({id:'typed_trim_and_fallback',functionName:'ib',
+    fragments:Object.freeze(['l=Fr(t.text)||"Hello, what are you doing here?"','await vi(h,d)','Sd(p.id)'])}),
+  Object.freeze({id:'typed_transport_submission',functionName:'vi',
+    fragments:Object.freeze(['String(e||"").trim()','await t.connection.sendText(n)'])}),
+  Object.freeze({id:'mic_activity_end_is_submission',functionName:'$y',
+    fragments:Object.freeze(['await _d(e)','Py(t.id)','Sd(t.id)'])}),
+  Object.freeze({id:'stt_transcript_no_final_marker',functionName:'NK',
+    fragments:Object.freeze(['n.inputTranscription?.text','Ee.INPUT_TRANSCRIPT','n.turnComplete&&e.push'])}),
+  Object.freeze({id:'transcript_merge_is_mutable',functionName:'AP',
+    fragments:Object.freeze(['case Ee.INPUT_TRANSCRIPT:return e.input.transcript=SK(e.input.transcript,t.text)',
+      'case Ee.TURN_COMPLETE:return await wP(e)'])}),
+  Object.freeze({id:'fragment_merger',functionName:'SK',
+    fragments:Object.freeze(['e.startsWith(t)?e','t+e'])}),
+  Object.freeze({id:'misnamed_recovery_timestamp',functionName:'YK',
+    fragments:Object.freeze(['t.type==="input_transcript"','n.providerAcceptedInputAt=Date.now()'])}),
+  Object.freeze({id:'recovery_replays_on_new_generation',functionName:'ZP',
+    fragments:Object.freeze(['Xn(e.id,{sessionRecord:r,generationId:i,recovery:!1})',
+      'await vi(r,t.text)','await _d(r)'])}),
+  Object.freeze({id:'generation_binding_precedes_transport',functionName:'Xn',
+    fragments:Object.freeze(['le.bindGeneration(i.id,{generationId:n,sessionNonce:e.nonce})',
+      'pt(Pe.GENERATION_STARTED,i'])}),
+]);
+
 function visit(node,callback){
   if(!node||typeof node!=='object')return;
   if(typeof node.type==='string')callback(node);
@@ -51,6 +79,19 @@ export function auditPinnedOriginalBackendSource(source){
       sha256:createHash('sha256').update(body).digest('hex'),
     });
   }
+  for(const witness of sourcePathWitnesses){
+    const node=located.get(witness.functionName);
+    const body=source.slice(node.start,node.end);
+    if(witness.fragments.some(fragment=>!body.includes(fragment)))
+      return Object.freeze({status:'rejected',reason:'original_input_path_changed',
+        witnessId:witness.id,functionName:witness.functionName});
+  }
+  const observedInputPaths=Object.freeze(sourcePathWitnesses.map(witness=>Object.freeze({
+    pathId:witness.id,
+    functionName:witness.functionName,
+    sourceAnchorSha256:anchors[witness.functionName].sha256,
+    permitsFinalAcceptedReceipt:false,
+  })));
   // Audited: typed ib -> trimmed vi send; mic $y -> activityEnd;
   // NK -> inputTranscription.text without final marker;
   // AP -> input_transcript SK fragment merge; YK uses misleading
@@ -62,5 +103,7 @@ export function auditPinnedOriginalBackendSource(source){
     originalPostAcceptanceHook:false,
     typedFinalExactBytes:false,
     sttFinalAcceptedIndicator:false,
+    observedInputPaths,
+    blocker:'No original post-acceptance event carrying final typed/STT bytes plus immutable turn identity and monotonic accepted revision',
   });
 }
