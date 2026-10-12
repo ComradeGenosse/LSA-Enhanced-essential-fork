@@ -68,8 +68,8 @@ function fullDialogueIntegritySchema(db){
 }
 // Evidence is scoped to an NPC/save, not to the historical avatar. Validate
 // *each* source before allowing an explicit or curated memory to depend on it.
-function knownEvidence(db,scope,id,parents=new Set()){
- if(!isUuid(id)||parents.has(id)||parents.size>=32)return null;
+function knownEvidence(db,scope,id,parents=new Set(),revoked=null){
+ if(!isUuid(id)||parents.has(id)||parents.size>=32||revoked?.has(id))return null;
  // Production P2 always has journal envelope/content digests. Tiny offline
  // curation fixtures may install only source/acceptance columns; those cannot
  // attest bytes and must never masquerade as a production P2 read.
@@ -107,13 +107,14 @@ function knownEvidence(db,scope,id,parents=new Set()){
  try{
    const ids=JSON.parse(row.sources),next=new Set(parents).add(id);
    if(!Array.isArray(ids)||!ids.length||ids.length>64||!ids.every(isUuid)||
-      !ids.every(source=>knownEvidence(db,scope,source,next)))return null;
+      !ids.every(source=>knownEvidence(db,scope,source,next,revoked)))return null;
    return {...row,kind:'permanent_memory'};
  }catch{return null;}
 }
 export function listMemoryCandidates(db,scope,world,{beforeUtc=null,excludeRecordId=null}={}){
  dbOwnerScope(db,scope,world);
  const rows=[];
+ const revoked=new Set([...listSuppressedMemoryIds(db,scope,world),...db.prepare('SELECT target_id FROM memory_corrections WHERE world_profile_id=? AND character_id=? AND timeline_id=?').all(...stmtScope(scope)).map(x=>x.target_id)]);
  const dialogue=db.prepare('SELECT record_id AS recordId,content,committed_at_utc AS occurredAtUtc,speaker,source,delivery,protagonist AS protagonistKey FROM dialogue_journal WHERE world_profile_id=? AND character_id=? AND timeline_id=? ORDER BY committed_at_utc DESC LIMIT 200').all(...stmtScope(scope));
  for(const d of dialogue)if(knownEvidence(db,scope,d.recordId))
    rows.push({...scope,...d,kind:'dialogue_line'});
@@ -125,11 +126,9 @@ export function listMemoryCandidates(db,scope,world,{beforeUtc=null,excludeRecor
      eventType:source.eventType,content:source.content});
  }
  const permanent=db.prepare('SELECT memory_id AS recordId,content,created_at_utc AS occurredAtUtc,protagonist_key AS protagonistKey FROM memory_records WHERE world_profile_id=? AND character_id=? AND timeline_id=? ORDER BY created_at_utc DESC LIMIT 200').all(...stmtScope(scope));
- for(const p of permanent)if(knownEvidence(db,scope,p.recordId))
+ for(const p of permanent)if(knownEvidence(db,scope,p.recordId,new Set(),revoked))
    rows.push({...scope,...p,kind:'permanent_memory'});
- const suppressed=new Set(listSuppressedMemoryIds(db,scope,world));
- const corrected=new Set(db.prepare('SELECT target_id FROM memory_corrections WHERE world_profile_id=? AND character_id=? AND timeline_id=?').all(...stmtScope(scope)).map(x=>x.target_id));
- return immutableSnapshot(rows.filter(x=>!suppressed.has(x.recordId)&&!corrected.has(x.recordId)&&x.recordId!==excludeRecordId&&(!beforeUtc||x.occurredAtUtc<=beforeUtc)));
+ return immutableSnapshot(rows.filter(x=>!revoked.has(x.recordId)&&x.recordId!==excludeRecordId&&(!beforeUtc||x.occurredAtUtc<=beforeUtc)));
 }
 export function listSuppressedMemoryIds(db,scope,world){
  dbOwnerScope(db,scope,world);
@@ -245,29 +244,33 @@ export function persistDeterministicMemory(db,proposal,world){
 export function readPermanentMemoryRows(db,scope,world,{limit=200}={}){
  dbOwnerScope(db,scope,world);
  if(!Number.isSafeInteger(limit)||limit<1||limit>1000)fail('memory_invalid_limit');
- const data=db.prepare('SELECT * FROM memory_records WHERE world_profile_id=? AND character_id=? AND timeline_id=? ORDER BY created_at_utc DESC LIMIT ?')
-  .all(...stmtScope(scope),limit);
- const suppressed=new Set(listSuppressedMemoryIds(db,scope,world));
- const corrected=new Set(db.prepare('SELECT target_id FROM memory_corrections WHERE world_profile_id=? AND character_id=? AND timeline_id=?').all(...stmtScope(scope)).map(x=>x.target_id));
- return immutableSnapshot(data.flatMap(row=>{
-   if(digest(row.content)!==row.content_sha256)fail('memory_content_integrity_failed');
-   const sourceEvidenceIds=JSON.parse(row.evidence_ids_json);
-   if(!Array.isArray(sourceEvidenceIds)||!sourceEvidenceIds.length||
-      !sourceEvidenceIds.every(isUuid))fail('memory_source_integrity_failed');
-   // The stored source avatar is immutable provenance. The current avatar is
-   // never a filter, but missing, unaccepted, corrected or forgotten sources
-   // must not be elevated to verified permanent knowledge.
-   if(suppressed.has(row.memory_id)||corrected.has(row.memory_id)||
-      sourceEvidenceIds.some(id=>suppressed.has(id)||corrected.has(id))||
-      !knownEvidence(db,scope,row.memory_id))return [];
-   return [{characterId:scope.characterId,worldProfileId:scope.worldProfileId,
-     timelineId:scope.timelineId,protagonistKey:row.protagonist_key,recordId:row.memory_id,
-     sourceKind:'permanent_memory',evidenceState:'verified',atUtc:row.created_at_utc,
-     envelope:{version:1,kind:'permanent_memory',characterId:scope.characterId,
-       worldProfileId:scope.worldProfileId,timelineId:scope.timelineId,recordId:row.memory_id,
-       content:row.content,mode:row.mode,sourceEvidenceIds}
-   }];
- }));
+ const revoked=new Set([...listSuppressedMemoryIds(db,scope,world),...db.prepare('SELECT target_id FROM memory_corrections WHERE world_profile_id=? AND character_id=? AND timeline_id=?').all(...stmtScope(scope)).map(x=>x.target_id)]);
+ // Page until we have LIMIT *verified and visible* memories. Filtering after a
+ // raw SQL LIMIT could hide all older valid memories behind corrected rows.
+ const page=db.prepare('SELECT * FROM memory_records WHERE world_profile_id=? AND character_id=? AND timeline_id=? ORDER BY created_at_utc DESC,memory_id DESC LIMIT ? OFFSET ?');
+ const valid=[];let offset=0;
+ while(valid.length<limit){
+   const rows=page.all(...stmtScope(scope),128,offset);
+   if(!rows.length)break;
+   offset+=rows.length;
+   for(const row of rows){
+     if(digest(row.content)!==row.content_sha256)fail('memory_content_integrity_failed');
+     let ids;
+     try{ids=JSON.parse(row.evidence_ids_json);}catch{fail('memory_source_integrity_failed');}
+     if(!Array.isArray(ids)||!ids.length||ids.length>64||!ids.every(isUuid))
+       fail('memory_source_integrity_failed');
+     if(revoked.has(row.memory_id)||!knownEvidence(db,scope,row.memory_id,new Set(),revoked))continue;
+     valid.push({characterId:scope.characterId,worldProfileId:scope.worldProfileId,
+       timelineId:scope.timelineId,protagonistKey:row.protagonist_key,recordId:row.memory_id,
+       sourceKind:'permanent_memory',evidenceState:'verified',atUtc:row.created_at_utc,
+       envelope:{version:1,kind:'permanent_memory',characterId:scope.characterId,
+         worldProfileId:scope.worldProfileId,timelineId:scope.timelineId,recordId:row.memory_id,
+         content:row.content,mode:row.mode,sourceEvidenceIds:ids}});
+     if(valid.length===limit)break;
+   }
+   if(rows.length<128)break;
+ }
+ return immutableSnapshot(valid);
 }
 
 /** A correction is player-reported counterevidence, NEVER a rewrite of source text. */
