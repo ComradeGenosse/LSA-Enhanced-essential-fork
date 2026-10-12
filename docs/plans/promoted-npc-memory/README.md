@@ -2,6 +2,7 @@
 
 **Status:** accepted architecture; M0 contracts and **M1 offline implementation/acceptance gates** are on this stacked branch. **M2 may begin from the validated M1 head; no production switch or GTA acceptance is implied.** **Only promoted NPCs get persistent personal memory.**
 
+- **[Memory K production implementation plan (living, 2026-10-12)](MEMORY-K-PRODUCTION-IMPLEMENTATION-PLAN-20261012.md)** — every finding of the [independent audit](MEMORY-K-INDEPENDENT-AUDIT-20261012.md) with owner, dependencies, acceptance criteria, progress, evidence and blockers. Not a readiness claim.
 - [Approved decisions](approved-decisions.md) — eight chosen options, including **natural character recall with precise on-demand retrieval**; **Luna cloud curation by default** with **zero additional local curator VRAM**; single P2 SQLite store; long-lived verbatim dialogue archive; timeline safety; two-minute promotion import.
 - [M0 boundary contracts and code integration handoff](M0-contract-and-handoff.md) — versioned interfaces, existing source seams, safety invariants and first offline scenario fixtures.
 - [M1 shared SQLite and two thin adapters (increments 1–4)](M1-sqlite-foundation-status.md) — reusable P2 validation/CRUD and timeline logic, opt-in Essential storage mode, standalone adapter entrypoint, one-writer lock, and guarded editor timeline UI; JSON remains default.

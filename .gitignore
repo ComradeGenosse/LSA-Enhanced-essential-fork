@@ -65,3 +65,7 @@
 /deployment/install-plan.json
 /deployment/deployment-receipt.json
 /deployment/deployment-verification.json
+
+# .NET harness build outputs (native/**)
+/native/**/bin/
+/native/**/obj/
