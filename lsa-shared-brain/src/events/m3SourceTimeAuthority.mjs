@@ -118,7 +118,8 @@ export function createM3SourceTimeAuthority({subscribeAuthenticatedNativeFrames,
         note('sourceMissing');return null;
       }
       const native=get(signalId,input.observerCaptureRef);
-      if(!native||native.status!=='witnessed'||native.sampledGameTick!==sampled||
+      if(!native||native.status!==(claim.evidence.channel==='report'?'reported':'witnessed')||
+        native.sampledGameTick!==sampled||
         native.channel!==claim.evidence.channel||
         native.basis!==claim.evidence.basis||
         !match(native,base.ownerProof,OWNER)||
