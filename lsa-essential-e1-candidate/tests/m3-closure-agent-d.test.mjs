@@ -77,7 +77,7 @@ function rig({scheduler,gate,pre=false}={}){
         gameTick:observedGameTick,adapterEpoch,observationId,revision:observationRevision,
         hostRunId:R,worldEpoch:3,observerCaptureRef,ownerAlias:p.ownerAlias,
         incarnationId:p.incarnationId,encounterId:p.encounterId,
-        signalProofs:observation.claims.map(claim=>({
+        signalProofs:(observation?.claims??[]).map(claim=>({
           claimId:claim.claimId,signalId:claim.details.eventSignalId,
           sourceReceiptId:id(800+Number(claim.evidence.sampledGameTick)),
           sampledGameTick:claim.evidence.sampledGameTick,

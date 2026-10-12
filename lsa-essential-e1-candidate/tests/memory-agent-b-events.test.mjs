@@ -180,7 +180,7 @@ function snap(ms,overrides={}){
 }
 const source={authenticated:true,adapterEpoch:EPOCH,hostRunId:RUN,worldEpoch:4};
 test('M9 detects collision, roll, stunt, water, wanted levels and native Wasted/Busted receipts',()=>{
-  let now=2000;const producer=new M9NativeEventProducer({now:()=>now});
+  let now=2000;const producer=new M9NativeEventProducer({now:()=>now,verifySource:({source:provided})=>provided===source});
   producer.ingest({snapshot:snap(1),source});
   const events=[];
   const run=(ms,overrides)=>{now=ms;const r=producer.ingest({snapshot:snap(ms,overrides),source});
@@ -199,7 +199,7 @@ test('M9 detects collision, roll, stunt, water, wanted levels and native Wasted/
   assert.ok(events.every(e=>e.kind==='m9_candidate' && e.requiresPs2WitnessReceipt));
 });
 test('M9 refuses fake proof and unverified narratives; initializes without spurious edges',()=>{
-  const producer=new M9NativeEventProducer({now:()=>500});
+  const producer=new M9NativeEventProducer({now:()=>500,verifySource:({source:provided})=>provided===source});
   assert.equal(producer.ingest({snapshot:snap(100),source:{...source,authenticated:false}}).accepted,false);
   const initial=producer.ingest({snapshot:snap(100,{wantedLevel:5}),source});
   assert.deepEqual(initial.candidates,[]);
@@ -208,7 +208,7 @@ test('M9 refuses fake proof and unverified narratives; initializes without spuri
   assert.equal(producer.ingest({snapshot:snap(150),source}).accepted,false);
 });
 test('M9 re-establishes physics baseline after an unavailable native vehicle snapshot',()=>{
-  let now=500;const producer=new M9NativeEventProducer({now:()=>now});
+  let now=500;const producer=new M9NativeEventProducer({now:()=>now,verifySource:({source:provided})=>provided===source});
   const first=producer.ingest({snapshot:snap(100,{vehicle:null}),source});
   assert.equal(first.accepted,true);
   const next=producer.ingest({snapshot:snap(200,{vehicle:{...snap(200).vehicle,rollDegrees:160}}),source});
@@ -216,7 +216,7 @@ test('M9 re-establishes physics baseline after an unavailable native vehicle sna
   assert.deepEqual(next.candidates,[]); // no invented rollover from missing earlier orientation
 });
 test('M9 suppresses repeated native collision receipts',()=>{
-  let now=1000;const producer=new M9NativeEventProducer({now:()=>now});
+  let now=1000;const producer=new M9NativeEventProducer({now:()=>now,verifySource:({source:provided})=>provided===source});
   producer.ingest({snapshot:snap(100),source});
   const collision={nativeReceiptId:id(99),speedDeltaKph:50};
   const a=producer.ingest({snapshot:snap(200,{vehicle:{...snap(200).vehicle,collision}}),source});

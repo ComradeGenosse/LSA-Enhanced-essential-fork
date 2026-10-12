@@ -195,14 +195,28 @@ test('W09/P2 stress: 201+ player lines, 2501+ verified PS2 source-sidecar events
       total+=result.items.filter(row=>row.kind==='event').length;
     }
     assert.equal(total,N);
-    const seen=[];
-    for(let who=0;who<2;who++)for(const key of PROTAGONISTS){
-      const s=x.scope(who,key),page=await x.store.readCommittedEvidencePage({scope:s,limit:300});
-      assert.equal(page.rejected.length,0);
-      seen.push(...page.items.filter(i=>i.kind==='dialogue'));
+    // The unified player cursor projects the SAME committed human dialogue
+    // across all four avatar query keys. Count DISTINCT durable records, not
+    // four independent copies of the same human player's speech.
+    const seen=new Set();
+    for(let who=0;who<2;who++){
+      let ownerIds=null;
+      for(const key of PROTAGONISTS){
+        const s=x.scope(who,key),page=await x.store.readCommittedEvidencePage({scope:s,limit:300});
+        assert.equal(page.rejected.length,0);
+        const ids=page.items.filter(i=>i.kind==='dialogue').map(i=>{
+          assert.equal(i.envelope.characterId,x.characters[who].characterId);
+          return i.recordId;
+        });
+        if(ownerIds!==null)assert.deepEqual(new Set(ids),ownerIds,
+          'avatar switch cannot partition this NPC\'s committed human dialogue');
+        ownerIds=new Set(ids);
+      }
+      assert.equal(ownerIds.size,who===0?Math.ceil(LINES/2):Math.floor(LINES/2));
+      for(const id of ownerIds)assert.equal(seen.has(id),false,'distinct NPC owns its own source');
+      for(const id of ownerIds)seen.add(id);
     }
-    assert.equal(seen.length,LINES);
-    assert.equal(new Set(seen.map(r=>r.recordId)).size,LINES);
+    assert.equal(seen.size,LINES);
     await x.store.close();
     const reopened=createP2MemoryStorage({filePath:x.filePath,worldProfileId,sourceRequired:true});
     await reopened.initialize();
