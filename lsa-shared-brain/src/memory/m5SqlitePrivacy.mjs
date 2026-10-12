@@ -245,6 +245,19 @@ export class M5SqliteServices{
    return this.#store.withTimelineSqliteWrite(scope,db=>{
      verifyOwner(db,scope);
      ensureM5PrivacySchema(db);
+     const now=this.#clock(),h=this.#store.verifiedHostContext;
+     db.prepare('UPDATE m5_clarifications SET completed_at_utc=? WHERE world_profile_id=? AND timeline_id<>? AND completed_at_utc IS NULL')
+       .run(now,scope.worldProfileId,scope.timelineId);
+     // Durable revocation: no recovery can revive a stale owner/epoch or TTL.
+     for(const pending of db.prepare('SELECT command_id AS id,state_json AS raw,state_sha256 AS digest,expires_at_utc AS until FROM m5_clarifications WHERE '+scopeWhere+' AND completed_at_utc IS NULL')
+       .all(...scopeKey(scope))){
+       if(sha(pending.raw)!==pending.digest)fail('m5_corrupt_clarification');
+       const attrs=JSON.parse(pending.raw).line?.attribution;
+       if(Date.parse(pending.until)<=Date.parse(now)||!h||
+         attrs?.hostRunId!==h.hostRunId||attrs?.worldEpoch!==h.worldEpoch)
+         db.prepare('UPDATE m5_clarifications SET completed_at_utc=? WHERE command_id=? AND '+scopeWhere)
+           .run(now,pending.id,...scopeKey(scope));
+     }
      // Reconcile old M5 forget receipts under the same P2 transaction.
      // Tombstones already suppress recall; this records seven-day recovery.
      const forgotten=db.prepare('SELECT t.target_id AS targetId,'+
