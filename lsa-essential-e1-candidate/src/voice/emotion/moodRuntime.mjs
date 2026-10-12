@@ -15,7 +15,7 @@ export function createMoodRuntime({ getRuntime, protagonistAuthority = null,
   clock = () => Math.floor(performance.now()), store = new MoodStore() } = {}) {
   if (typeof getRuntime !== 'function') throw new TypeError('mood_runtime_required');
   let lastLineage = null;
-  const deny = () => {store.clear();lastLineage=null;return null;};
+  const deny = () => {store.clear();lastLineage=null;return null;};\n  // An ordinary cutscene/switch may temporarily revoke model evidence. No\n  // source-dependent action is permitted then, but a bounded soft mood may\n  // survive until independent revalidation of the SAME save/host/NPC owner.\n  const suspend = () => null;
   const current = ({identity,turn} = {}, { forRetirement = false } = {}) => {
     // A stale turn's finally/cancellation must not wipe mood legitimately
     // recorded by a newer native turn. Reads/commits still fail closed and
@@ -90,7 +90,7 @@ export function createMoodRuntime({ getRuntime, protagonistAuthority = null,
         } catch { return false; }
       },
     };
-    return context.isCurrent() ? Object.freeze(context) : reject();
+    if (context.isCurrent()) return Object.freeze(context);\n    // Evidence can be revoked between readVerified() and the final check.\n    // Reject the action without erasing still-bounded same-owner state.\n    try { if (protagonistAuthority.isCurrent(verified) !== true) return suspend(); }\n    catch { return suspend(); }\n    return reject();
   };
   return Object.freeze({
     readMood({identity,turn}) {
