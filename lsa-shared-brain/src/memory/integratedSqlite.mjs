@@ -2,6 +2,7 @@
 // All mutations are invoked from P2SqliteProfileStore.withTimelineWrite.
 import {createHash} from 'node:crypto';
 import {isUuid,immutableSnapshot} from '../util/identity.mjs';
+import {readVerifiedEventEvidence} from './journalSqlite.mjs';
 const digest=v=>createHash('sha256').update(typeof v==='string'?v:JSON.stringify(v)).digest('hex');
 const fail=reason=>{throw new Error(reason)};
 const sql=`
@@ -55,18 +56,18 @@ function dbOwnerScope(db,scope,world){
 }
 const stmtScope=(scope)=>[scope.worldProfileId,scope.characterId,scope.timelineId];
 function knownEvidence(db,scope,id){
- let row=db.prepare('SELECT record_id AS recordId,content,committed_at_utc AS occurredAtUtc, speaker,source,delivery,protagonist AS protagonistKey FROM dialogue_journal WHERE world_profile_id=? AND character_id=? AND timeline_id=? AND record_id=?').get(...stmtScope(scope),id);
+ let row=db.prepare('SELECT record_id AS recordId,content,committed_at_utc AS occurredAtUtc, speaker,source,delivery,receipt_id AS receipt,protagonist AS protagonistKey FROM dialogue_journal WHERE world_profile_id=? AND character_id=? AND timeline_id=? AND record_id=?').get(...stmtScope(scope),id);
  if(row){
    // The model is immutable source provenance, NOT the player-memory subject.
    if(row.speaker==='player'&&row.delivery!=='accepted'||
-      row.speaker==='npc'&&row.delivery!=='completed')return null;
+      row.speaker==='npc'&&(row.delivery!=='completed'||!isUuid(row.receipt)))return null;
    return {...row,kind:'dialogue_line'};
  }
  row=db.prepare('SELECT e.record_id AS recordId,e.envelope_json AS json,e.receipt_status AS receiptStatus,e.received_at_utc AS occurredAtUtc FROM event_journal e JOIN event_source_evidence s ON s.record_id=e.record_id WHERE e.world_profile_id=? AND e.character_id=? AND e.timeline_id=? AND e.record_id=?').get(...stmtScope(scope),id);
  if(row){
    // M3 sidecar qualifies this NPC's witness, irrespective of player body.
    const e=JSON.parse(row.json);
-   if(row.receiptStatus!=='witnessed')return null;
+   if(row.receiptStatus!=='witnessed'||!readVerifiedEventEvidence(db,{characterId:scope.characterId,timelineId:scope.timelineId,recordId:id},world))return null;
    return {...row,kind:'journal_event',content:e.eventType+': '+e.claims.map(c=>c.kind+' '+c.durableSubject).join('; '),eventType:e.eventType};
  }
  row=db.prepare('SELECT memory_id AS recordId,content,created_at_utc AS occurredAtUtc,protagonist_key AS protagonistKey FROM memory_records WHERE world_profile_id=? AND character_id=? AND timeline_id=? AND memory_id=?').get(...stmtScope(scope),id);
@@ -76,13 +77,15 @@ function knownEvidence(db,scope,id){
 export function listMemoryCandidates(db,scope,world,{beforeUtc=null,excludeRecordId=null}={}){
  dbOwnerScope(db,scope,world);
  const rows=[];
- const dialogue=db.prepare('SELECT record_id AS recordId,content,committed_at_utc AS occurredAtUtc,speaker,source,delivery,protagonist AS protagonistKey FROM dialogue_journal WHERE world_profile_id=? AND character_id=? AND timeline_id=? ORDER BY committed_at_utc DESC LIMIT 200').all(...stmtScope(scope));
+ const dialogue=db.prepare('SELECT record_id AS recordId,content,committed_at_utc AS occurredAtUtc,speaker,source,delivery,receipt_id AS receipt,protagonist AS protagonistKey FROM dialogue_journal WHERE world_profile_id=? AND character_id=? AND timeline_id=? ORDER BY committed_at_utc DESC LIMIT 200').all(...stmtScope(scope));
  for(const d of dialogue)if(d.speaker==='player'&&d.delivery==='accepted'||
-    d.speaker==='npc'&&d.delivery==='completed')
+    d.speaker==='npc'&&d.delivery==='completed'&&isUuid(d.receipt))
    rows.push({...scope,...d,kind:'dialogue_line'});
- const events=db.prepare('SELECT e.record_id AS recordId,e.envelope_json AS json,e.receipt_status AS receiptStatus,e.received_at_utc AS occurredAtUtc FROM event_journal e JOIN event_source_evidence s ON s.record_id=e.record_id WHERE e.world_profile_id=? AND e.character_id=? AND e.timeline_id=? ORDER BY e.received_at_utc DESC LIMIT 200').all(...stmtScope(scope));
+ const events=db.prepare('SELECT e.record_id AS recordId,e.envelope_json AS json,e.receipt_status AS receiptStatus,e.received_at_utc AS occurredAtUtc FROM event_journal e JOIN event_source_evidence s ON s.record_id=e.record_id WHERE e.world_profile_id=? AND e.character_id=? AND e.timeline_id=? AND e.receipt_status='witnessed' ORDER BY e.received_at_utc DESC LIMIT 200').all(...stmtScope(scope));
  for(const e of events){
-   const env=JSON.parse(e.json);rows.push({...scope,kind:'journal_event',recordId:e.recordId,receiptStatus:e.receiptStatus,
+   const verified=readVerifiedEventEvidence(db,{characterId:scope.characterId,timelineId:scope.timelineId,recordId:e.recordId},world);
+   if(!verified)continue;
+   const env=verified.event;rows.push({...scope,kind:'journal_event',recordId:e.recordId,receiptStatus:e.receiptStatus,
      occurredAtUtc:e.occurredAtUtc,eventType:env.eventType,content:env.eventType+': '+env.claims.map(c=>c.kind+' '+c.durableSubject).join('; ')});
  }
  const permanent=db.prepare('SELECT memory_id AS recordId,content,created_at_utc AS occurredAtUtc,protagonist_key AS protagonistKey FROM memory_records WHERE world_profile_id=? AND character_id=? AND timeline_id=? ORDER BY created_at_utc DESC LIMIT 200').all(...stmtScope(scope));

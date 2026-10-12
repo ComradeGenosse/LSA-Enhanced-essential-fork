@@ -49,7 +49,7 @@ function sourceInScope(db,scope,id){
   const memory=db.prepare('SELECT protagonist_key FROM memory_records WHERE memory_id=? AND world_profile_id=? AND character_id=? AND timeline_id=?').get(...args);
   if(memory)return true; // provenance remains stored, not an identity partition
   {
-    const event=db.prepare('SELECT 1 FROM event_journal e JOIN event_source_evidence s ON s.record_id=e.record_id WHERE e.record_id=? AND e.world_profile_id=? AND e.character_id=? AND e.timeline_id=?').get(...args);
+    const event=db.prepare("SELECT 1 FROM event_journal e JOIN event_source_evidence s ON s.record_id=e.record_id WHERE e.record_id=? AND e.world_profile_id=? AND e.character_id=? AND e.timeline_id=? AND e.receipt_status='witnessed'").get(...args);
     return !!event;
   }
   return false;
