@@ -60,13 +60,13 @@ test('unplayed/interrupted NPC speech and invented player input are excluded',as
   assert.equal(b.items.length,1);assert.equal(b.items[0].recordId,real.recordId);
  }finally{f.close();}
 });
-test('character, world, timeline and protagonist are independent hard fences',async()=>{
+test('NPC/world/timeline are hard fences, source avatars share one player',async()=>{
  const f=fixture(),s=scope(),other=scope();try{
   f.add(other,dialogue(other,'classified ketchup'));
   f.add(s,dialogue(s,'trevor secret'),{protagonistKey:'trevor'});
   f.add(s,dialogue(s,'timeline proof'));
   assert.equal((await recall(f,s,'ketchup')).bundle.items.length,0);
-  assert.equal((await recall(f,s,'secret')).bundle.items.length,0);
+  assert.ok((await recall(f,s,'secret')).bundle.items.length>0);
   const good=f.add(s,dialogue(s,'hello from franklin'));
   const injected={read:async()=>({rows:[{characterId:other.characterId,worldProfileId:s.worldProfileId,timelineId:s.timelineId,protagonistKey:s.protagonistKey,recordId:good.recordId,sourceKind:good.kind,envelope:good,atUtc:clock,evidenceState:'verified'}],coverageComplete:true})};
   const result=await recallMemory({query:query(s,'franklin'),readAdapter:injected,protagonistKey:s.protagonistKey,nowUtc:clock});
@@ -81,7 +81,7 @@ test('yesterday window and explicit coverage distinguish not-recorded from unkno
   assert.deepEqual(b.items.map(x=>x.content),['secret orange umbrella']);
   assert.equal((await recall(f,s,'did we see a crash yesterday?')).bundle.status,'unavailable');
   f.cover(s,'dialogue_line','2026-10-10T00:00:00.000Z','2026-10-11T00:00:00.000Z');
-  assert.equal((await recall(f,s,'what did I say about pineapples yesterday?',{intent:'exact_quote'})).bundle.status,'not_recorded');
+  assert.equal((await recall(f,s,'what did I say about pineapples yesterday?',{intent:'exact_quote'})).bundle.status,'unavailable');
  }finally{f.close();}
 });
 test('witnessed events are distinct from a reported claim',async()=>{
