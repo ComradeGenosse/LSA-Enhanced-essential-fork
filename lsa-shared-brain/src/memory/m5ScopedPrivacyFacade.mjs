@@ -47,7 +47,7 @@ export function createM5ScopedPrivacyFacade({
       safe(onTelemetry,'denied',allowed.has(operation)?operation:'invalid');
       return rejected('not_authorized');
     }
-    if(['trash','trash_scope','restore'].includes(operation)&&!isUuid(operationId))
+    if(['trash','trash_scope','restore','purge'].includes(operation)&&!isUuid(operationId))
       return rejected('stable_operation_id_required');
     if(operation==='trash'&&!isUuid(recordId))
       return rejected('record_id_required');
@@ -73,7 +73,7 @@ export function createM5ScopedPrivacyFacade({
           ?await privacyPort.trashScope({scope,operationId})
           :operation==='restore'
             ?await privacyPort.restore({scope,trashId,operationId})
-            :await privacyPort.purgeExpired({scope,limit});
+            :await privacyPort.purgeExpired({scope,limit,operationId});
       if(!await recheck(args))return rejected('scope_changed');
       if(operation==='purge'){
         // The current P2 port returns its transaction result without a
@@ -84,7 +84,9 @@ export function createM5ScopedPrivacyFacade({
           return readonly({status:'verification_required',operation:'purge'});
         }
         const verified=await privacyPort.verifyPurge({scope,result});
-        if(!verified || verified.confirmed!==true) return error();
+        if(!verified || verified.confirmed!==true ||
+          result.operationId!==operationId || result.operation!=='purge')
+          return error();
         safe(onTelemetry,'write','purge');
         return readonly({status:'ok',operation:'purge',
           purgedCount:Array.isArray(result?.purgedIds)?result.purgedIds.length:0});
