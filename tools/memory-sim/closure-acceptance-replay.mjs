@@ -5,7 +5,9 @@
 //        node tools/memory-sim/closure-acceptance-replay.mjs --output path.json
 import {spawnSync} from 'node:child_process';
 import {createHash} from 'node:crypto';
-import {existsSync,readFileSync,mkdirSync,writeFileSync} from 'node:fs';
+import {existsSync,readFileSync,mkdirSync,writeFileSync,mkdtempSync,rmSync} from 'node:fs';
+import {tmpdir} from 'node:os';
+import {measureScenarioEvidence} from './replay-evidence-verifier.mjs';
 import {fileURLToPath} from 'node:url';
 import path from 'node:path';
 
@@ -102,54 +104,51 @@ try {
     gate('source-simulation-only-not-production',true,
       'explicitly opted out of A10; do not use this receipt to mark any S01-S10 implemented');
   } else {
-    // Original runner integration tests must each execute on THIS checkout, not
-    // merely read an earlier agent handoff or set scenarios.v0.json true.
-    // K/T1..T8 may contribute the exact source tests at these stable locations.
+    // Parent-owned V8 function-entry coverage + independent SQLite readback.
+    // Never trust a child process's self-reported JSON or source-import text.
+    const adversarial=command(process.execPath,['--test',
+      'tools/memory-sim/tests/replay-forged-receipt.test.mjs']);
+    gate('forged-success-receipt-rejected',adversarial.status===0,
+      'standalone fake successful stdout without runner/SQLite must be rejected');
     for(const id of ids) {
       const scenarioFile='lsa-essential-e1-candidate/tests/memory-k-original-'+id+'.test.mjs';
       const body=requiredSource(scenarioFile);
       if(!body){
         result.scenarios[id]=status('blocked','MISSING_ORIGINAL_RUNNER_TEST: '+scenarioFile);
-        result.failures.push(id+': missing source-bound original-runner integration test');
+        result.failures.push(id+': original-runner probe is missing');
         continue;
       }
-      // An isolated mocked component file cannot be silently promoted to A10.
-      const importsRunner=body.includes('runSequentialTurn')||body.includes('createRuntime');
-      const importsP2=body.includes('sqliteProfileStore.mjs')||
-        body.includes('memoryStorageAdapter.mjs');
-      if(!importsRunner||!importsP2){
-        result.scenarios[id]=status('blocked','NOT_ORIGINAL_RUNNER_AND_P2_SOURCE');
-        result.failures.push(id+': original runner and P2 source imports required');
-        continue;
-      }
-      const child=command(process.execPath,['--test',scenarioFile],{
-        env:{...process.env,MEMORY_K_EXPECTED_HEAD_SHA:headSha||''}
-      });
-      // Per-scenario receipt is emitted by the test process, *not* this verifier.
-      // Test stdout must include one machine-readable proof from executed code.
-      const matches=(child.stdout||'').split(/\r?\n/).map(l=>l.match(/@@MEMORY_K_W09_RECEIPT@@(\{.*\})/)).filter(Boolean);
-      let proof=null;
-      try{if(matches.length===1)proof=JSON.parse(matches[0][1]);}catch{}
-      const verified=child.status===0 && matches.length===1&&
-        proof?.scenarioId===id&&proof?.headSha===headSha&&
-        proof?.phase==='original_runner_integrated_source_simulation'&&
-        proof?.result==='pass'&&Number.isSafeInteger(proof.runnerInvocations)&&
-        proof.runnerInvocations>0&&Number.isSafeInteger(proof.durableSqliteReadbacks)&&
-        proof.durableSqliteReadbacks>0&&
-        typeof proof.originalRunnerSourceSha256==='string'&&
-        proof.originalRunnerSourceSha256===result.sourceHashes['lsa-essential-e1-candidate/src/openai/runSequentialTurn.mjs']&&
-        typeof proof.p2SourceSha256==='string'&&
-        proof.p2SourceSha256===result.sourceHashes['lsa-shared-brain/src/characters/sqliteProfileStore.mjs'];
-      result.scenarios[id]={
-        status:verified?'pass':'blocked',phase:'original_runner_integrated_source_simulation',
-        sourceFile:scenarioFile,exitCode:child.status??-1,
-        stdoutSha256:hash(child.stdout||''),stderrSha256:hash(child.stderr||''),
-        receipt:verified?proof:null,stderrTail:(child.stderr||'').slice(-4000)
-      };
-      if(!verified)result.failures.push(id+': executed source receipt absent, nonmatching or failing');
+      const scratch=mkdtempSync(path.join(tmpdir(),'w09-verify-'+id+'-'));
+      try {
+        const coverageDir=path.join(scratch,'coverage');
+        const dbPath=path.join(scratch,'p2-evidence.sqlite');
+        const child=command(process.execPath,['--test',scenarioFile],{
+          env:{...process.env,NODE_V8_COVERAGE:coverageDir,
+            MEMORY_K_W09_DB_PATH:dbPath,MEMORY_K_EXPECTED_HEAD_SHA:headSha||'',
+            MEMORY_K_EXPECTED_SCENARIO:id}
+        });
+        const observed=measureScenarioEvidence({root,coverageDir,dbPath,
+          childStatus:child.status??-1,stdout:child.stdout||'',scenarioId:id});
+        const validated=child.status===0&&observed.pass===true;
+        result.scenarios[id]={
+          status:validated?'pass':'blocked',
+          phase:observed.classification,
+          sourceFile:scenarioFile,exitCode:child.status??-1,
+          stdoutSha256:hash(child.stdout||''),
+          stderrSha256:hash(child.stderr||''),
+          // Harness owns these measurements. No accepted child stdout
+          // receipt fields, counters or claimed source hashes are used.
+          independentlyMeasured:observed.facts,
+          missingSource:observed.missing,
+          stdoutTail:(child.stdout||'').slice(-3000),
+          stderrTail:(child.stderr||'').slice(-3000)
+        };
+        if(!validated)result.failures.push(id+': '+(
+          observed.missing.join(',')||'original_runner_test_failed'));
+      } finally {rmSync(scratch,{recursive:true,force:true});}
     }
     gate('A10-original-M0',ids.every(id=>result.scenarios[id]?.status==='pass'),
-      'all ten cases must execute original-runner+P2 source tests with exact final SHA receipts');
+      'all ten require independently observed runner entry + P2 SQLite readback AND authenticated D01/D02 source receipts, source-only probes never pass');
     gate('A09-pinned-package-and-native',existsSync(path.join(root,
       'artifacts/memory-k/w09-pinned-package-receipt.json')) &&
       (()=>{try{const receipt=JSON.parse(fileText(
