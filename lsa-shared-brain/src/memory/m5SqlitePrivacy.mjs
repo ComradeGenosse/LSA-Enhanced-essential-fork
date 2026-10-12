@@ -5,10 +5,11 @@ function m5Accepted(db,s,line){
  if(!line||!isUuid(line.recordId)||line.speaker!=='player'||line.kind!=='dialogue_line'||
    line.delivery!=='accepted'||!['stt','typed'].includes(line.source)||
    typeof line.content!=='string'||line.attribution?.protagonist!==s.protagonistKey)return false;
- const x=db.prepare('SELECT content,source,speaker,delivery,committed_at_utc AS atUtc,protagonist FROM dialogue_journal WHERE world_profile_id=? AND character_id=? AND timeline_id=? AND record_id=?')
+ const x=db.prepare('SELECT content,source,speaker,delivery,committed_at_utc AS atUtc,protagonist,host_run_id AS hostRunId,world_epoch AS worldEpoch FROM dialogue_journal WHERE world_profile_id=? AND character_id=? AND timeline_id=? AND record_id=?')
    .get(s.worldProfileId,s.characterId,s.timelineId,line.recordId);
  return !!x&&x.content===line.content&&x.source===line.source&&x.speaker==='player'&&
-   x.delivery==='accepted'&&x.atUtc===line.committedAtUtc&&x.protagonist===s.protagonistKey;
+   x.delivery==='accepted'&&x.atUtc===line.committedAtUtc&&x.protagonist===s.protagonistKey&&
+   x.hostRunId===line.attribution.hostRunId&&x.worldEpoch===line.attribution.worldEpoch;
 }
 function m5Effect(db,s,r){
  if(!r||r.status!=='committed'||r.durableCommit!==true||!isUuid(r.memoryId)||
@@ -356,10 +357,11 @@ export class M5SqliteServices{
      },
      commitCommand:async op=>{
        const line=await this.#read(op.scope,db=>{
-         const row=db.prepare('SELECT envelope_json AS raw FROM dialogue_journal WHERE record_id=? AND world_profile_id=? AND character_id=? AND timeline_id=? AND protagonist=?')
+         const row=db.prepare('SELECT envelope_json AS raw,host_run_id AS hostRunId,world_epoch AS worldEpoch,session_id AS sessionId,protagonist FROM dialogue_journal WHERE record_id=? AND world_profile_id=? AND character_id=? AND timeline_id=? AND protagonist=?')
            .get(op.requestedByLineId,op.scope.worldProfileId,op.scope.characterId,
              op.scope.timelineId,op.scope.protagonistKey);
-         return row?JSON.parse(row.raw):null;
+         return row?{...JSON.parse(row.raw),attribution:{sessionId:row.sessionId,
+           protagonist:row.protagonist,hostRunId:row.hostRunId,worldEpoch:row.worldEpoch}}:null;
        });
        if(!line)fail('m5_missing_persisted_line');
        return (await this.commitAtomicBatch({scope:op.scope,line,operations:[op]}))[0];
