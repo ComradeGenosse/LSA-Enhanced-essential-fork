@@ -176,6 +176,9 @@ export function ackM6CheckpointSql(db,request,world){
   if(!Array.isArray(sourceHashes)||!Array.isArray(savedProposalIds)||!Array.isArray(rejected)||
      !validTime(cutoffUtc)||typeof hourBucket!=='string'||hourBucket!==cutoffUtc.slice(0,13)||
      (lastSourceUtc!==null&&!validTime(lastSourceUtc))||typeof cloudQueueEnabled!=='boolean')fail('m6_p2_bad_ack');
+  // The ack path must independently veto a corrupted persisted checkpoint,
+  // even if a direct privileged caller attempts to skip the normal read path.
+  readM6CheckpointSql(db,{scope},world);
   const prior=seq(expectedCursor),next=seq(nextCursor),cp=current(db,scope);
   const old=cp?.after_sequence??0;
   if(next<=prior)fail('m6_p2_nonadvancing_ack');
