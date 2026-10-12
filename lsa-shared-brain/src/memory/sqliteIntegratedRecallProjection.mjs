@@ -38,24 +38,25 @@ function suppression(db,scope){
   }
   return forgotten;
 }
-// A reported correction or derived memory must point to evidence belonging to
-// precisely this character/world/timeline/protagonist. Unknown is not a joker.
+// One authenticated human controls all three avatars. Persistent memory is
+// scoped by NPC/world/timeline; avatar remains immutable source attribution.
 function sourceInScope(db,scope,id){
   if(!uuid.test(id))return false;
   const args=[id,scope.worldProfileId,scope.characterId,scope.timelineId];
-  const dialogue=db.prepare('SELECT protagonist FROM dialogue_journal WHERE record_id=? AND world_profile_id=? AND character_id=? AND timeline_id=?').get(...args);
-  if(dialogue)return dialogue.protagonist===scope.protagonistKey;
+  const dialogue=db.prepare('SELECT speaker,source,delivery,receipt_id AS receipt FROM dialogue_journal WHERE record_id=? AND world_profile_id=? AND character_id=? AND timeline_id=?').get(...args);
+  if(dialogue)return dialogue.speaker==='player'&&['typed','stt'].includes(dialogue.source)&&dialogue.delivery==='accepted'||
+    dialogue.speaker==='npc'&&dialogue.source==='npc_generated'&&dialogue.delivery==='completed'&&uuid.test(dialogue.receipt);
   const memory=db.prepare('SELECT protagonist_key FROM memory_records WHERE memory_id=? AND world_profile_id=? AND character_id=? AND timeline_id=?').get(...args);
-  if(memory)return memory.protagonist_key===scope.protagonistKey;
-  if(scope.protagonistKey==='unknown'){
+  if(memory)return true; // provenance remains stored, not an identity partition
+  {
     const event=db.prepare('SELECT 1 FROM event_journal e JOIN event_source_evidence s ON s.record_id=e.record_id WHERE e.record_id=? AND e.world_profile_id=? AND e.character_id=? AND e.timeline_id=?').get(...args);
     return !!event;
   }
   return false;
 }
 function correctionRows(db,scope,forgotten){
-  const args=[scope.worldProfileId,scope.characterId,scope.timelineId,scope.protagonistKey];
-  const source=db.prepare('SELECT c.command_id AS id,c.target_id AS target,c.preferred_text AS content,c.content_sha256 AS digest,c.created_at_utc AS atUtc FROM memory_corrections c JOIN memory_commands m ON m.command_id=c.command_id WHERE c.world_profile_id=? AND c.character_id=? AND c.timeline_id=? AND m.protagonist_key=? ORDER BY c.created_at_utc DESC,c.command_id DESC').all(...args);
+  const args=[scope.worldProfileId,scope.characterId,scope.timelineId];
+  const source=db.prepare('SELECT c.command_id AS id,c.target_id AS target,c.preferred_text AS content,c.content_sha256 AS digest,c.created_at_utc AS atUtc FROM memory_corrections c JOIN memory_commands m ON m.command_id=c.command_id WHERE c.world_profile_id=? AND c.character_id=? AND c.timeline_id=? ORDER BY c.created_at_utc DESC,c.command_id DESC').all(...args);
   const corrected=new Set(source.map(x=>x.target));
   const overlays=[],seenTargets=new Set();
   for(const c of source){
@@ -81,14 +82,13 @@ export function readIntegratedRecall(db,{scope,terms=[],fromUtc=null,toUtc=null,
   const forgotten=suppression(db,scope),{corrected,overlays}=correctionRows(db,scope,forgotten);
   const result=new Map(),add=(r)=>{
     if(!r||forgotten.has(r.recordId)||corrected.has(r.recordId))return;
-    if(r.protagonistKey!==scope.protagonistKey)return;
     if((fromUtc&&r.atUtc<fromUtc)||(toUtc&&r.atUtc>=toUtc))return;
     result.set(r.recordId,r);
   };
   if(!sourceKind||sourceKind==='dialogue_line'){
     const {clause,args}=sourceFilters(scope,{fromUtc,toUtc});
-    let where=clause.replaceAll('TIME_COLUMN','committed_at_utc')+' AND protagonist=?';
-    const values=[...args,scope.protagonistKey];
+    let where=clause.replaceAll('TIME_COLUMN','committed_at_utc');
+    const values=[...args];
     if(speaker){where+=' AND speaker=?';values.push(speaker);}
     const cols='SELECT d.record_id AS recordId,d.committed_at_utc AS atUtc,d.protagonist AS protagonistKey,d.content AS text,d.content_sha256 AS textHash,d.envelope_json AS raw,d.envelope_sha256 AS rawHash';
     const rows=[];
@@ -103,11 +103,11 @@ export function readIntegratedRecall(db,{scope,terms=[],fromUtc=null,toUtc=null,
         throw new Error('m4_corrupt_dialogue');
       if(!((e.speaker==='player'&&['typed','stt'].includes(e.source)&&e.delivery==='accepted')||
         (e.speaker==='npc'&&e.source==='npc_generated'&&e.delivery==='completed'&&uuid.test(e.deliveryReceiptId))))continue;
-      add({...scope,recordId:r.recordId,sourceKind:'dialogue_line',atUtc:r.atUtc,
+      add({...scope,protagonistKey:r.protagonistKey,recordId:r.recordId,sourceKind:'dialogue_line',atUtc:r.atUtc,
         evidenceState:'verified',envelope:e});
     }
   }
-  if((!sourceKind||sourceKind==='journal_event')&&scope.protagonistKey==='unknown'){
+  if(!sourceKind||sourceKind==='journal_event'){
     const {clause,args}=sourceFilters(scope,{fromUtc,toUtc}),where=clause.replaceAll('TIME_COLUMN','received_at_utc');
     const cols='SELECT e.record_id AS recordId,e.received_at_utc AS atUtc,e.envelope_json AS raw,e.envelope_sha256 AS rawHash,s.source_evidence_json AS evidence,s.source_evidence_sha256 AS evidenceHash';
     const scoped=where.replaceAll(/\b(world_profile_id|character_id|timeline_id|received_at_utc)\b/g,'e.$1');
@@ -138,15 +138,15 @@ export function readIntegratedRecall(db,{scope,terms=[],fromUtc=null,toUtc=null,
          replay.sourceEvidence.sourceHash!==proof.sourceHash)
         throw new Error('m4_unverified_event');
       // Events remain under 'unknown': no observed player identity can be deduced.
-      add({...scope,recordId:r.recordId,sourceKind:'journal_event',atUtc:r.atUtc,
+      add({...scope,protagonistKey:'unknown',recordId:r.recordId,sourceKind:'journal_event',atUtc:r.atUtc,
         evidenceState:'verified',envelope:e});
     }
   }
   if(!sourceKind||sourceKind==='permanent_memory'||sourceKind==='dialogue_line'){
     const {clause,args}=sourceFilters(scope,{fromUtc,toUtc});
-    let where=clause.replaceAll('TIME_COLUMN','created_at_utc')+' AND protagonist_key=?';
-    const values=[...args,scope.protagonistKey];
-    const sql='SELECT memory_id AS recordId,content,content_sha256 AS digest,mode,created_at_utc AS atUtc,evidence_ids_json AS evidence FROM memory_records WHERE '+where;
+    let where=clause.replaceAll('TIME_COLUMN','created_at_utc');
+    const values=[...args];
+    const sql='SELECT memory_id AS recordId,content,content_sha256 AS digest,mode,created_at_utc AS atUtc,evidence_ids_json AS evidence,protagonist_key AS provenanceAvatar FROM memory_records WHERE '+where;
     const rows=sourceKind==='dialogue_line'?[]:all(db,sql+' ORDER BY created_at_utc DESC, memory_id DESC',values,Math.min(limit,384));
     for(const r of rows){
       if(!uuid.test(r.recordId)||sha(r.content)!==r.digest)throw new Error('m4_corrupt_memory');
@@ -156,7 +156,7 @@ export function readIntegratedRecall(db,{scope,terms=[],fromUtc=null,toUtc=null,
       const e={version:1,kind:'permanent_memory',recordId:r.recordId,
         characterId:scope.characterId,worldProfileId:scope.worldProfileId,timelineId:scope.timelineId,
         content:r.content,mode:r.mode,sourceEvidenceIds:evidence};
-      add({...scope,recordId:r.recordId,sourceKind:'permanent_memory',atUtc:r.atUtc,
+      add({...scope,protagonistKey:r.provenanceAvatar,recordId:r.recordId,sourceKind:'permanent_memory',atUtc:r.atUtc,
         evidenceState:'verified',envelope:e});
     }
     for(const r of overlays)add(r);
