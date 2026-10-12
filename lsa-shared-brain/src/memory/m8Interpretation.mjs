@@ -243,3 +243,58 @@ export function createM8ReadAdapter({readCommittedSources,readCommittedMemories,
    correctedIds,appraisals,nowUtc,maxBytes});
  }});
 }
+
+
+// W05 sole-PS4 seam: interpretation is an optional, current P2 projection,
+// not another fact store, prompt writer or independently authorized callback.
+const W05_STAMP_KEYS=['characterId','worldProfileId','timelineId','protagonistKey',
+ 'hostRunId','worldEpoch','incarnationId','encounterId','observerCaptureRef',
+ 'turnIdentityHash','turnId'];
+const W05_SHA=/^[0-9a-f]{64}$/;
+const w05Stamp=x=>Object.freeze(Object.fromEntries(W05_STAMP_KEYS.map(k=>[k,x?.[k]])));
+const w05Same=(a,b)=>!!a&&!!b&&W05_STAMP_KEYS.every(k=>a[k]===b[k]);
+const w05Current=fn=>{try{return fn()}catch{return null;}};
+const w05Drop=reason=>Object.freeze({status:'dropped',reason,projection:null,stamp:null});
+export async function preparePs4M8({scope,authority,personality,readAdapter,
+ currentIdentity,nowUtc=new Date().toISOString(),maxBytes=4096,deadlineMs=200}={}){
+ if(!Number.isSafeInteger(deadlineMs)||deadlineMs<1||deadlineMs>200||
+    !Number.isSafeInteger(maxBytes)||maxBytes<512||maxBytes>8192)
+  throw new TypeError('m8_invalid_ps4_limits');
+ if(typeof readAdapter?.project!=='function'||typeof currentIdentity!=='function'||
+    authority?.nativeVerified!==true||!scope||
+    scope.protagonistKey==='unknown'||!['franklin','michael','trevor'].includes(scope.protagonistKey)||
+    !['characterId','worldProfileId','timelineId'].every(k=>isUuid(scope[k])&&authority[k]===scope[k])||
+    !['hostRunId','incarnationId','encounterId','observerCaptureRef','turnId'].every(k=>isUuid(authority[k]))||
+    !W05_SHA.test(authority.turnIdentityHash)||
+    !Number.isSafeInteger(authority.worldEpoch)||authority.worldEpoch<0)
+  return w05Drop('unverified_original_owner');
+ const stamp=w05Stamp(authority);
+ if(!w05Same(stamp,w05Current(currentIdentity)))return w05Drop('stale_before_read');
+ let timer;
+ const timeout=new Promise(resolve=>{timer=setTimeout(()=>resolve(null),deadlineMs);timer.unref?.();});
+ let projection;
+ try{projection=await Promise.race([readAdapter.project({scope,authority,personality,nowUtc,maxBytes}),timeout]);}
+ catch{return w05Drop('p2_projection_unavailable');}
+ finally{clearTimeout(timer);}
+ if(!projection)return w05Drop('unavailable_or_deadline');
+ if(!w05Same(stamp,w05Current(currentIdentity)))return w05Drop('stale_after_read');
+ if(projection.version!==1||projection.kind!=='m8_typed_projection'||
+    !sameScope(projection,scope)||projection.protagonistKey!==scope.protagonistKey||
+    projection.totalBytes!==Buffer.byteLength(JSON.stringify(projection),'utf8')||
+    projection.totalBytes>maxBytes)return w05Drop('invalid_p2_projection');
+ return Object.freeze({status:'ready',reason:null,stamp,projection});
+}
+export function verifyPs4M8Current(prepared,{currentIdentity,validateEvidence}={}){
+ if(prepared?.status!=='ready'||typeof currentIdentity!=='function'||
+    !w05Same(prepared.stamp,w05Current(currentIdentity))||
+    typeof validateEvidence!=='function')return false;
+ const all=[...(prepared.projection?.interpretations??[]),
+   ...(prepared.projection?.jokes??[]),prepared.projection?.relationship];
+ const ids=[...new Set(all.flatMap(item=>item?.sourceEvidenceIds??[]))];
+ if(!ids.length||!ids.every(isUuid))return false;
+ try{
+  // Must be an authoritative SYNC P2 correction/tombstone/source readback.
+  // Promise or unknown cannot authorize a stale frame.
+  return validateEvidence(ids,prepared.stamp)===true;
+ }catch{return false;}
+}
