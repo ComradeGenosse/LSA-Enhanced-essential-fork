@@ -162,3 +162,33 @@ test('M5: trash/retry/restore is avatar-neutral; conflicting IDs fail; purge is 
       timelineId:franklin.timelineId,quote:a.content})).length,0);
   }finally{await x.m5.close();await x.store.close();}
 });
+
+test('M5: restart retains cross-avatar command receipts, trash state, and authorized restore',async t=>{
+  const x=await rig(t);
+  try{
+    const line=await x.say('franklin','Remember that I have a red scooter');
+    const commandId=id();
+    const result=await handleExplicitMemoryCommand({line,scope:x.who('franklin'),
+      commandId,store:x.m5.bindCommands()});
+    assert.equal(result.outcome,'saved');
+    const trashId=id(),trash=await x.m5.trash({scope:x.who('michael'),
+      targetId:result.memoryId,operationId:trashId});
+    assert.equal(trash.durableCommit,true);
+    await x.store.close();
+    const reopened=createP2MemoryStorage({filePath:x.filePath,worldProfileId,sourceRequired:true});
+    await reopened.initialize();
+    try{
+      reopened.setVerifiedHostContext({hostContextVersion:1,hostRunId:id(),worldEpoch:2});
+      await reopened.confirmTimeline(x.who('trevor').timelineId);
+      const m5=createM5SqliteServices({store:reopened,filePath:x.filePath,authorize:()=>true});
+      await m5.ready(x.who('trevor'));
+      assert.equal((await reopened.verifyCommand({scope:x.who('michael'),commandId})).memoryId,result.memoryId);
+      assert.ok((await reopened.listSuppressedMemoryIds(x.who('franklin'))).includes(result.memoryId));
+      const restored=await m5.restore({scope:x.who('trevor'),trashId,operationId:id()});
+      assert.equal(restored.operation,'restore');
+      assert.ok(!(await reopened.listSuppressedMemoryIds(x.who('michael'))).includes(result.memoryId));
+      assert.ok((await m5.inspect({scope:x.who('franklin')})).records
+        .some(row=>row.recordId===result.memoryId));
+    }finally{await reopened.close();}
+  }finally{await x.m5.close();await x.store.close();}
+});
