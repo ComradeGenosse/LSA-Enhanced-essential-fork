@@ -255,7 +255,10 @@ test('Pending correction never substitutes a newly surfaced candidate for a froz
  const cmd=line(s,'Correct that');r.accept(cmd);
  assert.equal((await r.make().acceptAcceptedPlayerLine({line:cmd,scope:s})).actions[0].outcome,'clarify');
  const reply=line(s,'first: it was green');r.accept(reply);
- r.candidates[0]={...first,content:'Changed behind your back'};
+ const frozenId=[...r.pending.values()][0].frozen[0].recordId;
+ const slot=r.candidates.findIndex(candidate=>candidate.recordId===frozenId);
+ assert.ok(slot>=0);
+ r.candidates[slot]={...r.candidates[slot],content:'Changed behind your back'};
  const blocked=await r.make().acceptAcceptedPlayerLine({line:reply,scope:s});
  assert.equal(blocked.actions[0].outcome,'failed');
  assert.equal(r.commitsAttempted,0);
