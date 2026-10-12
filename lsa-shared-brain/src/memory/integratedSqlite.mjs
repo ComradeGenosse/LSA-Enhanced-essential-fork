@@ -58,8 +58,13 @@ const stmtScope=(scope)=>[scope.worldProfileId,scope.characterId,scope.timelineI
 // *each* source before allowing an explicit or curated memory to depend on it.
 function knownEvidence(db,scope,id,parents=new Set()){
  if(!isUuid(id)||parents.has(id)||parents.size>=32)return null;
- let row=db.prepare('SELECT record_id AS recordId,content,committed_at_utc AS occurredAtUtc,speaker,source,delivery,protagonist AS protagonistKey FROM dialogue_journal WHERE world_profile_id=? AND character_id=? AND timeline_id=? AND record_id=?').get(...stmtScope(scope),id);
+ let row=db.prepare('SELECT record_id AS recordId,content,content_sha256 AS contentHash,envelope_json AS raw,envelope_sha256 AS rawHash,committed_at_utc AS occurredAtUtc,speaker,source,delivery,protagonist AS protagonistKey FROM dialogue_journal WHERE world_profile_id=? AND character_id=? AND timeline_id=? AND record_id=?').get(...stmtScope(scope),id);
  if(row){
+   if(digest(row.content)!==row.contentHash||digest(row.raw)!==row.rawHash)return null;
+   let e;try{e=JSON.parse(row.raw);}catch{return null;}
+   if(e.recordId!==id||e.content!==row.content||e.speaker!==row.speaker||
+      e.source!==row.source||e.delivery!==row.delivery||
+      e.attribution?.protagonist&&e.attribution.protagonist!==row.protagonistKey)return null;
    const accepted=row.speaker==='player'&&['typed','stt'].includes(row.source)&&row.delivery==='accepted';
    const played=row.speaker==='npc'&&row.source==='npc_generated'&&row.delivery==='completed';
    return accepted||played?{...row,kind:'dialogue_line'}:null;

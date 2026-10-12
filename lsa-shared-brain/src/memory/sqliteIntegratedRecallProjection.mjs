@@ -40,17 +40,27 @@ function suppression(db,scope){
 }
 // A reported correction or derived memory must point to evidence belonging to
 // precisely this NPC/world/timeline. The avatar is historical source provenance.
-function sourceInScope(db,scope,id){
-  if(!uuid.test(id))return false;
+function sourceInScope(db,scope,id,parents=new Set()){
+  if(!uuid.test(id)||parents.has(id)||parents.size>=32)return false;
   const args=[id,scope.worldProfileId,scope.characterId,scope.timelineId];
-  const dialogue=db.prepare('SELECT protagonist,speaker,source,delivery FROM dialogue_journal WHERE record_id=? AND world_profile_id=? AND character_id=? AND timeline_id=?').get(...args);
-  if(dialogue)return dialogue.speaker==='player'&&['typed','stt'].includes(dialogue.source)&&dialogue.delivery==='accepted'||
-    dialogue.speaker==='npc'&&dialogue.source==='npc_generated'&&dialogue.delivery==='completed';
+  const dialogue=db.prepare('SELECT protagonist,speaker,source,delivery,content,content_sha256 AS checksum,envelope_json AS raw,envelope_sha256 AS rawHash FROM dialogue_journal WHERE record_id=? AND world_profile_id=? AND character_id=? AND timeline_id=?').get(...args);
+  if(dialogue){
+    if(sha(dialogue.content)!==dialogue.checksum||sha(dialogue.raw)!==dialogue.rawHash)return false;
+    let e;try{e=parse(dialogue.raw);}catch{return false;}
+    if(e.recordId!==id||e.content!==dialogue.content||e.speaker!==dialogue.speaker||
+       e.source!==dialogue.source||e.delivery!==dialogue.delivery||
+       e.attribution?.protagonist&&e.attribution.protagonist!==dialogue.protagonist)return false;
+    return dialogue.speaker==='player'&&['typed','stt'].includes(dialogue.source)&&dialogue.delivery==='accepted'||
+      dialogue.speaker==='npc'&&dialogue.source==='npc_generated'&&dialogue.delivery==='completed';
+  }
   const memory=db.prepare('SELECT content,content_sha256 AS checksum,evidence_ids_json AS sources FROM memory_records WHERE memory_id=? AND world_profile_id=? AND character_id=? AND timeline_id=?').get(...args);
   if(memory){
     if(sha(memory.content)!==memory.checksum)return false;
-    try{const ids=parse(memory.sources);return Array.isArray(ids)&&ids.length>0&&ids.length<=64&&ids.every(id=>uuid.test(id));}
-    catch{return false;}
+    try{
+      const ids=parse(memory.sources),next=new Set(parents).add(id);
+      return Array.isArray(ids)&&ids.length>0&&ids.length<=64&&
+        ids.every(source=>sourceInScope(db,scope,source,next));
+    }catch{return false;}
   }
   const event=db.prepare("SELECT 1 FROM event_journal e JOIN event_source_evidence s ON s.record_id=e.record_id WHERE e.record_id=? AND e.world_profile_id=? AND e.character_id=? AND e.timeline_id=? AND e.receipt_status='witnessed'").get(...args);
   return !!event;
@@ -101,7 +111,8 @@ export function readIntegratedRecall(db,{scope,terms=[],fromUtc=null,toUtc=null,
     rows.push(...all(db,cols+' FROM dialogue_journal d WHERE '+where.replaceAll(/\b(world_profile_id|character_id|timeline_id|committed_at_utc|protagonist|speaker)\b/g,'d.$1')+' ORDER BY d.committed_at_utc DESC,d.rowid DESC',values,limit-limitLex));
     for(const r of rows){
       const e=verifyEnvelope(r.raw,r.rawHash);
-      if(!uuid.test(e.recordId)||e.recordId!==r.recordId||sha(r.text)!==r.textHash||e.content!==r.text)
+      if(!uuid.test(e.recordId)||e.recordId!==r.recordId||sha(r.text)!==r.textHash||e.content!==r.text||
+        e.attribution?.protagonist&&e.attribution.protagonist!==r.protagonistKey)
         throw new Error('m4_corrupt_dialogue');
       if(!((e.speaker==='player'&&['typed','stt'].includes(e.source)&&e.delivery==='accepted')||
         (e.speaker==='npc'&&e.source==='npc_generated'&&e.delivery==='completed'&&uuid.test(e.deliveryReceiptId))))continue;
