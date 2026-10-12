@@ -1,4 +1,6 @@
-import {DatabaseSync} from 'node:sqlite';
+let DatabaseSync=null;
+try { ({DatabaseSync}=await import('node:sqlite')); } catch {}
+const hasRealSqlite=typeof DatabaseSync==='function';
 import {mkdtempSync,rmSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import path from 'node:path';
@@ -172,7 +174,7 @@ test('M6 idempotent deterministic proposal IDs use canonical immutable evidence 
 import './memory-m6-cursor-lifecycle.test.mjs';
 
 
-test('M6 real P2 SQLite migrates old avatar cursors without losing interleaved evidence',async t=>{
+test('M6 real P2 SQLite migrates old avatar cursors without losing interleaved evidence',{skip:!hasRealSqlite},async t=>{
  const folder=mkdtempSync(path.join(tmpdir(),'m6-agent-c-'));
  const filePath=path.join(folder,'p2.sqlite'),consumerId='agent-c-m6';
  t.after(()=>rmSync(folder,{recursive:true,force:true}));
@@ -244,7 +246,7 @@ test('M6 real P2 SQLite migrates old avatar cursors without losing interleaved e
  }finally{await restarted.close();}
 });
 
-test('M6 replay refuses forged historical protagonist attribution in its SQLite feed',async t=>{
+test('M6 replay refuses forged historical protagonist attribution in its SQLite feed',{skip:!hasRealSqlite},async t=>{
  const folder=mkdtempSync(path.join(tmpdir(),'m6-provenance-'));
  const filePath=path.join(folder,'p2.sqlite');
  t.after(()=>rmSync(folder,{recursive:true,force:true}));
