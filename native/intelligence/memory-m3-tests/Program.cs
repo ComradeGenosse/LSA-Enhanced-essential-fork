@@ -49,6 +49,8 @@ internal static class Program
         Check(!ledger.Record(Id(),miss),"no negative from sampled witness omission");
         var report=Witness(a);report.Channel="report";report.Basis="dialogue_report";
         Check(!ledger.Record(Id(),report),"report cannot be forged as witnessed");
+        report.Status="reported";
+        Check(ledger.Record(Id(),report),"explicit source report remains reported");
         var changed=Witness(a);
         aliases[a]=new SourceTimeOwner(a,aAlias,Id(),aEnc);
         Check(!ledger.Record(Id(),changed),"recycled native incarnation revoked");
