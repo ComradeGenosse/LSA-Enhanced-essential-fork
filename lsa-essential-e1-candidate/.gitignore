@@ -16,3 +16,5 @@ tools/qwen/voices/
 /outputs/qwen-benchmark/
 /outputs/qwen-profile/
 /outputs/elevenlabs-smoke/
+
+# Retain ignore rules for historical private Qwen voice samples and reports.
