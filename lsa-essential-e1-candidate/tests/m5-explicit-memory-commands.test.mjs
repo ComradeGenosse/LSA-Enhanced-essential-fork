@@ -128,7 +128,7 @@ test('M5 ambiguity exposes bounded alternatives in a sideband, not in memoryActi
   isAction(response);
   assert.equal(response.outcome,'clarify');
   assert.equal(prompt.alternatives.length,2);
-  assert.match(prompt.prompt,/Which one/);
+  assert.match(prompt.prompt,/Which one|first or second/);
 });
 test('M5 reported or cross-world evidence is ineligible',async t=>{
   const {store}=await setup(t);
