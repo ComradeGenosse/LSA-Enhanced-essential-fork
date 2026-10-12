@@ -104,13 +104,28 @@ test('mismatch between native snapshot, binding and turn rejects tainted claims'
   assert.equal(s.size,0);
 });
 
-test('protagonist changes, save forks and new host epochs actively retire old mood',()=>{
-  for(const changed of [{protagonist:'michael'},{timelineId:uuid(99)},{hostContext:{...host(),worldEpoch:2}},
+test('Franklin Michael Trevor are one player: model changes preserve one eligible follow-up',()=>{
+  for(const [before,after] of [['franklin','michael'],['michael','trevor'],
+    ['trevor','franklin'],['franklin','trevor']]) {
+    const a=fixture({protagonist:before}),s=createMoodStore();
+    assert.equal(recorded(s,a),true);
+    const next=follow({...a,protagonist:after},2);
+    assert.deepEqual(s.take({context:next,nowMs:1100}),
+      {value:'amused',confidence:'soft',intensity:'subtle'});
+    assert.ok(s.take({context:next,nowMs:1150}),'one follow-up reuses idempotently');
+    assert.equal(s.take({context:follow({...a,protagonist:before},3),nowMs:1200}),null,
+      'switching back cannot grant a second use');
+  }
+});
+
+test('save forks and new host epochs actively retire old mood',()=>{
+  for(const changed of [{timelineId:uuid(99)},{hostContext:{...host(),worldEpoch:2}},
     {hostContext:{...host(),hostRunId:uuid(888)}}]){
     const a=fixture(),s=createMoodStore();recorded(s,a);
     const swapped=follow({...a,...changed},2);
     assert.equal(s.take({context:swapped,nowMs:1100}),null);
-    assert.equal(s.take({context:follow(a,2),nowMs:1200}),null,'old mood cannot reappear after switching back');
+    assert.equal(s.take({context:follow(a,2),nowMs:1200}),null,
+      'old mood cannot reappear after verified save/host boundary');
   }
 });
 
