@@ -2,6 +2,17 @@ import {assertDirectorSpeechDecision} from '../perception/directorDecisionGuard.
 import {scalePcm16} from '../voice/pcmVolume.mjs';
 import {createSpeechDeliveryResolver} from '../voice/emotion/resolveSpeechDelivery.mjs';
 const PLAYER_SOURCES = new Set(['player_text', 'player_mic']);
+// ElevenLabs can produce seconds of PCM in a fraction of a second. Essential's
+// native audio bridge confirms receipt, not how much buffered audio GTA played.
+// Bound the lead instead of bursting the entire response into its queue.
+const ELEVENLABS_MAX_NATIVE_LEAD_MS = 900;
+const ELEVENLABS_PACE_POLL_MS = 50;
+const PCM_BYTES_PER_MS = 24_000 * 2 / 1_000;
+const SAFE_PCM_FAILURES = new Set([
+  'native_rejected', 'native_authorization_rejected', 'chunk_after_end',
+  'stale_or_cancelled', 'provider_attempt_inactive', 'streaming_pcm_limit',
+  'cancelled', 'superseded', 'disconnected',
+]);
 
 function terminalForNativeEvent(event) {
   if (event.type === 'audio_turn_rejected') return 'native_auth_rejected';
@@ -129,6 +140,22 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
         pcmBytesTotal + chunk.byteLength > services.config.streamingMaxPcmBytes) {
       throw Object.assign(new Error('streaming_pcm_limit'), { code: 'streaming_pcm_limit' });
     }
+    // Pace ONLY ElevenLabs, preserving the existing OpenAI speech path. This
+    // also waits if playback has not started rather than guessing consumption.
+    // Native events/abort/deadline still cancel promptly during each short wait.
+    if (services.config.speechProvider === 'elevenlabs') {
+      while (true) {
+        if (!isActive()) throw new Error('provider_attempt_inactive');
+        check();
+        const playedMs = nativePlaybackStartedAt === null ? 0
+          : Math.max(0, performance.now() - nativePlaybackStartedAt);
+        const aheadMs = pcmBytesTotal / PCM_BYTES_PER_MS - playedMs;
+        if (aheadMs <= ELEVENLABS_MAX_NATIVE_LEAD_MS) break;
+        await new Promise(resolve => setTimeout(resolve,
+          Math.max(1, Math.min(ELEVENLABS_PACE_POLL_MS,
+            aheadMs - ELEVENLABS_MAX_NATIVE_LEAD_MS))));
+      }
+    }
     if (!nativeHandoffStarted) nativeHandoffStarted = true;
     if (!authorizationRequested) {
       authorizationRequested = true;
@@ -148,11 +175,24 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
     check();
     // One gain stage after either TTS provider, before native playback.
     // The PCM dimensions and owner/turn receipts remain identical.
-    await emit({ type: 'audio', chunk: scalePcm16(chunk, services.config.ttsVolume ?? 1) });
-    pcmBytesTotal += chunk.byteLength;
-    pcmChunksTotal += 1;
-    metrics?.audioPcm(chunk.byteLength);
-    check();
+    try {
+      await emit({ type: 'audio', chunk: scalePcm16(chunk, services.config.ttsVolume ?? 1) });
+      pcmBytesTotal += chunk.byteLength;
+      pcmChunksTotal += 1;
+      metrics?.audioPcm(chunk.byteLength);
+      check();
+    } catch (error) {
+      // Record the callback/native failure category once, without exposing
+      // dialogue, vendor responses, API credentials or arbitrary error text.
+      const cause = String(error?.code || error?.message || '');
+      const reason = SAFE_PCM_FAILURES.has(cause) ? cause : 'unclassified_pcm_forward_error';
+      metrics?.event('native_pcm_forward_failed', {
+        reason, chunkBytes: chunk.byteLength,
+        forwardedBytes: pcmBytesTotal, forwardedChunks: pcmChunksTotal,
+        playbackStarted: nativePlaybackStartedAt !== null,
+      });
+      throw error;
+    }
   };
   try {
     check();
