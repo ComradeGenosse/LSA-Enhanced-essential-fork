@@ -47,6 +47,13 @@ dotnet build native/promoted-characters/lifecycle-tests/LifecycleTests.csproj -c
 & native/promoted-characters/lifecycle-tests/bin/Release/net481/LifecycleTests.exe
 ```
 
+K-21 per-NPC D02 owner sampling links the real `PromotedCharactersIntegration`, `MemoryOwnerAuthority`, `MemoryProtagonistSource`, `MemoryOwnerProofPolicy` and anchor table against the lifecycle game stubs. It never starts the control pipe, so it also runs under Mono on Linux:
+
+```powershell
+dotnet build native/promoted-characters/owner-sample-tests/OwnerSampleTests.csproj -c Release "-p:TargetFrameworkRootPath=$env:LSA_IDENTITY_FRAMEWORK_ROOT"
+& native/promoted-characters/owner-sample-tests/bin/Release/net481/OwnerSampleTests.exe
+```
+
 The UX phase 1 bridge links the real `DomainHost`, the production runtime sources and the real console frontend against game substitutes in a separate Essential test domain (it also runs under Mono):
 
 ```powershell
