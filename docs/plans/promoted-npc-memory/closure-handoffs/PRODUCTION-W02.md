@@ -3,7 +3,7 @@
 **PR:** https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/pull/105 (**DRAFT**).  
 **Branch:** `feature/memory-k-t2-m3-source-time-20261011`.  
 **Exact immutable starting commit:** PR #94 `0201731973a1c02a8852271897e2c8df420396b9`.  
-**Last specialist source/test commit before this handoff:** `7d24d922a4a89842850b2636ef4d205e25546c30`. The commit *containing* this handoff must be taken from the final draft PR head after the file is pushed; a file cannot embed its own future commit SHA.
+**Last specialist source/test commit before this handoff:** `78e018709ab23da3db3afa4d61e637de31492cc0`. The commit *containing* this handoff must be taken from the final draft PR head after the file is pushed; a file cannot embed its own future commit SHA.
 
 ## Delivery and exact changed sources
 
