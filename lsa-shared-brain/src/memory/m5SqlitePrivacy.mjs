@@ -238,7 +238,7 @@ export class M5SqliteServices{
        if(receipt?.operation==='forget' && receipt?.durableCommit){
          await this.ready(params.scope);
          const restored=await this.#read(params.scope,db=>db.prepare(
-           'SELECT trash_id FROM m5_trash WHERE operation_id=? AND '+scopeWhere+
+           'SELECT trash_id FROM m5_trash WHERE operation_id=? AND '+ownerWhere+
            ' AND restored_at_utc IS NOT NULL LIMIT 1'
          ).get(params.commandId,...scopeKey(params.scope)));
          // Historical command receipts cannot acknowledge an effect the player
@@ -258,24 +258,22 @@ export class M5SqliteServices{
    authorizeRequest(this.#authorize,scope,'inspect');
    if(!Number.isSafeInteger(limit)||limit<1||limit>1000)fail('m5_invalid_limit');
    return this.#read(scope,db=>{
-     const records=db.prepare('SELECT memory_id AS recordId,content,origin,pin,created_at_utc AS atUtc,evidence_ids_json AS evidenceJson FROM memory_records WHERE world_profile_id=? AND character_id=? AND timeline_id=? AND protagonist_key=? ORDER BY created_at_utc DESC LIMIT ?').all(...scopeKey(scope),limit)
+     const records=db.prepare('SELECT memory_id AS recordId,content,origin,pin,created_at_utc AS atUtc,evidence_ids_json AS evidenceJson FROM memory_records WHERE world_profile_id=? AND character_id=? AND timeline_id=? ORDER BY created_at_utc DESC LIMIT ?').all(...ownerKey(scope),limit)
        .map(m=>({...m,evidenceRecordIds:JSON.parse(m.evidenceJson)}));
-     const trash=db.prepare('SELECT trash_id AS trashId,target_id AS targetId,created_at_utc AS createdAtUtc,purge_after_utc AS purgeAfterUtc,restored_at_utc AS restoredAtUtc,purged_at_utc AS purgedAtUtc FROM m5_trash WHERE '+scopeWhere+' ORDER BY created_at_utc DESC LIMIT ?').all(...scopeKey(scope),limit);
-     const corrections=db.prepare('SELECT c.target_id AS targetId,c.preferred_text AS reportedCorrection,c.created_at_utc AS atUtc FROM memory_corrections c JOIN memory_commands m ON m.command_id=c.command_id WHERE c.world_profile_id=? AND c.character_id=? AND c.timeline_id=? AND m.protagonist_key=? ORDER BY c.created_at_utc DESC LIMIT ?').all(...scopeKey(scope),limit);
+     const trash=db.prepare('SELECT trash_id AS trashId,target_id AS targetId,created_at_utc AS createdAtUtc,purge_after_utc AS purgeAfterUtc,restored_at_utc AS restoredAtUtc,purged_at_utc AS purgedAtUtc FROM m5_trash WHERE '+ownerWhere+' ORDER BY created_at_utc DESC LIMIT ?').all(...ownerKey(scope),limit);
+     const corrections=db.prepare('SELECT c.target_id AS targetId,c.preferred_text AS reportedCorrection,c.created_at_utc AS atUtc FROM memory_corrections c JOIN memory_commands m ON m.command_id=c.command_id WHERE c.world_profile_id=? AND c.character_id=? AND c.timeline_id=? ORDER BY c.created_at_utc DESC LIMIT ?').all(...ownerKey(scope),limit);
      return {version:1,scope:{...scope},records,trash,corrections};
    });
  }
  async exportArchive({scope}){
    authorizeRequest(this.#authorize,scope,'export');
    return this.#read(scope,db=>{
-     const dialogue=db.prepare('SELECT envelope_json AS json FROM dialogue_journal WHERE world_profile_id=? AND character_id=? AND timeline_id=? AND protagonist=? ORDER BY committed_at_utc,record_id').all(scope.worldProfileId,scope.characterId,scope.timelineId,scope.protagonistKey??'unknown').map(x=>JSON.parse(x.json));
-     const events=(scope.protagonistKey??'unknown')==='unknown'
-       ?db.prepare('SELECT envelope_json AS json FROM event_journal WHERE world_profile_id=? AND character_id=? AND timeline_id=? ORDER BY received_at_utc,record_id').all(scope.worldProfileId,scope.characterId,scope.timelineId).map(x=>JSON.parse(x.json)):[];
-     const memories=db.prepare('SELECT * FROM memory_records WHERE '+scopeWhere+' ORDER BY created_at_utc,memory_id').all(...scopeKey(scope));
-     const sidecars=(scope.protagonistKey??'unknown')==='unknown'
-       ?db.prepare('SELECT v.record_id AS recordId,v.source_evidence_json AS evidenceJson,v.source_evidence_sha256 AS checksum FROM event_source_evidence v JOIN event_journal e ON e.record_id=v.record_id WHERE e.world_profile_id=? AND e.character_id=? AND e.timeline_id=? ORDER BY e.received_at_utc,e.record_id')
-         .all(scope.worldProfileId,scope.characterId,scope.timelineId)
-         .map(x=>({recordId:x.recordId,evidence:JSON.parse(x.evidenceJson),sha256:x.checksum})):[];
+     const dialogue=db.prepare('SELECT envelope_json AS json FROM dialogue_journal WHERE world_profile_id=? AND character_id=? AND timeline_id=? ORDER BY committed_at_utc,record_id').all(...ownerKey(scope)).map(x=>JSON.parse(x.json));
+     const events=db.prepare('SELECT envelope_json AS json FROM event_journal WHERE world_profile_id=? AND character_id=? AND timeline_id=? ORDER BY received_at_utc,record_id').all(...ownerKey(scope)).map(x=>JSON.parse(x.json));
+     const memories=db.prepare('SELECT * FROM memory_records WHERE '+ownerWhere+' ORDER BY created_at_utc,memory_id').all(...ownerKey(scope));
+     const sidecars=db.prepare('SELECT v.record_id AS recordId,v.source_evidence_json AS evidenceJson,v.source_evidence_sha256 AS checksum FROM event_source_evidence v JOIN event_journal e ON e.record_id=v.record_id WHERE e.world_profile_id=? AND e.character_id=? AND e.timeline_id=? ORDER BY e.received_at_utc,e.record_id')
+         .all(...ownerKey(scope))
+         .map(x=>({recordId:x.recordId,evidence:JSON.parse(x.evidenceJson),sha256:x.checksum}));
      const memoIds=new Set(memories.map(m=>m.memory_id));
      const curationJobs=db.prepare('SELECT job_json AS json FROM memory_curation_jobs WHERE world_profile_id=? AND character_id=? AND timeline_id=?')
        .all(scope.worldProfileId,scope.characterId,scope.timelineId)
@@ -283,15 +281,15 @@ export class M5SqliteServices{
      const appraisals=db.prepare('SELECT proposal_id AS id,appraisal_json AS json FROM memory_luna_appraisals WHERE world_profile_id=? AND character_id=? AND timeline_id=?')
        .all(scope.worldProfileId,scope.characterId,scope.timelineId)
        .filter(x=>memoIds.has(x.id)).map(x=>JSON.parse(x.json));
-     const pending=db.prepare('SELECT state_json AS json,state_sha256 AS checksum FROM m5_clarifications WHERE '+scopeWhere)
-       .all(...scopeKey(scope)).map(row=>{
+     const pending=db.prepare('SELECT state_json AS json,state_sha256 AS checksum FROM m5_clarifications WHERE '+ownerWhere)
+         .all(...ownerKey(scope)).map(row=>{
          if(sha(row.json)!==row.checksum)fail('m5_clarification_corrupt');
          return JSON.parse(row.json);
        });
-     const commands=db.prepare('SELECT receipt_json AS json FROM memory_commands WHERE '+scopeWhere+' ORDER BY requested_by_line_id,command_id').all(...scopeKey(scope)).map(x=>JSON.parse(x.json));
+     const commands=db.prepare('SELECT receipt_json AS json FROM memory_commands WHERE '+ownerWhere+' ORDER BY requested_by_line_id,command_id').all(...ownerKey(scope)).map(x=>JSON.parse(x.json));
      const tombstones=db.prepare('SELECT t.* FROM memory_tombstones t WHERE t.world_profile_id=? AND t.character_id=? AND t.timeline_id=?').all(scope.worldProfileId,scope.characterId,scope.timelineId).filter(row=>!!evidence(db,scope,row.target_id));
-     const corrections=db.prepare('SELECT c.* FROM memory_corrections c JOIN memory_commands m ON m.command_id=c.command_id WHERE c.world_profile_id=? AND c.character_id=? AND c.timeline_id=? AND m.protagonist_key=?').all(...scopeKey(scope));
-     const trash=db.prepare('SELECT * FROM m5_trash WHERE '+scopeWhere).all(...scopeKey(scope));
+     const corrections=db.prepare('SELECT c.* FROM memory_corrections c JOIN memory_commands m ON m.command_id=c.command_id WHERE c.world_profile_id=? AND c.character_id=? AND c.timeline_id=?').all(...ownerKey(scope));
+     const trash=db.prepare('SELECT * FROM m5_trash WHERE '+ownerWhere).all(...ownerKey(scope));
      const raw=JSON.stringify({format:'m5-promoted-memory-archive-v1',scope,dialogue,events,sidecars,memories,curationJobs,appraisals,commands,tombstones,corrections,trash,pending})+'\n';
      return {format:'m5-promoted-memory-archive-v1',sha256:sha(raw),byteLength:Buffer.byteLength(raw),json:raw};
    });
@@ -335,7 +333,7 @@ export class M5SqliteServices{
    });
    return this.verifyPrivacy({scope,operationId});
  }
- /** Explicitly authorized entire current protagonist/timeline archive deletion.
+ /** Explicitly authorized entire current NPC/player/timeline archive deletion.
   * This is not P2 unpromotion nor cross-timeline profile destruction.
   * Rollback is all-or-none; previously suppressed rows keep their own schedule.
   */
@@ -348,13 +346,12 @@ export class M5SqliteServices{
      const old=db.prepare('SELECT request_sha256 AS hash FROM m5_privacy_ops WHERE operation_id=?').get(operationId);
      if(old){if(old.hash!==reqHash)fail('m5_privacy_replay_conflict');return;}
      const ids=[
-       ...db.prepare('SELECT record_id AS id FROM dialogue_journal WHERE world_profile_id=? AND character_id=? AND timeline_id=? AND protagonist=?')
-         .all(scope.worldProfileId,scope.characterId,scope.timelineId,scope.protagonistKey??'unknown').map(x=>x.id),
-       ...db.prepare('SELECT memory_id AS id FROM memory_records WHERE '+scopeWhere).all(...scopeKey(scope)).map(x=>x.id)
+       ...db.prepare('SELECT record_id AS id FROM dialogue_journal WHERE world_profile_id=? AND character_id=? AND timeline_id=?')
+         .all(...ownerKey(scope)).map(x=>x.id),
+       ...db.prepare('SELECT memory_id AS id FROM memory_records WHERE '+ownerWhere).all(...ownerKey(scope)).map(x=>x.id)
      ];
-     if((scope.protagonistKey??'unknown')==='unknown')
-       ids.push(...db.prepare('SELECT e.record_id AS id FROM event_journal e JOIN event_source_evidence s ON s.record_id=e.record_id WHERE e.world_profile_id=? AND e.character_id=? AND e.timeline_id=?')
-         .all(scope.worldProfileId,scope.characterId,scope.timelineId).map(x=>x.id));
+     ids.push(...db.prepare('SELECT e.record_id AS id FROM event_journal e JOIN event_source_evidence s ON s.record_id=e.record_id WHERE e.world_profile_id=? AND e.character_id=? AND e.timeline_id=?')
+         .all(...ownerKey(scope)).map(x=>x.id));
      const unique=[...new Set(ids)].sort();
      if(unique.length>100000)fail('m5_scope_delete_quota_exceeded');
      const pending=unique.filter(id=>!activeTombstone(db,scope,id));
@@ -376,7 +373,7 @@ export class M5SqliteServices{
  async verifyPrivacy({scope,operationId}){
    if(!isUuid(operationId))fail('m5_invalid_operation_id');
    return this.#read(scope,db=>{
-     const row=db.prepare('SELECT receipt_json AS json FROM m5_privacy_ops WHERE operation_id=? AND '+scopeWhere).get(operationId,...scopeKey(scope));
+     const row=db.prepare('SELECT receipt_json AS json FROM m5_privacy_ops WHERE operation_id=? AND '+ownerWhere).get(operationId,...ownerKey(scope));
      return row?JSON.parse(row.json):null;
    });
  }
@@ -387,15 +384,15 @@ export class M5SqliteServices{
    await this.#write(scope,db=>{
      const old=db.prepare('SELECT request_sha256 AS hash FROM m5_privacy_ops WHERE operation_id=?').get(operationId);
      if(old){if(old.hash!==reqHash)fail('m5_privacy_replay_conflict');return;}
-     const target=db.prepare('SELECT operation_id AS parent,target_id AS target,purge_after_utc AS expiry,restored_at_utc AS restored,purged_at_utc AS purged FROM m5_trash WHERE trash_id=? AND '+scopeWhere).get(trashId,...scopeKey(scope));
+     const target=db.prepare('SELECT operation_id AS parent,target_id AS target,purge_after_utc AS expiry,restored_at_utc AS restored,purged_at_utc AS purged FROM m5_trash WHERE trash_id=? AND '+ownerWhere).get(trashId,...ownerKey(scope));
      if(!target||target.restored||target.purged||Date.parse(now)>=Date.parse(target.expiry))fail('m5_restore_unavailable');
-     const bundle=db.prepare('SELECT target_id AS id FROM m5_trash WHERE operation_id=? AND '+scopeWhere+' AND restored_at_utc IS NULL AND purged_at_utc IS NULL').all(target.parent,...scopeKey(scope));
+     const bundle=db.prepare('SELECT target_id AS id FROM m5_trash WHERE operation_id=? AND '+ownerWhere+' AND restored_at_utc IS NULL AND purged_at_utc IS NULL').all(target.parent,...ownerKey(scope));
      for(const x of bundle){
        db.prepare('DELETE FROM memory_tombstones WHERE world_profile_id=? AND character_id=? AND timeline_id=? AND target_id=? AND command_id=?')
          .run(scope.worldProfileId,scope.characterId,scope.timelineId,x.id,target.parent);
      }
-     db.prepare('UPDATE m5_trash SET restored_at_utc=? WHERE operation_id=? AND '+scopeWhere+' AND restored_at_utc IS NULL')
-       .run(now,target.parent,...scopeKey(scope));
+     db.prepare('UPDATE m5_trash SET restored_at_utc=? WHERE operation_id=? AND '+ownerWhere+' AND restored_at_utc IS NULL')
+       .run(now,target.parent,...ownerKey(scope));
      const r=receipt(operationId,'restore',bundle.map(x=>x.id),now);
      db.prepare('INSERT INTO m5_privacy_ops VALUES(?,?,?,?,?,?,?)').run(operationId,...scopeKey(scope),reqHash,JSON.stringify(r));
    });
@@ -409,11 +406,10 @@ export class M5SqliteServices{
    if(!Number.isSafeInteger(limit)||limit<1||limit>1000)fail('m5_invalid_limit');
    const now=this.#clock();
    return this.#write(scope,db=>{
-     const due=db.prepare('SELECT target_id AS id,operation_id AS parent FROM m5_trash WHERE '+scopeWhere+' AND restored_at_utc IS NULL AND purged_at_utc IS NULL AND purge_after_utc<=? ORDER BY purge_after_utc LIMIT ?')
-       .all(...scopeKey(scope),now,limit);
+     const due=db.prepare('SELECT target_id AS id,operation_id AS parent FROM m5_trash WHERE '+ownerWhere+' AND restored_at_utc IS NULL AND purged_at_utc IS NULL AND purge_after_utc<=? ORDER BY purge_after_utc LIMIT ?')
+       .all(...ownerKey(scope),now,limit);
      const ids=new Set(due.map(x=>x.id));
-     // Never delete sources belonging to another protagonist. Closure only
-     // follows memories authored for this protagonist, not source parents.
+     // Purge only this verified NPC and save timeline, across its historical avatars.
      const closure=dependentIds(db,scope,ids);
      // Purge stored derivatives, curator jobs, appraisals and audit receipts
      // that include purged evidence, not merely the primary journal row.
@@ -431,8 +427,8 @@ export class M5SqliteServices{
        if(tainted.has(row.id)||proposal.evidenceRecordIds?.some(id=>tainted.has(id)))
          db.prepare('DELETE FROM memory_luna_appraisals WHERE proposal_id=?').run(row.id);
      }
-     for(const row of db.prepare('SELECT command_id AS id,requested_by_line_id AS lineId,receipt_json AS json FROM memory_commands WHERE '+scopeWhere)
-       .all(...scopeKey(scope))){
+     for(const row of db.prepare('SELECT command_id AS id,requested_by_line_id AS lineId,receipt_json AS json FROM memory_commands WHERE '+ownerWhere)
+       .all(...ownerKey(scope))){
        const command=JSON.parse(row.json);
        if(tainted.has(row.lineId)||command.evidenceRecordIds?.some(id=>tainted.has(id))){
          db.prepare('DELETE FROM memory_corrections WHERE command_id=?').run(row.id);
@@ -449,9 +445,9 @@ export class M5SqliteServices{
        db.prepare('DELETE FROM memory_tombstones WHERE target_id=? AND world_profile_id=? AND character_id=? AND timeline_id=?').run(id,scope.worldProfileId,scope.characterId,scope.timelineId);
        db.prepare('DELETE FROM p2_memory_replay_feed WHERE record_id=? AND world_profile_id=? AND character_id=? AND timeline_id=? AND protagonist_key=?')
          .run(id,...scopeKey(scope));
-       db.prepare('DELETE FROM memory_commands WHERE requested_by_line_id=? AND '+scopeWhere).run(id,...scopeKey(scope));
+       db.prepare('DELETE FROM memory_commands WHERE requested_by_line_id=? AND '+ownerWhere).run(id,...ownerKey(scope));
      }
-     for(const x of due)db.prepare('UPDATE m5_trash SET purged_at_utc=? WHERE operation_id=? AND target_id=? AND '+scopeWhere).run(now,x.parent,x.id,...scopeKey(scope));
+     for(const x of due)db.prepare('UPDATE m5_trash SET purged_at_utc=? WHERE operation_id=? AND target_id=? AND '+ownerWhere).run(now,x.parent,x.id,...ownerKey(scope));
      return {kind:'m5_purge_result',purgedIds:[...ids],committedAtUtc:now};
    });
  }
