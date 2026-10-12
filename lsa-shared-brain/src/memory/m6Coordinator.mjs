@@ -51,6 +51,11 @@ async function qualifyCommitted(store,scope,raw,blocked){
       rejected.push({recordId:item.recordId,reason:'m6_suppressed_source'});
       continue;
     }
+    if(item?.kind==='replay_rejection'){
+      rejected.push({recordId:isUuid(item.recordId)?item.recordId:null,
+        reason:item.replayRejection??'m6_unavailable_source'});
+      continue;
+    }
     try{
       const normalized=normalizedEvidence(item);
       if(normalized.worldProfileId!==scope.worldProfileId||
