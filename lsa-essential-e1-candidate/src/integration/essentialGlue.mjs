@@ -16,7 +16,8 @@ import { decide } from '../openai/decide.mjs';
 import { transcribePcm } from '../openai/transcribe.mjs';
 import { speak } from '../openai/speak.mjs';
 import { DialogueHistory } from '../memory/dialogueHistory.mjs';
-import {createM2TurnCapture} from '../../../lsa-shared-brain/src/memory/m2TurnCapture.mjs';
+import {createM2EssentialCapture} from '../memory/m2EssentialCapture.mjs';
+import {createOriginalBackendAcceptedInput,ORIGINAL_BACKEND_PIN} from '../memory/originalBackendAcceptedInput.mjs';
 import { validateDecisionShape } from '../context/essentialDecision.mjs';
 import { validateStockDecision } from '../context/decisionValidator.mjs';
 import { createProviderStack } from '../providers/providerStack.mjs';
@@ -51,6 +52,10 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
   characterService?.initialize().catch(() => {});
   // Optional SQLite path only. The existing JSON backend stays unchanged.
   const journalStore=characterService?.store;
+  // One read-through original backend source. The exact pinned original does
+  // NOT expose a final accepted typed/STT event, so this always fails closed
+  // until a separately audited original source hook exists.
+  const originalAcceptedInput=createOriginalBackendAcceptedInput();
   const journalCharacter=turn=>turn.characterProjection?.persistent===true
     && turn.characterProjection.profile?.characterId===turn.characterInputs?.profile?.characterId
     ? turn.characterProjection.profile.characterId:null;
@@ -61,51 +66,54 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
     bindM2Turn({turn,isCurrent}={}) {
       const characterId=journalCharacter(turn);
       const alias=turn?.characterProjection?.profile?.promotion?.ownerAlias;
-      if(!characterId||!alias||typeof isCurrent!=='function'||
+      // A RAM-history commit, typed submit, STT transcript, or optimistic
+      // boolean cannot authorize M2; demand the pinned original post-accept
+      // source AND independently verified native and playback source ledgers.
+      if(ORIGINAL_BACKEND_PIN.acceptedSourceHookAvailable!==true ||
+         !characterId||!alias||typeof isCurrent!=='function'||
          typeof memoryNativeAuthority?.verifyCurrentTurn!=='function'||
          typeof journalStore?.withTimelineWrite!=='function'||
          config.promotedCharacters?.storageMode!=='sqlite')return null;
-      const verify=()=>{
-        try {
-          const host=journalStore.verifiedHostContext;
-          if(!host||journalStore.timelineWritable!==true)return null;
-          const result=memoryNativeAuthority.verifyCurrentTurn({
-            identity:turn.identity,characterId,ownerAlias:alias,
-            hostRunId:host.hostRunId,worldEpoch:host.worldEpoch
-          });
-          if(!result||typeof result.then==='function'||result.current!==true||
-             result.nativeVerified!==true||result.characterId!==characterId||
-             result.ownerAlias!==alias||result.hostRunId!==host.hostRunId||
-             result.worldEpoch!==host.worldEpoch||
-             !['franklin','michael','trevor','unknown'].includes(result.protagonistKey))
-            return null;
-          return result;
-        }catch{return null;}
-      };
-      const evidence=verify();
-      if(!evidence||!isCurrent())return null;
       try {
-        return createM2TurnCapture({
-          store:journalStore,characterId,identity:turn.identity,ownerAlias:alias,
-          protagonist:evidence.protagonistKey,
-          isCurrent:()=>isCurrent()&&verify()!==null,
-          currentProtagonist:()=>verify()?.protagonistKey??null
+        const source=runtime.host?.memorySourceLedgers;
+        if(typeof source?.playbackHistory?.verifyCompleted!=='function'||
+           typeof source?.speechTransport?.verifyForwardedSegment!=='function'||
+           typeof source?.speechTransport?.verifyFinalizedAudio!=='function')
+          return null;
+        // Uses W03's strict adapter. It independently verifies original
+        // accepted input + current native owner BEFORE the one P2 writer,
+        // and terminal playback/TTS source at final NPC commit.
+        return createM2EssentialCapture({
+          store:journalStore,characterId,ownerAlias:alias,
+          identity:turn.identity,isCurrent,
+          nativeAuthority:memoryNativeAuthority,
+          acceptedInput:originalAcceptedInput,
+          playbackHistory:source.playbackHistory,
+          speechTransport:source.speechTransport
         });
       }catch{return null;}
     },
     async recordM2Player({turn,text,source}) {
-      if(!turn?.m2Capture||!['player_text','player_mic'].includes(source))return null;
-      return turn.m2Capture.recordPlayerAccepted({
-        accepted:true,text,source:source==='player_mic'?'stt':'typed',
+      if(!turn?.m2Capture||!['player_text','player_mic'].includes(source))
+        return null;
+      return turn.m2Capture.acceptPlayer({
+        text,source:source==='player_mic'?'stt':'typed',
         transcription:source==='player_mic'
-          ? {provider:providerStack?.transcription?.id??'unknown',model:'unknown',confidence:null}:null
+          ?{provider:providerStack?.transcription?.id??'unknown',
+            model:'unknown',confidence:null}:null
       });
     },
-    async recordM2Npc({turn,text,receipt,mode='buffered',spokenSegments=null}) {
-      if(!turn?.m2Capture)return null;
-      return turn.m2Capture.recordNpcCompleted({
-        historyAccepted:true,text,receipt,mode,spokenSegments
-      });
+    admitM2SpeechSegment({turn,mode,sequence,text,audioBytes,forwardedBytes}) {
+      // Caller-chosen audio counts are inert. W03 independently compares
+      // each segment to native-source PCM forwarding and TTS completion.
+      try{return turn?.m2Capture?.admitSpeechSegment({
+        mode,sequence,text,audioBytes,forwardedBytes})??null;}
+      catch{return null;}
+    },
+    async recordM2Npc({turn,receipt}) {
+      // W03 uses only ordered source-verified TTS segment text, never the
+      // final Luna draft; requires completed native playback + RAM history.
+      return turn?.m2Capture?.completeNpc({receipt})??null;
     },
     recordDialogueActionPublication({turn,validated,publishedAtMs}){
       if(config.provider!=='openai' || config.activities?.dialogueReceipts!==true || !runtime.dialogueKnowledgeBuildSupported)return null;

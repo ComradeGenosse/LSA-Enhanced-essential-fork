@@ -270,6 +270,12 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
             bytes += audio.bytes;
             chunks += audio.chunks || 0;
             spokenTtsSegments.push(segment.text);
+            // An optional W03 source gate verifies native-forwarded PCM and
+            // TTS text against its independent transport ledger. Failure
+            // cannot authorize a memory or interrupt the original turn.
+            try { services.admitM2SpeechSegment?.({turn,mode:'early_streamed',
+              sequence:segment.sequence,text:segment.text,
+              audioBytes:audio.bytes,forwardedBytes:audio.bytes}); } catch {}
             metrics?.event('stream_tts_segment_finished', { segmentSequence: segment.sequence, bytes: audio.bytes, chunks: audio.chunks || 0 });
           }
           return { bytes, chunks, discardedTrailingByte: false };
@@ -368,6 +374,11 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
     }
     check();
     if (!authorizationRequested || !audio?.bytes || !pcmBytesTotal) throw new Error('empty_audio');
+    if (!successfulEarlySpeech) {
+      try { services.admitM2SpeechSegment?.({turn,mode:'buffered',
+        sequence:0,text:decision.dialogue,
+        audioBytes:audio.bytes,forwardedBytes:pcmBytesTotal}); } catch {}
+    }
     history.markModelAndTtsSucceeded(identity);
     await emit({ type: 'generation_complete' });
     check();
