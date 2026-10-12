@@ -55,7 +55,10 @@ namespace LSA.Intelligence.MemoryM3
         // cannot use its old signal.gameTick to backdate a new owner lookup.
         public bool Record(string signalId,WitnessReceipt witness)
         {
-            if(witness==null||witness.Status!="witnessed"||!Modality(witness)||
+            if(witness==null||
+                !((witness.Status=="witnessed"&&witness.Channel!="report")||
+                  (witness.Status=="reported"&&witness.Channel=="report"))||
+                !Modality(witness)||
                 !Id(signalId)||!Id(witness.Observer)||
                 nativeGameTick()!=witness.SampledGameTick){Denied++;return false;}
             var host=run();var epoch=worldEpoch();var adapter=adapterEpoch();
