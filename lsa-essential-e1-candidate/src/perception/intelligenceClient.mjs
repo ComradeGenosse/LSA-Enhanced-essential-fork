@@ -106,9 +106,9 @@ export class IntelligenceClient {
     this.currentOwnerPlayerSubscriptions.add(item);
     return ()=>this.currentOwnerPlayerSubscriptions.delete(item);
   }
-  retireAuthenticatedNativeOwnerPlayer(reason='terminal') {
+  retireAuthenticatedNativeOwnerPlayer(reason='terminal',retiredRefs=[]) {
     for(const item of [...this.currentOwnerPlayerSubscriptions])
-      try{item.onRetire(reason);}catch{}
+      try{item.onRetire(reason,retiredRefs);}catch{}
   }
   subscribeWorldBoundary(listener) {
     if (typeof listener !== 'function' || this.worldBoundaryListeners.size >= 16)
@@ -624,7 +624,9 @@ export class IntelligenceClient {
         if(!accepted || v?.type==='hello' || v?.type==='world_epoch')
           this.retireAuthenticatedNativeOwnerPlayer('terminal');
         else if(['anchors','observer_index','retire','retire_batch'].includes(v?.type))
-          this.retireAuthenticatedNativeOwnerPlayer('roster');
+          this.retireAuthenticatedNativeOwnerPlayer('roster',
+            v.type==='retire'?[v.payload.captureRef]:
+            v.type==='retire_batch'?v.payload:[]);
         if(accepted&&v?.type==='memory_authority')for(const sub of [...this.memoryAuthoritySubscriptions]){
           try{sub.listener(Object.freeze({frame:v}));}catch{try{sub.onRetire();}catch{}}
         }
