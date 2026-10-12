@@ -22,7 +22,7 @@ namespace LSA.Intelligence
                    NativeFunction.CallByName<bool>("NETWORK_IS_SESSION_ACTIVE"))
                     return null;
                 var player=Game.LocalPlayer.Character;
-                if(player==null || !player.Exists() || player.MemoryAddress==IntPtr.Zero)
+                if(player==null || !player.Exists() || player.IsDead || player.MemoryAddress==IntPtr.Zero)
                     return null;
                 // Must be the native-controlled actor, not a same-model
                 // ambient spawn or the last observed conversation target.
@@ -34,7 +34,9 @@ namespace LSA.Intelligence
                     a.Handle==unchecked((ulong)player.Handle) &&
                     a.Address==player.MemoryAddress).Take(2).ToArray();
                 if(anchors.Length!=1 ||
-                   host.Anchors.Resolve(anchors[0].CaptureRef)==null)return null;
+                   !Object.ReferenceEquals(anchors[0].Entity,player) ||
+                   !Object.ReferenceEquals(host.Anchors.Resolve(anchors[0].CaptureRef),anchors[0]))
+                    return null;
                 string key=MemoryOwnerProofPolicy.ProtagonistKey(model);
                 return new {
                     key,source="native_player_model",
