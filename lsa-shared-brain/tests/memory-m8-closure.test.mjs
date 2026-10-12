@@ -1,3 +1,10 @@
+import {mkdtempSync,rmSync} from 'node:fs';
+import {tmpdir} from 'node:os';
+import path from 'node:path';
+import {createP2MemoryStorage} from '../src/characters/sqliteProfileStore.mjs';
+import {createConversationJournalRecorder} from '../src/memory/conversationRecorder.mjs';
+import {profile} from '../../lsa-essential-e1-candidate/tests/p2-fixtures.mjs';
+import {worldProfileId as fixtureWorldId} from '../../lsa-essential-e1-candidate/tests/identity-fixtures.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
@@ -211,4 +218,73 @@ test('Corrupted cooldown timestamps fail closed; unknown reaction cannot erase a
  const v=recordM8JokeUse({consecutiveNegativeReactions:1},{completed:true,sourceVerified:true,
   jokeId:id,atUtc:t(100),reaction:'unknown'});
  assert.equal(v.consecutiveNegativeReactions,1);
+});
+
+
+test('M8 friendship and running-joke IDs survive all three avatars and real P2 SQLite restart',async t=>{
+ const folder=mkdtempSync(path.join(tmpdir(),'m8-agent-c-'));
+ const filePath=path.join(folder,'p2.sqlite');
+ t.after(()=>rmSync(folder,{recursive:true,force:true}));
+ const create=()=>createP2MemoryStorage({filePath,worldProfileId:fixtureWorldId,sourceRequired:true});
+ const store=create();
+ await store.initialize();
+ const npc=await store.create(profile()),timelineId=await store.createTimeline({label:'friendship'});
+ const playerScope={characterId:npc.characterId,worldProfileId:fixtureWorldId,
+   timelineId,protagonistKey:'franklin'};
+ store.setVerifiedHostContext({hostContextVersion:1,hostRunId:uuid(),worldEpoch:1});
+ await store.confirmTimeline(timelineId);
+ const recorder=createConversationJournalRecorder(store);
+ const said=[];
+ for(const [i,protagonist,text] of [
+   [1,'michael','Thanks for helping me, my friend.'],
+   [2,'franklin','Inside joke: the flying purple car!'],
+   [3,'trevor','Running joke: the flying purple car!']
+ ]){
+   const line=await recorder.recordPlayerAccepted({characterId:npc.characterId,
+     identity:{pedId:101,turnId:'relationship-'+i,generationId:'gen-1',sessionNonce:'m8'},
+     source:'typed',text,attribution:{protagonist}});
+   said.push(line.recordId);
+ }
+ const nowUtc=new Date(Date.now()+1000).toISOString();
+ const collect=async s=>(await s.readDialogueLines({characterId:npc.characterId,
+   timelineId,limit:30})).map(record=>({record,committed:true,sourceVerified:true}));
+ const before=await collect(store);
+ assert.deepEqual(new Set(before.map(x=>x.record.recordId)),new Set(said));
+ const personality={humor:{style:'goofy'},loyalty:1};
+ const compute=(sources,protagonistKey,overrides={})=>evaluateM8({
+   scope:{...playerScope,protagonistKey,...overrides},sources,personality,nowUtc,maxBytes:4096});
+ const friend=compute(before,'michael');
+ assert.ok(friend.relationship.dimensions.trust>0);
+ assert.ok(friend.relationship.dimensions.familiarity>0);
+ assert.equal(friend.jokes.length,1);
+ assert.equal(friend.jokes[0].state,'emerging');
+ assert.deepEqual(new Set(friend.relationship.sourceEvidenceIds),
+   new Set(said),'every contributing relationship impression retains provenance');
+ for(const avatar of ['franklin','michael','trevor']){
+   const current=compute(before,avatar);
+   assert.deepEqual(current.relationship,friend.relationship);
+   assert.deepEqual(current.jokes.map(j=>j.id),friend.jokes.map(j=>j.id));
+   assert.deepEqual(current.interpretations.map(i=>i.id),
+     friend.interpretations.map(i=>i.id));
+ }
+ assert.equal(compute(before,'trevor',{worldProfileId:uuid()}).relationship.dimensions.trust,0);
+ assert.equal(compute(before,'trevor',{characterId:uuid()}).jokes.length,0);
+ await store.close();
+ const reopened=create();
+ await reopened.initialize();
+ try{
+   reopened.setVerifiedHostContext({hostContextVersion:1,hostRunId:uuid(),worldEpoch:2});
+   await reopened.confirmTimeline(timelineId);
+   const durable=compute(await collect(reopened),'trevor');
+   assert.deepEqual(durable.relationship,friend.relationship);
+   assert.deepEqual(durable.jokes,friend.jokes);
+   assert.deepEqual(durable.interpretations,friend.interpretations);
+ }finally{await reopened.close();}
+});
+
+test('M8 rejects duplicate memory identities instead of overwriting cross-avatar state',()=>{
+ const d=dataset(),memoryId=uuid(),ids=[d.crash.recordId,d.crashAgain.recordId].sort();
+ const once={memoryId,...scope,committed:true,sourceVerified:true,evidenceRecordIds:ids};
+ assert.throws(()=>run(d,{}, {memories:[once,{...once,protagonistKey:'trevor'}]}),
+   /m8_duplicate_memory/);
 });
