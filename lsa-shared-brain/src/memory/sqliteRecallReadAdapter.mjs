@@ -32,8 +32,8 @@ export class SQLiteRecallReadAdapter {
     if(!scope||!['franklin','michael','trevor','unknown'].includes(scope.protagonistKey))throw new TypeError('invalid_read_scope');
     if(this.#integrated)return readIntegratedRecall(this.#db,{scope,terms,fromUtc,toUtc,sourceKind,speaker,limit});
     if(!Number.isSafeInteger(limit)||limit<1||limit>768)throw new TypeError('invalid_read_limit');
-    const where=['r.character_id=?','r.world_profile_id=?','r.timeline_id=?','r.protagonist_key=?','r.evidence_state=?'];
-    const args=[scope.characterId,scope.worldProfileId,scope.timelineId,scope.protagonistKey,'verified'];
+    const where=['r.character_id=?','r.world_profile_id=?','r.timeline_id=?','r.evidence_state=?'];
+    const args=[scope.characterId,scope.worldProfileId,scope.timelineId,'verified'];
     if(sourceKind){where.push('r.source_kind=?');args.push(sourceKind);}
     if(speaker){where.push('r.speaker=?');args.push(speaker);}
     if(fromUtc){where.push('r.timestamp_utc>=?');args.push(fromUtc);}
@@ -63,12 +63,8 @@ export class SQLiteRecallReadAdapter {
     // Fail closed: only an explicit, source-authoritative coverage certificate
     // is allowed to turn an empty search into "not_recorded"; no event record
     // alone proves a character was observing for the entire requested period.
-    const scopeArgs=[scope.characterId,scope.worldProfileId,scope.timelineId,scope.protagonistKey];
-    const coverage=this.#db.prepare(
-      'SELECT source_kind AS sourceKind,from_utc AS fromUtc,to_utc AS toUtc,all_complete AS allComplete,complete FROM m4_recall_coverage_v1 WHERE character_id=? AND world_profile_id=? AND timeline_id=? AND protagonist_key=? AND source_kind=? AND complete=1'
-    ).all(...scopeArgs,sourceKind??'all');
-    const complete=coverage.some(c=>c.allComplete===1 || fromUtc!==null&&toUtc!==null&&c.fromUtc!==null&&c.toUtc!==null&&c.fromUtc<=fromUtc&&c.toUtc>=toUtc);
-    return {rows:[...found.values()],coverageComplete:complete};
+    // Legacy protagonist-specific certificates cannot prove full cross-avatar coverage.
+    return {rows:[...found.values()],coverageComplete:false};
   }
 }
 export function openSqliteRecallReader({filePath}={}){return new SQLiteRecallReadAdapter({filePath});}

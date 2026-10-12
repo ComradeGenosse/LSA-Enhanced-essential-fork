@@ -21,6 +21,33 @@ namespace LSA.Intelligence
                 incarnation==claimIncarnation&&!String.IsNullOrEmpty(world)&&
                 world==claimWorld;
         }
+
+        // Handle equality by itself is NEVER sufficient: original Core
+        // actor bindings need the retained native captureRef + P1 lifetime,
+        // encounter and exact live entity/address/anchor association.
+        public static bool ExactActorLifetime(
+            string expectedPedId,string currentPedId,
+            string expectedCaptureRef,string currentCaptureRef,
+            string expectedIncarnation,string currentIncarnation,
+            string expectedEncounter,string currentEncounter,
+            bool sameNativeEntity,bool sameNativeAddress,
+            bool liveAnchor,bool liveRegistration)
+        {
+            return sameNativeEntity && sameNativeAddress && liveAnchor &&
+                liveRegistration && !String.IsNullOrWhiteSpace(expectedPedId) &&
+                expectedPedId==currentPedId &&
+                IsUuid(expectedCaptureRef) &&
+                expectedCaptureRef==currentCaptureRef &&
+                IsUuid(expectedIncarnation) &&
+                expectedIncarnation==currentIncarnation &&
+                IsUuid(expectedEncounter) &&
+                expectedEncounter==currentEncounter;
+        }
+        static readonly Regex Uuid=new Regex(
+            @"\A[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\z",
+            RegexOptions.CultureInvariant);
+        static bool IsUuid(string text) => text!=null && Uuid.IsMatch(text);
+
         public static string ProtagonistKey(uint model)
         {
             switch(model)

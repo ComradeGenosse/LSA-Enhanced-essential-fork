@@ -10,8 +10,12 @@ const commandPrefix = /^(?:(?:hey|yo|please)[\s,]+)?(?:(?:nathan|buddy)[\s,]+)?(
 const successful = { remember:'saved', forget:'forgotten', correct:'corrected' };
 const uuid = value => typeof value === 'string' && isUuid(value);
 const same = (record, scope) => record.characterId === scope.characterId &&
-  record.worldProfileId === scope.worldProfileId && record.timelineId === scope.timelineId &&
-  (!('protagonistKey' in record) || record.protagonistKey === scope.protagonistKey);
+  record.worldProfileId === scope.worldProfileId && record.timelineId === scope.timelineId;
+// Only the NEW accepted command needs current native/avatar attribution.
+// A pre-existing candidate may have been witnessed under another GTA avatar.
+const acceptedAvatar = (record, scope) =>
+  (!('protagonistKey' in record) || record.protagonistKey === scope.protagonistKey) &&
+  (!record.attribution?.protagonist || record.attribution.protagonist === scope.protagonistKey);
 const clone = value => JSON.parse(JSON.stringify(value));
 
 /** Detection does not turn questions or conversational idioms into writes. */
@@ -86,7 +90,9 @@ function resolve(candidates, scope, line, parsed, now) {
   const operation=parsed.intent, selector=parsed.selector;
   const all=candidates.filter(c => eligible(c,scope,line,operation,selector))
     .map(c => ({...c, age:Math.max(0,(now-Date.parse(c.occurredAtUtc))/1000)}))
-    .filter(c => c.age <= (selector === 'dialogue' ? 300 : selector === 'referent' ? 120 : 3600));
+    // Explicit topic searches may address older durable memories; recent deixis still expires.
+    .filter(c => selector === 'topic' && c.kind === 'permanent_memory' ||
+      c.age <= (selector === 'dialogue' ? 300 : selector === 'referent' ? 120 : 3600));
   const query=words(parsed.topic || '');
   let ranked=all.map(c=>{
     const body=(c.content+' '+(c.eventType || '')+' '+(c.label || '')).toLowerCase();
@@ -124,7 +130,7 @@ function result(base, outcome, extras={}) {
 }
 function validateInput({line, commandId, scope, store}) {
   if (!line || !scope || !uuid(commandId) || ![scope.characterId,scope.worldProfileId,scope.timelineId,line.recordId].every(uuid) ||
-      !same(line,scope) || line.kind !== 'dialogue_line' ||
+      !same(line,scope) || !acceptedAvatar(line,scope) || line.kind !== 'dialogue_line' ||
       line.speaker !== 'player' || !['typed','stt'].includes(line.source) ||
       line.delivery !== 'accepted' || typeof line.content !== 'string' ||
       !line.content.trim() || typeof store?.findCandidates !== 'function' ||
@@ -295,11 +301,18 @@ export async function handleMemoryClarificationReply({line,scope,store,clarifica
   const saved=await store.getClarification({scope,commandId:clarificationId,atUtc:line?.committedAtUtc});
   if(!saved)return null;
   validateInput({line,scope,store,commandId:clarificationId});
+  // The original request retains historical avatar attribution. The NEW
+  // accepted reply under the current avatar authorizes this mutation.
+  if(!Number.isFinite(Date.parse(line.committedAtUtc)) ||
+     Date.parse(line.committedAtUtc)<Date.parse(saved.createdAtUtc) ||
+     Date.parse(line.committedAtUtc)<Date.parse(saved.line.committedAtUtc))
+    return result(actionBase(scope,line,clarificationId,saved.parsed.intent),'failed');
   if(typeof store.verifyAcceptedLine==='function' &&
      (!await store.verifyAcceptedLine({scope,line}) ||
-      !await store.verifyAcceptedLine({scope,line:saved.line})))
-    return result(actionBase(scope,saved.line,clarificationId,saved.parsed.intent),'failed');
-  if(!same(saved.scope,scope) || !same(saved.line,scope) ||
+      !await store.verifyAcceptedLine({scope:saved.scope,line:saved.line})))
+    return result(actionBase(scope,line,clarificationId,saved.parsed.intent),'failed');
+  if(!same(saved.scope,scope) || !same(saved.line,saved.scope) ||
+     !acceptedAvatar(saved.line,saved.scope) ||
      !Array.isArray(saved.frozen) || !Array.isArray(saved.alternatives))return null;
   const text=line.content.trim();
   // Correction may combine the frozen ordinal with exact replacement bytes in
@@ -314,10 +327,10 @@ export async function handleMemoryClarificationReply({line,scope,store,clarifica
     if(replacement){index=0;correctionContent=replacement[1].trim();}
   }
   if(index<0 || index>=saved.alternatives.length)return result(
-    actionBase(scope,saved.line,clarificationId,saved.parsed.intent),'clarify');
+    actionBase(scope,line,clarificationId,saved.parsed.intent),'clarify');
   const frozen=saved.frozen[index],offered=saved.alternatives[index];
   if(!frozen || frozen.recordId!==offered.recordId || !uuid(frozen.recordId))return null;
-  const base=actionBase(scope,saved.line,clarificationId,saved.parsed.intent);
+  const base=actionBase(scope,line,clarificationId,saved.parsed.intent);
   try{
     const existing=await store.verifyCommand({scope,commandId:clarificationId});
     if(existing) {
@@ -340,13 +353,13 @@ export async function handleMemoryClarificationReply({line,scope,store,clarifica
     if(saved.parsed.intent==='correct' && !saved.parsed.content &&
        (!correctionContent || !correctionContent.trim()))return result(base,'clarify');
     const evidenceRecordIds=[selected.recordId,saved.line.recordId,line.recordId];
-    const op={scope:clone(scope),commandId:clarificationId,requestedByLineId:saved.line.recordId,
+    const op={scope:clone(scope),commandId:clarificationId,requestedByLineId:line.recordId,
       operation:saved.parsed.intent,origin:'explicit_player',
       recordType:saved.parsed.intent==='correct'?'correction':selected.kind,
       content,contentHash:hash(content),pin:saved.parsed.pin,
       evidenceRecordIds,targetRecordId:selected.recordId,
       correctionMode:saved.parsed.correctionMode,subjectCertainty:null,
-      requestedAtUtc:saved.line.committedAtUtc};
+      requestedAtUtc:line.committedAtUtc};
     const receipt=await store.commitCommand(op);
     if(!receipt || !receipt.durableCommit || receipt.status!=='committed')return result(base,'failed');
     const verified=verifiedAction(await store.verifyCommand({scope,commandId:clarificationId}),base,evidenceRecordIds);

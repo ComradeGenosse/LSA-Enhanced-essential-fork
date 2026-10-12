@@ -172,6 +172,54 @@ internal static class Program
         framePlayerLive=true;
         data.hostRunId=foreign;
         Check(!frames.TryBuild(data,1050,out frame),"restart host fence");
+        // Isolated harness only: same object as the pinned DamageSensors
+        // callback-created RawSignal, never a constructed GTA live receipt.
+        bool occupantAtSource=true;
+        var sourceProducer=new M9OriginalVehicleCollisionProducer(fs,
+            ()=>nativeRun,()=>hostRun,()=>1L,
+            (callback,actor)=>occupantAtSource &&
+                callback.target==fv.CaptureRef && actor==fa.CaptureRef);
+        var actualCallback=new RawSignal {
+            producer="vehicle_damage",kind="vehicle_damage",
+            signalId=Guid.NewGuid().ToString("D"),target=fv.CaptureRef,
+            gameTick=600,receivedMs=1500,
+            facts=new Dictionary<string,object> {
+                {"classification","collision"},{"damage",75}
+            }
+        };
+        Check(sourceProducer.Capture(actualCallback,nativeRun,hostRun,1,
+            fa.CaptureRef),"actual callback staging accepted");
+        Check(!sourceProducer.Capture(actualCallback,nativeRun,hostRun,1,
+            fa.CaptureRef),"duplicate callback reference veto");
+        M9OriginalVehicleCollisionProducer.Occurrence occurrence;
+        Check(sourceProducer.TryTake(602,1600,out occurrence) &&
+            occurrence.SourceEventId==actualCallback.signalId &&
+            occurrence.Collision.damage==75 &&
+            occurrence.Collision.playerCaptureRef==fa.CaptureRef,
+            "authenticated exact callback released on owner fiber");
+        Check(!sourceProducer.TryTake(603,1700,out occurrence),
+            "callback can be consumed once only");
+        Check(sourceProducer.Capture(actualCallback,nativeRun,hostRun,1,
+            fa.CaptureRef),"new queue generation staged");
+        actualCallback.facts["damage"]=99;
+        Check(!sourceProducer.TryTake(603,1700,out occurrence),
+            "mutable payload alteration veto");
+        actualCallback.facts["damage"]=75;
+        Check(sourceProducer.Capture(actualCallback,nativeRun,hostRun,9,
+            fa.CaptureRef),"foreign epoch staged, never validated");
+        Check(!sourceProducer.TryTake(604,1700,out occurrence),
+            "source epoch changed before owner consumption");
+        Check(sourceProducer.Capture(actualCallback,nativeRun,hostRun,1,
+            fa.CaptureRef),"stale frame staged");
+        Check(!sourceProducer.TryTake(5000,6000,out occurrence),
+            "stale callback never becomes event");
+        occupantAtSource=false;
+        Check(!sourceProducer.Capture(actualCallback,nativeRun,hostRun,1,
+            fa.CaptureRef),"collision does not prove player involvement");
+        occupantAtSource=true;
+        sourceProducer.Retire();
+        Check(!sourceProducer.Capture(actualCallback,nativeRun,hostRun,1,
+            fa.CaptureRef),"producer retirement disables new proof");
         Console.WriteLine("M9 native: "+checks+" assertions passed");
     }
 }

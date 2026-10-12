@@ -128,12 +128,17 @@ test('M5 ambiguity exposes bounded alternatives in a sideband, not in memoryActi
   isAction(response);
   assert.equal(response.outcome,'clarify');
   assert.equal(prompt.alternatives.length,2);
-  assert.match(prompt.prompt,/Which one/);
+  assert.match(prompt.prompt,/Which one|first or second/);
 });
 test('M5 reported or cross-world evidence is ineligible',async t=>{
   const {store}=await setup(t);
   await store.seedCandidate(candidate('An unverified crash',-5,{receiptStatus:'reported'}));
-  await assert.rejects(store.seedCandidate(candidate('A crash by Michael',-6,{protagonistKey:'michael'})),/memory_scope_conflict/);
+  // Michael is the SAME human, but unverified evidence still cannot be saved.
+  await store.seedCandidate(candidate('A crash by Michael',-6,
+    {protagonistKey:'michael',receiptStatus:'reported'}));
+  // A different save/world timeline is never the same memory owner.
+  await assert.rejects(store.seedCandidate(candidate('A crash from another save',-6,
+    {timelineId:randomUUID()})),/memory_scope_conflict/);
   const response=await act(store,line('Remember this crash'));
   assert.equal(response.outcome,'clarify');
 });
@@ -274,4 +279,28 @@ test('M5 P2 manual-memory view edits/deletes only player-created global notes',a
   await changeP2ManualMemory({profileStore:store,characterId:npc.characterId,
     operation:'delete',memoryId:saved.memoryId,expectedRevision:edited.profileRevision});
   assert.equal(inspectP2ManualMemories({profileStore:store,characterId:npc.characterId}).memories.length,0);
+});
+
+test('M5 OFFLINE FIXTURE: one player retains stored memory across avatars and restart',async t=>{
+  const {store,filePath}=await setup(t);
+  const franklin=line('Remember that I love olives',0);
+  const initial=await handleExplicitMemoryCommand({line:franklin,scope,
+    commandId:randomUUID(),store});
+  assert.equal(initial.outcome,'saved');
+  const michael={...scope,protagonistKey:'michael'};
+  const trevor={...scope,protagonistKey:'trevor'};
+  const reopen=avatar=>new FixtureMemoryCommandStore({filePath,scope:avatar,
+    assertTimelineWrite:()=>true});
+  const second=reopen(michael);
+  assert.equal((await second.inspect({scope:michael})).memoryCount,1);
+  const exp=await reopen(trevor).export({scope:trevor});
+  assert.ok((await fs.readFile(exp.path,'utf8')).includes('I love olives'));
+  const old=(await second.findCandidates({scope:michael})).find(r=>r.recordId===initial.memoryId);
+  assert.equal(old.protagonistKey,'franklin');
+  const request=line('Forget the memory about olives',2,{protagonistKey:'trevor'});
+  const result=await handleExplicitMemoryCommand({line:request,scope:trevor,
+    commandId:randomUUID(),store:reopen(trevor)});
+  assert.equal(result.outcome,'forgotten');
+  assert.ok(!(await reopen(michael).findCandidates({scope:michael}))
+    .some(r=>r.recordId===initial.memoryId));
 });

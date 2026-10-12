@@ -23,18 +23,20 @@ const same=(proposal,cue)=>proposal &&
 // the only speech scheduler. If there is no real original entitlement,
 // no spontaneous M9 memory callback is possible.
 export class M9DirectorCueAdmission {
-  #cues;#director;#readPriority;#register;
+  #cues;#director;#readPriority;#register;#committed;
   #busy=false;
   constructor({cueCandidates,existingSceneDirector,readCurrentPriority,
-    registerPs4MemoryCue}={}) {
+    registerPs4MemoryCue,committedWitnessAuthority}={}) {
     if(typeof cueCandidates?.propose!=='function' ||
        typeof existingSceneDirector?.attempt!=='function' ||
        typeof existingSceneDirector?.originalGrantCurrent!=='function' ||
        typeof readCurrentPriority!=='function' ||
-       typeof registerPs4MemoryCue!=='function')
+       typeof registerPs4MemoryCue!=='function' ||
+       typeof committedWitnessAuthority?.check!=='function')
       throw new TypeError('m9_ps6_original_director_ports_required');
     this.#cues=cueCandidates;this.#director=existingSceneDirector;
     this.#readPriority=readCurrentPriority;this.#register=registerPs4MemoryCue;
+    this.#committed=committedWitnessAuthority;
   }
   // Caller: accepted M3 committed witness + current PS3 candidates/stamp.
   // The receipt MUST be a durable readback, not a pending write or nearby ped.
@@ -44,6 +46,11 @@ export class M9DirectorCueAdmission {
        ps3Candidates.length>128 || !stamp ||
        !witness || !candidate || candidate.playerCaptureRef!==facts?.playerCaptureRef)
       return Object.freeze({status:'missing_original_ps3_source'});
+    // Source-qualified PS2 + exact durable P2 event and sidecar must be
+    // re-read independently; this port fails closed on missing schemas.
+    const authorized=()=>sync(this.#committed.check.bind(this.#committed),
+      {candidate,witness})?.authorized===true;
+    if(!authorized())return Object.freeze({status:'committed_m9_witness_unverified'});
     const proposal=selectDirectorIntent(ps3Candidates,facts);
     if(!proposal || proposal.urgency!=='routine' ||
        proposal.expiresAtMonotonicMs<=facts.nowMonotonicMs ||
@@ -64,6 +71,8 @@ export class M9DirectorCueAdmission {
     if(!result.accepted)
       return Object.freeze({status:'cue_refused',reason:result.reason});
     const cue=result.cue;
+    if(!authorized())
+      return Object.freeze({status:'committed_m9_witness_changed'});
     if(!same(proposal,cue))
       return Object.freeze({status:'owner_mismatch'});
     this.#busy=true;
@@ -78,7 +87,7 @@ export class M9DirectorCueAdmission {
          registered?.cueId!==cue.cueId ||
          typeof registered?.unregister!=='function')
         return Object.freeze({status:'ps4_memory_not_registered'});
-      if(!safePriority(sync(this.#readPriority,{
+      if(!authorized() || !safePriority(sync(this.#readPriority,{
         candidate,witness,proposal,stamp,stage:'before_director'})) ||
          this.#director.originalGrantCurrent(proposal,stamp)!==true)
         return Object.freeze({status:'priority_or_original_grant_changed'});
@@ -86,10 +95,14 @@ export class M9DirectorCueAdmission {
       // native C-06/C-11 -> stock Essential turn path can deliver anything.
       const delivered=await this.#director.attempt({
         candidates:ps3Candidates,facts,stamp});
+      // The original Director 'delivered' status is NOT proof that the
+      // native player heard every byte. T3/W03 records only an original
+      // completed-audio callback with exact turn/generation proof.
+      if(!authorized())return Object.freeze({status:'director_returned_with_stale_memory'});
       return Object.freeze(delivered?.status==='delivered'?
-        {status:'director_delivered',cueId:cue.cueId,
-          // PS4 frame injection must be separately audited by K.
-          requiresVerifiedPs4Receipt:true}:
+        {status:'director_submitted_audio_unverified',cueId:cue.cueId,
+          requiresVerifiedPs4Receipt:true,
+          requiresNativePlaybackCompletionReceipt:true}:
         {status:'director_not_delivered',directorStatus:delivered?.status??'unknown'});
     }catch {
       return Object.freeze({status:'director_or_ps4_failed'});

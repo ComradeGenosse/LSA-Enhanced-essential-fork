@@ -16,7 +16,8 @@ const readonly=(object)=>Object.freeze(object);
 
 /**
  * `authorize` proves the authenticated PLAYER is permitted to access this
- * EXACT character/world/timeline/protagonist, not merely that UI is open.
+ * EXACT NPC/world/timeline and CURRENT native source, not merely that UI is open.
+ * The avatar is authentication metadata, not a permanent-memory ownership key.
  * `assertScopeCurrent` checks the P2 timeline/writer/owner and active principal.
  * B must *also* enforce authorization inside its SQL port transaction.
  */
@@ -85,6 +86,7 @@ export function createM5ScopedPrivacyFacade({
         }
         const verified=await privacyPort.verifyPurge({scope,result});
         if(!verified || verified.confirmed!==true) return error();
+        if(!await recheck(args))return rejected('scope_changed');
         safe(onTelemetry,'write','purge');
         return readonly({status:'ok',operation:'purge',
           purgedCount:Array.isArray(result?.purgedIds)?result.purgedIds.length:0});
@@ -97,6 +99,7 @@ export function createM5ScopedPrivacyFacade({
         result?.operationId!==operationId ||
         JSON.stringify(actual.targetIds)!==JSON.stringify(result.targetIds))
         return error();
+      if(!await recheck(args))return rejected('scope_changed');
       safe(onTelemetry,'write',operation);
       return readonly({status:'ok',operation,receipt:actual});
     }catch{

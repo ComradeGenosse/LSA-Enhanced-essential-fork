@@ -1,3 +1,4 @@
+import './memory-m5-agent-b-cross-avatar.test.mjs'; // Agent B real SQLite regressions in existing M5 CI
 import './memory-m5-closure.test.mjs'; // F closure adversarial suite, included by existing M5 CI
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -75,7 +76,7 @@ test('M5 durable two-choice clarification survives reopen, rejects guessing and 
    resolved.evidenceRecordIds);
  await service.close();await x.store.close();
 });
-test('M5 expiry and protagonist isolation forbid stale/off-scope choice binding',async t=>{
+test('M5 pending clarification follows one player across avatars but still expires',async t=>{
  const x=await setup(t);await x.record('A scooter story','s1');await x.record('Another scooter story','s2');
  const cmd=await x.record('Remember the scooter','c');
  let now=Date.now();const clock=()=>new Date(now).toISOString();
@@ -84,7 +85,7 @@ test('M5 expiry and protagonist isolation forbid stale/off-scope choice binding'
  const cid=id();assert.equal((await handleExplicitMemoryCommand({
    line:cmd,scope:x.scope,commandId:cid,store:m5.bindCommands()})).outcome,'clarify');
  const other={...x.scope,protagonistKey:'trevor'};
- assert.equal(await m5.getClarification({scope:other,commandId:cid}),null);
+ assert.ok(await m5.getClarification({scope:other,commandId:cid}));
  now+=6*60*1000;
  assert.equal(await m5.getClarification({scope:x.scope,commandId:cid}),null);
  const reply=await x.record('first','late');
@@ -187,7 +188,7 @@ test('M5 source tombstone cascades into deterministic derived memories without e
  await m5.close();await x.store.close();
 });
 
-test('M5 authorized scope-wide trash is atomic and leaves foreign protagonist intact',async t=>{
+test('M5 authorized scope-wide trash covers all avatars and restores atomically',async t=>{
  const x=await setup(t);
  const a=await x.record('Franklin secret alpha','a');
  const b=await x.record('Franklin secret beta','b');
@@ -198,11 +199,11 @@ test('M5 authorized scope-wide trash is atomic and leaves foreign protagonist in
  assert.equal(result.operation,'trash_scope');
  assert.ok(result.targetIds.includes(a.recordId));
  assert.ok(result.targetIds.includes(b.recordId));
- assert.ok(!result.targetIds.includes(other.recordId));
+ assert.ok(result.targetIds.includes(other.recordId));
  const suppressed=await x.store.listSuppressedMemoryIds(x.scope);
  assert.ok(suppressed.includes(a.recordId)&&suppressed.includes(b.recordId));
  const foreign=await x.store.findCandidates({scope:{...x.scope,protagonistKey:'trevor'}});
- assert.ok(foreign.some(item=>item.recordId===other.recordId));
+ assert.ok(!foreign.some(item=>item.recordId===other.recordId));
  const trash=(await m5.inspect({scope:x.scope})).trash.filter(r=>!r.restoredAtUtc);
  assert.ok(trash.length>=2);
  const restored=await m5.restore({scope:x.scope,trashId:trash[0].trashId,operationId:id()});

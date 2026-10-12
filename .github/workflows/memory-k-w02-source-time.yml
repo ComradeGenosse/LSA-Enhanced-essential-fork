@@ -1,0 +1,50 @@
+name: Memory K W02 source-time evidence (offline ONLY)
+on:
+  push:
+    branches:
+      - feature/memory-k-t2-m3-source-time-20261011
+  pull_request:
+    paths:
+      - 'lsa-shared-brain/src/events/m3*'
+      - 'lsa-essential-e1-candidate/tests/m3*'
+      - 'lsa-essential-e1-candidate/tests/memory-k-w02*'
+      - 'native/intelligence/memory-m3/**'
+      - 'native/intelligence/memory-m3-tests/**'
+      - 'native/promoted-characters/M3SourceTimeOwnerSampler.cs'
+      - '.github/workflows/memory-k-w02-source-time.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  w02-node24:
+    name: W02 Node 24 / ${{ matrix.os }} (mock producer only)
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Source syntax
+        run: |
+          node --check lsa-shared-brain/src/events/m3SourceTimeAuthority.mjs
+          node --check lsa-shared-brain/src/events/m3ObserverOwnerBinder.mjs
+          node --check lsa-shared-brain/src/events/m3Ps2ObserverAdapter.mjs
+          node --check lsa-essential-e1-candidate/tests/memory-k-w02-source-time.test.mjs
+      - name: W02 isolated source-time/PS2/P2 regression
+        run: |
+          node --test lsa-essential-e1-candidate/tests/memory-k-w02-source-time.test.mjs
+          node --test lsa-essential-e1-candidate/tests/m3-completion.test.mjs
+  w02-native:
+    name: W02 native ledger (policy fixture, NOT live GTA)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - name: Source-time tick, incarnation, loss, dual-observer tests
+        run: dotnet run --project native/intelligence/memory-m3-tests/MemoryM3Tests.csproj --configuration Release

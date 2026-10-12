@@ -18,6 +18,7 @@ import {ensureM3CoverageSchema,appendM3Coverage,readM3Coverage} from '../events/
 import {readIntegratedRecall} from '../memory/sqliteIntegratedRecallProjection.mjs';
 import {ensureP2ReplaySchema,readP2ReplayPage,readP2ReplayCursor,acknowledgeP2ReplayCursor} from '../memory/p2ReplayCursor.mjs';
 import {ensureM5PrivacySchema} from '../memory/m5SqlitePrivacy.mjs';
+import {ensureM6P2ReplaySchema,readM6CheckpointSql,readM6JournalPageSql,ackM6CheckpointSql} from '../memory/m6P2ReplayAdapter.mjs';
 
 export const SQLITE_PROFILE_SCHEMA = 2;
 const fail = code => { throw new Error(code); };
@@ -212,7 +213,7 @@ export class P2SqliteFoundation {
       ensureM3CoverageSchema(db);
       // Additive v4 extensions, installed under the original P2 writer lock.
       // They do not change the M1 snapshot or PRAGMA user_version=4.
-      transaction(db,()=>{ensureM5PrivacySchema(db);ensureP2ReplaySchema(db);});
+      transaction(db,()=>{ensureM5PrivacySchema(db);ensureP2ReplaySchema(db);ensureM6P2ReplaySchema(db);});
       this.#db=db;
       return this.#snapshot;
     } catch(e){try {db?.close();}catch{}throw e;}
@@ -239,7 +240,8 @@ export class P2SqliteFoundation {
           removeDialogue.run(previous.characterId);
           removeEvents.run(previous.characterId);
           for(const table of ['memory_records','memory_commands','memory_tombstones','memory_corrections','memory_curation_jobs','memory_luna_appraisals',
-            'm5_clarifications','m5_trash','m5_privacy_ops','p2_memory_replay_feed','p2_memory_replay_cursors','m3_coverage']){
+            'm5_clarifications','m5_trash','m5_privacy_ops','p2_memory_replay_feed','p2_memory_replay_cursors','p2_memory_replay_player_cursors','m3_coverage',
+            'm6_p2_checkpoints','m6_p2_source_receipts','m6_p2_rejections','m6_p2_ack_diagnostics','m6_p2_ack_receipts']){
             this.#db.prepare('DELETE FROM '+table+' WHERE character_id=?').run(previous.characterId);
           }
         }
@@ -304,6 +306,10 @@ export class P2SqliteFoundation {
     if(!this.#db||typeof operation!=='function')fail('p2_sqlite_operation_unavailable');
     return transaction(this.#db,()=>operation(this.#db));
   }
+  readM6Checkpoint(request){return readM6CheckpointSql(this.#db,request,this.worldProfileId);}
+  readM6JournalPage(request){return readM6JournalPageSql(this.#db,request,this.worldProfileId);}
+  // P2 sole writer and timeline-CAS own acknowledgments.
+  ackM6Checkpoint(request){return ackM6CheckpointSql(this.#db,request,this.worldProfileId);}
   readReplayPage(request){return readP2ReplayPage(this.#db,request,this.worldProfileId);}
   readReplayCursor(request){return readP2ReplayCursor(this.#db,request,this.worldProfileId);}
   acknowledgeReplayCursor(request){

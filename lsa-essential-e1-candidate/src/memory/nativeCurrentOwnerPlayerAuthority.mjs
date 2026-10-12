@@ -1,0 +1,179 @@
+// D02: CURRENT native P2 owner/controlled-player corroboration. Not an
+// ordinary accepted typed/STT callback and never an acceptance producer.
+// Only K can provide the private post-authenticated intelligence-pipe port.
+// A caller-supplied frame, callback, nativeVerified flag, pedId, or transcript
+// is NOT native provenance. K must keep admission and registration private.
+const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+const ALIAS=/^promoted\.[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+const PED=/^[1-9][0-9]{0,9}$/;
+const AVATARS=new Set(['franklin','michael','trevor','unknown']);
+const integer=x=>Number.isSafeInteger(x)&&x>=0;
+const uuid=x=>typeof x==='string'&&UUID.test(x);
+const exact=(o,k)=>o&&typeof o==='object'&&!Array.isArray(o)&&
+  Object.keys(o).length===k.length&&k.every(key=>Object.hasOwn(o,key));
+const ownerFields=['observerCaptureRef','incarnationId','encounterId',
+  'ownerAlias','hostRunId','worldEpoch','nativeActorPedId','sampledGameTick'];
+const playerFields=['source','key','playerCaptureRef','sampledGameTick'];
+const contextFields=['streamId','adapterEpoch','hostRunId','worldEpoch'];
+const turnFields=['pedId','turnId','generationId','sessionNonce'];
+const same=(a,b,keys)=>!!a&&!!b&&keys.every(k=>a[k]===b[k]);
+const freeze=v=>v&&typeof v==='object'?Object.freeze(Array.isArray(v)?
+  v.map(freeze):Object.fromEntries(Object.entries(v).map(([k,x])=>[k,freeze(x)]))):v;
+const validTurn=i=>exact(i,turnFields)&&PED.test(i.pedId)&&
+  typeof i.turnId==='string'&&i.turnId.length>0&&i.turnId.length<=128&&
+  integer(i.generationId)&&integer(i.sessionNonce)&&i.sessionNonce>0;
+const validOwner=(o,p)=>exact(o,ownerFields)&&uuid(o.observerCaptureRef)&&
+  uuid(o.incarnationId)&&uuid(o.encounterId)&&ALIAS.test(o.ownerAlias)&&
+  o.hostRunId===p.hostRunId&&o.worldEpoch===p.worldEpoch&&
+  PED.test(o.nativeActorPedId)&&o.sampledGameTick===p.sampledGameTick;
+const validPlayer=(s,p)=>exact(s,playerFields)&&
+  s.source==='native_player_model'&&AVATARS.has(s.key)&&
+  uuid(s.playerCaptureRef)&&s.sampledGameTick===p.sampledGameTick;
+const MAX_OWNERS=16, SOURCE='native_p2_owner_fiber_current_only';
+const PAYLOAD=['nativeOwnerPlayerProofVersion','source','hostRunId',
+  'worldEpoch','sampledGameTick','owners','protagonist'];
+
+// The subscription callback must be invoked ONLY after K's original
+// authenticated Native IntelligenceClient socket + ShadowRuntime.ingest
+// validates the frame, host epoch, sequence, schema and source negotiation.
+// This module enforces a SECOND, independent synchronous read-through fence.
+// It cannot authenticate a socket by itself; never use a test fixture as one.
+export function createNativeCurrentOwnerPlayerAuthority({
+  subscribeAuthenticatedNativeOwnerPlayerFrames,
+  profileForAlias,
+  now=()=>performance.now(),
+  maxAgeMs=750,
+  leaseMs=1000
+}={}) {
+  if(typeof subscribeAuthenticatedNativeOwnerPlayerFrames!=='function'||
+     typeof profileForAlias!=='function'||typeof now!=='function'||
+     !Number.isSafeInteger(maxAgeMs)||maxAgeMs<1||maxAgeMs>1000||
+     !Number.isSafeInteger(leaseMs)||leaseMs<1||leaseMs>1000)
+    throw new TypeError('native_current_owner_private_ports_required');
+  let context=null, owners=new Map(), subject=null, sequence=-1,
+    gameTick=-1, receivedAt=-1, stop=null, leases=new WeakMap();
+  const retiredStreams=new Set(), retiredRefs=new Set();
+  const clear=()=>{
+    if(context?.streamId){
+      retiredStreams.add(context.streamId);
+      if(retiredStreams.size>64)retiredStreams.delete(retiredStreams.values().next().value);
+    }
+    context=null;owners=new Map();subject=null;sequence=-1;
+    gameTick=-1;receivedAt=-1;leases=new WeakMap();retiredRefs.clear();
+  };
+  const live=()=>!!context&&Number.isFinite(now())&&
+    now()>=receivedAt&&now()-receivedAt<=maxAgeMs;
+  const profile=alias=>{
+    try {
+      const p=profileForAlias(alias);
+      // Missing P2 timeline state is not an authorization.
+      return p&&!p.then&&uuid(p.characterId)&&p.promotion?.ownerAlias===alias&&
+        p.status!=='retired'&&p.timelineWritable===true&&
+        (p.worldEpoch===undefined||p.worldEpoch===context?.worldEpoch)?p:null;
+    }catch {return null;}
+  };
+  const take=receipt=>{
+    const f=receipt?.frame,p=f?.payload, stamp=now();
+    if(!Number.isFinite(stamp)||!f||f.type!=='memory_current_owner_player'||
+       f.version!==1||!uuid(f.streamId)||!uuid(f.adapterEpoch)||
+       !integer(f.sequence)||f.sequence<1||!exact(p,PAYLOAD)||
+       p.nativeOwnerPlayerProofVersion!==1||p.source!==SOURCE||
+       !uuid(p.hostRunId)||!integer(p.worldEpoch)||p.worldEpoch<1||
+       !integer(p.sampledGameTick)||p.sampledGameTick>0xffffffff||
+       !Array.isArray(p.owners)||p.owners.length>MAX_OWNERS||
+       !validPlayer(p.protagonist,p))return clear();
+    if(retiredStreams.has(f.streamId))return clear();
+    const next=freeze({streamId:f.streamId,adapterEpoch:f.adapterEpoch,
+      hostRunId:p.hostRunId,worldEpoch:p.worldEpoch});
+    if(context&&(!same(context,next,contextFields)||
+       f.sequence<=sequence||p.sampledGameTick<gameTick))return clear();
+    const nextOwners=new Map(),aliases=new Set(),peds=new Set();
+    for(const o of p.owners) {
+      if(!validOwner(o,p)||nextOwners.has(o.observerCaptureRef)||
+         aliases.has(o.ownerAlias)||peds.has(o.nativeActorPedId)||
+         retiredRefs.has(o.observerCaptureRef))return clear();
+      // A captureRef cannot be rebased to another incarnation/owner/Ped.
+      const prior=owners.get(o.observerCaptureRef);
+      if(prior&&!same(prior,o,ownerFields.filter(k=>k!=='sampledGameTick')))
+        return clear();
+      nextOwners.set(o.observerCaptureRef,freeze(o));
+      aliases.add(o.ownerAlias);peds.add(o.nativeActorPedId);
+    }
+    for(const ref of owners.keys())if(!nextOwners.has(ref))retiredRefs.add(ref);
+    if(subject&&!same(subject,p.protagonist,
+      playerFields.filter(k=>k!=='sampledGameTick'))) {
+      // Switching avatar or controlled player irrevocably revokes all leases.
+      leases=new WeakMap();
+    }
+    context=next;owners=nextOwners;subject=freeze(p.protagonist);
+    sequence=f.sequence;gameTick=p.sampledGameTick;receivedAt=stamp;
+  };
+  const unsubscribe=subscribeAuthenticatedNativeOwnerPlayerFrames(take,clear);
+  if(unsubscribe!==undefined&&typeof unsubscribe!=='function')
+    throw new TypeError('native_current_owner_bad_subscription');
+  stop=unsubscribe??null;
+
+  // K calls before the original backend accepts the normal player turn.
+  // This creates an opaque JS-object-identity lease from an authenticated
+  // native roster, NOT from backend text or a caller's trust flag.
+  function bindActorAtTurnStart({pedId,characterId,ownerAlias}={}) {
+    if(!live()||typeof pedId!=='string'||!PED.test(pedId)||
+       !uuid(characterId)||!ALIAS.test(ownerAlias||'')||!subject)return null;
+    const matches=[...owners.values()].filter(o=>
+      o.nativeActorPedId===pedId&&o.ownerAlias===ownerAlias);
+    if(matches.length!==1)return null;
+    const o=matches[0],p=profile(o.ownerAlias);
+    if(!p||p.characterId!==characterId)return null;
+    const lease=Object.freeze({kind:'native_actor_lifetime_lease_v1'});
+    leases.set(lease,{owner:o,player:subject,context,
+      pedId,characterId,ownerAlias,sequence,startedAt:now(),identity:null});
+    return lease;
+  }
+
+  // Positive native CURRENT corroboration only: the backend accepted-input
+  // receipt must be independently source-verified by K, with the same actor
+  // and a LIVE pre-acceptance lease. Demand a NEW native owner-fiber sample
+  // after lease creation. Missing next sample or any source gap => null.
+  function verifyCurrentOwnerAndPlayer({lease,identity,characterId,ownerAlias}={}) {
+    if(!live()||!lease||!validTurn(identity)||!uuid(characterId)||
+       !ALIAS.test(ownerAlias||''))return null;
+    const record=leases.get(lease);
+    if(!record||!Number.isFinite(now())||now()<record.startedAt||
+       now()-record.startedAt>leaseMs||
+       sequence<=record.sequence||!same(context,record.context,contextFields)||
+       record.characterId!==characterId||record.ownerAlias!==ownerAlias||
+       identity.pedId!==record.pedId||
+       !same(subject,record.player,playerFields.filter(k=>k!=='sampledGameTick')))
+      return null;
+    const owner=owners.get(record.owner.observerCaptureRef);
+    if(!owner||!same(owner,record.owner,
+       ownerFields.filter(k=>k!=='sampledGameTick')))return null;
+    const p=profile(owner.ownerAlias);
+    if(!p||p.characterId!==characterId)return null;
+    if(record.identity&&!same(record.identity,identity,turnFields))return null;
+    if(!record.identity)record.identity=freeze({...identity});
+    return freeze({
+      kind:'NativeCurrentPlayerAndOwnerV1',
+      nativeCurrentOwnerVerified:true,
+      originalBackendAccepted:false,
+      source:'authenticated_native_p2_owner_fiber_current_only',
+      identity:{...record.identity},characterId:p.characterId,
+      ownerAlias:owner.ownerAlias,
+      nativeActorPedId:owner.nativeActorPedId,
+      observerCaptureRef:owner.observerCaptureRef,
+      incarnationId:owner.incarnationId,
+      encounterId:owner.encounterId,
+      playerCaptureRef:subject.playerCaptureRef,
+      avatarKey:subject.key,
+      humanPlayerScope:'single_local_human',
+      hostRunId:context.hostRunId,worldEpoch:context.worldEpoch,
+      streamId:context.streamId,adapterEpoch:context.adapterEpoch,
+      sequence,sampledGameTick:gameTick,receivedAtMonotonicMs:receivedAt
+    });
+  }
+  function revokeLease(lease) {if(lease&&typeof lease==='object')leases.delete(lease);}
+  const status=()=>freeze({connected:!!live(),ownerCount:live()?owners.size:0,
+    supportsNativeAcceptedTurn:false,proofKind:'current_owner_player_only'});
+  return Object.freeze({bindActorAtTurnStart,verifyCurrentOwnerAndPlayer,
+    revokeLease,status,close(){clear();stop?.();stop=null;}});
+}

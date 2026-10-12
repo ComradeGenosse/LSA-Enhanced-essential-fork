@@ -15,7 +15,8 @@ function observed(ref=OA,n=100,channel='visual'){
   const claim={claimId:id(200+n),kind:channel==='report'?'report':'firing',certainty:'supported',
     evidence:channel==='report'?{channel,basis:'dialogue_report',sampledGameTick:n,reportRef:id(400+n)}:
       {channel,basis:channel==='auditory'?'audibility_model':'sampled_state',sampledGameTick:n},
-    ...(channel==='report'?{}:{source:{captureRef:PLAYER,kind:'player'}})};
+    ...(channel==='report'?{}:{source:{captureRef:PLAYER,kind:'player'}}),
+    details:{eventSignalId:id(700+n),reason:'native_source_sample'}};
   return {version:1,observationId:id(500+n),episodeId:EP,revision:1,
     observer:{kind:'ped',captureRef:ref},observedAt:{nativeRun:E,gameTick:n,receivedUtc:'2026-10-11T22:00:00.000Z'},
     eventType:channel==='report'?'report':'firing_burst',severity:'routine',claims:[claim],
@@ -66,15 +67,21 @@ function rig({scheduler,gate,pre=false}={}){
     },
     appendJournalEvent(){throw new Error('must_use_single_p2_transaction');}
   };
-  const ownerProof=({observerCaptureRef,adapterEpoch,observedGameTick})=>{
+  const ownerProof=({observerCaptureRef,adapterEpoch,observedGameTick,observation,observationId,observationRevision})=>{
     if(!state.nativeOwners.has(observerCaptureRef))return null;
     const p=proof(observerCaptureRef);
     return {nativeVerified:true,current:true,promoted:profiles.has(char(observerCaptureRef)),
       reserved:!profiles.has(char(observerCaptureRef)),characterId:char(observerCaptureRef),
       ownerAlias:p.ownerAlias,ownerProof:p,
-      sourceAtObservation:{nativeVerified:true,gameTick:observedGameTick,adapterEpoch,
+      sourceAtObservation:{nativeVerified:true,source:'original_native_ps2_witness_sample',
+        gameTick:observedGameTick,adapterEpoch,observationId,revision:observationRevision,
         hostRunId:R,worldEpoch:3,observerCaptureRef,ownerAlias:p.ownerAlias,
-        incarnationId:p.incarnationId,encounterId:p.encounterId}};
+        incarnationId:p.incarnationId,encounterId:p.encounterId,
+        signalProofs:observation.claims.map(claim=>({
+          claimId:claim.claimId,signalId:claim.details.eventSignalId,
+          sourceReceiptId:id(800+Number(claim.evidence.sampledGameTick)),
+          sampledGameTick:claim.evidence.sampledGameTick,
+          channel:claim.evidence.channel,basis:claim.evidence.basis}))}};
   };
   const nativeAuthority={resolveNativeOwner:ownerProof,resolvePrepromotion:ownerProof,
     resolveParticipants:()=>state.protagonist?[{nativeVerified:true,verified:true,

@@ -58,7 +58,7 @@ test('M2 -> real M5 command writes -> readback -> reopen without false acknowled
   }finally{await second.close()}
  }finally{await x.store.close()}
 });
-test('M4 reads real M2 bytes but excludes foreign protagonists and suppresses missing evidence',async t=>{
+test('M4 reads exact dialogue across all player avatars without fabricating evidence',async t=>{
  const x=await setup(t);
  try{
   const text='  🚗 TWO spaces  with olives!  ';
@@ -72,7 +72,8 @@ test('M4 reads real M2 bytes but excludes foreign protagonists and suppresses mi
   assert.equal(found.bundle.items[0].content,text);
   const missing=await recallFromSharedJournal({store:x.store,query:request(x.scope,'what did I say about pineapple?'),
     protagonistKey:'franklin',nowUtc:new Date().toISOString()});
-  assert.equal(missing.bundle.status,'unavailable');
+  assert.equal(missing.bundle.status,'matched');
+  assert.ok(missing.bundle.items.some(item=>item.content==='trevor-only pineapple'));
  }finally{await x.store.close()}
 });
 test('M1 source revocation makes real M5 commit fail without acknowledging success',async t=>{
@@ -233,18 +234,23 @@ test('H: M3 certified negative coverage uses one P2 transaction and survives res
  const ownerProof={ownerAlias:x.store.get(x.scope.characterId).promotion.ownerAlias,
    incarnationId:id(),encounterId:id(),hostRunId:x.host.hostRunId,
    worldEpoch:x.host.worldEpoch,observerCaptureRef:id()};
+ const adapterEpoch=id();
  const scope={characterId:x.scope.characterId,worldProfileId:x.scope.worldProfileId,
-   timelineId:x.scope.timelineId,observationId};
- const receipt={certified:true,sourceReceiptId:id(),status:'did_not_witness',
-   observerCaptureRef:ownerProof.observerCaptureRef,hostRunId:ownerProof.hostRunId,
-   worldEpoch:ownerProof.worldEpoch,sampledGameTick:123,channel:'visual',basis:'native_awareness'};
+   timelineId:x.scope.timelineId,observationId,adapterEpoch};
+ // Synthetic native receipt used to exercise the real P2 M3 source validator.
+ const receipt={certified:true,nativeVerified:true,sourceReceiptId:id(),
+   observationId,adapterEpoch,ownerAlias:ownerProof.ownerAlias,
+   incarnationId:ownerProof.incarnationId,encounterId:ownerProof.encounterId,
+   status:'did_not_witness',observerCaptureRef:ownerProof.observerCaptureRef,
+   hostRunId:ownerProof.hostRunId,worldEpoch:ownerProof.worldEpoch,
+   sampledGameTick:123,channel:'visual',basis:'native_awareness'};
  const record={...scope,status:'did_not_witness',reason:'fixture_native_negative',
    ownerProof,nativeCoverage:receipt};
  try{
    const ports=createM3JournalPorts(x.store);
-   assert.equal((await x.store.readM3Coverage(scope)).status,'unavailable');
+   assert.equal((await x.store.readM3Coverage(scope)).status,'unknown');
    await assert.rejects(x.store.withTimelineWrite(scope.timelineId,foundation=>
-     ports.journalPort.recordCoverage({...record,nativeCoverage:null},foundation)),/m3_negative_not_certified/);
+     ports.journalPort.recordCoverage({...record,nativeCoverage:null},foundation)),/m3_negative_not_certified|m3_coverage_invalid/);
    assert.equal((await x.store.readM3Coverage(scope)).certified,false);
    assert.equal((await x.store.withTimelineWrite(scope.timelineId,foundation=>
      ports.journalPort.recordCoverage(record,foundation))).inserted,true);
@@ -261,7 +267,7 @@ test('H: M3 certified negative coverage uses one P2 transaction and survives res
    await reopened.initialize();
    try{
      assert.equal((await reopened.readM3Coverage(scope)).certified,true);
-     assert.equal((await reopened.readM3Coverage({...scope,characterId:id()})).status,'unavailable');
+     assert.equal((await reopened.readM3Coverage({...scope,characterId:id()})).status,'unknown');
    }finally{await reopened.close();}
  }finally{await x.store.close()}
 });
@@ -282,10 +288,12 @@ test('H: strict M4 integrated projection uses existing P2 SQLite connection and 
    assert.equal(result.bundle.totalBytes,Buffer.byteLength(JSON.stringify(result.bundle),'utf8'));
    const other=await recallMemory({query,readAdapter,protagonistKey:'trevor',
      nowUtc:new Date().toISOString()});
-   assert.equal(other.bundle.status,'unavailable');
+   assert.equal(other.bundle.status,'matched');
+   assert.ok(other.bundle.items.some(item=>item.content===exact));
  }finally{await x.store.close()}
 });
 
 // The combined PR #75 workflow runs this DB-owned suite explicitly.
 // Include closure-B adversarial fixtures without changing K-owned CI.
 import './memory-b-closure.test.mjs';
+import './memory-agent-a-storage-recall.test.mjs';

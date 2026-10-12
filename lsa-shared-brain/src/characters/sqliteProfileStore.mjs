@@ -281,6 +281,37 @@ export class P2SqliteProfileStore {
       });
     });
   }
+  // W06: source-qualified append-order M6 replay, separate from B's per-protagonist
+  // consumer cursor. Every read and CAS runs through the original P2 queue.
+  // M6 MUST have a current source-authenticated native host. A P2 store
+  // configured for unauthenticated/test-only operation cannot authorize a
+  // production replay cursor merely because its timeline is writable.
+  #requireM6NativeSource(){
+    if(this.timelineSourceStatus!=='verified'||!this.verifiedHostContext)
+      fail('m6_native_authority_required');
+  }
+  async readM6Checkpoint({scope}){
+    this.#requireM6NativeSource();
+    return this.withP2SqliteRead(scope,()=>{
+      this.#requireM6NativeSource();
+      return this.#db.readM6Checkpoint({scope});
+    });
+  }
+  async readM6JournalPage({scope,afterCursor=null,limit=250}){
+    this.#requireM6NativeSource();
+    return this.withP2SqliteRead(scope,()=>{
+      this.#requireM6NativeSource();
+      return this.#db.readM6JournalPage({scope,afterCursor,limit});
+    });
+  }
+  async ackM6Checkpoint(request){
+    this.#requireM6NativeSource();
+    const scope=request?.scope;
+    return this.withP2SqliteTransaction(scope,()=>{
+      this.#requireM6NativeSource();
+      return this.#db.ackM6Checkpoint(request);
+    });
+  }
   // Scoped journal writes are serialized WITH the M1 source/lineage check.
   // A player/NPC acknowledgment from a stale native host is never durable.
   async appendDialogueLine(line,attribution) {

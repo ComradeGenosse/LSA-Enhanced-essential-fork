@@ -62,7 +62,7 @@ test('M7 real SQLite queue survives restart, stores source-linked opinion separa
    assert.equal(rows[0].verifiedWorldFact,false);
    assert.deepEqual(rows[0].sourceEvidenceIds,f.proposal.evidenceRecordIds);
    assert.equal(readCurationAppraisals(reopened,{characterId:f.scope.characterId,
-      timelineId:f.scope.timelineId,protagonistKey:'trevor'},f.scope.worldProfileId).length,0);
+      timelineId:f.scope.timelineId,protagonistKey:'trevor'},f.scope.worldProfileId).length,1);
  }finally{reopened.close()}
  assert.equal(claim(f).length,0);
 });
@@ -445,4 +445,46 @@ test('M7 enforces timeout, no late SQLite commit and uncertain reservation settl
  assert.equal(f.db.prepare('SELECT state FROM memory_budget_reservations').get().state,'settled');
  assert.equal(f.db.prepare('SELECT state FROM memory_curation_jobs').get().state,'pending');
  await s.stop();
+});
+
+
+test('M7 SQLite pagination preserves older cross-avatar appraisal behind a suppressed newer row',t=>{
+ const f=fixture(t),[lease]=claim(f);
+ assert.equal(complete(f,lease).durableCommit,true);
+ const other={version:1,kind:'dialogue_line',...f.scope,recordId:id(276),
+   speaker:'player',source:'typed',delivery:'accepted',
+   content:'That running joke was hilarious!',committedAtUtc:at(4),
+   attribution:{protagonist:'trevor'}};
+ const [newer]=selectAutomaticMemories([other]);
+ assert.ok(newer);
+ f.db.prepare('INSERT INTO dialogue_journal(record_id,world_profile_id,timeline_id,character_id,speaker,source,delivery,receipt_id,protagonist) VALUES(?,?,?,?,?,?,?,?,?)')
+   .run(other.recordId,f.scope.worldProfileId,f.scope.timelineId,f.scope.characterId,
+     'player','typed','accepted',null,'trevor');
+ f.db.prepare('INSERT INTO memory_records(memory_id,character_id,world_profile_id,timeline_id,protagonist_key,origin,content,content_sha256,mode,pin,notability,evidence_ids_json,created_at_utc,proposal_json) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)')
+   .run(newer.proposalId,f.scope.characterId,f.scope.worldProfileId,f.scope.timelineId,
+     'trevor','deterministic',newer.groundedSummary,'test-checksum','reported_claim',0,
+     newer.notability,JSON.stringify(newer.evidenceRecordIds),at(4),JSON.stringify(newer));
+ const newerOpinion={...newer,provider:'luna',inCharacterTake:'I enjoyed that joke.'};
+ f.db.prepare('INSERT INTO memory_luna_appraisals(proposal_id,world_profile_id,timeline_id,character_id,original_proposal_json,appraisal_json,completed_at_utc) VALUES(?,?,?,?,?,?,?)')
+   .run(newer.proposalId,f.scope.worldProfileId,f.scope.timelineId,f.scope.characterId,
+     JSON.stringify(newer),JSON.stringify(newerOpinion),at(5));
+ // A Michael-issued forget still suppresses Trevor's derived opinion, not the
+ // separate older Franklin source. The requested LIMIT must count visible rows.
+ f.db.prepare('INSERT INTO memory_tombstones(character_id,world_profile_id,timeline_id,target_id,command_id,created_at_utc) VALUES(?,?,?,?,?,?)')
+   .run(f.scope.characterId,f.scope.worldProfileId,f.scope.timelineId,
+     newer.proposalId,id(277),at(6));
+ for(const avatar of ['franklin','michael','trevor']){
+   const actual=readCurationAppraisals(f.db,{...f.scope,protagonistKey:avatar,limit:1},
+     f.scope.worldProfileId);
+   assert.deepEqual(actual.map(x=>x.proposalId),[f.proposal.proposalId],avatar);
+   assert.equal(actual[0].protagonistKey,'franklin');
+ }
+ const reopened=new DatabaseSync(f.file);
+ try{
+   assert.deepEqual(readCurationAppraisals(reopened,{...f.scope,protagonistKey:'michael',limit:1},
+     f.scope.worldProfileId).map(x=>x.proposalId),[f.proposal.proposalId]);
+ }finally{reopened.close();}
+ // A suppressed historical source is not eligible for a fresh cloud queue.
+ assert.throws(()=>enqueueCuration(f.db,{job:makeQueueJob(newer,at(7))},
+   f.scope.worldProfileId,f.scope.timelineId),/curation_source_no_longer_authorized/);
 });

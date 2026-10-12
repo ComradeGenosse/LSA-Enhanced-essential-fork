@@ -49,7 +49,7 @@ export class M3ObserverOwnerBinder {
     const native=sync(resolver(Object.freeze({observerCaptureRef:ref,observerIndex:row,
       hostRunId:host.hostRunId,worldEpoch:host.worldEpoch,adapterEpoch:ps.epoch,
       observedGameTick:observation.observedAt.gameTick,observationId:observation.observationId,
-      observationRevision:observation.revision})));
+      observationRevision:observation.revision,observation:source})));
     if(!native?.current||native.nativeVerified!==true||!currentProof(native.ownerProof,row,host)||
        native.ownerProof.ownerAlias!==native.ownerAlias||
        !isUuid(native.characterId))return null;
@@ -61,7 +61,20 @@ export class M3ObserverOwnerBinder {
        at.gameTick!==observation.observedAt.gameTick||at.adapterEpoch!==ps.epoch||
        at.hostRunId!==host.hostRunId||at.worldEpoch!==host.worldEpoch||
        at.observerCaptureRef!==ref||at.ownerAlias!==native.ownerAlias||
-       at.incarnationId!==row.incarnationId||at.encounterId!==row.encounterId))return null;
+       at.incarnationId!==row.incarnationId||at.encounterId!==row.encounterId||
+       at.source!=='original_native_ps2_witness_sample'||
+       at.observationId!==observation.observationId||at.revision!==observation.revision||
+       !Array.isArray(at.signalProofs)||
+       at.signalProofs.length!==source.claims.length||
+       source.claims.some((claim,i)=>{
+         const proof=at.signalProofs[i];
+         return !proof||proof.claimId!==claim.claimId||
+           proof.signalId!==claim.details?.eventSignalId||
+           proof.sampledGameTick!==claim.evidence?.sampledGameTick||
+           proof.channel!==claim.evidence?.channel||
+           proof.basis!==claim.evidence?.basis||
+           !isUuid(proof.sourceReceiptId);
+       })))return null;
     const selected=this.#p2.activeTimelineId,world=this.#p2.worldProfileId;
     if(!isUuid(selected)||!isUuid(world)||this.#p2.timelineWritable!==true)return null;
     const profile=(this.#p2.snapshot?.profiles||[]).find(p=>
@@ -106,7 +119,10 @@ export class M3ObserverOwnerBinder {
     }
     return immutableSnapshot({promoted,current:true,characterId:native.characterId,
       worldProfileId:world,timelineId:selected,adapterEpoch:ps.epoch,
-      ownerProof:native.ownerProof,participantProofs});
+      ownerProof:native.ownerProof,participantProofs,
+      // K's sidecar integration must persist this immutable source ticket
+      // alongside original PS2 evidence under the SAME serialized writer.
+      sourceTimeEvidence:at});
   }
   // Called only from ShadowRuntime.acceptedObservationTap, which authenticates
   // its wire input and verifies the correlator actually accepted this receipt.

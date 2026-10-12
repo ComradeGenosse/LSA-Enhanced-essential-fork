@@ -66,6 +66,12 @@ export class SharedJournalRecallAdapter{
        !Number.isSafeInteger(limit)||limit<1||limit>384)
       throw new TypeError('recall_invalid_scope');
     if(this.store.worldProfileId!==scope.worldProfileId)throw new Error('recall_world_mismatch');
+    // Production P2 has a single source-qualified SQLite projection. Prefer
+    // it over rebuilding recall from multiple independently paged journal
+    // reads, which can otherwise admit an invalid derived source chain.
+    // Retain journal fallback for older stores/tests without this capability.
+    if(typeof this.store.readIntegratedRecall==='function')
+      return this.store.readIntegratedRecall({scope,terms,fromUtc,toUtc,sourceKind,speaker,limit});
     const wanted=sourceKind===null?['dialogue_line','journal_event','permanent_memory']:[sourceKind];
     const unique=new Map();
     const suppressed=new Set(typeof this.store.listSuppressedMemoryIds==='function'
@@ -77,7 +83,7 @@ export class SharedJournalRecallAdapter{
       if(suppressed.has(envelope?.recordId)||corrected.has(envelope?.recordId))return;
       if(!envelope||envelope.characterId!==scope.characterId||
          envelope.worldProfileId!==scope.worldProfileId||envelope.timelineId!==scope.timelineId||
-         protagonistKey!==scope.protagonistKey||typeof atUtc!=='string'||
+         typeof atUtc!=='string'||
          (fromUtc&&atUtc<fromUtc)||(toUtc&&atUtc>=toUtc)||
          (speaker&&sourceKind==='dialogue_line'&&envelope.speaker!==speaker))return;
       unique.set(envelope.recordId,{characterId:scope.characterId,worldProfileId:scope.worldProfileId,
@@ -108,7 +114,7 @@ export class SharedJournalRecallAdapter{
       for(const e of events){
         // M3 has no trusted controlling-protagonist field yet. Do not silently
         // assign a native event to Franklin/Michael/Trevor by proximity.
-        if(scope.protagonistKey!=='unknown')continue;
+        // Historical events require proof, not an assumed controlling avatar.
         const evidence=await this.store.readVerifiedEventEvidence({
           characterId:scope.characterId,timelineId:scope.timelineId,recordId:e.recordId});
         if(!evidence||evidence.event.sourceHash!==e.sourceHash)continue;

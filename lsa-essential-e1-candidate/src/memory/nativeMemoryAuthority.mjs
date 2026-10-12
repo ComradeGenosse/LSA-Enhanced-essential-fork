@@ -20,9 +20,17 @@ const validOwner=p=>p&&isUUID(p.hostRunId)&&whole(p.worldEpoch)&&p.worldEpoch>0&
   isUUID(p.observerCaptureRef)&&isUUID(p.incarnationId)&&isUUID(p.encounterId)&&
   typeof p.ownerAlias==='string'&&ALIAS.test(p.ownerAlias)&&
   whole(p.sampledGameTick)&&p.sampledGameTick<=0xffffffff;
-const validIdentity=i=>i&&turnKeys.every(k=>i[k]!==null&&i[k]!==undefined&&
-  String(i[k]).length>0&&String(i[k]).length<=128)&&whole(Number(i.sessionNonce))&&
-  Number(i.sessionNonce)>0&&whole(Number(i.generationId));
+const validIdentity=i=>i&&typeof i.pedId==='string'&&
+  i.pedId.length>0&&i.pedId.length<=128&&typeof i.turnId==='string'&&
+  i.turnId.length>0&&i.turnId.length<=128&&whole(i.generationId)&&
+  whole(i.sessionNonce)&&i.sessionNonce>0;
+const exactKeys=(obj,keys)=>obj&&typeof obj==='object'&&!Array.isArray(obj)&&
+  Object.keys(obj).length===keys.length&&keys.every(k=>Object.hasOwn(obj,k));
+const C01_LIFETIME_MS=1000;
+const C01_ORIGIN='original_essential_c01_normal_accepted_callback';
+// No original normal typed/STT accepted-turn callback is exposed at this pin.
+// In particular PS3, Director stock binding, JS history and model outputs
+// cannot produce this original-source receipt.
 const validContext=c=>c&&isUUID(c.hostRunId)&&whole(c.worldEpoch)&&c.worldEpoch>0&&isUUID(c.adapterEpoch);
 const protagonistKeys=new Set(['franklin','michael','trevor','unknown']);
 const maxOwners=16;
@@ -32,15 +40,21 @@ const MAX_AGE=1000;
 // ShadowRuntime.ingest(...,{authenticated:true}) on the genuine named pipe.
 // Never expose a public push/setVerified method to UI, caller flags, or mocks.
 export function createNativeMemoryAuthority({
-  subscribeAuthenticatedNativeFrames,profileForAlias,now=()=>performance.now(),
+  subscribeAuthenticatedNativeFrames,
+  // K-only private validated-pipe callback, unavailable with the pinned ABI.
+  subscribeAuthenticatedOriginalC01Frames=null,
+  profileForAlias,now=()=>performance.now(),
   maxAgeMs=MAX_AGE
 }={}) {
   if(typeof subscribeAuthenticatedNativeFrames!=='function'||
      typeof profileForAlias!=='function'||typeof now!=='function'||
      !Number.isSafeInteger(maxAgeMs)||maxAgeMs<1||maxAgeMs>2000)
     throw new TypeError('memory_native_authenticated_ports_required');
+  if(subscribeAuthenticatedOriginalC01Frames!==null&&
+     typeof subscribeAuthenticatedOriginalC01Frames!=='function')
+    throw new TypeError('memory_c01_authenticated_port_invalid');
   let context=null,owners=new Map(),player=null,turns=new Map(),seq=-1,lastAt=-1;
-  let disconnect=null;
+  let disconnect=null,disconnectC01=null;
   const retiredStreams=new Set();
   const clear=()=>{
     if(context?.streamId){
@@ -55,7 +69,8 @@ export function createNativeMemoryAuthority({
     try {
       const p=profileForAlias(alias);
       return p&&!p.then&&isUUID(p.characterId)&&p.promotion?.ownerAlias===alias&&
-        p.status!=='retired'?p:null;
+        p.status!=='retired'&&p.timelineWritable!==false&&
+        (p.worldEpoch===undefined||p.worldEpoch===context?.worldEpoch)?p:null;
     } catch {return null;}
   };
   const accept=receipt=>{
@@ -69,7 +84,7 @@ export function createNativeMemoryAuthority({
        !whole(p.worldEpoch)||p.worldEpoch<1||
        !whole(p.sampledGameTick)||p.sampledGameTick>0xffffffff||
        !Array.isArray(p.owners)||p.owners.length>maxOwners||
-       !Array.isArray(p.acceptedTurns||[])||(p.acceptedTurns||[]).length>32)
+       !Array.isArray(p.acceptedTurns)||p.acceptedTurns.length!==0)
       return clear();
     if(!context&&retiredStreams.has(f.streamId))return;
     if(context&&context.streamId!==f.streamId&&retiredStreams.has(f.streamId))return clear();
@@ -98,25 +113,70 @@ export function createNativeMemoryAuthority({
       const x=p.protagonist;
       if(!x||!protagonistKeys.has(x.key)||x.source!=='native_player_model'||
          !whole(x.sampledGameTick)||x.sampledGameTick!==p.sampledGameTick||
-         (x.key!=='unknown'&&!isUUID(x.playerCaptureRef)))return clear();
+         !isUUID(x.playerCaptureRef))return clear();
       subject=immutable(x);
     }
-    // Exact native C-01 accepted-turn receipts only, when that producer
-    // exists. Director stock generation receipts are NOT C-01 evidence.
-    const turnMap=new Map();
-    for(const t of p.acceptedTurns||[]){
-      if(!validIdentity(t.identity)||!validOwner(t.ownerProof)||
-         !copy.has(t.ownerProof.observerCaptureRef)||
-         !same(t.ownerProof,copy.get(t.ownerProof.observerCaptureRef),ownerKeys)||
-         t.source!=='original_c01_accepted_turn'||t.status!=='accepted'||
-         typeof t.ownerAlias!=='string'||t.ownerAlias!==t.ownerProof.ownerAlias||
-         !protagonistKeys.has(t.protagonistKey))return clear();
-      const k=turnKeys.map(key=>String(t.identity[key])).join('\u001f');
-      if(turnMap.has(k))return clear();
-      turnMap.set(k,immutable(t));
+    // v1 remains owners/protagonist ONLY. Preserve a bounded separate v2
+    // turn only while the new full roster and native player prove continuity.
+    const compatible=context&&context.streamId===next.streamId&&
+      player&&subject&&player.key===subject.key&&
+      player.playerCaptureRef===subject.playerCaptureRef;
+    const retained=new Map();
+    if(compatible)for(const [key,receipt] of turns) {
+      const owner=copy.get(receipt.ownerProof.observerCaptureRef);
+      if(owner&&same(owner,receipt.ownerProof,ownerKeys)&&
+         p.sampledGameTick>=receipt.acceptedGameTick&&
+         p.sampledGameTick<=receipt.expiresGameTick&&
+         now()-receipt.receivedAt<=C01_LIFETIME_MS)
+        retained.set(key,receipt);
     }
     if(context&&context.streamId!==next.streamId)retiredStreams.add(context.streamId);
-    context=next;owners=copy;player=subject;turns=turnMap;seq=f.sequence;lastAt=now();
+    context=next;owners=copy;player=subject;turns=retained;seq=f.sequence;lastAt=now();
+  };
+  // This is a PROPOSED v2 contract and read-through verifier only.
+  // K must NOT register it before proving a real original Core accepted
+  // typed/STT callback and adding strict validation to the authenticated
+  // pipe. An app/JS callback or stock Director binding is not its source.
+  const acceptC01=receipt=>{
+    if(!live()||!receipt?.frame)return clear();
+    const f=receipt.frame,p=f.payload;
+    const fields=['c01ProofVersion','source','status','sourceMode','hostRunId',
+      'worldEpoch','acceptedGameTick','expiresGameTick','identity',
+      'nativeOwnerPedId','ownerProof','protagonist'];
+    if(f.version!==2||f.type!=='memory_c01_accepted'||
+       f.streamId!==context.streamId||f.adapterEpoch!==context.adapterEpoch||
+       !whole(f.sequence)||f.sequence<=seq||!exactKeys(p,fields)||
+       p.c01ProofVersion!==2||p.source!==C01_ORIGIN||
+       p.status!=='accepted'||!['typed','stt'].includes(p.sourceMode)||
+       p.hostRunId!==context.hostRunId||p.worldEpoch!==context.worldEpoch||
+       !validIdentity(p.identity)||p.nativeOwnerPedId!==p.identity.pedId||
+       !whole(p.acceptedGameTick)||p.acceptedGameTick>0xffffffff||
+       !whole(p.expiresGameTick)||p.expiresGameTick>0xffffffff||
+       p.expiresGameTick<p.acceptedGameTick||
+       p.expiresGameTick-p.acceptedGameTick>C01_LIFETIME_MS||
+       !exactKeys(p.ownerProof,ownerKeys)||
+       !validOwner({...p.ownerProof,sampledGameTick:p.acceptedGameTick})||
+       p.ownerProof.hostRunId!==context.hostRunId||
+       p.ownerProof.worldEpoch!==context.worldEpoch||
+       !exactKeys(p.protagonist,['source','key','playerCaptureRef','sampledGameTick'])||
+       p.protagonist.source!=='native_player_model'||
+       !protagonistKeys.has(p.protagonist.key)||
+       !isUUID(p.protagonist.playerCaptureRef)||
+       !whole(p.protagonist.sampledGameTick)||
+       p.protagonist.sampledGameTick!==p.acceptedGameTick||
+       !player||player.key!==p.protagonist.key||
+       player.playerCaptureRef!==p.protagonist.playerCaptureRef)return clear();
+    const owner=owners.get(p.ownerProof.observerCaptureRef);
+    if(!owner||!same(owner,p.ownerProof,ownerKeys)||
+       p.acceptedGameTick<owner.sampledGameTick||
+       p.acceptedGameTick-owner.sampledGameTick>C01_LIFETIME_MS||
+       !profileFor(owner.ownerAlias))return clear();
+    // A subsequent accepted turn supersedes the old generation/session.
+    turns=new Map();
+    const key=turnKeys.map(k=>String(p.identity[k])).join('\u001f');
+    turns.set(key,immutable({...p,receivedAt:now()}));
+    seq=f.sequence;
+    lastAt=now();
   };
   // Called by K's native-validated pipe adapter. An untrusted direct
   // function result, mock-supplied "nativeVerified", or PS3 score is not proof.
@@ -124,6 +184,12 @@ export function createNativeMemoryAuthority({
   if(stop!==undefined&&typeof stop!=='function')
     throw new TypeError('memory_native_invalid_subscription');
   disconnect=stop??null;
+  if(subscribeAuthenticatedOriginalC01Frames){
+    const stopC01=subscribeAuthenticatedOriginalC01Frames(acceptC01,clear);
+    if(stopC01!==undefined&&typeof stopC01!=='function')
+      throw new TypeError('memory_c01_invalid_subscription');
+    disconnectC01=stopC01??null;
+  }
 
   function resolveNativeOwner(input={}) {
     if(!live()||!input||input.hostRunId!==context.hostRunId||
@@ -172,14 +238,21 @@ export function createNativeMemoryAuthority({
        input.worldEpoch!==context.worldEpoch)return null;
     const key=turnKeys.map(k=>String(input.identity[k])).join('\u001f');
     const t=turns.get(key);
-    if(!t||t.ownerAlias!==input.ownerAlias||
-       player?.key!==t.protagonistKey||
+    if(!t||t.ownerProof.ownerAlias!==input.ownerAlias||
+       now()-t.receivedAt>C01_LIFETIME_MS||
+       player?.key!==t.protagonist.key||
+       player?.playerCaptureRef!==t.protagonist.playerCaptureRef||
+       (input.adapterEpoch!==undefined&&input.adapterEpoch!==context.adapterEpoch)||
+       (input.protagonistKey!==undefined&&input.protagonistKey!==t.protagonist.key)||
        ![...owners.values()].some(o=>same(o,t.ownerProof,ownerKeys)))return null;
-    const p=profileFor(t.ownerAlias);
+    const p=profileFor(t.ownerProof.ownerAlias);
     if(!p||p.characterId!==input.characterId)return null;
-    return immutable({nativeVerified:true,current:true,characterId:p.characterId,
-      ownerAlias:t.ownerAlias,hostRunId:context.hostRunId,
-      worldEpoch:context.worldEpoch,protagonistKey:t.protagonistKey});
+    return immutable({nativeVerified:true,current:true,identity:immutable(t.identity),
+      characterId:p.characterId,ownerAlias:t.ownerProof.ownerAlias,
+      ownerProof:t.ownerProof,hostRunId:context.hostRunId,
+      worldEpoch:context.worldEpoch,adapterEpoch:context.adapterEpoch,
+      streamId:context.streamId,protagonistKey:t.protagonist.key,
+      originalSource:C01_ORIGIN,sourceMode:t.sourceMode});
   }
   // No native-certified NEGATIVE PS2 coverage producer exists at this SHA;
   // never infer a negative from an omitted signal or generic visual geometry.
@@ -189,9 +262,12 @@ export function createNativeMemoryAuthority({
   const resolvePrepromotion=()=>null;
   const status=()=>immutable({connected:!!live(),
     ownerCount:live()?owners.size:0,
-    c01TurnProofAvailable:live()&&turns.size>0,
+    c01TurnProofAvailable:live()&&[...turns.values()].some(t=>
+      now()-t.receivedAt<=C01_LIFETIME_MS),
+    c01ProtocolVersion:2,
     nativeNegativeCoverageAvailable:false,nativePrepromotionAvailable:false});
   return Object.freeze({verifyCurrentTurn,resolveNativeOwner,resolveParticipants,
     verifyNativeCoverage,resolvePrepromotion,status,
-    close(){clear();disconnect?.();disconnect=null;}});
+    close(){clear();disconnect?.();disconnectC01?.();
+      disconnect=null;disconnectC01=null;}});
 }

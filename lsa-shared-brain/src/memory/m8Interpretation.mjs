@@ -1,5 +1,7 @@
 // M8: pure, source-linked interpretation. Never mutates P2 evidence or writes PS4 frames.
 import {isUuid, normalizedEvidence, sameScope, stableUuid, factDigest} from './evidence.mjs';
+import {detectExplicitMemoryCommand} from './explicitCommands.mjs';
+import {performance} from 'node:perf_hooks';
 
 const PROTAGONISTS=new Set(['franklin','michael','trevor','unknown']);
 const STYLES=new Set(['goofy','sarcastic','dry','dark','wholesome']);
@@ -31,10 +33,10 @@ function sourceEnvelope(row,scope){
  // The P2 reader must verify PS2 observer authority and persisted sidecar separately.
  if(e.kind==='journal_event'&&row.sidecarVerified!==true)return null;
  // v1 witnessed events do NOT prove the controlling protagonist's identity.
- if(e.protagonistKey!==scope.protagonistKey)return null;
+ // Source avatar is historical proof, not a separate player relationship.
  return e;
 }
-function categoryOf(row){
+export function categoryOf(row){
  if(row.kind==='journal_event'){
   const s=[row.eventType,...row.claims.map(x=>x.kind)].join(' ');
   if(/crash|rollover|collision|impact|flip/i.test(s))return 'crash';
@@ -45,6 +47,9 @@ function categoryOf(row){
   return null;
  }
  const x=row.content;
+ // The accepted wording of an M5 command is not a new humorous or social
+ // encounter. "Forget that inside joke" must not itself recreate the joke.
+ if(row.speaker==='player'&&detectExplicitMemoryCommand(x))return null;
  if(/\bthank(s| you)\b|\bi trust you\b/i.test(x))return 'gratitude';
  if(/\bthat (?:crash|collision|impact) (?:was |is )?(?:hilarious|funny)\b/i.test(x))return 'crash_joke';
  if(/\b(?:just kidding|inside joke|running joke)\b/i.test(x))return 'humor_quote';
@@ -70,10 +75,15 @@ function feeling(cat,p){
  return null;
 }
 function freshness(at,now){const age=now-ms(at);return age<=120_000?'live':age<=7*86400000?'recent':'archive';}
-function trimProjection(project,maxBytes){
+function trimProjection(project,maxBytes,{preferDurableJokes=false}={}){
  const bytes=()=>Buffer.byteLength(JSON.stringify(project),'utf8');
  while(bytes()>maxBytes){
-  if(project.jokes.length)project.jokes.pop();
+  // Long-term relationship and joke summaries should survive a crowded
+  // recent-facts projection; never make durable friendship disappear because
+  // unrelated conversations exhausted the PS4 byte budget.
+  if(preferDurableJokes&&project.facts.length)project.facts.pop();
+  else if(preferDurableJokes&&project.interpretations.length)project.interpretations.pop();
+  else if(project.jokes.length)project.jokes.pop();
   else if(project.interpretations.length)project.interpretations.pop();
   else if(project.facts.length)project.facts.pop();
   else break;
@@ -93,7 +103,7 @@ function trimProjection(project,maxBytes){
  * promoted into quoted words, factual claims, or the PS4 knowledge frame.
  */
 export function evaluateM8({scope,personality={},sources=[],memories=[],appraisals=[],
- suppressedIds=[],correctedIds=[],nowUtc='2026-10-11T00:00:00.000Z',
+ suppressedIds=[],correctedIds=[],relationshipHistory=null,nowUtc='2026-10-11T00:00:00.000Z',
  maxBytes=4096}={}){
  const s=validScope(scope),p=personalityOf(personality),now=ms(nowUtc);
  if(!Number.isFinite(now)||!Number.isInteger(maxBytes)||maxBytes<512||maxBytes>8192||
@@ -101,6 +111,15 @@ export function evaluateM8({scope,personality={},sources=[],memories=[],appraisa
     memories.length>MAX_MEMORIES||!Array.isArray(appraisals)||appraisals.length>MAX_APPRAISALS||
     !Array.isArray(suppressedIds)||!Array.isArray(correctedIds)||
     [...suppressedIds,...correctedIds].some(x=>!isUuid(x)))throw Error('m8_invalid_input');
+ if(relationshipHistory!==null &&
+    (relationshipHistory.version!==1||relationshipHistory.sourceVerified!==true||
+     !sameScope(relationshipHistory,s)||!Array.isArray(relationshipHistory.categories)||
+     relationshipHistory.categories.some(x=>typeof x?.category!=='string'||
+       !Number.isSafeInteger(x.count)||x.count<0||
+       !Array.isArray(x.sourceEvidenceIds)||x.sourceEvidenceIds.length>16||
+       x.sourceEvidenceIds.some(id=>!isUuid(id))||
+       (x.lastAtUtc!==null&&!Number.isFinite(ms(x.lastAtUtc))))))
+   throw Error('m8_invalid_history');
  const suppressed=new Set([...suppressedIds,...correctedIds]);
  const known=new Map();
  for(const entry of sources){
@@ -111,16 +130,19 @@ export function evaluateM8({scope,personality={},sources=[],memories=[],appraisa
  const activeMemories=new Map();
  for(const row of memories){
   if(row?.committed!==true||row?.sourceVerified!==true||!sameScope(row,s)||
-     row.protagonistKey!==s.protagonistKey||!isUuid(row.memoryId)||suppressed.has(row.memoryId)||
+     !isUuid(row.memoryId)||suppressed.has(row.memoryId)||
      !Array.isArray(row.evidenceRecordIds)||row.evidenceRecordIds.length<1||
      row.evidenceRecordIds.length>64||!row.evidenceRecordIds.every(id=>known.has(id)))continue;
+  // Cross-avatar readers must return one committed identity per memory, not
+  // three divergent copies that silently overwrite one another in this map.
+  if(activeMemories.has(row.memoryId))throw Error('m8_duplicate_memory');
   activeMemories.set(row.memoryId,frozen({...row,evidenceRecordIds:ordered(row.evidenceRecordIds)}));
  }
  const approvedAppraisals=new Map();
  for(const a of appraisals){
   const m=activeMemories.get(a?.proposalId);
   if(!m||a.epistemicStatus!=='character_opinion'||a.verifiedWorldFact!==false||
-     !sameScope(a,s)||a.protagonistKey!==s.protagonistKey||
+     !sameScope(a,s)||
      !Array.isArray(a.sourceEvidenceIds)||
      JSON.stringify(ordered(a.sourceEvidenceIds))!==JSON.stringify(m.evidenceRecordIds)||
      !CATEGORIES.has(a.category)||!Number.isFinite(a.notability)||a.notability<0||a.notability>1)continue;
@@ -138,7 +160,7 @@ export function evaluateM8({scope,personality={},sources=[],memories=[],appraisa
   const memory=[...activeMemories.values()].find(m=>m.evidenceRecordIds.includes(r.recordId));
   const appraisal=memory&&approvedAppraisals.get(memory.memoryId);
   const confidence=Number((r.kind==='journal_event'?.77:.52).toFixed(2));
-  interpretations.push(frozen({id:stableUuid('m8-opinion',...Object.values(s),r.recordId),
+  interpretations.push(frozen({id:stableUuid('m8-opinion',s.characterId,s.worldProfileId,s.timelineId,r.recordId),
    kind:cat==='gratitude'?'social_impression':cat==='music'?'affinity':
      cat==='embarrassment'?'embarrassment':cat.includes('joke')||cat==='humor'?'funny_moment':'belief',
    epistemicStatus:'character_opinion',verifiedWorldFact:false,about:'experience',tone,
@@ -162,22 +184,57 @@ export function evaluateM8({scope,personality={},sources=[],memories=[],appraisa
   if(theme==='humor'&&group.length<2)continue;
   const status=independent.length>=3||echoed?'established':'emerging';
   const ageDays=Math.max(0,(now-ms(group.at(-1).when))/86400000);
-  jokes.push(frozen({id:stableUuid('m8-joke',...Object.values(s),theme),motif:theme,
+  jokes.push(frozen({id:stableUuid('m8-joke',s.characterId,s.worldProfileId,s.timelineId,theme),motif:theme,
    epistemicStatus:'character_opinion',verifiedWorldFact:false,
    opinion:theme==='crash'?'I might tease about that crash theme.':'That recurring humor amuses me.',
    state:ageDays>7?'resting':status,confidence:Number((Math.min(.85,.5+.08*independent.length)*Math.exp(-ageDays/30)).toFixed(3)),
    sourceEvidenceIds:frozen(independent),freshness:freshness(group.at(-1).when,now),
    callbackOptInRequired:true}));
  }
+ // Long-term scores come from the full authenticated P2 history, not the
+ // bounded PS4 context. Suppressed/corrected IDs were excluded at source.
+ if(relationshipHistory){
+   const tally=new Map(relationshipHistory.categories.map(x=>[x.category,x]));
+   const count=key=>tally.get(key)?.count??0;
+   affection=Math.min(.25,count('gratitude')*.04*p.loyalty);
+   trust=Math.min(.2,count('gratitude')*.02);
+   familiarity=Math.min(.2,relationshipHistory.categories.reduce((sum,x)=>sum+x.count,0)*.012);
+   jokes.length=0;
+   for(const [theme,n] of [
+     ['crash',count('crash')+count('crash_joke')],
+     ['humor',count('humor')+count('humor_quote')]]){
+     const witnesses=theme==='crash'?['crash','crash_joke']:['humor','humor_quote'];
+     const echoed=count('crash_joke')>0&&count('crash')>0;
+     if(theme==='crash'&&count('crash')<2&&!echoed)continue;
+     if(theme==='humor'&&n<2)continue;
+     const entries=witnesses.map(k=>tally.get(k)).filter(Boolean);
+     const atUtc=entries.map(x=>x.lastAtUtc).filter(Boolean).sort().at(-1);
+     if(!atUtc)continue;
+     const refs=ordered(entries.flatMap(x=>x.sourceEvidenceIds)).slice(-16);
+     const ageDays=Math.max(0,(now-ms(atUtc))/86400000);
+     jokes.push(frozen({id:stableUuid('m8-joke',s.characterId,s.worldProfileId,s.timelineId,theme),motif:theme,
+       epistemicStatus:'character_opinion',verifiedWorldFact:false,
+       opinion:theme==='crash'?'I might tease about that crash theme.':'That recurring humor amuses me.',
+       state:ageDays>7?'resting':n>=3||echoed?'established':'emerging',
+       confidence:Number((Math.min(.85,.5+.08*n)*Math.exp(-ageDays/30)).toFixed(3)),
+       sourceEvidenceIds:frozen(refs),freshness:freshness(atUtc,now),
+       callbackOptInRequired:true}));
+   }
+ }
+ const relationshipIds=relationshipHistory
+   ?ordered(relationshipHistory.categories.flatMap(x=>x.sourceEvidenceIds)).slice(-32)
+   :ordered(interpretations.flatMap(i=>i.sourceEvidenceIds));
  const result={version:1,kind:'m8_typed_projection',...s,
   facts,interpretations:interpretations.slice(-16),jokes:jokes.slice(0,4),
   relationship:{epistemicStatus:'character_opinion',verifiedWorldFact:false,
     dimensions:{trust:Number(trust.toFixed(3)),affection:Number(affection.toFixed(3)),
       familiarity:Number(familiarity.toFixed(3))},
-    sourceEvidenceIds:frozen(ordered(interpretations.filter(i=>i.kind==='social_impression').flatMap(i=>i.sourceEvidenceIds))),
+    // Familiarity is affected by every interpreted source, not merely thanks.
+    // Preserve all contributing immutable IDs for suppression and audit.
+    sourceEvidenceIds:frozen(relationshipIds),
     canonRelationshipUnchanged:true},
   totalBytes:0};
- return trimProjection(result,maxBytes);
+ return trimProjection(result,maxBytes,{preferDurableJokes:relationshipHistory!==null});
 }
 
 /** Opt-in candidate ONLY. PS6 Director retains sole callback admission authority. */
@@ -185,7 +242,7 @@ export function selectM8JokeCue({projection,scope,jokeState={},cue,nowUtc,
  optIn=false,playerActive=false,combatActive=false,secondsSincePlayerTurn=0,
  lastGlobalCallbackAtUtc=null,actorIdle=false}={}){
  const s=validScope(scope),now=ms(nowUtc);
- if(!projection||!sameScope(projection,s)||projection.protagonistKey!==s.protagonistKey||
+ if(!projection||!sameScope(projection,s)||
     !Number.isFinite(now)||optIn!==true||actorIdle!==true||playerActive||combatActive||
     secondsSincePlayerTurn<30||cue?.sourceVerified!==true||cue?.kind!=='event_type'||
     (lastGlobalCallbackAtUtc!==null&&(!Number.isFinite(ms(lastGlobalCallbackAtUtc))||
@@ -220,9 +277,11 @@ export function recordM8JokeUse(previous={},receipt={}){
 
 /** K supplies serialized P2 read ports; this adapter holds no SQL or daemon. */
 export function createM8ReadAdapter({readCommittedSources,readCommittedMemories,
- readSuppressedIds,readCorrectedIds,readCurationAppraisals,currentScope}={}){
+ readSuppressedIds,readCorrectedIds,readCurationAppraisals,currentScope,
+ readRelationshipHistory=null}={}){
  if(![readCommittedSources,readCommittedMemories,readSuppressedIds,readCorrectedIds,
-  readCurationAppraisals,currentScope].every(f=>typeof f==='function'))throw Error('m8_p2_ports_required');
+  readCurationAppraisals,currentScope].every(f=>typeof f==='function')||
+  (readRelationshipHistory!==null&&typeof readRelationshipHistory!=='function'))throw Error('m8_p2_ports_required');
  return frozen({async project({scope,authority,personality,nowUtc,maxBytes}={}){
   const s=validScope(scope);
   const proofKeys=['hostRunId','incarnationId','encounterId','observerCaptureRef'];
@@ -239,7 +298,64 @@ export function createM8ReadAdapter({readCommittedSources,readCommittedMemories,
    const value=await reader(s);if(!isCurrent())return null;reads.push(value);
   }
   const [sources,memories,suppressedIds,correctedIds,appraisals]=reads;
+  const relationshipHistory=readRelationshipHistory?await readRelationshipHistory(s):null;
+  if(!isCurrent())return null;
   return evaluateM8({scope:s,personality,sources,memories,suppressedIds,
-   correctedIds,appraisals,nowUtc,maxBytes});
+   correctedIds,appraisals,relationshipHistory,nowUtc,maxBytes});
  }});
+}
+
+// W05 sole-PS4 seam: interpretation is an optional, current P2 projection,
+// not another fact store, prompt writer or independently authorized callback.
+const W05_STAMP_KEYS=['characterId','worldProfileId','timelineId','protagonistKey',
+ 'hostRunId','worldEpoch','incarnationId','encounterId','observerCaptureRef',
+ 'turnIdentityHash','turnId'];
+const W05_SHA=/^[0-9a-f]{64}$/;
+const w05Stamp=x=>Object.freeze(Object.fromEntries(W05_STAMP_KEYS.map(k=>[k,x?.[k]])));
+const w05Same=(a,b)=>!!a&&!!b&&W05_STAMP_KEYS.every(k=>a[k]===b[k]);
+const w05Current=fn=>{try{const v=fn();return v?.nativeVerified===true&&v.timelineWritable===true?v:null;}catch{return null;}};
+const w05Drop=reason=>Object.freeze({status:'dropped',reason,projection:null,stamp:null});
+export async function preparePs4M8({scope,authority,personality,readAdapter,
+ currentIdentity,nowUtc=new Date().toISOString(),maxBytes=4096,deadlineMs=200}={}){
+ if(!Number.isSafeInteger(deadlineMs)||deadlineMs<1||deadlineMs>200||
+    !Number.isSafeInteger(maxBytes)||maxBytes<512||maxBytes>8192)
+  throw new TypeError('m8_invalid_ps4_limits');
+ if(typeof readAdapter?.project!=='function'||typeof currentIdentity!=='function'||
+    authority?.nativeVerified!==true||!scope||
+    scope.protagonistKey==='unknown'||!['franklin','michael','trevor'].includes(scope.protagonistKey)||
+    !['characterId','worldProfileId','timelineId'].every(k=>isUuid(scope[k])&&authority[k]===scope[k])||
+    !['hostRunId','incarnationId','encounterId','observerCaptureRef','turnId'].every(k=>isUuid(authority[k]))||
+    !W05_SHA.test(authority.turnIdentityHash)||
+    !Number.isSafeInteger(authority.worldEpoch)||authority.worldEpoch<0)
+  return w05Drop('unverified_original_owner');
+ const stamp=w05Stamp(authority);
+ if(!w05Same(stamp,w05Current(currentIdentity)))return w05Drop('stale_before_read');
+ const started=performance.now();
+ let timer;
+ const timeout=new Promise(resolve=>{timer=setTimeout(()=>resolve(null),deadlineMs);});
+ let projection;
+ try{projection=await Promise.race([readAdapter.project({scope,authority,personality,nowUtc,maxBytes}),timeout]);}
+ catch{return w05Drop('p2_projection_unavailable');}
+ finally{clearTimeout(timer);}
+ if(!projection||performance.now()-started>deadlineMs)return w05Drop('unavailable_or_deadline');
+ if(!w05Same(stamp,w05Current(currentIdentity)))return w05Drop('stale_after_read');
+ if(projection.version!==1||projection.kind!=='m8_typed_projection'||
+    !sameScope(projection,scope)||projection.protagonistKey!==scope.protagonistKey||
+    projection.totalBytes!==Buffer.byteLength(JSON.stringify(projection),'utf8')||
+    projection.totalBytes>maxBytes)return w05Drop('invalid_p2_projection');
+ return Object.freeze({status:'ready',reason:null,stamp,projection});
+}
+export function verifyPs4M8Current(prepared,{currentIdentity,validateEvidence}={}){
+ if(prepared?.status!=='ready'||typeof currentIdentity!=='function'||
+    !w05Same(prepared.stamp,w05Current(currentIdentity))||
+    typeof validateEvidence!=='function')return false;
+ const all=[...(prepared.projection?.interpretations??[]),
+   ...(prepared.projection?.jokes??[]),prepared.projection?.relationship];
+ const ids=[...new Set(all.flatMap(item=>item?.sourceEvidenceIds??[]))];
+ if(!ids.length||!ids.every(isUuid))return false;
+ try{
+  // Must be an authoritative SYNC P2 correction/tombstone/source readback.
+  // Promise or unknown cannot authorize a stale frame.
+  return validateEvidence(ids,prepared.stamp)===true;
+ }catch{return false;}
 }

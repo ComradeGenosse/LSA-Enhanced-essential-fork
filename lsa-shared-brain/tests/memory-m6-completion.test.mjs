@@ -1,3 +1,13 @@
+let DatabaseSync=null;
+try { ({DatabaseSync}=await import('node:sqlite')); } catch {}
+const hasRealSqlite=typeof DatabaseSync==='function';
+import {mkdtempSync,rmSync} from 'node:fs';
+import {tmpdir} from 'node:os';
+import path from 'node:path';
+import {createP2MemoryStorage} from '../src/characters/sqliteProfileStore.mjs';
+import {createConversationJournalRecorder} from '../src/memory/conversationRecorder.mjs';
+import {profile} from '../../lsa-essential-e1-candidate/tests/p2-fixtures.mjs';
+import {worldProfileId as fixtureWorldId} from '../../lsa-essential-e1-candidate/tests/identity-fixtures.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
@@ -63,11 +73,12 @@ function fakeStore({lines=[],events=[],sidecars=true,queueEnabled=true}={}){
  };
  return store;
 }
-test('M6 selection separates incompatible protagonists and maintains fun-first scoring',()=>{
+test('M6 selection unifies same-player source avatars while retaining fun-first scoring',()=>{
  const a=line(1,'That was hilarious!');
  const b=line(2,'That was hilarious!',{attribution:{...a.attribution,protagonist:'trevor'}});
  const result=evaluateAutomaticMemoryBatch([a,b]);
- assert.equal(result.proposals.length,2);
+ assert.equal(result.proposals.length,1);
+ assert.deepEqual(result.proposals[0].evidenceRecordIds,[a.recordId,b.recordId].sort());
  assert.equal(result.qualifiedCount,2);
  assert.deepEqual(selectAutomaticMemories([line(3,'Hi there')]),[]);
  assert.equal(selectAutomaticMemories([event(3,'bizarre_crash')],{existingInHour:999}).length,1);
@@ -161,3 +172,129 @@ test('M6 idempotent deterministic proposal IDs use canonical immutable evidence 
 
 // Run durable P2-cursor lifecycle adversarial cases in the pinned M6 CI suite.
 import './memory-m6-cursor-lifecycle.test.mjs';
+
+
+test('M6 real P2 SQLite migrates old avatar cursors without losing interleaved evidence',{skip:!hasRealSqlite},async t=>{
+ const folder=mkdtempSync(path.join(tmpdir(),'m6-agent-c-'));
+ const filePath=path.join(folder,'p2.sqlite'),consumerId='agent-c-m6';
+ t.after(()=>rmSync(folder,{recursive:true,force:true}));
+ const create=()=>createP2MemoryStorage({filePath,worldProfileId:fixtureWorldId,sourceRequired:true});
+ const original=create();
+ await original.initialize();
+ const promoted=await original.create(profile());
+ const timelineId=await original.createTimeline({label:'unified replay'});
+ const scope={characterId:promoted.characterId,worldProfileId:fixtureWorldId,
+   timelineId,protagonistKey:'franklin'};
+ original.setVerifiedHostContext({hostContextVersion:1,hostRunId:uuid(),worldEpoch:3});
+ await original.confirmTimeline(timelineId);
+ const journal=createConversationJournalRecorder(original),ids=[];
+ for(const [index,protagonist] of ['franklin','michael','trevor'].entries()){
+   const recorded=await journal.recordPlayerAccepted({characterId:scope.characterId,
+     identity:{pedId:101,turnId:'agent-c-turn-'+index,generationId:'gen-1',sessionNonce:'m6'},
+     source:'typed',text:'That was hilarious on '+protagonist,
+     attribution:{protagonist}});
+   ids.push(recorded.recordId);
+ }
+ const baseline=await original.readCommittedEvidenceCursor({scope,consumerId});
+ assert.equal(baseline.lastSequence,0);
+ const initial=await original.readCommittedEvidencePage({scope,cursor:baseline.cursor,limit:10});
+ assert.deepEqual(initial.items.map(r=>r.recordId),ids);
+ await original.close();
+ // v1 avatar-local cursors may have different watermarks. MAX would silently
+ // skip historical Michael/Trevor evidence, so v2 must replay from zero.
+ const raw=new DatabaseSync(filePath);
+ try{
+   const add=raw.prepare('INSERT INTO p2_memory_replay_cursors(consumer_id,world_profile_id,character_id,timeline_id,protagonist_key,after_sequence,updated_at_utc) VALUES(?,?,?,?,?,?,?)');
+   for(const [i,who] of ['franklin','michael','trevor'].entries())
+     add.run(consumerId,scope.worldProfileId,scope.characterId,scope.timelineId,
+       who,initial.items[2-i].sequence,new Date().toISOString());
+ }finally{raw.close();}
+ const resumed=create();
+ await resumed.initialize();
+ try{
+   resumed.setVerifiedHostContext({hostContextVersion:1,hostRunId:uuid(),worldEpoch:4});
+   await resumed.confirmTimeline(timelineId);
+   const start=await resumed.readCommittedEvidenceCursor({...{scope,consumerId}});
+   assert.equal(start.lastSequence,0);
+   const replay=await resumed.readCommittedEvidencePage({
+     scope:{...scope,protagonistKey:'michael'},cursor:start.cursor,limit:10});
+   assert.deepEqual(replay.items.map(r=>r.recordId),ids);
+   assert.deepEqual(replay.items.map(r=>r.envelope.attribution.protagonist),
+     ['franklin','michael','trevor']);
+   const commit=await resumed.ackCommittedEvidenceCursor({
+     scope:{...scope,protagonistKey:'trevor'},consumerId,cursor:replay.cursor,
+     expectedCursor:start.cursor});
+   assert.equal(commit.committed,true);
+   const repeated=await resumed.ackCommittedEvidenceCursor({
+     scope:{...scope,protagonistKey:'franklin'},consumerId,cursor:replay.cursor,
+     expectedCursor:start.cursor});
+   assert.equal(repeated.idempotent,true);
+ }finally{await resumed.close();}
+ const restarted=create();
+ await restarted.initialize();
+ try{
+   restarted.setVerifiedHostContext({hostContextVersion:1,hostRunId:uuid(),worldEpoch:5});
+   await restarted.confirmTimeline(timelineId);
+   for(const who of ['franklin','michael','trevor']){
+     const current=await restarted.readCommittedEvidenceCursor({
+       scope:{...scope,protagonistKey:who},consumerId});
+     assert.equal(current.lastSequence,initial.lastSequence);
+     const page=await restarted.readCommittedEvidencePage({
+       scope:{...scope,protagonistKey:who},cursor:current.cursor});
+     assert.equal(page.items.length,0);
+   }
+ }finally{await restarted.close();}
+});
+
+test('M6 replay refuses forged historical protagonist attribution in its SQLite feed',{skip:!hasRealSqlite},async t=>{
+ const folder=mkdtempSync(path.join(tmpdir(),'m6-provenance-'));
+ const filePath=path.join(folder,'p2.sqlite');
+ t.after(()=>rmSync(folder,{recursive:true,force:true}));
+ const create=()=>createP2MemoryStorage({filePath,worldProfileId:fixtureWorldId,sourceRequired:true});
+ const store=create();await store.initialize();
+ const npc=await store.create(profile()),timelineId=await store.createTimeline({label:'provenance'});
+ const scope={characterId:npc.characterId,worldProfileId:fixtureWorldId,timelineId,protagonistKey:'michael'};
+ store.setVerifiedHostContext({hostContextVersion:1,hostRunId:uuid(),worldEpoch:1});
+ await store.confirmTimeline(timelineId);
+ const row=await createConversationJournalRecorder(store).recordPlayerAccepted({
+   characterId:npc.characterId,
+   identity:{pedId:101,turnId:'turn-provenance',generationId:'gen-1',sessionNonce:'m6'},
+   source:'typed',text:'We are friends.',attribution:{protagonist:'michael'}});
+ await store.close();
+ const raw=new DatabaseSync(filePath);
+ try{raw.prepare("UPDATE p2_memory_replay_feed SET protagonist_key='trevor' WHERE record_id=?")
+   .run(row.recordId);}finally{raw.close();}
+ const verify=create();await verify.initialize();
+ try{
+   verify.setVerifiedHostContext({hostContextVersion:1,hostRunId:uuid(),worldEpoch:2});
+   await verify.confirmTimeline(timelineId);
+   await assert.rejects(verify.readCommittedEvidencePage({scope,limit:10}),
+     /p2_replay_feed_protagonist_mismatch/);
+ }finally{await verify.close();}
+});
+
+
+test('M6 three-avatar scenes consolidate only with shared verified lifetime and owner',()=>{
+ const a=line(1,'I trust you, friend!');
+ const b=line(2,'That was hilarious!',{attribution:{...a.attribution,protagonist:'michael'}});
+ const c=line(3,'Inside joke, remember?',{attribution:{...a.attribution,protagonist:'trevor'}});
+ const proposals=selectAutomaticMemories([c,a,b]);
+ assert.equal(proposals.length,1);
+ assert.deepEqual(proposals[0].evidenceRecordIds,[a.recordId,b.recordId,c.recordId].sort());
+ const earlier={...proposals[0],protagonistKey:'franklin',revision:1};
+ const updated={...proposals[0],protagonistKey:'trevor'};
+ const link=consolidateCandidates([earlier],updated);
+ assert.equal(link.action,'link_duplicate');
+ assert.deepEqual(link.evidenceRecordIds,earlier.evidenceRecordIds);
+ const unproved=line(4,'Inside joke, remember?',{attribution:{protagonist:'trevor'}});
+ assert.equal(selectAutomaticMemories([a,unproved]).length,2,
+   'missing source lifetime cannot borrow the verified Franklin scene');
+ const unprovedFranklin=line(5,'Inside joke with you!',{attribution:{protagonist:'franklin'}});
+ const unprovedTrevor=line(6,'That was hilarious!',{attribution:{protagonist:'trevor'}});
+ assert.equal(selectAutomaticMemories([unprovedFranklin,unprovedTrevor]).length,2,
+   'two missing native owners do not become matching owners across avatars');
+ assert.equal(consolidateCandidates([earlier],
+   {...updated,worldProfileId:uuid()}).action,'insert');
+ assert.equal(consolidateCandidates([earlier],
+   {...updated,characterId:uuid()}).action,'insert');
+});

@@ -84,13 +84,22 @@ export function createM2EssentialCapture({
   const segments=[];
   const check=()=>{
     if(retired)fail('m2_turn_retired');
-    if(!isCurrent()){retired=true;bound.retire();fail('m2_turn_retired');}
+    try {
+      if(!isCurrent())fail('m2_turn_retired');
+      // Validate native owner/protagonist/epoch before each segment and input.
+      bound.assertSourceCurrent();
+    } catch(error) {retired=true;sealed=true;bound.retire();throw error;}
   };
+  const reasonFor=error=>/^m2_[a-z_]+$|^timeline_write_suspended$/.test(error?.message)
+    ? error.message:'m2_source_unverified';
   return Object.freeze({
     // Call only after the runner's accepted final typed/STT intake and successful
     // DialogueHistory.commitPlayerInput; the trusted port must confirm both.
-    acceptPlayer({source,text,utteranceId=null,transcription=null}={}){
-      if(retired)return Promise.resolve(result('m2_turn_retired'));
+    async acceptPlayer({source,text,utteranceId=null,transcription=null}={}){
+      try {check();}
+      catch(error){return result(reasonFor(error));}
+      // M5 must require durable:true + recordId + scope + proof, returned
+      // only after an integrity-checked P2 SQLite readback.
       return bound.recordPlayerAccepted({accepted:true,source,text,utteranceId,transcription});
     },
     // Invoke once for each fully completed TTS segment *and actual* successful
@@ -119,21 +128,32 @@ export function createM2EssentialCapture({
           fail('m2_speech_source_unverified');
         mode=nextMode;segments.push(segment);
         return immutable({status:'admitted',segments:segments.length});
-      }catch(e){return result(/^m2_[a-z_]+$/.test(e?.message)?e.message:'m2_speech_source_unverified');}
+      }catch(e){
+        // A partial/reordered/failed PCM attempt permanently poisons this turn.
+        retired=true;sealed=true;bound.retire();
+        return result(reasonFor(e));
+      }
     },
     // The native terminal and source-owned stream-finalization ledger must
     // both agree; an early partial stream is never replayed as final speech.
     // Final Luna draft is intentionally NOT an argument. The only text eligible
     // for the journal is ordered, fully PCM-forwarded TTS source text.
-    completeNpc({receipt}={}){
-      if(retired)return Promise.resolve(result('m2_turn_retired'));
-      if(sealed||!mode||segments.length===0)return Promise.resolve(result('m2_speech_proof_incomplete'));
+    async completeNpc({receipt}={}){
+      if(retired)return result('m2_turn_retired');
+      if(sealed||!mode||segments.length===0){
+        sealed=true;retired=true;bound.retire();
+        return result('m2_speech_proof_incomplete');
+      }
       sealed=true;
-      const proof=Object.freeze({identity:frozenIdentity,mode,sealed:true,
-        segments:Object.freeze(segments.map(s=>s))});
-      return bound.recordNpcCompleted({historyAccepted:true,receipt,mode,
-        spokenSegments:mode==='early_streamed'?segments.map(s=>s.text):null,
-        text:segments.map(s=>s.text).join(''),speechProof:proof});
+      try {
+        check();
+        const proof=Object.freeze({identity:frozenIdentity,mode,sealed:true,
+          segments:Object.freeze(segments.map(s=>s))});
+        return await bound.recordNpcCompleted({historyAccepted:true,receipt,mode,
+          spokenSegments:mode==='early_streamed'?segments.map(s=>s.text):null,
+          text:segments.map(s=>s.text).join(''),speechProof:proof});
+      }catch(error){return result(reasonFor(error));}
+      finally {retired=true;bound.retire();}
     },
     retire(){retired=true;sealed=true;bound.retire();},
   });

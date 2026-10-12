@@ -1,7 +1,15 @@
+import {mkdtempSync,rmSync} from 'node:fs';
+import {tmpdir} from 'node:os';
+import path from 'node:path';
+import {createP2MemoryStorage} from '../src/characters/sqliteProfileStore.mjs';
+import {createConversationJournalRecorder} from '../src/memory/conversationRecorder.mjs';
+import {profile} from '../../lsa-essential-e1-candidate/tests/p2-fixtures.mjs';
+import {worldProfileId as fixtureWorldId} from '../../lsa-essential-e1-candidate/tests/identity-fixtures.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
 import {evaluateM8,selectM8JokeCue,recordM8JokeUse,createM8ReadAdapter} from '../src/memory/m8Interpretation.mjs';
+import {createP2M8HistoryReader} from '../src/memory/m8SqliteHistory.mjs';
 
 const uuid=()=>randomUUID(),T='2026-10-11T18:00:00.000Z';
 const t=n=>new Date(Date.parse(T)+n*1000).toISOString();
@@ -72,13 +80,14 @@ test('A source tombstone or correction immediately suppresses derived joke and i
  assert.equal(corrected.jokes.length,0);
 });
 
-test('Strict character/world/timeline/protagonist fencing with other NPC corpus',()=>{
+test('Strict NPC/world/timeline boundaries preserve interpretations across avatars',()=>{
  const d=dataset();
  const other={...scope,characterId:uuid()},wrongWorld={...scope,worldProfileId:uuid()},wrongTimeline={...scope,timelineId:uuid()},wrongProtag={...scope,protagonistKey:'franklin'};
- for(const f of [other,wrongWorld,wrongTimeline,wrongProtag]){
+ for(const f of [other,wrongWorld,wrongTimeline]){
   const out=evaluateM8({scope:f,sources:d.sources,nowUtc:t(30)});
   assert.deepEqual(out.facts,[]);assert.deepEqual(out.interpretations,[]);
  }
+ assert.ok(evaluateM8({scope:wrongProtag,sources:d.sources,nowUtc:t(30)}).facts.length>0);
  const otherProof=event(1,'crash',{ownerProof:{...p,ownerAlias:'promoted.'+other.characterId}});
  assert.equal(run({sources:[committed(otherProof)]},{humor:{style:'goofy'}}).facts.length,0);
 });
@@ -210,4 +219,137 @@ test('Corrupted cooldown timestamps fail closed; unknown reaction cannot erase a
  const v=recordM8JokeUse({consecutiveNegativeReactions:1},{completed:true,sourceVerified:true,
   jokeId:id,atUtc:t(100),reaction:'unknown'});
  assert.equal(v.consecutiveNegativeReactions,1);
+});
+
+
+test('M8 friendship and running-joke IDs survive all three avatars and real P2 SQLite restart',async t=>{
+ const folder=mkdtempSync(path.join(tmpdir(),'m8-agent-c-'));
+ const filePath=path.join(folder,'p2.sqlite');
+ t.after(()=>rmSync(folder,{recursive:true,force:true}));
+ const create=()=>createP2MemoryStorage({filePath,worldProfileId:fixtureWorldId,sourceRequired:true});
+ const store=create();
+ await store.initialize();
+ const npc=await store.create(profile()),timelineId=await store.createTimeline({label:'friendship'});
+ const playerScope={characterId:npc.characterId,worldProfileId:fixtureWorldId,
+   timelineId,protagonistKey:'franklin'};
+ store.setVerifiedHostContext({hostContextVersion:1,hostRunId:uuid(),worldEpoch:1});
+ await store.confirmTimeline(timelineId);
+ const recorder=createConversationJournalRecorder(store);
+ const said=[];
+ for(const [i,protagonist,text] of [
+   [1,'michael','Thanks for helping me, my friend.'],
+   [2,'franklin','Inside joke: the flying purple car!'],
+   [3,'trevor','Running joke: the flying purple car!']
+ ]){
+   const line=await recorder.recordPlayerAccepted({characterId:npc.characterId,
+     identity:{pedId:101,turnId:'relationship-'+i,generationId:'gen-1',sessionNonce:'m8'},
+     source:'typed',text,attribution:{protagonist}});
+   said.push(line.recordId);
+ }
+ const nowUtc=new Date(Date.now()+1000).toISOString();
+ const collect=async s=>(await s.readDialogueLines({characterId:npc.characterId,
+   timelineId,limit:30})).map(record=>({record,committed:true,sourceVerified:true}));
+ const before=await collect(store);
+ assert.deepEqual(new Set(before.map(x=>x.record.recordId)),new Set(said));
+ const personality={humor:{style:'goofy'},loyalty:1};
+ const compute=(sources,protagonistKey,overrides={})=>evaluateM8({
+   scope:{...playerScope,protagonistKey,...overrides},sources,personality,nowUtc,maxBytes:4096});
+ const friend=compute(before,'michael');
+ assert.ok(friend.relationship.dimensions.trust>0);
+ assert.ok(friend.relationship.dimensions.familiarity>0);
+ assert.equal(friend.jokes.length,1);
+ assert.equal(friend.jokes[0].state,'emerging');
+ assert.deepEqual(new Set(friend.relationship.sourceEvidenceIds),
+   new Set(said),'every contributing relationship impression retains provenance');
+ for(const avatar of ['franklin','michael','trevor']){
+   const current=compute(before,avatar);
+   assert.deepEqual(current.relationship,friend.relationship);
+   assert.deepEqual(current.jokes.map(j=>j.id),friend.jokes.map(j=>j.id));
+   assert.deepEqual(current.interpretations.map(i=>i.id),
+     friend.interpretations.map(i=>i.id));
+ }
+ assert.equal(compute(before,'trevor',{worldProfileId:uuid()}).relationship.dimensions.trust,0);
+ assert.equal(compute(before,'trevor',{characterId:uuid()}).jokes.length,0);
+ await store.close();
+ const reopened=create();
+ await reopened.initialize();
+ try{
+   reopened.setVerifiedHostContext({hostContextVersion:1,hostRunId:uuid(),worldEpoch:2});
+   await reopened.confirmTimeline(timelineId);
+   const durable=compute(await collect(reopened),'trevor');
+   assert.deepEqual(durable.relationship,friend.relationship);
+   assert.deepEqual(durable.jokes,friend.jokes);
+   assert.deepEqual(durable.interpretations,friend.interpretations);
+ }finally{await reopened.close();}
+});
+
+test('M8 rejects duplicate memory identities instead of overwriting cross-avatar state',()=>{
+ const d=dataset(),memoryId=uuid(),ids=[d.crash.recordId,d.crashAgain.recordId].sort();
+ const once={memoryId,...scope,committed:true,sourceVerified:true,evidenceRecordIds:ids};
+ assert.throws(()=>run(d,{}, {memories:[once,{...once,protagonistKey:'trevor'}]}),
+   /m8_duplicate_memory/);
+});
+
+test('M8: friendship and running joke outlive 128 newer turns, avatar switch, restart and forget',async t=>{
+ const folder=mkdtempSync(path.join(tmpdir(),'m8-history-'));
+ const filePath=path.join(folder,'p2.sqlite');
+ t.after(()=>rmSync(folder,{recursive:true,force:true}));
+ const create=()=>createP2MemoryStorage({filePath,worldProfileId:fixtureWorldId,sourceRequired:true});
+ const store=create();await store.initialize();
+ const npc=await store.create(profile()),timelineId=await store.createTimeline({label:'deep history'});
+ const scope={characterId:npc.characterId,worldProfileId:fixtureWorldId,timelineId,protagonistKey:'franklin'};
+ store.setVerifiedHostContext({hostContextVersion:1,hostRunId:uuid(),worldEpoch:1});
+ await store.confirmTimeline(timelineId);
+ const recorder=createConversationJournalRecorder(store);
+ const earliest=[];
+ for(let i=0;i<140;i++){
+   const avatar=['franklin','michael','trevor'][i%3];
+   const text=i===0?'Thanks for helping me, my friend.':
+     i===1?'Inside joke: the flying purple car!':
+     i===2?'Running joke: the flying purple car!':'Ordinary conversation turn '+i;
+   const receipt=await recorder.recordPlayerAccepted({characterId:npc.characterId,
+     identity:{pedId:101,turnId:'history-'+i,generationId:'gen-1',sessionNonce:'m8'},
+     source:'typed',text,attribution:{protagonist:avatar}});
+   if(i<3)earliest.push(receipt.recordId);
+ }
+ const readHistory=createP2M8HistoryReader({store});
+ const history=await readHistory({...scope,protagonistKey:'michael'});
+ const olderSources=(await store.readDialogueLines({characterId:npc.characterId,timelineId,limit:128}))
+   .map(record=>({record,committed:true,sourceVerified:true}));
+ assert.ok(!olderSources.some(x=>earliest.includes(x.record.recordId)));
+ assert.equal(history.categories.find(x=>x.category==='gratitude')?.count,1);
+ const nowUtc=new Date(Date.now()+1000).toISOString(),personality={humor:{style:'goofy'},loyalty:1};
+ const projection=(who,h)=>evaluateM8({scope:{...scope,protagonistKey:who},
+   sources:olderSources,relationshipHistory:h,personality,nowUtc,maxBytes:4096});
+ const original=projection('michael',history);
+ assert.ok(original.relationship.dimensions.trust>0);
+ assert.equal(original.jokes.find(j=>j.motif==='humor')?.state,'emerging');
+ assert.deepEqual(projection('franklin',history).relationship,original.relationship);
+ await store.close();
+ const reopened=create();await reopened.initialize();
+ try{
+   reopened.setVerifiedHostContext({hostContextVersion:1,hostRunId:uuid(),worldEpoch:2});
+   await reopened.confirmTimeline(timelineId);
+   const durable=await createP2M8HistoryReader({store:reopened})({...scope,protagonistKey:'trevor'});
+   assert.deepEqual(projection('trevor',durable).relationship,original.relationship);
+   assert.deepEqual(projection('trevor',durable).jokes,original.jokes);
+   const line=await createConversationJournalRecorder(reopened).recordPlayerAccepted({
+     characterId:npc.characterId,text:'Forget the original inside joke',source:'typed',
+     identity:{pedId:101,turnId:'history-forget',generationId:'gen-1',sessionNonce:'m8'},
+     attribution:{protagonist:'michael'}});
+   const recorded=(await reopened.readDialogueLines({characterId:npc.characterId,timelineId,limit:2}))
+     .find(r=>r.recordId===line.recordId);
+   const {createHash}=await import('node:crypto');
+   const text=recorded.content;
+   const forgotten=await reopened.commitCommand({
+     scope:{...scope,protagonistKey:'michael'},commandId:uuid(),
+     requestedByLineId:recorded.recordId,operation:'forget',content:text,
+     contentHash:createHash('sha256').update(text).digest('hex'),
+     evidenceRecordIds:[recorded.recordId,earliest[1]],targetRecordId:earliest[1],
+     requestedAtUtc:recorded.committedAtUtc});
+   assert.equal(forgotten.status,'committed');
+   const revised=await createP2M8HistoryReader({store:reopened})({...scope,protagonistKey:'franklin'});
+   assert.equal(revised.categories.find(x=>x.category==='humor_quote')?.count,1);
+   assert.equal(projection('trevor',revised).jokes.filter(j=>j.motif==='humor').length,0);
+ }finally{await reopened.close();}
 });

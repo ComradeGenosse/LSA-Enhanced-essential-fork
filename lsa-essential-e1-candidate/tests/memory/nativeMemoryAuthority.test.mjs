@@ -124,17 +124,15 @@ test('protagonist changes and missing C-01 turn receipts never invent an accepte
   h.emit({acceptedTurns:[bad]});
   assert.equal(h.authority.verifyCurrentTurn(req),null);
 });
-test('trusted-only C-01 mock contract tests exact turn generation/session and protagonist',()=>{
+test('v1 accepted turn impostor never passes: old mock cannot override strict native contract',()=>{
   const h=harness(),req={identity,characterId:A,ownerAlias:ALIAS_A,
     hostRunId:RUN,worldEpoch:1};
   const turn={identity,ownerProof,ownerAlias:ALIAS_A,
     source:'original_c01_accepted_turn',status:'accepted',protagonistKey:'franklin'};
   h.emit({acceptedTurns:[turn]});
-  assert.equal(h.authority.verifyCurrentTurn(req)?.nativeVerified,true);
-  assert.equal(h.authority.verifyCurrentTurn({...req,identity:{...identity,generationId:8}}),null);
-  assert.equal(h.authority.verifyCurrentTurn({...req,identity:{...identity,sessionNonce:3}}),null);
-  h.emit({protagonist:{key:'michael',source:'native_player_model',
-    playerCaptureRef:PLAYER,sampledGameTick:123},acceptedTurns:[turn]});
+  assert.equal(h.authority.verifyCurrentTurn(req),null);
+  assert.equal(h.authority.status().connected,false);
+  h.emit();
   assert.equal(h.authority.verifyCurrentTurn(req),null);
 });
 test('save rollback/suspended P2 mapping denies memory even with live native owner',()=>{
@@ -155,3 +153,7 @@ test('forged/late observer, negative inference, prepromotion: no proof remains u
     adapterEpoch:EPOCH,observation:{claims:[{source:{captureRef:
       '15151515-1515-4515-8515-151515151515'}}]}}).length,0);
 });
+
+// Existing Node 24 Memory K CI runs this suite explicitly. Include the D02
+// CURRENT-only source-policy fixtures without changing K-owned workflows.
+import './nativeCurrentOwnerPlayerAuthority.test.mjs';

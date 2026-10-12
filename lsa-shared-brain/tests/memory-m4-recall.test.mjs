@@ -60,13 +60,13 @@ test('unplayed/interrupted NPC speech and invented player input are excluded',as
   assert.equal(b.items.length,1);assert.equal(b.items[0].recordId,real.recordId);
  }finally{f.close();}
 });
-test('character, world, timeline and protagonist are independent hard fences',async()=>{
+test('NPC/world/timeline are hard fences, source avatars share one player',async()=>{
  const f=fixture(),s=scope(),other=scope();try{
   f.add(other,dialogue(other,'classified ketchup'));
   f.add(s,dialogue(s,'trevor secret'),{protagonistKey:'trevor'});
   f.add(s,dialogue(s,'timeline proof'));
   assert.equal((await recall(f,s,'ketchup')).bundle.items.length,0);
-  assert.equal((await recall(f,s,'secret')).bundle.items.length,0);
+  assert.ok((await recall(f,s,'secret')).bundle.items.length>0);
   const good=f.add(s,dialogue(s,'hello from franklin'));
   const injected={read:async()=>({rows:[{characterId:other.characterId,worldProfileId:s.worldProfileId,timelineId:s.timelineId,protagonistKey:s.protagonistKey,recordId:good.recordId,sourceKind:good.kind,envelope:good,atUtc:clock,evidenceState:'verified'}],coverageComplete:true})};
   const result=await recallMemory({query:query(s,'franklin'),readAdapter:injected,protagonistKey:s.protagonistKey,nowUtc:clock});
@@ -81,7 +81,7 @@ test('yesterday window and explicit coverage distinguish not-recorded from unkno
   assert.deepEqual(b.items.map(x=>x.content),['secret orange umbrella']);
   assert.equal((await recall(f,s,'did we see a crash yesterday?')).bundle.status,'unavailable');
   f.cover(s,'dialogue_line','2026-10-10T00:00:00.000Z','2026-10-11T00:00:00.000Z');
-  assert.equal((await recall(f,s,'what did I say about pineapples yesterday?',{intent:'exact_quote'})).bundle.status,'not_recorded');
+  assert.equal((await recall(f,s,'what did I say about pineapples yesterday?',{intent:'exact_quote'})).bundle.status,'unavailable');
  }finally{f.close();}
 });
 test('witnessed events are distinct from a reported claim',async()=>{
@@ -196,7 +196,7 @@ function integratedFixture(){
  db.exec("CREATE TABLE memory_tombstones(world_profile_id TEXT,character_id TEXT,timeline_id TEXT,target_id TEXT)");
  db.exec("CREATE TABLE memory_commands(command_id TEXT PRIMARY KEY,protagonist_key TEXT)");
  db.exec("CREATE TABLE memory_corrections(command_id TEXT PRIMARY KEY,world_profile_id TEXT,character_id TEXT,timeline_id TEXT,target_id TEXT,preferred_text TEXT,content_sha256 TEXT,created_at_utc TEXT)");
- db.exec("CREATE TABLE event_journal(record_id TEXT PRIMARY KEY,world_profile_id TEXT,character_id TEXT,timeline_id TEXT,event_type TEXT,received_at_utc TEXT,envelope_json TEXT,envelope_sha256 TEXT)");
+ db.exec("CREATE TABLE event_journal(record_id TEXT PRIMARY KEY,world_profile_id TEXT,character_id TEXT,timeline_id TEXT,event_type TEXT,received_at_utc TEXT,envelope_json TEXT,envelope_sha256 TEXT,receipt_status TEXT)");
  db.exec("CREATE TABLE event_source_evidence(record_id TEXT PRIMARY KEY,source_evidence_json TEXT,source_evidence_sha256 TEXT)");
  const digest=v=>createHash('sha256').update(v,'utf8').digest('hex');
  const ins=db.prepare('INSERT INTO dialogue_journal VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)');
@@ -224,14 +224,14 @@ test('real v4 read projection: source hashes, archived FTS, correction overlays 
  const f=integratedFixture(),s=scope();try{
   const old=f.dialogue(s,'I said RED beans and 🚗',{at:'2023-01-01T00:00:00.000Z'});
   const unrelated=f.dialogue(s,'classified Trevor pudding',{protagonistKey:'trevor'});
-  const forgedCorrection=f.correction(s,unrelated.recordId,'cross-protagonist false correction');
+  const crossAvatarCorrection=f.correction(s,unrelated.recordId,'cross-avatar player correction');
   const forgedMemory=f.memory(s,'orphaned evidence claim',[U()]);
   const forgedLookup=(await recallMemory({query:query(s,'orphaned evidence claim'),
     readAdapter:f.adapter,protagonistKey:s.protagonistKey,nowUtc:clock})).bundle;
   assert.ok(!forgedLookup.items.some(x=>x.recordId===forgedMemory));
-  const forgedReport=(await recallMemory({query:query(s,'cross-protagonist false correction'),
+  const forgedReport=(await recallMemory({query:query(s,'cross-avatar player correction'),
     readAdapter:f.adapter,protagonistKey:s.protagonistKey,nowUtc:clock})).bundle;
-  assert.ok(!forgedReport.items.some(x=>x.recordId===forgedCorrection));
+  assert.ok(forgedReport.items.some(x=>x.recordId===crossAvatarCorrection));
   const raw=await recallMemory({query:query(s,'what did I say about RED beans?',{intent:'exact_quote'}),
     readAdapter:f.adapter,protagonistKey:s.protagonistKey,nowUtc:clock});
   assert.equal(raw.bundle.items[0].recordId,old.recordId);assert.equal(raw.bundle.items[0].freshness,'archive');
@@ -241,7 +241,7 @@ test('real v4 read projection: source hashes, archived FTS, correction overlays 
   assert.ok(quoteCorrection.items.some(item=>item.recordId===target&&item.mode==='reported_claim'));
   assert.ok(!quoteCorrection.items.some(item=>item.recordId===old.recordId));
   let b=(await recallMemory({query:query(s,'tell me about beans'),readAdapter:f.adapter,protagonistKey:s.protagonistKey,nowUtc:clock})).bundle;
-  assert.ok(b.items.some(x=>x.recordId===target&&x.mode==='reported_claim'&&x.content.includes('BLUE beans')));
+  assert.ok(b.items.some(x=>x.recordId===target&&x.mode==='reported_claim'&&x.content.includes('BLUE beans')),JSON.stringify(b));
   assert.ok(!b.items.some(x=>x.recordId===old.recordId));
   const stable=f.memory(s,'original faulty memory',[old.recordId]);
   b=(await recallMemory({query:query(s,'faulty memory'),readAdapter:f.adapter,protagonistKey:s.protagonistKey,nowUtc:clock})).bundle;
@@ -327,9 +327,9 @@ test('real v4 event archive validates actual M3 sidecar and never invents witnes
  const add=v=>{
   assert.equal(v.accepted,true);
   const e=v.event,raw=JSON.stringify(e),side=JSON.stringify(v.sourceEvidence);
-  f.db.prepare('INSERT INTO event_journal VALUES(?,?,?,?,?,?,?,?)')
+  f.db.prepare('INSERT INTO event_journal VALUES(?,?,?,?,?,?,?,?,?)')
     .run(e.recordId,s.worldProfileId,s.characterId,s.timelineId,e.eventType,
-      e.receivedAtUtc,raw,f.digest(raw));
+      e.receivedAtUtc,raw,f.digest(raw),e.receiptStatus);
   f.db.prepare('INSERT INTO event_source_evidence VALUES(?,?,?)')
     .run(e.recordId,side,f.digest(side));
   return e;
@@ -345,7 +345,7 @@ test('real v4 event archive validates actual M3 sidecar and never invents witnes
   assert.ok(b.items.some(x=>x.recordId===old.recordId&&x.mode==='observed_fact'));
   const other=(await recallMemory({query:query(s,'did you witness firing?'),
     readAdapter:f.adapter,protagonistKey:'franklin',nowUtc:clock})).bundle;
-  assert.equal(other.items.length,0);
+  assert.ok(other.items.some(x=>x.recordId===old.recordId));
   f.db.prepare('UPDATE event_source_evidence SET source_evidence_json=? WHERE record_id=?')
     .run('{}',old.recordId);
   const tampered=(await recallMemory({query:query(s,'did you witness firing?'),

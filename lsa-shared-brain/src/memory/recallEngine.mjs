@@ -12,7 +12,7 @@ const compactTerms=value=>[...new Set(tokenize(value).filter(t=>t.length>=2&&!ST
 const validTime=value=>typeof value==='string'&&Number.isFinite(Date.parse(value));
 const utc=value=>new Date(value).toISOString();
 const fenceKeys=['characterId','worldProfileId','timelineId'];
-const scopeKey=scope=>[...fenceKeys.map(k=>scope[k]),scope.protagonistKey].join(':');
+const scopeKey=scope=>fenceKeys.map(k=>scope[k]).join(':'); // one human across avatars
 const assert=(ok,code)=>{if(!ok)throw new TypeError(code);};
 export function validateRecallQuery(query) {
   assert(query&&typeof query==='object'&&!Array.isArray(query),'invalid_recall_query');
@@ -58,7 +58,7 @@ function isFollowup(question) {
   return /^(?:and |but |so )?(?:what about (?:that|it|before that)|and then|before that|after that|anything else|what else|then what|more about that)[?!. ]*$/i.test(question.trim());
 }
 function supportedRow(row,scope) {
-  if(!row||!SOURCES.has(row.sourceKind)||row.protagonistKey!==scope.protagonistKey)return null;
+  if(!row||!SOURCES.has(row.sourceKind))return null;
   for(const k of fenceKeys)if(row[k]!==scope[k])return null;
   if(!UUID.test(row.recordId)||!validTime(row.atUtc))return null;
   const e=row.envelope;

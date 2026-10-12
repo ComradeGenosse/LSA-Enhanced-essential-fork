@@ -8,9 +8,10 @@ import { isUuid } from '../util/identity.mjs';
 
 const digest = text => createHash('sha256').update(text).digest('hex');
 const fail = code => { throw new Error(code); };
+// Fixture ownership is the ONE human player in an NPC/world/timeline.
+// Historical avatar is provenance, never the owner of the fixture archive.
 const same = (a,b) => a.characterId===b.characterId &&
-  a.worldProfileId===b.worldProfileId && a.timelineId===b.timelineId &&
-  (a.protagonistKey ?? 'unknown') === (b.protagonistKey ?? 'unknown');
+  a.worldProfileId===b.worldProfileId && a.timelineId===b.timelineId;
 const snapshot = value => JSON.parse(JSON.stringify(value));
 const validScope = s => s && [s.characterId,s.worldProfileId,s.timelineId].every(isUuid) &&
   ['franklin','michael','trevor','unknown'].includes(s.protagonistKey??'unknown');
@@ -42,12 +43,13 @@ export class FixtureMemoryCommandStore {
     try {raw=await fs.readFile(this.filePath,'utf8');}
     catch(error){if(error.code==='ENOENT') return {
       version:1,scope:this.scope,candidates:[],memories:[],commands:[],
-      tombstones:[],corrections:[]
+      tombstones:[],corrections:[],clarifications:[]
     }; throw error;}
     const data=JSON.parse(raw);
     if (data.version!==1 || !same(data.scope,this.scope) ||
       !['candidates','memories','commands','tombstones','corrections'].every(k=>Array.isArray(data[k])))
       fail('fixture_corrupt');
+    if(!Array.isArray(data.clarifications))data.clarifications=[]; // legacy fixture files
     return data;
   }
   async #write(data) {
@@ -100,7 +102,7 @@ export class FixtureMemoryCommandStore {
       !(operation==='remember' && m.targetRecordId)).map(m=>({
       recordId:m.memoryId,kind:'permanent_memory',
       characterId:scope.characterId,worldProfileId:scope.worldProfileId,timelineId:scope.timelineId,
-      protagonistKey:scope.protagonistKey,occurredAtUtc:m.requestedAtUtc,
+      protagonistKey:m.protagonistKey??this.scope.protagonistKey,occurredAtUtc:m.requestedAtUtc,
       content:m.content,label:m.content.slice(0,80)
     }));
     return snapshot([...data.candidates.filter(c=>!suppressed.has(c.recordId)),...stored]);
@@ -133,7 +135,7 @@ export class FixtureMemoryCommandStore {
       }
       const candidates=[...data.candidates,...data.memories.map(m=>({
         recordId:m.memoryId,characterId:this.scope.characterId,worldProfileId:this.scope.worldProfileId,
-        timelineId:this.scope.timelineId,protagonistKey:this.scope.protagonistKey
+        timelineId:this.scope.timelineId,protagonistKey:m.protagonistKey??this.scope.protagonistKey
       }))];
       if (op.targetRecordId && (!candidates.some(c=>c.recordId===op.targetRecordId && same(c,op.scope)) ||
           data.tombstones.some(t=>t.targetRecordId===op.targetRecordId)))
@@ -146,7 +148,7 @@ export class FixtureMemoryCommandStore {
         if(recent)memoryId=recent.memoryId;
         else data.memories.push({
           memoryId,origin:'explicit_player',content:op.content,contentHash:op.contentHash,
-          targetRecordId:op.targetRecordId,requestedAtUtc:op.requestedAtUtc,
+          protagonistKey:op.scope.protagonistKey,targetRecordId:op.targetRecordId,requestedAtUtc:op.requestedAtUtc,
           evidenceRecordIds:op.evidenceRecordIds,importance:op.pin?95:85,pinned:!!op.pin,
           subjectCertainty:op.subjectCertainty||'evidence_linked',recordType:op.recordType
         });
@@ -174,6 +176,57 @@ export class FixtureMemoryCommandStore {
       data.commands.push(receipt);
       await this.#write(data);
       return snapshot(receipt);
+    });
+  }
+  // Durable, source-frozen clarification state for the offline fixture tests.
+  // The production path uses M5SqliteServices on P2's single SQLite writer.
+  async saveClarification({scope,commandId,requestedByLineId,line,parsed,
+      alternatives=[],frozen=[],createdAtUtc}={}) {
+    this.#assertScope(scope);
+    if(!isUuid(commandId)||!isUuid(requestedByLineId)||line?.recordId!==requestedByLineId||
+       !Array.isArray(alternatives)||!Array.isArray(frozen)||alternatives.length>2||
+       frozen.length!==alternatives.length||!Number.isFinite(Date.parse(createdAtUtc))||
+       alternatives.some((a,i)=>!isUuid(a?.recordId)||a.recordId!==frozen[i]?.recordId))
+      fail('invalid_fixture_clarification');
+    const saved=snapshot({scope,line,parsed,alternatives,frozen,requestedByLineId,
+      commandId,createdAtUtc,completed:false});
+    return this.#serial(async()=>{
+      if(this.#assertWrite(scope)!==true)fail('timeline_write_suspended');
+      const data=await this.#load();
+      const prior=data.clarifications.find(x=>x.commandId===commandId);
+      if(prior){if(JSON.stringify(prior)!==JSON.stringify(saved))fail('fixture_clarification_replay_conflict');}
+      else data.clarifications.push(saved);
+      await this.#write(data);
+      const persisted=await this.#load();
+      if(!persisted.clarifications.some(x=>JSON.stringify(x)===JSON.stringify(saved)))
+        fail('fixture_clarification_readback_failed');
+      return {commandId,durableCommit:true};
+    });
+  }
+  async getClarification({scope,commandId,atUtc=null}={}) {
+    this.#assertScope(scope);
+    if(!isUuid(commandId))fail('invalid_fixture_clarification');
+    const data=await this.#load();
+    const saved=data.clarifications.find(x=>x.commandId===commandId);
+    if(!saved||saved.completed||atUtc&&Date.parse(atUtc)>Date.parse(saved.createdAtUtc)+300000)
+      return null;
+    const blocked=new Set(data.tombstones.map(t=>t.targetRecordId));
+    if(saved.alternatives.some(x=>blocked.has(x.recordId)))return null;
+    const {completed,...payload}=saved;
+    return snapshot(payload);
+  }
+  async completeClarification({scope,commandId}={}) {
+    this.#assertScope(scope);
+    if(!isUuid(commandId))fail('invalid_fixture_clarification');
+    return this.#serial(async()=>{
+      if(this.#assertWrite(scope)!==true)fail('timeline_write_suspended');
+      const data=await this.#load();
+      if(!data.commands.some(x=>x.commandId===commandId))fail('fixture_uncommitted_clarification');
+      const row=data.clarifications.find(x=>x.commandId===commandId);
+      if(!row)fail('fixture_clarification_missing');
+      row.completed=true;
+      await this.#write(data);
+      return true;
     });
   }
   async inspect({scope}) {

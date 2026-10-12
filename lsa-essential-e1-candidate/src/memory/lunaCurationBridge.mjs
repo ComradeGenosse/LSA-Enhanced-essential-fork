@@ -2,14 +2,14 @@
 import {requestJson} from '../openai/request.mjs';
 import {createLunaCurationAdapter} from '../../../lsa-shared-brain/src/memory/lunaCurator.mjs';
 import {createIdleCurationScheduler} from '../../../lsa-shared-brain/src/memory/idleCurationScheduler.mjs';
-import {validateM7Consent,validateM7Pricing,M7_OFF_CONSENT} from
+import {validateM7Consent,validateM7Pricing,validateM7ProductionPricing,M7_OFF_CONSENT} from
   '../../../lsa-shared-brain/src/memory/m7Consent.mjs';
 
 /** Only the existing Essential Luna Responses transport, never a local model. */
 export function createEssentialLunaCurator(config,{fetchImpl=globalThis.fetch}={}){
  if(config?.provider!=='openai')throw new Error('curation_requires_existing_openai_provider');
  if(!/luna/i.test(config?.reasoningModel??''))throw new Error('curation_requires_luna_model');
- validateM7Pricing(config);
+ validateM7ProductionPricing(config);
  // Pin the selected model and verified price together. Host config changes
  // between estimation and dispatch must never spend against an old ceiling.
  const pinned=Object.freeze({...config,curatorPricing:Object.freeze({...config.curatorPricing})});
@@ -36,12 +36,14 @@ export function createEssentialM7Scheduler({config,store,queue,ledger,
    throw new Error('m7_explicit_consent_required');
  const approved=validateM7Consent(consent);
  if(approved.mode==='experimental'){
-   validateM7Pricing(config);
+   validateM7ProductionPricing(config);
    if(!ledger?.budgetLimits||
       ledger.budgetLimits.dailyUsd!==approved.dailyUsd||
       ledger.budgetLimits.monthlyUsd!==approved.monthlyUsd||
       typeof ledger.reconcile!=='function')
      throw new Error('m7_durable_budget_caps_and_recovery_required');
+   // Explicit approval MUST survive restart in one P2-owned storage scope.
+   // Missing K/W06 readback ports leave experimental mode inert.
  }
  // Freeze the complete consented Luna pricing/model pair for the lifetime
  // of this scheduler; reconfiguration requires construction under a new
@@ -59,5 +61,7 @@ export function createEssentialM7Scheduler({config,store,queue,ledger,
  return createIdleCurationScheduler({store,queue,ledger,provider,
    consent:approved,nativeIdle,ownerId,now,onError,maxBatch,leaseMs,
    maxProviderMs,maxAttempts,intervalMs,minIntervalMs,maxIdleProofAgeMs,
-   requireRecovery:true});
+   requireRecovery:true,requirePersistedConsent:true,
+   requireAuthenticatedNative:true,requiredModel:approved.mode==='experimental'
+     ?pinned.reasoningModel:null});
 }
