@@ -153,3 +153,7 @@ test('forged/late observer, negative inference, prepromotion: no proof remains u
     adapterEpoch:EPOCH,observation:{claims:[{source:{captureRef:
       '15151515-1515-4515-8515-151515151515'}}]}}).length,0);
 });
+
+// Existing Node 24 Memory K CI runs this suite explicitly. Include the D02
+// CURRENT-only source-policy fixtures without changing K-owned workflows.
+import './nativeCurrentOwnerPlayerAuthority.test.mjs';
