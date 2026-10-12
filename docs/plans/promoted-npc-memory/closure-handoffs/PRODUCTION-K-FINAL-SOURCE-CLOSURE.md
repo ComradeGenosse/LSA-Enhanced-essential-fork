@@ -37,7 +37,7 @@ These changes are code/test integration, **not** evidence that the original Core
 
 **D02 (current native owner and local player):** `nativeCurrentOwnerPlayerAuthority.mjs` and native source from PR #117 implement independent, source-fenced **current-only** corroboration. Actual registered, post-authenticated native source frames and the **pre-acceptance actor lease** are not yet installed/verified in the original runtime. Do not activate the old hypothetical `memory_c01_accepted` v2 or label current-only ownership 'accepted dialogue'. Native owner alone cannot satisfy D01.
 
-**D03 (single P2 writer):** no ordinary original backend accepted proof exists to join with D02; the full original runner/private native/P2 atomic proof path has not passed. Current `essentialGlue.mjs` still invokes the older `createM2TurnCapture` path without new strict proof ports (`verifyNative`, `verifyAcceptedPlayer`, `verifyCompletedPlayback`), hence this binding fails closed. This is a **real remaining integration defect** as well as a source-contract dependency, not a success. K must bind the specialist `createM2EssentialCapture` only to authenticated original source/read-through ports once genuinely available; never wire a boolean `accepted:true` as authority.
+**D03 (single P2 writer):** no ordinary original backend accepted proof exists to join with D02; the full original runner/private native/P2 atomic proof path has not passed. The integration commit after the initial handoff now replaces the stale `createM2TurnCapture` glue with the strict `createM2EssentialCapture` adapter, and original `runSequentialTurn.mjs` forwards completed TTS segments through optional M2 source-ledger validation hooks. Source admission is conditioned on `ORIGINAL_BACKEND_PIN.acceptedSourceHookAvailable===true`, verified current native actor and separately read-through original playback/speech ledgers. The pinned D01 contract explicitly reports `acceptedSourceHookAvailable:false`, so the M2 production binder currently returns **null** rather than storing speculative dialogue. Actual original post-acceptance source hooks, authenticated native owner-player and original playback ledgers are still **missing**. K must not bypass this gate or claim a passing E2E test without those producers.
 
 **T2/T7/T8 original-native and PS3/PS6 source producers:** isolated source policy and P2 tests exist, but full original C-13/native pipe registration, source-time negative coverage/prepromotion, authenticated idle, original Director grant/cooldown/player priority and audited native playback are not proven on the actual GTA host. PS2 source-time witnessing *policy* is not a native arrival receipt.
 
@@ -87,5 +87,20 @@ The W09 anti-forgery verifier detects original runner function entry by V8 cover
 3. Register real native current owner, original M3 source-time, native idle and M9 event/director producers into authenticated original pipe and verify actual lifetime fences, 200ms PS4 and priority constraints.
 4. Reconcile original native SDK pin and main net481 project, separate test-only harness from actual compile. Real GTA testing remains a separate, authorized manual stage.
 5. On a reconciled K final head, run all Node24 Linux/Windows, M0 original S01–S10, P2 readback with source hashes, native harnesses and packaging. Preserve all source-blocked gates, old/legacy M6 rejection and 205+/2501+ fixtures. Never set `implemented:true` or main-merge before authentic success.
+
+## Subsequent Essential runtime source-interface repair
+
+On commit `53b1e914d2868e5a033b9cfc25d6e701a4bf6abb`, the K owner updated
+`lsa-essential-e1-candidate/src/integration/essentialGlue.mjs` to use the
+strict W03 `createM2EssentialCapture` rather than the old call with omitted
+mandatory provenance ports. `runSequentialTurn.mjs` now offers completed
+buffered/early TTS segment metadata to W03, whose independent source-owned
+PCM and TTS ledgers must verify each before P2 ever writes an NPC line.
+No API call, model-generated text, test-only `accepted:true`, or self-asserted
+native completion can substitute for those ledgers. Because the D01 original
+binary lacks the accepted input callback, this source is wired but **inert**
+on the exact pinned host. A new exact-head CI run is required after this
+and the documentation update; the previous suite counts refer to earlier
+commits.
 
 **No main merge, GTA installation, claimed original accepted input, physical game callback, or paid provider call occurred.**
