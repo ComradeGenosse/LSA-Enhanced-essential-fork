@@ -1,39 +1,41 @@
-name: EA6 M1 SQLite Timeline Source Verification
+name: EA-G SQLite v4 and C-13 Timeline Compatibility
 
 on:
   push:
     branches:
-      - feature/ea6-m1-timeline-storage-20261011
+      - feature/ea-final-g-sqlite-v4-compatibility-20261011
   pull_request:
     branches:
-      - integration/elevenlabs-emotional-acting-ea0-ea4-20261011
+      - integration/elevenlabs-emotional-acting-final-20261011
   workflow_dispatch:
 
 permissions:
   contents: read
 
 jobs:
-  storage-portability:
+  sqlite-v4:
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest]
-    runs-on: ${{ matrix.os }}
+    runs-on: \${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
-      - name: EA6 authenticated save timeline and P2 regression
+      - name: SQLite v2-v4 migration, source fencing and real P2 regression
         working-directory: lsa-essential-e1-candidate
         run: >
           node --test
+          tests/ea-g-v4-compatibility.test.mjs
           tests/ea6-storage-timeline.test.mjs
+          tests/ea-final-integration-wiring.test.mjs
           tests/p2-profiles.test.mjs
-      - name: Verify default JSON startup remains compatible with Node 22
+      - name: Node 22 default JSON startup
         uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Legacy P2 profile regression on Node 22
+      - name: Legacy default JSON profile regression
         working-directory: lsa-essential-e1-candidate
         run: node --test tests/p2-profiles.test.mjs
