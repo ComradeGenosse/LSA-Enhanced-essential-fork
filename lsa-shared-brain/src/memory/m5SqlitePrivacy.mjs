@@ -1,3 +1,96 @@
+
+// W04 direct P2 transaction helper: never commit one compound member independently.
+// P2 owns the sole connection and source/timeline transaction/serialized queue.
+function m5Accepted(db,s,line){
+ if(!line||!isUuid(line.recordId)||line.speaker!=='player'||line.kind!=='dialogue_line'||
+   line.delivery!=='accepted'||!['stt','typed'].includes(line.source)||
+   typeof line.content!=='string'||line.attribution?.protagonist!==s.protagonistKey)return false;
+ const x=db.prepare('SELECT content,source,speaker,delivery,committed_at_utc AS atUtc,protagonist FROM dialogue_journal WHERE world_profile_id=? AND character_id=? AND timeline_id=? AND record_id=?')
+   .get(s.worldProfileId,s.characterId,s.timelineId,line.recordId);
+ return !!x&&x.content===line.content&&x.source===line.source&&x.speaker==='player'&&
+   x.delivery==='accepted'&&x.atUtc===line.committedAtUtc&&x.protagonist===s.protagonistKey;
+}
+function m5Effect(db,s,r){
+ if(!r||r.status!=='committed'||r.durableCommit!==true||!isUuid(r.memoryId)||
+    !isUuid(r.commandId)||!isUuid(r.requestedByLineId)||
+    !Array.isArray(r.evidenceRecordIds)||!r.evidenceRecordIds.includes(r.requestedByLineId))return false;
+ const row=db.prepare('SELECT operation,requested_by_line_id FROM memory_commands WHERE command_id=? AND '+scopeWhere)
+   .get(r.commandId,...scopeKey(s));
+ if(!row||row.operation!==r.operation||row.requested_by_line_id!==r.requestedByLineId)return false;
+ if(r.operation==='remember')
+   return !!db.prepare('SELECT memory_id FROM memory_records WHERE memory_id=? AND '+scopeWhere)
+     .get(r.memoryId,...scopeKey(s))&&!activeTombstone(db,s,r.memoryId);
+ if(r.operation==='correct')
+   return !!db.prepare('SELECT command_id FROM memory_corrections WHERE command_id=? AND world_profile_id=? AND character_id=? AND timeline_id=?')
+     .get(r.commandId,s.worldProfileId,s.characterId,s.timelineId);
+ if(r.operation==='forget')
+   return !!db.prepare('SELECT command_id FROM memory_tombstones WHERE command_id=? AND world_profile_id=? AND character_id=? AND timeline_id=?')
+     .get(r.commandId,s.worldProfileId,s.characterId,s.timelineId)&&
+     !db.prepare('SELECT trash_id FROM m5_trash WHERE operation_id=? AND '+scopeWhere+
+       ' AND restored_at_utc IS NOT NULL LIMIT 1').get(r.commandId,...scopeKey(s));
+ return false;
+}
+function m5Apply(db,s,line,o){
+ if(!o||!isUuid(o.commandId)||o.requestedByLineId!==line.recordId||
+   !['remember','forget','correct'].includes(o.operation)||
+   o.scope?.worldProfileId!==s.worldProfileId||o.scope?.timelineId!==s.timelineId||
+   o.scope?.characterId!==s.characterId||o.scope?.protagonistKey!==s.protagonistKey||
+   o.requestedAtUtc!==line.committedAtUtc||typeof o.content!=='string'||
+   !o.content.trim()||o.content.length>12000||sha(o.content)!==o.contentHash||
+   !Array.isArray(o.evidenceRecordIds)||o.evidenceRecordIds.length<1||
+   o.evidenceRecordIds.length>64||o.evidenceRecordIds.some(x=>!isUuid(x))||
+   !o.evidenceRecordIds.includes(line.recordId))fail('m5_atomic_source_invalid');
+ const digest=sha(JSON.stringify(o));
+ const old=db.prepare('SELECT request_sha256 AS digest,receipt_json AS json FROM memory_commands WHERE command_id=?')
+   .get(o.commandId);
+ if(old){
+   if(old.digest!==digest)fail('m5_atomic_id_conflict');
+   const receipt=JSON.parse(old.json);
+   if(!m5Effect(db,s,receipt))fail('m5_atomic_effect_missing');
+   return receipt;
+ }
+ for(const id of o.evidenceRecordIds)
+   if(!evidence(db,s,id)||activeTombstone(db,s,id))fail('m5_atomic_evidence_invalid');
+ const target=o.targetRecordId;
+ if(o.operation!=='remember'&&(!isUuid(target)||!o.evidenceRecordIds.includes(target)||
+   !evidence(db,s,target)||activeTombstone(db,s,target)))fail('m5_atomic_target_invalid');
+ if(o.operation==='correct'&&o.correctionMode==='transcript'){
+   const original=db.prepare('SELECT source,speaker,delivery,protagonist FROM dialogue_journal WHERE record_id=? AND world_profile_id=? AND character_id=? AND timeline_id=?')
+      .get(target,s.worldProfileId,s.characterId,s.timelineId);
+   if(!original||original.source!=='stt'||original.speaker!=='player'||
+     original.delivery!=='accepted'||original.protagonist!==s.protagonistKey)
+     fail('m5_stt_original_unverified');
+ }
+ const at=o.requestedAtUtc;
+ if(!timestamp(at))fail('m5_atomic_time_invalid');
+ if(o.operation==='remember'){
+   db.prepare('INSERT INTO memory_records(memory_id,character_id,world_profile_id,timeline_id,protagonist_key,origin,content,content_sha256,mode,pin,notability,evidence_ids_json,created_at_utc,proposal_json) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,NULL)')
+     .run(o.commandId,s.characterId,s.worldProfileId,s.timelineId,s.protagonistKey,
+      'explicit_player',o.content,o.contentHash,'reported_claim',o.pin?1:0,o.pin?.95:.85,
+      JSON.stringify(o.evidenceRecordIds),at);
+ }else if(o.operation==='forget'){
+   const closure=dependentIds(db,s,[target]),until=new Date(Date.parse(at)+7*DAY).toISOString();
+   revokePendingClarifications(db,s,new Set(closure));
+   for(const id of closure){
+     if(activeTombstone(db,s,id))continue;
+     db.prepare('INSERT INTO memory_tombstones VALUES(?,?,?,?,?,?)')
+       .run(s.characterId,s.worldProfileId,s.timelineId,id,o.commandId,at);
+     db.prepare('INSERT INTO m5_trash VALUES(?,?,?,?,?,?,?,?,?,NULL,NULL)')
+       .run(id===target?o.commandId:randomUUID(),o.commandId,id,...scopeKey(s),at,until);
+   }
+ }else{
+   db.prepare('INSERT INTO memory_corrections VALUES(?,?,?,?,?,?,?,?)')
+     .run(o.commandId,s.characterId,s.worldProfileId,s.timelineId,target,o.content,o.contentHash,at);
+   revokePendingClarifications(db,s,new Set([target]));
+ }
+ const receipt={commandId:o.commandId,requestedByLineId:line.recordId,operation:o.operation,
+   status:'committed',durableCommit:true,memoryId:o.commandId,evidenceRecordIds:o.evidenceRecordIds};
+ db.prepare('INSERT INTO memory_commands VALUES(?,?,?,?,?,?,?,?,?)')
+   .run(o.commandId,s.characterId,s.worldProfileId,s.timelineId,s.protagonistKey,
+      line.recordId,o.operation,digest,JSON.stringify(receipt));
+ return receipt;
+}
+
 // P2-owned SQLite privacy services. The original P2 connection, writer queue,
 // transaction and source/timeline fence own ALL M5 reads and mutations.
 // No independently committing SQLite connection or memory database.
@@ -203,17 +296,51 @@ export class M5SqliteServices{
  /** The original store performs immutable journal command transaction+readback.
   * This facade adds only clarification persistence, never fakes commit receipts.
   */
- async verifyAcceptedLine({scope,line}){
-   if(!line || !isUuid(line.recordId)||line.kind!=='dialogue_line'||
-      line.speaker!=='player'||line.delivery!=='accepted'||
-      !['typed','stt'].includes(line.source)||typeof line.content!=='string')return false;
-   await this.ready(scope);
+ async verifyAcceptedLine({scope,line}={}){
+   return this.#read(scope,db=>m5Accepted(db,scope,line));
+ }
+ async commitAtomicBatch({scope,line,operations}={}){
+   if(!Array.isArray(operations)||operations.length<1||operations.length>2||
+     new Set(operations.map(x=>x?.commandId)).size!==operations.length)
+     fail('m5_invalid_atomic_batch');
+   if(!this.#store.verifiedHostContext)fail('m5_current_source_required');
+   const receipts=await this.#write(scope,db=>{
+     if(!m5Accepted(db,scope,line))fail('m5_line_not_durable');
+     return operations.map(o=>m5Apply(db,scope,line,o));
+   });
+   // Transaction completed, then independently read the committed SQLite effects.
+   const valid=await this.#read(scope,db=>receipts.map(r=>m5Effect(db,scope,r)));
+   if(!valid.every(Boolean))fail('m5_readback_unconfirmed');
+   return receipts;
+ }
+ async verifyEffect({scope,commandId}={}){
    return this.#read(scope,db=>{
-     const row=db.prepare('SELECT content,source,speaker,delivery,committed_at_utc AS atUtc FROM dialogue_journal WHERE world_profile_id=? AND character_id=? AND timeline_id=? AND protagonist=? AND record_id=?')
-       .get(...scopeKey(scope),line.recordId);
-     return !!row && row.content===line.content && row.source===line.source &&
-       row.speaker===line.speaker && row.delivery===line.delivery &&
-       row.atUtc===line.committedAtUtc;
+     const row=db.prepare('SELECT receipt_json AS json FROM memory_commands WHERE command_id=? AND '+scopeWhere)
+       .get(commandId,...scopeKey(scope));
+     if(!row)return null;
+     const receipt=JSON.parse(row.json);
+     return m5Effect(db,scope,receipt)?receipt:null;
+   });
+ }
+ async findPendingClarification({scope,atUtc,excludeLineId}={}){
+   if(!timestamp(atUtc)||!isUuid(excludeLineId))fail('m5_invalid_lookup');
+   return this.#read(scope,db=>{
+     const rows=db.prepare('SELECT command_id AS id,state_json AS raw,state_sha256 AS checksum,expires_at_utc AS until FROM m5_clarifications WHERE '+scopeWhere+
+       ' AND completed_at_utc IS NULL AND expires_at_utc>? AND requested_by_line_id<>? ORDER BY expires_at_utc DESC LIMIT 2')
+       .all(...scopeKey(scope),this.#clock(),excludeLineId);
+     const valid=rows.filter(row=>{
+       if(sha(row.raw)!==row.checksum)fail('m5_corrupt_clarification');
+       const pending=JSON.parse(row.raw);
+       return Date.parse(row.until)>=Date.parse(atUtc)&&
+         m5Accepted(db,scope,pending.line)&&
+         (pending.frozen||[]).every(x=>{
+           const current=evidence(db,scope,x.recordId);
+           return current&&current.content===x.content&&!activeTombstone(db,scope,x.recordId)&&
+             !superseded(db,scope,x.recordId);
+         });
+     });
+     if(valid.length>1)fail('m5_ambiguous_pending');
+     return valid.length?{commandId:valid[0].id}:null;
    });
  }
  bindCommands(){
@@ -221,35 +348,28 @@ export class M5SqliteServices{
      verifyAcceptedLine:args=>this.verifyAcceptedLine(args),
      findCandidates:async params=>{
        const [rows,suppressed,overlays]=await Promise.all([
-         this.#store.findCandidates(params),
-         this.#store.listSuppressedMemoryIds(params.scope),
+         this.#store.findCandidates(params),this.#store.listSuppressedMemoryIds(params.scope),
          this.#store.readCorrectionOverlays(params.scope)
        ]);
        const hidden=new Set([...suppressed,...overlays.map(x=>x.targetId)]);
        return rows.filter(x=>!hidden.has(x.recordId));
      },
      commitCommand:async op=>{
-       const receipt=await this.#store.commitCommand(op);
-       if(op.operation==='forget' && receipt?.durableCommit)await this.ready(op.scope);
-       return receipt;
+       const line=await this.#read(op.scope,db=>{
+         const row=db.prepare('SELECT envelope_json AS raw FROM dialogue_journal WHERE record_id=? AND world_profile_id=? AND character_id=? AND timeline_id=? AND protagonist=?')
+           .get(op.requestedByLineId,op.scope.worldProfileId,op.scope.characterId,
+             op.scope.timelineId,op.scope.protagonistKey);
+         return row?JSON.parse(row.raw):null;
+       });
+       if(!line)fail('m5_missing_persisted_line');
+       return (await this.commitAtomicBatch({scope:op.scope,line,operations:[op]}))[0];
      },
-     verifyCommand:async params=>{
-       const receipt=await this.#store.verifyCommand(params);
-       if(receipt?.operation==='forget' && receipt?.durableCommit){
-         await this.ready(params.scope);
-         const restored=await this.#read(params.scope,db=>db.prepare(
-           'SELECT trash_id FROM m5_trash WHERE operation_id=? AND '+scopeWhere+
-           ' AND restored_at_utc IS NOT NULL LIMIT 1'
-         ).get(params.commandId,...scopeKey(params.scope)));
-         // Historical command receipts cannot acknowledge an effect the player
-         // explicitly restored after the original SQLite commit.
-         if(restored)return {...receipt,status:'restored',durableCommit:false};
-       }
-       return receipt;
-     },
+     commitCommandBatch:args=>this.commitAtomicBatch(args),
+     verifyCommand:params=>this.verifyEffect(params),
      saveClarification:params=>this.saveClarification(params),
      getClarification:params=>this.getClarification(params),
      completeClarification:params=>this.completeClarification(params),
+     findPendingClarification:params=>this.findPendingClarification(params),
      inspect:params=>this.inspect(params),
      export:params=>this.exportArchive(params)
    });
