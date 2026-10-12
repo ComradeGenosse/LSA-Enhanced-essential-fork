@@ -11,7 +11,6 @@ const fail = code => { throw new Error(code); };
 const timestamp = value => typeof value==='string' && Number.isFinite(Date.parse(value));
 const protagonists = new Set(['franklin','michael','trevor','unknown']);
 const scopeKey = s => [s.worldProfileId,s.characterId,s.timelineId,s.protagonistKey??'unknown'];
-const scopeWhere = 'world_profile_id=? AND character_id=? AND timeline_id=? AND protagonist_key=?'; // historical command provenance
 const ownerKey = s => [s.worldProfileId,s.characterId,s.timelineId];
 const ownerWhere = 'world_profile_id=? AND character_id=? AND timeline_id=?';
 const DAY = 86400000;
@@ -240,7 +239,7 @@ export class M5SqliteServices{
          const restored=await this.#read(params.scope,db=>db.prepare(
            'SELECT trash_id FROM m5_trash WHERE operation_id=? AND '+ownerWhere+
            ' AND restored_at_utc IS NOT NULL LIMIT 1'
-         ).get(params.commandId,...scopeKey(params.scope)));
+         ).get(params.commandId,...ownerKey(params.scope)));
          // Historical command receipts cannot acknowledge an effect the player
          // explicitly restored after the original SQLite commit.
          if(restored)return {...receipt,status:'restored',durableCommit:false};
@@ -436,15 +435,14 @@ export class M5SqliteServices{
        }
      }
      for(const id of closure){
-       db.prepare('DELETE FROM memory_records WHERE memory_id=? AND world_profile_id=? AND character_id=? AND timeline_id=? AND protagonist_key=?').run(id,...scopeKey(scope));
-       db.prepare('DELETE FROM dialogue_journal WHERE record_id=? AND world_profile_id=? AND character_id=? AND timeline_id=? AND protagonist=?')
-         .run(id,scope.worldProfileId,scope.characterId,scope.timelineId,scope.protagonistKey??'unknown');
-       if((scope.protagonistKey??'unknown')==='unknown')
-         db.prepare('DELETE FROM event_journal WHERE record_id=? AND world_profile_id=? AND character_id=? AND timeline_id=?').run(id,scope.worldProfileId,scope.characterId,scope.timelineId);
+       db.prepare('DELETE FROM memory_records WHERE memory_id=? AND world_profile_id=? AND character_id=? AND timeline_id=?').run(id,...ownerKey(scope));
+       db.prepare('DELETE FROM dialogue_journal WHERE record_id=? AND world_profile_id=? AND character_id=? AND timeline_id=?')
+         .run(id,...ownerKey(scope));
+       db.prepare('DELETE FROM event_journal WHERE record_id=? AND world_profile_id=? AND character_id=? AND timeline_id=?').run(id,...ownerKey(scope));
        db.prepare('DELETE FROM memory_corrections WHERE target_id=? AND world_profile_id=? AND character_id=? AND timeline_id=?').run(id,scope.worldProfileId,scope.characterId,scope.timelineId);
        db.prepare('DELETE FROM memory_tombstones WHERE target_id=? AND world_profile_id=? AND character_id=? AND timeline_id=?').run(id,scope.worldProfileId,scope.characterId,scope.timelineId);
-       db.prepare('DELETE FROM p2_memory_replay_feed WHERE record_id=? AND world_profile_id=? AND character_id=? AND timeline_id=? AND protagonist_key=?')
-         .run(id,...scopeKey(scope));
+       db.prepare('DELETE FROM p2_memory_replay_feed WHERE record_id=? AND world_profile_id=? AND character_id=? AND timeline_id=?')
+         .run(id,...ownerKey(scope));
        db.prepare('DELETE FROM memory_commands WHERE requested_by_line_id=? AND '+ownerWhere).run(id,...ownerKey(scope));
      }
      for(const x of due)db.prepare('UPDATE m5_trash SET purged_at_utc=? WHERE operation_id=? AND target_id=? AND '+ownerWhere).run(now,x.parent,x.id,...ownerKey(scope));
