@@ -183,5 +183,7 @@ export function createM3SourceTimeAuthority({subscribeAuthenticatedNativeFrames,
     verifyNativeCoverage,retire,close(){retire();unsubscribe?.();},
     status(){return freeze({...counters,connected,retained:entries.size,
       negativeCoverageSupported:false,prepromotionSupported:false,
-      participantAttributionSupported:true,gate:'K_native_registration_required'});}});
+      participantAttributionSupported:connected&&
+        [...entries.values()].some(v=>v.proof.participants?.length>0),
+      gate:'K_native_registration_required'});}});
 }
