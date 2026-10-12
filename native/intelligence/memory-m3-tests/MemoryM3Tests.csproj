@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <OutputType>Exe</OutputType>
+    <Nullable>disable</Nullable>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../WitnessPolicy.cs" Link="WitnessPolicy.cs" />
+    <Compile Include="../memory-m3/SourceTimeWitnessLedger.cs" Link="SourceTimeWitnessLedger.cs" />
+    <Compile Include="Program.cs" />
+  </ItemGroup>
+</Project>
