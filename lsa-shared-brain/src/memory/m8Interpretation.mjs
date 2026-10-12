@@ -114,6 +114,9 @@ export function evaluateM8({scope,personality={},sources=[],memories=[],appraisa
      !isUuid(row.memoryId)||suppressed.has(row.memoryId)||
      !Array.isArray(row.evidenceRecordIds)||row.evidenceRecordIds.length<1||
      row.evidenceRecordIds.length>64||!row.evidenceRecordIds.every(id=>known.has(id)))continue;
+  // Cross-avatar readers must return one committed identity per memory, not
+  // three divergent copies that silently overwrite one another in this map.
+  if(activeMemories.has(row.memoryId))throw Error('m8_duplicate_memory');
   activeMemories.set(row.memoryId,frozen({...row,evidenceRecordIds:ordered(row.evidenceRecordIds)}));
  }
  const approvedAppraisals=new Map();
@@ -174,7 +177,9 @@ export function evaluateM8({scope,personality={},sources=[],memories=[],appraisa
   relationship:{epistemicStatus:'character_opinion',verifiedWorldFact:false,
     dimensions:{trust:Number(trust.toFixed(3)),affection:Number(affection.toFixed(3)),
       familiarity:Number(familiarity.toFixed(3))},
-    sourceEvidenceIds:frozen(ordered(interpretations.filter(i=>i.kind==='social_impression').flatMap(i=>i.sourceEvidenceIds))),
+    // Familiarity is affected by every interpreted source, not merely thanks.
+    // Preserve all contributing immutable IDs for suppression and audit.
+    sourceEvidenceIds:frozen(ordered(interpretations.flatMap(i=>i.sourceEvidenceIds))),
     canonRelationshipUnchanged:true},
   totalBytes:0};
  return trimProjection(result,maxBytes);
