@@ -234,11 +234,16 @@ test('H: M3 certified negative coverage uses one P2 transaction and survives res
  const ownerProof={ownerAlias:x.store.get(x.scope.characterId).promotion.ownerAlias,
    incarnationId:id(),encounterId:id(),hostRunId:x.host.hostRunId,
    worldEpoch:x.host.worldEpoch,observerCaptureRef:id()};
+ const adapterEpoch=id();
  const scope={characterId:x.scope.characterId,worldProfileId:x.scope.worldProfileId,
-   timelineId:x.scope.timelineId,observationId};
- const receipt={certified:true,sourceReceiptId:id(),status:'did_not_witness',
-   observerCaptureRef:ownerProof.observerCaptureRef,hostRunId:ownerProof.hostRunId,
-   worldEpoch:ownerProof.worldEpoch,sampledGameTick:123,channel:'visual',basis:'native_awareness'};
+   timelineId:x.scope.timelineId,observationId,adapterEpoch};
+ // Synthetic native receipt used to exercise the real P2 M3 source validator.
+ const receipt={certified:true,nativeVerified:true,sourceReceiptId:id(),
+   observationId,adapterEpoch,ownerAlias:ownerProof.ownerAlias,
+   incarnationId:ownerProof.incarnationId,encounterId:ownerProof.encounterId,
+   status:'did_not_witness',observerCaptureRef:ownerProof.observerCaptureRef,
+   hostRunId:ownerProof.hostRunId,worldEpoch:ownerProof.worldEpoch,
+   sampledGameTick:123,channel:'visual',basis:'native_awareness'};
  const record={...scope,status:'did_not_witness',reason:'fixture_native_negative',
    ownerProof,nativeCoverage:receipt};
  try{
