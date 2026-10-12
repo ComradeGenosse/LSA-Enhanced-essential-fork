@@ -52,14 +52,20 @@ export function createNativeCurrentOwnerPlayerAuthority({
     throw new TypeError('native_current_owner_private_ports_required');
   let context=null, owners=new Map(), subject=null, sequence=-1,
     gameTick=-1, receivedAt=-1, stop=null, leases=new WeakMap();
-  const retiredStreams=new Set(), retiredRefs=new Set();
-  const clear=()=>{
-    if(context?.streamId){
-      retiredStreams.add(context.streamId);
-      if(retiredStreams.size>64)retiredStreams.delete(retiredStreams.values().next().value);
+  const retiredStreams=new Set(), retiredRefs=new Set(), ownerHistory=new Map();
+  // A live roster refresh invalidates preturn leases, but does not forbid the
+  // next genuine native frame on the same authenticated stream. Terminal
+  // source faults do retire the stream until a new authenticated hello.
+  const clear=(reason='terminal')=>{
+    if(reason!=='roster') {
+      if(context?.streamId) {
+        retiredStreams.add(context.streamId);
+        if(retiredStreams.size>64)retiredStreams.delete(retiredStreams.values().next().value);
+      }
+      ownerHistory.clear();retiredRefs.clear();
     }
     context=null;owners=new Map();subject=null;sequence=-1;
-    gameTick=-1;receivedAt=-1;leases=new WeakMap();retiredRefs.clear();
+    gameTick=-1;receivedAt=-1;leases=new WeakMap();
   };
   const live=()=>!!context&&Number.isFinite(now())&&
     now()>=receivedAt&&now()-receivedAt<=maxAgeMs;
@@ -93,10 +99,11 @@ export function createNativeCurrentOwnerPlayerAuthority({
          aliases.has(o.ownerAlias)||peds.has(o.nativeActorPedId)||
          retiredRefs.has(o.observerCaptureRef))return clear();
       // A captureRef cannot be rebased to another incarnation/owner/Ped.
-      const prior=owners.get(o.observerCaptureRef);
+      const prior=ownerHistory.get(o.observerCaptureRef);
       if(prior&&!same(prior,o,ownerFields.filter(k=>k!=='sampledGameTick')))
         return clear();
       nextOwners.set(o.observerCaptureRef,freeze(o));
+      ownerHistory.set(o.observerCaptureRef,freeze(o));
       aliases.add(o.ownerAlias);peds.add(o.nativeActorPedId);
     }
     for(const ref of owners.keys())if(!nextOwners.has(ref))retiredRefs.add(ref);
