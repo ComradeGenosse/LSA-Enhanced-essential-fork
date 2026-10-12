@@ -497,3 +497,28 @@ test('M9 cues preserve unknown protagonist rather than inferring one',()=>{
   assert.equal(c.cue.protagonistKey,'unknown');
   assert.equal(c.cue.spokenText,null);
 });
+
+
+test('W08 original Director refuses missing or stale committed PS2/P2 source',async()=>{
+  const e=accident(),w=qualified(e);
+  const absent=ps6Harness({committed:()=>({authorized:false})});
+  assert.equal((await absent.adapter.attempt({candidate:e,witness:w,
+    ps3Candidates:[ps3()],facts:ps6Facts(),stamp:{}})).status,
+    'committed_m9_witness_unverified');
+  assert.equal(absent.calls.attempt,0);
+  let checked=0;
+  const expired=ps6Harness({committed:()=>({authorized:++checked<3})});
+  const result=await expired.adapter.attempt({candidate:e,witness:w,
+    ps3Candidates:[ps3()],facts:ps6Facts(),stamp:{}});
+  assert.equal(result.status,'priority_or_original_grant_changed');
+  assert.equal(expired.calls.unregistered,1);
+  assert.equal(expired.calls.attempt,0);
+});
+test('W08 Director submission is not an audible-dialogue completion',async()=>{
+  const e=accident(),w=qualified(e),h=ps6Harness();
+  const r=await h.adapter.attempt({candidate:e,witness:w,
+    ps3Candidates:[ps3()],facts:ps6Facts(),stamp:{}});
+  assert.equal(r.status,'director_submitted_audio_unverified');
+  assert.equal(r.requiresNativePlaybackCompletionReceipt,true);
+  assert.equal(r.spokenText,undefined);
+});
