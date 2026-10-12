@@ -140,6 +140,15 @@ export function readM6CheckpointSql(db,{scope},world){
     // An authorized M5 purge deletes BOTH the B feed row and our source receipt.
     if(Boolean(at)!==Boolean(source)||(source&&!HEX.test(source.source_hash)))
       fail('m6_p2_corrupt_checkpoint_source');
+    if(at){
+      const item=db.prepare('SELECT sequence,kind,record_id,protagonist_key FROM p2_memory_replay_feed WHERE sequence=?')
+        .get(seqNumber);
+      const mask=blocked(db,scope,world);
+      // Privacy can legitimately mask a previously-acked source. Never reveal
+      // it to reconstruct a hash, but verify untouched sources byte-for-byte.
+      if(!mask.has(item.record_id)&&hash(projection(db,item,scope,world,mask))!==source.source_hash)
+        fail('m6_p2_corrupt_checkpoint_source_hash');
+    }
   }
   return Object.freeze({version:1,cursor:cp?String(cp.after_sequence):null,
     activeHourCount:cp?.active_hour_count??0,hourBucket:cp?.hour_bucket??null,
