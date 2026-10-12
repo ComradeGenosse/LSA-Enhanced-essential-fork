@@ -192,7 +192,7 @@ test('W09/P2 stress: 201+ player lines, 2501+ verified PS2 source-sidecar events
         assert.equal(item.sourceEvidence.ownerProof.ownerAlias,x.characters[which].promotion.ownerAlias);
       }
       assert.ok(result.items.every(row=>row.kind==='event'||row.kind==='dialogue'));
-      total+=result.items.length;
+      total+=result.items.filter(row=>row.kind==='event').length;
     }
     assert.equal(total,N);
     const seen=[];
