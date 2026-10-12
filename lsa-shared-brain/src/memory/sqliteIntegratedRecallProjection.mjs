@@ -40,8 +40,8 @@ function suppression(db,scope){
 }
 // A reported correction or derived memory must point to evidence belonging to
 // precisely this NPC/world/timeline. The avatar is historical source provenance.
-function sourceInScope(db,scope,id,parents=new Set()){
-  if(!uuid.test(id)||parents.has(id)||parents.size>=32)return false;
+function sourceInScope(db,scope,id,parents=new Set(),revoked=null){
+  if(!uuid.test(id)||parents.has(id)||parents.size>=32||revoked?.has(id))return false;
   const args=[id,scope.worldProfileId,scope.characterId,scope.timelineId];
   const dialogue=db.prepare('SELECT protagonist,speaker,source,delivery,content,content_sha256 AS checksum,envelope_json AS raw,envelope_sha256 AS rawHash FROM dialogue_journal WHERE record_id=? AND world_profile_id=? AND character_id=? AND timeline_id=?').get(...args);
   if(dialogue){
@@ -59,7 +59,7 @@ function sourceInScope(db,scope,id,parents=new Set()){
     try{
       const ids=parse(memory.sources),next=new Set(parents).add(id);
       return Array.isArray(ids)&&ids.length>0&&ids.length<=64&&
-        ids.every(source=>sourceInScope(db,scope,source,next));
+        ids.every(source=>sourceInScope(db,scope,source,next,revoked));
     }catch{return false;}
   }
   const event=db.prepare("SELECT 1 FROM event_journal e JOIN event_source_evidence s ON s.record_id=e.record_id WHERE e.record_id=? AND e.world_profile_id=? AND e.character_id=? AND e.timeline_id=? AND e.receipt_status='witnessed'").get(...args);
@@ -91,6 +91,7 @@ export function readIntegratedRecall(db,{scope,terms=[],fromUtc=null,toUtc=null,
   if(speaker&&!['player','npc'].includes(speaker))throw new TypeError('m4_invalid_speaker');
   const tokens=[...new Set(terms.filter(token))].slice(0,12),limitLex=tokens.length?Math.min(128,Math.floor(limit/3)):0;
   const forgotten=suppression(db,scope),{corrected,overlays}=correctionRows(db,scope,forgotten);
+ const revoked=new Set([...forgotten,...corrected]);
   const result=new Map(),add=(r)=>{
     if(!r||forgotten.has(r.recordId)||corrected.has(r.recordId))return;
     // Historical source avatar does not partition the current player's memory.
@@ -162,17 +163,29 @@ export function readIntegratedRecall(db,{scope,terms=[],fromUtc=null,toUtc=null,
     let where=clause.replaceAll('TIME_COLUMN','created_at_utc');
     const values=[...args];
     const sql='SELECT memory_id AS recordId,protagonist_key AS sourceProtagonist,content,content_sha256 AS digest,mode,created_at_utc AS atUtc,evidence_ids_json AS evidence FROM memory_records WHERE '+where;
-    const rows=sourceKind==='dialogue_line'?[]:all(db,sql+' ORDER BY created_at_utc DESC, memory_id DESC',values,Math.min(limit,384));
-    for(const r of rows){
+    const memoryPage=db.prepare(sql+' ORDER BY created_at_utc DESC, memory_id DESC LIMIT ? OFFSET ?');
+    // Apply visibility to the entire derived chain, not just direct parents.
+    // Page beyond newer invalid rows so they cannot starve older valid recall.
+    let offset=0,admitted=0;
+    while(sourceKind!=='dialogue_line' && admitted<Math.min(limit,384)){
+     const rows=memoryPage.all(...values,128,offset);
+     if(!rows.length)break;
+     offset+=rows.length;
+     for(const r of rows){
       if(!uuid.test(r.recordId)||sha(r.content)!==r.digest)throw new Error('m4_corrupt_memory');
       const evidence=parse(r.evidence);
       if(!Array.isArray(evidence)||evidence.some(id=>!uuid.test(id)))throw new Error('m4_corrupt_memory_sources');
-      if(evidence.some(id=>forgotten.has(id)||corrected.has(id)||!sourceInScope(db,scope,id)))continue;
+      if(!evidence.length||evidence.length>64||revoked.has(r.recordId)||
+         !sourceInScope(db,scope,r.recordId,new Set(),revoked))continue;
       const e={version:1,kind:'permanent_memory',recordId:r.recordId,
         characterId:scope.characterId,worldProfileId:scope.worldProfileId,timelineId:scope.timelineId,
         content:r.content,mode:r.mode,sourceEvidenceIds:evidence};
       add({...scope,protagonistKey:r.sourceProtagonist,recordId:r.recordId,sourceKind:'permanent_memory',atUtc:r.atUtc,
         evidenceState:'verified',envelope:e});
+      admitted++;
+      if(admitted>=Math.min(limit,384))break;
+     }
+     if(rows.length<128)break;
     }
     for(const r of overlays)add(r);
   }
