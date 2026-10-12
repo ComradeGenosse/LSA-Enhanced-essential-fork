@@ -328,11 +328,11 @@ test('M8: friendship and running joke outlive 128 newer turns, avatar switch, re
  await store.close();
  const reopened=create();await reopened.initialize();
  try{
+   reopened.setVerifiedHostContext({hostContextVersion:1,hostRunId:uuid(),worldEpoch:2});
+   await reopened.confirmTimeline(timelineId);
    const durable=await createP2M8HistoryReader({store:reopened})({...scope,protagonistKey:'trevor'});
    assert.deepEqual(projection('trevor',durable).relationship,original.relationship);
    assert.deepEqual(projection('trevor',durable).jokes,original.jokes);
-   reopened.setVerifiedHostContext({hostContextVersion:1,hostRunId:uuid(),worldEpoch:2});
-   await reopened.confirmTimeline(timelineId);
    const line=await createConversationJournalRecorder(reopened).recordPlayerAccepted({
      characterId:npc.characterId,text:'Forget the original inside joke',source:'typed',
      identity:{pedId:101,turnId:'history-forget',generationId:'gen-1',sessionNonce:'m8'},
