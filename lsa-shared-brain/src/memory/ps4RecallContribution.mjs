@@ -72,8 +72,10 @@ export async function preparePs4Recall({query,readAdapter,snapshot,currentIdenti
 /** Run again just before the single PS4 model allocation is sent to Luna. */
 export function verifyPs4RecallCurrent(prepared,{currentIdentity,playerActive=false,
   source='player_text',directorAdmitted=false,validateEvidence=null}={}){
+  const live=typeof currentIdentity==='function'?safelyCurrent(currentIdentity):null;
   return !!prepared&&prepared.status==='ready'&&
-    typeof currentIdentity==='function'&&identical(prepared.stamp,safelyCurrent(currentIdentity))&&
+    !!live&&identical(prepared.stamp,live)&&
+    (prepared.originalAccepted!==true||(live.nativeVerified===true&&live.timelineWritable===true))&&
     !(source==='special_event'&&(playerActive||directorAdmitted!==true))&&
     // Revalidate tombstones, corrections and retained source visibility against
     // P2 at the very last provider-send/retry boundary. Unknown fails closed.
@@ -109,7 +111,11 @@ export async function prepareOriginalPs4Recall({snapshot,queryId,
     typeof currentIdentity!=='function'||!readAdapter?.read)
   return dropped('original_turn_unavailable');
  const stamp=freezeIdentity(snapshot),start=performance.now();
- if(!identical(stamp,safelyCurrent(currentIdentity)))return dropped('stale_before_accepted');
+ const current=()=>{
+  const v=safelyCurrent(currentIdentity);
+  return v?.nativeVerified===true&&v.timelineWritable===true&&identical(stamp,v);
+ };
+ if(!current())return dropped('stale_before_accepted');
  let timer;
  const timeout=new Promise(resolve=>{timer=setTimeout(()=>resolve(null),deadlineMs);timer.unref?.();});
  let accepted;
@@ -117,7 +123,7 @@ export async function prepareOriginalPs4Recall({snapshot,queryId,
  catch{return dropped('accepted_read_unavailable');}
  finally{clearTimeout(timer);}
  if(performance.now()-start>=deadlineMs)return dropped('deadline');
- if(!identical(stamp,safelyCurrent(currentIdentity)))return dropped('stale_after_accepted');
+ if(!current())return dropped('stale_after_accepted');
  if(!accepted||accepted.originalAccepted!==true||accepted.nativeVerified!==true||
     accepted.p2Committed!==true||accepted.accepted!==true||
     !['player_text','player_mic'].includes(accepted.source)||
@@ -144,7 +150,7 @@ export async function prepareOriginalPs4Recall({snapshot,queryId,
    protagonistKey:snapshot.protagonistKey,source:accepted.source,playerActive,
    deadlineMs:remaining,maxContributionBytes,nowUtc,followup});
  if(prepared.status!=='ready')return prepared;
- if(!identical(stamp,safelyCurrent(currentIdentity)))return dropped('stale_after_recall');
+ if(!current())return dropped('stale_after_recall');
  // Include the question's source record in the last-second P2 validity check:
  // corrections to the triggering utterance also invalidate the old query.
  return Object.freeze({...prepared,acceptedEvidenceRecordId:accepted.recordId,
