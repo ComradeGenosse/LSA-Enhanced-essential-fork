@@ -58,7 +58,7 @@ test('M2 -> real M5 command writes -> readback -> reopen without false acknowled
   }finally{await second.close()}
  }finally{await x.store.close()}
 });
-test('M4 reads real M2 bytes but excludes foreign protagonists and suppresses missing evidence',async t=>{
+test('M4 reads exact dialogue across all player avatars without fabricating evidence',async t=>{
  const x=await setup(t);
  try{
   const text='  🚗 TWO spaces  with olives!  ';
@@ -72,7 +72,8 @@ test('M4 reads real M2 bytes but excludes foreign protagonists and suppresses mi
   assert.equal(found.bundle.items[0].content,text);
   const missing=await recallFromSharedJournal({store:x.store,query:request(x.scope,'what did I say about pineapple?'),
     protagonistKey:'franklin',nowUtc:new Date().toISOString()});
-  assert.equal(missing.bundle.status,'unavailable');
+  assert.equal(missing.bundle.status,'matched');
+  assert.ok(missing.bundle.items.some(item=>item.content==='trevor-only pineapple'));
  }finally{await x.store.close()}
 });
 test('M1 source revocation makes real M5 commit fail without acknowledging success',async t=>{
