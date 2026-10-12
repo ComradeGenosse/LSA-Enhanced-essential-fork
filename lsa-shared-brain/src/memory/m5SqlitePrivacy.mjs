@@ -14,6 +14,12 @@ const scopeKey = s => [s.worldProfileId,s.characterId,s.timelineId,s.protagonist
 const ownerKey = s => [s.worldProfileId,s.characterId,s.timelineId];
 // A stable privacy operation belongs to the human/NPC save, not an avatar.
 const privacyHash = (s,fields) => sha(JSON.stringify({owner:ownerKey(s),...fields}));
+// Old PR #115 receipts used the issuing avatar in their hash. Verify their
+// ORIGINAL avatar before accepting an idempotent replay after a switch.
+const legacyPrivacyHash = (scope,avatar,fields) => sha(JSON.stringify({
+  scope:{characterId:scope.characterId,worldProfileId:scope.worldProfileId,
+    timelineId:scope.timelineId,protagonistKey:avatar},...fields
+}));
 const ownerWhere = 'world_profile_id=? AND character_id=? AND timeline_id=?';
 const DAY = 86400000;
 const CLARIFY_MS = 5*60000;
@@ -143,10 +149,16 @@ export class M5SqliteServices{
    await this.ready(s);
    return this.#store.withP2SqliteRead(s,db=>{verifyOwner(db,s);return fn(db);});
  }
- async #write(s,fn){
+ async #write(s,fn,privacyOperation=null){
    validateScope(s,this.#store);
    await this.ready(s);
-   return this.#store.withTimelineSqliteWrite(s,db=>{verifyOwner(db,s);return fn(db);});
+   return this.#store.withTimelineSqliteWrite(s,db=>{
+     verifyOwner(db,s);
+     if(privacyOperation)authorizeRequest(this.#authorize,s,privacyOperation);
+     const result=fn(db);
+     if(privacyOperation)authorizeRequest(this.#authorize,s,privacyOperation);
+     return result;
+   });
  }
  async saveClarification({scope,commandId,requestedByLineId,line,parsed,alternatives,frozen,createdAtUtc}){
    if(![commandId,requestedByLineId].every(isUuid)||line?.recordId!==requestedByLineId||
@@ -315,8 +327,9 @@ export class M5SqliteServices{
    const now=this.#clock(),until=new Date(Date.parse(now)+7*DAY).toISOString();
    const reqHash=privacyHash(scope,{targetId,operationId,operation:'trash'});
    await this.#write(scope,db=>{
-     const old=db.prepare('SELECT request_sha256 AS hash FROM m5_privacy_ops WHERE operation_id=?').get(operationId);
-     if(old){if(old.hash!==reqHash)fail('m5_privacy_replay_conflict');return;}
+     const old=db.prepare('SELECT request_sha256 AS hash,protagonist_key AS originAvatar FROM m5_privacy_ops WHERE operation_id=?').get(operationId);
+     if(old){if(old.hash!==reqHash && old.hash!==legacyPrivacyHash(scope,old.originAvatar,{targetId,operationId,operation:'trash'}))
+        fail('m5_privacy_replay_conflict');return;}
      if(!evidence(db,scope,targetId))fail('m5_trash_missing_evidence');
      if(activeTombstone(db,scope,targetId))fail('m5_already_suppressed');
      const closure=dependentIds(db,scope,[targetId]);
@@ -333,7 +346,7 @@ export class M5SqliteServices{
      const r=receipt(operationId,'trash',closure,now);
      db.prepare('INSERT INTO m5_privacy_ops VALUES(?,?,?,?,?,?,?)')
        .run(operationId,...scopeKey(scope),reqHash,JSON.stringify(r));
-   });
+   },'trash');
    return this.verifyPrivacy({scope,operationId});
  }
  /** Explicitly authorized entire current NPC/player/timeline archive deletion.
@@ -346,8 +359,9 @@ export class M5SqliteServices{
    const now=this.#clock(),until=new Date(Date.parse(now)+7*DAY).toISOString();
    const reqHash=privacyHash(scope,{operationId,operation:'trash_scope'});
    await this.#write(scope,db=>{
-     const old=db.prepare('SELECT request_sha256 AS hash FROM m5_privacy_ops WHERE operation_id=?').get(operationId);
-     if(old){if(old.hash!==reqHash)fail('m5_privacy_replay_conflict');return;}
+     const old=db.prepare('SELECT request_sha256 AS hash,protagonist_key AS originAvatar FROM m5_privacy_ops WHERE operation_id=?').get(operationId);
+     if(old){if(old.hash!==reqHash && old.hash!==legacyPrivacyHash(scope,old.originAvatar,{operationId,operation:'trash_scope'}))
+        fail('m5_privacy_replay_conflict');return;}
      const ids=[
        ...db.prepare('SELECT record_id AS id FROM dialogue_journal WHERE world_profile_id=? AND character_id=? AND timeline_id=?')
          .all(...ownerKey(scope)).map(x=>x.id),
@@ -370,7 +384,7 @@ export class M5SqliteServices{
      const result=receipt(operationId,'trash_scope',pending,now);
      db.prepare('INSERT INTO m5_privacy_ops VALUES(?,?,?,?,?,?,?)')
        .run(operationId,...scopeKey(scope),reqHash,JSON.stringify(result));
-   });
+   },'trash_scope');
    return this.verifyPrivacy({scope,operationId});
  }
  async verifyPrivacy({scope,operationId}){
@@ -385,8 +399,9 @@ export class M5SqliteServices{
    if(!isUuid(trashId)||!isUuid(operationId))fail('m5_invalid_restore');
    const now=this.#clock(),reqHash=privacyHash(scope,{trashId,operationId,operation:'restore'});
    await this.#write(scope,db=>{
-     const old=db.prepare('SELECT request_sha256 AS hash FROM m5_privacy_ops WHERE operation_id=?').get(operationId);
-     if(old){if(old.hash!==reqHash)fail('m5_privacy_replay_conflict');return;}
+     const old=db.prepare('SELECT request_sha256 AS hash,protagonist_key AS originAvatar FROM m5_privacy_ops WHERE operation_id=?').get(operationId);
+     if(old){if(old.hash!==reqHash && old.hash!==legacyPrivacyHash(scope,old.originAvatar,{trashId,operationId,operation:'restore'}))
+        fail('m5_privacy_replay_conflict');return;}
      const target=db.prepare('SELECT operation_id AS parent,target_id AS target,purge_after_utc AS expiry,restored_at_utc AS restored,purged_at_utc AS purged FROM m5_trash WHERE trash_id=? AND '+ownerWhere).get(trashId,...ownerKey(scope));
      if(!target||target.restored||target.purged||Date.parse(now)>=Date.parse(target.expiry))fail('m5_restore_unavailable');
      const bundle=db.prepare('SELECT target_id AS id FROM m5_trash WHERE operation_id=? AND '+ownerWhere+' AND restored_at_utc IS NULL AND purged_at_utc IS NULL').all(target.parent,...ownerKey(scope));
@@ -398,7 +413,7 @@ export class M5SqliteServices{
        .run(now,target.parent,...ownerKey(scope));
      const r=receipt(operationId,'restore',bundle.map(x=>x.id),now);
      db.prepare('INSERT INTO m5_privacy_ops VALUES(?,?,?,?,?,?,?)').run(operationId,...scopeKey(scope),reqHash,JSON.stringify(r));
-   });
+   },'restore');
    return this.verifyPrivacy({scope,operationId});
  }
  /** Source-bound durable purge verification for the privileged editor. */
@@ -480,7 +495,7 @@ export class M5SqliteServices{
      }
      for(const x of due)db.prepare('UPDATE m5_trash SET purged_at_utc=? WHERE operation_id=? AND target_id=? AND '+ownerWhere).run(now,x.parent,x.id,...ownerKey(scope));
      return {kind:'m5_purge_result',purgedIds:[...ids],committedAtUtc:now};
-   });
+   },'purge');
  }
 }
 export const createM5SqliteServices = options => new M5SqliteServices(options);
