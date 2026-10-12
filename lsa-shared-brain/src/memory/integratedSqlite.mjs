@@ -54,35 +54,51 @@ function dbOwnerScope(db,scope,world){
    fail('memory_owner_or_timeline_unknown');
 }
 const stmtScope=(scope)=>[scope.worldProfileId,scope.characterId,scope.timelineId];
-function knownEvidence(db,scope,id){
- let row=db.prepare('SELECT record_id AS recordId,content,committed_at_utc AS occurredAtUtc, speaker,source,delivery,protagonist AS protagonistKey FROM dialogue_journal WHERE world_profile_id=? AND character_id=? AND timeline_id=? AND record_id=?').get(...stmtScope(scope),id);
+// Evidence is scoped to an NPC/save, not to the historical avatar. Validate
+// *each* source before allowing an explicit or curated memory to depend on it.
+function knownEvidence(db,scope,id,parents=new Set()){
+ if(!isUuid(id)||parents.has(id)||parents.size>=32)return null;
+ let row=db.prepare('SELECT record_id AS recordId,content,committed_at_utc AS occurredAtUtc,speaker,source,delivery,protagonist AS protagonistKey FROM dialogue_journal WHERE world_profile_id=? AND character_id=? AND timeline_id=? AND record_id=?').get(...stmtScope(scope),id);
  if(row){
-   if(row.speaker==='player'&&row.delivery!=='accepted'||row.speaker==='npc'&&row.delivery!=='completed')return null;
-   return {...row,kind:'dialogue_line'};
+   const accepted=row.speaker==='player'&&['typed','stt'].includes(row.source)&&row.delivery==='accepted';
+   const played=row.speaker==='npc'&&row.source==='npc_generated'&&row.delivery==='completed';
+   return accepted||played?{...row,kind:'dialogue_line'}:null;
  }
- row=db.prepare('SELECT e.record_id AS recordId,e.envelope_json AS json,e.receipt_status AS receiptStatus,e.received_at_utc AS occurredAtUtc FROM event_journal e JOIN event_source_evidence s ON s.record_id=e.record_id WHERE e.world_profile_id=? AND e.character_id=? AND e.timeline_id=? AND e.record_id=?').get(...stmtScope(scope),id);
+ row=db.prepare('SELECT e.record_id AS recordId,e.envelope_json AS json,e.envelope_sha256 AS envelopeHash,e.source_hash AS eventHash,e.receipt_status AS receiptStatus,e.received_at_utc AS occurredAtUtc,s.source_evidence_json AS sidecar,s.source_evidence_sha256 AS sidecarHash FROM event_journal e JOIN event_source_evidence s ON s.record_id=e.record_id WHERE e.world_profile_id=? AND e.character_id=? AND e.timeline_id=? AND e.record_id=?').get(...stmtScope(scope),id);
  if(row){
-   // Witnessed events can inform the same NPC across avatars; don't invent a controlling ped.
-   const e=JSON.parse(row.json);
-   if(row.receiptStatus!=='witnessed')return null;
-   return {...row,kind:'journal_event',content:e.eventType+': '+e.claims.map(c=>c.kind+' '+c.durableSubject).join('; '),eventType:e.eventType};
+   if(row.receiptStatus!=='witnessed'||digest(row.json)!==row.envelopeHash||digest(row.sidecar)!==row.sidecarHash)return null;
+   try{
+     const e=JSON.parse(row.json),sidecar=JSON.parse(row.sidecar);
+     if(e.recordId!==id||e.sourceHash!==row.eventHash||sidecar.sourceHash!==row.eventHash||
+        !Array.isArray(e.claims))return null;
+     return {...row,kind:'journal_event',content:e.eventType+': '+e.claims.map(c=>c.kind+' '+c.durableSubject).join('; '),eventType:e.eventType};
+   }catch{return null;}
  }
- row=db.prepare('SELECT memory_id AS recordId,content,created_at_utc AS occurredAtUtc,protagonist_key AS protagonistKey FROM memory_records WHERE world_profile_id=? AND character_id=? AND timeline_id=? AND memory_id=?').get(...stmtScope(scope),id);
- if(row)return {...row,kind:'permanent_memory'};
- return null;
+ row=db.prepare('SELECT memory_id AS recordId,content,content_sha256 AS contentHash,evidence_ids_json AS sources,created_at_utc AS occurredAtUtc,protagonist_key AS protagonistKey FROM memory_records WHERE world_profile_id=? AND character_id=? AND timeline_id=? AND memory_id=?').get(...stmtScope(scope),id);
+ if(!row||digest(row.content)!==row.contentHash)return null;
+ try{
+   const ids=JSON.parse(row.sources),next=new Set(parents).add(id);
+   if(!Array.isArray(ids)||!ids.length||ids.length>64||!ids.every(isUuid)||
+      !ids.every(source=>knownEvidence(db,scope,source,next)))return null;
+   return {...row,kind:'permanent_memory'};
+ }catch{return null;}
 }
 export function listMemoryCandidates(db,scope,world,{beforeUtc=null,excludeRecordId=null}={}){
  dbOwnerScope(db,scope,world);
  const rows=[];
  const dialogue=db.prepare('SELECT record_id AS recordId,content,committed_at_utc AS occurredAtUtc,speaker,source,delivery,protagonist AS protagonistKey FROM dialogue_journal WHERE world_profile_id=? AND character_id=? AND timeline_id=? ORDER BY committed_at_utc DESC LIMIT 200').all(...stmtScope(scope));
- for(const d of dialogue)rows.push({...scope,...d,kind:'dialogue_line'});
+ for(const d of dialogue)if(knownEvidence(db,scope,d.recordId))
+   rows.push({...scope,...d,kind:'dialogue_line'});
  const events=db.prepare('SELECT e.record_id AS recordId,e.envelope_json AS json,e.receipt_status AS receiptStatus,e.received_at_utc AS occurredAtUtc FROM event_journal e JOIN event_source_evidence s ON s.record_id=e.record_id WHERE e.world_profile_id=? AND e.character_id=? AND e.timeline_id=? ORDER BY e.received_at_utc DESC LIMIT 200').all(...stmtScope(scope));
  for(const e of events){
-   const env=JSON.parse(e.json);rows.push({...scope,protagonistKey:'unknown',kind:'journal_event',recordId:e.recordId,receiptStatus:e.receiptStatus,
-     occurredAtUtc:e.occurredAtUtc,eventType:env.eventType,content:env.eventType+': '+env.claims.map(c=>c.kind+' '+c.durableSubject).join('; ')});
+   const source=knownEvidence(db,scope,e.recordId);
+   if(source?.kind==='journal_event')rows.push({...scope,protagonistKey:'unknown',kind:'journal_event',
+     recordId:e.recordId,receiptStatus:e.receiptStatus,occurredAtUtc:e.occurredAtUtc,
+     eventType:source.eventType,content:source.content});
  }
  const permanent=db.prepare('SELECT memory_id AS recordId,content,created_at_utc AS occurredAtUtc,protagonist_key AS protagonistKey FROM memory_records WHERE world_profile_id=? AND character_id=? AND timeline_id=? ORDER BY created_at_utc DESC LIMIT 200').all(...stmtScope(scope));
- for(const p of permanent)rows.push({...scope,...p,kind:'permanent_memory'});
+ for(const p of permanent)if(knownEvidence(db,scope,p.recordId))
+   rows.push({...scope,...p,kind:'permanent_memory'});
  const suppressed=new Set(db.prepare('SELECT target_id FROM memory_tombstones WHERE world_profile_id=? AND character_id=? AND timeline_id=?').all(...stmtScope(scope)).map(x=>x.target_id));
  return immutableSnapshot(rows.filter(x=>!suppressed.has(x.recordId)&&x.recordId!==excludeRecordId&&(!beforeUtc||x.occurredAtUtc<=beforeUtc)));
 }
@@ -202,17 +218,24 @@ export function readPermanentMemoryRows(db,scope,world,{limit=200}={}){
  if(!Number.isSafeInteger(limit)||limit<1||limit>1000)fail('memory_invalid_limit');
  const data=db.prepare('SELECT * FROM memory_records WHERE world_profile_id=? AND character_id=? AND timeline_id=? ORDER BY created_at_utc DESC LIMIT ?')
   .all(...stmtScope(scope),limit);
- return immutableSnapshot(data.map(row=>{
+ const suppressed=new Set(listSuppressedMemoryIds(db,scope,world));
+ return immutableSnapshot(data.flatMap(row=>{
    if(digest(row.content)!==row.content_sha256)fail('memory_content_integrity_failed');
    const sourceEvidenceIds=JSON.parse(row.evidence_ids_json);
-   if(!Array.isArray(sourceEvidenceIds)||!sourceEvidenceIds.every(isUuid))fail('memory_source_integrity_failed');
-   return {characterId:scope.characterId,worldProfileId:scope.worldProfileId,
+   if(!Array.isArray(sourceEvidenceIds)||!sourceEvidenceIds.length||
+      !sourceEvidenceIds.every(isUuid))fail('memory_source_integrity_failed');
+   // The stored source avatar is immutable provenance. The current avatar is
+   // never a filter, but missing, unaccepted, corrected or forgotten sources
+   // must not be elevated to verified permanent knowledge.
+   if(suppressed.has(row.memory_id)||sourceEvidenceIds.some(id=>suppressed.has(id))||
+      !knownEvidence(db,scope,row.memory_id))return [];
+   return [{characterId:scope.characterId,worldProfileId:scope.worldProfileId,
      timelineId:scope.timelineId,protagonistKey:row.protagonist_key,recordId:row.memory_id,
      sourceKind:'permanent_memory',evidenceState:'verified',atUtc:row.created_at_utc,
      envelope:{version:1,kind:'permanent_memory',characterId:scope.characterId,
        worldProfileId:scope.worldProfileId,timelineId:scope.timelineId,recordId:row.memory_id,
        content:row.content,mode:row.mode,sourceEvidenceIds}
-   };
+   }];
  }));
 }
 

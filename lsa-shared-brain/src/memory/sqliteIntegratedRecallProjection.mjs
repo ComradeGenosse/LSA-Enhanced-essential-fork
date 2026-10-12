@@ -43,10 +43,15 @@ function suppression(db,scope){
 function sourceInScope(db,scope,id){
   if(!uuid.test(id))return false;
   const args=[id,scope.worldProfileId,scope.characterId,scope.timelineId];
-  const dialogue=db.prepare('SELECT protagonist FROM dialogue_journal WHERE record_id=? AND world_profile_id=? AND character_id=? AND timeline_id=?').get(...args);
-  if(dialogue)return true;
-  const memory=db.prepare('SELECT protagonist_key FROM memory_records WHERE memory_id=? AND world_profile_id=? AND character_id=? AND timeline_id=?').get(...args);
-  if(memory)return true;
+  const dialogue=db.prepare('SELECT protagonist,speaker,source,delivery FROM dialogue_journal WHERE record_id=? AND world_profile_id=? AND character_id=? AND timeline_id=?').get(...args);
+  if(dialogue)return dialogue.speaker==='player'&&['typed','stt'].includes(dialogue.source)&&dialogue.delivery==='accepted'||
+    dialogue.speaker==='npc'&&dialogue.source==='npc_generated'&&dialogue.delivery==='completed';
+  const memory=db.prepare('SELECT content,content_sha256 AS checksum,evidence_ids_json AS sources FROM memory_records WHERE memory_id=? AND world_profile_id=? AND character_id=? AND timeline_id=?').get(...args);
+  if(memory){
+    if(sha(memory.content)!==memory.checksum)return false;
+    try{const ids=parse(memory.sources);return Array.isArray(ids)&&ids.length>0&&ids.length<=64&&ids.every(id=>uuid.test(id));}
+    catch{return false;}
+  }
   const event=db.prepare("SELECT 1 FROM event_journal e JOIN event_source_evidence s ON s.record_id=e.record_id WHERE e.record_id=? AND e.world_profile_id=? AND e.character_id=? AND e.timeline_id=? AND e.receipt_status='witnessed'").get(...args);
   return !!event;
 }

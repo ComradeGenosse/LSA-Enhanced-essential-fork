@@ -66,6 +66,12 @@ export class SharedJournalRecallAdapter{
        !Number.isSafeInteger(limit)||limit<1||limit>384)
       throw new TypeError('recall_invalid_scope');
     if(this.store.worldProfileId!==scope.worldProfileId)throw new Error('recall_world_mismatch');
+    // Production P2 has a single source-qualified SQLite projection. Prefer
+    // it over rebuilding recall from multiple independently paged journal
+    // reads, which can otherwise admit an invalid derived source chain.
+    // Retain journal fallback for older stores/tests without this capability.
+    if(typeof this.store.readIntegratedRecall==='function')
+      return this.store.readIntegratedRecall({scope,terms,fromUtc,toUtc,sourceKind,speaker,limit});
     const wanted=sourceKind===null?['dialogue_line','journal_event','permanent_memory']:[sourceKind];
     const unique=new Map();
     const suppressed=new Set(typeof this.store.listSuppressedMemoryIds==='function'
