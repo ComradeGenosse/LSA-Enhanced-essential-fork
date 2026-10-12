@@ -15,11 +15,14 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 10.0.x
+      - name: Build C-01 audit with compiler diagnostics visible
+        shell: pwsh
+        run: dotnet build native/intelligence/memory-c01-audit/CoreC01Audit.csproj --configuration Release
       - name: Pin and inspect original Core IL (read only)
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path "evidence" | Out-Null
-          dotnet run --project native/intelligence/memory-c01-audit/CoreC01Audit.csproj --configuration Release -- lsa-essential-e1-candidate/upstream/LosSantosAlive.dll | Out-File -FilePath evidence/core-c01-callgraph.json -Encoding utf8
+          dotnet run --no-build --project native/intelligence/memory-c01-audit/CoreC01Audit.csproj --configuration Release -- lsa-essential-e1-candidate/upstream/LosSantosAlive.dll | Out-File -FilePath evidence/core-c01-callgraph.json -Encoding utf8
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           $a = Get-Content -Raw evidence/core-c01-callgraph.json | ConvertFrom-Json
           Write-Host "Original DLL: $($a.dllSha256)"
