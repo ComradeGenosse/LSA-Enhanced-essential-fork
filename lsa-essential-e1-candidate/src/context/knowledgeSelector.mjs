@@ -92,3 +92,69 @@ export function projectPreparedRecall(prepared,{maxBytes=4096}={}){
  }
  return out;
 }
+
+
+// W05: M8 contributes attributed interpretation ONLY to the original PS4
+// RECALLED lane. Facts[] deliberately remain M4's sole retrieval authority.
+// This is projection, never a new prompt or a second model writer.
+export function projectPreparedM8(prepared,{maxBytes=4096}={}){
+ const empty=()=>({characterOpinions:[],runningJokes:[],relationshipInterpretation:null,references:[],dropped:0});
+ const out=empty(),p=prepared?.status==='ready'?prepared.projection:null;
+ const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+ const ids=a=>Array.isArray(a)&&a.length>0&&a.length<=64&&new Set(a).size===a.length&&a.every(x=>uuid.test(x));
+ const opinionText=v=>typeof v==='string'&&v.length>0&&[...v].length<=360&&v===v.toWellFormed()&&!/[\u0000-\u001f\u007f]/u.test(v);
+ if(!p||p.version!==1||p.kind!=='m8_typed_projection'||
+  !['characterId','worldProfileId','timelineId'].every(k=>uuid.test(p[k])&&p[k]===prepared.stamp?.[k])||
+  p.protagonistKey!==prepared.stamp?.protagonistKey||
+  !Number.isSafeInteger(p.totalBytes)||p.totalBytes!==jsonBytes(p)||p.totalBytes>8192||
+  !Number.isSafeInteger(maxBytes)||maxBytes<0||maxBytes>8192||
+  !Array.isArray(p.interpretations)||p.interpretations.length>16||
+  !Array.isArray(p.jokes)||p.jokes.length>4)return out;
+ const within=()=>jsonBytes({characterOpinions:out.characterOpinions,
+   runningJokes:out.runningJokes,relationshipInterpretation:out.relationshipInterpretation})<=maxBytes;
+ const put=(section,item,ref)=>{
+   out[section].push(item);
+   if(!within()){out[section].pop();out.dropped++;return;}
+   out.references.push(ref);
+ };
+ const used=new Set();
+ // Stable deterministic order; source IDs are never represented as fresh facts.
+ for(const i of [...p.interpretations].sort((a,b)=>String(a?.id).localeCompare(String(b?.id)))){
+  if(!uuid.test(i?.id)||used.has(i.id)||i.epistemicStatus!=='character_opinion'||
+     i.verifiedWorldFact!==false||!ids(i.sourceEvidenceIds)||!opinionText(i.opinion)||
+     typeof i.tone!=='string'||i.tone.length>48||
+     !Number.isFinite(i.confidence)||i.confidence<0||i.confidence>1||
+     !['live','recent','archive','permanent'].includes(i.freshness)){out.dropped++;continue;}
+  used.add(i.id);
+  put('characterOpinions',{id:i.id,epistemicStatus:'character_opinion',
+    verifiedWorldFact:false,opinion:i.opinion,tone:i.tone,confidence:i.confidence,
+    sourceEvidenceIds:[...i.sourceEvidenceIds]},
+    {entryId:i.id,section:'characterOpinions',sourceEvidenceIds:[...i.sourceEvidenceIds]});
+ }
+ for(const j of [...p.jokes].sort((a,b)=>String(a?.id).localeCompare(String(b?.id)))){
+  if(!uuid.test(j?.id)||used.has(j.id)||j.epistemicStatus!=='character_opinion'||
+    j.verifiedWorldFact!==false||j.callbackOptInRequired!==true||
+    !ids(j.sourceEvidenceIds)||!opinionText(j.opinion)||
+    !['emerging','established','resting'].includes(j.state)){out.dropped++;continue;}
+  used.add(j.id);
+  put('runningJokes',{id:j.id,epistemicStatus:'character_opinion',
+    verifiedWorldFact:false,opinion:j.opinion,state:j.state,
+    sourceEvidenceIds:[...j.sourceEvidenceIds],spontaneousSpeechAuthorized:false},
+    {entryId:j.id,section:'runningJokes',sourceEvidenceIds:[...j.sourceEvidenceIds]});
+ }
+ const r=p.relationship;
+ if(r?.epistemicStatus==='character_opinion'&&r.verifiedWorldFact===false&&
+   r.canonRelationshipUnchanged===true&&ids(r.sourceEvidenceIds)&&
+   ['trust','affection','familiarity'].every(k=>Number.isFinite(r.dimensions?.[k])&&
+     r.dimensions[k]>=-1&&r.dimensions[k]<=1)){
+  const value={epistemicStatus:'character_opinion',verifiedWorldFact:false,
+    canonRelationshipUnchanged:true,dimensions:{trust:r.dimensions.trust,
+      affection:r.dimensions.affection,familiarity:r.dimensions.familiarity},
+    sourceEvidenceIds:[...r.sourceEvidenceIds]};
+  out.relationshipInterpretation=value;
+  if(within())out.references.push({entryId:'relationship',section:'relationshipInterpretation',
+    sourceEvidenceIds:[...r.sourceEvidenceIds]});
+  else {out.relationshipInterpretation=null;out.dropped++;}
+ }
+ return out;
+}
