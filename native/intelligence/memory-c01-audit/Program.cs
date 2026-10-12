@@ -49,7 +49,7 @@ foreach (var pair in methods) {
     var m = md.GetMethodDefinition(pair.Key);
     if (m.RelativeVirtualAddress == 0) continue;
     byte[] il;
-    try { il = pe.GetMethodBody(m.RelativeVirtualAddress).GetILBytes().ToArray(); }
+    try { il = pe.GetMethodBody(m.RelativeVirtualAddress).GetILBytes() ?? Array.Empty<byte>(); }
     catch (BadImageFormatException) { badBodies.Add(methodNames[pair.Key]); continue; }
     var i = 0;
     while (i < il.Length) {
