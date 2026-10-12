@@ -72,13 +72,14 @@ test('A source tombstone or correction immediately suppresses derived joke and i
  assert.equal(corrected.jokes.length,0);
 });
 
-test('Strict character/world/timeline/protagonist fencing with other NPC corpus',()=>{
+test('Strict NPC/world/timeline boundaries preserve interpretations across avatars',()=>{
  const d=dataset();
  const other={...scope,characterId:uuid()},wrongWorld={...scope,worldProfileId:uuid()},wrongTimeline={...scope,timelineId:uuid()},wrongProtag={...scope,protagonistKey:'franklin'};
- for(const f of [other,wrongWorld,wrongTimeline,wrongProtag]){
+ for(const f of [other,wrongWorld,wrongTimeline]){
   const out=evaluateM8({scope:f,sources:d.sources,nowUtc:t(30)});
   assert.deepEqual(out.facts,[]);assert.deepEqual(out.interpretations,[]);
  }
+ assert.ok(evaluateM8({scope:wrongProtag,sources:d.sources,nowUtc:t(30)}).facts.length>0);
  const otherProof=event(1,'crash',{ownerProof:{...p,ownerAlias:'promoted.'+other.characterId}});
  assert.equal(run({sources:[committed(otherProof)]},{humor:{style:'goofy'}}).facts.length,0);
 });
