@@ -1,3 +1,4 @@
+import './memory-m5-agent-b-cross-avatar.test.mjs'; // Agent B real SQLite regressions in existing M5 CI
 import './memory-m5-closure.test.mjs'; // F closure adversarial suite, included by existing M5 CI
 import test from 'node:test';
 import assert from 'node:assert/strict';
