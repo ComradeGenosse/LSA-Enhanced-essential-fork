@@ -32,6 +32,9 @@ export function enqueueCuration(db,{job},world,timeline){
     .get(job.proposal.proposalId,world,timeline,job.characterId);
   if(!memory||memory.proposal_json!==JSON.stringify(job.proposal))
     fail('curation_deterministic_record_not_committed');
+  // Source permission is current and avatar-independent, not inferred from the
+  // proposal's historical protagonist. Do not queue already-revoked evidence.
+  if(!sourceAuthorized(db,job,world,timeline))fail('curation_source_no_longer_authorized');
   const old=db.prepare('SELECT job_json FROM memory_curation_jobs WHERE job_id=?').get(job.jobId);
   if(old){
    const previous=JSON.parse(old.job_json);
@@ -226,13 +229,21 @@ export function readCurationAppraisals(db,{characterId,timelineId,protagonistKey
  if(!['unknown','franklin','michael','trevor'].includes(protagonistKey)||
     !Number.isSafeInteger(limit)||limit<1||limit>500)fail('curation_invalid_read');
  const suppressed=suppressedIds(db,world,timelineId,characterId);
- const rows=db.prepare(`SELECT a.*,m.protagonist_key AS protagonist FROM memory_luna_appraisals a
+ // The requested limit counts VISIBLE source-authorized appraisals, not the
+ // first N raw rows. A burst of forgotten/corrected newer rows must not hide
+ // older valid friendship and running-joke memories after avatar switching.
+ const page=db.prepare(`SELECT a.*,m.protagonist_key AS protagonist FROM memory_luna_appraisals a
   JOIN memory_records m ON m.memory_id=a.proposal_id AND m.world_profile_id=a.world_profile_id
    AND m.timeline_id=a.timeline_id AND m.character_id=a.character_id
   WHERE a.world_profile_id=? AND a.timeline_id=? AND a.character_id=?
-   ORDER BY a.completed_at_utc DESC LIMIT ?`).all(world,timelineId,characterId,limit);
+   ORDER BY a.completed_at_utc DESC,a.proposal_id DESC LIMIT ? OFFSET ?`);
  const out=[];
- for(const row of rows){
+ let offset=0;
+ while(out.length<limit){
+  const rows=page.all(world,timelineId,characterId,Math.min(128,limit),offset);
+  if(!rows.length)break;
+  offset+=rows.length;
+  for(const row of rows){
   if(suppressed.has(row.proposal_id))continue;
   const original=JSON.parse(row.original_proposal_json),appraisal=JSON.parse(row.appraisal_json);
   if(original.proposalId!==row.proposal_id||appraisal.proposalId!==row.proposal_id||
@@ -250,6 +261,9 @@ export function readCurationAppraisals(db,{characterId,timelineId,protagonistKey
     factualSummary:original.groundedSummary,opinion:appraisal.inCharacterTake,
     category:appraisal.candidate,notability:appraisal.notability,epistemicStatus:'character_opinion',
     verifiedWorldFact:false,completedAtUtc:row.completed_at_utc}));
+   if(out.length===limit)break;
+  }
+  if(rows.length<Math.min(128,limit))break;
  }
  return Object.freeze(out);
 }
