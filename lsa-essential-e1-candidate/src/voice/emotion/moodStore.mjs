@@ -54,7 +54,9 @@ function contextKey(context) {
   // ped nor a newly summoned incarnation can inherit a previous mood.
   const owner = JSON.stringify([b.serverRunId,b.bindingId,b.bindingRevision,b.claim.adapterEpoch,
     b.claim.incarnationId,b.claim.claimRevision,b.claim.sourceKey,identity.pedId,identity.sessionNonce]);
-  // A story avatar is an authentication fact, not a different human player.\n  // Native authority remains mandatory above and inside context.isCurrent().\n  const lineage = JSON.stringify([b.claim.worldProfileId,h.hostRunId,h.worldEpoch,timelineId]);
+  // A story avatar is an authentication fact, not a different human player.
+  // Native authority remains mandatory above and inside context.isCurrent().
+  const lineage = JSON.stringify([b.claim.worldProfileId,h.hostRunId,h.worldEpoch,timelineId]);
   return { key: JSON.stringify([snap.resolution.characterId,owner,lineage]), characterId: snap.resolution.characterId, owner, lineage,
     turn: JSON.stringify([identity.turnId,identity.generationId]), generation: identity.generationId };
 }
