@@ -281,8 +281,8 @@ test('R2.06 off/shadow serialized WebSocket frames are byte identical and untagg
   assertClosed(early);
 });
 
-test('R2.07 reasoning, transcription and stock OpenAI/Qwen speech retain retries',async()=>{
-  for (const speechProvider of ['openai','faster-qwen3-tts']) {
+test('R2.07 reasoning, transcription and stock OpenAI speech retain retries; Qwen is retired',async()=>{
+  for (const speechProvider of ['openai']) {
     const x=await runCase({
       speechProvider, transcript:true, modelFailures:1, sttFailures:1, ttsFailures:1,
     });
