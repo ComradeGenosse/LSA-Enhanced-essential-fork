@@ -272,3 +272,25 @@ test('M6 replay refuses forged historical protagonist attribution in its SQLite 
      /p2_replay_feed_protagonist_mismatch/);
  }finally{await verify.close();}
 });
+
+
+test('M6 three-avatar scenes consolidate only with shared verified lifetime and owner',()=>{
+ const a=line(1,'I trust you, friend!');
+ const b=line(2,'That was hilarious!',{attribution:{...a.attribution,protagonist:'michael'}});
+ const c=line(3,'Inside joke, remember?',{attribution:{...a.attribution,protagonist:'trevor'}});
+ const proposals=selectAutomaticMemories([c,a,b]);
+ assert.equal(proposals.length,1);
+ assert.deepEqual(proposals[0].evidenceRecordIds,[a.recordId,b.recordId,c.recordId].sort());
+ const earlier={...proposals[0],protagonistKey:'franklin',revision:1};
+ const updated={...proposals[0],protagonistKey:'trevor'};
+ const link=consolidateCandidates([earlier],updated);
+ assert.equal(link.action,'link_duplicate');
+ assert.deepEqual(link.evidenceRecordIds,earlier.evidenceRecordIds);
+ const unproved=line(4,'Inside joke, remember?',{attribution:{protagonist:'trevor'}});
+ assert.equal(selectAutomaticMemories([a,unproved]).length,2,
+   'missing source lifetime cannot borrow the verified Franklin scene');
+ assert.equal(consolidateCandidates([earlier],
+   {...updated,worldProfileId:uuid()}).action,'insert');
+ assert.equal(consolidateCandidates([earlier],
+   {...updated,characterId:uuid()}).action,'insert');
+});
