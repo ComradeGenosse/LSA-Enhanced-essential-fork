@@ -151,3 +151,35 @@ test('A: altered accepted-line SQLite delivery cannot certify derived player mem
     }
   }finally{await reopened.close();}
 });
+
+test('A: corrected grandparent suppresses every derived descendant and limit counts visible memories',async t=>{
+  const x=await fixture(t);
+  try{
+    const prior=await x.say('franklin','The unrelated marmalade secret remains valid.');
+    const kept=await x.store.commitCommand(command(x.scope,prior,'remember'));
+    const origin=await x.say('franklin','The old nested token is copper.');
+    const first=await x.store.commitCommand(command(x.scope,origin,'remember'));
+    const michael=await x.say('michael','Remember the earlier nested copper token.');
+    const derived=await x.store.commitCommand({...command(avatar(x.scope,'michael'),michael,'remember'),
+      evidenceRecordIds:[michael.recordId,first.memoryId]});
+    const trevor=await x.say('trevor','The nested token used to be copper.');
+    const grandchild=await x.store.commitCommand({...command(avatar(x.scope,'trevor'),trevor,'remember'),
+      evidenceRecordIds:[trevor.recordId,derived.memoryId]});
+    assert.equal(derived.status,'committed');assert.equal(grandchild.status,'committed');
+    const correction=await x.say('michael','Correct that: nested token is silver.');
+    assert.equal((await x.store.commitCommand(command(avatar(x.scope,'michael'),correction,
+      'correct',origin,'The nested token is silver.'))).status,'committed');
+    for(const who of ['franklin','michael','trevor']){
+      const scope=avatar(x.scope,who);
+      const visible=await x.store.readPermanentMemoryRows(scope,{limit:1});
+      assert.equal(visible.length,1,'revoked newest rows must not consume the SQL page limit');
+      assert.equal(visible[0].recordId,kept.memoryId);
+      const candidates=await x.store.findCandidates({scope});
+      for(const hidden of [first.memoryId,derived.memoryId,grandchild.memoryId])
+        assert.ok(!candidates.some(row=>row.recordId===hidden),'transitive source was corrected');
+      const m4=await x.store.readIntegratedRecall({scope,sourceKind:'permanent_memory',limit:1});
+      assert.ok(m4.rows.every(row=>![first.memoryId,derived.memoryId,grandchild.memoryId].includes(row.recordId)));
+      assert.ok(m4.rows.some(row=>row.recordId===kept.memoryId));
+    }
+  }finally{await x.store.close();}
+});
