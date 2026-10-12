@@ -5,7 +5,7 @@ import {prepareOriginalPs4Recall,verifyPs4RecallCurrent} from '../../lsa-shared-
 import {SQLiteRecallReadAdapter} from '../../lsa-shared-brain/src/memory/sqliteRecallReadAdapter.mjs';
 import {toPs4RecallContribution} from '../../lsa-shared-brain/src/memory/recallEngine.mjs';
 import {sealRecallBundle} from '../../lsa-shared-brain/src/memory/recallSchemaV1.mjs';
-import {evaluateM8,preparePs4M8,verifyPs4M8Current} from '../../lsa-shared-brain/src/memory/m8Interpretation.mjs';
+import {evaluateM8,createM8ReadAdapter,preparePs4M8,verifyPs4M8Current} from '../../lsa-shared-brain/src/memory/m8Interpretation.mjs';
 import {projectPreparedRecall,projectPreparedM8,KNOWLEDGE_LIMITS,jsonBytes} from '../src/context/knowledgeSelector.mjs';
 import {renderKnowledge,pruneKnowledgeFrame} from '../src/context/knowledgeRenderer.mjs';
 import {createKnowledgeDelivery} from '../src/context/knowledgeDelivery.mjs';
@@ -165,4 +165,39 @@ test('protagonist uncertainty and epoch/owner races fail closed before PS4',asyn
   validateEvidence:()=>true}),false);
  assert.equal(verifyPs4M8Current(fake,{currentIdentity:()=>stamp,
   validateEvidence:()=>Promise.resolve(true)}),false);
+});
+
+
+test('P2 M8 reader honors source scope and positive single PS4 admission; tombstone blocks next send',async()=>{
+ const row={version:1,kind:'dialogue_line',...scope(),recordId:U(71),
+   speaker:'player',source:'typed',delivery:'accepted',
+   content:'That crash was hilarious',committedAtUtc:NOW,
+   attribution:{protagonist:'franklin',worldEpoch:7,hostRunId:stamp.hostRunId}};
+ let active={...stamp,nativeVerified:true,timelineWritable:true};
+ let suppressed=[];
+ const adapter=createM8ReadAdapter({
+  readCommittedSources:async()=>[committed(row)],
+  readCommittedMemories:async()=>[],readSuppressedIds:async()=>suppressed,
+  readCorrectedIds:async()=>[],readCurationAppraisals:async()=>[],
+  currentScope:()=>active
+ });
+ const prepared=await preparePs4M8({scope:scope(),authority:{...stamp,nativeVerified:true},
+  personality:{humor:{style:'sarcastic'}},readAdapter:adapter,
+  currentIdentity:()=>active,nowUtc:new Date(Date.parse(NOW)+20000).toISOString()});
+ assert.equal(prepared.status,'ready');
+ assert.equal(prepared.projection.interpretations[0].epistemicStatus,'character_opinion');
+ const frame=render(null,prepared);
+ assert.equal(lanes(frame).RECALLED.characterOpinions[0].verifiedWorldFact,false);
+ assert.equal(verifyPs4M8Current(prepared,{currentIdentity:()=>active,
+  validateEvidence:ids=>ids.every(id=>!suppressed.includes(id))}),true);
+ suppressed=[row.recordId];
+ assert.equal(verifyPs4M8Current(prepared,{currentIdentity:()=>active,
+  validateEvidence:ids=>ids.every(id=>!suppressed.includes(id))}),false);
+ const delivery=createKnowledgeDelivery({frame,isCurrent:()=>true,
+  opinionCurrent:refs=>refs.every(x=>x.sourceEvidenceIds.every(id=>!suppressed.includes(id))),
+  pruneOpinion:f=>pruneKnowledgeFrame(f,()=>true,()=>true,()=>true,()=>true,()=>false)});
+ assert.equal(delivery.prepare().opinionReferences.length,0);
+ active={...active,worldEpoch:8};
+ assert.equal((await preparePs4M8({scope:scope(),authority:{...stamp,nativeVerified:true},
+  readAdapter:adapter,currentIdentity:()=>active,nowUtc:NOW})).status,'dropped');
 });
