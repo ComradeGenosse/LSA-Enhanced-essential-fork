@@ -70,6 +70,10 @@ function projection(db,entry,scope,world,ban){
   const evidence=readVerifiedEventEvidence(db,{characterId:scope.characterId,
     timelineId:scope.timelineId,recordId:entry.record_id},world);
   if(!evidence)return stub('unverified_event');
+  const owner=db.prepare('SELECT owner_alias FROM promoted_profiles WHERE character_id=?')
+    .get(scope.characterId);
+  if(evidence.event.ownerProof?.ownerAlias!==owner?.owner_alias)
+    fail('m6_p2_observer_owner_changed');
   if(evidence.event.recordId!==entry.record_id||evidence.event.sourceHash!==row.source_hash)
     fail('m6_p2_event_source_mismatch');
   return evidence.event;
@@ -215,7 +219,7 @@ export function ackM6CheckpointSql(db,request,world){
   for(const [diagnosticIndex,r] of rejected.entries()){
     if(!r||typeof r.reason!=='string'||!r.reason.length||r.reason.length>160)
       fail('m6_p2_invalid_rejection');
-    db.prepare('INSERT INTO m6_p2_ack_diagnostics VALUES(?,?,?,?,?,?)')
+    db.prepare('INSERT INTO m6_p2_ack_diagnostics VALUES(?,?,?,?,?,?,?)')
       .run(...entryScope(scope),next,diagnosticIndex,r.recordId??null,r.reason);
     // Some diagnostics are proposal-level; row-level ones are persisted by sequence.
     for(const entry of entries.filter(e=>e.record_id===r.recordId))
