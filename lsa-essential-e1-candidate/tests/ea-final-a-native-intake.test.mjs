@@ -155,3 +155,46 @@ test('EA-A: last admitted sequence excludes logically rejected native frames',as
   assert.equal(x.client.getNativeStream().lastSequence,1);
   assert.equal(x.client.protagonistAuthority.readVerified()?.protagonist,'franklin');
 });
+
+test('R1.01/R1.03 C-13 post-TTL heartbeat recovers without closing a healthy socket',async t=>{
+  for(const observeExpiry of [true,false]) {
+    const x=create(t);await x.hello();await x.model('franklin',7);
+    const old=x.client.protagonistAuthority.readVerified();
+    x.tick(1501);
+    if(observeExpiry) {
+      assert.equal(x.client.protagonistAuthority.readVerified(),null);
+      assert.equal(x.client.protagonistAuthority.isCurrent(old),false);
+    }
+    await x.model('franklin',7);
+    assert.equal(x.socket.destroyed,false,'legitimate equal-revision heartbeat keeps C-13 alive');
+    const renewed=x.client.protagonistAuthority.readVerified();
+    assert.equal(renewed?.protagonist,'franklin');
+    assert.notStrictEqual(renewed,old,'a heartbeat after TTL creates a new proof');
+    assert.equal(x.client.protagonistAuthority.isCurrent(old),false);
+    assert.equal(x.client.protagonistAuthority.isCurrent(renewed),true);
+  }
+});
+test('R1.04/R1.06 C-13 still rejects changed model at equal revision and out-of-order frame',async t=>{
+  const mismatch=create(t);await mismatch.hello();
+  await mismatch.model('franklin',3);
+  mismatch.tick(1501);
+  await mismatch.model('michael',3);
+  assert.equal(mismatch.socket.destroyed,true,'same revision never authorizes a different model');
+  const gap=create(t);await gap.hello();await gap.model('franklin',3);
+  gap.tick(1501);
+  await gap.send({version:1,type:'protagonist_model',
+    adapterEpoch:gap.adapterEpoch,streamId:gap.streamId,sequence:gap.sequence+2,
+    payload:{version:1,source:'native_player_model',protagonist:'franklin',
+      hostRunId:gap.hostRunId,worldEpoch:1,revision:3}});
+  assert.equal(gap.socket.destroyed,true,'the native C-13 sequence gate still rejects gaps');
+});
+test('R1.07 source proof cannot recover after the 60-second whole-channel reset',async t=>{
+  const x=create(t);await x.hello();await x.model('franklin',1);
+  const old=x.client.protagonistAuthority.readVerified();
+  x.tick(60001);
+  assert.equal(x.client.getNativeStream().authenticated,false);
+  assert.equal(x.client.protagonistAuthority.isCurrent(old),false);
+  await x.model('franklin',1);
+  assert.equal(x.socket.destroyed,true,'stale C-13 session needs a fresh hello/stream');
+  assert.equal(x.client.protagonistAuthority.readVerified(),null);
+});
