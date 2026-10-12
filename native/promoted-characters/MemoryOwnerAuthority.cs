@@ -20,6 +20,13 @@ namespace LSA.PromotedCharacters
             int epoch=Host.WorldEpoch;
             string run=Host.HostRunId;
             uint tick=unchecked((uint)Game.GameTime);
+            // Capture the actual controlled protagonist on the same owner
+            // fiber both before and after the roster traversal. Anonymous
+            // native source snapshots implement value equality. A switch,
+            // network transition or unknown native-player source invalidates
+            // the entire sample instead of mixing two player incarnations.
+            var protagonistBefore=MemoryProtagonistSource.Sample(Host,tick);
+            if(protagonistBefore==null) return null;
             var list=Host.Anchors.Current.Where(a=>a.Observer && a.Kind=="ped")
                 .Take(17).ToArray();
             if(list.Length>16) return null; // no silently partial roster
@@ -64,11 +71,15 @@ namespace LSA.PromotedCharacters
                 });
             }
             // Never publish a mixed-epoch or partially live snapshot.
-            if(Host.WorldEpoch!=epoch || !IsReady) return null;
+            var protagonistAfter=MemoryProtagonistSource.Sample(Host,tick);
+            if(Host.WorldEpoch!=epoch || Host.HostRunId!=run || !IsReady ||
+               protagonistAfter==null ||
+               !Object.Equals(protagonistBefore,protagonistAfter))
+                return null;
             return new {
                 memoryProofVersion=1,hostRunId=run,worldEpoch=epoch,
                 sampledGameTick=tick,owners=result.ToArray(),
-                protagonist=MemoryProtagonistSource.Sample(Host,tick),
+                protagonist=protagonistAfter,
                 // C-01 accepted normal-player-turn native source is NOT
                 // presently exposed. Director stock tickets are unrelated.
                 acceptedTurns=new object[0]
