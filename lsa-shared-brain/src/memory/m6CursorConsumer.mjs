@@ -49,9 +49,15 @@ export function createM6CursorConsumer({store,pageSize=250,maxRows=8192,maxPages
       fail('m6_invalid_p2_checkpoint');
     const rows=[],rejected=[],sourceHashes=[],seen=new Map();
     let after=cp.cursor,pagesRead=0,hasMore=false,blockedByQuiet=false;
+    let priorSourceTime=cp.lastSourceUtc?Date.parse(cp.lastSourceUtc):null;
+    if(cp.lastCutoffUtc&&Date.parse(cutoffUtc)<Date.parse(cp.lastCutoffUtc))
+      fail('m6_source_clock_regression');
     do{
-      if(pagesRead>=maxPages)fail('m6_cursor_page_budget_exhausted');
-      const page=await store.readM6JournalPage({scope,afterCursor:after,limit:pageSize});
+      // A bounded scan is a checkpointable PREFIX, not an overflowed latest-N snapshot.
+      // The next invocation resumes after the durable CAS, preserving all backlog.
+      if(pagesRead>=maxPages||rows.length>=maxRows){hasMore=true;break;}
+      const page=await store.readM6JournalPage({scope,afterCursor:after,
+        limit:Math.min(pageSize,maxRows-rows.length)});
       pagesRead++;
       if(!page||!Array.isArray(page.rows)||page.rows.length>pageSize||
          typeof page.hasMore!=='boolean'||(page.hasMore&&page.rows.length===0))
@@ -78,17 +84,24 @@ export function createM6CursorConsumer({store,pageSize=250,maxRows=8192,maxPages
            Date.parse(stamp)>Date.parse(cutoffUtc)){
           blockedByQuiet=true;hasMore=true;break;
         }
+        if(typeof stamp==='string'&&Number.isFinite(Date.parse(stamp))){
+          const sourceTime=Date.parse(stamp);
+          if(priorSourceTime!==null&&sourceTime<priorSourceTime)
+            fail('m6_source_clock_regression');
+          priorSourceTime=sourceTime;
+        }
         rows.push(evidence);
         sourceHashes.push(Object.freeze({cursor:entry.cursor,sourceHash:entry.sourceHash,
           recordId:evidence.recordId}));
         after=entry.cursor;
-        if(rows.length>maxRows)fail('m6_cursor_row_budget_exhausted');
+        // maxRows is enforced by the requested page limit, never by discard.
       }
       if(blockedByQuiet)break;
       // A full page is not proof that the archive ends. Respect hasMore.
     }while(hasMore);
     return Object.freeze({checkpoint:cp,fromCursor:cp.cursor,toCursor:after,
       rows:Object.freeze(rows),rejected:Object.freeze(rejected),
+      lastSourceUtc:priorSourceTime===null?cp.lastSourceUtc??null:new Date(priorSourceTime).toISOString(),
       sourceHashes:Object.freeze(sourceHashes),
       atEnd:!hasMore,blockedByQuiet,pagesRead});
   }
