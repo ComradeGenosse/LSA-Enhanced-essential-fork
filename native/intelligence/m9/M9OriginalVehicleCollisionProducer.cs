@@ -40,16 +40,20 @@ namespace LSA.Intelligence.M9
         readonly M9NativeDamageAdapter adapter;
         readonly Func<string> nativeRun,hostRun;
         readonly Func<long> worldEpoch;
+        readonly Func<RawSignal,string,bool> verifiedPlayerVehicleAtEvent;
         bool retired;
         const int MaxPending=128;
 
         public M9OriginalVehicleCollisionProducer(EntityAnchors anchors,
             Func<string> currentNativeRun,Func<string> currentHostRun,
-            Func<long> currentWorldEpoch) {
+            Func<long> currentWorldEpoch,
+            Func<RawSignal,string,bool> verifyPlayerVehicleAtEvent) {
             if(anchors==null||currentNativeRun==null||currentHostRun==null||
-               currentWorldEpoch==null)throw new ArgumentNullException();
+               currentWorldEpoch==null||verifyPlayerVehicleAtEvent==null)
+                throw new ArgumentNullException();
             nativeRun=currentNativeRun;hostRun=currentHostRun;
             worldEpoch=currentWorldEpoch;
+            verifiedPlayerVehicleAtEvent=verifyPlayerVehicleAtEvent;
             adapter=new M9NativeDamageAdapter(anchors,VerifyPendingOriginal);
         }
         static bool Uuid(string value) {
@@ -87,6 +91,13 @@ namespace LSA.Intelligence.M9
                !signal.facts.TryGetValue("damage",out var damage)||
                !(damage is int)||(int)damage<35||(int)damage>100000)
                 return false;
+            // This callback names a vehicle, NOT its driver. A live player
+            // capture ID on its own does not prove occupant/actor involvement.
+            // T2/K must attest player+vehicle at this SOURCE game tick.
+            bool actorProven=false;
+            try {actorProven=verifiedPlayerVehicleAtEvent(signal,
+                callbackPlayerCaptureRef);}catch{}
+            if(!actorProven)return false;
             lock(gate) {
                 if(retired||pending.Count>=MaxPending)return false;
                 foreach(var e in pending)
