@@ -185,6 +185,22 @@ export async function createRuntimeForBundle(options = {}) {
             currentOwnerPlayerAuthority=createNativeCurrentOwnerPlayerAuthority({
               subscribeAuthenticatedNativeOwnerPlayerFrames:(onFrame,onRetire)=>
                 runtime.intelligence.subscribeAuthenticatedNativeOwnerPlayer(onFrame,onRetire),
+              sourceStillCurrent:(context,owner,player)=>{
+                const source=runtime.intelligence.runtime;
+                const row=source.observerIndex.get(owner.observerCaptureRef);
+                const anchor=source.anchors.get(owner.observerCaptureRef);
+                return source.epoch===context?.adapterEpoch &&
+                  source.stream===context?.streamId &&
+                  source.hostContext?.hostRunId===context?.hostRunId &&
+                  source.hostContext?.worldEpoch===context?.worldEpoch &&
+                  source.current(owner.observerCaptureRef) &&
+                  source.current(player.playerCaptureRef) &&
+                  anchor?.kind==='ped' && anchor.observer===true &&
+                  anchor.owned===true && row?.owned===true &&
+                  row.incarnationId===owner.incarnationId &&
+                  row.encounterId===owner.encounterId &&
+                  source.anchors.get(player.playerCaptureRef)?.kind==='player';
+              },
               profileForAlias:alias=>{
                 if(memoryStore?.timelineWritable!==true ||
                    !memoryStore.verifiedHostContext ||
