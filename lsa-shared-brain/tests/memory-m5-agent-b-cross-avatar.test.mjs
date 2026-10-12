@@ -154,9 +154,16 @@ test('M5: trash/retry/restore is avatar-neutral; conflicting IDs fail; purge is 
     assert.ok(archive.dialogue.some(d=>d.recordId===b.recordId));
     const due=new Date(Date.now()+8*86400000).toISOString();
     const expiring=createM5SqliteServices({store:x.store,filePath:x.filePath,clock:()=>due,authorize:()=>true});
-    const gone=await expiring.purgeExpired({scope:franklin,limit:1});
+    const bounded=await expiring.purgeExpired({scope:franklin,limit:1});
+    assert.deepEqual(bounded.purgedIds,[],'a two-source bundle must never bypass limit=1');
+    assert.ok((await x.store.findExactQuote({characterId:franklin.characterId,
+      timelineId:franklin.timelineId,quote:a.content})).length>0);
+    const gone=await expiring.purgeExpired({scope:franklin,limit:100});
     assert.ok(gone.purgedIds.includes(a.recordId)&&gone.purgedIds.includes(b.recordId));
     assert.deepEqual(await expiring.verifyPurge({scope:trevor,result:gone}),{confirmed:true});
+    assert.deepEqual(await expiring.verifyPurge({scope:trevor,result:{
+      ...gone,purgedIds:[a.recordId]}}),{confirmed:false},
+      'a partial receipt for a completely purged bundle must not verify');
     assert.deepEqual(await expiring.verifyPurge({scope:trevor,result:{...gone,purgedIds:[id()]}}),{confirmed:false});
     assert.equal((await x.store.findExactQuote({characterId:franklin.characterId,
       timelineId:franklin.timelineId,quote:a.content})).length,0);
