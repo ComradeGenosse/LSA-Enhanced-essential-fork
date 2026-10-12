@@ -15,7 +15,15 @@ export function createMoodRuntime({ getRuntime, protagonistAuthority = null,
   clock = () => Math.floor(performance.now()), store = new MoodStore() } = {}) {
   if (typeof getRuntime !== 'function') throw new TypeError('mood_runtime_required');
   let lastLineage = null;
+  // A native model revision is bound to each speaking turn, but never used
+  // as a mood/relationship partition. This blocks delayed Franklin receipts
+  // after a Michael/Franklin ABA without erasing earlier valid soft mood.
+  const turnSource = new WeakMap();
   const deny = () => {store.clear();lastLineage=null;return null;};
+  // An ordinary cutscene/switch may temporarily revoke model evidence. No
+  // source-dependent action is permitted then, but a bounded soft mood may
+  // survive until independent revalidation of the SAME save/host/NPC owner.
+  const suspend = () => null;
   const current = ({identity,turn} = {}, { forRetirement = false } = {}) => {
     // A stale turn's finally/cancellation must not wipe mood legitimately
     // recorded by a newer native turn. Reads/commits still fail closed and
@@ -44,17 +52,24 @@ export function createMoodRuntime({ getRuntime, protagonistAuthority = null,
     if (!ownerEvidence || ownerEvidence.identity.characterId !==
         turn.characterSnapshot.resolution?.characterId) return reject();
     let verified;
-    try { verified = protagonistAuthority.readVerified(); } catch { return reject(); }
-    if (!verified || !Object.isFrozen(verified) || verified.version !== 1 ||
+    try { verified = protagonistAuthority.readVerified(); } catch { return suspend(); }
+    if (!verified) return suspend();
+    if (!Object.isFrozen(verified) || verified.version !== 1 ||
         verified.source !== 'native_player_model' ||
         !PROTAGONISTS.has(verified.protagonist) ||
         !isUuid(verified.hostRunId) || verified.hostRunId !== host.hostRunId ||
         verified.worldEpoch !== host.worldEpoch ||
-        !Number.isSafeInteger(verified.revision) || verified.revision < 1 ||
-        (()=>{try{return protagonistAuthority.isCurrent(verified)===true;}catch{return false;}})() !== true) return reject();
+        !Number.isSafeInteger(verified.revision) || verified.revision < 1) return reject();
+    // A valid-shaped but temporarily revoked native record is not current.
+    // Retain only the bounded, inert soft mood while trusted NPC/save/host
+    // evidence above remains stable. Never authorize an action without a
+    // separately live proof, and never reuse old turnSource after ABA.
+    try { if (protagonistAuthority.isCurrent(verified) !== true) return suspend(); }
+    catch { return suspend(); }
     const lineage = JSON.stringify([characterStore.activeTimelineId,host.hostRunId,
-      host.worldEpoch,verified.protagonist,verified.revision]);
-    // Revocation, protagonist ABA, save switch and host rollover clear old mood.
+      host.worldEpoch]);
+    // Only a genuinely different save/host/world invalidates this lineage.
+    // Avatar model/revision changes authenticate source but never partition mood.
     if (lastLineage !== null && lastLineage !== lineage) store.clear();
     lastLineage = lineage;
     const binding = identityService.bindings.get(identity);
@@ -62,7 +77,7 @@ export function createMoodRuntime({ getRuntime, protagonistAuthority = null,
     const context = {
       identity,characterSnapshot:turn.characterSnapshot,binding,
       hostContext:host,timelineId:characterStore.activeTimelineId,
-      protagonist:verified.protagonist,
+      protagonist:verified.protagonist, nativeSourceProof:verified,
       isCurrent: () => {
         try {
           const now = getRuntime();
@@ -90,17 +105,28 @@ export function createMoodRuntime({ getRuntime, protagonistAuthority = null,
         } catch { return false; }
       },
     };
-    return context.isCurrent() ? Object.freeze(context) : reject();
+    if (context.isCurrent()) return Object.freeze(context);
+    // Evidence can be revoked between readVerified() and the final check.
+    // Reject the action without erasing still-bounded same-owner state.
+    try { if (protagonistAuthority.isCurrent(verified) !== true) return suspend(); }
+    catch { return suspend(); }
+    return reject();
   };
   return Object.freeze({
     readMood({identity,turn}) {
       const context=current({identity,turn});
       if (!context) return null;
+      if (!turn || typeof turn !== 'object') return null;
+      const recorded=turnSource.get(turn);
+      if (recorded && recorded !== context.nativeSourceProof) return null;
+      if (!recorded) turnSource.set(turn,context.nativeSourceProof);
       return store.take({context,nowMs:clock()});
     },
     onSpeechCompleted({identity,turn,delivery,receipt,providerResult,historyAccepted=false}) {
       const context=current({identity,turn});
-      if (!context || !receipt || receipt.type !== 'playback_ended' ||
+      if (!context || !turn || typeof turn !== 'object' ||
+          turnSource.get(turn) !== context.nativeSourceProof ||
+          !receipt || receipt.type !== 'playback_ended' ||
           receipt.ok !== true || receipt.reason !== 'completed' ||
           historyAccepted !== true ||
           !wasElevenTagApplied(providerResult,{delivery,identity}) ||

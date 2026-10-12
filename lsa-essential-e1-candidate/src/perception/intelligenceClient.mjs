@@ -132,6 +132,28 @@ export class IntelligenceClient {
       lastSequence:authenticated?this.#lastAdmittedSequence:0,
     });
   }
+  // C-13 receiver negotiation is sent only on the ACTUAL accepted user-ACL
+  // intelligence socket, never inferred from a config or LLM-provided JSON.
+  // Older/outbound-only native hosts have no directorRequestVersion and receive
+  // no negotiation. Native independently checks exact stream/host/epoch.
+  #announceProtagonistSupport() {
+    const h=this.runtime.hostContext;
+    if(this.closed || this.config.mode!=='shadow' ||
+       this.runtime.directorRequestVersion!==1 || !this.#nativeSessionToken ||
+       !this.socket || this.socket.destroyed || !this.socket.writable ||
+       this.socket.writableLength>BOUNDS.frameBytes || !h ||
+       !this.runtime.epoch || !this.runtime.stream) return false;
+    const message={
+      version:1,type:'protagonist_capability',supportedVersion:1,
+      adapterEpoch:this.runtime.epoch,streamId:this.runtime.stream,
+      hostRunId:h.hostRunId,worldEpoch:h.worldEpoch,
+    };
+    try {
+      const line=JSON.stringify(message)+'\n';
+      if(Buffer.byteLength(line)>512)return false;
+      this.socket.write(line);return true;
+    } catch {return false;}
+  }
   #revokeNative() {
     this.#nativeSessionToken=null;
     this.#lastAdmittedSequence=0;
@@ -687,6 +709,7 @@ export class IntelligenceClient {
           this.#nativeSessionToken=Object.freeze({});
           this.#lastAdmittedSequence=0;
           this.publishHostContext(this.runtime.hostContext);
+          this.#announceProtagonistSupport();
         }
         if(accepted && v?.type!=='hello') this.#lastAdmittedSequence=v.sequence;
         if(accepted && v?.type==='world_epoch') {
@@ -705,6 +728,8 @@ export class IntelligenceClient {
               try {listener(boundary);}catch {}
           }
         }
+        if(accepted && v?.type==='world_epoch')
+          this.#announceProtagonistSupport();
         if(accepted && v?.type==='protagonist_model' &&
            !this.#nativeAuthority.acceptAuthenticatedFrame(v)) {
           this.#revokeNative();fail();return;

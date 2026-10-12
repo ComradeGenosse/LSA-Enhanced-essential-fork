@@ -33,6 +33,12 @@ export class P2SqliteProfileStore {
   get activeTimelineId() { return this.#timeline.activeTimelineId; }
   get timelineWritable() { return this.available && this.loaded && this.#sourceRequired &&
     this.#timeline.writable && this.#sourceValid(); }
+  // Read-only C-13 source snapshot. It is not valid without the *independent*
+  // exact operator timeline confirmation and source-generation gate.
+  get verifiedHostContext() {
+    return this.timelineWritable && this.#sourceContext
+      ? Object.freeze({...this.#sourceContext}) : null;
+  }
   get timelineSourceStatus() {
     if (!this.#sourceRequired) return 'not_required';
     if (!this.available || !this.loaded || !this.#sourceContext) return 'unavailable';
@@ -254,6 +260,210 @@ export class P2SqliteProfileStore {
       if (result && typeof result.then === 'function') fail('timeline_write_async_not_supported');
       return result;
     });
+  }
+  // Synchronous callbacks only: never await or call another queued store
+  // method from inside these callbacks. The original P2 writer is the ONLY
+  // mutable SQLite connection; this preserves the editor/profile CAS queue.
+  #assertMemoryScope(scope) {
+    if(!scope||scope.worldProfileId!==this.worldProfileId||
+       typeof scope.characterId!=='string'||!this.#db.get(scope.characterId))
+      fail('p2_memory_owner_or_world_missing');
+    this.assertTimelineWrite(scope.timelineId);
+  }
+  async withP2SqliteRead(scope,operation) {
+    if(typeof operation!=='function')throw new TypeError('p2_sqlite_callback_required');
+    // A reader queued before disconnect/fork cannot revive after an ABA
+    // re-confirmation of the same host and selected timeline.
+    const expectedContext=this.#sourceContext;
+    const expectedGeneration=this.#authorityGeneration;
+    if(!this.timelineWritable || scope?.timelineId!==this.activeTimelineId)
+      fail('timeline_write_suspended');
+    await this.initialize();
+    return this.#serial(()=>{
+      if(!this.available || this.#sourceContext!==expectedContext ||
+         this.#authorityGeneration!==expectedGeneration)
+        fail('timeline_write_suspended');
+      this.#assertMemoryScope(scope);
+      return this.#db.withP2SqliteRead(operation);
+    });
+  }
+  async withP2SqliteTransaction(scope,operation) {
+    if(typeof operation!=='function')throw new TypeError('p2_sqlite_callback_required');
+    return this.withTimelineWrite(scope?.timelineId,foundation=>{
+      this.#assertMemoryScope(scope);
+      return foundation.withP2SqliteTransaction(db=>{
+        const result=operation(db);
+        // Recheck synchronously INSIDE P2's transaction immediately before
+        // COMMIT; source invalidation in the callback rolls everything back.
+        this.#assertMemoryScope(scope);
+        return result;
+      });
+    });
+  }
+  // API consumed by M5; alias documents that ALL privacy commits are part of
+  // P2's write queue and source/timeline gate at actual SQLite COMMIT.
+  async withTimelineSqliteWrite(scope,operation) {
+    return this.withP2SqliteTransaction(scope,operation);
+  }
+  // Append/update feed includes every committed M2 line and each M3 event
+  // revision. Scanning is bounded; cursor ack is durable and independently
+  // gated to prevent crash loss, rollback escapes, and cross-owner leakage.
+  async readCommittedEvidencePage({scope,cursor=null,limit=256}) {
+    return this.withP2SqliteRead(scope,()=>this.#db.readReplayPage({scope,cursor,limit}));
+  }
+  async readCommittedEvidenceCursor({scope,consumerId}) {
+    return this.withP2SqliteRead(scope,()=>this.#db.readReplayCursor({scope,consumerId}));
+  }
+  async ackCommittedEvidenceCursor({scope,consumerId,cursor,expectedCursor=null}) {
+    return this.withTimelineWrite(scope?.timelineId,foundation=>{
+      this.#assertMemoryScope(scope);
+      return foundation.withP2SqliteTransaction(()=>{
+        const receipt=foundation.acknowledgeReplayCursor({scope,consumerId,cursor,expectedCursor});
+        this.#assertMemoryScope(scope);
+        return receipt;
+      });
+    });
+  }
+  // Scoped journal writes are serialized WITH the M1 source/lineage check.
+  // A player/NPC acknowledgment from a stale native host is never durable.
+  async appendDialogueLine(line,attribution) {
+    return this.withTimelineWrite(line?.timelineId,db=>{
+      if(this.#sourceRequired &&
+          (!this.#sourceContext || attribution?.hostRunId!==this.#sourceContext.hostRunId ||
+           attribution?.worldEpoch!==this.#sourceContext.worldEpoch)) fail('journal_source_epoch_mismatch');
+      return db.appendDialogueLine(line,attribution);
+    });
+  }
+  async appendJournalEvent(event,{sourceEvidence=null}={}) {
+    return this.withTimelineWrite(event?.timelineId,db=>
+      db.appendJournalEvent(event,{hostContext:this.#sourceContext,sourceEvidence}));
+  }
+  // Reads never switch save lineage or restore revoked write authorization;
+  // callers must supply their requested character AND explicit timeline.
+  async readDialogueLines(scope) {
+    await this.initialize();
+    return this.#serial(()=>{if(!this.available)fail('profile_store_unavailable');return this.#db.readDialogueLines(scope);});
+  }
+  async findExactQuote(scope) {
+    await this.initialize();
+    return this.#serial(()=>{if(!this.available)fail('profile_store_unavailable');return this.#db.findExactQuote(scope);});
+  }
+  async searchDialogue(scope) {
+    await this.initialize();
+    return this.#serial(()=>{if(!this.available)fail('profile_store_unavailable');return this.#db.searchDialogue(scope);});
+  }
+  async readJournalEvents(scope) {
+    await this.initialize();
+    return this.#serial(()=>{if(!this.available)fail('profile_store_unavailable');return this.#db.readJournalEvents(scope);});
+  }
+  async readVerifiedEventEvidence(scope) {
+    await this.initialize();
+    return this.#serial(()=>{
+      if(!this.available)fail('profile_store_unavailable');
+      return this.#db.readVerifiedEventEvidence(scope);
+    });
+  }
+  // M5 command adapter: all durable changes revalidate M1 lineage/source in
+  // the same serialized writer queue, then commit and verify separately.
+  async findCandidates({scope,...options}) {
+    await this.initialize();
+    return this.#serial(()=>{
+      if(!this.available)fail('profile_store_unavailable');
+      return this.#db.listMemoryCandidates(scope,options);
+    });
+  }
+  async commitCommand(operation){
+    return this.withTimelineWrite(operation?.scope?.timelineId,foundation=>{
+      if(this.#sourceRequired&&!this.verifiedHostContext)fail('memory_native_host_unconfirmed');
+      return foundation.commitMemoryCommand(operation);
+    });
+  }
+  async verifyCommand({scope,commandId}){
+    await this.initialize();
+    return this.#serial(()=>{
+      if(!this.available)fail('profile_store_unavailable');
+      return this.#db.verifyMemoryCommand({scope,commandId});
+    });
+  }
+  async listSuppressedMemoryIds(scope){
+    await this.initialize();
+    return this.#serial(()=>{
+      if(!this.available)fail('profile_store_unavailable');
+      return this.#db.listSuppressedMemoryIds(scope);
+    });
+  }
+  async readPermanentMemoryRows(scope,options){
+    await this.initialize();
+    return this.#serial(()=>{
+      if(!this.available)fail('profile_store_unavailable');
+      return this.#db.readPermanentMemoryRows(scope,options);
+    });
+  }
+  async readCorrectionOverlays(scope){
+    await this.initialize();
+    return this.#serial(()=>{
+      if(!this.available)fail('profile_store_unavailable');
+      return this.#db.readCorrectionOverlays(scope);
+    });
+  }
+  // M4 reads the actual committed v4 journal through the *same P2 database*
+  // and serialized queue; no second SQLite connection or speculative FTS store.
+  async readIntegratedRecall(query){
+    await this.initialize();
+    return this.#serial(()=>{
+      if(!this.available)fail('profile_store_unavailable');
+      return this.#db.readIntegratedRecall(query);
+    });
+  }
+  // Read-only M3 coverage projection. Writes are deliberately available only
+  // via the verified binder -> recorder -> M1 fenced foundation port.
+  async readM3Coverage(scope){
+    await this.initialize();
+    return this.#serial(()=>{
+      if(!this.available)fail('profile_store_unavailable');
+      return this.#db.readM3Coverage(scope);
+    });
+  }
+  async saveDeterministicMemory(proposal){
+    return this.withTimelineWrite(proposal?.timelineId,foundation=>{
+      if(this.#sourceRequired&&!this.verifiedHostContext)fail('memory_native_host_unconfirmed');
+      return foundation.persistDeterministicMemory(proposal);
+    });
+  }
+  async enqueueCurationJob({job}){
+    return this.withTimelineWrite(job?.timelineId,foundation=>
+      foundation.enqueueCuration({job},job.timelineId));
+  }
+  async claimCurationDue(args){
+    const timelineId=this.activeTimelineId;
+    return this.withTimelineWrite(timelineId,foundation=>foundation.claimCuration(args,timelineId));
+  }
+  async completeCurationLease(args){
+    const timelineId=this.activeTimelineId;
+    return this.withTimelineWrite(timelineId,foundation=>foundation.completeCuration(args,timelineId));
+  }
+  async retryCurationLease(args){
+    const timelineId=this.activeTimelineId;
+    return this.withTimelineWrite(timelineId,foundation=>foundation.retryCuration(args,timelineId));
+  }
+  async releaseCurationLease(args){
+    const timelineId=this.activeTimelineId;
+    return this.withTimelineWrite(timelineId,foundation=>foundation.releaseCuration(args,timelineId));
+  }
+  async reserveCurationBudget(args,budget){
+    return this.withTimelineWrite(this.activeTimelineId,foundation=>foundation.reserveCurationBudget(args,budget));
+  }
+  async finishCurationBudget(args,state){
+    return this.withTimelineWrite(this.activeTimelineId,foundation=>foundation.finishCurationBudget(args,state));
+  }
+  async inspect({scope}){
+    return this.findCandidates({scope,limit:200});
+  }
+  async export({scope}){
+    // Non-destructive content export. Caller is responsible for access-control
+    // to the real promoted character and user-selected save lineage.
+    const records=await this.inspect({scope});
+    return Object.freeze({version:1,scope,records});
   }
   async close() {
     if (this.#closed) return;

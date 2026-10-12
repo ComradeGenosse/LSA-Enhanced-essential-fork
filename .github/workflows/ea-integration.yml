@@ -6,11 +6,14 @@ on:
       - integration/elevenlabs-emotional-acting-ea0-ea4-20261011
       - 'integration/*emotional*'
       - 'feature/ea-final-*'
+      - 'fix/ea-final-*'
   pull_request:
     branches:
       - integration/elevenlabs-emotional-acting-ea0-ea4-20261011
       - 'integration/*emotional*'
+      - 'feature/ea-final-h-unified-player-emotions-20261011'
       - plan/elevenlabs-v4-emotional-acting-20261011
+      - feature/elevenlabs-v4-tts-provider-20261011
   workflow_dispatch:
     inputs:
       require_combined:
@@ -64,7 +67,7 @@ jobs:
         shell: bash
         run: node tools/ea9/matrix.mjs --run --expected-head "$EA_EXPECTED_HEAD" --report ea9-matrix-report.json
       - name: Enforce all EA phases for manual F combined-head acceptance
-        if: ${{ inputs.require_combined == true || github.head_ref == 'integration/elevenlabs-emotional-acting-final-20261011' || github.ref_name == 'integration/elevenlabs-emotional-acting-final-20261011' }}
+        if: ${{ inputs.require_combined == true || github.head_ref == 'integration/elevenlabs-emotional-acting-final-20261011' || github.ref_name == 'integration/elevenlabs-emotional-acting-final-20261011' || github.head_ref == 'integration/elevenlabs-emotional-acting-consolidated-20261012' || github.ref_name == 'integration/elevenlabs-emotional-acting-consolidated-20261012' }}
         shell: bash
         run: node tools/ea9/matrix.mjs --require-combined --expected-head "$EA_EXPECTED_HEAD" --report ea9-combined-readiness.json
       - name: Full Essential offline Node suite

@@ -4,7 +4,7 @@
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const isUuid = value => typeof value === 'string' && UUID.test(value);
 const validInteger = value => Number.isSafeInteger(value) && value > 0;
-const PROTAGONISTS = new Set(['franklin', 'michael', 'trevor']); // M1 durableSubjectRef
+const PROTAGONISTS = new Set(['franklin', 'michael', 'trevor']); // native source validation ONLY
 const CARRY_VALUES = new Set(['amused', 'sad', 'concerned', 'fearful', 'whisper']);
 const FRESH_SOURCES = new Set(['verified_scene', 'dialogue_cue', 'luna_hint']);
 const MAX_ENTRIES = 128;
@@ -16,12 +16,12 @@ const MAX_ENTRIES = 128;
  *   binding: RuntimeBindings.get(turn.identity), // authenticated and CURRENT
  *   hostContext: OwnerEvidence.hostContext,        // trusted native hello
  *   timelineId: TimelineGuard.activeTimelineId,   // approved current save
- *   protagonist: 'franklin'|'michael'|'trevor',    // verified game protagonist
+ *   protagonist: 'franklin'|'michael'|'trevor',    // verified source; never player identity
  *   identity: turn.identity,                       // native routing tuple
  *   isCurrent: () => boolean                      // recheck owner AND epoch
  * }
  * isCurrent must check current P1 binding, fresh owner proof and authoritative
- * host/timeline/protagonist at CALL time; a JSON claim or mere UUID is not proof.
+ * host/timeline/native source at CALL time; a JSON claim or UUID is not proof.
  * Missing one component disables continuity, not ordinary voice synthesis.
  */
 function contextKey(context) {
@@ -54,7 +54,9 @@ function contextKey(context) {
   // ped nor a newly summoned incarnation can inherit a previous mood.
   const owner = JSON.stringify([b.serverRunId,b.bindingId,b.bindingRevision,b.claim.adapterEpoch,
     b.claim.incarnationId,b.claim.claimRevision,b.claim.sourceKey,identity.pedId,identity.sessionNonce]);
-  const lineage = JSON.stringify([b.claim.worldProfileId,h.hostRunId,h.worldEpoch,timelineId,protagonist]);
+  // A story avatar is an authentication fact, not a different human player.
+  // Native authority remains mandatory above and inside context.isCurrent().
+  const lineage = JSON.stringify([b.claim.worldProfileId,h.hostRunId,h.worldEpoch,timelineId]);
   return { key: JSON.stringify([snap.resolution.characterId,owner,lineage]), characterId: snap.resolution.characterId, owner, lineage,
     turn: JSON.stringify([identity.turnId,identity.generationId]), generation: identity.generationId };
 }
@@ -89,7 +91,7 @@ export class MoodStore {
     return true;
   }
   #isolate(key) {
-    // A change in world, timeline, protagonist or owner within a live owner
+    // A change in world, timeline or owner within a live owner
     // removes its previous emotional state, even if the user later switches back.
     for (const [id, entry] of this.#entries) {
       if (entry.characterId === key.characterId && (entry.owner !== key.owner || entry.lineage !== key.lineage)) this.#entries.delete(id);

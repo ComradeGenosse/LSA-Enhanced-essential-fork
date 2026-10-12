@@ -13,8 +13,15 @@ import { worldProfileId } from './identity-fixtures.mjs';
 
 async function workspace(t) {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), 'lsa-ea-final-b-'));
-  t.after(() => fs.rm(root, { recursive:true, force:true }));
-  return {json:path.join(root,'profiles.v1.json'), db:path.join(root,'profiles.v2.sqlite')};
+  // Close SQLite/WAL handles BEFORE deleting the Windows temp directory.
+  // Node's after hooks run in registration order, not in LIFO order.
+  const beforeRemoval=[];
+  t.after(async()=> {
+    for(const dispose of beforeRemoval.reverse()) await dispose();
+    await fs.rm(root,{recursive:true,force:true});
+  });
+  return {json:path.join(root,'profiles.v1.json'),db:path.join(root,'profiles.v2.sqlite'),
+    beforeRemoval:dispose=>beforeRemoval.push(dispose)};
 }
 const host = (hostRunId=randomUUID(),worldEpoch=1) =>
   Object.freeze({hostContextVersion:1,hostRunId,worldEpoch});
@@ -32,7 +39,7 @@ async function start(t) {
   const store=createEssentialMemoryStorage({filePath:files.db,legacyJsonPath:files.json,
     worldProfileId,sourceRequired:true});
   const source=acceptedC13(),bridge=bindTrustedTimelineSource({store,intelligenceClient:source});
-  t.after(async()=>{bridge.close();await store.close();});
+  files.beforeRemoval(async()=>{bridge.close();await store.close();});
   await store.initialize();
   const save=await store.createTimeline({label:'Exact existing save'});
   return {files,store,source,save};
@@ -147,7 +154,7 @@ test('EA Final B: qualified host reload cannot reconstruct missing native proof'
   assert.equal(store.timelineWritable,true);
 });
 
-test('EA Final B: v4 journal is preserved unchanged and never downgraded by M1 v2',async t=>{
+test('EA Final B: valid v4 journal is opened safely and never downgraded',async t=>{
   const {files,store}=await start(t);
   await store.close();
   // Simulate an existing higher-version memory journal with real stored bytes.
@@ -157,16 +164,21 @@ test('EA Final B: v4 journal is preserved unchanged and never downgraded by M1 v
     .run('source-1','verbatim witnessed memory');
   seed.exec('PRAGMA user_version=4');
   seed.close();
-  const before=await fs.readFile(files.db);
   const read=new DatabaseSync(files.db,{readOnly:true});
   assert.equal(read.prepare('SELECT evidence FROM memory_journal_v4 WHERE id=?').get('source-1').evidence,'verbatim witnessed memory');
   read.close();
-  const older=createEssentialMemoryStorage({filePath:files.db,worldProfileId,sourceRequired:true});
-  await assert.rejects(older.initialize(),/unsupported_sqlite_profile_schema/);
-  assert.equal(older.timelineWritable,false);
-  assert.deepEqual(await fs.readFile(files.db),before);
-  const inspect=new DatabaseSync(files.db,{readOnly:true});
-  assert.equal(inspect.prepare('PRAGMA user_version').get().user_version,4);
-  assert.equal(inspect.prepare('SELECT count(*) AS count FROM memory_journal_v4').get().count,1);
-  inspect.close();
+  // The approved G implementation MUST open valid v4 without downgrade.
+  // Retain the unknown extension table and its exact evidence content.
+  const current=createEssentialMemoryStorage({filePath:files.db,worldProfileId,sourceRequired:true});
+  try {
+    await current.initialize();
+    assert.equal(current.timelineWritable,false,'restart cannot mint source authority');
+    const inspect=new DatabaseSync(files.db,{readOnly:true});
+    try {
+      assert.equal(inspect.prepare('PRAGMA user_version').get().user_version,4);
+      assert.equal(inspect.prepare('SELECT count(*) AS count FROM memory_journal_v4').get().count,1);
+      assert.equal(inspect.prepare('SELECT evidence FROM memory_journal_v4 WHERE id=?').get('source-1').evidence,
+        'verbatim witnessed memory');
+    }finally{inspect.close();}
+  }finally{await current.close();}
 });
