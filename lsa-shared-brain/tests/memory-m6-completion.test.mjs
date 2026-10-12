@@ -63,11 +63,12 @@ function fakeStore({lines=[],events=[],sidecars=true,queueEnabled=true}={}){
  };
  return store;
 }
-test('M6 selection separates incompatible protagonists and maintains fun-first scoring',()=>{
+test('M6 selection unifies same-player source avatars while retaining fun-first scoring',()=>{
  const a=line(1,'That was hilarious!');
  const b=line(2,'That was hilarious!',{attribution:{...a.attribution,protagonist:'trevor'}});
  const result=evaluateAutomaticMemoryBatch([a,b]);
- assert.equal(result.proposals.length,2);
+ assert.equal(result.proposals.length,1);
+ assert.deepEqual(result.proposals[0].evidenceRecordIds,[a.recordId,b.recordId].sort());
  assert.equal(result.qualifiedCount,2);
  assert.deepEqual(selectAutomaticMemories([line(3,'Hi there')]),[]);
  assert.equal(selectAutomaticMemories([event(3,'bizarre_crash')],{existingInHour:999}).length,1);
