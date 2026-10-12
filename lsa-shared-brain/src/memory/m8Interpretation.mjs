@@ -1,5 +1,6 @@
 // M8: pure, source-linked interpretation. Never mutates P2 evidence or writes PS4 frames.
 import {isUuid, normalizedEvidence, sameScope, stableUuid, factDigest} from './evidence.mjs';
+import {detectExplicitMemoryCommand} from './explicitCommands.mjs';
 
 const PROTAGONISTS=new Set(['franklin','michael','trevor','unknown']);
 const STYLES=new Set(['goofy','sarcastic','dry','dark','wholesome']);
@@ -45,6 +46,9 @@ export function categoryOf(row){
   return null;
  }
  const x=row.content;
+ // The accepted wording of an M5 command is not a new humorous or social
+ // encounter. "Forget that inside joke" must not itself recreate the joke.
+ if(row.speaker==='player'&&detectExplicitMemoryCommand(x))return null;
  if(/\bthank(s| you)\b|\bi trust you\b/i.test(x))return 'gratitude';
  if(/\bthat (?:crash|collision|impact) (?:was |is )?(?:hilarious|funny)\b/i.test(x))return 'crash_joke';
  if(/\b(?:just kidding|inside joke|running joke)\b/i.test(x))return 'humor_quote';
