@@ -149,7 +149,7 @@ export class IntelligenceClient {
       hostRunId:h.hostRunId,worldEpoch:h.worldEpoch,
     };
     try {
-      const line=JSON.stringify(message)+'\\n';
+      const line=JSON.stringify(message)+'\n';
       if(Buffer.byteLength(line)>512)return false;
       this.socket.write(line);return true;
     } catch {return false;}
