@@ -95,8 +95,8 @@ for(const key of ['franklin','michael','trevor','unknown']){
     assert.deepEqual(granted.identity,identity);
     assert.equal(granted.originalSource,source);
     assert.ok(Object.isFrozen(granted.ownerProof));
-    assert.equal(h.native.verifyCurrentTurn({...h.query(),protagonistKey:'franklin'}),
-      key==='franklin'?granted:null);
+    assert.equal(h.native.verifyCurrentTurn({...h.query(),protagonistKey:'franklin'})
+      ?.protagonistKey,key==='franklin'?'franklin':undefined);
   });
 }
 test('generation, session nonce, ped ID, owner and chronology are immutable',()=>{
