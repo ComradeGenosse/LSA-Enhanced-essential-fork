@@ -15,6 +15,7 @@ const stamp={characterId:U(1),worldProfileId:U(2),timelineId:U(3),
  protagonistKey:'franklin',hostRunId:U(4),worldEpoch:7,incarnationId:U(5),
  encounterId:U(6),observerCaptureRef:U(7),turnId:U(8),turnIdentityHash:SHA};
 const scope=()=>Object.fromEntries(['characterId','worldProfileId','timelineId','protagonistKey'].map(k=>[k,stamp[k]]));
+const live={...stamp,nativeVerified:true,timelineWritable:true};
 const receipt=(text='What did I say about zephyr? 🚗')=>({...stamp,recordId:U(9),
  originalAccepted:true,nativeVerified:true,p2Committed:true,accepted:true,source:'player_mic',text});
 function realSqlite(text='I said zephyr 🦊 with two  spaces!'){
@@ -54,7 +55,7 @@ const committed=record=>({record,committed:true,sourceVerified:true,sidecarVerif
 test('production M4 refuses unproven accepted transcript; real SQLite quote is byte-exact',async()=>{
  const f=realSqlite();try{
   const args={snapshot:stamp,queryId:U(12),readAdapter:f.reader,
-   currentIdentity:()=>stamp,nowUtc:NOW,deadlineMs:200};
+   currentIdentity:()=>live,nowUtc:NOW,deadlineMs:200};
   assert.equal((await prepareOriginalPs4Recall({...args,readVerifiedAccepted:async()=>({...receipt(),originalAccepted:false})})).status,'dropped');
   assert.equal((await prepareOriginalPs4Recall({...args,readVerifiedAccepted:async()=>({...receipt(),p2Committed:false})})).status,'dropped');
   const p=await prepareOriginalPs4Recall({...args,readVerifiedAccepted:async()=>receipt()});
@@ -62,7 +63,7 @@ test('production M4 refuses unproven accepted transcript; real SQLite quote is b
   assert.equal(p.acceptedEvidenceRecordId,U(9));
   assert.equal(p.contribution.items[0].content,'I said zephyr 🦊 with two  spaces!');
   assert.deepEqual(Buffer.from(p.contribution.items[0].content),Buffer.from('I said zephyr 🦊 with two  spaces!'));
-  assert.equal(verifyPs4RecallCurrent(p,{currentIdentity:()=>stamp,
+  assert.equal(verifyPs4RecallCurrent(p,{currentIdentity:()=>live,
    validateEvidence:ids=>ids.includes(U(9))&&ids.includes(U(10))}),true);
   const f1=render(p),scene=lanes(f1);
   assert.equal(scene.RECALLED.evidence[0].mode,'exact_quote');
@@ -159,11 +160,11 @@ test('protagonist uncertainty and epoch/owner races fail closed before PS4',asyn
   currentIdentity:()=>({...active,worldEpoch:8})})).status,'dropped');
  const fake={status:'ready',stamp,projection:{interpretations:[{sourceEvidenceIds:[U(61)]}],
   jokes:[],relationship:null}};
- assert.equal(verifyPs4M8Current(fake,{currentIdentity:()=>stamp,
+ assert.equal(verifyPs4M8Current(fake,{currentIdentity:()=>live,
   validateEvidence:()=>false}),false);
  assert.equal(verifyPs4M8Current(fake,{currentIdentity:()=>({...stamp,incarnationId:U(90)}),
   validateEvidence:()=>true}),false);
- assert.equal(verifyPs4M8Current(fake,{currentIdentity:()=>stamp,
+ assert.equal(verifyPs4M8Current(fake,{currentIdentity:()=>live,
   validateEvidence:()=>Promise.resolve(true)}),false);
 });
 
