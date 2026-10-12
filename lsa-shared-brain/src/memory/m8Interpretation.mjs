@@ -138,7 +138,7 @@ export function evaluateM8({scope,personality={},sources=[],memories=[],appraisa
   const memory=[...activeMemories.values()].find(m=>m.evidenceRecordIds.includes(r.recordId));
   const appraisal=memory&&approvedAppraisals.get(memory.memoryId);
   const confidence=Number((r.kind==='journal_event'?.77:.52).toFixed(2));
-  interpretations.push(frozen({id:stableUuid('m8-opinion',...Object.values(s),r.recordId),
+  interpretations.push(frozen({id:stableUuid('m8-opinion',s.characterId,s.worldProfileId,s.timelineId,r.recordId),
    kind:cat==='gratitude'?'social_impression':cat==='music'?'affinity':
      cat==='embarrassment'?'embarrassment':cat.includes('joke')||cat==='humor'?'funny_moment':'belief',
    epistemicStatus:'character_opinion',verifiedWorldFact:false,about:'experience',tone,
@@ -162,7 +162,7 @@ export function evaluateM8({scope,personality={},sources=[],memories=[],appraisa
   if(theme==='humor'&&group.length<2)continue;
   const status=independent.length>=3||echoed?'established':'emerging';
   const ageDays=Math.max(0,(now-ms(group.at(-1).when))/86400000);
-  jokes.push(frozen({id:stableUuid('m8-joke',...Object.values(s),theme),motif:theme,
+  jokes.push(frozen({id:stableUuid('m8-joke',s.characterId,s.worldProfileId,s.timelineId,theme),motif:theme,
    epistemicStatus:'character_opinion',verifiedWorldFact:false,
    opinion:theme==='crash'?'I might tease about that crash theme.':'That recurring humor amuses me.',
    state:ageDays>7?'resting':status,confidence:Number((Math.min(.85,.5+.08*independent.length)*Math.exp(-ageDays/30)).toFixed(3)),
