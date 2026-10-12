@@ -4,7 +4,7 @@ import {performance} from 'node:perf_hooks';
 import {recallMemory,validateRecallQuery,toPs4RecallContribution} from './recallEngine.mjs';
 
 const keys=['characterId','worldProfileId','timelineId','protagonistKey','turnIdentityHash',
-  'hostRunId','worldEpoch','incarnationId','encounterId','turnId'];
+  'hostRunId','worldEpoch','incarnationId','encounterId','observerCaptureRef','turnId'];
 const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const identical=(a,b)=>!!a&&!!b&&keys.every(k=>a[k]===b[k]);
 const verified=s=>s&&['characterId','worldProfileId','timelineId','hostRunId','incarnationId','encounterId'].every(k=>uuid.test(s[k]))&&
@@ -78,5 +78,66 @@ export function verifyPs4RecallCurrent(prepared,{currentIdentity,playerActive=fa
     // Revalidate tombstones, corrections and retained source visibility against
     // P2 at the very last provider-send/retry boundary. Unknown fails closed.
     typeof validateEvidence==='function'&&
-    (()=>{try{return validateEvidence(prepared.contribution.items.map(item=>item.recordId),prepared.stamp)===true;}catch{return false;}})();
+    (()=>{try{return validateEvidence([...new Set([...prepared.contribution.items.map(item=>item.recordId),...(prepared.acceptedEvidenceRecordId?[prepared.acceptedEvidenceRecordId]:[])])],prepared.stamp)===true;}catch{return false;}})();
+}
+
+
+/**
+ * W05 production entry: only a T1 original C-01 accepted + T3 durably
+ * committed player line may create a query. The port is K-owned and MUST
+ * retrieve both receipts from authenticated native and serialized P2 ledgers.
+ * This function deliberately has no plain transcript/accepted-boolean path.
+ *
+ * readVerifiedAccepted({stamp}) -> {
+ *  originalAccepted:true,nativeVerified:true,p2Committed:true,
+ *  accepted:true,source:'player_text'|'player_mic',text,
+ *  recordId, ...full stamp
+ * }
+ *
+ * The return is an ADAPTER CONTRACT, not something received over the network.
+ * No P2 source or independently verified original C-01 => no recall.
+ */
+export async function prepareOriginalPs4Recall({snapshot,queryId,
+ readVerifiedAccepted,readAdapter,currentIdentity,deadlineMs=200,
+ maxContributionBytes=4096,nowUtc=new Date().toISOString(),followup=null,
+ playerActive=false}={}){
+ if(!Number.isSafeInteger(deadlineMs)||deadlineMs<1||deadlineMs>200)
+  throw new TypeError('m4_invalid_ps4_limits');
+ const strictStamp=()=>verified(snapshot)&&uuid.test(snapshot.observerCaptureRef)&&
+   uuid.test(snapshot.turnId)&&snapshot.protagonistKey!=='unknown';
+ if(!strictStamp()||typeof readVerifiedAccepted!=='function'||
+    typeof currentIdentity!=='function'||!readAdapter?.read)
+  return dropped('original_turn_unavailable');
+ const stamp=freezeIdentity(snapshot),start=performance.now();
+ if(!identical(stamp,safelyCurrent(currentIdentity)))return dropped('stale_before_accepted');
+ let timer;
+ const timeout=new Promise(resolve=>{timer=setTimeout(()=>resolve(null),deadlineMs);timer.unref?.();});
+ let accepted;
+ try{accepted=await Promise.race([Promise.resolve().then(()=>readVerifiedAccepted({stamp})),timeout]);}
+ catch{return dropped('accepted_read_unavailable');}
+ finally{clearTimeout(timer);}
+ if(performance.now()-start>=deadlineMs)return dropped('deadline');
+ if(!identical(stamp,safelyCurrent(currentIdentity)))return dropped('stale_after_accepted');
+ if(!accepted||accepted.originalAccepted!==true||accepted.nativeVerified!==true||
+    accepted.p2Committed!==true||accepted.accepted!==true||
+    !['player_text','player_mic'].includes(accepted.source)||
+    !uuid.test(accepted.recordId)||!identical(stamp,accepted)||
+    typeof accepted.text!=='string'||!accepted.text.length||
+    Buffer.from(accepted.text,'utf8').toString('utf8')!==accepted.text)
+  return dropped('original_turn_unverified');
+ let query;
+ try{query=createAcceptedRecallQuery({acceptedTurn:accepted,
+   snapshot,queryId,maxBytes:maxContributionBytes});}
+ catch{return dropped('invalid_original_query');}
+ const remaining=Math.floor(deadlineMs-(performance.now()-start));
+ if(remaining<1)return dropped('deadline');
+ const prepared=await preparePs4Recall({query,readAdapter,snapshot,currentIdentity,
+   protagonistKey:snapshot.protagonistKey,source:accepted.source,playerActive,
+   deadlineMs:remaining,maxContributionBytes,nowUtc,followup});
+ if(prepared.status!=='ready')return prepared;
+ if(!identical(stamp,safelyCurrent(currentIdentity)))return dropped('stale_after_recall');
+ // Include the question's source record in the last-second P2 validity check:
+ // corrections to the triggering utterance also invalidate the old query.
+ return Object.freeze({...prepared,acceptedEvidenceRecordId:accepted.recordId,
+   originalAccepted:true});
 }
