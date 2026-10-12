@@ -37,9 +37,14 @@ export class OpenAIConnection {
   #voiceProfile = null;
   #voicePolicyLocked = false;
   #characterSnapshot = null;
+  // Private memory-source capabilities from createRuntime (never on runtime,
+  // services or the bridge): the original-turn ledger recorder and the D01
+  // accepted-input issuer. Null for providers/runtimes without them.
+  #memorySources = null;
 
-  constructor({ runtime, onEvent, options, diagnosticContext }) {
+  constructor({ runtime, onEvent, options, diagnosticContext, memorySources = null }) {
     this.#runtime = runtime;
+    this.#memorySources = memorySources;
     this.#context = Object.freeze({
       systemInstruction: String(options.systemInstruction || ''),
       actor: this.#snapshotActor(options.actorContext),
@@ -142,6 +147,10 @@ export class OpenAIConnection {
       characterInputs,
       knowledgeInputs: this.#runtime.captureKnowledgeInputs?.({identity:turn.identity,source,p0Snapshot:contextSnapshot,characterInputs}) ?? null,
     });
+    // The patched original Xn calls beginTurn synchronously after binding the
+    // generation; record the original backend's own turn facts now, read back
+    // from the original registry for this exact registered connection.
+    try { this.#memorySources?.recordTurn?.(this.#turn.identity, this); } catch {}
     this.#characterSnapshot = null;
     this.#launched = false;
     this.#retired = false;
@@ -296,8 +305,14 @@ export class OpenAIConnection {
     };
     const state = { identity: turn.identity, controller, done: null, cancelReason: '' };
     this.#active = state;
+    // One-shot D01 capability for this launch only, bound to its AbortSignal
+    // and this connection; runSequentialTurn may use it once at its commit.
+    let acceptance = null;
+    try { acceptance = this.#memorySources?.acceptance?.openTurn({ identity: turn.identity, source: turn.source, connection: this, signal: controller.signal }) ?? null; }
+    catch { acceptance = null; }
     const run = Promise.resolve().then(async () => {
       if (controller.signal.aborted || this.#closed) {
+        try { acceptance?.release(); } catch {}
         const reason = this.#closed ? 'disconnected' : this.#active?.cancelReason || 'cancelled';
         this.#metrics?.finish({ reason, stage: 'input', assistantCommitted: false });
         return { status: 'cancelled', terminalReason: reason };
@@ -309,6 +324,7 @@ export class OpenAIConnection {
         services: this.#runtime.services,
         history: this.#runtime.history,
         host: this.#runtime.hostFor(this),
+        acceptance,
       });
     });
     state.done = run;

@@ -24,7 +24,7 @@ import { perceptionContractSupported } from './perception/nativeSupport.mjs';
 import { createDialogueTrace, createNoopDialogueTrace } from './observability/dialogueTrace.mjs';
 import {createM3Ps2ObserverAdapter} from '../../lsa-shared-brain/src/events/m3Ps2ObserverAdapter.mjs';
 import {createNativeMemoryAuthority} from './memory/nativeMemoryAuthority.mjs';
-import {createNativeCurrentOwnerPlayerAuthority} from './memory/nativeCurrentOwnerPlayerAuthority.mjs';
+import {createMemoryD02Port} from './memory/memoryD02Port.mjs';
 
 const shutdownClosers = new Set();
 let shutdownFlushRegistered = false;
@@ -182,48 +182,24 @@ export async function createRuntimeForBundle(options = {}) {
         // neither this port nor the native frame attests accepted dialogue.
         if(canBindMemory && !options.memoryNativeAuthority) {
           try {
-            currentOwnerPlayerAuthority=createNativeCurrentOwnerPlayerAuthority({
-              subscribeAuthenticatedNativeOwnerPlayerFrames:(onFrame,onRetire)=>
-                runtime.intelligence.subscribeAuthenticatedNativeOwnerPlayer(onFrame,onRetire),
-              sourceStillCurrent:(context,owner,player)=>{
-                const source=runtime.intelligence.runtime;
-                const row=source.observerIndex.get(owner.observerCaptureRef);
-                const anchor=source.anchors.get(owner.observerCaptureRef);
-                return source.epoch===context?.adapterEpoch &&
-                  source.stream===context?.streamId &&
-                  source.hostContext?.hostRunId===context?.hostRunId &&
-                  source.hostContext?.worldEpoch===context?.worldEpoch &&
-                  source.current(owner.observerCaptureRef) &&
-                  source.current(player.playerCaptureRef) &&
-                  anchor?.kind==='ped' && anchor.observer===true &&
-                  anchor.owned===true && row?.owned===true &&
-                  row.incarnationId===owner.incarnationId &&
-                  row.encounterId===owner.encounterId &&
-                  source.anchors.get(player.playerCaptureRef)?.kind==='player';
-              },
-              profileForAlias:alias=>{
-                if(memoryStore?.timelineWritable!==true ||
-                   !memoryStore.verifiedHostContext ||
-                   !memoryStore.worldProfileId)return null;
-                const p=memoryStore.list().find(row=>
-                  row?.promotion?.ownerAlias===alias &&
-                  row.worldProfileId===memoryStore.worldProfileId &&
-                  row.status!=='retired');
-                if(!p)return null;
-                return {...p,timelineWritable:true,
-                  worldEpoch:memoryStore.verifiedHostContext.worldEpoch};
-              }
-            });
-            runtime.memoryD02=Object.freeze({
-              bindActorAtTurnStart:x=>
-                currentOwnerPlayerAuthority?.bindActorAtTurnStart(x)??null,
-              verifyCurrentOwnerAndPlayer:x=>
-                currentOwnerPlayerAuthority?.verifyCurrentOwnerAndPlayer(x)??null,
-              revokeLease:x=>currentOwnerPlayerAuthority?.revokeLease(x),
-              status:()=>currentOwnerPlayerAuthority?.status()??null
-            });
+            currentOwnerPlayerAuthority=createMemoryD02Port({
+              intelligence:runtime.intelligence,memoryStore});
+            runtime.memoryD02=currentOwnerPlayerAuthority.port;
             shutdownClosers.add({close:async()=>currentOwnerPlayerAuthority?.close()});
           }catch{currentOwnerPlayerAuthority=null;}
+        }
+        // D01 OpenAI acceptance receipts never outlive a verified host run or
+        // world epoch: any change retires the current acceptance source run.
+        if(canBindMemory){
+          let acceptanceEpoch=null;
+          runtime.intelligence.subscribeVerifiedHostContext(host=>{
+            const stamp=host?host.hostRunId+':'+host.worldEpoch:null;
+            if(stamp!==acceptanceEpoch){
+              if(acceptanceEpoch!==null)runtime.retireOriginalAcceptanceSourceRun?.();
+              acceptanceEpoch=stamp;
+            }
+          });
+          runtime.intelligence.subscribeWorldBoundary(()=>{runtime.retireOriginalAcceptanceSourceRun?.();});
         }
          if(canBindMemory){
            try{
@@ -336,6 +312,8 @@ export async function createRuntimeForBundle(options = {}) {
     });
     client.subscribeKnowledgeInvalidation(()=>{void pump.tick();});
   }
+  // Orderly shutdown revokes any still-pending OpenAI acceptance receipts.
+  shutdownClosers.add({close:async()=>{runtime.retireOriginalAcceptanceSourceRun?.();}});
   runtime.services.acceptPlayerTranscript = input => runtime.intelligence?.acceptPlayerTranscript(input) ?? {accepted:false,reason:'unsupported_capture_receipt'};
   runtime.services.projectTurnContext = input => runtime.intelligence?.projectTurnContext(input) ?? null;
   runtime.services.acknowledgeTurnContext = (projection,outcome='delivered') => runtime.intelligence?.acknowledgeTurnContext(projection,outcome) ?? false;

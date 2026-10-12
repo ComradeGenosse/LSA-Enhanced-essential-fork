@@ -48,7 +48,10 @@ function publicCause(error) {
   return cause;
 }
 
-export async function runSequentialTurn({ connection, turn, controller = new AbortController(), services, history, host }) {
+// `acceptance` is the one-shot accepted-input capability that OpenAIConnection
+// opens privately for this launch (see memory/openaiRuntimeAcceptedInput.mjs).
+// It is not a service and never reaches model, provider or native code.
+export async function runSequentialTurn({ connection, turn, controller = new AbortController(), services, history, host, acceptance = null }) {
   const { identity, input, pcm, sampleRate } = turn;
   let context = turn.context;
   const source = String(turn.source || 'player_text').toLowerCase();
@@ -202,15 +205,27 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
     // both the history and the current user message sent to Luna.
     const priorHistory = turn.priorHistory ?? history.readForSession(identity.pedId, identity.sessionNonce);
     if (isPlayer) {
+      // D-016 commit decision: the runtime irrevocably adopts these exact words
+      // as this turn's player input (the single final STT result, or the typed
+      // text the original backend adopted), after the currency checks above.
       const committed = history.commitPlayerInput({ identity, input: finalInput });
+      // D01: the accepted-input receipt is minted BY this decision, in the same
+      // synchronous step, only for a first commit. The capability re-verifies
+      // currency and the original turn record itself; failure never affects
+      // the turn. Later interruption does not revoke it (memory plan §5.5).
+      let accepted = null;
+      if (committed && acceptance) {
+        try { accepted = acceptance.accept({ input: finalInput, inputMode: source === 'player_mic' ? 'stt' : 'typed' }); }
+        catch { accepted = null; }
+      }
       // M2: the RAM history is intentionally trimmed, but the immutable SQLite
       // journal receives the full accepted input with source attribution.
       if (committed && services.recordM2Player) {
         try { await services.recordM2Player({turn,text:finalInput,source}); }
-        catch { metrics?.event('memory_journal_not_committed', {role:'player'}); }
+        catch { try { metrics?.event('memory_journal_not_committed', {role:'player'}); } catch {} }
       }
       metrics?.count(committed ? 'playerCommitted' : 'playerDuplicateCount');
-      metrics?.event(committed ? 'player_history_committed' : 'history_duplicate_prevented', { role: 'user', inputChars: String(finalInput).length });
+      metrics?.event(committed ? 'player_history_committed' : 'history_duplicate_prevented', { role: 'user', inputChars: String(finalInput).length, ...(committed && acceptance ? { accepted: !!accepted } : {}) });
     }
     transition('model_running');
     if(services.finalizeKnowledgeFrame)turn.knowledgeProjection=services.finalizeKnowledgeFrame(turn,{input:finalInput,history:priorHistory,source});
@@ -415,7 +430,7 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
         text:successfulEarlySpeech?spokenTtsSegments.join(''):decision.dialogue,
         receipt:result,mode:successfulEarlySpeech?'early_streamed':'buffered',
         spokenSegments:successfulEarlySpeech?spokenTtsSegments:null}); }
-      catch { metrics?.event('memory_journal_not_committed', {role:'npc'}); }
+      catch { try { metrics?.event('memory_journal_not_committed', {role:'npc'}); } catch {} }
     }
     metrics?.count('assistantCommitCount');
     metrics?.event('assistant_history_committed', { outputChars: String(decision.dialogue || '').length, playbackEndedCount: 1 });
@@ -456,6 +471,8 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
     return { status: state, terminalReason, stage: state, cause };
   } finally {
     retired = true;
+    // Any awaited D03 write has settled by now; drop the receipt and lease.
+    try { acceptance?.release(); } catch {}
     try{turn.m2Capture?.retire();}catch{}
     history.discard(identity);
     observation?.dispose();
