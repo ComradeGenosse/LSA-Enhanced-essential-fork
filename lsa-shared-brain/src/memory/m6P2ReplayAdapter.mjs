@@ -122,6 +122,25 @@ export function ensureM6P2ReplaySchema(db){
 export function readM6CheckpointSql(db,{scope},world){
   validate(db,scope,world);
   const cp=current(db,scope);
+  if(cp){
+    const seqNumber=cp.after_sequence;
+    if(!Number.isSafeInteger(seqNumber)||seqNumber<1)
+      fail('m6_p2_corrupt_checkpoint');
+    const ack=db.prepare('SELECT prior_sequence,request_hash FROM m6_p2_ack_receipts WHERE '+
+      SCOPE+' AND after_sequence=?').get(...entryScope(scope),seqNumber);
+    if(!ack||!Number.isSafeInteger(ack.prior_sequence)||
+       ack.prior_sequence<0||ack.prior_sequence>=seqNumber||!HEX.test(ack.request_hash))
+      fail('m6_p2_corrupt_checkpoint_receipt');
+    const at=db.prepare('SELECT world_profile_id,character_id,timeline_id FROM p2_memory_replay_feed WHERE sequence=?')
+      .get(seqNumber);
+    if(at&&(at.world_profile_id!==scope.worldProfileId||at.character_id!==scope.characterId||
+       at.timeline_id!==scope.timelineId))fail('m6_p2_corrupt_checkpoint_scope');
+    const source=db.prepare('SELECT source_hash FROM m6_p2_source_receipts WHERE sequence=?')
+      .get(seqNumber);
+    // An authorized M5 purge deletes BOTH the B feed row and our source receipt.
+    if(Boolean(at)!==Boolean(source)||(source&&!HEX.test(source.source_hash)))
+      fail('m6_p2_corrupt_checkpoint_source');
+  }
   return Object.freeze({version:1,cursor:cp?String(cp.after_sequence):null,
     activeHourCount:cp?.active_hour_count??0,hourBucket:cp?.hour_bucket??null,
     lastCutoffUtc:cp?.last_cutoff_utc??null,lastSourceUtc:cp?.last_source_utc??null});
