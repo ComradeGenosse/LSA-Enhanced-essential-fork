@@ -293,10 +293,99 @@ test('W09 cursor crash windows: SQLite source commit without ack replays; acknow
   }finally{await x.store.close();}
 });
 
-test('W09 M6 strict production cursor rejects current incompatible store; no legacy fallback in acceptance',async t=>{
+test('W09 M6 negative: missing/legacy cursor adapters never certify atomic production replay',async t=>{
   const x=await setup(t);
   try{
-    assert.throws(()=>createM6SelectionCoordinator({store:x.store}),
+    const legacy={
+      listSuppressedMemoryIds:x.store.listSuppressedMemoryIds.bind(x.store),
+      readCorrectionOverlays:x.store.readCorrectionOverlays.bind(x.store),
+      saveDeterministicMemory:x.store.saveDeterministicMemory.bind(x.store),
+      readVerifiedEventEvidence:x.store.readVerifiedEventEvidence.bind(x.store)
+    };
+    assert.throws(()=>createM6SelectionCoordinator({store:legacy}),
       /m6_durable_cursor_required_readM6Checkpoint/);
+    legacy.readM6Checkpoint=async()=>({version:1,cursor:null,activeHourCount:0});
+    assert.throws(()=>createM6SelectionCoordinator({store:legacy}),
+      /m6_durable_cursor_required_readM6JournalPage/);
+    legacy.readM6JournalPage=async()=>({rows:[],hasMore:false});
+    assert.throws(()=>createM6SelectionCoordinator({store:legacy}),
+      /m6_durable_cursor_required_ackM6Checkpoint/);
+  }finally{await x.store.close();}
+});
+
+test('W09 M6 positive after T6 merge: production P2 checkpoint/page/ack, CAS and restart',async t=>{
+  const x=await setup(t);
+  try{
+    if(['readM6Checkpoint','readM6JournalPage','ackM6Checkpoint'].some(
+      method=>typeof x.store[method]!=='function')){
+      t.skip('SOURCE_BLOCKED_T6_SQLITE_CURSOR_ADAPTER_NOT_YET_MERGED_INTO_T9');
+      return;
+    }
+    const scope=x.scope(0,'unknown');
+    const line=await player(x,'t6-cursor-positive',0,'unknown',
+      'I remember the extraordinary helicopter rescue at the bridge.');
+    const initial=await x.store.readM6Checkpoint({scope});
+    const original=await x.store.readM6JournalPage({
+      scope,afterCursor:initial.cursor,limit:20});
+    assert.equal(original.rows.length,1);
+    assert.equal(original.rows[0].evidence.recordId,line.recordId);
+    const coordinator=createM6SelectionCoordinator({store:x.store,
+      quietMs:0,cloudQueueEnabled:false,minScore:0});
+    const receipt=await coordinator.onSceneClose({
+      scope,atUtc:'2026-10-12T23:00:00.000Z'});
+    assert.equal(receipt.acknowledged,true,'cursor only after durable proposals/rejections');
+    const committed=await x.store.readM6Checkpoint({scope});
+    assert.equal(committed.cursor,receipt.toCursor);
+    await assert.rejects(x.store.ackM6Checkpoint({
+      scope,expectedCursor:initial.cursor,nextCursor:receipt.toCursor,
+      sourceHashes:original.rows.map(r=>({
+        cursor:r.cursor,sourceHash:r.sourceHash,recordId:r.evidence.recordId})),
+      savedProposalIds:[],rejected:[],cutoffUtc:'2026-10-12T23:00:00.000Z',
+      hourBucket:'2026-10-12T23',cloudQueueEnabled:false
+    }),/m6_|cursor|checkpoint|cas|stale/i);
+    await x.store.close();
+    const reopened=createP2MemoryStorage({filePath:x.filePath,worldProfileId,sourceRequired:true});
+    await reopened.initialize();
+    try{
+      reopened.setVerifiedHostContext({...x.host,hostRunId:id(),worldEpoch:2});
+      await reopened.confirmTimeline(x.timelineId);
+      const restored=await reopened.readM6Checkpoint({scope});
+      assert.equal(restored.cursor,committed.cursor);
+      const noReplayedRows=await reopened.readM6JournalPage({
+        scope,afterCursor:restored.cursor,limit:20});
+      assert.equal(noReplayedRows.rows.length,0);
+      const again=await createM6SelectionCoordinator({store:reopened,
+        quietMs:0,cloudQueueEnabled:false,minScore:0})
+        .recover({scope,atUtc:'2026-10-12T23:00:00.000Z'});
+      assert.equal(again.readCount,0);
+      assert.equal(again.saved.length,0);
+    }finally{await reopened.close();}
+  }finally{await x.store.close();}
+});
+
+test('W09 source simulation: one human across three avatars, independent NPC memories',async t=>{
+  const x=await setup(t);
+  try{
+    const sameHumanIdentity='101';
+    for(const avatar of ['franklin','michael','trevor'])
+      await x.recorder.recordPlayerAccepted({
+        characterId:x.characters[0].characterId,
+        identity:{pedId:sameHumanIdentity,turnId:'human-'+avatar,
+          generationId:'generation-'+avatar,sessionNonce:'same-human-session'},
+        text:'I am the same person regardless of '+avatar,source:'typed',
+        attribution:{protagonist:avatar},committedAtUtc:'2026-10-11T22:00:00.000Z'
+      });
+    const first=await x.store.readDialogueLines({
+      characterId:x.characters[0].characterId,timelineId:x.timelineId,
+      speaker:'player',limit:25});
+    const other=await x.store.readDialogueLines({
+      characterId:x.characters[1].characterId,timelineId:x.timelineId,
+      speaker:'player',limit:25});
+    assert.equal(first.length,3,'same NPC can read all three avatar entries');
+    assert.deepEqual(new Set(first.map(v=>v.attribution.protagonist)),
+      new Set(['franklin','michael','trevor']));
+    assert.equal(other.length,0,'different NPC does not inherit knowledge');
+    // A source simulation checks only M1 journal storage; K still must fix
+    // v4 permanent-memory/recall predicates keyed by avatar.
   }finally{await x.store.close();}
 });
