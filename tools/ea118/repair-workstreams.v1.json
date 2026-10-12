@@ -1,0 +1,131 @@
+{
+  "schemaVersion": 1,
+  "kind": "ea118_post_review_p2_repair_plan",
+  "status": "planning_only",
+  "repository": "ComradeGenosse/LSA-Enhanced-essential-fork",
+  "reviewedPr": 118,
+  "pinnedHead": "4db9eeea534ddf90a1eb0a173c7b7167d363a784",
+  "planPath": "docs/plans/elevenlabs-emotional-acting/EA118-POST-REVIEW-P2-REPAIR-PLAN.md",
+  "exclusions": [
+    "Memory K/M0-M9",
+    "PR #114",
+    "upstream ElevenLabs provider PR #54 changes",
+    "main changes",
+    "GTA deployment",
+    "billable ElevenLabs calls"
+  ],
+  "workstreams": [
+    {
+      "id": "R1",
+      "title": "Post-expiry authenticated protagonist heartbeat recovery",
+      "branch": "fix/ea118-r1-protagonist-heartbeat-recovery-20261012",
+      "baseCommit": "4db9eeea534ddf90a1eb0a173c7b7167d363a784",
+      "targetBranch": "integration/elevenlabs-emotional-acting-consolidated-20261012",
+      "mayRunInParallelWith": [
+        "R2"
+      ],
+      "changes": [
+        "lsa-essential-e1-candidate/src/perception/protagonistAuthority.mjs",
+        "lsa-essential-e1-candidate/tests/ea5-native-protagonist-authority.test.mjs",
+        "lsa-essential-e1-candidate/tests/ea-final-a-native-intake.test.mjs",
+        "lsa-essential-e1-candidate/tests/ea-final-h-unified-player.test.mjs"
+      ],
+      "cases": [
+        "R1.01",
+        "R1.02",
+        "R1.03",
+        "R1.04",
+        "R1.05",
+        "R1.06",
+        "R1.07",
+        "R1.08",
+        "R1.09",
+        "R1.10"
+      ],
+      "invariants": [
+        "current proof revoked at freshness expiry",
+        "same-stream revision-equal heartbeat may yield new proof",
+        "old proof never revived",
+        "exact accepted-frame sequence and source equality",
+        "revision/ABA/unknown/epoch/session/reconnect checks preserved",
+        "one human player identity across three avatars"
+      ],
+      "deliverables": [
+        "code",
+        "deterministic regression tests",
+        "before/after failure evidence",
+        "draft PR",
+        "handoff with exact commit SHA"
+      ]
+    },
+    {
+      "id": "R2",
+      "title": "ElevenLabs TTS retry single-submit safety",
+      "branch": "fix/ea118-r2-elevenlabs-single-submit-20261012",
+      "baseCommit": "4db9eeea534ddf90a1eb0a173c7b7167d363a784",
+      "targetBranch": "integration/elevenlabs-emotional-acting-consolidated-20261012",
+      "mayRunInParallelWith": [
+        "R1"
+      ],
+      "changes": [
+        "lsa-essential-e1-candidate/src/openai/runSequentialTurn.mjs",
+        "lsa-essential-e1-candidate/tests/ea-final-integration-wiring.test.mjs",
+        "lsa-essential-e1-candidate/tests/ea118-elevenlabs-retry-safety.test.mjs"
+      ],
+      "cases": [
+        "R2.01",
+        "R2.02",
+        "R2.03",
+        "R2.04",
+        "R2.05",
+        "R2.06",
+        "R2.07",
+        "R2.08",
+        "R2.09"
+      ],
+      "implementationChoice": "no automatic per-operation ElevenLabs TTS retry; preserve retry behavior for other operations/providers",
+      "invariants": [
+        "at most one vendor text submission per speech operation",
+        "no successful playback/history/mood on failed synthesis",
+        "off/shadow parity",
+        "other provider retries unchanged"
+      ],
+      "deliverables": [
+        "code",
+        "real executor plus fake WebSocket regression tests",
+        "before/after failure evidence",
+        "draft PR",
+        "handoff with exact commit SHA"
+      ]
+    },
+    {
+      "id": "R3",
+      "title": "Exact-head integration and release gate",
+      "branch": "integration/ea118-p2-review-repair-20261012",
+      "requires": [
+        "R1",
+        "R2"
+      ],
+      "changes": [],
+      "cases": [
+        "run full targeted suites",
+        "run full npm test",
+        "verify Windows native pinned build/ABI",
+        "verify EA0-EA9 Windows/Ubuntu workflows",
+        "fresh review of source diffs",
+        "separate physical GTA and billed-vendor gates"
+      ],
+      "invariants": [
+        "no M work imported",
+        "no default enable",
+        "no GTA/billed request without explicit authorization"
+      ],
+      "deliverables": [
+        "integrated repair branch",
+        "exact-head CI receipts",
+        "review-ready draft PR",
+        "explicit external no-go checklist"
+      ]
+    }
+  ]
+}
