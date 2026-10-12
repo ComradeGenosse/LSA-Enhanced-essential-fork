@@ -423,17 +423,40 @@ export class M5SqliteServices{
       !result.purgedIds.every(isUuid) || new Set(result.purgedIds).size!==result.purgedIds.length ||
       !timestamp(result.committedAtUtc))return {confirmed:false};
    return this.#read(scope,db=>{
-     for(const id of result.purgedIds){
-       const mark=db.prepare('SELECT 1 AS ok FROM m5_trash WHERE '+ownerWhere+
+     // A caller cannot forge a successful *partial* purge receipt. Every
+     // referenced operation's entire durable trash bundle must be marked as
+     // purged at this instant, and every listed source must be physically gone.
+     const operations=new Set();
+     const listed=new Set(result.purgedIds);
+     for(const id of listed){
+       const mark=db.prepare('SELECT operation_id AS operationId FROM m5_trash WHERE '+ownerWhere+
          ' AND target_id=? AND purged_at_utc=? LIMIT 1')
          .get(...ownerKey(scope),id,result.committedAtUtc);
        if(!mark)return {confirmed:false};
+       operations.add(mark.operationId);
        for(const [table,column] of [['dialogue_journal','record_id'],
          ['event_journal','record_id'],['memory_records','memory_id']]){
          if(db.prepare('SELECT 1 AS ok FROM '+table+' WHERE '+ownerWhere+
            ' AND '+column+'=? LIMIT 1').get(...ownerKey(scope),id))
            return {confirmed:false};
        }
+     }
+     for(const op of operations){
+       const bundle=db.prepare('SELECT target_id AS id,purged_at_utc AS atUtc FROM m5_trash WHERE '+ownerWhere+
+         ' AND operation_id=? AND restored_at_utc IS NULL').all(...ownerKey(scope),op);
+       if(!bundle.length||bundle.some(x=>x.atUtc!==result.committedAtUtc||!listed.has(x.id)))
+         return {confirmed:false};
+     }
+     // Secondary dependency leaks would resurrect physically deleted facts.
+     for(const m of db.prepare('SELECT evidence_ids_json AS sources FROM memory_records WHERE '+ownerWhere)
+       .all(...ownerKey(scope))){
+       let ids;try{ids=JSON.parse(m.sources);}catch{return {confirmed:false};}
+       if(!Array.isArray(ids)||ids.some(x=>listed.has(x)))return {confirmed:false};
+     }
+     for(const q of db.prepare('SELECT job_json AS json FROM memory_curation_jobs WHERE '+ownerWhere)
+       .all(...ownerKey(scope))){
+       let job;try{job=JSON.parse(q.json);}catch{return {confirmed:false};}
+       if(job?.proposal?.evidenceRecordIds?.some(id=>listed.has(id)))return {confirmed:false};
      }
      return {confirmed:true};
    });
@@ -446,18 +469,29 @@ export class M5SqliteServices{
    if(!Number.isSafeInteger(limit)||limit<1||limit>1000)fail('m5_invalid_limit');
    const now=this.#clock();
    return this.#write(scope,db=>{
-     // Purge complete operation bundles, never a row-count subset that leaves
-     // recoverable trash records pointing at physically deleted evidence.
-     const due=db.prepare('SELECT target_id AS id,operation_id AS parent FROM m5_trash WHERE '+ownerWhere+
-       ' AND restored_at_utc IS NULL AND purged_at_utc IS NULL AND purge_after_utc<=?'+
-       ' AND operation_id IN (SELECT operation_id FROM m5_trash WHERE '+ownerWhere+
-       ' AND restored_at_utc IS NULL AND purged_at_utc IS NULL AND purge_after_utc<=?'+
-       ' GROUP BY operation_id ORDER BY MIN(purge_after_utc),operation_id LIMIT ?)'+
-       ' ORDER BY operation_id,target_id')
-       .all(...ownerKey(scope),now,...ownerKey(scope),now,limit);
+     // LIMIT is a hard cap on *physical IDs deleted*, not a count of bundles.
+     // Select only complete due bundles whose transitive derived-memory closure
+     // fits the remaining budget. A larger bundle waits for an explicitly
+     // larger call; never silently turn limit=1 into unbounded deletion.
+     const groups=db.prepare('SELECT operation_id AS operationId,MIN(purge_after_utc) AS dueAt'+
+       ' FROM m5_trash WHERE '+ownerWhere+
+       ' AND restored_at_utc IS NULL AND purged_at_utc IS NULL'+
+       ' GROUP BY operation_id HAVING MAX(purge_after_utc)<=?'+
+       ' ORDER BY dueAt,operationId LIMIT 256').all(...ownerKey(scope),now);
+     const readBundle=db.prepare('SELECT target_id AS id,operation_id AS parent'+
+       ' FROM m5_trash WHERE '+ownerWhere+
+       ' AND operation_id=? AND restored_at_utc IS NULL AND purged_at_utc IS NULL'+
+       ' ORDER BY target_id');
+     const due=[];let closure=[];
+     for(const group of groups){
+       const next=readBundle.all(...ownerKey(scope),group.operationId);
+       if(!next.length||next.length+due.length>limit)continue;
+       const combined=dependentIds(db,scope,new Set([...due,...next].map(x=>x.id)));
+       if(combined.length>limit)continue;
+       due.push(...next);closure=combined;
+     }
      const ids=new Set(due.map(x=>x.id));
      // Purge only this verified NPC and save timeline, across its historical avatars.
-     const closure=dependentIds(db,scope,ids);
      // Purge stored derivatives, curator jobs, appraisals and audit receipts
      // that include purged evidence, not merely the primary journal row.
      const tainted=new Set(closure);
