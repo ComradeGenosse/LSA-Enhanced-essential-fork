@@ -120,8 +120,10 @@ export class MoodStore {
     if (!key) return null;
     this.#isolate(key);
     const entry = this.#entries.get(key.key);
+    // Only the turn that already consumed the one permitted soft mood may
+    // use its timestamp; older or additional turns cannot probe this state.
     if (!entry || entry.value === null || key.generation <= entry.generation ||
-        (entry.usedBy !== null && entry.usedBy !== key.turn) ||
+        entry.usedBy !== key.turn ||
         !Number.isSafeInteger(entry.playedAtMs) || entry.playedAtMs > nowMs)
       return null;
     return Object.freeze({
