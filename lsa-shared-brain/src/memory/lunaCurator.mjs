@@ -139,6 +139,7 @@ export async function processIdleCuration({enabled=false,mode,queue,provider,led
    (isAuthorized!==undefined&&typeof isAuthorized!=='function')||
    typeof enforcePricing!=='boolean'||typeof strictAck!=='boolean')
    throw new Error('curation_invalid_runtime');
+ if(strictAck&&typeof queue.verifyLeased!=='function')return {status:'source_verification_unavailable',processed:0};
  const leaseUntilUtc=new Date(Date.parse(nowUtc)+leaseMs).toISOString();
  const claimed=await queue.claimDue({limit:maxBatch,nowUtc,leaseUntilUtc,ownerId,characterId});
  if(!Array.isArray(claimed)||claimed.length>maxBatch)throw new Error('curation_bad_claim');
@@ -177,6 +178,14 @@ export async function processIdleCuration({enabled=false,mode,queue,provider,led
    }
    // The authority may change while awaiting a durable reservation.
    for(const {job} of claimed)await authorized(isAuthorized,job);
+   if(signal?.aborted)throw abortError();
+   // Revalidate committed evidence after asynchronous budget/authority work.
+   // Production adapters must offer this P2-owned check; mocks can omit it only
+   // on the explicitly non-strict offline path.
+   if(typeof queue.verifyLeased==='function')for(const x of claimed){
+     if(await queue.verifyLeased({jobId:x.job.jobId,leaseToken:x.leaseToken,nowUtc})!==true)
+       throw new Error('curation_source_verification_unavailable');
+   }
    if(signal?.aborted)throw abortError();
    transportStarted=true;
    const response=await withCancellation(sig=>provider.curateBatch(

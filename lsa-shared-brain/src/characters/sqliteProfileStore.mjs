@@ -426,6 +426,10 @@ export class P2SqliteProfileStore {
     const timelineId=this.activeTimelineId;
     return this.withTimelineWrite(timelineId,foundation=>foundation.claimCuration(args,timelineId));
   }
+  async verifyCurationLease(args){
+    const timelineId=this.activeTimelineId;
+    return this.withTimelineWrite(timelineId,foundation=>foundation.verifyCurationLease(args,timelineId));
+  }
   async completeCurationLease(args){
     const timelineId=this.activeTimelineId;
     return this.withTimelineWrite(timelineId,foundation=>foundation.completeCuration(args,timelineId));

@@ -1,3 +1,4 @@
+import {suppressedMemoryIds} from './suppressionSqlite.mjs';
 // M4-only read projection over the actual M2/M3/M5/M6 v4 P2 SQLite schema.
 // No migrations, writes, native owner selection, or speculative witness claims.
 import {createHash} from 'node:crypto';
@@ -20,23 +21,6 @@ function sourceFilters(scope,{fromUtc,toUtc}){
   if(fromUtc){clause+=' AND TIME_COLUMN>=?';args.push(fromUtc);}
   if(toUtc){clause+=' AND TIME_COLUMN<?';args.push(toUtc);}
   return {clause,args};
-}
-function suppression(db,scope){
-  const args=[scope.worldProfileId,scope.characterId,scope.timelineId];
-  const forgotten=new Set(db.prepare('SELECT target_id FROM memory_tombstones WHERE world_profile_id=? AND character_id=? AND timeline_id=?').all(...args).map(r=>r.target_id));
-  const records=db.prepare('SELECT memory_id,evidence_ids_json FROM memory_records WHERE world_profile_id=? AND character_id=? AND timeline_id=?').all(...args);
-  const links=records.map(row=>({id:row.memory_id,sources:parse(row.evidence_ids_json)}));
-  if(links.some(x=>!Array.isArray(x.sources)||x.sources.some(id=>!uuid.test(id))))throw new Error('m4_invalid_memory_evidence');
-  let changed=true;
-  while(changed){
-    changed=false;
-    for(const l of links){
-      if(forgotten.has(l.id)){
-        for(const id of l.sources)if(!forgotten.has(id)){forgotten.add(id);changed=true;}
-      }else if(l.sources.some(id=>forgotten.has(id))){forgotten.add(l.id);changed=true;}
-    }
-  }
-  return forgotten;
 }
 // A reported correction or derived memory must point to evidence belonging to
 // precisely this NPC/world/timeline. The avatar is historical source provenance.
@@ -90,7 +74,7 @@ export function readIntegratedRecall(db,{scope,terms=[],fromUtc=null,toUtc=null,
   if(sourceKind&&!['dialogue_line','journal_event','permanent_memory','canon'].includes(sourceKind))throw new TypeError('m4_invalid_kind');
   if(speaker&&!['player','npc'].includes(speaker))throw new TypeError('m4_invalid_speaker');
   const tokens=[...new Set(terms.filter(token))].slice(0,12),limitLex=tokens.length?Math.min(128,Math.floor(limit/3)):0;
-  const forgotten=suppression(db,scope),{corrected,overlays}=correctionRows(db,scope,forgotten);
+  const forgotten=suppressedMemoryIds(db,scope),{corrected,overlays}=correctionRows(db,scope,forgotten);
  const revoked=new Set([...forgotten,...corrected]);
   const result=new Map(),add=(r)=>{
     if(!r||forgotten.has(r.recordId)||corrected.has(r.recordId))return;

@@ -56,8 +56,8 @@ Every audit finding, the new finding K-22, and every deviation the audit lists u
 | K-02 | P0 | No production read path (M4/M8 frame, CONVERSE from journal, M5 dispatch, M6/M7/M9 callers) | WS-6a, WS-6b, WS-7a–c | Open | — |
 | K-03 | P0 | No production write path: (a) D01 issuer, (b) actor ledger, (c) NPC capture, (d) M3 source proof, (e) coverage/prepromotion stubs, (f) `worldProfileId` predicates | (a)(b)(f-D02) PR #132; (c) WS-5a; (d)(f-M3) WS-5b; (e) WS-5b coverage, WS-5c prepromotion | Partly integrated (#132) | #132 OFFLINE TESTED per audit §D; re-verified by WS-5a |
 | K-04 | P1 | D02 lease lifetime makes the D03 join unreachable | PR #132; WS-5a verifies and bounds total latency | Integrated (#132), re-verify | Audit §D probes A–H |
-| K-05 | P1 | Forget then purge resurrects the source line | WS-4a | Open | W04 test fails at baseline |
-| K-06 | P1 | Curation recreates a forgotten memory | WS-4a | Open | — |
+| K-05 | P1 | Forget then purge resurrects the source line | WS-4a | Implemented; offline verified | [Scoped repair and verification](memory-k-production/K05-K06-VERIFICATION-20261012.md); original W04 privacy regression now passes |
+| K-06 | P1 | Curation recreates a forgotten memory | WS-4a | Implemented; offline verified | [Scoped repair and verification](memory-k-production/K05-K06-VERIFICATION-20261012.md); deterministic/Luna gates and restart/race regressions pass |
 | K-07 | P1 | M5 compound commands and clarifications lost in integration | WS-4a | Open | W04 tests fail at baseline |
 | K-08 | P1 | Failing suites hidden by fragmented CI | WS-1 | Open | 21 failures at baseline |
 | K-09 | P1 | ElevenLabs line forks the P2 store, runner and protagonist authority | WS-8 | Open | — |
