@@ -14,7 +14,9 @@ const fail=s=>{throw Error('EA9_ISOLATED_DEPLOY_REJECTED: '+s);};
 if(!['deploy','rollback','verify'].includes(mode)||!flag('--ack-isolated'))fail('explicit_command_and_ack_required');
 const target=path.resolve(arg('--target')||fail('target_required'));
 const backup=path.resolve(arg('--backup-root')||fail('backup_root_required'));
-const release=mode==='rollback'?null:path.resolve(arg('--release-root')||fail('release_root_required'));
+// verify and rollback operate exclusively on the immutable backup receipt.
+// Neither should require a stage path; only deploy consumes a sealed stage.
+const release=mode==='deploy'?path.resolve(arg('--release-root')||fail('release_root_required')):null;
 const head=arg('--expected-head')||fail('expected_head_required');
 if(!/^[0-9a-f]{40}$/i.test(head))fail('invalid_source_head');
 const inside=(base,p)=>p===base||p.startsWith(base+path.sep);
@@ -64,8 +66,25 @@ async function inventory(root){
   for(const f of await scan(root))result.push({path:f,sha256:await sha(safe(root,f))});
   return result;
 }
+// On Windows TEMP may contain legitimate 8.3 short-name ancestors (RUNNER~1)
+// or casing aliases. Reject actual filesystem links/reparse points in EVERY
+// existing ancestor, rather than equating a benign short path with a symlink.
+// The canonical real path is still separately checked against active GTA dirs.
+async function denyTargetLinks(full){
+  const root=path.parse(full).root;
+  let current=root;
+  for(const segment of path.relative(root,full).split(path.sep)){
+    if(!segment)continue;
+    current=path.join(current,segment);
+    const stat=await lstat(current);
+    if(stat.isSymbolicLink())fail('target_alias_or_symlink_forbidden');
+    if(!stat.isDirectory())fail('target_not_directory');
+  }
+}
+await denyTargetLinks(target);
 const canonicalTarget=await realpath(target);
-if(canonicalTarget!==target)fail('target_alias_or_symlink_forbidden');
+if(process.platform!=='win32' && canonicalTarget!==target)
+  fail('target_alias_or_symlink_forbidden');
 if(/[\\/]Program Files(?: \(x86\))?[\\/]/i.test(canonicalTarget)||
    /[\\/]steamapps[\\/]common[\\/]/i.test(canonicalTarget))fail('active_game_real_location_forbidden');
 const markerPath=path.join(target,'.ea9-isolated-test-install.json');
