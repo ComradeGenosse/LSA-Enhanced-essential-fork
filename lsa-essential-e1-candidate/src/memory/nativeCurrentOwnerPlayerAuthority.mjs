@@ -56,7 +56,9 @@ export function createNativeCurrentOwnerPlayerAuthority({
   // A live roster refresh invalidates preturn leases, but does not forbid the
   // next genuine native frame on the same authenticated stream. Terminal
   // source faults do retire the stream until a new authenticated hello.
-  const clear=(reason='terminal')=>{
+  const clear=(reason='terminal',revokedRefs=[])=>{
+    if(reason==='roster' && Array.isArray(revokedRefs))
+      for(const ref of revokedRefs)if(uuid(ref))retiredRefs.add(ref);
     if(reason!=='roster') {
       if(context?.streamId) {
         retiredStreams.add(context.streamId);
