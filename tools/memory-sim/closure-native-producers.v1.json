@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "kind": "w09-required-production-native-producers",
+  "comment": "K must populate exact compiled production paths from merged T1/T2/T7/T8 code. Empty entries intentionally FAIL A09; do not substitute unit-test .csproj or guessed symbol names.",
+  "productionProject": "native/promoted-characters/PromotedCharacters.csproj",
+  "required": [
+    {
+      "id": "C01-original-accepted-turn",
+      "sourcePaths": [],
+      "minimumCompilableSourceBytes": 128
+    },
+    {
+      "id": "M3-authenticated-source-time-owner",
+      "sourcePaths": [],
+      "minimumCompilableSourceBytes": 128
+    },
+    {
+      "id": "M7-native-idle-and-priority",
+      "sourcePaths": [],
+      "minimumCompilableSourceBytes": 128
+    },
+    {
+      "id": "M9-gta-event-original-director",
+      "sourcePaths": [],
+      "minimumCompilableSourceBytes": 128
+    }
+  ]
+}
