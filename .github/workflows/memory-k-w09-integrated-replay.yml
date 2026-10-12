@@ -9,6 +9,7 @@ on:
       - 'contracts/**'
       - 'tools/memory-sim/**'
       - '.github/workflows/memory-k-w09-integrated-replay.yml'
+      - 'docs/plans/promoted-npc-memory/closure-handoffs/PRODUCTION-W09-PACKAGE-REPAIR.md'
   workflow_dispatch:
 
 permissions:
