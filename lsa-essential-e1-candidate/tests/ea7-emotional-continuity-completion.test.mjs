@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { MoodStore } from '../src/voice/emotion/moodStore.mjs';
+import { createProtagonistAuthority } from '../src/perception/protagonistAuthority.mjs';
 import { createSpeechDeliveryResolver } from '../src/voice/emotion/resolveSpeechDelivery.mjs';
 import { createMoodRuntime } from '../src/voice/emotion/moodRuntime.mjs';
 import { resolveDelivery } from '../src/voice/emotion/sceneDelivery.mjs';
@@ -142,7 +143,7 @@ test('EA7 new generation can replace consumed mood but old playback cannot undo 
   assert.equal(s.take({context:c,nowMs:1400})?.value,'amused');
 });
 
-function runtimeFixture() {
+function runtimeFixture({authority=null}={}) {
   const H=uuid(10),R=uuid(11),O=uuid(12),I=uuid(13),C=uuid(14);
   const B=uuid(15),T=uuid(16),S=uuid(17);
   const hostContext=Object.freeze({hostContextVersion:1,hostRunId:H,worldEpoch:2});
@@ -153,7 +154,7 @@ function runtimeFixture() {
   const frame=Object.freeze({version:1,protagonist:'franklin',revision:1,
     source:'native_player_model',hostRunId:H,worldEpoch:2});
   let now=1000;
-  const protagonistAuthority={readVerified:()=>frame,isCurrent:record=>record===frame};
+  const protagonistAuthority=authority??{readVerified:()=>frame,isCurrent:record=>record===frame};
   const perception={epoch:R,stream:'ea7',hostContext,
     channelFresh:()=>true,now:()=>10000,current:()=>true,
     anchors:new Map([[O,{kind:'ped'}]]),
@@ -252,4 +253,71 @@ test('EA7 disconnected runtime supplier fails neutral without throwing or revivi
     receipt:nativeReceipt(a.identity)}),false);
   mood.retireTurn({...a,completed:false});
   assert.equal(mood.size,0);
+});
+
+test('R1.08 expired turn proof never commits delayed EA4 mood; a fresh turn can commit',async()=>{
+  let at=1000;
+  let source={connected:true,authenticated:true,sessionToken:{},
+    adapterEpoch:uuid(901),streamId:uuid(902),
+    hostRunId:uuid(10),worldEpoch:2,lastSequence:0};
+  const authority=createProtagonistAuthority({
+    getNativeStream:()=>source,clock:()=>at,
+  });
+  const emit=(protagonist,revision)=>{
+    const sequence=source.lastSequence+1;
+    source={...source,lastSequence:sequence};
+    return authority.acceptAuthenticatedFrame({version:1,type:'protagonist_model',
+      adapterEpoch:source.adapterEpoch,streamId:source.streamId,sequence,
+      payload:{version:1,source:'native_player_model',protagonist,
+        hostRunId:source.hostRunId,worldEpoch:2,revision}});
+  };
+  assert.equal(emit('franklin',10),true);
+  const oldProof=authority.readVerified();
+  const f=runtimeFixture({authority});
+  const first=f.makeTurn(4),stale=f.makeTurn(5),fresh=f.makeTurn(6),later=f.makeTurn(7);
+  assert.equal(await commit(f.mood,{...first,delivery:eligible('sad'),
+    receipt:nativeReceipt(first.identity)}),true);
+  assert.equal(f.mood.readMood(stale)?.value,'sad','old turn pins old native proof');
+  at+=1501;
+  assert.equal(authority.readVerified(),null);
+  assert.equal(emit('franklin',10),true,'same-stream heartbeat restores source authority');
+  const newProof=authority.readVerified();
+  assert.notStrictEqual(newProof,oldProof);
+  assert.equal(authority.isCurrent(oldProof),false);
+  assert.equal(f.mood.onSpeechCompleted({...stale,delivery:eligible('amused'),
+    receipt:nativeReceipt(stale.identity),
+    providerResult:await proof(stale.identity,eligible('amused')),
+    historyAccepted:true}),false,'late playback holding older proof cannot commit mood');
+  assert.equal(await commit(f.mood,{...fresh,delivery:eligible('amused'),
+    receipt:nativeReceipt(fresh.identity)}),true,
+    'a separately accepted turn may commit with independent save/host/P1/P2 authority');
+  assert.equal(f.mood.readMood(later)?.value,'amused');
+});
+test('R1.08 switching playable avatar preserves one human soft mood after fresh native proof',async()=>{
+  let at=1000;
+  let source={connected:true,authenticated:true,sessionToken:{},
+    adapterEpoch:uuid(901),streamId:uuid(902),
+    hostRunId:uuid(10),worldEpoch:2,lastSequence:0};
+  const authority=createProtagonistAuthority({
+    getNativeStream:()=>source,clock:()=>at,
+  });
+  const emit=(protagonist,revision)=>{
+    const sequence=source.lastSequence+1;
+    source={...source,lastSequence:sequence};
+    return authority.acceptAuthenticatedFrame({version:1,type:'protagonist_model',
+      adapterEpoch:source.adapterEpoch,streamId:source.streamId,sequence,
+      payload:{version:1,source:'native_player_model',protagonist,
+        hostRunId:source.hostRunId,worldEpoch:2,revision}});
+  };
+  assert.equal(emit('franklin',10),true);
+  const f=runtimeFixture({authority}),first=f.makeTurn(4),next=f.makeTurn(5);
+  assert.equal(await commit(f.mood,{...first,delivery:eligible('sad'),
+    receipt:nativeReceipt(first.identity)}),true);
+  at+=1501;
+  assert.equal(f.mood.readMood(next),null,'expired proof cannot release soft mood');
+  assert.equal(emit('michael',11),true,'actual avatar transition increments revision');
+  assert.deepEqual(f.mood.readMood(next),{
+    value:'sad',confidence:'soft',intensity:'subtle',
+  },'same NPC/save/host emotion persists across playable avatars');
+  assert.equal(f.mood.readMood(f.makeTurn(6)),null,'one-use mood is not duplicated');
 });
