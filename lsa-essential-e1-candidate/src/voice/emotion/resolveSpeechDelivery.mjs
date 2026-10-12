@@ -128,7 +128,8 @@ export function createSpeechDeliveryResolver({
         ? verifiedElevenTagForDelivery(normalized.value, modelId) : null;
       // The real per-turn delivery history must also enforce EA1's 6.5-second
       // repeated-value rule: a second segment has no prior MoodStore commit yet.
-      const repeated = normalized && lastSelectedValue === normalized.value &&
+      const repeated = mode === 'experimental' && normalized &&
+        lastSelectedValue === normalized.value &&
         Number.isSafeInteger(nowMonotonicMs) && lastSelectedAt !== null &&
         nowMonotonicMs >= lastSelectedAt &&
         nowMonotonicMs - lastSelectedAt < SCENE_DELIVERY_BOUNDS.repeatedValueCooldownMs;
@@ -149,8 +150,10 @@ export function createSpeechDeliveryResolver({
       }
       if (delivery) {
         selectedCount++;
-        lastSelectedValue = delivery.value;
-        lastSelectedAt = nowMonotonicMs;
+        if (mode === 'experimental') {
+          lastSelectedValue = delivery.value;
+          lastSelectedAt = nowMonotonicMs;
+        }
         byDelivery.set(delivery,sequence);
       }
       safeTelemetry(telemetry,{
