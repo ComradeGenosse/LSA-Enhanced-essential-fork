@@ -17,7 +17,7 @@ namespace LSA.Intelligence.MemoryM3
 
     public sealed class SourceTimeWitnessLedger
     {
-        const int Capacity=2048, MaxFrameProofs=16;
+        const int Capacity=2048, MaxFrameProofs=8; // K also checks serialized 8192-byte limit
         readonly Func<string> run, adapterEpoch;
         readonly Func<int> worldEpoch;
         readonly Func<uint> nativeGameTick;
