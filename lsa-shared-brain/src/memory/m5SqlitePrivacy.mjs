@@ -600,7 +600,7 @@ export class M5SqliteServices{
        if(old.hash!==requestHash)fail('m5_purge_replay_conflict');
        return JSON.parse(old.json);
      }
-     const due=db.prepare('SELECT target_id AS id,operation_id AS parent FROM m5_trash WHERE '+scopeWhere+' AND restored_at_utc IS NULL AND purged_at_utc IS NULL AND purge_after_utc<=? ORDER BY purge_after_utc LIMIT ?')
+     const due=db.prepare('SELECT target_id AS id,operation_id AS parent,created_at_utc AS createdAtUtc FROM m5_trash WHERE '+scopeWhere+' AND restored_at_utc IS NULL AND purged_at_utc IS NULL AND purge_after_utc<=? ORDER BY purge_after_utc LIMIT ?')
        .all(...scopeKey(scope),now,limit);
      const ids=new Set(due.map(x=>x.id));
      // Never delete sources belonging to another protagonist. Closure only
@@ -652,7 +652,7 @@ export class M5SqliteServices{
        if(!ticket)
          db.prepare('INSERT INTO m5_trash VALUES(?,?,?,?,?,?,?,?,?,NULL,?)')
            .run(randomUUID(),operationId,id,...scopeKey(scope),
-             new Date(Date.parse(now)-7*DAY).toISOString(),now,now);
+             due[0]?.createdAtUtc??now,now,now);
      }
 for(const id of closure)
         db.prepare('UPDATE m5_trash SET purged_at_utc=? WHERE target_id=? AND '+scopeWhere+
