@@ -173,7 +173,7 @@ export function createNativeMemoryAuthority({
        !profileFor(owner.ownerAlias))return clear();
     // A subsequent accepted turn supersedes the old generation/session.
     turns=new Map();
-    const key=turnKeys.map(k=>String(p.identity[k])).join('\\u001f');
+    const key=turnKeys.map(k=>String(p.identity[k])).join('\u001f');
     turns.set(key,immutable({...p,receivedAt:now()}));
     seq=f.sequence;
     lastAt=now();
