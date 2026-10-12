@@ -103,9 +103,10 @@ export function normalizeConfig(input = {}, env = process.env) {
   if(speechMode!=='off' && input.intelligence?.mode!=='shadow')
     throw new TypeError('spontaneousSpeech requires intelligence.mode=shadow.');
   const selectedProvider = String(input.provider ?? env.AI_PROVIDER ?? 'openai').trim().toLowerCase();
+  // Old private qwenTts fields are inert; selecting a retired provider is prohibited.
   const speechProvider = String(input.speechProvider ?? 'openai').trim().toLowerCase();
-  if (!['openai','faster-qwen3-tts','elevenlabs'].includes(speechProvider))
-    throw new TypeError('speechProvider must be openai, faster-qwen3-tts, or elevenlabs.');
+  if (!['openai','elevenlabs'].includes(speechProvider))
+    throw new TypeError('speechProvider must be openai or elevenlabs.');
   const elevenInput = input.elevenLabs ?? {};
   if (!elevenInput || typeof elevenInput !== 'object' || Array.isArray(elevenInput) ||
       Object.keys(elevenInput).some(k => !['modelId','voices','speechVoiceProfiles'].includes(k)))
@@ -126,32 +127,6 @@ export function normalizeConfig(input = {}, env = process.env) {
     modelId: elevenModel, voices: Object.freeze({...elevenVoiceInput}),
     apiKey: String(env.ELEVENLABS_API_KEY ?? ''),
   });
-  const qwenInput = input.qwenTts ?? {};
-  if (!qwenInput || typeof qwenInput !== 'object' || Array.isArray(qwenInput) ||
-      Object.keys(qwenInput).some(k => !['baseUrl','speechVoices','speechVoiceProfiles','playbackBufferMode','adaptiveMinBufferMs','adaptiveMaxBufferMs','adaptiveSafetyMs'].includes(k)))
-    throw new TypeError('qwenTts has unknown or invalid fields.');
-  const qwenVoiceInput = qwenInput.speechVoices ?? ['nathan'];
-  if (!Array.isArray(qwenVoiceInput) || qwenVoiceInput.length < 1 || qwenVoiceInput.length > 32 ||
-      qwenVoiceInput.some(v => typeof v !== 'string' || !/^[a-z][a-z0-9_-]{0,31}$/.test(v)) ||
-      new Set(qwenVoiceInput).size !== qwenVoiceInput.length)
-    throw new TypeError('qwenTts.speechVoices must contain 1–32 unique lowercase voice identifiers.');
-  const playbackBufferMode = qwenInput.playbackBufferMode ?? 'adaptive';
-  if (!['adaptive','complete-utterance','streaming'].includes(playbackBufferMode))
-    throw new TypeError('qwenTts.playbackBufferMode must be adaptive, complete-utterance or streaming.');
-  const adaptiveMinBufferMs = boundedInteger(qwenInput.adaptiveMinBufferMs, 2500, 250, 10000, 'qwenTts.adaptiveMinBufferMs');
-  const adaptiveMaxBufferMs = boundedInteger(qwenInput.adaptiveMaxBufferMs, 4500, 500, 20000, 'qwenTts.adaptiveMaxBufferMs');
-  const adaptiveSafetyMs = boundedInteger(qwenInput.adaptiveSafetyMs, 1100, 250, 6000, 'qwenTts.adaptiveSafetyMs');
-  if (adaptiveMaxBufferMs < adaptiveMinBufferMs)
-    throw new TypeError('qwenTts.adaptiveMaxBufferMs must be >= adaptiveMinBufferMs.');
-  const qwenTts = Object.freeze({
-    playbackBufferMode, adaptiveMinBufferMs, adaptiveMaxBufferMs, adaptiveSafetyMs,
-    baseUrl: baseUrl(qwenInput.baseUrl, 'http://127.0.0.1:8000/v1', 'qwenTts.baseUrl'),
-    speechVoices: Object.freeze([...qwenVoiceInput]),
-  });
-  // The local runtime must never forward a real OpenAI API credential to this endpoint.
-  const local = new URL(qwenTts.baseUrl);
-  if (local.protocol !== 'http:' || !['localhost','127.0.0.1','[::1]'].includes(local.hostname))
-    throw new TypeError('qwenTts.baseUrl must be an HTTP loopback URL.');
   if (!['openai', 'gemini'].includes(selectedProvider)) throw new TypeError('E1 provider must be openai or gemini.');
   const defaults = {
     reasoningModel: 'gpt-6-luna', reasoningEffort: 'low', transcriptionModel: 'gpt-transcribe',
@@ -168,10 +143,8 @@ export function normalizeConfig(input = {}, env = process.env) {
   const reasoningModel = String(input.reasoningModel ?? env.OPENAI_REASONING_MODEL ?? defaults.reasoningModel).trim();
   const transcriptionModel = String(input.transcriptionModel ?? env.OPENAI_TRANSCRIPTION_MODEL ?? defaults.transcriptionModel).trim();
   const ttsModel = speechProvider === 'elevenlabs' ? elevenLabs.modelId
-    : speechProvider === 'faster-qwen3-tts' ? 'qwen3-tts'
     : String(input.ttsModel ?? env.OPENAI_TTS_MODEL ?? defaults.ttsModel).trim();
   const ttsVoice = speechProvider === 'elevenlabs' ? Object.keys(elevenLabs.voices)[0]
-    : speechProvider === 'faster-qwen3-tts' ? qwenTts.speechVoices[0]
     : String(input.ttsVoice ?? env.OPENAI_TTS_VOICE ?? defaults.ttsVoice).trim();
   const reasoningEffort = String(input.reasoningEffort ?? env.OPENAI_REASONING_EFFORT ?? defaults.reasoningEffort).trim().toLowerCase();
   if (input.observabilityEnabled !== undefined && typeof input.observabilityEnabled !== 'boolean') throw new TypeError('observabilityEnabled must be a boolean.');
@@ -187,10 +160,9 @@ export function normalizeConfig(input = {}, env = process.env) {
   }
   if (!['none', 'low', 'medium', 'high', 'xhigh', 'max'].includes(reasoningEffort)) throw new TypeError('reasoningEffort is unsupported.');
 
-  const explicitVoicePool = ['faster-qwen3-tts','elevenlabs'].includes(speechProvider) ||
+  const explicitVoicePool = speechProvider === 'elevenlabs' ||
     (input.speechVoices !== undefined && input.speechVoices !== null);
   const voiceInput = speechProvider === 'elevenlabs' ? Object.keys(elevenLabs.voices)
-    : speechProvider === 'faster-qwen3-tts' ? qwenTts.speechVoices
     : (explicitVoicePool ? input.speechVoices : [ttsVoice]);
   if (!Array.isArray(voiceInput) || voiceInput.length === 0 || voiceInput.length > 32 || voiceInput.some(voice => typeof voice !== 'string')) {
     throw new TypeError('speechVoices must be a nonempty array of at most 32 voice names.');
@@ -198,20 +170,18 @@ export function normalizeConfig(input = {}, env = process.env) {
   const speechVoices = voiceInput.map(voice => explicitVoicePool ? voice.trim().toLowerCase() : voice.trim());
   if (speechVoices.some(voice => !voice || voice.length > 128 || (explicitVoicePool && !/^[a-z][a-z0-9_-]{0,31}$/.test(voice)))) throw new TypeError('speechVoices contains an invalid voice name.');
   if (new Set(speechVoices).size !== speechVoices.length) throw new TypeError('speechVoices cannot contain duplicates.');
-  // Post-synthesis gain shared by OpenAI and Qwen; 1.0 is bit-exact passthrough.
+  // Post-synthesis gain shared by OpenAI and ElevenLabs; 1.0 is bit-exact passthrough.
   const ttsVolume = input.ttsVolume ?? 1;
   if (typeof ttsVolume !== 'number' || !Number.isFinite(ttsVolume) || ttsVolume < 0 || ttsVolume > 2)
     throw new TypeError('ttsVolume must be a number between 0 and 2.');
-  const ttsSpeed = Number(['faster-qwen3-tts','elevenlabs'].includes(speechProvider) ? 1 : (input.ttsSpeed ?? 1));
+  const ttsSpeed = Number(speechProvider === 'elevenlabs' ? 1 : (input.ttsSpeed ?? 1));
   if (!Number.isFinite(ttsSpeed) || ttsSpeed < 0.25 || ttsSpeed > 4) throw new TypeError('ttsSpeed must be between 0.25 and 4.0.');
-  const speechInstructionsSupported = speechProvider === 'faster-qwen3-tts' ||
-    /^gpt-4o-mini-tts(?:-|$)/.test(ttsModel);
+  const speechInstructionsSupported = /^gpt-4o-mini-tts(?:-|$)/.test(ttsModel);
   const actingEnabled = input.actingEnabled ?? false;
   // v4 acts on inline delivery tags, NOT on OpenAI natural-language instructions.
   if (actingEnabled && !speechInstructionsSupported && speechProvider !== 'elevenlabs')
     throw new TypeError('actingEnabled requires a TTS model that supports speech instructions.');
   const supportedVoices = speechProvider === 'elevenlabs' ? Object.keys(elevenLabs.voices)
-    : speechProvider === 'faster-qwen3-tts' ? qwenTts.speechVoices
     : supportedVoicesForModel(ttsModel, speechInstructionsSupported);
   if (explicitVoicePool && speechVoices.length > 1) {
     if (!supportedVoices) throw new TypeError('Cannot validate a multi-voice pool for the configured TTS model.');
@@ -222,11 +192,12 @@ export function normalizeConfig(input = {}, env = process.env) {
     throw new TypeError('voiceAssignment must be deterministic-session or character-aware-session.');
   }
   const speechVoiceProfiles = normalizeSpeechVoiceProfiles(
-    (speechProvider === 'elevenlabs' ? (elevenInput.speechVoiceProfiles ??
-      Object.fromEntries(Object.keys(elevenLabs.voices).map(voice => [voice, {genders:['any'],ageBands:['any']}])))
-    : speechProvider === 'faster-qwen3-tts' ? (qwenInput.speechVoiceProfiles ??
-      Object.fromEntries(qwenTts.speechVoices.map(voice => [voice, {genders:['any'],ageBands:['any']}])))
-      : input.speechVoiceProfiles), { speechVoices, supportedVoices, voiceAssignment });
+    speechProvider === 'elevenlabs'
+      ? (elevenInput.speechVoiceProfiles ?? Object.fromEntries(
+        Object.keys(elevenLabs.voices).map(voice => [voice, {genders:['any'],ageBands:['any']}]))
+      ))
+      : input.speechVoiceProfiles,
+    { speechVoices, supportedVoices, voiceAssignment });
 
   const providerWorkDeadlineMs = boundedInteger(input.providerWorkDeadlineMs ?? input.turnDeadlineMs, defaults.turnDeadlineMs, 5_000, 120_000, 'providerWorkDeadlineMs');
   const retryInput = input.retry ?? defaults.retry;
@@ -250,7 +221,7 @@ export function normalizeConfig(input = {}, env = process.env) {
 
   return Object.freeze({
     provider: selectedProvider,
-    speechProvider, qwenTts, elevenLabs,
+    speechProvider, elevenLabs,
     persistentIdentity: normalizeIdentityConfig(input.persistentIdentity),
     promotedCharacters: normalizeCharacterConfig(input.promotedCharacters),
     intelligence: normalizePerceptionConfig(input.intelligence),
