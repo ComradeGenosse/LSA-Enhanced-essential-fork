@@ -40,7 +40,14 @@ export function createM3SourceTimeAuthority({subscribeAuthenticatedNativeFrames,
     typeof p.basis==='string'&&p.basis.length<=40&&
     p.source==='original_native_ps2_witness_sample'&&
     ((p.status==='reported')===(p.channel==='report'))&&
-    (p.status!=='did_not_witness'||p.coverageCertified===true);
+    (p.status!=='did_not_witness'||p.coverageCertified===true)&&
+    (p.participants===undefined||(Array.isArray(p.participants)&&
+      p.participants.length<=2&&
+      new Set(p.participants.map(q=>q.captureRef)).size===p.participants.length&&
+      p.participants.every(q=>uuid(q.captureRef)&&
+        (q.subjectKind==='character'?uuid(q.subjectKey):
+          q.subjectKind==='protagonist'&&
+          ['franklin','michael','trevor'].includes(q.subjectKey)))));
   const accept=(receipt)=>{
     if(!receipt?.frame)return retire();
     const f=receipt.frame,p=f.payload;
@@ -139,9 +146,34 @@ export function createM3SourceTimeAuthority({subscribeAuthenticatedNativeFrames,
       observationId:input.observationId,revision:input.observationRevision,
       signalProofs:results}});
   }
-  // Future native participant proof must be a separately sampled SOURCE-TIME
-  // participant table. Current owner/protagonist from a later tick is NOT proof.
-  const resolveParticipants=()=>[];
+  // Attribution can only come from the SAME authenticated native source
+  // record as each PS2 claim. No current-protagonist lookup or model guesses.
+  function resolveParticipants(input={}){
+    if(!live(input)||!Array.isArray(input.observation?.claims))return [];
+    const proofByRef=new Map(),conflicted=new Set();
+    for(const claim of input.observation.claims){
+      const native=get(claim.details?.eventSignalId,
+        input.observation.observer?.captureRef);
+      if(!native||native.sampledGameTick!==claim.evidence?.sampledGameTick)
+        continue;
+      const actorRefs=new Set([claim.source?.captureRef,claim.target?.captureRef]);
+      for(const p of native.participants||[]){
+        if(!actorRefs.has(p.captureRef))continue;
+        const earlier=proofByRef.get(p.captureRef);
+        const proof=freeze({captureRef:p.captureRef,subjectKind:p.subjectKind,
+          subjectKey:p.subjectKey,hostRunId:context.hostRunId,
+          worldEpoch:context.worldEpoch,adapterEpoch:context.adapterEpoch,
+          sampledGameTick:native.sampledGameTick,verified:true,nativeVerified:true});
+        if(earlier&&(earlier.subjectKind!==proof.subjectKind||
+          earlier.subjectKey!==proof.subjectKey||
+          earlier.sampledGameTick!==proof.sampledGameTick))
+          conflicted.add(p.captureRef);
+        else proofByRef.set(p.captureRef,proof);
+      }
+    }
+    for(const ref of conflicted)proofByRef.delete(ref);
+    return freeze([...proofByRef.values()].slice(0,16));
+  }
   // No continuous negative-coverage ABI at this baseline. A witness-negative
   // policy decision alone is not a certified complete coverage proof.
   const verifyNativeCoverage=()=>null;
@@ -151,5 +183,5 @@ export function createM3SourceTimeAuthority({subscribeAuthenticatedNativeFrames,
     verifyNativeCoverage,retire,close(){retire();unsubscribe?.();},
     status(){return freeze({...counters,connected,retained:entries.size,
       negativeCoverageSupported:false,prepromotionSupported:false,
-      participantAttributionSupported:false,gate:'K_native_registration_required'});}});
+      participantAttributionSupported:true,gate:'K_native_registration_required'});}});
 }
