@@ -114,6 +114,11 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
     });
   };
   let nativeHandoffStarted = false;
+  // An ElevenLabs Text-to-Dialogue socket may have submitted billable text
+  // before any PCM arrives. Never automatically retry that same TTS operation,
+  // even if the attempt times out before native audio handoff. All other
+  // providers retain their original side-effect-aware retry eligibility.
+  const canRetryTts = () => !nativeHandoffStarted && services.config.speechProvider !== 'elevenlabs';
   let pcmBytesTotal = 0;
   let pcmChunksTotal = 0;
   const forwardPcm = async (chunk, isActive = () => true) => {
@@ -277,7 +282,7 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
                 speechProfile: turn.speechProfile, signal, timeoutMs, telemetry,
                 playbackStartedAt: () => nativePlaybackStartedAt,
                 onPcm: chunk => forwardPcm(chunk, active),
-              }), () => !nativeHandoffStarted);
+              }), canRetryTts);
             if (!audio?.bytes) throw new Error('empty_segment_audio');
             if (audio.discardedTrailingByte) throw Object.assign(new Error('partial_pcm16_sample'), { code: 'partial_pcm16_sample' });
             if (delivery) renderedDeliveries.push({delivery,providerResult:audio});
@@ -383,7 +388,7 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
           speechProfile: turn.speechProfile, signal, timeoutMs, telemetry,
           playbackStartedAt: () => nativePlaybackStartedAt,
           onPcm: chunk => forwardPcm(chunk, isActive),
-        }), () => !hasAction && !nativeHandoffStarted);
+        }), () => !hasAction && canRetryTts());
       if (audio?.bytes && delivery) renderedDeliveries.push({delivery,providerResult:audio});
     }
     check();
