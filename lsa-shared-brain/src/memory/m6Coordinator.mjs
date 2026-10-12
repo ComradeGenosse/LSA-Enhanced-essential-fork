@@ -192,7 +192,8 @@ export function createM6SelectionCoordinator({store,now=()=>new Date().toISOStri
       if(scan.toCursor!==scan.fromCursor){
         const ack=await store.ackM6Checkpoint({scope,expectedCursor:scan.fromCursor,
           nextCursor:scan.toCursor,sourceHashes:scan.sourceHashes,
-          savedProposalIds:savedIds,rejected,cutoffUtc,hourBucket,cloudQueueEnabled});
+          savedProposalIds:savedIds,rejected,cutoffUtc,hourBucket,
+          lastSourceUtc:scan.lastSourceUtc??null,cloudQueueEnabled});
         if(ack?.committed!==true||ack.cursor!==scan.toCursor)
           fail('m6_durable_cursor_ack_unconfirmed');
         acknowledged=true;
