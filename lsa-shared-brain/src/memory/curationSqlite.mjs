@@ -81,13 +81,12 @@ function sourceAuthorized(db,job,world,timeline){
    if(dialogue){
      const accepted=dialogue.speaker==='player'&&['typed','stt'].includes(dialogue.source)&&dialogue.delivery==='accepted';
      const played=dialogue.speaker==='npc'&&dialogue.source==='npc_generated'&&dialogue.delivery==='completed'&&isUuid(dialogue.receipt);
-     if((!accepted&&!played)||dialogue.protagonist!==memory.protagonist_key)return false;
+     if((!accepted&&!played))return false;
      continue;
    }
    const event=db.prepare('SELECT e.receipt_status AS status,e.source_hash AS hash,s.source_evidence_json AS sidecarJson FROM event_journal e JOIN event_source_evidence s ON s.record_id=e.record_id WHERE e.record_id=? AND e.world_profile_id=? AND e.character_id=? AND e.timeline_id=?')
      .get(id,world,job.characterId,timeline);
-   if(!event||event.status!=='witnessed'||JSON.parse(event.sidecarJson)?.sourceHash!==event.hash||
-      memory.protagonist_key!=='unknown')return false;
+   if(!event||event.status!=='witnessed'||JSON.parse(event.sidecarJson)?.sourceHash!==event.hash)return false;
   }
   return true;
  }catch{return false;}
@@ -230,8 +229,8 @@ export function readCurationAppraisals(db,{characterId,timelineId,protagonistKey
  const rows=db.prepare(`SELECT a.*,m.protagonist_key AS protagonist FROM memory_luna_appraisals a
   JOIN memory_records m ON m.memory_id=a.proposal_id AND m.world_profile_id=a.world_profile_id
    AND m.timeline_id=a.timeline_id AND m.character_id=a.character_id
-  WHERE a.world_profile_id=? AND a.timeline_id=? AND a.character_id=? AND m.protagonist_key=?
-  ORDER BY a.completed_at_utc DESC LIMIT ?`).all(world,timelineId,characterId,protagonistKey,limit);
+  WHERE a.world_profile_id=? AND a.timeline_id=? AND a.character_id=?
+   ORDER BY a.completed_at_utc DESC LIMIT ?`).all(world,timelineId,characterId,limit);
  const out=[];
  for(const row of rows){
   if(suppressed.has(row.proposal_id))continue;
