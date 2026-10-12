@@ -54,8 +54,10 @@ function verifyOwner(db,s){
 function evidence(db,s,id){
  if(!isUuid(id))return null;
  const args=[s.worldProfileId,s.characterId,s.timelineId,id];
- const dialogue=db.prepare('SELECT content,protagonist AS protagonistKey FROM dialogue_journal WHERE world_profile_id=? AND character_id=? AND timeline_id=? AND record_id=?').get(...args);
- if(dialogue)return {kind:'dialogue_line',content:dialogue.content};
+ const dialogue=db.prepare('SELECT content,protagonist AS protagonistKey,source,speaker,delivery,receipt_id AS receipt FROM dialogue_journal WHERE world_profile_id=? AND character_id=? AND timeline_id=? AND record_id=?').get(...args);
+ if(dialogue && (dialogue.speaker==='player'&&['typed','stt'].includes(dialogue.source)&&dialogue.delivery==='accepted'||
+     dialogue.speaker==='npc'&&dialogue.source==='npc_generated'&&dialogue.delivery==='completed'&&isUuid(dialogue.receipt)))
+   return {kind:'dialogue_line',content:dialogue.content};
  const memory=db.prepare('SELECT content,protagonist_key AS protagonistKey FROM memory_records WHERE world_profile_id=? AND character_id=? AND timeline_id=? AND memory_id=?').get(...args);
  if(memory)return {kind:'permanent_memory',content:memory.content};
  {
@@ -336,7 +338,7 @@ export class M5SqliteServices{
    });
    return this.verifyPrivacy({scope,operationId});
  }
- /** Explicitly authorized entire current protagonist/timeline archive deletion.
+ /** Explicitly authorized entire NPC/confirmed-timeline archive deletion.
   * This is not P2 unpromotion nor cross-timeline profile destruction.
   * Rollback is all-or-none; previously suppressed rows keep their own schedule.
   */
@@ -349,12 +351,11 @@ export class M5SqliteServices{
      const old=db.prepare('SELECT request_sha256 AS hash FROM m5_privacy_ops WHERE operation_id=?').get(operationId);
      if(old){if(old.hash!==reqHash)fail('m5_privacy_replay_conflict');return;}
      const ids=[
-       ...db.prepare('SELECT record_id AS id FROM dialogue_journal WHERE world_profile_id=? AND character_id=? AND timeline_id=? AND protagonist=?')
-         .all(scope.worldProfileId,scope.characterId,scope.timelineId,scope.protagonistKey??'unknown').map(x=>x.id),
+       ...db.prepare('SELECT record_id AS id FROM dialogue_journal WHERE world_profile_id=? AND character_id=? AND timeline_id=?')
+         .all(...scopeKey(scope)).map(x=>x.id),
        ...db.prepare('SELECT memory_id AS id FROM memory_records WHERE '+scopeWhere).all(...scopeKey(scope)).map(x=>x.id)
      ];
-     if((scope.protagonistKey??'unknown')==='unknown')
-       ids.push(...db.prepare('SELECT e.record_id AS id FROM event_journal e JOIN event_source_evidence s ON s.record_id=e.record_id WHERE e.world_profile_id=? AND e.character_id=? AND e.timeline_id=?')
+     ids.push(...db.prepare('SELECT e.record_id AS id FROM event_journal e JOIN event_source_evidence s ON s.record_id=e.record_id WHERE e.world_profile_id=? AND e.character_id=? AND e.timeline_id=?')
          .all(scope.worldProfileId,scope.characterId,scope.timelineId).map(x=>x.id));
      const unique=[...new Set(ids)].sort();
      if(unique.length>100000)fail('m5_scope_delete_quota_exceeded');
@@ -413,8 +414,8 @@ export class M5SqliteServices{
      const due=db.prepare('SELECT target_id AS id,operation_id AS parent FROM m5_trash WHERE '+scopeWhere+' AND restored_at_utc IS NULL AND purged_at_utc IS NULL AND purge_after_utc<=? ORDER BY purge_after_utc LIMIT ?')
        .all(...scopeKey(scope),now,limit);
      const ids=new Set(due.map(x=>x.id));
-     // Never delete sources belonging to another protagonist. Closure only
-     // follows memories authored for this protagonist, not source parents.
+     // One authenticated user's explicit erasure spans avatars, but never
+     // crosses an NPC/confirmed timeline boundary.
      const closure=dependentIds(db,scope,ids);
      // Purge stored derivatives, curator jobs, appraisals and audit receipts
      // that include purged evidence, not merely the primary journal row.
@@ -441,14 +442,13 @@ export class M5SqliteServices{
        }
      }
      for(const id of closure){
-       db.prepare('DELETE FROM memory_records WHERE memory_id=? AND world_profile_id=? AND character_id=? AND timeline_id=? AND protagonist_key=?').run(id,...scopeKey(scope));
-       db.prepare('DELETE FROM dialogue_journal WHERE record_id=? AND world_profile_id=? AND character_id=? AND timeline_id=? AND protagonist=?')
-         .run(id,scope.worldProfileId,scope.characterId,scope.timelineId,scope.protagonistKey??'unknown');
-       if((scope.protagonistKey??'unknown')==='unknown')
-         db.prepare('DELETE FROM event_journal WHERE record_id=? AND world_profile_id=? AND character_id=? AND timeline_id=?').run(id,scope.worldProfileId,scope.characterId,scope.timelineId);
+       db.prepare('DELETE FROM memory_records WHERE memory_id=? AND world_profile_id=? AND character_id=? AND timeline_id=?').run(id,...scopeKey(scope));
+       db.prepare('DELETE FROM dialogue_journal WHERE record_id=? AND world_profile_id=? AND character_id=? AND timeline_id=?')
+         .run(id,...scopeKey(scope));
+       db.prepare('DELETE FROM event_journal WHERE record_id=? AND world_profile_id=? AND character_id=? AND timeline_id=?').run(id,scope.worldProfileId,scope.characterId,scope.timelineId);
        db.prepare('DELETE FROM memory_corrections WHERE target_id=? AND world_profile_id=? AND character_id=? AND timeline_id=?').run(id,scope.worldProfileId,scope.characterId,scope.timelineId);
        db.prepare('DELETE FROM memory_tombstones WHERE target_id=? AND world_profile_id=? AND character_id=? AND timeline_id=?').run(id,scope.worldProfileId,scope.characterId,scope.timelineId);
-       db.prepare('DELETE FROM p2_memory_replay_feed WHERE record_id=? AND world_profile_id=? AND character_id=? AND timeline_id=? AND protagonist_key=?')
+       db.prepare('DELETE FROM p2_memory_replay_feed WHERE record_id=? AND world_profile_id=? AND character_id=? AND timeline_id=?')
          .run(id,...scopeKey(scope));
        db.prepare('DELETE FROM memory_commands WHERE requested_by_line_id=? AND '+scopeWhere).run(id,...scopeKey(scope));
      }
