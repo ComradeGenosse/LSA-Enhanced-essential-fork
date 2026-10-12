@@ -133,7 +133,12 @@ test('M5 ambiguity exposes bounded alternatives in a sideband, not in memoryActi
 test('M5 reported or cross-world evidence is ineligible',async t=>{
   const {store}=await setup(t);
   await store.seedCandidate(candidate('An unverified crash',-5,{receiptStatus:'reported'}));
-  await assert.rejects(store.seedCandidate(candidate('A crash by Michael',-6,{protagonistKey:'michael'})),/memory_scope_conflict/);
+  // Michael is the SAME human, but unverified evidence still cannot be saved.
+  await store.seedCandidate(candidate('A crash by Michael',-6,
+    {protagonistKey:'michael',receiptStatus:'reported'}));
+  // A different save/world timeline is never the same memory owner.
+  await assert.rejects(store.seedCandidate(candidate('A crash from another save',-6,
+    {timelineId:randomUUID()})),/memory_scope_conflict/);
   const response=await act(store,line('Remember this crash'));
   assert.equal(response.outcome,'clarify');
 });
