@@ -1,0 +1,70 @@
+name: EA118 P2 R1 R2 Exact-Head Regression Gate
+
+on:
+  push:
+    branches:
+      - integration/ea118-p2-review-repair-20261012
+  pull_request:
+    branches:
+      - integration/elevenlabs-emotional-acting-consolidated-20261012
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  EA_EXPECTED_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+  ELEVENLABS_API_KEY: ''
+  LSA_EA9_BILLING_APPROVED: '0'
+
+jobs:
+  repaired-r1-r2:
+    name: R1 R2 security and provider regression (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.EA_EXPECTED_HEAD }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Prove exact source head
+        shell: bash
+        run: |
+          test "$(git rev-parse HEAD)" = "$EA_EXPECTED_HEAD"
+          node --version
+      - name: Syntax-check both repaired source modules
+        shell: bash
+        run: |
+          node --check lsa-essential-e1-candidate/src/perception/protagonistAuthority.mjs
+          node --check lsa-essential-e1-candidate/src/openai/runSequentialTurn.mjs
+      - name: EA118 R1 R2 and adjacent safety contracts
+        working-directory: lsa-essential-e1-candidate
+        run: >-
+          node --test
+          tests/ea118-protagonist-heartbeat-recovery.test.mjs
+          tests/ea118-elevenlabs-retry-safety.test.mjs
+          tests/ea-final-a-native-intake.test.mjs
+          tests/ea5-native-protagonist-authority.test.mjs
+          tests/ea-final-h-unified-player.test.mjs
+          tests/ea7-emotional-continuity-completion.test.mjs
+          tests/emotional-mood-continuity.test.mjs
+          tests/ea4-runtime-integration.test.mjs
+          tests/ea8-elevenlabs-provider-safety.test.mjs
+          tests/ea-final-integration-wiring.test.mjs
+          tests/ea-final-b-timeline.test.mjs
+          tests/ea9-release.test.mjs
+      - name: Check consolidated EA0-EA9 source inventory at exact HEAD
+        shell: bash
+        run: node tools/ea9/matrix.mjs --require-combined --expected-head "$EA_EXPECTED_HEAD" --report ea118-p2-combined-inventory.json
+      - name: Publish offline evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ea118-p2-${{ matrix.os }}-${{ env.EA_EXPECTED_HEAD }}
+          path: ea118-p2-combined-inventory.json
+          if-no-files-found: warn
