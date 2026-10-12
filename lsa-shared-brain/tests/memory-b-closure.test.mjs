@@ -67,7 +67,7 @@ test('B: 2,101 source-committed Unicode lines replay across bounded pages with d
   const last=checkpoint.cursor;
   const same=await x.store.ackCommittedEvidenceCursor({scope:x.scope,consumerId:'m6-primary',cursor:last,expectedCursor:last});
   assert.equal(same.idempotent,true);
-  await assert.rejects(x.store.readCommittedEvidencePage({scope:{...x.scope,protagonistKey:'trevor'},cursor:last}),/invalid_cursor/);
+  assert.equal((await x.store.readCommittedEvidencePage({scope:{...x.scope,protagonistKey:'trevor'},cursor:last})).items.length,0);
   await x.store.close();
   const reopened=createP2MemoryStorage({filePath:x.filePath,worldProfileId,sourceRequired:true});
   await reopened.initialize();
@@ -155,7 +155,7 @@ test('B: unverified native event stays a rejection, never a witnessed NPC fact',
   assert.equal(page.status,'incomplete_evidence');
   await x.store.close();
 });
-test('B: M5 single-connection privacy is serialized and cannot restore purged or cross-protagonist data',async t=>{
+test('B: M5 single-connection privacy spans avatars but cannot restore purged data',async t=>{
   const x=await fixture(t);
   const target=await x.line('private Franklin racing story','private');
   const foreign=await x.line('private Trevor story','foreign','trevor');
@@ -177,7 +177,7 @@ test('B: M5 single-connection privacy is serialized and cannot restore purged or
   assert.equal((await m5.inspect({scope:{...x.scope,protagonistKey:'trevor'}})).records.length,0);
   const exported=await m5.exportArchive({scope:x.scope});
   assert.equal(exported.sha256,sum(exported.json));
-  assert.equal(exported.json.includes('private Trevor story'),false);
+  assert.equal(exported.json.includes('private Trevor story'),true);
   time+=8*86400000;
   const purge=await m5.purgeExpired({scope:x.scope});
   assert.ok(purge.purgedIds.includes(target));
@@ -198,10 +198,10 @@ test('B: confirmed unpromotion destroys M5 and replay records in the same profil
   assert.equal(x.store.get(x.person.characterId),null);
   await x.store.withTimelineWrite(x.scope.timelineId,foundation=>{
     const report=foundation.withP2SqliteRead(db=>Object.fromEntries([
-      'm5_trash','m5_privacy_ops','p2_memory_replay_feed','p2_memory_replay_cursors'
+      'm5_trash','m5_privacy_ops','p2_memory_replay_feed','p2_memory_replay_cursors','p2_memory_replay_player_cursors'
     ].map(table=>[table,db.prepare('SELECT count(*) AS n FROM '+table+' WHERE character_id=?')
       .get(x.person.characterId).n])));
-    assert.deepEqual(report,{m5_trash:0,m5_privacy_ops:0,p2_memory_replay_feed:0,p2_memory_replay_cursors:0});
+    assert.deepEqual(report,{m5_trash:0,m5_privacy_ops:0,p2_memory_replay_feed:0,p2_memory_replay_cursors:0,p2_memory_replay_player_cursors:0});
   });
   await x.store.close();
 });
