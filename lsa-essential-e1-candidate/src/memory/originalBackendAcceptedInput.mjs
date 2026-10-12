@@ -8,6 +8,7 @@ export const ORIGINAL_BACKEND_PIN = Object.freeze({
   stockCoreDllSha256: '9b6de42d4c464901d859dd95e17e100e4fa9ef6074bfbb0cf3a57a76f6ddd653',
   sourceRevision: 'essential-original-server-5d81de4217bd',
   acceptedSourceHookAvailable: false,
+  postAcceptanceEvidence: 'unobservable_in_pinned_original_source',
   status: 'source_capability_unavailable',
 });
 const SUBMISSION_ONLY = new Set([
@@ -50,7 +51,8 @@ export const ORIGINAL_BACKEND_ACCEPTED_INPUT_V1=frozen({
   identityKeys:EXACT_ID_KEYS,
   requiredFields:frozen([
     'kind','pedId','turnId','generationId','sessionNonce',
-    'sourceRunId','sourceRevision','inputMode','lifecycleStatus',
+    'sourceRunId','sourceRevision','originalBundleSha256','inputMode',
+    'lifecycleStatus','finalAcceptedInputRevision',
     'acceptedUtf8Sha256','acceptedUtf8ByteLength','sourceTimestamp',
     'retirementIdentity',
   ]),
@@ -63,20 +65,25 @@ export const ORIGINAL_BACKEND_ACCEPTED_INPUT_V1=frozen({
  * server callback CANNOT upgrade any of the signals below into accepted proof.
  */
 export function createOriginalBackendAcceptedInput(){
-  const retired=new Set(),latestGeneration=new Map();
+  // These are denial-only lifecycle fences. Nothing here grants acceptance.
+  const retired=new Set(),retiredSessions=new Set(),retiredRuns=new Set(),latestGeneration=new Map();
   let closed=false;
-  const classify=({identity,signal,sourceRevision,text,sourceRunId,sessionConnected=true}={})=>{
+  const classify=({identity,signal,sourceRevision,originalBundleSha256,text,sourceRunId,sessionConnected=true}={})=>{
     if(closed)return frozen({status:'not_accepted',reason:'authority_retired'});
     if(!validId(identity))return frozen({status:'not_accepted',reason:'invalid_identity'});
     if(sourceRevision!==ORIGINAL_BACKEND_PIN.sourceRevision||
        !sourceRunId||typeof sourceRunId!=='string')
       return frozen({status:'not_accepted',reason:'unverified_source_revision_or_run'});
+    if(originalBundleSha256!==undefined&&originalBundleSha256!==ORIGINAL_BACKEND_PIN.originalBundleSha256)
+      return frozen({status:'not_accepted',reason:'pinned_build_mismatch'});
     if(!sessionConnected)return frozen({status:'not_accepted',reason:'disconnected_session'});
     if(retired.has(keyOf(identity)))return frozen({status:'not_accepted',reason:'retired_identity'});
     const lifetimeKey=identity.pedId+'\u0000'+identity.sessionNonce;
     const previous=latestGeneration.get(lifetimeKey);
     if(previous!==undefined&&identity.generationId<previous)
       return frozen({status:'not_accepted',reason:'superseded_generation'});
+    // A caller-supplied build hash cannot attest its own source. A wrong one
+    // can only deny the request; even a correct one never creates authority.
     if(!SUBMISSION_ONLY.has(signal))
       return frozen({status:'not_accepted',reason:'unrecognized_or_unsupported_source_event'});
     if(!digestExactUtf8(text))
@@ -86,7 +93,11 @@ export function createOriginalBackendAcceptedInput(){
   return frozen({
     source:ORIGINAL_BACKEND_PIN,
     describeSignal:classify,
+    // Agent C may synchronously query this method, but at the pinned build it
+    // MUST ALWAYS return null. A positive issuer requires an independently
+    // reviewed original post-acceptance transition and a new source pin.
     verifyAccepted(_request){return null;},
+    hasAuthenticatedSource(){return false;},
     retire(identity){if(validId(identity))retired.add(keyOf(identity));},
     supersede({pedId,sessionNonce,generationId}={}){
       if(typeof pedId!=='string'||!pedId||!Number.isSafeInteger(sessionNonce)||
@@ -95,6 +106,16 @@ export function createOriginalBackendAcceptedInput(){
       latestGeneration.set(key,Math.max(generationId,latestGeneration.get(key)??-1));
       return true;
     },
-    disconnect(){closed=true;retired.clear();latestGeneration.clear();},
+    retireSession({pedId,sessionNonce}={}){
+      if(typeof pedId!=='string'||!pedId||!Number.isSafeInteger(sessionNonce)||sessionNonce<1)return false;
+      retiredSessions.add(pedId+'\\u0000'+sessionNonce);
+      return true;
+    },
+    retireSourceRun(sourceRunId){
+      if(typeof sourceRunId!=='string'||!sourceRunId.trim())return false;
+      retiredRuns.add(sourceRunId);
+      return true;
+    },
+    disconnect(){closed=true;retired.clear();retiredSessions.clear();retiredRuns.clear();latestGeneration.clear();},
   });
 }
