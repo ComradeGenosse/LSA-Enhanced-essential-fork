@@ -56,3 +56,6 @@ test('M6 committed SQLite journal creates a permanent memory and replays exactly
   assert.deepEqual(rows[0].envelope.sourceEvidenceIds,[originalId]);
  }finally{await reopened.close();}
 });
+
+// W06 production contract: exercise the original P2 DatabaseSync writer as well.
+import './memory-m6-p2-production.test.mjs';
