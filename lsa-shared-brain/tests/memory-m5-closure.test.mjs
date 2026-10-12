@@ -161,8 +161,12 @@ test('Database exception, lost commit readback and compound mixed success cannot
  const u=rig(s),mixed=line(s,'Remember that I like beans; forget that');u.accept(mixed);
  // Second command ambiguously targets prior evidence and must not become success.
  const partial=await u.make().acceptAcceptedPlayerLine({line:mixed,scope:s});
- assert.deepEqual(partial.actions.map(a=>a.outcome),['saved','clarify']);
- assert.deepEqual(partial.acknowledgements.map(a=>a.durableCommit),[true,false]);
+ // W04's atomic contract correctly refuses a mixed saved/clarify batch.
+ // Never acknowledge the first member of an unresolved compound request.
+ assert.equal(partial.status,'atomic_writer_unavailable');
+ assert.deepEqual(partial.actions,[]);
+ assert.deepEqual(partial.acknowledgements,[]);
+ assert.equal(u.commitsAttempted,0);
 });
 
 test('STT correction links source and correction without claiming direct GTA observation',async()=>{

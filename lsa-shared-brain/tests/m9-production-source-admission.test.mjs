@@ -57,7 +57,7 @@ function harness(changes={}) {
 }
 test('W08 accepts ONLY exact PS2 observed + P2 committed event and sidecar in live native scope',()=>{
   const h=harness(),result=h.check();
-  assert.equal(result.authorized,true);
+  assert.equal(result.authorized,true,result.reason);
   assert.equal(result.receipt.journalRecordId,journalRecordId);
   assert.deepEqual(h.reads,['native','ps2','event','sidecar','native']);
   assert.ok(Object.isFrozen(result.receipt));

@@ -103,7 +103,12 @@ export class M3ObserverOwnerBinder {
         if(!isUuid(p?.captureRef)||counts.get(p.captureRef)!==1||
            p.verified!==true||p.nativeVerified!==true||
            p.hostRunId!==host.hostRunId||p.worldEpoch!==host.worldEpoch||
-           p.adapterEpoch!==ps.epoch||!ps.current(p.captureRef)||
+           p.adapterEpoch!==ps.epoch||
+           // PS2.current indexes observer anchors, not original native
+           // protagonist participants. A source-time authenticated player
+           // capture may therefore lack a PS2 observer anchor, while another
+           // NPC still requires current PS2 observation ownership.
+           (p.subjectKind==='character'&&!ps.current(p.captureRef))||
            !['character','protagonist'].includes(p.subjectKind)||
            (p.subjectKind==='character'?!isUuid(p.subjectKey):
              !['franklin','michael','trevor'].includes(p.subjectKey)))continue;

@@ -133,6 +133,7 @@ const consent=(overrides={})=>({mode:'experimental',cloudOptIn:true,
 const pricedConfig=()=>({provider:'openai',reasoningModel:'gpt-6-luna',
  reasoningBaseUrl:'https://api.openai.com/v1',
  curatorPricing:{model:'gpt-6-luna',source:'operator_verified',verifiedAtUtc:at(0),
+ pricingTier:'standard',officialPricingUrl:'https://developers.openai.com/api/docs/pricing',
  inputUsdPerMillionTokens:1,outputUsdPerMillionTokens:1}});
 function nativeFixture(f,store){
  let listener=null;
