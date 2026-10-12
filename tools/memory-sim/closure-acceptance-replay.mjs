@@ -77,6 +77,34 @@ try {
   const m6=requiredSource('lsa-shared-brain/src/memory/m6CursorConsumer.mjs');
   const src=!!runner&&!!glue&&!!p2&&!!authority&&!!play&&!!m3&&!!m6;
   gate('production-module-source',src,'original runner/glue, P2 and M2/M3/M6 real source files must be present');
+
+  // The final checkout SHA alone cannot attest uncommitted or swapped source.
+  // Compare EXACT file bytes with git tree blobs independently in this
+  // parent verifier, including its own instrument, every test and P2 source.
+  const pinnedFiles=[
+    'lsa-essential-e1-candidate/src/openai/runSequentialTurn.mjs',
+    'lsa-shared-brain/src/characters/sqliteProfileStore.mjs',
+    'lsa-essential-e1-candidate/src/integration/essentialGlue.mjs',
+    'tools/memory-sim/closure-acceptance-replay.mjs',
+    'tools/memory-sim/replay-evidence-verifier.mjs',
+    'lsa-essential-e1-candidate/tests/memory-k-original-runner-probe.mjs',
+    'lsa-shared-brain/tests/memory-k-integrated-replay.test.mjs',
+    ...ids.map(id=>'lsa-essential-e1-candidate/tests/memory-k-original-'+id+'.test.mjs')
+  ];
+  const dirty=[];
+  if(headSha)for(const file of pinnedFiles){
+    try{
+      const committed=spawnSync('git',['show',headSha+':'+file],{
+        cwd:root,encoding:null,timeout:30000,maxBuffer:10*1024*1024,shell:false});
+      if(committed.status!==0||!committed.stdout||
+         hash(committed.stdout)!==shaFile(file))dirty.push(file);
+      else result.sourceHashes[file]=shaFile(file);
+    }catch{dirty.push(file);}
+  }
+  gate('exact-committed-source-hashes',!!headSha&&dirty.length===0,
+    dirty.length?'working tree / pinned blob mismatch: '+dirty.join(','):
+      'runner, P2, harness and all ten scenario bytes match exact HEAD git tree');
+
   // Diagnostic heuristic only, NEVER a substitute for an executed original-runner test.
   result.sourceSimulation.originalRunnerDiagnostic=src?{
     oldM2Binding:glue.includes('createM2TurnCapture'),
