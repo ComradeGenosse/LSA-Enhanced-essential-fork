@@ -161,3 +161,7 @@ test('M6 idempotent deterministic proposal IDs use canonical immutable evidence 
 
 // Run durable P2-cursor lifecycle adversarial cases in the pinned M6 CI suite.
 import './memory-m6-cursor-lifecycle.test.mjs';
+
+// W06 real P2 SQLite stress is Node 22+ only (node:sqlite); do not break legacy Node 20 fixtures.
+if(Number(process.versions.node.split('.')[0])>=22)
+  await import('./memory-m6-p2-production.test.mjs');
