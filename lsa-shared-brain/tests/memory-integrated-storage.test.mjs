@@ -296,3 +296,4 @@ test('H: strict M4 integrated projection uses existing P2 SQLite connection and 
 // The combined PR #75 workflow runs this DB-owned suite explicitly.
 // Include closure-B adversarial fixtures without changing K-owned CI.
 import './memory-b-closure.test.mjs';
+import './memory-agent-a-storage-recall.test.mjs';
