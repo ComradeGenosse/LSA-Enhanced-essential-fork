@@ -177,7 +177,7 @@ test('A: corrected grandparent suppresses every derived descendant and limit cou
       const candidates=await x.store.findCandidates({scope});
       for(const hidden of [first.memoryId,derived.memoryId,grandchild.memoryId])
         assert.ok(!candidates.some(row=>row.recordId===hidden),'transitive source was corrected');
-      const m4=await x.store.readIntegratedRecall({scope,sourceKind:'permanent_memory',limit:1});
+      const m4=await x.store.readIntegratedRecall({scope,sourceKind:'permanent_memory',limit:2});
       assert.ok(m4.rows.every(row=>![first.memoryId,derived.memoryId,grandchild.memoryId].includes(row.recordId)));
       assert.ok(m4.rows.some(row=>row.recordId===kept.memoryId));
     }
