@@ -172,3 +172,33 @@ NPC owners remain distinct. No SQLite data was changed here.
 
 The handoff cannot contain its own final commit SHA; K must pin the PR head
 from GitHub and record exact CI receipts for that head before acceptance.
+
+## Exact-head CI receipts observed after specialist tests were connected
+
+At code head `1524448c9c4fd164035288a14d3493f7acb4c2bd`
+(the commit immediately before this handoff evidence amendment),
+[Memory K workflow run 38248795884](https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/actions/runs/38248795884)
+reported:
+
+- **Node 24 Ubuntu:** 115 tests discovered, 114 passed, 1 failed.
+  The 11 new `nativeCurrentOwnerPlayerAuthority.test.mjs` contract tests
+  passed through the existing `nativeMemoryAuthority.test.mjs` importer.
+  The failing test is the preexisting K authenticated-socket owner index
+  expectation at `memory-k-native-intake.test.mjs:89`:
+  `actual undefined` instead of expected character UUID.
+  This is not a successful integrated D02 authenticated-pipe test.
+- **Windows .NET 8 native pure-policy step:** 
+  `MemoryNativePolicy: 23 assertions PASS`, including 10 new D02 actor
+  lifetime cases. The overall native-harness job failed later in the
+  existing M9 harness at `m9-tests/Program.cs:131`:
+  `unrelated old collision tick refused`.
+- **M0 original S01–S10 gate:** still failing by design because original
+  runner acceptance is not delivered.
+- Windows Node 24 job was still running when this evidence was captured.
+  The workflow overall is NOT green. Treat a later result separately.
+
+These receipts refer to `1524448...`, not automatically to the new final
+handoff commit. Source-contract fixtures do NOT certify authentic GTA
+sampling, full native net481 production compilation, current original actor
+binding or D01 backend final acceptance. K must repeat checks against its
+exact integrated head.
