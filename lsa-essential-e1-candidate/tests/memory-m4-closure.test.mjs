@@ -75,11 +75,12 @@ test('no authorization, uncertified missing row, and source-forgotten rows never
   validateEvidence:()=>false}),false);
 });
 
-test('different NPC and protagonists never inherit the same text via forged read results',async()=>{
+test('foreign NPC remains denied; verified same-player history can span avatars',async()=>{
  const row=dialogue(100,'the same exact zephyr');
  const wrongNpc={...row,characterId:U(67)};
  const wrongProtagonist={...row,protagonistKey:'trevor'};
- assert.equal((await read(query('zephyr'),reader([wrongNpc,wrongProtagonist]))).status,'dropped');
+ assert.equal((await read(query('zephyr'),reader([wrongNpc]))).status,'dropped');
+ assert.equal((await read(query('zephyr'),reader([wrongProtagonist]))).status,'ready');
  assert.equal((await read(query('zephyr'),reader([row]))).status,'ready');
 });
 
