@@ -246,7 +246,7 @@ export function readCurationAppraisals(db,{characterId,timelineId,protagonistKey
   try{validateLunaAppraisal(appraisal,original);}
   catch{continue;}
   out.push(Object.freeze({proposalId:row.proposal_id,characterId,worldProfileId:world,
-    timelineId,protagonistKey,sourceEvidenceIds:Object.freeze([...original.evidenceRecordIds]),
+    timelineId,protagonistKey:row.protagonist,sourceEvidenceIds:Object.freeze([...original.evidenceRecordIds]),
     factualSummary:original.groundedSummary,opinion:appraisal.inCharacterTake,
     category:appraisal.candidate,notability:appraisal.notability,epistemicStatus:'character_opinion',
     verifiedWorldFact:false,completedAtUtc:row.completed_at_utc}));
