@@ -8,9 +8,10 @@ import { isUuid } from '../util/identity.mjs';
 
 const digest = text => createHash('sha256').update(text).digest('hex');
 const fail = code => { throw new Error(code); };
+// Fixture ownership is the ONE human player in an NPC/world/timeline.
+// Historical avatar is provenance, never the owner of the fixture archive.
 const same = (a,b) => a.characterId===b.characterId &&
-  a.worldProfileId===b.worldProfileId && a.timelineId===b.timelineId &&
-  (a.protagonistKey ?? 'unknown') === (b.protagonistKey ?? 'unknown');
+  a.worldProfileId===b.worldProfileId && a.timelineId===b.timelineId;
 const snapshot = value => JSON.parse(JSON.stringify(value));
 const validScope = s => s && [s.characterId,s.worldProfileId,s.timelineId].every(isUuid) &&
   ['franklin','michael','trevor','unknown'].includes(s.protagonistKey??'unknown');
@@ -101,7 +102,7 @@ export class FixtureMemoryCommandStore {
       !(operation==='remember' && m.targetRecordId)).map(m=>({
       recordId:m.memoryId,kind:'permanent_memory',
       characterId:scope.characterId,worldProfileId:scope.worldProfileId,timelineId:scope.timelineId,
-      protagonistKey:scope.protagonistKey,occurredAtUtc:m.requestedAtUtc,
+      protagonistKey:m.protagonistKey??this.scope.protagonistKey,occurredAtUtc:m.requestedAtUtc,
       content:m.content,label:m.content.slice(0,80)
     }));
     return snapshot([...data.candidates.filter(c=>!suppressed.has(c.recordId)),...stored]);
@@ -134,7 +135,7 @@ export class FixtureMemoryCommandStore {
       }
       const candidates=[...data.candidates,...data.memories.map(m=>({
         recordId:m.memoryId,characterId:this.scope.characterId,worldProfileId:this.scope.worldProfileId,
-        timelineId:this.scope.timelineId,protagonistKey:this.scope.protagonistKey
+        timelineId:this.scope.timelineId,protagonistKey:m.protagonistKey??this.scope.protagonistKey
       }))];
       if (op.targetRecordId && (!candidates.some(c=>c.recordId===op.targetRecordId && same(c,op.scope)) ||
           data.tombstones.some(t=>t.targetRecordId===op.targetRecordId)))
@@ -147,7 +148,7 @@ export class FixtureMemoryCommandStore {
         if(recent)memoryId=recent.memoryId;
         else data.memories.push({
           memoryId,origin:'explicit_player',content:op.content,contentHash:op.contentHash,
-          targetRecordId:op.targetRecordId,requestedAtUtc:op.requestedAtUtc,
+          protagonistKey:op.scope.protagonistKey,targetRecordId:op.targetRecordId,requestedAtUtc:op.requestedAtUtc,
           evidenceRecordIds:op.evidenceRecordIds,importance:op.pin?95:85,pinned:!!op.pin,
           subjectCertainty:op.subjectCertainty||'evidence_linked',recordType:op.recordType
         });
