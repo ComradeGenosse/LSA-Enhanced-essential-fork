@@ -253,7 +253,7 @@ const W05_STAMP_KEYS=['characterId','worldProfileId','timelineId','protagonistKe
 const W05_SHA=/^[0-9a-f]{64}$/;
 const w05Stamp=x=>Object.freeze(Object.fromEntries(W05_STAMP_KEYS.map(k=>[k,x?.[k]])));
 const w05Same=(a,b)=>!!a&&!!b&&W05_STAMP_KEYS.every(k=>a[k]===b[k]);
-const w05Current=fn=>{try{return fn()}catch{return null;}};
+const w05Current=fn=>{try{const v=fn();return v?.nativeVerified===true&&v.timelineWritable===true?v:null;}catch{return null;}};
 const w05Drop=reason=>Object.freeze({status:'dropped',reason,projection:null,stamp:null});
 export async function preparePs4M8({scope,authority,personality,readAdapter,
  currentIdentity,nowUtc=new Date().toISOString(),maxBytes=4096,deadlineMs=200}={}){
