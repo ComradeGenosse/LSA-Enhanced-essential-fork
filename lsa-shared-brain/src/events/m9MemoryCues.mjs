@@ -16,7 +16,9 @@ export const M9_CUE_LIMITS=Object.freeze({
   perFamilyCooldownMs:600000,maxDedupe:256
 });
 const validPriority=p=>p?.known===true && p.playerIdle===true &&
-  p.micIdle===true && p.interruptionFree===true &&
+  p.micIdle===true && p.typedIdle===true &&
+  p.combatIdle===true && p.stockIdle===true &&
+  p.interruptionFree===true &&
   p.directorAvailable===true && p.ownerCurrent===true &&
   p.timelineWritable===true;
 const validCandidate=c=>c?.kind==='m9_candidate' &&
