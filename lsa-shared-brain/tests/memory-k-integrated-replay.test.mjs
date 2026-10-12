@@ -389,3 +389,47 @@ test('W09 source simulation: one human across three avatars, independent NPC mem
     // v4 permanent-memory/recall predicates keyed by avatar.
   }finally{await x.store.close();}
 });
+
+test('W09/T6 after merge: actual SQLite proposal + curation queue commit BEFORE checkpoint CAS',async t=>{
+  const x=await setup(t);
+  try{
+    if(['readM6Checkpoint','readM6JournalPage','ackM6Checkpoint'].some(
+      k=>typeof x.store[k]!=='function')){
+      t.skip('SOURCE_BLOCKED_T6_CURSOR_ADAPTER_NOT_IN_PINNED_T9_BASE');
+      return;
+    }
+    const scope=x.scope(0,'unknown');
+    await player(x,'queue-before-ack',0,'unknown',
+      'I promise I will rescue you because you are my best friend.');
+    const initial=await x.store.readM6Checkpoint({scope});
+    const realAck=x.store.ackM6Checkpoint.bind(x.store);
+    x.store.ackM6Checkpoint=async()=>{throw new Error('w09_injected_checkpoint_failure');};
+    const coordinator=createM6SelectionCoordinator({store:x.store,
+      quietMs:0,cloudQueueEnabled:true,minScore:0});
+    await assert.rejects(coordinator.onSceneClose({
+      scope,atUtc:'2026-10-12T23:00:00.000Z'}),
+      /w09_injected_checkpoint_failure/);
+    const beforeAck=await x.store.readM6Checkpoint({scope});
+    assert.equal(beforeAck.cursor,initial.cursor,
+      'cursor cannot advance when its transactional ack fails');
+    const readCounts=()=>{
+      const db=new DatabaseSync(x.filePath,{readOnly:true});
+      try{return {
+        proposals:Number(db.prepare('SELECT COUNT(*) AS n FROM memory_records').get().n),
+        queue:Number(db.prepare('SELECT COUNT(*) AS n FROM memory_curation_jobs').get().n)
+      };}finally{db.close();}
+    };
+    const saved=readCounts();
+    assert.ok(saved.proposals>0,
+      'proposal persisted before a failed cursor ack');
+    assert.ok(saved.queue>0,
+      'queue job persisted before a failed cursor ack');
+    x.store.ackM6Checkpoint=realAck;
+    const resumed=createM6SelectionCoordinator({store:x.store,
+      quietMs:0,cloudQueueEnabled:true,minScore:0});
+    const result=await resumed.recover({scope,atUtc:'2026-10-12T23:00:00.000Z'});
+    assert.equal(result.acknowledged,true);
+    assert.notEqual((await x.store.readM6Checkpoint({scope})).cursor,initial.cursor);
+    assert.deepEqual(readCounts(),saved,'crash replay does not duplicate proposal or queue');
+  }finally{await x.store.close();}
+});
