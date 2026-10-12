@@ -22,6 +22,7 @@ namespace LSA.Intelligence.MemoryM3
         readonly Func<int> worldEpoch;
         readonly Func<uint> nativeGameTick;
         readonly Func<string,SourceTimeOwner> resolveP2AtSource;
+        readonly Func<string,SourceTimeParticipant> resolveParticipantAtSource;
         readonly Dictionary<string,SourceTimeWitnessProof> retained=new Dictionary<string,SourceTimeWitnessProof>();
         readonly Queue<string> order=new Queue<string>();
         readonly Dictionary<string,string> sourceLifetime=new Dictionary<string,string>();
@@ -32,12 +33,14 @@ namespace LSA.Intelligence.MemoryM3
         public long Duplicates {get;private set;}
         public long Retired {get;private set;}
         public SourceTimeWitnessLedger(Func<string> run,Func<int> worldEpoch,Func<string> adapterEpoch,
-            Func<uint> nativeGameTick,Func<string,SourceTimeOwner> resolveP2AtSource)
+            Func<uint> nativeGameTick,Func<string,SourceTimeOwner> resolveP2AtSource,
+            Func<string,SourceTimeParticipant> resolveParticipantAtSource=null)
         {
             if(run==null||worldEpoch==null||adapterEpoch==null||nativeGameTick==null||
                 resolveP2AtSource==null)throw new ArgumentNullException("native_source_ports");
             this.run=run;this.worldEpoch=worldEpoch;this.adapterEpoch=adapterEpoch;
             this.nativeGameTick=nativeGameTick;this.resolveP2AtSource=resolveP2AtSource;
+            this.resolveParticipantAtSource=resolveParticipantAtSource;
         }
         static bool Id(string s) {Guid parsed;return s!=null&&Guid.TryParseExact(s,"D",out parsed)&&
             parsed.ToString("D")==s;}
@@ -54,6 +57,13 @@ namespace LSA.Intelligence.MemoryM3
         // sample. Source tick must equal the native clock NOW: a delayed callback
         // cannot use its old signal.gameTick to backdate a new owner lookup.
         public bool Record(string signalId,WitnessReceipt witness)
+        { return RecordCore(signalId,witness,null,null); }
+        // RawSignal sources and witness flags are original native source data,
+        // NOT claimed participant identities sent by PS2 or the model.
+        public bool Record(RawSignal signal,WitnessReceipt witness)
+        { return RecordCore(signal==null?null:signal.signalId,witness,
+            signal==null?null:signal.source,signal==null?null:signal.target); }
+        bool RecordCore(string signalId,WitnessReceipt witness,string sourceRef,string targetRef)
         {
             if(witness==null||
                 !((witness.Status=="witnessed"&&witness.Channel!="report")||
@@ -79,6 +89,26 @@ namespace LSA.Intelligence.MemoryM3
             sourceLifetime[owner.ObserverCaptureRef]=lifetime;
             var key=Key(host,epoch,signalId,witness.Observer);
             if(retained.ContainsKey(key)){Duplicates++;return false;}
+            var participants=new List<SourceTimeParticipant>();
+            if(resolveParticipantAtSource!=null) {
+                var refs=new List<string>();
+                if(witness.KnowsSource&&sourceRef!=null)refs.Add(sourceRef);
+                if(witness.KnowsTarget&&targetRef!=null&&!refs.Contains(targetRef))refs.Add(targetRef);
+                foreach(var target in refs.Take(2)) {
+                    if(!Id(target))continue;
+                    SourceTimeParticipant participant=null;
+                    try{participant=resolveParticipantAtSource(target);}catch{}
+                    if(participant==null||participant.captureRef!=target||
+                       !((participant.subjectKind=="protagonist"&&
+                         (participant.subjectKey=="franklin"||participant.subjectKey=="michael"||
+                          participant.subjectKey=="trevor"))||
+                         (participant.subjectKind=="character"&&Id(participant.subjectKey))))
+                        continue;
+                    participants.Add(participant);
+                }
+                if(run()!=host||worldEpoch()!=epoch||adapterEpoch()!=adapter||
+                    nativeGameTick()!=witness.SampledGameTick){Denied++;return false;}
+            }
             var proof=new SourceTimeWitnessProof {
                 sourceReceiptId=Guid.NewGuid().ToString("D"),signalId=signalId,
                 source="original_native_ps2_witness_sample",
@@ -87,7 +117,8 @@ namespace LSA.Intelligence.MemoryM3
                 ownerAlias=owner.OwnerAlias,incarnationId=owner.IncarnationId,
                 encounterId=owner.EncounterId,sampledGameTick=witness.SampledGameTick,
                 status=witness.Channel=="report"?"reported":"witnessed",
-                channel=witness.Channel,basis=witness.Basis
+                channel=witness.Channel,basis=witness.Basis,
+                participants=participants.ToArray()
             };
             if(retained.Count>=Capacity) {
                 var evicted=order.Dequeue();retained.Remove(evicted);Overflow++;
@@ -136,6 +167,14 @@ namespace LSA.Intelligence.MemoryM3
 
     // Immutable after Record: one exact native source-tick observation lifetime,
     // never current-owner lookup and never a guessed participant/protagonist.
+    // Strictly source-tick-verified participant identity. No current model/name
+    // lookup is sufficient. K must supply this optional native resolver.
+    public sealed class SourceTimeParticipant
+    {
+        public readonly string captureRef,subjectKind,subjectKey;
+        public SourceTimeParticipant(string refId,string kind,string key)
+        {captureRef=refId;subjectKind=kind;subjectKey=key;}
+    }
     public sealed class SourceTimeWitnessBatch
     {
         public int sourceProofVersion,worldEpoch;
@@ -149,5 +188,6 @@ namespace LSA.Intelligence.MemoryM3
         public string observerCaptureRef,ownerAlias,incarnationId,encounterId;
         public uint sampledGameTick;
         public string status,channel,basis;
+        public SourceTimeParticipant[] participants;
     }
 }
