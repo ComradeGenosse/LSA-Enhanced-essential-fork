@@ -94,6 +94,11 @@ export function ensureM6P2ReplaySchema(db){
       world_profile_id TEXT NOT NULL,character_id TEXT NOT NULL,timeline_id TEXT NOT NULL,
       sequence INTEGER NOT NULL,record_id TEXT,reason TEXT NOT NULL,
       PRIMARY KEY(world_profile_id,character_id,timeline_id,sequence,reason));
+    CREATE TABLE IF NOT EXISTS m6_p2_ack_diagnostics (
+      world_profile_id TEXT NOT NULL,character_id TEXT NOT NULL,timeline_id TEXT NOT NULL,
+      after_sequence INTEGER NOT NULL,diagnostic_index INTEGER NOT NULL,
+      record_id TEXT,reason TEXT NOT NULL,
+      PRIMARY KEY(world_profile_id,character_id,timeline_id,after_sequence,diagnostic_index));
     CREATE TABLE IF NOT EXISTS m6_p2_ack_receipts (
       world_profile_id TEXT NOT NULL,character_id TEXT NOT NULL,timeline_id TEXT NOT NULL,
       after_sequence INTEGER NOT NULL, prior_sequence INTEGER NOT NULL,
@@ -149,7 +154,7 @@ export function ackM6CheckpointSql(db,request,world){
     .all(...entryScope(scope),prior,next);
   if(!entries.length||entries.at(-1).sequence!==next||entries.length!==sourceHashes.length)
     fail('m6_p2_ack_skips_or_loses_feed');
-  const ban=blocked(db,scope,world),invalid=new Set(),observed=new Set();
+  const ban=blocked(db,scope,world),invalid=new Map(),observed=new Set();
   let previousSource=cp?.last_source_utc?Date.parse(cp.last_source_utc):null;
   for(let i=0;i<entries.length;i++){
     const entry=entries[i],proof=sourceHashes[i];
@@ -159,9 +164,9 @@ export function ackM6CheckpointSql(db,request,world){
     if(proof.sourceHash!==digest)fail('m6_p2_ack_source_mutated');
     const existing=db.prepare('SELECT source_hash FROM m6_p2_source_receipts WHERE sequence=?').get(entry.sequence);
     if(existing&&existing.source_hash!==digest)fail('m6_p2_ack_immutable_conflict');
-    if(evidence.kind==='replay_rejection')invalid.add(entry.record_id);
+    if(evidence.kind==='replay_rejection')invalid.set(entry.record_id,evidence.replayRejection);
     else{
-      try{normalizedEvidence(evidence);}catch{invalid.add(entry.record_id);}
+      try{normalizedEvidence(evidence);}catch(e){invalid.set(entry.record_id,e.message);}
     }
     const sourceTime=stamp(evidence);
     if(validTime(sourceTime)){
@@ -173,19 +178,22 @@ export function ackM6CheckpointSql(db,request,world){
   }
   const expectedSource=previousSource===null?null:new Date(previousSource).toISOString();
   if(lastSourceUtc!==expectedSource)fail('m6_p2_last_source_mismatch');
-  for(const id of invalid)
-    if(!rejected.some(r=>r.recordId===id))fail('m6_p2_unaccounted_invalid_source');
+  for(const [id,why] of invalid)
+    if(!rejected.some(r=>r.recordId===id&&r.reason===why))
+      fail('m6_p2_unaccounted_invalid_source');
   const unique=new Set();
   for(const id of savedProposalIds){
     if(!isUuid(id)||unique.has(id))fail('m6_p2_invalid_saved_proposals');
     unique.add(id);
-    const row=db.prepare('SELECT proposal_json,evidence_ids_json FROM memory_records WHERE '+
+    const row=db.prepare('SELECT proposal_json,evidence_ids_json,content,content_sha256 FROM memory_records WHERE '+
       SCOPE+' AND memory_id=? AND origin=\'deterministic\'')
       .get(...entryScope(scope),id);
     if(!row||!row.proposal_json)fail('m6_p2_unsaved_proposal');
     let proposal,ids;
     try{proposal=JSON.parse(row.proposal_json);ids=JSON.parse(row.evidence_ids_json);}
     catch{fail('m6_p2_invalid_proposal_json');}
+    if(hash(row.content)!==row.content_sha256||row.content!==proposal.groundedSummary)
+      fail('m6_p2_corrupt_saved_content');
     if(proposal.proposalId!==id||!Array.isArray(ids)||!ids.length||
        JSON.stringify(ids)!==JSON.stringify(proposal.evidenceRecordIds)||
        ids.some(x=>!observed.has(x)||ban.has(x)))fail('m6_p2_proposal_source_revoked');
@@ -204,9 +212,11 @@ export function ackM6CheckpointSql(db,request,world){
     db.prepare('INSERT INTO m6_p2_source_receipts(sequence,world_profile_id,character_id,timeline_id,record_id,source_hash) VALUES(?,?,?,?,?,?) ON CONFLICT(sequence) DO NOTHING')
       .run(entry.sequence,...entryScope(scope),entry.record_id,proof.sourceHash);
   }
-  for(const r of rejected){
+  for(const [diagnosticIndex,r] of rejected.entries()){
     if(!r||typeof r.reason!=='string'||!r.reason.length||r.reason.length>160)
       fail('m6_p2_invalid_rejection');
+    db.prepare('INSERT INTO m6_p2_ack_diagnostics VALUES(?,?,?,?,?,?)')
+      .run(...entryScope(scope),next,diagnosticIndex,r.recordId??null,r.reason);
     // Some diagnostics are proposal-level; row-level ones are persisted by sequence.
     for(const entry of entries.filter(e=>e.record_id===r.recordId))
       db.prepare('INSERT OR IGNORE INTO m6_p2_rejections VALUES(?,?,?,?,?,?)')
