@@ -55,9 +55,11 @@ const played = ctx => ({
 });
 
 const proof = async (id,delivery) => (await emitTagged({identity:id,delivery})).result;
-const commit = async (mood,args) =>
-  mood.onSpeechCompleted({...args,providerResult:await proof(args.identity,args.delivery),
+const commit = async (mood,args) => {
+  mood.readMood({identity:args.identity,turn:args.turn}); // pin real native turn source
+  return mood.onSpeechCompleted({...args,providerResult:await proof(args.identity,args.delivery),
     historyAccepted:true});
+};
 
 test('EA7 commits the last applied audible intent by sequence, not callback order',async()=>{
   const f=speechFixture('experimental',{first:eligible('sad'),last:eligible('amused')});
