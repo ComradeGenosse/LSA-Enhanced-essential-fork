@@ -61,7 +61,7 @@ test('EA0 config is closed, typed and within the per-turn budget', () => {
 });
 
 test('Non-Eleven providers fail closed even when experimental was requested', () => {
-  for (const provider of ['openai', 'faster-qwen3-tts']) {
+  for (const provider of ['openai']) {
     const config = currentConfig({
       speechProvider: provider,
       expressiveDelivery: { mode: 'experimental', intensity: 'expressive', maxTaggedSegmentsPerTurn: 3 },
@@ -75,6 +75,8 @@ test('Non-Eleven providers fail closed even when experimental was requested', ()
       delivery: createDelivery({value:'amused',source:'dialogue_cue'}),
     }), 'Hello [laughs] there');
   }
+  assert.throws(() => currentConfig({speechProvider:'faster-qwen3-tts',
+    expressiveDelivery:{mode:'experimental'}}), /speechProvider must be openai or elevenlabs/);
 });
 
 test('Intent enums and branded contracts are immutable and exact', () => {

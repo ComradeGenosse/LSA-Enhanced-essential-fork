@@ -1,0 +1,36 @@
+name: ElevenLabs Provider Offline Tests
+
+on:
+  pull_request:
+    branches:
+      - main
+      - feature/elevenlabs-v4-tts-provider-20261011
+    paths:
+      - 'lsa-essential-e1-candidate/src/providers/**'
+      - 'lsa-essential-e1-candidate/src/config/**'
+      - 'lsa-essential-e1-candidate/src/voice/**'
+      - 'lsa-essential-e1-candidate/tests/elevenlabs-*.test.mjs'
+      - 'lsa-essential-e1-candidate/tools/elevenlabs/**'
+      - '.github/workflows/lsa-elevenlabs-provider.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  deterministic-no-network:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate ElevenLabs scripts and provider without billing
+        working-directory: lsa-essential-e1-candidate
+        run: |
+          node --check tools/elevenlabs/voice_smoke.mjs
+          node --test tests/elevenlabs-provider.test.mjs tests/elevenlabs-smoke-benchmark.test.mjs

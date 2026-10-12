@@ -7,8 +7,7 @@
     "build": "node tools/buildCandidate.mjs",
     "build:characters": "node tools/buildCharactersAddon.mjs",
     "test": "node tools/runTests.mjs",
-    "smoke:api": "node tools/apiSmoke.mjs",
-    "smoke:qwen": "node tools/qwen/lsa_turn_smoke.mjs"
+    "smoke:api": "node tools/apiSmoke.mjs"
   },
   "engines": {
     "node": ">=20.19.0"
