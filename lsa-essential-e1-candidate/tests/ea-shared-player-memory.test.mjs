@@ -105,3 +105,62 @@ test('Cross-avatar privacy: forget/restore the same NPC memory; save boundary fa
   await assert.rejects(f.store.readIntegratedRecall({scope:f.scope('michael')}),/timeline_write_suspended/);
   await assert.rejects(f.store.readCommittedEvidencePage({scope:trevor}),/timeline_write_suspended/);
 });
+
+test('M7 deterministic memory can combine accepted Franklin and Michael evidence without rewriting provenance',async t=>{
+  const f=await setup(t);
+  const a=await f.line('franklin','We met at the cafe.');
+  const b=await f.line('michael','We returned to the same cafe.');
+  const proposalId=randomUUID();
+  const proposal={kind:'curation_proposal',provider:'deterministic',proposalId,
+    characterId:f.npc.characterId,worldProfileId,timelineId:f.timelineId,
+    evidenceRecordIds:[a.recordId,b.recordId],notability:.75,
+    groundedSummary:'The player visited the cafe twice.'};
+  const result=await f.store.saveDeterministicMemory(proposal);
+  assert.equal(result.inserted,true);
+  const recall=await f.store.readIntegratedRecall({scope:f.scope('trevor'),
+    sourceKind:'permanent_memory'});
+  assert.ok(recall.rows.some(row=>row.recordId===proposalId),
+    'mixed authenticated avatar evidence must be available to the same human');
+  const raw=await f.store.withP2SqliteRead(f.scope('trevor'),db=>
+    db.prepare('SELECT protagonist_key FROM memory_records WHERE memory_id=?').get(proposalId));
+  assert.equal(raw.protagonist_key,'multi_avatar','source provenance does not masquerade as Franklin');
+});
+test('M5 scope deletion includes all player avatars, and reversible restore works from another avatar',async t=>{
+  const f=await setup(t);
+  const a=await f.line('franklin','One shared relationship.');
+  const b=await f.line('michael','One more shared promise.');
+  const mem=await f.memory('franklin','Shared personal memory.',[a.recordId,b.recordId]);
+  const privacy=new M5SqliteServices({store:f.store,filePath:f.store.filePath,authorize:()=>true});
+  const done=await privacy.trashScope({scope:f.scope('trevor')});
+  assert.ok(done.targetIds.includes(a.recordId));
+  assert.ok(done.targetIds.includes(b.recordId));
+  assert.ok(done.targetIds.includes(mem));
+  assert.equal((await f.store.readIntegratedRecall({scope:f.scope('michael')})).rows.length,0);
+  const inspector=await privacy.inspect({scope:f.scope('franklin')});
+  const source=inspector.trash.find(row=>row.targetId===a.recordId);
+  assert.ok(source?.trashId);
+  await privacy.restore({scope:f.scope('michael'),trashId:source.trashId});
+  assert.ok((await f.store.readIntegratedRecall({scope:f.scope('trevor')})).rows
+    .some(row=>row.recordId===mem));
+});
+test('Shared-player persistent recall survives restart, but same-save authorization never does',async t=>{
+  const f=await setup(t);
+  const a=await f.line('franklin','We stayed friends over the restart.');
+  const mem=await f.memory('franklin','Long-lasting friendship.',[a.recordId]);
+  await f.store.close();
+  const opened=createEssentialMemoryStorage({filePath:f.store.filePath,
+    worldProfileId,sourceRequired:true});
+  t.after(()=>opened.close());
+  await opened.initialize();
+  await assert.rejects(opened.readIntegratedRecall({scope:f.scope('trevor')}),/timeline_write_suspended/);
+  opened.setVerifiedHostContext({hostContextVersion:1,hostRunId:randomUUID(),worldEpoch:1});
+  await opened.confirmTimeline(f.timelineId,{confirmation:f.timelineId});
+  const recall=await opened.readIntegratedRecall({scope:f.scope('trevor'),
+    sourceKind:'permanent_memory'});
+  assert.ok(recall.rows.some(row=>row.recordId===mem));
+  await assert.rejects(opened.readIntegratedRecall({scope:{...f.scope('trevor'),
+    characterId:randomUUID()}}),/p2_memory_owner_or_world_missing/);
+  const other=await opened.createTimeline({label:'Different, unconfirmed save'});
+  await assert.rejects(opened.readIntegratedRecall({scope:{...f.scope('trevor'),
+    timelineId:other}}),/timeline_write_suspended/);
+});
