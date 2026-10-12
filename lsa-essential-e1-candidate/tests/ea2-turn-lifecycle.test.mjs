@@ -104,7 +104,8 @@ test('early speech receives one hint per segment but never double-speaks buffere
   const x=await execute({early:true,structured:true});
   assert.equal(x.result.status,'completed');
   assert.deepEqual(x.speech.map(x=>x.dialogue),['One sentence.','Two sentences.']);
-  assert.deepEqual(x.speech.map(x=>x.delivery.value),['excited','excited']);
+  assert.deepEqual(x.speech.map(x=>x.delivery?.value ?? null),['excited',null],
+    'both dialogue segments play, but repeat acting within 6500ms is suppressed');
   assert.deepEqual(x.calls.map(x=>x.segmentText),['One sentence.','Two sentences.']);
   assert.equal(x.emitted.find(x=>x.type==='output_transcript').text,x.canonical);
   assert.equal(x.history.readForSession('17',2).at(-1).content,x.canonical);
