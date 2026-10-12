@@ -1,4 +1,5 @@
 import {assertDirectorSpeechDecision} from '../perception/directorDecisionGuard.mjs';
+import {scalePcm16} from '../voice/pcmVolume.mjs';
 const PLAYER_SOURCES = new Set(['player_text', 'player_mic']);
 
 function terminalForNativeEvent(event) {
@@ -25,7 +26,7 @@ function terminalForAbort(signal) {
 function terminalForError(error, stage) {
   const code = String(error?.code || '').toLowerCase();
   const message = String(error?.message || '').toLowerCase();
-  if (['invalid_response','incomplete_response','response_too_large'].includes(code)) return 'invalid_decision';
+  if (['invalid_response','incomplete_response','response_too_large'].includes(code) || code.startsWith('segment_')) return 'invalid_decision';
   if (['timeout','attempt_timeout','deadline_exceeded'].includes(code) || message.includes('deadline')) return 'provider_timeout';
   if (message.includes('refused')) return 'model_refusal';
   if (message.includes('invalid decision') || message.includes('decision must') || message.includes('decision fields') ||
@@ -62,6 +63,7 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
   let authorization;
   let retired = false;
   let endSent = false;
+  let nativePlaybackStartedAt = null;
   let providerTimer = null;
   const metrics = host.telemetry?.beginTurn(identity, source, { inputChars: String(input || '').length, bytes: pcm?.byteLength || 0, sampleRate: sampleRate || 0 }) || null;
 
@@ -133,7 +135,9 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
     }
     await authorization;
     check();
-    await emit({ type: 'audio', chunk });
+    // One gain stage after either TTS provider, before native playback.
+    // The PCM dimensions and owner/turn receipts remain identical.
+    await emit({ type: 'audio', chunk: scalePcm16(chunk, services.config.ttsVolume ?? 1) });
     pcmBytesTotal += chunk.byteLength;
     pcmChunksTotal += 1;
     metrics?.audioPcm(chunk.byteLength);
@@ -161,6 +165,7 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
       };
       const type = map[event.type];
       if (!type) return;
+      if (event.type === 'playback_started') nativePlaybackStartedAt = performance.now();
       dialogueTurn?.native({ type: event.type, reason: event.reason || null, wasInterrupted: event.wasInterrupted ?? null, hadAudio: event.hadAudio ?? null, playbackStarted: event.playbackStarted ?? null });
       const key = type === 'native_playback_started' ? 'playbackStartedCount' : type === 'native_playback_ended' ? 'playbackEndedCount' : type === 'native_authorization_accepted' ? 'authorizationAcceptedCount' : 'authorizationRejectedCount';
       metrics?.count(key);
@@ -249,6 +254,7 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
             const audio = await performProvider('tts', services.providerStack.speech.id,
               ({ signal, timeoutMs, telemetry, isActive: active }) => services.speak({
                 identity, dialogue: segment.text, speechProfile: turn.speechProfile, signal, timeoutMs, telemetry,
+                playbackStartedAt: () => nativePlaybackStartedAt,
                 onPcm: chunk => forwardPcm(chunk, active),
               }), () => !nativeHandoffStarted);
             if (!audio?.bytes) throw new Error('empty_segment_audio');
@@ -347,6 +353,7 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
       audio = await performProvider('tts', services.providerStack?.speech.id || 'openai.speech',
         ({ signal, timeoutMs, telemetry, isActive }) => services.speak({
           identity, dialogue: decision.dialogue, speechProfile: turn.speechProfile, signal, timeoutMs, telemetry,
+          playbackStartedAt: () => nativePlaybackStartedAt,
           onPcm: chunk => forwardPcm(chunk, isActive),
         }), () => !hasAction && !nativeHandoffStarted);
     }

@@ -16,8 +16,12 @@ export const REASON_CODES = Object.freeze([
 ]);
 export const TRAIT_POLICIES = Object.freeze(['protective', 'cautious', 'loyal', 'bold']);
 export const SALIENCE_POLICY_VERSION = 1;
+// suppressionTtlMs bounds FAMILY (cross-observation) repetition suppression.
+// A per-observation ledger entry is only needed while that exact random
+// observation ID can still be re-evaluated (it is live in the PS2 store) or
+// acknowledged by an in-flight PS4/PS6 consumer; see ledgerGraceMs.
 export const SALIENCE_BOUNDS = Object.freeze({
-  decisions: 256, perObserver: 32, suppression: 1024, suppressionTtlMs: 10 * 60 * 1000, reasons: 4,
+  decisions: 256, perObserver: 32, suppression: 1024, suppressionTtlMs: 10 * 60 * 1000, ledgerGraceMs: 60 * 1000, reasons: 4,
 });
 const REASON_SET = new Set(REASON_CODES);
 const RELATIONSHIPS = new Set(['associate', 'friend', 'trusted', 'strained', 'neutral']);
@@ -569,6 +573,16 @@ export class SalienceCache {
     const pairBytes=Buffer.byteLength(JSON.stringify(pair));
     const now = situation.nowMonotonicMs;
     const expires = now + SALIENCE_BOUNDS.suppressionTtlMs;
+    // Observation IDs are random per observer+episode and never reissued once
+    // the PS2 observation expires, so its replay entry cannot outlive it plus
+    // a bounded grace for in-flight PS4/PS6 acknowledgements. October GTA
+    // sessions produced roughly 2-3 observations/s: a ten-minute observation
+    // ledger would reach its fail-closed 1024-entry capacity (every new
+    // decision forced to response:none / suppression_capacity) in ordinary
+    // long play. Family suppression below keeps the full ten-minute window,
+    // and capacity pressure still fails closed rather than evicting.
+    const ledgerExpires = Math.min(expires,
+      Math.max(now, observation.expiresAtMonotonicMs) + SALIENCE_BOUNDS.ledgerGraceMs);
     const grant = decision.response === 'eligible' || decision.response === 'urgent';
     const existing = draft.existing;
     if (this.ledger.has(observation.observationId) || this.ledger.size < SALIENCE_BOUNDS.suppression) {
@@ -589,7 +603,7 @@ export class SalienceCache {
         adapterEpoch:observation.observedAt.nativeRun,
         policyVersion:decision.policyVersion,
         memoryStaged: Boolean(existing?.memoryStaged) || decision.memory === 'stage',
-        expires,
+        expires: ledgerExpires,
       });
     }
     const key = familyKey(observation);
