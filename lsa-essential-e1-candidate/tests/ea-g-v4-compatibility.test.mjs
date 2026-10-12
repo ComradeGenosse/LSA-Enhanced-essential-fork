@@ -8,7 +8,7 @@ import {randomUUID,createHash} from 'node:crypto';
 import {DatabaseSync} from 'node:sqlite';
 import {createEssentialMemoryStorage} from '../src/characters/memoryStorageAdapter.mjs';
 import {bindTrustedTimelineSource} from '../src/characters/timelineSourceBridge.mjs';
-import {inspectP2Sqlite} from '../../../lsa-shared-brain/src/characters/sqliteFoundation.mjs';
+import {inspectP2Sqlite} from '../../lsa-shared-brain/src/characters/sqliteFoundation.mjs';
 import {ProfileStore} from '../src/characters/profileStore.mjs';
 import {createMoodRuntime} from '../src/voice/emotion/moodRuntime.mjs';
 import {profile} from './p2-fixtures.mjs';

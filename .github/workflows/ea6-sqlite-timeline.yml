@@ -4,9 +4,11 @@ on:
   push:
     branches:
       - feature/ea-final-g-sqlite-v4-compatibility-20261011
+      - fix/ea-final-g-completion-audit-20261012
   pull_request:
     branches:
       - integration/elevenlabs-emotional-acting-final-20261011
+      - feature/ea-final-g-sqlite-v4-compatibility-20261011
   workflow_dispatch:
 
 permissions:
