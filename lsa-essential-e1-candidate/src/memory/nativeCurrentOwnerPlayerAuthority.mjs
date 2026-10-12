@@ -38,29 +38,44 @@ const PAYLOAD=['nativeOwnerPlayerProofVersion','source','hostRunId',
 // validates the frame, host epoch, sequence, schema and source negotiation.
 // This module enforces a SECOND, independent synchronous read-through fence.
 // It cannot authenticate a socket by itself; never use a test fixture as one.
+//
+// Lease lifetime (D01/D03 integration correction): a lease is bound to the
+// exact native owner record (observer captureRef, incarnation, encounter,
+// ped, alias), the controlled-player subject and the authenticated stream
+// context. It stays usable while that owner remains a CONTINUOUS member of
+// every complete owner sample on the same stream. Native re-sends the full
+// anchor/observer roster every 1000 ms; that maintenance is not an owner
+// change, so it no longer wipes leases. It unsettles the source instead: no
+// proof is issued until a complete owner sample NEWER than the roster frame
+// re-confirms the identical record. Drop-out from any sample, explicit native
+// retirement, record change, avatar/player switch, stream/host/world change,
+// invalid frame or replay still revoke. leaseMs is only a turn-scale backstop;
+// D03 revokes each lease when its turn ends.
 export function createNativeCurrentOwnerPlayerAuthority({
   subscribeAuthenticatedNativeOwnerPlayerFrames,
   profileForAlias,
   sourceStillCurrent=null,
   now=()=>performance.now(),
   maxAgeMs=750,
-  leaseMs=1000
+  leaseMs=60_000
 }={}) {
   if(typeof subscribeAuthenticatedNativeOwnerPlayerFrames!=='function'||
      typeof profileForAlias!=='function'||typeof now!=='function'||
      (sourceStillCurrent!==null&&typeof sourceStillCurrent!=='function')||
      !Number.isSafeInteger(maxAgeMs)||maxAgeMs<1||maxAgeMs>1000||
-     !Number.isSafeInteger(leaseMs)||leaseMs<1||leaseMs>1000)
+     !Number.isSafeInteger(leaseMs)||leaseMs<1||leaseMs>120_000)
     throw new TypeError('native_current_owner_private_ports_required');
   let context=null, owners=new Map(), subject=null, sequence=-1,
-    gameTick=-1, receivedAt=-1, stop=null, leases=new WeakMap();
+    gameTick=-1, receivedAt=-1, stop=null, leases=new WeakMap(), settled=false;
   const retiredStreams=new Set(), retiredRefs=new Set(), ownerHistory=new Map();
-  // A live roster refresh invalidates preturn leases, but does not forbid the
-  // next genuine native frame on the same authenticated stream. Terminal
-  // source faults do retire the stream until a new authenticated hello.
+  // Roster maintenance keeps the authenticated context, last complete owner
+  // set (so the next sample's drop-out diff still retires missing owners),
+  // subject, sequence and leases, but unsettles verification. Terminal source
+  // faults retire the stream until a new authenticated hello.
   const clear=(reason='terminal',revokedRefs=[])=>{
     if(reason==='roster' && Array.isArray(revokedRefs))
       for(const ref of revokedRefs)if(uuid(ref))retiredRefs.add(ref);
+    if(reason==='roster'){settled=false;return;}
     if(reason!=='roster') {
       if(context?.streamId) {
         retiredStreams.add(context.streamId);
@@ -69,7 +84,7 @@ export function createNativeCurrentOwnerPlayerAuthority({
       ownerHistory.clear();retiredRefs.clear();
     }
     context=null;owners=new Map();subject=null;sequence=-1;
-    gameTick=-1;receivedAt=-1;leases=new WeakMap();
+    gameTick=-1;receivedAt=-1;leases=new WeakMap();settled=false;
   };
   const live=()=>!!context&&Number.isFinite(now())&&
     now()>=receivedAt&&now()-receivedAt<=maxAgeMs;
@@ -117,6 +132,9 @@ export function createNativeCurrentOwnerPlayerAuthority({
       ownerHistory.set(o.observerCaptureRef,freeze(o));
       aliases.add(o.ownerAlias);peds.add(o.nativeActorPedId);
     }
+    // Continuous membership: an owner absent from any complete sample (also
+    // across roster maintenance, because the previous set is retained) is
+    // retired for the rest of this stream and can never be re-admitted.
     for(const ref of owners.keys())if(!nextOwners.has(ref))retiredRefs.add(ref);
     if(subject&&!same(subject,p.protagonist,
       playerFields.filter(k=>k!=='sampledGameTick'))) {
@@ -124,7 +142,7 @@ export function createNativeCurrentOwnerPlayerAuthority({
       leases=new WeakMap();
     }
     context=next;owners=nextOwners;subject=freeze(p.protagonist);
-    sequence=f.sequence;gameTick=p.sampledGameTick;receivedAt=stamp;
+    sequence=f.sequence;gameTick=p.sampledGameTick;receivedAt=stamp;settled=true;
   };
   const unsubscribe=subscribeAuthenticatedNativeOwnerPlayerFrames(take,clear);
   if(unsubscribe!==undefined&&typeof unsubscribe!=='function')
@@ -137,8 +155,12 @@ export function createNativeCurrentOwnerPlayerAuthority({
   function bindActorAtTurnStart({pedId,characterId,ownerAlias}={}) {
     if(!live()||typeof pedId!=='string'||!PED.test(pedId)||
        !uuid(characterId)||!ALIAS.test(ownerAlias||'')||!subject)return null;
+    // Binding while unsettled uses the last complete owner sample plus the
+    // synchronous live-roster check below; verification still requires a
+    // newer settled sample. A natively retired captureRef never binds.
     const matches=[...owners.values()].filter(o=>
-      o.nativeActorPedId===pedId&&o.ownerAlias===ownerAlias);
+      o.nativeActorPedId===pedId&&o.ownerAlias===ownerAlias&&
+      !retiredRefs.has(o.observerCaptureRef));
     if(matches.length!==1)return null;
     const o=matches[0],p=profile(o.ownerAlias);
     if(!p||p.characterId!==characterId||!current(o,subject))return null;
@@ -153,11 +175,12 @@ export function createNativeCurrentOwnerPlayerAuthority({
   // and a LIVE pre-acceptance lease. Demand a NEW native owner-fiber sample
   // after lease creation. Missing next sample or any source gap => null.
   function verifyCurrentOwnerAndPlayer({lease,identity,characterId,ownerAlias}={}) {
-    if(!live()||!lease||!validTurn(identity)||!uuid(characterId)||
+    if(!live()||!settled||!lease||!validTurn(identity)||!uuid(characterId)||
        !ALIAS.test(ownerAlias||''))return null;
     const record=leases.get(lease);
     if(!record||!Number.isFinite(now())||now()<record.startedAt||
        now()-record.startedAt>leaseMs||
+       retiredRefs.has(record.owner.observerCaptureRef)||
        sequence<=record.sequence||!same(context,record.context,contextFields)||
        record.characterId!==characterId||record.ownerAlias!==ownerAlias||
        identity.pedId!==record.pedId||
@@ -190,7 +213,8 @@ export function createNativeCurrentOwnerPlayerAuthority({
     });
   }
   function revokeLease(lease) {if(lease&&typeof lease==='object')leases.delete(lease);}
-  const status=()=>freeze({connected:!!live(),ownerCount:live()?owners.size:0,
+  const status=()=>freeze({connected:!!live(),settled:!!live()&&settled,
+    ownerCount:live()?owners.size:0,
     supportsNativeAcceptedTurn:false,proofKind:'current_owner_player_only'});
   return Object.freeze({bindActorAtTurnStart,verifyCurrentOwnerAndPlayer,
     revokeLease,status,close(){clear();stop?.();stop=null;}});

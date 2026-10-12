@@ -1,5 +1,7 @@
 # Memory K D02 — native owner + player source integration handoff
 
+> **Status update - 2026-10-12 (same draft PR as the D01 OpenAI source).** Two production defects are corrected. (1) Roster maintenance frames (`anchors`/`observer_index`/`retire`/`retire_batch`; native re-sends the full roster every 1000 ms) no longer wipe leases: they unsettle verification until a newer complete owner sample re-confirms the identical owner record, owner drop-out across a refresh stays permanent, and `leaseMs` is a 60 s turn-scale backstop. The previous 1000 ms cap plus wipe-on-refresh plus newer-sample rule made a pre-acceptance lease practically unverifiable. (2) The production `profileForAlias` compared `row.worldProfileId`, a field P2 profile rows never carry, so no lease could bind; the wiring now lives in `src/memory/memoryD02Port.mjs`. The identical predicate in the M3 `createNativeMemoryAuthority` wiring in `bootstrap.mjs` is **not** changed here.
+
 **2026-10-12 · Agent B production source changes · draft PR #130 · A01/D03 still NO-GO**
 
 - Repository: `ComradeGenosse/LSA-Enhanced-essential-fork`.

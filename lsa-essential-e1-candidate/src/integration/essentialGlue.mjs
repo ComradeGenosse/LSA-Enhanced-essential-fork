@@ -17,7 +17,9 @@ import { transcribePcm } from '../openai/transcribe.mjs';
 import { speak } from '../openai/speak.mjs';
 import { DialogueHistory } from '../memory/dialogueHistory.mjs';
 import {createD03OriginalDialogueJoin} from '../memory/d03OriginalDialogueJoin.mjs';
-import {createOriginalBackendAcceptedInput,ORIGINAL_BACKEND_PIN} from '../memory/originalBackendAcceptedInput.mjs';
+import {createOriginalBackendAcceptedInput} from '../memory/originalBackendAcceptedInput.mjs';
+import {createOpenAIRuntimeAcceptedInputSource} from '../memory/openaiRuntimeAcceptedInput.mjs';
+import {createOriginalTurnActorLedger} from '../memory/originalTurnActorLedger.mjs';
 import { validateDecisionShape } from '../context/essentialDecision.mjs';
 import { validateStockDecision } from '../context/decisionValidator.mjs';
 import { createProviderStack } from '../providers/providerStack.mjs';
@@ -52,10 +54,31 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
   characterService?.initialize().catch(() => {});
   // Optional SQLite path only. The existing JSON backend stays unchanged.
   const journalStore=characterService?.store;
-  // One read-through original backend source. The exact pinned original does
-  // NOT expose a final accepted typed/STT event, so this always fails closed
-  // until a separately audited original source hook exists.
-  const originalAcceptedInput=createOriginalBackendAcceptedInput();
+  // Original-turn actor ledger: populated when the patched original Xn binds a
+  // generation (OpenAIConnection.beginTurn), from facts the patched bridge reads
+  // out of the original turn registry for the registered session connection.
+  const originalTurnFacts=(identity,connection)=>
+    typeof bridge?.originalTurnFacts==='function'?bridge.originalTurnFacts(identity,connection):null;
+  const originalActorLedger=createOriginalTurnActorLedger({readOriginalTurn:originalTurnFacts});
+  // D01. Stock Gemini: the pinned original has no final accepted-input event,
+  // so its source stays denial-only. OpenAI: the runtime's own commit decision
+  // in runSequentialTurn mints receipts through a capability that only the
+  // OpenAI connections hold (passed privately to the transport below).
+  const openaiAcceptance=config.provider==='openai'?createOpenAIRuntimeAcceptedInputSource({
+    originalTurnFacts,available:()=>typeof bridge?.originalTurnFacts==='function',
+    identityCurrent:identityService?identity=>identityService.current(identity):null,
+    ledger:originalActorLedger,
+  }):null;
+  const originalAcceptedInput=openaiAcceptance?.verifier??createOriginalBackendAcceptedInput();
+  const memorySources=openaiAcceptance?Object.freeze({
+    acceptance:openaiAcceptance.issuer,
+    recordTurn:(identity,connection)=>{
+      const entry=originalActorLedger.recordAtTurnCreation(identity,connection);
+      // A newer original generation fences issuance for older ones.
+      if(entry)openaiAcceptance.verifier.supersede(identity);
+      return !!entry;
+    },
+  }):null;
   const journalCharacter=turn=>turn.characterProjection?.persistent===true
     && turn.characterProjection.profile?.characterId===turn.characterInputs?.profile?.characterId
     ? turn.characterProjection.profile.characterId:null;
@@ -74,15 +97,16 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
       // independently authenticated native current player/NPC ownership.
       // The original actor lease is acquired here AFTER original turn
       // hydration and BEFORE STT/provider intake; no post-hoc ped inference.
-      let ledgers=null;
-      try{ledgers=runtime.host?.memorySourceLedgers??null;}catch{}
       const join=createD03OriginalDialogueJoin({
         store:journalStore,backend:originalAcceptedInput,
         d02:runtime.memoryD02??null,
-        originalActor:ledgers?.originalActor??null
+        originalActor:originalActorLedger
       });
+      // P1's live runtime binding for this exact session: verified native
+      // owner claim of this ped at turn preparation; retired on revoke/close.
+      const p1Binding=identityService?()=>identityService.bindings.get(turn.identity):null;
       return join.begin({identity:turn.identity,characterId,ownerAlias,
-        isCurrent});
+        isCurrent,p1Binding});
     },
     async recordM2Player({turn,text,source}) {
       if(!turn?.m2Capture||!['player_text','player_mic'].includes(source))
@@ -286,7 +310,7 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
     createTransport(geminiFactory) {
       if (config.provider === 'openai') {
         // The OpenAI route avoids constructing the Gemini transport and its client.
-        return new OpenAITransport(runtime);
+        return new OpenAITransport(runtime, memorySources);
       }
       const gemini = geminiFactory();
       if (!gemini.provider) Object.defineProperty(gemini, 'provider', { value: 'gemini', configurable: true });
@@ -295,6 +319,10 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
     attach(connection) { connections.add(connection); telemetry?.emit('bridge_ready', null, null, { provider: 'openai' }); },
     detach(connection) {
       connections.delete(connection);
+        // Session close/identity retirement/disconnect revokes every pending
+        // acceptance receipt and ledger entry of this native session.
+        try { openaiAcceptance?.verifier.retireSession(connection.sessionIdentity ?? {}); } catch {}
+        try { originalActorLedger.retireSession(connection.sessionIdentity ?? {}); } catch {}
         identityService?.detach(connection.sessionIdentity);
         characterService?.sessions.detach(connection.sessionIdentity);
         history.clearSession(connection.sessionIdentity?.pedId, connection.sessionIdentity?.sessionNonce);
@@ -305,10 +333,30 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
         if (typeof value?.[name] !== 'function') throw new Error(`Missing Essential lifecycle capability: ${name}`);
       }
       if (identityService && typeof value?.retireMatchingSession !== 'function') throw new Error('Identity requires exact Essential session retirement.');
+      // A different original backend bridge is a new source run.
+      if (bridge && bridge !== value) {
+        try { openaiAcceptance?.verifier.retireSourceRun(); } catch {}
+        originalActorLedger.clear();
+      }
       bridge = value;
     },
     abortTurn(identity, reason) {
+      // Cancellation/interrupt/failure: no further acceptance for this turn.
+      // An already-issued receipt is not revoked (memory plan §5.5).
+      try { openaiAcceptance?.verifier.fenceTurn(identity); } catch {}
+      try { originalActorLedger.retire(identity); } catch {}
       for (const connection of connections) connection.abortTurn(identity, reason);
+    },
+    // Revocation only (cannot mint): host/world epoch change or shutdown.
+    retireOriginalAcceptanceSourceRun() {
+      try { openaiAcceptance?.verifier.retireSourceRun(); } catch {}
+      originalActorLedger.clear();
+    },
+    originalAcceptanceStatus() {
+      return Object.freeze({provider: config.provider,
+        receiptSource: originalAcceptedInput.source?.receiptSource ?? null,
+        acceptedSourceHookAvailable: originalAcceptedInput.source?.acceptedSourceHookAvailable === true,
+        hasAuthenticatedSource: originalAcceptedInput.hasAuthenticatedSource() === true});
     },
     get host() {
       if (!bridge) throw new Error('Essential E1 bridge has not been attached.');
