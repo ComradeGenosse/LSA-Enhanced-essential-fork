@@ -23,7 +23,7 @@ function fixture({value='fearful',source='player_text',mode='experimental',
     identity,source,turn:Object.freeze({}),isActive:()=>true,clock:()=>1000,
     telemetry:{event:(name,data)=>events.push({name,data})},
     adapter:{
-      resolveDelivery:()=>emotion(value,selectorSource),
+      resolveDelivery:({sequence})=>emotion(typeof value==='function' ? value(sequence) : value,selectorSource),
       onSpeechCompleted:data=>{calls.push(data);return true;},
     },
   });
@@ -110,7 +110,9 @@ test('native failure, owner mismatch and rejected accepted-history block mood',a
 });
 
 test('last fresh actually tagged segment wins regardless of callback order',async()=>{
-  const f=fixture({value:'sad'});
+  // Different emotions remain eligible inside the cooldown and preserve the
+  // last-actual-delivery ordering contract.
+  const f=fixture({value:sequence=>sequence===1?'sad':'amused'});
   const one=f.resolver.forSegment({text:'First.',sequence:1});
   const two=f.resolver.forSegment({text:'Second.',sequence:2});
   assert.notEqual(one,two,'two segments get independent in-process brands');
