@@ -271,7 +271,7 @@ export async function preparePs4M8({scope,authority,personality,readAdapter,
  const stamp=w05Stamp(authority);
  if(!w05Same(stamp,w05Current(currentIdentity)))return w05Drop('stale_before_read');
  let timer;
- const timeout=new Promise(resolve=>{timer=setTimeout(()=>resolve(null),deadlineMs);timer.unref?.();});
+ const timeout=new Promise(resolve=>{timer=setTimeout(()=>resolve(null),deadlineMs);});
  let projection;
  try{projection=await Promise.race([readAdapter.project({scope,authority,personality,nowUtc,maxBytes}),timeout]);}
  catch{return w05Drop('p2_projection_unavailable');}
