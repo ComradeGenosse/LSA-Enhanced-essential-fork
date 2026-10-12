@@ -15,6 +15,10 @@ export function createMoodRuntime({ getRuntime, protagonistAuthority = null,
   clock = () => Math.floor(performance.now()), store = new MoodStore() } = {}) {
   if (typeof getRuntime !== 'function') throw new TypeError('mood_runtime_required');
   let lastLineage = null;
+  // A native model revision is bound to each speaking turn, but never used
+  // as a mood/relationship partition. This blocks delayed Franklin receipts
+  // after a Michael/Franklin ABA without erasing earlier valid soft mood.
+  const turnSource = new WeakMap();
   const deny = () => {store.clear();lastLineage=null;return null;};\n  // An ordinary cutscene/switch may temporarily revoke model evidence. No\n  // source-dependent action is permitted then, but a bounded soft mood may\n  // survive until independent revalidation of the SAME save/host/NPC owner.\n  const suspend = () => null;
   const current = ({identity,turn} = {}, { forRetirement = false } = {}) => {
     // A stale turn's finally/cancellation must not wipe mood legitimately
@@ -62,7 +66,7 @@ export function createMoodRuntime({ getRuntime, protagonistAuthority = null,
     const context = {
       identity,characterSnapshot:turn.characterSnapshot,binding,
       hostContext:host,timelineId:characterStore.activeTimelineId,
-      protagonist:verified.protagonist,
+      protagonist:verified.protagonist, nativeSourceProof:verified,
       isCurrent: () => {
         try {
           const now = getRuntime();
@@ -96,11 +100,17 @@ export function createMoodRuntime({ getRuntime, protagonistAuthority = null,
     readMood({identity,turn}) {
       const context=current({identity,turn});
       if (!context) return null;
+      if (!turn || typeof turn !== 'object') return null;
+      const recorded=turnSource.get(turn);
+      if (recorded && recorded !== context.nativeSourceProof) return null;
+      if (!recorded) turnSource.set(turn,context.nativeSourceProof);
       return store.take({context,nowMs:clock()});
     },
     onSpeechCompleted({identity,turn,delivery,receipt,providerResult,historyAccepted=false}) {
       const context=current({identity,turn});
-      if (!context || !receipt || receipt.type !== 'playback_ended' ||
+      if (!context || !turn || typeof turn !== 'object' ||
+          turnSource.get(turn) !== context.nativeSourceProof ||
+          !receipt || receipt.type !== 'playback_ended' ||
           receipt.ok !== true || receipt.reason !== 'completed' ||
           historyAccepted !== true ||
           !wasElevenTagApplied(providerResult,{delivery,identity}) ||
