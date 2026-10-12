@@ -24,6 +24,7 @@ import { perceptionContractSupported } from './perception/nativeSupport.mjs';
 import { createDialogueTrace, createNoopDialogueTrace } from './observability/dialogueTrace.mjs';
 import {createM3Ps2ObserverAdapter} from '../../lsa-shared-brain/src/events/m3Ps2ObserverAdapter.mjs';
 import {createNativeMemoryAuthority} from './memory/nativeMemoryAuthority.mjs';
+import {createNativeCurrentOwnerPlayerAuthority} from './memory/nativeCurrentOwnerPlayerAuthority.mjs';
 
 const shutdownClosers = new Set();
 let shutdownFlushRegistered = false;
@@ -133,6 +134,7 @@ export async function createRuntimeForBundle(options = {}) {
           try {radioCatalog=loadRadioTrackTextCatalog(await readFile(new URL('../data/radioTrackTextIds.v2.json',import.meta.url),'utf8'));} catch {}
         }
         let memoryIntake=null;
+        let currentOwnerPlayerAuthority=null;
         const memoryStore=runtime.characterService?.store;
         const memoryNative=options.memoryNativeAuthority??memoryAuthorityPort;
         const canBindMemory=config.promotedCharacters.storageMode==='sqlite' &&
@@ -174,6 +176,38 @@ export async function createRuntimeForBundle(options = {}) {
             });
             shutdownClosers.add({close:async()=>connectedMemoryAuthority?.close()});
           }catch{connectedMemoryAuthority=null;}
+        }
+        // Independently authenticated D02 owner/controlled-player source.
+        // Exposes only the synchronous read-through lease/verification port;
+        // neither this port nor the native frame attests accepted dialogue.
+        if(canBindMemory && !options.memoryNativeAuthority) {
+          try {
+            currentOwnerPlayerAuthority=createNativeCurrentOwnerPlayerAuthority({
+              subscribeAuthenticatedNativeOwnerPlayerFrames:(onFrame,onRetire)=>
+                runtime.intelligence.subscribeAuthenticatedNativeOwnerPlayer(onFrame,onRetire),
+              profileForAlias:alias=>{
+                if(memoryStore?.timelineWritable!==true ||
+                   !memoryStore.verifiedHostContext ||
+                   !memoryStore.worldProfileId)return null;
+                const p=memoryStore.list().find(row=>
+                  row?.promotion?.ownerAlias===alias &&
+                  row.worldProfileId===memoryStore.worldProfileId &&
+                  row.status!=='retired');
+                if(!p)return null;
+                return {...p,timelineWritable:true,
+                  worldEpoch:memoryStore.verifiedHostContext.worldEpoch};
+              }
+            });
+            runtime.memoryD02=Object.freeze({
+              bindActorAtTurnStart:x=>
+                currentOwnerPlayerAuthority?.bindActorAtTurnStart(x)??null,
+              verifyCurrentOwnerAndPlayer:x=>
+                currentOwnerPlayerAuthority?.verifyCurrentOwnerAndPlayer(x)??null,
+              revokeLease:x=>currentOwnerPlayerAuthority?.revokeLease(x),
+              status:()=>currentOwnerPlayerAuthority?.status()??null
+            });
+            shutdownClosers.add({close:async()=>currentOwnerPlayerAuthority?.close()});
+          }catch{currentOwnerPlayerAuthority=null;}
         }
          if(canBindMemory){
            try{
