@@ -214,10 +214,10 @@ test('EA118 real mood store timestamps suppress same emotion across turn and rep
   });
   assert.equal(resolver.forSegment({text:'Haha, very funny!',sequence:1}),null,
     'same amused tag must cool down after a genuinely accepted previous playback');
-  const changed=resolver.forSegment({text:'Are you hurt?',sequence:2});
-  assert.equal(changed?.value,'concerned','a new emotional delivery is allowed');
-  assert.equal(resolver.forSegment({text:'Are you okay?',sequence:3}),null,
-    'second concerned tag cannot bypass the per-turn 6500ms cooldown');
+  const changed=resolver.forSegment({text:'That seems difficult.',sequence:2,lunaHint:'sad'});
+  assert.equal(changed?.value,'sad','a different supported emotional tag is allowed');
+  assert.equal(resolver.forSegment({text:'This is hard.',sequence:3,lunaHint:'sad'}),null,
+    'second sad tag cannot bypass the per-turn 6500ms cooldown');
   time=7501;f.advance(time);
   assert.equal(resolver.forSegment({text:'Haha, that was good!',sequence:4})?.value,'amused',
     'cross-turn cooldown expires without extending the 22-second mood lifetime');
