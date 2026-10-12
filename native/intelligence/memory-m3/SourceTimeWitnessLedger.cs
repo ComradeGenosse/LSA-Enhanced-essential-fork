@@ -24,6 +24,8 @@ namespace LSA.Intelligence.MemoryM3
         readonly Func<string,SourceTimeOwner> resolveP2AtSource;
         readonly Dictionary<string,SourceTimeWitnessProof> retained=new Dictionary<string,SourceTimeWitnessProof>();
         readonly Queue<string> order=new Queue<string>();
+        readonly Dictionary<string,string> sourceLifetime=new Dictionary<string,string>();
+        string sourceContext;
         public long Accepted {get;private set;}
         public long Denied {get;private set;}
         public long Overflow {get;private set;}
@@ -64,6 +66,14 @@ namespace LSA.Intelligence.MemoryM3
                 !Alias(owner.OwnerAlias)||!Id(owner.IncarnationId)||!Id(owner.EncounterId)||
                 run()!=host||worldEpoch()!=epoch||adapterEpoch()!=adapter||
                 nativeGameTick()!=witness.SampledGameTick){Denied++;return false;}
+            var context=host+"|"+epoch+"|"+adapter;
+            if(sourceContext!=null&&sourceContext!=context){Retire();Denied++;return false;}
+            sourceContext=context;
+            var lifetime=owner.OwnerAlias+"|"+owner.IncarnationId+"|"+owner.EncounterId;
+            string established;
+            if(sourceLifetime.TryGetValue(owner.ObserverCaptureRef,out established)&&
+                established!=lifetime){Denied++;return false;}
+            sourceLifetime[owner.ObserverCaptureRef]=lifetime;
             var key=Key(host,epoch,signalId,witness.Observer);
             if(retained.ContainsKey(key)){Duplicates++;return false;}
             var proof=new SourceTimeWitnessProof {
@@ -115,7 +125,7 @@ namespace LSA.Intelligence.MemoryM3
             foreach(var key in expected){order.Dequeue();retained.Remove(key);}
             return true;
         }
-        public void Retire(){Retired+=retained.Count;retained.Clear();order.Clear();}
+        public void Retire(){Retired+=retained.Count;retained.Clear();order.Clear();sourceLifetime.Clear();sourceContext=null;}
         public object Diagnostics()=>new {accepted=Accepted,denied=Denied,duplicate=Duplicates,
             overflow=Overflow,retired=Retired,queued=retained.Count,
             negativeCoverageAvailable=false,prepromotionAvailable=false};
