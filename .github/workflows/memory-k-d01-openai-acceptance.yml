@@ -1,0 +1,45 @@
+name: Memory K D01 OpenAI commit-decision acceptance (OFFLINE, not GTA)
+on:
+  pull_request:
+    paths:
+      - 'lsa-essential-e1-candidate/src/memory/**'
+      - 'lsa-essential-e1-candidate/src/openai/**'
+      - 'lsa-essential-e1-candidate/src/integration/essentialGlue.mjs'
+      - 'lsa-essential-e1-candidate/src/bootstrap.mjs'
+      - 'lsa-essential-e1-candidate/tools/buildCandidate.mjs'
+      - 'lsa-essential-e1-candidate/tests/memory/**'
+      - 'lsa-essential-e1-candidate/tests/stock-harness.mjs'
+      - 'lsa-shared-brain/src/memory/journalSqlite.mjs'
+      - 'lsa-shared-brain/src/characters/sqliteProfileStore.mjs'
+      - '.github/workflows/memory-k-d01-openai-acceptance.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  d01-openai-offline:
+    name: D01 OpenAI source, ledger, D02 lease lifetime and D03 join, offline (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Syntax of the acceptance source, ledger, D02 port, join and runner
+        run: |
+          node --check lsa-essential-e1-candidate/src/memory/openaiRuntimeAcceptedInput.mjs
+          node --check lsa-essential-e1-candidate/src/memory/originalTurnActorLedger.mjs
+          node --check lsa-essential-e1-candidate/src/memory/memoryD02Port.mjs
+          node --check lsa-essential-e1-candidate/src/memory/d03OriginalDialogueJoin.mjs
+          node --check lsa-essential-e1-candidate/src/openai/runSequentialTurn.mjs
+      - name: Stock Gemini original pin remains source-blocked
+        run: node -e "import('./lsa-essential-e1-candidate/src/memory/originalBackendAcceptedInput.mjs').then(m=>{if(m.ORIGINAL_BACKEND_PIN.acceptedSourceHookAvailable!==false)process.exit(1);})"
+      - name: D01 source and ledger units, D02 policy and intake, D03 join, D01 stock audit
+        run: node --test lsa-essential-e1-candidate/tests/memory/openaiRuntimeAcceptedInput.test.mjs lsa-essential-e1-candidate/tests/memory/nativeCurrentOwnerPlayerAuthority.test.mjs lsa-essential-e1-candidate/tests/memory/nativeCurrentOwnerAuthenticatedIntake.test.mjs lsa-essential-e1-candidate/tests/memory/d03OriginalDialogueJoin.test.mjs lsa-essential-e1-candidate/tests/memory/originalBackendAcceptedInput.test.mjs lsa-essential-e1-candidate/tests/memory/originalBackendSourceTransitions.test.mjs
+      # Own invocation: every stock-harness process rebuilds the shared dist/
+      # output, so harness suites must not run in parallel processes.
+      - name: End to end through the patched pinned original bundle and real P2 SQLite (scripted native frames)
+        run: node --test --test-concurrency=1 lsa-essential-e1-candidate/tests/memory/d01OpenAIAcceptance.test.mjs

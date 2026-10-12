@@ -36,7 +36,7 @@ export async function waitFor(predicate,label,timeoutMs=4000){
 
 // Scripted authenticated native intelligence stream (IntelligenceIntegration
 // cadence: owner sample + optional full roster refresh).
-function nativeStream({client,owned,alias}){
+function nativeStream({client,owned,alias,roster={}}){
   const socket=new EventEmitter();
   socket.destroy=()=>{if(socket.destroyed)return;socket.destroyed=true;socket.emit('close');};
   socket.write=()=>true;
@@ -44,7 +44,7 @@ function nativeStream({client,owned,alias}){
     streamId:randomUUID(),npcRef:randomUUID(),playerRef:randomUUID(),
     avatar:'franklin',sequence:0,tick:100,nativePedId:'17',
     incarnationId:owned.claim.incarnationId,encounterId:owned.encounterId,ownerAlias:alias,
-    includeOwner:true};
+    includeOwner:true,...roster};
   const frame=(type,payload)=>({version:1,type,payload,adapterEpoch:s.adapterEpoch,
     streamId:s.streamId,sequence:++s.sequence});
   s.raw=value=>new Promise(resolve=>{
@@ -56,7 +56,9 @@ function nativeStream({client,owned,alias}){
     worldEpoch:s.worldEpoch,adapterEpoch:s.adapterEpoch,streamId:s.streamId,
     observerIndexVersion:1,memoryCurrentOwnerPlayerVersion:1,
     capabilities:Object.fromEntries(CAPABILITIES.map(x=>[x,false]))});
+  s.rosters=0;s.samples=0;
   s.roster=async()=>{
+    s.rosters++;
     await s.send('anchors',[
       {captureRef:s.npcRef,kind:'ped',observer:true,owned:true},
       {captureRef:s.playerRef,kind:'player',observer:false}]);
@@ -66,7 +68,7 @@ function nativeStream({client,owned,alias}){
   s.owners=()=>s.includeOwner?[{observerCaptureRef:s.npcRef,incarnationId:s.incarnationId,
     encounterId:s.encounterId,ownerAlias:s.ownerAlias,hostRunId:s.hostRunId,
     worldEpoch:s.worldEpoch,nativeActorPedId:s.nativePedId,sampledGameTick:s.tick}]:[];
-  s.sample=()=>{s.tick+=10;return s.send('memory_current_owner_player',{
+  s.sample=()=>{s.tick+=10;s.samples++;return s.send('memory_current_owner_player',{
     nativeOwnerPlayerProofVersion:1,source:'native_p2_owner_fiber_current_only',
     hostRunId:s.hostRunId,worldEpoch:s.worldEpoch,sampledGameTick:s.tick,owners:s.owners(),
     protagonist:{source:'native_player_model',key:s.avatar,
@@ -81,12 +83,19 @@ function nativeStream({client,owned,alias}){
   return s;
 }
 
-export async function d01Harness(t,{config={},corroboration=true}={}){
+export async function d01Harness(t,{config={},corroboration=true,roster={}}={}){
   const dir=await mkdtemp(path.join(os.tmpdir(),'d01-openai-acceptance-'));
-  t.after(()=>rm(dir,{recursive:true,force:true}));
+  // One ordered teardown (node:test runs after-hooks FIFO): release sockets,
+  // sessions and the SQLite writer before removing the directory (Windows).
+  const cleanup=[];
+  t.after(async()=>{
+    for(const step of cleanup.reverse()){try{await step();}catch{}}
+    await rm(dir,{recursive:true,force:true});
+  });
   const sqlitePath=path.join(dir,'profiles.v2.sqlite');
   const store=createEssentialMemoryStorage({filePath:sqlitePath,worldProfileId,sourceRequired:true});
   await store.initialize();
+  cleanup.push(()=>store.close());
   const f=await fixture(t,{store,config:{actingEnabled:true,promotedCharacters:{enabled:true,
     storePath:path.join(dir,'profiles.v1.json'),storageMode:'sqlite',sqliteStorePath:sqlitePath}}});
   const profile=await f.service.promote();
@@ -94,9 +103,10 @@ export async function d01Harness(t,{config={},corroboration=true}={}){
   const a=actor('17',owned.claim,{integrations:{sessionIdentity:owned.claim,
     characterProfile:{version:1,encounterId:owned.encounterId}}});
   const client=new IntelligenceClient({mode:'shadow',pipeName:'LSA.D01.Test'},{connect:()=>native.socket});
-  const native=nativeStream({client,owned,alias:profile.promotion.ownerAlias});
+  const native=nativeStream({client,owned,alias:profile.promotion.ownerAlias,roster});
   // As in bootstrap: the D02 port subscribes before the stream starts.
   const d02=createMemoryD02Port({intelligence:client,memoryStore:store});
+  cleanup.push(()=>{native.stop();d02.close();client.stop();});
   client.start();await native.hello();await native.roster();await native.sample();
   // C-13 verified host context + explicit timeline confirmation (user action).
   store.setVerifiedHostContext(client.runtime.hostContext);
@@ -107,15 +117,14 @@ export async function d01Harness(t,{config={},corroboration=true}={}){
     nativeOwner:f.native,config:{persistentIdentity,promotedCharacters:f.config.promotedCharacters,
       retry:{enabled:true,maxAttempts:2,baseDelayMs:1,maxDelayMs:2,jitter:'bounded'},...config},
     env:{OPENAI_API_KEY:'offline-test-key'}});
-  t.after(()=>h.runtime.identityService.close());
+  cleanup.push(()=>h.runtime.identityService.close());
   await h.runtime.characterService.initialize();
   if(corroboration)h.runtime.memoryD02=d02.port;
-  t.after(()=>{native.stop();d02.close();client.stop();try{store.close();}catch{}});
   const replies=[];
   h.runtime.services.decide=async options=>{replies.push(options);return {dialogue:'Got it.',command:''};};
   h.runtime.services.speak=async({onPcm})=>{await onPcm(new Uint8Array([1,2]));return {bytes:2};};
   const session=await h.openAIControllerSession({actorContext:a});
-  t.after(()=>{try{session.connection.close();}catch{}});
+  cleanup.push(()=>session.connection.close());
   session.autoNativeAcks();
   native.start();
   await waitFor(()=>d02.port.status()?.settled===true,'live settled D02 owner sample');

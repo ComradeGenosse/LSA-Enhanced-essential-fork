@@ -1,5 +1,7 @@
 # Agent C — D03 original dialogue and atomic P2 source join
 
+> **Status update - 2026-10-12 (same draft PR).** D03 is now wired to a positive D01 source for the OpenAI provider and to a real original-turn actor ledger (`memorySourceLedgers` was never defined). Added fences: a receipt-source allowlist selected by the verifier pin, a P1 binding to D02 incarnation cross-check, a bounded wait for a D02 owner sample newer than the lease (G1 ordering kept; adds up to one native sample interval before the model request), and a native-loss retry that never weakens the in-transaction proof. After acceptance the receipt, not the turn, governs validity (memory plan section 5.5): a line accepted before an interruption is still written; session close, identity retirement, disconnect, source-run/host/world change and D02 actor or player change still revoke before COMMIT. OFFLINE TESTED only; S01-S10 and GTA acceptance remain open.
+
 2026-10-12. DRAFT PR #131. **A01/D01/A09/A10 remain NO-GO.**
 
 ## Source and branch
