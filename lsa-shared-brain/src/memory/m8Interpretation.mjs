@@ -31,7 +31,7 @@ function sourceEnvelope(row,scope){
  // The P2 reader must verify PS2 observer authority and persisted sidecar separately.
  if(e.kind==='journal_event'&&row.sidecarVerified!==true)return null;
  // v1 witnessed events do NOT prove the controlling protagonist's identity.
- if(e.protagonistKey!==scope.protagonistKey)return null;
+ // Source avatar is historical proof, not a separate player relationship.
  return e;
 }
 function categoryOf(row){
@@ -111,7 +111,7 @@ export function evaluateM8({scope,personality={},sources=[],memories=[],appraisa
  const activeMemories=new Map();
  for(const row of memories){
   if(row?.committed!==true||row?.sourceVerified!==true||!sameScope(row,s)||
-     row.protagonistKey!==s.protagonistKey||!isUuid(row.memoryId)||suppressed.has(row.memoryId)||
+     !isUuid(row.memoryId)||suppressed.has(row.memoryId)||
      !Array.isArray(row.evidenceRecordIds)||row.evidenceRecordIds.length<1||
      row.evidenceRecordIds.length>64||!row.evidenceRecordIds.every(id=>known.has(id)))continue;
   activeMemories.set(row.memoryId,frozen({...row,evidenceRecordIds:ordered(row.evidenceRecordIds)}));
@@ -120,7 +120,7 @@ export function evaluateM8({scope,personality={},sources=[],memories=[],appraisa
  for(const a of appraisals){
   const m=activeMemories.get(a?.proposalId);
   if(!m||a.epistemicStatus!=='character_opinion'||a.verifiedWorldFact!==false||
-     !sameScope(a,s)||a.protagonistKey!==s.protagonistKey||
+     !sameScope(a,s)||
      !Array.isArray(a.sourceEvidenceIds)||
      JSON.stringify(ordered(a.sourceEvidenceIds))!==JSON.stringify(m.evidenceRecordIds)||
      !CATEGORIES.has(a.category)||!Number.isFinite(a.notability)||a.notability<0||a.notability>1)continue;
@@ -185,7 +185,7 @@ export function selectM8JokeCue({projection,scope,jokeState={},cue,nowUtc,
  optIn=false,playerActive=false,combatActive=false,secondsSincePlayerTurn=0,
  lastGlobalCallbackAtUtc=null,actorIdle=false}={}){
  const s=validScope(scope),now=ms(nowUtc);
- if(!projection||!sameScope(projection,s)||projection.protagonistKey!==s.protagonistKey||
+ if(!projection||!sameScope(projection,s)||
     !Number.isFinite(now)||optIn!==true||actorIdle!==true||playerActive||combatActive||
     secondsSincePlayerTurn<30||cue?.sourceVerified!==true||cue?.kind!=='event_type'||
     (lastGlobalCallbackAtUtc!==null&&(!Number.isFinite(ms(lastGlobalCallbackAtUtc))||
