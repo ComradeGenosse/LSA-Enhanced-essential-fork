@@ -29,7 +29,7 @@ function signal(r){
     candidate:found?.[2]??'semantic'};
 }
 function contiguous(a,b){
-  if(!sameScope(a,b)||a.protagonistKey!==b.protagonistKey)return false;
+  if(!sameScope(a,b))return false;
   const dt=Date.parse(b.when)-Date.parse(a.when);
   if(dt<0||dt>SCENE_GAP_MS)return false;
   // Missing epochs/lifetimes are not evidence that distinct proven epochs match.
@@ -43,10 +43,9 @@ export function groupQualifiedScenes(records){
     a.recordId.localeCompare(b.recordId));
   const scenes=[],activeByOwner=new Map();
   for(const record of sorted){
-    // Other protagonists and unknown-source event streams can interleave in
-    // the journal. They must not break an otherwise contiguous proven scene.
-    const key=[record.worldProfileId,record.timelineId,record.characterId,
-      record.protagonistKey].join(':');
+    // Protagonist switches do not split the same player's bounded, proven scene.
+    // Native epochs, NPC owner lifetime and scene IDs still fence grouping.
+    const key=[record.worldProfileId,record.timelineId,record.characterId].join(':');
     const prior=activeByOwner.get(key),last=prior?.at(-1);
     if(prior&&prior.length<64&&contiguous(last,record))prior.push(record);
     else {
