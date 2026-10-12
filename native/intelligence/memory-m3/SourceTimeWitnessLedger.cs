@@ -86,19 +86,34 @@ namespace LSA.Intelligence.MemoryM3
         // Source evidence is copied (not retroactively recomputed on demand).
         // K MUST check the actual serialized byte length and Send() success,
         // fail closed on connection loss and never ack an untransmitted proof.
-        public object DrainBatch()
+        public SourceTimeWitnessBatch PeekBatch()
         {
             if(order.Count==0)return null;
             var first=retained[order.Peek()];
             var batch=new List<SourceTimeWitnessProof>();
-            while(batch.Count<MaxFrameProofs&&order.Count>0) {
-                var key=order.Peek();var row=retained[key];
-                if(row.hostRunId!=first.hostRunId||row.worldEpoch!=first.worldEpoch||
+            foreach(var key in order) {
+                var row=retained[key];
+                if(batch.Count>=MaxFrameProofs||
+                    row.hostRunId!=first.hostRunId||row.worldEpoch!=first.worldEpoch||
                     row.adapterEpoch!=first.adapterEpoch)break;
-                batch.Add(row);order.Dequeue();retained.Remove(key);
+                batch.Add(row);
             }
-            return new {sourceProofVersion=1,hostRunId=first.hostRunId,
-                worldEpoch=first.worldEpoch,proofs=batch.ToArray()};
+            return new SourceTimeWitnessBatch {
+                sourceProofVersion=1,hostRunId=first.hostRunId,
+                worldEpoch=first.worldEpoch,proofs=batch.ToArray()
+            };
+        }
+        // Only after original channel Send returned true. Retain failed batch
+        // for retry; pipe ACK is still NOT SQLite durability confirmation.
+        public bool AcknowledgeQueued(SourceTimeWitnessBatch batch)
+        {
+            if(batch==null||batch.proofs==null||batch.proofs.Length<1||
+                batch.proofs.Length>MaxFrameProofs||order.Count<batch.proofs.Length)return false;
+            var expected=order.Take(batch.proofs.Length).ToArray();
+            for(int i=0;i<expected.Length;i++)
+                if(!Object.ReferenceEquals(retained[expected[i]],batch.proofs[i]))return false;
+            foreach(var key in expected){order.Dequeue();retained.Remove(key);}
+            return true;
         }
         public void Retire(){Retired+=retained.Count;retained.Clear();order.Clear();}
         public object Diagnostics()=>new {accepted=Accepted,denied=Denied,duplicate=Duplicates,
@@ -108,6 +123,12 @@ namespace LSA.Intelligence.MemoryM3
 
     // Immutable after Record: one exact native source-tick observation lifetime,
     // never current-owner lookup and never a guessed participant/protagonist.
+    public sealed class SourceTimeWitnessBatch
+    {
+        public int sourceProofVersion,worldEpoch;
+        public string hostRunId;
+        public SourceTimeWitnessProof[] proofs;
+    }
     public sealed class SourceTimeWitnessProof
     {
         public string sourceReceiptId,signalId,source,hostRunId,adapterEpoch;
