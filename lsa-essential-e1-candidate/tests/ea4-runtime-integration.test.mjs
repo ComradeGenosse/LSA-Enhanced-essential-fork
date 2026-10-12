@@ -22,6 +22,7 @@ function receipt(identity){
     hadAudio:true,playbackStarted:true,reason:'completed'};
 }
 async function authorized(mood,args){
+  mood.readMood({identity:args.identity,turn:args.turn}); // pin source before speech
   const {result}=await emitTagged({identity:args.identity,delivery:args.delivery});
   return mood.onSpeechCompleted({...args,providerResult:result,historyAccepted:true});
 }
@@ -66,6 +67,7 @@ function fixture({authority=true,sqlite=true}={}){
     protagonistAuthority,clock:()=>now});
   return {runtime,mood,db,perception,identityService,frame,makeTurn,
     setNow:v=>{now=v;},revokeAuthority:()=>{authCurrent=false;},
+    restoreAuthority:()=>{authCurrent=true;},
     switchProtagonist:(protagonist,revision)=>{
       activeFrame=Object.freeze({...activeFrame,protagonist,revision});
     }};
@@ -142,13 +144,40 @@ test('EA4 expires without timers and refuses forged protobuf-style model data',a
   assert.throws(()=>{f.frame.protagonist='trevor';},TypeError);
 });
 
-test('EA4 protagonist switch including Franklin→Michael→Franklin ABA never resurrects mood',async()=>{
+test('EA-H: all three avatars share one bounded emotional follow-up',async()=>{
+  for(const [from,to] of [['franklin','michael'],['michael','trevor'],
+    ['trevor','franklin']]) {
+    const f=fixture(),first=f.makeTurn(),next=f.makeTurn(5),third=f.makeTurn(6);
+    f.switchProtagonist(from,1);
+    assert.equal(await authorized(f.mood,{...first,delivery,
+      receipt:receipt(first.identity)}),true);
+    f.switchProtagonist(to,2);
+    assert.deepEqual(f.mood.readMood(next),
+      {value:'amused',confidence:'soft',intensity:'subtle'});
+    assert.deepEqual(f.mood.readMood(next),f.mood.readMood(next));
+    assert.equal(f.mood.readMood(third),null,'only one follow-up');
+  }
+});
+test('EA-H: temporary unknown evidence suspends, revalidates, then expires',async()=>{
   const f=fixture(),first=f.makeTurn(),next=f.makeTurn(5);
   assert.equal(await authorized(f.mood,{...first,delivery,
     receipt:receipt(first.identity)}),true);
+  f.revokeAuthority();
+  assert.equal(f.mood.readMood(next),null,'unsafe source never authorizes carry');
+  assert.equal(f.mood.size,1,'transient model loss is not a relationship reset');
+  f.switchProtagonist('michael',2);f.restoreAuthority();
+  assert.equal(f.mood.readMood(next)?.value,'amused','fresh verified same owner/save');
+  f.setNow(23000);
+  assert.equal(f.mood.readMood(next),null,'normal 22 s expiry');
+});
+test('EA-H: delayed Franklin native receipt cannot be reused after ABA',async()=>{
+  const f=fixture(),first=f.makeTurn(),next=f.makeTurn(5);
+  assert.equal(f.mood.readMood(first),null); // pins Franklin generation 1
   f.switchProtagonist('michael',2);
-  assert.equal(f.mood.readMood(next),null);
   f.switchProtagonist('franklin',3);
+  const {result}=await emitTagged({identity:first.identity,delivery});
+  assert.equal(f.mood.onSpeechCompleted({...first,delivery,
+    receipt:receipt(first.identity),providerResult:result,historyAccepted:true}),false);
   assert.equal(f.mood.readMood(next),null);
   assert.equal(f.mood.size,0);
 });
