@@ -250,6 +250,49 @@ test('W09 privacy/crash source simulation: durable trash masks replay and cannot
   }finally{await x.store.close();}
 });
 
+
+test('W09 cursor crash windows: SQLite source commit without ack replays; acknowledged checkpoint survives process reopen',async t=>{
+  const x=await setup(t);
+  const s=x.scope(0,'franklin');
+  const consumerId='w09-crash-boundary';
+  try{
+    const one=await player(x,'pre-ack-committed',0,'franklin','durable before cursor ack');
+    const prior=await x.store.readCommittedEvidenceCursor({scope:s,consumerId});
+    const page=await x.store.readCommittedEvidencePage({scope:s,cursor:prior.cursor});
+    assert.deepEqual(page.items.map(i=>i.recordId),[one.recordId]);
+    assert.equal(page.hasMore,false);
+    // Simulated power failure boundary: close the writer with the source fully
+    // committed but do NOT acknowledge the consumer cursor.
+    await x.store.close();
+    const second=createP2MemoryStorage({filePath:x.filePath,worldProfileId,sourceRequired:true});
+    await second.initialize();
+    try{
+      second.setVerifiedHostContext({...x.host,hostRunId:id(),worldEpoch:2});
+      await second.confirmTimeline(x.timelineId);
+      const unchanged=await second.readCommittedEvidenceCursor({scope:s,consumerId});
+      assert.equal(unchanged.cursor,prior.cursor);
+      const replay=await second.readCommittedEvidencePage({scope:s,cursor:unchanged.cursor});
+      assert.deepEqual(replay.items.map(i=>i.recordId),[one.recordId]);
+      const committed=await second.ackCommittedEvidenceCursor({
+        scope:s,consumerId,expectedCursor:unchanged.cursor,cursor:replay.cursor});
+      assert.equal(committed.committed,true);
+      // A duplicate receipt may not create an additional logical source row.
+      const repeated=await second.ackCommittedEvidenceCursor({
+        scope:s,consumerId,expectedCursor:replay.cursor,cursor:replay.cursor});
+      assert.equal(repeated.idempotent,true);
+    }finally{await second.close();}
+    const third=createP2MemoryStorage({filePath:x.filePath,worldProfileId,sourceRequired:true});
+    await third.initialize();
+    try{
+      third.setVerifiedHostContext({...x.host,hostRunId:id(),worldEpoch:3});
+      await third.confirmTimeline(x.timelineId);
+      const cp=await third.readCommittedEvidenceCursor({scope:s,consumerId});
+      assert.equal(cp.cursor,page.cursor);
+      assert.equal((await third.readCommittedEvidencePage({scope:s,cursor:cp.cursor})).items.length,0);
+    }finally{await third.close();}
+  }finally{await x.store.close();}
+});
+
 test('W09 M6 strict production cursor rejects current incompatible store; no legacy fallback in acceptance',async t=>{
   const x=await setup(t);
   try{
