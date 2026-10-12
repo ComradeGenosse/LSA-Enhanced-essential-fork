@@ -137,6 +137,11 @@ function validateScope(s,store){
     !protagonists.has(s.protagonistKey??'unknown') || s.worldProfileId!==store.worldProfileId)
    fail('m5_invalid_scope');
 }
+function currentHost(store,line){
+ const h=store.verifiedHostContext;
+ return !!h&&!!line?.attribution&&line.attribution.hostRunId===h.hostRunId&&
+   line.attribution.worldEpoch===h.worldEpoch&&store.timelineWritable===true;
+}
 function verifyOwner(db,s){
  const owner=db.prepare('SELECT character_id FROM promoted_profiles WHERE character_id=?').get(s.characterId);
  const timeline=db.prepare('SELECT timeline_id FROM timelines WHERE timeline_id=? AND world_profile_id=?').get(s.timelineId,s.worldProfileId);
@@ -254,7 +259,8 @@ export class M5SqliteServices{
    await this.#write(scope,db=>{
      const source=db.prepare('SELECT record_id FROM dialogue_journal WHERE record_id=? AND world_profile_id=? AND character_id=? AND timeline_id=? AND speaker=? AND delivery=? AND protagonist=?')
        .get(requestedByLineId,scope.worldProfileId,scope.characterId,scope.timelineId,'player','accepted',scope.protagonistKey??'unknown');
-     if(!source)fail('m5_clarification_line_not_accepted');
+     if(!source||!m5Accepted(db,scope,line)||!currentHost(this.#store,line))
+       fail('m5_clarification_line_not_accepted');
      for(const alt of frozen){
        const current=evidence(db,scope,alt.recordId);
        if(!current || current.content!==alt.content || activeTombstone(db,scope,alt.recordId) || superseded(db,scope,alt.recordId))
@@ -278,7 +284,13 @@ export class M5SqliteServices{
         atUtc&&(!timestamp(atUtc)||Date.parse(atUtc)>Date.parse(row.until)))return null;
      if(sha(row.raw)!==row.checksum)fail('m5_clarification_corrupt');
      const saved=JSON.parse(row.raw);
-     // A later forget must revoke previously offered evidence immediately.
+      if(!m5Accepted(db,scope,saved.line)||!currentHost(this.#store,saved.line))
+        return null;
+      if((saved.frozen||[]).some(item=>{
+        const now=evidence(db,scope,item.recordId);
+        return !now||now.content!==item.content;
+      }))return null;
+      // A later forget must revoke previously offered evidence immediately.
      if(saved.alternatives.some(item=>activeTombstone(db,scope,item.recordId) || superseded(db,scope,item.recordId)))
        return null;
      return saved;
@@ -306,7 +318,8 @@ export class M5SqliteServices{
      fail('m5_invalid_atomic_batch');
    if(!this.#store.verifiedHostContext)fail('m5_current_source_required');
    const receipts=await this.#write(scope,db=>{
-     if(!m5Accepted(db,scope,line))fail('m5_line_not_durable');
+     if(!m5Accepted(db,scope,line)||!currentHost(this.#store,line))
+       fail('m5_line_not_durable');
      return operations.map(o=>m5Apply(db,scope,line,o));
    });
    // Transaction completed, then independently read the committed SQLite effects.
@@ -333,7 +346,7 @@ export class M5SqliteServices{
        if(sha(row.raw)!==row.checksum)fail('m5_corrupt_clarification');
        const pending=JSON.parse(row.raw);
        return Date.parse(row.until)>=Date.parse(atUtc)&&
-         m5Accepted(db,scope,pending.line)&&
+         m5Accepted(db,scope,pending.line)&&currentHost(this.#store,pending.line)&&
          (pending.frozen||[]).every(x=>{
            const current=evidence(db,scope,x.recordId);
            return current&&current.content===x.content&&!activeTombstone(db,scope,x.recordId)&&
@@ -495,13 +508,26 @@ export class M5SqliteServices{
    });
    return this.verifyPrivacy({scope,operationId});
  }
- async verifyPrivacy({scope,operationId}){
+  async verifyPrivacy({scope,operationId}={}){
    if(!isUuid(operationId))fail('m5_invalid_operation_id');
    return this.#read(scope,db=>{
-     const row=db.prepare('SELECT receipt_json AS json FROM m5_privacy_ops WHERE operation_id=? AND '+scopeWhere).get(operationId,...scopeKey(scope));
-     return row?JSON.parse(row.json):null;
+     const row=db.prepare('SELECT receipt_json AS json FROM m5_privacy_ops WHERE operation_id=? AND '+scopeWhere)
+       .get(operationId,...scopeKey(scope));
+     if(!row)return null;
+     const receipt=JSON.parse(row.json);
+     if(receipt.operationId!==operationId||receipt.durableCommit!==true||
+       !['trash','trash_scope','restore'].includes(receipt.operation)||
+       !Array.isArray(receipt.targetIds)||receipt.targetIds.some(id=>!isUuid(id)))return null;
+     const valid=receipt.targetIds.every(id=>{
+       const active=activeTombstone(db,scope,id);
+       const entry=db.prepare('SELECT restored_at_utc AS restored,purged_at_utc AS purged FROM m5_trash WHERE target_id=? AND '+scopeWhere+
+         ' ORDER BY created_at_utc DESC LIMIT 1').get(id,...scopeKey(scope));
+       return receipt.operation==='restore'?(!active&&!!entry?.restored):
+         (!!active&&!!entry&&!entry.restored&&!entry.purged);
+     });
+     return valid?receipt:null;
    });
- }
+  }
  async restore({scope,trashId,operationId=randomUUID()}){
    authorizeRequest(this.#authorize,scope,'restore');
    if(!isUuid(trashId)||!isUuid(operationId))fail('m5_invalid_restore');
