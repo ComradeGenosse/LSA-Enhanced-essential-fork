@@ -36,7 +36,8 @@ async function fixture(t){
    hasAuthenticatedSource:()=>state.source,
    verifyAccepted:({identity:requested,source,text})=>{
      state.sourceReads++;
-     if(!state.backend||state.retired||requested.turnId!==identity.turnId)return null;
+     if(state.revokeAtBackendRead===state.sourceReads||
+        !state.backend||state.retired||requested.turnId!==identity.turnId)return null;
      const bytes=Buffer.from(text,'utf8');
      return {kind:'OriginalBackendAcceptedInputV1',
        source:'original_essential_backend_post_acceptance',
@@ -138,4 +139,27 @@ test('D03 UNIT fixture rolls back mismatched accepted text/revision, stale playe
  assert.equal((await capture.acceptPlayer({source:'typed',text:x.acceptedText})).status,'not_stored');
  x.state.retired=false;
  assert.equal((await x.read()).dialogue.length,1);
+});
+
+test('D03 UNIT fixture revocation AFTER journal INSERT rolls back BOTH dialogue and provenance sidecar',async t=>{
+ const x=await fixture(t),capture=x.begin();
+ assert.ok(capture);
+ // Read #1 before queue admission, #2 at transaction start,
+ // #3 after both inserts but before the P2 COMMIT.
+ x.state.revokeAtBackendRead=3;
+ const attempted=await capture.acceptPlayer({source:'typed',text:x.acceptedText});
+ assert.equal(attempted.status,'not_stored');
+ assert.equal(attempted.reason,'d03_transaction_rejected');
+ const committed=await x.store.withP2SqliteRead({
+   characterId:x.npc.characterId,worldProfileId,timelineId:x.timelineId
+ },db=>({
+   dialogue:db.prepare('SELECT COUNT(*) AS n FROM dialogue_journal').get().n,
+   sidecarTable:db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='memory_d03_accepted_sources'").get()
+ }));
+ assert.equal(committed.dialogue,0);
+ // DDL itself was rolled back: no orphaned source provenance table/record.
+ assert.equal(committed.sidecarTable,undefined);
+ x.state.revokeAtBackendRead=null;
+ assert.equal((await capture.acceptPlayer({source:'typed',text:x.acceptedText})).status,'stored');
+ assert.equal((await x.read()).details.length,1);
 });
