@@ -13,8 +13,14 @@ import { worldProfileId } from './identity-fixtures.mjs';
 
 async function workspace(t) {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), 'lsa-ea-final-b-'));
-  t.after(() => fs.rm(root, { recursive:true, force:true }));
-  return {json:path.join(root,'profiles.v1.json'), db:path.join(root,'profiles.v2.sqlite')};
+  // Close Node SQLite/WAL handles before Windows removes the workspace.
+  const closers=[];
+  t.after(async()=>{
+    for(const close of closers.reverse())await close();
+    await fs.rm(root,{recursive:true,force:true});
+  });
+  return {json:path.join(root,'profiles.v1.json'),db:path.join(root,'profiles.v2.sqlite'),
+    beforeRemoval:close=>closers.push(close)};
 }
 const host = (hostRunId=randomUUID(),worldEpoch=1) =>
   Object.freeze({hostContextVersion:1,hostRunId,worldEpoch});
@@ -32,7 +38,7 @@ async function start(t) {
   const store=createEssentialMemoryStorage({filePath:files.db,legacyJsonPath:files.json,
     worldProfileId,sourceRequired:true});
   const source=acceptedC13(),bridge=bindTrustedTimelineSource({store,intelligenceClient:source});
-  t.after(async()=>{bridge.close();await store.close();});
+  files.beforeRemoval(async()=>{bridge.close();await store.close();});
   await store.initialize();
   const save=await store.createTimeline({label:'Exact existing save'});
   return {files,store,source,save};
