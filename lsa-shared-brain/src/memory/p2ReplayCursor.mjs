@@ -120,7 +120,7 @@ export function readP2ReplayPage(db,{scope,cursor=null,limit=256},world){
   validatedScope(scope,world);validateOwner(db,scope);
   if(!Number.isSafeInteger(limit)||limit<1||limit>MAX_PAGE)fail('p2_replay_invalid_limit');
   const after=decode(scope,cursor);
-  const entries=db.prepare('SELECT sequence AS seq,kind,record_id AS id FROM p2_memory_replay_feed WHERE '+
+  const entries=db.prepare('SELECT sequence AS seq,kind,record_id AS id,protagonist_key AS protagonist FROM p2_memory_replay_feed WHERE '+
     where+' AND sequence>? ORDER BY sequence ASC LIMIT ?').all(...scopeKey(scope),after,limit+1);
   const page=entries.slice(0,limit),items=[],rejected=[],skipped=[];
   const suppressed=new Set(listSuppressedMemoryIds(db,scope,world));
@@ -138,9 +138,13 @@ export function readP2ReplayPage(db,{scope,cursor=null,limit=256},world){
     if(entry.kind==='dialogue'){
       const row=line.get(entry.id,...scopeKey(scope));
       if(!row){rejected.push({recordId:entry.id,reason:'source_removed'});continue;}
+      // A replay feed is provenance, not an avatar filter. Its immutable
+      // source attribution must still agree with the committed journal.
+      if(row.protagonist!==entry.protagonist)fail('p2_replay_feed_protagonist_mismatch');
       items.push(Object.freeze({kind:'dialogue',sequence:entry.seq,recordId:entry.id,
         envelope:verifiedLine(row)}));
     }else{
+      if(entry.protagonist!=='unknown')fail('p2_replay_feed_protagonist_mismatch');
       const proof=readVerifiedEventEvidence(db,{characterId:scope.characterId,
         timelineId:scope.timelineId,recordId:entry.id},world);
       if(!proof){rejected.push({recordId:entry.id,reason:'unverified_or_removed_event'});continue;}
@@ -173,9 +177,15 @@ export function acknowledgeP2ReplayCursor(db,{scope,consumerId,cursor,expectedCu
   if(requested===old)return Object.freeze({committed:true,idempotent:true,cursor:encode(scope,old)});
   if(old!==expected||requested<old)fail('p2_replay_cursor_conflict');
   if(requested!==0){
-    const point=db.prepare('SELECT sequence FROM p2_memory_replay_feed WHERE '+where+
-      ' AND sequence=?').get(...scopeKey(scope),requested);
-    if(!point)fail('p2_replay_cursor_not_committed_evidence');
+    // Keep this compatibility cursor bounded. T6's production M6 checkpoint
+    // supplies stronger atomic source-hash/save/queue receipts, and must NOT
+    // be replaced by this per-consumer replay API at integration.
+    const covered=db.prepare('SELECT sequence FROM p2_memory_replay_feed WHERE '+where+
+      ' AND sequence>? AND sequence<=? ORDER BY sequence ASC LIMIT ?')
+      .all(...scopeKey(scope),old,requested,MAX_PAGE+1);
+    if(!covered.length||covered.at(-1).sequence!==requested)
+      fail('p2_replay_cursor_not_committed_evidence');
+    if(covered.length>MAX_PAGE)fail('p2_replay_cursor_page_budget');
   }
   const now=new Date().toISOString();
   db.prepare('INSERT INTO p2_memory_replay_player_cursors VALUES(?,?,?,?,?,?) ON CONFLICT(consumer_id,world_profile_id,character_id,timeline_id) DO UPDATE SET after_sequence=excluded.after_sequence,updated_at_utc=excluded.updated_at_utc')
