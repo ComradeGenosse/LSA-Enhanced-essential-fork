@@ -32,6 +32,7 @@ jobs:
           node --test
           tests/ea-g-v4-compatibility.test.mjs
           tests/ea6-storage-timeline.test.mjs
+          tests/ea-final-b-timeline.test.mjs
           tests/ea-final-integration-wiring.test.mjs
           tests/p2-profiles.test.mjs
       - name: Node 22 default JSON startup
