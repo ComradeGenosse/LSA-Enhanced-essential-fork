@@ -202,3 +202,86 @@ handoff commit. Source-contract fixtures do NOT certify authentic GTA
 sampling, full native net481 production compilation, current original actor
 binding or D01 backend final acceptance. K must repeat checks against its
 exact integrated head.
+
+## Literal K-side registration/interface delta (apply in K-owned files only)
+
+Use the following source-equivalent registration delta; these snippets are
+**not applied by D02**. They require K's original authenticated protocol
+validation before dispatch. Do not apply sender registration alone.
+
+```diff
+--- a/native/promoted-characters/RuntimeEntry.cs
++++ b/native/promoted-characters/RuntimeEntry.cs
+@@
+-...,directorAttemptsPerMinute,integration.SampleMemoryNativeAuthority);
++...,directorAttemptsPerMinute,integration.SampleMemoryNativeAuthority,
++    integration.SampleMemoryCurrentOwnerPlayer);
+```
+
+The `...` above denotes unchanged constructor arguments, not a line to
+paste verbatim. In `native/intelligence/IntelligenceIntegration.cs`, retain
+the existing v1 sampler and add the following exact argument, field,
+assignment and send (one source owner fiber, existing channel, same sequence):
+
+```csharp
+readonly Func<object> memoryCurrentOwnerPlayerSample;
+// Append to constructor arguments:
+//   Func<object> memoryCurrentOwnerPlayerSample=null
+this.memoryCurrentOwnerPlayerSample=memoryCurrentOwnerPlayerSample;
+
+// Inside the existing if(memoryAuthoritySample!=null &&
+//                     now>=nextMemoryAuthority) block, AFTER v1 send:
+try {
+    var current=memoryCurrentOwnerPlayerSample?.Invoke();
+    if(current!=null) channel?.Send("memory_current_owner_player",current);
+} catch {
+    // Source unavailable. Absolutely no positive fallback.
+}
+```
+
+In `lsa-essential-e1-candidate/src/perception/intelligenceClient.mjs`,
+add a separate per-instance `currentOwnerPlayerSubscriptions=new Set()`
+alongside `memoryAuthoritySubscriptions` at the constructor. The privileged
+subscriber/retirer is:
+
+```js
+subscribeAuthenticatedNativeOwnerPlayer(listener,onRetire=()=>{}) {
+  if(typeof listener!=='function'||typeof onRetire!=='function'||
+     this.currentOwnerPlayerSubscriptions.size>=8)
+    throw new TypeError('native_current_owner_subscriber_invalid');
+  const item=Object.freeze({listener,onRetire});
+  this.currentOwnerPlayerSubscriptions.add(item);
+  return ()=>this.currentOwnerPlayerSubscriptions.delete(item);
+}
+retireAuthenticatedNativeOwnerPlayer() {
+  for(const x of [...this.currentOwnerPlayerSubscriptions])
+    try{x.onRetire();}catch{}
+}
+// ONLY AFTER accepted = this.runtime.ingest(v,{authenticated:true}):
+if(accepted&&v?.type==='memory_current_owner_player')
+  for(const x of [...this.currentOwnerPlayerSubscriptions])
+    try{x.listener(Object.freeze({frame:v}));}catch{try{x.onRetire();}catch{}}
+```
+
+Call `retireAuthenticatedNativeOwnerPlayer()` alongside EVERY existing
+`retireAuthenticatedNativeMemoryAuthority()` call on hello/world epoch,
+socket close, stop and reset. In `contracts.mjs` (before the generic
+`return false` in `validateFrame`) add:
+
+```js
+if(v.type==='memory_current_owner_player')
+  return validateMemoryCurrentOwnerPlayerPayload(v.payload);
+```
+
+`validateMemoryCurrentOwnerPlayerPayload` MUST check all fields described
+in this handoff, exact schema, UUIDv4, canonical decimal ped IDs, unique
+captureRefs/aliases/peds and player source. In `shadowRuntime.mjs`, before
+admitting the frame, require the same authenticated host/world as
+`memory_authority`, the current observer index P1
+incarnation/encounter for every NPC, and the live controlled-player anchor.
+No separate identity authority can be created from a boolean or socket
+message alone. The pinned v1 `acceptedTurns=[]` validator must remain
+untouched. K's D01-to-D03 integration then calls the exact
+`bindActorAtTurnStart` and `verifyCurrentOwnerAndPlayer` interfaces
+above, with current P2 lifetime rechecks inside the serialized SQLite
+transaction.
