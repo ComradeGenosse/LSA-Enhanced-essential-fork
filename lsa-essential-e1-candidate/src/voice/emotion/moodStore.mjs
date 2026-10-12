@@ -111,6 +111,23 @@ export class MoodStore {
     entry.usedBy = key.turn; // another turn cannot consume the same prior
     return prior(entry.value);
   }
+  /** Only the same authenticated one-follow-up context can read playback
+   * timing. No dialogue, scene facts or previous source evidence are exposed.
+   * A separate accessor keeps the existing three-field soft mood contract intact. */
+  readCooldown({ context, nowMs } = {}) {
+    if (!this.#tick(nowMs)) return null;
+    const key = contextKey(context);
+    if (!key) return null;
+    this.#isolate(key);
+    const entry = this.#entries.get(key.key);
+    if (!entry || entry.value === null || key.generation <= entry.generation ||
+        (entry.usedBy !== null && entry.usedBy !== key.turn) ||
+        !Number.isSafeInteger(entry.playedAtMs) || entry.playedAtMs > nowMs)
+      return null;
+    return Object.freeze({
+      lastValue: entry.value, lastTaggedAtMonotonicMs: entry.playedAtMs,
+    });
+  }
   /** Record only after an accepted native playback receipt for THIS turn.
    * No effect while PCM is being generated or if playback was interrupted.
    * Caller is responsible for verifying the receipt with the native host. */
@@ -134,7 +151,8 @@ export class MoodStore {
     if (existing && key.generation <= existing.generation) return false;
     this.#entries.delete(key.key);
     while (this.#entries.size >= this.maxEntries) this.#entries.delete(this.#entries.keys().next().value);
-    this.#entries.set(key.key, { ...key, value, expiresAt: nowMs + this.ttlMs, usedBy: null });
+    this.#entries.set(key.key, { ...key, value, playedAtMs: nowMs,
+      expiresAt: nowMs + this.ttlMs, usedBy: null });
     return true;
   }
   /** Caller MUST invoke for cancelled/interrupted/failed turns and on owner
