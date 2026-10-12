@@ -21,7 +21,7 @@
 ### Code-level changes
 
 - Imported the exact v4 P2 SQLite journal, replay, recall, curation, privacy and evidence dependencies from memory #94. No second SQLite connection was added for memory operations.
-- Forward-ported the memory storage methods into EA #96's *newer* source-generation-fenced \`P2SqliteProfileStore\`, rather than replacing EA's confirmed C-13 source logic with #94's weaker confirmation.
+- Forward-ported the memory storage methods into EA #96's *newer* source-generation-fenced `P2SqliteProfileStore`, rather than replacing EA's confirmed C-13 source logic with #94's weaker confirmation.
 - Protected source-qualified memory reads against queued ABA via context/generation checking. M3 appends may supply verified source evidence while the hostContext is always taken from the trusted adapter.
 - Added a read-only integrity/world/schema preflight for existing DB files before writable SQLite open or journaling mode selection. v4 assertions are mandatory; future versions fail closed. M3/M5/replay extension DDL/backfill is one additive transaction after approved v2/v3->v4 journal migration.
 - Retained the existing CharacterService.store adapter and bootstrap bindTrustedTimelineSource / teardown, without touching native, provider or Agent H-owned files.

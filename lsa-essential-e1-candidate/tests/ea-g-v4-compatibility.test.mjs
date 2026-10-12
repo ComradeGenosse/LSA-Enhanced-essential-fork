@@ -46,7 +46,7 @@ const scope=(npc,t)=>({worldProfileId,characterId:npc.characterId,timelineId:t,p
 function originalV2(dbPath,snapshot){
   const db=new DatabaseSync(dbPath);
   try {
-    db.exec(\`
+    db.exec(`
       CREATE TABLE p2_store(singleton INTEGER PRIMARY KEY CHECK(singleton=1),
         world_profile_id TEXT NOT NULL,revision INTEGER NOT NULL,source_sha256 TEXT NOT NULL,snapshot_json TEXT NOT NULL);
       CREATE TABLE promoted_profiles(character_id TEXT PRIMARY KEY,owner_alias TEXT NOT NULL UNIQUE,
@@ -54,8 +54,8 @@ function originalV2(dbPath,snapshot){
       CREATE TABLE timelines(timeline_id TEXT PRIMARY KEY,world_profile_id TEXT NOT NULL,label TEXT NOT NULL,
         created_at_utc TEXT NOT NULL,active INTEGER NOT NULL CHECK(active IN (0,1)));
       CREATE UNIQUE INDEX one_active_timeline ON timelines(active) WHERE active=1;
-    \`);
-    const raw=JSON.stringify(snapshot)+'\\n';
+    `);
+    const raw=JSON.stringify(snapshot)+'\n';
     db.prepare('INSERT INTO p2_store VALUES(1,?,?,?,?)')
       .run(worldProfileId,snapshot.revision,digest(raw),raw);
     const write=db.prepare('INSERT INTO promoted_profiles VALUES(?,?,?,?,?)');
@@ -132,7 +132,7 @@ test('G04: unsupported future v42 schema refuses without mutation',async t=>{
 });
 test('G05: corrupt SQLite refuses and preserves exact original bytes',async t=>{
   const p=await fixture(t);
-  const corrupt=Buffer.from('NOT A DATABASE\\0\\u2603','utf8');
+  const corrupt=Buffer.from('NOT A DATABASE\0\u2603','utf8');
   await fs.writeFile(p.db,corrupt);
   await assert.rejects(storage(p).initialize());
   assert.deepEqual(await fs.readFile(p.db),corrupt);
