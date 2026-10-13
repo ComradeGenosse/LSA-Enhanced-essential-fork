@@ -129,6 +129,13 @@ try {
 }
 } finally {
   foreach ($key in $activationKeys) {
-    [Environment]::SetEnvironmentVariable($key,$originalActivationEnv[$key],'Process')
+    $previous=$originalActivationEnv[$key]
+    if ($null -eq $previous) {
+      # PowerShell's Env: provider must remove absent variables, not leave
+      # empty process entries that survive into the next RPH invocation.
+      Remove-Item -LiteralPath ("Env:" + $key) -ErrorAction SilentlyContinue
+    } else {
+      [Environment]::SetEnvironmentVariable($key,[string]$previous,'Process')
+    }
   }
 }
