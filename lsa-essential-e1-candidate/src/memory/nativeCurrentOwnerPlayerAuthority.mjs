@@ -87,7 +87,23 @@ export function createNativeCurrentOwnerPlayerAuthority({
         retiredRefs.add(ref);
         ownerGenerations.set(ref,(ownerGenerations.get(ref)??0)+1);
       }
-    if(reason==='roster'){settled=false;return;}
+    if(reason==='roster'){
+      // An authenticated roster may revoke P2 ownership before another owner
+      // sample arrives. If the same ref is restored between samples, the old
+      // lease must never become valid again. Validate every previously proven
+      // owner against the UPDATED native roster, revoke only interrupted
+      // owners, and retain immutable history to forbid lifetime substitution.
+      for(const [ref,owner] of owners) {
+        if(retiredRefs.has(ref)||!current(owner,subject)) {
+          if(!retiredRefs.has(ref))
+            ownerGenerations.set(ref,(ownerGenerations.get(ref)??0)+1);
+          owners.delete(ref);
+        }
+      }
+      // Removed owners need a fresh authenticated sample before binding
+      // again; identical maintenance leaves all healthy owners untouched.
+      settled=false;return;
+    }
     if(reason!=='roster') {
       if(context?.streamId) {
         retiredStreams.add(context.streamId);
