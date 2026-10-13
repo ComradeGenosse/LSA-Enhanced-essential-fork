@@ -37,7 +37,7 @@ function blocked(db,scope,world){
     const keyed={...scope,protagonistKey};
     for(const id of listSuppressedMemoryIds(db,keyed,world))result.add(id);
     for(const row of readCorrectionOverlays(db,keyed,world))
-      if(isUuid(row.targetId))result.add(row.targetId);
+      if(row.supersedesTarget!==false&&isUuid(row.targetId))result.add(row.targetId);
   }
   return result;
 }

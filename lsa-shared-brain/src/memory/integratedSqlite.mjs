@@ -3,6 +3,7 @@
 import {createHash} from 'node:crypto';
 import {ensureSuppressionSchema,suppressedMemoryIds,suppressionClosure,retainSuppression,isSuppressedSource} from './suppressionSqlite.mjs';
 import {isUuid,immutableSnapshot} from '../util/identity.mjs';
+import {ensureCorrectionModeColumn,normalizeCorrectionMode,isProtectedEvidence,readCorrectionRows,supersededTargetIds,overlayContent} from './correctionSemantics.mjs';
 const digest=v=>createHash('sha256').update(typeof v==='string'?v:JSON.stringify(v)).digest('hex');
 const fail=reason=>{throw new Error(reason)};
 const sql=`
@@ -35,7 +36,7 @@ CREATE TABLE IF NOT EXISTS memory_budget_reservations (
  batch_key TEXT PRIMARY KEY,world_profile_id TEXT NOT NULL,amount_usd REAL NOT NULL,
  reserved_at_utc TEXT NOT NULL,state TEXT NOT NULL);
 `;
-export function ensureIntegratedMemorySchema(db){db.exec(sql);ensureSuppressionSchema(db);}
+export function ensureIntegratedMemorySchema(db){db.exec(sql);ensureCorrectionModeColumn(db);ensureSuppressionSchema(db);}
 // The single P2 foundation transaction helper is used by all callers.
 function transact(db,work){
  db.exec('BEGIN IMMEDIATE');
@@ -119,7 +120,7 @@ export function verifyMemoryEvidence(db,scope,id,revoked){
 export function listMemoryCandidates(db,scope,world,{beforeUtc=null,excludeRecordId=null}={}){
  dbOwnerScope(db,scope,world);
  const rows=[];
- const revoked=new Set([...listSuppressedMemoryIds(db,scope,world),...db.prepare('SELECT target_id FROM memory_corrections WHERE world_profile_id=? AND character_id=? AND timeline_id=?').all(...stmtScope(scope)).map(x=>x.target_id)]);
+ const revoked=new Set([...listSuppressedMemoryIds(db,scope,world),...supersededTargetIds(db,stmtScope(scope))]);
  const dialogue=db.prepare('SELECT record_id AS recordId,content,committed_at_utc AS occurredAtUtc,speaker,source,delivery,protagonist AS protagonistKey FROM dialogue_journal WHERE world_profile_id=? AND character_id=? AND timeline_id=? ORDER BY committed_at_utc DESC LIMIT 200').all(...stmtScope(scope));
  for(const d of dialogue)if(knownEvidence(db,scope,d.recordId))
    rows.push({...scope,...d,kind:'dialogue_line'});
@@ -171,6 +172,14 @@ export function commitPersistedMemoryCommand(db,o,world){
    }
    if(o.operation!=='remember'&&(!isUuid(o.targetRecordId)||!knownEvidence(db,scope,o.targetRecordId)))
      fail('memory_target_not_found');
+   let correctionMode=null;
+   if(o.operation==='correct'){
+     correctionMode=normalizeCorrectionMode(o.correctionMode,{allowLegacy:true});
+     // A transcript correction may only supersede evidence the player can
+     // legitimately correct, never a witnessed event or NPC speech (K-12).
+     if(correctionMode==='transcript'&&isProtectedEvidence(db,stmtScope(scope),o.targetRecordId))
+       fail('memory_transcript_target_invalid');
+   }
    const memoryId=o.commandId,when=o.requestedAtUtc;
    if(!Number.isFinite(Date.parse(when)))fail('memory_invalid_time');
    if(o.operation==='remember'){
@@ -184,8 +193,8 @@ export function commitPersistedMemoryCommand(db,o,world){
      for(const target of closure)db.prepare('INSERT OR IGNORE INTO memory_tombstones(character_id,world_profile_id,timeline_id,target_id,command_id,created_at_utc) VALUES(?,?,?,?,?,?)')
        .run(scope.characterId,scope.worldProfileId,scope.timelineId,target,o.commandId,when);
    } else {
-     db.prepare('INSERT INTO memory_corrections(command_id,character_id,world_profile_id,timeline_id,target_id,preferred_text,content_sha256,created_at_utc) VALUES(?,?,?,?,?,?,?,?)')
-       .run(o.commandId,scope.characterId,scope.worldProfileId,scope.timelineId,o.targetRecordId,o.content,o.contentHash,when);
+     db.prepare('INSERT INTO memory_corrections(command_id,character_id,world_profile_id,timeline_id,target_id,preferred_text,content_sha256,created_at_utc,correction_mode) VALUES(?,?,?,?,?,?,?,?,?)')
+       .run(o.commandId,scope.characterId,scope.worldProfileId,scope.timelineId,o.targetRecordId,o.content,o.contentHash,when,correctionMode);
    }
    const receipt={commandId:o.commandId,requestedByLineId:o.requestedByLineId,operation:o.operation,status:'committed',
      durableCommit:true,memoryId,evidenceRecordIds:o.evidenceRecordIds};
@@ -244,7 +253,7 @@ export function persistDeterministicMemory(db,proposal,world){
 export function readPermanentMemoryRows(db,scope,world,{limit=200}={}){
  dbOwnerScope(db,scope,world);
  if(!Number.isSafeInteger(limit)||limit<1||limit>1000)fail('memory_invalid_limit');
- const revoked=new Set([...listSuppressedMemoryIds(db,scope,world),...db.prepare('SELECT target_id FROM memory_corrections WHERE world_profile_id=? AND character_id=? AND timeline_id=?').all(...stmtScope(scope)).map(x=>x.target_id)]);
+ const revoked=new Set([...listSuppressedMemoryIds(db,scope,world),...supersededTargetIds(db,stmtScope(scope))]);
  // Page until we have LIMIT *verified and visible* memories. Filtering after a
  // raw SQL LIMIT could hide all older valid memories behind corrected rows.
  const page=db.prepare('SELECT * FROM memory_records WHERE world_profile_id=? AND character_id=? AND timeline_id=? ORDER BY created_at_utc DESC,memory_id DESC LIMIT ? OFFSET ?');
@@ -273,24 +282,25 @@ export function readPermanentMemoryRows(db,scope,world,{limit=200}={}){
  return immutableSnapshot(valid);
 }
 
-/** A correction is player-reported counterevidence, NEVER a rewrite of source text. */
+/** A correction is player-reported counterevidence, NEVER a rewrite of source text.
+ * `supersedesTarget` is true ONLY for genuine STT transcript corrections (K-12);
+ * counter-claims are linked reported claims that leave their target visible.
+ */
 export function readCorrectionOverlays(db,scope,world){
  dbOwnerScope(db,scope,world);
- const data=db.prepare(`SELECT c.command_id AS commandId,c.target_id AS targetId,
-   c.preferred_text AS content,c.content_sha256 AS checksum,c.created_at_utc AS atUtc,m.protagonist_key AS sourceProtagonist
-   FROM memory_corrections c JOIN memory_commands m ON m.command_id=c.command_id
-   WHERE c.world_profile_id=? AND c.character_id=? AND c.timeline_id=?
-   ORDER BY c.created_at_utc DESC`).all(...stmtScope(scope));
+ const data=readCorrectionRows(db,stmtScope(scope));
+ const sources=new Map(db.prepare('SELECT m.command_id AS id,m.protagonist_key AS p FROM memory_commands m JOIN memory_corrections c ON c.command_id=m.command_id WHERE c.world_profile_id=? AND c.character_id=? AND c.timeline_id=?').all(...stmtScope(scope)).map(x=>[x.id,x.p]));
  const records=[];
  for(const c of data){
+   if(!sources.has(c.commandId))continue; // a correction without its command receipt is never exposed
    if(digest(c.content)!==c.checksum)fail('memory_correction_integrity_failed');
    records.push({characterId:scope.characterId,worldProfileId:scope.worldProfileId,
-     timelineId:scope.timelineId,protagonistKey:c.sourceProtagonist,
+     timelineId:scope.timelineId,protagonistKey:sources.get(c.commandId),
      recordId:c.commandId,sourceKind:'permanent_memory',atUtc:c.atUtc,evidenceState:'verified',
-     targetId:c.targetId,
+     targetId:c.targetId,correctionMode:c.mode,supersedesTarget:c.supersedes,
      envelope:{version:1,kind:'permanent_memory',recordId:c.commandId,
        characterId:scope.characterId,worldProfileId:scope.worldProfileId,timelineId:scope.timelineId,
-       content:'Player correction (reported): '+c.content,mode:'reported_claim',
+       content:overlayContent(c.mode,c.content),mode:'reported_claim',
        sourceEvidenceIds:[c.targetId]}});
  }
  return immutableSnapshot(records);

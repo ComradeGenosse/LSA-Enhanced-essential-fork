@@ -6,6 +6,7 @@ import {isUuid,normalizedEvidence} from './evidence.mjs';
 import {categoryOf} from './m8Interpretation.mjs';
 import {readVerifiedEventEvidence} from './journalSqlite.mjs';
 import {listSuppressedMemoryIds} from './integratedSqlite.mjs';
+import {supersededTargetIds} from './correctionSemantics.mjs';
 
 const fail=code=>{throw Error(code);};
 const sha=s=>createHash('sha256').update(s).digest('hex');
@@ -25,8 +26,7 @@ export function readP2M8HistoricalSignals(db,scope){
     !db.prepare('SELECT 1 FROM timelines WHERE timeline_id=? AND world_profile_id=?').get(scope.timelineId,world))
    fail('m8_history_owner_missing');
  const revoked=new Set(listSuppressedMemoryIds(db,scope,world));
- for(const x of db.prepare('SELECT target_id AS id FROM memory_corrections WHERE '+where).all(...keys))
-   revoked.add(x.id);
+ for(const id of supersededTargetIds(db,keys))revoked.add(id);
  const counts=new Map(),seen=new Set();
  function contribute(record){
    if(!record||revoked.has(record.recordId)||seen.has(record.recordId))return;

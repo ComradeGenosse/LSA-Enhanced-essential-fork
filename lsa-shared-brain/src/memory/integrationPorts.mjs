@@ -78,7 +78,7 @@ export class SharedJournalRecallAdapter{
       ?await this.store.listSuppressedMemoryIds(scope):[]);
     const corrections=typeof this.store.readCorrectionOverlays==='function'
       ?await this.store.readCorrectionOverlays(scope):[];
-    const corrected=new Set(corrections.map(row=>row.targetId));
+    const corrected=new Set(corrections.filter(row=>row.supersedesTarget!==false).map(row=>row.targetId));
     const include=(envelope,sourceKind,protagonistKey,atUtc)=>{
       if(suppressed.has(envelope?.recordId)||corrected.has(envelope?.recordId))return;
       if(!envelope||envelope.characterId!==scope.characterId||
