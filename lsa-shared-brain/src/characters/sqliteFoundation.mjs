@@ -170,8 +170,13 @@ export async function inspectP2ReadOnlyRecovery({filePath,worldProfileId,scope=n
     fail('invalid_sqlite_profile_config');
   const folder=path.resolve(filePath)+'.snapshots';
   let files;
-  try{files=(await fs.readdir(folder)).filter(n=>/^(daily-\d{4}-\d\d-\d\d-[0-9TZ-]+-[0-9a-f-]{36}|weekly-\d{4}-W\d\d|pre-migration-[0-9TZ-]+-[0-9a-f-]{36})\.sqlite$/.test(n)).sort().reverse();}
+  try{files=(await fs.readdir(folder)).filter(n=>/^(daily-\d{4}-\d\d-\d\d-[0-9TZ-]+-[0-9a-f-]{36}|weekly-\d{4}-W\d\d|pre-migration-[0-9TZ-]+-[0-9a-f-]{36})\.sqlite$/.test(n));}
   catch(e){if(e.code==='ENOENT')fail('sqlite_recovery_snapshot_unavailable');throw e;}
+  // Use file creation/modification time, not alphabetical prefix order:
+  // weekly files must not hide a newer daily or migration recovery point.
+  files=(await Promise.all(files.map(async name=>({
+    name,mtime:(await fs.stat(path.join(folder,name))).mtimeMs
+  })))).sort((a,b)=>b.mtime-a.mtime||b.name.localeCompare(a.name)).map(x=>x.name);
   for(const name of files){
     let db;
     try{
