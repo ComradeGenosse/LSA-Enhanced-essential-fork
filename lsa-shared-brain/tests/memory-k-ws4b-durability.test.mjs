@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import {spawnSync} from 'node:child_process';
+import {spawnSync,spawn} from 'node:child_process';
+import {once} from 'node:events';
 import {pathToFileURL,fileURLToPath} from 'node:url';
 import {DatabaseSync} from 'node:sqlite';
 import {createP2MemoryStorage} from '../src/characters/sqliteProfileStore.mjs';
@@ -163,4 +164,25 @@ test('WS-4b pre-migration snapshot survives same-day session checkpoint',async t
   const after=await fs.readdir(file+'.snapshots');
   for(const name of before.filter(n=>n.startsWith('pre-migration-')))
     assert.ok(after.includes(name),'pre-migration backup may not be rotated or overwritten');
+});
+
+test('WS-4b an actually running second process is refused, then killed owner is reclaimable',async t=>{
+  const {file}=await temp(t),lock=file+'.writer.lock';
+  const module=pathToFileURL(fileURLToPath(new URL('../src/characters/sqliteDurability.mjs',import.meta.url))).href;
+  const script=`import {acquireWriterLock} from ${JSON.stringify(module)};await acquireWriterLock(${JSON.stringify(lock)});process.stdout.write('READY\\n');setInterval(()=>{},1000);`;
+  const child=spawn(process.execPath,['--input-type=module','-e',script],{stdio:['ignore','pipe','pipe']});
+  try{
+    const [chunk]=await once(child.stdout,'data');
+    assert.match(chunk.toString(),/READY/);
+    const blocked=createP2MemoryStorage({filePath:file,worldProfileId});
+    await assert.rejects(blocked.initialize(),/sqlite_writer_busy/);
+    assert.equal((await inspectWriterLock(lock)).status,'live_owner');
+  }finally{
+    child.kill();
+    if(child.exitCode===null)await once(child,'exit');
+  }
+  const recovery=createP2MemoryStorage({filePath:file,worldProfileId});
+  await recovery.initialize();
+  try{assert.equal(recovery.durabilityStatus.writer,'stale_reclaimed');}
+  finally{await recovery.close();}
 });
