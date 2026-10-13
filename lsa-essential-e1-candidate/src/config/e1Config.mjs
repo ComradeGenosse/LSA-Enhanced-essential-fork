@@ -8,6 +8,7 @@ import { normalizeCharacterConfig } from '../characters/characterService.mjs';
 import { normalizePerceptionConfig } from '../perception/contracts.mjs';
 import { normalizeActivityConfig } from '../activities/contracts.mjs';
 import { normalizeDialogueLoggingConfig } from '../observability/dialogueTrace.mjs';
+import { normalizeMemoryKConfig } from '../memory/capabilityPolicy.mjs';
 
 const moduleDirectory = path.dirname(fileURLToPath(import.meta.url));
 export const defaultConfigPath = path.resolve(moduleDirectory, '../../e1.config.json');
@@ -182,6 +183,7 @@ export function normalizeConfig(input = {}, env = process.env) {
     provider: selectedProvider,
     persistentIdentity: normalizeIdentityConfig(input.persistentIdentity),
     promotedCharacters: normalizeCharacterConfig(input.promotedCharacters),
+    memoryK: normalizeMemoryKConfig(input.memoryK),
     intelligence: normalizePerceptionConfig(input.intelligence),
     spontaneousSpeech: Object.freeze({mode:speechMode,preset:speechPreset}),
     dialogueKnowledge: normalizeDialogueKnowledge(input.dialogueKnowledge),

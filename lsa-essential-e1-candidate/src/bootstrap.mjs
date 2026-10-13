@@ -24,6 +24,7 @@ import { perceptionContractSupported } from './perception/nativeSupport.mjs';
 import { createDialogueTrace, createNoopDialogueTrace } from './observability/dialogueTrace.mjs';
 import {createM3ProductionMemory} from './memory/m3ProductionMemory.mjs';
 import {createMemoryD02Port} from './memory/memoryD02Port.mjs';
+import {resolveMemoryKCapabilities} from './memory/capabilityPolicy.mjs';
 
 const shutdownClosers = new Set();
 let shutdownFlushRegistered = false;
@@ -117,6 +118,74 @@ export async function createRuntimeForBundle(options = {}) {
   try {const bytes=await readFile(new URL('../build-manifest.json',import.meta.url));capabilityManifest=JSON.parse(bytes);capabilityPayloadHash=createHash('sha256').update(bytes).digest('hex');}catch{}
   capabilityValidation=await loadCapabilityValidation(options.capabilityValidationPath??path.resolve(process.cwd(),'diagnostics/validation.v1.json'));
   runtime.services.capabilityHealth=()=>projectCapabilityHealth({config,manifest:capabilityManifest,payloadHash:capabilityPayloadHash,validation:capabilityValidation,perception:runtime.intelligence?.runtime,activities:runtime.activities});
+  // Workstream B read model. Construction/registration does not establish that
+  // a source is fresh, P2 has a healthy writer, D02 has a current owner, or
+  // that optional capture was turned on/off. No probe calls mutate authority.
+  runtime.services.memoryKDiagnostics=()=>{
+    const store=runtime.characterService?.store;
+    const source=runtime.intelligence?.runtime;
+    const registered={
+      'source.core':!!runtime.intelligence && !!source,
+      'p2.sqlite':config.promotedCharacters.storageMode==='sqlite' &&
+        runtime.characterService?.ready===true &&
+        typeof store?.withP2SqliteTransaction==='function',
+      'authority.d02':!!runtime.memoryD02,
+      // M3 owns its distinct authenticated witness-authority port. A supplied
+      // test authority is only a registered seam, never production proof.
+      'authority.witness':!!runtime.memoryM3 &&
+        (!!connectedMemoryAuthority || typeof options.memoryNativeAuthority?.resolveNativeOwner==='function'),
+      'ps4.assembler':typeof runtime.services.finalizeKnowledgeFrame==='function',
+      // Code presence != verified suppression / privacy enforcement.
+      'privacy.core':config.promotedCharacters.storageMode==='sqlite' &&
+        typeof store?.withP2SqliteRead==='function',
+      'ps1.producers':!!runtime.intelligence,
+      'ps2.observations':!!runtime.intelligence,
+      'ps3.salience':!!source?.salience,
+      'ps4.perceived':runtime.dialogueKnowledgeBuildSupported===true,
+      'ps6.speech':!!runtime.director,
+      'memory.dialogue.player':typeof runtime.services.bindM2Turn==='function' &&
+        !!runtime.memoryD02,
+      'memory.dialogue.npc':typeof runtime.services.recordM2Npc==='function' &&
+        !!runtime.memoryD02,
+      'memory.events':!!runtime.memoryM3,
+      'memory.coverage':!!runtime.memoryM3,
+      'memory.journalContext':typeof runtime.services.prepareLiveTurnMemory==='function',
+      'memory.recall':typeof runtime.services.prepareLiveTurnMemory==='function',
+      'memory.commands':typeof runtime.services.prepareLiveTurnMemory==='function',
+      'memory.interpretation':typeof runtime.services.prepareLiveTurnMemory==='function',
+    };
+    const environment=Object.freeze({
+      source:Object.freeze({
+        registered:registered['source.core'], hostContextObserved:!!source?.hostContext,
+        freshness:'unverified',
+      }),
+      storage:Object.freeze({
+        registered:registered['p2.sqlite'],initialized:runtime.characterService?.ready===true,
+        // Snapshot only: not a transaction or integrity/owner receipt.
+        timelineWritableSnapshot:store?.timelineWritable===true,
+        timelineConfirmation:'unverified',writerHealth:'unverified',
+      }),
+      native:Object.freeze({
+        d02Registered:registered['authority.d02'],currentOwnerProof:'unverified',
+        m3WitnessAuthorityRegistered:registered['authority.witness'],m3WitnessProof:'unverified',
+      }),
+      ps4:Object.freeze({assemblerRegistered:registered['ps4.assembler'],soleWriterAdmission:'unverified'}),
+      privacy:Object.freeze({
+        portRegistered:registered['privacy.core'],enforcement:'unverified',
+      }),
+      capture:Object.freeze({
+        m3AdapterRegistered:registered['memory.events'],
+        acceptedObservationObserved:'unverified',
+        dialoguePersisted:'unverified',
+      }),
+      // No persisted-consent read, idle proof or worker admission is performed.
+      cloud:Object.freeze({
+        workerRegistered:false,consent:'unverified',budget:'unverified',idle:'unverified',
+      }),
+    });
+    return Object.freeze({capabilities:resolveMemoryKCapabilities({config,available:registered}),environment});
+  };
+  runtime.services.memoryKCapabilities=()=>runtime.services.memoryKDiagnostics().capabilities;
   let knowledgeContract=options.dialogueKnowledgeContract,knowledgePerceptionContract=options.perceptionContract;
   if(knowledgeContract===undefined)knowledgeContract=capabilityManifest?.dialogueKnowledgeContract;
   if(knowledgePerceptionContract===undefined)knowledgePerceptionContract=capabilityManifest?.perceptionContract;
