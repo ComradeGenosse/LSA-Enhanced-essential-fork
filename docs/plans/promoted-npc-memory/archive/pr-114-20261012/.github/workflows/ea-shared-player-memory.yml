@@ -1,0 +1,38 @@
+name: EA Memory Shared Player V4 Acceptance
+on:
+  push:
+    branches:
+      - fix/ea-memory-unified-player-v4-20261012
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  shared-player:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Syntax-check all modified memory modules
+        run: |
+          node --check lsa-shared-brain/src/memory/integratedSqlite.mjs
+          node --check lsa-shared-brain/src/memory/sqliteIntegratedRecallProjection.mjs
+          node --check lsa-shared-brain/src/memory/p2ReplayCursor.mjs
+          node --check lsa-shared-brain/src/memory/curationSqlite.mjs
+          node --check lsa-shared-brain/src/memory/m5SqlitePrivacy.mjs
+          node --check lsa-shared-brain/src/characters/sqliteProfileStore.mjs
+      - name: End-to-end P2 unified-player and G compatibility regressions
+        working-directory: lsa-essential-e1-candidate
+        run: >-
+          node --test
+          tests/ea-shared-player-memory.test.mjs
+          tests/ea-g-v4-compatibility.test.mjs
+          tests/ea-final-b-timeline.test.mjs
+          tests/ea6-storage-timeline.test.mjs
+          tests/ea-final-integration-wiring.test.mjs
+          tests/p2-profiles.test.mjs

@@ -72,7 +72,7 @@ function sourceAuthorized(db,job,world,timeline){
   const memory=db.prepare("SELECT * FROM memory_records WHERE memory_id=? AND world_profile_id=? AND timeline_id=? AND character_id=? AND origin='deterministic'")
     .get(job.proposal.proposalId,world,timeline,job.characterId);
   if(!memory||memory.proposal_json!==JSON.stringify(job.proposal)||
-     !['unknown','franklin','michael','trevor'].includes(memory.protagonist_key))return false;
+     !['unknown','franklin','michael','trevor','multi_avatar'].includes(memory.protagonist_key))return false;
   const ids=job.proposal.evidenceRecordIds;
   if(ids.length>64||new Set(ids).size!==ids.length)return false;
   const suppressed=suppressedIds(db,world,timeline,job.characterId);
