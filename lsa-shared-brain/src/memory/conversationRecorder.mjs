@@ -19,9 +19,16 @@ const attrs=(identity,a={},host=null)=>{
   return {sessionId:a.sessionId??journalIdentityUuid(['session',hostRunId,identity.sessionNonce,identity.pedId]),
     protagonist:a.protagonist??'unknown',hostRunId,worldEpoch};
 };
+// The ONE derivation of the per-turn journal identity. D03 (player and NPC
+// lines) and this recorder both call it, so a turn's player/NPC pair can never
+// drift apart (WS-5a, K-20 "turn hash duplicated").
+export function journalTurnIdentityHash({characterId,timelineId,speaker,sessionId,hostRunId,identity}){
+  return sha(JSON.stringify(['memory.turn.v1',characterId,timelineId,speaker,sessionId,
+    hostRunId,identity.pedId,identity.turnId,identity.generationId,identity.sessionNonce]));
+}
 const turnHash=(identity,attribution,characterId,timelineId,speaker)=>
-  sha(JSON.stringify(['memory.turn.v1',characterId,timelineId,speaker,attribution.sessionId,
-    attribution.hostRunId,identity.pedId,identity.turnId,identity.generationId,identity.sessionNonce]));
+  journalTurnIdentityHash({characterId,timelineId,speaker,sessionId:attribution.sessionId,
+    hostRunId:attribution.hostRunId,identity});
 function scope(store,characterId,identity,attribution){
   if(!isUuid(characterId)||!acceptedIdentity(identity))fail('journal_invalid_turn_identity');
   if(!store?.activeTimelineId||!isUuid(store.activeTimelineId))fail('timeline_write_suspended');

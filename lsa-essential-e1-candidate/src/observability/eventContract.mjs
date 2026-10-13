@@ -16,6 +16,7 @@ export const EVENT_NAMES = new Set([
   'session_profile_created','character_name_assigned','promotion_started','promotion_completed','promotion_failed','persistent_profile_loaded','character_spawned','character_dismissed','character_profile_edited','character_memory_created','character_memory_edited','character_memory_deleted','character_unpromoted','character_safe_failure','character_canon_projected','character_reasoning_request_composed',
   'intelligence_status','companion_shadow','knowledge_frame_projected','knowledge_delivery',
   'intelligence_frame_rejected','director_gate','director_candidate','director_handoff',
+  'memory_journal_committed','memory_journal_not_committed',
   'activity_admitted','activity_rejected','activity_step_started','activity_receipt','activity_paused','activity_resumed','activity_terminal','activity_lease_lost','activity_breaker_tripped',
 ]);
 
@@ -54,7 +55,7 @@ const safeKeys = new Set([
   'profileRevision','profileCount','collisionCount','canonHash','systemPromptHash','runtimePromptHash','finalReasoningRequestHash',
   'traitsIncluded','memoryCount','biographyIncluded','relationshipIncluded','generatedPersonaPolicy',
   'truncatedFields','truncatedFieldCount','droppedMemoryCount',
-  'activityId','intent','capability','receiptState','stepIndex',
+  'activityId','intent','capability','receiptState','stepIndex','delivery',
 ]);
 const safeTokens = new Set([
   'delivered','expired','ack_key_retired','observation_expired',
@@ -75,7 +76,7 @@ const safeTokens = new Set([
   'stale_before_intake','incomplete_intake','tuple_rejected','not_delivered',
   'verified_observer','contract_unavailable','missing','index_missing','lease_expired','not_observer','kind_mismatch',
   'off','shadow','active','unsupported_contract','no_actor_capture','no_observer_index','wrong_actor','host_mismatch','world_epoch_changed','channel_unhealthy','anchor_expired','participant_retired','owner_unverified','projection_failed',
-  'openai','gemini','player_text','player_mic','special_event','system','internal','completed','failed',
+  'openai','gemini','player_text','player_mic','special_event','system','internal','completed','failed','npc','player',
   'cancelled','superseded','disconnected','provider_timeout','stt_error','model_error','model_refusal',
   'invalid_decision','tts_error','native_auth_rejected','playback_error','playback_interrupted',
   'playback_ack_timeout','native_ack_timeout','timeout','network_error','invalid_response','missing_credential',
@@ -108,6 +109,8 @@ function safeScalar(key, value) {
   if (['diagnosticReason','reason','terminalReason'].includes(key) &&
       safeDirectorReasons.has(token)) return token;
   if (key === 'code' && /^[A-Za-z][A-Za-z0-9_]{0,63}$/.test(token)) return token;
+  // Closed memory-journal refusal codes (d03_*, m2_*, journal_*): never free text.
+  if (key === 'reason' && /^(d03|m2|journal|timeline)_[a-z0-9_]{1,80}$/.test(token)) return token;
   if (['nativeReason','nativeType','errorType','actionName','stage','operation'].includes(key) && /^[A-Za-z][A-Za-z0-9_]{0,63}$/.test(token)) return token;
   if (key === 'requestId' && /^rid_[a-f0-9]{16}$/.test(token)) return token;
   if (key === 'model' && /^(gpt|whisper|tts)[-_][A-Za-z0-9._-]{1,80}$/i.test(token)) return token;
