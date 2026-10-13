@@ -200,12 +200,13 @@ export async function inspectP2ReadOnlyRecovery({filePath,worldProfileId,scope=n
 }
 
 export class P2SqliteFoundation {
-  #db=null; #init=null; #snapshot=null; #recoveryStatus=null;
-  constructor({filePath,worldProfileId,legacyJsonPath=null}) {
+  #db=null; #init=null; #snapshot=null; #recoveryStatus=null; #journalLimits;
+  constructor({filePath,worldProfileId,legacyJsonPath=null,journalLimits={}}) {
     if(!filePath || !isUuid(worldProfileId))throw new TypeError('invalid_sqlite_profile_config');
     this.filePath=path.resolve(filePath);
     this.worldProfileId=worldProfileId;
     this.legacyJsonPath=legacyJsonPath?path.resolve(legacyJsonPath):null;
+    this.#journalLimits=Object.freeze({...journalLimits});
   }
   get initialized() {return !!this.#db;}
   get recoveryStatus(){return this.#recoveryStatus;}
@@ -350,11 +351,11 @@ export class P2SqliteFoundation {
   // foundation private and invokes writes through its withTimelineWrite fence.
   appendDialogueLine(line,attribution){
     if(!this.#db)fail('sqlite_profile_uninitialized');
-    return transaction(this.#db,()=>appendDialogue(this.#db,line,attribution,this.worldProfileId));
+    return transaction(this.#db,()=>appendDialogue(this.#db,line,attribution,this.worldProfileId,{limits:this.#journalLimits}));
   }
   appendJournalEvent(event,options={}){
     if(!this.#db)fail('sqlite_profile_uninitialized');
-    return transaction(this.#db,()=>appendEvent(this.#db,event,this.worldProfileId,options));
+    return transaction(this.#db,()=>appendEvent(this.#db,event,this.worldProfileId,{...options,limits:this.#journalLimits}));
   }
   readVerifiedEventEvidence(scope){
     if(!this.#db)fail('sqlite_profile_uninitialized');
