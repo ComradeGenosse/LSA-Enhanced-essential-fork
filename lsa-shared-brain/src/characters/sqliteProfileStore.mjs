@@ -14,9 +14,6 @@ export class P2SqliteProfileStore {
   #db; #writer; #token; #initializing; #queue = Promise.resolve();
   #available = true; #closed = false; #timeline = new TimelineGuard();
   #sourceRequired; #sourceContext = null; #confirmedSource = null;
-  // Monotone revocation epoch: an operation admitted before source loss or a
-  // timeline selection cannot execute after later reauthorization (ABA).
-  #authorityGeneration = 0;
   constructor({ filePath, worldProfileId, legacyJsonPath = null, sourceRequired = false }) {
     if (typeof sourceRequired !== 'boolean') throw new TypeError('invalid_timeline_source_config');
     this.#sourceRequired = sourceRequired;
@@ -52,7 +49,6 @@ export class P2SqliteProfileStore {
   setVerifiedHostContext(context) {
     if (!this.#sourceRequired) return false;
     if (context === null) {
-      ++this.#authorityGeneration;
       this.#sourceContext = null;
       this.#confirmedSource = null;
       return false;
@@ -64,15 +60,9 @@ export class P2SqliteProfileStore {
       throw new TypeError('invalid_timeline_source_context');
     // Any host incarnation/epoch change requires a fresh explicit user
     // confirmation even when the stored active timeline id remains unchanged.
-    const sameSource = this.#sourceContext &&
-      this.#sourceKey(context) === this.#sourceKey(this.#sourceContext);
-    // A repeat sample from the SAME authenticated host does not retire queued
-    // work. Rebinding a changed host/epoch does, even if the same save is chosen.
-    if (!sameSource) {
-      ++this.#authorityGeneration;
+    if (!this.#sourceContext || this.#sourceKey(context) !== this.#sourceKey(this.#sourceContext))
       this.#confirmedSource = null;
-      this.#sourceContext = Object.freeze({hostRunId:context.hostRunId,worldEpoch:context.worldEpoch});
-    }
+    this.#sourceContext = Object.freeze({hostRunId:context.hostRunId,worldEpoch:context.worldEpoch});
     return true;
   }
   #serial(operation) {
@@ -198,38 +188,23 @@ export class P2SqliteProfileStore {
     return this.#serial(() => this.#db.listTimelines());
   }
   onBoundary(boundary) {
-    const reason=boundary?.reason;
-    const sourceLoss=['native_disconnect','unknown_source','source_change'].includes(reason);
-    const ambiguous=['clock_regression','timeline_change','save_fork','world_epoch'].includes(reason);
-    if(sourceLoss||ambiguous){
-      ++this.#authorityGeneration;
-      if(this.#sourceRequired)this.#confirmedSource=null;
-      if(sourceLoss)this.#sourceContext=null;
+    // Invalidate verified native source on any actual epoch transition; the
+    // next trusted hello/epoch establishes new provenance but not permission.
+    if (boundary?.reason === 'clock_regression' || boundary?.reason === 'timeline_change') {
+      if (this.#sourceRequired) this.#confirmedSource = null;
     }
-    // Keep innocuous host_reload as a no-op (M1 contract). Unsupported or
-    // ambiguous provenance boundaries cannot silently authorize new writes.
-    return this.#timeline.onBoundary({reason:sourceLoss||['save_fork','world_epoch'].includes(reason)
-      ? 'timeline_change' : reason});
+    return this.#timeline.onBoundary(boundary);
   }
-  async confirmTimeline(timelineId,{confirmation}={}) {
-    // For callers that pass an explicit selection token, never accept a
-    // mismatched token. Existing trusted editor/bootstrap callers use the
-    // legacy one-argument form; their authority boundary remains unchanged.
-    if(confirmation!==undefined&&confirmation!==timelineId)
-      fail('explicit_confirmation_required');
-    const expectedGeneration=this.#authorityGeneration;
-    const expectedContext=this.#sourceContext;
+  async confirmTimeline(timelineId) {
     await this.initialize();
     return this.#serial(() => {
-      if(this.#authorityGeneration!==expectedGeneration ||
-         this.#sourceContext!==expectedContext)fail('timeline_write_suspended');
       // Native/UX layer must ask the user when clock/save-lineage is ambiguous.
+      // Never auto-create/select from an unverified host assertion.
       // A user can select a timeline offline, but cannot enable provenance-
       // scoped writes until current native source exists and is verified.
       this.#db.activateTimeline(timelineId);
       this.#timeline.selectTimeline(timelineId);
       this.#confirmedSource = this.#sourceContext ? this.#sourceKey(this.#sourceContext) : null;
-      ++this.#authorityGeneration;
       return this.#timeline.activeTimelineId;
     });
   }
@@ -242,22 +217,12 @@ export class P2SqliteProfileStore {
   // invoking the durable commit. Profile/editor metadata remains global.
   async withTimelineWrite(timelineId, commit) {
     if (typeof commit !== 'function') throw new TypeError('invalid_timeline_operation');
-    // Capture at admission, BEFORE initialize/queue await. A revoked source
-    // cannot resurrect an already queued write under the same host/save.
-    const expectedGeneration=this.#authorityGeneration;
-    const expectedContext=this.#sourceContext;
     await this.initialize();
     return this.#serial(() => {
       if (!this.available) fail('profile_store_unavailable');
-      if(this.#authorityGeneration!==expectedGeneration ||
-         this.#sourceContext!==expectedContext)fail('timeline_write_suspended');
       this.assertTimelineWrite(timelineId);
       const result = commit(this.#db, this.#db.snapshot);
       if (result && typeof result.then === 'function') fail('timeline_write_async_not_supported');
-      // Legacy P2 methods can internally commit before returning. Their
-      // admission/execution generation checks occur above. Transactions through
-      // withP2SqliteTransaction additionally recheck INSIDE SQLite before
-      // the physical COMMIT, so those can still roll back source revocations.
       return result;
     });
   }
@@ -272,18 +237,11 @@ export class P2SqliteProfileStore {
   }
   async withP2SqliteRead(scope,operation) {
     if(typeof operation!=='function')throw new TypeError('p2_sqlite_callback_required');
-    const expectedGeneration=this.#authorityGeneration;
-    const expectedContext=this.#sourceContext;
     await this.initialize();
     return this.#serial(()=>{
       if(!this.available)fail('profile_store_unavailable');
-      if(this.#authorityGeneration!==expectedGeneration ||
-         this.#sourceContext!==expectedContext)fail('timeline_write_suspended');
       this.#assertMemoryScope(scope);
-      const result=this.#db.withP2SqliteRead(operation);
-      if(this.#authorityGeneration!==expectedGeneration ||
-         this.#sourceContext!==expectedContext)fail('timeline_write_suspended');
-      return result;
+      return this.#db.withP2SqliteRead(operation);
     });
   }
   async withP2SqliteTransaction(scope,operation) {
@@ -439,9 +397,11 @@ export class P2SqliteProfileStore {
   // M4 reads the actual committed v4 journal through the *same P2 database*
   // and serialized queue; no second SQLite connection or speculative FTS store.
   async readIntegratedRecall(query){
-    // No recall from a revoked host, unconfirmed save or different NPC.
-    // Reuse the same admission/serialized-execution fence as other P2 reads.
-    return this.withP2SqliteRead(query?.scope,()=>this.#db.readIntegratedRecall(query));
+    await this.initialize();
+    return this.#serial(()=>{
+      if(!this.available)fail('profile_store_unavailable');
+      return this.#db.readIntegratedRecall(query);
+    });
   }
   // Read-only M3 coverage projection. Writes are deliberately available only
   // via the verified binder -> recorder -> M1 fenced foundation port.
@@ -472,10 +432,6 @@ export class P2SqliteProfileStore {
   async claimCurationDue(args){
     const timelineId=this.activeTimelineId;
     return this.withTimelineWrite(timelineId,foundation=>foundation.claimCuration(args,timelineId));
-  }
-  async verifyCurationLease(args){
-    const timelineId=this.activeTimelineId;
-    return this.withTimelineWrite(timelineId,foundation=>foundation.verifyCurationLease(args,timelineId));
   }
   async completeCurationLease(args){
     const timelineId=this.activeTimelineId;
