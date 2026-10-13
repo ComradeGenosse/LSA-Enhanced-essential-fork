@@ -224,6 +224,7 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
     // Snapshot the old history first so the current utterance is not duplicated in
     // both the history and the current user message sent to Luna.
     const priorHistory = turn.priorHistory ?? history.readForSession(identity.pedId, identity.sessionNonce);
+    let durablePlayerReceipt = null;
     if (isPlayer) {
       // D-016 commit decision: the runtime irrevocably adopts these exact words
       // as this turn's player input (the single final STT result, or the typed
@@ -241,14 +242,24 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
       // M2: the RAM history is intentionally trimmed, but the immutable SQLite
       // journal receives the full accepted input with source attribution.
       if (committed && services.recordM2Player) {
-        try { await services.recordM2Player({turn,text:finalInput,source}); }
+        try { durablePlayerReceipt = await services.recordM2Player({turn,text:finalInput,source}); }
         catch { try { metrics?.event('memory_journal_not_committed', {role:'player'}); } catch {} }
       }
       metrics?.count(committed ? 'playerCommitted' : 'playerDuplicateCount');
       metrics?.event(committed ? 'player_history_committed' : 'history_duplicate_prevented', { role: 'user', inputChars: String(finalInput).length, ...(committed && acceptance ? { accepted: !!accepted } : {}) });
     }
+    // WS-6a/b: after the accepted player's durable D03 receipt, and before
+    // the model call, use the same P2 store/verified owner to prepare recall,
+    // journal CONVERSE and M5. Never infer a receipt from RAM history.
+    if(isPlayer && services.prepareLiveTurnMemory && durablePlayerReceipt?.durable===true){
+      try{
+        turn.memoryPrepared=await services.prepareLiveTurnMemory({
+          turn,acceptedReceipt:durablePlayerReceipt,input:finalInput,source,isCurrent:valid});
+      }catch{turn.memoryPrepared=null;}
+      check();
+    }
     transition('model_running');
-    if(services.finalizeKnowledgeFrame)turn.knowledgeProjection=services.finalizeKnowledgeFrame(turn,{input:finalInput,history:priorHistory,source});
+    if(services.finalizeKnowledgeFrame)turn.knowledgeProjection=await services.finalizeKnowledgeFrame(turn,{input:finalInput,history:priorHistory,source});
     turn.knowledgeDelivery?.watch(listener=>services.subscribeKnowledgeInvalidation?.(listener) ?? (()=>{}),error=>controller.abort(error));
     const recordReasoningSuccess=decision=>{check();turn.knowledgeDelivery?.success(decision);};
     let decision;
