@@ -46,9 +46,9 @@ async function command(x,operation,target,mode=null){
     targetRecordId:target.recordId,correctionMode:mode,subjectCertainty:operation==='correct'?'reported':null,
     requestedAtUtc:source.committedAtUtc});
 }
-async function reopened(x){
+async function reopened(x,journalLimits={}){
   await x.store.close();
-  const next=createP2MemoryStorage({filePath:x.filePath,worldProfileId});
+  const next=createP2MemoryStorage({filePath:x.filePath,worldProfileId,journalLimits});
   await next.initialize();
   return next;
 }
@@ -150,12 +150,11 @@ test('WS-4b actual P2 M3 event admission stops exactly at configured event cap a
   assert.equal((await x.store.appendJournalEvent(b)).inserted,false,'duplicate does not spend quota');
   await assert.rejects(x.store.appendJournalEvent(c),/sqlite_journal_character_event_cap/);
   assert.equal(x.store.durabilityStatus.warning,'sqlite_journal_character_event_cap');
-  const next=await reopened(x);
+  const next=await reopened(x,{events:2});
   try{
     assert.equal((await next.readJournalEvents(x.scope)).length,2);
-    // Production defaults always permit at least as much as the configured
-    // stricter test cap; cap persistence itself is a runtime policy, not DB state.
-    assert.equal((await next.appendJournalEvent(c)).inserted,true);
+    await assert.rejects(next.appendJournalEvent(c),/sqlite_journal_character_event_cap/);
+    assert.equal(next.durabilityStatus.warning,'sqlite_journal_character_event_cap');
   }finally{await next.close();}
 });
 test('WS-4b P2 byte and global limits fail closed with visible warning; original journal survives restart',async t=>{
@@ -167,9 +166,17 @@ test('WS-4b P2 byte and global limits fail closed with visible warning; original
   }
   assert.ok(committed>0&&committed<12);
   assert.equal(x.store.durabilityStatus.warning,'sqlite_journal_character_byte_cap');
-  const next=await reopened(x);
-  try{assert.equal((await next.readDialogueLines(x.scope)).length,committed);}
-  finally{await next.close();}
+  const next=await reopened(x,{characterBytes:1400});
+  try{
+    assert.equal((await next.readDialogueLines(x.scope)).length,committed);
+    const recorder=createConversationJournalRecorder(next);
+    await assert.rejects(recorder.recordPlayerAccepted({
+      characterId:x.scope.characterId,
+      identity:{pedId:31,turnId:'quota-after-restart',generationId:'g',sessionNonce:'session-a'},
+      text:'additional evidence '+('x'.repeat(130)),source:'typed',attribution:{protagonist:'franklin'}
+    }),/sqlite_journal_character_byte_cap/);
+    assert.equal(next.durabilityStatus.warning,'sqlite_journal_character_byte_cap');
+  }finally{await next.close();}
   const y=await setup(t,{globalBytes:1});
   await assert.rejects(y.player('cannot fit into one SQLite byte'),/sqlite_journal_global_byte_cap/);
   assert.equal(y.store.durabilityStatus.warning,'sqlite_journal_global_byte_cap');
