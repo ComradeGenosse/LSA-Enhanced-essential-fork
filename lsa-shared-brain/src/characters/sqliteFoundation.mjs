@@ -170,7 +170,7 @@ export async function inspectP2ReadOnlyRecovery({filePath,worldProfileId,scope=n
     fail('invalid_sqlite_profile_config');
   const folder=path.resolve(filePath)+'.snapshots';
   let files;
-  try{files=(await fs.readdir(folder)).filter(n=>/^(daily-\\d{4}-\\d\\d-\\d\\d|weekly-\\d{4}-W\\d\\d)\\.sqlite$/.test(n)).sort().reverse();}
+  try{files=(await fs.readdir(folder)).filter(n=>/^(daily-\d{4}-\d\d-\d\d|weekly-\d{4}-W\d\d)\.sqlite$/.test(n)).sort().reverse();}
   catch(e){if(e.code==='ENOENT')fail('sqlite_recovery_snapshot_unavailable');throw e;}
   for(const name of files){
     let db;
