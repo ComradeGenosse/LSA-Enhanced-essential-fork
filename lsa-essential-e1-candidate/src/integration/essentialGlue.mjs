@@ -153,12 +153,16 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
         presence:turn.sourcePresence,history,input,source,
         directorEventContext:turn.directorTicket && source==='special_event'
           ? turn.context.internalEvent:null};
-      const base=renderKnowledge({...args,includePerceived:false});
       const memory=turn.memoryPrepared;
+      // Once durable memory was prepared, revocation must never reintroduce
+      // forgotten journal text through the stale RAM history fallback.
+      const base=renderKnowledge({...args,history:memory?[]:history,includePerceived:false});
       const memoryReady=memory?.status==='ready'&&
         memory.recallCurrent?.([],memory.preparedRecall?.stamp)===true;
       const memoryArgs=memoryReady?{
         preparedRecall:memory.preparedRecall,
+        preparedM8:memory.preparedM8,
+        m8Authorization:prepared=>prepared===memory.preparedM8&&memoryReady,
         recallAuthorization:prepared=>prepared===memory.preparedRecall&&
           memory.recallCurrent([],prepared?.stamp)===true,
         conversationJournal:memory.conversationJournal,
@@ -200,16 +204,20 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
         assertOwnedKnowledgeCurrent(turn.knowledgeInputs,{identity:turn.identity,snapshot:turn.characterSnapshot,identityService,perception:runtime.intelligence?.runtime}) || assertKnowledgeItemsCurrent(turn.knowledgeInputs,frame,runtime.intelligence?.runtime)
       ) || ((frame.activityReferences?.length??0)>0?assertActivityKnowledgeCurrent(turn.knowledgeInputs.activityInputs,runtime.activities,frame.activityReferences):null) || ((frame.dialogueReferences?.length??0)>0?assertDialogueActionKnowledgeCurrent(turn.knowledgeInputs.dialogueInputs,runtime.activities,frame.dialogueReferences):null);
       turn.knowledgeDelivery=createKnowledgeDelivery({frame:selected,baseFrame:base,
-        recallCurrent:(refs,stamp)=>memoryReady&&memory.recallCurrent(refs,stamp),
-        memoryCurrent:stamp=>memoryReady&&memory.recallCurrent([],stamp),
+        verifyPrepared:()=>memory.verifyPrepared(),
+        recallCurrent:(refs,stamp)=>memoryReady&&memory.sendCurrent()&&memory.recallCurrent(refs,stamp),
+        memoryCurrent:stamp=>memoryReady&&memory.sendCurrent()&&memory.recallCurrent([],stamp),
+        opinionCurrent:(refs,stamp)=>memoryReady&&memory.opinionCurrent(refs,stamp),
+        pruneOpinion:frame=>pruneKnowledgeFrame(frame,()=>true,()=>true,()=>true,()=>true,()=>false),
         pruneRecall:frame=>pruneKnowledgeFrame(frame,()=>true,()=>true,()=>true,()=>false),
         isCurrent:()=>runtime.host.isCurrent(turn.identity) && (!identityService || identityService.current(turn.identity)),
         prune:frame=>(frame.memoryStamp &&
-          !(memoryReady&&memory.recallCurrent([],frame.memoryStamp)))?base:pruneKnowledgeFrame(frame,
+          !(memoryReady&&memory.sendCurrent()&&memory.recallCurrent([],frame.memoryStamp)))?base:pruneKnowledgeFrame(frame,
           item=>!validateKnowledge({delivery:[item]}),
           item=>!validateKnowledge({delivery:[],activityReferences:[item]}),
           item=>!validateKnowledge({delivery:[],dialogueReferences:[item]}),
-          ()=>memoryReady&&memory.recallCurrent([],memory.preparedRecall?.stamp)===true),
+          ()=>memoryReady&&memory.sendCurrent()&&memory.recallCurrent([],memory.preparedRecall?.stamp)===true,
+          (refs)=>memoryReady&&memory.opinionCurrent([refs],memory.preparedM8?.stamp)),
         validate:validateKnowledge,
         acknowledge:(key,consumer,outcome)=>{
           const salience=runtime.intelligence?.runtime.salience;

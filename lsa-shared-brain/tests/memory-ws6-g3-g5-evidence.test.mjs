@@ -15,6 +15,7 @@ function setup(){
  +'CREATE TABLE memory_tombstones(world_profile_id TEXT,character_id TEXT,timeline_id TEXT,target_id TEXT,command_id TEXT);'
  +'CREATE TABLE memory_corrections(command_id TEXT,world_profile_id TEXT,character_id TEXT,timeline_id TEXT,target_id TEXT,preferred_text TEXT,content_sha256 TEXT,created_at_utc TEXT,correction_mode TEXT);');
  ensureSuppressionSchema(db);
+ db.exec('ALTER TABLE dialogue_journal ADD COLUMN session_id TEXT; ALTER TABLE dialogue_journal ADD COLUMN host_run_id TEXT; ALTER TABLE dialogue_journal ADD COLUMN world_epoch INTEGER; ALTER TABLE dialogue_journal ADD COLUMN receipt_id TEXT;');
  const world=id(),timeline=id(),npc=id(),other=id();
  const source={hostRunId:id(),worldEpoch:1,ownerAlias:'nathan',
    incarnationId:id(),encounterId:id(),observerCaptureRef:id()};
@@ -38,9 +39,9 @@ function setup(){
     attribution:{protagonist:avatar},turnIdentityHash:sha(recordId),
     ...(speaker==='npc'?{deliveryReceiptId:id()}:{})};
    const raw=JSON.stringify(envelope);
-   db.prepare('INSERT INTO dialogue_journal VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)')
+   db.prepare('INSERT INTO dialogue_journal VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)')
     .run(recordId,world,characterId,timeline,avatar,speaker,src,delivery,content,
-      sha(content),raw,sha(raw),committedAtUtc,envelope.turnIdentityHash);
+      sha(content),raw,sha(raw),committedAtUtc,envelope.turnIdentityHash,id(),source.hostRunId,1,envelope.deliveryReceiptId??null);
    return envelope;
  };
  return {db,world,timeline,npc,other,source,scope,store,policy,add,

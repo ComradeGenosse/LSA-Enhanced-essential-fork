@@ -24,7 +24,7 @@ export const segmentedDecisionSchema = Object.freeze({
 // The original JSON object remains buffered and is strictly reconciled at EOF.
 export async function streamDecision({
   config, body, signal, timeoutMs = config.providerWorkDeadlineMs, fetchImpl = globalThis.fetch,
-  telemetry, onSegment = () => {}, dialogueAttempt, beforeRequest, maxSegments = 6, maxSegmentChars = 240, maxDialogueChars = 1200,
+  telemetry, onSegment = () => {}, dialogueAttempt, beforeRequest, verifyBeforeRequest, maxSegments = 6, maxSegmentChars = 240, maxDialogueChars = 1200,
 }) {
   if (!String(config.reasoningKey || '').trim()) throw new ProviderRequestError('The selected OpenAI credential is missing.', { code: 'missing_credential' });
   const decoder = createSegmentDecoder({ maxSegments, maxSegmentChars, maxDialogueChars });
@@ -43,6 +43,8 @@ export async function streamDecision({
     try { dialogueAttempt?.request(body); } catch {}
     const requestBody={...body,stream:true};
     if(jsonBytes(requestBody)>KNOWLEDGE_LIMITS.requestBytes)throw new RangeError('knowledge_request_bytes');
+    if(verifyBeforeRequest)await verifyBeforeRequest();
+    controller.signal.throwIfAborted();
     beforeRequest?.(requestBody);
     const response = await fetchImpl(endpoint(config.reasoningBaseUrl, 'responses'), {
       method: 'POST',
@@ -161,6 +163,7 @@ export async function streamDecision({
   } catch (error) {
     spanDone?.('failed', { code: /^[A-Za-z][A-Za-z0-9_]{0,63}$/.test(error?.code || '') ? error.code : 'provider_request_failed' });
     if (error instanceof ProviderRequestError) throw error;
+    if (error?.code === 'knowledge_request_stale') throw error;
     if (signal?.aborted) throw new ProviderRequestError('OpenAI streaming decision was cancelled.', { code: 'cancelled' });
     if (controller.signal.aborted) throw new ProviderRequestError('OpenAI streaming decision timed out.', { code: 'timeout' });
     throw new ProviderRequestError('OpenAI streaming decision could not be completed.', { code: 'network_error' });

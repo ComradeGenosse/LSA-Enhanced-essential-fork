@@ -2,15 +2,15 @@ import {createHash} from 'node:crypto';
 import {validateDecisionShape} from './essentialDecision.mjs';
 const hash=value=>createHash('sha256').update(JSON.stringify(value)).digest('hex');
 // Per-generation request state only; the existing salience ledger owns consumption.
-export function createKnowledgeDelivery({frame,baseFrame=frame,isCurrent,validate=()=>null,prune=frame=>frame,pruneRecall=null,recallCurrent=()=>false,pruneOpinion=null,opinionCurrent=()=>false,memoryCurrent=()=>true,acknowledge=()=>false,onOutcome=()=>{}}) {
+export function createKnowledgeDelivery({frame,baseFrame=frame,isCurrent,validate=()=>null,prune=frame=>frame,pruneRecall=null,recallCurrent=()=>false,pruneOpinion=null,opinionCurrent=()=>false,memoryCurrent=()=>true,verifyPrepared=null,acknowledge=()=>false,onOutcome=()=>{}}) {
  let projection=frame,sent=false,terminal=false,requestHash=null,projectionHash=null,unsubscribe=null;
  const dispose=()=>{unsubscribe?.();unsubscribe=null;};
  const hasOptional=()=>projection.delivery.length>0 || (projection.activityReferences?.length??0)>0 ||
  (projection.dialogueReferences?.length??0)>0 || !!projection.memoryStamp || (projection.recallReferences?.length??0)>0 ||
- (projection.opinionReferences?.length??0)>0;
+ (projection.opinionReferences?.length??0)>0 || !!projection.recallStamp;
  const recallFresh=()=>{try{return recallCurrent(projection.recallReferences??[],projection.recallStamp)===true;}catch{return false;}};
  const opinionFresh=()=>{try{return opinionCurrent(projection.opinionReferences??[],projection.opinionStamp)===true;}catch{return false;}};
- const currentReason=()=>!isCurrent()?'superseded':(projection.memoryStamp&&!memoryCurrent(projection.memoryStamp))?'memory_stale':(projection.recallReferences?.length&&!recallFresh())?'recall_stale':
+ const currentReason=()=>!isCurrent()?'superseded':(projection.memoryStamp&&!memoryCurrent(projection.memoryStamp))?'memory_stale':(projection.recallStamp&&!recallFresh())?'recall_stale':
  (projection.opinionReferences?.length&&!opinionFresh())?'opinion_stale':hasOptional()?validate(projection):null;
  const fail=reason=>{throw Object.assign(new Error('knowledge_request_stale'),{code:'knowledge_request_stale',reason});};
  const report=outcome=>{
@@ -21,6 +21,19 @@ export function createKnowledgeDelivery({frame,baseFrame=frame,isCurrent,validat
   try{onOutcome(result);}catch{}return result;
  };
  return Object.freeze({
+  async prepareAsync(){
+   if(projection.memoryStamp&&typeof verifyPrepared==='function'){
+    try{await verifyPrepared();}catch{}
+   }
+   return this.prepare();
+  },
+  async verifyBeforeRequest(){
+   if(projection.memoryStamp&&typeof verifyPrepared==='function'){
+    try{await verifyPrepared();}catch{}
+   }
+   // The request body is already composed. Never silently prune it here.
+   const reason=currentReason();if(reason)fail(reason);
+  },
   watch(subscribe,cancel){
    if(!hasOptional() || unsubscribe || terminal)return;
    try{unsubscribe=subscribe(()=>{
@@ -35,7 +48,7 @@ export function createKnowledgeDelivery({frame,baseFrame=frame,isCurrent,validat
    let reason=currentReason();
    // Unsent optional evidence can be wholly removed; a sent source must
    // abort even if the provider is retrying the very same request body.
-   for(let n=0;!sent&&n<2;n++){
+   for(let n=0;!sent&&n<3;n++){
      if(reason==='memory_stale'){projection=baseFrame;reason=currentReason();continue;}
      if(reason==='recall_stale'&&typeof pruneRecall==='function'){
        projection=pruneRecall(projection);reason=currentReason();continue;

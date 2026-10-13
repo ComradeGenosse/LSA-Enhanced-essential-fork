@@ -29,7 +29,7 @@ export function endpoint(baseUrl, route) {
   return `${base}/${suffix}`;
 }
 
-export async function requestJson({ fetchImpl = globalThis.fetch, url, key, body, signal, timeoutMs = 45_000, telemetry, operation = 'model', model, onRequest, beforeRequest }) {
+export async function requestJson({ fetchImpl = globalThis.fetch, url, key, body, signal, timeoutMs = 45_000, telemetry, operation = 'model', model, onRequest, beforeRequest, verifyBeforeRequest }) {
   if (typeof fetchImpl !== 'function') throw new TypeError('This Node runtime does not provide fetch.');
   if (!String(key || '').trim()) throw new ProviderRequestError('The selected OpenAI credential is missing.', { code: 'missing_credential' });
   const requestAbort = new AbortController();
@@ -43,6 +43,8 @@ export async function requestJson({ fetchImpl = globalThis.fetch, url, key, body
   try {
     requestAbort.signal.throwIfAborted();
     try { onRequest?.(body); } catch { /* Diagnostic capture cannot fail a provider request. */ }
+    if(verifyBeforeRequest)await verifyBeforeRequest();
+    requestAbort.signal.throwIfAborted();
     beforeRequest?.(body);
     const response = await fetchImpl(url, {
       method: 'POST',
@@ -62,6 +64,7 @@ export async function requestJson({ fetchImpl = globalThis.fetch, url, key, body
   } catch (error) {
     spanDone?.('failed', { code: safeCode(error?.code), httpStatus: Number.isInteger(error?.status) ? error.status : 0 });
     if (error instanceof ProviderRequestError) throw error;
+    if (error?.code === 'knowledge_request_stale') throw error;
     if (signal?.aborted) throw new ProviderRequestError('OpenAI request was cancelled.', { code: 'cancelled' });
     if (requestAbort.signal.aborted) throw new ProviderRequestError('OpenAI request timed out.', { code: 'timeout' });
     throw new ProviderRequestError('OpenAI request could not be completed.', { code: 'network_error' });

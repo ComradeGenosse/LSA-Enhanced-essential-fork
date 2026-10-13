@@ -59,11 +59,13 @@ function isQualifiedLine(row,scope,revoked){
     ['characterId','worldProfileId','timelineId'].some(k=>e[k]!==scope[k])||
     e.content!==row.content||e.speaker!==row.speaker||e.source!==row.source||
     e.delivery!==row.delivery||e.committedAtUtc!==row.atUtc||
-    e.attribution?.protagonist!==row.avatar||!HASH.test(e.turnIdentityHash)||
+    (e.attribution?.protagonist&&e.attribution.protagonist!==row.avatar)||!HASH.test(e.turnIdentityHash)||
+    !UUID.test(row.sessionId)||!UUID.test(row.hostRunId)||
+    !Number.isSafeInteger(row.worldEpoch)||row.worldEpoch<1||
     !['franklin','michael','trevor','unknown'].includes(row.avatar))return null;
   if(e.speaker==='player'&&e.delivery==='accepted'&&['typed','stt'].includes(e.source))
     return e;
-  if(e.speaker==='npc'&&e.delivery==='completed'&&e.source==='npc_generated'&&UUID.test(e.deliveryReceiptId))
+  if(e.speaker==='npc'&&e.delivery==='completed'&&e.source==='npc_generated'&&UUID.test(e.deliveryReceiptId)&&e.deliveryReceiptId===row.receiptId)
     return e;
   return null;
 }
@@ -78,7 +80,8 @@ function labelRow(row,scope){
   let category,content,sourceEvidenceIds=[];
   if(row.sourceKind==='dialogue_line'){
     if(!limitedText(e.content)||!HASH.test(e.turnIdentityHash)||row.atUtc!==e.committedAtUtc||
-       !AVATARS.has(e.attribution?.protagonist))return null;
+       !AVATARS.has(row.protagonistKey??e.attribution?.protagonist)||
+       e.attribution?.protagonist&&row.protagonistKey&&e.attribution.protagonist!==row.protagonistKey)return null;
     if(e.speaker==='player'&&e.delivery==='accepted'&&['typed','stt'].includes(e.source) ||
       e.speaker==='npc'&&e.delivery==='completed'&&e.source==='npc_generated'&&UUID.test(e.deliveryReceiptId)){
       category='exact_quote';content=e.content;
@@ -200,8 +203,10 @@ export function createRecallEvidencePolicy({store,isCurrent,verifyNativeNegative
    * on authenticated M2 dialogue. Semantic similarity and all-source/event
    * counts have NO exhaustive query today. Do not call a 384-row M4 page exact.
    */
-  async function countDialogue({scope,source,predicate={},maxScan=20000,maxBytes=4096}={}){
+  async function countDialogue({scope,source,predicate={},excludeRecordIds=[],maxScan=20000,maxBytes=4096}={}){
     assertScope(scope);
+    if(!Array.isArray(excludeRecordIds)||excludeRecordIds.length>1||
+       !excludeRecordIds.every(x=>UUID.test(x)))throw new TypeError('ws6_invalid_exclusion');
     if(!Number.isSafeInteger(maxScan)||maxScan<1||maxScan>20000||
        !Number.isSafeInteger(maxBytes)||maxBytes<512||maxBytes>8192)
       throw new TypeError('ws6_invalid_scan_or_output_budget');
@@ -227,7 +232,8 @@ export function createRecallEvidencePolicy({store,isCurrent,verifyNativeNegative
       // limit-selected prefix is complete. Existing SQL/P2 connection only.
       const sql='SELECT record_id AS recordId,content,content_sha256 AS contentHash,'+
         'envelope_json AS raw,envelope_sha256 AS rawHash,speaker,source,delivery,'+
-        'protagonist AS avatar,committed_at_utc AS atUtc FROM dialogue_journal WHERE '+where+
+        'protagonist AS avatar,session_id AS sessionId,host_run_id AS hostRunId,world_epoch AS worldEpoch,'+
+        'receipt_id AS receiptId,committed_at_utc AS atUtc FROM dialogue_journal WHERE '+where+
         ' ORDER BY committed_at_utc ASC,record_id ASC';
       let scanned=0,matched=0,first=null,last=null,best=null;
       const needle=containsText.toLocaleLowerCase('en-US');
@@ -237,7 +243,7 @@ export function createRecallEvidencePolicy({store,isCurrent,verifyNativeNegative
         if(!HASH.test(row.contentHash)||!HASH.test(row.rawHash)||
           sha(row.content)!==row.contentHash||sha(row.raw)!==row.rawHash)
           return incomplete('source_integrity_failure',best);
-        if(revoked.has(row.recordId))continue;
+        if(revoked.has(row.recordId)||excludeRecordIds.includes(row.recordId))continue;
         const evidence=isQualifiedLine(row,scope,revoked);
         if(!evidence){
           // Invalid status is non-evidence, but a malformed accepted/delivered
@@ -267,8 +273,10 @@ export function createRecallEvidencePolicy({store,isCurrent,verifyNativeNegative
     return outcome.ok?outcome.data:incomplete('source_revoked_or_read_failed');
   }
   /** Labels only P2-authenticated integrated projection rows, within PS4 budget. */
-  async function labelledEvidence({scope,source,sourceKind=null,terms=[],maxBytes=4096}={}){
+  async function labelledEvidence({scope,source,sourceKind=null,terms=[],recordIds=null,maxBytes=4096}={}){
     assertScope(scope);
+    if(recordIds!==null&&(!Array.isArray(recordIds)||recordIds.length>32||!recordIds.every(x=>UUID.test(x))))
+      throw new TypeError('ws6_invalid_label_ids');
     if(!Number.isSafeInteger(maxBytes)||maxBytes<256||maxBytes>8192)
       throw new TypeError('ws6_invalid_label_budget');
     if(!authorized(scope,source))return unavailable('source_revoked');
@@ -279,6 +287,7 @@ export function createRecallEvidencePolicy({store,isCurrent,verifyNativeNegative
       return unavailable('source_revoked_or_read_failed');
     const out=[],refs=[];let dropped=0;
     for(const row of read.data.rows){
+      if(recordIds!==null&&!recordIds.includes(row.recordId))continue;
       const item=labelRow(row,scope);
       if(!item){dropped++;continue;}
       if(out.some(x=>x.recordId===item.recordId)){dropped++;continue;}

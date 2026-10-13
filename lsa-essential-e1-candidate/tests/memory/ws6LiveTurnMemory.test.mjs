@@ -2,7 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
 import {assembleJournalConversation,prepareLiveTurnMemory} from '../../src/memory/liveTurnMemory.mjs';
-import {projectConversation} from '../../src/context/knowledgeRenderer.mjs';
+import {projectConversation,renderKnowledge,pruneKnowledgeFrame} from '../../src/context/knowledgeRenderer.mjs';
+import {createKnowledgeDelivery} from '../../src/context/knowledgeDelivery.mjs';
 
 const U=()=>randomUUID();
 const at='2026-10-13T14:00:00.000Z',before='2026-10-13T13:59:00.000Z';
@@ -121,4 +122,20 @@ test('WS-6a: source/timeline revocation during asynchronous read denies previous
   resume();
   const p=await promise;
   assert.equal(p.status,'unavailable');
+});
+
+test('WS6 count-only answer is source fenced and pruned even when no M4 item matched',()=>{
+ const base=renderKnowledge({input:'How many?',source:'player_text'});
+ const preparedRecall={status:'ready',stamp:{...scope},contribution:{contributor:'m4_recall',
+  lane:'RECALLED',status:'unavailable',items:[],unknownReason:'no_matches'},
+  answerEvidence:{dialogueCount:{status:'complete',exactCount:0,first:null,last:null,
+   predicate:{speaker:'player',containsText:'absent'}},negativeWitnessing:'unavailable'}};
+ const frame=renderKnowledge({input:'How many?',source:'player_text',preparedRecall,recallAuthorization:()=>true});
+ assert.equal(frame.recallReferences.length,0);assert.ok(frame.recallStamp);
+ assert.equal(JSON.parse(frame.modelAllocation.scene).lanes.RECALLED.answerEvidence.dialogueCount.exactCount,0);
+ const delivery=createKnowledgeDelivery({frame,baseFrame:base,isCurrent:()=>true,recallCurrent:()=>false,
+  pruneRecall:f=>pruneKnowledgeFrame(f,()=>true,()=>true,()=>true,()=>false)});
+ const pruned=delivery.prepare();
+ assert.equal(pruned.recallStamp,null);assert.equal(pruned.recallAnswerEvidence,false);
+ assert.equal(JSON.parse(pruned.modelAllocation.scene).lanes.RECALLED.answerEvidence,undefined);
 });

@@ -432,7 +432,20 @@ export function createD03OriginalDialogueJoin({store,backend,d02,originalActor,
     try{return memoryProof(read(player.text,player.source,memoryLease));}
     catch{return false;}
   }
-  return Object.freeze({acceptPlayer,recordNpcOutcome,openMemoryCurrent,verifyMemoryCurrent,retire:close});
+  // Read-only identity issued only by this accepted D01/D02 join. Consumers
+  // cannot supply their own nativeVerified flag or historical owner identity.
+  function memoryIdentity(){
+    if(!verifyMemoryCurrent())return null;
+    const x=read(player.text,player.source,memoryLease);
+    if(!memoryProof(x))return null;
+    return Object.freeze({...scope,...Object.fromEntries(NATIVE_KEYS.map(k=>[k,x.n[k]])),
+      protagonistKey:player.first.n.avatarKey,
+      turnId:journalIdentityUuid(['original-turn',...ID.map(k=>identity[k])]),
+      turnIdentityHash:journalTurnIdentityHash({characterId,timelineId:scope.timelineId,
+        speaker:'player',sessionId:player.origin.sessionId,hostRunId:player.origin.hostRunId,identity}),
+      nativeVerified:true,timelineWritable:true});
+  }
+  return Object.freeze({acceptPlayer,recordNpcOutcome,openMemoryCurrent,verifyMemoryCurrent,memoryIdentity,retire:close});
  }
  return Object.freeze({begin,sourceReady});
 }

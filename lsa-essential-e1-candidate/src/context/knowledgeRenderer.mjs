@@ -116,6 +116,21 @@ export function renderKnowledge({turn,frozenAt,profile,persistent=false,knowledg
   lanes.RECALLED.evidence=recall.evidence;
   lanes.RECALLED.earlierArchivedConversation=recall.earlierArchivedConversation;
  }
+ // G3/G5 summaries are optional typed evidence, sharing the original allocator.
+ // An incomplete result never has a numeric total or first/last assertion.
+ const answer=canAdmit?preparedRecall?.answerEvidence:null;
+ if(answer){
+  const count=answer.dialogueCount,witness=answer.witness;
+  const value={completeness:'bounded_recall_page',negativeWitnessing:'unavailable'};
+  if(count)value.dialogueCount=count.status==='complete'&&Number.isSafeInteger(count.exactCount)&&count.exactCount>=0
+    ?{status:'complete',querySemantics:'literal_substring',predicate:count.predicate,exactCount:count.exactCount,
+      first:count.first,last:count.last,best:count.best}
+    :{status:'incomplete',exactCount:null,first:null,last:null,reason:count.reason};
+  if(witness)value.witness={status:witness.status==='witnessed'?'witnessed':'unknown',
+    reason:witness.reason,evidenceIds:witness.status==='witnessed'?witness.evidenceIds:[]};
+  if(jsonBytes(value)>1536&&value.dialogueCount)delete value.dialogueCount.best;
+  if(jsonBytes(value)<=1536)lanes.RECALLED.answerEvidence=value;
+ }
  if(opinionReferences.length){
   lanes.RECALLED.characterOpinions=m8.characterOpinions;
   lanes.RECALLED.runningJokes=m8.runningJokes;
@@ -132,6 +147,7 @@ export function renderKnowledge({turn,frozenAt,profile,persistent=false,knowledg
   lanes.RECALLED[item.section].pop();return true;
  };
  // Unpinned M4 yields to P2 canon and pinned memory.
+ if(lanes.RECALLED.answerEvidence&&jsonBytes({SELF:lanes.SELF,RECALLED:lanes.RECALLED})>KNOWLEDGE_LIMITS.canonBytes)delete lanes.RECALLED.answerEvidence;
  while(opinionReferences.length&&jsonBytes({SELF:lanes.SELF,RECALLED:lanes.RECALLED})>KNOWLEDGE_LIMITS.canonBytes)dropOpinion();
  while(recallReferences.length&&jsonBytes({SELF:lanes.SELF,RECALLED:lanes.RECALLED})>KNOWLEDGE_LIMITS.canonBytes)dropRecall();
  if(jsonBytes({SELF:lanes.SELF,RECALLED:lanes.RECALLED})>KNOWLEDGE_LIMITS.canonBytes) {
@@ -149,6 +165,7 @@ export function renderKnowledge({turn,frozenAt,profile,persistent=false,knowledg
  let frameBudgetDrops=0;
  const allocation=()=>({scene:JSON.stringify({frameVersion:1,lanes}),messages:conversation.messages});
  const oversized=()=>jsonBytes(allocation())>KNOWLEDGE_LIMITS.frameBytes;
+ if(oversized())delete lanes.RECALLED.answerEvidence;
  const dropObservation=index=>{lanes.PERCEIVED.observations.splice(index,1);delivery.splice(index,1);omissions.budget_excluded++;frameBudgetDrops++;};
  // Preserve compact safety evidence before optional history/environment/affordance
  // detail. Every evidence or memory removal is whole and deterministic.
@@ -171,7 +188,8 @@ export function renderKnowledge({turn,frozenAt,profile,persistent=false,knowledg
  if(bytes>KNOWLEDGE_LIMITS.frameBytes)throw new RangeError('knowledge_frame_bytes');
  const perLane=Object.fromEntries(Object.entries(lanes).map(([name,value])=>[name,jsonBytes(value)]));perLane.CONVERSE=jsonBytes(conversation.messages);
  return immutableSnapshot({frameVersion:1,turn,frozenAt,modelAllocation,delivery,memoryStamp,recallReferences,
-  recallStamp:recallReferences.length?preparedRecall.stamp:null,opinionReferences,
+  recallStamp:recallReferences.length||lanes.RECALLED.answerEvidence?preparedRecall.stamp:null,
+  recallAnswerEvidence:!!lanes.RECALLED.answerEvidence,opinionReferences,
   opinionStamp:opinionReferences.length?preparedM8.stamp:null,memoryIds:memories.slice(0,lanes.RECALLED.memories.length).map(memory=>memory.memoryId),activityReferences,dialogueReferences,diagnostics:{bytes,perLane,droppedActivityFactCount,droppedDialogueReceiptCount,capture:knowledgeInputs?.captureDiagnostics??null,safetyBudget:perceived.safetyBudget,omissions,frameBudgetDrops,droppedHistoryCount:conversation.droppedHistoryCount,droppedRecallCount:recall.dropped+recall.references.length-recallReferences.length,droppedOpinionCount:m8.dropped+m8.references.length-opinionReferences.length,droppedMemoryCount:canonProjection.droppedMemoryCount+memories.length-lanes.RECALLED.memories.length}});
 
 }
@@ -185,8 +203,10 @@ export function pruneKnowledgeFrame(frame,keep,keepActivity=()=>true,keepDialogu
  const dialogueRetained=(frame.dialogueReferences??[]).map((item,index)=>keepDialogue(item)?index:null).filter(index=>index!==null);
  const recallRetained=(frame.recallReferences??[]).map((item,index)=>keepRecall(item)?index:null).filter(index=>index!==null);
  const opinionRetained=(frame.opinionReferences??[]).map((item,index)=>keepOpinion(item)?index:null).filter(index=>index!==null);
- if(retained.length===frame.delivery.length && activityRetained.length===(frame.activityReferences?.length??0) && dialogueRetained.length===(frame.dialogueReferences?.length??0) && recallRetained.length===(frame.recallReferences?.length??0) && opinionRetained.length===(frame.opinionReferences?.length??0))return frame;
+ const retainAnswer=frame.recallAnswerEvidence===true&&keepRecall({section:'answerEvidence',stamp:frame.recallStamp});
+ if(retained.length===frame.delivery.length && activityRetained.length===(frame.activityReferences?.length??0) && dialogueRetained.length===(frame.dialogueReferences?.length??0) && recallRetained.length===(frame.recallReferences?.length??0) && opinionRetained.length===(frame.opinionReferences?.length??0) && retainAnswer===(frame.recallAnswerEvidence===true))return frame;
  const scene=JSON.parse(frame.modelAllocation.scene);
+ if(!retainAnswer)delete scene.lanes.RECALLED.answerEvidence;
  scene.lanes.PERCEIVED.observations=retained.map(index=>scene.lanes.PERCEIVED.observations[index]);
  if(frame.recallReferences?.length){
   const kept=new Set(recallRetained),bySection={evidence:[],earlierArchivedConversation:[]},positions={evidence:0,earlierArchivedConversation:0};
@@ -208,7 +228,7 @@ export function pruneKnowledgeFrame(frame,keep,keepActivity=()=>true,keepDialogu
  const modelAllocation={...frame.modelAllocation,scene:JSON.stringify(scene)};
  return immutableSnapshot({...frame,modelAllocation,delivery:retained.map(index=>frame.delivery[index]),
   recallReferences:recallRetained.map(index=>frame.recallReferences[index]),
-  recallStamp:recallRetained.length?frame.recallStamp:null,
+  recallStamp:recallRetained.length||retainAnswer?frame.recallStamp:null,recallAnswerEvidence:retainAnswer,
   opinionReferences:opinionRetained.map(index=>frame.opinionReferences[index]),
   opinionStamp:opinionRetained.length?frame.opinionStamp:null,...(frame.activityReferences?{activityReferences:activityRetained.map(index=>frame.activityReferences[index])}:{}),...(frame.dialogueReferences?{dialogueReferences:dialogueRetained.map(index=>frame.dialogueReferences[index])}:{}),diagnostics:{...frame.diagnostics,staleDialogueReceiptDrops:(frame.diagnostics.staleDialogueReceiptDrops??0)+(frame.dialogueReferences?.length??0)-dialogueRetained.length,bytes:jsonBytes(modelAllocation),perLane:{...frame.diagnostics.perLane,PERCEIVED:jsonBytes(scene.lanes.PERCEIVED),SELF:jsonBytes(scene.lanes.SELF),RECALLED:jsonBytes(scene.lanes.RECALLED)},
   staleRecallDrops:(frame.diagnostics.staleRecallDrops??0)+(frame.recallReferences?.length??0)-recallRetained.length,staleOpinionDrops:(frame.diagnostics.staleOpinionDrops??0)+(frame.opinionReferences?.length??0)-opinionRetained.length,staleActivityFactDrops:(frame.diagnostics.staleActivityFactDrops??0)+(frame.activityReferences?.length??0)-activityRetained.length,staleObservationDrops:(frame.diagnostics.staleObservationDrops??0)+frame.delivery.length-retained.length}});

@@ -97,10 +97,17 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
   const abortListener = () => chooseTerminal(terminalForAbort(controller.signal));
   controller.signal.addEventListener('abort', abortListener, { once: true });
   const performProvider = (operation, provider, run, canRetry = () => true) => {
+    const attempt=async options=>{
+      if(operation==='model'&&turn.knowledgeDelivery?.prepareAsync){
+        turn.knowledgeProjection=await turn.knowledgeDelivery.prepareAsync();
+        check();
+      }
+      return run(options);
+    };
     if (!services.executeProvider) {
       const attemptId = `${operation}:1`;
       const dialogueAttempt = dialogueTurn?.beginAttempt({ operation, attemptId, isActive: valid });
-      return Promise.resolve().then(() => run({ signal: controller.signal, timeoutMs: workDeadlineMs, telemetry: metrics, isActive: valid, attemptId, dialogueAttempt }))
+      return Promise.resolve().then(() => attempt({ signal: controller.signal, timeoutMs: workDeadlineMs, telemetry: metrics, isActive: valid, attemptId, dialogueAttempt }))
         .then(result => { dialogueAttempt?.finish({ outcome: 'completed', complete: true }); return result; }, error => { dialogueAttempt?.finish({ outcome: controller.signal.aborted ? 'cancelled' : 'failed', code: error?.code || null, httpStatus: error?.status || null }); throw error; });
     }
     return services.executeProvider({
@@ -109,7 +116,7 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
       dialogueTrace: dialogueTurn,
       run: ({ signal, timeoutMs, telemetry, isActive, attemptId, dialogueAttempt }) => {
         if (!isActive()) throw new Error('provider_attempt_inactive');
-        return run({ signal, timeoutMs, telemetry, isActive, attemptId, dialogueAttempt });
+        return attempt({ signal, timeoutMs, telemetry, isActive, attemptId, dialogueAttempt });
       },
     });
   };

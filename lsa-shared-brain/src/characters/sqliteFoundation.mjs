@@ -169,6 +169,13 @@ export class P2SqliteFoundation {
     this.legacyJsonPath=legacyJsonPath?path.resolve(legacyJsonPath):null;
   }
   get initialized() {return !!this.#db;}
+  // Synchronous read fence on the ONE connection: total_changes also changes
+  // after rolled-back writes; data_version detects any external connection.
+  get readFence() {
+    if(!this.#db)return null;
+    return this.#db.prepare('SELECT total_changes() AS changes').get().changes+':'+
+      this.#db.prepare('PRAGMA data_version').get().data_version;
+  }
   get snapshot(){if(!this.#snapshot)fail('sqlite_profile_uninitialized');return this.#snapshot;}
   async initialize() {return this.#init ||= this.#initialize();}
   async #initialize() {

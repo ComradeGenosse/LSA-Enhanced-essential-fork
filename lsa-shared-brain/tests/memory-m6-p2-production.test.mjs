@@ -184,7 +184,9 @@ test('W06 A06: CAS fails on missing queue, source deletion, hash corruption and 
     await assert.rejects(x.store.readM6JournalPage({scope,
       afterCursor:(await x.store.readM6Checkpoint({scope})).cursor}),/m6_p2_source_hash_corrupt/);
     x.store.onBoundary({reason:'clock_regression'});
-    await assert.rejects(x.store.readM6Checkpoint({scope}),/timeline_write_suspended|timeline/);
+    // A discontinuity revokes native source confirmation before the timeline
+    // read is admitted. The earlier native-authority rejection is authoritative.
+    await assert.rejects(x.store.readM6Checkpoint({scope}),/m6_native_authority_required/);
   }finally{await x.store.close();}
 });
 

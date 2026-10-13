@@ -2,6 +2,13 @@ name: Memory K WS-6 live recall and journal conversation (offline, not GTA)
 on:
   pull_request:
     paths:
+      - 'lsa-essential-e1-candidate/src/context/**'
+      - 'lsa-essential-e1-candidate/src/openai/**'
+      - 'lsa-essential-e1-candidate/tests/memory/ws6ProductionPipeline.test.mjs'
+      - 'lsa-essential-e1-candidate/tests/memory/ws6Latency.test.mjs'
+      - 'lsa-shared-brain/src/characters/sqliteFoundation.mjs'
+      - 'lsa-shared-brain/src/characters/sqliteProfileStore.mjs'
+      - 'lsa-shared-brain/tests/memory-m6-p2-production.test.mjs'
       - 'lsa-essential-e1-candidate/src/memory/liveTurnMemory.mjs'
       - 'lsa-essential-e1-candidate/src/memory/d03OriginalDialogueJoin.mjs'
       - 'lsa-essential-e1-candidate/src/integration/essentialGlue.mjs'
@@ -31,6 +38,8 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
@@ -47,7 +56,15 @@ jobs:
         run: node --test --test-concurrency=1 lsa-essential-e1-candidate/tests/memory/ws6LiveTurnMemory.test.mjs
       - name: Original-backed two-turn SQLite to model-frame positive acceptance
         run: node --test --test-concurrency=1 lsa-essential-e1-candidate/tests/memory/ws6OriginalRunner.test.mjs
+      - name: Original runner PS4 M8 G3 G4 G5, privacy and JSON/streaming request and retry races
+        run: node --test --test-concurrency=1 lsa-essential-e1-candidate/tests/memory/ws6ProductionPipeline.test.mjs
+      - name: Disk-backed busy 10k cold/restart M4 budget and production latency measurements
+        run: node --test --test-concurrency=1 lsa-essential-e1-candidate/tests/memory/ws6Latency.test.mjs
       - name: Agent A+B jointly source-fenced SQLite M8 G3 G4 G5 and M4 regression
         run: node --test --test-concurrency=1 lsa-essential-e1-candidate/tests/memory/ws6M8ProductionRead.test.mjs lsa-shared-brain/tests/memory-ws6-g3-g5-evidence.test.mjs lsa-shared-brain/tests/memory-m4-recall.test.mjs lsa-shared-brain/tests/memory-m8-closure.test.mjs
       - name: D03, WS-5a and native acceptance regressions
         run: node --test --test-concurrency=1 lsa-essential-e1-candidate/tests/memory/d03OriginalDialogueJoin.test.mjs lsa-essential-e1-candidate/tests/memory/ws5aNpcDialogueCapture.test.mjs lsa-essential-e1-candidate/tests/memory/d01OpenAIAcceptance.test.mjs
+      - name: Shared memory storage and source authority regression
+        run: node --test --test-concurrency=1 lsa-shared-brain/tests/*.test.mjs
+      - name: PS4 provider M1 M3 M4 M5 regression
+        run: node --test --test-concurrency=1 lsa-essential-e1-candidate/tests/knowledge*.test.mjs lsa-essential-e1-candidate/tests/m1*.test.mjs lsa-essential-e1-candidate/tests/m2-journal.test.mjs lsa-essential-e1-candidate/tests/m3*.test.mjs lsa-essential-e1-candidate/tests/memory-k-w0*.test.mjs lsa-essential-e1-candidate/tests/memory-m4-closure.test.mjs lsa-essential-e1-candidate/tests/m5-explicit-memory-commands.test.mjs lsa-essential-e1-candidate/tests/openai-transport.test.mjs
