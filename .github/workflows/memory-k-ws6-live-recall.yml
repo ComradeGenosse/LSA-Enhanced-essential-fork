@@ -8,6 +8,8 @@ on:
       - 'lsa-essential-e1-candidate/src/context/knowledgeRenderer.mjs'
       - 'lsa-essential-e1-candidate/src/openai/runSequentialTurn.mjs'
       - 'lsa-essential-e1-candidate/tests/memory/ws6LiveTurnMemory.test.mjs'
+      - 'lsa-essential-e1-candidate/tests/memory/ws6OriginalRunner.test.mjs'
+      - 'lsa-essential-e1-candidate/src/context/knowledgeDelivery.mjs'
       - '.github/workflows/memory-k-ws6-live-recall.yml'
   workflow_dispatch:
 permissions:
@@ -35,5 +37,7 @@ jobs:
           node --check lsa-essential-e1-candidate/src/openai/runSequentialTurn.mjs
       - name: WS-6 evidence/CONVERSE and source revocation
         run: node --test --test-concurrency=1 lsa-essential-e1-candidate/tests/memory/ws6LiveTurnMemory.test.mjs
+      - name: Original-backed two-turn SQLite to model-frame positive acceptance
+        run: node --test --test-concurrency=1 lsa-essential-e1-candidate/tests/memory/ws6OriginalRunner.test.mjs
       - name: D03, WS-5a and native acceptance regressions
         run: node --test --test-concurrency=1 lsa-essential-e1-candidate/tests/memory/d03OriginalDialogueJoin.test.mjs lsa-essential-e1-candidate/tests/memory/ws5aNpcDialogueCapture.test.mjs lsa-essential-e1-candidate/tests/memory/d01OpenAIAcceptance.test.mjs
