@@ -25,3 +25,11 @@ This revision stays on PR #160 against #138 and uses PR #158's modular activatio
 Focused policy tests cover the closed catalog, unsupported modes, independent requests, player/NPC asymmetry, PS2/M3/PS6, M6/M7/M9, legacy defaults and read-only bootstrap diagnostics. Existing D01/D02/D03 and single-writer P2 flows are not modified. Full original S01–S10, exact-head CI, native/build, physical GTA, and soak acceptance remain independent release gates for #138. Existing unrelated release-gate failures must be reported, not suppressed.
 
 **Workstream C remains required before actual modular off/shadow/on operation can be claimed.**
+
+## Follow-up dependency review fixes — PR #160
+
+- D02 owner/player proof (`authority.d02`) and M3 witness/source-time authority (`authority.witness`) are separate, mandatory prerequisites for their respective consumers. M3 and authenticated coverage are not suppressed merely because D02 has not registered. Their runtime proof is always unverified without genuine evidence.
+- PS2 observations require PS1-qualified producer signals; M3 event capture requires both PS1 and accepted PS2, with no PS3-notability dependency. This is policy only: the current ShadowRuntime still couples PS1/PS2/PS3 operationally until Workstream C.
+- The sole model-facing PS4 assembler (`ps4.assembler`) is an always-required prerequisite, distinct from `ps4.perceived` (which needs PS3). M9 callbacks require the assembler, committed M3 evidence, PS3 and PS6; they do not require optional PERCEIVED contributions.
+- Required dependency requests must have compatible modes: an `on` consumer cannot rely on a `shadow` producer. A `shadow` consumer can request a shadow or on upstream input, but this is still *intent*, not proof of shadow safety or working runtime isolation.
+- Additional tests cover asymmetric D02/M3 registration, PS4 callback independence and incompatibility paths. The new probes remain read-only and do not grant authority, register callbacks or enable workers.

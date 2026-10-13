@@ -8,20 +8,26 @@ export const MEMORY_K_MODES = Object.freeze(['off', 'shadow', 'on']);
 const rows = [
   { id:'source.core', modes:['on'], kind:'prerequisite', dependencies:[], support:'conditional', reason:'authenticated_source_unavailable' },
   { id:'p2.sqlite', modes:['on'], kind:'prerequisite', dependencies:[], support:'conditional', reason:'sqlite_store_unavailable' },
-  { id:'authority.native', modes:['on'], kind:'prerequisite', dependencies:['source.core'], support:'conditional', reason:'native_authority_unavailable' },
+  // D02 proves current player/owner identity for accepted dialogue; M3 independently
+  // verifies source-time witness ownership. Neither is a substitute for the other.
+  { id:'authority.d02', modes:['on'], kind:'prerequisite', dependencies:['source.core'], support:'conditional', reason:'d02_owner_authority_unavailable' },
+  { id:'authority.witness', modes:['on'], kind:'prerequisite', dependencies:['source.core'], support:'conditional', reason:'m3_witness_authority_unavailable' },
   { id:'privacy.core', modes:['on'], kind:'prerequisite', dependencies:['p2.sqlite'], support:'conditional', reason:'mandatory_privacy_unavailable' },
   { id:'ps1.producers', modes:['off','shadow','on'], dependencies:['source.core'], support:'conditional', reason:'producer_runtime_unavailable' },
-  { id:'ps2.observations', modes:['off','shadow','on'], dependencies:['source.core'], support:'conditional', reason:'observation_runtime_unavailable' },
+  // Accepted PS2 observations require PS1-qualified native signals, not SQLite.
+  { id:'ps2.observations', modes:['off','shadow','on'], dependencies:['ps1.producers'], support:'conditional', reason:'observation_runtime_unavailable' },
   { id:'ps3.salience', modes:['off','shadow','on'], dependencies:['ps2.observations'], support:'conditional', reason:'salience_runtime_unavailable' },
-  { id:'ps4.perceived', modes:['off','shadow','on'], dependencies:['source.core'], support:'conditional', reason:'ps4_contributor_unavailable' },
-  { id:'ps6.speech', modes:['off','shadow','on'], dependencies:['ps2.observations','ps3.salience'], support:'conditional', reason:'native_speech_admission_unavailable' },
-  { id:'memory.dialogue.player', modes:['off','on'], dependencies:['source.core','p2.sqlite','authority.native','privacy.core'], support:'conditional', reason:'accepted_player_capture_unavailable' },
+  // PS4's single assembler remains mandatory; PERCEIVED is only one optional lane.
+  { id:'ps4.assembler', modes:['on'], kind:'prerequisite', dependencies:[], support:'conditional', reason:'sole_ps4_assembler_unavailable' },
+  { id:'ps4.perceived', modes:['off','shadow','on'], dependencies:['ps3.salience','ps4.assembler'], support:'conditional', reason:'ps4_perceived_contributor_unavailable' },
+  { id:'ps6.speech', modes:['off','shadow','on'], dependencies:['ps2.observations','ps3.salience','ps4.assembler'], support:'conditional', reason:'native_speech_admission_unavailable' },
+  { id:'memory.dialogue.player', modes:['off','on'], dependencies:['source.core','p2.sqlite','authority.d02','privacy.core'], support:'conditional', reason:'accepted_player_capture_unavailable' },
   // D03 recordNpcOutcome refuses d03_no_durable_player_line for this reply.
   { id:'memory.dialogue.npc', modes:['off','on'], dependencies:['memory.dialogue.player'], support:'conditional', reason:'npc_delivery_capture_unavailable' },
   // PS2 accepts mundane observations without PS3/notability entitlement.
-  { id:'memory.events', modes:['off','shadow','on'], dependencies:['ps2.observations','p2.sqlite','authority.native','privacy.core'], support:'conditional', reason:'witnessed_event_intake_unavailable' },
+  { id:'memory.events', modes:['off','shadow','on'], dependencies:['ps1.producers','ps2.observations','p2.sqlite','authority.witness','privacy.core'], support:'conditional', reason:'witnessed_event_intake_unavailable' },
   // Authenticated coverage is independent of positive event journaling.
-  { id:'memory.coverage', modes:['off','shadow','on'], dependencies:['source.core','p2.sqlite','authority.native','privacy.core'], support:'conditional', reason:'coverage_tracker_unavailable' },
+  { id:'memory.coverage', modes:['off','shadow','on'], dependencies:['source.core','p2.sqlite','authority.witness','privacy.core'], support:'conditional', reason:'coverage_tracker_unavailable' },
   { id:'memory.promotionGrace', modes:['off','shadow','on'], dependencies:['memory.events'], support:'absent', reason:'promotion_grace_not_registered' },
   { id:'memory.journalContext', modes:['off','shadow','on'], dependencies:['memory.dialogue.player'], support:'conditional', reason:'journal_context_unavailable' },
   // These are LIVE turn contributors. Offline retained-data queries are separate.
@@ -32,7 +38,9 @@ const rows = [
   // M7 consumes *existing* authorized queue entries without M6 scheduling.
   { id:'memory.cloudCuration', modes:['off','on'], dependencies:['source.core','p2.sqlite','privacy.core'], support:'absent', reason:'production_worker_not_registered' },
   { id:'memory.interpretation', modes:['off','shadow','on'], dependencies:['p2.sqlite','privacy.core'], support:'conditional', reason:'interpretation_reader_unavailable' },
-  { id:'memory.callbacks', modes:['off','shadow','on'], dependencies:['memory.events','ps3.salience','ps4.perceived','ps6.speech'], support:'absent', reason:'production_callback_not_registered' },
+  // Callback admission needs the existing single PS4 assembler, NOT the optional
+  // PERCEIVED lane. M3 committed evidence, PS3 grant and PS6 remain required.
+  { id:'memory.callbacks', modes:['off','shadow','on'], dependencies:['memory.events','ps3.salience','ps4.assembler','ps6.speech'], support:'absent', reason:'production_callback_not_registered' },
   { id:'memory.inspector', modes:['off','on'], dependencies:['p2.sqlite','privacy.core'], support:'absent', reason:'learned_memory_inspector_not_implemented' },
   // M9 source producers are independent of M3 consumer registration.
   { id:'events.rollover', modes:['off','shadow','on'], dependencies:['source.core'], support:'absent', reason:'native_producer_not_in_production_build' },
@@ -85,16 +93,27 @@ export function resolveMemoryKCapabilities({config = {}, available = {}} = {}) {
     const prerequisite = descriptor.kind === 'prerequisite';
     const requestedMode = prerequisite ? 'on' : (requests[id] ?? 'off');
     const dependencies = descriptor.dependencies.map(resolve);
-    const missingDependencies = dependencies
-      .filter(row => row.requestedMode === 'off' || row.state === 'blocked' || row.state === 'unavailable')
-      .map(row => row.id);
+    // On consumers cannot rely on shadow-only upstream previews: these have
+    // no production mutation, native admission or model-visible contribution.
+    // Shadow consumers can use shadow or on inputs, but neither mode is proof
+    // of effective operation (that remains Workstream C's responsibility).
+    const missingDependencyRows = dependencies.filter(row =>
+      row.requestedMode === 'off' || row.state === 'blocked' ||
+      row.state === 'unavailable' ||
+      (requestedMode === 'on' && row.requestedMode === 'shadow'));
+    const missingDependencies = missingDependencyRows.map(row => row.id);
     const registration = registrationStatus(available[id]);
     const implementationStatus = descriptor.support === 'absent' ? 'absent' : 'candidate_unverified';
     const requested = requestedMode !== 'off';
     const blockers = [];
     if (requested) {
       if (implementationStatus === 'absent') blockers.push(descriptor.reason);
-      for (const dep of missingDependencies) blockers.push(`dependency_not_requested_or_available:${dep}`);
+      for (const dep of missingDependencyRows) {
+        if (requestedMode === 'on' && dep.requestedMode === 'shadow')
+          blockers.push(`dependency_mode_incompatible:${dep.id}:requires_on`);
+        if (dep.requestedMode === 'off' || dep.state === 'blocked' || dep.state === 'unavailable')
+          blockers.push(`dependency_not_requested_or_available:${dep.id}`);
+      }
       if (registration === 'missing') blockers.push(`runtime_seam_missing:${id}`);
       else if (registration === 'unverified') blockers.push(`runtime_registration_unverified:${id}`);
       // Even registered seams do not prove current source, writer or owner health.
@@ -102,8 +121,12 @@ export function resolveMemoryKCapabilities({config = {}, available = {}} = {}) {
         blockers.push('source_freshness_unverified');
       if (descriptor.dependencies.includes('p2.sqlite') || id === 'p2.sqlite')
         blockers.push('sqlite_writer_health_unverified','timeline_confirmation_unverified');
-      if (descriptor.dependencies.includes('authority.native') || id === 'authority.native')
+      if (descriptor.dependencies.includes('authority.d02') || id === 'authority.d02')
         blockers.push('native_owner_proof_unverified');
+      if (descriptor.dependencies.includes('authority.witness') || id === 'authority.witness')
+        blockers.push('native_witness_proof_unverified');
+      if (descriptor.dependencies.includes('ps4.assembler') || id === 'ps4.assembler')
+        blockers.push('sole_ps4_assembly_unverified');
       if (descriptor.dependencies.includes('privacy.core') || id === 'privacy.core')
         blockers.push('privacy_enforcement_unverified');
       if (id === 'memory.dialogue.player') blockers.push('d01_acceptance_unverified','d03_durable_line_unverified');

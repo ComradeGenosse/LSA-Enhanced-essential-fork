@@ -19,7 +19,19 @@ test('closed capability catalog, unsupported modes, and minimal graph', () => {
     assert.ok(row.modes.length);
     for (const dep of row.dependencies) assert.ok(ids[dep],`${row.id} -> ${dep}`);
   }
-  assert.deepEqual(ids['ps2.observations'].dependencies,['source.core']);
+  assert.deepEqual(ids['ps2.observations'].dependencies,['ps1.producers']);
+  assert.deepEqual(ids['authority.d02'].dependencies,['source.core']);
+  assert.deepEqual(ids['authority.witness'].dependencies,['source.core']);
+  assert.ok(ids['memory.dialogue.player'].dependencies.includes('authority.d02'));
+  assert.ok(!ids['memory.dialogue.player'].dependencies.includes('authority.witness'));
+  assert.ok(ids['memory.events'].dependencies.includes('authority.witness'));
+  assert.ok(!ids['memory.events'].dependencies.includes('authority.d02'));
+  assert.ok(ids['memory.coverage'].dependencies.includes('authority.witness'));
+  assert.ok(ids['memory.events'].dependencies.includes('ps1.producers'));
+  assert.ok(ids['ps4.perceived'].dependencies.includes('ps3.salience'));
+  assert.ok(ids['ps4.perceived'].dependencies.includes('ps4.assembler'));
+  assert.ok(ids['memory.callbacks'].dependencies.includes('ps4.assembler'));
+  assert.ok(!ids['memory.callbacks'].dependencies.includes('ps4.perceived'));
   assert.ok(!ids['ps1.producers'].dependencies.includes('p2.sqlite'));
   assert.ok(!ids['ps6.speech'].dependencies.includes('privacy.core'));
   assert.ok(!ids['ps6.speech'].dependencies.includes('p2.sqlite'));
@@ -73,14 +85,87 @@ test('NPC reply requires the durable player line, but player capture can stand a
 });
 
 test('ordinary perception and M3 do not inherit unrelated SQLite/privacy or PS3 dependencies', () => {
-  const state=resolve({'ps2.observations':'on','memory.events':'on'});
+  const state=resolve({'ps1.producers':'on','ps2.observations':'on','memory.events':'on'});
   assert.equal(state['ps2.observations'].state,'unverified');
   assert.equal(state['memory.events'].state,'unverified');
   assert.ok(!state['memory.events'].missingDependencies.includes('ps3.salience'));
   assert.ok(state['memory.events'].blockers.includes('ps2_accepted_observation_unverified'));
-  const speech=resolve({'ps2.observations':'on','ps3.salience':'on','ps6.speech':'on'});
+  const speech=resolve({'ps1.producers':'on','ps2.observations':'on','ps3.salience':'on','ps6.speech':'on'});
   assert.equal(speech['ps6.speech'].state,'unverified');
   assert.deepEqual(speech['ps6.speech'].missingDependencies,[]);
+});
+
+test('D02 absence does not suppress independently registered M3 witness authority', () => {
+  const config=normalizeConfig({memoryK:{capabilities:{
+    'ps1.producers':'on','ps2.observations':'on','memory.events':'on',
+    'memory.coverage':'on','memory.dialogue.player':'on'
+  }}},{});
+  const rows=resolveMemoryKCapabilities({config,available:{
+    ...registered,'authority.d02':false,'authority.witness':true
+  }});
+  assert.equal(rows['authority.d02'].state,'unavailable');
+  assert.equal(rows['authority.witness'].state,'unverified');
+  assert.equal(rows['memory.dialogue.player'].state,'blocked');
+  assert.ok(rows['memory.dialogue.player'].missingDependencies.includes('authority.d02'));
+  assert.equal(rows['memory.events'].state,'unverified');
+  assert.equal(rows['memory.coverage'].state,'unverified');
+  assert.ok(!rows['memory.events'].missingDependencies.includes('authority.d02'));
+  assert.ok(rows['memory.events'].blockers.includes('native_witness_proof_unverified'));
+  const opposite=resolveMemoryKCapabilities({config,available:{
+    ...registered,'authority.d02':true,'authority.witness':false
+  }});
+  assert.equal(opposite['memory.dialogue.player'].state,'unverified');
+  assert.equal(opposite['memory.events'].state,'blocked');
+  assert.ok(opposite['memory.events'].missingDependencies.includes('authority.witness'));
+});
+
+test('PS4 PERCEIVED uses salience but memory callbacks use sole PS4 assembler', () => {
+  const ps4Only=resolve({'ps4.perceived':'on'});
+  assert.ok(ps4Only['ps4.perceived'].missingDependencies.includes('ps3.salience'));
+  const withSalience=resolve({'ps1.producers':'on','ps2.observations':'on',
+    'ps3.salience':'on','ps4.perceived':'on'});
+  assert.equal(withSalience['ps4.perceived'].state,'unverified');
+  const callback=resolve({'ps1.producers':'on','ps2.observations':'on',
+    'ps3.salience':'on','memory.events':'on','ps6.speech':'on',
+    'memory.callbacks':'on','ps4.perceived':'off'});
+  assert.ok(!callback['memory.callbacks'].missingDependencies.includes('ps4.perceived'));
+  assert.ok(!callback['memory.callbacks'].dependencies.includes('ps4.perceived'));
+  assert.equal(callback['ps4.assembler'].requestedMode,'on');
+  assert.equal(callback['memory.callbacks'].state,'unavailable'); // callback not wired
+  const assemblerMissing=resolveMemoryKCapabilities({
+    config:{capabilities:{'ps4.perceived':'on'}},
+    available:{...registered,'ps4.assembler':false}
+  });
+  assert.ok(assemblerMissing['ps4.perceived'].missingDependencies.includes('ps4.assembler'));
+});
+
+test('on consumers reject shadow-only producers; shadow consumers can preview', () => {
+  const ps2Blocked=resolve({'ps1.producers':'shadow','ps2.observations':'on'});
+  assert.equal(ps2Blocked['ps2.observations'].state,'blocked');
+  assert.ok(ps2Blocked['ps2.observations'].blockers.includes(
+    'dependency_mode_incompatible:ps1.producers:requires_on'));
+  const eventBlocked=resolve({'ps1.producers':'on','ps2.observations':'shadow',
+    'memory.events':'on'});
+  assert.equal(eventBlocked['memory.events'].state,'blocked');
+  assert.ok(eventBlocked['memory.events'].blockers.includes(
+    'dependency_mode_incompatible:ps2.observations:requires_on'));
+  const ps4Blocked=resolve({'ps1.producers':'on','ps2.observations':'on',
+    'ps3.salience':'shadow','ps4.perceived':'on','ps6.speech':'on'});
+  assert.equal(ps4Blocked['ps4.perceived'].state,'blocked');
+  assert.ok(ps4Blocked['ps4.perceived'].blockers.includes(
+    'dependency_mode_incompatible:ps3.salience:requires_on'));
+  assert.equal(ps4Blocked['ps6.speech'].state,'blocked');
+  const shadowPipeline=resolve({'ps1.producers':'shadow','ps2.observations':'shadow',
+    'memory.events':'shadow','ps3.salience':'shadow','ps4.perceived':'shadow'});
+  for(const id of ['ps2.observations','memory.events','ps4.perceived']){
+    assert.equal(shadowPipeline[id].state,'unverified');
+    assert.equal(shadowPipeline[id].effectiveMode,null);
+  }
+  const onProducerShadowConsumer=resolve({'ps1.producers':'on','ps2.observations':'shadow'});
+  assert.equal(onProducerShadowConsumer['ps2.observations'].state,'unverified');
+  const noPs1=resolve({'ps2.observations':'on','memory.events':'on'});
+  assert.equal(noPs1['ps2.observations'].state,'blocked');
+  assert.ok(noPs1['memory.events'].missingDependencies.includes('ps1.producers'));
 });
 
 test('background workers and producer policy are independent of active capture/consumers', () => {
@@ -112,7 +197,7 @@ test('registration is not proof of source freshness, confirmed timeline, writer 
   assert.equal(missing['p2.sqlite'].registrationStatus,'missing');
   assert.equal(missing['memory.dialogue.player'].state,'blocked');
   assert.ok(missing['memory.dialogue.player'].missingDependencies.includes('p2.sqlite'));
-  const noSource=resolveMemoryKCapabilities({config:{capabilities:{'ps2.observations':'on','memory.events':'on'}},available:{...registered,'source.core':false}});
+  const noSource=resolveMemoryKCapabilities({config:{capabilities:{'ps1.producers':'on','ps2.observations':'on','memory.events':'on'}},available:{...registered,'source.core':false}});
   assert.equal(noSource['ps2.observations'].state,'blocked');
   assert.equal(noSource['memory.events'].state,'blocked');
   assert.equal(missing['memory.dialogue.player'].effectiveMode,null);
@@ -150,6 +235,8 @@ test('bootstrap exposes read-only registration and explicitly unverified health'
   assert.equal(diagnostic.environment.storage.writerHealth,'unverified');
   assert.equal(diagnostic.environment.storage.timelineConfirmation,'unverified');
   assert.equal(diagnostic.environment.native.currentOwnerProof,'unverified');
+  assert.equal(diagnostic.environment.native.m3WitnessProof,'unverified');
+  assert.equal(diagnostic.environment.ps4.soleWriterAdmission,'unverified');
   assert.equal(diagnostic.environment.privacy.enforcement,'unverified');
   assert.equal(effects,0);
 });

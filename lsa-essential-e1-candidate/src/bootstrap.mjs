@@ -129,7 +129,12 @@ export async function createRuntimeForBundle(options = {}) {
       'p2.sqlite':config.promotedCharacters.storageMode==='sqlite' &&
         runtime.characterService?.ready===true &&
         typeof store?.withP2SqliteTransaction==='function',
-      'authority.native':!!runtime.memoryD02,
+      'authority.d02':!!runtime.memoryD02,
+      // M3 owns its distinct authenticated witness-authority port. A supplied
+      // test authority is only a registered seam, never production proof.
+      'authority.witness':!!runtime.memoryM3 &&
+        (!!connectedMemoryAuthority || typeof options.memoryNativeAuthority?.resolveNativeOwner==='function'),
+      'ps4.assembler':typeof runtime.services.finalizeKnowledgeFrame==='function',
       // Code presence != verified suppression / privacy enforcement.
       'privacy.core':config.promotedCharacters.storageMode==='sqlite' &&
         typeof store?.withP2SqliteRead==='function',
@@ -161,8 +166,10 @@ export async function createRuntimeForBundle(options = {}) {
         timelineConfirmation:'unverified',writerHealth:'unverified',
       }),
       native:Object.freeze({
-        d02Registered:registered['authority.native'],currentOwnerProof:'unverified',
+        d02Registered:registered['authority.d02'],currentOwnerProof:'unverified',
+        m3WitnessAuthorityRegistered:registered['authority.witness'],m3WitnessProof:'unverified',
       }),
+      ps4:Object.freeze({assemblerRegistered:registered['ps4.assembler'],soleWriterAdmission:'unverified'}),
       privacy:Object.freeze({
         portRegistered:registered['privacy.core'],enforcement:'unverified',
       }),
