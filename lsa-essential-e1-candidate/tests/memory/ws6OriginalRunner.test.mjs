@@ -20,7 +20,18 @@ test('WS-6: a second accepted player turn receives the FIRST turn as verified SQ
         hasProjection:!!args.turn?.characterProjection,
         profile:args.turn?.characterProjection?.persistent===true,
         profileMatches:args.turn?.characterProjection?.profile?.characterId===args.turn?.characterInputs?.profile?.characterId,
-        source:args.source});
+        source:args.source,
+        hasM2:!!args.turn?.m2Capture,
+        memoryCurrent:args.turn?.m2Capture?.verifyMemoryCurrent?.()??null,
+        hasTimeline:!!x.store.activeTimelineId,
+        timelineWritable:x.store.timelineWritable,
+        alias:x.store.get(x.profile.characterId)?.promotion?.ownerAlias===
+          args.turn?.characterProjection?.profile?.promotion?.ownerAlias,
+        hostValid:!!x.store.verifiedHostContext,
+        storeRead:typeof x.store.readIntegratedRecall,
+        storeSuppression:typeof x.store.listSuppressedMemoryIds,
+        captureState:args.acceptedReceipt?.status,
+        inputValid:typeof args.input==='string'});
       return value;
     };
     const first=await x.typed('I drove a turquoise motorcycle yesterday.');
