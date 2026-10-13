@@ -8,7 +8,8 @@ Integration target: #152 **only**; no writes to #152 or #138.
 
 - `lsa-shared-brain/src/memory/recallEvidencePolicy.mjs`
 - `lsa-shared-brain/tests/memory-ws6-g3-g5-evidence.test.mjs`
-- This handoff; no shared turn runner/PS4/CI files changed.
+- `lsa-shared-brain/tests/memory-m4-recall.test.mjs` (one import to run the focused test in existing Windows/Linux M4 CI)
+- This handoff; no shared turn runner/PS4/workflow files changed.
 
 ## Agent C interface
 
