@@ -180,10 +180,11 @@ export function createRecallEvidencePolicy({store,isCurrent,verifyNativeNegative
    * on authenticated M2 dialogue. Semantic similarity and all-source/event
    * counts have NO exhaustive query today. Do not call a 384-row M4 page exact.
    */
-  async function countDialogue({scope,source,predicate={},maxScan=20000}={}){
+  async function countDialogue({scope,source,predicate={},maxScan=20000,maxBytes=4096}={}){
     assertScope(scope);
-    if(!Number.isSafeInteger(maxScan)||maxScan<1||maxScan>20000)
-      throw new TypeError('ws6_invalid_scan_budget');
+    if(!Number.isSafeInteger(maxScan)||maxScan<1||maxScan>20000||
+       !Number.isSafeInteger(maxBytes)||maxBytes<512||maxBytes>8192)
+      throw new TypeError('ws6_invalid_scan_or_output_budget');
     const {speaker=null,containsText='',fromUtc=null,toUtc=null}=predicate;
     if(speaker!==null&&!['player','npc'].includes(speaker)||
        typeof containsText!=='string'||containsText.length>512||
@@ -223,17 +224,22 @@ export function createRecallEvidencePolicy({store,isCurrent,verifyNativeNegative
           continue;
         }
         if(needle&&!row.content.toLocaleLowerCase('en-US').includes(needle))continue;
-        const item={recordId:row.recordId,sourceAvatar:row.avatar,
-          atUtc:row.atUtc,sourceKind:'dialogue_line',
-          category:'exact_quote',content:row.content};
+        const ref={recordId:row.recordId,sourceAvatar:row.avatar,
+          atUtc:row.atUtc,sourceKind:'dialogue_line'};
         ++matched;
-        if(!first)first=item;
-        last=item;best=item; // deterministic latest matched evidence
+        if(!first)first=ref;
+        last=ref;
+        // Byte-exact quote or explicit omission. Never silently shorten speech.
+        best={...ref,category:'exact_quote',
+          ...(row.content.length<=3072?{content:row.content}:{quoteOmitted:true})};
       }
-      return Object.freeze({status:'complete',reason:'exhaustive_authenticated_p2_dialogue',
+      const summary={status:'complete',reason:'exhaustive_authenticated_p2_dialogue',
         exactCount:matched,first,last,best,scanned,
         querySemantics:'literal_substring',scope:{characterId:scope.characterId,
-          worldProfileId:scope.worldProfileId,timelineId:scope.timelineId}});
+          worldProfileId:scope.worldProfileId,timelineId:scope.timelineId}};
+      if(bytes(summary)>maxBytes&&best)summary.best={...last,quoteOmitted:true};
+      if(bytes(summary)>maxBytes)return incomplete('output_budget');
+      return Object.freeze(summary);
     }));
     return outcome.ok?outcome.data:incomplete('source_revoked_or_read_failed');
   }
