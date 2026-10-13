@@ -58,9 +58,15 @@ test('real P2 journal drives only source-linked opinions and jokes across avatar
   const s={...f.scope,protagonistKey},a={...f.authority(),...s};
   f.setIdentity(a);
   const reader=f.reader();
-  // This verifies source-linked M8 semantics, not a latency bound. The
-  // production default stays 200ms; timeout/revocation tests remain strict.
-  const prepared=await reader.prepare({scope:s,authority:a,nowUtc,deadlineMs:2000});
+  // The production deadline is strictly capped at 200 ms. A cold, busy CI
+  // runner may drop an optional projection safely; verify that drop has no
+  // contents and retry once to test the positive semantic contract.
+  let prepared=await reader.prepare({scope:s,authority:a,nowUtc});
+  if(prepared.reason==='unavailable_or_deadline'){
+   assert.equal(prepared.status,'dropped');
+   assert.equal(prepared.projection,null);
+   prepared=await reader.prepare({scope:s,authority:a,nowUtc});
+  }
   assert.equal(prepared.status,'ready',prepared.reason);
   assert.equal(prepared.projection.relationship.epistemicStatus,'character_opinion');
   assert.equal(prepared.projection.relationship.verifiedWorldFact,false);
