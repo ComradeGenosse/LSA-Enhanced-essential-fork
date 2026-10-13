@@ -271,5 +271,37 @@ export function createRecallEvidencePolicy({store,isCurrent,verifyNativeNegative
     return Object.freeze({status:out.length?'matched':'unknown',items:out,references:refs,dropped,
       completeness:'bounded_candidate_page',exactCount:null,sourceKind});
   }
-  return Object.freeze({witness,countDialogue,labelledEvidence});
+  /**
+   * Lightweight pre-send/retry revocation gate for projected source IDs.
+   * This verifies VISIBILITY, not the freshness of an exact count: an exact
+   * count must be re-executed before a later model send/retry.
+   */
+  async function verifyReferenceVisibility({scope,source,recordIds}={}){
+    assertScope(scope);
+    if(!Array.isArray(recordIds)||recordIds.length>32||
+      !recordIds.every(x=>UUID.test(x))||new Set(recordIds).size!==recordIds.length)
+      return false;
+    if(!authorized(scope,source)||typeof store.withP2SqliteRead!=='function')return false;
+    const read=await readWithFence(scope,source,()=>store.withP2SqliteRead(scope,db=>{
+      const keys=[scope.worldProfileId,scope.characterId,scope.timelineId];
+      const revoked=new Set([...suppressedMemoryIds(db,scope),...supersededTargetIds(db,keys)]);
+      const dialogue=db.prepare('SELECT content,content_sha256 AS hash,envelope_json AS raw,envelope_sha256 AS rawHash FROM dialogue_journal WHERE world_profile_id=? AND character_id=? AND timeline_id=? AND record_id=?');
+      const event=db.prepare('SELECT 1 AS ok FROM event_journal WHERE world_profile_id=? AND character_id=? AND timeline_id=? AND record_id=?');
+      const memory=db.prepare('SELECT content,content_sha256 AS hash FROM memory_records WHERE world_profile_id=? AND character_id=? AND timeline_id=? AND memory_id=?');
+      for(const id of recordIds){
+        if(revoked.has(id))return false;
+        const line=dialogue.get(...keys,id);
+        if(line){
+          if(sha(line.content)!==line.hash||sha(line.raw)!==line.rawHash)return false;
+          continue;
+        }
+        if(event.get(...keys,id)?.ok)continue; // original P2 projection already replay-verified sidecar
+        const derived=memory.get(...keys,id);
+        if(!derived||sha(derived.content)!==derived.hash)return false;
+      }
+      return true;
+    }));
+    return read.ok&&read.data===true;
+  }
+  return Object.freeze({witness,countDialogue,labelledEvidence,verifyReferenceVisibility});
 }
