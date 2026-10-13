@@ -25,6 +25,7 @@ namespace LSA.Standalone.RageHost
         private static readonly StandaloneOnscreenInput keyboard = new StandaloneOnscreenInput();
         private static int queued;
         private static int accepting;
+        private static int probeRequested, armRequested, disarmRequested, diagnosticRequested;
 
         public static void OpenAdmission()
         {
@@ -38,6 +39,22 @@ namespace LSA.Standalone.RageHost
             Volatile.Write(ref accepting, 0);
             Clear();
         }
+
+        [ConsoleCommand(Name = "LSAStandaloneProbe",
+            Description = "Probe nearest NPC decorator and entity identity (no conversation).")]
+        public static void Probe() { Interlocked.Exchange(ref probeRequested, 1); }
+
+        [ConsoleCommand(Name = "LSAStandaloneArm",
+            Description = "Arm only the probed NPC after GTA runtime identity test passes.")]
+        public static void Arm() { Interlocked.Exchange(ref armRequested, 1); }
+
+        [ConsoleCommand(Name = "LSAStandaloneDisarm",
+            Description = "Immediately disarm experimental standalone actor adoption.")]
+        public static void Disarm() { Interlocked.Exchange(ref disarmRequested, 1); }
+
+        [ConsoleCommand(Name = "LSAStandaloneStatus",
+            Description = "Print the current standalone diagnostic and adoption gate state.")]
+        public static void Status() { Interlocked.Exchange(ref diagnosticRequested, 1); }
 
         [ConsoleCommand(Name = "LSAStandaloneAsk",
             Description = "Ask the nearest pedestrian ahead (standalone; requires verified GTA actor lifecycle).")]
@@ -105,6 +122,10 @@ namespace LSA.Standalone.RageHost
         public static void Clear()
         {
             keyboard.ClearAdmission();
+            Interlocked.Exchange(ref probeRequested, 0);
+            Interlocked.Exchange(ref armRequested, 0);
+            Interlocked.Exchange(ref disarmRequested, 0);
+            Interlocked.Exchange(ref diagnosticRequested, 0);
             while (pending.TryDequeue(out _)) Interlocked.Decrement(ref queued);
         }
 
@@ -121,6 +142,49 @@ namespace LSA.Standalone.RageHost
             if (scope == null || !scope.IsOwner)
                 throw new InvalidOperationException("owner_scope_required");
             if (Volatile.Read(ref accepting) == 0) return;
+            // Console callbacks only enqueue intent; every decorator/Ped
+            // operation is serialized on the RPH owner game fiber.
+            if (Interlocked.Exchange(ref disarmRequested, 0) == 1)
+            {
+                resolver.Disarm();
+                Game.Console.Print("LSA standalone: adoption_disarmed.");
+            }
+            if (Interlocked.Exchange(ref probeRequested, 0) == 1)
+            {
+                bool safeWorld = false;
+                try { safeWorld = new RageWorld().AllowsNpcControl; } catch {}
+                Ped candidate = safeWorld ? NearestPedAhead() : null;
+                string probeReason;
+                if (!safeWorld)
+                    Game.Console.Print("LSA standalone: world_unsafe_for_probe.");
+                else if (candidate == null)
+                    Game.Console.Print("LSA standalone: probe_no_eligible_target.");
+                else if (!resolver.TryBeginProbe(unchecked((int)candidate.Handle.Value),
+                    out probeReason))
+                    Game.Console.Print("LSA standalone: " + probeReason + ".");
+                else
+                {
+                    Game.Console.Print("LSA standalone: probe_started; keep NPC in view, then run LSAStandaloneStatus.");
+                    Game.LogTrivial("[LSA-ACTOR] probe_started " + resolver.DiagnosticState);
+                }
+            }
+            string probeEvent = resolver.TickProbe();
+            if (probeEvent != null)
+            {
+                Game.Console.Print("LSA standalone: " + probeEvent + ".");
+                Game.LogTrivial("[LSA-ACTOR] " + probeEvent + " " + resolver.DiagnosticState);
+            }
+            if (Interlocked.Exchange(ref armRequested, 0) == 1)
+            {
+                bool safeWorld = false;
+                try { safeWorld = new RageWorld().AllowsNpcControl; } catch {}
+                string armReason = "world_unsafe_for_arm";
+                bool ok = safeWorld && resolver.TryArmProbe(out armReason);
+                Game.Console.Print("LSA standalone: " + armReason + ".");
+                Game.LogTrivial("[LSA-ACTOR] " + armReason + " " + resolver.DiagnosticState);
+            }
+            if (Interlocked.Exchange(ref diagnosticRequested, 0) == 1)
+                Game.Console.Print("LSA standalone: " + resolver.DiagnosticState);
             keyboard.Tick(scope, Enqueue);
             if (!pending.TryDequeue(out QueuedText entry)) return;
             Interlocked.Decrement(ref queued);
@@ -152,8 +216,8 @@ namespace LSA.Standalone.RageHost
 
             int handle = unchecked((int)target.Handle.Value);
             ActorObservation current;
-            if (!resolver.TryObserve(handle, out current) &&
-                !resolver.TryAdoptVerifiedPed(handle))
+            if (!resolver.TryAdoptVerifiedPed(handle) ||
+                !resolver.TryObserve(handle, out current))
             {
                 Game.Console.Print("LSA standalone: actor_identity_unverified.");
                 return;
@@ -176,7 +240,9 @@ namespace LSA.Standalone.RageHost
                 Game.Console.Print("LSA standalone: companion_unavailable.");
                 return;
             }
-            Game.Console.Print("LSA standalone: typed turn offered; playback not available yet.");
+            Game.Console.Print("LSA standalone: typed turn offered to Luna; see companion and listen for output.");
+            Game.LogTrivial("[LSA-ACTOR] native_typed_offer actor_handle=" + handle +
+                " turn_ordinal=" + permit.TurnOrdinal + " result=offered");
         }
 
         private static Ped NearestPedAhead()

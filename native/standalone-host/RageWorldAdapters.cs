@@ -56,17 +56,28 @@ namespace LSA.Standalone.RageHost
         private const int DecorInt = 3;
         private readonly IOwnerContext owner;
         private readonly bool enabled;
+        private readonly bool experimentalRequested;
+        private bool armed;
+        private int probedHandle;
+        private ulong probedAddress, probedCookie;
+        private long startedAt, lastSampleAt;
+        private int stableSamples;
+        private bool probePassed;
+        private string lastProbeReason = "not_started";
         private readonly RandomNumberGenerator entropy = RandomNumberGenerator.Create();
         private bool decoratorsAvailable;
         public bool IsPhysicalActorProofEnabled
         {
-            get { DemandOwner(); return enabled && decoratorsAvailable; }
+            get { DemandOwner(); return experimentalRequested && armed &&
+                probePassed && enabled && decoratorsAvailable && ProbeStillCurrent(); }
         }
 
-        public RageActorResolver(IOwnerContext owner, bool allowExperimentalAdoption)
+        public RageActorResolver(IOwnerContext owner, bool allowExperimentalAdoption,
+            bool allowDiagnostics = false)
         {
             this.owner = owner ?? throw new ArgumentNullException(nameof(owner));
-            enabled = allowExperimentalAdoption;
+            experimentalRequested = allowExperimentalAdoption;
+            enabled = allowDiagnostics || allowExperimentalAdoption;
             if (!owner.IsOwner) throw new InvalidOperationException("native_owner_required");
             if (!enabled) return;
             try
@@ -94,12 +105,167 @@ namespace LSA.Standalone.RageHost
             return ped != null && ped.Exists() && !ped.IsDead ? ped : null;
         }
 
-        // Must be called ONLY on a native-chosen, source-validated ped, never
-        // directly from a Node-supplied handle. This first-registration path
-        // is gated off until actual GTA Enhanced cookie behavior is accepted.
+        // Native-only diagnostic proof. It writes an ephemeral two-part
+        // decorator to a nearby, non-mission NPC, then requires repeated
+        // matching full handle + address + cookie observations over real
+        // game-fiber ticks. It does NOT grant physical control. Live entity
+        // recycling remains a separate GTA acceptance scenario.
+        public bool TryBeginProbe(int handle, out string reason)
+        {
+            DemandOwner();
+            Disarm();
+            reason = "decorators_unavailable";
+            if (!enabled || !decoratorsAvailable) return false;
+            reason = "probe_target_unsafe";
+            try
+            {
+                Ped p = PedFor(handle);
+                if (p == null || p == Game.LocalPlayer.Character ||
+                    NativeFunction.CallByName<bool>("IS_ENTITY_A_MISSION_ENTITY", handle) ||
+                    NativeFunction.CallByName<bool>("DECOR_EXIST_ON", handle, CookieLow) ||
+                    NativeFunction.CallByName<bool>("DECOR_EXIST_ON", handle, CookieHigh))
+                    return false;
+                ulong address = unchecked((ulong)p.MemoryAddress.ToInt64());
+                if (address == 0) { reason = "probe_no_address"; return false; }
+                if (!StampCookie(handle)) { reason = "decorator_roundtrip_failed"; return false; }
+                ulong cookie = ReadCookie(handle);
+                if (cookie == 0) { reason = "decorator_roundtrip_failed"; return false; }
+                probedHandle = handle;
+                probedAddress = address;
+                probedCookie = cookie;
+                startedAt = Stopwatch.GetTimestamp();
+                lastSampleAt = 0;
+                stableSamples = 0;
+                lastProbeReason = "sampling";
+                reason = "probe_started";
+                return true;
+            }
+            catch { reason = "probe_native_exception"; return false; }
+        }
+
+        public string TickProbe()
+        {
+            DemandOwner();
+            if (probedHandle == 0) return null;
+            string change;
+            if (!ProbeStillCurrent(out change))
+            {
+                int staleHandle = probedHandle;
+                Disarm();
+                lastProbeReason = change;
+                return change + " handle=" + staleHandle;
+            }
+            long now = Stopwatch.GetTimestamp();
+            if (now < startedAt || now - startedAt >
+                (long)Stopwatch.Frequency * 10)
+            {
+                if (!probePassed)
+                {
+                    Disarm();
+                    lastProbeReason = "probe_timed_out";
+                    return lastProbeReason;
+                }
+                return null;
+            }
+            // At least eight separately sampled game frames across >=750 ms.
+            if (!probePassed && (lastSampleAt == 0 ||
+                now - lastSampleAt >= Stopwatch.Frequency / 20))
+            {
+                lastSampleAt = now;
+                stableSamples++;
+                if (stableSamples >= 8 &&
+                    now - startedAt >= Stopwatch.Frequency * 3 / 4)
+                {
+                    probePassed = true;
+                    lastProbeReason = "probe_ready_stable";
+                    return lastProbeReason;
+                }
+            }
+            return null;
+        }
+
+        public bool TryArmProbe(out string reason)
+        {
+            DemandOwner();
+            reason = "experimental_mode_not_enabled";
+            if (!experimentalRequested) return false;
+            reason = "probe_not_ready";
+            if (!enabled || !decoratorsAvailable || !probePassed ||
+                !ProbeStillCurrent()) return false;
+            armed = true;
+            reason = "armed_exact_actor_only";
+            return true;
+        }
+
+        public string DiagnosticState
+        {
+            get
+            {
+                DemandOwner();
+                return "decorators=" + (decoratorsAvailable ? "registered" : "unavailable") +
+                    " probe=" + lastProbeReason +
+                    " frames=" + stableSamples +
+                    " actor_handle=" + probedHandle +
+                    " address=0x" + probedAddress.ToString("x") +
+                    " cookie=0x" + probedCookie.ToString("x") +
+                    " cookie_readback=" + (probedCookie != 0 ? "ok" : "none") +
+                    " adoption=" + (armed ? "armed_exact_actor" : "closed");
+            }
+        }
+
+        public void Disarm()
+        {
+            DemandOwner();
+            armed = false;
+            probePassed = false;
+            probedHandle = 0;
+            probedAddress = probedCookie = 0;
+            stableSamples = 0;
+            startedAt = lastSampleAt = 0;
+            lastProbeReason = "not_started";
+        }
+
+        private bool ProbeStillCurrent()
+        {
+            string ignored;
+            return ProbeStillCurrent(out ignored);
+        }
+
+        private bool ProbeStillCurrent(out string reason)
+        {
+            reason = "actor_despawned";
+            if (probedHandle <= 0 || probedCookie == 0) return false;
+            try
+            {
+                Ped p = PedFor(probedHandle);
+                if (p == null || p == Game.LocalPlayer.Character) return false;
+                reason = "actor_became_mission_entity";
+                if (NativeFunction.CallByName<bool>("IS_ENTITY_A_MISSION_ENTITY", probedHandle))
+                    return false;
+                reason = "actor_address_changed";
+                if (unchecked((ulong)p.MemoryAddress.ToInt64()) != probedAddress)
+                    return false;
+                reason = "actor_cookie_changed_or_reused";
+                if (ReadCookie(probedHandle) != probedCookie) return false;
+                reason = "current";
+                return true;
+            }
+            catch { reason = "actor_observation_exception"; return false; }
+        }
+
+        // Control is restricted to the SINGLE probed ped for the first GTA
+        // typed conversation smoke test. A different nearby ped cannot be
+        // silently adopted after the player moves the targeting reticle.
         public bool TryAdoptVerifiedPed(int handle)
         {
             DemandOwner();
+            if (!experimentalRequested || !armed || !probePassed ||
+                handle != probedHandle || !ProbeStillCurrent()) return false;
+            return true;
+        }
+
+        private bool StampCookie(int handle)
+        {
             if (!enabled || !decoratorsAvailable) return false;
             try
             {
@@ -133,7 +299,12 @@ namespace LSA.Standalone.RageHost
         {
             DemandOwner();
             observation = null;
-            if (!enabled || !decoratorsAvailable) return false;
+            // Manual Disarm must revoke EXISTING speech/audio authority as
+            // well as deny new turns. Only a currently armed, identical
+            // incarnation may be observed by NativeAuthority.
+            if (!experimentalRequested || !armed || !probePassed ||
+                !enabled || !decoratorsAvailable || handle != probedHandle ||
+                !ProbeStillCurrent()) return false;
             try
             {
                 Ped ped = PedFor(handle);
