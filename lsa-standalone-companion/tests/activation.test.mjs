@@ -4,6 +4,7 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { CAPABILITIES, PRESETS, presetEnvironment, resolveActivation
 } from '../src/activation/capabilities.mjs';
+import { createActivationReporter } from '../src/activation/diagnostics.mjs';
 
 const configured = settings => ({
   ...settings,
@@ -129,4 +130,49 @@ test('packaged preflight CLI emits no secrets or false GTA validation', () => {
   assert.notEqual(bad.status, 0);
   assert.match(bad.stderr, /requires tts/);
   assert.equal(bad.stdout, '');
+});
+
+test('native disconnect revokes operational statuses and late callbacks cannot resurrect them', () => {
+  const report = resolveActivation(configured(presetEnvironment('lipsync')));
+  assert.equal(report.valid, true);
+  const published = [];
+  const status = createActivationReporter(report, event => published.push(event));
+  status.initialize();
+  status.emit('tts', true, 'router_constructed_no_PCM_evidence');
+  status.transportStatus('native_connected');
+  status.emit('physical_audio', true, 'native_driver_receipt_not_GTA_audibility');
+  assert.equal(status.snapshot('typed_conversation').activated, true);
+  assert.equal(status.snapshot('physical_audio').activated, true);
+  status.transportStatus('native_disconnected');
+  for (const key of ['native_host_ipc', 'typed_conversation', 'tts',
+    'physical_audio', 'lip_sync', 'actor_probing']) {
+    const value = status.snapshot(key);
+    assert.equal(value.activated, false, key);
+    assert.equal(value.operational, 'suspended_native_transport', key);
+    assert.ok(value.blocked.includes('native_transport_unavailable'), key);
+    assert.equal(value.gtaValidated, false, key);
+  }
+  status.emit('typed_conversation', true, 'native_reply_staged_not_played');
+  assert.equal(status.snapshot('typed_conversation').activated, false,
+    'late retired-transport callback must not claim operation');
+  const count = published.length;
+  status.transportStatus('native_unavailable');
+  assert.equal(published.length, count, 'reconnect retry must not flood logs');
+  status.transportStatus('native_connected');
+  assert.equal(status.snapshot('typed_conversation').activated, true,
+    'new handshake may reestablish a newly scoped polling status');
+  assert.equal(status.snapshot('physical_audio').activated, false,
+    'new handshake cannot reuse previous device receipt');
+});
+
+test('early streaming diagnostics also suspend on native disconnect', () => {
+  const report = resolveActivation(configured(presetEnvironment('streaming')));
+  const status = createActivationReporter(report, () => {});
+  status.initialize();
+  status.transportStatus('native_connected');
+  assert.equal(status.snapshot('early_speech').activated, true);
+  status.transportStatus('native_disconnected');
+  assert.equal(status.snapshot('early_speech').activated, false);
+  assert.equal(status.snapshot('early_speech').operational,
+    'suspended_native_transport');
 });
