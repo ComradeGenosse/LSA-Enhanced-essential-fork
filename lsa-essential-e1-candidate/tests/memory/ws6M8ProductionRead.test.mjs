@@ -8,6 +8,7 @@ import {createP2MemoryStorage} from '../../../lsa-shared-brain/src/characters/sq
 import {createConversationJournalRecorder} from '../../../lsa-shared-brain/src/memory/conversationRecorder.mjs';
 import {projectPreparedM8} from '../../src/context/knowledgeSelector.mjs';
 import {createP2M8ProductionReader,readAuthorizedM8Snapshot} from '../../src/memory/p2M8ProductionRead.mjs';
+import {readP2M8HistoricalSignals} from '../../../lsa-shared-brain/src/memory/m8SqliteHistory.mjs';
 import {profile} from '../p2-fixtures.mjs';
 import {worldProfileId} from '../identity-fixtures.mjs';
 
@@ -234,4 +235,25 @@ test('source revocation during an outstanding serialized read and host renewal f
  // A fresh turn cannot adopt old authority after a native host change.
  f.store.setVerifiedHostContext(null);
  assert.equal((await reader.prepare({scope:f.scope,authority:a})).status,'dropped');
+});
+
+test('durable historical count excludes legacy dialogue with no original native host receipt',async t=>{
+ const f=await fixture(t);
+ const a=await f.say('Inside joke: the flying purple car!','franklin');
+ const b=await f.say('Running joke: the flying purple car!','michael');
+ const before=await f.store.withP2SqliteRead(f.scope,db=>readP2M8HistoricalSignals(db,f.scope));
+ assert.equal(before.categories.find(x=>x.category==='humor_quote')?.count,2);
+ // Simulate a legacy/unverified acceptance row: checksum of the verbatim
+ // envelope still matches, but original native source metadata is absent.
+ await f.store.withP2SqliteTransaction(f.scope,db=>{
+  db.prepare('UPDATE dialogue_journal SET host_run_id=NULL,world_epoch=NULL WHERE record_id=?')
+    .run(a.recordId);
+ });
+ const after=await f.store.withP2SqliteRead(f.scope,db=>readP2M8HistoricalSignals(db,f.scope));
+ assert.equal(after.categories.find(x=>x.category==='humor_quote')?.count,1);
+ assert.deepEqual(after.categories.find(x=>x.category==='humor_quote')?.sourceEvidenceIds,[b.recordId]);
+ // With an unverified persisted row still among recent sources, Agent A's
+ // optional projection conservatively drops instead of trusting its bytes.
+ const authority=f.authority();f.setIdentity(authority);
+ assert.equal((await f.reader().prepare({scope:f.scope,authority})).status,'dropped');
 });
