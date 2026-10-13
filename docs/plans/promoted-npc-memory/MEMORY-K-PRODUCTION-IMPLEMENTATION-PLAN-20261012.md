@@ -72,7 +72,7 @@ Every audit finding, the new finding K-22, and every deviation the audit lists u
 | K-18 | P2 | M8 and M9 at reduced scope; M9 native not compiled | WS-7b (M8), WS-7c (M9) | Open | — |
 | K-19 | P2 | S01–S10 are red gates, not scenarios | WS-1 (label expected-fail), WS-9 (positive scenarios) | Open | — |
 | K-20 | P3 | Minor items (see §4.1) | split, see §4.1 | Open | — |
-| K-21 | P2 | Native D02 owner sample is all-or-nothing | WS-5c | Open | — |
+| K-21 | P2 | Native D02 owner sample is all-or-nothing | WS-5c | Fixed on `feature/memory-k-k21-per-npc-owner-sampling-20261012` (native only; owners omitted individually, strict per-owner proof kept) | OFFLINE TESTED: `native/promoted-characters/owner-sample-tests` (30 scenarios, 319 assertions); GTA UNTESTED. Follow-up `fix/memory-k-k21-d02-per-owner-recovery-20261012` changes the JS consumer and ShadowRuntime to admit freshly re-proven exact owners after temporary omission without reviving prior leases; explicit native retirement and lifetime substitution stay rejected. D02 authenticated-socket integration tests and K-21 harness CI gate added |
 | K-22 | P0 | Production `net481` plugin did not compile (Memory K native code) | Orchestrator | **Fixed** (`4079609`) | NATIVE COMPILED; WS-1 adds the gate |
 
 ### 4.1 K-20 sub-items

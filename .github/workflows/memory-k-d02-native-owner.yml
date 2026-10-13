@@ -49,6 +49,13 @@ jobs:
         run: dotnet run --project native/intelligence/memory-authority-tests/MemoryAuthorityTests.csproj --configuration Release
       - name: Compile existing native integration harness
         run: dotnet build native/intelligence/integration-tests/IntegrationTests.csproj --configuration Debug
+      - name: K-21 production native owner sampler and lifecycle proof (net481; no GTA)
+        shell: pwsh
+        run: |
+          dotnet build native/promoted-characters/owner-sample-tests/OwnerSampleTests.csproj --configuration Release
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & "native/promoted-characters/owner-sample-tests/bin/Release/net481/OwnerSampleTests.exe"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
   production-native:
     name: Pinned net481 native source when real SDK is supplied
     runs-on: windows-latest

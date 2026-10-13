@@ -234,21 +234,22 @@ namespace LSA.Intelligence
 }
 namespace LSA.SessionIdentity
 {
-    public sealed class RegistrationToken { internal string Epoch,Handle;internal Rage.Ped Ped; public string IncarnationId; }
-    public sealed class NativeIdentityClaim { public string incarnationId; }
+    public sealed class RegistrationToken { internal string Epoch,Handle,SourceKey,World;internal Rage.Ped Ped; public string IncarnationId; }
+    public sealed class NativeIdentityClaim { public string incarnationId,sourceKey,worldProfileId; }
     public sealed class ExplicitCharacterSource
     {
         readonly string epoch = Guid.NewGuid().ToString("D");
         readonly int ownerThread = System.Threading.Thread.CurrentThread.ManagedThreadId;
         readonly HashSet<RegistrationToken> tokens = new HashSet<RegistrationToken>();
         public bool ThrowOnRetire;
+        public Func<Rage.Ped,bool> ResolveFaultFor;
         public int Count => tokens.Count;
         public int LastRetirementThread {get;private set;}
         void AssertOwner() { if (ownerThread != System.Threading.Thread.CurrentThread.ManagedThreadId) throw new InvalidOperationException("Wrong owner thread in lifecycle test."); }
         public RegistrationToken Register(Rage.Ped ped,string sourceKey,string world)
         {
             AssertOwner();
-            var token = new RegistrationToken {Epoch = epoch,IncarnationId=Guid.NewGuid().ToString("D"),Ped=ped,Handle=ped.Handle.ToString()}; tokens.Add(token); return token;
+            var token = new RegistrationToken {Epoch = epoch,IncarnationId=Guid.NewGuid().ToString("D"),Ped=ped,Handle=ped.Handle.ToString(),SourceKey=sourceKey,World=world}; tokens.Add(token); return token;
         }
         public bool Retire(RegistrationToken token)
         {
@@ -256,7 +257,7 @@ namespace LSA.SessionIdentity
             if (ThrowOnRetire) throw new InvalidOperationException("Injected owner retirement failure.");
             return token.Epoch == epoch && tokens.Remove(token);
         }
-        public bool TryResolveCurrent(Rage.Ped ped,out NativeIdentityClaim claim) { AssertOwner();claim=null;if(ped==null || !ped.Exists() || ped.IsDead)return false;foreach(var token in tokens)if(ReferenceEquals(token.Ped,ped) && token.Handle==ped.Handle.ToString()){claim=new NativeIdentityClaim{incarnationId=token.IncarnationId};return true;}return false; }
+        public bool TryResolveCurrent(Rage.Ped ped,out NativeIdentityClaim claim) { AssertOwner();claim=null;if(ResolveFaultFor!=null && ResolveFaultFor(ped))throw new InvalidOperationException("Injected identity resolution failure.");if(ped==null || !ped.Exists() || ped.IsDead)return false;foreach(var token in tokens)if(ReferenceEquals(token.Ped,ped) && token.Handle==ped.Handle.ToString()){claim=new NativeIdentityClaim{incarnationId=token.IncarnationId,sourceKey=token.SourceKey,worldProfileId=token.World};return true;}return false; }
     }
     public sealed class SessionIdentityIntegration
     {
