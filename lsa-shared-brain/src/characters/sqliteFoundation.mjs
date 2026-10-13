@@ -161,6 +161,39 @@ export async function inspectP2Sqlite({filePath,worldProfileId}) {
   } finally {db.close();}
 }
 
+/**
+ * Explicit, operator-facing recovery view. An integrity-failed database is
+ * never auto-restored or written. Only checked immutable snapshots are read.
+ */
+export async function inspectP2ReadOnlyRecovery({filePath,worldProfileId,scope=null}){
+  if(typeof filePath!=='string'||!filePath.trim()||!isUuid(worldProfileId))
+    fail('invalid_sqlite_profile_config');
+  const folder=path.resolve(filePath)+'.snapshots';
+  let files;
+  try{files=(await fs.readdir(folder)).filter(n=>/^(daily-\\d{4}-\\d\\d-\\d\\d|weekly-\\d{4}-W\\d\\d)\\.sqlite$/.test(n)).sort().reverse();}
+  catch(e){if(e.code==='ENOENT')fail('sqlite_recovery_snapshot_unavailable');throw e;}
+  for(const name of files){
+    let db;
+    try{
+      db=new DatabaseSync(path.join(folder,name),{readOnly:true});
+      const snapshot=verifyExisting(db,worldProfileId);
+      const version=db.prepare('PRAGMA user_version').get().user_version;
+      if(version===JOURNAL_SCHEMA_VERSION)assertJournalSchema(db);
+      if(scope&&version!==JOURNAL_SCHEMA_VERSION)continue;
+      const lines=scope?readDialogue(db,{...scope,worldProfileId,limit:Math.min(200,scope.limit??200)},worldProfileId):null;
+      return Object.freeze({
+        status:'read_only_snapshot',path:path.join(folder,name),
+        schemaVersion:version,revision:snapshot.revision,
+        profiles:Object.freeze(snapshot.profiles.map(p=>Object.freeze({characterId:p.characterId,name:p.name}))),
+        dialogue:lines
+      });
+    }catch{
+      // A corrupt snapshot cannot authorize recovery; try an older checked one.
+    }finally{try{db?.close();}catch{}}
+  }
+  fail('sqlite_recovery_snapshot_unavailable');
+}
+
 export class P2SqliteFoundation {
   #db=null; #init=null; #snapshot=null; #recoveryStatus=null;
   constructor({filePath,worldProfileId,legacyJsonPath=null}) {
