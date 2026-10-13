@@ -104,11 +104,13 @@ function labelRow(row,scope){
 export function createRecallEvidencePolicy({store,isCurrent,verifyNativeNegative=null}={}){
   if(!store||typeof isCurrent!=='function')throw new TypeError('ws6_source_required');
   const authorized=(scope,source)=>{
-    const host=store.verifiedHostContext;
-    return isCurrent()===true&&store.timelineWritable===true&&
-      store.worldProfileId===scope.worldProfileId&&store.activeTimelineId===scope.timelineId&&
-      validSource(source)&&same(host,source,['hostRunId','worldEpoch'])&&
-      store.get?.(scope.characterId)?.promotion?.ownerAlias===source.ownerAlias;
+    try{
+      const host=store.verifiedHostContext;
+      return isCurrent()===true&&store.timelineWritable===true&&
+        store.worldProfileId===scope.worldProfileId&&store.activeTimelineId===scope.timelineId&&
+        validSource(source)&&same(host,source,['hostRunId','worldEpoch'])&&
+        store.get?.(scope.characterId)?.promotion?.ownerAlias===source.ownerAlias;
+    }catch{return false;} // closed P2, invalidated native lease, or D03 verifier fault
   };
   const readWithFence=async(scope,source,work)=>{
     if(!authorized(scope,source))return {ok:false};
