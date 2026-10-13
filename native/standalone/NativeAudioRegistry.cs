@@ -52,6 +52,70 @@ namespace LSA.Standalone
     }
 
     /// <summary>
+    /// Explicitly non-audible test output. Validates and accounts bounded PCM
+    /// on the native owner fiber, then releases queue credit without retaining
+    /// samples. This is NOT IPhysicalAudioOutput: it can never supply a driver,
+    /// playback-completed or lip-sync receipt. NativeAuthority is rechecked on
+    /// every call; the native registry still owns its stream/lease lifecycle.
+    /// </summary>
+    public sealed class DiagnosticPcmOutput : IAudioOutput
+    {
+        private sealed class State
+        {
+            internal OwnershipLease Lease;
+            internal int Bytes;
+            internal uint Checksum = 2166136261;
+        }
+        private readonly NativeAuthority authority;
+        private readonly Dictionary<Guid, State> streams = new Dictionary<Guid, State>();
+        public int ActiveStreams { get { return streams.Count; } }
+
+        public DiagnosticPcmOutput(NativeAuthority authority)
+        {
+            this.authority = authority ?? throw new ArgumentNullException(nameof(authority));
+        }
+
+        public bool TryBegin(OwnershipLease lease, Guid stream, int rate, out string reason)
+        {
+            reason = "diagnostic_escrow_rejected";
+            if (lease == null || lease.Kind != LeaseKind.Audio ||
+                !authority.IsLeaseCurrent(lease) || stream == Guid.Empty ||
+                rate != NativeAudioRegistry.Rate || streams.ContainsKey(stream) ||
+                streams.Count >= NativeAudioRegistry.MaxStreams) return false;
+            streams.Add(stream, new State { Lease = lease });
+            reason = "diagnostic_escrow_started_not_played";
+            return true;
+        }
+
+        public bool TryPush(OwnershipLease lease, Guid stream, byte[] pcm, out string reason)
+        {
+            reason = "diagnostic_escrow_rejected";
+            State current;
+            if (lease == null || lease.Kind != LeaseKind.Audio ||
+                !authority.IsLeaseCurrent(lease) ||
+                !streams.TryGetValue(stream, out current) ||
+                !current.Lease.SameClaim(lease) ||
+                pcm == null || pcm.Length < 2 || pcm.Length > NativeAudioRegistry.MaxChunkBytes ||
+                (pcm.Length & 1) != 0 ||
+                current.Bytes > NativeAudioRegistry.MaxStreamBytes - pcm.Length) return false;
+            // Account every validated byte, but never retain PCM or touch devices.
+            unchecked
+            {
+                foreach (byte value in pcm)
+                    current.Checksum = (current.Checksum ^ value) * 16777619;
+            }
+            current.Bytes += pcm.Length;
+            reason = "diagnostic_pcm_validated_not_played";
+            return true;
+        }
+
+        public bool TryStop(Guid stream, string reason)
+        {
+            return streams.Remove(stream);
+        }
+    }
+
+    /// <summary>
     /// Phase 4 audio escrow: validated PCM16LE mono bytes, bounded in memory,
     /// zero playback side effects. Every operation must execute on the native
     /// owner's game fiber. Only an actual device callback in a future adapter
@@ -219,10 +283,9 @@ namespace LSA.Standalone
         }
 
 
-        // The only component allowed to grant queue credits is a native
-        // IAudioOutput implementation that accepted the exact bytes. Device
-        // *acceptance* is NOT audibility, lip-sync or completion; those require
-        // separate physical callbacks and are not synthesized by this class.
+        // Queue credits require an explicit native IAudioOutput accepting exact bytes.
+        // The diagnostic validator is non-audible; device playback, lip-sync and
+        // completion still require separate IPhysicalAudioOutput receipts.
         public int DrainOnOwner(int maxChunks)
         {
             if (maxChunks < 0 || maxChunks > 64)
