@@ -94,8 +94,7 @@ Write-Host 'RPH console: LSAStandaloneStatus / LSAStandaloneProbe; typed stages 
 Write-Host 'Do not load LosSantosAlive.dll or other Essential-dependent plugins in this GTA session.'
 if ($PreflightOnly) {
   Write-Host 'Activation preflight complete; no companion or GTA/RPH process launched.'
-  return
-}
+} else {
 $companionProc=$null
 $logs=Join-Path $PSScriptRoot 'logs'
 New-Item -ItemType Directory -Force -Path $logs | Out-Null
@@ -127,6 +126,7 @@ try {
     Stop-Process -Id $companionProc.Id -Force -ErrorAction SilentlyContinue
   }
 }
+} # no early return; the outer environment cleanup runs on every path
 } finally {
   foreach ($key in $activationKeys) {
     $previous=$originalActivationEnv[$key]
