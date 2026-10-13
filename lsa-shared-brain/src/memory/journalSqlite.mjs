@@ -260,43 +260,70 @@ export function readFreeRecallWindow(db,s,world){
      !db.prepare('SELECT 1 FROM timelines WHERE timeline_id=? AND world_profile_id=?')
        .get(s.timelineId,world))fail('journal_owner_or_timeline_unknown');
   const scope={worldProfileId:world,characterId:s.characterId,timelineId:s.timelineId};
-  // Use the EXACT M5 forgetting closure and K-12 correction mode rules.
-  // This also hides identical bytes replayed under a different record ID.
-  // A broken/invalid permanent forgetting receipt MUST fail closed.
+  // Same permanent source-fingerprint closure and transcript-only correction
+  // semantics as the other P2 memory readers. Bad receipts fail closed.
   const revoked=suppressedMemoryIds(db,scope,{includeCorrections:true});
   const args=[world,s.characterId,s.timelineId];
   const audible="(speaker='player' AND delivery='accepted' OR speaker='npc' AND delivery='completed' AND receipt_id IS NOT NULL)";
-  const sessionIds=db.prepare(
+  const eligible=row=>!revoked.has(row.record_id);
+  const sessionQuery=db.prepare(
     'SELECT session_id FROM dialogue_journal WHERE world_profile_id=? AND character_id=? AND timeline_id=? AND '+audible+
-    ' GROUP BY session_id ORDER BY max(committed_at_utc) DESC LIMIT 2'
-  ).all(...args).map(r=>r.session_id);
-  // Overfetch so forgotten/superseded rows do not displace recent visible
-  // player lines. Keep a bounded scan to avoid unlimited startup retrieval.
-  const player=db.prepare(
-    "SELECT * FROM dialogue_journal WHERE world_profile_id=? AND character_id=? AND timeline_id=? AND speaker='player' AND delivery='accepted' ORDER BY committed_at_utc DESC,rowid DESC LIMIT 1000"
-  ).all(...args).filter(row=>!revoked.has(row.record_id)).slice(0,200);
-  const recent=db.prepare(
-    'SELECT * FROM dialogue_journal WHERE world_profile_id=? AND character_id=? AND timeline_id=? AND '+audible+
-    ' ORDER BY committed_at_utc DESC,rowid DESC LIMIT 1000'
-  ).all(...args);
+    ' GROUP BY session_id ORDER BY max(committed_at_utc) DESC, max(rowid) DESC'
+  );
+  const sessionRows=db.prepare(
+    'SELECT rowid AS journal_rowid,record_id FROM dialogue_journal WHERE world_profile_id=? AND character_id=? AND timeline_id=? AND session_id=? AND '+audible+
+    ' ORDER BY committed_at_utc DESC,rowid DESC'
+  );
+  // A completely forgotten session cannot displace a visible earlier session.
+  const sessionIds=[];
+  for(const session of sessionQuery.iterate(...args)){
+    let hasVisible=false;
+    for(const row of sessionRows.iterate(...args,session.session_id)){
+      if(eligible(row)){hasVisible=true;break;}
+    }
+    if(hasVisible)sessionIds.push(session.session_id);
+    if(sessionIds.length===2)break;
+  }
+  // Iterate by the indexed chronological ordering without an arbitrary
+  // 1,000-raw-row cutoff: 1,000 suppressed rows must not hide the next
+  // 200 eligible player lines. No full historical result is materialized.
   const selected=new Map();
-  for(const row of player)selected.set(row.record_id,row);
-  const sessions=new Set(sessionIds);
-  for(const row of recent)
-    if(sessions.has(row.session_id)&&!revoked.has(row.record_id))
+  let extraPlayer=false,playerCount=0;
+  const player=db.prepare(
+    "SELECT rowid AS journal_rowid,* FROM dialogue_journal WHERE world_profile_id=? AND character_id=? AND timeline_id=? AND speaker='player' AND delivery='accepted' ORDER BY committed_at_utc DESC,rowid DESC"
+  );
+  for(const row of player.iterate(...args)){
+    if(!eligible(row))continue;
+    if(playerCount===200){extraPlayer=true;break;}
+    selected.set(row.record_id,row);
+    playerCount++;
+  }
+  let extraSession=false,sessionCount=0;
+  if(sessionIds.length){
+    const marks=sessionIds.map(()=>'?').join(',');
+    const sessions=db.prepare(
+      'SELECT rowid AS journal_rowid,* FROM dialogue_journal WHERE world_profile_id=? AND character_id=? AND timeline_id=? AND '+audible+
+      ' AND session_id IN ('+marks+') ORDER BY committed_at_utc DESC,rowid DESC'
+    );
+    for(const row of sessions.iterate(...args,...sessionIds)){
+      if(!eligible(row))continue;
+      if(sessionCount===1000){extraSession=true;break;}
       selected.set(row.record_id,row);
-  const ordered=[...selected.values()].sort((a,b)=>b.committed_at_utc.localeCompare(a.committed_at_utc)||
-    b.rowid-a.rowid);
+      sessionCount++;
+    }
+  }
+  const ordered=[...selected.values()].sort((a,b)=>
+    b.committed_at_utc.localeCompare(a.committed_at_utc)||
+    b.journal_rowid-a.journal_rowid);
   const lines=[];let bytes=0;
   for(const row of ordered){
     const size=Buffer.byteLength(row.content,'utf8');
     if(lines.length===1000||bytes+size>512*1024)break;
-    // Check integrity only on admitted evidence. Preserve the original
-    // delivered status, receipt and source provenance in every returned line.
+    // Keep original status, native receipt and historical avatar provenance.
     lines.push(decodeLine(row));bytes+=size;
   }
   return Object.freeze({tier:'free_recall',lines:Object.freeze(lines),bytes,
-    truncated:lines.length<ordered.length,archiveAvailable:true});
+    truncated:lines.length<ordered.length||extraSession||extraPlayer,archiveAvailable:true});
 }
 export function readEvents(db,s,world){
   assertJournalSchema(db);const limit=readScope(s,world);
