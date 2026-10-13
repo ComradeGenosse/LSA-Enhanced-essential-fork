@@ -111,6 +111,19 @@ test('WS-4b NPC failures and interruptions are not reported as spoken; completed
     assert.equal(present(lines,failed),false);
   }finally{await afterRestart.close();}
 });
+test('WS-4b forged completion column cannot elevate interrupted NPC speech',async t=>{
+  const x=await setup(t);
+  const row={version:1,characterId:x.scope.characterId,worldProfileId,
+    timelineId:x.scope.timelineId,kind:'dialogue_line',recordId:id(),speaker:'npc',
+    source:'npc_generated',content:'unfinished native audio',delivery:'interrupted',
+    committedAtUtc:new Date().toISOString(),turnIdentityHash:sha(id()),
+    utteranceId:null,transcription:null,deliveryReceiptId:id()};
+  await x.store.appendDialogueLine(row,{sessionId:id(),protagonist:'franklin',hostRunId:null,worldEpoch:null});
+  await x.store.withTimelineSqliteWrite(x.scope,db=>db.prepare(
+    "UPDATE dialogue_journal SET delivery='completed' WHERE record_id=?").run(row.recordId));
+  await assert.rejects(x.store.readFreeRecallWindow(x.scope),/journal_content_integrity_failed/);
+  await x.store.close();
+});
 test('WS-4b extension-only index repair creates checked pre-migration snapshot',async t=>{
   const x=await setup(t);
   await x.store.close();
