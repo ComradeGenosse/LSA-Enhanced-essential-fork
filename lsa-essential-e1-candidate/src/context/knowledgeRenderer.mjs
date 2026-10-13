@@ -44,7 +44,7 @@ export function projectSituation(world) {
  result.zoneCode=typeof world?.zoneCode==='string'&&/^[A-Z0-9_]{1,16}$/.test(world.zoneCode)?world.zoneCode:'unknown';
  for(const key of ['crossingStreetName','streetName','weather','gameTime'])if(jsonBytes(result)>KNOWLEDGE_LIMITS.situationBytes)result[key]='unknown';return result;
 }
-export function projectConversation(history,input,source,directorEventContext=null) {
+export function projectConversation(history,input,source,directorEventContext=null,conversationJournal=null) {
  // Only the independently verified PS6 original stock kb context may be added.
  // Accept precisely the deterministic 160-unit native Director event grammar.
  const directorEvent=source==='special_event' &&
@@ -56,13 +56,26 @@ export function projectConversation(history,input,source,directorEventContext=nu
      :'No player utterance was received. Respond only to supported current context.';
  if(current.length>12000)throw new RangeError('knowledge_current_input_units');
  const currentMessage={role:'user',content:current};if(jsonBytes(currentMessage)>KNOWLEDGE_LIMITS.currentBytes)throw new RangeError('knowledge_current_input_bytes');
- const prior=(Array.isArray(history)?history:[]).filter(item=>item&&['user','assistant'].includes(item.role)&&typeof item.content==='string').slice(-12).map(({role,content})=>({role,content:content.toWellFormed()}));
- let droppedHistoryCount=0;while(prior.length&&jsonBytes(prior)>KNOWLEDGE_LIMITS.historyBytes){prior.shift();droppedHistoryCount++;}
- return {messages:[...prior,currentMessage],droppedHistoryCount};
+ // Durable, source-verified P2 history replaces RAM when available. The
+ // journal assembler has already removed forgotten or unplayed speech.
+ const journal=conversationJournal&&Array.isArray(conversationJournal.recent)&&
+   Array.isArray(conversationJournal.earlier)&&
+   conversationJournal.recent.every(x=>['user','assistant'].includes(x?.role)&&
+     typeof x.content==='string')?conversationJournal:null;
+ const prior=(journal?journal.recent:history??[])
+   .filter(item=>item&&['user','assistant'].includes(item.role)&&typeof item.content==='string')
+   .slice(journal?-20:-12).map(({role,content})=>({role,content:content.toWellFormed()}));
+ const limit=journal?12*1024:KNOWLEDGE_LIMITS.historyBytes;
+ let droppedHistoryCount=0;while(prior.length&&jsonBytes(prior)>limit){prior.shift();droppedHistoryCount++;}
+ const earlier=journal?journal.earlier.filter(x=>x.status==='archived'&&
+   ['user','assistant'].includes(x.role)&&typeof x.content==='string'&&
+   Number.isFinite(Date.parse(x.atUtc))).slice(0,4).map(x=>({
+   status:'archived',role:x.role,content:x.content.toWellFormed(),atUtc:x.atUtc})):[];
+ return {messages:[...prior,currentMessage],earlier,droppedHistoryCount};
 }
 // Pure projection only: callers must supply the canon already released by P1/P2.
 // Private turn/delivery metadata is never part of modelAllocation.
-export function renderKnowledge({turn,frozenAt,profile,persistent=false,knowledgeInputs,actor,listener,world,referenceMap,presence,history,input,source,directorEventContext=null,includePerceived=false,activityInputs=null,includeActivityFacts=false,dialogueInputs=null,includeDialogueReceipts=false,preparedRecall=null,recallAuthorization=null,preparedM8=null,m8Authorization=null}) {
+export function renderKnowledge({turn,frozenAt,profile,persistent=false,knowledgeInputs,actor,listener,world,referenceMap,presence,history,input,source,directorEventContext=null,includePerceived=false,activityInputs=null,includeActivityFacts=false,dialogueInputs=null,includeDialogueReceipts=false,preparedRecall=null,recallAuthorization=null,preparedM8=null,m8Authorization=null,conversationJournal=null,memoryAction=null}) {
  let canonProjection=narrativeProfileWithDiagnostics(profile,persistent);
  let narrative=canonProjection.narrative;
  // Reserve actual lane-wrapper overhead while reusing P2's established field
@@ -79,7 +92,7 @@ export function renderKnowledge({turn,frozenAt,profile,persistent=false,knowledg
  const {memories=[],...canon}=narrative||{};
  const recalled=memories.map(({category,importance,text})=>({category:['note','relationship','promise','event','biography','other'].includes(category)?category:'other',importance:Number.isInteger(importance)&&importance>=0&&importance<=100?importance:0,text}));
  const perceived=selectKnowledge(knowledgeInputs,{includePerceived,radioInput:['player_text','player_mic'].includes(source)?input:''});
- const conversation=projectConversation(history,input,source,directorEventContext);
+ const conversation=projectConversation(history,input,source,directorEventContext,conversationJournal);
  // K supplies a synchronous P2/native-authoritative admission check.
  let canAdmit=false;
  try{canAdmit=typeof recallAuthorization==='function'&&recallAuthorization(preparedRecall)===true;}catch{}
@@ -91,6 +104,14 @@ export function renderKnowledge({turn,frozenAt,profile,persistent=false,knowledg
  const m8=projectPreparedM8(canAdmitM8?preparedM8:null);
  const opinionReferences=[...m8.references];
  const lanes={SELF:{canon:narrative?canonData(canon):null,selfFacts:[]},PERCEIVED:{observations:[...perceived.observations]},RECALLED:{memories:wellFormedData(recalled)},SITUATION:projectSituation(world),COMPAT:projectCompatibility({actor,listener,referenceMap,presence})};
+ // M5 may speak success only if a durable command readback verified it.
+ // These typed statuses are the only command data admitted to the PS4 SELF lane.
+ if(Array.isArray(memoryAction)&&memoryAction.length&&memoryAction.length<=2&&
+    memoryAction.every(x=>x&&['saved','forgotten','corrected','clarify','failed'].includes(x.outcome)&&
+      typeof x.durableCommit==='boolean'&&
+      (['saved','forgotten','corrected'].includes(x.outcome)===x.durableCommit)))
+   lanes.SELF.memoryAction=memoryAction.map(({outcome,durableCommit})=>({outcome,durableCommit}));
+ if(conversation.earlier?.length)lanes.CONVERSE={earlier:conversation.earlier};
  if(recallReferences.length){
   lanes.RECALLED.evidence=recall.evidence;
   lanes.RECALLED.earlierArchivedConversation=recall.earlierArchivedConversation;
@@ -131,6 +152,7 @@ export function renderKnowledge({turn,frozenAt,profile,persistent=false,knowledg
  const dropObservation=index=>{lanes.PERCEIVED.observations.splice(index,1);delivery.splice(index,1);omissions.budget_excluded++;frameBudgetDrops++;};
  // Preserve compact safety evidence before optional history/environment/affordance
  // detail. Every evidence or memory removal is whole and deterministic.
+ while(oversized() && lanes.CONVERSE?.earlier?.length){lanes.CONVERSE.earlier.pop();frameBudgetDrops++;}
  while(oversized() && opinionReferences.length){dropOpinion();frameBudgetDrops++;}
  while(oversized() && recallReferences.length){dropRecall();frameBudgetDrops++;}
  while(oversized() && conversation.messages.length>1){conversation.messages.shift();conversation.droppedHistoryCount++;frameBudgetDrops++;}
@@ -143,6 +165,7 @@ export function renderKnowledge({turn,frozenAt,profile,persistent=false,knowledg
  }
  while(oversized() && lanes.SELF.selfFacts.length){dropSelfFact();frameBudgetDrops++;}
  while(oversized() && lanes.RECALLED.memories.length){lanes.RECALLED.memories.pop();frameBudgetDrops++;}
+ if(oversized())delete lanes.SELF.memoryAction;
  while(oversized() && delivery.length){dropObservation(delivery.length-1);omissions.safety_overflow++;}
  const modelAllocation=allocation(),bytes=jsonBytes(modelAllocation);
  if(bytes>KNOWLEDGE_LIMITS.frameBytes)throw new RangeError('knowledge_frame_bytes');
