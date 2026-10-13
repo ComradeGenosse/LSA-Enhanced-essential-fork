@@ -125,8 +125,13 @@ export function createD03OriginalDialogueJoin({store,backend,d02,originalActor,
   try{lease=d02.bindActorAtTurnStart({pedId:actor.nativeActorPedId,characterId,ownerAlias});}
   catch{return null;}
   if(!lease)return null;
-  let retired=false,player=null;
-  const close=()=>{retired=true;try{d02.revokeLease?.(lease)}catch{}};
+  let retired=false,player=null,memoryLease=null;
+  const close=()=>{
+    retired=true;
+    if(memoryLease)try{d02.revokeLease?.(memoryLease);}catch{}
+    memoryLease=null;
+    try{d02.revokeLease?.(lease)}catch{}
+  };
   // After acceptance the receipt, not the turn, governs (memory plan §5.5:
   // an accepted line stands even if the turn is later interrupted). Session,
   // source-run, actor/player, timeline, world and host changes still fence.
@@ -399,24 +404,35 @@ export function createD03OriginalDialogueJoin({store,backend,d02,originalActor,
       }catch{return denied('d03_durable_readback_unverified');}
     }finally{try{d02.revokeLease?.(lease2);}catch{}}
   }
-  // WS-6: short-lived synchronous authority for a read-bound turn. The
-  // original durable player receipt is necessary, but not sufficient: a fresh
-  // authenticated D02 lease must still identify this exact owner incarnation
-  // and controlling player. No caller can supply or override that proof.
-  function verifyMemoryCurrent(){
+  // WS-6: the source requires a native frame *newer* than the new lease.
+  // First corroborate asynchronously with the same strict D01/D02 continuity
+  // rules as D03, then keep this lease for synchronous pre-send rechecks.
+  // A missing/expired/recycled owner always disables memory; never downgrade.
+  const memoryProof=x=>!!player&&!!x.b&&
+    same(x.b,player.first.b,RECEIPT_KEYS)&&
+    JSON.stringify(x.b.retirementIdentity)===JSON.stringify(player.first.b.retirementIdentity)&&
+    same(x.n,player.first.n,NATIVE_KEYS);
+  async function openMemoryCurrent(){
     if(!player||retired||!current()||!sourceReady())return false;
-    let fresh=null;
+    if(memoryLease)return verifyMemoryCurrent();
+    let pending=null;
     try{
-      fresh=d02.bindActorAtTurnStart({pedId:actor.nativeActorPedId,characterId,ownerAlias});
-      if(!fresh)return false;
-      const x=read(player.text,player.source,fresh);
-      return !!x.b&&same(x.b,player.first.b,RECEIPT_KEYS)&&
-        JSON.stringify(x.b.retirementIdentity)===JSON.stringify(player.first.b.retirementIdentity)&&
-        same(x.n,player.first.n,NATIVE_KEYS);
+      pending=d02.bindActorAtTurnStart({pedId:actor.nativeActorPedId,characterId,ownerAlias});
+      if(!pending)return false;
+      const evidence=await corroborate(player.text,player.source,
+        clock.now()+corroborationWaitMs,pending);
+      if(!evidence||!memoryProof(evidence)||!current())return false;
+      memoryLease=pending;pending=null;
+      return verifyMemoryCurrent();
     }catch{return false;}
-    finally{if(fresh)try{d02.revokeLease?.(fresh);}catch{}}
+    finally{if(pending)try{d02.revokeLease?.(pending);}catch{}}
   }
-  return Object.freeze({acceptPlayer,recordNpcOutcome,verifyMemoryCurrent,retire:close});
+  function verifyMemoryCurrent(){
+    if(!memoryLease||!player||retired||!current()||!sourceReady())return false;
+    try{return memoryProof(read(player.text,player.source,memoryLease));}
+    catch{return false;}
+  }
+  return Object.freeze({acceptPlayer,recordNpcOutcome,openMemoryCurrent,verifyMemoryCurrent,retire:close});
  }
  return Object.freeze({begin,sourceReady});
 }
