@@ -114,6 +114,8 @@ jobs:
           Copy-Item 'native/standalone/bin/Release/net481/LSA.Standalone.Core.dll' "$root/payload/"
           Set-Content -Path "$root/payload/LSA.Standalone.enabled" -Value "Explicit isolated test profile only." -Encoding UTF8
           Copy-Item 'lsa-standalone-companion/src' "$root/companion/src" -Recurse
+          New-Item -ItemType Directory -Force "$root/companion/tools" | Out-Null
+          Copy-Item 'lsa-standalone-companion/tools/activation-config.mjs' "$root/companion/tools/"
           Copy-Item 'lsa-standalone-companion/service.mjs' "$root/companion/"
           Copy-Item 'lsa-standalone-companion/package.json' "$root/companion/"
           Copy-Item 'tools/standalone-gta-smoke/*.ps1' "$root/"
@@ -123,6 +125,10 @@ jobs:
           }
           node --check "$root/companion/service.mjs"
           if ($LASTEXITCODE -ne 0) { throw 'Packaged standalone Node syntax failed' }
+          node --check "$root/companion/tools/activation-config.mjs"
+          if ($LASTEXITCODE -ne 0) { throw 'Packaged activation preflight syntax failed' }
+          node "$root/companion/tools/activation-config.mjs" host | Out-Null
+          if ($LASTEXITCODE -ne 0) { throw 'Packaged safe host activation preflight failed' }
           foreach ($script in Get-ChildItem -LiteralPath $root -Filter '*.ps1' -File) {
             $parseErrors = $null
             [System.Management.Automation.Language.Parser]::ParseFile(
