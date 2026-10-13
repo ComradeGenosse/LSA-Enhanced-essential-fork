@@ -72,6 +72,18 @@ $env:LSA_STANDALONE_QWEN_VOICES=if ($TtsProvider -eq 'faster-qwen3-tts') { $Voic
 $env:LSA_STANDALONE_VOICE_ASSIGNMENTS=$null
 $env:LSA_STANDALONE_TTS_SESSION_VOICES=$null
 $env:LSA_STANDALONE_TTS_INSTRUCTIONS=$null
+# These checks run before either dry-run or normal launch. They reject any
+# regression that would let stale speech configuration leak into the child.
+foreach ($key in @('LSA_STANDALONE_VOICE_ASSIGNMENTS',
+  'LSA_STANDALONE_TTS_SESSION_VOICES','LSA_STANDALONE_TTS_INSTRUCTIONS')) {
+  if (-not [string]::IsNullOrEmpty([Environment]::GetEnvironmentVariable($key,'Process'))) {
+    throw "Unexpected inherited standalone speech setting: $key"
+  }
+}
+if ($TtsProvider -eq 'openai' -and
+    -not [string]::IsNullOrEmpty($env:LSA_STANDALONE_QWEN_VOICES)) {
+  throw 'Inactive Qwen voice pool leaked into OpenAI-only stage.'
+}
 $requestedEnable=@($EnableCapability)
 if ($EarlySpeech) { $requestedEnable += 'early_speech' }
 $arguments=@($preflight, $Stage)
