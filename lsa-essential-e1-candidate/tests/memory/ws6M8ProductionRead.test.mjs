@@ -148,7 +148,7 @@ test('failed NPC speech and unsupported witnessed sidecar never become M8 fact r
    delivery:'failed',committedAtUtc:new Date().toISOString(),turnIdentityHash:hash(uuid()),
    utteranceId:null,transcription:null,deliveryReceiptId:null};
  await f.store.appendDialogueLine(failed,{sessionId:uuid(),protagonist:'unknown',
-   ...f.store.verifiedHostContext});
+   hostRunId:a.hostRunId,worldEpoch:a.worldEpoch});
  const prepared=await reader.prepare({scope:f.scope,authority:a});
  assert.equal(prepared.status,'ready',prepared.reason);
  assert.ok(!prepared.projection.facts.some(x=>x.recordId===failed.recordId));
