@@ -64,6 +64,8 @@ await runSessionSupervisor({
       client, provider, tts, confirmPlayback,
       earlySpeech, signal, pollMs: 250,
       onStatus: (event, metadata = {}) => {
+        // Detached work from an old native pipe cannot claim new-session status.
+        if (signal.aborted) return;
         if (event === 'typed_reply_staged') emitCapability('typed_conversation', true, 'native_reply_staged_not_played');
         if (event === 'pcm_sealed_not_played') emitCapability('tts', true, 'pcm_sealed_not_played');
         if (event === 'speech_segments_sealed_not_played') emitCapability('early_speech', true, 'segments_sealed_not_played');
