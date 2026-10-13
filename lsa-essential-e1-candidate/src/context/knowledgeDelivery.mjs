@@ -2,15 +2,15 @@ import {createHash} from 'node:crypto';
 import {validateDecisionShape} from './essentialDecision.mjs';
 const hash=value=>createHash('sha256').update(JSON.stringify(value)).digest('hex');
 // Per-generation request state only; the existing salience ledger owns consumption.
-export function createKnowledgeDelivery({frame,baseFrame=frame,isCurrent,validate=()=>null,prune=frame=>frame,pruneRecall=null,recallCurrent=()=>false,pruneOpinion=null,opinionCurrent=()=>false,acknowledge=()=>false,onOutcome=()=>{}}) {
+export function createKnowledgeDelivery({frame,baseFrame=frame,isCurrent,validate=()=>null,prune=frame=>frame,pruneRecall=null,recallCurrent=()=>false,pruneOpinion=null,opinionCurrent=()=>false,memoryCurrent=()=>true,acknowledge=()=>false,onOutcome=()=>{}}) {
  let projection=frame,sent=false,terminal=false,requestHash=null,projectionHash=null,unsubscribe=null;
  const dispose=()=>{unsubscribe?.();unsubscribe=null;};
  const hasOptional=()=>projection.delivery.length>0 || (projection.activityReferences?.length??0)>0 ||
- (projection.dialogueReferences?.length??0)>0 || (projection.recallReferences?.length??0)>0 ||
+ (projection.dialogueReferences?.length??0)>0 || !!projection.memoryStamp || (projection.recallReferences?.length??0)>0 ||
  (projection.opinionReferences?.length??0)>0;
  const recallFresh=()=>{try{return recallCurrent(projection.recallReferences??[],projection.recallStamp)===true;}catch{return false;}};
  const opinionFresh=()=>{try{return opinionCurrent(projection.opinionReferences??[],projection.opinionStamp)===true;}catch{return false;}};
- const currentReason=()=>!isCurrent()?'superseded':(projection.recallReferences?.length&&!recallFresh())?'recall_stale':
+ const currentReason=()=>!isCurrent()?'superseded':(projection.memoryStamp&&!memoryCurrent(projection.memoryStamp))?'memory_stale':(projection.recallReferences?.length&&!recallFresh())?'recall_stale':
  (projection.opinionReferences?.length&&!opinionFresh())?'opinion_stale':hasOptional()?validate(projection):null;
  const fail=reason=>{throw Object.assign(new Error('knowledge_request_stale'),{code:'knowledge_request_stale',reason});};
  const report=outcome=>{
@@ -36,6 +36,7 @@ export function createKnowledgeDelivery({frame,baseFrame=frame,isCurrent,validat
    // Unsent optional evidence can be wholly removed; a sent source must
    // abort even if the provider is retrying the very same request body.
    for(let n=0;!sent&&n<2;n++){
+     if(reason==='memory_stale'){projection=baseFrame;reason=currentReason();continue;}
      if(reason==='recall_stale'&&typeof pruneRecall==='function'){
        projection=pruneRecall(projection);reason=currentReason();continue;
      }
@@ -44,7 +45,7 @@ export function createKnowledgeDelivery({frame,baseFrame=frame,isCurrent,validat
      }
      break;
    }
-   if(reason){if(sent || reason==='superseded'||reason==='recall_stale'||reason==='opinion_stale')fail(reason);projection=baseFrame;}
+   if(reason){if(sent || reason==='superseded'||reason==='memory_stale'||reason==='recall_stale'||reason==='opinion_stale')fail(reason);projection=baseFrame;}
    return projection;
   },
   beforeRequest(body){
