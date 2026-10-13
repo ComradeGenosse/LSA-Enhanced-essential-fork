@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 import { CAPABILITIES, PRESETS, presetEnvironment, resolveActivation
 } from '../src/activation/capabilities.mjs';
 
@@ -91,9 +92,9 @@ test('reject tampered independent flags and provider prerequisites fail closed',
     LSA_STANDALONE_PLAYBACK_CONFIRM: 'enabled'
   }));
   assert.equal(wrongConfirmation.valid, false);
-  assert.equal(resolveActivation(configured({
+  assert.throws(() => resolveActivation(configured({
     ...typed, LSA_STANDALONE_TTS_MODE: 'banana'
-  })).valid, false);
+  })), /invalid_setting:LSA_STANDALONE_TTS_MODE/);
   const missingTts = resolveActivation(configured({
     ...presetEnvironment('tts'), LSA_STANDALONE_TTS_MODEL: ''
   }));
@@ -111,8 +112,8 @@ test('streaming requires TTS not waveOut or lip sync; direct host launch clears 
 });
 
 test('packaged preflight CLI emits no secrets or false GTA validation', () => {
-  const exe = new URL('../tools/activation-config.mjs', import.meta.url);
-  const run = (args, env) => spawnSync(process.execPath, [exe.pathname, ...args],
+  const exe = fileURLToPath(new URL('../tools/activation-config.mjs', import.meta.url));
+  const run = (args, env) => spawnSync(process.execPath, [exe, ...args],
     { encoding: 'utf8', env: { ...process.env, ...env } });
   const host = run(['host'], { OPENAI_API_KEY: '', LSA_STANDALONE_AUDIO_OUTPUT: 'waveout_experimental' });
   assert.equal(host.status, 0, host.stderr);
