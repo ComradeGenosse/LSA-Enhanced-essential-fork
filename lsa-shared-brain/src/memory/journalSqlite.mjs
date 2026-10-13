@@ -107,7 +107,7 @@ function owner(db,e,world){
   if(!p||!t||t.worldId!==world)fail('journal_owner_or_timeline_unknown');
   return p.owner_alias;
 }
-export function appendDialogue(db,line,attribution,world){
+export function appendDialogue(db,line,attribution,world,{limits={}}={}){
   assertJournalSchema(db);const e=validateDialogueLine(line,world);owner(db,e,world);
   if(!exact(attribution,['sessionId','protagonist','hostRunId','worldEpoch'])||
     !isUuid(attribution.sessionId)||!['franklin','michael','trevor','unknown'].includes(attribution.protagonist)||
@@ -138,7 +138,7 @@ export function appendDialogue(db,line,attribution,world){
   // Duplicate replay above never consumes quota. All caps are enforced inside
   // the same transaction as the eventual insert; no silent archival pruning.
   enforceJournalCaps(db,{characterId:e.characterId,
-    bytes:Buffer.byteLength(raw)+Buffer.byteLength(e.content)});
+    bytes:Buffer.byteLength(raw)+Buffer.byteLength(e.content),limits});
   db.prepare('INSERT INTO dialogue_journal (record_id,world_profile_id,timeline_id,character_id,session_id,protagonist,host_run_id,world_epoch,speaker,source,delivery,turn_identity_hash,committed_at_utc,content,content_sha256,receipt_id,envelope_json,envelope_sha256) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)')
     .run(e.recordId,e.worldProfileId,e.timelineId,e.characterId,attribution.sessionId,attribution.protagonist,attribution.hostRunId,
       attribution.worldEpoch,e.speaker,e.source,e.delivery,e.turnIdentityHash,e.committedAtUtc,e.content,hash(e.content),
@@ -165,7 +165,7 @@ function verifiedEvidence(event,sidecar) {
   if(event.claims.some(c=>!sourceClaims.has(c.sourceEvidenceId)))fail('journal_evidence_claim_mismatch');
   return immutableSnapshot(sidecar);
 }
-export function appendEvent(db,event,world,{hostContext=null,sourceEvidence=null}={}){
+export function appendEvent(db,event,world,{hostContext=null,sourceEvidence=null,limits={}}={}){
   assertJournalSchema(db);const e=validateJournalEvent(event,world),alias=owner(db,e,world);
   if(alias!==e.ownerProof.ownerAlias)fail('journal_owner_proof_mismatch');
   if(hostContext&&(hostContext.hostRunId!==e.ownerProof.hostRunId||hostContext.worldEpoch!==e.ownerProof.worldEpoch))
@@ -190,7 +190,7 @@ export function appendEvent(db,event,world,{hostContext=null,sourceEvidence=null
   }
   const raw=JSON.stringify(e);
   enforceJournalCaps(db,{characterId:e.characterId,event:true,
-    bytes:Buffer.byteLength(raw)+(evidence?Buffer.byteLength(JSON.stringify(evidence)):0)});
+    bytes:Buffer.byteLength(raw)+(evidence?Buffer.byteLength(JSON.stringify(evidence)):0),limits});
   db.prepare('INSERT INTO event_journal(record_id,world_profile_id,timeline_id,character_id,observation_id,revision,event_type,received_at_utc,source_hash,receipt_status,envelope_json,envelope_sha256) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)')
     .run(e.recordId,e.worldProfileId,e.timelineId,e.characterId,e.observationId,e.revision,e.eventType,e.receivedAtUtc,
       e.sourceHash,e.receiptStatus,raw,hash(raw));
