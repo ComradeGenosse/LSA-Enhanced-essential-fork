@@ -4,6 +4,7 @@ import * as fs from 'node:fs/promises';
 import { constants as fsConstants } from 'node:fs';
 import path from 'node:path';
 import { randomUUID, createHash } from 'node:crypto';
+import {snapshotSqlite} from './sqliteDurability.mjs';
 // SQLite is an explicit opt-in. Older Node versions used by a legacy
 // Essential install must be able to START IN JSON MODE without this module.
 let DatabaseSync = null;
@@ -161,7 +162,7 @@ export async function inspectP2Sqlite({filePath,worldProfileId}) {
 }
 
 export class P2SqliteFoundation {
-  #db=null; #init=null; #snapshot=null;
+  #db=null; #init=null; #snapshot=null; #recoveryStatus=null;
   constructor({filePath,worldProfileId,legacyJsonPath=null}) {
     if(!filePath || !isUuid(worldProfileId))throw new TypeError('invalid_sqlite_profile_config');
     this.filePath=path.resolve(filePath);
@@ -169,6 +170,7 @@ export class P2SqliteFoundation {
     this.legacyJsonPath=legacyJsonPath?path.resolve(legacyJsonPath):null;
   }
   get initialized() {return !!this.#db;}
+  get recoveryStatus(){return this.#recoveryStatus;}
   get snapshot(){if(!this.#snapshot)fail('sqlite_profile_uninitialized');return this.#snapshot;}
   async initialize() {return this.#init ||= this.#initialize();}
   async #initialize() {
@@ -204,19 +206,38 @@ export class P2SqliteFoundation {
       db=new DatabaseSync(this.filePath);
       this.#snapshot=verifyExisting(db,this.worldProfileId);
       db.exec('PRAGMA foreign_keys=ON; PRAGMA busy_timeout=5000; PRAGMA journal_mode=WAL; PRAGMA synchronous=FULL');
-      // Additive and transactional: v2 P2 snapshot/profile bytes remain untouched.
-      // The single M1 writer lock is held before migrating or accepting appends.
-      migrateJournalSchema(db);
-      ensureIntegratedMemorySchema(db);
-      ensureCurationSchema(db);
-      // Additive only: M3 negative coverage shares this exact P2 connection.
-      ensureM3CoverageSchema(db);
-      // Additive v4 extensions, installed under the original P2 writer lock.
-      // They do not change the M1 snapshot or PRAGMA user_version=4.
-      transaction(db,()=>{ensureM5PrivacySchema(db);reconcileM5Suppression(db);ensureP2ReplaySchema(db);ensureM6P2ReplaySchema(db);});
+      // Crash recovery must preserve the pre-migration store even if DDL fails.
+      // Detect both an old core schema and a v4 database lacking extensions.
+      const version=db.prepare('PRAGMA user_version').get().user_version;
+      const extensions=['m3_coverage','m5_trash','p2_memory_replay_feed','m6_p2_checkpoints'];
+      const missing=extensions.some(name=>!db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?").get(name));
+      if(version!==JOURNAL_SCHEMA_VERSION||missing)
+        await snapshotSqlite(db,this.filePath,{reason:'pre_migration'});
+      // One transaction includes the v2/v3 -> v4 migration and every extension
+      // DDL/reconciliation. Failure leaves no partially upgraded schema.
+      transaction(db,()=>{
+        migrateJournalSchema(db);
+        ensureIntegratedMemorySchema(db);
+        ensureCurationSchema(db);
+        ensureM3CoverageSchema(db);
+        ensureM5PrivacySchema(db);
+        reconcileM5Suppression(db);
+        ensureP2ReplaySchema(db);
+        ensureM6P2ReplaySchema(db);
+      });
       this.#db=db;
       return this.#snapshot;
-    } catch(e){try {db?.close();}catch{}throw e;}
+    } catch(e){
+      this.#recoveryStatus={status:'read_only_recovery_required',reason:e.message,
+        database:this.filePath,snapshots:this.filePath+'.snapshots'};
+      try {db?.close();}catch{}
+      // Do not write to, reset, or auto-restore an integrity-failed database.
+      throw e;
+    }
+  }
+  async createDurabilitySnapshot(reason='session_end'){
+    if(!this.#db)fail('sqlite_profile_uninitialized');
+    return snapshotSqlite(this.#db,this.filePath,{reason});
   }
   list(){return this.snapshot.profiles;}
   get(characterId){return this.list().find(p=>p.characterId===characterId)||null;}
