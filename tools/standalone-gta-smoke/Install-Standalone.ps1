@@ -2,30 +2,25 @@
 [CmdletBinding()]
 param(
   [Parameter(Mandatory=$true)][string]$GamePath,
-  [switch]$IsolatedProfile
+  [switch]$IsolatedProfile,
+  [switch]$ExistingInstallation
 )
 $ErrorActionPreference = 'Stop'
-if (-not $IsolatedProfile) { throw 'Explicit -IsolatedProfile required. Do NOT install into your Essential-based game.' }
+if ([bool]$IsolatedProfile -eq [bool]$ExistingInstallation) {
+  throw 'Specify exactly one deployment mode: -IsolatedProfile OR -ExistingInstallation.'
+}
+# Existing-install mode does not uninstall or back up LSA. Move legacy
+# binaries/bridges off-game and verify your private data backup first.
+$profileMode = if ($ExistingInstallation) { 'existing' } else { 'isolated' }
 $game = [System.IO.Path]::GetFullPath($GamePath)
 if (-not (Test-Path -LiteralPath (Join-Path $game 'GTA5_Enhanced.exe') -PathType Leaf) -or
     -not (Test-Path -LiteralPath (Join-Path $game 'RAGEPluginHook.exe') -PathType Leaf)) {
-  throw 'Target must be an isolated GTA V Enhanced + RAGE Plugin Hook installation.'
+  throw 'Target must contain GTA V Enhanced and RAGE Plugin Hook.'
 }
 if (Get-Process -Name 'GTA5_Enhanced','RAGEPluginHook' -ErrorAction SilentlyContinue) {
   throw 'Exit GTA/RPH before touching plugin files.'
 }
-$plugins = Join-Path $game 'Plugins'
-$blocked = @(
-  'LosSantosAlive.dll','Los Santos Alive.dll','LSA.PromotedCharacters.dll',
-  'LSA.PromotedCharacters','LSA.PromotedCharacters.json',
-  'LSA.SessionIdentity.dll','LSA.Intelligence.dll'
-)
-foreach ($n in $blocked) {
-  if (Test-Path -LiteralPath (Join-Path $plugins $n)) { throw "Legacy plugin present: $n" }
-}
-if (Test-Path -LiteralPath (Join-Path $game 'LosSantosAlive.dll')) {
-  throw 'Legacy Essential DLL present in GTA root.'
-}
+& (Join-Path $PSScriptRoot 'Assert-LegacyLSAStopped.ps1') -GamePath $game
 $manifestFolder = Join-Path $game '.LSAStandaloneSmoke'
 if (Test-Path -LiteralPath $manifestFolder) { throw 'Existing standalone install manifest; run rollback first.' }
 $package = Join-Path $PSScriptRoot 'payload'
@@ -56,9 +51,9 @@ try {
     @{ relative=$item.dest; sha256=(Get-FileHash -Algorithm SHA256 -LiteralPath $target).Hash }
   }
   New-Item -ItemType Directory -Path $manifestFolder | Out-Null
-  $m = @{ version=1; kind='standalone-gta-smoke-create-only'; files=@($files) }
+  $m = @{ version=1; kind='standalone-gta-smoke-create-only'; profileMode=$profileMode; files=@($files) }
   $m | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath (Join-Path $manifestFolder 'manifest.json') -Encoding UTF8
-  Write-Host 'Standalone DLLs and marker installed in isolated GTA profile only.'
+  Write-Host "Standalone DLLs and marker installed in $profileMode profile; no legacy files changed."
   Write-Host 'To restore clean state run Undo-Standalone.ps1 -GamePath <same path>.'
 } catch {
   foreach ($target in $written) { Remove-Item -LiteralPath $target -Force -ErrorAction SilentlyContinue }
