@@ -16,16 +16,30 @@ const fail=code=>{throw new Error(code);};
 const lineKeys=['version','characterId','worldProfileId','timelineId','kind','recordId','speaker','source','content','delivery','committedAtUtc','turnIdentityHash','utteranceId','transcription','deliveryReceiptId'];
 const eventKeys=['version','characterId','worldProfileId','timelineId','kind','recordId','observationId','revision','eventType','receivedAtUtc','sourceHash','ownerProof','receiptStatus','claims'];
 function scope(e,world){if(!e||e.version!==1||!isUuid(e.characterId)||e.worldProfileId!==world||!isUuid(e.timelineId)||!isUuid(e.recordId))fail('journal_invalid_scope');}
+// `replyTo` is optional so every pre-existing line shape stays valid. When present
+// it is the record id of the accepted player line an NPC line answers (study
+// §3.3 "the NPC line it replied to"); appendDialogue resolves it in the same
+// scope and session, so a reply link can never dangle or cross characters.
+export const NPC_DELIVERY_STATUSES=Object.freeze(['completed','interrupted','failed']);
 export function validateDialogueLine(e,world){
   scope(e,world);
-  if(!exact(e,lineKeys)||e.kind!=='dialogue_line'||!['player','npc'].includes(e.speaker)||
+  const hasReply=!!e&&typeof e==='object'&&Object.hasOwn(e,'replyTo');
+  if(!exact(e,hasReply?[...lineKeys,'replyTo']:lineKeys)||e.kind!=='dialogue_line'||!['player','npc'].includes(e.speaker)||
     !['typed','stt','npc_generated'].includes(e.source)||!validText(e.content,1,12000)||!utc(e.committedAtUtc)||
     !hex(e.turnIdentityHash)||!(e.utteranceId===null||isUuid(e.utteranceId))||
     !(e.deliveryReceiptId===null||isUuid(e.deliveryReceiptId)))fail('journal_invalid_dialogue');
+  if(hasReply&&!(e.replyTo===null||isUuid(e.replyTo)))fail('journal_invalid_reply_to');
   if(e.speaker==='player'){
     if(!['typed','stt'].includes(e.source)||e.delivery!=='accepted'||e.deliveryReceiptId!==null)fail('journal_unaccepted_dialogue');
-  }else if(e.source!=='npc_generated'||e.delivery!=='completed'||!isUuid(e.deliveryReceiptId)||e.transcription!==null)
-    fail('journal_unverified_playback');
+    if(hasReply&&e.replyTo!==null)fail('journal_invalid_reply_to');
+  }else{
+    if(e.source!=='npc_generated'||e.transcription!==null||!NPC_DELIVERY_STATUSES.includes(e.delivery))
+      fail('journal_unverified_playback');
+    // completed/interrupted carry the delivery outcome id; a failed line was
+    // never delivered, so no receipt can exist for it.
+    if(e.delivery==='failed'?e.deliveryReceiptId!==null:!isUuid(e.deliveryReceiptId))
+      fail('journal_unverified_playback');
+  }
   if(e.source==='stt'){
     const t=e.transcription;
     if(!exact(t,['provider','model','confidence'])||!validText(t.provider,1,64)||!validText(t.model,1,80)||
@@ -98,6 +112,13 @@ export function appendDialogue(db,line,attribution,world){
     !(attribution.hostRunId===null||isUuid(attribution.hostRunId))||
     !(attribution.worldEpoch===null||Number.isSafeInteger(attribution.worldEpoch)&&attribution.worldEpoch>=0)||
     (attribution.hostRunId===null)!==(attribution.worldEpoch===null))fail('journal_invalid_attribution');
+  if(typeof e.replyTo==='string'){
+    const parent=db.prepare('SELECT speaker,delivery,session_id,character_id,timeline_id,world_profile_id FROM dialogue_journal WHERE record_id=?').get(e.replyTo);
+    if(!parent||parent.speaker!=='player'||parent.delivery!=='accepted'||
+       parent.character_id!==e.characterId||parent.timeline_id!==e.timelineId||
+       parent.world_profile_id!==e.worldProfileId||parent.session_id!==attribution.sessionId)
+      fail('journal_reply_to_unresolved');
+  }
   if(isSuppressedSource(db,e,{recordId:e.recordId,kind:'dialogue_line',contentHash:hash(e.content),evidenceKey:e.turnIdentityHash}))fail('memory_source_forgotten');
   const old=db.prepare('SELECT envelope_json,envelope_sha256,content_sha256,session_id,protagonist,host_run_id,world_epoch FROM dialogue_journal WHERE character_id=? AND timeline_id=? AND speaker=? AND turn_identity_hash=?')
     .get(e.characterId,e.timelineId,e.speaker,e.turnIdentityHash);

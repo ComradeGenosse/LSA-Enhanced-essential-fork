@@ -154,11 +154,23 @@ export async function d01Harness(t,{config={},corroboration=true,roster={}}={}){
     await h.evaluate('$y(d01MicTurn,d01MicTurn.metadata.sessionRecord)');
     return turn;
   };
-  const journal=()=>store.withP2SqliteRead({characterId:profile.characterId,worldProfileId,timelineId},db=>({
-    rows:db.prepare("SELECT speaker,source,content,content_sha256,protagonist,session_id,delivery FROM dialogue_journal ORDER BY rowid").all(),
-    sources:db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='memory_d03_accepted_sources'").get()
-      ?db.prepare('SELECT record_id,source_json,source_sha256 FROM memory_d03_accepted_sources').all():[],
-  }));
+  // `rows` is EVERY journal row (player and NPC), so a negative test that expects
+  // an empty journal also proves no NPC line leaked in. `players`/`npcs` are the
+  // convenience splits; `npcSources` is the NPC delivery provenance sidecar.
+  const journal=()=>store.withP2SqliteRead({characterId:profile.characterId,worldProfileId,timelineId},db=>{
+    const rows=db.prepare("SELECT record_id,speaker,source,content,content_sha256,protagonist,session_id,delivery,receipt_id,turn_identity_hash,committed_at_utc,envelope_json FROM dialogue_journal ORDER BY rowid").all()
+      .map(r=>({...r,replyTo:JSON.parse(r.envelope_json).replyTo??null}));
+    const table=name=>db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name=?").get(name);
+    return {
+      rows,
+      players:rows.filter(r=>r.speaker==='player'),
+      npcs:rows.filter(r=>r.speaker==='npc'),
+      sources:table('memory_d03_accepted_sources')
+        ?db.prepare('SELECT record_id,source_json,source_sha256 FROM memory_d03_accepted_sources').all():[],
+      npcSources:table('memory_d03_npc_delivery_sources')
+        ?db.prepare('SELECT record_id,source_json,source_sha256 FROM memory_d03_npc_delivery_sources').all():[],
+    };
+  });
   return {h,f,store,profile,owned,a,client,native,d02,session,timelineId,replies,
     typed,mic,identityOf,journal,
     settled:turn=>session.connection.whenSettled(identityOf(turn))};

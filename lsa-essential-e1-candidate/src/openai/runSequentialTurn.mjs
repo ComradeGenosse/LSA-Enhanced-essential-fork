@@ -51,7 +51,12 @@ function publicCause(error) {
 // `acceptance` is the one-shot accepted-input capability that OpenAIConnection
 // opens privately for this launch (see memory/openaiRuntimeAcceptedInput.mjs).
 // It is not a service and never reaches model, provider or native code.
-export async function runSequentialTurn({ connection, turn, controller = new AbortController(), services, history, host, acceptance = null }) {
+// `speech` is the matching one-shot NPC speech-delivery recorder (WS-5a): it is
+// fed only from actions this function really performs (PCM chunks accepted by
+// host.emit, TTS completion, stream end, RAM-history acceptance) and from the
+// native events the bridge delivered for this exact turn tuple. Every call is
+// best effort: memory evidence can never delay, fail or alter a turn.
+export async function runSequentialTurn({ connection, turn, controller = new AbortController(), services, history, host, acceptance = null, speech = null }) {
   const { identity, input, pcm, sampleRate } = turn;
   let context = turn.context;
   const source = String(turn.source || 'player_text').toLowerCase();
@@ -108,6 +113,20 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
       },
     });
   };
+  // NPC side of the exchange (WS-5a). Runs for completed, interrupted and failed
+  // speech alike; D03 decides from the ledger, and a missing outcome is silent.
+  const recordNpcOutcome = async () => {
+    if (!services.recordM2Npc || !speech) return;
+    try {
+      const receipt = await services.recordM2Npc({ turn });
+      if (!receipt) return;
+      if (['stored', 'duplicate'].includes(receipt.status) && receipt.durable === true) {
+        metrics?.event('memory_journal_committed', { role: 'npc', delivery: receipt.delivery });
+      } else if (receipt.reason !== 'd03_npc_no_outcome') {
+        metrics?.event('memory_journal_not_committed', { role: 'npc', reason: receipt.reason });
+      }
+    } catch { try { metrics?.event('memory_journal_not_committed', { role: 'npc' }); } catch {} }
+  };
   let nativeHandoffStarted = false;
   let pcmBytesTotal = 0;
   let pcmChunksTotal = 0;
@@ -156,6 +175,7 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
       chooseTerminal(reason);
       if (!controller.signal.aborted) controller.abort(new Error(reason));
     }, event => {
+      try { speech?.native(event); } catch { /* evidence only */ }
       const map = {
         audio_turn_accepted: 'native_authorization_accepted',
         audio_turn_rejected: 'native_authorization_rejected',
@@ -275,22 +295,27 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
             }
             transition('tts_running');
             metrics?.event('stream_tts_segment_started', { segmentSequence: segment.sequence });
-            const audio = await performProvider('tts', services.providerStack.speech.id,
-              ({ signal, timeoutMs, telemetry, isActive: active }) => services.speak({
-                identity, dialogue: segment.text, speechProfile: turn.speechProfile, signal, timeoutMs, telemetry,
-                onPcm: chunk => forwardPcm(chunk, active),
-              }), () => !nativeHandoffStarted);
-            if (!audio?.bytes) throw new Error('empty_segment_audio');
-            if (audio.discardedTrailingByte) throw Object.assign(new Error('partial_pcm16_sample'), { code: 'partial_pcm16_sample' });
+            // The ledger counts the PCM this runner really handed to native for
+            // this segment and later compares it to the provider's own total.
+            let ledgerSegment = null;
+            try { ledgerSegment = speech?.beginSegment({ sequence: segment.sequence, text: segment.text }) ?? null; } catch { ledgerSegment = null; }
+            let audio;
+            try {
+              audio = await performProvider('tts', services.providerStack.speech.id,
+                ({ signal, timeoutMs, telemetry, isActive: active }) => services.speak({
+                  identity, dialogue: segment.text, speechProfile: turn.speechProfile, signal, timeoutMs, telemetry,
+                  onPcm: chunk => forwardPcm(chunk, active).then(() => { try { ledgerSegment?.forwarded(chunk.byteLength); } catch {} }),
+                }), () => !nativeHandoffStarted);
+              if (!audio?.bytes) throw new Error('empty_segment_audio');
+              if (audio.discardedTrailingByte) throw Object.assign(new Error('partial_pcm16_sample'), { code: 'partial_pcm16_sample' });
+            } catch (error) {
+              try { ledgerSegment?.failed(); } catch {}
+              throw error;
+            }
             bytes += audio.bytes;
             chunks += audio.chunks || 0;
             spokenTtsSegments.push(segment.text);
-            // An optional W03 source gate verifies native-forwarded PCM and
-            // TTS text against its independent transport ledger. Failure
-            // cannot authorize a memory or interrupt the original turn.
-            try { services.admitM2SpeechSegment?.({turn,mode:'early_streamed',
-              sequence:segment.sequence,text:segment.text,
-              audioBytes:audio.bytes,forwardedBytes:audio.bytes}); } catch {}
+            try { ledgerSegment?.completed(audio.bytes); } catch {}
             metrics?.event('stream_tts_segment_finished', { segmentSequence: segment.sequence, bytes: audio.bytes, chunks: audio.chunks || 0 });
           }
           return { bytes, chunks, discardedTrailingByte: false };
@@ -362,6 +387,7 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
     check();
     if (validated.identityValid !== true || !validated.internalTranscript) throw new Error('decision_rejected');
     transition('decision_validated');
+    try { speech?.planned(decision.dialogue); } catch { /* evidence only */ }
     metrics?.event('decision_validated', { inputChars: String(decision.dialogue || '').length, attempts: validated.actionCount || 0, outcome: validated.actionCount ? 'accepted' : 'normal' });
     dialogueTurn?.decision({ dialogue: decision.dialogue, command: decision.command, internalTranscript: validated.internalTranscript });
     history.stage({ identity, spokenReply: decision.dialogue });
@@ -380,19 +406,24 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
     transition('tts_running');
     let audio = earlyAudio?.bytes > 0 ? earlyAudio : null;
     const successfulEarlySpeech = !!audio && spokenTtsSegments.length>0;
+    let bufferedSegment = null;
     if (!audio) {
-      audio = await performProvider('tts', services.providerStack?.speech.id || 'openai.speech',
-        ({ signal, timeoutMs, telemetry, isActive }) => services.speak({
-          identity, dialogue: decision.dialogue, speechProfile: turn.speechProfile, signal, timeoutMs, telemetry,
-          onPcm: chunk => forwardPcm(chunk, isActive),
-        }), () => !hasAction && !nativeHandoffStarted);
+      try { bufferedSegment = speech?.beginSegment({ sequence: 0, text: decision.dialogue }) ?? null; } catch { bufferedSegment = null; }
+      try {
+        audio = await performProvider('tts', services.providerStack?.speech.id || 'openai.speech',
+          ({ signal, timeoutMs, telemetry, isActive }) => services.speak({
+            identity, dialogue: decision.dialogue, speechProfile: turn.speechProfile, signal, timeoutMs, telemetry,
+            onPcm: chunk => forwardPcm(chunk, isActive).then(() => { try { bufferedSegment?.forwarded(chunk.byteLength); } catch {} }),
+          }), () => !hasAction && !nativeHandoffStarted);
+      } catch (error) {
+        try { bufferedSegment?.failed(); } catch {}
+        throw error;
+      }
     }
     check();
     if (!authorizationRequested || !audio?.bytes || !pcmBytesTotal) throw new Error('empty_audio');
     if (!successfulEarlySpeech) {
-      try { services.admitM2SpeechSegment?.({turn,mode:'buffered',
-        sequence:0,text:decision.dialogue,
-        audioBytes:audio.bytes,forwardedBytes:pcmBytesTotal}); } catch {}
+      try { bufferedSegment?.completed(audio.bytes); } catch { /* evidence only */ }
     }
     history.markModelAndTtsSucceeded(identity);
     await emit({ type: 'generation_complete' });
@@ -401,6 +432,7 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
     transition('stream_end');
     metrics?.count('streamEndCount');
     await emit({ type: 'turn_complete' });
+    try { speech?.finalized(); } catch { /* evidence only */ }
     metrics?.event('native_stream_end_handoff', { accepted: true, bytes: pcmBytesTotal, chunks: pcmChunksTotal });
     providerWorkDone?.('finished');
 
@@ -423,15 +455,11 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
     }
     chooseTerminal('completed');
     if (!history.acceptPlaybackResult({ ...result, playbackSucceeded: true })) throw new Error('history_commit_rejected');
-    // Only the terminal native playback receipt admitted by RAM history may
-    // commit an NPC line. Never journal generated-but-unplayed speech.
-    if (services.recordM2Npc) {
-      try { await services.recordM2Npc({turn,
-        text:successfulEarlySpeech?spokenTtsSegments.join(''):decision.dialogue,
-        receipt:result,mode:successfulEarlySpeech?'early_streamed':'buffered',
-        spokenSegments:successfulEarlySpeech?spokenTtsSegments:null}); }
-      catch { try { metrics?.event('memory_journal_not_committed', {role:'npc'}); } catch {} }
-    }
+    try { speech?.historyAccepted(result); } catch { /* evidence only */ }
+    // Only a native terminal receipt that RAM history also admitted, with every
+    // PCM chunk counted by the ledger, can classify the line `completed`. D03
+    // reads that evidence itself: nothing here supplies text or a status.
+    await recordNpcOutcome();
     metrics?.count('assistantCommitCount');
     metrics?.event('assistant_history_committed', { outputChars: String(decision.dialogue || '').length, playbackEndedCount: 1 });
     dialogueTurn?.finish({ reason: 'completed', stage: 'completed', assistantCommitted: true, assistantDiscarded: false });
@@ -444,6 +472,7 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
     const stageAtFailure = state;
     providerWorkDone?.('failed', { code: /^[A-Za-z][A-Za-z0-9_]{0,63}$/.test(error?.code || '') ? error.code : 'provider_work_failed' });
     if (!terminalReason) chooseTerminal(controller.signal.aborted ? terminalForAbort(controller.signal) : terminalForError(error, state));
+    try { speech?.terminal(terminalReason); } catch { /* evidence only */ }
     retired = true;
     const assistantDiscarded = history.discard(identity);
     if (assistantDiscarded) {
@@ -462,6 +491,9 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
       try { host.failDirectorTurn?.(turn.directorTicket,identity); }
       catch { /* Failure notification never grants playback. */ }
     }
+    // Interrupted / failed speech. The turn is already over for native; the D03
+    // write below needs the lease that finally{} revokes, so it is awaited here.
+    await recordNpcOutcome();
     if (terminalReason === 'provider_timeout') state = 'deadline';
     else if (terminalReason === 'cancelled' || terminalReason === 'superseded' || terminalReason === 'disconnected' || terminalReason === 'playback_interrupted') state = 'cancelled';
     else if (terminalReason === 'playback_ack_timeout') state = 'ack_timeout';
@@ -474,6 +506,7 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
     // Any awaited D03 write has settled by now; drop the receipt and lease.
     try { acceptance?.release(); } catch {}
     try{turn.m2Capture?.retire();}catch{}
+    try { speech?.release(); } catch {}
     history.discard(identity);
     observation?.dispose();
     turn.knowledgeDelivery?.dispose();

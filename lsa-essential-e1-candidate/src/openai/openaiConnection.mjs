@@ -310,9 +310,15 @@ export class OpenAIConnection {
     let acceptance = null;
     try { acceptance = this.#memorySources?.acceptance?.openTurn({ identity: turn.identity, source: turn.source, connection: this, signal: controller.signal }) ?? null; }
     catch { acceptance = null; }
+    // One-shot NPC speech-delivery recorder for this launch (WS-5a). Same
+    // privacy rules as `acceptance`: held here and by the runner only.
+    let speech = null;
+    try { speech = this.#memorySources?.speech?.openTurn({ identity: turn.identity, source: turn.source, connection: this, signal: controller.signal }) ?? null; }
+    catch { speech = null; }
     const run = Promise.resolve().then(async () => {
       if (controller.signal.aborted || this.#closed) {
         try { acceptance?.release(); } catch {}
+        try { speech?.release(); } catch {}
         const reason = this.#closed ? 'disconnected' : this.#active?.cancelReason || 'cancelled';
         this.#metrics?.finish({ reason, stage: 'input', assistantCommitted: false });
         return { status: 'cancelled', terminalReason: reason };
@@ -325,6 +331,7 @@ export class OpenAIConnection {
         history: this.#runtime.history,
         host: this.#runtime.hostFor(this),
         acceptance,
+        speech,
       });
     });
     state.done = run;
