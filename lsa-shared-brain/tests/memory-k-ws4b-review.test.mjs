@@ -61,6 +61,8 @@ test('WS-4b forgetting receipts and STT supersession survive restart; counter-cl
   assert.equal((await command(x,'correct',mistaken,'transcript')).status,'committed');
   const disputed=await x.player('the bus was purple');
   assert.equal((await command(x,'correct',disputed,'counter_claim')).status,'committed');
+  await assert.rejects(x.store.readFreeRecallWindow({...x.scope,worldProfileId:id()}),/journal_invalid_scope/);
+  await assert.rejects(x.store.readFreeRecallWindow({...x.scope,timelineId:id()}),/journal_owner_or_timeline_unknown/);
   const before=(await x.store.readFreeRecallWindow(x.scope)).lines;
   assert.equal(present(before,forgotten),false);
   assert.equal(present(before,mistaken),false);
