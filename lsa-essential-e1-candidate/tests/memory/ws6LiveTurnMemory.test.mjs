@@ -86,7 +86,7 @@ test('WS-6a: a real accepted-line readback prepares a typed PS4 RECALLED contrib
   assert.equal(p.preparedRecall.contribution.contributor,'m4_recall');
   assert.equal(p.preparedRecall.contribution.items[0]?.content,prior.content);
   assert.equal(p.conversationJournal.recent[0].content,prior.content);
-  assert.equal(p.recallCurrent([],p.preparedRecall.stamp),true);
+  assert.equal(p.recallCurrent([],{...p.preparedRecall.stamp}),true,'PS4 copies stamps into immutable frame');
   ok=false;
   assert.equal(p.recallCurrent([],p.preparedRecall.stamp),false);
 });
