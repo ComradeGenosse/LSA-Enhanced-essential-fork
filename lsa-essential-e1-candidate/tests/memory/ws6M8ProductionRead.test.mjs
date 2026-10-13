@@ -16,7 +16,7 @@ const hash=text=>createHash('sha256').update(text).digest('hex');
 async function fixture(t){
  const dir=mkdtempSync(path.join(tmpdir(),'ws6-agent-a-'));
  const filePath=path.join(dir,'p2.sqlite');
- t.after(()=>rmSync(dir,{recursive:true,force:true}));
+
  const make=()=>createP2MemoryStorage({filePath,worldProfileId,sourceRequired:true});
  const store=make();await store.initialize();
  const npc=await store.create(profile()),timelineId=await store.createTimeline({label:'m8'});
@@ -37,7 +37,7 @@ async function fixture(t){
  const reader=()=>createP2M8ProductionReader({
    store,currentIdentity:()=>live,originalCurrent:()=>original});
  const setIdentity=a=>{live={...a};};
- t.after(async()=>{if(store.available)await store.close();});
+ t.after(async()=>{if(store.available)await store.close();rmSync(dir,{recursive:true,force:true});});
  return {store,npc,scope,identity,recorder,say,authority,reader,setIdentity,
    invalidate:()=>{original=false},make,filePath};
 }
