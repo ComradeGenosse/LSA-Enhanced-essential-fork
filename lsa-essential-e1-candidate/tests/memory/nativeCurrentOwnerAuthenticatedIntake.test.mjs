@@ -204,7 +204,7 @@ test('D02 identical roster refresh unsettles proof but keeps the live lease unti
   }finally{f.close();}
 });
 
-test('D02 roster demotion and owner drop-out across a refresh revoke permanently on the same stream',async()=>{
+test('D02 owner omission across roster refresh revokes old lease but admits fresh exact proof',async()=>{
   const f=fixture();
   try{
     await f.establish();await f.send('memory_current_owner_player',f.proof());
@@ -213,12 +213,17 @@ test('D02 roster demotion and owner drop-out across a refresh revoke permanently
     await f.send('anchors',[{captureRef:f.npcRef,kind:'ped',observer:false,owned:false}]);
     f.next();await f.send('memory_current_owner_player',{...f.proof(),owners:[]});
     assert.equal(f.verify(lease),null,'owner missing from the newest sample');
-    // Even if a later sample re-advertises the old captureRef, it was retired
-    // by the drop-out diff that now spans roster maintenance.
+    // Recovery after a real native observer revalidation is allowed only for
+    // a NEW lease. The pre-gap lease cannot be resurrected.
     await identicalRosterRefresh(f);
     f.next();await f.send('memory_current_owner_player',f.proof());
-    assert.equal(f.verify(lease),null,'drop-out across roster maintenance cannot be resurrected');
-    assert.equal(f.bind(),null);
+    assert.equal(f.verify(lease),null,'drop-out across roster maintenance permanently revokes old lease');
+    const fresh=f.bind();
+    assert.ok(fresh,'revalidated native owner can bind a new turn');
+    assert.equal(f.verify(fresh),null,'the recovery sample itself is not post-bind corroboration');
+    f.next();await f.send('memory_current_owner_player',f.proof());
+    assert.ok(f.verify(fresh));
+    assert.equal(f.verify(lease),null);
   }finally{f.close();}
 });
 
