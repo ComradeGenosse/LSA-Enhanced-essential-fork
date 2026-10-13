@@ -74,6 +74,11 @@ test('WS6 latency: disk P2 busy 10k, cold/restart M4 to PS4, original-runner pre
    verify.push(performance.now()-begin);assert.equal(ok,true);return ok;}};
  };
  for(let i=0;i<10;i++){
+  // Authorize EACH measured original turn with a new authenticated native
+  // roster/owner sample; the fixture is deliberately long-running on Windows
+  // and must not assume a previous lease remains current between turns.
+  await x.native.roster();await x.native.sample();
+  await waitFor(()=>x.d02.port.status()?.settled===true,'current native sample for measured turn');
   const turn=await x.typed('What did I say about meticulous alpaca clock?');
   assert.equal((await x.settled(turn)).status,'completed');
   const p=x.replies.at(-1).knowledgeProjection;
