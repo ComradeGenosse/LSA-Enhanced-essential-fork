@@ -158,13 +158,19 @@ jobs:
           $env:LSA_STANDALONE_TTS_MODE='enabled'
           $env:LSA_STANDALONE_ACTIVATION_STAGE='original-session'
           $env:LSA_STANDALONE_MODEL='original-model'
+          $env:LSA_STANDALONE_VOICE_ASSIGNMENTS='C:\\stale-previous-launch.json'
+          $env:LSA_STANDALONE_TTS_SESSION_VOICES='stalevoice'
+          $env:LSA_STANDALONE_TTS_INSTRUCTIONS='stale instructions from previous launch'
+          $env:LSA_STANDALONE_QWEN_VOICES='stale-qwen-voices'
           $tracked=@('LSA_STANDALONE_ACTOR_MODE','LSA_STANDALONE_AUDIO_OUTPUT',
             'LSA_STANDALONE_TTS_MODE','LSA_STANDALONE_TYPED_MODE',
             'LSA_STANDALONE_PLAYBACK_CONFIRM','LSA_STANDALONE_LIPSYNC',
             'LSA_STANDALONE_EARLY_SPEECH','LSA_STANDALONE_MODEL',
             'LSA_STANDALONE_TTS_MODEL','LSA_STANDALONE_TTS_PROVIDER',
             'LSA_STANDALONE_TTS_VOICE','LSA_STANDALONE_QWEN_URL',
-            'LSA_STANDALONE_QWEN_VOICES','LSA_STANDALONE_ACTIVATION_STAGE')
+            'LSA_STANDALONE_QWEN_VOICES','LSA_STANDALONE_ACTIVATION_STAGE',
+            'LSA_STANDALONE_VOICE_ASSIGNMENTS','LSA_STANDALONE_TTS_SESSION_VOICES',
+            'LSA_STANDALONE_TTS_INSTRUCTIONS')
           $baseline=@{}
           foreach ($key in $tracked) {
             $baseline[$key]=[Environment]::GetEnvironmentVariable($key,'Process')
@@ -183,6 +189,12 @@ jobs:
           & "$root/Start-Standalone-Test.ps1" -GamePath $game -Stage typed -Model ci-test -PreflightOnly
           Assert-CleanPreflight
           & "$root/Start-Standalone-Test.ps1" -GamePath $game -Stage streaming -Model ci-test -TtsModel ci-tts -PreflightOnly
+          Assert-CleanPreflight
+          # Inherited voice/assignment/instruction flags must not poison OpenAI
+          # or local Qwen staged preflight, and must survive unaltered in caller.
+          & "$root/Start-Standalone-Test.ps1" -GamePath $game -Stage tts -Model ci-test -TtsModel ci-tts -PreflightOnly
+          Assert-CleanPreflight
+          & "$root/Start-Standalone-Test.ps1" -GamePath $game -Stage tts -Model ci-test -TtsProvider faster-qwen3-tts -Voice alloy -PreflightOnly
           Assert-CleanPreflight
           $rejected = $false
           try {
