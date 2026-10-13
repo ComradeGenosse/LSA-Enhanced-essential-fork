@@ -12,7 +12,7 @@ try { ({ DatabaseSync } = await import('node:sqlite')); } catch {}
 
 import { isUuid } from '../util/identity.mjs';
 import { PROFILE_LIMITS, validateProfiles } from './profileSchema.mjs';
-import { JOURNAL_SCHEMA_VERSION, migrateJournalSchema, assertJournalSchema, appendDialogue, appendEvent, readDialogue, findExactQuote, searchDialogue, readEvents, readVerifiedEventEvidence } from '../memory/journalSqlite.mjs';
+import { JOURNAL_SCHEMA_VERSION, migrateJournalSchema, assertJournalSchema, appendDialogue, appendEvent, readDialogue, readFreeRecallWindow, findExactQuote, searchDialogue, readEvents, readVerifiedEventEvidence } from '../memory/journalSqlite.mjs';
 import { ensureIntegratedMemorySchema, listMemoryCandidates, listSuppressedMemoryIds, verifyPersistedMemoryCommand, commitPersistedMemoryCommand, persistDeterministicMemory, readPermanentMemoryRows, readCorrectionOverlays } from '../memory/integratedSqlite.mjs';
 import {ensureCurationSchema,enqueueCuration,claimCuration,verifyCurationLease,completeCuration,retryCuration,releaseCuration,reserveCurationBudget,finishCurationBudget} from '../memory/curationSqlite.mjs';
 import {ensureM3CoverageSchema,appendM3Coverage,readM3Coverage,upsertObserverCoverage,sealStaleObserverCoverage,readObserverCoverage} from '../events/m3CoverageSqlite.mjs';
@@ -389,6 +389,7 @@ export class P2SqliteFoundation {
   releaseCuration(args,timelineId){return releaseCuration(this.#db,args,this.worldProfileId,timelineId);}
   reserveCurationBudget(args,budget){return reserveCurationBudget(this.#db,args,this.worldProfileId,budget);}
   finishCurationBudget(args,state){return finishCurationBudget(this.#db,args,this.worldProfileId,state);}
+  readFreeRecallWindow(scope){if(!this.#db)fail('sqlite_profile_uninitialized');return readFreeRecallWindow(this.#db,scope,this.worldProfileId);}
   readDialogueLines(scope){if(!this.#db)fail('sqlite_profile_uninitialized');return readDialogue(this.#db,scope,this.worldProfileId);}
   findExactQuote(scope){if(!this.#db)fail('sqlite_profile_uninitialized');return findExactQuote(this.#db,scope,this.worldProfileId);}
   searchDialogue(scope){if(!this.#db)fail('sqlite_profile_uninitialized');return searchDialogue(this.#db,scope,this.worldProfileId);}
