@@ -2,6 +2,7 @@ import {isSuppressedSource} from './suppressionSqlite.mjs';
 // Shared immutable M2/M3 journal: one SQLite file, no background model.
 // Write entry points are synchronous and ONLY legal under withTimelineWrite.
 import {createHash} from 'node:crypto';
+import {enforceJournalCaps} from '../characters/sqliteDurability.mjs';
 import {isUuid,immutableSnapshot} from '../util/identity.mjs';
 import {evidenceHash} from '../events/journalEventNormalizer.mjs';
 import {ensureIntegratedMemorySchema} from './integratedSqlite.mjs';
@@ -82,16 +83,17 @@ export function migrateJournalSchema(db){
   if(![2,3,JOURNAL_SCHEMA_VERSION].includes(v))fail('unsupported_sqlite_profile_schema');
   if(v===JOURNAL_SCHEMA_VERSION){assertJournalSchema(db);return v;}
   // Entire v2/v3 -> v4 migration commits atomically; no mixed schema state.
-  db.exec('BEGIN IMMEDIATE');
+  const nested=db.isTransaction===true;
+  if(!nested)db.exec('BEGIN IMMEDIATE');
   try{
     if(v===2)db.exec(DDL);
     else db.exec(sidecarDDL); // Existing v3 journal bytes are never rebuilt.
     ensureIntegratedMemorySchema(db);
     ensureCurationSchema(db);
     db.exec('PRAGMA user_version=4');
-    db.exec('COMMIT');
+    if(!nested)db.exec('COMMIT');
     return JOURNAL_SCHEMA_VERSION;
-  }catch(error){try{db.exec('ROLLBACK');}catch{}throw error;}
+  }catch(error){if(!nested)try{db.exec('ROLLBACK');}catch{}throw error;}
 }
 export function assertJournalSchema(db){
   if(db.prepare('PRAGMA user_version').get().user_version!==JOURNAL_SCHEMA_VERSION)fail('sqlite_journal_schema_missing');
@@ -133,6 +135,10 @@ export function appendDialogue(db,line,attribution,world){
     return Object.freeze({inserted:false,recordId:previous.recordId});
   }
   const raw=JSON.stringify(e);
+  // Duplicate replay above never consumes quota. All caps are enforced inside
+  // the same transaction as the eventual insert; no silent archival pruning.
+  enforceJournalCaps(db,{characterId:e.characterId,
+    bytes:Buffer.byteLength(raw)+Buffer.byteLength(e.content)});
   db.prepare('INSERT INTO dialogue_journal (record_id,world_profile_id,timeline_id,character_id,session_id,protagonist,host_run_id,world_epoch,speaker,source,delivery,turn_identity_hash,committed_at_utc,content,content_sha256,receipt_id,envelope_json,envelope_sha256) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)')
     .run(e.recordId,e.worldProfileId,e.timelineId,e.characterId,attribution.sessionId,attribution.protagonist,attribution.hostRunId,
       attribution.worldEpoch,e.speaker,e.source,e.delivery,e.turnIdentityHash,e.committedAtUtc,e.content,hash(e.content),
@@ -183,6 +189,8 @@ export function appendEvent(db,event,world,{hostContext=null,sourceEvidence=null
     return Object.freeze({inserted:false,recordId:previous.recordId});
   }
   const raw=JSON.stringify(e);
+  enforceJournalCaps(db,{characterId:e.characterId,event:true,
+    bytes:Buffer.byteLength(raw)+(evidence?Buffer.byteLength(JSON.stringify(evidence)):0)});
   db.prepare('INSERT INTO event_journal(record_id,world_profile_id,timeline_id,character_id,observation_id,revision,event_type,received_at_utc,source_hash,receipt_status,envelope_json,envelope_sha256) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)')
     .run(e.recordId,e.worldProfileId,e.timelineId,e.characterId,e.observationId,e.revision,e.eventType,e.receivedAtUtc,
       e.sourceHash,e.receiptStatus,raw,hash(raw));
