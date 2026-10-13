@@ -73,6 +73,16 @@ test('WS-6: a second accepted player turn receives the FIRST turn as verified SQ
 test('WS-6 M5: a real accepted explicit remember command produces one durable P2 record and a verified PS4 SELF acknowledgement',
   {timeout:45000},async t=>{
     const x=await d01Harness(t);
+    const debug=[];
+    const original=x.h.runtime.services.prepareLiveTurnMemory;
+    x.h.runtime.services.prepareLiveTurnMemory=async args=>{
+      const result=await original(args);
+      debug.push({status:result?.status,action:result?.memoryAction,
+        receipt:args.acceptedReceipt?.status,
+        prepared:!!result?.preparedRecall,
+        proof:result?.recallCurrent?.([],result?.preparedRecall?.stamp)??null});
+      return result;
+    };
     const turn=await x.typed('Remember that I love ginger tea.');
     const result=await x.settled(turn);
     assert.equal(result.status,'completed',JSON.stringify(result));
@@ -80,7 +90,10 @@ test('WS-6 M5: a real accepted explicit remember command produces one durable P2
     assert.ok(req?.knowledgeProjection?.modelAllocation);
     const scene=JSON.parse(req.knowledgeProjection.modelAllocation.scene);
     assert.deepEqual(scene.lanes.SELF.memoryAction,[{outcome:'saved',durableCommit:true}],
-      'only a verified SQLite command readback may authorize a successful memory claim');
+      JSON.stringify({debug,sceneMemoryAction:scene.lanes.SELF.memoryAction,
+        journalPlayers:(await x.journal()).players.length,
+        sceneKeys:Object.keys(scene.lanes.SELF),
+        knownTurnStatus:result.status}));
     const rows=await x.store.readPermanentMemoryRows({
       characterId:x.profile.characterId,worldProfileId:x.store.worldProfileId,
       timelineId:x.timelineId,protagonistKey:'franklin'},{limit:20});
