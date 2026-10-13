@@ -42,14 +42,17 @@ const PAYLOAD=['nativeOwnerPlayerProofVersion','source','hostRunId',
 // Lease lifetime (D01/D03 integration correction): a lease is bound to the
 // exact native owner record (observer captureRef, incarnation, encounter,
 // ped, alias), the controlled-player subject and the authenticated stream
-// context. It stays usable while that owner remains a CONTINUOUS member of
-// every complete owner sample on the same stream. Native re-sends the full
+// context. It stays usable only while that owner remains a CONTINUOUS member of
+// each authenticated native owner sample on the same stream. Native re-sends the full
 // anchor/observer roster every 1000 ms; that maintenance is not an owner
 // change, so it no longer wipes leases. It unsettles the source instead: no
 // proof is issued until a complete owner sample NEWER than the roster frame
-// re-confirms the identical record. Drop-out from any sample, explicit native
-// retirement, record change, avatar/player switch, stream/host/world change,
-// invalid frame or replay still revoke. leaseMs is only a turn-scale backstop;
+// re-confirms the identical record. A per-NPC drop-out revokes every old
+// lease for that NPC but is NOT permanent captureRef retirement: the same
+// exact lifetime may reappear in a fresh authenticated native sample and
+// acquire NEW leases. Explicit native retirement stays terminal for that ref;
+// record change, avatar/player switch, stream/host/world change, invalid
+// frame or replay still revoke. leaseMs is only a turn-scale backstop;
 // D03 revokes each lease when its turn ends.
 export function createNativeCurrentOwnerPlayerAuthority({
   subscribeAuthenticatedNativeOwnerPlayerFrames,
@@ -68,20 +71,29 @@ export function createNativeCurrentOwnerPlayerAuthority({
   let context=null, owners=new Map(), subject=null, sequence=-1,
     gameTick=-1, receivedAt=-1, stop=null, leases=new WeakMap(), settled=false;
   const retiredStreams=new Set(), retiredRefs=new Set(), ownerHistory=new Map();
+  // A complete-sample omission breaks an owner's lease continuity, even if
+  // the identical native lifetime is subsequently proven again. This fence
+  // is local to an authenticated stream and never authorizes by itself.
+  const ownerGenerations=new Map();
   // Roster maintenance keeps the authenticated context, last complete owner
   // set (so the next sample's drop-out diff still retires missing owners),
   // subject, sequence and leases, but unsettles verification. Terminal source
   // faults retire the stream until a new authenticated hello.
   const clear=(reason='terminal',revokedRefs=[])=>{
     if(reason==='roster' && Array.isArray(revokedRefs))
-      for(const ref of revokedRefs)if(uuid(ref))retiredRefs.add(ref);
+      for(const ref of revokedRefs)if(uuid(ref)){
+        // Explicit native retire/retire_batch: never admit this captureRef
+        // again on this stream, including a forged exact-tuple replay.
+        retiredRefs.add(ref);
+        ownerGenerations.set(ref,(ownerGenerations.get(ref)??0)+1);
+      }
     if(reason==='roster'){settled=false;return;}
     if(reason!=='roster') {
       if(context?.streamId) {
         retiredStreams.add(context.streamId);
         if(retiredStreams.size>64)retiredStreams.delete(retiredStreams.values().next().value);
       }
-      ownerHistory.clear();retiredRefs.clear();
+      ownerHistory.clear();retiredRefs.clear();ownerGenerations.clear();
     }
     context=null;owners=new Map();subject=null;sequence=-1;
     gameTick=-1;receivedAt=-1;leases=new WeakMap();settled=false;
@@ -132,10 +144,12 @@ export function createNativeCurrentOwnerPlayerAuthority({
       ownerHistory.set(o.observerCaptureRef,freeze(o));
       aliases.add(o.ownerAlias);peds.add(o.nativeActorPedId);
     }
-    // Continuous membership: an owner absent from any complete sample (also
-    // across roster maintenance, because the previous set is retained) is
-    // retired for the rest of this stream and can never be re-admitted.
-    for(const ref of owners.keys())if(!nextOwners.has(ref))retiredRefs.add(ref);
+    // A missing native proof is an owner-specific suspension, not native
+    // retirement. Revoke prior leases by advancing this owner's continuity
+    // generation. Keep its immutable ownerHistory so a recycled captureRef
+    // with a different lifetime can NEVER be substituted on this stream.
+    for(const ref of owners.keys())if(!nextOwners.has(ref))
+      ownerGenerations.set(ref,(ownerGenerations.get(ref)??0)+1);
     if(subject&&!same(subject,p.protagonist,
       playerFields.filter(k=>k!=='sampledGameTick'))) {
       // Switching avatar or controlled player irrevocably revokes all leases.
@@ -166,7 +180,9 @@ export function createNativeCurrentOwnerPlayerAuthority({
     if(!p||p.characterId!==characterId||!current(o,subject))return null;
     const lease=Object.freeze({kind:'native_actor_lifetime_lease_v1'});
     leases.set(lease,{owner:o,player:subject,context,
-      pedId,characterId,ownerAlias,sequence,startedAt:now(),identity:null});
+      pedId,characterId,ownerAlias,sequence,
+      generation:ownerGenerations.get(o.observerCaptureRef)??0,
+      startedAt:now(),identity:null});
     return lease;
   }
 
@@ -181,6 +197,7 @@ export function createNativeCurrentOwnerPlayerAuthority({
     if(!record||!Number.isFinite(now())||now()<record.startedAt||
        now()-record.startedAt>leaseMs||
        retiredRefs.has(record.owner.observerCaptureRef)||
+       (ownerGenerations.get(record.owner.observerCaptureRef)??0)!==record.generation||
        sequence<=record.sequence||!same(context,record.context,contextFields)||
        record.characterId!==characterId||record.ownerAlias!==ownerAlias||
        identity.pedId!==record.pedId||
