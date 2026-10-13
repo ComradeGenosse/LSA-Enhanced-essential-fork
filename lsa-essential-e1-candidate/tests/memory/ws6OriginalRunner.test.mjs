@@ -68,3 +68,22 @@ test('WS-6: a second accepted player turn receives the FIRST turn as verified SQ
       x.content==='I drove a turquoise motorcycle yesterday.'),
       'journal-bounded CONVERSE includes earlier accepted dialogue');
   });
+
+
+test('WS-6 M5: a real accepted explicit remember command produces one durable P2 record and a verified PS4 SELF acknowledgement',
+  {timeout:45000},async t=>{
+    const x=await d01Harness(t);
+    const turn=await x.typed('Remember that I love ginger tea.');
+    const result=await x.settled(turn);
+    assert.equal(result.status,'completed',JSON.stringify(result));
+    const req=x.replies.at(-1);
+    assert.ok(req?.knowledgeProjection?.modelAllocation);
+    const scene=JSON.parse(req.knowledgeProjection.modelAllocation.scene);
+    assert.deepEqual(scene.lanes.SELF.memoryAction,[{outcome:'saved',durableCommit:true}],
+      'only a verified SQLite command readback may authorize a successful memory claim');
+    const rows=await x.store.readPermanentMemoryRows({
+      characterId:x.profile.characterId,worldProfileId:x.store.worldProfileId,
+      timelineId:x.timelineId,protagonistKey:'franklin'},{limit:20});
+    assert.ok(rows.some(row=>JSON.stringify(row).includes('I love ginger tea')),
+      'memory must actually survive in the P2 permanent-memory table');
+  });
