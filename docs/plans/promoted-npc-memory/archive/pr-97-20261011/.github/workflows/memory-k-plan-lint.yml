@@ -1,0 +1,24 @@
+name: Memory K plan integrity ONLY (not runtime acceptance)
+on:
+  pull_request:
+    paths:
+      - 'docs/plans/promoted-npc-memory/MEMORY-K-PRODUCTION-CLOSURE-IMPLEMENTATION-PLAN.md'
+      - 'tools/memory-sim/closure-workstreams.v1.json'
+      - 'tools/memory-sim/validate-closure-workstreams.mjs'
+      - '.github/workflows/memory-k-plan-lint.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  plan-only:
+    name: Static plan DAG, ownership and M0 coverage
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Static structural validation; explicitly NOT feature or GTA acceptance
+        run: |
+          node --check tools/memory-sim/validate-closure-workstreams.mjs
+          node tools/memory-sim/validate-closure-workstreams.mjs
