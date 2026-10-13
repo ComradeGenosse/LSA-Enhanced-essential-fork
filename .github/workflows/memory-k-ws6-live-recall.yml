@@ -1,0 +1,39 @@
+name: Memory K WS-6 live recall and journal conversation (offline, not GTA)
+on:
+  pull_request:
+    paths:
+      - 'lsa-essential-e1-candidate/src/memory/liveTurnMemory.mjs'
+      - 'lsa-essential-e1-candidate/src/memory/d03OriginalDialogueJoin.mjs'
+      - 'lsa-essential-e1-candidate/src/integration/essentialGlue.mjs'
+      - 'lsa-essential-e1-candidate/src/context/knowledgeRenderer.mjs'
+      - 'lsa-essential-e1-candidate/src/openai/runSequentialTurn.mjs'
+      - 'lsa-essential-e1-candidate/tests/memory/ws6LiveTurnMemory.test.mjs'
+      - '.github/workflows/memory-k-ws6-live-recall.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  ws6:
+    name: WS-6a/6b source-fenced live recall and model assembler (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Validate WS-6 production syntax
+        run: |
+          node --check lsa-essential-e1-candidate/src/memory/liveTurnMemory.mjs
+          node --check lsa-essential-e1-candidate/src/memory/d03OriginalDialogueJoin.mjs
+          node --check lsa-essential-e1-candidate/src/context/knowledgeRenderer.mjs
+          node --check lsa-essential-e1-candidate/src/integration/essentialGlue.mjs
+          node --check lsa-essential-e1-candidate/src/openai/runSequentialTurn.mjs
+      - name: WS-6 evidence/CONVERSE and source revocation
+        run: node --test --test-concurrency=1 lsa-essential-e1-candidate/tests/memory/ws6LiveTurnMemory.test.mjs
+      - name: D03, WS-5a and native acceptance regressions
+        run: node --test --test-concurrency=1 lsa-essential-e1-candidate/tests/memory/d03OriginalDialogueJoin.test.mjs lsa-essential-e1-candidate/tests/memory/ws5aNpcDialogueCapture.test.mjs lsa-essential-e1-candidate/tests/memory/d01OpenAIAcceptance.test.mjs
