@@ -8,6 +8,21 @@ import {d01Harness} from './d01-harness.mjs';
 test('WS-6: a second accepted player turn receives the FIRST turn as verified SQLite recall, not merely RAM, and does not recall its own question',
   {timeout:45000},async t=>{
     const x=await d01Harness(t);
+    const debug=[];
+    const original=x.h.runtime.services.prepareLiveTurnMemory;
+    x.h.runtime.services.prepareLiveTurnMemory=async args=>{
+      const value=await original(args);
+      debug.push({status:value?.status,reason:value?.reason,
+        items:value?.preparedRecall?.contribution?.items?.length??null,
+        journal:value?.conversationJournal?.recent?.length??null,
+        canAuthorize:value?.recallCurrent?.([],value?.preparedRecall?.stamp)??null,
+        receipt:args.acceptedReceipt?.status,
+        hasProjection:!!args.turn?.characterProjection,
+        profile:args.turn?.characterProjection?.persistent===true,
+        profileMatches:args.turn?.characterProjection?.profile?.characterId===args.turn?.characterInputs?.profile?.characterId,
+        source:args.source});
+      return value;
+    };
     const first=await x.typed('I drove a turquoise motorcycle yesterday.');
     assert.equal((await x.settled(first)).status,'completed');
     const journal=await x.journal();
@@ -20,6 +35,12 @@ test('WS-6: a second accepted player turn receives the FIRST turn as verified SQ
     const projection=req.knowledgeProjection;
     const scene=JSON.parse(projection.modelAllocation.scene);
     const facts=scene.lanes.RECALLED.evidence??[];
+    assert.ok(facts.length>0,JSON.stringify({debug,
+      hasRecallStamp:!!projection.recallStamp,
+      hasMemoryStamp:!!projection.memoryStamp,
+      recalledKeys:Object.keys(scene.lanes.RECALLED),
+      journalRows:(await x.journal()).players.length,
+      memoryPreview:scene.lanes.RECALLED.memories?.length}));
     assert.ok(facts.some(x=>x.recordId===priorId&&
       x.content==='I drove a turquoise motorcycle yesterday.'&&
       x.mode==='exact_quote'),
