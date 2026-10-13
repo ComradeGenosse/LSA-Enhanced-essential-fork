@@ -6,6 +6,7 @@ on:
       - feature/standalone-phase3-typed-turn
       - feature/standalone-phase4-audio-escrow
       - feature/standalone-s3-waveout-playback
+      - feature/standalone-gta-typed-smoke-gate
       - main
     paths:
       - 'native/standalone/**'
@@ -170,6 +171,49 @@ jobs:
               (Test-Path "$fixture/Plugins/LSA.Standalone.enabled") -or
               (Test-Path "$fixture/.LSAStandaloneSmoke")) {
             throw 'Rollback failed to remove managed files'
+          }
+      - name: Prove existing-install opt-in, legacy preflight and untouched private data
+        shell: pwsh
+        run: |
+          $root = (Resolve-Path 'out/lsa-standalone-gta-smoke').Path
+          $game = Join-Path $env:RUNNER_TEMP 'existing-gta-smoke-fixture'
+          $saved = Join-Path $env:RUNNER_TEMP 'legacy-lsa-existing-smoke-backup'
+          New-Item -ItemType Directory -Force "$game/Plugins/LosSantosAliveServer", "$game/Plugins/LosSantosAlive", "$game/Plugins/LSPDFR", $saved | Out-Null
+          Set-Content "$game/GTA5_Enhanced.exe" 'fixture only'
+          Set-Content "$game/RAGEPluginHook.exe" 'fixture only'
+          Set-Content "$game/Plugins/LosSantosAliveServer/.env" 'fixture-private-config'
+          Set-Content "$game/Plugins/LosSantosAlive/LosSantosAlive.config" 'fixture-original-settings'
+          Set-Content "$game/Plugins/LosSantosAlive.dll" 'fixture-original-dll'
+          $denied = $false
+          try { & "$root/Install-Standalone.ps1" -GamePath $game } catch { $denied = $true }
+          if (-not $denied) { throw 'No-mode installation was accepted' }
+          $denied = $false
+          try { & "$root/Install-Standalone.ps1" -GamePath $game -IsolatedProfile -ExistingInstallation } catch { $denied = $true }
+          if (-not $denied) { throw 'Ambiguous deployment modes were accepted' }
+          $denied = $false
+          try { & "$root/Install-Standalone.ps1" -GamePath $game -ExistingInstallation } catch { $denied = $_.Exception.Message -like '*Legacy LSA conflict*' }
+          if (-not $denied) { throw 'Existing installation with Essential DLL was accepted' }
+          Move-Item "$game/Plugins/LosSantosAlive.dll" "$saved/LosSantosAlive.dll"
+          Set-Content "$game/Plugins/LSPDFR/LosSantosAlive.PRBridge.dll" 'fixture-old-bridge'
+          $denied = $false
+          try { & "$root/Install-Standalone.ps1" -GamePath $game -ExistingInstallation } catch { $denied = $_.Exception.Message -like '*Legacy LSA conflict*' }
+          if (-not $denied) { throw 'Old LSPDFR bridge was accepted' }
+          Move-Item "$game/Plugins/LSPDFR/LosSantosAlive.PRBridge.dll" "$saved/LosSantosAlive.PRBridge.dll"
+          & "$root/Install-Standalone.ps1" -GamePath $game -ExistingInstallation
+          if (-not (Test-Path "$game/Plugins/LSA.Standalone.RageHost.dll")) { throw 'Standalone host missing' }
+          $manifest = Get-Content "$game/.LSAStandaloneSmoke/manifest.json" -Raw | ConvertFrom-Json
+          if ($manifest.profileMode -ne 'existing') { throw 'Wrong manifest profile mode' }
+          Copy-Item "$saved/LosSantosAlive.dll" "$game/Plugins/LosSantosAlive.dll"
+          $denied = $false
+          try { & "$root/Start-Standalone-Test.ps1" -GamePath $game -Model 'test-model' } catch { $denied = $_.Exception.Message -like '*Legacy LSA conflict*' }
+          if (-not $denied) { throw 'Launcher accepted a restored Essential DLL alongside standalone' }
+          & "$root/Undo-Standalone.ps1" -GamePath $game
+          if ((Test-Path "$game/Plugins/LSA.Standalone.RageHost.dll") -or
+              (Test-Path "$game/.LSAStandaloneSmoke")) { throw 'Rollback left standalone files' }
+          if ((Get-Content "$game/Plugins/LosSantosAliveServer/.env" -Raw).Trim() -ne 'fixture-private-config' -or
+              (Get-Content "$game/Plugins/LosSantosAlive/LosSantosAlive.config" -Raw).Trim() -ne 'fixture-original-settings' -or
+              (Get-Content "$game/Plugins/LosSantosAlive.dll" -Raw).Trim() -ne 'fixture-original-dll') {
+            throw 'Existing legacy files or private data were modified'
           }
       - uses: actions/upload-artifact@v4
         with:

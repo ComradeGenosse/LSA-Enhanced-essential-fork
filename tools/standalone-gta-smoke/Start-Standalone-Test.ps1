@@ -14,20 +14,15 @@ $ErrorActionPreference='Stop'
 $game=[System.IO.Path]::GetFullPath($GamePath)
 $manifest=Join-Path $game '.LSAStandaloneSmoke/manifest.json'
 if (-not (Test-Path -LiteralPath $manifest -PathType Leaf)) {
-  throw 'Deploy with Install-Standalone.ps1 to an isolated GTA profile first.'
+  throw 'Deploy with Install-Standalone.ps1 first.'
 }
 if (-not (Test-Path -LiteralPath (Join-Path $game 'RAGEPluginHook.exe') -PathType Leaf)) {
-  throw 'RAGEPluginHook.exe is missing from selected isolated profile.'
+  throw 'RAGEPluginHook.exe is missing from selected GTA profile.'
 }
 if (Get-Process -Name 'GTA5_Enhanced','RAGEPluginHook' -ErrorAction SilentlyContinue) {
   throw 'Exit all GTA/RPH instances before starting standalone.'
 }
-foreach ($n in @('LosSantosAlive.dll','Los Santos Alive.dll','LSA.PromotedCharacters.dll',
-                 'LSA.SessionIdentity.dll','LSA.Intelligence.dll')) {
-  if (Test-Path -LiteralPath (Join-Path $game "Plugins/$n")) {
-    throw "Refusing concurrent legacy ownership: $n"
-  }
-}
+& (Join-Path $PSScriptRoot 'Assert-LegacyLSAStopped.ps1') -GamePath $game
 if ($Model -notmatch '^[a-zA-Z0-9._:-]{2,100}$') {
   throw 'Supply a confirmed OpenAI Responses API model identifier as -Model.'
 }
@@ -54,7 +49,7 @@ $env:LSA_STANDALONE_QWEN_VOICES=$Voice
 $env:LSA_STANDALONE_EARLY_SPEECH=if ($EarlySpeech) { 'enabled' } else { 'off' }
 Write-Host "Standalone mode: $ActorMode, typed Luna client configured; no actor adopted until GTA probe + Arm."
 Write-Host 'RPH console: LSAStandaloneProbe -> LSAStandaloneStatus -> (experimental only) LSAStandaloneArm -> LSAStandaloneCompose.'
-Write-Host 'Do not load LosSantosAlive.dll or other Essential-dependent plugins in this isolated GTA profile.'
+Write-Host 'Do not load LosSantosAlive.dll or other Essential-dependent plugins in this GTA session.'
 $companionProc=$null
 $logs=Join-Path $PSScriptRoot 'logs'
 New-Item -ItemType Directory -Force -Path $logs | Out-Null
