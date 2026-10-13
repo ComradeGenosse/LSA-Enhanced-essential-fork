@@ -370,6 +370,9 @@ export class P2SqliteProfileStore {
   }
   // Reads never switch save lineage or restore revoked write authorization;
   // callers must supply their requested character AND explicit timeline.
+  async readFreeRecallWindow(scope) {
+    return this.#serial(()=>{if(!this.available)fail('profile_store_unavailable');return this.#db.readFreeRecallWindow(scope);});
+  }
   async readDialogueLines(scope) {
     await this.initialize();
     return this.#serial(()=>{if(!this.available)fail('profile_store_unavailable');return this.#db.readDialogueLines(scope);});
