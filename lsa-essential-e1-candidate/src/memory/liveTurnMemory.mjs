@@ -5,6 +5,7 @@ import {recallMemory,toPs4RecallContribution} from '../../../lsa-shared-brain/sr
 import {createP2IntegratedRecallAdapter} from '../../../lsa-shared-brain/src/memory/integrationPorts.mjs';
 import {createM5SqliteServices} from '../../../lsa-shared-brain/src/memory/m5SqlitePrivacy.mjs';
 import {createM5RuntimeCoordinator} from '../../../lsa-shared-brain/src/memory/m5RuntimeCoordinator.mjs';
+import {detectExplicitMemoryCommands} from '../../../lsa-shared-brain/src/memory/explicitCommands.mjs';
 
 const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const avatar=new Set(['franklin','michael','trevor','unknown']);
@@ -107,7 +108,12 @@ export async function prepareLiveTurnMemory({store,turn,acceptedReceipt,input,so
     // player command (or a possible reply to an existing durable clarification)
     // may enter M5, always subject to the coordinator's own source checks.
     let memoryAction=null;
-    const possibleCommand=/^(?:\s*(?:(?:hey|yo|please|nathan|buddy)[\s,]+)*)(?:remember\b|never forget\b|don't forget\b|forget\b|erase\b|delete\b|i meant\b|no,? i said\b|correct that\b|first\b|second\b|one\b|two\b|1\b|2\b|it was\b|show\b|inspect\b|export\b)/i.test(input);
+    // Use the M5 parser as the authority for explicit commands. Only possible
+    // clarification replies need a separate fast path; ordinary dialogue stays read-only.
+    const trimmed=input.trim();
+    const possibleCommand=detectExplicitMemoryCommands(input)!==null ||
+      /^(?:the\s+)?(?:first|second|one|two|1|2)(?:\s+one)?(?:\s*[:,-]\s*.+)?[.!]?$/i.test(trimmed) ||
+      /^(?:no[,]?\s*)?(?:i\s+(?:actually\s+)?(?:said|meant)|it\s+was|the\s+correct(?:ed)?\s+(?:wording|text)\s+is)\s+.+$/i.test(trimmed);
     if(possibleCommand)try{
       const m5=createM5SqliteServices({store,filePath:store.filePath,
         authorize:()=>current()});
