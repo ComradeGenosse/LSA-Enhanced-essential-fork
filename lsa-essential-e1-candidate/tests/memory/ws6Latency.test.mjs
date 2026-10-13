@@ -86,6 +86,9 @@ test('WS6 latency: disk P2 busy 10k, cold/restart M4 to PS4, original-runner pre
  }
  console.log('WS6_LATENCY '+JSON.stringify({path:'original_runner_preparation_busy_10000',...stats(prep)}));
  console.log('WS6_LATENCY '+JSON.stringify({path:'original_runner_pre_send_verification_busy_10000',...stats(verify)}));
+ // This final count query also needs an authenticated CURRENT native player.
+ await x.native.roster();await x.native.sample();
+ await waitFor(()=>x.d02.port.status()?.settled===true,'current native sample for count turn');
  const countStart=performance.now();
  const countTurn=await x.typed('How many times did I say "ordinary filler"?');
  assert.equal((await x.settled(countTurn)).status,'completed');

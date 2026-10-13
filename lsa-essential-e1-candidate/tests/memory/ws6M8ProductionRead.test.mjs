@@ -58,7 +58,9 @@ test('real P2 journal drives only source-linked opinions and jokes across avatar
   const s={...f.scope,protagonistKey},a={...f.authority(),...s};
   f.setIdentity(a);
   const reader=f.reader();
-  const prepared=await reader.prepare({scope:s,authority:a,nowUtc});
+  // This verifies source-linked M8 semantics, not a latency bound. The
+  // production default stays 200ms; timeout/revocation tests remain strict.
+  const prepared=await reader.prepare({scope:s,authority:a,nowUtc,deadlineMs:2000});
   assert.equal(prepared.status,'ready',prepared.reason);
   assert.equal(prepared.projection.relationship.epistemicStatus,'character_opinion');
   assert.equal(prepared.projection.relationship.verifiedWorldFact,false);
