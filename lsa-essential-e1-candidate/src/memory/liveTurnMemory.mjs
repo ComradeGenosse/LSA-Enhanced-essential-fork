@@ -102,9 +102,12 @@ export async function prepareLiveTurnMemory({store,turn,acceptedReceipt,input,so
        line.attribution?.protagonist!==scope.protagonistKey||
        !sameHost(line.attribution,host)||!uuid.test(line.attribution.sessionId)||
        !/^[0-9a-f]{64}$/.test(line.turnIdentityHash))return empty;
-    // M5 runs before recall, under the same verified D03 turn/source proof.
+    // Ordinary conversation never invokes a memory writer. Only an explicit
+    // player command (or a possible reply to an existing durable clarification)
+    // may enter M5, always subject to the coordinator's own source checks.
     let memoryAction=null;
-    try{
+    const possibleCommand=/^(?:\\s*(?:(?:hey|yo|please|nathan|buddy)[\\s,]+)*)(?:remember\\b|never forget\\b|don't forget\\b|forget\\b|erase\\b|delete\\b|i meant\\b|no,? i said\\b|correct that\\b|first\\b|second\\b|one\\b|two\\b|1\\b|2\\b|it was\\b|show\\b|inspect\\b|export\\b)/i.test(input);
+    if(possibleCommand)try{
       const m5=createM5SqliteServices({store,filePath:store.filePath,
         authorize:()=>current()});
       const coordinator=createM5RuntimeCoordinator({
