@@ -18,7 +18,7 @@ jobs:
       - name: Verify FTS5
         run: node -e "const {DatabaseSync}=require('node:sqlite');const db=new DatabaseSync(':memory:');db.exec('CREATE VIRTUAL TABLE t USING fts5(content)');db.close()"
       - name: WS-4b durability tests
-        run: node --test --test-concurrency=1 lsa-shared-brain/tests/memory-k-ws4b-durability.test.mjs
+        run: node --test --test-concurrency=1 lsa-shared-brain/tests/memory-k-ws4b-durability.test.mjs lsa-shared-brain/tests/memory-k-ws4b-review.test.mjs
       - name: M1 SQLite compatibility
         run: node --test --test-concurrency=1 lsa-essential-e1-candidate/tests/m1-sqlite-foundation.test.mjs lsa-essential-e1-candidate/tests/m1-shared-memory-parity.test.mjs
       - name: Memory journal and W04 regressions
