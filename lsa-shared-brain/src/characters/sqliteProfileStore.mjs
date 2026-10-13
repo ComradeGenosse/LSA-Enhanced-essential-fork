@@ -3,7 +3,7 @@
 import * as fs from 'node:fs/promises';
 import path from 'node:path';
 import { randomUUID, createHash } from 'node:crypto';
-import { P2SqliteFoundation } from './sqliteFoundation.mjs';
+import { P2SqliteFoundation, inspectP2ReadOnlyRecovery } from './sqliteFoundation.mjs';
 import { acquireWriterLock, releaseWriterLock, inspectWriterLock } from './sqliteDurability.mjs';
 import { validateProfile, validateProfiles } from './profileSchema.mjs';
 import { addProfile, editProfile, changeMemory, removeProfile } from './profileCommands.mjs';
@@ -54,6 +54,11 @@ export class P2SqliteProfileStore {
       mode:this.available&&this.loaded?'read_write':'unavailable'});
   }
   async inspectWriterStatus() {return inspectWriterLock(this.lockPath);}
+  // Safe even after initialize() fails: reads verified snapshots, never the
+  // damaged live SQLite database and never claims successful restoration.
+  async inspectReadOnlyRecovery(scope=null) {
+    return inspectP2ReadOnlyRecovery({filePath:this.filePath,worldProfileId:this.worldProfileId,scope});
+  }
   // Runtime adapters may only call this from an authenticated, accepted native
   // C-13 hello/world epoch. Never accept direct model/ped/user text as proof.
   setVerifiedHostContext(context) {
