@@ -219,8 +219,9 @@ export function persistDeterministicMemory(db,proposal,world){
    }
  }
  if(!protagonists.size)fail('memory_unverified_curation_source');
- // Multi-avatar aggregates lack a single source avatar; original evidence keeps provenance.
- scope.protagonistKey=protagonists.size===1?[...protagonists][0]:'unknown';
+ // Multi-avatar aggregates retain an explicit provenance marker. The
+ // original committed evidence keeps each source avatar independently.
+ scope.protagonistKey=protagonists.size===1?[...protagonists][0]:'multi_avatar';
  if(proposal?.kind!=='curation_proposal'||proposal.provider!=='deterministic'||
     !isUuid(proposal.proposalId)||!Array.isArray(proposal.evidenceRecordIds)||!proposal.evidenceRecordIds.length||
     proposal.evidenceRecordIds.length>64||!Number.isFinite(proposal.notability)||proposal.notability<0||proposal.notability>1||

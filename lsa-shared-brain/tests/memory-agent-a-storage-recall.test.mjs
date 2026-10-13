@@ -107,9 +107,12 @@ test('A: Trevor dialogue persists through reopen for Franklin; Michael forget cr
     const scope=avatar(x.scope,'franklin');
     assert.equal((await restored.readPermanentMemoryRows(scope))
       .find(r=>r.recordId===saved.memoryId)?.protagonistKey,'trevor');
-    assert.ok((await ask(restored,scope,'albatross')).bundle.items.some(r=>r.recordId===trevor.recordId));
+    // A re-opened sourceRequired store must not disclose recalled memories
+    // until the caller has re-established the native host and chosen save.
+    assert.equal((await ask(restored,scope,'albatross')).bundle.status,'unavailable');
     restored.setVerifiedHostContext(x.host);
     await restored.confirmTimeline(scope.timelineId);
+    assert.ok((await ask(restored,scope,'albatross')).bundle.items.some(r=>r.recordId===trevor.recordId));
     const recorder=createConversationJournalRecorder(restored);
     const receipt=await recorder.recordPlayerAccepted({characterId:scope.characterId,
       identity:{pedId:101,turnId:'forget-after-reopen',generationId:'a',sessionNonce:'a'},

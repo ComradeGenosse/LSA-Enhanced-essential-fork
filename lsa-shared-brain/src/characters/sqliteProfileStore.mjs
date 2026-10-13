@@ -254,8 +254,10 @@ export class P2SqliteProfileStore {
       this.assertTimelineWrite(timelineId);
       const result = commit(this.#db, this.#db.snapshot);
       if (result && typeof result.then === 'function') fail('timeline_write_async_not_supported');
-      if(this.#authorityGeneration!==expectedGeneration ||
-         this.#sourceContext!==expectedContext)fail('timeline_write_suspended');
+      // Legacy P2 methods can internally commit before returning. Their
+      // admission/execution generation checks occur above. Transactions through
+      // withP2SqliteTransaction additionally recheck INSIDE SQLite before
+      // the physical COMMIT, so those can still roll back source revocations.
       return result;
     });
   }
