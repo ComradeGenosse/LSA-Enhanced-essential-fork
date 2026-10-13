@@ -87,6 +87,14 @@ function decode(scope,opaque){
     fail('p2_replay_invalid_cursor');
   try {
     const value=JSON.parse(Buffer.from(opaque,'base64url').toString('utf8'));
+    // Original v1 cursors were per-avatar. Only an exact, canonical token
+    // for the requesting avatar is eligible; its offset MUST NOT be reused
+    // across the unified-player feed (other avatars would be skipped).
+    if(value.v===1 && keys.has(scope.protagonistKey) &&
+       value.scope===sha(JSON.stringify([...scopeKey(scope),scope.protagonistKey])) &&
+       Number.isSafeInteger(value.after) && value.after>=0 &&
+       Buffer.from(JSON.stringify({v:1,scope:value.scope,after:value.after}),'utf8').toString('base64url')===opaque)
+       return 0;
     if(value.v!==2 || value.scope!==cursorDigest(scope) ||
        !Number.isSafeInteger(value.after) || value.after<0 ||
        encode(scope,value.after)!==opaque)fail('p2_replay_invalid_cursor');
