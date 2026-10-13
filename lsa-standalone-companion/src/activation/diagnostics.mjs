@@ -9,6 +9,7 @@ export function createActivationReporter(activation, publish) {
   if (!activation?.valid || typeof publish !== 'function')
     throw new TypeError('activation_reporter_requires_valid_policy');
   let connected = false;
+  let suspended = false;
   const latest = new Map();
   const emit = (name, activated = false, operational = 'not_observed', blocked = []) => {
     const entry = activation.capabilities[name];
@@ -38,6 +39,7 @@ export function createActivationReporter(activation, publish) {
   const transportStatus = type => {
     if (type === 'native_connected') {
       connected = true;
+      suspended = false;
       emit('native_host_ipc', true, 'pipe_handshake_not_GTA_acceptance');
       // Only registered adapters, NOT actor control or physical GTA effects.
       if (activation.capabilities.typed_conversation.requested)
@@ -48,6 +50,8 @@ export function createActivationReporter(activation, publish) {
         emit('early_speech', true, 'stream_adapter_loaded_no_segment_evidence');
     } else if (type === 'native_disconnected' || type === 'native_unavailable') {
       connected = false;
+      if (suspended) return; // repeated reconnect attempts are not new events
+      suspended = true;
       for (const name of TRANSPORT_DEPENDENT)
         if (activation.capabilities[name].requested)
           emit(name, false, 'suspended_native_transport',
