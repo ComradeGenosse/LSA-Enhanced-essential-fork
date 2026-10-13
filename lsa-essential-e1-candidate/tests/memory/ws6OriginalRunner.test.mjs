@@ -35,7 +35,10 @@ test('WS-6: a second accepted player turn receives the FIRST turn as verified SQ
       return value;
     };
     const first=await x.typed('I drove a turquoise motorcycle yesterday.');
-    assert.equal((await x.settled(first)).status,'completed');
+    const outcomeOne=await x.settled(first);
+    assert.equal(outcomeOne.status,'completed',JSON.stringify({outcomeOne,debug,
+      modelCalls:x.replies.length,sent:x.h.sent.slice(-8).map(e=>({
+        type:e.type,reason:e.reason}))}));
     const journal=await x.journal();
     assert.equal(journal.players.length,1);
     const priorId=journal.players[0].record_id;
