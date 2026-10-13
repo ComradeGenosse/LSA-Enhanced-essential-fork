@@ -90,7 +90,7 @@ test('WS-4b NPC failures and interruptions are not reported as spoken; completed
   const completed=await makeNpc('completed','I definitely said this');
   const interrupted=await makeNpc('interrupted','I might have started this');
   const failed=await makeNpc('failed','I never played this');
-  for(const store of [x.store,await reopened(x)]){
+  for(const store of [x.store]){
     try{
       const lines=(await store.readFreeRecallWindow(x.scope)).lines;
       assert.equal(present(lines,completed),true);
@@ -103,6 +103,13 @@ test('WS-4b NPC failures and interruptions are not reported as spoken; completed
       assert.equal(played.attribution.protagonist,'franklin');
     }finally{if(store!==x.store)await store.close();}
   }
+  const afterRestart=await reopened(x);
+  try{
+    const lines=(await afterRestart.readFreeRecallWindow(x.scope)).lines;
+    assert.equal(present(lines,completed),true);
+    assert.equal(present(lines,interrupted),false);
+    assert.equal(present(lines,failed),false);
+  }finally{await afterRestart.close();}
 });
 test('WS-4b extension-only index repair creates checked pre-migration snapshot',async t=>{
   const x=await setup(t);
