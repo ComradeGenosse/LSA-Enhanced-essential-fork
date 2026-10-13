@@ -100,3 +100,26 @@ test('WS-6 M5: a real accepted explicit remember command produces one durable P2
     assert.ok(rows.some(row=>JSON.stringify(row).includes('I love ginger tea')),
       'memory must actually survive in the P2 permanent-memory table');
   });
+
+
+for(const [spoken,remembered] of [
+  ['Keep in mind that I prefer rainy days.','I prefer rainy days.'],
+  ['Make a note of that I love ginger tea.','I love ginger tea.'],
+  ['Promise me that we will visit the museum.','You promised: we will visit the museum.']
+]){
+  test('WS-6 M5: supported explicit command is not bypassed by a separate prefilter: '+spoken,
+    {timeout:45000},async t=>{
+      const x=await d01Harness(t);
+      const turn=await x.typed(spoken);
+      assert.equal((await x.settled(turn)).status,'completed');
+      const scene=JSON.parse(x.replies.at(-1).knowledgeProjection.modelAllocation.scene);
+      assert.deepEqual(scene.lanes.SELF.memoryAction,
+        [{outcome:'saved',durableCommit:true}],
+        'Only a verified command readback may authorize a model-visible success.');
+      const rows=await x.store.readPermanentMemoryRows({
+        characterId:x.profile.characterId,worldProfileId:x.store.worldProfileId,
+        timelineId:x.timelineId,protagonistKey:'franklin'},{limit:20});
+      assert.ok(rows.some(row=>JSON.stringify(row).includes(remembered)),
+        'Permanent memory must contain the authorized command, not a claim of success.');
+    });
+}
