@@ -239,6 +239,40 @@ export function searchDialogue(db,s,world){
   return Object.freeze(db.prepare('SELECT j.* FROM dialogue_journal_fts JOIN dialogue_journal j ON j.rowid=dialogue_journal_fts.rowid WHERE dialogue_journal_fts MATCH ? AND j.world_profile_id=? AND j.character_id=? AND j.timeline_id=? ORDER BY j.committed_at_utc DESC,j.rowid DESC LIMIT ?')
     .all(phrase,world,s.characterId,s.timelineId,limit).map(decodeLine));
 }
+/**
+ * K-16 free-recall source window, separate from the indefinite FTS5 archive.
+ * This is an opt-in reader for WS-6; do not alter the live conversation/PS4
+ * runner here. Last 200 player lines OR current+previous session, bounded by
+ * 1000 total lines and 512 KiB. It never deletes or expires archived rows.
+ */
+export function readFreeRecallWindow(db,s,world){
+  assertJournalSchema(db);
+  if(!s||!isUuid(s.characterId)||!isUuid(s.timelineId)||
+     (s.worldProfileId!==undefined&&s.worldProfileId!==world))fail('journal_invalid_scope');
+  const args=[world,s.characterId,s.timelineId];
+  const sessionIds=db.prepare(
+    'SELECT session_id FROM dialogue_journal WHERE world_profile_id=? AND character_id=? AND timeline_id=? GROUP BY session_id ORDER BY max(committed_at_utc) DESC LIMIT 2'
+  ).all(...args).map(r=>r.session_id);
+  const player=db.prepare(
+    "SELECT * FROM dialogue_journal WHERE world_profile_id=? AND character_id=? AND timeline_id=? AND speaker='player' ORDER BY committed_at_utc DESC,rowid DESC LIMIT 200"
+  ).all(...args);
+  const recent=db.prepare(
+    'SELECT * FROM dialogue_journal WHERE world_profile_id=? AND character_id=? AND timeline_id=? ORDER BY committed_at_utc DESC,rowid DESC LIMIT 1000'
+  ).all(...args);
+  const selected=new Map();
+  for(const row of player)selected.set(row.record_id,row);
+  for(const row of recent)if(sessionIds.includes(row.session_id))selected.set(row.record_id,row);
+  const ordered=[...selected.values()].sort((a,b)=>b.committed_at_utc.localeCompare(a.committed_at_utc)||
+    b.rowid-a.rowid);
+  const lines=[];let bytes=0;
+  for(const row of ordered){
+    const size=Buffer.byteLength(row.content,'utf8');
+    if(lines.length===1000||bytes+size>512*1024)break;
+    lines.push(decodeLine(row));bytes+=size;
+  }
+  return Object.freeze({tier:'free_recall',lines:Object.freeze(lines),bytes,
+    truncated:lines.length<ordered.length,archiveAvailable:true});
+}
 export function readEvents(db,s,world){
   assertJournalSchema(db);const limit=readScope(s,world);
   const args=[world,s.characterId,s.timelineId];let filter='';
