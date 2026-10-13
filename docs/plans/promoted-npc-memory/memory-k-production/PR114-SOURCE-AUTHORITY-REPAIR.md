@@ -8,6 +8,7 @@ Branch `fix/memory-k-pr114-source-authority-replay-20261013` is based on Memory 
 - M7 curation source gate recognizes provenance `multi_avatar` for evidence qualified from multiple player models.
 - All six original #114 real-P2 SQLite tests were ported, with three additional regression tests; historical original source blobs archived.
 - Node24 Linux and Windows workflow added for focused M1/EA/M4/M5/M6 replay tests.
+- The existing editor confirms the selected save in its user-facing dialog and rejects any mismatched `confirmation` value at its localhost request boundary; that same value now reaches the P2 store, whose optional proof check rejects a mismatch. Historical trusted one-argument callers remain compatible.
 
 **Unresolved:** user-selected timeline confirmation still relies on trusted bootstrap/editor control path for its legacy one-argument API; optional explicit confirmation is validated, but this PR is *not* proof of independent physical operator selection. This should be reviewed in the M1/F11 authority UX before deployment. D01/D02 and S01–S10 source/GTA acceptance remain NO-GO until independently validated.
 

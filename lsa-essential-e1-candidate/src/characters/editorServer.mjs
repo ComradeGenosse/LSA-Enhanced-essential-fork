@@ -129,7 +129,7 @@ export async function startCharacterEditor(service,{ port = service.config.promo
           if (typeof service.store?.confirmTimeline !== 'function') throw new Error('timeline_unavailable');
           if (body.confirmation !== body.timelineId || !isUuid(body.timelineId))
             throw new Error('explicit_confirmation_required');
-          result = {timelineId:await service.store.confirmTimeline(body.timelineId)};
+          result = {timelineId:await service.store.confirmTimeline(body.timelineId,{confirmation:body.confirmation})};
           break;
         case 'promote': result = await service.promote(expectedEncounter(body.expectedEncounterId)); break;
         case 'edit': result = await service.edit(body.characterId,body.patch,body.expectedRevision); break;
