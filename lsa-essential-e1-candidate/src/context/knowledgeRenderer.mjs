@@ -75,7 +75,7 @@ export function projectConversation(history,input,source,directorEventContext=nu
 }
 // Pure projection only: callers must supply the canon already released by P1/P2.
 // Private turn/delivery metadata is never part of modelAllocation.
-export function renderKnowledge({turn,frozenAt,profile,persistent=false,knowledgeInputs,actor,listener,world,referenceMap,presence,history,input,source,directorEventContext=null,includePerceived=false,activityInputs=null,includeActivityFacts=false,dialogueInputs=null,includeDialogueReceipts=false,preparedRecall=null,recallAuthorization=null,preparedM8=null,m8Authorization=null,conversationJournal=null,memoryAction=null}) {
+export function renderKnowledge({turn,frozenAt,profile,persistent=false,knowledgeInputs,actor,listener,world,referenceMap,presence,history,input,source,directorEventContext=null,includePerceived=false,activityInputs=null,includeActivityFacts=false,dialogueInputs=null,includeDialogueReceipts=false,preparedRecall=null,recallAuthorization=null,preparedM8=null,m8Authorization=null,conversationJournal=null,memoryAction=null,memoryStamp=null}) {
  let canonProjection=narrativeProfileWithDiagnostics(profile,persistent);
  let narrative=canonProjection.narrative;
  // Reserve actual lane-wrapper overhead while reusing P2's established field
@@ -170,7 +170,7 @@ export function renderKnowledge({turn,frozenAt,profile,persistent=false,knowledg
  const modelAllocation=allocation(),bytes=jsonBytes(modelAllocation);
  if(bytes>KNOWLEDGE_LIMITS.frameBytes)throw new RangeError('knowledge_frame_bytes');
  const perLane=Object.fromEntries(Object.entries(lanes).map(([name,value])=>[name,jsonBytes(value)]));perLane.CONVERSE=jsonBytes(conversation.messages);
- return immutableSnapshot({frameVersion:1,turn,frozenAt,modelAllocation,delivery,recallReferences,
+ return immutableSnapshot({frameVersion:1,turn,frozenAt,modelAllocation,delivery,memoryStamp,recallReferences,
   recallStamp:recallReferences.length?preparedRecall.stamp:null,opinionReferences,
   opinionStamp:opinionReferences.length?preparedM8.stamp:null,memoryIds:memories.slice(0,lanes.RECALLED.memories.length).map(memory=>memory.memoryId),activityReferences,dialogueReferences,diagnostics:{bytes,perLane,droppedActivityFactCount,droppedDialogueReceiptCount,capture:knowledgeInputs?.captureDiagnostics??null,safetyBudget:perceived.safetyBudget,omissions,frameBudgetDrops,droppedHistoryCount:conversation.droppedHistoryCount,droppedRecallCount:recall.dropped+recall.references.length-recallReferences.length,droppedOpinionCount:m8.dropped+m8.references.length-opinionReferences.length,droppedMemoryCount:canonProjection.droppedMemoryCount+memories.length-lanes.RECALLED.memories.length}});
 
