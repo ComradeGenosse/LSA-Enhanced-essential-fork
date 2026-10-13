@@ -90,7 +90,8 @@ export async function prepareLiveTurnMemory({store,turn,acceptedReceipt,input,so
       store.timelineWritable===true&&sameHost(store.verifiedHostContext,host)&&
       store.get(characterId)?.promotion?.ownerAlias===alias&&
       turn.m2Capture?.verifyMemoryCurrent?.()===true;
-    if(!alias||!current())return empty;
+    if(!alias||typeof turn.m2Capture?.openMemoryCurrent!=='function'||
+       await turn.m2Capture.openMemoryCurrent()!==true||!current())return empty;
     // Readback from the original SQLite journal, never synthesize an accepted
     // line from the client input or a model-provided acceptance receipt.
     const rows=await store.readDialogueLines({characterId,timelineId:scope.timelineId,limit:200});
