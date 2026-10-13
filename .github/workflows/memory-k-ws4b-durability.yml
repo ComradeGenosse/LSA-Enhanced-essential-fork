@@ -1,0 +1,25 @@
+name: Memory K WS-4b durability and recovery
+on:
+  push:
+    branches: [feature/memory-k-ws4b-durability-recovery-20261013]
+  workflow_dispatch:
+jobs:
+  durability:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Verify FTS5
+        run: node -e "const {DatabaseSync}=require('node:sqlite');const db=new DatabaseSync(':memory:');db.exec('CREATE VIRTUAL TABLE t USING fts5(content)');db.close()"
+      - name: WS-4b durability tests
+        run: node --test --test-concurrency=1 lsa-shared-brain/tests/memory-k-ws4b-durability.test.mjs
+      - name: M1 SQLite compatibility
+        run: node --test --test-concurrency=1 lsa-essential-e1-candidate/tests/m1-sqlite-foundation.test.mjs lsa-essential-e1-candidate/tests/m1-shared-memory-parity.test.mjs
+      - name: Memory journal and W04 regressions
+        run: node --test --test-concurrency=1 lsa-shared-brain/tests/memory-integrated-storage.test.mjs lsa-shared-brain/tests/memory-k-production-w04-sqlite.test.mjs
