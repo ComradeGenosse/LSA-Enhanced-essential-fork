@@ -8,23 +8,32 @@ import {CAPABILITIES,validateFrame,validateMemoryCurrentOwnerPlayerPayload} from
 
 const u=()=>randomUUID();
 const fixture=({negotiated=true}={})=>{
-  const run=u(),adapterEpoch=u(),streamId=u(),npcRef=u(),otherRef=u(),playerRef=u();
+  const run=u(),npcRef=u(),otherRef=u(),playerRef=u(),npcRefB=u();
+  let adapterEpoch=u(),streamId=u();
   const incarnation=u(),encounter=u(),alias='promoted.'+u(),characterId=u();
+  const incarnationB=u(),encounterB=u(),aliasB='promoted.'+u(),characterIdB=u();
   let tick=100,sequence=0,clock=500,retired=0;
-  const socket=new EventEmitter();
-  socket.destroy=()=>{if(socket.destroyed)return;socket.destroyed=true;socket.emit('close');};
-  socket.write=()=>true;
+  const makeSocket=()=>{
+    const s=new EventEmitter();
+    s.destroy=()=>{if(s.destroyed)return;s.destroyed=true;s.emit('close');};
+    s.write=()=>true;
+    return s;
+  };
+  let socket=makeSocket();
   const client=new IntelligenceClient({mode:'shadow',pipeName:'LSA.K.D02.Test'},{
     connect:()=>socket,now:()=>clock
   });
   const profile={characterId,promotion:{ownerAlias:alias},status:'available',
     timelineWritable:true,worldEpoch:1};
+  const profileB={characterId:characterIdB,promotion:{ownerAlias:aliasB},
+    status:'available',timelineWritable:true,worldEpoch:1};
+  const profiles=new Map([[alias,profile],[aliasB,profileB]]);
   const authority=createNativeCurrentOwnerPlayerAuthority({
     subscribeAuthenticatedNativeOwnerPlayerFrames:(onFrame,onRetire)=>
       client.subscribeAuthenticatedNativeOwnerPlayer(onFrame,(reason,refs)=>{
         retired++;onRetire(reason,refs);
       }),
-    profileForAlias:requested=>requested===alias?profile:null,
+    profileForAlias:requested=>profiles.get(requested)??null,
     sourceStillCurrent:(context,owner,player)=>{
       const s=client.runtime,row=s.observerIndex.get(owner.observerCaptureRef);
       return s.epoch===context?.adapterEpoch &&
@@ -40,16 +49,19 @@ const fixture=({negotiated=true}={})=>{
     },
     now:()=>clock
   });
-  const hello={version:1,type:'hello',hostContextVersion:1,hostRunId:run,
+  let hello={version:1,type:'hello',hostContextVersion:1,hostRunId:run,
     worldEpoch:1,adapterEpoch,streamId,observerIndexVersion:1,
     ...(negotiated?{memoryCurrentOwnerPlayerVersion:1}:{}),
     capabilities:Object.fromEntries(CAPABILITIES.map(x=>[x,false]))};
   const owner=()=>({observerCaptureRef:npcRef,incarnationId:incarnation,
     encounterId:encounter,ownerAlias:alias,hostRunId:run,worldEpoch:1,
     nativeActorPedId:'101',sampledGameTick:tick});
-  const proof=(avatar='franklin')=>({
+  const ownerB=()=>({observerCaptureRef:npcRefB,incarnationId:incarnationB,
+    encounterId:encounterB,ownerAlias:aliasB,hostRunId:run,worldEpoch:1,
+    nativeActorPedId:'102',sampledGameTick:tick});
+  const proof=(avatar='franklin',owners=[owner()])=>({
     nativeOwnerPlayerProofVersion:1,source:'native_p2_owner_fiber_current_only',
-    hostRunId:run,worldEpoch:1,sampledGameTick:tick,owners:[owner()],
+    hostRunId:run,worldEpoch:1,sampledGameTick:tick,owners,
     protagonist:{source:'native_player_model',key:avatar,
       playerCaptureRef:playerRef,sampledGameTick:tick}
   });
@@ -65,21 +77,39 @@ const fixture=({negotiated=true}={})=>{
     client.start();await helloFrame();
     await send('anchors',[
       {captureRef:npcRef,kind:'ped',observer:true,owned:true},
+      {captureRef:npcRefB,kind:'ped',observer:true,owned:true},
       {captureRef:otherRef,kind:'ped',observer:false,owned:false},
       {captureRef:playerRef,kind:'player',observer:false}
     ]);
-    await send('observer_index',[{captureRef:npcRef,kind:'ped',owned:true,
-      incarnationId:incarnation,encounterId:encounter}]);
+    await send('observer_index',[
+      {captureRef:npcRef,kind:'ped',owned:true,
+        incarnationId:incarnation,encounterId:encounter},
+      {captureRef:npcRefB,kind:'ped',owned:true,
+        incarnationId:incarnationB,encounterId:encounterB}
+    ]);
   }
   const bind=()=>authority.bindActorAtTurnStart({pedId:'101',characterId,ownerAlias:alias});
   const verify=lease=>authority.verifyCurrentOwnerAndPlayer({
     lease,identity,characterId,ownerAlias:alias
   });
+  const bindB=()=>authority.bindActorAtTurnStart({
+    pedId:'102',characterId:characterIdB,ownerAlias:aliasB
+  });
+  const verifyB=lease=>authority.verifyCurrentOwnerAndPlayer({
+    lease,identity:{...identity,pedId:'102'},characterId:characterIdB,ownerAlias:aliasB
+  });
+  async function renew() {
+    socket.destroy();await pause();
+    adapterEpoch=u();streamId=u();sequence=0;
+    socket=makeSocket();hello={...hello,adapterEpoch,streamId};
+    await establish();
+  }
   const next=(delta=10)=>{clock+=delta;tick+=delta;};
   const close=()=>{socket.destroy();authority.close();client.stop();};
-  return {client,socket,authority,hello,helloFrame,send,establish,proof,owner,
-    bind,verify,next,close,identity,npcRef,otherRef,playerRef,run,alias,
-    incarnation,encounter,characterId,profile,retired:()=>retired};
+  return {client,socket,authority,helloFrame,send,establish,proof,owner,ownerB,
+    bind,verify,bindB,verifyB,renew,next,close,identity,npcRef,npcRefB,
+    otherRef,playerRef,run,alias,aliasB,incarnation,encounter,
+    characterId,profile,profileB,retired:()=>retired};
 };
 
 test('D02 negotiated authenticated socket binds only current actor and newer owner sample',async()=>{
@@ -300,5 +330,90 @@ test('D02 replayed native stream sequence never produces a new proof',async()=>{
     f.next();await f.send('memory_current_owner_player',f.proof(),{increment:false});
     assert.equal(f.verify(lease),null);
     assert.equal(f.bind(),null,'failed replay must retire source');
+  }finally{f.close();}
+});
+
+test('K-21 authenticated two-owner stream: one suspended while the other verifies and then recovers',async()=>{
+  const f=fixture();
+  const both=()=>f.proof('franklin',[f.owner(),f.ownerB()]);
+  try{
+    await f.establish();
+    await f.send('memory_current_owner_player',both());
+    const staleA=f.bind(),continuousB=f.bindB();
+    assert.ok(staleA && continuousB);
+    f.next();await f.send('memory_current_owner_player',both());
+    assert.ok(f.verify(staleA) && f.verifyB(continuousB));
+
+    // Native K-21 can omit this one NPC while its PS observer anchor
+    // remains registered and current. The strict runtime must admit the
+    // independently proven healthy owner, not reject the entire frame.
+    f.next();await f.send('memory_current_owner_player',
+      f.proof('franklin',[f.ownerB()]));
+    assert.equal(f.authority.status().connected,true);
+    assert.equal(f.authority.status().ownerCount,1);
+    assert.equal(f.verify(staleA),null);
+    assert.equal(f.bind(),null);
+    assert.ok(f.verifyB(continuousB),'healthy lease remains verifiable');
+
+    f.next();await f.send('memory_current_owner_player',both());
+    assert.equal(f.authority.status().ownerCount,2);
+    assert.equal(f.verify(staleA),null,'same owner ref cannot resurrect old lease');
+    assert.ok(f.verifyB(continuousB));
+    const freshA=f.bind();assert.ok(freshA);
+    assert.equal(f.verify(freshA),null,'requires a post-binding native sample');
+    f.next();await f.send('memory_current_owner_player',both());
+    assert.ok(f.verify(freshA),'exact lifetime can acquire a new lease');
+    assert.equal(f.verify(staleA),null);
+    assert.ok(f.verifyB(continuousB));
+  }finally{f.close();}
+});
+
+test('K-21 authenticated recovery refuses forged aliases and recycled incarnations',async()=>{
+  for(const mutate of [
+    o=>({...o,ownerAlias:'promoted.'+u()}),
+    o=>({...o,incarnationId:u()}),
+    o=>({...o,encounterId:u()}),
+    o=>({...o,nativeActorPedId:'999'})
+  ]){
+    const f=fixture();
+    try{
+      await f.establish();
+      await f.send('memory_current_owner_player',f.proof());
+      const stale=f.bind();assert.ok(stale);
+      f.next();await f.send('memory_current_owner_player',
+        f.proof('franklin',[]));
+      assert.equal(f.verify(stale),null);
+      f.next();await f.send('memory_current_owner_player',
+        f.proof('franklin',[mutate(f.owner())]));
+      assert.equal(f.bind(),null,'forged/recycled authority cannot issue leases');
+      assert.equal(f.verify(stale),null);
+    }finally{f.close();}
+  }
+});
+
+test('K-21 recovery across new authenticated hello resets leases, not identity checks',async()=>{
+  const f=fixture();
+  const both=()=>f.proof('franklin',[f.owner(),f.ownerB()]);
+  try{
+    await f.establish();
+    await f.send('memory_current_owner_player',both());
+    const oldA=f.bind(),oldB=f.bindB();
+    f.next();await f.send('memory_current_owner_player',both());
+    assert.ok(f.verify(oldA) && f.verifyB(oldB));
+    f.next();await f.send('memory_current_owner_player',
+      f.proof('franklin',[f.ownerB()]));
+    assert.equal(f.verify(oldA),null);
+    assert.ok(f.verifyB(oldB));
+
+    await f.renew(); // new genuine hello/adapter epoch/stream + fresh roster
+    assert.equal(f.verifyB(oldB),null,'no lease survives stream renewal');
+    assert.equal(f.bind(),null,'new hello alone proves no native owner');
+    f.next();await f.send('memory_current_owner_player',both());
+    const newA=f.bind(),newB=f.bindB();
+    assert.ok(newA && newB,'new source re-proves exact owners');
+    f.next();await f.send('memory_current_owner_player',both());
+    assert.ok(f.verify(newA) && f.verifyB(newB));
+    assert.equal(f.verify(oldA),null);
+    assert.equal(f.verifyB(oldB),null);
   }finally{f.close();}
 });
