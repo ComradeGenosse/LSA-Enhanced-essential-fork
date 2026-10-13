@@ -21,9 +21,13 @@ test('WS6 latency: disk P2 busy 10k, cold/restart M4 to PS4, original-runner pre
  const now=Date.now(),sessionId=randomUUID();
  // Dataset fixture through the same P2 transaction / real journal validator.
  // This is synthetic historical load, not ten thousand GTA/D03 receipts.
- for(let batch=0;batch<10000;batch+=200){
+ // WS-4b quota admission adds synchronous checks for every journal row.
+ // Bound each transaction's event-loop occupancy so the authenticated native
+ // heartbeat is not starved while this test builds its 10k-row fixture.
+ // We keep the same total rows and the same strict source/latency assertions.
+ for(let batch=0;batch<10000;batch+=50){
  await x.store.withP2SqliteTransaction(scope,db=>{
-  for(let i=batch;i<Math.min(batch+200,10000);i++)appendDialogue(db,{version:1,kind:'dialogue_line',...journalScope,
+  for(let i=batch;i<Math.min(batch+50,10000);i++)appendDialogue(db,{version:1,kind:'dialogue_line',...journalScope,
    recordId:randomUUID(),speaker:'player',source:'typed',delivery:'accepted',
    content:i===9000?'meticulous alpaca clock':'ordinary filler '+i,
    committedAtUtc:new Date(now-(i+1)*1000).toISOString(),turnIdentityHash:sha('ws6-busy-'+i),
@@ -31,7 +35,7 @@ test('WS6 latency: disk P2 busy 10k, cold/restart M4 to PS4, original-runner pre
    {sessionId,protagonist:['franklin','michael','trevor'][i%3],
     hostRunId:x.native.hostRunId,worldEpoch:1},worldProfileId);
  });
- await sleep(10);
+ await sleep(15);
  }
  const query={version:1,kind:'recall_query',queryId:randomUUID(),...scope,protagonistKey:undefined,
   turnIdentityHash:sha('ws6-benchmark'),question:'Quote what I said about meticulous alpaca clock',
@@ -52,7 +56,16 @@ test('WS6 latency: disk P2 busy 10k, cold/restart M4 to PS4, original-runner pre
  // Dataset creation is synchronous and may exceed the native fixture's lease
  // TTL. Supply a fresh authenticated roster/sample before creating any turn.
  await x.native.roster();await x.native.sample();
- await waitFor(()=>x.d02.port.status()?.settled===true,'benchmark current native sample');
+ try {await waitFor(()=>x.d02.port.status()?.settled===true,'benchmark current native sample');}
+ catch(error){
+   console.error('WS6_BENCH_NATIVE_DIAG '+JSON.stringify({
+     port:x.d02.port.status(),native:{samples:x.native.samples,rosters:x.native.rosters,tick:x.native.tick},
+     runtime:{epoch:!!x.client.runtime.epoch,host:!!x.client.runtime.hostContext,
+       counters:x.client.runtime.counters,resetReasons:x.client.runtime.resetDiagnostics,
+       currentNpc:x.client.runtime.current(x.native.npcRef),
+       currentPlayer:x.client.runtime.current(x.native.playerRef)}}));
+   throw error;
+ }
  const original=x.h.runtime.services.prepareLiveTurnMemory;
  x.h.runtime.services.prepareLiveTurnMemory=async args=>{
   const at=performance.now(),p=await original(args);prep.push(performance.now()-at);
