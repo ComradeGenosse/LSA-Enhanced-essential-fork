@@ -40,6 +40,23 @@ if (-not (Test-Path -LiteralPath $service) -or
 # CLI builds all seven original environment switches from one stage.
 # Reset optional credentials/voice settings too; stale process env must not
 # accidentally activate a feature. OPENAI_API_KEY remains operator-managed.
+# Preserve the invoking PowerShell process environment, including values that
+# are absent. The child Node and RPH processes inherit the selected stage on
+# launch, but dry-run, normal exit, failure and cancellation restore the caller.
+$activationKeys=@(
+  'LSA_STANDALONE_MODEL','LSA_STANDALONE_TTS_MODEL',
+  'LSA_STANDALONE_TTS_PROVIDER','LSA_STANDALONE_TTS_VOICE',
+  'LSA_STANDALONE_QWEN_URL','LSA_STANDALONE_QWEN_VOICES',
+  'LSA_STANDALONE_ACTOR_MODE','LSA_STANDALONE_TYPED_MODE',
+  'LSA_STANDALONE_TTS_MODE','LSA_STANDALONE_AUDIO_OUTPUT',
+  'LSA_STANDALONE_PLAYBACK_CONFIRM','LSA_STANDALONE_LIPSYNC',
+  'LSA_STANDALONE_EARLY_SPEECH','LSA_STANDALONE_ACTIVATION_STAGE'
+)
+$originalActivationEnv=@{}
+foreach ($key in $activationKeys) {
+  $originalActivationEnv[$key]=[Environment]::GetEnvironmentVariable($key,'Process')
+}
+try {
 $env:LSA_STANDALONE_MODEL=$Model
 $env:LSA_STANDALONE_TTS_MODEL=$TtsModel
 $env:LSA_STANDALONE_TTS_PROVIDER=$TtsProvider
@@ -108,5 +125,10 @@ try {
 } finally {
   if ($companionProc) {
     Stop-Process -Id $companionProc.Id -Force -ErrorAction SilentlyContinue
+  }
+}
+} finally {
+  foreach ($key in $activationKeys) {
+    [Environment]::SetEnvironmentVariable($key,$originalActivationEnv[$key],'Process')
   }
 }
