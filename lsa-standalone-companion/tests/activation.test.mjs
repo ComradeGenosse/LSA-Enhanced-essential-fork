@@ -95,9 +95,9 @@ test('reject tampered independent flags and provider prerequisites fail closed',
   assert.throws(() => resolveActivation(configured({
     ...typed, LSA_STANDALONE_TTS_MODE: 'banana'
   })), /invalid_setting:LSA_STANDALONE_TTS_MODE/);
-  const missingTts = resolveActivation(configured({
-    ...presetEnvironment('tts'), LSA_STANDALONE_TTS_MODEL: ''
-  }));
+  const missingTts = resolveActivation({
+    ...configured(presetEnvironment('tts')), LSA_STANDALONE_TTS_MODEL: ''
+  });
   assert.match(missingTts.errors.join(' '), /TTS_MODEL required/);
 });
 
