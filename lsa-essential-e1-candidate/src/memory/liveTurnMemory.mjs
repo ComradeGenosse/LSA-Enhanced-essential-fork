@@ -135,8 +135,14 @@ export async function prepareLiveTurnMemory({store,turn,acceptedReceipt,input,so
       turnIdentityHash:line.turnIdentityHash,
       question:input,intent:/\b(quote|exact words|word for word)\b/i.test(input)
         ?'exact_quote':'open_recall',maxBytes:4096};
+    const sourceReader=createP2IntegratedRecallAdapter(store);
     const {bundle}=await recallMemory({query,
-      readAdapter:createP2IntegratedRecallAdapter(store),
+      // A question must never retrieve itself as if it were an earlier memory.
+      // The accepted current line belongs in CONVERSE.current only.
+      readAdapter:{read:async args=>{
+        const result=await sourceReader.read(args);
+        return {...result,rows:result.rows.filter(r=>r.recordId!==line.recordId)};
+      }},
       protagonistKey:scope.protagonistKey,nowUtc});
     if(!current())return empty;
     const contribution=toPs4RecallContribution(bundle,{maxBytes:4096});
