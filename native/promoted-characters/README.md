@@ -54,6 +54,8 @@ dotnet build native/promoted-characters/owner-sample-tests/OwnerSampleTests.cspr
 & native/promoted-characters/owner-sample-tests/bin/Release/net481/OwnerSampleTests.exe
 ```
 
+The `memory-k-d02-native-owner.yml` CI workflow builds and runs this harness on Windows. The D02 JavaScript tests also exercise the actual authenticated `IntelligenceClient` + `ShadowRuntime` boundary: a temporarily omitted NPC loses every existing turn lease, while a fresh exact native owner sample can issue a new lease without disrupting healthy NPCs. Explicit retirement and recycled/forged owner lifetime remain denied.
+
 The UX phase 1 bridge links the real `DomainHost`, the production runtime sources and the real console frontend against game substitutes in a separate Essential test domain (it also runs under Mono):
 
 ```powershell
