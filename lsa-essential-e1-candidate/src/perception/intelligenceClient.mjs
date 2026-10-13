@@ -2,6 +2,7 @@ import { captureKnowledgeInputs, assertKnowledgeCurrent } from '../context/knowl
 import net from 'node:net';
 import { BOUNDS } from './contracts.mjs';
 import { ShadowRuntime } from './shadowRuntime.mjs';
+import { createProtagonistAuthority } from './protagonistAuthority.mjs';
 import {DirectorPlaybackRegistry} from './directorPlayback.mjs';
 import {serializeDirectorRequest,serializeDirectorPs3Receipt,serializeDirectorOriginalOwnerReceipt,serializeDirectorStockIntake,serializeDirectorOriginalTurnBinding} from './directorWire.mjs';
 
@@ -20,6 +21,12 @@ export function createCompanionShadowTelemetry(summary = {}) {
   const drops = summary?.dropReasons && typeof summary.dropReasons === 'object' ? summary.dropReasons : {};
   const damage = summary?.damageCallbacks && typeof summary.damageCallbacks === 'object' ? summary.damageCallbacks : {};
   const native = summary?.nativeDiagnostics && typeof summary.nativeDiagnostics === 'object' ? summary.nativeDiagnostics : {};
+  const radioCatalog = summary?.radioCatalog && typeof summary.radioCatalog === 'object' ? summary.radioCatalog : {};
+  const ps2Drops = ps2?.dropReasons && typeof ps2.dropReasons === 'object' ? ps2.dropReasons : {};
+  const radio = summary?.radio && typeof summary.radio === 'object' ? summary.radio : {};
+  const stall = summary?.ownerStall && typeof summary.ownerStall === 'object' ? summary.ownerStall : {};
+  const trace = summary?.trace && typeof summary.trace === 'object' ? summary.trace : {};
+  const nativeRadio = native?.radio && typeof native.radio === 'object' ? native.radio : {};
   return Object.freeze({
     anchors: counter(summary.anchors),
     retainedSignals: counter(summary.retainedSignals),
@@ -51,12 +58,24 @@ export function createCompanionShadowTelemetry(summary = {}) {
     ps2Witnessed: counter(ps2.witnessed),
     ps2Duplicates: counter(ps2.duplicates),
     ps2Dropped: counter(ps2.dropped),
+    ps2OwnedWitnessed: counter(ps2.ownedWitnessed),
+    ps2DedupeEvicted: counter(ps2.dedupeEvicted),
+    ps2DropInvalidInput: counter(ps2Drops.invalid_input),
+    ps2DropRadioIdentityMismatch: counter(ps2Drops.radio_derived_identity_mismatch),
+    ps2DropUnsupportedEvent: counter(ps2Drops.unsupported_event),
+    ps2DropEpisodeClaimCapacity: counter(ps2Drops.episode_claim_capacity),
+    ps2DropEpisodeRejected: counter(ps2Drops.episode_rejected),
+    ps2DropObservationClaimCapacity: counter(ps2Drops.observation_claim_capacity),
+    ps2DropObservationRejected: counter(ps2Drops.observation_rejected),
     ps3Decisions: counter(ps3.decisions),
     ps3Urgent: counter(ps3.urgent),
     ps3Eligible: counter(ps3.eligible),
     ps3Staged: counter(ps3.staged),
     ps3Suppressed: counter(ps3.suppressed),
     ps3Faults: counter(ps3.faults),
+    ps3OwnedDecisions: counter(ps3.ownedDecisions),
+    ps3OwnedEligible: counter(ps3.ownedEligible),
+    ps3OwnedUrgent: counter(ps3.ownedUrgent),
     ps3ReasonSafetySelfDanger: counter(reasons.safetySelfDanger),
     ps3ReasonSafetyPlayerHarm: counter(reasons.safetyPlayerHarm),
     ps3ReasonSafetyNearbyThreat: counter(reasons.safetyNearbyThreat),
@@ -64,12 +83,102 @@ export function createCompanionShadowTelemetry(summary = {}) {
     ps3ReasonRevisionStale: counter(reasons.revisionStale),
     ps3ReasonNoveltyEscalation: counter(reasons.noveltyEscalation),
     ps3ReasonSuppressionCapacity: counter(reasons.suppressionCapacity),
+    radioUnknownTextIds: counter(radioCatalog.unknownTextIds),
+    radioCatalogMismatches: counter(radioCatalog.catalogMismatches),
+    radioChanged: counter(radio.changed),
+    radioStopped: counter(radio.stopped),
+    radioKnown: counter(radio.known),
+    radioUnknown: counter(radio.unknown),
+    radioMismatch: counter(radio.mismatch),
+    radioOff: counter(radio.off),
+    radioObservations: counter(radio.observations),
+    radioOwnedObservations: counter(radio.ownedObservations),
+    nativeRadioSamples: counter(nativeRadio.samples),
+    nativeRadioEdges: counter(nativeRadio.edges),
+    nativeRadioFailures: counter(nativeRadio.nativeFailures),
+    nativeRadioWitnessed: counter(nativeRadio.witnessed),
+    nativeRadioWitnessUnknown: counter(nativeRadio.witnessUnknown),
+    nativeWitnessDeferred: counter(native.witnessDeferred),
+    nativeWitnessUnknown: counter(native.witnessUnknown),
+    nativeWitnessRejected: counter(native.witnessRejected),
+    ownerStalls: counter(stall.stalls),
+    ownerStallMaxMs: counter(stall.maxMs),
+    traceEmitted: counter(trace.emitted),
+    traceSuppressed: counter(trace.suppressed),
     finalSnapshot: summary.finalSnapshot === true,
   });
 }
 
 // Fixed same-user native factual endpoint; no actor integration blocks or commands.
 export class IntelligenceClient {
+  #nativeAuthority;
+  #nativeSessionToken=null;
+  #lastAdmittedSequence=0;
+
+  // Proof comes from the admitted socket/hello/runtime, never protagonist JSON.
+  getNativeStream() {
+    const context=this.runtime.hostContext;
+    const authenticated=this.config.mode==='shadow' && !this.closed &&
+      this.#nativeSessionToken!==null && this.socket!==null &&
+      this.socket.destroyed!==true && this.runtime.channelFresh() &&
+      Boolean(this.runtime.epoch && this.runtime.stream && context);
+    return Object.freeze({
+      connected:authenticated,authenticated,
+      sessionToken:authenticated?this.#nativeSessionToken:null,
+      adapterEpoch:authenticated?this.runtime.epoch:null,
+      streamId:authenticated?this.runtime.stream:null,
+      hostRunId:authenticated?context.hostRunId:null,
+      worldEpoch:authenticated?context.worldEpoch:null,
+      lastSequence:authenticated?this.#lastAdmittedSequence:0,
+    });
+  }
+  // C-13 receiver negotiation is sent only on the ACTUAL accepted user-ACL
+  // intelligence socket, never inferred from a config or LLM-provided JSON.
+  // Older/outbound-only native hosts have no directorRequestVersion and receive
+  // no negotiation. Native independently checks exact stream/host/epoch.
+  #announceProtagonistSupport() {
+    const h=this.runtime.hostContext;
+    if(this.closed || this.config.mode!=='shadow' ||
+       this.runtime.directorRequestVersion!==1 || !this.#nativeSessionToken ||
+       !this.socket || this.socket.destroyed || !this.socket.writable ||
+       this.socket.writableLength>BOUNDS.frameBytes || !h ||
+       !this.runtime.epoch || !this.runtime.stream) return false;
+    const message={
+      version:1,type:'protagonist_capability',supportedVersion:1,
+      adapterEpoch:this.runtime.epoch,streamId:this.runtime.stream,
+      hostRunId:h.hostRunId,worldEpoch:h.worldEpoch,
+    };
+    try {
+      const line=JSON.stringify(message)+'\n';
+      if(Buffer.byteLength(line)>512)return false;
+      this.socket.write(line);return true;
+    } catch {return false;}
+  }
+  #revokeNative() {
+    this.#nativeSessionToken=null;
+    this.#lastAdmittedSequence=0;
+    this.#nativeAuthority?.revoke();
+  }
+  // M1 C-13: native accepted context, never a sender-authentication shortcut.
+  subscribeVerifiedHostContext(listener) {
+    if(typeof listener!=='function' || this.hostContextListeners.size>=16)
+      throw new Error('host_context_listener_capacity');
+    this.hostContextListeners.add(listener);
+    return ()=>this.hostContextListeners.delete(listener);
+  }
+  publishHostContext(context) {
+    const verified=context??null;
+    if(verified===null && this.verifiedHostContext===null)return;
+    this.verifiedHostContext=verified;
+    for(const listener of [...this.hostContextListeners])
+      try {listener(verified);}catch {}
+  }
+  subscribeWorldBoundary(listener) {
+    if(typeof listener!=='function' || this.worldBoundaryListeners.size>=16)
+      throw new Error('world_boundary_listener_capacity');
+    this.worldBoundaryListeners.add(listener);
+    return ()=>this.worldBoundaryListeners.delete(listener);
+  }
   subscribeKnowledgeInvalidation(listener) {
     if(typeof listener!=='function' || this.knowledgeListeners.size>=32)throw new Error('knowledge_listener_capacity');
     this.knowledgeListeners.add(listener);return ()=>this.knowledgeListeners.delete(listener);
@@ -514,8 +623,23 @@ export class IntelligenceClient {
     this.directorOwnerReservations.clear();this.directorNativeSubmitted.clear();this.directorStockDispatched.clear();this.directorStockContexts.clear();this.directorStockClaims.clear();
   }
 
-  constructor(config,{connect=options=>net.createConnection(options),directorProductionRequired=false,now,situationFor,originalTurnPriority=()=>null,originalTurnReserve=()=>null,originalTurnCurrent=()=>null,originalTurnRelease=()=>false,originalTurnPhase=()=>null,report=summary=>console.info('[PS] companion_shadow '+JSON.stringify(summary)),telemetry=()=>{}}={}) {
-    this.knowledgeListeners=new Set();this.config=config;this.connect=connect;this.runtime=new ShadowRuntime({mode:config.mode,now,situationFor});this.report=report;this.telemetry=telemetry;this.originalTurnPriority=typeof originalTurnPriority==='function'?originalTurnPriority:()=>null;
+  constructor(config,{connect=options=>net.createConnection(options),directorProductionRequired=false,now,situationFor,radioCatalog,originalTurnPriority=()=>null,originalTurnReserve=()=>null,originalTurnCurrent=()=>null,originalTurnRelease=()=>false,originalTurnPhase=()=>null,report=summary=>console.info('[PS] companion_shadow '+JSON.stringify(summary)),telemetry=()=>{}}={}) {
+    this.hostContextListeners=new Set();this.worldBoundaryListeners=new Set();this.verifiedHostContext=null;
+    this.knowledgeListeners=new Set();this.config=config;this.connect=connect;
+    // Bounded fixed-vocabulary diagnostics only (see ShadowRuntime.emitTrace).
+    this.runtime=new ShadowRuntime({mode:config.mode,radio:config.radio,radioCatalog,now,situationFor,
+      trace:(event,record)=>this.persist(event,record),
+      stall:info=>this.persist('intelligence_status',{stage:info.stage==='stalled'?'owner_stalled':'owner_resumed',durationMs:info.stallMs})});
+    this.#nativeAuthority=createProtagonistAuthority({
+      getNativeStream:()=>this.getNativeStream(),
+      clock:()=>this.runtime.now(),
+    });
+    // Stable read-only API; no public acceptAuthenticatedFrame method.
+    this.protagonistAuthority=Object.freeze({
+      readVerified:()=>this.#nativeAuthority.readVerified(),
+      isCurrent:record=>this.#nativeAuthority.isCurrent(record),
+    });
+    this.report=report;this.telemetry=telemetry;this.originalTurnPriority=typeof originalTurnPriority==='function'?originalTurnPriority:()=>null;
     this.originalTurnReserve=typeof originalTurnReserve==='function'?originalTurnReserve:()=>null;
     this.originalTurnCurrent=typeof originalTurnCurrent==='function'?originalTurnCurrent:()=>null;
     this.originalTurnRelease=typeof originalTurnRelease==='function'?originalTurnRelease:()=>false;
@@ -541,15 +665,21 @@ export class IntelligenceClient {
       history:{...this.runtime.historyDiagnostics},
       dropReasons:{...this.runtime.dropDiagnostics},
       resetReasons:{...this.runtime.resetDiagnostics},
-      nativeDiagnostics:{dropped:diagnostics?.dropped??0,staleRejected:diagnostics?.staleRejected??0},
+      nativeDiagnostics:{dropped:diagnostics?.dropped??0,staleRejected:diagnostics?.staleRejected??0,
+        witnessDeferred:diagnostics?.witnessDeferred??0,witnessUnknown:diagnostics?.witnessUnknown??0,
+        witnessRejected:diagnostics?.witnessRejected??0,radio:diagnostics?.radio?{...diagnostics.radio}:{}},
       capabilities:this.runtime.capabilities,
       damageCallbacks:diagnostics?.damageCallbacks??{ped_damage:0,player_damage:0,vehicle_damage:0},
-      ps2:{...this.runtime.ps2Diagnostics,playerSpeechGate:diagnostics?.playerSpeechGate??'unsupported_capture_receipt',speech:this.runtime.transcripts.diagnostics},
+      ps2:{...this.runtime.ps2Diagnostics,dropReasons:{...this.runtime.correlator.dropReasons},dedupeEvicted:this.runtime.correlator.dedupeEvicted,playerSpeechGate:diagnostics?.playerSpeechGate??'unsupported_capture_receipt',speech:this.runtime.transcripts.diagnostics},
       c01:{...this.runtime.utterances.diagnostics,
         ...this.runtime.speechDiagnostics,
         enabled:this.runtime.utteranceLifecycleVersion===1,
         proximityEnabled:this.runtime.capabilities.playerSpeech===true},
       ps3:{...this.runtime.ps3Diagnostics,reasons:{...this.runtime.ps3Diagnostics.reasons}},
+      radioCatalog:{unknownTextIds:counter(this.runtime.radioCatalog?.unknownTextIds),catalogMismatches:counter(this.runtime.radioCatalog?.catalogMismatches)},
+      radio:{...this.runtime.radioDiagnostics},
+      ownerStall:{...this.runtime.stallDiagnostics},
+      trace:{...this.runtime.traceDiagnostics},
       finalSnapshot,
     };
   }
@@ -561,6 +691,7 @@ export class IntelligenceClient {
   start() {
     if(this.config.mode!=='shadow' || this.closed || this.socket) return;
     this.persist('intelligence_status',{stage:'connecting'});
+    this.#revokeNative();
     const socket=this.connect({path:`\\\\.\\pipe\\${this.config.pipeName}`});this.socket=socket;
     let buffer=Buffer.alloc(0),frames=[],hello=false,sawLiveFrame=false;
     const fail=()=>socket.destroy();
@@ -574,13 +705,14 @@ export class IntelligenceClient {
           this.persist('intelligence_frame_rejected',{frameType:'hello',reason:'invalid_order',count:1});fail();return;
         }
         const before={malformed:this.runtime.counters.malformed,gaps:this.runtime.counters.gaps,faults:this.runtime.resetDiagnostics.faults};
+        const beforeHost=this.runtime.hostContext;
         const accepted=this.runtime.ingest(v,{authenticated:true});
         if(!accepted) {
           // Never include source payloads, NPC identities or raw frames in
           // persistent diagnostics. A strict invalid frame stays invalid.
           const allowed=['hello','anchors','retire','retire_batch','observer_index',
             'observer_situation','world_epoch','director_priority','director_response',
-            'signal','diagnostics','utterance'];
+            'signal','diagnostics','protagonist_model','utterance','speech_receipt'];
           const frameType=allowed.includes(v?.type)?v.type:'other';
           const reason=this.runtime.counters.malformed>before.malformed?'invalid_contract':
             this.runtime.counters.gaps>before.gaps?'sequence_gap':
@@ -591,9 +723,44 @@ export class IntelligenceClient {
             this.persist('intelligence_frame_rejected',{
               frameType,reason,count,frameBytes:Buffer.byteLength(JSON.stringify(v),'utf8')});
         }
+        if(!accepted && v?.type==='protagonist_model') {
+          this.#revokeNative();fail();return;
+        }
+        if(accepted && v?.type==='hello') {
+          // Session token minted ONCE per accepted hello and actual socket.
+          this.#nativeSessionToken=Object.freeze({});
+          this.#lastAdmittedSequence=0;
+          this.publishHostContext(this.runtime.hostContext);
+          this.#announceProtagonistSupport();
+        }
+        if(accepted && v?.type!=='hello') this.#lastAdmittedSequence=v.sequence;
+        if(accepted && v?.type==='world_epoch') {
+          this.#nativeAuthority.revoke(); // before notifying any consumers
+          this.cancelDirectorRequests();
+          const next=this.runtime.hostContext;
+          if(beforeHost && next && next.hostRunId===beforeHost.hostRunId &&
+             next.worldEpoch===beforeHost.worldEpoch+1 &&
+             v.payload.epoch===next.worldEpoch) {
+            this.publishHostContext(next);
+            const boundary=Object.freeze({
+              reason:v.payload.reason,hostRunId:next.hostRunId,
+              previousEpoch:beforeHost.worldEpoch,worldEpoch:next.worldEpoch,
+            });
+            for(const listener of [...this.worldBoundaryListeners])
+              try {listener(boundary);}catch {}
+          }
+        }
+        if(accepted && v?.type==='world_epoch')
+          this.#announceProtagonistSupport();
+        if(accepted && v?.type==='protagonist_model' &&
+           !this.#nativeAuthority.acceptAuthenticatedFrame(v)) {
+          this.#revokeNative();fail();return;
+        }
         if(accepted && v?.type!=='hello') {sawLiveFrame=true;this.emptyHelloStreak=0;}
-        if(accepted && v?.type==='world_epoch')this.cancelDirectorRequests();
         if(accepted && v?.type==='director_response')this.acceptDirectorResponse(v.payload);
+        if(!this.runtime.epoch) {
+          this.#revokeNative();this.publishHostContext(null);
+        }
         this.notifyKnowledgeInvalidation();
         if(!hello && !accepted || !this.runtime.epoch) {fail();return;}
         if(!hello) { hello=true;this.persist('intelligence_status',{stage:'initialized'}); }
@@ -617,16 +784,20 @@ export class IntelligenceClient {
     socket.on('close',()=>{
       if(hello) this.emitReport(true);
       this.persist('intelligence_status',{stage:'disconnected'});
-      if(this.work) clearImmediate(this.work);this.work=null;frames=[];this.cancelDirectorRequests();this.socket=null;this.runtime.reset('disconnect');this.notifyKnowledgeInvalidation();
+      if(this.work) clearImmediate(this.work);this.work=null;frames=[];this.cancelDirectorRequests();this.#revokeNative();this.socket=null;this.runtime.reset('disconnect');this.publishHostContext(null);this.notifyKnowledgeInvalidation();
       // While GTA is paused, hello may succeed but no owner-fiber data arrive.
-      // Keep the 3s freshness veto; only bound empty-handshake retry churn.
+      // The runtime tolerates a bounded owner stall (OWNER_STALL_BOUNDS) and
+      // resets beyond it; only bound empty-handshake retry churn here.
       this.emptyHelloStreak=hello&&!sawLiveFrame
         ?Math.min(3,this.emptyHelloStreak+1):0;
       const retryMs=1000*Math.min(4,2**Math.max(0,this.emptyHelloStreak-1));
       if(!this.closed)this.retry=setTimeout(()=>this.start(),retryMs).unref();
     });
     this.watch=setInterval(()=>{
-      this.runtime.expire();this.runtime.refreshSalience();this.notifyKnowledgeInvalidation();if(!this.runtime.epoch && hello) fail();
+      this.runtime.expire();this.runtime.refreshSalience();this.notifyKnowledgeInvalidation();
+      if(!this.runtime.epoch && hello) {
+        this.#revokeNative();this.publishHostContext(null);fail();
+      }
       if(this.runtime.epoch && this.runtime.now()-this.lastReport>=10000) {
         this.lastReport=this.runtime.now();
         this.emitReport(false);
@@ -636,7 +807,7 @@ export class IntelligenceClient {
     this.helloDeadline=setTimeout(()=>{if(!hello) fail();},3000).unref();socket.once('close',()=>clearTimeout(this.helloDeadline));
   }
   stop() {
-    this.cancelDirectorRequests();this.closed=true;clearTimeout(this.retry);clearInterval(this.watch);clearTimeout(this.helloDeadline);if(this.work) clearImmediate(this.work);
+    this.cancelDirectorRequests();this.#revokeNative();this.publishHostContext(null);this.closed=true;clearTimeout(this.retry);clearInterval(this.watch);clearTimeout(this.helloDeadline);if(this.work) clearImmediate(this.work);
     if(this.socket) this.socket.destroy(); else if(this.runtime.epoch) {this.emitReport(true);this.runtime.reset('disconnect');this.notifyKnowledgeInvalidation();}
   }
 }

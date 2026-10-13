@@ -51,7 +51,8 @@ namespace LSA.PromotedCharacters
                     IntegrationManager.Register(integration);
                     if(config.intelligence?.mode=="shadow") {
                         try {
-                            intelligence=new LSA.Intelligence.IntelligenceIntegration(integration.PerceptionRoster,config.intelligence.pipeName,host,config.intelligence.directorMode=="shadow" || config.intelligence.directorMode=="experimental",config.intelligence.directorMode=="experimental",directorAttemptsPerMinute);
+                            intelligence=new LSA.Intelligence.IntelligenceIntegration(integration.PerceptionRoster,config.intelligence.pipeName,host,config.intelligence.directorMode=="shadow" || config.intelligence.directorMode=="experimental",config.intelligence.directorMode=="experimental",config.intelligence.radio,directorAttemptsPerMinute,
+                                config.intelligence.protagonistEvidence=="negotiated_v1");
                             if(config.intelligence.captureMode=="shadow") intelligence.EnableCaptureShadow();
                             else if(config.intelligence.captureMode=="experimental")
                                 intelligence.EnableCaptureExperimental();
@@ -104,7 +105,7 @@ namespace LSA.PromotedCharacters
             public IntelligenceConfig intelligence {get;set;}=new IntelligenceConfig();
             public ActivitiesConfig activities {get;set;}=new ActivitiesConfig();
         }
-        public sealed class IntelligenceConfig {public string mode {get;set;}="off";public string directorMode {get;set;}="off";public string captureMode {get;set;}="off";public object directorAttemptPreset {get;set;}="normal";public string pipeName {get;set;}="LSA.Intelligence.v1";}
+        public sealed class IntelligenceConfig {public string mode {get;set;}="off";public string directorMode {get;set;}="off";public string captureMode {get;set;}="off";public string radio {get;set;}="off";public object directorAttemptPreset {get;set;}="normal";public string protagonistEvidence {get;set;}="off";public string pipeName {get;set;}="LSA.Intelligence.v1";}
         public sealed class ActivitiesConfig {public object dialogueReceipts {get;set;}=false;public string mode {get;set;}="off";public string pipeName {get;set;}="LSA.Activities.v1";}
     }
 }

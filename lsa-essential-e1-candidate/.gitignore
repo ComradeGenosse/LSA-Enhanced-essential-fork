@@ -10,3 +10,11 @@ tools/native-metadata/bin/
 tools/native-metadata/obj/
 .build-check-*/
 /outputs/api-smoke/
+tools/qwen/voices.json
+tools/qwen/voices/
+/outputs/qwen-smoke/
+/outputs/qwen-benchmark/
+/outputs/qwen-profile/
+/outputs/elevenlabs-smoke/
+
+# Retain ignore rules for historical private Qwen voice samples and reports.

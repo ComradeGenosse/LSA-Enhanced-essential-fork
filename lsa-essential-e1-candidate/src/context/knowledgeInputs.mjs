@@ -5,6 +5,14 @@ import { KNOWLEDGE_LIMITS,jsonBytes } from './knowledgeSelector.mjs';
 import { sameHostContext } from './hostContext.mjs';
 import { isUuid, actorClaim, sameAssociation } from '../identity/identityContract.mjs';
 
+// A bounded native owner-fiber stall (Essential text entry, pause menu) leaves
+// the companion holding exactly native's last publication on a live stream;
+// ShadowRuntime.channelFresh() owns that bound. Minimal test doubles without
+// the accessor keep the original 3 s receipt rule.
+function channelFresh(perception) {
+  if(typeof perception?.channelFresh==='function') return perception.channelFresh()===true;
+  return perception.now()-perception.lastReceipt<=3000;
+}
 const required=['version','hostRunId','worldEpoch','captureRef','sampledGameTick'];
 const optional=['encounterId','incarnationId','micUtteranceId'];
 export function validateActorCapture(value) {
@@ -27,7 +35,7 @@ export function captureKnowledgeInputs({identity,source,p0Snapshot,perception,id
   // conflicting duplicate invalidates the direct captured block.
   const raw=actor.integrations?.raw?.turnKnowledge;
   if(raw!==undefined && (!validateActorCapture(raw) || JSON.stringify(raw)!==JSON.stringify(block))) return finish({});
-  if(!perception?.epoch || !perception.hostContext || perception.now()-perception.lastReceipt>3000) return finish({reason:'channel_unhealthy'});
+  if(!perception?.epoch || !perception.hostContext || !channelFresh(perception)) return finish({reason:'channel_unhealthy'});
   const fence={hostContextVersion:1,hostRunId:block.hostRunId,worldEpoch:block.worldEpoch};
   if(!sameHostContext(fence,perception.hostContext)) return finish({reason:block.hostRunId!==perception.hostContext.hostRunId?'host_mismatch':'world_epoch_changed'});
   if(perception.observerIndexVersion!==1) return finish({reason:'unsupported_contract',anchorStatus:'contract_unavailable'});
@@ -52,6 +60,11 @@ export function captureKnowledgeInputs({identity,source,p0Snapshot,perception,id
     const bytes=jsonBytes(pair);if(index>=KNOWLEDGE_LIMITS.poolCount || poolBytes+bytes>KNOWLEDGE_LIMITS.poolBytes){captureDiagnostics.budgetExcluded++;return false;}poolBytes+=bytes;return true;
   });
   captureDiagnostics.retainedPairs=pairs.length;captureDiagnostics.poolBytes=poolBytes;
+  // Freeze active radio episode IDs at P0. This is a playback-status hint,
+  // never source hearing proof: only the native-witnessed claims above qualify.
+  const inVehicle=['driving','passenger','in_vehicle'].includes(perception.observerSituations?.get?.(block.captureRef)?.activity);
+  const radioCurrentEpisodeIds=inVehicle && perception.correlator?.radioCurrent ? [...perception.correlator.radioCurrent.entries()]
+    .filter(([vehicle])=>perception.current(vehicle)).map(([,episodeId])=>episodeId) : [];
   // Freeze only this observer's authorized words from a fully heard utterance.
   // Raw STT remains in SharedTranscriptStore, never in PS2 public claims.
   const speechEvidence=Object.fromEntries(pairs.filter(pair=>
@@ -60,12 +73,12 @@ export function captureKnowledgeInputs({identity,source,p0Snapshot,perception,id
     const words=perception.resolveSpeechForObserver?.(id,block.captureRef);
     return [id,typeof words==='string'&&words.trim()?words.slice(0,512):null];
   }).filter(([,words])=>words!==null));
-  return finish({speechEvidence,reason:null,...(block.micUtteranceId?{micUtteranceId:block.micUtteranceId}:{}),anchorStatus:'verified_observer',captureDiagnostics,hostRunId:block.hostRunId,worldEpoch:block.worldEpoch,psAdapterEpoch:perception.epoch,psStreamId:perception.stream,association:{...index,sampledGameTick:block.sampledGameTick},ownerClaim,ownerPendingProof:!!index.owned,pairs,liveReferences});
+  return finish({speechEvidence,reason:null,...(block.micUtteranceId?{micUtteranceId:block.micUtteranceId}:{}),anchorStatus:'verified_observer',captureDiagnostics,hostRunId:block.hostRunId,worldEpoch:block.worldEpoch,psAdapterEpoch:perception.epoch,psStreamId:perception.stream,association:{...index,sampledGameTick:block.sampledGameTick},ownerClaim,ownerPendingProof:!!index.owned,pairs,liveReferences,radioCurrentEpisodeIds});
 }
 
 export function assertKnowledgeCurrent(inputs,perception) {
   if(!inputs?.association) return inputs?.reason??'no_actor_capture';
-  if(!perception?.epoch || perception.now()-perception.lastReceipt>3000) return 'channel_unhealthy';
+  if(!perception?.epoch || !channelFresh(perception)) return 'channel_unhealthy';
   if(inputs.hostRunId!==perception.hostContext?.hostRunId) return 'host_mismatch';
   if(inputs.worldEpoch!==perception.hostContext?.worldEpoch) return 'world_epoch_changed';
   if(inputs.psAdapterEpoch!==perception.epoch || inputs.psStreamId!==perception.stream) return 'channel_unhealthy';

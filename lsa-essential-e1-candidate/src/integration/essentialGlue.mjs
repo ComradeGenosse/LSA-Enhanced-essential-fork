@@ -5,6 +5,7 @@ import {prepareDialogueActionPublication} from '../activities/dialogueActionPubl
 import {createKnowledgeDelivery} from '../context/knowledgeDelivery.mjs';
 import {createHash} from 'node:crypto';
 import {releaseOwnedKnowledge,assertOwnedKnowledgeCurrent,assertKnowledgeItemsCurrent} from '../context/knowledgeInputs.mjs';
+import {radioTurnRelevant} from '../perception/radioContextProjector.mjs';
 import {separateKnowledgeInstruction} from '../context/knowledgeInstructions.mjs';
 import {renderKnowledge,pruneKnowledgeFrame} from '../context/knowledgeRenderer.mjs';
 import {summarizeKnowledgeSelection} from '../context/knowledgeDiagnostics.mjs';
@@ -19,6 +20,9 @@ import { DialogueHistory } from '../memory/dialogueHistory.mjs';
 import { validateDecisionShape } from '../context/essentialDecision.mjs';
 import { validateStockDecision } from '../context/decisionValidator.mjs';
 import { createProviderStack } from '../providers/providerStack.mjs';
+import { resolveDelivery as resolveVerifiedSceneDelivery } from '../voice/emotion/sceneDelivery.mjs';
+import { projectActingEvidence } from '../voice/emotion/sceneOwnerProjection.mjs';
+import { createMoodRuntime } from '../voice/emotion/moodRuntime.mjs';
 import { VoiceResolver } from '../voice/voiceResolver.mjs';
 import { executeProviderOperation } from '../reliability/providerExecutor.mjs';
 import { captureReferenceMap } from '../context/turnSnapshot.mjs';
@@ -26,7 +30,7 @@ import { IdentityResolver } from '../identity/identityResolver.mjs';
 import { CharacterService,withoutCharacterTransport } from '../characters/characterService.mjs';
 import { createNoopDialogueTrace } from '../observability/dialogueTrace.mjs';
 
-export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry = null, dialogueTrace = null, providers = {}, identityEvidence, identityStore, profileStore, nativeOwner } = {}) {
+export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry = null, dialogueTrace = null, providers = {}, identityEvidence, identityStore, profileStore, nativeOwner, verifiedProtagonistAuthority = null } = {}) {
   const actorPresence=new ActorPresenceStore();
   const originalTurnTimeline=new OriginalEssentialTurnTimeline();
   dialogueTrace ||= createNoopDialogueTrace();
@@ -48,7 +52,38 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
   const characterService = config.provider === 'openai' && config.promotedCharacters?.enabled
     ? new CharacterService(config,{identityService,voiceResolver,store:profileStore,nativeOwner,telemetry}) : null;
   characterService?.initialize().catch(() => {});
+  // The production authority is the actual post-validation IntelligenceClient.
+  // An unavailable/replaced native stream must produce neutral mood.
+  const liveNativeProtagonist=Object.freeze({
+    readVerified() {
+      try {return runtime.intelligence?.protagonistAuthority?.readVerified?.()??null;}
+      catch {return null;}
+    },
+    isCurrent(record) {
+      try {return runtime.intelligence?.protagonistAuthority?.isCurrent?.(record)===true;}
+      catch {return false;}
+    }
+  });
+  const emotionalMood = createMoodRuntime({getRuntime:()=>runtime,
+    protagonistAuthority:verifiedProtagonistAuthority??liveNativeProtagonist});
   const services = {
+    // Every segment rechecks real P1 binding and PS2 observer lifetime.
+    emotionalActing: config.speechProvider === 'elevenlabs' &&
+      ['shadow','experimental'].includes(config.expressiveDelivery?.mode)
+      ? Object.freeze({
+          resolveDelivery:resolveVerifiedSceneDelivery,
+          readMood:emotionalMood.readMood,
+          onSpeechCompleted:emotionalMood.onSpeechCompleted,
+          retireTurn:emotionalMood.retireTurn,
+          getSceneEvidence:({identity,turn})=>projectActingEvidence({
+            identity,turn,perception:runtime.intelligence?.runtime,identityService,
+          }),
+          getActorTraits:({turn})=>{
+            const id=turn?.characterSnapshot?.resolution?.characterId;
+            const profile=id && characterService?.store?.get(id);
+            return profile ? Object.freeze({characterId:id,personality:profile.personality}) : null;
+          },
+        }) : null,
     recordDialogueActionPublication({turn,validated,publishedAtMs}){
       if(config.provider!=='openai' || config.activities?.dialogueReceipts!==true || !runtime.dialogueKnowledgeBuildSupported)return null;
       const publication=prepareDialogueActionPublication({turn,validated,publishedAtMs,perception:runtime.intelligence?.runtime,identityService,activities:runtime.activities});
@@ -91,7 +126,7 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
       turn.knowledgePreview=preview?Object.freeze({selectedObservations:preview.delivery.length,frameBytes:preview.diagnostics.bytes,frameHash:createHash('sha256').update(JSON.stringify(preview.modelAllocation)).digest('hex')}):null;
       turn.knowledgeFallbackReason=reason;
       const capture=turn.knowledgeInputs?.captureDiagnostics;
-      try {telemetry?.emit('knowledge_frame_projected',turn.identity,source,{knowledgeMode:mode,preview:!!preview,captureObservationCount:capture?.observations??0,capturePairCount:capture?.retainedPairs??0,capturePoolBytes:capture?.poolBytes??0,captureMissingSalience:capture?.noMatchingSalience??0,captureRevisionMismatch:capture?.revisionMismatch??0,captureRetiredRefs:capture?.participantRetired??0,captureBudgetExcluded:capture?.budgetExcluded??0,...summarizeKnowledgeSelection(turn.knowledgeInputs,preview),selectedObservations:preview?.delivery.length??0,frameBytes:preview?.diagnostics.bytes??base.diagnostics.bytes,frameHash:turn.knowledgePreview?.frameHash??createHash('sha256').update(JSON.stringify(base.modelAllocation)).digest('hex'),reason:turn.knowledgeFallbackReason});}catch{}
+      try {telemetry?.emit('knowledge_frame_projected',turn.identity,source,{knowledgeMode:mode,preview:!!preview,captureObservationCount:capture?.observations??0,capturePairCount:capture?.retainedPairs??0,capturePoolBytes:capture?.poolBytes??0,captureMissingSalience:capture?.noMatchingSalience??0,captureRevisionMismatch:capture?.revisionMismatch??0,captureRetiredRefs:capture?.participantRetired??0,captureBudgetExcluded:capture?.budgetExcluded??0,...summarizeKnowledgeSelection(turn.knowledgeInputs,preview),radioQuestion:['player_text','player_mic'].includes(source)&&radioTurnRelevant(input),selectedObservations:preview?.delivery.length??0,frameBytes:preview?.diagnostics.bytes??base.diagnostics.bytes,frameHash:turn.knowledgePreview?.frameHash??createHash('sha256').update(JSON.stringify(base.modelAllocation)).digest('hex'),reason:turn.knowledgeFallbackReason});}catch{}
       const validateKnowledge=frame=>assertOwnedKnowledgeCurrent(turn.knowledgeInputs,{identity:turn.identity,snapshot:turn.characterSnapshot,identityService,perception:runtime.intelligence?.runtime}) || assertKnowledgeItemsCurrent(turn.knowledgeInputs,frame,runtime.intelligence?.runtime) || ((frame.activityReferences?.length??0)>0?assertActivityKnowledgeCurrent(turn.knowledgeInputs.activityInputs,runtime.activities,frame.activityReferences):null) || ((frame.dialogueReferences?.length??0)>0?assertDialogueActionKnowledgeCurrent(turn.knowledgeInputs.dialogueInputs,runtime.activities,frame.dialogueReferences):null);
       turn.knowledgeDelivery=createKnowledgeDelivery({frame:selected,baseFrame:base,isCurrent:()=>runtime.host.isCurrent(turn.identity) && (!identityService || identityService.current(turn.identity)),
         prune:frame=>pruneKnowledgeFrame(frame,item=>!validateKnowledge({delivery:[item]}),item=>!validateKnowledge({delivery:[],activityReferences:[item]}),item=>!validateKnowledge({delivery:[],dialogueReferences:[item]})),
@@ -115,7 +150,7 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
     executeProvider: providerStack ? args => executeProviderOperation({ ...args, retryConfig: config.retry, telemetry: args.telemetry }) : null,
   };
   const runtime = {
-    config, history, services, telemetry, dialogueTrace, providerStack, voiceResolver, identityService,characterService,
+    config, history, services, telemetry, dialogueTrace, providerStack, voiceResolver, identityService,characterService,emotionalMood,
     separateKnowledgeInstruction,
     captureNormalizedActor: (actor,raw,shape)=>actorPresence.capture(actor,raw,shape),
     actorSourcePresence: actor=>actorPresence.read(actor),
@@ -238,6 +273,7 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
     attach(connection) { connections.add(connection); telemetry?.emit('bridge_ready', null, null, { provider: 'openai' }); },
     detach(connection) {
       connections.delete(connection);
+      emotionalMood.clear(); // No emotion crosses an Essential connection retirement.
         identityService?.detach(connection.sessionIdentity);
         characterService?.sessions.detach(connection.sessionIdentity);
         history.clearSession(connection.sessionIdentity?.pedId, connection.sessionIdentity?.sessionNonce);
@@ -248,6 +284,7 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
         if (typeof value?.[name] !== 'function') throw new Error(`Missing Essential lifecycle capability: ${name}`);
       }
       if (identityService && typeof value?.retireMatchingSession !== 'function') throw new Error('Identity requires exact Essential session retirement.');
+      emotionalMood.clear(); // A newly attached native bridge is a new proof epoch.
       bridge = value;
     },
     abortTurn(identity, reason) {

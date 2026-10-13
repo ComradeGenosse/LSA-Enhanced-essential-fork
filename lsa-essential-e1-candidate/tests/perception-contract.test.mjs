@@ -3,10 +3,11 @@ import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { CAPABILITIES, normalizePerceptionConfig,validateFrame,validateSignal,validateObservation } from '../src/perception/contracts.mjs';
-import { ShadowRuntime } from '../src/perception/shadowRuntime.mjs';
+import { ShadowRuntime, OWNER_STALL_BOUNDS } from '../src/perception/shadowRuntime.mjs';
 import { ObservationStore } from '../src/perception/observationStore.mjs';
 import { verifyPerceptionContract } from '../tools/verifyPerceptionContract.mjs';
 import { perceptionContractSupported } from '../src/perception/nativeSupport.mjs';
+import { RadioTrackTextCatalog } from '../src/perception/radioTrackTextCatalog.mjs';
 
 function fixture() {
   let now=0, sequence=0, producerSequence=0;const epoch=randomUUID(),stream=randomUUID(),ped=randomUUID(),player=randomUUID(),vehicle=randomUUID(),ambient=randomUUID();
@@ -19,7 +20,8 @@ function fixture() {
   return {runtime,caps,ped,player,vehicle,ambient,hello,frame,signal,ingest,advance:n=>now+=n};
 }
 test('perception defaults off and unsupported future modes cannot activate effects',()=>{
-  assert.equal(normalizePerceptionConfig().mode,'off');assert.equal(normalizePerceptionConfig({mode:'shadow'}).mode,'shadow');
+  assert.equal(normalizePerceptionConfig().mode,'off');assert.equal(normalizePerceptionConfig().radio,'off');assert.equal(normalizePerceptionConfig({mode:'shadow'}).mode,'shadow');
+  assert.equal(normalizePerceptionConfig({mode:'shadow',radio:'shadow'}).radio,'shadow');assert.equal(normalizePerceptionConfig({mode:'off',radio:'shadow'}).radio,'off');assert.equal(normalizePerceptionConfig({mode:'shadow',radio:'context'}).radio,'off');
   for(const mode of ['context','memory','initiative','anything']) assert.equal(normalizePerceptionConfig({mode}).mode,'off');
   const f=fixture();const off=new ShadowRuntime();assert.equal(off.ingest(f.hello(),{authenticated:true}),false);assert.equal(off.anchors.size,0);
 });
@@ -84,7 +86,10 @@ test('retirement purges old lifetime facts; same handle replacement cannot use o
   const replacement=randomUUID();f.ingest(f.frame('anchors',[{captureRef:replacement,kind:'ped',observer:true}]));assert.equal(f.ingest(f.frame('signal',f.signal())),false);assert.equal(f.runtime.current(replacement),true);
 });
 test('expiry and stalled native validation cannot revive anchors from queued frames',()=>{
-  const f=fixture();f.advance(3001);f.runtime.expire();assert.equal(f.runtime.anchors.size,0);assert.equal(f.runtime.epoch,null);
+  // A bounded owner-fiber stall pauses leases; it neither expires nor renews.
+  const f=fixture();f.advance(3001);f.runtime.expire();assert.equal(f.runtime.epoch!==null,true);assert.equal(f.runtime.current(f.ped),true);assert.equal(f.runtime.stalled(),true);
+  // Silence past the bound tears the stream down; queued frames cannot revive it.
+  f.advance(OWNER_STALL_BOUNDS.resetMs);f.runtime.expire();assert.equal(f.runtime.anchors.size,0);assert.equal(f.runtime.epoch,null);
   assert.equal(f.ingest(f.frame('signal',f.signal())),false);
 });
 test('history expiry is diagnostic ageing, not an expired input or semantic drop',()=>{
@@ -151,8 +156,100 @@ test('signal anchor kinds reject wrong entity addresses',()=>{
   assert.equal(f.ingest(f.frame('signal',f.signal({kind:'vehicle_transition',producer:'state',facts:{vehicle:f.vehicle,driver:true},source:null}))),true);
 });
 test('PS0/PS1 production module boundary contains no model, memory or native action effect',async()=>{
-  for(const file of ['contracts.mjs','shadowRuntime.mjs','observationStore.mjs','episodeCorrelator.mjs','witnessPolicy.mjs','speechContract.mjs','sharedTranscriptStore.mjs','intelligenceClient.mjs','salienceEngine.mjs']) {
+  for(const file of ['contracts.mjs','shadowRuntime.mjs','observationStore.mjs','episodeCorrelator.mjs','witnessPolicy.mjs','speechContract.mjs','sharedTranscriptStore.mjs','intelligenceClient.mjs','salienceEngine.mjs','radioTrackTextCatalog.mjs']) {
     const source=await readFile(new URL('../src/perception/'+file,import.meta.url),'utf8');assert.doesNotMatch(source,/from ['"].*(?:openai|providers|profileStore|characterService|sceneDirector)/);assert.doesNotMatch(source,/writeFile|fetch\(|upsertExperience|\.request\(/);
   }
   const source=await readFile(new URL('../../native/intelligence/IntelligenceIntegration.cs',import.meta.url),'utf8');assert.doesNotMatch(source,/World\.GetAll|PerceptionSystem\.Update|PerceptionSnapshot\.Capture|GunshotReflexDetector|NpcActions\.|\.TASK|SpecialGeminiTurnScheduler/);assert.match(source,/new IntegrationJsonBlock\("turnKnowledge"/);
+});
+
+
+function radioRuntime(radio='shadow') {
+  let sequence=0,producer=0;const epoch=randomUUID(),stream=randomUUID(),vehicle=randomUUID(),ped=randomUUID();
+  const catalog=new RadioTrackTextCatalog({
+    stations:{RADIO_01_CLASS_ROCK:{name:'Test Rock'}},
+    tracks:{
+      '1004':{title:'Track A',artist:'Artist A',kind:'music',stations:['RADIO_01_CLASS_ROCK']},
+      '1005':{title:'Track B',artist:'Artist B',kind:'music',stations:['RADIO_01_CLASS_ROCK']},
+      '2000':{title:'Ad Break',artist:'Commercial',kind:'commercial',stations:['RADIO_01_CLASS_ROCK']},
+      '2095':{title:'Off',artist:'Media Player',kind:'off',stations:['RADIO_01_CLASS_ROCK']},
+    },
+  },true);
+  const runtime=new ShadowRuntime({mode:'shadow',radio,radioCatalog:catalog,now:()=>0});
+  const caps=Object.fromEntries(CAPABILITIES.map(k=>[k,!['awareness','playerSpeech'].includes(k)]));
+  const ingest=v=>runtime.ingest(v,{authenticated:true});
+  ingest({version:1,type:'hello',adapterEpoch:epoch,streamId:stream,capabilities:caps});
+  const frame=(type,payload)=>({version:1,type,adapterEpoch:epoch,streamId:stream,sequence:++sequence,payload});
+  ingest(frame('anchors',[{captureRef:vehicle,kind:'vehicle',observer:false},{captureRef:ped,kind:'ped',observer:true}]));
+  const defaultFacts={station:'RADIO_01_CLASS_ROCK',soundHash:1,trackTextId:1004};
+  const signal=(patch={})=>({signalId:randomUUID(),producer:'radio',producerSequence:++producer,kind:'radio_changed',target:vehicle,source:null,gameTick:1,ageMs:0,facts:defaultFacts,...patch,facts:patch.facts??defaultFacts});
+  return {runtime,ingest,frame,signal,vehicle,ped};
+}
+test('radio signals accept the researched station + soundHash + signed trackTextId contract',()=>{
+  const r=radioRuntime(),ok=r.signal(),emptyFacts=r.signal();emptyFacts.facts=null;
+  assert.equal(validateSignal(ok),true);assert.equal(validateSignal(r.signal({target:null})),true);
+  assert.equal(validateSignal(r.signal({facts:{station:'RADIO_01_CLASS_ROCK',soundHash:0xffffffff,trackTextId:2147483647}})),true);
+  assert.equal(validateSignal(r.signal({facts:{station:'RADIO_01_CLASS_ROCK',soundHash:0,trackTextId:-2147483648}})),true);
+  assert.equal(validateSignal(r.signal({kind:'radio_stopped',facts:{station:'',soundHash:0,trackTextId:0}})),true);
+  for(const bad of [
+    r.signal({kind:'radio_started'}),r.signal({producer:'state'}),
+    r.signal({facts:{station:'radio_01',soundHash:1,trackTextId:1004}}),
+    r.signal({facts:{station:'',soundHash:1,trackTextId:1004}}),
+    r.signal({facts:{station:'RADIO_01_CLASS_ROCK',soundHash:-1,trackTextId:1004}}),
+    r.signal({facts:{station:'RADIO_01_CLASS_ROCK',soundHash:0x100000000,trackTextId:1004}}),
+    r.signal({facts:{station:'RADIO_01_CLASS_ROCK',soundHash:1,trackTextId:2147483648}}),
+    r.signal({facts:{station:'RADIO_01_CLASS_ROCK',soundHash:1,trackTextId:-2147483649}}),
+    r.signal({kind:'radio_stopped',facts:{station:'',soundHash:1,trackTextId:0}}),
+    r.signal({kind:'radio_stopped',facts:{station:'',soundHash:0,trackTextId:1004}}),
+    r.signal({facts:{station:'RADIO_01_CLASS_ROCK',trackHash:1}}),
+    r.signal({facts:{station:'RADIO_01_CLASS_ROCK',soundHash:1,trackTextId:1004,artist:'secret'}}),
+    r.signal({source:randomUUID()}),emptyFacts
+  ]) assert.equal(validateSignal(bad),false);
+  assert.equal(validateFrame(r.frame('signal',ok)),true);
+});
+test('radio v2 keeps R3-R5 observer knowledge keyed to live text ID rather than sound container',()=>{
+  const blocked=radioRuntime('off');
+  assert.equal(blocked.ingest(blocked.frame('signal',blocked.signal())),false);assert.equal(blocked.runtime.signals.length,0);
+
+  const live=radioRuntime();
+  const witness={observer:{captureRef:live.ped,kind:'ped'},sampledGameTick:1,status:'witnessed',reason:'same_vehicle_radio',knowsSource:false,knowsTarget:true,evidence:{channel:'auditory',basis:'audibility_model',sampledGameTick:1}};
+  const heard=live.signal({witnessReceipts:[witness]});
+  assert.equal(live.ingest(live.frame('signal',heard)),true);
+  assert.equal(live.runtime.observations.entries.size,1);
+  let observation=[...live.runtime.observations.entries.values()][0].value;
+  assert.equal(validateObservation(observation),true);
+  assert.equal(observation.claims[0].details.stationName,'Test Rock');
+  assert.equal(observation.claims[0].details.artist,'Artist A');
+  assert.equal(observation.claims[0].details.title,'Track A');
+  assert.equal(observation.claims[0].details.contentKind,'music');
+
+  const sameContainerNextSong=live.signal({gameTick:2,witnessReceipts:[{...witness,sampledGameTick:2,evidence:{...witness.evidence,sampledGameTick:2}}],facts:{station:'RADIO_01_CLASS_ROCK',soundHash:1,trackTextId:1005}});
+  assert.equal(live.ingest(live.frame('signal',sameContainerNextSong)),true);
+  assert.equal(live.runtime.observations.entries.size,2,'prior witnessed track is retained');
+  observation=[...live.runtime.observations.entries.values()].at(-1).value;
+  assert.equal(observation.revision,1);assert.equal(observation.claims[0].details.title,'Track B');assert.equal(observation.claims[0].details.artist,'Artist B');
+  assert.equal(live.runtime.radioCatalog.unknownTextIds,0);assert.equal(live.runtime.radioCatalog.catalogMismatches,0);
+
+  const defaultDecision=live.runtime.salience.latestById.get(observation.observationId).decision;
+  assert.equal(defaultDecision.context,'candidate');assert.equal(defaultDecision.response,'none');assert.equal(defaultDecision.memory,'none');
+  const requested=live.runtime.noteSalience(observation,{requestedEnvironmentChannels:['radio']});
+  assert.equal(requested.context,'candidate');assert.equal(requested.response,'none');assert.equal(requested.memory,'none');
+
+  const outsider=radioRuntime();assert.equal(outsider.ingest(outsider.frame('signal',outsider.signal())),true);assert.equal(outsider.runtime.observations.entries.size,0);
+  assert.equal(live.ingest(live.frame('signal',live.signal({target:live.ped,witnessReceipts:[witness]}))),false);
+
+  const offMarker=live.signal({gameTick:3,witnessReceipts:[witness],facts:{station:'RADIO_01_CLASS_ROCK',soundHash:9,trackTextId:2095}});
+  assert.equal(live.ingest(live.frame('signal',offMarker)),true);
+  assert.equal(live.runtime.correlator.radioCurrent.size,0,'cataloged off marker clears only current playback');
+  assert.equal(live.runtime.observations.entries.size,2,'cataloged off marker retains source-qualified prior song history');
+  assert.equal(live.runtime.salience.latestById.has(observation.observationId),true);
+
+  const stop=live.signal({kind:'radio_stopped',target:live.vehicle,facts:{station:'',soundHash:0,trackTextId:0},witnessReceipts:[]});
+  assert.equal(live.ingest(live.frame('signal',stop)),true);
+});
+
+test('radio diagnostics stay scalar and reject station content',()=>{
+  const f=fixture(),radio={samples:2,edges:1,nativeFailures:0,witnessed:1,witnessUnknown:2};
+  const payload={anchors:1,observers:1,snapshotAgeMs:0,snapshotCadenceMs:250,dropped:0,staleRejected:0,retiredAnchors:0,deferredDiscovery:0,updateMicros:10,capabilities:f.caps,signals:{radio_changed:1,radio_stopped:1},damageCallbacks:{ped_damage:0,player_damage:0,vehicle_damage:0},witnessDeferred:0,witnessUnknown:0,witnessRejected:0,playerSpeechGate:'unsupported_capture_receipt',radio};
+  assert.equal(validateFrame(f.frame('diagnostics',payload)),true);
+  assert.equal(validateFrame(f.frame('diagnostics',{...payload,radio:{...radio,station:'RADIO_01_CLASS_ROCK'}})),false);
 });

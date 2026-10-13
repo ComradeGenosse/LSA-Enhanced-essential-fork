@@ -69,6 +69,20 @@ export class DirectorSpeechReservations {
     try {return this.checkCurrent(Object.freeze({proposal,stamp,stage,ticketId:record?.id??null}))===true;}
     catch {return false;}
   }
+  // Read-only view of reserve()'s pacing gates: no attempt is counted, no key
+  // or ticket is recorded, and no safety/source check is skipped by callers.
+  pacingVeto(proposal) {
+    if(!this.enabled || !validProposal(proposal))return 'invalid_or_disabled';
+    const at=this.now();
+    if(!integer(at))return 'invalid_clock';
+    if(this.active)return 'ticket_already_active';
+    if(this.attemptedKeys.has(proposal.decisionKey))return 'decision_already_attempted';
+    if(this.attempts.filter(t=>t>at-this.limits.attemptWindowMs).length>=this.limits.attemptsPerMinute)return 'rate_limited';
+    const cooldown=proposal.urgency==='urgent' ? this.limits.urgentSpeakerCooldownMs : this.limits.routineSpeakerCooldownMs;
+    if(at-this.sceneAt<this.limits.sceneGapMs ||
+        at-(this.speakerAt.get(proposal.speakerCaptureRef)??-Infinity)<cooldown)return 'scene_or_speaker_cooldown';
+    return null;
+  }
   // Counts attempts even if the final safety check rejects. Selection alone
   // does not count; no implicit fallback speaker is ever selected.
   reserve(proposal,stamp) {

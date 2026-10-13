@@ -12,19 +12,23 @@ export const REASON_CODES = Object.freeze([
   'involvement_self', 'involvement_player',
   'relationship_close', 'relationship_conflict',
   'prior_memory', 'novelty_escalation', 'novelty_material',
-  'situation_occupied', 'situation_conversation', 'trait_policy', 'routine_low_relevance',
+  'situation_occupied', 'situation_conversation', 'trait_policy', 'environment_requested', 'routine_low_relevance',
 ]);
 export const TRAIT_POLICIES = Object.freeze(['protective', 'cautious', 'loyal', 'bold']);
 export const SALIENCE_POLICY_VERSION = 1;
+// suppressionTtlMs bounds FAMILY (cross-observation) repetition suppression.
+// A per-observation ledger entry is only needed while that exact random
+// observation ID can still be re-evaluated (it is live in the PS2 store) or
+// acknowledged by an in-flight PS4/PS6 consumer; see ledgerGraceMs.
 export const SALIENCE_BOUNDS = Object.freeze({
-  decisions: 256, perObserver: 32, suppression: 1024, suppressionTtlMs: 10 * 60 * 1000, reasons: 4,
+  decisions: 256, perObserver: 32, suppression: 1024, suppressionTtlMs: 10 * 60 * 1000, ledgerGraceMs: 60 * 1000, reasons: 4,
 });
 const REASON_SET = new Set(REASON_CODES);
 const RELATIONSHIPS = new Set(['associate', 'friend', 'trusted', 'strained', 'neutral']);
 const ACTIVITIES = new Set(['unknown', 'idle', 'driving', 'passenger', 'in_vehicle', 'conversation', 'following', 'waiting']);
 const CLOSE = new Set(['friend', 'trusted']);
 const OCCUPIED = new Set(['driving', 'passenger', 'in_vehicle']);
-const ROUTINE_EVENTS = new Set(['character_present', 'location_changed', 'activity_changed', 'speech_heard', 'action_observed', 'vehicle_transition']);
+const ROUTINE_EVENTS = new Set(['character_present', 'location_changed', 'activity_changed', 'speech_heard', 'radio_heard', 'action_observed', 'vehicle_transition']);
 const HARM_EVENTS = new Set(['injury', 'death_seen', 'body_found', 'vehicle_impact', 'threat']);
 const SEVERITY = Object.freeze({ routine: 0, notable: 1, danger: 2, critical: 3 });
 const RESPONSE_RANK = Object.freeze({ none: 0, eligible: 1, urgent: 2 });
@@ -202,6 +206,11 @@ function classify(observation, situation) {
   const supported = observation.claims.filter(claim => claim.certainty === 'supported' && claim.evidence.channel !== 'report');
   if (!supported.length) return { context: 'candidate', memory: 'none', response: 'none', reasons: ['evidence_uncertain'], closed: true };
 
+  // Radio is a low-priority factual candidate only. PS4's frozen, direct-question
+  // selector determines visibility; no automatic memory or speech entitlement.
+  if(observation.eventType==='radio_heard' && supported.some(claim=>claim.kind==='sound'&&claim.evidence.channel==='auditory'&&claim.details?.soundType==='radio')) {
+    return {context:'candidate',memory:'none',response:'none',reasons:['routine_low_relevance'],closed:false};
+  }
   const selfRef = observation.observer.captureRef;
   const playerRef = situation.playerCaptureRef;
   const kindOf = kind => supported.some(claim => claim.kind === kind);
@@ -420,6 +429,12 @@ export class SalienceCache {
       bytes-=pairs.get(pair);
     }
   }
+  forgetObservation(observationId) {
+    if(!isUuid(observationId))return false;
+    const found=this.decisions.has(observationId)||this.ledger.has(observationId)||this.latestById.has(observationId);
+    this.decisions.delete(observationId);this.ledger.delete(observationId);this.latestById.delete(observationId);
+    return found;
+  }
   snapshotForObserver(observerRef,observations,now=this.now(),diagnostics=null) {
     this.expire(now);const result=[],counts={observations:0,observationExpired:0,noMatchingSalience:0,revisionMismatch:0};
     for(const entry of observations.entries.values()) {
@@ -558,6 +573,16 @@ export class SalienceCache {
     const pairBytes=Buffer.byteLength(JSON.stringify(pair));
     const now = situation.nowMonotonicMs;
     const expires = now + SALIENCE_BOUNDS.suppressionTtlMs;
+    // Observation IDs are random per observer+episode and never reissued once
+    // the PS2 observation expires, so its replay entry cannot outlive it plus
+    // a bounded grace for in-flight PS4/PS6 acknowledgements. October GTA
+    // sessions produced roughly 2-3 observations/s: a ten-minute observation
+    // ledger would reach its fail-closed 1024-entry capacity (every new
+    // decision forced to response:none / suppression_capacity) in ordinary
+    // long play. Family suppression below keeps the full ten-minute window,
+    // and capacity pressure still fails closed rather than evicting.
+    const ledgerExpires = Math.min(expires,
+      Math.max(now, observation.expiresAtMonotonicMs) + SALIENCE_BOUNDS.ledgerGraceMs);
     const grant = decision.response === 'eligible' || decision.response === 'urgent';
     const existing = draft.existing;
     if (this.ledger.has(observation.observationId) || this.ledger.size < SALIENCE_BOUNDS.suppression) {
@@ -578,7 +603,7 @@ export class SalienceCache {
         adapterEpoch:observation.observedAt.nativeRun,
         policyVersion:decision.policyVersion,
         memoryStaged: Boolean(existing?.memoryStaged) || decision.memory === 'stage',
-        expires,
+        expires: ledgerExpires,
       });
     }
     const key = familyKey(observation);

@@ -10,7 +10,7 @@ for file in sorted((root/'tests').glob('*.test.mjs')):
   if os.environ.get('LSA_CI_FAILURE_DETAILS')=='1':
    output=(result.stdout+result.stderr).splitlines()
    detail=[line.strip() for line in output if any(token in line for token in ('not ok ','error:','code:','failureType:','stack:','# Error'))]
-   for line in (detail[:24] or output[-14:]):print('  '+line[:280],flush=True)
+   for line in (output[:150] if 'radio' in file.name or file.name in ('observability.test.mjs','openai-transport.test.mjs','salience-engine.test.mjs','perception-contract.test.mjs','perception-witness-rules.test.mjs') else (detail[:24] or output[-14:])):print('  '+line[:380],flush=True)
  else:passed+=count
 print(f'Completed {len(list((root/"tests").glob("*.test.mjs")))} files; passed-test count {passed}; failed files {bad}',flush=True)
 sys.exit(bool(bad))

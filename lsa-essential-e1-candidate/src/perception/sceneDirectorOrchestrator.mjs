@@ -46,6 +46,11 @@ export class SceneDirectorSpeech {
       record.policyVersion===proposal.policyVersion &&
       record.expiresAtMonotonicMs===proposal.expiresAtMonotonicMs;
   }
+  // Pacing only applies to an active coordinator; shadow/off never reserve.
+  pacingVeto(proposal) {
+    if(this.mode!=='active' || typeof this.admission.pacingVeto!=='function')return null;
+    return this.admission.pacingVeto(proposal);
+  }
   async attempt({candidates=[],facts,stamp}={}) {
     if(this.mode==='off')return Object.freeze({status:'off'});
     const proposal=selectDirectorIntent(candidates,facts);

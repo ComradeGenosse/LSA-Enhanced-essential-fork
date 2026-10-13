@@ -23,6 +23,8 @@ test('build is source-pinned, syntactically valid, deterministic, and writes onl
     assert.ok(first.manifest.astPatches.some(patch => patch.label === 'CP body hook'));
     assert.equal(first.manifest.realApiCalls, false);
     assert.equal(first.manifest.gtaRuntimeTest, false);
+    assert.equal(first.manifest.features.intelligence.radioIdentity,'trackTextId_v2');
+    assert.equal(first.manifest.features.intelligence.radioSoundHashRole,'secondary_container_evidence');
     assert.equal(first.manifest.features.dialogueKnowledge.safeBase,true);
     assert.equal(first.manifest.features.dialogueKnowledge.optionalPerceptionDelivery,false);
     assert.equal(first.manifest.dialogueKnowledgeContract.available,false);

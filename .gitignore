@@ -65,3 +65,7 @@
 /deployment/install-plan.json
 /deployment/deployment-receipt.json
 /deployment/deployment-verification.json
+**/intelligence/director-tests/bin/
+**/intelligence/director-tests/obj/
+/tools/native-sdk/bin/
+/tools/native-sdk/obj/

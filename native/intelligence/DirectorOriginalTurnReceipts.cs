@@ -36,6 +36,10 @@ namespace LSA.Intelligence
         readonly Func<int> world;
         readonly Dictionary<string,Stored> tickets=new Dictionary<string,Stored>();
         readonly HashSet<string> poisonedTickets=new HashSet<string>();
+        // Single-use random ticket IDs: remember the latest 512 revoked tickets
+        // and evict the oldest, instead of refusing every later receipt once
+        // 512 player takeovers have accumulated in one world epoch.
+        readonly Queue<string> poisonedOrder=new Queue<string>();
         string originalSourceRun;
         long lastSerial;
         internal DirectorOriginalTurnReceipts(Func<long> clock,Func<string> host,
@@ -76,7 +80,7 @@ namespace LSA.Intelligence
                 incoming.ObservationSerial<=0||
                 incoming.ObservationSerial>MaxExactWireNumber||
                 !incoming.Quiet||clock()<0||
-                poisonedTickets.Contains(incoming.TicketId)||poisonedTickets.Count>=512)return false;
+                poisonedTickets.Contains(incoming.TicketId))return false;
             // Every observation must be a strictly new original backend
             // sample on this authenticated channel, not a replay.
             if(originalSourceRun!=null && incoming.SourceRun!=originalSourceRun)return false;
@@ -92,7 +96,10 @@ namespace LSA.Intelligence
                     previous.Data.SourceRun!=incoming.SourceRun ||
                     previous.Data.PlayerTurnVersion!=incoming.PlayerTurnVersion) {
                     tickets.Remove(incoming.TicketId);
-                    poisonedTickets.Add(incoming.TicketId);
+                    if(poisonedTickets.Add(incoming.TicketId)) {
+                        poisonedOrder.Enqueue(incoming.TicketId);
+                        while(poisonedOrder.Count>512) poisonedTickets.Remove(poisonedOrder.Dequeue());
+                    }
                     return false;
                 }
             } else if(tickets.Count>=MaxTickets)return false;
@@ -148,7 +155,7 @@ namespace LSA.Intelligence
         internal void Retire(string ticket) {if(ticket!=null){tickets.Remove(ticket);bindingClaims.Remove(ticket);}}
         // Reset on disconnect, host/world replacement, or source fault. A
         // subsequent connection is a new authenticated producer incarnation.
-        internal void Reset() {tickets.Clear();bindingClaims.Clear();poisonedTickets.Clear();originalSourceRun=null;lastSerial=0;}
+        internal void Reset() {tickets.Clear();bindingClaims.Clear();poisonedTickets.Clear();poisonedOrder.Clear();originalSourceRun=null;lastSerial=0;}
         internal int Pending {get {Trim();return tickets.Count;} }
     }
 }
