@@ -55,7 +55,8 @@ function committedEvent(db,s,id){
  const receipt=readVerifiedEventEvidence(db,{characterId:s.characterId,timelineId:s.timelineId,recordId:id},s.worldProfileId);
  if(!receipt)proofError();
  try{normalizedEvidence(receipt.event);}catch{proofError();}
- if(receipt.event.recordId!==id||receipt.event.ownerProof?.ownerAlias!=='promoted.'+s.characterId)proofError();
+ const owner=db.prepare('SELECT owner_alias FROM promoted_profiles WHERE character_id=?').get(s.characterId)?.owner_alias;
+ if(receipt.event.recordId!==id||!owner||receipt.event.ownerProof?.ownerAlias!==owner)proofError();
  return receipt.event;
 }
 function persistedSource(db,s,id){
@@ -127,7 +128,8 @@ export function createP2M8ProductionReader({store,currentIdentity,originalCurren
      store.available===true&&store.timelineWritable===true&&
      store.timelineSourceStatus==='verified'&&store.activeTimelineId===scope.timelineId&&
      store.worldProfileId===scope.worldProfileId&&
-     p?.promotion?.ownerAlias==='promoted.'+scope.characterId&&
+     typeof p?.promotion?.ownerAlias==='string'&&
+     /^promoted\.[0-9a-f-]{36}$/.test(p.promotion.ownerAlias)&&
      host(store.verifiedHostContext,authority);
   }catch{return false;}
  };
