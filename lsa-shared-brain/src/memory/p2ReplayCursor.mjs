@@ -125,7 +125,7 @@ export function readP2ReplayPage(db,{scope,cursor=null,limit=256},world){
   const page=entries.slice(0,limit),items=[],rejected=[],skipped=[];
   const suppressed=new Set(listSuppressedMemoryIds(db,scope,world));
   for(const correction of readCorrectionOverlays(db,scope,world))
-    if(isUuid(correction.targetId))suppressed.add(correction.targetId);
+    if(correction.supersedesTarget!==false&&isUuid(correction.targetId))suppressed.add(correction.targetId);
   const line=db.prepare('SELECT * FROM dialogue_journal WHERE record_id=? AND '+
     'world_profile_id=? AND character_id=? AND timeline_id=?');
   for(const entry of page){

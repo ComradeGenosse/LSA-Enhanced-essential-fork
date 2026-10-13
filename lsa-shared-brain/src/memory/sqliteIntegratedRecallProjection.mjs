@@ -1,4 +1,5 @@
 import {suppressedMemoryIds} from './suppressionSqlite.mjs';
+import {readCorrectionRows,overlayContent} from './correctionSemantics.mjs';
 // M4-only read projection over the actual M2/M3/M5/M6 v4 P2 SQLite schema.
 // No migrations, writes, native owner selection, or speculative witness claims.
 import {createHash} from 'node:crypto';
@@ -50,20 +51,27 @@ function sourceInScope(db,scope,id,parents=new Set(),revoked=null){
   return !!event;
 }
 function correctionRows(db,scope,forgotten){
-  const args=[scope.worldProfileId,scope.characterId,scope.timelineId];
-  const source=db.prepare('SELECT c.command_id AS id,c.target_id AS target,c.preferred_text AS content,c.content_sha256 AS digest,c.created_at_utc AS atUtc,m.protagonist_key AS sourceProtagonist FROM memory_corrections c JOIN memory_commands m ON m.command_id=c.command_id WHERE c.world_profile_id=? AND c.character_id=? AND c.timeline_id=? ORDER BY c.created_at_utc DESC,c.command_id DESC').all(...args);
-  const corrected=new Set(source.map(x=>x.target));
+  const keys=[scope.worldProfileId,scope.characterId,scope.timelineId];
+  const owners=new Map(db.prepare('SELECT m.command_id AS id,m.protagonist_key AS p FROM memory_commands m JOIN memory_corrections c ON c.command_id=m.command_id WHERE c.world_profile_id=? AND c.character_id=? AND c.timeline_id=?').all(...keys).map(x=>[x.id,x.p]));
+  // K-12: readCorrectionRows resolves the persisted mode. Only genuine STT
+  // transcript corrections supersede their target; counter-claims are linked
+  // reported_claim overlays and the original (e.g. witnessed) record stays.
+  const source=readCorrectionRows(db,keys).filter(x=>owners.has(x.commandId));
+  const corrected=new Set(source.filter(x=>x.supersedes).map(x=>x.targetId));
   const overlays=[],seenTargets=new Set();
   for(const c of source){
-    if(!uuid.test(c.id)||!uuid.test(c.target)||sha(c.content)!==c.digest)throw new Error('m4_corrupt_correction');
-    if(seenTargets.has(c.target)||forgotten.has(c.target)||forgotten.has(c.id)||corrected.has(c.id)||
-       !sourceInScope(db,scope,c.target))continue;
-    seenTargets.add(c.target);
-    const envelope={version:1,kind:'permanent_memory',recordId:c.id,
+    if(!uuid.test(c.commandId)||!uuid.test(c.targetId)||sha(c.content)!==c.checksum)throw new Error('m4_corrupt_correction');
+    if(forgotten.has(c.targetId)||forgotten.has(c.commandId)||corrected.has(c.commandId)||
+       !sourceInScope(db,scope,c.targetId))continue;
+    if(c.supersedes){
+      if(seenTargets.has(c.targetId))continue;
+      seenTargets.add(c.targetId);
+    }
+    const envelope={version:1,kind:'permanent_memory',recordId:c.commandId,
       characterId:scope.characterId,worldProfileId:scope.worldProfileId,timelineId:scope.timelineId,
-      content:'Player correction (reported): '+c.content,mode:'reported_claim',sourceEvidenceIds:[c.target]};
-    overlays.push({...scope,protagonistKey:c.sourceProtagonist,recordId:c.id,sourceKind:'permanent_memory',atUtc:c.atUtc,
-      isCorrectionOverlay:true,evidenceState:'verified',envelope});
+      content:overlayContent(c.mode,c.content),mode:'reported_claim',sourceEvidenceIds:[c.targetId]};
+    overlays.push({...scope,protagonistKey:owners.get(c.commandId),recordId:c.commandId,sourceKind:'permanent_memory',atUtc:c.atUtc,
+      isCorrectionOverlay:true,correctionMode:c.mode,supersedesTarget:c.supersedes,evidenceState:'verified',envelope});
   }
   return {corrected,overlays};
 }

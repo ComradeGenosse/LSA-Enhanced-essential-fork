@@ -2,6 +2,7 @@
 // Reads never repair state. Mutations run inside the caller's P2 transaction.
 import {createHash} from 'node:crypto';
 import {isUuid} from '../util/identity.mjs';
+import {supersededTargetIds} from './correctionSemantics.mjs';
 const sha=s=>createHash('sha256').update(s,'utf8').digest('hex');
 const hex=s=>typeof s==='string'&&/^[0-9a-f]{64}$/.test(s);
 const args=s=>[s.worldProfileId,s.characterId,s.timelineId];
@@ -57,7 +58,8 @@ export function isSuppressedSource(db,s,{recordId,kind,contentHash,evidenceKey=n
 export function suppressedMemoryIds(db,s,{includeCorrections=false}={}){
  const rows=receipts(db,s),ids=new Set(rows.map(r=>r.target_id));
  for(const r of db.prepare('SELECT target_id FROM memory_tombstones WHERE '+where).all(...args(s)))ids.add(r.target_id);
- if(includeCorrections)for(const r of db.prepare('SELECT target_id FROM memory_corrections WHERE '+where).all(...args(s)))ids.add(r.target_id);
+ // K-12: only superseding (STT transcript) corrections withdraw a source.
+ if(includeCorrections)for(const id of supersededTargetIds(db,args(s)))ids.add(id);
  // A source already stored under a fresh ID is still suppressed by its bytes
  // or evidence key; avatar is provenance, never a privacy partition.
  const scan=(table,id,kind,hash,key=null)=>{

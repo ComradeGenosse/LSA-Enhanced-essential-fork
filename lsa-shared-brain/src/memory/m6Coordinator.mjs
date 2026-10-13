@@ -39,7 +39,7 @@ async function suppression(store,scope){
     const corrections=await store.readCorrectionOverlays({...scope,protagonistKey});
     if(!Array.isArray(corrections))fail('m6_correction_scan_unavailable');
     for(const correction of corrections)
-      if(isUuid(correction.targetId))blocked.add(correction.targetId);
+      if(correction.supersedesTarget!==false&&isUuid(correction.targetId))blocked.add(correction.targetId);
   }
   return blocked;
 }
