@@ -27,6 +27,7 @@ function recordSpy(x){
   return spy;
 }
 const evidenceOf=row=>JSON.parse(row.source_json);
+const fields=(row,keys)=>Object.fromEntries(keys.map(k=>[k,row[k]]));
 const users=x=>x.h.runtime.history.readForSession('17',1).filter(m=>m.role==='user').map(m=>m.content);
 
 test('D01 E2E typed: the exact bytes the original backend adopted become one receipt-backed durable line',{timeout:30000},async t=>{
@@ -42,9 +43,11 @@ test('D01 E2E typed: the exact bytes the original backend adopted become one rec
   assert.equal(spy.results[0].durable,true);
   assert.equal(spy.results[0].humanPlayerScope,'single_local_human');
   const j=await x.journal();
-  assert.equal(j.rows.length,1);
-  assert.deepEqual({...j.rows[0],session_id:undefined},{speaker:'player',source:'typed',content:adopted,
-    content_sha256:sha(adopted),protagonist:'franklin',session_id:undefined,delivery:'accepted'});
+  assert.equal(j.players.length,1);
+  assert.equal(j.rows.length,2,'the accepted player line plus the NPC reply it answered');
+  assert.deepEqual(fields(j.players[0],['speaker','source','content','content_sha256','protagonist','delivery']),
+    {speaker:'player',source:'typed',content:adopted,
+    content_sha256:sha(adopted),protagonist:'franklin',delivery:'accepted'});
   const e=evidenceOf(j.sources[0]);
   assert.equal(sha(j.sources[0].source_json),j.sources[0].source_sha256);
   assert.deepEqual(e.identity,identity);
@@ -60,17 +63,36 @@ test('D01 E2E typed: the exact bytes the original backend adopted become one rec
   assert.equal(e.incarnationId,x.owned.claim.incarnationId,'D02 native incarnation == P1 verified claim');
   assert.equal(e.observerCaptureRef,x.native.npcRef);
   assert.equal(e.avatarKey,'franklin');
-  // NPC reply: native playback completed, RAM history committed it, but no
-  // source-verified W03 delivery proof exists, so nothing is journaled.
+  // NPC reply (WS-5a): native playback completed, RAM history committed it, and
+  // the runtime's own delivery ledger proves every PCM byte reached native, so
+  // D03 journals the spoken text as `completed`, replying to the player line.
   assert.equal(x.h.runtime.history.readForSession('17',1).filter(m=>m.role==='assistant').length,1);
-  assert.equal(j.rows.filter(r=>r.speaker==='npc').length,0,'NPC line never journaled without audible-delivery proof');
+  assert.equal(j.npcs.length,1);
+  assert.deepEqual(fields(j.npcs[0],['speaker','source','content','protagonist','delivery','session_id']),
+    {speaker:'npc',source:'npc_generated',content:'Got it.',protagonist:'franklin',
+      delivery:'completed',session_id:j.players[0].session_id});
+  assert.equal(j.npcs[0].replyTo,j.players[0].record_id,'reply_to names the accepted player line');
+  assert.equal(j.npcs[0].content_sha256,sha('Got it.'));
+  assert.match(j.npcs[0].receipt_id,/^[0-9a-f-]{36}$/);
+  assert.equal(j.npcSources.length,1);
+  const ne=evidenceOf(j.npcSources[0]);
+  assert.equal(sha(j.npcSources[0].source_json),j.npcSources[0].source_sha256);
+  assert.equal(ne.replyTo,j.players[0].record_id);
+  assert.equal(ne.delivery,'completed');
+  assert.deepEqual(ne.identity,identity);
+  assert.equal(ne.native.incarnationId,e.incarnationId,'same native incarnation as the player line');
+  assert.equal(ne.native.observerCaptureRef,e.observerCaptureRef);
+  assert.equal(ne.speech.historyAccepted,true);
+  assert.equal(ne.speech.nativeTerminal.reason,'completed');
   // Unicode whitespace at the ends (NBSP, ideographic space) is trimmed by the
   // original backend's Fr (String.prototype.trim); inner NBSP is preserved.
   const second=await x.typed(' 　 inner nbsp kept 　');
   assert.equal((await x.settled(second)).status,'completed');
-  const rows=(await x.journal()).rows;
-  assert.equal(rows.length,2);
-  assert.equal(rows[1].content,'inner nbsp kept');
+  const j2=await x.journal();
+  assert.equal(j2.rows.length,4);
+  assert.equal(j2.players[1].content,'inner nbsp kept');
+  assert.equal(j2.npcs[1].replyTo,j2.players[1].record_id,'each reply links to its own turn\'s player line');
+  assert.notEqual(j2.npcs[1].replyTo,j2.npcs[0].replyTo);
 });
 
 test('D01 E2E STT: real original mic path, single final transcript routed once, durable stt line',{timeout:30000},async t=>{
@@ -87,9 +109,11 @@ test('D01 E2E STT: real original mic path, single final transcript routed once, 
   assert.deepEqual(users(x),[text]);
   assert.equal(spy.results[0].status,'stored');
   const j=await x.journal();
-  assert.equal(j.rows.length,1);
-  assert.equal(j.rows[0].source,'stt');
-  assert.equal(j.rows[0].content,text);
+  assert.equal(j.players.length,1);
+  assert.equal(j.players[0].source,'stt');
+  assert.equal(j.players[0].content,text);
+  assert.equal(j.npcs.length,1);
+  assert.equal(j.npcs[0].replyTo,j.players[0].record_id);
   const e=evidenceOf(j.sources[0]);
   assert.equal(e.inputMode,'stt');
   assert.equal(e.finalAcceptedInputRevision,1);
@@ -109,7 +133,8 @@ test('D01 E2E STT retry: one transient failure, one final transcript, one revisi
   assert.equal(x.h.evaluate('d01MicTurn.input.transcript'),'second attempt words');
   assert.equal(spy.results.length,1);
   const j=await x.journal();
-  assert.equal(j.rows.length,1);
+  assert.equal(j.players.length,1);
+  assert.equal(j.npcs.length,1,'one reply for the one accepted line');
   assert.equal(evidenceOf(j.sources[0]).finalAcceptedInputRevision,1);
 });
 
@@ -151,7 +176,7 @@ test('D01 E2E supersession during STT: late transcript after a newer generation 
   assert.notEqual((await micDone).status,'completed');
   assert.deepEqual(users(x),['barge-in words']);
   const rows=(await x.journal()).rows;
-  assert.deepEqual(rows.map(r=>r.content),['barge-in words']);
+  assert.deepEqual(rows.map(r=>r.content),['barge-in words','Got it.'],'the superseded mic turn left nothing');
   assert.equal(spy.calls,1);
 });
 
@@ -281,8 +306,9 @@ test('D01 E2E protagonist switch between turns keeps one human scope; avatar is 
   assert.deepEqual(spy.results.map(r=>[r.status,r.protagonistKey,r.humanPlayerScope]),[
     ['stored','franklin','single_local_human'],['stored','trevor','single_local_human']]);
   const rows=(await x.journal()).rows;
-  assert.deepEqual(rows.map(r=>[r.content,r.protagonist]),[['Said as Franklin.','franklin'],['Said as Trevor.','trevor']]);
-  assert.equal(rows[0].session_id,rows[1].session_id,'same conversation session and character journal');
+  assert.deepEqual(rows.filter(r=>r.speaker==='player').map(r=>[r.content,r.protagonist]),[['Said as Franklin.','franklin'],['Said as Trevor.','trevor']]);
+  assert.deepEqual(rows.filter(r=>r.speaker==='npc').map(r=>r.protagonist),['franklin','trevor'],'each reply keeps its player line\'s avatar provenance');
+  assert.equal(rows[0].session_id,rows[2].session_id,'same conversation session and character journal');
 });
 
 test('D01 E2E protagonist switch mid-turn: ambiguous avatar provenance is not written',{timeout:30000},async t=>{
@@ -312,7 +338,7 @@ test('D01 E2E lease survives an STT longer than 1 s across native roster refresh
   assert.equal((await x.settled(turn)).status,'completed');
   assert.ok(during.ms>=1000&&during.rosters>=3&&during.samples>=3,JSON.stringify(during));
   assert.equal(spy.results[0].status,'stored');
-  assert.deepEqual((await x.journal()).rows.map(r=>r.content),['A long sentence spoken slowly.']);
+  assert.deepEqual((await x.journal()).rows.map(r=>r.content),['A long sentence spoken slowly.','Got it.']);
 });
 
 test('D01 E2E forged inputs: rogue connection, model text and caller flags cannot create memory',{timeout:30000},async t=>{
@@ -361,7 +387,7 @@ test('D01 E2E duplicate delivery is idempotent at the single P2 writer',{timeout
   assert.deepEqual(spy.results.map(r=>r.status),['stored','duplicate']);
   assert.equal(spy.results[0].recordId,spy.results[1].recordId);
   const j=await x.journal();
-  assert.equal(j.rows.length,1);
+  assert.equal(j.players.length,1);
   assert.equal(j.sources.length,1);
 });
 

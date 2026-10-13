@@ -25,7 +25,7 @@ async function sqliteFixture(t){
   await store.initialize();
   const character=await store.create(profile());
   const timelineId=await store.createTimeline({label:'W03 actual SQLite'});
-  const host={hostRunId:randomUUID(),worldEpoch:1};
+  const host={hostContextVersion:1,hostRunId:randomUUID(),worldEpoch:1};
   store.setVerifiedHostContext(host);
   await store.confirmTimeline(timelineId);
   return {filePath,store,character,timelineId,host,
@@ -107,8 +107,8 @@ test('W03 A03: 205 typed/final-STT accepted lines retain exact Unicode/profanity
       const line='  #'+i+' — fuck\tthat, déjà vu e\u0301 🚗 中文\n"don\'t"  ';
       const f=trustedFixture(x,{turnId:'line-'+i,source,protagonist});
       f.accept(line);
-      const first=await f.capture.acceptPlayer({source,text:line,
-        transcription:source==='stt'?{provider:'source-fixture',model:'final',confidence:null}:null});
+      const transcription=source==='stt'?{provider:'source-fixture',model:'final',confidence:null}:null;
+      const first=await f.capture.acceptPlayer({source,text:line,transcription});
       assert.equal(first.status,'stored','line '+i);
       assert.equal(first.durable,true,'line '+i);
       assert.equal(first.scope.timelineId,x.timelineId);
@@ -118,8 +118,10 @@ test('W03 A03: 205 typed/final-STT accepted lines retain exact Unicode/profanity
       assert.equal(first.proof.source,source);
       assert.equal(first.proof.protagonistKey,protagonist);
       assert.equal(first.proof.identity.turnId,f.identity.turnId);
-      const again=await f.capture.acceptPlayer({source,text:line});
-      assert.equal(again.status,'duplicate');
+      // A replay carries the same transcription metadata; different metadata is a
+      // journal_replay_conflict (asserted separately below), not a duplicate.
+      const again=await f.capture.acceptPlayer({source,text:line,transcription});
+      assert.equal(again.status,'duplicate','line '+i);
       assert.equal(again.durable,true);
       assert.equal(again.recordId,first.recordId);
       f.capture.retire();
