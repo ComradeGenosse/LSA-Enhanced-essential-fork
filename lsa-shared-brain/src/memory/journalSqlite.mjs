@@ -210,7 +210,14 @@ function readScope(s,world,defaultLimit=200){
 }
 function decodeLine(row){
   const value=JSON.parse(row.envelope_json);
-  if(hash(row.envelope_json)!==row.envelope_sha256||value.content!==row.content||hash(value.content)!==row.content_sha256)fail('journal_content_integrity_failed');
+  if(hash(row.envelope_json)!==row.envelope_sha256||
+     value.content!==row.content||hash(value.content)!==row.content_sha256||
+     value.recordId!==row.record_id||value.characterId!==row.character_id||
+     value.worldProfileId!==row.world_profile_id||value.timelineId!==row.timeline_id||
+     value.speaker!==row.speaker||value.source!==row.source||
+     value.delivery!==row.delivery||value.deliveryReceiptId!==row.receipt_id||
+     value.turnIdentityHash!==row.turn_identity_hash)
+    fail('journal_content_integrity_failed');
   return immutableSnapshot({...value,attribution:{sessionId:row.session_id,protagonist:row.protagonist,
     hostRunId:row.host_run_id,worldEpoch:row.world_epoch}});
 }
