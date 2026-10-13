@@ -2,8 +2,13 @@
 [CmdletBinding()]
 param(
   [Parameter(Mandatory=$true)][string]$GamePath,
-  [Parameter(Mandatory=$true)][string]$Model,
-  [ValidateSet('diagnostic','experimental')][string]$ActorMode = 'diagnostic',
+  [ValidateSet('host','probe','typed','tts','audio','lipsync','streaming')]
+  [string]$Stage = 'host',
+  [string[]]$EnableCapability = @(),
+  [string[]]$DisableCapability = @(),
+  [switch]$ConfirmPhysicalEffects,
+  [string]$Model,
+  [ValidateSet('diagnostic','experimental')][string]$ActorMode,
   [ValidateSet('openai','faster-qwen3-tts')][string]$TtsProvider = 'openai',
   [string]$TtsModel,
   [string]$Voice = 'alloy',
@@ -23,32 +28,51 @@ if (Get-Process -Name 'GTA5_Enhanced','RAGEPluginHook' -ErrorAction SilentlyCont
   throw 'Exit all GTA/RPH instances before starting standalone.'
 }
 & (Join-Path $PSScriptRoot 'Assert-LegacyLSAStopped.ps1') -GamePath $game
-if ($Model -notmatch '^[a-zA-Z0-9._:-]{2,100}$') {
-  throw 'Supply a confirmed OpenAI Responses API model identifier as -Model.'
-}
-if (-not $env:OPENAI_API_KEY) { throw 'OPENAI_API_KEY must already be set in this terminal; never put keys in bundle files.' }
-if ($TtsProvider -eq 'openai' -and [string]::IsNullOrWhiteSpace($TtsModel)) {
-  throw 'Supply a supported OpenAI PCM speech model with -TtsModel.'
-}
 $node=Get-Command node -ErrorAction Stop
 $companion=Join-Path $PSScriptRoot 'companion'
 $service=Join-Path $companion 'service.mjs'
-if (-not (Test-Path -LiteralPath $service)) { throw 'Standalone Node companion absent from bundle.' }
-$env:LSA_STANDALONE_ACTOR_MODE=$ActorMode
-$env:LSA_STANDALONE_TYPED_MODE='enabled'
+$preflight=Join-Path $companion 'tools/activation-config.mjs'
+if (-not (Test-Path -LiteralPath $service) -or
+    -not (Test-Path -LiteralPath $preflight)) {
+  throw 'Standalone Node companion or activation preflight absent from bundle.'
+}
+# CLI builds all seven original environment switches from one stage.
+# Reset optional credentials/voice settings too; stale process env must not
+# accidentally activate a feature. OPENAI_API_KEY remains operator-managed.
 $env:LSA_STANDALONE_MODEL=$Model
-$env:LSA_STANDALONE_AUDIO_OUTPUT='waveout_experimental'
-$env:LSA_STANDALONE_PLAYBACK_CONFIRM='enabled'
-$env:LSA_STANDALONE_LIPSYNC='facial_experimental'
-$env:LSA_STANDALONE_TTS_MODE='enabled'
+$env:LSA_STANDALONE_TTS_MODEL=$TtsModel
 $env:LSA_STANDALONE_TTS_PROVIDER=$TtsProvider
 $env:LSA_STANDALONE_TTS_VOICE=$Voice
-$env:LSA_STANDALONE_TTS_MODEL=$TtsModel
 $env:LSA_STANDALONE_QWEN_URL=$QwenUrl
 $env:LSA_STANDALONE_QWEN_VOICES=$Voice
-$env:LSA_STANDALONE_EARLY_SPEECH=if ($EarlySpeech) { 'enabled' } else { 'off' }
-Write-Host "Standalone mode: $ActorMode, typed Luna client configured; no actor adopted until GTA probe + Arm."
-Write-Host 'RPH console: LSAStandaloneProbe -> LSAStandaloneStatus -> (experimental only) LSAStandaloneArm -> LSAStandaloneCompose.'
+$requestedEnable=@($EnableCapability)
+if ($EarlySpeech) { $requestedEnable += 'early_speech' }
+$arguments=@($preflight, $Stage)
+foreach ($name in $requestedEnable) { $arguments += "--enable=$name" }
+foreach ($name in $DisableCapability) { $arguments += "--disable=$name" }
+$activationJson = & $node.Source @arguments
+if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace(($activationJson -join ''))) {
+  throw 'Standalone activation preflight rejected the requested stage (see above). No game was launched.'
+}
+$activation = ($activationJson -join '') | ConvertFrom-Json
+if ($activation.capabilities.physical_audio.requested -and -not $ConfirmPhysicalEffects) {
+  throw 'Experimental physical audio/lip-sync requires -ConfirmPhysicalEffects. No game was launched.'
+}
+if ($PSBoundParameters.ContainsKey('ActorMode') -and
+    $ActorMode -ne $activation.nativeActorMode) {
+  throw "ActorMode conflicts with -Stage $Stage. Use the stage/capability selectors instead."
+}
+foreach ($setting in $activation.settings.PSObject.Properties) {
+  [Environment]::SetEnvironmentVariable($setting.Name, [string]$setting.Value, 'Process')
+}
+$env:LSA_STANDALONE_ACTIVATION_STAGE=$Stage
+Write-Host "Standalone stage: $Stage, native actor mode: $($activation.nativeActorMode)."
+foreach ($feature in $activation.capabilities.PSObject.Properties) {
+  $state=if ($feature.Value.requested) { 'configured; runtime unverified' } else { 'off' }
+  Write-Host "  $($feature.Name): $state"
+}
+Write-Host 'Native RPH Probe/Arm and GTA validation are separate; offline preflight does not prove device output.'
+Write-Host 'RPH console: LSAStandaloneStatus / LSAStandaloneProbe; typed stages also require LSAStandaloneArm, then LSAStandaloneCompose.'
 Write-Host 'Do not load LosSantosAlive.dll or other Essential-dependent plugins in this GTA session.'
 $companionProc=$null
 $logs=Join-Path $PSScriptRoot 'logs'
