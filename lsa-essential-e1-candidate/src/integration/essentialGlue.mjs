@@ -162,7 +162,8 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
         recallAuthorization:prepared=>prepared===memory.preparedRecall&&
           memory.recallCurrent([],prepared?.stamp)===true,
         conversationJournal:memory.conversationJournal,
-        memoryAction:memory.memoryAction
+        memoryAction:memory.memoryAction,
+        memoryStamp:memory.preparedRecall.stamp
       }:{};
       const memoryBase=memoryReady
         ?renderKnowledge({...args,...memoryArgs,includePerceived:false}):base;
@@ -196,9 +197,11 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
       const validateKnowledge=frame=>assertOwnedKnowledgeCurrent(turn.knowledgeInputs,{identity:turn.identity,snapshot:turn.characterSnapshot,identityService,perception:runtime.intelligence?.runtime}) || assertKnowledgeItemsCurrent(turn.knowledgeInputs,frame,runtime.intelligence?.runtime) || ((frame.activityReferences?.length??0)>0?assertActivityKnowledgeCurrent(turn.knowledgeInputs.activityInputs,runtime.activities,frame.activityReferences):null) || ((frame.dialogueReferences?.length??0)>0?assertDialogueActionKnowledgeCurrent(turn.knowledgeInputs.dialogueInputs,runtime.activities,frame.dialogueReferences):null);
       turn.knowledgeDelivery=createKnowledgeDelivery({frame:selected,baseFrame:base,
         recallCurrent:(refs,stamp)=>memoryReady&&memory.recallCurrent(refs,stamp),
+        memoryCurrent:stamp=>memoryReady&&memory.recallCurrent([],stamp),
         pruneRecall:frame=>pruneKnowledgeFrame(frame,()=>true,()=>true,()=>true,()=>false),
         isCurrent:()=>runtime.host.isCurrent(turn.identity) && (!identityService || identityService.current(turn.identity)),
-        prune:frame=>pruneKnowledgeFrame(frame,
+        prune:frame=>(frame.memoryStamp &&
+          !(memoryReady&&memory.recallCurrent([],frame.memoryStamp)))?base:pruneKnowledgeFrame(frame,
           item=>!validateKnowledge({delivery:[item]}),
           item=>!validateKnowledge({delivery:[],activityReferences:[item]}),
           item=>!validateKnowledge({delivery:[],dialogueReferences:[item]}),
