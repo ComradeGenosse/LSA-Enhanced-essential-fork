@@ -246,13 +246,15 @@ export class P2SqliteFoundation {
       db.exec('PRAGMA foreign_keys=ON; PRAGMA busy_timeout=5000; PRAGMA journal_mode=WAL; PRAGMA synchronous=FULL');
       // Crash recovery must preserve the pre-migration store even if DDL fails.
       // Detect both an old core schema and a v4 database lacking extensions.
-      const version=db.prepare('PRAGMA user_version').get().user_version;
-      const extensions=['m3_coverage','m5_trash','p2_memory_replay_feed','m6_p2_checkpoints'];
-      const missing=extensions.some(name=>!db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?").get(name));
-      if(version!==JOURNAL_SCHEMA_VERSION||missing)
-        await snapshotSqlite(db,this.filePath,{reason:'pre_migration'});
-      // One transaction includes the v2/v3 -> v4 migration and every extension
-      // DDL/reconciliation. Failure leaves no partially upgraded schema.
+      // A fixed table-name checklist misses indexes, triggers, columns and
+      // repairs to existing extension tables. Make a checked preflight copy
+      // BEFORE executing ANY extension DDL. Schema-version records even an
+      // additive ALTER/CREATE INDEX, not only a newly created table.
+      const oldSchema=db.prepare('PRAGMA schema_version').get().schema_version;
+      const migrationBackup=await snapshotSqlite(db,this.filePath,{reason:'pre_migration'});
+      // Keep a failed upgrade's verified recovery point. A no-op open must
+      // not accumulate immortal backups; delete it only after commit and a
+      // positive finding that no schema changed.
       transaction(db,()=>{
         migrateJournalSchema(db);
         ensureIntegratedMemorySchema(db);
@@ -263,6 +265,9 @@ export class P2SqliteFoundation {
         ensureP2ReplaySchema(db);
         ensureM6P2ReplaySchema(db);
       });
+      const newSchema=db.prepare('PRAGMA schema_version').get().schema_version;
+      if(oldSchema===newSchema)
+        await fs.rm(migrationBackup.path);
       this.#db=db;
       return this.#snapshot;
     } catch(e){
