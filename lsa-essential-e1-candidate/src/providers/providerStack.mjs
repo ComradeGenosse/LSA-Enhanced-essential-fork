@@ -3,13 +3,14 @@ import { createOpenAIReasoningProvider } from './openai/reasoningProvider.mjs';
 import { createOpenAITranscriptionProvider } from './openai/transcriptionProvider.mjs';
 import { createOpenAISpeechProvider } from './openai/speechProvider.mjs';
 import { createElevenLabsSpeechProvider } from './elevenlabs/speechProvider.mjs';
+import { renderElevenSpeech } from '../voice/emotion/elevenTags.mjs';
 
 export function createProviderStack(config, { fetchImpl = globalThis.fetch, WebSocketImpl = globalThis.WebSocket, providers = {} } = {}) {
   if (config?.provider !== 'openai') throw new TypeError('The E1 provider stack only serves the OpenAI route.');
   const reasoning = assertProvider(providers.reasoning || createOpenAIReasoningProvider({ config, fetchImpl }), { operation: 'decide', requiredCapabilities: ['cancellation', 'strictDecisionParsing'] });
   const transcription = assertProvider(providers.transcription || createOpenAITranscriptionProvider({ config, fetchImpl }), { operation: 'transcribe', requiredCapabilities: ['cancellation', 'pcm16MonoInput'] });
   const speech = assertProvider(providers.speech || (config.speechProvider === 'elevenlabs'
-    ? createElevenLabsSpeechProvider({config, WebSocketImpl})
+    ? createElevenLabsSpeechProvider({config, WebSocketImpl, renderSpeech:renderElevenSpeech})
     : createOpenAISpeechProvider({ config, fetchImpl })), { operation: 'synthesize', requiredCapabilities: ['cancellation', 'awaitedPcmCallback'] });
   if (config.structuredStreamingEnabled && (typeof reasoning.decideStreaming !== 'function' || reasoning.capabilities.structuredStreaming !== true)) {
     throw new TypeError(`Provider ${reasoning.id} does not support the enabled structured streaming contract.`);

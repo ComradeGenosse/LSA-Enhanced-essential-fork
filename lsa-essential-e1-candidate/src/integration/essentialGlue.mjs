@@ -20,6 +20,9 @@ import { DialogueHistory } from '../memory/dialogueHistory.mjs';
 import { validateDecisionShape } from '../context/essentialDecision.mjs';
 import { validateStockDecision } from '../context/decisionValidator.mjs';
 import { createProviderStack } from '../providers/providerStack.mjs';
+import { resolveDelivery as resolveVerifiedSceneDelivery } from '../voice/emotion/sceneDelivery.mjs';
+import { projectActingEvidence } from '../voice/emotion/sceneOwnerProjection.mjs';
+import { createMoodRuntime } from '../voice/emotion/moodRuntime.mjs';
 import { VoiceResolver } from '../voice/voiceResolver.mjs';
 import { executeProviderOperation } from '../reliability/providerExecutor.mjs';
 import { captureReferenceMap } from '../context/turnSnapshot.mjs';
@@ -27,7 +30,7 @@ import { IdentityResolver } from '../identity/identityResolver.mjs';
 import { CharacterService,withoutCharacterTransport } from '../characters/characterService.mjs';
 import { createNoopDialogueTrace } from '../observability/dialogueTrace.mjs';
 
-export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry = null, dialogueTrace = null, providers = {}, identityEvidence, identityStore, profileStore, nativeOwner } = {}) {
+export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry = null, dialogueTrace = null, providers = {}, identityEvidence, identityStore, profileStore, nativeOwner, verifiedProtagonistAuthority = null } = {}) {
   const actorPresence=new ActorPresenceStore();
   const originalTurnTimeline=new OriginalEssentialTurnTimeline();
   dialogueTrace ||= createNoopDialogueTrace();
@@ -49,7 +52,38 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
   const characterService = config.provider === 'openai' && config.promotedCharacters?.enabled
     ? new CharacterService(config,{identityService,voiceResolver,store:profileStore,nativeOwner,telemetry}) : null;
   characterService?.initialize().catch(() => {});
+  // The production authority is the actual post-validation IntelligenceClient.
+  // An unavailable/replaced native stream must produce neutral mood.
+  const liveNativeProtagonist=Object.freeze({
+    readVerified() {
+      try {return runtime.intelligence?.protagonistAuthority?.readVerified?.()??null;}
+      catch {return null;}
+    },
+    isCurrent(record) {
+      try {return runtime.intelligence?.protagonistAuthority?.isCurrent?.(record)===true;}
+      catch {return false;}
+    }
+  });
+  const emotionalMood = createMoodRuntime({getRuntime:()=>runtime,
+    protagonistAuthority:verifiedProtagonistAuthority??liveNativeProtagonist});
   const services = {
+    // Every segment rechecks real P1 binding and PS2 observer lifetime.
+    emotionalActing: config.speechProvider === 'elevenlabs' &&
+      ['shadow','experimental'].includes(config.expressiveDelivery?.mode)
+      ? Object.freeze({
+          resolveDelivery:resolveVerifiedSceneDelivery,
+          readMood:emotionalMood.readMood,
+          onSpeechCompleted:emotionalMood.onSpeechCompleted,
+          retireTurn:emotionalMood.retireTurn,
+          getSceneEvidence:({identity,turn})=>projectActingEvidence({
+            identity,turn,perception:runtime.intelligence?.runtime,identityService,
+          }),
+          getActorTraits:({turn})=>{
+            const id=turn?.characterSnapshot?.resolution?.characterId;
+            const profile=id && characterService?.store?.get(id);
+            return profile ? Object.freeze({characterId:id,personality:profile.personality}) : null;
+          },
+        }) : null,
     recordDialogueActionPublication({turn,validated,publishedAtMs}){
       if(config.provider!=='openai' || config.activities?.dialogueReceipts!==true || !runtime.dialogueKnowledgeBuildSupported)return null;
       const publication=prepareDialogueActionPublication({turn,validated,publishedAtMs,perception:runtime.intelligence?.runtime,identityService,activities:runtime.activities});
@@ -116,7 +150,7 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
     executeProvider: providerStack ? args => executeProviderOperation({ ...args, retryConfig: config.retry, telemetry: args.telemetry }) : null,
   };
   const runtime = {
-    config, history, services, telemetry, dialogueTrace, providerStack, voiceResolver, identityService,characterService,
+    config, history, services, telemetry, dialogueTrace, providerStack, voiceResolver, identityService,characterService,emotionalMood,
     separateKnowledgeInstruction,
     captureNormalizedActor: (actor,raw,shape)=>actorPresence.capture(actor,raw,shape),
     actorSourcePresence: actor=>actorPresence.read(actor),
@@ -239,6 +273,7 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
     attach(connection) { connections.add(connection); telemetry?.emit('bridge_ready', null, null, { provider: 'openai' }); },
     detach(connection) {
       connections.delete(connection);
+      emotionalMood.clear(); // No emotion crosses an Essential connection retirement.
         identityService?.detach(connection.sessionIdentity);
         characterService?.sessions.detach(connection.sessionIdentity);
         history.clearSession(connection.sessionIdentity?.pedId, connection.sessionIdentity?.sessionNonce);
@@ -249,6 +284,7 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
         if (typeof value?.[name] !== 'function') throw new Error(`Missing Essential lifecycle capability: ${name}`);
       }
       if (identityService && typeof value?.retireMatchingSession !== 'function') throw new Error('Identity requires exact Essential session retirement.');
+      emotionalMood.clear(); // A newly attached native bridge is a new proof epoch.
       bridge = value;
     },
     abortTurn(identity, reason) {

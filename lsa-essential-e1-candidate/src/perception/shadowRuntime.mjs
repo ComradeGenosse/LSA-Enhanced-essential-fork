@@ -176,6 +176,16 @@ export class ShadowRuntime {
       this.reset('manual');this.observerIndexVersion=observerIndexVersion;this.observerSituationVersion=observerSituationVersion;this.primaryBehaviorOwnerVersion=primaryBehaviorOwnerVersion;this.directorRequestVersion=directorRequestVersion;this.directorPriority=null;this.hostContext=context;this.epoch=epoch;this.stream=stream;this.sequence=sequence;
       this.capabilities=capabilities;this.transcripts.setActiveRun(epoch);this.lastReceipt=this.now();return true;
     }
+    // EA-A: these are only ordered transport facts; host/epoch provenance
+    // belongs to the previously admitted native hello, not this payload.
+    if(v.type==='protagonist_model') {
+      if(!this.hostContext ||
+         v.payload.hostRunId!==this.hostContext.hostRunId ||
+         v.payload.worldEpoch!==this.hostContext.worldEpoch) {
+        this.reset('fault');return false;
+      }
+      return true;
+    }
     if(v.type==='director_priority') {
       if(this.directorRequestVersion!==1 || !this.hostContext) return false;
       this.directorPriority=Object.freeze({...v.payload,receivedAt:this.now(),

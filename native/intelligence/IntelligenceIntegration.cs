@@ -38,6 +38,9 @@ namespace LSA.Intelligence
         readonly HostContext host;
         readonly bool ownsHost;
         readonly SensorAdapters sensors=new SensorAdapters();
+        readonly NativeProtagonistSensor protagonistSensor=new NativeProtagonistSensor();
+        readonly bool protagonistEvidenceEnabled;
+        int protagonistConsumerConnection,protagonistConsumerWorld;
         // Every retained lifetime uses the host's monotonic time axis.
         readonly Func<OwnedParticipant[]> roster;
         readonly string pipeName;
@@ -229,9 +232,9 @@ namespace LSA.Intelligence
                 " owned_witness="+(signal.OwnedWitness??"not_evaluated")+" witnesses="+witnesses);
         }
         static readonly string[] capabilityNames={"snapshot","pedDamage","playerDamage","vehicleDamage","shooting","state","action","playback","witness","awareness","playerSpeech"};
-        public IntelligenceIntegration(Func<OwnedParticipant[]> roster,string pipeName="LSA.Intelligence.v1",HostContext host=null,bool directorShadow=false,bool directorExperimental=false,string radioMode="off",int directorAttemptsPerMinute=DirectorAdmission.NormalMaxAttempts) {
+        public IntelligenceIntegration(Func<OwnedParticipant[]> roster,string pipeName="LSA.Intelligence.v1",HostContext host=null,bool directorShadow=false,bool directorExperimental=false,string radioMode="off",int directorAttemptsPerMinute=DirectorAdmission.NormalMaxAttempts,bool protagonistEvidenceEnabled=false) {
             if(pipeName==null||!System.Text.RegularExpressions.Regex.IsMatch(pipeName,"^[A-Za-z0-9_.-]{1,80}$")) throw new ArgumentException();
-            this.roster=roster;this.pipeName=pipeName;radioEnabled=radioMode=="shadow";ownsHost=host==null;this.host=host??new HostContext();anchors=this.host.Anchors;
+            this.roster=roster;this.pipeName=pipeName;radioEnabled=radioMode=="shadow";this.protagonistEvidenceEnabled=protagonistEvidenceEnabled && (directorShadow || directorExperimental);ownsHost=host==null;this.host=host??new HostContext();anchors=this.host.Anchors;
             this.directorShadow=directorShadow || directorExperimental;
             this.directorExperimental=directorExperimental;
             ps3Receipts=new DirectorPs3Receipts(()=>this.host.MonotonicMs,()=>this.host.HostRunId,()=>this.host.WorldEpoch);
@@ -269,6 +272,7 @@ namespace LSA.Intelligence
         }
         void WorldChanged(int epoch,string reason) {
             if(!IsAvailable) return;
+            protagonistSensor.Revoke();protagonistConsumerConnection=0;protagonistConsumerWorld=0;
             director.Reset();ps3Receipts.Reset();originalTurns.Reset();lock(directorPlaybackGate) {directorPlaybackEvents.Clear();directorPlaybackOverflow=false;}sensors.Reset();radioProbe=null;radioCoveredOwned.Clear();nextRadio=0;lastRadioFailure="";nextRadioFailureLog=0;ResetRadioRoutes();lock(rosterGate) {publishedAnchorStates.Clear();publishedObserverIndex.Clear();sampledSituations.Clear();}pendingRetirements.Clear();
             conversationRef=null;promotedTurnObserverRef=null;discoverySnapshot=null;discoveryOwned=new OwnedParticipant[0];UpdateIndexes();
             // Ordered control fact invalidates all prior observer state. Losing
@@ -417,7 +421,17 @@ namespace LSA.Intelligence
                 if(ownsHost) host.ObserveGameTick(tick);
                 previousTick=tick;
                 lineOfSightBudget=8;
-                if(channel.ConnectionVersion!=connectionVersion) {ps3Receipts.Reset();director.Reset();connectionVersion=channel.ConnectionVersion;lock(rosterGate) {publishedAnchorStates.Clear();publishedObserverIndex.Clear();sampledSituations.Clear();}nextRefresh=0;}
+                if(channel.ConnectionVersion!=connectionVersion) {ps3Receipts.Reset();director.Reset();protagonistSensor.Revoke();protagonistConsumerConnection=0;protagonistConsumerWorld=0;connectionVersion=channel.ConnectionVersion;lock(rosterGate) {publishedAnchorStates.Clear();publishedObserverIndex.Clear();sampledSituations.Clear();}nextRefresh=0;}
+                // Strict opt-in until the companion accepts protagonist_model on
+                // its existing authenticated, ordered intelligence stream.
+                // Only this native Update game fiber performs GTA reads.
+                if(protagonistEvidenceEnabled && channel.Connected &&
+                   protagonistConsumerConnection==channel.ConnectionVersion &&
+                   protagonistConsumerWorld==host.WorldEpoch) {
+                    var proof=protagonistSensor.Sample(channel.Connected,channel.ConnectionVersion,
+                        host.HostRunId,host.WorldEpoch,now,()=>GtaProtagonistReader.Read());
+                    if(proof!=null)channel.Send("protagonist_model",proof);
+                } else protagonistSensor.Revoke(); // no verified receiver: no model frames
                 if(now>=nextDiscovery) {
                     nextDiscovery=now+200;
                     var player=Game.LocalPlayer.Character;
@@ -802,6 +816,14 @@ namespace LSA.Intelligence
         {
             if(!directorShadow || channel==null)return;
             for(int n=0;n<4 && channel.TryTakeDirectorFrame(out var frame);n++) {
+                // Only a current exact-version companion declaration from
+                // THIS existing C-13 pipe can activate native source evidence.
+                if(protagonistEvidenceEnabled &&
+                   channel.AcceptProtagonistConsumer(frame,host.HostRunId,host.WorldEpoch)) {
+                    protagonistConsumerConnection=channel.ConnectionVersion;
+                    protagonistConsumerWorld=host.WorldEpoch;
+                    continue;
+                }
                 DirectorOriginalTurnBindingCodec.Frame originalBinding;
                 if(DirectorOriginalTurnBindingCodec.TryDecode(frame,out originalBinding)) {
                     // Core/source/P2/C-06 are authoritative here; the JS
@@ -1316,7 +1338,7 @@ namespace LSA.Intelligence
         {Shutdown("integration_shutdown");}
         internal void Shutdown(string reason)
         {
-            if(stopped) return;shutdownReason=reason;stopped=true;sensors.Enabled=false;
+            if(stopped) return;shutdownReason=reason;stopped=true;sensors.Enabled=false;protagonistSensor.Revoke();
             LogStatus("[PS] shutdown "+RuntimeStatus());
             AppDomain.CurrentDomain.AssemblyLoad-=AssemblyLoaded;
             try{damage?.Dispose();}catch{}damage=null;

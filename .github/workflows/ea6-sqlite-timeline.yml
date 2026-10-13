@@ -1,0 +1,44 @@
+name: EA-G SQLite v4 and C-13 Timeline Compatibility
+
+on:
+  push:
+    branches:
+      - feature/ea-final-g-sqlite-v4-compatibility-20261011
+      - fix/ea-final-g-completion-audit-20261012
+  pull_request:
+    branches:
+      - integration/elevenlabs-emotional-acting-final-20261011
+      - feature/ea-final-g-sqlite-v4-compatibility-20261011
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  sqlite-v4:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: SQLite v2-v4 migration, source fencing and real P2 regression
+        working-directory: lsa-essential-e1-candidate
+        run: >
+          node --test
+          tests/ea-g-v4-compatibility.test.mjs
+          tests/ea6-storage-timeline.test.mjs
+          tests/ea-final-b-timeline.test.mjs
+          tests/ea-final-integration-wiring.test.mjs
+          tests/p2-profiles.test.mjs
+      - name: Node 22 default JSON startup
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Legacy default JSON profile regression
+        working-directory: lsa-essential-e1-candidate
+        run: node --test tests/p2-profiles.test.mjs

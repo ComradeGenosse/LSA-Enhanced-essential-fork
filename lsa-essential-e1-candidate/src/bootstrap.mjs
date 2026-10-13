@@ -13,6 +13,7 @@ import { startCharacterEditor } from './characters/editorServer.mjs';
 import { defaultControlEndpointPath } from './control/endpointFile.mjs';
 import { characterContractSupported } from './characters/nativeSupport.mjs';
 import { IntelligenceClient } from './perception/intelligenceClient.mjs';
+import { bindTrustedTimelineSource } from './characters/timelineSourceBridge.mjs';
 import { loadRadioTrackTextCatalog } from './perception/radioTrackTextCatalog.mjs';
 import {DirectorObservationPump} from './perception/directorProduction.mjs';
 import {directorSpeechLimitsForPreset} from './perception/sceneDirector.mjs';
@@ -98,7 +99,10 @@ export async function createRuntimeForBundle(options = {}) {
     shutdownFlushRegistered = true;
     process.once('beforeExit', async () => { for (const closer of shutdownClosers) await closer.close().catch(() => {}); });
   }
-  const runtime = createRuntime(config, { ...options, telemetry, dialogueTrace });
+  // Live bootstrap does not admit caller-supplied protagonist proof.
+  // Direct createRuntime test fixtures remain separate from production.
+  const {verifiedProtagonistAuthority:ignoredTestAuthority,...safeRuntimeOptions}=options;
+  const runtime = createRuntime(config, { ...safeRuntimeOptions, telemetry, dialogueTrace });
   let capabilityManifest=null,capabilityPayloadHash=null,capabilityValidation=Object.freeze([]);
   try {const bytes=await readFile(new URL('../build-manifest.json',import.meta.url));capabilityManifest=JSON.parse(bytes);capabilityPayloadHash=createHash('sha256').update(bytes).digest('hex');}catch{}
   capabilityValidation=await loadCapabilityValidation(options.capabilityValidationPath??path.resolve(process.cwd(),'diagnostics/validation.v1.json'));
@@ -107,6 +111,15 @@ export async function createRuntimeForBundle(options = {}) {
   if(knowledgeContract===undefined)knowledgeContract=capabilityManifest?.dialogueKnowledgeContract;
   if(knowledgePerceptionContract===undefined)knowledgePerceptionContract=capabilityManifest?.perceptionContract;
   runtime.dialogueKnowledgeBuildSupported=dialogueKnowledgeContractSupported(knowledgeContract,knowledgePerceptionContract);
+  const sqliteRequested=config.provider==='openai' &&
+    config.promotedCharacters?.enabled===true &&
+    config.promotedCharacters?.storageMode==='sqlite';
+  // Initialize the real selected P2 storage before admitting the first
+  // post-validation native C-13 host receipt.
+  if(sqliteRequested && runtime.characterService) {
+    try {await runtime.characterService.initialize();}
+    catch {runtime.emotionalMood?.clear();}
+  }
   if(config.intelligence.mode==='shadow') {
     let contract=options.perceptionContract;
     if(contract===undefined) try {contract=JSON.parse(await readFile(new URL('../build-manifest.json',import.meta.url),'utf8')).perceptionContract;}catch{}
@@ -131,8 +144,31 @@ export async function createRuntimeForBundle(options = {}) {
           try { suppliedIntelligenceTelemetry?.(event,data); } catch {}
           try { telemetry?.emit?.(event,null,'internal',data,'internal'); } catch {}
         }};
-        runtime.intelligence=new IntelligenceClient(config.intelligence,intelligenceOptions);runtime.intelligence.start();
-      }catch{try{console.warn('[PS] optional_channel_unavailable');}catch{}}
+        runtime.intelligence=new IntelligenceClient(config.intelligence,intelligenceOptions);
+        // Bind to A's authenticated channel BEFORE start; failed optional
+        // storage keeps emotion neutral, without widening PS2 or legacy IO.
+        if(sqliteRequested && runtime.characterService?.ready) {
+          try {
+            runtime.timelineSourceBinding=bindTrustedTimelineSource({
+              store:runtime.characterService.store,intelligenceClient:runtime.intelligence
+            });
+          } catch {
+            runtime.emotionalMood?.clear();
+            try {console.warn('[EA] timeline_source_unavailable; mood disabled');}catch{}
+          }
+        }
+        if(typeof runtime.intelligence.subscribeWorldBoundary==='function')
+          runtime.intelligence.subscribeWorldBoundary(()=>runtime.emotionalMood?.clear());
+        if(typeof runtime.intelligence.subscribeVerifiedHostContext==='function')
+          runtime.intelligence.subscribeVerifiedHostContext(()=>runtime.emotionalMood?.clear());
+        runtime.intelligence.start();
+      }catch{
+        try {runtime.intelligence?.stop?.();}catch{}
+        try {runtime.timelineSourceBinding?.close?.();}catch{}
+        runtime.timelineSourceBinding=null;runtime.intelligence=null;
+        runtime.emotionalMood?.clear();
+        try{console.warn('[PS] optional_channel_unavailable');}catch{}
+      }
     } else try {console.warn('[PS] optional_perception_contract_unavailable');}catch{}
   }
 
@@ -239,5 +275,18 @@ export async function createRuntimeForBundle(options = {}) {
       if (endpointPath && !runtime.characterEditor.endpointPublished) try { console.warn('[UX] Control endpoint file unavailable; native clients use the page handshake.'); } catch {}
     } catch { runtime.characterService.emit('character_safe_failure',{reason:'owner_unavailable'}); }
   }
+  // Idempotent orderly shutdown: revoke live intake before closing the
+  // timeline bridge and its single SQLite writer. Unknown state fails neutral.
+  let shutdownPromise=null;
+  runtime.close=()=>shutdownPromise ||= (async()=>{
+    try {runtime.intelligence?.stop?.();}catch{}
+    try {runtime.timelineSourceBinding?.close?.();}catch{}
+    runtime.timelineSourceBinding=null;runtime.emotionalMood?.clear();
+    try {runtime.director?.stop?.();}catch{}
+    try {runtime.activities?.stop?.();}catch{}
+    try {await runtime.characterEditor?.close?.();}catch{}
+    try {await runtime.characterService?.closeStorage?.();}catch{}
+  })();
+  shutdownClosers.add(runtime);
   return runtime;
 }
