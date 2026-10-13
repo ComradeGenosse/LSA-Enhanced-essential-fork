@@ -16,14 +16,19 @@ const sha=s=>createHash('sha256').update(s).digest('hex');
 const host={hostContextVersion:1,hostRunId:randomUUID(),worldEpoch:1};
 async function setup(t){
   const dir=await fs.mkdtemp(path.join(os.tmpdir(),'ws5a-journal-'));
-  t.after(()=>fs.rm(dir,{recursive:true,force:true}));
-  const store=createEssentialMemoryStorage({filePath:path.join(dir,'p.sqlite'),worldProfileId,sourceRequired:true});
+  // Windows holds the SQLite file and WAL/SHM handles until the DB closes.
+  // One ordered teardown also runs if setup fails partway through.
+  let store;
+  t.after(async()=>{
+    try { await store?.close(); }
+    finally { await fs.rm(dir,{recursive:true,force:true}); }
+  });
+  store=createEssentialMemoryStorage({filePath:path.join(dir,'p.sqlite'),worldProfileId,sourceRequired:true});
   await store.initialize();
   const a=await store.create(profile());
   const timelineId=await store.createTimeline({label:'ws5a'});
   store.setVerifiedHostContext(host);
   await store.confirmTimeline(timelineId);
-  t.after(()=>store.close());
   const sessionId=journalIdentityUuid(['session',host.hostRunId,1,'17']);
   const attribution={sessionId,protagonist:'franklin',hostRunId:host.hostRunId,worldEpoch:1};
   const base={version:1,characterId:a.characterId,worldProfileId,timelineId,kind:'dialogue_line'};
