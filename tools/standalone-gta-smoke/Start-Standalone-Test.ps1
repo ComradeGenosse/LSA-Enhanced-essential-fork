@@ -2,8 +2,14 @@
 [CmdletBinding()]
 param(
   [Parameter(Mandatory=$true)][string]$GamePath,
-  [Parameter(Mandatory=$true)][string]$Model,
-  [ValidateSet('diagnostic','experimental')][string]$ActorMode = 'diagnostic',
+  [ValidateSet('host','probe','typed','tts','audio','lipsync','streaming')]
+  [string]$Stage = 'host',
+  [string[]]$EnableCapability = @(),
+  [string[]]$DisableCapability = @(),
+  [switch]$ConfirmPhysicalEffects,
+  [switch]$PreflightOnly,
+  [string]$Model,
+  [ValidateSet('diagnostic','experimental')][string]$ActorMode,
   [ValidateSet('openai','faster-qwen3-tts')][string]$TtsProvider = 'openai',
   [string]$TtsModel,
   [string]$Voice = 'alloy',
@@ -23,33 +29,93 @@ if (Get-Process -Name 'GTA5_Enhanced','RAGEPluginHook' -ErrorAction SilentlyCont
   throw 'Exit all GTA/RPH instances before starting standalone.'
 }
 & (Join-Path $PSScriptRoot 'Assert-LegacyLSAStopped.ps1') -GamePath $game
-if ($Model -notmatch '^[a-zA-Z0-9._:-]{2,100}$') {
-  throw 'Supply a confirmed OpenAI Responses API model identifier as -Model.'
-}
-if (-not $env:OPENAI_API_KEY) { throw 'OPENAI_API_KEY must already be set in this terminal; never put keys in bundle files.' }
-if ($TtsProvider -eq 'openai' -and [string]::IsNullOrWhiteSpace($TtsModel)) {
-  throw 'Supply a supported OpenAI PCM speech model with -TtsModel.'
-}
 $node=Get-Command node -ErrorAction Stop
 $companion=Join-Path $PSScriptRoot 'companion'
 $service=Join-Path $companion 'service.mjs'
-if (-not (Test-Path -LiteralPath $service)) { throw 'Standalone Node companion absent from bundle.' }
-$env:LSA_STANDALONE_ACTOR_MODE=$ActorMode
-$env:LSA_STANDALONE_TYPED_MODE='enabled'
+$preflight=Join-Path $companion 'tools/activation-config.mjs'
+if (-not (Test-Path -LiteralPath $service) -or
+    -not (Test-Path -LiteralPath $preflight)) {
+  throw 'Standalone Node companion or activation preflight absent from bundle.'
+}
+# CLI builds all seven original environment switches from one stage.
+# Reset optional credentials/voice settings too; stale process env must not
+# accidentally activate a feature. OPENAI_API_KEY remains operator-managed.
+# Preserve the invoking PowerShell process environment, including values that
+# are absent. The child Node and RPH processes inherit the selected stage on
+# launch, but dry-run, normal exit, failure and cancellation restore the caller.
+$activationKeys=@(
+  'LSA_STANDALONE_MODEL','LSA_STANDALONE_TTS_MODEL',
+  'LSA_STANDALONE_TTS_PROVIDER','LSA_STANDALONE_TTS_VOICE',
+  'LSA_STANDALONE_QWEN_URL','LSA_STANDALONE_QWEN_VOICES',
+  'LSA_STANDALONE_ACTOR_MODE','LSA_STANDALONE_TYPED_MODE',
+  'LSA_STANDALONE_TTS_MODE','LSA_STANDALONE_AUDIO_OUTPUT',
+  'LSA_STANDALONE_PLAYBACK_CONFIRM','LSA_STANDALONE_LIPSYNC',
+  'LSA_STANDALONE_EARLY_SPEECH','LSA_STANDALONE_ACTIVATION_STAGE',
+  'LSA_STANDALONE_VOICE_ASSIGNMENTS','LSA_STANDALONE_TTS_SESSION_VOICES',
+  'LSA_STANDALONE_TTS_INSTRUCTIONS'
+)
+$originalActivationEnv=@{}
+foreach ($key in $activationKeys) {
+  $originalActivationEnv[$key]=[Environment]::GetEnvironmentVariable($key,'Process')
+}
+try {
 $env:LSA_STANDALONE_MODEL=$Model
-$env:LSA_STANDALONE_AUDIO_OUTPUT='waveout_experimental'
-$env:LSA_STANDALONE_PLAYBACK_CONFIRM='enabled'
-$env:LSA_STANDALONE_LIPSYNC='facial_experimental'
-$env:LSA_STANDALONE_TTS_MODE='enabled'
+$env:LSA_STANDALONE_TTS_MODEL=$TtsModel
 $env:LSA_STANDALONE_TTS_PROVIDER=$TtsProvider
 $env:LSA_STANDALONE_TTS_VOICE=$Voice
-$env:LSA_STANDALONE_TTS_MODEL=$TtsModel
 $env:LSA_STANDALONE_QWEN_URL=$QwenUrl
-$env:LSA_STANDALONE_QWEN_VOICES=$Voice
-$env:LSA_STANDALONE_EARLY_SPEECH=if ($EarlySpeech) { 'enabled' } else { 'off' }
-Write-Host "Standalone mode: $ActorMode, typed Luna client configured; no actor adopted until GTA probe + Arm."
-Write-Host 'RPH console: LSAStandaloneProbe -> LSAStandaloneStatus -> (experimental only) LSAStandaloneArm -> LSAStandaloneCompose.'
+# Do not construct a dormant Qwen provider for an OpenAI-only stage.
+$env:LSA_STANDALONE_QWEN_VOICES=if ($TtsProvider -eq 'faster-qwen3-tts') { $Voice } else { $null }
+# Advanced speech customization from a previous launch is not a stage override.
+# The standalone test launcher uses deterministic defaults, never hidden inherited
+# assignments, alternate session voice pools, or text instructions.
+$env:LSA_STANDALONE_VOICE_ASSIGNMENTS=$null
+$env:LSA_STANDALONE_TTS_SESSION_VOICES=$null
+$env:LSA_STANDALONE_TTS_INSTRUCTIONS=$null
+# These checks run before either dry-run or normal launch. They reject any
+# regression that would let stale speech configuration leak into the child.
+foreach ($key in @('LSA_STANDALONE_VOICE_ASSIGNMENTS',
+  'LSA_STANDALONE_TTS_SESSION_VOICES','LSA_STANDALONE_TTS_INSTRUCTIONS')) {
+  if (-not [string]::IsNullOrEmpty([Environment]::GetEnvironmentVariable($key,'Process'))) {
+    throw "Unexpected inherited standalone speech setting: $key"
+  }
+}
+if ($TtsProvider -eq 'openai' -and
+    -not [string]::IsNullOrEmpty($env:LSA_STANDALONE_QWEN_VOICES)) {
+  throw 'Inactive Qwen voice pool leaked into OpenAI-only stage.'
+}
+$requestedEnable=@($EnableCapability)
+if ($EarlySpeech) { $requestedEnable += 'early_speech' }
+$arguments=@($preflight, $Stage)
+foreach ($name in $requestedEnable) { $arguments += "--enable=$name" }
+foreach ($name in $DisableCapability) { $arguments += "--disable=$name" }
+$activationJson = & $node.Source @arguments
+if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace(($activationJson -join ''))) {
+  throw 'Standalone activation preflight rejected the requested stage (see above). No game was launched.'
+}
+$activation = ($activationJson -join '') | ConvertFrom-Json
+if ($activation.capabilities.physical_audio.requested -and -not $ConfirmPhysicalEffects) {
+  throw 'Experimental physical audio/lip-sync requires -ConfirmPhysicalEffects. No game was launched.'
+}
+if ($PSBoundParameters.ContainsKey('ActorMode') -and
+    $ActorMode -ne $activation.nativeActorMode) {
+  throw "ActorMode conflicts with -Stage $Stage. Use the stage/capability selectors instead."
+}
+foreach ($setting in $activation.settings.PSObject.Properties) {
+  [Environment]::SetEnvironmentVariable($setting.Name, [string]$setting.Value, 'Process')
+}
+$env:LSA_STANDALONE_ACTIVATION_STAGE=$Stage
+Write-Host "Standalone stage: $Stage, native actor mode: $($activation.nativeActorMode)."
+foreach ($feature in $activation.capabilities.PSObject.Properties) {
+  $state=if ($feature.Value.requested) { 'configured; runtime unverified' } else { 'off' }
+  Write-Host "  $($feature.Name): $state"
+}
+Write-Host 'Native RPH Probe/Arm and GTA validation are separate; offline preflight does not prove device output.'
+Write-Host 'RPH console: LSAStandaloneStatus / LSAStandaloneProbe; typed stages also require LSAStandaloneArm, then LSAStandaloneCompose.'
 Write-Host 'Do not load LosSantosAlive.dll or other Essential-dependent plugins in this GTA session.'
+if ($PreflightOnly) {
+  Write-Host 'Activation preflight complete; no companion or GTA/RPH process launched.'
+} else {
 $companionProc=$null
 $logs=Join-Path $PSScriptRoot 'logs'
 New-Item -ItemType Directory -Force -Path $logs | Out-Null
@@ -79,5 +145,18 @@ try {
 } finally {
   if ($companionProc) {
     Stop-Process -Id $companionProc.Id -Force -ErrorAction SilentlyContinue
+  }
+}
+} # no early return; the outer environment cleanup runs on every path
+} finally {
+  foreach ($key in $activationKeys) {
+    $previous=$originalActivationEnv[$key]
+    if ($null -eq $previous) {
+      # PowerShell's Env: provider must remove absent variables, not leave
+      # empty process entries that survive into the next RPH invocation.
+      Remove-Item -LiteralPath ("Env:" + $key) -ErrorAction SilentlyContinue
+    } else {
+      [Environment]::SetEnvironmentVariable($key,[string]$previous,'Process')
+    }
   }
 }

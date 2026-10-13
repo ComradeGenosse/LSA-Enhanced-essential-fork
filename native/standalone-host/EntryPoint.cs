@@ -19,6 +19,7 @@ namespace LSA.Standalone.RageHost
         private static volatile bool stopping;
         private static int running;
         private static StandalonePipeServer server;
+        internal static string ActivationSummary { get; private set; } = "native_runtime_not_started";
 
         public static void Shutdown()
         {
@@ -44,6 +45,11 @@ namespace LSA.Standalone.RageHost
                 stopping = false;
                 string reason;
                 if (!StandaloneOnlyProfile(out reason))
+                {
+                    Game.LogTrivial("[LSA-S2] refused " + reason);
+                    return;
+                }
+                if (!ValidateNativeActivation(out reason))
                 {
                     Game.LogTrivial("[LSA-S2] refused " + reason);
                     return;
@@ -92,13 +98,29 @@ namespace LSA.Standalone.RageHost
                         face = new RageLipSyncPresenter(authority, scope, resolver, clock);
                         facialEnabled = true;
                     }
-                    audio = new NativeAudioRegistry(authority, turns, physicalAudio, face);
+                    // The TTS-only/early-streaming stages need bounded PCM validation
+                    // without a waveOut device. This validator consumes admitted
+                    // bytes on the owner fiber and can NEVER certify playback.
+                    IAudioOutput output = physicalAudio;
+                    if (output == null && GetSetting("LSA_STANDALONE_TTS_MODE") == "enabled")
+                        output = new DiagnosticPcmOutput(authority);
+                    audio = new NativeAudioRegistry(authority, turns, output, face);
                 }
                 finally { scope.Exit(); }
 
                 server = new StandalonePipeServer(authority.HostRunId, () => authority.WorldEpoch);
                 server.Start();
-                StandaloneTypedCommands.OpenAdmission();
+                bool typedEnabled = GetSetting("LSA_STANDALONE_TYPED_MODE") == "enabled";
+                StandaloneTypedCommands.OpenAdmission(typedEnabled);
+                ActivationSummary = "native_ipc=started probe=" +
+                    (GetSetting("LSA_STANDALONE_ACTOR_MODE") == "off" ? "off" : "enabled_unproven") +
+                    " typed_admission=" + (typedEnabled ? "enabled_unarmed" : "off") +
+                    " physical_audio=" + (physicalAudio == null ? "off" : "adapter_initialized_unverified") +
+                    " pcm_validation=" + (GetSetting("LSA_STANDALONE_TTS_MODE") == "enabled" &&
+                        physicalAudio == null ? "native_non_audible_escrow" : "not_separate") +
+                    " lip_sync=" + (facialEnabled ? "presenter_initialized_unverified" : "off") +
+                    " gta_validated=false";
+                Game.LogTrivial("[LSA-ACTIVATION] " + ActivationSummary);
                 Game.LogTrivial("[LSA-S3] started actor_adoption=locked_until_live_probe" +
                     " actor_mode=" + (Environment.GetEnvironmentVariable(
                         "LSA_STANDALONE_ACTOR_MODE") ?? "off") +
@@ -164,6 +186,45 @@ namespace LSA.Standalone.RageHost
             }
         }
 
+        private static string GetSetting(string name)
+        {
+            return Environment.GetEnvironmentVariable(name) ?? "off";
+        }
+
+        private static bool ValidateNativeActivation(out string reason)
+        {
+            // A direct RPH launch is independently fail-closed even if the
+            // PowerShell/Node preflight was bypassed. No actor, device or IPC
+            // object is created until this static config contract is valid.
+            string actor = GetSetting("LSA_STANDALONE_ACTOR_MODE");
+            string typed = GetSetting("LSA_STANDALONE_TYPED_MODE");
+            string tts = GetSetting("LSA_STANDALONE_TTS_MODE");
+            string audio = GetSetting("LSA_STANDALONE_AUDIO_OUTPUT");
+            string confirm = GetSetting("LSA_STANDALONE_PLAYBACK_CONFIRM");
+            string face = GetSetting("LSA_STANDALONE_LIPSYNC");
+            string stream = GetSetting("LSA_STANDALONE_EARLY_SPEECH");
+            reason = "invalid_native_activation_configuration";
+            if (actor != "off" && actor != "diagnostic" && actor != "experimental" ||
+                typed != "off" && typed != "enabled" ||
+                tts != "off" && tts != "enabled" ||
+                audio != "off" && audio != "waveout_experimental" ||
+                confirm != "off" && confirm != "enabled" ||
+                face != "off" && face != "facial_experimental" ||
+                stream != "off" && stream != "enabled") return false;
+            if ((typed == "enabled") != (actor == "experimental") ||
+                (tts == "enabled" && typed != "enabled") ||
+                (audio == "waveout_experimental" && tts != "enabled") ||
+                ((audio == "waveout_experimental") != (confirm == "enabled")) ||
+                (face == "facial_experimental" && audio != "waveout_experimental") ||
+                (stream == "enabled" && tts != "enabled"))
+            {
+                reason = "native_activation_prerequisite_missing";
+                return false;
+            }
+            reason = "accepted";
+            return true;
+        }
+
         private static bool StandaloneOnlyProfile(out string reason)
         {
             reason = "unsafe_profile";
@@ -182,6 +243,10 @@ namespace LSA.Standalone.RageHost
                 Path.Combine(plugins,"LSA.PromotedCharacters.json"),
                 Path.Combine(plugins,"LSA.SessionIdentity.dll"),
                 Path.Combine(plugins,"LSA.Intelligence.dll"),
+                Path.Combine(plugins,"LSA.PromotedCharacters.Runtime.dll"),
+                Path.Combine(plugins,"LSA.PromotedCharacters.Bootstrap.dll"),
+                Path.Combine(plugins,"LSPDFR","LosSantosAlive.Interop.dll"),
+                Path.Combine(plugins,"LSPDFR","LosSantosAlive.PRBridge.dll"),
                 Path.Combine(game,"LosSantosAlive.dll"),
                 Path.Combine(plugins,"Los Santos Alive.dll")
             })

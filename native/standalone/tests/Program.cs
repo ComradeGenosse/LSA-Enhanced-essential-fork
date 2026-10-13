@@ -1057,6 +1057,64 @@ internal static class Program
         turns.RetireAll(); host.Stop();
     }
 
+    private static void NativeDiagnosticPcmEscrowOverFourSeconds()
+    {
+        var game = new SimulatedGame();
+        game.Spawn(812, 0xDE12, lifetimeTag: 44001);
+        var host = new NativeAuthority(game, game, game, game);
+        var actor = Register(host, 812);
+        var turns = new NativeTurnRegistry(host);
+        var sink = new DiagnosticPcmOutput(host);
+        Check(!(sink is IPhysicalAudioOutput), "diagnostic escrow must not be physical output");
+        var audio = new NativeAudioRegistry(host, turns, sink);
+        NativeTurnPermit offer;
+        string reason;
+        Check(turns.TryIssueTyped(actor, "Long TTS validation only.", 30000,
+            out offer, out reason), "diagnostic escrow native turn issued");
+        string tid = offer.TurnId.ToString("D"), aid = offer.ActorIncarnationId.ToString("D"),
+            lid = offer.LeaseId.ToString("D"), gen = offer.Generation;
+        Check(turns.TryConfirm(tid, offer.SessionNonce.ToString("D"),
+            aid, lid, gen, offer.Source, out reason), "diagnostic escrow confirmed");
+        Check(turns.TryStageReply(tid, lid, gen, aid, "Long reply.", out reason),
+            "diagnostic escrow staged text");
+        NativeAudioTicket ticket;
+        Check(audio.TryOpen(tid, aid, lid, gen, NativeAudioRegistry.Rate,
+            out ticket, out reason), "diagnostic escrow audio opened");
+        string sid = ticket.StreamId.ToString("D"), alid = ticket.AudioLeaseId.ToString("D"),
+            agen = ticket.AudioGeneration;
+        // 90 * 3,000 = 270,000 PCM bytes (> 5 s @ 48,000 B/s).
+        // The historical null-output path fails after 192,000 queued bytes.
+        for (int index = 0; index < 90; index++)
+        {
+            byte[] pcm = new byte[3000];
+            pcm[0] = (byte)index;
+            Check(audio.TryAppend(sid, alid, agen, tid, aid, index, pcm, out reason),
+                "diagnostic escrow append " + index + " " + reason);
+            Check(audio.DrainOnOwner(4) == 1,
+                "diagnostic escrow owner-fiber drain without waveOut " + index);
+        }
+        Check(audio.TrySeal(sid, alid, agen, tid, aid, 90, 270000, out reason),
+            "diagnostic escrow complete PCM EOS without playback");
+        int queued, accepted, forwarded;
+        bool sealedInput;
+        Check(audio.TryStatus(sid, alid, agen, tid, aid, out queued, out accepted,
+            out forwarded, out sealedInput) && queued == 0 && accepted == 270000 &&
+            forwarded == 270000 && sealedInput,
+            "diagnostic PCM exactly validated, queue released and input sealed");
+        AudioPlaybackSnapshot physical;
+        Check(!audio.TryPhysicalStatus(sid, alid, agen, tid, aid, out physical),
+            "diagnostic escrow cannot return physical playback proof");
+        int completed, marked;
+        bool final;
+        Check(!audio.TryPhysicalProgress(sid, alid, agen, tid, aid, out physical,
+            out completed, out marked, out final),
+            "diagnostic escrow cannot invent physical segment completion");
+        Check(sink.ActiveStreams == 1, "diagnostic validation stream bound to lease");
+        audio.RetireAll();
+        Check(sink.ActiveStreams == 0, "diagnostic output disposed on native retirement");
+        turns.RetireAll(); host.Stop();
+    }
+
     private static void Main()
     {
         IdentityAndLeases();
@@ -1074,6 +1132,7 @@ internal static class Program
         S3PhysicalPlaybackReceiptFences();
         S3PerSegmentPhysicalProgress();
         S3MouthPresentationOnlyOnRealProgress();
+        NativeDiagnosticPcmEscrowOverFourSeconds();
         Console.WriteLine("PASS " + assertions +
             " standalone native core assertions; no Essential/RAGE/game assembly loaded.");
     }
