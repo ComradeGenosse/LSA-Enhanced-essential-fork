@@ -8,6 +8,7 @@ import {pathToFileURL,fileURLToPath} from 'node:url';
 import {DatabaseSync} from 'node:sqlite';
 import {createP2MemoryStorage} from '../src/characters/sqliteProfileStore.mjs';
 import {P2SqliteFoundation} from '../src/characters/sqliteFoundation.mjs';
+import {createConversationJournalRecorder} from '../src/memory/conversationRecorder.mjs';
 import {acquireWriterLock,releaseWriterLock,inspectWriterLock,snapshotSqlite,enforceJournalCaps} from '../src/characters/sqliteDurability.mjs';
 import {worldProfileId} from '../../lsa-essential-e1-candidate/tests/identity-fixtures.mjs';
 import {profile} from '../../lsa-essential-e1-candidate/tests/p2-fixtures.mjs';
@@ -106,4 +107,45 @@ test('WS-4b caps fail closed in the transaction with no data loss',async()=>{
     assert.throws(()=>enforceJournalCaps(db,{characterId:'character',bytes:1,limits:{globalBytes:1}}),/sqlite_journal_global_byte_cap/);
     assert.equal(db.prepare('SELECT count(*) AS n FROM event_journal').get().n,1);
   }finally{db.close();}
+});
+
+test('WS-4b a corrupt main file supports checked snapshot read-only recovery without restore',async t=>{
+  const {file}=await temp(t),store=createP2MemoryStorage({filePath:file,worldProfileId});
+  await store.initialize();
+  const character=await store.create(profile());
+  await store.close();
+  const fd=await fs.open(file,'r+');
+  try{await fd.write(Buffer.from('BROKEN DATABASE HEADER'),0,22,0);}finally{await fd.close();}
+  const reader=createP2MemoryStorage({filePath:file,worldProfileId});
+  await assert.rejects(reader.initialize());
+  const recovery=await reader.inspectReadOnlyRecovery();
+  assert.equal(recovery.status,'read_only_snapshot');
+  assert.equal(recovery.profiles[0].characterId,character.characterId);
+  await assert.rejects(reader.create(profile()),/profile_store_unavailable/);
+  await reader.close();
+});
+test('WS-4b recent free recall includes 200 player lines while older quotes stay in archive',async t=>{
+  const {file}=await temp(t),store=createP2MemoryStorage({filePath:file,worldProfileId});
+  await store.initialize();
+  try{
+    const character=await store.create(profile());
+    const timelineId=await store.createTimeline({label:'recent'});
+    await store.confirmTimeline(timelineId);
+    const recorder=createConversationJournalRecorder(store);
+    for(let i=0;i<210;i++)await recorder.recordPlayerAccepted({
+      characterId:character.characterId,
+      identity:{pedId:101,turnId:'ws4b-'+i,generationId:'g1',
+        sessionNonce:i<10?'first-session':i<20?'second-session':'latest-session'},
+      source:'typed',text:'archive quote number '+i,
+      attribution:{protagonist:'franklin'}
+    });
+    const scope={worldProfileId,characterId:character.characterId,timelineId};
+    const recent=await store.readFreeRecallWindow(scope);
+    assert.equal(recent.tier,'free_recall');
+    assert.ok(recent.lines.length>=200);
+    assert.ok(recent.bytes<=512*1024);
+    assert.ok(recent.lines.every(x=>x.content!=='archive quote number 0'));
+    const old=await store.findExactQuote({...scope,quote:'archive quote number 0'});
+    assert.equal(old[0].content,'archive quote number 0');
+  }finally{await store.close();}
 });
