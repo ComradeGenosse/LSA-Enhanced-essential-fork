@@ -182,8 +182,13 @@ test('coverage is unknown by default and native negatives require source certifi
     assert.equal(readM3Coverage(db,scope).certified,true);
     assert.equal(appendM3Coverage(db,{...row,nativeCoverage:receipt}).duplicate,true);
     assert.throws(()=>appendM3Coverage(db,{...row,status:'unknown',nativeCoverage:null}),/conflicting/);
+    // K-13: coverage must NOT cascade from promoted_profiles. P2 profile edits
+    // rewrite that table wholesale (DELETE + re-INSERT), which used to erase
+    // every character's coverage. Character removal deletes coverage through
+    // sqliteFoundation.replaceSnapshot's explicit table list (see
+    // m3-ws5b-coverage-ledger.test.mjs, which exercises the real store).
     db.prepare('DELETE FROM promoted_profiles WHERE character_id=?').run(A);
-    assert.equal(readM3Coverage(db,scope).status,'unknown');
+    assert.equal(readM3Coverage(db,scope).certified,true);
   }finally{db.close();}
 });
 

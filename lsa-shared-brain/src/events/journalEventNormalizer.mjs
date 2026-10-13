@@ -91,6 +91,28 @@ function subjectFor(claim, identity, participantProofs) {
   return `unresolved:${claim.claimId}`;
 }
 
+// D-023 attribution record: HOW the observer was tied to one live P2 profile.
+// Persisted inside the immutable source sidecar (and its hash) so an auditor can
+// tell an observation-time attribution from a source-time-corroborated one.
+// Absent for legacy rows, whose bytes and hashes are therefore unchanged.
+export function validAttribution(a,observation,ownerProof) {
+  const keys=['version','mode','decision','observerIndex','ownerFrame','observationTick','sourceReceipts'];
+  if(!a||typeof a!=='object'||Array.isArray(a)||Object.keys(a).some(k=>!keys.includes(k))||
+     a.version!==1||!['observation_time','source_time'].includes(a.mode)||a.decision!=='D-023'||
+     !a.observerIndex||a.observerIndex.captureRef!==ownerProof.observerCaptureRef||
+     a.observerIndex.incarnationId!==ownerProof.incarnationId||
+     a.observerIndex.encounterId!==ownerProof.encounterId||
+     Object.keys(a.observerIndex).length!==3||
+     a.observationTick!==observation.observedAt.gameTick)return false;
+  if(a.ownerFrame!==null){
+    const f=a.ownerFrame;
+    if(!f||!isUuid(f.streamId)||!nonNegative(f.sequence)||!nonNegative(f.sampledGameTick)||
+       f.sampledGameTick>0xffffffff||Object.keys(f).length!==3)return false;
+  }
+  if(a.sourceReceipts!==undefined&&(!Array.isArray(a.sourceReceipts)||a.sourceReceipts.length>4||
+     !a.sourceReceipts.every(isUuid)))return false;
+  return (a.mode==='source_time')===(a.sourceReceipts!==undefined);
+}
 export function normalizeWitnessedObservation({observation,identity,participantProofs=[],prePromotionProof=null}={}) {
   const reason=validatePs2MemoryInput(observation,identity);
   if(reason) return Object.freeze({accepted:false,reason});
@@ -101,7 +123,8 @@ export function normalizeWitnessedObservation({observation,identity,participantP
        p.adapterEpoch!==identity.adapterEpoch ||
        !(['character','protagonist'].includes(p.subjectKind)) ||
        (p.subjectKind==='character'?!isUuid(p.subjectKey):!['franklin','michael','trevor'].includes(p.subjectKey))) ||
-     prePromotionProof!==null && !samePhysicalOwner(identity.ownerProof,prePromotionProof))
+     prePromotionProof!==null && !samePhysicalOwner(identity.ownerProof,prePromotionProof) ||
+     identity.attribution!==undefined && !validAttribution(identity.attribution,observation,identity.ownerProof))
     return Object.freeze({accepted:false,reason:'provenance_mismatch'});
   const claims=observation.claims.map(c=>Object.freeze({
     kind:c.kind,
@@ -114,7 +137,8 @@ export function normalizeWitnessedObservation({observation,identity,participantP
     observation, identity:{
       characterId:identity.characterId, worldProfileId:identity.worldProfileId,
       timelineId:identity.timelineId, ownerProof:identity.ownerProof, adapterEpoch:identity.adapterEpoch
-    },participantProofs,prePromotionProof
+    },participantProofs,prePromotionProof,
+    ...(identity.attribution!==undefined?{attribution:identity.attribution}:{})
   };
   const sourceHash=evidenceHash(material);
   const recordId=uuidV4FromHash(evidenceHash(['M3',identity.worldProfileId,identity.timelineId,
@@ -133,6 +157,7 @@ export function normalizeWitnessedObservation({observation,identity,participantP
     format:'ps2-observation-v1',sourceHash,observation,
     nativeAdapterEpoch:identity.adapterEpoch,ownerProof:identity.ownerProof,
     participantProofs,prePromotionProof,coverage:{status:'matched',returnedCount:claims.length,matchedCount:claims.length},
+    ...(identity.attribution!==undefined?{attribution:identity.attribution}:{}),
   });
   return Object.freeze({accepted:true,event,sourceEvidence});
 }
@@ -149,6 +174,7 @@ export function verifyM3DerivedEvent(event,sourceEvidence) {
     promoted:true,current:true,characterId:event.characterId,
     worldProfileId:event.worldProfileId,timelineId:event.timelineId,
     adapterEpoch:sourceEvidence.nativeAdapterEpoch,ownerProof:sourceEvidence.ownerProof,
+    ...(sourceEvidence.attribution!==undefined?{attribution:sourceEvidence.attribution}:{}),
   };
   const derived=normalizeWitnessedObservation({
     observation:sourceEvidence.observation,identity,
