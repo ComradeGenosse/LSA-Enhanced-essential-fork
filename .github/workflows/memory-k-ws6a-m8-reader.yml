@@ -4,6 +4,7 @@ on:
     paths:
       - 'lsa-essential-e1-candidate/src/memory/p2M8ProductionRead.mjs'
       - 'lsa-essential-e1-candidate/tests/memory/ws6M8ProductionRead.test.mjs'
+      - 'lsa-shared-brain/src/memory/m8SqliteHistory.mjs'
       - '.github/workflows/memory-k-ws6a-m8-reader.yml'
   workflow_dispatch:
 permissions:
@@ -27,4 +28,4 @@ jobs:
           node --check lsa-essential-e1-candidate/src/memory/p2M8ProductionRead.mjs
           node --check lsa-essential-e1-candidate/tests/memory/ws6M8ProductionRead.test.mjs
       - name: Real SQLite / M8 / PS4 regression
-        run: node --test --test-concurrency=1 lsa-essential-e1-candidate/tests/memory/ws6M8ProductionRead.test.mjs
+        run: node --test --test-concurrency=1 lsa-essential-e1-candidate/tests/memory/ws6M8ProductionRead.test.mjs lsa-shared-brain/tests/memory-m8-closure.test.mjs
