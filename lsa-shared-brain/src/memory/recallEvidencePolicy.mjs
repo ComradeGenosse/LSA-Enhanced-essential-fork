@@ -53,7 +53,9 @@ function labelRow(row,scope){
   if(!row||row.evidenceState!=='verified'||row.forgotten===true||
     row.superseded===true||row.suppressed===true||!UUID.test(row.recordId)||
     !['characterId','worldProfileId','timelineId'].every(k=>row[k]===scope[k]&&row.envelope?.[k]===scope[k])||
-    row.recordId!==row.envelope.recordId)return null;
+    row.recordId!==row.envelope.recordId||
+    row.envelope.version!==1||row.envelope.kind!==row.sourceKind||
+    !utc(row.atUtc))return null;
   const e=row.envelope;
   let category,content,sourceEvidenceIds=[];
   if(row.sourceKind==='dialogue_line'){
