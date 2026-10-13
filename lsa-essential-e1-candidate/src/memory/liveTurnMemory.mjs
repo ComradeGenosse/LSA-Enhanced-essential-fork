@@ -149,7 +149,11 @@ export async function prepareLiveTurnMemory({store,turn,acceptedReceipt,input,so
     const stamp=Object.freeze({...scope,hostRunId:host.hostRunId,
       worldEpoch:host.worldEpoch,recordId:line.recordId});
     const preparedRecall=Object.freeze({status:'ready',stamp,contribution});
-    const recallCurrent=(_references,seen)=>seen===stamp&&current();
+    // PS4 immutableSnapshot clones the private stamp. Compare its exact
+    // allowlisted values, not object identity, after every snapshot/prune.
+    const recallCurrent=(_references,seen)=>!!seen&&
+      Object.keys(stamp).length===Object.keys(seen).length&&
+      Object.keys(stamp).every(k=>seen[k]===stamp[k])&&current();
     return Object.freeze({status:'ready',preparedRecall,conversationJournal,
       memoryAction,recallCurrent});
   }catch{return empty;}
