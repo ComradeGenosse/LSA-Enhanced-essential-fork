@@ -42,7 +42,7 @@ export async function acquireWriterLock(lockPath){
   try{
     const status=await inspectWriterLock(lockPath);
     if(status.status!=='stale_owner')
-      fail(status.status==='live_owner'?'sqlite_writer_busy':'sqlite_writer_recovery_manual');
+      fail('sqlite_writer_busy'); // legacy/unverifiable lock remains operator-only recovery
     const raw=await fs.readFile(lockPath,'utf8');
     if(JSON.stringify(parseOwner(raw))!==JSON.stringify(status.owner))fail('sqlite_writer_recovery_race');
     await fs.rm(lockPath);
@@ -73,7 +73,7 @@ export async function snapshotSqlite(db,filePath,{reason='session_end',now=new D
   let published=false;
   try{
     db.exec('VACUUM INTO '+sqlLiteral(temp));
-    const fh=await fs.open(temp,'r');try{await fh.sync();}finally{await fh.close();}
+    const fh=await fs.open(temp,'r+'); // Windows requires writable handle for FlushFileBufferstry{await fh.sync();}finally{await fh.close();}
     const {DatabaseSync}=await import('node:sqlite');
     const check=new DatabaseSync(temp,{readOnly:true});
     try{if(check.prepare('PRAGMA quick_check').get().quick_check!=='ok')fail('sqlite_snapshot_integrity_failed');}
