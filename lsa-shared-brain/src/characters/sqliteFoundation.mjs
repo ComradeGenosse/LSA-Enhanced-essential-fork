@@ -13,11 +13,11 @@ import { isUuid } from '../util/identity.mjs';
 import { PROFILE_LIMITS, validateProfiles } from './profileSchema.mjs';
 import { JOURNAL_SCHEMA_VERSION, migrateJournalSchema, assertJournalSchema, appendDialogue, appendEvent, readDialogue, findExactQuote, searchDialogue, readEvents, readVerifiedEventEvidence } from '../memory/journalSqlite.mjs';
 import { ensureIntegratedMemorySchema, listMemoryCandidates, listSuppressedMemoryIds, verifyPersistedMemoryCommand, commitPersistedMemoryCommand, persistDeterministicMemory, readPermanentMemoryRows, readCorrectionOverlays } from '../memory/integratedSqlite.mjs';
-import {ensureCurationSchema,enqueueCuration,claimCuration,completeCuration,retryCuration,releaseCuration,reserveCurationBudget,finishCurationBudget} from '../memory/curationSqlite.mjs';
+import {ensureCurationSchema,enqueueCuration,claimCuration,verifyCurationLease,completeCuration,retryCuration,releaseCuration,reserveCurationBudget,finishCurationBudget} from '../memory/curationSqlite.mjs';
 import {ensureM3CoverageSchema,appendM3Coverage,readM3Coverage,upsertObserverCoverage,sealStaleObserverCoverage,readObserverCoverage} from '../events/m3CoverageSqlite.mjs';
 import {readIntegratedRecall} from '../memory/sqliteIntegratedRecallProjection.mjs';
 import {ensureP2ReplaySchema,readP2ReplayPage,readP2ReplayCursor,acknowledgeP2ReplayCursor} from '../memory/p2ReplayCursor.mjs';
-import {ensureM5PrivacySchema} from '../memory/m5SqlitePrivacy.mjs';
+import {ensureM5PrivacySchema,reconcileM5Suppression} from '../memory/m5SqlitePrivacy.mjs';
 import {ensureM6P2ReplaySchema,readM6CheckpointSql,readM6JournalPageSql,ackM6CheckpointSql} from '../memory/m6P2ReplayAdapter.mjs';
 
 export const SQLITE_PROFILE_SCHEMA = 2;
@@ -213,7 +213,7 @@ export class P2SqliteFoundation {
       ensureM3CoverageSchema(db);
       // Additive v4 extensions, installed under the original P2 writer lock.
       // They do not change the M1 snapshot or PRAGMA user_version=4.
-      transaction(db,()=>{ensureM5PrivacySchema(db);ensureP2ReplaySchema(db);ensureM6P2ReplaySchema(db);});
+      transaction(db,()=>{ensureM5PrivacySchema(db);reconcileM5Suppression(db);ensureP2ReplaySchema(db);ensureM6P2ReplaySchema(db);});
       this.#db=db;
       return this.#snapshot;
     } catch(e){try {db?.close();}catch{}throw e;}
@@ -239,7 +239,7 @@ export class P2SqliteFoundation {
         if(!nextIds.has(previous.characterId)){
           removeDialogue.run(previous.characterId);
           removeEvents.run(previous.characterId);
-          for(const table of ['memory_records','memory_commands','memory_tombstones','memory_corrections','memory_curation_jobs','memory_luna_appraisals',
+          for(const table of ['memory_records','memory_commands','memory_suppressions','memory_tombstones','memory_corrections','memory_curation_jobs','memory_luna_appraisals',
             'm5_clarifications','m5_trash','m5_privacy_ops','p2_memory_replay_feed','p2_memory_replay_cursors','p2_memory_replay_player_cursors','m3_coverage','m3_observer_coverage',
             'm6_p2_checkpoints','m6_p2_source_receipts','m6_p2_rejections','m6_p2_ack_diagnostics','m6_p2_ack_receipts']){
             this.#db.prepare('DELETE FROM '+table+' WHERE character_id=?').run(previous.characterId);
@@ -362,6 +362,7 @@ export class P2SqliteFoundation {
   }
   enqueueCuration(args,timelineId){return enqueueCuration(this.#db,args,this.worldProfileId,timelineId);}
   claimCuration(args,timelineId){return claimCuration(this.#db,args,this.worldProfileId,timelineId);}
+  verifyCurationLease(args,timelineId){return verifyCurationLease(this.#db,args,this.worldProfileId,timelineId);}
   completeCuration(args,timelineId){return completeCuration(this.#db,args,this.worldProfileId,timelineId);}
   retryCuration(args,timelineId){return retryCuration(this.#db,args,this.worldProfileId,timelineId);}
   releaseCuration(args,timelineId){return releaseCuration(this.#db,args,this.worldProfileId,timelineId);}
