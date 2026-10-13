@@ -10,8 +10,8 @@ const time=n=>new Date(Date.UTC(2026,9,13,12)+n).toISOString();
 function setup(){
  const db=new DatabaseSync(':memory:');
  db.exec('CREATE TABLE dialogue_journal(record_id TEXT PRIMARY KEY,world_profile_id TEXT,character_id TEXT,timeline_id TEXT,protagonist TEXT,speaker TEXT,source TEXT,delivery TEXT,content TEXT,content_sha256 TEXT,envelope_json TEXT,envelope_sha256 TEXT,committed_at_utc TEXT,turn_identity_hash TEXT);'
- +'CREATE TABLE event_journal(record_id TEXT,world_profile_id TEXT,character_id TEXT,timeline_id TEXT,source_hash TEXT,observation_id TEXT);'
- +'CREATE TABLE memory_records(memory_id TEXT,world_profile_id TEXT,character_id TEXT,timeline_id TEXT,content_sha256 TEXT,evidence_ids_json TEXT);'
+ +'CREATE TABLE event_journal(record_id TEXT,world_profile_id TEXT,character_id TEXT,timeline_id TEXT,source_hash TEXT,observation_id TEXT,receipt_status TEXT);'
+ +'CREATE TABLE memory_records(memory_id TEXT,world_profile_id TEXT,character_id TEXT,timeline_id TEXT,content TEXT,content_sha256 TEXT,evidence_ids_json TEXT);'
  +'CREATE TABLE memory_tombstones(world_profile_id TEXT,character_id TEXT,timeline_id TEXT,target_id TEXT,command_id TEXT);'
  +'CREATE TABLE memory_corrections(command_id TEXT,world_profile_id TEXT,character_id TEXT,timeline_id TEXT,target_id TEXT,preferred_text TEXT,content_sha256 TEXT,created_at_utc TEXT,correction_mode TEXT);');
  ensureSuppressionSchema(db);
@@ -76,6 +76,8 @@ test('G3 refuses capped, corrupt, revoked and unsupported queries',async()=>{
  const f=setup();
  try{
   f.add('one',{at:1});f.add('two',{at:2});
+  assert.equal((await f.policy().countDialogue({scope:f.scope,source:f.source,
+   predicate:{eventType:'firing'}})).exactCount,null);
   assert.equal((await f.policy().countDialogue({scope:f.scope,source:f.source,maxScan:1})).status,'incomplete');
   assert.equal((await f.policy().countDialogue({scope:f.scope,source:f.source,
    predicate:{speaker:'journal_event'}})).exactCount,null);
@@ -213,5 +215,17 @@ test('pre-send P2 visibility gate rejects forget, corruption and revoked source'
   assert.equal(await policy.verifyReferenceVisibility({...input,recordIds:[id()]}),false);
   f.expire();
   assert.equal(await policy.verifyReferenceVisibility(input),false);
+ }finally{f.close();}
+});
+
+
+test('G4 pre-send reference gate never trusts a bare event row without native sidecar',async()=>{
+ const f=setup(),eventId=id();
+ try{
+  f.db.prepare('INSERT INTO event_journal VALUES(?,?,?,?,?,?,?)')
+   .run(eventId,f.world,f.npc,f.timeline,sha('event'),id(),'witnessed');
+  const r=await f.policy().verifyReferenceVisibility({scope:f.scope,source:f.source,
+   recordIds:[eventId]});
+  assert.equal(r,false);
  }finally{f.close();}
 });
