@@ -130,6 +130,11 @@ test('G5 native event-specific independent verifier required; gaps and spoofed i
   const verify=q=>{calls++;assert.equal(q.observationId,observationId);
    assert.equal(q.fromUtc,range.fromUtc);return true;};
   assert.equal((await f.policy(verify).witness(input)).status,'did_not_witness');
+  ledger.windows[0].endUtc=time(1500);
+  assert.equal((await f.policy(verify).witness(input)).status,'unknown');
+  ledger.windows[0].endUtc=time(3000);ledger.windows[0].startUtc=time(500);
+  assert.equal((await f.policy(verify).witness(input)).status,'unknown');
+  ledger.windows[0].startUtc=time(-1000);
   ledger.gaps.push({kind:'lost_observation',fromUtc:time(400),toUtc:time(500)});
   assert.equal((await f.policy(verify).witness(input)).status,'unknown');assert.equal(calls,1);
   ledger.gaps.length=0;ledger.windows[0].status='open';
