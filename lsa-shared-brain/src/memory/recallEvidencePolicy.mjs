@@ -3,6 +3,7 @@
 import {createHash} from 'node:crypto';
 import {suppressedMemoryIds} from './suppressionSqlite.mjs';
 import {supersededTargetIds} from './correctionSemantics.mjs';
+import {readVerifiedEventEvidence} from './journalSqlite.mjs';
 
 const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const HASH=/^[0-9a-f]{64}$/;
@@ -189,6 +190,9 @@ export function createRecallEvidencePolicy({store,isCurrent,verifyNativeNegative
     if(!Number.isSafeInteger(maxScan)||maxScan<1||maxScan>20000||
        !Number.isSafeInteger(maxBytes)||maxBytes<512||maxBytes>8192)
       throw new TypeError('ws6_invalid_scan_or_output_budget');
+    if(!predicate||typeof predicate!=='object'||Array.isArray(predicate)||
+       Object.keys(predicate).some(key=>!['speaker','containsText','fromUtc','toUtc'].includes(key)))
+      return incomplete('unsupported_predicate');
     const {speaker=null,containsText='',fromUtc=null,toUtc=null}=predicate;
     if(speaker!==null&&!['player','npc'].includes(speaker)||
        typeof containsText!=='string'||containsText.length>512||
@@ -288,7 +292,7 @@ export function createRecallEvidencePolicy({store,isCurrent,verifyNativeNegative
       const keys=[scope.worldProfileId,scope.characterId,scope.timelineId];
       const revoked=new Set([...suppressedMemoryIds(db,scope),...supersededTargetIds(db,keys)]);
       const dialogue=db.prepare('SELECT content,content_sha256 AS hash,envelope_json AS raw,envelope_sha256 AS rawHash FROM dialogue_journal WHERE world_profile_id=? AND character_id=? AND timeline_id=? AND record_id=?');
-      const event=db.prepare('SELECT 1 AS ok FROM event_journal WHERE world_profile_id=? AND character_id=? AND timeline_id=? AND record_id=?');
+      const event=db.prepare('SELECT receipt_status AS status FROM event_journal WHERE world_profile_id=? AND character_id=? AND timeline_id=? AND record_id=?');
       const memory=db.prepare('SELECT content,content_sha256 AS hash FROM memory_records WHERE world_profile_id=? AND character_id=? AND timeline_id=? AND memory_id=?');
       for(const id of recordIds){
         if(revoked.has(id))return false;
@@ -297,7 +301,18 @@ export function createRecallEvidencePolicy({store,isCurrent,verifyNativeNegative
           if(sha(line.content)!==line.hash||sha(line.raw)!==line.rawHash)return false;
           continue;
         }
-        if(event.get(...keys,id)?.ok)continue; // original P2 projection already replay-verified sidecar
+        const eventRow=event.get(...keys,id);
+        if(eventRow){
+          if(eventRow.status!=='witnessed')return false;
+          const proof=readVerifiedEventEvidence(db,{characterId:scope.characterId,
+            timelineId:scope.timelineId,recordId:id},scope.worldProfileId);
+          if(!proof?.event||proof.event.recordId!==id||
+             proof.event.characterId!==scope.characterId||
+             proof.event.worldProfileId!==scope.worldProfileId||
+             proof.event.timelineId!==scope.timelineId||
+             proof.event.receiptStatus!=='witnessed')return false;
+          continue;
+        }
         const derived=memory.get(...keys,id);
         if(!derived||sha(derived.content)!==derived.hash)return false;
       }
