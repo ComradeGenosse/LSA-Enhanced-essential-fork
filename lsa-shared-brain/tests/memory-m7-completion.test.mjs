@@ -6,7 +6,7 @@ import {mkdtempSync,rmSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import path from 'node:path';
 import {selectAutomaticMemories} from '../src/memory/selection.mjs';
-import {validateM7Consent,validateM7IdleProof,validateM7Pricing,M7_PRIORITY_QUIET_FIELDS} from '../src/memory/m7Consent.mjs';
+import {validateM7Consent,validateM7IdleProof,validateM7Pricing,validateM7ProductionPricing,validateM7PersistedApproval,M7_PRIORITY_QUIET_FIELDS,M7_PRICING_SOURCE_URL} from '../src/memory/m7Consent.mjs';
 import {readPermanentMemoryRows} from '../src/memory/integratedSqlite.mjs';
 import {createHash} from 'node:crypto';
 import {makeQueueJob} from '../src/memory/queueContract.mjs';
@@ -489,4 +489,133 @@ test('M7 SQLite pagination preserves older cross-avatar appraisal behind a suppr
  // A suppressed historical source is not eligible for a fresh cloud queue.
  assert.throws(()=>enqueueCuration(f.db,{job:makeQueueJob(newer,at(7))},
    f.scope.worldProfileId,f.scope.timelineId),/curation_source_forgotten/);
+});
+
+
+// W07 restored: the earlier specialist branch contained explicit negative
+// acceptance for persisted approval, authenticated owner/idle evidence, billing,
+// revocation, and verified pricing. These are mock/socket-boundary tests only.
+// The production M7 seam remains disabled until the P2/native ports are wired.
+function attachW07VerifiedTestPorts(f,h){
+ let persisted=null,listener=null;
+ h.store.readM7Consent=async()=>persisted;
+ h.store.subscribeM7ConsentInvalidation=fn=>{
+   listener=fn;return ()=>{if(listener===fn)listener=null;};
+ };
+ // TEST-ONLY stand-in for the authenticated native channel, not a JS flag
+ // that may authorize production speech or cloud transport.
+ h.nativeIdle.verifyAuthenticatedSource=proof=>
+   proof?.kind==='verified_native_idle_v1'&&proof.nativeVerified===true&&
+   proof.hostRunId===id(70)&&proof.worldEpoch===1&&
+   proof.characterId===f.scope.characterId;
+ return {
+   persist(policy){
+     persisted={...policy,source:'p2_explicit_player_settings',model:'gpt-6-luna',
+       worldProfileId:f.scope.worldProfileId,timelineId:f.scope.timelineId,
+       persistedAtUtc:at(0)};
+     listener?.();
+     return persisted;
+   },
+   revoke(){persisted=null;listener?.();}
+ };
+}
+const w07Approved=()=>({...consent(),consentRevision:1,approvalId:id(98)});
+const w07Strict=x=>({...x,consent:w07Approved(),requiredModel:'gpt-6-luna',
+ requirePersistedConsent:true,requireAuthenticatedNative:true});
+
+test('W07 restored: persisted approval is revision-, NPC-save-, model- and budget-fenced',t=>{
+ const f=fixture(t),h=hFixture(f),trusted=attachW07VerifiedTestPorts(f,h);
+ const policy=validateM7Consent(w07Approved());
+ const record=trusted.persist(policy);
+ const verify=x=>validateM7PersistedApproval(x,policy,{store:h.store,model:'gpt-6-luna'});
+ assert.equal(verify(record),true);
+ for(const invalid of [
+   {...record,source:'config_toggle'}, {...record,consentRevision:2},
+   {...record,approvalId:id(96)}, {...record,model:'gpt-6-sol'},
+   {...record,timelineId:id(43)}, {...record,worldProfileId:id(44)},
+   {...record,offTurnEvidenceUploadAccepted:false}, {...record,cloudOptIn:false},
+   {...record,monthlyUsd:999}, {...record,maxBatchUsd:999},
+   {...record,consentedAtUtc:at(1)}
+ ])assert.equal(verify(invalid),false,JSON.stringify(invalid));
+ trusted.revoke();
+ assert.equal(verify(null),false);
+});
+
+test('W07 restored: production prices must attest correct model, tier, endpoint and conservative bounds',()=>{
+ const valid=pricedConfig();
+ const checked=validateM7ProductionPricing(valid,{nowUtc:at(2)});
+ assert.equal(checked.model,'gpt-6-luna');
+ assert.equal(valid.curatorPricing.officialPricingUrl,M7_PRICING_SOURCE_URL);
+ const price={...valid.curatorPricing};
+ const rejects=config=>assert.throws(()=>validateM7ProductionPricing(config,{nowUtc:at(2)}),
+  /official_standard_luna_price_attestation_required|verified_luna_pricing_required/);
+ rejects({...valid,reasoningModel:'gpt-6-sol'});
+ rejects({...valid,reasoningBaseUrl:'https://untrusted.example/v1'});
+ rejects({...valid,curatorPricing:{...price,pricingTier:'fast'}});
+ rejects({...valid,curatorPricing:{...price,officialPricingUrl:'https://untrusted.example/pricing'}});
+ rejects({...valid,curatorPricing:{...price,inputUsdPerMillionTokens:.01}});
+ rejects({...valid,curatorPricing:{...price,outputUsdPerMillionTokens:.05}});
+ rejects({...valid,curatorPricing:{...price,verifiedAtUtc:'2020-01-01T00:00:00Z'}});
+});
+
+test('W07 restored: absent consent or unverified native channel forbids billable transport',async t=>{
+ const f=fixture(t),h=hFixture(f),trust=attachW07VerifiedTestPorts(f,h),network=[];
+ const make=()=>createEssentialM7Scheduler({
+   config:{...pricedConfig(),reasoningKey:'offline-test-only'},store:h.store,
+   queue:h.queue,ledger:h.ledger,nativeIdle:h.nativeIdle,consent:w07Approved(),
+   now:()=>at(2),minIntervalMs:0,leaseMs:6000,maxProviderMs:1000,
+   fetchImpl:async()=>{network.push('billable');throw new Error('network forbidden');}
+ });
+ const withoutApproval=make();
+ assert.equal((await withoutApproval.checkpoint()).status,'consent_or_source_unverified');
+ assert.deepEqual(h.calls,[]);
+ assert.deepEqual(network,[]);
+ await withoutApproval.stop();
+ trust.persist(validateM7Consent(w07Approved()));
+ delete h.nativeIdle.verifyAuthenticatedSource;
+ const withoutSource=make();
+ assert.equal((await withoutSource.checkpoint()).status,'source_unverified');
+ assert.deepEqual(h.calls,[]);
+ assert.deepEqual(network,[]);
+ await withoutSource.stop();
+});
+
+test('W07 restored: every native quiet field and stale source evidence denies cloud work',async t=>{
+ const f=fixture(t),h=hFixture(f),trust=attachW07VerifiedTestPorts(f,h);
+ trust.persist(validateM7Consent(w07Approved()));
+ const s=h.make(w07Strict({}));
+ for(const field of M7_PRIORITY_QUIET_FIELDS){
+   h.nativeIdle.state.priorityEvidence[field]=false;
+   assert.equal((await s.checkpoint()).status,'source_unverified',field);
+   h.nativeIdle.state.priorityEvidence[field]=true;
+ }
+ h.nativeIdle.state.observedAtUtc=at(0);
+ assert.equal((await s.checkpoint()).status,'source_unverified','stale source timestamp');
+ assert.deepEqual(h.calls,[],'no claim, reservation or provider operation allowed');
+ await s.stop();
+});
+
+test('W07 restored: persisted withdrawal cancels pending provider and prevents late SQLite commit',async t=>{
+ const f=fixture(t);let start,finish;
+ const entered=new Promise(resolve=>{start=resolve;});
+ const h=hFixture(f,{provider:{
+   estimateMaxCostUsd:()=>.005,
+   curateBatch:()=>{start();return new Promise(resolve=>{finish=resolve;});}
+ }});
+ const trust=attachW07VerifiedTestPorts(f,h);
+ trust.persist(validateM7Consent(w07Approved()));
+ const s=h.make(w07Strict({}));
+ const inFlight=s.checkpoint();
+ await entered;
+ trust.revoke();
+ const outcome=await inFlight;
+ assert.equal(outcome.status,'cancelled');
+ assert.equal(h.calls.includes('commit'),false);
+ finish([f.appraisal]); // Deliberately deliver the stale cloud result AFTER revocation.
+ await new Promise(resolve=>setImmediate(resolve));
+ assert.equal(h.calls.includes('commit'),false);
+ const reservation=f.db.prepare('SELECT state,amount_usd FROM memory_budget_reservations').get();
+ assert.equal(reservation.state,'settled');
+ assert.equal(reservation.amount_usd,.02,'uncertain spend is charged at reservation ceiling');
+ await s.stop();
 });
