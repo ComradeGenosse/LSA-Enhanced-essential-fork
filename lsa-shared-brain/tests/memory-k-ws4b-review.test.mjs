@@ -229,7 +229,9 @@ test('WS-4b P2 byte and global limits fail closed with visible warning; original
 test('WS-4b busy P2 event journal performance sample (real serialized writer, no mocks)',async t=>{
   const x=await setup(t);
   const N=550,started=performance.now();
+  let first100=0,last100=0;
   for(let i=0;i<N;i++){
+    const start=performance.now();
     await x.store.appendJournalEvent({
       version:1,characterId:x.scope.characterId,worldProfileId,timelineId:x.scope.timelineId,
       kind:'journal_event',recordId:id(),observationId:id(),revision:1,eventType:'gunfire',
@@ -238,9 +240,14 @@ test('WS-4b busy P2 event journal performance sample (real serialized writer, no
         hostRunId:id(),worldEpoch:1,observerCaptureRef:id()},
       claims:[{kind:'gunfire',modality:'auditory',certainty:'direct',durableSubject:'player',sourceEvidenceId:id()}]
     });
+    const elapsed=performance.now()-start;
+    if(i<100)first100+=elapsed;
+    if(i>=N-100)last100+=elapsed;
   }
   const ms=performance.now()-started;
-  console.log('WS4B_BUSY_JOURNAL',JSON.stringify({events:N,elapsedMs:Math.round(ms),eventsPerSecond:Math.round(N*1000/ms)}));
+  console.log('WS4B_BUSY_JOURNAL',JSON.stringify({events:N,elapsedMs:Math.round(ms),
+    eventsPerSecond:Math.round(N*1000/ms),first100MeanMs:+(first100/100).toFixed(2),
+    last100MeanMs:+(last100/100).toFixed(2)}));
   assert.equal((await x.store.readJournalEvents(x.scope)).length,200);
   assert.ok(ms<90000,'busy journal exceeded 90s regression budget');
   await x.store.close();
