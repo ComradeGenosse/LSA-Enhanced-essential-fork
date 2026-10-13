@@ -69,7 +69,12 @@ export async function snapshotSqlite(db,filePath,{reason='session_end',now=new D
   if(!(now instanceof Date)||Number.isNaN(now.getTime()))fail('sqlite_snapshot_invalid_time');
   const folder=filePath+'.snapshots';await fs.mkdir(folder,{recursive:true});
   const day=now.toISOString().slice(0,10),temp=path.join(folder,'.'+randomUUID()+'.sqlite');
-  const dest=path.join(folder,`daily-${day}.sqlite`);
+  // Migration recovery points are immutable and separate from session rotation.
+  // A same-day normal close must never replace the only pre-upgrade copy.
+  const migration=reason==='pre_migration';
+  const dest=path.join(folder,migration
+    ?`pre-migration-${now.toISOString().replaceAll(':','-').replaceAll('.','-')}-${randomUUID()}.sqlite`
+    :`daily-${day}.sqlite`);
   let published=false;
   try{
     db.exec('VACUUM INTO '+sqlLiteral(temp));
@@ -79,6 +84,7 @@ export async function snapshotSqlite(db,filePath,{reason='session_end',now=new D
     try{if(check.prepare('PRAGMA quick_check').get().quick_check!=='ok')fail('sqlite_snapshot_integrity_failed');}
     finally{check.close();}
     await fs.rename(temp,dest);published=true;
+    if(migration)return Object.freeze({status:'created',reason,path:dest});
     const weekly=path.join(folder,`weekly-${weekKey(now)}.sqlite`);
     try{await fs.copyFile(dest,weekly,fsConstants.COPYFILE_EXCL);}
     catch(e){if(e.code!=='EEXIST')throw e;}
