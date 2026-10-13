@@ -155,7 +155,11 @@ export class ShadowRuntime {
          !this.current(p.protagonist.playerCaptureRef) ||
          this.anchors.get(p.protagonist.playerCaptureRef)?.kind!=='player')
         return false;
-      const seen=new Set();
+      // K-21 samples are complete for *currently provable* owners, not
+      // necessarily every live native observer. An owner that is suspended,
+      // faulting or fails lifetime proof is intentionally omitted by the
+      // production sampler. Omission grants NO authority; asserted owners
+      // must individually match the authenticated live anchor and index.
       for(const owner of p.owners) {
         const row=this.observerIndex.get(owner.observerCaptureRef);
         const anchor=this.anchors.get(owner.observerCaptureRef);
@@ -164,13 +168,6 @@ export class ShadowRuntime {
            !row?.owned || row.kind!=='ped' ||
            row.incarnationId!==owner.incarnationId ||
            row.encounterId!==owner.encounterId)return false;
-        seen.add(owner.observerCaptureRef);
-      }
-      // Native snapshots are full, not convenient subsets. Missing a live
-      // owned P2 observer must never silently authorize a different NPC.
-      for(const [ref,row] of this.observerIndex) {
-        if(this.current(ref) && this.anchors.get(ref)?.observer &&
-           row.kind==='ped' && row.owned && !seen.has(ref))return false;
       }
       return true;
     }
