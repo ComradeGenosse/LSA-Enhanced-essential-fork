@@ -20,6 +20,7 @@ import {createD03OriginalDialogueJoin} from '../memory/d03OriginalDialogueJoin.m
 import {createOriginalBackendAcceptedInput} from '../memory/originalBackendAcceptedInput.mjs';
 import {createOpenAIRuntimeAcceptedInputSource} from '../memory/openaiRuntimeAcceptedInput.mjs';
 import {createOriginalTurnActorLedger} from '../memory/originalTurnActorLedger.mjs';
+import {createNpcSpeechDeliverySource} from '../memory/npcSpeechDeliveryLedger.mjs';
 import { validateDecisionShape } from '../context/essentialDecision.mjs';
 import { validateStockDecision } from '../context/decisionValidator.mjs';
 import { createProviderStack } from '../providers/providerStack.mjs';
@@ -70,8 +71,13 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
     ledger:originalActorLedger,
   }):null;
   const originalAcceptedInput=openaiAcceptance?.verifier??createOriginalBackendAcceptedInput();
+  // WS-5a: runtime-owned NPC speech-delivery ledger. The recorder half is held
+  // privately by the OpenAI connections (like the D01 issuer); D03 receives only
+  // the read-only evaluator, scoped to its own turn tuple.
+  const speechDelivery=openaiAcceptance?createNpcSpeechDeliverySource():null;
   const memorySources=openaiAcceptance?Object.freeze({
     acceptance:openaiAcceptance.issuer,
+    speech:speechDelivery.recorder,
     recordTurn:(identity,connection)=>{
       const entry=originalActorLedger.recordAtTurnCreation(identity,connection);
       // A newer original generation fences issuance for older ones.
@@ -106,7 +112,8 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
       // owner claim of this ped at turn preparation; retired on revoke/close.
       const p1Binding=identityService?()=>identityService.bindings.get(turn.identity):null;
       return join.begin({identity:turn.identity,characterId,ownerAlias,
-        isCurrent,p1Binding});
+        isCurrent,p1Binding,
+        speech:speechDelivery?{evaluate:()=>speechDelivery.verifier.evaluate(turn.identity)}:null});
     },
     async recordM2Player({turn,text,source}) {
       if(!turn?.m2Capture||!['player_text','player_mic'].includes(source))
@@ -115,20 +122,17 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
         text,source:source==='player_mic'?'stt':'typed',
         transcription:source==='player_mic'
           ?{provider:providerStack?.transcription?.id??'unknown',
-            model:'unknown',confidence:null}:null
+            // Recorded as configured; a provider that cannot name its model
+            // stays 'unknown' rather than being guessed.
+            model:config.transcriptionModel||'unknown',confidence:null}:null
       });
     },
-    admitM2SpeechSegment({turn,mode,sequence,text,audioBytes,forwardedBytes}) {
-      // Caller-chosen audio counts are inert. W03 independently compares
-      // each segment to native-source PCM forwarding and TTS completion.
-      try{return turn?.m2Capture?.admitSpeechSegment?.({
-        mode,sequence,text,audioBytes,forwardedBytes})??null;}
-      catch{return null;}
-    },
-    async recordM2Npc({turn,receipt}) {
-      // W03 uses only ordered source-verified TTS segment text, never the
-      // final Luna draft; requires completed native playback + RAM history.
-      return turn?.m2Capture?.completeNpc?.({receipt})??null;
+    // The NPC side of the exchange. Takes NO text, status, receipt or byte
+    // count: D03 reads the runtime's own speech-delivery ledger for this turn
+    // tuple and classifies completed / interrupted / failed from that evidence
+    // alone (WS-5a). A `not_stored` result means "no durable receipt".
+    async recordM2Npc({turn}) {
+      return turn?.m2Capture?.recordNpcOutcome?.()??null;
     },
     recordDialogueActionPublication({turn,validated,publishedAtMs}){
       if(config.provider!=='openai' || config.activities?.dialogueReceipts!==true || !runtime.dialogueKnowledgeBuildSupported)return null;
@@ -322,6 +326,7 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
         // Session close/identity retirement/disconnect revokes every pending
         // acceptance receipt and ledger entry of this native session.
         try { openaiAcceptance?.verifier.retireSession(connection.sessionIdentity ?? {}); } catch {}
+        try { speechDelivery?.recorder.retireSession(connection.sessionIdentity ?? {}); } catch {}
         try { originalActorLedger.retireSession(connection.sessionIdentity ?? {}); } catch {}
         identityService?.detach(connection.sessionIdentity);
         characterService?.sessions.detach(connection.sessionIdentity);
@@ -337,6 +342,7 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
       if (bridge && bridge !== value) {
         try { openaiAcceptance?.verifier.retireSourceRun(); } catch {}
         originalActorLedger.clear();
+        try { speechDelivery?.recorder.clear(); } catch {}
       }
       bridge = value;
     },
@@ -351,6 +357,7 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
     retireOriginalAcceptanceSourceRun() {
       try { openaiAcceptance?.verifier.retireSourceRun(); } catch {}
       originalActorLedger.clear();
+      try { speechDelivery?.recorder.clear(); } catch {}
     },
     originalAcceptanceStatus() {
       return Object.freeze({provider: config.provider,
