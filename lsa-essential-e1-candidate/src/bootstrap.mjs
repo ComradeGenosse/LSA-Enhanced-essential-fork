@@ -24,6 +24,7 @@ import { perceptionContractSupported } from './perception/nativeSupport.mjs';
 import { createDialogueTrace, createNoopDialogueTrace } from './observability/dialogueTrace.mjs';
 import {createM3ProductionMemory} from './memory/m3ProductionMemory.mjs';
 import {createMemoryD02Port} from './memory/memoryD02Port.mjs';
+import {resolveMemoryKCapabilities} from './memory/capabilityPolicy.mjs';
 
 const shutdownClosers = new Set();
 let shutdownFlushRegistered = false;
@@ -117,6 +118,22 @@ export async function createRuntimeForBundle(options = {}) {
   try {const bytes=await readFile(new URL('../build-manifest.json',import.meta.url));capabilityManifest=JSON.parse(bytes);capabilityPayloadHash=createHash('sha256').update(bytes).digest('hex');}catch{}
   capabilityValidation=await loadCapabilityValidation(options.capabilityValidationPath??path.resolve(process.cwd(),'diagnostics/validation.v1.json'));
   runtime.services.capabilityHealth=()=>projectCapabilityHealth({config,manifest:capabilityManifest,payloadHash:capabilityPayloadHash,validation:capabilityValidation,perception:runtime.intelligence?.runtime,activities:runtime.activities});
+  runtime.services.memoryKCapabilities=()=>{
+    const store=runtime.characterService?.store;
+    const source=runtime.intelligence?.runtime;
+    const sourceReady=!!source?.epoch && !!source?.hostContext;
+    const sqliteReady=config.promotedCharacters.storageMode==='sqlite' && typeof store?.withTimelineWrite==='function';
+    return resolveMemoryKCapabilities({config,available:{
+      'source.core':sourceReady,
+      'p2.sqlite':sqliteReady,
+      'authority.native':!!runtime.memoryD02,
+      'privacy.core':sqliteReady,
+      'memory.dialogue.player':!!runtime.memoryD02 && sqliteReady,
+      'memory.dialogue.npc':!!runtime.memoryD02 && sqliteReady,
+      'memory.events':!!runtime.memoryM3 && sqliteReady,
+      'memory.coverage':!!runtime.memoryM3 && sqliteReady,
+    }});
+  };
   let knowledgeContract=options.dialogueKnowledgeContract,knowledgePerceptionContract=options.perceptionContract;
   if(knowledgeContract===undefined)knowledgeContract=capabilityManifest?.dialogueKnowledgeContract;
   if(knowledgePerceptionContract===undefined)knowledgePerceptionContract=capabilityManifest?.perceptionContract;

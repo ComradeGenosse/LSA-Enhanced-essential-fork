@@ -30,6 +30,9 @@
     "editorPort": 37921,
     "summonWaitMs": 30000
   },
+  "memoryK": {
+    "capabilities": {}
+  },
   "dialogueLogging": {
     "enabled": false,
     "maxFileBytes": 10485760,
