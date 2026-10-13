@@ -50,7 +50,9 @@ $activationKeys=@(
   'LSA_STANDALONE_ACTOR_MODE','LSA_STANDALONE_TYPED_MODE',
   'LSA_STANDALONE_TTS_MODE','LSA_STANDALONE_AUDIO_OUTPUT',
   'LSA_STANDALONE_PLAYBACK_CONFIRM','LSA_STANDALONE_LIPSYNC',
-  'LSA_STANDALONE_EARLY_SPEECH','LSA_STANDALONE_ACTIVATION_STAGE'
+  'LSA_STANDALONE_EARLY_SPEECH','LSA_STANDALONE_ACTIVATION_STAGE',
+  'LSA_STANDALONE_VOICE_ASSIGNMENTS','LSA_STANDALONE_TTS_SESSION_VOICES',
+  'LSA_STANDALONE_TTS_INSTRUCTIONS'
 )
 $originalActivationEnv=@{}
 foreach ($key in $activationKeys) {
@@ -62,7 +64,14 @@ $env:LSA_STANDALONE_TTS_MODEL=$TtsModel
 $env:LSA_STANDALONE_TTS_PROVIDER=$TtsProvider
 $env:LSA_STANDALONE_TTS_VOICE=$Voice
 $env:LSA_STANDALONE_QWEN_URL=$QwenUrl
-$env:LSA_STANDALONE_QWEN_VOICES=$Voice
+# Do not construct a dormant Qwen provider for an OpenAI-only stage.
+$env:LSA_STANDALONE_QWEN_VOICES=if ($TtsProvider -eq 'faster-qwen3-tts') { $Voice } else { $null }
+# Advanced speech customization from a previous launch is not a stage override.
+# The standalone test launcher uses deterministic defaults, never hidden inherited
+# assignments, alternate session voice pools, or text instructions.
+$env:LSA_STANDALONE_VOICE_ASSIGNMENTS=$null
+$env:LSA_STANDALONE_TTS_SESSION_VOICES=$null
+$env:LSA_STANDALONE_TTS_INSTRUCTIONS=$null
 $requestedEnable=@($EnableCapability)
 if ($EarlySpeech) { $requestedEnable += 'early_speech' }
 $arguments=@($preflight, $Stage)
