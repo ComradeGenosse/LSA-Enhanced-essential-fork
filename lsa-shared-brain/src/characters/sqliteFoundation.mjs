@@ -185,7 +185,10 @@ export async function inspectP2ReadOnlyRecovery({filePath,worldProfileId,scope=n
       const version=db.prepare('PRAGMA user_version').get().user_version;
       if(version===JOURNAL_SCHEMA_VERSION)assertJournalSchema(db);
       if(scope&&version!==JOURNAL_SCHEMA_VERSION)continue;
-      const lines=scope?readDialogue(db,{...scope,worldProfileId,limit:Math.min(200,scope.limit??200)},worldProfileId):null;
+      // A historical backup may predate a later permanent forget/correction
+      // receipt. Never expose old verbatim dialogue from a snapshot without a
+      // current authoritative privacy ledger; inspection is metadata-only.
+      const lines=null;
       return Object.freeze({
         status:'read_only_snapshot',path:path.join(folder,name),
         schemaVersion:version,revision:snapshot.revision,
