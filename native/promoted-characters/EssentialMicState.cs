@@ -62,7 +62,7 @@ namespace LSA.PromotedCharacters
             return TryRead(out var after) && after == null ? null : "native_operation_failed";
         }
 
-        bool TryRead(out Ped current)
+        internal bool TryRead(out Ped current)
         {
             current = null;
             if (activePed == null) return false;

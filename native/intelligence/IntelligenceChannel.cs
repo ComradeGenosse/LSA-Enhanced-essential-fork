@@ -19,7 +19,7 @@ namespace LSA.Intelligence
         readonly Func<object> capabilities;
         readonly string hostRunId;
         readonly Func<int> worldEpoch;
-        readonly bool observerIndex,directorRequests;
+        readonly bool observerIndex,directorRequests,utteranceLifecycle;
         readonly JavaScriptSerializer json=new JavaScriptSerializer {MaxJsonLength=8192,RecursionLimit=8};
         NamedPipeServerStream pipe;
         string streamId;
@@ -28,15 +28,16 @@ namespace LSA.Intelligence
         public int ConnectionVersion {get;private set;}
         public bool Connected => connected && !stopping;
         public long Dropped {get;private set;}
-        public IntelligenceChannel(string name,string epoch,Func<object> capabilities,string hostRunId=null,Func<int> worldEpoch=null,bool observerIndex=false,bool directorRequests=false) {
+        public IntelligenceChannel(string name,string epoch,Func<object> capabilities,string hostRunId=null,Func<int> worldEpoch=null,bool observerIndex=false,bool directorRequests=false,bool utteranceLifecycle=false) {
             if((hostRunId==null)!=(worldEpoch==null) || hostRunId!=null && !System.Text.RegularExpressions.Regex.IsMatch(hostRunId,"^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$")) throw new ArgumentException("invalid_host_context");
-            this.name=name;this.epoch=epoch;this.capabilities=capabilities;this.hostRunId=hostRunId;this.worldEpoch=worldEpoch;this.observerIndex=observerIndex;this.directorRequests=directorRequests;
+            this.name=name;this.epoch=epoch;this.capabilities=capabilities;this.hostRunId=hostRunId;this.worldEpoch=worldEpoch;this.observerIndex=observerIndex;this.directorRequests=directorRequests;this.utteranceLifecycle=utteranceLifecycle;
         }
         object Hello() {
             var value=new Dictionary<string,object>{{"version",1},{"type","hello"},{"adapterEpoch",epoch},{"streamId",streamId},{"capabilities",capabilities()}};
             if(hostRunId!=null) {value["hostContextVersion"]=1;value["hostRunId"]=hostRunId;value["worldEpoch"]=worldEpoch();}
             if(observerIndex && hostRunId!=null) {value["observerIndexVersion"]=1;value["observerSituationVersion"]=1;value["primaryBehaviorOwnerVersion"]=1;}
             if(directorRequests && hostRunId!=null)value["directorRequestVersion"]=1;
+            if(utteranceLifecycle && hostRunId!=null)value["utteranceLifecycleVersion"]=1;
             return value;
         }
         public void Start() {new Thread(Serve) {IsBackground=true,Name="LSA intelligence facts"}.Start();}

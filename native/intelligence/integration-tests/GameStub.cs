@@ -133,6 +133,23 @@ namespace DamageTrackerLib {
 }
 
 namespace LSA.PromotedCharacters {
+    // C-01 is opt-in and remains passive in the native PS integration fixture.
+    internal sealed class SpeechCaptureAdapter {
+        internal sealed class Fact {
+            public string utteranceId,phase,terminal,hostRunId,inputSource;
+            public int worldEpoch; public uint gameTick; public long monotonicMs;
+            public Rage.Ped Ped; public System.IntPtr Address;
+        }
+        internal static SpeechCaptureAdapter Attach(HostContext host) => new SpeechCaptureAdapter();
+        internal string ActiveIdFor(Rage.Ped ped) => null;
+        internal void Reconcile() { }
+        internal Fact Take() => null;
+        internal void Reset() { }
+        internal void Detach() { }
+    }
+}
+
+namespace LSA.PromotedCharacters {
     // Read-only simulation of the pinned EssentialMicState owner-fiber query.
     // Unknown always remains a separate outcome from idle.
     internal sealed class EssentialMicState {

@@ -188,6 +188,24 @@ export class IntelligenceClient {
   captureKnowledgeInputs(input) {return captureKnowledgeInputs({...input,perception:this.runtime});}
   assertKnowledgeCurrent(inputs) {return assertKnowledgeCurrent(inputs,this.runtime);}
   acceptPlayerTranscript(input) {return this.runtime.acceptPlayerTranscript(input);}
+  recordTypedUtterance(identity) {return this.runtime.utteranceLifecycleVersion===1 && this.runtime.utterances.recordTyped(identity,this.runtime.hostContext);}
+  reserveMicUtterance(input) {
+    if(this.runtime.utteranceLifecycleVersion!==1 || !this.runtime.epoch)return false;
+    return this.runtime.utterances.reserveMicTurn(input,this.runtime.hostContext);
+  }
+  finishMicUtterance(identity,pcmBytes) {
+    return this.runtime.utteranceLifecycleVersion===1 &&
+      this.runtime.utterances.finishPcm(identity,pcmBytes);
+  }
+  cancelMicUtterance(identity) {
+    return this.runtime.utteranceLifecycleVersion===1 &&
+      this.runtime.utterances.cancelTurn(identity);
+  }
+  acceptCapturedPlayerUtterance({identity,text}) {
+    if(this.runtime.utteranceLifecycleVersion!==1 || !this.runtime.epoch)
+      return {accepted:false,reason:'c01_unavailable'};
+    return this.runtime.acceptCapturedPlayerUtterance({identity,text});
+  }
   // Preview-only in v1.0's unaccepted native stage: no PS6 decisions are
   // selected here and the native preview endpoint cannot admit Essential turns.
   // Future admitted requests MUST use the same closed v1 encoder.
@@ -653,6 +671,10 @@ export class IntelligenceClient {
       capabilities:this.runtime.capabilities,
       damageCallbacks:diagnostics?.damageCallbacks??{ped_damage:0,player_damage:0,vehicle_damage:0},
       ps2:{...this.runtime.ps2Diagnostics,dropReasons:{...this.runtime.correlator.dropReasons},dedupeEvicted:this.runtime.correlator.dedupeEvicted,playerSpeechGate:diagnostics?.playerSpeechGate??'unsupported_capture_receipt',speech:this.runtime.transcripts.diagnostics},
+      c01:{...this.runtime.utterances.diagnostics,
+        ...this.runtime.speechDiagnostics,
+        enabled:this.runtime.utteranceLifecycleVersion===1,
+        proximityEnabled:this.runtime.capabilities.playerSpeech===true},
       ps3:{...this.runtime.ps3Diagnostics,reasons:{...this.runtime.ps3Diagnostics.reasons}},
       radioCatalog:{unknownTextIds:counter(this.runtime.radioCatalog?.unknownTextIds),catalogMismatches:counter(this.runtime.radioCatalog?.catalogMismatches)},
       radio:{...this.runtime.radioDiagnostics},
@@ -690,7 +712,7 @@ export class IntelligenceClient {
           // persistent diagnostics. A strict invalid frame stays invalid.
           const allowed=['hello','anchors','retire','retire_batch','observer_index',
             'observer_situation','world_epoch','director_priority','director_response',
-            'signal','diagnostics','protagonist_model'];
+            'signal','diagnostics','protagonist_model','utterance','speech_receipt'];
           const frameType=allowed.includes(v?.type)?v.type:'other';
           const reason=this.runtime.counters.malformed>before.malformed?'invalid_contract':
             this.runtime.counters.gaps>before.gaps?'sequence_gap':
