@@ -179,3 +179,59 @@ test('snapshot reader never writes another DB or presents unverified sources',as
  assert.equal(typeof snapshot.seal,'string');
  assert.equal(snapshot.seal.length,64);
 });
+
+
+test('P2 transcript correction removes an earlier mistaken joke; a counter-claim is not a verified fact',async t=>{
+ const f=await fixture(t);
+ const a=f.authority();f.setIdentity(a);const reader=f.reader();
+ const misheard=await f.recorder.recordPlayerAccepted({
+   characterId:f.npc.characterId,identity:{...f.identity,turnId:uuid()},
+   source:'stt',text:'Inside joke: the flying purple car!',
+   attribution:{protagonist:'franklin'}});
+ await f.say('Running joke: the flying purple car!','trevor');
+ const before=await reader.prepare({scope:f.scope,authority:a});
+ assert.equal(before.status,'ready',before.reason);
+ assert.equal(before.projection.jokes.length,1);
+ const correction=await f.say('No, I actually said the small blue truck.','franklin');
+ const source=(await f.store.readDialogueLines({
+   characterId:f.npc.characterId,timelineId:f.scope.timelineId,limit:1}))[0];
+ assert.equal(source.recordId,correction.recordId);
+ const done=await f.store.commitCommand({
+   scope:f.scope,commandId:uuid(),requestedByLineId:correction.recordId,
+   operation:'correct',correctionMode:'transcript',content:'the small blue truck',
+   contentHash:hash('the small blue truck'),
+   evidenceRecordIds:[correction.recordId,misheard.recordId],
+   targetRecordId:misheard.recordId,requestedAtUtc:source.committedAtUtc});
+ assert.equal(done.status,'committed');
+ assert.equal(await reader.verifyPrepared(before),false);
+ const after=await reader.prepare({scope:f.scope,authority:a});
+ assert.equal(after.status,'ready',after.reason);
+ assert.ok(!after.projection.interpretations.some(x=>x.sourceEvidenceIds.includes(misheard.recordId)));
+ assert.equal(after.projection.jokes.length,0);
+});
+
+test('source revocation during an outstanding serialized read and host renewal fail closed',async t=>{
+ const f=await fixture(t);await three(f);
+ const a=f.authority();f.setIdentity(a);
+ let release;
+ const gate=new Promise(resolve=>{release=resolve;});
+ const paused=new Proxy(f.store,{
+  get(target,key){
+   if(key==='withP2SqliteRead')return async (scope,fn)=>{
+    await gate;return target.withP2SqliteRead(scope,fn);
+   };
+   const v=Reflect.get(target,key,target);
+   return typeof v==='function'?v.bind(target):v;
+  }});
+ let active=true;
+ const reader=createP2M8ProductionReader({
+   store:paused,currentIdentity:()=>a,originalCurrent:()=>active});
+ const pending=reader.prepare({scope:f.scope,authority:a});
+ active=false;
+ release();
+ const prepared=await pending;
+ assert.equal(prepared.status,'dropped');
+ // A fresh turn cannot adopt old authority after a native host change.
+ f.store.setVerifiedHostContext(null);
+ assert.equal((await reader.prepare({scope:f.scope,authority:a})).status,'dropped');
+});
