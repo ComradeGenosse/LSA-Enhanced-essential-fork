@@ -21,6 +21,7 @@ import {createOriginalBackendAcceptedInput} from '../memory/originalBackendAccep
 import {createOpenAIRuntimeAcceptedInputSource} from '../memory/openaiRuntimeAcceptedInput.mjs';
 import {createOriginalTurnActorLedger} from '../memory/originalTurnActorLedger.mjs';
 import {createNpcSpeechDeliverySource} from '../memory/npcSpeechDeliveryLedger.mjs';
+import {prepareLiveTurnMemory} from '../memory/liveTurnMemory.mjs';
 import { validateDecisionShape } from '../context/essentialDecision.mjs';
 import { validateStockDecision } from '../context/decisionValidator.mjs';
 import { createProviderStack } from '../providers/providerStack.mjs';
@@ -127,6 +128,9 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
             model:config.transcriptionModel||'unknown',confidence:null}:null
       });
     },
+    // PS4 is the only model-facing assembler. This preflight returns evidence
+    // and source-fenced read receipts, never prompt text or model instructions.
+    prepareLiveTurnMemory:args=>prepareLiveTurnMemory({store:journalStore,...args}),
     // The NPC side of the exchange. Takes NO text, status, receipt or byte
     // count: D03 reads the runtime's own speech-delivery ledger for this turn
     // tuple and classifies completed / interrupted / failed from that evidence
@@ -150,18 +154,30 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
         directorEventContext:turn.directorTicket && source==='special_event'
           ? turn.context.internalEvent:null};
       const base=renderKnowledge({...args,includePerceived:false});
+      const memory=turn.memoryPrepared;
+      const memoryReady=memory?.status==='ready'&&
+        memory.recallCurrent?.([],memory.preparedRecall?.stamp)===true;
+      const memoryArgs=memoryReady?{
+        preparedRecall:memory.preparedRecall,
+        recallAuthorization:prepared=>prepared===memory.preparedRecall&&
+          memory.recallCurrent([],prepared?.stamp)===true,
+        conversationJournal:memory.conversationJournal,
+        memoryAction:memory.memoryAction
+      }:{};
+      const memoryBase=memoryReady
+        ?renderKnowledge({...args,...memoryArgs,includePerceived:false}):base;
       const mode=config.dialogueKnowledge?.mode??'off',ps=runtime.intelligence?.runtime;
       let reason=mode==='off'?'disabled':'unsupported_contract',preview=null;
       if(mode!=='off' && config.provider==='openai' && runtime.dialogueKnowledgeBuildSupported && ps?.observerIndexVersion===1 && ps?.observerSituationVersion===1 && ps?.hostContext?.hostContextVersion===1) {
         reason=runtime.intelligence.assertKnowledgeCurrent(turn.knowledgeInputs);
         if(!reason && !turn.knowledgeInputs?.ownerPendingProof) {
-          try {preview=renderKnowledge({...args,includePerceived:true});}
+          try {preview=renderKnowledge({...args,...memoryArgs,includePerceived:true});}
           catch {reason='projection_failed';}
         }else reason ||= 'owner_unverified';
       }
       // Only explicit active mode with the matching build/live contracts may
       // select the candidate. Off/shadow always send the same hardened base.
-      let selected=mode==='active' && !reason && preview?preview:base;
+      let selected=mode==='active' && !reason && preview?preview:memoryBase;
       // SELF contributors require independent payload acceptance; baseline PS4
       // mode alone never grants activation. Optional failures preserve selection.
       let health=null;try{health=services.capabilityHealth?.();}catch{}
@@ -170,16 +186,23 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
       const dialogueReady=selfCurrent && !!turn.knowledgeInputs?.dialogueInputs && !assertDialogueActionKnowledgeCurrent(turn.knowledgeInputs.dialogueInputs,runtime.activities);
       const includeActivityFacts=activityReady && config.dialogueKnowledge?.activityFacts==='active' && health?.['ps.activity_facts']?.active===true;
       const includeDialogueReceipts=dialogueReady && config.dialogueKnowledge?.dialogueReceipts==='active' && health?.['ps.dialogue_receipts']?.active===true;
-      if(mode==='active' && preview && (includeActivityFacts || includeDialogueReceipts))try{selected=renderKnowledge({...args,includePerceived:true,activityInputs:turn.knowledgeInputs.activityInputs,dialogueInputs:turn.knowledgeInputs.dialogueInputs,includeActivityFacts,includeDialogueReceipts});}catch{}
-      if(preview && (activityReady && ['shadow','active'].includes(config.dialogueKnowledge?.activityFacts) || dialogueReady && ['shadow','active'].includes(config.dialogueKnowledge?.dialogueReceipts)))try{preview=renderKnowledge({...args,includePerceived:true,activityInputs:turn.knowledgeInputs.activityInputs,dialogueInputs:turn.knowledgeInputs.dialogueInputs,includeActivityFacts:activityReady && ['shadow','active'].includes(config.dialogueKnowledge?.activityFacts),includeDialogueReceipts:dialogueReady && ['shadow','active'].includes(config.dialogueKnowledge?.dialogueReceipts)});}catch{}
+      if(mode==='active' && preview && (includeActivityFacts || includeDialogueReceipts))try{selected=renderKnowledge({...args,...memoryArgs,includePerceived:true,activityInputs:turn.knowledgeInputs.activityInputs,dialogueInputs:turn.knowledgeInputs.dialogueInputs,includeActivityFacts,includeDialogueReceipts});}catch{}
+      if(preview && (activityReady && ['shadow','active'].includes(config.dialogueKnowledge?.activityFacts) || dialogueReady && ['shadow','active'].includes(config.dialogueKnowledge?.dialogueReceipts)))try{preview=renderKnowledge({...args,...memoryArgs,includePerceived:true,activityInputs:turn.knowledgeInputs.activityInputs,dialogueInputs:turn.knowledgeInputs.dialogueInputs,includeActivityFacts:activityReady && ['shadow','active'].includes(config.dialogueKnowledge?.activityFacts),includeDialogueReceipts:dialogueReady && ['shadow','active'].includes(config.dialogueKnowledge?.dialogueReceipts)});}catch{}
       turn.knowledgeMode=mode;
       turn.knowledgePreview=preview?Object.freeze({selectedObservations:preview.delivery.length,frameBytes:preview.diagnostics.bytes,frameHash:createHash('sha256').update(JSON.stringify(preview.modelAllocation)).digest('hex')}):null;
       turn.knowledgeFallbackReason=reason;
       const capture=turn.knowledgeInputs?.captureDiagnostics;
       try {telemetry?.emit('knowledge_frame_projected',turn.identity,source,{knowledgeMode:mode,preview:!!preview,captureObservationCount:capture?.observations??0,capturePairCount:capture?.retainedPairs??0,capturePoolBytes:capture?.poolBytes??0,captureMissingSalience:capture?.noMatchingSalience??0,captureRevisionMismatch:capture?.revisionMismatch??0,captureRetiredRefs:capture?.participantRetired??0,captureBudgetExcluded:capture?.budgetExcluded??0,...summarizeKnowledgeSelection(turn.knowledgeInputs,preview),selectedObservations:preview?.delivery.length??0,frameBytes:preview?.diagnostics.bytes??base.diagnostics.bytes,frameHash:turn.knowledgePreview?.frameHash??createHash('sha256').update(JSON.stringify(base.modelAllocation)).digest('hex'),reason:turn.knowledgeFallbackReason});}catch{}
       const validateKnowledge=frame=>assertOwnedKnowledgeCurrent(turn.knowledgeInputs,{identity:turn.identity,snapshot:turn.characterSnapshot,identityService,perception:runtime.intelligence?.runtime}) || assertKnowledgeItemsCurrent(turn.knowledgeInputs,frame,runtime.intelligence?.runtime) || ((frame.activityReferences?.length??0)>0?assertActivityKnowledgeCurrent(turn.knowledgeInputs.activityInputs,runtime.activities,frame.activityReferences):null) || ((frame.dialogueReferences?.length??0)>0?assertDialogueActionKnowledgeCurrent(turn.knowledgeInputs.dialogueInputs,runtime.activities,frame.dialogueReferences):null);
-      turn.knowledgeDelivery=createKnowledgeDelivery({frame:selected,baseFrame:base,isCurrent:()=>runtime.host.isCurrent(turn.identity) && (!identityService || identityService.current(turn.identity)),
-        prune:frame=>pruneKnowledgeFrame(frame,item=>!validateKnowledge({delivery:[item]}),item=>!validateKnowledge({delivery:[],activityReferences:[item]}),item=>!validateKnowledge({delivery:[],dialogueReferences:[item]})),
+      turn.knowledgeDelivery=createKnowledgeDelivery({frame:selected,baseFrame:base,
+        recallCurrent:(refs,stamp)=>memoryReady&&memory.recallCurrent(refs,stamp),
+        pruneRecall:frame=>pruneKnowledgeFrame(frame,()=>true,()=>true,()=>true,()=>false),
+        isCurrent:()=>runtime.host.isCurrent(turn.identity) && (!identityService || identityService.current(turn.identity)),
+        prune:frame=>pruneKnowledgeFrame(frame,
+          item=>!validateKnowledge({delivery:[item]}),
+          item=>!validateKnowledge({delivery:[],activityReferences:[item]}),
+          item=>!validateKnowledge({delivery:[],dialogueReferences:[item]}),
+          ()=>memoryReady&&memory.recallCurrent([],memory.preparedRecall?.stamp)===true),
         validate:validateKnowledge,
         acknowledge:(key,consumer,outcome)=>{
           const salience=runtime.intelligence?.runtime.salience;
