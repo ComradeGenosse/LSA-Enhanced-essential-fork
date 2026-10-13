@@ -40,6 +40,25 @@ export function createM3JournalPorts(store){
           throw new Error('m3_coverage_commit_unconfirmed');
         return Object.freeze(receipt);
       },
+      // Authenticated observer-coverage ledger. Re-checked INSIDE the writer
+      // fence: an op for another host run, world epoch, timeline or a profile
+      // that no longer owns the alias is reported stale instead of written.
+      recordObserverCoverage:(ops,foundation)=>{
+        const host=store.verifiedHostContext;
+        if(!host||store.timelineWritable!==true)throw new Error('m3_coverage_owner_or_epoch_unconfirmed');
+        const apply=[],indexes=[],staleIndexes=[];
+        ops.forEach((op,index)=>{
+          const r=op?.record;
+          const current=op?.seal?op.seal.worldProfileId===store.worldProfileId:
+            !!r&&r.hostRunId===host.hostRunId&&r.worldEpoch===host.worldEpoch&&
+            r.worldProfileId===store.worldProfileId&&r.timelineId===store.activeTimelineId&&
+            store.get(r.characterId)?.promotion?.ownerAlias===r.ownerProof?.ownerAlias;
+          if(current){apply.push(op);indexes.push(index);}else staleIndexes.push(index);
+        });
+        if(apply.length===0)return Object.freeze({applied:0,staleIndexes});
+        const receipt=foundation.appendObserverCoverage(apply);
+        return Object.freeze({applied:apply.length,staleIndexes,receipt});
+      },
     }),
   });
 }

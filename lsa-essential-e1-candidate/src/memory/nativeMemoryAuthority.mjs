@@ -35,6 +35,7 @@ const validContext=c=>c&&isUUID(c.hostRunId)&&whole(c.worldEpoch)&&c.worldEpoch>
 const protagonistKeys=new Set(['franklin','michael','trevor','unknown']);
 const maxOwners=16;
 const MAX_AGE=1000;
+const OBSERVATION_SKEW_BACK=5000,OBSERVATION_SKEW_FORWARD=2000;
 
 // The subscription MUST be the callback emitted only after successful
 // ShadowRuntime.ingest(...,{authenticated:true}) on the genuine named pipe.
@@ -44,7 +45,16 @@ export function createNativeMemoryAuthority({
   // K-only private validated-pipe callback, unavailable with the pinned ABI.
   subscribeAuthenticatedOriginalC01Frames=null,
   profileForAlias,now=()=>performance.now(),
-  maxAgeMs=MAX_AGE
+  maxAgeMs=MAX_AGE,
+  // D-023: an observation is attributed at the synchronous PS2 tap against the
+  // latest authenticated owner frame. Its sampled tick must be close to that
+  // frame's tick, so a stale signal cannot borrow a newer ownership proof.
+  observationSkewBackTicks=OBSERVATION_SKEW_BACK,
+  observationSkewForwardTicks=OBSERVATION_SKEW_FORWARD,
+  // K-13: receives every ACCEPTED authenticated owner frame, and every retire,
+  // for observer-coverage accounting. Late-bound object so wiring can follow
+  // construction; it can read frames, never supply one.
+  coverage=null
 }={}) {
   if(typeof subscribeAuthenticatedNativeFrames!=='function'||
      typeof profileForAlias!=='function'||typeof now!=='function'||
@@ -53,15 +63,19 @@ export function createNativeMemoryAuthority({
   if(subscribeAuthenticatedOriginalC01Frames!==null&&
      typeof subscribeAuthenticatedOriginalC01Frames!=='function')
     throw new TypeError('memory_c01_authenticated_port_invalid');
-  let context=null,owners=new Map(),player=null,turns=new Map(),seq=-1,lastAt=-1;
+  let context=null,owners=new Map(),player=null,turns=new Map(),seq=-1,lastAt=-1,frameTick=-1;
   let disconnect=null,disconnectC01=null;
   const retiredStreams=new Set();
+  const sink=(method,arg)=>{try{coverage?.[method]?.(arg);}catch{/* coverage never disturbs authority */}};
+  const withinSkew=tick=>Number.isSafeInteger(tick)&&frameTick>=0&&
+    tick>=frameTick-observationSkewBackTicks&&tick<=frameTick+observationSkewForwardTicks;
   const clear=()=>{
+    sink('retire','stream_retired');
     if(context?.streamId){
       retiredStreams.add(context.streamId);
       if(retiredStreams.size>64)retiredStreams.delete(retiredStreams.values().next().value);
     }
-    context=null;owners=new Map();player=null;turns=new Map();seq=-1;lastAt=-1;
+    context=null;owners=new Map();player=null;turns=new Map();seq=-1;lastAt=-1;frameTick=-1;
   };
   const live=()=>context&&lastAt>=0&&Number.isFinite(now())&&
     now()>=lastAt&&now()-lastAt<=maxAgeMs;
@@ -132,6 +146,11 @@ export function createNativeMemoryAuthority({
     }
     if(context&&context.streamId!==next.streamId)retiredStreams.add(context.streamId);
     context=next;owners=copy;player=subject;turns=retained;seq=f.sequence;lastAt=now();
+    frameTick=p.sampledGameTick;
+    sink('sample',{streamId:f.streamId,adapterEpoch:f.adapterEpoch,sequence:f.sequence,
+      hostRunId:p.hostRunId,worldEpoch:p.worldEpoch,sampledGameTick:p.sampledGameTick,
+      owners:[...copy.values()].map(o=>({ownerAlias:o.ownerAlias,observerCaptureRef:o.observerCaptureRef,
+        incarnationId:o.incarnationId,encounterId:o.encounterId}))});
   };
   // This is a PROPOSED v2 contract and read-through verifier only.
   // K must NOT register it before proving a real original Core accepted
@@ -200,13 +219,18 @@ export function createNativeMemoryAuthority({
     if(!o||!r||r.captureRef!==o.observerCaptureRef||r.kind!=='ped'||
        r.owned!==true||r.incarnationId!==o.incarnationId||
        r.encounterId!==o.encounterId)return null;
+    // D-023 freshness: when the caller names the observation's tick, it must
+    // sit near THIS frame's sampled tick. Coverage/negative checks pass none.
+    if(input.observedGameTick!==undefined&&!withinSkew(input.observedGameTick))return null;
     const p=profileFor(o.ownerAlias);
     if(!p)return null;
     return immutable({nativeVerified:true,current:true,promoted:true,
       characterId:p.characterId,ownerAlias:o.ownerAlias,
       ownerProof:{ownerAlias:o.ownerAlias,hostRunId:o.hostRunId,
         worldEpoch:o.worldEpoch,observerCaptureRef:o.observerCaptureRef,
-        incarnationId:o.incarnationId,encounterId:o.encounterId}});
+        incarnationId:o.incarnationId,encounterId:o.encounterId},
+      // Which authenticated native frame vouched for this owner (audit trail).
+      ownerEvidence:{streamId:context.streamId,sequence:seq,sampledGameTick:frameTick}});
   }
   function resolveParticipants(input={}) {
     if(!live()||!input?.observation||input.hostRunId!==context.hostRunId||
@@ -217,6 +241,17 @@ export function createNativeMemoryAuthority({
       [c?.source?.captureRef,c?.target?.captureRef].filter(isUUID))||[]);
     const output=[];
     for(const ref of refs) {
+      // Participant identity is scoped to the tick of the claims that name it.
+      // All such claims must agree on one sampled tick (the binder requires the
+      // proof tick to equal it) and that tick must be fresh against this frame.
+      // A claim carrying no tick at all gets no tick-scoped proof (legacy shape).
+      const ticks=(observed.claims||[]).filter(c=>c?.source?.captureRef===ref||c?.target?.captureRef===ref)
+        .map(c=>c?.evidence?.sampledGameTick);
+      let claimTick;
+      if(ticks.some(t=>t!==undefined)){
+        if(!ticks.every(t=>t===ticks[0])||!withinSkew(ticks[0]))continue;
+        claimTick=ticks[0];
+      }
       // Never attribute source/target from closeness, names or dialogue.
       let proof=null;
       const native=owners.get(ref);
@@ -227,7 +262,8 @@ export function createNativeMemoryAuthority({
         proof={captureRef:ref,subjectKind:'protagonist',subjectKey:player.key};
       if(proof)output.push(immutable({...proof,verified:true,nativeVerified:true,
         hostRunId:context.hostRunId,worldEpoch:context.worldEpoch,
-        adapterEpoch:context.adapterEpoch}));
+        adapterEpoch:context.adapterEpoch,
+        ...(claimTick!==undefined?{sampledGameTick:claimTick}:{})}));
       if(output.length>16)return null;
     }
     return immutable(output);

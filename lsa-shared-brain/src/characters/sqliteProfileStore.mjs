@@ -412,6 +412,13 @@ export class P2SqliteProfileStore {
       return this.#db.readM3Coverage(scope);
     });
   }
+  async readObserverCoverage(scope){
+    await this.initialize();
+    return this.#serial(()=>{
+      if(!this.available)fail('profile_store_unavailable');
+      return this.#db.readObserverCoverage(scope);
+    });
+  }
   async saveDeterministicMemory(proposal){
     return this.withTimelineWrite(proposal?.timelineId,foundation=>{
       if(this.#sourceRequired&&!this.verifiedHostContext)fail('memory_native_host_unconfirmed');

@@ -14,7 +14,7 @@ import { PROFILE_LIMITS, validateProfiles } from './profileSchema.mjs';
 import { JOURNAL_SCHEMA_VERSION, migrateJournalSchema, assertJournalSchema, appendDialogue, appendEvent, readDialogue, findExactQuote, searchDialogue, readEvents, readVerifiedEventEvidence } from '../memory/journalSqlite.mjs';
 import { ensureIntegratedMemorySchema, listMemoryCandidates, listSuppressedMemoryIds, verifyPersistedMemoryCommand, commitPersistedMemoryCommand, persistDeterministicMemory, readPermanentMemoryRows, readCorrectionOverlays } from '../memory/integratedSqlite.mjs';
 import {ensureCurationSchema,enqueueCuration,claimCuration,completeCuration,retryCuration,releaseCuration,reserveCurationBudget,finishCurationBudget} from '../memory/curationSqlite.mjs';
-import {ensureM3CoverageSchema,appendM3Coverage,readM3Coverage} from '../events/m3CoverageSqlite.mjs';
+import {ensureM3CoverageSchema,appendM3Coverage,readM3Coverage,upsertObserverCoverage,sealStaleObserverCoverage,readObserverCoverage} from '../events/m3CoverageSqlite.mjs';
 import {readIntegratedRecall} from '../memory/sqliteIntegratedRecallProjection.mjs';
 import {ensureP2ReplaySchema,readP2ReplayPage,readP2ReplayCursor,acknowledgeP2ReplayCursor} from '../memory/p2ReplayCursor.mjs';
 import {ensureM5PrivacySchema} from '../memory/m5SqlitePrivacy.mjs';
@@ -240,7 +240,7 @@ export class P2SqliteFoundation {
           removeDialogue.run(previous.characterId);
           removeEvents.run(previous.characterId);
           for(const table of ['memory_records','memory_commands','memory_tombstones','memory_corrections','memory_curation_jobs','memory_luna_appraisals',
-            'm5_clarifications','m5_trash','m5_privacy_ops','p2_memory_replay_feed','p2_memory_replay_cursors','p2_memory_replay_player_cursors','m3_coverage',
+            'm5_clarifications','m5_trash','m5_privacy_ops','p2_memory_replay_feed','p2_memory_replay_cursors','p2_memory_replay_player_cursors','m3_coverage','m3_observer_coverage',
             'm6_p2_checkpoints','m6_p2_source_receipts','m6_p2_rejections','m6_p2_ack_diagnostics','m6_p2_ack_receipts']){
             this.#db.prepare('DELETE FROM '+table+' WHERE character_id=?').run(previous.characterId);
           }
@@ -331,6 +331,29 @@ export class P2SqliteFoundation {
     if(!this.#db)fail('sqlite_profile_uninitialized');
     if(record?.worldProfileId!==this.worldProfileId)fail('m3_coverage_wrong_world');
     return transaction(this.#db,()=>appendM3Coverage(this.#db,record));
+  }
+  // Authenticated observer-coverage ledger (K-13 write side). One synchronous
+  // transaction under the caller's timeline write fence; `seal` moves `open`
+  // windows left by an earlier process to `closed` without extending them.
+  appendObserverCoverage(ops){
+    if(!this.#db)fail('sqlite_profile_uninitialized');
+    if(!Array.isArray(ops)||ops.length<1||ops.length>256)fail('m3_observer_coverage_invalid_batch');
+    for(const op of ops)if(op?.record?.worldProfileId!==this.worldProfileId&&op?.seal?.worldProfileId!==this.worldProfileId)
+      fail('m3_coverage_wrong_world');
+    return transaction(this.#db,()=>{
+      let inserted=0,updated=0,duplicate=0,sealed=0;
+      for(const op of ops){
+        if(op.seal){sealed+=sealStaleObserverCoverage(this.#db,op.seal).sealed;continue;}
+        const r=upsertObserverCoverage(this.#db,op.record);
+        inserted+=Number(r.inserted);updated+=Number(r.updated);duplicate+=Number(r.duplicate);
+      }
+      return Object.freeze({inserted,updated,duplicate,sealed});
+    });
+  }
+  readObserverCoverage(scope){
+    if(!this.#db)fail('sqlite_profile_uninitialized');
+    if(scope?.worldProfileId!==this.worldProfileId)fail('m3_coverage_wrong_world');
+    return readObserverCoverage(this.#db,scope);
   }
   readM3Coverage(scope){
     if(!this.#db)fail('sqlite_profile_uninitialized');

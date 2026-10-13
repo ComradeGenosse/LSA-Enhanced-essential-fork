@@ -147,7 +147,8 @@ export function readIntegratedRecall(db,{scope,terms=[],fromUtc=null,toUtc=null,
         observation:proof.observation,
         identity:{promoted:true,current:true,characterId:scope.characterId,
           worldProfileId:scope.worldProfileId,timelineId:scope.timelineId,
-          adapterEpoch:proof.nativeAdapterEpoch,ownerProof:proof.ownerProof},
+          adapterEpoch:proof.nativeAdapterEpoch,ownerProof:proof.ownerProof,
+          ...(proof.attribution!==undefined?{attribution:proof.attribution}:{})},
         participantProofs:proof.participantProofs,
         prePromotionProof:proof.prePromotionProof??null});
       if(!replay.accepted||JSON.stringify(replay.event)!==r.raw||
