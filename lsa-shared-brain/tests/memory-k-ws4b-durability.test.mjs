@@ -42,7 +42,7 @@ test('WS-4b legacy, malformed, foreign-host and live-PID locks never auto-reclai
   const legacy='original-token\\n';
   await fs.writeFile(lock,legacy);
   const instance=createP2MemoryStorage({filePath:file,worldProfileId});
-  await assert.rejects(instance.initialize(),/sqlite_writer_recovery_manual/);
+  await assert.rejects(instance.initialize(),/sqlite_writer_busy/);
   assert.equal(await fs.readFile(lock,'utf8'),legacy);
   const lease=await fs.rm(lock).then(()=>acquireWriterLock(lock));
   try{
