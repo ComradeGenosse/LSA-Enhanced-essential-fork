@@ -98,7 +98,13 @@ namespace LSA.Standalone.RageHost
                         face = new RageLipSyncPresenter(authority, scope, resolver, clock);
                         facialEnabled = true;
                     }
-                    audio = new NativeAudioRegistry(authority, turns, physicalAudio, face);
+                    // The TTS-only/early-streaming stages need bounded PCM validation
+                    // without a waveOut device. This validator consumes admitted
+                    // bytes on the owner fiber and can NEVER certify playback.
+                    IAudioOutput output = physicalAudio;
+                    if (output == null && GetSetting("LSA_STANDALONE_TTS_MODE") == "enabled")
+                        output = new DiagnosticPcmOutput(authority);
+                    audio = new NativeAudioRegistry(authority, turns, output, face);
                 }
                 finally { scope.Exit(); }
 
@@ -110,6 +116,8 @@ namespace LSA.Standalone.RageHost
                     (GetSetting("LSA_STANDALONE_ACTOR_MODE") == "off" ? "off" : "enabled_unproven") +
                     " typed_admission=" + (typedEnabled ? "enabled_unarmed" : "off") +
                     " physical_audio=" + (physicalAudio == null ? "off" : "adapter_initialized_unverified") +
+                    " pcm_validation=" + (GetSetting("LSA_STANDALONE_TTS_MODE") == "enabled" &&
+                        physicalAudio == null ? "native_non_audible_escrow" : "not_separate") +
                     " lip_sync=" + (facialEnabled ? "presenter_initialized_unverified" : "off") +
                     " gta_validated=false";
                 Game.LogTrivial("[LSA-ACTIVATION] " + ActivationSummary);
