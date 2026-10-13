@@ -161,7 +161,7 @@ export function createP2M8ProductionReader({store,currentIdentity,originalCurren
      currentIdentity:()=>authorized(scope,authority)?currentIdentity():null,
      nowUtc,maxBytes,deadlineMs});
    if(prepared.status==='ready'&&seal&&authorized(scope,authority))
-     issued.set(prepared.projection,Object.freeze({seal,scope:{...scope},stamp:prepared.stamp}));
+     issued.set(prepared.projection,Object.freeze({seal,scope:{...scope},stamp:prepared.stamp,authority:{...authority}}));
    else if(prepared.status==='ready')
      return Object.freeze({status:'dropped',reason:'stale_after_read',projection:null,stamp:null});
    return prepared;
@@ -171,10 +171,10 @@ export function createP2M8ProductionReader({store,currentIdentity,originalCurren
   // whole optional M8 frame. Failure must remove, never reuse, the projection.
   async verifyPrepared(prepared){
    const token=prepared?.projection&&issued.get(prepared.projection);
-   if(prepared?.status!=='ready'||!token||!authorized(token.scope,token.stamp))return false;
+   if(prepared?.status!=='ready'||!token||!authorized(token.scope,token.authority))return false;
    try{
     const fresh=await store.withP2SqliteRead(token.scope,db=>{
-     if(!authorized(token.scope,token.stamp))throw Error('m8_p2_stale_verify');
+     if(!authorized(token.scope,token.authority))throw Error('m8_p2_stale_verify');
      const now=readAuthorizedM8Snapshot(db,token.scope);
      const ids=[...(prepared.projection.interpretations??[]),
        ...(prepared.projection.jokes??[]),prepared.projection.relationship]
@@ -184,8 +184,8 @@ export function createP2M8ProductionReader({store,currentIdentity,originalCurren
      return {seal:now.seal,evidenceOk};
     });
     return fresh.seal===token.seal&&fresh.evidenceOk===true&&
-      authorized(token.scope,token.stamp)&&
-      verifyPs4M8Current(prepared,{currentIdentity:()=>authorized(token.scope,token.stamp)?
+      authorized(token.scope,token.authority)&&
+      verifyPs4M8Current(prepared,{currentIdentity:()=>authorized(token.scope,token.authority)?
         currentIdentity():null,validateEvidence:()=>fresh.evidenceOk});
    }catch{return false;}
   }
