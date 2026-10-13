@@ -86,7 +86,7 @@ export function resolveMemoryKCapabilities({config = {}, available = {}} = {}) {
     const requestedMode = prerequisite ? 'on' : (requests[id] ?? 'off');
     const dependencies = descriptor.dependencies.map(resolve);
     const missingDependencies = dependencies
-      .filter(row => row.requestedMode === 'off' || row.implementationStatus === 'absent')
+      .filter(row => row.requestedMode === 'off' || row.state === 'blocked' || row.state === 'unavailable')
       .map(row => row.id);
     const registration = registrationStatus(available[id]);
     const implementationStatus = descriptor.support === 'absent' ? 'absent' : 'candidate_unverified';
@@ -94,7 +94,7 @@ export function resolveMemoryKCapabilities({config = {}, available = {}} = {}) {
     const blockers = [];
     if (requested) {
       if (implementationStatus === 'absent') blockers.push(descriptor.reason);
-      for (const dep of missingDependencies) blockers.push(`dependency_not_requested_or_supported:${dep}`);
+      for (const dep of missingDependencies) blockers.push(`dependency_not_requested_or_available:${dep}`);
       if (registration === 'missing') blockers.push(`runtime_seam_missing:${id}`);
       else if (registration === 'unverified') blockers.push(`runtime_registration_unverified:${id}`);
       // Even registered seams do not prove current source, writer or owner health.

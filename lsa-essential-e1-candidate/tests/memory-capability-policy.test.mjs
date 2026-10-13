@@ -110,6 +110,11 @@ test('registration is not proof of source freshness, confirmed timeline, writer 
   assert.ok(state['memory.cloudCuration'].blockers.includes('native_idle_unverified'));
   const missing=resolveMemoryKCapabilities({config:{capabilities:{'memory.dialogue.player':'on'}},available:{...registered,'p2.sqlite':false}});
   assert.equal(missing['p2.sqlite'].registrationStatus,'missing');
+  assert.equal(missing['memory.dialogue.player'].state,'blocked');
+  assert.ok(missing['memory.dialogue.player'].missingDependencies.includes('p2.sqlite'));
+  const noSource=resolveMemoryKCapabilities({config:{capabilities:{'ps2.observations':'on','memory.events':'on'}},available:{...registered,'source.core':false}});
+  assert.equal(noSource['ps2.observations'].state,'blocked');
+  assert.equal(noSource['memory.events'].state,'blocked');
   assert.equal(missing['memory.dialogue.player'].effectiveMode,null);
 });
 
