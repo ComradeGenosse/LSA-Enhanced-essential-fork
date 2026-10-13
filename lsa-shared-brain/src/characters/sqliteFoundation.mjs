@@ -265,6 +265,11 @@ export class P2SqliteFoundation {
         reconcileM5Suppression(db);
         ensureP2ReplaySchema(db);
         ensureM6P2ReplaySchema(db);
+        // Per-character admission scans must never require a full multi-NPC
+        // table scan. The exact-head CI soak benchmarks the remaining O(N)
+        // per-character byte accounting, pending a future ledger optimization.
+        db.exec('CREATE INDEX IF NOT EXISTS dialogue_journal_character_quota ON dialogue_journal(character_id)');
+        db.exec('CREATE INDEX IF NOT EXISTS event_journal_character_quota ON event_journal(character_id)');
       });
       const newSchema=db.prepare('PRAGMA schema_version').get().schema_version;
       if(oldSchema===newSchema)
