@@ -168,3 +168,33 @@ test('G4 preserves exact Unicode quotes, source avatar, budget, and rejects forg
   assert.ok(small.items.length<=r.items.length);
  }finally{f.close();}
 });
+
+
+test('G4 separates native observed fact, reported event, archival record and opinion',async()=>{
+ const f=setup();
+ try{
+  const base={...f.scope,evidenceState:'verified',atUtc:time(0)};
+  const event=(modality,certainty)=>{const recordId=id();return {...base,
+   sourceKind:'journal_event',recordId,protagonistKey:'unknown',
+   envelope:{version:1,kind:'journal_event',recordId,characterId:f.npc,
+    worldProfileId:f.world,timelineId:f.timeline,observationId:id(),
+    sourceHash:sha('event'),receiptStatus:'witnessed',eventType:'firing_burst',
+    claims:[{sourceEvidenceId:id(),kind:'sound',durableSubject:'anonymous',
+     modality,certainty}]}};};
+  const permanent=(mode)=>{const recordId=id();return {...base,
+   sourceKind:'permanent_memory',recordId,protagonistKey:'michael',
+   envelope:{version:1,kind:'permanent_memory',recordId,characterId:f.npc,
+    worldProfileId:f.world,timelineId:f.timeline,mode,content:'A remembered remark',
+    sourceEvidenceIds:[id()]}};};
+  f.store.readIntegratedRecall=async()=>({coverageComplete:false,rows:[
+   event('auditory','direct'),event('report','reported'),
+   permanent('observed_fact'),permanent('opinion')]});
+  const r=await f.policy().labelledEvidence({scope:f.scope,source:f.source,maxBytes:4096});
+  assert.deepEqual(r.items.map(x=>x.category),[
+   'directly_observed_fact','reported_claim','archived_memory','character_opinion']);
+  assert.equal(r.items[0].sourceAvatar,'unknown');
+  assert.equal(r.items[3].sourceAvatar,'michael');
+  assert.ok(r.items.every(x=>x.sourceEvidenceIds.length===1));
+  assert.equal(r.exactCount,null);
+ }finally{f.close();}
+});
