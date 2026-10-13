@@ -78,7 +78,8 @@ export async function snapshotSqlite(db,filePath,{reason='session_end',now=new D
   let published=false;
   try{
     db.exec('VACUUM INTO '+sqlLiteral(temp));
-    const fh=await fs.open(temp,'r+'); // Windows requires writable handle for FlushFileBufferstry{await fh.sync();}finally{await fh.close();}
+    const fh=await fs.open(temp,'r+'); // Needed for fsync on Windows.
+    try{await fh.sync();}finally{await fh.close();}
     const {DatabaseSync}=await import('node:sqlite');
     const check=new DatabaseSync(temp,{readOnly:true});
     try{if(check.prepare('PRAGMA quick_check').get().quick_check!=='ok')fail('sqlite_snapshot_integrity_failed');}
@@ -92,7 +93,7 @@ export async function snapshotSqlite(db,filePath,{reason='session_end',now=new D
     // Keep the newest snapshot for each of seven distinct days. Never replace
     // an open same-day snapshot in-place (Windows can reject rename with EPERM).
     const seenDays=new Set();
-    for(const name of names.filter(n=>/^daily-\\d{4}-\\d\\d-\\d\\d-/.test(n)&&n.endsWith('.sqlite'))){
+    for(const name of names.filter(n=>/^daily-\d{4}-\d\d-\d\d-/.test(n)&&n.endsWith('.sqlite'))){
       const dayKey=name.slice(6,16);
       if(!seenDays.has(dayKey)&&seenDays.size<7){seenDays.add(dayKey);continue;}
       await fs.rm(path.join(folder,name));
