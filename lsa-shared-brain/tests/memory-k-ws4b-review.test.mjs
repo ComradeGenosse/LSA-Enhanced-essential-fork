@@ -78,6 +78,29 @@ test('WS-4b forgetting receipts and STT supersession survive restart; counter-cl
     assert.equal((await next.findExactQuote({...x.scope,quote:forgotten.content})).length,1);
   }finally{await next.close();}
 });
+test('WS-4b last 200 eligible player lines survive 1000+ newer forgotten source clones',async t=>{
+  const x=await setup(t);
+  try{
+    const preserved=[];
+    for(let i=0;i<205;i++)preserved.push(await x.player('older eligible '+i));
+    const deletedText='this entire batch was permanently forgotten';
+    let target;
+    // All copies are accepted before forgetting. A single privacy fingerprint
+    // revokes all of them, even when the journal holds newer raw entries.
+    for(let i=0;i<1005;i++)target=await x.player(deletedText);
+    await command(x,'forget',target);
+    const read=(await x.store.readFreeRecallWindow(x.scope)).lines;
+    assert.ok(read.some(l=>l.recordId===preserved[0].recordId));
+    assert.equal(read.filter(l=>l.content===deletedText).length,0);
+    assert.ok(read.filter(l=>l.content.startsWith('older eligible ')).length>=200);
+    const restarted=await reopened(x);
+    try{
+      const after=(await restarted.readFreeRecallWindow(x.scope)).lines;
+      assert.ok(after.some(l=>l.recordId===preserved[0].recordId));
+      assert.equal(after.some(l=>l.content===deletedText),false);
+    }finally{await restarted.close();}
+  }finally{await x.store.close();}
+});
 test('WS-4b NPC failures and interruptions are not reported as spoken; completed evidence keeps native receipt',async t=>{
   const x=await setup(t);
   const makeNpc=async(status,text)=>{
