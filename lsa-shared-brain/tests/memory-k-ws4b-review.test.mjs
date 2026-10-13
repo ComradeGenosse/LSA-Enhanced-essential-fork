@@ -146,6 +146,34 @@ test('WS-4b extension-only index repair creates checked pre-migration snapshot',
     finally{active.close();}
   }finally{await next.close();}
 });
+test('WS-4b old M3 cascading foreign-key table repairs in one transaction with a backup',async t=>{
+  const x=await setup(t);
+  await x.store.close();
+  const db=new DatabaseSync(x.filePath);
+  try{
+    db.exec(`DROP TABLE m3_coverage;
+      CREATE TABLE m3_coverage (
+       world_profile_id TEXT NOT NULL,
+       timeline_id TEXT NOT NULL REFERENCES timelines(timeline_id),
+       character_id TEXT NOT NULL REFERENCES promoted_profiles(character_id) ON DELETE CASCADE,
+       observation_id TEXT NOT NULL,status TEXT NOT NULL,
+       evidence_json TEXT NOT NULL,evidence_hash TEXT NOT NULL,
+       PRIMARY KEY(world_profile_id,timeline_id,character_id,observation_id)
+      );`);
+    assert.ok(db.prepare('PRAGMA foreign_key_list(m3_coverage)').all().some(r=>r.table==='promoted_profiles'));
+  }finally{db.close();}
+  const names=await fs.readdir(x.filePath+'.snapshots');
+  const repaired=createP2MemoryStorage({filePath:x.filePath,worldProfileId});
+  await repaired.initialize();
+  try{
+    const info=new DatabaseSync(x.filePath,{readOnly:true});
+    try{assert.equal(info.prepare('PRAGMA foreign_key_list(m3_coverage)').all().some(r=>r.table==='promoted_profiles'),false);}
+    finally{info.close();}
+    const backups=(await fs.readdir(x.filePath+'.snapshots'))
+      .filter(n=>n.startsWith('pre-migration-')&&!names.includes(n));
+    assert.equal(backups.length,1);
+  }finally{await repaired.close();}
+});
 test('WS-4b actual P2 M3 event admission stops exactly at configured event cap across restart',async t=>{
   const x=await setup(t,{events:2});
   const event=()=>({
