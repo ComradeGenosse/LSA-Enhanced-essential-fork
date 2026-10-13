@@ -31,6 +31,10 @@ graph are in lsa-standalone-companion/src/activation/capabilities.mjs.
     .\Start-Standalone-Test.ps1 -GamePath 'D:\GTA-Enhanced'
     .\Start-Standalone-Test.ps1 -GamePath 'D:\GTA-Enhanced' -Stage probe
 
+Append -PreflightOnly to any launcher invocation to validate selected
+capabilities, credentials, prerequisites and physical opt-in without starting
+Node or GTA/RPH. Preflight prints configuration state, NEVER GTA acceptance.
+
 Host and probe stages require NO AI model, TTS model or API credentials.
 For typed and higher, set OPENAI_API_KEY in the current terminal (never
 save in the ZIP), and pass actual API-accessible model IDs:
