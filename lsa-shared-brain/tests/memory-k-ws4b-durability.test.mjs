@@ -93,7 +93,7 @@ test('WS-4b failed extension migration rolls back DDL and preserves pre-migratio
     assert.equal(check.prepare("SELECT count(*) AS n FROM sqlite_master WHERE name='m5_trash'").get().n,0);
     assert.equal(check.prepare('PRAGMA user_version').get().user_version,4);
   }finally{check.close();}
-  assert.ok((await fs.readdir(file+'.snapshots')).some(n=>n.startsWith('daily-')));
+  assert.ok((await fs.readdir(file+'.snapshots')).some(n=>n.startsWith('pre-migration-')));
 });
 test('WS-4b caps fail closed in the transaction with no data loss',async()=>{
   const db=new DatabaseSync(':memory:');
@@ -148,4 +148,19 @@ test('WS-4b recent free recall includes 200 player lines while older quotes stay
     const old=await store.findExactQuote({...scope,quote:'archive quote number 0'});
     assert.equal(old[0].content,'archive quote number 0');
   }finally{await store.close();}
+});
+
+test('WS-4b pre-migration snapshot survives same-day session checkpoint',async t=>{
+  const {file}=await temp(t);
+  const first=new P2SqliteFoundation({filePath:file,worldProfileId});
+  await first.initialize();
+  const before=await fs.readdir(file+'.snapshots');
+  assert.ok(before.some(n=>n.startsWith('pre-migration-')));
+  first.close();
+  const writer=createP2MemoryStorage({filePath:file,worldProfileId});
+  await writer.initialize();
+  await writer.close();
+  const after=await fs.readdir(file+'.snapshots');
+  for(const name of before.filter(n=>n.startsWith('pre-migration-')))
+    assert.ok(after.includes(name),'pre-migration backup may not be rotated or overwritten');
 });
