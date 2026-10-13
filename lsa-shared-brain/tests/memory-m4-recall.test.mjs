@@ -358,3 +358,6 @@ test('real v4 event archive validates actual M3 sidecar and never invents witnes
 
 // Run the focused PS4 closure/adversarial suites in the established M4 CI gate.
 import '../../lsa-essential-e1-candidate/tests/memory-m4-closure.test.mjs';
+
+// WS-6 Agent B exercises the same M4 source integrity path in Windows/Linux CI.
+import './memory-ws6-g3-g5-evidence.test.mjs';
