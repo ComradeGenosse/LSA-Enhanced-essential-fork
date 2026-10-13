@@ -341,13 +341,20 @@ export function patchSource(source) {
 
 function sourceSlice(source, node) { return source.slice(node.start, node.end); }
 
-async function copyDirectory(source, destination) {
+// Offline audit tooling that lives under src/ for the test suite but imports build-time
+// vendored code (tools/vendor/acorn). It is never imported by the runtime, so it must not ship.
+const NON_RUNTIME_MODULES = new Set(['memory/originalBackendSourceAudit.mjs']);
+
+async function copyDirectory(source, destination, base = source) {
   await mkdir(destination, { recursive: true });
   for (const item of await readdir(source, { withFileTypes: true })) {
     const from = path.join(source, item.name);
     const to = path.join(destination, item.name);
-    if (item.isDirectory()) await copyDirectory(from, to);
-    else if (item.isFile()) await copyFile(from, to);
+    if (item.isDirectory()) await copyDirectory(from, to, base);
+    else if (item.isFile()) {
+      if (NON_RUNTIME_MODULES.has(path.relative(base, from).split(path.sep).join('/'))) continue;
+      await copyFile(from, to);
+    }
   }
 }
 
