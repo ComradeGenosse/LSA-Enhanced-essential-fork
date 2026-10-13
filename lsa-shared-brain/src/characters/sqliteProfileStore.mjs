@@ -19,7 +19,7 @@ export class P2SqliteProfileStore {
   // Monotone revocation epoch: an operation admitted before source loss or a
   // timeline selection cannot execute after later reauthorization (ABA).
   #authorityGeneration = 0;
-  constructor({ filePath, worldProfileId, legacyJsonPath = null, sourceRequired = false }) {
+  constructor({ filePath, worldProfileId, legacyJsonPath = null, sourceRequired = false, journalLimits = {} }) {
     if (typeof sourceRequired !== 'boolean') throw new TypeError('invalid_timeline_source_config');
     this.#sourceRequired = sourceRequired;
     if (typeof filePath !== 'string' || !filePath.trim()) throw new TypeError('invalid_sqlite_profile_config');
@@ -27,7 +27,7 @@ export class P2SqliteProfileStore {
     this.lockPath = this.filePath + '.writer.lock';
     this.worldProfileId = worldProfileId;
     this.legacyJsonPath = legacyJsonPath;
-    this.#db = new P2SqliteFoundation({ filePath:this.filePath, worldProfileId, legacyJsonPath });
+    this.#db = new P2SqliteFoundation({ filePath:this.filePath, worldProfileId, legacyJsonPath, journalLimits });
   }
   get loaded() { return this.#db.initialized; }
   get available() { return this.#available && !this.#closed; }
