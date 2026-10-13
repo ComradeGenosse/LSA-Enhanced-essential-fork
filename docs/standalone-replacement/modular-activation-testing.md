@@ -21,6 +21,14 @@ and relaunch; this is NOT a live hot-toggle of NPC leases.
 | lipsync | Audio + experimental facial gesture | Requires -ConfirmPhysicalEffects; see correct NPC mouth |
 | streaming | TTS + early streamed segments, WITHOUT waveOut/lip-sync | Compare segmentation and interruption separately |
 
+In `tts` and `streaming` stages, the native owner fiber validates the
+PCM stream through a bounded **non-audible diagnostic escrow**. Its acceptance
+releases queue credits for streams longer than four seconds, but it never
+touches waveOut, grants a physical-playback receipt, or drives lip-sync.
+`[LSA-ACTIVATION]` reports `pcm_validation=native_non_audible_escrow` in
+these stages. A `sealed_not_played` result means validated PCM only. The
+native limit of 30 seconds per streamed turn and all actor-lease rules remain.
+
 Host and native diagnostics are invariant safety/health capabilities.
 Selectable capabilities are actor_probing, typed_conversation, tts,
 physical_audio, lip_sync, and early_speech. The registry and prerequisite
