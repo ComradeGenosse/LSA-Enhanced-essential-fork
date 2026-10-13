@@ -399,7 +399,24 @@ export function createD03OriginalDialogueJoin({store,backend,d02,originalActor,
       }catch{return denied('d03_durable_readback_unverified');}
     }finally{try{d02.revokeLease?.(lease2);}catch{}}
   }
-  return Object.freeze({acceptPlayer,recordNpcOutcome,retire:close});
+  // WS-6: short-lived synchronous authority for a read-bound turn. The
+  // original durable player receipt is necessary, but not sufficient: a fresh
+  // authenticated D02 lease must still identify this exact owner incarnation
+  // and controlling player. No caller can supply or override that proof.
+  function verifyMemoryCurrent(){
+    if(!player||retired||!current()||!sourceReady())return false;
+    let fresh=null;
+    try{
+      fresh=d02.bindActorAtTurnStart({pedId:actor.nativeActorPedId,characterId,ownerAlias});
+      if(!fresh)return false;
+      const x=read(player.text,player.source,fresh);
+      return !!x.b&&same(x.b,player.first.b,RECEIPT_KEYS)&&
+        JSON.stringify(x.b.retirementIdentity)===JSON.stringify(player.first.b.retirementIdentity)&&
+        same(x.n,player.first.n,NATIVE_KEYS);
+    }catch{return false;}
+    finally{if(fresh)try{d02.revokeLease?.(fresh);}catch{}}
+  }
+  return Object.freeze({acceptPlayer,recordNpcOutcome,verifyMemoryCurrent,retire:close});
  }
  return Object.freeze({begin,sourceReady});
 }
