@@ -12,7 +12,7 @@ import {createHash} from 'node:crypto';
 import {makeQueueJob} from '../src/memory/queueContract.mjs';
 import {ensureIntegratedMemorySchema} from '../src/memory/integratedSqlite.mjs';
 import {ensureCurationSchema,enqueueCuration,claimCuration,completeCuration,
-  retryCuration,releaseCuration,reserveCurationBudget,finishCurationBudget,
+  retryCuration,releaseCuration,verifyCurationLease,reserveCurationBudget,finishCurationBudget,
   reconcileCurationBudgets,readCurationAppraisals} from '../src/memory/curationSqlite.mjs';
 import {processIdleCuration,createLunaCurationAdapter} from '../src/memory/lunaCurator.mjs';
 import {createIdleCurationScheduler} from '../src/memory/idleCurationScheduler.mjs';
@@ -84,7 +84,7 @@ test('M7 rejects lapsed lease, newly forgotten facts and duplicate output',t=>{
  f.db.prepare('INSERT INTO memory_tombstones(character_id,world_profile_id,timeline_id,target_id,command_id,created_at_utc) VALUES(?,?,?,?,?,?)')
    .run(f.scope.characterId,f.scope.worldProfileId,f.scope.timelineId,
         f.proposal.evidenceRecordIds[0],id(99),at(2));
- assert.throws(()=>complete(f,x),/source_no_longer_authorized/);
+ assert.throws(()=>complete(f,x),/curation_source_forgotten/);
  assert.equal(claim(f,{atMinute:5,until:7}).length,0);
  assert.equal(f.db.prepare('SELECT state FROM memory_curation_jobs').get().state,'dead_letter');
 });
@@ -157,6 +157,7 @@ function hFixture(f,{provider,allowReserve=true}={}){
  const nativeIdle=nativeFixture(f,store);
  const queue={enqueueIfAbsent:async()=>{},
    claimDue:async()=>{calls.push('claim');return claim(f,{atMinute:2,until:4});},
+   verifyLeased:async a=>verifyCurationLease(f.db,{...a,nowUtc:at(2)},f.scope.worldProfileId,f.scope.timelineId),
    completeLeased:async a=>{calls.push('commit');return completeCuration(f.db,{...a,nowUtc:at(3)},f.scope.worldProfileId,f.scope.timelineId);},
    retryLeased:async a=>{calls.push('retry');return retryCuration(f.db,a,f.scope.worldProfileId,f.scope.timelineId);},
    releaseLeased:async a=>{calls.push('release');return releaseCuration(f.db,a,f.scope.worldProfileId,f.scope.timelineId);}};
@@ -487,5 +488,5 @@ test('M7 SQLite pagination preserves older cross-avatar appraisal behind a suppr
  }finally{reopened.close();}
  // A suppressed historical source is not eligible for a fresh cloud queue.
  assert.throws(()=>enqueueCuration(f.db,{job:makeQueueJob(newer,at(7))},
-   f.scope.worldProfileId,f.scope.timelineId),/curation_source_no_longer_authorized/);
+   f.scope.worldProfileId,f.scope.timelineId),/curation_source_forgotten/);
 });

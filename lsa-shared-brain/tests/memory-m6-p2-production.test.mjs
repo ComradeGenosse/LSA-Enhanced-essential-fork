@@ -1,3 +1,4 @@
+import {createM5SqliteServices} from '../src/memory/m5SqlitePrivacy.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {randomUUID,createHash} from 'node:crypto';
@@ -212,9 +213,10 @@ test('W06 A06: bounded read prefixes resume without losing an old backlog; tombs
     const stale=(await x.store.readM6JournalPage({scope,afterCursor:cp.cursor})).rows[0];
     const [proposal]=selectAutomaticMemories([stale.evidence]);
     await x.store.saveDeterministicMemory(proposal);
-    await x.store.withTimelineSqliteWrite(scope,db=>
-      db.prepare('INSERT INTO memory_tombstones(character_id,world_profile_id,timeline_id,target_id,command_id,created_at_utc) VALUES(?,?,?,?,?,?)')
-        .run(scope.characterId,worldProfileId,scope.timelineId,target.recordId,id(),new Date().toISOString()));
+    // Use the production forgetting transaction, including its permanent
+    // suppression receipt; an unbound tombstone is now an integrity failure.
+    await createM5SqliteServices({store:x.store,filePath:x.store.filePath,authorize:()=>true})
+      .trash({scope,targetId:target.recordId});
     await assert.rejects(x.store.ackM6Checkpoint({scope,expectedCursor:cp.cursor,nextCursor:stale.cursor,
       sourceHashes:[{cursor:stale.cursor,sourceHash:stale.sourceHash,recordId:target.recordId}],
       savedProposalIds:[proposal.proposalId],rejected:[],cutoffUtc:future(),

@@ -1,3 +1,4 @@
+import {ensureSuppressionSchema} from '../src/memory/suppressionSqlite.mjs';
 import {createHash} from 'node:crypto';
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -189,6 +190,7 @@ test('malicious verified output marked superseded or forgotten cannot reach the 
 
 function integratedFixture(){
  const db=new DatabaseSync(':memory:');
+ ensureSuppressionSchema(db);
  db.exec("CREATE TABLE dialogue_journal(record_id TEXT PRIMARY KEY,world_profile_id TEXT,character_id TEXT,timeline_id TEXT,protagonist TEXT,speaker TEXT,source TEXT,delivery TEXT,committed_at_utc TEXT,content TEXT,content_sha256 TEXT,envelope_json TEXT,envelope_sha256 TEXT)");
  db.exec("CREATE VIRTUAL TABLE dialogue_journal_fts USING fts5(content,content='dialogue_journal',content_rowid='rowid')");
  db.exec("CREATE TRIGGER dialogue_fts_insert AFTER INSERT ON dialogue_journal BEGIN INSERT INTO dialogue_journal_fts(rowid,content) VALUES(new.rowid,new.content); END");

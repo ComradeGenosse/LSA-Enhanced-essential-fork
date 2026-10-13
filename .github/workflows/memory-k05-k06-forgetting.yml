@@ -1,0 +1,31 @@
+name: Memory K05 K06 Forgetting Integrity
+on:
+  pull_request:
+    paths:
+      - 'lsa-shared-brain/src/characters/**'
+      - 'lsa-shared-brain/src/memory/**'
+      - 'lsa-shared-brain/tests/memory-*.test.mjs'
+      - '.github/workflows/memory-k05-k06-forgetting.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  forgetting:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Permanent forgetting and adversarial source replay (offline)
+        run: node --test lsa-shared-brain/tests/memory-k05-k06-forgetting.test.mjs
+      - name: Original K05 production regression
+        run: node --test --test-name-pattern="W04 privacy trash" lsa-shared-brain/tests/memory-k-production-w04-sqlite.test.mjs
+      - name: M6 stale replay acknowledgement after real forgetting
+        run: node --test --test-name-pattern="bounded read prefixes" lsa-shared-brain/tests/memory-m6-p2-production.test.mjs
+      - name: Adjacent recall, curation, and single-store privacy regressions
+        run: node --test lsa-shared-brain/tests/memory-m4-recall.test.mjs lsa-shared-brain/tests/memory-m7-completion.test.mjs lsa-shared-brain/tests/memory-integrated-storage.test.mjs lsa-shared-brain/tests/memory-unified-player-avatars.test.mjs

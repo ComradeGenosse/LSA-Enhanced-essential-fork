@@ -1,3 +1,4 @@
+import {ensureSuppressionSchema,suppressedMemoryIds,suppressionClosure,retainSuppression,releaseSuppression,isSuppressedSource} from './suppressionSqlite.mjs';
 // P2-owned SQLite privacy services. The original P2 connection, writer queue,
 // transaction and source/timeline fence own ALL M5 reads and mutations.
 // No independently committing SQLite connection or memory database.
@@ -5,6 +6,9 @@ import { createHash, randomUUID } from 'node:crypto';
 import * as fs from 'node:fs/promises';
 import path from 'node:path';
 import { isUuid } from '../util/identity.mjs';
+import { detectExplicitMemoryCommands, compoundCommandId } from './explicitCommands.mjs';
+import { stableM5CommandId } from './m5RuntimeCoordinator.mjs';
+import { normalizeCorrectionMode, readCorrectionRows, supersededTargetIds } from './correctionSemantics.mjs';
 
 const sha = value => createHash('sha256').update(value).digest('hex');
 const fail = code => { throw new Error(code); };
@@ -46,6 +50,36 @@ CREATE TABLE IF NOT EXISTS m5_privacy_ops (
 
 export function ensureM5PrivacySchema(db){
  db.exec(sql);
+ ensureSuppressionSchema(db);
+}
+// One-time upgrade of legacy target-only forgetting under P2's startup TX.
+// Previously purged receipts without source bytes remain unresolved and deny
+// reads/writes in that scope rather than inventing a privacy fingerprint.
+export function reconcileM5Suppression(db){
+ const old=db.prepare(`SELECT t.world_profile_id,t.character_id,t.timeline_id,
+   t.target_id,t.command_id,t.created_at_utc FROM memory_tombstones t
+   WHERE NOT EXISTS (SELECT 1 FROM memory_suppressions s WHERE
+    s.world_profile_id=t.world_profile_id AND s.character_id=t.character_id AND
+    s.timeline_id=t.timeline_id AND s.command_id=t.command_id AND s.target_id=t.target_id)
+   UNION SELECT t.world_profile_id,t.character_id,t.timeline_id,t.target_id,
+    t.operation_id,t.created_at_utc FROM m5_trash t WHERE t.restored_at_utc IS NULL
+    AND NOT EXISTS (SELECT 1 FROM memory_suppressions s WHERE
+     s.world_profile_id=t.world_profile_id AND s.character_id=t.character_id AND
+     s.timeline_id=t.timeline_id AND s.command_id=t.operation_id AND s.target_id=t.target_id)`).all();
+ for(const row of old){
+   const s={worldProfileId:row.world_profile_id,characterId:row.character_id,timelineId:row.timeline_id};
+   const closure=suppressionClosure(db,s,[row.target_id]);
+   retainSuppression(db,s,closure,row.command_id);
+   const ticket=db.prepare('SELECT * FROM m5_trash WHERE operation_id=? AND '+ownerWhere+' LIMIT 1').get(row.command_id,...ownerKey(s));
+   for(const id of closure){
+     db.prepare('INSERT OR IGNORE INTO memory_tombstones VALUES(?,?,?,?,?,?)')
+       .run(s.characterId,s.worldProfileId,s.timelineId,id,row.command_id,row.created_at_utc);
+     if(db.prepare('SELECT 1 FROM m5_trash WHERE operation_id=? AND target_id=? AND '+ownerWhere).get(row.command_id,id,...ownerKey(s)))continue;
+     db.prepare('INSERT INTO m5_trash VALUES(?,?,?,?,?,?,?,?,?,NULL,?)').run(
+       randomUUID(),row.command_id,id,...ownerKey(s),ticket?.protagonist_key??'unknown',
+       row.created_at_utc,ticket?.purge_after_utc??new Date(Date.parse(row.created_at_utc)+7*DAY).toISOString(),ticket?.purged_at_utc??null);
+   }
+ }
 }
 function validateScope(s,store){
  if(!s || ![s.characterId,s.worldProfileId,s.timelineId].every(isUuid) ||
@@ -64,13 +98,22 @@ function evidence(db,s,id){
  if(dialogue)return {kind:'dialogue_line',content:dialogue.content};
  const memory=db.prepare('SELECT content,protagonist_key AS protagonistKey FROM memory_records WHERE world_profile_id=? AND character_id=? AND timeline_id=? AND memory_id=?').get(...args);
  if(memory)return {kind:'permanent_memory',content:memory.content};
- const event=db.prepare('SELECT e.envelope_json AS content FROM event_journal e JOIN event_source_evidence v ON v.record_id=e.record_id WHERE e.world_profile_id=? AND e.character_id=? AND e.timeline_id=? AND e.record_id=? AND e.receipt_status=?').get(...args,'witnessed');
-   if(event)return {kind:'journal_event',content:event.content};
+const event=db.prepare('SELECT e.envelope_json AS content FROM event_journal e JOIN event_source_evidence v ON v.record_id=e.record_id WHERE e.world_profile_id=? AND e.character_id=? AND e.timeline_id=? AND e.record_id=? AND e.receipt_status=?').get(...args,'witnessed');
+ if(event){
+   // Same projection as findCandidates (integratedSqlite knownEvidence), so a
+   // frozen clarification alternative can be re-verified byte for byte.
+   try{
+     const e=JSON.parse(event.content);
+     if(e.recordId!==id||!Array.isArray(e.claims))return null;
+     return {kind:'journal_event',content:e.eventType+': '+e.claims.map(c=>c.kind+' '+c.durableSubject).join('; ')};
+   }catch{return null;}
+ }
  return null;
 }
+// K-12: a counter-claim is a linked reported claim; it never supersedes its
+// target. Only a genuine STT transcript correction does.
 function superseded(db,s,id){
- return !!db.prepare('SELECT c.command_id FROM memory_corrections c JOIN memory_commands m ON m.command_id=c.command_id WHERE c.world_profile_id=? AND c.character_id=? AND c.timeline_id=? AND c.target_id=? LIMIT 1')
-   .get(...ownerKey(s),id);
+ return supersededTargetIds(db,ownerKey(s)).has(id);
 }
 function activeTombstone(db,s,id) {
  return db.prepare('SELECT command_id AS commandId FROM memory_tombstones WHERE world_profile_id=? AND character_id=? AND timeline_id=? AND target_id=?').get(s.worldProfileId,s.characterId,s.timelineId,id);
@@ -165,11 +208,13 @@ function m5Apply(db,s,line,o){
    if(!m5Effect(db,s,receipt))fail('m5_atomic_effect_missing');
    return receipt;
  }
+ const hidden=suppressedMemoryIds(db,s);
  for(const id of o.evidenceRecordIds)
-   if(!evidence(db,s,id)||activeTombstone(db,s,id))fail('m5_atomic_evidence_invalid');
+   if(!evidence(db,s,id)||hidden.has(id))fail('m5_atomic_evidence_invalid');
  const target=o.targetRecordId;
  if(o.operation!=='remember'&&(!isUuid(target)||!o.evidenceRecordIds.includes(target)||
    !evidence(db,s,target)||activeTombstone(db,s,target)))fail('m5_atomic_target_invalid');
+ if(o.operation==='correct')normalizeCorrectionMode(o.correctionMode);
  if(o.operation==='correct'&&o.correctionMode==='transcript'){
    const original=db.prepare('SELECT source,speaker,delivery,protagonist FROM dialogue_journal WHERE record_id=? AND world_profile_id=? AND character_id=? AND timeline_id=?')
       .get(target,s.worldProfileId,s.characterId,s.timelineId);
@@ -180,12 +225,15 @@ function m5Apply(db,s,line,o){
  const at=o.requestedAtUtc;
  if(!timestamp(at))fail('m5_atomic_time_invalid');
  if(o.operation==='remember'){
+   if(isSuppressedSource(db,s,{recordId:o.commandId,kind:'permanent_memory',contentHash:o.contentHash}))
+     fail('memory_source_forgotten');
    db.prepare('INSERT INTO memory_records(memory_id,character_id,world_profile_id,timeline_id,protagonist_key,origin,content,content_sha256,mode,pin,notability,evidence_ids_json,created_at_utc,proposal_json) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,NULL)')
      .run(o.commandId,s.characterId,s.worldProfileId,s.timelineId,s.protagonistKey,
       'explicit_player',o.content,o.contentHash,'reported_claim',o.pin?1:0,o.pin?.95:.85,
       JSON.stringify(o.evidenceRecordIds),at);
  }else if(o.operation==='forget'){
-   const closure=dependentIds(db,s,[target]),until=new Date(Date.parse(at)+7*DAY).toISOString();
+   const closure=[...suppressionClosure(db,s,[target])],until=new Date(Date.parse(at)+7*DAY).toISOString();
+   retainSuppression(db,s,closure,o.commandId);
    revokePendingClarifications(db,s,new Set(closure));
    for(const id of closure){
      if(activeTombstone(db,s,id))continue;
@@ -195,9 +243,10 @@ function m5Apply(db,s,line,o){
        .run(id===target?o.commandId:randomUUID(),o.commandId,id,...scopeKey(s),at,until);
    }
  }else{
-   db.prepare('INSERT INTO memory_corrections VALUES(?,?,?,?,?,?,?,?)')
-     .run(o.commandId,s.characterId,s.worldProfileId,s.timelineId,target,o.content,o.contentHash,at);
-   revokePendingClarifications(db,s,new Set([target]));
+   db.prepare('INSERT INTO memory_corrections(command_id,character_id,world_profile_id,timeline_id,target_id,preferred_text,content_sha256,created_at_utc,correction_mode) VALUES(?,?,?,?,?,?,?,?,?)')
+     .run(o.commandId,s.characterId,s.worldProfileId,s.timelineId,target,o.content,o.contentHash,at,o.correctionMode);
+   // Only a superseding transcript correction withdraws offered evidence.
+   if(o.correctionMode==='transcript')revokePendingClarifications(db,s,new Set([target]));
  }
  const receipt={commandId:o.commandId,requestedByLineId:line.recordId,operation:o.operation,
    status:'committed',durableCommit:true,memoryId:o.commandId,evidenceRecordIds:o.evidenceRecordIds};
@@ -237,9 +286,12 @@ export class M5SqliteServices{
        ' WHERE t.world_profile_id=? AND t.character_id=? AND t.timeline_id=?'+
        " AND c.operation='forget'").all(...ownerKey(scope));
      const insert=db.prepare('INSERT OR IGNORE INTO m5_trash VALUES(?,?,?,?,?,?,?,?,?,NULL,NULL)');
-     for(const item of forgotten)insert.run(item.commandId,item.commandId,item.targetId,
-       ...ownerKey(scope),item.sourceAvatar,item.createdAtUtc,
-       new Date(Date.parse(item.createdAtUtc)+7*DAY).toISOString());
+     for(const item of forgotten){
+       if(db.prepare('SELECT 1 FROM m5_trash WHERE operation_id=? AND target_id=? AND '+ownerWhere).get(item.commandId,item.targetId,...ownerKey(scope)))continue;
+       const ticket=db.prepare('SELECT 1 FROM m5_trash WHERE trash_id=?').get(item.commandId)?randomUUID():item.commandId;
+       insert.run(ticket,item.commandId,item.targetId,...ownerKey(scope),item.sourceAvatar,item.createdAtUtc,
+         new Date(Date.parse(item.createdAtUtc)+7*DAY).toISOString());
+     }
      return true;
    });
  }
@@ -281,6 +333,10 @@ export class M5SqliteServices{
      }
      const old=db.prepare('SELECT state_sha256 FROM m5_clarifications WHERE command_id=?').get(commandId);
      if(old){if(old.state_sha256!==checksum)fail('m5_clarification_replay_conflict');return;}
+     // One open question per NPC/save: a new question retires older pending
+     // ones so a stale or replayed answer can never resolve them.
+     db.prepare('UPDATE m5_clarifications SET completed_at_utc=? WHERE '+ownerWhere+' AND completed_at_utc IS NULL')
+       .run(...[now],...ownerKey(scope));
      db.prepare('INSERT INTO m5_clarifications VALUES(?,?,?,?,?,?,?,?,?,NULL)')
        .run(commandId,...scopeKey(scope),requestedByLineId,raw,checksum,until);
    });
@@ -288,19 +344,55 @@ export class M5SqliteServices{
    if(!persisted||sha(JSON.stringify(persisted))!==checksum)fail('m5_clarification_readback_failed');
    return {commandId,expiresAtUtc:until};
  }
+ // Shared by getClarification and findPendingClarification so both apply the
+ // identical durable/expiry/integrity/revocation rules.
+ #openClarification(db,scope,row,atUtc){
+   if(!row || row.done || Date.parse(row.until)<=Date.parse(this.#clock())||
+      atUtc&&(!timestamp(atUtc)||Date.parse(atUtc)>Date.parse(row.until)))return null;
+   if(sha(row.raw)!==row.checksum)fail('m5_clarification_corrupt');
+   const saved=JSON.parse(row.raw);
+   // A later forget must revoke previously offered evidence immediately.
+   if(saved.alternatives.some(item=>activeTombstone(db,scope,item.recordId) || superseded(db,scope,item.recordId)))
+     return null;
+   return saved;
+ }
  async getClarification({scope,commandId,atUtc=null}){
    if(!isUuid(commandId))fail('m5_invalid_command');
    return this.#read(scope,db=>{
      const row=db.prepare('SELECT state_json AS raw,state_sha256 AS checksum,expires_at_utc AS until,completed_at_utc AS done FROM m5_clarifications WHERE command_id=? AND '+ownerWhere)
      .get(commandId,...ownerKey(scope));
-     if(!row || row.done || Date.parse(row.until)<=Date.parse(this.#clock())||
-        atUtc&&(!timestamp(atUtc)||Date.parse(atUtc)>Date.parse(row.until)))return null;
-     if(sha(row.raw)!==row.checksum)fail('m5_clarification_corrupt');
-     const saved=JSON.parse(row.raw);
-     // A later forget must revoke previously offered evidence immediately.
-     if(saved.alternatives.some(item=>activeTombstone(db,scope,item.recordId) || superseded(db,scope,item.recordId)))
-       return null;
-     return saved;
+     return this.#openClarification(db,scope,row,atUtc);
+   });
+ }
+ /** Durable reconnect/avatar-switch lookup (K-07). Scoped to the exact NPC,
+  * world and save timeline - the historical avatar is provenance, not a
+  * partition, so a clarification asked as Franklin is answerable as Michael.
+  * Only a noncompleted, unexpired, integrity-verified, unrevoked request that
+  * was asked BEFORE `atUtc` by a DIFFERENT line than the reply is eligible.
+  * The newest one wins (a new question supersedes older ones, see
+  * saveClarification); equally new candidates are ambiguous and fail closed.
+  */
+ async findPendingClarification({scope,atUtc,excludeLineId=null}={}){
+   if(!timestamp(atUtc)||(excludeLineId!==null&&!isUuid(excludeLineId)))fail('m5_invalid_clarification_lookup');
+   return this.#read(scope,db=>{
+     const rows=db.prepare('SELECT command_id AS id,requested_by_line_id AS lineId,state_json AS raw,state_sha256 AS checksum,expires_at_utc AS until,completed_at_utc AS done FROM m5_clarifications WHERE '+ownerWhere+' AND completed_at_utc IS NULL')
+       .all(...ownerKey(scope));
+     const eligible=[];
+     for(const row of rows){
+       if(row.lineId===excludeLineId)continue;
+       const saved=this.#openClarification(db,scope,row,atUtc);
+       if(!saved||saved.commandId!==row.id||saved.requestedByLineId!==row.lineId)continue;
+       // The request line must still be a durably accepted player line, and the
+       // reply cannot predate the question it claims to answer.
+       const source=db.prepare('SELECT committed_at_utc AS atUtc FROM dialogue_journal WHERE record_id=? AND '+ownerWhere+" AND speaker='player' AND delivery='accepted'")
+         .get(row.lineId,...ownerKey(scope));
+       if(!source||Date.parse(atUtc)<Date.parse(saved.createdAtUtc)||Date.parse(atUtc)<Date.parse(source.atUtc))continue;
+       eligible.push({commandId:row.id,createdAtUtc:saved.createdAtUtc});
+     }
+     if(!eligible.length)return null;
+     eligible.sort((x,y)=>Date.parse(y.createdAtUtc)-Date.parse(x.createdAtUtc)||x.commandId.localeCompare(y.commandId));
+     if(eligible.length>1&&eligible[0].createdAtUtc===eligible[1].createdAtUtc)return null;
+     return {commandId:eligible[0].commandId};
    });
  }
  async completeClarification({scope,commandId}){
@@ -340,7 +432,8 @@ export class M5SqliteServices{
          this.#store.listSuppressedMemoryIds(params.scope),
          this.#store.readCorrectionOverlays(params.scope)
        ]);
-       const hidden=new Set([...suppressed,...overlays.map(x=>x.targetId)]);
+       // K-12: counter-claims never hide their target; transcript corrections do.
+       const hidden=new Set([...suppressed,...overlays.filter(x=>x.supersedesTarget!==false).map(x=>x.targetId)]);
        return rows.filter(x=>!hidden.has(x.recordId));
      },
      commitCommand:async op=>{
@@ -362,12 +455,38 @@ export class M5SqliteServices{
        }
        return receipt;
      },
+     commitCommandBatch:params=>this.commitCommandBatch(params),
+     findPendingClarification:params=>this.findPendingClarification(params),
      saveClarification:params=>this.saveClarification(params),
      getClarification:params=>this.getClarification(params),
      completeClarification:params=>this.completeClarification(params),
      inspect:params=>this.inspect(params),
      export:params=>this.exportArchive(params)
    });
+ }
+ /** K-07: the production compound-command port. Both members of one accepted
+  * player turn commit in ONE P2 transaction or neither does. Before anything
+  * is written, every member must be re-derivable from the exact accepted
+  * source bytes: deterministic command IDs from (scope, line), the operation,
+  * pin and any literal claim/correction text the player actually said. A
+  * caller cannot bolt arbitrary effects onto a genuine accepted line.
+  */
+ async commitCommandBatch({scope,line,operations}={}){
+   if(!Array.isArray(operations)||operations.length!==2)fail('m5_invalid_atomic_batch');
+   const parts=detectExplicitMemoryCommands(line?.content);
+   if(!parts||parts.length!==operations.length)fail('m5_batch_source_mismatch');
+   let base;
+   try{base=stableM5CommandId({line,scope});}catch{fail('m5_batch_source_mismatch');}
+   operations.forEach((o,i)=>{
+     const parsed=parts[i].parsed;
+     if(!o||!['remember','forget','correct'].includes(parsed.intent)||
+        o.commandId!==compoundCommandId(base,i)||o.operation!==parsed.intent||
+        o.requestedByLineId!==line.recordId||Boolean(o.pin)!==Boolean(parsed.pin)||
+        (parsed.content&&o.content!==parsed.content&&!(parsed.intent==='remember'&&parsed.selector!=='claim'))||
+        (parsed.intent==='correct'&&o.correctionMode!==parsed.correctionMode))
+       fail('m5_batch_source_mismatch');
+   });
+   return this.commitAtomicBatch({scope,line,operations});
  }
  async commitAtomicBatch({scope,line,operations}={}){
    if(!Array.isArray(operations)||operations.length<1||operations.length>2||
@@ -400,7 +519,9 @@ export class M5SqliteServices{
      const records=db.prepare('SELECT memory_id AS recordId,content,origin,pin,created_at_utc AS atUtc,evidence_ids_json AS evidenceJson FROM memory_records WHERE world_profile_id=? AND character_id=? AND timeline_id=? ORDER BY created_at_utc DESC LIMIT ?').all(...ownerKey(scope),limit)
        .map(m=>({...m,evidenceRecordIds:JSON.parse(m.evidenceJson)}));
      const trash=db.prepare('SELECT trash_id AS trashId,target_id AS targetId,created_at_utc AS createdAtUtc,purge_after_utc AS purgeAfterUtc,restored_at_utc AS restoredAtUtc,purged_at_utc AS purgedAtUtc FROM m5_trash WHERE '+ownerWhere+' ORDER BY created_at_utc DESC LIMIT ?').all(...ownerKey(scope),limit);
-     const corrections=db.prepare('SELECT c.target_id AS targetId,c.preferred_text AS reportedCorrection,c.created_at_utc AS atUtc FROM memory_corrections c JOIN memory_commands m ON m.command_id=c.command_id WHERE c.world_profile_id=? AND c.character_id=? AND c.timeline_id=? ORDER BY c.created_at_utc DESC LIMIT ?').all(...ownerKey(scope),limit);
+     const receipts=new Set(db.prepare('SELECT command_id AS id FROM memory_commands WHERE '+ownerWhere).all(...ownerKey(scope)).map(x=>x.id));
+     const corrections=readCorrectionRows(db,ownerKey(scope)).filter(c=>receipts.has(c.commandId)).slice(0,limit)
+       .map(c=>({targetId:c.targetId,reportedCorrection:c.content,atUtc:c.atUtc,correctionMode:c.mode,supersedesTarget:c.supersedes}));
      return {version:1,scope:{...scope},records,trash,corrections};
    });
  }
@@ -456,9 +577,10 @@ export class M5SqliteServices{
         fail('m5_privacy_replay_conflict');return;}
      if(!evidence(db,scope,targetId))fail('m5_trash_missing_evidence');
      if(activeTombstone(db,scope,targetId))fail('m5_already_suppressed');
-     const closure=dependentIds(db,scope,[targetId]);
+     const closure=[...suppressionClosure(db,scope,[targetId])];
      // Pending choices whose original source is now suppressed are revoked
      // within the same privacy transaction, before retrieval can expose them.
+     retainSuppression(db,scope,closure,operationId);
      revokePendingClarifications(db,scope,new Set(closure));
      for(const id of closure){
        if(!activeTombstone(db,scope,id))
@@ -499,6 +621,7 @@ export class M5SqliteServices{
      // Compound scope forget must invalidate all offered alternatives in the
      // same commit, never permitting a stale clarification to revive evidence.
      revokePendingClarifications(db,scope,new Set(unique));
+     retainSuppression(db,scope,pending,operationId);
      for(const id of pending){
        db.prepare('INSERT INTO memory_tombstones VALUES(?,?,?,?,?,?)')
          .run(scope.characterId,scope.worldProfileId,scope.timelineId,id,operationId,now);
@@ -528,10 +651,26 @@ export class M5SqliteServices{
         fail('m5_privacy_replay_conflict');return;}
      const target=db.prepare('SELECT operation_id AS parent,target_id AS target,purge_after_utc AS expiry,restored_at_utc AS restored,purged_at_utc AS purged FROM m5_trash WHERE trash_id=? AND '+ownerWhere).get(trashId,...ownerKey(scope));
      if(!target||target.restored||target.purged||Date.parse(now)>=Date.parse(target.expiry))fail('m5_restore_unavailable');
+     // Never clear an unverifiable suppression receipt on the basis of an
+     // unbound trash ticket. All privacy metadata must verify before restore.
+     suppressedMemoryIds(db,scope);
      const bundle=db.prepare('SELECT target_id AS id FROM m5_trash WHERE operation_id=? AND '+ownerWhere+' AND restored_at_utc IS NULL AND purged_at_utc IS NULL').all(target.parent,...ownerKey(scope));
      for(const x of bundle){
        db.prepare('DELETE FROM memory_tombstones WHERE world_profile_id=? AND character_id=? AND timeline_id=? AND target_id=? AND command_id=?')
          .run(scope.worldProfileId,scope.characterId,scope.timelineId,x.id,target.parent);
+     }
+     releaseSuppression(db,scope,target.parent);
+     // Re-offer restored source evidence to consumers which already advanced
+     // past its suppressed feed entry. Original journals/provenance stay intact.
+     const hidden=suppressedMemoryIds(db,scope);
+     for(const x of bundle){
+       if(hidden.has(x.id))continue;
+       db.prepare(`INSERT INTO p2_memory_replay_feed(world_profile_id,character_id,timeline_id,protagonist_key,kind,record_id,source_at_utc)
+         SELECT world_profile_id,character_id,timeline_id,protagonist,'dialogue',record_id,committed_at_utc FROM dialogue_journal
+          WHERE ${ownerWhere} AND record_id=?`).run(...ownerKey(scope),x.id);
+       db.prepare(`INSERT INTO p2_memory_replay_feed(world_profile_id,character_id,timeline_id,protagonist_key,kind,record_id,source_at_utc)
+         SELECT world_profile_id,character_id,timeline_id,'unknown','event',record_id,received_at_utc FROM event_journal
+          WHERE ${ownerWhere} AND record_id=?`).run(...ownerKey(scope),x.id);
      }
      db.prepare('UPDATE m5_trash SET restored_at_utc=? WHERE operation_id=? AND '+ownerWhere+' AND restored_at_utc IS NULL')
        .run(now,target.parent,...ownerKey(scope));
@@ -551,8 +690,10 @@ export class M5SqliteServices{
      // referenced operation's entire durable trash bundle must be marked as
      // purged at this instant, and every listed source must be physically gone.
      const operations=new Set();
+     const suppressed=suppressedMemoryIds(db,scope);
      const listed=new Set(result.purgedIds);
      for(const id of listed){
+       if(!suppressed.has(id))return {confirmed:false};
        const mark=db.prepare('SELECT operation_id AS operationId FROM m5_trash WHERE '+ownerWhere+
          ' AND target_id=? AND purged_at_utc=? LIMIT 1')
          .get(...ownerKey(scope),id,result.committedAtUtc);
@@ -646,7 +787,7 @@ export class M5SqliteServices{
          .run(id,...ownerKey(scope));
        db.prepare('DELETE FROM event_journal WHERE record_id=? AND world_profile_id=? AND character_id=? AND timeline_id=?').run(id,...ownerKey(scope));
        db.prepare('DELETE FROM memory_corrections WHERE target_id=? AND world_profile_id=? AND character_id=? AND timeline_id=?').run(id,scope.worldProfileId,scope.characterId,scope.timelineId);
-       db.prepare('DELETE FROM memory_tombstones WHERE target_id=? AND world_profile_id=? AND character_id=? AND timeline_id=?').run(id,scope.worldProfileId,scope.characterId,scope.timelineId);
+       // Permanent suppression and tombstones survive physical purge.
        db.prepare('DELETE FROM p2_memory_replay_feed WHERE record_id=? AND world_profile_id=? AND character_id=? AND timeline_id=?')
          .run(id,...ownerKey(scope));
        db.prepare('DELETE FROM memory_commands WHERE requested_by_line_id=? AND '+ownerWhere).run(id,...ownerKey(scope));

@@ -1,3 +1,5 @@
+import {suppressedMemoryIds} from './suppressionSqlite.mjs';
+import {verifyMemoryEvidence} from './integratedSqlite.mjs';
 // M7 durable queue and budget ledger inside the one P2 SQLite database.
 // All writes are invoked from P2.withTimelineWrite and use synchronous SQLite.
 import {randomUUID} from 'node:crypto';
@@ -28,6 +30,7 @@ export function ensureCurationSchema(db){db.exec(CURATION_EXTRA_DDL);}
 export function enqueueCuration(db,{job},world,timeline){
  validateCurationJob(job);scoped(db,job,world,timeline);
  return tx(db,()=>{
+  assertNotForgotten(db,job,world,timeline);
   const memory=db.prepare('SELECT proposal_json FROM memory_records WHERE memory_id=? AND world_profile_id=? AND timeline_id=? AND character_id=?')
     .get(job.proposal.proposalId,world,timeline,job.characterId);
   if(!memory||memory.proposal_json!==JSON.stringify(job.proposal))
@@ -54,17 +57,11 @@ export function enqueueCuration(db,{job},world,timeline){
  * M5's backwards/forwards derived suppression is applied transitively.
  */
 function suppressedIds(db,world,timeline,characterId){
- const args=[world,characterId,timeline];
- const ids=new Set(db.prepare('SELECT target_id FROM memory_tombstones WHERE world_profile_id=? AND character_id=? AND timeline_id=?').all(...args).map(r=>r.target_id));
- for(const r of db.prepare('SELECT target_id FROM memory_corrections WHERE world_profile_id=? AND character_id=? AND timeline_id=?').all(...args))ids.add(r.target_id);
- const rows=db.prepare('SELECT memory_id,evidence_ids_json FROM memory_records WHERE world_profile_id=? AND character_id=? AND timeline_id=?').all(...args);
- let changed=true;
- while(changed){changed=false;for(const row of rows){
-   const linked=JSON.parse(row.evidence_ids_json);
-   if(ids.has(row.memory_id)){for(const id of linked)if(!ids.has(id)){ids.add(id);changed=true;}}
-   else if(linked.some(id=>ids.has(id))){ids.add(row.memory_id);changed=true;}
- }}
- return ids;
+ return suppressedMemoryIds(db,{worldProfileId:world,timelineId:timeline,characterId},{includeCorrections:true});
+}
+function assertNotForgotten(db,job,world,timeline){
+ const hidden=suppressedMemoryIds(db,{worldProfileId:world,timelineId:timeline,characterId:job.characterId});
+ if(hidden.has(job.proposal.proposalId)||job.proposal.evidenceRecordIds.some(id=>hidden.has(id)))fail('curation_source_forgotten');
 }
 function sourceAuthorized(db,job,world,timeline){
  try{
@@ -77,6 +74,10 @@ function sourceAuthorized(db,job,world,timeline){
   if(ids.length>64||new Set(ids).size!==ids.length)return false;
   const suppressed=suppressedIds(db,world,timeline,job.characterId);
   if(suppressed.has(job.proposal.proposalId))return false;
+  // Production v4 must verify the immutable record and every ancestral source
+  // byte. Tiny queue-only fixtures cannot attest those bytes as production.
+  if(db.prepare('PRAGMA user_version').get().user_version===4&&
+     !verifyMemoryEvidence(db,{worldProfileId:world,timelineId:timeline,characterId:job.characterId},job.proposal.proposalId,suppressed))return false;
   for(const id of ids){
    if(suppressed.has(id))return false;
    const dialogue=db.prepare('SELECT speaker,source,delivery,receipt_id AS receipt,protagonist FROM dialogue_journal WHERE record_id=? AND world_profile_id=? AND character_id=? AND timeline_id=?')
@@ -134,17 +135,19 @@ function leased(db,jobId,leaseToken,world,timeline,{checkExpiry=false,nowUtc=new
  scoped(db,row,world,timeline);
  return row;
 }
+export function verifyCurationLease(db,{jobId,leaseToken,nowUtc=new Date().toISOString()},world,timeline){
+ const row=leased(db,jobId,leaseToken,world,timeline,{checkExpiry:true,nowUtc}),job=JSON.parse(row.job_json);
+ assertNotForgotten(db,job,world,timeline);
+ if(!sourceAuthorized(db,job,world,timeline))fail('curation_source_no_longer_authorized');
+ return true;
+}
 export function completeCuration(db,{jobId,leaseToken,proposal,nowUtc=new Date().toISOString()},world,timeline){
  return tx(db,()=>{
   const row=leased(db,jobId,leaseToken,world,timeline,{checkExpiry:true,nowUtc}),job=JSON.parse(row.job_json);
+  assertNotForgotten(db,job,world,timeline);
   if(!sourceAuthorized(db,job,world,timeline))fail('curation_source_no_longer_authorized');
   const approved=validateLunaAppraisal(proposal,job.proposal);
   if(job.jobId!==jobId||approved.proposalId!==job.proposal.proposalId)fail('curation_proposal_mismatch');
-  // A forgotten source cannot be re-curated after its command was committed.
-  for(const id of approved.evidenceRecordIds){
-   if(db.prepare('SELECT target_id FROM memory_tombstones WHERE world_profile_id=? AND character_id=? AND timeline_id=? AND target_id=?')
-     .get(world,row.character_id,timeline,id))fail('curation_source_forgotten');
-  }
   const old=db.prepare('SELECT appraisal_json FROM memory_luna_appraisals WHERE proposal_id=?').get(approved.proposalId);
   if(old&&old.appraisal_json!==JSON.stringify(approved))fail('curation_duplicate_appraisal');
   if(!old){

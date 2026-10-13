@@ -1,0 +1,31 @@
+name: Memory K07 K12 Commands And Factual Integrity
+on:
+  pull_request:
+    paths:
+      - 'lsa-shared-brain/src/characters/**'
+      - 'lsa-shared-brain/src/memory/**'
+      - 'lsa-shared-brain/tests/memory-*.test.mjs'
+      - '.github/workflows/memory-k07-k12-commands.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  commands:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: K-07 atomic compound commands, durable clarifications, K-12 witnessed facts (offline)
+        run: node --test lsa-shared-brain/tests/memory-k07-k12-adversarial.test.mjs
+      - name: W04 production SQLite acceptance (all 8, unchanged assertions)
+        run: node --test lsa-shared-brain/tests/memory-k-production-w04-sqlite.test.mjs
+      - name: K-05/K-06 forgetting must stay green
+        run: node --test lsa-shared-brain/tests/memory-k05-k06-forgetting.test.mjs
+      - name: Adjacent recall, curation, storage and avatar regressions
+        run: node --test lsa-shared-brain/tests/memory-m4-recall.test.mjs lsa-shared-brain/tests/memory-m7-completion.test.mjs lsa-shared-brain/tests/memory-integrated-storage.test.mjs lsa-shared-brain/tests/memory-unified-player-avatars.test.mjs lsa-essential-e1-candidate/tests/m5-explicit-memory-commands.test.mjs

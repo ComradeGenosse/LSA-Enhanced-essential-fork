@@ -78,7 +78,7 @@ export class SharedJournalRecallAdapter{
       ?await this.store.listSuppressedMemoryIds(scope):[]);
     const corrections=typeof this.store.readCorrectionOverlays==='function'
       ?await this.store.readCorrectionOverlays(scope):[];
-    const corrected=new Set(corrections.map(row=>row.targetId));
+    const corrected=new Set(corrections.filter(row=>row.supersedesTarget!==false).map(row=>row.targetId));
     const include=(envelope,sourceKind,protagonistKey,atUtc)=>{
       if(suppressed.has(envelope?.recordId)||corrected.has(envelope?.recordId))return;
       if(!envelope||envelope.characterId!==scope.characterId||
@@ -154,7 +154,7 @@ export async function recallFromSharedJournal({store,query,protagonistKey,nowUtc
  * authorize cloud curation, set budget caps, and call worker only while idle.
  */
 export function createDurableCurationAdapters(store,{dailyUsd,monthlyUsd}={}){
- const methods=['enqueueCurationJob','claimCurationDue','completeCurationLease','retryCurationLease',
+ const methods=['enqueueCurationJob','claimCurationDue','verifyCurationLease','completeCurationLease','retryCurationLease',
    'releaseCurationLease','reserveCurationBudget','finishCurationBudget'];
  if(!store||methods.some(k=>typeof store[k]!=='function')||
     !Number.isFinite(dailyUsd)||dailyUsd<=0||!Number.isFinite(monthlyUsd)||monthlyUsd<=0)
@@ -162,6 +162,7 @@ export function createDurableCurationAdapters(store,{dailyUsd,monthlyUsd}={}){
  const queue=Object.freeze({
    enqueueIfAbsent:args=>store.enqueueCurationJob(args),
    claimDue:args=>store.claimCurationDue(args),
+   verifyLeased:args=>store.verifyCurationLease(args),
    completeLeased:args=>store.completeCurationLease(args),
    retryLeased:args=>store.retryCurationLease(args),
    releaseLeased:args=>store.releaseCurationLease(args)
