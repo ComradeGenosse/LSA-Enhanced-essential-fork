@@ -76,7 +76,7 @@ export function createNativeCurrentOwnerPlayerAuthority({
   // is local to an authenticated stream and never authorizes by itself.
   const ownerGenerations=new Map();
   // Roster maintenance keeps the authenticated context, last complete owner
-  // set (so the next sample's drop-out diff still retires missing owners),
+  // set (so the next sample's drop-out diff revokes missing owners' leases),
   // subject, sequence and leases, but unsettles verification. Terminal source
   // faults retire the stream until a new authenticated hello.
   const clear=(reason='terminal',revokedRefs=[])=>{
