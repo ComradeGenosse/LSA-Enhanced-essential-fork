@@ -24,7 +24,7 @@ const turn=()=>({
   identity:{pedId:'42',turnId:U(),generationId:1,sessionNonce:1},
   characterProjection:{persistent:true,profile:{characterId,promotion:{ownerAlias}}},
   characterInputs:{profile:{characterId}},
-  m2Capture:{verifyMemoryCurrent:()=>true}
+  m2Capture:{openMemoryCurrent:async()=>true,verifyMemoryCurrent:()=>true}
 });
 const p2=(line,extra=[])=>({
   worldProfileId:world,activeTimelineId:timelineId,
