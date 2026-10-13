@@ -267,6 +267,10 @@ test('real v4 projection 10k-record p95 retrieval target is measured, not GTA ac
    at:new Date(Date.parse(clock)-i*1000).toISOString()});
   f.db.exec('COMMIT');
   const q=query(s,'what did I say about meticulous alpaca?',{intent:'exact_quote'}),samples=[];
+  const coldStart=performance.now();
+  const cold=await recallMemory({query:q,readAdapter:f.adapter,protagonistKey:s.protagonistKey,nowUtc:clock});
+  const coldMs=performance.now()-coldStart;
+  assert.equal(cold.bundle.items[0].content,'meticulous alpaca clock');
   for(let i=0;i<35;i++){
    const t=performance.now();
    const {bundle}=await recallMemory({query:q,readAdapter:f.adapter,protagonistKey:s.protagonistKey,nowUtc:clock});
@@ -274,9 +278,11 @@ test('real v4 projection 10k-record p95 retrieval target is measured, not GTA ac
    assert.equal(bundle.items[0].content,'meticulous alpaca clock');
    assert.ok(bundle.totalBytes<=q.maxBytes);
   }
-  samples.sort((a,b)=>a-b);const p95=samples[Math.ceil(samples.length*.95)-1];
-  console.log('M4 integrated 10k v4 p95 ms:',p95.toFixed(2),'target <=40ms (environment dependent)');
-  assert.ok(Number.isFinite(p95));
+  samples.sort((a,b)=>a-b);
+  const median=samples[Math.floor((samples.length-1)/2)];
+  const p95=samples[Math.ceil(samples.length*.95)-1];
+  console.log('WS6 C M4 busy-10k offline: cold='+coldMs.toFixed(2)+'ms median='+median.toFixed(2)+'ms p95='+p95.toFixed(2)+'ms n='+samples.length+' target_p95<=40ms; not restart/GTA');
+  assert.ok(Number.isFinite(median)&&Number.isFinite(coldMs)&&Number.isFinite(p95));
  }finally{f.close();}
 });
 
