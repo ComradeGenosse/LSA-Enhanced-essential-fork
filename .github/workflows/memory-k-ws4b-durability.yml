@@ -3,6 +3,10 @@ on:
   push:
     branches: [feature/memory-k-ws4b-durability-recovery-20261013]
   workflow_dispatch:
+# Keep rapid repair pushes from queuing multiple outdated WS-4b runs.
+concurrency:
+  group: memory-k-ws4b-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
   durability:
     strategy:
