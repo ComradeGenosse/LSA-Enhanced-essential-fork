@@ -130,13 +130,35 @@ test('ped handle reuse with different anchor, P1 incarnation or encounter revoke
     assert.equal(x.verify(lease),null,JSON.stringify(patch));
   }
 });
-test('owner dropped/re-added under old ref cannot resurrect proof',()=>{
-  const x=setup();x.publish();const lease=x.bind();x.next();
-  x.publish({owners:[actor('b',124)]});
-  assert.equal(x.verify(lease),null);
+test('temporary owner omission preserves healthy leases; fresh exact owner recovers but old lease never does',()=>{
+  const x=setup();x.publish();
+  const suspended=x.bind('a'),healthy=x.bind('b');
+  x.next();x.publish({owners:[actor('b',124)]});
+  assert.equal(x.verify(suspended),null);
+  assert.equal(x.bind('a'),null);
+  assert.ok(x.verify(healthy,{...id,pedId:'102'},'b'));
+  assert.equal(x.authority.status().connected,true);
+  assert.equal(x.authority.status().ownerCount,1);
   x.next();x.publish();
-  assert.equal(x.verify(lease),null);
-  assert.equal(x.authority.status().connected,false);
+  assert.equal(x.verify(suspended),null,'gap is a permanent lease fence');
+  assert.ok(x.verify(healthy,{...id,pedId:'102'},'b'));
+  const recovered=x.bind('a');
+  assert.ok(recovered,'new binding needs the freshly authenticated owner sample');
+  assert.equal(x.verify(recovered),null,'recovery frame cannot also attest this turn');
+  x.next();x.publish();
+  assert.equal(x.verify(suspended),null,'old generation stays revoked forever');
+  assert.ok(x.verify(recovered),'fresh lease plus a later sample works');
+});
+test('captureRef recycling after suspension is rejected, including a replay of the old lease',()=>{
+  for(const change of [{incarnationId:INC_B},{encounterId:ENC_B},
+    {nativeActorPedId:'102'},{ownerAlias:ALIAS_B}]) {
+    const x=setup();x.publish();const stale=x.bind();x.next();
+    x.publish({owners:[actor('b',124)]});
+    x.next();x.publish({owners:[{...actor('a',125),...change},actor('b',125)]});
+    assert.equal(x.verify(stale),null);
+    assert.equal(x.bind(),null,'recycled ref cannot claim a fresh lease');
+    assert.equal(x.authority.status().connected,false,'integrity fault retires stream');
+  }
 });
 test('native actor/P2 owner alias and writable timeline rechecked synchronously',()=>{
   const {x,lease}=live();
