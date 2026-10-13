@@ -4,6 +4,7 @@ import * as fs from 'node:fs/promises';
 import path from 'node:path';
 import { randomUUID, createHash } from 'node:crypto';
 import { P2SqliteFoundation } from './sqliteFoundation.mjs';
+import { acquireWriterLock, releaseWriterLock, inspectWriterLock } from './sqliteDurability.mjs';
 import { validateProfile, validateProfiles } from './profileSchema.mjs';
 import { addProfile, editProfile, changeMemory, removeProfile } from './profileCommands.mjs';
 import { TimelineGuard } from './timelineGuard.mjs';
@@ -11,7 +12,8 @@ import { TimelineGuard } from './timelineGuard.mjs';
 const fail = code => { throw new Error(code); };
 
 export class P2SqliteProfileStore {
-  #db; #writer; #token; #initializing; #queue = Promise.resolve();
+  #db; #writer; #initializing; #queue = Promise.resolve();
+  #durabilityWarning = null; #lockState = 'unlocked';
   #available = true; #closed = false; #timeline = new TimelineGuard();
   #sourceRequired; #sourceContext = null; #confirmedSource = null;
   // Monotone revocation epoch: an operation admitted before source loss or a
@@ -47,6 +49,11 @@ export class P2SqliteProfileStore {
     return null;
   }
   get snapshot() { return this.#db.snapshot; }
+  get durabilityStatus() {
+    return Object.freeze({writer:this.#lockState,warning:this.#durabilityWarning,
+      mode:this.available&&this.loaded?'read_write':'unavailable'});
+  }
+  async inspectWriterStatus() {return inspectWriterLock(this.lockPath);}
   // Runtime adapters may only call this from an authenticated, accepted native
   // C-13 hello/world epoch. Never accept direct model/ped/user text as proof.
   setVerifiedHostContext(context) {
@@ -81,31 +88,17 @@ export class P2SqliteProfileStore {
     return job;
   }
   async #releaseWriter() {
-    const writer = this.#writer;
-    this.#writer = null;
-    if (!writer) return;
-    await writer.close();
-    try {
-      // A replaced lock is never removed by this instance.
-      const contents = await fs.readFile(this.lockPath, 'utf8');
-      if (contents === this.#token + '\n') await fs.rm(this.lockPath);
-    } catch (error) {
-      if (error.code !== 'ENOENT') throw error;
-    }
+    const lease=this.#writer;this.#writer=null;
+    await releaseWriterLock(this.lockPath,lease);
+    this.#lockState='unlocked';
   }
   async initialize() {
     if (this.#closed || !this.#available) fail('profile_store_unavailable');
     return this.#initializing ||= (async () => {
       try {
         await fs.mkdir(path.dirname(this.filePath), { recursive:true });
-        this.#token = randomUUID();
-        try { this.#writer = await fs.open(this.lockPath, 'wx', 0o600); }
-        catch (error) {
-          if (error.code === 'EEXIST') fail('sqlite_writer_busy');
-          throw error;
-        }
-        await this.#writer.writeFile(this.#token + '\n');
-        await this.#writer.sync();
+        this.#writer=await acquireWriterLock(this.lockPath);
+        this.#lockState=this.#writer.reclaimed?'stale_reclaimed':'live_owned';
         await this.#db.initialize();
         const selected = this.#db.activeTimelineId();
         // A trusted reset can arrive before async SQLite bootstrap finishes.
@@ -117,6 +110,7 @@ export class P2SqliteProfileStore {
         return this.#db.snapshot;
       } catch (error) {
         this.#available = false;
+        this.#durabilityWarning=error.message;
         this.#db.close();
         try { await this.#releaseWriter(); } catch {}
         throw error;
@@ -252,7 +246,13 @@ export class P2SqliteProfileStore {
       if(this.#authorityGeneration!==expectedGeneration ||
          this.#sourceContext!==expectedContext)fail('timeline_write_suspended');
       this.assertTimelineWrite(timelineId);
-      const result = commit(this.#db, this.#db.snapshot);
+      let result;
+      try { result=commit(this.#db, this.#db.snapshot); }
+      catch(error) {
+        if(/^sqlite_journal_.*_cap$/.test(error.message))
+          this.#durabilityWarning=error.message;
+        throw error;
+      }
       if (result && typeof result.then === 'function') fail('timeline_write_async_not_supported');
       // Legacy P2 methods can internally commit before returning. Their
       // admission/execution generation checks occur above. Transactions through
@@ -504,13 +504,24 @@ export class P2SqliteProfileStore {
     const records=await this.inspect({scope});
     return Object.freeze({version:1,scope,records});
   }
+  // Explicit lifecycle checkpoint; the regular close also creates one.
+  async snapshotAtSessionEnd() {
+    await this.initialize();
+    return this.#serial(async()=>{
+      if(!this.available)fail('profile_store_unavailable');
+      try{return await this.#db.createDurabilitySnapshot('session_end');}
+      catch(error){this.#durabilityWarning='sqlite_snapshot_failed: '+error.message;throw error;}
+    });
+  }
   async close() {
     if (this.#closed) return;
     this.#closed = true;
     if (this.#initializing) await this.#initializing.catch(() => {});
     await this.#serial(async () => {
-      this.#db.close();
-      await this.#releaseWriter();
+      try {
+        if(this.#db.initialized)await this.#db.createDurabilitySnapshot('session_end');
+      }catch(error){this.#durabilityWarning='sqlite_snapshot_failed: '+error.message;}
+      finally{this.#db.close();await this.#releaseWriter();}
     });
   }
 }
