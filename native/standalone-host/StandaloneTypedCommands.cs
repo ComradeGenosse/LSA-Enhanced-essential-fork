@@ -25,18 +25,21 @@ namespace LSA.Standalone.RageHost
         private static readonly StandaloneOnscreenInput keyboard = new StandaloneOnscreenInput();
         private static int queued;
         private static int accepting;
+        private static int typedAllowed;
         private static int probeRequested, armRequested, disarmRequested, diagnosticRequested;
 
-        public static void OpenAdmission()
+        public static void OpenAdmission(bool typedEnabled = true)
         {
-            // A plugin reload cannot inherit a typed prompt left in this AppDomain.
+            // Probe/status remain accessible; typing is separately disabled at native admission.
             Clear();
+            Volatile.Write(ref typedAllowed, typedEnabled ? 1 : 0);
             Volatile.Write(ref accepting, 1);
         }
 
         public static void CloseAdmission()
         {
             Volatile.Write(ref accepting, 0);
+            Volatile.Write(ref typedAllowed, 0);
             Clear();
         }
 
@@ -70,9 +73,10 @@ namespace LSA.Standalone.RageHost
             Description = "Open GTA's native text keyboard for a standalone NPC conversation.")]
         public static void Compose()
         {
-            if (Volatile.Read(ref accepting) == 0)
+            if (Volatile.Read(ref accepting) == 0 ||
+                Volatile.Read(ref typedAllowed) == 0)
             {
-                Game.Console.Print("LSA standalone: native_host_not_ready.");
+                Game.Console.Print("LSA standalone: typed_capability_disabled_or_host_not_ready.");
                 return;
             }
             keyboard.RequestOpen();
@@ -81,9 +85,10 @@ namespace LSA.Standalone.RageHost
 
         private static void Enqueue(string phrase)
         {
-            if (Volatile.Read(ref accepting) == 0)
+            if (Volatile.Read(ref accepting) == 0 ||
+                Volatile.Read(ref typedAllowed) == 0)
             {
-                Game.Console.Print("LSA standalone: native_host_not_ready.");
+                Game.Console.Print("LSA standalone: typed_capability_disabled_or_host_not_ready.");
                 return;
             }
             if (!Valid(phrase))
@@ -184,7 +189,8 @@ namespace LSA.Standalone.RageHost
                 Game.LogTrivial("[LSA-ACTOR] " + armReason + " " + resolver.DiagnosticState);
             }
             if (Interlocked.Exchange(ref diagnosticRequested, 0) == 1)
-                Game.Console.Print("LSA standalone: " + resolver.DiagnosticState);
+                Game.Console.Print("LSA standalone: " + resolver.DiagnosticState + " " + EntryPoint.ActivationSummary);
+            if (Volatile.Read(ref typedAllowed) == 0) return;
             keyboard.Tick(scope, Enqueue);
             if (!pending.TryDequeue(out QueuedText entry)) return;
             Interlocked.Decrement(ref queued);
