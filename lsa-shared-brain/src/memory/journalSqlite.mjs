@@ -1,4 +1,4 @@
-import {isSuppressedSource} from './suppressionSqlite.mjs';
+import {isSuppressedSource,suppressedMemoryIds} from './suppressionSqlite.mjs';
 // Shared immutable M2/M3 journal: one SQLite file, no background model.
 // Write entry points are synchronous and ONLY legal under withTimelineWrite.
 import {createHash} from 'node:crypto';
@@ -249,25 +249,40 @@ export function readFreeRecallWindow(db,s,world){
   assertJournalSchema(db);
   if(!s||!isUuid(s.characterId)||!isUuid(s.timelineId)||
      (s.worldProfileId!==undefined&&s.worldProfileId!==world))fail('journal_invalid_scope');
+  const scope={worldProfileId:world,characterId:s.characterId,timelineId:s.timelineId};
+  // Use the EXACT M5 forgetting closure and K-12 correction mode rules.
+  // This also hides identical bytes replayed under a different record ID.
+  // A broken/invalid permanent forgetting receipt MUST fail closed.
+  const revoked=suppressedMemoryIds(db,scope,{includeCorrections:true});
   const args=[world,s.characterId,s.timelineId];
+  const audible="(speaker='player' AND delivery='accepted' OR speaker='npc' AND delivery='completed' AND receipt_id IS NOT NULL)";
   const sessionIds=db.prepare(
-    'SELECT session_id FROM dialogue_journal WHERE world_profile_id=? AND character_id=? AND timeline_id=? GROUP BY session_id ORDER BY max(committed_at_utc) DESC LIMIT 2'
+    'SELECT session_id FROM dialogue_journal WHERE world_profile_id=? AND character_id=? AND timeline_id=? AND '+audible+
+    ' GROUP BY session_id ORDER BY max(committed_at_utc) DESC LIMIT 2'
   ).all(...args).map(r=>r.session_id);
+  // Overfetch so forgotten/superseded rows do not displace recent visible
+  // player lines. Keep a bounded scan to avoid unlimited startup retrieval.
   const player=db.prepare(
-    "SELECT * FROM dialogue_journal WHERE world_profile_id=? AND character_id=? AND timeline_id=? AND speaker='player' ORDER BY committed_at_utc DESC,rowid DESC LIMIT 200"
-  ).all(...args);
+    "SELECT * FROM dialogue_journal WHERE world_profile_id=? AND character_id=? AND timeline_id=? AND speaker='player' AND delivery='accepted' ORDER BY committed_at_utc DESC,rowid DESC LIMIT 1000"
+  ).all(...args).filter(row=>!revoked.has(row.record_id)).slice(0,200);
   const recent=db.prepare(
-    'SELECT * FROM dialogue_journal WHERE world_profile_id=? AND character_id=? AND timeline_id=? ORDER BY committed_at_utc DESC,rowid DESC LIMIT 1000'
+    'SELECT * FROM dialogue_journal WHERE world_profile_id=? AND character_id=? AND timeline_id=? AND '+audible+
+    ' ORDER BY committed_at_utc DESC,rowid DESC LIMIT 1000'
   ).all(...args);
   const selected=new Map();
   for(const row of player)selected.set(row.record_id,row);
-  for(const row of recent)if(sessionIds.includes(row.session_id))selected.set(row.record_id,row);
+  const sessions=new Set(sessionIds);
+  for(const row of recent)
+    if(sessions.has(row.session_id)&&!revoked.has(row.record_id))
+      selected.set(row.record_id,row);
   const ordered=[...selected.values()].sort((a,b)=>b.committed_at_utc.localeCompare(a.committed_at_utc)||
     b.rowid-a.rowid);
   const lines=[];let bytes=0;
   for(const row of ordered){
     const size=Buffer.byteLength(row.content,'utf8');
     if(lines.length===1000||bytes+size>512*1024)break;
+    // Check integrity only on admitted evidence. Preserve the original
+    // delivered status, receipt and source provenance in every returned line.
     lines.push(decodeLine(row));bytes+=size;
   }
   return Object.freeze({tier:'free_recall',lines:Object.freeze(lines),bytes,
