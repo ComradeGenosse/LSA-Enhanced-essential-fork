@@ -235,6 +235,10 @@ namespace LSA.Standalone.RageHost
                 Path.Combine(plugins,"LSA.PromotedCharacters.json"),
                 Path.Combine(plugins,"LSA.SessionIdentity.dll"),
                 Path.Combine(plugins,"LSA.Intelligence.dll"),
+                Path.Combine(plugins,"LSA.PromotedCharacters.Runtime.dll"),
+                Path.Combine(plugins,"LSA.PromotedCharacters.Bootstrap.dll"),
+                Path.Combine(plugins,"LSPDFR","LosSantosAlive.Interop.dll"),
+                Path.Combine(plugins,"LSPDFR","LosSantosAlive.PRBridge.dll"),
                 Path.Combine(game,"LosSantosAlive.dll"),
                 Path.Combine(plugins,"Los Santos Alive.dll")
             })
