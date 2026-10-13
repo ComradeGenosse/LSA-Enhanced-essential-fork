@@ -37,10 +37,11 @@ test('committed, duplicate, superseded-revision and failed commits each produce 
 
 test('refusals, overflow and retirement are reported as losses, never silently dropped',async()=>{
   const held=[];
+  const refused=receipt();
   const {intake,outcomes}=rig({limit:1,scheduler:fn=>held.push(fn),
-    bind:r=>r.observation.observationId.startsWith('0')?{accepted:false,reason:'m3_native_owner_unverified'}:ok(r),
+    bind:r=>r.observation.observationId===refused.observation.observationId?{accepted:false,reason:'m3_native_owner_unverified'}:ok(r),
     capture:async()=>({accepted:true,inserted:true})});
-  intake.offer({observation:{...receipt().observation,observationId:'0'+randomUUID().slice(1)}});
+  intake.offer(refused);
   const a=receipt(),b=receipt();
   intake.offer(a);intake.offer(b);                // second overflows the 1-slot queue
   intake.retire();                                // queued one is retired before commit

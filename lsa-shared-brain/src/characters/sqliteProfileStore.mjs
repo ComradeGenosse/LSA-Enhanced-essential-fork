@@ -31,6 +31,10 @@ export class P2SqliteProfileStore {
   }
   get loaded() { return this.#db.initialized; }
   get available() { return this.#available && !this.#closed; }
+  get memoryReadFence() {
+    return this.available&&this.timelineWritable&&this.#db.initialized
+      ? this.#authorityGeneration+':'+this.#db.readFence : null;
+  }
   get activeTimelineId() { return this.#timeline.activeTimelineId; }
   get timelineWritable() { return this.#timeline.writable && this.#sourceValid(); }
   // Read-only source used for journal attribution; only verified/current after

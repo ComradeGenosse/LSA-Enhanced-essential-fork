@@ -125,8 +125,13 @@ export function createD03OriginalDialogueJoin({store,backend,d02,originalActor,
   try{lease=d02.bindActorAtTurnStart({pedId:actor.nativeActorPedId,characterId,ownerAlias});}
   catch{return null;}
   if(!lease)return null;
-  let retired=false,player=null;
-  const close=()=>{retired=true;try{d02.revokeLease?.(lease)}catch{}};
+  let retired=false,player=null,memoryLease=null;
+  const close=()=>{
+    retired=true;
+    if(memoryLease)try{d02.revokeLease?.(memoryLease);}catch{}
+    memoryLease=null;
+    try{d02.revokeLease?.(lease)}catch{}
+  };
   // After acceptance the receipt, not the turn, governs (memory plan §5.5:
   // an accepted line stands even if the turn is later interrupted). Session,
   // source-run, actor/player, timeline, world and host changes still fence.
@@ -399,7 +404,48 @@ export function createD03OriginalDialogueJoin({store,backend,d02,originalActor,
       }catch{return denied('d03_durable_readback_unverified');}
     }finally{try{d02.revokeLease?.(lease2);}catch{}}
   }
-  return Object.freeze({acceptPlayer,recordNpcOutcome,retire:close});
+  // WS-6: the source requires a native frame *newer* than the new lease.
+  // First corroborate asynchronously with the same strict D01/D02 continuity
+  // rules as D03, then keep this lease for synchronous pre-send rechecks.
+  // A missing/expired/recycled owner always disables memory; never downgrade.
+  const memoryProof=x=>!!player&&!!x.b&&
+    same(x.b,player.first.b,RECEIPT_KEYS)&&
+    JSON.stringify(x.b.retirementIdentity)===JSON.stringify(player.first.b.retirementIdentity)&&
+    same(x.n,player.first.n,NATIVE_KEYS);
+  async function openMemoryCurrent(){
+    if(!player||retired||!current()||!sourceReady())return false;
+    if(memoryLease)return verifyMemoryCurrent();
+    let pending=null;
+    try{
+      pending=d02.bindActorAtTurnStart({pedId:actor.nativeActorPedId,characterId,ownerAlias});
+      if(!pending)return false;
+      const evidence=await corroborate(player.text,player.source,
+        clock.now()+corroborationWaitMs,pending);
+      if(!evidence||!memoryProof(evidence)||!current())return false;
+      memoryLease=pending;pending=null;
+      return verifyMemoryCurrent();
+    }catch{return false;}
+    finally{if(pending)try{d02.revokeLease?.(pending);}catch{}}
+  }
+  function verifyMemoryCurrent(){
+    if(!memoryLease||!player||retired||!current()||!sourceReady())return false;
+    try{return memoryProof(read(player.text,player.source,memoryLease));}
+    catch{return false;}
+  }
+  // Read-only identity issued only by this accepted D01/D02 join. Consumers
+  // cannot supply their own nativeVerified flag or historical owner identity.
+  function memoryIdentity(){
+    if(!verifyMemoryCurrent())return null;
+    const x=read(player.text,player.source,memoryLease);
+    if(!memoryProof(x))return null;
+    return Object.freeze({...scope,...Object.fromEntries(NATIVE_KEYS.map(k=>[k,x.n[k]])),
+      protagonistKey:player.first.n.avatarKey,
+      turnId:journalIdentityUuid(['original-turn',...ID.map(k=>identity[k])]),
+      turnIdentityHash:journalTurnIdentityHash({characterId,timelineId:scope.timelineId,
+        speaker:'player',sessionId:player.origin.sessionId,hostRunId:player.origin.hostRunId,identity}),
+      nativeVerified:true,timelineWritable:true});
+  }
+  return Object.freeze({acceptPlayer,recordNpcOutcome,openMemoryCurrent,verifyMemoryCurrent,memoryIdentity,retire:close});
  }
  return Object.freeze({begin,sourceReady});
 }

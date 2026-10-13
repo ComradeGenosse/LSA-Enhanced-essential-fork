@@ -55,7 +55,7 @@ function nativeStream({client,owned,alias,roster={}}){
   s.hello=()=>s.raw({version:1,type:'hello',hostContextVersion:1,hostRunId:s.hostRunId,
     worldEpoch:s.worldEpoch,adapterEpoch:s.adapterEpoch,streamId:s.streamId,
     observerIndexVersion:1,memoryCurrentOwnerPlayerVersion:1,
-    capabilities:Object.fromEntries(CAPABILITIES.map(x=>[x,false]))});
+    capabilities:s.capabilities??Object.fromEntries(CAPABILITIES.map(x=>[x,false]))});
   s.rosters=0;s.samples=0;
   s.roster=async()=>{
     s.rosters++;

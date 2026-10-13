@@ -46,7 +46,7 @@ export function readP2M8HistoricalSignals(db,scope){
    entry.refs.length=Math.min(16,entry.refs.length);
  }
  const lines=db.prepare('SELECT record_id,content,content_sha256,envelope_json,envelope_sha256,'+
-   ' protagonist,speaker,source,delivery,committed_at_utc FROM dialogue_journal WHERE '+where+
+   ' protagonist,speaker,source,delivery,committed_at_utc,host_run_id,world_epoch,session_id,receipt_id,turn_identity_hash FROM dialogue_journal WHERE '+where+
    ' ORDER BY committed_at_utc,record_id');
  for(const d of lines.iterate(...keys)){
    if(revoked.has(d.record_id))continue;
@@ -55,12 +55,19 @@ export function readP2M8HistoricalSignals(db,scope){
    let envelope;try{envelope=JSON.parse(d.envelope_json);}catch{fail('m8_history_corrupt_dialogue');}
    if(envelope.recordId!==d.record_id||envelope.content!==d.content||
       envelope.speaker!==d.speaker||envelope.source!==d.source||
-      envelope.delivery!==d.delivery||
+      envelope.delivery!==d.delivery||envelope.turnIdentityHash!==d.turn_identity_hash||
+      envelope.committedAtUtc!==d.committed_at_utc||
+      envelope.deliveryReceiptId!==d.receipt_id||
       envelope.attribution?.protagonist&&envelope.attribution.protagonist!==d.protagonist)
      fail('m8_history_corrupt_dialogue');
+   // A legacy/local journal without an authenticated host/session proves only
+   // that bytes were stored, not that a player or NPC said them in GTA.
+   // Historical relationship totals must not turn such rows into opinions.
+   if(!isUuid(d.session_id)||!isUuid(d.host_run_id)||
+      !Number.isSafeInteger(d.world_epoch)||d.world_epoch<0)continue;
    const accepted=d.speaker==='player'&&['typed','stt'].includes(d.source)&&d.delivery==='accepted';
    const played=d.speaker==='npc'&&d.source==='npc_generated'&&d.delivery==='completed'&&
-     isUuid(envelope.deliveryReceiptId);
+     isUuid(d.receipt_id)&&isUuid(envelope.deliveryReceiptId);
    if(!accepted&&!played)continue;
    const evidence={...envelope,kind:'dialogue_line',recordId:d.record_id,
      characterId:scope.characterId,worldProfileId:world,timelineId:scope.timelineId,

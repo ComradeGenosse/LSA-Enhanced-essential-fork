@@ -212,6 +212,11 @@ export class P2SqliteFoundation {
     this.#journalLimits=Object.freeze({...journalLimits});
   }
   get initialized() {return !!this.#db;}
+  get readFence() {
+    if(!this.#db)return null;
+    return this.#db.prepare('SELECT total_changes() AS changes').get().changes+':'+
+      this.#db.prepare('PRAGMA data_version').get().data_version;
+  }
   get recoveryStatus(){return this.#recoveryStatus;}
   get snapshot(){if(!this.#snapshot)fail('sqlite_profile_uninitialized');return this.#snapshot;}
   async initialize() {return this.#init ||= this.#initialize();}

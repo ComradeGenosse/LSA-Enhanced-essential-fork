@@ -40,6 +40,7 @@ export async function decide({ config, context, input, history, signal, knowledg
     model: config.reasoningModel,
     onRequest: value => dialogueAttempt?.request(value),
     beforeRequest: body=>knowledgeDelivery?.beforeRequest(body),
+    verifyBeforeRequest:()=>knowledgeDelivery?.verifyBeforeRequest(),
   });
   const output = Array.isArray(response?.output) ? response.output : [];
   const responseText = output.filter(item => item?.type === 'message' && Array.isArray(item.content))
@@ -83,7 +84,8 @@ export async function decideStreaming({ config, context, input, history, signal,
   });
   recordCanonRequest(telemetry,body,context.actor);
   return streamDecision({
-    config, body, signal, timeoutMs, fetchImpl, telemetry, onSegment, dialogueAttempt, beforeRequest:body=>knowledgeDelivery?.beforeRequest(body),
+    config, body, signal, timeoutMs, fetchImpl, telemetry, onSegment, dialogueAttempt,
+    verifyBeforeRequest:()=>knowledgeDelivery?.verifyBeforeRequest(),beforeRequest:body=>knowledgeDelivery?.beforeRequest(body),
     maxSegments: config.streamingMaxSegments,
     maxSegmentChars: config.streamingMaxSegmentChars,
     maxDialogueChars: config.streamingMaxDialogueChars,

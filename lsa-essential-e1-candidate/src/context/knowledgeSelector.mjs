@@ -73,7 +73,12 @@ export function projectPreparedRecall(prepared,{maxBytes=4096}={}){
    contribution.status!=='matched'||!Array.isArray(contribution.items)||
    contribution.items.length>32||!Number.isSafeInteger(maxBytes)||maxBytes<0||maxBytes>14336)return out;
  const valid=item=>item&&typeof item==='object'&&
-  Object.keys(item).sort().join(',')==='content,freshness,mode,recordId,sourceKind'&&
+  (Object.keys(item).sort().join(',')==='content,freshness,mode,recordId,sourceKind'||
+   Object.keys(item).sort().join(',')==='category,content,freshness,mode,recordId,sourceAvatar,sourceEvidenceIds,sourceKind'&&
+   ['exact_quote','directly_observed_fact','reported_claim','archived_memory','character_opinion'].includes(item.category)&&
+   ['franklin','michael','trevor','unknown'].includes(item.sourceAvatar)&&
+   Array.isArray(item.sourceEvidenceIds)&&item.sourceEvidenceIds.length<=32&&
+   item.sourceEvidenceIds.every(x=>/^[0-9a-f-]{36}$/.test(x)))&&
   /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(item.recordId)&&
   ['journal_event','dialogue_line','permanent_memory','canon'].includes(item.sourceKind)&&
   ['exact_quote','observed_fact','reported_claim','opinion'].includes(item.mode)&&
