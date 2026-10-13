@@ -127,6 +127,19 @@ export class WitnessedEventRecorder {
     this.#grace=this.#grace.filter(entry=>!handled.has(entry));
     return {accepted:true,imported,duplicates,rejected};
   }
+  // Authenticated observer-coverage windows/gaps (K-13). Not derived from any
+  // PS2 observation: the caller passes only records built from authenticated
+  // native owner frames. The port re-checks host/epoch/timeline/profile inside
+  // the writer fence and reports stale ops instead of writing them.
+  async recordObserverCoverage({timelineId,ops}={}) {
+    if(typeof this.#port.recordObserverCoverage!=='function'||!timelineId||
+       !Array.isArray(ops)||ops.length<1)
+      return {accepted:false,reason:'observer_coverage_not_supported',staleIndexes:[]};
+    return await this.#withTimelineWrite(timelineId,(db,snapshot)=>{
+      const result=sync(this.#port.recordObserverCoverage(ops,db,snapshot));
+      return {accepted:true,applied:result.applied,staleIndexes:result.staleIndexes??[]};
+    });
+  }
   // Negative coverage has its own durable SQL table; never transform it into a
   // journalEvent. Only a separately verified native coverage receipt may
   // establish did_not_witness, and missing data is unavailable, never negative.

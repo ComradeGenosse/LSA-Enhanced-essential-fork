@@ -17,6 +17,7 @@ export const EVENT_NAMES = new Set([
   'intelligence_status','companion_shadow','knowledge_frame_projected','knowledge_delivery',
   'intelligence_frame_rejected','director_gate','director_candidate','director_handoff',
   'memory_journal_committed','memory_journal_not_committed',
+  'memory_m3_intake_loss','memory_m3_coverage',
   'activity_admitted','activity_rejected','activity_step_started','activity_receipt','activity_paused','activity_resumed','activity_terminal','activity_lease_lost','activity_breaker_tripped',
 ]);
 

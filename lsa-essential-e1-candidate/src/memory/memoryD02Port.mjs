@@ -4,6 +4,7 @@
 // the synchronous read-through lease/verification API and nothing that could
 // submit a native frame or attest accepted dialogue.
 import {createNativeCurrentOwnerPlayerAuthority} from './nativeCurrentOwnerPlayerAuthority.mjs';
+import {resolveLivePromotedProfile} from './livePromotedProfile.mjs';
 
 export function createMemoryD02Port({intelligence,memoryStore,now}={}){
   if(typeof intelligence?.subscribeAuthenticatedNativeOwnerPlayer!=='function'||!memoryStore)
@@ -27,20 +28,7 @@ export function createMemoryD02Port({intelligence,memoryStore,now}={}){
         row.encounterId===owner.encounterId &&
         source.anchors.get(player.playerCaptureRef)?.kind==='player';
     },
-    profileForAlias:alias=>{
-      if(memoryStore?.timelineWritable!==true ||
-         !memoryStore.verifiedHostContext ||
-         typeof memoryStore.worldProfileId!=='string'||!memoryStore.worldProfileId)return null;
-      // P2 profile rows have no worldProfileId field (exact schema keys); the
-      // store itself is bound to exactly one world profile. The previous
-      // `row.worldProfileId===memoryStore.worldProfileId` predicate was
-      // therefore never true and no lease could ever bind in production.
-      const matches=memoryStore.list().filter(row=>
-        row?.promotion?.ownerAlias===alias && row.status!=='retired');
-      if(matches.length!==1)return null;
-      return {...matches[0],timelineWritable:true,
-        worldEpoch:memoryStore.verifiedHostContext.worldEpoch};
-    },
+    profileForAlias:alias=>resolveLivePromotedProfile(memoryStore,alias),
     ...(typeof now==='function'?{now}:{}),
   });
   const port=Object.freeze({

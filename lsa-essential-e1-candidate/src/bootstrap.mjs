@@ -22,8 +22,7 @@ import { ActivityClient } from './activities/activityClient.mjs';
 import { ActivityRuntime } from './activities/activityRuntime.mjs';
 import { perceptionContractSupported } from './perception/nativeSupport.mjs';
 import { createDialogueTrace, createNoopDialogueTrace } from './observability/dialogueTrace.mjs';
-import {createM3Ps2ObserverAdapter} from '../../lsa-shared-brain/src/events/m3Ps2ObserverAdapter.mjs';
-import {createNativeMemoryAuthority} from './memory/nativeMemoryAuthority.mjs';
+import {createM3ProductionMemory} from './memory/m3ProductionMemory.mjs';
 import {createMemoryD02Port} from './memory/memoryD02Port.mjs';
 
 const shutdownClosers = new Set();
@@ -159,24 +158,6 @@ export async function createRuntimeForBundle(options = {}) {
           try { telemetry?.emit?.(event,null,'internal',data,'internal'); } catch {}
         }};
         runtime.intelligence=new IntelligenceClient(config.intelligence,intelligenceOptions);
-        // One genuine authenticated ledger for M2/M3. Any explicit test-only
-        // injected authority remains isolated; normal production never trusts a
-        // caller-supplied nativeVerified flag or model-generated owner claim.
-        if(canBindMemory && !options.memoryNativeAuthority) {
-          try {
-            connectedMemoryAuthority=createNativeMemoryAuthority({
-              subscribeAuthenticatedNativeFrames:(onFrame,onRetire)=>
-                runtime.intelligence.subscribeAuthenticatedNativeMemoryAuthority(onFrame,onRetire),
-              profileForAlias:alias=>{
-                if(memoryStore?.timelineWritable!==true||!memoryStore.verifiedHostContext||
-                   !memoryStore.worldProfileId)return null;
-                return memoryStore.list().find(p=>p?.promotion?.ownerAlias===alias &&
-                  p.worldProfileId===memoryStore.worldProfileId && p.status!=='retired')??null;
-              }
-            });
-            shutdownClosers.add({close:async()=>connectedMemoryAuthority?.close()});
-          }catch{connectedMemoryAuthority=null;}
-        }
         // Independently authenticated D02 owner/controlled-player source.
         // Exposes only the synchronous read-through lease/verification port;
         // neither this port nor the native frame attests accepted dialogue.
@@ -201,26 +182,21 @@ export async function createRuntimeForBundle(options = {}) {
           });
           runtime.intelligence.subscribeWorldBoundary(()=>{runtime.retireOriginalAcceptanceSourceRun?.();});
         }
-         if(canBindMemory){
-           try{
-             memoryIntake=createM3Ps2ObserverAdapter({
-               ps2:runtime.intelligence.runtime,p2:memoryStore,store:memoryStore,
-               nativeAuthority:memoryNative,
-               onLoss:stage=>{
-                 try{telemetry?.emit?.('memory_m3_intake_loss',null,'internal',{stage},'internal');}catch{}
-               }
-             });
-             let memoryEpoch=null;
-             runtime.intelligence.subscribeVerifiedHostContext(host=>{
-               const stamp=host?host.hostRunId+':'+host.worldEpoch:null;
-               if(stamp!==memoryEpoch){memoryIntake.retire();memoryEpoch=stamp;}
-             });
-             runtime.intelligence.subscribeWorldBoundary(()=>{memoryIntake.retire();});
-             runtime.memoryM3=Object.freeze({snapshot:()=>memoryIntake.snapshot(),
-               close:()=>memoryIntake.close()});
-             shutdownClosers.add({close:async()=>{memoryIntake.close();}});
-           }catch{memoryIntake=null;try{console.warn('[M3] verified_owner_binder_unavailable');}catch{}}
-         }
+        // One genuine authenticated ledger for M2/M3 plus the M3 PS2 intake, built
+        // by the shared factory the integration tests also use. Normal production
+        // never trusts a caller-supplied nativeVerified flag or model-generated
+        // owner claim; an explicit test-only injected authority stays isolated.
+        if(canBindMemory){
+          try{
+            const m3=createM3ProductionMemory({intelligence:runtime.intelligence,memoryStore,
+              nativeAuthority:options.memoryNativeAuthority??null,telemetry});
+            memoryIntake=m3.adapter;
+            connectedMemoryAuthority=m3.authority;
+            runtime.memoryM3=Object.freeze({snapshot:()=>m3.snapshot(),
+              close:()=>m3.adapter.close(),shutdown:()=>m3.close()});
+            shutdownClosers.add({close:()=>m3.close()});
+          }catch{memoryIntake=null;connectedMemoryAuthority=null;try{console.warn('[M3] verified_owner_binder_unavailable');}catch{}}
+        }
         if(config.promotedCharacters.storageMode==='sqlite' && runtime.characterService?.store?.onBoundary) {
           runtime.intelligence.subscribeVerifiedHostContext(context=>{
             try {runtime.characterService.store.setVerifiedHostContext(context);}

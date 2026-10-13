@@ -1,0 +1,42 @@
+name: Memory K WS-5b witnessed-event production capture (offline, not GTA)
+on:
+  pull_request:
+    paths:
+      - 'lsa-essential-e1-candidate/src/bootstrap.mjs'
+      - 'lsa-essential-e1-candidate/src/memory/**'
+      - 'lsa-essential-e1-candidate/src/observability/**'
+      - 'lsa-essential-e1-candidate/tests/m3-*.test.mjs'
+      - 'lsa-shared-brain/src/characters/**'
+      - 'lsa-shared-brain/src/events/**'
+      - 'lsa-shared-brain/src/memory/**'
+      - 'lsa-shared-brain/tests/m3-*.test.mjs'
+      - '.github/workflows/memory-k-ws5b-m3.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  ws5b-e2e:
+    name: M3 WS-5b authenticated witnessed memory and coverage (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Syntax-check M3 production and P2 writer paths
+        run: |
+          node --check lsa-essential-e1-candidate/src/memory/m3ProductionMemory.mjs
+          node --check lsa-essential-e1-candidate/src/memory/livePromotedProfile.mjs
+          node --check lsa-shared-brain/src/events/m3ObserverOwnerBinder.mjs
+          node --check lsa-shared-brain/src/events/m3ObserverCoverageTracker.mjs
+          node --check lsa-shared-brain/src/events/m3CoverageSqlite.mjs
+          node --check lsa-shared-brain/src/memory/journalSqlite.mjs
+      - name: M3 end-to-end source attribution, coverage and stress
+        run: node --test --test-concurrency=1 lsa-essential-e1-candidate/tests/m3-ws5b-production.test.mjs lsa-essential-e1-candidate/tests/m3-ws5b-stress.test.mjs lsa-essential-e1-candidate/tests/m3-completion.test.mjs
+      - name: P2 observer coverage, bounded intake, and gap tracking
+        run: node --test --test-concurrency=1 lsa-shared-brain/tests/m3-intake-outcomes.test.mjs lsa-shared-brain/tests/m3-observer-coverage-sqlite.test.mjs lsa-shared-brain/tests/m3-observer-coverage-tracker.test.mjs
