@@ -74,7 +74,7 @@ export async function snapshotSqlite(db,filePath,{reason='session_end',now=new D
   const migration=reason==='pre_migration';
   const dest=path.join(folder,migration
     ?`pre-migration-${now.toISOString().replaceAll(':','-').replaceAll('.','-')}-${randomUUID()}.sqlite`
-    :`daily-${day}.sqlite`);
+    :`daily-${day}-${now.toISOString().slice(11).replaceAll(':','-').replaceAll('.','-')}-${randomUUID()}.sqlite`);
   let published=false;
   try{
     db.exec('VACUUM INTO '+sqlLiteral(temp));
@@ -89,11 +89,16 @@ export async function snapshotSqlite(db,filePath,{reason='session_end',now=new D
     try{await fs.copyFile(dest,weekly,fsConstants.COPYFILE_EXCL);}
     catch(e){if(e.code!=='EEXIST')throw e;}
     const names=(await fs.readdir(folder)).sort().reverse();
-    for(const prefix of ['daily-','weekly-']){
-      const keep=prefix==='daily-'?7:4;
-      for(const old of names.filter(n=>n.startsWith(prefix)&&n.endsWith('.sqlite')).slice(keep))
-        await fs.rm(path.join(folder,old));
+    // Keep the newest snapshot for each of seven distinct days. Never replace
+    // an open same-day snapshot in-place (Windows can reject rename with EPERM).
+    const seenDays=new Set();
+    for(const name of names.filter(n=>/^daily-\\d{4}-\\d\\d-\\d\\d-/.test(n)&&n.endsWith('.sqlite'))){
+      const dayKey=name.slice(6,16);
+      if(!seenDays.has(dayKey)&&seenDays.size<7){seenDays.add(dayKey);continue;}
+      await fs.rm(path.join(folder,name));
     }
+    for(const old of names.filter(n=>n.startsWith('weekly-')&&n.endsWith('.sqlite')).slice(4))
+      await fs.rm(path.join(folder,old));
     return Object.freeze({status:'created',reason,path:dest});
   }finally{if(!published)await fs.rm(temp,{force:true}).catch(()=>{});}
 }
