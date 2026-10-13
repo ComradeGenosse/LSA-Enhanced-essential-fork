@@ -152,7 +152,8 @@ function verifiedEvidence(event,sidecar) {
     characterId:event.characterId,worldProfileId:event.worldProfileId,
     timelineId:event.timelineId,ownerProof:sidecar.ownerProof,
     adapterEpoch:sidecar.nativeAdapterEpoch
-  },participantProofs:sidecar.participantProofs,prePromotionProof:sidecar.prePromotionProof??null};
+  },participantProofs:sidecar.participantProofs,prePromotionProof:sidecar.prePromotionProof??null,
+    ...(sidecar.attribution!==undefined?{attribution:sidecar.attribution}:{})};
   if(evidenceHash(material)!==event.sourceHash)fail('journal_evidence_hash_mismatch');
   const sourceClaims=new Set(sidecar.observation.claims.map(c=>c.claimId));
   if(event.claims.some(c=>!sourceClaims.has(c.sourceEvidenceId)))fail('journal_evidence_claim_mismatch');
