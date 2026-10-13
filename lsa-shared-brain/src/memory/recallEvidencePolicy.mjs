@@ -19,6 +19,23 @@ const incomplete=(reason,best=null)=>Object.freeze({status:'incomplete',reason,e
   first:null,last:null,best,querySemantics:'literal_substring'});
 const unavailable=(reason)=>Object.freeze({status:'unavailable',reason,evidenceIds:[]});
 const negative=(status,reason)=>Object.freeze({status,reason,evidenceIds:[]});
+// Ledger windows must cover every instant in the requested range, not merely
+// exist, overlap, or carry an unverified `complete` flag.
+function continuousClosedCoverage(windows,fromUtc,toUtc,source){
+ if(!Array.isArray(windows)||windows.length===0)return false;
+ const from=Date.parse(fromUtc),to=Date.parse(toUtc);
+ let cursor=from;
+ const ordered=[...windows].sort((a,b)=>Date.parse(a.startUtc)-Date.parse(b.startUtc));
+ for(const w of ordered){
+  if(!utc(w.startUtc)||!utc(w.endUtc)||w.startUtc>=w.endUtc)return false;
+  const start=Date.parse(w.startUtc),end=Date.parse(w.endUtc);
+  if(end<=from||start>=to)continue;
+  if(w.status!=='closed'||w.hostRunId!==source.hostRunId||
+     w.worldEpoch!==source.worldEpoch||start>cursor)return false;
+  cursor=Math.max(cursor,end);
+ }
+ return cursor>=to;
+}
 function assertScope(scope){
   if(!scope||!['characterId','worldProfileId','timelineId'].every(k=>UUID.test(scope[k]))||
     !AVATARS.has(scope.protagonistKey))throw new TypeError('ws6_invalid_scope');
@@ -156,17 +173,15 @@ export function createRecallEvidencePolicy({store,isCurrent,verifyNativeNegative
        !c||c.certified!==true||c.nativeVerified!==true||c.status!=='did_not_witness'||
        c.observationId!==observationId||!UUID.test(c.sourceReceiptId)||
        !same(c,r.ownerProof,['ownerAlias','incarnationId','encounterId','observerCaptureRef','hostRunId','worldEpoch'])||
+       !same(c,source,ownerKeys)||
        c.adapterEpoch!==r.adapterEpoch)return negative('unknown','no_independent_negative_proof');
     // Windows only describe sampling. They NEVER turn missing rows into a negative.
     // Even an otherwise continuous ledger requires the native *event-specific* proof.
     if(ledger?.complete!==true||ledger.characterId!==scope.characterId||
        ledger.worldProfileId!==scope.worldProfileId||ledger.timelineId!==scope.timelineId||
        ledger.requested?.fromUtc!==fromUtc||ledger.requested?.toUtc!==toUtc||
-       !Array.isArray(ledger.windows)||!ledger.windows.length||
        !Array.isArray(ledger.gaps)||ledger.gaps.length>0||
-       ledger.windows.some(w=>w.status!=='closed'||
-         (w.startUtc<toUtc&&w.endUtc>fromUtc&&
-         (w.hostRunId!==c.hostRunId||w.worldEpoch!==c.worldEpoch))))
+       !continuousClosedCoverage(ledger.windows,fromUtc,toUtc,c))
       return negative('unknown','partial_or_changed_observer_coverage');
     if(typeof verifyNativeNegative!=='function')
       return negative('unknown','native_negative_verifier_unavailable');
