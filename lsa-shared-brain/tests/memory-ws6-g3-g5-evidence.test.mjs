@@ -198,3 +198,20 @@ test('G4 separates native observed fact, reported event, archival record and opi
   assert.equal(r.exactCount,null);
  }finally{f.close();}
 });
+
+
+test('pre-send P2 visibility gate rejects forget, corruption and revoked source',async()=>{
+ const f=setup();
+ try{
+  const e=f.add('original');
+  const policy=f.policy();
+  const input={scope:f.scope,source:f.source,recordIds:[e.recordId]};
+  assert.equal(await policy.verifyReferenceVisibility(input),true);
+  f.db.prepare('INSERT INTO memory_tombstones VALUES (?,?,?,?,?)')
+    .run(f.world,f.npc,f.timeline,e.recordId,id());
+  assert.equal(await policy.verifyReferenceVisibility(input),false);
+  assert.equal(await policy.verifyReferenceVisibility({...input,recordIds:[id()]}),false);
+  f.expire();
+  assert.equal(await policy.verifyReferenceVisibility(input),false);
+ }finally{f.close();}
+});
