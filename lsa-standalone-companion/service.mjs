@@ -4,6 +4,7 @@ import { createResponsesProvider } from './src/conversation/responsesProvider.mj
 import { createStreamingResponsesProvider } from './src/conversation/streamingResponses.mjs';
 import { createConfiguredSpeechRouter } from './src/audio/speechSetup.mjs';
 import { resolveActivation } from './src/activation/capabilities.mjs';
+import { createActivationReporter } from './src/activation/diagnostics.mjs';
 
 // Independent Node entry point: no stock server.bundle.mjs, no Essential.
 // Explicitly opt-in to provider calls. It is safe to run health-only without
@@ -20,20 +21,11 @@ if (!activation.valid) {
   process.exit(2); // no native connection or effects on invalid configuration
 }
 const requested = name => activation.capabilities[name].requested;
-const emitCapability = (name, activated = false, operational = 'not_observed', blocked = []) => {
-  const entry = activation.capabilities[name];
-  console.log(JSON.stringify({
-    component: 'lsa_standalone', event: 'activation_capability',
-    capability: name, configured: entry.requested,
-    available: entry.implementationAvailable,
-    configurationReady: entry.configurationReady && !blocked.length,
-    activated, blocked: [...entry.blockedBy, ...blocked],
-    operational, gtaValidated: false, // only a separately reviewed live log can certify GTA
-    evidenceRequired: entry.evidenceRequired
-  }));
-};
-for (const name of Object.keys(activation.capabilities)) emitCapability(name,
-  false, requested(name) ? 'configured_awaiting_runtime_evidence' : 'off');
+const reporter = createActivationReporter(activation, record => {
+  console.log(JSON.stringify(record));
+});
+const emitCapability = reporter.emit;
+reporter.initialize();
 let provider = null, tts = null, earlySpeech = false;
 if (requested('typed_conversation')) {
   try { provider = createResponsesProvider(); }
@@ -68,7 +60,6 @@ const confirmPlayback = requested('physical_audio');
 await runSessionSupervisor({
   signal: stopping.signal,
   onConnected: provider ? (client, _session, signal) => {
-    emitCapability('typed_conversation', true, 'native_pipe_connected_polling_no_GTA_turn_evidence');
     return runTypedTurnSession({
       client, provider, tts, confirmPlayback,
       earlySpeech, signal, pollMs: 250,
@@ -88,8 +79,7 @@ await runSessionSupervisor({
     });
   } : null,
   onStatus(type, fields) {
-    if (type === 'native_connected') emitCapability('native_host_ipc', true, 'pipe_handshake_not_GTA_acceptance');
-    if (type === 'native_disconnected') emitCapability('native_host_ipc', false, 'disconnected');
+    reporter.transportStatus(type);
     // No player dialogue, profile details, keys, model output or PCM in logs.
     console.log(JSON.stringify({ component: 'lsa_standalone',
       event: type,
