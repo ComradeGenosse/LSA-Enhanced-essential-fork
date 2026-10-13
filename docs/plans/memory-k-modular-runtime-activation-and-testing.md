@@ -1,14 +1,17 @@
-# Memory K: modular runtime activation and independent testing
+# Memory K: modular runtime activation and independent testing within #138
 
-Planning report · 13 October 2026 · No implementation, source changes, branches, PRs, builds, tests, or deployment performed.
+Planning report · 13 October 2026 · Revised delivery policy for modular activation on #138. Documentation only; no runtime implementation, builds, tests or deployment performed by this revision.
+
 
 ## Recommendation
 
-Add a small, explicit composition and activation layer around the existing Memory K factories and ports. Keep Essential, P1, P2 SQLite, the authenticated native channel, and PS4 in their current authority roles. Separate shared evidence infrastructure from optional consumers; then gate capture, foreground memory use, background retention, cloud curation, interpretations, and callbacks individually.
+**Keep [PR #138](https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/pull/138) as Memory K's one canonical integration branch.** Introduce **modular activation, isolation, diagnostics, and independent testing *inside* that integrated codebase**. Do **not** dismantle #138 and extract M1–M9 into separate releases or migration PRs targeting `main`. One integrated product may contain separately switchable/testable subsystems. Modular architecture is not a mandate for modular delivery.
 
-Do not make M1–M9 nine interchangeable plugins. M1 is a storage prerequisite; M2 and M3 produce different evidence; M4/M5/M8 consume an authenticated turn; M6/M7 are background workers; M9 includes both producers and a Director consumer. Several of these phases need more than one switch. Contracts, privacy enforcement, and native authority are prerequisites that must never be switchable bypasses.
+Add a small, explicit composition and activation layer around existing Memory K factories and ports. Keep Essential, P1, P2 SQLite, the authenticated native channel, and PS4 in their existing authority roles. Separate shared evidence infrastructure from optional consumers; independently gate dialogue capture, witnessed-event capture, foreground recall/commands, background retention, cloud curation, interpretations and callbacks.
 
-Land narrowly scoped foundations and capability PRs with their own tests and rollback behavior. Use the existing Memory K integration as a source reference, not as a prerequisite giant merge to `main`.
+Do not make M1–M9 nine interchangeable plugins. M1 is a storage prerequisite; M2/M3 are evidence sources; M4/M5/M8 consume authenticated turns; M6/M7 are background workers; M9 includes event producers and a Director consumer. Privacy, source authentication, native ownership and canonical storage remain non-optional enforcement boundaries.
+
+**Development policy:** Multiple agents may still implement *small scoped PRs*, each from an isolated branch/worktree and **targeting #138's integration branch**, never `main`. Review and integrate these incrementally into #138; turn optional capabilities on/off and certify them there. Keep the full S01–S10, native, package, physical GTA and soak requirements separate. **Only after the whole integrated system is accepted should a single, separately reviewed merge of #138 into `main` be considered.** Individual capability success is not a substitute for release acceptance.
 
 ## 1. Investigated baseline and evidence limits
 
@@ -19,9 +22,9 @@ The investigation used immutable source snapshots:
 | `main` | `929b6e022740b50c297ec5044591b240632825ed` | Existing Essential companion architecture. The Memory K shared-brain implementation is absent from this tree. |
 | [Memory K production draft #138](https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/pull/138) | `a099766fdd5df2553addb935e067032037c489c9` | Primary implementation studied. Contains dialogue/event capture, storage/privacy/durability work, and numerous optional modules without complete production callers. |
 | [WS-6 recall draft #152](https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/pull/152) | `df3a8def09c8a33153e2571ed771ab7c1a0a3df8` | Adds authenticated foreground recall, journal conversation context, M5 dispatch, M8 reads, and request fences. |
-| [Reconciliation draft #157](https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/pull/157) | `4dc5c6e4dae52927f2958116908742d3094d8ed8` | Combines WS-6 with the #138 durability work. Its changed production paths were read separately. It is not assumed merged or accepted. |
+| [WS-6/WS-4b reconciliation #157](https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/pull/157) | `4dc5c6e4dae52927f2958116908742d3094d8ed8` | Pinned code reviewed; #157 subsequently merged into #138. Integration does not imply full-product acceptance. |
 
-The GitHub comparison showed #152 and #138 had diverged: their merge base was `2c56a5285825b468fd7f559b94cef89f18cfaa74`. Do not treat #152 as simply the newest #138 tree, or integrate it by copying files over the storage fixes.
+The historical comparison showed #152 and #138 diverged at merge base `2c56a5285825b468fd7f559b94cef89f18cfaa74`. #157 reconciled and merged those histories into #138; **#138 was at `14fc406c258c1de930e1b3dab331f343bd0762a4` when this revision was prepared.** Recheck #138's moving head before every scoped PR and merge. Do not restore older file snapshots over newer durability/privacy/recall fixes.
 
 Repository precedence was followed: `AGENTS.md`, `ROADMAP.md`, `research/CURRENT.md`, `DECISIONS.md`, the contract register, and the current Memory K decision/audit/implementation documents. Older headers and handoffs sometimes describe earlier states; actual callers and the settled decisions determine the findings here. This is a source investigation. Historical test counts and PR claims were not independently rerun.
 
@@ -270,11 +273,11 @@ For every enabled capability, inject a failure in each optional sibling and asse
 | M9 producer | Actual production project includes supported source; per-family native/GTA proof and PS2 qualification; unavailable families cannot be enabled; no extra scanner or unsupported inference. |
 | M9 callback | No own grant/turn; exact original entitlement/native admission/PS4 registration; player priority/cooldowns respected; disable removes pending cue; submission never falsely claims native playback or human hearing. |
 
-Measure M4 query time, whole memory preparation, every pre-send verification, and end-to-end turn latency separately. WS-6 reports much higher preparation/verification cost than its M4 query cost. Keep the existing conservative SQLite change/source-generation fence initially; reducing invalidation on unrelated writes is a later measured optimization with new race tests, not a prerequisite refactor. Synchronous DatabaseSync work cannot be preempted merely by racing a timeout, so bound scans/batches as well as elapsed deadlines. [WS-6 implementation report](https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/blob/4dc5c6e4dae52927f2958116908742d3094d8ed8/docs/plans/promoted-npc-memory/memory-k-production/WS6-PARALLEL-COMPLETION.md).
+Measure M4 query time, whole memory preparation, every pre-send verification, and end-to-end turn latency separately. Before enabling each foreground contributor, establish an agreed end-to-end p95 regression budget against the same exact-head #138 baseline (cold and busy/restart, multiple NPCs); an M4-only 40 ms pass must not certify an otherwise slow complete turn. Under overload, drop optional unsent contributions or fail safely, never bypass freshness/privacy checks. WS-6 reports much higher preparation/verification cost than its M4 query cost. Keep the existing conservative SQLite change/source-generation fence initially; reducing invalidation on unrelated writes is a later measured optimization with new race tests, not a prerequisite refactor. Synchronous DatabaseSync work cannot be preempted merely by racing a timeout, so bound scans/batches as well as elapsed deadlines. [WS-6 implementation report](https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/blob/4dc5c6e4dae52927f2958116908742d3094d8ed8/docs/plans/promoted-npc-memory/memory-k-production/WS6-PARALLEL-COMPLETION.md).
 
-## 8. Parallel PR workstreams and implementation order
+## 8. Parallel capability workstreams and implementation order **on #138**
 
-The rows are proposed future PR boundaries, not PRs created by this investigation. Split a row again if its dependency closure or review burden becomes large. Every capability PR includes its own positive/negative tests, diagnostic reasons and a default-off activation path; acceptance is not deferred to one final integration PR.
+The rows are proposed **small PR boundaries targeting `integration/memory-k-production-20261012` (#138)**, not independent releases or PRs targeting `main`. They modify and reuse the substantial existing M1–M9 implementations already integrated in #138; do not recreate those systems. Split a row further only for safe review or demonstrable independent behavior. Every capability PR includes positive/negative tests, diagnostic reasons, and a default-off activation path. Scope can be accepted and integrated into #138 without pretending the whole product has passed S01–S10.
 
 | PR | Scope and owned files/seam | Dependencies | Reviewable completion criterion |
 |---|---|---|---|
@@ -283,7 +286,7 @@ The rows are proposed future PR boundaries, not PRs created by this investigatio
 | **C — composition and disposal** | `bootstrap.mjs`, minimal runtime service seams; instance disposer | B | One runtime owns every resource; initialization/partial-failure/shutdown tested; no change to D01/D02/D03 or Essential lifecycle. |
 | **D1 — source/consumer separation, companion** | `intelligenceClient.mjs`, `shadowRuntime.mjs`, existing source subscriptions | B/C | D02/host/index/anchors stay current with PS2/PS3 processing off; complete envelope/sequence validation retained; old native peer supported. |
 | **D2 — native source-only mode and producer gates** | `RuntimeEntry.cs`, `IntelligenceIntegration.cs`; existing native settings/owner update | D1 contract | Native authority samples remain valid with optional sensors off; no second scanner/fiber; exact native compile/host tests. Live controls can remain restart-required in this PR. |
-| **E1 — P2 storage and migration closure** | Canonical shared SQLite/profile/durability/timeline modules; Essential wrapper | A; B policy seam | Safe one-writer storage/editor parity, additive atomic schema, legacy startup and packaged imports. Bring over only its reviewed dependency closure. |
+| **E1 — P2 storage-only activation** | Existing canonical shared SQLite/profile/durability/timeline modules; Essential wrapper on #138 | A; B policy seam | Keep the present single writer/schema/privacy gates and add a P2-only startup profile with M2–M9 off. Do not extract storage files into `main`. |
 | **E2 — privacy substrate and recovery** | Suppression, corrections, scoped transaction/read ports, replay revocation | E1 | Forget/purge/curation resurrection and cross-scope failures closed; mandatory privacy independent of optional M5 dispatch. |
 | **F — M2 recording controls** | `essentialGlue.mjs` M2 seams, private D01/NPC recorder, runner and D03 | C, D1/D2, E2 | Player/NPC gates independently proven; fresh durable accepted-read boundary available to consumers; source and Essential acceptance invariants unchanged. |
 | **G — M3 events/coverage controls** | `m3ProductionMemory.mjs`, shared M3 adapter/intake/coverage; bootstrap registration | C, D1/D2, E2 | M3 works without M2/PS3; each data sink gated; stress/loss/retirement scenarios and truthful coverage pass. Promotion grace may follow separately. |
@@ -296,28 +299,28 @@ The rows are proposed future PR boundaries, not PRs created by this investigatio
 | **L — M8 independent projection** | Existing interpretation/history reader and separate PS4 contributor | F/E2, common authenticated read seam | Works without M4 output or M7; canon/source history/forget and repetition tests. Broader personality features get subsequent PRs. |
 | **M1… — each M9 native producer** | One event family per PR, native project inclusion, PS2 adapter | D2/G qualification seam | Supported family is compiled and physically qualified; no callback activation. Rollover/Wasted/Busted are separate gates. |
 | **N — M9 memory callbacks** | Existing cue/witness/admission classes; small PS4/Director registration | G, H2 contributor seam, plain accepted PS6, available producer | Exact original grant/ticket/playback and priority tests; callback gate independent of plain PS6. |
-| **O — rollout/scenario completion** | Positive original S-scenarios, profiles, documentation and exact-package receipt tools | Incremental; each scenario follows its capability | Required gates remain visible; all claimed phase scenarios passed on exact head. Full K/default release waits for full original acceptance and physical proof. |
+| **O — #138 test profiles and release evidence** | Positive original S-scenarios, profiles, documentation and exact-package receipt tools | Incremental within #138; each scenario follows its capability | Module acceptance remains scoped and visible; full #138-to-main merge waits for S01–S10, approved native/package, physical GTA and soak evidence. |
 
-### Sequencing and parallel ownership
 
-1. **First:** A, then B/C. E1/E2 storage and D1/D2 source work can advance in parallel against the agreed policy/port contracts. Neither group rewrites the other's authority logic.
-2. **Capture wave:** F and G are parallel once those foundations land. Land their changes independently. Bring S01/S02/S03/S07/S09 coverage with the corresponding PRs rather than waiting for O.
-3. **Foreground wave:** H1/H2, I1/I2 and L can be developed in parallel after the shared accepted-read contract is merged. Assign one owner to final edits in `essentialGlue.mjs`, `runSequentialTurn.mjs`, PS4 renderer and provider send hooks; other PRs export typed contributors and bring their focused tests. Small adapter wiring PRs may merge immediately after each module.
-4. **Background wave:** J follows a proven journal source; K follows valid jobs/consent/native idle. K is optional and never blocks J or H. M9 producer investigation can run independently; integration follows each genuine native gate.
-5. **Callbacks last:** N follows accepted PS6 and the existing memory contribution seam. O records acceptance throughout, with a final receipt-only release assessment.
+### Canonical branch, safe parallelism, and integration ownership
 
-Use a common merged interface contract for parallel work, then ordinary small PRs onto the chosen accepted base. When genuinely stacked, state the exact base/head and retarget/rebase normally after the prerequisite lands. Preserve the history of current #138/#152/#157 reconciliations; do not reconstruct them by file copy. Do not allow several workstreams to edit schema initialization, configuration normalization, build staging or workflow discovery simultaneously.
+1. **Canonical implementation:** #138 remains the single source of truth. Older #152/#157 and other specialist branches are historical source provenance, **not competing development targets**. Their code is already reconciled where merged into #138. Reuse it instead of cherry-picking entire snapshots.
+2. **Small PRs, one destination:** every runtime implementation branch starts from the latest accepted #138 head, uses an isolated worktree, and opens a focused PR targeting #138. No direct pushes/force-pushes to #138; its integrator performs reviewed merges. A temporary conflict-resolution branch may be used when necessary, but must also target #138 and be retired afterward. Avoid long stacks of PRs targeting PRs.
+3. **Shared-file ownership:** assign one integrator at a time to `bootstrap.mjs`, `essentialGlue.mjs`, `runSequentialTurn.mjs`, PS4/provider final-send hooks, `sqliteFoundation.mjs`, migrations, native project files, config normalization and CI discovery. Other agents deliver bounded adapters/factories/tests. Rebase or merge the latest #138 before integrating to avoid losing concurrent fixes.
+4. **Foundation first:** A, then B/C; D1/D2 source separation and E1/E2 storage/privacy can proceed in parallel after shared contracts are agreed. Each accepted scoped PR lands on #138 with its own diagnostic/off/positive tests.
+5. **Capture in parallel:** F (M2) and G (M3) follow the foundation independently. Do not allow optional capture gates to bypass D01/D02/D03, source, privacy or timeline checks.
+6. **Foreground separately:** H1/H2, I1/I2 and L may be developed simultaneously against one authenticated read/contributor contract; only the designated owner edits the original runner and PS4 integration seams. Land and test each capability on #138 separately.
+7. **Background and callbacks:** J requires committed journal evidence, K requires separate valid consent/jobs and does not block J, M9 native producer work can proceed separately, and N follows genuine PS6/native admission. O gathers exact-head acceptance progressively.
+8. **Final merge is one release decision:** continue modular verification on the integrated #138 tree, rather than moving pieces to `main`. After source, complete S01–S10, native/package, physical GTA and soak gates all pass at a reviewed final SHA, separately review merging the entire #138 codebase into `main`. No assumption of production readiness from module-only success.
 
-For incremental delivery to `main`, start with inert policy/composition additions and unavailable capability descriptors. Bring each accepted existing implementation over as its own dependency closure, not a blanket #138 merge. In particular, E1 must not import unlanded M6/M7 worker implementations: extract storage-owned declarative migrations/ports where necessary while retaining one canonical schema and existing public APIs. This limited extraction is the main structural change needed to avoid importing all of Memory K through `sqliteFoundation.mjs`.
-
-Each PR description must identify: changed runtime behavior, prerequisites, supported/off/shadow behavior, source provenance, affected shared files, exact tests, package/native/GTA status, and rollback. If a capability cannot satisfy its positive path, mark it unavailable rather than shipping an enabled shell. A passing extraction/modularity PR does not certify the entire #138 product.
+Every scoped PR must state its exact #138 base/head, changes to shared files, original source history preserved, effective/off modes, dependencies, module-positive tests, sibling isolation tests, source/native/package/GTA status and rollback behavior. Validate the final merged #138 head, not just the isolated feature branch. The plan preserves the monolithic *release unit* while providing modular runtime behavior and safe parallel engineering.
 
 ## 9. Compatibility and rollout
 
 ### Compatibility policy
 
-- Keep current main defaults: JSON P2, optional perception/Director behavior and no newly enabled Memory K/cloud capability. Existing manual profiles, notes, voice selection, action/playback and Gemini paths remain compatible.
-- For #138/#157 experimental users, provide a versioned explicit compatibility profile reproducing their current gated behavior. Do not silently map every SQLite install to all M1–M9 on. Emit a content-free notice explaining the effective mapping; migrate to explicit settings through the existing UI.
+- Keep current `main` unchanged throughout modular activation on #138. Its JSON P2, existing profiles/notes, optional perception/Director, voice, actions/playback and Gemini defaults remain the backward-compatibility baseline for the eventual single release.
+- For #138's integrated experimental runtime (including merged #157), provide a versioned compatibility profile reproducing its current gated behavior. Do not silently turn on M1–M9 for existing SQLite installs. Emit a content-free notice of effective policy and expose explicit modes through the existing UI. These profiles are applied **within #138**, not as separate releases.
 - Preserve existing `dialogueKnowledge.mode` semantics; new per-contributor memory switches control journal/M4/M8 output. A global privacy pause has higher precedence than both legacy and new mappings.
 - New native/companion support is negotiated or validated through an explicitly versioned contract. Current validators reject unknown fields; do not append fields to old hello/frames and assume old clients ignore them. Where negotiation is unavailable, use the existing v1 path with restart-required controls and explicit unsupported status.
 - JSON/off startup remains possible when `node:sqlite` is unavailable, as the foundation already intends. SQLite activation probes actual FTS5 support and fails visibly. Never silently write a second JSON store after SQLite failure.
@@ -325,20 +328,23 @@ Each PR description must identify: changed runtime behavior, prerequisites, supp
 - Preserve P2 backup/suppression policy in recovery: an old snapshot predating forget can resurrect confidential data. Before making a restored snapshot active, reconcile a current trustworthy suppression ledger or keep recovery read-only until an explicit reviewed procedure is satisfied. Do not promise privacy-safe restore from arbitrary old backups.
 - M7 default decision O-1 remains open: retain the implemented consent-gated off default. O-2 remains conservative: native corroboration before provider work. Neither is resolved by a new deployment profile. [Open decisions](https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/blob/a099766fdd5df2553addb935e067032037c489c9/docs/plans/promoted-npc-memory/approved-decisions.md#L39).
 
-### Rollout ladder
 
-| Stage | Enabled scope | Exit gate / rollback |
+### Rollout ladder — test/activation profiles within the same #138 build
+
+These stages are independently diagnosable feature profiles and positive acceptance steps on **one evolving #138 integration**, **not incremental PRs to `main`**. Any physical GTA test still needs its own source/native/package prerequisite proof and user authorization; module acceptance does not imply product acceptance.
+
+| Stage | Scoped enabled profile | Exit gate / rollback |
 |---|---|---|
-| 0 | New resolver/diagnostics, all new effects off | Legacy and all-off parity, clean resources and isolated package import. Disable new settings without data mutation. |
-| 1 | Opt-in M1 storage only | P2/editor parity, migrations, writer/crash recovery, privacy substrate. Storage rollback requires export/restart; never implicit fallback. |
-| 2 | Source core and M2 only | Exact original runner acceptance/delivery tests and controlled S01/S07/S09 native/GTA evidence for the claimed scope. Consumer/capture off leaves committed records intact. |
-| 3 | M3 independently, then journal/M4/M5 | Qualified two-observer/mundane event, recall and explicit command scenarios; 10k latency and final-send privacy races; capture and use switches tested separately. |
-| 4 | M6 deterministic; M8 without cloud | Replay/crash/cursor and personality/canon tests, bounded background load. Worker disable retains queue/cursors and evidence. |
-| 5 | Separately consented M7 | Idle/consent/cost/abort/recovery proof and separately authorized live provider check. Revoke consent to stop future work; preserve conservative uncertain accounting. |
-| 6 | Each M9 producer, then callbacks | Approved native build, producer-specific physical witness proof, PS6 exact playback/priority/cooldown evidence. Disable callbacks independently of source capture and plain Director. |
-| 7 | Broader defaults / full Memory K release | Positive S01–S10, complete original requirements, exact-head Windows/Linux/package/native gates, and planned multi-companion soak/physical acceptance. No module-level success substitutes for this. |
+| 0 | New resolver/diagnostics; all new effects off | Current Essential/P2 parity, isolated packaged startup, no workers or incidental writes. |
+| 1 | Opt-in M1 SQLite only | P2/editor parity, migrations, lock/snapshot and privacy recovery, storage/timeline portions of S07. Storage downgrade is not a simple live toggle. |
+| 2 | Authenticated source core and M2 only | Original-runner typed/STT acceptance and native delivery, durable capture/reconnect, player/NPC switch independence. **Only M2 portions of S01/S09**; complete recall/correction scenarios require later consumers. |
+| 3 | M3 independently; journal/M4/M5 each independently | Qualified two-observer/mundane event, memory retrieval, commands, final-send privacy races. Full S01/S04/S07/S09 when their complete positive traces and prerequisites pass. |
+| 4 | M6 deterministic plus M8 without M7 | Scene/replay recovery, personality/canon, cursors, bounded resource load; no cloud or extra native ticket. |
+| 5 | Separately consented M7 | Verified native idle, persistent consent/cost/abort/recovery; explicit live-provider authorization. Capture/M6 stay functional when M7 is off. |
+| 6 | Each supported M9 producer and callbacks as separate gates | Actual native compile/project and physical witness proof, PS6 admission/priority/cooldown, disabling callbacks without disabling ordinary PS6. |
+| 7 | Full #138 Memory K acceptance and release evaluation | Positive original S01–S10, exact-head Windows/Linux/package/native, approved physical GTA and multi-companion soak. **Only then consider a single #138-to-`main` merge.** |
 
-Use explicit opt-in profiles and exact payload receipts before broader defaults. No random per-NPC feature assignment: it makes authority/privacy behavior hard to reason about and conflicts with durable character policy. Review scope and performance at each stage; failure disables only the optional affected consumer unless its shared authority/storage prerequisite is invalid.
+Test and revert individual capability modes without copying the branch or deleting other capabilities' data. Preserve mandatory authority/privacy during every off/on change. A green module test is evidence for that module only; unresolved S01–S10 and full-release gates stay explicit blockers.
 
 ## 10. Architectural risks and mitigations
 
@@ -354,12 +360,16 @@ Use explicit opt-in profiles and exact payload receipts before broader defaults.
 | Background work delays player turns | One serialized synchronous SQLite connection; WS-6 pre-send rereads can be costly. | Bounded scans/pages and background batching, foreground priority, measure complete preparation/revalidation; keep authority checks while optimizing later. |
 | Native modules advertised from source files alone | M9 policy/harness code is absent from the inspected production project. | Actual compile/project/package support and producer receipts determine availability. |
 | Divergent P2 ownership across branches/providers | Current audit records the ElevenLabs line's store/runner/protagonist divergence. | Separate reconciliation PR using the canonical store/authority; no second writer or provider-specific identity partition. |
-| Integration loses repairs or tests | #152/#138 diverged; old workstreams changed the same glue/store/workflows; suite discovery is fragmented. | History-preserving scoped reconciliation, designated shared-file owners, exact-head suite inventory and independently reviewable PRs. |
+| Integration loses repairs or tests | Historical #152/#138 divergence and shared glue/store/workflow edits; suite discovery is fragmented. | Current #138 as sole destination, history-preserving scoped merges, designated shared-file owners, exact-head suite inventory and reviewable PRs. |
+| Monolithic integration becomes hard to audit | #138 remains a large unified release unit, even though runtime capabilities are independently controllable. | Preserve individual PR histories, per-module tests/receipts, unchanged off-defaults, complete regression inventory, final release diff/source review and explicit whole-product acceptance. |
 | Green CI mistaken for release readiness | S scenarios remain red/unimplemented and native/GTA gates are separate. | Named scoped evidence tiers, explicit full-product NO-GO until original acceptance closes. |
+
 
 ## 11. Definition of completion for this implementation program
 
-The modularity work is complete when every supported capability has an explicit requested/effective state, dependency explanation, owned lifecycle, independent test entrypoint, safe off behavior, and a verified scoped positive path; unsupported capabilities stay unavailable. Ordinary P2/Essential operation works with optional Memory K capabilities disabled. Capture, use, curation and callbacks can be controlled independently wherever the preserved proof graph permits.
+The modular-activation work is complete **on #138** when every supported capability has an explicit requested/effective state, dependency explanation, owned lifecycle, independent test entrypoint, safe off behavior, verified scoped positive path, rollback, diagnostics and proof that disabled siblings remain unaffected. Unsupported capabilities are unavailable rather than fake-enabled. Essential and ordinary P2 operate with optional automatic memory components disabled. Shared native authority, SQLite ownership, privacy and PS4 remain non-optional invariants.
 
-Full Memory K product acceptance additionally requires the original S01–S10 and broader native/package/GTA/soak gates. The modular design makes those requirements easier to isolate and deliver; it does not reduce them or turn missing authority into a configurable exception.
+The **entire Memory K product** is independently complete only after original S01–S10 and broader native/package/GTA/soak gates pass. Neither modularity nor staged #138 testing waives these. The final delivery decision is a **single reviewed integration of #138 into `main`**, not mandatory extraction into smaller `main` PRs. Keep #138 as the integration branch until that decision; do not duplicate implementation effort or start an additional mega-branch.
+
+
 
