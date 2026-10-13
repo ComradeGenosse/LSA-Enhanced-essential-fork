@@ -1,3 +1,4 @@
+import {isSuppressedSource} from './suppressionSqlite.mjs';
 // Shared immutable M2/M3 journal: one SQLite file, no background model.
 // Write entry points are synchronous and ONLY legal under withTimelineWrite.
 import {createHash} from 'node:crypto';
@@ -97,6 +98,7 @@ export function appendDialogue(db,line,attribution,world){
     !(attribution.hostRunId===null||isUuid(attribution.hostRunId))||
     !(attribution.worldEpoch===null||Number.isSafeInteger(attribution.worldEpoch)&&attribution.worldEpoch>=0)||
     (attribution.hostRunId===null)!==(attribution.worldEpoch===null))fail('journal_invalid_attribution');
+  if(isSuppressedSource(db,e,{recordId:e.recordId,kind:'dialogue_line',contentHash:hash(e.content),evidenceKey:e.turnIdentityHash}))fail('memory_source_forgotten');
   const old=db.prepare('SELECT envelope_json,envelope_sha256,content_sha256,session_id,protagonist,host_run_id,world_epoch FROM dialogue_journal WHERE character_id=? AND timeline_id=? AND speaker=? AND turn_identity_hash=?')
     .get(e.characterId,e.timelineId,e.speaker,e.turnIdentityHash);
   if(old){
@@ -141,6 +143,7 @@ export function appendEvent(db,event,world,{hostContext=null,sourceEvidence=null
   if(hostContext&&(hostContext.hostRunId!==e.ownerProof.hostRunId||hostContext.worldEpoch!==e.ownerProof.worldEpoch))
     fail('journal_source_epoch_mismatch');
   const evidence=sourceEvidence===null?null:verifiedEvidence(e,sourceEvidence);
+  if(isSuppressedSource(db,e,{recordId:e.recordId,kind:'journal_event',contentHash:e.sourceHash,evidenceKey:e.observationId}))fail('memory_source_forgotten');
   // A newer accepted revision may never be rolled back by a late/replayed PS2 receipt.
   const newest=db.prepare('SELECT MAX(revision) AS revision FROM event_journal WHERE world_profile_id=? AND character_id=? AND timeline_id=? AND observation_id=?')
     .get(e.worldProfileId,e.characterId,e.timelineId,e.observationId)?.revision;

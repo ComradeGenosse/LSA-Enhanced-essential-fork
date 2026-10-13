@@ -1,6 +1,7 @@
 // Additive PS5 memory records in the single P2 SQLite writer.
 // All mutations are invoked from P2SqliteProfileStore.withTimelineWrite.
 import {createHash} from 'node:crypto';
+import {ensureSuppressionSchema,suppressedMemoryIds,suppressionClosure,retainSuppression,isSuppressedSource} from './suppressionSqlite.mjs';
 import {isUuid,immutableSnapshot} from '../util/identity.mjs';
 const digest=v=>createHash('sha256').update(typeof v==='string'?v:JSON.stringify(v)).digest('hex');
 const fail=reason=>{throw new Error(reason)};
@@ -34,7 +35,7 @@ CREATE TABLE IF NOT EXISTS memory_budget_reservations (
  batch_key TEXT PRIMARY KEY,world_profile_id TEXT NOT NULL,amount_usd REAL NOT NULL,
  reserved_at_utc TEXT NOT NULL,state TEXT NOT NULL);
 `;
-export function ensureIntegratedMemorySchema(db){db.exec(sql);}
+export function ensureIntegratedMemorySchema(db){db.exec(sql);ensureSuppressionSchema(db);}
 // The single P2 foundation transaction helper is used by all callers.
 function transact(db,work){
  db.exec('BEGIN IMMEDIATE');
@@ -111,6 +112,10 @@ function knownEvidence(db,scope,id,parents=new Set(),revoked=null){
    return {...row,kind:'permanent_memory'};
  }catch{return null;}
 }
+// Reuse the production source-byte/provenance verifier at Luna boundaries.
+export function verifyMemoryEvidence(db,scope,id,revoked){
+ return !!knownEvidence(db,scope,id,new Set(),revoked);
+}
 export function listMemoryCandidates(db,scope,world,{beforeUtc=null,excludeRecordId=null}={}){
  dbOwnerScope(db,scope,world);
  const rows=[];
@@ -132,23 +137,7 @@ export function listMemoryCandidates(db,scope,world,{beforeUtc=null,excludeRecor
 }
 export function listSuppressedMemoryIds(db,scope,world){
  dbOwnerScope(db,scope,world);
- const ids=new Set(db.prepare('SELECT target_id FROM memory_tombstones WHERE world_profile_id=? AND character_id=? AND timeline_id=?').all(...stmtScope(scope)).map(x=>x.target_id));
- // Forgetting a derived memory also suppresses its original evidence from
- // model recall without rewriting immutable journal rows.
- const links=db.prepare('SELECT memory_id,evidence_ids_json FROM memory_records WHERE world_profile_id=? AND character_id=? AND timeline_id=?').all(...stmtScope(scope));
- let changed=true;
- while(changed){
-   changed=false;
-   for(const row of links){
-     const sources=JSON.parse(row.evidence_ids_json);
-     if(ids.has(row.memory_id)){
-       for(const source of sources)if(!ids.has(source)){ids.add(source);changed=true;}
-     }else if(sources.some(source=>ids.has(source))){
-       ids.add(row.memory_id);changed=true;
-     }
-   }
- }
- return Object.freeze([...ids]);
+ return Object.freeze([...suppressedMemoryIds(db,scope)]);
 }
 export function verifyPersistedMemoryCommand(db,{scope,commandId},world){
  dbOwnerScope(db,scope,world);
@@ -174,9 +163,10 @@ export function commitPersistedMemoryCommand(db,o,world){
    const source=db.prepare('SELECT source,speaker,delivery,protagonist FROM dialogue_journal WHERE record_id=? AND world_profile_id=? AND character_id=? AND timeline_id=?').get(o.requestedByLineId,...stmtScope(scope));
    if(!source||source.speaker!=='player'||!['typed','stt'].includes(source.source)||
       source.delivery!=='accepted'||source.protagonist!==(scope.protagonistKey??'unknown'))fail('memory_source_not_accepted');
+   const suppressed=suppressedMemoryIds(db,scope);
    for(const id of o.evidenceRecordIds){
      if(!knownEvidence(db,scope,id))fail('memory_evidence_not_found');
-     if(db.prepare('SELECT target_id FROM memory_tombstones WHERE world_profile_id=? AND character_id=? AND timeline_id=? AND target_id=?').get(...stmtScope(scope),id))
+     if(suppressed.has(id))
        fail('memory_source_forgotten');
    }
    if(o.operation!=='remember'&&(!isUuid(o.targetRecordId)||!knownEvidence(db,scope,o.targetRecordId)))
@@ -184,11 +174,15 @@ export function commitPersistedMemoryCommand(db,o,world){
    const memoryId=o.commandId,when=o.requestedAtUtc;
    if(!Number.isFinite(Date.parse(when)))fail('memory_invalid_time');
    if(o.operation==='remember'){
+     if(isSuppressedSource(db,scope,{recordId:memoryId,kind:'permanent_memory',contentHash:o.contentHash}))
+       fail('memory_source_forgotten');
      db.prepare('INSERT INTO memory_records(memory_id,character_id,world_profile_id,timeline_id,protagonist_key,origin,content,content_sha256,mode,pin,notability,evidence_ids_json,created_at_utc,proposal_json) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,NULL)')
       .run(memoryId,scope.characterId,scope.worldProfileId,scope.timelineId,scope.protagonistKey??'unknown','explicit_player',o.content,o.contentHash,'reported_claim',o.pin?1:0,o.pin?.95:.85,JSON.stringify(o.evidenceRecordIds),when);
    } else if(o.operation==='forget'){
-     db.prepare('INSERT INTO memory_tombstones(character_id,world_profile_id,timeline_id,target_id,command_id,created_at_utc) VALUES(?,?,?,?,?,?)')
-       .run(scope.characterId,scope.worldProfileId,scope.timelineId,o.targetRecordId,o.commandId,when);
+     const closure=suppressionClosure(db,scope,[o.targetRecordId]);
+     retainSuppression(db,scope,closure,o.commandId);
+     for(const target of closure)db.prepare('INSERT OR IGNORE INTO memory_tombstones(character_id,world_profile_id,timeline_id,target_id,command_id,created_at_utc) VALUES(?,?,?,?,?,?)')
+       .run(scope.characterId,scope.worldProfileId,scope.timelineId,target,o.commandId,when);
    } else {
      db.prepare('INSERT INTO memory_corrections(command_id,character_id,world_profile_id,timeline_id,target_id,preferred_text,content_sha256,created_at_utc) VALUES(?,?,?,?,?,?,?,?)')
        .run(o.commandId,scope.characterId,scope.worldProfileId,scope.timelineId,o.targetRecordId,o.content,o.contentHash,when);
@@ -204,6 +198,8 @@ export function commitPersistedMemoryCommand(db,o,world){
 export function persistDeterministicMemory(db,proposal,world){
  const scope={characterId:proposal?.characterId,worldProfileId:proposal?.worldProfileId,timelineId:proposal?.timelineId,protagonistKey:'unknown'};
  dbOwnerScope(db,scope,world);
+ const revoked=suppressedMemoryIds(db,scope);
+ if(revoked.has(proposal?.proposalId)||proposal?.evidenceRecordIds?.some(id=>revoked.has(id)))fail('curation_source_forgotten');
  // The M0 proposal has no protagonist property. Resolve it exclusively from
  // committed evidence, never guess from a name or the current player's ped.
  const protagonists=new Set();
@@ -227,12 +223,15 @@ export function persistDeterministicMemory(db,proposal,world){
     proposal.evidenceRecordIds.length>64||!Number.isFinite(proposal.notability)||proposal.notability<0||proposal.notability>1||
     typeof proposal.groundedSummary!=='string'||!proposal.groundedSummary.length)fail('memory_invalid_proposal');
  return transact(db,()=>{
+   const suppressed=suppressedMemoryIds(db,scope);
+   if(suppressed.has(proposal.proposalId)||proposal.evidenceRecordIds.some(id=>suppressed.has(id))||
+      isSuppressedSource(db,scope,{recordId:proposal.proposalId,kind:'permanent_memory',contentHash:digest(proposal.groundedSummary)}))
+     fail('curation_source_forgotten');
    const old=db.prepare('SELECT proposal_json FROM memory_records WHERE memory_id=?').get(proposal.proposalId);
    if(old){if(old.proposal_json!==JSON.stringify(proposal))fail('memory_proposal_replay_conflict');return {inserted:false,recordId:proposal.proposalId};}
    for(const id of proposal.evidenceRecordIds){
      if(!knownEvidence(db,scope,id))fail('memory_unverified_curation_source');
-     if(db.prepare('SELECT target_id FROM memory_tombstones WHERE world_profile_id=? AND character_id=? AND timeline_id=? AND target_id=?').get(...stmtScope(scope),id))
-       fail('memory_source_forgotten');
+     if(suppressed.has(id))fail('curation_source_forgotten');
    }
    db.prepare('INSERT INTO memory_records(memory_id,character_id,world_profile_id,timeline_id,protagonist_key,origin,content,content_sha256,mode,pin,notability,evidence_ids_json,created_at_utc,proposal_json) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)')
      .run(proposal.proposalId,scope.characterId,scope.worldProfileId,scope.timelineId,scope.protagonistKey,'deterministic',proposal.groundedSummary,
