@@ -4,6 +4,7 @@ import * as fs from 'node:fs/promises';
 import { constants as fsConstants } from 'node:fs';
 import path from 'node:path';
 import { randomUUID, createHash } from 'node:crypto';
+import {snapshotSqlite} from './sqliteDurability.mjs';
 // SQLite is an explicit opt-in. Older Node versions used by a legacy
 // Essential install must be able to START IN JSON MODE without this module.
 let DatabaseSync = null;
@@ -11,7 +12,7 @@ try { ({ DatabaseSync } = await import('node:sqlite')); } catch {}
 
 import { isUuid } from '../util/identity.mjs';
 import { PROFILE_LIMITS, validateProfiles } from './profileSchema.mjs';
-import { JOURNAL_SCHEMA_VERSION, migrateJournalSchema, assertJournalSchema, appendDialogue, appendEvent, readDialogue, findExactQuote, searchDialogue, readEvents, readVerifiedEventEvidence } from '../memory/journalSqlite.mjs';
+import { JOURNAL_SCHEMA_VERSION, migrateJournalSchema, assertJournalSchema, appendDialogue, appendEvent, readDialogue, readFreeRecallWindow, findExactQuote, searchDialogue, readEvents, readVerifiedEventEvidence } from '../memory/journalSqlite.mjs';
 import { ensureIntegratedMemorySchema, listMemoryCandidates, listSuppressedMemoryIds, verifyPersistedMemoryCommand, commitPersistedMemoryCommand, persistDeterministicMemory, readPermanentMemoryRows, readCorrectionOverlays } from '../memory/integratedSqlite.mjs';
 import {ensureCurationSchema,enqueueCuration,claimCuration,verifyCurationLease,completeCuration,retryCuration,releaseCuration,reserveCurationBudget,finishCurationBudget} from '../memory/curationSqlite.mjs';
 import {ensureM3CoverageSchema,appendM3Coverage,readM3Coverage,upsertObserverCoverage,sealStaleObserverCoverage,readObserverCoverage} from '../events/m3CoverageSqlite.mjs';
@@ -160,15 +161,58 @@ export async function inspectP2Sqlite({filePath,worldProfileId}) {
   } finally {db.close();}
 }
 
+/**
+ * Explicit, operator-facing recovery view. An integrity-failed database is
+ * never auto-restored or written. Only checked immutable snapshots are read.
+ */
+export async function inspectP2ReadOnlyRecovery({filePath,worldProfileId,scope=null}){
+  if(typeof filePath!=='string'||!filePath.trim()||!isUuid(worldProfileId))
+    fail('invalid_sqlite_profile_config');
+  const folder=path.resolve(filePath)+'.snapshots';
+  let files;
+  try{files=(await fs.readdir(folder)).filter(n=>/^(daily-\d{4}-\d\d-\d\d-[0-9TZ-]+-[0-9a-f-]{36}|weekly-\d{4}-W\d\d|pre-migration-[0-9TZ-]+-[0-9a-f-]{36})\.sqlite$/.test(n));}
+  catch(e){if(e.code==='ENOENT')fail('sqlite_recovery_snapshot_unavailable');throw e;}
+  // Use file creation/modification time, not alphabetical prefix order:
+  // weekly files must not hide a newer daily or migration recovery point.
+  files=(await Promise.all(files.map(async name=>({
+    name,mtime:(await fs.stat(path.join(folder,name))).mtimeMs
+  })))).sort((a,b)=>b.mtime-a.mtime||b.name.localeCompare(a.name)).map(x=>x.name);
+  for(const name of files){
+    let db;
+    try{
+      db=new DatabaseSync(path.join(folder,name),{readOnly:true});
+      const snapshot=verifyExisting(db,worldProfileId);
+      const version=db.prepare('PRAGMA user_version').get().user_version;
+      if(version===JOURNAL_SCHEMA_VERSION)assertJournalSchema(db);
+      if(scope&&version!==JOURNAL_SCHEMA_VERSION)continue;
+      // A historical backup may predate a later permanent forget/correction
+      // receipt. Never expose old verbatim dialogue from a snapshot without a
+      // current authoritative privacy ledger; inspection is metadata-only.
+      const lines=null;
+      return Object.freeze({
+        status:'read_only_snapshot',path:path.join(folder,name),
+        schemaVersion:version,revision:snapshot.revision,
+        profiles:Object.freeze(snapshot.profiles.map(p=>Object.freeze({characterId:p.characterId,name:p.name}))),
+        dialogue:lines
+      });
+    }catch{
+      // A corrupt snapshot cannot authorize recovery; try an older checked one.
+    }finally{try{db?.close();}catch{}}
+  }
+  fail('sqlite_recovery_snapshot_unavailable');
+}
+
 export class P2SqliteFoundation {
-  #db=null; #init=null; #snapshot=null;
-  constructor({filePath,worldProfileId,legacyJsonPath=null}) {
+  #db=null; #init=null; #snapshot=null; #recoveryStatus=null; #journalLimits;
+  constructor({filePath,worldProfileId,legacyJsonPath=null,journalLimits={}}) {
     if(!filePath || !isUuid(worldProfileId))throw new TypeError('invalid_sqlite_profile_config');
     this.filePath=path.resolve(filePath);
     this.worldProfileId=worldProfileId;
     this.legacyJsonPath=legacyJsonPath?path.resolve(legacyJsonPath):null;
+    this.#journalLimits=Object.freeze({...journalLimits});
   }
   get initialized() {return !!this.#db;}
+  get recoveryStatus(){return this.#recoveryStatus;}
   get snapshot(){if(!this.#snapshot)fail('sqlite_profile_uninitialized');return this.#snapshot;}
   async initialize() {return this.#init ||= this.#initialize();}
   async #initialize() {
@@ -204,19 +248,48 @@ export class P2SqliteFoundation {
       db=new DatabaseSync(this.filePath);
       this.#snapshot=verifyExisting(db,this.worldProfileId);
       db.exec('PRAGMA foreign_keys=ON; PRAGMA busy_timeout=5000; PRAGMA journal_mode=WAL; PRAGMA synchronous=FULL');
-      // Additive and transactional: v2 P2 snapshot/profile bytes remain untouched.
-      // The single M1 writer lock is held before migrating or accepting appends.
-      migrateJournalSchema(db);
-      ensureIntegratedMemorySchema(db);
-      ensureCurationSchema(db);
-      // Additive only: M3 negative coverage shares this exact P2 connection.
-      ensureM3CoverageSchema(db);
-      // Additive v4 extensions, installed under the original P2 writer lock.
-      // They do not change the M1 snapshot or PRAGMA user_version=4.
-      transaction(db,()=>{ensureM5PrivacySchema(db);reconcileM5Suppression(db);ensureP2ReplaySchema(db);ensureM6P2ReplaySchema(db);});
+      // Crash recovery must preserve the pre-migration store even if DDL fails.
+      // Detect both an old core schema and a v4 database lacking extensions.
+      // A fixed table-name checklist misses indexes, triggers, columns and
+      // repairs to existing extension tables. Make a checked preflight copy
+      // BEFORE executing ANY extension DDL. Schema-version records even an
+      // additive ALTER/CREATE INDEX, not only a newly created table.
+      const oldSchema=db.prepare('PRAGMA schema_version').get().schema_version;
+      const migrationBackup=await snapshotSqlite(db,this.filePath,{reason:'pre_migration'});
+      // Keep a failed upgrade's verified recovery point. A no-op open must
+      // not accumulate immortal backups; delete it only after commit and a
+      // positive finding that no schema changed.
+      transaction(db,()=>{
+        migrateJournalSchema(db);
+        ensureIntegratedMemorySchema(db);
+        ensureCurationSchema(db);
+        ensureM3CoverageSchema(db);
+        ensureM5PrivacySchema(db);
+        reconcileM5Suppression(db);
+        ensureP2ReplaySchema(db);
+        ensureM6P2ReplaySchema(db);
+        // Per-character admission scans must never require a full multi-NPC
+        // table scan. The exact-head CI soak benchmarks the remaining O(N)
+        // per-character byte accounting, pending a future ledger optimization.
+        db.exec('CREATE INDEX IF NOT EXISTS dialogue_journal_character_quota ON dialogue_journal(character_id)');
+        db.exec('CREATE INDEX IF NOT EXISTS event_journal_character_quota ON event_journal(character_id)');
+      });
+      const newSchema=db.prepare('PRAGMA schema_version').get().schema_version;
+      if(oldSchema===newSchema)
+        await fs.rm(migrationBackup.path);
       this.#db=db;
       return this.#snapshot;
-    } catch(e){try {db?.close();}catch{}throw e;}
+    } catch(e){
+      this.#recoveryStatus={status:'read_only_recovery_required',reason:e.message,
+        database:this.filePath,snapshots:this.filePath+'.snapshots'};
+      try {db?.close();}catch{}
+      // Do not write to, reset, or auto-restore an integrity-failed database.
+      throw e;
+    }
+  }
+  async createDurabilitySnapshot(reason='session_end'){
+    if(!this.#db)fail('sqlite_profile_uninitialized');
+    return snapshotSqlite(this.#db,this.filePath,{reason});
   }
   list(){return this.snapshot.profiles;}
   get(characterId){return this.list().find(p=>p.characterId===characterId)||null;}
@@ -286,11 +359,11 @@ export class P2SqliteFoundation {
   // foundation private and invokes writes through its withTimelineWrite fence.
   appendDialogueLine(line,attribution){
     if(!this.#db)fail('sqlite_profile_uninitialized');
-    return transaction(this.#db,()=>appendDialogue(this.#db,line,attribution,this.worldProfileId));
+    return transaction(this.#db,()=>appendDialogue(this.#db,line,attribution,this.worldProfileId,{limits:this.#journalLimits}));
   }
   appendJournalEvent(event,options={}){
     if(!this.#db)fail('sqlite_profile_uninitialized');
-    return transaction(this.#db,()=>appendEvent(this.#db,event,this.worldProfileId,options));
+    return transaction(this.#db,()=>appendEvent(this.#db,event,this.worldProfileId,{...options,limits:this.#journalLimits}));
   }
   readVerifiedEventEvidence(scope){
     if(!this.#db)fail('sqlite_profile_uninitialized');
@@ -368,6 +441,7 @@ export class P2SqliteFoundation {
   releaseCuration(args,timelineId){return releaseCuration(this.#db,args,this.worldProfileId,timelineId);}
   reserveCurationBudget(args,budget){return reserveCurationBudget(this.#db,args,this.worldProfileId,budget);}
   finishCurationBudget(args,state){return finishCurationBudget(this.#db,args,this.worldProfileId,state);}
+  readFreeRecallWindow(scope){if(!this.#db)fail('sqlite_profile_uninitialized');return readFreeRecallWindow(this.#db,scope,this.worldProfileId);}
   readDialogueLines(scope){if(!this.#db)fail('sqlite_profile_uninitialized');return readDialogue(this.#db,scope,this.worldProfileId);}
   findExactQuote(scope){if(!this.#db)fail('sqlite_profile_uninitialized');return findExactQuote(this.#db,scope,this.worldProfileId);}
   searchDialogue(scope){if(!this.#db)fail('sqlite_profile_uninitialized');return searchDialogue(this.#db,scope,this.worldProfileId);}

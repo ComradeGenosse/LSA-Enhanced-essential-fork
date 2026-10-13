@@ -30,16 +30,24 @@ function repairCascadingProfileForeignKey(db){
   const cascades=db.prepare("PRAGMA foreign_key_list(m3_coverage)").all()
     .some(row=>row.table==='promoted_profiles');
   if(!cascades)return false;
-  db.exec('BEGIN IMMEDIATE');
+  const nested=db.isTransaction===true;
+  if(nested)db.exec('SAVEPOINT m3_coverage_fk_repair');
+  else db.exec('BEGIN IMMEDIATE');
   try{
     db.exec('ALTER TABLE m3_coverage RENAME TO m3_coverage_legacy_fk');
     db.exec(M3_COVERAGE_DDL.replace(/CREATE INDEX IF NOT EXISTS m3_coverage_scope[\s\S]*$/,''));
     db.exec('INSERT INTO m3_coverage SELECT world_profile_id,timeline_id,character_id,observation_id,status,evidence_json,evidence_hash FROM m3_coverage_legacy_fk');
     db.exec('DROP TABLE m3_coverage_legacy_fk');
     db.exec('CREATE INDEX IF NOT EXISTS m3_coverage_scope ON m3_coverage(world_profile_id,character_id,timeline_id,status)');
-    db.exec('COMMIT');
+    db.exec(nested?'RELEASE SAVEPOINT m3_coverage_fk_repair':'COMMIT');
     return true;
-  }catch(error){try{db.exec('ROLLBACK');}catch{}throw error;}
+  }catch(error){
+    try{
+      if(nested){db.exec('ROLLBACK TO SAVEPOINT m3_coverage_fk_repair');db.exec('RELEASE SAVEPOINT m3_coverage_fk_repair');}
+      else db.exec('ROLLBACK');
+    }catch{}
+    throw error;
+  }
 }
 export function ensureM3CoverageSchema(db){
   db.exec(M3_COVERAGE_DDL);

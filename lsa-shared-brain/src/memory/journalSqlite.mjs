@@ -1,7 +1,8 @@
-import {isSuppressedSource} from './suppressionSqlite.mjs';
+import {isSuppressedSource,suppressedMemoryIds} from './suppressionSqlite.mjs';
 // Shared immutable M2/M3 journal: one SQLite file, no background model.
 // Write entry points are synchronous and ONLY legal under withTimelineWrite.
 import {createHash} from 'node:crypto';
+import {enforceJournalCaps} from '../characters/sqliteDurability.mjs';
 import {isUuid,immutableSnapshot} from '../util/identity.mjs';
 import {evidenceHash} from '../events/journalEventNormalizer.mjs';
 import {ensureIntegratedMemorySchema} from './integratedSqlite.mjs';
@@ -82,16 +83,17 @@ export function migrateJournalSchema(db){
   if(![2,3,JOURNAL_SCHEMA_VERSION].includes(v))fail('unsupported_sqlite_profile_schema');
   if(v===JOURNAL_SCHEMA_VERSION){assertJournalSchema(db);return v;}
   // Entire v2/v3 -> v4 migration commits atomically; no mixed schema state.
-  db.exec('BEGIN IMMEDIATE');
+  const nested=db.isTransaction===true;
+  if(!nested)db.exec('BEGIN IMMEDIATE');
   try{
     if(v===2)db.exec(DDL);
     else db.exec(sidecarDDL); // Existing v3 journal bytes are never rebuilt.
     ensureIntegratedMemorySchema(db);
     ensureCurationSchema(db);
     db.exec('PRAGMA user_version=4');
-    db.exec('COMMIT');
+    if(!nested)db.exec('COMMIT');
     return JOURNAL_SCHEMA_VERSION;
-  }catch(error){try{db.exec('ROLLBACK');}catch{}throw error;}
+  }catch(error){if(!nested)try{db.exec('ROLLBACK');}catch{}throw error;}
 }
 export function assertJournalSchema(db){
   if(db.prepare('PRAGMA user_version').get().user_version!==JOURNAL_SCHEMA_VERSION)fail('sqlite_journal_schema_missing');
@@ -105,7 +107,7 @@ function owner(db,e,world){
   if(!p||!t||t.worldId!==world)fail('journal_owner_or_timeline_unknown');
   return p.owner_alias;
 }
-export function appendDialogue(db,line,attribution,world){
+export function appendDialogue(db,line,attribution,world,{limits={}}={}){
   assertJournalSchema(db);const e=validateDialogueLine(line,world);owner(db,e,world);
   if(!exact(attribution,['sessionId','protagonist','hostRunId','worldEpoch'])||
     !isUuid(attribution.sessionId)||!['franklin','michael','trevor','unknown'].includes(attribution.protagonist)||
@@ -133,6 +135,10 @@ export function appendDialogue(db,line,attribution,world){
     return Object.freeze({inserted:false,recordId:previous.recordId});
   }
   const raw=JSON.stringify(e);
+  // Duplicate replay above never consumes quota. All caps are enforced inside
+  // the same transaction as the eventual insert; no silent archival pruning.
+  enforceJournalCaps(db,{characterId:e.characterId,
+    bytes:Buffer.byteLength(raw)+Buffer.byteLength(e.content),limits});
   db.prepare('INSERT INTO dialogue_journal (record_id,world_profile_id,timeline_id,character_id,session_id,protagonist,host_run_id,world_epoch,speaker,source,delivery,turn_identity_hash,committed_at_utc,content,content_sha256,receipt_id,envelope_json,envelope_sha256) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)')
     .run(e.recordId,e.worldProfileId,e.timelineId,e.characterId,attribution.sessionId,attribution.protagonist,attribution.hostRunId,
       attribution.worldEpoch,e.speaker,e.source,e.delivery,e.turnIdentityHash,e.committedAtUtc,e.content,hash(e.content),
@@ -159,7 +165,7 @@ function verifiedEvidence(event,sidecar) {
   if(event.claims.some(c=>!sourceClaims.has(c.sourceEvidenceId)))fail('journal_evidence_claim_mismatch');
   return immutableSnapshot(sidecar);
 }
-export function appendEvent(db,event,world,{hostContext=null,sourceEvidence=null}={}){
+export function appendEvent(db,event,world,{hostContext=null,sourceEvidence=null,limits={}}={}){
   assertJournalSchema(db);const e=validateJournalEvent(event,world),alias=owner(db,e,world);
   if(alias!==e.ownerProof.ownerAlias)fail('journal_owner_proof_mismatch');
   if(hostContext&&(hostContext.hostRunId!==e.ownerProof.hostRunId||hostContext.worldEpoch!==e.ownerProof.worldEpoch))
@@ -183,6 +189,8 @@ export function appendEvent(db,event,world,{hostContext=null,sourceEvidence=null
     return Object.freeze({inserted:false,recordId:previous.recordId});
   }
   const raw=JSON.stringify(e);
+  enforceJournalCaps(db,{characterId:e.characterId,event:true,
+    bytes:Buffer.byteLength(raw)+(evidence?Buffer.byteLength(JSON.stringify(evidence)):0),limits});
   db.prepare('INSERT INTO event_journal(record_id,world_profile_id,timeline_id,character_id,observation_id,revision,event_type,received_at_utc,source_hash,receipt_status,envelope_json,envelope_sha256) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)')
     .run(e.recordId,e.worldProfileId,e.timelineId,e.characterId,e.observationId,e.revision,e.eventType,e.receivedAtUtc,
       e.sourceHash,e.receiptStatus,raw,hash(raw));
@@ -202,7 +210,14 @@ function readScope(s,world,defaultLimit=200){
 }
 function decodeLine(row){
   const value=JSON.parse(row.envelope_json);
-  if(hash(row.envelope_json)!==row.envelope_sha256||value.content!==row.content||hash(value.content)!==row.content_sha256)fail('journal_content_integrity_failed');
+  if(hash(row.envelope_json)!==row.envelope_sha256||
+     value.content!==row.content||hash(value.content)!==row.content_sha256||
+     value.recordId!==row.record_id||value.characterId!==row.character_id||
+     value.worldProfileId!==row.world_profile_id||value.timelineId!==row.timeline_id||
+     value.speaker!==row.speaker||value.source!==row.source||
+     value.delivery!==row.delivery||value.deliveryReceiptId!==row.receipt_id||
+     value.turnIdentityHash!==row.turn_identity_hash)
+    fail('journal_content_integrity_failed');
   return immutableSnapshot({...value,attribution:{sessionId:row.session_id,protagonist:row.protagonist,
     hostRunId:row.host_run_id,worldEpoch:row.world_epoch}});
 }
@@ -230,6 +245,85 @@ export function searchDialogue(db,s,world){
   const phrase='"'+s.query.replaceAll('"','""')+'"';
   return Object.freeze(db.prepare('SELECT j.* FROM dialogue_journal_fts JOIN dialogue_journal j ON j.rowid=dialogue_journal_fts.rowid WHERE dialogue_journal_fts MATCH ? AND j.world_profile_id=? AND j.character_id=? AND j.timeline_id=? ORDER BY j.committed_at_utc DESC,j.rowid DESC LIMIT ?')
     .all(phrase,world,s.characterId,s.timelineId,limit).map(decodeLine));
+}
+/**
+ * K-16 free-recall source window, separate from the indefinite FTS5 archive.
+ * This is an opt-in reader for WS-6; do not alter the live conversation/PS4
+ * runner here. Last 200 player lines OR current+previous session, bounded by
+ * 1000 total lines and 512 KiB. It never deletes or expires archived rows.
+ */
+export function readFreeRecallWindow(db,s,world){
+  assertJournalSchema(db);
+  if(!s||!isUuid(s.characterId)||!isUuid(s.timelineId)||
+     s.worldProfileId!==world)fail('journal_invalid_scope');
+  if(!db.prepare('SELECT 1 FROM promoted_profiles WHERE character_id=?').get(s.characterId)||
+     !db.prepare('SELECT 1 FROM timelines WHERE timeline_id=? AND world_profile_id=?')
+       .get(s.timelineId,world))fail('journal_owner_or_timeline_unknown');
+  const scope={worldProfileId:world,characterId:s.characterId,timelineId:s.timelineId};
+  // Same permanent source-fingerprint closure and transcript-only correction
+  // semantics as the other P2 memory readers. Bad receipts fail closed.
+  const revoked=suppressedMemoryIds(db,scope,{includeCorrections:true});
+  const args=[world,s.characterId,s.timelineId];
+  const audible="(speaker='player' AND delivery='accepted' OR speaker='npc' AND delivery='completed' AND receipt_id IS NOT NULL)";
+  const eligible=row=>!revoked.has(row.record_id);
+  const sessionQuery=db.prepare(
+    'SELECT session_id FROM dialogue_journal WHERE world_profile_id=? AND character_id=? AND timeline_id=? AND '+audible+
+    ' GROUP BY session_id ORDER BY max(committed_at_utc) DESC, max(rowid) DESC'
+  );
+  const sessionRows=db.prepare(
+    'SELECT rowid AS journal_rowid,record_id FROM dialogue_journal WHERE world_profile_id=? AND character_id=? AND timeline_id=? AND session_id=? AND '+audible+
+    ' ORDER BY committed_at_utc DESC,rowid DESC'
+  );
+  // A completely forgotten session cannot displace a visible earlier session.
+  const sessionIds=[];
+  for(const session of sessionQuery.iterate(...args)){
+    let hasVisible=false;
+    for(const row of sessionRows.iterate(...args,session.session_id)){
+      if(eligible(row)){hasVisible=true;break;}
+    }
+    if(hasVisible)sessionIds.push(session.session_id);
+    if(sessionIds.length===2)break;
+  }
+  // Iterate by the indexed chronological ordering without an arbitrary
+  // 1,000-raw-row cutoff: 1,000 suppressed rows must not hide the next
+  // 200 eligible player lines. No full historical result is materialized.
+  const selected=new Map();
+  let extraPlayer=false,playerCount=0;
+  const player=db.prepare(
+    "SELECT rowid AS journal_rowid,* FROM dialogue_journal WHERE world_profile_id=? AND character_id=? AND timeline_id=? AND speaker='player' AND delivery='accepted' ORDER BY committed_at_utc DESC,rowid DESC"
+  );
+  for(const row of player.iterate(...args)){
+    if(!eligible(row))continue;
+    if(playerCount===200){extraPlayer=true;break;}
+    selected.set(row.record_id,row);
+    playerCount++;
+  }
+  let extraSession=false,sessionCount=0;
+  if(sessionIds.length){
+    const marks=sessionIds.map(()=>'?').join(',');
+    const sessions=db.prepare(
+      'SELECT rowid AS journal_rowid,* FROM dialogue_journal WHERE world_profile_id=? AND character_id=? AND timeline_id=? AND '+audible+
+      ' AND session_id IN ('+marks+') ORDER BY committed_at_utc DESC,rowid DESC'
+    );
+    for(const row of sessions.iterate(...args,...sessionIds)){
+      if(!eligible(row))continue;
+      if(sessionCount===1000){extraSession=true;break;}
+      selected.set(row.record_id,row);
+      sessionCount++;
+    }
+  }
+  const ordered=[...selected.values()].sort((a,b)=>
+    b.committed_at_utc.localeCompare(a.committed_at_utc)||
+    b.journal_rowid-a.journal_rowid);
+  const lines=[];let bytes=0;
+  for(const row of ordered){
+    const size=Buffer.byteLength(row.content,'utf8');
+    if(lines.length===1000||bytes+size>512*1024)break;
+    // Keep original status, native receipt and historical avatar provenance.
+    lines.push(decodeLine(row));bytes+=size;
+  }
+  return Object.freeze({tier:'free_recall',lines:Object.freeze(lines),bytes,
+    truncated:lines.length<ordered.length||extraSession||extraPlayer,archiveAvailable:true});
 }
 export function readEvents(db,s,world){
   assertJournalSchema(db);const limit=readScope(s,world);
