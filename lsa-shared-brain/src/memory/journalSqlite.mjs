@@ -255,7 +255,10 @@ export function searchDialogue(db,s,world){
 export function readFreeRecallWindow(db,s,world){
   assertJournalSchema(db);
   if(!s||!isUuid(s.characterId)||!isUuid(s.timelineId)||
-     (s.worldProfileId!==undefined&&s.worldProfileId!==world))fail('journal_invalid_scope');
+     s.worldProfileId!==world)fail('journal_invalid_scope');
+  if(!db.prepare('SELECT 1 FROM promoted_profiles WHERE character_id=?').get(s.characterId)||
+     !db.prepare('SELECT 1 FROM timelines WHERE timeline_id=? AND world_profile_id=?')
+       .get(s.timelineId,world))fail('journal_owner_or_timeline_unknown');
   const scope={worldProfileId:world,characterId:s.characterId,timelineId:s.timelineId};
   // Use the EXACT M5 forgetting closure and K-12 correction mode rules.
   // This also hides identical bytes replayed under a different record ID.
