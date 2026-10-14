@@ -18,7 +18,7 @@ jobs:
         os: [ubuntu-latest, windows-latest]
     runs-on: ${{ matrix.os }}
     env:
-      MEMORY_K_C_PREREQUISITE: 56c24a6d134dff82fb79321bc5e6db1001bd1d5c
+      MEMORY_K_C_PREREQUISITE: 4e3b42d63d0a461a84c1b6479e700c4b27cb305f
     steps:
       - uses: actions/checkout@v4
         with:

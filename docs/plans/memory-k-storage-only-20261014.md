@@ -1,6 +1,6 @@
 # Memory K E1: canonical P2 SQLite storage-only activation
 
-Base: #138 `bd51fc180efa6babc597f99f4987ef0538b61854` with #160. This is a focused draft targeting #138, not main. It depends on C #163's reviewed composition contract at `56c24a6d134dff82fb79321bc5e6db1001bd1d5c`. The E1 branch contains only E1 changes; it does not copy C's implementation into its diff or merge another PR. Integrate A/O, then C, then E1. All independent/combined head evidence is reported separately.
+Base: #138 `bd51fc180efa6babc597f99f4987ef0538b61854` with #160. This is a focused draft targeting #138, not main. It depends on C #163's reviewed composition contract at `4e3b42d63d0a461a84c1b6479e700c4b27cb305f`. The E1 branch contains only E1 changes; it does not copy C's implementation into its diff or merge another PR. Integrate A/O, then C, then E1. All independent/combined head evidence is reported separately.
 
 ## Configuration and behavior
 
@@ -14,7 +14,7 @@ Ordinary profiles/manual memories and the existing character editor keep their c
 
 ## Tests and evidence boundary
 
-Four standalone contract tests prove descriptor expansion, rejected activation overrides, required SQLite/P1 settings and fail-closed pre-C startup with no resources created. Six activation tests require C and deliberately fail rather than skip when its composition is absent. They exercise real canonical SQLite and existing production bootstrap/editor/factories, with explicit offline native/P1/provider doubles. No authentic GTA/native/frame/physical receipt is claimed.
+Four standalone contract tests prove descriptor expansion, rejected activation overrides, required SQLite/P1 settings and fail-closed pre-C startup with no resources created. Seven activation tests require C and deliberately fail rather than skip when its composition is absent. They exercise real canonical SQLite and existing production bootstrap/editor/factories, with explicit offline native/P1/provider doubles. Original typed and mic turns complete through the existing runner/provider path without dialogue rows or foreground consumer calls. No authentic GTA/native/frame/physical receipt is claimed.
 
 Activation coverage includes no incidental rows/processing after disabled M2/foreground calls; single-writer sibling rejection with original writer unaffected; existing editor edits across fresh restart; legacy JSON/manual-memory migration with original/backup bytes preserved; retained journals/tombstones/trash plus durable suppression in snapshots; independent source/D02 without M3 sinks; corrupt SQLite rejection without overwrite or JSON creation. The real daily retention policy coalesces same-day copies; tests preserve immutable weekly/pre-migration bytes and prove the retained daily copy includes both journals and suppression. They do not disable retention or automatically restore old backups.
 
