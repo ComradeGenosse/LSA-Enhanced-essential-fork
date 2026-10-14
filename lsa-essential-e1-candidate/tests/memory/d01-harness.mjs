@@ -86,6 +86,7 @@ function nativeStream({client,owned,alias,roster={}}){
     })();
   },25);timer.unref?.();};
   s.stop=()=>{clearInterval(timer);timer=null;};
+  s.idle=()=>inFlight;
   // Simulate a *new* authenticated socket handshake after a source timeout.
   // Old-epoch frames can never make a retired stream current. No test-accessible
   // status flag, sample, or elapsed time stands in for native proof.
