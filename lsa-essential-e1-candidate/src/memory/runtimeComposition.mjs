@@ -89,6 +89,21 @@ export function createMemoryKRuntimeComposition(config) {
           const row=policy[descriptor.id];
           if(operation[descriptor.id])return [descriptor.id,Object.freeze({
             ...operation[descriptor.id],configurationExplicit:requested})];
+          if(descriptor.id==='privacy.core') {
+            const storage=config.promotedCharacters?.storageMode==='sqlite'
+              ?lifecycle.resources['p2.storage']:null;
+            // P2 installs suppression/correction/recovery gates with its
+            // schema, before optional consumers. There is no M5 off switch
+            // for these guards. This is an enforcement-policy status, never
+            // a receipt certifying a particular scope, source or operation.
+            const guarded=storage?.state==='operational';
+            return [descriptor.id,Object.freeze({requestedMode:'on',
+              state:guarded?'guarded':storage?.state??'unavailable',
+              effectiveMode:guarded?'on':storage?.state==='stopped'?'off':null,
+              operationalState:guarded?'scope_verification_required':storage?.state??'unavailable',
+              reason:guarded?'mandatory_p2_privacy':storage?.reason??'p2_sqlite_unavailable',
+              configurationExplicit:requested})];
+          }
           const storage=descriptor.id==='p2.sqlite'&&config.promotedCharacters?.storageMode==='sqlite'
             ?lifecycle.resources['p2.storage']:null;
           if(storage) return [descriptor.id,Object.freeze({requestedMode:'on',

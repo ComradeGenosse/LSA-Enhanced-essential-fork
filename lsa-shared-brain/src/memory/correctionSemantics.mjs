@@ -15,6 +15,7 @@
 // historical superseding meaning only for targets a player could legitimately
 // correct; a legacy row aimed at a witnessed event or NPC line is a
 // counter-claim (fail towards preserving witnessed evidence).
+import {createHash} from 'node:crypto';
 const fail = code => { throw new Error(code); };
 
 export const CORRECTION_MODES = Object.freeze(['transcript', 'counter_claim']);
@@ -74,6 +75,12 @@ export function readCorrectionRows(db, scopeKeys) {
     WHERE c.world_profile_id=? AND c.character_id=? AND c.timeline_id=?
     ORDER BY c.created_at_utc DESC,c.command_id DESC`).all(...scopeKeys);
   return rows.map(row => {
+    // Visibility decisions must verify the same bytes as recall overlays.
+    // Unknown persisted modes cannot silently acquire transcript authority.
+    if ((row.mode !== null && !CORRECTION_MODES.includes(row.mode)) ||
+        typeof row.content !== 'string' ||
+        createHash('sha256').update(row.content).digest('hex') !== row.checksum)
+      fail('memory_correction_integrity_failed');
     const mode = resolveCorrectionMode(db, scopeKeys, row);
     return { ...row, mode, supersedes: mode === 'transcript' };
   });

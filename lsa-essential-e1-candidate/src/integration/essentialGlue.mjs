@@ -159,8 +159,7 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
       // substitute unverified RAM history if D03/native proof temporarily
       // disappears. Such RAM can contain already forgotten/corrected speech.
       // Only the source-fenced P2 journal may supply prior dialogue here.
-      const p2HistoryRequired=optionalMemoryEnabled===true &&
-        character?.persistent===true &&
+      const p2HistoryRequired=character?.persistent===true &&
         config.promotedCharacters?.storageMode==='sqlite';
       const args={turn:turn.identity,frozenAt:turn.knowledgeInputs?.frozenAt??0,
         profile:character?.profile,persistent:character?.persistent===true,knowledgeInputs:turn.knowledgeInputs,
