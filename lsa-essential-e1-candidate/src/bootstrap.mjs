@@ -25,7 +25,7 @@ import { createDialogueTrace, createNoopDialogueTrace } from './observability/di
 import {createM3ProductionMemory} from './memory/m3ProductionMemory.mjs';
 import {createMemoryD02Port} from './memory/memoryD02Port.mjs';
 import {resolveMemoryKCapabilities} from './memory/capabilityPolicy.mjs';
-import {createMemoryKRuntimeComposition,memoryKConsumersAllowed} from './memory/runtimeComposition.mjs';
+import {createMemoryKRuntimeComposition,memoryKConsumersAllowed,runtimeCleanupError} from './memory/runtimeComposition.mjs';
 
 export async function createRuntimeForBundle(options = {}) {
   // Explicit test/embedding environments remain isolated from local secrets.
@@ -133,9 +133,9 @@ export async function createRuntimeForBundle(options = {}) {
   let restarting=null;
   runtime.restart=()=>restarting??=(async()=>{
     const result=await runtime.dispose();
-    if(result.failures.length) throw new Error('runtime_disposal_failed');
+    if(result.failures.length) throw runtimeCleanupError(owner,result.failures,'runtime_disposal_failed');
     return createRuntimeForBundle(options);
-  })();
+  })().catch(error=>{restarting=null;throw error;});
   let capabilityManifest=null,capabilityPayloadHash=null,capabilityValidation=Object.freeze([]);
   try {const bytes=await readFile(new URL('../build-manifest.json',import.meta.url));capabilityManifest=JSON.parse(bytes);capabilityPayloadHash=createHash('sha256').update(bytes).digest('hex');}catch{}
   capabilityValidation=await loadCapabilityValidation(options.capabilityValidationPath??path.resolve(process.cwd(),'diagnostics/validation.v1.json'));
@@ -304,7 +304,12 @@ export async function createRuntimeForBundle(options = {}) {
           }),unsubscribe=>unsubscribe());
         }
         runtime.intelligence.start();
-      }catch{await owner.rollback(checkpoint);owner.failed('source.intelligence');runtime.intelligence=null;runtime.memoryD02=null;runtime.memoryM3=null;connectedMemoryAuthority=null;try{console.warn('[PS] optional_channel_unavailable');}catch{}}
+      }catch{
+        const cleanup=await owner.rollback(checkpoint);
+        if(cleanup.failures.length) throw runtimeCleanupError(owner,cleanup.failures);
+        owner.failed('source.intelligence');runtime.intelligence=null;runtime.memoryD02=null;runtime.memoryM3=null;connectedMemoryAuthority=null;
+        try{console.warn('[PS] optional_channel_unavailable');}catch{}
+      }
     } else try {console.warn('[PS] optional_perception_contract_unavailable');}catch{}
   }
 
@@ -400,7 +405,12 @@ export async function createRuntimeForBundle(options = {}) {
       owner.own('activities',runtime.activities,value=>value.stop());
       runtime.activities.start();
       runtime.characterService?.bindActivities?.(runtime.activities);
-    } catch { await owner.rollback(checkpoint);owner.failed('activities');runtime.activities=null;try { console.warn('[ACT] optional_channel_unavailable'); } catch {} }
+    } catch {
+      const cleanup=await owner.rollback(checkpoint);
+      if(cleanup.failures.length) throw runtimeCleanupError(owner,cleanup.failures);
+      owner.failed('activities');runtime.activities=null;
+      try { console.warn('[ACT] optional_channel_unavailable'); } catch {}
+    }
   }
   if (runtime.characterService) {
     // Opt-in SQLite writer must release its explicit cross-host lock at orderly shutdown.
@@ -417,12 +427,16 @@ export async function createRuntimeForBundle(options = {}) {
   }
   // Revoke pending issuance/connections before draining consumers/storage.
   owner.own('essential.revocation',runtime,value=>{value.retireOriginalAcceptanceSourceRun?.();value.closeConnections();});
-  const beforeExit=()=>{void runtime.dispose();};
+  const beforeExit=()=>{void runtime.dispose().then(result=>{
+    if(result.failures.length) console.warn('[runtime] disposal_failed',result.failures);
+  });};
   process.once('beforeExit',beforeExit);
   owner.own('process.beforeExit',beforeExit,value=>process.removeListener('beforeExit',value));
   return runtime;
   } catch(error) {
-    await owner.dispose();
+    const cleanup=await owner.dispose();
+    if(cleanup.failures.length) throw runtimeCleanupError(owner,
+      [...new Set([...(error.failures??[]),...cleanup.failures])],'runtime_startup_cleanup_failed');
     throw error;
   }
 }

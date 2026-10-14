@@ -4,6 +4,14 @@ Base: #138 `bd51fc180efa6babc597f99f4987ef0538b61854`, including the #160 policy
 
 ## Implemented ownership
 
+### Review repair: failed-close ownership
+
+The initial C implementation removed a resource before its close succeeded and discarded optional rollback failures. This was a real P1 defect. Cleanup now serializes attempts and retains each failing closer and its sanitized failed lifecycle record. A monotonic acquisition checkpoint remains valid across partial failures. New acquisition is rejected while failed cleanup remains owned; successful disposal stays idempotent, while failed disposal can be explicitly retried.
+
+An Intelligence/ACT startup rollback failure aborts bootstrap. Whole-startup cleanup retries it and stops healthy siblings. Persistent failure exposes only a cleanup snapshot/retry handle on the rejected error, never an executable runtime. Restart rejects until the old closer succeeds, and a subsequent explicit restart can retry. Stopped clients reject incoming frames/dispatch before a potentially throwing transport close, preventing a retained socket from creating sibling effects.
+
+Four additional tests cover retained ownership and real Intelligence/ACT clients with failing transport closers, a late data frame after quarantine, no reconnect, successful explicit retry and blocked replacement startup. The lifecycle suite is now 14 tests. CI separates scoped lifecycle/policy/P2/perception (48 tests) from source regression comparison. All original nested suites still execute: the comparator runs the identical 203 original policy/P2/perception/nested tests on immutable #138 and the candidate on the same host/Node, three alternating rounds. Test hashes, host conditions, exact heads, every failure and full logs are retained. Candidate failures remain red even if also reproduced on baseline. A passing rerun does not explain a historical failure, and overlap does not certify release acceptance.
+
 `RuntimeResourceScope` owns one bundle runtime's acquisition/cleanup records. It tracks starting, operational, stopped and failed **resource lifecycle** states, supports partial-startup rollback to a checkpoint, disposes in reverse order, continues cleanup after a disposer fails, and coalesces repeated disposal. It creates no scheduler, store, bus, native executor or provider worker.
 
 Bootstrap reuses the existing factories and records ownership of telemetry/trace it creates, Essential connections, P1 resolver subscription, the single P2 storage service, IntelligenceClient, D02 authority, M3 factory, host/world subscriptions, Director pump/subscription, ACT client/runtime, editor/endpoint and its process shutdown listener. Caller-owned telemetry/trace and injected P1 evidence remain caller-owned. The resolver unsubscribes and retires its bindings without closing shared injected evidence.

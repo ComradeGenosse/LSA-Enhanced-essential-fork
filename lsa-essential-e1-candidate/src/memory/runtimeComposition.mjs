@@ -4,42 +4,74 @@ import {MEMORY_K_CAPABILITIES,resolveMemoryKCapabilities} from './capabilityPoli
 // Factories still own their authority/privacy fences and native lifecycle.
 export class RuntimeResourceScope {
   #resources=[]; #states=new Map(); #disposal=null; #closed=false;
-  checkpoint() { return this.#resources.length; }
-  starting(name) {
+  #next=0; #cleanup=Promise.resolve();
+  checkpoint() { return this.#next; }
+  #assertCanAcquire() {
     if(this.#closed) throw new Error('runtime_scope_stopped');
+    if(this.#resources.some(entry=>this.#states.get(entry.name)?.reason==='disposal_failed'))
+      throw new Error('runtime_scope_cleanup_failed');
+  }
+  starting(name) {
+    this.#assertCanAcquire();
     if(this.#states.get(name)?.state==='operational') throw new Error('runtime_resource_already_started');
     this.#states.set(name,{state:'starting',reason:null});
   }
   own(name,resource,close) {
-    if(this.#closed) throw new Error('runtime_scope_stopped');
+    this.#assertCanAcquire();
     if(this.#resources.some(entry=>entry.name===name)) throw new Error('runtime_resource_duplicate');
     if(typeof close!=='function') throw new TypeError('runtime_resource_disposer_required');
-    this.#resources.push({name,close:()=>close(resource)});
+    this.#resources.push({name,order:this.#next++,close:()=>close(resource)});
     this.#states.set(name,{state:'operational',reason:null});
     return resource;
   }
   failed(name) { this.#states.set(name,{state:'failed',reason:'initialization_failed'}); }
-  async rollback(checkpoint=0) {
-    const entries=this.#resources.splice(checkpoint).reverse();
-    const failures=[];
-    for(const {name,close} of entries) {
-      try { await close(); this.#states.set(name,{state:'stopped',reason:null}); }
-      catch { failures.push(name); this.#states.set(name,{state:'failed',reason:'disposal_failed'}); }
-    }
-    return Object.freeze({failures:Object.freeze(failures)});
+  rollback(checkpoint=0) {
+    // Serialize cleanup; retain ownership until a close actually succeeds.
+    // Monotonic checkpoints remain valid when earlier closes failed.
+    const cleanup=this.#cleanup.then(async()=>{
+      const entries=this.#resources.filter(entry=>entry.order>=checkpoint).reverse();
+      const failures=[];
+      for(const entry of entries) {
+        const {name,close}=entry;
+        try {
+          await close();
+          this.#resources.splice(this.#resources.indexOf(entry),1);
+          this.#states.set(name,{state:'stopped',reason:null});
+        } catch {
+          failures.push(name);
+          this.#states.set(name,{state:'failed',reason:'disposal_failed'});
+        }
+      }
+      return Object.freeze({failures:Object.freeze(failures)});
+    });
+    this.#cleanup=cleanup;
+    return cleanup;
   }
   dispose() {
     if(!this.#disposal) {
       this.#closed=true;
       this.#disposal=this.rollback();
+      const attempt=this.#disposal;
+      attempt.then(result=>{
+        if(result.failures.length && this.#disposal===attempt) this.#disposal=null;
+      });
     }
     return this.#disposal;
   }
   snapshot() {
-    return Object.freeze({state:this.#closed?'stopped':'running',
+    return Object.freeze({state:this.#resources.some(entry=>this.#states.get(entry.name)?.reason==='disposal_failed')
+      ?'failed':this.#closed?'stopped':'running',
       resources:Object.freeze(Object.fromEntries([...this.#states].map(([id,state])=>[id,Object.freeze({...state})]))),
       ownedResources:this.#resources.length});
   }
+}
+
+// Failed startup exposes only cleanup/diagnostics, never an executable runtime.
+export function runtimeCleanupError(scope,failures,code='runtime_cleanup_failed') {
+  const error=new Error(code);
+  error.failures=Object.freeze([...failures]);
+  error.cleanup=Object.freeze({snapshot:()=>scope.snapshot(),retry:()=>scope.dispose()});
+  return error;
 }
 
 export function createMemoryKRuntimeComposition(config) {
