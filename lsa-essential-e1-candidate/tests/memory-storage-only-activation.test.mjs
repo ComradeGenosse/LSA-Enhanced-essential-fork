@@ -8,6 +8,7 @@ import {tmpdir} from 'node:os';
 import {randomUUID,createHash} from 'node:crypto';
 import {DatabaseSync} from 'node:sqlite';
 import {EventEmitter} from 'node:events';
+import {createServer} from 'node:net';
 import {createRuntimeForBundle} from '../src/bootstrap.mjs';
 import {createEssentialMemoryStorage} from '../src/characters/memoryStorageAdapter.mjs';
 import {ProfileStore} from '../src/characters/profileStore.mjs';
@@ -26,11 +27,15 @@ async function setup(t,{source=false,editor=false}={}) {
   const config={provider:'openai',persistentIdentity:{enabled:true,worldProfileId,storePath:path.join(directory,'identity.json')},
     promotedCharacters:{enabled:true,storageMode:'sqlite',storePath:legacy,sqliteStorePath:sqlite},
     intelligence:{mode:source?'shadow':'off'},memoryK:{profile:'storage-only'}};
+  if(editor) {
+    const probe=createServer();await new Promise(resolve=>probe.listen(0,'127.0.0.1',resolve));
+    config.promotedCharacters.editorPort=probe.address().port;await new Promise(resolve=>probe.close(resolve));
+  }
   const configPath=path.join(directory,'config.json');await writeFile(configPath,JSON.stringify(config));
   let effects=0,connects=0;
   const forbidden=()=>{effects++;throw new Error('provider_or_native_effect_forbidden');};
   const options={configPath,env:{},enableTelemetry:false,startCharacterEditor:editor,
-    characterEditorOptions:{port:0},controlEndpointPath:null,identityEvidence:new TestOwnerEvidence(),
+    controlEndpointPath:null,identityEvidence:new TestOwnerEvidence(),
     identityContract:{available:true,requiredGameTarget:'net481',dllSha256:IDENTITY_DLL_SHA256,
       metadataSha256:IDENTITY_METADATA_SHA256,nativeProtocolChanged:false},
     characterContract:{available:true,requiredGameTarget:'net481',dllSha256:IDENTITY_DLL_SHA256,

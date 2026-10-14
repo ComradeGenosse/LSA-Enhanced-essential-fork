@@ -394,7 +394,7 @@ export async function createRuntimeForBundle(options = {}) {
       // Per-user endpoint file for the native console bridge; null disables it.
       // The resolved environment keeps explicit test/embedding envs isolated.
       const endpointPath = options.controlEndpointPath !== undefined ? options.controlEndpointPath : defaultControlEndpointPath({ env });
-      runtime.characterEditor = await startCharacterEditor(runtime.characterService,{ endpointPath,...options.characterEditorOptions });
+      runtime.characterEditor = await startCharacterEditor(runtime.characterService,{ endpointPath });
       try { console.info('[P2] Character editor: ' + runtime.characterEditor.url); } catch {}
       if (endpointPath && !runtime.characterEditor.endpointPublished) try { console.warn('[UX] Control endpoint file unavailable; native clients use the page handshake.'); } catch {}
     } catch { runtime.characterService.emit('character_safe_failure',{reason:'owner_unavailable'}); }
