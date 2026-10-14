@@ -230,3 +230,53 @@ test('WS6 rechecks selected source avatar metadata before provider composition',
  await say(x,'What was that secret?');
  assert.ok(body);assert.ok(!JSON.stringify(body).includes('private marmalade secret'));
 });
+
+test('WS6 P2 persistent history: losing D03 cannot resurrect a forgotten line from RAM', {timeout:45000},async t=>{
+ const x=await d01Harness(t);
+ const secret='never reveal violet sapphire private code';
+ await say(x,secret);
+ const target=(await x.journal()).players.find(row=>row.content===secret)?.record_id;
+ assert.ok(target,'the source-backed line must first exist in P2');
+ await say(x,'That concludes our earlier topic.');
+ await forget(x,target);
+ // Deliberately remove the REAL private D02 corroboration from subsequent
+ // original turns. The backend may still hold the older bytes in its RAM
+ // conversation; a source-less P2 turn must not make them model-visible.
+ x.h.runtime.memoryD02=null;
+ const turn=await x.typed('Can you repeat the old code?');
+ assert.equal((await x.settled(turn)).status,'completed');
+ const projected=JSON.stringify(x.replies.at(-1).knowledgeProjection.modelAllocation);
+ assert.ok(!projected.includes(secret),
+   'RAM fallback must not resurrect forgotten P2 history when D03 is unavailable');
+ const recent=JSON.parse(x.replies.at(-1).knowledgeProjection.modelAllocation.scene).lanes.CONVERSE;
+ assert.equal(recent?.earlier?.length??0,0);
+});
+
+test('WS6 P2 persistent history: losing D03 cannot resurrect corrected transcript from RAM', {timeout:45000},async t=>{
+ const x=await d01Harness(t);
+ const stale='Inside joke: the mistakenly heard turquoise telescope.';
+ const corrected='Inside joke: the accurately spoken turquoise lantern.';
+ x.h.runtime.services.transcribe=async()=>stale;
+ const mic=await x.mic();
+ assert.equal((await x.settled(mic)).status,'completed');
+ const target=(await x.journal()).players.find(row=>row.content===stale)?.record_id;
+ assert.ok(target,'misheard source must be durably accepted before correction');
+ await say(x,'Please correct my previous transcript.');
+ const requested=(await x.store.readDialogueLines({...scope(x),limit:20}))
+   .find(e=>e.speaker==='player');
+ assert.equal((await x.store.commitCommand({scope:scope(x),commandId:randomUUID(),
+  requestedByLineId:requested.recordId,operation:'correct',correctionMode:'transcript',
+  content:corrected,contentHash:sha(corrected),
+  evidenceRecordIds:[requested.recordId,target],targetRecordId:target,
+  requestedAtUtc:requested.committedAtUtc})).status,'committed');
+ // Native D03 absence must not make stale original STT text visible through
+ // the backend's original RAM history even though the correction is durable.
+ x.h.runtime.memoryD02=null;
+ const turn=await x.typed('What did I correct earlier?');
+ assert.equal((await x.settled(turn)).status,'completed');
+ const frame=x.replies.at(-1).knowledgeProjection;
+ assert.ok(!JSON.stringify(frame.modelAllocation).includes(stale),
+   'corrected-but-retained STT bytes must not reappear via RAM when D03 is absent');
+ const converse=JSON.parse(frame.modelAllocation.scene).lanes.CONVERSE;
+ assert.equal(converse?.earlier?.length??0,0);
+});

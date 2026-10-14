@@ -22,6 +22,9 @@ function setup(){
  const scope={characterId:npc,worldProfileId:world,timelineId:timeline,protagonistKey:'franklin'};
  let live=true;
  const store={worldProfileId:world,activeTimelineId:timeline,timelineWritable:true,
+  // Stand-in for the real P2SqliteProfileStore monotone revision fence.
+  get memoryReadFence(){return db.prepare('SELECT total_changes() AS n').get().n+':'+
+    db.prepare('PRAGMA data_version').get().data_version;},
   verifiedHostContext:{hostRunId:source.hostRunId,worldEpoch:1},
   get:char=>char===npc?{promotion:{ownerAlias:'nathan'}}:null,
   withP2SqliteRead:async(_scope,callback)=>callback(db),
@@ -233,5 +236,58 @@ test('G4 pre-send reference gate never trusts a bare event row without native si
   const r=await f.policy().verifyReferenceVisibility({scope:f.scope,source:f.source,
    recordIds:[eventId]});
   assert.equal(r,false);
+ }finally{f.close();}
+});
+
+test('G3 paged count aborts on a committed privacy change between source-fenced pages',async()=>{
+ const f=setup();
+ try{
+  let target=null;
+  for(let i=0;i<520;i++){const e=f.add('budget '+i,{at:i});if(i===10)target=e.recordId;}
+  const read=f.store.withP2SqliteRead;
+  let reads=0;
+  f.store.withP2SqliteRead=async(...args)=>{
+   const result=await read(...args);
+   if(++reads===1)setImmediate(()=>f.db.prepare(
+     'INSERT INTO memory_tombstones VALUES(?,?,?,?,?)'
+   ).run(f.world,f.npc,f.timeline,target,id()));
+   return result;
+  };
+  const r=await f.policy().countDialogue({scope:f.scope,source:f.source,predicate:{containsText:'budget'}});
+  assert.equal(r.status,'incomplete');
+  assert.equal(r.exactCount,null,'no partial count may escape an intervening forget');
+  assert.equal(r.reason,'source_revoked_or_changed');
+  assert.ok(reads>=1);
+ }finally{f.close();}
+});
+test('G3 paged count aborts if native owner authority retires between pages',async()=>{
+ const f=setup();
+ try{
+  for(let i=0;i<520;i++)f.add('native '+i,{at:i});
+  const read=f.store.withP2SqliteRead;
+  let reads=0;
+  f.store.withP2SqliteRead=async(...args)=>{
+   const result=await read(...args);
+   if(++reads===1)setImmediate(()=>f.expire());
+   return result;
+  };
+  const r=await f.policy().countDialogue({scope:f.scope,source:f.source,predicate:{containsText:'native'}});
+  assert.equal(r.status,'incomplete');
+  assert.equal(r.exactCount,null,'retired native proof cannot finish an exhaustive count');
+  assert.equal(r.reason,'source_revoked_or_changed');
+  assert.ok(reads>=1);
+ }finally{f.close();}
+});
+test('G3 physical page boundaries include same-timestamp rows and never forge completeness',async()=>{
+ const f=setup();
+ try{
+  // Keyset ordering must not skip same-timestamp UUIDs at 256/512 boundaries.
+  for(let i=0;i<520;i++)f.add('identical timestamp',{at:0,avatar:['franklin','michael','trevor'][i%3]});
+  const r=await f.policy().countDialogue({scope:f.scope,source:f.source,
+    predicate:{speaker:'player',containsText:'identical timestamp'}});
+  assert.equal(r.status,'complete');assert.equal(r.exactCount,520);
+  assert.equal(r.scanned,520);
+  const limit=await f.policy().countDialogue({scope:f.scope,source:f.source,maxScan:500});
+  assert.equal(limit.status,'incomplete');assert.equal(limit.exactCount,null);
  }finally{f.close();}
 });

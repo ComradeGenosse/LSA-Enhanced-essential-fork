@@ -37,10 +37,13 @@ export async function waitFor(predicate,label,timeoutMs=4000){
 // Scripted authenticated native intelligence stream (IntelligenceIntegration
 // cadence: owner sample + optional full roster refresh).
 function nativeStream({client,owned,alias,roster={}}){
-  const socket=new EventEmitter();
-  socket.destroy=()=>{if(socket.destroyed)return;socket.destroyed=true;socket.emit('close');};
-  socket.write=()=>true;
-  const s={socket,hostRunId:randomUUID(),worldEpoch:1,adapterEpoch:randomUUID(),
+  const makeSocket=()=>{
+    const socket=new EventEmitter();
+    socket.destroy=()=>{if(socket.destroyed)return;socket.destroyed=true;socket.emit('close');};
+    socket.write=()=>true;
+    return socket;
+  };
+  const s={socket:makeSocket(),hostRunId:randomUUID(),worldEpoch:1,adapterEpoch:randomUUID(),
     streamId:randomUUID(),npcRef:randomUUID(),playerRef:randomUUID(),
     avatar:'franklin',sequence:0,tick:100,nativePedId:'17',
     incarnationId:owned.claim.incarnationId,encounterId:owned.encounterId,ownerAlias:alias,
@@ -48,38 +51,77 @@ function nativeStream({client,owned,alias,roster={}}){
   const frame=(type,payload)=>({version:1,type,payload,adapterEpoch:s.adapterEpoch,
     streamId:s.streamId,sequence:++s.sequence});
   s.raw=value=>new Promise(resolve=>{
-    socket.emit('data',Buffer.from(JSON.stringify(value)+'\n'));
+    s.socket.emit('data',Buffer.from(JSON.stringify(value)+'\n'));
     setImmediate(()=>setImmediate(resolve));
   });
   s.send=(type,payload)=>s.raw(frame(type,payload));
+  // A native owner-fiber heartbeat sends the refreshed roster and the
+  // current owner sample as one ordered pipe batch. Do not insert two
+  // artificial setImmediate gaps between its roster and current proof:
+  // those used to expose a synthetic "D02 unsettled" turn-start race.
+  // Manual s.roster() still sends separately for negative/suspension tests.
+  s.rawBatch=frames=>new Promise(resolve=>{
+    s.socket.emit('data',Buffer.from(frames.map(v=>JSON.stringify(v)).join('\n')+'\n'));
+    setImmediate(()=>setImmediate(resolve));
+  });
   s.hello=()=>s.raw({version:1,type:'hello',hostContextVersion:1,hostRunId:s.hostRunId,
     worldEpoch:s.worldEpoch,adapterEpoch:s.adapterEpoch,streamId:s.streamId,
     observerIndexVersion:1,memoryCurrentOwnerPlayerVersion:1,
     capabilities:s.capabilities??Object.fromEntries(CAPABILITIES.map(x=>[x,false]))});
   s.rosters=0;s.samples=0;
+  s.rosterPayloads=()=>[
+    ['anchors',[
+      {captureRef:s.npcRef,kind:'ped',observer:true,owned:true},
+      {captureRef:s.playerRef,kind:'player',observer:false}]],
+    ['observer_index',[{captureRef:s.npcRef,kind:'ped',owned:true,
+      incarnationId:s.incarnationId,encounterId:s.encounterId}]]
+  ];
   s.roster=async()=>{
     s.rosters++;
-    await s.send('anchors',[
-      {captureRef:s.npcRef,kind:'ped',observer:true,owned:true},
-      {captureRef:s.playerRef,kind:'player',observer:false}]);
-    await s.send('observer_index',[{captureRef:s.npcRef,kind:'ped',owned:true,
-      incarnationId:s.incarnationId,encounterId:s.encounterId}]);
+    for(const [type,payload] of s.rosterPayloads())await s.send(type,payload);
   };
   s.owners=()=>s.includeOwner?[{observerCaptureRef:s.npcRef,incarnationId:s.incarnationId,
     encounterId:s.encounterId,ownerAlias:s.ownerAlias,hostRunId:s.hostRunId,
     worldEpoch:s.worldEpoch,nativeActorPedId:s.nativePedId,sampledGameTick:s.tick}]:[];
-  s.sample=()=>{s.tick+=10;s.samples++;return s.send('memory_current_owner_player',{
-    nativeOwnerPlayerProofVersion:1,source:'native_p2_owner_fiber_current_only',
-    hostRunId:s.hostRunId,worldEpoch:s.worldEpoch,sampledGameTick:s.tick,owners:s.owners(),
-    protagonist:{source:'native_player_model',key:s.avatar,
-      playerCaptureRef:s.playerRef,sampledGameTick:s.tick}});};
-  let timer=null,beats=0,busy=false;
+  s.samplePayload=()=>{
+    s.tick+=10;s.samples++;
+    return {nativeOwnerPlayerProofVersion:1,source:'native_p2_owner_fiber_current_only',
+      hostRunId:s.hostRunId,worldEpoch:s.worldEpoch,sampledGameTick:s.tick,owners:s.owners(),
+      protagonist:{source:'native_player_model',key:s.avatar,
+        playerCaptureRef:s.playerRef,sampledGameTick:s.tick}};
+  };
+  s.sample=()=>s.send('memory_current_owner_player',s.samplePayload());
+  s.heartbeat=refreshRoster=>{
+    if(!refreshRoster)return s.sample();
+    s.rosters++;
+    // One real validated byte stream; every frame is still individually
+    // authenticated by the original IntelligenceClient/ShadowRuntime/D02.
+    const frames=[...s.rosterPayloads(),['memory_current_owner_player',s.samplePayload()]];
+    return s.rawBatch(frames.map(([type,payload])=>frame(type,payload)));
+  };
+  let timer=null,beats=0,busy=false,inFlight=Promise.resolve();
   // Compressed cadence: owner sample every ~25 ms, full roster every 4th beat.
-  s.start=()=>{if(timer)return;timer=setInterval(async()=>{
+  s.start=()=>{if(timer)return;timer=setInterval(()=>{
     if(busy)return;busy=true;
-    try{if(++beats%4===0)await s.roster();await s.sample();}finally{busy=false;}
+    inFlight=(async()=>{
+      try{await s.heartbeat(++beats%4===0);}
+      finally{busy=false;}
+    })();
   },25);timer.unref?.();};
   s.stop=()=>{clearInterval(timer);timer=null;};
+  s.idle=()=>inFlight;
+  // Simulate a *new* authenticated socket handshake after a source timeout.
+  // Old-epoch frames can never make a retired stream current. No test-accessible
+  // status flag, sample, or elapsed time stands in for native proof.
+  s.renew=async()=>{
+    s.stop();await inFlight;
+    s.socket.destroy();
+    s.socket=makeSocket();
+    s.adapterEpoch=randomUUID();s.streamId=randomUUID();s.sequence=0;
+    client.start();
+    await s.hello();await s.roster();await s.sample();
+    s.start();
+  };
   return s;
 }
 

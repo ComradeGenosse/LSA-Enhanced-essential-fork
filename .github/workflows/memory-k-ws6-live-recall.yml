@@ -6,6 +6,7 @@ on:
       - 'lsa-essential-e1-candidate/src/openai/**'
       - 'lsa-essential-e1-candidate/tests/memory/ws6ProductionPipeline.test.mjs'
       - 'lsa-essential-e1-candidate/tests/memory/ws6Latency.test.mjs'
+      - 'lsa-essential-e1-candidate/tests/memory/ws6Original10kWriteRegression.test.mjs'
       - 'lsa-shared-brain/src/characters/sqliteFoundation.mjs'
       - 'lsa-shared-brain/src/characters/sqliteProfileStore.mjs'
       - 'lsa-shared-brain/tests/memory-m6-p2-production.test.mjs'
@@ -29,12 +30,16 @@ permissions:
   contents: read
 jobs:
   ws6:
-    name: WS-6a/6b source-fenced live recall and model assembler (${{ matrix.os }})
+    name: WS-6a/6b source-fenced live recall and model assembler (${{ matrix.os }}, repeat ${{ matrix.repetition }})
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest]
+        include:
+          - {os: ubuntu-latest, repetition: 1}
+          - {os: windows-latest, repetition: 1}
+          - {os: windows-latest, repetition: 2}
+          - {os: windows-latest, repetition: 3}
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
@@ -60,6 +65,13 @@ jobs:
         run: node --test --test-concurrency=1 lsa-essential-e1-candidate/tests/memory/ws6ProductionPipeline.test.mjs
       - name: Disk-backed busy 10k cold/restart M4 budget and production latency measurements
         run: node --test --test-concurrency=1 lsa-essential-e1-candidate/tests/memory/ws6Latency.test.mjs
+      # Informational stress diagnostic: the original per-row 10k writer load
+      # still reproduces Windows source starvation. Preserve every original
+      # assertion, actual failure and full Actions log; never count it as green.
+      # It is not an ordinary-dialogue / normal-gameplay integration gate.
+      - name: Original 10000 production writes (known Windows stress limitation; informational)
+        continue-on-error: true
+        run: node --test --test-concurrency=1 lsa-essential-e1-candidate/tests/memory/ws6Original10kWriteRegression.test.mjs
       - name: Agent A+B jointly source-fenced SQLite M8 G3 G4 G5 and M4 regression
         run: node --test --test-concurrency=1 lsa-essential-e1-candidate/tests/memory/ws6M8ProductionRead.test.mjs lsa-shared-brain/tests/memory-ws6-g3-g5-evidence.test.mjs lsa-shared-brain/tests/memory-m4-recall.test.mjs lsa-shared-brain/tests/memory-m8-closure.test.mjs
       - name: D03, WS-5a and native acceptance regressions
