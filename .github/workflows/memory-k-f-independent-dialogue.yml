@@ -30,6 +30,7 @@ jobs:
       - name: Mandatory E2 privacy durability and original WS6 regressions
         run: node tools/memory-k-verification/e2-suite.mjs --output work/f-e2-validation
       - name: Original source verified offline package build
+        if: always()
         run: node lsa-essential-e1-candidate/tools/buildCandidate.mjs
       - uses: actions/upload-artifact@v4
         if: always()
