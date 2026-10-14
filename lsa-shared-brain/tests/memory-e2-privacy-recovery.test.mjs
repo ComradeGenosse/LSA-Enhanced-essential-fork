@@ -281,7 +281,7 @@ test('E2 scope receipt requires the complete original suppression bundle',async 
  const p=x.privacy(),op=id();await p.trashScope({scope:x.scope,operationId:op});
  await x.sql(db=>db.prepare('DELETE FROM memory_suppressions WHERE command_id=? AND target_id=?').run(op,b.recordId));
  await assert.rejects(p.verifyPrivacy({scope:x.scope,operationId:op}),/privacy_receipt_integrity_failed/);
- assert.ok((await x.store.listSuppressedMemoryIds(x.scope)).includes(a.recordId));
+ await assert.rejects(x.store.listSuppressedMemoryIds(x.scope),/suppression_integrity/);
 });
 
 test('E2 archive creation revocation does not leave sensitive files on disk',async t=>{
@@ -294,4 +294,17 @@ test('E2 archive creation revocation does not leave sensitive files on disk',asy
   await assert.rejects(p.writeArchive({scope:x.scope,destinationPath}),/authorization/);
   await assert.rejects(fs.stat(destinationPath),{code:'ENOENT'});
  }
+});
+
+test('E2 archive cannot publish after native source retirement mid-export',async t=>{
+ const x=await rig(t);await x.accept('source-fenced archive');
+ let calls=0;
+ const p=createM5SqliteServices({store:x.store,filePath:x.filePath,
+  authorize:()=>{
+   if(++calls===6)x.store.setVerifiedHostContext(null);
+   return true;
+  }});
+ const destinationPath=path.join(x.root,'source-retired.json');
+ await assert.rejects(p.writeArchive({scope:x.scope,destinationPath}),/timeline_unavailable/);
+ await assert.rejects(fs.stat(destinationPath),{code:'ENOENT'});
 });
