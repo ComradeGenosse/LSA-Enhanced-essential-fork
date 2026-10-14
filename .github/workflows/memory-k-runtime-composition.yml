@@ -1,0 +1,56 @@
+name: Memory K C runtime composition (offline)
+on:
+  pull_request:
+    branches: [integration/memory-k-production-20261012]
+    paths:
+      - 'lsa-essential-e1-candidate/**'
+      - 'tools/memory-k-verification/registrations/runtime-composition.json'
+      - 'tools/memory-k-verification/compare-source-regressions.mjs'
+      - '.github/workflows/memory-k-runtime-composition.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  composition:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Scoped lifecycle, off enforcement and authority regressions
+        shell: bash
+        run: |
+          node --test --test-concurrency=1 lsa-essential-e1-candidate/tests/memory-runtime-composition.test.mjs lsa-essential-e1-candidate/tests/memory-capability-policy.test.mjs lsa-essential-e1-candidate/tests/perception-bootstrap.test.mjs lsa-essential-e1-candidate/tests/p2-lifecycle.test.mjs
+      - name: Original pinned candidate package build (no deployment)
+        run: node lsa-essential-e1-candidate/tools/buildCandidate.mjs
+  source-comparison:
+    name: Source regression comparison (${{ matrix.os }}) — failures stay red
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Identical original authority and nested source suites on #138 and candidate
+        shell: bash
+        run: node tools/memory-k-verification/compare-source-regressions.mjs --output "$RUNNER_TEMP/source-comparison"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: source-comparison-${{ matrix.os }}-${{ github.event.pull_request.head.sha || github.sha }}
+          path: ${{ runner.temp }}/source-comparison

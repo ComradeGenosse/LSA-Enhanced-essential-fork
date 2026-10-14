@@ -591,6 +591,7 @@ export class IntelligenceClient {
     const fail=()=>socket.destroy();
     const processFrames=()=>{
       this.work=null;
+      if(this.closed){frames=[];return;}
       for(let n=0;n<32 && frames.length;n++) {
         let v;try {v=JSON.parse(frames.shift());} catch {
           this.persist('intelligence_frame_rejected',{frameType:'other',reason:'invalid_json',count:1});fail();return;
@@ -662,6 +663,7 @@ export class IntelligenceClient {
     };
     socket.once('connect',()=>this.persist('intelligence_status',{stage:'connected'}));
     socket.on('data',chunk=>{
+      if(this.closed)return;
       // Slice before allocation: an arbitrary socket chunk cannot grow retained RAM.
       for(let offset=0;offset<chunk.length;) {
         const end=chunk.indexOf(10,offset),limit=end<0?chunk.length:end;
