@@ -33,6 +33,9 @@ import { CharacterService,withoutCharacterTransport } from '../characters/charac
 import { createNoopDialogueTrace } from '../observability/dialogueTrace.mjs';
 import {memoryKConsumersAllowed} from '../memory/runtimeComposition.mjs';
 
+// Fail-closed startup contract for E1's separately reviewed storage-only preset.
+export const MEMORY_K_COMPOSITION_VERSION=1;
+
 export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry = null, dialogueTrace = null, providers = {}, identityEvidence, identityStore, profileStore, nativeOwner, memoryNativeAuthority = null, deferCharacterInitialization = false } = {}) {
   const actorPresence=new ActorPresenceStore();
   const originalTurnTimeline=new OriginalEssentialTurnTimeline();
