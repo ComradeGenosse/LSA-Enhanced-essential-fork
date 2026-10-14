@@ -4,7 +4,8 @@ import {dialogueKnowledgeContractSupported} from './config/dialogueKnowledge.mjs
 import path from 'node:path';
 import { readFile } from 'node:fs/promises';
 import { loadConfig } from './config/e1Config.mjs';
-import { createRuntime } from './integration/essentialGlue.mjs';
+import * as essentialRuntimeGlue from './integration/essentialGlue.mjs';
+const {createRuntime}=essentialRuntimeGlue;
 import { loadPrivateEnvironment } from './config/privateEnvironment.mjs';
 import { createFileSink } from './observability/fileSink.mjs';
 import { Telemetry, createNoopTelemetry } from './observability/telemetry.mjs';
@@ -33,6 +34,15 @@ export async function createRuntimeForBundle(options = {}) {
     ? options.env
     : await loadPrivateEnvironment(options);
   let config = await loadConfig({ ...options, env });
+  if(config.memoryK.profile==='storage-only') {
+    if(config.provider!=='openai'||!config.promotedCharacters.enabled||
+       config.promotedCharacters.storageMode!=='sqlite'||!config.persistentIdentity.enabled)
+      throw new Error('storage_only_requires_openai_p1_p2_sqlite');
+    // C is a separately reviewed prerequisite. Fail before constructing any
+    // storage/channel/consumer on a checkout where its enforcement is absent.
+    if(essentialRuntimeGlue.MEMORY_K_COMPOSITION_VERSION!==1)
+      throw new Error('storage_only_composition_unavailable');
+  }
   if (config.persistentIdentity.enabled) {
     let contract = options.identityContract;
     if (contract === undefined) {

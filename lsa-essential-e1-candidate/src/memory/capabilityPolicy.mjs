@@ -58,8 +58,10 @@ const byId = new Map(MEMORY_K_CAPABILITIES.map(row => [row.id,row]));
 
 export function normalizeMemoryKConfig(value = {}) {
   if (!value || typeof value !== 'object' || Array.isArray(value) ||
-      Object.keys(value).some(key => key !== 'capabilities'))
-    throw new TypeError('memoryK supports only capabilities.');
+      Object.keys(value).some(key => !['capabilities','profile'].includes(key)))
+    throw new TypeError('memoryK supports only capabilities and profile.');
+  if(value.profile!==undefined&&value.profile!=='storage-only')
+    throw new TypeError('memoryK.profile is unsupported.');
   const requested = value.capabilities ?? {};
   if (!requested || typeof requested !== 'object' || Array.isArray(requested))
     throw new TypeError('memoryK.capabilities must be an object.');
@@ -70,9 +72,15 @@ export function normalizeMemoryKConfig(value = {}) {
       throw new TypeError(`memoryK.capabilities contains unsupported capability ${id}.`);
     if (!descriptor.modes.includes(mode))
       throw new TypeError(`memoryK.capabilities.${id} mode is unsupported.`);
+    if(value.profile==='storage-only'&&(id.startsWith('memory.')||id.startsWith('events.'))&&mode!=='off')
+      throw new TypeError(`memoryK storage-only profile requires ${id} off.`);
     normalized[id] = mode;
   }
-  return Object.freeze({capabilities:Object.freeze(normalized)});
+  if(value.profile==='storage-only') {
+    for(const descriptor of MEMORY_K_CAPABILITIES)
+      if(descriptor.id.startsWith('memory.')||descriptor.id.startsWith('events.')) normalized[descriptor.id]='off';
+  }
+  return Object.freeze({...value.profile?{profile:value.profile}:{},capabilities:Object.freeze(normalized)});
 }
 
 const registrationStatus = value => value === true || value === 'registered' ? 'registered'
