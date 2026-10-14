@@ -163,8 +163,8 @@ without modifying production, tests or verification contracts.
 The additional review found that a committed editor privacy receipt could be
 reported as *currently active* after its data was explicitly restored. The
 original operation remains historical proof of a commit but cannot certify
-the present privacy state. Likewise, an earlier restore receipt does not
-confirm visibility after a later independent forget. Stale retries now fail
+the present privacy state. Restore receipts remain historical acknowledgments and cannot themselves
+certify future visibility after an independent forget. Stale retries now fail
 with `m5_privacy_receipt_inactive` rather than claiming current success.
 A new forget after restoration requires a new operation ID.
 
