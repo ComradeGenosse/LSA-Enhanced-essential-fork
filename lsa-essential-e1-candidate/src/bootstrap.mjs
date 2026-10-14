@@ -26,7 +26,7 @@ import { createDialogueTrace, createNoopDialogueTrace } from './observability/di
 import {createM3ProductionMemory} from './memory/m3ProductionMemory.mjs';
 import {createMemoryD02Port} from './memory/memoryD02Port.mjs';
 import {resolveMemoryKCapabilities} from './memory/capabilityPolicy.mjs';
-import {createMemoryKRuntimeComposition,memoryKConsumersAllowed,runtimeCleanupError} from './memory/runtimeComposition.mjs';
+import {createMemoryKRuntimeComposition,memoryKConsumersAllowed,memoryKDialogueActivation,runtimeCleanupError} from './memory/runtimeComposition.mjs';
 import {memoryKSourceActivation} from './memory/sourceActivation.mjs';
 
 export async function createRuntimeForBundle(options = {}) {
@@ -140,6 +140,7 @@ export async function createRuntimeForBundle(options = {}) {
   runtime.services.memoryKRuntimeDiagnostics=()=>composition.snapshot(Object.fromEntries(
     Object.entries(runtime.services.memoryKCapabilities()).map(([id,row])=>[id,row.registrationStatus])),{
       ...runtime.intelligence?.operationalStates(),
+      ...runtime.services.memoryDialogueDiagnostics(),
       ...(runtime.memoryD02?{'authority.d02':Object.freeze({requestedMode:'on',
         state:runtime.closed?'stopped':runtime.memoryD02.status().settled?'operational':'waiting',
         effectiveMode:runtime.closed?'off':runtime.memoryD02.status().settled?'on':null,
@@ -274,6 +275,7 @@ export async function createRuntimeForBundle(options = {}) {
         // Independently authenticated D02 owner/controlled-player source.
         // Exposes only the synchronous read-through lease/verification port;
         // neither this port nor the native frame attests accepted dialogue.
+        const dialogueEnabled=memoryKDialogueActivation(config).player;
         if(canBindMemory && !options.memoryNativeAuthority) {
           try {
             currentOwnerPlayerAuthority=createMemoryD02Port({
@@ -284,7 +286,7 @@ export async function createRuntimeForBundle(options = {}) {
         }
         // D01 OpenAI acceptance receipts never outlive a verified host run or
         // world epoch: any change retires the current acceptance source run.
-        if(canBindMemory){
+        if(canBindMemory&&dialogueEnabled){
           let acceptanceEpoch=null;
           owner.own('acceptance.host',runtime.intelligence.subscribeVerifiedHostContext(host=>{
             const stamp=host?host.hostRunId+':'+host.worldEpoch:null;
