@@ -18,6 +18,7 @@ import {worldProfileId,TestOwnerEvidence} from './identity-fixtures.mjs';
 import {IDENTITY_DLL_SHA256,IDENTITY_METADATA_SHA256} from '../src/identity/nativeSupport.mjs';
 import {CHARACTER_METADATA_SHA256} from '../src/characters/nativeSupport.mjs';
 import {verifyPerceptionContract} from '../tools/verifyPerceptionContract.mjs';
+import {d01Harness} from './memory/d01-harness.mjs';
 
 async function setup(t,{source=false,editor=false}={}) {
   const directory=await mkdtemp(path.join(tmpdir(),'memory-storage-only-'));
@@ -154,4 +155,19 @@ test('SQLite corruption fails explicitly and never creates replacement JSON or o
   await assert.rejects(f.start(),/p2_sqlite_startup_failed/);
   assert.deepEqual(await readFile(f.sqlite),bytes);
   await assert.rejects(stat(f.legacy),{code:'ENOENT'});assert.equal(f.effects(),0);
+});
+
+test('original typed and mic turns still complete with storage-only and cannot record dialogue or invoke foreground consumers',
+  {timeout:45000},async t=>{
+  const x=await d01Harness(t,{config:{memoryK:{profile:'storage-only'}}});
+  let foreground=0;
+  x.h.runtime.services.prepareLiveTurnMemory=()=>{foreground++;throw new Error('foreground_must_remain_off');};
+  const typed=await x.typed('Ordinary typed conversation with storage-only.');
+  assert.equal((await x.settled(typed)).status,'completed');
+  x.h.runtime.services.transcribe=async()=> 'Ordinary mic conversation with storage-only.';
+  const mic=await x.mic();assert.equal((await x.settled(mic)).status,'completed');
+  const journal=await x.journal();
+  assert.equal(x.replies.length,2,'existing Essential provider/turn path stays usable');
+  assert.equal(foreground,0);
+  assert.deepEqual(journal.rows,[]);assert.deepEqual(journal.sources,[]);assert.deepEqual(journal.npcSources,[]);
 });
