@@ -157,3 +157,28 @@ without modifying production, tests or verification contracts.
   Native SDK/build/package acceptance, original S01–S10, physical GTA and soak
   remain separate gates. No GTA files were deployed, no live provider was
   called, and no automatic merge is authorized.
+
+## Post-review privacy receipt follow-up
+
+The additional review found that a committed editor privacy receipt could be
+reported as *currently active* after its data was explicitly restored. The
+original operation remains historical proof of a commit but cannot certify
+the present privacy state. Likewise, an earlier restore receipt does not
+confirm visibility after a later independent forget. Stale retries now fail
+with `m5_privacy_receipt_inactive` rather than claiming current success.
+A new forget after restoration requires a new operation ID.
+
+Current editor forget receipts also require their **complete command-bound
+suppression bundle**, not just matching trash JSON. Missing or partial durable
+suppression no longer certifies a successful forget. Valid older avatar-bound
+hashes and permanent suppression after physical purge remain supported.
+
+The create-only archive writer rechecks privilege and P2 timeline/source
+state after asynchronous stages and cleans up a newly created export path
+if access is revoked before successful readback. Tests cover revocation
+both before and after filesystem creation, plus partial/complete suppression
+loss and single/scope forget->restore->retry sequences.
+
+These changes introduce five additional E2 adversarial tests without
+changing schema, existing source/authentication boundaries or optional
+module activation.
