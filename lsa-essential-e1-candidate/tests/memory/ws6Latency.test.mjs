@@ -207,6 +207,18 @@ test('WS6 native source expiry: old-stream samples fail closed and only a new au
   assert.equal(previous.destroyed,true);
   assert.notEqual(x.native.streamId,stream);
  }
+ // Source proof must remain strong: a separately delivered roster
+ // deliberately suspends D02 until a distinct authenticated owner sample.
+ x.native.stop();await x.native.idle();
+ await x.native.roster();
+ assert.equal(x.d02.port.status().settled,false,'roster-only is never current native proof');
+ await x.native.sample();
+ await waitFor(()=>x.d02.port.status().settled===true,'roster confirmed by genuine sample');
+ // In contrast, a complete ordered native owner-fiber batch must not leave
+ // the stream artificially unsettled after its single processing cycle.
+ await x.native.heartbeat(true);
+ assert.equal(x.d02.port.status().settled,true,'validated batched maintenance stays current');
+ x.native.start();
  const turn=await x.typed('I remember the little blue house.');
  assert.equal((await x.settled(turn)).status,'completed','ordinary typed dialogue survives renewed source');
  assert.equal((await x.journal()).players.length,1,'accepted dialogue keeps one durable journal row');
