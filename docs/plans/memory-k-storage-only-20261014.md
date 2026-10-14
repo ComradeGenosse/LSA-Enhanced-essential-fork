@@ -1,6 +1,6 @@
 # Memory K E1: canonical P2 SQLite storage-only activation
 
-Base: #138 `bd51fc180efa6babc597f99f4987ef0538b61854` with #160. This is a focused draft targeting #138, not main. It depends on C #163's reviewed composition contract at `4e3b42d63d0a461a84c1b6479e700c4b27cb305f`. The E1 branch contains only E1 changes; it does not copy C's implementation into its diff or merge another PR. Integrate A/O, then C, then E1. All independent/combined head evidence is reported separately.
+Base: #138 `bd51fc180efa6babc597f99f4987ef0538b61854` with #160. This is a focused draft targeting #138, not main. It depends on C #163's reviewed composition contract at `f596c2890ec25540a7258e7853c30ef9d28dca41`. The E1 branch contains only E1 changes; it does not copy C's implementation into its diff or merge another PR. Integrate A/O, then C, then E1. All independent/combined head evidence is reported separately.
 
 ## Configuration and behavior
 
