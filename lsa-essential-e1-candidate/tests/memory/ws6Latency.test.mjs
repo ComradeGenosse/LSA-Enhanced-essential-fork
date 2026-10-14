@@ -17,6 +17,26 @@ const stats=s=>{const a=[...s].sort((a,b)=>a-b);return {n:a.length,
 test('WS6 latency: disk P2 busy 10k, cold/restart M4 to PS4, original-runner prepare and pre-send',
  {timeout:180000},async t=>{
  const x=await d01Harness(t),worldProfileId=x.store.worldProfileId;
+ // Diagnostic only: no authentication state is modified or fabricated.
+ // Phase snapshots allow Windows logs to distinguish a live ShadowRuntime,
+ // a settled D02 native lease, and PS4 optional evidence-budget omission.
+ const sourcePhase=(phase,frame=null)=>{
+  const runtime=x.client.runtime,port=x.d02.port.status();
+  console.log('WS6_SOURCE_PHASE '+JSON.stringify({phase,
+   fixtureSamples:x.native.samples,fixtureRosters:x.native.rosters,
+   runtimeLive:!!runtime.epoch,hostLive:!!runtime.hostContext,
+   ownerAnchorCurrent:runtime.current(x.native.npcRef),
+   playerAnchorCurrent:runtime.current(x.native.playerRef),
+   runtimeTimeouts:runtime.resetDiagnostics.timeouts,
+   runtimeFaults:runtime.resetDiagnostics.faults,
+   d02Connected:port.connected,d02Settled:port.settled,
+   ...(frame?{recallAnswerEvidence:frame.recallAnswerEvidence,
+     recallStampPresent:!!frame.recallStamp,
+     memoryStampPresent:!!frame.memoryStamp,
+     frameBytes:frame.diagnostics?.bytes,
+     canonLaneBytes:frame.diagnostics?.perLane?.RECALLED}:{})}));
+ };
+
  const scope={worldProfileId,characterId:x.profile.characterId,timelineId:x.timelineId,protagonistKey:'franklin'};
  const {protagonistKey:unusedAvatar,...journalScope}=scope;
  const now=Date.now(),sessionId=randomUUID();
@@ -142,25 +162,6 @@ test('WS6 latency: disk P2 busy 10k, cold/restart M4 to PS4, original-runner pre
 
 test('WS6 native source expiry: old-stream samples fail closed and only a new authenticated hello restores D02', {timeout:45000}, async t=>{
  const x=await d01Harness(t);
- // Diagnostic only: no authentication state is modified or fabricated.
- // Phase snapshots allow Windows logs to distinguish a live ShadowRuntime,
- // a settled D02 native lease, and PS4 optional evidence-budget omission.
- const sourcePhase=(phase,frame=null)=>{
-  const runtime=x.client.runtime,port=x.d02.port.status();
-  console.log('WS6_SOURCE_PHASE '+JSON.stringify({phase,
-   fixtureSamples:x.native.samples,fixtureRosters:x.native.rosters,
-   runtimeLive:!!runtime.epoch,hostLive:!!runtime.hostContext,
-   ownerAnchorCurrent:runtime.current(x.native.npcRef),
-   playerAnchorCurrent:runtime.current(x.native.playerRef),
-   runtimeTimeouts:runtime.resetDiagnostics.timeouts,
-   runtimeFaults:runtime.resetDiagnostics.faults,
-   d02Connected:port.connected,d02Settled:port.settled,
-   ...(frame?{recallAnswerEvidence:frame.recallAnswerEvidence,
-     recallStampPresent:!!frame.recallStamp,
-     memoryStampPresent:!!frame.memoryStamp,
-     frameBytes:frame.diagnostics?.bytes,
-     canonLaneBytes:frame.diagnostics?.perLane?.RECALLED}:{})}));
- };
 
  x.native.stop();await x.native.idle();
  const oldStream=x.native.streamId,oldSocket=x.native.socket;
