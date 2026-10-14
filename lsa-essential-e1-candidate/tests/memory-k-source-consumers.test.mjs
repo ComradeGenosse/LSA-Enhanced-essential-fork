@@ -80,7 +80,7 @@ function fixture(requests={'ps2.observations':'off','ps3.salience':'off'}, {nego
 test('D1 source-only private socket keeps current D02 evidence without any PS2/PS3 stores',async()=>{
   const f=fixture();try{
     await f.establish();const lease=await f.proven();
-    for(const key of ['observations','episodes','correlator','transcripts','salience','acceptedObservationTap'])
+    for(const key of ['observations','episodes','correlator','transcripts','salience','acceptedObservationTap','radioCatalog'])
       assert.equal(f.client.runtime[key],null,key);
     await f.send('signal',f.signal());assert.equal(f.client.runtime.signals.length,0);
     assert.equal(f.counts().taps,0);assert.equal(f.client.runtime.ps2Diagnostics.correlated,0);

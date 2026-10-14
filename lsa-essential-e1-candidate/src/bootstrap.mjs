@@ -238,8 +238,9 @@ export async function createRuntimeForBundle(options = {}) {
         owner.starting('source.intelligence');
         const suppliedIntelligenceTelemetry=options.intelligenceOptions?.telemetry;
         // Radio remains optional and never supplies a second model prompt writer.
+        const sourceActivation=memoryKSourceActivation(config);
         let radioCatalog=options.intelligenceOptions?.radioCatalog;
-        if(radioCatalog===undefined && config.intelligence.radio==='shadow') {
+        if(sourceActivation.ps2.enabled && radioCatalog===undefined && config.intelligence.radio==='shadow') {
           try {radioCatalog=loadRadioTrackTextCatalog(await readFile(new URL('../data/radioTrackTextIds.v2.json',import.meta.url),'utf8'));} catch {}
         }
         let memoryIntake=null;
@@ -262,7 +263,7 @@ export async function createRuntimeForBundle(options = {}) {
           originalTurnRelease:ticket=>{try{return runtime.host.directorReleaseOriginalTurn(ticket);}catch{return false;}},
           originalTurnPhase:ticket=>{try{return runtime.host.directorOriginalPhase(ticket);}catch{return null;}},
           ...options.intelligenceOptions,
-           consumers:memoryKSourceActivation(config),
+           consumers:sourceActivation,
            acceptedObservationTap:canBindMemory&&memoryKConsumersAllowed(config)?memoryObservationTap:null,
            telemetry:(event,data)=>{
           try { suppliedIntelligenceTelemetry?.(event,data); } catch {}
