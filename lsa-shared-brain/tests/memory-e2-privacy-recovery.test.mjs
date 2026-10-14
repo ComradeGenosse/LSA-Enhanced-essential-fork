@@ -234,3 +234,63 @@ test('E2 a pre-forget recovery snapshot stays metadata-only after live database 
  await assert.rejects(reopened.initialize(),/database|sqlite/i);await reopened.close();
  assert.equal(await fs.readFile(x.filePath,'utf8'),'broken live database','recovery must never auto-restore an old snapshot');
 });
+
+test('E2 old single-item forget receipt cannot claim active suppression after restore',async t=>{
+ const x=await rig(t),line=await x.accept('restored private memory'),p=x.privacy();
+ const forgetId=id(),restoreId=id();
+ const forget=await p.trash({scope:x.scope,targetId:line.recordId,operationId:forgetId});
+ assert.equal(forget.durableCommit,true);
+ await p.restore({scope:{...x.scope,protagonistKey:'trevor'},trashId:forgetId,operationId:restoreId});
+ assert.ok(!(await x.store.listSuppressedMemoryIds(x.scope)).includes(line.recordId));
+ await assert.rejects(p.verifyPrivacy({scope:x.scope,operationId:forgetId}),/privacy_receipt_inactive/);
+ await assert.rejects(p.trash({scope:x.scope,targetId:line.recordId,operationId:forgetId}),/privacy_receipt_inactive/);
+ const renewed=await p.trash({scope:x.scope,targetId:line.recordId,operationId:id()});
+ assert.equal(renewed.durableCommit,true);
+ await assert.rejects(p.verifyPrivacy({scope:x.scope,operationId:restoreId}),/privacy_receipt_inactive/);
+ assert.ok((await x.store.listSuppressedMemoryIds(x.scope)).includes(line.recordId));
+});
+
+test('E2 restored scope forget cannot be replayed as a current successful deletion',async t=>{
+ const x=await rig(t),a=await x.accept('scope restore A'),b=await x.accept('scope restore B');
+ const p=x.privacy(),forgetId=id();
+ const original=await p.trashScope({scope:x.scope,operationId:forgetId});
+ assert.equal(original.targetIds.length,2);
+ const ticket=(await p.inspect({scope:x.scope})).trash.find(z=>z.targetId===a.recordId).trashId;
+ await p.restore({scope:x.scope,trashId:ticket,operationId:id()});
+ assert.ok(!(await x.store.listSuppressedMemoryIds(x.scope)).includes(a.recordId));
+ assert.ok(!(await x.store.listSuppressedMemoryIds(x.scope)).includes(b.recordId));
+ await assert.rejects(p.verifyPrivacy({scope:x.scope,operationId:forgetId}),/privacy_receipt_inactive/);
+ await assert.rejects(p.trashScope({scope:{...x.scope,protagonistKey:'michael'},operationId:forgetId}),/privacy_receipt_inactive/);
+});
+
+test('E2 durable receipt rejects missing original suppression with intact trash metadata',async t=>{
+ const x=await rig(t),line=await x.accept('lost suppression receipt'),p=x.privacy(),op=id();
+ await p.trash({scope:x.scope,targetId:line.recordId,operationId:op});
+ await x.sql(db=>{
+  db.prepare('DELETE FROM memory_suppressions WHERE command_id=?').run(op);
+  db.prepare('DELETE FROM memory_tombstones WHERE command_id=?').run(op);
+ });
+ await assert.rejects(p.verifyPrivacy({scope:x.scope,operationId:op}),/privacy_receipt_integrity_failed/);
+ await assert.rejects(p.trash({scope:x.scope,targetId:line.recordId,operationId:op}),/privacy_receipt_integrity_failed/);
+ assert.equal(await x.sql(db=>db.prepare('SELECT count(*) AS n FROM dialogue_journal WHERE record_id=?').get(line.recordId).n),1);
+});
+
+test('E2 scope receipt requires the complete original suppression bundle',async t=>{
+ const x=await rig(t),a=await x.accept('bundle A'),b=await x.accept('bundle B');
+ const p=x.privacy(),op=id();await p.trashScope({scope:x.scope,operationId:op});
+ await x.sql(db=>db.prepare('DELETE FROM memory_suppressions WHERE command_id=? AND target_id=?').run(op,b.recordId));
+ await assert.rejects(p.verifyPrivacy({scope:x.scope,operationId:op}),/privacy_receipt_integrity_failed/);
+ assert.ok((await x.store.listSuppressedMemoryIds(x.scope)).includes(a.recordId));
+});
+
+test('E2 archive creation revocation does not leave sensitive files on disk',async t=>{
+ const x=await rig(t);await x.accept('sensitive archive content');
+ for(const allowedCalls of [4,5,6,7]){
+  let calls=0;
+  const p=createM5SqliteServices({store:x.store,filePath:x.filePath,
+   authorize:()=>++calls<=allowedCalls});
+  const destinationPath=path.join(x.root,'revoked-'+allowedCalls+'.json');
+  await assert.rejects(p.writeArchive({scope:x.scope,destinationPath}),/authorization/);
+  await assert.rejects(fs.stat(destinationPath),{code:'ENOENT'});
+ }
+});
