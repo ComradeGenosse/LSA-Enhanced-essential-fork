@@ -4,10 +4,12 @@ Architecture: PR #158, Workstream F. Integration destination: PR #138,
 `integration/memory-k-production-20261012`. Temporarily stacked on E2 PR #168,
 `feat/memory-k-e2-privacy-recovery-20261014`; E2 is not modified by F.
 
-Pinned E2 base: `4bd12e3f0bc9affd38f541bf0c8592e91b3cf10c`.
-Tested production implementation: `bb0cd0d4029578441f9d35a61cbe6f1b8476ba04`.
-The following commit adds this handoff and makes the independent offline CI
-builder run even if another gate fails; it changes no production/test bytes.
+Pinned E2 base: `82d0376f7d2b374ea893a60551ccdcaf9853989d`.
+Tested stack: `0bc52dee61ca59c8ee20e0ac08bc50a0d1d54093` (F plus latest E2).
+F production implementation: `bb0cd0d4029578441f9d35a61cbe6f1b8476ba04`.
+E2's updated archive-generation fence and corrected damaged-ledger assertion
+are inherited through an explicit prerequisite merge; F does not edit E2.
+The following handoff update changes no production/test bytes.
 The draft PR body and validation deliverable record the final publication SHA.
 
 ## Result and scope
@@ -113,7 +115,7 @@ node lsa-essential-e1-candidate/tools/buildCandidate.mjs
 
 F's runner hashes and executes ten unchanged recording/privacy entrypoints,
 then the F additions separately. E2's runner retains its 22 unchanged original
-entrypoints (including WS6/10k/latency) and latest 27 prerequisite tests. F's
+entrypoints (including WS6/10k/latency) and latest 28 prerequisite tests. F's
 new suite is registered additively; no original test/inventory is removed.
 The exact-head Windows/Linux workflow uploads TAP, host and hash receipts even
 on failure. Its job remains red if any gate fails. Independent package build
@@ -125,9 +127,10 @@ evidence still runs on a red prerequisite gate; this does not waive that gate.
 | Identical F tests on E2 baseline | 3/21, 18 failures | 3/21, same 18 failures |
 | F candidate original recording suites | 116/116 | 116/116 |
 | F candidate independent recording tests | 21/21 | 21/21 |
-| Candidate original E2/WS6 inventory | Isolated 264/264; earlier staging-collision run 262/264 retained | 263/264, inherited K07 red |
-| Candidate latest E2 tests | 26/27, inherited damaged-ledger assertion red | 26/27, same inherited red |
-| Pristine E2 baseline latest E2 tests | 26/27, same failure | 26/27, same failure |
+| Candidate original E2/WS6 inventory | 264/264 | 263/264, intermittent inherited K07 red retained |
+| Latest E2 baseline original inventory | Not rerun in full; original recording 116/116 | 264/264; earlier baseline 263/264 retained |
+| Candidate latest E2 tests | 28/28 | 28/28 |
+| E2 baseline latest E2 tests | 28/28 | 28/28 |
 | Original source-verified offline builder | Passed, 70 expected AST edits | Passed, 70 expected AST edits |
 
 The three baseline F passes are negative cases already satisfied by disabled
@@ -137,9 +140,9 @@ test bytes match the pinned latest E2 base. All 32 original entrypoints plus
 three E2 entrypoints remain unchanged; only the new F entrypoint is added.
 
 Exact baseline archive SHA-256:
-`14627eac9076e0ffb0c5dee574ef0c54a2c470168552f458b189e6ef88305f49`.
+`f766aa6b78b0a47ee5281cba493aecfbbe41addfe6c0a4027eebbdce445b8f3d`.
 Exact tested implementation archive SHA-256:
-`9c69b90cd0864e224cdc67ce1e9408d55b8d09e1142a37bdd775cff2033fe8c`.
+`ce30297a99be8a97e813547a300c238c06b8e27f343e61511fc460da309047ae`.
 The original patched-bundle hash on both hosts is
 `eb5b3cd45c4c9b8de51c476e30e956854375e353da664e88a18e1677b7427233`.
 Companion/shared runtime modules are separately staged; identical bundle hashes
@@ -147,18 +150,23 @@ do not imply identical complete release payloads or native/package acceptance.
 
 ## Investigated red gates and remaining limitations
 
-1. **New E2 test contradiction, reproduced on pristine E2.**
+1. **Earlier E2 test contradiction, resolved by its owner.**
    `E2 scope receipt requires the complete original suppression bundle` deletes
    one suppression while leaving its tombstone, correctly asserts that the
    privacy receipt is rejected, then expects `listSuppressedMemoryIds` to
    return successfully. The existing mandatory ledger guard rejects that final
    read with `memory_suppression_integrity_unavailable`. Both hosts reproduce
-   this on the unchanged E2 base. F does not edit that assertion or weaken the
-   guard. The E2 prerequisite suite remains red pending owner reconciliation.
-2. **Inherited Linux K07 failure.** The same unchanged
+   this on the earlier unchanged E2 base `4bd12e3f`. E2's owner corrected its
+   assertion in `82d0376f` to require the fail-closed read and added a new
+   source-retired archive test. F inherited those prerequisite commits, plus
+   their source-generation publication fence. F did not edit that assertion
+   or weaken the guard. The earlier 26/27 receipts remain preserved separately.
+2. **Intermittent inherited Linux K07 failure.** The same unchanged
    `K07 stale, replayed, predated and forged replies never resolve a clarification`
-   fails with `memory_source_forgotten` on the current pristine E2 baseline and
-   candidate. It was also documented before F in E2's handoff. This test appends
+   failed with `memory_source_forgotten` on the prior pristine E2 baseline and
+   candidate, and fails on the latest F stack. The latest E2 baseline passes
+   264/264; its earlier 263/264 failure remains preserved. It was also documented
+   before F in E2's handoff. This test appends
    a later line with the same `first` content after forgetting; permanent
    fingerprints can reject it. F's parent-reply guard is not involved in this
    player append. The red original result is retained.
@@ -194,7 +202,7 @@ No deployment, live cloud calls or automatic merge occurred.
 
 1. Keep this PR draft and based on E2's branch until E2 is integrated into #138.
    Review only F's five production seams, new tests, CI/registration and handoff.
-2. Reconcile E2's red assertions and inherited K07/discovery gates explicitly;
+2. Reconcile any remaining inherited K07/discovery gates explicitly;
    do not turn these results green by removing tests or weakening privacy.
 3. After E2 is integrated, fetch #138, verify the integrated prerequisite, and
    retarget this PR to `integration/memory-k-production-20261012`. If E2 is
