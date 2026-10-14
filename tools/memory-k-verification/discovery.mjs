@@ -32,3 +32,23 @@ export function verifyInventory(actual, expected) {
   if (missing.length || unregistered.length) throw new Error(
     `Test inventory changed: missing=${JSON.stringify(missing)} unregistered=${JSON.stringify(unregistered)}. Review and update inventory.json; never silently drop tests.`);
 }
+
+// Scoped PRs can register suites without copying or editing the baseline.
+// Every registered file remains required; arbitrary new tests still fail.
+export async function loadInventory(root) {
+  const directory=path.join(root,'tools/memory-k-verification');
+  const baseline=JSON.parse(await readFile(path.join(directory,'inventory.json'),'utf8'));
+  let registrations=[];
+  try { registrations=await readdir(path.join(directory,'registrations')); }
+  catch(error) { if(error.code!=='ENOENT') throw error; }
+  const files=[...baseline.files];
+  for(const name of registrations.filter(name=>name.endsWith('.json')).sort()) {
+    const extension=JSON.parse(await readFile(path.join(directory,'registrations',name),'utf8'));
+    if(extension.version!==1||!Array.isArray(extension.files)||
+      extension.files.some(file=>typeof file!=='string'||!file.endsWith('.test.mjs')))
+      throw new Error(`Invalid test registration: ${name}`);
+    files.push(...extension.files);
+  }
+  if(new Set(files).size!==files.length) throw new Error('Duplicate test inventory registration');
+  return {version:1,files:files.sort()};
+}

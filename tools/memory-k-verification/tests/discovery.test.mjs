@@ -4,7 +4,7 @@ import {mkdtemp,mkdir,writeFile,rm,readFile} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
-import {discoverTests,verifyInventory} from '../discovery.mjs';
+import {discoverTests,verifyInventory,loadInventory} from '../discovery.mjs';
 import {selectProfile} from '../profiles.mjs';
 import '../offline.mjs';
 
@@ -29,10 +29,22 @@ test('a removed or unregistered test is a hard discovery failure',()=>{
 test('all registered profiles select real tests; original gates remain discoverable',async()=>{
   const root=fileURLToPath(new URL('../../../',import.meta.url));
   const files=await discoverTests(root);
-  const inventory=JSON.parse(await readFile(new URL('../inventory.json',import.meta.url),'utf8'));
+  const inventory=await loadInventory(root);
   verifyInventory(files,inventory.files);
   for(const name of ['policy','storage','source','shared','essential','essential-nested','infrastructure','all'])
     assert.ok(selectProfile(name,files).files.length>0);
   assert.equal(selectProfile('original-scenarios',files).files.length,10);
   assert.ok(selectProfile('all',files).files.some(file=>file.includes('/memory/ws6OriginalRunner')));
+});
+test('scoped registrations compose with baseline and cannot conceal missing tests',async t=>{
+  const root=await mkdtemp(path.join(tmpdir(),'memory-k-registration-'));
+  t.after(()=>rm(root,{recursive:true,force:true}));
+  const directory=path.join(root,'tools/memory-k-verification');
+  await mkdir(path.join(directory,'registrations'),{recursive:true});
+  await writeFile(path.join(directory,'inventory.json'),JSON.stringify({version:1,files:['base.test.mjs']}));
+  await writeFile(path.join(directory,'registrations/c.json'),JSON.stringify({version:1,files:['c.test.mjs']}));
+  assert.deepEqual((await loadInventory(root)).files,['base.test.mjs','c.test.mjs']);
+  assert.throws(()=>verifyInventory(['base.test.mjs'],['base.test.mjs','c.test.mjs']),/missing/);
+  await writeFile(path.join(directory,'registrations/c.json'),JSON.stringify({version:1,files:['base.test.mjs']}));
+  await assert.rejects(loadInventory(root),/Duplicate/);
 });

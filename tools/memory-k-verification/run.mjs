@@ -3,7 +3,7 @@ import {tmpdir} from 'node:os';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {spawnSync} from 'node:child_process';
-import {discoverTests, fingerprintTests, verifyInventory} from './discovery.mjs';
+import {discoverTests, fingerprintTests, verifyInventory,loadInventory} from './discovery.mjs';
 import {selectProfile} from './profiles.mjs';
 
 const root = fileURLToPath(new URL('../../', import.meta.url));
@@ -15,7 +15,7 @@ const option = (name, fallback) => {
 const profileName = option('--profile','all');
 const output = path.resolve(option('--output',path.join(root,'work/memory-k-verification',profileName)));
 const files = await discoverTests(root);
-const inventory = JSON.parse(await readFile(new URL('./inventory.json',import.meta.url),'utf8'));
+const inventory = await loadInventory(root);
 verifyInventory(files, inventory.files);
 const {profile, files:selected} = selectProfile(profileName,files);
 const git = (...argv) => {
