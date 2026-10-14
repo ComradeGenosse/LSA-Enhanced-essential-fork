@@ -130,9 +130,12 @@ class Program
     static Dictionary<string,object> Anchor(string captureRef,Dictionary<string,object> frame)=>FrameAnchors(frame).Single(a=>(string)a["captureRef"]==captureRef);
     static void Tick(IntelligenceIntegration integration)
     {Game.GameTime+=210;Set(integration,"nextDiscovery",0L);Set(integration,"nextState",0L);Set(integration,"nextShot",0L);integration.Update();}
-    static void Main()
+    static void Main(string[] args)
     {
-        try{Run();RadioCoverage();}catch(Exception e){Console.Error.WriteLine(e.ToString());Environment.ExitCode=1;}}
+        try{Run();RadioCoverage();SourceOnlyTests.Run();
+            if(args.Length==1&&args[0]=="--d2-source-only-wire")
+                foreach(var frame in SourceOnlyTests.WireFrames)Console.WriteLine("D2_WIRE "+new JavaScriptSerializer().Serialize(frame));
+        }catch(Exception e){Console.Error.WriteLine(e.ToString());Environment.ExitCode=1;}}
     static void Run()
     {
         Check(LSA.PromotedCharacters.EssentialPlayerPriorityMonitor.Read()==-1,

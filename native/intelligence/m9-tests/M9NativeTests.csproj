@@ -17,4 +17,4 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies.net481" Version="1.0.3" PrivateAssets="all" />
   </ItemGroup>
-</Project>
+<ItemGroup><Compile Include="../NativeProducerPolicy.cs" Link="NativeProducerPolicy.cs"/></ItemGroup></Project>

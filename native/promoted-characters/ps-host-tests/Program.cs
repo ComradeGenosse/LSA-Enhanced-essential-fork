@@ -24,9 +24,12 @@ static class Program
             if(elapsed>=21100) {PromotedCharactersIntegration.Instance.LoseAvailability();return;}
             Thread.Sleep(milliseconds);
         };
-        var config="{\"enabled\":true,\"worldProfileId\":\"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa\",\"intelligence\":{\"mode\":\"shadow\"}}";
+        var config="{\"enabled\":true,\"worldProfileId\":\"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa\",\"intelligence\":{\"mode\":\"shadow\"}"+
+            (scenario=="source-only"?",\"memoryK\":{\"capabilities\":{\"ps1.producers\":\"off\"}}":"")+"}";
+        Check(!RuntimeEntry.Start("{\"enabled\":true,\"intelligence\":{\"producers\":{\"state\":true}}}"),"invalid producer mode cannot acquire native host start claim");
         Check(RuntimeEntry.Start(config),"real RuntimeEntry starts");
         var intelligence=LSA.Intelligence.IntelligenceIntegration.Instance;
+        if(scenario=="source-only")Check(!intelligence.ProducerPolicy.Any,"real RuntimeEntry passes master-off policy to the existing integration");
         Check(LosSantosAlive.Integrations.IntegrationManager.Registered.Count==2,"P2 and PS register with Core manager");
         Check(ReferenceEquals(intelligence.Host,PromotedCharactersIntegration.Instance.Host) && intelligence.Host!=null,"RuntimeEntry supplies one host to both integrations");
         Check(!RuntimeEntry.Alive&&!RuntimeEntry.Ready,"host completes and releases availability");
@@ -80,9 +83,11 @@ namespace LSA.PromotedCharacters
         public void RequestShutdown(){ShutdownCalls++;IsAvailable=false;}
         public void Initialize()=>IsAvailable=true;
         public void Update(){}
-        internal void EnableActivityShadow(string pipeName) {}
-        internal void EnableActivityExecution(string pipeName) {}
+        internal void EnableActivityShadow(string pipeName,bool collectDialogueReceipts=false) {}
+        internal void EnableActivityExecution(string pipeName,bool collectDialogueReceipts=false) {}
         public LSA.Intelligence.OwnedParticipant[] PerceptionRoster()=>new LSA.Intelligence.OwnedParticipant[0];
+        public object SampleMemoryNativeAuthority()=>null;
+        public object SampleMemoryCurrentOwnerPlayer()=>null;
         public void LoseAvailability(){IsAvailable=false;UnavailabilityReason="clock_regression";}
         internal string SubmitLocal(string envelope)=>"accepted";internal string TakeLocalResult(string id)=>null;internal string LocalSnapshot()=>null;internal void RequestLocalSnapshots(int forMs){}
         internal void Shutdown(string reason){ShutdownCalls++;IsAvailable=false;}
@@ -90,12 +95,14 @@ namespace LSA.PromotedCharacters
 }
 namespace LSA.Intelligence
 {
+    public static class DirectorAdmission {public const int NormalMaxAttempts=4,TestingMaxAttempts=12;}
     public sealed class OwnedParticipant { }
     public sealed class IntelligenceIntegration:LosSantosAlive.Integrations.IIntegration
     {
         public static IntelligenceIntegration Instance;public bool IsAvailable{get;private set;}public long UpdateCalls;public int ShutdownCalls;public string ShutdownReason="none";
         public readonly LSA.PromotedCharacters.HostContext Host;
-        public IntelligenceIntegration(Func<OwnedParticipant[]> roster,string pipe,LSA.PromotedCharacters.HostContext host=null,bool directorShadow=false,bool directorExperimental=false,string radioMode="off"){Instance=this;Host=host;}
+        public readonly NativeProducerPolicy ProducerPolicy;
+        public IntelligenceIntegration(Func<OwnedParticipant[]> roster,string pipe,LSA.PromotedCharacters.HostContext host=null,bool directorShadow=false,bool directorExperimental=false,string radioMode="off",int directorAttemptsPerMinute=4,Func<object> memoryAuthoritySample=null,Func<object> memoryCurrentOwnerPlayerSample=null,NativeProducerPolicy producerPolicy=null){Instance=this;Host=host;ProducerPolicy=producerPolicy;}
         public void Initialize()=>IsAvailable=true;
         public void Update(){UpdateCalls++;}
         public void OwnerRetired(string lifetime){}

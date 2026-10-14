@@ -83,6 +83,8 @@ namespace LSA.PromotedCharacters
         internal string IdentityRuntimeStatus=>"identity_status=test";
         public PromotedCharactersIntegration(string world,string pipe,string identityPipe,HostContext host=null)=>Interlocked.Increment(ref Constructed);
         public LSA.Intelligence.OwnedParticipant[] PerceptionRoster()=>new LSA.Intelligence.OwnedParticipant[0];
+        public object SampleMemoryNativeAuthority()=>null;
+        public object SampleMemoryCurrentOwnerPlayer()=>null;
         public void Prepare()
         {
             Interlocked.Increment(ref Prepared);PreparationThread=Thread.CurrentThread.ManagedThreadId;prepared=true;
@@ -116,10 +118,11 @@ namespace LSA.PromotedCharacters
 }
 namespace LSA.Intelligence
 {
+    public static class DirectorAdmission {public const int NormalMaxAttempts=4,TestingMaxAttempts=12;}
     public sealed class OwnedParticipant { }
     public sealed class IntelligenceIntegration
     {
-        public IntelligenceIntegration(Func<OwnedParticipant[]> roster,string pipeName,LSA.PromotedCharacters.HostContext host=null,bool directorShadow=false,bool directorExperimental=false,string radioMode="off") { }
+        public IntelligenceIntegration(Func<OwnedParticipant[]> roster,string pipeName,LSA.PromotedCharacters.HostContext host=null,bool directorShadow=false,bool directorExperimental=false,string radioMode="off",int directorAttemptsPerMinute=4,Func<object> memoryAuthoritySample=null,Func<object> memoryCurrentOwnerPlayerSample=null,NativeProducerPolicy producerPolicy=null) { }
         public void OwnerRetired(string incarnationId) { }
         public void Shutdown() { }
         public void Shutdown(string reason) { }

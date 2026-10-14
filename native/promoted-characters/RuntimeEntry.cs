@@ -22,6 +22,10 @@ namespace LSA.PromotedCharacters
             if(integration!=null || finished || stopping || text==null || text.Length>4096) return false;
             var config=new JavaScriptSerializer {MaxJsonLength=4096}.Deserialize<Config>(text);
             if(config==null || !config.enabled) return false;
+            LSA.Intelligence.NativeProducerPolicy producerPolicy;
+            try {producerPolicy=LSA.Intelligence.NativeProducerPolicy.FromConfig(
+                config.memoryK?.capabilities,config.intelligence?.producers,config.intelligence?.radio);}
+            catch(ArgumentException) {LSA.Intelligence.IntelligenceIntegration.LogStatus("[PS] native_producer_configuration_invalid");return false;}
             // Keep the raw optional value: serializer bool conversion can
             // accept strings. Only a literal JSON true opts into collection.
             bool collectDialogueReceipts=config.activities?.dialogueReceipts is bool && (bool)config.activities.dialogueReceipts;
@@ -52,7 +56,7 @@ namespace LSA.PromotedCharacters
                     if(config.intelligence?.mode=="shadow") {
                         try {
                             intelligence=new LSA.Intelligence.IntelligenceIntegration(integration.PerceptionRoster,config.intelligence.pipeName,host,config.intelligence.directorMode=="shadow" || config.intelligence.directorMode=="experimental",config.intelligence.directorMode=="experimental",config.intelligence.radio,directorAttemptsPerMinute,integration.SampleMemoryNativeAuthority,
-                                integration.SampleMemoryCurrentOwnerPlayer);
+                                integration.SampleMemoryCurrentOwnerPlayer,producerPolicy);
                             integration.OwnerRetired+=intelligence.OwnerRetired;
                             IntegrationManager.Register(intelligence);intelligence.Initialize();
                         } catch {Game.LogTrivial("[PS] optional_host_unavailable");}
@@ -101,8 +105,10 @@ namespace LSA.PromotedCharacters
             public string identityPipeName {get;set;}="LSA.SessionIdentity.v1";
             public IntelligenceConfig intelligence {get;set;}=new IntelligenceConfig();
             public ActivitiesConfig activities {get;set;}=new ActivitiesConfig();
+            public NativeMemoryKConfig memoryK {get;set;}
         }
-        public sealed class IntelligenceConfig {public string mode {get;set;}="off";public string directorMode {get;set;}="off";public string radio {get;set;}="off";public object directorAttemptPreset {get;set;}="normal";public string pipeName {get;set;}="LSA.Intelligence.v1";}
+        public sealed class NativeMemoryKConfig {public System.Collections.Generic.Dictionary<string,object> capabilities {get;set;}}
+        public sealed class IntelligenceConfig {public string mode {get;set;}="off";public string directorMode {get;set;}="off";public string radio {get;set;}="off";public object directorAttemptPreset {get;set;}="normal";public string pipeName {get;set;}="LSA.Intelligence.v1";public System.Collections.Generic.Dictionary<string,object> producers {get;set;}}
         public sealed class ActivitiesConfig {public object dialogueReceipts {get;set;}=false;public string mode {get;set;}="off";public string pipeName {get;set;}="LSA.Activities.v1";}
     }
 }
