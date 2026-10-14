@@ -230,3 +230,23 @@ test('WS6 rechecks selected source avatar metadata before provider composition',
  await say(x,'What was that secret?');
  assert.ok(body);assert.ok(!JSON.stringify(body).includes('private marmalade secret'));
 });
+
+test('WS6 P2 persistent history: losing D03 cannot resurrect a forgotten line from RAM', {timeout:45000},async t=>{
+ const x=await d01Harness(t);
+ const secret='never reveal violet sapphire private code';
+ await say(x,secret);
+ const target=(await x.journal()).players.find(row=>row.content===secret)?.record_id;
+ assert.ok(target,'the source-backed line must first exist in P2');
+ await forget(x,target);
+ // Deliberately remove the REAL private D02 corroboration from subsequent
+ // original turns. The backend may still hold the older bytes in its RAM
+ // conversation; a source-less P2 turn must not make them model-visible.
+ x.h.runtime.memoryD02=null;
+ const turn=await x.typed('Can you repeat the old code?');
+ assert.equal((await x.settled(turn)).status,'completed');
+ const projected=JSON.stringify(x.replies.at(-1).knowledgeProjection.modelAllocation);
+ assert.ok(!projected.includes(secret),
+   'RAM fallback must not resurrect forgotten P2 history when D03 is unavailable');
+ const recent=JSON.parse(x.replies.at(-1).knowledgeProjection.modelAllocation.scene).lanes.CONVERSE;
+ assert.equal(recent?.earlier?.length??0,0);
+});
