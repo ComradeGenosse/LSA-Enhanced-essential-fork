@@ -37,10 +37,13 @@ export async function waitFor(predicate,label,timeoutMs=4000){
 // Scripted authenticated native intelligence stream (IntelligenceIntegration
 // cadence: owner sample + optional full roster refresh).
 function nativeStream({client,owned,alias,roster={}}){
-  const socket=new EventEmitter();
-  socket.destroy=()=>{if(socket.destroyed)return;socket.destroyed=true;socket.emit('close');};
-  socket.write=()=>true;
-  const s={socket,hostRunId:randomUUID(),worldEpoch:1,adapterEpoch:randomUUID(),
+  const makeSocket=()=>{
+    const socket=new EventEmitter();
+    socket.destroy=()=>{if(socket.destroyed)return;socket.destroyed=true;socket.emit('close');};
+    socket.write=()=>true;
+    return socket;
+  };
+  const s={socket:makeSocket(),hostRunId:randomUUID(),worldEpoch:1,adapterEpoch:randomUUID(),
     streamId:randomUUID(),npcRef:randomUUID(),playerRef:randomUUID(),
     avatar:'franklin',sequence:0,tick:100,nativePedId:'17',
     incarnationId:owned.claim.incarnationId,encounterId:owned.encounterId,ownerAlias:alias,
@@ -48,7 +51,7 @@ function nativeStream({client,owned,alias,roster={}}){
   const frame=(type,payload)=>({version:1,type,payload,adapterEpoch:s.adapterEpoch,
     streamId:s.streamId,sequence:++s.sequence});
   s.raw=value=>new Promise(resolve=>{
-    socket.emit('data',Buffer.from(JSON.stringify(value)+'\n'));
+    s.socket.emit('data',Buffer.from(JSON.stringify(value)+'\n'));
     setImmediate(()=>setImmediate(resolve));
   });
   s.send=(type,payload)=>s.raw(frame(type,payload));
@@ -73,13 +76,28 @@ function nativeStream({client,owned,alias,roster={}}){
     hostRunId:s.hostRunId,worldEpoch:s.worldEpoch,sampledGameTick:s.tick,owners:s.owners(),
     protagonist:{source:'native_player_model',key:s.avatar,
       playerCaptureRef:s.playerRef,sampledGameTick:s.tick}});};
-  let timer=null,beats=0,busy=false;
+  let timer=null,beats=0,busy=false,inFlight=Promise.resolve();
   // Compressed cadence: owner sample every ~25 ms, full roster every 4th beat.
-  s.start=()=>{if(timer)return;timer=setInterval(async()=>{
+  s.start=()=>{if(timer)return;timer=setInterval(()=>{
     if(busy)return;busy=true;
-    try{if(++beats%4===0)await s.roster();await s.sample();}finally{busy=false;}
+    inFlight=(async()=>{
+      try{if(++beats%4===0)await s.roster();await s.sample();}
+      finally{busy=false;}
+    })();
   },25);timer.unref?.();};
   s.stop=()=>{clearInterval(timer);timer=null;};
+  // Simulate a *new* authenticated socket handshake after a source timeout.
+  // Old-epoch frames can never make a retired stream current. No test-accessible
+  // status flag, sample, or elapsed time stands in for native proof.
+  s.renew=async()=>{
+    s.stop();await inFlight;
+    s.socket.destroy();
+    s.socket=makeSocket();
+    s.adapterEpoch=randomUUID();s.streamId=randomUUID();s.sequence=0;
+    client.start();
+    await s.hello();await s.roster();await s.sample();
+    s.start();
+  };
   return s;
 }
 
