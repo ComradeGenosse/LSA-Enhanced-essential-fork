@@ -136,5 +136,5 @@ export class IdentityResolver {
     } catch { return fallback('evidence_unavailable'); }
     finally { clearTimeout(timer); abort.abort(); }
   }
-  close() { this.evidence.close?.(); this.unsubscribe?.(); for (const anchor of [...this.#anchors.values()]) this.#retire(anchor, 'evidence_unavailable'); }
+  close({closeEvidence=true}={}) { if(closeEvidence)this.evidence.close?.(); this.unsubscribe?.(); for (const anchor of [...this.#anchors.values()]) this.#retire(anchor, 'evidence_unavailable'); }
 }

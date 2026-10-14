@@ -60,7 +60,7 @@ export class CharacterService {
   }
   bindActivities(runtime) { this.activities = runtime; }
   // Release only the store owned by this service. No native task or P1 owner is closed here.
-  async closeStorage() { await this.store?.close?.(); }
+  async closeStorage() { this.ready=false;await this.#queue;await this.store?.close?.(); }
   emit(event,data = {},identity = null,source = null) { try { this.telemetry?.emit(event,identity,source,data); } catch {} }
   initialize() { return this.#initializing ||= (async () => {
     try {

@@ -29,6 +29,7 @@ export class ActivityClient {
     const emit = (event, data) => { this.runtime.events.push(event); try { this.onEvent(event, data); } catch {} };
     const processFrames = () => {
       this.work = null;
+      if(this.closed) { frames=[]; return; }
       while (frames.length) {
         let value; try { value = JSON.parse(frames.shift()); } catch { fail(); return; }
         const dialogueReceipt=value?.type==='dialogue.action.receipt';
@@ -67,6 +68,7 @@ export class ActivityClient {
       }
     };
     socket.on('data', chunk => {
+      if(this.closed) return;
       for (let offset = 0; offset < chunk.length;) {
         const end = chunk.indexOf(10, offset), limit = end < 0 ? chunk.length : end;
         if (buffer.length + limit - offset > FRAME_BYTES) { fail(); return; }
@@ -83,16 +85,23 @@ export class ActivityClient {
     socket.once('close', () => clearInterval(this.lease));
   }
   send(frame) {
-    if (this.config.mode !== 'on' || !this.deliver || !this.runtime.ready || !EXECUTION.has(frame?.type)) return false;
+    if (this.closed || this.config.mode !== 'on' || !this.deliver || !this.runtime.ready || !EXECUTION.has(frame?.type)) return false;
     const sequenced = { ...frame, version: 1, sequence: ++this.outSequence };
     this.deliver(sequenced);
     return sequenced;
   }
   sendDialogueAnnotation(frame){
-    if(!['shadow','on'].includes(this.config.mode) || !this.deliver || !this.runtime.ready || this.runtime.dialogueActionVersion!==1)return false;
+    if(this.closed || !['shadow','on'].includes(this.config.mode) || !this.deliver || !this.runtime.ready || this.runtime.dialogueActionVersion!==1)return false;
     const sequenced={...frame,version:1,type:'dialogue.action.pending',sequence:this.outSequence+1,dialogueActionVersion:1};
     if(!validateDialogueActionAnnotation(sequenced) || !this.runtime.hostContext || frame.binding.hostContext.hostRunId!==this.runtime.hostContext.hostRunId || frame.binding.hostContext.worldEpoch!==this.runtime.hostContext.worldEpoch)return false;
     this.outSequence++;this.deliver(sequenced);return sequenced;
   }
-  stop() { this.closed = true; clearTimeout(this.retry); clearInterval(this.lease); if (this.work) clearImmediate(this.work); this.socket?.destroy(); this.socket = null; this.deliver = null; this.runtime.ready = false; this.runtime.hostContext = null; this.runtime.dialogueActionVersion=null; this.clientRun = null; }
+  stop() {
+    this.closed=true;clearTimeout(this.retry);clearInterval(this.lease);
+    if(this.work)clearImmediate(this.work);this.work=null;
+    // Revoke dispatch before a potentially throwing native transport close.
+    this.deliver=null;this.runtime.ready=false;this.runtime.hostContext=null;
+    this.runtime.dialogueActionVersion=null;this.clientRun=null;
+    this.socket?.destroy();this.socket=null;
+  }
 }
