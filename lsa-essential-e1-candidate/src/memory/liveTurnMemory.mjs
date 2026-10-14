@@ -14,11 +14,6 @@ const avatar=new Set(['franklin','michael','trevor','unknown']);
 const playerSource=new Set(['player_text','player_mic']);
 const bytes=v=>Buffer.byteLength(JSON.stringify(v),'utf8');
 const MAX_AGE=5*60*1000;
-// A bounded synchronous exhaustive G3 SQLite scan can occupy the JS event loop
-// while genuine native owner samples accumulate. Yield an event-loop turn at
-// its boundaries so authenticated transport has a chance to run; NEVER accept
-// a count on the basis of the yield. Existing D02/P2/PS4 fences still decide.
-const admitPendingNativeFrames=()=>new Promise(resolve=>setImmediate(resolve));
 const validLine=e=>e?.kind==='dialogue_line'&&uuid.test(e.recordId)&&
   typeof e.content==='string'&&e.content.length>0&&e.content.length<=12000&&
   Number.isFinite(Date.parse(e.committedAtUtc))&&(
@@ -193,15 +188,8 @@ export async function prepareLiveTurnMemory({store,turn,acceptedReceipt,input,so
     const literal=input.match(/^\s*(?:how many times did (I|you) say|when (?:was|is) the (first|last) time (I|you) said)\s+"([^"\r\n]{1,512})"\s*[?.]?\s*$/i);
     const predicate=literal?{speaker:(literal[1]??literal[3]).toLowerCase()==='i'?'player':'npc',containsText:literal[4]}:null;
     const countArgs={scope,source:authority,predicate,excludeRecordIds:[line.recordId]};
-    let count=null;
-    if(countQuestion&&policy&&predicate){
-      // Process real queued native frames before and after the exhaustive P2
-      // read. A missing/retired D02 lease still returns NO count.
-      await admitPendingNativeFrames();
-      if(!current())return empty;
-      count=await policy.countDialogue(countArgs);
-      await admitPendingNativeFrames();
-    }else if(countQuestion)count={status:'incomplete',reason:'unsupported_query',exactCount:null,first:null};
+    const count=countQuestion&&policy&&predicate?await policy.countDialogue(countArgs):
+      countQuestion?{status:'incomplete',reason:'unsupported_query',exactCount:null,first:null,last:null}:null;
     if(!current())return empty;
     let witness=null,witnessArgs=null;
     if(/\b(?:witness|see|saw|hear|heard)\b/i.test(input)&&policy){
@@ -243,7 +231,6 @@ export async function prepareLiveTurnMemory({store,turn,acceptedReceipt,input,so
     async function verifyPrepared(){
       const fence=store.memoryReadFence;
       memoryValid=false;opinionValid=false;
-      if(count&&predicate)await admitPendingNativeFrames();
       if(!current()||fence===null||fence===undefined||!policy)return false;
       try{
         const freshHidden=await hidden();
@@ -262,13 +249,7 @@ export async function prepareLiveTurnMemory({store,turn,acceptedReceipt,input,so
         // a transcript overlay may legitimately reference its superseded line.
         const visible=await policy.verifyReferenceVisibility({scope,source:authority,recordIds:[line.recordId]});
         const freshLabels=labelArgs?await policy.labelledEvidence(labelArgs):labels;
-        let freshCount=count;
-        if(count&&predicate){
-          await admitPendingNativeFrames();
-          if(!current())return false;
-          freshCount=await policy.countDialogue(countArgs);
-          await admitPendingNativeFrames();
-        }
+        const freshCount=count&&predicate?await policy.countDialogue(countArgs):count;
         const freshWitness=witnessArgs?await policy.witness(witnessArgs):witness;
         const m8Ok=preparedM8?.status==='ready'&&await m8Reader.verifyPrepared(preparedM8);
         if(!current()||store.memoryReadFence!==fence)return false;
