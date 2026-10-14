@@ -12,6 +12,8 @@ The old `lsa-essential-e1-candidate/tools/runTests.mjs` and Python isolated load
 
 ## Commands and receipts
 
+Review repair: CI job names and Markdown/JSON summaries now separate scoped verification health from the original S01–S10 release gates. A failed original gate stays failed; any other failing suite is explicitly reported as an unresolved verification/source failure. No assertion, selection, inventory, skip or process exit is softened. Reports require a clean, unchanged exact head for a passing runner result. The reporting regression test verifies classification does not mutate outcomes. Historical Windows WS6 latency/source failures remain unresolved until comparative baseline/candidate evidence explains them; a scoped green job cannot override them or certify full-product acceptance.
+
 `node tools/memory-k-verification/run.mjs --profile NAME --output ABSOLUTE_OUTSIDE_CHECKOUT`
 
 Profiles: `infrastructure`, `policy`, `storage`, `source`, `shared`, `essential`, `essential-nested`, `original-scenarios`, `all`. Profiles are test selections, not runtime configuration. Policy tests cover off intent, dependency failure and sibling requests; they do **not** prove operational switches. Storage/source suites retain positive, negative and regression assertions. C/E1 must supply production lifecycle/off/isolation acceptance tests before operational activation is certified.

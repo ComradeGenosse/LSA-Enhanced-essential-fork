@@ -1,10 +1,11 @@
-import {readFile, mkdir, writeFile, mkdtemp, rm} from 'node:fs/promises';
+import {readFile, mkdir, writeFile, appendFile, mkdtemp, rm} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {spawnSync} from 'node:child_process';
 import {discoverTests, fingerprintTests, verifyInventory,loadInventory} from './discovery.mjs';
 import {selectProfile} from './profiles.mjs';
+import {classifyResults,summaryMarkdown} from './reporting.mjs';
 
 const root = fileURLToPath(new URL('../../', import.meta.url));
 const args = process.argv.slice(2);
@@ -55,9 +56,14 @@ receipt.finishedAt = new Date().toISOString();
 receipt.headAfter = git('rev-parse','HEAD');
 receipt.trackedChangesAfter = git('status','--porcelain');
 receipt.exactCleanHead = !dirty && !receipt.trackedChangesAfter && receipt.headAfter === head;
-receipt.passed = receipt.results.every(result => result.passed) && receipt.headAfter === head;
+receipt.passed = receipt.results.every(result => result.passed) && receipt.exactCleanHead;
+receipt.health = classifyResults(receipt.results);
 receipt.totals = Object.fromEntries(['tests','pass','fail','cancelled','skipped','todo'].map(key =>
   [key,receipt.results.reduce((sum,result)=>sum+result[key],0)]));
 await writeFile(path.join(output,'receipt.json'),JSON.stringify(receipt,null,2)+'\n');
+const summary=summaryMarkdown(receipt);
+await writeFile(path.join(output,'summary.md'),summary);
+if(process.env.GITHUB_STEP_SUMMARY)await appendFile(process.env.GITHUB_STEP_SUMMARY,summary);
 console.log(JSON.stringify({head,exactCleanHead:receipt.exactCleanHead,profile:profileName,...receipt.totals}));
+console.log(JSON.stringify(receipt.health));
 process.exitCode = receipt.passed ? 0 : 1;

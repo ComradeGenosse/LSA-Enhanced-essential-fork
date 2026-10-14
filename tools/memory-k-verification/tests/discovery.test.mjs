@@ -6,7 +6,26 @@ import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {discoverTests,verifyInventory,loadInventory} from '../discovery.mjs';
 import {selectProfile} from '../profiles.mjs';
+import {classifyResults,summaryMarkdown} from '../reporting.mjs';
 import '../offline.mjs';
+
+test('reporting separates original NO-GO gates and unexpected source failures without changing outcomes',()=>{
+  const gate={file:'tests/memory-k-original-S01.test.mjs',passed:false};
+  const source={file:'tests/memory/ws6Latency.test.mjs',passed:false};
+  const green={file:'tests/memory-capability-policy.test.mjs',passed:true};
+  const results=[gate,source,green],before=JSON.stringify(results);
+  const health=classifyResults(results);
+  assert.equal(health.scopedVerification.status,'failed');
+  assert.deepEqual(health.scopedVerification.failures,[source.file]);
+  assert.equal(health.originalReleaseGates.status,'failed');
+  assert.deepEqual(health.originalReleaseGates.failures,[gate.file]);
+  assert.equal(health.releaseAcceptance,'not_certified');
+  assert.equal(JSON.stringify(results),before);
+  const scoped=classifyResults([green]);
+  assert.equal(scoped.scopedVerification.status,'passed');
+  assert.equal(scoped.originalReleaseGates.status,'not_run');
+  assert.match(summaryMarkdown({profile:'all',head:'head',exactCleanHead:true,passed:false,health}),/Unresolved verification\/source failure/);
+});
 
 test('offline verification denies external provider fetch before any request',async()=>{
   await assert.rejects(fetch('https://api.openai.com/v1/responses'),/External network access is disabled/);

@@ -13,6 +13,7 @@ permissions:
   contents: read
 jobs:
   source-profiles:
+    name: ${{ matrix.profile == 'all' && 'Full-product source gates (NO-GO until green)' || 'Scoped verification' }} / ${{ matrix.profile }} / ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
