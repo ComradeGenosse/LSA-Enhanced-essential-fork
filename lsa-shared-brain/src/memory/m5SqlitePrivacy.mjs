@@ -180,9 +180,9 @@ function verifiedPrivacyReceipt(db,s,operationId){
    const bundle=db.prepare('SELECT * FROM m5_trash WHERE '+ownerWhere+' AND operation_id=?')
      .all(...ownerKey(s),ticket.operation_id);
    if(!sameIds(bundle)||bundle.some(t=>t.restored_at_utc!==r.committedAtUtc||t.purged_at_utc!==null))corrupt();
-   // A later forget invalidates an earlier restore as proof of current visibility.
-   const hidden=suppressedMemoryIds(db,s);
-   if([...ids].some(id=>hidden.has(id)))fail('m5_privacy_receipt_inactive');
+   // This is a historical restore receipt: independently suppressed targets
+   // may legitimately remain hidden, but the restored operation's own ledger
+   // must have been released. Do not claim current visibility from this read.
    if(db.prepare('SELECT 1 FROM memory_suppressions WHERE '+ownerWhere+
      ' AND command_id=? LIMIT 1').get(...ownerKey(s),ticket.operation_id))
      corrupt();
