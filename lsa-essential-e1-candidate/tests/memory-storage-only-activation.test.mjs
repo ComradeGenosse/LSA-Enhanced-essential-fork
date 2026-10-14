@@ -50,7 +50,8 @@ function rows(file) {
   const db=new DatabaseSync(file,{readOnly:true});
   try {
     const names=db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name").all().map(row=>row.name);
-    return Object.fromEntries(names.map(name=>[name,db.prepare(`SELECT * FROM "${name.replaceAll('"','""')}" ORDER BY rowid`).all()]));
+    return Object.fromEntries(names.map(name=>[name,db.prepare(`SELECT * FROM "${name.replaceAll('"','""')}"`).all()
+      .sort((a,b)=>JSON.stringify(a).localeCompare(JSON.stringify(b)))]));
   }finally{db.close();}
 }
 
@@ -113,7 +114,8 @@ test('retained journals, suppression records, schema and durability snapshots su
   await recorder.recordPlayerAccepted({characterId:p.characterId,identity:identity('forget'),text:'forget this',source:'typed',attribution:{protagonist:'franklin'}});
   const lines=await seed.readDialogueLines({characterId:p.characterId,timelineId}),original=lines.find(row=>row.content==='private retained text'),requestLine=lines.find(row=>row.content==='forget this');
   await seed.commitCommand({scope:{characterId:p.characterId,worldProfileId,timelineId,protagonistKey:'franklin'},
-    commandId:randomUUID(),requestedByLineId:requestLine.recordId,operation:'forget',text:original.content,
+    commandId:randomUUID(),requestedByLineId:requestLine.recordId,operation:'forget',
+    origin:'explicit_player',recordType:'dialogue_line',content:original.content,
     contentHash:createHash('sha256').update(original.content).digest('hex'),pin:false,
     evidenceRecordIds:[original.recordId,requestLine.recordId],targetRecordId:original.recordId,
     correctionMode:null,subjectCertainty:null,requestedAtUtc:requestLine.committedAtUtc});
