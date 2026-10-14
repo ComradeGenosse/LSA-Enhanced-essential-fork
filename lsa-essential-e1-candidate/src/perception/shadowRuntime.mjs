@@ -20,7 +20,7 @@ const PS3_REASON_COUNTERS = Object.freeze({
 });
 
 export class ShadowRuntime {
-  constructor({ mode='off', radio='off', radioCatalog=RadioTrackTextCatalog.unavailable(), now=()=>Math.floor(performance.now()), situationFor=()=>({}), acceptedObservationTap=null }={}) {
+  constructor({ mode='off', radio='off', radioCatalog=RadioTrackTextCatalog.unavailable(), now=()=>Math.floor(performance.now()), situationFor=()=>({}), acceptedObservationTap=null, consumers=null }={}) {
     this.mode=mode;this.radio=radio==='shadow'?'shadow':'off';this.radioCatalog=radioCatalog??RadioTrackTextCatalog.unavailable();this.now=now;this.anchors=new Map();this.signals=[];this.sequence=0;this.producers=new Map();this.epoch=null;this.stream=null;this.lastReceipt=0;
     this.hostContext=null;this.observerIndexVersion=null;this.memoryCurrentOwnerPlayerVersion=null;this.observerIndex=new Map();this.observerSituations=new Map();this.observerSituationVersion=null;this.primaryBehaviorOwnerVersion=null;this.directorRequestVersion=null;this.directorPriority=null;this.directorReceipts=[];this.situationProvider=situationFor;
     this.counters=Object.fromEntries(['received','dropped','stale','malformed','duplicate','gaps','expired','resets'].map(k=>[k,0]));
@@ -31,15 +31,18 @@ export class ShadowRuntime {
     // Never persist these capture refs or infer replacement actors.
     this.missingRefReasons=new Map();this.lastResetReason='none';
     this.capabilities=Object.fromEntries(CAPABILITIES.map(k=>[k,false]));this.diagnostics=null;
-    this.observations=new ObservationStore({now,current:ref=>this.current(ref)});
-    this.episodes=new EpisodeStore({now,current:ref=>this.current(ref)});
-    this.correlator=new EpisodeCorrelator({episodes:this.episodes,observations:this.observations,now,current:ref=>this.current(ref),anchor:ref=>this.anchors.get(ref)});
-    this.transcripts=new SharedTranscriptStore({now,current:ref=>this.current(ref)});
-    this.salience=new SalienceCache({now});
+    this.consumerActivation=consumers;
+    const ps2=mode==='shadow'&&(consumers===null||consumers.ps2?.enabled===true);
+    const ps3=ps2&&(consumers===null||consumers.ps3?.enabled===true);
+    this.observations=ps2?new ObservationStore({now,current:ref=>this.current(ref)}):null;
+    this.episodes=ps2?new EpisodeStore({now,current:ref=>this.current(ref)}):null;
+    this.correlator=ps2?new EpisodeCorrelator({episodes:this.episodes,observations:this.observations,now,current:ref=>this.current(ref),anchor:ref=>this.anchors.get(ref)}):null;
+    this.transcripts=ps2?new SharedTranscriptStore({now,current:ref=>this.current(ref)}):null;
+    this.salience=ps3?new SalienceCache({now}):null;
     this.ps2Diagnostics={correlated:0,witnessed:0,duplicates:0,dropped:0,speechGate:'unsupported_capture_receipt'};
     // M3 opt-in synchronous acceptance tap. Off by default. It may enqueue a
     // frozen receipt, never do async SQLite or let an exception break PS2.
-    this.acceptedObservationTap=typeof acceptedObservationTap==='function'?acceptedObservationTap:null;
+    this.acceptedObservationTap=ps2&&typeof acceptedObservationTap==='function'?acceptedObservationTap:null;
     this.memoryTapDiagnostics={delivered:0,rejected:0,faults:0};
     this.ps3Diagnostics={decisions:0,urgent:0,eligible:0,staged:0,suppressed:0,faults:0,reasons:Object.fromEntries(Object.values(PS3_REASON_COUNTERS).map(k=>[k,0]))};
   }
@@ -91,7 +94,7 @@ export class ShadowRuntime {
     this.lastResetReason='reset_'+kind;
     for(const ref of this.anchors.keys())this.recordMissingRef(ref,this.lastResetReason);
     this.hostContext=null;this.observerIndexVersion=null;this.memoryCurrentOwnerPlayerVersion=null;this.observerIndex.clear();this.observerSituations.clear();this.observerSituationVersion=null;this.primaryBehaviorOwnerVersion=null;this.directorRequestVersion=null;this.directorPriority=null;this.directorReceipts=[];
-    this.anchors.clear();this.signals=[];this.producers.clear();this.observations.clear();this.episodes.clear();this.correlator.clear();this.salience.clear();this.transcripts.setActiveRun(null);this.epoch=null;this.stream=null;this.sequence=0;this.lastReceipt=0;this.diagnostics=null;this.capabilities=Object.fromEntries(CAPABILITIES.map(k=>[k,false]));this.count('resets');
+    this.anchors.clear();this.signals=[];this.producers.clear();this.observations?.clear();this.episodes?.clear();this.correlator?.clear();this.salience?.clear();this.transcripts?.setActiveRun(null);this.epoch=null;this.stream=null;this.sequence=0;this.lastReceipt=0;this.diagnostics=null;this.capabilities=Object.fromEntries(CAPABILITIES.map(k=>[k,false]));this.count('resets');
     const key={initialization:'initializations',disconnect:'disconnects',fault:'faults',timeout:'timeouts',manual:'manual'}[reason]||'manual';this.bump(this.resetDiagnostics,key);
   }
   current(ref) {const a=this.anchors.get(ref);return Boolean(a && a.expires>this.now() && this.epoch);}
@@ -99,11 +102,11 @@ export class ShadowRuntime {
     if(this.epoch && this.now()-this.lastReceipt>3000) {this.reset('timeout');return;}
     for(const [ref,a] of this.anchors) if(a.expires<=this.now()) this.retire(ref,'lease_expired');
     this.signals=this.signals.filter(s=>{ if(s.expires<=this.now()) {this.bump(this.historyDiagnostics,'expired');return false;} return true; });
-    this.observations.expire();
-    this.episodes.expire();
-    this.salience.expire(this.now());
+    this.observations?.expire();
+    this.episodes?.expire();
+    this.salience?.expire(this.now());
   }
-  retire(ref,reason='retire') { if(this.anchors.has(ref))this.recordMissingRef(ref,reason);this.salience.releaseReference(ref);this.anchors.delete(ref);this.observerIndex.delete(ref);this.observerSituations.delete(ref);this.signals=this.signals.filter(s=>s.value.target!==ref && s.value.source!==ref && s.value.facts.vehicle!==ref);this.observations.expire();this.episodes.expire(); }
+  retire(ref,reason='retire') { if(this.anchors.has(ref))this.recordMissingRef(ref,reason);this.salience?.releaseReference(ref);this.anchors.delete(ref);this.observerIndex.delete(ref);this.observerSituations.delete(ref);this.signals=this.signals.filter(s=>s.value.target!==ref && s.value.source!==ref && s.value.facts.vehicle!==ref);this.observations?.expire();this.episodes?.expire(); }
   retainSignal(value,critical,expires) {
     if(!critical && this.signals.filter(x=>!x.critical).length>=192) {
       const index=this.signals.findIndex(x=>!x.critical);
@@ -121,7 +124,7 @@ export class ShadowRuntime {
     if(this.mode!=='shadow' || !authenticated) return false;
     this.expire();
     if(!validateFrame(v)) {this.count('malformed');return false;}
-    if(v.type==='hello') {this.reset('initialization');this.epoch=v.adapterEpoch;this.stream=v.streamId;this.hostContext=readHostContext(v);this.observerIndexVersion=v.observerIndexVersion??null;this.memoryCurrentOwnerPlayerVersion=v.memoryCurrentOwnerPlayerVersion??null;this.observerSituationVersion=v.observerSituationVersion??null;this.primaryBehaviorOwnerVersion=v.primaryBehaviorOwnerVersion??null;this.directorRequestVersion=v.directorRequestVersion??null;this.capabilities=Object.freeze({...v.capabilities});this.transcripts.setActiveRun(this.epoch);this.lastReceipt=this.now();return true;}
+    if(v.type==='hello') {this.reset('initialization');this.epoch=v.adapterEpoch;this.stream=v.streamId;this.hostContext=readHostContext(v);this.observerIndexVersion=v.observerIndexVersion??null;this.memoryCurrentOwnerPlayerVersion=v.memoryCurrentOwnerPlayerVersion??null;this.observerSituationVersion=v.observerSituationVersion??null;this.primaryBehaviorOwnerVersion=v.primaryBehaviorOwnerVersion??null;this.directorRequestVersion=v.directorRequestVersion??null;this.capabilities=Object.freeze({...v.capabilities});this.transcripts?.setActiveRun(this.epoch);this.lastReceipt=this.now();return true;}
     if(v.adapterEpoch!==this.epoch || v.streamId!==this.stream) {this.count('stale');return false;}
     if(v.sequence<=this.sequence) {this.count('duplicate');return false;}
     if(v.sequence!==this.sequence+1) {this.count('gaps');this.reset('fault');return false;}
@@ -133,7 +136,7 @@ export class ShadowRuntime {
       const epoch=this.epoch,stream=this.stream,sequence=this.sequence,capabilities=this.capabilities;
       const memoryCurrentOwnerPlayerVersion=this.memoryCurrentOwnerPlayerVersion,observerIndexVersion=this.observerIndexVersion,observerSituationVersion=this.observerSituationVersion,primaryBehaviorOwnerVersion=this.primaryBehaviorOwnerVersion,directorRequestVersion=this.directorRequestVersion;
       this.reset('manual');this.memoryCurrentOwnerPlayerVersion=memoryCurrentOwnerPlayerVersion;this.observerIndexVersion=observerIndexVersion;this.observerSituationVersion=observerSituationVersion;this.primaryBehaviorOwnerVersion=primaryBehaviorOwnerVersion;this.directorRequestVersion=directorRequestVersion;this.directorPriority=null;this.hostContext=context;this.epoch=epoch;this.stream=stream;this.sequence=sequence;
-      this.capabilities=capabilities;this.transcripts.setActiveRun(epoch);this.lastReceipt=this.now();return true;
+      this.capabilities=capabilities;this.transcripts?.setActiveRun(epoch);this.lastReceipt=this.now();return true;
     }
     if(v.type==='memory_authority') {
       if(!this.hostContext||v.payload.hostRunId!==this.hostContext.hostRunId||
@@ -247,6 +250,10 @@ export class ShadowRuntime {
     const facts={...s.facts};if(facts.collision) facts.collision=Object.freeze({...facts.collision});
     const value=Object.freeze({...s,facts:Object.freeze(facts)});
     this.count('received');
+    // Complete envelope, source/producer sequence, capabilities, reference
+    // kinds and TTL have all been checked. Off consumers retain no semantic
+    // history and cannot receive an accepted-observation tap.
+    if(!this.correlator)return true;
     if(s.producer==='radio') {
       this.retainSignal(value,false,this.now()+BOUNDS.signalTtlMs-s.ageMs);
       const normalized=s.kind==='radio_changed'?normalizeRadioSignal(s,this.radioCatalog):null;
@@ -257,7 +264,7 @@ export class ShadowRuntime {
       if(correlated.duplicate) this.ps2Diagnostics.duplicates=Math.min(MAX_COUNTER,this.ps2Diagnostics.duplicates+1);
       else if(correlated.accepted) {this.ps2Diagnostics.correlated=Math.min(MAX_COUNTER,this.ps2Diagnostics.correlated+Number(Boolean(correlated.episodeId)));this.ps2Diagnostics.witnessed=Math.min(MAX_COUNTER,this.ps2Diagnostics.witnessed+correlated.observations.length);}
       if(!correlated.accepted) this.ps2Diagnostics.dropped=Math.min(MAX_COUNTER,this.ps2Diagnostics.dropped+1);
-      for(const observationId of correlated.removedObservationIds||[]) this.salience.forgetObservation(observationId);
+      for(const observationId of correlated.removedObservationIds||[]) this.salience?.forgetObservation(observationId);
       for(const observation of correlated.observations||[]) {this.#tapAcceptedObservation(observation);this.noteSalience(observation);}
       // R4 ranks radio locally only. R5 remains responsible for model-visible projection.
       return true;
@@ -408,6 +415,7 @@ export class ShadowRuntime {
   // PS6 candidates are restricted to original PS2/PS3 observer-qualified
   // evidence. This read does not reserve tickets or consume response grants.
   directorCandidatesFor(observerRef) {
+    if(!this.salience||!this.observations)return Object.freeze([]);
     if(!this.epoch || !this.current(observerRef))return Object.freeze([]);
     const index=this.observerIndex.get(observerRef);
     if(!index?.owned || index.kind!=='ped' || !this.current(observerRef))
@@ -438,7 +446,7 @@ export class ShadowRuntime {
     return Object.freeze(candidates);
   }
   refreshSalience(observerRef=null) {
-    if(!this.epoch)return;
+    if(!this.epoch||!this.salience)return;
     const counts=new Map(),situations=new Map();let player=null;
     for(const anchor of this.anchors.values())if(anchor.kind==='player' && this.current(anchor.captureRef)){player=anchor.captureRef;break;}
     for(const entry of this.observations.entries.values()){
@@ -450,6 +458,7 @@ export class ShadowRuntime {
     }
   }
   noteSalience(observation,suppliedSituation=null) {
+    if(!this.salience)return null;
     try {
       let player=null;
       for(const anchor of this.anchors.values()) if(anchor.kind==='player') { player=anchor.captureRef; break; }
@@ -469,6 +478,6 @@ export class ShadowRuntime {
     } catch { this.ps3Diagnostics.faults=Math.min(MAX_COUNTER,this.ps3Diagnostics.faults+1); return null; }
   }
   acceptPlayerTranscript({text,receipt=null}={}) {
-    return this.transcripts.accept({capability:this.capabilities.playerSpeech===true,receipt,text});
+    return this.transcripts?.accept({capability:this.capabilities.playerSpeech===true,receipt,text})??null;
   }
 }

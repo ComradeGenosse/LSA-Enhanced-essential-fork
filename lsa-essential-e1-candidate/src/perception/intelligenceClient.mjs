@@ -1,4 +1,5 @@
 import { captureKnowledgeInputs, assertKnowledgeCurrent } from '../context/knowledgeInputs.mjs';
+import {immutableSnapshot} from '../context/turnSnapshot.mjs';
 import net from 'node:net';
 import { BOUNDS } from './contracts.mjs';
 import { ShadowRuntime } from './shadowRuntime.mjs';
@@ -88,7 +89,7 @@ export class IntelligenceClient {
   // Privileged in-process listener, receiving ONLY post-authentication source frames.
   subscribeAuthenticatedNativeMemoryAuthority(listener,onRetire=()=>{}) {
     if(typeof listener!=='function'||typeof onRetire!=='function'||
-       this.memoryAuthoritySubscriptions.size>=8)throw new TypeError('memory_source_subscriber_invalid');
+       this.memoryAuthoritySubscriptions.size>=8||[...this.memoryAuthoritySubscriptions].some(sub=>sub.listener===listener))throw new TypeError('memory_source_subscriber_invalid');
     const subscription=Object.freeze({listener,onRetire});
     this.memoryAuthoritySubscriptions.add(subscription);
     return ()=>this.memoryAuthoritySubscriptions.delete(subscription);
@@ -100,7 +101,7 @@ export class IntelligenceClient {
   // authenticated socket intake. It never accepts caller-supplied frames.
   subscribeAuthenticatedNativeOwnerPlayer(listener,onRetire=()=>{}) {
     if(typeof listener!=='function'||typeof onRetire!=='function'||
-       this.currentOwnerPlayerSubscriptions.size>=8)
+       this.currentOwnerPlayerSubscriptions.size>=8||[...this.currentOwnerPlayerSubscriptions].some(sub=>sub.listener===listener))
       throw new TypeError('native_current_owner_subscriber_invalid');
     const item=Object.freeze({listener,onRetire});
     this.currentOwnerPlayerSubscriptions.add(item);
@@ -542,8 +543,8 @@ export class IntelligenceClient {
     this.directorOwnerReservations.clear();this.directorNativeSubmitted.clear();this.directorStockDispatched.clear();this.directorStockContexts.clear();this.directorStockClaims.clear();
   }
 
-  constructor(config,{connect=options=>net.createConnection(options),directorProductionRequired=false,now,situationFor,radioCatalog,acceptedObservationTap=null,originalTurnPriority=()=>null,originalTurnReserve=()=>null,originalTurnCurrent=()=>null,originalTurnRelease=()=>false,originalTurnPhase=()=>null,report=summary=>console.info('[PS] companion_shadow '+JSON.stringify(summary)),telemetry=()=>{}}={}) {
-    this.hostContextListeners=new Set();this.worldBoundaryListeners=new Set();this.knowledgeListeners=new Set();this.memoryAuthoritySubscriptions=new Set();this.currentOwnerPlayerSubscriptions=new Set();this.config=config;this.connect=connect;this.runtime=new ShadowRuntime({mode:config.mode,radio:config.radio,radioCatalog,now,situationFor,acceptedObservationTap});this.report=report;this.telemetry=telemetry;this.originalTurnPriority=typeof originalTurnPriority==='function'?originalTurnPriority:()=>null;
+  constructor(config,{connect=options=>net.createConnection(options),directorProductionRequired=false,now,situationFor,radioCatalog,consumers=null,acceptedObservationTap=null,originalTurnPriority=()=>null,originalTurnReserve=()=>null,originalTurnCurrent=()=>null,originalTurnRelease=()=>false,originalTurnPhase=()=>null,report=summary=>console.info('[PS] companion_shadow '+JSON.stringify(summary)),telemetry=()=>{}}={}) {
+    this.hostContextListeners=new Set();this.worldBoundaryListeners=new Set();this.knowledgeListeners=new Set();this.memoryAuthoritySubscriptions=new Set();this.currentOwnerPlayerSubscriptions=new Set();this.config=config;this.connect=connect;this.runtime=new ShadowRuntime({mode:config.mode,radio:config.radio,radioCatalog,now,situationFor,acceptedObservationTap,consumers});this.report=report;this.telemetry=telemetry;this.originalTurnPriority=typeof originalTurnPriority==='function'?originalTurnPriority:()=>null;
     this.originalTurnReserve=typeof originalTurnReserve==='function'?originalTurnReserve:()=>null;
     this.originalTurnCurrent=typeof originalTurnCurrent==='function'?originalTurnCurrent:()=>null;
     this.originalTurnRelease=typeof originalTurnRelease==='function'?originalTurnRelease:()=>false;
@@ -572,11 +573,27 @@ export class IntelligenceClient {
       nativeDiagnostics:{dropped:diagnostics?.dropped??0,staleRejected:diagnostics?.staleRejected??0},
       capabilities:this.runtime.capabilities,
       damageCallbacks:diagnostics?.damageCallbacks??{ped_damage:0,player_damage:0,vehicle_damage:0},
-      ps2:{...this.runtime.ps2Diagnostics,playerSpeechGate:diagnostics?.playerSpeechGate??'unsupported_capture_receipt',speech:this.runtime.transcripts.diagnostics},
+      ps2:{...this.runtime.ps2Diagnostics,playerSpeechGate:diagnostics?.playerSpeechGate??'unsupported_capture_receipt',speech:this.runtime.transcripts?.diagnostics??null},
       ps3:{...this.runtime.ps3Diagnostics,reasons:{...this.runtime.ps3Diagnostics.reasons}},
       radioCatalog:{unknownTextIds:counter(this.runtime.radioCatalog?.unknownTextIds),catalogMismatches:counter(this.runtime.radioCatalog?.catalogMismatches)},
       finalSnapshot,
+      operation:this.operationalStates(),
     };
+  }
+  operationalStates() {
+    const source=this.runtime,age=source.now()-source.lastReceipt;
+    const fresh=!this.closed&&!!this.socket&&!this.socket.destroyed&&!!source.epoch&&age>=0&&age<=3000;
+    const state=this.closed?'stopped':fresh?'operational':this.socket?'waiting':'disconnected';
+    const row=(requestedMode,initialized,reason=null)=>Object.freeze({requestedMode,
+      state:reason==='dependency_blocked'?'blocked':!initialized?'stopped':state,
+      effectiveMode:!initialized?'off':fresh?requestedMode:null,
+      operationalState:!initialized?'stopped':state,reason:reason??(fresh?null:'authenticated_source_unavailable')});
+    const consumers=source.consumerActivation;
+    return Object.freeze({
+      'source.core':row('on',true),
+      'ps2.observations':row(consumers?.ps2.requestedMode??'shadow',!!source.correlator,consumers?.ps2.reason),
+      'ps3.salience':row(consumers?.ps3.requestedMode??'shadow',!!source.salience,consumers?.ps3.reason),
+    });
   }
   emitReport(finalSnapshot=false) {
     const summary=this.summary(finalSnapshot);
@@ -585,6 +602,7 @@ export class IntelligenceClient {
   }
   start() {
     if(this.config.mode!=='shadow' || this.closed || this.socket) return;
+    clearTimeout(this.retry);this.retry=null;
     this.persist('intelligence_status',{stage:'connecting'});
     const socket=this.connect({path:`\\\\.\\pipe\\${this.config.pipeName}`});this.socket=socket;
     let buffer=Buffer.alloc(0),frames=[],hello=false,sawLiveFrame=false;
@@ -622,18 +640,23 @@ export class IntelligenceClient {
         if(accepted&&(v?.type==='hello'||v?.type==='world_epoch'))this.retireAuthenticatedNativeMemoryAuthority();
         // Any source/protocol fault, anchor/owner change or epoch boundary
         // invalidates in-flight leases, not merely the next TTL refresh.
-        if(!accepted || v?.type==='hello' || v?.type==='world_epoch')
+        if(!accepted || v?.type==='hello')
           this.retireAuthenticatedNativeOwnerPlayer('terminal');
+        else if(v?.type==='world_epoch'&&beforeHost&&
+          this.runtime.hostContext?.worldEpoch===beforeHost.worldEpoch+1)
+          this.retireAuthenticatedNativeOwnerPlayer('world');
         else if(['anchors','observer_index','retire','retire_batch'].includes(v?.type))
           this.retireAuthenticatedNativeOwnerPlayer('roster',
             v.type==='retire'?[v.payload.captureRef]:
             v.type==='retire_batch'?v.payload:[]);
+        const sourceReceipt=accepted&&['memory_authority','memory_current_owner_player'].includes(v?.type)
+          ?Object.freeze({frame:immutableSnapshot(v)}):null;
         if(accepted&&v?.type==='memory_authority')for(const sub of [...this.memoryAuthoritySubscriptions]){
-          try{sub.listener(Object.freeze({frame:v}));}catch{try{sub.onRetire();}catch{}}
+          try{sub.listener(sourceReceipt);}catch{try{sub.onRetire();}catch{}}
         }
         if(accepted&&v?.type==='memory_current_owner_player')
           for(const item of [...this.currentOwnerPlayerSubscriptions])
-            try{item.listener(Object.freeze({frame:v}));}
+            try{item.listener(sourceReceipt);}
             catch{try{item.onRetire();}catch{}}
         if (accepted && v?.type==='hello') this.publishHostContext(this.runtime.hostContext);
         if(accepted && v?.type==='world_epoch') {
@@ -698,6 +721,7 @@ export class IntelligenceClient {
     this.helloDeadline=setTimeout(()=>{if(!hello) fail();},3000).unref();socket.once('close',()=>clearTimeout(this.helloDeadline));
   }
   stop() {
+    if(this.closed&&!this.socket)return;
     this.retireAuthenticatedNativeMemoryAuthority();this.retireAuthenticatedNativeOwnerPlayer();
     this.cancelDirectorRequests();this.closed=true;clearTimeout(this.retry);clearInterval(this.watch);clearTimeout(this.helloDeadline);if(this.work) clearImmediate(this.work);
     if(this.socket) this.socket.destroy(); else if(this.runtime.epoch) {this.emitReport(true);this.runtime.reset('disconnect');this.retireAuthenticatedNativeMemoryAuthority();this.retireAuthenticatedNativeOwnerPlayer();this.publishHostContext(null);this.notifyKnowledgeInvalidation();}
