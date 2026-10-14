@@ -27,6 +27,7 @@ import {createM3ProductionMemory} from './memory/m3ProductionMemory.mjs';
 import {createMemoryD02Port} from './memory/memoryD02Port.mjs';
 import {resolveMemoryKCapabilities} from './memory/capabilityPolicy.mjs';
 import {createMemoryKRuntimeComposition,memoryKConsumersAllowed,runtimeCleanupError} from './memory/runtimeComposition.mjs';
+import {memoryKSourceActivation} from './memory/sourceActivation.mjs';
 
 export async function createRuntimeForBundle(options = {}) {
   // Explicit test/embedding environments remain isolated from local secrets.
@@ -137,7 +138,13 @@ export async function createRuntimeForBundle(options = {}) {
     }
   }
   runtime.services.memoryKRuntimeDiagnostics=()=>composition.snapshot(Object.fromEntries(
-    Object.entries(runtime.services.memoryKCapabilities()).map(([id,row])=>[id,row.registrationStatus])));
+    Object.entries(runtime.services.memoryKCapabilities()).map(([id,row])=>[id,row.registrationStatus])),{
+      ...runtime.intelligence?.operationalStates(),
+      ...(runtime.memoryD02?{'authority.d02':Object.freeze({requestedMode:'on',
+        state:runtime.closed?'stopped':runtime.memoryD02.status().settled?'operational':'waiting',
+        effectiveMode:runtime.closed?'off':runtime.memoryD02.status().settled?'on':null,
+        operationalState:runtime.closed?'stopped':runtime.memoryD02.status().settled?'operational':'waiting',
+        reason:runtime.memoryD02.status().settled?null:'d02_owner_authority_unavailable'})}:{})});
   runtime.dispose=()=>owner.dispose();
   runtime.shutdown=runtime.dispose;
   let restarting=null;
@@ -171,7 +178,7 @@ export async function createRuntimeForBundle(options = {}) {
       'privacy.core':config.promotedCharacters.storageMode==='sqlite' &&
         typeof store?.withP2SqliteRead==='function',
       'ps1.producers':!!runtime.intelligence,
-      'ps2.observations':!!runtime.intelligence,
+      'ps2.observations':!!source?.correlator,
       'ps3.salience':!!source?.salience,
       'ps4.perceived':runtime.dialogueKnowledgeBuildSupported===true,
       'ps6.speech':!!runtime.director,
@@ -231,8 +238,9 @@ export async function createRuntimeForBundle(options = {}) {
         owner.starting('source.intelligence');
         const suppliedIntelligenceTelemetry=options.intelligenceOptions?.telemetry;
         // Radio remains optional and never supplies a second model prompt writer.
+        const sourceActivation=memoryKSourceActivation(config);
         let radioCatalog=options.intelligenceOptions?.radioCatalog;
-        if(radioCatalog===undefined && config.intelligence.radio==='shadow') {
+        if(sourceActivation.ps2.enabled && radioCatalog===undefined && config.intelligence.radio==='shadow') {
           try {radioCatalog=loadRadioTrackTextCatalog(await readFile(new URL('../data/radioTrackTextIds.v2.json',import.meta.url),'utf8'));} catch {}
         }
         let memoryIntake=null;
@@ -255,6 +263,7 @@ export async function createRuntimeForBundle(options = {}) {
           originalTurnRelease:ticket=>{try{return runtime.host.directorReleaseOriginalTurn(ticket);}catch{return false;}},
           originalTurnPhase:ticket=>{try{return runtime.host.directorOriginalPhase(ticket);}catch{return null;}},
           ...options.intelligenceOptions,
+           consumers:sourceActivation,
            acceptedObservationTap:canBindMemory&&memoryKConsumersAllowed(config)?memoryObservationTap:null,
            telemetry:(event,data)=>{
           try { suppliedIntelligenceTelemetry?.(event,data); } catch {}
@@ -325,7 +334,7 @@ export async function createRuntimeForBundle(options = {}) {
 
   // Production coordinator: original Core kb is still the only scheduler.
   // The native add-on must independently opt in and source-pin each C-06 gate.
-  if(config.spontaneousSpeech.mode!=='off' && runtime.intelligence) {
+  if(config.spontaneousSpeech.mode!=='off' && runtime.intelligence?.runtime.salience) {
     const client=runtime.intelligence;
     const now=()=>client.runtime.now();
     const experimental=config.spontaneousSpeech.mode==='experimental';

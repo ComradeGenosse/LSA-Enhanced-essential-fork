@@ -105,7 +105,10 @@ export function createNativeCurrentOwnerPlayerAuthority({
       settled=false;return;
     }
     if(reason!=='roster') {
-      if(context?.streamId) {
+      // A validated C-13 next-world frame uses the SAME native transport.
+      // Revoke all leases/history, but do not blacklist that continuing stream.
+      // Invalid frames/disconnect/replay still require a new authenticated hello.
+      if(reason!=='world'&&context?.streamId) {
         retiredStreams.add(context.streamId);
         if(retiredStreams.size>64)retiredStreams.delete(retiredStreams.values().next().value);
       }

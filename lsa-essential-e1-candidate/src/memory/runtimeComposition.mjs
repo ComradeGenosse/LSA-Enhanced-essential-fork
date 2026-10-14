@@ -81,12 +81,14 @@ export function createMemoryKRuntimeComposition(config) {
   // must never infer their readiness from methods or policy configuration.
   const requested=Object.keys(requests).length>0;
   return Object.freeze({scope,
-    snapshot(available={}) {
+    snapshot(available={},operation={}) {
       const policy=resolveMemoryKCapabilities({config,available});
       const lifecycle=scope.snapshot();
       return Object.freeze({lifecycle,policy,
         capabilities:Object.freeze(Object.fromEntries(MEMORY_K_CAPABILITIES.map(descriptor=>{
           const row=policy[descriptor.id];
+          if(operation[descriptor.id])return [descriptor.id,Object.freeze({
+            ...operation[descriptor.id],configurationExplicit:requested})];
           const storage=descriptor.id==='p2.sqlite'&&config.promotedCharacters?.storageMode==='sqlite'
             ?lifecycle.resources['p2.storage']:null;
           if(storage) return [descriptor.id,Object.freeze({requestedMode:'on',
