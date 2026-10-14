@@ -36,6 +36,8 @@ export function createM3ProductionMemory({intelligence,memoryStore,nativeAuthori
     }),
     ...authorityOptions,
   });
+  let unsubHost=null,unsubBoundary=null;
+  try {
   adapter=createM3Ps2ObserverAdapter({
     ps2:intelligence.runtime,p2:memoryStore,store:memoryStore,nativeAuthority:authority,attribution,
     coverage:ownsAuthority?{resolveCharacter:alias=>resolveLivePromotedProfile(memoryStore,alias),...coverage}:null,
@@ -50,11 +52,11 @@ export function createM3ProductionMemory({intelligence,memoryStore,nativeAuthori
   // Any change of native host run / world epoch (or its loss) retires queued
   // work; in-flight work is independently fenced inside the P2 write.
   let epoch=null;
-  const unsubHost=intelligence.subscribeVerifiedHostContext(host=>{
+  unsubHost=intelligence.subscribeVerifiedHostContext(host=>{
     const stamp=host?host.hostRunId+':'+host.worldEpoch:null;
     if(stamp!==epoch){adapter.retire();epoch=stamp;}
   });
-  const unsubBoundary=intelligence.subscribeWorldBoundary(()=>{adapter.retire();});
+  unsubBoundary=intelligence.subscribeWorldBoundary(()=>{adapter.retire();});
   return Object.freeze({
     authority:ownsAuthority?authority:null,
     adapter,
@@ -62,8 +64,14 @@ export function createM3ProductionMemory({intelligence,memoryStore,nativeAuthori
     snapshot:()=>adapter.snapshot(),
     async close() {
       try{unsubHost?.();unsubBoundary?.();}catch{}
-      await adapter.shutdown().catch(()=>{});
-      if(ownsAuthority)authority.close();
+      try{await adapter.shutdown();}
+      finally{if(ownsAuthority)authority.close();}
     },
   });
+  } catch(error) {
+    unsubHost?.();unsubBoundary?.();
+    adapter?.close();
+    if(ownsAuthority)authority.close();
+    throw error;
+  }
 }

@@ -25,9 +25,7 @@ import { createDialogueTrace, createNoopDialogueTrace } from './observability/di
 import {createM3ProductionMemory} from './memory/m3ProductionMemory.mjs';
 import {createMemoryD02Port} from './memory/memoryD02Port.mjs';
 import {resolveMemoryKCapabilities} from './memory/capabilityPolicy.mjs';
-
-const shutdownClosers = new Set();
-let shutdownFlushRegistered = false;
+import {createMemoryKRuntimeComposition,memoryKConsumersAllowed} from './memory/runtimeComposition.mjs';
 
 export async function createRuntimeForBundle(options = {}) {
   // Explicit test/embedding environments remain isolated from local secrets.
@@ -50,6 +48,9 @@ export async function createRuntimeForBundle(options = {}) {
     if (contract === undefined) try { contract = JSON.parse(await readFile(new URL('../build-manifest.json',import.meta.url),'utf8')).characterContract; } catch {}
     config = Object.freeze({ ...config,promotedCharacters:Object.freeze({ ...config.promotedCharacters,nativeSupported:characterContractSupported(contract) }) });
   }
+  const composition=createMemoryKRuntimeComposition(config);
+  const owner=composition.scope;
+  try {
   let telemetry = options.telemetry;
   if (!telemetry) {
     const entry = path.basename(process.argv[1] || '');
@@ -72,7 +73,7 @@ export async function createRuntimeForBundle(options = {}) {
           credentialAvailable: Boolean(config.reasoningKey || config.transcriptionKey || config.ttsKey),
           bundleHash: manifest.builtBundleSha256, dllHash: manifest.nativeContract?.dllSha256,
         } });
-        shutdownClosers.add(telemetry);
+        owner.own('telemetry',telemetry,value=>value.close());
       } catch (error) {
         try { console.warn(`[E1 telemetry] persistent logging unavailable (${/^[A-Za-z][A-Za-z0-9_]{0,63}$/.test(error?.code || '') ? error.code : 'initialization_failed'}).`); } catch {}
         telemetry = createNoopTelemetry();
@@ -91,15 +92,11 @@ export async function createRuntimeForBundle(options = {}) {
       });
       dialogueTrace = createDialogueTrace({ sink, telemetryRunId: telemetry?.runId || null, config: config.dialogueLogging,
         secrets: [config.reasoningKey, config.transcriptionKey, config.ttsKey] });
-      shutdownClosers.add(dialogueTrace);
+      owner.own('dialogueTrace',dialogueTrace,value=>value.close());
     } catch (error) {
       try { console.warn(`[E1 dialogue] persistent logging unavailable (${/^[A-Za-z][A-Za-z0-9_]{0,63}$/.test(error?.code || '') ? error.code : 'initialization_failed'}).`); } catch {}
       dialogueTrace = createNoopDialogueTrace();
     }
-  }
-  if (!shutdownFlushRegistered) {
-    shutdownFlushRegistered = true;
-    process.once('beforeExit', async () => { for (const closer of shutdownClosers) await closer.close().catch(() => {}); });
   }
   // The existing host starts before the authenticated native pipe. Keep a
   // single source-fenced read-through authority; absence must stay unknown.
@@ -112,8 +109,32 @@ export async function createRuntimeForBundle(options = {}) {
     verifyNativeCoverage:x=>connectedMemoryAuthority?.verifyNativeCoverage(x)??null
   });
   const runtime = createRuntime(config, { ...options,
+    deferCharacterInitialization:true,
     memoryNativeAuthority:options.memoryNativeAuthority??memoryAuthorityPort,
     telemetry, dialogueTrace });
+  owner.own('essential.connections',runtime,value=>value.closeConnections());
+  if(runtime.identityService) owner.own('p1.identity',runtime.identityService,value=>value.close({closeEvidence:!options.identityEvidence}));
+  // Initialize the single P2 writer before registering consumers. Bootstrap
+  // owns the lifetime; direct createRuntime callers retain their old behavior.
+  if(runtime.characterService) {
+    owner.starting('p2.storage');
+    owner.own('p2.storage',runtime.characterService,value=>value.closeStorage());
+    const ready=await runtime.characterService.initialize();
+    if(!ready) {
+      owner.failed('p2.storage');
+      // SQLite activation cannot silently become an unavailable JSON runtime.
+      if(config.promotedCharacters.storageMode==='sqlite') throw new Error('p2_sqlite_startup_failed');
+    }
+  }
+  runtime.services.memoryKRuntimeDiagnostics=()=>composition.snapshot();
+  runtime.dispose=()=>owner.dispose();
+  runtime.shutdown=runtime.dispose;
+  let restarting=null;
+  runtime.restart=()=>restarting??=(async()=>{
+    const result=await runtime.dispose();
+    if(result.failures.length) throw new Error('runtime_disposal_failed');
+    return createRuntimeForBundle(options);
+  })();
   let capabilityManifest=null,capabilityPayloadHash=null,capabilityValidation=Object.freeze([]);
   try {const bytes=await readFile(new URL('../build-manifest.json',import.meta.url));capabilityManifest=JSON.parse(bytes);capabilityPayloadHash=createHash('sha256').update(bytes).digest('hex');}catch{}
   capabilityValidation=await loadCapabilityValidation(options.capabilityValidationPath??path.resolve(process.cwd(),'diagnostics/validation.v1.json'));
@@ -194,7 +215,9 @@ export async function createRuntimeForBundle(options = {}) {
     let contract=options.perceptionContract;
     if(contract===undefined) try {contract=JSON.parse(await readFile(new URL('../build-manifest.json',import.meta.url),'utf8')).perceptionContract;}catch{}
     if(perceptionContractSupported(contract)) {
+      const checkpoint=owner.checkpoint();
       try {
+        owner.starting('source.intelligence');
         const suppliedIntelligenceTelemetry=options.intelligenceOptions?.telemetry;
         // Radio remains optional and never supplies a second model prompt writer.
         let radioCatalog=options.intelligenceOptions?.radioCatalog;
@@ -221,12 +244,13 @@ export async function createRuntimeForBundle(options = {}) {
           originalTurnRelease:ticket=>{try{return runtime.host.directorReleaseOriginalTurn(ticket);}catch{return false;}},
           originalTurnPhase:ticket=>{try{return runtime.host.directorOriginalPhase(ticket);}catch{return null;}},
           ...options.intelligenceOptions,
-           acceptedObservationTap:canBindMemory?memoryObservationTap:null,
+           acceptedObservationTap:canBindMemory&&memoryKConsumersAllowed(config)?memoryObservationTap:null,
            telemetry:(event,data)=>{
           try { suppliedIntelligenceTelemetry?.(event,data); } catch {}
           try { telemetry?.emit?.(event,null,'internal',data,'internal'); } catch {}
         }};
         runtime.intelligence=new IntelligenceClient(config.intelligence,intelligenceOptions);
+        owner.own('source.intelligence',runtime.intelligence,value=>value.stop());
         // Independently authenticated D02 owner/controlled-player source.
         // Exposes only the synchronous read-through lease/verification port;
         // neither this port nor the native frame attests accepted dialogue.
@@ -235,27 +259,27 @@ export async function createRuntimeForBundle(options = {}) {
             currentOwnerPlayerAuthority=createMemoryD02Port({
               intelligence:runtime.intelligence,memoryStore});
             runtime.memoryD02=currentOwnerPlayerAuthority.port;
-            shutdownClosers.add({close:async()=>currentOwnerPlayerAuthority?.close()});
-          }catch{currentOwnerPlayerAuthority=null;}
+            owner.own('authority.d02',currentOwnerPlayerAuthority,value=>value.close());
+          }catch{owner.failed('authority.d02');currentOwnerPlayerAuthority=null;}
         }
         // D01 OpenAI acceptance receipts never outlive a verified host run or
         // world epoch: any change retires the current acceptance source run.
         if(canBindMemory){
           let acceptanceEpoch=null;
-          runtime.intelligence.subscribeVerifiedHostContext(host=>{
+          owner.own('acceptance.host',runtime.intelligence.subscribeVerifiedHostContext(host=>{
             const stamp=host?host.hostRunId+':'+host.worldEpoch:null;
             if(stamp!==acceptanceEpoch){
               if(acceptanceEpoch!==null)runtime.retireOriginalAcceptanceSourceRun?.();
               acceptanceEpoch=stamp;
             }
-          });
-          runtime.intelligence.subscribeWorldBoundary(()=>{runtime.retireOriginalAcceptanceSourceRun?.();});
+          }),unsubscribe=>unsubscribe());
+          owner.own('acceptance.boundary',runtime.intelligence.subscribeWorldBoundary(()=>{runtime.retireOriginalAcceptanceSourceRun?.();}),unsubscribe=>unsubscribe());
         }
         // One genuine authenticated ledger for M2/M3 plus the M3 PS2 intake, built
         // by the shared factory the integration tests also use. Normal production
         // never trusts a caller-supplied nativeVerified flag or model-generated
         // owner claim; an explicit test-only injected authority stays isolated.
-        if(canBindMemory){
+        if(canBindMemory&&memoryKConsumersAllowed(config)){
           try{
             const m3=createM3ProductionMemory({intelligence:runtime.intelligence,memoryStore,
               nativeAuthority:options.memoryNativeAuthority??null,telemetry});
@@ -263,23 +287,23 @@ export async function createRuntimeForBundle(options = {}) {
             connectedMemoryAuthority=m3.authority;
             runtime.memoryM3=Object.freeze({snapshot:()=>m3.snapshot(),
               close:()=>m3.adapter.close(),shutdown:()=>m3.close()});
-            shutdownClosers.add({close:()=>m3.close()});
-          }catch{memoryIntake=null;connectedMemoryAuthority=null;try{console.warn('[M3] verified_owner_binder_unavailable');}catch{}}
+            owner.own('memory.m3',m3,value=>value.close());
+          }catch{owner.failed('memory.m3');memoryIntake=null;connectedMemoryAuthority=null;try{console.warn('[M3] verified_owner_binder_unavailable');}catch{}}
         }
         if(config.promotedCharacters.storageMode==='sqlite' && runtime.characterService?.store?.onBoundary) {
-          runtime.intelligence.subscribeVerifiedHostContext(context=>{
+          owner.own('storage.host',runtime.intelligence.subscribeVerifiedHostContext(context=>{
             try {runtime.characterService.store.setVerifiedHostContext(context);}
             catch {runtime.characterService.emit('character_safe_failure',{reason:'timeline_write_suspended'});}
-          });
+          }),unsubscribe=>unsubscribe());
           // Receive only post-validation C-13 native world epochs. No inference
           // from a model turn, OS clock, gameplay timestamp or stale channel.
-          runtime.intelligence.subscribeWorldBoundary(boundary=>{
+          owner.own('storage.boundary',runtime.intelligence.subscribeWorldBoundary(boundary=>{
             try {runtime.characterService.store.onBoundary({reason:boundary.reason});}
             catch {runtime.characterService.emit('character_safe_failure',{reason:'timeline_write_suspended'});}
-          });
+          }),unsubscribe=>unsubscribe());
         }
         runtime.intelligence.start();
-      }catch{try{console.warn('[PS] optional_channel_unavailable');}catch{}}
+      }catch{await owner.rollback(checkpoint);owner.failed('source.intelligence');runtime.intelligence=null;runtime.memoryD02=null;runtime.memoryM3=null;connectedMemoryAuthority=null;try{console.warn('[PS] optional_channel_unavailable');}catch{}}
     } else try {console.warn('[PS] optional_perception_contract_unavailable');}catch{}
   }
 
@@ -343,6 +367,7 @@ export async function createRuntimeForBundle(options = {}) {
       },
     });
     runtime.director=pump;
+    owner.own('director.pump',pump,value=>value.stop());
     runtime.services.spontaneousSpeechStatus=()=>Object.freeze({
       requested:config.spontaneousSpeech.mode,
       preset:config.spontaneousSpeech.preset,
@@ -355,39 +380,48 @@ export async function createRuntimeForBundle(options = {}) {
         client.runtime.directorRequestVersion===1,
       reason:experimental?'native_opt_in_and_live_C06_required':'shadow_only',
     });
-    client.subscribeKnowledgeInvalidation(()=>{void pump.tick();});
+    owner.own('director.subscription',client.subscribeKnowledgeInvalidation(()=>{void pump.tick();}),unsubscribe=>unsubscribe());
   }
   // Orderly shutdown revokes any still-pending OpenAI acceptance receipts.
-  shutdownClosers.add({close:async()=>{runtime.retireOriginalAcceptanceSourceRun?.();}});
   runtime.services.acceptPlayerTranscript = input => runtime.intelligence?.acceptPlayerTranscript(input) ?? {accepted:false,reason:'unsupported_capture_receipt'};
   runtime.services.projectTurnContext = input => runtime.intelligence?.projectTurnContext(input) ?? null;
   runtime.services.acknowledgeTurnContext = (projection,outcome='delivered') => runtime.intelligence?.acknowledgeTurnContext(projection,outcome) ?? false;
   if(config.activities.mode==='shadow' || config.activities.mode==='on') {
+    const checkpoint=owner.checkpoint();
     try {
+      owner.starting('activities');
       const notifyKnowledge=()=>{try{runtime.intelligence?.notifyKnowledgeInvalidation();}catch{}};
       const onEvent = (event, data) => { try { telemetry?.emit?.(event, null, 'system', data); } catch {} notifyKnowledge(); };
       const onFrame=frame=>{try{options.activityOptions?.onFrame?.(frame);}catch{}notifyKnowledge();};
       runtime.activities = config.activities.mode === 'on'
         ? new ActivityRuntime(config.activities, { ...options.activityOptions, onEvent,onFrame })
         : new ActivityClient(config.activities, { ...options.activityOptions, onEvent,onFrame });
+      owner.own('activities',runtime.activities,value=>value.stop());
       runtime.activities.start();
       runtime.characterService?.bindActivities?.(runtime.activities);
-    } catch { try { console.warn('[ACT] optional_channel_unavailable'); } catch {} }
+    } catch { await owner.rollback(checkpoint);owner.failed('activities');runtime.activities=null;try { console.warn('[ACT] optional_channel_unavailable'); } catch {} }
   }
   if (runtime.characterService) {
     // Opt-in SQLite writer must release its explicit cross-host lock at orderly shutdown.
     // No JSON default store or native effect ownership is changed.
-    if (config.promotedCharacters.storageMode === 'sqlite')
-      shutdownClosers.add({ close: () => runtime.characterService.closeStorage() });
-    await runtime.characterService.initialize();
     if (runtime.characterService.ready && options.startCharacterEditor !== false) try {
       // Per-user endpoint file for the native console bridge; null disables it.
       // The resolved environment keeps explicit test/embedding envs isolated.
       const endpointPath = options.controlEndpointPath !== undefined ? options.controlEndpointPath : defaultControlEndpointPath({ env });
       runtime.characterEditor = await startCharacterEditor(runtime.characterService,{ endpointPath });
+      owner.own('p2.editor',runtime.characterEditor,value=>value.close());
       try { console.info('[P2] Character editor: ' + runtime.characterEditor.url); } catch {}
       if (endpointPath && !runtime.characterEditor.endpointPublished) try { console.warn('[UX] Control endpoint file unavailable; native clients use the page handshake.'); } catch {}
     } catch { runtime.characterService.emit('character_safe_failure',{reason:'owner_unavailable'}); }
   }
+  // Revoke pending issuance/connections before draining consumers/storage.
+  owner.own('essential.revocation',runtime,value=>{value.retireOriginalAcceptanceSourceRun?.();value.closeConnections();});
+  const beforeExit=()=>{void runtime.dispose();};
+  process.once('beforeExit',beforeExit);
+  owner.own('process.beforeExit',beforeExit,value=>process.removeListener('beforeExit',value));
   return runtime;
+  } catch(error) {
+    await owner.dispose();
+    throw error;
+  }
 }

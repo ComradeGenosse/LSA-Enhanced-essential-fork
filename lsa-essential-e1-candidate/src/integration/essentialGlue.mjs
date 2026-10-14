@@ -31,8 +31,9 @@ import { captureReferenceMap } from '../context/turnSnapshot.mjs';
 import { IdentityResolver } from '../identity/identityResolver.mjs';
 import { CharacterService,withoutCharacterTransport } from '../characters/characterService.mjs';
 import { createNoopDialogueTrace } from '../observability/dialogueTrace.mjs';
+import {memoryKConsumersAllowed} from '../memory/runtimeComposition.mjs';
 
-export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry = null, dialogueTrace = null, providers = {}, identityEvidence, identityStore, profileStore, nativeOwner, memoryNativeAuthority = null } = {}) {
+export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry = null, dialogueTrace = null, providers = {}, identityEvidence, identityStore, profileStore, nativeOwner, memoryNativeAuthority = null, deferCharacterInitialization = false } = {}) {
   const actorPresence=new ActorPresenceStore();
   const originalTurnTimeline=new OriginalEssentialTurnTimeline();
   dialogueTrace ||= createNoopDialogueTrace();
@@ -53,9 +54,10 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
       } }) : null;
   const characterService = config.provider === 'openai' && config.promotedCharacters?.enabled
     ? new CharacterService(config,{identityService,voiceResolver,store:profileStore,nativeOwner,telemetry}) : null;
-  characterService?.initialize().catch(() => {});
+  if(!deferCharacterInitialization) characterService?.initialize().catch(() => {});
   // Optional SQLite path only. The existing JSON backend stays unchanged.
   const journalStore=characterService?.store;
+  const optionalMemoryEnabled=memoryKConsumersAllowed(config);
   // Original-turn actor ledger: populated when the patched original Xn binds a
   // generation (OpenAIConnection.beginTurn), from facts the patched bridge reads
   // out of the original turn registry for the registered session connection.
@@ -75,10 +77,10 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
   // WS-5a: runtime-owned NPC speech-delivery ledger. The recorder half is held
   // privately by the OpenAI connections (like the D01 issuer); D03 receives only
   // the read-only evaluator, scoped to its own turn tuple.
-  const speechDelivery=openaiAcceptance?createNpcSpeechDeliverySource():null;
+  const speechDelivery=openaiAcceptance&&optionalMemoryEnabled?createNpcSpeechDeliverySource():null;
   const memorySources=openaiAcceptance?Object.freeze({
     acceptance:openaiAcceptance.issuer,
-    speech:speechDelivery.recorder,
+    speech:speechDelivery?.recorder??null,
     recordTurn:(identity,connection)=>{
       const entry=originalActorLedger.recordAtTurnCreation(identity,connection);
       // A newer original generation fences issuance for older ones.
@@ -94,6 +96,7 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
   // current host + exact owner/turn/protagonist proof disables M2 writes.
   const services = {
     bindM2Turn({turn,isCurrent}={}) {
+      if(!optionalMemoryEnabled||runtime.closed) return null;
       const characterId=journalCharacter(turn);
       const ownerAlias=turn?.characterProjection?.profile?.promotion?.ownerAlias;
       if(!characterId||!ownerAlias||typeof isCurrent!=='function'||
@@ -117,6 +120,7 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
         speech:speechDelivery?{evaluate:()=>speechDelivery.verifier.evaluate(turn.identity)}:null});
     },
     async recordM2Player({turn,text,source}) {
+      if(!optionalMemoryEnabled||runtime.closed) return null;
       if(!turn?.m2Capture||!['player_text','player_mic'].includes(source))
         return null;
       return turn.m2Capture.acceptPlayer({
@@ -130,12 +134,13 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
     },
     // PS4 is the only model-facing assembler. This preflight returns evidence
     // and source-fenced read receipts, never prompt text or model instructions.
-    prepareLiveTurnMemory:args=>prepareLiveTurnMemory({store:journalStore,...args}),
+    prepareLiveTurnMemory:args=>optionalMemoryEnabled&&!runtime.closed?prepareLiveTurnMemory({store:journalStore,...args}):null,
     // The NPC side of the exchange. Takes NO text, status, receipt or byte
     // count: D03 reads the runtime's own speech-delivery ledger for this turn
     // tuple and classifies completed / interrupted / failed from that evidence
     // alone (WS-5a). A `not_stored` result means "no durable receipt".
     async recordM2Npc({turn}) {
+      if(!optionalMemoryEnabled||runtime.closed) return null;
       return turn?.m2Capture?.recordNpcOutcome?.()??null;
     },
     recordDialogueActionPublication({turn,validated,publishedAtMs}){
@@ -358,7 +363,15 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
       if (!gemini.provider) Object.defineProperty(gemini, 'provider', { value: 'gemini', configurable: true });
       return gemini;
     },
-    attach(connection) { connections.add(connection); telemetry?.emit('bridge_ready', null, null, { provider: 'openai' }); },
+    attach(connection) {
+      if(runtime.closed){connection.close();throw new Error('runtime_stopped');}
+      connections.add(connection); telemetry?.emit('bridge_ready', null, null, { provider: 'openai' });
+    },
+    closeConnections() {
+      runtime.closed=true;
+      runtime.retireOriginalAcceptanceSourceRun();
+      for(const connection of [...connections]) connection.close();
+    },
     detach(connection) {
       connections.delete(connection);
         // Session close/identity retirement/disconnect revokes every pending

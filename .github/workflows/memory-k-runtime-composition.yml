@@ -1,0 +1,31 @@
+name: Memory K C runtime composition (offline)
+on:
+  pull_request:
+    branches: [integration/memory-k-production-20261012]
+    paths:
+      - 'lsa-essential-e1-candidate/**'
+      - 'tools/memory-k-verification/registrations/runtime-composition.json'
+      - '.github/workflows/memory-k-runtime-composition.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  composition:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Instance lifecycle, off enforcement and authority regressions
+        shell: bash
+        run: |
+          node --test --test-concurrency=1 lsa-essential-e1-candidate/tests/memory-runtime-composition.test.mjs lsa-essential-e1-candidate/tests/memory-capability-policy.test.mjs lsa-essential-e1-candidate/tests/perception-bootstrap.test.mjs lsa-essential-e1-candidate/tests/p2-lifecycle.test.mjs lsa-essential-e1-candidate/tests/memory/*.test.mjs
+      - name: Original pinned candidate package build (no deployment)
+        run: node lsa-essential-e1-candidate/tools/buildCandidate.mjs
