@@ -152,6 +152,59 @@ const receipt = (operationId,operation,targetIds,atUtc)=>Object.freeze({
   version:1,kind:'m5_privacy_receipt',operationId,operation,targetIds,
   committedAtUtc:atUtc,durableCommit:true
 });
+// Existing request hashes and durable trash bundles bind receipt readback.
+// No new schema, connection or success receipt is invented during recovery.
+function verifiedPrivacyReceipt(db,s,operationId){
+ const row=db.prepare('SELECT * FROM m5_privacy_ops WHERE operation_id=? AND '+ownerWhere)
+   .get(operationId,...ownerKey(s));
+ if(!row)return null;
+ const corrupt=()=>fail('m5_privacy_receipt_integrity_failed');
+ let r;try{r=JSON.parse(row.receipt_json);}catch{corrupt();}
+ if(!r||r.version!==1||r.kind!=='m5_privacy_receipt'||r.operationId!==operationId||
+    !['trash','trash_scope','restore'].includes(r.operation)||r.durableCommit!==true||
+    !timestamp(r.committedAtUtc)||!Array.isArray(r.targetIds)||
+    r.targetIds.length>100000||!r.targetIds.every(isUuid)||new Set(r.targetIds).size!==r.targetIds.length)
+   corrupt();
+ const ids=new Set(r.targetIds);
+ const sameIds=rows=>rows.length===ids.size&&new Set(rows.map(x=>x.target_id)).size===ids.size&&
+   rows.every(x=>ids.has(x.target_id));
+ const matches=fields=>row.request_sha256===privacyHash(s,fields)||
+   row.request_sha256===legacyPrivacyHash(s,row.protagonist_key,fields);
+ if(r.operation==='restore'){
+   // The request hash identifies the original ticket even after an avatar
+   // switch; all members must have been restored in this exact operation.
+   const tickets=db.prepare('SELECT * FROM m5_trash WHERE '+ownerWhere+' AND restored_at_utc=?')
+     .all(...ownerKey(s),r.committedAtUtc);
+   const ticket=tickets.find(t=>matches({trashId:t.trash_id,operationId,operation:'restore'}));
+   if(!ticket)corrupt();
+   const bundle=db.prepare('SELECT * FROM m5_trash WHERE '+ownerWhere+' AND operation_id=?')
+     .all(...ownerKey(s),ticket.operation_id);
+   if(!sameIds(bundle)||bundle.some(t=>t.restored_at_utc!==r.committedAtUtc||t.purged_at_utc!==null))corrupt();
+   // This is a historical restore receipt: independently suppressed targets
+   // may legitimately remain hidden, but the restored operation's own ledger
+   // must have been released. Do not claim current visibility from this read.
+   if(db.prepare('SELECT 1 FROM memory_suppressions WHERE '+ownerWhere+
+     ' AND command_id=? LIMIT 1').get(...ownerKey(s),ticket.operation_id))
+     corrupt();
+ }else{
+   const bundle=db.prepare('SELECT * FROM m5_trash WHERE '+ownerWhere+' AND operation_id=?')
+     .all(...ownerKey(s),operationId);
+   // Request JSON field order is part of the original receipt hash contract.
+   const fields=r.operation==='trash'?{targetId:r.targetIds[0],operationId,operation:'trash'}:
+     {operationId,operation:'trash_scope'};
+   if(!sameIds(bundle)||bundle.some(t=>t.created_at_utc!==r.committedAtUtc)||!matches(fields)||
+      r.operation==='trash'&&r.targetIds.length===0)corrupt();
+   // A historical forget does not remain active after an authorized restore.
+   if(bundle.some(t=>t.restored_at_utc!==null))
+     fail('m5_privacy_receipt_inactive');
+   const permanent=db.prepare('SELECT target_id FROM memory_suppressions WHERE '+ownerWhere+
+     ' AND command_id=?').all(...ownerKey(s),operationId);
+   if(!sameIds(permanent))corrupt();
+   const hidden=suppressedMemoryIds(db,s);
+   if([...ids].some(id=>!hidden.has(id)))corrupt();
+ }
+ return r;
+}
 
 /** Every method routes through the single P2 serialized reader or writer.
  * SQLite callbacks must be synchronous; nested store queue calls are not
@@ -296,10 +349,16 @@ export class M5SqliteServices{
    });
  }
  async close(){ /* P2 is sole connection owner; the M5 facade never closes it. */ }
- async #read(s,fn){
+ async #read(s,fn,privacyOperation=null){
    validateScope(s,this.#store);
    await this.ready(s);
-   return this.#store.withP2SqliteRead(s,db=>{verifyOwner(db,s);return fn(db);});
+   return this.#store.withP2SqliteRead(s,db=>{
+     verifyOwner(db,s);
+     if(privacyOperation)authorizeRequest(this.#authorize,s,privacyOperation);
+     const result=fn(db);
+     if(privacyOperation)authorizeRequest(this.#authorize,s,privacyOperation);
+     return result;
+   });
  }
  async #write(s,fn,privacyOperation=null){
    validateScope(s,this.#store);
@@ -523,7 +582,7 @@ export class M5SqliteServices{
      const corrections=readCorrectionRows(db,ownerKey(scope)).filter(c=>receipts.has(c.commandId)).slice(0,limit)
        .map(c=>({targetId:c.targetId,reportedCorrection:c.content,atUtc:c.atUtc,correctionMode:c.mode,supersedesTarget:c.supersedes}));
      return {version:1,scope:{...scope},records,trash,corrections};
-   });
+   },'inspect');
  }
  async exportArchive({scope}){
    authorizeRequest(this.#authorize,scope,'export');
@@ -552,18 +611,42 @@ export class M5SqliteServices{
      const trash=db.prepare('SELECT * FROM m5_trash WHERE '+ownerWhere).all(...ownerKey(scope));
      const raw=JSON.stringify({format:'m5-promoted-memory-archive-v1',scope,dialogue,events,sidecars,memories,curationJobs,appraisals,commands,tombstones,corrections,trash,pending})+'\n';
      return {format:'m5-promoted-memory-archive-v1',sha256:sha(raw),byteLength:Buffer.byteLength(raw),json:raw};
-   });
+   },'export');
  }
  async writeArchive({scope,destinationPath}){
    authorizeRequest(this.#authorize,scope,'export');
    if(typeof destinationPath!=='string'||!path.isAbsolute(destinationPath))fail('m5_export_path_required');
    const snap=await this.exportArchive({scope});
-   const handle=await fs.open(destinationPath,'wx',0o600);
-   try{await handle.writeFile(snap.json,'utf8');await handle.sync();}
-   finally{await handle.close();}
-   const disk=await fs.readFile(destinationPath,'utf8');
-   if(sha(disk)!==snap.sha256)fail('m5_export_readback_failed');
-   return {path:destinationPath,sha256:snap.sha256,byteLength:snap.byteLength};
+   // The P2 read is already source-fenced. Also fence the asynchronous file
+   // publication: a retired and reauthorized source must not publish a
+   // snapshot taken under its previous authority generation.
+   const readFence=this.#store.memoryReadFence;
+   if(readFence===null)fail('m5_privacy_timeline_unavailable');
+   const check=()=>{
+     authorizeRequest(this.#authorize,scope,'export');
+     if(this.#store.timelineWritable!==true||
+        this.#store.activeTimelineId!==scope.timelineId||
+        this.#store.memoryReadFence!==readFence)
+       fail('m5_privacy_timeline_unavailable');
+   };
+   let handle=null,created=false;
+   try{
+     check();
+     handle=await fs.open(destinationPath,'wx',0o600);created=true;
+     check();
+     await handle.writeFile(snap.json,'utf8');
+     await handle.sync();
+     check();
+     await handle.close();handle=null;
+     const disk=await fs.readFile(destinationPath,'utf8');
+     if(sha(disk)!==snap.sha256)fail('m5_export_readback_failed');
+     check();
+     return {path:destinationPath,sha256:snap.sha256,byteLength:snap.byteLength};
+   }catch(error){
+     await handle?.close().catch(()=>{});
+     if(created)await fs.rm(destinationPath,{force:true}).catch(()=>{});
+     throw error;
+   }
  }
  /** Seven-day reversible trash. Other readers already consume tombstones. */
  async trash({scope,targetId,operationId=randomUUID()}){
@@ -637,8 +720,12 @@ export class M5SqliteServices{
  async verifyPrivacy({scope,operationId}){
    if(!isUuid(operationId))fail('m5_invalid_operation_id');
    return this.#read(scope,db=>{
-     const row=db.prepare('SELECT receipt_json AS json FROM m5_privacy_ops WHERE operation_id=? AND '+ownerWhere).get(operationId,...ownerKey(scope));
-     return row?JSON.parse(row.json):null;
+     const r=verifiedPrivacyReceipt(db,scope,operationId);
+     if(r){
+       authorizeRequest(this.#authorize,scope,r.operation);
+       suppressedMemoryIds(db,scope);
+     }
+     return r;
    });
  }
  async restore({scope,trashId,operationId=randomUUID()}){
@@ -650,11 +737,21 @@ export class M5SqliteServices{
      if(old){if(old.hash!==reqHash && old.hash!==legacyPrivacyHash(scope,old.originAvatar,{trashId,operationId,operation:'restore'}))
         fail('m5_privacy_replay_conflict');return;}
      const target=db.prepare('SELECT operation_id AS parent,target_id AS target,purge_after_utc AS expiry,restored_at_utc AS restored,purged_at_utc AS purged FROM m5_trash WHERE trash_id=? AND '+ownerWhere).get(trashId,...ownerKey(scope));
-     if(!target||target.restored||target.purged||Date.parse(now)>=Date.parse(target.expiry))fail('m5_restore_unavailable');
+     if(!target||target.restored||target.purged||!timestamp(now)||!timestamp(target.expiry)||
+        Date.parse(now)>=Date.parse(target.expiry))fail('m5_restore_unavailable');
      // Never clear an unverifiable suppression receipt on the basis of an
      // unbound trash ticket. All privacy metadata must verify before restore.
      suppressedMemoryIds(db,scope);
-     const bundle=db.prepare('SELECT target_id AS id FROM m5_trash WHERE operation_id=? AND '+ownerWhere+' AND restored_at_utc IS NULL AND purged_at_utc IS NULL').all(target.parent,...ownerKey(scope));
+     // Restore is all-or-none. Filtering out damaged/purged members and then
+     // releasing the parent's entire ledger could resurrect a purged source.
+     const bundle=db.prepare('SELECT target_id AS id,restored_at_utc AS restored,purged_at_utc AS purged,purge_after_utc AS expiry,created_at_utc AS created FROM m5_trash WHERE operation_id=? AND '+ownerWhere).all(target.parent,...ownerKey(scope));
+     const permanent=db.prepare('SELECT target_id AS id FROM memory_suppressions WHERE command_id=? AND '+ownerWhere).all(target.parent,...ownerKey(scope));
+     const permanentIds=new Set(permanent.map(p=>p.id));
+     if(!bundle.length||bundle.length!==permanent.length||new Set(bundle.map(x=>x.id)).size!==permanentIds.size||
+        bundle.some(x=>x.restored||x.purged||!timestamp(x.created)||!timestamp(x.expiry)||
+          Date.parse(x.expiry)-Date.parse(x.created)!==7*DAY||Date.parse(now)>=Date.parse(x.expiry)||
+          !permanentIds.has(x.id)||!evidence(db,scope,x.id)))fail('m5_restore_unavailable');
+     verifiedPrivacyReceipt(db,scope,target.parent); // conversational forget may have no editor receipt
      for(const x of bundle){
        db.prepare('DELETE FROM memory_tombstones WHERE world_profile_id=? AND character_id=? AND timeline_id=? AND target_id=? AND command_id=?')
          .run(scope.worldProfileId,scope.characterId,scope.timelineId,x.id,target.parent);
@@ -724,7 +821,7 @@ export class M5SqliteServices{
        if(job?.proposal?.evidenceRecordIds?.some(id=>listed.has(id)))return {confirmed:false};
      }
      return {confirmed:true};
-   });
+   },'purge');
  }
  /** Destructive, explicit 7-day purge for trash past retention. Caller must
   * actively authorize this operation. Physical deletes happen in one TX.
@@ -734,6 +831,9 @@ export class M5SqliteServices{
    if(!Number.isSafeInteger(limit)||limit<1||limit>1000)fail('m5_invalid_limit');
    const now=this.#clock();
    return this.#write(scope,db=>{
+     if(!timestamp(now))fail('m5_privacy_time_invalid');
+     // Preserve recoverable bytes when durable privacy metadata is damaged.
+     suppressedMemoryIds(db,scope);
      // LIMIT is a hard cap on *physical IDs deleted*, not a count of bundles.
      // Select only complete due bundles whose transitive derived-memory closure
      // fits the remaining budget. A larger bundle waits for an explicitly
@@ -743,13 +843,16 @@ export class M5SqliteServices{
        ' AND restored_at_utc IS NULL AND purged_at_utc IS NULL'+
        ' GROUP BY operation_id HAVING MAX(purge_after_utc)<=?'+
        ' ORDER BY dueAt,operationId LIMIT 256').all(...ownerKey(scope),now);
-     const readBundle=db.prepare('SELECT target_id AS id,operation_id AS parent'+
+     const readBundle=db.prepare('SELECT target_id AS id,operation_id AS parent,created_at_utc AS created,purge_after_utc AS expiry'+
        ' FROM m5_trash WHERE '+ownerWhere+
        ' AND operation_id=? AND restored_at_utc IS NULL AND purged_at_utc IS NULL'+
        ' ORDER BY target_id');
      const due=[];let closure=[];
      for(const group of groups){
        const next=readBundle.all(...ownerKey(scope),group.operationId);
+       verifiedPrivacyReceipt(db,scope,group.operationId);
+       if(next.some(x=>!timestamp(x.created)||!timestamp(x.expiry)||
+         Date.parse(x.expiry)-Date.parse(x.created)!==7*DAY))fail('m5_privacy_trash_integrity_failed');
        if(!next.length||next.length+due.length>limit)continue;
        const combined=dependentIds(db,scope,new Set([...due,...next].map(x=>x.id)));
        if(combined.length>limit)continue;
