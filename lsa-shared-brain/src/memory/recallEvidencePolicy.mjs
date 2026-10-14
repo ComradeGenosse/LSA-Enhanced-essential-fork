@@ -221,33 +221,53 @@ export function createRecallEvidencePolicy({store,isCurrent,verifyNativeNegative
     if(!authorized(scope,source))return incomplete('source_revoked');
     if(typeof store.withP2SqliteRead!=='function')
       return incomplete('exhaustive_p2_read_unavailable');
-    const outcome=await readWithFence(scope,source,()=>store.withP2SqliteRead(scope,db=>{
-      const keys=[scope.worldProfileId,scope.characterId,scope.timelineId];
-      const revoked=new Set([...suppressedMemoryIds(db,scope),...supersededTargetIds(db,keys)]);
-      let where='world_profile_id=? AND character_id=? AND timeline_id=?',args=[...keys];
-      if(speaker){where+=' AND speaker=?';args.push(speaker);}
-      if(fromUtc){where+=' AND committed_at_utc>=?';args.push(fromUtc);}
-      if(toUtc){where+=' AND committed_at_utc<?';args.push(toUtc);}
-      // Scan *all* relevant rows including rejected ones. Never infer that a
-      // limit-selected prefix is complete. Existing SQL/P2 connection only.
-      const sql='SELECT record_id AS recordId,content,content_sha256 AS contentHash,'+
-        'envelope_json AS raw,envelope_sha256 AS rawHash,speaker,source,delivery,'+
-        'protagonist AS avatar,session_id AS sessionId,host_run_id AS hostRunId,world_epoch AS worldEpoch,'+
-        'receipt_id AS receiptId,committed_at_utc AS atUtc FROM dialogue_journal WHERE '+where+
-        ' ORDER BY committed_at_utc ASC,record_id ASC';
-      let scanned=0,matched=0,first=null,last=null,best=null;
-      const needle=containsText.toLocaleLowerCase('en-US');
-      for(const row of db.prepare(sql).iterate(...args)){
+    // Retain an exhaustive, integrity-checked scan, but do not occupy the
+    // Node event loop through the entire archive. Genuine authenticated native
+    // samples can be processed between bounded P2 read operations.
+    // Every page is admitted on P2's original serialized SQLite connection.
+    // Any intervening committed change or native/timeline revocation aborts
+    // the entire count (never publish a partial or stale numeric answer).
+    const fence=store.memoryReadFence;
+    if(fence===null||fence===undefined)return incomplete('p2_read_fence_unavailable');
+    const keys=[scope.worldProfileId,scope.characterId,scope.timelineId];
+    let where='world_profile_id=? AND character_id=? AND timeline_id=?';
+    const args=[...keys];
+    if(speaker){where+=' AND speaker=?';args.push(speaker);}
+    if(fromUtc){where+=' AND committed_at_utc>=?';args.push(fromUtc);}
+    if(toUtc){where+=' AND committed_at_utc<?';args.push(toUtc);}
+    const sql='SELECT record_id AS recordId,content,content_sha256 AS contentHash,'+
+      'envelope_json AS raw,envelope_sha256 AS rawHash,speaker,source,delivery,'+
+      'protagonist AS avatar,session_id AS sessionId,host_run_id AS hostRunId,world_epoch AS worldEpoch,'+
+      'receipt_id AS receiptId,committed_at_utc AS atUtc FROM dialogue_journal WHERE '+where;
+    const needle=containsText.toLocaleLowerCase('en-US'),PAGE=256;
+    let cursor=null,scanned=0,matched=0,first=null,last=null,best=null;
+    for(;;){
+      if(store.memoryReadFence!==fence||!authorized(scope,source))
+        return incomplete('source_revoked_or_changed');
+      const outcome=await readWithFence(scope,source,()=>store.withP2SqliteRead(scope,db=>{
+        const seek=cursor?' AND (committed_at_utc>? OR (committed_at_utc=? AND record_id>?))':'';
+        const params=cursor?[...args,cursor.atUtc,cursor.atUtc,cursor.recordId]:args;
+        // LIMIT is on ALL physical source rows, not just matching evidence.
+        // Read the suppression set under the same serialized P2 operation.
+        return {
+          rows:db.prepare(sql+seek+' ORDER BY committed_at_utc ASC,record_id ASC LIMIT ?')
+            .all(...params,PAGE),
+          revoked:new Set([...suppressedMemoryIds(db,scope),...supersededTargetIds(db,keys)])
+        };
+      }));
+      if(!outcome.ok||store.memoryReadFence!==fence)
+        return incomplete('source_revoked_or_changed');
+      const {rows,revoked}=outcome.data;
+      for(const row of rows){
         if(++scanned>maxScan)return incomplete('scan_limit',best);
-        // Corrupt source rows cannot be silently omitted from an exact total.
+        // Every row, including nonmatches, is hash checked. A corrupt
+        // accepted/delivered envelope prevents any "exact" answer.
         if(!HASH.test(row.contentHash)||!HASH.test(row.rawHash)||
-          sha(row.content)!==row.contentHash||sha(row.raw)!==row.rawHash)
+           sha(row.content)!==row.contentHash||sha(row.raw)!==row.rawHash)
           return incomplete('source_integrity_failure',best);
         if(revoked.has(row.recordId)||excludeRecordIds.includes(row.recordId))continue;
         const evidence=isQualifiedLine(row,scope,revoked);
         if(!evidence){
-          // Invalid status is non-evidence, but a malformed accepted/delivered
-          // envelope requires abstention, not a misleading exact number.
           if(row.delivery==='accepted'||row.delivery==='completed')
             return incomplete('source_integrity_failure',best);
           continue;
@@ -258,19 +278,25 @@ export function createRecallEvidencePolicy({store,isCurrent,verifyNativeNegative
         ++matched;
         if(!first)first=ref;
         last=ref;
-        // Byte-exact quote or explicit omission. Never silently shorten speech.
         best={...ref,category:'exact_quote',
           ...(row.content.length<=3072?{content:row.content}:{quoteOmitted:true})};
       }
-      const summary={status:'complete',reason:'exhaustive_authenticated_p2_dialogue',
-        exactCount:matched,first,last,best,scanned,
-        querySemantics:'literal_substring',scope:{characterId:scope.characterId,
-          worldProfileId:scope.worldProfileId,timelineId:scope.timelineId}};
-      if(bytes(summary)>maxBytes&&best)summary.best={...last,quoteOmitted:true};
-      if(bytes(summary)>maxBytes)return incomplete('output_budget');
-      return Object.freeze(summary);
-    }));
-    return outcome.ok?outcome.data:incomplete('source_revoked_or_read_failed');
+      if(rows.length<PAGE)break;
+      const tail=rows.at(-1);
+      cursor={atUtc:tail.atUtc,recordId:tail.recordId};
+      // This is scheduling only, NOT a substitute for D02 proof. A missing
+      // or retired sample makes authorized() fail on the next iteration.
+      await new Promise(resolve=>setImmediate(resolve));
+    }
+    if(store.memoryReadFence!==fence||!authorized(scope,source))
+      return incomplete('source_revoked_or_changed');
+    const summary={status:'complete',reason:'exhaustive_authenticated_p2_dialogue',
+      exactCount:matched,first,last,best,scanned,
+      querySemantics:'literal_substring',scope:{characterId:scope.characterId,
+        worldProfileId:scope.worldProfileId,timelineId:scope.timelineId}};
+    if(bytes(summary)>maxBytes&&best)summary.best={...last,quoteOmitted:true};
+    if(bytes(summary)>maxBytes)return incomplete('output_budget');
+    return Object.freeze(summary);
   }
   /** Labels only P2-authenticated integrated projection rows, within PS4 budget. */
   async function labelledEvidence({scope,source,sourceKind=null,terms=[],recordIds=null,maxBytes=4096}={}){
