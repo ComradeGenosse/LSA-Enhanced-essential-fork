@@ -13,6 +13,7 @@ import {captureKnowledgeInputs} from '../src/context/knowledgeInputs.mjs';
 import {selectRadioContext} from '../src/perception/radioContextProjector.mjs';
 import {createRuntimeForBundle} from '../src/bootstrap.mjs';
 import {verifyPerceptionContract} from '../tools/verifyPerceptionContract.mjs';
+import {projectCapabilityHealth} from '../src/observability/capabilityHealth.mjs';
 
 const turn={pedId:'101',turnId:'turn-source-only',generationId:1,sessionNonce:1};
 const pause=()=>new Promise(resolve=>setImmediate(()=>setImmediate(resolve)));
@@ -216,4 +217,17 @@ test('D1 bootstrap composes source-only consumers, accurate states and instance 
   assert.equal(starts,2);assert.equal(stops,1);assert.equal(replacement.intelligence.runtime.salience,null);
   await replacement.dispose();assert.equal(stops,2);
   assert.equal(process.listenerCount('beforeExit'),before);
+});
+
+test('D1 legacy health cannot report semantic perception supported from a source-only transport',async()=>{
+  const contract=await verifyPerceptionContract();
+  const config={provider:'openai',intelligence:{mode:'shadow'},dialogueKnowledge:{mode:'active'},
+    memoryK:{capabilities:{'ps2.observations':'off','ps3.salience':'off'}}};
+  const hostContext={hostContextVersion:1,hostRunId:uuid(),worldEpoch:1};
+  const perception={hostContext,epoch:uuid(),capabilities:{snapshot:true},observerIndexVersion:1,observerSituationVersion:1};
+  const rows=projectCapabilityHealth({config,manifest:{perceptionContract:contract},perception});
+  assert.equal(rows['ps.perception'].configured,'off');assert.equal(rows['ps.perception'].runtimeSupported,false);
+  assert.equal(rows['ps.dialogue_knowledge'].runtimeSupported,false);
+  assert.equal(rows['ps.speech_heard'].configured,'off');
+  assert.equal(rows['ps.perception'].hostRunId,hostContext.hostRunId,'source host remains available');
 });

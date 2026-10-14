@@ -3,6 +3,7 @@ import {isUuid} from '../identity/identityContract.mjs';
 import {perceptionContractSupported} from '../perception/nativeSupport.mjs';
 import {dialogueKnowledgeContractSupported} from '../config/dialogueKnowledge.mjs';
 import {readHostContext,sameHostContext} from '../context/hostContext.mjs';
+import {memoryKSourceActivation} from '../memory/sourceActivation.mjs';
 
 const ACT2=Object.freeze(['hold_position','follow_person','resume_ambient','sit_on_ground']);
 export const HEALTH_CAPABILITIES=Object.freeze(['ps.perception','ps.dialogue_knowledge','ps.activity_facts','ps.dialogue_receipts','ps.speech_heard',...ACT2.map(key=>`act.${key}`),'cge.gaze','radio.facts']);
@@ -42,13 +43,16 @@ export function projectCapabilityHealth({config={},manifest=null,payloadHash=nul
   result[key]=Object.freeze({compiled:compiled===true,configured,runtimeSupported:runtimeSupported===true,hostRunId:hostContext?.hostRunId??null,validated,suspended:suspended===true,active:compiled===true && configured==='active' && runtimeSupported===true && hash(payloadHash) && validated.includes(payloadHash) && suspended!==true});
  };
  const psReady=!!psHost && !!perception?.epoch;
- row('ps.perception',perceptionContractSupported(manifest?.perceptionContract),config.intelligence?.mode==='shadow'?'shadow':'off',psReady && perception.capabilities?.snapshot===true,psHost);
- row('ps.dialogue_knowledge',matched,['off','shadow','active'].includes(config.dialogueKnowledge?.mode)?config.dialogueKnowledge.mode:'off',psReady && config.provider==='openai' && perception.observerIndexVersion===1 && perception.observerSituationVersion===1,psHost);
+ const activation=memoryKSourceActivation(config);
+ const ps2=activation.ps2.enabled&&perception?.correlator!==null;
+ const ps3=ps2&&activation.ps3.enabled&&perception?.salience!==null;
+ row('ps.perception',perceptionContractSupported(manifest?.perceptionContract),config.intelligence?.mode==='shadow'&&ps2?'shadow':'off',psReady && ps2 && perception.capabilities?.snapshot===true,psHost);
+ row('ps.dialogue_knowledge',matched,['off','shadow','active'].includes(config.dialogueKnowledge?.mode)?config.dialogueKnowledge.mode:'off',psReady && ps3 && config.provider==='openai' && perception.observerIndexVersion===1 && perception.observerSituationVersion===1,psHost);
  const selfRuntime=psReady && perception.observerIndexVersion===1 && perception.observerSituationVersion===1 && !!actHost && act?.ready===true && sameHostContext(psHost,actHost) && config.provider==='openai';
  row('ps.activity_facts',matched,config.dialogueKnowledge?.activityFacts??'off',selfRuntime,actHost);
  row('ps.dialogue_receipts',matched,config.dialogueKnowledge?.dialogueReceipts??'off',selfRuntime && act?.dialogueActionVersion===1,actHost);
  // Source-time utterance receipts and the two optional contributors are not compiled yet.
- row('ps.speech_heard',false,config.intelligence?.mode==='shadow'?'shadow':'off',false,psHost);
+ row('ps.speech_heard',false,config.intelligence?.mode==='shadow'&&ps2?'shadow':'off',false,psHost);
  for(const key of ACT2){
   const mixed=!!psHost && !!actHost && !sameHostContext(psHost,actHost);
   const supported=!!actHost && act?.ready===true && act.capabilities?.[key]===true && !mixed;
