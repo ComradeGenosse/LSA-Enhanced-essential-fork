@@ -62,11 +62,19 @@ export function createMemoryKRuntimeComposition(config) {
             operationalState:storage.state,reason:storage.reason,
             // Opening storage does not certify a timeline/source/privacy operation.
             configurationExplicit:requested})];
+          const optional=descriptor.id.startsWith('memory.')||descriptor.id.startsWith('events.');
+          const offEnforced=requested&&optional&&row.requestedMode==='off';
+          // Mandatory source/authority and ordinary PS policy rows retain B's
+          // unverified evidence state. A running transport is not source proof,
+          // and lack of proof is not absent production wiring.
+          const state=row.state==='blocked'?'blocked':offEnforced?'stopped':
+            optional&&requested&&row.requestedMode!=='off'?'unavailable':
+            row.requestedMode==='off'?'requested':row.state;
           return [descriptor.id,Object.freeze({requestedMode:row.requestedMode,
-            state:row.state==='blocked'?'blocked':row.requestedMode==='off'&&requested&&descriptor.id.startsWith('memory.')?'stopped':row.requestedMode==='off'?'requested':'unavailable',
-            effectiveMode:row.requestedMode==='off'&&requested&&descriptor.id.startsWith('memory.')?'off':null,operationalState:'unverified',
-            reason:row.requestedMode==='off'?(requested&&descriptor.id.startsWith('memory.')?'optional_consumer_stopped':'legacy_operation_unverified'):
-              row.state==='blocked'?'dependency_blocked':'independent_production_wiring_pending',
+            state,effectiveMode:offEnforced?'off':null,operationalState:'unverified',
+            reason:offEnforced?'optional_consumer_stopped':row.state==='blocked'?'dependency_blocked':
+              optional&&requested&&row.requestedMode!=='off'?'independent_production_wiring_pending':
+              row.requestedMode==='off'?'legacy_operation_unverified':row.reason,
             configurationExplicit:requested})];
         })))});
     },

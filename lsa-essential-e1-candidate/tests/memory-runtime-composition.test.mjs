@@ -63,6 +63,7 @@ test('policy is reused, explicit off is enforced, unfinished on requests remain 
   assert.equal(rows['memory.events'].state,'stopped');assert.equal(rows['memory.events'].effectiveMode,'off');
   assert.equal(rows['memory.cloudCuration'].state,'unavailable');
   assert.equal(rows['memory.cloudCuration'].effectiveMode,null);
+  assert.equal(rows['source.core'].state,'unverified','missing source proof is not missing production wiring');
   assert.equal(memoryKConsumersAllowed({memoryK:{capabilities:{}}}),true);
 });
 test('bootstrap owns one beforeExit listener and isolated instances dispose independently',async t=>{

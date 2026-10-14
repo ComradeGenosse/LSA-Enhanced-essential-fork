@@ -126,7 +126,8 @@ export async function createRuntimeForBundle(options = {}) {
       if(config.promotedCharacters.storageMode==='sqlite') throw new Error('p2_sqlite_startup_failed');
     }
   }
-  runtime.services.memoryKRuntimeDiagnostics=()=>composition.snapshot();
+  runtime.services.memoryKRuntimeDiagnostics=()=>composition.snapshot(Object.fromEntries(
+    Object.entries(runtime.services.memoryKCapabilities()).map(([id,row])=>[id,row.registrationStatus])));
   runtime.dispose=()=>owner.dispose();
   runtime.shutdown=runtime.dispose;
   let restarting=null;
