@@ -120,12 +120,21 @@ test('retained journals, suppression records, schema and durability snapshots su
     evidenceRecordIds:[original.recordId,requestLine.recordId],targetRecordId:original.recordId,
     correctionMode:null,subjectCertainty:null,requestedAtUtc:requestLine.committedAtUtc});
   await seed.close();const before=rows(f.sqlite),snapshots=await readdir(f.sqlite+'.snapshots');
+  const stableSnapshots=await Promise.all(snapshots.filter(name=>!name.startsWith('daily-')).map(async name=>
+    ({name,bytes:await readFile(path.join(f.sqlite+'.snapshots',name))})));
   assert.ok(before.memory_tombstones.length>0);assert.ok(snapshots.length>0);
   const runtime=await f.start(),after=rows(f.sqlite);
   for(const table of ['dialogue_journal','event_journal','memory_tombstones','m5_trash']) assert.deepEqual(after[table],before[table],table);
   assert.equal(runtime.characterService.store.timelineWritable,false,'reopened retained data is not source authority');
   await runtime.dispose();
-  for(const name of snapshots) assert.ok((await stat(path.join(f.sqlite+'.snapshots',name))).isFile());
+  // Existing durability policy coalesces same-day daily snapshots. Preserve
+  // immutable weekly/pre-migration bytes and verify the replacement daily copy
+  // retains both journal and suppression, rather than weakening retention.
+  for(const {name,bytes} of stableSnapshots) assert.deepEqual(await readFile(path.join(f.sqlite+'.snapshots',name)),bytes);
+  const daily=(await readdir(f.sqlite+'.snapshots')).find(name=>name.startsWith('daily-'));
+  assert.ok(daily);const durable=rows(path.join(f.sqlite+'.snapshots',daily));
+  assert.deepEqual(durable.dialogue_journal,before.dialogue_journal);
+  assert.deepEqual(durable.memory_tombstones,before.memory_tombstones);
   assert.equal(f.effects(),0);
 });
 
