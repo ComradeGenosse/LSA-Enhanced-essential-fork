@@ -21,7 +21,7 @@ const PS3_REASON_COUNTERS = Object.freeze({
 
 export class ShadowRuntime {
   constructor({ mode='off', radio='off', radioCatalog=null, now=()=>Math.floor(performance.now()), situationFor=()=>({}), acceptedObservationTap=null, consumers=null }={}) {
-    this.mode=mode;this.radio=radio==='shadow'?'shadow':'off';this.radioCatalog=radioCatalog??RadioTrackTextCatalog.unavailable();this.now=now;this.anchors=new Map();this.signals=[];this.sequence=0;this.producers=new Map();this.epoch=null;this.stream=null;this.lastReceipt=0;
+    this.mode=mode;this.radio=radio==='shadow'?'shadow':'off';this.now=now;this.anchors=new Map();this.signals=[];this.sequence=0;this.producers=new Map();this.epoch=null;this.stream=null;this.lastReceipt=0;
     this.hostContext=null;this.observerIndexVersion=null;this.memoryCurrentOwnerPlayerVersion=null;this.observerIndex=new Map();this.observerSituations=new Map();this.observerSituationVersion=null;this.primaryBehaviorOwnerVersion=null;this.directorRequestVersion=null;this.directorPriority=null;this.directorReceipts=[];this.situationProvider=situationFor;
     this.counters=Object.fromEntries(['received','dropped','stale','malformed','duplicate','gaps','expired','resets'].map(k=>[k,0]));
     this.historyDiagnostics={expired:0,evicted:0,skipped:0,highWater:0};

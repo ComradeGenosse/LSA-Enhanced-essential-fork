@@ -586,11 +586,12 @@ export class IntelligenceClient {
     const state=this.closed?'stopped':fresh?'operational':this.socket?'waiting':'disconnected';
     const row=(requestedMode,initialized,reason=null)=>Object.freeze({requestedMode,
       state:reason==='dependency_blocked'?'blocked':!initialized?'stopped':state,
-      effectiveMode:!initialized?'off':fresh?requestedMode:null,
-      operationalState:!initialized?'stopped':state,reason:reason??(fresh?null:'authenticated_source_unavailable')});
+      effectiveMode:!initialized||this.closed?'off':fresh?requestedMode:null,
+      operationalState:!initialized?'stopped':state,reason:reason??(fresh||this.closed?null:'authenticated_source_unavailable')});
     const consumers=source.consumerActivation;
     return Object.freeze({
-      'source.core':row('on',true),
+      'source.core':fresh&&!source.hostContext?Object.freeze({requestedMode:'on',state:'unavailable',
+        effectiveMode:null,operationalState:'unavailable',reason:'authenticated_host_context_unavailable'}):row('on',true),
       'ps2.observations':row(consumers?.ps2.requestedMode??'shadow',!!source.correlator,consumers?.ps2.reason),
       'ps3.salience':row(consumers?.ps3.requestedMode??'shadow',!!source.salience,consumers?.ps3.reason),
     });
