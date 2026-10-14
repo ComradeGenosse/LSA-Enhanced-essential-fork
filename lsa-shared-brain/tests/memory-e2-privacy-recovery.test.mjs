@@ -246,7 +246,8 @@ test('E2 old single-item forget receipt cannot claim active suppression after re
  await assert.rejects(p.trash({scope:x.scope,targetId:line.recordId,operationId:forgetId}),/privacy_receipt_inactive/);
  const renewed=await p.trash({scope:x.scope,targetId:line.recordId,operationId:id()});
  assert.equal(renewed.durableCommit,true);
- await assert.rejects(p.verifyPrivacy({scope:x.scope,operationId:restoreId}),/privacy_receipt_inactive/);
+ // Restore receipt records its historical commit, not future visibility.
+ assert.equal((await p.verifyPrivacy({scope:x.scope,operationId:restoreId})).operation,'restore');
  assert.ok((await x.store.listSuppressedMemoryIds(x.scope)).includes(line.recordId));
 });
 
