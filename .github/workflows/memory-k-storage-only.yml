@@ -1,0 +1,51 @@
+name: Memory K E1 storage-only (C prerequisite preview)
+on:
+  pull_request:
+    branches: [integration/memory-k-production-20261012]
+    paths:
+      - 'lsa-essential-e1-candidate/**'
+      - 'lsa-shared-brain/**'
+      - 'tools/memory-k-verification/registrations/storage-only.json'
+      - '.github/workflows/memory-k-storage-only.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  storage-only:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    env:
+      MEMORY_K_C_PREREQUISITE: 56c24a6d134dff82fb79321bc5e6db1001bd1d5c
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Standalone profile contract and fail-closed pre-C behavior
+        run: node --test lsa-essential-e1-candidate/tests/memory-storage-only-contract.test.mjs lsa-essential-e1-candidate/tests/memory-capability-policy.test.mjs
+      - name: Construct reviewed prerequisite preview without updating any branch
+        shell: bash
+        run: |
+          mkdir -p "$RUNNER_TEMP/memory-k-storage-only"
+          git rev-parse HEAD > "$RUNNER_TEMP/memory-k-storage-only/e1-head.txt"
+          git fetch origin "$MEMORY_K_C_PREREQUISITE"
+          git -c user.name='Memory K verification' -c user.email='memory-k-verification@users.noreply.github.com' merge --no-edit "$MEMORY_K_C_PREREQUISITE"
+          git rev-parse HEAD > "$RUNNER_TEMP/memory-k-storage-only/combined-head.txt"
+          git status --porcelain > "$RUNNER_TEMP/memory-k-storage-only/source-status.txt"
+      - name: Real SQLite, migration, editor, isolation and lifecycle regression (offline)
+        shell: bash
+        run: |
+          node --test --test-reporter=tap --test-concurrency=1 lsa-essential-e1-candidate/tests/memory-storage-only-contract.test.mjs lsa-essential-e1-candidate/tests/memory-storage-only-activation.test.mjs lsa-essential-e1-candidate/tests/memory-runtime-composition.test.mjs lsa-essential-e1-candidate/tests/memory-capability-policy.test.mjs lsa-essential-e1-candidate/tests/m1-sqlite-foundation.test.mjs lsa-essential-e1-candidate/tests/m1-shared-memory-parity.test.mjs lsa-shared-brain/tests/memory-k-ws4b-durability.test.mjs lsa-shared-brain/tests/memory-k-ws4b-review.test.mjs | tee "$RUNNER_TEMP/memory-k-storage-only/tests.log"
+      - name: Isolated original package build (not native/GTA acceptance)
+        run: node lsa-essential-e1-candidate/tools/buildCandidate.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: memory-k-storage-only-${{ matrix.os }}-${{ github.event.pull_request.head.sha || github.sha }}
+          path: ${{ runner.temp }}/memory-k-storage-only
