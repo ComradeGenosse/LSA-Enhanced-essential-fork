@@ -180,13 +180,28 @@ function verifiedPrivacyReceipt(db,s,operationId){
    const bundle=db.prepare('SELECT * FROM m5_trash WHERE '+ownerWhere+' AND operation_id=?')
      .all(...ownerKey(s),ticket.operation_id);
    if(!sameIds(bundle)||bundle.some(t=>t.restored_at_utc!==r.committedAtUtc||t.purged_at_utc!==null))corrupt();
+   // A later forget invalidates an earlier restore as proof of current visibility.
+   const hidden=suppressedMemoryIds(db,s);
+   if([...ids].some(id=>hidden.has(id)))fail('m5_privacy_receipt_inactive');
+   if(db.prepare('SELECT 1 FROM memory_suppressions WHERE '+ownerWhere+
+     ' AND command_id=? LIMIT 1').get(...ownerKey(s),ticket.operation_id))
+     corrupt();
  }else{
    const bundle=db.prepare('SELECT * FROM m5_trash WHERE '+ownerWhere+' AND operation_id=?')
      .all(...ownerKey(s),operationId);
    // Request JSON field order is part of the original receipt hash contract.
    const fields=r.operation==='trash'?{targetId:r.targetIds[0],operationId,operation:'trash'}:
      {operationId,operation:'trash_scope'};
-   if(!sameIds(bundle)||bundle.some(t=>t.created_at_utc!==r.committedAtUtc)||!matches(fields))corrupt();
+   if(!sameIds(bundle)||bundle.some(t=>t.created_at_utc!==r.committedAtUtc)||!matches(fields)||
+      r.operation==='trash'&&r.targetIds.length===0)corrupt();
+   // A historical forget does not remain active after an authorized restore.
+   if(bundle.some(t=>t.restored_at_utc!==null))
+     fail('m5_privacy_receipt_inactive');
+   const permanent=db.prepare('SELECT target_id FROM memory_suppressions WHERE '+ownerWhere+
+     ' AND command_id=?').all(...ownerKey(s),operationId);
+   if(!sameIds(permanent))corrupt();
+   const hidden=suppressedMemoryIds(db,s);
+   if([...ids].some(id=>!hidden.has(id)))corrupt();
  }
  return r;
 }
@@ -602,12 +617,32 @@ export class M5SqliteServices{
    authorizeRequest(this.#authorize,scope,'export');
    if(typeof destinationPath!=='string'||!path.isAbsolute(destinationPath))fail('m5_export_path_required');
    const snap=await this.exportArchive({scope});
-   const handle=await fs.open(destinationPath,'wx',0o600);
-   try{await handle.writeFile(snap.json,'utf8');await handle.sync();}
-   finally{await handle.close();}
-   const disk=await fs.readFile(destinationPath,'utf8');
-   if(sha(disk)!==snap.sha256)fail('m5_export_readback_failed');
-   return {path:destinationPath,sha256:snap.sha256,byteLength:snap.byteLength};
+   // Export spans awaits: recheck authority and timeline before publishing
+   // confidential bytes, and remove newly created files on revocation.
+   const check=()=>{
+     authorizeRequest(this.#authorize,scope,'export');
+     if(this.#store.timelineWritable!==true||
+        this.#store.activeTimelineId!==scope.timelineId)
+       fail('m5_privacy_timeline_unavailable');
+   };
+   let handle=null,created=false;
+   try{
+     check();
+     handle=await fs.open(destinationPath,'wx',0o600);created=true;
+     check();
+     await handle.writeFile(snap.json,'utf8');
+     await handle.sync();
+     check();
+     await handle.close();handle=null;
+     const disk=await fs.readFile(destinationPath,'utf8');
+     if(sha(disk)!==snap.sha256)fail('m5_export_readback_failed');
+     check();
+     return {path:destinationPath,sha256:snap.sha256,byteLength:snap.byteLength};
+   }catch(error){
+     await handle?.close().catch(()=>{});
+     if(created)await fs.rm(destinationPath,{force:true}).catch(()=>{});
+     throw error;
+   }
  }
  /** Seven-day reversible trash. Other readers already consume tombstones. */
  async trash({scope,targetId,operationId=randomUUID()}){
