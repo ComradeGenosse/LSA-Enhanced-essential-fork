@@ -4,7 +4,7 @@ import {dialogueKnowledgeContractSupported} from './config/dialogueKnowledge.mjs
 import path from 'node:path';
 import { readFile } from 'node:fs/promises';
 import { loadConfig } from './config/e1Config.mjs';
-import { createRuntime } from './integration/essentialGlue.mjs';
+import * as essentialRuntimeGlue from './integration/essentialGlue.mjs';
 import { loadPrivateEnvironment } from './config/privateEnvironment.mjs';
 import { createFileSink } from './observability/fileSink.mjs';
 import { Telemetry, createNoopTelemetry } from './observability/telemetry.mjs';
@@ -35,6 +35,15 @@ export async function createRuntimeForBundle(options = {}) {
     ? options.env
     : await loadPrivateEnvironment(options);
   let config = await loadConfig({ ...options, env });
+  if(config.memoryK.profile==='storage-only') {
+    if(config.provider!=='openai'||!config.promotedCharacters.enabled||
+       config.promotedCharacters.storageMode!=='sqlite'||!config.persistentIdentity.enabled)
+      throw new Error('storage_only_requires_openai_p1_p2_sqlite');
+    // C is a separately reviewed prerequisite. Fail before constructing any
+    // storage/channel/consumer on a checkout where its enforcement is absent.
+    if(essentialRuntimeGlue.MEMORY_K_COMPOSITION_VERSION!==1)
+      throw new Error('storage_only_composition_unavailable');
+  }
   if (config.persistentIdentity.enabled) {
     let contract = options.identityContract;
     if (contract === undefined) {
@@ -111,7 +120,7 @@ export async function createRuntimeForBundle(options = {}) {
     resolvePrepromotion:x=>connectedMemoryAuthority?.resolvePrepromotion(x)??null,
     verifyNativeCoverage:x=>connectedMemoryAuthority?.verifyNativeCoverage(x)??null
   });
-  const runtime = createRuntime(config, { ...options,
+  const runtime = essentialRuntimeGlue.createRuntime(config, { ...options,
     memoryNativeAuthority:options.memoryNativeAuthority??memoryAuthorityPort,
     telemetry, dialogueTrace });
   let capabilityManifest=null,capabilityPayloadHash=null,capabilityValidation=Object.freeze([]);
@@ -384,7 +393,7 @@ export async function createRuntimeForBundle(options = {}) {
       // Per-user endpoint file for the native console bridge; null disables it.
       // The resolved environment keeps explicit test/embedding envs isolated.
       const endpointPath = options.controlEndpointPath !== undefined ? options.controlEndpointPath : defaultControlEndpointPath({ env });
-      runtime.characterEditor = await startCharacterEditor(runtime.characterService,{ endpointPath });
+      runtime.characterEditor = await startCharacterEditor(runtime.characterService,{ endpointPath,...options.characterEditorOptions });
       try { console.info('[P2] Character editor: ' + runtime.characterEditor.url); } catch {}
       if (endpointPath && !runtime.characterEditor.endpointPublished) try { console.warn('[UX] Control endpoint file unavailable; native clients use the page handshake.'); } catch {}
     } catch { runtime.characterService.emit('character_safe_failure',{reason:'owner_unavailable'}); }
