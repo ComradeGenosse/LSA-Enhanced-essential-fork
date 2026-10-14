@@ -5,6 +5,7 @@ import path from 'node:path';
 import { readFile } from 'node:fs/promises';
 import { loadConfig } from './config/e1Config.mjs';
 import * as essentialRuntimeGlue from './integration/essentialGlue.mjs';
+const {createRuntime}=essentialRuntimeGlue;
 import { loadPrivateEnvironment } from './config/privateEnvironment.mjs';
 import { createFileSink } from './observability/fileSink.mjs';
 import { Telemetry, createNoopTelemetry } from './observability/telemetry.mjs';
@@ -120,7 +121,7 @@ export async function createRuntimeForBundle(options = {}) {
     resolvePrepromotion:x=>connectedMemoryAuthority?.resolvePrepromotion(x)??null,
     verifyNativeCoverage:x=>connectedMemoryAuthority?.verifyNativeCoverage(x)??null
   });
-  const runtime = essentialRuntimeGlue.createRuntime(config, { ...options,
+  const runtime = createRuntime(config, { ...options,
     memoryNativeAuthority:options.memoryNativeAuthority??memoryAuthorityPort,
     telemetry, dialogueTrace });
   let capabilityManifest=null,capabilityPayloadHash=null,capabilityValidation=Object.freeze([]);
