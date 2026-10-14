@@ -237,6 +237,7 @@ test('WS6 P2 persistent history: losing D03 cannot resurrect a forgotten line fr
  await say(x,secret);
  const target=(await x.journal()).players.find(row=>row.content===secret)?.record_id;
  assert.ok(target,'the source-backed line must first exist in P2');
+ await say(x,'That concludes our earlier topic.');
  await forget(x,target);
  // Deliberately remove the REAL private D02 corroboration from subsequent
  // original turns. The backend may still hold the older bytes in its RAM
