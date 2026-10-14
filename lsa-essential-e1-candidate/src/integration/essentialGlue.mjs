@@ -155,16 +155,23 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
     dialogueTrace,
     finalizeKnowledgeFrame(turn,{input,history,source}) {
       const character=turn.characterProjection;
+      // A persistent promoted NPC using the P2 SQLite history must never
+      // substitute unverified RAM history if D03/native proof temporarily
+      // disappears. Such RAM can contain already forgotten/corrected speech.
+      // Only the source-fenced P2 journal may supply prior dialogue here.
+      const p2HistoryRequired=optionalMemoryEnabled===true &&
+        character?.persistent===true &&
+        config.promotedCharacters?.storageMode==='sqlite';
       const args={turn:turn.identity,frozenAt:turn.knowledgeInputs?.frozenAt??0,
         profile:character?.profile,persistent:character?.persistent===true,knowledgeInputs:turn.knowledgeInputs,
         actor:turn.context.actor,listener:turn.context.listener,world:turn.context.world,referenceMap:turn.context.referenceMap,
-        presence:turn.sourcePresence,history,input,source,
+        presence:turn.sourcePresence,history:p2HistoryRequired?[]:history,input,source,
         directorEventContext:turn.directorTicket && source==='special_event'
           ? turn.context.internalEvent:null};
       const memory=turn.memoryPrepared;
-      // Once durable memory was prepared, revocation must never reintroduce
-      // forgotten journal text through the stale RAM history fallback.
-      const base=renderKnowledge({...args,history:memory?[]:history,includePerceived:false});
+      // Even a missing D03 receipt must not reintroduce a previously
+      // forgotten/corrected durable line from the original RAM conversation.
+      const base=renderKnowledge({...args,history:memory?[]:args.history,includePerceived:false});
       const memoryReady=memory?.status==='ready'&&
         memory.recallCurrent?.([],memory.preparedRecall?.stamp)===true;
       const memoryArgs=memoryReady?{
