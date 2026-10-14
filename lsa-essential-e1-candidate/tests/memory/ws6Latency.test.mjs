@@ -136,3 +136,36 @@ test('WS6 latency: disk P2 busy 10k, cold/restart M4 to PS4, original-runner pre
    reopenAndConfirmMs:ready-restartStart,firstRecallMs:performance.now()-ready}));
  }finally{await reopened.close();}
 });
+
+test('WS6 native source expiry: old-stream samples fail closed and only a new authenticated hello restores D02', {timeout:45000}, async t=>{
+ const x=await d01Harness(t);
+ x.native.stop();await x.native.idle();
+ const oldStream=x.native.streamId,oldSocket=x.native.socket;
+ // Expire via the real ShadowRuntime expiry path, not by changing D02 status
+ // or authorizing based on elapsed time. The test advances its last-receipt
+ // marker solely to exercise the negative timeout boundary.
+ x.client.runtime.lastReceipt=x.client.runtime.now()-3001;
+ x.client.runtime.expire();
+ assert.equal(x.client.runtime.epoch,null,'a timed-out source loses its epoch');
+ await x.native.sample();
+ assert.equal(x.d02.port.status().settled,false,'old-stream sample is not re-authentication');
+ assert.equal(x.client.runtime.hostContext,null,'old host evidence remains retired');
+ await x.native.renew();
+ await waitFor(()=>x.d02.port.status()?.settled===true &&
+   x.client.runtime.stream===x.native.streamId,'new authenticated hello and owner sample');
+ assert.notEqual(x.native.streamId,oldStream,'reconnect must rotate the source stream');
+ assert.equal(oldSocket.destroyed,true,'expired socket is closed');
+ assert.equal(x.d02.port.status().ownerCount,1);
+ // Repeated real reconnects preserve authentication and close prior sockets.
+ for(let i=0;i<2;i++){
+  const previous=x.native.socket,stream=x.native.streamId;
+  await x.native.renew();
+  await waitFor(()=>x.d02.port.status()?.settled===true &&
+    x.client.runtime.stream===x.native.streamId,'repeated authenticated renewal');
+  assert.equal(previous.destroyed,true);
+  assert.notEqual(x.native.streamId,stream);
+ }
+ const turn=await x.typed('I remember the little blue house.');
+ assert.equal((await x.settled(turn)).status,'completed','ordinary typed dialogue survives renewed source');
+ assert.equal((await x.journal()).players.length,1,'accepted dialogue keeps one durable journal row');
+});
