@@ -112,10 +112,28 @@ test('WS6 latency: disk P2 busy 10k, cold/restart M4 to PS4, original-runner pre
  }
  const original=x.h.runtime.services.prepareLiveTurnMemory;
  x.h.runtime.services.prepareLiveTurnMemory=async args=>{
+  const isCount=/^How many times did/.test(args.input??'');
   const at=performance.now(),p=await original(args);prep.push(performance.now()-at);
+  if(isCount)console.log('WS6_G3_BOUNDARY '+JSON.stringify({phase:'after_prepare',
+    result:p.status,originalCount:p.preparedRecall?.answerEvidence?.dialogueCount?.status,
+    countReason:p.preparedRecall?.answerEvidence?.dialogueCount?.reason,
+    initialRecallCurrent:p.recallCurrent?.([],p.preparedRecall?.stamp),
+    d02:x.d02.port.status(),memoryFencePresent:x.store.memoryReadFence!==null}));
   assert.equal(p.status,'ready');
-  return {...p,verifyPrepared:async()=>{const begin=performance.now();const ok=await p.verifyPrepared();
-   verify.push(performance.now()-begin);assert.equal(ok,true);return ok;}};
+  const priorRecall=p.recallCurrent;
+  return {...p,
+   recallCurrent:(refs,stamp)=>{
+    const ok=priorRecall?.(refs,stamp);
+    if(isCount)console.log('WS6_G3_BOUNDARY '+JSON.stringify({phase:'recall_authority',
+      current:ok,d02:x.d02.port.status(),hasStamp:!!stamp}));
+    return ok;
+   },
+   verifyPrepared:async()=>{const begin=performance.now();const ok=await p.verifyPrepared();
+    verify.push(performance.now()-begin);
+    if(isCount)console.log('WS6_G3_BOUNDARY '+JSON.stringify({phase:'pre_send_verify',
+      ok,d02:x.d02.port.status(),sourceReady:p.recallCurrent?.([],p.preparedRecall?.stamp)}));
+    assert.equal(ok,true);return ok;}
+  };
  };
  for(let i=0;i<10;i++){
   // Authorize EACH measured original turn with a new authenticated native
