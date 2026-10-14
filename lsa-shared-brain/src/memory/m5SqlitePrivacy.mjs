@@ -617,12 +617,16 @@ export class M5SqliteServices{
    authorizeRequest(this.#authorize,scope,'export');
    if(typeof destinationPath!=='string'||!path.isAbsolute(destinationPath))fail('m5_export_path_required');
    const snap=await this.exportArchive({scope});
-   // Export spans awaits: recheck authority and timeline before publishing
-   // confidential bytes, and remove newly created files on revocation.
+   // The P2 read is already source-fenced. Also fence the asynchronous file
+   // publication: a retired and reauthorized source must not publish a
+   // snapshot taken under its previous authority generation.
+   const readFence=this.#store.memoryReadFence;
+   if(readFence===null)fail('m5_privacy_timeline_unavailable');
    const check=()=>{
      authorizeRequest(this.#authorize,scope,'export');
      if(this.#store.timelineWritable!==true||
-        this.#store.activeTimelineId!==scope.timelineId)
+        this.#store.activeTimelineId!==scope.timelineId||
+        this.#store.memoryReadFence!==readFence)
        fail('m5_privacy_timeline_unavailable');
    };
    let handle=null,created=false;
