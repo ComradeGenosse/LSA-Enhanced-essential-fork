@@ -12,4 +12,4 @@
     <Compile Include="../memory-m3/SourceTimeWitnessLedger.cs" Link="SourceTimeWitnessLedger.cs" />
     <Compile Include="Program.cs" />
   </ItemGroup>
-</Project>
+<ItemGroup><Compile Include="../NativeProducerPolicy.cs" Link="NativeProducerPolicy.cs"/></ItemGroup></Project>

@@ -42,7 +42,8 @@ namespace LSA.Intelligence
         readonly Func<object> memoryCurrentOwnerPlayerSample;
         long nextMemoryAuthority;
         readonly bool ownsHost;
-        readonly SensorAdapters sensors=new SensorAdapters();
+        readonly SensorAdapters sensors;
+        readonly NativeProducerPolicy producerPolicy;
         // Every retained lifetime uses the host's monotonic time axis.
         readonly Func<OwnedParticipant[]> roster;
         readonly string pipeName;
@@ -114,7 +115,7 @@ namespace LSA.Intelligence
         int lineOfSightBudget;
         volatile bool damageReady;
         int damagePinAttempt;
-        bool stopped,started,playback;
+        bool stopped,started,playback,producerAdaptersInitialized;
         long updateCalls,completedUpdates,lastUpdateMs=-1,lastCompletedMs=-1;
         string shutdownReason="none";
         public string Id=>"intelligence";
@@ -128,7 +129,7 @@ namespace LSA.Intelligence
             while(Interlocked.CompareExchange(ref value,current+1,current)!=current);
         }
         int Age(long timestamp)=>timestamp<0?int.MaxValue:Clamp(host.MonotonicMs-timestamp);
-        internal string RuntimeStatus()=>"available="+IsAvailable+" update_calls="+UpdateCalls+" update_completed="+CompletedUpdates+" last_update_age_ms="+Age(Interlocked.Read(ref lastUpdateMs))+" last_completed_age_ms="+Age(Interlocked.Read(ref lastCompletedMs))+" last_game_tick="+callbackTick+" shutdown_reason="+ShutdownReason;
+        internal string RuntimeStatus()=>"available="+IsAvailable+" update_calls="+UpdateCalls+" update_completed="+CompletedUpdates+" last_update_age_ms="+Age(Interlocked.Read(ref lastUpdateMs))+" last_completed_age_ms="+Age(Interlocked.Read(ref lastCompletedMs))+" last_game_tick="+callbackTick+" shutdown_reason="+ShutdownReason+" "+producerPolicy.Status+" source_operational="+(IsAvailable&&Age(Interlocked.Read(ref lastCompletedMs))<=3000)+" native_available_capabilities="+string.Join(",",capabilities.Where(c=>IsAvailable&&c.Value).Select(c=>c.Key));
         internal static void LogStatus(string message) {try{Game.LogTrivial(message);}catch{}}
         // Fixed diagnostic codes only. Never log any GTA entity or ticket ID.
         void LogDirectorVeto(string stage,string reason)
@@ -143,13 +144,15 @@ namespace LSA.Intelligence
                 " status="+status+" reason="+reason);
         }
         static readonly string[] capabilityNames={"snapshot","pedDamage","playerDamage","vehicleDamage","shooting","state","action","playback","witness","awareness","playerSpeech"};
-        public IntelligenceIntegration(Func<OwnedParticipant[]> roster,string pipeName="LSA.Intelligence.v1",HostContext host=null,bool directorShadow=false,bool directorExperimental=false,string radioMode="off",int directorAttemptsPerMinute=DirectorAdmission.NormalMaxAttempts,Func<object> memoryAuthoritySample=null,Func<object> memoryCurrentOwnerPlayerSample=null) {
+        public IntelligenceIntegration(Func<OwnedParticipant[]> roster,string pipeName="LSA.Intelligence.v1",HostContext host=null,bool directorShadow=false,bool directorExperimental=false,string radioMode="off",int directorAttemptsPerMinute=DirectorAdmission.NormalMaxAttempts,Func<object> memoryAuthoritySample=null,Func<object> memoryCurrentOwnerPlayerSample=null,NativeProducerPolicy producerPolicy=null) {
             if(pipeName==null||!System.Text.RegularExpressions.Regex.IsMatch(pipeName,"^[A-Za-z0-9_.-]{1,80}$")) throw new ArgumentException();
-            this.roster=roster;this.pipeName=pipeName;radioEnabled=radioMode=="shadow";ownsHost=host==null;this.host=host??new HostContext();anchors=this.host.Anchors;
+            this.producerPolicy=producerPolicy??new NativeProducerPolicy(radioMode:radioMode);
+            sensors=new SensorAdapters(this.producerPolicy);
+            this.roster=roster;this.pipeName=pipeName;radioEnabled=radioMode=="shadow"&&this.producerPolicy.Allows("radio");ownsHost=host==null;this.host=host??new HostContext();anchors=this.host.Anchors;
             this.memoryAuthoritySample=memoryAuthoritySample;
             this.memoryCurrentOwnerPlayerSample=memoryCurrentOwnerPlayerSample;
-            this.directorShadow=directorShadow || directorExperimental;
-            this.directorExperimental=directorExperimental;
+            this.directorShadow=this.producerPolicy.Any&&(directorShadow || directorExperimental);
+            this.directorExperimental=this.directorShadow&&directorExperimental;
             ps3Receipts=new DirectorPs3Receipts(()=>this.host.MonotonicMs,()=>this.host.HostRunId,()=>this.host.WorldEpoch);
             originalTurns=new DirectorOriginalTurnReceipts(()=>this.host.MonotonicMs,
                 ()=>this.host.HostRunId,()=>this.host.WorldEpoch,
@@ -163,16 +166,16 @@ namespace LSA.Intelligence
                     DirectorC06Policy.Safe(r,snapshot);
                 if(!safe)LogDirectorVeto(stage,DirectorC06Policy.FirstVeto(r,snapshot,stage));
                 return safe;
-            },()=>this.host.HostRunId,()=>this.host.WorldEpoch,directorExperimental,
+            },()=>this.host.HostRunId,()=>this.host.WorldEpoch,this.directorExperimental,
                 ()=>LosSantosAlive.Bridge.SpecialTurns.SpecialGeminiTurnService.ReadPlayerTurnVersion(),
                 ()=>this.directorShadow ? LSA.PromotedCharacters.EssentialPlayerPriorityMonitor.Read() : -1,
                 (stage,reason)=>LogDirectorVeto(stage,reason),
-                directorExperimental ? directorAttemptsPerMinute : DirectorAdmission.NormalMaxAttempts);
+                this.directorExperimental ? directorAttemptsPerMinute : DirectorAdmission.NormalMaxAttempts);
             if(this.directorShadow)LogStatus("[PS] director_native_attempt_limit="+director.AttemptLimitPerMinute);
             // #3A compiles and binds the real pinned Essential Submit method.
             // This adapter is intentionally, unconditionally DEFAULT-OFF:
             // #3B must bind native callback tuple before activation.
-            stockScheduler=DirectorSchedulerIntake.Production(director,directorExperimental,
+            stockScheduler=DirectorSchedulerIntake.Production(director,this.directorExperimental,
                 (status,reason)=>LogDirectorHandoff("scheduler",status,reason));
             this.host.WorldChanged+=WorldChanged;capabilities=capabilityNames.ToDictionary(k=>k,k=>false);
         }
@@ -203,20 +206,32 @@ namespace LSA.Intelligence
                  // is a takeover revision fence, NOT permission to declare
                  // complete player/Essential ownership idle.
                  if(directorShadow)LSA.PromotedCharacters.EssentialPlayerPriorityMonitor.Attach();
-                sensors.Enabled=true;sensors.WitnessEvaluator=CaptureWitnesses;anchors.Retired+=OnRetired;anchors.Retirement+=OnRetirement;
-                capabilities["shooting"]=true;capabilities["state"]=true;capabilities["action"]=true;capabilities["witness"]=true;capabilities["playerSpeech"]=false;
-                // Do not load a second tracker assembly. Essential already loads the library.
-                AppDomain.CurrentDomain.AssemblyLoad+=AssemblyLoaded;QueueDamagePin();
-                try {NpcPlaybackCoordinator.PlaybackStarted+=PlaybackStarted;NpcPlaybackCoordinator.PlaybackEnded+=PlaybackEnded;playback=true;capabilities["playback"]=true;}
-                catch {try{NpcPlaybackCoordinator.PlaybackStarted-=PlaybackStarted;NpcPlaybackCoordinator.PlaybackEnded-=PlaybackEnded;}catch{}}
+                anchors.Retired+=OnRetired;anchors.Retirement+=OnRetirement;
+                InitializeProducerAdapters();
                 channel=new IntelligenceChannel(pipeName,Guid.NewGuid().ToString("D"),()=>capabilities,host.HostRunId,()=>host.WorldEpoch,true,directorShadow,memoryCurrentOwnerPlayerSample!=null);channel.Start();
                 previousTick=unchecked((uint)Game.GameTime);started=true;Game.LogTrivial("[PS] native_adapter_loaded shadow");
                 if(radioEnabled)Game.LogTrivial("[PS] radio_shadow");
             } catch {Shutdown("initialization_failed");LogStatus("[PS] optional_initialization_failed");}
         }
-        void AssemblyLoaded(object sender,AssemblyLoadEventArgs e) {if(e.LoadedAssembly.GetName().Name=="DamageTrackerLib") QueueDamagePin();}
+        void InitializeProducerAdapters()
+        {
+            if(producerAdaptersInitialized||stopped)return;
+            producerAdaptersInitialized=true;
+            sensors.Enabled=producerPolicy.Any;
+            sensors.WitnessEvaluator=producerPolicy.Any?(Func<RawSignal,List<WitnessReceipt>>)CaptureWitnesses:null;
+            capabilities["shooting"]=producerPolicy.Allows("shooting");capabilities["state"]=producerPolicy.Allows("state");
+            capabilities["action"]=producerPolicy.Allows("action");capabilities["witness"]=producerPolicy.Any;capabilities["playerSpeech"]=false;
+            // Do not load a second tracker assembly. Essential owns its load.
+            if(producerPolicy.Damage) {AppDomain.CurrentDomain.AssemblyLoad+=AssemblyLoaded;QueueDamagePin();}
+            try {if(producerPolicy.Allows("playback")||directorShadow) {
+                NpcPlaybackCoordinator.PlaybackStarted+=PlaybackStarted;NpcPlaybackCoordinator.PlaybackEnded+=PlaybackEnded;
+                playback=true;capabilities["playback"]=producerPolicy.Allows("playback");
+            }}catch {try{NpcPlaybackCoordinator.PlaybackStarted-=PlaybackStarted;NpcPlaybackCoordinator.PlaybackEnded-=PlaybackEnded;}catch{}}
+        }
+        void AssemblyLoaded(object sender,AssemblyLoadEventArgs e) {if(producerPolicy.Damage&&e.LoadedAssembly.GetName().Name=="DamageTrackerLib") QueueDamagePin();}
         void QueueDamagePin()
         {
+            if(!producerPolicy.Damage||stopped)return;
             var loaded=AppDomain.CurrentDomain.GetAssemblies().Where(a=>a.GetName().Name=="DamageTrackerLib").ToArray();
             if(loaded.Length>1) {damageReady=false;return;}
             if(loaded.Length!=1 || Interlocked.CompareExchange(ref damagePinAttempt,1,0)!=0) return;
@@ -226,7 +241,7 @@ namespace LSA.Intelligence
         }
         // Keeps optional DamageTracker type resolution outside ordinary host initialization.
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
-        void TryDamage() {try{damage=new DamageSensors(sensors,(h,e)=>CallbackAnchor(h,e,false),(h,e)=>CallbackAnchor(h,e,true),r=>r!=null&&criticalIndex.Contains(r),()=>host.MonotonicMs,()=>callbackTick);}catch{damage=null;}}
+        void TryDamage() {if(!producerPolicy.Damage||stopped)return;try{damage=new DamageSensors(sensors,(h,e)=>CallbackAnchor(h,e,false),(h,e)=>CallbackAnchor(h,e,true),r=>r!=null&&criticalIndex.Contains(r),()=>host.MonotonicMs,()=>callbackTick);}catch{damage=null;}}
         string CallbackAnchor(uint handle,object entity,bool vehicle)
         {return entity!=null && callbackEntities.TryGetValue(handle,out var a) && ReferenceEquals(entity,a.Entity) && (a.Kind=="vehicle")==vehicle?a.CaptureRef:null;}
         static bool Live(Entity entity,ulong handle,IntPtr address) => entity!=null && entity.Exists() && Convert.ToUInt64(entity.Handle)==handle && entity.MemoryAddress==address;
@@ -296,7 +311,7 @@ namespace LSA.Intelligence
                 }
                 // P2 can notice a terminal state before our next sample. Capture it
                 // while the original registration/entity still exists, then revoke.
-                foreach(var a in anchors.Current.Where(a=>a.OwnerLifetime==lifetime)) if(a.Entity is Ped p && Live(p,a.Handle,a.Address) && p.IsDead) Sample(a,callbackTick,host.MonotonicMs);
+                if(producerPolicy.Allows("state"))foreach(var a in anchors.Current.Where(a=>a.OwnerLifetime==lifetime)) if(a.Entity is Ped p && Live(p,a.Handle,a.Address) && p.IsDead) Sample(a,callbackTick,host.MonotonicMs);
                 for(int n=0;n<32;n++) {var s=sensors.Take();if(s==null) break;Publish(s,host.MonotonicMs);}
                 anchors.RevokeOwner(lifetime);UpdateIndexes();FlushControls();
             }catch{Shutdown("owner_retirement_failed");}
@@ -314,7 +329,7 @@ namespace LSA.Intelligence
             var budget=Stopwatch.StartNew();long now=host.MonotonicMs;
             Count(ref updateCalls);Interlocked.Exchange(ref lastUpdateMs,now);
             try {
-                if(damageReady && damage==null) TryDamage();
+                if(producerPolicy.Damage && damageReady && damage==null) TryDamage();
                 if(!damageReady && damage!=null) {damage.Dispose();damage=null;}
                 uint tick=unchecked((uint)Game.GameTime);callbackTick=tick;
                 if(ownsHost) host.ObserveGameTick(tick);
@@ -378,9 +393,10 @@ namespace LSA.Intelligence
                     anchors.SetObserverPriority(priorityRefs);
                     conversationRef=selectedAnchor?.CaptureRef;
                     UpdateIndexes();
-                    bool snapshotAvailable=PerceptionSystem.TryGetSnapshot(out var snapshot)&&snapshot!=null&&snapshot.IsValid;
+                    PerceptionSnapshot snapshot=null;
+                    bool snapshotAvailable=producerPolicy.Any&&PerceptionSystem.TryGetSnapshot(out snapshot)&&snapshot!=null&&snapshot.IsValid;
                     var updated=new Dictionary<string,bool>(capabilities);updated["snapshot"]=snapshotAvailable;
-                    bool running=false;try{running=damage?.Running==true;}catch{}updated["pedDamage"]=running;updated["playerDamage"]=running;updated["vehicleDamage"]=running;capabilities=updated;
+                    bool running=false;try{running=damage?.Running==true;}catch{}updated["pedDamage"]=running&&producerPolicy.Allows("ped_damage");updated["playerDamage"]=running&&producerPolicy.Allows("player_damage");updated["vehicleDamage"]=running&&producerPolicy.Allows("vehicle_damage");capabilities=updated;
                     if(snapshotAvailable) {
                         uint stamp=unchecked((uint)snapshot.GameTime);
                         if(stamp!=snapshotTick) {snapshotCadence=snapshotChangedAt==0?0:now-snapshotChangedAt;snapshotChangedAt=now;snapshotTick=stamp;discoveryCursor=0;}
@@ -406,7 +422,7 @@ namespace LSA.Intelligence
                 var sources=anchors.Current.Where(a=>a.Kind!="vehicle").OrderByDescending(a=>a.Kind=="player").ThenByDescending(a=>a.Observer).ToArray();
                 // Separate discovery and fast sampling budgets: discovery cannot starve firing reads.
                 var sampling=Stopwatch.StartNew();
-                if(now>=nextShot) {
+                if(producerPolicy.Allows("shooting")&&now>=nextShot) {
                     nextShot=now+50;
                     foreach(var a in sources.Take(9)) {if(sampling.Elapsed.TotalMilliseconds>=1) break;if(anchors.Resolve(a.CaptureRef)==null) continue;sensors.Shooting(a.CaptureRef,NativeFunction.CallByName<bool>("IS_PED_SHOOTING",(Ped)a.Entity),tick,now);}
                 }
@@ -419,9 +435,9 @@ namespace LSA.Intelligence
                 FlushControls(refreshRoster);
                 // Source-fenced, positive-only owner frame. Unsupported normal
                 // accepted turns, negatives and prepromotion remain unavailable.
-                if(memoryAuthoritySample!=null && now>=nextMemoryAuthority) {
+                if((memoryAuthoritySample!=null||memoryCurrentOwnerPlayerSample!=null) && now>=nextMemoryAuthority) {
                     nextMemoryAuthority=now+250;
-                    try {var sample=memoryAuthoritySample();if(sample!=null)channel?.Send("memory_authority",sample);}
+                    try {var sample=memoryAuthoritySample?.Invoke();if(sample!=null)channel?.Send("memory_authority",sample);}
                     catch { /* Unavailable native source never grants memory authority. */ }
                     // Execute on the same owner fiber, after P2 roster/index
                     // publication. No second sampler, alias guess or accepted turn.
@@ -903,6 +919,9 @@ namespace LSA.Intelligence
                     ps3Challenge=challenge
                 };
             }
+            // Situation/owner revision samples are source state, independent
+            // of optional state edges and their vehicle/zone native reads.
+            if(!producerPolicy.Allows("state"))return;
             var v=p.CurrentVehicle;var va=Retain(v,"vehicle");
             if(va!=null) {
                 var driver=v.Driver;var driverAnchor=driver==null?null:anchors.Current.FirstOrDefault(a=>a.Entity is Ped && (Ped)a.Entity==driver);
@@ -922,6 +941,7 @@ namespace LSA.Intelligence
         }
         void Publish(RawSignal signal,long now)
         {
+            if(stopped||signal==null||!producerPolicy.Allows(signal.producer))return;
             if(now-signal.receivedMs>=30000) {staleRejected++;return;}
             if((signal.source!=null && anchors.Resolve(signal.source)==null) || (signal.target!=null && anchors.Resolve(signal.target)==null)) {staleRejected++;return;}
             var witnessReceipts=(signal.witnessReceipts??new List<WitnessReceipt>()).Where(w=>w!=null&&w.Status=="witnessed"&&w.Channel!=null&&w.Basis!=null).Select(w=>new {observer=new {captureRef=w.Observer,kind="ped"},sampledGameTick=w.SampledGameTick,status=w.Status,reason=w.Reason,knowsSource=w.KnowsSource,knowsTarget=w.KnowsTarget,evidence=new {channel=w.Channel,basis=w.Basis,sampledGameTick=w.SampledGameTick}}).ToArray();
@@ -936,6 +956,7 @@ namespace LSA.Intelligence
         }
         void Lifecycle(string kind,string pedId,object entity,bool interrupted,bool hadAudio)
         {
+            if(stopped||!producerPolicy.Allows("playback"))return;
             var speaker=entity as Ped;
             if(speaker==null || !speaker.Exists() ||
                 !string.Equals(pedId,speaker.Handle.ToString(),StringComparison.Ordinal))return;
@@ -1060,7 +1081,7 @@ namespace LSA.Intelligence
         }
         public void OnNpcActionExecuted(Ped ped,string actionName,bool succeeded)
         {
-            if(!IsAvailable || ReferenceEquals(ped,null) || !actionIndex.TryGetValue(ped,out var target)) return;
+            if(!IsAvailable || !producerPolicy.Allows("action") || ReferenceEquals(ped,null) || !actionIndex.TryGetValue(ped,out var target)) return;
             string action=actionName=="followtarget"?"followtarget":actionName=="waithere"?"waithere":"other";
             sensors.Enqueue(new RawSignal {producer="action",kind="action_callback",target=target,gameTick=callbackTick,receivedMs=host.MonotonicMs,facts=new Dictionary<string,object>{{"action",action},{"succeeded",succeeded}}});
         }
