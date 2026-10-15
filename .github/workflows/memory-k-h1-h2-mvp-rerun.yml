@@ -1,0 +1,76 @@
+name: Memory K H1 H2 MVP exact-source validation
+on:
+  pull_request:
+    branches: [integration/memory-k-production-20261012]
+    paths:
+      - '.github/workflows/memory-k-h1-h2-mvp-rerun.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: memory-k-mvp-rerun-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+jobs:
+  h1-h2-offline:
+    name: MVP actual P2/PS4 validation (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Record validated exact source
+        shell: bash
+        run: |
+          git rev-parse HEAD
+          node --version
+          git diff --exit-code "${{ github.event.pull_request.base.sha }}" HEAD -- lsa-essential-e1-candidate/src lsa-essential-e1-candidate/tests lsa-shared-brain/src lsa-shared-brain/tests native
+      - name: Syntax, H1 and H2 independent and combined original runner
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check lsa-essential-e1-candidate/tests/memory/h1IndependentActivation.test.mjs
+          node --check lsa-essential-e1-candidate/tests/memory/h2ForegroundActivation.test.mjs
+          node --test --test-concurrency=1 \
+            lsa-essential-e1-candidate/tests/memory/h1ConversationHistory.test.mjs \
+            lsa-essential-e1-candidate/tests/memory/h1ConversationHistoryHardening.test.mjs \
+            lsa-essential-e1-candidate/tests/memory/h1IndependentActivation.test.mjs \
+            lsa-essential-e1-candidate/tests/memory/h2FactualRecall.test.mjs \
+            lsa-essential-e1-candidate/tests/memory/h2RealAuthority.test.mjs \
+            lsa-essential-e1-candidate/tests/memory/h2ForegroundActivation.test.mjs \
+            lsa-essential-e1-candidate/tests/memory/independentForegroundMemory.test.mjs \
+            2>&1 | tee "$RUNNER_TEMP/mvp-h1h2.log"
+      - name: D01 D03 WS6 and privacy original regression tests
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --test --test-concurrency=1 \
+            lsa-essential-e1-candidate/tests/memory/d01OpenAIAcceptance.test.mjs \
+            lsa-essential-e1-candidate/tests/memory/d03OriginalDialogueJoin.test.mjs \
+            lsa-essential-e1-candidate/tests/memory/ws6OriginalRunner.test.mjs \
+            lsa-essential-e1-candidate/tests/memory/ws6ProductionPipeline.test.mjs \
+            lsa-essential-e1-candidate/tests/memory/ws6LiveTurnMemory.test.mjs \
+            lsa-essential-e1-candidate/tests/memory-e2-independent-privacy.test.mjs \
+            lsa-essential-e1-candidate/tests/memory-capability-policy.test.mjs \
+            2>&1 | tee "$RUNNER_TEMP/mvp-regressions.log"
+      - name: Verification inventory
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --test tools/memory-k-verification/tests/*.test.mjs \
+            2>&1 | tee "$RUNNER_TEMP/mvp-inventory.log"
+      - name: Preserve exact-source offline logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mvp-rerun-${{ matrix.os }}
+          path: ${{ runner.temp }}/mvp-*.log
