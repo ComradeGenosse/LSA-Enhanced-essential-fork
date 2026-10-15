@@ -213,3 +213,28 @@ test('H1-C P2: legitimate earlier Franklin/Michael/Trevor lines survive new host
     acceptedReceipt:{status:'stored',durable:true,recordId:uid(),protagonistKey:'franklin'}});
   assert.equal(old.status,'unavailable');
 });
+
+test('H1-C pin exact #138 original assembly behavior; compare extracted H1 with original code', {
+  skip:!process.env.H1C_ORIGINAL_138_PATH
+},async t=>{
+  const {pathToFileURL}=await import('node:url');
+  const baseline=await import(pathToFileURL(path.join(process.env.H1C_ORIGINAL_138_PATH,
+    'lsa-essential-e1-candidate/src/memory/liveTurnMemory.mjs')).href);
+  const candidate=await import('../../src/memory/h1ConversationHistory.mjs');
+  const x=await setup(t),a=x.people[0],b=x.people[1];
+  await x.record(a,'history recent 😀',{secondsAgo:30});
+  await x.record(a,'history archived 🕰',{secondsAgo:500});
+  await x.record(a,'history interrupted owner other',{secondsAgo:90,npc:true});
+  await x.record(b,'wrong character',{secondsAgo:15});
+  const current=await x.record(a,'Current question');
+  const scope=x.scope(a);
+  const rows=await x.store.readDialogueLines({...scope,limit:200});
+  const accepted=rows.find(row=>row.recordId===current.recordId);
+  assert.ok(accepted);
+  for(const hidden of [[],[rows.find(row=>row.content==='history archived 🕰').recordId]]){
+    const input={rows,accepted,scope,suppressed:hidden,nowUtc:new Date().toISOString()};
+    assert.deepEqual(candidate.assembleJournalConversation(input),
+      baseline.assembleJournalConversation(input),
+      'same stored source rows, bounded windows, exclusions, labels and roles');
+  }
+});
