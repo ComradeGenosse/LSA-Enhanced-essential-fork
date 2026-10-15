@@ -34,7 +34,14 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '8.0.x'
+      # The unchanged Windows D2 Node test executes IntegrationTests.exe;
+      # compile/run its original native prerequisite before invoking Node.
+      - name: Original native D2 policy and Windows wire/host suites
+        if: always()
+        working-directory: candidate
+        run: node tools/memory-k-verification/g-native.mjs --baseline ../baseline --output work/g-validation/native
       - name: Identical original M3 PS1 PS2 D1 D2 P2 E2 and separate G suites
+        if: always()
         working-directory: candidate
         run: node tools/memory-k-verification/g-suite.mjs --baseline ../baseline --output work/g-validation
       - name: Original source-verified offline builders on both revisions
@@ -50,10 +57,6 @@ jobs:
           node lsa-essential-e1-candidate/tools/buildCandidate.mjs > work/g-validation/build/candidate.log 2>&1 || candidate_status=$?
           echo "baseline=$baseline_status candidate=$candidate_status" > work/g-validation/build/status.txt
           test "$baseline_status" -eq 0 && test "$candidate_status" -eq 0
-      - name: Original native D2 policy and Windows wire/host suites
-        if: always()
-        working-directory: candidate
-        run: node tools/memory-k-verification/g-native.mjs --baseline ../baseline --output work/g-validation/native
       - uses: actions/upload-artifact@v4
         if: always()
         with:
