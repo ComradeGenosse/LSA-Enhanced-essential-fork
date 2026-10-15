@@ -1,0 +1,89 @@
+name: Memory K H1-B original foreground activation (offline)
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/memory-k-h1b-activation.yml'
+      - 'lsa-essential-e1-candidate/src/**'
+      - 'lsa-essential-e1-candidate/tests/memory/h1IndependentActivation.test.mjs'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  h1b:
+    name: Original P2-to-PS4 H1-only (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Syntax validation
+        shell: bash
+        run: |
+          set -euo pipefail
+          for file in lsa-essential-e1-candidate/src/memory/runtimeComposition.mjs lsa-essential-e1-candidate/src/integration/essentialGlue.mjs lsa-essential-e1-candidate/src/context/knowledgeDelivery.mjs lsa-essential-e1-candidate/src/bootstrap.mjs lsa-essential-e1-candidate/src/openai/runSequentialTurn.mjs lsa-essential-e1-candidate/tests/memory/h1IndependentActivation.test.mjs; do node --check "$file"; done
+      - name: H1 activation and original P2/PS4 source validation
+        shell: bash
+        run: |
+          set -o pipefail
+          node --test --test-concurrency=1 lsa-essential-e1-candidate/tests/memory/h1IndependentActivation.test.mjs lsa-essential-e1-candidate/tests/memory/h1ConversationHistory.test.mjs 2>&1 | tee "$RUNNER_TEMP/h1b-activation.log"
+      - name: WS6 original runner, M2 D03, E2 and PS4 regressions
+        shell: bash
+        run: |
+          set -o pipefail
+          node --test --test-concurrency=1 lsa-essential-e1-candidate/tests/memory/ws6OriginalRunner.test.mjs lsa-essential-e1-candidate/tests/memory/ws6ProductionPipeline.test.mjs lsa-essential-e1-candidate/tests/memory/ws6LiveTurnMemory.test.mjs lsa-essential-e1-candidate/tests/memory/d03OriginalDialogueJoin.test.mjs lsa-essential-e1-candidate/tests/memory/d01OpenAIAcceptance.test.mjs lsa-essential-e1-candidate/tests/memory-e2-independent-privacy.test.mjs 2>&1 | tee "$RUNNER_TEMP/h1b-regressions.log"
+      - name: Capability composition and M2 isolation
+        shell: bash
+        run: |
+          set -o pipefail
+          node --test --test-concurrency=1 lsa-essential-e1-candidate/tests/memory-runtime-composition.test.mjs lsa-essential-e1-candidate/tests/memory-capability-policy.test.mjs lsa-essential-e1-candidate/tests/m2-journal.test.mjs 2>&1 | tee "$RUNNER_TEMP/h1b-composition.log"
+      - name: Persist scoped evidence
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: h1b-original-runner-${{ matrix.os }}
+          path: ${{ runner.temp }}/h1b-*.log
+  parity:
+    name: Unmodified legacy parity (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Compare original runner against H1-A base
+        shell: bash
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          set -euo pipefail
+          if [[ -z "$BASE_SHA" ]]; then BASE_SHA="$(git rev-parse origin/feature/memory-k-h1a-history-extraction-20261015)"; fi
+          git worktree add --detach "$RUNNER_TEMP/h1b-base" "$BASE_SHA"
+          tests=(lsa-essential-e1-candidate/tests/memory/ws6OriginalRunner.test.mjs lsa-essential-e1-candidate/tests/memory/ws6ProductionPipeline.test.mjs)
+          for f in "${tests[@]}"; do
+            if [[ "$(git rev-parse "$BASE_SHA:$f")" != "$(git rev-parse "HEAD:$f")" ]]; then echo "Original test changed: $f"; exit 1; fi
+          done
+          (cd "$RUNNER_TEMP/h1b-base" && node --test --test-concurrency=1 "${tests[@]}") > "$RUNNER_TEMP/h1b-base.log" 2>&1
+          node --test --test-concurrency=1 "${tests[@]}" > "$RUNNER_TEMP/h1b-head.log" 2>&1
+          grep '^# tests \|^# pass \|^# fail ' "$RUNNER_TEMP/h1b-base.log" "$RUNNER_TEMP/h1b-head.log" || true
+      - name: Preserve baseline logs
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: h1b-parity-${{ matrix.os }}
+          path: ${{ runner.temp }}/h1b-*.log

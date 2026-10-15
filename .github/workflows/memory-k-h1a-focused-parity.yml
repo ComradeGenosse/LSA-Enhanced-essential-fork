@@ -1,0 +1,77 @@
+name: Memory K H1-A focused baseline reality check (offline)
+on:
+  pull_request:
+    branches: [integration/memory-k-production-20261012]
+    paths:
+      - '.github/workflows/memory-k-h1a-focused-parity.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  focused-parity:
+    name: Focused #138 vs H1-A (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 12
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Check unchanged original tests and compare three paired runs
+        shell: bash
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          if [[ -z "$BASE_SHA" ]]; then BASE_SHA="$(git rev-parse origin/integration/memory-k-production-20261012)"; fi
+          mkdir -p "$RUNNER_TEMP/h1a-parity"
+          baseDir="$RUNNER_TEMP/h1a-parity/baseline"
+          git worktree add --detach "$baseDir" "$BASE_SHA"
+          echo "BASE=$BASE_SHA HEAD=$HEAD_SHA NODE=$(node --version) OS=$RUNNER_OS" | tee "$RUNNER_TEMP/h1a-parity/summary.txt"
+          files=(
+            lsa-essential-e1-candidate/tests/memory/ws6ProductionPipeline.test.mjs
+            lsa-essential-e1-candidate/tests/memory/ws6OriginalRunner.test.mjs
+            lsa-essential-e1-candidate/tests/memory/d01OpenAIAcceptance.test.mjs
+          )
+          for file in "${files[@]}"; do
+            old="$(git rev-parse "$BASE_SHA:$file")"
+            new="$(git rev-parse "$HEAD_SHA:$file")"
+            if [[ "$old" != "$new" ]]; then
+              echo "Original test changed: $file" | tee -a "$RUNNER_TEMP/h1a-parity/summary.txt"
+              exit 2
+            fi
+          done
+          candidateFail=0
+          for round in 1 2 3; do
+            if ((round % 2 == 1)); then order=(baseline candidate); else order=(candidate baseline); fi
+            for revision in "${order[@]}"; do
+              if [[ "$revision" == baseline ]]; then dir="$baseDir"; else dir="$GITHUB_WORKSPACE"; fi
+              log="$RUNNER_TEMP/h1a-parity/$revision-$round.log"
+              if (cd "$dir" && node --test --test-concurrency=1 --test-reporter=tap \
+                --test-name-pattern='timeline revocation during preparation|Promise me that we will visit the museum|D01 E2E typed' \
+                "${files[@]}") > "$log" 2>&1; then status=PASS; else status=FAIL; fi
+              echo "$round $revision $status $(grep '^# tests ' "$log" | tail -1) $(grep '^# pass ' "$log" | tail -1) $(grep '^# fail ' "$log" | tail -1)" | tee -a "$RUNNER_TEMP/h1a-parity/summary.txt"
+              grep '^not ok ' "$log" | tee -a "$RUNNER_TEMP/h1a-parity/summary.txt" || true
+              if [[ "$revision" == candidate && "$status" == FAIL ]]; then candidateFail=1; fi
+              total="$(awk '/^# tests /{print $3}' "$log" | tail -1)"
+              skipped="$(awk '/^# skipped /{print $3}' "$log" | tail -1)"
+              if [[ -z "$total" || -z "$skipped" ]] || ((total - skipped != 3)); then
+                echo "Matched tests count mismatch in $revision round $round: total=$total skipped=$skipped" | tee -a "$RUNNER_TEMP/h1a-parity/summary.txt"
+                exit 2
+              fi
+            done
+          done
+          exit "$candidateFail"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: h1a-focused-parity-${{ matrix.os }}-${{ github.event.pull_request.head.sha || github.sha }}
+          path: ${{ runner.temp }}/h1a-parity

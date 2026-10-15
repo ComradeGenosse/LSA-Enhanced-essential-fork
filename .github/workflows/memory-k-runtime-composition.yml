@@ -48,7 +48,14 @@ jobs:
           node-version: '24'
       - name: Identical original authority and nested source suites on #138 and candidate
         shell: bash
-        run: node tools/memory-k-verification/compare-source-regressions.mjs --output "$RUNNER_TEMP/source-comparison"
+        run: |
+          # Compare to the actual PR target, not an old hard-coded integration head.
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            baseline="${{ github.event.pull_request.base.sha }}"
+          else
+            baseline="$(git rev-parse origin/integration/memory-k-production-20261012)"
+          fi
+          node tools/memory-k-verification/compare-source-regressions.mjs --baseline "$baseline" --output "$RUNNER_TEMP/source-comparison"
       - uses: actions/upload-artifact@v4
         if: always()
         with:
