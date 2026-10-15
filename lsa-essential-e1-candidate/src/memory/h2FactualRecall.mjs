@@ -200,12 +200,18 @@ export async function prepareFactualRecall({store,turn,acceptedReceipt,input,sou
     if(labelled.items.some(x=>suppressedAtPrepare.has(x.recordId)))
       return done(refuse('blocked','recalled_record_suppressed',timings));
 
+    // A bounded M4 candidate page cannot establish an unsupported count.
+    // With matching recall items, suppress the partial evidence rather than implying a total.
+    const unsupportedCount=countQuestion&&count?.status!=='complete';
+    const admittedContribution=unsupportedCount?Object.freeze({...labelled,
+      coverage:Object.freeze({...labelled.coverage,returnedCount:0}),
+      items:Object.freeze([])}):labelled;
     const answerEvidence=count||witness?Object.freeze({
       ...(count?{dialogueCount:{...count,predicate}}:{}),...(witness?{witness}:{}),
       completeness:'bounded_recall_page',negativeWitnessing:'unavailable'}):null;
     const stamp=Object.freeze({...scope,hostRunId:host.hostRunId,
       worldEpoch:host.worldEpoch,recordId:line.recordId});
-    const preparedRecall=Object.freeze({status:'ready',stamp,contribution:labelled,answerEvidence});
+    const preparedRecall=Object.freeze({status:'ready',stamp,contribution:admittedContribution,answerEvidence});
     const recallCurrent=(_references,seen)=>!!seen&&
       Object.keys(stamp).length===Object.keys(seen).length&&
       Object.keys(stamp).every(k=>seen[k]===stamp[k])&&current();
@@ -252,10 +258,11 @@ export async function prepareFactualRecall({store,turn,acceptedReceipt,input,sou
     }
     const sendCurrent=()=>valid&&current()&&verifiedFence!==null&&store.memoryReadFence===verifiedFence;
 
-    const itemCount=labelled.items.length;
-    const exactCount=count?.status==='complete',knownWitness=witness&&witness.status!=='unknown';
+    const itemCount=admittedContribution.items.length;
+    const exactCount=count?.status==='complete';
+    const knownWitness=['witnessed','did_not_witness'].includes(witness?.status);
     let status='ready',reason=null;
-    if(!itemCount&&!exactCount&&!knownWitness){
+    if(unsupportedCount||(!itemCount&&!exactCount&&!knownWitness)){
       status='abstained';
       reason=first.bundle.status==='not_recorded'?'not_recorded':
         count?(count.reason??'count_unsupported'):'unsupported_or_insufficient_evidence';
