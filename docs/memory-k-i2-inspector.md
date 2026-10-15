@@ -132,6 +132,9 @@ privacy records. Neither workstream needs the other's merge.
 
 ## Evidence and remaining limits
 
+Final tested source, platform counts, payload hashes and acceptance boundaries
+are recorded in the [I2 verification record](plans/memory-k-i2-verification-20261015.md).
+
 The `inspector` and `inspector-regression` verification profiles register new I2
 checks separately from unchanged editor, D01/D03, H1/H2 and M3 regressions. The
 original E2 suite remains unchanged and includes privacy/recovery, replay,
