@@ -165,19 +165,21 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
     // and source-fenced read receipts, never prompt text or model instructions.
     async prepareLiveTurnMemory(args) {
       if(runtime.closed||memoryPause.paused)return null;
-      const memoryEpoch=memoryPause.stamp(),sourceCurrent=args.isCurrent;
-      args={...args,isCurrent:()=>memoryPause.current(memoryEpoch)&&sourceCurrent()};
       for(const state of [journalState,recallState,commandState]){
         state.preparation=null;state.validation=null;state.contributed=false;state.requestAttempted=false;
       }
       commandState.outcome=null;
+      // F-only or recording-only capabilities must not even inspect source getters.
+      if(!optionalMemoryEnabled&&journalActivation.mode!=='on'&&
+         recallActivation.mode!=='on'&&commandActivation.mode!=='on')return null;
+      const memoryEpoch=memoryPause.stamp(),sourceCurrent=args.isCurrent;
+      args={...args,isCurrent:()=>memoryPause.current(memoryEpoch)&&sourceCurrent()};
       if(optionalMemoryEnabled){
         // No explicit capability map: retain the inherited combined WS6 path.
         const result=await prepareLiveTurnMemory({store:journalStore,...args});
         journalState.preparation=journalOutcome(result?.status??'unavailable',result?.reason??null);
         return result;
       }
-      if(journalActivation.mode!=='on'&&recallActivation.mode!=='on'&&commandActivation.mode!=='on')return null;
       // Independently prepare each enabled consumer using exactly the same
       // accepted D03 receipt and original source/turn identity. M8 stays off.
       // M5 runs FIRST so any durable remember/forget/correct is committed before
