@@ -116,8 +116,9 @@ export function readM3Coverage(db,{characterId,worldProfileId,timelineId,observa
 // `m3_coverage` above records a per-observation negative that only a native
 // per-signal certificate can prove. This ledger answers the question recall
 // needs first: "during which time was this promoted NPC's capture pipeline
-// authenticated, owned and continuously sampled, so that the ABSENCE of a
-// journal event is meaningful?"
+// authenticated, owned and continuously sampled?" That continuity alone never
+// proves absence of an incident, supported sensing of every event family, or
+// exhaustive witnessing.
 //
 //  * kind='window': contiguous span covered by authenticated native owner
 //    frames. start/end are first/last authenticated sample (cadence-granular).
@@ -188,6 +189,10 @@ export function validateObserverCoverageRecord(record){
        r.observationId!==undefined||
        (r.status==='open'&&r.closeReason!==null&&r.closeReason!==undefined)||
        (r.status==='closed'&&!CLOSE.has(r.closeReason)))fail('m3_observer_coverage_invalid_window');
+  }else if(r.basis==='event_intake_disabled'){
+    if(r.status!=='closed'||r.gapReason!=='event_intake_disabled'||
+       r.closeReason!==r.gapReason||r.observationId!==undefined||r.frames<1)
+      fail('m3_observer_coverage_invalid_gap');
   }else{
     if(r.status!=='closed'||r.basis!=='lost_observation'||!GAP.has(r.gapReason)||
        r.closeReason!==r.gapReason||!isUuid(r.observationId)||r.frames<1)
@@ -272,8 +277,9 @@ export function readObserverCoverage(db,{characterId,worldProfileId,timelineId,f
   if(cursor<toUtc)gaps.push({kind:'uncovered',fromUtc:cursor,toUtc,
     reason:previousReason??'no_authenticated_coverage'});
   for(const p of points)if(p.start_utc<=toUtc&&p.end_utc>=fromUtc)
-    gaps.push({kind:'lost_observation',fromUtc:p.start_utc,toUtc:p.end_utc,reason:p.close_reason,
-      lostObservations:p.frames});
+    gaps.push({kind:p.close_reason==='event_intake_disabled'?'event_intake_disabled':'lost_observation',
+      fromUtc:p.start_utc,toUtc:p.end_utc,reason:p.close_reason,
+      ...(p.close_reason==='event_intake_disabled'?{supportedSamples:p.frames}:{lostObservations:p.frames})});
   gaps.sort((a,b)=>a.fromUtc.localeCompare(b.fromUtc));
   return immutableSnapshot({version:1,basis:'authenticated_owner_frames',
     characterId,worldProfileId,timelineId,requested:{fromUtc,toUtc},
@@ -282,6 +288,10 @@ export function readObserverCoverage(db,{characterId,worldProfileId,timelineId,f
     // known observation was lost inside it. Anything else is "unknown", never
     // a negative.
     complete:gaps.length===0,gaps,
+    // These authenticate native availability only, never positive witnessing or
+    // a negative. Missing samples and time outside their frontier stay unknown.
+    nativeSamples:points.filter(p=>p.close_reason==='event_intake_disabled').map(p=>({
+      startUtc:p.start_utc,endUtc:p.end_utc,frames:p.frames,hostRunId:p.host_run_id,worldEpoch:p.world_epoch})),
     windows:windows.map(w=>({coverageId:w.coverage_id,hostRunId:w.host_run_id,worldEpoch:w.world_epoch,
       startUtc:w.start_utc,endUtc:w.end_utc,startTick:w.start_tick,endTick:w.end_tick,
       status:w.status,closeReason:w.close_reason,frames:w.frames}))});

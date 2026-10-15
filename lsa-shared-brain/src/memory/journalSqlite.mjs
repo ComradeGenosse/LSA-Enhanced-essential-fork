@@ -78,10 +78,87 @@ const DDL=[
 ].join('\n');
 const tables=['dialogue_journal','dialogue_journal_fts','event_journal','event_source_evidence','memory_records','memory_commands','memory_tombstones','memory_curation_jobs','memory_budget_reservations','memory_luna_appraisals'];
 const sidecarDDL="CREATE TABLE IF NOT EXISTS event_source_evidence (record_id TEXT PRIMARY KEY REFERENCES event_journal(record_id) ON DELETE CASCADE, source_evidence_json TEXT NOT NULL, source_evidence_sha256 TEXT NOT NULL)";
+// G: an index of original native signal receipts, in the SAME P2 transaction
+// as the immutable event/sidecar. PS2 IDs are process-local and cannot fence
+// source redelivery after a reset. Retain only hashes and provenance keys after
+// purge, like permanent suppression receipts; never retain event content here.
+const nativeReceiptDDL=`CREATE TABLE event_native_receipts (
+ world_profile_id TEXT NOT NULL,character_id TEXT NOT NULL,timeline_id TEXT NOT NULL,
+ receipt_key TEXT NOT NULL,claim_sha256 TEXT NOT NULL,record_id TEXT NOT NULL,
+ observation_id TEXT NOT NULL,source_hash TEXT NOT NULL,receipt_sha256 TEXT NOT NULL,
+ PRIMARY KEY(world_profile_id,character_id,timeline_id,receipt_key));
+CREATE INDEX event_native_receipts_observation ON event_native_receipts(world_profile_id,character_id,timeline_id,observation_id);`;
+const nativeScope=e=>[e.worldProfileId,e.characterId,e.timelineId];
+function nativeReceipts(e,evidence){
+  const p=e.ownerProof,keys=new Map();
+  for(const claim of evidence?.observation?.claims??[]){
+    if(!isUuid(claim.details?.eventSignalId))continue; // unchanged legacy inputs
+    const key=evidenceHash(['m3.native.signal.v1',p.hostRunId,p.worldEpoch,
+      p.ownerAlias,p.observerCaptureRef,p.incarnationId,p.encounterId,
+      claim.details.eventSignalId,claim.evidence.sampledGameTick,claim.kind]);
+    const {claimId,...original}=claim;
+    keys.set(key,evidenceHash(original));
+  }
+  return [...keys].map(([key,digest])=>({key,digest}));
+}
+function indexNativeReceipts(db,e,keys){
+  for(const {key,digest} of keys){
+    const values=[...nativeScope(e),key,digest,e.recordId,e.observationId,e.sourceHash];
+    db.prepare('INSERT OR IGNORE INTO event_native_receipts VALUES(?,?,?,?,?,?,?,?,?)')
+      .run(...values,hash(JSON.stringify(values)));
+  }
+}
+function ensureNativeReceiptIndex(db){
+  if(db.prepare("SELECT name FROM sqlite_master WHERE name='event_native_receipts'").get())return;
+  const nested=db.isTransaction===true;
+  if(!nested)db.exec('BEGIN IMMEDIATE');
+  try{
+    db.exec(nativeReceiptDDL);
+    // One-time upgrade from existing immutable sidecars, under P2 ownership.
+    // Previously purged evidence cannot be invented or reconstructed.
+    for(const row of db.prepare('SELECT e.envelope_json,e.envelope_sha256,s.source_evidence_json,s.source_evidence_sha256 FROM event_journal e JOIN event_source_evidence s ON s.record_id=e.record_id ORDER BY e.rowid').iterate()){
+      if(hash(row.envelope_json)!==row.envelope_sha256||hash(row.source_evidence_json)!==row.source_evidence_sha256)
+        fail('journal_native_receipt_integrity');
+      const e=JSON.parse(row.envelope_json),evidence=verifiedEvidence(e,JSON.parse(row.source_evidence_json));
+      indexNativeReceipts(db,e,nativeReceipts(e,evidence));
+    }
+    if(!nested)db.exec('COMMIT');
+  }catch(error){if(!nested)try{db.exec('ROLLBACK');}catch{}throw error;}
+}
+function nativeReplay(db,e,keys){
+  if(!keys.length)return null;
+  // An old event suppression whose sidecar was already purged before this
+  // upgrade has no native key. Fail closed for production native intake in
+  // that scope rather than allowing fresh PS2 IDs to evade its privacy fence.
+  if(db.prepare(`SELECT 1 FROM memory_suppressions s WHERE s.world_profile_id=? AND s.character_id=? AND s.timeline_id=?
+    AND s.source_kind='journal_event' AND NOT EXISTS(SELECT 1 FROM event_native_receipts r
+    WHERE r.world_profile_id=s.world_profile_id AND r.character_id=s.character_id AND r.timeline_id=s.timeline_id
+    AND r.observation_id=s.evidence_key) LIMIT 1`).get(...nativeScope(e)))fail('journal_native_privacy_unresolved');
+  const found=[];
+  for(const {key,digest} of keys){
+    const r=db.prepare('SELECT * FROM event_native_receipts WHERE world_profile_id=? AND character_id=? AND timeline_id=? AND receipt_key=?')
+      .get(...nativeScope(e),key);
+    if(!r)continue;
+    const values=[r.world_profile_id,r.character_id,r.timeline_id,r.receipt_key,r.claim_sha256,r.record_id,r.observation_id,r.source_hash];
+    if(r.receipt_sha256!==hash(JSON.stringify(values))||r.claim_sha256!==digest)
+      fail('journal_native_receipt_integrity');
+    if(isSuppressedSource(db,e,{recordId:r.record_id,kind:'journal_event',contentHash:r.source_hash,evidenceKey:r.observation_id}))
+      fail('memory_source_forgotten');
+    found.push(r);
+  }
+  if(found.length!==keys.length)return null; // a genuine new/revised observation
+  // Exact original PS2 replay still uses the stricter immutable replay checks.
+  if(found.every(r=>r.observation_id===e.observationId))return null;
+  for(const r of found){
+    const original=readVerifiedEventEvidence(db,{...e,recordId:r.record_id},e.worldProfileId);
+    if(!original||original.event.eventType!==e.eventType)fail('journal_native_replay_unavailable');
+  }
+  return Object.freeze({inserted:false,recordId:found[0].record_id});
+}
 export function migrateJournalSchema(db){
   const v=db.prepare('PRAGMA user_version').get().user_version;
   if(![2,3,JOURNAL_SCHEMA_VERSION].includes(v))fail('unsupported_sqlite_profile_schema');
-  if(v===JOURNAL_SCHEMA_VERSION){assertJournalSchema(db);return v;}
+  if(v===JOURNAL_SCHEMA_VERSION){assertJournalSchema(db);ensureNativeReceiptIndex(db);return v;}
   // Entire v2/v3 -> v4 migration commits atomically; no mixed schema state.
   const nested=db.isTransaction===true;
   if(!nested)db.exec('BEGIN IMMEDIATE');
@@ -90,6 +167,7 @@ export function migrateJournalSchema(db){
     else db.exec(sidecarDDL); // Existing v3 journal bytes are never rebuilt.
     ensureIntegratedMemorySchema(db);
     ensureCurationSchema(db);
+    ensureNativeReceiptIndex(db);
     db.exec('PRAGMA user_version=4');
     if(!nested)db.exec('COMMIT');
     return JOURNAL_SCHEMA_VERSION;
@@ -172,6 +250,8 @@ export function appendEvent(db,event,world,{hostContext=null,sourceEvidence=null
     fail('journal_source_epoch_mismatch');
   const evidence=sourceEvidence===null?null:verifiedEvidence(e,sourceEvidence);
   if(isSuppressedSource(db,e,{recordId:e.recordId,kind:'journal_event',contentHash:e.sourceHash,evidenceKey:e.observationId}))fail('memory_source_forgotten');
+  const nativeKeys=nativeReceipts(e,evidence),replay=nativeReplay(db,e,nativeKeys);
+  if(replay)return replay;
   // A newer accepted revision may never be rolled back by a late/replayed PS2 receipt.
   const newest=db.prepare('SELECT MAX(revision) AS revision FROM event_journal WHERE world_profile_id=? AND character_id=? AND timeline_id=? AND observation_id=?')
     .get(e.worldProfileId,e.characterId,e.timelineId,e.observationId)?.revision;
@@ -199,6 +279,7 @@ export function appendEvent(db,event,world,{hostContext=null,sourceEvidence=null
     db.prepare('INSERT INTO event_source_evidence(record_id,source_evidence_json,source_evidence_sha256) VALUES (?,?,?)')
       .run(e.recordId,original,hash(original));
   }
+  indexNativeReceipts(db,e,nativeKeys);
   return Object.freeze({inserted:true,recordId:e.recordId});
 }
 function readScope(s,world,defaultLimit=200){

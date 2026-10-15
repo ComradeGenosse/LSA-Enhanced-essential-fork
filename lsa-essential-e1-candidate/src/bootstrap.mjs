@@ -26,8 +26,9 @@ import { createDialogueTrace, createNoopDialogueTrace } from './observability/di
 import {createM3ProductionMemory} from './memory/m3ProductionMemory.mjs';
 import {createMemoryD02Port} from './memory/memoryD02Port.mjs';
 import {resolveMemoryKCapabilities} from './memory/capabilityPolicy.mjs';
-import {createMemoryKRuntimeComposition,memoryKConsumersAllowed,runtimeCleanupError} from './memory/runtimeComposition.mjs';
+import {createMemoryKRuntimeComposition,runtimeCleanupError} from './memory/runtimeComposition.mjs';
 import {memoryKSourceActivation} from './memory/sourceActivation.mjs';
+import {memoryKM3Activation,unavailableM3States} from './memory/m3Activation.mjs';
 
 export async function createRuntimeForBundle(options = {}) {
   // Explicit test/embedding environments remain isolated from local secrets.
@@ -60,6 +61,7 @@ export async function createRuntimeForBundle(options = {}) {
     config = Object.freeze({ ...config,promotedCharacters:Object.freeze({ ...config.promotedCharacters,nativeSupported:characterContractSupported(contract) }) });
   }
   const composition=createMemoryKRuntimeComposition(config);
+  const m3Activation=memoryKM3Activation(config);
   const owner=composition.scope;
   try {
   let telemetry = options.telemetry;
@@ -140,6 +142,7 @@ export async function createRuntimeForBundle(options = {}) {
   runtime.services.memoryKRuntimeDiagnostics=()=>composition.snapshot(Object.fromEntries(
     Object.entries(runtime.services.memoryKCapabilities()).map(([id,row])=>[id,row.registrationStatus])),{
       ...runtime.intelligence?.operationalStates(),
+      ...(runtime.memoryM3?.operationalStates()??unavailableM3States(m3Activation)),
       ...(runtime.memoryD02?{'authority.d02':Object.freeze({requestedMode:'on',
         state:runtime.closed?'stopped':runtime.memoryD02.status().settled?'operational':'waiting',
         effectiveMode:runtime.closed?'off':runtime.memoryD02.status().settled?'on':null,
@@ -186,8 +189,8 @@ export async function createRuntimeForBundle(options = {}) {
         !!runtime.memoryD02,
       'memory.dialogue.npc':typeof runtime.services.recordM2Npc==='function' &&
         !!runtime.memoryD02,
-      'memory.events':!!runtime.memoryM3,
-      'memory.coverage':!!runtime.memoryM3,
+      'memory.events':!!runtime.memoryM3&&m3Activation.events.mode!=='off',
+      'memory.coverage':!!runtime.memoryM3&&m3Activation.coverage.mode!=='off'&&!!connectedMemoryAuthority,
       'memory.journalContext':typeof runtime.services.prepareLiveTurnMemory==='function',
       'memory.recall':typeof runtime.services.prepareLiveTurnMemory==='function',
       'memory.commands':typeof runtime.services.prepareLiveTurnMemory==='function',
@@ -264,7 +267,7 @@ export async function createRuntimeForBundle(options = {}) {
           originalTurnPhase:ticket=>{try{return runtime.host.directorOriginalPhase(ticket);}catch{return null;}},
           ...options.intelligenceOptions,
            consumers:sourceActivation,
-           acceptedObservationTap:canBindMemory&&memoryKConsumersAllowed(config)?memoryObservationTap:null,
+           acceptedObservationTap:canBindMemory&&m3Activation.events.mode!=='off'?memoryObservationTap:null,
            telemetry:(event,data)=>{
           try { suppliedIntelligenceTelemetry?.(event,data); } catch {}
           try { telemetry?.emit?.(event,null,'internal',data,'internal'); } catch {}
@@ -299,13 +302,21 @@ export async function createRuntimeForBundle(options = {}) {
         // by the shared factory the integration tests also use. Normal production
         // never trusts a caller-supplied nativeVerified flag or model-generated
         // owner claim; an explicit test-only injected authority stays isolated.
-        if(canBindMemory&&memoryKConsumersAllowed(config)){
+        if(canBindMemory&&(m3Activation.events.mode!=='off'||m3Activation.coverage.mode!=='off')){
           try{
             const m3=createM3ProductionMemory({intelligence:runtime.intelligence,memoryStore,
-              nativeAuthority:options.memoryNativeAuthority??null,telemetry});
+              nativeAuthority:options.memoryNativeAuthority??null,telemetry,
+              eventMode:m3Activation.events.mode,coverageMode:m3Activation.coverage.mode});
             memoryIntake=m3.adapter;
             connectedMemoryAuthority=m3.authority;
             runtime.memoryM3=Object.freeze({snapshot:()=>m3.snapshot(),
+              operationalStates:()=>{
+                const states=m3.operationalStates(),unavailable=unavailableM3States(m3Activation);
+                return Object.freeze(Object.fromEntries(['events','coverage'].map(kind=>{
+                  const gate=m3Activation[kind],id='memory.'+kind;
+                  return [id,gate.reason?unavailable[id]:states[id]];
+                })));
+              },
               close:()=>m3.adapter.close(),shutdown:()=>m3.close()});
             owner.own('memory.m3',m3,value=>value.close());
           }catch{owner.failed('memory.m3');memoryIntake=null;connectedMemoryAuthority=null;try{console.warn('[M3] verified_owner_binder_unavailable');}catch{}}

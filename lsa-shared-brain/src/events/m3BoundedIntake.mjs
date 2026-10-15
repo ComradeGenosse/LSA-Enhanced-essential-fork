@@ -6,6 +6,8 @@ import {immutableSnapshot} from '../util/identity.mjs';
 
 const DEFAULT_LIMIT=512,DEFAULT_BYTES=1024*1024;
 const MAX=2147483647;
+const safeCommitFailures=new Set(['memory_source_forgotten','journal_native_privacy_unresolved',
+  'journal_native_receipt_integrity','journal_native_replay_unavailable','timeline_write_suspended']);
 const bump=(object,key,n=1)=>object[key]=Math.min(MAX,object[key]+n);
 // Stable identity of one offered PS2 observation revision, host neutral.
 export const observationKey=observation=>[observation?.observedAt?.nativeRun,
@@ -17,6 +19,7 @@ const subject=(observation)=>({
 export class M3BoundedIntake {
   #binder;#recorder;#queue=[];#bytes=0;#running=false;#closed=false;
   #limit;#byteLimit;#scheduler;#onFailure;#onOutcome;#generation=0;#entrySeq=0;#drainers=[];#scheduleFaults=0;
+  #lastOutcome=null;
   constructor({binder,recorder,limit=DEFAULT_LIMIT,maxBytes=DEFAULT_BYTES,
     scheduler=fn=>queueMicrotask(fn),onFailure=()=>{},onOutcome=()=>{}}={}){
     if(typeof binder?.bindAcceptedReceipt!=='function'||
@@ -31,18 +34,24 @@ export class M3BoundedIntake {
     // tied to exactly one live promoted profile. `stale`: an older revision
     // superseded by a newer durable one (neither a loss nor a fault).
     this.stats={offered:0,queued:0,committed:0,duplicate:0,stale:0,prepromotion:0,
-      rejected:0,unattributed:0,overflow:0,tooLarge:0,failed:0,retired:0,highWater:0};
+      rejected:0,unattributed:0,overflow:0,tooLarge:0,failed:0,retired:0,highWater:0,
+      qualified:0,lost:0,dropped:0};
   }
   #emit(stage,detail){try{this.#onFailure(stage,detail);}catch{/* diagnostics never disrupt PS2 */}}
   // Per-observation outcome for coverage accounting. `lost` means a known,
   // accepted PS2 observation did NOT become a durable journal row.
-  #outcome(type,fields){try{this.#onOutcome(Object.freeze({type,...fields}));}catch{/* never disrupts PS2 */}}
+  #outcome(type,fields){
+    if(type==='lost')bump(this.stats,'lost');
+    if(type==='settled')this.#lastOutcome=Object.freeze({state:'durable',reason:null});
+    if(type==='lost')this.#lastOutcome=Object.freeze({state:'blocked',reason:fields.failure??fields.reason});
+    try{this.#onOutcome(Object.freeze({type,...fields}));}catch{/* never disrupts PS2 */}
+  }
   #refused(reason,receipt){
     this.#outcome('refused',{reason,...subject(receipt?.observation)});
   }
   get pending(){return this.#queue.length+Number(this.#running);}
   snapshot(){return Object.freeze({...this.stats,waiting:this.#queue.length,bytes:this.#bytes,
-    inFlight:this.#running,closed:this.#closed,scheduleFaults:this.#scheduleFaults,
+    inFlight:this.#running,closed:this.#closed,scheduleFaults:this.#scheduleFaults,lastOutcome:this.#lastOutcome,
     // An in-memory callback dropped by a crash was never persisted. The
     // restart path must accept independently reauthenticated PS2 replay only.
     replayAuthority:'native_redelivery_required'});}
@@ -64,12 +73,13 @@ export class M3BoundedIntake {
         prepromotion:result.prepromotion===true,generation:this.#generation});
     }catch(error){bump(this.stats,'failed');this.#emit('bind',error);this.#refused('bind_failed',receipt);
       return {accepted:false,reason:'m3_bind_failed'};}
+    bump(this.stats,'qualified');
     const size=Buffer.byteLength(JSON.stringify(entry));
-    if(size>this.#byteLimit){bump(this.stats,'tooLarge');
+    if(size>this.#byteLimit){bump(this.stats,'tooLarge');bump(this.stats,'dropped');
       this.#outcome('lost',{reason:'receipt_too_large',characterId:entry.candidate.characterId,...subject(entry.observation)});
       return {accepted:false,reason:'m3_receipt_too_large'};}
     if(this.#queue.length>=this.#limit||this.#bytes+size>this.#byteLimit){
-      bump(this.stats,'overflow');this.#emit('overflow',{pending:this.#queue.length,bytes:this.#bytes});
+      bump(this.stats,'overflow');bump(this.stats,'dropped');this.#emit('overflow',{pending:this.#queue.length,bytes:this.#bytes});
       this.#outcome('lost',{reason:'intake_overflow',characterId:entry.candidate.characterId,...subject(entry.observation)});
       return {accepted:false,reason:'m3_intake_overflow'};
     }
@@ -85,7 +95,7 @@ export class M3BoundedIntake {
     if(this.#running||this.#closed||!this.#queue.length)return;
     this.#running=true;
     try{this.#scheduler(()=>{void this.#drain();});}
-    catch(error){this.#running=false;this.#scheduleFaults++;this.#emit('scheduler',error);
+    catch(error){this.#running=false;this.#scheduleFaults=Math.min(MAX,this.#scheduleFaults+1);this.#emit('scheduler',error);
       // Retain queued receipts for explicit retry; don't claim a durable write.
       bump(this.stats,'failed');}
   }
@@ -120,7 +130,8 @@ export class M3BoundedIntake {
             bump(this.stats,'stale');this.#outcome('settled',{result:'stale',...who});
           }else{
             bump(this.stats,'failed');this.#emit('commit',error);
-            if(!entry.prepromotion)this.#outcome('lost',{reason:'commit_failed',...who});
+            if(!entry.prepromotion)this.#outcome('lost',{reason:'commit_failed',
+              failure:safeCommitFailures.has(error?.message)?error.message:'commit_failed',...who});
           }
         }
       }
@@ -141,6 +152,7 @@ export class M3BoundedIntake {
       this.#outcome('lost',{reason:'retired_before_commit',entryId,characterId:entry.candidate.characterId,
         ...subject(entry.observation)});
     this.#queue=[];this.#bytes=0;this.#recorder.reset();
+    this.#lastOutcome=null;
     if(!this.#running)for(const f of this.#drainers.splice(0))f();
   }
   close(){this.#closed=true;this.retire();}

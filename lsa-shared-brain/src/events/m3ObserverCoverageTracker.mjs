@@ -2,7 +2,8 @@
 //
 // Turns the stream of AUTHENTICATED native owner frames (memory_authority,
 // sampled every ~250 ms on the P2 owner fiber) into durable coverage windows per
-// promoted NPC, so a later "I did not see that" can be grounded:
+// promoted NPC. These prove supported sampling, never a negative event or that
+// the NPC saw every incident (which needs independent per-signal evidence):
 //
 //   covered   = a contiguous span in which the NPC was a native-verified owner
 //               and the capture pipeline kept receiving samples;
@@ -49,7 +50,7 @@ const uuidFrom=(...parts)=>{
 const tickOk=x=>Number.isSafeInteger(x)&&x>=0&&x<=0xffffffff;
 
 export function createM3ObserverCoverageTracker({
-  worldProfileId,resolveCharacter,activeTimeline,persist,
+  worldProfileId,resolveCharacter,activeTimeline,persist,eventIntakeEnabled=true,durable=true,
   processId=randomUUID(),monotonicNow=()=>performance.now(),
   utcNow=()=>new Date().toISOString(),onEvent=()=>{},options={}
 }={}){
@@ -304,7 +305,12 @@ export function createM3ObserverCoverageTracker({
       if(!endAdvanced&&!statusChange)continue;
       const due=force||!w.persisted||w.status==='closed'||mono-w.lastEmitMono>=cfg.checkpointMs;
       if(!due)continue;
-      ops.push({record:windowRecord(w,end)});
+      const record=windowRecord(w,end);
+      // Native owner samples remain useful with event intake disabled, but
+      // cannot claim event-capture continuity. Persist an authenticated gap
+      // spanning only those samples, without inventing an observation ID.
+      ops.push({record:eventIntakeEnabled?record:{...record,kind:'gap',status:'closed',
+        basis:'event_intake_disabled',gapReason:'event_intake_disabled',closeReason:'event_intake_disabled'}});
       meta.push({window:w,end});
     }
     // Seal earlier-process open windows as soon as this process has a sample to
@@ -313,7 +319,7 @@ export function createM3ObserverCoverageTracker({
     return {ops,meta};
   }
   function kick(force){
-    if(inFlight||closedFlag||monotonicNow()<retryAt)return;
+    if(!durable||inFlight||closedFlag||monotonicNow()<retryAt)return;
     const {ops,meta}=collect(force);
     if(ops.length===0)return;
     const sentAt=monotonicNow();
@@ -369,7 +375,7 @@ export function createM3ObserverCoverageTracker({
   function snapshot(){
     return Object.freeze({...stats,closedBy:{...stats.closedBy},open:open.size,closing:closing.size,
       pending:pending.size,unpersistedGaps:gaps.size,degradedReason,processId,
-      basis:'authenticated_owner_frames',
+      basis:'authenticated_owner_frames',eventIntakeEnabled,durable,
       windows:[...open.values()].map(w=>({characterId:w.characterId,startTick:w.startTick,
         lastTick:w.last.tick,frames:w.frames,persistedEndTick:w.persisted?.tick??null}))});
   }
