@@ -4,7 +4,8 @@ const sameStamp=(a,b)=>!!a&&!!b&&Object.keys(a).length===Object.keys(b).length&&
 
 export function composeIndependentForegroundMemory({history=null,recall=null,onValidation=()=>{}}={}){
  const h1=history?.status==='ready'?history:null;
- const h2=recall?.status==='ready'?recall:null;
+ const h2=(recall?.status==='ready'||(recall?.status==='abstained'&&
+   recall?.preparedRecall?.status==='ready'))?recall:null;
  if(!h1&&!h2)return null;
  const h1Stamp=h1?.stamp??null,h2Stamp=h2?.preparedRecall?.stamp??null;
  if(h1&&h2&&!sameStamp(h1Stamp,h2Stamp))
