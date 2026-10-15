@@ -2,7 +2,7 @@ import {createHash} from 'node:crypto';
 import {validateDecisionShape} from './essentialDecision.mjs';
 const hash=value=>createHash('sha256').update(JSON.stringify(value)).digest('hex');
 // Per-generation request state only; the existing salience ledger owns consumption.
-export function createKnowledgeDelivery({frame,baseFrame=frame,isCurrent,validate=()=>null,prune=frame=>frame,pruneRecall=null,recallCurrent=()=>false,pruneOpinion=null,opinionCurrent=()=>false,memoryCurrent=()=>true,verifyPrepared=null,acknowledge=()=>false,onOutcome=()=>{}}) {
+export function createKnowledgeDelivery({frame,baseFrame=frame,isCurrent,validate=()=>null,prune=frame=>frame,pruneRecall=null,recallCurrent=()=>false,pruneOpinion=null,opinionCurrent=()=>false,memoryCurrent=()=>true,verifyPrepared=null,acknowledge=()=>false,onRequest=()=>{},onOutcome=()=>{}}) {
  let projection=frame,sent=false,terminal=false,requestHash=null,projectionHash=null,unsubscribe=null;
  const dispose=()=>{unsubscribe?.();unsubscribe=null;};
  const hasOptional=()=>projection.delivery.length>0 || (projection.activityReferences?.length??0)>0 ||
@@ -66,6 +66,8 @@ export function createKnowledgeDelivery({frame,baseFrame=frame,isCurrent,validat
    const nextHash=hash(body),nextProjectionHash=hash(projection.modelAllocation);
    if(sent && (nextHash!==requestHash || nextProjectionHash!==projectionHash))fail('revision_mismatch');
    requestHash=nextHash;projectionHash=nextProjectionHash;sent=true;
+   // Only a fully validated, frozen model request may report a contribution.
+   try{onRequest(projection);}catch{}
   },
   success(decision){
    if(terminal)return null;
