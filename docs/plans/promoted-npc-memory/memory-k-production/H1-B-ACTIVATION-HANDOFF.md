@@ -57,6 +57,7 @@ M2 accepted-player recording is required: `memory.journalContext` depends on `me
 - A validated H1 history that loses source authority after its first model send cannot be silently used on retry. The existing request identity/revision guarantee causes safe cancellation; a fresh accepted turn can continue without stale history.
 - `shadow` is explicitly unavailable.
 - H1-C owns exhaustive replay/privacy adversarial testing and should review every fence.
+- Failed final-send H1 verification reports `blocked` with its invalidation reason, not an ambiguous `waiting` state. No transcript bytes are logged.
 - Offline native socket, provider and speech stubs are *not* a real GTA deployment receipt.
 - Worktree isolation was performed by the CI parity job; implementation commits were written to the isolated feature branch using GitHub APIs, not a local shell worktree.
 
