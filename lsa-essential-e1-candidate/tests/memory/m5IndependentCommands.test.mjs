@@ -32,7 +32,13 @@ function capture(x,fetchImpl){
 }
 async function say(x,text){
   const turn=await x.typed(text),result=await x.settled(turn);
-  assert.equal(result.status,'completed',JSON.stringify(result));
+  // On a Windows-only source-fence failure, print *closed-set* runtime state
+  // instead of treating a model_error as proof that M5 itself failed.
+  assert.equal(result.status,'completed',JSON.stringify({
+    result,command:x.h.runtime.services.memoryCommandDiagnostics(),
+    ownerState:x.d02.port.status()?.settled,
+    sourceFenceAvailable:x.store.memoryReadFence!==null
+  }));
   return result;
 }
 // A real original-mic STT turn (the only source a transcript correction may target).
@@ -114,10 +120,16 @@ test('3. forget suppresses the targeted memory and survives a store restart',
     const filePath=x.store.filePath;
     await x.store.close();
     const reopened=createEssentialMemoryStorage({filePath,worldProfileId,sourceRequired:true});
-    t.after(()=>reopened.close());
-    await reopened.initialize();
-    const ids=await reopened.listSuppressedMemoryIds(scopeOf(x));
-    assert.deepEqual(ids,[target],'tombstone survives restart');
+    // Close the second SQLite connection *before* d01Harness removes its
+    // temporary directory. Registering another t.after hook here left the
+    // reopened database live during Windows file deletion (EBUSY).
+    try {
+      await reopened.initialize();
+      const ids=await reopened.listSuppressedMemoryIds(scopeOf(x));
+      assert.deepEqual(ids,[target],'tombstone survives restart');
+    } finally {
+      await reopened.close();
+    }
   });
 
 test('4. correction supersedes the mis-transcribed referent; the superseded text is not model-visible',
