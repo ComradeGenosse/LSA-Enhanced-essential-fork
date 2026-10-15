@@ -54,6 +54,11 @@ jobs:
             (cd $rev && node --import ./tools/memory-k-verification/offline.mjs --test --test-reporter=tap --test-concurrency=1 $FILES > ../candidate/work/h2/regression/$rev.log 2>&1; echo "$rev exit=$?" >> ../candidate/work/h2/regression/status.txt)
           done
           cat candidate/work/h2/regression/status.txt
+      - name: Reject new or changed inherited regression failures
+        if: always()
+        shell: bash
+        working-directory: candidate
+        run: node tools/memory-k-verification/compare-tap-regressions.mjs work/h2/regression
       - name: Test inventory guard
         if: always()
         working-directory: candidate
