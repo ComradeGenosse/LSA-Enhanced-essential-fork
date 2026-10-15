@@ -88,6 +88,8 @@ export async function openH1ConversationSource({store,turn,acceptedReceipt,input
     const alias=profile?.promotion?.ownerAlias;
     const current=()=>isCurrent()===true&&
       turn.characterProjection?.persistent===true&&
+      turn.characterProjection?.profile?.characterId===characterId&&
+      turn.characterProjection?.profile?.promotion?.ownerAlias===alias&&
       turn.characterInputs?.profile?.characterId===characterId&&
       uuid.test(characterId)&&uuid.test(scope.worldProfileId)&&
       uuid.test(scope.timelineId)&&store.activeTimelineId===scope.timelineId&&
