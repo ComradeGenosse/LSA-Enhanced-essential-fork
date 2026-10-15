@@ -255,6 +255,19 @@ test('H2 abstains honestly: unsupported queries, first/earliest, missing evidenc
  assert.equal(fuzzy.h2.preparedRecall.contribution.items.length,0);
 });
 
+test('H2 unsupported counting abstains despite matching recalled facts',async t=>{
+ const f=await p2Fixture(t);
+ await f.say('We discussed the harbor key and the garage door',{at:ago(3600)});
+ const {h2}=await f.ask('How many times did we talk about the harbor key?');
+ assert.equal(h2.status,'abstained','a bounded matching page is not an exact count');
+ assert.equal(h2.preparedRecall.contribution.items.length,0,'omit misleading partial evidence');
+ assert.equal(h2.preparedRecall.contribution.coverage.returnedCount,0);
+ assert.equal(h2.preparedRecall.answerEvidence.dialogueCount.status,'incomplete');
+ assert.equal(h2.preparedRecall.answerEvidence.dialogueCount.exactCount,null);
+ assert.equal(await h2.verifyPrepared(),true);
+ assert.equal(h2.sendCurrent(),true);
+});
+
 test('H2 exact counts are exhaustive (beyond the 384 candidate page) or absent; first/last honour coverage',async t=>{
  const f=await p2Fixture(t);
  for(let i=0;i<402;i++)await f.say('telescope entry '+i,{at:ago(10000-i),avatar:['michael','franklin','trevor'][i%3]});
