@@ -1,6 +1,7 @@
 name: Memory K H1-B original foreground activation (offline)
 on:
   pull_request:
+    types: [opened, reopened, synchronize, ready_for_review]
     paths:
       - '.github/workflows/memory-k-h1b-activation.yml'
       - 'lsa-essential-e1-candidate/src/**'
@@ -8,8 +9,14 @@ on:
   workflow_dispatch:
 permissions:
   contents: read
+# Supersede old runs for this workflow and PR without cancelling other checks.
+concurrency:
+  group: memory-k-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   h1b:
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     name: Original P2-to-PS4 H1-only (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     strategy:
@@ -52,6 +59,7 @@ jobs:
           name: h1b-original-runner-${{ matrix.os }}
           path: ${{ runner.temp }}/h1b-*.log
   parity:
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     name: Unmodified legacy parity (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     strategy:

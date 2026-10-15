@@ -1,6 +1,7 @@
 name: Memory K H1-C privacy and original #138 parity (offline)
 on:
   pull_request:
+    types: [opened, reopened, synchronize, ready_for_review]
     branches: [feature/memory-k-h1a-history-extraction-20261015]
     paths:
       - 'lsa-essential-e1-candidate/src/memory/h1ConversationHistory.mjs'
@@ -10,8 +11,14 @@ on:
   workflow_dispatch:
 permissions:
   contents: read
+# Supersede old runs for this workflow and PR without cancelling other checks.
+concurrency:
+  group: memory-k-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   h1c-validation:
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     name: H1-C authentic P2 + original parity (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     timeout-minutes: 25

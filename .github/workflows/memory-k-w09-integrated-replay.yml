@@ -2,6 +2,7 @@ name: Memory K W09 independent integrated replay (offline NO-GO gate)
 
 on:
   pull_request:
+    types: [opened, reopened, synchronize, ready_for_review]
     paths:
       - 'lsa-essential-e1-candidate/**'
       - 'lsa-shared-brain/**'
@@ -15,8 +16,14 @@ on:
 permissions:
   contents: read
 
+# Supersede old runs for this workflow and PR without cancelling other checks.
+concurrency:
+  group: memory-k-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   source-simulation:
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     name: Node24 fixture simulation + packaging policy / ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -49,6 +56,7 @@ jobs:
           if-no-files-found: warn
 
   pinned-production:
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     name: Pinned Essential AST package and native production compile (Windows)
     runs-on: windows-latest
     steps:
@@ -96,6 +104,7 @@ jobs:
           if-no-files-found: warn
 
   native-policy:
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     name: Windows original standalone native policy harnesses (NOT GTA)
     runs-on: windows-latest
     steps:
@@ -120,6 +129,7 @@ jobs:
           if-no-files-found: warn
 
   original-m0-a10:
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     name: HARD A10 original runner S01-S10 / ${{ matrix.os }}
     if: always()
     needs: [source-simulation, pinned-production, native-policy]

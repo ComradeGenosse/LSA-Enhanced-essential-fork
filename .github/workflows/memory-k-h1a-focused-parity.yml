@@ -1,14 +1,21 @@
 name: Memory K H1-A focused baseline reality check (offline)
 on:
   pull_request:
+    types: [opened, reopened, synchronize, ready_for_review]
     branches: [integration/memory-k-production-20261012]
     paths:
       - '.github/workflows/memory-k-h1a-focused-parity.yml'
   workflow_dispatch:
 permissions:
   contents: read
+# Supersede old runs for this workflow and PR without cancelling other checks.
+concurrency:
+  group: memory-k-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   focused-parity:
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     name: Focused #138 vs H1-A (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     timeout-minutes: 12
