@@ -1,6 +1,7 @@
 name: Memory K H2 independent foreground activation (offline)
 on:
   pull_request:
+    types: [opened, reopened, synchronize, ready_for_review]
     paths:
       - '.github/workflows/memory-k-h2-foreground-activation.yml'
       - 'lsa-essential-e1-candidate/src/**'
@@ -10,8 +11,13 @@ on:
   workflow_dispatch:
 permissions:
   contents: read
+concurrency:
+  group: memory-k-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   independent-runtime:
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     name: H1/H2 original runner (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     timeout-minutes: 35
