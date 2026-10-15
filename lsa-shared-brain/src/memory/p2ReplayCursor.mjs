@@ -4,6 +4,7 @@ import {createHash} from 'node:crypto';
 import {isUuid} from '../util/identity.mjs';
 import {readVerifiedEventEvidence} from './journalSqlite.mjs';
 import {listSuppressedMemoryIds,readCorrectionOverlays} from './integratedSqlite.mjs';
+import {supersededTargetIds} from './correctionSemantics.mjs';
 
 const fail = reason => {throw new Error(reason);};
 const sha = value => createHash('sha256').update(value).digest('hex');
@@ -132,6 +133,7 @@ export function readP2ReplayPage(db,{scope,cursor=null,limit=256},world){
     where+' AND sequence>? ORDER BY sequence ASC LIMIT ?').all(...scopeKey(scope),after,limit+1);
   const page=entries.slice(0,limit),items=[],rejected=[],skipped=[];
   const suppressed=new Set(listSuppressedMemoryIds(db,scope,world));
+  for(const id of supersededTargetIds(db,scopeKey(scope)))suppressed.add(id);
   for(const correction of readCorrectionOverlays(db,scope,world))
     if(correction.supersedesTarget!==false&&isUuid(correction.targetId))suppressed.add(correction.targetId);
   const line=db.prepare('SELECT * FROM dialogue_journal WHERE record_id=? AND '+

@@ -16,9 +16,12 @@
 // correct; a legacy row aimed at a witnessed event or NPC line is a
 // counter-claim (fail towards preserving witnessed evidence).
 import {createHash} from 'node:crypto';
+import {isUuid} from '../util/identity.mjs';
 const fail = code => { throw new Error(code); };
 
-export const CORRECTION_MODES = Object.freeze(['transcript', 'counter_claim']);
+// fact_revision is privileged administration of an extracted/reported memory,
+// never a conversational authority to rewrite witnessed events or raw speech.
+export const CORRECTION_MODES = Object.freeze(['transcript', 'counter_claim','fact_revision']);
 const columnKnown = new WeakSet();
 
 /** Additive, idempotent migration under the single P2 writer. */
@@ -57,9 +60,29 @@ export function isProtectedEvidence(db, scopeKeys, targetId) {
   return !!line && line.speaker !== 'player';
 }
 
+// Privileged fact edits must not acquire indirect authority to supersede an
+// NPC's own words or a witnessed event through an extracted summary.
+export function isPrivatelyCorrectableFact(db,scopeKeys,targetId,parents=new Set()) {
+  if(!isUuid(targetId)||parents.has(targetId)||parents.size>=32||isProtectedEvidence(db,scopeKeys,targetId))return false;
+  const memory=db.prepare('SELECT mode,evidence_ids_json AS sources FROM memory_records WHERE world_profile_id=? AND character_id=? AND timeline_id=? AND memory_id=?')
+    .get(...scopeKeys,targetId);
+  if(memory){
+    const ids=JSON.parse(memory.sources),next=new Set(parents).add(targetId);
+    return memory.mode==='reported_claim'&&Array.isArray(ids)&&ids.length>0&&ids.length<=64&&
+      ids.every(id=>isPrivatelyCorrectableFact(db,scopeKeys,id,next));
+  }
+  return !!db.prepare("SELECT 1 FROM dialogue_journal WHERE world_profile_id=? AND character_id=? AND timeline_id=? AND record_id=? AND speaker='player' AND delivery='accepted' AND source IN ('typed','stt')")
+    .get(...scopeKeys,targetId);
+}
+
 /** Effective semantics of one stored correction row. */
 export function resolveCorrectionMode(db, scopeKeys, row) {
   if (row.mode === 'counter_claim') return 'counter_claim';
+  if(row.mode==='fact_revision') {
+    if(!db.prepare('SELECT 1 FROM memory_records WHERE world_profile_id=? AND character_id=? AND timeline_id=? AND memory_id=?')
+      .get(...scopeKeys,row.targetId)||!isPrivatelyCorrectableFact(db,scopeKeys,row.targetId))fail('memory_correction_integrity_failed');
+    return 'fact_revision';
+  }
   return isProtectedEvidence(db, scopeKeys, row.targetId) ? 'counter_claim' : 'transcript';
 }
 
@@ -82,15 +105,34 @@ export function readCorrectionRows(db, scopeKeys) {
         createHash('sha256').update(row.content).digest('hex') !== row.checksum)
       fail('memory_correction_integrity_failed');
     const mode = resolveCorrectionMode(db, scopeKeys, row);
-    return { ...row, mode, supersedes: mode === 'transcript' };
+    return { ...row, mode, supersedes: mode !== 'counter_claim' };
   });
 }
 
 /** Targets hidden from recall/replay/candidates: transcript corrections only. */
 export function supersededTargetIds(db, scopeKeys) {
   const ids = new Set();
-  for (const row of readCorrectionRows(db, scopeKeys))
+  const rows=readCorrectionRows(db,scopeKeys);
+  for (const row of rows)
     if (row.supersedes) ids.add(row.targetId);
+  // A privileged fact revision withdraws its evidence bundle from subsequent
+  // extraction as well. Raw bytes remain available to private administration.
+  // This prevents M6/M7 or a sibling derived record from reviving the old fact.
+  const revised=new Set(rows.filter(r=>r.mode==='fact_revision').map(r=>r.targetId));
+  if(revised.size){
+    const edges=db.prepare('SELECT memory_id AS id,evidence_ids_json AS json FROM memory_records WHERE world_profile_id=? AND character_id=? AND timeline_id=?')
+      .all(...scopeKeys).map(r=>{
+        const sources=JSON.parse(r.json);
+        if(!Array.isArray(sources)||sources.length>64||!sources.every(isUuid))fail('memory_correction_integrity_failed');
+        return {id:r.id,sources};
+      });
+    let changed=true;
+    while(changed){changed=false;for(const edge of edges){
+      if(revised.has(edge.id))for(const source of edge.sources){if(!revised.has(source)){revised.add(source);changed=true;}}
+      else if(edge.sources.some(s=>revised.has(s))){revised.add(edge.id);changed=true;}
+    }}
+    for(const id of revised)ids.add(id);
+  }
   return ids;
 }
 

@@ -3,6 +3,7 @@
 import * as fs from 'node:fs/promises';
 import path from 'node:path';
 import { randomUUID, createHash } from 'node:crypto';
+import {AsyncLocalStorage} from 'node:async_hooks';
 import { P2SqliteFoundation, inspectP2ReadOnlyRecovery } from './sqliteFoundation.mjs';
 import { acquireWriterLock, releaseWriterLock, inspectWriterLock } from './sqliteDurability.mjs';
 import { validateProfile, validateProfiles } from './profileSchema.mjs';
@@ -19,6 +20,7 @@ export class P2SqliteProfileStore {
   // Monotone revocation epoch: an operation admitted before source loss or a
   // timeline selection cannot execute after later reauthorization (ABA).
   #authorityGeneration = 0;
+  #optionalMemoryFence=new AsyncLocalStorage();
   constructor({ filePath, worldProfileId, legacyJsonPath = null, sourceRequired = false, journalLimits = {} }) {
     if (typeof sourceRequired !== 'boolean') throw new TypeError('invalid_timeline_source_config');
     this.#sourceRequired = sourceRequired;
@@ -34,6 +36,11 @@ export class P2SqliteProfileStore {
   get memoryReadFence() {
     return this.available&&this.timelineWritable&&this.#db.initialized
       ? this.#authorityGeneration+':'+this.#db.readFence : null;
+  }
+  // Source/timeline authority only. An authorized privacy transaction changes
+  // the data read fence itself and must not mistake its own commit for a revoke.
+  get memoryAuthorityFence() {
+    return this.available&&this.timelineWritable&&this.#db.initialized?this.#authorityGeneration:null;
   }
   get activeTimelineId() { return this.#timeline.activeTimelineId; }
   get timelineWritable() { return this.#timeline.writable && this.#sourceValid(); }
@@ -92,9 +99,19 @@ export class P2SqliteProfileStore {
     return true;
   }
   #serial(operation) {
-    const job = this.#queue.then(operation);
+    const fence=this.#optionalMemoryFence.getStore();
+    const job = this.#queue.then(()=>{fence?.();return operation();});
     this.#queue = job.catch(() => {});
     return job;
+  }
+  // I2 narrow queue-admission fence. Optional runtime ports carry their
+  // revocation check across awaits; privileged privacy/profile calls do not.
+  // Storage ownership, source checks and transaction boundaries are unchanged.
+  withOptionalMemoryFence(check,operation) {
+    if(typeof check!=='function'||typeof operation!=='function')fail('invalid_memory_fence');
+    const parent=this.#optionalMemoryFence.getStore();
+    const current=()=>{parent?.();check();};
+    current();return this.#optionalMemoryFence.run(current,operation);
   }
   async #releaseWriter() {
     const lease=this.#writer;this.#writer=null;
@@ -427,11 +444,11 @@ export class P2SqliteProfileStore {
       return this.#db.verifyMemoryCommand({scope,commandId});
     });
   }
-  async listSuppressedMemoryIds(scope){
+  async listSuppressedMemoryIds(scope,options){
     await this.initialize();
     return this.#serial(()=>{
       if(!this.available)fail('profile_store_unavailable');
-      return this.#db.listSuppressedMemoryIds(scope);
+      return this.#db.listSuppressedMemoryIds(scope,options);
     });
   }
   async readPermanentMemoryRows(scope,options){

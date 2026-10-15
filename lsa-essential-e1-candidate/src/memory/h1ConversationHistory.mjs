@@ -114,7 +114,9 @@ export async function openH1ConversationSource({store,turn,acceptedReceipt,input
     const stamp=Object.freeze({...scope,hostRunId:host.hostRunId,
       worldEpoch:host.worldEpoch,recordId:line.recordId});
     const hidden=async()=>{
-      const ids=await store.listSuppressedMemoryIds(scope);
+      // The canonical P2 privacy reader expands inspector fact revisions to
+      // their original dialogue sources and dependent records. M4 may be off.
+      const ids=await store.listSuppressedMemoryIds(scope,{includeCorrections:true});
       if(!current())throw Error('memory_source_revoked');
       const corrections=await store.readCorrectionOverlays?.(scope)??[];
       if(!current())throw Error('memory_source_revoked');

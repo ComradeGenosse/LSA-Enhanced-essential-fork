@@ -4,6 +4,8 @@ import { characterFailureReason } from './characterService.mjs';
 import { publishControlEndpoint } from '../control/endpointFile.mjs';
 import { describeCurrent } from '../control/currentDescribe.mjs';
 import { isUuid } from '../identity/identityContract.mjs';
+import {inspectorHtml,inspectorDetailHtml,inspectorScript} from '../memory/inspectorUi.mjs';
+import {createInspectorAdministration} from '../memory/inspectorAdministration.mjs';
 // Optional native-client expectation of Essential's current NPC (UX phases 2-3).
 const expectedEncounter = value => { if (value === undefined || value === null) return null; if (!isUuid(value)) throw new Error('invalid_editor_request'); return value; };
 
@@ -23,7 +25,9 @@ function editorHtml(token, summonWaitMs) {
 <label>New timeline label<input id="timelineLabel" maxlength="80" placeholder="e.g. Franklin main save"></label>
 <button id="createTimeline" type="button">Create timeline (not activated)</button>
 <p id="timelineStatus" role="status"></p></details>
+${inspectorHtml()}
 <main><aside id="list"></aside><section id="detail" hidden><h2 id="title"></h2><small id="identity"></small>
+${inspectorDetailHtml()}
 <details><summary>Read-only profile information</summary><pre id="metadata" style="white-space:pre-wrap"></pre></details>
 <div class="controls" id="controls"></div><form id="profile"><label>Name<input name="name" maxlength="80" required></label>
 <label>Nicknames (one per line)<textarea name="nicknames"></textarea></label><label>Biography<textarea name="biography" maxlength="1200"></textarea></label>
@@ -31,7 +35,7 @@ function editorHtml(token, summonWaitMs) {
 <label>Relationship<select name="relationshipState"><option>associate</option><option>friend</option><option>trusted</option><option>strained</option><option>neutral</option></select></label>
 <label>Relationship details<textarea name="relationship" maxlength="600"></textarea></label><label>Player notes<textarea name="playerNotes" maxlength="2400"></textarea></label>
 <label>Availability<select name="availability"><option>available</option><option>dead</option><option>retired</option></select></label><button>Save profile</button></form>
-<h3>Memories</h3><small>Only memories you select are supplied to dialogue (at most three per turn). No automatic extraction is performed.</small><div id="memories"></div>
+<h3>Manual profile memories (global)</h3><small>These player-authored profile notes are separate from timeline-scoped learned memories above. Selected notes may be supplied to dialogue (at most three per turn).</small><div id="memories"></div>
 <form id="memory"><label>Memory<textarea name="text" maxlength="1200" required></textarea></label><label>Category<select name="category"><option>note</option><option>relationship</option><option>promise</option><option>event</option><option>biography</option><option>other</option></select></label><label>Importance<input name="importance" type="number" min="0" max="100" value="50"></label><label><input name="selected" type="checkbox" style="width:auto"> Supply to dialogue</label><button>Add memory</button><button id="cancelMemory" type="button">Cancel edit</button></form>
 <p><button id="remove" class="danger">Unpromote and delete profile</button></p></section></main>
 <script>
@@ -76,8 +80,8 @@ $('exportProfiles').onclick=()=>run(async()=>{
 function select(profile){current=profile;editingMemory=null;$('detail').hidden=false;$('title').textContent=profile.name;$('identity').textContent=profile.characterId+' · '+profile.gender+' · '+profile.ageBand+' · '+profile.runtimeStatus+' · voice '+(profile.voiceReference?.voice||'pending');
 $('metadata').textContent=JSON.stringify({modelHash:profile.modelHash,appearance:profile.appearance,voiceReference:profile.voiceReference,promotedAtUtc:profile.promotion.promotedAtUtc,createdAtUtc:profile.createdAtUtc,updatedAtUtc:profile.updatedAtUtc,revision:profile.revision},null,2);
 const form=$('profile');for(const field of ['name','biography','playerNotes'])form.elements[field].value=profile[field];form.elements.nicknames.value=profile.nicknames.join('\\n');form.elements.personality.value=profile.personality.description;form.elements.traits.value=profile.personality.traits.join('\\n');form.elements.relationshipState.value=profile.relationship.state;form.elements.relationship.value=profile.relationship.description;form.elements.availability.value=profile.status;
-$('memories').replaceChildren();for(const memory of profile.memories){const block=document.createElement('div'),content=document.createElement('p');content.textContent=(memory.selectedForContext?'✓ ':'')+memory.category+' · '+memory.importance+' · '+memory.text;block.append(content);for(const action of ['Edit','Remove']){const button=document.createElement('button');button.textContent=action;button.disabled=!memory.editable;button.onclick=()=>action==='Edit'?editMemory(memory):run(async()=>{if(!confirm('Remove this memory?'))return;await api('memory',{characterId:current.characterId,operation:'delete',expectedRevision:current.revision,memoryId:memory.memoryId});await refresh(current.characterId);});block.append(button);}$('memories').append(block);} $('memory').reset();$('memory').querySelector('button').textContent='Add memory';}
-async function refresh(id=current?.characterId){profiles=await api('list');$('list').replaceChildren();for(const profile of profiles){const button=document.createElement('button');button.textContent=profile.name+' · '+profile.runtimeStatus;button.onclick=()=>select(profile);$('list').append(button);}const profile=profiles.find(item=>item.characterId===id);if(profile)select(profile);else {$('detail').hidden=true;current=null;}}
+$('memories').replaceChildren();for(const memory of profile.memories){const block=document.createElement('div'),content=document.createElement('p');content.textContent=(memory.selectedForContext?'✓ ':'')+memory.category+' · '+memory.importance+' · '+memory.text;block.append(content);for(const action of ['Edit','Remove']){const button=document.createElement('button');button.textContent=action;button.disabled=!memory.editable;button.onclick=()=>action==='Edit'?editMemory(memory):run(async()=>{if(!confirm('Remove this memory?'))return;await api('memory',{characterId:current.characterId,operation:'delete',expectedRevision:current.revision,memoryId:memory.memoryId});await refresh(current.characterId);});block.append(button);}$('memories').append(block);} $('memory').reset();$('memory').querySelector('button').textContent='Add memory';inspectorReset();void loadInspector();}
+async function refresh(id=current?.characterId){profiles=await api('list');$('list').replaceChildren();for(const profile of profiles){const button=document.createElement('button');button.textContent=profile.name+' · '+profile.runtimeStatus;button.onclick=()=>select(profile);$('list').append(button);}const profile=profiles.find(item=>item.characterId===id);if(profile)select(profile);else {$('detail').hidden=true;current=null;inspectorReset();}}
 function editMemory(memory){editingMemory=memory.memoryId;const form=$('memory');form.elements.text.value=memory.text;form.elements.category.value=memory.category;form.elements.importance.value=memory.importance;form.elements.selected.checked=memory.selectedForContext;form.querySelector('button').textContent='Save memory';form.scrollIntoView({behavior:'smooth'});}
 $('promote').onclick=()=>run(async()=>{const profile=await api('promote');await refresh(profile.characterId);});$('refresh').onclick=()=>run(()=>refresh());
 for(const operation of ['summon','follow','wait','dismiss','despawn']){const button=document.createElement('button');button.textContent=operation[0].toUpperCase()+operation.slice(1);button.onclick=()=>operation==='summon'?summon(button):run(async()=>{await api('control',{characterId:current.characterId,operation});await refresh(current.characterId);});$('controls').append(button);}
@@ -85,10 +89,12 @@ async function summon(button){if(summonPending||!current)return;const characterI
 $('profile').onsubmit=event=>{event.preventDefault();run(async()=>{const f=event.target.elements;await api('edit',{characterId:current.characterId,expectedRevision:current.revision,patch:{name:f.name.value.trim(),nicknames:lines(f.nicknames.value),biography:f.biography.value,personality:{description:f.personality.value,traits:lines(f.traits.value)},relationship:{state:f.relationshipState.value,description:f.relationship.value},playerNotes:f.playerNotes.value,status:f.availability.value}});await refresh();});};
 $('memory').onsubmit=event=>{event.preventDefault();run(async()=>{const f=event.target.elements;await api('memory',{characterId:current.characterId,operation:editingMemory?'edit':'create',memoryId:editingMemory,expectedRevision:current.revision,patch:{text:f.text.value,category:f.category.value,importance:Number(f.importance.value),selectedForContext:f.selected.checked}});await refresh();$('memory').querySelector('button').textContent='Add memory';});};
 $('cancelMemory').onclick=()=>{editingMemory=null;$('memory').reset();$('memory').querySelector('button').textContent='Add memory';};
-$('remove').onclick=()=>run(async()=>{const confirmation=prompt('This permanently deletes the profile and its memories. Type the CharacterId to confirm:', '');if(confirmation!==current.characterId)return;await api('remove',{characterId:current.characterId,confirmation,expectedRevision:current.revision});await refresh();});run(()=>refresh());run(()=>refreshTimelines());
+$('remove').onclick=()=>run(async()=>{const confirmation=prompt('This permanently deletes the profile and its memories. Type the CharacterId to confirm:', '');if(confirmation!==current.characterId)return;await api('remove',{characterId:current.characterId,confirmation,expectedRevision:current.revision});await refresh();});
+${inspectorScript()}
+run(()=>refresh());run(()=>refreshTimelines());
 </script></html>`;
 }
-export async function startCharacterEditor(service,{ port = service.config.promotedCharacters.editorPort,endpointPath = null } = {}) {
+export async function startCharacterEditor(service,{ port = service.config.promotedCharacters.editorPort,endpointPath = null,inspectorControls=null } = {}) {
   const token = randomBytes(32).toString('hex'); let origin;
   const server = http.createServer(async (request,response) => {
     response.setHeader('cache-control','no-store'); response.setHeader('x-content-type-options','nosniff');
@@ -106,6 +112,23 @@ export async function startCharacterEditor(service,{ port = service.config.promo
       if (!body || typeof body !== 'object' || Array.isArray(body)) throw new Error('invalid_editor_request');
       let result;
       switch (body.action) {
+        case 'inspector_context': {
+          const store=service.store,enabled=service.config.memoryK?.capabilities['memory.inspector']==='on';
+          const supported=typeof store?.withP2SqliteRead==='function';
+          const ready=enabled&&supported&&service.ready&&store.timelineWritable&&!!store.verifiedHostContext;
+          result={worldProfileId:store.worldProfileId,timelineId:store.activeTimelineId??null,ready:!!ready,
+            reason:!supported?'SQLite storage is required.':!enabled?'Enable memory.inspector in runtime controls and restart the companion.':
+              !ready?'Private inspection unavailable: '+(store.timelinePendingReason??'current native source and timeline confirmation required'):null};
+          break;
+        }
+        case 'inspector_status':
+          if(!inspectorControls)throw Error('inspector_controls_unavailable');
+          result=await inspectorControls.snapshot();break;
+        case 'inspector_control':
+          if(!inspectorControls)throw Error('inspector_controls_unavailable');
+          result=await inspectorControls.change(body);break;
+        case 'inspector_memory':
+          result=await createInspectorAdministration(service,{accessCurrent:()=>!response.destroyed}).execute(body);break;
         case 'list': result = await service.list(); break;
         case 'profile_export':
           if (typeof service.store?.exportRollbackSnapshot !== 'function')

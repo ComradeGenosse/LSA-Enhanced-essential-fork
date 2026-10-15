@@ -27,7 +27,7 @@ export const iso=ms=>new Date(Date.UTC(2026,9,13,12,0,0)+ms).toISOString();
 
 export async function createHarness(t,{npcCount=2,limit,scheduler,coverage=true,
     coverageOptions={},authorityOptions={},adapterOptions={},startMs=1_000_000,
-    protagonist='franklin',injectedAuthority=null,telemetry=null,config=null}={}) {
+    protagonist='franklin',injectedAuthority=null,telemetry=null,config=null,memoryStoreView=store=>store}={}) {
   const dir=await fs.mkdtemp(path.join(os.tmpdir(),'ws5b-'));
   const filePath=path.join(dir,'p2.sqlite');
   const store=createP2MemoryStorage({filePath,worldProfileId,sourceRequired:true});
@@ -55,7 +55,7 @@ export async function createHarness(t,{npcCount=2,limit,scheduler,coverage=true,
     acceptedObservationTap:activation?.events.mode==='off'?null:
       receipt=>m3?m3.tap(receipt):{accepted:false,reason:'not_ready'},
   });
-  m3=createM3ProductionMemory({intelligence:client,memoryStore:store,telemetry,
+  m3=createM3ProductionMemory({intelligence:client,memoryStore:memoryStoreView(store),telemetry,
     nativeAuthority:injectedAuthority,
     ...(activation?{eventMode:activation.events.mode,coverageMode:activation.coverage.mode}:{}),
     authorityOptions:{now:()=>clock.ms,...authorityOptions},
