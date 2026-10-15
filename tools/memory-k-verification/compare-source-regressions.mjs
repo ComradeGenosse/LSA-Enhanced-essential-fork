@@ -22,15 +22,31 @@ const baselineRoot=path.join(output,'baseline');
 git('worktree','add','--detach',baselineRoot,baseline);
 try {
   const prefix='lsa-essential-e1-candidate/tests/';
-  const files=['memory-capability-policy.test.mjs','perception-bootstrap.test.mjs','p2-lifecycle.test.mjs'].map(file=>prefix+file);
-  async function nested(directory) {
-    for(const entry of await readdir(path.join(root,directory),{withFileTypes:true})) {
-      const file=directory+'/'+entry.name;
-      if(entry.isDirectory())await nested(file);
-      else if(entry.name.endsWith('.test.mjs'))files.push(file);
+  const discover=async directoryRoot=>{
+    const files=['memory-capability-policy.test.mjs','perception-bootstrap.test.mjs','p2-lifecycle.test.mjs']
+      .map(file=>prefix+file);
+    async function nested(directory) {
+      for(const entry of await readdir(path.join(directoryRoot,directory),{withFileTypes:true})) {
+        const file=directory+'/'+entry.name;
+        if(entry.isDirectory())await nested(file);
+        else if(entry.name.endsWith('.test.mjs'))files.push(file);
+      }
     }
-  }
-  await nested(prefix+'memory');files.sort();
+    await nested(prefix+'memory');
+    return files.sort();
+  };
+  // Compare unchanged original tests present in the BASELINE. New candidate
+  // tests cannot run on the old revision; their dedicated workflows own them.
+  const baselineFiles=await discover(baselineRoot);
+  const candidateFiles=await discover(root);
+  const candidateSet=new Set(candidateFiles);
+  const baselineSet=new Set(baselineFiles);
+  const removedOriginalTests=baselineFiles.filter(file=>!candidateSet.has(file));
+  if(removedOriginalTests.length)
+    throw new Error('comparison_original_test_removed:'+removedOriginalTests.join(','));
+  const newCandidateTests=candidateFiles.filter(file=>!baselineSet.has(file));
+  const files=baselineFiles;
+  if(!files.length)throw new Error('comparison_no_original_tests');
   const fingerprints=[];
   for(const file of files) {
     const hash=async directory=>createHash('sha256').update(await readFile(path.join(directory,file))).digest('hex');
@@ -41,7 +57,7 @@ try {
   const head=git('rev-parse','HEAD'),dirty=git('status','--porcelain');
   const receipt={version:1,baseline:git('rev-parse',baseline),head,node:process.version,
     platform:process.platform,osRelease:release(),cpu:cpus()[0]?.model,cpuCount:cpus().length,
-    concurrency:1,rounds,identicalTests:fingerprints,trackedChanges:dirty,runs:[]};
+    concurrency:1,rounds,identicalTests:fingerprints,newCandidateTests,trackedChanges:dirty,runs:[]};
   for(let round=1;round<=rounds;round++) {
     // Alternate order to avoid consistently giving one revision a warm host.
     for(const revision of round%2?['baseline','candidate']:['candidate','baseline']) {
