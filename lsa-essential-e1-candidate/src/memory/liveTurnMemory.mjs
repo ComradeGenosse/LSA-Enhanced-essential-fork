@@ -8,104 +8,22 @@ import {createM5RuntimeCoordinator} from '../../../lsa-shared-brain/src/memory/m
 import {detectExplicitMemoryCommands} from '../../../lsa-shared-brain/src/memory/explicitCommands.mjs';
 import {createRecallEvidencePolicy} from '../../../lsa-shared-brain/src/memory/recallEvidencePolicy.mjs';
 import {createP2M8ProductionReader} from './p2M8ProductionRead.mjs';
+import {openH1ConversationSource} from './h1ConversationHistory.mjs';
+export {assembleJournalConversation} from './h1ConversationHistory.mjs';
 
-const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
-const avatar=new Set(['franklin','michael','trevor','unknown']);
-const playerSource=new Set(['player_text','player_mic']);
-const bytes=v=>Buffer.byteLength(JSON.stringify(v),'utf8');
-const MAX_AGE=5*60*1000;
-const validLine=e=>e?.kind==='dialogue_line'&&uuid.test(e.recordId)&&
-  typeof e.content==='string'&&e.content.length>0&&e.content.length<=12000&&
-  Number.isFinite(Date.parse(e.committedAtUtc))&&(
-    e.speaker==='player'&&e.delivery==='accepted'&&['typed','stt'].includes(e.source)||
-    e.speaker==='npc'&&e.delivery==='completed'&&uuid.test(e.deliveryReceiptId));
-const matchesScope=(e,s)=>e.characterId===s.characterId&&
-  e.worldProfileId===s.worldProfileId&&e.timelineId===s.timelineId;
 const noMemory=()=>Object.freeze({status:'unavailable',reason:'no_verified_memory_source',
   preparedRecall:null,conversationJournal:null,memoryAction:null,recallCurrent:()=>false});
-const sameHost=(a,b)=>!!a&&!!b&&a.hostRunId===b.hostRunId&&a.worldEpoch===b.worldEpoch;
-
-/** A journal history only. The accepted line is NOT reinserted as history.
- * Previous NPC speech that was interrupted/failed is never treated as heard.
- * Archived speech is explicitly labelled, never passed off as a live turn.
- */
-export function assembleJournalConversation({rows,accepted,scope,suppressed=[],nowUtc}={}){
-  if(!Array.isArray(rows)||!accepted||!scope||!Array.isArray(suppressed))return null;
-  const hidden=new Set(suppressed);
-  if(hidden.has(accepted.recordId)||!validLine(accepted)||accepted.speaker!=='player'||
-     !matchesScope(accepted,scope)||!uuid.test(accepted.attribution?.sessionId))return null;
-  const end=Date.parse(accepted.committedAtUtc);
-  if(!Number.isFinite(end)||end>Date.parse(nowUtc)+60000)return null;
-  const unique=new Map();
-  for(const row of rows){
-    if(!validLine(row)||!matchesScope(row,scope)||hidden.has(row.recordId)||
-       row.recordId===accepted.recordId||!uuid.test(row.attribution?.sessionId)||
-       Date.parse(row.committedAtUtc)>end)continue;
-    if(!unique.has(row.recordId))unique.set(row.recordId,row);
-  }
-  const ordered=[...unique.values()].sort((a,b)=>
-    Date.parse(b.committedAtUtc)-Date.parse(a.committedAtUtc)||
-    b.recordId.localeCompare(a.recordId));
-  const recent=[];
-  let last=end;
-  for(const row of ordered){
-    const at=Date.parse(row.committedAtUtc);
-    if(last-at>MAX_AGE)break;
-    const item={role:row.speaker==='player'?'user':'assistant',content:row.content};
-    if(recent.length>=20||bytes([item,...recent])>12*1024)break;
-    recent.unshift(item);last=at;
-  }
-  // A limited labelled earlier block, never an invented summary. PS4 allocates
-  // these only inside the same character/timeline, at lower priority than canon.
-  const earlier=[];
-  for(const row of ordered.slice(recent.length)){
-    if(earlier.length>=4)break;
-    const item={role:row.speaker==='player'?'user':'assistant',content:row.content,
-      atUtc:row.committedAtUtc,status:'archived'};
-    if(bytes([...earlier,item])>2048)break;
-    earlier.push(item);
-  }
-  return Object.freeze({recent:Object.freeze(recent),earlier:Object.freeze(earlier)});
-}
 
 export async function prepareLiveTurnMemory({store,turn,acceptedReceipt,input,source,isCurrent,
   nowUtc=new Date().toISOString()}={}){
   const empty=noMemory();
   try{
-    if(!playerSource.has(source)||typeof input!=='string'||typeof isCurrent!=='function'||
-       !store||typeof store.readDialogueLines!=='function'||
-       typeof store.readIntegratedRecall!=='function'||
-       typeof store.listSuppressedMemoryIds!=='function'||
-       !['stored','duplicate'].includes(acceptedReceipt?.status)||
-       acceptedReceipt?.durable!==true||!uuid.test(acceptedReceipt.recordId)||
-       !avatar.has(acceptedReceipt.protagonistKey))return empty;
-    const characterId=turn?.characterProjection?.profile?.characterId;
-    const profile=turn?.characterProjection?.profile;
-    const scope={characterId,worldProfileId:store.worldProfileId,
-      timelineId:store.activeTimelineId,protagonistKey:acceptedReceipt.protagonistKey};
-    const host=store.verifiedHostContext;
-    const alias=profile?.promotion?.ownerAlias;
-    const current=()=>isCurrent()===true&&
-      turn.characterProjection?.persistent===true&&
-      turn.characterInputs?.profile?.characterId===characterId&&
-      uuid.test(characterId)&&uuid.test(scope.worldProfileId)&&
-      uuid.test(scope.timelineId)&&store.activeTimelineId===scope.timelineId&&
-      store.timelineWritable===true&&sameHost(store.verifiedHostContext,host)&&
-      store.get(characterId)?.promotion?.ownerAlias===alias&&
-      turn.m2Capture?.verifyMemoryCurrent?.()===true;
-    if(!alias||typeof turn.m2Capture?.openMemoryCurrent!=='function'||
-       await turn.m2Capture.openMemoryCurrent()!==true||!current())return empty;
-    // Readback from the original SQLite journal, never synthesize an accepted
-    // line from the client input or a model-provided acceptance receipt.
-    let rows=await store.readDialogueLines({characterId,timelineId:scope.timelineId,limit:200});
-    if(!current())return empty;
-    const line=rows.find(row=>row.recordId===acceptedReceipt.recordId);
-    const expectedSource=source==='player_mic'?'stt':'typed';
-    if(!line||!validLine(line)||line.speaker!=='player'||line.source!==expectedSource||
-       line.content!==input||!matchesScope(line,scope)||
-       line.attribution?.protagonist!==scope.protagonistKey||
-       !sameHost(line.attribution,host)||!uuid.test(line.attribution.sessionId)||
-       !/^[0-9a-f]{64}$/.test(line.turnIdentityHash))return empty;
+    // The combined path still requires M4. H1's own admission is independent.
+    if(typeof store?.readIntegratedRecall!=='function')return empty;
+    const h1Source=await openH1ConversationSource({
+      store,turn,acceptedReceipt,input,source,isCurrent,nowUtc});
+    if(h1Source.status!=='ready')return empty;
+    const {scope,line,current,characterId}=h1Source;
     // Ordinary conversation never invokes a memory writer. Only an explicit
     // player command (or a possible reply to an existing durable clarification)
     // may enter M5, always subject to the coordinator's own source checks.
@@ -133,22 +51,10 @@ export async function prepareLiveTurnMemory({store,turn,acceptedReceipt,input,so
       }
     }catch{memoryAction=Object.freeze([{outcome:'failed',durableCommit:false}]);}
     if(!current())return empty;
-    const hidden=async()=>{
-      const ids=await store.listSuppressedMemoryIds(scope);
-      if(!current())throw Error('memory_source_revoked');
-      const corrections=await store.readCorrectionOverlays?.(scope)??[];
-      if(!current())throw Error('memory_source_revoked');
-      return [...new Set([...ids,...corrections.filter(x=>x.supersedesTarget!==false).map(x=>x.targetId)])].sort();
-    };
-    const suppressed=await hidden();
-    if(!current())return empty;
-    // M5 may have corrected a line. Assemble only after its durable transaction.
-    rows=await store.readDialogueLines({characterId,timelineId:scope.timelineId,limit:200});
-    if(!current())return empty;
-    const conversationJournal=assembleJournalConversation({
-      rows,accepted:line,scope,suppressed,nowUtc});
-    // The stored accepted line may have been forgotten by the M5 command.
-    if(!conversationJournal)return Object.freeze({...empty,memoryAction});
+    // M5 has completed any durable corrections; only now read H1 history.
+    const preparedH1=await h1Source.prepare();
+    if(preparedH1.status!=='ready')return Object.freeze({...empty,memoryAction});
+    const {conversationJournal,stamp}=preparedH1;
     const query={version:1,kind:'recall_query',queryId:randomUUID(),
       characterId,worldProfileId:scope.worldProfileId,timelineId:scope.timelineId,
       turnIdentityHash:line.turnIdentityHash,
@@ -216,8 +122,6 @@ export async function prepareLiveTurnMemory({store,turn,acceptedReceipt,input,so
       preparedM8=await m8Reader.prepare({scope,authority,nowUtc,maxBytes:2048});
     }catch{}
     if(!current())return empty;
-    const stamp=Object.freeze({...scope,hostRunId:host.hostRunId,
-      worldEpoch:host.worldEpoch,recordId:line.recordId});
     const preparedRecall=Object.freeze({status:'ready',stamp,contribution,answerEvidence});
     // PS4 immutableSnapshot clones the private stamp. Compare its exact
     // allowlisted values, not object identity, after every snapshot/prune.
@@ -225,7 +129,6 @@ export async function prepareLiveTurnMemory({store,turn,acceptedReceipt,input,so
       Object.keys(stamp).length===Object.keys(seen).length&&
       Object.keys(stamp).every(k=>seen[k]===stamp[k])&&current();
     let verifiedFence=null,memoryValid=true,opinionValid=preparedM8?.status==='ready';
-    const journalSeal=JSON.stringify(conversationJournal);
     // Awaited on EVERY model attempt and again at the request boundary. The
     // synchronous connection fence closes the gap from last read to fetch.
     async function verifyPrepared(){
@@ -233,11 +136,8 @@ export async function prepareLiveTurnMemory({store,turn,acceptedReceipt,input,so
       memoryValid=false;opinionValid=false;
       if(!current()||fence===null||fence===undefined||!policy)return false;
       try{
-        const freshHidden=await hidden();
-        const freshRows=await store.readDialogueLines({characterId,timelineId:scope.timelineId,limit:200});
-        if(!current())return false;
-        if(JSON.stringify(freshRows.find(row=>row.recordId===line.recordId))!==JSON.stringify(line))return false;
-        const freshJournal=assembleJournalConversation({rows:freshRows,accepted:line,scope,suppressed:freshHidden,nowUtc});
+        const historyVerification=await preparedH1.verifyPrepared();
+        if(historyVerification.status!=='ready')return false;
         // The bounded M4 query is re-read too, so a changed source chain or
         // corrected derivative cannot survive merely because its ID exists.
         const fresh=await recallMemory({query,readAdapter:{read:async args=>{
@@ -253,7 +153,7 @@ export async function prepareLiveTurnMemory({store,turn,acceptedReceipt,input,so
         const freshWitness=witnessArgs?await policy.witness(witnessArgs):witness;
         const m8Ok=preparedM8?.status==='ready'&&await m8Reader.verifyPrepared(preparedM8);
         if(!current()||store.memoryReadFence!==fence)return false;
-        memoryValid=visible&&JSON.stringify(freshJournal)===journalSeal&&
+        memoryValid=visible&&preparedH1.sendCurrent()&&
           JSON.stringify(freshLabels)===JSON.stringify(labels)&&
           JSON.stringify(toPs4RecallContribution(fresh.bundle,{maxBytes:4096}))===
             JSON.stringify(toPs4RecallContribution(bundle,{maxBytes:4096}))&&
@@ -263,7 +163,8 @@ export async function prepareLiveTurnMemory({store,turn,acceptedReceipt,input,so
         return memoryValid;
       }catch{return false;}
     }
-    const sendCurrent=()=>memoryValid&&current()&&verifiedFence!==null&&store.memoryReadFence===verifiedFence;
+    const sendCurrent=()=>memoryValid&&current()&&verifiedFence!==null&&
+      store.memoryReadFence===verifiedFence&&preparedH1.sendCurrent();
     const opinionCurrent=(_refs,seen)=>opinionValid&&sendCurrent()&&!!seen&&
       Object.keys(preparedM8.stamp).every(k=>seen[k]===preparedM8.stamp[k]);
     return Object.freeze({status:'ready',preparedRecall,preparedM8,conversationJournal,

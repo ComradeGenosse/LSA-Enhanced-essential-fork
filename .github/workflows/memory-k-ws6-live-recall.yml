@@ -11,6 +11,8 @@ on:
       - 'lsa-shared-brain/src/characters/sqliteProfileStore.mjs'
       - 'lsa-shared-brain/tests/memory-m6-p2-production.test.mjs'
       - 'lsa-essential-e1-candidate/src/memory/liveTurnMemory.mjs'
+      - 'lsa-essential-e1-candidate/src/memory/h1ConversationHistory.mjs'
+      - 'lsa-essential-e1-candidate/tests/memory/h1ConversationHistory.test.mjs'
       - 'lsa-essential-e1-candidate/src/memory/d03OriginalDialogueJoin.mjs'
       - 'lsa-essential-e1-candidate/src/integration/essentialGlue.mjs'
       - 'lsa-essential-e1-candidate/src/context/knowledgeRenderer.mjs'
@@ -51,12 +53,16 @@ jobs:
       - name: Validate WS-6 production syntax
         run: |
           node --check lsa-essential-e1-candidate/src/memory/liveTurnMemory.mjs
+          node --check lsa-essential-e1-candidate/src/memory/h1ConversationHistory.mjs
+          node --check lsa-essential-e1-candidate/tests/memory/h1ConversationHistory.test.mjs
           node --check lsa-essential-e1-candidate/src/memory/d03OriginalDialogueJoin.mjs
           node --check lsa-essential-e1-candidate/src/context/knowledgeRenderer.mjs
           node --check lsa-essential-e1-candidate/src/integration/essentialGlue.mjs
           node --check lsa-essential-e1-candidate/src/openai/runSequentialTurn.mjs
           node --check lsa-essential-e1-candidate/src/memory/p2M8ProductionRead.mjs
           node --check lsa-shared-brain/src/memory/recallEvidencePolicy.mjs
+      - name: H1-A standalone authenticated history extraction
+        run: node --test --test-concurrency=1 lsa-essential-e1-candidate/tests/memory/h1ConversationHistory.test.mjs
       - name: WS-6 evidence/CONVERSE and source revocation
         run: node --test --test-concurrency=1 lsa-essential-e1-candidate/tests/memory/ws6LiveTurnMemory.test.mjs
       - name: Original-backed two-turn SQLite to model-frame positive acceptance
