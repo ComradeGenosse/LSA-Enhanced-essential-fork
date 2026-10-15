@@ -17,7 +17,7 @@ const sameHost=(a,b)=>!!a&&!!b&&a.hostRunId===b.hostRunId&&a.worldEpoch===b.worl
 
 
 const unavailable=reason=>Object.freeze({status:'unavailable',reason,conversationJournal:null});
-const invalidated=reason=>Object.freeze({status:'invalidated',reason});
+const invalidated=reason=>{process.stderr.write('DBG_H1 invalidated '+reason+'\n');return Object.freeze({status:'invalidated',reason});};
 const readyVerification=Object.freeze({status:'ready'});
 /** A journal history only. The accepted line is NOT reinserted as history.
  * Previous NPC speech that was interrupted/failed is never treated as heard.
@@ -156,11 +156,13 @@ export async function openH1ConversationSource({store,turn,acceptedReceipt,input
             const checkRows=await store.readDialogueLines({
               characterId,timelineId:scope.timelineId,limit:200});
             if(!current()||store.memoryReadFence!==fence)
-              return invalidated('source_authority_revoked');
+              {process.stderr.write('DBG_H1 fence current='+current()+' was='+fence+' now='+store.memoryReadFence+'\n');return invalidated('source_authority_revoked');}
             if(JSON.stringify(checkRows.find(row=>row.recordId===line.recordId))!==acceptedSeal)
               return invalidated('accepted_line_changed');
             const checkJournal=assembleJournalConversation({
               rows:checkRows,accepted:line,scope,suppressed:freshHidden,nowUtc});
+            if(JSON.stringify(checkJournal)!==journalSeal)
+              process.stderr.write('DBG_H1 seal='+journalSeal+' check='+JSON.stringify(checkJournal)+'\n');
             if(JSON.stringify(checkJournal)!==journalSeal)
               return invalidated('history_changed');
             verifiedFence=fence;

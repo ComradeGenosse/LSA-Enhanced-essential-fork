@@ -12,7 +12,7 @@ export function createKnowledgeDelivery({frame,baseFrame=frame,isCurrent,validat
  const opinionFresh=()=>{try{return opinionCurrent(projection.opinionReferences??[],projection.opinionStamp)===true;}catch{return false;}};
  const currentReason=()=>!isCurrent()?'superseded':(projection.memoryStamp&&!memoryCurrent(projection.memoryStamp))?'memory_stale':(projection.recallStamp&&!recallFresh())?'recall_stale':
  (projection.opinionReferences?.length&&!opinionFresh())?'opinion_stale':hasOptional()?validate(projection):null;
- const fail=reason=>{throw Object.assign(new Error('knowledge_request_stale'),{code:'knowledge_request_stale',reason});};
+ const fail=reason=>{process.stderr.write('DBG_KD fail '+reason+'\n');throw Object.assign(new Error('knowledge_request_stale'),{code:'knowledge_request_stale',reason});};
  const report=outcome=>{
   if(terminal)return null;terminal=true;dispose();
   let acknowledged=0,retired=0;
