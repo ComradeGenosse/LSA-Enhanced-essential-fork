@@ -199,6 +199,11 @@ for(const boundary of ['native_owner','timeline','host']){
     const turn=await x.typed('Where is the violet piano?');
     assert.notEqual((await x.settled(turn)).status,'completed');
     assert.equal(requests,0,'revoked optional history must never reach the HTTP provider');
+    const diagnostic=x.h.runtime.services.memoryJournalDiagnostics();
+    assert.equal(diagnostic.state,'blocked',
+      'revoked optional history must not be reported as simply waiting');
+    assert.equal(diagnostic.lastValidation?.status,'invalidated');
+    assert.equal(diagnostic.contributedToModelRequest,false);
   });
 }
 
