@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import {randomUUID,createHash} from 'node:crypto';
 import {d01Harness} from './d01-harness.mjs';
 import {decide} from '../../src/openai/decide.mjs';
 
@@ -99,4 +100,43 @@ test('H2 source revocation before HTTP send prevents stale recall request',
     assert.notEqual((await x.settled(turn)).status,'completed');
     assert.equal(http,0,'retired recall cannot reach HTTP');
     assert.equal(x.h.runtime.services.memoryRecallDiagnostics().contributedToModelRequest,false);
+  });
+
+test('H2 respects durable forget with M5 command consumer turned off',
+  {timeout:45000},async t=>{
+    const x=await d01Harness(t,{config:configured()});
+    const sent=capture(x);
+    await say(x,'The secret amber sextant is inside the greenhouse.');
+    await say(x,'I want to forget the old location of my sextant.');
+    const scope={characterId:x.profile.characterId,worldProfileId:x.store.worldProfileId,
+      timelineId:x.timelineId,protagonistKey:x.native.avatar};
+    const rows=(await x.store.readDialogueLines({...scope,limit:20})).filter(x=>x.speaker==='player');
+    const target=rows.find(x=>x.content==='The secret amber sextant is inside the greenhouse.');
+    const request=rows.find(x=>x.content==='I want to forget the old location of my sextant.');
+    assert.ok(target&&request);
+    const forgotten=await x.store.commitCommand({scope,commandId:randomUUID(),
+      requestedByLineId:request.recordId,operation:'forget',content:request.content,
+      contentHash:createHash('sha256').update(request.content).digest('hex'),
+      evidenceRecordIds:[request.recordId,target.recordId],targetRecordId:target.recordId,
+      requestedAtUtc:request.committedAtUtc});
+    assert.equal(forgotten.status,'committed');
+    await say(x,'Where did I put the amber sextant?');
+    const last=sent.at(-1);
+    assert.ok(!JSON.stringify(last.body).includes('inside the greenhouse'),
+      'suppressed journal content cannot reappear via independent M4');
+    assert.equal(x.h.runtime.services.memoryRecallDiagnostics().contributedToModelRequest,
+      !!last.frame.recallAnswerEvidence||(last.frame.recallReferences?.length??0)>0);
+  });
+
+test('shadow mode is explicitly unsupported and makes no M4 reads',
+  {timeout:45000},async t=>{
+    const x=await d01Harness(t,{config:configured({'memory.recall':'shadow'})});
+    let reads=0;
+    const original=x.store.readIntegratedRecall.bind(x.store);
+    x.store.readIntegratedRecall=(...args)=>{reads++;return original(...args);};
+    await say(x,'There is a bronze clock under the bench.');
+    assert.equal(reads,0);
+    const diagnostics=x.h.runtime.services.memoryRecallDiagnostics();
+    assert.equal(diagnostics.reason,'shadow_not_supported');
+    assert.equal(diagnostics.state,'unavailable');
   });
