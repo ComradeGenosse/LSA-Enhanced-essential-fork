@@ -24,7 +24,8 @@ export function createM3JournalPorts(store){
         const receipt=foundation.appendJournalEvent(event,{hostContext:host,sourceEvidence});
         if(!receipt||typeof receipt.inserted!=='boolean'||!uuid.test(receipt.recordId))
           throw new Error('m3_commit_unconfirmed');
-        return Object.freeze(receipt.inserted?{inserted:true}:{duplicate:true});
+        return Object.freeze({...(receipt.inserted?{inserted:true}:{duplicate:true}),
+          ...(receipt.recordId!==event.recordId?{recordId:receipt.recordId}:{})});
       },
       recordCoverage:(record,foundation)=>{
         const host=store.verifiedHostContext;

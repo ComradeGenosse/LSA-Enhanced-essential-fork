@@ -17,7 +17,9 @@ import {createM3WitnessRecorder} from '../memory/integrationPorts.mjs';
 
 export function createM3Ps2ObserverAdapter({ps2,p2,store=p2,nativeAuthority,
     limit=512,maxBytes=1024*1024,scheduler,onLoss=()=>{},now,
-    attribution='observation_time',coverage=null}={}) {
+    attribution='observation_time',coverage=null,eventMode='on',coverageMode='on'}={}) {
+  if(!['off','shadow','on'].includes(eventMode)||!['off','shadow','on'].includes(coverageMode))
+    throw new TypeError('m3_invalid_mode');
   if(!nativeAuthority||typeof nativeAuthority.resolveNativeOwner!=='function' ||
      typeof onLoss!=='function'||!store||typeof store.withTimelineWrite!=='function')
     throw new TypeError('m3_source_authority_and_p2_writer_required');
@@ -28,22 +30,23 @@ export function createM3Ps2ObserverAdapter({ps2,p2,store=p2,nativeAuthority,
     if(value?.then)throw new Error('m3_async_native_authority_refused');
     return value;
   }:null;
-  const binder=new M3ObserverOwnerBinder({ps2,p2,
+  const binder=eventMode!=='off'?new M3ObserverOwnerBinder({ps2,p2,
     resolveNativeOwner:syncNative('resolveNativeOwner'),
     resolveParticipants:syncNative('resolveParticipants'),
     resolvePrepromotion:syncNative('resolvePrepromotion'),
     verifyNativeCoverage:syncNative('verifyNativeCoverage'),
-    attribution});
+    attribution}):null;
   const recorder=createM3WitnessRecorder({store,
-    authorize:args=>binder.authorize(args),
-    authorizeCoverage:args=>binder.authorizeCoverage(args),now});
+    authorize:args=>binder?.authorize(args)??null,
+    authorizeCoverage:args=>binder?.authorizeCoverage(args)??null,now});
 
   // ------------------------------------------------------------ coverage
   let tracker=null;
-  if(coverage){
+  if(coverage&&coverageMode!=='off'){
     const active=()=>store.timelineWritable===true&&store.verifiedHostContext?store.activeTimelineId:null;
     tracker=createM3ObserverCoverageTracker({
       worldProfileId:store.worldProfileId,
+      eventIntakeEnabled:eventMode==='on',durable:coverageMode==='on',
       resolveCharacter:coverage.resolveCharacter,
       activeTimeline:active,
       monotonicNow:coverage.monotonicNow,utcNow:coverage.utcNow,
@@ -89,35 +92,55 @@ export function createM3Ps2ObserverAdapter({ps2,p2,store=p2,nativeAuthority,
     }
   };
 
-  const intake=new M3BoundedIntake({binder,recorder,limit,maxBytes,
+  const intake=eventMode==='on'?new M3BoundedIntake({binder,recorder,limit,maxBytes,
     ...(scheduler?{scheduler}:{}),onOutcome:outcome,onFailure:(stage,detail)=>{
       try{onLoss(stage,detail);}catch{}
-    }});
-  let boundaries=0;
+    }}):null;
+  const shadow={offered:0,qualified:0,rejected:0};
+  const bump=k=>shadow[k]=Math.min(2147483647,shadow[k]+1);
+  let boundaries=0,closed=false;
+  const tap=receipt=>{
+    if(closed||eventMode==='off')return {accepted:false,reason:'m3_events_disabled'};
+    if(intake)return intake.offer(receipt);
+    bump('offered');
+    let result;
+    try{result=binder.bindAcceptedReceipt(receipt);}catch{result={accepted:false,reason:'m3_bind_failed'};}
+    // Shadow validates the original PS2/native join but owns no admission ticket
+    // or write queue. It can never acknowledge a durable event.
+    binder?.reset();
+    bump(result?.accepted?'qualified':'rejected');
+    return result?.accepted?{accepted:true,shadow:true,queued:false}:result;
+  };
   return Object.freeze({
     // Supply to IntelligenceClient.acceptedObservationTap. The PS2 host calls
     // only for *already accepted* correlated PS2 observations (not PS3 salience).
-    acceptedObservationTap:receipt=>intake.offer(receipt),
+    acceptedObservationTap:tap,
     // Optional, separately authorized native-reserved owner before promotion.
-    prepromotionAcceptedTap:receipt=>intake.offer(receipt,{prepromotion:true}),
-    importOnPromotion:({candidate})=>recorder.importOnPromotion({candidate}),
-    recordNegativeCoverage:input=>recorder.recordNegativeCoverage(input),
+    prepromotionAcceptedTap:receipt=>intake?intake.offer(receipt,{prepromotion:true}):
+      {accepted:false,reason:'m3_events_disabled'},
+    importOnPromotion:({candidate})=>intake?recorder.importOnPromotion({candidate}):
+      {accepted:false,reason:'m3_events_disabled'},
+    recordNegativeCoverage:input=>coverageMode==='on'?recorder.recordNegativeCoverage(input):
+      {accepted:false,reason:'coverage_disabled'},
     // Authenticated owner samples (already validated by the native authority).
-    coverageSample:sample=>tracker?tracker.sample(sample):{accepted:false,reason:'coverage_disabled'},
+    coverageSample:sample=>!closed&&tracker?tracker.sample(sample):{accepted:false,reason:'coverage_disabled'},
     coverageRetire:reason=>{tracker?.retire(reason);},
     coverageIdle:()=>tracker?tracker.idle():Promise.resolve(null),
     // These are C-13 / PS2 retire / P2 timeline boundaries, not invented events.
-    retire:()=>{boundaries++;intake.retire();binder.reset();},
-    close:()=>{boundaries++;intake.close();binder.reset();},
+    retire:()=>{boundaries++;intake?.retire();binder?.reset();tracker?.retire();},
+    close:()=>{closed=true;boundaries++;intake?.close();binder?.reset();tracker?.retire();},
     // Full shutdown: stop intake, then seal and flush coverage while the store is open.
     shutdown:async()=>{
       boundaries++;
-      await intake.idle();
-      intake.close();binder.reset();
+      closed=true;
+      tracker?.retire('shutdown');
+      await intake?.idle();
+      intake?.close();binder?.reset();
       await tracker?.close();
     },
-    idle:()=>intake.idle(),
-    snapshot:()=>Object.freeze({...intake.snapshot(),boundaries,attribution:binder.attribution,
+    idle:()=>intake?intake.idle():Promise.resolve(null),
+    snapshot:()=>Object.freeze({...intake?.snapshot(),closed,eventMode,coverageMode,
+      shadow:Object.freeze({...shadow}),boundaries,attribution:binder?.attribution??attribution,
       coverage:tracker?tracker.snapshot():null,
       // A process restart cannot replay unpersisted JavaScript callbacks.
       // Only native-proven redelivery is eligible for a new offer() and P2

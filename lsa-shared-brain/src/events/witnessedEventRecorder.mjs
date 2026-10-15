@@ -78,7 +78,7 @@ export class WitnessedEventRecorder {
       const committed=sync(this.#port.append({event:result.event,sourceEvidence:result.sourceEvidence},db,snapshot));
       if(!accepted(committed)) throw new Error('m3_journal_commit_unconfirmed');
       return {accepted:true,inserted:committed.inserted===true,duplicate:committed.duplicate===true,
-        recordId:result.event.recordId};
+        recordId:committed.recordId??result.event.recordId};
     });
   }
   // Promotion grace is bounded to same physical actor, native run, world

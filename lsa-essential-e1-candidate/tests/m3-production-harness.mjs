@@ -15,6 +15,8 @@ import {randomUUID} from 'node:crypto';
 import {createP2MemoryStorage} from '../../lsa-shared-brain/src/characters/sqliteProfileStore.mjs';
 import {IntelligenceClient} from '../src/perception/intelligenceClient.mjs';
 import {CAPABILITIES} from '../src/perception/contracts.mjs';
+import {memoryKM3Activation} from '../src/memory/m3Activation.mjs';
+import {memoryKSourceActivation} from '../src/memory/sourceActivation.mjs';
 import {createM3ProductionMemory} from '../src/memory/m3ProductionMemory.mjs';
 import {profile} from './p2-fixtures.mjs';
 import {worldProfileId} from './identity-fixtures.mjs';
@@ -25,7 +27,7 @@ export const iso=ms=>new Date(Date.UTC(2026,9,13,12,0,0)+ms).toISOString();
 
 export async function createHarness(t,{npcCount=2,limit,scheduler,coverage=true,
     coverageOptions={},authorityOptions={},adapterOptions={},startMs=1_000_000,
-    protagonist='franklin',injectedAuthority=null,telemetry=null}={}) {
+    protagonist='franklin',injectedAuthority=null,telemetry=null,config=null}={}) {
   const dir=await fs.mkdtemp(path.join(os.tmpdir(),'ws5b-'));
   const filePath=path.join(dir,'p2.sqlite');
   const store=createP2MemoryStorage({filePath,worldProfileId,sourceRequired:true});
@@ -46,22 +48,26 @@ export async function createHarness(t,{npcCount=2,limit,scheduler,coverage=true,
   socket.destroy=()=>{if(socket.closed)return;socket.closed=true;socket.emit('close');};
   socket.write=()=>true;
   let m3=null;
+  const activation=config?memoryKM3Activation(config):null;
   const client=new IntelligenceClient({mode:'shadow',pipeName:'LSA.WS5B'},{
     connect:()=>socket,now:()=>clock.ms,
-    acceptedObservationTap:receipt=>m3?m3.tap(receipt):{accepted:false,reason:'not_ready'},
+    ...(config?{consumers:memoryKSourceActivation(config)}:{}),
+    acceptedObservationTap:activation?.events.mode==='off'?null:
+      receipt=>m3?m3.tap(receipt):{accepted:false,reason:'not_ready'},
   });
   m3=createM3ProductionMemory({intelligence:client,memoryStore:store,telemetry,
     nativeAuthority:injectedAuthority,
+    ...(activation?{eventMode:activation.events.mode,coverageMode:activation.coverage.mode}:{}),
     authorityOptions:{now:()=>clock.ms,...authorityOptions},
     coverage:coverage?{monotonicNow:()=>clock.ms,utcNow:()=>iso(clock.ms),options:coverageOptions}:null,
     adapterOptions:{...(limit?{limit}:{}),...(scheduler?{scheduler}:{}),...adapterOptions},
   });
   // Test seam: the PS2 correlator stamps receivedUtc from this clock; production
   // uses wall time, which is what the coverage ledger's utcNow also uses.
-  client.runtime.correlator.utc=()=>iso(clock.ms);
+  if(client.runtime.correlator)client.runtime.correlator.utc=()=>iso(clock.ms);
   const taps=[];
   const originalTap=client.runtime.acceptedObservationTap;
-  client.runtime.acceptedObservationTap=receipt=>{taps.push(receipt);return originalTap(receipt);};
+  if(originalTap)client.runtime.acceptedObservationTap=receipt=>{taps.push(receipt);return originalTap(receipt);};
 
   let sequence=0,signalSerial=0,producerSerial=0;
   const queued=[];
