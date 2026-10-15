@@ -238,3 +238,16 @@ test('H1-C pin exact #138 original assembly behavior; compare extracted H1 with 
       'same stored source rows, bounded windows, exclusions, labels and roles');
   }
 });
+
+test('H1-C P2: switching a turn projection to a retired/different owner revokes prepared bytes',async t=>{
+  const x=await setup(t),a=x.people[0];
+  await x.record(a,'one owner private words',{secondsAgo:20});
+  const current=await x.record(a,'Do you still know me?');
+  const args=x.args(a,current,'Do you still know me?');
+  const h=await prepareH1ConversationHistory(args);
+  assert.equal(h.status,'ready');
+  assert.equal((await h.verifyPrepared()).status,'ready');
+  args.turn.characterProjection.profile.promotion.ownerAlias='retired.or.replaced';
+  assert.equal(h.sendCurrent(),false);
+  assert.equal((await h.verifyPrepared()).status,'invalidated');
+});
