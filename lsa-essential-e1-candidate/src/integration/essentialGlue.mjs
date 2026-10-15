@@ -23,6 +23,8 @@ import {createOriginalTurnActorLedger} from '../memory/originalTurnActorLedger.m
 import {createNpcSpeechDeliverySource} from '../memory/npcSpeechDeliveryLedger.mjs';
 import {prepareLiveTurnMemory} from '../memory/liveTurnMemory.mjs';
 import {prepareH1ConversationHistory} from '../memory/h1ConversationHistory.mjs';
+import {prepareFactualRecall} from '../memory/h2FactualRecall.mjs';
+import {composeIndependentForegroundMemory} from '../memory/independentForegroundMemory.mjs';
 import { validateDecisionShape } from '../context/essentialDecision.mjs';
 import { validateStockDecision } from '../context/decisionValidator.mjs';
 import { createProviderStack } from '../providers/providerStack.mjs';
@@ -32,7 +34,7 @@ import { captureReferenceMap } from '../context/turnSnapshot.mjs';
 import { IdentityResolver } from '../identity/identityResolver.mjs';
 import { CharacterService,withoutCharacterTransport } from '../characters/characterService.mjs';
 import { createNoopDialogueTrace } from '../observability/dialogueTrace.mjs';
-import {memoryKConsumersAllowed,memoryKDialogueActivation,memoryKH1Activation} from '../memory/runtimeComposition.mjs';
+import {memoryKConsumersAllowed,memoryKDialogueActivation,memoryKH1Activation,memoryKH2Activation} from '../memory/runtimeComposition.mjs';
 
 // Fail-closed startup contract for E1's separately reviewed storage-only preset.
 export const MEMORY_K_COMPOSITION_VERSION=1;
@@ -64,6 +66,8 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
   const optionalMemoryEnabled=memoryKConsumersAllowed(config);
   const dialogueActivation=memoryKDialogueActivation(config);
   const journalActivation=memoryKH1Activation(config);
+  const recallActivation=memoryKH2Activation(config);
+  const recallState={preparation:null,validation:null,contributed:false,requestAttempted:false};
   const journalState={preparation:null,validation:null,contributed:false,requestAttempted:false};
   const journalOutcome=(status,reason=null)=>Object.freeze({status,reason});
   const dialogueResults={player:null,npc:null};
@@ -153,30 +157,71 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
     // and source-fenced read receipts, never prompt text or model instructions.
     async prepareLiveTurnMemory(args) {
       if(runtime.closed)return null;
-      journalState.preparation=null;journalState.validation=null;
-      journalState.contributed=false;journalState.requestAttempted=false;
+      for(const state of [journalState,recallState]){
+        state.preparation=null;state.validation=null;state.contributed=false;state.requestAttempted=false;
+      }
       if(optionalMemoryEnabled){
-        // The legacy combined path is unchanged when no explicit map exists.
+        // No explicit capability map: retain the inherited combined WS6 path.
         const result=await prepareLiveTurnMemory({store:journalStore,...args});
         journalState.preparation=journalOutcome(result?.status??'unavailable',result?.reason??null);
         return result;
       }
-      if(journalActivation.mode!=='on')return null;
-      // H1 only: no recall engine, explicit command dispatch or M8 interpretation.
-      const result=await prepareH1ConversationHistory({store:journalStore,...args});
-      journalState.preparation=journalOutcome(result.status,result.reason??null);
-      if(result.status!=='ready')return result;
-      return Object.freeze({...result,h1Only:true,
-        async verifyPrepared(){
-          const check=await result.verifyPrepared();
-          journalState.validation=journalOutcome(check.status,check.reason??null);
-          return check.status==='ready';
+      if(journalActivation.mode!=='on'&&recallActivation.mode!=='on')return null;
+      // Independently prepare each enabled reader using exactly the same
+      // accepted D03 receipt and original source/turn identity. M5/M8 stay off.
+      let history=null,recall=null;
+      if(journalActivation.mode==='on'){
+        try{history=await prepareH1ConversationHistory({store:journalStore,...args});}
+        catch{history={status:'unavailable',reason:'history_read_failed'};}
+        journalState.preparation=journalOutcome(history.status,history.reason??null);
+      }
+      if(recallActivation.mode==='on'){
+        try{recall=await prepareFactualRecall({store:journalStore,...args});}
+        catch{recall={status:'unavailable',reason:'recall_read_failed'};}
+        recallState.preparation=journalOutcome(recall.status,recall.reason??null);
+      }
+      const result=composeIndependentForegroundMemory({history,recall,
+        onValidation:({h1,h2})=>{
+          if(history?.status==='ready')
+            journalState.validation=journalOutcome(h1?'ready':'invalidated',h1?null:'source_authority_revoked');
+          if(recall?.status==='ready')
+            recallState.validation=journalOutcome(h2?'ready':'invalidated',h2?null:'source_authority_revoked');
         }});
+      return result??history??recall??null;
     },
     noteH1Skipped() {
-      if(journalActivation.mode!=='on')return;
-      journalState.preparation=journalOutcome('unavailable','accepted_line_authority_missing');
-      journalState.validation=null;journalState.contributed=false;journalState.requestAttempted=false;
+      if(journalActivation.mode==='on'){
+        journalState.preparation=journalOutcome('unavailable','accepted_line_authority_missing');
+        journalState.validation=null;journalState.contributed=false;journalState.requestAttempted=false;
+      }
+      if(recallActivation.mode==='on'){
+        recallState.preparation=journalOutcome('blocked','accepted_line_authority_missing');
+        recallState.validation=null;recallState.contributed=false;recallState.requestAttempted=false;
+      }
+    },
+    memoryRecallDiagnostics() {
+      const {requestedMode,mode,reason:activationReason,legacy}=recallActivation;
+      const environmentReason=runtime.closed?'runtime_stopped':
+        config.provider!=='openai'?'d01_acceptance_source_unavailable':
+        config.promotedCharacters?.storageMode!=='sqlite'||!characterService?.ready||
+          typeof journalStore?.readIntegratedRecall!=='function'?'p2_sqlite_unavailable':null;
+      const reason=activationReason??(mode==='on'?environmentReason??
+        recallState.validation?.reason??recallState.preparation?.reason:null);
+      const state=mode!=='on'?requestedMode==='shadow'?'unavailable':
+        requestedMode==='on'?'blocked':'stopped':
+        environmentReason==='runtime_stopped'?'stopped':
+        environmentReason?'unavailable':
+        recallState.validation?.status==='invalidated'?'blocked':
+        recallState.validation?.status==='ready'?'ready':
+        recallState.preparation?.status==='blocked'?'blocked':
+        recallState.preparation?.status==='unavailable'?'unavailable':
+        recallState.preparation?.status==='abstained'?'abstained':'waiting';
+      return Object.freeze({requestedMode,state,
+        effectiveMode:state==='ready'?'on':state==='stopped'?'off':null,
+        operationalState:state,reason:reason??(state==='waiting'?'accepted_player_turn_required':null),
+        lastPreparation:recallState.preparation,lastValidation:recallState.validation,
+        contributedToModelRequest:recallState.contributed,requestAttempted:recallState.requestAttempted,
+        legacy,restartRequired:true});
     },
     memoryJournalDiagnostics() {
       const {requestedMode,mode,reason:activationReason,legacy}=journalActivation;
@@ -259,12 +304,10 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
       // forgotten/corrected durable line from the original RAM conversation.
       const base=renderKnowledge({...args,history:memory?[]:args.history,includePerceived:false});
       const memoryReady=memory?.status==='ready';
-      const recallReady=memoryReady&&memory.h1Only!==true&&
-        memory.recallCurrent?.([],memory.preparedRecall?.stamp)===true;
-      const journalReady=memoryReady&&!!memory.conversationJournal&&
-        (memory.h1Only===true||recallReady);
-      const journalStamp=journalReady
-        ?(memory.h1Only===true?memory.stamp:memory.preparedRecall.stamp):null;
+      const recallReady=memoryReady&&memory.preparedRecall?.status==='ready'&&
+        memory.recallCurrent?.([],memory.preparedRecall.stamp)===true;
+      const journalReady=memoryReady&&!!memory.conversationJournal;
+      const journalStamp=memoryReady?(memory.stamp??memory.preparedRecall?.stamp):null;
       const memoryArgs={
         ...(recallReady?{
           preparedRecall:memory.preparedRecall,preparedM8:memory.preparedM8,
@@ -273,8 +316,8 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
             memory.recallCurrent([],prepared?.stamp)===true,
           memoryAction:memory.memoryAction
         }:{}),
-        ...(journalReady?{conversationJournal:memory.conversationJournal,
-          memoryStamp:journalStamp}:{})
+        ...(journalReady?{conversationJournal:memory.conversationJournal}:{}),
+        ...(journalReady||recallReady?{memoryStamp:journalStamp}:{})
       };
       const memoryBase=journalReady||recallReady
         ?renderKnowledge({...args,...memoryArgs,includePerceived:false}):base;
@@ -312,8 +355,8 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
       ) || ((frame.activityReferences?.length??0)>0?assertActivityKnowledgeCurrent(turn.knowledgeInputs.activityInputs,runtime.activities,frame.activityReferences):null) || ((frame.dialogueReferences?.length??0)>0?assertDialogueActionKnowledgeCurrent(turn.knowledgeInputs.dialogueInputs,runtime.activities,frame.dialogueReferences):null);
       turn.knowledgeDelivery=createKnowledgeDelivery({frame:selected,baseFrame:base,
         verifyPrepared:()=>memory?.verifyPrepared?.()??false,
-        recallCurrent:(refs,stamp)=>recallReady&&memory.sendCurrent()&&memory.recallCurrent(refs,stamp),
-        memoryCurrent:stamp=>journalReady&&memory.sendCurrent()&&!!stamp&&
+        recallCurrent:(refs,stamp)=>recallReady&&memory.recallCurrent(refs,stamp),
+        memoryCurrent:stamp=>(journalReady||recallReady)&&memory.sendCurrent()&&!!stamp&&
           Object.keys(journalStamp).length===Object.keys(stamp).length&&
           Object.keys(journalStamp).every(key=>journalStamp[key]===stamp[key]),
         opinionCurrent:(refs,stamp)=>recallReady&&memory.opinionCurrent(refs,stamp),
@@ -321,25 +364,33 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
         pruneRecall:frame=>pruneKnowledgeFrame(frame,()=>true,()=>true,()=>true,()=>false),
         isCurrent:()=>runtime.host.isCurrent(turn.identity) && (!identityService || identityService.current(turn.identity)),
         prune:frame=>(frame.memoryStamp &&
-          !(journalReady&&memory.sendCurrent()&&journalStamp&&
+          !((journalReady||recallReady)&&memory.sendCurrent()&&journalStamp&&
             Object.keys(journalStamp).length===Object.keys(frame.memoryStamp).length&&
             Object.keys(journalStamp).every(key=>journalStamp[key]===frame.memoryStamp[key])))?base:pruneKnowledgeFrame(frame,
           item=>!validateKnowledge({delivery:[item]}),
           item=>!validateKnowledge({delivery:[],activityReferences:[item]}),
           item=>!validateKnowledge({delivery:[],dialogueReferences:[item]}),
-          ()=>recallReady&&memory.sendCurrent()&&memory.recallCurrent([],memory.preparedRecall?.stamp)===true,
+          ()=>recallReady&&memory.recallCurrent([],memory.preparedRecall?.stamp)===true,
           refs=>recallReady&&memory.opinionCurrent([refs],memory.preparedM8?.stamp)),
         validate:validateKnowledge,
         onRequest:frame=>{
-          if(!journalReady)return;
-          journalState.requestAttempted=true;
-          // Only record actual model inclusion after PS4 budget/fence checks.
-          const messages=frame.modelAllocation.messages??[];
-          const earlier=JSON.parse(frame.modelAllocation.scene).lanes.CONVERSE?.earlier??[];
-          journalState.contributed=!!frame.memoryStamp&&memory.sendCurrent()&&
-            (messages.length>1||earlier.length>0);
-          if(journalState.contributed&&!journalState.validation)
-            journalState.validation=journalOutcome('ready');
+          if(!journalReady&&!recallReady)return;
+          const authenticated=!!frame.memoryStamp&&memory.sendCurrent();
+          if(journalReady){
+            journalState.requestAttempted=true;
+            const messages=frame.modelAllocation.messages??[];
+            const earlier=JSON.parse(frame.modelAllocation.scene).lanes.CONVERSE?.earlier??[];
+            journalState.contributed=authenticated&&(messages.length>1||earlier.length>0);
+            if(journalState.contributed&&!journalState.validation)
+              journalState.validation=journalOutcome('ready');
+          }
+          if(recallReady){
+            recallState.requestAttempted=true;
+            recallState.contributed=authenticated&&
+              ((frame.recallReferences?.length??0)>0||frame.recallAnswerEvidence===true);
+            if(recallState.contributed&&!recallState.validation)
+              recallState.validation=journalOutcome('ready');
+          }
         },
         acknowledge:(key,consumer,outcome)=>{
           const salience=runtime.intelligence?.runtime.salience;
