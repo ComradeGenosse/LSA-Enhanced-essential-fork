@@ -191,6 +191,7 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
         environmentReason==='runtime_stopped'?'stopped':
         environmentReason?'unavailable':
         journalState.validation?.status==='ready'?'ready':
+        journalState.validation?.status==='invalidated'?'blocked':
         journalState.preparation?.status==='ready'?'waiting':
         journalState.preparation?.status==='unavailable'?'unavailable':'waiting';
       return Object.freeze({requestedMode,state,
