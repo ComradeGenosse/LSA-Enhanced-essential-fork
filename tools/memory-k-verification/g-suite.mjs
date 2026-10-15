@@ -16,6 +16,7 @@ const originals=[
     'memory-agent-b-events','memory-agent-b-ps2-tap','perception-contract','perception-witness-rules',
     'perception-speech','perception-client','perception-bootstrap','intelligence-frame-rejection-telemetry',
     'memory-k-source-consumers','memory-k-native-source-only','memory-k-w02-source-time',
+    'memory-f-independent-dialogue',
     'm1-sqlite-foundation','m1-shared-memory-parity','m1-source-write-gate','m1-world-epoch-bridge',
     'p2-authority','p2-contract','p2-lifecycle','p2-profiles',
     'memory/nativeMemoryAuthority','memory/nativeCurrentOwnerAuthenticatedIntake',

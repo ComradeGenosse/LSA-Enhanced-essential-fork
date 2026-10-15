@@ -72,6 +72,7 @@ function authenticNative(n,identity,scope,alias,host,ped){
  Number.isSafeInteger(n.sequence)&&n.sequence>0;
 }
 export function createD03OriginalDialogueJoin({store,backend,d02,originalActor,
+  npcCompletedOnly=false,
   clock=defaultClock,corroborationWaitMs=750,corroborationPollMs=20,
   totalWaitMs=1500}={}){
  if(!store||typeof backend?.hasAuthenticatedSource!=='function'||
@@ -290,7 +291,7 @@ export function createD03OriginalDialogueJoin({store,backend,d02,originalActor,
       let e=null;
       try{e=typeof speech?.evaluate==='function'?speech.evaluate():null;}catch{e=null;}
       return e&&e.kind==='NpcSpeechDeliveryEvidenceV1'&&same(e.identity,identity,ID)&&
-        NPC_STATUS.includes(e.delivery)&&typeof e.text==='string'&&
+        NPC_STATUS.includes(e.delivery)&&(!npcCompletedOnly||e.delivery==='completed')&&typeof e.text==='string'&&
         typeof e.evidenceSha256==='string'&&utcOk(e.observedAtUtc)?e:null;
     };
     const ev=evidenceNow();

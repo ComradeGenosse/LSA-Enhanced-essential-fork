@@ -135,3 +135,14 @@ export function createMemoryKRuntimeComposition(config) {
 export function memoryKConsumersAllowed(config) {
   return Object.keys(config.memoryK?.capabilities??{}).length===0;
 }
+
+// Restart-required recording switches. Unspecified siblings in an explicit
+// capability map stay off; only an absent/empty map preserves legacy wiring.
+export function memoryKDialogueActivation(config) {
+  const legacy=memoryKConsumersAllowed(config);
+  const requests=config.memoryK?.capabilities??{};
+  const player=legacy||requests['memory.dialogue.player']==='on';
+  const npcRequested=legacy||requests['memory.dialogue.npc']==='on';
+  return Object.freeze({legacy,player,npc:player&&npcRequested,
+    npcBlocked:npcRequested&&!player});
+}

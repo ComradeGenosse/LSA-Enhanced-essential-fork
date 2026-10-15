@@ -200,11 +200,17 @@ export function appendDialogue(db,line,attribution,world,{limits={}}={}){
     !(attribution.worldEpoch===null||Number.isSafeInteger(attribution.worldEpoch)&&attribution.worldEpoch>=0)||
     (attribution.hostRunId===null)!==(attribution.worldEpoch===null))fail('journal_invalid_attribution');
   if(typeof e.replyTo==='string'){
-    const parent=db.prepare('SELECT speaker,delivery,session_id,character_id,timeline_id,world_profile_id FROM dialogue_journal WHERE record_id=?').get(e.replyTo);
+    const parent=db.prepare('SELECT speaker,delivery,session_id,character_id,timeline_id,world_profile_id,content,content_sha256,turn_identity_hash FROM dialogue_journal WHERE record_id=?').get(e.replyTo);
     if(!parent||parent.speaker!=='player'||parent.delivery!=='accepted'||
        parent.character_id!==e.characterId||parent.timeline_id!==e.timelineId||
        parent.world_profile_id!==e.worldProfileId||parent.session_id!==attribution.sessionId)
       fail('journal_reply_to_unresolved');
+    // A delivered reply cannot resurrect a forgotten input while that input's
+    // immutable bytes remain in authorized recovery trash. Reuse E2's durable
+    // suppression verification inside the same sole-P2 transaction.
+    if(hash(parent.content)!==parent.content_sha256)fail('journal_content_integrity_failed');
+    if(isSuppressedSource(db,e,{recordId:e.replyTo,kind:'dialogue_line',
+      contentHash:parent.content_sha256,evidenceKey:parent.turn_identity_hash}))fail('memory_source_forgotten');
   }
   if(isSuppressedSource(db,e,{recordId:e.recordId,kind:'dialogue_line',contentHash:hash(e.content),evidenceKey:e.turnIdentityHash}))fail('memory_source_forgotten');
   const old=db.prepare('SELECT envelope_json,envelope_sha256,content_sha256,session_id,protagonist,host_run_id,world_epoch FROM dialogue_journal WHERE character_id=? AND timeline_id=? AND speaker=? AND turn_identity_hash=?')
