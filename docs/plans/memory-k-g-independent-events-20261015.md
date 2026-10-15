@@ -49,7 +49,7 @@ Recovery trash retains immutable original bytes during E2's recovery window. Act
 
 ## Diagnostics
 
-`runtime.services.memoryKRuntimeDiagnostics().capabilities` adds independent operational rows for `memory.events` and `memory.coverage`. The older policy/registration read model remains descriptive. Each G row supplies requested/effective mode, operational state, source/dependency readiness, safe blocking reason, restart requirement and bounded scalar counters. A constructed factory is `waiting`, never proof of operation. Events require a verified durable outcome (or qualified shadow receipt); coverage requires a persisted current window/sample frontier (or current shadow sample). Retirement invalidates operation evidence. Privacy/index faults expose fixed content-free reason codes.
+`runtime.services.memoryKRuntimeDiagnostics().capabilities` adds independent operational rows for `memory.events` and `memory.coverage`. The older policy/registration read model remains descriptive. Each G row supplies requested/effective mode, operational state, source/dependency readiness, safe blocking reason, restart requirement and bounded scalar counters. A constructed factory is `waiting`, never proof of operation. Events require a verified durable outcome (or qualified shadow receipt); coverage requires a persisted current window/sample frontier (or current shadow sample). Retirement invalidates operation evidence. Immediate close and graceful shutdown stop native sample admission before draining queued events, so later frames cannot extend the coverage frontier or advertise a stopped sink as operational. Privacy/index faults expose fixed content-free reason codes.
 
 Typical event row after a qualified durable incident:
 

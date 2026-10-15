@@ -145,6 +145,23 @@ test('G source retirement after asynchronous admission fences the P2 write',asyn
   assert.equal((await h.journal(h.npcs[0])).length,0);
 });
 
+for(const graceful of [false,true])test(`G shutdown freezes coverage while native frames continue (graceful=${graceful})`,async t=>{
+  const held=[],h=await harness(t,{scheduler:fn=>held.push(fn)}),start=h.clock.ms;
+  await h.advance(10000);await h.m3.adapter.coverageIdle();
+  await h.fire([h.npcs[0]]);
+  const samples=h.m3.snapshot().coverage.samples,cut=h.clock.ms;
+  const closing=graceful?h.m3.close():Promise.resolve(h.m3.adapter.close());
+  await h.advance(8000);
+  assert.equal(h.m3.snapshot().coverage.samples,samples,'post-stop frames cannot extend coverage');
+  assert.equal(h.m3.tap(h.taps[0]).accepted,false);
+  held.splice(0).forEach(fn=>fn());await closing;await h.drain();
+  assert.equal(h.m3.operationalStates()['memory.events'].state,'stopped');
+  assert.equal(h.m3.operationalStates()['memory.coverage'].state,'stopped');
+  const c=await h.coverageOf(h.npcs[0],cut+1000,h.clock.ms);
+  assert.equal(c.complete,false);assert.equal(c.windows.length,0);assert.deepEqual(c.nativeSamples,[]);
+  assert.ok(cut>start);
+});
+
 test('G timeline and world transitions retire admitted evidence rather than reattribute it',async t=>{
   const held=[],h=await harness(t,{scheduler:fn=>held.push(fn)});
   await h.advance(1000);await h.fire([h.npcs[0]]);

@@ -81,10 +81,11 @@ export function createM3ProductionMemory({intelligence,memoryStore,nativeAuthori
         'checkpoints','persistFailures','persistRejectedStale','pending','unpersistedGaps'
       ].map(k=>[k,c?.[k]??0])));
       const row=(mode,ready,confirmed,counts,reason,failure=null)=>{
-        const state=closed||mode==='off'?'stopped':!ready||failure?'blocked':confirmed?'operational':'waiting';
-        return Object.freeze({requestedMode:mode,effectiveMode:closed?'off':mode,
+        const stopped=closed||s.closed;
+        const state=stopped||mode==='off'?'stopped':!ready||failure?'blocked':confirmed?'operational':'waiting';
+        return Object.freeze({requestedMode:mode,effectiveMode:stopped?'off':mode,
           state,operationalState:state,sourceReady,dependencyReady:ready,
-          reason:closed?'runtime_stopped':mode==='off'?'optional_consumer_stopped':
+          reason:stopped?'runtime_stopped':mode==='off'?'optional_consumer_stopped':
             !ready?reason:failure??(confirmed?null:'operation_receipt_pending'),
           counters:counts,restartRequired:true});
       };

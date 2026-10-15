@@ -123,7 +123,7 @@ export function createM3Ps2ObserverAdapter({ps2,p2,store=p2,nativeAuthority,
     recordNegativeCoverage:input=>coverageMode==='on'?recorder.recordNegativeCoverage(input):
       {accepted:false,reason:'coverage_disabled'},
     // Authenticated owner samples (already validated by the native authority).
-    coverageSample:sample=>tracker?tracker.sample(sample):{accepted:false,reason:'coverage_disabled'},
+    coverageSample:sample=>!closed&&tracker?tracker.sample(sample):{accepted:false,reason:'coverage_disabled'},
     coverageRetire:reason=>{tracker?.retire(reason);},
     coverageIdle:()=>tracker?tracker.idle():Promise.resolve(null),
     // These are C-13 / PS2 retire / P2 timeline boundaries, not invented events.
@@ -133,6 +133,7 @@ export function createM3Ps2ObserverAdapter({ps2,p2,store=p2,nativeAuthority,
     shutdown:async()=>{
       boundaries++;
       closed=true;
+      tracker?.retire('shutdown');
       await intake?.idle();
       intake?.close();binder?.reset();
       await tracker?.close();
