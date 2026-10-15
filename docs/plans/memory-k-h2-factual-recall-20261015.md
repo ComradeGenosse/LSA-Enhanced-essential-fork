@@ -9,12 +9,13 @@ Base: `3f4138d6f108ae6feda6d03ed54ac7c5e4e9c04a` (#138 head including E2, F and 
 | Path | Purpose |
 |---|---|
 | `lsa-essential-e1-candidate/src/memory/h2FactualRecall.mjs` | The H2 component: `prepareFactualRecall`, `createFactualRecall` |
-| `lsa-essential-e1-candidate/tests/memory/h2FactualRecall.test.mjs` | 20 focused tests on the real P2 SQLite store |
+| `lsa-essential-e1-candidate/tests/memory/h2FactualRecall.test.mjs` | 21 focused tests on the real P2 SQLite store |
 | `lsa-essential-e1-candidate/tests/memory/h2RealAuthority.test.mjs` | 4 tests on the real D01/D03/D02 harness |
 | `lsa-essential-e1-candidate/tests/memory/h2Latency.test.mjs` | 10,000-row phase latency |
 | `lsa-essential-e1-candidate/tests/memory/h2-p2-fixture.mjs`, `h2-fixture.mjs` | Test fixtures only |
 | `tools/memory-k-verification/registrations/h2-factual-recall.json` | Registers the three new test files with the inventory guard |
-| `.github/workflows/memory-k-h2-factual-recall.yml` | Ubuntu + Windows focused run and inherited-suite comparison against the unchanged base |
+| `tools/memory-k-verification/tests/h2-tap-regression-comparator.test.mjs` | Exercises CI detection of newly failing tests and changed failure reasons |
+| `.github/workflows/memory-k-h2-factual-recall.yml`, `tools/memory-k-verification/compare-tap-regressions.mjs` | Ubuntu + Windows focused run and enforced TAP failure comparison against the unchanged base |
 
 No existing file is modified. In particular H2 does **not** modify `liveTurnMemory.mjs`, `essentialGlue.mjs`, `bootstrap.mjs`, `runtimeComposition.mjs` or any PS4 assembly/rendering file; `liveTurnMemory.mjs` is imported read-only by one test (parity check) and nothing else. `recallEngine`, `integrationPorts`, `recallEvidencePolicy`, the P2 read ports and PS4 contribution code are reused unchanged. There is no new SQLite database, writer, event bus, prompt writer, background worker, embedding server or model request.
 
@@ -72,6 +73,8 @@ Extra fields such as `authority`, `memoryRead`, `config` or `enabled` are ignore
 
 Covered by tests: source retirement and reconnect, host-run and world-epoch change, NPC ownership change, timeline change, forgetting and correcting a recalled record (before preparation and between preparation and send), a privacy change after a successful verification, invalid/damaged evidence sidecar, replay from an earlier source generation, retry after source invalidation, and a real native D02 expiry/renewal.
 
+Unsupported counting questions now abstain even if the bounded M4 page has matching facts; those matches are omitted from the contribution rather than offered as evidence of an exhaustive count. Verified literal counts remain supported.
+
 ## Independent operation
 
 H2 imports only the engine, the P2 read adapter and the evidence policy. It does not import `liveTurnMemory`, M5 (`m5*`), M6/M7, M8 or PS3 modules (asserted by a test), and a store spy shows no writer, command, curation or interpretation surface is touched. M3 recording is not required: events recorded earlier remain recallable and are verified against their sidecars. `createFactualRecall({mode:'off'})` (the default) performs no store access at all (tested).
@@ -115,7 +118,7 @@ An exhaustive G3 count over the same 10,000 rows took about 360 ms in the eviden
 
 ## Test results (Linux, Node 22.22.0)
 
-- New: 20 + 4 + 1 = 25 H2 tests, all passing.
+- New: 21 + 4 + 1 = 26 H2 tests, including a matching-memory/nonliteral-count regression (new test awaits CI; the prior 25 passed locally).
 - Inherited, run on the unchanged base (`3f4138d6`) and this branch with identical selection: `ws6LiveTurnMemory`, `ws6Latency`, `ws6OriginalRunner`, `ws6Original10kWriteRegression`, `ws6ProductionPipeline`, `memory-m4-closure`, E2 (`memory-e2-ws6-privacy-recovery`, `memory-e2-independent-privacy`, shared-brain `memory-e2-privacy-recovery`), `memory-m4-recall`, `memory-ws6-g3-g5-evidence`, S01–S10: **identical results on both**. Everything passes except the original runner scenarios S01–S10, which are intentional red source gates (`SOURCE_BLOCKED_S01 … S10`, identical messages on base and branch; S02 names `T5_M4_RECALL_MISSING`, which belongs to the later integration work, not H2).
 - Inherited failures that remain visible and untouched: `tools/memory-k-verification/tests` (inventory guard) and `run.mjs`, both of which fail on the unchanged base because `ws6Original10kWriteRegression.test.mjs` is unregistered there. The H2 files are registered and are not reported as unregistered.
 - Windows: the workflow runs Ubuntu and Windows, but no Windows execution was possible from the authoring environment. **Windows results are not claimed.**
