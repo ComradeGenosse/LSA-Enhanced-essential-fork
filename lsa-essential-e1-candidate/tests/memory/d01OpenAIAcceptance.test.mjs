@@ -138,14 +138,14 @@ test('D01 E2E STT retry: one transient failure, one final transcript, one revisi
   assert.equal(evidenceOf(j.sources[0]).finalAcceptedInputRevision,1);
 });
 
-test('D01 E2E empty input: stock greeting substitution, testPrompt and empty STT never become player memory',{timeout:30000},async t=>{
+test('D01 E2E empty input: stock greeting substitution, unknown prompt and empty STT never become player memory',{timeout:30000},async t=>{
   const x=await d01Harness(t),spy=recordSpy(x);
   const blank=await x.typed('  \t ');
   assert.equal((await x.settled(blank)).status,'completed');
   assert.equal(blank.input.transcript,GREETING,'original ib substitutes its default greeting');
   assert.equal(x.replies[0].input,GREETING,'stock behaviour towards the model is unchanged');
   assert.equal(spy.results[0].status,'not_stored');
-  const debug=await x.typed('debug words',{type:'testPrompt'});
+  const debug=await x.typed('debug words',{type:'syntheticPrompt'});
   assert.equal((await x.settled(debug)).status,'completed');
   assert.equal(spy.results[1].status,'not_stored');
   x.h.runtime.services.transcribe=async()=>{

@@ -16,6 +16,7 @@ export class P2SqliteProfileStore {
   #durabilityWarning = null; #lockState = 'unlocked';
   #available = true; #closed = false; #timeline = new TimelineGuard();
   #sourceRequired; #sourceContext = null; #confirmedSource = null;
+  #lastSourceKey = null;
   // Monotone revocation epoch: an operation admitted before source loss or a
   // timeline selection cannot execute after later reauthorization (ABA).
   #authorityGeneration = 0;
@@ -36,6 +37,7 @@ export class P2SqliteProfileStore {
       ? this.#authorityGeneration+':'+this.#db.readFence : null;
   }
   get activeTimelineId() { return this.#timeline.activeTimelineId; }
+  get timelineSelectionConfirmed() {return this.#confirmedSource!==null;}
   get timelineWritable() { return this.#timeline.writable && this.#sourceValid(); }
   // Read-only source used for journal attribution; only verified/current after
   // an explicit timeline confirmation. No unverified native input is exposed.
@@ -70,7 +72,8 @@ export class P2SqliteProfileStore {
     if (context === null) {
       ++this.#authorityGeneration;
       this.#sourceContext = null;
-      this.#confirmedSource = null;
+      // Suspend all authority now. Remember only the user's selection stamp;
+      // it may resume after fresh authentication of this exact run AND epoch.
       return false;
     }
     if (!context || context.hostContextVersion !== 1 ||
@@ -86,7 +89,9 @@ export class P2SqliteProfileStore {
     // work. Rebinding a changed host/epoch does, even if the same save is chosen.
     if (!sameSource) {
       ++this.#authorityGeneration;
-      this.#confirmedSource = null;
+      const nextKey=this.#sourceKey(context);
+      if(this.#confirmedSource!==nextKey)this.#confirmedSource = null;
+      this.#lastSourceKey=nextKey;
       this.#sourceContext = Object.freeze({hostRunId:context.hostRunId,worldEpoch:context.worldEpoch});
     }
     return true;
@@ -207,6 +212,7 @@ export class P2SqliteProfileStore {
     if(sourceLoss||ambiguous){
       ++this.#authorityGeneration;
       if(this.#sourceRequired)this.#confirmedSource=null;
+      this.#lastSourceKey=null;
       if(sourceLoss)this.#sourceContext=null;
     }
     // Keep innocuous host_reload as a no-op (M1 contract). Unsupported or
@@ -231,7 +237,7 @@ export class P2SqliteProfileStore {
       // scoped writes until current native source exists and is verified.
       this.#db.activateTimeline(timelineId);
       this.#timeline.selectTimeline(timelineId);
-      this.#confirmedSource = this.#sourceContext ? this.#sourceKey(this.#sourceContext) : null;
+      this.#confirmedSource = this.#sourceContext ? this.#sourceKey(this.#sourceContext) : this.#lastSourceKey;
       ++this.#authorityGeneration;
       return this.#timeline.activeTimelineId;
     });

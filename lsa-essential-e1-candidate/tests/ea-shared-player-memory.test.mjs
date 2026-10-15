@@ -172,7 +172,7 @@ test('Shared-player persistent recall survives restart, but same-save authorizat
 });
 
 
-test('PR114 current P2 recall is inaccessible after source revocation and before renewed approval',async t=>{
+test('P2 recall is inaccessible during source loss; exact authenticated resume preserves approval, changed epoch does not',async t=>{
   const f=await setup(t);
   const a=await f.line('franklin','Private line bound to a verified host.');
   assert.ok((await f.store.readIntegratedRecall({scope:f.scope('trevor'),sourceKind:'dialogue_line'}))
@@ -180,6 +180,9 @@ test('PR114 current P2 recall is inaccessible after source revocation and before
   f.store.setVerifiedHostContext(null);
   await assert.rejects(f.store.readIntegratedRecall({scope:f.scope('trevor')}),/timeline_write_suspended/);
   f.store.setVerifiedHostContext(f.proof);
+  assert.ok((await f.store.readIntegratedRecall({scope:f.scope('trevor'),sourceKind:'dialogue_line'}))
+    .rows.some(r=>r.recordId===a.recordId));
+  f.store.setVerifiedHostContext({...f.proof,worldEpoch:f.proof.worldEpoch+1});
   await assert.rejects(f.store.readIntegratedRecall({scope:f.scope('trevor')}),/timeline_write_suspended/);
   await f.store.confirmTimeline(f.timelineId,{confirmation:f.timelineId});
   assert.ok((await f.store.readIntegratedRecall({scope:f.scope('trevor'),sourceKind:'dialogue_line'}))

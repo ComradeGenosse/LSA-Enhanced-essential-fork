@@ -98,10 +98,10 @@ test('D01 OpenAI source: typed receipt is minted once for the exact adopted byte
   assert.equal(x.verifier.verifyAccepted({identity,source:'typed',text:adopted}),null,'released after the turn settled');
 });
 
-test('D01 OpenAI source: typed refusals (substituted greeting, testPrompt, mismatch, bounds, Unicode, currency)',()=>{
+test('D01 OpenAI source: typed refusals (substituted greeting, unknown label, mismatch, bounds, Unicode, currency)',()=>{
   const cases=[
     ['stock greeting substitution for empty typed input',x=>{const i=id({turnId:'g'});const a=x.typedTurn(i,'   \t ');return [i,a];}],
-    ['testPrompt is not player text',x=>{const i=id({turnId:'tp'});return [i,x.typedTurn(i,'hello',{type:'testPrompt'})];}],
+    ['unknown label is not player text',x=>{const i=id({turnId:'tp'});return [i,x.typedTurn(i,'hello',{type:'syntheticPrompt'})];}],
     ['non-string Core text',x=>{const i=id({turnId:'ns'});x.reg.put(i,{source:'player_text',inputTranscript:'5',typed:{messageType:'playerText',rawText:null}});x.ledger.recordAtTurnCreation(i,x.reg.registered);return [i,'5'];}],
   ];
   for(const [label,make] of cases){

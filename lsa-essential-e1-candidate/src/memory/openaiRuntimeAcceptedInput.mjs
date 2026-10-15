@@ -25,7 +25,8 @@
 //     AP/SK from the single routed input_transcript);
 //   - the turn was recorded at original turn creation with the same native
 //     ped and source, and typed text was player-authored (not the stock
-//     "Hello, what are you doing here?" substitution, not testPrompt);
+//     "Hello, what are you doing here?" substitution; Core's keyboard wire
+//     label testPrompt is supported alongside playerText);
 //   - the bytes are valid UTF-16, non-empty, already trimmed and within the
 //     12000-unit bound, so RAM history and journal store the identical string.
 // Nothing a caller passes (flags, hashes, receipts, nativeVerified, model
@@ -56,12 +57,12 @@ export const OPENAI_RUNTIME_ACCEPTANCE_PIN=Object.freeze({
   status:'openai_runtime_commit_decision_source',
 });
 
-const PED=/^[1-9][0-9]{0,9}$/;
+import {isNativeActorId} from '../identity/nativeActorId.mjs';
 const KEYS=Object.freeze(['pedId','turnId','generationId','sessionNonce']);
 const PLAYER=Object.freeze({player_text:'typed',player_mic:'stt'});
 const MAX_INPUT_UNITS=12_000; // DialogueHistory slice and journal content bound
 const validIdentity=i=>!!i&&typeof i==='object'&&
-  typeof i.pedId==='string'&&PED.test(i.pedId)&&
+  typeof i.pedId==='string'&&isNativeActorId(i.pedId)&&
   typeof i.turnId==='string'&&i.turnId.length>0&&i.turnId.length<=128&&
   i.turnId.trim()===i.turnId&&
   Number.isSafeInteger(i.generationId)&&i.generationId>=0&&

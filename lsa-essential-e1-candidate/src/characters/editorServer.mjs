@@ -12,12 +12,13 @@ function editorHtml(token, summonWaitMs) {
 <style>body{font:16px system-ui;background:#151b24;color:#e4eaf4;max-width:1100px;margin:32px auto;padding:0 20px}button,input,textarea,select{font:inherit;padding:8px;margin:5px 0;border-radius:5px;border:1px solid #596779;background:#202a38;color:inherit}button{cursor:pointer}main{display:grid;grid-template-columns:260px 1fr;gap:24px}label{display:block}input,textarea{box-sizing:border-box;width:100%}textarea{min-height:65px}#list button{display:block;width:100%;text-align:left}.controls{display:flex;gap:8px;flex-wrap:wrap}.danger{border-color:#da6373}#status{white-space:pre-wrap}small{color:#aebcce}@media(max-width:700px){main{display:block}}</style>
 <h1>LSA Characters</h1><p>Promote the NPC currently selected in Essential, then keep their character, voice, and memories between game sessions.</p>
 <div class="controls"><button id="promote">Promote current NPC</button><button id="refresh">Refresh</button></div><p id="status" role="status"></p>
+<p id="memoryStatus" role="status"></p>
 <details id="exportPanel" hidden><summary>Back up current SQLite profiles</summary>
 <p><small>Creates a NEW rollback snapshot; never overwrites existing JSON. This is not an automatic rollback and does not contain future episodic journals.</small></p>
 <button id="exportProfiles" type="button">Export rollback profile snapshot</button>
 <p id="exportStatus" role="status"></p></details>
 <details id="timelinePanel" hidden><summary>Playthrough timeline (SQLite mode only)</summary>
-<p><small>Choose the correct GTA save lineage explicitly after any rollback warning. Creating a timeline does not activate it.</small></p>
+<p><small>Confirm the current GTA save once per game launch. Your choice survives a temporary pause in the same game session. A different save epoch or game restart requires confirmation again. Creating a timeline does not activate it.</small></p>
 <select id="timelineChoices" aria-label="Playthrough timeline"></select>
 <button id="confirmTimeline" type="button">Confirm selected timeline</button>
 <label>New timeline label<input id="timelineLabel" maxlength="80" placeholder="e.g. Franklin main save"></label>
@@ -52,8 +53,12 @@ async function refreshTimelines(){
     $('timelineChoices').append(option);
   }
   if(view.activeTimelineId)$('timelineChoices').value=view.activeTimelineId;
-  $('timelineStatus').textContent=view.writable?'Timeline confirmed: new scoped writes permitted.':
-    'Timeline write suspended: '+(view.pendingReason||'selection_required')+'. Confirm the correct save timeline.';
+  const message=view.writable?'Memory recording enabled for the confirmed save.':view.selectionConfirmed
+    ?'Memory paused: your save choice is remembered. Return to gameplay to resume after fresh source verification.'
+    :'Memory is not recording. Select and confirm the current save below.';
+  $('timelineStatus').textContent=message;
+  $('memoryStatus').textContent=message;
+  if(!view.writable&&!view.selectionConfirmed)panel.open=true;
 }
 $('confirmTimeline').onclick=()=>run(async()=>{
   const timelineId=$('timelineChoices').value;
@@ -88,7 +93,7 @@ $('cancelMemory').onclick=()=>{editingMemory=null;$('memory').reset();$('memory'
 $('remove').onclick=()=>run(async()=>{const confirmation=prompt('This permanently deletes the profile and its memories. Type the CharacterId to confirm:', '');if(confirmation!==current.characterId)return;await api('remove',{characterId:current.characterId,confirmation,expectedRevision:current.revision});await refresh();});run(()=>refresh());run(()=>refreshTimelines());
 </script></html>`;
 }
-export async function startCharacterEditor(service,{ port = service.config.promotedCharacters.editorPort,endpointPath = null } = {}) {
+export async function startCharacterEditor(service,{ port = service.config.promotedCharacters.editorPort,endpointPath = null,diagnostics = null } = {}) {
   const token = randomBytes(32).toString('hex'); let origin;
   const server = http.createServer(async (request,response) => {
     response.setHeader('cache-control','no-store'); response.setHeader('x-content-type-options','nosniff');
@@ -107,6 +112,10 @@ export async function startCharacterEditor(service,{ port = service.config.promo
       let result;
       switch (body.action) {
         case 'list': result = await service.list(); break;
+        case 'memory_status':
+          if(typeof diagnostics!=='function')throw new Error('diagnostics_unavailable');
+          result=diagnostics();
+          break;
         case 'profile_export':
           if (typeof service.store?.exportRollbackSnapshot !== 'function')
             throw new Error('profile_export_unavailable');
@@ -117,6 +126,7 @@ export async function startCharacterEditor(service,{ port = service.config.promo
             ? {supported:true,timelines:await service.store.listTimelines(),
                activeTimelineId:service.store.activeTimelineId,
                writable:service.store.timelineWritable,
+               selectionConfirmed:service.store.timelineSelectionConfirmed===true,
                pendingReason:service.store.timelinePendingReason} : {supported:false};
           break;
         case 'timeline_create':

@@ -207,11 +207,10 @@ test('WS6 native source expiry: old-stream samples fail closed and only a new au
   assert.equal(previous.destroyed,true);
   assert.notEqual(x.native.streamId,stream);
  }
- // Source proof must remain strong: a separately delivered roster
- // deliberately suspends D02 until a distinct authenticated owner sample.
+ // An unchanged roster preserves current proof but never renews sample age.
  x.native.stop();await x.native.idle();
  await x.native.roster();
- assert.equal(x.d02.port.status().settled,false,'roster-only is never current native proof');
+ assert.equal(x.d02.port.status().settled,true,'unchanged maintenance preserves the existing fresh sample');
  await x.native.sample();
  await waitFor(()=>x.d02.port.status().settled===true,'roster confirmed by genuine sample');
  // In contrast, a complete ordered native owner-fiber batch must not leave
