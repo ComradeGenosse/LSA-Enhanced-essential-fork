@@ -1,6 +1,7 @@
 name: Memory K G independent witnessed events and coverage
 on:
   pull_request:
+    types: [opened, reopened, synchronize, ready_for_review]
     branches: [integration/memory-k-production-20261012]
     paths:
       - 'lsa-essential-e1-candidate/**'
@@ -11,8 +12,14 @@ on:
   workflow_dispatch:
 permissions:
   contents: read
+# Supersede old runs for this workflow and PR without cancelling other checks.
+concurrency:
+  group: memory-k-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   focused:
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     name: Independent G (${{ matrix.os }})
     strategy:
       fail-fast: false
@@ -39,6 +46,7 @@ jobs:
           name: memory-g-focused-${{ matrix.os }}-${{ github.event.pull_request.head.sha || github.sha }}
           path: work/g-focused
   g:
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     strategy:
       fail-fast: false
       matrix:

@@ -1,6 +1,7 @@
 name: Memory K E1 storage-only (C prerequisite preview)
 on:
   pull_request:
+    types: [opened, reopened, synchronize, ready_for_review]
     branches: [integration/memory-k-production-20261012]
     paths:
       - 'lsa-essential-e1-candidate/**'
@@ -10,8 +11,14 @@ on:
   workflow_dispatch:
 permissions:
   contents: read
+# Supersede old runs for this workflow and PR without cancelling other checks.
+concurrency:
+  group: memory-k-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   storage-only:
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     strategy:
       fail-fast: false
       matrix:

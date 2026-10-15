@@ -1,6 +1,7 @@
 name: Memory K D01 OpenAI commit-decision acceptance (OFFLINE, not GTA)
 on:
   pull_request:
+    types: [opened, reopened, synchronize, ready_for_review]
     paths:
       - 'lsa-essential-e1-candidate/src/memory/**'
       - 'lsa-essential-e1-candidate/src/openai/**'
@@ -15,8 +16,14 @@ on:
   workflow_dispatch:
 permissions:
   contents: read
+# Supersede old runs for this workflow and PR without cancelling other checks.
+concurrency:
+  group: memory-k-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   d01-openai-offline:
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     name: D01 OpenAI source, ledger, D02 lease lifetime and D03 join, offline (${{ matrix.os }})
     strategy:
       fail-fast: false

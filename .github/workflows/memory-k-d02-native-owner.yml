@@ -1,6 +1,7 @@
 name: Memory K D02 native owner authenticity (not D01)
 on:
   pull_request:
+    types: [opened, reopened, synchronize, ready_for_review]
     paths:
       - 'native/intelligence/**'
       - 'native/promoted-characters/**'
@@ -12,8 +13,14 @@ on:
   workflow_dispatch:
 permissions:
   contents: read
+# Supersede old runs for this workflow and PR without cancelling other checks.
+concurrency:
+  group: memory-k-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   authenticated-node24:
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     name: Strict schema and private socket path (offline) / ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     strategy:
@@ -38,6 +45,7 @@ jobs:
           node --test lsa-essential-e1-candidate/tests/memory/nativeCurrentOwnerAuthenticatedIntake.test.mjs
           node --test lsa-essential-e1-candidate/tests/memory-k-native-intake.test.mjs
   native-policy:
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     name: Actual C# D02 policy (not compiled GTA runtime)
     runs-on: windows-latest
     steps:
@@ -57,6 +65,7 @@ jobs:
           & "native/promoted-characters/owner-sample-tests/bin/Release/net481/OwnerSampleTests.exe"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
   production-native:
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     name: Pinned net481 native source when real SDK is supplied
     runs-on: windows-latest
     env:

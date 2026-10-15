@@ -1,6 +1,7 @@
 name: Memory K final source and offline acceptance
 on:
   pull_request:
+    types: [opened, reopened, synchronize, ready_for_review]
     paths:
       - 'lsa-shared-brain/**'
       - 'lsa-essential-e1-candidate/**'
@@ -11,8 +12,14 @@ on:
   workflow_dispatch:
 permissions:
   contents: read
+# Supersede old runs for this workflow and PR without cancelling other checks.
+concurrency:
+  group: memory-k-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   node24:
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     strategy:
       fail-fast: false
       matrix:
@@ -46,6 +53,7 @@ jobs:
         working-directory: lsa-essential-e1-candidate
         run: npm run build
   native-harness:
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -63,6 +71,7 @@ jobs:
           dotnet build native/intelligence/integration-tests/IntegrationTests.csproj --configuration Debug
           dotnet build native/intelligence/director-tests/DirectorTests.csproj --configuration Debug
   m0-scenario-gate:
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

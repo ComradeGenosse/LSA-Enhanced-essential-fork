@@ -1,6 +1,7 @@
 name: Memory K Workstream B policy regression
 on:
   pull_request:
+    types: [opened, reopened, synchronize, ready_for_review]
     paths:
       - 'lsa-essential-e1-candidate/src/memory/capabilityPolicy.mjs'
       - 'lsa-essential-e1-candidate/src/config/e1Config.mjs'
@@ -10,6 +11,11 @@ on:
   workflow_dispatch:
 permissions:
   contents: read
+# Supersede old runs for this workflow and PR without cancelling other checks.
+concurrency:
+  group: memory-k-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   policy-and-compatibility:
     runs-on: ubuntu-latest

@@ -1,6 +1,8 @@
 name: Memory A-E integrated journal
 on:
+  workflow_dispatch:
   pull_request:
+    types: [opened, reopened, synchronize, ready_for_review]
     paths:
       - 'lsa-shared-brain/**'
       - 'lsa-essential-e1-candidate/src/memory/**'
@@ -8,8 +10,14 @@ on:
   push:
     branches:
       - 'integration/memory-m2-m7-reconcile-20261011'
+# Supersede old runs for this workflow and PR without cancelling other checks.
+concurrency:
+  group: memory-k-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   integration:
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     strategy:
       fail-fast: false
       matrix:

@@ -1,6 +1,7 @@
 name: Memory K WS-6 live recall and journal conversation (offline, not GTA)
 on:
   pull_request:
+    types: [opened, reopened, synchronize, ready_for_review]
     paths:
       - 'lsa-essential-e1-candidate/src/context/**'
       - 'lsa-essential-e1-candidate/src/openai/**'
@@ -30,8 +31,14 @@ on:
   workflow_dispatch:
 permissions:
   contents: read
+# Supersede old runs for this workflow and PR without cancelling other checks.
+concurrency:
+  group: memory-k-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   ws6:
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     name: WS-6a/6b source-fenced live recall and model assembler (${{ matrix.os }}, repeat ${{ matrix.repetition }})
     runs-on: ${{ matrix.os }}
     strategy:
