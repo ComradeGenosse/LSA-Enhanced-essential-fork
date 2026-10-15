@@ -51,6 +51,8 @@ test('H1 on / M4 M5 M8 off: real original runner sends source-verified SQLite di
   await say(x,'What did I say about the accordion?');
   assert.equal(sent.length,2);
   const f=frame(sent.at(-1)),messages=f.modelAllocation.messages;
+  assert.ok(JSON.stringify(sent.at(-1).body).includes('The violet accordion is in my kitchen.'),
+    'the actual provider body must contain admitted SQLite history');
   assert.ok(messages.some(row=>row.role==='user'&&row.content==='The violet accordion is in my kitchen.'));
   assert.equal(messages.at(-1).content,'What did I say about the accordion?');
   assert.equal(messages.filter(row=>row.content==='What did I say about the accordion?').length,1);
@@ -178,4 +180,44 @@ test('H1 explicit shadow is not silently modeled as real private evaluation',
   assert.equal(x.h.runtime.services.memoryJournalDiagnostics().reason,'shadow_not_supported');
   const turn={get m2Capture(){throw Error('disabled H1 port touched');}};
   assert.equal(await x.h.runtime.services.prepareLiveTurnMemory({turn}),null);
+});
+
+for(const boundary of ['native_owner','timeline','host']){
+  test('H1 source revocation before provider send fails closed: '+boundary,
+    {timeout:45000},async t=>{
+    const x=await d01Harness(t,{config:configured()});
+    await say(x,'The violet piano is hidden by the window.');
+    let requests=0;
+    x.h.runtime.services.decide=options=>decide({...options,config:x.h.runtime.config,
+      dialogueAttempt:{request:()=>{
+        if(boundary==='native_owner'){x.native.stop();x.native.includeOwner=false;void x.native.sample();}
+        if(boundary==='timeline')x.store.onBoundary({reason:'timeline_change'});
+        if(boundary==='host')x.store.setVerifiedHostContext(null);
+      },outputText:()=>{}},
+      fetchImpl:async()=>{requests++;return response();}});
+    const turn=await x.typed('Where is the violet piano?');
+    assert.notEqual((await x.settled(turn)).status,'completed');
+    assert.equal(requests,0,'revoked optional history must never reach the HTTP provider');
+  });
+}
+
+test('H1 synchronous final fence blocks a P2 write after last awaited verification',
+  {timeout:45000},async t=>{
+  const x=await d01Harness(t,{config:configured()});
+  await say(x,'The copper map is on the table.');
+  let checked=false;
+  x.h.runtime.services.decide=async options=>{
+    await options.knowledgeDelivery.verifyBeforeRequest();
+    const old=x.store.memoryReadFence;
+    await x.store.withP2SqliteTransaction(scope(x),db=>
+      db.prepare('UPDATE dialogue_journal SET content=content WHERE speaker=?').run('player'));
+    assert.notEqual(x.store.memoryReadFence,old);
+    assert.throws(()=>options.knowledgeDelivery.beforeRequest({notSent:true}),
+      {code:'knowledge_request_stale'});
+    checked=true;
+    throw Object.assign(new Error('knowledge_request_stale'),{code:'knowledge_request_stale'});
+  };
+  const turn=await x.typed('Where did I put the copper map?');
+  assert.notEqual((await x.settled(turn)).status,'completed');
+  assert.equal(checked,true);
 });
