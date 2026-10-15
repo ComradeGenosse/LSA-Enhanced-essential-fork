@@ -2,6 +2,18 @@
 const e1 = 'lsa-essential-e1-candidate/tests/';
 const shared = 'lsa-shared-brain/tests/';
 export const profiles = Object.freeze({
+  inspector:{tier:'focused-inspector',files:[`${e1}memory-i2-inspector.test.mjs`,`${e1}memory/i2PauseForeground.test.mjs`],
+    coverage:['authenticated P2 inspection/privacy','I1/H1/H2/M6/M7/M8 off','restart-only settings','live pause and stale request revocation'],
+    limits:'Offline local administration tests; no physical GTA validation.'},
+  'inspector-regression':{tier:'inspector-source-foreground-regression',files:[
+    `${e1}p2-editor.test.mjs`,`${e1}memory-k-source-consumers.test.mjs`,
+    `${e1}memory/d01OpenAIAcceptance.test.mjs`,`${e1}memory/d03OriginalDialogueJoin.test.mjs`,
+    `${e1}memory/h1IndependentActivation.test.mjs`,`${e1}memory/h1ConversationHistory.test.mjs`,
+    `${e1}memory/h1ConversationHistoryHardening.test.mjs`,`${e1}memory/h2ForegroundActivation.test.mjs`,
+    `${e1}memory/h2FactualRecall.test.mjs`,`${e1}memory/h2RealAuthority.test.mjs`,`${e1}memory/h2Latency.test.mjs`,
+    `${e1}m3-ws5b-production.test.mjs`,
+  ],coverage:['original authenticated source/capture','existing local editor','unchanged H1/H2 behavior','M3 event/coverage'],
+    limits:'Separate unchanged regression selection; privacy/recovery suite and native/package/GTA gates are independent.'},
   policy: {tier:'focused-policy', files:[`${e1}memory-capability-policy.test.mjs`],
     coverage:['off intent', 'dependency failures', 'sibling policy isolation'],
     limits:'No operational switch is certified by policy tests.'},

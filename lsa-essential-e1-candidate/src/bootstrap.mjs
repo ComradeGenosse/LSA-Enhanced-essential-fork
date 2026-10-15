@@ -29,6 +29,8 @@ import {resolveMemoryKCapabilities} from './memory/capabilityPolicy.mjs';
 import {createMemoryKRuntimeComposition,memoryKDialogueActivation,runtimeCleanupError} from './memory/runtimeComposition.mjs';
 import {memoryKSourceActivation} from './memory/sourceActivation.mjs';
 import {memoryKM3Activation,unavailableM3States} from './memory/m3Activation.mjs';
+import {createInspectorControls} from './memory/inspectorControls.mjs';
+import {withLearnedMemoryPause} from './memory/learnedMemoryPause.mjs';
 
 export async function createRuntimeForBundle(options = {}) {
   // Explicit test/embedding environments remain isolated from local secrets.
@@ -139,7 +141,7 @@ export async function createRuntimeForBundle(options = {}) {
       if(config.promotedCharacters.storageMode==='sqlite') throw new Error('p2_sqlite_startup_failed');
     }
   }
-  runtime.services.memoryKRuntimeDiagnostics=()=>composition.snapshot(Object.fromEntries(
+  runtime.services.memoryKRuntimeDiagnostics=()=>withLearnedMemoryPause(composition.snapshot(Object.fromEntries(
     Object.entries(runtime.services.memoryKCapabilities()).map(([id,row])=>[id,row.registrationStatus])),{
       ...runtime.intelligence?.operationalStates(),
       ...(runtime.memoryM3?.operationalStates()??unavailableM3States(m3Activation)),
@@ -150,7 +152,7 @@ export async function createRuntimeForBundle(options = {}) {
         state:runtime.closed?'stopped':runtime.memoryD02.status().settled?'operational':'waiting',
         effectiveMode:runtime.closed?'off':runtime.memoryD02.status().settled?'on':null,
         operationalState:runtime.closed?'stopped':runtime.memoryD02.status().settled?'operational':'waiting',
-        reason:runtime.memoryD02.status().settled?null:'d02_owner_authority_unavailable'})}:{})});
+        reason:runtime.memoryD02.status().settled?null:'d02_owner_authority_unavailable'})}:{})}),runtime.memoryPause);
   runtime.dispose=()=>owner.dispose();
   runtime.shutdown=runtime.dispose;
   let restarting=null;
@@ -251,13 +253,13 @@ export async function createRuntimeForBundle(options = {}) {
         }
         let memoryIntake=null;
         let currentOwnerPlayerAuthority=null;
-        const memoryStore=runtime.characterService?.store;
+        const memoryStore=runtime.memoryPause.optionalStore(runtime.characterService?.store);
         const memoryNative=options.memoryNativeAuthority??memoryAuthorityPort;
         const canBindMemory=config.promotedCharacters.storageMode==='sqlite' &&
           typeof memoryStore?.withTimelineWrite==='function' &&
           typeof memoryNative?.resolveNativeOwner==='function';
         // Strict synchronous verified PS2 tap; never execute SQLite here.
-        const memoryObservationTap=receipt=>memoryIntake?.acceptedObservationTap(receipt) ??
+        const memoryObservationTap=receipt=>!runtime.memoryPause.paused&&memoryIntake?.acceptedObservationTap(receipt) ||
           {accepted:false,reason:'m3_owner_ledger_unavailable'};
         const intelligenceOptions={radioCatalog,situationFor:ref=>runtime.situationFor(ref),
           directorProductionRequired:config.spontaneousSpeech.mode==='experimental',
@@ -306,7 +308,7 @@ export async function createRuntimeForBundle(options = {}) {
         // by the shared factory the integration tests also use. Normal production
         // never trusts a caller-supplied nativeVerified flag or model-generated
         // owner claim; an explicit test-only injected authority stays isolated.
-        if(canBindMemory&&(m3Activation.events.mode!=='off'||m3Activation.coverage.mode!=='off')){
+        if(canBindMemory&&!runtime.memoryPause.paused&&(m3Activation.events.mode!=='off'||m3Activation.coverage.mode!=='off')){
           try{
             const m3=createM3ProductionMemory({intelligence:runtime.intelligence,memoryStore,
               nativeAuthority:options.memoryNativeAuthority??null,telemetry,
@@ -453,7 +455,8 @@ export async function createRuntimeForBundle(options = {}) {
       // Per-user endpoint file for the native console bridge; null disables it.
       // The resolved environment keeps explicit test/embedding envs isolated.
       const endpointPath = options.controlEndpointPath !== undefined ? options.controlEndpointPath : defaultControlEndpointPath({ env });
-      runtime.characterEditor = await startCharacterEditor(runtime.characterService,{ endpointPath });
+      runtime.memoryInspectorControls=createInspectorControls({runtime,configPath:options.configPath,env});
+      runtime.characterEditor = await startCharacterEditor(runtime.characterService,{ endpointPath,inspectorControls:runtime.memoryInspectorControls });
       owner.own('p2.editor',runtime.characterEditor,value=>value.close());
       try { console.info('[P2] Character editor: ' + runtime.characterEditor.url); } catch {}
       if (endpointPath && !runtime.characterEditor.endpointPublished) try { console.warn('[UX] Control endpoint file unavailable; native clients use the page handshake.'); } catch {}

@@ -175,6 +175,7 @@ export function commitPersistedMemoryCommand(db,o,world){
    let correctionMode=null;
    if(o.operation==='correct'){
      correctionMode=normalizeCorrectionMode(o.correctionMode,{allowLegacy:true});
+     if(correctionMode==='fact_revision')fail('memory_privileged_correction_required');
      // A transcript correction may only supersede evidence the player can
      // legitimately correct, never a witnessed event or NPC speech (K-12).
      if(correctionMode==='transcript'&&isProtectedEvidence(db,stmtScope(scope),o.targetRecordId))
@@ -232,7 +233,7 @@ export function persistDeterministicMemory(db,proposal,world){
     proposal.evidenceRecordIds.length>64||!Number.isFinite(proposal.notability)||proposal.notability<0||proposal.notability>1||
     typeof proposal.groundedSummary!=='string'||!proposal.groundedSummary.length)fail('memory_invalid_proposal');
  return transact(db,()=>{
-   const suppressed=suppressedMemoryIds(db,scope);
+   const suppressed=suppressedMemoryIds(db,scope,{includeCorrections:true});
    if(suppressed.has(proposal.proposalId)||proposal.evidenceRecordIds.some(id=>suppressed.has(id))||
       isSuppressedSource(db,scope,{recordId:proposal.proposalId,kind:'permanent_memory',contentHash:digest(proposal.groundedSummary)}))
      fail('curation_source_forgotten');

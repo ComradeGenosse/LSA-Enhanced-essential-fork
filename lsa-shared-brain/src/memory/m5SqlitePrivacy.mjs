@@ -8,7 +8,9 @@ import path from 'node:path';
 import { isUuid } from '../util/identity.mjs';
 import { detectExplicitMemoryCommands, compoundCommandId } from './explicitCommands.mjs';
 import { stableM5CommandId } from './m5RuntimeCoordinator.mjs';
-import { normalizeCorrectionMode, readCorrectionRows, supersededTargetIds } from './correctionSemantics.mjs';
+import { normalizeCorrectionMode, readCorrectionRows, supersededTargetIds,isPrivatelyCorrectableFact } from './correctionSemantics.mjs';
+import {readInspectorPage} from './inspectorProjection.mjs';
+import {readIntegratedRecall} from './sqliteIntegratedRecallProjection.mjs';
 
 const sha = value => createHash('sha256').update(value).digest('hex');
 const fail = code => { throw new Error(code); };
@@ -267,7 +269,10 @@ function m5Apply(db,s,line,o){
  const target=o.targetRecordId;
  if(o.operation!=='remember'&&(!isUuid(target)||!o.evidenceRecordIds.includes(target)||
    !evidence(db,s,target)||activeTombstone(db,s,target)))fail('m5_atomic_target_invalid');
- if(o.operation==='correct')normalizeCorrectionMode(o.correctionMode);
+ if(o.operation==='correct'){
+   normalizeCorrectionMode(o.correctionMode);
+   if(o.correctionMode==='fact_revision')fail('memory_privileged_correction_required');
+ }
  if(o.operation==='correct'&&o.correctionMode==='transcript'){
    const original=db.prepare('SELECT source,speaker,delivery,protagonist FROM dialogue_journal WHERE record_id=? AND world_profile_id=? AND character_id=? AND timeline_id=?')
       .get(target,s.worldProfileId,s.characterId,s.timelineId);
@@ -583,6 +588,48 @@ export class M5SqliteServices{
        .map(c=>({targetId:c.targetId,reportedCorrection:c.content,atUtc:c.atUtc,correctionMode:c.mode,supersedesTarget:c.supersedes}));
      return {version:1,scope:{...scope},records,trash,corrections};
    },'inspect');
+ }
+ // I2 uses the same authorization, P2 queue and source fences as E2. These
+ // ports never pass a fabricated player utterance to the conversational writer.
+ async inspectPage({scope,...page}) {
+   authorizeRequest(this.#authorize,scope,'inspect');
+   return this.#read(scope,db=>readInspectorPage(db,{scope,...page}),'inspect');
+ }
+ async correctFact({scope,targetId,content,expectedHash,operationId}) {
+   authorizeRequest(this.#authorize,scope,'correct_fact');
+   if(!isUuid(targetId)||!isUuid(operationId)||typeof content!=='string'||
+      !content.trim()||content.length>12000||content!==content.toWellFormed()||
+      !/^[a-f0-9]{64}$/.test(expectedHash??''))fail('inspector_invalid_correction');
+   const requestHash=privacyHash(scope,{targetId,content,expectedHash,operationId,operation:'correct_fact'});
+   await this.#write(scope,db=>{
+     const old=db.prepare('SELECT request_sha256 AS hash FROM memory_commands WHERE command_id=?').get(operationId);
+     if(old){if(old.hash!==requestHash)fail('m5_atomic_id_conflict');return;}
+     const target=db.prepare('SELECT content,content_sha256 AS hash,mode FROM memory_records WHERE '+ownerWhere+' AND memory_id=?')
+       .get(...ownerKey(scope),targetId);
+     if(!target||!isPrivatelyCorrectableFact(db,ownerKey(scope),targetId)||target.hash!==expectedHash||sha(target.content)!==target.hash||
+        suppressedMemoryIds(db,scope).has(targetId)||superseded(db,scope,targetId)||
+        !readIntegratedRecall(db,{scope,sourceKind:'permanent_memory',limit:768}).rows.some(r=>r.recordId===targetId))
+       fail('inspector_correction_target_unavailable');
+     const at=this.#clock();if(!timestamp(at))fail('m5_invalid_clock');
+     db.prepare('INSERT INTO memory_corrections(command_id,character_id,world_profile_id,timeline_id,target_id,preferred_text,content_sha256,created_at_utc,correction_mode) VALUES(?,?,?,?,?,?,?,?,?)')
+       .run(operationId,scope.characterId,scope.worldProfileId,scope.timelineId,targetId,content,sha(content),at,'fact_revision');
+     const r={version:1,kind:'p2_admin_fact_revision',operationId,targetId,durableCommit:true};
+     // requested_by_line_id is the ORIGINAL target/provenance reference, never
+     // synthetic conversation. The receipt explicitly identifies local admin.
+     db.prepare('INSERT INTO memory_commands VALUES(?,?,?,?,?,?,?,?,?)').run(operationId,
+       scope.characterId,scope.worldProfileId,scope.timelineId,scope.protagonistKey,
+       targetId,'correct',requestHash,JSON.stringify(r));
+     revokePendingClarifications(db,scope,new Set(dependentIds(db,scope,[targetId])));
+   },'correct_fact');
+   return this.#read(scope,db=>{
+     const command=db.prepare('SELECT receipt_json AS json,request_sha256 AS hash FROM memory_commands WHERE command_id=? AND '+ownerWhere)
+       .get(operationId,...ownerKey(scope));
+     const correction=readCorrectionRows(db,ownerKey(scope)).find(c=>c.commandId===operationId);
+     if(!command||command.hash!==requestHash||!correction||correction.targetId!==targetId||
+       correction.content!==content||correction.mode!=='fact_revision'||!correction.supersedes||
+       suppressedMemoryIds(db,scope).has(targetId))fail('m5_readback_unconfirmed');
+     return JSON.parse(command.json);
+   },'correct_fact');
  }
  async exportArchive({scope}){
    authorizeRequest(this.#authorize,scope,'export');
