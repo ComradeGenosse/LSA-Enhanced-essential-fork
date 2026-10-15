@@ -22,6 +22,7 @@ import {createOpenAIRuntimeAcceptedInputSource} from '../memory/openaiRuntimeAcc
 import {createOriginalTurnActorLedger} from '../memory/originalTurnActorLedger.mjs';
 import {createNpcSpeechDeliverySource} from '../memory/npcSpeechDeliveryLedger.mjs';
 import {prepareLiveTurnMemory} from '../memory/liveTurnMemory.mjs';
+import {prepareH1ConversationHistory} from '../memory/h1ConversationHistory.mjs';
 import { validateDecisionShape } from '../context/essentialDecision.mjs';
 import { validateStockDecision } from '../context/decisionValidator.mjs';
 import { createProviderStack } from '../providers/providerStack.mjs';
@@ -31,7 +32,7 @@ import { captureReferenceMap } from '../context/turnSnapshot.mjs';
 import { IdentityResolver } from '../identity/identityResolver.mjs';
 import { CharacterService,withoutCharacterTransport } from '../characters/characterService.mjs';
 import { createNoopDialogueTrace } from '../observability/dialogueTrace.mjs';
-import {memoryKConsumersAllowed,memoryKDialogueActivation} from '../memory/runtimeComposition.mjs';
+import {memoryKConsumersAllowed,memoryKDialogueActivation,memoryKH1Activation} from '../memory/runtimeComposition.mjs';
 
 // Fail-closed startup contract for E1's separately reviewed storage-only preset.
 export const MEMORY_K_COMPOSITION_VERSION=1;
@@ -62,6 +63,9 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
   const journalStore=characterService?.store;
   const optionalMemoryEnabled=memoryKConsumersAllowed(config);
   const dialogueActivation=memoryKDialogueActivation(config);
+  const journalActivation=memoryKH1Activation(config);
+  const journalState={preparation:null,validation:null,contributed:false,requestAttempted:false};
+  const journalOutcome=(status,reason=null)=>Object.freeze({status,reason});
   const dialogueResults={player:null,npc:null};
   // Status contains no transcript/identity. A durable result is per operation,
   // never a blanket certificate of current owner or timeline authorization.
@@ -147,7 +151,55 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
     },
     // PS4 is the only model-facing assembler. This preflight returns evidence
     // and source-fenced read receipts, never prompt text or model instructions.
-    prepareLiveTurnMemory:args=>optionalMemoryEnabled&&!runtime.closed?prepareLiveTurnMemory({store:journalStore,...args}):null,
+    async prepareLiveTurnMemory(args) {
+      if(runtime.closed)return null;
+      journalState.preparation=null;journalState.validation=null;
+      journalState.contributed=false;journalState.requestAttempted=false;
+      if(optionalMemoryEnabled){
+        // The legacy combined path is unchanged when no explicit map exists.
+        const result=await prepareLiveTurnMemory({store:journalStore,...args});
+        journalState.preparation=journalOutcome(result?.status??'unavailable',result?.reason??null);
+        return result;
+      }
+      if(journalActivation.mode!=='on')return null;
+      // H1 only: no recall engine, explicit command dispatch or M8 interpretation.
+      const result=await prepareH1ConversationHistory({store:journalStore,...args});
+      journalState.preparation=journalOutcome(result.status,result.reason??null);
+      if(result.status!=='ready')return result;
+      return Object.freeze({...result,h1Only:true,
+        async verifyPrepared(){
+          const check=await result.verifyPrepared();
+          journalState.validation=journalOutcome(check.status,check.reason??null);
+          return check.status==='ready';
+        }});
+    },
+    noteH1Skipped() {
+      if(journalActivation.mode!=='on')return;
+      journalState.preparation=journalOutcome('unavailable','accepted_line_authority_missing');
+      journalState.validation=null;journalState.contributed=false;journalState.requestAttempted=false;
+    },
+    memoryJournalDiagnostics() {
+      const {requestedMode,mode,reason:activationReason,legacy}=journalActivation;
+      const environmentReason=runtime.closed?'runtime_stopped':
+        config.provider!=='openai'?'d01_acceptance_source_unavailable':
+        config.promotedCharacters?.storageMode!=='sqlite'||!characterService?.ready||
+          typeof journalStore?.readDialogueLines!=='function'?'p2_sqlite_unavailable':null;
+      const reason=activationReason??(mode==='on'?environmentReason??journalState.validation?.reason??
+        journalState.preparation?.reason:null);
+      const state=mode!=='on'?requestedMode==='shadow'?'unavailable':
+        requestedMode==='on'?'blocked':'stopped':
+        environmentReason==='runtime_stopped'?'stopped':
+        environmentReason?'unavailable':
+        journalState.validation?.status==='ready'?'ready':
+        journalState.preparation?.status==='ready'?'waiting':
+        journalState.preparation?.status==='unavailable'?'unavailable':'waiting';
+      return Object.freeze({requestedMode,state,
+        effectiveMode:state==='ready'?'on':state==='stopped'?'off':null,
+        operationalState:state,reason:reason??(state==='waiting'?'accepted_player_turn_required':null),
+        lastPreparation:journalState.preparation,lastValidation:journalState.validation,
+        contributedToModelRequest:journalState.contributed,requestAttempted:journalState.requestAttempted,
+        legacy,restartRequired:true});
+    },
     // The NPC side of the exchange. Takes NO text, status, receipt or byte
     // count: D03 reads the runtime's own speech-delivery ledger for this turn
     // tuple and classifies completed / interrupted / failed from that evidence
