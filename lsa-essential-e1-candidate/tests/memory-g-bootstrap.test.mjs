@@ -14,6 +14,10 @@ import {worldProfileId,TestOwnerEvidence} from './identity-fixtures.mjs';
 import {profile} from './p2-fixtures.mjs';
 import {createM5SqliteServices} from '../../lsa-shared-brain/src/memory/m5SqlitePrivacy.mjs';
 import {migrateJournalSchema} from '../../lsa-shared-brain/src/memory/journalSqlite.mjs';
+import {createM3WitnessRecorder} from '../../lsa-shared-brain/src/memory/integrationPorts.mjs';
+import {M3ObserverOwnerBinder} from '../../lsa-shared-brain/src/events/m3ObserverOwnerBinder.mjs';
+import {createNativeMemoryAuthority} from '../src/memory/nativeMemoryAuthority.mjs';
+import {resolveLivePromotedProfile} from '../src/memory/livePromotedProfile.mjs';
 
 const hop=()=>new Promise(r=>setImmediate(()=>setImmediate(r)));
 async function fixture(t,{events='on',coverage='on',ps2='on',ps1='on',storage='sqlite',legacy=false}={}){
@@ -212,4 +216,28 @@ for(const legacy of [false,true])test(`G a previously admitted native receipt ca
   const next=await store.createTimeline({label:'G different lineage'});await store.confirmTimeline(next);
   tap(receipt);await hop();
   assert.equal((await store.readJournalEvents({characterId:npc.characterId,timelineId:next})).length,0);
+});
+
+test('G reauthenticated native replay returns the actual durable record ID through the original recorder port',async t=>{
+  const f=await fixture(t,{coverage:'off'}),{runtime,store,npc,timelineId}=f;
+  await f.sample();const signal=f.signal();await f.send('signal',signal);await hop();
+  const [original]=await store.readJournalEvents({characterId:npc.characterId,timelineId});
+  // A separate READ authority in this test subscribes to the same private,
+  // authenticated native feed. It creates no coverage or alternate writer.
+  const authority=createNativeMemoryAuthority({
+    subscribeAuthenticatedNativeFrames:(frame,retire)=>runtime.intelligence.subscribeAuthenticatedNativeMemoryAuthority(frame,retire),
+    profileForAlias:alias=>resolveLivePromotedProfile(store,alias)});t.after(()=>authority.close());
+  let receipt;const tap=runtime.intelligence.runtime.acceptedObservationTap;
+  runtime.intelligence.runtime.acceptedObservationTap=r=>{receipt=r;return tap(r);};
+  await f.reconnect();await f.sample();await f.send('signal',signal);await hop();
+  assert.notEqual(receipt.observation.observationId,original.observationId);
+  const binder=new M3ObserverOwnerBinder({ps2:runtime.intelligence.runtime,p2:store,
+    attribution:'observation_time',resolveNativeOwner:x=>authority.resolveNativeOwner(x),
+    resolveParticipants:x=>authority.resolveParticipants(x)});
+  const bound=binder.bindAcceptedReceipt(receipt);assert.equal(bound.accepted,true);
+  const recorder=createM3WitnessRecorder({store,authorize:x=>binder.authorize(x)});
+  const ack=await recorder.capture(bound);
+  assert.equal(ack.accepted,true);assert.equal(ack.duplicate,true);
+  assert.equal(ack.recordId,original.recordId);
+  assert.ok(await store.readVerifiedEventEvidence({characterId:npc.characterId,timelineId,recordId:ack.recordId}));
 });
