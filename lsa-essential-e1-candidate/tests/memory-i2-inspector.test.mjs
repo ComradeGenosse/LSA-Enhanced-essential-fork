@@ -17,6 +17,7 @@ import {CHARACTER_METADATA_SHA256} from '../src/characters/nativeSupport.mjs';
 import {MEMORY_K_CAPABILITIES} from '../src/memory/capabilityPolicy.mjs';
 import {createHarness} from './m3-production-harness.mjs';
 import {makeQueueJob} from '../../lsa-shared-brain/src/memory/queueContract.mjs';
+import {prepareH1ConversationHistory} from '../src/memory/h1ConversationHistory.mjs';
 const hash=s=>createHash('sha256').update(s).digest('hex');
 const contract=metadataSha256=>({available:true,requiredGameTarget:'net481',dllSha256:IDENTITY_DLL_SHA256,metadataSha256,nativeProtocolChanged:false});
 const request=(url,{headers={},body=null}={})=>new Promise((resolve,reject)=>{
@@ -111,6 +112,47 @@ test('I2 authorized factual correction supersedes old fact and descendants, pres
   assert.deepEqual((await f.store.readCommittedEvidencePage({scope:f.scope})).items,[]);
   assert.ok((await f.inspect('conversations')).items.some(r=>r.content==='I2 old red garage'));
   await assert.rejects(f.change('correct',recordId,{...correction,content:'conflicting retry'}),/conflict/);
+});
+
+test('I2 fact revision withdraws original player dialogue from H1 after private correction, with H2 and history intact',async t=>{
+  const f=await setup(t);
+  const oldText='My I2 garage is red — obsolete source words';
+  const memoryId=await f.keep(oldText);
+  await f.say('Unrelated safe conversation',{avatar:'trevor'});
+  const question='What can you tell me about my garage?';
+  const questionReceipt=await f.say(question,{avatar:'michael'});
+  const args={store:f.store,turn:f.turnFor(),acceptedReceipt:{status:'stored',durable:true,
+      recordId:questionReceipt.recordId,protagonistKey:'michael'},
+    input:question,source:'player_text',isCurrent:()=>true,nowUtc:new Date().toISOString()};
+  const before=await prepareH1ConversationHistory(args);
+  assert.equal(before.status,'ready','the original dialogue is legitimate H1 context before correction');
+  assert.ok(JSON.stringify(before.conversationJournal).includes(oldText));
+  assert.equal((await before.verifyPrepared()).status,'ready');
+  assert.equal(before.sendCurrent(),true);
+
+  const oldFact=(await f.inspect('facts')).items.find(row=>row.recordId===memoryId);
+  assert.ok(oldFact?.canCorrect);
+  const correctedText='My garage is blue (verified private revision).';
+  await f.change('correct',memoryId,{content:correctedText,expectedHash:oldFact.checksum});
+  const original=(await f.inspect('conversations')).items.find(row=>row.content===oldText);
+  assert.ok(original,'original journal source remains privately inspectable');
+  const hidden=await f.store.listSuppressedMemoryIds(f.scope,{includeCorrections:true});
+  assert.ok(hidden.includes(original.recordId),'P2 returns the entire withdrawn source closure');
+  assert.ok(!(await f.store.listSuppressedMemoryIds(f.scope)).includes(original.recordId),
+    'legacy suppression-only reader remains unchanged');
+
+  assert.equal(before.sendCurrent(),false,'previously sealed H1 context is revoked by the correction');
+  assert.equal((await before.verifyPrepared()).status,'invalidated');
+  const after=await prepareH1ConversationHistory(args);
+  assert.equal(after.status,'ready');
+  const history=JSON.stringify(after.conversationJournal);
+  assert.ok(!history.includes(oldText),'superseded source cannot be sent as recent or archived H1 context');
+  assert.ok(history.includes('Unrelated safe conversation'),'unrelated conversation remains available');
+  assert.equal((await after.verifyPrepared()).status,'ready');
+  assert.equal(after.sendCurrent(),true);
+  const recalled=JSON.stringify(await f.store.readIntegratedRecall({scope:f.scope,sourceKind:'permanent_memory'}));
+  assert.ok(recalled.includes(correctedText),'revised claim remains available to H2');
+  assert.ok(!recalled.includes(oldText),'old claim stays withdrawn from H2');
 });
 
 test('I2 forget uses permanent P2 suppression including source/replay and safe seven-day restore',async t=>{
