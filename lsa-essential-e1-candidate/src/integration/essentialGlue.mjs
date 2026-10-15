@@ -212,10 +212,10 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
         environmentReason==='runtime_stopped'?'stopped':
         environmentReason?'unavailable':
         recallState.validation?.status==='invalidated'?'blocked':
+        recallState.preparation?.status==='abstained'?'abstained':
         recallState.validation?.status==='ready'?'ready':
         recallState.preparation?.status==='blocked'?'blocked':
-        recallState.preparation?.status==='unavailable'?'unavailable':
-        recallState.preparation?.status==='abstained'?'abstained':'waiting';
+        recallState.preparation?.status==='unavailable'?'unavailable':'waiting';
       return Object.freeze({requestedMode,state,
         effectiveMode:state==='ready'?'on':state==='stopped'?'off':null,
         operationalState:state,reason:reason??(state==='waiting'?'accepted_player_turn_required':null),
