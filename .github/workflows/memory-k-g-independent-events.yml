@@ -12,6 +12,32 @@ on:
 permissions:
   contents: read
 jobs:
+  focused:
+    name: Independent G (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24.19.0'
+      - name: Authenticated G modes, privacy, lifecycle and 2500-event stress
+        shell: bash
+        run: |
+          mkdir -p work/g-focused
+          node -e 'const fs=require("node:fs"),cp=require("node:child_process");fs.writeFileSync("work/g-focused/meta.json",JSON.stringify({head:cp.execFileSync("git",["rev-parse","HEAD"],{encoding:"utf8"}).trim(),node:process.version,platform:process.platform},null,2))'
+          node --import ./tools/memory-k-verification/offline.mjs --test --test-reporter=tap --test-concurrency=1 lsa-essential-e1-candidate/tests/memory-g-bootstrap.test.mjs lsa-essential-e1-candidate/tests/memory-g-independent-events.test.mjs > work/g-focused/g.log 2>&1
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: memory-g-focused-${{ matrix.os }}-${{ github.event.pull_request.head.sha || github.sha }}
+          path: work/g-focused
   g:
     strategy:
       fail-fast: false
@@ -40,10 +66,10 @@ jobs:
         if: always()
         working-directory: candidate
         run: node tools/memory-k-verification/g-native.mjs --baseline ../baseline --output work/g-validation/native
-      - name: Identical original M3 PS1 PS2 D1 D2 P2 E2 and separate G suites
+      - name: Identical original M3 PS1 PS2 D1 D2 P2 E2 baseline comparison
         if: always()
         working-directory: candidate
-        run: node tools/memory-k-verification/g-suite.mjs --baseline ../baseline --output work/g-validation
+        run: node tools/memory-k-verification/g-suite.mjs --original-only --baseline ../baseline --output work/g-validation
       - name: Original source-verified offline builders on both revisions
         if: always()
         shell: bash

@@ -28,6 +28,7 @@ const additions=['memory-g-independent-events','memory-g-bootstrap'].map(f=>e1+f
 await mkdir(output,{recursive:true});
 const git=(cwd,argv)=>{const r=spawnSync('git',argv,{cwd,encoding:'utf8'});if(r.status!==0)throw Error('git_evidence_unavailable');return r.stdout.trim();};
 const receipt={version:1,head:git(root,['rev-parse','HEAD']),changes:git(root,['status','--porcelain']),
+  selection:args.includes('--original-only')?'unchanged_originals_only':'originals_and_g',
   baseline:baseline?git(path.resolve(baseline),['rev-parse','HEAD']):null,
   node:process.version,platform:process.platform,osRelease:release(),cpu:cpus()[0]?.model,concurrency:1,runs:[]};
 const fingerprint=async(cwd,files)=>Promise.all(files.map(async file=>({file,
@@ -59,7 +60,7 @@ async function run(label,cwd,files){
 }
 if(baseline)await run('baseline-original',path.resolve(baseline),originals);
 await run('candidate-original',root,originals);
-await run('g',root,additions);
+if(!args.includes('--original-only'))await run('g',root,additions);
 // E2 owns its original WS6/10k/privacy inventory and receipt format. Invoke it
 // unchanged on both snapshots, including its original red K07 result if any.
 for(const [label,cwd] of [...baseline?[['baseline',path.resolve(baseline)]]:[],['candidate',root]]){

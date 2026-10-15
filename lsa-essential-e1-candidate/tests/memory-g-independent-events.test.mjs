@@ -16,7 +16,12 @@ const config=(events='on',coverage='on',extra={})=>({memoryK:{capabilities:{
   'memory.dialogue.player':'off','memory.dialogue.npc':'off',
   'memory.events':events,'memory.coverage':coverage,...extra}}});
 const harness=async(t,options={})=>{
-  const h=await createHarness(t,{config:config(),...options});t.after(()=>h.close());
+  const pending=new Set();
+  const scheduler=options.scheduler?fn=>{
+    const run=()=>{if(pending.delete(run))fn();};pending.add(run);options.scheduler(run);
+  }:undefined;
+  const h=await createHarness(t,{config:config(),...options,...scheduler?{scheduler}:{}});
+  t.after(async()=>{for(const run of pending)run();await h.close();});
   await h.connect();return h;
 };
 const scope=(h,n=h.npcs[0],avatar='franklin')=>({worldProfileId,

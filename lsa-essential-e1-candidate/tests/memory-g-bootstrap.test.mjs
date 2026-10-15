@@ -22,7 +22,8 @@ import {resolveLivePromotedProfile} from '../src/memory/livePromotedProfile.mjs'
 const hop=()=>new Promise(r=>setImmediate(()=>setImmediate(r)));
 async function fixture(t,{events='on',coverage='on',ps2='on',ps1='on',storage='sqlite',legacy=false}={}){
   const root=await mkdtemp(path.join(tmpdir(),'memory-g-bootstrap-'));
-  t.after(()=>rm(root,{recursive:true,force:true}));
+  let runtime=null;
+  t.after(async()=>{await runtime?.dispose();await rm(root,{recursive:true,force:true});});
   const configPath=path.join(root,'config.json');
   await writeFile(configPath,JSON.stringify({provider:'openai',intelligence:{mode:'shadow'},
     persistentIdentity:{enabled:true,worldProfileId,storePath:path.join(root,'identity.json')},
@@ -32,7 +33,7 @@ async function fixture(t,{events='on',coverage='on',ps2='on',ps1='on',storage='s
       'memory.events':events,'memory.coverage':coverage,'memory.promotionGrace':'on'}}}}));
   let socket,streamId=id(),adapterEpoch=id(),seq=0,clock=1000000;
   const host={hostContextVersion:1,hostRunId:id(),worldEpoch:1};
-  const runtime=await createRuntimeForBundle({configPath,env:{},enableTelemetry:false,startCharacterEditor:false,
+  runtime=await createRuntimeForBundle({configPath,env:{},enableTelemetry:false,startCharacterEditor:false,
     identityEvidence:new TestOwnerEvidence(),
     identityContract:{available:true,requiredGameTarget:'net481',dllSha256:IDENTITY_DLL_SHA256,metadataSha256:IDENTITY_METADATA_SHA256,nativeProtocolChanged:false},
     characterContract:{available:true,requiredGameTarget:'net481',dllSha256:IDENTITY_DLL_SHA256,metadataSha256:CHARACTER_METADATA_SHA256,nativeProtocolChanged:false},
@@ -43,7 +44,6 @@ async function fixture(t,{events='on',coverage='on',ps2='on',ps1='on',storage='s
       socket.destroy=()=>{if(socket.destroyed)return;socket.destroyed=true;socket.emit('close');};
       return socket;
     }}});
-  t.after(()=>runtime.dispose());
   const store=runtime.characterService.store;
   const npc=await store.create(profile()),ref=id(),incarnationId=id(),encounterId=id(),player=id();
   const raw=async f=>{socket.emit('data',Buffer.from(JSON.stringify(f)+'\n'));await hop();};
