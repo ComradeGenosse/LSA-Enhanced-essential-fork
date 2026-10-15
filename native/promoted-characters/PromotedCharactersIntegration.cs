@@ -125,12 +125,28 @@ namespace LSA.PromotedCharacters
             Host.ObserveGameTick(unchecked((uint)lastGameTime));
         }
         static bool Alive(Encounter encounter) => encounter?.Ped != null && encounter.Ped.Exists() && !encounter.Ped.IsDead && encounter.Ped.MemoryAddress == encounter.Address;
+        bool SameRegisteredActor(Encounter existing,Ped candidate)
+        {
+            // RPH may expose a new CLR wrapper for the same native pool entity.
+            // Keep the ORIGINAL retained Ped; never rebase its lifetime to the
+            // caller's wrapper or infer ownership from a handle alone.
+            if(existing.Registration==null || existing.OwnerAlias==null ||
+               !existing.Ped.Equals(candidate)) return false;
+            var anchor=Host.Anchors.Resolve(existing.CaptureRef);
+            return anchor!=null && ReferenceEquals(anchor.Entity,existing.Ped) &&
+                anchor.Handle==existing.Handle && anchor.Address==existing.Address &&
+                anchor.OwnerLifetime==existing.Registration.IncarnationId &&
+                identity.Owner.TryResolveCurrent(existing.Ped,out var claim) &&
+                claim.incarnationId==existing.Registration.IncarnationId &&
+                claim.sourceKey==existing.OwnerAlias && claim.worldProfileId==world;
+        }
         Encounter EncounterFor(Ped ped)
         {
             if (ped == null || !ped.Exists() || ped.IsDead || ped == Game.LocalPlayer.Character) throw new InvalidOperationException("invalid_target");
             string handle = ped.Handle.ToString();
             if (encounters.TryGetValue(handle,out var existing)) {
-                if (Alive(existing) && ReferenceEquals(existing.Ped,ped) && existing.Handle==Convert.ToUInt64(ped.Handle) && existing.Address==ped.MemoryAddress && Host.Anchors.Resolve(existing.CaptureRef)!=null) {
+                if (Alive(existing) && existing.Handle==Convert.ToUInt64(ped.Handle) && existing.Address==ped.MemoryAddress && Host.Anchors.Resolve(existing.CaptureRef)!=null &&
+                    (ReferenceEquals(existing.Ped,ped) || SameRegisteredActor(existing,ped))) {
                     RetainEncounter(existing); return existing;
                 }
                 Retire(existing); encounters.Remove(handle);
