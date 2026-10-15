@@ -130,11 +130,12 @@ function nativeReplay(db,e,keys){
   if(!keys.length)return null;
   // An old event suppression whose sidecar was already purged before this
   // upgrade has no native key. Fail closed for production native intake in
-  // that scope rather than allowing fresh PS2 IDs to evade its privacy fence.
-  if(db.prepare(`SELECT 1 FROM memory_suppressions s WHERE s.world_profile_id=? AND s.character_id=? AND s.timeline_id=?
+  // that NPC/world, including a newly selected lineage: the missing native
+  // key cannot establish that a re-delivery belongs to the new timeline.
+  if(db.prepare(`SELECT 1 FROM memory_suppressions s WHERE s.world_profile_id=? AND s.character_id=?
     AND s.source_kind='journal_event' AND NOT EXISTS(SELECT 1 FROM event_native_receipts r
     WHERE r.world_profile_id=s.world_profile_id AND r.character_id=s.character_id AND r.timeline_id=s.timeline_id
-    AND r.observation_id=s.evidence_key) LIMIT 1`).get(...nativeScope(e)))fail('journal_native_privacy_unresolved');
+    AND r.observation_id=s.evidence_key) LIMIT 1`).get(e.worldProfileId,e.characterId))fail('journal_native_privacy_unresolved');
   const found=[];
   for(const {key,digest} of keys){
     // A native incident already attributed in another save lineage is past

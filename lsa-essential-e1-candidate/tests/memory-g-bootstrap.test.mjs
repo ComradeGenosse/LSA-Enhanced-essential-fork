@@ -193,7 +193,7 @@ for(const corruption of [false,true])test(`G native receipt upgrade preserves or
   if(corruption)assert.equal(runtime.services.memoryKRuntimeDiagnostics().capabilities['memory.events'].reason,'journal_native_receipt_integrity');
 });
 
-test('G already-purged pre-upgrade evidence stays unknown and blocks native privacy resurrection',async t=>{
+for(const newTimeline of [false,true])test(`G already-purged pre-upgrade evidence blocks privacy resurrection (new timeline=${newTimeline})`,async t=>{
   const f=await fixture(t,{coverage:'off'}),{runtime,store,npc,timelineId}=f;
   const scope={worldProfileId,characterId:npc.characterId,timelineId,protagonistKey:'franklin'};
   await f.sample();const signal=f.signal();await f.send('signal',signal);await hop();
@@ -202,8 +202,15 @@ test('G already-purged pre-upgrade evidence stays unknown and blocks native priv
   await privacy.trash({scope,targetId:event.recordId,operationId:id()});now+=8*86400000;await privacy.purgeExpired({scope});
   // Simulate a v4 installation whose old purged sidecar predates G's index.
   await store.withTimelineSqliteWrite(scope,db=>{db.exec('DROP TABLE event_native_receipts');migrateJournalSchema(db);});
-  await f.reconnect();await f.sample();await f.send('signal',signal);await hop();
-  assert.equal((await store.readJournalEvents(scope)).length,0);
+  const readScope={...scope};
+  if(newTimeline){
+    readScope.timelineId=await store.createTimeline({label:'G unknown legacy provenance'});
+    await store.confirmTimeline(readScope.timelineId);
+  }
+  await f.reconnect();await store.confirmTimeline(readScope.timelineId);
+  await f.sample();await f.send('signal',signal);await hop();
+  assert.equal(store.activeTimelineId,readScope.timelineId);
+  assert.equal((await store.readJournalEvents(readScope)).length,0);
   assert.equal(runtime.services.memoryKRuntimeDiagnostics().capabilities['memory.events'].reason,'journal_native_privacy_unresolved');
 });
 

@@ -43,7 +43,7 @@ A new adversarial reconnect probe reproduced an inherited defect on pristine #13
 
 The mandatory P2 upgrade installs/backfills this privacy/idempotence index once from verified existing sidecars; optional-off behavior excludes runtime capture effects, not mandatory schema/privacy migration. Character deletion removes its receipt metadata; ordinary profile edits and event purge preserve content-free replay fences.
 
-Already-purged pre-G evidence cannot supply a missing native fingerprint. If such an event suppression has no backfillable provenance, new native event intake in that scope fails closed with `journal_native_privacy_unresolved`; it does not delete or ignore the suppression. This is an explicit upgrade limitation requiring review of the affected privacy scope, not automatic recovery or guessed proof.
+Already-purged pre-G evidence cannot supply a missing native fingerprint. If such an event suppression has no backfillable provenance, new native event intake for that NPC/world (including a newly selected timeline) fails closed with `journal_native_privacy_unresolved`; it does not delete or ignore the suppression. This is an explicit upgrade limitation requiring review of the affected privacy scope, not automatic recovery or guessed proof. Selecting another timeline cannot bypass an unresolved native source fingerprint.
 
 Recovery trash retains immutable original bytes during E2's recovery window. Active replay/derivative reads hide suppressed evidence immediately; purge removes source/sidecar bytes. Franklin/Michael/Trevor remain provenance of one human within world + NPC + timeline privacy scope. G does not change F's conversation-recorder implementation.
 
