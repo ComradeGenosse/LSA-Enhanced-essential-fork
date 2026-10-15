@@ -257,19 +257,25 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
       // Even a missing D03 receipt must not reintroduce a previously
       // forgotten/corrected durable line from the original RAM conversation.
       const base=renderKnowledge({...args,history:memory?[]:args.history,includePerceived:false});
-      const memoryReady=memory?.status==='ready'&&
+      const memoryReady=memory?.status==='ready';
+      const recallReady=memoryReady&&memory.h1Only!==true&&
         memory.recallCurrent?.([],memory.preparedRecall?.stamp)===true;
-      const memoryArgs=memoryReady?{
-        preparedRecall:memory.preparedRecall,
-        preparedM8:memory.preparedM8,
-        m8Authorization:prepared=>prepared===memory.preparedM8&&memoryReady,
-        recallAuthorization:prepared=>prepared===memory.preparedRecall&&
-          memory.recallCurrent([],prepared?.stamp)===true,
-        conversationJournal:memory.conversationJournal,
-        memoryAction:memory.memoryAction,
-        memoryStamp:memory.preparedRecall.stamp
-      }:{};
-      const memoryBase=memoryReady
+      const journalReady=memoryReady&&!!memory.conversationJournal&&
+        (memory.h1Only===true||recallReady);
+      const journalStamp=journalReady
+        ?(memory.h1Only===true?memory.stamp:memory.preparedRecall.stamp):null;
+      const memoryArgs={
+        ...(recallReady?{
+          preparedRecall:memory.preparedRecall,preparedM8:memory.preparedM8,
+          m8Authorization:prepared=>prepared===memory.preparedM8&&recallReady,
+          recallAuthorization:prepared=>prepared===memory.preparedRecall&&
+            memory.recallCurrent([],prepared?.stamp)===true,
+          memoryAction:memory.memoryAction
+        }:{}),
+        ...(journalReady?{conversationJournal:memory.conversationJournal,
+          memoryStamp:journalStamp}:{})
+      };
+      const memoryBase=journalReady||recallReady
         ?renderKnowledge({...args,...memoryArgs,includePerceived:false}):base;
       const mode=config.dialogueKnowledge?.mode??'off',ps=runtime.intelligence?.runtime;
       let reason=mode==='off'?'disabled':'unsupported_contract',preview=null;
@@ -304,21 +310,36 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
         assertOwnedKnowledgeCurrent(turn.knowledgeInputs,{identity:turn.identity,snapshot:turn.characterSnapshot,identityService,perception:runtime.intelligence?.runtime}) || assertKnowledgeItemsCurrent(turn.knowledgeInputs,frame,runtime.intelligence?.runtime)
       ) || ((frame.activityReferences?.length??0)>0?assertActivityKnowledgeCurrent(turn.knowledgeInputs.activityInputs,runtime.activities,frame.activityReferences):null) || ((frame.dialogueReferences?.length??0)>0?assertDialogueActionKnowledgeCurrent(turn.knowledgeInputs.dialogueInputs,runtime.activities,frame.dialogueReferences):null);
       turn.knowledgeDelivery=createKnowledgeDelivery({frame:selected,baseFrame:base,
-        verifyPrepared:()=>memory.verifyPrepared(),
-        recallCurrent:(refs,stamp)=>memoryReady&&memory.sendCurrent()&&memory.recallCurrent(refs,stamp),
-        memoryCurrent:stamp=>memoryReady&&memory.sendCurrent()&&memory.recallCurrent([],stamp),
-        opinionCurrent:(refs,stamp)=>memoryReady&&memory.opinionCurrent(refs,stamp),
+        verifyPrepared:()=>memory?.verifyPrepared?.()??false,
+        recallCurrent:(refs,stamp)=>recallReady&&memory.sendCurrent()&&memory.recallCurrent(refs,stamp),
+        memoryCurrent:stamp=>journalReady&&memory.sendCurrent()&&!!stamp&&
+          Object.keys(journalStamp).length===Object.keys(stamp).length&&
+          Object.keys(journalStamp).every(key=>journalStamp[key]===stamp[key]),
+        opinionCurrent:(refs,stamp)=>recallReady&&memory.opinionCurrent(refs,stamp),
         pruneOpinion:frame=>pruneKnowledgeFrame(frame,()=>true,()=>true,()=>true,()=>true,()=>false),
         pruneRecall:frame=>pruneKnowledgeFrame(frame,()=>true,()=>true,()=>true,()=>false),
         isCurrent:()=>runtime.host.isCurrent(turn.identity) && (!identityService || identityService.current(turn.identity)),
         prune:frame=>(frame.memoryStamp &&
-          !(memoryReady&&memory.sendCurrent()&&memory.recallCurrent([],frame.memoryStamp)))?base:pruneKnowledgeFrame(frame,
+          !(journalReady&&memory.sendCurrent()&&journalStamp&&
+            Object.keys(journalStamp).length===Object.keys(frame.memoryStamp).length&&
+            Object.keys(journalStamp).every(key=>journalStamp[key]===frame.memoryStamp[key])))?base:pruneKnowledgeFrame(frame,
           item=>!validateKnowledge({delivery:[item]}),
           item=>!validateKnowledge({delivery:[],activityReferences:[item]}),
           item=>!validateKnowledge({delivery:[],dialogueReferences:[item]}),
-          ()=>memoryReady&&memory.sendCurrent()&&memory.recallCurrent([],memory.preparedRecall?.stamp)===true,
-          (refs)=>memoryReady&&memory.opinionCurrent([refs],memory.preparedM8?.stamp)),
+          ()=>recallReady&&memory.sendCurrent()&&memory.recallCurrent([],memory.preparedRecall?.stamp)===true,
+          refs=>recallReady&&memory.opinionCurrent([refs],memory.preparedM8?.stamp)),
         validate:validateKnowledge,
+        onRequest:frame=>{
+          if(!journalReady)return;
+          journalState.requestAttempted=true;
+          // Only record actual model inclusion after PS4 budget/fence checks.
+          const messages=frame.modelAllocation.messages??[];
+          const earlier=JSON.parse(frame.modelAllocation.scene).lanes.CONVERSE?.earlier??[];
+          journalState.contributed=!!frame.memoryStamp&&memory.sendCurrent()&&
+            (messages.length>1||earlier.length>0);
+          if(journalState.contributed&&!journalState.validation)
+            journalState.validation=journalOutcome('ready');
+        },
         acknowledge:(key,consumer,outcome)=>{
           const salience=runtime.intelligence?.runtime.salience;
           if(consumer==='ps4_context' && outcome==='delivered'){
