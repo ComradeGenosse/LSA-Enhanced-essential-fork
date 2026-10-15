@@ -41,7 +41,7 @@ const rows = [
   // Callback admission needs the existing single PS4 assembler, NOT the optional
   // PERCEIVED lane. M3 committed evidence, PS3 grant and PS6 remain required.
   { id:'memory.callbacks', modes:['off','shadow','on'], dependencies:['memory.events','ps3.salience','ps4.assembler','ps6.speech'], support:'absent', reason:'production_callback_not_registered' },
-  { id:'memory.inspector', modes:['off','on'], dependencies:['p2.sqlite','privacy.core'], support:'absent', reason:'learned_memory_inspector_not_implemented' },
+  { id:'memory.inspector', modes:['off','on'], dependencies:['p2.sqlite','privacy.core'], support:'conditional', reason:'privileged_editor_unavailable' },
   // M9 source producers are independent of M3 consumer registration.
   { id:'events.rollover', modes:['off','shadow','on'], dependencies:['source.core'], support:'absent', reason:'native_producer_not_in_production_build' },
   { id:'events.wasted', modes:['off','shadow','on'], dependencies:['source.core'], support:'absent', reason:'native_producer_not_in_production_build' },
@@ -58,8 +58,10 @@ const byId = new Map(MEMORY_K_CAPABILITIES.map(row => [row.id,row]));
 
 export function normalizeMemoryKConfig(value = {}) {
   if (!value || typeof value !== 'object' || Array.isArray(value) ||
-      Object.keys(value).some(key => !['capabilities','profile'].includes(key)))
-    throw new TypeError('memoryK supports only capabilities and profile.');
+      Object.keys(value).some(key => !['capabilities','profile','pauseLearned'].includes(key)))
+    throw new TypeError('memoryK supports only capabilities, profile and pauseLearned.');
+  if(value.pauseLearned!==undefined&&typeof value.pauseLearned!=='boolean')
+    throw new TypeError('memoryK.pauseLearned must be boolean.');
   if(value.profile!==undefined&&value.profile!=='storage-only')
     throw new TypeError('memoryK.profile is unsupported.');
   const requested = value.capabilities ?? {};
@@ -72,15 +74,17 @@ export function normalizeMemoryKConfig(value = {}) {
       throw new TypeError(`memoryK.capabilities contains unsupported capability ${id}.`);
     if (!descriptor.modes.includes(mode))
       throw new TypeError(`memoryK.capabilities.${id} mode is unsupported.`);
-    if(value.profile==='storage-only'&&(id.startsWith('memory.')||id.startsWith('events.'))&&mode!=='off')
+    if(value.profile==='storage-only'&&id!=='memory.inspector'&&(id.startsWith('memory.')||id.startsWith('events.'))&&mode!=='off')
       throw new TypeError(`memoryK storage-only profile requires ${id} off.`);
     normalized[id] = mode;
   }
   if(value.profile==='storage-only') {
     for(const descriptor of MEMORY_K_CAPABILITIES)
-      if(descriptor.id.startsWith('memory.')||descriptor.id.startsWith('events.')) normalized[descriptor.id]='off';
+      if((descriptor.id.startsWith('memory.')||descriptor.id.startsWith('events.'))&&descriptor.id!=='memory.inspector') normalized[descriptor.id]='off';
+    normalized['memory.inspector']??='off';
   }
-  return Object.freeze({...value.profile?{profile:value.profile}:{},capabilities:Object.freeze(normalized)});
+  return Object.freeze({...value.profile?{profile:value.profile}:{},
+    ...(value.pauseLearned!==undefined?{pauseLearned:value.pauseLearned}:{}),capabilities:Object.freeze(normalized)});
 }
 
 const registrationStatus = value => value === true || value === 'registered' ? 'registered'

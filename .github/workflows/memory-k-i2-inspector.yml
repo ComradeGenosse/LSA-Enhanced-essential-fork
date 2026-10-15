@@ -1,0 +1,46 @@
+name: Memory K I2 inspector
+on:
+  pull_request:
+    branches: [integration/memory-k-production-20261012]
+    paths:
+      - 'lsa-essential-e1-candidate/**'
+      - 'lsa-shared-brain/**'
+      - 'tools/memory-k-verification/**'
+      - '.github/workflows/memory-k-i2-inspector.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: memory-k-i2-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+jobs:
+  inspector:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: I2 administration, independent operation and pause
+        run: node tools/memory-k-verification/run.mjs --profile inspector --output "${{ runner.temp }}/i2/inspector"
+      - name: Existing source, editor and H1/H2 regressions
+        if: always()
+        run: node tools/memory-k-verification/run.mjs --profile inspector-regression --output "${{ runner.temp }}/i2/regression"
+      - name: Original privacy, replay, retention and recovery checks
+        if: always()
+        run: node tools/memory-k-verification/e2-suite.mjs --output "${{ runner.temp }}/i2/privacy"
+      - name: Original pinned offline package build
+        if: always()
+        run: node lsa-essential-e1-candidate/tools/buildCandidate.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: i2-${{ matrix.os }}-${{ github.event.pull_request.head.sha || github.sha }}
+          path: ${{ runner.temp }}/i2

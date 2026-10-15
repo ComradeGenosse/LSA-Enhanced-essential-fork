@@ -394,7 +394,7 @@ export class P2SqliteFoundation {
     return transaction(this.#db,()=>acknowledgeP2ReplayCursor(this.#db,request,this.worldProfileId));
   }
   listMemoryCandidates(scope,options){return listMemoryCandidates(this.#db,scope,this.worldProfileId,options);}
-  listSuppressedMemoryIds(scope){return listSuppressedMemoryIds(this.#db,scope,this.worldProfileId);}
+  listSuppressedMemoryIds(scope,options){return listSuppressedMemoryIds(this.#db,scope,this.worldProfileId,options);}
   verifyMemoryCommand(args){return verifyPersistedMemoryCommand(this.#db,args,this.worldProfileId);}
   commitMemoryCommand(args){return commitPersistedMemoryCommand(this.#db,args,this.worldProfileId);}
   persistDeterministicMemory(proposal){return persistDeterministicMemory(this.#db,proposal,this.worldProfileId);}

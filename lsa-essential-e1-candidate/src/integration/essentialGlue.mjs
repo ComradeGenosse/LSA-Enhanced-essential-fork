@@ -35,6 +35,7 @@ import { IdentityResolver } from '../identity/identityResolver.mjs';
 import { CharacterService,withoutCharacterTransport } from '../characters/characterService.mjs';
 import { createNoopDialogueTrace } from '../observability/dialogueTrace.mjs';
 import {memoryKConsumersAllowed,memoryKDialogueActivation,memoryKH1Activation,memoryKH2Activation} from '../memory/runtimeComposition.mjs';
+import {createLearnedMemoryPause} from '../memory/learnedMemoryPause.mjs';
 
 // Fail-closed startup contract for E1's separately reviewed storage-only preset.
 export const MEMORY_K_COMPOSITION_VERSION=1;
@@ -62,7 +63,8 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
     ? new CharacterService(config,{identityService,voiceResolver,store:profileStore,nativeOwner,telemetry}) : null;
   if(!deferCharacterInitialization) characterService?.initialize().catch(() => {});
   // Optional SQLite path only. The existing JSON backend stays unchanged.
-  const journalStore=characterService?.store;
+  const memoryPause=createLearnedMemoryPause({paused:config.memoryK?.pauseLearned===true});
+  const journalStore=memoryPause.optionalStore(characterService?.store);
   const optionalMemoryEnabled=memoryKConsumersAllowed(config);
   const dialogueActivation=memoryKDialogueActivation(config);
   const journalActivation=memoryKH1Activation(config);
@@ -99,9 +101,10 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
   // the read-only evaluator, scoped to its own turn tuple.
   const speechDelivery=openaiAcceptance&&dialogueActivation.npc?createNpcSpeechDeliverySource():null;
   const memorySources=openaiAcceptance?Object.freeze({
-    acceptance:openaiAcceptance.issuer,
-    speech:speechDelivery?.recorder??null,
+    acceptance:Object.freeze({openTurn:args=>memoryPause.paused?null:openaiAcceptance.issuer.openTurn(args)}),
+    speech:speechDelivery?Object.freeze({openTurn:args=>memoryPause.paused?null:speechDelivery.recorder.openTurn(args)}):null,
     recordTurn:(identity,connection)=>{
+      if(memoryPause.paused)return false;
       const entry=originalActorLedger.recordAtTurnCreation(identity,connection);
       // A newer original generation fences issuance for older ones.
       if(entry)openaiAcceptance.verifier.supersede(identity);
@@ -116,7 +119,7 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
   // current host + exact owner/turn/protagonist proof disables M2 writes.
   const services = {
     bindM2Turn({turn,isCurrent}={}) {
-      if(!dialogueActivation.player||runtime.closed) return null;
+      if(!dialogueActivation.player||runtime.closed||memoryPause.paused) return null;
       const characterId=journalCharacter(turn);
       const ownerAlias=turn?.characterProjection?.profile?.promotion?.ownerAlias;
       if(!characterId||!ownerAlias||typeof isCurrent!=='function'||
@@ -137,11 +140,11 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
       // owner claim of this ped at turn preparation; retired on revoke/close.
       const p1Binding=identityService?()=>identityService.bindings.get(turn.identity):null;
       return join.begin({identity:turn.identity,characterId,ownerAlias,
-        isCurrent,p1Binding,
+        isCurrent:()=>!memoryPause.paused&&isCurrent(),p1Binding,
         speech:speechDelivery?{evaluate:()=>speechDelivery.verifier.evaluate(turn.identity)}:null});
     },
     async recordM2Player({turn,text,source}) {
-      if(!dialogueActivation.player||runtime.closed) return null;
+      if(!dialogueActivation.player||runtime.closed||memoryPause.paused) return null;
       if(!turn?.m2Capture||!['player_text','player_mic'].includes(source))
         return null;
       return noteDialogue('player',await turn.m2Capture.acceptPlayer({
@@ -156,7 +159,9 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
     // PS4 is the only model-facing assembler. This preflight returns evidence
     // and source-fenced read receipts, never prompt text or model instructions.
     async prepareLiveTurnMemory(args) {
-      if(runtime.closed)return null;
+      if(runtime.closed||memoryPause.paused)return null;
+      const memoryEpoch=memoryPause.stamp(),sourceCurrent=args.isCurrent;
+      args={...args,isCurrent:()=>memoryPause.current(memoryEpoch)&&sourceCurrent()};
       for(const state of [journalState,recallState]){
         state.preparation=null;state.validation=null;state.contributed=false;state.requestAttempted=false;
       }
@@ -251,7 +256,7 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
     // tuple and classifies completed / interrupted / failed from that evidence
     // alone (WS-5a). A `not_stored` result means "no durable receipt".
     async recordM2Npc({turn}) {
-      if(!dialogueActivation.npc||runtime.closed) return null;
+      if(!dialogueActivation.npc||runtime.closed||memoryPause.paused) return null;
       return noteDialogue('npc',await turn?.m2Capture?.recordNpcOutcome?.()??null);
     },
     memoryDialogueDiagnostics() {
@@ -286,6 +291,7 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
     config,
     dialogueTrace,
     finalizeKnowledgeFrame(turn,{input,history,source}) {
+      const pausedAtFrame=memoryPause.paused,memoryEpoch=memoryPause.stamp();
       const character=turn.characterProjection;
       // A persistent promoted NPC using the P2 SQLite history must never
       // substitute unverified RAM history if D03/native proof temporarily
@@ -294,12 +300,12 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
       const p2HistoryRequired=character?.persistent===true &&
         config.promotedCharacters?.storageMode==='sqlite';
       const args={turn:turn.identity,frozenAt:turn.knowledgeInputs?.frozenAt??0,
-        profile:character?.profile,persistent:character?.persistent===true,knowledgeInputs:turn.knowledgeInputs,
+        profile:pausedAtFrame&&character?.profile?{...character.profile,memories:[]}:character?.profile,persistent:character?.persistent===true,knowledgeInputs:turn.knowledgeInputs,
         actor:turn.context.actor,listener:turn.context.listener,world:turn.context.world,referenceMap:turn.context.referenceMap,
         presence:turn.sourcePresence,history:p2HistoryRequired?[]:history,input,source,
         directorEventContext:turn.directorTicket && source==='special_event'
           ? turn.context.internalEvent:null};
-      const memory=turn.memoryPrepared;
+      const memory=memoryPause.paused?null:turn.memoryPrepared;
       // Even a missing D03 receipt must not reintroduce a previously
       // forgotten/corrected durable line from the original RAM conversation.
       const base=renderKnowledge({...args,history:memory?[]:args.history,includePerceived:false});
@@ -362,7 +368,7 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
         opinionCurrent:(refs,stamp)=>recallReady&&memory.opinionCurrent(refs,stamp),
         pruneOpinion:frame=>pruneKnowledgeFrame(frame,()=>true,()=>true,()=>true,()=>true,()=>false),
         pruneRecall:frame=>pruneKnowledgeFrame(frame,()=>true,()=>true,()=>true,()=>false),
-        isCurrent:()=>runtime.host.isCurrent(turn.identity) && (!identityService || identityService.current(turn.identity)),
+        isCurrent:()=>(pausedAtFrame||memoryPause.current(memoryEpoch))&&runtime.host.isCurrent(turn.identity) && (!identityService || identityService.current(turn.identity)),
         prune:frame=>(frame.memoryStamp &&
           !((journalReady||recallReady)&&memory.sendCurrent()&&journalStamp&&
             Object.keys(journalStamp).length===Object.keys(frame.memoryStamp).length&&
@@ -403,7 +409,11 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
         onOutcome:result=>{turn.knowledgeOutcome=result;try{telemetry?.emit('knowledge_delivery',turn.identity,source,{outcome:result.outcome,selectedObservations:result.selectedObservations,acknowledgedObservations:result.acknowledged,retiredAcknowledgements:result.retired,knowledgeRequestHash:result.requestHash,projectionHash:result.projectionHash,reason:result.retired?'ack_key_retired':null});}catch{}}});
       return selected;
     },
-    subscribeKnowledgeInvalidation:listener=>runtime.intelligence?.subscribeKnowledgeInvalidation(listener),
+    subscribeKnowledgeInvalidation:listener=>{
+      const source=runtime.intelligence?.subscribeKnowledgeInvalidation(listener);
+      const pause=memoryPause.subscribe(listener);
+      return ()=>{source?.();pause();};
+    },
     providerStack,
     decide: providerStack ? options => providerStack.decide(options) : options => decide({ ...options, config, fetchImpl }),
     transcribe: providerStack ? options => providerStack.transcribe(options) : options => transcribePcm({ ...options, config, fetchImpl }),
@@ -411,13 +421,14 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
     executeProvider: providerStack ? args => executeProviderOperation({ ...args, retryConfig: config.retry, telemetry: args.telemetry }) : null,
   };
   const runtime = {
-    config, history, services, telemetry, dialogueTrace, providerStack, voiceResolver, identityService,characterService,
+    config, history, services, telemetry, dialogueTrace, providerStack, voiceResolver, identityService,characterService,memoryPause,
     separateKnowledgeInstruction,
     captureNormalizedActor: (actor,raw,shape)=>actorPresence.capture(actor,raw,shape),
     actorSourcePresence: actor=>actorPresence.read(actor),
     copyActorPresence: (source,target)=>actorPresence.copy(source,target),
     modelActor: actor => actorPresence.copy(actor,withoutCharacterTransport(actor)),
     situationFor(observerRef) {
+      if(memoryPause.paused)return {};
       const ps=runtime.intelligence?.runtime,index=ps?.observerIndex.get(observerRef);
       if(!index?.owned || !ps.current(observerRef) || !sameHostContext(ps.hostContext,identityService?.evidence?.hostContext) || !characterService?.store.loaded) return {};
       const bindings=identityService.bindings.values().filter(binding=>binding.claim.incarnationId===index.incarnationId && identityService.evidence.isCurrent(binding.claim));
@@ -571,6 +582,20 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
       try { openaiAcceptance?.verifier.fenceTurn(identity); } catch {}
       try { originalActorLedger.retire(identity); } catch {}
       for (const connection of connections) connection.abortTurn(identity, reason);
+    },
+    pauseLearnedMemory() {
+      // Latch first; callbacks, queued P2 work and retries cannot regain admission.
+      const result=memoryPause.pause();
+      let failures=result.notificationFailures;
+      try{runtime.memoryM3?.close();}catch{++failures;}
+      runtime.retireOriginalAcceptanceSourceRun();
+      // The existing exact-generation abort owns provider/audio cancellation.
+      for(const connection of connections){
+        const identity=connection.turnSnapshot?.identity;
+        if(identity)try{runtime.abortTurn(identity,'learned_memory_paused');}catch{++failures;}
+      }
+      runtime.learnedMemoryPauseFailed=runtime.learnedMemoryPauseFailed===true||failures>0;
+      return Object.freeze({...result,revocationFailures:failures});
     },
     // Revocation only (cannot mint): host/world epoch change or shutdown.
     retireOriginalAcceptanceSourceRun() {

@@ -5,6 +5,7 @@ import {isUuid} from '../util/identity.mjs';
 import {readVerifiedEventEvidence} from './journalSqlite.mjs';
 import {listSuppressedMemoryIds,readCorrectionOverlays} from './integratedSqlite.mjs';
 import {normalizedEvidence} from './evidence.mjs';
+import {supersededTargetIds} from './correctionSemantics.mjs';
 
 const fail = code => {throw new Error(code);};
 const hash = value => createHash('sha256').update(typeof value==='string'?value:JSON.stringify(value)).digest('hex');
@@ -33,6 +34,7 @@ function current(db,scope){
 }
 function blocked(db,scope,world){
   const result=new Set();
+  for(const id of supersededTargetIds(db,entryScope(scope)))result.add(id);
   for(const protagonistKey of ['unknown','franklin','michael','trevor']){
     const keyed={...scope,protagonistKey};
     for(const id of listSuppressedMemoryIds(db,keyed,world))result.add(id);

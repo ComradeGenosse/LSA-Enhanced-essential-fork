@@ -1,5 +1,5 @@
 import {suppressedMemoryIds} from './suppressionSqlite.mjs';
-import {readCorrectionRows,overlayContent} from './correctionSemantics.mjs';
+import {readCorrectionRows,overlayContent,supersededTargetIds} from './correctionSemantics.mjs';
 // M4-only read projection over the actual M2/M3/M5/M6 v4 P2 SQLite schema.
 // No migrations, writes, native owner selection, or speculative witness claims.
 import {createHash} from 'node:crypto';
@@ -57,7 +57,7 @@ function correctionRows(db,scope,forgotten){
   // transcript corrections supersede their target; counter-claims are linked
   // reported_claim overlays and the original (e.g. witnessed) record stays.
   const source=readCorrectionRows(db,keys).filter(x=>owners.has(x.commandId));
-  const corrected=new Set(source.filter(x=>x.supersedes).map(x=>x.targetId));
+  const corrected=supersededTargetIds(db,keys);
   const overlays=[],seenTargets=new Set();
   for(const c of source){
     if(!uuid.test(c.commandId)||!uuid.test(c.targetId)||sha(c.content)!==c.checksum)throw new Error('m4_corrupt_correction');

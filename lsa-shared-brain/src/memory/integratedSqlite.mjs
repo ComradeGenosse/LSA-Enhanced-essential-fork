@@ -136,9 +136,12 @@ export function listMemoryCandidates(db,scope,world,{beforeUtc=null,excludeRecor
    rows.push({...scope,...p,kind:'permanent_memory'});
  return immutableSnapshot(rows.filter(x=>!revoked.has(x.recordId)&&x.recordId!==excludeRecordId&&(!beforeUtc||x.occurredAtUtc<=beforeUtc)));
 }
-export function listSuppressedMemoryIds(db,scope,world){
+export function listSuppressedMemoryIds(db,scope,world,{includeCorrections=false}={}){
  dbOwnerScope(db,scope,world);
- return Object.freeze([...suppressedMemoryIds(db,scope)]);
+ // H1 history must exclude the full source/derivative closure of privileged
+ // fact revisions, not just direct transcript correction targets. Keep the
+ // legacy default unchanged for callers that ask only about suppression.
+ return Object.freeze([...suppressedMemoryIds(db,scope,{includeCorrections:includeCorrections===true})]);
 }
 export function verifyPersistedMemoryCommand(db,{scope,commandId},world){
  dbOwnerScope(db,scope,world);
@@ -175,6 +178,7 @@ export function commitPersistedMemoryCommand(db,o,world){
    let correctionMode=null;
    if(o.operation==='correct'){
      correctionMode=normalizeCorrectionMode(o.correctionMode,{allowLegacy:true});
+     if(correctionMode==='fact_revision')fail('memory_privileged_correction_required');
      // A transcript correction may only supersede evidence the player can
      // legitimately correct, never a witnessed event or NPC speech (K-12).
      if(correctionMode==='transcript'&&isProtectedEvidence(db,stmtScope(scope),o.targetRecordId))
@@ -232,7 +236,7 @@ export function persistDeterministicMemory(db,proposal,world){
     proposal.evidenceRecordIds.length>64||!Number.isFinite(proposal.notability)||proposal.notability<0||proposal.notability>1||
     typeof proposal.groundedSummary!=='string'||!proposal.groundedSummary.length)fail('memory_invalid_proposal');
  return transact(db,()=>{
-   const suppressed=suppressedMemoryIds(db,scope);
+   const suppressed=suppressedMemoryIds(db,scope,{includeCorrections:true});
    if(suppressed.has(proposal.proposalId)||proposal.evidenceRecordIds.some(id=>suppressed.has(id))||
       isSuppressedSource(db,scope,{recordId:proposal.proposalId,kind:'permanent_memory',contentHash:digest(proposal.groundedSummary)}))
      fail('curation_source_forgotten');
