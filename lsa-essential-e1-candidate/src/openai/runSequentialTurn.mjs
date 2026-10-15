@@ -268,6 +268,9 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
     }
     transition('model_running');
     if(services.finalizeKnowledgeFrame)turn.knowledgeProjection=await services.finalizeKnowledgeFrame(turn,{input:finalInput,history:priorHistory,source});
+    // P2/D03 source validation must occur before composing the first provider body.
+    // Per-attempt HTTP admission still independently revalidates and fences sends.
+    await turn.knowledgeDelivery?.prepareAsync?.();
     turn.knowledgeDelivery?.watch(listener=>services.subscribeKnowledgeInvalidation?.(listener) ?? (()=>{}),error=>controller.abort(error));
     const recordReasoningSuccess=decision=>{check();turn.knowledgeDelivery?.success(decision);};
     let decision;

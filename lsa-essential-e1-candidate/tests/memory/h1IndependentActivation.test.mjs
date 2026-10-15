@@ -81,14 +81,20 @@ test('H1 off / M4 off performs no optional H1 preparation or RAM substitution',
   assert.equal(x.h.runtime.services.memoryJournalDiagnostics().contributedToModelRequest,false);
 });
 
-test('H1 off / M4 requested does not implicitly run H1, M5 or M8 (H2 activation remains separate)',
+test('H1 off / H2 on: H2 may authenticate SQLite lines but H1 never projects journal history',
   {timeout:45000},async t=>{
   const x=await d01Harness(t,{config:configured({'memory.journalContext':'off','memory.recall':'on'})});
   let reads=0;const original=x.store.readDialogueLines.bind(x.store);
   x.store.readDialogueLines=async(...args)=>{reads++;return original(...args);};
+  const sent=realDecisions(x);
   await say(x,'I said the meadow is peaceful.');
-  assert.equal(reads,0);
+  assert.ok(reads>0,'independent H2 must read back the accepted player line from SQLite');
   assert.equal(x.h.runtime.services.memoryJournalDiagnostics().state,'stopped');
+  assert.equal(x.h.runtime.services.memoryJournalDiagnostics().contributedToModelRequest,false);
+  assert.equal(frame(sent.at(-1)).modelAllocation.messages.length,1,
+    'H1 off must not inject archived conversation, even while H2 authenticates its source');
+  assert.equal(lanes(sent.at(-1)).SELF.memoryAction,undefined);
+  assert.equal(lanes(sent.at(-1)).RECALLED.characterOpinions,undefined);
 });
 
 test('H1 on retains exact historical roles across protagonist switches with unrelated workers off',

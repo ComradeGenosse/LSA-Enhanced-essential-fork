@@ -161,3 +161,18 @@ export function memoryKH1Activation(config) {
   return Object.freeze({legacy,requestedMode,
     mode:requestedMode==='on'&&player?'on':'off',reason});
 }
+
+
+// H2 independent M4 factual-recall activation. M2's durable accepted player
+// line is the only optional memory prerequisite; neither H1 nor M5/M8 is.
+export function memoryKH2Activation(config) {
+  const legacy=memoryKConsumersAllowed(config);
+  const requests=config.memoryK?.capabilities??{};
+  const requestedMode=legacy?'on':requests['memory.recall']??'off';
+  const player=memoryKDialogueActivation(config).player;
+  const reason=requestedMode==='shadow'?'shadow_not_supported':
+    requestedMode==='on'&&!player?'dependency_not_requested_or_available:memory.dialogue.player':
+    requestedMode==='off'?'optional_consumer_stopped':null;
+  return Object.freeze({legacy,requestedMode,
+    mode:requestedMode==='on'&&player?'on':'off',reason});
+}
