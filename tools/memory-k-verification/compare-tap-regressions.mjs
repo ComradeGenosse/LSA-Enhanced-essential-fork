@@ -8,17 +8,7 @@ import {fileURLToPath} from 'node:url';
 export function parseTap(log,label){
   const summary={};
   for(const key of ['tests','pass','fail','cancelled','skipped','todo']){
-    const matches=[...log.matchAll(new RegExp(`^# ${key} (\\d+)\\s*// Compare the same inherited TAP suite on a pinned baseline and PR candidate.
-// Pre-existing source-blocked tests remain visible; new failures or changed
-// reasons fail CI. Preserve the complete logs and a JSON comparison artifact.
-import {readFileSync,writeFileSync} from 'node:fs';
-import path from 'node:path';
-import {fileURLToPath} from 'node:url';
-
-export function parseTap(log,label){
-  const summary={};
-  for(const key of ['tests','pass','fail','cancelled','skipped','todo']){
-    const matches=[...log.matchAll(,'gm'))];
+    const matches=[...log.matchAll(new RegExp(`^# ${key} (\\d+)\\s*$`,'gm'))];
     if(!matches.length)throw new Error(`${label}: incomplete TAP output (missing ${key})`);
     summary[key]=Number(matches.at(-1)[1]);
   }
