@@ -1,0 +1,65 @@
+name: Memory K I1 independent M5 commands (offline)
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, ready_for_review]
+    paths:
+      - '.github/workflows/memory-k-i1-independent-commands.yml'
+      - 'lsa-essential-e1-candidate/src/**'
+      - 'lsa-shared-brain/src/memory/**'
+      - 'lsa-essential-e1-candidate/tests/memory/m5IndependentCommands.test.mjs'
+      - 'tools/memory-k-verification/registrations/i1-independent-commands.json'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: memory-k-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  independent-commands:
+    # Deliberately also runs on DRAFT pull requests (I1 is delivered as a draft).
+    name: I1 M5 original runner (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Syntax checks
+        shell: bash
+        run: |
+          set -euo pipefail
+          for file in lsa-essential-e1-candidate/src/memory/m5IndependentCommands.mjs lsa-essential-e1-candidate/src/memory/independentForegroundMemory.mjs lsa-essential-e1-candidate/src/memory/runtimeComposition.mjs lsa-essential-e1-candidate/src/memory/liveTurnMemory.mjs lsa-essential-e1-candidate/src/integration/essentialGlue.mjs lsa-essential-e1-candidate/src/bootstrap.mjs lsa-shared-brain/src/memory/m5RuntimeCoordinator.mjs lsa-shared-brain/src/memory/recallEvidencePolicy.mjs lsa-essential-e1-candidate/tests/memory/m5IndependentCommands.test.mjs; do node --check "$file"; done
+      - name: I1 independent M5 original runner (M5-only, with H1/H2, off, privacy, revocation)
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --test --test-concurrency=1 lsa-essential-e1-candidate/tests/memory/m5IndependentCommands.test.mjs 2>&1 | tee "$RUNNER_TEMP/i1-commands.log"
+      - name: H1/H2, WS6, D01/D03 original-runner regressions
+        shell: bash
+        run: |
+          set -euo pipefail
+          E=lsa-essential-e1-candidate/tests/memory
+          node --test --test-concurrency=1 $E/independentForegroundMemory.test.mjs $E/h1IndependentActivation.test.mjs $E/h2ForegroundActivation.test.mjs $E/h1ConversationHistoryHardening.test.mjs $E/h1ConversationHistory.test.mjs $E/h2FactualRecall.test.mjs $E/h2RealAuthority.test.mjs $E/ws6OriginalRunner.test.mjs $E/ws6ProductionPipeline.test.mjs $E/ws6LiveTurnMemory.test.mjs $E/d03OriginalDialogueJoin.test.mjs $E/d01OpenAIAcceptance.test.mjs 2>&1 | tee "$RUNNER_TEMP/i1-regressions-e1-memory.log"
+      - name: M5, P2 privacy and shared-brain regressions
+        shell: bash
+        run: |
+          set -euo pipefail
+          E=lsa-essential-e1-candidate/tests; S=lsa-shared-brain/tests
+          node --test --test-concurrency=1 $E/m5-explicit-memory-commands.test.mjs $E/memory-capability-policy.test.mjs $E/memory-e2-independent-privacy.test.mjs $E/memory-e2-ws6-privacy-recovery.test.mjs $E/memory-f-independent-dialogue.test.mjs $E/knowledge-renderer.test.mjs $E/knowledge-delivery.test.mjs $E/ea-shared-player-memory.test.mjs $S/memory-m5-agent-b-cross-avatar.test.mjs $S/memory-m5-closure.test.mjs $S/memory-m5-completion.test.mjs $S/memory-k07-k12-adversarial.test.mjs $S/memory-m4-recall.test.mjs $S/memory-ws6-g3-g5-evidence.test.mjs $S/memory-e2-privacy-recovery.test.mjs 2>&1 | tee "$RUNNER_TEMP/i1-regressions-m5-privacy.log"
+      - name: Strict registered test inventory
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --test tools/memory-k-verification/tests/*.test.mjs 2>&1 | tee "$RUNNER_TEMP/i1-inventory.log"
+      - name: Preserve raw offline evidence (test output only; no player text or memory contents beyond synthetic fixtures)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: i1-independent-commands-${{ matrix.os }}
+          path: ${{ runner.temp }}/i1-*.log

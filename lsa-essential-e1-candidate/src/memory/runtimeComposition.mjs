@@ -176,3 +176,19 @@ export function memoryKH2Activation(config) {
   return Object.freeze({legacy,requestedMode,
     mode:requestedMode==='on'&&player?'on':'off',reason});
 }
+
+
+// I1: independent M5 explicit-command activation. M2's durable accepted player
+// line is the only optional-memory prerequisite; neither H1, H2, M8, M6/M7 nor
+// M3 events is. An absent capability map keeps the inherited combined path.
+export function memoryKM5Activation(config) {
+  const legacy=memoryKConsumersAllowed(config);
+  const requests=config.memoryK?.capabilities??{};
+  const requestedMode=legacy?'on':requests['memory.commands']??'off';
+  const player=memoryKDialogueActivation(config).player;
+  const reason=requestedMode==='shadow'?'shadow_not_supported':
+    requestedMode==='on'&&!player?'dependency_not_requested_or_available:memory.dialogue.player':
+    requestedMode==='off'?'optional_consumer_stopped':null;
+  return Object.freeze({legacy,requestedMode,
+    mode:requestedMode==='on'&&player?'on':'off',reason});
+}

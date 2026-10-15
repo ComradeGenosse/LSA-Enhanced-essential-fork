@@ -4,8 +4,7 @@ import {randomUUID} from 'node:crypto';
 import {recallMemory,toPs4RecallContribution} from '../../../lsa-shared-brain/src/memory/recallEngine.mjs';
 import {createP2IntegratedRecallAdapter} from '../../../lsa-shared-brain/src/memory/integrationPorts.mjs';
 import {createM5SqliteServices} from '../../../lsa-shared-brain/src/memory/m5SqlitePrivacy.mjs';
-import {createM5RuntimeCoordinator} from '../../../lsa-shared-brain/src/memory/m5RuntimeCoordinator.mjs';
-import {detectExplicitMemoryCommands} from '../../../lsa-shared-brain/src/memory/explicitCommands.mjs';
+import {createM5RuntimeCoordinator,mayBeM5PlayerInput} from '../../../lsa-shared-brain/src/memory/m5RuntimeCoordinator.mjs';
 import {createRecallEvidencePolicy} from '../../../lsa-shared-brain/src/memory/recallEvidencePolicy.mjs';
 import {createP2M8ProductionReader} from './p2M8ProductionRead.mjs';
 import {openH1ConversationSource} from './h1ConversationHistory.mjs';
@@ -28,12 +27,8 @@ export async function prepareLiveTurnMemory({store,turn,acceptedReceipt,input,so
     // player command (or a possible reply to an existing durable clarification)
     // may enter M5, always subject to the coordinator's own source checks.
     let memoryAction=null;
-    // Use the M5 parser as the authority for explicit commands. Only possible
-    // clarification replies need a separate fast path; ordinary dialogue stays read-only.
-    const trimmed=input.trim();
-    const possibleCommand=detectExplicitMemoryCommands(input)!==null ||
-      /^(?:the\s+)?(?:first|second|one|two|1|2)(?:\s+one)?(?:\s*[:,-]\s*.+)?[.!]?$/i.test(trimmed) ||
-      /^(?:no[,]?\s*)?(?:i\s+(?:actually\s+)?(?:said|meant)|it\s+was|the\s+correct(?:ed)?\s+(?:wording|text)\s+is)\s+.+$/i.test(trimmed);
+    // The M5 module is the single authority for what may enter M5.
+    const possibleCommand=mayBeM5PlayerInput(input);
     if(possibleCommand)try{
       const m5=createM5SqliteServices({store,filePath:store.filePath,
         authorize:()=>current()});

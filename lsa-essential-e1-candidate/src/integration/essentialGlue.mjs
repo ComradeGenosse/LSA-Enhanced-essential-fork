@@ -25,6 +25,7 @@ import {prepareLiveTurnMemory} from '../memory/liveTurnMemory.mjs';
 import {prepareH1ConversationHistory} from '../memory/h1ConversationHistory.mjs';
 import {prepareFactualRecall} from '../memory/h2FactualRecall.mjs';
 import {composeIndependentForegroundMemory} from '../memory/independentForegroundMemory.mjs';
+import {prepareM5Commands} from '../memory/m5IndependentCommands.mjs';
 import { validateDecisionShape } from '../context/essentialDecision.mjs';
 import { validateStockDecision } from '../context/decisionValidator.mjs';
 import { createProviderStack } from '../providers/providerStack.mjs';
@@ -34,7 +35,7 @@ import { captureReferenceMap } from '../context/turnSnapshot.mjs';
 import { IdentityResolver } from '../identity/identityResolver.mjs';
 import { CharacterService,withoutCharacterTransport } from '../characters/characterService.mjs';
 import { createNoopDialogueTrace } from '../observability/dialogueTrace.mjs';
-import {memoryKConsumersAllowed,memoryKDialogueActivation,memoryKH1Activation,memoryKH2Activation} from '../memory/runtimeComposition.mjs';
+import {memoryKConsumersAllowed,memoryKDialogueActivation,memoryKH1Activation,memoryKH2Activation,memoryKM5Activation} from '../memory/runtimeComposition.mjs';
 
 // Fail-closed startup contract for E1's separately reviewed storage-only preset.
 export const MEMORY_K_COMPOSITION_VERSION=1;
@@ -67,8 +68,12 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
   const dialogueActivation=memoryKDialogueActivation(config);
   const journalActivation=memoryKH1Activation(config);
   const recallActivation=memoryKH2Activation(config);
+  const commandActivation=memoryKM5Activation(config);
   const recallState={preparation:null,validation:null,contributed:false,requestAttempted:false};
   const journalState={preparation:null,validation:null,contributed:false,requestAttempted:false};
+  // I1: M5 command state. `outcome` is a closed, privacy-safe vocabulary; it never
+  // carries player text, memory content, ids or exception messages.
+  const commandState={preparation:null,validation:null,outcome:null,contributed:false,requestAttempted:false};
   const journalOutcome=(status,reason=null)=>Object.freeze({status,reason});
   const dialogueResults={player:null,npc:null};
   // Status contains no transcript/identity. A durable result is per operation,
@@ -157,19 +162,28 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
     // and source-fenced read receipts, never prompt text or model instructions.
     async prepareLiveTurnMemory(args) {
       if(runtime.closed)return null;
-      for(const state of [journalState,recallState]){
+      for(const state of [journalState,recallState,commandState]){
         state.preparation=null;state.validation=null;state.contributed=false;state.requestAttempted=false;
       }
+      commandState.outcome=null;
       if(optionalMemoryEnabled){
         // No explicit capability map: retain the inherited combined WS6 path.
         const result=await prepareLiveTurnMemory({store:journalStore,...args});
         journalState.preparation=journalOutcome(result?.status??'unavailable',result?.reason??null);
         return result;
       }
-      if(journalActivation.mode!=='on'&&recallActivation.mode!=='on')return null;
-      // Independently prepare each enabled reader using exactly the same
-      // accepted D03 receipt and original source/turn identity. M5/M8 stay off.
-      let history=null,recall=null;
+      if(journalActivation.mode!=='on'&&recallActivation.mode!=='on'&&commandActivation.mode!=='on')return null;
+      // Independently prepare each enabled consumer using exactly the same
+      // accepted D03 receipt and original source/turn identity. M8 stays off.
+      // M5 runs FIRST so any durable remember/forget/correct is committed before
+      // H1/H2 read, and neither can ever send a pre-command snapshot.
+      let history=null,recall=null,commands=null;
+      if(commandActivation.mode==='on'){
+        try{commands=await prepareM5Commands({store:journalStore,...args});}
+        catch{commands={status:'unavailable',reason:'command_read_failed',outcome:'command_failure'};}
+        commandState.preparation=journalOutcome(commands.status,commands.reason??null);
+        commandState.outcome=commands.outcome??null;
+      }
       if(journalActivation.mode==='on'){
         try{history=await prepareH1ConversationHistory({store:journalStore,...args});}
         catch{history={status:'unavailable',reason:'history_read_failed'};}
@@ -180,8 +194,10 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
         catch{recall={status:'unavailable',reason:'recall_read_failed'};}
         recallState.preparation=journalOutcome(recall.status,recall.reason??null);
       }
-      const result=composeIndependentForegroundMemory({history,recall,
-        onValidation:({h1,h2})=>{
+      const result=composeIndependentForegroundMemory({history,recall,commands,
+        onValidation:({h1,h2,m5})=>{
+          if(commands?.status==='ready'&&commands.memoryAction?.length)
+            commandState.validation=journalOutcome(m5?'ready':'invalidated',m5?null:'source_authority_revoked');
           if(history?.status==='ready')
             journalState.validation=journalOutcome(h1?'ready':'invalidated',h1?null:'source_authority_revoked');
           if(recall?.status==='ready')
@@ -197,6 +213,11 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
       if(recallActivation.mode==='on'){
         recallState.preparation=journalOutcome('blocked','accepted_line_authority_missing');
         recallState.validation=null;recallState.contributed=false;recallState.requestAttempted=false;
+      }
+      if(commandActivation.mode==='on'){
+        commandState.preparation=journalOutcome('unavailable','accepted_line_authority_missing');
+        commandState.validation=null;commandState.contributed=false;commandState.requestAttempted=false;
+        commandState.outcome='source_unavailable';
       }
     },
     memoryRecallDiagnostics() {
@@ -221,6 +242,38 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
         operationalState:state,reason:reason??(state==='waiting'?'accepted_player_turn_required':null),
         lastPreparation:recallState.preparation,lastValidation:recallState.validation,
         contributedToModelRequest:recallState.contributed,requestAttempted:recallState.requestAttempted,
+        legacy,restartRequired:true});
+    },
+    // I1: privacy-safe M5 command capability status. `code` is one of a closed
+    // vocabulary: disabled_by_configuration, missing_dependency, source_unavailable,
+    // command_not_recognized, clarification_required, durable_command_success,
+    // command_failure (plus private_editor_required for inspector-only requests).
+    memoryCommandDiagnostics() {
+      const {requestedMode,mode,reason:activationReason,legacy}=commandActivation;
+      const environmentReason=runtime.closed?'runtime_stopped':
+        config.provider!=='openai'?'d01_acceptance_source_unavailable':
+        config.promotedCharacters?.storageMode!=='sqlite'||!characterService?.ready||
+          typeof journalStore?.withTimelineSqliteWrite!=='function'||
+          typeof journalStore?.readDialogueLines!=='function'?'p2_sqlite_unavailable':null;
+      const reason=activationReason??(mode==='on'?environmentReason??commandState.validation?.reason??
+        commandState.preparation?.reason:null);
+      const state=mode!=='on'?requestedMode==='shadow'?'unavailable':
+        requestedMode==='on'?'blocked':'stopped':
+        environmentReason==='runtime_stopped'?'stopped':
+        environmentReason?'unavailable':
+        commandState.validation?.status==='invalidated'?'blocked':
+        commandState.validation?.status==='ready'?'ready':
+        commandState.preparation?.status==='ready'?'waiting':
+        commandState.preparation?.status==='unavailable'?'unavailable':'waiting';
+      const code=requestedMode==='off'?'disabled_by_configuration':
+        mode!=='on'||environmentReason&&environmentReason!=='runtime_stopped'?'missing_dependency':
+        commandState.validation?.status==='invalidated'?'source_unavailable':
+        commandState.outcome??null;
+      return Object.freeze({requestedMode,state,code,
+        effectiveMode:state==='ready'?'on':state==='stopped'?'off':null,
+        operationalState:state,reason:reason??(state==='waiting'?'accepted_player_turn_required':null),
+        lastPreparation:commandState.preparation,lastValidation:commandState.validation,
+        contributedToModelRequest:commandState.contributed,requestAttempted:commandState.requestAttempted,
         legacy,restartRequired:true});
     },
     memoryJournalDiagnostics() {
@@ -307,19 +360,23 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
       const recallReady=memoryReady&&memory.preparedRecall?.status==='ready'&&
         memory.recallCurrent?.([],memory.preparedRecall.stamp)===true;
       const journalReady=memoryReady&&!!memory.conversationJournal;
+      // I1: independently verified M5 outcomes need neither H1 nor H2. Legacy
+      // combined results never set commandsPrepared, so they keep their gating.
+      const commandsReady=memoryReady&&memory.commandsPrepared===true&&
+        Array.isArray(memory.memoryAction)&&memory.memoryAction.length>0;
       const journalStamp=memoryReady?(memory.stamp??memory.preparedRecall?.stamp):null;
       const memoryArgs={
         ...(recallReady?{
           preparedRecall:memory.preparedRecall,preparedM8:memory.preparedM8,
           m8Authorization:prepared=>prepared===memory.preparedM8&&recallReady,
           recallAuthorization:prepared=>prepared===memory.preparedRecall&&
-            memory.recallCurrent([],prepared?.stamp)===true,
-          memoryAction:memory.memoryAction
+            memory.recallCurrent([],prepared?.stamp)===true
         }:{}),
+        ...((recallReady||commandsReady)?{memoryAction:memory.memoryAction}:{}),
         ...(journalReady?{conversationJournal:memory.conversationJournal}:{}),
-        ...(journalReady||recallReady?{memoryStamp:journalStamp}:{})
+        ...(journalReady||recallReady||commandsReady?{memoryStamp:journalStamp}:{})
       };
-      const memoryBase=journalReady||recallReady
+      const memoryBase=journalReady||recallReady||commandsReady
         ?renderKnowledge({...args,...memoryArgs,includePerceived:false}):base;
       const mode=config.dialogueKnowledge?.mode??'off',ps=runtime.intelligence?.runtime;
       let reason=mode==='off'?'disabled':'unsupported_contract',preview=null;
@@ -356,7 +413,7 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
       turn.knowledgeDelivery=createKnowledgeDelivery({frame:selected,baseFrame:base,
         verifyPrepared:()=>memory?.verifyPrepared?.()??false,
         recallCurrent:(refs,stamp)=>recallReady&&memory.recallCurrent(refs,stamp),
-        memoryCurrent:stamp=>(journalReady||recallReady)&&memory.sendCurrent()&&!!stamp&&
+        memoryCurrent:stamp=>(journalReady||recallReady||commandsReady)&&memory.sendCurrent()&&!!stamp&&
           Object.keys(journalStamp).length===Object.keys(stamp).length&&
           Object.keys(journalStamp).every(key=>journalStamp[key]===stamp[key]),
         opinionCurrent:(refs,stamp)=>recallReady&&memory.opinionCurrent(refs,stamp),
@@ -364,7 +421,7 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
         pruneRecall:frame=>pruneKnowledgeFrame(frame,()=>true,()=>true,()=>true,()=>false),
         isCurrent:()=>runtime.host.isCurrent(turn.identity) && (!identityService || identityService.current(turn.identity)),
         prune:frame=>(frame.memoryStamp &&
-          !((journalReady||recallReady)&&memory.sendCurrent()&&journalStamp&&
+          !((journalReady||recallReady||commandsReady)&&memory.sendCurrent()&&journalStamp&&
             Object.keys(journalStamp).length===Object.keys(frame.memoryStamp).length&&
             Object.keys(journalStamp).every(key=>journalStamp[key]===frame.memoryStamp[key])))?base:pruneKnowledgeFrame(frame,
           item=>!validateKnowledge({delivery:[item]}),
@@ -374,8 +431,15 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
           refs=>recallReady&&memory.opinionCurrent([refs],memory.preparedM8?.stamp)),
         validate:validateKnowledge,
         onRequest:frame=>{
-          if(!journalReady&&!recallReady)return;
+          if(!journalReady&&!recallReady&&!commandsReady)return;
           const authenticated=!!frame.memoryStamp&&memory.sendCurrent();
+          if(commandsReady){
+            commandState.requestAttempted=true;
+            const action=JSON.parse(frame.modelAllocation.scene).lanes.SELF?.memoryAction;
+            commandState.contributed=authenticated&&Array.isArray(action)&&action.length>0;
+            if(commandState.contributed&&!commandState.validation)
+              commandState.validation=journalOutcome('ready');
+          }
           if(journalReady){
             journalState.requestAttempted=true;
             const messages=frame.modelAllocation.messages??[];
