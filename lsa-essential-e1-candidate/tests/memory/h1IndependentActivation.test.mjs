@@ -118,7 +118,7 @@ test('missing durable accepted receipt never revives stale RAM history and gives
   x.h.runtime.services.recordM2Player=async()=>null;
   await say(x,'What was the strawberry clue?');
   assert.equal(frame(sent.at(-1)).modelAllocation.messages.length,1);
-  assert.ok(!JSON.stringify(frame(sent.at(-1)).includes('This forgotten strawberry clue is private.'));
+  assert.ok(!JSON.stringify(frame(sent.at(-1))).includes('This forgotten strawberry clue is private.'));
   const diagnostic=x.h.runtime.services.memoryJournalDiagnostics();
   assert.equal(diagnostic.lastPreparation.reason,'accepted_line_authority_missing');
   assert.equal(diagnostic.contributedToModelRequest,false);
@@ -132,7 +132,7 @@ test('H1 denial from source read failure does not reuse RAM, commands, or backgr
   x.store.readDialogueLines=async()=>{throw Error('read failed');};
   await say(x,'What did I say about the kangaroo?');
   assert.equal(frame(sent.at(-1)).modelAllocation.messages.length,1);
-  assert.ok(!JSON.stringify(frame(sent.at(-1)).includes('The private ceramic kangaroo.'));
+  assert.ok(!JSON.stringify(frame(sent.at(-1))).includes('The private ceramic kangaroo.'));
   assert.equal(x.h.runtime.services.memoryJournalDiagnostics().contributedToModelRequest,false);
 });
 
