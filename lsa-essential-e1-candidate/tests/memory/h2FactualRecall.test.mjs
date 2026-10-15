@@ -202,6 +202,20 @@ test('H2 owner (alias) change invalidates a prepared recall',async t=>{
  assert.equal(await h2.verifyPrepared(),false);assert.equal(h2.sendCurrent(),false);
 });
 
+test('H2 revokes a prepared source if the live turn projection changes owner',async t=>{
+ const f=await p2Fixture(t);
+ await f.say('The brass lantern is in the attic',{at:ago(1500)});
+ const {h2,turn}=await f.ask('Quote what I said about the brass lantern');
+ assert.equal(h2.status,'ready');
+ assert.equal(await h2.verifyPrepared(),true);
+ turn.characterProjection={...turn.characterProjection,profile:{
+   ...turn.characterProjection.profile,
+   promotion:{...turn.characterProjection.profile.promotion,ownerAlias:'retired.owner'}}};
+ assert.equal(h2.sendCurrent(),false);
+ assert.equal(await h2.verifyPrepared(),false);
+ assert.equal(h2.sendCurrent(),false);
+});
+
 test('H2 refuses to prepare when authority is missing, forged or revoked; no config/guessed identity can substitute',async t=>{
  const f=await p2Fixture(t);
  await f.say('Remember the green boat',{at:ago(900)});
