@@ -30,6 +30,8 @@ const turn=()=>({
 const p2=(line,extra=[])=>({
   worldProfileId:world,activeTimelineId:timelineId,
   verifiedHostContext:host,timelineWritable:true,
+  // Real P2 exposes a generation fence; missing it must fail closed.
+  memoryReadFence:1,
   get:()=>({promotion:{ownerAlias}}),
   readDialogueLines:async()=>[line,...extra],
   listSuppressedMemoryIds:async()=>[],
