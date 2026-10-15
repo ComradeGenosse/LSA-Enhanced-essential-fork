@@ -139,12 +139,20 @@ test('H1-C P2: correction of previously accepted STT never exposes original tran
   const corrected='speech recognition correctly heard sapphire moon';
   const target=await x.record(a,stale,{source:'stt',secondsAgo:30});
   const command=await x.record(a,'Please correct my last transcript',{secondsAgo:15});
+  const beforeCorrection=await prepareH1ConversationHistory(x.args(a,command,
+    'Please correct my last transcript'));
+  assert.equal(beforeCorrection.status,'ready');
+  assert(JSON.stringify(beforeCorrection.conversationJournal).includes(stale));
+  assert.equal((await beforeCorrection.verifyPrepared()).status,'ready');
   assert.equal((await x.store.commitCommand({scope:x.scope(a),commandId:uid(),
     requestedByLineId:command.recordId,operation:'correct',correctionMode:'transcript',
     content:corrected,contentHash:sha(corrected),
     evidenceRecordIds:[command.recordId,target.recordId],targetRecordId:target.recordId,
     requestedAtUtc:(await x.store.readDialogueLines({...x.scope(a),limit:20}))
       .find(row=>row.recordId===command.recordId).committedAtUtc})).status,'committed');
+  assert.equal(beforeCorrection.sendCurrent(),false,
+    'durable correction must retire earlier successful verification');
+  assert.equal((await beforeCorrection.verifyPrepared()).status,'invalidated');
   const current=await x.record(a,'What did I correct?');
   const h=await prepareH1ConversationHistory(x.args(a,current,'What did I correct?'));
   assert.equal(h.status,'ready');
@@ -248,6 +256,35 @@ test('H1-C P2: switching a turn projection to a retired/different owner revokes 
   assert.equal(h.status,'ready');
   assert.equal((await h.verifyPrepared()).status,'ready');
   args.turn.characterProjection.profile.promotion.ownerAlias='retired.or.replaced';
+  assert.equal(h.sendCurrent(),false);
+  assert.equal((await h.verifyPrepared()).status,'invalidated');
+});
+
+test('H1-C P2: forgotten completed NPC speech vanishes, not just player lines',async t=>{
+  const x=await setup(t),a=x.people[0];
+  await x.record(a,'Earlier player comment',{secondsAgo:70});
+  const npc=await x.record(a,'Never repeat the NPC private reply',{secondsAgo:55,npc:true});
+  const current=await x.record(a,'What did you say?');
+  const args=x.args(a,current,'What did you say?');
+  const before=await prepareH1ConversationHistory(args);
+  assert.equal(before.status,'ready');
+  assert(JSON.stringify(before.conversationJournal).includes('Never repeat the NPC private reply'));
+  assert.equal((await before.verifyPrepared()).status,'ready');
+  await x.privacy().trash({scope:x.scope(a),targetId:npc.recordId});
+  assert.equal(before.sendCurrent(),false);
+  assert.equal((await before.verifyPrepared()).status,'invalidated');
+  const next=await prepareH1ConversationHistory(args);
+  assert.equal(next.status,'ready');
+  assert(!JSON.stringify(next.conversationJournal).includes('Never repeat the NPC private reply'));
+});
+
+test('H1-C P2: native disconnect/epoch loss retires a verified read even with same NPC',async t=>{
+  const x=await setup(t),a=x.people[0];
+  await x.record(a,'Private host-bound line',{secondsAgo:20});
+  const current=await x.record(a,'What just happened?');
+  const h=await prepareH1ConversationHistory(x.args(a,current,'What just happened?'));
+  assert.equal((await h.verifyPrepared()).status,'ready');
+  x.store.onBoundary({reason:'native_disconnect'});
   assert.equal(h.sendCurrent(),false);
   assert.equal((await h.verifyPrepared()).status,'invalidated');
 });
