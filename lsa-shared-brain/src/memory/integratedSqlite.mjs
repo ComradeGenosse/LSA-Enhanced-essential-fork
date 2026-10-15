@@ -136,9 +136,12 @@ export function listMemoryCandidates(db,scope,world,{beforeUtc=null,excludeRecor
    rows.push({...scope,...p,kind:'permanent_memory'});
  return immutableSnapshot(rows.filter(x=>!revoked.has(x.recordId)&&x.recordId!==excludeRecordId&&(!beforeUtc||x.occurredAtUtc<=beforeUtc)));
 }
-export function listSuppressedMemoryIds(db,scope,world){
+export function listSuppressedMemoryIds(db,scope,world,{includeCorrections=false}={}){
  dbOwnerScope(db,scope,world);
- return Object.freeze([...suppressedMemoryIds(db,scope)]);
+ // H1 history must exclude the full source/derivative closure of privileged
+ // fact revisions, not just direct transcript correction targets. Keep the
+ // legacy default unchanged for callers that ask only about suppression.
+ return Object.freeze([...suppressedMemoryIds(db,scope,{includeCorrections:includeCorrections===true})]);
 }
 export function verifyPersistedMemoryCommand(db,{scope,commandId},world){
  dbOwnerScope(db,scope,world);
