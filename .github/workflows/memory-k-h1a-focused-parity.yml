@@ -61,8 +61,10 @@ jobs:
               echo "$round $revision $status $(grep '^# tests ' "$log" | tail -1) $(grep '^# pass ' "$log" | tail -1) $(grep '^# fail ' "$log" | tail -1)" | tee -a "$RUNNER_TEMP/h1a-parity/summary.txt"
               grep '^not ok ' "$log" | tee -a "$RUNNER_TEMP/h1a-parity/summary.txt" || true
               if [[ "$revision" == candidate && "$status" == FAIL ]]; then candidateFail=1; fi
-              if ! grep -q '^# tests 3' "$log"; then
-                echo "Matched tests count mismatch in $revision round $round" | tee -a "$RUNNER_TEMP/h1a-parity/summary.txt"
+              total="$(awk '/^# tests /{print $3}' "$log" | tail -1)"
+              skipped="$(awk '/^# skipped /{print $3}' "$log" | tail -1)"
+              if [[ -z "$total" || -z "$skipped" ]] || ((total - skipped != 3)); then
+                echo "Matched tests count mismatch in $revision round $round: total=$total skipped=$skipped" | tee -a "$RUNNER_TEMP/h1a-parity/summary.txt"
                 exit 2
               fi
             done
