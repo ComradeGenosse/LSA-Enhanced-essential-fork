@@ -190,7 +190,7 @@ for(const boundary of ['native_owner','timeline','host']){
     let requests=0;
     x.h.runtime.services.decide=options=>decide({...options,config:x.h.runtime.config,
       dialogueAttempt:{request:()=>{
-        if(boundary==='native_owner'){x.native.stop();x.native.includeOwner=false;void x.native.sample();}
+        if(boundary==='native_owner'){x.native.stop();x.client.stop();}
         if(boundary==='timeline')x.store.onBoundary({reason:'timeline_change'});
         if(boundary==='host')x.store.setVerifiedHostContext(null);
       },outputText:()=>{}},
