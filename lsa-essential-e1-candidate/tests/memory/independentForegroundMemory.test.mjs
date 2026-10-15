@@ -55,3 +55,20 @@ test('independently abstained H2 cannot poison valid H1',async()=>{
   assert.equal(combo.preparedRecall,null);
   assert.equal(await combo.verifyPrepared(),true);
 });
+
+test('source-verified abstained H2 preserves conservative count evidence',async()=>{
+  const h2={...recalled(),status:'abstained',
+    preparedRecall:{...recalled().preparedRecall,
+      answerEvidence:{dialogueCount:{status:'incomplete',reason:'unsupported_query',
+        exactCount:null,first:null,last:null}}}};
+  const only=composeIndependentForegroundMemory({recall:h2});
+  assert.equal(only.status,'ready');
+  assert.equal(only.preparedRecall.answerEvidence.dialogueCount.status,'incomplete');
+  assert.equal(only.sendCurrent(),false);
+  assert.equal(await only.verifyPrepared(),true);
+  assert.equal(only.sendCurrent(),true);
+  const together=composeIndependentForegroundMemory({history:journal(),recall:h2});
+  assert.ok(together.conversationJournal);
+  assert.equal(together.preparedRecall.answerEvidence.dialogueCount.status,'incomplete');
+  assert.equal(await together.verifyPrepared(),true);
+});
