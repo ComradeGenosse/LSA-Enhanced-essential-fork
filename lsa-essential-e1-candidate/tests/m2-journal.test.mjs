@@ -99,10 +99,20 @@ test('M2 idempotent replay across reconnect, retry, and restart; conflicts fail'
     x.store.setVerifiedHostContext(null);
     await assert.rejects(player(x,{identity:turn('t3')}),/timeline_write_suspended/);
     x.store.setVerifiedHostContext(x.host);
-    await assert.rejects(player(x,{identity:turn('t3')}),/timeline_write_suspended/);
-    await x.store.confirmTimeline(x.timeline);
-    await player(x,{identity:turn('t3')});
+    // A transient source interruption of the SAME native host/epoch now
+    // resumes an already explicit timeline confirmation, never old queued work.
+    const resumed=await player(x,{identity:turn('t3')});
+    assert.equal(resumed.inserted,true);
+    const replayResumed=await player(x,{identity:turn('t3')});
+    assert.equal(replayResumed.inserted,false);
     assert.equal((await read(x)).length,2);
+    // A different world epoch is NOT a reconnect. No write until the
+    // user confirms the timeline for the newly authenticated source.
+    x.store.setVerifiedHostContext({...x.host,worldEpoch:x.host.worldEpoch+1});
+    await assert.rejects(player(x,{identity:turn('t4')}),/timeline_write_suspended/);
+    await x.store.confirmTimeline(x.timeline);
+    await player(x,{identity:turn('t4')});
+    assert.equal((await read(x)).length,3);
   }finally{await x.store.close();}
 });
 test('M2 NPC lines require source-matched *completed* native audio receipt',async t=>{
