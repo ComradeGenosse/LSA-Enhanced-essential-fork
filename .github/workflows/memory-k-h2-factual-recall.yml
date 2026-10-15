@@ -61,8 +61,11 @@ jobs:
         run: node tools/memory-k-verification/compare-tap-regressions.mjs work/h2/regression
       - name: Test inventory guard
         if: always()
+        shell: bash
         working-directory: candidate
-        run: node --test tools/memory-k-verification/tests
+        run: |
+          set -euo pipefail
+          node --test tools/memory-k-verification/tests/*.test.mjs
       - uses: actions/upload-artifact@v4
         if: always()
         with:
