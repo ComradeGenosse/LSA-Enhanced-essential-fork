@@ -444,11 +444,11 @@ export class P2SqliteProfileStore {
       return this.#db.verifyMemoryCommand({scope,commandId});
     });
   }
-  async listSuppressedMemoryIds(scope){
+  async listSuppressedMemoryIds(scope,options){
     await this.initialize();
     return this.#serial(()=>{
       if(!this.available)fail('profile_store_unavailable');
-      return this.#db.listSuppressedMemoryIds(scope);
+      return this.#db.listSuppressedMemoryIds(scope,options);
     });
   }
   async readPermanentMemoryRows(scope,options){
