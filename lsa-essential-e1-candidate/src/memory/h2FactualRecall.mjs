@@ -86,6 +86,8 @@ export async function prepareFactualRecall({store,turn,acceptedReceipt,input,sou
     const alias=profile?.promotion?.ownerAlias;
     const current=()=>isCurrent()===true&&
       turn.characterProjection?.persistent===true&&
+      turn.characterProjection?.profile?.characterId===characterId&&
+      turn.characterProjection?.profile?.promotion?.ownerAlias===alias&&
       turn.characterInputs?.profile?.characterId===characterId&&
       UUID.test(characterId)&&UUID.test(scope.worldProfileId)&&
       UUID.test(scope.timelineId)&&store.activeTimelineId===scope.timelineId&&
