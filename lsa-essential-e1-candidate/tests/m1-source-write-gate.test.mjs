@@ -50,8 +50,7 @@ test('M1 source-gated timeline operations need live proof and explicit player co
     assert.equal(store.timelineWritable,false);
     await assert.rejects(store.withTimelineWrite(selected,()=>++written),/timeline_write_suspended/);
     store.setVerifiedHostContext(first);
-    assert.equal(store.timelineWritable,false,'reconnect alone must not reauthorize writes');
-    await store.confirmTimeline(selected);
+    assert.equal(store.timelineWritable,true,'exact same authenticated host/epoch restores an explicitly confirmed selection');
     assert.equal(await store.withTimelineWrite(selected,()=>++written),2);
     store.setVerifiedHostContext(host(first.hostRunId,2));
     assert.equal(store.timelineWritable,false,'native epoch must not carry approval across saves');
