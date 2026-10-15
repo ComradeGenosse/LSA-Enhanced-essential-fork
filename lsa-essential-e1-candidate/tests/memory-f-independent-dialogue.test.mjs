@@ -62,9 +62,9 @@ for(const [player,npc] of [['off','off'],['off','on']])test('F player '+player+'
  assert.equal(rows['memory.dialogue.npc'].effectiveMode,'off');
 });
 
-test('F rejects greeting substitution, debug input, empty/incomplete STT, fabricated text and special events',async t=>{
+test('F rejects greeting substitution, unknown prompt labels, empty/incomplete STT, fabricated text and special events',async t=>{
  const x=await d01Harness(t,{config:config('on','on')});
- await say(x,'  ');const debug=await x.typed('debug fabricated',{type:'testPrompt'});await x.settled(debug);
+ await say(x,'  ');const debug=await x.typed('debug fabricated',{type:'syntheticPrompt'});await x.settled(debug);
  x.h.runtime.services.transcribe=async()=>{throw new ProviderRequestError('incomplete',{code:'invalid_transcript'});};
  const mic=await x.mic();assert.notEqual((await x.settled(mic)).status,'completed');
  const special=await x.h.evaluate('kb({speakerPedId:"17",listenerPedId:"player",content:"fabricated scene",reason:"scene_event"})');
