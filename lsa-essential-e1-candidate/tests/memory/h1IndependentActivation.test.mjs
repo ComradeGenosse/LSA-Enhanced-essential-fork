@@ -46,6 +46,7 @@ async function forget(x,target){
 test('H1 on / M4 M5 M8 off: real original runner sends source-verified SQLite dialogue without unrelated memory', 
   {timeout:45000},async t=>{
   const x=await d01Harness(t,{config:configured()});
+  x.store.readIntegratedRecall=()=>{throw Error('independent H1 must never call M4');};
   const sent=realDecisions(x);
   await say(x,'The violet accordion is in my kitchen.');
   await say(x,'What did I say about the accordion?');
@@ -220,4 +221,17 @@ test('H1 synchronous final fence blocks a P2 write after last awaited verificati
   const turn=await x.typed('Where did I put the copper map?');
   assert.notEqual((await x.settled(turn)).status,'completed');
   assert.equal(checked,true);
+});
+
+test('H1 on with M5 off never commits an explicit memory command or asserts success',
+  {timeout:45000},async t=>{
+  const x=await d01Harness(t,{config:configured()});
+  const sent=realDecisions(x);
+  await say(x,'Remember that I prefer guava tea.');
+  const l=lanes(sent.at(-1));
+  assert.equal(l.SELF.memoryAction,undefined);
+  const rows=await x.store.readPermanentMemoryRows({
+    characterId:x.profile.characterId,worldProfileId:x.store.worldProfileId,
+    timelineId:x.timelineId,protagonistKey:'franklin'},{limit:20});
+  assert.equal(rows.length,0,'M5 off cannot turn a conversational request into a durable fact');
 });
