@@ -59,7 +59,10 @@ export function assembleJournalConversation({rows,accepted,scope,suppressed=[],n
     if(bytes([...earlier,item])>2048)break;
     earlier.push(item);
   }
-  return Object.freeze({recent:Object.freeze(recent),earlier:Object.freeze(earlier)});
+  // PS4 may retain this snapshot across awaited source checks. A caller must
+  // not mutate model-visible bytes while the original journal seal still passes.
+  return Object.freeze({recent:Object.freeze(recent.map(item=>Object.freeze(item))),
+    earlier:Object.freeze(earlier.map(item=>Object.freeze(item)))});
 }
 
 
@@ -85,6 +88,8 @@ export async function openH1ConversationSource({store,turn,acceptedReceipt,input
     const alias=profile?.promotion?.ownerAlias;
     const current=()=>isCurrent()===true&&
       turn.characterProjection?.persistent===true&&
+      turn.characterProjection?.profile?.characterId===characterId&&
+      turn.characterProjection?.profile?.promotion?.ownerAlias===alias&&
       turn.characterInputs?.profile?.characterId===characterId&&
       uuid.test(characterId)&&uuid.test(scope.worldProfileId)&&
       uuid.test(scope.timelineId)&&store.activeTimelineId===scope.timelineId&&
@@ -121,10 +126,17 @@ export async function openH1ConversationSource({store,turn,acceptedReceipt,input
     async function prepare(){
       if(!current())return unavailable('source_authority_missing');
       try{
+        // Bind suppression, correction overlays and journal readback to one
+        // stable P2 generation. A change during either awaited read is denied.
+        const fence=store.memoryReadFence;
+        if(fence===null||fence===undefined)return unavailable('history_unavailable');
         const suppressed=await hidden();
         const freshRows=await store.readDialogueLines({
           characterId,timelineId:scope.timelineId,limit:200});
         if(!current())return unavailable('source_authority_missing');
+        if(store.memoryReadFence!==fence||
+           JSON.stringify(freshRows.find(row=>row.recordId===line.recordId))!==acceptedSeal)
+          return unavailable('history_unavailable');
         const conversationJournal=assembleJournalConversation({
           rows:freshRows,accepted:line,scope,suppressed,nowUtc});
         if(!conversationJournal)return unavailable('history_unavailable');
