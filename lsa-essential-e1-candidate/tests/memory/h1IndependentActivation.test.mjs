@@ -28,7 +28,11 @@ function realDecisions(x,fetchImpl){
 }
 async function say(x,line){
   const turn=await x.typed(line),result=await x.settled(turn);
-  assert.equal(result.status,'completed',JSON.stringify(result));
+  // The runner's public cause keeps only the error code (e.g. knowledge_request_stale),
+  // so a failed turn also reports which H1 check last rejected the request.
+  assert.equal(result.status,'completed',JSON.stringify({result,h1:result.status==='completed'?undefined:
+    (({state,reason,lastPreparation,lastValidation})=>({state,reason,lastPreparation,lastValidation}))(
+      x.h.runtime.services.memoryJournalDiagnostics())}));
 }
 const frame=record=>record.options.knowledgeProjection;
 const lanes=record=>JSON.parse(frame(record).modelAllocation.scene).lanes;
