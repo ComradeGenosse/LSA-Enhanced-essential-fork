@@ -87,7 +87,8 @@ const nativeReceiptDDL=`CREATE TABLE event_native_receipts (
  receipt_key TEXT NOT NULL,claim_sha256 TEXT NOT NULL,record_id TEXT NOT NULL,
  observation_id TEXT NOT NULL,source_hash TEXT NOT NULL,receipt_sha256 TEXT NOT NULL,
  PRIMARY KEY(world_profile_id,character_id,timeline_id,receipt_key));
-CREATE INDEX event_native_receipts_observation ON event_native_receipts(world_profile_id,character_id,timeline_id,observation_id);`;
+CREATE INDEX event_native_receipts_observation ON event_native_receipts(world_profile_id,character_id,timeline_id,observation_id);
+CREATE INDEX event_native_receipts_lineage ON event_native_receipts(world_profile_id,character_id,receipt_key);`;
 const nativeScope=e=>[e.worldProfileId,e.characterId,e.timelineId];
 function nativeReceipts(e,evidence){
   const p=e.ownerProof,keys=new Map();
@@ -136,6 +137,11 @@ function nativeReplay(db,e,keys){
     AND r.observation_id=s.evidence_key) LIMIT 1`).get(...nativeScope(e)))fail('journal_native_privacy_unresolved');
   const found=[];
   for(const {key,digest} of keys){
+    // A native incident already attributed in another save lineage is past
+    // evidence, even if PS2 still retains it and current ownership is fresh.
+    // Never borrow its receipt to journal it again under a new timeline.
+    if(db.prepare('SELECT 1 FROM event_native_receipts WHERE world_profile_id=? AND character_id=? AND receipt_key=? AND timeline_id<>? LIMIT 1')
+      .get(e.worldProfileId,e.characterId,key,e.timelineId))fail('journal_native_timeline_replay');
     const r=db.prepare('SELECT * FROM event_native_receipts WHERE world_profile_id=? AND character_id=? AND timeline_id=? AND receipt_key=?')
       .get(...nativeScope(e),key);
     if(!r)continue;

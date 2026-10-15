@@ -202,3 +202,14 @@ test('G already-purged pre-upgrade evidence stays unknown and blocks native priv
   assert.equal((await store.readJournalEvents(scope)).length,0);
   assert.equal(runtime.services.memoryKRuntimeDiagnostics().capabilities['memory.events'].reason,'journal_native_privacy_unresolved');
 });
+
+for(const legacy of [false,true])test(`G a previously admitted native receipt cannot be reattributed into a new timeline (legacy=${legacy})`,async t=>{
+  const f=await fixture(t,{coverage:'off',legacy}),{runtime,store,npc,timelineId}=f;
+  let receipt;const tap=runtime.intelligence.runtime.acceptedObservationTap;
+  runtime.intelligence.runtime.acceptedObservationTap=r=>{receipt=r;return tap(r);};
+  await f.sample();await f.send('signal',f.signal());await hop();
+  assert.equal((await store.readJournalEvents({characterId:npc.characterId,timelineId})).length,1);
+  const next=await store.createTimeline({label:'G different lineage'});await store.confirmTimeline(next);
+  tap(receipt);await hop();
+  assert.equal((await store.readJournalEvents({characterId:npc.characterId,timelineId:next})).length,0);
+});

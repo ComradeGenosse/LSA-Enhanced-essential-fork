@@ -7,7 +7,7 @@ import {immutableSnapshot} from '../util/identity.mjs';
 const DEFAULT_LIMIT=512,DEFAULT_BYTES=1024*1024;
 const MAX=2147483647;
 const safeCommitFailures=new Set(['memory_source_forgotten','journal_native_privacy_unresolved',
-  'journal_native_receipt_integrity','journal_native_replay_unavailable','timeline_write_suspended']);
+  'journal_native_receipt_integrity','journal_native_replay_unavailable','journal_native_timeline_replay','timeline_write_suspended']);
 const bump=(object,key,n=1)=>object[key]=Math.min(MAX,object[key]+n);
 // Stable identity of one offered PS2 observation revision, host neutral.
 export const observationKey=observation=>[observation?.observedAt?.nativeRun,
