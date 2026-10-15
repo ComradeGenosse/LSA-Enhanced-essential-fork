@@ -146,3 +146,18 @@ export function memoryKDialogueActivation(config) {
   return Object.freeze({legacy,player,npc:player&&npcRequested,
     npcBlocked:npcRequested&&!player});
 }
+
+// H1-B: the accepted M2 player line is a prerequisite, not an optional
+// M4/M5/M8 dependency. Shadow is deliberately unsupported until a safe
+// read-only private evaluation path is independently validated.
+export function memoryKH1Activation(config) {
+  const legacy=memoryKConsumersAllowed(config);
+  const requests=config.memoryK?.capabilities??{};
+  const requestedMode=legacy?'on':requests['memory.journalContext']??'off';
+  const player=memoryKDialogueActivation(config).player;
+  const reason=requestedMode==='shadow'?'shadow_not_supported':
+    requestedMode==='on'&&!player?'dependency_not_requested_or_available:memory.dialogue.player':
+    requestedMode==='off'?'optional_consumer_stopped':null;
+  return Object.freeze({legacy,requestedMode,
+    mode:requestedMode==='on'&&player?'on':'off',reason});
+}
