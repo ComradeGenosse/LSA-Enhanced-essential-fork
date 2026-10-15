@@ -157,6 +157,7 @@
     "lsa-shared-brain/tests/memory-unified-player-avatars.test.mjs",
     "lsa-shared-brain/tests/memory-ws6-g3-g5-evidence.test.mjs",
     "tools/memory-k-verification/tests/discovery.test.mjs",
+    "tools/memory-k-verification/tests/h2-tap-regression-comparator.test.mjs",
     "tools/memory-sim/tests/replay-forged-receipt.test.mjs",
     "tools/memory-sim/tests/w09-packaging-policy.test.mjs"
   ]

@@ -6,6 +6,7 @@ on:
       - '.github/workflows/memory-k-h2-foreground-activation.yml'
       - 'lsa-essential-e1-candidate/src/**'
       - 'lsa-essential-e1-candidate/tests/memory/h2ForegroundActivation.test.mjs'
+      - 'lsa-essential-e1-candidate/tests/memory/h1IndependentActivation.test.mjs'
       - 'lsa-essential-e1-candidate/tests/memory/independentForegroundMemory.test.mjs'
       - 'tools/memory-k-verification/registrations/h2-foreground-activation.json'
   workflow_dispatch:
@@ -34,7 +35,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          for file in lsa-essential-e1-candidate/src/memory/independentForegroundMemory.mjs lsa-essential-e1-candidate/src/memory/runtimeComposition.mjs lsa-essential-e1-candidate/src/integration/essentialGlue.mjs lsa-essential-e1-candidate/src/bootstrap.mjs lsa-essential-e1-candidate/src/openai/runSequentialTurn.mjs lsa-essential-e1-candidate/tests/memory/h2ForegroundActivation.test.mjs; do node --check "$file"; done
+          for file in lsa-essential-e1-candidate/src/memory/independentForegroundMemory.mjs lsa-essential-e1-candidate/src/memory/runtimeComposition.mjs lsa-essential-e1-candidate/src/integration/essentialGlue.mjs lsa-essential-e1-candidate/src/bootstrap.mjs lsa-essential-e1-candidate/src/openai/runSequentialTurn.mjs lsa-essential-e1-candidate/tests/memory/h2ForegroundActivation.test.mjs lsa-essential-e1-candidate/tests/memory/h1IndependentActivation.test.mjs; do node --check "$file"; done
       - name: Original runner H1-only H2-only combined and source revocation
         shell: bash
         run: |

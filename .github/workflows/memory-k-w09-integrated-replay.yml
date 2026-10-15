@@ -129,9 +129,8 @@ jobs:
           if-no-files-found: warn
 
   original-m0-a10:
-    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     name: HARD A10 original runner S01-S10 / ${{ matrix.os }}
-    if: always()
+    if: ${{ always() && (github.event_name != 'pull_request' || github.event.pull_request.draft == false) }}
     needs: [source-simulation, pinned-production, native-policy]
     strategy:
       fail-fast: false
