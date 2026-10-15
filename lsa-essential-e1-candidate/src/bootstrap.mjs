@@ -145,6 +145,7 @@ export async function createRuntimeForBundle(options = {}) {
       ...(runtime.memoryM3?.operationalStates()??unavailableM3States(m3Activation)),
       ...runtime.services.memoryDialogueDiagnostics(),
       'memory.journalContext':runtime.services.memoryJournalDiagnostics(),
+      'memory.recall':runtime.services.memoryRecallDiagnostics(),
       ...(runtime.memoryD02?{'authority.d02':Object.freeze({requestedMode:'on',
         state:runtime.closed?'stopped':runtime.memoryD02.status().settled?'operational':'waiting',
         effectiveMode:runtime.closed?'off':runtime.memoryD02.status().settled?'on':null,
@@ -194,7 +195,7 @@ export async function createRuntimeForBundle(options = {}) {
       'memory.events':!!runtime.memoryM3&&m3Activation.events.mode!=='off',
       'memory.coverage':!!runtime.memoryM3&&m3Activation.coverage.mode!=='off'&&!!connectedMemoryAuthority,
       'memory.journalContext':typeof runtime.services.memoryJournalDiagnostics==='function',
-      'memory.recall':typeof runtime.services.prepareLiveTurnMemory==='function',
+      'memory.recall':typeof runtime.services.memoryRecallDiagnostics==='function',
       'memory.commands':typeof runtime.services.prepareLiveTurnMemory==='function',
       'memory.interpretation':typeof runtime.services.prepareLiveTurnMemory==='function',
     };
