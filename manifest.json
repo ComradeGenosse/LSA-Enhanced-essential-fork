@@ -1,0 +1,66 @@
+{
+  "repository": "ComradeGenosse/LSA-Enhanced-essential-fork",
+  "pr": 170,
+  "base": "81b8ac51a3ac370acf3d70ebf9538c8f1ffbd9a6",
+  "head": "df5ac1ba69763e73e40286faf9fd50cde3c5a2e2",
+  "initialBase": "246b30b6a9cdbc3b4c5af8c2c6f89470f5a8e5f8",
+  "changedFiles": [
+    ".github/workflows/memory-k-g-independent-events.yml",
+    "docs/plans/memory-k-g-independent-events-20261015.md",
+    "lsa-essential-e1-candidate/src/bootstrap.mjs",
+    "lsa-essential-e1-candidate/src/memory/m3Activation.mjs",
+    "lsa-essential-e1-candidate/src/memory/m3ProductionMemory.mjs",
+    "lsa-essential-e1-candidate/tests/m3-production-harness.mjs",
+    "lsa-essential-e1-candidate/tests/memory-g-bootstrap.test.mjs",
+    "lsa-essential-e1-candidate/tests/memory-g-independent-events.test.mjs",
+    "lsa-shared-brain/src/characters/sqliteFoundation.mjs",
+    "lsa-shared-brain/src/events/m3BoundedIntake.mjs",
+    "lsa-shared-brain/src/events/m3CoverageSqlite.mjs",
+    "lsa-shared-brain/src/events/m3ObserverCoverageTracker.mjs",
+    "lsa-shared-brain/src/events/m3Ps2ObserverAdapter.mjs",
+    "lsa-shared-brain/src/events/witnessedEventRecorder.mjs",
+    "lsa-shared-brain/src/memory/integrationPorts.mjs",
+    "lsa-shared-brain/src/memory/journalSqlite.mjs",
+    "tools/memory-k-verification/g-native.mjs",
+    "tools/memory-k-verification/g-suite.mjs",
+    "tools/memory-k-verification/registrations/g-independent-events.json"
+  ],
+  "protectedFImplementation": [
+    {
+      "file": "lsa-essential-e1-candidate/src/integration/essentialGlue.mjs",
+      "unchanged": true,
+      "sha256": "f3b380e7e66ff31a77dd0f2724c5a9af3323945b20665c1e9ed8d336fd51b40d"
+    },
+    {
+      "file": "lsa-essential-e1-candidate/src/memory/d03OriginalDialogueJoin.mjs",
+      "unchanged": true,
+      "sha256": "abfb8dc8323faae6eec3e78950378469f5b8c0253cf1aa8bd449229d7bd8a597"
+    },
+    {
+      "file": "lsa-essential-e1-candidate/src/memory/runtimeComposition.mjs",
+      "unchanged": true,
+      "sha256": "8a84253ac37ff5de4d806b0cf7a392c141d4c8ee0a60f93bc8dec42da5d3a06e"
+    },
+    {
+      "file": "lsa-essential-e1-candidate/tests/memory-f-independent-dialogue.test.mjs",
+      "unchanged": true,
+      "sha256": "ba4574740010f1b49fc9944b237ebc7e119e7cbacc0fd62da42907a6d13c1277"
+    }
+  ],
+  "finalWorkflowRun": 38724936410,
+  "ciRuns": [
+    38718716034,
+    38719438251,
+    38721325519,
+    38723051496,
+    38724069912,
+    38724936410
+  ],
+  "notes": [
+    "Intermediate failed probes and assertion failures are retained.",
+    "Only receipts explicitly matching a commit certify that head.",
+    "work/ untracked output in CI receipts is generated validation evidence, not production modifications.",
+    "Offline native/game transport fixtures do not establish physical GTA or full-release acceptance."
+  ],
+  "finalStatus": "Focused G: Linux 42/42, Windows 42/42. Final Linux originals: baseline/candidate 380 pass + 1 Windows-only skip, E2 264+28 pass each. Final Windows original/E2 comparison pending at handoff; native prerequisites passed. See workflow 38724936410 for automatically retained final results."
+}
