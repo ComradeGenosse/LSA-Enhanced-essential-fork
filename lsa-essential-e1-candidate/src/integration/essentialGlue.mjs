@@ -31,7 +31,7 @@ import { captureReferenceMap } from '../context/turnSnapshot.mjs';
 import { IdentityResolver } from '../identity/identityResolver.mjs';
 import { CharacterService,withoutCharacterTransport } from '../characters/characterService.mjs';
 import { createNoopDialogueTrace } from '../observability/dialogueTrace.mjs';
-import {memoryKConsumersAllowed} from '../memory/runtimeComposition.mjs';
+import {memoryKConsumersAllowed,memoryKDialogueActivation} from '../memory/runtimeComposition.mjs';
 
 // Fail-closed startup contract for E1's separately reviewed storage-only preset.
 export const MEMORY_K_COMPOSITION_VERSION=1;
@@ -61,6 +61,15 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
   // Optional SQLite path only. The existing JSON backend stays unchanged.
   const journalStore=characterService?.store;
   const optionalMemoryEnabled=memoryKConsumersAllowed(config);
+  const dialogueActivation=memoryKDialogueActivation(config);
+  const dialogueResults={player:null,npc:null};
+  // Status contains no transcript/identity. A durable result is per operation,
+  // never a blanket certificate of current owner or timeline authorization.
+  const noteDialogue=(speaker,result)=>{
+    dialogueResults[speaker]=result?Object.freeze({status:result.status,
+      durable:result.durable===true,reason:result.reason??null}):null;
+    return result;
+  };
   // Original-turn actor ledger: populated when the patched original Xn binds a
   // generation (OpenAIConnection.beginTurn), from facts the patched bridge reads
   // out of the original turn registry for the registered session connection.
@@ -71,7 +80,7 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
   // so its source stays denial-only. OpenAI: the runtime's own commit decision
   // in runSequentialTurn mints receipts through a capability that only the
   // OpenAI connections hold (passed privately to the transport below).
-  const openaiAcceptance=config.provider==='openai'?createOpenAIRuntimeAcceptedInputSource({
+  const openaiAcceptance=config.provider==='openai'&&dialogueActivation.player?createOpenAIRuntimeAcceptedInputSource({
     originalTurnFacts,available:()=>typeof bridge?.originalTurnFacts==='function',
     identityCurrent:identityService?identity=>identityService.current(identity):null,
     ledger:originalActorLedger,
@@ -80,7 +89,7 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
   // WS-5a: runtime-owned NPC speech-delivery ledger. The recorder half is held
   // privately by the OpenAI connections (like the D01 issuer); D03 receives only
   // the read-only evaluator, scoped to its own turn tuple.
-  const speechDelivery=openaiAcceptance&&optionalMemoryEnabled?createNpcSpeechDeliverySource():null;
+  const speechDelivery=openaiAcceptance&&dialogueActivation.npc?createNpcSpeechDeliverySource():null;
   const memorySources=openaiAcceptance?Object.freeze({
     acceptance:openaiAcceptance.issuer,
     speech:speechDelivery?.recorder??null,
@@ -99,7 +108,7 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
   // current host + exact owner/turn/protagonist proof disables M2 writes.
   const services = {
     bindM2Turn({turn,isCurrent}={}) {
-      if(!optionalMemoryEnabled||runtime.closed) return null;
+      if(!dialogueActivation.player||runtime.closed) return null;
       const characterId=journalCharacter(turn);
       const ownerAlias=turn?.characterProjection?.profile?.promotion?.ownerAlias;
       if(!characterId||!ownerAlias||typeof isCurrent!=='function'||
@@ -113,7 +122,8 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
       const join=createD03OriginalDialogueJoin({
         store:journalStore,backend:originalAcceptedInput,
         d02:runtime.memoryD02??null,
-        originalActor:originalActorLedger
+        originalActor:originalActorLedger,
+        npcCompletedOnly:!dialogueActivation.legacy
       });
       // P1's live runtime binding for this exact session: verified native
       // owner claim of this ped at turn preparation; retired on revoke/close.
@@ -123,17 +133,17 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
         speech:speechDelivery?{evaluate:()=>speechDelivery.verifier.evaluate(turn.identity)}:null});
     },
     async recordM2Player({turn,text,source}) {
-      if(!optionalMemoryEnabled||runtime.closed) return null;
+      if(!dialogueActivation.player||runtime.closed) return null;
       if(!turn?.m2Capture||!['player_text','player_mic'].includes(source))
         return null;
-      return turn.m2Capture.acceptPlayer({
+      return noteDialogue('player',await turn.m2Capture.acceptPlayer({
         text,source:source==='player_mic'?'stt':'typed',
         transcription:source==='player_mic'
           ?{provider:providerStack?.transcription?.id??'unknown',
             // Recorded as configured; a provider that cannot name its model
             // stays 'unknown' rather than being guessed.
             model:config.transcriptionModel||'unknown',confidence:null}:null
-      });
+      }));
     },
     // PS4 is the only model-facing assembler. This preflight returns evidence
     // and source-fenced read receipts, never prompt text or model instructions.
@@ -143,8 +153,32 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
     // tuple and classifies completed / interrupted / failed from that evidence
     // alone (WS-5a). A `not_stored` result means "no durable receipt".
     async recordM2Npc({turn}) {
-      if(!optionalMemoryEnabled||runtime.closed) return null;
-      return turn?.m2Capture?.recordNpcOutcome?.()??null;
+      if(!dialogueActivation.npc||runtime.closed) return null;
+      return noteDialogue('npc',await turn?.m2Capture?.recordNpcOutcome?.()??null);
+    },
+    memoryDialogueDiagnostics() {
+      const rows={};
+      for(const speaker of ['player','npc']) {
+        const enabled=dialogueActivation[speaker],blocked=speaker==='npc'&&dialogueActivation.npcBlocked;
+        let reason=null;
+        if(blocked)reason='dependency_not_requested_or_available:memory.dialogue.player';
+        else if(!enabled)reason='optional_consumer_stopped';
+        else if(runtime.closed)reason='runtime_stopped';
+        else if(config.provider!=='openai')reason='d01_acceptance_source_unavailable';
+        else if(config.promotedCharacters?.storageMode!=='sqlite'||!characterService?.ready||
+          typeof journalStore?.withP2SqliteTransaction!=='function')reason='p2_sqlite_unavailable';
+        else if(!originalAcceptedInput.hasAuthenticatedSource())reason='d01_acceptance_source_unavailable';
+        else if(runtime.memoryD02?.status()?.settled!==true)reason='d02_owner_authority_unavailable';
+        else if(journalStore.timelineWritable!==true)reason='timeline_write_suspended';
+        const state=blocked?'blocked':!enabled||runtime.closed?'stopped':reason?'waiting':'ready';
+        rows['memory.dialogue.'+speaker]=Object.freeze({
+          requestedMode:blocked||enabled?'on':'off',state,
+          effectiveMode:state==='ready'?'on':state==='stopped'||blocked?'off':null,
+          operationalState:state==='ready'?'scope_verification_required':state,
+          reason,lastResult:dialogueResults[speaker],restartRequired:true,
+          deliveryPolicy:speaker==='npc'?(dialogueActivation.legacy?'legacy_outcomes':'completed_only'):null});
+      }
+      return Object.freeze(rows);
     },
     recordDialogueActionPublication({turn,validated,publishedAtMs}){
       if(config.provider!=='openai' || config.activities?.dialogueReceipts!==true || !runtime.dialogueKnowledgeBuildSupported)return null;

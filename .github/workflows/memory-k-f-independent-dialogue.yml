@@ -1,0 +1,41 @@
+name: Memory K F independent conversation recording
+on:
+  pull_request:
+    branches: [integration/memory-k-production-20261012, feat/memory-k-e2-privacy-recovery-20261014]
+    paths:
+      - 'lsa-shared-brain/**'
+      - 'lsa-essential-e1-candidate/**'
+      - 'tools/memory-k-verification/**'
+      - '.github/workflows/memory-k-f-independent-dialogue.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  recording:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Original D01 D02 D03 recording and separate F tests
+        run: node tools/memory-k-verification/f-suite.mjs --output work/f-validation
+      - name: Mandatory E2 privacy durability and original WS6 regressions
+        run: node tools/memory-k-verification/e2-suite.mjs --output work/f-e2-validation
+      - name: Original source verified offline package build
+        if: always()
+        run: node lsa-essential-e1-candidate/tools/buildCandidate.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: f-dialogue-${{ matrix.os }}-${{ github.event.pull_request.head.sha || github.sha }}
+          path: |
+            work/f-validation
+            work/f-e2-validation
