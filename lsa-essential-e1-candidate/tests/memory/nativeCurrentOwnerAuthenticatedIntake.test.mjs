@@ -174,8 +174,8 @@ test('D02 retires active lease synchronously on native NPC retirement',async()=>
 
 // Native FlushControls(refreshRoster) re-sends anchors + observer_index for
 // every anchor each 1000 ms. That maintenance is not an owner change: it must
-// unsettle verification until a NEWER complete owner sample re-confirms the
-// identical owner record, but it must not revoke a live pre-acceptance lease.
+// preserve fresh proof for an unchanged owner without renewing its sample
+// age or replacing the post-bind owner sample requirement.
 async function identicalRosterRefresh(f){
   await f.send('anchors',[
     {captureRef:f.npcRef,kind:'ped',observer:true,owned:true},
@@ -184,16 +184,19 @@ async function identicalRosterRefresh(f){
   await f.send('observer_index',[{captureRef:f.npcRef,kind:'ped',owned:true,
     incarnationId:f.incarnation,encounterId:f.encounter}]);
 }
-test('D02 identical roster refresh unsettles proof but keeps the live lease until a newer owner sample re-confirms it',async()=>{
+test('D02 identical roster refresh retains fresh proof without renewing its age or authorizing a new lease',async()=>{
   const f=fixture();
   try{
     await f.establish();await f.send('memory_current_owner_player',f.proof());
     const old=f.bind();assert.ok(old);
+    f.next();await f.send('memory_current_owner_player',f.proof());
+    assert.ok(f.verify(old));
     await identicalRosterRefresh(f);
-    assert.equal(f.verify(old),null,'roster frame newer than the last owner sample: unsettled');
-    assert.equal(f.authority.status().settled,false);
+    assert.ok(f.verify(old),'unchanged roster leaves already fresh proof current');
+    assert.equal(f.authority.status().settled,true);
     const duringRefresh=f.bind();
-    assert.ok(duringRefresh,'binding while unsettled is still checked against the live roster');
+    assert.ok(duringRefresh,'binding is still checked against the live roster');
+    assert.equal(f.verify(duringRefresh),null,'roster is not a new owner sample');
     f.next();await f.send('memory_current_owner_player',f.proof());
     assert.equal(f.authority.status().settled,true);
     assert.ok(f.verify(old),'identical refresh did not revoke the pre-acceptance lease');
@@ -241,6 +244,7 @@ test('D02 lease survives an STT-length turn across repeated refreshes but not a 
     }
     assert.ok(f.verify(lease),'continuous membership across >1 s and four roster refreshes');
     f.next(800);
+    await identicalRosterRefresh(f);
     assert.equal(f.verify(lease),null,'newest owner sample older than maxAge is not current');
     f.next(1);await f.send('memory_current_owner_player',f.proof());
     assert.ok(f.verify(lease),'a fresh sample restores currency without a new bind');

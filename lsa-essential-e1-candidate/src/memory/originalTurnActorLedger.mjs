@@ -14,19 +14,18 @@
 // uses `o4(t)`; both come from the native Core's submission message and are
 // fixed by `Xi` -> `le.createTurn` (`jY`); `le` never changes a turn's pedId.
 // The Core sends the native Ped handle (`Ped.Handle.ToString()`, the same key
-// P1 EnrichActor/registration and the D02 owner sampler use), so only
-// positive decimal handle strings are recorded.
+// P1 EnrichActor/registration and the D02 owner sampler use), so exact native handle strings are recorded.
 //
 // The ledger does NOT attest which character the ped is. Character binding is
 // verified independently by P1 (fresh native owner proof for this exact ped at
 // turn preparation) and D02 (authenticated native owner roster); D03 requires
 // all three to agree. Special events, Director and system turns are recorded
 // for completeness but never resolve as player turns (D-016).
-const PED=/^[1-9][0-9]{0,9}$/;
+import {isNativeActorId} from '../identity/nativeActorId.mjs';
 const KEYS=Object.freeze(['pedId','turnId','generationId','sessionNonce']);
 const PLAYER_SOURCES=new Set(['player_text','player_mic']);
 const validIdentity=i=>!!i&&typeof i==='object'&&
-  typeof i.pedId==='string'&&PED.test(i.pedId)&&
+  typeof i.pedId==='string'&&isNativeActorId(i.pedId)&&
   typeof i.turnId==='string'&&i.turnId.length>0&&i.turnId.length<=128&&
   i.turnId.trim()===i.turnId&&
   Number.isSafeInteger(i.generationId)&&i.generationId>=0&&
@@ -55,7 +54,7 @@ export function createOriginalTurnActorLedger({readOriginalTurn,maxEntries=128,
     let facts;
     try{facts=readOriginalTurn(pick(identity),connection);}catch{return null;}
     if(!facts||typeof facts!=='object'||!same(facts,identity)||
-       typeof facts.pedId!=='string'||!PED.test(facts.pedId)||
+       typeof facts.pedId!=='string'||!isNativeActorId(facts.pedId)||
        typeof facts.source!=='string'||typeof facts.inputTranscript!=='string')
       return null;
     let typedInput=null;
@@ -63,9 +62,12 @@ export function createOriginalTurnActorLedger({readOriginalTurn,maxEntries=128,
       const raw=facts.typed?.rawText;
       // The original ib adopts Fr(t.text) || "Hello, what are you doing here?".
       // Only the first branch is the player's own words: the trimmed raw Core
-      // text must be non-empty and identical to the adopted transcript, and
-      // the Core message must be an ordinary playerText (not testPrompt).
-      const playerAuthored=facts.typed?.messageType==='playerText'&&
+      // text must be non-empty and identical to the adopted transcript.
+      // Pinned Core SendTextPrompt uses testPrompt for its keyboard input;
+      // the wire label is not evidence of synthetic or substituted text.
+      // Both supported labels still require the original current turn,
+      // exact raw bytes and independent native/P1 ownership corroboration.
+      const playerAuthored=['playerText','testPrompt'].includes(facts.typed?.messageType)&&
         typeof raw==='string'&&raw.trim()!==''&&raw.trim()===facts.inputTranscript;
       typedInput=Object.freeze({text:facts.inputTranscript,playerAuthored});
     }

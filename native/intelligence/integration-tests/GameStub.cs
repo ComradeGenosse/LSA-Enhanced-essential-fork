@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
 namespace Rage {
-    public class Entity {public uint Handle;public IntPtr MemoryAddress;public Vector3 Position;public bool Existing=true;public float Heading;public bool Exists()=>Existing;}
+    public class Entity {public uint Handle;public IntPtr MemoryAddress;public Vector3 Position;public bool Existing=true;public float Heading;public bool Exists()=>Existing;public bool Equals(Entity other)=>!ReferenceEquals(other,null)&&Handle==other.Handle;}
     public class Ped:Entity {public bool IsDead,Shooting;public int Health=100,Armor;public Vehicle CurrentVehicle;}
     public class Vehicle:Entity {public Ped Driver;}
     public struct Vector3 {public float X,Y,Z;public float DistanceTo(Vector3 p)=>(float)Math.Sqrt((X-p.X)*(X-p.X)+(Y-p.Y)*(Y-p.Y)+(Z-p.Z)*(Z-p.Z));}
@@ -18,6 +18,7 @@ namespace Rage.Native {
         public static bool Scripted,ThrowSafetyRead;
         public static bool FrontLos=true,AcousticLos=true;
         static IntPtr zone=Marshal.StringToHGlobalAnsi("ZONE1");
+        public static object CallByName(string name,Type returnType,params object[] args) => CallByName<object>(name,args);
         public static T CallByName<T>(string name,params object[] args) {
             Reads++;object result;
             switch(name) {

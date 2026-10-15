@@ -68,7 +68,8 @@ export class OpenAIConnection {
     const source = String(turn.source || 'player_text').toLowerCase();
     this.#metrics = this.#runtime.telemetry?.beginTurn(turn.identity, source, { inputChars: String(turn.context?.inputText || '').length }) || null;
     const inputContext = turn.context || {};
-    const actor = hasOwn(inputContext, 'actor') ? this.#snapshotActor(inputContext.actor) : this.#context.actor;
+    const actorInput = hasOwn(inputContext, 'actor') ? inputContext.actor : this.#context.actor;
+    const actor = this.#snapshotActor(this.#runtime.recoverIdentityActor?.(turn.identity,actorInput)??actorInput);
     const listenerProvided = hasOwn(inputContext, 'listener') && inputContext.listener !== undefined;
     const listener = listenerProvided ? immutableSnapshot(inputContext.listener) : this.#context.listener;
     const requestedListenerState = inputContext.listenerState;
@@ -346,10 +347,14 @@ export class OpenAIConnection {
   }
 
   async prepareIdentity(turn, signal, deadlineAt) {
+    await this.#runtime.waitForMemorySource?.(turn,signal,deadlineAt);
     const prepared = await this.#runtime.identityService?.prepare({ identity: turn.identity, actor: turn.context.actor, signal, deadlineAt,
       isCurrent: () => !this.#closed && sameIdentity(this.#turn?.identity, turn.identity) && this.#runtime.host.isCurrent(turn.identity),
       voiceResolver: this.#runtime.voiceResolver, allowVoice: !this.#voicePolicyLocked });
     if (signal.aborted || this.#closed || !sameIdentity(this.#turn?.identity, turn.identity) || !this.#runtime.host.isCurrent(turn.identity)) return;
+    // A known authored character must not silently become a generated persona
+    // while its independent native ownership proof is unavailable.
+    if(turn.characterInputs?.profile&&prepared?.snapshot?.resolution.kind!=='persistent')throw new Error('identity_unavailable');
     turn.knowledgeInputs = this.#runtime.releaseOwnedKnowledge?.(turn.knowledgeInputs,turn.identity,prepared?.snapshot) ?? turn.knowledgeInputs;
     this.#characterSnapshot = prepared?.snapshot || null;
     if (!this.#voicePolicyLocked) {

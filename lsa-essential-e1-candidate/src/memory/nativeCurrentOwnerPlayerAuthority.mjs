@@ -5,7 +5,7 @@
 // is NOT native provenance. K must keep admission and registration private.
 const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const ALIAS=/^promoted\.[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
-const PED=/^[1-9][0-9]{0,9}$/;
+import {isNativeActorId} from '../identity/nativeActorId.mjs';
 const AVATARS=new Set(['franklin','michael','trevor','unknown']);
 const integer=x=>Number.isSafeInteger(x)&&x>=0;
 const uuid=x=>typeof x==='string'&&UUID.test(x);
@@ -19,13 +19,13 @@ const turnFields=['pedId','turnId','generationId','sessionNonce'];
 const same=(a,b,keys)=>!!a&&!!b&&keys.every(k=>a[k]===b[k]);
 const freeze=v=>v&&typeof v==='object'?Object.freeze(Array.isArray(v)?
   v.map(freeze):Object.fromEntries(Object.entries(v).map(([k,x])=>[k,freeze(x)]))):v;
-const validTurn=i=>exact(i,turnFields)&&PED.test(i.pedId)&&
+const validTurn=i=>exact(i,turnFields)&&isNativeActorId(i.pedId)&&
   typeof i.turnId==='string'&&i.turnId.length>0&&i.turnId.length<=128&&
   integer(i.generationId)&&integer(i.sessionNonce)&&i.sessionNonce>0;
 const validOwner=(o,p)=>exact(o,ownerFields)&&uuid(o.observerCaptureRef)&&
   uuid(o.incarnationId)&&uuid(o.encounterId)&&ALIAS.test(o.ownerAlias)&&
   o.hostRunId===p.hostRunId&&o.worldEpoch===p.worldEpoch&&
-  PED.test(o.nativeActorPedId)&&o.sampledGameTick===p.sampledGameTick;
+  isNativeActorId(o.nativeActorPedId)&&o.sampledGameTick===p.sampledGameTick;
 const validPlayer=(s,p)=>exact(s,playerFields)&&
   s.source==='native_player_model'&&AVATARS.has(s.key)&&
   uuid(s.playerCaptureRef)&&s.sampledGameTick===p.sampledGameTick;
@@ -45,9 +45,9 @@ const PAYLOAD=['nativeOwnerPlayerProofVersion','source','hostRunId',
 // context. It stays usable only while that owner remains a CONTINUOUS member of
 // each authenticated native owner sample on the same stream. Native re-sends the full
 // anchor/observer roster every 1000 ms; that maintenance is not an owner
-// change, so it no longer wipes leases. It unsettles the source instead: no
-// proof is issued until a complete owner sample NEWER than the roster frame
-// re-confirms the identical record. A per-NPC drop-out revokes every old
+// change and cannot revoke otherwise fresh proof. Roster frames never renew
+// sample age or replace the post-bind owner sample requirement. Each read
+// still checks the current roster synchronously. A per-NPC drop-out revokes every old
 // lease for that NPC but is NOT permanent captureRef retirement: the same
 // exact lifetime may reappear in a fresh authenticated native sample and
 // acquire NEW leases. Explicit native retirement stays terminal for that ref;
@@ -77,7 +77,7 @@ export function createNativeCurrentOwnerPlayerAuthority({
   const ownerGenerations=new Map();
   // Roster maintenance keeps the authenticated context, last complete owner
   // set (so the next sample's drop-out diff revokes missing owners' leases),
-  // subject, sequence and leases, but unsettles verification. Terminal source
+  // subject, sequence and leases for unchanged live owners. Terminal source
   // faults retire the stream until a new authenticated hello.
   const clear=(reason='terminal',revokedRefs=[])=>{
     if(reason==='roster' && Array.isArray(revokedRefs))
@@ -100,9 +100,12 @@ export function createNativeCurrentOwnerPlayerAuthority({
           owners.delete(ref);
         }
       }
-      // Removed owners need a fresh authenticated sample before binding
-      // again; identical maintenance leaves all healthy owners untouched.
-      settled=false;return;
+      // Do not manufacture a proof gap for unchanged owners: intake notifies
+      // in-flight model requests after EVERY frame, before the next sample.
+      // Removed owners were revoked above; a roster cannot restore them or
+      // refresh receivedAt/sequence. Binding still needs a NEW owner sample
+      // and every read still checks the current roster and original 750ms TTL.
+      return;
     }
     if(reason!=='roster') {
       // A validated C-13 next-world frame uses the SAME native transport.
@@ -186,7 +189,7 @@ export function createNativeCurrentOwnerPlayerAuthority({
   // This creates an opaque JS-object-identity lease from an authenticated
   // native roster, NOT from backend text or a caller's trust flag.
   function bindActorAtTurnStart({pedId,characterId,ownerAlias}={}) {
-    if(!live()||typeof pedId!=='string'||!PED.test(pedId)||
+    if(!live()||typeof pedId!=='string'||!isNativeActorId(pedId)||
        !uuid(characterId)||!ALIAS.test(ownerAlias||'')||!subject)return null;
     // Binding while unsettled uses the last complete owner sample plus the
     // synchronous live-roster check below; verification still requires a

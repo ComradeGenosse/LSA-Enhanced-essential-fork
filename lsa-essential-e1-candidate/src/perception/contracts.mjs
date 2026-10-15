@@ -1,3 +1,4 @@
+import {isNativeActorId} from '../identity/nativeActorId.mjs';
 import {readPrimaryBehaviorOwner} from '../context/primaryBehaviorOwner.mjs';
 import { isUuid } from '../identity/identityContract.mjs';
 import { validateHostEnvelope, validateWorldEpoch } from '../context/hostContext.mjs';
@@ -77,7 +78,7 @@ export function validateMemoryAuthorityPayload(p) {
 export function validateMemoryCurrentOwnerPlayerPayload(p) {
   const uuid4=x=>typeof x==='string'&&/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(x);
   const alias=x=>typeof x==='string'&&/^promoted\.[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(x);
-  const ped=x=>typeof x==='string'&&/^[1-9][0-9]{0,9}$/.test(x)&&Number(x)<=2147483647;
+  const ped=isNativeActorId;
   const tick=x=>integer(x,0xffffffff);
   if(!keys(p,['nativeOwnerPlayerProofVersion','source','hostRunId','worldEpoch','sampledGameTick','owners','protagonist'])||
     p.nativeOwnerPlayerProofVersion!==1||p.source!=='native_p2_owner_fiber_current_only'||

@@ -16,6 +16,7 @@ import { decide } from '../openai/decide.mjs';
 import { transcribePcm } from '../openai/transcribe.mjs';
 import { speak } from '../openai/speak.mjs';
 import { DialogueHistory } from '../memory/dialogueHistory.mjs';
+import {waitForMemorySource as awaitFreshMemorySource} from '../memory/waitForMemorySource.mjs';
 import {createD03OriginalDialogueJoin} from '../memory/d03OriginalDialogueJoin.mjs';
 import {createOriginalBackendAcceptedInput} from '../memory/originalBackendAcceptedInput.mjs';
 import {createOpenAIRuntimeAcceptedInputSource} from '../memory/openaiRuntimeAcceptedInput.mjs';
@@ -83,6 +84,8 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
   const noteDialogue=(speaker,result)=>{
     dialogueResults[speaker]=result?Object.freeze({status:result.status,
       durable:result.durable===true,reason:result.reason??null}):null;
+    if(result)try{telemetry?.emit?.(result.durable===true?'memory_journal_committed':'memory_journal_not_committed',null,'internal',
+      {role:speaker,reason:result.reason??null},'internal');}catch{}
     return result;
   };
   // Original-turn actor ledger: populated when the patched original Xn binds a
@@ -124,13 +127,16 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
   // current host + exact owner/turn/protagonist proof disables M2 writes.
   const services = {
     bindM2Turn({turn,isCurrent}={}) {
+      dialogueResults.player=null;
       if(!dialogueActivation.player||runtime.closed||memoryPause.paused) return null;
       const characterId=journalCharacter(turn);
       const ownerAlias=turn?.characterProjection?.profile?.promotion?.ownerAlias;
       if(!characterId||!ownerAlias||typeof isCurrent!=='function'||
          config.promotedCharacters?.storageMode!=='sqlite'||
-         typeof journalStore?.withP2SqliteTransaction!=='function')
+         typeof journalStore?.withP2SqliteTransaction!=='function') {
+        noteDialogue('player',{status:'not_stored',reason:'d03_character_scope_unavailable'});
         return null;
+      }
       // D01 is a pinned original BACKEND final-acceptance source. D02 is
       // independently authenticated native current player/NPC ownership.
       // The original actor lease is acquired here AFTER original turn
@@ -139,7 +145,8 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
         store:journalStore,backend:originalAcceptedInput,
         d02:runtime.memoryD02??null,
         originalActor:originalActorLedger,
-        npcCompletedOnly:!dialogueActivation.legacy
+        npcCompletedOnly:!dialogueActivation.legacy,
+        onDiagnostic:reason=>noteDialogue('player',{status:'not_stored',reason})
       });
       // P1's live runtime binding for this exact session: verified native
       // owner claim of this ped at turn preparation; retired on revoke/close.
@@ -150,8 +157,10 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
     },
     async recordM2Player({turn,text,source}) {
       if(!dialogueActivation.player||runtime.closed||memoryPause.paused) return null;
-      if(!turn?.m2Capture||!['player_text','player_mic'].includes(source))
+      if(!turn?.m2Capture||!['player_text','player_mic'].includes(source)) {
+        noteDialogue('player',{status:'not_stored',reason:dialogueResults.player?.reason??'d03_capture_unavailable'});
         return null;
+      }
       return noteDialogue('player',await turn.m2Capture.acceptPlayer({
         text,source:source==='player_mic'?'stt':'typed',
         transcription:source==='player_mic'
@@ -509,6 +518,29 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
     },
     releaseOwnedKnowledge(inputs,identity,snapshot) {
       return releaseOwnedKnowledge(inputs,{identity,snapshot,identityService,perception:runtime.intelligence?.runtime});
+    },
+    recoverIdentityActor(identity,actor) {return identityService?.recoveryActor(identity,actor)??actor;},
+    async waitForMemorySource(turn,signal,deadlineAt) {
+      const profile=turn.characterInputs?.profile;
+      // The native text keyboard can stall owner updates. Admit only a NEW
+      // turn after exact current ownership returns, before P1/STT/D03 capture.
+      if(!profile||journalActivation.mode!=='on'||!runtime.intelligence||
+         journalStore?.timelineSelectionConfirmed!==true)return;
+      const ready=await awaitFreshMemorySource({signal,deadlineAt,
+        isCurrent:()=>runtime.host.isCurrent(turn.identity),
+        ready:()=>{
+          if(journalStore.timelineWritable!==true)return false;
+          const lease=runtime.memoryD02?.bindActorAtTurnStart({pedId:turn.identity.pedId,
+            characterId:profile.characterId,ownerAlias:profile.promotion.ownerAlias});
+          if(!lease)return false;
+          runtime.memoryD02.revokeLease(lease);
+          return true;
+        }});
+      if(!ready){
+        try{telemetry?.emit?.('memory_journal_not_committed',turn.identity,turn.source,
+          {role:'player',reason:'d03_native_readiness_timeout'});}catch{}
+        throw new Error('memory_source_unavailable');
+      }
     },
     captureCharacterInputs(identity,actor) {
       if(!characterService) return null;
