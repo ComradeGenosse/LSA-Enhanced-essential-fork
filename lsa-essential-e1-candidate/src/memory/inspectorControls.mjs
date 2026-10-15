@@ -54,7 +54,7 @@ export function createInspectorControls({runtime,configPath=process.env.LSA_E1_C
       pause:{requested:pending.pauseLearned===true,effective:runtime.memoryPause.paused,
         operationalState:runtime.memoryPause.paused?(pauseCleanup==='failed'||runtime.learnedMemoryPauseFailed?'blocked_cleanup_failed':pauseCleanup==='stopping'?'pausing':'paused'):'running',
         cleanup:pauseCleanup,resumeRequiresRestart:true,
-        restartRequired:runtime.memoryPause.paused&&pending.pauseLearned!==true},
+        restartRequired:runtime.memoryPause.paused!==(pending.pauseLearned===true)},
       privacy:'Mandatory P2 privacy remains enabled; every operation requires current scope verification.'};
   }
   const change=body=>serial(async()=>{

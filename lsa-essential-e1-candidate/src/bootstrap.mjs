@@ -286,7 +286,7 @@ export async function createRuntimeForBundle(options = {}) {
         if(canBindMemory && !options.memoryNativeAuthority) {
           try {
             currentOwnerPlayerAuthority=createMemoryD02Port({
-              intelligence:runtime.intelligence,memoryStore});
+              intelligence:runtime.intelligence,memoryStore:runtime.characterService.store});
             runtime.memoryD02=currentOwnerPlayerAuthority.port;
             owner.own('authority.d02',currentOwnerPlayerAuthority,value=>value.close());
           }catch{owner.failed('authority.d02');currentOwnerPlayerAuthority=null;}

@@ -41,7 +41,7 @@ async function loadCapabilities(){
   }
   const pause=capabilityView.pause;
   $('pauseStatus').textContent='Learned memory: '+pause.operationalState+' · persisted pause '+pause.requested+
-    (pause.restartRequired?' · resume pending companion restart':'')+'. Existing data and authenticated privacy administration are preserved.';
+    (pause.restartRequired?' · '+(pause.requested?'pause':'resume')+' pending companion restart':'')+'. Existing data and authenticated privacy administration are preserved.';
   $('pauseLearned').disabled=pause.effective&&pause.requested;
   $('resumeLearned').disabled=!pause.effective&&!pause.requested;
 }

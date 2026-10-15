@@ -167,4 +167,7 @@ correction undo, interpretation editing, transcript rewrite, bulk purge,
 unlimited export, external worker control or live re-enable in this scope.
 Existing safe trash restore does not undo a correction or clear independent
 suppression. Same-user local-process trust and private browser downloads retain
-the existing local-administration limits. No physical GTA validation is claimed.
+the existing local-administration limits. Older builds that do not understand
+`fact_revision` fail closed on those correction rows; do not downgrade a revised
+database without a reviewed compatibility procedure. No physical GTA validation
+is claimed.

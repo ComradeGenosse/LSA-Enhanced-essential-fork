@@ -209,6 +209,14 @@ test('I2 startup pause is latched, inspection survives it, and source loss/recon
   f.store.setVerifiedHostContext(null);await assert.rejects(f.inspect(),/scope/);
 });
 
+test('I2 an externally saved pause request is pending until actually enforced by this runtime',async t=>{
+  const f=await setup(t),data=JSON.parse(await readFile(f.configPath));
+  data.memoryK.pauseLearned=true;await writeFile(f.configPath,JSON.stringify(data));
+  const status=await f.controls.snapshot();
+  assert.equal(status.pause.requested,true);assert.equal(status.pause.effective,false);
+  assert.equal(status.pause.restartRequired,true);assert.equal(status.pause.operationalState,'running');
+});
+
 test('I2 pause at actual P2 transaction execution rolls back optional work and does not poison admin queue context',async t=>{
   const f=await setup(t),optional=f.runtime.memoryPause.optionalStore(f.store);
   const before=f.store.snapshot.revision;
