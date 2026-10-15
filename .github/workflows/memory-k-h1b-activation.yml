@@ -37,6 +37,15 @@ jobs:
         run: |
           set -euo pipefail
           for file in lsa-essential-e1-candidate/src/memory/runtimeComposition.mjs lsa-essential-e1-candidate/src/integration/essentialGlue.mjs lsa-essential-e1-candidate/src/context/knowledgeDelivery.mjs lsa-essential-e1-candidate/src/bootstrap.mjs lsa-essential-e1-candidate/src/openai/runSequentialTurn.mjs lsa-essential-e1-candidate/tests/memory/h1IndependentActivation.test.mjs; do node --check "$file"; done
+      - name: DIAG repeat target test
+        shell: bash
+        run: |
+          fails=0
+          for i in $(seq 1 25); do
+            node --test --test-name-pattern="source-verified SQLite" lsa-essential-e1-candidate/tests/memory/h1IndependentActivation.test.mjs > "$RUNNER_TEMP/rep.log" 2>&1 || { fails=$((fails+1)); echo "=== iteration $i FAILED"; grep -E "DBG|AssertionError|duration_ms|✖|stale" "$RUNNER_TEMP/rep.log" | cut -c1-600 | head -20; }
+            grep -E "source-verified SQLite" "$RUNNER_TEMP/rep.log" | grep -E "ms\)" | cut -c1-200
+          done
+          echo "DIAG_FAILS=$fails/25"
       - name: H1 activation and original P2/PS4 source validation
         shell: bash
         run: |
