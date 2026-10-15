@@ -258,6 +258,7 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
     // WS-6a/b: after the accepted player's durable D03 receipt, and before
     // the model call, use the same P2 store/verified owner to prepare recall,
     // journal CONVERSE and M5. Never infer a receipt from RAM history.
+    if(isPlayer && durablePlayerReceipt?.durable!==true)services.noteH1Skipped?.();
     if(isPlayer && services.prepareLiveTurnMemory && durablePlayerReceipt?.durable===true){
       try{
         turn.memoryPrepared=await services.prepareLiveTurnMemory({
