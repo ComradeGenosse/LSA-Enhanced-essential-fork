@@ -9,6 +9,14 @@ import {isUuid} from '../util/identity.mjs';
 const protagonists=new Set(['franklin','michael','trevor','unknown']);
 const choice=/^(?:the\s+)?(?:first|second|one|two|1|2)(?:\s+one)?(?:\s*[:,-]\s*.+)?[.!]?$/i;
 const correctionReply=/^(?:no[,]?\s*)?(?:i\s+(?:actually\s+)?(?:said|meant)|it\s+was|the\s+correct(?:ed)?\s+(?:wording|text)\s+is)\s+.+$/i;
+// Cheap, store-free gate: only input the M5 coordinator could possibly treat as
+// a command or a durable-clarification reply may reach M5. Ordinary dialogue
+// and casual "remember when..." text never does. The coordinator re-parses.
+export function mayBeM5PlayerInput(text){
+  if(typeof text!=='string'||text.length===0||text.length>12000)return false;
+  const trimmed=text.trim();
+  return detectExplicitMemoryCommands(text)!==null||choice.test(trimmed)||correctionReply.test(trimmed);
+}
 const safeStatuses=new Set(['saved','forgotten','corrected','clarify','failed']);
 const freeze=o=>Object.freeze(o);
 const validScope=s=>!!s && [s.characterId,s.worldProfileId,s.timelineId].every(isUuid) &&

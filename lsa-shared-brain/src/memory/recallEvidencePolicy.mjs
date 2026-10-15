@@ -344,6 +344,9 @@ export function createRecallEvidencePolicy({store,isCurrent,verifyNativeNegative
       const dialogue=db.prepare('SELECT content,content_sha256 AS hash,envelope_json AS raw,envelope_sha256 AS rawHash FROM dialogue_journal WHERE world_profile_id=? AND character_id=? AND timeline_id=? AND record_id=?');
       const event=db.prepare('SELECT receipt_status AS status FROM event_journal WHERE world_profile_id=? AND character_id=? AND timeline_id=? AND record_id=?');
       const memory=db.prepare('SELECT content,content_sha256 AS hash FROM memory_records WHERE world_profile_id=? AND character_id=? AND timeline_id=? AND memory_id=?');
+      // M5 corrections recall as a derived player-correction record whose id is
+      // the durable command id. It is a retained derivative like memory_records.
+      const correction=db.prepare('SELECT preferred_text AS content,content_sha256 AS hash FROM memory_corrections WHERE world_profile_id=? AND character_id=? AND timeline_id=? AND command_id=?');
       for(const id of recordIds){
         if(revoked.has(id))return false;
         const line=dialogue.get(...keys,id);
@@ -363,7 +366,7 @@ export function createRecallEvidencePolicy({store,isCurrent,verifyNativeNegative
              proof.event.receiptStatus!=='witnessed')return false;
           continue;
         }
-        const derived=memory.get(...keys,id);
+        const derived=memory.get(...keys,id)??correction.get(...keys,id);
         if(!derived||sha(derived.content)!==derived.hash)return false;
       }
       return true;
