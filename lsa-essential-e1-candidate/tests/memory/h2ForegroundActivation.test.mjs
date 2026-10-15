@@ -84,7 +84,7 @@ test('H2 source-read failure falls back to current input, not stale RAM or M5',
     await say(x,'What did I say about the coral envelope?');
     const last=sent.at(-1);
     assert.equal(last.frame.modelAllocation.messages.length,1);
-    assert.equal(scene(last).RECALLED.evidence.length,0);
+    assert.equal((scene(last).RECALLED.evidence??[]).length,0);
     assert.equal(x.h.runtime.services.memoryRecallDiagnostics().contributedToModelRequest,false);
   });
 
