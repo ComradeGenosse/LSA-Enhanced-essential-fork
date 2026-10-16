@@ -5,7 +5,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {randomUUID,createHash} from 'node:crypto';
-import {d01Harness} from './d01-harness.mjs';
+import {d01Harness,waitFor} from './d01-harness.mjs';
 import {decide} from '../../src/openai/decide.mjs';
 import {memoryKM8Activation} from '../../src/memory/runtimeComposition.mjs';
 
@@ -284,15 +284,13 @@ for(const mutation of ['benign','forget'])
       await seed(x);
       const scope={characterId:x.profile.characterId,worldProfileId:x.store.worldProfileId,
         timelineId:x.timelineId,protagonistKey:x.native.avatar};
-      let enterHttp,releaseHttp;
-      const entered=new Promise(resolve=>{enterHttp=resolve;});
+      let releaseHttp;
       const held=new Promise(resolve=>{releaseHttp=resolve;});
       let requests=0,body=null;
       x.h.runtime.services.decide=options=>decide({...options,config:x.h.runtime.config,
         fetchImpl:async(_url,req)=>{
           requests++;
           body=JSON.parse(req.body);
-          enterHttp();
           await held;
           return response();
         }});
@@ -301,8 +299,7 @@ for(const mutation of ['benign','forget'])
       try{
         // fetchImpl is reached ONLY AFTER the real knowledgeDelivery.beforeRequest()
         // admission, so this exercises the immutable in-flight request path.
-        await Promise.race([entered,new Promise((_,reject)=>setTimeout(()=>
-          reject(Error('m8_http_admission_timeout')),12000))]);
+        await waitFor(()=>requests===1,'M8 HTTP admission',12000);
         assert.equal(requests,1);
         assert.match(JSON.stringify(body),/character_opinion/,'M8 opinion really reached HTTP');
         const strict=x.store.memoryReadFence,requestFence=x.store.memoryRequestFence;
