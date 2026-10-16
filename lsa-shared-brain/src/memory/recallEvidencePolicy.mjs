@@ -109,6 +109,7 @@ function labelRow(row,scope){
   }else return null;
   if(!limitedText(content)||[...content].length>3072)return null; // never truncate a quote
   return Object.freeze({recordId:row.recordId,sourceKind:row.sourceKind,
+    ...(row.sourceKind==='dialogue_line'?{speaker:e.speaker}:{}),
     category,content,atUtc:row.atUtc,
     sourceAvatar:row.sourceKind==='journal_event'?'unknown':row.protagonistKey??e.attribution?.protagonist??'unknown',
     sourceEvidenceIds});

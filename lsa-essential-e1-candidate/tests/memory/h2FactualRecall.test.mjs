@@ -20,6 +20,7 @@ test('H2 exact quote from an earlier session is byte-exact Unicode with speaker/
  assert.deepEqual(contents(h2),[quote],'byte-exact, untrimmed, no reconstruction');
  const [item]=items(h2);
  assert.equal(item.mode,'exact_quote');assert.equal(item.recordId,old.recordId);
+ assert.equal(item.speaker,'player','M4 carries verified player voice');
  assert.equal(item.sourceAvatar,'michael','source avatar attribution is retained');
  assert.equal(item.freshness,'archive');
  assert(!items(h2).some(x=>x.recordId===receipt.recordId),'current accepted line is not history');
@@ -33,6 +34,7 @@ test('H2 recent factual retrieval returns completed NPC speech and never failed/
  assert.equal(h2.status,'ready');
  assert.deepEqual(contents(h2),['The informant meets us at the marina at midnight']);
  assert.equal(items(h2)[0].freshness,'live');
+ assert.equal(items(h2)[0].speaker,'npc','NPC quote is not player speech');
  assert.equal(h2.timings.totalMs>=h2.timings.retrievalMs,true);
 });
 

@@ -186,7 +186,8 @@ export async function recallMemory({query,readAdapter,protagonistKey,nowUtc=new 
       // The v1 recallItem cannot hold >3072 Unicode code units. Never
       // truncate an exact quote and falsely label it byte-exact.
       if([...r.content].length>3072||!r.content.length)continue;
-      const item={sourceKind:r.sourceKind,recordId:r.recordId,mode:r.mode,content:r.content,freshness:freshness(r,nowMs)};
+      const item={sourceKind:r.sourceKind,recordId:r.recordId,mode:r.mode,content:r.content,freshness:freshness(r,nowMs),
+        ...(r.sourceKind==='dialogue_line'?{speaker:r.envelope.speaker}:{})};
       const candidate={...bundle,items:[...bundle.items,item],coverage:{...bundle.coverage,returnedCount:bundle.items.length+1}};
       if(jsonBytes(candidate)<=query.maxBytes){
         sealRecallBundle(candidate);

@@ -165,7 +165,8 @@ export async function prepareFactualRecall({store,turn,acceptedReceipt,input,sou
     const labelledItems=baseContribution.items.flatMap(item=>{
       const label=labels.items?.find(x=>x.recordId===item.recordId);
       // The quote the model sees must equal the evidence-labelled bytes exactly.
-      return label&&label.content===item.content&&label.sourceKind===item.sourceKind?[Object.freeze({...item,category:label.category,
+      return label&&label.content===item.content&&label.sourceKind===item.sourceKind&&
+        (item.sourceKind!=='dialogue_line'||item.speaker===label.speaker)?[Object.freeze({...item,category:label.category,
         sourceAvatar:label.sourceAvatar,sourceEvidenceIds:label.sourceEvidenceIds})]:[];
     });
     const labelled=Object.freeze({...baseContribution,
