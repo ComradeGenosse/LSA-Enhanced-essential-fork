@@ -1,0 +1,64 @@
+name: UX4 committed-recipient Windows compile and tests
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, ready_for_review]
+    paths:
+      - 'native/enhanced/Input/TalkTargetInput.cs'
+      - 'native/enhanced/input-tests/**'
+      - 'native/promoted-characters/**'
+      - '.github/workflows/ux4-committed-recipient-windows.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ux4-committed-target-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  native-offline:
+    name: Compile and execute real UX4 production sources in test hosts (Windows net481)
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Loader input, HUD and mic session tests
+        run: dotnet run --project native/enhanced/input-tests/InputTests.csproj --configuration Release
+      - name: Native promoted lifecycle and exact-owner resolver tests
+        run: dotnet run --project native/promoted-characters/lifecycle-tests/LifecycleTests.csproj --configuration Release
+      - name: Command bridge / direct and explicit target payload tests
+        run: dotnet run --project native/promoted-characters/bridge-tests/BridgeTests.csproj --configuration Release
+      - name: Native owner sampling cross-regression
+        run: dotnet run --project native/promoted-characters/owner-sample-tests/OwnerSampleTests.csproj --configuration Release
+
+  genuine-dll:
+    name: Production net481 DLL build (requires genuine private SDK references)
+    runs-on: windows-latest
+    timeout-minutes: 15
+    env:
+      RPH_REFERENCE_PATH: ${{ vars.RPH_REFERENCE_PATH }}
+      DAMAGE_REFERENCE_PATH: ${{ vars.DAMAGE_REFERENCE_PATH }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Explicitly distinguish full runtime build from source harness
+        shell: pwsh
+        run: |
+          $hasSdk = $env:RPH_REFERENCE_PATH -and $env:DAMAGE_REFERENCE_PATH -and
+            (Test-Path $env:RPH_REFERENCE_PATH) -and
+            (Test-Path $env:DAMAGE_REFERENCE_PATH) -and
+            (Test-Path 'lsa-essential-e1-candidate/upstream/LosSantosAlive.dll')
+          if (-not $hasSdk) {
+            "PRODUCTION DLL BUILD: BLOCKED (RAGE Plugin Hook and DamageTracker reference DLLs unavailable)" | Out-File -Append $env:GITHUB_STEP_SUMMARY
+            Write-Host "::warning::BLOCKED (not a successful production DLL compile): genuine RPH/DamageTracker references unavailable"
+            exit 0
+          }
+          dotnet build native/promoted-characters/PromotedCharacters.csproj --configuration Release -p:RphReferencePath="$env:RPH_REFERENCE_PATH" -p:DamageReferencePath="$env:DAMAGE_REFERENCE_PATH"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          "PRODUCTION DLL BUILD: PASS against supplied genuine SDK references" | Out-File -Append $env:GITHUB_STEP_SUMMARY
