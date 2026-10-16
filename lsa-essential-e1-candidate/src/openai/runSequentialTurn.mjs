@@ -1,5 +1,10 @@
 import {assertDirectorSpeechDecision} from '../perception/directorDecisionGuard.mjs';
 const PLAYER_SOURCES = new Set(['player_text', 'player_mic']);
+const RECOVERABLE_PRE_SEND = new Set(['memory_stale','recall_stale','opinion_stale']);
+// Only optional context invalidation may cause a rebuilt request. Identity,
+// provider, native and post-send privacy failures are never replayed.
+const recoverablePreSend = error => error?.code==='knowledge_request_stale' &&
+  RECOVERABLE_PRE_SEND.has(error?.reason);
 
 function terminalForNativeEvent(event) {
   if (event.type === 'audio_turn_rejected') return 'native_auth_rejected';
@@ -96,13 +101,37 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
   }, workDeadlineMs);
   const abortListener = () => chooseTerminal(terminalForAbort(controller.signal));
   controller.signal.addEventListener('abort', abortListener, { once: true });
+  let recoverPreRequest = null;
+  const safeToRebuild = error => {
+    if(!recoverablePreSend(error) || turn.memoryFallbackUsed ||
+       services.shouldWaitForMemoryCommand?.(turn.acceptedPlayerInput ?? ''))return false;
+    // A strict pre-send SQLite fence can change for harmless local writes;
+    // that lane may be discarded before HTTP. Actual forget/correct, source,
+    // profile or identity revocations are NOT fallback candidates.
+    let cause=null;
+    try{cause=turn.memoryPrepared?.invalidationReason?.()??null;}
+    catch{return false;}
+    return cause===null || cause==='source_changed';
+  };
   const performProvider = (operation, provider, run, canRetry = () => true) => {
     const attempt=async options=>{
       if(operation==='model'&&turn.knowledgeDelivery?.prepareAsync){
-        turn.knowledgeProjection=await turn.knowledgeDelivery.prepareAsync();
-        check();
+        try{turn.knowledgeProjection=await turn.knowledgeDelivery.prepareAsync();check();}
+        catch(error){
+          if(!recoverPreRequest||!safeToRebuild(error)||
+             turn.knowledgeDelivery?.wasSent?.()||!valid())throw error;
+          await recoverPreRequest('pre_request_stale','attempt_preparation');
+        }
       }
-      return run(options);
+      try{return await run(options);}
+      catch(error){
+        if(operation!=='model'||!recoverPreRequest||!safeToRebuild(error)||
+           turn.knowledgeDelivery?.wasSent?.()||!valid())throw error;
+        // The old HTTP body has NOT been submitted. Run again from the
+        // completely re-rendered, reverified clean projection exactly once.
+        await recoverPreRequest('pre_request_stale','verify_before_request');
+        return run(options);
+      }
     };
     if (!services.executeProvider) {
       const attemptId = `${operation}:1`;
@@ -145,7 +174,10 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
         pcmBytesTotal + chunk.byteLength > services.config.streamingMaxPcmBytes) {
       throw Object.assign(new Error('streaming_pcm_limit'), { code: 'streaming_pcm_limit' });
     }
-    if (!nativeHandoffStarted) nativeHandoffStarted = true;
+    if (!nativeHandoffStarted) {
+      nativeHandoffStarted = true;
+      metrics?.event('audio_handoff_started', {stage:'native_authorization'});
+    }
     if (!authorizationRequested) {
       authorizationRequested = true;
       transition('native_authorization');
@@ -203,6 +235,8 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
       check();
       context = turn.context;
     }
+    if(turn.memoryDisabledForTurn)
+      metrics?.event('memory_bypass',{stage:'pre_stt',reason:'native_memory_source_timeout',requestGatePassed:false});
     // Freeze M2 source identity after P2 turn hydration, before STT/provider work.
     // The optional native binder returns null unless exact lifetime and host
     // evidence exist. A later reconnect cannot re-authorize this old turn.
@@ -210,13 +244,17 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
       try{turn.m2Capture=services.bindM2Turn({turn,isCurrent:valid})??null;}
       catch{turn.m2Capture=null;}
     }
+    if(isPlayer&&services.memoryCaptureEnabled&&!turn.m2Capture)
+      turn.memoryDisabledForTurn ||= 'memory_capture_unavailable';
 
     let finalInput = input;
     if (pcm) {
+      metrics?.event('mic_input_captured',{hasPcm:true,bytes:pcm.byteLength});
       transition('transcribing');
       finalInput = await performProvider('stt', services.providerStack?.transcription.id || 'openai.transcription',
         ({ signal, timeoutMs, telemetry }) => services.transcribe({ identity, pcm, sampleRate, signal, timeoutMs, telemetry }));
       check();
+      metrics?.event('stt_completed',{hasTranscript:!!String(finalInput||'').trim()});
       await emit({ type: 'input_transcript', text: finalInput });
       check();
       if (source === 'player_mic') {
@@ -226,11 +264,55 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
       }
     }
     if (isPlayer && !String(finalInput || '').trim()) throw new Error('player_input_empty');
-    if (isPlayer) dialogueTurn?.input(finalInput);
+    if (isPlayer) {
+      turn.acceptedPlayerInput = finalInput;
+      metrics?.event('input_ready',{inputMode:source==='player_mic'?'stt':'typed'});
+      dialogueTurn?.input(finalInput);
+    }
 
     // Snapshot the old history first so the current utterance is not duplicated in
     // both the history and the current user message sent to Luna.
     const priorHistory = turn.priorHistory ?? history.readForSession(identity.pedId, identity.sessionNonce);
+    // Bounded optional waits may leave a pending append running: do not abort a
+    // privileged operation or treat an unobserved receipt as a durable commit.
+    const boundedMemory = async work => {
+      const ms=Math.max(0,Math.min(900,Math.floor((deadlineAt-performance.now()-2500)/4)));
+      if(!ms)return {timedOut:true};
+      let timer;
+      try{return await Promise.race([
+        Promise.resolve().then(work).then(value=>({value})),
+        new Promise(resolve=>{timer=setTimeout(()=>resolve({timedOut:true}),ms);})
+      ]);}
+      finally{clearTimeout(timer);}
+    };
+    const reasoningContext=()=>({...context,source,
+      ...(turn.memoryDisabledForTurn?{systemInstruction:context.systemInstruction+
+        '\n[MEMORY AVAILABILITY] Learned memory is unavailable for this turn. Do not claim to have saved, corrected or forgotten a memory unless a verified durable outcome was supplied. Do not invent prior memories.'}:{})});
+    recoverPreRequest=async(reason,stage)=>{
+      check();
+      // A prepared M5 command may already have made a privileged durable
+      // mutation. Never re-admit its stale acknowledgement as normal dialogue.
+      // A new turn may give the player a clean unavailability response.
+      if(turn.memoryFallbackUsed||!services.finalizeKnowledgeFrame||
+         services.shouldWaitForMemoryCommand?.(finalInput)||
+         (turn.characterInputs?.profile &&
+          (turn.characterSnapshot?.resolution?.kind!=='persistent'||
+           turn.characterProjection?.persistent!==true)))
+        throw Object.assign(new Error('memory_fallback_not_authorized'),{code:'memory_fallback_not_authorized'});
+      turn.memoryFallbackUsed=true;
+      turn.memoryDisabledForTurn=reason;
+      turn.memoryPrepared=null;
+      turn.knowledgeDelivery?.dispose();
+      // Full model body is composed anew by decide/decideStreaming after this.
+      turn.knowledgeProjection=await services.finalizeKnowledgeFrame(turn,{
+        input:finalInput,history:[],source,forceNoMemory:true});
+      check();
+      await turn.knowledgeDelivery?.prepareAsync?.();
+      check();
+      turn.knowledgeDelivery?.watch(listener=>services.subscribeKnowledgeInvalidation?.(listener)??(()=>{}),
+        error=>controller.abort(error));
+      metrics?.event('memory_fallback',{stage,reason,requestGatePassed:false});
+    };
     let durablePlayerReceipt = null;
     if (isPlayer) {
       // D-016 commit decision: the runtime irrevocably adopts these exact words
@@ -249,8 +331,20 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
       // M2: the RAM history is intentionally trimmed, but the immutable SQLite
       // journal receives the full accepted input with source attribution.
       if (committed && services.recordM2Player) {
-        try { durablePlayerReceipt = await services.recordM2Player({turn,text:finalInput,source}); }
-        catch { try { metrics?.event('memory_journal_not_committed', {role:'player'}); } catch {} }
+        try {
+          // Preserve the original D03 no-source diagnostic result without
+          // manufacturing an owner lease or attempting a durable write.
+          const result=turn.memoryDisabledForTurn&&!turn.m2Capture
+            ?{value:await services.recordM2Player({turn,text:finalInput,source})}
+            :await boundedMemory(()=>services.recordM2Player({turn,text:finalInput,source}));
+          if(result.timedOut){
+            turn.memoryDisabledForTurn='memory_capture_timeout';
+            metrics?.event('memory_bypass',{stage:'m2_capture',reason:'memory_capture_timeout',requestGatePassed:false});
+          }else durablePlayerReceipt=result.value;
+        }catch{
+          turn.memoryDisabledForTurn='memory_capture_failed';
+          metrics?.event('memory_bypass',{stage:'m2_capture',reason:'memory_capture_failed',requestGatePassed:false});
+        }
       }
       metrics?.count(committed ? 'playerCommitted' : 'playerDuplicateCount');
       metrics?.event(committed ? 'player_history_committed' : 'history_duplicate_prevented', { role: 'user', inputChars: String(finalInput).length, ...(committed && acceptance ? { accepted: !!accepted } : {}) });
@@ -259,18 +353,45 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
     // the model call, use the same P2 store/verified owner to prepare recall,
     // journal CONVERSE and M5. Never infer a receipt from RAM history.
     if(isPlayer && durablePlayerReceipt?.durable!==true)services.noteH1Skipped?.();
-    if(isPlayer && services.prepareLiveTurnMemory && durablePlayerReceipt?.durable===true){
+    if(isPlayer && services.prepareLiveTurnMemory && durablePlayerReceipt?.durable===true&&!turn.memoryDisabledForTurn){
       try{
-        turn.memoryPrepared=await services.prepareLiveTurnMemory({
+        const prepare=()=>services.prepareLiveTurnMemory({
           turn,acceptedReceipt:durablePlayerReceipt,input:finalInput,source,isCurrent:valid});
-      }catch{turn.memoryPrepared=null;}
+        // Explicit M5 commands can make privileged writes: never abandon those
+        // halfway through a privacy transaction for a speculative reply.
+        const result=services.shouldWaitForMemoryCommand?.(finalInput)
+          ?{value:await prepare()}:await boundedMemory(prepare);
+        if(result.timedOut){
+          turn.memoryDisabledForTurn='memory_prepare_timeout';
+          metrics?.event('memory_bypass',{stage:'memory_prepare',reason:'memory_prepare_timeout',requestGatePassed:false});
+        }else turn.memoryPrepared=result.value;
+      }catch{
+        turn.memoryPrepared=null;
+        turn.memoryDisabledForTurn='memory_prepare_failed';
+        metrics?.event('memory_bypass',{stage:'memory_prepare',reason:'memory_prepare_failed',requestGatePassed:false});
+      }
       check();
     }
+    if(isPlayer&&services.memoryCaptureEnabled&&durablePlayerReceipt?.durable!==true)
+      turn.memoryDisabledForTurn||='memory_receipt_unavailable';
     transition('model_running');
-    if(services.finalizeKnowledgeFrame)turn.knowledgeProjection=await services.finalizeKnowledgeFrame(turn,{input:finalInput,history:priorHistory,source});
+    if(services.finalizeKnowledgeFrame){
+      try{turn.knowledgeProjection=await services.finalizeKnowledgeFrame(turn,{input:finalInput,history:priorHistory,source});}
+      catch(error){
+        // A broken optional PS4 projection can fail even when no M2/H1/H2
+        // contributor was prepared. Retry once with the verified clean base;
+        // any failure of that base remains fatal, never silently masked.
+        if(turn.memoryDisabledForTurn||turn.memoryFallbackUsed)throw error;
+        await recoverPreRequest('memory_projection_failed','frame_build');
+      }
+    }
     // P2/D03 source validation must occur before composing the first provider body.
     // Per-attempt HTTP admission still independently revalidates and fences sends.
-    await turn.knowledgeDelivery?.prepareAsync?.();
+    try{await turn.knowledgeDelivery?.prepareAsync?.();}
+    catch(error){
+      if(!safeToRebuild(error))throw error;
+      await recoverPreRequest('pre_request_stale','initial_preflight');
+    }
     turn.knowledgeDelivery?.watch(listener=>services.subscribeKnowledgeInvalidation?.(listener) ?? (()=>{}),error=>controller.abort(error));
     const recordReasoningSuccess=decision=>{check();turn.knowledgeDelivery?.success(decision);};
     let decision;
@@ -281,7 +402,7 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
     if (services.config.structuredStreamingEnabled === true) {
       const allowEarlyTts = services.config.earlyTtsEnabled === true;
       const modelOptions = ({ signal, timeoutMs, telemetry, dialogueAttempt }) => services.providerStack.decideStreaming({
-        identity, context: { ...context, source }, source,knowledgeProjection:turn.knowledgeProjection,knowledgeDelivery:turn.knowledgeDelivery,
+        identity, context: reasoningContext(), source,knowledgeProjection:turn.knowledgeProjection,knowledgeDelivery:turn.knowledgeDelivery,
         input: isPlayer ? finalInput : '', history: priorHistory, signal, timeoutMs, telemetry, dialogueAttempt,
       });
       if (!allowEarlyTts) {
@@ -355,7 +476,7 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
         });
         const modelTask = performProvider('model', services.providerStack.reasoning.id,
           ({ signal, timeoutMs, telemetry, isActive, dialogueAttempt }) => services.providerStack.decideStreaming({
-            identity, context: { ...context, source }, source,knowledgeProjection:turn.knowledgeProjection,knowledgeDelivery:turn.knowledgeDelivery,
+            identity, context: reasoningContext(), source,knowledgeProjection:turn.knowledgeProjection,knowledgeDelivery:turn.knowledgeDelivery,
             input: isPlayer ? finalInput : '', history: priorHistory, signal, timeoutMs, telemetry, dialogueAttempt,
             onSegment: async (segment, mode) => {
               if (!isActive()) throw new Error('provider_attempt_inactive');
@@ -392,7 +513,7 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
       }
     } else {
       decision = await performProvider('model', services.providerStack?.reasoning.id || 'openai.reasoning',
-        ({ signal, timeoutMs, telemetry, dialogueAttempt }) => services.decide({ identity, context: { ...context, source }, source,knowledgeProjection:turn.knowledgeProjection,knowledgeDelivery:turn.knowledgeDelivery,
+        ({ signal, timeoutMs, telemetry, dialogueAttempt }) => services.decide({ identity, context: reasoningContext(), source,knowledgeProjection:turn.knowledgeProjection,knowledgeDelivery:turn.knowledgeDelivery,
           input: isPlayer ? finalInput : '', history: priorHistory, signal, timeoutMs, telemetry, dialogueAttempt }));
     }
     // Validate the PS6 passive-speech restriction before the stock action

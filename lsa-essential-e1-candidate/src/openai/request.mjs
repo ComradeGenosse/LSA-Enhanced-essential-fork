@@ -46,6 +46,7 @@ export async function requestJson({ fetchImpl = globalThis.fetch, url, key, body
     if(verifyBeforeRequest)await verifyBeforeRequest();
     requestAbort.signal.throwIfAborted();
     beforeRequest?.(body);
+    if(operation==='model')telemetry?.event('model_http_submitted',{mode:'buffered'});
     const response = await fetchImpl(url, {
       method: 'POST',
       headers: { authorization: `Bearer ${key}`, 'content-type': 'application/json' },

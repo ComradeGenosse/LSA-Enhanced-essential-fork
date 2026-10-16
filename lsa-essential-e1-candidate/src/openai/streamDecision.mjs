@@ -46,6 +46,7 @@ export async function streamDecision({
     if(verifyBeforeRequest)await verifyBeforeRequest();
     controller.signal.throwIfAborted();
     beforeRequest?.(requestBody);
+    telemetry?.event('model_http_submitted',{mode:'streaming'});
     const response = await fetchImpl(endpoint(config.reasoningBaseUrl, 'responses'), {
       method: 'POST',
       headers: { authorization: `Bearer ${config.reasoningKey}`, 'content-type': 'application/json' },
