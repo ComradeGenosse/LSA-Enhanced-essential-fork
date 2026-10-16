@@ -151,6 +151,29 @@ test('forgetting or correcting evidence AFTER preparation latches the prepared o
   assert.equal(await second.result.verifyPrepared(),false,'correction supersedes the old source');
 });
 
+test('personality profile edit between preparation and send invalidates the old interpretation',async t=>{
+  const f=await p2Fixture(t,{characters:1,profiles:[traits(['sarcastic'])]});
+  for(const line of FACTS)await f.say(line);
+  const {result}=await ask(f);
+  assert.equal(result.status,'ready',result.reason);
+  assert.ok(result.preparedM8.projection.interpretations.some(item=>
+    /deliciously dry/.test(item.opinion)),'prepared sarcasm precondition');
+  assert.equal(await result.verifyPrepared(),true);
+  const before=f.store.get(f.chars[0].characterId);
+  const updated=await f.store.edit(before.characterId,
+    {personality:{description:'Edited during turn',traits:['cautious']}},before.revision);
+  assert.equal(updated.revision,before.revision+1);
+  assert.equal(await result.verifyPrepared(),false,
+    'current P1/P2 evidence alone cannot certify an opinion from old personality canon');
+  assert.equal(result.sendCurrent(),false);
+  assert.equal(result.opinionCurrent([],result.stamp),false);
+  assert.equal(await result.verifyPrepared(),false,'old M8 object cannot revive');
+  const fresh=await ask(f,'A fresh question.');
+  assert.equal(fresh.result.status,'ready',fresh.result.reason);
+  assert.ok(fresh.result.preparedM8.projection.interpretations.some(item=>
+    /not sure that joke is funny/.test(item.opinion)),'new canon drives newly prepared opinions');
+});
+
 test('stale authority fails closed: revoked source, new host run, retained object stays dead',async t=>{
   const f=await p2Fixture(t,{characters:1});
   for(const line of FACTS)await f.say(line);
