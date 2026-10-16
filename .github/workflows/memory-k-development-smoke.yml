@@ -14,6 +14,8 @@ on:
       - 'lsa-essential-e1-candidate/src/context/knowledgeDelivery.mjs'
       - 'lsa-essential-e1-candidate/src/integration/essentialGlue.mjs'
       - 'lsa-essential-e1-candidate/src/observability/eventContract.mjs'
+      - 'lsa-essential-e1-candidate/src/observability/telemetry.mjs'
+      - 'lsa-essential-e1-candidate/tests/observability.test.mjs'
       - 'lsa-essential-e1-candidate/src/memory/m3ProductionMemory.mjs'
       - 'lsa-shared-brain/src/events/m3ObserverCoverageTracker.mjs'
       - 'lsa-shared-brain/tests/m3-observer-coverage-tracker.test.mjs'
@@ -63,6 +65,7 @@ jobs:
             lsa-essential-e1-candidate/tests/memory-capability-policy.test.mjs
             lsa-essential-e1-candidate/tests/prompt-legacy-action-cleanup.test.mjs
             lsa-essential-e1-candidate/tests/knowledge-delivery.test.mjs
+            lsa-essential-e1-candidate/tests/observability.test.mjs
             lsa-shared-brain/tests/m3-observer-coverage-tracker.test.mjs
           )
           if [[ -f lsa-essential-e1-candidate/tests/memory/independentForegroundMemory.test.mjs ]]; then
