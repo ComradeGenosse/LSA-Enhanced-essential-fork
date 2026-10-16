@@ -97,7 +97,8 @@ export function readIntegratedRecall(db,{scope,terms=[],fromUtc=null,toUtc=null,
     let where=clause.replaceAll('TIME_COLUMN','committed_at_utc');
     const values=[...args];
     if(speaker){where+=' AND speaker=?';values.push(speaker);}
-    const cols='SELECT d.rowid AS ordinal,d.session_id AS sessionId,d.record_id AS recordId,d.committed_at_utc AS atUtc,d.protagonist AS protagonistKey,d.speaker AS storedSpeaker,d.source AS storedSource,d.delivery AS storedDelivery,d.content AS text,d.content_sha256 AS textHash,d.envelope_json AS raw,d.envelope_sha256 AS rawHash';
+    const hasSession=expandDialogueContext&&!!db.prepare("SELECT 1 FROM pragma_table_info('dialogue_journal') WHERE name='session_id'").get();
+    const cols='SELECT d.rowid AS ordinal,'+(hasSession?'d.session_id':'NULL')+' AS sessionId,d.record_id AS recordId,d.committed_at_utc AS atUtc,d.protagonist AS protagonistKey,d.speaker AS storedSpeaker,d.source AS storedSource,d.delivery AS storedDelivery,d.content AS text,d.content_sha256 AS textHash,d.envelope_json AS raw,d.envelope_sha256 AS rawHash';
     const rows=[];
     if(limitLex){
       const fts=' FROM dialogue_journal_fts JOIN dialogue_journal d ON d.rowid=dialogue_journal_fts.rowid WHERE '+where.replaceAll(/\b(world_profile_id|character_id|timeline_id|committed_at_utc|protagonist|speaker)\b/g,'d.$1')+' AND dialogue_journal_fts MATCH ? ORDER BY bm25(dialogue_journal_fts),d.committed_at_utc DESC';
@@ -107,7 +108,7 @@ export function readIntegratedRecall(db,{scope,terms=[],fromUtc=null,toUtc=null,
     // List/name questions can need the next reply, which may never repeat
     // the subject's word. Expand only from verified FTS anchors, within the
     // same committed session + source scope, <=2 lines and <=90 seconds.
-    if(expandDialogueContext&&limitLex){
+    if(hasSession&&limitLex){
       const keys=[scope.worldProfileId,scope.characterId,scope.timelineId];
       const nearby=cols+' FROM dialogue_journal d WHERE d.world_profile_id=? AND d.character_id=? AND d.timeline_id=? AND d.session_id=? AND d.rowid BETWEEN ? AND ? ORDER BY ABS(d.rowid-?) ASC LIMIT 5';
       let count=0;

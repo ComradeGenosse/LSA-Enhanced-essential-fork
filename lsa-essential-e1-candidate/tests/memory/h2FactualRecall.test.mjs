@@ -382,7 +382,10 @@ test('H2 list question retrieves verified adjacent dog names even without repeat
  const names=await f.say('Prana, Koba, Nora, and Vladimir.',{at:ago(1790),sessionNonce:'dog-talk'});
  await f.say('My car is parked in the city.',{at:ago(1700),sessionNonce:'other-talk'});
  const {h2,receipt}=await f.ask('So what are all the dogs I have?');
- assert.equal(h2.status,'ready');
+ const direct=await f.store.readIntegratedRecall({scope:f.scope(),terms:['dogs'],limit:384,
+   expandDialogueContext:true,excludeRecordId:receipt.recordId});
+ assert(direct.rows.some(r=>r.recordId===names.recordId),'P2 context read should admit name row');
+ assert.equal(h2.status,'ready',h2.reason);
  assert(items(h2).some(x=>x.recordId===anchor.recordId));
  assert(items(h2).some(x=>x.recordId===names.recordId),'neighbor row must survive M4 labels');
  assert.equal(items(h2).find(x=>x.recordId===names.recordId).speaker,'player');
