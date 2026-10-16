@@ -13,6 +13,16 @@ namespace Rage {
         public static void LogTrivial(string s) { }
     }
 }
+namespace Rage.Native {
+    public static class NativeFunction {
+        public static readonly System.Collections.Generic.List<string> Commands=new System.Collections.Generic.List<string>();
+        public static void CallByName(string name,params object[] args) {Commands.Add(name+":"+(args.Length>1?args[1]?.ToString():""));}
+        public static T CallByName<T>(string name,params object[] args) {
+            if(name=="HAS_ANIM_DICT_LOADED"||name=="IS_PED_MALE")return (T)(object)true;
+            return default(T);
+        }
+    }
+}
 namespace LosSantosAlive.Audio {
     public sealed class NpcPlaybackStartedEvent {
         public Rage.Ped SpeakerPed;public string PedId,TurnId;public long GenerationId;
@@ -23,6 +33,8 @@ namespace LosSantosAlive.Audio {
     public static class NpcPlaybackCoordinator {
         public static event Action<NpcPlaybackStartedEvent> PlaybackStarted;
         public static event Action<NpcPlaybackEndedEvent> PlaybackEnded;
+        public static bool Talking;
+        public static bool IsPedCurrentlySpeaking(Rage.Ped ped) => Talking;
         public static void RaiseStarted(Rage.Ped ped,string pedId,string turn,long generation) =>
             PlaybackStarted?.Invoke(new NpcPlaybackStartedEvent {SpeakerPed=ped,PedId=pedId,TurnId=turn,GenerationId=generation});
         public static void RaiseEnded(Rage.Ped ped,string pedId,string turn,long generation) =>
