@@ -125,7 +125,7 @@ function nativeStream({client,owned,alias,roster={}}){
   return s;
 }
 
-export async function d01Harness(t,{config={},corroboration=true,roster={}}={}){
+export async function d01Harness(t,{config={},corroboration=true,roster={},pedId='17'}={}){
   const dir=await mkdtemp(path.join(os.tmpdir(),'d01-openai-acceptance-'));
   // One ordered teardown (node:test runs after-hooks FIFO): release sockets,
   // sessions and the SQLite writer before removing the directory (Windows).
@@ -142,10 +142,15 @@ export async function d01Harness(t,{config={},corroboration=true,roster={}}={}){
     storePath:path.join(dir,'profiles.v1.json'),storageMode:'sqlite',sqliteStorePath:sqlitePath}}});
   const profile=await f.service.promote();
   const owned=f.native.owned.get(profile.promotion.ownerAlias);
-  const a=actor('17',owned.claim,{integrations:{sessionIdentity:owned.claim,
+  if(pedId!==owned.pedId){
+    f.evidence.current.delete(owned.pedId);
+    owned.pedId=pedId;
+    f.evidence.register(pedId,owned.claim);
+  }
+  const a=actor(pedId,owned.claim,{integrations:{sessionIdentity:owned.claim,
     characterProfile:{version:1,encounterId:owned.encounterId}}});
   const client=new IntelligenceClient({mode:'shadow',pipeName:'LSA.D01.Test'},{connect:()=>native.socket});
-  const native=nativeStream({client,owned,alias:profile.promotion.ownerAlias,roster});
+  const native=nativeStream({client,owned,alias:profile.promotion.ownerAlias,roster:{nativePedId:pedId,...roster}});
   // As in bootstrap: the D02 port subscribes before the stream starts.
   const d02=createMemoryD02Port({intelligence:client,memoryStore:store});
   cleanup.push(()=>{native.stop();d02.close();client.stop();});
@@ -165,14 +170,14 @@ export async function d01Harness(t,{config={},corroboration=true,roster={}}={}){
   const replies=[];
   h.runtime.services.decide=async options=>{replies.push(options);return {dialogue:'Got it.',command:''};};
   h.runtime.services.speak=async({onPcm})=>{await onPcm(new Uint8Array([1,2]));return {bytes:2};};
-  const session=await h.openAIControllerSession({actorContext:a});
+  const session=await h.openAIControllerSession({pedId,actorContext:a});
   cleanup.push(()=>session.connection.close());
   session.autoNativeAcks();
   native.start();
   await waitFor(()=>d02.port.status()?.settled===true,'live settled D02 owner sample');
   const identityOf=turn=>({pedId:turn.pedId,turnId:turn.id,generationId:turn.generationId,sessionNonce:1});
   const typed=async(text,{type='playerText'}={})=>{
-    h.context.d01Typed={type,pedId:'17',speaker:a,target:{pedId:'player'},text};
+    h.context.d01Typed={type,pedId,speaker:a,target:{pedId:'player'},text};
     return h.evaluate('ib(d01Typed)');
   };
   // Real original mic path: lb (micStart) -> wd (hydration, inside lb) ->
@@ -181,7 +186,7 @@ export async function d01Harness(t,{config={},corroboration=true,roster={}}={}){
   // Only the device listener (By) and the timing tracer (Te) are stubbed; the
   // original timers that would call $y after quiet/max drain are not awaited.
   const mic=async({audio=[1,2,3,4]}={})=>{
-    h.context.d01Mic={type:'micStart',pedId:'17',speaker:a,target:{pedId:'player'}};
+    h.context.d01Mic={type:'micStart',pedId,speaker:a,target:{pedId:'player'}};
     h.context.performance??=globalThis.performance; // Node global used by fb
     // OK is the pinned debug-print flag for realtime context (Ly console dump).
     h.evaluate('var Zr=16e3,ob=12e3,qy=900,ab=180,e4=240,OK=false;By=()=>{};Te=()=>{};'+

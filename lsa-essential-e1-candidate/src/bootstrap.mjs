@@ -457,7 +457,17 @@ export async function createRuntimeForBundle(options = {}) {
       // The resolved environment keeps explicit test/embedding envs isolated.
       const endpointPath = options.controlEndpointPath !== undefined ? options.controlEndpointPath : defaultControlEndpointPath({ env });
       runtime.memoryInspectorControls=createInspectorControls({runtime,configPath:options.configPath,env});
-      runtime.characterEditor = await startCharacterEditor(runtime.characterService,{ endpointPath,inspectorControls:runtime.memoryInspectorControls });
+      runtime.characterEditor = await startCharacterEditor(runtime.characterService,{ endpointPath,
+        inspectorControls:runtime.memoryInspectorControls,
+        diagnostics:()=>({
+          source:runtime.intelligence?.operationalStates?.()??null,
+          owner:runtime.memoryD02?.status?.()??null,
+          dialogue:runtime.services.memoryDialogueDiagnostics(),
+          history:runtime.services.memoryJournalDiagnostics(),
+          timeline:{writable:runtime.characterService.store.timelineWritable,
+            selectionConfirmed:runtime.characterService.store.timelineSelectionConfirmed===true,
+            pendingReason:runtime.characterService.store.timelinePendingReason}
+        }) });
       owner.own('p2.editor',runtime.characterEditor,value=>value.close());
       try { console.info('[P2] Character editor: ' + runtime.characterEditor.url); } catch {}
       if (endpointPath && !runtime.characterEditor.endpointPublished) try { console.warn('[UX] Control endpoint file unavailable; native clients use the page handshake.'); } catch {}

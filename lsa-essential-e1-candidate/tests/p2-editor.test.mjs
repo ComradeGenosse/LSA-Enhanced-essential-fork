@@ -12,12 +12,23 @@ const acorn = createRequire(import.meta.url)('../tools/vendor/acorn');
 async function request(url,{method = 'GET',headers = {},body = ''} = {}) {
   return new Promise((resolve,reject) => { const req = http.request(url,{method,headers},response => { const chunks = []; response.on('data',chunk=>chunks.push(chunk));response.on('end',()=>resolve({status:response.statusCode,headers:response.headers,body:Buffer.concat(chunks).toString('utf8')})); });req.on('error',reject);req.end(body); });
 }
-async function editor(t) {
-  const f = await fixture(t),editor = await startCharacterEditor(f.service,{port:0});t.after(()=>editor.close());
+async function editor(t,options={}) {
+  const f = await fixture(t),editor = await startCharacterEditor(f.service,{port:0,...options});t.after(()=>editor.close());
   const response = await request(editor.url),token = response.body.match(/const auth="([a-f0-9]{64})"/)[1];
   const call = async data => { const result = await request(editor.url + '/api',{method:'POST',headers:{origin:editor.url,'content-type':'application/json','x-lsa-editor':token},body:JSON.stringify(data)});return {...result,json:JSON.parse(result.body)}; };
   return {...f,editor,response,token,call};
 }
+
+test('authenticated editor exposes read-only memory gate diagnostics',async t=>{
+  const snapshot={history:{state:'unavailable',reason:'accepted_line_authority_missing'},
+    timeline:{writable:false,pendingReason:'native_source_confirmation_required'}};
+  const f=await editor(t,{diagnostics:()=>snapshot});
+  const before=f.service.store.list();
+  const response=await f.call({action:'memory_status'});
+  assert.equal(response.status,200);
+  assert.deepEqual(response.json,snapshot);
+  assert.deepEqual(f.service.store.list(),before);
+});
 test('local editor loads usable profile/memory controls and syntactically valid browser code',async t => {
   const f = await editor(t);assert.equal(f.response.status,200);assert.equal(f.response.headers['cache-control'],'no-store');assert.equal(f.response.headers['x-frame-options'],'DENY');
   const script = f.response.body.match(/<script>([\s\S]*?)<\/script>/)[1];assert.doesNotThrow(()=>acorn.parse(script,{ecmaVersion:'latest'}));

@@ -42,6 +42,8 @@ namespace Rage
         public IntPtr MemoryAddress = new IntPtr(123);
         public Vector3 GetBonePosition(PedBoneId bone) => Bone.X == 0f && Bone.Y == 0f && Bone.Z == 0f ? Position : Bone;
         public int Handle = 12;
+        // RPH entity equality identifies the native pool handle, not a CLR wrapper.
+        public bool Equals(Ped other) => !ReferenceEquals(other,null) && Handle==other.Handle;
         public Model Model;
         public float Heading;
         public Vector3 GetOffsetPosition(Vector3 offset) { Game.NativeCalls++; return offset; }
@@ -81,6 +83,7 @@ namespace Rage.Native
     {
         // Null in lifecycle tests, where any native call is a failure.
         public static Func<string,object[],object> Handler;
+        public static object CallByName(string name,Type returnType,params object[] args) => CallByName<object>(name,args);
         public static T CallByName<T>(string name,params object[] args)
         {
             Rage.Game.NativeCalls++;

@@ -780,7 +780,7 @@ namespace LSA.Intelligence
         RadioProbeState ReadRadio(string vehicleRef)
         {
             var reading=new RadioProbeState {Vehicle=vehicleRef,InVehicle=true,Station="",RejectedClasses=""};
-            string raw=NativeFunction.CallByName<string>("GET_PLAYER_RADIO_STATION_NAME");
+            string raw=NativeFunction.CallByName("GET_PLAYER_RADIO_STATION_NAME",typeof(string)) as string;
             if(!SensorAdapters.ValidRadioStation(raw)) {
                 if(!string.IsNullOrEmpty(raw)) { reading.Rejected=true; reading.RejectedLength=raw.Length; reading.RejectedClasses=SensorAdapters.RadioStationClasses(raw); }
                 return reading;
@@ -1089,8 +1089,17 @@ namespace LSA.Intelligence
         {
             if(!IsAvailable || context?.IntegrationBlocks==null || ped==null || context.PedId!=ped.Handle.ToString()) return;
             try {
+                // Context lookup can supply another RPH wrapper for a live
+                // registered owner. Retain that owner's canonical Ped so the
+                // shared anchor does not interpret a wrapper as a new lifetime.
+                // Current() proves the existing registration independently;
+                // both native handle AND address must still agree.
+                var owner=(roster()??new OwnedParticipant[0]).FirstOrDefault(p=>p?.Ped!=null &&
+                    p.Ped.Equals(ped) && p.Ped.Exists() && !p.Ped.IsDead &&
+                    p.Ped.Handle==ped.Handle && p.Ped.MemoryAddress==ped.MemoryAddress &&
+                    p.Current?.Invoke()==true);
+                if(owner!=null)ped=owner.Ped;
                 var existing=anchors.Current.FirstOrDefault(a=>a.Kind=="ped" && ReferenceEquals(a.Entity,ped));
-                var owner=(roster()??new OwnedParticipant[0]).FirstOrDefault(p=>p!=null && ReferenceEquals(p.Ped,ped) && p.Current?.Invoke()==true);
                 if(existing?.OwnerLifetime!=null && owner?.Lifetime!=existing.OwnerLifetime) {
                     LogStatus("[PS] turn_actor_capture_unavailable reason=owner_changed");return;
                 }

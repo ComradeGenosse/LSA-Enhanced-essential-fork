@@ -31,7 +31,7 @@
 // Anything else yields no outcome (nothing to record).
 import {createHash} from 'node:crypto';
 
-const PED=/^[1-9][0-9]{0,9}$/;
+import {isNativeActorId} from '../identity/nativeActorId.mjs';
 const KEYS=Object.freeze(['pedId','turnId','generationId','sessionNonce']);
 const PLAYER_SOURCES=new Set(['player_text','player_mic']);
 const MAX_SEGMENTS=128;
@@ -41,7 +41,7 @@ const RUNNER_TERMINALS=new Set(['completed','cancelled','superseded','disconnect
   'stt_error','model_error','model_refusal','invalid_decision','tts_error','native_auth_rejected',
   'playback_error','playback_interrupted','playback_ack_timeout']);
 const validIdentity=i=>!!i&&typeof i==='object'&&
-  typeof i.pedId==='string'&&PED.test(i.pedId)&&
+  typeof i.pedId==='string'&&isNativeActorId(i.pedId)&&
   typeof i.turnId==='string'&&i.turnId.length>0&&i.turnId.length<=128&&
   i.turnId.trim()===i.turnId&&
   Number.isSafeInteger(i.generationId)&&i.generationId>=0&&

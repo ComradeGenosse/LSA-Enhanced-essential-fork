@@ -35,6 +35,45 @@ async function typed(f, session, extras = {}) {
   return { turn, native, result };
 }
 
+test('pause loss retires authority; fresh proof can recover the same character without actor JSON evidence',async t=>{
+  const f=await fixture(t);
+  const first=await open(f,'00049302');
+  await typed(f,first);
+  const original=first.connection.characterSnapshot.resolution.characterId;
+  const expected=f.evidence.current.get('00049302');
+  f.evidence.available=false;
+  f.evidence.fact({type:'lost',adapterEpoch:expected.adapterEpoch});
+  assert.equal(f.h.runtime.identityService.bindings.values().length,0);
+  assert.equal(first.connection.closed,true);
+  f.evidence.available=true;
+  const next=await open(f,'00049302',2,null);
+  assert.equal((await typed(f,next)).result.status,'completed');
+  assert.equal(next.connection.characterSnapshot.resolution.characterId,original);
+  assert.equal(next.connection.characterSnapshot.resolution.kind,'persistent');
+  assert.equal(JSON.stringify(f.requests.at(-1).context).includes('sessionIdentity'),false);
+});
+
+test('recovery hint cannot bind a reused ped to a different native incarnation',async t=>{
+  const f=await fixture(t);
+  const first=await open(f,'00049302');
+  await typed(f,first);
+  const expected=f.evidence.current.get('00049302');
+  f.evidence.fact({type:'lost',adapterEpoch:expected.adapterEpoch});
+  f.evidence.register('00049302',claim({sourceKey:'other.character'}));
+  const next=await open(f,'00049302',2,null);
+  await typed(f,next);
+  assert.notEqual(next.connection.characterSnapshot?.resolution.kind,'persistent');
+  assert.equal(f.h.runtime.identityService.bindings.values().length,0);
+});
+
+test('an explicit native revoke discards the recovery hint',async t=>{
+  const f=await fixture(t),first=await open(f,'00049302');
+  await typed(f,first);
+  f.evidence.retire('00049302');
+  const plain=actor('00049302',null);
+  assert.equal(f.h.runtime.recoverIdentityActor({pedId:'00049302'},plain),plain);
+});
+
 test('real stock controller recreates character on new ped/session with same ID/voice and empty history; old work stays rejected', async t => {
   const f = await fixture(t);
   const a = await open(f);

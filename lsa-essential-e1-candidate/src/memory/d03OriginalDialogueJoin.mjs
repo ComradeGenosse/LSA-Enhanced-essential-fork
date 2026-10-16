@@ -1,3 +1,4 @@
+import {isNativeActorId} from '../identity/nativeActorId.mjs';
 // D03 sole-P2 writer. This module NEVER issues acceptance receipts or native
 // owner credentials. It joins (D01) a receipt minted by the backend's own
 // accepted-input decision, (D02) authenticated current native owner/player
@@ -72,7 +73,7 @@ function authenticNative(n,identity,scope,alias,host,ped){
  Number.isSafeInteger(n.sequence)&&n.sequence>0;
 }
 export function createD03OriginalDialogueJoin({store,backend,d02,originalActor,
-  npcCompletedOnly=false,
+  npcCompletedOnly=false,onDiagnostic=null,
   clock=defaultClock,corroborationWaitMs=750,corroborationPollMs=20,
   totalWaitMs=1500}={}){
  if(!store||typeof backend?.hasAuthenticatedSource!=='function'||
@@ -90,42 +91,43 @@ export function createD03OriginalDialogueJoin({store,backend,d02,originalActor,
  // runtime binding of this exact session (fresh native owner proof of this
  // ped at turn preparation); its claim incarnation must equal D02's.
  function begin({identity,characterId,ownerAlias,isCurrent,p1Binding=null,speech=null}={}){
+  const refuse=reason=>{try{onDiagnostic?.(reason);}catch{}return null;};
   // Do not even request a preturn lease without a live acceptance source AND
   // the original-backend actor association recorded at turn creation.
-  if(!sourceReady()||!d02||!originalActor||
-     typeof originalActor.resolveAtTurnStart!=='function'||
-     typeof d02.bindActorAtTurnStart!=='function'||
-     typeof d02.verifyCurrentOwnerAndPlayer!=='function'||
-     typeof isCurrent!=='function'||!isCurrent()||
+  if(!sourceReady())return refuse('d03_acceptance_source_unavailable');
+  if(!d02||typeof d02.bindActorAtTurnStart!=='function'||
+     typeof d02.verifyCurrentOwnerAndPlayer!=='function')return refuse('d03_native_authority_unavailable');
+  if(!originalActor||typeof originalActor.resolveAtTurnStart!=='function')return refuse('d03_actor_ledger_unavailable');
+  if(typeof isCurrent!=='function'||!isCurrent()||
      !UUID.test(characterId)||typeof ownerAlias!=='string'||
      !ID.every(k=>identity?.[k]!==undefined)||!store.timelineWritable)
-    return null;
+    return refuse(!store.timelineWritable?'d03_'+(store.timelinePendingReason??'timeline_write_suspended'):'d03_admission_unavailable');
   const host=store.verifiedHostContext;
   const scope=Object.freeze({characterId,worldProfileId:store.worldProfileId,
      timelineId:store.activeTimelineId});
   if(!host||!UUID.test(host.hostRunId)||!Number.isSafeInteger(host.worldEpoch)||
      !UUID.test(scope.worldProfileId)||!UUID.test(scope.timelineId)||
-     store.get(characterId)?.promotion?.ownerAlias!==ownerAlias)return null;
+     store.get(characterId)?.promotion?.ownerAlias!==ownerAlias)return refuse('d03_host_or_profile_unavailable');
   let p1=null;
   if(p1Binding!==null){
-   if(typeof p1Binding!=='function')return null;
-   try{p1=p1Binding();}catch{return null;}
+   if(typeof p1Binding!=='function')return refuse('d03_p1_binding_unavailable');
+   try{p1=p1Binding();}catch{return refuse('d03_p1_binding_unavailable');}
    if(!p1||p1.characterId!==characterId||p1.claim?.sourceKey!==ownerAlias||
       !UUID.test(p1.claim?.incarnationId)||p1.pedId!==identity.pedId||
       p1.sessionNonce!==identity.sessionNonce||typeof p1.bindingId!=='string')
-    return null;
+    return refuse('d03_p1_binding_mismatch');
   }
   let actor;
   try{actor=originalActor.resolveAtTurnStart({identity,characterId,ownerAlias});}
-  catch{return null;}
+  catch{return refuse('d03_original_actor_unavailable');}
   if(actor?.source!=='original_core_actor_at_turn_start'||
      !same(actor.identity,identity,ID)||actor.characterId!==characterId||
      actor.ownerAlias!==ownerAlias||actor.nativeActorPedId!==identity.pedId||
-     !/^[1-9][0-9]{0,9}$/.test(actor.nativeActorPedId))return null;
+     !isNativeActorId(actor.nativeActorPedId))return refuse('d03_original_actor_unavailable');
   let lease;
   try{lease=d02.bindActorAtTurnStart({pedId:actor.nativeActorPedId,characterId,ownerAlias});}
-  catch{return null;}
-  if(!lease)return null;
+  catch{return refuse('d03_native_owner_lease_unavailable');}
+  if(!lease)return refuse('d03_native_owner_lease_unavailable');
   let retired=false,player=null,memoryLease=null;
   const close=()=>{
     retired=true;

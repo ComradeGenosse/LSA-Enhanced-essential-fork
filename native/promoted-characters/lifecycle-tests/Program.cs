@@ -181,7 +181,7 @@ class Program
     static void Main()
     {
         try {
-            MicReadFailure(); PrimaryOwnerTruth(); NativeOwnerSamples(); DeferredInitialization(); ShutdownOnCoreUpdate(); ResetWithPendingRequest(); ResetAfterP1(); RetireFailure(); ForwardClock(); ActivityIsolation(); ExactEncounterLifetime(); DialogueActorResolution(); DialogueObserverLifetime();
+            MicReadFailure(); PrimaryOwnerTruth(); NativeOwnerSamples(); DeferredInitialization(); ShutdownOnCoreUpdate(); ResetWithPendingRequest(); ResetAfterP1(); RetireFailure(); ForwardClock(); ActivityIsolation(); ExactEncounterLifetime(); RegisteredWrapperContinuity(); DialogueActorResolution(); DialogueObserverLifetime();
             Console.WriteLine("P2 production clock recovery and Windows pipe cancellation: " + count + " assertions passed; no game assemblies loaded.");
         } catch (Exception error) { Console.Error.WriteLine(error.GetType().Name + ": " + error.Message); Environment.ExitCode = 1; }
     }
@@ -201,6 +201,31 @@ class Program
         replacement.Handle=13;
         Check(integration.Host.Anchors.Resolve(current.CaptureRef)==null);
         integration.Shutdown();Check(integration.Host.Anchors.Count==0);
+    }
+    static void RegisteredWrapperContinuity()
+    {
+        var integration=Create(out _);
+        Game.LocalPlayer.Character=new Ped {Handle=1,MemoryAddress=new IntPtr(1)};
+        var original=new Ped {Handle=811,MemoryAddress=new IntPtr(811)};
+        var lookup=typeof(PromotedCharactersIntegration).GetMethod("EncounterFor",BindingFlags.NonPublic|BindingFlags.Instance);
+        var retain=typeof(PromotedCharactersIntegration).GetMethod("RetainEncounter",BindingFlags.NonPublic|BindingFlags.Instance);
+        var encounter=(Encounter)lookup.Invoke(integration,new object[]{original});
+        encounter.OwnerAlias="promoted."+Guid.NewGuid().ToString("D");
+        encounter.Registration=SessionIdentityIntegration.Current.Owner.Register(original,encounter.OwnerAlias,WorldId);
+        encounter.OwnershipToken=Guid.NewGuid().ToString("D");retain.Invoke(integration,new object[]{encounter});
+        var capture=encounter.CaptureRef;var registration=encounter.Registration;
+        var wrapper=new Ped {Handle=811,MemoryAddress=new IntPtr(811)};
+        Check(!ReferenceEquals(original,wrapper) && original.Equals(wrapper));
+        var current=(Encounter)lookup.Invoke(integration,new object[]{wrapper});
+        Check(ReferenceEquals(current,encounter) && ReferenceEquals(current.Ped,original));
+        Check(ReferenceEquals(current.Registration,registration) && current.CaptureRef==capture);
+        // A different native address, or death of the retained native actor,
+        // still breaks continuity even when the numeric handle is recycled.
+        var replacement=new Ped {Handle=811,MemoryAddress=new IntPtr(812)};
+        var next=(Encounter)lookup.Invoke(integration,new object[]{replacement});
+        Check(!ReferenceEquals(next,encounter) && next.Registration==null);
+        Check(integration.Host.Anchors.Resolve(capture)==null);
+        integration.Shutdown();
     }
     static Dictionary<string,object> DialogueAnnotation(PromotedCharactersIntegration integration,string captureRef)
     {
