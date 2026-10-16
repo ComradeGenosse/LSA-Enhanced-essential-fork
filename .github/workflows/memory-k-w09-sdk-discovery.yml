@@ -1,0 +1,32 @@
+name: Memory K W09 official SDK fingerprints (not compile approval)
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, ready_for_review]
+    paths:
+      - 'tools/memory-sim/discover-official-native-sdk.ps1'
+      - '.github/workflows/memory-k-w09-sdk-discovery.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  fingerprint:
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 1
+      - name: Discover official NuGet SHA256 values (no SDK redistribution)
+        shell: pwsh
+        run: ./tools/memory-sim/discover-official-native-sdk.ps1
+      - name: Save hashes only (never SDK packages or binaries)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: w09-sdk-hashes-windows
+          path: artifacts/memory-k/w09-sdk-discovery.json
+          if-no-files-found: warn
