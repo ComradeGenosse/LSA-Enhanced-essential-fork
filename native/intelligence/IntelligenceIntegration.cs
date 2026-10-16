@@ -503,7 +503,7 @@ namespace LSA.Intelligence
                     var request=new DirectorAdmission.Request {
                         SpeakerCaptureRef=speaker.CaptureRef,PlayerCaptureRef=player.CaptureRef
                     };
-                    var currentNative=ReadDirectorC06(request,false);
+                    var currentNative=ReadDirectorC06Core(request,false);
                     var view=M7NativeIdlePrioritySource.Assess(currentNative,
                         host.HostRunId,host.WorldEpoch,tick);
                     // Full Core terminal-idle proof is missing. All four unsupported
@@ -526,7 +526,8 @@ namespace LSA.Intelligence
         // authority or native PS3 entitlement echo. Those critical gates stay
         // false/-1. Merely matching a
         // Ped pointer or companion-provided integer never grants C-06 authority.
-        DirectorC06Policy.Snapshot ReadDirectorC06(DirectorAdmission.Request r,bool ticketScoped=true)
+        DirectorC06Policy.Snapshot ReadDirectorC06(DirectorAdmission.Request r) => ReadDirectorC06Core(r,true);
+        DirectorC06Policy.Snapshot ReadDirectorC06Core(DirectorAdmission.Request r,bool ticketScoped)
         {
             var proof=new DirectorC06Policy.Snapshot {
                 HostRunId=host.HostRunId,WorldEpoch=host.WorldEpoch,
