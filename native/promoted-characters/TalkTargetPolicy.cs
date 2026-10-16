@@ -43,9 +43,15 @@ namespace LSA.PromotedCharacters
         // Bounded diagnostic codes only: no alias, UUID, address or profile text.
         public readonly TalkRecipientKind Kind;
         public readonly string Evidence;
-        TalkRecipientFeedback(TalkRecipientKind kind,string evidence) { Kind = kind; Evidence = evidence; }
+        // The P1-verified owner alias, set only on Promoted. It is a lookup key for
+        // the loader's companion name request, never shown or logged: it is the same
+        // alias the Current NPC snapshot already carries, and the companion alone
+        // decides whether it maps to exactly one profile.
+        public readonly string Alias;
+        static readonly System.Text.RegularExpressions.Regex AliasShape = new System.Text.RegularExpressions.Regex("^promoted\\.[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$");
+        TalkRecipientFeedback(TalkRecipientKind kind,string evidence,string alias = null) { Kind = kind; Evidence = evidence; Alias = kind == TalkRecipientKind.Promoted && alias != null && AliasShape.IsMatch(alias) ? alias : null; }
         public string Token => Kind == TalkRecipientKind.Promoted ? "promoted" : Kind == TalkRecipientKind.Ambient ? "ambient" : "unknown";
-        public static TalkRecipientFeedback Promoted(string evidence) => new TalkRecipientFeedback(TalkRecipientKind.Promoted,evidence);
+        public static TalkRecipientFeedback Promoted(string evidence,string alias = null) => new TalkRecipientFeedback(TalkRecipientKind.Promoted,evidence,alias);
         public static TalkRecipientFeedback Ambient(string evidence) => new TalkRecipientFeedback(TalkRecipientKind.Ambient,evidence);
         public static TalkRecipientFeedback Unknown(string evidence) => new TalkRecipientFeedback(TalkRecipientKind.Unknown,evidence);
     }

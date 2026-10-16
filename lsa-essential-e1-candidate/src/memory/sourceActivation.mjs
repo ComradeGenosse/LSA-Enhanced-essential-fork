@@ -1,9 +1,10 @@
 import {resolveMemoryKCapabilities} from './capabilityPolicy.mjs';
+import {memoryKConsumersAllowed} from './runtimeComposition.mjs';
 
 // Startup-only gates over B's dependency graph. A request is never a native
 // operational receipt. No legacy configuration means the existing PS2/PS3 pair.
 export function memoryKSourceActivation(config) {
-  const explicit=Object.keys(config.memoryK?.capabilities??{}).length>0;
+  const explicit=!memoryKConsumersAllowed(config);
   const policy=resolveMemoryKCapabilities({config});
   const consumer=id=>{
     const row=policy[id],requestedMode=explicit?row.requestedMode:'shadow';
