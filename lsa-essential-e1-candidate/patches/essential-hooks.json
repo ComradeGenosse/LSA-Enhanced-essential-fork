@@ -25,9 +25,21 @@
   },
   "patches": [
     {
+      "id": "M4 preserve hydrated listener presence",
+      "sourceStart": 888778,
+      "sourceEnd": 888797,
+      "expected": 1
+    },
+    {
       "id": "keep listener world out of actor snapshot",
       "sourceStart": 888744,
       "sourceEnd": 888758,
+      "expected": 1
+    },
+    {
+      "id": "PS6 exact native binding ACK before original model input",
+      "sourceStart": 887821,
+      "sourceEnd": 887828,
       "expected": 1
     },
     {
@@ -43,9 +55,33 @@
       "expected": 1
     },
     {
+      "id": "PS6 original lifecycle kb",
+      "sourceStart": 885878,
+      "sourceEnd": 885878,
+      "expected": 1
+    },
+    {
+      "id": "PS6 original ticket checked before kb hydration",
+      "sourceStart": 885878,
+      "sourceEnd": 885878,
+      "expected": 1
+    },
+    {
       "id": "Rb body hook",
       "sourceStart": 884349,
       "sourceEnd": 884349,
+      "expected": 1
+    },
+    {
+      "id": "eo private source presence",
+      "sourceStart": 866185,
+      "sourceEnd": 866213,
+      "expected": 1
+    },
+    {
+      "id": "PS6 original lifecycle el",
+      "sourceStart": 863841,
+      "sourceEnd": 863841,
       "expected": 1
     },
     {
@@ -94,6 +130,12 @@
       "id": "Td body hook",
       "sourceStart": 845414,
       "sourceEnd": 845414,
+      "expected": 1
+    },
+    {
+      "id": "pd preserve private actor presence",
+      "sourceStart": 844178,
+      "sourceEnd": 844261,
       "expected": 1
     },
     {
@@ -163,9 +205,33 @@
       "expected": 1
     },
     {
+      "id": "PS6 original lifecycle WP",
+      "sourceStart": 839768,
+      "sourceEnd": 839768,
+      "expected": 1
+    },
+    {
+      "id": "PS6 original WP director ticket option",
+      "sourceStart": 839659,
+      "sourceEnd": 839659,
+      "expected": 1
+    },
+    {
       "id": "session world option",
       "sourceStart": 839659,
       "sourceEnd": 839659,
+      "expected": 1
+    },
+    {
+      "id": "PS6 original lifecycle Ei",
+      "sourceStart": 837431,
+      "sourceEnd": 837431,
+      "expected": 1
+    },
+    {
+      "id": "PS6 original Zi to WP ticket",
+      "sourceStart": 836816,
+      "sourceEnd": 836816,
       "expected": 1
     },
     {
@@ -193,6 +259,12 @@
       "expected": 1
     },
     {
+      "id": "PS6 original Zi director ticket option",
+      "sourceStart": 835884,
+      "sourceEnd": 835884,
+      "expected": 1
+    },
+    {
       "id": "Zi world input",
       "sourceStart": 835884,
       "sourceEnd": 835884,
@@ -208,6 +280,12 @@
       "id": "provider transport factory",
       "sourceStart": 835003,
       "sourceEnd": 835013,
+      "expected": 1
+    },
+    {
+      "id": "yK body hook",
+      "sourceStart": 810828,
+      "sourceEnd": 810828,
       "expected": 1
     },
     {
@@ -229,9 +307,21 @@
       "expected": 1
     },
     {
+      "id": "PS6 original lifecycle Zt",
+      "sourceStart": 806375,
+      "sourceEnd": 806375,
+      "expected": 1
+    },
+    {
       "id": "Zt body hook",
       "sourceStart": 806375,
       "sourceEnd": 806375,
+      "expected": 1
+    },
+    {
+      "id": "exact OpenAI cancellation",
+      "sourceStart": 806169,
+      "sourceEnd": 806169,
       "expected": 1
     },
     {
@@ -241,7 +331,7 @@
       "expected": 1
     },
     {
-      "id": "exact OpenAI cancellation",
+      "id": "PS6 original lifecycle hK",
       "sourceStart": 806169,
       "sourceEnd": 806169,
       "expected": 1
@@ -265,6 +355,18 @@
       "expected": 1
     },
     {
+      "id": "PS6 original speech-only transcript veto",
+      "sourceStart": 802136,
+      "sourceEnd": 802136,
+      "expected": 1
+    },
+    {
+      "id": "PS6 original Xn generation native binding",
+      "sourceStart": 801854,
+      "sourceEnd": 801915,
+      "expected": 1
+    },
+    {
       "id": "generation identity bind",
       "sourceStart": 801853,
       "sourceEnd": 801853,
@@ -274,6 +376,18 @@
       "id": "OpenAI bypasses Gemini owner registration",
       "sourceStart": 801757,
       "sourceEnd": 801757,
+      "expected": 1
+    },
+    {
+      "id": "PS6 original lifecycle Xn",
+      "sourceStart": 800837,
+      "sourceEnd": 800837,
+      "expected": 1
+    },
+    {
+      "id": "PS6 original lifecycle Xi",
+      "sourceStart": 800127,
+      "sourceEnd": 800127,
       "expected": 1
     },
     {
@@ -301,7 +415,25 @@
       "expected": 1
     },
     {
-      "id": "keep identity evidence namespaced",
+      "id": "CO private source presence",
+      "sourceStart": 360417,
+      "sourceEnd": 361568,
+      "expected": 1
+    },
+    {
+      "id": "AO private source presence",
+      "sourceStart": 359133,
+      "sourceEnd": 360391,
+      "expected": 1
+    },
+    {
+      "id": "ia private source presence",
+      "sourceStart": 358294,
+      "sourceEnd": 358734,
+      "expected": 1
+    },
+    {
+      "id": "keep private evidence namespaced",
       "sourceStart": 355647,
       "sourceEnd": 355656,
       "expected": 1
