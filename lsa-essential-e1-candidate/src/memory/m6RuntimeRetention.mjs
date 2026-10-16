@@ -63,9 +63,10 @@ export function createM6RuntimeRetention({store,now=Date.now,
   });
 
   const dirty=new Set();            // characterIds with committed evidence not yet fully processed
+  const failuresByScope=new Map();  // a healthy NPC never clears another NPC's failure streak
   const sessions=new Map();         // `${pedId}:${sessionNonce}` -> Set<characterId>
   let lastForegroundMs=-Infinity,recoveredKey=null,wasWritable=false;
-  let closed=false,timer=null,startTimer=null,running=null,failures=0;
+  let closed=false,timer=null,startTimer=null,running=null;
   const stats={runs:0,saved:0,rejected:0,lastPhase:null,lastStatus:'idle',lastReason:null};
 
   const foregroundBusy=()=>now()-lastForegroundMs<opts.idleGraceMs;
@@ -75,24 +76,27 @@ export function createM6RuntimeRetention({store,now=Date.now,
       ?{characterId,worldProfileId,timelineId}:null;
   };
   const usable=()=>!closed&&!isPaused()&&store.timelineWritable===true;
+  const failureKey=scope=>`${scope.worldProfileId}:${scope.timelineId}:${scope.characterId}`;
+  const degraded=scope=> (failuresByScope.get(failureKey(scope))??0)>=opts.maxConsecutiveFailures;
 
   async function runScope(characterId,phase){
     const scope=scopeFor(characterId);
-    if(!scope||!usable())return false;
+    if(!scope||!usable()||degraded(scope))return false;
+    const key=failureKey(scope);
     const hook=phase==='scene_close'?'onSceneClose':phase==='recovery'?'recover':'onIdle';
     try{
       const result=await coordinator[hook]({scope});
       stats.runs++;stats.saved+=result.saved.filter(s=>s.inserted).length;
       stats.rejected+=result.rejected.length;
       stats.lastPhase=phase;stats.lastStatus=result.status;stats.lastReason=null;
-      failures=0;
+      failuresByScope.delete(key);
       // Fully drained -> clean. Backlog or quiet-blocked evidence stays dirty
       // so a later idle tick resumes after the durable cursor.
       if(result.archiveComplete&&!result.blockedByQuiet)dirty.delete(characterId);
       else dirty.add(characterId);
       return true;
     }catch(error){
-      failures++;
+      failuresByScope.set(key,(failuresByScope.get(key)??0)+1);
       stats.lastPhase=phase;stats.lastStatus='failed';stats.lastReason=codeOf(error);
       dirty.add(characterId);
       return false;
@@ -114,7 +118,6 @@ export function createM6RuntimeRetention({store,now=Date.now,
       const writable=store.timelineWritable===true;
       if(!writable){wasWritable=false;return {skipped:'timeline_not_writable'};}
       if(foregroundBusy())return {skipped:'foreground_active'};
-      if(failures>=opts.maxConsecutiveFailures)return {skipped:'degraded'};
       const key=`${store.worldProfileId}:${store.activeTimelineId}`;
       const recovering=!wasWritable||recoveredKey!==key;
       let processed=0,failed=0;
@@ -133,6 +136,10 @@ export function createM6RuntimeRetention({store,now=Date.now,
 
   /** Foreground activity marker. Synchronous, allocation-free, never throws. */
   function noteForeground(){lastForegroundMs=now();}
+  /** A verified M3 event was committed off the native callback path. */
+  function noteEvidenceCommitted(characterId){
+    if(!closed&&!isPaused()&&typeof characterId==='string')dirty.add(characterId);
+  }
   /** A durable M2 line was committed for this promoted NPC in this native session. */
   function noteCommitted({characterId,identity}={}){
     if(closed||typeof characterId!=='string')return;
@@ -174,15 +181,17 @@ export function createM6RuntimeRetention({store,now=Date.now,
     if(timer){clearIntervalFn(timer);timer=null;}
     if(startTimer){clearTimeoutFn(startTimer);startTimer=null;}
     try{await running;}catch{}
-    dirty.clear();sessions.clear();
+    dirty.clear();sessions.clear();failuresByScope.clear();
   }
   function diagnostics(){
     return Object.freeze({
-      state:closed?'stopped':isPaused()?'paused':failures>=opts.maxConsecutiveFailures?'degraded':
+      state:closed?'stopped':isPaused()?'paused':
+        [...failuresByScope.values()].some(n=>n>=opts.maxConsecutiveFailures)?'degraded':
         store.timelineWritable!==true?'waiting':'ready',
-      pendingScopes:dirty.size,runs:stats.runs,retained:stats.saved,rejected:stats.rejected,
+      pendingScopes:dirty.size,degradedScopes:[...failuresByScope.values()].filter(n=>n>=opts.maxConsecutiveFailures).length,
+      runs:stats.runs,retained:stats.saved,rejected:stats.rejected,
       lastPhase:stats.lastPhase,lastStatus:stats.lastStatus,lastReason:stats.lastReason,
       recovered:recoveredKey!==null,cloudCuration:'off'});
   }
-  return Object.freeze({tick,noteForeground,noteCommitted,sceneClosed,start,dispose,diagnostics});
+  return Object.freeze({tick,noteForeground,noteEvidenceCommitted,noteCommitted,sceneClosed,start,dispose,diagnostics});
 }
