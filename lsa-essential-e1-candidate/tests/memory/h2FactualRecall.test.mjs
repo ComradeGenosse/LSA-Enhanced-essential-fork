@@ -418,3 +418,18 @@ test('H2 ignores forgotten adjacent dog-name evidence during contextual recall',
  const {h2}=await f.ask('List all my dogs');
  assert(!items(h2).some(x=>x.recordId===names.recordId));
 });
+
+test('H2 keeps directly matching dog evidence ahead of unrelated same-session neighbors',async t=>{
+ const f=await p2Fixture(t);
+ const anchor=await f.say('I have four dogs.',{at:ago(1800),sessionNonce:'same-dogs'});
+ const aside=await f.say('The sky is clear today.',{at:ago(1795),sessionNonce:'same-dogs'});
+ const names=await f.say('Prana, Koba, Nora and Vladimir.',{at:ago(1790),sessionNonce:'same-dogs'});
+ const {h2}=await f.ask('List all my dogs');
+ const recalled=items(h2).map(x=>x.recordId);
+ assert(recalled.includes(anchor.recordId),'keyword-bearing source must be included');
+ assert(recalled.includes(names.recordId),'answer in nearby dialogue should remain retrievable');
+ assert(!recalled.includes(aside.recordId)||recalled.indexOf(anchor.recordId)<recalled.indexOf(aside.recordId),
+  'unrelated adjacent chatter cannot outrank lexical evidence');
+ assert(recalled.indexOf(anchor.recordId)<recalled.indexOf(names.recordId),
+  'direct lexical anchor ranks above contextual candidate');
+});

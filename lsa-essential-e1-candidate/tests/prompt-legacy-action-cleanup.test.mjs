@@ -17,6 +17,12 @@ test('legacy pipe examples are removed while persona and strict JSON rules survi
  assert.match(composed,/mode, segments, command/);
  assert.equal(stripLegacyPipeActionInstructions('Do not repeat "red|blue" in dialogue.'),
   'Do not repeat "red|blue" in dialogue.');
+ assert.equal(stripLegacyPipeActionInstructions('Never emit DO FollowTarget A|spoken text.'),
+  'Never emit DO FollowTarget A|spoken text.');
+ assert.equal(stripLegacyPipeActionInstructions('Keep Nathan curious. Example: DO FollowTarget A|spoken text.'),
+  'Keep Nathan curious.');
+ assert.equal(stripLegacyPipeActionInstructions('Keep his humor intact; Example: DO FollowTarget A|spoken text.'),
+  'Keep his humor intact;');
 });
 test('public model output remains JSON; legacy pipe is only an internal stock transcript',()=>{
  assert.deepEqual(parseDecisionJson('{"dialogue":"Right behind you.","command":"DO FollowTarget A"}'),

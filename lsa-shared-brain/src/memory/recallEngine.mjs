@@ -104,11 +104,12 @@ function similarity(row,terms,nowMs,focusKind,speaker,anchoredIds) {
   const age=Math.max(0,nowMs-row.atMs);
   const recency=Math.max(0,3-Math.log2(1+age/3600000));
   // Neighbors must link to an authenticated lexical anchor; they are candidate
-  // quotes, not an inferred fact. Keep their preference bounded.
+  // quotes, not an inferred fact. Score below *any* lexical hit, even
+  // with twelve query terms, so unrelated neighbors cannot displace anchors.
   if(terms.length&&!matches)return row.sourceKind==='dialogue_line'&&
     anchoredIds.has(row.contextAnchorId)&&Number.isSafeInteger(row.contextDistance)&&
     row.contextDistance>=1&&row.contextDistance<=2
-    ?13.5-row.contextDistance*.75+recency:-Infinity;
+    ?1-row.contextDistance*.1+recency:-Infinity;
   const ratio=terms.length?matches/terms.length:0;
   return (terms.length?12*ratio+matches:0)+recency+(row.sourceKind==='dialogue_line'&&focusKind==='dialogue_line'?2:0);
 }
