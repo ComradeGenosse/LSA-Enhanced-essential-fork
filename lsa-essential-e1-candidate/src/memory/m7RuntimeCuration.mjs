@@ -218,9 +218,11 @@ export function createM7RuntimeCuration({config,store,isPaused=()=>false,subscri
     if(closed){set('stopped','runtime_stopped');return;}
     if(isPaused()){set('paused','learned_memory_paused');return;}
     switch(result){
-      case 'source_unverified':return set('idle','awaiting_idle_window');
-      case 'consent_or_source_unverified':return set('idle','authority_revalidating');
-      case 'cancelled':return set('idle','interrupted_by_activity');
+      // A rejected/expired native proof or revoked authority is NOT an
+      // operational idle worker. Keep effectiveMode unknown until reverified.
+      case 'source_unverified':return set('blocked','awaiting_verified_native_idle');
+      case 'consent_or_source_unverified':return set('blocked','authority_revalidating');
+      case 'cancelled':return set('blocked','interrupted_by_activity');
       case 'empty':return set('idle','queue_empty');
       case 'busy':case 'throttled':return set('idle',result);
       case 'completed':case 'partially_completed':return set('idle','batch_completed');
