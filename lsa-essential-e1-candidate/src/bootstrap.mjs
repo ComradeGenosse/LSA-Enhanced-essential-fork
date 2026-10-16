@@ -332,7 +332,8 @@ export async function createRuntimeForBundle(options = {}) {
           try{
             const m3=createM3ProductionMemory({intelligence:runtime.intelligence,memoryStore,
               nativeAuthority:options.memoryNativeAuthority??null,telemetry,
-              eventMode:m3Activation.events.mode,coverageMode:m3Activation.coverage.mode});
+              eventMode:m3Activation.events.mode,coverageMode:m3Activation.coverage.mode,
+              onDurableEvent:characterId=>runtime.retention?.noteEvidenceCommitted(characterId)});
             memoryIntake=m3.adapter;
             connectedMemoryAuthority=m3.authority;
             runtime.memoryM3=Object.freeze({snapshot:()=>m3.snapshot(),
