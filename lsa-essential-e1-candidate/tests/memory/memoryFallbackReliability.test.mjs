@@ -140,3 +140,23 @@ test('an optional PS4 render failure without prepared memory safely retries with
   assert.equal(requests.length,1,'only the clean body reaches HTTP');
   isClean(requests[0]);
 });
+
+test('a privacy-revoked pre-send memory frame cannot trigger automatic clean replay',
+  {timeout:45000},async t=>{
+  const x=await d01Harness(t,{config:configured()});
+  const originalPrepare=x.h.runtime.services.prepareLiveTurnMemory;
+  x.h.runtime.services.prepareLiveTurnMemory=async args=>{
+    const prepared=await originalPrepare(args);
+    assert.equal(prepared?.status,'ready','test needs a real prepared memory lane');
+    return Object.freeze({...prepared,invalidationReason:()=> 'privacy_changed'});
+  };
+  let attempts=0;
+  x.h.runtime.services.decide=()=>{
+    attempts++;
+    throw Object.assign(new Error('knowledge_request_stale'),
+      {code:'knowledge_request_stale',reason:'memory_stale'});
+  };
+  const typed=await x.typed('Nathan, what do you remember?');
+  assert.notEqual((await x.settled(typed)).status,'completed');
+  assert.equal(attempts,1,'privacy revocation must never launch a fallback model attempt');
+});
