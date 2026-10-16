@@ -102,6 +102,38 @@ export function validateMemoryCurrentOwnerPlayerPayload(p) {
     !captures.has(s.playerCaptureRef);
 }
 
+// W07 native Core quiet snapshot: 21 independently sampled current negatives,
+// four UNAVAILABLE global original-terminal fields. This is never an idle grant.
+export const M7_NATIVE_CORE_QUIET_FIELDS=Object.freeze([
+  'ownerProofCurrent','speakerOwned','speakerAlive','playerIsLocal','playerAlive',
+  'ownerPrimaryModeKnown','ownerIdle','micStateKnown','micIdle',
+  'conversationStateKnown','conversationIdle','textInputKnown','textInputIdle',
+  'controlsInputKnown','controlsInputIdle','scriptStateKnown','scriptSafe',
+  'actorReflexKnown','actorReflexIdle','playbackKnown','playbackIdle'
+]);
+export const M7_UNAVAILABLE_CORE_FIELDS=Object.freeze([
+  'playerTurnSourceCurrent','playerTurnIdle','essentialTurnKnown','essentialTurnIdle'
+]);
+export function validateM7NativeIdleDiagnostic(p) {
+  if(!keys(p,['nativeM7DiagnosticVersion','kind','nativeVerified','hostRunId',
+    'worldEpoch','sampledGameTick','observerCaptureRef','incarnationId',
+    'encounterId','priorityEvidence','missingCoreCapabilities']) ||
+    p.nativeM7DiagnosticVersion!==1 || p.kind!=='native_idle_diagnostic_v1' ||
+    p.nativeVerified!==false || !isUuid(p.hostRunId) ||
+    !integer(p.worldEpoch,2147483647) || p.worldEpoch<1 ||
+    !integer(p.sampledGameTick,0xffffffff) ||
+    !isUuid(p.observerCaptureRef) || !isUuid(p.incarnationId) ||
+    !isUuid(p.encounterId) || !keys(p.priorityEvidence,
+      [...M7_NATIVE_CORE_QUIET_FIELDS,...M7_UNAVAILABLE_CORE_FIELDS]) ||
+    !Array.isArray(p.missingCoreCapabilities) ||
+    p.missingCoreCapabilities.length!==M7_UNAVAILABLE_CORE_FIELDS.length ||
+    M7_UNAVAILABLE_CORE_FIELDS.some((f,i)=>p.missingCoreCapabilities[i]!==f ||
+      p.priorityEvidence[f]!==false) ||
+    M7_NATIVE_CORE_QUIET_FIELDS.some(f=>typeof p.priorityEvidence[f]!=='boolean'))
+    return false;
+  return true;
+}
+
 export function validateFrame(v) {
   if (!v || Buffer.byteLength(JSON.stringify(v))>BOUNDS.frameBytes) return false;
   if (v.type==='hello') return validateHostEnvelope(v,['version','type','adapterEpoch','streamId','capabilities',...(Object.hasOwn(v,'observerIndexVersion') ? ['observerIndexVersion'] : []),...(Object.hasOwn(v,'observerSituationVersion') ? ['observerSituationVersion'] : []),...(Object.hasOwn(v,'primaryBehaviorOwnerVersion') ? ['primaryBehaviorOwnerVersion'] : []),...(Object.hasOwn(v,'directorRequestVersion') ? ['directorRequestVersion'] : []),...(Object.hasOwn(v,'memoryCurrentOwnerPlayerVersion') ? ['memoryCurrentOwnerPlayerVersion'] : [])]) && (!Object.hasOwn(v,'observerIndexVersion') || v.hostContextVersion===1 && v.observerIndexVersion===1) && (!Object.hasOwn(v,'observerSituationVersion') || v.hostContextVersion===1 && v.observerIndexVersion===1 && v.observerSituationVersion===1) && (!Object.hasOwn(v,'primaryBehaviorOwnerVersion') || v.observerSituationVersion===1 && v.primaryBehaviorOwnerVersion===1) && (!Object.hasOwn(v,'directorRequestVersion') || v.hostContextVersion===1 && v.directorRequestVersion===1) && (!Object.hasOwn(v,'memoryCurrentOwnerPlayerVersion') || v.hostContextVersion===1 && v.observerIndexVersion===1 && v.memoryCurrentOwnerPlayerVersion===1) && v.version===1 && isUuid(v.adapterEpoch) && isUuid(v.streamId) && keys(v.capabilities,CAPABILITIES) && Object.values(v.capabilities).every(x=>typeof x==='boolean');
@@ -120,6 +152,7 @@ export function validateFrame(v) {
     ['invalid','busy','unsafe','stale','cancelled','not_found','reserved','submitted','bound','started','completed','failed'].includes(v.payload.status);
   if (v.type==='memory_authority') return validateMemoryAuthorityPayload(v.payload);
   if (v.type==='memory_current_owner_player') return validateMemoryCurrentOwnerPlayerPayload(v.payload);
+  if (v.type==='memory_m7_idle_diagnostic') return validateM7NativeIdleDiagnostic(v.payload);
   if (v.type==='signal') return validateSignal(v.payload);
   if (v.type==='diagnostics') return keys(v.payload,['anchors','observers','snapshotAgeMs','snapshotCadenceMs','dropped','staleRejected','retiredAnchors','deferredDiscovery','updateMicros','capabilities','signals','damageCallbacks','witnessDeferred','witnessUnknown','witnessRejected','playerSpeechGate'],['radio']) && integer(v.payload.anchors,256) && integer(v.payload.observers,16) && ['snapshotAgeMs','snapshotCadenceMs','dropped','staleRejected','retiredAnchors','deferredDiscovery','updateMicros','witnessDeferred','witnessUnknown','witnessRejected'].every(k=>integer(v.payload[k],2147483647)) && v.payload.playerSpeechGate==='unsupported_capture_receipt' && keys(v.payload.capabilities,CAPABILITIES) && Object.values(v.payload.capabilities).every(x=>typeof x==='boolean') && v.payload.capabilities.playerSpeech===false && v.payload.signals && typeof v.payload.signals==='object' && !Array.isArray(v.payload.signals) && Object.entries(v.payload.signals).every(([k,n])=>['damage','vehicle_damage','firing','death','injury_state','vehicle_transition','vehicle_state','activity_changed','presence_changed','location_changed','action_callback','playback_started','playback_ended','radio_changed','radio_stopped'].includes(k) && integer(n,2147483647)) && keys(v.payload.damageCallbacks,['ped_damage','player_damage','vehicle_damage']) && Object.values(v.payload.damageCallbacks).every(n=>integer(n,2147483647)) && (!Object.hasOwn(v.payload,'radio') || keys(v.payload.radio,['samples','edges','nativeFailures','witnessed','witnessUnknown']) && ['samples','edges','nativeFailures','witnessed','witnessUnknown'].every(k=>integer(v.payload.radio[k],2147483647)));
   return false;
