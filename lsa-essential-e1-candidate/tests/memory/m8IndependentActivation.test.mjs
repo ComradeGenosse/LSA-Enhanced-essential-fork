@@ -229,6 +229,38 @@ test('M8 coexists with H1 and H2: each contributes independently from the same a
       assert.equal(x.h.runtime.services[id]().contributedToModelRequest,true,id);
   });
 
+test('H1 revoked before first send preserves only current M8 opinions in the real provider body',
+  {timeout:60000},async t=>{
+    const x=await d01Harness(t,{config:configured({'memory.journalContext':'on'})});
+    await seed(x);
+    const sent=[];
+    const originalRead=x.store.readDialogueLines.bind(x.store);
+    x.h.runtime.services.decide=options=>decide({...options,config:x.h.runtime.config,
+      // H1's original source re-read now fails; P2 M8 uses a separate sealed
+      // SQLite read, so only H1 is invalidated.
+      dialogueAttempt:{request:()=>{
+        x.store.readDialogueLines=async()=>{throw Error('test_stale_h1_read');};
+      },outputText:()=>{}},
+      fetchImpl:async(_url,req)=>{
+        sent.push({body:JSON.parse(req.body),frame:options.knowledgeProjection});
+        x.store.readDialogueLines=originalRead;
+        return response();
+      }});
+    const turn=await x.typed('What do you think about our running joke?');
+    const outcome=await x.settled(turn);
+    x.store.readDialogueLines=originalRead;
+    assert.equal(outcome.status,'completed',JSON.stringify(outcome));
+    assert.equal(sent.length,1,'stale unsent H1 must not require another provider attempt');
+    const frame=sent[0].frame;
+    // The projection passed to decide was the initial frame; the provider body
+    // must reflect the final pruned allocation from the same delivery object.
+    const body=JSON.stringify(sent[0].body);
+    assert.ok(body.includes('character_opinion'),'verified M8 must survive H1 invalidation');
+    assert.ok(!body.includes('running joke!')||!body.includes('Inside joke:'),
+      'H1 unverified conversation text must not ride along as prior history');
+    assert.equal(x.h.runtime.services.memoryInterpretationDiagnostics().contributedToModelRequest,true);
+  });
+
 test('M8 unavailable (P2 read fault) falls back to the base frame without breaking the turn',
   {timeout:60000},async t=>{
     const x=await d01Harness(t,{config:configured()});
