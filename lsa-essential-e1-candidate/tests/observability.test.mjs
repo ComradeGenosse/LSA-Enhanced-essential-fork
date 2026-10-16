@@ -186,6 +186,76 @@ test('full fake-native typed turn captures exact lifecycle, history, and one ter
   connection.close();
 });
 
+test('Memory K microphone/fallback diagnostic events are allowlisted and never leak dialogue', () => {
+  const sink = memorySink();
+  const telemetry = new Telemetry({ sink });
+  const turn = telemetry.beginTurn(id, 'player_mic');
+  const events = [
+    ['mic_input_captured', { hasPcm: true, bytes: 3200 }],
+    ['stt_completed', { hasTranscript: true }],
+    ['memory_bypass', { stage: 'pre_stt', reason: 'native_memory_source_timeout', requestGatePassed: false }],
+    ['memory_bypass', { stage: 'memory_prepare', reason: 'memory_prepare_failed', requestGatePassed: false }],
+    ['memory_fallback', { stage: 'initial_preflight', reason: 'pre_request_stale', requestGatePassed: false }],
+    ['audio_handoff_started', { stage: 'native_authorization' }],
+  ];
+  for (const [event, data] of events) {
+    assert.equal(turn.event(event, { ...data, transcript: 'PRIVATE INPUT', prompt: 'PRIVATE PROMPT' }), true);
+  }
+  for (const event of new Set(events.map(([name]) => name))) {
+    assert.ok(sink.records.some(row => row.event === event), event);
+  }
+  assert.equal(sink.records.find(row => row.event === 'mic_input_captured').data.hasPcm, true);
+  assert.equal(sink.records.find(row => row.event === 'stt_completed').data.hasTranscript, true);
+  assert.equal(sink.records.find(row => row.event === 'memory_bypass').data.reason, 'native_memory_source_timeout');
+  assert.ok(!JSON.stringify(sink.records).includes('PRIVATE'));
+  // A future instrumentation mistake remains a schema rejection, not a conversation failure.
+  assert.equal(turn.event('unregistered_future_optional_event', { text: 'PRIVATE' }), false);
+  assert.equal(sink.records.some(row => row.event === 'unregistered_future_optional_event'), false);
+  const broken = new Telemetry({ sink: { emit() { throw new Error('disk offline'); } } });
+  assert.equal(broken.beginTurn(id, 'player_mic').event('mic_input_captured', { hasPcm: true }), false);
+});
+
+test('real-telemetry microphone turn reaches STT, Luna and audio playback', async () => {
+  const sink = memorySink();
+  const telemetry = new Telemetry({ sink });
+  const runtime = createRuntime(normalizeConfig({}, {}), { telemetry, fetchImpl: async () => { throw new Error('network disabled'); } });
+  const listeners = new Set();
+  const bridge = {
+    assertCapabilities() {}, isCurrent: candidate => sameIdentity(candidate, id),
+    validateDecision: async decision => ({ identityValid: true, internalTranscript: decision.dialogue, actionCount: 0 }),
+    onNativeEvent(fn) { listeners.add(fn); return () => listeners.delete(fn); },
+    authorize(identity) { for (const fn of listeners) fn({ ...identity, type: 'audio_turn_accepted' }); return true; },
+    async routePinnedEvent(event) {
+      if (event.type === 'turn_complete') {
+        for (const fn of listeners) fn({ ...id, type: 'playback_started' });
+        for (const fn of listeners) fn({ ...id, type: 'playback_ended', reason: 'completed', wasInterrupted: false, hadAudio: true, playbackStarted: true });
+      }
+      return true;
+    },
+    failMatchingTurn() { return true; }, log() {},
+  };
+  runtime.attachBridge(bridge);
+  runtime.services.transcribe = async () => 'PRIVATE MICROPHONE TRANSCRIPT';
+  runtime.services.decide = async () => ({ dialogue: 'PRIVATE NATHAN ANSWER', command: '' });
+  runtime.services.speak = async ({ onPcm }) => {
+    await onPcm(new Uint8Array([1,2,3,4]));
+    return { bytes: 4, chunks: 1 };
+  };
+  const connection = await runtime.createTransport(() => { throw new Error('Gemini must remain unused'); }).connect({ systemInstruction: 'safe', diagnosticContext: id });
+  await connection.beginTurn({ identity: id, source: 'player_mic', context: { inputText: '', systemInstruction: 'safe' } });
+  await connection.startRealtimeInput();
+  await connection.sendRealtimeAudio(new Uint8Array([1,0,2,0]), 16_000);
+  await connection.endRealtimeInput();
+  const result = await connection.whenSettled(id);
+  assert.equal(result.status, 'completed', JSON.stringify(result));
+  for (const event of ['mic_input_captured','stt_completed','audio_handoff_started','turn_terminal_summary']) {
+    assert.ok(sink.records.some(row => row.event === event), event);
+  }
+  assert.equal(sink.records.find(row => row.event === 'turn_terminal_summary').data.terminalReason, 'completed');
+  assert.ok(!JSON.stringify(sink.records).includes('PRIVATE'));
+  connection.close();
+});
+
 test('offline summarizer separates outcomes, unknown usage, and incomplete traces', () => {
   const runId = randomUUID();
   const record = (event, data = {}) => ({ schemaVersion: 1, runId, event, identity: id, source: 'player_text', data });
