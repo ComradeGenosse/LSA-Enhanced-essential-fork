@@ -79,7 +79,7 @@ export function createMemoryKRuntimeComposition(config) {
   const requests=config.memoryK?.capabilities??{};
   // Independent production adapters follow in F/G/H/I/J/K/L/N. This owner
   // must never infer their readiness from methods or policy configuration.
-  const requested=Object.keys(requests).length>0;
+  const requested=!memoryKConsumersAllowed(config);
   return Object.freeze({scope,
     snapshot(available={},operation={}) {
       const policy=resolveMemoryKCapabilities({config,available});
@@ -133,7 +133,11 @@ export function createMemoryKRuntimeComposition(config) {
 // Independent production adapters follow in later workstreams. Explicit
 // requests cannot activate coupled legacy bundles as an incidental effect.
 export function memoryKConsumersAllowed(config) {
-  return Object.keys(config.memoryK?.capabilities??{}).length===0;
+  // M6 is a background-only add-on, not a request to independently gate the
+  // existing dialogue / M3 / PS / WS6 consumers. Other explicit capability
+  // entries still opt into the strict independent-activation contract.
+  return Object.keys(config.memoryK?.capabilities??{})
+    .every(id=>id==='memory.deterministic');
 }
 
 // Restart-required recording switches. Unspecified siblings in an explicit
@@ -197,6 +201,7 @@ export function memoryKM5Activation(config) {
 // J-B: M6 deterministic long-term retention. Unlike the optional foreground
 // consumers above, this is NEVER on by inheritance: an absent/empty capability
 // map keeps it off, and only an explicit memory.deterministic='on' starts it.
+// As the only explicit key it must not switch off the legacy foreground path.
 // It reads committed durable evidence only (no M2/M3 intake or M7 dependency).
 export function memoryKM6Activation(config) {
   const requestedMode=config.memoryK?.capabilities?.['memory.deterministic']??'off';
