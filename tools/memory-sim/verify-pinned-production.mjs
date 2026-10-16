@@ -77,6 +77,16 @@ try {
   const editMatches=wellFormed&&actualPatches.length===intendedCount&&
     compiledHooks.every(p=>actualPatches.filter(a=>a.label===p.id&&
       a.start===p.sourceStart&&a.end===p.sourceEnd).length===p.expected);
+  // Emit actual source offsets for review when the independently pinned AST
+  // inventory drifts. Never treat an unlisted hook as approved automatically.
+  if(staged && !editMatches){
+    const missing=actualPatches.filter(a=>!compiledHooks?.some(p=>
+      p.id===a.label && p.sourceStart===a.start && p.sourceEnd===a.end));
+    const stale=compiledHooks?.filter(p=>actualPatches.filter(a=>
+      a.label===p.id && a.start===p.sourceStart && a.end===p.sourceEnd).length!==p.expected);
+    console.log('W09 unreviewed AST edits '+JSON.stringify(missing.map(a=>({id:a.label,sourceStart:a.start,sourceEnd:a.end,expected:1}))));
+    console.log('W09 stale AST edit pins '+JSON.stringify(stale||[]));
+  }
   add('independent-ast-hook-reconciliation',!staged?'blocked':editMatches?'pass':'fail',
     'independent source manifest '+intendedCount+' expected edits; built manifest '+actualCount+
     ' edits; IDs and original byte ranges must reconcile (K owns AST/manifest revisions)',
@@ -103,11 +113,38 @@ try {
     ['lsa-shared-brain/src/memory/m6CursorConsumer.mjs','e1/_shared/memory/m6CursorConsumer.mjs'],
     ['lsa-shared-brain/src/events/m3Ps2ObserverAdapter.mjs','e1/_shared/events/m3Ps2ObserverAdapter.mjs']
   ];
+  // Most staged runtime modules must be byte-for-byte identical to source.
+  // One source-backed M2 adapter has a single, audited import relocation: the
+  // standalone package carries its own _shared tree instead of a repo import.
+  // Compare all staged bytes against the *exact* expected transformation;
+  // never waive a hash mismatch or trust an arbitrary staged file.
+  const approvedRelocations={
+    'lsa-essential-e1-candidate/src/memory/m2EssentialCapture.mjs':{
+      from:'../../../lsa-shared-brain/src/memory/m2TurnCapture.mjs',
+      to:'../_shared/memory/m2TurnCapture.mjs',occurrences:1
+    }
+  };
   for(const [src,dst] of modules){
-    const observed=present(src)?hash(src):null,packaged=present(dist+dst)?hash(dist+dst):null;
+    const source=present(src)?read(src):null;
+    const stagePath=dist+dst;
+    const stagedBytes=present(stagePath)?read(stagePath):null;
+    const observed=source?digest(source):null;
+    const packaged=stagedBytes?digest(stagedBytes):null;
+    let expected=source,relocationValid=true;
+    const approved=approvedRelocations[src];
+    if(approved && source){
+      const input=source.toString('utf8');
+      relocationValid=input.split(approved.from).length-1===approved.occurrences &&
+        !input.includes(approved.to);
+      if(relocationValid) expected=Buffer.from(input.replaceAll(approved.from,approved.to),'utf8');
+    }
+    const expectedHash=expected?digest(expected):null;
     report.sourceSha256[src]=observed;
-    add('staged:'+src,observed&&packaged===observed?'pass':observed&&packaged?'fail':'blocked',
-      'SHA256 source '+observed+' staged '+packaged);
+    add('staged:'+src,
+      source&&stagedBytes&&relocationValid&&packaged===expectedHash?'pass':
+        source&&stagedBytes?'fail':'blocked',
+      'SHA256 source '+observed+' expected staged '+expectedHash+' staged '+packaged+
+      (approved?' (exact audited shared import relocation)':' (byte exact)'));
   }
   const projectPath='native/promoted-characters/PromotedCharacters.csproj';
   const sessionPath='native/session-identity/SessionIdentity.csproj';
