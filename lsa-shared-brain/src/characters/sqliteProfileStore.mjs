@@ -259,6 +259,37 @@ export class P2SqliteProfileStore {
       return this.#timeline.activeTimelineId;
     });
   }
+  // Opt-in resume (memoryK.autoResumeSingleTimeline). It never creates, switches
+  // or guesses a timeline: it re-applies the stored selection only when that is
+  // the sole timeline, no ambiguity boundary is pending, and `observed` is the
+  // exact authenticated native run/epoch this store currently holds. It runs
+  // through the same authority-generation fence as confirmTimeline, so a
+  // disconnect, reset or boundary that lands first revokes it (stale-write safe).
+  async resumeSelectedTimeline(observed) {
+    const refused=reason=>Object.freeze({resumed:false,reason});
+    const expectedGeneration=this.#authorityGeneration;
+    const expectedContext=this.#sourceContext;
+    if(!this.#sourceRequired||!expectedContext||!observed||
+       this.#sourceKey(observed)!==this.#sourceKey(expectedContext))
+      return refused('native_source_unavailable');
+    await this.initialize();
+    return this.#serial(() => {
+      if(this.#authorityGeneration!==expectedGeneration ||
+         this.#sourceContext!==expectedContext)return refused('timeline_write_suspended');
+      if(this.#timeline.writable&&this.#sourceValid())return refused('already_confirmed');
+      const timelines=this.#db.listTimelines();
+      if(timelines.length===0)return refused('no_timeline');
+      if(timelines.length>1)return refused('multiple_timelines');
+      const selected=this.#db.activeTimelineId();
+      if(selected!==timelines[0].timelineId)return refused('no_selected_timeline');
+      // clock_regression / timeline_change / source loss still need a human.
+      if(this.#timeline.pendingReason)return refused(this.#timeline.pendingReason);
+      if(this.#timeline.activeTimelineId!==selected)return refused('no_selected_timeline');
+      this.#confirmedSource=this.#sourceKey(this.#sourceContext);
+      ++this.#authorityGeneration;
+      return Object.freeze({resumed:true,timelineId:selected});
+    });
+  }
   assertTimelineWrite(timelineId) {
     this.#timeline.assertWrite(timelineId);
     if (!this.#sourceValid()) fail('timeline_write_suspended');
