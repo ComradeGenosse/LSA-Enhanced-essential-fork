@@ -278,7 +278,12 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
         '\n[MEMORY AVAILABILITY] Learned memory is unavailable for this turn. Do not claim to have saved, corrected or forgotten a memory unless a verified durable outcome was supplied. Do not invent prior memories.'}:{})});
     recoverPreRequest=async(reason,stage)=>{
       check();
+      // A prepared M5 command may already have made a privileged durable
+      // mutation. Never re-admit its stale acknowledgement as normal dialogue.
+      // A new turn may give the player a clean unavailability response.
       if(turn.memoryFallbackUsed||!services.finalizeKnowledgeFrame||
+         (turn.memoryPrepared?.commandsPrepared===true&&
+          services.shouldWaitForMemoryCommand?.(finalInput))||
          (turn.characterInputs?.profile &&
           (turn.characterSnapshot?.resolution?.kind!=='persistent'||
            turn.characterProjection?.persistent!==true)))
