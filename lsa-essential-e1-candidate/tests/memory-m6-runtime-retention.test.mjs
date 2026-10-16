@@ -72,8 +72,8 @@ const recall=(store,scope)=>store.readIntegratedRecall({scope:{...scope,protagon
 test('J-B: M6 runtime is off by default and never constructs cloud curation',async t=>{
   for(const capabilities of [undefined,{},{'memory.dialogue.player':'on'},{'memory.deterministic':'off'}]){
     const root=await mkdtemp(path.join(tmpdir(),'memory-jb-off-'));
-    t.after(()=>rm(root,{recursive:true,force:true}));
     const {runtime,h}=await boot(t,{root,capabilities});
+    t.after(()=>rm(root,{recursive:true,force:true}));
     assert.equal(runtime.retention??null,null,'no retention runtime unless explicitly enabled');
     assert.equal(h.timers.length,0,'no timer is created');
     const row=runtime.services.memoryRetentionDiagnostics();
@@ -82,8 +82,8 @@ test('J-B: M6 runtime is off by default and never constructs cloud curation',asy
   }
   // Requesting M7 does not enable it: M6 reports it off and registers no queue.
   const root=await mkdtemp(path.join(tmpdir(),'memory-jb-m7-'));
-  t.after(()=>rm(root,{recursive:true,force:true}));
   const {runtime}=await boot(t,{root,capabilities:{'memory.deterministic':'on','memory.cloudCuration':'on'}});
+  t.after(()=>rm(root,{recursive:true,force:true}));
   assert.ok(runtime.retention);
   assert.equal(runtime.services.memoryRetentionDiagnostics().cloudCuration,'off');
   const caps=runtime.services.memoryKRuntimeDiagnostics().capabilities;
@@ -93,7 +93,6 @@ test('J-B: M6 runtime is off by default and never constructs cloud curation',asy
 
 test('J-B: startup recovery retains qualifying conversations without "remember", survives restart and stays recallable by M4',async t=>{
   const root=await mkdtemp(path.join(tmpdir(),'memory-jb-restart-'));
-  t.after(()=>rm(root,{recursive:true,force:true}));
   const h=harness();
   let {runtime,store}=await boot(t,{root,capabilities:{'memory.deterministic':'on'},h});
   assert.equal(h.timers.filter(x=>x.kind==='interval'&&x.unrefd).length,1,'one unref\'d idle timer');
@@ -130,6 +129,7 @@ test('J-B: startup recovery retains qualifying conversations without "remember",
   await runtime.dispose();
   const h2=harness();
   ({runtime,store}=await boot(t,{root,capabilities:{'memory.deterministic':'on'},h:h2}));
+  t.after(()=>rm(root,{recursive:true,force:true}));
   await confirm(store,timelineId);
   assert.equal(JSON.stringify((await retained(store,scope)).map(r=>[r.recordId,r.envelope.content])),before,
     'retained memory exists after restart before any M6 work');
@@ -143,9 +143,9 @@ test('J-B: startup recovery retains qualifying conversations without "remember",
 
 test('J-B: privacy safeguards hold through the runtime path (forgotten sources, pause)',async t=>{
   const root=await mkdtemp(path.join(tmpdir(),'memory-jb-privacy-'));
-  t.after(()=>rm(root,{recursive:true,force:true}));
   const h=harness();
   const {runtime,store}=await boot(t,{root,capabilities:{'memory.deterministic':'on'},h});
+  t.after(()=>rm(root,{recursive:true,force:true}));
   const npc=await store.create(profile());
   const timelineId=await store.createTimeline({label:'J-B privacy'});
   const scope={characterId:npc.characterId,worldProfileId,timelineId};
@@ -179,9 +179,9 @@ test('J-B: privacy safeguards hold through the runtime path (forgotten sources, 
 
 test('J-B: foreground and scene timing - idle yields, scene close does not wait for quiet, dispose stops work',async t=>{
   const root=await mkdtemp(path.join(tmpdir(),'memory-jb-timing-'));
-  t.after(()=>rm(root,{recursive:true,force:true}));
   const h=harness();
   const {runtime,store}=await boot(t,{root,capabilities:{'memory.deterministic':'on'},h});
+  t.after(()=>rm(root,{recursive:true,force:true}));
   const npc=await store.create(profile());
   const timelineId=await store.createTimeline({label:'J-B timing'});
   const scope={characterId:npc.characterId,worldProfileId,timelineId};
