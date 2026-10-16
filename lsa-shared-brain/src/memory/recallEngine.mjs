@@ -5,7 +5,7 @@ const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}
 const SHA=/^[0-9a-f]{64}$/;
 const INTENTS=new Set(['recent_fact','exact_quote','open_recall','spontaneous']);
 const SOURCES=new Set(['dialogue_line','journal_event','permanent_memory','canon']);
-const STOP=new Set('a an and are as at be before can did do does for from had has have how i in is it just me my of on or our say said she so that the their there these this those to us was were what when where which who why with would you your about happened happen remember recall tell told please thing things something anything ever again more then ago very we they him her his he yesterday today last latest recent first earliest oldest minute minutes hour hours week weeks past'.split(' '));
+const STOP=new Set('a all an and are as at be before can did do does for from had has have how i in is it just me my of on or our say said she so that the their there these this those to us was were what when where which who why with would you your about happened happen remember recall tell told please every each list thing things something anything ever again more then ago very we they him her his he yesterday today last latest recent first earliest oldest minute minutes hour hours week weeks past'.split(' '));
 const jsonBytes=recallJsonBytes;
 const tokenize=value=>(String(value??'').toLowerCase().match(/[\p{L}\p{N}]+/gu)??[]);
 const compactTerms=value=>[...new Set(tokenize(value).filter(t=>t.length>=2&&!STOP.has(t)))].slice(0,12);
@@ -95,15 +95,20 @@ function supportedRow(row,scope) {
   }
   return {...row,mode,content,atMs:Date.parse(row.atUtc)};
 }
-function similarity(row,terms,nowMs,focusKind,speaker) {
+function similarity(row,terms,nowMs,focusKind,speaker,anchoredIds) {
   if(speaker&&row.envelope?.speaker!==speaker&&!(speaker==='player'&&row.isCorrectionOverlay===true))return -Infinity;
   if(focusKind&&row.sourceKind!==focusKind&&!(focusKind==='dialogue_line'&&row.isCorrectionOverlay===true))return -Infinity;
   const txt=tokenize(row.sourceKind==='dialogue_line'?row.envelope.content:row.content);
   const hay=new Set(txt);
   const matches=terms.filter(t=>hay.has(t)).length;
-  if(terms.length&&!matches)return -Infinity;
   const age=Math.max(0,nowMs-row.atMs);
   const recency=Math.max(0,3-Math.log2(1+age/3600000));
+  // Neighbors must link to an authenticated lexical anchor; they are candidate
+  // quotes, not an inferred fact. Keep their preference bounded.
+  if(terms.length&&!matches)return row.sourceKind==='dialogue_line'&&
+    anchoredIds.has(row.contextAnchorId)&&Number.isSafeInteger(row.contextDistance)&&
+    row.contextDistance>=1&&row.contextDistance<=2
+    ?13.5-row.contextDistance*.75+recency:-Infinity;
   const ratio=terms.length?matches/terms.length:0;
   return (terms.length?12*ratio+matches:0)+recency+(row.sourceKind==='dialogue_line'&&focusKind==='dialogue_line'?2:0);
 }
@@ -160,17 +165,22 @@ export async function recallMemory({query,readAdapter,protagonistKey,nowUtc=new 
   }
   const focusKind=kindForQuestion(query)??(follow?followup.sourceKind??null:null);
   const speaker=focusKind==='dialogue_line'?findSpeaker(query.question)??(follow?followup.speaker??null:null):null;
+  const expandDialogueContext=terms.length>0&&focusKind===null&&speaker===null&&
+    /\b(?:all|every|each|list|names?|which)\b/i.test(query.question);
   let result;
-  try{result=await readAdapter.read({scope,terms,fromUtc:window.fromUtc,toUtc:window.toUtc,sourceKind:focusKind,speaker,limit:384});}
+  try{result=await readAdapter.read({scope,terms,fromUtc:window.fromUtc,toUtc:window.toUtc,
+    sourceKind:focusKind,speaker,limit:384,expandDialogueContext});}
   catch{return {bundle:emptyBundle(query,'unavailable'),continuation:null};}
   if(!result||!Array.isArray(result.rows)||result.rows.length>384)return {bundle:emptyBundle(query,'unavailable'),continuation:null};
   const nowMs=Date.parse(nowUtc);
   const rejectedEvidence=result.rows.some(r=>r?.evidenceState==='verified'&&!supportedRow(r,scope));
   let rows=result.rows.map(r=>supportedRow(r,scope)).filter(Boolean)
     .filter(r=>r.atMs<=nowMs+60000&&(!window.fromUtc||r.atUtc>=window.fromUtc)&&(!window.toUtc||r.atUtc<window.toUtc));
+  const anchoredIds=new Set(rows.filter(row=>row.sourceKind==='dialogue_line'&&
+    terms.some(t=>tokenize(row.content).includes(t))).map(row=>row.recordId));
   const sortRecent=/\b(last|latest|most recent|just|earlier today)\b/i.test(query.question);
   const sortOldest=/\b(first|earliest|oldest)\b/i.test(query.question);
-  rows=rows.map(row=>({...row,score:similarity(row,terms,nowMs,focusKind,speaker)}))
+  rows=rows.map(row=>({...row,score:similarity(row,terms,nowMs,focusKind,speaker,anchoredIds)}))
     .filter(row=>Number.isFinite(row.score))
     .sort((a,b)=>(sortRecent||sortOldest?0:b.score-a.score)||(sortOldest?a.atMs-b.atMs:b.atMs-a.atMs)||a.recordId.localeCompare(b.recordId));
   const distinct=new Set();rows=rows.filter(r=>{if(distinct.has(r.recordId))return false;distinct.add(r.recordId);return true;});

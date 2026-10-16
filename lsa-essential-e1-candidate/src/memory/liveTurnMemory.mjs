@@ -62,7 +62,7 @@ export async function prepareLiveTurnMemory({store,turn,acceptedReceipt,input,so
       // The accepted current line belongs in CONVERSE.current only.
       readAdapter:{read:async args=>{
         recallReadArgs=args;
-        const result=await sourceReader.read(args);
+        const result=await sourceReader.read({...args,excludeRecordId:line.recordId});
         return {...result,rows:result.rows.filter(r=>r.recordId!==line.recordId)};
       }},
       protagonistKey:scope.protagonistKey,nowUtc});
@@ -74,6 +74,7 @@ export async function prepareLiveTurnMemory({store,turn,acceptedReceipt,input,so
     if(policy){
       labelArgs={scope,source:authority,
         terms:recallReadArgs?.terms??[],sourceKind:recallReadArgs?.sourceKind??null,
+        expandDialogueContext:recallReadArgs?.expandDialogueContext===true,excludeRecordId:line.recordId,
         recordIds:contribution.items.map(x=>x.recordId),maxBytes:8192};
       labels=await policy.labelledEvidence(labelArgs);
       if(!current())return empty;
@@ -136,7 +137,7 @@ export async function prepareLiveTurnMemory({store,turn,acceptedReceipt,input,so
         // The bounded M4 query is re-read too, so a changed source chain or
         // corrected derivative cannot survive merely because its ID exists.
         const fresh=await recallMemory({query,readAdapter:{read:async args=>{
-          const result=await sourceReader.read(args);
+          const result=await sourceReader.read({...args,excludeRecordId:line.recordId});
           return {...result,rows:result.rows.filter(r=>r.recordId!==line.recordId)};
         }},protagonistKey:scope.protagonistKey,nowUtc});
         // M4's freshly verified projection checks derived source chains and

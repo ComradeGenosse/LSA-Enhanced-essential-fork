@@ -133,7 +133,7 @@ export async function prepareFactualRecall({store,turn,acceptedReceipt,input,sou
       const {bundle}=await recallMemory({query,readAdapter:{read:async args=>{
         readArgs=args;
         try{
-          const result=await sourceReader.read(args);
+          const result=await sourceReader.read({...args,excludeRecordId:line.recordId});
           return {...result,rows:result.rows.filter(r=>r.recordId!==line.recordId)};
         }catch(error){failed=true;throw error;}
       }},protagonistKey:scope.protagonistKey,nowUtc});
@@ -154,6 +154,7 @@ export async function prepareFactualRecall({store,turn,acceptedReceipt,input,sou
     const policy=createRecallEvidencePolicy({store,isCurrent:current});
     const labelArgs={scope,source:authority,terms:first.readArgs?.terms??[],
       sourceKind:first.readArgs?.sourceKind??null,
+      expandDialogueContext:first.readArgs?.expandDialogueContext===true,excludeRecordId:line.recordId,
       recordIds:baseContribution.items.map(x=>x.recordId),maxBytes:8192};
     const labels=await policy.labelledEvidence(labelArgs);
     if(!current())return done(refuse('blocked','memory_source_revoked',timings));
