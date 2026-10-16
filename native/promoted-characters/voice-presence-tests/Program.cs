@@ -3,6 +3,57 @@ using LSA.PromotedCharacters;
 static class Program {
     static int count;
     static void Assert(bool ok,string why) {count++;if(!ok)throw new Exception(why);}
+    static void TestObserver() {
+        var player=new Rage.Ped {Handle=1,MemoryAddress=new IntPtr(100)};
+        var ped=new Rage.Ped {Handle=2,MemoryAddress=new IntPtr(200)};
+        var swap=new Rage.Ped {Handle=3,MemoryAddress=new IntPtr(300)};
+        Rage.Game.LocalPlayer.Character=player;
+        var observer=new NpcVoicePresenceObserver("shadow");
+        observer.Attach();
+        int before=Rage.Ped.Reads;
+        LosSantosAlive.Audio.NpcPlaybackCoordinator.RaiseStarted(ped,"pedA","turnA",1);
+        Assert(Rage.Ped.Reads==before,"event callback does not access game");
+        observer.Update(1,100);
+        Assert(observer.HasActiveTurn&&observer.ActiveGeneration==1&&observer.ActiveHandle==2,"native start");
+        LosSantosAlive.Audio.NpcPlaybackCoordinator.RaiseStarted(swap,"pedA","turnA",1);
+        observer.Update(1,110);
+        Assert(observer.ActiveHandle==2,"duplicate turn never changes actor");
+        LosSantosAlive.Audio.NpcPlaybackCoordinator.RaiseStarted(swap,"pedA","turnA0",0);
+        observer.Update(1,120);
+        Assert(observer.ActiveHandle==2,"old generation rejected");
+        LosSantosAlive.Audio.NpcPlaybackCoordinator.RaiseStarted(swap,"pedA","turnB",2);
+        observer.Update(1,130);
+        Assert(observer.ActiveGeneration==2&&observer.ActiveHandle==3,"new generation replaces");
+        LosSantosAlive.Audio.NpcPlaybackCoordinator.RaiseEnded(ped,"pedA","turnA",1);
+        observer.Update(1,140);
+        Assert(observer.ActiveGeneration==2,"late old end ignored");
+        LosSantosAlive.Audio.NpcPlaybackCoordinator.RaiseEnded(swap,"pedA","turnB",2);
+        observer.Update(1,150);
+        Assert(!observer.HasActiveTurn,"exact end");
+        LosSantosAlive.Audio.NpcPlaybackCoordinator.RaiseStarted(ped,"pedA","turnC",3);
+        observer.Update(1,160);observer.Update(2,180);
+        Assert(!observer.HasActiveTurn,"epoch change clears");
+        LosSantosAlive.Audio.NpcPlaybackCoordinator.RaiseStarted(ped,"pedA","turnD",4);
+        observer.Update(2,190);ped.IsDead=true;observer.Update(2,195);
+        Assert(!observer.HasActiveTurn,"dead actor retired");
+        ped.IsDead=false;
+        LosSantosAlive.Audio.NpcPlaybackCoordinator.RaiseStarted(ped,"pedA","turnE",5);
+        observer.Update(2,200);ped.MemoryAddress=new IntPtr(250);observer.Update(2,210);
+        Assert(!observer.HasActiveTurn,"reused handle address invalidated");
+        LosSantosAlive.Audio.NpcPlaybackCoordinator.RaiseStarted(player,"player","turnF",6);
+        observer.Update(2,215);
+        Assert(!observer.HasActiveTurn,"no player mouth takeover");
+        observer.Dispose();
+        LosSantosAlive.Audio.NpcPlaybackCoordinator.RaiseStarted(swap,"pedA","turnG",7);
+        observer.Update(2,220);
+        Assert(!observer.HasActiveTurn,"unsubscribe and cleanup");
+        var on=new NpcVoicePresenceObserver("on");
+        on.Attach();
+        LosSantosAlive.Audio.NpcPlaybackCoordinator.RaiseStarted(swap,"pedA","turnH",8);
+        on.Update(2,225);
+        Assert(on.HasActiveTurn,"on mode remains observational pending renderer proof");
+        on.Dispose();
+    }
     static void Main() {
         var s=new VoicePresenceTurnTracker();
         var a=new VoicePresenceTurnTracker.Key("ped1","turnA",1);
@@ -34,6 +85,7 @@ static class Program {
         Assert(s.Sample(a,6,110,.5f),"ordered sample");
         Assert(!s.Sample(a,6,109,.5f),"out of order");
         s.Clear();Assert(!s.Active&&!s.HasPlayout&&!s.MouthOpen,"cleanup");
-        Console.WriteLine("NPC voice presence policy: "+count+" checks passed.");
+        TestObserver();
+        Console.WriteLine("NPC voice presence policy + native event observer: "+count+" checks passed.");
     }
 }

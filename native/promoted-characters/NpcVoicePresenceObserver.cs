@@ -12,6 +12,9 @@ namespace LSA.PromotedCharacters {
         bool attached,disposed,overflow;
         Ped ped; IntPtr address; int handle,epoch;
         readonly string mode;
+        internal bool HasActiveTurn=>state.Active;
+        internal long ActiveGeneration=>state.ActiveKey.Generation;
+        internal int ActiveHandle=>handle;
         sealed class Fact {internal bool Starting; internal Ped Speaker;internal VoicePresenceTurnTracker.Key Key;}
         internal NpcVoicePresenceObserver(string mode) {this.mode=mode;}
         internal void Attach() {
