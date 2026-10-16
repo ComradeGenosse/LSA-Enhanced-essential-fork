@@ -76,13 +76,19 @@ namespace LSA.PromotedCharacters {
             // Do not animate from queue time or assume the legacy facial native
             // works in Enhanced. No spatial mixer writes / double attenuation.
         }
+        // Called from the host-lifetime fiber, including when Core never
+        // registered. Only detaches CLR events; Core retains state ownership.
+        internal void Unsubscribe() {
+            if(!attached)return;
+            NpcPlaybackCoordinator.PlaybackStarted-=Started;
+            NpcPlaybackCoordinator.PlaybackEnded-=Ended;
+            attached=false;
+            lock(gate) {queue.Clear();overflow=false;}
+        }
         public void Dispose() {
             if(disposed)return;disposed=true;
-            if(attached) {
-                NpcPlaybackCoordinator.PlaybackStarted-=Started;
-                NpcPlaybackCoordinator.PlaybackEnded-=Ended;attached=false;
-            }
-            lock(gate) {queue.Clear();overflow=false;}Clear();
+            Unsubscribe();
+            Clear(); // Only Core Shutdown calls this on a live integration.
         }
     }
 }

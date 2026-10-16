@@ -414,8 +414,7 @@ namespace LSA.PromotedCharacters
             shutdownRequested=true;
             // The Core callback may never run again after host failure.
             // Event unsubscription is CLR-only and safe on the lifetime fiber.
-            try {voicePresence?.Dispose();} catch {}
-            voicePresence=null;
+            try {voicePresence?.Unsubscribe();} catch {}
         }
         public void Shutdown()
         {Shutdown("integration_shutdown");}
