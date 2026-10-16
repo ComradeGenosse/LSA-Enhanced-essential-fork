@@ -275,3 +275,65 @@ test('M8 unavailable (P2 read fault) falls back to the base frame without breaki
     assert.equal(scene(last).RECALLED.characterOpinions,undefined);
     assert.equal(x.h.runtime.services.memoryInterpretationDiagnostics().contributedToModelRequest,false);
   });
+
+
+for(const mutation of ['benign','forget'])
+  test(`an admitted Luna request ${mutation==='benign'?'survives a benign SQLite write':'is revoked by a genuine memory forget'}`,
+    {timeout:60000},async t=>{
+      const x=await d01Harness(t,{config:configured()});
+      await seed(x);
+      const scope={characterId:x.profile.characterId,worldProfileId:x.store.worldProfileId,
+        timelineId:x.timelineId,protagonistKey:x.native.avatar};
+      let enterHttp,releaseHttp;
+      const entered=new Promise(resolve=>{enterHttp=resolve;});
+      const held=new Promise(resolve=>{releaseHttp=resolve;});
+      let requests=0,body=null;
+      x.h.runtime.services.decide=options=>decide({...options,config:x.h.runtime.config,
+        fetchImpl:async(_url,req)=>{
+          requests++;
+          body=JSON.parse(req.body);
+          enterHttp();
+          await held;
+          return response();
+        }});
+      const turn=await x.typed('Do you still remember our flying purple car joke?');
+      const settled=x.settled(turn);
+      try{
+        // fetchImpl is reached ONLY AFTER the real knowledgeDelivery.beforeRequest()
+        // admission, so this exercises the immutable in-flight request path.
+        await Promise.race([entered,new Promise((_,reject)=>setTimeout(()=>
+          reject(Error('m8_http_admission_timeout')),12000))]);
+        assert.equal(requests,1);
+        assert.match(JSON.stringify(body),/character_opinion/,'M8 opinion really reached HTTP');
+        const strict=x.store.memoryReadFence,requestFence=x.store.memoryRequestFence;
+        if(mutation==='benign'){
+          await x.store.withP2SqliteTransaction(scope,db=>{
+            db.exec('CREATE TABLE IF NOT EXISTS m8_benign_write_probe (value INTEGER)');
+            db.prepare('INSERT INTO m8_benign_write_probe (value) VALUES (?)').run(1);
+          });
+          assert.notEqual(x.store.memoryReadFence,strict,'write changed the strict pre-send fence');
+          assert.equal(x.store.memoryRequestFence,requestFence,'benign P2 write leaves in-flight authority intact');
+        }else{
+          const rows=(await x.store.readDialogueLines({...scope,limit:50})).filter(r=>r.speaker==='player');
+          const current=rows.find(r=>r.content==='Do you still remember our flying purple car joke?');
+          const source=rows.find(r=>r.content===FACTS[2]);
+          assert.ok(current&&source,'durable accepted player turn and linked joke source');
+          const forgotten=await x.store.commitCommand({scope,commandId:randomUUID(),
+            requestedByLineId:current.recordId,operation:'forget',content:current.content,
+            contentHash:createHash('sha256').update(current.content).digest('hex'),
+            evidenceRecordIds:[current.recordId,source.recordId],targetRecordId:source.recordId,
+            requestedAtUtc:current.committedAtUtc});
+          assert.equal(forgotten.status,'committed');
+          assert.notEqual(x.store.memoryRequestFence,requestFence,'privacy change revokes in-flight evidence');
+        }
+      }finally{
+        releaseHttp?.();
+      }
+      const outcome=await settled;
+      if(mutation==='benign'){
+        assert.equal(outcome.status,'completed',JSON.stringify(outcome));
+      }else{
+        assert.notEqual(outcome.status,'completed','forgotten evidence cannot yield a delivered Luna response');
+      }
+      assert.equal(requests,1,'no second provider request or silent retry');
+    });

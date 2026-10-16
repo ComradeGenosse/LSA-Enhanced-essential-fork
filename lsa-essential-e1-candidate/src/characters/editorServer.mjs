@@ -5,6 +5,7 @@ import { publishControlEndpoint } from '../control/endpointFile.mjs';
 import { describeCurrent } from '../control/currentDescribe.mjs';
 import { isUuid } from '../identity/identityContract.mjs';
 import {inspectorHtml,inspectorDetailHtml,inspectorScript} from '../memory/inspectorUi.mjs';
+import {M8_PERSONALITY_TRAITS} from '../memory/m8PersonalityCanon.mjs';
 import {createInspectorAdministration} from '../memory/inspectorAdministration.mjs';
 // Optional native-client expectation of Essential's current NPC (UX phases 2-3).
 const expectedEncounter = value => { if (value === undefined || value === null) return null; if (!isUuid(value)) throw new Error('invalid_editor_request'); return value; };
@@ -32,7 +33,8 @@ ${inspectorDetailHtml()}
 <details><summary>Read-only profile information</summary><pre id="metadata" style="white-space:pre-wrap"></pre></details>
 <div class="controls" id="controls"></div><form id="profile"><label>Name<input name="name" maxlength="80" required></label>
 <label>Nicknames (one per line)<textarea name="nicknames"></textarea></label><label>Biography<textarea name="biography" maxlength="1200"></textarea></label>
-<label>Personality<textarea name="personality" maxlength="1200"></textarea></label><label>Traits (one per line)<textarea name="traits"></textarea></label>
+<label>Personality<textarea name="personality" maxlength="1200"></textarea></label><label>Traits (one per line)<textarea name="traits" aria-describedby="m8TraitHelp"></textarea></label>
+<small id="m8TraitHelp">For M8 opinions, use these exact traits (one per line; case-insensitive): ${M8_PERSONALITY_TRAITS.join(', ')}. Other traits stay in the profile but do not change M8 interpretations. Personality prose is not parsed by M8.</small>
 <label>Relationship<select name="relationshipState"><option>associate</option><option>friend</option><option>trusted</option><option>strained</option><option>neutral</option></select></label>
 <label>Relationship details<textarea name="relationship" maxlength="600"></textarea></label><label>Player notes<textarea name="playerNotes" maxlength="2400"></textarea></label>
 <label>Availability<select name="availability"><option>available</option><option>dead</option><option>retired</option></select></label><button>Save profile</button></form>
