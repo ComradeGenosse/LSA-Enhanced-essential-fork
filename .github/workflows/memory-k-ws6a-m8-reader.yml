@@ -4,6 +4,12 @@ on:
     paths:
       - 'lsa-essential-e1-candidate/src/memory/p2M8ProductionRead.mjs'
       - 'lsa-essential-e1-candidate/tests/memory/ws6M8ProductionRead.test.mjs'
+      - 'lsa-essential-e1-candidate/src/memory/m8IndependentInterpretation.mjs'
+      - 'lsa-essential-e1-candidate/src/memory/independentForegroundMemory.mjs'
+      - 'lsa-essential-e1-candidate/src/integration/essentialGlue.mjs'
+      - 'lsa-essential-e1-candidate/tests/memory/m8IndependentActivation.test.mjs'
+      - 'lsa-essential-e1-candidate/tests/memory/m8IndependentInterpretation.test.mjs'
+      - 'tools/memory-k-verification/registrations/l-independent-m8.json'
       - 'lsa-shared-brain/src/memory/m8SqliteHistory.mjs'
       - '.github/workflows/memory-k-ws6a-m8-reader.yml'
   workflow_dispatch:
@@ -27,5 +33,8 @@ jobs:
         run: |
           node --check lsa-essential-e1-candidate/src/memory/p2M8ProductionRead.mjs
           node --check lsa-essential-e1-candidate/tests/memory/ws6M8ProductionRead.test.mjs
+          node --check lsa-essential-e1-candidate/src/memory/m8IndependentInterpretation.mjs
+          node --check lsa-essential-e1-candidate/tests/memory/m8IndependentActivation.test.mjs
+          node --check lsa-essential-e1-candidate/tests/memory/m8IndependentInterpretation.test.mjs
       - name: Real SQLite / M8 / PS4 regression
-        run: node --test --test-concurrency=1 lsa-essential-e1-candidate/tests/memory/ws6M8ProductionRead.test.mjs lsa-shared-brain/tests/memory-m8-closure.test.mjs
+        run: node --test --test-concurrency=1 lsa-essential-e1-candidate/tests/memory/ws6M8ProductionRead.test.mjs lsa-shared-brain/tests/memory-m8-closure.test.mjs lsa-essential-e1-candidate/tests/memory/m8IndependentActivation.test.mjs lsa-essential-e1-candidate/tests/memory/m8IndependentInterpretation.test.mjs
