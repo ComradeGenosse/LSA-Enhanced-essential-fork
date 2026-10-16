@@ -22,3 +22,18 @@ Target: #138 at 57f65baae72d570b71fb90b02725896ecd0557ca. Source: PR #198 and SH
 4. Real net481 compile needs genuine RPH and DamageTracker references. Offline .NET policy CI is not a production native build. **No GTA test performed**.
 
 **Status: safe phase-0 foundation only; not full #198 acceptance. Do not merge automatically.**
+
+
+## Follow-up: gated, approximate facial presentation (2026-10-16)
+
+Added `NpcVoiceMouthOverlay.cs` to the production native target, driven by the **public** `NpcPlaybackCoordinator.IsPedCurrentlySpeaking` signal for an exact, alive, native-bound NPC turn. Unlike enqueue timestamps, this method reports the Essential NPC speaking state. It **does not expose a rendered PCM envelope**, so this is experimental talking motion, **not audio-synchronized mouth movement**.
+
+- `npcVoicePresence: {"mode":"on","mouthEnabled":true}` is required to invoke facial natives. Missing flags, `off`, `shadow`, and `on` without a literal JSON boolean `true` remain observational.
+- Only `PLAY_FACIAL_ANIM` (`mic_chatter` from `mp_facial`) and a facial-only `mood_normal_1` reset are used; 1.25-second refresh limit, no ped task/heading/voice playback control. The two neutral dictionaries are requested before applying an open animation.
+- Same-original-wrapper, handle, native memory address, world epoch, identity, generation, and player-exclusion checks prevent event leaks; old turn supersession closes its own face and stale incarnation/world transition never calls a native on an invalid ped. Cutscenes, player switches, and network sessions suppress the overlay.
+- A native exception disables the experimental mouth feature for this run; audio and ordinary conversation must continue normally.
+- This feature has NOT been demonstrated on male/female GTA V Enhanced models or checked for facial ownership conflicts. It is **opt-in experimental** and must not be enabled by default or claimed as production lip-sync. No local GTA testing was available.
+- **Spatial audio remains blocked**: the pinned Essential API has no public gain/pan hook, and existing spatialization is not verified. Never add a second player or change PCM wire format.
+- A production-quality lip-sync and positional implementation requires an Essential renderer upgrade exposing exact-turn playout levels and optional *single-mixer* spatial controls, followed by actual GTA Enhanced hardware verification. Do not enable either by default without those gates.
+
+Offline policy/observer regression tests now include observational mode, strict opt-in, not-yet-speaking audio, visible start, rate limiting, supersession, exact end, and recycled actor fail-closed behavior. CI results and GTA status must be recorded separately.
