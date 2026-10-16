@@ -27,6 +27,7 @@ import {prepareH1ConversationHistory} from '../memory/h1ConversationHistory.mjs'
 import {prepareFactualRecall} from '../memory/h2FactualRecall.mjs';
 import {composeIndependentForegroundMemory} from '../memory/independentForegroundMemory.mjs';
 import {prepareM5Commands} from '../memory/m5IndependentCommands.mjs';
+import {mayBeM5PlayerInput} from '../../../lsa-shared-brain/src/memory/m5RuntimeCoordinator.mjs';
 import { validateDecisionShape } from '../context/essentialDecision.mjs';
 import { validateStockDecision } from '../context/decisionValidator.mjs';
 import { createProviderStack } from '../providers/providerStack.mjs';
@@ -138,7 +139,7 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
       dialogueResults.player=null;
       try{runtime.retention?.noteForeground();}catch{} // M6 yields to any live turn
 
-      if(!dialogueActivation.player||runtime.closed||memoryPause.paused) return null;
+      if(!dialogueActivation.player||runtime.closed||memoryPause.paused||turn?.memoryDisabledForTurn) return null;
       const characterId=journalCharacter(turn);
       const ownerAlias=turn?.characterProjection?.profile?.promotion?.ownerAlias;
       if(!characterId||!ownerAlias||typeof isCurrent!=='function'||
@@ -184,7 +185,7 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
     // and source-fenced read receipts, never prompt text or model instructions.
     async prepareLiveTurnMemory(args) {
       try{runtime.retention?.noteForeground();}catch{}
-      if(runtime.closed||memoryPause.paused)return null;
+      if(runtime.closed||memoryPause.paused||args.turn?.memoryDisabledForTurn)return null;
       for(const state of [journalState,recallState,commandState]){
         state.preparation=null;state.validation=null;state.contributed=false;state.requestAttempted=false;
       }
@@ -380,8 +381,11 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
     },
     config,
     dialogueTrace,
-    finalizeKnowledgeFrame(turn,{input,history,source}) {
+    memoryCaptureEnabled:dialogueActivation.player,
+    shouldWaitForMemoryCommand:input=>commandActivation.mode==='on'&&mayBeM5PlayerInput(input),
+    finalizeKnowledgeFrame(turn,{input,history,source,forceNoMemory=false}) {
       const pausedAtFrame=memoryPause.paused,memoryEpoch=memoryPause.stamp();
+      const safeOnly=forceNoMemory||!!turn.memoryDisabledForTurn;
       const character=turn.characterProjection;
       // A persistent promoted NPC using the P2 SQLite history must never
       // substitute unverified RAM history if D03/native proof temporarily
@@ -390,15 +394,20 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
       const p2HistoryRequired=character?.persistent===true &&
         config.promotedCharacters?.storageMode==='sqlite';
       const args={turn:turn.identity,frozenAt:turn.knowledgeInputs?.frozenAt??0,
-        profile:pausedAtFrame&&character?.profile?{...character.profile,memories:[]}:character?.profile,persistent:character?.persistent===true,knowledgeInputs:turn.knowledgeInputs,
+        profile:(pausedAtFrame||safeOnly)&&character?.profile?{...character.profile,memories:[]}:character?.profile,persistent:character?.persistent===true,knowledgeInputs:turn.knowledgeInputs,
         actor:turn.context.actor,listener:turn.context.listener,world:turn.context.world,referenceMap:turn.context.referenceMap,
-        presence:turn.sourcePresence,history:p2HistoryRequired?[]:history,input,source,
+        presence:turn.sourcePresence,history:safeOnly||p2HistoryRequired?[]:history,input,source,
         directorEventContext:turn.directorTicket && source==='special_event'
           ? turn.context.internalEvent:null};
-      const memory=memoryPause.paused?null:turn.memoryPrepared;
+      const memory=memoryPause.paused||safeOnly?null:turn.memoryPrepared;
       // Even a missing D03 receipt must not reintroduce a previously
       // forgotten/corrected durable line from the original RAM conversation.
-      const base=renderKnowledge({...args,history:memory?[]:args.history,includePerceived:false});
+      // Every automatic fallback uses this independent no-learned-memory frame.
+      // A P1-authored name/personality survives, while prior RAM conversation,
+      // optional P2 memories, PS4 claims and unverified selected profile memories do not.
+      const base=renderKnowledge({...args,history:[],knowledgeInputs:null,
+        profile:character?.profile?{...character.profile,memories:[]}:null,includePerceived:false});
+      const ordinaryBase=safeOnly?base:renderKnowledge({...args,history:memory?[]:args.history,includePerceived:false});
       const memoryReady=memory?.status==='ready';
       const recallReady=memoryReady&&memory.preparedRecall?.status==='ready'&&
         memory.recallCurrent?.([],memory.preparedRecall.stamp)===true;
@@ -420,10 +429,10 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
         ...(journalReady||recallReady||commandsReady?{memoryStamp:journalStamp}:{})
       };
       const memoryBase=journalReady||recallReady||commandsReady
-        ?renderKnowledge({...args,...memoryArgs,includePerceived:false}):base;
+        ?renderKnowledge({...args,...memoryArgs,includePerceived:false}):ordinaryBase;
       const mode=config.dialogueKnowledge?.mode??'off',ps=runtime.intelligence?.runtime;
       let reason=mode==='off'?'disabled':'unsupported_contract',preview=null;
-      if(mode!=='off' && config.provider==='openai' && runtime.dialogueKnowledgeBuildSupported && ps?.observerIndexVersion===1 && ps?.observerSituationVersion===1 && ps?.hostContext?.hostContextVersion===1) {
+      if(!safeOnly && mode!=='off' && config.provider==='openai' && runtime.dialogueKnowledgeBuildSupported && ps?.observerIndexVersion===1 && ps?.observerSituationVersion===1 && ps?.hostContext?.hostContextVersion===1) {
         reason=runtime.intelligence.assertKnowledgeCurrent(turn.knowledgeInputs);
         if(!reason && !turn.knowledgeInputs?.ownerPendingProof) {
           try {preview=renderKnowledge({...args,...memoryArgs,includePerceived:true});}
@@ -432,7 +441,7 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
       }
       // Only explicit active mode with the matching build/live contracts may
       // select the candidate. Off/shadow always send the same hardened base.
-      let selected=mode==='active' && !reason && preview?preview:memoryBase;
+      let selected=safeOnly?base:mode==='active' && !reason && preview?preview:memoryBase;
       // SELF contributors require independent payload acceptance; baseline PS4
       // mode alone never grants activation. Optional failures preserve selection.
       let health=null;try{health=services.capabilityHealth?.();}catch{}
@@ -441,8 +450,8 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
       const dialogueReady=selfCurrent && !!turn.knowledgeInputs?.dialogueInputs && !assertDialogueActionKnowledgeCurrent(turn.knowledgeInputs.dialogueInputs,runtime.activities);
       const includeActivityFacts=activityReady && config.dialogueKnowledge?.activityFacts==='active' && health?.['ps.activity_facts']?.active===true;
       const includeDialogueReceipts=dialogueReady && config.dialogueKnowledge?.dialogueReceipts==='active' && health?.['ps.dialogue_receipts']?.active===true;
-      if(mode==='active' && preview && (includeActivityFacts || includeDialogueReceipts))try{selected=renderKnowledge({...args,...memoryArgs,includePerceived:true,activityInputs:turn.knowledgeInputs.activityInputs,dialogueInputs:turn.knowledgeInputs.dialogueInputs,includeActivityFacts,includeDialogueReceipts});}catch{}
-      if(preview && (activityReady && ['shadow','active'].includes(config.dialogueKnowledge?.activityFacts) || dialogueReady && ['shadow','active'].includes(config.dialogueKnowledge?.dialogueReceipts)))try{preview=renderKnowledge({...args,...memoryArgs,includePerceived:true,activityInputs:turn.knowledgeInputs.activityInputs,dialogueInputs:turn.knowledgeInputs.dialogueInputs,includeActivityFacts:activityReady && ['shadow','active'].includes(config.dialogueKnowledge?.activityFacts),includeDialogueReceipts:dialogueReady && ['shadow','active'].includes(config.dialogueKnowledge?.dialogueReceipts)});}catch{}
+      if(!safeOnly && mode==='active' && preview && (includeActivityFacts || includeDialogueReceipts))try{selected=renderKnowledge({...args,...memoryArgs,includePerceived:true,activityInputs:turn.knowledgeInputs.activityInputs,dialogueInputs:turn.knowledgeInputs.dialogueInputs,includeActivityFacts,includeDialogueReceipts});}catch{}
+      if(!safeOnly && preview && (activityReady && ['shadow','active'].includes(config.dialogueKnowledge?.activityFacts) || dialogueReady && ['shadow','active'].includes(config.dialogueKnowledge?.dialogueReceipts)))try{preview=renderKnowledge({...args,...memoryArgs,includePerceived:true,activityInputs:turn.knowledgeInputs.activityInputs,dialogueInputs:turn.knowledgeInputs.dialogueInputs,includeActivityFacts:activityReady && ['shadow','active'].includes(config.dialogueKnowledge?.activityFacts),includeDialogueReceipts:dialogueReady && ['shadow','active'].includes(config.dialogueKnowledge?.dialogueReceipts)});}catch{}
       turn.knowledgeMode=mode;
       turn.knowledgePreview=preview?Object.freeze({selectedObservations:preview.delivery.length,frameBytes:preview.diagnostics.bytes,frameHash:createHash('sha256').update(JSON.stringify(preview.modelAllocation)).digest('hex')}):null;
       turn.knowledgeFallbackReason=reason;
@@ -460,7 +469,7 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
           (requestSent?(memory.sendCurrentInFlight?.()??memory.sendCurrent()):memory.sendCurrent())&&!!stamp&&
           Object.keys(journalStamp).length===Object.keys(stamp).length&&
           Object.keys(journalStamp).every(key=>journalStamp[key]===stamp[key]),
-        opinionCurrent:(refs,stamp)=>recallReady&&memory.opinionCurrent(refs,stamp),
+        opinionCurrent:(refs,stamp,{requestSent=false}={})=>recallReady&&memory.opinionCurrent(refs,stamp,{requestSent}),
         pruneOpinion:frame=>pruneKnowledgeFrame(frame,()=>true,()=>true,()=>true,()=>true,()=>false),
         pruneRecall:frame=>pruneKnowledgeFrame(frame,()=>true,()=>true,()=>true,()=>false),
         isCurrent:()=>(pausedAtFrame||memoryPause.current(memoryEpoch))&&runtime.host.isCurrent(turn.identity) && (!identityService || identityService.current(turn.identity)),
@@ -563,7 +572,10 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
       // turn after exact current ownership returns, before P1/STT/D03 capture.
       if(!profile||journalActivation.mode!=='on'||!runtime.intelligence||
          journalStore?.timelineSelectionConfirmed!==true)return;
-      const ready=await awaitFreshMemorySource({signal,deadlineAt,
+      let ready=false;
+      try{ready=await awaitFreshMemorySource({signal,deadlineAt,
+        // Optional native readiness cannot consume the whole STT/model/TTS budget.
+        maxWaitMs:Math.max(0,Math.min(350,deadlineAt-performance.now()-2500)),
         isCurrent:()=>runtime.host.isCurrent(turn.identity),
         ready:()=>{
           if(journalStore.timelineWritable!==true)return false;
@@ -572,11 +584,13 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
           if(!lease)return false;
           runtime.memoryD02.revokeLease(lease);
           return true;
-        }});
-      if(!ready){
+        }});}catch{ready=false;}
+      if(!ready&&!signal.aborted&&runtime.host.isCurrent(turn.identity)){
         try{telemetry?.emit?.('memory_journal_not_committed',turn.identity,turn.source,
           {role:'player',reason:'d03_native_readiness_timeout'});}catch{}
-        throw new Error('memory_source_unavailable');
+        turn.memoryDisabledForTurn='native_memory_source_timeout';
+        // P1 identity is still independently validated by prepareIdentity.
+        // Never synthesize a native ownership/memory receipt here.
       }
     },
     captureCharacterInputs(identity,actor) {
