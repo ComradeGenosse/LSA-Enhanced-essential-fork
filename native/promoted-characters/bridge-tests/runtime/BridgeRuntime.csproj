@@ -9,6 +9,7 @@
     <Compile Include="Driver.cs" />
     <Compile Include="../../RuntimeEntry.cs" Link="RuntimeEntry.cs" />
     <Compile Include="../../PromotedCharactersIntegration.cs" Link="PromotedCharactersIntegration.cs" />
+    <Compile Include="../../lifecycle-tests/VoicePresenceHarnessStub.cs" Link="VoicePresenceHarnessStub.cs" />
     <Compile Include="../../ActivityCommands.cs" Link="ActivityCommands.cs" />
     <Compile Include="../../../activities/ActivityContracts.cs" Link="ActivityContracts.cs" />
     <Compile Include="../../../activities/CapabilityTable.cs" Link="CapabilityTable.cs" />
