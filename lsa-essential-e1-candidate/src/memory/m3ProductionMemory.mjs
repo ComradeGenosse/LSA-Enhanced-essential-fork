@@ -13,6 +13,14 @@ import {createNativeMemoryAuthority} from './nativeMemoryAuthority.mjs';
 import {resolveLivePromotedProfile} from './livePromotedProfile.mjs';
 import {createM3Ps2ObserverAdapter} from '../../../lsa-shared-brain/src/events/m3Ps2ObserverAdapter.mjs';
 
+// Bounded diagnostic payload; never expose raw persistence exception text.
+export function m3CoverageDiagnostic(stage,detail){
+ return {stage:stage.replace(/^coverage_/,''),
+  ...(typeof detail?.reason==='string'?{nativeReason:detail.reason}:{}),
+  ...(typeof detail?.code==='string'?{code:detail.code}:{}),
+  ...(typeof detail?.errorType==='string'?{errorType:detail.errorType}:{}),
+  ...(typeof detail?.retryable==='boolean'?{retryable:detail.retryable}:{})};
+}
 export function createM3ProductionMemory({intelligence,memoryStore,nativeAuthority=null,
     telemetry=null,attribution='observation_time',coverage={},authorityOptions={},
     adapterOptions={},eventMode='on',coverageMode=coverage===null?'off':'on',
@@ -49,8 +57,7 @@ export function createM3ProductionMemory({intelligence,memoryStore,nativeAuthori
       {...coverage,resolveCharacter:alias=>resolveLivePromotedProfile(memoryStore,alias)}:null,
     onLoss:(stage,detail)=>{
       if(typeof stage==='string'&&stage.startsWith('coverage_')){
-        emit('memory_m3_coverage',{stage:stage.slice('coverage_'.length),
-          ...(typeof detail?.reason==='string'?{nativeReason:detail.reason}:{})});
+        emit('memory_m3_coverage',m3CoverageDiagnostic(stage,detail));
       }else emit('memory_m3_intake_loss',{stage});
     },
     // These gates cannot be replaced by adapterOptions or a test authority.
