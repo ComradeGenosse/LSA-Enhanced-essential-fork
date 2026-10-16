@@ -2,7 +2,7 @@ import {createHash} from 'node:crypto';
 import {validateDecisionShape} from './essentialDecision.mjs';
 const hash=value=>createHash('sha256').update(JSON.stringify(value)).digest('hex');
 // Per-generation request state only; the existing salience ledger owns consumption.
-export function createKnowledgeDelivery({frame,baseFrame=frame,isCurrent,validate=()=>null,prune=frame=>frame,pruneRecall=null,recallCurrent=()=>false,pruneOpinion=null,opinionCurrent=()=>false,memoryCurrent=()=>true,verifyPrepared=null,acknowledge=()=>false,onRequest=()=>{},onOutcome=()=>{}}) {
+export function createKnowledgeDelivery({frame,baseFrame=frame,isCurrent,validate=()=>null,prune=frame=>frame,pruneMemory=null,pruneRecall=null,recallCurrent=()=>false,pruneOpinion=null,opinionCurrent=()=>false,memoryCurrent=()=>true,verifyPrepared=null,acknowledge=()=>false,onRequest=()=>{},onOutcome=()=>{}}) {
  let projection=frame,sent=false,terminal=false,requestHash=null,projectionHash=null,unsubscribe=null;
  const dispose=()=>{unsubscribe?.();unsubscribe=null;};
  const hasOptional=()=>projection.delivery.length>0 || (projection.activityReferences?.length??0)>0 ||
@@ -49,7 +49,12 @@ export function createKnowledgeDelivery({frame,baseFrame=frame,isCurrent,validat
    // Unsent optional evidence can be wholly removed; a sent source must
    // abort even if the provider is retrying the very same request body.
    for(let n=0;!sent&&n<3;n++){
-     if(reason==='memory_stale'){projection=baseFrame;reason=currentReason();continue;}
+     if(reason==='memory_stale'){
+       // Pre-send: a stale foreground contribution may be stripped while an
+       // independently verified opinion remains. Never revise a sent request.
+       projection=typeof pruneMemory==='function'?pruneMemory(projection):baseFrame;
+       reason=currentReason();continue;
+     }
      if(reason==='recall_stale'&&typeof pruneRecall==='function'){
        projection=pruneRecall(projection);reason=currentReason();continue;
      }
