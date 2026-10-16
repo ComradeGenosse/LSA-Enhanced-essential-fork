@@ -320,7 +320,12 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
             // The ledger counts the PCM this runner really handed to native for
             // this segment and later compares it to the provider's own total.
             let ledgerSegment = null;
-            try { ledgerSegment = speech?.beginSegment({ sequence: segment.sequence, text: segment.text }) ?? null; } catch { ledgerSegment = null; }
+            // The structured decoder publishes 1-based ordinals; WS-5a's
+            // private speech-delivery ledger requires consecutive 0-based indices.
+            // Keep external segment identities and telemetry unchanged.
+            const ledgerIndex = Number.isSafeInteger(segment.sequence) && segment.sequence > 0
+              ? segment.sequence - 1 : null; // invalid ordinals fail closed in the ledger
+            try { ledgerSegment = speech?.beginSegment({ sequence: ledgerIndex, text: segment.text }) ?? null; } catch { ledgerSegment = null; }
             let audio;
             try {
               audio = await performProvider('tts', services.providerStack.speech.id,

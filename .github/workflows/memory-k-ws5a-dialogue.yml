@@ -40,6 +40,6 @@ jobs:
           node --check lsa-essential-e1-candidate/src/openai/runSequentialTurn.mjs
           node --check lsa-shared-brain/src/memory/journalSqlite.mjs
       - name: NPC dialogue real-runner end to end, ledger and P2 SQLite, no shared dist races
-        run: node --test --test-concurrency=1 lsa-essential-e1-candidate/tests/memory/ws5aNpcDialogueCapture.test.mjs lsa-essential-e1-candidate/tests/memory/ws5aJournalAndLedger.test.mjs
+        run: node --test --test-concurrency=1 lsa-essential-e1-candidate/tests/memory/ws5aNpcDialogueCapture.test.mjs lsa-essential-e1-candidate/tests/memory/ws5aJournalAndLedger.test.mjs lsa-essential-e1-candidate/tests/npc-speech-stream-ledger.test.mjs
       - name: Existing W03, D03 and D01 security regression
         run: node --test --test-concurrency=1 lsa-essential-e1-candidate/tests/memory-k-w03-m2-receipts.test.mjs lsa-essential-e1-candidate/tests/memory/d03OriginalDialogueJoin.test.mjs lsa-essential-e1-candidate/tests/memory/d01OpenAIAcceptance.test.mjs
