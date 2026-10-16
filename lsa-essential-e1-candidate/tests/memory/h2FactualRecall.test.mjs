@@ -21,6 +21,8 @@ test('H2 exact quote from an earlier session is byte-exact Unicode with speaker/
  const [item]=items(h2);
  assert.equal(item.mode,'exact_quote');assert.equal(item.recordId,old.recordId);
  assert.equal(item.speaker,'player','M4 carries verified player voice');
+ assert.equal((await import('../../src/context/knowledgeSelector.mjs')).projectPreparedRecall(h2.preparedRecall).earlierArchivedConversation[0].speaker,'player',
+   'PS4 carries the original speaker, not an unattributed quote');
  assert.equal(item.sourceAvatar,'michael','source avatar attribution is retained');
  assert.equal(item.freshness,'archive');
  assert(!items(h2).some(x=>x.recordId===receipt.recordId),'current accepted line is not history');
@@ -35,6 +37,8 @@ test('H2 recent factual retrieval returns completed NPC speech and never failed/
  assert.deepEqual(contents(h2),['The informant meets us at the marina at midnight']);
  assert.equal(items(h2)[0].freshness,'live');
  assert.equal(items(h2)[0].speaker,'npc','NPC quote is not player speech');
+ assert.equal((await import('../../src/context/knowledgeSelector.mjs')).projectPreparedRecall(h2.preparedRecall).evidence[0].speaker,'npc',
+   'PS4 preserves Nathan as the historical speaker');
  assert.equal(h2.timings.totalMs>=h2.timings.retrievalMs,true);
 });
 

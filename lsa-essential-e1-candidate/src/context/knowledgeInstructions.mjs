@@ -5,7 +5,7 @@ export const KNOWLEDGE_SLOT='{{LSA_TURN_KNOWLEDGE_FRAME}}';
 // obsolete prose/examples to Luna alongside the authoritative JSON schema.
 export function stripLegacyPipeActionInstructions(instruction){
  return String(instruction??'').toWellFormed().split(/\r?\n/).filter(line=>
-   !/\bDO\s+[A-Za-z][^|\r\n]{0,160}\|[^\r\n]*/i.test(line) &&
+   !/\bDO\s+[A-Za-z][^|\r\n]{0,160}\|[^\r\n]*/.test(line) &&
    !/\b(?:action|command)\s*\|\s*(?:speech|dialogue)\b/i.test(line)
  ).join('\n');
 }
