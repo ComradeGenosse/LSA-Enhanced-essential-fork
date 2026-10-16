@@ -17,6 +17,10 @@ import {profile} from './p2-fixtures.mjs';
 import {createConversationJournalRecorder} from '../../lsa-shared-brain/src/memory/conversationRecorder.mjs';
 import {DatabaseSync} from 'node:sqlite';
 import {createM5SqliteServices} from '../../lsa-shared-brain/src/memory/m5SqlitePrivacy.mjs';
+import {createM6RuntimeRetention} from '../src/memory/m6RuntimeRetention.mjs';
+import {memoryKConsumersAllowed,memoryKDialogueActivation,memoryKH1Activation,memoryKH2Activation,memoryKM5Activation} from '../src/memory/runtimeComposition.mjs';
+import {memoryKM3Activation} from '../src/memory/m3Activation.mjs';
+import {memoryKSourceActivation} from '../src/memory/sourceActivation.mjs';
 
 const BASE=Date.parse('2026-10-16T12:00:00.000Z');
 const at=s=>new Date(BASE+s*1000).toISOString();
@@ -89,6 +93,59 @@ test('J-B: M6 runtime is off by default and never constructs cloud curation',asy
   const caps=runtime.services.memoryKRuntimeDiagnostics().capabilities;
   assert.equal(caps['memory.cloudCuration'].effectiveMode,null,'M7 stays unavailable and independently optional');
   assert.equal(caps['memory.cloudCuration'].state,'unavailable');
+});
+
+test('J-B: M6-only opt-in keeps legacy recording, recall, M3, PS and M5 enabled',()=>{
+  const config={memoryK:{capabilities:{'memory.deterministic':'on'}}};
+  assert.equal(memoryKConsumersAllowed(config),true);
+  assert.equal(memoryKDialogueActivation(config).player,true);
+  assert.equal(memoryKDialogueActivation(config).npc,true);
+  assert.equal(memoryKH1Activation(config).mode,'on');
+  assert.equal(memoryKH2Activation(config).mode,'on');
+  assert.equal(memoryKM5Activation(config).mode,'on');
+  assert.equal(memoryKM3Activation(config).events.mode,'on');
+  assert.equal(memoryKM3Activation(config).coverage.mode,'on');
+  assert.equal(memoryKSourceActivation(config).ps2.enabled,true);
+  assert.equal(memoryKSourceActivation(config).ps3.enabled,true);
+  assert.equal(memoryKConsumersAllowed({memoryK:{capabilities:{
+    'memory.deterministic':'on','memory.recall':'off'}}}),false,
+    'explicit sibling gates still disable inheritance');
+});
+
+test('J-B: persistent failure of one NPC cannot be masked by successful NPC work',async t=>{
+  const root=await mkdtemp(path.join(tmpdir(),'memory-jb-failures-'));
+  const {runtime,store,h}=await boot(t,{root,capabilities:{'memory.deterministic':'off'}});
+  t.after(()=>rm(root,{recursive:true,force:true}));
+  const bad=await store.create(profile({name:'Broken NPC'}));
+  const good=await store.create(profile({name:'Healthy NPC'}));
+  const timelineId=await store.createTimeline({label:'J-B failures'});
+  await confirm(store,timelineId);
+  let badAttempts=0;
+  const faultingStore=new Proxy(store,{get(target,key){
+    if(key==='readM6Checkpoint')return args=>{
+      if(args.scope.characterId===bad.characterId){badAttempts++;throw new Error('m6_test_scope_failure');}
+      return target.readM6Checkpoint(args);
+    };
+    const value=Reflect.get(target,key,target);
+    return typeof value==='function'?value.bind(target):value;
+  }});
+  const retention=createM6RuntimeRetention({store:faultingStore,now:()=>h.nowMs,maxConsecutiveFailures:3});
+  t.after(()=>retention.dispose());
+  for(let i=0;i<3;i++){
+    const tick=await retention.tick();
+    assert.equal(tick.processed,1,'healthy scope is still processed');
+    assert.equal(tick.recovered,false,'failed recovery is not certified');
+  }
+  assert.equal(badAttempts,3);
+  assert.equal(retention.diagnostics().degradedScopes,1);
+  assert.equal(retention.diagnostics().state,'degraded');
+  // The failing scope is quarantined, not retried on every tick, while the
+  // other NPC remains eligible. Recovery never claims to be fully complete.
+  const tick=await retention.tick();
+  assert.equal(tick.processed,1);
+  assert.equal(badAttempts,3);
+  assert.equal(tick.recovered,false);
+  assert.equal(retention.diagnostics().degradedScopes,1);
 });
 
 test('J-B: startup recovery retains qualifying conversations without "remember", survives restart and stays recallable by M4',async t=>{
