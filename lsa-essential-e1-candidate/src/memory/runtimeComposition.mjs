@@ -133,11 +133,15 @@ export function createMemoryKRuntimeComposition(config) {
 // Independent production adapters follow in later workstreams. Explicit
 // requests cannot activate coupled legacy bundles as an incidental effect.
 export function memoryKConsumersAllowed(config) {
-  // M6 and M7 are background-only add-ons, not requests to independently gate the
-  // existing dialogue / M3 / PS / WS6 consumers. Other explicit capability
-  // entries still opt into the strict independent-activation contract.
-  return Object.keys(config.memoryK?.capabilities??{})
-    .every(id=>id==='memory.deterministic'||id==='memory.cloudCuration');
+  // M6/M7 are background-only add-ons. Their privileged inspector does not
+  // turn a background-only opt-in into an implicit foreground shutdown.
+  // Inspector-only and any other explicit foreground capability selection still
+  // opt into strict independent activation (unspecified siblings remain off).
+  const requests=config.memoryK?.capabilities??{};
+  const backgroundRequested=requests['memory.deterministic']==='on'||
+    requests['memory.cloudCuration']==='on';
+  return Object.keys(requests).every(id=>id==='memory.deterministic'||
+    id==='memory.cloudCuration'||(id==='memory.inspector'&&backgroundRequested));
 }
 
 // Restart-required recording switches. Unspecified siblings in an explicit
