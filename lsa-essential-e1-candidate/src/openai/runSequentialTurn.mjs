@@ -63,6 +63,7 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
   const isPlayer = PLAYER_SOURCES.has(source);
   const dialogueTurn = services.dialogueTrace?.beginTurn(identity, source);
   let observation;
+  let reaction = null;
   let state = 'bound';
   let terminalReason = '';
   let underlyingNativeCause = null;
@@ -171,6 +172,10 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
   try {
     check();
     host.assertCapabilities();
+    // Optional cosmetic-reaction hook (default off; null unless reactions.mode is
+    // shadow/on and this source may react). Best effort: it can never affect the turn.
+    try { reaction = services.reactions?.openTurn({ identity, source, signal: controller.signal, isCurrent: valid }) ?? null; }
+    catch { reaction = null; }
     observation = host.observe(identity, controller.signal, event => {
       const reason = terminalForNativeEvent(event);
       if (event.type === 'playback_ended' && endSent && event.reason === 'completed' &&
@@ -183,6 +188,7 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
       if (!controller.signal.aborted) controller.abort(new Error(reason));
     }, event => {
       try { speech?.native(event); } catch { /* evidence only */ }
+      try { reaction?.native(event); } catch { /* cosmetic only */ }
       const map = {
         audio_turn_accepted: 'native_authorization_accepted',
         audio_turn_rejected: 'native_authorization_rejected',
@@ -417,6 +423,10 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
     try { speech?.planned(decision.dialogue); } catch { /* evidence only */ }
     metrics?.event('decision_validated', { inputChars: String(decision.dialogue || '').length, attempts: validated.actionCount || 0, outcome: validated.actionCount ? 'accepted' : 'normal' });
     dialogueTurn?.decision({ dialogue: decision.dialogue, command: decision.command, internalTranscript: validated.internalTranscript });
+    // Validated line only: the selector sees the NPC's own words and whether a
+    // command accompanies them. The frame still waits for matching playback_started.
+    try { reaction?.validated({ dialogue: decision.dialogue, command: decision.command, actionCount: validated.actionCount }); }
+    catch { /* cosmetic only */ }
     history.stage({ identity, spokenReply: decision.dialogue });
     metrics?.count('assistantStageCount');
     metrics?.event('assistant_history_staged', { outputChars: String(decision.dialogue || '').length });
@@ -534,6 +544,7 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
     try { acceptance?.release(); } catch {}
     try{turn.m2Capture?.retire();}catch{}
     try { speech?.release(); } catch {}
+    try { reaction?.release(); } catch {}
     history.discard(identity);
     observation?.dispose();
     turn.knowledgeDelivery?.dispose();
