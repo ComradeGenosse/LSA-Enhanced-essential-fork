@@ -69,6 +69,7 @@ namespace LSA.PromotedCharacters {
                     // Never roll the same ped's generation backwards.
                     if(state.Active&&state.Epoch==epoch&&state.ActiveKey.PedId==f.Key.PedId&&
                        f.Key.Generation<=state.ActiveKey.Generation)continue;
+                    if(state.Active) mouth?.Close(ped); // close prior owner's overlay before replacing turn
                     if(state.Begin(f.Key,epoch,nowMs)) {
                         ped=f.Speaker;address=ped.MemoryAddress;handle=ped.Handle;
                     }
