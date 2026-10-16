@@ -1,9 +1,10 @@
 import {resolveMemoryKCapabilities} from './capabilityPolicy.mjs';
+import {memoryKConsumersAllowed} from './runtimeComposition.mjs';
 
 // Startup-only G controls. Dependencies describe source qualification, never
 // conversation recording, notability, recall or background processing.
 export function memoryKM3Activation(config) {
-  const explicit=Object.keys(config.memoryK?.capabilities??{}).length>0;
+  const explicit=!memoryKConsumersAllowed(config);
   const policy=resolveMemoryKCapabilities({config});
   const gate=id=>{
     const row=policy[id],requestedMode=explicit?row.requestedMode:'on';
