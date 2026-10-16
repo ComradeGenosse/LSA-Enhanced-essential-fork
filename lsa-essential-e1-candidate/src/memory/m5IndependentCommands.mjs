@@ -82,7 +82,7 @@ export async function prepareM5Commands({store,turn,acceptedReceipt,input,source
   const successes=(result.actions??[]).filter(a=>a?.durableCommit===true&&SUCCESS.has(a.outcome));
   const outcome=memoryAction.every(a=>a.durableCommit)?'durable_command_success':
     memoryAction.some(a=>a.outcome==='clarify')?'clarification_required':'command_failure';
-  let verified=false,verifiedFence=null;
+  let verified=false,verifiedFence=null,verifiedRequestFence=null;
   // Awaited on EVERY model attempt and again at the request boundary.
   async function verifyPrepared(){
     verified=false;verifiedFence=null;
@@ -98,11 +98,16 @@ export async function prepareM5Commands({store,turn,acceptedReceipt,input,source
            !receipt.evidenceRecordIds?.includes(line.recordId))return false;
       }
       if(!current()||store.memoryReadFence!==fence)return false;
-      verified=true;verifiedFence=fence;
+      verified=true;verifiedFence=fence;verifiedRequestFence=store.memoryRequestFence??fence;
       return true;
     }catch{return false;}
   }
   const sendCurrent=()=>verified&&current()&&store.memoryReadFence===verifiedFence;
+  const sendCurrentInFlight=()=>verified&&current()&&
+    (store.memoryRequestFence??store.memoryReadFence)===verifiedRequestFence;
+  const invalidationReason=()=>!verified?'not_verified':!current()?'authority_revoked':
+    store.memoryRequestFenceFailure?.(verifiedRequestFence)??
+    (sendCurrentInFlight()?null:'source_changed');
   return freeze({status:'ready',reason:null,outcome,stamp,memoryAction,
-    verifyPrepared,sendCurrent});
+    verifyPrepared,sendCurrent,sendCurrentInFlight,invalidationReason});
 }

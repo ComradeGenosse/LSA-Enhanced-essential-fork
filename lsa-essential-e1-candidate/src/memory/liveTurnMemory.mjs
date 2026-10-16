@@ -124,7 +124,7 @@ export async function prepareLiveTurnMemory({store,turn,acceptedReceipt,input,so
     const recallCurrent=(_references,seen)=>!!seen&&
       Object.keys(stamp).length===Object.keys(seen).length&&
       Object.keys(stamp).every(k=>seen[k]===stamp[k])&&current();
-    let verifiedFence=null,memoryValid=true,opinionValid=preparedM8?.status==='ready';
+    let verifiedFence=null,verifiedRequestFence=null,memoryValid=true,opinionValid=preparedM8?.status==='ready';
     // Awaited on EVERY model attempt and again at the request boundary. The
     // synchronous connection fence closes the gap from last read to fetch.
     async function verifyPrepared(){
@@ -156,14 +156,23 @@ export async function prepareLiveTurnMemory({store,turn,acceptedReceipt,input,so
           JSON.stringify(freshCount)===JSON.stringify(count)&&JSON.stringify(freshWitness)===JSON.stringify(witness);
         opinionValid=m8Ok===true;
         verifiedFence=fence;
+        verifiedRequestFence=store.memoryRequestFence??fence;
         return memoryValid;
       }catch{return false;}
     }
     const sendCurrent=()=>memoryValid&&current()&&verifiedFence!==null&&
       store.memoryReadFence===verifiedFence&&preparedH1.sendCurrent();
+    const sendCurrentInFlight=()=>memoryValid&&current()&&verifiedFence!==null&&
+      (store.memoryRequestFence??store.memoryReadFence)===verifiedRequestFence&&
+      (preparedH1.sendCurrentInFlight?.()??preparedH1.sendCurrent());
+    const invalidationReason=()=>!memoryValid?'verification_failed':!current()?'authority_revoked':
+      verifiedFence===null?'not_verified':
+      store.memoryRequestFenceFailure?.(verifiedRequestFence)??
+      (sendCurrentInFlight()?null:preparedH1.invalidationReason?.()??'source_changed');
     const opinionCurrent=(_refs,seen)=>opinionValid&&sendCurrent()&&!!seen&&
       Object.keys(preparedM8.stamp).every(k=>seen[k]===preparedM8.stamp[k]);
     return Object.freeze({status:'ready',preparedRecall,preparedM8,conversationJournal,
-      memoryAction,recallCurrent,verifyPrepared,sendCurrent,opinionCurrent});
+      memoryAction,recallCurrent,verifyPrepared,sendCurrent,sendCurrentInFlight,
+      invalidationReason,opinionCurrent});
   }catch{return empty;}
 }
