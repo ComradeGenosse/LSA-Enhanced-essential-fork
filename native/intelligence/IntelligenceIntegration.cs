@@ -209,6 +209,12 @@ namespace LSA.Intelligence
                 anchors.Retired+=OnRetired;anchors.Retirement+=OnRetirement;
                 InitializeProducerAdapters();
                 channel=new IntelligenceChannel(pipeName,Guid.NewGuid().ToString("D"),()=>capabilities,host.HostRunId,()=>host.WorldEpoch,true,directorShadow,memoryCurrentOwnerPlayerSample!=null);channel.Start();
+                // W07: the pinned Core supplies partial C-06 quiet evidence, but
+                // no global normal-turn or Essential terminal-idle proof. Report
+                // the exact missing gates once, without publishing an idle permit.
+                // This diagnostic is not a cloud-authorization source.
+                LogStatus("[M7] native_idle_source_unavailable missing_core="+
+                    string.Join(",",M7NativeIdlePrioritySource.UnsupportedPinnedCoreFields));
                 previousTick=unchecked((uint)Game.GameTime);started=true;Game.LogTrivial("[PS] native_adapter_loaded shadow");
                 if(radioEnabled)Game.LogTrivial("[PS] radio_shadow");
             } catch {Shutdown("initialization_failed");LogStatus("[PS] optional_initialization_failed");}
