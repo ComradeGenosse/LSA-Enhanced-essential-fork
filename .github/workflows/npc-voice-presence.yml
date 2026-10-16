@@ -1,0 +1,23 @@
+name: NPC voice presence policy
+on:
+  pull_request:
+    paths:
+      - 'native/promoted-characters/VoicePresenceTurnTracker.cs'
+      - 'native/promoted-characters/NpcVoicePresenceObserver.cs'
+      - 'native/promoted-characters/voice-presence-tests/**'
+      - 'native/promoted-characters/RuntimeEntry.cs'
+      - 'native/promoted-characters/PromotedCharactersIntegration.cs'
+      - 'native/promoted-characters/PromotedCharacters.csproj'
+      - '.github/workflows/npc-voice-presence.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  policy:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - run: dotnet run --project native/promoted-characters/voice-presence-tests/VoicePresenceTests.csproj -c Release

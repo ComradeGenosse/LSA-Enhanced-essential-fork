@@ -51,6 +51,8 @@ namespace LSA.PromotedCharacters
                     integration=new PromotedCharactersIntegration(config.worldProfileId,config.pipeName,config.identityPipeName,host);
                     if(config.activities?.mode=="shadow") { try { integration.EnableActivityShadow(config.activities.pipeName,collectDialogueReceipts);} catch {Game.LogTrivial("[ACT] optional_host_unavailable");} }
                     else if(config.activities?.mode=="on") { try { integration.EnableActivityExecution(config.activities.pipeName,collectDialogueReceipts);} catch {Game.LogTrivial("[ACT] optional_host_unavailable");} }
+                    try { integration.ConfigureVoicePresence(config.npcVoicePresence?.mode ?? "off"); }
+                    catch { Game.LogTrivial("[VP] observer_configuration_failed"); }
                     integration.Prepare();
                     IntegrationManager.Register(integration);
                     if(config.intelligence?.mode=="shadow") {
@@ -106,7 +108,9 @@ namespace LSA.PromotedCharacters
             public IntelligenceConfig intelligence {get;set;}=new IntelligenceConfig();
             public ActivitiesConfig activities {get;set;}=new ActivitiesConfig();
             public NativeMemoryKConfig memoryK {get;set;}
+            public VoicePresenceConfig npcVoicePresence {get;set;}=new VoicePresenceConfig();
         }
+        public sealed class VoicePresenceConfig {public string mode {get;set;}="off";}
         public sealed class NativeMemoryKConfig {public System.Collections.Generic.Dictionary<string,object> capabilities {get;set;}}
         public sealed class IntelligenceConfig {public string mode {get;set;}="off";public string directorMode {get;set;}="off";public string radio {get;set;}="off";public object directorAttemptPreset {get;set;}="normal";public string pipeName {get;set;}="LSA.Intelligence.v1";public System.Collections.Generic.Dictionary<string,object> producers {get;set;}}
         public sealed class ActivitiesConfig {public object dialogueReceipts {get;set;}=false;public string mode {get;set;}="off";public string pipeName {get;set;}="LSA.Activities.v1";}
