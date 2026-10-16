@@ -1,0 +1,59 @@
+name: Memory K L independent M8 interpretation (offline)
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, ready_for_review]
+    paths:
+      - '.github/workflows/memory-k-l-independent-m8.yml'
+      - 'lsa-essential-e1-candidate/src/**'
+      - 'lsa-shared-brain/src/memory/m8Interpretation.mjs'
+      - 'lsa-essential-e1-candidate/tests/memory/m8Independent*.test.mjs'
+      - 'lsa-essential-e1-candidate/tests/memory/independentForegroundMemory.test.mjs'
+      - 'tools/memory-k-verification/registrations/m8-independent-interpretation.json'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: memory-k-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  independent-m8:
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    name: M8 independent activation (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Syntax checks
+        shell: bash
+        run: |
+          set -euo pipefail
+          for file in lsa-essential-e1-candidate/src/memory/m8IndependentInterpretation.mjs lsa-essential-e1-candidate/src/memory/m8PersonalityCanon.mjs lsa-essential-e1-candidate/src/memory/p2M8ProductionRead.mjs lsa-essential-e1-candidate/src/memory/independentForegroundMemory.mjs lsa-essential-e1-candidate/src/memory/runtimeComposition.mjs lsa-essential-e1-candidate/src/integration/essentialGlue.mjs lsa-essential-e1-candidate/src/bootstrap.mjs lsa-essential-e1-candidate/src/context/knowledgeDelivery.mjs lsa-shared-brain/src/memory/m8Interpretation.mjs; do node --check "$file"; done
+      - name: M8-only activation, personality, privacy and stale-evidence tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --test --test-concurrency=1 lsa-essential-e1-candidate/tests/memory/m8IndependentInterpretation.test.mjs lsa-essential-e1-candidate/tests/memory/m8IndependentActivation.test.mjs lsa-essential-e1-candidate/tests/memory/independentForegroundMemory.test.mjs 2>&1 | tee "$RUNNER_TEMP/m8-independent.log"
+      - name: Existing M8, H1/H2, M5 and WS6 regressions
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --test --test-concurrency=1 lsa-shared-brain/tests/memory-m8-closure.test.mjs lsa-essential-e1-candidate/tests/memory/ws6M8ProductionRead.test.mjs lsa-essential-e1-candidate/tests/memory/ws6LiveTurnMemory.test.mjs lsa-essential-e1-candidate/tests/memory/ws6ProductionPipeline.test.mjs lsa-essential-e1-candidate/tests/memory/h2ForegroundActivation.test.mjs lsa-essential-e1-candidate/tests/memory/h1IndependentActivation.test.mjs lsa-essential-e1-candidate/tests/memory/m5IndependentCommands.test.mjs lsa-essential-e1-candidate/tests/memory-k-w05-one-frame.test.mjs lsa-essential-e1-candidate/tests/knowledge-delivery.test.mjs lsa-essential-e1-candidate/tests/memory-capability-policy.test.mjs 2>&1 | tee "$RUNNER_TEMP/m8-regressions.log"
+      - name: Strict registered test inventory
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --test tools/memory-k-verification/tests/*.test.mjs 2>&1 | tee "$RUNNER_TEMP/m8-inventory.log"
+      - name: Preserve raw offline evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: m8-independent-${{ matrix.os }}
+          path: ${{ runner.temp }}/m8-*.log

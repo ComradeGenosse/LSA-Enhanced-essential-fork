@@ -22,13 +22,13 @@ export function createKnowledgeDelivery({frame,baseFrame=frame,isCurrent,validat
  };
  return Object.freeze({
   async prepareAsync(){
-   if(projection.memoryStamp&&typeof verifyPrepared==='function'){
+   if((projection.memoryStamp||projection.opinionStamp)&&typeof verifyPrepared==='function'){
     try{await verifyPrepared();}catch{}
    }
    return this.prepare();
   },
   async verifyBeforeRequest(){
-   if(projection.memoryStamp&&typeof verifyPrepared==='function'){
+   if((projection.memoryStamp||projection.opinionStamp)&&typeof verifyPrepared==='function'){
     try{await verifyPrepared();}catch{}
    }
    // The request body is already composed. Never silently prune it here.

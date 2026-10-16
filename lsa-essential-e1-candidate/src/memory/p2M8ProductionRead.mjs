@@ -8,6 +8,7 @@ import {readPermanentMemoryRows,listSuppressedMemoryIds} from '../../../lsa-shar
 import {supersededTargetIds} from '../../../lsa-shared-brain/src/memory/correctionSemantics.mjs';
 import {readCurationAppraisals} from '../../../lsa-shared-brain/src/memory/curationSqlite.mjs';
 import {readP2M8HistoricalSignals} from '../../../lsa-shared-brain/src/memory/m8SqliteHistory.mjs';
+import {m8PersonalityFromCanon} from './m8PersonalityCanon.mjs';
 
 const sha=s=>createHash('sha256').update(s).digest('hex');
 const uuid=x=>isUuid(x);
@@ -153,8 +154,10 @@ export function createP2M8ProductionReader({store,currentIdentity,originalCurren
     if(!rows)return null;
     seal=rows.seal;
     // Only persistent P2 editor-approved personality is honored. Model-provided
-    // personality and relationship guesses are never admitted as canon.
-    const canon=store.get(scope.characterId)?.personality??{};
+    // personality and relationship guesses are never admitted as canon. The
+    // approved trait vocabulary is mapped to M8's structured input (see
+    // m8PersonalityCanon.mjs); free-text description is never interpreted.
+    const canon=m8PersonalityFromCanon(store.get(scope.characterId)?.personality);
     return evaluateM8({...rows,scope,personality:canon,nowUtc:args.nowUtc,maxBytes:args.maxBytes});
    }};
    const prepared=await preparePs4M8({scope,authority,readAdapter:adapter,

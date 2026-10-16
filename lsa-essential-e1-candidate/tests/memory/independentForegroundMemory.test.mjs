@@ -72,3 +72,76 @@ test('source-verified abstained H2 preserves conservative count evidence',async(
   assert.equal(together.preparedRecall.answerEvidence.dialogueCount.status,'incomplete');
   assert.equal(await together.verifyPrepared(),true);
 });
+
+// ---- L: independent M8 interpretation contributor -------------------------
+const m8Stamp=Object.freeze({characterId:'npc',turnId:'turn-1',worldEpoch:1});
+const interpreted=(over={})=>{
+  const state={current:true,verifies:true,...over};
+  return {status:'ready',reason:null,stamp:m8Stamp,
+    preparedM8:{status:'ready',stamp:m8Stamp,projection:{interpretations:[]}},
+    verifyPrepared:async()=>state.verifies,
+    opinionCurrent:(_refs,seen)=>state.current&&seen?.turnId===m8Stamp.turnId,
+    sendCurrent:()=>state.current,state};
+};
+
+test('M8 alone is a valid contribution with no H1/H2/M5 and no foreground authority',async()=>{
+  const m8=interpreted();
+  const only=composeIndependentForegroundMemory({interpretation:m8});
+  assert.equal(only.status,'ready');
+  assert.equal(only.interpretationPrepared,true);
+  assert.equal(only.preparedM8,m8.preparedM8);
+  assert.equal(only.conversationJournal,null);assert.equal(only.preparedRecall,null);
+  assert.equal(only.memoryAction,null);
+  assert.equal(only.opinionCurrent([],m8Stamp),false,'no opinion authority before async verification');
+  assert.equal(only.sendCurrent(),false,'there is no foreground frame to authorize');
+  assert.equal(await only.verifyPrepared(),true);
+  assert.equal(only.opinionCurrent([],m8Stamp),true);
+  assert.equal(only.opinionCurrent([],{...m8Stamp,turnId:'other'}),false);
+  assert.equal(only.sendCurrent(),false,'M8 never authorizes the H1/H2/M5 memory stamp');
+});
+
+test('a non-ready or foreign M8 preparation contributes nothing and is not mistaken for ready',()=>{
+  assert.equal(composeIndependentForegroundMemory({interpretation:{status:'unavailable',preparedM8:null}}),null);
+  assert.equal(composeIndependentForegroundMemory({interpretation:{status:'ready',preparedM8:{status:'dropped'}}}),null);
+  const withH1=composeIndependentForegroundMemory({history:journal(),
+    interpretation:{status:'blocked',preparedM8:null}});
+  assert.equal(withH1.interpretationPrepared,false);assert.equal(withH1.preparedM8,null);
+});
+
+test('M8 failure drops only the opinion lane; H1/H2 stay valid and cannot be poisoned',async()=>{
+  const seen=[];
+  const m8=interpreted({verifies:false});
+  const combo=composeIndependentForegroundMemory({history:journal(),recall:recalled(),
+    interpretation:m8,onValidation:x=>seen.push(x)});
+  assert.equal(await combo.verifyPrepared(),true,'foreground verification is unaffected');
+  assert.equal(combo.sendCurrent(),true);
+  assert.equal(combo.opinionCurrent([],m8Stamp),false);
+  assert.deepEqual(seen.find(x=>'m8' in x),{m8:false});
+  // The failed M8 latch never recovers, even if its source later looks fine.
+  m8.state.verifies=true;
+  assert.equal(await combo.verifyPrepared(),true);
+  assert.equal(combo.opinionCurrent([],m8Stamp),false,'failed M8 latch stays failed');
+});
+
+test('H1/H2 failure removes the foreground frame but leaves an otherwise current M8 lane',async()=>{
+  let h2Current=true;
+  const h2={...recalled(),sendCurrent:()=>h2Current,verifyPrepared:async()=>h2Current};
+  const m8=interpreted();
+  const combo=composeIndependentForegroundMemory({recall:h2,interpretation:m8});
+  h2Current=false;
+  assert.equal(await combo.verifyPrepared(),false);
+  assert.equal(combo.sendCurrent(),false);
+  assert.equal(combo.opinionCurrent([],m8Stamp),true,'M8 has its own authority and latch');
+});
+
+test('inconsistent H1/H2 accepted-line stamps still leave M8 independent',async()=>{
+  const mismatch=recalled();
+  mismatch.preparedRecall={...mismatch.preparedRecall,stamp:{...stamp,worldEpoch:2}};
+  const result=composeIndependentForegroundMemory({history:journal(),recall:mismatch,
+    interpretation:interpreted()});
+  assert.equal(result.status,'ready');
+  assert.equal(result.conversationJournal,null);assert.equal(result.preparedRecall,null);
+  assert.equal(result.interpretationPrepared,true);
+  assert.equal(await result.verifyPrepared(),true);
+  assert.equal(result.opinionCurrent([],m8Stamp),true);
+});
