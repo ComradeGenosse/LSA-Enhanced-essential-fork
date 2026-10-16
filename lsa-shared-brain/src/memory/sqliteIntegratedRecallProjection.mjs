@@ -126,9 +126,15 @@ export function readIntegratedRecall(db,{scope,terms=[],fromUtc=null,toUtc=null,
         for(const n of all(db,nearby,[...keys,anchor.sessionId,anchor.ordinal-2,anchor.ordinal+2,anchor.ordinal],5)){
           const distance=Math.abs(n.ordinal-anchor.ordinal);
           if(!distance||distance>2||Math.abs(Date.parse(n.atUtc)-Date.parse(anchor.atUtc))>90000||
-             n.recordId===excludeRecordId||forgotten.has(n.recordId)||corrected.has(n.recordId)||
-             rows.some(r=>r.recordId===n.recordId))continue;
-          rows.push({...n,contextAnchorId:anchor.recordId,contextDistance:distance});
+             n.recordId===excludeRecordId||forgotten.has(n.recordId)||corrected.has(n.recordId))continue;
+          // A relevant reply is often already in the recent page. Annotate
+          // that candidate rather than losing the anchor when deduplicating.
+          const existing=rows.find(r=>r.recordId===n.recordId);
+          if(existing){
+            if(existing.lexicalHit||existing.contextAnchorId)continue;
+            existing.contextAnchorId=anchor.recordId;
+            existing.contextDistance=distance;
+          }else rows.push({...n,contextAnchorId:anchor.recordId,contextDistance:distance});
           count++;nearCount++;
           if(count>=8||nearCount>=2)break;
         }
