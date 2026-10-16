@@ -275,7 +275,7 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
     };
     const reasoningContext=()=>({...context,source,
       ...(turn.memoryDisabledForTurn?{systemInstruction:context.systemInstruction+
-        '\\n[MEMORY AVAILABILITY] Learned memory is unavailable for this turn. Do not claim to have saved, corrected or forgotten a memory unless a verified durable outcome was supplied. Do not invent prior memories.'}:{})});
+        '\n[MEMORY AVAILABILITY] Learned memory is unavailable for this turn. Do not claim to have saved, corrected or forgotten a memory unless a verified durable outcome was supplied. Do not invent prior memories.'}:{})});
     recoverPreRequest=async(reason,stage)=>{
       check();
       if(turn.memoryFallbackUsed||!services.finalizeKnowledgeFrame||
