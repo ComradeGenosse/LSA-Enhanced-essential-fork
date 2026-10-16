@@ -99,9 +99,8 @@ jobs:
         continue-on-error: true
       - name: Independently verify build hashes, staged runtime and actual native compiled sources
         if: always()
-        env:
-          W09_RPH_DLL_SHA256: ${{ secrets.W09_RPH_DLL_SHA256 }}
-          W09_DAMAGE_DLL_SHA256: ${{ secrets.W09_DAMAGE_DLL_SHA256 }}
+        # Use the approved hashes that prepare-approved-native-sdk.ps1 writes to GITHUB_ENV
+        # after separately validating BOTH NuGet package and DLL bytes.
         run: node tools/memory-sim/verify-pinned-production.mjs
       - name: Upload pinned source/ABI and compilation receipts
         if: always()
