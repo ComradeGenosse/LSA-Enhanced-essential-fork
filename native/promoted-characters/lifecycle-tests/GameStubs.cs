@@ -228,6 +228,12 @@ namespace LSA.Intelligence
     public sealed class IntelligenceIntegration
     {
         public IntelligenceIntegration(Func<OwnedParticipant[]> roster,string pipeName,LSA.PromotedCharacters.HostContext host=null,bool directorShadow=false,bool directorExperimental=false,string radioMode="off") { }
+        // This overload matches RuntimeEntry's evolved constructor signature.
+        // Samples and producer policy are inert in offline lifecycle/bridge stubs;
+        // actual production source authority remains in native/intelligence/.
+        public IntelligenceIntegration(Func<OwnedParticipant[]> roster,string pipeName,LSA.PromotedCharacters.HostContext host,
+            bool directorShadow,bool directorExperimental,string radioMode,int maxAttemptsPerMinute,
+            Func<object> sampleNativeAuthority,Func<object> sampleOwnerPlayer,object producerPolicy) { }
         public void OwnerRetired(string incarnationId) { }
         public void Initialize() { }
         internal void Shutdown(string reason) { }
