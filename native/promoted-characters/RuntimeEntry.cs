@@ -90,7 +90,8 @@ namespace LSA.PromotedCharacters
                     if(stopping) exitReason="host_stop_requested";
                     LSA.Intelligence.IntelligenceIntegration.LogStatus("[P2] host_exit reason="+exitReason+" p2_reason="+(integration?.UnavailabilityReason??"not_initialized"));
                     if(intelligence!=null) ReportStatus();
-                    try {reactions?.Shutdown();} catch {}
+                    // Native clip cleanup must run from ReactionIntegration.Update on Core, not this lifetime fiber.
+                    try {reactions?.RequestShutdown();} catch {}
                     try {intelligence?.Shutdown(exitReason);} finally {try {integration?.RequestShutdown();} finally {finished=true;Game.LogTrivial("[P2] native_host_stopped");}}
                 }
             },"LSA character host lifetime");
@@ -101,12 +102,17 @@ namespace LSA.PromotedCharacters
         static bool OwnedByLsaBehavior(Ped ped) {
             var owner=integration;
             if(owner==null || ped==null) return true;
+            // A missing, retired or residual owner is UNKNOWN, never proven idle.
+            // This intentionally limits gestures to a positively verified idle P2/ACT actor;
+            // the no-roster case (including ordinary unpromoted peds) is not an idle proof.
             foreach(var participant in owner.PerceptionRoster()) {
                 if(participant.Ped==null || !participant.Ped.Equals(ped)) continue;
+                if(participant.Current?.Invoke()!=true) return true;
                 var sample=participant.PrimaryOwner?.Invoke() as PrimaryBehaviorOwner;
-                return sample!=null && (sample.owner=="p2" || sample.owner=="act") && sample.mode!="idle";
+                if(sample==null || sample.mode!="idle") return true;
+                return sample.owner!="p2" && sample.owner!="act" && sample.owner!="none";
             }
-            return false;
+            return true;
         }
         public static void Stop() { stopping=true; EssentialInputInterception.ReleaseAll(); }
         public static bool LeaseInput(int mark,int text) => !stopping && EssentialInputInterception.Lease(mark,text);

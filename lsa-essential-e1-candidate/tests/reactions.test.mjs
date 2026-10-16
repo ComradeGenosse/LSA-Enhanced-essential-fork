@@ -193,7 +193,7 @@ test('reactions: companion/native mode mismatches never permit a gesture frame',
     });
     client.start();
     try {
-      socket.emit('data', JSON.stringify({ ...HELLO, mode: nativeMode }) + '\\n');
+      socket.emit('data', JSON.stringify({ ...HELLO, mode: nativeMode }) + '\n');
       const same = companionMode === nativeMode;
       assert.equal(client.ready, same, companionMode + '/' + nativeMode);
       assert.equal(client.send({ reaction: 'facepalm', tuple: { pedId: '1', turnId: 't', generationId: 1 } }), same);

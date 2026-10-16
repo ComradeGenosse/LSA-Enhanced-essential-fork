@@ -18,6 +18,9 @@ namespace LSA.Reactions
         readonly Func<Ped, bool> ownedBehavior;
         ReactionChannel channel;
         ReactionExecutor executor;
+        readonly object requestsGate = new object();
+        string pendingWorldReason;
+        volatile bool shutdownRequested;
         bool started, stopped;
 
         public ReactionIntegration(ReactionOptions options, string pipeName, string hostRunId, Func<int> worldEpoch, Func<long> nowMs, Func<Ped, bool> ownedBehavior = null)
@@ -48,15 +51,41 @@ namespace LSA.Reactions
             }
         }
 
-        public void Update() { if (started && !stopped) executor.Update(); }
+        // The host lifetime fiber and WorldChanged callbacks never invoke animation
+        // natives. Core's Update is the sole owner of clip stop, release and state.
+        public void Update()
+        {
+            if (!started || stopped) return;
+            if (shutdownRequested) { Shutdown(); return; }
+            string reason;
+            lock (requestsGate) { reason = pendingWorldReason; pendingWorldReason = null; }
+            if (reason != null) executor.WorldChanged(reason);
+            if (shutdownRequested) { Shutdown(); return; }
+            executor.Update();
+        }
 
-        // Wired by the host to HostContext.WorldChanged.
-        public void WorldChanged(string reason) { if (started && !stopped) executor.WorldChanged(reason); }
+        // May be called from HostContext's producer callback, including outside
+        // Core. Fence incoming frames now, defer all ped/native work to Update().
+        public void WorldChanged(string reason)
+        {
+            if (!started || stopped) return;
+            lock (requestsGate) pendingWorldReason = reason ?? "unspecified";
+            try { channel?.Drop(); } catch { }
+        }
+
+        // Requested from RuntimeEntry's lifetime fiber; do not call Shutdown()
+        // here, because its EndRun can execute STOP_ANIM_TASK/REMOVE_ANIM_DICT.
+        public void RequestShutdown()
+        {
+            shutdownRequested = true;
+            try { channel?.Drop(); } catch { }
+        }
 
         public void Shutdown()
         {
             if (stopped) return;
             stopped = true;
+            shutdownRequested = true;
             try { executor?.Shutdown(); } catch { }
             try { channel?.Dispose(); } catch { }
         }

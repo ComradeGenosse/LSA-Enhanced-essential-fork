@@ -98,6 +98,35 @@ public sealed class Scenario:MarshalByRefObject
         Check(!Game.Logs.Contains("[P2] host_initialization_failed"),"Collection startup faulted the owner.");
         return assertions;
     }
+    public int ReactionOwnerFailsClosed()
+    {
+        var config="{\"enabled\":true,\"worldProfileId\":\"d7dfeaa1-13e8-4a7d-aff7-8e3fbb2ab4b5\",\"reactions\":{\"mode\":\"on\"}}";
+        Check(RuntimeEntry.Start(config),"Reaction host was not scheduled.");
+        GameFiber.OnSleep=()=>{
+            var gate=typeof(RuntimeEntry).GetMethod("OwnedByLsaBehavior",BindingFlags.NonPublic|BindingFlags.Static);
+            var ped=new Ped {Handle=42};
+            Func<bool> check=()=> (bool)gate.Invoke(null,new object[]{ped});
+            Check(check(),"Unknown/unpromoted NPC wrongly treated as proven idle.");
+            var participant=new LSA.Intelligence.OwnedParticipant {Ped=ped, Current=()=>false,
+                PrimaryOwner=()=>new PrimaryBehaviorOwner("p2","idle")};
+            PromotedCharactersIntegration.RosterOverride=new[]{participant};
+            Check(check(),"Retired ownership wrongly treated as idle.");
+            participant.Current=()=>true;participant.PrimaryOwner=()=>null;
+            Check(check(),"Null owner wrongly treated as idle.");
+            participant.PrimaryOwner=()=>new PrimaryBehaviorOwner("essential_residual","unknown");
+            Check(check(),"Essential residual unknown wrongly treated as idle.");
+            participant.PrimaryOwner=()=>new PrimaryBehaviorOwner("act","follow");
+            Check(check(),"ACT follow wrongly treated as idle.");
+            participant.PrimaryOwner=()=>new PrimaryBehaviorOwner("p2","idle");
+            Check(!check(),"Explicit P2 idle owner was unexpectedly vetoed.");
+            RuntimeEntry.Stop();
+        };
+        GameFiber.ExecuteNext();
+        Check(LSA.Reactions.ReactionIntegration.Requests==1 &&
+            LSA.Reactions.ReactionIntegration.UnsafeShutdowns==0,
+            "RuntimeEntry must request deferred reaction cleanup, not call native shutdown from the lifetime fiber.");
+        return assertions;
+    }
 }
 static class Program
 {
@@ -113,7 +142,7 @@ static class Program
     }
     static void Main()
     {
-        int count=Run("runtime_parallel_start",scenario=>scenario.ConcurrentStart())+Run("runtime_stop_before_execution",scenario=>scenario.StopBeforeExecution());
+        int count=Run("runtime_parallel_start",scenario=>scenario.ConcurrentStart())+Run("runtime_stop_before_execution",scenario=>scenario.StopBeforeExecution())+Run("runtime_reaction_safety",scenario=>scenario.ReactionOwnerFailsClosed());
         foreach(var mode in new[]{"off","shadow","on","invalid"})foreach(object enabled in new object[]{null,false,true,"true",1})count+=Run("collection_"+mode+"_"+enabled,scenario=>scenario.ActivityCollection(mode,enabled));
         Console.WriteLine(count+" production runtime admission/lifetime assertions passed; no game assemblies executed.");
     }
