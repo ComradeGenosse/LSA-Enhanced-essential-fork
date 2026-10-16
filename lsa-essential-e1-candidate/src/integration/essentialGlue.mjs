@@ -480,6 +480,15 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
       };
       const memoryBase=journalReady||recallReady||commandsReady||m8Ready
         ?renderKnowledge({...args,...memoryArgs,includePerceived:false}):base;
+      // A failed H1/H2/M5 source must not erase an independently verified M8
+      // opinion before first send. This pre-rendered fallback has NO foreground
+      // journal, recall, command or perception evidence; it never refills data.
+      const opinionOnly=m8Ready?renderKnowledge({...args,includePerceived:false,
+        preparedM8:memory.preparedM8,
+        m8Authorization:prepared=>prepared===memory.preparedM8}):base;
+      const currentOpinionOnly=()=>m8Ready&&opinionOnly.opinionReferences.length>0&&
+        memory.opinionCurrent(opinionOnly.opinionReferences,opinionOnly.opinionStamp)===true
+        ?opinionOnly:base;
       const mode=config.dialogueKnowledge?.mode??'off',ps=runtime.intelligence?.runtime;
       let reason=mode==='off'?'disabled':'unsupported_contract',preview=null;
       if(mode!=='off' && config.provider==='openai' && runtime.dialogueKnowledgeBuildSupported && ps?.observerIndexVersion===1 && ps?.observerSituationVersion===1 && ps?.hostContext?.hostContextVersion===1) {
@@ -514,6 +523,7 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
       ) || ((frame.activityReferences?.length??0)>0?assertActivityKnowledgeCurrent(turn.knowledgeInputs.activityInputs,runtime.activities,frame.activityReferences):null) || ((frame.dialogueReferences?.length??0)>0?assertDialogueActionKnowledgeCurrent(turn.knowledgeInputs.dialogueInputs,runtime.activities,frame.dialogueReferences):null);
       turn.knowledgeDelivery=createKnowledgeDelivery({frame:selected,baseFrame:base,
         verifyPrepared:()=>memory?.verifyPrepared?.()??false,
+        pruneMemory:()=>currentOpinionOnly(),
         recallCurrent:(refs,stamp)=>recallReady&&memory.recallCurrent(refs,stamp),
         memoryCurrent:stamp=>(journalReady||recallReady||commandsReady)&&memory.sendCurrent()&&!!stamp&&
           Object.keys(journalStamp).length===Object.keys(stamp).length&&
@@ -525,7 +535,7 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
         prune:frame=>(frame.memoryStamp &&
           !((journalReady||recallReady||commandsReady)&&memory.sendCurrent()&&journalStamp&&
             Object.keys(journalStamp).length===Object.keys(frame.memoryStamp).length&&
-            Object.keys(journalStamp).every(key=>journalStamp[key]===frame.memoryStamp[key])))?base:pruneKnowledgeFrame(frame,
+            Object.keys(journalStamp).every(key=>journalStamp[key]===frame.memoryStamp[key])))?currentOpinionOnly():pruneKnowledgeFrame(frame,
           item=>!validateKnowledge({delivery:[item]}),
           item=>!validateKnowledge({delivery:[],activityReferences:[item]}),
           item=>!validateKnowledge({delivery:[],dialogueReferences:[item]}),
