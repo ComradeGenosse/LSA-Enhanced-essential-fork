@@ -64,7 +64,7 @@ namespace LSA.PromotedCharacters
         {
             switch (command.Command)
             {
-                case "current.inspect": return CurrentView();
+                case "current.inspect": return CurrentView(true);
                 case "gates.read": return Gates();
                 case "npc.ask": return Ask(command);
                 case "talk.select_first": return talkTargets.AsResult(talkTargets.SelectFirst(Monotonic,Limits(command)));
@@ -96,20 +96,24 @@ namespace LSA.PromotedCharacters
                 var registration = encounter?.Registration;
                 if (registration == null) return claimed ? TalkRecipientFeedback.Unknown("owner_roster_mismatch") : TalkRecipientFeedback.Ambient("unowned");
                 if (!Alive(encounter) || encounter.Handle != Convert.ToUInt64(ped.Handle) || encounter.Address.ToInt64() != retainedAddress) return TalkRecipientFeedback.Unknown("encounter_stale");
-                return claimed && claim != null && claim.incarnationId == registration.IncarnationId && claim.sourceKey == encounter.OwnerAlias && claim.worldProfileId == world ? TalkRecipientFeedback.Promoted("owner_verified") : TalkRecipientFeedback.Unknown("owner_proof_stale");
+                return claimed && claim != null && claim.incarnationId == registration.IncarnationId && claim.sourceKey == encounter.OwnerAlias && claim.worldProfileId == world ? TalkRecipientFeedback.Promoted("owner_verified",claim.sourceKey) : TalkRecipientFeedback.Unknown("owner_proof_stale");
             } catch { return TalkRecipientFeedback.Unknown("resolver_failed"); }
         }
         static TalkTargetOptions Limits(LocalCommand command) => new TalkTargetOptions {RadiusMeters = command.RadiusMeters,RetentionRadiusMeters = command.RetentionRadiusMeters,MaxCandidates = command.MaxCandidates,CycleWindowMs = command.CycleWindowMs,SelectionTimeoutMs = command.SelectionTimeoutMs,Indicator = command.Indicator};
         // Read-only: no capture ticket, ownership, task or session. The encounter
         // id is the same P2 handle-bound id EnrichActor already gives every actor.
-        object CurrentView()
+        object CurrentView(bool verifyOwner = false)
         {
             var ped = CurrentPed();
             if (ped == null || !ped.Exists() || ped.IsDead || ped == Game.LocalPlayer.Character) return new {present = false};
             var encounter = EncounterFor(ped);
             bool owned = encounter.Registration != null;
+            // Only a direct current.inspect pays for a fresh P1 owner proof.
+            // The cached HUD snapshot retains its original cheap read.
+            var proof = owned && verifyOwner ? ResolveTalkRecipient(ped,ped.MemoryAddress.ToInt64()) : null;
+            bool ownerVerified = owned && !encounter.Suspended && proof?.Kind == TalkRecipientKind.Promoted && proof.Alias == encounter.OwnerAlias;
             var view = owned ? activityRunner?.View(encounter.Id) : null;
-            return new {present = true,pedId = ped.Handle.ToString(),encounterId = encounter.Id,ownerAlias = owned ? encounter.OwnerAlias : null,owned,
+            return new {present = true,pedId = ped.Handle.ToString(),encounterId = encounter.Id,ownerAlias = owned ? encounter.OwnerAlias : null,owned,ownerVerified,
                 suspended = owned && encounter.Suspended,mode = owned ? encounter.Mode : null,
                 human = LosSantosAlive.NPC.NpcTargeting.IsValidHumanPed(ped),safe = Safe(encounter,!owned),
                 activity = view != null && view.Present ? new {present = true,intent = view.Intent,capability = view.Capability,step = view.Step,status = view.Status,reason = view.Reason} : null};

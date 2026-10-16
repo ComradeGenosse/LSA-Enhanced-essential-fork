@@ -301,11 +301,11 @@ namespace LSA.PromotedCharacters
             present = view.Present,started,selectionId = view.SelectionId,encounterId = encounter,pedId = view.PedId,
             cycleIndex = view.CycleIndex,cycleCount = view.CycleCount,pttCommitted = view.PttCommitted || started,
             expiresInMs = view.ExpiresInMs,indicator = indicator.State,generation,reason = view.Reason,
-            recipientKind = feedback?.Token,recipientEvidence = feedback?.Evidence};
+            recipientKind = feedback?.Token,recipientEvidence = feedback?.Evidence,recipientAlias = feedback?.Alias};
         object DirectPayload(Ped ped,string encounter,int generation,bool started,string reason,TalkRecipientFeedback feedback = null) => new {
             present = false,started,selectionId = (string)null,encounterId = encounter,pedId = ped != null ? ped.Handle.ToString() : null,
             cycleIndex = 0,cycleCount = 0,pttCommitted = started,expiresInMs = 0L,indicator = "off",generation,reason,
-            recipientKind = feedback?.Token,recipientEvidence = feedback?.Evidence};
+            recipientKind = feedback?.Token,recipientEvidence = feedback?.Evidence,recipientAlias = feedback?.Alias};
         // Read-only and never throws: any doubt about the exact ped is "unknown",
         // which the loader shows as a generic notice, never as a character.
         TalkRecipientFeedback RecipientOf(Ped ped,long address)
