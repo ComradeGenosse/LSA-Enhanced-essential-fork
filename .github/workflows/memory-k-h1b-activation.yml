@@ -6,6 +6,7 @@ on:
       - '.github/workflows/memory-k-h1b-activation.yml'
       - 'lsa-essential-e1-candidate/src/**'
       - 'lsa-essential-e1-candidate/tests/memory/h1IndependentActivation.test.mjs'
+      - 'lsa-essential-e1-candidate/tests/memory/memoryRequestFence.test.mjs'
   workflow_dispatch:
 permissions:
   contents: read
@@ -36,12 +37,12 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          for file in lsa-essential-e1-candidate/src/memory/runtimeComposition.mjs lsa-essential-e1-candidate/src/integration/essentialGlue.mjs lsa-essential-e1-candidate/src/context/knowledgeDelivery.mjs lsa-essential-e1-candidate/src/bootstrap.mjs lsa-essential-e1-candidate/src/openai/runSequentialTurn.mjs lsa-essential-e1-candidate/tests/memory/h1IndependentActivation.test.mjs; do node --check "$file"; done
+          for file in lsa-essential-e1-candidate/src/memory/runtimeComposition.mjs lsa-essential-e1-candidate/src/integration/essentialGlue.mjs lsa-essential-e1-candidate/src/context/knowledgeDelivery.mjs lsa-essential-e1-candidate/src/bootstrap.mjs lsa-essential-e1-candidate/src/openai/runSequentialTurn.mjs lsa-essential-e1-candidate/tests/memory/h1IndependentActivation.test.mjs lsa-essential-e1-candidate/tests/memory/memoryRequestFence.test.mjs; do node --check "$file"; done
       - name: H1 activation and original P2/PS4 source validation
         shell: bash
         run: |
           set -o pipefail
-          node --test --test-concurrency=1 lsa-essential-e1-candidate/tests/memory/h1IndependentActivation.test.mjs lsa-essential-e1-candidate/tests/memory/h1ConversationHistory.test.mjs 2>&1 | tee "$RUNNER_TEMP/h1b-activation.log"
+          node --test --test-concurrency=1 lsa-essential-e1-candidate/tests/memory/h1IndependentActivation.test.mjs lsa-essential-e1-candidate/tests/memory/h1ConversationHistory.test.mjs lsa-essential-e1-candidate/tests/memory/memoryRequestFence.test.mjs 2>&1 | tee "$RUNNER_TEMP/h1b-activation.log"
       - name: WS6 original runner, M2 D03, E2 and PS4 regressions
         shell: bash
         run: |

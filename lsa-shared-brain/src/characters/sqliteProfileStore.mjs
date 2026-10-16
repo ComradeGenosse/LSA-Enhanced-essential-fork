@@ -21,6 +21,8 @@ export class P2SqliteProfileStore {
   // Monotone revocation epoch: an operation admitted before source loss or a
   // timeline selection cannot execute after later reauthorization (ABA).
   #authorityGeneration = 0;
+  // Only privacy transactions invalidate already-sent memory prompts.
+  #privacyGeneration = 0;
   #optionalMemoryFence=new AsyncLocalStorage();
   constructor({ filePath, worldProfileId, legacyJsonPath = null, sourceRequired = false, journalLimits = {} }) {
     if (typeof sourceRequired !== 'boolean') throw new TypeError('invalid_timeline_source_config');
@@ -37,6 +39,26 @@ export class P2SqliteProfileStore {
   get memoryReadFence() {
     return this.available&&this.timelineWritable&&this.#db.initialized
       ? this.#authorityGeneration+':'+this.#db.readFence : null;
+  }
+  // In-flight prompts are independent of ordinary M2/M3/M6 journal writes.
+  // Profile changes, privacy mutations, source changes and foreign writes
+  // still cancel them. The strict memoryReadFence remains for pre-send checks.
+  get memoryRequestFence() {
+    return this.available&&this.timelineWritable&&this.#db.initialized
+      ? `${this.#authorityGeneration}:${this.#db.snapshot.revision}:${this.#privacyGeneration}:${this.#db.externalReadFence}` : null;
+  }
+  // Safe, bounded diagnostics only. Never log an ID, content, or actual fence.
+  memoryRequestFenceFailure(expected) {
+    const actual=this.memoryRequestFence;
+    if(actual===null)return 'authority_revoked';
+    if(typeof expected!=='string')return 'not_verified';
+    const parts=actual.split(':'),before=expected.split(':');
+    if(before.length!==4)return 'invalid_fence';
+    if(parts[0]!==before[0])return 'authority_changed';
+    if(parts[1]!==before[1])return 'profile_changed';
+    if(parts[2]!==before[2])return 'privacy_changed';
+    if(parts[3]!==before[3])return 'external_write';
+    return null;
   }
   // Source/timeline authority only. An authorized privacy transaction changes
   // the data read fence itself and must not mistake its own commit for a revoke.
@@ -349,23 +371,25 @@ export class P2SqliteProfileStore {
       return result;
     });
   }
-  async withP2SqliteTransaction(scope,operation) {
+  async withP2SqliteTransaction(scope,operation,{privacyMutating=false}={}) {
     if(typeof operation!=='function')throw new TypeError('p2_sqlite_callback_required');
     return this.withTimelineWrite(scope?.timelineId,foundation=>{
       this.#assertMemoryScope(scope);
-      return foundation.withP2SqliteTransaction(db=>{
-        const result=operation(db);
+      const result=foundation.withP2SqliteTransaction(db=>{
+        const value=operation(db);
         // Recheck synchronously INSIDE P2's transaction immediately before
         // COMMIT; source invalidation in the callback rolls everything back.
         this.#assertMemoryScope(scope);
-        return result;
+        return value;
       });
+      if(privacyMutating)++this.#privacyGeneration;
+      return result;
     });
   }
   // API consumed by M5; alias documents that ALL privacy commits are part of
   // P2's write queue and source/timeline gate at actual SQLite COMMIT.
   async withTimelineSqliteWrite(scope,operation) {
-    return this.withP2SqliteTransaction(scope,operation);
+    return this.withP2SqliteTransaction(scope,operation,{privacyMutating:true});
   }
   // Append/update feed includes every committed M2 line and each M3 event
   // revision. Scanning is bounded; cursor ack is durable and independently
@@ -471,7 +495,9 @@ export class P2SqliteProfileStore {
   async commitCommand(operation){
     return this.withTimelineWrite(operation?.scope?.timelineId,foundation=>{
       if(this.#sourceRequired&&!this.verifiedHostContext)fail('memory_native_host_unconfirmed');
-      return foundation.commitMemoryCommand(operation);
+      const result=foundation.commitMemoryCommand(operation);
+      ++this.#privacyGeneration;
+      return result;
     });
   }
   async verifyCommand({scope,commandId}){

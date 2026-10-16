@@ -143,7 +143,7 @@ export async function openH1ConversationSource({store,turn,acceptedReceipt,input
           rows:freshRows,accepted:line,scope,suppressed,nowUtc});
         if(!conversationJournal)return unavailable('history_unavailable');
         const journalSeal=JSON.stringify(conversationJournal);
-        let verifiedFence=null;
+        let verifiedFence=null,verifiedRequestFence=null;
         // Mandatory on every model attempt and before the final send boundary.
         // Snapshot comparisons are read-only and never grant native/source proof.
         async function verifyPrepared(){
@@ -164,13 +164,20 @@ export async function openH1ConversationSource({store,turn,acceptedReceipt,input
             if(JSON.stringify(checkJournal)!==journalSeal)
               return invalidated('history_changed');
             verifiedFence=fence;
+            verifiedRequestFence=store.memoryRequestFence??fence;
             return readyVerification;
           }catch{return invalidated('history_read_failed');}
         }
         const sendCurrent=()=>verifiedFence!==null&&current()&&
           store.memoryReadFence===verifiedFence;
+        const sendCurrentInFlight=()=>verifiedFence!==null&&current()&&
+          (store.memoryRequestFence??store.memoryReadFence)===verifiedRequestFence;
+        const invalidationReason=()=>!current()?'authority_revoked':
+          verifiedFence===null?'not_verified':
+          store.memoryRequestFenceFailure?.(verifiedRequestFence)??
+          (sendCurrentInFlight()?null:'source_changed');
         return Object.freeze({status:'ready',conversationJournal,stamp,
-          verifyPrepared,sendCurrent});
+          verifyPrepared,sendCurrent,sendCurrentInFlight,invalidationReason});
       }catch{return unavailable('history_unavailable');}
     }
     return Object.freeze({status:'ready',scope,line,characterId,stamp,current,prepare});

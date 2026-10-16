@@ -217,6 +217,9 @@ export class P2SqliteFoundation {
     return this.#db.prepare('SELECT total_changes() AS changes').get().changes+':'+
       this.#db.prepare('PRAGMA data_version').get().data_version;
   }
+  // External connections are forbidden by the P2 single-writer contract.
+  // Unlike total_changes(), this remains stable across our own writes.
+  get externalReadFence(){return this.#db?.prepare('PRAGMA data_version').get().data_version??null;}
   get recoveryStatus(){return this.#recoveryStatus;}
   get snapshot(){if(!this.#snapshot)fail('sqlite_profile_uninitialized');return this.#snapshot;}
   async initialize() {return this.#init ||= this.#initialize();}

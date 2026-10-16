@@ -224,7 +224,7 @@ export async function prepareFactualRecall({store,turn,acceptedReceipt,input,sou
     // Awaited before EVERY model attempt. Any failure latches: a prepared object
     // that once failed can never become valid again (no stale cached recall);
     // the caller must prepare afresh from the current authority.
-    let verifiedFence=null,valid=true,lastVerifyMs=null;
+    let verifiedFence=null,verifiedRequestFence=null,valid=true,lastVerifyMs=null;
     const fenceAtPrepare=store.memoryReadFence;
     if(fenceAtPrepare===null||fenceAtPrepare===undefined)
       return done(refuse('blocked','no_read_fence',timings));
@@ -255,12 +255,19 @@ export async function prepareFactualRecall({store,turn,acceptedReceipt,input,sou
           JSON.stringify(freshCount)===JSON.stringify(count)&&
           JSON.stringify(freshWitness)===JSON.stringify(witness);
         if(!same)return fail();
-        verifiedFence=fence;lastVerifyMs=ms(performance.now()-begin);
+        verifiedFence=fence;verifiedRequestFence=store.memoryRequestFence??fence;
+        lastVerifyMs=ms(performance.now()-begin);
         return true;
       }catch{return fail();}
       function fail(){valid=false;verifiedFence=null;lastVerifyMs=ms(performance.now()-begin);return false;}
     }
     const sendCurrent=()=>valid&&current()&&verifiedFence!==null&&store.memoryReadFence===verifiedFence;
+    const sendCurrentInFlight=()=>valid&&current()&&verifiedFence!==null&&
+      (store.memoryRequestFence??store.memoryReadFence)===verifiedRequestFence;
+    const invalidationReason=()=>!valid?'verification_failed':!current()?'authority_revoked':
+      verifiedFence===null?'not_verified':
+      store.memoryRequestFenceFailure?.(verifiedRequestFence)??
+      (sendCurrentInFlight()?null:'source_changed');
 
     const itemCount=admittedContribution.items.length;
     const exactCount=count?.status==='complete';
@@ -272,7 +279,8 @@ export async function prepareFactualRecall({store,turn,acceptedReceipt,input,sou
         count?(count.reason??'count_unsupported'):'unsupported_or_insufficient_evidence';
     }
     return done(Object.freeze({status,reason,preparedRecall,timings,
-      recallCurrent,verifyPrepared,sendCurrent,revalidationMs:()=>lastVerifyMs}));
+      recallCurrent,verifyPrepared,sendCurrent,sendCurrentInFlight,invalidationReason,
+      revalidationMs:()=>lastVerifyMs}));
   }catch{
     // Authority gone => blocked. A fault with authority intact (for example one
     // unreadable retained row failing the P2 read) is unavailable, never fabricated.
