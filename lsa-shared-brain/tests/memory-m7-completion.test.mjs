@@ -13,7 +13,7 @@ import {makeQueueJob} from '../src/memory/queueContract.mjs';
 import {ensureIntegratedMemorySchema} from '../src/memory/integratedSqlite.mjs';
 import {ensureCurationSchema,enqueueCuration,claimCuration,completeCuration,
   retryCuration,releaseCuration,verifyCurationLease,reserveCurationBudget,finishCurationBudget,
-  reconcileCurationBudgets,readCurationAppraisals} from '../src/memory/curationSqlite.mjs';
+  reconcileCurationBudgets,readCurationAppraisals,grantM7Consent,withdrawM7Consent,readM7Consent,readCurationStatus} from '../src/memory/curationSqlite.mjs';
 import {processIdleCuration,createLunaCurationAdapter} from '../src/memory/lunaCurator.mjs';
 import {createIdleCurationScheduler} from '../src/memory/idleCurationScheduler.mjs';
 import {createEssentialM7Scheduler} from '../../lsa-essential-e1-candidate/src/memory/lunaCurationBridge.mjs';
@@ -618,4 +618,73 @@ test('W07 restored: persisted withdrawal cancels pending provider and prevents l
  assert.equal(reservation.state,'settled');
  assert.equal(reservation.amount_usd,.02,'uncertain spend is charged at reservation ceiling');
  await s.stop();
+});
+
+
+// ---- Independent runtime activation: persisted consent and the atomic fence ----
+const grant=(f,over={})=>grantM7Consent(f.db,{dailyUsd:.2,monthlyUsd:2,maxBatchUsd:.02,
+  offTurnEvidenceUploadAccepted:true,model:'gpt-6-luna',nowUtc:at(0),...over},f.scope.worldProfileId);
+const readConsent=f=>readM7Consent(f.db,{worldProfileId:f.scope.worldProfileId,timelineId:f.scope.timelineId},f.scope.worldProfileId);
+test('M7 persisted consent is explicit, revisioned, restart-durable and never minted by a read',t=>{
+ const f=fixture(t);
+ assert.equal(readConsent(f),null,'no approval until the player grants one');
+ assert.throws(()=>grant(f,{offTurnEvidenceUploadAccepted:false}),/consent_and_budget/);
+ assert.throws(()=>grant(f,{model:'other-model'}),/model_unsupported/);
+ assert.throws(()=>grant(f,{maxBatchUsd:.5}),/consent_and_budget/);
+ assert.equal(readConsent(f),null,'rejected grants persist nothing');
+ const first=grant(f);
+ assert.equal(first.consentRevision,1);
+ const record=readConsent(f);
+ assert.equal(record.mode,'experimental');assert.equal(record.approvalId,first.approvalId);
+ assert.equal(record.source,'p2_explicit_player_settings');assert.equal(record.model,'gpt-6-luna');
+ // The persisted readback satisfies the scheduler's independent validator.
+ const policy=validateM7Consent({mode:'experimental',cloudOptIn:true,consentSource:'explicit_player_settings',
+   offTurnEvidenceUploadAccepted:true,consentedAtUtc:record.consentedAtUtc,dailyUsd:record.dailyUsd,
+   monthlyUsd:record.monthlyUsd,maxBatchUsd:record.maxBatchUsd,consentRevision:record.consentRevision,approvalId:record.approvalId});
+ assert.equal(validateM7PersistedApproval(record,policy,{store:{worldProfileId:f.scope.worldProfileId,
+   activeTimelineId:f.scope.timelineId},model:'gpt-6-luna'}),true);
+ const second=grant(f,{dailyUsd:.3});
+ assert.equal(second.consentRevision,2);assert.notEqual(second.approvalId,first.approvalId);
+ const reopened=new DatabaseSync(f.file);
+ try{assert.equal(readM7Consent(reopened,{worldProfileId:f.scope.worldProfileId,timelineId:f.scope.timelineId},
+   f.scope.worldProfileId).consentRevision,2);}finally{reopened.close();}
+ const withdrawn=withdrawM7Consent(f.db,{nowUtc:at(1)},f.scope.worldProfileId);
+ assert.deepEqual([withdrawn.withdrawn,withdrawn.consentRevision],[true,3]);
+ assert.equal(readConsent(f).mode,'off');
+ assert.equal(validateM7PersistedApproval(readConsent(f),policy,{store:{worldProfileId:f.scope.worldProfileId,
+   activeTimelineId:f.scope.timelineId},model:'gpt-6-luna'}),false,'a withdrawn approval validates nothing');
+ assert.equal(withdrawM7Consent(f.db,{},f.scope.worldProfileId).withdrawn,false,'idempotent');
+ assert.throws(()=>readM7Consent(f.db,{worldProfileId:id(99),timelineId:f.scope.timelineId},f.scope.worldProfileId),/scope_mismatch/);
+});
+test('M7 consent revision is checked INSIDE claim, reserve and complete transactions',t=>{
+ const f=fixture(t),a=grant(f),old={approvalId:a.approvalId,consentRevision:a.consentRevision};
+ const w=f.scope.worldProfileId,limits={dailyUsd:.2,monthlyUsd:2};
+ const [x]=claimCuration(f.db,{...args(f),expectedConsent:old},w,f.scope.timelineId);
+ assert.ok(x,'current approval may claim');
+ assert.equal(reserveCurationBudget(f.db,{batchKey:'k',maxUsd:.02,nowUtc:at(2),expectedConsent:old},w,limits),true);
+ withdrawM7Consent(f.db,{nowUtc:at(2)},w);
+ // A withdrawal that committed first defeats every late operation atomically.
+ assert.throws(()=>completeCuration(f.db,{jobId:x.job.jobId,leaseToken:x.leaseToken,proposal:f.appraisal,
+   nowUtc:at(3),expectedConsent:old},w,f.scope.timelineId),/curation_consent_changed/);
+ assert.equal(f.db.prepare('SELECT COUNT(*) AS n FROM memory_luna_appraisals').get().n,0,'no stale result committed');
+ assert.equal(f.db.prepare('SELECT state FROM memory_curation_jobs').get().state,'leased');
+ assert.throws(()=>reserveCurationBudget(f.db,{batchKey:'k2',maxUsd:.02,nowUtc:at(2),expectedConsent:old},w,limits),/consent_changed/);
+ assert.throws(()=>claimCuration(f.db,{...args(f,{atMinute:6,until:8}),expectedConsent:old},w,f.scope.timelineId),/consent_changed/);
+ // A newer revision does not revive the older approval either.
+ const b=grant(f);
+ assert.throws(()=>completeCuration(f.db,{jobId:x.job.jobId,leaseToken:x.leaseToken,proposal:f.appraisal,
+   nowUtc:at(3),expectedConsent:old},w,f.scope.timelineId),/consent_changed/);
+ assert.equal(completeCuration(f.db,{jobId:x.job.jobId,leaseToken:x.leaseToken,proposal:f.appraisal,nowUtc:at(3),
+   expectedConsent:{approvalId:b.approvalId,consentRevision:b.consentRevision}},w,f.scope.timelineId).durableCommit,true);
+});
+test('M7 status is content-free and unresolved reservations stay charged at their ceiling',t=>{
+ const f=fixture(t),w=f.scope.worldProfileId;
+ reserveCurationBudget(f.db,{batchKey:'crashed',maxUsd:.02,nowUtc:at(1)},w,{dailyUsd:.2,monthlyUsd:2});
+ const before=readCurationStatus(f.db,{timelineId:f.scope.timelineId,nowUtc:at(5)},w);
+ assert.deepEqual([before.jobs.pending,before.dueNow,before.appraisals],[1,1,0]);
+ assert.deepEqual([before.spend.dayUsd,before.spend.unresolvedReservations],[.02,1]);
+ assert.equal(reconcileCurationBudgets(f.db,{beforeUtc:at(5),worldProfileId:w}),1);
+ const after=readCurationStatus(f.db,{timelineId:f.scope.timelineId,nowUtc:at(5)},w);
+ assert.deepEqual([after.spend.dayUsd,after.spend.unresolvedReservations],[.02,0],'recovery never refunds uncertain spend');
+ assert.ok(!JSON.stringify(after).includes(f.proposal.groundedSummary),'no memory text in diagnostics');
 });

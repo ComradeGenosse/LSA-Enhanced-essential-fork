@@ -84,15 +84,17 @@ test('J-B: M6 runtime is off by default and never constructs cloud curation',asy
     assert.equal(row.state,'stopped');assert.equal(row.effectiveMode,'off');
     await runtime.dispose();
   }
-  // Requesting M7 does not enable it: M6 reports it off and registers no queue.
+  // M6 alone never queues cloud work. When M7 is ALSO explicitly on, M6 only
+  // appends durable jobs; M7 owns consent, idle and every network request (see
+  // memory-m7-runtime-curation.test.mjs). Without consent M7 stays dormant.
   const root=await mkdtemp(path.join(tmpdir(),'memory-jb-m7-'));
   const {runtime}=await boot(t,{root,capabilities:{'memory.deterministic':'on','memory.cloudCuration':'on'}});
   t.after(()=>rm(root,{recursive:true,force:true}));
   assert.ok(runtime.retention);
-  assert.equal(runtime.services.memoryRetentionDiagnostics().cloudCuration,'off');
+  assert.equal(runtime.services.memoryRetentionDiagnostics().cloudCuration,'queueing');
   const caps=runtime.services.memoryKRuntimeDiagnostics().capabilities;
-  assert.equal(caps['memory.cloudCuration'].effectiveMode,null,'M7 stays unavailable and independently optional');
-  assert.equal(caps['memory.cloudCuration'].state,'unavailable');
+  assert.equal(caps['memory.cloudCuration'].effectiveMode,null,'M7 is not effective without consent and native idle');
+  assert.notEqual(caps['memory.cloudCuration'].state,'idle');
 });
 
 test('J-B: M6-only opt-in keeps legacy recording, recall, M3, PS and M5 enabled',()=>{

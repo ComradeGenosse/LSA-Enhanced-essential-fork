@@ -27,6 +27,23 @@ export function createInspectorControls({runtime,configPath=process.env.LSA_E1_C
       await rename(temp,file);
     }finally{await handle?.close();await rm(temp,{force:true});}
   };
+  // M7 consent is NOT a config-file setting: it is an explicit, revisioned P2
+  // approval. This view carries only state and limits, never ids or memory text.
+  async function cloudView(){
+    const store=runtime.characterService?.store,mode=runtime.config.memoryK.capabilities['memory.cloudCuration']??'off';
+    let consent={state:'unavailable',revision:null,limits:null};
+    try{
+      if(mode==='on'&&typeof store?.readM7Consent==='function'&&typeof store.activeTimelineId==='string'){
+        const record=await store.readM7Consent({worldProfileId:store.worldProfileId,timelineId:store.activeTimelineId});
+        consent=!record?{state:'not_granted',revision:null,limits:null}:record.mode==='experimental'
+          ?{state:'granted',revision:record.consentRevision,
+            limits:{dailyUsd:record.dailyUsd,monthlyUsd:record.monthlyUsd,maxBatchUsd:record.maxBatchUsd}}
+          :{state:'withdrawn',revision:record.consentRevision,limits:null};
+      }
+    }catch{}
+    return {requestedMode:mode,consent,
+      runtime:runtime.services.memoryCloudCurationDiagnostics?.()??null};
+  }
   async function snapshot(){
     const stored=await read(),pending=normalizeConfig(stored.data,env).memoryK;
     const diagnostics=runtime.services.memoryKRuntimeDiagnostics();
@@ -49,7 +66,7 @@ export function createInspectorControls({runtime,configPath=process.env.LSA_E1_C
         restartRequired:requestedMode!==runningMode,
         changePolicy:'restart_required',legacy:actual.legacy===true};
     });
-    return {revision:stored.revision,capabilities:rows,
+    return {revision:stored.revision,capabilities:rows,cloudCuration:await cloudView(),
       explicitConfiguration:Object.keys(runtime.config.memoryK.capabilities).length>0,
       pause:{requested:pending.pauseLearned===true,effective:runtime.memoryPause.paused,
         operationalState:runtime.memoryPause.paused?(pauseCleanup==='failed'||runtime.learnedMemoryPauseFailed?'blocked_cleanup_failed':pauseCleanup==='stopping'?'pausing':'paused'):'running',
@@ -57,7 +74,23 @@ export function createInspectorControls({runtime,configPath=process.env.LSA_E1_C
         restartRequired:runtime.memoryPause.paused!==(pending.pauseLearned===true)},
       privacy:'Mandatory P2 privacy remains enabled; every operation requires current scope verification.'};
   }
-  const change=body=>serial(async()=>{
+  // Grant/withdraw an explicit M7 cloud-curation approval in P2. Withdrawal is a
+  // privacy action: it never depends on config readability, revision or pause.
+  const cloudConsent=async body=>{
+    const store=runtime.characterService?.store;
+    if(typeof store?.grantM7Consent!=='function')throw Error('inspector_cloud_consent_unavailable');
+    if(body.action==='withdraw')await store.withdrawM7Consent({});
+    else if(body.action==='grant'){
+      if(runtime.memoryPause.paused||runtime.config.memoryK.capabilities['memory.cloudCuration']!=='on')
+        throw Error('inspector_cloud_consent_unavailable');
+      if(body.confirmation!=='approve_off_turn_evidence_upload')
+        throw Error('inspector_cloud_consent_confirmation_required');
+      await store.grantM7Consent({dailyUsd:body.dailyUsd,monthlyUsd:body.monthlyUsd,maxBatchUsd:body.maxBatchUsd,
+        offTurnEvidenceUploadAccepted:true,model:runtime.config.reasoningModel});
+    }else throw Error('inspector_invalid_cloud_consent');
+    return snapshot();
+  };
+  const change=body=>body?.operation==='cloud_consent'?serial(()=>cloudConsent(body)):serial(async()=>{
     const stored=await read();
     if(body.revision!==stored.revision)throw Error('inspector_config_changed');
     const data=structuredClone(stored.data),memoryK=data.memoryK??={};

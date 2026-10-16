@@ -133,11 +133,11 @@ export function createMemoryKRuntimeComposition(config) {
 // Independent production adapters follow in later workstreams. Explicit
 // requests cannot activate coupled legacy bundles as an incidental effect.
 export function memoryKConsumersAllowed(config) {
-  // M6 is a background-only add-on, not a request to independently gate the
+  // M6 and M7 are background-only add-ons, not requests to independently gate the
   // existing dialogue / M3 / PS / WS6 consumers. Other explicit capability
   // entries still opt into the strict independent-activation contract.
   return Object.keys(config.memoryK?.capabilities??{})
-    .every(id=>id==='memory.deterministic');
+    .every(id=>id==='memory.deterministic'||id==='memory.cloudCuration');
 }
 
 // Restart-required recording switches. Unspecified siblings in an explicit
@@ -205,6 +205,19 @@ export function memoryKM5Activation(config) {
 // It reads committed durable evidence only (no M2/M3 intake or M7 dependency).
 export function memoryKM6Activation(config) {
   const requestedMode=config.memoryK?.capabilities?.['memory.deterministic']??'off';
+  return Object.freeze({requestedMode,mode:requestedMode==='on'?'on':'off',
+    reason:requestedMode==='on'?null:'optional_consumer_stopped'});
+}
+
+
+// M7 Luna cloud curation. Like M6 it is NEVER on by inheritance, and as an
+// explicit key it must not switch off the legacy foreground path. It needs only
+// P2 SQLite (durable queue/ledger/consent) and a native idle source: no M2/M3
+// intake, M4 recall, H1 history, M8 interpretation or active M6 pass. Cloud
+// requests additionally require persisted consent; the capability alone never
+// authorizes spend.
+export function memoryKM7Activation(config) {
+  const requestedMode=config.memoryK?.capabilities?.['memory.cloudCuration']??'off';
   return Object.freeze({requestedMode,mode:requestedMode==='on'?'on':'off',
     reason:requestedMode==='on'?null:'optional_consumer_stopped'});
 }

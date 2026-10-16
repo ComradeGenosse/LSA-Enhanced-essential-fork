@@ -21,6 +21,7 @@ export class P2SqliteProfileStore {
   // Monotone revocation epoch: an operation admitted before source loss or a
   // timeline selection cannot execute after later reauthorization (ABA).
   #authorityGeneration = 0;
+  #m7ConsentListeners = new Set();
   #optionalMemoryFence=new AsyncLocalStorage();
   constructor({ filePath, worldProfileId, legacyJsonPath = null, sourceRequired = false, journalLimits = {} }) {
     if (typeof sourceRequired !== 'boolean') throw new TypeError('invalid_timeline_source_config');
@@ -560,6 +561,55 @@ export class P2SqliteProfileStore {
   }
   async finishCurationBudget(args,state){
     return this.withTimelineWrite(this.activeTimelineId,foundation=>foundation.finishCurationBudget(args,state));
+  }
+  // Crash-era reservations stay conservatively spent (settled at their ceiling).
+  async reconcileCurationBudget(args){
+    return this.withTimelineWrite(this.activeTimelineId,foundation=>foundation.reconcileCurationBudget(args));
+  }
+  // M7 explicit cloud-curation consent. It lives in this one P2 database, is
+  // revisioned, and never depends on a writable timeline: withdrawal must
+  // always work. Listeners are told synchronously so in-flight work aborts.
+  subscribeM7ConsentInvalidation(listener){
+    if(typeof listener!=='function')throw new TypeError('m7_consent_listener_required');
+    this.#m7ConsentListeners.add(listener);
+    return ()=>{this.#m7ConsentListeners.delete(listener);};
+  }
+  #notifyM7Consent(){
+    for(const listener of [...this.#m7ConsentListeners])try{listener();}catch{}
+  }
+  async readM7Consent(scope){
+    await this.initialize();
+    return this.#serial(()=>{
+      if(!this.available)fail('profile_store_unavailable');
+      return this.#db.readM7Consent(scope);
+    });
+  }
+  async grantM7Consent(args){
+    await this.initialize();
+    const result=await this.#serial(()=>{
+      if(!this.available)fail('profile_store_unavailable');
+      return this.#db.grantM7Consent(args);
+    });
+    this.#notifyM7Consent();
+    return result;
+  }
+  async withdrawM7Consent(args){
+    // Cancel immediately on request, then again once the revision is durable.
+    this.#notifyM7Consent();
+    await this.initialize();
+    const result=await this.#serial(()=>{
+      if(!this.available)fail('profile_store_unavailable');
+      return this.#db.withdrawM7Consent(args);
+    });
+    this.#notifyM7Consent();
+    return result;
+  }
+  async readCurationStatus(args){
+    await this.initialize();
+    return this.#serial(()=>{
+      if(!this.available)fail('profile_store_unavailable');
+      return this.#db.readCurationStatus({timelineId:this.activeTimelineId,...args});
+    });
   }
   async inspect({scope}){
     return this.findCandidates({scope,limit:200});
