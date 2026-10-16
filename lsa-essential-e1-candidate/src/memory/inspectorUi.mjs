@@ -48,10 +48,10 @@ async function loadCapabilities(){
     $('capabilityRows').append(block);
   }
   const cloud=capabilityView.cloudCuration;
-  $('cloudCuration').hidden=cloud.requestedMode!=='on';
+  // Always expose the withdrawal control: approval persists when M7 is off.
   $('cloudStatus').textContent='Approval: '+cloud.consent.state+(cloud.consent.limits?' · limits $'+cloud.consent.limits.dailyUsd+'/day, $'+cloud.consent.limits.monthlyUsd+'/month, $'+cloud.consent.limits.maxBatchUsd+'/batch':'')+
     ' · worker: '+(cloud.runtime?.operationalState??'unavailable')+(cloud.runtime?.reason?' ('+cloud.runtime.reason+')':'')+'.';
-  $('cloudGrant').disabled=cloud.consent.state==='unavailable';
+  $('cloudGrant').disabled=cloud.requestedMode!=='on'||cloud.consent.state==='unavailable';
   const pause=capabilityView.pause;
   $('pauseStatus').textContent='Learned memory: '+pause.operationalState+' · persisted pause '+pause.requested+
     (pause.restartRequired?' · '+(pause.requested?'pause':'resume')+' pending companion restart':'')+'. Existing data and authenticated privacy administration are preserved.';
