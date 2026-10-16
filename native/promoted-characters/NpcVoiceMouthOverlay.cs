@@ -42,6 +42,15 @@ namespace LSA.PromotedCharacters
                 return;
             }
             if (!actuallySpeaking) { Close(ped); return; }
+            // Do not compete with authored cinematics, player switches,
+            // or network owners. Suppress without touching their facial state.
+            try {
+                if (NativeFunction.CallByName<bool>("IS_CUTSCENE_ACTIVE") ||
+                    NativeFunction.CallByName<bool>("IS_CUTSCENE_PLAYING") ||
+                    NativeFunction.CallByName<bool>("IS_PLAYER_SWITCH_IN_PROGRESS") ||
+                    NativeFunction.CallByName<bool>("NETWORK_IS_SESSION_ACTIVE"))
+                { Forget(); return; }
+            } catch { disabled=true; Forget(); return; }
             if (now < 0 || (lastRefresh >= 0 && now < lastRefresh)) { Forget(); return; }
             if (applied && now - lastRefresh < RefreshMs) return;
 
