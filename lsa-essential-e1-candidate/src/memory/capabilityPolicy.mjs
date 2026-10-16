@@ -58,10 +58,12 @@ const byId = new Map(MEMORY_K_CAPABILITIES.map(row => [row.id,row]));
 
 export function normalizeMemoryKConfig(value = {}) {
   if (!value || typeof value !== 'object' || Array.isArray(value) ||
-      Object.keys(value).some(key => !['capabilities','profile','pauseLearned'].includes(key)))
-    throw new TypeError('memoryK supports only capabilities, profile and pauseLearned.');
+      Object.keys(value).some(key => !['capabilities','profile','pauseLearned','autoResumeSingleTimeline'].includes(key)))
+    throw new TypeError('memoryK supports only capabilities, profile, pauseLearned and autoResumeSingleTimeline.');
   if(value.pauseLearned!==undefined&&typeof value.pauseLearned!=='boolean')
     throw new TypeError('memoryK.pauseLearned must be boolean.');
+  if(value.autoResumeSingleTimeline!==undefined&&typeof value.autoResumeSingleTimeline!=='boolean')
+    throw new TypeError('memoryK.autoResumeSingleTimeline must be boolean.');
   if(value.profile!==undefined&&value.profile!=='storage-only')
     throw new TypeError('memoryK.profile is unsupported.');
   const requested = value.capabilities ?? {};
@@ -84,7 +86,8 @@ export function normalizeMemoryKConfig(value = {}) {
     normalized['memory.inspector']??='off';
   }
   return Object.freeze({...value.profile?{profile:value.profile}:{},
-    ...(value.pauseLearned!==undefined?{pauseLearned:value.pauseLearned}:{}),capabilities:Object.freeze(normalized)});
+    ...(value.pauseLearned!==undefined?{pauseLearned:value.pauseLearned}:{}),
+    ...(value.autoResumeSingleTimeline!==undefined?{autoResumeSingleTimeline:value.autoResumeSingleTimeline}:{}),capabilities:Object.freeze(normalized)});
 }
 
 const registrationStatus = value => value === true || value === 'registered' ? 'registered'

@@ -28,6 +28,7 @@ import {createMemoryD02Port} from './memory/memoryD02Port.mjs';
 import {resolveMemoryKCapabilities} from './memory/capabilityPolicy.mjs';
 import {createMemoryKRuntimeComposition,memoryKDialogueActivation,runtimeCleanupError} from './memory/runtimeComposition.mjs';
 import {memoryKSourceActivation} from './memory/sourceActivation.mjs';
+import {bindHostContext} from './characters/timelineAutoResume.mjs';
 import {memoryKM3Activation,unavailableM3States} from './memory/m3Activation.mjs';
 import {createInspectorControls} from './memory/inspectorControls.mjs';
 import {withLearnedMemoryPause} from './memory/learnedMemoryPause.mjs';
@@ -330,8 +331,10 @@ export async function createRuntimeForBundle(options = {}) {
         }
         if(config.promotedCharacters.storageMode==='sqlite' && runtime.characterService?.store?.onBoundary) {
           owner.own('storage.host',runtime.intelligence.subscribeVerifiedHostContext(context=>{
-            try {runtime.characterService.store.setVerifiedHostContext(context);}
-            catch {runtime.characterService.emit('character_safe_failure',{reason:'timeline_write_suspended'});}
+            const safeFailure=()=>runtime.characterService.emit('character_safe_failure',{reason:'timeline_write_suspended'});
+            try {void bindHostContext(runtime.characterService.store,context,
+              {autoResume:config.memoryK.autoResumeSingleTimeline===true,onSafeFailure:safeFailure});}
+            catch {safeFailure();}
           }),unsubscribe=>unsubscribe());
           // Receive only post-validation C-13 native world epochs. No inference
           // from a model turn, OS clock, gameplay timestamp or stale channel.
