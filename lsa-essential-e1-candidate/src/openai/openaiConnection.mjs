@@ -1,5 +1,6 @@
 import { sameIdentity } from '../integration/nativeDelivery.mjs';
 import { runSequentialTurn } from './runSequentialTurn.mjs';
+import { reasonForAbort } from '../voice/voiceActivity.mjs';
 import { captureReferenceMap, immutableSnapshot, unknownWorld } from '../context/turnSnapshot.mjs';
 
 const hasOwn = (value, key) => Object.prototype.hasOwnProperty.call(value || {}, key);
@@ -178,6 +179,7 @@ export class OpenAIConnection {
     this.#mic = [];
     this.#micBytes = 0;
     this.#micOverflow = false;
+    this.#voice('captureStarted', this.#turn.identity);
     return Promise.resolve(true);
   }
 
@@ -193,11 +195,14 @@ export class OpenAIConnection {
       this.#metrics?.event('input_overflow', { bytes: this.#micBytes + chunk.length });
       this.#mic = [];
       this.#micBytes = 0;
+      this.#voice('captureEnded', this.#turn.identity, { submitted: false, reason: 'input_overflow' });
       throw new Error('PTT input exceeded the configured 30-second limit.');
     }
     this.#mic.push(chunk);
     this.#micBytes += chunk.length;
     this.#metrics?.count('micChunks');
+    // Peak of this chunk only (UX4 meter). Nothing is retained from the samples.
+    this.#voice('level', this.#turn.identity, chunk);
     return Promise.resolve(true);
   }
 
@@ -215,12 +220,19 @@ export class OpenAIConnection {
     if (!this.#inputStarted) return Promise.resolve(false);
     this.#inputStarted = false;
     this.#metrics?.event('capture_stopped', { bytes: this.#micBytes, sampleRate: 16_000, durationMs: Math.max(0, performance.now() - this.#captureStartedAt) });
-    if (this.#micOverflow) throw new Error('PTT input exceeded the configured limit; no truncated audio was submitted.');
+    if (this.#micOverflow) {
+      this.#voice('captureEnded', this.#turn.identity, { submitted: false, reason: 'input_overflow' });
+      throw new Error('PTT input exceeded the configured limit; no truncated audio was submitted.');
+    }
     const pcm = Buffer.concat(this.#mic, this.#micBytes);
     this.#mic = [];
     this.#micBytes = 0;
     this.#metrics?.event('input_ready', { bytes: pcm.length, sampleRate: 16_000, channels: 1, role: 'microphone' });
-    if (!pcm.length) throw new Error('PTT input did not contain microphone audio.');
+    if (!pcm.length) {
+      this.#voice('captureEnded', this.#turn.identity, { submitted: false, reason: 'no_audio' });
+      throw new Error('PTT input did not contain microphone audio.');
+    }
+    this.#voice('captureEnded', this.#turn.identity, { submitted: true });
     this.#launch({ pcm: new Uint8Array(pcm), sampleRate: 16_000 });
     return Promise.resolve(true);
   }
@@ -254,6 +266,8 @@ export class OpenAIConnection {
     this.#inputStarted = false;
     this.#mic = [];
     this.#micBytes = 0;
+    // Before launch there is no runner to report the terminal state.
+    if (!this.#active) this.#voice('terminal', identity, reasonForAbort(reason));
     if (!this.#active || !sameIdentity(this.#active.identity, identity)) return true;
     this.#active.cancelReason = String(reason || 'cancelled');
     this.#active.controller?.abort(new Error(this.#active.cancelReason));
@@ -321,6 +335,7 @@ export class OpenAIConnection {
         try { acceptance?.release(); } catch {}
         try { speech?.release(); } catch {}
         const reason = this.#closed ? 'disconnected' : this.#active?.cancelReason || 'cancelled';
+        this.#voice('terminal', turn.identity, reasonForAbort(reason));
         this.#metrics?.finish({ reason, stage: 'input', assistantCommitted: false });
         return { status: 'cancelled', terminalReason: reason };
       }
@@ -333,6 +348,7 @@ export class OpenAIConnection {
         host: this.#runtime.hostFor(this),
         acceptance,
         speech,
+        voice: this.#runtime.voiceActivity ?? null,
       });
     });
     state.done = run;
@@ -379,6 +395,9 @@ export class OpenAIConnection {
     const snapshot=immutableSnapshot(actor);
     return this.#runtime.copyActorPresence?.(actor,snapshot) ?? snapshot;
   }
+
+  // UX4 meter hook: a missing or failing tracker can never affect the conversation.
+  #voice(method, ...args) { try { return this.#runtime.voiceActivity?.[method](...args); } catch { return false; } }
 
   #ensureOpen() { if (this.#closed) throw new Error('OpenAI session is closed.'); }
   #ensureTurn() { this.#ensureOpen(); if (!this.#turn) throw new Error('OpenAI generation is not bound to an Essential turn.'); }

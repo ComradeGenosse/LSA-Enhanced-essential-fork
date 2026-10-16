@@ -32,6 +32,7 @@ import { validateDecisionShape } from '../context/essentialDecision.mjs';
 import { validateStockDecision } from '../context/decisionValidator.mjs';
 import { createProviderStack } from '../providers/providerStack.mjs';
 import { VoiceResolver } from '../voice/voiceResolver.mjs';
+import { createVoiceActivity } from '../voice/voiceActivity.mjs';
 import { executeProviderOperation } from '../reliability/providerExecutor.mjs';
 import { captureReferenceMap } from '../context/turnSnapshot.mjs';
 import { IdentityResolver } from '../identity/identityResolver.mjs';
@@ -54,6 +55,8 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
   // Stock Gemini keeps its native transport and does not enter this stack.
   const providerStack = config.provider === 'openai' ? createProviderStack(config, { fetchImpl, providers }) : null;
   const voiceResolver = config.provider === 'openai' ? new VoiceResolver(config) : null;
+  // UX4 mic meter and status: peak level and phase codes only, never audio.
+  const voiceActivity = config.provider === 'openai' ? createVoiceActivity() : null;
   const identityService = config.provider === 'openai' && config.persistentIdentity?.enabled
     ? new IdentityResolver(config.persistentIdentity, { evidence: identityEvidence, store: identityStore, telemetry,
       retireSession: (session, reason) => {
@@ -545,6 +548,7 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
   };
   const runtime = {
     config, history, services, telemetry, dialogueTrace, providerStack, voiceResolver, identityService,characterService,memoryPause,
+    voiceActivity,
     separateKnowledgeInstruction,
     captureNormalizedActor: (actor,raw,shape)=>actorPresence.capture(actor,raw,shape),
     actorSourcePresence: actor=>actorPresence.read(actor),

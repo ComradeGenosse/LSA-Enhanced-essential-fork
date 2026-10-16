@@ -4,6 +4,10 @@ on:
     types: [opened, reopened, synchronize, ready_for_review]
     paths:
       - 'native/enhanced/Input/TalkTargetInput.cs'
+      - 'native/enhanced/Input/TalkFeedback.cs'
+      - 'native/enhanced/Ui/TalkFeedbackOverlay.cs'
+      - 'lsa-essential-e1-candidate/src/voice/**'
+      - 'lsa-essential-e1-candidate/tests/voice-activity.test.mjs'
       - 'native/enhanced/input-tests/**'
       - 'native/promoted-characters/**'
       - '.github/workflows/ux4-committed-recipient-windows.yml'

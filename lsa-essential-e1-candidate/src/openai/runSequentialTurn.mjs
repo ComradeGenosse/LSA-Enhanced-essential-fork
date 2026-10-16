@@ -61,7 +61,7 @@ function publicCause(error) {
 // host.emit, TTS completion, stream end, RAM-history acceptance) and from the
 // native events the bridge delivered for this exact turn tuple. Every call is
 // best effort: memory evidence can never delay, fail or alter a turn.
-export async function runSequentialTurn({ connection, turn, controller = new AbortController(), services, history, host, acceptance = null, speech = null }) {
+export async function runSequentialTurn({ connection, turn, controller = new AbortController(), services, history, host, acceptance = null, speech = null, voice = null }) {
   const { identity, input, pcm, sampleRate } = turn;
   let context = turn.context;
   const source = String(turn.source || 'player_text').toLowerCase();
@@ -78,7 +78,9 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
   let providerTimer = null;
   const metrics = host.telemetry?.beginTurn(identity, source, { inputChars: String(input || '').length, bytes: pcm?.byteLength || 0, sampleRate: sampleRate || 0 }) || null;
 
-  const transition = next => { state = next; metrics?.stage(next); host.log?.(identity, next, { source }); };
+  // UX4 meter hook: best effort and never able to fail or delay the turn.
+  const notifyVoice = (method, ...args) => { try { voice?.[method](...args); } catch { /* meter only */ } };
+  const transition = next => { state = next; metrics?.stage(next); notifyVoice('stage', identity, next); host.log?.(identity, next, { source }); };
   const chooseTerminal = reason => { if (!terminalReason) terminalReason = reason; return terminalReason; };
   const valid = () => !retired && !controller.signal.aborted && host.isCurrent(identity);
   const check = () => {
@@ -215,6 +217,7 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
       if (!controller.signal.aborted) controller.abort(new Error(reason));
     }, event => {
       try { speech?.native(event); } catch { /* evidence only */ }
+      notifyVoice('nativePlayback', identity, event.type);
       const map = {
         audio_turn_accepted: 'native_authorization_accepted',
         audio_turn_rejected: 'native_authorization_rejected',
@@ -611,6 +614,7 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
     metrics?.count('assistantCommitCount');
     metrics?.event('assistant_history_committed', { outputChars: String(decision.dialogue || '').length, playbackEndedCount: 1 });
     dialogueTurn?.finish({ reason: 'completed', stage: 'completed', assistantCommitted: true, assistantDiscarded: false });
+    notifyVoice('terminal', identity, 'completed');
     transition('completed');
     host.log?.(identity, 'terminal', { source, reason: 'completed', stage: state, cause: null });
     metrics?.finish({ reason: 'completed', stage: state, pcmBytes: pcmBytesTotal, audioDurationMs: expectedDurationMs, traceComplete: true, assistantCommitted: true });
@@ -621,6 +625,7 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
     providerWorkDone?.('failed', { code: /^[A-Za-z][A-Za-z0-9_]{0,63}$/.test(error?.code || '') ? error.code : 'provider_work_failed' });
     if (!terminalReason) chooseTerminal(controller.signal.aborted ? terminalForAbort(controller.signal) : terminalForError(error, state));
     try { speech?.terminal(terminalReason); } catch { /* evidence only */ }
+    notifyVoice('terminal', identity, terminalReason);
     retired = true;
     const assistantDiscarded = history.discard(identity);
     if (assistantDiscarded) {
