@@ -227,7 +227,7 @@ namespace LSA.Enhanced.Input
             cycleUntil = clock.Monotonic + (settings?.TalkCycleWindowMs ?? 1500);
             selectionExpiresAt = clock.Monotonic + (settings?.TalkSelectionTimeoutMs ?? 8000);
             int index = Number(result.Body,"cycleIndex"), count = Number(result.Body,"cycleCount");
-            if (index > 0 && count > 0) hud.Show("Target " + index + "/" + count);
+            if (index > 0 && count > 0) hud.Show("Target " + index + "/" + count + PreviewSuffix(RecipientKind(result.Body)));
         }
         void PollStart()
         {
@@ -248,7 +248,7 @@ namespace LSA.Enhanced.Input
                 }
                 long latency = clock.Monotonic - pressAt;
                 if (latency >= 0 && latency < 10000) log("[UX4] talk_ptt begin latencyMs=" + latency);
-                if (state == "start_pending" && Down() && !stopNeeded) state = "talking";
+                if (state == "start_pending" && Down() && !stopNeeded) { state = "talking"; AnnounceRecipient(result.Body); }
                 else if (stoppedGeneration != pressGeneration) Finish("late_start");
                 return;
             }
@@ -259,6 +259,27 @@ namespace LSA.Enhanced.Input
             else if (reason == "selector_unavailable") hud.Show("Talk targeting unavailable");
             if (state == "start_pending") { state = "idle"; waitRelease = true; }
         }
+        // One notice per committed start, from the native result for the exact ped
+        // the mic was opened on. A start that was released, rejected, lost or
+        // taken over never reaches here. The kind is display-only: it is matched
+        // against a fixed allowlist, and no name is ever taken from the reply.
+        void AnnounceRecipient(Dictionary<string,object> body)
+        {
+            string kind = RecipientKind(body);
+            if (kind == null) return;
+            hud.Show(kind == "promoted" ? "Talking to: Promoted NPC" : kind == "ambient" ? "Talking to: Nearby NPC" : "Talking to: NPC (identity unavailable)");
+            string evidence = body.TryGetValue("recipientEvidence",out var code) ? code as string : null;
+            log("[UX4] talk_ptt recipient kind=" + kind + (evidence != null && Regex.IsMatch(evidence,"^[a-z][a-z0-9_]{0,31}$") ? " evidence=" + evidence : ""));
+        }
+        // null when the native reply carries no recipient field (older native);
+        // any value outside the allowlist is shown as the generic unknown notice.
+        static string RecipientKind(Dictionary<string,object> body)
+        {
+            if (body == null || !body.TryGetValue("recipientKind",out var raw) || raw == null) return null;
+            string kind = raw as string;
+            return kind == "promoted" || kind == "ambient" ? kind : "unknown";
+        }
+        static string PreviewSuffix(string kind) => kind == "promoted" ? " - Promoted NPC" : kind == "ambient" ? " - Nearby NPC" : "";
         void PollStop()
         {
             if (stopId == null) return;

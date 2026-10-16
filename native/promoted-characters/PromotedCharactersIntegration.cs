@@ -107,7 +107,7 @@ namespace LSA.PromotedCharacters
             world = worldProfileId; this.pipeName = pipeName; this.identityPipeName = identityPipeName;
             Host = host ?? new HostContext();
             Host.WorldChanged+=OnHostWorldChanged;
-            talkTargets = new TalkTargetSelector(ped => EncounterFor(ped).Id);
+            talkTargets = new TalkTargetSelector(ped => EncounterFor(ped).Id,ResolveTalkRecipient);
         }
         public void Prepare()
         {

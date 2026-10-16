@@ -17,6 +17,7 @@ static partial class Program
         GeometryTests();
         TalkSettingsTests();
         TalkInputTests();
+        TalkRecipientTests();
         TalkViewTests();
     }
     static TalkCandidate Ped(string id,float distance,float error,bool onScreen,int order) => new TalkCandidate {PedId = id,Address = order + 10,Distance = distance,ScreenCenterError = error,OnScreen = onScreen,InputOrder = order};
@@ -148,6 +149,101 @@ static partial class Program
             Bridge.Results[id] = Json.Serialize(new Dictionary<string,object> {{"v",1},{"id",id},{"command","talk"},{"status",reason == null ? "ok" : "failed"},{"reason",reason},{"result",result}});
         }
         public string LastId() => (string)Last()["id"];
+    }
+    static Dictionary<string,object> StartedReply(string kind = null,string evidence = null,bool raw = false)
+    {
+        var body = new Dictionary<string,object> {{"started",true},{"selectionId",Id()},{"encounterId",FakeBridge.Encounter},{"cycleIndex",1},{"cycleCount",1}};
+        if (kind != null || raw) body["recipientKind"] = kind;
+        if (evidence != null) body["recipientEvidence"] = evidence;
+        return body;
+    }
+    static int Notices(TalkRig rig) => rig.Hud.Shown.Count(text => text.StartsWith("Talking to:"));
+    static void TalkRecipientTests()
+    {
+        // The notice follows the native commit result for the exact ped, never the
+        // button press, the request acceptance or a previous selection.
+        var promoted = new TalkRig();
+        promoted.Press(); promoted.Elapse(220);
+        Check(Notices(promoted) == 0 && !promoted.Hud.Shown.Any(text => text.Contains("NPC")),"nothing is announced before the native commit result");
+        promoted.Reply(promoted.LastId(),StartedReply("promoted","owner_verified")); promoted.Frame(1);
+        Check(promoted.Talk.State == "talking" && promoted.Hud.Last == "Talking to: Promoted NPC" && Notices(promoted) == 1,"a verified promoted recipient is announced once");
+        Check(promoted.Logs.Any(line => line == "[UX4] talk_ptt recipient kind=promoted evidence=owner_verified"),"the recipient class is logged without an identity");
+        promoted.Frame(5);
+        Check(Notices(promoted) == 1,"the notice is not repeated on later ticks");
+
+        var ambient = new TalkRig();
+        ambient.Press(); ambient.Elapse(220);
+        ambient.Reply(ambient.LastId(),StartedReply("ambient","unowned")); ambient.Frame(1);
+        Check(ambient.Hud.Last == "Talking to: Nearby NPC" && Notices(ambient) == 1,"an unowned ambient recipient is announced as a nearby NPC");
+
+        var unknown = new TalkRig();
+        unknown.Press(); unknown.Elapse(220);
+        unknown.Reply(unknown.LastId(),StartedReply("unknown","owner_proof_stale")); unknown.Frame(1);
+        Check(unknown.Hud.Last == "Talking to: NPC (identity unavailable)" && !unknown.Hud.Last.Contains("Promoted") && !unknown.Hud.Last.Contains("Nearby"),"unproven identity is neither promoted nor ambient");
+
+        foreach (var junk in new object[] {"Nathan","PROMOTED","promoted ","",7,true}) {
+            var odd = new TalkRig();
+            odd.Press(); odd.Elapse(220);
+            var reply = StartedReply(); reply["recipientKind"] = junk;
+            odd.Reply(odd.LastId(),reply); odd.Frame(1);
+            Check(odd.Hud.Last == "Talking to: NPC (identity unavailable)","a recipient outside the allowlist falls back to the generic unknown notice: " + junk);
+        }
+        var hostile = new TalkRig();
+        hostile.Press(); hostile.Elapse(220);
+        hostile.Reply(hostile.LastId(),StartedReply("promoted","Nathan the Great\nid=1")); hostile.Frame(1);
+        Check(hostile.Hud.Last == "Talking to: Promoted NPC" && hostile.Logs.Any(line => line == "[UX4] talk_ptt recipient kind=promoted") && !hostile.Logs.Any(line => line.Contains("Nathan")),"an unbounded evidence string is not logged");
+
+        var older = new TalkRig();
+        older.Press(); older.Elapse(220);
+        older.Reply(older.LastId(),StartedReply()); older.Frame(1);
+        Check(older.Talk.State == "talking" && Notices(older) == 0,"a native reply with no recipient field starts talking without a claim");
+        var nulled = new TalkRig();
+        nulled.Press(); nulled.Elapse(220);
+        nulled.Reply(nulled.LastId(),StartedReply(raw: true)); nulled.Frame(1);
+        Check(nulled.Talk.State == "talking" && Notices(nulled) == 0,"a null recipient is not announced");
+
+        // No notice for any start that did not become a live talk.
+        foreach (var reason in new[] {"target_lost","target_changed","no_nearby_npc","selector_unavailable","mic_ownership_lost","cancelled"}) {
+            var failed = new TalkRig();
+            failed.Press(); failed.Elapse(220);
+            failed.Reply(failed.LastId(),new Dictionary<string,object> {{"started",false},{"reason",reason},{"recipientKind","promoted"}}); failed.Frame(1);
+            Check(Notices(failed) == 0 && failed.Talk.State == "idle","a rejected or cancelled start announces nobody: " + reason);
+        }
+        var failedStatus = new TalkRig();
+        failedStatus.Press(); failedStatus.Elapse(220);
+        failedStatus.Reply(failedStatus.LastId(),new Dictionary<string,object> {{"recipientKind","promoted"}},"mic_ownership_lost"); failedStatus.Frame(1);
+        Check(Notices(failedStatus) == 0,"a failed command status announces nobody");
+
+        var released = new TalkRig();
+        released.Press(); released.Elapse(220);
+        string pendingStart = released.LastId();
+        released.Keys.Down.Remove(F10); released.Frame(1);
+        released.Reply(pendingStart,StartedReply("promoted","owner_verified")); released.Frame(1);
+        Check(Notices(released) == 0,"a start that commits after the key was released is not announced");
+
+        // A tap preview adds the class only when native supplied one; it never opens the mic.
+        var preview = new TalkRig();
+        preview.Press(); preview.Elapse(40); preview.Keys.Down.Remove(F10); preview.Frame(1);
+        preview.Reply(preview.LastId(),new Dictionary<string,object> {{"present",true},{"selectionId",Id()},{"encounterId",FakeBridge.Encounter},{"cycleIndex",2},{"cycleCount",3},{"recipientKind","promoted"}}); preview.Frame(1);
+        Check(preview.Hud.Last == "Target 2/3 - Promoted NPC" && Notices(preview) == 0 && preview.Bridge.Submitted.All(item => !item.Contains("ptt_start")),"a preview names the class without a talking claim");
+        var previewAmbient = new TalkRig();
+        previewAmbient.Press(); previewAmbient.Elapse(40); previewAmbient.Keys.Down.Remove(F10); previewAmbient.Frame(1);
+        previewAmbient.Reply(previewAmbient.LastId(),new Dictionary<string,object> {{"present",true},{"selectionId",Id()},{"encounterId",FakeBridge.Encounter},{"cycleIndex",1},{"cycleCount",2},{"recipientKind","ambient"}}); previewAmbient.Frame(1);
+        Check(previewAmbient.Hud.Last == "Target 1/2 - Nearby NPC","a preview of an unowned ped says nearby");
+        var previewUnknown = new TalkRig();
+        previewUnknown.Press(); previewUnknown.Elapse(40); previewUnknown.Keys.Down.Remove(F10); previewUnknown.Frame(1);
+        previewUnknown.Reply(previewUnknown.LastId(),new Dictionary<string,object> {{"present",true},{"selectionId",Id()},{"encounterId",FakeBridge.Encounter},{"cycleIndex",1},{"cycleCount",2},{"recipientKind","unknown"}}); previewUnknown.Frame(1);
+        Check(previewUnknown.Hud.Last == "Target 1/2","an unverified preview keeps the plain target count");
+
+        // Two committed turns announce independently; the second names its own ped.
+        var twice = new TalkRig();
+        twice.Press(); twice.Elapse(220);
+        twice.Reply(twice.LastId(),StartedReply("ambient","unowned")); twice.Frame(1);
+        twice.Keys.Down.Remove(F10); twice.Frame(1);
+        twice.Reply(twice.LastId(),new Dictionary<string,object> {{"stopped",true}}); twice.Frame(2);
+        twice.Press(); twice.Elapse(220);
+        twice.Reply(twice.LastId(),StartedReply("promoted","owner_verified")); twice.Frame(1);
+        Check(twice.Hud.Shown.Where(text => text.StartsWith("Talking to:")).SequenceEqual(new[] {"Talking to: Nearby NPC","Talking to: Promoted NPC"}),"each committed generation announces its own recipient: " + string.Join(" | ",twice.Hud.Shown));
     }
     static void TalkInputTests()
     {
