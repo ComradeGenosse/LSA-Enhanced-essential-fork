@@ -33,7 +33,9 @@ export function createInspectorControls({runtime,configPath=process.env.LSA_E1_C
     const store=runtime.characterService?.store,mode=runtime.config.memoryK.capabilities['memory.cloudCuration']??'off';
     let consent={state:'unavailable',revision:null,limits:null};
     try{
-      if(mode==='on'&&typeof store?.readM7Consent==='function'&&typeof store.activeTimelineId==='string'){
+      // Consent is world-scoped and survives disabling the worker: always expose
+      // persisted approval, so it can be withdrawn without re-enabling M7.
+      if(typeof store?.readM7Consent==='function'&&typeof store.activeTimelineId==='string'&&store.activeTimelineId){
         const record=await store.readM7Consent({worldProfileId:store.worldProfileId,timelineId:store.activeTimelineId});
         consent=!record?{state:'not_granted',revision:null,limits:null}:record.mode==='experimental'
           ?{state:'granted',revision:record.consentRevision,
