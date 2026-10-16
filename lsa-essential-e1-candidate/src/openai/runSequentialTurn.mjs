@@ -102,19 +102,22 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
   const abortListener = () => chooseTerminal(terminalForAbort(controller.signal));
   controller.signal.addEventListener('abort', abortListener, { once: true });
   let recoverPreRequest = null;
+  const safeToRebuild = error => recoverablePreSend(error) &&
+    !services.shouldWaitForMemoryCommand?.(turn.acceptedPlayerInput ?? '') &&
+    turn.memoryPrepared?.invalidationReason?.() === null;
   const performProvider = (operation, provider, run, canRetry = () => true) => {
     const attempt=async options=>{
       if(operation==='model'&&turn.knowledgeDelivery?.prepareAsync){
         try{turn.knowledgeProjection=await turn.knowledgeDelivery.prepareAsync();check();}
         catch(error){
-          if(!recoverPreRequest||!recoverablePreSend(error)||
+          if(!recoverPreRequest||!safeToRebuild(error)||
              turn.knowledgeDelivery?.wasSent?.()||!valid())throw error;
           await recoverPreRequest('pre_request_stale','attempt_preparation');
         }
       }
       try{return await run(options);}
       catch(error){
-        if(operation!=='model'||!recoverPreRequest||!recoverablePreSend(error)||
+        if(operation!=='model'||!recoverPreRequest||!safeToRebuild(error)||
            turn.knowledgeDelivery?.wasSent?.()||!valid())throw error;
         // The old HTTP body has NOT been submitted. Run again from the
         // completely re-rendered, reverified clean projection exactly once.
@@ -254,6 +257,7 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
     }
     if (isPlayer && !String(finalInput || '').trim()) throw new Error('player_input_empty');
     if (isPlayer) {
+      turn.acceptedPlayerInput = finalInput;
       metrics?.event('input_ready',{inputMode:source==='player_mic'?'stt':'typed'});
       dialogueTurn?.input(finalInput);
     }
@@ -282,8 +286,7 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
       // mutation. Never re-admit its stale acknowledgement as normal dialogue.
       // A new turn may give the player a clean unavailability response.
       if(turn.memoryFallbackUsed||!services.finalizeKnowledgeFrame||
-         (turn.memoryPrepared?.commandsPrepared===true&&
-          services.shouldWaitForMemoryCommand?.(finalInput))||
+         services.shouldWaitForMemoryCommand?.(finalInput)||
          (turn.characterInputs?.profile &&
           (turn.characterSnapshot?.resolution?.kind!=='persistent'||
            turn.characterProjection?.persistent!==true)))
@@ -319,9 +322,13 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
       }
       // M2: the RAM history is intentionally trimmed, but the immutable SQLite
       // journal receives the full accepted input with source attribution.
-      if (committed && services.recordM2Player&&!turn.memoryDisabledForTurn) {
+      if (committed && services.recordM2Player) {
         try {
-          const result=await boundedMemory(()=>services.recordM2Player({turn,text:finalInput,source}));
+          // Preserve the original D03 no-source diagnostic result without
+          // manufacturing an owner lease or attempting a durable write.
+          const result=turn.memoryDisabledForTurn&&!turn.m2Capture
+            ?{value:await services.recordM2Player({turn,text:finalInput,source})}
+            :await boundedMemory(()=>services.recordM2Player({turn,text:finalInput,source}));
           if(result.timedOut){
             turn.memoryDisabledForTurn='memory_capture_timeout';
             metrics?.event('memory_bypass',{stage:'m2_capture',reason:'memory_capture_timeout',requestGatePassed:false});
@@ -371,7 +378,7 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
     // Per-attempt HTTP admission still independently revalidates and fences sends.
     try{await turn.knowledgeDelivery?.prepareAsync?.();}
     catch(error){
-      if(!recoverablePreSend(error))throw error;
+      if(!safeToRebuild(error))throw error;
       await recoverPreRequest('pre_request_stale','initial_preflight');
     }
     turn.knowledgeDelivery?.watch(listener=>services.subscribeKnowledgeInvalidation?.(listener) ?? (()=>{}),error=>controller.abort(error));
