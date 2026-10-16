@@ -58,6 +58,8 @@ jobs:
           files=(
             lsa-essential-e1-candidate/tests/memory/h1ConversationHistory.test.mjs
             lsa-essential-e1-candidate/tests/memory/h2FactualRecall.test.mjs
+            lsa-essential-e1-candidate/tests/memory/memoryRequestFence.test.mjs
+            lsa-essential-e1-candidate/tests/memory/memoryFallbackReliability.test.mjs
             lsa-essential-e1-candidate/tests/memory-capability-policy.test.mjs
             lsa-essential-e1-candidate/tests/prompt-legacy-action-cleanup.test.mjs
             lsa-essential-e1-candidate/tests/knowledge-delivery.test.mjs
