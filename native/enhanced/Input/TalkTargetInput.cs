@@ -3,6 +3,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
+using System.Threading;
 using System.Web.Script.Serialization;
 using LSA.Enhanced.Commands;
 using LSA.Enhanced.Settings;
@@ -33,6 +34,17 @@ namespace LSA.Enhanced.Input
         readonly Action<string> log;
         readonly JavaScriptSerializer json = new JavaScriptSerializer {MaxJsonLength = 32768,RecursionLimit = 6};
         readonly ConcurrentQueue<KeyValuePair<PendingName,Describe>> nameReplies = new ConcurrentQueue<KeyValuePair<PendingName,Describe>>();
+        // UX4 conversation feedback (status line and live mic meter). Display only: it reads
+        // the native commit result and the companion's voice_status, and never gates,
+        // delays or changes the talk path above.
+        readonly TalkFeedback feedback = new TalkFeedback();
+        readonly ConcurrentQueue<VoiceReply> voiceReplies = new ConcurrentQueue<VoiceReply>();
+        const string VoiceStatusBody = "{\"action\":\"voice_status\"}";
+        const int VoiceReplyBytes = 512, VoiceTimeoutMs = 800, VoiceStuckMs = 3000;
+        ICompanion voiceCompanion;
+        int voiceInFlight;
+        long voiceInFlightAt;
+        sealed class VoiceReply { public int Epoch; public VoiceStatus Status; }
         PendingName name;
         EnhancedSettings settings;
         string state = "idle", selectionId, encounterId, selectId, startId, stopId;
@@ -57,10 +69,14 @@ namespace LSA.Enhanced.Input
                 companion.Post(new JavaScriptSerializer().Serialize(body),MenuData.DescribeBodyBytes,NameRequestTimeoutMs,reply => done(reply != null && reply.Ok ? Describe.Parse(reply.Body) : null));
             };
         }
+        // Without a companion the status line still shows the native stages; the meter
+        // and the transcribing/thinking/speaking states stay off.
+        public void AttachVoiceStatus(ICompanion companion) { voiceCompanion = companion; }
+        public FeedbackView Feedback => feedback.View;
         public string State => state;
         public string Conflict {get;private set;}
         public bool Enabled => enabled;
-        public bool NeedsFrame => enabled || sharedEssentialTalk || state != "idle" || stopNeeded;
+        public bool NeedsFrame => enabled || sharedEssentialTalk || state != "idle" || stopNeeded || feedback.Active;
         public string DisplayState
         {
             get {
@@ -82,7 +98,7 @@ namespace LSA.Enhanced.Input
             Conflict = null;
             if (active) Finish("settings");
             ReleaseSharedTalk();
-            if (next == null || !next.TalkEnabled || next.TalkKeyCode == 0) { enabled = false; state = "idle"; waitRelease = true; haveSession = false; selectionId = encounterId = null; selectionExpiresAt = cycleUntil = 0; return; }
+            if (next == null || !next.TalkEnabled || next.TalkKeyCode == 0) { enabled = false; state = "idle"; waitRelease = true; haveSession = false; selectionId = encounterId = null; selectionExpiresAt = cycleUntil = 0; feedback.Reset(); return; }
 
             var matches = essential?.All.Where(item => item.State == EssentialKeyState.Bound && item.Vk == next.TalkKeyCode).ToArray();
             var other = matches?.FirstOrDefault(item => item.Setting != "TalkKey");
@@ -106,6 +122,11 @@ namespace LSA.Enhanced.Input
             log("[UX4] talk_target input=ready key=" + PhysicalKeys.Name(next.TalkKeyCode) + " mode=" + (sharedEssentialTalk ? "shared_essential" : "neutral"));
         }
         public void Tick()
+        {
+            try { TickCore(); }
+            finally { UpdateFeedback(); }
+        }
+        void TickCore()
         {
             Poll();
             if (stopNeeded && !stopQueued) SubmitStop();
@@ -151,8 +172,9 @@ namespace LSA.Enhanced.Input
             haveSession = false; selectionId = encounterId = null; cycleUntil = selectionExpiresAt = 0;
             Submit("talk.clear",0,false);
             state = "idle"; waitRelease = enabled && Down();
+            feedback.Reset();
         }
-        public void Stop() { DropName(); enabled = false; Finish("shutdown"); ReleaseSharedTalk(); haveSession = false; selectionId = encounterId = null; state = "idle"; }
+        public void Stop() { DropName(); enabled = false; Finish("shutdown"); ReleaseSharedTalk(); haveSession = false; selectionId = encounterId = null; state = "idle"; feedback.Reset(); }
         public void Cancel(string reason) { Abort(reason ?? "tick",Down()); }
 
         bool AcquireSharedTalk(long now)
@@ -181,8 +203,9 @@ namespace LSA.Enhanced.Input
             bool explicitTarget = haveSession && selectionId != null && now < selectionExpiresAt;
             startExplicit = explicitTarget;
             string id = Submit("talk.ptt_start",pressGeneration,!explicitTarget);
-            if (id == null) { state = "idle"; waitRelease = true; hud.Show(bridge.Available ? "Talk targeting unavailable" : "LSA native host is unavailable"); return; }
+            if (id == null) { state = "idle"; waitRelease = true; hud.Show(bridge.Available ? "Talk targeting unavailable" : "LSA native host is unavailable"); feedback.Fail(now,bridge.Available ? "Talk targeting unavailable" : "LSA native host is unavailable"); return; }
             startId = id; startQueued = true; state = "start_pending";
+            feedback.Begin(now);
         }
         void Tap()
         {
@@ -203,6 +226,7 @@ namespace LSA.Enhanced.Input
         void Finish(string reason)
         {
             DropName();
+            feedback.Released(clock.Monotonic);
             if (state == "pending") { state = "idle"; waitRelease = true; return; }
             if ((startQueued || state == "talking" || state == "start_pending") && !stopNeeded) {
                 stopNeeded = true; stoppedGeneration = pressGeneration; stopRetries = 0; SubmitStop();
@@ -275,7 +299,7 @@ namespace LSA.Enhanced.Input
                 name = null; // a previous generation's pending name can never apply to this commit
                 long latency = clock.Monotonic - pressAt;
                 if (latency >= 0 && latency < 10000) log("[UX4] talk_ptt begin latencyMs=" + latency);
-                if (state == "start_pending" && Down() && !stopNeeded) { state = "talking"; AnnounceRecipient(result.Body); }
+                if (state == "start_pending" && Down() && !stopNeeded) { state = "talking"; AnnounceRecipient(result.Body); feedback.Recording(clock.Monotonic); }
                 else if (stoppedGeneration != pressGeneration) Finish("late_start");
                 return;
             }
@@ -284,7 +308,7 @@ namespace LSA.Enhanced.Input
             if (reason == "target_lost" || reason == "no_nearby_npc") { haveSession = false; selectionId = encounterId = null; hud.Show(reason == "no_nearby_npc" ? "No nearby NPC" : "Target lost"); }
             else if (reason == "target_changed") { haveSession = false; selectionId = encounterId = null; hud.Show("Target changed"); }
             else if (reason == "selector_unavailable") hud.Show("Talk targeting unavailable");
-            if (state == "start_pending") { state = "idle"; waitRelease = true; }
+            if (state == "start_pending") { state = "idle"; waitRelease = true; feedback.Fail(clock.Monotonic,FeedbackText.StartFailure(reason)); }
         }
         // One notice per committed start, from the native result for the exact ped
         // the mic was opened on. A start that was released, rejected, lost or
@@ -298,9 +322,12 @@ namespace LSA.Enhanced.Input
             if (kind == null) return;
             string evidence = body.TryGetValue("recipientEvidence",out var code) ? code as string : null;
             log("[UX4] talk_ptt recipient kind=" + kind + (evidence != null && Regex.IsMatch(evidence,"^[a-z][a-z0-9_]{0,31}$") ? " evidence=" + evidence : ""));
+            // The overlay label never waits on the name lookup: it starts generic and may upgrade once.
+            feedback.SetRecipient(GenericName(kind));
             if (kind == "promoted" && BeginNameLookup(body)) return;
             ShowGeneric(kind);
         }
+        static string GenericName(string kind) => kind == "promoted" ? "Promoted NPC" : kind == "ambient" ? "Nearby NPC" : "NPC";
         void ShowGeneric(string kind) =>
             hud.Show(kind == "promoted" ? "Talking to: Promoted NPC" : kind == "ambient" ? "Talking to: Nearby NPC" : "Talking to: NPC (identity unavailable)");
         // True when a lookup is in flight; the generic notice then waits up to NameWaitMs.
@@ -344,6 +371,7 @@ namespace LSA.Enhanced.Input
                     name.InspectId = null;
                     if (result.Status == "ok" && CurrentOwnerAgrees(name,result.Body)) {
                         hud.Show("Talking to: " + display);
+                        feedback.SetRecipient(display);
                         log("[UX4] talk_ptt recipient_name outcome=shown");
                         name = null;
                         return;
@@ -450,6 +478,35 @@ namespace LSA.Enhanced.Input
                 args["indicator"] = settings.TalkIndicator;
             }
             return new JavaScriptSerializer().Serialize(new Dictionary<string,object> {{"v",1},{"id",id},{"command",command},{"target",target},{"args",args},{"source","talk_input"},{"issuedAtUtc",clock.Utc},{"expiresAtUtc",clock.Utc + CommandEnvelope.LifetimeMs}});
+        }
+        // Runs at the end of every tick (including early returns), off the talk path.
+        // Replies arrive on thread-pool threads and are only queued there.
+        void UpdateFeedback()
+        {
+            try {
+                long now = clock.Monotonic;
+                while (voiceReplies.TryDequeue(out var reply)) feedback.OnReply(reply.Epoch,reply.Status,now);
+                feedback.Advance(now);
+                RequestVoiceStatus(now);
+            } catch { try { feedback.Reset(); } catch { } }
+        }
+        void RequestVoiceStatus(long now)
+        {
+            var companion = voiceCompanion;
+            if (companion == null || !feedback.WantsPoll(now)) return;
+            if (Volatile.Read(ref voiceInFlight) != 0 && now - voiceInFlightAt < VoiceStuckMs) return;
+            Interlocked.Exchange(ref voiceInFlight,1); voiceInFlightAt = now;
+            int epoch = feedback.Epoch;
+            feedback.PollIssued(now);
+            try {
+                companion.Post(VoiceStatusBody,VoiceReplyBytes,VoiceTimeoutMs,reply => {
+                    Interlocked.Exchange(ref voiceInFlight,0);
+                    voiceReplies.Enqueue(new VoiceReply {Epoch = epoch,Status = reply != null && reply.Ok ? VoiceStatus.Parse(reply.Body) : null});
+                });
+            } catch {
+                Interlocked.Exchange(ref voiceInFlight,0);
+                voiceReplies.Enqueue(new VoiceReply {Epoch = epoch,Status = null});
+            }
         }
         string Blocked()
         {
