@@ -85,6 +85,13 @@ static partial class Program
         Check(FeedbackText.Failure("whatever",null) == "Conversation failed" && FeedbackText.Failure(null,null) == "Conversation failed","an unknown reason is still a meaningful, bounded line");
         Check(FeedbackText.StartFailure("mic_busy") == "Microphone busy" && FeedbackText.StartFailure("target_lost") == "Target lost" && FeedbackText.StartFailure(null) == "Couldn't start microphone","start refusals map to plain reasons");
 
+        // New mic holds cannot inherit the previous promoted NPC's name.
+        var nextTalk = new TalkFeedback();
+        nextTalk.Begin(100); nextTalk.SetRecipient("Nathan"); nextTalk.Recording(101);
+        Check(nextTalk.View.Text == "Talking to: Nathan","current recipient is shown");
+        nextTalk.Released(102); nextTalk.Begin(200); nextTalk.Recording(201);
+        Check(nextTalk.View.Text == "Talking to: NPC","new microphone turn clears stale recipient");
+
         bool hdOk = FeedbackGeometry.TryLayout(1920,1080,out var hd), uhdOk = FeedbackGeometry.TryLayout(3840,2160,out var uhd);
         Check(hdOk && uhdOk,"layout exists at 1080p and 4K");
         Check(Math.Abs(uhd.BarW - hd.BarW * 2f) < 0.01f && Math.Abs(uhd.TextSize - hd.TextSize * 2f) < 0.01f,"the meter scales with screen height so it stays readable at 4K");

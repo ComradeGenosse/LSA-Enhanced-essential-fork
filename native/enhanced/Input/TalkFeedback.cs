@@ -180,7 +180,7 @@ namespace LSA.Enhanced.Input
         public void Reset()
         {
             epoch++;
-            kind = FeedbackKind.None; text = null;
+            kind = FeedbackKind.None; text = null; recipient = null;
             recorded = released = bound = meterOk = unavailable = false;
             failures = 0; boundConv = 0; target = shown = 0;
             Publish();
