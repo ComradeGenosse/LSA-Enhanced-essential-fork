@@ -18,13 +18,12 @@ function recordModel(x){
   const requests=[];
   x.h.runtime.services.decide=options=>decide({...options,config:x.h.runtime.config,
     fetchImpl:async (_url,request)=>{
-      requests.push(JSON.parse(request.body));
+      requests.push({...JSON.parse(request.body),__projection:options.knowledgeProjection});
       return response();
     }});
   return requests;
 }
-const scene=body=>JSON.parse(body.input[0].content.split('[CURRENT REQUEST CONTEXT]\\n')[1]
-  .split('\\n\\n[C-04 CONTEXT RULES]')[0]);
+const scene=body=>JSON.parse(body.__projection.modelAllocation.scene);
 const isClean=body=>{
   const lanes=scene(body).lanes;
   assert.deepEqual(lanes.RECALLED.memories,[]);
@@ -111,6 +110,6 @@ test('genuine post-send privacy revocation still rejects stale M8 delivery',()=>
     opinionCurrent:()=>!revoked});
   d.beforeRequest({input:'old memory'});
   revoked=true;
-  assert.throws(()=>d.success({dialogue:'Do not say this.',command:''}),
+  assert.throws(()=>d.success({dialogue:'This reply is unsafe.',command:''}),
     error=>error.code==='knowledge_request_stale');
 });
