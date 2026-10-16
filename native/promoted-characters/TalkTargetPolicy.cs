@@ -35,6 +35,20 @@ namespace LSA.PromotedCharacters
         public int CycleIndex, CycleCount;
         public long ExpiresInMs;
     }
+    // Display-only class of the exact committed ped. It is never an identity,
+    // never an authorization, and never derived from voice, model or a name.
+    internal enum TalkRecipientKind { Unknown, Promoted, Ambient }
+    internal sealed class TalkRecipientFeedback
+    {
+        // Bounded diagnostic codes only: no alias, UUID, address or profile text.
+        public readonly TalkRecipientKind Kind;
+        public readonly string Evidence;
+        TalkRecipientFeedback(TalkRecipientKind kind,string evidence) { Kind = kind; Evidence = evidence; }
+        public string Token => Kind == TalkRecipientKind.Promoted ? "promoted" : Kind == TalkRecipientKind.Ambient ? "ambient" : "unknown";
+        public static TalkRecipientFeedback Promoted(string evidence) => new TalkRecipientFeedback(TalkRecipientKind.Promoted,evidence);
+        public static TalkRecipientFeedback Ambient(string evidence) => new TalkRecipientFeedback(TalkRecipientKind.Ambient,evidence);
+        public static TalkRecipientFeedback Unknown(string evidence) => new TalkRecipientFeedback(TalkRecipientKind.Unknown,evidence);
+    }
     internal sealed class TalkTargetPolicy
     {
         struct Token { public string PedId; public long Address; }

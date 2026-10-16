@@ -181,7 +181,7 @@ class Program
     static void Main()
     {
         try {
-            MicReadFailure(); PrimaryOwnerTruth(); NativeOwnerSamples(); DeferredInitialization(); ShutdownOnCoreUpdate(); ResetWithPendingRequest(); ResetAfterP1(); RetireFailure(); ForwardClock(); ActivityIsolation(); ExactEncounterLifetime(); RegisteredWrapperContinuity(); DialogueActorResolution(); DialogueObserverLifetime();
+            MicReadFailure(); PrimaryOwnerTruth(); NativeOwnerSamples(); DeferredInitialization(); ShutdownOnCoreUpdate(); ResetWithPendingRequest(); ResetAfterP1(); RetireFailure(); ForwardClock(); ActivityIsolation(); ExactEncounterLifetime(); RegisteredWrapperContinuity(); DialogueActorResolution(); DialogueObserverLifetime(); TalkRecipientResolution();
             Console.WriteLine("P2 production clock recovery and Windows pipe cancellation: " + count + " assertions passed; no game assemblies loaded.");
         } catch (Exception error) { Console.Error.WriteLine(error.GetType().Name + ": " + error.Message); Environment.ExitCode = 1; }
     }
@@ -226,6 +226,78 @@ class Program
         Check(!ReferenceEquals(next,encounter) && next.Registration==null);
         Check(integration.Host.Anchors.Resolve(capture)==null);
         integration.Shutdown();
+    }
+    static string RecipientToken(PromotedCharactersIntegration integration,Ped ped,long address,out string evidence)
+    {
+        var feedback=integration.ResolveTalkRecipient(ped,address);evidence=feedback.Evidence;return feedback.Token;
+    }
+    static void TalkRecipientResolution()
+    {
+        var integration=Create(out _);Game.LocalPlayer.Character=new Ped{Handle=1,MemoryAddress=new IntPtr(1)};
+        var lookup=typeof(PromotedCharactersIntegration).GetMethod("EncounterFor",BindingFlags.NonPublic|BindingFlags.Instance);
+        var retain=typeof(PromotedCharactersIntegration).GetMethod("RetainEncounter",BindingFlags.NonPublic|BindingFlags.Instance);
+        var owner=SessionIdentityIntegration.Current.Owner;
+        string evidence;
+
+        // A valid ped that nothing owns is nearby, and classifying it creates nothing.
+        var stranger=new Ped{Handle=60,MemoryAddress=new IntPtr(60)};
+        int known=Encounters(integration).Count,native=Game.NativeCalls,anchors=integration.Host.Anchors.Count;
+        Check(RecipientToken(integration,stranger,60,out evidence)=="ambient" && evidence=="unowned");
+        Check(Encounters(integration).Count==known && owner.Count==0 && Game.NativeCalls==native && integration.Host.Anchors.Count==anchors);
+        var tracked=new Ped{Handle=61,MemoryAddress=new IntPtr(61)};lookup.Invoke(integration,new object[]{tracked});
+        Check(RecipientToken(integration,tracked,61,out evidence)=="ambient" && evidence=="unowned");
+
+        // Only a fully matching registration, anchor and current P1 claim is promoted.
+        var promotedPed=new Ped{Handle=62,MemoryAddress=new IntPtr(62)};
+        var promoted=(Encounter)lookup.Invoke(integration,new object[]{promotedPed});
+        promoted.OwnerAlias="promoted."+Guid.NewGuid().ToString("D");promoted.Registration=owner.Register(promotedPed,promoted.OwnerAlias,WorldId);retain.Invoke(integration,new object[]{promoted});
+        Check(RecipientToken(integration,promotedPed,62,out evidence)=="promoted" && evidence=="owner_verified");
+        Check(RecipientToken(integration,promotedPed,63,out evidence)=="unknown" && evidence=="address_changed");
+        Check(RecipientToken(integration,promotedPed,0,out evidence)=="unknown" && evidence=="address_changed");
+        Check(RecipientToken(integration,null,62,out evidence)=="unknown" && evidence=="ped_invalid");
+
+        // A registered owner whose proof cannot be corroborated is unknown, never ambient.
+        var staleProof=new Ped{Handle=64,MemoryAddress=new IntPtr(64)};
+        var stale=(Encounter)lookup.Invoke(integration,new object[]{staleProof});
+        stale.OwnerAlias="promoted."+Guid.NewGuid().ToString("D");stale.Registration=owner.Register(staleProof,stale.OwnerAlias,WorldId);retain.Invoke(integration,new object[]{stale});
+        Check(RecipientToken(integration,staleProof,64,out evidence)=="promoted");
+        Check(owner.Retire(stale.Registration));
+        Check(RecipientToken(integration,staleProof,64,out evidence)=="unknown" && evidence=="owner_proof_stale");
+
+        // The roster and P1 disagreeing is also unknown.
+        var disputed=new Ped{Handle=65,MemoryAddress=new IntPtr(65)};
+        lookup.Invoke(integration,new object[]{disputed});owner.Register(disputed,"promoted."+Guid.NewGuid().ToString("D"),WorldId);
+        Check(RecipientToken(integration,disputed,65,out evidence)=="unknown" && evidence=="owner_roster_mismatch");
+
+        // A recycled handle at a new memory address is not the retained owner.
+        var recycled=new Ped{Handle=62,MemoryAddress=new IntPtr(99)};
+        Check(RecipientToken(integration,recycled,99,out evidence)=="unknown" && evidence=="encounter_stale");
+        promotedPed.MemoryAddress=new IntPtr(98);
+        Check(RecipientToken(integration,promotedPed,98,out evidence)=="unknown" && evidence=="encounter_stale");
+        promotedPed.MemoryAddress=new IntPtr(62);
+        Check(RecipientToken(integration,promotedPed,62,out evidence)=="promoted");
+
+        // Classifying is read-only: it never retires the retained anchor.
+        Check(integration.Host.Anchors.Resolve(promoted.CaptureRef)!=null);
+
+        // Despawned, dead and player peds are never classified.
+        stranger.Existing=false;Check(RecipientToken(integration,stranger,60,out evidence)=="unknown" && evidence=="ped_invalid");
+        var dead=new Ped{Handle=66,MemoryAddress=new IntPtr(66),IsDead=true};Check(RecipientToken(integration,dead,66,out evidence)=="unknown" && evidence=="ped_invalid");
+        Check(RecipientToken(integration,Game.LocalPlayer.Character,1,out evidence)=="unknown" && evidence=="ped_invalid");
+
+        // The selector carries the class, and any resolver failure degrades to unknown.
+        var view=new TalkTargetView{Present=true,SelectionId=Guid.NewGuid().ToString("D"),PedId="60",Address=60,CycleIndex=1,CycleCount=1};
+        Func<TalkTargetSelector,string[]> read=selector => {
+            var payload=selector.AsResult(view);var type=payload.GetType();
+            return new[]{(string)type.GetProperty("recipientKind").GetValue(payload,null),(string)type.GetProperty("recipientEvidence").GetValue(payload,null)};
+        };
+        Check(read(new TalkTargetSelector(ped=>null,(ped,address)=>TalkRecipientFeedback.Promoted("owner_verified"))).SequenceEqual(new[]{"promoted","owner_verified"}));
+        Check(read(new TalkTargetSelector(ped=>null,(ped,address)=>{throw new InvalidOperationException("boom");})).SequenceEqual(new[]{"unknown","resolver_failed"}));
+        Check(read(new TalkTargetSelector(ped=>null,(ped,address)=>null)).SequenceEqual(new[]{"unknown","resolver_empty"}));
+        Check(read(new TalkTargetSelector(ped=>null)).SequenceEqual(new[]{"unknown","resolver_absent"}));
+
+        integration.Shutdown();
+        Check(RecipientToken(integration,promotedPed,62,out evidence)=="unknown" && evidence=="p2_unavailable");
     }
     static Dictionary<string,object> DialogueAnnotation(PromotedCharactersIntegration integration,string captureRef)
     {

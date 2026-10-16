@@ -46,6 +46,31 @@ The highlight is a screen-space bracket around the projected head bone, plus a `
 
 `talkTargeting` is off unless `Plugins/LSA.Enhanced.json` enables it. It can use a neutral key or share Essential's configured `TalkKey` without changing the controller binding. See [controller setup](controller-setup.md).
 
+## Committed-recipient feedback (source change, October 16, 2026)
+
+**Status: source implemented and offline-tested; not built into a DLL, deployed, or GTA-validated.** Plan: `docs/plans/memory-k-npc-speech-ledger-and-ux4-target-feedback-20261016.md` section 3 (draft PR #188). This is feedback only: it does not change who receives a turn, lock a character, or add proximity listening.
+
+Why: a direct hold can legitimately pick an ambient NPC standing in front of a promoted character, and nothing on screen said so. The NPC may even share the promoted character's voice, which is not identity evidence.
+
+Behavior (UX4-controlled **mic** turns only; stock Text and stock Talk with UX4 off are unchanged):
+
+| Moment | HUD |
+| --- | --- |
+| Native `talk.ptt_start` committed on a ped with verified current promoted ownership | `Talking to: Promoted NPC` |
+| Committed on a valid ped with no ownership | `Talking to: Nearby NPC` |
+| Ownership cannot be proven or contradicts itself | `Talking to: NPC (identity unavailable)` |
+| Tap / cycle preview, when the same evidence is available | `Target 2/3 - Promoted NPC` or `... - Nearby NPC`; an unverified preview keeps plain `Target 2/3` |
+
+- The notice comes from the native commit result for the exact committed ped (after mic ownership is confirmed), never from button-down, request acceptance, a preview, a previous selection, the voice or a name.
+- No notice for a rejected, cancelled, target-lost, target-changed, ownership-lost, failed, or already-released start. One notice per committed generation; later ticks do not repeat it.
+- `PromotedCharactersIntegration.ResolveTalkRecipient` is read-only: it uses the P2 encounter roster and P1 `TryResolveCurrent` proof that `PerceptionRoster` already relies on. It creates no encounter, registration or character, retires no anchor, and does no SQLite/HTTP/pipe I/O. `Promoted` requires: P2 ready, ped exists/alive/not the player, retained native address unchanged, matching encounter handle/address, a registration, and a current P1 claim with the same incarnation. A registration whose proof is stale is `Unknown`, never `Ambient`; an owner claim with no roster registration is also `Unknown`. Only a valid ped with neither is `Ambient`.
+- `talk.ptt_start` and the select commands gained `recipientKind` (`promoted`/`ambient`/`unknown`) and a bounded `recipientEvidence` code. The loader matches `recipientKind` against that allowlist, builds the fixed generic label itself, and logs `[UX4] talk_ptt recipient kind=... evidence=...` only when the evidence is a short lowercase code. An absent field (older native) shows nothing; an unrecognized value shows the generic unknown notice.
+- No alias, CharacterId, address, profile text or name is sent to the HUD or normal logs. The `talk.inspect`/snapshot path does not carry the class.
+- **Named characters** (`Talking to: Nathan`) are deliberately not included: the native roster has owner aliases, not authoritative profile names. A name needs a separately verified, revocable companion profile binding that never blocks a mic start.
+- A direct hold may still choose the ambient NPC. The notice makes that visible; it does not lock Nathan.
+
+Offline coverage added: loader HUD/log/allowlist/edge cases (`input-tests`), resolver cases and selector fault-degradation (`lifecycle-tests`), and preview/direct/explicit payload classification through the real command bridge (`bridge-tests`). These sources were written without a local .NET toolchain; Windows CI is the compile and run gate.
+
 ## Deviations from the research plan
 
 - T0A stands. UX4 does not synthesize Essential's `TalkKey`. Stock normal Talk still runs `GetBestConversationPed` and would overwrite an explicit target. The research notes that still said "synthesize TalkKey" were corrected.
