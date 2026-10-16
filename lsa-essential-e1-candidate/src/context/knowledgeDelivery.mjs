@@ -11,7 +11,7 @@ export function createKnowledgeDelivery({frame,baseFrame=frame,isCurrent,validat
  (projection.dialogueReferences?.length??0)>0 || !!projection.memoryStamp || (projection.recallReferences?.length??0)>0 ||
  (projection.opinionReferences?.length??0)>0 || !!projection.recallStamp;
  const recallFresh=()=>{try{return recallCurrent(projection.recallReferences??[],projection.recallStamp)===true;}catch{return false;}};
- const opinionFresh=()=>{try{return opinionCurrent(projection.opinionReferences??[],projection.opinionStamp)===true;}catch{return false;}};
+ const opinionFresh=()=>{try{return opinionCurrent(projection.opinionReferences??[],projection.opinionStamp,{requestSent:sent})===true;}catch{return false;}};
  const currentReason=()=>!isCurrent()?'superseded':(projection.memoryStamp&&!memoryCurrent(projection.memoryStamp,{requestSent:sent}))?'memory_stale':(projection.recallStamp&&!recallFresh())?'recall_stale':
  (projection.opinionReferences?.length&&!opinionFresh())?'opinion_stale':hasOptional()?validate(projection):null;
  const staleError=reason=>Object.assign(new Error('knowledge_request_stale'),{code:'knowledge_request_stale',reason});
@@ -29,13 +29,13 @@ export function createKnowledgeDelivery({frame,baseFrame=frame,isCurrent,validat
  };
  return Object.freeze({
   async prepareAsync(){
-   if(projection.memoryStamp&&typeof verifyPrepared==='function'){
+   if(!sent&&projection.memoryStamp&&typeof verifyPrepared==='function'){
     try{await verifyPrepared();}catch{}
    }
    return this.prepare();
   },
   async verifyBeforeRequest(){
-   if(projection.memoryStamp&&typeof verifyPrepared==='function'){
+   if(!sent&&projection.memoryStamp&&typeof verifyPrepared==='function'){
     try{await verifyPrepared();}catch{}
    }
    // The request body is already composed. Never silently prune it here.
@@ -49,6 +49,7 @@ export function createKnowledgeDelivery({frame,baseFrame=frame,isCurrent,validat
    });}catch{if(sent)fail('unsupported_contract','watch');projection=baseFrame;}
   },
   dispose,
+  wasSent:()=>sent,
 
   prepare(){
    if(!sent && isCurrent())projection=prune(projection);
