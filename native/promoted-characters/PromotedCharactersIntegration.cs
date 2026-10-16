@@ -416,6 +416,8 @@ namespace LSA.PromotedCharacters
         internal void Shutdown(string reason)
         {
             if (shutdown) return; shutdownReason=reason; shutdown = true;
+            try { voicePresence?.Dispose(); } catch { }
+            voicePresence=null;
             Host.WorldChanged-=OnHostWorldChanged;
             ActivityShutdown();
             LSA.Intelligence.IntelligenceIntegration.LogStatus("[P2] shutdown reason="+shutdownReason);
