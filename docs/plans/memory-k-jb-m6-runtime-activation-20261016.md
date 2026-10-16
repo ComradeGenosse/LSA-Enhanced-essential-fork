@@ -10,13 +10,13 @@ Connects the **existing, unmodified** M6 coordinator, P2 replay adapter and repl
 |---|---|---|
 | Startup / reload recovery | `recover` | first tick after the timeline becomes writable in a run (and after any writable transition) replays every promoted NPC from its durable cursor |
 | Scene ending | `onSceneClose` | native session detach of a promoted NPC that committed durable lines; deferred with `setImmediate`, error-isolated |
-| Idle | `onIdle` | one unref'd 60 s interval (plus a 5 s startup kick) over NPCs with pending evidence; only when no foreground memory activity for 90 s |
+| Idle | `onIdle` | one unref'd 60 s interval (plus a 5 s startup kick) over NPCs with pending evidence, including independently verified M3 event commits; only when no foreground memory activity for 90 s |
 
 Qualifying conversations are retained by the coordinator's deterministic scoring, with no "remember this" command. Command-driven M5 memories are unchanged.
 
 ## Activation and independence
 
-* **Default off.** Only `memoryK.capabilities['memory.deterministic']='on'` constructs the runtime; an absent/empty map (the legacy combined path) keeps it off. `memory.deterministic` moves from `absent` to `conditional` in the capability policy; policy alone still never proves operation.
+* **Default off.** Only `memoryK.capabilities['memory.deterministic']='on'` constructs M6; an absent/empty map keeps it off. An explicit map containing **only** `memory.deterministic` preserves the existing legacy dialogue, M3/PS, WS6 recall and M5 consumers; adding any other capability key opts into the normal strict independent-capability behavior (unspecified siblings off). Policy alone does not prove operation.
 * **M7/Luna stays disabled and independent.** The coordinator runs with `cloudQueueEnabled:false`, its store view throws on `enqueueCurationJob`, and a test asserts zero `memory_curation_jobs` rows. `memory.cloudCuration` remains unavailable.
 * **M6 needs no M2/M3 capture capability.** It reads committed durable evidence only, as the policy already declared.
 
@@ -25,7 +25,7 @@ Qualifying conversations are retained by the coordinator's deterministic scoring
 * No M6 work on the turn or detach path. Turn start/preparation only stamps a timestamp; durable lines only mark the NPC pending.
 * Idle/recovery do nothing within 90 s of foreground activity, re-check before each NPC, yield to the event loop between NPCs, and use small bounded scans (100/page, 400 rows, 4 pages per run; backlog resumes after the durable cursor).
 * Passes are serialized; the coordinator's per-scope queue and P2 cursor CAS remain the authority.
-* Consecutive failures (5) mark retention `degraded` and stop ticking; nothing is retried in a loop.
+* Failure streaks are tracked per promoted NPC; after five failures the failing scope is quarantined until restart, while healthy NPCs continue. Diagnostics report `degraded` and the count of degraded scopes.
 
 ## Privacy and restart
 
@@ -38,3 +38,15 @@ Reuses the learned-memory pause fence (the store is the same fenced view as othe
 ## Not validated (needs GTA)
 
 See the PR description. Offline source simulation only: no GTA, native, soak or latency receipts.
+
+## Minimal M6 activation without losing existing memory
+
+For an existing GTA installation using the legacy combined memory path, add only:
+
+```json
+"memoryK": { "capabilities": { "memory.deterministic": "on" } }
+```
+
+This retains the inherited legacy foreground consumers, M3 events, PS observations and independent M5 commands. If you already have an explicit capability map with other entries, **keep all those entries** and add `memory.deterministic: on`; omitted siblings remain disabled. An M6-only request never enables M7/cloud curation. Runtime restart required.
+
+The M3 adapter calls the M6 dirtiness marker only after a newly verified SQLite event commit on its asynchronous worker, not from the native PS2 tap. Failed, rejected, stale, duplicate or non-durable events never issue a new wake-up. The next quiet idle pass processes that NPC's durable evidence.
