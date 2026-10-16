@@ -110,7 +110,7 @@ export function readIntegratedRecall(db,{scope,terms=[],fromUtc=null,toUtc=null,
     // same committed session + source scope, <=2 lines and <=90 seconds.
     if(hasSession&&limitLex){
       const keys=[scope.worldProfileId,scope.characterId,scope.timelineId];
-      const nearby=cols+' FROM dialogue_journal d WHERE d.world_profile_id=? AND d.character_id=? AND d.timeline_id=? AND d.session_id=? AND d.rowid BETWEEN ? AND ? ORDER BY ABS(d.rowid-?) ASC LIMIT 5';
+      const nearby=cols+' FROM dialogue_journal d WHERE d.world_profile_id=? AND d.character_id=? AND d.timeline_id=? AND d.session_id=? AND d.rowid BETWEEN ? AND ? ORDER BY ABS(d.rowid-?) ASC';
       let count=0;
       for(const anchor of rows.filter(r=>r.lexicalHit).slice(0,8)){
         if(count>=8)break;
