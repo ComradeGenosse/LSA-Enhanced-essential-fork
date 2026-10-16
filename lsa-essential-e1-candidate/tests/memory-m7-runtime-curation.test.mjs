@@ -21,6 +21,7 @@ import {createM5SqliteServices} from '../../lsa-shared-brain/src/memory/m5Sqlite
 import {readCurationAppraisals} from '../../lsa-shared-brain/src/memory/curationSqlite.mjs';
 import {M7_PRIORITY_QUIET_FIELDS} from '../../lsa-shared-brain/src/memory/m7Consent.mjs';
 import {createInspectorControls} from '../src/memory/inspectorControls.mjs';
+import {inspectorHtml,inspectorScript} from '../src/memory/inspectorUi.mjs';
 import {memoryKConsumersAllowed,memoryKM7Activation} from '../src/memory/runtimeComposition.mjs';
 import {normalizeMemoryKConfig} from '../src/memory/capabilityPolicy.mjs';
 
@@ -349,12 +350,14 @@ test('idle interruption: native activity, a turn starting and shutdown all abort
   native.interrupt();
   await settle();promptlyAborted(cloud.calls.at(-1));
   assert.equal((await running).status,'cancelled');
-  assert.equal(diag(runtime).state,'idle');assert.equal(diag(runtime).reason,'interrupted_by_activity');
+  assert.equal(diag(runtime).state,'blocked');assert.equal(diag(runtime).reason,'interrupted_by_activity');
+  assert.equal(diag(runtime).effectiveMode,null,'interrupted native proof cannot claim operational status');
   assert.equal(appraisals(root).length,0);
   // While the world is not idle, nothing is claimed or sent.
   const before=cloud.calls.length;
   h.advance(61);assert.equal((await runtime.cloudCuration.tick()).status,'source_unverified');
-  assert.equal(cloud.calls.length,before);assert.equal(diag(runtime).reason,'awaiting_idle_window');
+  assert.equal(cloud.calls.length,before);assert.equal(diag(runtime).reason,'awaiting_verified_native_idle');
+  assert.equal(diag(runtime).state,'blocked');assert.equal(diag(runtime).effectiveMode,null);
   // 2. A new player/NPC turn begins in the host (same hook the glue calls).
   native.quiet=true;h.advance(61);
   started=cloud.nextCall();running=runtime.cloudCuration.tick();await started;
@@ -537,6 +540,8 @@ test('multi-NPC isolation, missing native source and the inspector consent contr
   await noSource.runtime.dispose();
   const f2=await restart(t,{root,timelineId:seeded.timelineId,npc:npcId,native:forged,h,cloud});
   assert.equal((await f2.runtime.cloudCuration.tick()).status,'source_unverified');
+  assert.equal(diag(f2.runtime).state,'blocked');assert.equal(diag(f2.runtime).effectiveMode,null,
+    'a forged native idle proof may not report M7 operational');
   assert.equal(cloud.calls.length,0);await f2.runtime.dispose();
 
   // Inspector: explicit approval flows, confirmation is mandatory, withdrawal always works.
@@ -555,4 +560,34 @@ test('multi-NPC isolation, missing native source and the inspector consent contr
   const withdrawn=await controls.change({operation:'cloud_consent',action:'withdraw'});
   assert.equal(withdrawn.cloudCuration.consent.state,'withdrawn');
   await assert.rejects(controls.change({operation:'cloud_consent',action:'bogus'}),/invalid_cloud_consent/);
+});
+
+// A disabled M7 worker must not conceal an earlier world-scoped cloud approval.
+test('withdrawal remains visible and permitted after disabling M7 without reenabling or spending',async t=>{
+  const root=await mkdtemp(path.join(tmpdir(),'m7-withdraw-disabled-'));
+  t.after(()=>cleanupRoot(t,root));
+  const seeded=await seed(t,{root});const npc=seeded.npcs[0].characterId;
+  const enabled=await restart(t,{root,timelineId:seeded.timelineId,npc});
+  await grant(enabled.store);
+  assert.equal((await createInspectorControls({runtime:enabled.runtime,configPath:enabled.configPath})
+    .snapshot()).cloudCuration.consent.state,'granted');
+  await enabled.runtime.dispose();
+  const off=await restart(t,{root,timelineId:seeded.timelineId,npc,
+    capabilities:{'memory.cloudCuration':'off','memory.inspector':'on'}});
+  assert.equal(off.runtime.cloudCuration??null,null);
+  const controls=createInspectorControls({runtime:off.runtime,configPath:off.configPath});
+  const before=await controls.snapshot();
+  assert.equal(before.cloudCuration.requestedMode,'off');
+  assert.equal(before.cloudCuration.consent.state,'granted',
+    'approval from a previous enabled session must remain visible while off');
+  assert.deepEqual(before.cloudCuration.consent.limits,LIMITS);
+  assert.match(inspectorHtml(),/Withdraw approval/);
+  assert.doesNotMatch(inspectorScript(),/cloudCuration'\)\.hidden\s*=\s*cloud\.requestedMode/);
+  assert.match(inspectorScript(),/cloudGrant'\)\.disabled=cloud\.requestedMode!==/);
+  await assert.rejects(controls.change({operation:'cloud_consent',action:'grant',
+    confirmation:'approve_off_turn_evidence_upload',...LIMITS}),/inspector_cloud_consent_unavailable/);
+  const after=await controls.change({operation:'cloud_consent',action:'withdraw'});
+  assert.equal(after.cloudCuration.consent.state,'withdrawn');
+  assert.equal(after.cloudCuration.requestedMode,'off');
+  assert.equal(off.cloud.calls.length,0);
 });
