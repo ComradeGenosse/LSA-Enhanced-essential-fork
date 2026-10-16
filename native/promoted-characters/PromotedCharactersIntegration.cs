@@ -81,12 +81,12 @@ namespace LSA.PromotedCharacters
         bool prepared,shutdown;
         volatile bool shutdownRequested;
         NpcVoicePresenceObserver voicePresence;
-        internal void ConfigureVoicePresence(string mode) {
+        internal void ConfigureVoicePresence(string mode,bool mouthEnabled=false) {
             if(mode!="off"&&mode!="shadow"&&mode!="on") {
                 Game.LogTrivial("[VP] invalid_mode_disabled");return;
             }
             if(mode=="off")return;
-            try {voicePresence=new NpcVoicePresenceObserver(mode);voicePresence.Attach();}
+            try {voicePresence=new NpcVoicePresenceObserver(mode,mouthEnabled);voicePresence.Attach();}
             catch {try {voicePresence?.Dispose();}catch{}voicePresence=null;Game.LogTrivial("[VP] unavailable");}
         }
         string shutdownReason="none";
