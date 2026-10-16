@@ -9,6 +9,12 @@ on:
       - 'lsa-essential-e1-candidate/src/bootstrap.mjs'
       - 'lsa-essential-e1-candidate/src/integration/essentialGlue.mjs'
       - 'lsa-essential-e1-candidate/tests/memory-m6-runtime-retention.test.mjs'
+      - 'lsa-essential-e1-candidate/tests/m3-ws5b-production.test.mjs'
+      - 'lsa-essential-e1-candidate/tests/m3-production-harness.mjs'
+      - 'lsa-essential-e1-candidate/src/memory/m3ProductionMemory.mjs'
+      - 'lsa-shared-brain/src/events/m3Ps2ObserverAdapter.mjs'
+      - 'lsa-essential-e1-candidate/src/memory/m3Activation.mjs'
+      - 'lsa-essential-e1-candidate/src/memory/sourceActivation.mjs'
       - 'lsa-shared-brain/src/memory/m6*.mjs'
       - 'docs/plans/memory-k-jb-m6-runtime-activation-20261016.md'
       - '.github/workflows/memory-k-jb-m6-runtime.yml'
@@ -36,6 +42,9 @@ jobs:
       - name: J-B M6 runtime activation (real bootstrap + SQLite, M7 disabled, offline)
         shell: bash
         run: node --test lsa-essential-e1-candidate/tests/memory-m6-runtime-retention.test.mjs
+      - name: Event-only M3 to M6 retention regression (authenticated mock native source)
+        shell: bash
+        run: node --test --test-name-pattern='M3-only event commit wakes M6 idle retention' lsa-essential-e1-candidate/tests/m3-ws5b-production.test.mjs
       - name: Policy, composition and J-A engine regressions
         if: always()
         shell: bash
