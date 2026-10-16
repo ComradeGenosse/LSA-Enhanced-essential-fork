@@ -115,9 +115,12 @@ export function readAuthorizedM8Snapshot(db,scope){
  * guard, never user-supplied or LLM-derived. No caller-supplied receipt booleans.
  * Prep and send/retry rechecks are separate asynchronous serialized P2 reads.
  */
-export function createP2M8ProductionReader({store,currentIdentity,originalCurrent}={}){
+// personalityFor maps the editor-approved P2 canon to the evaluator's structured
+// inputs. It defaults to identity so the legacy WS-6 path is unchanged.
+export function createP2M8ProductionReader({store,currentIdentity,originalCurrent,personalityFor=x=>x}={}){
  if(typeof store?.withP2SqliteRead!=='function'||typeof store?.get!=='function'||
-    typeof currentIdentity!=='function'||typeof originalCurrent!=='function')
+    typeof currentIdentity!=='function'||typeof originalCurrent!=='function'||
+    typeof personalityFor!=='function')
    throw new TypeError('m8_original_p2_ports_required');
  const issued=new WeakMap();
  const authorized=(scope,authority)=>{
@@ -154,7 +157,7 @@ export function createP2M8ProductionReader({store,currentIdentity,originalCurren
     seal=rows.seal;
     // Only persistent P2 editor-approved personality is honored. Model-provided
     // personality and relationship guesses are never admitted as canon.
-    const canon=store.get(scope.characterId)?.personality??{};
+    const canon=personalityFor(store.get(scope.characterId)?.personality??{});
     return evaluateM8({...rows,scope,personality:canon,nowUtc:args.nowUtc,maxBytes:args.maxBytes});
    }};
    const prepared=await preparePs4M8({scope,authority,readAdapter:adapter,

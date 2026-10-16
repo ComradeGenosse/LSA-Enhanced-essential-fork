@@ -72,3 +72,66 @@ test('source-verified abstained H2 preserves conservative count evidence',async(
   assert.equal(together.preparedRecall.answerEvidence.dialogueCount.status,'incomplete');
   assert.equal(await together.verifyPrepared(),true);
 });
+
+const interpreted=(over={})=>{
+  const preparedM8={status:'ready',stamp:{turnId:'t1'},projection:{}};
+  let ok=true;
+  return {status:'ready',stamp,preparedM8,
+    verifyPrepared:async()=>ok,sendCurrent:()=>ok,
+    opinionCurrent:(_refs,seen)=>ok&&seen?.turnId==='t1',fail:()=>{ok=false;},...over};
+};
+
+test('M8 alone is a valid independent contributor and exposes only its own opinion proof',async()=>{
+  const m8=interpreted();
+  const only=composeIndependentForegroundMemory({interpretation:m8});
+  assert.equal(only.status,'ready');
+  assert.equal(only.interpretationPrepared,true);
+  assert.equal(only.h1Only,false);
+  assert.equal(only.preparedM8,m8.preparedM8);
+  assert.equal(only.preparedRecall,null);
+  assert.equal(only.opinionCurrent([],{turnId:'t1'}),false,'no authority before async verification');
+  assert.equal(await only.verifyPrepared(),true);
+  assert.equal(only.opinionCurrent([],{turnId:'t1'}),true);
+  assert.equal(only.opinionCurrent([],{turnId:'other'}),false);
+  const none=composeIndependentForegroundMemory({history:journal()});
+  assert.equal(none.interpretationPrepared,false);
+  assert.equal(none.preparedM8,null);
+  assert.equal(none.opinionCurrent([],{turnId:'t1'}),false);
+  assert.equal(composeIndependentForegroundMemory({interpretation:{status:'abstained'}}),null);
+});
+
+test('M8 failing removes only the opinion; H1 and H2 stay valid',async()=>{
+  const seen=[];
+  const m8=interpreted();
+  const combo=composeIndependentForegroundMemory({history:journal(),recall:recalled(),
+    interpretation:m8,onValidation:v=>seen.push(v)});
+  assert.equal(await combo.verifyPrepared(),true);
+  assert.equal(combo.opinionCurrent([],{turnId:'t1'}),true);
+  m8.fail();
+  assert.equal(await combo.verifyPrepared(),true,'factual contributors are not poisoned by M8');
+  assert.equal(combo.sendCurrent(),true);
+  assert.equal(combo.opinionCurrent([],{turnId:'t1'}),false);
+  assert.equal(seen.at(-1).m8,false);
+  assert.equal(seen.at(-1).h1&&seen.at(-1).h2,true);
+});
+
+test('an invalidated H1/H2 contributor also revokes M8, and M8 cannot resurrect',async()=>{
+  let h2Ok=true;
+  const m8=interpreted();
+  const combo=composeIndependentForegroundMemory({recall:{...recalled(),
+    verifyPrepared:async()=>h2Ok},interpretation:m8});
+  assert.equal(await combo.verifyPrepared(),true);
+  h2Ok=false;
+  assert.equal(await combo.verifyPrepared(),false);
+  assert.equal(combo.opinionCurrent([],{turnId:'t1'}),false);
+  h2Ok=true;
+  assert.equal(await combo.verifyPrepared(),false,'failed combined proof cannot resurrect');
+  assert.equal(combo.opinionCurrent([],{turnId:'t1'}),false);
+});
+
+test('M8 stamp from a different accepted line is blocked, never combined',()=>{
+  const wrong=interpreted({stamp:{...stamp,recordId:'another'}});
+  const result=composeIndependentForegroundMemory({recall:recalled(),interpretation:wrong});
+  assert.equal(result.status,'blocked');
+  assert.equal(result.reason,'independent_memory_stamp_mismatch');
+});

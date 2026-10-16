@@ -27,6 +27,7 @@ import {prepareH1ConversationHistory} from '../memory/h1ConversationHistory.mjs'
 import {prepareFactualRecall} from '../memory/h2FactualRecall.mjs';
 import {composeIndependentForegroundMemory} from '../memory/independentForegroundMemory.mjs';
 import {prepareM5Commands} from '../memory/m5IndependentCommands.mjs';
+import {prepareIndependentM8} from '../memory/m8IndependentInterpretation.mjs';
 import { validateDecisionShape } from '../context/essentialDecision.mjs';
 import { validateStockDecision } from '../context/decisionValidator.mjs';
 import { createProviderStack } from '../providers/providerStack.mjs';
@@ -36,7 +37,7 @@ import { captureReferenceMap } from '../context/turnSnapshot.mjs';
 import { IdentityResolver } from '../identity/identityResolver.mjs';
 import { CharacterService,withoutCharacterTransport } from '../characters/characterService.mjs';
 import { createNoopDialogueTrace } from '../observability/dialogueTrace.mjs';
-import {memoryKConsumersAllowed,memoryKDialogueActivation,memoryKH1Activation,memoryKH2Activation,memoryKM5Activation,memoryKM6Activation} from '../memory/runtimeComposition.mjs';
+import {memoryKConsumersAllowed,memoryKDialogueActivation,memoryKH1Activation,memoryKH2Activation,memoryKM5Activation,memoryKM6Activation,memoryKM8Activation} from '../memory/runtimeComposition.mjs';
 import {createLearnedMemoryPause} from '../memory/learnedMemoryPause.mjs';
 
 // Fail-closed startup contract for E1's separately reviewed storage-only preset.
@@ -73,8 +74,11 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
   const recallActivation=memoryKH2Activation(config);
   const commandActivation=memoryKM5Activation(config);
   const retentionActivation=memoryKM6Activation(config);
+  const interpretationActivation=memoryKM8Activation(config);
   const recallState={preparation:null,validation:null,contributed:false,requestAttempted:false};
   const journalState={preparation:null,validation:null,contributed:false,requestAttempted:false};
+  // L: M8 interpretation state; same privacy-safe shape, never carries text or ids.
+  const interpretationState={preparation:null,validation:null,contributed:false,requestAttempted:false};
   // I1: M5 command state. `outcome` is a closed, privacy-safe vocabulary; it never
   // carries player text, memory content, ids or exception messages.
   const commandState={preparation:null,validation:null,outcome:null,contributed:false,requestAttempted:false};
@@ -185,13 +189,14 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
     async prepareLiveTurnMemory(args) {
       try{runtime.retention?.noteForeground();}catch{}
       if(runtime.closed||memoryPause.paused)return null;
-      for(const state of [journalState,recallState,commandState]){
+      for(const state of [journalState,recallState,commandState,interpretationState]){
         state.preparation=null;state.validation=null;state.contributed=false;state.requestAttempted=false;
       }
       commandState.outcome=null;
       // F-only or recording-only capabilities must not even inspect source getters.
       if(!optionalMemoryEnabled&&journalActivation.mode!=='on'&&
-         recallActivation.mode!=='on'&&commandActivation.mode!=='on')return null;
+         recallActivation.mode!=='on'&&commandActivation.mode!=='on'&&
+         interpretationActivation.mode!=='on')return null;
       const memoryEpoch=memoryPause.stamp(),sourceCurrent=args.isCurrent;
       args={...args,isCurrent:()=>memoryPause.current(memoryEpoch)&&sourceCurrent()};
       if(optionalMemoryEnabled){
@@ -201,7 +206,8 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
         return result;
       }
       // Independently prepare each enabled consumer using exactly the same
-      // accepted D03 receipt and original source/turn identity. M8 stays off.
+      // accepted D03 receipt and original source/turn identity. M8 runs only when
+      // memory.interpretation is explicitly 'on'; it needs no M4/H1/M7 contributor.
       // M5 runs FIRST so any durable remember/forget/correct is committed before
       // H1/H2 read, and neither can ever send a pre-command snapshot.
       let history=null,recall=null,commands=null;
@@ -221,8 +227,17 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
         catch{recall={status:'unavailable',reason:'recall_read_failed'};}
         recallState.preparation=journalOutcome(recall.status,recall.reason??null);
       }
-      const result=composeIndependentForegroundMemory({history,recall,commands,
-        onValidation:({h1,h2,m5})=>{
+      // M8 reads LAST so a same-turn M5 forget/correct is already committed.
+      let interpretation=null;
+      if(interpretationActivation.mode==='on'){
+        try{interpretation=await prepareIndependentM8({store:journalStore,...args});}
+        catch{interpretation={status:'unavailable',reason:'interpretation_read_failed'};}
+        interpretationState.preparation=journalOutcome(interpretation.status,interpretation.reason??null);
+      }
+      const result=composeIndependentForegroundMemory({history,recall,commands,interpretation,
+        onValidation:({h1,h2,m5,m8})=>{
+          if(interpretation?.status==='ready')
+            interpretationState.validation=journalOutcome(m8?'ready':'invalidated',m8?null:'source_authority_revoked');
           if(commands?.status==='ready'&&commands.memoryAction?.length)
             commandState.validation=journalOutcome(m5?'ready':'invalidated',m5?null:'source_authority_revoked');
           if(history?.status==='ready')
@@ -240,6 +255,10 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
       if(recallActivation.mode==='on'){
         recallState.preparation=journalOutcome('blocked','accepted_line_authority_missing');
         recallState.validation=null;recallState.contributed=false;recallState.requestAttempted=false;
+      }
+      if(interpretationActivation.mode==='on'){
+        interpretationState.preparation=journalOutcome('unavailable','accepted_line_authority_missing');
+        interpretationState.validation=null;interpretationState.contributed=false;interpretationState.requestAttempted=false;
       }
       if(commandActivation.mode==='on'){
         commandState.preparation=journalOutcome('unavailable','accepted_line_authority_missing');
@@ -269,6 +288,32 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
         operationalState:state,reason:reason??(state==='waiting'?'accepted_player_turn_required':null),
         lastPreparation:recallState.preparation,lastValidation:recallState.validation,
         contributedToModelRequest:recallState.contributed,requestAttempted:recallState.requestAttempted,
+        legacy,restartRequired:true});
+    },
+    // L: privacy-safe M8 interpretation status. Never carries text, ids or messages.
+    memoryInterpretationDiagnostics() {
+      const {requestedMode,mode,reason:activationReason,legacy}=interpretationActivation;
+      const environmentReason=runtime.closed?'runtime_stopped':
+        config.provider!=='openai'?'d01_acceptance_source_unavailable':
+        config.promotedCharacters?.storageMode!=='sqlite'||!characterService?.ready||
+          typeof journalStore?.withP2SqliteRead!=='function'||
+          typeof journalStore?.readDialogueLines!=='function'?'p2_sqlite_unavailable':null;
+      const reason=activationReason??(mode==='on'?environmentReason??
+        interpretationState.validation?.reason??interpretationState.preparation?.reason:null);
+      const state=mode!=='on'?requestedMode==='shadow'?'unavailable':
+        requestedMode==='on'?'blocked':'stopped':
+        environmentReason==='runtime_stopped'?'stopped':
+        environmentReason?'unavailable':
+        interpretationState.validation?.status==='invalidated'?'blocked':
+        interpretationState.preparation?.status==='abstained'?'abstained':
+        interpretationState.validation?.status==='ready'?'ready':
+        interpretationState.preparation?.status==='blocked'?'blocked':
+        interpretationState.preparation?.status==='unavailable'?'unavailable':'waiting';
+      return Object.freeze({requestedMode,state,
+        effectiveMode:state==='ready'?'on':state==='stopped'?'off':null,
+        operationalState:state,reason:reason??(state==='waiting'?'accepted_player_turn_required':null),
+        lastPreparation:interpretationState.preparation,lastValidation:interpretationState.validation,
+        contributedToModelRequest:interpretationState.contributed,requestAttempted:interpretationState.requestAttempted,
         legacy,restartRequired:true});
     },
     // I1: privacy-safe M5 command capability status. `code` is one of a closed
@@ -403,6 +448,10 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
       const recallReady=memoryReady&&memory.preparedRecall?.status==='ready'&&
         memory.recallCurrent?.([],memory.preparedRecall.stamp)===true;
       const journalReady=memoryReady&&!!memory.conversationJournal;
+      // L: independently prepared M8 needs only the shared accepted-line stamp.
+      // The combined path keeps its inherited gate (admitted only with M4 recall).
+      const m8Ready=memoryReady&&memory.preparedM8?.status==='ready'&&
+        (memory.interpretationPrepared===true||recallReady);
       // I1: independently verified M5 outcomes need neither H1 nor H2. Legacy
       // combined results never set commandsPrepared, so they keep their gating.
       const commandsReady=memoryReady&&memory.commandsPrepared===true&&
@@ -410,16 +459,19 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
       const journalStamp=memoryReady?(memory.stamp??memory.preparedRecall?.stamp):null;
       const memoryArgs={
         ...(recallReady?{
-          preparedRecall:memory.preparedRecall,preparedM8:memory.preparedM8,
-          m8Authorization:prepared=>prepared===memory.preparedM8&&recallReady,
+          preparedRecall:memory.preparedRecall,
           recallAuthorization:prepared=>prepared===memory.preparedRecall&&
             memory.recallCurrent([],prepared?.stamp)===true
         }:{}),
+        ...(m8Ready?{
+          preparedM8:memory.preparedM8,
+          m8Authorization:prepared=>prepared===memory.preparedM8&&m8Ready
+        }:{}),
         ...((recallReady||commandsReady)?{memoryAction:memory.memoryAction}:{}),
         ...(journalReady?{conversationJournal:memory.conversationJournal}:{}),
-        ...(journalReady||recallReady||commandsReady?{memoryStamp:journalStamp}:{})
+        ...(journalReady||recallReady||commandsReady||m8Ready?{memoryStamp:journalStamp}:{})
       };
-      const memoryBase=journalReady||recallReady||commandsReady
+      const memoryBase=journalReady||recallReady||commandsReady||m8Ready
         ?renderKnowledge({...args,...memoryArgs,includePerceived:false}):base;
       const mode=config.dialogueKnowledge?.mode??'off',ps=runtime.intelligence?.runtime;
       let reason=mode==='off'?'disabled':'unsupported_contract',preview=null;
@@ -456,26 +508,32 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
       turn.knowledgeDelivery=createKnowledgeDelivery({frame:selected,baseFrame:base,
         verifyPrepared:()=>memory?.verifyPrepared?.()??false,
         recallCurrent:(refs,stamp)=>recallReady&&memory.recallCurrent(refs,stamp),
-        memoryCurrent:stamp=>(journalReady||recallReady||commandsReady)&&memory.sendCurrent()&&!!stamp&&
+        memoryCurrent:stamp=>(journalReady||recallReady||commandsReady||m8Ready)&&memory.sendCurrent()&&!!stamp&&
           Object.keys(journalStamp).length===Object.keys(stamp).length&&
           Object.keys(journalStamp).every(key=>journalStamp[key]===stamp[key]),
-        opinionCurrent:(refs,stamp)=>recallReady&&memory.opinionCurrent(refs,stamp),
+        opinionCurrent:(refs,stamp)=>m8Ready&&memory.opinionCurrent(refs,stamp),
         pruneOpinion:frame=>pruneKnowledgeFrame(frame,()=>true,()=>true,()=>true,()=>true,()=>false),
         pruneRecall:frame=>pruneKnowledgeFrame(frame,()=>true,()=>true,()=>true,()=>false),
         isCurrent:()=>(pausedAtFrame||memoryPause.current(memoryEpoch))&&runtime.host.isCurrent(turn.identity) && (!identityService || identityService.current(turn.identity)),
         prune:frame=>(frame.memoryStamp &&
-          !((journalReady||recallReady||commandsReady)&&memory.sendCurrent()&&journalStamp&&
+          !((journalReady||recallReady||commandsReady||m8Ready)&&memory.sendCurrent()&&journalStamp&&
             Object.keys(journalStamp).length===Object.keys(frame.memoryStamp).length&&
             Object.keys(journalStamp).every(key=>journalStamp[key]===frame.memoryStamp[key])))?base:pruneKnowledgeFrame(frame,
           item=>!validateKnowledge({delivery:[item]}),
           item=>!validateKnowledge({delivery:[],activityReferences:[item]}),
           item=>!validateKnowledge({delivery:[],dialogueReferences:[item]}),
           ()=>recallReady&&memory.recallCurrent([],memory.preparedRecall?.stamp)===true,
-          refs=>recallReady&&memory.opinionCurrent([refs],memory.preparedM8?.stamp)),
+          refs=>m8Ready&&memory.opinionCurrent([refs],memory.preparedM8?.stamp)),
         validate:validateKnowledge,
         onRequest:frame=>{
-          if(!journalReady&&!recallReady&&!commandsReady)return;
+          if(!journalReady&&!recallReady&&!commandsReady&&!m8Ready)return;
           const authenticated=!!frame.memoryStamp&&memory.sendCurrent();
+          if(m8Ready){
+            interpretationState.requestAttempted=true;
+            interpretationState.contributed=authenticated&&(frame.opinionReferences?.length??0)>0;
+            if(interpretationState.contributed&&!interpretationState.validation)
+              interpretationState.validation=journalOutcome('ready');
+          }
           if(commandsReady){
             commandState.requestAttempted=true;
             const action=JSON.parse(frame.modelAllocation.scene).lanes.SELF?.memoryAction;

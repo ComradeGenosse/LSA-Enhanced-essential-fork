@@ -166,6 +166,7 @@ export async function createRuntimeForBundle(options = {}) {
       'memory.journalContext':runtime.services.memoryJournalDiagnostics(),
       'memory.recall':runtime.services.memoryRecallDiagnostics(),
       'memory.commands':runtime.services.memoryCommandDiagnostics(),
+      'memory.interpretation':runtime.services.memoryInterpretationDiagnostics(),
       'memory.deterministic':runtime.services.memoryRetentionDiagnostics(),
       ...(runtime.memoryD02?{'authority.d02':Object.freeze({requestedMode:'on',
         state:runtime.closed?'stopped':runtime.memoryD02.status().settled?'operational':'waiting',
@@ -219,7 +220,7 @@ export async function createRuntimeForBundle(options = {}) {
       'memory.recall':typeof runtime.services.memoryRecallDiagnostics==='function',
       'memory.commands':typeof runtime.services.memoryCommandDiagnostics==='function',
       'memory.deterministic':!!runtime.retention,
-      'memory.interpretation':typeof runtime.services.prepareLiveTurnMemory==='function',
+      'memory.interpretation':typeof runtime.services.memoryInterpretationDiagnostics==='function',
     };
     const environment=Object.freeze({
       source:Object.freeze({

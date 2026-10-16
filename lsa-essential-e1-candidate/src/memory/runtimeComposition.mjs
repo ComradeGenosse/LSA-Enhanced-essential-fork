@@ -208,3 +208,20 @@ export function memoryKM6Activation(config) {
   return Object.freeze({requestedMode,mode:requestedMode==='on'?'on':'off',
     reason:requestedMode==='on'?null:'optional_consumer_stopped'});
 }
+
+
+// L: independent M8 interpretation activation. M2's durable accepted player
+// line is the only optional-memory prerequisite; neither H1, H2/M4, M5, M6 nor
+// M7 cloud curation is. An absent capability map keeps the inherited combined
+// path (where preparedM8 is produced by the legacy live-turn read).
+export function memoryKM8Activation(config) {
+  const legacy=memoryKConsumersAllowed(config);
+  const requests=config.memoryK?.capabilities??{};
+  const requestedMode=legacy?'on':requests['memory.interpretation']??'off';
+  const player=memoryKDialogueActivation(config).player;
+  const reason=requestedMode==='shadow'?'shadow_not_supported':
+    requestedMode==='on'&&!player?'dependency_not_requested_or_available:memory.dialogue.player':
+    requestedMode==='off'?'optional_consumer_stopped':null;
+  return Object.freeze({legacy,requestedMode,
+    mode:requestedMode==='on'&&player?'on':'off',reason});
+}
