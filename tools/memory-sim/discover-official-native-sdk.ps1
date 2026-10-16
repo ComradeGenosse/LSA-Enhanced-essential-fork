@@ -17,7 +17,7 @@ foreach ($item in $items) {
   $expanded = Join-Path $dest $packageName
   Expand-Archive -LiteralPath $archive -DestinationPath $expanded -Force
   $dlls = @(Get-ChildItem -LiteralPath $expanded -Recurse -File -Filter $item.Dll)
-  if ($dlls.Count -ne 1) { throw "$packageName: expected exactly one $($item.Dll), found $($dlls.Count)" }
+  if ($dlls.Count -ne 1) { throw "${packageName}: expected exactly one $($item.Dll), found $($dlls.Count)" }
   $dllHash = (Get-FileHash $dlls[0].FullName -Algorithm SHA256).Hash.ToLowerInvariant()
   $relativePath = $dlls[0].FullName.Substring($expanded.Length + 1).Replace('\','/')
   $entries += [ordered]@{
