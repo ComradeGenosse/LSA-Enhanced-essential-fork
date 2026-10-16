@@ -10,7 +10,7 @@ const world=randomUUID(),timeline=randomUUID();
 const iso=ms=>new Date(Date.UTC(2026,9,13,12)+ms).toISOString();
 
 function rig(options={}){
-  const clock={ms:100_000},sink=[],stats={fail:null};
+  const clock={ms:100_000},sink=[],events=[],stats={fail:null};
   const chars=new Map(),ctx={streamId:randomUUID(),adapterEpoch:randomUUID(),hostRunId:randomUUID(),worldEpoch:1,seq:0};
   const npc=(name)=>{
     const o={ownerAlias:'promoted.'+randomUUID(),observerCaptureRef:randomUUID(),
@@ -22,6 +22,7 @@ function rig(options={}){
   const tracker=createM3ObserverCoverageTracker({worldProfileId:world,
     resolveCharacter:alias=>chars.get(alias)??null,activeTimeline:()=>timelineId,
     monotonicNow:()=>clock.ms,utcNow:()=>iso(clock.ms),options,
+    onEvent:(kind,detail)=>events.push({kind,...detail}),
     persist:async ops=>{
       if(stats.fail)throw new Error(stats.fail);
       sink.push(...ops);return {staleIndexes:[]};
@@ -36,7 +37,7 @@ function rig(options={}){
   const records=()=>sink.filter(x=>x.record).map(x=>x.record);
   const windows=id=>records().filter(r=>r.kind==='window'&&(!id||r.characterId===id));
   const last=(id)=>windows(id).at(-1);
-  return {tracker,clock,ctx,sink,stats,npc,sample,run,records,windows,last,
+  return {tracker,clock,ctx,sink,events,stats,npc,sample,run,records,windows,last,
     setTimeline:v=>{timelineId=v;}};
 }
 
@@ -226,4 +227,20 @@ test('a long run keeps bounded memory (history thinning never raises the persist
   assert.ok(snap.historyThinned>=0);
   await r.tracker.idle();
   assert.ok(r.last(a.characterId).endTick<=r.ctx.tick-1000);
+});
+
+test('diagnostic code identifies retryable M3 write failures and hides raw SQLite text',async()=>{
+ const r=rig({retryMs:0}),a=r.npc('a');
+ r.stats.fail='timeline_write_suspended';r.run([a],40);
+ await r.tracker.idle();
+ assert(r.events.some(e=>e.kind==='persist_failed'&&e.code==='timeline_write_suspended'&&
+   e.errorType==='Error'&&e.retryable===true));
+ assert.equal(r.tracker.snapshot().degradedReason,null);
+ r.stats.fail=null;await r.tracker.idle();
+ assert.ok(r.last(a.characterId),'held window was written after timeline recovery');
+ r.stats.fail='SQLite failure /Users/private/dialogue text';
+ r.run([a],40);await r.tracker.idle();
+ assert(r.events.some(e=>e.code==='unclassified_write_error'&&e.retryable===false));
+ assert(!JSON.stringify(r.events).includes('/Users/private/'),'private error text never escaped');
+ assert.equal(r.tracker.snapshot().degradedReason,'ledger_write_rejected');
 });

@@ -5,6 +5,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
 import {createHarness,iso,worldProfileId} from './m3-production-harness.mjs';
+import {m3CoverageDiagnostic} from '../src/memory/m3ProductionMemory.mjs';
 import {resolveLivePromotedProfile} from '../src/memory/livePromotedProfile.mjs';
 import {createTelemetryRecord,EVENT_NAMES} from '../src/observability/eventContract.mjs';
 import {M3ObserverOwnerBinder} from '../../lsa-shared-brain/src/events/m3ObserverOwnerBinder.mjs';
@@ -409,4 +410,15 @@ test('witnessed rows are visible to integrated recall as VERIFIED witness eviden
   const rows=(recall.records??recall.rows??recall).filter?.(r=>r.sourceKind==='journal_event')??[];
   assert.equal(rows.length,1,JSON.stringify(recall).slice(0,300));
   assert.equal(rows[0].evidenceState,'verified');
+});
+
+test('M3 production telemetry maps classified persistence reasons without private message bytes',()=>{
+ const diagnostic=m3CoverageDiagnostic('coverage_persist_failed',{
+  code:'m3_coverage_owner_or_epoch_unconfirmed',errorType:'Error',retryable:true,
+  message:'private speech /Users/private/profiles.v2.sqlite'});
+ const row=createTelemetryRecord({sequence:1,runId:randomUUID(),originMs:0,
+  event:'memory_m3_coverage',source:'internal',data:diagnostic});
+ assert.deepEqual(row.data,{stage:'persist_failed',
+  code:'m3_coverage_owner_or_epoch_unconfirmed',errorType:'Error',retryable:true});
+ assert(!JSON.stringify(row).includes('profiles.v2'));
 });
