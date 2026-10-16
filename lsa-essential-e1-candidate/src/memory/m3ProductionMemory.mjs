@@ -15,7 +15,8 @@ import {createM3Ps2ObserverAdapter} from '../../../lsa-shared-brain/src/events/m
 
 export function createM3ProductionMemory({intelligence,memoryStore,nativeAuthority=null,
     telemetry=null,attribution='observation_time',coverage={},authorityOptions={},
-    adapterOptions={},eventMode='on',coverageMode=coverage===null?'off':'on'}={}) {
+    adapterOptions={},eventMode='on',coverageMode=coverage===null?'off':'on',
+    onDurableEvent=()=>{}}={}) {
   if(!['off','shadow','on'].includes(eventMode)||!['off','shadow','on'].includes(coverageMode))
     throw new TypeError('m3_invalid_mode');
   if(typeof intelligence?.subscribeAuthenticatedNativeMemoryAuthority!=='function'||
@@ -42,6 +43,7 @@ export function createM3ProductionMemory({intelligence,memoryStore,nativeAuthori
   try {
   adapter=createM3Ps2ObserverAdapter({
     ...adapterOptions,
+    onDurableEvent,
     ps2:intelligence.runtime,p2:memoryStore,store:memoryStore,nativeAuthority:authority,attribution,
     coverage:ownsAuthority&&coverageMode!=='off'?
       {...coverage,resolveCharacter:alias=>resolveLivePromotedProfile(memoryStore,alias)}:null,

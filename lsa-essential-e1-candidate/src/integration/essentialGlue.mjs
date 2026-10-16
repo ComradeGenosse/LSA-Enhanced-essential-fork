@@ -36,7 +36,7 @@ import { captureReferenceMap } from '../context/turnSnapshot.mjs';
 import { IdentityResolver } from '../identity/identityResolver.mjs';
 import { CharacterService,withoutCharacterTransport } from '../characters/characterService.mjs';
 import { createNoopDialogueTrace } from '../observability/dialogueTrace.mjs';
-import {memoryKConsumersAllowed,memoryKDialogueActivation,memoryKH1Activation,memoryKH2Activation,memoryKM5Activation} from '../memory/runtimeComposition.mjs';
+import {memoryKConsumersAllowed,memoryKDialogueActivation,memoryKH1Activation,memoryKH2Activation,memoryKM5Activation,memoryKM6Activation} from '../memory/runtimeComposition.mjs';
 import {createLearnedMemoryPause} from '../memory/learnedMemoryPause.mjs';
 
 // Fail-closed startup contract for E1's separately reviewed storage-only preset.
@@ -72,6 +72,7 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
   const journalActivation=memoryKH1Activation(config);
   const recallActivation=memoryKH2Activation(config);
   const commandActivation=memoryKM5Activation(config);
+  const retentionActivation=memoryKM6Activation(config);
   const recallState={preparation:null,validation:null,contributed:false,requestAttempted:false};
   const journalState={preparation:null,validation:null,contributed:false,requestAttempted:false};
   // I1: M5 command state. `outcome` is a closed, privacy-safe vocabulary; it never
@@ -122,12 +123,21 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
   const journalCharacter=turn=>turn.characterProjection?.persistent===true
     && turn.characterProjection.profile?.characterId===turn.characterInputs?.profile?.characterId
     ? turn.characterProjection.profile.characterId:null;
+  // J-B: a durable M2 line marks its promoted NPC for later M6 retention. Marking
+  // is synchronous bookkeeping only; M6 itself never runs on this turn path.
+  const noteRetention=(turn,result)=>{
+    try{if(result?.durable===true)runtime.retention?.noteCommitted({
+      characterId:journalCharacter(turn),identity:turn.identity});}catch{}
+    return result;
+  };
   // This is an optional verified-native authority, NOT a hint from a model,
   // ped handle, room proximity, or a UI-generated 'trusted' flag. Missing
   // current host + exact owner/turn/protagonist proof disables M2 writes.
   const services = {
     bindM2Turn({turn,isCurrent}={}) {
       dialogueResults.player=null;
+      try{runtime.retention?.noteForeground();}catch{} // M6 yields to any live turn
+
       if(!dialogueActivation.player||runtime.closed||memoryPause.paused) return null;
       const characterId=journalCharacter(turn);
       const ownerAlias=turn?.characterProjection?.profile?.promotion?.ownerAlias;
@@ -161,18 +171,19 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
         noteDialogue('player',{status:'not_stored',reason:dialogueResults.player?.reason??'d03_capture_unavailable'});
         return null;
       }
-      return noteDialogue('player',await turn.m2Capture.acceptPlayer({
+      return noteRetention(turn,noteDialogue('player',await turn.m2Capture.acceptPlayer({
         text,source:source==='player_mic'?'stt':'typed',
         transcription:source==='player_mic'
           ?{provider:providerStack?.transcription?.id??'unknown',
             // Recorded as configured; a provider that cannot name its model
             // stays 'unknown' rather than being guessed.
             model:config.transcriptionModel||'unknown',confidence:null}:null
-      }));
+      })));
     },
     // PS4 is the only model-facing assembler. This preflight returns evidence
     // and source-fenced read receipts, never prompt text or model instructions.
     async prepareLiveTurnMemory(args) {
+      try{runtime.retention?.noteForeground();}catch{}
       if(runtime.closed||memoryPause.paused)return null;
       for(const state of [journalState,recallState,commandState]){
         state.preparation=null;state.validation=null;state.contributed=false;state.requestAttempted=false;
@@ -292,6 +303,21 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
         contributedToModelRequest:commandState.contributed,requestAttempted:commandState.requestAttempted,
         legacy,restartRequired:true});
     },
+    // J-B: privacy-safe M6 retention status. Never carries text, ids or messages.
+    memoryRetentionDiagnostics() {
+      const {requestedMode,mode,reason:activationReason}=retentionActivation;
+      const detail=runtime.retention?.diagnostics()??null;
+      const environmentReason=runtime.closed?'runtime_stopped':
+        config.promotedCharacters?.storageMode!=='sqlite'||!characterService?.ready?'p2_sqlite_unavailable':
+        !detail?'retention_runtime_unavailable':null;
+      const state=mode!=='on'?'stopped':environmentReason==='runtime_stopped'?'stopped':
+        environmentReason?'unavailable':detail.state;
+      return Object.freeze({requestedMode,state,
+        effectiveMode:state==='ready'?'on':state==='stopped'?'off':null,
+        operationalState:state,
+        reason:activationReason??environmentReason??detail?.lastReason??(state==='waiting'?'timeline_confirmation_required':null),
+        retention:mode==='on'?detail:null,cloudCuration:'off',restartRequired:true});
+    },
     memoryJournalDiagnostics() {
       const {requestedMode,mode,reason:activationReason,legacy}=journalActivation;
       const environmentReason=runtime.closed?'runtime_stopped':
@@ -321,7 +347,7 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
     // alone (WS-5a). A `not_stored` result means "no durable receipt".
     async recordM2Npc({turn}) {
       if(!dialogueActivation.npc||runtime.closed||memoryPause.paused) return null;
-      return noteDialogue('npc',await turn?.m2Capture?.recordNpcOutcome?.()??null);
+      return noteRetention(turn,noteDialogue('npc',await turn?.m2Capture?.recordNpcOutcome?.()??null));
     },
     memoryDialogueDiagnostics() {
       const rows={};
@@ -656,6 +682,9 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
         try { openaiAcceptance?.verifier.retireSession(connection.sessionIdentity ?? {}); } catch {}
         try { speechDelivery?.recorder.retireSession(connection.sessionIdentity ?? {}); } catch {}
         try { originalActorLedger.retireSession(connection.sessionIdentity ?? {}); } catch {}
+        // J-B: the native conversation ended. Deferred and error-isolated; M6 never
+        // delays detach, and a skipped scene close is recovered on the next run.
+        try { runtime.retention?.sceneClosed(connection.sessionIdentity ?? {}); } catch {}
         identityService?.detach(connection.sessionIdentity);
         characterService?.sessions.detach(connection.sessionIdentity);
         history.clearSession(connection.sessionIdentity?.pedId, connection.sessionIdentity?.sessionNonce);

@@ -17,11 +17,13 @@ import {createM3WitnessRecorder} from '../memory/integrationPorts.mjs';
 
 export function createM3Ps2ObserverAdapter({ps2,p2,store=p2,nativeAuthority,
     limit=512,maxBytes=1024*1024,scheduler,onLoss=()=>{},now,
-    attribution='observation_time',coverage=null,eventMode='on',coverageMode='on'}={}) {
+    attribution='observation_time',coverage=null,eventMode='on',coverageMode='on',
+    onDurableEvent=()=>{}}={}) {
   if(!['off','shadow','on'].includes(eventMode)||!['off','shadow','on'].includes(coverageMode))
     throw new TypeError('m3_invalid_mode');
   if(!nativeAuthority||typeof nativeAuthority.resolveNativeOwner!=='function' ||
-     typeof onLoss!=='function'||!store||typeof store.withTimelineWrite!=='function')
+     typeof onLoss!=='function'||typeof onDurableEvent!=='function'||
+     !store||typeof store.withTimelineWrite!=='function')
     throw new TypeError('m3_source_authority_and_p2_writer_required');
   // Native resolvers MUST be synchronous. A call returning a Promise is not a
   // usable source-time proof and cannot hold a PS2 callback open.
@@ -71,6 +73,10 @@ export function createM3Ps2ObserverAdapter({ps2,p2,store=p2,nativeAuthority,
     });
   }
   const outcome=o=>{
+    // Only confirmed new SQLite commits notify downstream consumers. This runs
+    // on M3's asynchronous drain, never on the synchronous native PS2 tap.
+    if(o.type==='settled'&&o.result==='committed')
+      try{onDurableEvent(o.characterId);}catch{}
     if(!tracker)return;
     switch(o.type){
       case 'queued':
