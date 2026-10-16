@@ -4,7 +4,7 @@ import {mkdtemp,writeFile,rm} from 'node:fs/promises';
 import path from 'node:path';
 import {tmpdir} from 'node:os';
 import {EventEmitter} from 'node:events';
-import {RuntimeResourceScope,createMemoryKRuntimeComposition,memoryKConsumersAllowed} from '../src/memory/runtimeComposition.mjs';
+import {RuntimeResourceScope,createMemoryKRuntimeComposition,memoryKConsumersAllowed,memoryKDialogueActivation,memoryKH1Activation,memoryKH2Activation} from '../src/memory/runtimeComposition.mjs';
 import {createRuntimeForBundle} from '../src/bootstrap.mjs';
 import {verifyPerceptionContract} from '../tools/verifyPerceptionContract.mjs';
 import {IDENTITY_DLL_SHA256,IDENTITY_METADATA_SHA256} from '../src/identity/nativeSupport.mjs';
@@ -82,6 +82,20 @@ test('policy is reused, explicit off is enforced, unfinished on requests remain 
   assert.equal(rows['memory.cloudCuration'].effectiveMode,null);
   assert.equal(rows['source.core'].state,'unverified','missing source proof is not missing production wiring');
   assert.equal(memoryKConsumersAllowed({memoryK:{capabilities:{}}}),true);
+});
+test('M7 plus privileged inspector preserves legacy foreground memory, but explicit selection stays strict',()=>{
+  for(const background of ['memory.cloudCuration','memory.deterministic']){
+    const config={memoryK:{capabilities:{[background]:'on','memory.inspector':'on'}}};
+    assert.equal(memoryKConsumersAllowed(config),true,background);
+    assert.equal(memoryKDialogueActivation(config).player,true);
+    assert.equal(memoryKH1Activation(config).mode,'on');
+    assert.equal(memoryKH2Activation(config).mode,'on');
+  }
+  assert.equal(memoryKConsumersAllowed({memoryK:{capabilities:{'memory.inspector':'on'}}}),false,
+    'inspector alone must not reactivate foreground memory');
+  assert.equal(memoryKConsumersAllowed({memoryK:{capabilities:{'memory.cloudCuration':'off','memory.inspector':'on'}}}),false);
+  assert.equal(memoryKConsumersAllowed({memoryK:{capabilities:{'memory.cloudCuration':'on','memory.inspector':'on','memory.recall':'off'}}}),false,
+    'explicit foreground selection must remain strict');
 });
 test('bootstrap owns one beforeExit listener and isolated instances dispose independently',async t=>{
   const f=await bundle(t),before=process.listenerCount('beforeExit');
