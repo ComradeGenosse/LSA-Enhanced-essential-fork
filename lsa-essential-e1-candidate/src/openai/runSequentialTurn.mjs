@@ -102,12 +102,17 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
   const abortListener = () => chooseTerminal(terminalForAbort(controller.signal));
   controller.signal.addEventListener('abort', abortListener, { once: true });
   let recoverPreRequest = null;
-  const safeToRebuild = error => recoverablePreSend(error) &&
-    !services.shouldWaitForMemoryCommand?.(turn.acceptedPlayerInput ?? '') &&
-    !turn.memoryFallbackUsed;
-  // A stale optional memory contributor is precisely what must be removed
-  // from a fresh pre-HTTP request. Its invalidationReason is not a veto:
-  // revocation/identity/HTTP-admission gates are enforced separately.
+  const safeToRebuild = error => {
+    if(!recoverablePreSend(error) || turn.memoryFallbackUsed ||
+       services.shouldWaitForMemoryCommand?.(turn.acceptedPlayerInput ?? ''))return false;
+    // A strict pre-send SQLite fence can change for harmless local writes;
+    // that lane may be discarded before HTTP. Actual forget/correct, source,
+    // profile or identity revocations are NOT fallback candidates.
+    let cause=null;
+    try{cause=turn.memoryPrepared?.invalidationReason?.()??null;}
+    catch{return false;}
+    return cause===null || cause==='source_changed';
+  };
   const performProvider = (operation, provider, run, canRetry = () => true) => {
     const attempt=async options=>{
       if(operation==='model'&&turn.knowledgeDelivery?.prepareAsync){
