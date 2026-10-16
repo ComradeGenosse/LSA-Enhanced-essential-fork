@@ -21,8 +21,15 @@ export class Telemetry {
   get droppedCount() { return this.#sink?.droppedCount || 0; }
   emit(event, identity = null, source = null, data = {}, provider = 'openai') {
     if (!this.#sink) return false;
-    const record = createTelemetryRecord({ sequence: ++this.#sequence, runId: this.#runId, originMs: this.#origin, event, identity, source, provider, data, now: this.#clock(), utc: this.#utc() });
-    return this.#sink.emit(record);
+    // Observability is best-effort. An unregistered event or a broken sink must
+    // never abort STT, Luna reasoning, or NPC speech. Keep the schema strict
+    // (unknown names/data are not logged), but contain telemetry errors here.
+    try {
+      const record = createTelemetryRecord({ sequence: ++this.#sequence, runId: this.#runId, originMs: this.#origin, event, identity, source, provider, data, now: this.#clock(), utc: this.#utc() });
+      return this.#sink.emit(record);
+    } catch {
+      return false;
+    }
   }
   beginTurn(identity, source, initial = {}) {
     const key = [identity.pedId, identity.turnId, identity.generationId, identity.sessionNonce].join('\0');

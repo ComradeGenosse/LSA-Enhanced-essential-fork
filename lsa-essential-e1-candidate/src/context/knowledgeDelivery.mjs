@@ -29,13 +29,13 @@ export function createKnowledgeDelivery({frame,baseFrame=frame,isCurrent,validat
  };
  return Object.freeze({
   async prepareAsync(){
-   if((projection.memoryStamp||projection.opinionStamp)&&typeof verifyPrepared==='function'){
+   if(!sent&&(projection.memoryStamp||projection.opinionStamp)&&typeof verifyPrepared==='function'){
     try{await verifyPrepared();}catch{}
    }
    return this.prepare();
   },
   async verifyBeforeRequest(){
-   if((projection.memoryStamp||projection.opinionStamp)&&typeof verifyPrepared==='function'){
+   if(!sent&&(projection.memoryStamp||projection.opinionStamp)&&typeof verifyPrepared==='function'){
     try{await verifyPrepared();}catch{}
    }
    // The request body is already composed. Never silently prune it here.
@@ -49,6 +49,7 @@ export function createKnowledgeDelivery({frame,baseFrame=frame,isCurrent,validat
    });}catch{if(sent)fail('unsupported_contract','watch');projection=baseFrame;}
   },
   dispose,
+  wasSent:()=>sent,
 
   prepare(){
    if(!sent && isCurrent())projection=prune(projection);

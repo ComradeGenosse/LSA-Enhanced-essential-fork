@@ -482,6 +482,7 @@ export async function createRuntimeForBundle(options = {}) {
       runtime.memoryInspectorControls=createInspectorControls({runtime,configPath:options.configPath,env});
       runtime.characterEditor = await startCharacterEditor(runtime.characterService,{ endpointPath,
         inspectorControls:runtime.memoryInspectorControls,
+        voiceStatus:()=>runtime.voiceActivity?.snapshot()??{v:1,phase:'unavailable'},
         diagnostics:()=>({
           source:runtime.intelligence?.operationalStates?.()??null,
           owner:runtime.memoryD02?.status?.()??null,

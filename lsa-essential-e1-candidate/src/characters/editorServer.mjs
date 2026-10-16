@@ -101,7 +101,7 @@ ${inspectorScript()}
 run(()=>refresh());run(()=>refreshTimelines());
 </script></html>`;
 }
-export async function startCharacterEditor(service,{ port = service.config.promotedCharacters.editorPort,endpointPath = null,inspectorControls=null,diagnostics=null } = {}) {
+export async function startCharacterEditor(service,{ port = service.config.promotedCharacters.editorPort,endpointPath = null,inspectorControls=null,diagnostics=null,voiceStatus=null } = {}) {
   const token = randomBytes(32).toString('hex'); let origin;
   const server = http.createServer(async (request,response) => {
     response.setHeader('cache-control','no-store'); response.setHeader('x-content-type-options','nosniff');
@@ -173,6 +173,9 @@ export async function startCharacterEditor(service,{ port = service.config.promo
         case 'control_current': result = await service.controlCurrent(body.operation,expectedEncounter(body.expectedEncounterId)); break;
         case 'activity': result = await service.activity(body.operation,{expectedEncounterId:expectedEncounter(body.expectedEncounterId),intent:body.intent,slots:body.slots}); break;
         case 'remove': result = await service.remove(body.characterId,body.confirmation,body.expectedRevision); break;
+        // UX4 mic meter: scalar level and phase only, read from memory; it never
+        // touches a profile, the store or a native request.
+        case 'voice_status': result = typeof voiceStatus === 'function' ? voiceStatus() : {v:1,phase:'unavailable'}; break;
         case 'current_describe': result = describeCurrent(service,{ encounterId:body.encounterId ?? null,ownerAlias:body.ownerAlias ?? null }); break;
         default: throw new Error('invalid_editor_action');
       }

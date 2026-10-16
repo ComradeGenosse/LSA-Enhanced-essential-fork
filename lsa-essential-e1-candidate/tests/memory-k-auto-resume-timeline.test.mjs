@@ -16,8 +16,15 @@ const identity=n=>({pedId:101,turnId:n,generationId:'g1',sessionNonce:'test-sess
 const open=filePath=>createP2MemoryStorage({filePath,worldProfileId,sourceRequired:true});
 async function dir(t){
   const d=await fs.mkdtemp(path.join(os.tmpdir(),'auto-resume-'));
-  t.after(()=>fs.rm(d,{recursive:true,force:true}));
-  return path.join(d,'p2.sqlite');
+  // t.after hooks run in registration order. On Windows, deleting p2.sqlite
+  // before a later store.close() fails with EBUSY. Own both in this hook.
+  const stores=[];
+  t.after(async()=>{
+    for(const store of stores.reverse())await store.close();
+    await fs.rm(d,{recursive:true,force:true});
+  });
+  return {filePath:path.join(d,'p2.sqlite'),track:store=>{stores.push(store);return store;}};
+
 }
 // First GTA launch: the player confirms the one timeline manually and talks to Nathan.
 async function firstLaunch(filePath){
@@ -35,8 +42,8 @@ async function firstLaunch(filePath){
 }
 
 test('auto-resume restores the selected timeline after restart and keeps existing memories',async t=>{
-  const filePath=await dir(t),first=await firstLaunch(filePath);
-  const store=open(filePath);t.after(()=>store.close());
+  const {filePath,track}=await dir(t),first=await firstLaunch(filePath);
+  const store=track(open(filePath));
   await store.initialize();
   const second=host();
   // Without the flag-driven resume a new launch still needs the editor.
@@ -62,8 +69,8 @@ test('auto-resume restores the selected timeline after restart and keeps existin
 });
 
 test('bindHostContext resumes only when the flag is true; default stays manual',async t=>{
-  const filePath=await dir(t),first=await firstLaunch(filePath);
-  const store=open(filePath);t.after(()=>store.close());
+  const {filePath,track}=await dir(t),first=await firstLaunch(filePath);
+  const store=track(open(filePath));
   await store.initialize();
   for(const autoResume of [undefined,false]){
     assert.equal(await bindHostContext(store,host(),{autoResume}),null);
@@ -84,8 +91,8 @@ test('bindHostContext resumes only when the flag is true; default stays manual',
 });
 
 test('native disconnect, reset or ambiguity before resume lands prevents resume and stale writes',async t=>{
-  const filePath=await dir(t),first=await firstLaunch(filePath);
-  const store=open(filePath);t.after(()=>store.close());
+  const {filePath,track}=await dir(t),first=await firstLaunch(filePath);
+  const store=track(open(filePath));
   await store.initialize();
   // Disconnect racing a queued resume: nothing becomes writable.
   const a=host();
@@ -118,8 +125,8 @@ test('native disconnect, reset or ambiguity before resume lands prevents resume 
 });
 
 test('no timeline, several timelines or an unselected one keep manual confirmation',async t=>{
-  const filePath=await dir(t);
-  const store=open(filePath);t.after(()=>store.close());
+  const {filePath,track}=await dir(t);
+  const store=track(open(filePath));
   await store.initialize();
   const h=host();
   store.setVerifiedHostContext(h);
