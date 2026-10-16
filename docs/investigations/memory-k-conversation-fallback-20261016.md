@@ -3,7 +3,7 @@
 **Investigated:** 2026-10-16  
 **Repository:** `ComradeGenosse/LSA-Enhanced-essential-fork`  
 **Integration baseline:** PR [#138](https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/pull/138), commit [`158c5884d0c6befc0bdc35539c952ea9f5e06556`](https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/commit/158c5884d0c6befc0bdc35539c952ea9f5e06556)  
-**Hotfix reviewed FIRST:** PR [#201](https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/pull/201), head [`65676470fbf30e26333ebefbe46aa815c7fb4266`](https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/commit/65676470fbf30e26333ebefbe46aa815c7fb4266), **open / not merged into #138** at audit time  
+**Hotfix reviewed FIRST:** PR [#201](https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/pull/201), final head [`a3971b9a0e145839dc24a0ab9d8c255e29471b70`](https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/commit/a3971b9a0e145839dc24a0ab9d8c255e29471b70), **merged into #138** at [`57f65baae72d570b71fb90b02725896ecd0557ca`](https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/commit/57f65baae72d570b71fb90b02725896ecd0557ca) on 2026-10-16 at 20:31 UTC. The final added commit updated only H1-B verification registration; the reviewed runtime fence code is unchanged from `65676470`.  
 **Scope:** Player text and PTT/microphone foreground turns, Memory K M2, H1, H2/M4, M5, legacy WS6/M8, P2 SQLite, PS4 knowledge projection, and the OpenAI reasoning request. No code modified or GTA run in this investigation.
 
 ## 1. Question, objective, and evidence standard
@@ -52,9 +52,9 @@ Sources: [connection turn/launch](https://github.com/ComradeGenosse/LSA-Enhanced
 - **Source:** [`sqliteFoundation.mjs` `readFence`, lines 215–220](https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/blob/158c5884d0c6befc0bdc35539c952ea9f5e06556/lsa-shared-brain/src/characters/sqliteFoundation.mjs#L215-L220), [`sqliteProfileStore.mjs` `memoryReadFence`, lines 37–41](https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/blob/158c5884d0c6befc0bdc35539c952ea9f5e06556/lsa-shared-brain/src/characters/sqliteProfileStore.mjs#L37-L41); consumers: [H1](https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/blob/158c5884d0c6befc0bdc35539c952ea9f5e06556/lsa-essential-e1-candidate/src/memory/h1ConversationHistory.mjs#L149-L173), [H2](https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/blob/158c5884d0c6befc0bdc35539c952ea9f5e06556/lsa-essential-e1-candidate/src/memory/h2FactualRecall.mjs#L231-L275), [M5](https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/blob/158c5884d0c6befc0bdc35539c952ea9f5e06556/lsa-essential-e1-candidate/src/memory/m5IndependentCommands.mjs#L87-L107).
 - `readFence` includes connection-level `SELECT total_changes()` and SQLite `PRAGMA data_version`, plus host authority generation. Writes unrelated to the evidence used by this model turn can invalidate it.
 - **Before PR #201:** `sendCurrent()` depends on equality with that strict fence, including **after request submission**. The PR #201 author links this to six live `watch/memory_stale` cancellations after successful STT and HTTP admission.
-- **After PR #201 (proposed, not merged):** strict validation is retained before sending; an alternate in-flight fence avoids cancellation from *ordinary same-connection SQLite writes*, while preserving privacy/source/global-profile invalidations.
-- **Still open:** A benign mutation before request or during a retry can still trip a strict read/verification check. Also audit *every* mutation path to ensure an in-flight change that actually alters admitted recalled material triggers a monitored privacy/source generation.
-- **Proposal:** Merge PR #201 only after checking all writer classifications, live-relevant H1/H2/M5/M8 tests, and its CI. Do not simply disable all send fences.
+- **After PR #201 (merged into #138):** strict validation is retained before sending; an alternate in-flight fence avoids cancellation from *ordinary same-connection SQLite writes*, while preserving privacy/source/global-profile invalidations.
+- **Still open after merge:** A benign mutation before request or during a retry can still trip a strict read/verification check. Also audit *every* mutation path to ensure an in-flight change that actually alters admitted recalled material triggers a monitored privacy/source generation.
+- **Proposal:** Audit the now-merged PR #201 against all writer classifications, live-relevant H1/H2/M5/M8 cases, and CI; send any corrections as a separate focused follow-up. Do not simply disable all send fences.
 
 ### F03 — Post-send watcher and success gate abort instead of degrading (P0; confirmed, partly intentional)
 
@@ -114,7 +114,7 @@ Sources: [connection turn/launch](https://github.com/ComradeGenosse/LSA-Enhanced
 
 ## 4. PR #201 assessment — fixes, incomplete coverage, risks
 
-**PR #201 reviewed before this write-up**, still open and unmerged into PR #138 when checked. Its change is **not equivalent to universal fallback**:
+**PR #201 was reviewed before this write-up** and subsequently **merged into PR #138 while the investigation was being committed**. Its change is **not equivalent to universal fallback**:
 
 | PR #201 change | Confirmed code behavior | Audit judgement |
 | --- | --- | --- |
@@ -123,7 +123,7 @@ Sources: [connection turn/launch](https://github.com/ComradeGenosse/LSA-Enhanced
 | H1/H2/M5 and legacy WS6 additions | Expose in-flight current check and bounded invalidation reason. Combined H1/H2/M5 uses all contributors. | Sensible interfaces; need real multi-capability coverage. |
 | `memoryCause` telemetry | Allowlisted cause values, not raw memory text, IDs, or fence values. | Useful and privacy-aware. |
 | Two new tests (`memoryRequestFence.test.mjs`) | A typed H1 turn survives a same-connection no-op SQL UPDATE; a typed H1 turn is cancelled after an actual `commitCommand('forget')`. | Correct narrow regression direction; **not** full mic/streaming/M8/H2/M5 coverage. |
-| CI | GitHub Actions runs were still mostly **queued or in progress** when first checked; no all-green conclusion. | Do not treat PR as release- or GTA-validated. |
+| CI | On the first inspected PR head (`65676470`), most Actions runs were **queued or in progress**. No full green conclusion was established in this investigation; the merge commit did not return workflow runs on the subsequent read. | Do not treat PR as release- or GTA-validated. |
 
 **Open review questions to resolve before integrating #201:**
 
@@ -151,11 +151,11 @@ A fallback must preserve these invariants:
 
 ## 6. Proposed minimal, staged implementation
 
-**Slice A — Hotfix verification, highest urgency (PR #201).**
+**Slice A — Verify merged hotfix, highest urgency (PR #201).**
 - Check all CI; review fence propagation H1/H2/M5 and conditional legacy M8, retry semantics, scoped/untracked privacy mutation paths.
 - Keep strict pre-send fence and real forget/source revocation cancellation.
 - Add a small number of targeted regressions (normal M3 write, H2/M5, M8-on if enabled, and a real privacy correction).
-- **Do not merge merely because the two H1 tests pass.**
+- **Do not assume the already-merged change is GTA validated merely because the two H1 tests exist.**
 
 **Slice B — Fail-open before model request (new small runtime PR).**
 - Replace `memory_source_unavailable` from optional M2 source readiness with `memory.disabledForTurn` only where verified P1/Nathan identity still exists; **do not skip identity verification**.
