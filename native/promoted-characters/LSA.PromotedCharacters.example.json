@@ -17,6 +17,7 @@
     "dialogueReceipts": false
   },
   "npcVoicePresence": {
-    "mode": "off"
+    "mode": "off",
+    "mouthEnabled": false
   }
 }
