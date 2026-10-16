@@ -30,10 +30,10 @@ jobs:
         run: dotnet run --project native/enhanced/input-tests/InputTests.csproj --configuration Release
       - name: Native promoted lifecycle and exact-owner resolver tests
         run: dotnet run --project native/promoted-characters/lifecycle-tests/LifecycleTests.csproj --configuration Release
-      - name: Command bridge / direct and explicit target payload tests
-        run: dotnet run --project native/promoted-characters/bridge-tests/BridgeTests.csproj --configuration Release
       - name: Native owner sampling cross-regression
         run: dotnet run --project native/promoted-characters/owner-sample-tests/OwnerSampleTests.csproj --configuration Release
+      - name: Command bridge / direct and explicit target payload tests
+        run: dotnet run --project native/promoted-characters/bridge-tests/BridgeTests.csproj --configuration Release
 
   genuine-dll:
     name: Production net481 DLL build (requires genuine private SDK references)
