@@ -47,13 +47,16 @@ function reason(error){return error instanceof Error?error.message:'m6_source_re
 async function qualifyCommitted(store,scope,raw,blocked){
   const accepted=[],rejected=[],ids=new Map();
   for(const item of raw){
-    if(blocked.has(item?.recordId)){
-      rejected.push({recordId:item.recordId,reason:'m6_suppressed_source'});
-      continue;
-    }
+    // A P2 replay stub already carries the exact reason the cursor ack
+    // recomputes (e.g. forgotten_or_corrected); relabeling it would make the
+    // ack reject the diagnostic and wedge the scope behind a forgotten line.
     if(item?.kind==='replay_rejection'){
       rejected.push({recordId:isUuid(item.recordId)?item.recordId:null,
         reason:item.replayRejection??'m6_unavailable_source'});
+      continue;
+    }
+    if(blocked.has(item?.recordId)){
+      rejected.push({recordId:item.recordId,reason:'m6_suppressed_source'});
       continue;
     }
     try{
