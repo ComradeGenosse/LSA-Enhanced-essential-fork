@@ -15,5 +15,8 @@
     "mode": "off",
     "pipeName": "LSA.Activities.v1",
     "dialogueReceipts": false
+  },
+  "npcVoicePresence": {
+    "mode": "off"
   }
 }
