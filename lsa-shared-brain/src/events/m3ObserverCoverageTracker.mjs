@@ -41,6 +41,12 @@ export const COVERAGE_DEFAULTS=Object.freeze({
   retryMs:1000,
 });
 const RETRYABLE=/^(timeline_write_suspended|timeline_not_selected|profile_store_unavailable|m3_coverage_owner_or_epoch_unconfirmed|m3_coverage_stale|timeline_write_async_not_supported)$/;
+// A raw database exception may include SQL or local paths: telemetry gets codes only.
+const M3_CODES=new Set('timeline_write_suspended timeline_not_selected profile_store_unavailable m3_coverage_owner_or_epoch_unconfirmed m3_coverage_stale timeline_write_async_not_supported m3_coverage_commit_unconfirmed m3_observer_coverage_identity_conflict m3_observer_coverage_invalid m3_observer_coverage_invalid_window m3_observer_coverage_invalid_gap m3_observer_coverage_corrupt'.split(' '));
+const diagnosticCode=(error,message)=>typeof error?.code==='string'&&
+ /^SQLITE_(?:ERROR|BUSY|LOCKED|READONLY|FULL|IOERR|CONSTRAINT)(?:_[A-Z0-9_]{1,32})?$/.test(error.code)?
+ error.code:M3_CODES.has(message)?message:'unclassified_write_error';
+const diagnosticType=error=>['Error','TypeError','RangeError','SqliteError'].includes(error?.name)?error.name:'UnknownError';
 const uuidFrom=(...parts)=>{
   const b=Buffer.from(createHash('sha256').update(parts.join('|')).digest('hex').slice(0,32),'hex');
   b[6]=b[6]&0x0f|0x40;b[8]=b[8]&0x3f|0x80;
@@ -355,7 +361,7 @@ export function createM3ObserverCoverageTracker({
         // A durable-ledger invariant failure (identity conflict, corruption,
         // invalid record) is not transient: stop claiming coverage.
         if(!RETRYABLE.test(message))degrade('ledger_write_rejected');
-        emit('persist_failed',{message});
+        emit('persist_failed',{code:diagnosticCode(error,message),errorType:diagnosticType(error),retryable:RETRYABLE.test(message)});
       }finally{
         inFlight=null;
       }

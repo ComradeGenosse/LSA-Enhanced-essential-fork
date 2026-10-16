@@ -473,6 +473,7 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
           ()=>recallReady&&memory.recallCurrent([],memory.preparedRecall?.stamp)===true,
           refs=>recallReady&&memory.opinionCurrent([refs],memory.preparedM8?.stamp)),
         validate:validateKnowledge,
+        onStale:diagnostic=>{try{telemetry?.emit('knowledge_request_stale',turn.identity,source,diagnostic);}catch{}},
         onRequest:frame=>{
           if(!journalReady&&!recallReady&&!commandsReady)return;
           const authenticated=!!frame.memoryStamp&&memory.sendCurrent();

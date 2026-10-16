@@ -14,7 +14,7 @@ export const EVENT_NAMES = new Set([
   'listener_cleared','listener_replaced','world_unavailable','snapshot_created','target_changed','target_missing','target_invalid','reference_map_revision_changed',
   'identity_resolved','identity_binding_created','identity_binding_retired','identity_conflict','identity_evidence_stale','identity_store_unavailable','persistent_voice_loaded',
   'session_profile_created','character_name_assigned','promotion_started','promotion_completed','promotion_failed','persistent_profile_loaded','character_spawned','character_dismissed','character_profile_edited','character_memory_created','character_memory_edited','character_memory_deleted','character_unpromoted','character_safe_failure','character_canon_projected','character_reasoning_request_composed',
-  'intelligence_status','companion_shadow','knowledge_frame_projected','knowledge_delivery',
+  'intelligence_status','companion_shadow','knowledge_frame_projected','knowledge_delivery','knowledge_request_stale',
   'intelligence_frame_rejected','director_gate','director_candidate','director_handoff',
   'memory_journal_committed','memory_journal_not_committed',
   'memory_m3_intake_loss','memory_m3_coverage',
@@ -31,7 +31,7 @@ const safeKeys = new Set([
   'captureResponseEligible','captureResponseUrgent',
   'perceivedUnsupportedClaims','perceivedRevisionMismatch','perceivedUnmatchedSalience',
   'perceivedBudgetExcluded','perceivedSafetyOverflow',
-  'stage','operation','terminalReason','reason','code','nativeType','nativeReason','errorType','actionName',
+  'stage','operation','terminalReason','reason','code','nativeType','nativeReason','errorType','actionName','retryable','requestGatePassed',
   'requestId','model','effort','source','provider','role','outcome','eventType','httpStatus','durationMs',
   'bytes','rawBytes','pcmBytes','wavBytes','bodyReadMs','handoffMs','chunks','sampleRate','channels','inputChars','outputChars','inputTokens',
   'outputTokens','totalTokens','cachedInputTokens','reasoningTokens','audioTokens','audioDurationMs',
@@ -59,7 +59,7 @@ const safeKeys = new Set([
   'activityId','intent','capability','receiptState','stepIndex','delivery',
 ]);
 const safeTokens = new Set([
-  'delivered','expired','ack_key_retired','observation_expired',
+  'delivered','expired','ack_key_retired','observation_expired','memory_stale','recall_stale','opinion_stale','revision_mismatch','unclassified_stale_reason',
   'invalid_json','invalid_order','invalid_contract','sequence_gap','runtime_consistency',
   'hello','anchors','retire','retire_batch','observer_index','observer_situation',
   'world_epoch','director_priority','director_response','signal','diagnostics',
