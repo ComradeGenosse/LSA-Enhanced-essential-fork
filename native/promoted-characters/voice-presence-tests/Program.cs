@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using LSA.PromotedCharacters;
 static class Program {
     static int count;
@@ -54,6 +55,67 @@ static class Program {
         Assert(on.HasActiveTurn,"on mode remains observational pending renderer proof");
         on.Dispose();
     }
+    static void TestOptInMouth() {
+        var player=new Rage.Ped {Handle=10,MemoryAddress=new IntPtr(1000)};
+        var npc=new Rage.Ped {Handle=11,MemoryAddress=new IntPtr(1100)};
+        Rage.Game.LocalPlayer.Character=player;
+        LosSantosAlive.Audio.NpcPlaybackCoordinator.Talking=true;
+        Rage.Native.NativeFunction.Commands.Clear();
+
+        var shadow=new NpcVoicePresenceObserver("shadow",true);
+        shadow.Attach();
+        LosSantosAlive.Audio.NpcPlaybackCoordinator.RaiseStarted(npc,"npc1","shadow",10);
+        shadow.Update(5,100);
+        Assert(!Rage.Native.NativeFunction.Commands.Exists(x=>x.StartsWith("PLAY_FACIAL_ANIM")),
+            "shadow must never change actor appearance");
+        shadow.Dispose();
+
+        var disabled=new NpcVoicePresenceObserver("on",false);
+        disabled.Attach();
+        LosSantosAlive.Audio.NpcPlaybackCoordinator.RaiseStarted(npc,"npc1","disabled",11);
+        disabled.Update(5,200);
+        Assert(!Rage.Native.NativeFunction.Commands.Exists(x=>x.StartsWith("PLAY_FACIAL_ANIM")),
+            "on mode still requires explicit mouth opt-in");
+        disabled.Dispose();
+
+        var on=new NpcVoicePresenceObserver("on",true);
+        on.Attach();
+        LosSantosAlive.Audio.NpcPlaybackCoordinator.Talking=false;
+        LosSantosAlive.Audio.NpcPlaybackCoordinator.RaiseStarted(npc,"npc1","first",12);
+        on.Update(5,300);
+        Assert(!Rage.Native.NativeFunction.Commands.Exists(x=>x.StartsWith("PLAY_FACIAL_ANIM")),
+            "queued but not currently speaking must not animate");
+        LosSantosAlive.Audio.NpcPlaybackCoordinator.Talking=true;
+        on.Update(5,350);
+        Assert(Rage.Native.NativeFunction.Commands.Contains("PLAY_FACIAL_ANIM:mic_chatter"),
+            "native-speaking turn drives gated facial-only animation");
+        var played=Rage.Native.NativeFunction.Commands.Count(x=>x=="PLAY_FACIAL_ANIM:mic_chatter");
+        on.Update(5,370);
+        Assert(Rage.Native.NativeFunction.Commands.Count(x=>x=="PLAY_FACIAL_ANIM:mic_chatter")==played,
+            "facial native is rate limited");
+        LosSantosAlive.Audio.NpcPlaybackCoordinator.RaiseStarted(npc,"npc1","second",13);
+        on.Update(5,400);
+        Assert(Rage.Native.NativeFunction.Commands.Contains("PLAY_FACIAL_ANIM:mood_normal_1"),
+            "replacement closes only previously applied facial overlay");
+        LosSantosAlive.Audio.NpcPlaybackCoordinator.RaiseEnded(npc,"npc1","first",12);
+        on.Update(5,420);
+        Assert(on.HasActiveTurn && on.ActiveGeneration==13,"old end cannot stop replacement");
+
+        LosSantosAlive.Audio.NpcPlaybackCoordinator.RaiseEnded(npc,"npc1","second",13);
+        on.Update(5,450);
+        Assert(!on.HasActiveTurn,"replacement ends");
+        Rage.Native.NativeFunction.Commands.Clear();
+        LosSantosAlive.Audio.NpcPlaybackCoordinator.RaiseStarted(npc,"npc1","third",14);
+        on.Update(5,500);
+        Assert(Rage.Native.NativeFunction.Commands.Contains("PLAY_FACIAL_ANIM:mic_chatter"),"third starts");
+        Rage.Native.NativeFunction.Commands.Clear();
+        npc.MemoryAddress=new IntPtr(1101);
+        on.Update(5,510);
+        Assert(!on.HasActiveTurn&&!Rage.Native.NativeFunction.Commands.Exists(x=>x.StartsWith("PLAY_FACIAL_ANIM")),
+            "reused ped is never sent even a closing native");
+        on.Dispose();
+        LosSantosAlive.Audio.NpcPlaybackCoordinator.Talking=false;
+    }
     static void Main() {
         var s=new VoicePresenceTurnTracker();
         var a=new VoicePresenceTurnTracker.Key("ped1","turnA",1);
@@ -86,6 +148,7 @@ static class Program {
         Assert(!s.Sample(a,6,109,.5f),"out of order");
         s.Clear();Assert(!s.Active&&!s.HasPlayout&&!s.MouthOpen,"cleanup");
         TestObserver();
+        TestOptInMouth();
         Console.WriteLine("NPC voice presence policy + native event observer: "+count+" checks passed.");
     }
 }
