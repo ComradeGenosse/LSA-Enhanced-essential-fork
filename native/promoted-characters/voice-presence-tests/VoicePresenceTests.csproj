@@ -6,5 +6,7 @@
   <ItemGroup>
     <Compile Include="Program.cs" />
     <Compile Include="../VoicePresenceTurnTracker.cs" Link="VoicePresenceTurnTracker.cs" />
+    <Compile Include="../NpcVoicePresenceObserver.cs" Link="NpcVoicePresenceObserver.cs" />
+    <Compile Include="VoicePresenceNativeStubs.cs" />
   </ItemGroup>
 </Project>
