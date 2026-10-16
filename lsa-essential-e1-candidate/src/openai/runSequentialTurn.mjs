@@ -104,7 +104,10 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
   let recoverPreRequest = null;
   const safeToRebuild = error => recoverablePreSend(error) &&
     !services.shouldWaitForMemoryCommand?.(turn.acceptedPlayerInput ?? '') &&
-    turn.memoryPrepared?.invalidationReason?.() === null;
+    !turn.memoryFallbackUsed;
+  // A stale optional memory contributor is precisely what must be removed
+  // from a fresh pre-HTTP request. Its invalidationReason is not a veto:
+  // revocation/identity/HTTP-admission gates are enforced separately.
   const performProvider = (operation, provider, run, canRetry = () => true) => {
     const attempt=async options=>{
       if(operation==='model'&&turn.knowledgeDelivery?.prepareAsync){
@@ -370,7 +373,10 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
     if(services.finalizeKnowledgeFrame){
       try{turn.knowledgeProjection=await services.finalizeKnowledgeFrame(turn,{input:finalInput,history:priorHistory,source});}
       catch(error){
-        if(!turn.memoryPrepared||turn.memoryDisabledForTurn)throw error;
+        // A broken optional PS4 projection can fail even when no M2/H1/H2
+        // contributor was prepared. Retry once with the verified clean base;
+        // any failure of that base remains fatal, never silently masked.
+        if(turn.memoryDisabledForTurn||turn.memoryFallbackUsed)throw error;
         await recoverPreRequest('memory_projection_failed','frame_build');
       }
     }

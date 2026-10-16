@@ -64,6 +64,13 @@ test('optional memory preparation failure still gets one clean Luna reply',
 test('pre-send stale context rebuilds one safe body before the first HTTP submission',
   {timeout:45000},async t=>{
   const x=await d01Harness(t,{config:configured()});
+  // An actual prepared lane may report source_changed after the model body
+  // has been assembled. That must not suppress a clean pre-HTTP rebuild.
+  const originalPrepare=x.h.runtime.services.prepareLiveTurnMemory;
+  x.h.runtime.services.prepareLiveTurnMemory=async args=>{
+    const prepared=await originalPrepare(args);
+    return prepared?Object.freeze({...prepared,invalidationReason:()=> 'source_changed'}):prepared;
+  };
   const requests=recordModel(x),original=x.h.runtime.services.decide;
   let attempts=0;
   x.h.runtime.services.decide=options=>{
@@ -112,4 +119,24 @@ test('genuine post-send privacy revocation still rejects stale M8 delivery',()=>
   revoked=true;
   assert.throws(()=>d.success({dialogue:'This reply is unsafe.',command:''}),
     error=>error.code==='knowledge_request_stale');
+});
+
+test('an optional PS4 render failure without prepared memory safely retries with no learned memory',
+  {timeout:45000},async t=>{
+  const x=await d01Harness(t,{config:configured()});
+  // An optional projection failure can occur without an M2/H1 prepared frame.
+  x.h.runtime.services.prepareLiveTurnMemory=async()=>null;
+  const original=x.h.runtime.services.finalizeKnowledgeFrame;
+  let builds=0;
+  x.h.runtime.services.finalizeKnowledgeFrame=(turn,args)=>{
+    builds++;
+    if(!args.forceNoMemory)throw new Error('test_optional_ps4_projection_unavailable');
+    return original(turn,args);
+  };
+  const requests=recordModel(x);
+  const typed=await x.typed('Nathan, can you respond?');
+  assert.equal((await x.settled(typed)).status,'completed');
+  assert.equal(builds,2,'only one clean rebuild is allowed');
+  assert.equal(requests.length,1,'only the clean body reaches HTTP');
+  isClean(requests[0]);
 });

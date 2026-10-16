@@ -185,7 +185,7 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
     // and source-fenced read receipts, never prompt text or model instructions.
     async prepareLiveTurnMemory(args) {
       try{runtime.retention?.noteForeground();}catch{}
-      if(runtime.closed||memoryPause.paused||args.turn?.memoryDisabledForTurn)return null;
+      if(runtime.closed||memoryPause.paused)return null;
       for(const state of [journalState,recallState,commandState]){
         state.preparation=null;state.validation=null;state.contributed=false;state.requestAttempted=false;
       }
@@ -193,6 +193,8 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
       // F-only or recording-only capabilities must not even inspect source getters.
       if(!optionalMemoryEnabled&&journalActivation.mode!=='on'&&
          recallActivation.mode!=='on'&&commandActivation.mode!=='on')return null;
+      // Dormant capabilities must not inspect even hostile turn/source getters.
+      if(args.turn?.memoryDisabledForTurn)return null;
       const memoryEpoch=memoryPause.stamp(),sourceCurrent=args.isCurrent;
       args={...args,isCurrent:()=>memoryPause.current(memoryEpoch)&&sourceCurrent()};
       if(optionalMemoryEnabled){
