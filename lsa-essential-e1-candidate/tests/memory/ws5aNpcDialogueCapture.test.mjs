@@ -41,12 +41,13 @@ function npcSpy(x){
   };
   return spy;
 }
-// Early streaming: the model stub reveals dialogue segments to the runner.
+// Early streaming: mirror the production decoder's 1-based public ordinals.
+// The runner translates them to the private WS-5a ledger's 0-based indices.
 function streamingModel(x,segments,{final=segments.join('')}={}){
   x.h.runtime.services.providerStack={reasoning:{id:'openai.reasoning'},
     speech:{id:'openai.speech'},transcription:{id:'openai.transcription'},
     decideStreaming:async({onSegment})=>{
-      for(let i=0;i<segments.length;i++)await onSegment({sequence:i,text:segments[i]},'dialogue_only');
+      for(let i=0;i<segments.length;i++)await onSegment({sequence:i+1,text:segments[i]},'dialogue_only');
       return {decision:{dialogue:final,command:''},mode:'dialogue_only'};
     }};
 }
