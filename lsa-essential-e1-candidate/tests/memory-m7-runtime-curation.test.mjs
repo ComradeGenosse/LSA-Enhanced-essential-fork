@@ -35,6 +35,14 @@ const PRICING=Object.freeze({model:'gpt-6-luna',source:'operator_verified',
   verifiedAtUtc:'2026-10-12T00:00:00.000Z',officialPricingUrl:'https://developers.openai.com/api/docs/pricing',
   pricingTier:'standard',inputUsdPerMillionTokens:0.20,outputUsdPerMillionTokens:0.75});
 const LIMITS=Object.freeze({dailyUsd:0.5,monthlyUsd:5,maxBatchUsd:0.05});
+const runtimesByTest=new WeakMap();
+async function cleanupRoot(t,root){
+  // Node's after hooks run in registration order. Dispose every SQLite owner
+  // before removing any shared test root, including restart/crash fixtures.
+  for(const runtime of runtimesByTest.get(t)??[])await runtime.dispose();
+  runtimesByTest.delete(t);
+  await rm(root,{recursive:true,force:true});
+}
 const M7_ONLY={'memory.cloudCuration':'on','memory.recall':'off','memory.journalContext':'off',
   'memory.interpretation':'off','memory.deterministic':'off'};
 const M6_AND_M7={'memory.deterministic':'on','memory.cloudCuration':'on'};
@@ -118,7 +126,7 @@ async function boot(t,{root,capabilities,h=harness(),cloud=fakeCloud(),native=nu
     characterContract:{available:true,requiredGameTarget:'net481',dllSha256:IDENTITY_DLL_SHA256,metadataSha256:CHARACTER_METADATA_SHA256,nativeProtocolChanged:false},
     fetchImpl:cloud.fetch,m6RetentionOptions:h.m6,m7CloudCurationOptions:h.m7,
     ...native?{m7NativeIdleSource:native}:{}});
-  t.after(()=>runtime.dispose());
+  const runtimes=runtimesByTest.get(t)??[];runtimes.push(runtime);runtimesByTest.set(t,runtimes);
   return {runtime,store:runtime.characterService.store,h,cloud,native,configPath};
 }
 async function confirm(store,timelineId,native=null){
@@ -182,7 +190,7 @@ const nextTick=async(runtime,h,seconds=61)=>{h.advance(seconds);return runtime.c
 
 test('activation: off by default, no timers, no network; M7 alone keeps the legacy foreground path',async t=>{
   for(const capabilities of [undefined,{},{'memory.deterministic':'on'},{'memory.cloudCuration':'off'}]){
-    const root=await mkdtemp(path.join(tmpdir(),'m7-off-'));t.after(()=>rm(root,{recursive:true,force:true}));
+    const root=await mkdtemp(path.join(tmpdir(),'m7-off-'));t.after(()=>cleanupRoot(t,root));
     const {runtime,h,cloud}=await boot(t,{root,capabilities});
     assert.equal(runtime.cloudCuration??null,null,'not constructed unless explicitly on');
     assert.equal(h.timers.filter(x=>x.ms===60_000&&x.kind==='interval').length,capabilities?.['memory.deterministic']==='on'?1:0);
@@ -200,7 +208,7 @@ test('activation: off by default, no timers, no network; M7 alone keeps the lega
 });
 
 test('activation: awaiting consent makes no network request; unsupported Luna configuration is blocked with a reason',async t=>{
-  const root=await mkdtemp(path.join(tmpdir(),'m7-await-'));t.after(()=>rm(root,{recursive:true,force:true}));
+  const root=await mkdtemp(path.join(tmpdir(),'m7-await-'));t.after(()=>cleanupRoot(t,root));
   const seeded=await seed(t,{root});
   const {runtime,h,cloud}=await restart(t,{root,timelineId:seeded.timelineId,npc:seeded.npcs[0].characterId});
   assert.equal(diag(runtime).state,'starting','nothing evaluated before the first tick');
@@ -224,7 +232,7 @@ test('activation: awaiting consent makes no network request; unsupported Luna co
     ['missing credential',{env:{}},'luna_credential_missing'],
   ];
   for(const [label,over,reason] of cases){
-    const r2=await mkdtemp(path.join(tmpdir(),'m7-unsupported-'));t.after(()=>rm(r2,{recursive:true,force:true}));
+    const r2=await mkdtemp(path.join(tmpdir(),'m7-unsupported-'));t.after(()=>cleanupRoot(t,r2));
     const s2=await seed(t,{root:r2});
     const b=await restart(t,{root:r2,timelineId:s2.timelineId,npc:s2.npcs[0].characterId,...over});
     await grant(b.store);
@@ -236,7 +244,7 @@ test('activation: awaiting consent makes no network request; unsupported Luna co
 });
 
 test('independence: queued jobs are processed with M6, M4 recall, H1 history and M8 interpretation all off; results survive restart',async t=>{
-  const root=await mkdtemp(path.join(tmpdir(),'m7-indep-'));t.after(()=>rm(root,{recursive:true,force:true}));
+  const root=await mkdtemp(path.join(tmpdir(),'m7-indep-'));t.after(()=>cleanupRoot(t,root));
   const seeded=await seed(t,{root});
   const npcId=seeded.npcs[0].characterId;
   const {runtime,store,h,cloud}=await restart(t,{root,timelineId:seeded.timelineId,npc:npcId});
@@ -278,8 +286,8 @@ test('independence: queued jobs are processed with M6, M4 recall, H1 history and
 });
 
 test('M6 enqueues for M7 only when M7 is independently on; both can run together',async t=>{
-  const root=await mkdtemp(path.join(tmpdir(),'m7-m6-'));t.after(()=>rm(root,{recursive:true,force:true}));
-  const m6only=await mkdtemp(path.join(tmpdir(),'m7-m6only-'));t.after(()=>rm(m6only,{recursive:true,force:true}));
+  const root=await mkdtemp(path.join(tmpdir(),'m7-m6-'));t.after(()=>cleanupRoot(t,root));
+  const m6only=await mkdtemp(path.join(tmpdir(),'m7-m6only-'));t.after(()=>cleanupRoot(t,m6only));
   const a=await boot(t,{root:m6only,capabilities:{'memory.deterministic':'on'}});
   assert.equal(diag(a.runtime).state,'stopped');
   assert.equal(a.runtime.services.memoryRetentionDiagnostics().cloudCuration,'off');
@@ -298,7 +306,7 @@ test('M6 enqueues for M7 only when M7 is independently on; both can run together
 });
 
 test('consent withdrawal mid-flight cancels the request, commits nothing stale and stays withdrawn after restart',async t=>{
-  const root=await mkdtemp(path.join(tmpdir(),'m7-withdraw-'));t.after(()=>rm(root,{recursive:true,force:true}));
+  const root=await mkdtemp(path.join(tmpdir(),'m7-withdraw-'));t.after(()=>cleanupRoot(t,root));
   const seeded=await seed(t,{root});const npcId=seeded.npcs[0].characterId;
   const {runtime,store,h,cloud}=await restart(t,{root,timelineId:seeded.timelineId,npc:npcId});
   await grant(store);
@@ -330,7 +338,7 @@ test('consent withdrawal mid-flight cancels the request, commits nothing stale a
 });
 
 test('idle interruption: native activity, a turn starting and shutdown all abort in-flight cloud work without committing',async t=>{
-  const root=await mkdtemp(path.join(tmpdir(),'m7-idle-'));t.after(()=>rm(root,{recursive:true,force:true}));
+  const root=await mkdtemp(path.join(tmpdir(),'m7-idle-'));t.after(()=>cleanupRoot(t,root));
   const seeded=await seed(t,{root});const npcId=seeded.npcs[0].characterId;
   const {runtime,store,h,cloud,native}=await restart(t,{root,timelineId:seeded.timelineId,npc:npcId});
   await grant(store);
@@ -371,7 +379,7 @@ test('idle interruption: native activity, a turn starting and shutdown all abort
 });
 
 test('learned-memory pause cancels in-flight curation and latches M7 off',async t=>{
-  const root=await mkdtemp(path.join(tmpdir(),'m7-pause-'));t.after(()=>rm(root,{recursive:true,force:true}));
+  const root=await mkdtemp(path.join(tmpdir(),'m7-pause-'));t.after(()=>cleanupRoot(t,root));
   const seeded=await seed(t,{root});
   const {runtime,store,cloud}=await restart(t,{root,timelineId:seeded.timelineId,npc:seeded.npcs[0].characterId});
   await grant(store);cloud.hold=true;
@@ -387,7 +395,7 @@ test('learned-memory pause cancels in-flight curation and latches M7 off',async 
 });
 
 test('privacy: forgetting a source mid-flight or before claim is never curated or resurrected',async t=>{
-  const root=await mkdtemp(path.join(tmpdir(),'m7-forget-'));t.after(()=>rm(root,{recursive:true,force:true}));
+  const root=await mkdtemp(path.join(tmpdir(),'m7-forget-'));t.after(()=>cleanupRoot(t,root));
   const seeded=await seed(t,{root,exchanges:[[FUNNY,NPC_FUNNY],[FUNNY2,NPC_FUNNY2]]});
   const [a,b]=seeded.npcs;
   const {runtime,store,h,cloud,native}=await restart(t,{root,timelineId:seeded.timelineId,npc:a.characterId});
@@ -417,7 +425,7 @@ test('privacy: forgetting a source mid-flight or before claim is never curated o
 });
 
 test('privacy: forgetting a source while the request is in flight prevents the stale result from committing',async t=>{
-  const root=await mkdtemp(path.join(tmpdir(),'m7-forget-flight-'));t.after(()=>rm(root,{recursive:true,force:true}));
+  const root=await mkdtemp(path.join(tmpdir(),'m7-forget-flight-'));t.after(()=>cleanupRoot(t,root));
   const seeded=await seed(t,{root});const [a]=seeded.npcs;
   const {runtime,store,h,cloud}=await restart(t,{root,timelineId:seeded.timelineId,npc:a.characterId});
   await grant(store);cloud.hold=true;
@@ -436,7 +444,7 @@ test('privacy: forgetting a source while the request is in flight prevents the s
 });
 
 test('cloud outage: conversations and deterministic retention continue, retry is durable, spend is conservative, then recovers',async t=>{
-  const root=await mkdtemp(path.join(tmpdir(),'m7-outage-'));t.after(()=>rm(root,{recursive:true,force:true}));
+  const root=await mkdtemp(path.join(tmpdir(),'m7-outage-'));t.after(()=>cleanupRoot(t,root));
   const seeded=await seed(t,{root});const npcId=seeded.npcs[0].characterId;
   const h=seeded.h,native=fakeNative(h),cloud=fakeCloud();
   const {runtime,store}=await boot(t,{root,capabilities:M6_AND_M7,native,h,cloud});
@@ -472,7 +480,7 @@ test('cloud outage: conversations and deterministic retention continue, retry is
 });
 
 test('crash recovery: stale leases are re-claimed once and unresolved reservations stay charged at the ceiling',async t=>{
-  const root=await mkdtemp(path.join(tmpdir(),'m7-crash-'));t.after(()=>rm(root,{recursive:true,force:true}));
+  const root=await mkdtemp(path.join(tmpdir(),'m7-crash-'));t.after(()=>cleanupRoot(t,root));
   const seeded=await seed(t,{root});const npcId=seeded.npcs[0].characterId;
   // A previous process leased the job and reserved budget, then died mid-request.
   const first=await restart(t,{root,timelineId:seeded.timelineId,npc:npcId});
@@ -497,7 +505,7 @@ test('crash recovery: stale leases are re-claimed once and unresolved reservatio
 });
 
 test('budget exhaustion blocks further requests until the cap allows another batch',async t=>{
-  const root=await mkdtemp(path.join(tmpdir(),'m7-budget-'));t.after(()=>rm(root,{recursive:true,force:true}));
+  const root=await mkdtemp(path.join(tmpdir(),'m7-budget-'));t.after(()=>cleanupRoot(t,root));
   const seeded=await seed(t,{root});const npcId=seeded.npcs[0].characterId;
   const {runtime,store,h,cloud}=await restart(t,{root,timelineId:seeded.timelineId,npc:npcId});
   await grant(store,{dailyUsd:0.05,monthlyUsd:0.05,maxBatchUsd:0.05});
@@ -512,7 +520,7 @@ test('budget exhaustion blocks further requests until the cap allows another bat
 });
 
 test('multi-NPC isolation, missing native source and the inspector consent controls',async t=>{
-  const root=await mkdtemp(path.join(tmpdir(),'m7-controls-'));t.after(()=>rm(root,{recursive:true,force:true}));
+  const root=await mkdtemp(path.join(tmpdir(),'m7-controls-'));t.after(()=>cleanupRoot(t,root));
   const seeded=await seed(t,{root});const npcId=seeded.npcs[0].characterId;
   // No authenticated native producer registered (the pinned-Core reality today): blocked, no network.
   const h=harness(),cloud=fakeCloud();
