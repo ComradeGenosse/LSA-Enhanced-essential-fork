@@ -59,6 +59,26 @@ jobs:
           if (!$env:W09_RPH_DLL_PATH -or !$env:W09_DAMAGE_DLL_PATH) { throw 'Approved SDK paths were not produced' }
           dotnet build native/promoted-characters/PromotedCharacters.csproj --configuration Release -p:Deterministic=true "-p:RphReferencePath=$env:W09_RPH_DLL_PATH" "-p:DamageReferencePath=$env:W09_DAMAGE_DLL_PATH" -v:minimal
           if ($LASTEXITCODE -ne 0) { throw 'Production net481 compilation failed' }
+      - name: Hash the locally authored native production outputs
+        shell: pwsh
+        run: |
+          $outputs = @(
+            'native/session-identity/bin/Release/net481/LSA.SessionIdentity.dll',
+            'native/promoted-characters/bin/Release/net481/LSA.PromotedCharacters.Runtime.dll'
+          )
+          foreach ($output in $outputs) {
+            if (!(Test-Path -LiteralPath $output)) { throw "Missing first-party build output: $output" }
+            $hash = (Get-FileHash -LiteralPath $output -Algorithm SHA256).Hash.ToLowerInvariant()
+            Write-Output "W09_NATIVE_OUTPUT_SHA256 $output $hash"
+          }
+      - name: Preserve only first-party compiled DLLs for local deployment testing
+        uses: actions/upload-artifact@v4
+        with:
+          name: memory-k-native-net481-first-party
+          path: |
+            native/session-identity/bin/Release/net481/LSA.SessionIdentity.dll
+            native/promoted-characters/bin/Release/net481/LSA.PromotedCharacters.Runtime.dll
+          if-no-files-found: error
       - name: Save reference verification receipt only (no DLLs)
         if: always()
         uses: actions/upload-artifact@v4
