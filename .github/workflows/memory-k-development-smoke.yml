@@ -67,3 +67,11 @@ jobs:
             files+=(lsa-essential-e1-candidate/tests/memory/independentForegroundMemory.test.mjs)
           fi
           node --import ./tools/memory-k-verification/offline.mjs --test --test-concurrency=1 "${files[@]}"
+      - name: Focused optional NPC reaction regression tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --test --test-concurrency=1 \
+            lsa-essential-e1-candidate/tests/reactions.test.mjs \
+            lsa-essential-e1-candidate/tests/reactions-turn-hook.test.mjs
+
