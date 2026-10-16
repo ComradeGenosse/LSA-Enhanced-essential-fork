@@ -51,6 +51,12 @@ namespace LSA.PromotedCharacters {
             foreach(var f in batch) {
                 if(f.Starting) {
                     if(!Live(f.Speaker)||!f.Key.Valid)continue;
+                    // Duplicate starts are idempotent and MUST NOT rebind the
+                    // original actor to a new wrapper/handle/incarnation.
+                    if(state.Active&&state.Epoch==epoch&&state.ActiveKey.Equals(f.Key))continue;
+                    // Never roll the same ped's generation backwards.
+                    if(state.Active&&state.Epoch==epoch&&state.ActiveKey.PedId==f.Key.PedId&&
+                       f.Key.Generation<=state.ActiveKey.Generation)continue;
                     if(state.Begin(f.Key,epoch,nowMs)) {
                         ped=f.Speaker;address=ped.MemoryAddress;handle=ped.Handle;
                     }
