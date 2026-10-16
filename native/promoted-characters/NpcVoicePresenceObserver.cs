@@ -9,6 +9,7 @@ namespace LSA.PromotedCharacters {
         readonly object gate=new object();
         readonly Queue<Fact> queue=new Queue<Fact>();
         readonly VoicePresenceTurnTracker state=new VoicePresenceTurnTracker();
+        readonly NpcVoiceMouthOverlay mouth;
         bool attached,disposed,overflow;
         Ped ped; IntPtr address; int handle,epoch;
         readonly string mode;
@@ -16,14 +17,18 @@ namespace LSA.PromotedCharacters {
         internal long ActiveGeneration=>state.ActiveKey.Generation;
         internal int ActiveHandle=>handle;
         sealed class Fact {internal bool Starting; internal Ped Speaker;internal VoicePresenceTurnTracker.Key Key;}
-        internal NpcVoicePresenceObserver(string mode) {this.mode=mode;}
+        internal NpcVoicePresenceObserver(string mode,bool mouthEnabled=false) {
+            this.mode=mode;
+            if(mode=="on" && mouthEnabled) mouth=new NpcVoiceMouthOverlay();
+        }
         internal void Attach() {
             if(attached||disposed||mode=="off")return;
             NpcPlaybackCoordinator.PlaybackStarted+=Started;
             try {NpcPlaybackCoordinator.PlaybackEnded+=Ended;}
             catch {NpcPlaybackCoordinator.PlaybackStarted-=Started;throw;}
             attached=true;
-            Game.LogTrivial("[VP] mode="+mode+" playback_events=ready playout_tap=missing facial=blocked spatial=deferred");
+            Game.LogTrivial("[VP] mode="+mode+" playback_events=ready pcm_tap=missing mouth="+
+                (mouth==null?"off":"experimental_native_speaking")+" spatial=blocked");
         }
         void Enqueue(Fact fact) {
             lock(gate) {
@@ -43,14 +48,18 @@ namespace LSA.PromotedCharacters {
         static bool Live(Ped value) {
             try{return value!=null&&value.Exists()&&!value.IsDead;}catch{return false;}
         }
-        void Clear() {state.Clear();ped=null;address=IntPtr.Zero;handle=0;}
+        void Clear(bool worldSafe=true) {
+            if(worldSafe) mouth?.Close(ped);
+            else mouth?.Forget();
+            state.Clear();ped=null;address=IntPtr.Zero;handle=0;
+        }
         // Runs only on the Essential Core IIntegration.Update fiber. Callback
         // threads never read/write Rage.Ped state or issue native calls.
         internal void Update(int currentEpoch,long nowMs) {
             if(!attached||disposed)return;
             Fact[] batch;bool lost;
             lock(gate) {batch=queue.ToArray();queue.Clear();lost=overflow;overflow=false;}
-            if(currentEpoch!=epoch||lost) {Clear();epoch=currentEpoch;}
+            if(currentEpoch!=epoch||lost) {Clear(currentEpoch==epoch);epoch=currentEpoch;}
             foreach(var f in batch) {
                 if(f.Starting) {
                     if(!Live(f.Speaker)||!f.Key.Valid)continue;
@@ -72,9 +81,15 @@ namespace LSA.PromotedCharacters {
                 catch {valid=false;}
             }
             if(!state.Sweep(epoch,nowMs,valid))Clear();
-            // No per-turn rendered PCM level is surfaced by the pinned DLL.
-            // Do not animate from queue time or assume the legacy facial native
-            // works in Enhanced. No spatial mixer writes / double attenuation.
+            else if(mouth!=null) {
+                // Actual Essential native speaking flag, distinct from pending
+                // audio and Node chunk delivery. This is approximate facial
+                // motion only, NOT a playout PCM envelope or lip synchronization.
+                bool speaking=false;
+                try {speaking=NpcPlaybackCoordinator.IsPedCurrentlySpeaking(ped);} catch { }
+                mouth.Update(ped,nowMs,speaking);
+            }
+            // Do not pan/attenuate: Essential exposes no safe output-mixer hook.
         }
         // Called from the host-lifetime fiber, including when Core never
         // registered. Only detaches CLR events; Core retains state ownership.
