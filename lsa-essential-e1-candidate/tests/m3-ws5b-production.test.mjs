@@ -9,6 +9,7 @@ import {resolveLivePromotedProfile} from '../src/memory/livePromotedProfile.mjs'
 import {createTelemetryRecord,EVENT_NAMES} from '../src/observability/eventContract.mjs';
 import {M3ObserverOwnerBinder} from '../../lsa-shared-brain/src/events/m3ObserverOwnerBinder.mjs';
 import {verifyM3DerivedEvent} from '../../lsa-shared-brain/src/events/journalEventNormalizer.mjs';
+import {createM6RuntimeRetention} from '../src/memory/m6RuntimeRetention.mjs';
 
 const harness=async(t,options)=>{const h=await createHarness(t,options);t.after(()=>h.close());await h.connect();return h;};
 const rowsFor=async(h,npc)=>(await h.journal(npc)).filter(e=>e.eventType==='firing_burst');
@@ -73,6 +74,33 @@ test('a witnessed event is journaled for exactly the witnessing promoted NPC wit
   assert.equal(stats.committed,1);
   assert.equal(stats.unattributed,0);
   assert.equal(stats.attribution,'observation_time');
+});
+
+test('M3-only event commit wakes M6 idle retention without conversation activity',async t=>{
+  const committed=[];
+  let retention=null;
+  const h=await harness(t,{npcCount:2,onDurableEvent:characterId=>{
+    committed.push(characterId);
+    retention?.noteEvidenceCommitted(characterId);
+  }});
+  const [witness,unaware]=h.npcs;
+  // M6 uses a test clock beyond the coordinator quiet cutoff, no real timers.
+  retention=createM6RuntimeRetention({store:h.store,now:()=>Date.parse(iso(h.clock.ms))+180_000});
+  t.after(()=>retention.dispose());
+  assert.equal((await retention.tick()).recovered,true,'complete empty startup recovery');
+  await h.advance(1000);
+  await h.fire([witness]);
+  await h.drain();
+  assert.deepEqual(committed,[witness.characterId],'only a new durable M3 receipt wakes M6');
+  assert.equal((await h.journal(witness)).length,1);
+  assert.equal((await h.journal(unaware)).length,0);
+  assert.equal(retention.diagnostics().pendingScopes,1);
+  const tick=await retention.tick();
+  assert.equal(tick.processed,1,'the event-only NPC runs M6 without a dialogue commit');
+  assert.equal(tick.recovered,false,'this is ordinary idle retention');
+  assert.equal(retention.diagnostics().pendingScopes,0,'caught-up scope is clean');
+  assert.equal(retention.diagnostics().lastPhase,'idle');
+  assert.equal(retention.diagnostics().runs,3,'two startup scopes and one event-only scope');
 });
 
 test('only observers that actually witnessed are recorded; several witnesses each get their own row',async t=>{
