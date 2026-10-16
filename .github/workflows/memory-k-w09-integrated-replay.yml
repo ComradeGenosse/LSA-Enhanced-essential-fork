@@ -78,6 +78,16 @@ jobs:
         working-directory: lsa-essential-e1-candidate
         run: npm run build
         continue-on-error: true
+      - name: Fingerprint official NuGet reference bytes (discovery only; no compile approval)
+        shell: pwsh
+        run: ./tools/memory-sim/discover-official-native-sdk.ps1
+      - name: Upload only SDK discovery hashes, never binaries
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: w09-sdk-discovery-windows
+          path: artifacts/memory-k/w09-sdk-discovery.json
+          if-no-files-found: warn
       - name: Prepare approved official NuGet compile-only references (if independently hash-pinned)
         shell: pwsh
         env:
@@ -89,9 +99,8 @@ jobs:
         continue-on-error: true
       - name: Independently verify build hashes, staged runtime and actual native compiled sources
         if: always()
-        env:
-          W09_RPH_DLL_SHA256: ${{ secrets.W09_RPH_DLL_SHA256 }}
-          W09_DAMAGE_DLL_SHA256: ${{ secrets.W09_DAMAGE_DLL_SHA256 }}
+        # Use the approved hashes that prepare-approved-native-sdk.ps1 writes to GITHUB_ENV
+        # after separately validating BOTH NuGet package and DLL bytes.
         run: node tools/memory-sim/verify-pinned-production.mjs
       - name: Upload pinned source/ABI and compilation receipts
         if: always()
