@@ -1,0 +1,7 @@
+{
+  "version": 1,
+  "files": [
+    "lsa-essential-e1-candidate/tests/memory/m8IndependentActivation.test.mjs",
+    "lsa-essential-e1-candidate/tests/memory/m8IndependentInterpretation.test.mjs"
+  ]
+}
