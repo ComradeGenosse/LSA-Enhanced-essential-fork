@@ -173,6 +173,12 @@
             "archive",
             "permanent"
           ]
+        },
+        "speaker": {
+          "enum": [
+            "player",
+            "npc"
+          ]
         }
       },
       "required": [

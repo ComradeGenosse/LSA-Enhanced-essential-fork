@@ -75,17 +75,19 @@ function correctionRows(db,scope,forgotten){
   }
   return {corrected,overlays};
 }
-export function readIntegratedRecall(db,{scope,terms=[],fromUtc=null,toUtc=null,sourceKind=null,speaker=null,limit=384}){
+export function readIntegratedRecall(db,{scope,terms=[],fromUtc=null,toUtc=null,sourceKind=null,speaker=null,limit=384,expandDialogueContext=false,excludeRecordId=null}){
   if(!scope||!['franklin','michael','trevor','unknown'].includes(scope.protagonistKey)||
     !['characterId','worldProfileId','timelineId'].every(k=>uuid.test(scope[k]))||
     !Number.isSafeInteger(limit)||limit<1||limit>768)throw new TypeError('m4_invalid_integrated_scope');
   if(sourceKind&&!['dialogue_line','journal_event','permanent_memory','canon'].includes(sourceKind))throw new TypeError('m4_invalid_kind');
   if(speaker&&!['player','npc'].includes(speaker))throw new TypeError('m4_invalid_speaker');
+  if(typeof expandDialogueContext!=='boolean'||excludeRecordId!==null&&!uuid.test(excludeRecordId))
+    throw new TypeError('m4_invalid_context_options');
   const tokens=[...new Set(terms.filter(token))].slice(0,12),limitLex=tokens.length?Math.min(128,Math.floor(limit/3)):0;
   const forgotten=suppressedMemoryIds(db,scope),{corrected,overlays}=correctionRows(db,scope,forgotten);
  const revoked=new Set([...forgotten,...corrected]);
   const result=new Map(),add=(r)=>{
-    if(!r||forgotten.has(r.recordId)||corrected.has(r.recordId))return;
+    if(!r||r.recordId===excludeRecordId||result.has(r.recordId)||forgotten.has(r.recordId)||corrected.has(r.recordId))return;
     // Historical source avatar does not partition the current player's memory.
     if((fromUtc&&r.atUtc<fromUtc)||(toUtc&&r.atUtc>=toUtc))return;
     result.set(r.recordId,r);
@@ -95,13 +97,49 @@ export function readIntegratedRecall(db,{scope,terms=[],fromUtc=null,toUtc=null,
     let where=clause.replaceAll('TIME_COLUMN','committed_at_utc');
     const values=[...args];
     if(speaker){where+=' AND speaker=?';values.push(speaker);}
-    const cols='SELECT d.record_id AS recordId,d.committed_at_utc AS atUtc,d.protagonist AS protagonistKey,d.speaker AS storedSpeaker,d.source AS storedSource,d.delivery AS storedDelivery,d.content AS text,d.content_sha256 AS textHash,d.envelope_json AS raw,d.envelope_sha256 AS rawHash';
+    const hasSession=expandDialogueContext&&!!db.prepare("SELECT 1 FROM pragma_table_info('dialogue_journal') WHERE name='session_id'").get();
+    const cols='SELECT d.rowid AS ordinal,'+(hasSession?'d.session_id':'NULL')+' AS sessionId,d.record_id AS recordId,d.committed_at_utc AS atUtc,d.protagonist AS protagonistKey,d.speaker AS storedSpeaker,d.source AS storedSource,d.delivery AS storedDelivery,d.content AS text,d.content_sha256 AS textHash,d.envelope_json AS raw,d.envelope_sha256 AS rawHash';
     const rows=[];
     if(limitLex){
       const fts=' FROM dialogue_journal_fts JOIN dialogue_journal d ON d.rowid=dialogue_journal_fts.rowid WHERE '+where.replaceAll(/\b(world_profile_id|character_id|timeline_id|committed_at_utc|protagonist|speaker)\b/g,'d.$1')+' AND dialogue_journal_fts MATCH ? ORDER BY bm25(dialogue_journal_fts),d.committed_at_utc DESC';
-      rows.push(...all(db,cols+fts,[...values,textMatch(tokens)],limitLex));
+      rows.push(...all(db,cols+fts,[...values,textMatch(tokens)],limitLex).map(r=>({...r,lexicalHit:true})));
     }
-    rows.push(...all(db,cols+' FROM dialogue_journal d WHERE '+where.replaceAll(/\b(world_profile_id|character_id|timeline_id|committed_at_utc|protagonist|speaker)\b/g,'d.$1')+' ORDER BY d.committed_at_utc DESC,d.rowid DESC',values,limit-limitLex));
+    rows.push(...all(db,cols+' FROM dialogue_journal d WHERE '+where.replaceAll(/\b(world_profile_id|character_id|timeline_id|committed_at_utc|protagonist|speaker)\b/g,'d.$1')+' ORDER BY d.committed_at_utc DESC,d.rowid DESC',values,limit-limitLex-(expandDialogueContext&&limitLex?16:0)));
+    // List/name questions can need the next reply, which may never repeat
+    // the subject's word. Expand only from verified FTS anchors, within the
+    // same committed session + source scope, <=2 lines and <=90 seconds.
+    if(hasSession&&limitLex){
+      const keys=[scope.worldProfileId,scope.characterId,scope.timelineId];
+      const nearby=cols+' FROM dialogue_journal d WHERE d.world_profile_id=? AND d.character_id=? AND d.timeline_id=? AND d.session_id=? AND d.rowid BETWEEN ? AND ? ORDER BY ABS(d.rowid-?) ASC';
+      let count=0;
+      for(const anchor of rows.filter(r=>r.lexicalHit).slice(0,8)){
+        if(count>=8)break;
+        if(anchor.recordId===excludeRecordId||forgotten.has(anchor.recordId)||
+           corrected.has(anchor.recordId)||!uuid.test(anchor.recordId)||
+           !Number.isSafeInteger(anchor.ordinal)||typeof anchor.sessionId!=='string'||
+           !tokens.some(t=>(String(anchor.text).toLowerCase().match(/[\p{L}\p{N}]+/gu)??[]).includes(t)))continue;
+        const proof=verifyEnvelope(anchor.raw,anchor.rawHash);
+        if(proof.recordId!==anchor.recordId||proof.content!==anchor.text||
+           !((proof.speaker==='player'&&proof.delivery==='accepted'&&['typed','stt'].includes(proof.source))||
+             (proof.speaker==='npc'&&proof.delivery==='completed'&&proof.source==='npc_generated'&&uuid.test(proof.deliveryReceiptId))))continue;
+        let nearCount=0;
+        for(const n of all(db,nearby,[...keys,anchor.sessionId,anchor.ordinal-2,anchor.ordinal+2,anchor.ordinal],5)){
+          const distance=Math.abs(n.ordinal-anchor.ordinal);
+          if(!distance||distance>2||Math.abs(Date.parse(n.atUtc)-Date.parse(anchor.atUtc))>90000||
+             n.recordId===excludeRecordId||forgotten.has(n.recordId)||corrected.has(n.recordId))continue;
+          // A relevant reply is often already in the recent page. Annotate
+          // that candidate rather than losing the anchor when deduplicating.
+          const existing=rows.find(r=>r.recordId===n.recordId);
+          if(existing){
+            if(existing.lexicalHit||existing.contextAnchorId)continue;
+            existing.contextAnchorId=anchor.recordId;
+            existing.contextDistance=distance;
+          }else rows.push({...n,contextAnchorId:anchor.recordId,contextDistance:distance});
+          count++;nearCount++;
+          if(count>=8||nearCount>=2)break;
+        }
+      }
+    }
     for(const r of rows){
       const e=verifyEnvelope(r.raw,r.rawHash);
       if(!uuid.test(e.recordId)||e.recordId!==r.recordId||sha(r.text)!==r.textHash||
@@ -112,7 +150,7 @@ export function readIntegratedRecall(db,{scope,terms=[],fromUtc=null,toUtc=null,
       if(!((e.speaker==='player'&&['typed','stt'].includes(e.source)&&e.delivery==='accepted')||
         (e.speaker==='npc'&&e.source==='npc_generated'&&e.delivery==='completed'&&uuid.test(e.deliveryReceiptId))))continue;
       add({...scope,protagonistKey:r.protagonistKey,recordId:r.recordId,sourceKind:'dialogue_line',atUtc:r.atUtc,
-        evidenceState:'verified',envelope:e});
+        evidenceState:'verified',envelope:e,...(r.contextAnchorId?{contextAnchorId:r.contextAnchorId,contextDistance:r.contextDistance}:{})});
     }
   }
   if(!sourceKind||sourceKind==='journal_event'){

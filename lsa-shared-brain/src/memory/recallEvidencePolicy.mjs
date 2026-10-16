@@ -109,6 +109,7 @@ function labelRow(row,scope){
   }else return null;
   if(!limitedText(content)||[...content].length>3072)return null; // never truncate a quote
   return Object.freeze({recordId:row.recordId,sourceKind:row.sourceKind,
+    ...(row.sourceKind==='dialogue_line'?{speaker:e.speaker}:{}),
     category,content,atUtc:row.atUtc,
     sourceAvatar:row.sourceKind==='journal_event'?'unknown':row.protagonistKey??e.attribution?.protagonist??'unknown',
     sourceEvidenceIds});
@@ -299,7 +300,7 @@ export function createRecallEvidencePolicy({store,isCurrent,verifyNativeNegative
     return Object.freeze(summary);
   }
   /** Labels only P2-authenticated integrated projection rows, within PS4 budget. */
-  async function labelledEvidence({scope,source,sourceKind=null,terms=[],recordIds=null,maxBytes=4096}={}){
+  async function labelledEvidence({scope,source,sourceKind=null,terms=[],recordIds=null,maxBytes=4096,expandDialogueContext=false,excludeRecordId=null}={}){
     assertScope(scope);
     if(recordIds!==null&&(!Array.isArray(recordIds)||recordIds.length>32||!recordIds.every(x=>UUID.test(x))))
       throw new TypeError('ws6_invalid_label_ids');
@@ -308,7 +309,7 @@ export function createRecallEvidencePolicy({store,isCurrent,verifyNativeNegative
     if(!authorized(scope,source))return unavailable('source_revoked');
     if(typeof store.readIntegratedRecall!=='function')return unavailable('p2_recall_unavailable');
     const read=await readWithFence(scope,source,()=>store.readIntegratedRecall({
-      scope,sourceKind,terms,limit:384}));
+      scope,sourceKind,terms,limit:384,expandDialogueContext,excludeRecordId}));
     if(!read.ok||!Array.isArray(read.data?.rows)||read.data.rows.length>384)
       return unavailable('source_revoked_or_read_failed');
     const out=[],refs=[];let dropped=0;

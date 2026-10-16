@@ -116,6 +116,7 @@
     "lsa-essential-e1-candidate/tests/perception-witness-rules.test.mjs",
     "lsa-essential-e1-candidate/tests/private-turn-evidence.test.mjs",
     "lsa-essential-e1-candidate/tests/privateEnvironment.test.mjs",
+    "lsa-essential-e1-candidate/tests/prompt-legacy-action-cleanup.test.mjs",
     "lsa-essential-e1-candidate/tests/provider-contract.test.mjs",
     "lsa-essential-e1-candidate/tests/ps-troubleshooting-observability.test.mjs",
     "lsa-essential-e1-candidate/tests/qualified-claim-details.test.mjs",

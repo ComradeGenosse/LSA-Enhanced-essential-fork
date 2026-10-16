@@ -10,6 +10,7 @@ on:
       - 'lsa-essential-e1-candidate/src/bootstrap.mjs'
       - 'lsa-essential-e1-candidate/tests/memory/**'
       - 'lsa-essential-e1-candidate/tests/memory-capability-policy.test.mjs'
+      - 'lsa-essential-e1-candidate/tests/prompt-legacy-action-cleanup.test.mjs'
       - 'tools/memory-k-verification/**'
       - '.github/workflows/memory-k-development-smoke.yml'
   workflow_dispatch:
@@ -51,6 +52,7 @@ jobs:
             lsa-essential-e1-candidate/tests/memory/h1ConversationHistory.test.mjs
             lsa-essential-e1-candidate/tests/memory/h2FactualRecall.test.mjs
             lsa-essential-e1-candidate/tests/memory-capability-policy.test.mjs
+            lsa-essential-e1-candidate/tests/prompt-legacy-action-cleanup.test.mjs
           )
           if [[ -f lsa-essential-e1-candidate/tests/memory/independentForegroundMemory.test.mjs ]]; then
             files+=(lsa-essential-e1-candidate/tests/memory/independentForegroundMemory.test.mjs)

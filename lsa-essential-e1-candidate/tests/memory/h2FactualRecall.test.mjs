@@ -20,6 +20,9 @@ test('H2 exact quote from an earlier session is byte-exact Unicode with speaker/
  assert.deepEqual(contents(h2),[quote],'byte-exact, untrimmed, no reconstruction');
  const [item]=items(h2);
  assert.equal(item.mode,'exact_quote');assert.equal(item.recordId,old.recordId);
+ assert.equal(item.speaker,'player','M4 carries verified player voice');
+ assert.equal((await import('../../src/context/knowledgeSelector.mjs')).projectPreparedRecall(h2.preparedRecall).earlierArchivedConversation[0].speaker,'player',
+   'PS4 carries the original speaker, not an unattributed quote');
  assert.equal(item.sourceAvatar,'michael','source avatar attribution is retained');
  assert.equal(item.freshness,'archive');
  assert(!items(h2).some(x=>x.recordId===receipt.recordId),'current accepted line is not history');
@@ -33,6 +36,9 @@ test('H2 recent factual retrieval returns completed NPC speech and never failed/
  assert.equal(h2.status,'ready');
  assert.deepEqual(contents(h2),['The informant meets us at the marina at midnight']);
  assert.equal(items(h2)[0].freshness,'live');
+ assert.equal(items(h2)[0].speaker,'npc','NPC quote is not player speech');
+ assert.equal((await import('../../src/context/knowledgeSelector.mjs')).projectPreparedRecall(h2.preparedRecall).evidence[0].speaker,'npc',
+   'PS4 preserves Nathan as the historical speaker');
  assert.equal(h2.timings.totalMs>=h2.timings.retrievalMs,true);
 });
 
@@ -373,3 +379,57 @@ test('H2 contribution is byte-identical to the combined-path M4 contribution for
  assert.deepEqual(h2.preparedRecall.answerEvidence,combined.preparedRecall.answerEvidence);
 });
 
+
+test('H2 list question retrieves verified adjacent dog names even without repeating dogs',async t=>{
+ const f=await p2Fixture(t);
+ const anchor=await f.say('Yeah, we have four dogs.',{at:ago(1800),sessionNonce:'dog-talk'});
+ const names=await f.say('Prana, Koba, Nora, and Vladimir.',{at:ago(1790),sessionNonce:'dog-talk'});
+ await f.say('My car is parked in the city.',{at:ago(1700),sessionNonce:'other-talk'});
+ const {h2,receipt}=await f.ask('So what are all the dogs I have?');
+ const direct=await f.store.readIntegratedRecall({scope:f.scope(),terms:['dogs'],limit:384,
+   expandDialogueContext:true,excludeRecordId:receipt.recordId});
+ assert(direct.rows.some(r=>r.recordId===names.recordId),'P2 context read should admit name row');
+ assert.equal(h2.status,'ready',h2.reason);
+ assert(items(h2).some(x=>x.recordId===anchor.recordId));
+ assert(items(h2).some(x=>x.recordId===names.recordId),'neighbor row must survive M4 labels');
+ assert.equal(items(h2).find(x=>x.recordId===names.recordId).speaker,'player');
+ assert(!items(h2).some(x=>x.recordId===receipt.recordId),'current question cannot be history');
+ assert.equal(await h2.verifyPrepared(),true);
+ assert.equal(h2.sendCurrent(),true);
+});
+
+test('H2 does not cross conversation sessions or retrieve unrelated neighbors',async t=>{
+ const f=await p2Fixture(t);
+ await f.say('We have four dogs.',{at:ago(1800),sessionNonce:'dogs'});
+ const other=await f.say('Prana, Koba, Nora and Vladimir are the secret code.',{at:ago(1790),sessionNonce:'unrelated'});
+ const crossed=await f.ask('List all my dogs');
+ assert(!items(crossed.h2).some(x=>x.recordId===other.recordId),
+   'adjacent row from another conversation session must not qualify');
+ const negative=await f.ask('List all my bicycles');
+ assert(!items(negative.h2).some(x=>x.recordId===other.recordId),
+   'unrelated query cannot borrow nearby names');
+});
+
+test('H2 ignores forgotten adjacent dog-name evidence during contextual recall',async t=>{
+ const f=await p2Fixture(t);
+ await f.say('Our dogs are a handful.',{at:ago(1800),sessionNonce:'dog-talk'});
+ const names=await f.say('Prana, Koba, Nora and Vladimir.',{at:ago(1790),sessionNonce:'dog-talk'});
+ await f.forget(names.recordId);
+ const {h2}=await f.ask('List all my dogs');
+ assert(!items(h2).some(x=>x.recordId===names.recordId));
+});
+
+test('H2 keeps directly matching dog evidence ahead of unrelated same-session neighbors',async t=>{
+ const f=await p2Fixture(t);
+ const anchor=await f.say('I have four dogs.',{at:ago(1800),sessionNonce:'same-dogs'});
+ const aside=await f.say('The sky is clear today.',{at:ago(1795),sessionNonce:'same-dogs'});
+ const names=await f.say('Prana, Koba, Nora and Vladimir.',{at:ago(1790),sessionNonce:'same-dogs'});
+ const {h2}=await f.ask('List all my dogs');
+ const recalled=items(h2).map(x=>x.recordId);
+ assert(recalled.includes(anchor.recordId),'keyword-bearing source must be included');
+ assert(recalled.includes(names.recordId),'answer in nearby dialogue should remain retrievable');
+ assert(!recalled.includes(aside.recordId)||recalled.indexOf(anchor.recordId)<recalled.indexOf(aside.recordId),
+  'unrelated adjacent chatter cannot outrank lexical evidence');
+ assert(recalled.indexOf(anchor.recordId)<recalled.indexOf(names.recordId),
+  'direct lexical anchor ranks above contextual candidate');
+});

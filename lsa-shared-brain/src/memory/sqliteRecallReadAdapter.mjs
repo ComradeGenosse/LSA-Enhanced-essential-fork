@@ -28,9 +28,11 @@ export class SQLiteRecallReadAdapter {
     this.#integrated=!has('m4_recall_records_v1')&&has('dialogue_journal');
   }
   close(){if(this.#owned)this.#db.close();}
-  read({scope,terms=[],fromUtc=null,toUtc=null,sourceKind=null,speaker=null,limit=384}={}){
+  read({scope,terms=[],fromUtc=null,toUtc=null,sourceKind=null,speaker=null,limit=384,
+    expandDialogueContext=false,excludeRecordId=null}={}){
     if(!scope||!['franklin','michael','trevor','unknown'].includes(scope.protagonistKey))throw new TypeError('invalid_read_scope');
-    if(this.#integrated)return readIntegratedRecall(this.#db,{scope,terms,fromUtc,toUtc,sourceKind,speaker,limit});
+    if(this.#integrated)return readIntegratedRecall(this.#db,{scope,terms,fromUtc,toUtc,sourceKind,speaker,limit,
+      expandDialogueContext,excludeRecordId});
     if(!Number.isSafeInteger(limit)||limit<1||limit>768)throw new TypeError('invalid_read_limit');
     const where=['r.character_id=?','r.world_profile_id=?','r.timeline_id=?','r.evidence_state=?'];
     const args=[scope.characterId,scope.worldProfileId,scope.timelineId,'verified'];
