@@ -456,7 +456,8 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
       turn.knowledgeDelivery=createKnowledgeDelivery({frame:selected,baseFrame:base,
         verifyPrepared:()=>memory?.verifyPrepared?.()??false,
         recallCurrent:(refs,stamp)=>recallReady&&memory.recallCurrent(refs,stamp),
-        memoryCurrent:stamp=>(journalReady||recallReady||commandsReady)&&memory.sendCurrent()&&!!stamp&&
+        memoryCurrent:(stamp,{requestSent=false}={})=>(journalReady||recallReady||commandsReady)&&
+          (requestSent?(memory.sendCurrentInFlight?.()??memory.sendCurrent()):memory.sendCurrent())&&!!stamp&&
           Object.keys(journalStamp).length===Object.keys(stamp).length&&
           Object.keys(journalStamp).every(key=>journalStamp[key]===stamp[key]),
         opinionCurrent:(refs,stamp)=>recallReady&&memory.opinionCurrent(refs,stamp),
@@ -473,7 +474,16 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
           ()=>recallReady&&memory.recallCurrent([],memory.preparedRecall?.stamp)===true,
           refs=>recallReady&&memory.opinionCurrent([refs],memory.preparedM8?.stamp)),
         validate:validateKnowledge,
-        onStale:diagnostic=>{try{telemetry?.emit('knowledge_request_stale',turn.identity,source,diagnostic);}catch{}},
+        onStale:diagnostic=>{try{
+          // Never log player text, character identities, or database fence values.
+          const cause=diagnostic.reason==='memory_stale'?memory?.invalidationReason?.():null;
+          const safe=new Set(['not_verified','verification_failed','authority_revoked',
+            'authority_changed','privacy_changed','profile_changed','external_write',
+            'invalid_fence','source_changed']);
+          telemetry?.emit('knowledge_request_stale',turn.identity,source,{
+            ...diagnostic,...(cause?{memoryCause:safe.has(cause)?cause:'unclassified'}:{})
+          });
+        }catch{}},
         onRequest:frame=>{
           if(!journalReady&&!recallReady&&!commandsReady)return;
           const authenticated=!!frame.memoryStamp&&memory.sendCurrent();

@@ -238,6 +238,50 @@ test('H1 synchronous final fence blocks a P2 write after last awaited verificati
   assert.equal(checked,true);
 });
 
+test('H1 in-flight request survives unrelated P2 writes, retaining strict pre-send fence',
+  {timeout:45000},async t=>{
+  const x=await d01Harness(t,{config:configured()});
+  await say(x,'The glass chessboard is behind the desk.');
+  let checked=false;
+  const sent=realDecisions(x,async()=>{
+    const strict=x.store.memoryReadFence,request=x.store.memoryRequestFence;
+    await x.store.withP2SqliteTransaction(scope(x),db=>
+      db.prepare('UPDATE dialogue_journal SET content=content WHERE speaker=?').run('player'));
+    assert.notEqual(x.store.memoryReadFence,strict,'the ordinary SQLite write is real');
+    assert.equal(x.store.memoryRequestFence,request,'a normal write is not a privacy revocation');
+    assert.equal(x.store.memoryRequestFenceFailure(request),null);
+    checked=true;
+    return response();
+  });
+  await say(x,'Where is my glass chessboard?');
+  assert.equal(sent.length,1);
+  assert.equal(checked,true);
+});
+
+test('H1 sent request still rejects an actual durable memory forget',
+  {timeout:45000},async t=>{
+  const x=await d01Harness(t,{config:configured()});
+  await say(x,'The saffron compass belongs in the drawer.');
+  const target=(await x.store.readDialogueLines({...scope(x),limit:20}))
+    .find(row=>row.speaker==='player'&&row.content==='The saffron compass belongs in the drawer.');
+  assert.ok(target);
+  let committed=false;
+  const sent=realDecisions(x,async()=>{
+    const old=x.store.memoryRequestFence;
+    const receipt=await forget(x,target.recordId);
+    assert.equal(receipt.durableCommit,true);
+    assert.notEqual(x.store.memoryRequestFence,old);
+    assert.equal(x.store.memoryRequestFenceFailure(old),'privacy_changed');
+    committed=true;
+    return response();
+  });
+  const turn=await x.typed('Do you remember the saffron compass?');
+  assert.notEqual((await x.settled(turn)).status,'completed',
+    'forget committed during an HTTP request must cancel the stale answer');
+  assert.equal(sent.length,1);
+  assert.equal(committed,true);
+});
+
 test('H1 on with M5 off never commits an explicit memory command or asserts success',
   {timeout:45000},async t=>{
   const x=await d01Harness(t,{config:configured()});

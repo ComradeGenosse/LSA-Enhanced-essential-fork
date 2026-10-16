@@ -21,6 +21,13 @@ export function composeIndependentForegroundMemory({history=null,recall=null,com
  const sendCurrent=()=>verified&&!invalidated&&
    (!h1||h1.sendCurrent()===true)&&(!h2||h2.sendCurrent()===true)&&
    (!m5||m5.sendCurrent()===true);
+ const sendCurrentInFlight=()=>verified&&!invalidated&&
+   (!h1||(h1.sendCurrentInFlight??h1.sendCurrent)()===true)&&
+   (!h2||(h2.sendCurrentInFlight??h2.sendCurrent)()===true)&&
+   (!m5||(m5.sendCurrentInFlight??m5.sendCurrent)()===true);
+ const invalidationReason=()=>!verified||invalidated?'verification_failed':
+   [h1,h2,m5].filter(Boolean).find(item=>(item.sendCurrentInFlight??item.sendCurrent)()!==true)?.invalidationReason?.()??
+   (sendCurrentInFlight()?null:'source_changed');
  async function verifyPrepared(){
    verified=false;
    if(invalidated)return false;
@@ -49,5 +56,5 @@ export function composeIndependentForegroundMemory({history=null,recall=null,com
    preparedRecall:h2?.preparedRecall??null,preparedM8:null,
    memoryAction:m5?.memoryAction??null,
    recallCurrent:(refs,seen)=>!!h2&&h2.recallCurrent(refs,seen)===true,
-   opinionCurrent:()=>false,verifyPrepared,sendCurrent});
+   opinionCurrent:()=>false,verifyPrepared,sendCurrent,sendCurrentInFlight,invalidationReason});
 }
