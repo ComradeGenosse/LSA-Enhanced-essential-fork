@@ -410,7 +410,13 @@ namespace LSA.PromotedCharacters
         public void OnNpcActionExecuted(Ped ped,string actionName,bool succeeded) { PushActivity(ped, actionName, "executed", succeeded); }
         // A loader/lifetime fiber can request cleanup, but Core's own callback
         // must retire evidence and perform any native cleanup on its owner fiber.
-        public void RequestShutdown() => shutdownRequested = true;
+        public void RequestShutdown() {
+            shutdownRequested=true;
+            // The Core callback may never run again after host failure.
+            // Event unsubscription is CLR-only and safe on the lifetime fiber.
+            try {voicePresence?.Dispose();} catch {}
+            voicePresence=null;
+        }
         public void Shutdown()
         {Shutdown("integration_shutdown");}
         internal void Shutdown(string reason)
