@@ -112,6 +112,7 @@ namespace LSA.Enhanced
             UiBridge ui = null;
             var talk = new TalkTargetInput(keys,gameState,bridge,clock,hud,Game.LogTrivial,() => router.Snapshot(clock.Utc),() => ui != null && ui.AnyMenuOpen);
             activeTalk = talk;
+            talk.AttachCompanion(companion);
             EnhancedSettings settings = EnhancedSettings.Defaults(catalog);
             EssentialBindings essential = EssentialBindings.Unavailable();
             dispatcher.Settings = () => settings; dispatcher.Essential = () => essential;

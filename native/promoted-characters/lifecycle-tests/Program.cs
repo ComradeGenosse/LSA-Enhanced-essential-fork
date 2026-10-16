@@ -252,6 +252,9 @@ class Program
         var promoted=(Encounter)lookup.Invoke(integration,new object[]{promotedPed});
         promoted.OwnerAlias="promoted."+Guid.NewGuid().ToString("D");promoted.Registration=owner.Register(promotedPed,promoted.OwnerAlias,WorldId);retain.Invoke(integration,new object[]{promoted});
         Check(RecipientToken(integration,promotedPed,62,out evidence)=="promoted" && evidence=="owner_verified");
+        // The verified alias travels with a promoted result only (it is the loader's name lookup key).
+        Check(integration.ResolveTalkRecipient(promotedPed,62).Alias==promoted.OwnerAlias);
+        Check(integration.ResolveTalkRecipient(tracked,61).Alias==null && integration.ResolveTalkRecipient(promotedPed,63).Alias==null);
         Check(RecipientToken(integration,promotedPed,63,out evidence)=="unknown" && evidence=="address_changed");
         Check(RecipientToken(integration,promotedPed,0,out evidence)=="unknown" && evidence=="address_changed");
         Check(RecipientToken(integration,null,62,out evidence)=="unknown" && evidence=="ped_invalid");
@@ -263,6 +266,7 @@ class Program
         Check(RecipientToken(integration,staleProof,64,out evidence)=="promoted");
         Check(owner.Retire(stale.Registration));
         Check(RecipientToken(integration,staleProof,64,out evidence)=="unknown" && evidence=="owner_proof_stale");
+        Check(integration.ResolveTalkRecipient(staleProof,64).Alias==null);
 
         // The roster and P1 disagreeing is also unknown.
         var disputed=new Ped{Handle=65,MemoryAddress=new IntPtr(65)};
@@ -289,12 +293,15 @@ class Program
         var view=new TalkTargetView{Present=true,SelectionId=Guid.NewGuid().ToString("D"),PedId="60",Address=60,CycleIndex=1,CycleCount=1};
         Func<TalkTargetSelector,string[]> read=selector => {
             var payload=selector.AsResult(view);var type=payload.GetType();
-            return new[]{(string)type.GetProperty("recipientKind").GetValue(payload,null),(string)type.GetProperty("recipientEvidence").GetValue(payload,null)};
+            return new[]{(string)type.GetProperty("recipientKind").GetValue(payload,null),(string)type.GetProperty("recipientEvidence").GetValue(payload,null),(string)type.GetProperty("recipientAlias").GetValue(payload,null)};
         };
-        Check(read(new TalkTargetSelector(ped=>null,(ped,address)=>TalkRecipientFeedback.Promoted("owner_verified"))).SequenceEqual(new[]{"promoted","owner_verified"}));
-        Check(read(new TalkTargetSelector(ped=>null,(ped,address)=>{throw new InvalidOperationException("boom");})).SequenceEqual(new[]{"unknown","resolver_failed"}));
-        Check(read(new TalkTargetSelector(ped=>null,(ped,address)=>null)).SequenceEqual(new[]{"unknown","resolver_empty"}));
-        Check(read(new TalkTargetSelector(ped=>null)).SequenceEqual(new[]{"unknown","resolver_absent"}));
+        string goodAlias="promoted."+Guid.NewGuid().ToString("D");
+        Check(read(new TalkTargetSelector(ped=>null,(ped,address)=>TalkRecipientFeedback.Promoted("owner_verified",goodAlias))).SequenceEqual(new[]{"promoted","owner_verified",goodAlias}));
+        Check(read(new TalkTargetSelector(ped=>null,(ped,address)=>TalkRecipientFeedback.Promoted("owner_verified","Nathan"))).SequenceEqual(new[]{"promoted","owner_verified",null}));
+        Check(read(new TalkTargetSelector(ped=>null,(ped,address)=>TalkRecipientFeedback.Ambient("unowned"))).SequenceEqual(new[]{"ambient","unowned",null}));
+        Check(read(new TalkTargetSelector(ped=>null,(ped,address)=>{throw new InvalidOperationException("boom");})).SequenceEqual(new[]{"unknown","resolver_failed",null}));
+        Check(read(new TalkTargetSelector(ped=>null,(ped,address)=>null)).SequenceEqual(new[]{"unknown","resolver_empty",null}));
+        Check(read(new TalkTargetSelector(ped=>null)).SequenceEqual(new[]{"unknown","resolver_absent",null}));
 
         integration.Shutdown();
         Check(RecipientToken(integration,promotedPed,62,out evidence)=="unknown" && evidence=="p2_unavailable");

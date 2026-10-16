@@ -45,7 +45,19 @@ sealed class FakeBridge : INativeBridge, IEssentialInputBridge
     public readonly Dictionary<string,string> Results = new Dictionary<string,string>();
     public int Interest;
     public string NextSubmitReply = "accepted";
-    public string Submit(string envelope) { Submitted.Add(envelope); return NextSubmitReply; }
+    // Simulate a NEW native current.inspect result, not the earlier HUD cache.
+    public Func<Dictionary<string,object>> InspectCurrent;
+    public string Submit(string envelope)
+    {
+        Submitted.Add(envelope);
+        if (NextSubmitReply != "accepted") return NextSubmitReply;
+        var root = (Dictionary<string,object>)new JavaScriptSerializer().DeserializeObject(envelope);
+        if ((string)root["command"] == "current.inspect" && InspectCurrent != null) {
+            var payload = new Dictionary<string,object> {{"v",1},{"id",root["id"]},{"command","current.inspect"},{"status","ok"},{"reason",null},{"result",InspectCurrent()}};
+            Results[(string)root["id"]] = new JavaScriptSerializer().Serialize(payload);
+        }
+        return NextSubmitReply;
+    }
     public string TryTakeResult(string id) { if (Results.TryGetValue(id,out var text)) { Results.Remove(id); return text; } return null; }
     public string Snapshot() => SnapshotJson;
     public void RequestSnapshots(int forMs) => Interest++;
@@ -62,7 +74,7 @@ sealed class FakeBridge : INativeBridge, IEssentialInputBridge
     public const string Encounter = "7a3e9b1c-5d2f-4e8a-b6c4-1f0e9d8c7b6a";
     public const string Alias = "promoted.11111111-1111-4111-8111-111111111111";
     public static Dictionary<string,object> Ordinary() => new Dictionary<string,object> {{"present",true},{"pedId","101"},{"encounterId",Encounter},{"ownerAlias",null},{"owned",false},{"suspended",false},{"mode",null},{"human",true},{"safe",true}};
-    public static Dictionary<string,object> Owned() => new Dictionary<string,object> {{"present",true},{"pedId","102"},{"encounterId",Encounter},{"ownerAlias",Alias},{"owned",true},{"suspended",false},{"mode","wait"},{"human",true},{"safe",true}};
+    public static Dictionary<string,object> Owned() => new Dictionary<string,object> {{"present",true},{"pedId","102"},{"encounterId",Encounter},{"ownerAlias",Alias},{"owned",true},{"ownerVerified",true},{"suspended",false},{"mode","wait"},{"human",true},{"safe",true}};
     public static Dictionary<string,object> Absent() => new Dictionary<string,object> {{"present",false}};
 }
 sealed class FakeCompanion : ICompanion

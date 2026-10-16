@@ -289,4 +289,8 @@ Applies only after a DLL built from the committed-recipient feedback change is i
    Pass: no `Talking to` notice for a start that was already released; mic closes once.
 6. A promoted character whose ownership is suspended/stale (for example after the P1 owner claim is retired) must not read as `Nearby NPC`: expect `NPC (identity unavailable)`.
 7. Give an ambient NPC the same voice as Nathan. Pass: the notice still says `Nearby NPC`.
-8. Regression: Text, MarkedTalk, shared Essential Talk interception, `talkTargeting.enabled=false`, F11 Follow/Wait/Promote, no per-frame cost increase and no HUD spam.
+8. Named recipient (needs the companion running and the DLL with the `recipientAlias` change). Tap/cycle to promoted Nathan B, then hold.
+   Pass: one notice, `Talking to: Nathan` (no preceding `Promoted NPC`); log has `recipient kind=promoted evidence=owner_verified` and `recipient_name outcome=shown` and no name/alias/CharacterId. Rename Nathan in the character editor and hold again: the new name shows.
+9. Name fallbacks. With the companion stopped (or `current_describe` failing), hold on Nathan: after about 0.4 s `Talking to: Promoted NPC`, mic and reply unaffected. Promote two characters, then hand-edit the store so both claim one `ownerAlias` (offline test only): expect `Promoted NPC`, never either name. A profile named with `~r~` or markup must show `Promoted NPC`.
+10. Ended/changed target. Hold on Nathan and release inside 0.4 s: no `Talking to` line at all. Hold on Nathan, release, immediately hold on ambient A: only `Nearby NPC`, never Nathan. Switch A/B repeatedly: each notice names the ped that actually received that turn.
+11. Regression: Text, MarkedTalk, shared Essential Talk interception, `talkTargeting.enabled=false`, F11 Follow/Wait/Promote, no per-frame cost increase and no HUD spam.

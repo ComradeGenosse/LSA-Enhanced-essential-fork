@@ -18,6 +18,7 @@ static partial class Program
         TalkSettingsTests();
         TalkInputTests();
         TalkRecipientTests();
+        TalkRecipientNameTests();
         TalkViewTests();
     }
     static TalkCandidate Ped(string id,float distance,float error,bool onScreen,int order) => new TalkCandidate {PedId = id,Address = order + 10,Distance = distance,ScreenCenterError = error,OnScreen = onScreen,InputOrder = order};
@@ -128,17 +129,19 @@ static partial class Program
         public readonly List<string> Logs = new List<string>();
         public readonly TalkTargetInput Talk;
         public bool Menu;
+        // The Current-NPC entry the native snapshot reports on every refresh.
+        public Func<Dictionary<string,object>> Current = FakeBridge.Ordinary;
         public EnhancedSettings Settings;
         public EssentialBindings Essential = EssentialBindings.Parse(new[] {"TalkKey=Mouse4","TextKey=Mouse5","MarkPedKey=F9","MarkedPedTalkKey=F3"});
         public TalkRig(string json = null)
         {
             Settings = Program.Settings(json ?? TalkJson());
-            Bridge.SetSnapshot(Clock.Utc,FakeBridge.Ordinary(),FakeBridge.Gates());
+            Bridge.SetSnapshot(Clock.Utc,Current(),FakeBridge.Gates());
             Talk = new TalkTargetInput(Keys,Game,Bridge,Clock,Hud,Logs.Add,() => NativeSnapshot.Parse(Bridge.Snapshot()),() => Menu);
             Talk.Apply(Settings,Essential);
         }
         public void Frame(int frames = 1) { for (int index = 0; index < frames; index++) { Clock.Advance(10); Refresh(); Talk.Tick(); } }
-        public void Refresh() => Bridge.SetSnapshot(Clock.Utc,FakeBridge.Ordinary(),FakeBridge.Gates());
+        public void Refresh() => Bridge.SetSnapshot(Clock.Utc,Current(),FakeBridge.Gates());
         // The press is observed at the current clock. Elapse moves to pressAt + ms.
         public void Press() { Keys.Down.Add(F10); Refresh(); Talk.Tick(); }
         public void Elapse(int ms) { Clock.Advance(ms); Refresh(); Talk.Tick(); }
@@ -244,6 +247,158 @@ static partial class Program
         twice.Press(); twice.Elapse(220);
         twice.Reply(twice.LastId(),StartedReply("promoted","owner_verified")); twice.Frame(1);
         Check(twice.Hud.Shown.Where(text => text.StartsWith("Talking to:")).SequenceEqual(new[] {"Talking to: Nearby NPC","Talking to: Promoted NPC"}),"each committed generation announces its own recipient: " + string.Join(" | ",twice.Hud.Shown));
+    }
+    // Promoted NPC name upgrade: the committed recipient is named only when native verified
+    // the owner, the companion maps that exact alias to one profile and the live snapshot agrees.
+    const string NathanId = "3b1f6f0a-2f4e-4a55-9c1e-8d7a6b5c4d3e";
+    static string Described(string name,string kind = "promoted",bool withId = true) =>
+        Json.Serialize(new Dictionary<string,object> {{"kind",kind},{"name",name},{"characterId",withId ? NathanId : null},{"facts",new object[0]}});
+    static Dictionary<string,object> PromotedStart(string alias = FakeBridge.Alias)
+    {
+        var body = StartedReply("promoted","owner_verified");
+        body["recipientAlias"] = alias;
+        body["pedId"] = "102";
+        return body;
+    }
+    sealed class NameRig
+    {
+        public readonly TalkRig Rig;
+        public readonly FakeCompanion Companion = new FakeCompanion();
+        public NameRig(Func<Dictionary<string,object>> current = null)
+        {
+            Rig = new TalkRig();
+            Rig.Current = current ?? FakeBridge.Owned;
+            Rig.Bridge.InspectCurrent = () => Rig.Current();
+            Rig.Refresh();
+            Rig.Talk.AttachCompanion(Companion);
+        }
+        public void Commit(object start = null)
+        {
+            Rig.Press(); Rig.Elapse(220);
+            Rig.Reply(Rig.LastId(),start ?? PromotedStart()); Rig.Frame(1);
+        }
+        public void Release() { Rig.Keys.Down.Remove(F10); Rig.Frame(1); }
+        public string Said => string.Join(" | ",Rig.Hud.Shown);
+    }
+    static void TalkRecipientNameTests()
+    {
+        var named = new NameRig();
+        named.Commit();
+        Check(named.Rig.Talk.State == "talking" && named.Rig.Bridge.Submitted.Any(item => item.Contains("talk.ptt_start")),"the mic is already committed while the name is still being fetched");
+        Check(Notices(named.Rig) == 0 && named.Companion.Pending == 1,"the notice waits for the companion name; exactly one lookup is made");
+        Check(named.Companion.Last["action"] as string == "current_describe" && named.Companion.Last["encounterId"] as string == FakeBridge.Encounter && named.Companion.Last["ownerAlias"] as string == FakeBridge.Alias && named.Companion.Timeouts[0] <= 2000,"the lookup asks the existing describe action for the verified encounter and alias with a short timeout");
+        named.Companion.Reply(true,body: Described("Nathan")); named.Rig.Frame(1);
+        Check(named.Rig.Hud.Last == "Talking to: Nathan" && Notices(named.Rig) == 1 && !named.Said.Contains("Promoted NPC"),"a verified promoted recipient is shown by name instead of the generic label: " + named.Said);
+        named.Rig.Frame(30);
+        Check(Notices(named.Rig) == 1,"the named notice is not repeated");
+        Check(named.Rig.Logs.Any(line => line == "[UX4] talk_ptt recipient_name outcome=shown") && !named.Rig.Logs.Any(line => line.Contains("Nathan") || line.Contains("promoted.") || line.Contains(NathanId)),"logs carry the outcome code, never a name, alias or CharacterId");
+
+        // Unusable answers fall back to the existing generic label immediately.
+        var hostileNames = new[] {"~r~Nathan","Nathan\nid=1","N<b>athan","x" + new string('y',40),"","   ","\u0007Nathan"};
+        foreach (var hostile in hostileNames) {
+            var bad = new NameRig(); bad.Commit();
+            bad.Companion.Reply(true,body: Described(hostile)); bad.Rig.Frame(1);
+            Check(bad.Rig.Hud.Last == "Talking to: Promoted NPC" && Notices(bad.Rig) == 1 && !bad.Said.Contains("athan"),"an unsafe profile name is never displayed: " + hostile.Replace("\n","\\n"));
+        }
+        foreach (var body in new[] {Described("Nathan","unknown"),Described("Nathan","encounter"),Described("Nathan",withId: false),"{not json",Json.Serialize(new Dictionary<string,object> {{"kind","unknown"},{"facts",new object[0]}})}) {
+            var odd = new NameRig(); odd.Commit();
+            odd.Companion.Reply(true,body: body); odd.Rig.Frame(1);
+            Check(odd.Rig.Hud.Last == "Talking to: Promoted NPC" && Notices(odd.Rig) == 1,"a reply that is not exactly one promoted profile keeps the generic label: " + body);
+        }
+        var failed = new NameRig(); failed.Commit();
+        failed.Companion.Reply(false,"invalid_editor_request"); failed.Rig.Frame(1);
+        Check(failed.Rig.Hud.Last == "Talking to: Promoted NPC" && Notices(failed.Rig) == 1,"a companion error keeps the generic label");
+        var down = new NameRig(); down.Commit();
+        down.Companion.Unreachable(); down.Rig.Frame(1);
+        Check(down.Rig.Hud.Last == "Talking to: Promoted NPC" && down.Rig.Talk.State == "talking","an unreachable companion never affects the talk");
+
+        // A slow companion: generic after the grace period, the name may still replace it once.
+        var slow = new NameRig(); slow.Commit();
+        slow.Rig.Elapse(300);
+        Check(Notices(slow.Rig) == 0,"nothing is shown inside the grace period");
+        slow.Rig.Elapse(150);
+        Check(slow.Rig.Hud.Last == "Talking to: Promoted NPC" && Notices(slow.Rig) == 1,"after the grace period the generic label appears");
+        slow.Companion.Reply(true,body: Described("Nathan")); slow.Rig.Frame(1);
+        Check(slow.Rig.Hud.Last == "Talking to: Nathan" && Notices(slow.Rig) == 2,"a late verified name updates the notice");
+        var tooLate = new NameRig(); tooLate.Commit();
+        tooLate.Rig.Elapse(450); tooLate.Rig.Elapse(2750);
+        tooLate.Companion.Reply(true,body: Described("Nathan")); tooLate.Rig.Frame(1);
+        Check(tooLate.Rig.Hud.Last == "Talking to: Promoted NPC" && Notices(tooLate.Rig) == 1 && !tooLate.Said.Contains("Nathan"),"a name that arrives after the lifetime is discarded");
+
+        // The live snapshot must still show the same owned encounter and alias.
+        var contradicting = new Func<Dictionary<string,object>>[] {
+            FakeBridge.Ordinary,
+            FakeBridge.Absent,
+            () => { var other = FakeBridge.Owned(); other["ownerAlias"] = "promoted.22222222-2222-4222-8222-222222222222"; return other; },
+            () => { var other = FakeBridge.Owned(); other["encounterId"] = "99999999-9999-4999-8999-999999999999"; return other; }};
+        foreach (var current in contradicting) {
+            var stale = new NameRig(current); stale.Commit();
+            stale.Companion.Reply(true,body: Described("Nathan")); stale.Rig.Elapse(500);
+            Check(!stale.Said.Contains("Nathan") && stale.Rig.Hud.Last == "Talking to: Promoted NPC","a name is withheld when the live current NPC is not the verified owner: " + stale.Said);
+        }
+        var unowned = new NameRig(FakeBridge.Ordinary); unowned.Commit();
+        unowned.Companion.Reply(true,body: Described("Nathan")); unowned.Rig.Frame(1);
+        Check(unowned.Rig.Hud.Last == "Talking to: Promoted NPC" && !unowned.Said.Contains("Nathan"),
+            "fresh current.inspect without ownership denies the name");
+        var retired = new NameRig(); retired.Commit();
+        retired.Rig.Current = () => { var row = FakeBridge.Owned(); row["ownerVerified"] = false; return row; };
+        retired.Companion.Reply(true,body: Described("Nathan")); retired.Rig.Frame(1);
+        Check(retired.Rig.Hud.Last == "Talking to: Promoted NPC" && !retired.Said.Contains("Nathan"),
+            "retired P1 claim after mic commit is never named despite a registration");
+        var suspended = new NameRig(); suspended.Commit();
+        suspended.Rig.Current = () => { var row = FakeBridge.Owned(); row["suspended"] = true; return row; };
+        suspended.Companion.Reply(true,body: Described("Nathan")); suspended.Rig.Frame(1);
+        Check(suspended.Rig.Hud.Last == "Talking to: Promoted NPC" && !suspended.Said.Contains("Nathan"),
+            "suspended profile is not named");
+        var switched = new NameRig(); switched.Commit();
+        switched.Rig.Current = () => { var row = FakeBridge.Owned(); row["pedId"] = "777"; return row; };
+        switched.Companion.Reply(true,body: Described("Nathan")); switched.Rig.Frame(1);
+        Check(switched.Rig.Hud.Last == "Talking to: Promoted NPC" && !switched.Said.Contains("Nathan"),
+            "same encounter and alias on another ped cannot authorize this name");
+        var oldNative = new NameRig(); oldNative.Commit();
+        oldNative.Rig.Current = () => { var row = FakeBridge.Owned(); row.Remove("ownerVerified"); return row; };
+        oldNative.Companion.Reply(true,body: Described("Nathan")); oldNative.Rig.Frame(1);
+        Check(oldNative.Rig.Hud.Last == "Talking to: Promoted NPC" && !oldNative.Said.Contains("Nathan"),
+            "older native without verified P1 proof fails closed");
+        var inspected = new NameRig(); inspected.Commit();
+        inspected.Companion.Reply(true,body: Described("Nathan")); inspected.Rig.Frame(1);
+        Check(inspected.Rig.Bridge.Submitted.Count(x => x.Contains("current.inspect")) == 1,
+            "only one native owner recheck per successful name, not per-frame polling");
+
+        // No lookup unless native verified a promoted owner with a well-formed alias.
+        foreach (var start in new[] {StartedReply("ambient","unowned"),StartedReply("unknown","owner_proof_stale"),PromotedStart("promoted.nope"),PromotedStart("Nathan"),PromotedStart(null),StartedReply("promoted","owner_verified")}) {
+            var skip = new NameRig(); skip.Commit(start);
+            Check(skip.Companion.Bodies.Count == 0 && Notices(skip.Rig) == 1,"no name request without a verified promoted alias: " + skip.Said);
+        }
+        var ambient = new NameRig(); ambient.Commit(StartedReply("ambient","unowned"));
+        Check(ambient.Rig.Hud.Last == "Talking to: Nearby NPC","an ambient NPC is never given a name");
+        var detached = new TalkRig();
+        detached.Press(); detached.Elapse(220); detached.Reply(detached.LastId(),PromotedStart()); detached.Frame(1);
+        Check(detached.Hud.Last == "Talking to: Promoted NPC","without a companion client the generic label is unchanged");
+
+        // The conversation ends or the target changes before the answer arrives.
+        var ended = new NameRig(); ended.Commit();
+        ended.Release();
+        ended.Companion.Reply(true,body: Described("Nathan")); ended.Rig.Frame(2);
+        Check(Notices(ended.Rig) == 0,"a name for a released conversation is never shown: " + ended.Said);
+        var cleared = new NameRig(); cleared.Commit();
+        cleared.Rig.Talk.Clear("manual");
+        cleared.Companion.Reply(true,body: Described("Nathan")); cleared.Rig.Frame(2);
+        Check(Notices(cleared.Rig) == 0,"clearing the target discards a pending name");
+        var disabled = new NameRig(); disabled.Commit();
+        disabled.Rig.Talk.Apply(null,disabled.Rig.Essential);
+        disabled.Companion.Reply(true,body: Described("Nathan")); disabled.Rig.Frame(2);
+        Check(Notices(disabled.Rig) == 0,"disabling targeting discards a pending name");
+
+        var again = new NameRig(); again.Commit();
+        again.Release();
+        again.Rig.Reply(again.Rig.LastId(),new Dictionary<string,object> {{"stopped",true}}); again.Rig.Frame(2);
+        again.Commit(PromotedStart());
+        Check(again.Companion.Pending == 2,"the second hold makes its own lookup");
+        again.Companion.Reply(true,body: Described("First Owner")); again.Rig.Frame(1);
+        Check(!again.Said.Contains("First Owner") && Notices(again.Rig) == 0,"the earlier generation's answer is discarded");
+        again.Companion.Reply(true,body: Described("Nathan")); again.Rig.Frame(1);
+        Check(again.Rig.Hud.Last == "Talking to: Nathan" && Notices(again.Rig) == 1,"the current generation is named from its own answer: " + again.Said);
     }
     static void TalkInputTests()
     {
