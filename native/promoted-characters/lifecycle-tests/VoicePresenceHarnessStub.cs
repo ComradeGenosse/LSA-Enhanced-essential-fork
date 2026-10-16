@@ -4,6 +4,7 @@ namespace LSA.PromotedCharacters {
     internal sealed class NpcVoicePresenceObserver : IDisposable {
         internal NpcVoicePresenceObserver(string mode) { }
         internal void Attach() { }
+        internal void Unsubscribe() { }
         internal void Update(int epoch,long atMs) { }
         public void Dispose() { }
     }
