@@ -57,7 +57,7 @@ export class ReactionClient {
 
   // Returns true only when the frame was handed to a ready connection.
   send(frame) {
-    if (!this.ready || !frame || !isReactionName(frame.reaction)) return false;
+    if (!this.ready || this.nativeMode !== this.#config.mode || !frame || !isReactionName(frame.reaction)) return false;
     const ctx = this.hostContext;
     const wire = {
       version: 1, type: 'reaction', frameId: randomUUID(), hostRunId: ctx.hostRunId, worldEpoch: ctx.worldEpoch,
@@ -111,6 +111,13 @@ export class ReactionClient {
       try { value = JSON.parse(line); } catch { socket.destroy(); return; }
       if (!this.#hello) {
         if (!validateHello(value)) { socket.destroy(); return; }
+        // Both sides must agree on the mode. A companion dry-run must never
+        // activate native on-mode gestures, and an on-mode companion cannot
+        // silently fall back to shadow receipts. Mismatch stays disconnected.
+        if (value.mode !== this.#config.mode) {
+          this.#emit('reaction_channel_mode_mismatch', { companionMode: this.#config.mode, nativeMode: value.mode });
+          socket.destroy(); return;
+        }
         this.#hello = value; this.#attempt = 0;
         this.#emit('reaction_channel_ready', { nativeMode: value.mode });
         continue;

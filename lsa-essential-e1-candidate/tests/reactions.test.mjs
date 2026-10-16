@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import net from 'node:net';
+import { EventEmitter } from 'node:events';
 import os from 'node:os';
 import path from 'node:path';
 import { mkdtempSync, rmSync } from 'node:fs';
@@ -174,6 +175,31 @@ test('reactions: hello validation is exact', () => {
   assert.equal(validateHello(HELLO), true);
   for (const bad of [{ ...HELLO, version: 2 }, { ...HELLO, hostRunId: 'nope' }, { ...HELLO, worldEpoch: 0 }, { ...HELLO, mode: 'off' }, { ...HELLO, reactionVersion: 2 }, null]) {
     assert.equal(validateHello(bad), false);
+  }
+});
+
+test('reactions: companion/native mode mismatches never permit a gesture frame', () => {
+  for (const companionMode of ['shadow', 'on']) for (const nativeMode of ['shadow', 'on']) {
+    const socket = new EventEmitter();
+    socket.destroyed = false;
+    socket.writableLength = 0;
+    socket.setEncoding = () => {};
+    const sent = [];
+    socket.write = line => { sent.push(line); return true; };
+    socket.destroy = () => { socket.destroyed = true; socket.emit('close'); };
+    const events = [];
+    const client = new ReactionClient({ mode: companionMode, pipeName: 'x' }, {
+      connect: () => socket, onEvent: (type, data) => events.push([type, data]),
+    });
+    client.start();
+    try {
+      socket.emit('data', JSON.stringify({ ...HELLO, mode: nativeMode }) + '\\n');
+      const same = companionMode === nativeMode;
+      assert.equal(client.ready, same, companionMode + '/' + nativeMode);
+      assert.equal(client.send({ reaction: 'facepalm', tuple: { pedId: '1', turnId: 't', generationId: 1 } }), same);
+      assert.equal(sent.length, same ? 1 : 0);
+      assert.equal(events.some(([type]) => type === 'reaction_channel_mode_mismatch'), !same);
+    } finally { client.stop(); }
   }
 });
 
