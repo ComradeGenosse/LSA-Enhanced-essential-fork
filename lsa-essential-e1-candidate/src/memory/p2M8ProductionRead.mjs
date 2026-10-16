@@ -121,6 +121,13 @@ export function createP2M8ProductionReader({store,currentIdentity,originalCurren
     typeof currentIdentity!=='function'||typeof originalCurrent!=='function')
    throw new TypeError('m8_original_p2_ports_required');
  const issued=new WeakMap();
+ // A rendered opinion is tied to the authored profile revision that produced
+ // its personality. A later editor change must never leave old opinions live.
+ const profileRevision=scope=>{
+   const profile=store.get(scope.characterId);
+   return Number.isSafeInteger(profile?.revision)&&profile.revision>=0
+     ? profile.revision:null;
+ };
  const authorized=(scope,authority)=>{
   try{
    const i=currentIdentity(),p=store.get(scope.characterId);
@@ -148,7 +155,7 @@ export function createP2M8ProductionReader({store,currentIdentity,originalCurren
   async prepare({scope,authority,nowUtc=new Date().toISOString(),maxBytes=4096,
     deadlineMs=200}={}){
    if(!authorized(scope,authority))return Object.freeze({status:'dropped',reason:'unverified_original_owner',projection:null,stamp:null});
-   let seal=null;
+   let seal=null,canonRevision=null;
    const adapter={project:async args=>{
     const rows=await snapshot(args.scope,args.authority);
     if(!rows)return null;
@@ -157,14 +164,19 @@ export function createP2M8ProductionReader({store,currentIdentity,originalCurren
     // personality and relationship guesses are never admitted as canon. The
     // approved trait vocabulary is mapped to M8's structured input (see
     // m8PersonalityCanon.mjs); free-text description is never interpreted.
-    const canon=m8PersonalityFromCanon(store.get(scope.characterId)?.personality);
+    const profile=store.get(scope.characterId);
+    canonRevision=profileRevision(scope);
+    if(canonRevision===null)return null;
+    const canon=m8PersonalityFromCanon(profile?.personality);
     return evaluateM8({...rows,scope,personality:canon,nowUtc:args.nowUtc,maxBytes:args.maxBytes});
    }};
    const prepared=await preparePs4M8({scope,authority,readAdapter:adapter,
      currentIdentity:()=>authorized(scope,authority)?currentIdentity():null,
      nowUtc,maxBytes,deadlineMs});
-   if(prepared.status==='ready'&&seal&&authorized(scope,authority))
-     issued.set(prepared.projection,Object.freeze({seal,scope:{...scope},stamp:prepared.stamp,authority:{...authority}}));
+   if(prepared.status==='ready'&&seal&&canonRevision!==null&&
+      profileRevision(scope)===canonRevision&&authorized(scope,authority))
+     issued.set(prepared.projection,Object.freeze({seal,canonRevision,
+       scope:{...scope},stamp:prepared.stamp,authority:{...authority}}));
    else if(prepared.status==='ready')
      return Object.freeze({status:'dropped',reason:'stale_after_read',projection:null,stamp:null});
    return prepared;
@@ -174,7 +186,9 @@ export function createP2M8ProductionReader({store,currentIdentity,originalCurren
   // whole optional M8 frame. Failure must remove, never reuse, the projection.
   async verifyPrepared(prepared){
    const token=prepared?.projection&&issued.get(prepared.projection);
-   if(prepared?.status!=='ready'||!token||!authorized(token.scope,token.authority))return false;
+   if(prepared?.status!=='ready'||!token||
+      profileRevision(token.scope)!==token.canonRevision||
+      !authorized(token.scope,token.authority))return false;
    try{
     const fresh=await store.withP2SqliteRead(token.scope,db=>{
      if(!authorized(token.scope,token.authority))throw Error('m8_p2_stale_verify');
@@ -187,6 +201,7 @@ export function createP2M8ProductionReader({store,currentIdentity,originalCurren
      return {seal:now.seal,evidenceOk};
     });
     return fresh.seal===token.seal&&fresh.evidenceOk===true&&
+      profileRevision(token.scope)===token.canonRevision&&
       authorized(token.scope,token.authority)&&
       verifyPs4M8Current(prepared,{currentIdentity:()=>authorized(token.scope,token.authority)?
         currentIdentity():null,validateEvidence:()=>fresh.evidenceOk});
