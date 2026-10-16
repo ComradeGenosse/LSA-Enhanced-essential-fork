@@ -24,7 +24,7 @@ function rig(options={}){
     monotonicNow:()=>clock.ms,utcNow:()=>iso(clock.ms),options,
     onEvent:(kind,detail)=>events.push({kind,...detail}),
     persist:async ops=>{
-      if(stats.fail)throw new Error(stats.fail);
+      if(stats.fail)throw stats.fail instanceof Error?stats.fail:new Error(stats.fail);
       sink.push(...ops);return {staleIndexes:[]};
     }});
   const sample=(owners,{dt=250,dtick=dt,streamId=ctx.streamId,worldEpoch=ctx.worldEpoch,hostRunId=ctx.hostRunId,sequence}={})=>{
@@ -242,5 +242,18 @@ test('diagnostic code identifies retryable M3 write failures and hides raw SQLit
  r.run([a],40);await r.tracker.idle();
  assert(r.events.some(e=>e.code==='unclassified_write_error'&&e.retryable===false));
  assert(!JSON.stringify(r.events).includes('/Users/private/'),'private error text never escaped');
+ assert.equal(r.tracker.snapshot().degradedReason,'ledger_write_rejected');
+});
+
+test('SQLite missing-schema failures emit SQLITE_ERROR without logging SQL or paths',async()=>{
+ const r=rig({retryMs:0}),a=r.npc('a');
+ const error=Object.assign(new Error('no such table: /Users/private/dialogue'),{code:'SQLITE_ERROR'});
+ r.stats.fail=error;
+ r.run([a],40);
+ await r.tracker.idle();
+ const failure=r.events.find(e=>e.kind==='persist_failed');
+ assert.deepEqual({code:failure.code,errorType:failure.errorType,retryable:failure.retryable},
+  {code:'SQLITE_ERROR',errorType:'Error',retryable:false});
+ assert(!JSON.stringify(r.events).includes('/Users/private/'));
  assert.equal(r.tracker.snapshot().degradedReason,'ledger_write_rejected');
 });

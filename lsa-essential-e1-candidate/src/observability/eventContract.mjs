@@ -31,7 +31,7 @@ const safeKeys = new Set([
   'captureResponseEligible','captureResponseUrgent',
   'perceivedUnsupportedClaims','perceivedRevisionMismatch','perceivedUnmatchedSalience',
   'perceivedBudgetExcluded','perceivedSafetyOverflow',
-  'stage','operation','terminalReason','reason','code','nativeType','nativeReason','errorType','actionName','retryable','sent',
+  'stage','operation','terminalReason','reason','code','nativeType','nativeReason','errorType','actionName','retryable','requestGatePassed',
   'requestId','model','effort','source','provider','role','outcome','eventType','httpStatus','durationMs',
   'bytes','rawBytes','pcmBytes','wavBytes','bodyReadMs','handoffMs','chunks','sampleRate','channels','inputChars','outputChars','inputTokens',
   'outputTokens','totalTokens','cachedInputTokens','reasoningTokens','audioTokens','audioDurationMs',

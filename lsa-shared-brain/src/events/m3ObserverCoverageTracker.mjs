@@ -44,7 +44,7 @@ const RETRYABLE=/^(timeline_write_suspended|timeline_not_selected|profile_store_
 // A raw database exception may include SQL or local paths: telemetry gets codes only.
 const M3_CODES=new Set('timeline_write_suspended timeline_not_selected profile_store_unavailable m3_coverage_owner_or_epoch_unconfirmed m3_coverage_stale timeline_write_async_not_supported m3_coverage_commit_unconfirmed m3_observer_coverage_identity_conflict m3_observer_coverage_invalid m3_observer_coverage_invalid_window m3_observer_coverage_invalid_gap m3_observer_coverage_corrupt'.split(' '));
 const diagnosticCode=(error,message)=>typeof error?.code==='string'&&
- /^SQLITE_(?:BUSY|LOCKED|READONLY|FULL|IOERR|CONSTRAINT)(?:_[A-Z0-9_]{1,32})?$/.test(error.code)?
+ /^SQLITE_(?:ERROR|BUSY|LOCKED|READONLY|FULL|IOERR|CONSTRAINT)(?:_[A-Z0-9_]{1,32})?$/.test(error.code)?
  error.code:M3_CODES.has(message)?message:'unclassified_write_error';
 const diagnosticType=error=>['Error','TypeError','RangeError','SqliteError'].includes(error?.name)?error.name:'UnknownError';
 const uuidFrom=(...parts)=>{

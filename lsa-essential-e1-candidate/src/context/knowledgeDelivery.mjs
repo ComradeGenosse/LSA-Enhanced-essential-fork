@@ -17,7 +17,7 @@ export function createKnowledgeDelivery({frame,baseFrame=frame,isCurrent,validat
  const staleError=reason=>Object.assign(new Error('knowledge_request_stale'),{code:'knowledge_request_stale',reason});
  const notifyStale=(reason,stage)=>{
   if(staleReported)return;staleReported=true;
-  try{onStale({reason:STALE_REASONS.has(reason)?reason:'unclassified_stale_reason',stage,sent});}catch{}
+  try{onStale({reason:STALE_REASONS.has(reason)?reason:'unclassified_stale_reason',stage,requestGatePassed:sent});}catch{}
  };
  const fail=(reason,stage)=>{notifyStale(reason,stage);throw staleError(reason);};
  const report=outcome=>{
@@ -83,6 +83,6 @@ export function createKnowledgeDelivery({frame,baseFrame=frame,isCurrent,validat
    if(!sent)return null;
    return report('delivered');
   },
-  finish(){const reason=currentReason();if(reason)notifyStale(reason,'finish');return report(reason?'expired':'rejected');},
+  finish(){if(terminal)return null;const reason=currentReason();if(reason)notifyStale(reason,'finish');return report(reason?'expired':'rejected');},
  });
 }
