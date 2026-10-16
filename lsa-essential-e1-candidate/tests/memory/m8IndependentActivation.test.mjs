@@ -235,12 +235,16 @@ test('H1 revoked before first send preserves only current M8 opinions in the rea
     await seed(x);
     const sent=[];
     const originalRead=x.store.readDialogueLines.bind(x.store);
+    const prepare=x.h.runtime.services.prepareLiveTurnMemory.bind(x.h.runtime.services);
+    x.h.runtime.services.prepareLiveTurnMemory=async args=>{
+      const memory=await prepare(args);
+      // Invalidate H1 AFTER both contributors prepare, but BEFORE the first
+      // PS4 frame is verified and the provider body is assembled. A later
+      // failure (after the request bytes are composed) must still abort.
+      x.store.readDialogueLines=async()=>{throw Error('test_stale_h1_read');};
+      return memory;
+    };
     x.h.runtime.services.decide=options=>decide({...options,config:x.h.runtime.config,
-      // H1's original source re-read now fails; P2 M8 uses a separate sealed
-      // SQLite read, so only H1 is invalidated.
-      dialogueAttempt:{request:()=>{
-        x.store.readDialogueLines=async()=>{throw Error('test_stale_h1_read');};
-      },outputText:()=>{}},
       fetchImpl:async(_url,req)=>{
         sent.push({body:JSON.parse(req.body),frame:options.knowledgeProjection});
         x.store.readDialogueLines=originalRead;
@@ -252,8 +256,7 @@ test('H1 revoked before first send preserves only current M8 opinions in the rea
     assert.equal(outcome.status,'completed',JSON.stringify(outcome));
     assert.equal(sent.length,1,'stale unsent H1 must not require another provider attempt');
     const frame=sent[0].frame;
-    // The projection passed to decide was the initial frame; the provider body
-    // must reflect the final pruned allocation from the same delivery object.
+    // Only the original frozen, opinion-only fallback may reach the model.
     const body=JSON.stringify(sent[0].body);
     assert.ok(body.includes('character_opinion'),'verified M8 must survive H1 invalidation');
     assert.ok(!body.includes('running joke!')||!body.includes('Inside joke:'),
