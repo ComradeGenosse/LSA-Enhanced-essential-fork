@@ -192,3 +192,14 @@ export function memoryKM5Activation(config) {
   return Object.freeze({legacy,requestedMode,
     mode:requestedMode==='on'&&player?'on':'off',reason});
 }
+
+
+// J-B: M6 deterministic long-term retention. Unlike the optional foreground
+// consumers above, this is NEVER on by inheritance: an absent/empty capability
+// map keeps it off, and only an explicit memory.deterministic='on' starts it.
+// It reads committed durable evidence only (no M2/M3 intake or M7 dependency).
+export function memoryKM6Activation(config) {
+  const requestedMode=config.memoryK?.capabilities?.['memory.deterministic']??'off';
+  return Object.freeze({requestedMode,mode:requestedMode==='on'?'on':'off',
+    reason:requestedMode==='on'?null:'optional_consumer_stopped'});
+}

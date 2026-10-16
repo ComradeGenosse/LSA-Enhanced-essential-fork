@@ -26,7 +26,8 @@ import { createDialogueTrace, createNoopDialogueTrace } from './observability/di
 import {createM3ProductionMemory} from './memory/m3ProductionMemory.mjs';
 import {createMemoryD02Port} from './memory/memoryD02Port.mjs';
 import {resolveMemoryKCapabilities} from './memory/capabilityPolicy.mjs';
-import {createMemoryKRuntimeComposition,memoryKDialogueActivation,runtimeCleanupError} from './memory/runtimeComposition.mjs';
+import {createMemoryKRuntimeComposition,memoryKDialogueActivation,memoryKM6Activation,runtimeCleanupError} from './memory/runtimeComposition.mjs';
+import {createM6RuntimeRetention} from './memory/m6RuntimeRetention.mjs';
 import {memoryKSourceActivation} from './memory/sourceActivation.mjs';
 import {bindHostContext} from './characters/timelineAutoResume.mjs';
 import {memoryKM3Activation,unavailableM3States} from './memory/m3Activation.mjs';
@@ -142,6 +143,21 @@ export async function createRuntimeForBundle(options = {}) {
       if(config.promotedCharacters.storageMode==='sqlite') throw new Error('p2_sqlite_startup_failed');
     }
   }
+  // J-B: opt-in M6 deterministic retention over the SAME P2 store. Default off;
+  // M7/Luna cloud curation is never constructed here. Idle ticks, scene close and
+  // startup recovery are driven by the retention module, off the foreground path.
+  if(memoryKM6Activation(config).mode==='on'&&!runtime.memoryPause.paused&&
+     config.promotedCharacters?.storageMode==='sqlite'&&runtime.characterService?.ready===true){
+    try{
+      const retentionStore=runtime.memoryPause.optionalStore(runtime.characterService.store);
+      const retention=createM6RuntimeRetention({store:retentionStore,
+        isPaused:()=>runtime.memoryPause.paused||runtime.closed===true,
+        ...options.m6RetentionOptions});
+      owner.own('memory.retention',retention,value=>value.dispose());
+      runtime.retention=retention;
+      retention.start();
+    }catch{owner.failed('memory.retention');runtime.retention=null;try{console.warn('[M6] retention_runtime_unavailable');}catch{}}
+  }
   runtime.services.memoryKRuntimeDiagnostics=()=>withLearnedMemoryPause(composition.snapshot(Object.fromEntries(
     Object.entries(runtime.services.memoryKCapabilities()).map(([id,row])=>[id,row.registrationStatus])),{
       ...runtime.intelligence?.operationalStates(),
@@ -150,6 +166,7 @@ export async function createRuntimeForBundle(options = {}) {
       'memory.journalContext':runtime.services.memoryJournalDiagnostics(),
       'memory.recall':runtime.services.memoryRecallDiagnostics(),
       'memory.commands':runtime.services.memoryCommandDiagnostics(),
+      'memory.deterministic':runtime.services.memoryRetentionDiagnostics(),
       ...(runtime.memoryD02?{'authority.d02':Object.freeze({requestedMode:'on',
         state:runtime.closed?'stopped':runtime.memoryD02.status().settled?'operational':'waiting',
         effectiveMode:runtime.closed?'off':runtime.memoryD02.status().settled?'on':null,
@@ -201,6 +218,7 @@ export async function createRuntimeForBundle(options = {}) {
       'memory.journalContext':typeof runtime.services.memoryJournalDiagnostics==='function',
       'memory.recall':typeof runtime.services.memoryRecallDiagnostics==='function',
       'memory.commands':typeof runtime.services.memoryCommandDiagnostics==='function',
+      'memory.deterministic':!!runtime.retention,
       'memory.interpretation':typeof runtime.services.prepareLiveTurnMemory==='function',
     };
     const environment=Object.freeze({

@@ -175,7 +175,10 @@ test('background workers and producer policy are independent of active capture/c
   assert.ok(!state['events.rollover'].missingDependencies.includes('memory.events'));
   assert.ok(state['memory.deterministic'].blockers.includes('retained_evidence_eligibility_unverified'));
   assert.ok(state['memory.cloudCuration'].blockers.includes('persisted_consent_unverified'));
-  for (const id of ['memory.deterministic','memory.cloudCuration','events.rollover']) {
+  // M6 now has a production runtime (J-B) but policy alone never proves operation.
+  assert.equal(state['memory.deterministic'].state,'unverified');
+  assert.equal(state['memory.deterministic'].effectiveMode,null);
+  for (const id of ['memory.cloudCuration','events.rollover']) {
     assert.equal(state[id].state,'unavailable'); // no production worker/compiled producer
     assert.equal(state[id].effectiveMode,null);
   }

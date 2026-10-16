@@ -34,7 +34,7 @@ const rows = [
   { id:'memory.recall', modes:['off','shadow','on'], dependencies:['memory.dialogue.player'], support:'conditional', reason:'recall_contributor_unavailable' },
   { id:'memory.commands', modes:['off','on'], dependencies:['memory.dialogue.player'], support:'conditional', reason:'memory_command_dispatch_unavailable' },
   // M6 processes already committed evidence, whether or not M2/M3 intake runs.
-  { id:'memory.deterministic', modes:['off','on'], dependencies:['source.core','p2.sqlite','privacy.core'], support:'absent', reason:'production_worker_not_registered' },
+  { id:'memory.deterministic', modes:['off','on'], dependencies:['source.core','p2.sqlite','privacy.core'], support:'conditional', reason:'retention_runtime_unavailable' },
   // M7 consumes *existing* authorized queue entries without M6 scheduling.
   { id:'memory.cloudCuration', modes:['off','on'], dependencies:['source.core','p2.sqlite','privacy.core'], support:'absent', reason:'production_worker_not_registered' },
   { id:'memory.interpretation', modes:['off','shadow','on'], dependencies:['p2.sqlite','privacy.core'], support:'conditional', reason:'interpretation_reader_unavailable' },
