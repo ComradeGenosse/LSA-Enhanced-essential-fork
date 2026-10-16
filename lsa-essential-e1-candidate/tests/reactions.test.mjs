@@ -223,7 +223,7 @@ test('reactions: client is not ready before hello, then echoes native host conte
     setTimeout(() => socket.write(JSON.stringify(HELLO) + '\n'), 30);
   }, async file => {
     const events = [];
-    const client = new ReactionClient({ pipeName: 'x' }, { pathFor: () => file, retryMs: 20, onEvent: (type, data) => events.push([type, data]) });
+    const client = new ReactionClient({ mode: 'on', pipeName: 'x' }, { pathFor: () => file, retryMs: 20, onEvent: (type, data) => events.push([type, data]) });
     client.start();
     try {
       await until(() => client.ready === false && true);
@@ -257,7 +257,7 @@ test('reactions: client rejects a bad hello and reports acks without trusting th
     socket.write(JSON.stringify({ type: 'reaction.ack', reaction: 'bogus', status: 'played' }) + '\n');
   }, async file => {
     const events = [];
-    const client = new ReactionClient({ pipeName: 'x' }, { pathFor: () => file, retryMs: 10, maxRetryMs: 20, onEvent: (type, data) => events.push([type, data]) });
+    const client = new ReactionClient({ mode: 'on', pipeName: 'x' }, { pathFor: () => file, retryMs: 10, maxRetryMs: 20, onEvent: (type, data) => events.push([type, data]) });
     client.start();
     try {
       await until(() => client.ready);
