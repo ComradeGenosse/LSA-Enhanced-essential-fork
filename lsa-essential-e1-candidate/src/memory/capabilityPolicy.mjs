@@ -36,7 +36,7 @@ const rows = [
   // M6 processes already committed evidence, whether or not M2/M3 intake runs.
   { id:'memory.deterministic', modes:['off','on'], dependencies:['source.core','p2.sqlite','privacy.core'], support:'conditional', reason:'retention_runtime_unavailable' },
   // M7 consumes *existing* authorized queue entries without M6 scheduling.
-  { id:'memory.cloudCuration', modes:['off','on'], dependencies:['source.core','p2.sqlite','privacy.core'], support:'absent', reason:'production_worker_not_registered' },
+  { id:'memory.cloudCuration', modes:['off','on'], dependencies:['source.core','p2.sqlite','privacy.core'], support:'conditional', reason:'cloud_curation_runtime_unavailable' },
   // The live reader needs the native-verified accepted-turn identity M2 proves; it
   // needs none of M4/H1/M5/M7.
   { id:'memory.interpretation', modes:['off','shadow','on'], dependencies:['p2.sqlite','privacy.core','memory.dialogue.player'], support:'conditional', reason:'interpretation_reader_unavailable' },
@@ -58,10 +58,38 @@ export const MEMORY_K_CAPABILITIES = Object.freeze(rows.map(row => Object.freeze
 })));
 const byId = new Map(MEMORY_K_CAPABILITIES.map(row => [row.id,row]));
 
+// Structural validation only. Whether the operator-verified Luna price is still
+// acceptable (tier, endpoint, <=30 days old, upper bounds) is decided at runtime
+// by validateM7ProductionPricing, which needs the clock. Nothing is guessed here.
+const PRICING_KEYS = ['model','source','verifiedAtUtc','officialPricingUrl','pricingTier','inputUsdPerMillionTokens','outputUsdPerMillionTokens'];
+function normalizeCloudCuration(value) {
+  if (value === undefined) return null;
+  if (!value || typeof value !== 'object' || Array.isArray(value) ||
+      Object.keys(value).some(key => !['pricing','maxOutputTokens'].includes(key)))
+    throw new TypeError('memoryK.cloudCuration supports only pricing and maxOutputTokens.');
+  const out = {};
+  if (value.pricing !== undefined) {
+    const p = value.pricing;
+    if (!p || typeof p !== 'object' || Array.isArray(p) || Object.keys(p).some(key => !PRICING_KEYS.includes(key)) ||
+        PRICING_KEYS.some(key => p[key] === undefined) ||
+        ['model','source','verifiedAtUtc','officialPricingUrl','pricingTier'].some(key => typeof p[key] !== 'string') ||
+        !Number.isFinite(p.inputUsdPerMillionTokens) || !Number.isFinite(p.outputUsdPerMillionTokens))
+      throw new TypeError('memoryK.cloudCuration.pricing is invalid.');
+    out.pricing = Object.freeze({...p});
+  }
+  if (value.maxOutputTokens !== undefined) {
+    if (!Number.isSafeInteger(value.maxOutputTokens) || value.maxOutputTokens < 128 || value.maxOutputTokens > 1600)
+      throw new TypeError('memoryK.cloudCuration.maxOutputTokens is invalid.');
+    out.maxOutputTokens = value.maxOutputTokens;
+  }
+  return Object.freeze(out);
+}
+
 export function normalizeMemoryKConfig(value = {}) {
   if (!value || typeof value !== 'object' || Array.isArray(value) ||
-      Object.keys(value).some(key => !['capabilities','profile','pauseLearned','autoResumeSingleTimeline'].includes(key)))
-    throw new TypeError('memoryK supports only capabilities, profile, pauseLearned and autoResumeSingleTimeline.');
+      Object.keys(value).some(key => !['capabilities','profile','pauseLearned','autoResumeSingleTimeline','cloudCuration'].includes(key)))
+    throw new TypeError('memoryK supports only capabilities, profile, pauseLearned, autoResumeSingleTimeline and cloudCuration.');
+  const cloudCuration = normalizeCloudCuration(value.cloudCuration);
   if(value.pauseLearned!==undefined&&typeof value.pauseLearned!=='boolean')
     throw new TypeError('memoryK.pauseLearned must be boolean.');
   if(value.autoResumeSingleTimeline!==undefined&&typeof value.autoResumeSingleTimeline!=='boolean')
@@ -88,6 +116,7 @@ export function normalizeMemoryKConfig(value = {}) {
     normalized['memory.inspector']??='off';
   }
   return Object.freeze({...value.profile?{profile:value.profile}:{},
+    ...(cloudCuration?{cloudCuration}:{}),
     ...(value.pauseLearned!==undefined?{pauseLearned:value.pauseLearned}:{}),
     ...(value.autoResumeSingleTimeline!==undefined?{autoResumeSingleTimeline:value.autoResumeSingleTimeline}:{}),capabilities:Object.freeze(normalized)});
 }

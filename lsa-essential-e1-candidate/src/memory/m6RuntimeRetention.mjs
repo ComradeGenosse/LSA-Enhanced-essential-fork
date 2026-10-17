@@ -10,8 +10,11 @@
 //
 // Safety properties (each covered by tests/memory-m6-runtime-retention.test.mjs):
 //  * Default off: bootstrap constructs this only for memory.deterministic='on'.
-//  * M7/Luna is never reachable: cloudQueueEnabled is false and the store
-//    handed to the coordinator throws if enqueueCurationJob is ever called.
+//  * M7/Luna stays independent: unless the host passes cloudQueue:true (only when
+//    memory.cloudCuration is ALSO on) cloudQueueEnabled is false and the store
+//    handed to the coordinator throws if enqueueCurationJob is ever called. With
+//    cloudQueue:true M6 only appends durable jobs to the existing P2 queue; it
+//    never talks to the cloud, and M7 processes queued jobs whether or not M6 runs.
 //  * Foreground first: no work starts while a turn happened within the grace
 //    window, every scope yields to the event loop, scans are page-bounded, and
 //    hooks never run on the caller's turn/detach path (deferred, errors swallowed).
@@ -34,7 +37,7 @@ const codeOf=error=>SAFE_CODE.test(error?.message??'')?error.message:'m6_runtime
 const yieldToLoop=()=>new Promise(resolve=>setImmediate(resolve));
 
 export function createM6RuntimeRetention({store,now=Date.now,
-  isPaused=()=>false,setIntervalFn=setInterval,clearIntervalFn=clearInterval,
+  isPaused=()=>false,cloudQueue=false,setIntervalFn=setInterval,clearIntervalFn=clearInterval,
   setTimeoutFn=setTimeout,clearTimeoutFn=clearTimeout,...overrides}={}){
   const opts={...M6_RUNTIME_DEFAULTS,...overrides};
   if(typeof store?.list!=='function'||typeof now!=='function')
@@ -54,11 +57,12 @@ export function createM6RuntimeRetention({store,now=Date.now,
       listSuppressedMemoryIds:args=>adapter.listSuppressedMemoryIds(args),
       readCorrectionOverlays:args=>adapter.readCorrectionOverlays(args),
       readVerifiedEventEvidence:args=>adapter.readVerifiedEventEvidence(args),
-      // M7/Luna cloud curation is independent and stays unreachable from here.
-      enqueueCurationJob:()=>{throw new Error('m6_runtime_cloud_queue_forbidden');},
+      // Enqueue only (local durable write) and only when M7 is independently on.
+      enqueueCurationJob:cloudQueue===true?args=>adapter.enqueueCurationJob(args)
+        :()=>{throw new Error('m6_runtime_cloud_queue_forbidden');},
     }),
     now:()=>new Date(now()).toISOString(),
-    cloudQueueEnabled:false,quietMs:opts.quietMs,
+    cloudQueueEnabled:cloudQueue===true,quietMs:opts.quietMs,
     pageSize:opts.pageSize,maxRows:opts.maxRows,maxPages:opts.maxPages,
   });
 
@@ -191,7 +195,7 @@ export function createM6RuntimeRetention({store,now=Date.now,
       pendingScopes:dirty.size,degradedScopes:[...failuresByScope.values()].filter(n=>n>=opts.maxConsecutiveFailures).length,
       runs:stats.runs,retained:stats.saved,rejected:stats.rejected,
       lastPhase:stats.lastPhase,lastStatus:stats.lastStatus,lastReason:stats.lastReason,
-      recovered:recoveredKey!==null,cloudCuration:'off'});
+      recovered:recoveredKey!==null,cloudCuration:cloudQueue===true?'queueing':'off'});
   }
   return Object.freeze({tick,noteForeground,noteEvidenceCommitted,noteCommitted,sceneClosed,start,dispose,diagnostics});
 }

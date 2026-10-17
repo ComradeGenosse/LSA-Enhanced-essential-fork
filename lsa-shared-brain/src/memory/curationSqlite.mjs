@@ -6,6 +6,7 @@ import {randomUUID} from 'node:crypto';
 import {isUuid} from '../util/identity.mjs';
 import {validateCurationJob} from './queueContract.mjs';
 import {validateLunaAppraisal} from './lunaCurator.mjs';
+import {validateM7Consent} from './m7Consent.mjs';
 const fail=x=>{throw new Error(x)};
 const scoped=(db,job,world,timeline)=>{
  const worldId=job?.worldProfileId??job?.world_profile_id;
@@ -25,8 +26,81 @@ CREATE TABLE IF NOT EXISTS memory_luna_appraisals (
  proposal_id TEXT PRIMARY KEY,world_profile_id TEXT NOT NULL,timeline_id TEXT NOT NULL,
  character_id TEXT NOT NULL,original_proposal_json TEXT NOT NULL,
  appraisal_json TEXT NOT NULL,completed_at_utc TEXT NOT NULL);
+-- One explicit, revisioned cloud-curation approval per world. Withdrawal keeps
+-- the row (mode 'off', higher revision) so an old approval id is never reusable.
+CREATE TABLE IF NOT EXISTS memory_m7_consent (
+ world_profile_id TEXT PRIMARY KEY,approval_id TEXT NOT NULL,revision INTEGER NOT NULL,
+ mode TEXT NOT NULL,record_json TEXT NOT NULL,persisted_at_utc TEXT NOT NULL);
 `;
 export function ensureCurationSchema(db){db.exec(CURATION_EXTRA_DDL);}
+
+export const M7_CONSENT_MODEL='gpt-6-luna';
+const consentRow=(db,world)=>db.prepare('SELECT * FROM memory_m7_consent WHERE world_profile_id=?').get(world);
+/** Atomic consent fence used INSIDE claim/reserve/complete transactions: a
+ * withdrawal or revision that committed first makes the whole operation fail. */
+function assertConsentCurrent(db,world,expected){
+ if(expected===undefined)return;
+ const row=consentRow(db,world);
+ if(!expected||!isUuid(expected.approvalId)||!Number.isSafeInteger(expected.consentRevision)||
+    !row||row.mode!=='experimental'||row.approval_id!==expected.approvalId||
+    row.revision!==expected.consentRevision)fail('curation_consent_changed');
+}
+const projectConsent=(row,world,timelineId)=>Object.freeze({
+ ...JSON.parse(row.record_json),worldProfileId:world,timelineId,
+ approvalId:row.approval_id,consentRevision:row.revision,persistedAtUtc:row.persisted_at_utc});
+/** Independent readback. Never mints: null when no approval was ever persisted. */
+export function readM7Consent(db,{worldProfileId,timelineId},world){
+ if(worldProfileId!==world||typeof timelineId!=='string'||!timelineId)fail('m7_consent_scope_mismatch');
+ const row=consentRow(db,world);
+ return row?projectConsent(row,world,timelineId):null;
+}
+/** Explicit player approval of off-turn evidence upload and spend caps. */
+export function grantM7Consent(db,{dailyUsd,monthlyUsd,maxBatchUsd,offTurnEvidenceUploadAccepted,model,
+ nowUtc=new Date().toISOString()}={},world){
+ if(model!==M7_CONSENT_MODEL)fail('m7_consent_model_unsupported');
+ const approved=validateM7Consent({mode:'experimental',cloudOptIn:true,
+   consentSource:'explicit_player_settings',offTurnEvidenceUploadAccepted,
+   consentedAtUtc:nowUtc,dailyUsd,monthlyUsd,maxBatchUsd});
+ return tx(db,()=>{
+  const prior=consentRow(db,world),revision=(prior?.revision??0)+1,approvalId=randomUUID();
+  const record={source:'p2_explicit_player_settings',mode:'experimental',cloudOptIn:true,
+    offTurnEvidenceUploadAccepted:true,model,consentedAtUtc:approved.consentedAtUtc,
+    dailyUsd:approved.dailyUsd,monthlyUsd:approved.monthlyUsd,maxBatchUsd:approved.maxBatchUsd};
+  db.prepare(`INSERT INTO memory_m7_consent(world_profile_id,approval_id,revision,mode,record_json,persisted_at_utc)
+    VALUES(?,?,?,?,?,?) ON CONFLICT(world_profile_id) DO UPDATE SET approval_id=excluded.approval_id,
+    revision=excluded.revision,mode=excluded.mode,record_json=excluded.record_json,
+    persisted_at_utc=excluded.persisted_at_utc`)
+    .run(world,approvalId,revision,'experimental',JSON.stringify(record),nowUtc);
+  return Object.freeze({approvalId,consentRevision:revision,mode:'experimental'});
+ });
+}
+/** Withdrawal always succeeds and is never gated on timeline/host state. */
+export function withdrawM7Consent(db,{nowUtc=new Date().toISOString()}={},world){
+ return tx(db,()=>{
+  const prior=consentRow(db,world);
+  if(!prior||prior.mode==='off')return Object.freeze({withdrawn:false,consentRevision:prior?.revision??0});
+  const revision=prior.revision+1;
+  db.prepare('UPDATE memory_m7_consent SET approval_id=?,revision=?,mode=?,record_json=?,persisted_at_utc=? WHERE world_profile_id=?')
+    .run(randomUUID(),revision,'off',JSON.stringify({source:'p2_explicit_player_settings',mode:'off',
+      cloudOptIn:false,offTurnEvidenceUploadAccepted:false,model:M7_CONSENT_MODEL,withdrawnAtUtc:nowUtc}),nowUtc,world);
+  return Object.freeze({withdrawn:true,consentRevision:revision});
+ });
+}
+/** Content-free queue/spend counters for diagnostics. */
+export function readCurationStatus(db,{timelineId,nowUtc=new Date().toISOString()},world){
+ const jobs={pending:0,leased:0,completed:0,dead_letter:0};
+ for(const row of db.prepare('SELECT state,COUNT(*) AS n FROM memory_curation_jobs WHERE world_profile_id=? AND timeline_id=? GROUP BY state').all(world,timelineId))
+   if(row.state in jobs)jobs[row.state]=row.n;
+ const dueNow=db.prepare("SELECT COUNT(*) AS n FROM memory_curation_jobs WHERE world_profile_id=? AND timeline_id=? AND ((state='pending' AND next_attempt_at_utc<=?) OR (state='leased' AND lease_until_utc<=?))")
+   .get(world,timelineId,nowUtc,nowUtc).n;
+ const appraisals=db.prepare('SELECT COUNT(*) AS n FROM memory_luna_appraisals WHERE world_profile_id=? AND timeline_id=?').get(world,timelineId).n;
+ const day=nowUtc.slice(0,10),month=nowUtc.slice(0,7);
+ const rows=db.prepare("SELECT amount_usd,reserved_at_utc,state FROM memory_budget_reservations WHERE world_profile_id=? AND state IN ('reserved','settled')").all(world);
+ const sum=prefix=>rows.filter(r=>r.reserved_at_utc.startsWith(prefix)).reduce((n,r)=>n+r.amount_usd,0);
+ return Object.freeze({jobs:Object.freeze(jobs),dueNow,appraisals,
+   spend:Object.freeze({dayUsd:sum(day),monthUsd:sum(month),
+     unresolvedReservations:rows.filter(r=>r.state==='reserved').length})});
+}
 export function enqueueCuration(db,{job},world,timeline){
  validateCurationJob(job);scoped(db,job,world,timeline);
  return tx(db,()=>{
@@ -95,11 +169,12 @@ function sourceAuthorized(db,job,world,timeline){
   return true;
  }catch{return false;}
 }
-export function claimCuration(db,{limit,nowUtc,leaseUntilUtc,ownerId,characterId=null},world,timeline){
+export function claimCuration(db,{limit,nowUtc,leaseUntilUtc,ownerId,characterId=null,expectedConsent},world,timeline){
  if(!isUuid(ownerId)||(characterId!==null&&!isUuid(characterId))||!Number.isSafeInteger(limit)||limit<1||limit>4||
     !Number.isFinite(Date.parse(nowUtc))||!Number.isFinite(Date.parse(leaseUntilUtc))||
     Date.parse(leaseUntilUtc)<=Date.parse(nowUtc))fail('curation_invalid_claim');
  return tx(db,()=>{
+  assertConsentCurrent(db,world,expectedConsent);
   const rows=db.prepare(`SELECT q.* FROM memory_curation_jobs q JOIN promoted_profiles p ON p.character_id=q.character_id
     WHERE q.world_profile_id=? AND q.timeline_id=? AND (? IS NULL OR q.character_id=?) AND
     ((q.state='pending' AND q.next_attempt_at_utc<=?) OR
@@ -141,8 +216,9 @@ export function verifyCurationLease(db,{jobId,leaseToken,nowUtc=new Date().toISO
  if(!sourceAuthorized(db,job,world,timeline))fail('curation_source_no_longer_authorized');
  return true;
 }
-export function completeCuration(db,{jobId,leaseToken,proposal,nowUtc=new Date().toISOString()},world,timeline){
+export function completeCuration(db,{jobId,leaseToken,proposal,nowUtc=new Date().toISOString(),expectedConsent},world,timeline){
  return tx(db,()=>{
+  assertConsentCurrent(db,world,expectedConsent);
   const row=leased(db,jobId,leaseToken,world,timeline,{checkExpiry:true,nowUtc}),job=JSON.parse(row.job_json);
   assertNotForgotten(db,job,world,timeline);
   if(!sourceAuthorized(db,job,world,timeline))fail('curation_source_no_longer_authorized');
@@ -182,12 +258,13 @@ export function releaseCuration(db,{jobId,leaseToken},world,timeline){
   return {released:true};
  });
 }
-export function reserveCurationBudget(db,{batchKey,maxUsd,nowUtc},world,{dailyUsd,monthlyUsd}){
+export function reserveCurationBudget(db,{batchKey,maxUsd,nowUtc,expectedConsent},world,{dailyUsd,monthlyUsd}){
  if(typeof batchKey!=='string'||batchKey.length<1||batchKey.length>512||
     !Number.isFinite(maxUsd)||maxUsd<=0||!Number.isFinite(Date.parse(nowUtc))||
     !Number.isFinite(dailyUsd)||dailyUsd<=0||!Number.isFinite(monthlyUsd)||monthlyUsd<=0)
     fail('curation_invalid_budget');
  return tx(db,()=>{
+  assertConsentCurrent(db,world,expectedConsent);
   const existing=db.prepare('SELECT state,amount_usd FROM memory_budget_reservations WHERE batch_key=?').get(batchKey);
   if(existing)return existing.state!=='released'&&existing.amount_usd===maxUsd;
   const reserved=db.prepare("SELECT amount_usd,reserved_at_utc FROM memory_budget_reservations WHERE world_profile_id=? AND state IN ('reserved','settled')").all(world);

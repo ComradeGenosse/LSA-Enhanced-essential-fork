@@ -178,10 +178,11 @@ test('background workers and producer policy are independent of active capture/c
   // M6 now has a production runtime (J-B) but policy alone never proves operation.
   assert.equal(state['memory.deterministic'].state,'unverified');
   assert.equal(state['memory.deterministic'].effectiveMode,null);
-  for (const id of ['memory.cloudCuration','events.rollover']) {
-    assert.equal(state[id].state,'unavailable'); // no production worker/compiled producer
-    assert.equal(state[id].effectiveMode,null);
-  }
+  // M7 now has a production runtime but, like M6, policy alone never proves operation.
+  assert.equal(state['memory.cloudCuration'].state,'unverified');
+  assert.equal(state['memory.cloudCuration'].effectiveMode,null);
+  assert.equal(state['events.rollover'].state,'unavailable'); // no compiled producer
+  assert.equal(state['events.rollover'].effectiveMode,null);
   const blocked=resolve({'memory.callbacks':'on','ps6.speech':'on'});
   assert.ok(blocked['memory.callbacks'].missingDependencies.includes('memory.events'));
   assert.ok(blocked['memory.callbacks'].missingDependencies.includes('ps3.salience'));

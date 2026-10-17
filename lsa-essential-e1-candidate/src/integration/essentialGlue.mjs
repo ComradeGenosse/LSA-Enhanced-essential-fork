@@ -42,7 +42,7 @@ import { captureReferenceMap } from '../context/turnSnapshot.mjs';
 import { IdentityResolver } from '../identity/identityResolver.mjs';
 import { CharacterService,withoutCharacterTransport } from '../characters/characterService.mjs';
 import { createNoopDialogueTrace } from '../observability/dialogueTrace.mjs';
-import {memoryKConsumersAllowed,memoryKDialogueActivation,memoryKH1Activation,memoryKH2Activation,memoryKM5Activation,memoryKM6Activation,memoryKM8Activation} from '../memory/runtimeComposition.mjs';
+import {memoryKConsumersAllowed,memoryKDialogueActivation,memoryKH1Activation,memoryKH2Activation,memoryKM5Activation,memoryKM6Activation,memoryKM7Activation,memoryKM8Activation} from '../memory/runtimeComposition.mjs';
 import {prepareIndependentM8} from '../memory/m8IndependentInterpretation.mjs';
 import {createLearnedMemoryPause} from '../memory/learnedMemoryPause.mjs';
 
@@ -82,6 +82,7 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
   const recallActivation=memoryKH2Activation(config);
   const commandActivation=memoryKM5Activation(config);
   const retentionActivation=memoryKM6Activation(config);
+  const cloudCurationActivation=memoryKM7Activation(config);
   const interpretationActivation=memoryKM8Activation(config);
   const recallState={preparation:null,validation:null,contributed:false,requestAttempted:false};
   const journalState={preparation:null,validation:null,contributed:false,requestAttempted:false};
@@ -181,6 +182,7 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
     bindM2Turn({turn,isCurrent}={}) {
       dialogueResults.player=null;
       try{runtime.retention?.noteForeground();}catch{} // M6 yields to any live turn
+      try{runtime.cloudCuration?.noteForeground();}catch{} // M7 aborts in-flight cloud work
 
       if(!dialogueActivation.player||runtime.closed||memoryPause.paused||turn?.memoryDisabledForTurn) return null;
       const characterId=journalCharacter(turn);
@@ -228,6 +230,7 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
     // and source-fenced read receipts, never prompt text or model instructions.
     async prepareLiveTurnMemory(args) {
       try{runtime.retention?.noteForeground();}catch{}
+      try{runtime.cloudCuration?.noteForeground();}catch{}
       if(runtime.closed||memoryPause.paused)return null;
       for(const state of [journalState,recallState,commandState,interpretationState]){
         state.preparation=null;state.validation=null;state.contributed=false;state.requestAttempted=false;
@@ -409,7 +412,23 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
         effectiveMode:state==='ready'?'on':state==='stopped'?'off':null,
         operationalState:state,
         reason:activationReason??environmentReason??detail?.lastReason??(state==='waiting'?'timeline_confirmation_required':null),
-        retention:mode==='on'?detail:null,cloudCuration:'off',restartRequired:true});
+        retention:mode==='on'?detail:null,cloudCuration:cloudCurationActivation.mode==='on'?'queueing':'off',restartRequired:true});
+    },
+    // M7 Luna cloud curation status. Privacy-safe: counters and codes only, never
+    // memory text, ids, prompts or credentials.
+    memoryCloudCurationDiagnostics() {
+      const {requestedMode,mode,reason:activationReason}=cloudCurationActivation;
+      const detail=runtime.cloudCuration?.diagnostics()??null;
+      const environmentReason=runtime.closed?'runtime_stopped':
+        config.promotedCharacters?.storageMode!=='sqlite'||!characterService?.ready?'p2_sqlite_unavailable':
+        !detail?'cloud_curation_runtime_unavailable':null;
+      const state=mode!=='on'?'stopped':environmentReason==='runtime_stopped'?'stopped':
+        environmentReason?'unavailable':detail.state;
+      return Object.freeze({requestedMode,state,
+        effectiveMode:state==='idle'||state==='processing'?'on':state==='stopped'||state==='paused'?'off':null,
+        operationalState:state,
+        reason:activationReason??environmentReason??detail?.reason??null,
+        cloudCuration:mode==='on'?detail:null,restartRequired:true});
     },
     memoryJournalDiagnostics() {
       const {requestedMode,mode,reason:activationReason,legacy}=journalActivation;
