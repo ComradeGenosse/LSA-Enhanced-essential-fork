@@ -1,12 +1,16 @@
-import {selectDirectorIntent,DIRECTOR_SPEECH_LIMITS,PS6_13A_EVENTS} from './sceneDirector.mjs';
+import {selectDirectorIntent,DIRECTOR_SPEECH_LIMITS,PS6_13A_EVENTS,PS6_AMBIENT_EVENTS,isAmbientDirectorEvent} from './sceneDirector.mjs';
 
-const speechTypes=new Set(PS6_13A_EVENTS);
+const speechTypes=new Set([...PS6_13A_EVENTS,...PS6_AMBIENT_EVENTS]);
+// An ordinary scene change is never as important as genuine danger. At most
+// one attempted ambient remark per owned speaker per 90 seconds, in addition
+// to the existing native/global attempt limits. No wall-clock-only prompts.
+export const PS6_AMBIENT_ATTEMPT_GAP_MS=90_000;
 // Pure diagnostic classification only. Never creates witness evidence or a
 // Director grant; selection remains exclusively selectDirectorIntent().
 export function directorCandidateBlockReason(candidates,facts) {
   if(!Array.isArray(candidates)||!candidates.length)return 'no_ps3_response_candidate';
   const threat=candidates.filter(c=>speechTypes.has(c?.observation?.eventType));
-  if(!threat.length)return 'non_13a_event';
+  if(!threat.length)return 'unsupported_director_event';
   if(threat.every(c=>c.entitlementCurrent!==true))return 'ps3_entitlement_stale';
   const granted=threat.filter(c=>c.entitlementCurrent===true &&
     ['eligible','urgent'].includes(c?.decision?.response));
@@ -52,9 +56,9 @@ export class DirectorObservationPump {
        typeof onResult!=='function' || typeof onDiagnostic!=='function')throw new TypeError('director_pump_dependencies');
     this.client=client;this.coordinator=coordinator;
     this.now=now;this.stampFor=stampFor;this.onResult=onResult;this.onDiagnostic=onDiagnostic;this.lastDiagnostic=null;
-    this.seen=new Map();this.epoch=null;this.world=null;this.inFlight=false;this.stopped=false;
+    this.seen=new Map();this.ambientAt=new Map();this.epoch=null;this.world=null;this.inFlight=false;this.stopped=false;
   }
-  stop() {this.stopped=true;this.seen.clear();}
+  stop() {this.stopped=true;this.seen.clear();this.ambientAt.clear();}
   diagnose(reason,eventType=null) {
     const at=this.now();
     if(this.lastDiagnostic?.reason===reason &&
@@ -96,7 +100,7 @@ export class DirectorObservationPump {
     const runtime=this.client.runtime,epoch=runtime.epoch;
     const world=runtime.hostContext?.worldEpoch??null;
     if(epoch!==this.epoch || world!==this.world){
-      this.seen.clear();this.lastDiagnostic=null;this.epoch=epoch;this.world=world;
+      this.seen.clear();this.ambientAt.clear();this.lastDiagnostic=null;this.epoch=epoch;this.world=world;
     }
     if(!epoch || runtime.directorRequestVersion!==1){this.diagnose('channel_or_protocol_unavailable');return null;}
     // A silent native owner fiber (text entry, pause) can still hold leases,
@@ -139,6 +143,8 @@ export class DirectorObservationPump {
       eligible.push({speaker,candidates:unattempted,facts,proposal});
     }
     eligible.sort((a,b)=>(b.proposal.urgency==='urgent')-(a.proposal.urgency==='urgent') ||
+      Number(isAmbientDirectorEvent(a.candidates.find(c=>c.observation?.observationId===a.proposal.observationId)?.observation?.eventType))-
+      Number(isAmbientDirectorEvent(b.candidates.find(c=>c.observation?.observationId===b.proposal.observationId)?.observation?.eventType)) ||
       a.proposal.expiresAtMonotonicMs-b.proposal.expiresAtMonotonicMs ||
       a.proposal.observationId.localeCompare(b.proposal.observationId));
     // Read-only pacing pre-check (identical to reserve()'s synchronous pacing
@@ -146,6 +152,11 @@ export class DirectorObservationPump {
     // spending its key; previously the key was burned before the attempt.
     let selected=null,deferred=null;
     for(const item of eligible){
+      const event=item.candidates.find(c=>c.observation?.observationId===item.proposal.observationId)?.observation?.eventType;
+      const last=this.ambientAt.get(item.speaker);
+      if(isAmbientDirectorEvent(event) && last!==undefined && now-last<PS6_AMBIENT_ATTEMPT_GAP_MS) {
+        deferred??='ambient_cadence';continue;
+      }
       let pacing=null;
       try {pacing=this.coordinator.pacingVeto?.(item.proposal)??null;}catch{pacing=null;}
       if(pacing==='decision_already_attempted'){this.seen.set(item.proposal.decisionKey,now);continue;}
@@ -180,6 +191,7 @@ export class DirectorObservationPump {
     // Only now is this original decision considered attempted. All subsequent
     // native/PS3/turn vetoes retain the existing one-shot no-replay behavior.
     this.seen.set(selected.proposal.decisionKey,now);
+    if(isAmbientDirectorEvent(eventType))this.ambientAt.set(selected.speaker,now);
     this.inFlight=true;
     const trace=proposalTraceCode(selected.proposal,selected.candidates);
     try {
