@@ -9,6 +9,8 @@ namespace Rage
     public sealed class Ped
     {
         public uint Handle;
+        public bool Alive = true, IsDead;
+        public bool Exists()=>Alive;
         public override bool Equals(object value) => value is Ped other && other.Handle==Handle;
         public override int GetHashCode() => (int)Handle;
     }

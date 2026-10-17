@@ -107,6 +107,11 @@ public sealed class Scenario:MarshalByRefObject
             var ped=new Ped {Handle=42};
             Func<bool> check=()=> (bool)gate.Invoke(null,new object[]{ped});
             Check(!check(),"Unpromoted Essential speaker should reach separate native safety preflight.");
+            ped.IsDead=true;
+            Check(check(),"Dead unpromoted NPC must be vetoed before gesture admission.");
+            ped.IsDead=false;ped.Alive=false;
+            Check(check(),"Despawning unpromoted NPC must be vetoed.");
+            ped.Alive=true;
             var participant=new LSA.Intelligence.OwnedParticipant {Ped=ped, Current=()=>false,
                 PrimaryOwner=()=>new PrimaryBehaviorOwner("p2","idle")};
             PromotedCharactersIntegration.RosterOverride=new[]{participant};
