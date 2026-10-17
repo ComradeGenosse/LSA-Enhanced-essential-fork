@@ -21,13 +21,21 @@ const clone = x => JSON.parse(JSON.stringify(x));
 const issue = (code,detail) => ({code,detail});
 const secretKey = key => /(?:api[_-]?key|secret|password|credential|access[_-]?token|private[_-]?key|authorization)/i.test(key);
 const safeKey = key => !['__proto__','constructor','prototype'].includes(key);
-function assertSafeKeys(value,path='
+function assertSafeKeys(value,path='root') {
+  if(!object(value)&&!Array.isArray(value)) return;
+  for(const [k,v] of Object.entries(value)) {
+    if(!safeKey(k)) throw new Error('Unsafe key '+path+'.'+k);
+    assertSafeKeys(v,path+'.'+k);
+  }
+}
 export function removeSecrets(x) {
   if (Array.isArray(x)) return x.map(removeSecrets);
   if (!object(x)) return x;
   return Object.fromEntries(Object.entries(x).filter(([k])=>!secretKey(k)).map(([k,v])=>[k,removeSecrets(v)]));
 }
-export function assertNoSecrets(value,path='
+export function assertNoSecrets(value,path='root') {
+  if(path==='root') assertSafeKeys(value);
+  if (!object(value) && !Array.isArray(value)) return;
   for(const [key,item] of Object.entries(value)) {
     if (secretKey(key)) throw new Error('Secret field prohibited in master: '+path+'.'+key);
     assertNoSecrets(item,path+'.'+key);
