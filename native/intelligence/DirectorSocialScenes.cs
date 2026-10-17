@@ -31,9 +31,10 @@ namespace LSA.Intelligence
             public Scene Current;
         }
         readonly Func<long> clock;
+        readonly bool testing;
         readonly Dictionary<string,Track> actors=new Dictionary<string,Track>();
         readonly Dictionary<string,Scene> scenes=new Dictionary<string,Scene>();
-        public DirectorSocialScenes(Func<long> clock){this.clock=clock;}
+        public DirectorSocialScenes(Func<long> clock,bool testing=false){this.clock=clock;this.testing=testing;}
         public void Reset(){actors.Clear();scenes.Clear();}
         public void Retire(string owner){
             foreach(var key in actors.Where(x=>x.Value.Owner==owner).Select(x=>x.Key).ToArray())
@@ -110,30 +111,32 @@ namespace LSA.Intelligence
                 string kind=null;
                 // Boarding is an edge, not a per-tick prompt. Brief re-entry
                 // into the same vehicle never creates a second opening.
-                if(sharedCar && track.EntryPending && now-track.TripSince>=700 &&
-                   now-track.LastEntry>=20000 &&
-                   (track.LastEntryVehicle!=actorCar || now-track.LastEntry>=90000)) {
+                if(sharedCar && track.EntryPending && now-track.TripSince>=(testing?400:700) &&
+                   now-track.LastEntry>=(testing?5000:20000) &&
+                   (track.LastEntryVehicle!=actorCar || now-track.LastEntry>=(testing?25000:90000))) {
                     kind="shared_vehicle_entry";track.LastEntry=now;track.LastEntryVehicle=actorCar;
                     track.EntryPending=false;
                 }
-                if(kind==null && near && !sharedCar && now-track.NearSince>=1200 &&
-                   now-track.LastGreeting>=300000 && track.LastGreeting<track.NearSince) {
+                if(kind==null && near && !sharedCar && now-track.NearSince>=(testing?600:1200) &&
+                   now-track.LastGreeting>=(testing?30000:300000) && track.LastGreeting<track.NearSince) {
                     kind="reunion";track.LastGreeting=now;
                 }
                 if(kind==null && near && !sharedCar &&
-                   now-track.IdleSince>=40000 && now-track.LastIdle>=120000) {
+                   now-track.IdleSince>=(testing?10000:40000) &&
+                   now-track.LastIdle>=(testing?30000:120000)) {
                     kind="shared_idle";track.LastIdle=now;track.IdleSince=now;
                 }
                 if(kind==null && sharedCar &&
-                   now-track.TripSince>=45000 && now-track.LastTravel>=150000) {
+                   now-track.TripSince>=(testing?15000:45000) &&
+                   now-track.LastTravel>=(testing?45000:150000)) {
                     kind="travel";track.LastTravel=now;
                 }
-                if(kind==null && near && now-track.NearSince>=95000 &&
-                   now-track.LastCuriosity>=240000) {
+                if(kind==null && near && now-track.NearSince>=(testing?30000:95000) &&
+                   now-track.LastCuriosity>=(testing?90000:240000)) {
                     kind="personal_curiosity";track.LastCuriosity=now;
                 }
                 if(kind==null && near && !sharedCar && track.Activity!=null &&
-                   track.Activity!=state.Mode && now-track.LastTransition>=90000 &&
+                   track.Activity!=state.Mode && now-track.LastTransition>=(testing?30000:90000) &&
                    (state.Mode=="follow" || state.Mode=="wait")) {
                     kind="activity_transition";track.LastTransition=now;
                 }
