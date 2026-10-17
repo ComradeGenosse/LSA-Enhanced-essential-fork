@@ -10,6 +10,15 @@ const SOCIAL_CONTEXT=Object.freeze({
   manual:'The player has invited you to choose a topic. Initiate a natural conversation; do not merely answer a command.',
   personal_curiosity:'Spend time chatting naturally. Share a thought or joke, or ask a question. Only use verified past facts.',
 });
+// Strictly bounded, module-authored scene invitations. The stock kb context
+// may reach the model only if it is one of these exact source-approved strings;
+// arbitrary special-event text is never promoted to a social instruction.
+const SOCIAL_INVITATIONS=new Set(Object.values(SOCIAL_CONTEXT).flatMap(opening=>
+  ['', ' You are driving.', ' You are a passenger.'].map(role=>
+    opening+role+' Dialogue only; no actions.')).filter(text=>text.length<=160));
+export function isDirectorSocialContext(text) {
+  return typeof text==='string' && SOCIAL_INVITATIONS.has(text);
+}
 export function renderDirectorSocialContext(proposal) {
   if(proposal?.source!=='native_director_social' ||
      !Object.hasOwn(SOCIAL_CONTEXT,proposal.sceneType))return null;
