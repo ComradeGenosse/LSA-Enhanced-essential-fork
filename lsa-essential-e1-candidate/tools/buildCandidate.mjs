@@ -388,7 +388,21 @@ export async function buildCandidate({ nativePayloadPath, sourcePath = stockBund
   const identityContract = await verifyIdentityContract(dllHash);
   const characterContract = await verifyCharactersContract(dllHash);
   const perceptionContract = await verifyPerceptionContract(dllHash);
-  const knowledgePayload=await verifyDialogueKnowledgePayload(nativePayloadPath,perceptionContract);
+  // The native build script writes a source- and DLL-hash-attested payload to
+  // dist/promoted-characters. An ordinary candidate rebuild must not silently
+  // disable PS4 merely because LSA_PS4_NATIVE_PAYLOAD was not passed again.
+  // Explicit paths remain authoritative and invalid/stale artifacts fail closed.
+  let resolvedNativePayloadPath=nativePayloadPath;
+  if(resolvedNativePayloadPath===undefined) {
+    const nativeBuild=path.join(root,'dist/promoted-characters');
+    try {
+      await readFile(path.join(nativeBuild,'build-manifest.json'));
+      resolvedNativePayloadPath=nativeBuild;
+    } catch(error) {
+      if(error?.code!=='ENOENT')throw error;
+    }
+  }
+  const knowledgePayload=await verifyDialogueKnowledgePayload(resolvedNativePayloadPath,perceptionContract);
   const patched = patchSource(source);
   if (patched.edits.length !== expectedPatchCount) throw new Error(`AST patch inventory changed: expected ${expectedPatchCount}, found ${patched.edits.length}. Re-audit the source seam list before building.`);
   const entry = path.join(target, launcherName);
