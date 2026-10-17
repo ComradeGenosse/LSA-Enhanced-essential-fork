@@ -35,6 +35,8 @@ Unrecognized E1 root keys appear in sections.extensions.e1. Existing valid nativ
 
 ## UX4 F10 / Mouse4
 
+Existing **active** router mappings imported from installed Enhanced settings can be preserved even when they overlap Essential keys. The manager reports `PRESERVED_EXISTING_ROUTER_MAPPING` warnings and does **not** change the mappings. This applies only to individually unchanged assignments while the read-only Essential controls file matches its import-time fingerprint. Newly enabled routing, new or changed conflicting mappings, missing/invalid Essential bindings, and UX4 collisions still block apply. For older masters without the fingerprint, deliberately run `import --replace` (which backs up the previous master) after confirming the installed bindings. Import itself does not modify GTA runtime settings; those existing files remain authoritative until explicit apply.
+
 Matching UX4 talkTargeting.key and Essential TalkKey is intentionally supported shared-input mode. Matching Essential TextKey, MarkPedKey, MarkedPedTalkKey, or an Enhanced router key is a conflict.
 
 If UX4 is F10 while Essential Talk is Mouse4, the manager cannot inspect Steam Input's physical mapping. It refuses to apply until neutral binding is explicitly acknowledged by adding this to the master root:

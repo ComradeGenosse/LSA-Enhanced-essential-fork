@@ -93,6 +93,71 @@ test('round trip import, apply, import preserves all semantically valid fields',
   assert.deepEqual(second.sections.voice.elevenLabs.voices,before[0].elevenLabs.voices);
 });
 
+
+test('existing active router and Essential overlaps survive faithful import without changing controls',async t=>{
+  const {game,files}=await setup(t);
+  const enhanced=await read(files.enhanced);
+  enhanced.input.enabled=true;
+  enhanced.input.keys.L4='F9';
+  enhanced.input.keys.R4='Mouse5';
+  await fs.writeFile(files.enhanced,serialize(enhanced));
+  const original=await Promise.all(['e1','promoted','enhanced'].map(k=>fs.readFile(files[k],'utf8')));
+  await run('import',{game});
+  const master=await read(files.master);
+  assert.match(master.metadata.essentialBindingsBaseline,/^[0-9a-f]{64}$/);
+  const validated=await run('validate',{game});
+  assert.equal(validated.ok,true,JSON.stringify(validated));
+  assert.equal(validated.warnings.filter(w=>w.code==='PRESERVED_EXISTING_ROUTER_MAPPING').length,2);
+  const diff=await run('diff',{game});
+  assert.deepEqual(diff.changes,{e1:[],promoted:[],enhanced:[]});
+  const applied=await run('apply',{game,activate:true});
+  assert.equal(applied.ok,true,JSON.stringify(applied));
+  for(const [i,k] of ['e1','promoted','enhanced'].entries())
+    assert.equal(await fs.readFile(files[k],'utf8'),original[i]);
+  const status=await run('status',{game});
+  assert.equal(status.ok,true,JSON.stringify(status));
+  assert.equal(status.active,true);
+});
+
+test('new router conflicts are blocked even if other imported overlaps exist',async t=>{
+  const {game,files}=await setup(t);
+  const enhanced=await read(files.enhanced);
+  enhanced.input.enabled=true;
+  enhanced.input.keys.L4='F9';
+  enhanced.input.keys.R4='Mouse5';
+  await fs.writeFile(files.enhanced,serialize(enhanced));
+  await run('import',{game});
+  await editMaster(files,m=>{m.sections.controls.input.keys.R4='F5';});
+  const changed=await run('validate',{game});
+  assert.equal(changed.ok,false);
+  assert.ok(changed.problems.some(p=>p.code==='ROUTER_ESSENTIAL_COLLISION'&&p.detail.includes('R4 F5')),JSON.stringify(changed));
+  assert.equal((await run('apply',{game,activate:true})).ok,false);
+  assert.equal((await read(files.enhanced)).input.keys.R4,'Mouse5');
+});
+
+test('overlap exception requires exact, complete Essential import proof',async t=>{
+  const {game,files}=await setup(t);
+  const enhanced=await read(files.enhanced);
+  enhanced.input.enabled=true;
+  enhanced.input.keys.L4='F9';
+  await fs.writeFile(files.enhanced,serialize(enhanced));
+  await run('import',{game});
+  await editMaster(files,m=>{delete m.metadata.essentialBindingsBaseline;});
+  let report=await run('validate',{game});
+  assert.ok(report.problems.some(p=>p.code==='ROUTER_ESSENTIAL_COLLISION'),JSON.stringify(report));
+  await run('import',{game,replace:true});
+  assert.equal((await run('validate',{game})).ok,true);
+  const essential=path.join(game,'plugins','LosSantosAlive','LosSantosAlive.config');
+  await fs.writeFile(essential,'TalkKey=Mouse4\nTextKey=F9\nMarkPedKey=F5\nMarkedPedTalkKey=Mouse5\n# changed after import\n');
+  report=await run('validate',{game});
+  assert.ok(report.problems.some(p=>p.code==='ROUTER_ESSENTIAL_COLLISION'),JSON.stringify(report));
+  assert.equal((await run('apply',{game,activate:true})).ok,false);
+  await fs.writeFile(essential,'TalkKey=Mouse4\nTextKey=F9\nMarkPedKey=F5\n');
+  report=await run('validate',{game});
+  assert.ok(report.problems.some(p=>p.code==='ESSENTIAL_BINDINGS_INCOMPLETE'));
+  assert.equal((await run('apply',{game,activate:true})).ok,false);
+});
+
 test('UX4 F10 vs Essential Mouse4 requires explicit verified neutral mapping',async t=>{
   const {game,files}=await setup(t);
   await run('import',{game});
