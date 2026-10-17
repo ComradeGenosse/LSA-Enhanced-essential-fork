@@ -49,7 +49,7 @@ export async function createCallbackHarness(t,{callbackMode = 'on',families = AL
   const director = npc => {
     const now = h.clock.ms, observationId = randomUUID(), decisionKey = 'dk-' + (++serial);
     return {candidates:[{
-      observation:{observationId,revision:1,observer:{captureRef:npc.ref,kind:'ped'},
+      observation:{observationId,revision:1,eventType:'firing_burst',observer:{captureRef:npc.ref,kind:'ped'},
         expiresAtMonotonicMs:now + 8000,claims:[{certainty:'supported',evidence:{channel:'visual'}}]},
       decision:{observationId,revision:1,decisionKey,policyVersion:1,response:'eligible',
         expiresAtMonotonicMs:now + 8000},

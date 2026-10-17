@@ -61,7 +61,7 @@ async function fixture(t,{caps = {},spontaneous = 'experimental',negotiate = tru
   };
   await establish();
   const timelineId = await store.createTimeline({label:'M9 bootstrap'});
-  await store.confirmTimeline(timelineId);
+  await store.confirmTimeline(timelineId,{confirmation:timelineId});
   const owner = () => send('memory_authority',{memoryProofVersion:1,hostRunId:host.hostRunId,worldEpoch:1,
     sampledGameTick:clock,owners:[{ownerAlias:npc.promotion.ownerAlias,observerCaptureRef:ref,
       hostRunId:host.hostRunId,worldEpoch:1,incarnationId,encounterId,sampledGameTick:clock}],
@@ -84,7 +84,7 @@ async function fixture(t,{caps = {},spontaneous = 'experimental',negotiate = tru
   const events = () => store.readJournalEvents({characterId:npc.characterId,timelineId});
   return {runtime,store,npc,timelineId,sample,collision,events,
     async reconnect() {socket.destroy();streamId = id();adapterEpoch = id();seq = 0;
-      runtime.intelligence.start();await establish();await store.confirmTimeline(timelineId);},
+      runtime.intelligence.start();await establish();await store.confirmTimeline(timelineId,{confirmation:timelineId});},
     diag:() => runtime.services.memoryKRuntimeDiagnostics().capabilities};
 }
 
