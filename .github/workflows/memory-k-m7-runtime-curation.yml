@@ -1,9 +1,11 @@
 name: Memory K M7 independent runtime curation
 on:
   pull_request:
-    branches: [integration/memory-k-production-20261012]
+    branches: [main, integration/memory-k-production-20261012]
     paths:
       - 'lsa-essential-e1-candidate/src/memory/m7RuntimeCuration.mjs'
+      - 'lsa-essential-e1-candidate/src/memory/m7IdleProofSource.mjs'
+      - 'lsa-essential-e1-candidate/src/perception/**'
       - 'lsa-essential-e1-candidate/src/memory/lunaCurationBridge.mjs'
       - 'lsa-essential-e1-candidate/src/memory/m6RuntimeRetention.mjs'
       - 'lsa-essential-e1-candidate/src/memory/runtimeComposition.mjs'
@@ -13,6 +15,8 @@ on:
       - 'lsa-essential-e1-candidate/src/bootstrap.mjs'
       - 'lsa-essential-e1-candidate/src/integration/essentialGlue.mjs'
       - 'lsa-essential-e1-candidate/tests/memory-m7-runtime-curation.test.mjs'
+      - 'lsa-essential-e1-candidate/tests/memory-m7-idle-proof-source.test.mjs'
+      - 'lsa-essential-e1-candidate/tests/memory-m7-native-diagnostic.test.mjs'
       - 'lsa-shared-brain/src/memory/curationSqlite.mjs'
       - 'lsa-shared-brain/src/memory/idleCurationScheduler.mjs'
       - 'lsa-shared-brain/src/characters/sqliteFoundation.mjs'
@@ -46,10 +50,15 @@ jobs:
         shell: bash
         run: |
           node --check lsa-essential-e1-candidate/src/memory/m7RuntimeCuration.mjs
+          node --check lsa-essential-e1-candidate/src/memory/m7IdleProofSource.mjs
           node --check lsa-shared-brain/src/memory/curationSqlite.mjs
       - name: M7 independent runtime activation (real bootstrap + SQLite, fake cloud and fake native idle, offline)
         shell: bash
         run: node --test lsa-essential-e1-candidate/tests/memory-m7-runtime-curation.test.mjs
+      - name: W07 joined idle proof (real ShadowRuntime intake + real backend turn timeline, offline)
+        if: always()
+        shell: bash
+        run: node --test lsa-essential-e1-candidate/tests/memory-m7-idle-proof-source.test.mjs lsa-essential-e1-candidate/tests/memory-m7-native-diagnostic.test.mjs
       - name: Existing M7 engine, M6 runtime, policy and composition regressions
         if: always()
         shell: bash

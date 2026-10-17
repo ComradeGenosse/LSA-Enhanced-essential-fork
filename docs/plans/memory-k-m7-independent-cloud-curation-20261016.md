@@ -1,6 +1,6 @@
 # Memory K — independent M7 Luna cloud-curation runtime activation
 
-Base: #138 head `02c00f3`. Draft targeting `integration/memory-k-production-20261012`, not `main`. Not for automatic merge. **Offline source simulation only: nothing here was validated in GTA, against the native pipe, or against the paid OpenAI API.**
+Reconciles PR #200 (M7 runtime curation) and PR #208 (W07 native idle diagnostics) onto current `main` (Memory K #138 is already merged there). Draft; not for automatic merge. **Offline source simulation only: nothing here was validated in GTA, against the native pipe, or against the paid OpenAI API.**
 
 ## What this does
 
@@ -19,7 +19,7 @@ Connects the **existing, unmodified** M7 pieces — `lunaCurationBridge.mjs`, `i
 2. Supported Luna configuration: provider `openai`, model exactly `gpt-6-luna`, an OpenAI credential, and `memoryK.cloudCuration.pricing` that passes `validateM7ProductionPricing` (official standard tier, official URL, ≥ the reviewed upper-bound rates, verified ≤ 30 days ago). Otherwise the state is `blocked` with a reason code.
 3. **Persisted explicit consent** in P2 (`memory_m7_consent`): revisioned, per world, with daily/monthly/per-batch USD caps. Granted or withdrawn only through the privileged inspector (`inspector_control` → `cloud_consent`); a config flag, API key or capability toggle is never consent. Re-read from P2 on every tick and at every awaited boundary inside the scheduler.
 4. A confirmed, writable timeline.
-5. A **fresh authenticated native idle proof** (`verified_native_idle_v1`) from a registered native source, re-checked after every await. See *Limitation* below.
+5. A **fresh joined idle proof** (`verified_native_idle_v1`, minted by `m7IdleProofSource`), re-checked after every await. See *W07 idle proof* below.
 6. No foreground memory activity in the last 30 s.
 
 ```json
@@ -54,10 +54,21 @@ Connects the **existing, unmodified** M7 pieces — `lunaCurationBridge.mjs`, `i
 
 `lsa-essential-e1-candidate/tests/memory-m7-runtime-curation.test.mjs` (13 tests; real `createRuntimeForBundle`, real SQLite, fake fetch, fake authenticated native source, controllable clock) plus three additions to `lsa-shared-brain/tests/memory-m7-completion.test.mjs` for persisted consent and the atomic fence. Registered in `tools/memory-k-verification/registrations/k-m7-runtime-curation.json`; CI in `.github/workflows/memory-k-m7-runtime-curation.yml`. Two existing assertions changed because M7 is no longer `absent` and M6+M7 now reports `queueing`.
 
-## Limitation — native idle is not available in the pinned Core
+## W07 idle proof (what makes `verified_native_idle_v1` real)
 
-`PRODUCTION-W07.md` records that the pinned original Core cannot supply four required idle fields (`playerTurnSourceCurrent`, `playerTurnIdle`, `essentialTurnKnown`, `essentialTurnIdle`), so no `verified_native_idle_v1` can be produced from current native source, and this change deliberately does **not** synthesize one. The runtime reads its source from `options.m7NativeIdleSource ?? runtime.intelligence.m7NativeIdleSource` (neither exists in production today). Until an authenticated native producer is registered, live GTA shows `blocked: native_idle_source_unavailable` and sends nothing. Everything else is exercised offline against a fake source with the same contract (`snapshot()`, `verifyAuthenticatedSource(proof)`, `subscribeInvalidation(fn)`).
+`m7IdleProofSource.mjs` is the only producer of the proof. It never accepts one; a proof object is authentic only if this module minted it and its streak is still unbroken (`verifyAuthenticatedSource`). It joins two independent sources and mints nothing unless both agree continuously:
+
+* **Native** (#208): the authenticated C-13 `memory_m7_idle_diagnostic` stream, one exact owned NPC + the local player, 21 C-06 negatives (owner mode, mic, conversation, text, controls, script, reflex, queued playback). Still `nativeVerified:false` on the wire; the four global turn fields are hard-false there.
+* **Backend**: the ORIGINAL Essential turn stores via `OriginalEssentialTurnTimeline` (mic, active/buffered capture, player/conversation context, session opens, live turns, output owners, recoveries). The four fields `playerTurnSourceCurrent`, `playerTurnIdle`, `essentialTurnKnown`, `essentialTurnIdle` are derived only from this read-only sample.
+
+Rules: three or more native samples spanning at least 1.6 s with the same stream, host run, world epoch, observer, incarnation and encounter; the backend timeline revision unchanged over the whole streak (every stock turn entrypoint advances it and also notifies the source synchronously); the game clock advancing with real time; no Director backend lease or reserved speech; the observer mapped to a P2 character by the authenticated native owner ledger (not M3); P2 host context equal to the native host. Any native negative, gap over 2.5 s, identity or host change, backend activity, world boundary or retired source drops the streak and aborts in-flight cloud work immediately; a watchdog does the same if native samples stop while a request is in flight. PS3 tickets/receipts, silence, timers, UI flags and caller-supplied `nativeVerified` never contribute.
+
+`anchors`/`observer_index` re-sends no longer retire the native sample (native re-sends the index every second); the source re-verifies the exact observer on every sample instead.
+
+Wiring: `bootstrap.mjs` registers the source (`runtime.m7IdleSource`) only when `memory.cloudCuration` is `on`. It does not depend on M3, M4, H1, M6 or M8. Diagnostics expose a content-free `idleProof` reason code.
+
+**Not yet proven in GTA:** that the pinned game actually produces quiet 1 Hz native samples while idle, that the backend stores and revision behave as modelled under real STT/typed/Director traffic, and the 2.5 s/1.6 s thresholds. Until a controlled GTA run confirms these, treat live M7 as unvalidated: it still requires `memory.cloudCuration: "on"`, persisted explicit consent and verified Luna pricing, so nothing bills by default.
 
 ## Not validated (needs GTA / real services)
 
-Real native idle producer and C-13 wiring; real OpenAI Luna calls, pricing and invoice reconciliation; consent UX in the live inspector; save/load epoch transitions; multi-NPC soak; latency impact on live turns.
+Native diagnostic cadence, backend revision behaviour and the joined idle proof under real traffic; real OpenAI Luna calls, pricing and invoice reconciliation; consent UX in the live inspector; save/load epoch transitions; multi-NPC soak; latency impact on live turns.

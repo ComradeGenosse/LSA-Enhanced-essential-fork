@@ -314,8 +314,9 @@ namespace LSA.Intelligence
                 // W07: the pinned Core supplies partial C-06 quiet evidence, but
                 // no global normal-turn or Essential terminal-idle proof. Report
                 // the exact missing gates once, without publishing an idle permit.
-                // This diagnostic is not a cloud-authorization source.
-                LogStatus("[M7] native_idle_source_unavailable missing_core="+
+                // The companion (m7IdleProofSource) must join these with the
+                // original backend turn timeline; this message is not an authorization.
+                LogStatus("[M7] native_idle_diagnostic_only missing_core="+
                     string.Join(",",M7NativeIdlePrioritySource.UnsupportedPinnedCoreFields));
                 previousTick=unchecked((uint)Game.GameTime);started=true;Game.LogTrivial("[PS] native_adapter_loaded shadow");
                 if(radioEnabled)Game.LogTrivial("[PS] radio_shadow");
