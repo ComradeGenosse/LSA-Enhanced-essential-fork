@@ -485,15 +485,18 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
             const ledgerIndex = Number.isSafeInteger(segment.sequence) && segment.sequence > 0
               ? segment.sequence - 1 : null; // invalid ordinals fail closed in the ledger
             try { ledgerSegment = speech?.beginSegment({ sequence: ledgerIndex, text: segment.text }) ?? null; } catch { ledgerSegment = null; }
+            const delivery=expressiveDelivery.forSegment({text:segment.text,sequence:segment.sequence,lunaHint:segment.delivery});
             let audio;
             try {
               audio = await performProvider('tts', services.providerStack.speech.id,
                 ({ signal, timeoutMs, telemetry, isActive: active }) => services.speak({
-                  identity, dialogue: segment.text, speechProfile: turn.speechProfile, signal, timeoutMs, telemetry,
+                  identity, dialogue: segment.text, ...(delivery?{delivery}:{}), speechProfile: turn.speechProfile, signal, timeoutMs, telemetry,
+                  playbackStartedAt:()=>nativePlaybackStartedAt,
                   onPcm: chunk => forwardPcm(chunk, active).then(() => { try { ledgerSegment?.forwarded(chunk.byteLength); } catch {} }),
-                }), () => !nativeHandoffStarted);
+                }), canRetryTts);
               if (!audio?.bytes) throw new Error('empty_segment_audio');
               if (audio.discardedTrailingByte) throw Object.assign(new Error('partial_pcm16_sample'), { code: 'partial_pcm16_sample' });
+              if(delivery)renderedDeliveries.push({delivery,providerResult:audio});
             } catch (error) {
               try { ledgerSegment?.failed(); } catch {}
               throw error;
@@ -516,6 +519,7 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
           ({ signal, timeoutMs, telemetry, isActive, dialogueAttempt }) => services.providerStack.decideStreaming({
             identity, context: reasoningContext(), source,knowledgeProjection:turn.knowledgeProjection,knowledgeDelivery:turn.knowledgeDelivery,
             input: isPlayer ? finalInput : '', history: priorHistory, signal, timeoutMs, telemetry, dialogueAttempt,
+             lunaDeliveryVersion,
             onSegment: async (segment, mode) => {
               if (!isActive()) throw new Error('provider_attempt_inactive');
               check();
@@ -535,6 +539,7 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
           const result = await modelTask;
           decision = result.decision;
           streamMode = result.mode;
+          if(result.segments?.length===1)bufferedLunaHint=result.segments[0].delivery??null;
           recordReasoningSuccess(decision);
           closeQueue();
           // A final command is invalid in dialogue_only mode (also checked by the
@@ -596,13 +601,16 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
     const successfulEarlySpeech = !!audio && spokenTtsSegments.length>0;
     let bufferedSegment = null;
     if (!audio) {
+       const delivery=expressiveDelivery.forSegment({text:decision.dialogue,sequence:1,lunaHint:bufferedLunaHint});
       try { bufferedSegment = speech?.beginSegment({ sequence: 0, text: decision.dialogue }) ?? null; } catch { bufferedSegment = null; }
       try {
         audio = await performProvider('tts', services.providerStack?.speech.id || 'openai.speech',
           ({ signal, timeoutMs, telemetry, isActive }) => services.speak({
-            identity, dialogue: decision.dialogue, speechProfile: turn.speechProfile, signal, timeoutMs, telemetry,
+            identity, dialogue: decision.dialogue, ...(delivery?{delivery}:{}), speechProfile: turn.speechProfile, signal, timeoutMs, telemetry,
+             playbackStartedAt:()=>nativePlaybackStartedAt,
             onPcm: chunk => forwardPcm(chunk, isActive).then(() => { try { bufferedSegment?.forwarded(chunk.byteLength); } catch {} }),
-          }), () => !hasAction && !nativeHandoffStarted);
+          }), () => !hasAction && canRetryTts());
+        if(audio?.bytes&&delivery)renderedDeliveries.push({delivery,providerResult:audio});
       } catch (error) {
         try { bufferedSegment?.failed(); } catch {}
         throw error;
@@ -643,7 +651,10 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
     }
     chooseTerminal('completed');
     if (!history.acceptPlaybackResult({ ...result, playbackSucceeded: true })) throw new Error('history_commit_rejected');
+    playbackCommitted=true;
     try { speech?.historyAccepted(result); } catch { /* evidence only */ }
+    for(const {delivery,providerResult} of renderedDeliveries)expressiveDelivery.synthesized(delivery,result,providerResult);
+    expressiveDelivery.complete(result,{historyAccepted:true});
     // Only a native terminal receipt that RAM history also admitted, with every
     // PCM chunk counted by the ledger, can classify the line `completed`. D03
     // reads that evidence itself: nothing here supplies text or a status.
@@ -692,6 +703,7 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
     metrics?.finish({ reason: terminalReason, stage: stageAtFailure, cause, assistantCommitted: false });
     return { status: state, terminalReason, stage: state, cause };
   } finally {
+    expressiveDelivery.retire(playbackCommitted);
     retired = true;
     // Any awaited D03 write has settled by now; drop the receipt and lease.
     try { acceptance?.release(); } catch {}
