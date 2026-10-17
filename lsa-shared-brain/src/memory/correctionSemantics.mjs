@@ -127,6 +127,17 @@ export function supersededTargetIds(db, scopeKeys) {
   // This prevents M6/M7 or a sibling derived record from reviving the old fact.
   const revised=new Set(rows.filter(r=>r.mode==='fact_revision').map(r=>r.targetId));
   const playerFacts=new Set(rows.filter(r=>r.mode==='player_fact').map(r=>r.targetId));
+  // An accepted correction utterance also contains the *negated* old name.
+  // Keep its raw journal evidence for private audit/M5 receipt validation,
+  // but never reuse that utterance as an affirmative name fact in M4/H1/M6.
+  for(const row of rows.filter(r=>r.mode==='player_fact')){
+    const requested=db.prepare('SELECT requested_by_line_id AS id FROM memory_commands WHERE world_profile_id=? AND character_id=? AND timeline_id=? AND command_id=? AND operation=?')
+      .get(...scopeKeys,row.commandId,'correct');
+    if(!requested?.id||!isUuid(requested.id)||
+       !db.prepare("SELECT 1 FROM dialogue_journal WHERE world_profile_id=? AND character_id=? AND timeline_id=? AND record_id=? AND speaker='player' AND delivery='accepted' AND source IN ('typed','stt')")
+         .get(...scopeKeys,requested.id))fail('memory_correction_integrity_failed');
+    ids.add(requested.id);
+  }
   if(playerFacts.size){
     // A corrected accepted player line cannot remain an active premise of
     // an older M6/M7 derived fact. Unlike privileged fact edits, do NOT revoke
