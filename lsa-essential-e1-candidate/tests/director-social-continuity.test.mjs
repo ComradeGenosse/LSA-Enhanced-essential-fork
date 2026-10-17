@@ -60,7 +60,7 @@ test('Director social history includes completed Nathan speech and accepted play
     x.turn.context.internalEvent,result.conversationJournal);
   assert.deepEqual(projected.messages.slice(0,-1),result.conversationJournal.recent);
   assert.match(projected.messages.at(-1).content,/unrelated topic/);
-  assert.match(projected.messages.at(-1).content,/avoid repeating a recent greeting/);
+  assert.match(projected.messages.at(-1).content,/avoid repeating a greeting/);
 });
 
 test('Never infer a delivered line from a failed, interrupted or staged NPC utterance',async()=>{
@@ -165,7 +165,7 @@ test('Scene invitations can initiate a new unrelated topic with no history and w
   assert.deepEqual(empty.recent,[]);
   const projected=projectConversation([],null,'special_event',x.turn.context.internalEvent,empty);
   assert.equal(projected.messages.length,1);
-  assert.match(projected.messages[0].content,/You may introduce an unrelated topic/);
+  assert.match(projected.messages[0].content,/Start a natural conversation/);
 });
 
 test('Standalone spontaneous speech is available only after real native playback completion',async()=>{
