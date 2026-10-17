@@ -58,6 +58,10 @@ namespace Rage
     public sealed class Ped
     {
         public uint Handle;
+        // Match the real RAGE Ped members used by RuntimeEntry's fail-closed
+        // gesture ownership check. Keep production checks intact.
+        public bool Alive = true, IsDead;
+        public bool Exists()=>Alive;
         public override bool Equals(object value) => value is Ped other && other.Handle==Handle;
         public override int GetHashCode()=> (int)Handle;
     }
