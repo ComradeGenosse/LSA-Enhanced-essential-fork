@@ -136,8 +136,10 @@ export function memoryKConsumersAllowed(config) {
   // M6 is a background-only add-on, not a request to independently gate the
   // existing dialogue / M3 / PS / WS6 consumers. Other explicit capability
   // entries still opt into the strict independent-activation contract.
+  // M9 event families and callbacks are likewise additive: requesting them
+  // never silently disables the legacy dialogue / M3 / PS bundle.
   return Object.keys(config.memoryK?.capabilities??{})
-    .every(id=>id==='memory.deterministic');
+    .every(id=>id==='memory.deterministic'||id==='memory.callbacks'||id.startsWith('events.'));
 }
 
 // Restart-required recording switches. Unspecified siblings in an explicit

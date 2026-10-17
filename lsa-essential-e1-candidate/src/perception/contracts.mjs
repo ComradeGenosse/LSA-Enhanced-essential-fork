@@ -7,6 +7,12 @@ import { validateHostEnvelope, validateWorldEpoch } from '../context/hostContext
 export const BOUNDS = Object.freeze({ observers:16, anchors:256, rawSignals:256, criticalReserve:64, nativeFrames:64, companionFrames:256, frameBytes:8192, observationsPerObserver:128, observations:2048, observationBytes:2*1024*1024, signalTtlMs:30000, anchorLeaseMs:3000 });
 export const CAPABILITIES = Object.freeze(['snapshot','pedDamage','playerDamage','vehicleDamage','shooting','state','action','playback','witness','awareness','playerSpeech']);
 export const PRODUCERS = new Set(['ped_damage','player_damage','vehicle_damage','shooting','state','action','playback','radio']);
+const PS2_EVENT_TYPES=['firing_burst','injury','death_seen','body_found','threat','vehicle_impact','action_observed','location_changed','activity_changed','vehicle_transition','character_present','speech_heard','radio_heard','report'];
+// M9 source-qualified player/vehicle incidents. These are journal-only PS2
+// observation types: PS3 salience, PS4 PERCEIVED and Director never consume
+// them directly (see ShadowRuntime and knowledgeSelector).
+export const M9_EVENT_TYPES=Object.freeze(['vehicle_crash','vehicle_rollover','airborne_stunt','vehicle_entered_water','vehicle_submerged','wanted_level_changed','wasted','busted']);
+const CLAIM_KINDS=['sound','firing','injured','dead','attack','location','action','presence','report','incident'];
 export function normalizePerceptionConfig(value = {}) {
   // Future modes cannot enable anything beyond this implementation.
   const valid = value && typeof value === 'object' && !Array.isArray(value);
@@ -106,9 +112,41 @@ export function validateMemoryCurrentOwnerPlayerPayload(p) {
     !captures.has(s.playerCaptureRef);
 }
 
+// Strict native M9 state sample. The sample carries ONLY native measurements
+// and receipts. Source-time witness receipts are computed by the native
+// WitnessPolicy at sampledGameTick and are consumed only with this sample.
+export function validateM9SamplePayload(p) {
+  const tick=x=>integer(x,0xffffffff);
+  const bool=x=>x===null||typeof x==='boolean';
+  const num=(x,max)=>x===null||(Number.isFinite(x)&&x>=0&&x<=max);
+  if(!keys(p,['m9SampleVersion','hostRunId','worldEpoch','sampledGameTick','ageMs','playerCaptureRef','vehicleCaptureRef','wantedLevel','vehicle','outcome','witnessReceipts'])||
+    p.m9SampleVersion!==1||!isUuid(p.hostRunId)||!integer(p.worldEpoch,2147483647)||p.worldEpoch===0||
+    !tick(p.sampledGameTick)||!integer(p.ageMs,30000)||!isUuid(p.playerCaptureRef)||!optionalRef(p.vehicleCaptureRef)||
+    !(p.wantedLevel===null||integer(p.wantedLevel,5))||
+    !Array.isArray(p.witnessReceipts)||p.witnessReceipts.length>16||!p.witnessReceipts.every(validateWitnessReceipt)||
+    new Set(p.witnessReceipts.map(r=>r.observer.captureRef)).size!==p.witnessReceipts.length)return false;
+  if(p.vehicle!==null){
+    const v=p.vehicle;
+    if(p.vehicleCaptureRef===null||!keys(v,['airborne','inWater','submerged','grounded','rollDegrees','speedKph','collision'])||
+      ![v.airborne,v.inWater,v.submerged,v.grounded].every(bool)||!num(v.rollDegrees,180)||!num(v.speedKph,500))return false;
+    const c=v.collision;
+    if(c!==null){
+      if(!keys(c,['nativeReceiptId','sourceType'],['speedDeltaKph','speedBeforeKph','damage'])||!isUuid(c.nativeReceiptId))return false;
+      if(c.sourceType==='native_collision_callback'){
+        if(typeof c.speedDeltaKph!=='number'||!num(c.speedDeltaKph,500)||c.damage!==undefined||
+          (c.speedBeforeKph!==undefined&&(typeof c.speedBeforeKph!=='number'||!num(c.speedBeforeKph,500))))return false;
+      }else if(c.sourceType==='damage_tracker_vehicle_collision'){
+        if(!integer(c.damage,100000)||c.speedDeltaKph!==undefined||c.speedBeforeKph!==undefined)return false;
+      }else return false;
+    }
+  }else if(p.vehicleCaptureRef!==null)return false;
+  const o=p.outcome;
+  return o===null||keys(o,['kind','nativeReceiptId'])&&['wasted','busted'].includes(o.kind)&&isUuid(o.nativeReceiptId);
+}
+
 export function validateFrame(v) {
   if (!v || Buffer.byteLength(JSON.stringify(v))>BOUNDS.frameBytes) return false;
-  if (v.type==='hello') return validateHostEnvelope(v,['version','type','adapterEpoch','streamId','capabilities',...(Object.hasOwn(v,'observerIndexVersion') ? ['observerIndexVersion'] : []),...(Object.hasOwn(v,'observerSituationVersion') ? ['observerSituationVersion'] : []),...(Object.hasOwn(v,'primaryBehaviorOwnerVersion') ? ['primaryBehaviorOwnerVersion'] : []),...(Object.hasOwn(v,'directorRequestVersion') ? ['directorRequestVersion'] : []),...(Object.hasOwn(v,'memoryCurrentOwnerPlayerVersion') ? ['memoryCurrentOwnerPlayerVersion'] : [])]) && (!Object.hasOwn(v,'observerIndexVersion') || v.hostContextVersion===1 && v.observerIndexVersion===1) && (!Object.hasOwn(v,'observerSituationVersion') || v.hostContextVersion===1 && v.observerIndexVersion===1 && v.observerSituationVersion===1) && (!Object.hasOwn(v,'primaryBehaviorOwnerVersion') || v.observerSituationVersion===1 && v.primaryBehaviorOwnerVersion===1) && (!Object.hasOwn(v,'directorRequestVersion') || v.hostContextVersion===1 && v.directorRequestVersion===1) && (!Object.hasOwn(v,'memoryCurrentOwnerPlayerVersion') || v.hostContextVersion===1 && v.observerIndexVersion===1 && v.memoryCurrentOwnerPlayerVersion===1) && v.version===1 && isUuid(v.adapterEpoch) && isUuid(v.streamId) && keys(v.capabilities,CAPABILITIES) && Object.values(v.capabilities).every(x=>typeof x==='boolean');
+  if (v.type==='hello') return validateHostEnvelope(v,['version','type','adapterEpoch','streamId','capabilities',...(Object.hasOwn(v,'observerIndexVersion') ? ['observerIndexVersion'] : []),...(Object.hasOwn(v,'observerSituationVersion') ? ['observerSituationVersion'] : []),...(Object.hasOwn(v,'primaryBehaviorOwnerVersion') ? ['primaryBehaviorOwnerVersion'] : []),...(Object.hasOwn(v,'directorRequestVersion') ? ['directorRequestVersion'] : []),...(Object.hasOwn(v,'memoryCurrentOwnerPlayerVersion') ? ['memoryCurrentOwnerPlayerVersion'] : []),...(Object.hasOwn(v,'m9SampleVersion') ? ['m9SampleVersion'] : [])]) && (!Object.hasOwn(v,'m9SampleVersion') || v.hostContextVersion===1 && v.observerIndexVersion===1 && v.m9SampleVersion===1) && (!Object.hasOwn(v,'observerIndexVersion') || v.hostContextVersion===1 && v.observerIndexVersion===1) && (!Object.hasOwn(v,'observerSituationVersion') || v.hostContextVersion===1 && v.observerIndexVersion===1 && v.observerSituationVersion===1) && (!Object.hasOwn(v,'primaryBehaviorOwnerVersion') || v.observerSituationVersion===1 && v.primaryBehaviorOwnerVersion===1) && (!Object.hasOwn(v,'directorRequestVersion') || v.hostContextVersion===1 && v.directorRequestVersion===1) && (!Object.hasOwn(v,'memoryCurrentOwnerPlayerVersion') || v.hostContextVersion===1 && v.observerIndexVersion===1 && v.memoryCurrentOwnerPlayerVersion===1) && v.version===1 && isUuid(v.adapterEpoch) && isUuid(v.streamId) && keys(v.capabilities,CAPABILITIES) && Object.values(v.capabilities).every(x=>typeof x==='boolean');
   if (!keys(v,['version','type','adapterEpoch','streamId','sequence','payload']) || v.version!==1 || !isUuid(v.adapterEpoch) || !isUuid(v.streamId) || !integer(v.sequence) || v.sequence===0) return false;
   if (v.type==='anchors') return Array.isArray(v.payload) && v.payload.length<=32 && v.payload.every(a=>keys(a,['captureRef','kind','observer'],['owned','conversation']) && isUuid(a.captureRef) && ['ped','player','vehicle'].includes(a.kind) && typeof a.observer==='boolean' && (!a.observer || a.kind==='ped') && ['owned','conversation'].every(k=>a[k]===undefined || typeof a[k]==='boolean' && (!a[k] || a.kind==='ped'))) && new Set(v.payload.map(a=>a.captureRef)).size===v.payload.length;
   if (v.type==='retire') return keys(v.payload,['captureRef']) && isUuid(v.payload.captureRef);
@@ -126,6 +164,7 @@ export function validateFrame(v) {
     ['invalid','busy','unsafe','stale','cancelled','not_found','reserved','submitted','bound','started','completed','failed'].includes(v.payload.status);
   if (v.type==='memory_authority') return validateMemoryAuthorityPayload(v.payload);
   if (v.type==='memory_current_owner_player') return validateMemoryCurrentOwnerPlayerPayload(v.payload);
+  if (v.type==='m9_sample') return validateM9SamplePayload(v.payload);
   if (v.type==='signal') return validateSignal(v.payload);
   if (v.type==='diagnostics') return keys(v.payload,['anchors','observers','snapshotAgeMs','snapshotCadenceMs','dropped','staleRejected','retiredAnchors','deferredDiscovery','updateMicros','capabilities','signals','damageCallbacks','witnessDeferred','witnessUnknown','witnessRejected','playerSpeechGate'],['radio']) && integer(v.payload.anchors,256) && integer(v.payload.observers,16) && ['snapshotAgeMs','snapshotCadenceMs','dropped','staleRejected','retiredAnchors','deferredDiscovery','updateMicros','witnessDeferred','witnessUnknown','witnessRejected'].every(k=>integer(v.payload[k],2147483647)) && v.payload.playerSpeechGate==='unsupported_capture_receipt' && keys(v.payload.capabilities,CAPABILITIES) && Object.values(v.payload.capabilities).every(x=>typeof x==='boolean') && v.payload.capabilities.playerSpeech===false && v.payload.signals && typeof v.payload.signals==='object' && !Array.isArray(v.payload.signals) && Object.entries(v.payload.signals).every(([k,n])=>['damage','vehicle_damage','firing','death','body_discovered','injury_state','vehicle_transition','vehicle_state','activity_changed','presence_changed','location_changed','action_callback','playback_started','playback_ended','radio_changed','radio_stopped'].includes(k) && integer(n,2147483647)) && keys(v.payload.damageCallbacks,['ped_damage','player_damage','vehicle_damage']) && Object.values(v.payload.damageCallbacks).every(n=>integer(n,2147483647)) && (!Object.hasOwn(v.payload,'radio') || keys(v.payload.radio,['samples','edges','nativeFailures','witnessed','witnessUnknown']) && ['samples','edges','nativeFailures','witnessed','witnessUnknown'].every(k=>integer(v.payload.radio[k],2147483647)));
   return false;
@@ -134,7 +173,7 @@ export function validateFrame(v) {
 // PS0 immutable observer contract. No producer promotes a backend signal to witness knowledge in PS1.
 export function validateObservation(o) {
   if (!keys(o,['version','observationId','episodeId','revision','observer','observedAt','expiresAtMonotonicMs','eventType','severity','claims','recognizedCharacterIds'],['position']) || o.version!==1 || !isUuid(o.observationId) || !isUuid(o.episodeId) || !integer(o.revision) || o.revision===0 || !keys(o.observer,['captureRef','kind']) || !isUuid(o.observer.captureRef) || o.observer.kind!=='ped') return false;
-  if (!keys(o.observedAt,['nativeRun','gameTick','receivedUtc']) || !isUuid(o.observedAt.nativeRun) || !integer(o.observedAt.gameTick,0xffffffff) || typeof o.observedAt.receivedUtc!=='string' || !/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{3}Z$/.test(o.observedAt.receivedUtc) || !Number.isFinite(Date.parse(o.observedAt.receivedUtc)) || !integer(o.expiresAtMonotonicMs) || !['firing_burst','injury','death_seen','body_found','threat','vehicle_impact','action_observed','location_changed','activity_changed','vehicle_transition','character_present','speech_heard','radio_heard','report'].includes(o.eventType) || !['routine','notable','danger','critical'].includes(o.severity) || !Array.isArray(o.claims) || o.claims.length<1 || o.claims.length>4 || !Array.isArray(o.recognizedCharacterIds) || o.recognizedCharacterIds.length!==0 || o.position!==undefined && !position(o.position)) return false;
+  if (!keys(o.observedAt,['nativeRun','gameTick','receivedUtc']) || !isUuid(o.observedAt.nativeRun) || !integer(o.observedAt.gameTick,0xffffffff) || typeof o.observedAt.receivedUtc!=='string' || !/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{3}Z$/.test(o.observedAt.receivedUtc) || !Number.isFinite(Date.parse(o.observedAt.receivedUtc)) || !integer(o.expiresAtMonotonicMs) || ![...PS2_EVENT_TYPES,...M9_EVENT_TYPES].includes(o.eventType) || !['routine','notable','danger','critical'].includes(o.severity) || !Array.isArray(o.claims) || o.claims.length<1 || o.claims.length>4 || !Array.isArray(o.recognizedCharacterIds) || o.recognizedCharacterIds.length!==0 || o.position!==undefined && !position(o.position)) return false;
   return o.claims.every(validateClaim);
 }
 const safeDisplayText = (v,max) => typeof v==='string' && v.length>=1 && v.length<=max && !/[\u0000-\u001f\u007f]/.test(v) && !v.includes('://') && !v.includes('\\');
@@ -146,7 +185,7 @@ function validateRadioDetails(d) {
   return d.artist===undefined && d.title===undefined && d.contentKind===undefined;
 }
 export function validateClaim(c) {
-  if (!keys(c,['claimId','kind','certainty','evidence'],['source','target','details']) || !isUuid(c.claimId) || !['sound','firing','injured','dead','attack','location','action','presence','report'].includes(c.kind) || !['supported','uncertain'].includes(c.certainty) || !['source','target'].every(k=>c[k]===undefined || keys(c[k],['captureRef','kind']) && isUuid(c[k].captureRef) && ['ped','player','vehicle'].includes(c[k].kind)) || !keys(c.evidence,['channel','basis','sampledGameTick'],['reportRef']) || !['self','visual','auditory','report'].includes(c.evidence.channel) || !['native_callback','sampled_state','native_awareness','audibility_model','dialogue_report'].includes(c.evidence.basis) || !integer(c.evidence.sampledGameTick,0xffffffff) || c.evidence.reportRef!==undefined && (c.evidence.channel!=='report' || !isUuid(c.evidence.reportRef))) return false;
+  if (!keys(c,['claimId','kind','certainty','evidence'],['source','target','details']) || !isUuid(c.claimId) || ![...CLAIM_KINDS].includes(c.kind) || !['supported','uncertain'].includes(c.certainty) || !['source','target'].every(k=>c[k]===undefined || keys(c[k],['captureRef','kind']) && isUuid(c[k].captureRef) && ['ped','player','vehicle'].includes(c[k].kind)) || !keys(c.evidence,['channel','basis','sampledGameTick'],['reportRef']) || !['self','visual','auditory','report'].includes(c.evidence.channel) || !['native_callback','sampled_state','native_awareness','audibility_model','dialogue_report'].includes(c.evidence.basis) || !integer(c.evidence.sampledGameTick,0xffffffff) || c.evidence.reportRef!==undefined && (c.evidence.channel!=='report' || !isUuid(c.evidence.reportRef))) return false;
   if (c.evidence.channel==='self' && (!['native_callback','sampled_state'].includes(c.evidence.basis) || c.evidence.reportRef!==undefined) || c.evidence.channel==='visual' && (!['sampled_state','native_awareness'].includes(c.evidence.basis) || c.evidence.reportRef!==undefined) || c.evidence.channel==='auditory' && (!['native_awareness','audibility_model'].includes(c.evidence.basis) || c.evidence.reportRef!==undefined) || c.evidence.channel==='report' && (c.evidence.basis!=='dialogue_report' || !isUuid(c.evidence.reportRef))) return false;
   if (c.details===undefined) return true;
   if (c.kind==='injured' && keys(c.details,['damageDelta','armourDelta']) && integer(c.details.damageDelta,100000) && integer(c.details.armourDelta,100000)) return true;

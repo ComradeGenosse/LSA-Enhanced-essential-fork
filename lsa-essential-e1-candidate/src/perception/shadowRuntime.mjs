@@ -27,9 +27,9 @@ const PS3_REASON_COUNTERS = Object.freeze({
 });
 
 export class ShadowRuntime {
-  constructor({ mode='off', radio='off', radioCatalog=null, now=()=>Math.floor(performance.now()), situationFor=()=>({}), acceptedObservationTap=null, consumers=null, trace=null, stall=null }={}) {
+  constructor({ mode='off', radio='off', radioCatalog=null, now=()=>Math.floor(performance.now()), situationFor=()=>({}), acceptedObservationTap=null, consumers=null, m9Events=null, trace=null, stall=null }={}) {
     this.mode=mode;this.radio=radio==='shadow'?'shadow':'off';this.now=now;this.anchors=new Map();this.signals=[];this.sequence=0;this.producers=new Map();this.epoch=null;this.stream=null;this.lastReceipt=0;
-    this.hostContext=null;this.observerIndexVersion=null;this.memoryCurrentOwnerPlayerVersion=null;this.observerIndex=new Map();this.observerSituations=new Map();this.observerSituationVersion=null;this.primaryBehaviorOwnerVersion=null;this.directorRequestVersion=null;this.directorPriority=null;this.directorReceipts=[];this.situationProvider=situationFor;
+    this.hostContext=null;this.observerIndexVersion=null;this.memoryCurrentOwnerPlayerVersion=null;this.m9SampleVersion=null;this.observerIndex=new Map();this.observerSituations=new Map();this.observerSituationVersion=null;this.primaryBehaviorOwnerVersion=null;this.directorRequestVersion=null;this.directorPriority=null;this.directorReceipts=[];this.situationProvider=situationFor;
     this.counters=Object.fromEntries(['received','dropped','stale','malformed','duplicate','gaps','expired','resets'].map(k=>[k,0]));
     this.historyDiagnostics={expired:0,evicted:0,skipped:0,highWater:0};
     this.dropDiagnostics={anchorCapacity:0,observerCapacity:0};
@@ -59,6 +59,8 @@ export class ShadowRuntime {
     // frozen receipt, never do async SQLite or let an exception break PS2.
     this.acceptedObservationTap=ps2&&typeof acceptedObservationTap==='function'?acceptedObservationTap:null;
     this.memoryTapDiagnostics={delivered:0,rejected:0,faults:0};
+    // M9 is construction-time only and never reachable without PS2.
+    this.m9Events=ps2&&m9Events&&typeof m9Events.ingest==='function'?m9Events:null;
     this.ps3Diagnostics={decisions:0,urgent:0,eligible:0,staged:0,suppressed:0,faults:0,ownedDecisions:0,ownedEligible:0,ownedUrgent:0,reasons:Object.fromEntries(Object.values(PS3_REASON_COUNTERS).map(k=>[k,0]))};
   }
   #tapAcceptedObservation(observation) {
@@ -130,7 +132,7 @@ export class ShadowRuntime {
     const kind=['initialization','disconnect','fault','timeout','manual'].includes(reason)?reason:'manual';
     this.lastResetReason='reset_'+kind;
     for(const ref of this.anchors.keys())this.recordMissingRef(ref,this.lastResetReason);
-    this.hostContext=null;this.observerIndexVersion=null;this.memoryCurrentOwnerPlayerVersion=null;this.observerIndex.clear();this.observerSituations.clear();this.observerSituationVersion=null;this.primaryBehaviorOwnerVersion=null;this.directorRequestVersion=null;this.directorPriority=null;this.directorReceipts=[];
+    this.hostContext=null;this.observerIndexVersion=null;this.memoryCurrentOwnerPlayerVersion=null;this.m9SampleVersion=null;this.m9Events?.reset();this.observerIndex.clear();this.observerSituations.clear();this.observerSituationVersion=null;this.primaryBehaviorOwnerVersion=null;this.directorRequestVersion=null;this.directorPriority=null;this.directorReceipts=[];
     this.anchors.clear();this.signals=[];this.producers.clear();this.observations?.clear();this.episodes?.clear();this.correlator?.clear();this.salience?.clear();this.transcripts?.setActiveRun(null);this.epoch=null;this.stream=null;this.sequence=0;this.lastReceipt=0;this.leaseBase=0;this.stallNotified=false;this.diagnostics=null;this.capabilities=Object.fromEntries(CAPABILITIES.map(k=>[k,false]));this.count('resets');
     const key={initialization:'initializations',disconnect:'disconnects',fault:'faults',timeout:'timeouts',manual:'manual'}[reason]||'manual';this.bump(this.resetDiagnostics,key);
   }
@@ -193,7 +195,7 @@ export class ShadowRuntime {
     if(this.mode!=='shadow' || !authenticated) return false;
     this.expire();
     if(!validateFrame(v)) {this.count('malformed');return false;}
-    if(v.type==='hello') {this.reset('initialization');this.epoch=v.adapterEpoch;this.stream=v.streamId;this.hostContext=readHostContext(v);this.observerIndexVersion=v.observerIndexVersion??null;this.memoryCurrentOwnerPlayerVersion=v.memoryCurrentOwnerPlayerVersion??null;this.observerSituationVersion=v.observerSituationVersion??null;this.primaryBehaviorOwnerVersion=v.primaryBehaviorOwnerVersion??null;this.directorRequestVersion=v.directorRequestVersion??null;this.capabilities=Object.freeze({...v.capabilities});this.transcripts?.setActiveRun(this.epoch);this.lastReceipt=this.now();return true;}
+    if(v.type==='hello') {this.reset('initialization');this.epoch=v.adapterEpoch;this.stream=v.streamId;this.hostContext=readHostContext(v);this.observerIndexVersion=v.observerIndexVersion??null;this.memoryCurrentOwnerPlayerVersion=v.memoryCurrentOwnerPlayerVersion??null;this.m9SampleVersion=v.m9SampleVersion??null;this.observerSituationVersion=v.observerSituationVersion??null;this.primaryBehaviorOwnerVersion=v.primaryBehaviorOwnerVersion??null;this.directorRequestVersion=v.directorRequestVersion??null;this.capabilities=Object.freeze({...v.capabilities});this.transcripts?.setActiveRun(this.epoch);this.lastReceipt=this.now();return true;}
     if(v.adapterEpoch!==this.epoch || v.streamId!==this.stream) {this.count('stale');return false;}
     if(v.sequence<=this.sequence) {this.count('duplicate');return false;}
     if(v.sequence!==this.sequence+1) {this.count('gaps');this.reset('fault');return false;}
@@ -203,8 +205,8 @@ export class ShadowRuntime {
       if(v.payload.epoch===this.hostContext.worldEpoch) return true;
       const context=Object.freeze({...this.hostContext,worldEpoch:v.payload.epoch});
       const epoch=this.epoch,stream=this.stream,sequence=this.sequence,capabilities=this.capabilities;
-      const memoryCurrentOwnerPlayerVersion=this.memoryCurrentOwnerPlayerVersion,observerIndexVersion=this.observerIndexVersion,observerSituationVersion=this.observerSituationVersion,primaryBehaviorOwnerVersion=this.primaryBehaviorOwnerVersion,directorRequestVersion=this.directorRequestVersion;
-      this.reset('manual');this.memoryCurrentOwnerPlayerVersion=memoryCurrentOwnerPlayerVersion;this.observerIndexVersion=observerIndexVersion;this.observerSituationVersion=observerSituationVersion;this.primaryBehaviorOwnerVersion=primaryBehaviorOwnerVersion;this.directorRequestVersion=directorRequestVersion;this.directorPriority=null;this.hostContext=context;this.epoch=epoch;this.stream=stream;this.sequence=sequence;
+      const m9SampleVersion=this.m9SampleVersion,memoryCurrentOwnerPlayerVersion=this.memoryCurrentOwnerPlayerVersion,observerIndexVersion=this.observerIndexVersion,observerSituationVersion=this.observerSituationVersion,primaryBehaviorOwnerVersion=this.primaryBehaviorOwnerVersion,directorRequestVersion=this.directorRequestVersion;
+      this.reset('manual');this.m9SampleVersion=m9SampleVersion;this.memoryCurrentOwnerPlayerVersion=memoryCurrentOwnerPlayerVersion;this.observerIndexVersion=observerIndexVersion;this.observerSituationVersion=observerSituationVersion;this.primaryBehaviorOwnerVersion=primaryBehaviorOwnerVersion;this.directorRequestVersion=directorRequestVersion;this.directorPriority=null;this.hostContext=context;this.epoch=epoch;this.stream=stream;this.sequence=sequence;
       this.capabilities=capabilities;this.transcripts?.setActiveRun(epoch);this.lastReceipt=this.now();return true;
     }
     // EA protagonist frame only confirms transport/order + current native host.
@@ -251,6 +253,24 @@ export class ShadowRuntime {
            row.incarnationId!==owner.incarnationId ||
            row.encounterId!==owner.encounterId)return false;
       }
+      return true;
+    }
+    if(v.type==='m9_sample') {
+      const p=v.payload;
+      // Negotiated, authenticated native sample only. Anything else is stale
+      // transport noise: it never resets the stream and never grants authority.
+      const player=this.anchors.get(p.playerCaptureRef),vehicle=p.vehicleCaptureRef?this.anchors.get(p.vehicleCaptureRef):null;
+      if(!this.m9Events || this.m9SampleVersion!==1 || !this.hostContext ||
+         p.hostRunId!==this.hostContext.hostRunId || p.worldEpoch!==this.hostContext.worldEpoch ||
+         !this.current(p.playerCaptureRef) || player?.kind!=='player' ||
+         p.vehicleCaptureRef && (!this.current(p.vehicleCaptureRef) || vehicle?.kind!=='vehicle') ||
+         p.witnessReceipts.length && !this.capabilities.witness ||
+         p.ageMs>=BOUNDS.signalTtlMs) {this.count('stale');return true;}
+      this.count('received');
+      try {this.m9Events.ingest({runtime:this,payload:p,streamId:v.streamId,sequence:v.sequence});}
+      catch {this.count('dropped');}
+      // An ignored/disabled optional sample must never look like a transport
+      // fault: a false return would retire the D02 native owner-player leases.
       return true;
     }
     if(v.type==='director_priority') {
@@ -403,6 +423,22 @@ export class ShadowRuntime {
     // must never reject an otherwise valid signal before PS2/PS3 processing.
     this.retainSignal(value,critical,this.now()+BOUNDS.signalTtlMs-s.ageMs);
     return true;
+  }
+  // M9 candidate -> PS2. Invoked ONLY from the authenticated m9_sample path
+  // above (through M9RuntimeEvents' bridge). Observations are delivered to the
+  // synchronous M3 tap and deliberately NOT to PS3 salience: M9 incidents are
+  // journal-only and never become an autonomous speech trigger by themselves.
+  acceptM9Candidate({candidate,witnessReceipts=[],sourceAgeMs=0}={}) {
+    if(!this.correlator||!this.epoch)return {accepted:false,reason:'ps2_unavailable'};
+    const correlated=this.correlator.ingestM9({nativeRun:this.epoch,candidate,witnessReceipts,sourceAgeMs});
+    if(correlated.duplicate)this.ps2Diagnostics.duplicates=Math.min(MAX_COUNTER,this.ps2Diagnostics.duplicates+1);
+    else if(correlated.accepted){
+      this.ps2Diagnostics.correlated=Math.min(MAX_COUNTER,this.ps2Diagnostics.correlated+Number(Boolean(correlated.episodeId)));
+      this.ps2Diagnostics.witnessed=Math.min(MAX_COUNTER,this.ps2Diagnostics.witnessed+correlated.observations.length);
+    }
+    if(!correlated.accepted)this.ps2Diagnostics.dropped=Math.min(MAX_COUNTER,this.ps2Diagnostics.dropped+1);
+    for(const observation of correlated.observations||[])this.#tapAcceptedObservation(observation);
+    return correlated;
   }
   situationFor(ref,playerCaptureRef=null) {
     let view={};try {view=this.situationProvider(ref)??{};} catch {}

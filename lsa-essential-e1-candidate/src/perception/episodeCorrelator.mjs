@@ -1,6 +1,6 @@
-import { validateSignal, validateWitnessReceipt } from './contracts.mjs';
+import { validateSignal, validateWitnessReceipt, M9_EVENT_TYPES } from './contracts.mjs';
 import { isUuid } from '../identity/identityContract.mjs';
-import { randomUUID } from 'node:crypto';
+import { randomUUID, createHash } from 'node:crypto';
 
 const EVENT = Object.freeze({
   firing: ['firing_burst', 'routine', 'firing'],
@@ -132,6 +132,54 @@ export class EpisodeCorrelator {
     return { accepted: true, duplicate: false, episodeId, observations: emitted, removedObservationIds, qualified: qualified.length, observationRejected: rejected };
   }
 
+  // M9 source-qualified incident. The candidate has already been classified by
+  // M9NativeEventProducer from an authenticated native sample, and the witness
+  // receipts are the native WitnessPolicy results for that SAME sample tick.
+  // Only firsthand receipts at the candidate tick qualify an observer; a
+  // missing receipt is "unknown", never "did not witness".
+  ingestM9({ nativeRun, candidate, witnessReceipts = [], sourceAgeMs = 0 }) {
+    if (!isUuid(nativeRun) || candidate?.kind !== 'm9_candidate' || candidate.nativeRun !== nativeRun ||
+        !M9_EVENT_TYPES.includes(candidate.eventType) || !isUuid(candidate.eventId) ||
+        !isUuid(candidate.playerCaptureRef) || !Array.isArray(witnessReceipts) ||
+        witnessReceipts.length > 16 || !witnessReceipts.every(validateWitnessReceipt))
+      return { accepted: false, reason: 'invalid_input' };
+    this.expire();
+    const signalId = m9SignalId(candidate);
+    const eventKey = `${nativeRun}:m9:${signalId}`;
+    if (this.seen.has(eventKey)) { this.duplicates++; return { accepted: true, duplicate: true, episodeId: this.seen.get(eventKey).episodeId, observations: [] }; }
+    if (this.seen.size >= CAP.dedupe) { this.dropped++; return { accepted: false, reason: 'dedupe_capacity' }; }
+    const playerAnchor = this.anchor(candidate.playerCaptureRef);
+    if (playerAnchor?.kind !== 'player' || !this.current(candidate.playerCaptureRef))
+      return { accepted: false, reason: 'player_anchor_not_current' };
+    const qualified = witnessReceipts.filter(r => r.status === 'witnessed' &&
+      ['self', 'visual', 'auditory'].includes(r.evidence.channel) &&
+      r.evidence.sampledGameTick === candidate.gameTick &&
+      this.current(r.observer.captureRef) && this.anchor(r.observer.captureRef)?.kind === 'ped');
+    if (!qualified.length) { this.remember(eventKey, { episodeId: null }); return { accepted: true, duplicate: false, episodeId: null, observations: [] }; }
+    const now = this.now();
+    const expiresAtMonotonicMs = now + CAP.episodeMs;
+    const player = { captureRef: candidate.playerCaptureRef, kind: 'player' };
+    const episodeId = randomUUID();
+    const episodeClaim = { claimId: randomUUID(), kind: 'incident', certainty: 'supported', evidence: { channel: 'self', basis: 'sampled_state', sampledGameTick: candidate.gameTick }, source: player, details: { eventSignalId: signalId, reason: `m9_${candidate.eventType}` } };
+    const episode = { version: 1, episodeId, revision: 1, nativeRun, gameTick: candidate.gameTick, expiresAtMonotonicMs, status: 'open', participants: [player], claims: [episodeClaim], producerSequences: [] };
+    if (!this.episodes.put(episode)) { this.dropped++; this.remember(eventKey, { episodeId }); return { accepted: false, reason: 'episode_rejected' }; }
+    const emitted = [];
+    for (const receipt of qualified) {
+      const observerRef = receipt.observer.captureRef;
+      const claim = { claimId: randomUUID(), kind: 'incident', certainty: receipt.certainty === 'uncertain' ? 'uncertain' : 'supported', evidence: { ...receipt.evidence }, source: player, details: { eventSignalId: signalId, reason: `m9_${candidate.eventType}` } };
+      const observation = {
+        version: 1, observationId: randomUUID(), episodeId, revision: 1,
+        observer: { captureRef: observerRef, kind: 'ped' }, observedAt: { nativeRun, gameTick: receipt.evidence.sampledGameTick, receivedUtc: this.utc() },
+        expiresAtMonotonicMs: Math.min(now + 120000, expiresAtMonotonicMs + 90000), eventType: candidate.eventType, severity: 'notable',
+        claims: [claim], recognizedCharacterIds: [],
+      };
+      if (this.observations.put(observation, { sourceAgeMs })) emitted.push(observation);
+      else this.dropped++;
+    }
+    this.remember(eventKey, { episodeId });
+    return { accepted: true, duplicate: false, episodeId, observations: emitted, removedObservationIds: [] };
+  }
+
   closeRadioVehicle(vehicle) {
     const episodeId=vehicle ? this.radioCurrent.get(vehicle) : null;
     let removedObservationIds=[];
@@ -168,6 +216,16 @@ export class EpisodeCorrelator {
   }
   // A channel reset discards correlation state; loss diagnostics stay cumulative.
   clear() { this.seen.clear(); this.latest.clear(); this.radioCurrent.clear(); this.radioSignature.clear(); this.duplicates = 0; }
+}
+
+// P2's native-receipt replay fence keys on this id. It deliberately EXCLUDES the
+// companion adapterEpoch, so a pipe reconnect that re-delivers the same native
+// incident (same host run / world epoch / player / evidence) keeps one identity.
+export function m9SignalId(candidate) {
+  const h = Buffer.from(createHash('sha256').update(JSON.stringify(['M9-SIGNAL', candidate.hostRunId, candidate.worldEpoch, candidate.playerCaptureRef, candidate.eventType, candidate.nativeEvidenceId])).digest().subarray(0, 16));
+  h[6] = h[6] & 15 | 64; h[8] = h[8] & 63 | 128;
+  const x = h.toString('hex');
+  return [x.slice(0, 8), x.slice(8, 12), x.slice(12, 16), x.slice(16, 20), x.slice(20)].join('-');
 }
 
 function defaultIncidentKey(signal, family) {

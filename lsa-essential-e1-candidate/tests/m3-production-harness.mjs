@@ -28,7 +28,7 @@ export const iso=ms=>new Date(Date.UTC(2026,9,13,12,0,0)+ms).toISOString();
 export async function createHarness(t,{npcCount=2,limit,scheduler,coverage=true,
     coverageOptions={},authorityOptions={},adapterOptions={},startMs=1_000_000,
     protagonist='franklin',injectedAuthority=null,telemetry=null,config=null,memoryStoreView=store=>store,
-    onDurableEvent=()=>{}}={}) {
+    onDurableEvent=()=>{},clientOptions={},helloExtras={}}={}) {
   const dir=await fs.mkdtemp(path.join(os.tmpdir(),'ws5b-'));
   const filePath=path.join(dir,'p2.sqlite');
   const store=createP2MemoryStorage({filePath,worldProfileId,sourceRequired:true});
@@ -51,7 +51,7 @@ export async function createHarness(t,{npcCount=2,limit,scheduler,coverage=true,
   let m3=null;
   const activation=config?memoryKM3Activation(config):null;
   const client=new IntelligenceClient({mode:'shadow',pipeName:'LSA.WS5B'},{
-    connect:()=>socket,now:()=>clock.ms,
+    connect:()=>socket,now:()=>clock.ms,...clientOptions,
     ...(config?{consumers:memoryKSourceActivation(config)}:{}),
     acceptedObservationTap:activation?.events.mode==='off'?null:
       receipt=>m3?m3.tap(receipt):{accepted:false,reason:'not_ready'},
@@ -103,7 +103,7 @@ export async function createHarness(t,{npcCount=2,limit,scheduler,coverage=true,
   async function connect() {
     client.start();
     socket.emit('data',Buffer.from(JSON.stringify({version:1,type:'hello',hostContextVersion:1,
-      hostRunId:host.hostRunId,worldEpoch:host.worldEpoch,adapterEpoch,streamId,observerIndexVersion:1,
+      hostRunId:host.hostRunId,worldEpoch:host.worldEpoch,adapterEpoch,streamId,observerIndexVersion:1,...helloExtras,
       capabilities:Object.fromEntries(CAPABILITIES.map(key=>[key,key!=='playerSpeech']))})+'\n'));
     await hop();await hop();
     send('anchors',anchors());send('observer_index',indexRows());

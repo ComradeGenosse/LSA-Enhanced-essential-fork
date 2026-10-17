@@ -232,6 +232,9 @@ internal static class Program
         sourceProducer.Retire();
         Check(!sourceProducer.Capture(actualCallback,nativeRun,hostRun,1,
             sourcePlayer.CaptureRef),"producer retirement disables new proof");
+        M9SamplerTests.Run((ok,name)=>Check(ok,"sampler: "+name));
+        if(Array.IndexOf(Environment.GetCommandLineArgs(),"--m9-wire")>=0)
+            foreach(var wire in M9SamplerTests.WireFrames)Console.WriteLine("M9_WIRE "+wire);
         Console.WriteLine("M9 native: "+checks+" assertions passed");
     }
 }

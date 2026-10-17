@@ -227,6 +227,13 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
     // PS4 is the only model-facing assembler. This preflight returns evidence
     // and source-fenced read receipts, never prompt text or model instructions.
     async prepareLiveTurnMemory(args) {
+      // A durable forget/correct revokes anything the M9 callbacks armed.
+      const notePrivacyCommand=result=>{
+        try{
+          if(result?.memoryAction?.some(a=>a?.durableCommit===true&&['forgotten','corrected'].includes(a.outcome)))
+            runtime.m9Callbacks?.privacyChanged();
+        }catch{}
+      };
       try{runtime.retention?.noteForeground();}catch{}
       if(runtime.closed||memoryPause.paused)return null;
       for(const state of [journalState,recallState,commandState,interpretationState]){
@@ -245,6 +252,7 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
         // No explicit capability map: retain the inherited combined WS6 path.
         const result=await prepareLiveTurnMemory({store:journalStore,...args});
         journalState.preparation=journalOutcome(result?.status??'unavailable',result?.reason??null);
+        notePrivacyCommand(result);
         return result;
       }
       // Independently prepare each enabled consumer using exactly the same
@@ -258,6 +266,7 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
         catch{commands={status:'unavailable',reason:'command_read_failed',outcome:'command_failure'};}
         commandState.preparation=journalOutcome(commands.status,commands.reason??null);
         commandState.outcome=commands.outcome??null;
+        notePrivacyCommand(commands);
       }
       if(journalActivation.mode==='on'){
         try{history=await prepareH1ConversationHistory({store:journalStore,...args});}
@@ -290,6 +299,12 @@ export function createRuntime(config, { fetchImpl = globalThis.fetch, telemetry 
             recallState.validation=journalOutcome(h2?'ready':'invalidated',h2?null:'source_authority_revoked');
         }});
       return result??history??recall??interpretation??null;
+    },
+    // M9 spontaneous callback preparation. The callbacks runtime is attached by
+    // bootstrap only when explicitly enabled; otherwise this is inert.
+    async prepareDirectorCallbackMemory(args) {
+      if(runtime.closed||memoryPause.paused)return null;
+      return (await runtime.m9Callbacks?.prepareForTurn(args))??null;
     },
     noteH1Skipped() {
       if(journalActivation.mode==='on'){

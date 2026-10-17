@@ -77,7 +77,7 @@ namespace LSA.Intelligence
                 unchecked(ownerTick-producerTick)<=100;
         }
         public static double VisualRange(string kind) {
-            switch(kind) {case "firing":return 50;case "injury_state":case "death":case "damage":return 35;case "vehicle_damage":return 35;case "body_discovered":return 30;case "vehicle_transition":return 40;case "location_changed":case "activity_changed":return 35;default:return 0;}
+            switch(kind) {case "firing":return 50;case "injury_state":case "death":case "damage":return 35;case "vehicle_damage":return 35;case "body_discovered":return 30;case "vehicle_transition":return 40;case "m9_incident":return 40;case "location_changed":case "activity_changed":return 35;default:return 0;}
         }
         public static WitnessReceipt Evaluate(WitnessGeometry g)
         {

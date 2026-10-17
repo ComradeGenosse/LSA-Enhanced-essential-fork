@@ -42,12 +42,19 @@ const rows = [
   { id:'memory.interpretation', modes:['off','shadow','on'], dependencies:['p2.sqlite','privacy.core','memory.dialogue.player'], support:'conditional', reason:'interpretation_reader_unavailable' },
   // Callback admission needs the existing single PS4 assembler, NOT the optional
   // PERCEIVED lane. M3 committed evidence, PS3 grant and PS6 remain required.
-  { id:'memory.callbacks', modes:['off','shadow','on'], dependencies:['memory.events','ps3.salience','ps4.assembler','ps6.speech'], support:'absent', reason:'production_callback_not_registered' },
+  { id:'memory.callbacks', modes:['off','shadow','on'], dependencies:['memory.events','ps3.salience','ps4.assembler','ps6.speech'], support:'conditional', reason:'production_callback_unavailable' },
   { id:'memory.inspector', modes:['off','on'], dependencies:['p2.sqlite','privacy.core'], support:'conditional', reason:'privileged_editor_unavailable' },
-  // M9 source producers are independent of M3 consumer registration.
-  { id:'events.rollover', modes:['off','shadow','on'], dependencies:['source.core'], support:'absent', reason:'native_producer_not_in_production_build' },
-  { id:'events.wasted', modes:['off','shadow','on'], dependencies:['source.core'], support:'absent', reason:'native_producer_not_in_production_build' },
-  { id:'events.busted', modes:['off','shadow','on'], dependencies:['source.core'], support:'absent', reason:'native_producer_not_in_production_build' },
+  // M9 source producers are independent of M3 consumer registration: each
+  // family needs the authenticated native producer and the PS2 correlator, NOT
+  // memory.events. Durable journaling additionally needs memory.events=on;
+  // with it off/shadow a family is classified (or counted) but never written.
+  { id:'events.crash', modes:['off','shadow','on'], dependencies:['ps1.producers','ps2.observations'], support:'conditional', reason:'m9_native_producer_unavailable' },
+  { id:'events.rollover', modes:['off','shadow','on'], dependencies:['ps1.producers','ps2.observations'], support:'conditional', reason:'m9_native_producer_unavailable' },
+  { id:'events.airborne', modes:['off','shadow','on'], dependencies:['ps1.producers','ps2.observations'], support:'conditional', reason:'m9_native_producer_unavailable' },
+  { id:'events.water', modes:['off','shadow','on'], dependencies:['ps1.producers','ps2.observations'], support:'conditional', reason:'m9_native_producer_unavailable' },
+  { id:'events.wanted', modes:['off','shadow','on'], dependencies:['ps1.producers','ps2.observations'], support:'conditional', reason:'m9_native_producer_unavailable' },
+  { id:'events.wasted', modes:['off','shadow','on'], dependencies:['ps1.producers','ps2.observations'], support:'conditional', reason:'m9_native_producer_unavailable' },
+  { id:'events.busted', modes:['off','shadow','on'], dependencies:['ps1.producers','ps2.observations'], support:'conditional', reason:'m9_native_producer_unavailable' },
   { id:'ps7.social', modes:['off','shadow','on'], dependencies:['source.core'], support:'absent', reason:'capability_not_implemented' },
 ];
 
@@ -154,7 +161,8 @@ export function resolveMemoryKCapabilities({config = {}, available = {}} = {}) {
       if (id === 'memory.cloudCuration')
         blockers.push('persisted_consent_unverified','authorized_queue_unverified','native_idle_unverified','cloud_budget_unverified');
       if (id === 'ps6.speech') blockers.push('native_director_admission_unverified');
-      if (id === 'memory.callbacks') blockers.push('committed_witness_and_ps3_grant_unverified');
+      if (id === 'memory.callbacks') blockers.push('committed_witness_and_ps3_grant_unverified','native_player_priority_and_c06_unverified');
+      if (id.startsWith('events.')) blockers.push('m9_native_sample_and_witness_unverified');
       blockers.push('operational_receipt_unverified');
     }
     const state = !requested ? 'not_requested' : implementationStatus === 'absent' ?
