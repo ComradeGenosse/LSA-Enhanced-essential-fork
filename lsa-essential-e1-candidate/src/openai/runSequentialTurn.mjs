@@ -339,7 +339,10 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
       finally{clearTimeout(timer);}
     };
     const reasoningContext=()=>({...context,source,
-      ...(turn.act5Reply?{systemInstruction:context.systemInstruction+'\n[ACT5 PLAYER REPLY]\n'+JSON.stringify(turn.act5Reply)+'\nRespond naturally; an admitted activity is only queued, not physically complete. Do not issue a stock DO action or another activity for this confirmation.'}:{}),
+      ...(turn.act5Reply?{systemInstruction:context.systemInstruction+'\n[ACT5 PLAYER REPLY]\n'+JSON.stringify(turn.act5Reply)+
+        (turn.act5Reply.kind === 'approval_pending'
+          ? '\nConsent is staged, not executed. Do not issue a stock DO action or another activity. Never claim physical completion.'
+          : '\nThe previous ACT5 invitation is no longer actionable. Do not repeat or execute it. If the player explicitly requested a DIFFERENT existing Essential action, normal player-directed DO validation may still apply; otherwise just respond naturally. Never claim an action already happened.')}:{}),
       ...(turn.memoryDisabledForTurn?{systemInstruction:context.systemInstruction+
         '\n[MEMORY AVAILABILITY] Learned memory is unavailable for this turn. Do not claim to have saved, corrected or forgotten a memory unless a verified durable outcome was supplied. Do not invent prior memories.'}:{})});
     recoverPreRequest=async(reason,stage)=>{
@@ -620,7 +623,8 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
     const validateSpan = metrics?.startSpan('decision_validation');
     let validated;
     try {
-      if (turn.act5Reply && decision.command) throw new TypeError('ACT5 confirmation cannot run a parallel stock DO command.');
+      if (turn.act5Reply?.kind === 'approval_pending' && decision.command)
+        throw new TypeError('ACT5 confirmation cannot run a parallel stock DO command.');
       if (act5Context) {
         const {validateAct5Choice} = await import('../activities/act5Dialogue.mjs');
         if (!Object.hasOwn(decision, 'activity') ||
