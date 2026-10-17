@@ -1,5 +1,5 @@
 import {renderKnowledge} from './knowledgeRenderer.mjs';
-import {ACT5_SLOTS,validateAct5Choice} from '../activities/act5Dialogue.mjs';
+import {ACT5_CHOICES,validateAct5Choice} from '../activities/act5Dialogue.mjs';
 import {captureReferenceMap} from './turnSnapshot.mjs';
 import {composeKnowledgeInstruction,separateKnowledgeInstruction,KNOWLEDGE_GROUNDING} from './knowledgeInstructions.mjs';
 import {KNOWLEDGE_LIMITS,jsonBytes} from './knowledgeSelector.mjs';
@@ -77,10 +77,12 @@ export function act5ActivitySchema(intents) {
     ? { type:'object', additionalProperties:false, required:Object.keys(value),
         properties:Object.fromEntries(Object.entries(value).map(([key,part])=>[key,exact(part)])) }
     : { type:typeof value, enum:[value] };
-  const choices = intents.map(intent => {
-    if (!Object.hasOwn(ACT5_SLOTS,intent)) throw new TypeError('ACT5 unsupported intent');
-    return { type:'object', additionalProperties:false, required:['intent','slots'],
-      properties:{intent:{type:'string',enum:[intent]},slots:exact(ACT5_SLOTS[intent])} };
+  const choices = intents.flatMap(intent => {
+    if (!Object.hasOwn(ACT5_CHOICES,intent)) throw new TypeError('ACT5 unsupported intent');
+    return ACT5_CHOICES[intent].map(slots => ({
+      type:'object', additionalProperties:false, required:['intent','slots'],
+      properties:{intent:{type:'string',enum:[intent]},slots:exact(slots)}
+    }));
   });
   return { anyOf:[{type:'null'},...choices] };
 }
@@ -114,7 +116,10 @@ export function buildRequest({ model, effort, systemInstruction, actor, listener
     outputRules += ' ACT5: activity is null or ONE offered, closed intent/slot combination. An activity requires buffered_action (never early audio), an empty stock command, and a short natural invitation asking for player consent. The player has NOT approved yet. Never say it was executed. Do not propose while busy; do not invent targets, coordinates or capabilities.';
   }
   const act5Context = act5 ? '\n[ACT5 VERIFIED ACTIVITY OFFER]\n' +
-    JSON.stringify({availableIntents:activityContext.intents,pendingIntent:activityContext.pendingIntent,
+    JSON.stringify({availableIntents:activityContext.intents,
+      availableChoices:activityContext.availableChoices || Object.fromEntries(
+        activityContext.intents.map(intent=>[intent,ACT5_CHOICES[intent]])),
+      pendingIntent:activityContext.pendingIntent,
       ownActivityState:activityContext.activityStatus}) : '';
   const trustedInstruction=`${separateKnowledgeInstruction(systemInstruction)}\n\n[C-04 CONTEXT RULES]\n${KNOWLEDGE_GROUNDING}\n\n[E1 OUTPUT RULES]\n${outputRules}${act5Context}`;
   if(jsonBytes(trustedInstruction)>KNOWLEDGE_LIMITS.instructionBytes)throw new RangeError('knowledge_instruction_bytes');
