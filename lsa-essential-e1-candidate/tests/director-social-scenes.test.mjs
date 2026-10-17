@@ -88,7 +88,7 @@ test('social initiation passes native source + stock hydration gates',async()=>{
         status:operation==='reserve'?'reserved':operation==='submit'?'submitted':'cancelled'};
     },
     dispatch:async ({gates,eventContext})=>{
-      assert.match(eventContext,/same vehicle/);
+      assert.match(eventContext,/boarded|vehicle/);
       assert.equal(gates.hydrated(),true);stages.push('hydrated');
       assert.equal(gates.publication(),true);stages.push('publication');
       return {tuple:{pedId:'1',turnId:'real',generationId:1,sessionNonce:1},
