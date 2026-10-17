@@ -63,6 +63,9 @@ const safeTokens = new Set([
   'native_memory_source_timeout','memory_capture_unavailable','memory_receipt_unavailable','memory_capture_timeout','memory_capture_failed','memory_prepare_timeout','memory_prepare_failed','pre_request_stale',
   'memory_stale','recall_stale','opinion_stale','revision_mismatch','unclassified_stale_reason',
   'invalid_json','invalid_order','invalid_contract','sequence_gap','runtime_consistency',
+  'firing_burst','vehicle_impact','injury','death_seen','body_found','threat',
+  'non_13a_event','ps3_entitlement_stale','ps3_response_ineligible',
+  'direct_witness_unavailable','ps3_evidence_expired',
   'hello','anchors','retire','retire_batch','observer_index','observer_situation',
   'world_epoch','director_priority','director_response','signal','diagnostics',
   'channel_or_protocol_unavailable','player_anchor_unavailable','no_owned_observer',
@@ -102,6 +105,7 @@ const safeDirectorReasons = new Set([
   'reservation_recheck_veto','completion_tuple_invalid',
   'native_playback_unverified','completion_safety_veto',
   'ps6_ack_rejected','completion_unclassified',
+  'native_reserve_exception','native_submit_exception','stock_dispatch_exception','playback_terminal_exception',
 ]);
 function safeScalar(key, value) {
   if (value === null || typeof value === 'boolean') return value;

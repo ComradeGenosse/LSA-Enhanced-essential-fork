@@ -1,4 +1,26 @@
-import {selectDirectorIntent} from './sceneDirector.mjs';
+import {selectDirectorIntent,PS6_13A_EVENTS} from './sceneDirector.mjs';
+
+const speechTypes=new Set(PS6_13A_EVENTS);
+// Pure diagnostic classification only. Never creates witness evidence or a
+// Director grant; selection remains exclusively selectDirectorIntent().
+export function directorCandidateBlockReason(candidates,facts) {
+  if(!Array.isArray(candidates)||!candidates.length)return 'no_ps3_response_candidate';
+  const threat=candidates.filter(c=>speechTypes.has(c?.observation?.eventType));
+  if(!threat.length)return 'non_13a_event';
+  if(threat.every(c=>c.entitlementCurrent!==true))return 'ps3_entitlement_stale';
+  const granted=threat.filter(c=>c.entitlementCurrent===true &&
+    ['eligible','urgent'].includes(c?.decision?.response));
+  if(!granted.length)return 'ps3_response_ineligible';
+  if(granted.every(c=>!c.observation?.claims?.some(claim=>
+    claim.certainty==='supported'&&['self','visual','auditory'].includes(claim.evidence?.channel))))
+    return 'direct_witness_unavailable';
+  if(granted.every(c=>!Number.isSafeInteger(c.observedAtMonotonicMs)||
+     c.observedAtMonotonicMs>facts?.nowMonotonicMs ||
+     c.observation?.expiresAtMonotonicMs<=facts?.nowMonotonicMs ||
+     c.decision?.expiresAtMonotonicMs<=facts?.nowMonotonicMs))
+    return 'ps3_evidence_expired';
+  return 'candidate_filtered';
+}
 
 // Bounded companion-side source adapter. Runs only when the authenticated PS
 // pipeline changes; it never scans GTA, drives kb, creates turns, or fabricates
@@ -13,13 +35,14 @@ export class DirectorObservationPump {
     this.seen=new Map();this.epoch=null;this.world=null;this.inFlight=false;this.stopped=false;
   }
   stop() {this.stopped=true;this.seen.clear();}
-  diagnose(reason) {
+  diagnose(reason,eventType=null) {
     const at=this.now();
     if(this.lastDiagnostic?.reason===reason &&
+       this.lastDiagnostic?.eventType===eventType &&
        Number.isFinite(at) && at>=this.lastDiagnostic.at &&
        at-this.lastDiagnostic.at<10000)return;
-    this.lastDiagnostic={reason,at};
-    try{this.onDiagnostic(Object.freeze({reason}));}catch{}
+    this.lastDiagnostic={reason,eventType,at};
+    try{this.onDiagnostic(Object.freeze({reason,...(speechTypes.has(eventType)?{eventType}:{})}));}catch{}
   }
   // Diagnostic-only read of the existing current native source proofs.
   stampVetoReason(proposal) {
@@ -53,7 +76,7 @@ export class DirectorObservationPump {
     const runtime=this.client.runtime,epoch=runtime.epoch;
     const world=runtime.hostContext?.worldEpoch??null;
     if(epoch!==this.epoch || world!==this.world){
-      this.seen.clear();this.epoch=epoch;this.world=world;
+      this.seen.clear();this.lastDiagnostic=null;this.epoch=epoch;this.world=world;
     }
     if(!epoch || runtime.directorRequestVersion!==1){this.diagnose('channel_or_protocol_unavailable');return null;}
     const players=[...runtime.anchors.values()].filter(a=>a.kind==='player' && runtime.current(a.captureRef));
@@ -66,7 +89,7 @@ export class DirectorObservationPump {
     // Native observer membership and P2 owner lifetime are prerequisite
     // evidence. Never infer ownership from the latest conversation target.
     const eligible=[];
-    let owned=0,sourceOwners=0,ps3Candidates=0;
+    let owned=0,sourceOwners=0,ps3Candidates=0,filteredReason=null;
     for(const [speaker,index] of runtime.observerIndex) {
       if(eligible.length>=16)break;
       if(!index?.owned || index.kind!=='ped' || !runtime.current(speaker))continue;
@@ -77,7 +100,14 @@ export class DirectorObservationPump {
       ps3Candidates+=candidates.length;
       const facts={speakerCaptureRef:speaker,playerCaptureRef:player,nowMonotonicMs:now};
       const proposal=selectDirectorIntent(candidates,facts);
-      if(!proposal || this.seen.has(proposal.decisionKey))continue;
+      if(!proposal) {
+        // Prefer a concrete PS3 selection reason over generic candidate_filtered.
+        // This is diagnostic, never an admission or authority calculation.
+        const reason=directorCandidateBlockReason(candidates,facts);
+        if(filteredReason===null || filteredReason==='non_13a_event')filteredReason=reason;
+        continue;
+      }
+      if(this.seen.has(proposal.decisionKey))continue;
       eligible.push({speaker,candidates,facts,proposal});
     }
     eligible.sort((a,b)=>(b.proposal.urgency==='urgent')-(a.proposal.urgency==='urgent') ||
@@ -86,12 +116,16 @@ export class DirectorObservationPump {
     const selected=eligible[0];
     if(!selected){
       this.diagnose(!owned?'no_owned_observer':!sourceOwners?'owner_proof_unavailable':
-        !ps3Candidates?'no_ps3_response_candidate':'candidate_filtered');
+        !ps3Candidates?'no_ps3_response_candidate':filteredReason??'candidate_filtered');
       return null;
     }
+    // Event category is a closed, non-identifying diagnostic dimension.
+    const eventType=selected.candidates.find(c=>c?.observation?.observationId===
+      selected.proposal.observationId && c?.decision?.decisionKey===selected.proposal.decisionKey)
+      ?.observation?.eventType;
     // An attempted original decision key is spent for this producer epoch.
     // Capacity exhaustion is a veto, never implicit eviction/retry.
-    if(this.seen.size>=128){this.diagnose('dedupe_capacity');return null;}
+    if(this.seen.size>=128){this.diagnose('dedupe_capacity',eventType);return null;}
     // Missing native player-priority/owner proof is NOT a PS6 attempt.
     // Do not burn a fleeting PS3 entitlement before C-06 can even be asked.
     // Shadow mode stays strictly non-executing and needs no native stamp.
@@ -99,8 +133,9 @@ export class DirectorObservationPump {
     try {stamp=this.stampFor(selected.proposal,selected.facts);}catch{}
     if(!stamp && this.coordinator.mode!=='shadow') {
       const reason=this.stampVetoReason(selected.proposal)??'stamp_provider_unavailable';
-      this.diagnose(reason);
-      const blocked=Object.freeze({status:'not_admitted',diagnosticReason:reason});
+      this.diagnose(reason,eventType);
+      const blocked=Object.freeze({status:'not_admitted',diagnosticReason:reason,
+        ...(speechTypes.has(eventType)?{eventType}:{})});
       try{this.onResult(blocked);}catch{}
       return blocked;
     }
@@ -116,11 +151,13 @@ export class DirectorObservationPump {
       // Preserve the coordinator's status and execution behavior.
       const diagnosticReason=outcome?.status==='original_ps3_unavailable' ?
         (stamp?'original_ps3_entitlement_unverified':'stamp_unavailable'):null;
-      try {this.onResult(diagnosticReason?
-        Object.freeze({...outcome,diagnosticReason}):outcome);}catch{}
+      try {this.onResult(Object.freeze({...outcome,
+        ...(diagnosticReason?{diagnosticReason}:{}),
+        ...(speechTypes.has(eventType)?{eventType}:{})}));}catch{}
       return outcome;
     } catch {
-      const result=Object.freeze({status:'producer_failed'});
+      const result=Object.freeze({status:'producer_failed',
+        ...(speechTypes.has(eventType)?{eventType}:{})});
       try {this.onResult(result);}catch{}
       return result;
     } finally {this.inFlight=false;}

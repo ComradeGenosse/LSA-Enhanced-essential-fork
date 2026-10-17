@@ -82,3 +82,39 @@ test('stale native player priority does not burn a candidate; reconnect requires
  assert.equal((await pump.tick()).status,'not_admitted');assert.equal(calls,1);
  pump.stop();
 });
+
+
+test('selection diagnostic distinguishes non-13a chatter, unqualified witness and stale evidence without granting speech',async()=>{
+ const {directorCandidateBlockReason}=await import('../src/perception/directorProduction.mjs');
+ assert.equal(directorCandidateBlockReason([evidence('radio_heard')],facts),'non_13a_event');
+ assert.equal(directorCandidateBlockReason([evidence('injury','report')],facts),'direct_witness_unavailable');
+ assert.equal(directorCandidateBlockReason([{...evidence('injury'),entitlementCurrent:false}],facts),'ps3_entitlement_stale');
+ assert.equal(directorCandidateBlockReason([evidence('threat','visual','none')],facts),'ps3_response_ineligible');
+ assert.equal(directorCandidateBlockReason([{...evidence('firing_burst'),observedAtMonotonicMs:0}],facts),'candidate_filtered');
+ const gone=evidence('death_seen');
+ assert.equal(directorCandidateBlockReason([{...gone,observation:{...gone.observation,expiresAtMonotonicMs:9999}}],facts),'ps3_evidence_expired');
+});
+
+test('native preflight diagnostics expose only a whitelisted event category and reset on new epoch',async()=>{
+ const events=[],runtime={epoch:'a',directorRequestVersion:1,now:()=>10000,
+  anchors:new Map([[player,{captureRef:player,kind:'player'}]]),
+  observerIndex:new Map([[speaker,{kind:'ped',owned:true}]]),current:()=>true,
+  directorOwnerProofFor:()=>({hostRunId:'run',worldEpoch:1,speakerCaptureRef:speaker}),
+  directorCandidatesFor:()=>[evidence('firing_burst')],hostContext:{hostRunId:'run',worldEpoch:1},directorPriority:null};
+ let pump;pump=new DirectorObservationPump({client:{runtime},coordinator:{mode:'active',attempt:async()=>{throw Error('not admitted');}},
+  stampFor:p=>pump.currentStamp(p),onDiagnostic:d=>events.push(d)});
+ assert.equal((await pump.tick()).diagnosticReason,'player_priority_missing');
+ assert.deepEqual(events,[{reason:'player_priority_missing',eventType:'firing_burst'}]);
+ assert.equal((await pump.tick()).diagnosticReason,'player_priority_missing');
+ assert.equal(events.length,1,'bounded repetition');
+ runtime.epoch='b';
+ assert.equal((await pump.tick()).diagnosticReason,'player_priority_missing');
+ assert.equal(events.length,2,'reconnect emits new meaningful gate');
+});
+
+test('PS6 telemetry admits only closed event and gate values',async()=>{
+ const {sanitizeTelemetryData}=await import('../src/observability/eventContract.mjs');
+ assert.deepEqual(sanitizeTelemetryData({eventType:'injury',diagnosticReason:'stock_dispatch_exception',
+  rawConversation:'private words'}),{eventType:'injury',diagnosticReason:'stock_dispatch_exception'});
+ assert.deepEqual(sanitizeTelemetryData({eventType:'private NPC name',diagnosticReason:'arbitrary private content'}),{});
+});

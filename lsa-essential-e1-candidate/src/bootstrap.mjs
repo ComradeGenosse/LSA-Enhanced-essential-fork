@@ -166,6 +166,7 @@ export async function createRuntimeForBundle(options = {}) {
       'memory.journalContext':runtime.services.memoryJournalDiagnostics(),
       'memory.recall':runtime.services.memoryRecallDiagnostics(),
       'memory.commands':runtime.services.memoryCommandDiagnostics(),
+      'memory.interpretation':runtime.services.memoryInterpretationDiagnostics(),
       'memory.deterministic':runtime.services.memoryRetentionDiagnostics(),
       ...(runtime.memoryD02?{'authority.d02':Object.freeze({requestedMode:'on',
         state:runtime.closed?'stopped':runtime.memoryD02.status().settled?'operational':'waiting',
@@ -219,7 +220,7 @@ export async function createRuntimeForBundle(options = {}) {
       'memory.recall':typeof runtime.services.memoryRecallDiagnostics==='function',
       'memory.commands':typeof runtime.services.memoryCommandDiagnostics==='function',
       'memory.deterministic':!!runtime.retention,
-      'memory.interpretation':typeof runtime.services.prepareLiveTurnMemory==='function',
+      'memory.interpretation':typeof runtime.services.memoryInterpretationDiagnostics==='function',
     };
     const environment=Object.freeze({
       source:Object.freeze({
@@ -417,7 +418,8 @@ export async function createRuntimeForBundle(options = {}) {
       stampFor:proposal=>pump.currentStamp(proposal),
       onDiagnostic:result=>{
         try {telemetry?.emit?.('director_gate',null,'internal',{
-          reason:result.reason,configuredMode:config.spontaneousSpeech.mode,
+          reason:result.reason,eventType:result.eventType,
+          configuredMode:config.spontaneousSpeech.mode,
           nativeExperimental:client.runtime.directorPriority?.experimentalEnabled===true,
         },'internal');}catch{}
       },
@@ -425,6 +427,7 @@ export async function createRuntimeForBundle(options = {}) {
         try {telemetry?.emit?.('director_candidate',null,'internal',{
           status:outcome?.status??'unknown',nativeReason:outcome?.nativeReason,
           diagnosticReason:outcome?.diagnosticReason??null,
+          eventType:outcome?.eventType,
           configuredMode:config.spontaneousSpeech.mode,
           executionAvailable:experimental &&
             client.runtime.directorPriority?.experimentalEnabled===true,

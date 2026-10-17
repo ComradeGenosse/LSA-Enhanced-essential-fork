@@ -70,6 +70,7 @@ export class SceneDirectorSpeech {
     const request=async operation=>this.nativeRequest({operation,ticket,proposal,stamp,
       // Cancellation remains legal long after the original candidate TTL.
       ageMs:operation==='cancel'?0:currentAge()});
+    let failureStage='native_reserve';
     try {
       let receipt=await request('reserve');
       if(receipt?.ticketId!==ticket.ticketId || receipt.status!=='reserved')
@@ -84,6 +85,7 @@ export class SceneDirectorSpeech {
           diagnosticReason:'reservation_recheck_veto'});
       if(!this.originalGrantCurrent(proposal,stamp))
         return Object.freeze({status:'stale_before_submit'});
+      failureStage='native_submit';
       receipt=await request('submit');
       if(receipt?.ticketId!==ticket.ticketId || receipt.status!=='submitted')
         return Object.freeze({status:'native_submit_rejected',nativeReason:nativeVeto(receipt)});
@@ -97,6 +99,7 @@ export class SceneDirectorSpeech {
           this.originalGrantCurrent(proposal,stamp) &&
           this.admission.beforePublication(ticket.ticketId,stamp),
       });
+      failureStage='stock_dispatch';
       const result=await this.dispatch(Object.freeze({
         ticket,proposal,stamp,gates,eventContext,
         source:'scene_director',reason:'ps6_observer',
@@ -107,12 +110,15 @@ export class SceneDirectorSpeech {
       }
       if(!this.admission.bindNativeTuple(ticket.ticketId,stamp,result.tuple))
         return Object.freeze({status:'tuple_rejected'});
+      failureStage='playback_terminal';
       const outcome=await result.terminal;
       const delivered=this.admission.finish(ticket.ticketId,result.tuple,outcome);
       return Object.freeze(delivered?{status:'delivered'}:
         {status:'not_delivered',diagnosticReason:this.admission.lastFinishFailure??'completion_unclassified'});
     } catch {
-      return Object.freeze({status:'failed'});
+      // No raw exception/message, ticket, identity or prompt in the logs.
+      // Differentiate native handshake, stock allocation and playback faults.
+      return Object.freeze({status:'failed',diagnosticReason:failureStage+'_exception'});
     } finally {
       this.admission.cancel(ticket.ticketId);
       // Release even after a native veto; cancel never grants authority.
