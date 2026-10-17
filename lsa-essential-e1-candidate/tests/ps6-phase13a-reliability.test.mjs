@@ -84,6 +84,38 @@ test('stale native player priority does not burn a candidate; reconnect requires
 });
 
 
+test('spent top-ranked event does not starve another independently PS3-granted event',async()=>{
+ let calls=0;
+ const first=evidence('firing_burst','visual','urgent');
+ const second=evidence('injury','visual','eligible');
+ second.observation.observationId='7d21409c-bfd0-45a3-b17b-459bc4997100';
+ second.decision.observationId=second.observation.observationId;
+ second.decision.decisionKey='ps3-second-event';
+ const runtime={epoch:'same-run',directorRequestVersion:1,now:()=>10000,
+   hostContext:{hostRunId:'run',worldEpoch:1},
+   anchors:new Map([[player,{captureRef:player,kind:'player'}]]),
+   observerIndex:new Map([[speaker,{kind:'ped',owned:true}]]),current:()=>true,
+   directorOwnerProofFor:()=>({hostRunId:'run',worldEpoch:1,speakerCaptureRef:speaker}),
+   directorCandidatesFor:()=>[first,second]};
+ const attempted=[];
+ const coordinator={mode:'active',attempt:async({candidates,facts})=>{
+   calls++;
+   const selected=selectDirectorIntent(candidates,facts);
+   attempted.push(selected?.decisionKey);
+   return {status:'not_admitted'};
+ }};
+ const pump=new DirectorObservationPump({client:{runtime},coordinator,
+   now:()=>10000,stampFor:()=>({hostRunId:'run',worldEpoch:1})});
+ assert.equal((await pump.tick()).status,'not_admitted');
+ assert.equal((await pump.tick()).status,'not_admitted');
+ assert.equal(await pump.tick(),null,'spent decisions must not replay');
+ assert.equal(calls,2);
+ assert.deepEqual(attempted,['ps3-13a-grant','ps3-second-event'],
+   'coordinator must receive the filtered slice, never reselect spent urgent event');
+ assert.equal(pump.seen.size,2);
+ pump.stop();
+});
+
 test('selection diagnostic distinguishes non-13a chatter, unqualified witness and stale evidence without granting speech',async()=>{
  const {directorCandidateBlockReason}=await import('../src/perception/directorProduction.mjs');
  assert.equal(directorCandidateBlockReason([evidence('radio_heard')],facts),'non_13a_event');
