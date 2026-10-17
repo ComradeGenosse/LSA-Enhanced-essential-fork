@@ -16,7 +16,7 @@ namespace LSA.Activities
         public bool HoldingItem, ScenarioActive;
         public string HeldItemName;
         // ACT6: sampled physical movement from one dispatched and owner-scoped native task.
-        public bool NavIssued, NavProgress, NavStuck, NavVehicleSame, NavArrived;
+        public bool NavIssued, NavTaskSeen, NavTaskLost, NavProgress, NavStuck, NavVehicleSame, NavArrived;
         public float NavDistance;
     }
 
@@ -195,13 +195,13 @@ namespace LSA.Activities
         // Mode health only. A scenario is never PHYSICALLY_COMPLETED.
         static Verdict Navigation(ModeSample sample, bool driving)
         {
-            if (!sample.NavIssued) return Verdict.Fail("navigation_failed");
+            if (!sample.NavIssued || sample.NavTaskLost) return Verdict.Fail("navigation_failed");
             if (driving && (!sample.InVehicle || !sample.IsDriver)) return Verdict.Fail("driver_required");
             if (driving && !sample.NavVehicleSame) return Verdict.Fail("vehicle_mismatch");
             if (!driving && sample.InVehicle) return Verdict.Fail("on_foot_required");
-            if (sample.NavArrived && sample.NavProgress) return Verdict.Of("completed", driving ? "vehicle_motion" : "distance", "strong", "at");
+            if (sample.NavArrived && sample.NavProgress && sample.NavTaskSeen) return Verdict.Of("completed", driving ? "vehicle_motion" : "distance", "strong", "at");
             if (sample.NavStuck) return Verdict.Fail("no_progress");
-            if (sample.NavProgress) return Verdict.Of("progress", driving ? "vehicle_motion" : "distance", "medium");
+            if (sample.NavProgress && sample.NavTaskSeen) return Verdict.Of("progress", driving ? "vehicle_motion" : "distance", "medium");
             return Verdict.NotYet;
         }
 

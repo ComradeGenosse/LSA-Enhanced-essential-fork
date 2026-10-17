@@ -137,6 +137,8 @@ namespace LSA.Activities
             if (execution == null) return;
             if (execution.IncarnationId != incarnationId) { StaleReceipts++; return; }
             Bump(encounterId);
+            // ACT6 must stop while ownership evidence is retained.
+            if (IsNavigation(execution)) TryStop(execution, true);
             try { World?.EndOwnership(encounterId, true); } catch { }
             AddEvidence(execution, "control_changed", "weak", gameMs, "externalCommand", "p2_control");
             Finish(session, execution, "SUPERSEDED", "superseded_player", gameMs, wallMs);
@@ -468,6 +470,7 @@ namespace LSA.Activities
             }
         }
 
+        static bool IsNavigation(LiveExecution execution) => execution.Capability == "walk_to" || execution.Capability == "drive_to";
         void TryStop(LiveExecution execution, bool stop) { try { World?.Cancel(execution.EncounterId, execution.Capability, stop); } catch { } }
 
         void Finish(ActivitySession session, LiveExecution execution, string state, string reason, uint gameMs, long wallMs)
@@ -475,6 +478,9 @@ namespace LSA.Activities
             if (execution.Terminal) return;
             // Modes never complete, and nothing completes without strong evidence. Handler acceptance is not completion.
             if (state == "PHYSICALLY_COMPLETED" && (ActivityContracts.IsMode(execution.Capability) || !execution.Evidence.Any(item => (string)item["strength"] == "strong"))) return;
+            // Stop before EndOwnership discards nav state. NoteForeign deliberately discards
+            // it first when an unrelated Essential command takes control.
+            if (IsNavigation(execution)) TryStop(execution, true);
             execution.State = state; execution.Reason = reason; execution.Terminal = true; execution.Sequence++;
             if (state == "FAILED") Failed++; else if (state == "SUPERSEDED") Superseded++; else if (state == "TIMED_OUT") TimedOut++; else if (state == "DETACHED" || state == "CANCELLED") Detached++;
             active.Remove(execution.EncounterId);

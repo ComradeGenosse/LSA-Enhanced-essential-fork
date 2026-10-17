@@ -10,6 +10,8 @@ static class Act6Tests
         var ctx=new AdapterContext {Capability="walk_to"};
         check(CompletionAdapters.Judge("place_arrival",walk,ctx).Kind!="completed","ACT6 proximity alone is not arrival");
         walk.NavProgress=true;
+        check(CompletionAdapters.Judge("place_arrival",walk,ctx).Kind!="progress","ACT6 movement without live task never counts");
+        walk.NavTaskSeen=true;
         check(CompletionAdapters.Judge("place_arrival",walk,ctx).Kind=="progress","ACT6 progress requires physical observed motion");
         walk.NavArrived=true;
         var verdict=CompletionAdapters.Judge("place_arrival",walk,ctx);
@@ -18,8 +20,10 @@ static class Act6Tests
         check(CompletionAdapters.Judge("place_arrival",walk,ctx).Kind=="failed","ACT6 refuses a missing physical task");
         walk.NavIssued=true;walk.NavArrived=false;walk.NavStuck=true;
         check(CompletionAdapters.Judge("place_arrival",walk,ctx).Reason=="no_progress","ACT6 stuck walker failure");
+        walk.NavStuck=false;walk.NavTaskLost=true;
+        check(CompletionAdapters.Judge("place_arrival",walk,ctx).Reason=="navigation_failed","ACT6 refuses stolen/finished task outside destination");
 
-        var drive=new ModeSample {Alive=true,InVehicle=true,IsDriver=true,NavIssued=true,NavVehicleSame=true,NavProgress=true,NavArrived=true,NavDistance=3f};
+        var drive=new ModeSample {Alive=true,InVehicle=true,IsDriver=true,NavIssued=true,NavVehicleSame=true,NavTaskSeen=true,NavProgress=true,NavArrived=true,NavDistance=3f};
         var driving=CompletionAdapters.Judge("drive_arrival",drive,new AdapterContext{Capability="drive_to"});
         check(driving.Kind=="completed" && driving.EvidenceKind=="vehicle_motion","ACT6 vehicle completion requires real driving evidence");
         drive.IsDriver=false;

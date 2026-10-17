@@ -31,8 +31,8 @@ namespace LSA.PromotedCharacters
                 public IntPtr PedAddress, VehicleAddress;
                 public float InitialDistance, BestDistance, MovedMeters;
                 public Vector3 LastPosition;
-                public uint IssuedAt, LastProgressAt;
-                public bool Progress;
+                public uint IssuedAt, LastProgressAt, LastSampleAt;
+                public bool Progress, TaskSeen;
                 public int ArrivalSamples;
             }
             static readonly Dictionary<string, Vector3> Landmarks = new Dictionary<string, Vector3>(StringComparer.OrdinalIgnoreCase) {
@@ -144,6 +144,29 @@ namespace LSA.PromotedCharacters
             static float FlatDistance(Vector3 a, Vector3 b) {
                 var dx = a.X-b.X; var dy = a.Y-b.Y; return (float)Math.Sqrt(dx*dx + dy*dy);
             }
+            static float Distance3(Vector3 a, Vector3 b) {
+                var dx=a.X-b.X;var dy=a.Y-b.Y;var dz=a.Z-b.Z;
+                return (float)Math.Sqrt(dx*dx+dy*dy+dz*dz);
+            }
+            // GTA script-task hash, not the native invocation hash.
+            static int NavTaskHash(string capability) =>
+                capability=="walk_to"?unchecked((int)0x2A89B8A7u):unchecked((int)0x21D33957u);
+            static int NavStatus(Ped ped,string capability) =>
+                NativeFunction.CallByName<int>("GET_SCRIPT_TASK_STATUS",ped,NavTaskHash(capability));
+            // Resolve a native street node close to the requested destination.
+            // Never drive directly to landmark coordinates off the road.
+            static bool RoadTarget(StepArgs args) {
+                if (args==null || !args.HasPlace) return false;
+                var original=new Vector3(args.PlaceTarget.X,args.PlaceTarget.Y,args.PlaceTarget.Z);
+                try {
+                    var road=World.GetNextPositionOnStreet(original);
+                    if (!ValidPlace(road) || FlatDistance(original,road)>85f ||
+                        Math.Abs(original.Z-road.Z)>20f ||
+                        !NativeFunction.CallByName<bool>("IS_POINT_ON_ROAD",road.X,road.Y,road.Z,0)) return false;
+                    var target=args.PlaceTarget;target.X=road.X;target.Y=road.Y;target.Z=road.Z;
+                    args.PlaceTarget=target;return true;
+                } catch { return false; }
+            }
             public PreflightResult Preflight(string encounterId, string capability, StepArgs args)
             {
                 var sample = Sample(encounterId, args);
@@ -172,14 +195,11 @@ namespace LSA.PromotedCharacters
                     if (capability == "walk_to" && sample.InVehicle) return new PreflightResult { Reason = "on_foot_required" };
                     if (capability == "drive_to") {
                         if (!sample.InVehicle || !sample.IsDriver) return new PreflightResult { Reason = "driver_required" };
-                        try {
-                            if (!NativeFunction.CallByName<bool>("IS_POINT_ON_ROAD", args.PlaceTarget.X,args.PlaceTarget.Y,args.PlaceTarget.Z,0))
-                                return new PreflightResult { Reason = "navigation_failed" };
-                        } catch { return new PreflightResult { Reason = "navigation_failed" }; }
+                        if (!RoadTarget(args)) return new PreflightResult { Reason = "navigation_failed" };
                     }
                     // A nearby NPC is not a completed navigation. Require a real task and observed movement.
                     var destination = new Vector3(args.PlaceTarget.X,args.PlaceTarget.Y,args.PlaceTarget.Z);
-                    if (FlatDistance(Find(encounterId).Ped.Position,destination) <= (capability == "walk_to" ? 3f : 8f))
+                    if (Distance3(Find(encounterId).Ped.Position,destination) <= (capability == "walk_to" ? 3f : 8f))
                         return new PreflightResult { Reason = "already_satisfied" };
                 }
                 if (capability == "begin_driving") {
@@ -256,8 +276,7 @@ namespace LSA.PromotedCharacters
                     Vehicle vehicle = null;
                     if (capability == "drive_to") {
                         vehicle = ped.CurrentVehicle;
-                        if (vehicle == null || !vehicle.Exists() || !vehicle.IsAlive || ped.SeatIndex != -1 ||
-                            !NativeFunction.CallByName<bool>("IS_POINT_ON_ROAD",args.PlaceTarget.X,args.PlaceTarget.Y,args.PlaceTarget.Z,0)) return false;
+                        if (vehicle == null || !vehicle.Exists() || !vehicle.IsAlive || ped.SeatIndex != -1 || !RoadTarget(args)) return false;
                     } else if (ped.IsInAnyVehicle(false)) return false;
                     // Supersede only our own held Essential modes before installing this ACT-owned task.
                     if (state.FollowPlayerOnFoot) { NpcActions.ClearFollowFlags(state); FollowBehavior.StopFollowTarget(state); }
@@ -272,7 +291,7 @@ namespace LSA.PromotedCharacters
                         VehicleHandle=vehicle == null ? 0 : Convert.ToUInt64(vehicle.Handle),
                         VehicleAddress=vehicle == null ? IntPtr.Zero : vehicle.MemoryAddress,
                         InitialDistance=FlatDistance(ped.Position,dest), BestDistance=FlatDistance(ped.Position,dest), LastPosition=ped.Position,
-                        IssuedAt=GameTime, LastProgressAt=GameTime
+                        IssuedAt=GameTime, LastProgressAt=GameTime, LastSampleAt=GameTime
                     };
                     own[encounterId] = capability;
                 }
@@ -307,9 +326,12 @@ namespace LSA.PromotedCharacters
                 else if ((capability == "walk_to" || capability == "drive_to") && navigation.TryGetValue(encounterId,out var nav) &&
                          nav.Capability == capability && nav.PedHandle == Convert.ToUInt64(encounter.Ped.Handle) &&
                          nav.PedAddress == encounter.Ped.MemoryAddress) {
-                    if (capability == "walk_to" && !encounter.Ped.IsInAnyVehicle(false))
+                    // Never overwrite a newer controller's task.
+                    var currentTask=false;
+                    try { var status=NavStatus(encounter.Ped,capability);currentTask=status==0 || status==1; } catch {}
+                    if (currentTask && capability == "walk_to" && !encounter.Ped.IsInAnyVehicle(false))
                         NativeFunction.CallByName<int>("TASK_STAND_STILL",encounter.Ped,1);
-                    else if (capability == "drive_to") {
+                    else if (currentTask && capability == "drive_to") {
                         Vehicle current = null;
                         try { current = encounter.Ped.CurrentVehicle; } catch { }
                         // Never stop a different vehicle's task after a driver or vehicle change.
@@ -401,8 +423,18 @@ namespace LSA.PromotedCharacters
                     item.PedHandle != Convert.ToUInt64(actor.Handle) || item.PedAddress != actor.MemoryAddress) return;
                 sample.NavIssued = true;
                 var position = new Vector3(args.PlaceTarget.X,args.PlaceTarget.Y,args.PlaceTarget.Z);
-                sample.NavDistance = FlatDistance(actor.Position,position);
+                sample.NavDistance = Distance3(actor.Position,position);
                 var now = GameTime;
+                int task;
+                try {task=NavStatus(actor,item.Capability);}catch{sample.NavTaskLost=true;return;}
+                if(task==1)item.TaskSeen=true;
+                sample.NavTaskSeen=item.TaskSeen;
+                // 7 is complete; any other unexpected state means this task is gone.
+                if ((task!=0 && task!=1 && task!=7) ||
+                    (task==7 && (!item.TaskSeen ||
+                       sample.NavDistance>(item.Capability=="drive_to"?8f:3f)))) {
+                    sample.NavTaskLost=true;return;
+                }
                 if (item.Capability == "drive_to") {
                     Vehicle current = null;
                     try { current=actor.CurrentVehicle; } catch {}
@@ -413,17 +445,21 @@ namespace LSA.PromotedCharacters
                 // Driving legitimately moves away from the goal for turns, junctions and roundabouts.
                 // Establish progress from actual displacement under the owned task; judge final arrival
                 // against the original retained target separately.
-                var displacement = FlatDistance(actor.Position,item.LastPosition);
-                if (displacement >= 1.0f) {
-                    item.LastPosition=actor.Position; item.MovedMeters+=displacement;
-                    item.LastProgressAt=now;
-                    if (item.MovedMeters>=2.0f) item.Progress=true;
+                var displacement=Distance3(actor.Position,item.LastPosition);
+                var elapsed=unchecked(now-item.LastSampleAt);item.LastSampleAt=now;
+                // Do not mistake a teleport or scripted reposition for navigation.
+                var max=(item.Capability=="drive_to"?90f:12f)*Math.Max(0.2f,elapsed/1000f)+4f;
+                if(displacement>max){sample.NavTaskLost=true;return;}
+                if(displacement>=1f){
+                    item.LastPosition=actor.Position;
+                    if(task==1){item.MovedMeters+=displacement;item.LastProgressAt=now;}
+                    if(item.MovedMeters>=2f)item.Progress=true;
                 }
                 if (sample.NavDistance < item.BestDistance) item.BestDistance=sample.NavDistance;
                 sample.NavProgress=item.Progress;
                 var close=sample.NavDistance <= (item.Capability=="drive_to"?8f:3f);
                 var stopped=item.Capability!="drive_to" || sample.VehicleSpeed<4f;
-                item.ArrivalSamples=close && stopped && item.Progress ? item.ArrivalSamples+1 : 0;
+                item.ArrivalSamples=close && stopped && item.Progress && item.TaskSeen ? item.ArrivalSamples+1 : 0;
                 sample.NavArrived=item.ArrivalSamples>=3;
                 // Do not repeatedly issue tasks or fight another controller. Report loss after bounded stall.
                 sample.NavStuck=!sample.NavArrived && unchecked(now-item.LastProgressAt)>35000u &&
