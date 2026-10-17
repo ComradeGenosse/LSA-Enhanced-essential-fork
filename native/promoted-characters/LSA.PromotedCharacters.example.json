@@ -15,5 +15,11 @@
     "mode": "off",
     "pipeName": "LSA.Activities.v1",
     "dialogueReceipts": false
+  },
+  "reactions": {
+    "mode": "off",
+    "pipeName": "LSA.Reactions.v1",
+    "disabled": [],
+    "allowDuringOwnedBehavior": false
   }
 }
