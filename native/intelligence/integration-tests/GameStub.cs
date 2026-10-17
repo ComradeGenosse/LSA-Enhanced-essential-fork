@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Runtime.InteropServices;
 namespace Rage {
     public class Entity {public uint Handle;public IntPtr MemoryAddress;public Vector3 Position;public bool Existing=true;public float Heading;public bool Exists()=>Existing;public bool Equals(Entity other)=>!ReferenceEquals(other,null)&&Handle==other.Handle;}
-    public class Ped:Entity {public bool IsDead,Shooting;public int Health=100,Armor;public Vehicle CurrentVehicle;}
+    public class Ped:Entity {public bool IsDead,Shooting;public int Health=100,Armor;public Vehicle CurrentVehicle;public uint NativeModel;}
     public class Vehicle:Entity {public Ped Driver;}
     public struct Vector3 {public float X,Y,Z;public float DistanceTo(Vector3 p)=>(float)Math.Sqrt((X-p.X)*(X-p.X)+(Y-p.Y)*(Y-p.Y)+(Z-p.Z)*(Z-p.Z));}
     public class Player {public Ped Character;}
@@ -16,12 +16,20 @@ namespace Rage.Native {
         public static int RadioTrack,RadioTextId,RadioPlayTime;
         public static bool RadioThrow,RadioTextIdThrow,RadioPlayThrow;
         public static bool Scripted,ThrowSafetyRead;
+        public static bool Playing=true,NetworkActive;
+        public static int PlayerIndex=0;
+        public static int? OverridePlayerPed,OverrideIndexedPed;
         public static bool FrontLos=true,AcousticLos=true;
         static IntPtr zone=Marshal.StringToHGlobalAnsi("ZONE1");
         public static object CallByName(string name,Type returnType,params object[] args) => CallByName<object>(name,args);
         public static T CallByName<T>(string name,params object[] args) {
             Reads++;object result;
             switch(name) {
+                case "PLAYER_ID":result=PlayerIndex;break;
+                case "IS_PLAYER_PLAYING":result=Playing;break;
+                case "PLAYER_PED_ID":result=OverridePlayerPed??unchecked((int)(Rage.Game.LocalPlayer.Character?.Handle??0));break;
+                case "GET_PLAYER_PED":result=OverrideIndexedPed??unchecked((int)(Rage.Game.LocalPlayer.Character?.Handle??0));break;
+                case "GET_ENTITY_MODEL":result=((Rage.Ped)args[0]).NativeModel;break;
                 case "IS_PED_SHOOTING":result=((Rage.Ped)args[0]).Shooting;break;
                 case "IS_PED_IN_ANY_VEHICLE":result=((Rage.Ped)args[0]).CurrentVehicle!=null;break;
                 case "IS_PED_INJURED":result=((Rage.Ped)args[0]).Health<100;break;
@@ -30,7 +38,7 @@ namespace Rage.Native {
                 case "IS_PLAYER_SWITCH_IN_PROGRESS":case "GET_MISSION_FLAG":
                 case "NETWORK_IS_SESSION_ACTIVE":
                     if(ThrowSafetyRead)throw new Exception("GTA scripted-state read failure");
-                    result=Scripted;break;
+                    result=Scripted || name=="NETWORK_IS_SESSION_ACTIVE" && NetworkActive;break;
                 case "GET_PLAYER_RADIO_STATION_NAME":
                     RadioStationReads++;if(RadioThrow)throw new InvalidOperationException("radio unavailable");result=RadioStation;break;
                 case "GET_CURRENT_TRACK_SOUND_NAME":
