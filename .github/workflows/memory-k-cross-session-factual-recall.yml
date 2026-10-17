@@ -26,6 +26,7 @@ jobs:
         with:
           node-version: '24.19.0'
       - name: P2 PS4 cross-session, H2 authority, M4 and latency regressions
+        shell: bash
         run: |
           node --import ./tools/memory-k-verification/offline.mjs --test --test-concurrency=1 \
             lsa-essential-e1-candidate/tests/memory/h2CrossSessionFactualRecall.test.mjs \
