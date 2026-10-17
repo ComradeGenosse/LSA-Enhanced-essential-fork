@@ -135,6 +135,17 @@ not available at the time of writing.
   vehicle incident, and the LOS budget (8 per sample) is adequate with a full roster.
 * Real Wasted/Busted ordering: whether the receipt edge occurs before the player ped is replaced, and
   whether witnesses are still anchored at that tick.
+* A native-only on-foot quiet heartbeat (once per ~1 s, no witness LOS calls) now
+  keeps real wanted-level/owner evidence fresh when the player leaves a vehicle;
+  null or failed wanted reads stay unknown and veto callback admission.
+* Callback optional SQLite discovery plus visibility check has one 250 ms
+  preflight budget. A late read cannot arm a callback, and original Director
+  reserve/submit is never timed out or retried by the M9 wrapper.
+* A Director invocation is recorded before calling its attempt method,
+  including through the fresh-cue adapter; an exception after that boundary
+  cannot trigger a second Director attempt.
+* M9 classification starts with enabled event families even when M3 is off;
+  without M3 no durable journal record or memory callback is produced.
 * Replay across a companion process restart relies on the native contract emitting each receipt once plus
   P2's same-tick key. A restart at a later tick cannot be fully excluded without a persisted receipt ledger.
 * Once-only and cooldown ledgers are in memory per run (reset on companion restart; bounded by the 30

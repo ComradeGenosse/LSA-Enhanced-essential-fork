@@ -287,9 +287,10 @@ export async function createRuntimeForBundle(options = {}) {
         // Strict synchronous verified PS2 tap; never execute SQLite here.
         const memoryObservationTap=receipt=>!runtime.memoryPause.paused&&memoryIntake?.acceptedObservationTap(receipt) ||
           {accepted:false,reason:'m3_owner_ledger_unavailable'};
-        // M9 native event intake (default off). Only constructed when the M3
-        // recorder can accept its observations; absent/blocked families stay off.
-        if(canBindMemory&&!runtime.memoryPause.paused&&m3Activation.events.mode!=='off'){
+        // M9 classifier is independent of M3 journal storage. Shadow and
+        // event-only modes still observe authenticated samples; only the
+        // optional M3 tap can persist events. Learned-memory pause vetoes it.
+        if(m9Activation.anyEvent&&!runtime.memoryPause.paused){
           try{
             m9Events=createM9RuntimeEvents({activation:m9Activation,
               now:()=>runtime.intelligence?.runtime.now()??Math.floor(performance.now())});

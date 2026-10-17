@@ -41,6 +41,7 @@ export const M9_CALLBACK_LIMITS = Object.freeze({
   pendingTtlMs:90_000,
   journalPage:64,
   evidenceReadsPerAttempt:3,
+  preflightBudgetMs:250,
   prepareDeadlineMs:200,
   maxContributionBytes:2048,
 });
@@ -72,6 +73,17 @@ export function createM9Callbacks({activation,store,runtime,native,quiet,directo
   const counters = {};
   const refusals = {};
   const refuse = (reason,counter = 'refused') => {bump(counters,counter);bump(refusals,reason);return reason;};
+  // Strict aggregate budget for optional P2 lookup + visibility validation.
+  // These are read-only operations: a late resolution has no callback side
+  // effects. Never race the actual Director once reserve/submit may begin.
+  const boundedPreflightRead = async (work,ms) => {
+    if (!Number.isFinite(ms) || ms <= 0) return {timedOut:true};
+    let timer;
+    try {return await Promise.race([
+      Promise.resolve().then(work).then(value=>({value}),()=>({failed:true})),
+      new Promise(resolve=>{timer=setTimeout(()=>resolve({timedOut:true}),ms);})
+    ]);} finally {clearTimeout(timer);}
+  };
   const pending = new Map();           // signalId -> fresh candidate notification (RAM only)
   const used = new Map();              // recordId -> usedAtMs  (once-only per run)
   const npcUntil = new Map();          // characterId -> cooldown end (wall ms)
@@ -328,7 +340,15 @@ export function createM9Callbacks({activation,store,runtime,native,quiet,directo
     const fresh = () => freshAdmission ??= new M9DirectorCueAdmission({
       cueCandidates:cues ??= new M9MemoryCueCandidates({authorizeWitness:({candidate,witness}) =>
         admissionContext?.authority.check({candidate,witness}).authorized === true,now}),
-      existingSceneDirector:coordinator,
+      existingSceneDirector:{
+        originalGrantCurrent:(...args)=>coordinator.originalGrantCurrent(...args),
+        attempt:input=>{
+          // Records the one-way boundary before the original Director can
+          // reserve or submit. An exception after this point is never retried.
+          admissionContext?.markDirector?.();
+          return coordinator.attempt(input);
+        },
+      },
       readCurrentPriority:input => readPriority({proposal:input?.proposal ?? admissionContext?.proposal,
         stamp:input?.stamp ?? admissionContext?.stamp}),
       registerPs4MemoryCue:({cue,proposal}) => {
@@ -349,54 +369,73 @@ export function createM9Callbacks({activation,store,runtime,native,quiet,directo
       return async input => {
         if (disposed || attempting || !memoryActive()) return target.attempt(input);
         attempting = true;
-        try {return await callbackAttempt(target,input);}
-        catch {bump(counters,'faults');return target.attempt(input);}
+        let directorStarted = false;
+        const markDirector = () => {directorStarted = true;};
+        const attemptDirector = request => {markDirector();return target.attempt(request);};
+        try {return await callbackAttempt(input,attemptDirector,markDirector);}
+        catch {
+          bump(counters,'faults');
+          // A partially executed native Director turn is non-replayable.
+          // Before entry, optional memory failures may safely fall back once.
+          return directorStarted ? Object.freeze({status:'failed'}) : attemptDirector(input);
+        }
         finally {attempting = false;}
       };
     }});
 
-    async function callbackAttempt(target,input) {
+    async function callbackAttempt(input,attemptDirector,markDirector) {
       bump(counters,'directorAttempts');
       const proposal = selectDirectorIntent(input?.candidates ?? [],input?.facts ?? {});
-      if (!proposal || !input.stamp) return target.attempt(input);
-      if (wallNow() < globalUntil) {refuse('global_cooldown','skipped');return target.attempt(input);}
+      if (!proposal || !input.stamp) return attemptDirector(input);
+      if (wallNow() < globalUntil) {refuse('global_cooldown','skipped');return attemptDirector(input);}
       const speaker = speakerFor(proposal.speakerCaptureRef);
-      if (!speaker) {refuse('speaker_unresolved','skipped');return target.attempt(input);}
-      const loaded = await loadEligible(speaker);
-      if (!loaded.entry) {refuse(loaded.reason,'skipped');return target.attempt(input);}
+      if (!speaker) {refuse('speaker_unresolved','skipped');return attemptDirector(input);}
+      const preflightDeadline=performance.now()+Math.max(1,Math.min(500,L.preflightBudgetMs));
+      const eligible=await boundedPreflightRead(()=>loadEligible(speaker),
+        Math.max(0,preflightDeadline-performance.now()));
+      if(eligible.timedOut||eligible.failed) {
+        refuse(eligible.timedOut?'preflight_timeout':'preflight_failed','skipped');
+        return attemptDirector(input);
+      }
+      const loaded=eligible.value;
+      if (!loaded.entry) {refuse(loaded.reason,'skipped');return attemptDirector(input);}
       const entry = loaded.entry;
       const protagonistKey = protagonistFor(proposal.playerCaptureRef);
       if (mode === 'shadow') {
         bump(counters,'shadowWouldCallback');
         try {telemetry?.emit?.('m9_callback_shadow',null,'internal',{family:entry.family},'internal');} catch {}
-        return target.attempt(input);
+        return attemptDirector(input);
       }
       const priority = readPriority({proposal,stamp:input.stamp});
-      if (!priorityOk(priority)) {refuse('player_or_combat_priority','skipped');return target.attempt(input);}
-      if (store.memoryRequestFence !== entry.fence || !(await visible(speaker,entry,protagonistKey))) {
-        refuse('event_not_visible','skipped');return target.attempt(input);
+      if (!priorityOk(priority)) {refuse('player_or_combat_priority','skipped');return attemptDirector(input);}
+      const visibility=await boundedPreflightRead(()=>visible(speaker,entry,protagonistKey),
+        Math.max(0,preflightDeadline-performance.now()));
+      if (visibility.timedOut||visibility.failed || store.memoryRequestFence !== entry.fence ||
+          visibility.value !== true) {
+        refuse(visibility.timedOut?'preflight_timeout':'event_not_visible','skipped');
+        return attemptDirector(input);
       }
       const candidate = freshCandidateFor(entry);
       if (candidate) {
         // Use the unchanged M9 admission: it re-reads the committed witness
         // before and after every step and unregisters in `finally`.
         const authority = authorityFor(entry,candidate,speaker,protagonistKey);
-        admissionContext = {authority,entry,speaker,protagonistKey,proposal,stamp:input.stamp};
+        admissionContext = {authority,entry,speaker,protagonistKey,proposal,stamp:input.stamp,markDirector};
         const outcome = await fresh().attempt({candidate,witness:witnessFor(entry,candidate,speaker,protagonistKey),
           ps3Candidates:input.candidates,facts:input.facts,stamp:input.stamp});
         admissionContext = null;
         bump(refusals,'fresh_' + outcome.status);
         if (FRESH_ATTEMPTED.has(outcome.status)) return outcome;
         // Refused before the Director was involved: ordinary speech continues.
-        return target.attempt(input);
+        return attemptDirector(input);
       }
       // Older than the 30 s cue window: the memory is a durable P2 event and
       // reaches the model only through the verified recall path below.
       const registered = arm({speaker,entry,proposal,protagonistKey,via:'verified_recall'});
       try {
         if (!priorityOk(readPriority({proposal,stamp:input.stamp})) || store.memoryRequestFence !== entry.fence)
-          {refuse('priority_or_fence_changed','skipped');return await target.attempt(input);}
-        return await target.attempt(input);
+          {refuse('priority_or_fence_changed','skipped');return await attemptDirector(input);}
+        return await attemptDirector(input);
       } finally {registered.unregister();}
     }
   }

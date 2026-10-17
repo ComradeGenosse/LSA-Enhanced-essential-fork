@@ -138,7 +138,23 @@ internal static class M9SamplerTests
         payload = f.Sampler.Build(f.Drive(r => { r.RollDegrees = double.NaN; }), 1800, 1800, f.Witnesses(1800));
         check(payload != null && Get(payload, "vehicle", "rollDegrees") == null, "non-finite roll never becomes a value");
 
-        // 7. Wasted/busted: first KNOWN false->true edge only, exactly once.
+        // 7. On-foot quiet-state heartbeat stays source-verified, slow, and
+        // does not ask for witness geometry. Needed for M9 callback priority
+        // after a remembered event when the player leaves the vehicle.
+        var idle = new Fixture();
+        var firstIdle = idle.Sampler.Build(idle.Foot(), 100, 100, idle.Witnesses(100));
+        check(firstIdle != null && firstIdle["vehicleCaptureRef"] == null &&
+              (int)firstIdle["wantedLevel"] == 0 &&
+              ((List<object>)firstIdle["witnessReceipts"]).Count == 0 &&
+              idle.WitnessCalls == 0, "on-foot idle heartbeat is measured and witness-free");
+        check(idle.Sampler.Build(idle.Foot(), 400, 400, idle.Witnesses(400)) == null,
+              "on-foot quiet-state cadence is bounded");
+        var nextIdle = idle.Sampler.Build(idle.Foot(), 1200, 1200, idle.Witnesses(1200));
+        check(nextIdle != null && (int)nextIdle["wantedLevel"] == 0 && idle.WitnessCalls == 0,
+              "on-foot idle heartbeat stays fresh without LOS checks");
+        WireFrames.Add(json.Serialize(nextIdle));
+
+        // 8. Wasted/busted: first KNOWN false->true edge only, exactly once.
         var t = new Fixture();
         check(t.Sampler.Build(t.Foot(r => r.PlayerDead = null), 100, 100, t.Witnesses(100)) == null, "unknown death state is not an event");
         var unknownToDead = t.Sampler.Build(t.Foot(r => r.PlayerDead = true), 200, 200, t.Witnesses(200));

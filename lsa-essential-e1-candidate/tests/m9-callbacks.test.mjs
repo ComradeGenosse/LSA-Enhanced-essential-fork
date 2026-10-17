@@ -66,6 +66,34 @@ test('shadow mode counts a would-be callback but never arms, prepares or consume
   assert.equal(counters(h).consumed ?? 0,0);
 });
 
+test('optional M9 P2 read timeout preserves the original Director once',async t => {
+  const h = await boot(t,{limits:{preflightBudgetMs:20}});
+  const [a] = h.npcs;
+  await h.crashFor(a);
+  const old = h.store.readJournalEvents;
+  h.store.readJournalEvents = () => new Promise(() => {});
+  try {
+    const r = await h.runDirector(a);
+    assert.equal(r.attempted,1,'stalled optional memory never blocks normal Director');
+    assert.equal(r.prepared,null,'timed-out data is never projected');
+    assert.equal(h.callbacks.snapshot().refusals.preflight_timeout,1);
+  } finally {h.store.readJournalEvents = old;}
+});
+
+test('an exception after the original Director starts cannot replay native admission',async t => {
+  for (const aged of [false,true]) {
+    const h = await boot(t);
+    const [a] = h.npcs;
+    await h.crashFor(a);
+    if (aged) await h.age(120_000);
+    let started=0;
+    h.coordinator.attempt=async()=>{started++;throw Error('simulated post-admission failure');};
+    const result=await h.runDirector(a,{prepare:false});
+    assert.equal(started,1,aged?'verified-recall path':'fresh-cue path');
+    assert.ok(['failed','director_or_ps4_failed'].includes(result.outcome.status));
+  }
+});
+
 test('an event older than the 30 s cue window uses the verified-recall path',async t => {
   const h = await boot(t);
   const [a] = h.npcs;

@@ -110,6 +110,26 @@ test('explicit events.crash journals through the production bootstrap; callbacks
   assert.equal(f.diag()['memory.callbacks'].requestedMode,'off');
 });
 
+test('event classifier runs when M3 journaling is off without saving a memory',async t => {
+  const f = await fixture(t,{caps:{'events.crash':'on','memory.events':'off'}});
+  assert.ok(f.runtime.m9Events,'classification is independent of the M3 writer');
+  assert.equal(f.runtime.memoryM3 ?? null,null);
+  await f.sample();await f.sample({},{receipt:f.collision()});
+  assert.equal(f.runtime.m9Events.snapshot().byType.vehicle_crash,1);
+  assert.equal((await f.events()).length,0,'no optional M3 writer means no P2 event');
+});
+
+test('shadow-only M9 classifies with M3 off without creating PS2 observations',async t => {
+  const f=await fixture(t,{caps:{'events.crash':'shadow','memory.events':'off'}});
+  assert.ok(f.runtime.m9Events);
+  await f.sample();await f.sample({},{receipt:f.collision()});
+  const snap=f.runtime.m9Events.snapshot();
+  assert.equal(snap.byType.vehicle_crash,1);
+  assert.equal(snap.counters.shadowOnly,1);
+  assert.equal(snap.counters.observations,0);
+  assert.equal((await f.events()).length,0);
+});
+
 test('families are independent: crash on, wasted off ignores outcome candidates',async t => {
   const f = await fixture(t,{caps:{'events.crash':'on','events.wasted':'off'}});
   await f.sample();await f.sample({},{receipt:f.collision()});

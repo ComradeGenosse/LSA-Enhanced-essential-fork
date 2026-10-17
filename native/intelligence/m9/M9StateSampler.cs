@@ -47,6 +47,11 @@ namespace LSA.Intelligence.M9
         int? prevWanted;
         double? prevRoll;
         bool prevInterest, havePrev;
+        // Send a bounded verified quiet-state sample when on foot so callbacks
+        // can check fresh native wanted/combat evidence. No witness LOS work.
+        // The sampler is still absent from default builds and remains opt-in.
+        const long IdleHeartbeatMs = 1000;
+        long lastIdleSampleAtMs = -1;
         public long Built, Rejected, Terminals, Candidates, Skipped, CollisionsRefused;
 
         public M9StateSampler(EntityAnchors anchors, Func<string> nativeRun, Func<string> hostRun, Func<long> worldEpoch)
@@ -70,6 +75,7 @@ namespace LSA.Intelligence.M9
             issuedTerminal.Clear(); issuedCollisions.Clear();
             prevDead = prevArrested = prevAirborne = prevGrounded = prevWater = prevSubmerged = null;
             prevWanted = null; prevRoll = null; prevInterest = false; havePrev = false;
+            lastIdleSampleAtMs = -1;
         }
 
         static bool Uuid(string value)
@@ -103,7 +109,10 @@ namespace LSA.Intelligence.M9
             prevDead = s.PlayerDead; prevArrested = s.PlayerBeingArrested; prevWanted = s.WantedLevel;
             prevAirborne = s.Airborne; prevGrounded = s.Grounded; prevWater = s.InWater;
             prevSubmerged = s.Submerged; prevRoll = s.RollDegrees; prevInterest = interest; havePrev = true;
-            if (!interest && !trailing && !force && kind == null && s.Collision == null) { Skipped++; return null; }
+            bool idleHeartbeat = !interest && !trailing && !force && kind == null && s.Collision == null;
+            if (idleHeartbeat && lastIdleSampleAtMs >= 0 &&
+                nowMs >= lastIdleSampleAtMs && nowMs - lastIdleSampleAtMs < IdleHeartbeatMs)
+            { Skipped++; return null; }
             if (!Uuid(s.PlayerCaptureRef)) { Rejected++; return null; }
 
             M9CollisionEvidence collision = null;
@@ -149,6 +158,7 @@ namespace LSA.Intelligence.M9
             if (collision != null) issuedCollisions.Remove(collision.nativeReceiptId);
             if (terminal != null) issuedTerminal.Remove(terminal.nativeReceiptId);
             if (!ok || frame == null || frame.worldEpoch <= 0 || frame.worldEpoch > int.MaxValue) { Rejected++; return null; }
+            if (idleHeartbeat) lastIdleSampleAtMs = nowMs;
 
             var witnesses = new List<object>();
             var seen = new HashSet<string>();
