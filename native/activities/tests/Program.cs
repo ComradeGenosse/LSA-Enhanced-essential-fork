@@ -306,6 +306,46 @@ partial class Program
         foreach (var forbidden in new[] {"QueueNpcAction", "NpcActions.", "TASK_", "CLEAR_PED", "CancelAll", "SetControlledBrain", "ReleaseExclusiveControl"}) Check(!sources.Contains(forbidden), "shadow sources do not " + forbidden);
         Act2(table);
         Act3(table);
+        Act6Ownership(table);
+    }
+    static void Act6Ownership(CapabilityTable table)
+    {
+        var json=new JavaScriptSerializer();
+        var world=new FakeWorld();
+        world.Supported.Add("walk_to");
+        var runner=new StepRunner(table);runner.Bind(world);
+        var session=new ActivitySession(table,runner);runner.Session=session;
+        session.ServerHello();session.OpenTransport();
+        Check(session.AcceptClient(json.Serialize(new {version=1,type="hello",contractSha256=CapabilityTable.ContractSha256,clientRun=Id('a')})),
+            "ACT6 lifecycle client hello");
+        var seq=1;
+        string Send(object value) {
+            while(session.TakeOutbound()!=null){}
+            var valueJson=json.Serialize(value);
+            Check(session.AcceptClient(valueJson),"ACT6 frame accepted: "+valueJson);
+            return session.TakeOutbound();
+        }
+        Send(new {version=1,type="lease",sequence=seq++,leaseTtlMs=5000});
+        var acquired=Decode(json,Send(new {version=1,type="actor.acquire",sequence=seq++,requestId=Id('b'),characterId=Id('c'),ownerAlias="promoted."+Id('c'),ownershipToken=Id('d'),leaseId=Id('e')}));
+        Check((string)acquired["type"]=="actor.acquired","ACT6 scoped actor lease");
+        var resolved=Decode(json,Send(new {
+            version=1,type="anchor.resolve",sequence=seq++,requestId=Id('f'),encounterId=world.Encounter,leaseId=Id('e'),
+            refs=new object[]{new Dictionary<string,object>{{"role","place"},{"slot",new Dictionary<string,object>{{"kind","place"},{"place",new Dictionary<string,object>{{"kind","waypoint"}}}}}}}
+        }));
+        var place=(string)((Dictionary<string,object>)((object[])resolved["results"])[0])["ref"];
+        Check(ActivityContracts.IsUuid(place),"ACT6 retains typed destination");
+        var execution=Id('2');
+        Send(new {
+            version=1,type="step.begin",sequence=seq++,requestId=Id('1'),executionId=execution,activityId=Id('3'),stepId=Id('4'),attempt=1,
+            encounterId=world.Encounter,leaseId=Id('e'),leaseEpoch=1,capability="walk_to",
+            args=new Dictionary<string,object>{{"place",new Dictionary<string,object>{{"kind","place"},{"placeRef",place}}}},
+            timeouts=new Dictionary<string,object>{{"acceptMs",2000},{"establishMs",8000},{"completeMs",360000},{"holdMaxMs",null}},
+            completion=new Dictionary<string,object>{{"adapter","place_arrival"},{"until",null}},violated=new object[0],onLeaseLoss="cancel_if_current"
+        });
+        Check(runner.Active(world.Encounter)?.Capability=="walk_to" && world.Began>world.Ended,"ACT6 native execution owns actor before dispatch");
+        runner.Preempt(world.Encounter,world.Incarnation,"follow",1100,2000,session);
+        Check(world.StopWhileOwned && runner.Active(world.Encounter)==null,
+            "ACT6 player supersession stops the owned task before discarding its ownership state");
     }
     static void Act2(CapabilityTable table)
     {
@@ -451,7 +491,7 @@ sealed class FakeWorld : IActivityWorld
 {
     public string Encounter = "22222222-2222-4222-8222-222222222222", Incarnation = "33333333-3333-4333-8333-333333333333";
     public ModeSample SampleState = new ModeSample { Alive = true, DistanceBand = "near", TargetValid = true, TargetSame = true, TargetDistance = 10f, SeatIndex = -1 };
-    public bool Already, Dispatched, Same = true, Stopped, OwnershipSeenAtDispatch;
+    public bool Already, Dispatched, Same = true, Stopped, StopWhileOwned, OwnershipSeenAtDispatch;
     public int Epoch = 1, Began, Ended, Dispatches, Cancels;
     public string LastCapability;
     public StepArgs LastArgs;
@@ -467,7 +507,7 @@ sealed class FakeWorld : IActivityWorld
     public PreflightResult Preflight(string encounterId, string capability, StepArgs args) => PreflightReason != null ? new PreflightResult { Reason = PreflightReason } : Already ? new PreflightResult { Already = true } : new PreflightResult { Ok = true };
     public bool Dispatch(string encounterId, string capability, StepArgs args) { Dispatched = true; Dispatches++; LastCapability = capability; LastArgs = args; OwnershipSeenAtDispatch = Began > Ended; return true; }
     public void NoteForeign(string encounterId) { }
-    public void Cancel(string encounterId, string capability, bool stopIfCurrent) { Cancels++; if (stopIfCurrent) Stopped = true; }
+    public void Cancel(string encounterId, string capability, bool stopIfCurrent) { Cancels++; if (stopIfCurrent) { Stopped = true; if (Began > Ended) StopWhileOwned = true; } }
     public ModeSample Sample(string encounterId, StepArgs args) => SampleState;
     public void BeginOwnership(string encounterId) { Began++; }
     public void EndOwnership(string encounterId, bool preempted) { Ended++; }
