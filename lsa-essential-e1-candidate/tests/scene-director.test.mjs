@@ -85,7 +85,7 @@ test('opt-in routine event stays source-qualified and never outranks danger',()=
     observedAtMonotonicMs:NOW-100,
   });
   assert.equal(selectDirectorIntent([ambient],facts)?.observationId,ambientId);
-  assert.equal(selectDirectorIntent([ambient,base],facts)?.observationId,base.observationId,
+  assert.equal(selectDirectorIntent([ambient,base],facts)?.observationId,observationId,
     'fresh everyday event cannot displace an older urgent-scene observation');
   for(const claim of [
     {certainty:'supported',kind:'presence',evidence:{channel:'report'}},
