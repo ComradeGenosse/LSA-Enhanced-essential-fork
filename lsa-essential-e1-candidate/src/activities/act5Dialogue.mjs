@@ -84,17 +84,43 @@ const clean = value => String(value || '').trim().toLowerCase()
   .replace(/[’]/g, "'").replace(/[.,!?;:]+/g, ' ')
   .replace(/'/g, '')
   .replace(/\s+/g, ' ').trim();
-// Closed player-origin text only. No free-form Lua/GTA coordinates, models or
-// arbitrary named locations may become a nav target.
-export function parseAct6PlayerRequest(input) {
-  const utterance = clean(input);
-  const match = /^(walk over to|walk to|go over to|go to|head to|head over to|drive us to|drive to|take me to|take us to|get us to|drive over to) (?:the |my )?([a-z0-9 ]+?)( and wait)?$/.exec(utterance);
+// Only bounded player imperatives are eligible. Do not make Luna's free-form
+// interpretation a source of coordinates, landmarks, or execution authority.
+const NAV_VERB = /^(drive us over to|drive us over|drive over to|drive over|drive us to|drive to|take us over to|take us to|take me to|bring us to|get us to|walk over to|walk to|go over to|go to|head over to|head to|head for|head toward) (.+?)( and wait)?$/;
+const stripLeadIn = input => {
+  let utterance = clean(input);
+  // Speech recognition commonly prepends harmless address/politeness words.
+  // Allow only a small closed prefix list; never fuzzy-match an interior order.
+  utterance = utterance.replace(/^(?:(?:all right|alright|okay|ok|hey|yo|nathan|dude|man|well|so|now|then) ){0,3}/, '');
+  utterance = utterance.replace(/^(?:can you|could you|would you|will you|why dont you) /, '');
+  utterance = utterance.replace(/^(?:(?:please|just|go ahead and) ){0,2}/, '');
+  return utterance;
+};
+const navigationMatch = input => NAV_VERB.exec(stripLeadIn(input));
+const drives = (verb, options) => /^(drive|take|bring|get us)/.test(verb) ||
+  verb.startsWith('head ') && options?.actorIsDriver === true && options?.actorInVehicle === true;
+
+// Classify explicit navigation orders even when the destination is unsupported:
+// callers must not silently fall back to aimless stock vehicle driving.
+export function navigationRequestKind(input, options = {}) {
+  const match = navigationMatch(input);
+  return match ? (drives(match[1], options) ? 'vehicle_trip' : 'go_to_place') : null;
+}
+
+// Native resolution and admission still own all actual destination validation.
+// "There" refers to a map waypoint ONLY when the current native inspect
+// explicitly confirms an active waypoint. Otherwise ask for a destination.
+export function parseAct6PlayerRequest(input, options = {}) {
+  const match = navigationMatch(input);
   if (!match) return null;
-  const target = ['waypoint','my waypoint','map marker','map waypoint','gps marker'].includes(match[2])
-    ? {kind:'waypoint'} : NAV_NAMES.has(match[2]) ? {kind:'named',query:NAV_NAMES.get(match[2])} : null;
-  if (!target) return null;
-  const driving = match[1].includes('drive') || ['take me to','take us to','get us to'].includes(match[1]);
+  const driving = drives(match[1], options);
   if (driving && match[3]) return null;
+  const name = match[2].replace(/^(?:the|my|our) /, '');
+  const waypoint = ['waypoint','map marker','map waypoint','gps marker','marker','map pin','gps pin'].includes(name) ||
+    name === 'there' && options.waypointAvailable === true;
+  const target = waypoint ? {kind:'waypoint'} :
+    NAV_NAMES.has(name) ? {kind:'named',query:NAV_NAMES.get(name)} : null;
+  if (!target) return null;
   const intent = driving ? 'vehicle_trip' : match[3] ? 'move_to_and_hold' : 'go_to_place';
   return Object.freeze({intent,slots:Object.freeze({place:Object.freeze(target)})});
 }
@@ -120,9 +146,9 @@ export function act5WorldAvailable(intent, slots, state) {
   if (state?.version === 1 && state.safe !== true) return false;
   // Older native installs have no advisory snapshot: retain ACT2's historical
   // checks, but never expose an ACT3 physical offer without native evidence.
-  if (intent === 'go_to_place' || intent === 'vehicle_trip') {
+  if (intent === 'go_to_place' || intent === 'vehicle_trip' || intent === 'move_to_and_hold') {
     if (state?.version !== 1 || state.safe !== true) return false;
-    return intent === 'go_to_place' ? state.actorOnFoot === true :
+    return intent !== 'vehicle_trip' ? state.actorOnFoot === true :
       state.actorInVehicle === true && state.actorIsDriver === true;
   }
   if (intent === 'sit_here' || intent === 'accompany') {
@@ -320,7 +346,12 @@ export class Act5Dialogue {
     if (!context?.owner || !isCurrent?.()) return null;
     const characterId = context.owner.binding.characterId;
     const response = clean(input);
-    const pending = this.pending.get(characterId);
+    const nativeOptions = context.owner.activityOffer || {};
+    const request = parseAct6PlayerRequest(response, nativeOptions);
+    const navigationIntent = navigationRequestKind(response, nativeOptions);
+    let pending = this.pending.get(characterId);
+    // A fresh explicit command is not approval of an unrelated ACT5 invitation.
+    if (pending && navigationIntent) { this.pending.delete(characterId); pending = null; }
     if (!pending && NAV_STOP.has(response)) {
       const owner = await this.#owner(turn);
       if (!owner || !isCurrent?.() || owner.binding.characterId !== characterId ||
@@ -345,11 +376,24 @@ export class Act5Dialogue {
       return Object.freeze({kind:result?.ok?'cancelled':'unavailable',intent:latest.template});
     }
     if (!pending) {
-      // Stage direct navigation only with ACT5's existing publication boundary.
-      const request=parseAct6PlayerRequest(response);
-      const needed=request?.intent==='vehicle_trip'?'drive_to':'walk_to';
-      if (request && TERMINAL.has(this.activities.status(characterId)?.status) &&
-          this.activities.engine.config.act6Capabilities?.includes(needed)) {
+      // This direct-player ACT6 lane still commits only after the existing
+      // output_transcript boundary; a native owner is inspected again at commit.
+      if (navigationIntent) {
+        const intent = request?.intent || navigationIntent;
+        if (!request) return Object.freeze({kind:'unavailable',intent,reason:'destination_unresolved'});
+        if (!TERMINAL.has(this.activities.status(characterId)?.status))
+          return Object.freeze({kind:'unavailable',intent,reason:'actor_busy'});
+        const needed = intent === 'vehicle_trip' ? 'drive_to' : 'walk_to';
+        const row = this.activities.engine.registry.get(needed);
+        if (!this.activities.engine.config.act6Capabilities?.includes(needed) ||
+            !row || row.phase !== 'ACT6' || !row.allowedSources.includes('player_dialogue') ||
+            !row.allowedPriority.includes('player_direct') || row.execution.path === 'none' ||
+            !this.activities.engine.registry.enabled(needed,{
+              mode:'on',hello:this.activities.engine.hello?.capabilities,
+              requested:[needed],passedProbes:this.activities.engine.config.passedProbes || [],
+              source:'player_dialogue',priority:'player_direct'
+            }))
+          return Object.freeze({kind:'unavailable',intent,reason:'capability_disabled'});
         const owner=await this.#owner(turn);
         if (!owner || !isCurrent?.() ||
             owner.binding.characterId !== characterId ||
@@ -360,8 +404,16 @@ export class Act5Dialogue {
             owner.adapterEpoch !== context.owner.adapterEpoch ||
             owner.nativeClientRun !== context.owner.nativeClientRun ||
             owner.sessionKey !== context.owner.sessionKey ||
-            !sameHostContext(owner.hostContext,context.owner.hostContext) ||
-            !act5WorldAvailable(request.intent,request.slots,owner.activityOffer)) return null;
+            !sameHostContext(owner.hostContext,context.owner.hostContext))
+          return Object.freeze({kind:'unavailable',intent,reason:'owner_unavailable'});
+        if (!act5WorldAvailable(intent,request.slots,owner.activityOffer))
+          return Object.freeze({kind:'unavailable',intent,reason:
+            intent === 'vehicle_trip' && owner.activityOffer?.safe === true &&
+            owner.activityOffer?.actorIsDriver !== true ? 'driver_required' : 'native_unavailable'});
+        // Deictic "there" never gains a guessed waypoint after a native change.
+        const freshRequest=parseAct6PlayerRequest(response,owner.activityOffer);
+        if (!freshRequest || JSON.stringify(freshRequest)!==JSON.stringify(request))
+          return Object.freeze({kind:'unavailable',intent,reason:'destination_unresolved'});
         const turnKey=keyFor(turn.identity)+':'+turn.identity.turnId+':'+turn.identity.generationId;
         if (this.seenTurns.has(turnKey) || this.approvals.has(turnKey)) return null;
         const now=this.now();

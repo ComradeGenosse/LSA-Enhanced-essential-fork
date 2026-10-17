@@ -564,3 +564,59 @@ test('ACT6 explicit stop can cancel owner-matched UX navigation without reopenin
   assert.equal((await h.dialogue.onPlayerInput(t,'Stop driving',context,()=>true))?.kind,'cancelled');
   assert.equal(h.engine.activities[0].status,'cancelled');
 });
+
+// Registry includes FR1 in the baseline. Keep all D3/SVE1 driver proofs inside
+// normalizeActivityConfig's twelve-probe limit, as the existing ACT6 tests do.
+const act6Probes=['NV2','Q2','L1','D1','D2','D3','SVE1'];
+const drivingHarness=({enabled=true,act6Capabilities=['drive_to'],baseProbes=probes}={})=>{
+  const h=harness({enabled,act6Capabilities,extraProbes:act6Probes,baseProbes});
+  h.setOffer({actorOnFoot:false,actorInVehicle:true,actorIsDriver:true,waypointAvailable:true});
+  return h;
+};
+test('ACT6 direct player driving orders become one real vehicle_trip via ACT5 publication',async()=>{
+  for(const utterance of ['All right, drive to the waypoint','Take us to my marker',
+      'Head to the airport','Drive us over there','Drive us to the airport']) {
+    const h=drivingHarness(),t=turn(),ctx=await h.dialogue.prepare(t,'player_mic');
+    const reply=await h.dialogue.onPlayerInput(t,utterance,ctx,()=>true);
+    assert.equal(reply?.kind,'approval_pending',utterance);
+    assert.equal(reply?.intent,'vehicle_trip',utterance);
+    assert.equal(h.commands.length,0,'pre-publication must remain inert');
+    const admitted=await h.dialogue.commitApproved(t,()=>true);
+    assert.equal(admitted.ok,true,utterance+':'+admitted.reason);
+    assert.equal(h.engine.activities.at(-1).template,'vehicle_trip');
+    assert.equal(h.engine.activities.at(-1).steps[0].capability,'drive_to');
+    assert.equal(h.commands.filter(frame=>frame.type==='actor.acquire').length,1);
+    assert.equal((await h.dialogue.commitApproved(t,()=>true)).ok,false,'no replay');
+  }
+});
+test('ACT6 rejects disabled capabilities, missing markers and unavailable drivers without free driving',async()=>{
+  const disabled=drivingHarness({act6Capabilities:[]}),t=turn();
+  const d=await disabled.dialogue.onPlayerInput(t,'All right, drive to the waypoint',
+    await disabled.dialogue.prepare(t,'player_text'),()=>true);
+  assert.deepEqual(d,{kind:'unavailable',intent:'vehicle_trip',reason:'capability_disabled'});
+  assert.equal(disabled.commands.length,0);
+  const noMarker=drivingHarness(),m=turn();
+  noMarker.setOffer({waypointAvailable:false});
+  const u=await noMarker.dialogue.onPlayerInput(m,'Drive us over there',
+    await noMarker.dialogue.prepare(m,'player_text'),()=>true);
+  assert.deepEqual(u,{kind:'unavailable',intent:'vehicle_trip',reason:'destination_unresolved'});
+  assert.equal(noMarker.commands.length,0);
+  const notDriver=drivingHarness(),n=turn();
+  notDriver.setOffer({actorIsDriver:false});
+  const refused=await notDriver.dialogue.onPlayerInput(n,'Drive to the waypoint',
+    await notDriver.dialogue.prepare(n,'player_text'),()=>true);
+  assert.deepEqual(refused,{kind:'unavailable',intent:'vehicle_trip',reason:'driver_required'});
+  assert.equal(notDriver.commands.length,0);
+  const unknown=drivingHarness(),a=turn();
+  assert.deepEqual(await unknown.dialogue.onPlayerInput(a,'Drive to that building',
+    await unknown.dialogue.prepare(a,'player_text'),()=>true),
+    {kind:'unavailable',intent:'vehicle_trip',reason:'destination_unresolved'});
+  assert.equal(unknown.commands.length,0);
+});
+test('ACT6 checks the native owner again before commit and cannot issue a ghost drive',async()=>{
+  const h=drivingHarness(),t=turn(),ctx=await h.dialogue.prepare(t,'player_text');
+  assert.equal((await h.dialogue.onPlayerInput(t,'Drive to the waypoint',ctx,()=>true)).kind,'approval_pending');
+  h.changeToken();
+  assert.equal((await h.dialogue.commitApproved(t,()=>true)).ok,false);
+  assert.equal(h.commands.length,0);
+});

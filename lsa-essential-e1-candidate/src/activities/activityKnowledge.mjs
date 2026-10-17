@@ -2,8 +2,8 @@ import {immutableSnapshot} from '../context/turnSnapshot.mjs';
 import {phrase} from './activityFacts.mjs';
 import {readHostContext,sameHostContext} from '../context/hostContext.mjs';
 import {isUuid,sameAssociation} from '../identity/identityContract.mjs';
-const INTENTS=Object.freeze({hold_position:'wait here',accompany:'follow',resume_previous:'resume an ambient activity',sit_here:'sit down',scenario_here:'do an activity here',approach_and_face:'come over and face the player',board_vehicle:'get into a vehicle',ride_along:'ride along in a vehicle',exit_vehicle_and_hold:'get out of a vehicle and wait',leave_scene:'walk away',take_cover_and_hold:'take cover'});
-const MODES=Object.freeze({hold_position:'Holding position',accompany:'Following',resume_previous:'Ambient activity',sit_here:'Sitting',scenario_here:'Scenario',approach_and_face:'Facing',board_vehicle:'Vehicle seat',ride_along:'Vehicle seat',exit_vehicle_and_hold:'Holding position',leave_scene:'Ambient activity',take_cover_and_hold:'Taking cover'});
+const INTENTS=Object.freeze({hold_position:'wait here',accompany:'follow',resume_previous:'resume an ambient activity',sit_here:'sit down',scenario_here:'do an activity here',approach_and_face:'come over and face the player',board_vehicle:'get into a vehicle',ride_along:'ride along in a vehicle',exit_vehicle_and_hold:'get out of a vehicle and wait',leave_scene:'walk away',take_cover_and_hold:'take cover',go_to_place:'walk to the selected destination',vehicle_trip:'drive to the selected destination',move_to_and_hold:'walk to the selected destination and wait'});
+const MODES=Object.freeze({hold_position:'Holding position',accompany:'Following',resume_previous:'Ambient activity',sit_here:'Sitting',scenario_here:'Scenario',approach_and_face:'Facing',board_vehicle:'Vehicle seat',ride_along:'Vehicle seat',exit_vehicle_and_hold:'Holding position',leave_scene:'Ambient activity',take_cover_and_hold:'Taking cover',go_to_place:'Walking toward the destination',vehicle_trip:'Driving toward the destination',move_to_and_hold:'Walking and waiting at the destination'});
 const KINDS=new Set(['instructed','accepted','started','step_completed','arrived','mode_established','paused','resumed','completed','failed','cancelled','abandoned']);
 const EVIDENCE=new Set(['none','handler_only','mode_flag','world_strong']);
 // Read-only SELF contributor. UI summaries and arbitrary labels never become facts.
@@ -27,7 +27,9 @@ export function projectActivityKnowledge(inputs){
     text='My current request to '+verb+' is being prepared. Physical execution has not been verified.';
    else if(['running','holding'].includes(state.status))
     text=state.modeObserved
-     ?mode+' mode has native mode evidence and is currently active; this does not establish arrival or overall completion.'
+     ?(['go_to_place','vehicle_trip','move_to_and_hold'].includes(state.intent)
+        ?mode+' is active with native mode evidence. Arrival has not been verified.'
+        :mode+' mode has native mode evidence and is currently active; this does not establish arrival or overall completion.')
      :'My request to '+verb+' is underway, but physical mode establishment is not verified.';
    else if(state.status==='paused')
     text='My request to '+verb+' is paused, not completed. '+(state.resumeEligible
@@ -37,7 +39,9 @@ export function projectActivityKnowledge(inputs){
     text='My request to '+verb+' is resuming under the activity engine; physical re-establishment is not yet verified.';
    else if(state.status==='completed')
     text=state.physicallyCompleted
-      ?'My request to '+verb+' was physically completed with supporting native evidence.'
+      ?(['go_to_place','vehicle_trip'].includes(state.intent)
+          ?'I reached the selected destination with verified native physical arrival evidence.'
+          :'My request to '+verb+' was physically completed with supporting native evidence.')
       :'My request to '+verb+' was marked complete, but physical completion was not verified.';
    else text='My request to '+verb+' ended as '+state.status+
      (phrase(state.reason)?' ('+phrase(state.reason)+')':'')+'. It is not currently running.';

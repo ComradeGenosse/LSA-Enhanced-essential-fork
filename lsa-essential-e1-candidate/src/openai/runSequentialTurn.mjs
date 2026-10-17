@@ -338,13 +338,24 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
       ]);}
       finally{clearTimeout(timer);}
     };
-    const reasoningContext=()=>({...context,source,
-      ...(turn.act5Reply?{systemInstruction:context.systemInstruction+'\n[ACT5 PLAYER REPLY]\n'+JSON.stringify(turn.act5Reply)+
-        (turn.act5Reply.kind === 'approval_pending'
-          ? '\nConsent is staged, not executed. Do not issue a stock DO action or another activity. Never claim physical completion.'
-          : '\nThe previous ACT5 invitation is no longer actionable. Do not repeat or execute it. If the player explicitly requested a DIFFERENT existing Essential action, normal player-directed DO validation may still apply; otherwise just respond naturally. Never claim an action already happened.')}:{}),
-      ...(turn.memoryDisabledForTurn?{systemInstruction:context.systemInstruction+
-        '\n[MEMORY AVAILABILITY] Learned memory is unavailable for this turn. Do not claim to have saved, corrected or forgotten a memory unless a verified durable outcome was supplied. Do not invent prior memories.'}:{})});
+    const reasoningContext=()=>{
+      const activity=turn.act5Reply;
+      const navigation=['go_to_place','vehicle_trip','move_to_and_hold'].includes(activity?.intent);
+      const activityInstruction=activity
+        ? '\n[ACTIVITY PLAYER REPLY]\n'+JSON.stringify(activity)+(
+          navigation
+            ? activity.kind==='approval_pending'
+              ? '\nThis is a recognized navigation command, STAGED for native admission after transcript publication. No GTA movement has been verified. Do not issue a stock DO command or claim driving, progress, or arrival. Respond naturally with tentative intent.'
+              : '\nThe player gave a navigation order, but ACT6 cannot execute it ('+String(activity.reason||'unavailable')+'). Explain the limitation plainly; a missing waypoint needs a map marker, driver_required needs an NPC driver, and capability_disabled requires explicit enablement and passed native probes. Do not claim navigation started or substitute aimless stock driving.'
+            : activity.kind==='approval_pending'
+              ? '\nConsent is staged, not executed. Do not issue a stock DO action or another activity. Never claim physical completion.'
+              : '\nThe previous ACT5 invitation is no longer actionable. Do not repeat or execute it. If the player explicitly requested a DIFFERENT existing Essential action, normal player-directed DO validation may still apply; otherwise just respond naturally. Never claim an action already happened.')
+        : '';
+      return {...context,source,systemInstruction:context.systemInstruction+activityInstruction+
+        (turn.memoryDisabledForTurn
+          ? '\n[MEMORY AVAILABILITY] Learned memory is unavailable for this turn. Do not claim to have saved, corrected or forgotten a memory unless a verified durable outcome was supplied. Do not invent prior memories.'
+          : '')};
+    };
     recoverPreRequest=async(reason,stage)=>{
       check();
       // A prepared M5 command may already have made a privileged durable
@@ -477,6 +488,18 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
           }
         }
       } catch { act5Context = null; }
+    }
+    // When ACT5 is off, native is disconnected, or owner inspection failed,
+    // still recognize an explicit navigation order so Luna does not invent
+    // progress or route it to the unrelated free-driving DO command.
+    if (isPlayer && !turn.act5Reply) {
+      const {navigationRequestKind} = await import('../activities/act5Dialogue.mjs');
+      const navigationIntent = navigationRequestKind(finalInput);
+      if (navigationIntent) {
+        turn.act5Reply=Object.freeze({kind:'unavailable',intent:navigationIntent,
+          reason:act5Context?'destination_unresolved':'navigation_unavailable'});
+        if (act5Context) act5Context=Object.freeze({...act5Context,intents:Object.freeze([]),pendingIntent:null});
+      }
     }
     let decision;
     let streamedSegments = [];
@@ -625,6 +648,8 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
     try {
       if (turn.act5Reply?.kind === 'approval_pending' && decision.command)
         throw new TypeError('ACT5 confirmation cannot run a parallel stock DO command.');
+      if (['go_to_place','vehicle_trip','move_to_and_hold'].includes(turn.act5Reply?.intent) && decision.command)
+        throw new TypeError('ACT6 navigation must never fall back to stock free-driving DO.');
       if (act5Context) {
         const {validateAct5Choice} = await import('../activities/act5Dialogue.mjs');
         if (!Object.hasOwn(decision, 'activity') ||
