@@ -10,7 +10,6 @@
     <Compile Include="../CompletionAdapters.cs" Link="CompletionAdapters.cs" />
     <Compile Include="../PlaceTable.cs" Link="PlaceTable.cs" />
     <Compile Include="../ActivityWorld.cs" Link="ActivityWorld.cs" />
-    <Compile Include="Act6Tests.cs" />
     <EmbeddedResource Include="../../../contracts/activity-capabilities.v1.json" LogicalName="LSA.Activities.activity-capabilities.v1.json" />
     <Reference Include="System.Web.Extensions" />
   </ItemGroup>
