@@ -92,12 +92,23 @@ export class DirectorObservationPump {
     // An attempted original decision key is spent for this producer epoch.
     // Capacity exhaustion is a veto, never implicit eviction/retry.
     if(this.seen.size>=128){this.diagnose('dedupe_capacity');return null;}
+    // Missing native player-priority/owner proof is NOT a PS6 attempt.
+    // Do not burn a fleeting PS3 entitlement before C-06 can even be asked.
+    // Shadow mode stays strictly non-executing and needs no native stamp.
+    let stamp=null;
+    try {stamp=this.stampFor(selected.proposal,selected.facts);}catch{}
+    if(!stamp && this.coordinator.mode!=='shadow') {
+      const reason=this.stampVetoReason(selected.proposal)??'stamp_provider_unavailable';
+      this.diagnose(reason);
+      const blocked=Object.freeze({status:'not_admitted',diagnosticReason:reason});
+      try{this.onResult(blocked);}catch{}
+      return blocked;
+    }
+    // Only now is this original decision considered attempted. All subsequent
+    // native/PS3/turn vetoes retain the existing one-shot no-replay behavior.
     this.seen.set(selected.proposal.decisionKey,now);
     this.inFlight=true;
     try {
-      let stamp=null;
-      try {stamp=this.stampFor(selected.proposal,selected.facts);}catch{}
-      if(!stamp)this.diagnose(this.stampVetoReason(selected.proposal)??'stamp_provider_unavailable');
       const outcome=await this.coordinator.attempt({
         candidates:selected.candidates,facts:selected.facts,stamp,
       });

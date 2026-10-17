@@ -1,0 +1,30 @@
+name: PS6 Phase 13a reliability (offline)
+on:
+  pull_request:
+    paths:
+      - 'lsa-essential-e1-candidate/src/perception/sceneDirector.mjs'
+      - 'lsa-essential-e1-candidate/src/perception/directorProduction.mjs'
+      - 'lsa-essential-e1-candidate/tests/scene-director.test.mjs'
+      - 'lsa-essential-e1-candidate/tests/director-production.test.mjs'
+      - 'lsa-essential-e1-candidate/tests/ps6-phase13a-reliability.test.mjs'
+      - '.github/workflows/ps6-phase13a-reliability.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  ps6-offline:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        working-directory: lsa-essential-e1-candidate
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: npm ci
+      - name: Focused PS6 selection, producer, native-admission contracts
+        run: node --test tests/scene-director.test.mjs tests/director-production.test.mjs tests/ps6-phase13a-reliability.test.mjs tests/director-orchestrator.test.mjs tests/scene-director-admission.test.mjs
