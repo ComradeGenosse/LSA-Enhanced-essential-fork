@@ -431,7 +431,16 @@ namespace LSA.Activities
                 else if (ActivityContracts.UnsignedDue(gameMs, execution.DispatchedGameMs, execution.EstablishMs)) { if (execution.StopOnTimeout) TryStop(execution, true); Finish(Session, execution, "TIMED_OUT", "establish_timeout", gameMs, wallMs); return; }
                 else return;
             }
-            if (kind == "progress" && !execution.ProgressSeen) { execution.ProgressSeen = true; AddEvidence(execution, verdict.EvidenceKind ?? "mode_flag", verdict.Strength ?? "medium", gameMs, verdict); }
+            if (kind == "progress" && !execution.ProgressSeen) {
+                execution.ProgressSeen = true;
+                AddEvidence(execution, verdict.EvidenceKind ?? "mode_flag", verdict.Strength ?? "medium", gameMs, verdict);
+                // ACT6 receives a real movement-established milestone only after sampled physical progress,
+                // not when the nav native returns or the executor merely accepts its dispatch.
+                if ((execution.Capability == "walk_to" || execution.Capability == "drive_to") && execution.State == "HANDLER_ACCEPTED") {
+                    execution.ModeHealth = "healthy"; execution.EstablishedGameMs = gameMs; Established++;
+                    AdvanceState(Session, execution, "MODE_ESTABLISHED", gameMs, wallMs);
+                }
+            }
             var waiting = execution.Act3 ? kind == "not_yet" || kind == "progress" || kind == "lost" && execution.State != "MODE_ESTABLISHED" : kind == "not_yet";
             if (execution.State == "HANDLER_ACCEPTED" && waiting && (!execution.Act3 || execution.EstablishGated && !(execution.ProgressSeen && ProgressAdapters.Contains(execution.Adapter))) && ActivityContracts.UnsignedDue(gameMs, execution.DispatchedGameMs, execution.EstablishMs)) { if (execution.StopOnTimeout) TryStop(execution, true); Finish(Session, execution, "TIMED_OUT", "establish_timeout", gameMs, wallMs); return; }
             if (kind == "completed") {
