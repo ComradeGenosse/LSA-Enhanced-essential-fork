@@ -202,6 +202,11 @@ export function validateFrame(v) {
   // This authenticated EA transport fact cannot substitute for a Memory K owner receipt.
   if (v.type===PROTAGONIST_EVENT) return readProtagonistFrame(v)!==null;
   if(v.type==='director_social')return validateDirectorSocialPayload(v.payload);
+  if(v.type==='director_social_manual_result')return
+    keys(v.payload,['status','reason']) &&
+    ['accepted','rejected'].includes(v.payload.status) &&
+    ['opportunity_created','selected_promoted_npc_unavailable'].includes(v.payload.reason) &&
+    (v.payload.status==='accepted')===(v.payload.reason==='opportunity_created');
   if(v.type==='director_priority') return keys(v.payload,['playerTurnVersion','experimentalEnabled']) &&
     integer(v.payload.playerTurnVersion,2147483647) &&
     typeof v.payload.experimentalEnabled==='boolean';
