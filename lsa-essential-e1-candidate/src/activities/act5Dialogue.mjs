@@ -203,7 +203,7 @@ export class Act5Dialogue {
         if (this.approvals.has(turnKey) || this.seenTurns.has(turnKey)) return null;
         this.seenTurns.add(turnKey);
         if (this.seenTurns.size > 256) this.seenTurns.delete(this.seenTurns.values().next().value);
-        this.approvals.set(turnKey,{owner,pending:{proposal:proposed,expiresAt:now+OFFER_MS}});
+        this.approvals.set(turnKey,{owner,pending:{activity:request,proposal:proposed,expiresAt:now+OFFER_MS}});
         this.report('act6_player_direct_staged',{intent:request.intent});
         return Object.freeze({kind:'approval_pending',intent:request.intent});
       }
