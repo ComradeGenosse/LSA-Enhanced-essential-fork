@@ -91,6 +91,7 @@ export class Act5Dialogue {
     const runtime = this.#ready();
     const initialNativeRun = runtime?.nativeRun;
     const initialAdapterEpoch = runtime?.adapterEpoch;
+    const initialClientRun = this.activities?.client?.clientRun;
     const profile = turn?.characterInputs?.profile;
     const claim = turn?.characterInputs?.claim;
     if (!runtime || turn?.characterProjection?.persistent !== true ||
@@ -110,13 +111,15 @@ export class Act5Dialogue {
           live.claim?.incarnationId !== claim.incarnationId ||
           !this.#ready() || this.activities.client.runtime.nativeRun !== initialNativeRun ||
           this.activities.client.runtime.adapterEpoch !== initialAdapterEpoch ||
+          this.activities.client.clientRun !== initialClientRun ||
           !sameHostContext(runtime.hostContext, this.activities.client.runtime.hostContext)) return null;
       return {
         binding: { characterId: profile.characterId, ownerAlias: live.ownerAlias,
           ownershipToken: live.ownershipToken, encounterId: live.encounterId,
           incarnationId: live.claim.incarnationId },
         nativeRun: runtime.nativeRun, adapterEpoch: runtime.adapterEpoch,
-        hostContext: runtime.hostContext, sessionKey: keyFor(turn.identity),
+        hostContext: runtime.hostContext, nativeClientRun: initialClientRun,
+        sessionKey: keyFor(turn.identity),
       };
     } catch { return null; }
   }
@@ -133,6 +136,7 @@ export class Act5Dialogue {
         pending.owner.sessionKey !== owner.sessionKey ||
         pending.owner.nativeRun !== owner.nativeRun ||
         pending.owner.adapterEpoch !== owner.adapterEpoch ||
+        pending.owner.nativeClientRun !== owner.nativeClientRun ||
         pending.owner.binding.ownershipToken !== owner.binding.ownershipToken ||
         !sameHostContext(pending.owner.hostContext, owner.hostContext))) this.pending.delete(characterId);
     const activityStatus = this.activities.status(characterId);
@@ -169,6 +173,7 @@ export class Act5Dialogue {
         current.binding.incarnationId !== context.owner.binding.incarnationId ||
         current.nativeRun !== context.owner.nativeRun ||
         current.adapterEpoch !== context.owner.adapterEpoch ||
+        current.nativeClientRun !== context.owner.nativeClientRun ||
         current.sessionKey !== context.owner.sessionKey ||
         !sameHostContext(current.hostContext, context.owner.hostContext) ||
         (this.cooldown.get(current.binding.characterId) || 0) > this.now()) return false;
@@ -228,6 +233,7 @@ export class Act5Dialogue {
         owner.binding.ownershipToken !== pending.owner.binding.ownershipToken ||
         owner.nativeRun !== pending.owner.nativeRun ||
         owner.adapterEpoch !== pending.owner.adapterEpoch ||
+        owner.nativeClientRun !== pending.owner.nativeClientRun ||
         !sameHostContext(owner.hostContext, pending.owner.hostContext) ||
         owner.sessionKey !== pending.owner.sessionKey ||
         !TERMINAL.has(this.activities.status(characterId).status)) {
@@ -257,6 +263,7 @@ export class Act5Dialogue {
         current.binding.incarnationId !== owner.binding.incarnationId ||
         current.binding.ownershipToken !== owner.binding.ownershipToken ||
         current.nativeRun !== owner.nativeRun || current.adapterEpoch !== owner.adapterEpoch ||
+        current.nativeClientRun !== owner.nativeClientRun ||
         !sameHostContext(current.hostContext, owner.hostContext) ||
         current.sessionKey !== owner.sessionKey ||
         !TERMINAL.has(this.activities.status(characterId).status)) {
