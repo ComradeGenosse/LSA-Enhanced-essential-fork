@@ -29,6 +29,7 @@ Essential owns native NPC state, sessions/generations, action execution, interru
 | UX0–UX4 | ✅ Merged on `main` | Shared Essential Talk path exercised; direct-hold/tap-selector refinement requires focused live regression |
 | PS0–PS3 | ✅ Merged on `main` | October 5 shadow PS2→PS3 evaluation and JSONL observed; structured behavioral scenarios and damage callback physical probe open; player-speech hearing remains disabled |
 | ACT0–ACT2 | ✅ Merged via [#18](https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/pull/18) | Hash-installed/GTA smoke-tested October 6; focused physical capability, callback and default-off gates remain |
+| ACT3 | 🟡 Draft PR, not merged | Code complete and offline-tested; every capability off by default, no GTA validation yet. See [ACT3-status.md](ACT3-status.md) |
 | Phase 6 C-05/C-06 / ACT SELF | 🟡 Experimental implementation merged via [#23](https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/pull/23) | Native ownership/receipt/physical-completion and scenario-specific GTA acceptance still open; handler success is not proof of completed effect |
 | PS4 — requested-turn knowledge | 🟡 Experimental code merged via #23 and follow-up #27–#30 | **One genuine PS4→Luna witnessed-gunfire GTA exchange** with model response/playback confirmed; full PS4 audit and sustained identity/ack/reconnect regression not closed |
 | PS6 / Phase 13a — SCENE_DIRECTOR speech | 🟡 Experimental guarded implementation merged via #23/#30/#31/#33 | Native playback start/completion observed in troubleshooting; post-fix contextual spoken warnings, grant-consumption receipts, safety/turn arbitration and full GTA acceptance remain to be verified with exact installed payload |
@@ -36,7 +37,7 @@ Essential owns native NPC state, sessions/generations, action execution, interru
 | Radio R0–R5/v2 | 🟡 **Open draft [#32](https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/pull/32)**; not on main | Integrated into its draft branch against earlier PS4/PS6 main; fresh CI/reconciliation, native text-ID/catalog and GTA evidence required before merge/deploy |
 | Contextual ballistics R0 | 🟡 **Open draft [#35](https://github.com/ComradeGenosse/LSA-Enhanced-essential-fork/pull/35)**; not on main | Observer-scoped shooter/injury evidence is source implementation only; live DamageTracker, native builds, surface/air classification and GTA gates are open. Do not treat as shipped |
 | CGE / Phase 10a | 🔵 Conditional, not implemented | Probe stock Essential gaze; add playback-only supplement only if necessary and safe. Player-listening 10b separately requires C-01 |
-| C-01/proximity hearing, PS5, memory-aware 13b, PS7, ACT3–ACT7, PS8 | 🔵 Deferred/planned | Preserve shared evidence/ownership and timeline-safety gates; no automatic memory, unrestricted NPC autonomy or physical proposals implied by PS6 speech |
+| C-01/proximity hearing, PS5, memory-aware 13b, PS7, ACT4–ACT7, PS8 | 🔵 Deferred/planned | Preserve shared evidence/ownership and timeline-safety gates; no automatic memory, unrestricted NPC autonomy or physical proposals implied by PS6 speech |
 | E7 | 🔵 Not closed | Long-session, interruption, failure, performance and cross-feature GTA release acceptance pending |
 
 ## Active next work — October 11, 2026
@@ -458,7 +459,7 @@ Essential remains the executor. ACT owns planning/lifecycle and native evidence 
 
 #### ACT3 — Rich short-range world activities
 
-**Status: next new ACT implementation; ACT0–ACT2 already merged through PR #18, with focused prerequisite GTA capability gates still open.** Add tested capabilities such as approach/face, enter/exit vehicle, short-range scenarios, walk-away/leave-scene, bounded cover and optional item interactions. Menu pickers mint validated temporary references rather than passing raw GTA handles.
+**Status: code complete on `feature/act3-rich-npc-physical-activities` (draft PR, not merged); offline-tested only, nothing GTA-verified and every capability disabled by default.** Implemented through Essential's existing actions: face and approach a person, enter/exit the player's vehicle by seat, `begin_driving`, closed-map scenarios (smoke, coffee, phone, lean, idle, clipboard, binoculars), walk-away, bounded cover and held-item grab/clear, each judged by a physical completion adapter rather than command acceptance. Each needs a local `activities.act3Capabilities` opt-in plus its GTA probes. `follow_vehicle`, `give_item`, `take_item`, `scenario_at` and the bench scenario stay blocked. See [ACT3-status.md](ACT3-status.md). Menu pickers mint validated temporary references rather than passing raw GTA handles.
 
 #### ACT4 — Dialogue awareness and interruption hardening
 

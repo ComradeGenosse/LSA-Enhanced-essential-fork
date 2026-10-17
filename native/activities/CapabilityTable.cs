@@ -9,8 +9,8 @@ namespace LSA.Activities
 {
     public sealed class CapabilityRow
     {
-        public string Id, Phase, Exposure, Path, EssentialName, Kind;
-        public int AcceptMs, HoldMaxMs;
+        public string Id, Phase, Exposure, Path, EssentialName, Kind, Adapter, CancelPath;
+        public int AcceptMs, EstablishMs, CompleteMs, HoldMaxMs;
         public bool Mode, Never;
         public readonly List<string> Probes = new List<string>();
         public readonly List<string> Sources = new List<string>();
@@ -23,11 +23,16 @@ namespace LSA.Activities
         static readonly Dictionary<string, string[]> Observed = new Dictionary<string, string[]> {
             {"waithere", new[] {"WaitHere"}}, {"followtarget", new[] {"FollowTarget"}}, {"resumeactivity", new[] {"ResumeActivity"}},
             {"sitonground", new[] {"SitOnGround"}}, {"stopandfacetarget", new[] {"StopAndFaceTarget"}}, {"approachperson", new[] {"ApproachTarget"}},
-            {"takecover", new[] {"TakeCover"}}, {"walkawayfromtarget", new[] {"WalkAwayFromTarget"}}, {"startdriving", new[] {"StartDriving"}}, {"exitvehicle", new[] {"ExitVehicle"}}
+            {"takecover", new[] {"TakeCover"}}, {"walkawayfromtarget", new[] {"WalkAwayFromTarget"}}, {"startdriving", new[] {"StartDriving"}}, {"exitvehicle", new[] {"ExitVehicle"}},
+            // ACT3. Callback spellings follow the canonical method names. Q2 has to pin them: a spelling that never
+            // matches makes the callback look foreign, which supersedes the step. It can never fake an acceptance.
+            {"enterdriverseatoftargetvehicle", new[] {"EnterDriverSeatOfTargetVehicle"}}, {"entertargetvehicle", new[] {"EnterTargetVehicle"}}, {"enterbackoftargetvehicle", new[] {"EnterBackOfTargetVehicle"}},
+            {"grabitem", new[] {"GrabItem"}}, {"clearhelditem", new[] {"ClearHeldItem"}}
         };
         readonly Dictionary<string, CapabilityRow> rows;
         readonly HashSet<string> excluded;
-        CapabilityTable(Dictionary<string, CapabilityRow> rows, HashSet<string> excluded) { this.rows = rows; this.excluded = excluded; }
+        readonly Dictionary<string, string> scenarios, items;
+        CapabilityTable(Dictionary<string, CapabilityRow> rows, HashSet<string> excluded, Dictionary<string, string> scenarios, Dictionary<string, string> items) { this.rows = rows; this.excluded = excluded; this.scenarios = scenarios; this.items = items; }
         public static CapabilityTable LoadEmbedded()
         {
             using (var stream = typeof(CapabilityTable).Assembly.GetManifestResourceStream(ResourceName))
@@ -51,8 +56,9 @@ namespace LSA.Activities
                 var id = item["id"] as string;
                 if (id != ActivityContracts.CapabilityIds[index] || !item.ContainsKey("phase") || !item.ContainsKey("exposure")) throw new InvalidDataException("activity_contract_invalid");
                 var execution = item["execution"] as Dictionary<string, object> ?? throw new InvalidDataException("activity_contract_invalid");
+                var cancel = item["cancel"] as Dictionary<string, object> ?? throw new InvalidDataException("activity_contract_invalid");
                 var timeouts = item["timeouts"] as Dictionary<string, object> ?? throw new InvalidDataException("activity_contract_invalid");
-                var row = new CapabilityRow { Id = id, Phase = item["phase"] as string, Exposure = item["exposure"] as string, Path = execution["path"] as string, EssentialName = execution["essentialName"] as string, Kind = item["kind"] as string, AcceptMs = Convert.ToInt32(timeouts["acceptMs"]), HoldMaxMs = timeouts["holdMaxMs"] == null ? 0 : Convert.ToInt32(timeouts["holdMaxMs"]), Mode = ActivityContracts.IsMode(id), Never = item["phase"] as string == "never" || item["exposure"] as string == "excluded" };
+                var row = new CapabilityRow { Id = id, Phase = item["phase"] as string, Exposure = item["exposure"] as string, Path = execution["path"] as string, EssentialName = execution["essentialName"] as string, Kind = item["kind"] as string, Adapter = item["adapter"] as string, CancelPath = cancel["path"] as string, AcceptMs = Convert.ToInt32(timeouts["acceptMs"]), EstablishMs = timeouts["establishMaxMs"] == null ? 0 : Convert.ToInt32(timeouts["establishMaxMs"]), CompleteMs = timeouts["completeMaxMs"] == null ? 0 : Convert.ToInt32(timeouts["completeMaxMs"]), HoldMaxMs = timeouts["holdMaxMs"] == null ? 0 : Convert.ToInt32(timeouts["holdMaxMs"]), Mode = ActivityContracts.IsMode(id), Never = item["phase"] as string == "never" || item["exposure"] as string == "excluded" };
                 foreach (var probe in (item["probes"] as object[]) ?? new object[0]) row.Probes.Add(probe as string);
                 foreach (var source in (item["allowedSources"] as object[]) ?? new object[0]) row.Sources.Add(source as string);
                 foreach (var priority in (item["allowedPriority"] as object[]) ?? new object[0]) row.Priorities.Add(priority as string);
@@ -67,9 +73,29 @@ namespace LSA.Activities
                 excluded.Add(id);
             }
             if (excluded.Count != 18) throw new InvalidDataException("activity_contract_invalid");
-            return new CapabilityTable(rows, excluded);
+            var enums = root["enums"] as Dictionary<string, object> ?? throw new InvalidDataException("activity_contract_invalid");
+            return new CapabilityTable(rows, excluded, ClosedMap(enums, "scenarioMap"), ClosedMap(enums, "itemMap"));
         }
+        static Dictionary<string, string> ClosedMap(Dictionary<string, object> enums, string key)
+        {
+            var map = new Dictionary<string, string>();
+            var source = enums.ContainsKey(key) ? enums[key] as Dictionary<string, object> : null;
+            if (source == null) throw new InvalidDataException("activity_contract_invalid");
+            foreach (var pair in source) { var value = pair.Value as string; if (string.IsNullOrEmpty(value)) throw new InvalidDataException("activity_contract_invalid"); map[pair.Key] = value; }
+            return map;
+        }
+        // Closed contract maps. Unknown keys map to null and never reach Essential.
+        public string ScenarioName(string key) => key != null && scenarios.TryGetValue(key, out var name) ? name : null;
+        public string ItemName(string key) => key != null && items.TryGetValue(key, out var name) ? name : null;
         public CapabilityRow Get(string id) => id != null && rows.TryGetValue(id, out var row) ? row : null;
+        // Callback names for one exact queue command token (the seat variants must not accept each other).
+        public string[] NamesForToken(string token)
+        {
+            if (string.IsNullOrEmpty(token)) return new string[0];
+            var names = new List<string> { token };
+            if (Observed.TryGetValue(token, out var extra)) names.AddRange(extra);
+            return names.Distinct().ToArray();
+        }
         public string[] NamesFor(string id)
         {
             var row = Get(id);

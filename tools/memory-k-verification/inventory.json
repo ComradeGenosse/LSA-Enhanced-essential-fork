@@ -2,6 +2,7 @@
   "version": 1,
   "files": [
     "lsa-essential-e1-candidate/tests/activities-act2.test.mjs",
+    "lsa-essential-e1-candidate/tests/activities-act3.test.mjs",
     "lsa-essential-e1-candidate/tests/activities-contract.test.mjs",
     "lsa-essential-e1-candidate/tests/activities-shadow.test.mjs",
     "lsa-essential-e1-candidate/tests/activity-capture.test.mjs",

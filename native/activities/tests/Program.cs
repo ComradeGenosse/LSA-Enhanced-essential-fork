@@ -8,7 +8,7 @@ using System.Threading;
 using System.Web.Script.Serialization;
 using LSA.Activities;
 
-class Program
+partial class Program
 {
     static int assertions;
     static void Check(bool condition, string name) { if (!condition) throw new Exception(name); assertions++; }
@@ -304,6 +304,7 @@ class Program
         sources += File.ReadAllText(Path.Combine(root, "native", "promoted-characters", "ActivityCommands.cs"));
         foreach (var forbidden in new[] {"QueueNpcAction", "NpcActions.", "TASK_", "CLEAR_PED", "CancelAll", "SetControlledBrain", "ReleaseExclusiveControl"}) Check(!sources.Contains(forbidden), "shadow sources do not " + forbidden);
         Act2(table);
+        Act3(table);
     }
     static void Act2(CapabilityTable table)
     {
@@ -441,22 +442,26 @@ class Program
 sealed class FakeWorld : IActivityWorld
 {
     public string Encounter = "22222222-2222-4222-8222-222222222222", Incarnation = "33333333-3333-4333-8333-333333333333";
-    public ModeSample SampleState = new ModeSample { Alive = true, DistanceBand = "near", TargetValid = true, TargetSame = true };
+    public ModeSample SampleState = new ModeSample { Alive = true, DistanceBand = "near", TargetValid = true, TargetSame = true, TargetDistance = 10f, SeatIndex = -1 };
     public bool Already, Dispatched, Same = true, Stopped, OwnershipSeenAtDispatch;
-    public int Epoch = 1, Began, Ended;
+    public int Epoch = 1, Began, Ended, Dispatches, Cancels;
     public string LastCapability;
+    public StepArgs LastArgs;
+    public string PreflightReason;
+    public HashSet<string> Supported = new HashSet<string>(), Retired = new HashSet<string>();
     public uint Now = 1000;
     public uint GameTime => Now;
+    public bool Supports(string capability) => Supported.Contains(capability);
     public bool TryAcquire(string ownerAlias, string ownershipToken, out string encounterId, out string incarnationId, out string reason)
     { encounterId = Encounter; incarnationId = Incarnation; reason = null; return true; }
     public bool SameIncarnation(string encounterId, string incarnationId) => Same && encounterId == Encounter && incarnationId == Incarnation;
-    public AnchorResult Resolve(string encounterId, string role, string slotKind) => new AnchorResult { Ok = true, Ref = slotKind == "player" ? "55555555-5555-4555-8555-555555555555" : "44444444-4444-4444-8444-444444444444", Band = "at", SlotKind = slotKind, Label = slotKind == "here" ? "here" : null, X = SampleState.X, Y = SampleState.Y, Z = SampleState.Z };
-    public PreflightResult Preflight(string encounterId, string capability) => Already ? new PreflightResult { Already = true } : new PreflightResult { Ok = true };
-    public bool Dispatch(string encounterId, string capability, string targetRef) { Dispatched = true; LastCapability = capability; OwnershipSeenAtDispatch = Began > Ended; return true; }
+    public AnchorResult Resolve(string encounterId, string role, string slotKind) => new AnchorResult { Ok = true, Ref = slotKind == "player" ? "55555555-5555-4555-8555-555555555555" : slotKind == "player_vehicle" ? "66666666-6666-4666-8666-666666666666" : "44444444-4444-4444-8444-444444444444", Band = "at", SlotKind = slotKind, Label = slotKind == "here" ? "here" : null, X = SampleState.X, Y = SampleState.Y, Z = SampleState.Z };
+    public PreflightResult Preflight(string encounterId, string capability, StepArgs args) => PreflightReason != null ? new PreflightResult { Reason = PreflightReason } : Already ? new PreflightResult { Already = true } : new PreflightResult { Ok = true };
+    public bool Dispatch(string encounterId, string capability, StepArgs args) { Dispatched = true; Dispatches++; LastCapability = capability; LastArgs = args; OwnershipSeenAtDispatch = Began > Ended; return true; }
     public void NoteForeign(string encounterId) { }
-    public void Cancel(string encounterId, string capability, bool stopIfCurrent) { if (stopIfCurrent) Stopped = true; }
-    public ModeSample Sample(string encounterId) => SampleState;
+    public void Cancel(string encounterId, string capability, bool stopIfCurrent) { Cancels++; if (stopIfCurrent) Stopped = true; }
+    public ModeSample Sample(string encounterId, StepArgs args) => SampleState;
     public void BeginOwnership(string encounterId) { Began++; }
     public void EndOwnership(string encounterId, bool preempted) { Ended++; }
-    public bool AnchorLive(string captureRef) => true;
+    public bool AnchorLive(string captureRef) => !Retired.Contains(captureRef);
 }

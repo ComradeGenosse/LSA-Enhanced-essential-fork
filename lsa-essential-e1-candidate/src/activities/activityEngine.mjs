@@ -2,8 +2,8 @@ import {isUuid} from '../identity/identityContract.mjs';
 import { randomUUID } from 'node:crypto';
 import { validateActivity } from './contracts.mjs';
 import { loadCapabilityRegistry } from './capabilityRegistry.mjs';
-import { INTERRUPT_POLICY, buildPlan } from './intentTemplates.mjs';
-import { validateAdmission } from './activityValidator.mjs';
+import { INTERRUPT_POLICY, planFor } from './intentTemplates.mjs';
+import { outranks, validateAdmission } from './activityValidator.mjs';
 import { GOAL_ATTEMPT_LIMIT, GOAL_DEADLINE_MS, GoalStore, makeGoal } from './goalStore.mjs';
 import { ActivityFacts, projectStatus } from './activityFacts.mjs';
 import { readHostContext, sameHostContext } from '../context/hostContext.mjs';
@@ -61,16 +61,19 @@ export class ActivityEngine {
     if (now < this.breakerUntil) return this.#reject(proposal, 'capability_disabled');
     if (!binding || binding.characterId !== proposal?.subject?.characterId || !binding.ownerAlias || !binding.ownershipToken) return this.#reject(proposal, 'actor_not_owned');
     const hello = this.hello?.capabilities || null;
-    const admission = validateAdmission(proposal, { registry: this.registry, mode: this.config.mode, hello, passedProbes: this.config.passedProbes || [] });
+    const admission = validateAdmission(proposal, { registry: this.registry, mode: this.config.mode, hello, passedProbes: this.config.passedProbes || [], act3Capabilities: this.config.act3Capabilities || [] });
     if (!admission.ok) return this.#reject(proposal, admission.reason);
     const characterId = proposal.subject.characterId;
     const live = this.#liveFor(characterId);
+    // A lower-priority proposal never displaces a higher-priority activity that is still running.
+    if (live.some(item => outranks(item.priority, admission.priority))) return this.#reject(proposal, 'activity_busy');
+    const planned = planFor(proposal.intent, proposal.slots, { id: this.id, registry: this.registry });
+    if (!planned.plan) return this.#reject(proposal, planned.reason || 'capability_unavailable');
+    const plan = planned.plan;
     if (live.length >= 1) this.#finish(live[0], 'superseded', 'superseded_player', now, 'cancel_if_current');
     if (this.#live().length >= 4) return this.#reject(proposal, 'activity_limit');
     const goal = makeGoal(admission.proposal, this.id, now);
     if (goal.activityIds.length >= GOAL_ATTEMPT_LIMIT) return this.#reject(proposal, 'budget_exhausted');
-    const plan = buildPlan(proposal.intent, proposal.slots, { id: this.id, registry: this.registry });
-    if (!plan) return this.#reject(proposal, 'capability_unavailable');
     const activity = this.#activity(goal, plan, binding, now);
     if (goal.activityIds.length > GOAL_ATTEMPT_LIMIT) return this.#reject(proposal, 'budget_exhausted');
     this.goals.add(goal);
@@ -233,9 +236,16 @@ export class ActivityEngine {
     activity.knownIncarnation = frame.incarnationId;
     activity.factProvenance=readHostContext(this.hostContext) && isUuid(frame.encounterId) && isUuid(frame.incarnationId) ? Object.freeze({...this.hostContext,encounterId:frame.encounterId,incarnationId:frame.incarnationId}) : null;
     activity.leaseEpoch = frame.leaseEpoch;
+    this.#resolveStep(activity);
+  }
+
+  // Anchors are resolved per step, right before that step's preflight, so a later step never runs on a
+  // reference captured for an earlier one. A role is cleared first because the new capture is a new proof.
+  #resolveStep(activity) {
     const step = activity.steps[activity.cursor];
     const refs = step.needs || [];
     if (refs.length === 0) return this.#preflight(activity);
+    for (const ref of refs) delete activity.anchors[ref.role];
     const requestId = this.id();
     this.byRequest.set(requestId, { activity, kind: 'anchor', refs });
     this.#send('anchor.resolve', { requestId, encounterId: activity.actor.encounterId, leaseId: activity.leaseId, refs });
@@ -256,6 +266,7 @@ export class ActivityEngine {
       if (result.role === 'place') step.args = { ...step.args, place: { kind: 'place', placeRef: result.ref } };
       const requested = (pending.refs || []).find(item => item.role === result.role);
       if (result.role === 'target') step.args = { ...step.args, target: requested?.slot?.kind === 'player' ? { kind: 'player', captureRef: result.ref } : { kind: 'capture', captureRef: result.ref } };
+      if (result.role === 'vehicle') step.args = { ...step.args, vehicle: { kind: 'capture', captureRef: result.ref } };
       if (result.label) activity.placeLabel = result.label;
     }
     this.#preflight(activity);
@@ -290,6 +301,13 @@ export class ActivityEngine {
     this.#recordFact(activity,{ characterId: activity.actor.characterId, activityId: activity.activityId, goalId: activity.goalId, kind: 'mode_established', intent: activity.template, evidence: 'mode_flag', atMs: now });
     if (step.kind === 'finite' || step.kind === 'instant' || this.#untilMet(activity, now)) {
       step.status = 'done';
+      // A satisfied step in the middle of a plan advances the plan; it never completes the whole activity.
+      if (activity.cursor < activity.steps.length - 1) {
+        activity.cursor += 1;
+        activity.holdingSince = null;
+        activity.currentExecutionId = null;
+        return this.#resolveStep(activity);
+      }
       return this.#finish(activity, 'completed', 'already_satisfied', now, 'detach');
     }
     step.status = 'holding';
@@ -474,7 +492,9 @@ export class ActivityEngine {
     this.#recordFact(activity,{ characterId: activity.actor.characterId, activityId: activity.activityId, goalId: activity.goalId, kind: evidence === 'world_strong' ? 'completed' : 'step_completed', intent: activity.template, evidence: evidence === 'world_strong' ? 'world_strong' : 'mode_flag', placeLabel: activity.placeLabel || null, atMs: now });
     if (activity.cursor >= activity.steps.length - 1) return this.#finish(activity, 'completed', 'already_satisfied', now, 'detach');
     activity.cursor += 1;
-    this.#preflight(activity);
+    activity.holdingSince = null;
+    activity.currentExecutionId = null;
+    this.#resolveStep(activity);
   }
 
   #recover(activity, reason, now) {

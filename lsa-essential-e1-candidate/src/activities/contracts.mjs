@@ -47,6 +47,9 @@ export const PRECONDITIONS = Object.freeze(['actor_owned', 'actor_alive', 'actor
 export const ADAPTERS = Object.freeze(['hold_mode', 'follow_mode', 'pose_mode', 'cover_mode', 'drive_mode', 'approach', 'seat_occupancy', 'vehicle_exit', 'held_item', 'item_transfer', 'walk_away', 'resume_ambient', 'scenario', 'scenario_at', 'place_arrival', 'drive_arrival', 'none']);
 export const EXECUTION_PATHS = Object.freeze(['queue', 'wrapper', 'extension', 'none']);
 export const CAPABILITY_IDS = Object.freeze(['hold_position', 'follow_person', 'resume_ambient', 'sit_on_ground', 'stop_and_face', 'approach_person', 'enter_vehicle_seat', 'exit_vehicle', 'follow_vehicle', 'begin_driving', 'scenario_here', 'scenario_at', 'walk_away_from', 'take_cover', 'grab_item', 'give_item', 'take_item', 'clear_held_item', 'walk_to', 'drive_to', 'chase_person', 'directed_interaction', 'perform_activity']);
+// ACT3 capabilities. Each one stays off until the operator lists it in activities.act3Capabilities,
+// on top of the shared probe list, because probe Q1 is shared with ACT2 and proves nothing about ACT3.
+export const ACT3_CAPABILITY_IDS = Object.freeze(['stop_and_face', 'approach_person', 'enter_vehicle_seat', 'exit_vehicle', 'follow_vehicle', 'begin_driving', 'scenario_here', 'scenario_at', 'walk_away_from', 'take_cover', 'grab_item', 'give_item', 'take_item', 'clear_held_item']);
 export const DISTANCE_BANDS = Object.freeze(['at', 'near', 'medium', 'far']);
 export const LIMITS = Object.freeze({ characters: 4, anchors: 32, pendingPerActor: 1, callbackRing: 64, frameBytes: FRAME_BYTES, nativeQueue: 64, companionQueue: 256, receiptsPerSecond: 4, factsPerSecond: 2 });
 export const DIAGNOSTIC_KEYS = Object.freeze(['activities', 'paused', 'executions', 'anchors', 'dispatches', 'accepted', 'established', 'completed', 'failed', 'superseded', 'timedOut', 'detached', 'staleReceipts', 'callbackDropped', 'adapterDeferred', 'updateMicrosP95', 'leaseExpiries', 'breakerTrips', 'extensionReissues']);
@@ -78,7 +81,10 @@ export function normalizeActivityConfig(value = {}) {
   const passedProbes = valid && Array.isArray(value.passedProbes)
     ? [...new Set(value.passedProbes.filter(item => typeof item === 'string' && /^[A-Z][A-Z0-9]{0,8}$/.test(item)))].slice(0, 12)
     : [];
-  return Object.freeze({ mode, pipeName: /^[A-Za-z0-9_.-]{1,80}$/.test(pipeName) ? pipeName : 'LSA.Activities.v1', passedProbes, dialogue: false,...(valid && value.dialogueReceipts===true?{dialogueReceipts:true}:{}) });
+  const act3Capabilities = valid && Array.isArray(value.act3Capabilities)
+    ? Object.freeze([...new Set(value.act3Capabilities.filter(item => typeof item === 'string' && ACT3_CAPABILITY_IDS.includes(item)))])
+    : [];
+  return Object.freeze({ mode, pipeName: /^[A-Za-z0-9_.-]{1,80}$/.test(pipeName) ? pipeName : 'LSA.Activities.v1', passedProbes, dialogue: false,...(act3Capabilities.length?{act3Capabilities}:{}),...(valid && value.dialogueReceipts===true?{dialogueReceipts:true}:{}) });
 }
 
 function refSlot(value) {

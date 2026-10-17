@@ -18,6 +18,9 @@ namespace LSA.PromotedCharacters
         internal int PendingDialogueReceipts => dialogueCorrelator?.Count ?? 0;
         StepRunner activityRunner;
         partial void BindActivityWorld(StepRunner runner);
+        partial void AttachActivityEvents();
+        partial void DetachActivityEvents();
+        bool activityEventsAttached;
         readonly SupersessionMonitor activityRing = new SupersessionMonitor();
         readonly Queue<long> activityFaultAt = new Queue<long>();
         bool activityDisabled, activityEscape, activityContainedFault;
@@ -67,6 +70,7 @@ namespace LSA.PromotedCharacters
             var table = CapabilityTable.LoadEmbedded();
             activityRunner = new StepRunner(table);
             BindActivityWorld(activityRunner);
+            AttachActivityEvents(); activityEventsAttached = true;
             activitySession = CreateActivitySession(table,activityRunner,dialogueReceipts);
             activityRunner.Session = activitySession;
             activityChannel = new ActivityChannel(pipeName, activitySession);
@@ -114,6 +118,7 @@ namespace LSA.PromotedCharacters
             if(dialogueRetirementSubscribed){Host.Anchors.Retired-=DialogueAnchorRetired;dialogueRetirementSubscribed=false;}
             dialogueCorrelator?.Reset();
             activityRing.ClearForWorldReset();
+            if (activityEventsAttached) { activityEventsAttached = false; try { DetachActivityEvents(); } catch { } }
             try { activitySession?.Machine.ClientDisconnected("control_released"); } catch { }
             try { activityRunner?.ClientDisconnected(activitySession, "control_released", DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()); } catch { }
             try { activityChannel?.Dispose(); } catch { }
@@ -183,6 +188,16 @@ namespace LSA.PromotedCharacters
                     }
                     record.ActorKey = encounter.Id;
                     record.IncarnationId = encounter.Registration.IncarnationId;
+                    if (record.Phase == "approach_finished") {
+                        // Runner-only evidence. The shadow machine has no use for it and never sees it.
+                        if (activityRunner != null) {
+                            var targetPed = record.TargetReference as Ped;
+                            var anchored = false;
+                            foreach (var anchor in Host.Anchors.Current) if (anchor.Kind == "player" && anchor.Consumers.Contains(LSA.Intelligence.AnchorConsumer.ActTarget) && ReferenceEquals(anchor.Entity, targetPed)) { anchored = true; break; }
+                            activityRunner.OnApproachFinished(record.ActorKey, record.IncarnationId, anchored, record.Ok == true, record.Reason, record.GameMs);
+                        }
+                        continue;
+                    }
                     if (record.Phase == "control_lost") {
                         if (activityRunner != null) activityRunner.Retire(record.ActorKey, record.IncarnationId, record.GameMs, DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(), activitySession);
                         else activitySession.Machine.ObserveControlLost(record.ActorKey, record.IncarnationId, record.GameMs);
@@ -225,6 +240,15 @@ namespace LSA.PromotedCharacters
             } catch { }
         }
 
+        // Event-only path like PushActivity: opaque references and the payload, no state reads.
+        void PushApproachFinished(Ped actor, Ped target, bool ok, string reason)
+        {
+            if (activitySession == null || activityDisabled || activityRunner == null || actor == null) return;
+            try {
+                activityRing.Push(new CallbackRecord { PedReference = actor, TargetReference = target, Name = "ApproachFinished", Phase = "approach_finished", Ok = ok, Reason = reason, Source = "essential", GameMs = unchecked((uint)Game.GameTime) });
+            } catch { }
+        }
+
         void SampleActivityFacts(uint game)
         {
             foreach (var encounter in encounters.Values) {
@@ -237,6 +261,13 @@ namespace LSA.PromotedCharacters
                 try { scripted = Scripted(); } catch { }
                 try { injured = NativeFunction.CallByName<bool>("IS_PED_INJURED", encounter.Ped); } catch { }
                 try { inVehicle = NativeFunction.CallByName<bool>("IS_PED_IN_ANY_VEHICLE", encounter.Ped, false); } catch { }
+                var driver = false;
+                if (inVehicle) {
+                    try {
+                        var seated = NativeFunction.CallByName<uint>("GET_VEHICLE_PED_IS_IN", encounter.Ped, false);
+                        driver = seated != 0 && (ulong)NativeFunction.CallByName<uint>("GET_PED_IN_VEHICLE_SEAT", seated, -1, 0) == Convert.ToUInt64(encounter.Ped.Handle);
+                    } catch { }
+                }
                 var band = "far";
                 try {
                     var player = Game.LocalPlayer.Character;
@@ -248,7 +279,7 @@ namespace LSA.PromotedCharacters
                         band = distance <= 3 ? "at" : distance <= 15 ? "near" : distance <= 50 ? "medium" : "far";
                     }
                 } catch { }
-                var signature = string.Join(",", Alive(encounter), injured, state?.InDirectedInteraction == true, encounter.Suspended, state?.HasActiveReflex == true, scripted, inVehicle, band);
+                var signature = string.Join(",", Alive(encounter), injured, state?.InDirectedInteraction == true, encounter.Suspended, state?.HasActiveReflex == true, scripted, inVehicle, driver, band);
                 if (activityFacts.TryGetValue(encounter.Id, out var previous) && previous == signature) continue;
                 activityFacts[encounter.Id] = signature;
                 activityFactAt[encounter.Id] = now;
@@ -256,7 +287,7 @@ namespace LSA.PromotedCharacters
                 activitySession.PublishActorFacts(new Dictionary<string, object> {
                     {"encounterId",encounter.Id},{"alive",Alive(encounter)},{"injured",injured},{"scripted",scripted},{"suspended",encounter.Suspended},
                     {"inDirectedInteraction",state?.InDirectedInteraction == true},{"reflexActive",state?.HasActiveReflex == true},{"inVehicle",inVehicle},
-                    {"isDriver",false},{"controlIntent",state?.StayUnderLsaControl == true},{"stateRegistered",state != null},{"distanceBand",band},{"gameMs",(long)game}
+                    {"isDriver",driver},{"controlIntent",state?.StayUnderLsaControl == true},{"stateRegistered",state != null},{"distanceBand",band},{"gameMs",(long)game}
                 });
             }
         }

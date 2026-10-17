@@ -24,6 +24,8 @@ export const OBSERVED_NAMES = Object.freeze({
   waithere: ['WaitHere'], followtarget: ['FollowTarget'], resumeactivity: ['ResumeActivity'], sitonground: ['SitOnGround'],
   stopandfacetarget: ['StopAndFaceTarget'], approachperson: ['ApproachTarget'], takecover: ['TakeCover'], walkawayfromtarget: ['WalkAwayFromTarget'],
   startdriving: ['StartDriving'], exitvehicle: ['ExitVehicle'],
+  enterdriverseatoftargetvehicle: ['EnterDriverSeatOfTargetVehicle'], entertargetvehicle: ['EnterTargetVehicle'], enterbackoftargetvehicle: ['EnterBackOfTargetVehicle'],
+  grabitem: ['GrabItem'], clearhelditem: ['ClearHeldItem'],
 });
 
 function names(value) {

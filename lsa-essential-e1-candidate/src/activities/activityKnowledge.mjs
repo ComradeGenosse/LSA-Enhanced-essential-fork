@@ -1,8 +1,8 @@
 import {immutableSnapshot} from '../context/turnSnapshot.mjs';
 import {readHostContext,sameHostContext} from '../context/hostContext.mjs';
 import {isUuid,sameAssociation} from '../identity/identityContract.mjs';
-const INTENTS=Object.freeze({hold_position:'wait here',accompany:'follow',resume_previous:'resume an ambient activity',sit_here:'sit down'});
-const MODES=Object.freeze({hold_position:'Holding position',accompany:'Following',resume_previous:'Ambient activity',sit_here:'Sitting'});
+const INTENTS=Object.freeze({hold_position:'wait here',accompany:'follow',resume_previous:'resume an ambient activity',sit_here:'sit down',scenario_here:'do an activity here',approach_and_face:'come over and face the player',board_vehicle:'get into a vehicle',ride_along:'ride along in a vehicle',exit_vehicle_and_hold:'get out of a vehicle and wait',leave_scene:'walk away',take_cover_and_hold:'take cover'});
+const MODES=Object.freeze({hold_position:'Holding position',accompany:'Following',resume_previous:'Ambient activity',sit_here:'Sitting',scenario_here:'Scenario',approach_and_face:'Facing',board_vehicle:'Vehicle seat',ride_along:'Vehicle seat',exit_vehicle_and_hold:'Holding position',leave_scene:'Ambient activity',take_cover_and_hold:'Taking cover'});
 const KINDS=new Set(['instructed','accepted','started','step_completed','arrived','mode_established','paused','resumed','completed','failed','cancelled','abandoned']);
 const EVIDENCE=new Set(['none','handler_only','mode_flag','world_strong']);
 // Read-only SELF contributor. UI summaries and arbitrary labels never become facts.
@@ -13,6 +13,7 @@ export function projectActivityKnowledge(inputs){
  for(const fact of (Array.isArray(inputs.facts)?inputs.facts:[]).slice(-16).reverse()){
   if(fact?.factVersion!==1 || !isUuid(fact.factId) || !isUuid(fact.activityId) || !isUuid(fact.goalId) || fact.characterId!==binding.characterId || fact.provenance?.encounterId!==binding.encounterId || fact.provenance?.incarnationId!==binding.incarnationId || !sameHostContext(fact.provenance,binding.hostContext) || !Object.hasOwn(INTENTS,fact.intent) || !KINDS.has(fact.kind) || !EVIDENCE.has(fact.evidence) || !Number.isSafeInteger(fact.atMs) || fact.atMs<0){omitted++;continue;}
   const action=INTENTS[fact.intent],mode=MODES[fact.intent];let text=null;
+  if(!action || !mode){omitted++;continue;}
   if(fact.kind==='instructed')text=`I was asked to ${action}.`;
   else if(fact.kind==='accepted')text=`The request to ${action} was admitted.`;
   else if(fact.kind==='started')text=fact.evidence==='handler_only'?`The handler accepted the attempt to ${action}.`:`An attempt to ${action} was started; physical execution was not established by this fact.`;
