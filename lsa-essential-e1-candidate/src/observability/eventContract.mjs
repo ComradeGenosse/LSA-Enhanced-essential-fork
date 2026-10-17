@@ -34,7 +34,7 @@ const safeKeys = new Set([
   'perceivedUnsupportedClaims','perceivedRevisionMismatch','perceivedUnmatchedSalience',
   'perceivedBudgetExcluded','perceivedSafetyOverflow',
   'stage','operation','terminalReason','reason','code','nativeType','nativeReason','errorType','actionName','retryable','requestGatePassed',
-  'requestId','model','effort','source','provider','role','outcome','eventType','httpStatus','durationMs',
+  'requestId','model','effort','source','provider','role','outcome','eventType','sceneType','httpStatus','durationMs',
   'bytes','rawBytes','pcmBytes','wavBytes','bodyReadMs','handoffMs','chunks','sampleRate','channels','inputChars','outputChars','inputTokens',
   'outputTokens','totalTokens','cachedInputTokens','reasoningTokens','audioTokens','audioDurationMs',
   'expectedDurationMs','watchdogMs','queueDepth','dropped','historySize','trimmed','accepted','attempts',
