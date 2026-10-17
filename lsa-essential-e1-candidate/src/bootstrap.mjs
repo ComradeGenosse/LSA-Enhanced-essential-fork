@@ -576,6 +576,12 @@ export async function createRuntimeForBundle(options = {}) {
     runtime.director=pump;
     runtime.spontaneousSpeechBusy=()=>admission.active!==null&&admission.active!==undefined;
     owner.own('director.pump',pump,value=>value.stop());
+    runtime.services.directorManualStatus=()=>Object.freeze({
+      nativeResult:client.runtime.socialManualResult??null,
+      executionAvailable:experimental &&
+        client.runtime.directorPriority?.experimentalEnabled===true &&
+        client.runtime.directorRequestVersion===1,
+    });
     runtime.services.initiateDirectorConversation=()=>Object.freeze({
       queued:experimental && client.requestDirectorSocialManual()===true,
       // Native admission/result is reported separately. Never claim
