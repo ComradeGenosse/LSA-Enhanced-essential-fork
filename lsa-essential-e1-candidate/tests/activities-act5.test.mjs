@@ -115,12 +115,16 @@ test('an audible proposal is pending only; explicit yes admits exactly one exist
   const following=await h.dialogue.prepare(approval,'player_text');
   assert.deepEqual(following.intents,[]);
   const accepted=await h.dialogue.onPlayerInput(approval,'Yeah!',following,()=>true);
-  assert.equal(accepted.kind,'admitted');
+  assert.equal(accepted.kind,'approval_pending');
+  assert.equal(h.engine.goals.goals.length,0);
+  assert.equal(h.commands.length,0);
+  assert.equal((await h.dialogue.commitApproved(approval,()=>true)).ok,true);
   assert.equal(h.engine.goals.goals.length,1);
   assert.equal(h.engine.goals.goals[0].source,'player_dialogue');
   assert.equal(h.engine.activities[0].source,'player_dialogue');
   assert.equal(h.commands.filter(v=>v.type==='actor.acquire').length,1);
   assert.equal(await h.dialogue.onPlayerInput(approval,'Yeah!',following,()=>true),null);
+  assert.equal((await h.dialogue.commitApproved(approval,()=>true)).ok,false);
   assert.equal(h.commands.filter(v=>v.type==='actor.acquire').length,1);
   assert.equal(h.engine.goals.goals.length,1);
 });
