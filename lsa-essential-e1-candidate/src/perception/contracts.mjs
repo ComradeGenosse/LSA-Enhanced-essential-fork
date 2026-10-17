@@ -175,6 +175,20 @@ export function validateM9SamplePayload(p) {
   return o===null||keys(o,['kind','nativeReceiptId'])&&['wasted','busted'].includes(o.kind)&&isUuid(o.nativeReceiptId);
 }
 
+
+const SOCIAL_SCENES=new Set(['shared_vehicle_entry','reunion','shared_idle','travel','activity_transition','manual']);
+export function validateDirectorSocialPayload(p) {
+  return keys(p,['socialVersion','hostRunId','worldEpoch','sampledGameTick','sceneId',
+    'sceneType','speakerCaptureRef','playerCaptureRef','ownerIncarnationId','ownerProofRevision','role']) &&
+    p.socialVersion===1 && [p.hostRunId,p.sceneId,p.speakerCaptureRef,
+      p.playerCaptureRef,p.ownerIncarnationId].every(isUuid) &&
+    integer(p.worldEpoch,2147483647) && p.worldEpoch>0 &&
+    integer(p.sampledGameTick,0xffffffff) &&
+    integer(p.ownerProofRevision,2147483647) && p.ownerProofRevision>0 &&
+    SOCIAL_SCENES.has(p.sceneType) &&
+    ['none','driver','passenger','unknown'].includes(p.role);
+}
+
 export function validateFrame(v) {
   if (!v || Buffer.byteLength(JSON.stringify(v))>BOUNDS.frameBytes) return false;
   if (v.type==='hello') return validateHostEnvelope(v,['version','type','adapterEpoch','streamId','capabilities',...(Object.hasOwn(v,'observerIndexVersion') ? ['observerIndexVersion'] : []),...(Object.hasOwn(v,'observerSituationVersion') ? ['observerSituationVersion'] : []),...(Object.hasOwn(v,'primaryBehaviorOwnerVersion') ? ['primaryBehaviorOwnerVersion'] : []),...(Object.hasOwn(v,'directorRequestVersion') ? ['directorRequestVersion'] : []),...(Object.hasOwn(v,'memoryCurrentOwnerPlayerVersion') ? ['memoryCurrentOwnerPlayerVersion'] : []),...(Object.hasOwn(v,'m9SampleVersion') ? ['m9SampleVersion'] : [])]) && (!Object.hasOwn(v,'m9SampleVersion') || v.hostContextVersion===1 && v.observerIndexVersion===1 && v.m9SampleVersion===1) && (!Object.hasOwn(v,'observerIndexVersion') || v.hostContextVersion===1 && v.observerIndexVersion===1) && (!Object.hasOwn(v,'observerSituationVersion') || v.hostContextVersion===1 && v.observerIndexVersion===1 && v.observerSituationVersion===1) && (!Object.hasOwn(v,'primaryBehaviorOwnerVersion') || v.observerSituationVersion===1 && v.primaryBehaviorOwnerVersion===1) && (!Object.hasOwn(v,'directorRequestVersion') || v.hostContextVersion===1 && v.directorRequestVersion===1) && (!Object.hasOwn(v,'memoryCurrentOwnerPlayerVersion') || v.hostContextVersion===1 && v.observerIndexVersion===1 && v.memoryCurrentOwnerPlayerVersion===1) && v.version===1 && isUuid(v.adapterEpoch) && isUuid(v.streamId) && keys(v.capabilities,CAPABILITIES) && Object.values(v.capabilities).every(x=>typeof x==='boolean');
@@ -187,6 +201,7 @@ export function validateFrame(v) {
   if (v.type==='world_epoch') return validateWorldEpoch(v.payload);
   // This authenticated EA transport fact cannot substitute for a Memory K owner receipt.
   if (v.type===PROTAGONIST_EVENT) return readProtagonistFrame(v)!==null;
+  if(v.type==='director_social')return validateDirectorSocialPayload(v.payload);
   if(v.type==='director_priority') return keys(v.payload,['playerTurnVersion','experimentalEnabled']) &&
     integer(v.payload.playerTurnVersion,2147483647) &&
     typeof v.payload.experimentalEnabled==='boolean';
