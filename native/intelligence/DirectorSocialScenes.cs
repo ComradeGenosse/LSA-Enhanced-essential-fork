@@ -112,19 +112,26 @@ namespace LSA.Intelligence
                 if(sharedCar && !track.WasShared) {
                     track.TripSince=now;track.EntryPending=true;
                 }
+                // A fresh player turn is conversation, not a reason to reopen
+                // a greeting/boarding dialogue immediately afterward.
+                var recentlyTalked=now-track.LastInteraction<(testing?5000:30000);
                 if(!near){track.Near=false;track.NearSince=now;track.IdleSince=now;}
                 else if(!track.Near){track.Near=true;track.NearSince=now;track.IdleSince=now;}
                 if(movement||sharedCar||!near)track.IdleSince=now;
                 string kind=null;
                 // Boarding is an edge, not a per-tick prompt. Brief re-entry
                 // into the same vehicle never creates a second opening.
-                if(sharedCar && track.EntryPending && now-track.TripSince>=(testing?400:700) &&
+                if(sharedCar && track.EntryPending && !recentlyTalked &&
+                   now-track.TripSince<=(testing?4500:10000) &&
+                   now-track.TripSince>=(testing?400:700) &&
                    now-track.LastEntry>=(testing?5000:20000) &&
                    (track.LastEntryVehicle!=actorCar || now-track.LastEntry>=(testing?25000:90000))) {
                     kind="shared_vehicle_entry";track.LastEntry=now;track.LastEntryVehicle=actorCar;
                     track.EntryPending=false;
                 }
-                if(kind==null && near && !sharedCar && now-track.NearSince>=(testing?600:1200) &&
+                if(kind==null && near && !sharedCar && !recentlyTalked &&
+                   now-track.NearSince>=(testing?600:1200) &&
+                   now-track.NearSince<=(testing?4500:10000) &&
                    now-track.LastGreeting>=(testing?30000:300000) && track.LastGreeting<track.NearSince) {
                     kind="reunion";track.LastGreeting=now;
                 }
@@ -148,6 +155,9 @@ namespace LSA.Intelligence
                    (state.Mode=="follow" || state.Mode=="wait")) {
                     kind="activity_transition";track.LastTransition=now;
                 }
+                // Do not turn a missed boarding edge into a delayed, irrelevant line.
+                if(track.EntryPending && (!sharedCar || now-track.TripSince>(testing?4500:10000)))
+                    track.EntryPending=false;
                 track.Activity=state.Mode;
                 track.WasShared=sharedCar;track.Vehicle=actorCar;
                 track.LastSeen=now;track.LastActor=ped.Position;track.LastPlayer=playerPed.Position;
