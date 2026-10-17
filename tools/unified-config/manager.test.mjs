@@ -6,6 +6,7 @@ import path from 'node:path';
 import {createHash} from 'node:crypto';
 import {run} from './manager.mjs';
 import {TARGETS} from './schema.mjs';
+import {chooseGameDirectory} from './discovery.mjs';
 
 const hash=s=>createHash('sha256').update(s).digest('hex');
 const serialize=x=>JSON.stringify(x,null,2)+'\n';
@@ -294,4 +295,10 @@ test('status shows requested state and pending restart after managed apply',asyn
   assert.equal(status.operationalStatus,'unverified_without_running_GTA');
   assert.ok(status.pendingRestart.includes('e1'));
   assert.equal(status.configured.speechProvider,'openai');
+});
+
+test('game selection rejects missing and ambiguous installs, deduplicates same directory',()=>{
+  assert.throws(()=>chooseGameDirectory([]),/not found/);
+  assert.throws(()=>chooseGameDirectory(['C:/GTA-A','D:/GTA-B']),/Multiple GTA installations/);
+  assert.equal(chooseGameDirectory(['/tmp/gtav','/tmp/gtav']),path.resolve('/tmp/gtav'));
 });
