@@ -1,3 +1,5 @@
+> **Mainline note — 2026-10-17:** This was an early provider implementation handoff. The ElevenLabs v4 code is now in canonical main via #224, with further split PCM hardening in #229. Its original “do not merge” and older stack-branch sections are historical; **current installed GTA and live paid provider quality/reliability still require explicit validation**. See [implementation matrix](../IMPLEMENTATION-STATUS-20261017.md#foundation), [roadmap](../ROADMAP.md) and [EA9 acceptance](../ea9/GTA-ACCEPTANCE.md).
+
 # ElevenLabs v4 Turbo TTS — cloud speech provider
 
 **Scope:** Provider code historically stacked on Qwen PR #39 and radio PR #46. The cleanup removes Qwen runtime files while preserving Git history and historic stored voice records. ElevenLabs becomes the **selected speech provider only when opted in**. It does **not** alter Luna reasoning, OpenAI speech transcription, promoted NPC memories, radio/perception, RAGE native control, spatial playback, audio volume, or other existing providers.
