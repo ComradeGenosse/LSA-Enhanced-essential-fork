@@ -575,6 +575,12 @@ export async function createRuntimeForBundle(options = {}) {
     runtime.director=pump;
     runtime.spontaneousSpeechBusy=()=>admission.active!==null&&admission.active!==undefined;
     owner.own('director.pump',pump,value=>value.stop());
+    runtime.services.initiateDirectorConversation=()=>Object.freeze({
+      queued:experimental && client.requestDirectorSocialManual()===true,
+      // Native admission/result is reported separately. Never claim
+      // actual Luna speech merely because a request entered the pipe.
+      nativeResult:client.runtime.socialManualResult?.reason??null,
+    });
     runtime.services.spontaneousSpeechStatus=()=>Object.freeze({
       requested:config.spontaneousSpeech.mode,
       preset:config.spontaneousSpeech.preset,
