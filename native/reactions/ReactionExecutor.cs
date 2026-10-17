@@ -67,7 +67,8 @@ namespace LSA.Reactions
         readonly ReactionCooldowns cooldowns;
         readonly List<Pending> pending = new List<Pending>();
         readonly Dictionary<string, int> rejected = new Dictionary<string, int>();
-        bool attached, disabled, overflow;
+        readonly HashSet<string> probed = new HashSet<string>();
+        bool attached, disabled, overflow, facialProbed;
         int faults;
         string lastNative = "none";
 
@@ -80,6 +81,7 @@ namespace LSA.Reactions
         string requestedDict;
         bool weRequestedDict, dictRequested;
         long resolveStartedMs, dictRequestedAtMs;
+        int playedDurationMs;
         string playingDict, playingClip;
         long playedAtMs;
         bool verified;
@@ -278,7 +280,7 @@ namespace LSA.Reactions
                 if (decision.Outcome == AdmissionOutcome.Defer) { pending.Add(item); continue; }
                 if (decision.Outcome == AdmissionOutcome.Reject) { Answer(item.Frame, "rejected", decision.Reason); continue; }
                 var spec = ReactionCatalog.Get(item.Frame.Reaction);
-                long startAt = Math.Max(now, decision.Playback.StartedMs + ReactionTiming.StartDelayMs(item.Frame.Key));
+                long startAt = Math.Max(now, decision.Playback.StartedMs + ReactionTiming.StartDelayMs(item.Frame.Key, spec));
                 run = new ReactionRun(item.Frame.Reaction, decision.Playback, !options.Mutates, startAt);
                 runFrame = item.Frame; runSpec = spec; runInterrupted = false;
                 candidateIndex = 0; dictRequested = false; requestedDict = null; weRequestedDict = false; resolveStartedMs = 0;
@@ -326,7 +328,9 @@ namespace LSA.Reactions
             string cooldown = cooldowns.Check(run.Key.PedId, run.Reaction, now);
             if (cooldown != null) { Skip(cooldown); return; }
 
-            var candidates = runSpec.Candidates(IsMale(actor.Ped));
+            bool male = IsMale(actor.Ped);
+            var candidates = runSpec.Candidates(male);
+            if (options.Diagnostics) Probe(run.Reaction, male, candidates);
             while (candidateIndex < candidates.Count)
             {
                 var candidate = candidates[candidateIndex];
@@ -362,12 +366,35 @@ namespace LSA.Reactions
                 // which is why the next ticks confirm the clip is really playing.
                 Native<uint>("TASK_PLAY_ANIM", actor.Ped, candidate.Dict, candidate.Clip, runSpec.BlendIn, runSpec.BlendOut,
                     durationMs, ReactionCatalog.PlayFlags, 0f, false, false, false);
-                playingDict = candidate.Dict; playingClip = candidate.Clip; playedAtMs = now;
+                playingDict = candidate.Dict; playingClip = candidate.Clip; playedAtMs = now; playedDurationMs = durationMs;
                 cooldowns.Record(run.Key.PedId, run.Reaction, now);
                 run.MarkPlaying(now, durationMs + 150);
                 return;
             }
             Skip("no_clip");
+        }
+
+        // Diagnostics only (reactions.diagnostics: true). Read-only natives, once per
+        // (reaction, gender) per session: which candidate dictionaries exist and are
+        // already loaded on THIS game build. Catalog constants only, never dialogue.
+        void Probe(string reaction, bool male, IReadOnlyList<ReactionClip> candidates)
+        {
+            string tag = reaction + (male ? "|m" : "|f");
+            if (!probed.Add(tag)) return;
+            var parts = new List<string>();
+            foreach (var candidate in candidates)
+            {
+                bool exists = Native<bool>("DOES_ANIM_DICT_EXIST", candidate.Dict);
+                bool loaded = exists && Native<bool>("HAS_ANIM_DICT_LOADED", candidate.Dict);
+                parts.Add(candidate.Dict + "/" + candidate.Clip + "=" + (exists ? (loaded ? "loaded" : "exists") : "missing"));
+            }
+            log("[RX] probe reaction=" + reaction + " gender=" + (male ? "m" : "f") + " " + string.Join(" ", parts));
+            if (facialProbed) return;
+            facialProbed = true;
+            var facial = new List<string>();
+            foreach (var dict in ReactionCatalog.FacialProbeDicts)
+                facial.Add(dict + "=" + (Native<bool>("DOES_ANIM_DICT_EXIST", dict) ? "exists" : "missing"));
+            log("[RX] probe_facial " + string.Join(" ", facial) + " (existence only; no facial clip is played by reactions)");
         }
 
         void Verify(long now, Actor actor)
@@ -378,7 +405,8 @@ namespace LSA.Reactions
             {
                 verified = true; Played++;
                 Answer(runFrame, "played", "ok");
-                log("[RX] played reaction=" + run.Reaction);
+                log("[RX] played reaction=" + run.Reaction +
+                    (options.Diagnostics ? " clip=" + playingDict + "/" + playingClip + " ms=" + playedDurationMs : ""));
                 return;
             }
             if (now - playedAtMs > VerifyBudgetMs)

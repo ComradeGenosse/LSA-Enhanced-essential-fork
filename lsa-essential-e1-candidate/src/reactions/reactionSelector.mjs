@@ -1,4 +1,4 @@
-import { REACTION_SOURCES } from './reactionCatalog.mjs';
+import { REACTION_SOURCES, OPT_IN_REACTION_NAMES } from './reactionCatalog.mjs';
 
 // Pure, deterministic, offline reaction selection.
 //
@@ -45,9 +45,40 @@ const MIDDLE_FINGER_CUES = Object.freeze([
   { id: 'leave_me_alone', weight: 1, re: /\bleave me (?:the fuck )?alone\b/ },
 ]);
 
+
+// Agreement: a nod needs a strong agreement phrase or two weak ones. A bare
+// "yeah" or "sure" is common filler and stays "none".
+const NOD_CUES = Object.freeze([
+  { id: 'you_got_it', weight: 2, re: /\byou got it\b/ },
+  { id: 'sounds_good', weight: 2, re: /\bsounds (?:good|great|like a plan)\b/ },
+  { id: 'fair_enough', weight: 2, re: /\bfair enough\b/ },
+  { id: 'thats_right', weight: 2, re: /\bthat(?:'s| is) (?:right|true|fair|correct)\b/ },
+  { id: 'youre_right', weight: 2, re: /\byou(?:'re| are) (?:right|correct)\b/ },
+  { id: 'i_agree', weight: 2, re: /\bi (?:agree|hear you)\b/ },
+  { id: 'opener', weight: 1, re: /(?:^|[.!?]\s+)(?:yeah|yep|yup|sure|okay|ok|alright|all right|right)\b[,.!]/ },
+  { id: 'got_it', weight: 1, re: /\bgot it\b/ },
+  { id: 'exactly', weight: 1, re: /\bexactly\b/ },
+  { id: 'makes_sense', weight: 1, re: /\bmakes sense\b/ },
+]);
+
+// Uncertainty or indifference. Negation is part of these cues ("I don't know"),
+// so only quoting and reported speech suppress them (see SHRUG_QUALIFIER).
+const SHRUG_CUES = Object.freeze([
+  { id: 'dont_know', weight: 2, re: /\bi (?:really |honestly )?(?:don'?t|do not) (?:really |honestly )?(?:know|have a clue)\b/ },
+  { id: 'no_idea', weight: 2, re: /\b(?:i have )?no (?:idea|clue)\b/ },
+  { id: 'beats_me', weight: 2, re: /\b(?:beats me|search me|who knows)\b/ },
+  { id: 'cant_tell_you', weight: 2, re: /\bi (?:couldn'?t|can'?t|cannot) (?:really )?tell you\b/ },
+  { id: 'whatever', weight: 1, re: /\bwhatever\b/ },
+  { id: 'i_guess', weight: 1, re: /\bi (?:guess|suppose)\b/ },
+  { id: 'maybe', weight: 1, re: /\bmaybe\b/ },
+  { id: 'not_sure', weight: 1, re: /\bnot (?:really )?sure\b/ },
+  { id: 'dont_care', weight: 1, re: /\b(?:don'?t|do not) (?:really )?care\b|\bdoesn'?t matter\b|\bit is what it is\b|\bit'?s all the same\b/ },
+]);
+
 // Words shortly before a cue that make the cue quoted, negated or reported
 // instead of performed ("I would never tell you to fuck off").
 const QUALIFIER = /\b(?:don'?t|do not|didn'?t|never|won'?t|wouldn'?t|couldn'?t|can'?t|cannot|not|no one|nobody|stop|quit|why would|how dare|said|says|say|saying|told|tell|asked|ask|called|calls|call|word|words|phrase|means?|meant|like)\b/;
+const SHRUG_QUALIFIER = /\b(?:said|says|say|saying|told|tell|asked|ask|called|calls|call|word|words|phrase|means?|meant|like)\b/;
 const PLAYFUL = /\b(?:ha(?:ha)+|lol|lmao|hehe|just (?:kidding|joking)|i'?m (?:just )?(?:kidding|joking)|jk)\b/;
 const GUARD_WINDOW = 36;
 
@@ -67,7 +98,13 @@ function quotedOrQualified(text, index, kind) {
   if (/"\s*$/.test(window)) return true;
   // Negation and reported speech only count inside the same sentence.
   const before = window.slice(Math.max(window.lastIndexOf('.'), window.lastIndexOf('!'), window.lastIndexOf('?'), window.lastIndexOf(';')) + 1);
-  if (QUALIFIER.test(before)) return true;
+  if ((kind === 'shrug' ? SHRUG_QUALIFIER : QUALIFIER).test(before)) return true;
+  // "Sure you want that?" asks; it does not agree.
+  if (kind === 'nod') {
+    const rest = text.slice(index);
+    const end = rest.search(/[.!?;]/);
+    if (end >= 0 && rest[end] === '?') return true;
+  }
   // A question about the phrase ("did he say fuck you?") is not a performance.
   if (kind === 'middle_finger' && /\?/.test(text.slice(index, index + 40))) return true;
   return false;
@@ -88,7 +125,17 @@ function scan(text, cues, kind) {
   return { score, hits: [...hits] };
 }
 
-export function selectReaction({ dialogue, command = '', actionCount = 0, source = 'player_text' } = {}) {
+const KINDS = Object.freeze([
+  { kind: 'facepalm', cues: FACEPALM_CUES },
+  { kind: 'middle_finger', cues: MIDDLE_FINGER_CUES },
+  { kind: 'nod', cues: NOD_CUES },
+  { kind: 'shrug', cues: SHRUG_CUES },
+]);
+
+// `enabled`: opt-in reactions (nod, shrug) the config has switched on. Anything
+// opt-in that is not listed is not even scanned, so it can neither fire nor
+// create an "ambiguous" result for the always-available reactions.
+export function selectReaction({ dialogue, command = '', actionCount = 0, source = 'player_text', enabled = [] } = {}) {
   const none = reason => ({ reaction: 'none', reason, score: 0, cues: [] });
   if (!REACTION_SOURCES.includes(String(source))) return none('source_not_player');
   if ((typeof command === 'string' && command.trim() !== '') || (Number.isFinite(actionCount) && actionCount > 0)) {
@@ -99,12 +146,31 @@ export function selectReaction({ dialogue, command = '', actionCount = 0, source
   if (text.length === 0) return none('no_dialogue');
   if (PLAYFUL.test(text)) return none('playful');
 
-  const facepalm = scan(text, FACEPALM_CUES, 'facepalm');
-  const finger = scan(text, MIDDLE_FINGER_CUES, 'middle_finger');
-  const facepalmOk = facepalm.score >= SELECTION_THRESHOLD;
-  const fingerOk = finger.score >= SELECTION_THRESHOLD;
-  if (facepalmOk && fingerOk) return { reaction: 'none', reason: 'ambiguous', score: 0, cues: [] };
-  if (facepalmOk) return { reaction: 'facepalm', reason: 'cue', score: facepalm.score, cues: facepalm.hits };
-  if (fingerOk) return { reaction: 'middle_finger', reason: 'cue', score: finger.score, cues: finger.hits };
-  return none(facepalm.score > 0 || finger.score > 0 ? 'weak_cue' : 'no_cue');
+  const on = new Set(Array.isArray(enabled) ? enabled : (enabled instanceof Set ? [...enabled] : []));
+  const passed = []; let anyCue = false;
+  for (const { kind, cues } of KINDS) {
+    if (OPT_IN_REACTION_NAMES.includes(kind) && !on.has(kind)) continue;
+    const result = scan(text, cues, kind);
+    if (result.score > 0) anyCue = true;
+    if (result.score >= SELECTION_THRESHOLD) passed.push({ kind, ...result });
+  }
+  if (passed.length > 1) return { reaction: 'none', reason: 'ambiguous', score: 0, cues: [] };
+  if (passed.length === 1) return { reaction: passed[0].kind, reason: 'cue', score: passed[0].score, cues: passed[0].hits };
+  return none(anyCue ? 'weak_cue' : 'no_cue');
+}
+
+// Trusted ElevenLabs/Luna delivery intent (the validated enum the speech
+// resolver already attached to this turn) can only VETO a gesture that its tone
+// contradicts. It never selects or strengthens one: a tone hint is not consent,
+// not witnessed emotion, and not a reason to act when the words do not.
+export const DELIVERY_VETO = Object.freeze({
+  facepalm: Object.freeze(['whisper', 'fearful']),
+  middle_finger: Object.freeze(['whisper', 'fearful', 'sad', 'amused', 'concerned', 'excited']),
+  nod: Object.freeze(['sarcastic', 'angry', 'fearful']),
+  shrug: Object.freeze(['fearful', 'excited', 'angry']),
+});
+
+export function deliveryAllows(reaction, deliveryValue) {
+  const vetoes = DELIVERY_VETO[reaction];
+  return !(vetoes && typeof deliveryValue === 'string' && vetoes.includes(deliveryValue));
 }

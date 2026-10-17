@@ -134,12 +134,13 @@ namespace LSA.Reactions
     public sealed class ReactionOptions
     {
         public string Mode;
-        public bool AllowDuringOwnedBehavior;
+        public bool AllowDuringOwnedBehavior, Diagnostics;
         public readonly HashSet<string> Disabled=new HashSet<string>();
+        public readonly HashSet<string> Enabled=new HashSet<string>();
     }
     public static class ReactionCatalog
     {
-        public static bool IsKnown(string name)=>name=="facepalm" || name=="middle_finger";
+        public static bool IsKnown(string name)=>name=="facepalm" || name=="middle_finger" || name=="nod" || name=="shrug";
     }
     public sealed class ReactionIntegration:LosSantosAlive.Integrations.IIntegration
     {

@@ -506,6 +506,7 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
               ? segment.sequence - 1 : null; // invalid ordinals fail closed in the ledger
             try { ledgerSegment = speech?.beginSegment({ sequence: ledgerIndex, text: segment.text }) ?? null; } catch { ledgerSegment = null; }
             const delivery=expressiveDelivery.forSegment({text:segment.text,sequence:segment.sequence,lunaHint:segment.delivery});
+            try { reaction?.delivery(delivery?.value); } catch { /* cosmetic only */ }
             let audio;
             try {
               audio = await performProvider('tts', services.providerStack.speech.id,
@@ -622,6 +623,7 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
     let bufferedSegment = null;
     if (!audio) {
        const delivery=expressiveDelivery.forSegment({text:decision.dialogue,sequence:1,lunaHint:bufferedLunaHint});
+      try { reaction?.delivery(delivery?.value); } catch { /* cosmetic only */ }
       try { bufferedSegment = speech?.beginSegment({ sequence: 0, text: decision.dialogue }) ?? null; } catch { bufferedSegment = null; }
       try {
         audio = await performProvider('tts', services.providerStack?.speech.id || 'openai.speech',

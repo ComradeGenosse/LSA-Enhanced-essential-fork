@@ -21,7 +21,9 @@
     "mode": "off",
     "pipeName": "LSA.Reactions.v1",
     "disabled": [],
-    "allowDuringOwnedBehavior": false
+    "enabled": [],
+    "allowDuringOwnedBehavior": false,
+    "diagnostics": false
   },
   "npcVoicePresence": {
     "mode": "off",

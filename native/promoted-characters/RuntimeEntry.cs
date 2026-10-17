@@ -72,9 +72,12 @@ namespace LSA.PromotedCharacters
                     if(config.reactions?.mode=="shadow" || config.reactions?.mode=="on") {
                         try {
                             var reactionOptions=new LSA.Reactions.ReactionOptions {Mode=config.reactions.mode,
-                                AllowDuringOwnedBehavior=config.reactions.allowDuringOwnedBehavior is bool && (bool)config.reactions.allowDuringOwnedBehavior};
+                                AllowDuringOwnedBehavior=config.reactions.allowDuringOwnedBehavior is bool && (bool)config.reactions.allowDuringOwnedBehavior,
+                                Diagnostics=config.reactions.diagnostics is bool && (bool)config.reactions.diagnostics};
                             foreach(var name in config.reactions.disabled ?? new string[0])
                                 if(LSA.Reactions.ReactionCatalog.IsKnown(name))reactionOptions.Disabled.Add(name);
+                            foreach(var name in config.reactions.enabled ?? new string[0])
+                                if(LSA.Reactions.ReactionCatalog.IsKnown(name))reactionOptions.Enabled.Add(name);
                             reactions=new LSA.Reactions.ReactionIntegration(reactionOptions,config.reactions.pipeName,host.HostRunId,()=>host.WorldEpoch,()=>host.MonotonicMs,OwnedByLsaBehavior);
                             var reactionHost=reactions;
                             host.WorldChanged+=(epoch,reason)=>reactionHost.WorldChanged(reason);
@@ -171,7 +174,7 @@ namespace LSA.PromotedCharacters
         public sealed class NativeMemoryKConfig {public System.Collections.Generic.Dictionary<string,object> capabilities {get;set;}}
         public sealed class IntelligenceConfig {public string mode {get;set;}="off";public string directorMode {get;set;}="off";public string radio {get;set;}="off";public object directorAttemptPreset {get;set;}="normal";public string pipeName {get;set;}="LSA.Intelligence.v1";public string protagonistEvidence {get;set;}="off";public System.Collections.Generic.Dictionary<string,object> producers {get;set;}}
         // Default off. Only the literal strings "shadow" and "on" enable anything; "on" is the only mode that animates.
-        public sealed class ReactionsConfig {public string mode {get;set;}="off";public string pipeName {get;set;}="LSA.Reactions.v1";public string[] disabled {get;set;}=new string[0];public object allowDuringOwnedBehavior {get;set;}=false;}
+        public sealed class ReactionsConfig {public string mode {get;set;}="off";public string pipeName {get;set;}="LSA.Reactions.v1";public string[] disabled {get;set;}=new string[0];public string[] enabled {get;set;}=new string[0];public object allowDuringOwnedBehavior {get;set;}=false;public object diagnostics {get;set;}=false;}
         public sealed class ActivitiesConfig {public object dialogueReceipts {get;set;}=false;public string mode {get;set;}="off";public string pipeName {get;set;}="LSA.Activities.v1";}
     }
 }
