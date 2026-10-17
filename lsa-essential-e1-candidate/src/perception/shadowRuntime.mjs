@@ -102,9 +102,6 @@ export class ShadowRuntime {
   // Companion state equals native's last publication on this live stream.
   // Negotiated Memory K evidence never inherits presentation stall tolerance.
   sourceSilenceMs() { return this.memoryCurrentOwnerPlayerVersion===1||!this.observations?3000:OWNER_STALL_BOUNDS.resetMs; }
-  // Memory K retains the 3s authority veto while PS2 observer history
-  // survives bounded owner-fiber stalls without trusting stale evidence.
-  transportResetSilenceMs() { return this.observations?OWNER_STALL_BOUNDS.resetMs:3000; }
   channelFresh() { return Boolean(this.epoch) && this.now()-this.lastReceipt<=this.sourceSilenceMs(); }
   noteReceipt() {
     const now=this.now(),silent=now-this.lastReceipt;
@@ -167,7 +164,7 @@ export class ShadowRuntime {
     }
   }
   expire() {
-    if(this.epoch && this.now()-this.lastReceipt>this.transportResetSilenceMs()) {this.reset('timeout');return;}
+    if(this.epoch && this.now()-this.lastReceipt>this.sourceSilenceMs()) {this.reset('timeout');return;}
     if(this.stalled() && !this.stallNotified) {
       this.stallNotified=true;
       try {this.onStall?.(Object.freeze({stage:'stalled',stallMs:Math.min(MAX_COUNTER,this.now()-this.lastReceipt)}));} catch {}
