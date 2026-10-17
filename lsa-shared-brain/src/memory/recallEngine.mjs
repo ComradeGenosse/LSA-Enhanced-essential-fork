@@ -137,11 +137,11 @@ function similarity(row,terms,searchTerms,nowMs,focusKind,speaker,anchoredIds) {
 // pet names. A prior NPC reply about forgotten names is not an original fact.
 // These patterns affect selection order only; they never create memory claims.
 const PET_NAME_ASSERTIONS=[
-  /\b(?:dogs?|corgis?|pomsk(?:y|ies)|pupp(?:y|ies)|pets?|cats?)\s+(?:named|called)\s+[A-Z][a-z]{2,31}\b/,
-  /\b(?:my|our|the)\s+(?:(?:two|three|four|\d+|other|more)\s+){0,3}(?:dogs?|corgis?|pomsk(?:y|ies)|pupp(?:y|ies)|pets?|cats?)\s+[A-Z][a-z]{2,31}\b/,
-  /\b[A-Z][a-z]{2,31}(?:['’]s|\s+(?:is|was))\s+(?:(?:my|our|a|an|the)\s+)?(?:dogs?|corgis?|pomsk(?:y|ies)|pupp(?:y|ies)|pets?|cats?)\b/,
-  /\b[A-Z][a-z]{2,31}(?:\s+(?:and|,)\s+[A-Z][a-z]{2,31}){0,3}\s+(?:are|were)\s+(?:(?:my|our|the)\s+)?(?:(?:two|three|four|\d+)\s+)?(?:dogs?|corgis?|pomsk(?:y|ies)|pupp(?:y|ies)|pets?|cats?)\b/,
-  /\b(?:my|our)\s+(?:dogs?|corgis?|pomsk(?:y|ies)|pupp(?:y|ies)|pets?|cats?)\s+(?:are|were|is|was)\s+(?:(?:named|called)\s+)?[A-Z][a-z]{2,31}\b/
+  /\b(?:dogs?|corgis?|[Pp]omsk(?:y|ies)|pupp(?:y|ies)|pets?|cats?)\s+(?:named|called)\s+[A-Z][a-z]{2,31}\b/,
+  /\b(?:my|our|the)\s+(?:(?:two|three|four|\d+|other|more)\s+){0,3}(?:dogs?|corgis?|[Pp]omsk(?:y|ies)|pupp(?:y|ies)|pets?|cats?)\s+[A-Z][a-z]{2,31}\b/,
+  /\b[A-Z][a-z]{2,31}(?:['’]s|\s+(?:is|was))\s+(?:(?:my|our|a|an|the)\s+)?(?:dogs?|corgis?|[Pp]omsk(?:y|ies)|pupp(?:y|ies)|pets?|cats?)\b/,
+  /\b[A-Z][a-z]{2,31}(?:\s+(?:and|,)\s+[A-Z][a-z]{2,31}){0,3}\s+(?:are|were)\s+(?:(?:my|our|the)\s+)?(?:(?:two|three|four|\d+)\s+)?(?:dogs?|corgis?|[Pp]omsk(?:y|ies)|pupp(?:y|ies)|pets?|cats?)\b/,
+  /\b(?:my|our)\s+(?:dogs?|corgis?|[Pp]omsk(?:y|ies)|pupp(?:y|ies)|pets?|cats?)\s+(?:are|were|is|was)\s+(?:(?:named|called)\s+)?[A-Z][a-z]{2,31}\b/
 ];
 const RELATED_NAME_LIST=/^\s*[A-Z][a-z]{2,31}(?:,\s*(?:and\s+)?[A-Z][a-z]{2,31}|\s+and\s+[A-Z][a-z]{2,31}){1,7}\.?\s*$/;
 function playerPetFactBoost(row,petNamesQuestion){
