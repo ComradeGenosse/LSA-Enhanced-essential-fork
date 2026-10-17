@@ -396,8 +396,10 @@ export class IntelligenceClient {
         owner=this.originalBackendEvidence(originalLease);
       }catch{owner=null;}
     }
-    if(args?.operation!=='cancel' && (!original || !owner))
+    if(args?.operation!=='cancel' && (!original || !owner)) {
+      this.handoff('native_request','rejected',!original?'source_grant_unavailable':'original_owner_unavailable');
       return Promise.resolve(null);
+    }
     // The coordinator's ageMs starts at Director selection, not at the
     // witnessed event. Native PS3 admission compares against the original
     // PS2 observation age sealed in the one-use producer receipt. Reuse
@@ -411,8 +413,10 @@ export class IntelligenceClient {
     // takeover, even if its final state is quiet again. It cannot be
     // silently rebased at submit.
     if(args?.operation==='submit' &&
-       (!prior || prior.run!==owner.sourceRun || prior.revision!==owner.revision))
+       (!prior || prior.run!==owner.sourceRun || prior.revision!==owner.revision)) {
+      this.handoff('native_request','rejected','original_owner_revision_changed');
       return Promise.resolve(null);
+    }
     if(typeof ticketId!=='string' || !Number.isSafeInteger(timeoutMs) ||
        timeoutMs<1 || timeoutMs>1500 || this.directorPending.size>=32 ||
        this.directorPending.has(ticketId)) return Promise.resolve(null);
@@ -424,7 +428,10 @@ export class IntelligenceClient {
         clearTimeout(entry.timeout);
         resolve(value);
       };
-      const timeout=setTimeout(()=>finish(null),timeoutMs);
+      const timeout=setTimeout(()=>{
+        this.handoff('native_request','timeout','native_receipt_missing');
+        finish(null);
+      },timeoutMs);
       timeout.unref?.();
       this.directorPending.set(ticketId,{resolve:finish,timeout,operation:args.operation});
       // Native consumes these FIFO on its owner fiber: a source-backed PS3
@@ -432,13 +439,18 @@ export class IntelligenceClient {
       // If the original native source proof is missing, nothing is sent.
       if(args.operation!=='cancel' &&
          !this.sendDirectorOwnerReceipt(args.ticket,args.stamp,owner)) {
+        this.handoff('native_request','rejected','owner_receipt_write_unavailable');
         finish(null);return;
       }
       if(args.operation==='reserve' && original.source!=='native_director_social' &&
          !this.sendDirectorPs3Receipt(args.ticket,original)) {
+        this.handoff('native_request','rejected','ps3_receipt_write_unavailable');
         finish(null);return;
       }
-      if(!this.sendDirectorPreview(nativeArgs)) {finish(null);return;}
+      if(!this.sendDirectorPreview(nativeArgs)) {
+        this.handoff('native_request','rejected','director_request_write_unavailable');
+        finish(null);return;
+      }
       if(args.operation==='reserve')this.directorOwnerReservations.set(ticketId,
         {run:owner.sourceRun,revision:owner.revision,stamp:args.stamp,
          source:Object.freeze({...original}),proposal:args.proposal,
