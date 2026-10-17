@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Rage;
-using Rage.Native;
 
 namespace LSA.Intelligence
 {
@@ -13,21 +12,21 @@ namespace LSA.Intelligence
     {
         internal sealed class Scene
         {
-            public string Id,Kind,Speaker,Player,Owner,Role,Host;
-            public int World,Revision,OwnerRevision,Vehicle;
+            public string Id,Kind,Speaker,Player,Owner,Role,Host,Vehicle;
+            public int World,Revision,OwnerRevision;
             public long Created,Expires;
             public string ClaimedTicket;
         }
         sealed class Track
         {
             public string Owner;
-            public int Vehicle;
+            public string Vehicle;
             public bool Near,WasShared,EntryPending;
             public string Activity;
             public long NearSince,IdleSince,TripSince,LastSeen,LastSharedExit,NextPublish;
             public long LastTransition=-90000;
             public long LastGreeting=-600000,LastEntry=-600000,LastIdle=-600000,LastTravel=-600000;
-            public int LastEntryVehicle;
+            public string LastEntryVehicle;
             public Rage.Vector3 LastPlayer,LastActor;
             public Scene Current;
         }
@@ -43,21 +42,21 @@ namespace LSA.Intelligence
                 scenes.Remove(key);
         }
         static bool Live(Ped ped)=>ped!=null && ped.Exists() && !ped.IsDead;
-        static int VehicleHandle(Ped ped){
-            try{var car=ped.CurrentVehicle;return car!=null&&car.Exists()?car.Handle:0;}
-            catch{return 0;}
+        static string VehicleHandle(Ped ped){
+            try{var car=ped.CurrentVehicle;return car!=null&&car.Exists()?car.Handle.ToString():null;}
+            catch{return null;}
         }
-        static string Role(Ped actor,Ped player,int handle) {
-            if(handle==0)return "none";
+        static string Role(Ped actor,Ped player,string handle) {
+            if(handle==null)return "none";
             try{
                 var car=player.CurrentVehicle;
-                if(car==null || !car.Exists() || car.Handle!=handle)return "unknown";
-                var driver=NativeFunction.CallByName<int>("GET_PED_IN_VEHICLE_SEAT",car,-1);
-                return driver==actor.Handle?"driver":driver==player.Handle?"passenger":"unknown";
+                if(car==null || !car.Exists() || car.Handle.ToString()!=handle)return "unknown";
+                var driver=car.Driver;
+                return ReferenceEquals(driver,actor)?"driver":ReferenceEquals(driver,player)?"passenger":"unknown";
             }catch{return "unknown";}
         }
         Scene Emit(Track track,string kind,string speaker,string player,string owner,
-                   int revision,string host,int world,int vehicle,string role,long now) {
+                   int revision,string host,int world,string vehicle,string role,long now) {
             var scene=new Scene{
                 Id=Guid.NewGuid().ToString("D"),Kind=kind,Speaker=speaker,Player=player,
                 Owner=owner,OwnerRevision=revision,Host=host,World=world,
@@ -68,7 +67,7 @@ namespace LSA.Intelligence
         }
         public object[] Sample(IEnumerable<EntityAnchor> current,
               IEnumerable<OwnedParticipant> roster,string host,int world,uint gameTick) {
-            var now=clock(),output=new List<object>();
+            var now=clock();var output=new List<object>();
             foreach(var id in scenes.Where(x=>x.Value.Expires<=now).Select(x=>x.Key).ToArray())
                 scenes.Remove(id);
             var live=current.ToArray();
@@ -90,8 +89,8 @@ namespace LSA.Intelligence
                 }
                 double distance;
                 try{distance=ped.Position.DistanceTo(playerPed.Position);}catch{continue;}
-                var actorCar=VehicleHandle(ped),playerCar=VehicleHandle(playerPed);
-                var sharedCar=actorCar!=0&&actorCar==playerCar;
+                string actorCar=VehicleHandle(ped),playerCar=VehicleHandle(playerPed);
+                var sharedCar=actorCar!=null&&actorCar==playerCar;
                 var near=distance<=16 || sharedCar;
                 var movement=track.LastSeen>0 && track.LastSeen>=now-1200 &&
                     (ped.Position.DistanceTo(track.LastActor)>0.3f ||
@@ -135,7 +134,7 @@ namespace LSA.Intelligence
                 // Existing scene remains admissible only while its source
                 // relation (same vehicle or physical proximity) is current.
                 if(track.Current!=null) {
-                    var valid=track.Current.Vehicle!=0?sharedCar&&actorCar==track.Current.Vehicle:near&&!sharedCar;
+                    var valid=track.Current.Vehicle!=null?sharedCar&&actorCar==track.Current.Vehicle:near&&!sharedCar;
                     if(!valid || track.Current.Expires<=now ||
                        track.Current.OwnerRevision!=state.Revision) {
                         scenes.Remove(track.Current.Id);track.Current=null;
@@ -192,11 +191,11 @@ namespace LSA.Intelligence
             // duplicate click cannot queue overlapping native scenes.
             if(track.Current!=null && track.Current.Expires>now &&
                track.Current.Kind=="manual")return null;
-            var car=VehicleHandle(selected),playerCar=VehicleHandle(local);
-            var shared=car!=0 && car==playerCar;
+            string car=VehicleHandle(selected),playerCar=VehicleHandle(local);
+            var shared=car!=null && car==playerCar;
             var scene=Emit(track,"manual",anchor.CaptureRef,player.CaptureRef,
-                owner.Lifetime,state.Revision,host,world,shared?car:0,
-                Role(selected,local,shared?car:0),now);
+                owner.Lifetime,state.Revision,host,world,shared?car:null,
+                Role(selected,local,shared?car:null),now);
             return Frame(scene,gameTick);
         }
         public bool Current(DirectorAdmission.Request request) {
