@@ -40,7 +40,9 @@ export const COVERAGE_DEFAULTS=Object.freeze({
   gapCoalesceMs:2000,
   retryMs:1000,
 });
-const RETRYABLE=/^(timeline_write_suspended|timeline_not_selected|profile_store_unavailable|m3_coverage_owner_or_epoch_unconfirmed|m3_coverage_stale|timeline_write_async_not_supported)$/;
+const RETRYABLE=/^(timeline_write_suspended|timeline_not_selected|profile_store_unavailable|m3_coverage_owner_or_epoch_unconfirmed|m3_coverage_stale)$/;
+const retryableWriteError=(error,message)=>RETRYABLE.test(message)||
+  /^SQLITE_(?:BUSY|LOCKED)(?:_[A-Z0-9_]{1,32})?$/.test(error?.code??'');
 // A raw database exception may include SQL or local paths: telemetry gets codes only.
 const M3_CODES=new Set('timeline_write_suspended timeline_not_selected profile_store_unavailable m3_coverage_owner_or_epoch_unconfirmed m3_coverage_stale timeline_write_async_not_supported m3_coverage_commit_unconfirmed m3_observer_coverage_identity_conflict m3_observer_coverage_invalid m3_observer_coverage_invalid_window m3_observer_coverage_invalid_gap m3_observer_coverage_corrupt'.split(' '));
 const diagnosticCode=(error,message)=>typeof error?.code==='string'&&
@@ -83,7 +85,8 @@ export function createM3ObserverCoverageTracker({
   const bump=(k,n=1)=>{stats[k]=Math.min(2147483647,stats[k]+n);};
   const minPending=w=>{
     let min=Infinity;
-    for(const p of pending.values())if(p.windowId===w.coverageId&&p.tick<min)min=p.tick;
+    for(const p of pending.values())if((p.windowId===w.coverageId||
+      (p.windowId===null&&p.tick>=w.startTick&&p.tick<=w.last.tick+cfg.maxTickGapMs))&&p.tick<min)min=p.tick;
     return min;
   };
   const minGap=w=>{
@@ -416,8 +419,9 @@ export function createM3ObserverCoverageTracker({
         retryAt=monotonicNow()+cfg.retryMs;
         // A durable-ledger invariant failure (identity conflict, corruption,
         // invalid record) is not transient: stop claiming coverage.
-        if(!RETRYABLE.test(message))degrade('ledger_write_rejected');
-        emit('persist_failed',{code:diagnosticCode(error,message),errorType:diagnosticType(error),retryable:RETRYABLE.test(message)});
+        const retryable=retryableWriteError(error,message);
+        if(!retryable)degrade('ledger_write_rejected');
+        emit('persist_failed',{code:diagnosticCode(error,message),errorType:diagnosticType(error),retryable});
       }finally{
         inFlight=null;
       }
