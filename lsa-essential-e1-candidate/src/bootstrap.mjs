@@ -431,6 +431,9 @@ export async function createRuntimeForBundle(options = {}) {
         try {telemetry?.emit?.('director_candidate',null,'internal',{
           status:outcome?.status??'unknown',nativeReason:outcome?.nativeReason,
           diagnosticReason:outcome?.diagnosticReason??null,
+          // One-way code of the original native event signal: joins this
+          // attempt to perception_trace and the native [PS] log lines.
+          traceCode:outcome?.traceCode??null,urgency:outcome?.urgency??null,
           configuredMode:config.spontaneousSpeech.mode,
           executionAvailable:experimental &&
             client.runtime.directorPriority?.experimentalEnabled===true,
