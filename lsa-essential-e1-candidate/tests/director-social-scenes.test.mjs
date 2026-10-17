@@ -65,6 +65,7 @@ test('social source reaches the existing pump without any PS3 candidates, once',
   assert.deepEqual(calls[0].candidates,[]);
   assert.equal(results[0].source,'social');
   assert.equal(results[0].sceneType,'shared_vehicle_entry');
+  assert.equal(pump.ambientAt.get(f.speaker),1000);
 });
 test('social initiation passes native source + stock hydration gates',async()=>{
   const f=fixture(),native=[],stages=[];
