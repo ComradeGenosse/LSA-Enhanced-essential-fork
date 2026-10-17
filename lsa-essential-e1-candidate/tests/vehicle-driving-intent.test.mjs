@@ -13,16 +13,24 @@ test('whole-utterance continuation is not mistaken for evasive driving or a new 
   assert.doesNotMatch(result.decision.dialogue,/floor it/i);
   assert.equal(reconcileDrivingDecision({dialogue:'Sure.',command:'DO BeginDriving V001'}, {kind:'continue'}).decision.command,'');
 });
-test('speed changes never silently become aggressive mode; explicit evasive is distinct', () => {
-  assert.equal(drivingIntentKind('Hey, drive faster!'),'speed');
-  assert.equal(drivingIntentKind('Go faster'),'speed');
-  assert.equal(drivingIntentKind('Floor it'),'speed');
-  assert.equal(drivingIntentKind('Slow down'),'speed');
+test('Essential faster-driving aliases remain executable, never silently refused', () => {
+  for (const phrase of ['Hey, drive faster!','Go faster','Floor it','Speed up','Step on it'])
+    assert.equal(drivingIntentKind(phrase),'speed_up');
+  assert.equal(drivingIntentKind('Slow down'),'slow_down');
+  assert.equal(drivingIntentKind('Drive slower'),'slow_down');
   assert.equal(drivingIntentKind('Drive evasively'),'evasive');
   assert.equal(drivingIntentKind('Stop driving evasively'),'normal');
-  assert.match(drivingModelGuidance('speed'),/speed change/i);
-  assert.equal(reconcileDrivingDecision({dialogue:'Sure',command:'DO DriveEvasively'}, {kind:'speed'}).decision.command,'');
+  assert.match(drivingModelGuidance('speed_up'),/supported faster-driving behavior: DriveEvasively/);
+  assert.match(drivingModelGuidance('speed_up'),/cannot set an exact numeric speed/);
+  const faster={dialogue:"I'll pick it up.",command:'DO DriveEvasively'};
+  assert.equal(reconcileDrivingDecision(faster,{kind:'speed_up'}).blocked,null);
+  assert.equal(reconcileDrivingDecision(faster,{kind:'speed_up'}).decision.command,'DO DriveEvasively');
+  assert.equal(reconcileDrivingDecision({dialogue:'Sure',command:'DO BeginDriving V001'},{kind:'speed_up'}).blocked,'speed_up_requires_essential_faster_mode');
+  assert.equal(reconcileDrivingDecision({dialogue:'Sure',command:'DO DriveEvasively'}, {kind:'slow_down'}).decision.command,'');
+  assert.equal(reconcileDrivingDecision({dialogue:'Sure',command:'DO DriveNormally'}, {kind:'slow_down'}).decision.command,'DO DriveNormally');
   assert.equal(reconcileDrivingDecision({dialogue:'Sure',command:'DO DriveEvasively'}, {kind:'evasive'}).decision.command,'DO DriveEvasively');
+  // Neither speed command may preempt an ACT6-owned navigation task.
+  assert.equal(reconcileDrivingDecision(faster,{kind:'speed_up',act6OwnsDrive:true}).blocked,'act6_owns_drive');
 });
 test('start, stop, and ACT6 owner are independent, with no disguised stock takeover', () => {
   assert.equal(drivingIntentKind('Start driving'),'start');
