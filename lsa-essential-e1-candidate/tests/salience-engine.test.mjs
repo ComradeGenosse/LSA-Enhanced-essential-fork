@@ -81,6 +81,70 @@ test('missing activity evidence stays unknown in normalization and shadow salien
   assert.equal(salienceSituation.activity, 'unknown');
 });
 
+test('opt-in PS6 ambient grants require verified source, keep radio/report quiet and preserve danger', () => {
+  const observer=randomUUID(),player=randomUUID(),other=randomUUID();
+  const make=(eventType,kind='presence',channel='visual',certainty='supported')=>
+    observation({observer,eventType,severity:'routine',claims:[claim({kind,channel,
+      certainty,basis:channel==='report'?'dialogue_report':channel==='auditory'?'audibility_model':'sampled_state',
+      reportRef:channel==='report'?randomUUID():undefined,target:other})]});
+  const enabled=new SalienceCache({now:()=>NOW,ambientSpeech:true});
+  const inactive=new SalienceCache({now:()=>NOW});
+  for(const event of ['character_present','activity_changed','vehicle_transition']) {
+    const seen=make(event);
+    const situation=view({playerCaptureRef:player});
+    assert.equal(inactive.evaluate(seen,situation).response,'none','opt-out '+event);
+    const result=enabled.evaluate(seen,situation);
+    assert.equal(result.response,'eligible','opt-in '+event);
+    assert.equal(result.memory,'none','ambient must not stage a memory');
+    assert(result.reasons.includes('ambient_direct_witness'));
+    assert.equal(enabled.ledger.get(seen.observationId).granted,'eligible');
+  }
+  const location=make('location_changed','location');
+  assert.equal(enabled.evaluate(location,view({playerCaptureRef:player,activity:'driving'})).response,'eligible');
+  for(const bad of [
+    make('character_present','presence','report'),
+    make('character_present','presence','auditory'),
+    make('character_present','presence','visual','uncertain'),
+    make('action_observed','action','visual'),
+    make('speech_heard','sound','auditory'),
+  ])assert.equal(enabled.evaluate(bad,view({playerCaptureRef:player})).response,'none',bad.eventType);
+  assert.equal(enabled.evaluate(make('character_present'),view({playerCaptureRef:player,activity:'conversation'})).response,'none');
+  assert.equal(enabled.evaluate(make('character_present'),view()).response,'none','no verified player');
+  const danger=observation({observer,claims:[claim({kind:'injured',channel:'self',basis:'native_callback'})]});
+  assert.equal(enabled.evaluate(danger,view({playerCaptureRef:player})).response,'urgent');
+});
+
+test('ambient crowd observations cannot exhaust the ten-minute danger family ledger',()=>{
+  const observer=randomUUID(),player=randomUUID();
+  const cache=new SalienceCache({now:()=>NOW,ambientSpeech:true});
+  const situation=view({playerCaptureRef:player});
+  for(let i=0;i<180;i++) {
+    const seen=observation({observer,eventType:'character_present',severity:'routine',
+      claims:[claim({kind:'presence',channel:'visual',basis:'sampled_state',target:randomUUID()})]});
+    assert.equal(cache.evaluate(seen,situation).response,'eligible');
+  }
+  assert.equal(cache.families.size,0,'ambient grants never consume long-lived suppression slots');
+  const danger=observation({observer,claims:[claim({kind:'injured',channel:'self',basis:'native_callback'})]});
+  assert.equal(cache.evaluate(danger,situation).response,'urgent');
+  assert.equal(cache.families.size,1,'danger still gets original family dedupe');
+});
+
+test('owned PS3 diagnostics separate missing routine grants from witnessed ambient grants',()=>{
+  const observer=randomUUID(),player=randomUUID(),other=randomUUID();
+  const make=()=>observation({observer,eventType:'character_present',severity:'routine',
+    claims:[claim({kind:'presence',channel:'visual',basis:'sampled_state',target:other})]});
+  const disabled=new ShadowRuntime({mode:'shadow',ambientSpeech:false,now:()=>NOW});
+  const enabled=new ShadowRuntime({mode:'shadow',ambientSpeech:true,now:()=>NOW});
+  for(const runtime of [disabled,enabled]) {
+    runtime.observerIndex.set(observer,{owned:true,kind:'ped'});
+    const decision=runtime.noteSalience(make(),view({playerCaptureRef:player}));
+    assert.equal(runtime.ps3Diagnostics.ownedByEvent.character_present.decisions,1);
+    assert.equal(runtime.ps3Diagnostics.ownedByEvent.character_present[decision.response],1);
+    assert.equal(runtime.ps3Diagnostics.ownedDecisions,1);
+    assert.equal(runtime.ps3Diagnostics.ownedReasons[decision.response==='eligible'?'ambient_direct_witness':'routine_low_relevance'],1);
+  }
+});
+
 test('urgent self-danger is priority only and does not authorize an effect', () => {
   const cache = new SalienceCache();
   const seen = observation({ claims: [claim({ kind: 'injured', channel: 'self', basis: 'native_callback' })] });

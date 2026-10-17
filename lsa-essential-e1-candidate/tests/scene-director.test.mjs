@@ -74,6 +74,27 @@ test('urgent is prioritized, expires within two seconds and never uses a fallbac
   assert.equal(selectDirectorIntent([candidate({...urgent,observedAtMonotonicMs:NOW-2000})],facts),null);
 });
 
+test('opt-in routine event stays source-qualified and never outranks danger',()=>{
+  const base=candidate();
+  const ambientId='ab405d8b-2dd7-4128-b412-2ece232124bf';
+  const ambient=candidate({
+    observation:{...base.observation,observationId:ambientId,
+      eventType:'character_present',severity:'routine',
+      claims:[{certainty:'supported',kind:'presence',evidence:{channel:'visual'}}]},
+    decision:{...base.decision,observationId:ambientId,decisionKey:'ambient-original-grant'},
+    observedAtMonotonicMs:NOW-100,
+  });
+  assert.equal(selectDirectorIntent([ambient],facts)?.observationId,ambientId);
+  assert.equal(selectDirectorIntent([ambient,base],facts)?.observationId,observationId,
+    'fresh everyday event cannot displace an older urgent-scene observation');
+  for(const claim of [
+    {certainty:'supported',kind:'presence',evidence:{channel:'report'}},
+    {certainty:'supported',kind:'sound',evidence:{channel:'auditory'}},
+    {certainty:'uncertain',kind:'presence',evidence:{channel:'visual'}},
+  ]) assert.equal(selectDirectorIntent([{...ambient,observation:{...ambient.observation,claims:[claim]}}],facts),null);
+  assert.equal(selectDirectorIntent([{...ambient,observation:{...ambient.observation,eventType:'radio_heard'}}],facts),null);
+});
+
 test('selection stays deterministic and safely bounded', () => {
   const base = candidate();
   const otherId = '3b74ae3d-819c-475b-b222-1793af3dddad';
