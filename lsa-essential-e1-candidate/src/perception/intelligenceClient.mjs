@@ -17,6 +17,8 @@ export function createCompanionShadowTelemetry(summary = {}) {
   const ps2 = summary?.ps2 && typeof summary.ps2 === 'object' ? summary.ps2 : {};
   const ps3 = summary?.ps3 && typeof summary.ps3 === 'object' ? summary.ps3 : {};
   const reasons = ps3?.reasons && typeof ps3.reasons === 'object' ? ps3.reasons : {};
+  const ownedReasons=ps3?.ownedReasons??{};
+  const ownedEvents=ps3?.ownedByEvent??{};
   const history = summary?.history && typeof summary.history === 'object' ? summary.history : {};
   const resets = summary?.resetReasons && typeof summary.resetReasons === 'object' ? summary.resetReasons : {};
   const drops = summary?.dropReasons && typeof summary.dropReasons === 'object' ? summary.dropReasons : {};
@@ -77,6 +79,19 @@ export function createCompanionShadowTelemetry(summary = {}) {
     ps3OwnedDecisions: counter(ps3.ownedDecisions),
     ps3OwnedEligible: counter(ps3.ownedEligible),
     ps3OwnedUrgent: counter(ps3.ownedUrgent),
+    // Fixed source-event/rejection counters in E4 JSONL (not only console
+    // summary). No arbitrary keys or event payloads cross persistence.
+    ps3OwnedAmbientWitness:counter(ownedReasons.ambient_direct_witness),
+    ps3OwnedLowRelevance:counter(ownedReasons.routine_low_relevance),
+    ps3OwnedRepetitionSuppressed:counter(ownedReasons.repetition_suppressed),
+    ps3OwnedCharacterPresent:counter(ownedEvents.character_present?.decisions),
+    ps3OwnedCharacterPresentEligible:counter(ownedEvents.character_present?.eligible),
+    ps3OwnedLocationChanged:counter(ownedEvents.location_changed?.decisions),
+    ps3OwnedLocationChangedEligible:counter(ownedEvents.location_changed?.eligible),
+    ps3OwnedActivityChanged:counter(ownedEvents.activity_changed?.decisions),
+    ps3OwnedActivityChangedEligible:counter(ownedEvents.activity_changed?.eligible),
+    ps3OwnedVehicleTransition:counter(ownedEvents.vehicle_transition?.decisions),
+    ps3OwnedVehicleTransitionEligible:counter(ownedEvents.vehicle_transition?.eligible),
     ps3ReasonSafetySelfDanger: counter(reasons.safetySelfDanger),
     ps3ReasonSafetyPlayerHarm: counter(reasons.safetyPlayerHarm),
     ps3ReasonSafetyNearbyThreat: counter(reasons.safetyNearbyThreat),
@@ -703,8 +718,8 @@ export class IntelligenceClient {
     this.directorOwnerReservations.clear();this.directorNativeReserved.clear();this.directorNativeSubmitted.clear();this.directorStockDispatched.clear();this.directorStockContexts.clear();this.directorStockClaims.clear();
   }
 
-  constructor(config,{connect=options=>net.createConnection(options),directorProductionRequired=false,now,situationFor,radioCatalog,consumers=null,acceptedObservationTap=null,m9Events=null,originalTurnPriority=()=>null,originalTurnReserve=()=>null,originalTurnCurrent=()=>null,originalTurnRelease=()=>false,originalTurnPhase=()=>null,report=summary=>console.info('[PS] companion_shadow '+JSON.stringify(summary)),telemetry=()=>{}}={}) {
-    this.hostContextListeners=new Set();this.worldBoundaryListeners=new Set();this.knowledgeListeners=new Set();this.memoryAuthoritySubscriptions=new Set();this.currentOwnerPlayerSubscriptions=new Set();this.m7DiagnosticSubscriptions=new Set();this.m7LastDiagnostic=null;this.config=config;this.connect=connect;this.runtime=new ShadowRuntime({mode:config.mode,radio:config.radio,radioCatalog,now,situationFor,acceptedObservationTap,consumers,m9Events,
+  constructor(config,{connect=options=>net.createConnection(options),directorProductionRequired=false,ambientSpeech=false,now,situationFor,radioCatalog,consumers=null,acceptedObservationTap=null,m9Events=null,originalTurnPriority=()=>null,originalTurnReserve=()=>null,originalTurnCurrent=()=>null,originalTurnRelease=()=>false,originalTurnPhase=()=>null,report=summary=>console.info('[PS] companion_shadow '+JSON.stringify(summary)),telemetry=()=>{}}={}) {
+    this.hostContextListeners=new Set();this.worldBoundaryListeners=new Set();this.knowledgeListeners=new Set();this.memoryAuthoritySubscriptions=new Set();this.currentOwnerPlayerSubscriptions=new Set();this.m7DiagnosticSubscriptions=new Set();this.m7LastDiagnostic=null;this.config=config;this.connect=connect;this.runtime=new ShadowRuntime({mode:config.mode,radio:config.radio,radioCatalog,now,situationFor,acceptedObservationTap,consumers,m9Events,ambientSpeech,
       // Bounded fixed-vocabulary diagnostics only (see ShadowRuntime.emitTrace).
       trace:(event,record)=>this.persist(event,record),
       stall:info=>this.persist('intelligence_status',{stage:info.stage==='stalled'?'owner_stalled':'owner_resumed',durationMs:info.stallMs})});this.report=report;this.telemetry=telemetry;this.originalTurnPriority=typeof originalTurnPriority==='function'?originalTurnPriority:()=>null;
@@ -745,7 +760,9 @@ export class IntelligenceClient {
       capabilities:this.runtime.capabilities,
       damageCallbacks:diagnostics?.damageCallbacks??{ped_damage:0,player_damage:0,vehicle_damage:0},
       ps2:{...this.runtime.ps2Diagnostics,dropReasons:{...(this.runtime.correlator?.dropReasons??{})},dedupeEvicted:this.runtime.correlator?.dedupeEvicted??0,playerSpeechGate:diagnostics?.playerSpeechGate??'unsupported_capture_receipt',speech:this.runtime.transcripts?.diagnostics??null},
-      ps3:{...this.runtime.ps3Diagnostics,reasons:{...this.runtime.ps3Diagnostics.reasons}},
+      ps3:{...this.runtime.ps3Diagnostics,reasons:{...this.runtime.ps3Diagnostics.reasons},
+        ownedReasons:{...this.runtime.ps3Diagnostics.ownedReasons},
+        ownedByEvent:Object.fromEntries(Object.entries(this.runtime.ps3Diagnostics.ownedByEvent).map(([event,counts])=>[event,{...counts}]))},
       radioCatalog:{unknownTextIds:counter(this.runtime.radioCatalog?.unknownTextIds),catalogMismatches:counter(this.runtime.radioCatalog?.catalogMismatches)},
       radio:{...this.runtime.radioDiagnostics},
       ownerStall:{...this.runtime.stallDiagnostics},
