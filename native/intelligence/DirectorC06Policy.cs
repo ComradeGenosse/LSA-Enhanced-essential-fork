@@ -42,6 +42,31 @@ namespace LSA.Intelligence
             public bool ObservationReceiptCurrent,ResponseGrantCurrent;
         }
 
+        // Speech is a read-only side effect, not a physical-task takeover.
+        // Only exact P2 modes and source-verified live ACT capabilities may
+        // coexist with a Director turn. Unknown/residual/transitioning work
+        // remains blocked; separate C-06 mic, playback, script and reflex
+        // gates still apply at every admission boundary.
+        internal static bool SpeechCompatibleOwner(string owner,string mode,bool suspended,string activityCapability)
+        {
+            if(suspended)return false;
+            if(owner=="none")return mode=="idle";
+            if(owner=="p2")return mode=="follow" || mode=="wait" || mode=="sit";
+            if(owner!="act" || mode!="activity")return false;
+            switch(activityCapability) {
+                case "hold_position":
+                case "follow_person":
+                case "sit_on_ground":
+                case "resume_ambient":
+                case "stop_and_face":
+                case "begin_driving":
+                case "approach_person":
+                case "walk_away_from":
+                    return true;
+                default: return false;
+            }
+        }
+
         // The pinned Essential Core aliases current-speaker to its selected
         // conversation target. Keeping the same target selected after a turn
         // must not indefinitely veto Director, but selection cannot grant

@@ -20,7 +20,7 @@ namespace LSA.Intelligence
     // read-only fields. Unknown/foreign/residual ownership never means idle.
     public sealed class DirectorOwnerSample
     {
-        public string Owner,Mode;
+        public string Owner,Mode,SpeechActivityCapability;
         public bool Suspended;
         public int Revision;
     }
@@ -761,14 +761,15 @@ namespace LSA.Intelligence
                         (mode.Mode=="idle" || mode.Mode=="unknown" ||
                          mode.Mode=="follow" || mode.Mode=="wait" ||
                          mode.Mode=="sit" || mode.Mode=="activity");
-                    // A P2 follow order owns locomotion, not the voice turn.
-                    // Permit the same live, unsuspended follower to speak
-                    // spontaneously; C-06 independently rejects mic, text,
-                    // conversation, pending audio, reflex and script conflicts.
-                    // ACT tasks, residual/unknown modes and suspension stay busy.
-                    proof.OwnerIdle=proof.OwnerPrimaryModeKnown && !mode.Suspended &&
-                        (mode.Owner=="none" && mode.Mode=="idle" ||
-                         mode.Owner=="p2" && mode.Mode=="follow");
+                    // A compatible locomotion/pose task owns movement, not
+                    // speech. ACT compatibility comes only from the current
+                    // native StepRunner execution for this exact incarnation;
+                    // queued/unsafe work and unknown residual owners stay busy.
+                    // All existing mic/text/Core/playback/reflex/script vetoes
+                    // still run independently before Director admission.
+                    proof.OwnerIdle=proof.OwnerPrimaryModeKnown &&
+                        DirectorC06Policy.SpeechCompatibleOwner(mode.Owner,mode.Mode,
+                            mode.Suspended,mode.SpeechActivityCapability);
                     // Following controls movement, not dialogue. Source
                     // proof is from this exact native P2 owner incarnation.
                     // An unknown, ACT, or suspended owner never qualifies.

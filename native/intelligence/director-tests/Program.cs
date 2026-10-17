@@ -687,6 +687,35 @@ class Program
         var req=Request(23);
         var proof=ReadyProof(req);
         Check(DirectorC06Policy.Safe(req,proof),"complete authoritative same-host/owner C06 snapshot admits");
+        // The owner policy is intentionally a CLOSED set. An established
+        // movement/pose state can speak, but an arbitrary ACT task cannot.
+        foreach(var mode in new[]{"follow","wait","sit"}) {
+            Check(DirectorC06Policy.SpeechCompatibleOwner("p2",mode,false,null),
+                "owned P2 "+mode+" permits speech while other C06 fences are idle");
+        }
+        foreach(var capability in new[]{"hold_position","follow_person","sit_on_ground",
+            "resume_ambient","stop_and_face","begin_driving","approach_person","walk_away_from"}) {
+            Check(DirectorC06Policy.SpeechCompatibleOwner("act","activity",false,capability),
+                "source-verified ACT "+capability+" can speak without changing activity");
+        }
+        foreach(var capability in new[]{(string)null,"take_cover","scenario_here",
+            "enter_vehicle_seat","exit_vehicle","grab_item","clear_held_item","go_to_place"}) {
+            Check(!DirectorC06Policy.SpeechCompatibleOwner("act","activity",false,capability),
+                "unverified or conflicting ACT capability must stay silent");
+        }
+        Check(!DirectorC06Policy.SpeechCompatibleOwner("p2","wait",true,null),
+            "suspended wait remains blocked");
+        Check(!DirectorC06Policy.SpeechCompatibleOwner("act","activity",true,"follow_person"),
+            "suspended ACT remains blocked");
+        Check(!DirectorC06Policy.SpeechCompatibleOwner("essential_residual","follow",false,null) &&
+              !DirectorC06Policy.SpeechCompatibleOwner("none","unknown",false,null) &&
+              !DirectorC06Policy.SpeechCompatibleOwner("act","unknown",false,"follow_person"),
+            "residual, missing and mismatched ownership remain blocked");
+        proof.OwnerIdle=DirectorC06Policy.SpeechCompatibleOwner("act","activity",false,"hold_position");
+        Check(DirectorC06Policy.Safe(req,proof),"ACT established hold still passes all native C06 gates");
+        proof.OwnerIdle=DirectorC06Policy.SpeechCompatibleOwner("act","activity",false,"take_cover");
+        Check(!DirectorC06Policy.Safe(req,proof),"conflicting ACT blocks actual Director admission");
+        proof.OwnerIdle=true;
         // Core selection is not a turn-ownership signal. An unchanged exact
         // speaker may be treated as a retained target ONLY after all existing
         // global quiet, player-input, owner, playback and reflex gates pass.
