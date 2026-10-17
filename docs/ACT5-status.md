@@ -13,7 +13,7 @@ ACT5 is conversational initiative, **not** autonomous activity execution. Nathan
 5. A short, unambiguous affirmative response stages consent. A validated `output_transcript` for that confirmation turn is required before exactly one `ActivityEngine.assign` request. The original owner, native run, epoch, character, encounter, incarnation, turn and world availability are rechecked.
 6. Native actor lease, C-02 per-step reference acquisition, preflight, Essential dispatch, native receipts and completion adapters remain authoritative. Proposed/admitted/handler-accepted/mode-established/physically-completed are **different states**. ACT4 exposes the evidence, not a simulated outcome.
 
-Proposals expire after 90 seconds and are cooled down for 90 seconds. No repeat consent, replay, delayed provider response, owner revocation, competing player activity or native restart is permitted to create another execution. `stop doing that` can cancel only the *currently active ACT5-assigned activity*, never a later user/stock action. Refusal never creates an activity.
+Proposals expire after 90 seconds, general invitations are cooled down for 90 seconds, and an identical intent cannot be suggested again for five minutes. No repeat consent, replay, delayed provider response, owner revocation, competing player activity or native restart is permitted to create another ACT5 execution. `stop doing that` can cancel only the *currently active ACT5-assigned activity*, never a later user/stock action. Refusal never creates the declined activity; an explicit **different** player-directed stock Essential command such as “No, stay here instead” may still follow the established stock validation path.
 
 ## Covered plans
 
