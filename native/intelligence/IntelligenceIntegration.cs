@@ -113,6 +113,8 @@ namespace LSA.Intelligence
         long nextDiscovery,nextState,nextShot,nextRadio,nextRefresh,nextDiagnostics,nextLog,snapshotChangedAt,snapshotCadence;
         readonly bool radioEnabled;
         RadioProbeState radioProbe;
+        HashSet<string> radioWitnessAudience=new HashSet<string>(StringComparer.Ordinal);
+        bool radioRefreshOnConnect;
         int discoveryCursor,stateCursor,connectionVersion;
         long staleRejected,retiredAnchors,witnessDeferred,witnessUnknown,witnessRejected,radioWitnessed,radioWitnessUnknown;
         int lineOfSightBudget;
@@ -185,7 +187,7 @@ namespace LSA.Intelligence
         }
         void WorldChanged(int epoch,string reason) {
             if(!IsAvailable) return;
-            director.Reset();ps3Receipts.Reset();originalTurns.Reset();protagonistSensor.Revoke();protagonistConsumerConnection=0;protagonistConsumerWorld=0;lock(directorPlaybackGate) {directorPlaybackEvents.Clear();directorPlaybackOverflow=false;}sensors.Reset();radioProbe=null;nextRadio=0;lock(rosterGate) {publishedAnchorStates.Clear();publishedObserverIndex.Clear();sampledSituations.Clear();}pendingRetirements.Clear();
+            director.Reset();ps3Receipts.Reset();originalTurns.Reset();protagonistSensor.Revoke();protagonistConsumerConnection=0;protagonistConsumerWorld=0;lock(directorPlaybackGate) {directorPlaybackEvents.Clear();directorPlaybackOverflow=false;}sensors.Reset();radioProbe=null;radioWitnessAudience.Clear();radioRefreshOnConnect=true;nextRadio=0;lock(rosterGate) {publishedAnchorStates.Clear();publishedObserverIndex.Clear();sampledSituations.Clear();}pendingRetirements.Clear();
             conversationRef=null;promotedTurnObserverRef=null;discoverySnapshot=null;discoveryOwned=new OwnedParticipant[0];UpdateIndexes();
             // Ordered control fact invalidates all prior observer state. Losing
             // it closes the bounded channel; reconnect republishes current host.
@@ -345,6 +347,7 @@ namespace LSA.Intelligence
                     connectionVersion=channel.ConnectionVersion;
                     lock(rosterGate){publishedAnchorStates.Clear();publishedObserverIndex.Clear();sampledSituations.Clear();}
                     nextRefresh=0;
+                    radioRefreshOnConnect=true;
                 }
                 // Existing owner fiber only; never sample a model without the
                 // exact approved receiver, connection and native host epoch.
@@ -790,16 +793,46 @@ namespace LSA.Intelligence
         }
         static int Clamp(long n)=>(int)Math.Min(int.MaxValue,Math.Max(0,n));
         static RadioProbeState RadioOff()=>new RadioProbeState {Vehicle=null,Station="",RejectedClasses=""};
+        HashSet<string> CurrentRadioAudience(EntityAnchor source)
+        {
+            var audience=new HashSet<string>(StringComparer.Ordinal);
+            // Recheck native Ped/vehicle handles AND addresses; a proximity,
+            // remembered conversation target or matching name is not hearing proof.
+            if(source==null || source.Kind!="vehicle" ||
+                anchors.Resolve(source.CaptureRef)!=source) return audience;
+            foreach(var observer in anchors.Current.Where(a=>a.Observer&&a.Kind=="ped")) {
+                if(!(observer.Entity is Ped ped) || !Live(ped,observer.Handle,observer.Address)) continue;
+                try {
+                    var occupied=ped.CurrentVehicle;
+                    if(occupied!=null && Live(occupied,source.Handle,source.Address))
+                        audience.Add(observer.CaptureRef);
+                } catch {}
+            }
+            return audience;
+        }
         void SampleRadio(uint tick,long now)
         {
             if(!radioEnabled) return;
             sensors.NoteRadioSample();
             try {
                 var player=Game.LocalPlayer.Character;
-                if(player==null || !player.Exists()) { CommitRadio(RadioOff(),tick,now); return; }
+                if(player==null || !player.Exists()) {
+                    radioWitnessAudience.Clear();CommitRadio(RadioOff(),tick,now);return;
+                }
                 var vehicle=player.CurrentVehicle;
-                if(vehicle==null || !vehicle.Exists()) { CommitRadio(RadioOff(),tick,now); return; }
-                CommitRadio(ReadRadio(Retain(vehicle,"vehicle")?.CaptureRef),tick,now);
+                if(vehicle==null || !vehicle.Exists()) {
+                    radioWitnessAudience.Clear();CommitRadio(RadioOff(),tick,now);return;
+                }
+                var source=Retain(vehicle,"vehicle");
+                var reading=ReadRadio(source?.CaptureRef);
+                var audience=reading.Station.Length>0?CurrentRadioAudience(source):
+                    new HashSet<string>(StringComparer.Ordinal);
+                // A newly verified in-car observer needs a fresh native radio
+                // receipt even if GTA has not changed the station or track.
+                bool joined=audience.Count>0 && !audience.SetEquals(radioWitnessAudience);
+                radioWitnessAudience=audience;
+                CommitRadio(reading,tick,now,joined||radioRefreshOnConnect);
+                if(reading.Station.Length>0)radioRefreshOnConnect=false;
             } catch { sensors.NoteRadioNativeFailure(); }
         }
         RadioProbeState ReadRadio(string vehicleRef)
@@ -815,9 +848,9 @@ namespace LSA.Intelligence
             reading.TrackTextId=NativeFunction.CallByName<int>("GET_AUDIBLE_MUSIC_TRACK_TEXT_ID");
             return reading;
         }
-        void CommitRadio(RadioProbeState reading,uint tick,long now)
+        void CommitRadio(RadioProbeState reading,uint tick,long now,bool forceRevalidation=false)
         {
-            sensors.Radio(reading.Vehicle,reading.Station,reading.SoundHash,reading.TrackTextId,tick,now);
+            sensors.Radio(reading.Vehicle,reading.Station,reading.SoundHash,reading.TrackTextId,tick,now,forceRevalidation);
             if(radioProbe!=null && radioProbe.Same(reading)) return;
             if(reading.Station.Length>0) {
                 try { int play=NativeFunction.CallByName<int>("GET_CURRENT_TRACK_PLAY_TIME",reading.Station); reading.PlayMs=play<0?-1:play; }
