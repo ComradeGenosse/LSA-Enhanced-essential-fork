@@ -120,14 +120,15 @@ export function createM7IdleProofSource({intelligence,backend,resolveOwner,store
     if(f?.type!=='memory_m7_idle_diagnostic'||!p||f.streamId!==runtime.stream||
        f.adapterEpoch!==runtime.epoch)return invalidate('native_frame_not_current');
     const ref=p.observerCaptureRef;
-    if(!identityFor(p))return dropCandidate(ref,'native_identity_unverified');
+    const owner=identityFor(p);
+    if(!owner)return dropCandidate(ref,'native_identity_unverified');
     if(!M7_NATIVE_CORE_QUIET_FIELDS.every(k=>p.priorityEvidence?.[k]===true))
       return dropCandidate(ref,'native_not_quiet');
     const backendView=readBackend();
     if(backendView.reason)return invalidate(backendView.reason);
     const t=mono();
     let s=streaks.get(ref);
-    if(s&&(!sameStream(s,f,p)||f.sequence<=s.sequence||
+    if(s&&(!sameStream(s,f,p)||s.characterId!==owner.characterId||f.sequence<=s.sequence||
        backendView.sourceRun!==s.sourceRun||backendView.revision!==s.revision||
        p.sampledGameTick<=s.lastTick||t<s.lastNativeAt||
        t-s.lastNativeAt>maxNativeAgeMs)){
@@ -137,7 +138,8 @@ export function createM7IdleProofSource({intelligence,backend,resolveOwner,store
     if(!s){
       s={streamId:f.streamId,adapterEpoch:f.adapterEpoch,hostRunId:p.hostRunId,
         worldEpoch:p.worldEpoch,observerCaptureRef:ref,
-        incarnationId:p.incarnationId,encounterId:p.encounterId,sourceRun:backendView.sourceRun,
+        incarnationId:p.incarnationId,encounterId:p.encounterId,characterId:owner.characterId,
+        sourceRun:backendView.sourceRun,
         revision:backendView.revision,startedAt:t,firstTick:p.sampledGameTick,samples:0};
       streaks.set(ref,s);
       reason='idle_window_not_elapsed';
@@ -156,7 +158,7 @@ export function createM7IdleProofSource({intelligence,backend,resolveOwner,store
     if(backendView.sourceRun!==s.sourceRun||backendView.revision!==s.revision)
       return 'backend_activity';
     const who=identityFor(s);
-    if(!who||who.host.hostRunId!==s.hostRunId||runtime.stream!==s.streamId||
+    if(!who||who.characterId!==s.characterId||who.host.hostRunId!==s.hostRunId||runtime.stream!==s.streamId||
        runtime.epoch!==s.adapterEpoch)return 'native_identity_unverified';
     return null;
   }
@@ -193,7 +195,7 @@ export function createM7IdleProofSource({intelligence,backend,resolveOwner,store
     const proof=Object.freeze({kind:M7_IDLE_PROOF_KIND,nativeVerified:true,
       hostRunId:s.hostRunId,worldEpoch:s.worldEpoch,sessionId:s.streamId,
       incarnationId:s.incarnationId,encounterId:s.encounterId,
-      observerIndex:runtime.observerIndexVersion??0,characterId:identityFor(s).characterId,
+      observerIndex:runtime.observerIndexVersion??0,characterId:s.characterId,
       worldProfileId:store.worldProfileId,timelineId:store.activeTimelineId,
       priorityEvidence,idle:true,micActive:false,playerSpeechActive:false,
       directorBusy:false,gamePaused:false,idleForMs,
