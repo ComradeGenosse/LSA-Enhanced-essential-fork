@@ -406,6 +406,8 @@ export async function buildCandidate({ nativePayloadPath, sourcePath = stockBund
   await mkdir(path.join(target,'data'),{recursive:true});
   await copyFile(path.join(root,'data','radioTrackTextIds.v2.json'),path.join(target,'data','radioTrackTextIds.v2.json'));
   const e1SourceTreeSha256 = await directoryDigest(stagedE1);
+  // Digest of the staged shared-brain copy alone (also covered by e1SourceTreeSha256).
+  const sharedBrainSourceTreeSha256 = await directoryDigest(path.join(stagedE1, '_shared'));
   const releasePayloadSha256 = await directoryDigest(target);
   const manifest = {
     nativeContract,
@@ -423,7 +425,7 @@ export async function buildCandidate({ nativePayloadPath, sourcePath = stockBund
       dialogueLogging: { defaultEnabled:false,provider:'openai',storage:'rotating-jsonl' } },
     launcherEntry: launcherName, upstreamBundleSha256: sourceHash,
     stockDllReferenceSha256: dllHash, builtBundleSha256: digest(patched.output),
-    e1SourceTreeSha256, releasePayloadSha256,
+    e1SourceTreeSha256, sharedBrainSourceTreeSha256, releasePayloadSha256,
     astPatchCount: patched.edits.length, astPatches: patched.edits,
     externalRuntimePackaging: 'not included; no GTA-folder deployment performed',
     realApiCalls: false, gtaRuntimeTest: false,

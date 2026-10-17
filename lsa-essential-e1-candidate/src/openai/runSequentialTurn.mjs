@@ -5,6 +5,12 @@ const ELEVENLABS_MAX_NATIVE_LEAD_MS=900;
 const ELEVENLABS_PACE_POLL_MS=50;
 const PCM_BYTES_PER_MS=24_000*2/1_000;
 const PLAYER_SOURCES = new Set(['player_text', 'player_mic']);
+// Closed vocabulary for the single, content-free PCM forward-failure event.
+const SAFE_PCM_FAILURES = new Set([
+  'native_rejected', 'native_authorization_rejected', 'chunk_after_end',
+  'stale_or_cancelled', 'provider_attempt_inactive', 'streaming_pcm_limit',
+  'cancelled', 'superseded', 'disconnected',
+]);
 const RECOVERABLE_PRE_SEND = new Set(['memory_stale','recall_stale','opinion_stale']);
 // Only optional context invalidation may cause a rebuilt request. Identity,
 // provider, native and post-send privacy failures are never replayed.
@@ -35,7 +41,7 @@ function terminalForAbort(signal) {
 function terminalForError(error, stage) {
   const code = String(error?.code || '').toLowerCase();
   const message = String(error?.message || '').toLowerCase();
-  if (['invalid_response','incomplete_response','response_too_large'].includes(code)) return 'invalid_decision';
+  if (['invalid_response','incomplete_response','response_too_large'].includes(code) || code.startsWith('segment_')) return 'invalid_decision';
   if (['timeout','attempt_timeout','deadline_exceeded'].includes(code) || message.includes('deadline')) return 'provider_timeout';
   if (message.includes('refused')) return 'model_refusal';
   if (message.includes('invalid decision') || message.includes('decision must') || message.includes('decision fields') ||
@@ -222,11 +228,25 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
     }
     await authorization;
     check();
-    await emit({ type: 'audio', chunk:scalePcm16(chunk,services.config.ttsVolume??1) });
-    pcmBytesTotal += chunk.byteLength;
-    pcmChunksTotal += 1;
-    metrics?.audioPcm(chunk.byteLength);
-    check();
+    // One gain stage after either TTS provider, before native playback.
+    try {
+      await emit({ type: 'audio', chunk:scalePcm16(chunk,services.config.ttsVolume??1) });
+      pcmBytesTotal += chunk.byteLength;
+      pcmChunksTotal += 1;
+      metrics?.audioPcm(chunk.byteLength);
+      check();
+    } catch (error) {
+      // Record the callback/native failure category once, without exposing
+      // dialogue, vendor responses, API credentials or arbitrary error text.
+      const cause = String(error?.code || error?.message || '');
+      const reason = SAFE_PCM_FAILURES.has(cause) ? cause : 'unclassified_pcm_forward_error';
+      metrics?.event('native_pcm_forward_failed', {
+        reason, chunkBytes: chunk.byteLength,
+        forwardedBytes: pcmBytesTotal, forwardedChunks: pcmChunksTotal,
+        playbackStarted: nativePlaybackStartedAt !== null,
+      });
+      throw error;
+    }
   };
   try {
     check();

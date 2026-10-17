@@ -9,7 +9,8 @@
     "pipeName": "LSA.Intelligence.v1",
     "directorMode": "off",
     "radio": "off",
-    "directorAttemptPreset": "normal"
+    "directorAttemptPreset": "normal",
+    "protagonistEvidence": "off"
   },
   "activities": {
     "mode": "off",
