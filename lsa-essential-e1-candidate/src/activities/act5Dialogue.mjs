@@ -70,6 +70,13 @@ const replyKind = (response, intent) => {
 // Native inspect supplies fresh booleans; admission still reacquires C-02
 // anchors and native preflight after the player's consent.
 export function act5WorldAvailable(intent, slots, state) {
+  // Older native installs have no advisory snapshot: retain ACT2's historical
+  // checks, but never expose an ACT3 physical offer without native evidence.
+  if (intent === 'sit_here' || intent === 'accompany') {
+    if (state?.version !== 1) return true;
+    return state.safe === true && state.actorOnFoot === true &&
+      (intent !== 'accompany' || state.playerNearby === true);
+  }
   if (!['scenario_here','approach_and_face','board_vehicle','ride_along',
         'exit_vehicle_and_hold','leave_scene','take_cover_and_hold'].includes(intent)) return true;
   if (state?.version !== 1 || state.safe !== true) return false;
