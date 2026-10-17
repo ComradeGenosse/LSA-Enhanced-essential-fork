@@ -1,5 +1,5 @@
 import {renderKnowledge} from './knowledgeRenderer.mjs';
-import {validateAct5Choice} from '../activities/act5Dialogue.mjs';
+import {ACT5_SLOTS,validateAct5Choice} from '../activities/act5Dialogue.mjs';
 import {captureReferenceMap} from './turnSnapshot.mjs';
 import {composeKnowledgeInstruction,separateKnowledgeInstruction,KNOWLEDGE_GROUNDING} from './knowledgeInstructions.mjs';
 import {KNOWLEDGE_LIMITS,jsonBytes} from './knowledgeSelector.mjs';
@@ -71,16 +71,18 @@ export function validateDecisionShape(decision) {
 }
 
 export function act5ActivitySchema(intents) {
-  // Only ACT2 templates with live registry/hello/probes reach this allowlist.
+  // Generate the strict model schema from exactly the same closed-slot map
+  // used by acceptance validation. Never expose native steps or arbitrary refs.
+  const exact = value => value && typeof value === 'object'
+    ? { type:'object', additionalProperties:false, required:Object.keys(value),
+        properties:Object.fromEntries(Object.entries(value).map(([key,part])=>[key,exact(part)])) }
+    : { type:typeof value, enum:[value] };
   const choices = intents.map(intent => {
-    const person = intent === 'accompany';
+    if (!Object.hasOwn(ACT5_SLOTS,intent)) throw new TypeError('ACT5 unsupported intent');
     return { type:'object', additionalProperties:false, required:['intent','slots'],
-      properties: { intent:{type:'string',enum:[intent]},
-        slots:{ type:'object', additionalProperties:false, required: person ? ['person'] : [],
-          properties: person ? {person:{type:'object',additionalProperties:false,required:['kind'],
-            properties:{kind:{type:'string',enum:['player']}}}} : {} } } };
+      properties:{intent:{type:'string',enum:[intent]},slots:exact(ACT5_SLOTS[intent])} };
   });
-  return { anyOf: [{type:'null'},...choices] };
+  return { anyOf:[{type:'null'},...choices] };
 }
 
 export function withAct5Schema(schema, intents) {

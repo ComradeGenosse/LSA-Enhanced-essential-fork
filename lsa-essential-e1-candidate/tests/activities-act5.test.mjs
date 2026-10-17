@@ -27,15 +27,15 @@ const turn = () => ({
   knowledgeInputs: { activityInputs: { binding: { encounterId: encounter, hostContext: host } } },
 });
 
-function harness({ enabled = true } = {}) {
+function harness({ enabled = true, act3Capabilities = [], extraProbes = [] } = {}) {
   serial = 0;
   let now = 10000;
   const commands = [];
-  const config = normalizeActivityConfig({ mode: 'on', act5: enabled, passedProbes: probes });
+  const config = normalizeActivityConfig({ mode: 'on', act5: enabled, act3Capabilities, passedProbes: [...probes,...extraProbes] });
   const engine = new ActivityEngine({ config, now: () => now, id, onCommand: v => commands.push(v) });
   const hello = {type:'hello', ...host, nativeRun, adapterEpoch, capabilities: {
     hold_position:true, follow_person:true, sit_on_ground:true, resume_ambient:true,
-    stop_and_face:true, begin_driving:true,
+    stop_and_face:true, approach_person:true, walk_away_from:true, take_cover:true, begin_driving:true,
   }};
   engine.noteHello(hello);
   let currentEncounter = encounter;
@@ -61,6 +61,29 @@ test('ACT5 is opt-in and never advertises contract-only ACT3 native verbs', asyn
   assert.equal(ctx.intents.includes('stop_and_face'), false);
   assert.equal(ctx.intents.includes('vehicle_trip'), false);
   assert.equal(await harness().dialogue.prepare(turn(), 'special_event'), null);
+});
+
+test('ACT3 suggestions require every verified step and preserve native consent', async () => {
+  const blocked = await harness({act3Capabilities:['approach_person','stop_and_face']}).dialogue.prepare(turn(), 'player_text');
+  assert.equal(blocked.intents.includes('approach_and_face'),false); // A1 probe absent.
+  const h = harness({act3Capabilities:['approach_person','stop_and_face','walk_away_from'],extraProbes:['A1']});
+  const first = turn();
+  const context = await h.dialogue.prepare(first,'player_text');
+  assert.equal(context.intents.includes('approach_and_face'),true);
+  assert.equal(context.intents.includes('leave_scene'),true);
+  assert.equal(context.intents.includes('board_vehicle'),false); // No verified vehicle reference.
+  assert.equal(validateAct5Choice(choice('approach_and_face',{person:{kind:'player'}}),context.intents),true);
+  assert.equal(validateAct5Choice(choice('approach_and_face',{person:{kind:'capture',captureRef:'bogus'}}),context.intents),false);
+  const next = buildRequest({model:'gpt-6-luna',effort:'low',systemInstruction:'NPC',input:'hello',activityContext:context});
+  assert.equal(next.text.format.schema.properties.activity.anyOf.some(x=>x.properties?.intent?.enum?.[0]==='approach_and_face'),true);
+  assert.equal(await h.dialogue.publish(first,decision(choice('approach_and_face',{person:{kind:'player'}})),context,()=>true),true);
+  assert.equal(h.engine.goals.goals.length,0); // Proposal is never execution.
+  const yes = turn(), ctx = await h.dialogue.prepare(yes,'player_text');
+  assert.equal((await h.dialogue.onPlayerInput(yes,'yes',ctx,()=>true)).kind,'approval_pending');
+  assert.equal((await h.dialogue.commitApproved(yes,()=>true)).ok,true);
+  assert.equal(h.engine.activities[0].steps.length,2);
+  assert.equal(h.engine.activities[0].template,'approach_and_face');
+  assert.equal(h.commands.filter(c=>c.type==='actor.acquire').length,1);
 });
 
 test('strict decision v2 rejects malformed fields, commands, targets and speculative mode', () => {

@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { sameHostContext } from '../context/hostContext.mjs';
-import { ACT2_INTENTS, templateFor } from './intentTemplates.mjs';
+import { planSpec } from './intentTemplates.mjs';
 import { validateSlots } from './contracts.mjs';
 
 // ACT5 does not plan or execute steps. It retains one short-lived, spoken
@@ -11,11 +11,16 @@ const CANCEL = new Set(['stop', 'stop that', 'cancel the activity', 'cancel that
 const OFFER_MS = 90_000;
 const TERMINAL = new Set(['none','completed','failed','cancelled','superseded','expired','abandoned']);
 const COOLDOWN_MS = 90_000;
-const ACT5_SLOTS = Object.freeze({
+export const ACT5_SLOTS = Object.freeze({
   hold_position: Object.freeze({}),
   accompany: Object.freeze({ person: Object.freeze({ kind: 'player' }) }),
   resume_previous: Object.freeze({}),
   sit_here: Object.freeze({}),
+  // ACT3 choices are offered only when every native step has opted-in,
+  // probe-verified capabilities. Player is the only resolvable person here.
+  approach_and_face: Object.freeze({ person: Object.freeze({ kind: 'player' }) }),
+  leave_scene: Object.freeze({}),
+  take_cover_and_hold: Object.freeze({}),
 });
 const clean = value => String(value || '').trim().toLowerCase().replace(/[.,!?]+/g, ' ').replace(/\s+/g, ' ').trim();
 const keyFor = identity => identity && String(identity.pedId) + ':' + String(identity.sessionNonce);
@@ -98,13 +103,19 @@ export class Act5Dialogue {
     const activityStatus = this.activities.status(characterId);
     const busy = !TERMINAL.has(activityStatus?.status);
     const intents = busy || this.pending.has(characterId) || (this.cooldown.get(characterId) || 0) > this.now()
-      ? [] : ACT2_INTENTS.filter(intent => {
-          const capability = templateFor(intent)?.capability;
-          const row = capability && this.activities.engine.registry.get(capability);
-          return row?.phase === 'ACT2' && this.activities.engine.registry.enabled(capability, {
-            mode: 'on', hello: this.activities.engine.hello?.capabilities, requested: [capability],
-            passedProbes: this.activities.engine.config.passedProbes || [],
-            source: 'player_dialogue', priority: 'player_direct',
+      ? [] : Object.keys(ACT5_SLOTS).filter(intent => {
+          const spec = planSpec(intent, ACT5_SLOTS[intent]);
+          if (!Array.isArray(spec.steps) || !spec.steps.length) return false;
+          return spec.steps.every(step => {
+            const capability = step.capability;
+            const row = this.activities.engine.registry.get(capability);
+            if (!row || !['ACT2','ACT3'].includes(row.phase)) return false;
+            if (row.phase === 'ACT3' && !(this.activities.engine.config.act3Capabilities || []).includes(capability)) return false;
+            return this.activities.engine.registry.enabled(capability, {
+              mode: 'on', hello: this.activities.engine.hello?.capabilities, requested: [capability],
+              passedProbes: this.activities.engine.config.passedProbes || [],
+              source: 'player_dialogue', priority: 'player_direct',
+            });
           });
         });
     return Object.freeze({ owner, intents: Object.freeze(intents), activityStatus: activityStatus?.status || 'unknown',
