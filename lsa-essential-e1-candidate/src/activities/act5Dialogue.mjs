@@ -9,6 +9,7 @@ const YES = new Set(['yes', 'yeah', 'yep', 'sure', 'ok', 'okay', 'alright', 'go 
 const NO = new Set(['no', 'nope', 'nah', 'not now', 'no thanks', 'maybe later', 'never mind', 'nevermind', "don't", 'dont', 'cancel that', 'forget it']);
 const CANCEL = new Set(['stop', 'stop that', 'cancel the activity', 'cancel that activity', 'stop doing that']);
 const OFFER_MS = 90_000;
+const TERMINAL = new Set(['none','completed','failed','cancelled','superseded','expired','abandoned']);
 const COOLDOWN_MS = 90_000;
 const ACT5_SLOTS = Object.freeze({
   hold_position: Object.freeze({}),
@@ -95,7 +96,7 @@ export class Act5Dialogue {
         pending.owner.sessionKey !== owner.sessionKey ||
         pending.owner.nativeRun !== owner.nativeRun)) this.pending.delete(characterId);
     const activityStatus = this.activities.status(characterId);
-    const busy = activityStatus?.status !== 'none';
+    const busy = !TERMINAL.has(activityStatus?.status);
     const intents = busy || this.pending.has(characterId) || (this.cooldown.get(characterId) || 0) > this.now()
       ? [] : ACT2_INTENTS.filter(intent => {
           const capability = templateFor(intent)?.capability;
@@ -122,7 +123,7 @@ export class Act5Dialogue {
         current.nativeRun !== context.owner.nativeRun ||
         (this.cooldown.get(current.binding.characterId) || 0) > this.now()) return false;
     const characterId = current.binding.characterId;
-    if (this.pending.has(characterId) || this.activities.status(characterId).status !== 'none') return false;
+    if (this.pending.has(characterId) || !TERMINAL.has(this.activities.status(characterId).status)) return false;
     this.seenTurns.add(idKey);
     if (this.seenTurns.size > 256) this.seenTurns.delete(this.seenTurns.values().next().value);
     const proposal = {
@@ -170,7 +171,7 @@ export class Act5Dialogue {
         owner.binding.ownershipToken !== pending.owner.binding.ownershipToken ||
         owner.nativeRun !== pending.owner.nativeRun ||
         owner.sessionKey !== pending.owner.sessionKey ||
-        this.activities.status(characterId).status !== 'none') {
+        !TERMINAL.has(this.activities.status(characterId).status)) {
       this.report('act5_rejected', { reason: 'owner_or_activity_changed' });
       return Object.freeze({ kind: 'unavailable', intent: pending.activity.intent });
     }
@@ -198,7 +199,7 @@ export class Act5Dialogue {
         current.binding.ownershipToken !== owner.binding.ownershipToken ||
         current.nativeRun !== owner.nativeRun || current.adapterEpoch !== owner.adapterEpoch ||
         current.sessionKey !== owner.sessionKey ||
-        this.activities.status(characterId).status !== 'none') {
+        !TERMINAL.has(this.activities.status(characterId).status)) {
       this.report('act5_rejected',{reason:'owner_or_activity_changed'});
       return {ok:false,reason:'owner_or_activity_changed'};
     }
