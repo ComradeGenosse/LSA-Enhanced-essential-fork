@@ -264,7 +264,8 @@ namespace LSA.Intelligence
             this.directorShadow=this.producerPolicy.Any&&(directorShadow || directorExperimental);
             this.directorExperimental=this.directorShadow&&directorExperimental;
             this.protagonistEvidenceEnabled=protagonistEvidenceEnabled&&(directorShadow||directorExperimental);
-            socialScenes=new DirectorSocialScenes(()=>this.host.MonotonicMs);
+            socialScenes=new DirectorSocialScenes(()=>this.host.MonotonicMs,
+                directorAttemptsPerMinute==DirectorAdmission.TestingMaxAttempts);
             ps3Receipts=new DirectorPs3Receipts(()=>this.host.MonotonicMs,()=>this.host.HostRunId,()=>this.host.WorldEpoch);
             originalTurns=new DirectorOriginalTurnReceipts(()=>this.host.MonotonicMs,
                 ()=>this.host.HostRunId,()=>this.host.WorldEpoch,
