@@ -129,11 +129,10 @@ export class ActivityEngine {
     const facts = this.facts.factsForCharacter(binding).filter(fact => fact.activityId === activity.activityId);
     if (!facts.length) return null; // Includes native retirement and reconnect invalidation.
     const step = activity.steps[activity.cursor];
-    const latestMode = facts.filter(fact => fact.kind === 'mode_established' &&
-      ['mode_flag', 'world_strong'].includes(fact.evidence)).at(-1);
-    const interruptedAfterMode = latestMode && facts.some(fact => fact.atMs >= latestMode.atMs &&
-      ['paused', 'failed', 'cancelled', 'abandoned'].includes(fact.kind) && fact.factId !== latestMode.factId);
-    const completion = facts.some(fact => fact.kind === 'completed' && fact.evidence === 'world_strong');
+    // Native receipts are scoped to the *current step*. ACT3 can have several
+    // steps in one activity, so a strong earlier-step fact is not plan completion.
+    const modeStep = activity.act4ModeStepId === step?.stepId;
+    const completedStep = activity.act4CompletedStepId === step?.stepId;
     const token = activity.interrupt?.token;
     const resumeEligible = activity.status === 'paused' && !!token &&
       token.activityId === activity.activityId && token.planRevision === activity.planRevision &&
@@ -147,9 +146,8 @@ export class ActivityEngine {
       activityId: activity.activityId, leaseId: activity.leaseId, leaseEpoch: activity.leaseEpoch,
       intent: activity.template, capability: step?.capability || null, status: activity.status,
       reason: activity.terminal?.reason || null,
-      modeObserved: activity.leaseEpoch > 0 && ['running', 'holding'].includes(activity.status) &&
-        !!latestMode && !interruptedAfterMode,
-      physicallyCompleted: activity.status === 'completed' && completion,
+      modeObserved: activity.leaseEpoch > 0 && ['running', 'holding'].includes(activity.status) && modeStep,
+      physicallyCompleted: activity.status === 'completed' && completedStep,
       resumeEligible,
     });
   }
@@ -236,6 +234,7 @@ export class ActivityEngine {
       deadlines: { activityDeadlineGameMs: 0, wallCapAtMs: now + WALL_CAP_MS },
       interrupt: null, executionIds: [], onComplete: plan.onComplete, onLeaseLoss: plan.onLeaseLoss,
       createdAtMs: now, updatedAtMs: now, terminal: null,
+      act4ModeStepId: null, act4CompletedStepId: null,
       factProvenance:readHostContext(this.hostContext) && isUuid(binding.encounterId) && isUuid(binding.incarnationId) ? Object.freeze({...this.hostContext,encounterId:binding.encounterId,incarnationId:binding.incarnationId}) : null,
       acquireId: this.id(), anchors: {}, seen: {}, failureKeys: {}, reflexCount: 0, resumeCount: 0, deferred: false,
       deferUntil: 0, quietSince: 0, asked: null, gameStart: null, holdingSince: null, playerWasFar: false,
@@ -327,6 +326,7 @@ export class ActivityEngine {
 
   #already(activity, now) {
     const step = activity.steps[activity.cursor];
+    activity.act4ModeStepId = step.stepId;
     this.#recordFact(activity,{ characterId: activity.actor.characterId, activityId: activity.activityId, goalId: activity.goalId, kind: 'mode_established', intent: activity.template, evidence: 'mode_flag', atMs: now });
     if (step.kind === 'finite' || step.kind === 'instant' || this.#untilMet(activity, now)) {
       step.status = 'done';
@@ -340,6 +340,7 @@ export class ActivityEngine {
 
   #begin(activity, now) {
     const step = activity.steps[activity.cursor];
+    activity.act4ModeStepId = null;
     if (activity.budgets.executionsLeft <= 0) return this.#finish(activity, 'failed', 'budget_exhausted', now, 'detach');
     const executionId = this.id();
     activity.budgets.executionsLeft -= 1;
@@ -381,6 +382,7 @@ export class ActivityEngine {
     this.onEvent('activity_receipt', { activityId: activity.activityId, capability: receipt.capability, receiptState: receipt.state, reason: receipt.reason });
     if (receipt.state === 'HANDLER_ACCEPTED' || receipt.state === 'VALIDATED' || receipt.state === 'DISPATCHED') { step.status = 'executing'; activity.status = 'running'; return; }
     if (receipt.state === 'MODE_ESTABLISHED') {
+      if (receipt.modeHealth !== 'lost') activity.act4ModeStepId = step.stepId;
       step.status = 'holding'; activity.status = 'running'; activity.holdingSince = activity.holdingSince || now;
       this.#recordFact(activity,{ characterId: activity.actor.characterId, activityId: activity.activityId, goalId: activity.goalId, kind: 'mode_established', intent: activity.template, evidence: receipt.predicate === 'satisfied' ? 'world_strong' : 'mode_flag', atMs: now });
       if (receipt.modeHealth === 'lost') return this.#recover(activity, 'no_progress', now);
@@ -510,6 +512,8 @@ export class ActivityEngine {
 
   #advance(activity, now, evidence) {
     const step = activity.steps[activity.cursor];
+    if (evidence === 'world_strong' && activity.cursor === activity.steps.length - 1)
+      activity.act4CompletedStepId = step.stepId;
     step.status = 'done';
     this.#recordFact(activity,{ characterId: activity.actor.characterId, activityId: activity.activityId, goalId: activity.goalId, kind: evidence === 'world_strong' ? 'completed' : 'step_completed', intent: activity.template, evidence: evidence === 'world_strong' ? 'world_strong' : 'mode_flag', placeLabel: activity.placeLabel || null, atMs: now });
     if (activity.cursor >= activity.steps.length - 1) return this.#finish(activity, 'completed', 'already_satisfied', now, 'detach');
@@ -610,7 +614,7 @@ export class ActivityEngine {
 
   exportActivity(activity) {
     const copy = { ...activity };
-    for (const key of ['factProvenance','acquireId', 'anchors', 'seen', 'failureKeys', 'reflexCount', 'resumeCount', 'deferred', 'deferUntil', 'quietSince', 'asked', 'gameStart', 'holdingSince', 'playerWasFar', 'playerReturned', 'currentExecutionId', 'knownIncarnation', 'onLeaseLoss', 'placeLabel', 'resumePolicy']) delete copy[key];
+    for (const key of ['factProvenance','acquireId', 'anchors', 'seen', 'failureKeys', 'reflexCount', 'resumeCount', 'deferred', 'deferUntil', 'quietSince', 'asked', 'gameStart', 'holdingSince', 'playerWasFar', 'playerReturned', 'currentExecutionId', 'knownIncarnation', 'onLeaseLoss', 'placeLabel', 'resumePolicy', 'act4ModeStepId', 'act4CompletedStepId']) delete copy[key];
     copy.steps = activity.steps.map(step => { const next = { ...step }; delete next.needs; return next; });
     return validateActivity(copy) ? copy : null;
   }
