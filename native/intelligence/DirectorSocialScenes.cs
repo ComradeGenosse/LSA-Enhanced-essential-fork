@@ -24,7 +24,7 @@ namespace LSA.Intelligence
             public bool Near,WasShared,EntryPending;
             public string Activity;
             public long NearSince,IdleSince,TripSince,LastSeen,LastSharedExit,NextPublish;
-            public long LastTransition=-90000;
+            public long LastTransition=-90000,LastPlayerTurnVersion=-1,LastInteraction=-600000;
             public long LastGreeting=-600000,LastEntry=-600000,LastIdle=-600000,LastTravel=-600000,LastCuriosity=-600000;
             public string LastEntryVehicle;
             public Rage.Vector3 LastPlayer,LastActor;
@@ -71,7 +71,7 @@ namespace LSA.Intelligence
             track.Current=scene;track.NextPublish=now;scenes[scene.Id]=scene;return scene;
         }
         public object[] Sample(IEnumerable<EntityAnchor> current,
-              IEnumerable<OwnedParticipant> roster,string host,int world,uint gameTick) {
+              IEnumerable<OwnedParticipant> roster,string host,int world,uint gameTick,long playerTurnVersion=-1) {
             var now=clock();var output=new List<object>();
             foreach(var id in scenes.Where(x=>x.Value.ClaimedTicket==null?
                 x.Value.Expires<=now : now-x.Value.ClaimedAt>120000).Select(x=>x.Key).ToArray())
@@ -98,6 +98,13 @@ namespace LSA.Intelligence
                 string actorCar=VehicleHandle(ped),playerCar=VehicleHandle(playerPed);
                 var sharedCar=actorCar!=null&&actorCar==playerCar;
                 var near=distance<=16 || sharedCar;
+                if(playerTurnVersion>=0) {
+                    if(track.LastPlayerTurnVersion>=0 &&
+                       playerTurnVersion!=track.LastPlayerTurnVersion) {
+                        track.IdleSince=now;track.LastInteraction=now;
+                    }
+                    track.LastPlayerTurnVersion=playerTurnVersion;
+                }
                 var movement=track.LastSeen>0 && track.LastSeen>=now-1200 &&
                     (ped.Position.DistanceTo(track.LastActor)>0.3f ||
                      playerPed.Position.DistanceTo(track.LastPlayer)>0.3f);
@@ -132,6 +139,7 @@ namespace LSA.Intelligence
                     kind="travel";track.LastTravel=now;
                 }
                 if(kind==null && near && now-track.NearSince>=(testing?30000:95000) &&
+                   now-track.LastInteraction>=(testing?10000:25000) &&
                    now-track.LastCuriosity>=(testing?90000:240000)) {
                     kind="personal_curiosity";track.LastCuriosity=now;
                 }
