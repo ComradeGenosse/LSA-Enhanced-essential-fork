@@ -132,8 +132,10 @@ test('Player interruption, owner retirement, corrected row and P2 fence revoke b
     if(kind==='fence')x.store.memoryReadFence++;
     if(kind==='timeline')x.store.activeTimelineId=U();
     if(kind==='profile')x.store.get=()=>({promotion:{ownerAlias:'different'}});
-    assert.equal(h.sendCurrent(),false,kind==='row'?'check must run before send':kind);
+    // Changes to stored bytes are observed by the mandatory async pre-send
+    // re-read; turn/owner/fence changes also fail the synchronous gate.
     assert.equal((await h.verifyPrepared()).status,'invalidated',kind);
+    assert.equal(h.sendCurrent(),false,kind);
   }
 });
 
