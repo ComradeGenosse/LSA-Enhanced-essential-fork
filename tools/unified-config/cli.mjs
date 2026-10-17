@@ -2,6 +2,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { run } from './manager.mjs';
+import { chooseGameDirectory } from './discovery.mjs';
 
 const HELP='Usage: node tools/unified-config/cli.mjs <import|validate|diff|apply|status|rollback> [--game "C:\\path\\Grand Theft Auto V Enhanced"] [--master path] [--activate] [--replace]\nImport reads installed configs without activating. Initial apply requires --activate. Never point this at a live update by another process.\n';
 async function findGame(explicit) {
@@ -21,8 +22,7 @@ async function findGame(explicit) {
   }
   const matches=[];
   for(const dir of dirs) if(await fs.stat(dir).then(s=>s.isDirectory(),()=>false)) matches.push(dir);
-  if(matches.length!==1) throw new Error(matches.length?'Multiple GTA installations: specify --game exactly':'GTA installation not found: specify --game');
-  return matches[0];
+  return chooseGameDirectory(matches);
 }
 async function main(argv) {
   if(argv.length===0||argv.includes('--help')||argv.includes('-h')) {process.stdout.write(HELP);return;}
