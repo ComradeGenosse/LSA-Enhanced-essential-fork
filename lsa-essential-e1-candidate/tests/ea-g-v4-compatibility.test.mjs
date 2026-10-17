@@ -297,7 +297,7 @@ test('G15: populated v4 permanent memory, correction, privacy and curation rows 
     raw.prepare('INSERT INTO memory_commands VALUES (?,?,?,?,?,?,?,?,?)').run(
       ids.command,npc.characterId,worldProfileId,timelineId,'franklin',
       randomUUID(),'edit',digest('edit'),'{}');
-    raw.prepare('INSERT INTO memory_corrections VALUES (?,?,?,?,?,?,?,?)').run(
+    raw.prepare('INSERT INTO memory_corrections (command_id,character_id,world_profile_id,timeline_id,target_id,preferred_text,content_sha256,created_at_utc) VALUES (?,?,?,?,?,?,?,?)').run(
       ids.correction,npc.characterId,worldProfileId,timelineId,ids.target,
       'Corrected fact',digest('Corrected fact'),now);
     raw.prepare('INSERT INTO m5_privacy_ops VALUES (?,?,?,?,?,?,?)').run(
