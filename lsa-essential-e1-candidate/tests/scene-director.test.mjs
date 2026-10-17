@@ -12,7 +12,7 @@ function candidate(changes = {}) {
     entitlementCurrent: true,
     observedAtMonotonicMs: NOW - 300,
     observation: {
-      observationId, revision: 1, observer: {captureRef: speaker,kind:'ped'},
+      observationId, revision: 1, eventType:'firing_burst', observer: {captureRef: speaker,kind:'ped'},
       expiresAtMonotonicMs: NOW + 15_000,
       claims: [{certainty:'supported',evidence:{channel:'visual'}}],
     },

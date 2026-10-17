@@ -436,7 +436,8 @@ export async function createRuntimeForBundle(options = {}) {
       stampFor:proposal=>pump.currentStamp(proposal),
       onDiagnostic:result=>{
         try {telemetry?.emit?.('director_gate',null,'internal',{
-          reason:result.reason,configuredMode:config.spontaneousSpeech.mode,
+          reason:result.reason,eventType:result.eventType,
+          configuredMode:config.spontaneousSpeech.mode,
           nativeExperimental:client.runtime.directorPriority?.experimentalEnabled===true,
         },'internal');}catch{}
       },
@@ -447,6 +448,7 @@ export async function createRuntimeForBundle(options = {}) {
           // One-way code of the original native event signal: joins this
           // attempt to perception_trace and the native [PS] log lines.
           traceCode:outcome?.traceCode??null,urgency:outcome?.urgency??null,
+          eventType:outcome?.eventType,
           configuredMode:config.spontaneousSpeech.mode,
           executionAvailable:experimental &&
             client.runtime.directorPriority?.experimentalEnabled===true,

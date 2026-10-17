@@ -46,6 +46,9 @@ namespace LSA.Intelligence
         readonly NativeProtagonistSensor protagonistSensor=new NativeProtagonistSensor();
         readonly bool protagonistEvidenceEnabled;
         int protagonistConsumerConnection,protagonistConsumerWorld;
+        readonly BodyDiscoveryLedger bodyDiscovery=new BodyDiscoveryLedger();
+        long nextBodyDiscovery;
+        int bodyDiscoveryCursor;
         readonly NativeProducerPolicy producerPolicy;
         // Every retained lifetime uses the host's monotonic time axis.
         readonly Func<OwnedParticipant[]> roster;
@@ -283,7 +286,7 @@ namespace LSA.Intelligence
         }
         void WorldChanged(int epoch,string reason) {
             if(!IsAvailable) return;
-            director.Reset();ps3Receipts.Reset();originalTurns.Reset();protagonistSensor.Revoke();protagonistConsumerConnection=0;protagonistConsumerWorld=0;lock(directorPlaybackGate) {directorPlaybackEvents.Clear();directorPlaybackOverflow=false;}sensors.Reset();radioProbe=null;radioCoveredOwned.Clear();nextRadio=0;lastRadioFailure="";nextRadioFailureLog=0;ResetRadioRoutes();lock(rosterGate) {publishedAnchorStates.Clear();publishedObserverIndex.Clear();sampledSituations.Clear();}pendingRetirements.Clear();
+            director.Reset();ps3Receipts.Reset();originalTurns.Reset();bodyDiscovery.Reset();nextBodyDiscovery=0;bodyDiscoveryCursor=0;protagonistSensor.Revoke();protagonistConsumerConnection=0;protagonistConsumerWorld=0;lock(directorPlaybackGate) {directorPlaybackEvents.Clear();directorPlaybackOverflow=false;}sensors.Reset();radioProbe=null;radioCoveredOwned.Clear();nextRadio=0;lastRadioFailure="";nextRadioFailureLog=0;ResetRadioRoutes();lock(rosterGate) {publishedAnchorStates.Clear();publishedObserverIndex.Clear();sampledSituations.Clear();}pendingRetirements.Clear();
             conversationRef=null;promotedTurnObserverRef=null;discoverySnapshot=null;discoveryOwned=new OwnedParticipant[0];UpdateIndexes();
             // Ordered control fact invalidates all prior observer state. Losing
             // it closes the bounded channel; reconnect republishes current host.
@@ -360,7 +363,7 @@ namespace LSA.Intelligence
             if(a?.Consumers?.Contains(AnchorConsumer.TurnActor)==true)
                 LogStatus("[PS] turn_actor_retired reason="+reason.ToString().ToLowerInvariant());
         }
-        void OnRetired(EntityAnchor a) {if(a.CaptureRef==promotedTurnObserverRef) promotedTurnObserverRef=null;ps3Receipts.Retire(a.OwnerLifetime);retiredAnchors=Math.Min(int.MaxValue,retiredAnchors+1);sensors.Retire(a.CaptureRef);lock(rosterGate) {publishedAnchorStates.Remove(a.CaptureRef);publishedObserverIndex.Remove(a.CaptureRef);sampledSituations.Remove(a.CaptureRef);}if(pendingRetirements.Count<256) pendingRetirements.Add(a.CaptureRef);else channel?.Dispose();}
+        void OnRetired(EntityAnchor a) {if(a.CaptureRef==promotedTurnObserverRef) promotedTurnObserverRef=null;bodyDiscovery.Retire(a.CaptureRef);ps3Receipts.Retire(a.OwnerLifetime);retiredAnchors=Math.Min(int.MaxValue,retiredAnchors+1);sensors.Retire(a.CaptureRef);lock(rosterGate) {publishedAnchorStates.Remove(a.CaptureRef);publishedObserverIndex.Remove(a.CaptureRef);sampledSituations.Remove(a.CaptureRef);}if(pendingRetirements.Count<256) pendingRetirements.Add(a.CaptureRef);else channel?.Dispose();}
         void FlushControls(bool refreshRoster=false)
         {
             lock(rosterGate) {
@@ -444,7 +447,7 @@ namespace LSA.Intelligence
                 previousTick=tick;
                 lineOfSightBudget=8;
                 if(channel.ConnectionVersion!=connectionVersion) {
-                    ps3Receipts.Reset();director.Reset();protagonistSensor.Revoke();
+                    ps3Receipts.Reset();director.Reset();bodyDiscovery.Reset();nextBodyDiscovery=0;bodyDiscoveryCursor=0;protagonistSensor.Revoke();
                     protagonistConsumerConnection=0;protagonistConsumerWorld=0;
                     connectionVersion=channel.ConnectionVersion;
                     lock(rosterGate){publishedAnchorStates.Clear();publishedObserverIndex.Clear();sampledSituations.Clear();}
@@ -557,6 +560,9 @@ namespace LSA.Intelligence
                     for(int n=0;n<25 && sources.Length>0;n++) {var a=sources[stateCursor++%sources.Length];if(sampling.Elapsed.TotalMilliseconds>=1) break;Sample(a,tick,now);}
                 }
                 if(radioEnabled && now>=nextRadio) {nextRadio=now+250;SampleRadio(tick,now);}
+                if(producerPolicy.Allows("state")&&now>=nextBodyDiscovery) {
+                    nextBodyDiscovery=now+250;SampleBodyDiscovery(tick,now);
+                }
                 bool refreshRoster=now>=nextRefresh;if(refreshRoster) nextRefresh=now+1000;
                 FlushControls(refreshRoster);
                 // Source-fenced, positive-only owner frame. Unsupported normal
@@ -1034,7 +1040,8 @@ namespace LSA.Intelligence
             if(edge!=null) line+=" trace="+TraceCode(edge.signalId);
             try { Game.LogTrivial(line); } catch {}
         }
-        List<WitnessReceipt> CaptureWitnesses(RawSignal signal)
+        List<WitnessReceipt> CaptureWitnesses(RawSignal signal)=>CaptureWitnessesAtTick(signal,signal.gameTick);
+        List<WitnessReceipt> CaptureWitnessesAtTick(RawSignal signal,uint sampledTick)
         {
             var result=new List<WitnessReceipt>();
             if(signal==null) return result;
@@ -1056,7 +1063,9 @@ namespace LSA.Intelligence
             if(WitnessPolicy.VisualRange(kind)<=0) {witnessUnknown=Math.Min(int.MaxValue,witnessUnknown+1);return result;}
             string participantRef=kind=="firing"?signal.source:signal.target;
             var participant=anchors.Resolve(participantRef);
-            if(participant==null||!(participant.Entity is Ped subject)) return result;
+            var subject=participant?.Entity as Entity;
+            if(subject==null || (kind=="vehicle_damage" && participant.Kind!="vehicle") ||
+               (kind!="vehicle_damage" && !(subject is Ped)))return result;
             // Diagnostic-only: the best outcome for P2-owned observers, so the
             // GTA log distinguishes "Nathan never witnessed it" from later loss.
             string ownedOutcome=participant.OwnerLifetime!=null?"self":null;
@@ -1069,12 +1078,44 @@ namespace LSA.Intelligence
             // Give the finite native LOS budget to actual P2-owned companions first.
             // Equal-priority observers are nearest-first with a stable private
             // tie-breaker. This does not broaden witness geometry or invent proof.
-            foreach(var observer in anchors.Current.Where(a=>a.Observer&&a.Kind=="ped"&&a.CaptureRef!=participantRef)
+            foreach(var observer in anchors.Current.Where(a=>a.Observer&&a.Kind=="ped")
                 .OrderByDescending(a=>a.OwnerLifetime!=null)
                 .ThenBy(a=>a.Entity is Ped p ? p.Position.DistanceTo(subject.Position) : float.MaxValue)
                 .ThenBy(a=>a.CaptureRef,StringComparer.Ordinal)) {
                 anyOwned|=observer.OwnerLifetime!=null;
-                if(!(observer.Entity is Ped witness) || witness.Position.DistanceTo(subject.Position)>WitnessPolicy.VisualRange(kind)) {NoteOwned(observer,"out_of_range");continue;}
+                if(!(observer.Entity is Ped witness)) {NoteOwned(observer,"not_live");continue;}
+                // The injured observer directly experienced their own native
+                // damage callback or state-sampled injury. Do not require an
+                // impossible LOS-to-self ray or assign them attacker knowledge.
+                if(observer.CaptureRef==participantRef) {
+                    if((kind=="damage"||kind=="injury_state") &&
+                       anchors.Resolve(observer.CaptureRef)==observer &&
+                       Live(witness,observer.Handle,observer.Address)) {
+                        result.Add(new WitnessReceipt {Observer=observer.CaptureRef,
+                            SampledGameTick=sampledTick,Status="witnessed",
+                            Reason="self_involvement",Channel="self",
+                            Basis=kind=="damage"?"native_callback":"sampled_state",
+                            KnowsTarget=true,KnowsSource=false});
+                    }
+                    continue;
+                }
+                // Native callback collision plus an exact current seat proves
+                // this observer directly experienced their own vehicle impact.
+                if(kind=="vehicle_damage") {
+                    try {
+                        var seat=witness.CurrentVehicle;
+                        if(seat!=null && Live(seat,participant.Handle,participant.Address) &&
+                           Live(witness,observer.Handle,observer.Address)) {
+                            result.Add(new WitnessReceipt {Observer=observer.CaptureRef,
+                                SampledGameTick=sampledTick,Status="witnessed",
+                                Reason="self_involvement",Channel="self",
+                                Basis="native_callback",KnowsTarget=true});
+                            NoteOwned(observer,"self");
+                            continue;
+                        }
+                    } catch {}
+                }
+                if(witness.Position.DistanceTo(subject.Position)>WitnessPolicy.VisualRange(kind)) {NoteOwned(observer,"out_of_range");continue;}
                 if(lineOfSightBudget<=0) {witnessDeferred=Math.Min(int.MaxValue,witnessDeferred+1);NoteOwned(observer,"los_budget");continue;}
                 var live=anchors.Resolve(observer.CaptureRef);
                 if(live==null||!ReferenceEquals(live.Entity,witness)) {NoteOwned(observer,"not_live");continue;}
@@ -1087,13 +1128,13 @@ namespace LSA.Intelligence
                     bool clear=sameInterior&&NativeFunction.CallByName<bool>("HAS_ENTITY_CLEAR_LOS_TO_ENTITY_IN_FRONT",witness,subject);
                     bool openAcoustics=false,clearAcousticPath=false;
                     if(kind=="firing" && signal.producer=="shooting" &&
-                       signal.source==participantRef && sameInterior && !clear) {
+                       signal.source==participantRef && subject is Ped && sameInterior && !clear) {
                         // Hearing from behind requires a SEPARATE actual native
                         // clear-path read, independently of the frontal sight cone.
                         // Both actors must be positively sampled on foot.
                         // Count this second LOS native against the same cap.
                         bool sourceOnFoot=!NativeFunction.CallByName<bool>(
-                            "IS_PED_IN_ANY_VEHICLE",subject,false);
+                            "IS_PED_IN_ANY_VEHICLE",(Ped)subject,false);
                         bool witnessOnFoot=!NativeFunction.CallByName<bool>(
                             "IS_PED_IN_ANY_VEHICLE",witness,false);
                         if(sourceOnFoot && witnessOnFoot && lineOfSightBudget>0) {
@@ -1102,7 +1143,7 @@ namespace LSA.Intelligence
                                 "HAS_ENTITY_CLEAR_LOS_TO_ENTITY",witness,subject,17);
                         }
                     }
-                    var receipt=WitnessPolicy.Evaluate(new WitnessGeometry {EventKind=kind,Observer=observer.CaptureRef,Source=signal.source,Target=signal.target,SampledGameTick=signal.gameTick,DistanceMeters=distance,SameInterior=sameInterior,ClearLosInFront=clear,
+                    var receipt=WitnessPolicy.Evaluate(new WitnessGeometry {EventKind=kind,Observer=observer.CaptureRef,Source=signal.source,Target=signal.target,SampledGameTick=sampledTick,DistanceMeters=distance,SameInterior=sameInterior,ClearLosInFront=clear,
                         SoundSourceVerified=kind=="firing" && signal.producer=="shooting",
                         SameAcousticSpace=sameInterior,ClearAcousticPath=clearAcousticPath,
                         SourceVehicle=openAcoustics?"open":"unknown",
@@ -1113,6 +1154,47 @@ namespace LSA.Intelligence
             }
             signal.OwnedWitness=ownedOutcome??(anyOwned?"not_evaluated":"no_owned_observer");
             return result;
+        }
+        // Existing anchors only (<=256), 8 body candidates / 2 LOS rays at
+        // most every 250ms. New source proof is sampled on the original owner
+        // fiber, never on an asynchronous DamageTracker callback.
+        void SampleBodyDiscovery(uint tick,long now)
+        {
+            if(lineOfSightBudget<=0||!producerPolicy.Allows("state"))return;
+            var bodies=anchors.Current.Where(a=>a.Kind=="ped"&&a.Entity is Ped p&&
+                p.Exists()&&p.IsDead).OrderBy(a=>a.CaptureRef,StringComparer.Ordinal).ToArray();
+            if(bodies.Length==0)return;
+            int sampled=0,visits=0;
+            while(visits<Math.Min(8,bodies.Length)&&sampled<2&&lineOfSightBudget>0) {
+                var body=bodies[bodyDiscoveryCursor++%bodies.Length];visits++;
+                if(anchors.Resolve(body.CaptureRef)!=body)continue;
+                if(!bodyDiscovery.NoteDead(body.CaptureRef,now))continue;
+                var corpse=(Ped)body.Entity;
+                foreach(var observer in anchors.Current.Where(a=>a.Observer&&a.Kind=="ped"&&
+                    a.CaptureRef!=body.CaptureRef).OrderByDescending(a=>a.OwnerLifetime!=null)
+                    .ThenBy(a=>a.CaptureRef,StringComparer.Ordinal)) {
+                    if(lineOfSightBudget<=0||sampled>=2)break;
+                    if(!bodyDiscovery.CanDiscover(observer.CaptureRef,body.CaptureRef,now))continue;
+                    if(!(observer.Entity is Ped eye)||!eye.Exists()||eye.IsDead||
+                       anchors.Resolve(observer.CaptureRef)!=observer)continue;
+                    try {
+                        if(eye.Position.DistanceTo(corpse.Position)>WitnessPolicy.VisualRange("body_discovered"))continue;
+                        lineOfSightBudget--;sampled++;
+                        bool sameInterior=NativeFunction.CallByName<int>("GET_INTERIOR_FROM_ENTITY",eye)==
+                            NativeFunction.CallByName<int>("GET_INTERIOR_FROM_ENTITY",corpse);
+                        bool clear=sameInterior&&NativeFunction.CallByName<bool>(
+                            "HAS_ENTITY_CLEAR_LOS_TO_ENTITY_IN_FRONT",eye,corpse);
+                        var receipt=WitnessPolicy.Evaluate(new WitnessGeometry {
+                            EventKind="body_discovered",Observer=observer.CaptureRef,
+                            Target=body.CaptureRef,SampledGameTick=tick,
+                            DistanceMeters=eye.Position.DistanceTo(corpse.Position),
+                            SameInterior=sameInterior,ClearLosInFront=clear});
+                        if(receipt.Status=="witnessed"&&
+                           sensors.BodyDiscovered(body.CaptureRef,receipt,tick,now))
+                            bodyDiscovery.MarkSeen(observer.CaptureRef,body.CaptureRef);
+                    }catch {witnessUnknown=Math.Min(int.MaxValue,witnessUnknown+1);}
+                }
+            }
         }
         object SamplePrimaryOwner(EntityAnchor anchor) {try{return Association(anchor)?.PrimaryOwner?.Invoke();}catch{return null;}}
         // Exact current P2 roster association publishes this read-only native
@@ -1185,8 +1267,23 @@ namespace LSA.Intelligence
         void Publish(RawSignal signal,long now)
         {
             if(stopped||signal==null||!producerPolicy.Allows(signal.producer))return;
+            // DamageTracker callbacks do not have a verified GTA owner fiber.
+            // Only attach observers from a fresh owner-fiber LOS sample.
+            if(signal.kind=="damage"||signal.kind=="vehicle_damage") {
+                if(WitnessPolicy.FreshCallbackWindow(signal.gameTick,callbackTick,
+                    signal.receivedMs,now) &&
+                   (signal.kind!="vehicle_damage" ||
+                    (object.Equals(signal.facts["classification"],"collision")&&
+                     signal.facts.ContainsKey("collision"))))
+                    signal.witnessReceipts=CaptureWitnessesAtTick(signal,callbackTick);
+            }
             if(now-signal.receivedMs>=30000) {staleRejected++;return;}
             if((signal.source!=null && anchors.Resolve(signal.source)==null) || (signal.target!=null && anchors.Resolve(signal.target)==null)) {staleRejected++;return;}
+            if(signal.kind=="death") {
+                bodyDiscovery.NoteDead(signal.target,now);
+                foreach(var receipt in signal.witnessReceipts??new List<WitnessReceipt>())
+                    if(receipt?.Status=="witnessed")bodyDiscovery.MarkSeen(receipt.Observer,signal.target);
+            }
             var witnessReceipts=(signal.witnessReceipts??new List<WitnessReceipt>()).Where(w=>w!=null&&w.Status=="witnessed"&&w.Channel!=null&&w.Basis!=null).Select(w=>new {observer=new {captureRef=w.Observer,kind="ped"},sampledGameTick=w.SampledGameTick,status=w.Status,reason=w.Reason,knowsSource=w.KnowsSource,knowsTarget=w.KnowsTarget,evidence=new {channel=w.Channel,basis=w.Basis,sampledGameTick=w.SampledGameTick}}).ToArray();
             if(channel?.Send("signal",new {signal.signalId,signal.producer,signal.producerSequence,signal.kind,signal.target,signal.source,signal.gameTick,ageMs=Clamp(now-signal.receivedMs),signal.facts,witnessReceipts})==true) {
                 if(signal.kind=="radio_changed") {
@@ -1404,7 +1501,7 @@ namespace LSA.Intelligence
             try{damage?.Dispose();}catch{}damage=null;
             if(playback) {try{NpcPlaybackCoordinator.PlaybackStarted-=PlaybackStarted;NpcPlaybackCoordinator.PlaybackEnded-=PlaybackEnded;}catch{}playback=false;}
             director.Disable();ps3Receipts.Reset();originalTurns.Reset();lock(directorPlaybackGate) {directorPlaybackEvents.Clear();directorPlaybackOverflow=false;}channel?.Dispose();anchors.Retired-=OnRetired;anchors.Retirement-=OnRetirement;host.WorldChanged-=WorldChanged;
-            if(ownsHost) host.Shutdown();sensors.Reset();UpdateIndexes();
+            if(ownsHost) host.Shutdown();sensors.Reset();bodyDiscovery.Reset();UpdateIndexes();
         }
     }
 }

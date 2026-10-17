@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 
 namespace LSA.Intelligence
 {
@@ -18,11 +19,65 @@ namespace LSA.Intelligence
         public string SourceVehicle="unknown",ObserverVehicle="unknown",SoundKind;
         public bool SelfInvolved;
     }
-    // Pure policy. Native adapter supplies only source-time geometry it actually sampled.
+    // Run-local proof of already anchored corpses and previously observing peds.
+    // Never persists identities or emits source evidence by itself.
+    public sealed class BodyDiscoveryLedger
+    {
+        public const long MinimumAgeMs=1500, MaximumAgeMs=30000;
+        // At most 256 live native anchors and 16 observer slots. Keep the
+        // first-death tombstone for the entire anchor lifetime: deleting it
+        // at 30s would let an old, retained corpse be "rediscovered".
+        // Retirement/world reset reclaims the capacity deterministically.
+        public const int MaxRetainedBodies=256, MaxWitnessPairs=MaxRetainedBodies*16;
+        readonly Dictionary<string,long> firstDead=new Dictionary<string,long>();
+        readonly HashSet<string> seen=new HashSet<string>();
+        static string Key(string observer,string body)=>observer+":"+body;
+        public int BodyCount=>firstDead.Count;
+        public int SeenCount=>seen.Count;
+        public bool NoteDead(string body,long now)
+        {
+            if(String.IsNullOrEmpty(body)||now<0)return false;
+            if(firstDead.ContainsKey(body))return true;
+            if(firstDead.Count>=MaxRetainedBodies)return false;
+            firstDead.Add(body,now);return true;
+        }
+        public bool CanDiscover(string observer,string body,long now)
+        {
+            return !String.IsNullOrEmpty(observer)&&!String.IsNullOrEmpty(body)&&
+                firstDead.TryGetValue(body,out var first)&&now>=first&&
+                now-first>=MinimumAgeMs&&now-first<=MaximumAgeMs&&
+                !seen.Contains(Key(observer,body))&&seen.Count<MaxWitnessPairs;
+        }
+        public bool MarkSeen(string observer,string body)
+        {
+            if(String.IsNullOrEmpty(observer)||String.IsNullOrEmpty(body)||
+                !firstDead.ContainsKey(body))return false;
+            var key=Key(observer,body);
+            if(seen.Contains(key))return true;
+            if(seen.Count>=MaxWitnessPairs)return false;
+            seen.Add(key);return true;
+        }
+        public void Retire(string captureRef)
+        {
+            if(captureRef==null)return;
+            firstDead.Remove(captureRef);
+            seen.RemoveWhere(key=>key.StartsWith(captureRef+":",StringComparison.Ordinal)||
+                                  key.EndsWith(":"+captureRef,StringComparison.Ordinal));
+        }
+        public void Reset(){firstDead.Clear();seen.Clear();}
+    }
+    // Pure policy. Native adapter supplies only owner-fiber geometry actually sampled.
     public static class WitnessPolicy
     {
+        // GTA owner-fiber witnesses are attached only to near-time callbacks.
+        // The unsigned game-tick delta safely crosses GTA's clock rollover.
+        public static bool FreshCallbackWindow(uint producerTick,uint ownerTick,long receivedMs,long now)
+        {
+            return receivedMs>=0&&now>=receivedMs&&now-receivedMs<=100&&
+                unchecked(ownerTick-producerTick)<=100;
+        }
         public static double VisualRange(string kind) {
-            switch(kind) {case "firing":return 50;case "injury_state":case "death":return 35;case "vehicle_transition":return 40;case "location_changed":case "activity_changed":return 35;default:return 0;}
+            switch(kind) {case "firing":return 50;case "injury_state":case "death":case "damage":return 35;case "vehicle_damage":return 35;case "body_discovered":return 30;case "vehicle_transition":return 40;case "location_changed":case "activity_changed":return 35;default:return 0;}
         }
         public static WitnessReceipt Evaluate(WitnessGeometry g)
         {

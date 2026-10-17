@@ -8,6 +8,7 @@ const EVENT = Object.freeze({
   injury_state: ['injury', 'danger', 'injured'],
   vehicle_damage: ['vehicle_impact', 'danger', 'injured'],
   death: ['death_seen', 'critical', 'dead'],
+  body_discovered: ['body_found', 'critical', 'dead'],
   action_callback: ['action_observed', 'routine', 'action'],
   location_changed: ['location_changed', 'routine', 'location'],
   activity_changed: ['activity_changed', 'routine', 'presence'],
@@ -60,7 +61,11 @@ export class EpisodeCorrelator {
     const event=EVENT[signal.kind];
     if(!event) { this.noteDrop('unsupported_event'); return {accepted:false,reason:'unsupported_event'}; }
     // A state change is not necessarily injury, impact or a qualified sound.
-    if(signal.kind==='vehicle_state' || signal.kind==='injury_state' && signal.facts.injured!==true) {
+    // Vehicle fire or bullets are not a witnessed collision. Require the
+    // actual native DamageTracker collision class and finite contact point.
+    if(signal.kind==='vehicle_state' || signal.kind==='injury_state' && signal.facts.injured!==true ||
+       signal.kind==='vehicle_damage' &&
+       (signal.facts.classification!=='collision'||!signal.facts.collision)) {
       this.remember(eventKey,{episodeId:null});return {accepted:true,observations:[],reason:'unsupported_claim_detail'};
     }
 
@@ -80,7 +85,7 @@ export class EpisodeCorrelator {
     if (!qualified.length) { this.remember(eventKey, { episodeId: null }); return { accepted: true, duplicate: false, episodeId: null, observations: [] }; }
     const participants = [signal.source && { captureRef: signal.source, kind: this.anchor(signal.source)?.kind }, signal.target && { captureRef: signal.target, kind: this.anchor(signal.target)?.kind }]
       .filter(r => r && r.kind && this.current(r.captureRef));
-    const family = ['damage', 'injury_state', 'death'].includes(signal.kind) ? 'harm' : signal.kind==='radio_changed' ? 'radio' : event[0];
+    const family = ['damage', 'injury_state', 'death', 'body_discovered'].includes(signal.kind) ? 'harm' : signal.kind==='radio_changed' ? 'radio' : event[0];
     const incidentKey = signal.incidentKey || defaultIncidentKey(signal, family);
     const matchParticipants = family === 'harm' && signal.target ? participants.filter(p => p.captureRef === signal.target) : participants;
     const radioEpisodeId = family==='radio' && signal.target ? this.radioCurrent.get(signal.target) : null;

@@ -96,6 +96,18 @@ namespace LSA.Intelligence
             signal.facts.Add("classification",classification??"unknown"); if(collision!=null) signal.facts.Add("collision",collision);
             return Enqueue(signal);
         }
+        // Strictly verified actual corpse visible on current owner-fiber tick.
+        // Damage callbacks cannot invoke this path.
+        public bool BodyDiscovered(string target,WitnessReceipt witness,uint tick,long now)
+        {
+            if(!Enabled||!Allows("state")||String.IsNullOrEmpty(target)||
+                witness==null||witness.Status!="witnessed"||
+                witness.Channel!="visual"||witness.Basis!="sampled_state"||
+                witness.SampledGameTick!=tick||String.IsNullOrEmpty(witness.Observer))return false;
+            return Enqueue(new RawSignal {producer="state",kind="body_discovered",target=target,
+                gameTick=tick,receivedMs=now,Critical=false,
+                witnessReceipts=new List<WitnessReceipt>{witness}});
+        }
         RawSignal Prepare(RawSignal signal)
         {try {signal.witnessReceipts=WitnessEvaluator?.Invoke(signal)??new List<WitnessReceipt>();}catch {signal.witnessReceipts=new List<WitnessReceipt>();}return signal;}
         void Edge(string captureRef,string kind,Dictionary<string,object> facts,uint tick,long now,bool critical=false)

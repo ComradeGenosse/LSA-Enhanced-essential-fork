@@ -34,6 +34,12 @@ export function directorSpeechLimitsForPreset(preset='normal') {
 
 const positive = n => Number.isSafeInteger(n) && n >= 0;
 const ref = n => typeof n === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(n);
+// PS6 Phase 13a may speak only to independently source-qualified threats.
+// Other routine PS3 grants remain valid for PS4, NOT unsolicited speech.
+export const PS6_13A_EVENTS = Object.freeze([
+  'firing_burst','vehicle_impact','injury','death_seen','body_found','threat',
+]);
+const PS6_13A_EVENT_SET = new Set(PS6_13A_EVENTS);
 const responseRank = value => value === 'urgent' ? 2 : value === 'eligible' ? 1 : 0;
 
 /**
@@ -58,6 +64,7 @@ export function selectDirectorIntent(candidates, facts = {}) {
         s.lifetimeCurrent !== true || s.channelHealthy !== true ||
         s.perceptionSupported !== true ||
         s.playerCaptureRef !== facts.playerCaptureRef ||
+        !PS6_13A_EVENT_SET.has(o.eventType) ||
         !ref(o.observationId) || !positive(o.revision) || o.revision === 0 ||
         d.observationId !== o.observationId || d.revision !== o.revision ||
         typeof d.decisionKey !== 'string' || d.decisionKey.length > 160 ||
