@@ -8,7 +8,7 @@ const normalize = value => String(value || '').toLowerCase().replace(/[’]/g, "
 
 const phrases = Object.freeze({
   continue: /^(?:keep going|keep on going|keep driving|keep on driving|carry on driving|continue driving|just keep driving|keep rolling|keep moving|go on|carry on)$/,
-  speed: /^(?:drive faster|go faster|speed up|pick up the pace|can you drive faster|drive a bit faster|drive slower|slow down a bit)$/,
+  speed: /^(?:drive faster|go faster|speed up|pick up the pace|can you drive faster|drive a bit faster|drive slower|slow down|slow down a bit|hurry up|step on it|floor it)$/,
   evasive: /^(?:drive evasively|start driving evasively|drive recklessly|lose the cops|evade the cops)$/,
   normal: /^(?:drive normally|stop driving evasively|drive carefully|drive more carefully)$/,
   start: /^(?:start driving|begin driving|just drive|drive around|let's drive|lets drive|let's go for a drive|lets go for a drive)$/,
@@ -55,7 +55,7 @@ export function reconcileDrivingDecision(decision, { kind = null, act6OwnsDrive 
     act6OwnsDrive ? 'act6_owns_drive' :
     kind === 'continue' ? 'continuation_must_not_reset_task' :
     kind === 'speed' ? 'speed_is_not_evasive_mode' :
-    kind === 'stop' && ['begindriving','startdriving','driveevasively','driveevasive'].includes(action) ? 'stop_must_not_start_drive' :
+    kind === 'stop' ? 'stop_must_not_switch_driving_mode' :
     kind === 'start' && ['driveevasively','driveevasive'].includes(action) ? 'start_must_not_be_evasive' :
     kind === 'normal' && ['driveevasively','driveevasive'].includes(action) ? 'normal_must_not_be_evasive' :
     null);
