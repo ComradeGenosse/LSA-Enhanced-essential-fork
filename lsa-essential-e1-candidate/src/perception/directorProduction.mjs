@@ -98,17 +98,22 @@ export class DirectorObservationPump {
       sourceOwners++;
       const candidates=runtime.directorCandidatesFor(speaker);
       ps3Candidates+=candidates.length;
+      // A spent decision must not hide a second, independently granted
+      // event for the same speaker. Pass exactly the unattempted slice to
+      // both selection and the coordinator's mandatory re-selection.
+      const unattempted=candidates.filter(c=>!this.seen.has(c?.decision?.decisionKey));
+      if(!unattempted.length)continue;
       const facts={speakerCaptureRef:speaker,playerCaptureRef:player,nowMonotonicMs:now};
-      const proposal=selectDirectorIntent(candidates,facts);
+      const proposal=selectDirectorIntent(unattempted,facts);
       if(!proposal) {
         // Prefer a concrete PS3 selection reason over generic candidate_filtered.
         // This is diagnostic, never an admission or authority calculation.
-        const reason=directorCandidateBlockReason(candidates,facts);
+        const reason=directorCandidateBlockReason(unattempted,facts);
         if(filteredReason===null || filteredReason==='non_13a_event')filteredReason=reason;
         continue;
       }
       if(this.seen.has(proposal.decisionKey))continue;
-      eligible.push({speaker,candidates,facts,proposal});
+      eligible.push({speaker,candidates:unattempted,facts,proposal});
     }
     eligible.sort((a,b)=>(b.proposal.urgency==='urgent')-(a.proposal.urgency==='urgent') ||
       a.proposal.expiresAtMonotonicMs-b.proposal.expiresAtMonotonicMs ||
