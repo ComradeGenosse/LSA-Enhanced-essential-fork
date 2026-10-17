@@ -99,6 +99,7 @@ namespace LSA.PromotedCharacters
         public LSA.Intelligence.OwnedParticipant[] PerceptionRoster()=>RosterOverride;
         public object SampleMemoryNativeAuthority()=>null;
         public object SampleMemoryCurrentOwnerPlayer()=>null;
+        internal void ConfigureVoicePresence(string mode,bool mouthEnabled=false,float openLevel=0.015f,bool levelLog=false) { }
         public void Prepare()
         {
             Interlocked.Increment(ref Prepared);PreparationThread=Thread.CurrentThread.ManagedThreadId;prepared=true;

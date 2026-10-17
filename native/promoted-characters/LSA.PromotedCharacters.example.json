@@ -21,5 +21,11 @@
     "pipeName": "LSA.Reactions.v1",
     "disabled": [],
     "allowDuringOwnedBehavior": false
+  },
+  "npcVoicePresence": {
+    "mode": "off",
+    "mouthEnabled": false,
+    "mouthOpenLevel": 0.015,
+    "levelLog": false
   }
 }
