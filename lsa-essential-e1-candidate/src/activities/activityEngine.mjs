@@ -51,6 +51,7 @@ export class ActivityEngine {
     this.byRequest = new Map();
     this.byExecution = new Map();
     this.acceptedProposals = new Map();
+    this.retiredProposalIds = new Set();
     this.lastGameMs = null;
   }
 
@@ -65,11 +66,14 @@ export class ActivityEngine {
     const admission = validateAdmission(proposal, { registry: this.registry, mode: this.config.mode, hello, passedProbes: this.config.passedProbes || [], act3Capabilities: this.config.act3Capabilities || [], act5: this.config.act5 === true, playerApproved });
     if (!admission.ok) return this.#reject(proposal, admission.reason);
     // A replay is idempotent only within the exact authenticated owner/run.
+    if (proposal.source === 'player_dialogue' && this.retiredProposalIds.has(proposal.proposalId))
+      return this.#reject(proposal, 'epoch_changed');
     const replay = proposal.source === 'player_dialogue' ? this.acceptedProposals.get(proposal.proposalId) : null;
     if (replay) {
       if (replay.characterId !== binding.characterId || replay.ownerAlias !== binding.ownerAlias ||
           replay.ownershipToken !== binding.ownershipToken || replay.encounterId !== binding.encounterId ||
           replay.incarnationId !== binding.incarnationId || replay.nativeRun !== this.hello?.nativeRun ||
+          replay.adapterEpoch !== this.hello?.adapterEpoch ||
           replay.intent !== proposal.intent || JSON.stringify(replay.slots) !== JSON.stringify(proposal.slots))
         return this.#reject(proposal, 'actor_not_owned');
       return replay.result;
@@ -102,7 +106,8 @@ export class ActivityEngine {
       this.acceptedProposals.set(proposal.proposalId, {
         result, characterId, ownerAlias: binding.ownerAlias, ownershipToken: binding.ownershipToken,
         encounterId: binding.encounterId, incarnationId: binding.incarnationId,
-        nativeRun: this.hello?.nativeRun, intent: proposal.intent, slots: proposal.slots,
+        nativeRun: this.hello?.nativeRun, adapterEpoch: this.hello?.adapterEpoch,
+        intent: proposal.intent, slots: proposal.slots,
       });
       if (this.acceptedProposals.size > 128) this.acceptedProposals.delete(this.acceptedProposals.keys().next().value);
     }
@@ -181,7 +186,7 @@ export class ActivityEngine {
     if(frame.clientRestart) {
       for(const activity of this.#live()) this.#finish(activity,'abandoned','lease_lost',this.now(),'detach',false);
       this.facts.clear();this.hello=null;
-      this.byRequest.clear();this.byExecution.clear();this.acceptedProposals.clear();
+      this.byRequest.clear();this.byExecution.clear();this.#retireAccepted();
       return;
     }
     const context=readHostContext(frame);
@@ -195,7 +200,7 @@ export class ActivityEngine {
       this.facts.clear();
     }
     if (authorityChanged) {
-      this.byRequest.clear();this.byExecution.clear();this.acceptedProposals.clear();
+      this.byRequest.clear();this.byExecution.clear();this.#retireAccepted();
     }
     this.hello = { nativeRun: frame.nativeRun, adapterEpoch: frame.adapterEpoch, capabilities: frame.capabilities || {} };
     if (changed) this.failures = [];
@@ -222,7 +227,7 @@ export class ActivityEngine {
   #resetWorld() {
     for(const activity of this.#live()) this.#finish(activity,'abandoned','epoch_changed',this.now(),'detach',false);
     this.goals=new GoalStore(this.now);this.activities=[];this.history=[];this.facts.clear();
-    this.byRequest.clear();this.byExecution.clear();this.acceptedProposals.clear();this.failures=[];this.lastGameMs=null;
+    this.byRequest.clear();this.byExecution.clear();this.#retireAccepted();this.failures=[];this.lastGameMs=null;
   }
 
   tick(gameMs = null) {
@@ -244,7 +249,7 @@ export class ActivityEngine {
   clockReset() {
     for (const activity of this.#live()) this.#finish(activity, 'abandoned', 'clock_reset', this.now(), 'detach');
     this.facts.clear();
-    this.acceptedProposals.clear();
+    this.#retireAccepted();
     this.byRequest.clear();this.byExecution.clear();
   }
 
@@ -253,6 +258,16 @@ export class ActivityEngine {
     if(!this.hello || !sameHostContext(this.hostContext,binding?.hostContext))return Object.freeze([]);
     return this.facts.factsForCharacter(binding);
   }
+  #retireAccepted() {
+    // Previous authority's proposal IDs must not be replayed as new goals.
+    for (const id of this.acceptedProposals.keys()) {
+      this.retiredProposalIds.add(id);
+      if (this.retiredProposalIds.size > 1024)
+        this.retiredProposalIds.delete(this.retiredProposalIds.values().next().value);
+    }
+    this.acceptedProposals.clear();
+  }
+
   #reject(proposal, reason) {
     this.onEvent('activity_rejected', { intent: proposal?.intent, reason });
     return { ok: false, reason };
@@ -428,13 +443,13 @@ export class ActivityEngine {
       (receipt.actorEncounterId !== undefined && receipt.actorEncounterId !== activity.actor.encounterId) ||
       (receipt.attempt !== undefined && receipt.attempt !== step.attempts);
     if (wrong) { this.staleReceipts += 1; this.onEvent('activity_receipt', { receiptState: 'stale_receipt' }); return; }
+    if (receipt.epochs && (receipt.epochs.leaseEpoch !== activity.leaseEpoch || (this.hello && (receipt.epochs.nativeRun !== this.hello.nativeRun || receipt.epochs.adapterEpoch !== this.hello.adapterEpoch)))) {
+      this.staleReceipts += 1; return;
+    }
     if (receipt.sequence !== undefined) {
       const previous = activity.seen[receipt.executionId] || 0;
       if (receipt.sequence <= previous) { this.staleReceipts += 1; return; }
       activity.seen[receipt.executionId] = receipt.sequence;
-    }
-    if (receipt.epochs && (receipt.epochs.leaseEpoch !== activity.leaseEpoch || (this.hello && (receipt.epochs.nativeRun !== this.hello.nativeRun || receipt.epochs.adapterEpoch !== this.hello.adapterEpoch)))) {
-      this.staleReceipts += 1; return;
     }
     const now = this.now();
     if (receipt.milestones?.requestedGameMs != null) {
