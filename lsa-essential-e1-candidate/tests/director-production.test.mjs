@@ -76,7 +76,7 @@ test('pump never infers PS3/native eligibility from target-only or disconnected 
 });
 
 test('everyday speech cadence defers low-stakes events without suppressing danger',async()=>{
-  let now=10000,sequence=0;
+  let now=10000;
   const attempts=[],diagnostics=[];
   const everyday=(id)=>({
     ...candidate,observedAtMonotonicMs:now-100,
@@ -98,7 +98,7 @@ test('everyday speech cadence defers low-stakes events without suppressing dange
     directorCandidatesFor:()=>[current],
   };
   const pump=new DirectorObservationPump({client:{runtime},coordinator:{
-    attempt:async input=>{attempts.push(input.proposal.decisionKey);return {status:'shadow'};}
+    attempt:async input=>{attempts.push(input.candidates[0].decision.decisionKey);return {status:'shadow'};}
   },stampFor:()=>({}),onDiagnostic:d=>diagnostics.push(d.reason)});
   assert.equal((await pump.tick()).status,'shadow');
   current=everyday(ids[1]);now+=2000;
