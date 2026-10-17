@@ -307,3 +307,14 @@ test('source-pinned stock patch measures action routing at AP without altering i
   assert.match(patched.output, /actionDispatchEnd\(routed === true\)/);
   assert.ok(patched.edits.some(edit => edit.label === 'Essential provider/action/playback bridge'));
 });
+
+test('social scene diagnostics survive privacy sanitizer without leaking arbitrary prompts',()=>{
+ const safe=sanitizeTelemetryData({source:'social',sceneType:'shared_vehicle_entry',
+   status:'not_delivered',nativeReason:'missing_receipt',diagnosticReason:'native_playback_unverified',
+   prompt:'NEVER LOG',speakerCaptureRef:'secret-actor'});
+ assert.equal(safe.source,'social');
+ assert.equal(safe.sceneType,'shared_vehicle_entry');
+ assert.equal(safe.nativeReason,'missing_receipt');
+ assert.equal(JSON.stringify(safe).includes('secret-actor'),false);
+ assert.equal(sanitizeTelemetryData({source:'reactive',sceneType:'untrusted_text',prompt:'PRIVATE'}).sceneType,undefined);
+});
