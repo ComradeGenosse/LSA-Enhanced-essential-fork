@@ -33,7 +33,7 @@ export class DialogueHistory {
   // P2 privacy/owner seal are eligible. Interruption and TTS-only are absent.
   readCompletedSocialForSession(pedId, sessionNonce, socialProof, nowMs=Date.now()) {
     if(!socialProof || !Number.isFinite(nowMs))return [];
-    const seal=JSON.stringify(socialProof);
+    let seal;try{seal=JSON.stringify(socialProof);}catch{return [];}
     return (this.#sessions.get(this.#key(pedId,sessionNonce))?.messages||[])
       .filter(item=>item.role==='assistant'&&item.socialProofSeal===seal&&
         Number.isFinite(item.completedAtMs)&&item.completedAtMs<=nowMs&&
@@ -56,10 +56,12 @@ export class DialogueHistory {
 
   stage({ identity, spokenReply, socialProof = null }) {
     const session = this.#get(identity.pedId,identity.sessionNonce);
+    let socialProofSeal=null;
+    try{if(socialProof)socialProofSeal=JSON.stringify(socialProof);}catch{}
     session.pending.set(identity.turnId, {
       identity: { ...identity },
       spokenReply: String(spokenReply || '').slice(0, 1200), ttsSucceeded:false,
-      socialProofSeal:socialProof?JSON.stringify(socialProof):null,
+      socialProofSeal,
     });
   }
 
