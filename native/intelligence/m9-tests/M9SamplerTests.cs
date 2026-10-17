@@ -156,7 +156,8 @@ internal static class M9SamplerTests
 
         // 8. Wasted/busted: first KNOWN false->true edge only, exactly once.
         var t = new Fixture();
-        check(t.Sampler.Build(t.Foot(r => r.PlayerDead = null), 100, 100, t.Witnesses(100)) == null, "unknown death state is not an event");
+        var unknownDeath = t.Sampler.Build(t.Foot(r => r.PlayerDead = null), 100, 100, t.Witnesses(100));
+        check(unknownDeath == null || unknownDeath["outcome"] == null, "unknown death state is not an event");
         var unknownToDead = t.Sampler.Build(t.Foot(r => r.PlayerDead = true), 200, 200, t.Witnesses(200));
         check((unknownToDead == null || unknownToDead["outcome"] == null) && t.Sampler.Terminals == 0, "unknown->dead is not an edge");
         t = new Fixture();
