@@ -18,6 +18,25 @@ const acceptedAvatar = (record, scope) =>
   (!record.attribution?.protagonist || record.attribution.protagonist === scope.protagonistKey);
 const clone = value => JSON.parse(JSON.stringify(value));
 
+// A narrow grammatical correction of an explicitly named pet. No model output
+// or guessed pronoun is permitted to choose the target record.
+export function parseNaturalPetNameCorrection(raw) {
+  if(typeof raw!=='string'||raw.length>220)return null;
+  const text=raw.trim().replace(/^(?:(?:hey|please)\s+)?(?:nathan[,\s]+)?/i,'');
+  const match=/^(?:her|his|their|the (?:dog|corgi|pet)(?:'s)?)\s+name\s+is\s+(?:actually\s+)?([A-Za-z][A-Za-z'-]{1,30})\s*,?\s+not\s+([A-Za-z][A-Za-z'-]{1,30})[.!]?$/i.exec(text);
+  if(!match||match[1].toLowerCase()===match[2].toLowerCase())return null;
+  return Object.freeze({newName:match[1],oldName:match[2]});
+}
+export function replaceNamedPetFact(text,correction) {
+  if(typeof text!=='string'||!correction)return null;
+  if(!/\b(?:(?:my|our)\s+(?:(?:two|three|four|\d+)\s+)?(?:dogs?|corgis?|pets?|pupp(?:y|ies)|pomsk(?:y|ies))|we\s+(?:have|own)\s+(?:(?:two|three|four|\d+)\s+)?(?:dogs?|corgis?|pets?))\b/i.test(text))return null;
+  // Names admitted by the grammar contain no regex operators.
+  const old=new RegExp('(?<![\\p{L}\\p{N}])'+correction.oldName+'(?![\\p{L}\\p{N}])','giu');
+  if([...text.matchAll(old)].length!==1)return null;
+  const amended=text.replace(old,correction.newName);
+  return amended!==text?amended:null;
+}
+
 /** Detection does not turn questions or conversational idioms into writes. */
 export function detectExplicitMemoryCommand(raw, lunaInterpretation = null) {
   if (typeof raw !== 'string' || !raw.trim() || raw.length > 12000) return null;
@@ -59,6 +78,9 @@ export function detectExplicitMemoryCommand(raw, lunaInterpretation = null) {
   } else if ((match = /^(?:no[,\s]+i (?:actually )?said|i meant|correct that(?: to)?|that's not what happened[,;:]?\s*(?:it was)?|that(?:'s| is) wrong[,;:]?\s*(?:it was)?)\b[\s,:-]*(.*)$/i.exec(text))) {
     intent='correct';content=match[1].trim();selector='referent';
     correctionMode=/^(?:no[,\s]+i (?:actually )?said|i meant)/i.test(text) ? 'transcript' : 'counter_claim';
+  } else if ((match = parseNaturalPetNameCorrection(text))) {
+    intent='correct';selector='named_pet_fact';topic=match.oldName;
+    correctionMode='player_fact';
   } else return null;
 
   // Raw, durably accepted player bytes are the ONLY command authority.
@@ -88,6 +110,18 @@ function eligible(candidate, scope, line, operation, selector) {
 
 function resolve(candidates, scope, line, parsed, now) {
   const operation=parsed.intent, selector=parsed.selector;
+  if(selector==='named_pet_fact'){
+    const correction=parseNaturalPetNameCorrection(line.content);
+    if(!correction)return {candidate:null,alternatives:[],frozen:[]};
+    const matches=candidates.filter(c=>eligible(c,scope,line,operation,selector)&&
+      c.kind==='dialogue_line'&&c.speaker==='player'&&
+      ['typed','stt'].includes(c.source)&&replaceNamedPetFact(c.content,correction)!==null);
+    if(matches.length!==1)return {candidate:null,
+      alternatives:matches.slice(0,2).map(c=>({recordId:c.recordId,label:'verified player fact'})),
+      frozen:matches.slice(0,2)};
+    return {candidate:matches[0],alternatives:[],
+      correctedText:replaceNamedPetFact(matches[0].content,correction)};
+  }
   const all=candidates.filter(c => eligible(c,scope,line,operation,selector))
     .map(c => ({...c, age:Math.max(0,(now-Date.parse(c.occurredAtUtc))/1000)}))
     // Explicit topic searches may address older durable memories; recent deixis still expires.
@@ -198,6 +232,7 @@ export async function handleExplicitMemoryCommand(input) {
       const resolved=resolve(candidates,scope,line,{...parsed,selector:parsedSelector},
         Number.isFinite(Date.parse(line.committedAtUtc))?Date.parse(line.committedAtUtc):Date.now());
       selected=resolved.candidate;alternatives=resolved.alternatives;frozen=resolved.frozen??[];
+      if(parsed.selector==='named_pet_fact'&&selected)content=resolved.correctedText;
       // Never put private evidence or untrusted source text into spoken prompts.
       if (!selected) return await clarify(alternatives.length===2 ?
         'Do you mean the first or second memory?' :
