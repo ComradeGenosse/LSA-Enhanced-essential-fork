@@ -2,7 +2,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
 import { createHash, randomUUID } from 'node:crypto';
-import { TARGETS, importSections, generate, validateConfigs, findDisabledFeatures, assertNoSecrets } from './schema.mjs';
+import { TARGETS, importSections, generate, validateConfigs, findDisabledFeatures, assertNoSecrets, removeSecrets } from './schema.mjs';
 
 const digest = value => createHash('sha256').update(value).digest('hex');
 const json = value => JSON.stringify(value,null,2)+'\n';
@@ -89,7 +89,8 @@ async function plan(game,files) {
   const conflicts=[];
   for(const name of ['e1','promoted','enhanced']) if(digest(texts[name])!==master.metadata.baselines[name]) conflicts.push({code:'EXTERNAL_EDIT',detail:name+' changed since import/last apply. Re-import deliberately; no writes made.'});
   const generated=generate(master,raw);
-  const check=validateConfigs(generated,master,await essentialFile(game));
+  const essentialText=await essentialFile(game);
+  const check=validateConfigs(generated,master,essentialText);
   check.problems.push(...findDisabledFeatures(raw,generated,master.approvals||{}));
   check.ok=check.problems.length===0;
   const differences=Object.fromEntries(['e1','promoted','enhanced'].map(name=>[name,relativeChanges(raw[name],generated[name])]));
@@ -103,7 +104,15 @@ async function plan(game,files) {
   if(Buffer.byteLength(nextTexts.enhanced)>16384) check.problems.push({code:'NATIVE_FILE_SIZE',detail:'Enhanced runtime file exceeds 16384-byte parser limit'});
   if(nextTexts.promoted.length>4096) check.problems.push({code:'NATIVE_FILE_SIZE',detail:'Promoted native runtime file exceeds 4096-character parser limit'});
   check.ok=check.problems.length===0;
-  return {master,raw,texts,generated,check,differences,nextTexts,conflicts,ok:!conflicts.length&&check.ok};
+  const preview=Object.fromEntries(['e1','promoted','enhanced'].map(name=>[name,changePreview(removeSecrets(raw[name]),removeSecrets(generated[name]))]));
+  return {master,raw,texts,generated,check,differences,preview,nextTexts,conflicts,essentialDigest:essentialText===null?null:digest(essentialText),ok:!conflicts.length&&check.ok};
+}
+function changePreview(before,after,prefix='',out=[]) {
+  if(JSON.stringify(before)===JSON.stringify(after)) return out;
+  if(before&&after&&typeof before==='object'&&typeof after==='object'&&!Array.isArray(before)&&!Array.isArray(after)) {
+    for(const key of new Set([...Object.keys(before),...Object.keys(after)])) changePreview(before[key],after[key],prefix?prefix+'.'+key:key,out);
+  } else out.push({path:prefix,before:before===undefined?null:before,after:after===undefined?null:after});
+  return out;
 }
 function statePaths(files) {
   return {journal:files.master+'.txn.json',last:files.master+'.last.json',backups:files.master+'.backups'};
@@ -158,6 +167,7 @@ async function transaction(files,kind,changes,expected=null) {
   await atomicWrite(state.journal,json(journal));
   try {
     for(const name of ['e1','promoted','enhanced','master']) {
+      if(digest(await originalText(files[name]))!==items[name].before) throw new Error('External modification during '+kind+': '+name);
       if(items[name].before!==items[name].after) await atomicWrite(files[name],changes[name]);
     }
     await atomicWrite(state.journal,json({...journal,phase:'committed'}));
@@ -211,7 +221,7 @@ export async function run(command,{game,masterPath,activate=false,replace=false}
     if(!['status','validate','diff','apply'].includes(command)) throw new Error('Unknown command '+command);
     const p=await plan(game,files);
     const toRestart=Object.entries(p.differences).filter(([k,v])=>v.length&&k!=='enhanced').map(([k])=>k);
-    const report={ok:p.ok,active:p.master.metadata.active===true,conflicts:p.conflicts,problems:p.check.problems,warnings:p.check.warnings,changes:p.differences,
+    const report={ok:p.ok,active:p.master.metadata.active===true,conflicts:p.conflicts,problems:p.check.problems,warnings:p.check.warnings,changes:p.differences,preview:p.preview,
       restartRequired:toRestart,pendingRestart:p.master.metadata.pendingRestart||[],
       operationalStatus:'unverified_without_running_GTA',
       configured:{aiProvider:p.generated.e1.provider,speechProvider:p.generated.e1.speechProvider,ux4Enabled:p.generated.enhanced.talkTargeting?.enabled===true,memoryCapabilities:p.generated.e1.memoryK?.capabilities||{}}
@@ -222,6 +232,8 @@ export async function run(command,{game,masterPath,activate=false,replace=false}
     // Even initial activation must be intentional. Import captured current installed values.
     const newMaster={...p.master,metadata:{...p.master.metadata,active:true,appliedAt:new Date().toISOString(),baselines:baselines(p.nextTexts),pendingRestart:[...new Set([...(p.master.metadata.pendingRestart||[]),...toRestart])]}};
     const changes={...p.nextTexts,master:json(newMaster)};
+    const essentialNow=await essentialFile(game);
+    if((essentialNow===null?null:digest(essentialNow))!==p.essentialDigest) throw new Error('Essential key configuration changed during apply; rerun validate');
     const currentMaster=await originalText(files.master);
     if(JSON.stringify(jsonObject(currentMaster,'master'))!==JSON.stringify(p.master)) throw new Error('Master changed during apply; refusing write');
     const targetHashes=baselines(p.texts);
