@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import net from 'node:net';
 import { EventEmitter } from 'node:events';
+import { randomUUID } from 'node:crypto';
 import os from 'node:os';
 import path from 'node:path';
 import { mkdtempSync, rmSync } from 'node:fs';
@@ -204,11 +205,17 @@ test('reactions: companion/native mode mismatches never permit a gesture frame',
 });
 
 async function withPipe(handler, fn) {
-  const dir = mkdtempSync(path.join(os.tmpdir(), 'lsa-rx-'));
-  const file = path.join(dir, 'pipe.sock');
+  // Windows does not support listening on filesystem Unix-domain socket paths.
+  // Exercise the same net.Socket protocol over a real Windows named pipe.
+  const dir = process.platform === 'win32' ? null : mkdtempSync(path.join(os.tmpdir(), 'lsa-rx-'));
+  const file = dir ? path.join(dir, 'pipe.sock') : "\\\\.\\pipe\\" + 'lsa-rx-' + randomUUID();
   const server = net.createServer(handler);
-  await new Promise(resolve => server.listen(file, resolve));
-  try { await fn(file, server); } finally { server.close(); rmSync(dir, { recursive: true, force: true }); }
+  await new Promise((resolve, reject) => {
+    server.once('error', reject);
+    server.listen(file, () => { server.off('error', reject); resolve(); });
+  });
+  try { await fn(file, server); }
+  finally { await new Promise(resolve => server.close(resolve)); if (dir) rmSync(dir, { recursive: true, force: true }); }
 }
 const until = async (predicate, ms = 2000) => {
   const end = Date.now() + ms;

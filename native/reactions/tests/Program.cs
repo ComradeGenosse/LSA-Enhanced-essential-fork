@@ -208,12 +208,12 @@ static class Tests
             var a = book.Started(K("1", "A"), "x", 0, out var sup);
             Check(a != null && sup == null, "start A");
             Check(book.Started(K("1", "A"), "x", 5, out sup) == a && sup == null, "duplicate start idempotent");
-            var b = book.Started(K("1", "B"), "x", 10, out sup);
+            var b = book.Started(K("1", "B", 2), "x", 10, out sup);
             Check(b != null && sup == a && book.Count == 1, "B supersedes A for the same ped");
-            Check(book.Ended(K("1", "A"), false) == null && book.Active(K("1", "B")) == b, "late end of A cannot end B");
-            Check(book.Ended(K("1", "B", 2), false) == null, "wrong generation cannot end B");
-            Check(book.Ended(K("2", "B"), false) == null, "wrong ped cannot end B");
-            Check(book.Ended(K("1", "B"), true) == b && b.Interrupted && book.Count == 0, "exact end removes and records interruption");
+            Check(book.Ended(K("1", "A"), false) == null && book.Active(K("1", "B", 2)) == b, "late end of A cannot end B");
+            Check(book.Ended(K("1", "B", 1), false) == null, "wrong generation cannot end B");
+            Check(book.Ended(K("2", "B", 2), false) == null, "wrong ped cannot end B");
+            Check(book.Ended(K("1", "B", 2), true) == b && b.Interrupted && book.Count == 0, "exact end removes and records interruption");
             for (int i = 0; i < PlaybackBook.Capacity; i++) Check(book.Started(K("p" + i, "t"), "x", 0, out _) != null, "fill " + i);
             Check(book.Started(K("overflow", "t"), "x", 0, out _) == null, "full book fails closed");
             var expired = new List<PlaybackEntry>();
@@ -609,12 +609,12 @@ static class Tests
                 rig.StartAndPlay("t1");
                 rig.Playing = false; rig.Step(1500);
                 Check(rig.Ex.Played == 1 && !rig.Ex.HasActiveRun, "first played");
-                rig.Start("t2"); rig.Frame("t2"); rig.Step(100);
+                rig.Start("t2", gen: 2); rig.Frame("t2", gen: 2); rig.Step(100);
                 Check(rig.Ex.Rejected("global_cooldown") == 1, "second gesture within 12s refused");
                 rig.Step(25000);
-                rig.Start("t3"); rig.Frame("t3", reaction: "facepalm"); rig.Step(100);
+                rig.Start("t3", gen: 3); rig.Frame("t3", gen: 3, reaction: "facepalm"); rig.Step(100);
                 Check(rig.Ex.Rejected("reaction_cooldown") == 1, "same reaction on same ped inside 60s refused");
-                rig.Start("t4"); rig.Frame("t4", reaction: "middle_finger"); rig.Step(100);
+                rig.Start("t4", gen: 4); rig.Frame("t4", gen: 4, reaction: "middle_finger"); rig.Step(100);
                 Check(rig.Ex.HasActiveRun, "other reaction allowed after global+ped windows");
                 rig.Step(1300);
                 var args = NativeFunction.Args[rig.Calls.LastIndexOf("TASK_PLAY_ANIM")];
@@ -631,12 +631,12 @@ static class Tests
                 rig.Throwing.Add("IS_PED_INJURED");
                 for (int i = 1; i <= 3; i++)
                 {
-                    rig.Start("t" + i); rig.Frame("t" + i); rig.Step(0); rig.Step(1300);
+                    rig.Start("t" + i, gen: i); rig.Frame("t" + i, gen: i); rig.Step(0); rig.Step(1300);
                 }
                 Check(rig.Ex.Disabled, "disabled after 3 faults");
                 Check(NpcPlaybackCoordinator.Subscribers == before, "unsubscribed");
                 rig.Throwing.Clear();
-                rig.Start("t9"); rig.Frame("t9"); rig.Step(2000);
+                rig.Start("t9", gen: 9); rig.Frame("t9", gen: 9); rig.Step(2000);
                 Check(rig.Count("TASK_PLAY_ANIM") == 0, "stays off");
             }
         });
