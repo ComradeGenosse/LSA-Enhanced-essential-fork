@@ -22,7 +22,7 @@ async function fixture(t){
   const person=await store.create(profile());
   const timelineId=await store.createTimeline({label:'B source-fenced test'});
   const host={hostContextVersion:1,hostRunId:id(),worldEpoch:1};
-  store.setVerifiedHostContext(host);await store.confirmTimeline(timelineId);
+  store.setVerifiedHostContext(host);await store.confirmTimeline(timelineId,{confirmation:timelineId});
   const scope={worldProfileId,characterId:person.characterId,timelineId,protagonistKey:'franklin'};
   const recorder=createConversationJournalRecorder(store);
   async function line(text,turn='turn-'+id(),protagonist='franklin'){
@@ -74,7 +74,7 @@ test('B: 2,101 source-committed Unicode lines replay across bounded pages with d
   try{
     await assert.rejects(reopened.readCommittedEvidenceCursor({scope:x.scope,consumerId:'m6-primary'}),/timeline_write_suspended/);
     reopened.setVerifiedHostContext({...x.host,hostRunId:id(),worldEpoch:2});
-    await reopened.confirmTimeline(x.scope.timelineId);
+    await reopened.confirmTimeline(x.scope.timelineId,{confirmation:x.scope.timelineId});
     const again=await reopened.readCommittedEvidenceCursor({scope:x.scope,consumerId:'m6-primary'});
     assert.equal(again.cursor,last);
     assert.equal((await reopened.readCommittedEvidencePage({scope:x.scope,cursor:last})).items.length,0);
@@ -132,7 +132,7 @@ test('B: native revocation inside transaction rolls back before physical SQLite 
     return 'must-not-commit';
   }),/timeline_write_suspended/);
   x.store.setVerifiedHostContext({...x.host,hostRunId:id(),worldEpoch:2});
-  await x.store.confirmTimeline(x.scope.timelineId);
+  await x.store.confirmTimeline(x.scope.timelineId,{confirmation:x.scope.timelineId});
   const count=await x.store.withP2SqliteRead(x.scope,db=>
     db.prepare("SELECT count(*) AS n FROM sqlite_master WHERE name='revocation_probe'").get().n);
   assert.equal(count,0);
@@ -215,7 +215,7 @@ test('B: v4 quick-check and journal hash detection fail closed; reject unknown u
   let store=createP2MemoryStorage({filePath:x.filePath,worldProfileId,sourceRequired:true});
   await store.initialize();
   store.setVerifiedHostContext({...x.host,hostRunId:id(),worldEpoch:2});
-  await store.confirmTimeline(x.scope.timelineId);
+  await store.confirmTimeline(x.scope.timelineId,{confirmation:x.scope.timelineId});
   await assert.rejects(store.readCommittedEvidencePage({scope:x.scope}),/p2_replay_dialogue_corrupt/);
   await store.close();
   db=new DatabaseSync(x.filePath);

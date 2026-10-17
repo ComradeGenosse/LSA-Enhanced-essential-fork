@@ -109,7 +109,7 @@ test('JSON migration preserves profiles/manual memory, source JSON and backup wi
 test('retained journals, suppression records, schema and durability snapshots survive storage-only reopen',async t=>{
   const f=await setup(t),seed=createEssentialMemoryStorage({filePath:f.sqlite,worldProfileId,sourceRequired:true});
   await seed.initialize();const p=await seed.create(profile());const timelineId=await seed.createTimeline({label:'retained'});
-  seed.setVerifiedHostContext({hostContextVersion:1,hostRunId:randomUUID(),worldEpoch:1});await seed.confirmTimeline(timelineId);
+  seed.setVerifiedHostContext({hostContextVersion:1,hostRunId:randomUUID(),worldEpoch:1});await seed.confirmTimeline(timelineId,{confirmation:timelineId});
   const recorder=createConversationJournalRecorder(seed),identity=n=>({pedId:101,turnId:n,generationId:'g1',sessionNonce:'seed'});
   await recorder.recordPlayerAccepted({characterId:p.characterId,identity:identity('original'),text:'private retained text',source:'typed',attribution:{protagonist:'franklin'}});
   await recorder.recordPlayerAccepted({characterId:p.characterId,identity:identity('forget'),text:'forget this',source:'typed',attribution:{protagonist:'franklin'}});

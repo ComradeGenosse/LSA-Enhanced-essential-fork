@@ -154,7 +154,8 @@ export async function prepareFactualRecall({store,turn,acceptedReceipt,input,sou
     const policy=createRecallEvidencePolicy({store,isCurrent:current});
     const labelArgs={scope,source:authority,terms:first.readArgs?.terms??[],
       sourceKind:first.readArgs?.sourceKind??null,
-      expandDialogueContext:first.readArgs?.expandDialogueContext===true,excludeRecordId:line.recordId,
+      expandDialogueContext:first.readArgs?.expandDialogueContext===true,
+      expandRelatedFacts:first.readArgs?.expandRelatedFacts===true,excludeRecordId:line.recordId,
       recordIds:baseContribution.items.map(x=>x.recordId),maxBytes:8192};
     const labels=await policy.labelledEvidence(labelArgs);
     if(!current())return done(refuse('blocked','memory_source_revoked',timings));

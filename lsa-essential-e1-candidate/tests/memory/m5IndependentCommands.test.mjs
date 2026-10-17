@@ -303,7 +303,7 @@ test('10. retry keeps the one verified request; a revoked source never reaches H
       };
       const turn=await x.typed('Remember that I prefer black coffee.');
       await x.settled(turn);
-      await x.store.confirmTimeline(x.timelineId);   // re-enable reads to inspect
+      await x.store.confirmTimeline(x.timelineId,{confirmation:x.timelineId});   // re-enable reads to inspect
       assert.equal((await permanent(x)).length,0);
       assert.equal((await commandRows(x)).length,0);
     });

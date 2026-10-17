@@ -28,7 +28,7 @@ async function fixture(t){
   const store=createP2MemoryStorage({filePath,worldProfileId,sourceRequired:true});
   await store.initialize();
   const npc=await store.create(profile()),timelineId=await store.createTimeline({label:'unified player'});
-  store.setVerifiedHostContext(host);await store.confirmTimeline(timelineId);
+  store.setVerifiedHostContext(host);await store.confirmTimeline(timelineId,{confirmation:timelineId});
   const scope={characterId:npc.characterId,worldProfileId,timelineId,protagonistKey:'franklin'};
   const recorder=createConversationJournalRecorder(store);
   let turn=0;
@@ -131,7 +131,7 @@ test('M6/P2 replay uses one durable cursor across source avatars and survives SQ
     const secondStore=createP2MemoryStorage({filePath:x.filePath,worldProfileId,sourceRequired:true});
     await secondStore.initialize();try{
       secondStore.setVerifiedHostContext({hostContextVersion:1,hostRunId:id(),worldEpoch:2});
-      await secondStore.confirmTimeline(scope.timelineId);
+      await secondStore.confirmTimeline(scope.timelineId,{confirmation:scope.timelineId});
       const persisted=await secondStore.readCommittedEvidenceCursor({scope:avatar(scope,'michael'),consumerId});
       assert.equal(persisted.cursor,page.cursor);
       const oldV1=Buffer.from(JSON.stringify({v:1,scope:'invalid',after:1}),'utf8').toString('base64url');
@@ -171,7 +171,7 @@ test('same model and avatar do not leak records across NPC owners or save timeli
     const alienNpc={...x.scope,characterId:other.characterId,protagonistKey:'trevor'};
     assert.equal((await x.store.readPermanentMemoryRows(alienNpc)).length,0);
     const another=await x.store.createTimeline({label:'separate playthrough'});
-    await x.store.confirmTimeline(another);
+    await x.store.confirmTimeline(another,{confirmation:another});
     const alternate={...x.scope,timelineId:another,protagonistKey:'michael'};
     assert.equal((await x.store.readPermanentMemoryRows(alternate)).length,0);
     assert.ok((await x.store.readPermanentMemoryRows(x.scope)).some(r=>r.recordId===saved.memoryId));

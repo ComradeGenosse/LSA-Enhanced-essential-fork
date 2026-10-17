@@ -112,7 +112,7 @@ test('H2 isolates NPCs and timelines and never leaks another NPC memory',async t
  assert(!items(aEvents.h2).some(x=>x.sourceKind==='journal_event'),'another NPC event never leaks');
  // A new timeline is a different memory scope for the same NPC.
  const second=await f.store.createTimeline({label:'H2 second'});
- await f.store.confirmTimeline(second);
+ await f.store.confirmTimeline(second,{confirmation:second});
  const c=await f.ask('Quote what I said about the plasma pistol',{character:0});
  assert(!contents(c.h2).some(x=>/freezer/.test(x)),'earlier timeline line is outside the new timeline scope');
 });
@@ -175,7 +175,7 @@ test('H2 revalidation fails on source retirement, host/world-epoch, owner and ti
   'source retired (M2/D02 lease)':f=>{f.live=false;},
   'host reconnect (new run id)':f=>{f.newHost();},
   'world epoch change':f=>{f.newHost(f.host.worldEpoch+1);},
-  'timeline change':async f=>{const tl=await f.store.createTimeline({label:'later'});await f.store.confirmTimeline(tl);},
+  'timeline change':async f=>{const tl=await f.store.createTimeline({label:'later'});await f.store.confirmTimeline(tl,{confirmation:tl});},
  };
  for(const [name,change] of Object.entries(scenarios)){
   const f=await p2Fixture(t);

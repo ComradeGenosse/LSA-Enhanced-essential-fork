@@ -31,7 +31,7 @@ import {resolveMemoryKCapabilities} from './memory/capabilityPolicy.mjs';
 import {createMemoryKRuntimeComposition,memoryKDialogueActivation,memoryKM6Activation,runtimeCleanupError} from './memory/runtimeComposition.mjs';
 import {createM6RuntimeRetention} from './memory/m6RuntimeRetention.mjs';
 import {memoryKSourceActivation} from './memory/sourceActivation.mjs';
-import {bindHostContext} from './characters/timelineAutoResume.mjs';
+import {bindTrustedTimelineSource} from './characters/timelineSourceBridge.mjs';
 import {memoryKM3Activation,unavailableM3States} from './memory/m3Activation.mjs';
 import {createInspectorControls} from './memory/inspectorControls.mjs';
 import {withLearnedMemoryPause} from './memory/learnedMemoryPause.mjs';
@@ -127,7 +127,10 @@ export async function createRuntimeForBundle(options = {}) {
     resolvePrepromotion:x=>connectedMemoryAuthority?.resolvePrepromotion(x)??null,
     verifyNativeCoverage:x=>connectedMemoryAuthority?.verifyNativeCoverage(x)??null
   });
-  const runtime = createRuntime(config, { ...options,
+  // Production cannot accept a caller-supplied emotional protagonist authority:
+  // only native C-13 may issue it. Keep test injection confined to createRuntime().
+  const {verifiedProtagonistAuthority:ignoredTestAuthority,...safeRuntimeOptions}=options;
+  const runtime = createRuntime(config, { ...safeRuntimeOptions,
     deferCharacterInitialization:true,
     memoryNativeAuthority:options.memoryNativeAuthority??memoryAuthorityPort,
     telemetry, dialogueTrace });
@@ -260,6 +263,19 @@ export async function createRuntimeForBundle(options = {}) {
   if(knowledgeContract===undefined)knowledgeContract=capabilityManifest?.dialogueKnowledgeContract;
   if(knowledgePerceptionContract===undefined)knowledgePerceptionContract=capabilityManifest?.perceptionContract;
   runtime.dialogueKnowledgeBuildSupported=dialogueKnowledgeContractSupported(knowledgeContract,knowledgePerceptionContract);
+  // Keep PS4 fail-closed but disclose which *build* prerequisite is absent.
+  // A live native hello or a radio catalog is not a substitute for the
+  // source/hash-verified build payload.
+  runtime.dialogueKnowledgeBuildFailure=runtime.dialogueKnowledgeBuildSupported?null:
+    !knowledgeContract?'missing_dialogue_knowledge_contract':
+    knowledgeContract.available!==true?'native_payload_unavailable':
+    !perceptionContractSupported(knowledgePerceptionContract)?'perception_contract_mismatch':
+    'dialogue_contract_mismatch';
+  if(config.dialogueKnowledge.mode==='active'&&!runtime.dialogueKnowledgeBuildSupported) {
+    try { console.warn('[PS4] Perceived knowledge unavailable ('+
+      runtime.dialogueKnowledgeBuildFailure+
+      '): rebuild matching native and companion payloads with npm run build:ps4.'); } catch {}
+  }
   if(config.intelligence.mode==='shadow') {
     let contract=options.perceptionContract;
     if(contract===undefined) try {contract=JSON.parse(await readFile(new URL('../build-manifest.json',import.meta.url),'utf8')).perceptionContract;}catch{}
@@ -302,6 +318,12 @@ export async function createRuntimeForBundle(options = {}) {
         }};
         runtime.intelligence=new IntelligenceClient(config.intelligence,intelligenceOptions);
         owner.own('source.intelligence',runtime.intelligence,value=>value.stop());
+        // EA mood does not survive world epochs, host authority changes or a
+        // retired native intelligence stream. This listener cannot grant mood.
+        owner.own('emotion.world',runtime.intelligence.subscribeWorldBoundary(
+          ()=>runtime.emotionalMood?.clear()),unsubscribe=>unsubscribe());
+        owner.own('emotion.host',runtime.intelligence.subscribeVerifiedHostContext(
+          ()=>runtime.emotionalMood?.clear()),unsubscribe=>unsubscribe());
         // Independently authenticated D02 owner/controlled-player source.
         // Exposes only the synchronous read-through lease/verification port;
         // neither this port nor the native frame attests accepted dialogue.
@@ -352,24 +374,18 @@ export async function createRuntimeForBundle(options = {}) {
           }catch{owner.failed('memory.m3');memoryIntake=null;connectedMemoryAuthority=null;try{console.warn('[M3] verified_owner_binder_unavailable');}catch{}}
         }
         if(config.promotedCharacters.storageMode==='sqlite' && runtime.characterService?.store?.onBoundary) {
-          owner.own('storage.host',runtime.intelligence.subscribeVerifiedHostContext(context=>{
-            const safeFailure=()=>runtime.characterService.emit('character_safe_failure',{reason:'timeline_write_suspended'});
-            try {void bindHostContext(runtime.characterService.store,context,
-              {autoResume:config.memoryK.autoResumeSingleTimeline===true,onSafeFailure:safeFailure});}
-            catch {safeFailure();}
-          }),unsubscribe=>unsubscribe());
-          // Receive only post-validation C-13 native world epochs. No inference
-          // from a model turn, OS clock, gameplay timestamp or stale channel.
-          owner.own('storage.boundary',runtime.intelligence.subscribeWorldBoundary(boundary=>{
-            try {runtime.characterService.store.onBoundary({reason:boundary.reason});}
-            catch {runtime.characterService.emit('character_safe_failure',{reason:'timeline_write_suspended'});}
-          }),unsubscribe=>unsubscribe());
+          const source=bindTrustedTimelineSource({store:runtime.characterService.store,
+            intelligenceClient:runtime.intelligence,
+            autoResume:config.memoryK.autoResumeSingleTimeline===true,
+            onSafeFailure:()=>runtime.characterService.emit('character_safe_failure',{reason:'timeline_write_suspended'})});
+          owner.own('storage.source',source,binding=>binding.close());
         }
         runtime.intelligence.start();
       }catch{
         const cleanup=await owner.rollback(checkpoint);
         if(cleanup.failures.length) throw runtimeCleanupError(owner,cleanup.failures);
         owner.failed('source.intelligence');runtime.intelligence=null;runtime.memoryD02=null;runtime.memoryM3=null;connectedMemoryAuthority=null;
+        runtime.emotionalMood?.clear();
         try{console.warn('[PS] optional_channel_unavailable');}catch{}
       }
     } else try {console.warn('[PS] optional_perception_contract_unavailable');}catch{}
@@ -429,6 +445,9 @@ export async function createRuntimeForBundle(options = {}) {
         try {telemetry?.emit?.('director_candidate',null,'internal',{
           status:outcome?.status??'unknown',nativeReason:outcome?.nativeReason,
           diagnosticReason:outcome?.diagnosticReason??null,
+          // One-way code of the original native event signal: joins this
+          // attempt to perception_trace and the native [PS] log lines.
+          traceCode:outcome?.traceCode??null,urgency:outcome?.urgency??null,
           eventType:outcome?.eventType,
           configuredMode:config.spontaneousSpeech.mode,
           executionAvailable:experimental &&

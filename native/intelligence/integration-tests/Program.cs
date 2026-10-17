@@ -65,13 +65,28 @@ class Program
                     var opened=ReadUntil(reader,"\"type\":\"diagnostics\"");
                     Check(opened.All(line=>!line.Contains("\"producer\":\"radio\"")),"first v2 radio sample establishes baseline only");
                     Check(opened.Last().Contains("\"radio\":{\"samples\":1,\"edges\":0,\"nativeFailures\":0,\"witnessed\":0,\"witnessUnknown\":0}"),"diagnostics expose bounded radio counters");
-                    Check(Game.Logs.Skip(logStart).Any(line=>line=="[RADIO_PROBE] vehicle=1 station=RADIO_01_CLASS_ROCK sound=00000001 text_id=1004 play_ms=42113"),"probe logs sound hash and text ID");
+                    Check(Game.Logs.Skip(logStart).Any(line=>line.StartsWith("[RADIO_PROBE] vehicle=1 station=RADIO_01_CLASS_ROCK sound=00000001 text_id=1004 play_ms=42113 routes=hash/hash/hash/hash")),"probe logs sound hash, text ID and hash-first native routes");
 
                     Set(integration,"nextDiagnostics",long.MaxValue);Set(integration,"nextDiscovery",long.MaxValue);Set(integration,"nextState",long.MaxValue);Set(integration,"nextShot",long.MaxValue);Set(integration,"nextRefresh",long.MaxValue);
                     int plays=Rage.Native.NativeFunction.RadioPlayReads;Rage.Native.NativeFunction.RadioPlayTime=99999;Set(integration,"nextRadio",0L);Game.GameTime+=50;integration.Update();
-                    Check(Rage.Native.NativeFunction.RadioPlayReads==plays,"play-time-only changes do not drive probe or event edges");
+                    Check(Rage.Native.NativeFunction.RadioPlayReads==plays,"play-time-only changes do not drive probe or station edges");
+                    // The native radio was already playing when the promoted
+                    // observer joined. The first subsequent sample must send
+                    // source-verified hearing without waiting 60 seconds.
+                    var joined=ReadUntil(reader,"\"producer\":\"radio\"").Last();
+                    Check(joined.Contains("\"trackTextId\":1004")&&joined.Contains("\"channel\":\"auditory\""),
+                        "existing song refreshes immediately for a new native-verified passenger");
 
-                    Rage.Native.NativeFunction.RadioTextId=1005;Set(integration,"nextRadio",0L);Game.GameTime+=50;integration.Update();
+                    // One transient metadata tuple must never become a radio
+                    // edge or source-hearing observation during retuning.
+                    var beforeTransient=sensors.RadioEdges;
+                    Rage.Native.NativeFunction.RadioTextId=9999;
+                    Set(integration,"nextRadio",0L);Game.GameTime+=250;integration.Update();
+                    Rage.Native.NativeFunction.RadioTextId=1004;
+                    Set(integration,"nextRadio",0L);Game.GameTime+=250;integration.Update();
+                    Check(sensors.RadioEdges==beforeTransient,"one-sample track-ID race is not published");
+                    Rage.Native.NativeFunction.RadioTextId=1005;
+                    for(int n=0;n<3;n++){Set(integration,"nextRadio",0L);Game.GameTime+=250;integration.Update();}
                     var changed=ReadUntil(reader,"\"producer\":\"radio\"").Last();
                     Check(changed.Contains("\"kind\":\"radio_changed\"")&&changed.Contains("\"soundHash\":1")&&changed.Contains("\"trackTextId\":1005")&&!changed.Contains("artist")&&!changed.Contains("title"),"text-ID-only transition crosses raw wire");
                     var radioAnchors=(EntityAnchors)Get(integration,"anchors");var passengerRef=radioAnchors.Current.Single(a=>ReferenceEquals(a.Entity,passenger)).CaptureRef;var outsiderRef=radioAnchors.Current.Single(a=>ReferenceEquals(a.Entity,outsider)).CaptureRef;
@@ -79,7 +94,8 @@ class Program
                     Check(!changed.Contains(outsiderRef),"outside observer gets no radio witness receipt");
                     Check(Game.Logs.Skip(logStart).Any(line=>line.Contains("sound=00000001 text_id=1005")),"probe changes when text ID changes");
 
-                    Rage.Native.NativeFunction.RadioTrack=unchecked((int)2481236011);Set(integration,"nextRadio",0L);Game.GameTime+=50;integration.Update();
+                    Rage.Native.NativeFunction.RadioTrack=unchecked((int)2481236011);
+                    for(int n=0;n<3;n++){Set(integration,"nextRadio",0L);Game.GameTime+=250;integration.Update();}
                     var soundChanged=ReadUntil(reader,"\"producer\":\"radio\"").Last();
                     Check(soundChanged.Contains("\"soundHash\":2481236011")&&soundChanged.Contains("\"trackTextId\":1005"),"soundHash-only container transition remains material");
                     Check(Game.Logs.Skip(logStart).Any(line=>line.Contains("sound=93E4A82B text_id=1005")),"probe retains hexadecimal sound evidence");
@@ -98,6 +114,13 @@ class Program
                         "unchanged song revalidates from fresh GTA tuple and same-car witness without inventing a music edge");
                     Check((long)Get(sensors,"nextRadioRevalidate")>0,
                         "successful source revalidation restarts bounded 60-second interval");
+                    // Leaving and re-entering with an unchanged song must
+                    // revoke old listener coverage and immediately prove it again.
+                    passenger.CurrentVehicle=null;Set(integration,"nextRadio",0L);Game.GameTime+=250;integration.Update();
+                    passenger.CurrentVehicle=vehicle;Set(integration,"nextRadio",0L);Game.GameTime+=250;integration.Update();
+                    var rejoined=ReadUntil(reader,"\"producer\":\"radio\"").Last();
+                    Check(rejoined.Contains("\"trackTextId\":1005")&&rejoined.Contains(passengerRef) &&
+                          sensors.RadioEdges==realEdges,"same-car listener rejoining rechecks live hearing before 60 seconds");
 
                     player.CurrentVehicle=null;Set(integration,"nextRadio",0L);Game.GameTime+=50;integration.Update();
                     var stopped=ReadUntil(reader,"\"kind\":\"radio_stopped\"").Last();
@@ -114,12 +137,36 @@ class Program
             player.CurrentVehicle=vehicle;Rage.Native.NativeFunction.RadioStation="RADIO_01_CLASS_ROCK";Rage.Native.NativeFunction.RadioTrack=1;Rage.Native.NativeFunction.RadioTextId=1004;
             Rage.Native.NativeFunction.RadioTextIdThrow=true;Set(integration,"nextRadio",0L);Game.GameTime=100;integration.Update();
             Check(integration.IsAvailable&&sensors.RadioNativeFailures>=1&&sensors.RadioEdges==0,"text-ID native failure is contained and does not fabricate an edge");
+            Check(Game.Logs.Any(line=>line.Contains("[PS] radio_read_failure stage=track_text_id type=invalid_operation")&&line.Contains("count=1")),
+                "failed text-ID native identifies its precise read stage and bounded error type");
+            int failureLines=Game.Logs.Count(line=>line.Contains("radio_read_failure stage=track_text_id"));
+            Set(integration,"nextRadio",0L);Game.GameTime+=50;integration.Update();
+            Check(Game.Logs.Count(line=>line.Contains("radio_read_failure stage=track_text_id"))==failureLines &&
+                sensors.RadioNativeFailures>=2,
+                "identical 250ms failure is counted without flooding RAGE log");
             Rage.Native.NativeFunction.RadioTextIdThrow=false;
 
+            Rage.Native.NativeFunction.RadioSoundThrow=true;Set(integration,"nextRadio",0L);Game.GameTime+=50;integration.Update();
+            Check(Game.Logs.Any(line=>line.Contains("radio_read_failure stage=sound_name type=invalid_operation")),
+                "sound-name native errors are attributed independently of station and text-ID");
+            Rage.Native.NativeFunction.RadioSoundThrow=false;
+
+            Rage.Native.NativeFunction.RadioPlayThrow=true;Set(integration,"nextRadio",0L);Game.GameTime+=50;integration.Update();
+            Check(integration.IsAvailable && Game.Logs.Any(line=>line.Contains("radio_read_failure stage=play_time type=invalid_operation")) &&
+                Game.Logs.Any(line=>line.Contains("[RADIO_PROBE] vehicle=1 station=RADIO_01_CLASS_ROCK")&&line.Contains("play_ms=-1")),
+                "optional play-time native failure is logged yet does not suppress a valid song identity");
+            Rage.Native.NativeFunction.RadioPlayThrow=false;
+
+            Rage.Native.NativeFunction.RadioStation="";Set(integration,"nextRadio",0L);Game.GameTime+=50;integration.Update();
+            Check(Game.Logs.Any(line=>line.Contains("[RADIO_PROBE] vehicle=1 station= sound=00000000 text_id=0 play_ms=-1 state=blank_station")),
+                "empty in-vehicle station is explicit instead of indistinguishable from leaving vehicle");
+
             Rage.Native.NativeFunction.RadioThrow=true;Set(integration,"nextRadio",0L);Game.GameTime+=50;integration.Update();
-            Check(integration.IsAvailable&&sensors.RadioNativeFailures>=2,"station/sound native failure does not tear down intelligence");
+            Check(integration.IsAvailable&&sensors.RadioNativeFailures>=4 &&
+                Game.Logs.Any(line=>line.Contains("radio_read_failure stage=station_name type=invalid_operation")),
+                "station native failure identifies exact failing API without tearing down intelligence");
         } finally {
-            Rage.Native.NativeFunction.RadioThrow=false;Rage.Native.NativeFunction.RadioTextIdThrow=false;Rage.Native.NativeFunction.RadioPlayThrow=false;
+            Rage.Native.NativeFunction.RadioThrow=false;Rage.Native.NativeFunction.RadioSoundThrow=false;Rage.Native.NativeFunction.RadioTextIdThrow=false;Rage.Native.NativeFunction.RadioPlayThrow=false;
             integration.Shutdown();PerceptionSystem.Snapshot=null;
         }
         Check(Rage.Native.NativeFunction.Effects==effects,"radio v2 coverage performs no unexpected native effects");
@@ -877,6 +924,7 @@ class Program
         Check(Queued()==0,"shutdown keeps callback queue retired");
         shared.Shutdown();Check(host.Anchors.Resolve(kept.CaptureRef)!=null,"optional PS shutdown cannot clear another consumer's shared lifetime");
         host.Shutdown();Check(host.Anchors.Count==0,"host teardown clears shared table");
-        Console.WriteLine("PASS "+assertions+" production integration assertions including lifecycle telemetry");
+        EA5TestCases.Run(Check);
+        Console.WriteLine("PASS "+assertions+" production integration assertions including lifecycle telemetry and EA5 native proof");
     }
 }

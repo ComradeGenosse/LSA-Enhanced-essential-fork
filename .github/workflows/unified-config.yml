@@ -1,0 +1,27 @@
+name: Unified config manager
+
+on:
+  pull_request:
+    paths:
+      - 'tools/unified-config/**'
+      - '.github/workflows/unified-config.yml'
+      - 'lsa-essential-e1-candidate/src/config/**'
+      - 'lsa-essential-e1-candidate/src/memory/capabilityPolicy.mjs'
+  push:
+    paths:
+      - 'tools/unified-config/**'
+      - '.github/workflows/unified-config.yml'
+
+jobs:
+  unified-config:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: node --test tools/unified-config/manager.test.mjs

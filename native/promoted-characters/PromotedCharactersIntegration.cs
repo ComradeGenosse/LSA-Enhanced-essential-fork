@@ -80,6 +80,15 @@ namespace LSA.PromotedCharacters
         long lastGameTime;
         bool prepared,shutdown;
         volatile bool shutdownRequested;
+        NpcVoicePresenceObserver voicePresence;
+        internal void ConfigureVoicePresence(string mode,bool mouthEnabled=false,float openLevel=0.015f,bool levelLog=false) {
+            if(mode!="off"&&mode!="shadow"&&mode!="on") {
+                Game.LogTrivial("[VP] invalid_mode_disabled");return;
+            }
+            if(mode=="off")return;
+            try {voicePresence=new NpcVoicePresenceObserver(mode,mouthEnabled,openLevel,levelLog);voicePresence.Attach();}
+            catch {try {voicePresence?.Dispose();}catch{}voicePresence=null;Game.LogTrivial("[VP] unavailable");}
+        }
         string shutdownReason="none";
         public event Action<string> OwnerRetired;
         public LSA.Intelligence.OwnedParticipant[] PerceptionRoster() => encounters.Values.Where(e=>e.Registration!=null && Alive(e)).Select(e=> {
@@ -258,6 +267,8 @@ namespace LSA.PromotedCharacters
                 }
                 ServeLocal(4 - handled);
                 try { ActivityTick(now); } catch { DisableActivity(); }
+                 try {voicePresence?.Update(Host.WorldEpoch,Host.MonotonicMs);}
+                 catch {try {voicePresence?.Dispose();}catch{}voicePresence=null;Game.LogTrivial("[VP] observer_disabled");}
             } catch { LSA.Intelligence.IntelligenceIntegration.LogStatus("[P2] optional_update_failed"); Shutdown("update_failed"); }
         }
         static void Fields(Dictionary<string,object> args,params string[] fields) { if (args.Count != fields.Length || fields.Any(field => !args.ContainsKey(field))) throw new InvalidOperationException("invalid_owner_arguments"); }
@@ -399,12 +410,19 @@ namespace LSA.PromotedCharacters
         public void OnNpcActionExecuted(Ped ped,string actionName,bool succeeded) { PushActivity(ped, actionName, "executed", succeeded); }
         // A loader/lifetime fiber can request cleanup, but Core's own callback
         // must retire evidence and perform any native cleanup on its owner fiber.
-        public void RequestShutdown() => shutdownRequested = true;
+        public void RequestShutdown() {
+            shutdownRequested=true;
+            // The Core callback may never run again after host failure.
+            // Event unsubscription is CLR-only and safe on the lifetime fiber.
+            try {voicePresence?.Unsubscribe();} catch {}
+        }
         public void Shutdown()
         {Shutdown("integration_shutdown");}
         internal void Shutdown(string reason)
         {
             if (shutdown) return; shutdownReason=reason; shutdown = true;
+            try { voicePresence?.Dispose(); } catch { }
+            voicePresence=null;
             Host.WorldChanged-=OnHostWorldChanged;
             ActivityShutdown();
             LSA.Intelligence.IntelligenceIntegration.LogStatus("[P2] shutdown reason="+shutdownReason);

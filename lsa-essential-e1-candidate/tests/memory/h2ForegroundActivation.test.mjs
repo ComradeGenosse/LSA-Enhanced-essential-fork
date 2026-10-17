@@ -35,14 +35,23 @@ test('H2 alone brings previously accepted P2 facts to PS4 while H1/M5/M8 are off
     const sent=capture(x);
     await say(x,'My cedar compass is buried under the violet bridge.');
     await say(x,'What did I say about the cedar compass under the violet bridge?');
-    const last=sent.at(-1),lanes=scene(last);
+    const expectedQuestion='What did I say about the cedar compass under the violet bridge?';
+    const last=sent.findLast(entry=>entry.frame?.modelAllocation?.messages?.at(-1)?.content===expectedQuestion);
+    assert.ok(last,'The actual second-turn model request must be captured');
+    const lanes=scene(last);
     assert.equal(last.frame.modelAllocation.messages.length,1,'H1 off means no journal conversation lane');
-    assert.ok(lanes.RECALLED.evidence.some(item=>item.content.includes('cedar compass')),
-      'H2 must make prior SQLite content visible to the actual model request');
+    const state=x.h.runtime.services.memoryRecallDiagnostics();
+    const players=(await x.journal()).players;
+    assert.ok(players.some(row=>row.content==='My cedar compass is buried under the violet bridge.'),
+      'The first player input must have been durably accepted before testing its recall');
+    assert.ok(Array.isArray(lanes.RECALLED.evidence) &&
+      lanes.RECALLED.evidence.some(item=>item.content.includes('cedar compass')),
+      'H2 must make prior SQLite content visible to the actual model request; '+
+      JSON.stringify({state,playerRows:players.map(row=>({source:row.source,delivery:row.delivery,
+        content:row.content})),sceneRecall:lanes.RECALLED,requests:sent.length}));
     assert.ok(JSON.stringify(last.body).includes('cedar compass is buried'));
     assert.equal(lanes.RECALLED.characterOpinions,undefined);
     assert.equal(lanes.SELF.memoryAction,undefined);
-    const state=x.h.runtime.services.memoryRecallDiagnostics();
     assert.equal(state.contributedToModelRequest,true);
     assert.equal(state.lastValidation.status,'ready');
   });

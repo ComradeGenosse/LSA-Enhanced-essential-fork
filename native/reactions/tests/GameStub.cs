@@ -27,13 +27,24 @@ namespace Rage
 
 namespace Rage.Native
 {
+    public sealed class NativeArgument
+    {
+        internal object Value;
+        NativeArgument(object value) { Value = value; }
+        public static implicit operator NativeArgument(string v) => new NativeArgument(v);
+        public static implicit operator NativeArgument(Rage.Ped v) => new NativeArgument(v);
+        public static implicit operator NativeArgument(int v) => new NativeArgument(v);
+        public static implicit operator NativeArgument(float v) => new NativeArgument(v);
+        public static implicit operator NativeArgument(bool v) => new NativeArgument(v);
+    }
     public static class NativeFunction
     {
         public static readonly List<string> Calls = new List<string>();
         public static readonly List<object[]> Args = new List<object[]>();
         public static Func<string, object[], object> Script = (name, args) => null;
-        public static T CallByName<T>(string name, params object[] args)
+        public static T CallByName<T>(string name, params NativeArgument[] nativeArgs) where T : struct
         {
+            var args = Array.ConvertAll(nativeArgs, a => a.Value);
             Calls.Add(name); Args.Add(args);
             var value = Script(name, args);
             if (value == null) return default(T);

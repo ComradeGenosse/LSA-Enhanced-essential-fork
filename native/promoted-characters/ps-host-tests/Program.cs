@@ -91,6 +91,7 @@ namespace LSA.PromotedCharacters
         public event Action<string> OwnerRetired {add{}remove{}}
         public readonly HostContext Host;
         public PromotedCharactersIntegration(string world,string pipe,string identity,HostContext host=null) {Instance=this;Host=host;}
+        internal void ConfigureVoicePresence(string mode,bool mouthEnabled=false,float openLevel=0.015f,bool levelLog=false) { }
         public void Prepare()=>IsAvailable=true;
         public bool IsReady=>IsAvailable;
         internal string IdentityRuntimeStatus=>"identity_status=test";
@@ -116,7 +117,7 @@ namespace LSA.Intelligence
         public static IntelligenceIntegration Instance;public bool IsAvailable{get;private set;}public long UpdateCalls;public int ShutdownCalls;public string ShutdownReason="none";
         public readonly LSA.PromotedCharacters.HostContext Host;
         public readonly NativeProducerPolicy ProducerPolicy;
-        public IntelligenceIntegration(Func<OwnedParticipant[]> roster,string pipe,LSA.PromotedCharacters.HostContext host=null,bool directorShadow=false,bool directorExperimental=false,string radioMode="off",int directorAttemptsPerMinute=4,Func<object> memoryAuthoritySample=null,Func<object> memoryCurrentOwnerPlayerSample=null,NativeProducerPolicy producerPolicy=null){Instance=this;Host=host;ProducerPolicy=producerPolicy;}
+        public IntelligenceIntegration(Func<OwnedParticipant[]> roster,string pipe,LSA.PromotedCharacters.HostContext host=null,bool directorShadow=false,bool directorExperimental=false,string radioMode="off",int directorAttemptsPerMinute=4,Func<object> memoryAuthoritySample=null,Func<object> memoryCurrentOwnerPlayerSample=null,NativeProducerPolicy producerPolicy=null,bool protagonistEvidenceEnabled=false){Instance=this;Host=host;ProducerPolicy=producerPolicy;}
         public void Initialize()=>IsAvailable=true;
         public void Update(){UpdateCalls++;}
         public void OwnerRetired(string lifetime){}

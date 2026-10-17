@@ -9,6 +9,38 @@ const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}
 const token=s=>typeof s==='string'&&/^[\p{L}\p{N}]{2,48}$/u.test(s);
 const textMatch=terms=>terms.map(t=>'"'+t.replace(/"/g,'""')+'"').join(' OR ');
 const parse=s=>JSON.parse(s);
+// Bounded, explainable name linking: only names expressly associated with a
+// query-matched subject (or in its already verified same-session name list).
+// A name is a search key, never proof of a relationship by itself.
+const NAME_WORD=/\b[A-Z][a-z]{2,31}\b/g;
+const NOT_NAMES=new Set('The My Our Her His Their Yes Yeah Well We He She They This That Today Yesterday And But So One Two Three Four Dog Dogs Corgi Corgis Pomsky Pomskies Puppy Puppies Pet Pets Name Names Named Called'.split(' '));
+function linkedNames(text,{nameList=false}={}){
+  if(typeof text!=='string'||text.length>12000)return [];
+  const animal='(?:dogs?|corgis?|pomsk(?:y|ies)|pupp(?:y|ies)|pets?)';
+  const spans=[];
+  if(nameList&&/^\s*[A-Z][a-z]{2,31}(?:,\s*(?:and\s+)?[A-Z][a-z]{2,31}|\s+and\s+[A-Z][a-z]{2,31}){1,7}\.?\s*$/u.test(text))spans.push(text);
+  const patterns=[
+    new RegExp('\\b(?:my|our|the)\\s+(?:(?:two|three|four|\\d+)\\s+)?'+animal+'\\s+(?:are|were|is|named|called)\\s+([^.!?]{1,120})','gi'),
+    new RegExp('\\b([A-Z][a-z]{2,31}(?:(?:,\\s*|\\s+and\\s+)[A-Z][a-z]{2,31}){0,7})\\s+(?:is|are|was|were)\\s+(?:(?:my|our|a|an|the)\\s+)?(?:(?:two|three|four|\\d+)\\s+)?'+animal+'\\b','g'),
+    new RegExp('\\b(?:my|our)\\s+'+animal+'\\s+([A-Z][a-z]{2,31})\\b','gi'),
+    new RegExp('\\b'+animal+'(?:\\x27s)?\\s+name\\s+(?:is|was)\\s+([A-Z][a-z]{2,31})\\b','gi'),
+    new RegExp('\\b([A-Z][a-z]{2,31})\\s*[,—-]\\s*(?:(?:my|our|a|an)\\s+)?'+animal+'\\b','g')
+  ];
+  for(const pattern of patterns){
+    for(const match of text.matchAll(pattern))spans.push(match[1]);
+  }
+  return [...new Set(spans.flatMap(span=>span.match(NAME_WORD)??[])
+    .filter(name=>!NOT_NAMES.has(name)))].slice(0,8);
+}
+function verifiedNameSource(row,scope){
+  if(!row||!uuid.test(row.recordId)||sha(row.text)!==row.textHash)return false;
+  const e=verifyEnvelope(row.raw,row.rawHash);
+  return e.recordId===row.recordId&&e.content===row.text&&e.speaker===row.storedSpeaker&&
+    e.source===row.storedSource&&e.delivery===row.storedDelivery&&
+    e.characterId===scope.characterId&&e.worldProfileId===scope.worldProfileId&&e.timelineId===scope.timelineId&&
+    ((e.speaker==='player'&&e.delivery==='accepted'&&['typed','stt'].includes(e.source))||
+      (e.speaker==='npc'&&e.delivery==='completed'&&e.source==='npc_generated'&&uuid.test(e.deliveryReceiptId)));
+}
 function verifyEnvelope(raw,digest){
   if(typeof raw!=='string'||sha(raw)!==digest)throw new Error('m4_corrupt_envelope');
   return parse(raw);
@@ -75,13 +107,13 @@ function correctionRows(db,scope,forgotten){
   }
   return {corrected,overlays};
 }
-export function readIntegratedRecall(db,{scope,terms=[],fromUtc=null,toUtc=null,sourceKind=null,speaker=null,limit=384,expandDialogueContext=false,excludeRecordId=null}){
+export function readIntegratedRecall(db,{scope,terms=[],fromUtc=null,toUtc=null,sourceKind=null,speaker=null,limit=384,expandDialogueContext=false,expandRelatedFacts=false,excludeRecordId=null}){
   if(!scope||!['franklin','michael','trevor','unknown'].includes(scope.protagonistKey)||
     !['characterId','worldProfileId','timelineId'].every(k=>uuid.test(scope[k]))||
     !Number.isSafeInteger(limit)||limit<1||limit>768)throw new TypeError('m4_invalid_integrated_scope');
   if(sourceKind&&!['dialogue_line','journal_event','permanent_memory','canon'].includes(sourceKind))throw new TypeError('m4_invalid_kind');
   if(speaker&&!['player','npc'].includes(speaker))throw new TypeError('m4_invalid_speaker');
-  if(typeof expandDialogueContext!=='boolean'||excludeRecordId!==null&&!uuid.test(excludeRecordId))
+  if(typeof expandDialogueContext!=='boolean'||typeof expandRelatedFacts!=='boolean'||excludeRecordId!==null&&!uuid.test(excludeRecordId))
     throw new TypeError('m4_invalid_context_options');
   const tokens=[...new Set(terms.filter(token))].slice(0,12),limitLex=tokens.length?Math.min(128,Math.floor(limit/3)):0;
   const forgotten=suppressedMemoryIds(db,scope),{corrected,overlays}=correctionRows(db,scope,forgotten);
@@ -140,6 +172,41 @@ export function readIntegratedRecall(db,{scope,terms=[],fromUtc=null,toUtc=null,
         }
       }
     }
+    if(expandRelatedFacts&&limitLex){
+      const seeds=new Map();
+      // Do not let a nearby but unauthenticated comment introduce new names.
+      for(const r of rows){
+        if(!(r.lexicalHit||r.contextAnchorId)||r.recordId===excludeRecordId||
+           forgotten.has(r.recordId)||corrected.has(r.recordId))continue;
+        if(!verifiedNameSource(r,scope))continue;
+        const list=!!r.contextAnchorId&&!r.lexicalHit;
+        const names=linkedNames(r.text,{nameList:list});
+        const anchorId=r.contextAnchorId??r.recordId;
+        if(!result.has(anchorId)&&!rows.some(x=>x.recordId===anchorId&&x.lexicalHit))continue;
+        for(const name of names){
+          if(seeds.size>=8)break;
+          if(!seeds.has(name.toLowerCase()))seeds.set(name.toLowerCase(),anchorId);
+        }
+      }
+      if(seeds.size){
+        // One bounded FTS5 pass, scoped just like the anchor. This is not
+        // adjacency: the named fact can come from an entirely different session.
+        const fts=' FROM dialogue_journal_fts JOIN dialogue_journal d ON d.rowid=dialogue_journal_fts.rowid WHERE '+
+          where.replaceAll(/\b(world_profile_id|character_id|timeline_id|committed_at_utc|protagonist|speaker)\b/g,'d.$1')+
+          ' AND dialogue_journal_fts MATCH ? ORDER BY bm25(dialogue_journal_fts),d.committed_at_utc DESC';
+        const related=all(db,cols+fts,[...values,textMatch([...seeds.keys()])],48);
+        for(const r of related){
+          if(r.recordId===excludeRecordId||forgotten.has(r.recordId)||corrected.has(r.recordId))continue;
+          const tokens=(r.text.toLowerCase().match(/[\p{L}\p{N}]+/gu)??[]);
+          const anchorId=[...seeds].find(([name,id])=>tokens.includes(name)&&id!==r.recordId)?.[1];
+          if(!anchorId)continue;
+          const existing=rows.find(x=>x.recordId===r.recordId);
+          if(existing){
+            if(!existing.lexicalHit&&!existing.contextAnchorId)existing.relatedAnchorId=anchorId;
+          }else rows.push({...r,relatedAnchorId:anchorId});
+        }
+      }
+    }
     for(const r of rows){
       const e=verifyEnvelope(r.raw,r.rawHash);
       if(!uuid.test(e.recordId)||e.recordId!==r.recordId||sha(r.text)!==r.textHash||
@@ -150,7 +217,9 @@ export function readIntegratedRecall(db,{scope,terms=[],fromUtc=null,toUtc=null,
       if(!((e.speaker==='player'&&['typed','stt'].includes(e.source)&&e.delivery==='accepted')||
         (e.speaker==='npc'&&e.source==='npc_generated'&&e.delivery==='completed'&&uuid.test(e.deliveryReceiptId))))continue;
       add({...scope,protagonistKey:r.protagonistKey,recordId:r.recordId,sourceKind:'dialogue_line',atUtc:r.atUtc,
-        evidenceState:'verified',envelope:e,...(r.contextAnchorId?{contextAnchorId:r.contextAnchorId,contextDistance:r.contextDistance}:{})});
+        evidenceState:'verified',envelope:e,sessionId:r.sessionId,lexicalHit:r.lexicalHit===true,
+         ...(r.contextAnchorId?{contextAnchorId:r.contextAnchorId,contextDistance:r.contextDistance}:{}),
+         ...(r.relatedAnchorId?{relatedAnchorId:r.relatedAnchorId}:{})});
     }
   }
   if(!sourceKind||sourceKind==='journal_event'){
@@ -221,6 +290,10 @@ export function readIntegratedRecall(db,{scope,terms=[],fromUtc=null,toUtc=null,
     for(const r of overlays)add(r);
   }
   // No legacy all-complete certificate exists in v4. Lack of a row is UNKNOWN.
-  const rows=[...result.values()].sort((a,b)=>b.atUtc.localeCompare(a.atUtc)||a.recordId.localeCompare(b.recordId));
+  const rows=[...result.values()].sort((a,b)=>(expandRelatedFacts?
+     (Number(b.lexicalHit===true)-Number(a.lexicalHit===true))||
+     (Number(!!b.relatedAnchorId)-Number(!!a.relatedAnchorId))||
+     (Number(!!b.contextAnchorId)-Number(!!a.contextAnchorId)):0)||
+     b.atUtc.localeCompare(a.atUtc)||a.recordId.localeCompare(b.recordId));
   return {rows:rows.slice(0,limit),coverageComplete:false};
 }

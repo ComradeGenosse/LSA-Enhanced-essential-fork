@@ -25,7 +25,7 @@ async function fixture(t) {
  const timelineId=await store.createTimeline({label:'W04 source'});
  const host={hostContextVersion:1,hostRunId:id(),worldEpoch:1};
  store.setVerifiedHostContext(host);
- await store.confirmTimeline(timelineId);
+ await store.confirmTimeline(timelineId,{confirmation:timelineId});
  const scope={worldProfileId,characterId:first.characterId,timelineId,protagonistKey:'franklin'};
  let now=Date.now();
  const service=createM5SqliteServices({store,filePath,authorize:({scope:requested})=>requested.worldProfileId===scope.worldProfileId&&requested.characterId===scope.characterId&&requested.timelineId===scope.timelineId&&requested.protagonistKey===scope.protagonistKey,clock:()=>at(now)});

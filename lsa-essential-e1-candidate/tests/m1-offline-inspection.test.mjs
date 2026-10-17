@@ -26,7 +26,7 @@ test('M1 offline recovery inspection validates exact DB without changing its byt
   await s.initialize();
   const p=await s.create(profile());
   const id=await s.createTimeline({label:'F save'});
-  await s.confirmTimeline(id);
+  await s.confirmTimeline(id,{confirmation:id});
   await s.close();
   const before=await fs.readFile(filePath);
   const result=await inspectP2Sqlite({filePath,worldProfileId});

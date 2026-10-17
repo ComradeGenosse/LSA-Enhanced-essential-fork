@@ -33,7 +33,7 @@ async function firstLaunch(filePath){
   const p=await store.create(profile());
   const timelineId=await store.createTimeline({label:'Main save'});
   store.setVerifiedHostContext(host());
-  await store.confirmTimeline(timelineId);
+  await store.confirmTimeline(timelineId,{confirmation:timelineId});
   await createConversationJournalRecorder(store).recordPlayerAccepted({
     characterId:p.characterId,identity:identity('one'),source:'typed',
     text:'Remember that I hate olives',attribution:{protagonist:'franklin'}});
@@ -109,7 +109,7 @@ test('native disconnect, reset or ambiguity before resume lands prevents resume 
   // ...and it stays manual on later launches until a human confirms.
   assert.equal((await bindHostContext(store,host(),{autoResume:true})).reason,'clock_regression');
   assert.equal(store.timelineWritable,false);
-  await store.confirmTimeline(first.timelineId);
+  await store.confirmTimeline(first.timelineId,{confirmation:first.timelineId});
   assert.equal(store.timelineWritable,true);
   // After a successful resume, a later disconnect/reset kills queued old work.
   const c=host();
@@ -134,7 +134,7 @@ test('no timeline, several timelines or an unselected one keep manual confirmati
   const one=await store.createTimeline({label:'Main'});
   assert.equal((await store.resumeSelectedTimeline(h)).reason,'no_selected_timeline',
     'creating a timeline never activates it');
-  await store.confirmTimeline(one);
+  await store.confirmTimeline(one,{confirmation:one});
   await store.createTimeline({label:'Second'});
   store.setVerifiedHostContext(null);
   const next=host();

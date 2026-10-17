@@ -33,7 +33,7 @@ async function setup(t,number=2){
   const timelineId=await store.createTimeline({label:'W09 isolated source simulation'});
   const currentHost=host();
   store.setVerifiedHostContext(currentHost);
-  await store.confirmTimeline(timelineId);
+  await store.confirmTimeline(timelineId,{confirmation:timelineId});
   return {store,filePath,characters,timelineId,host:currentHost,
     recorder:createConversationJournalRecorder(store),
     scope(i=0,protagonistKey='unknown'){return {
@@ -121,7 +121,7 @@ test('W09/S01 source simulation: exact Unicode/profanity, owner and protagonist 
     await assert.rejects(reopened.readCommittedEvidenceCursor({
       scope:x.scope(0,'franklin'),consumerId:'s01-pre'}),/timeline_write_suspended/);
     reopened.setVerifiedHostContext({...x.host,hostRunId:id(),worldEpoch:2});
-    await reopened.confirmTimeline(x.timelineId);
+    await reopened.confirmTimeline(x.timelineId,{confirmation:x.timelineId});
     const again=await reopened.readCommittedEvidencePage({scope:x.scope(0,'franklin')});
     assert.equal(again.items.length,1);
     assert.deepEqual(Buffer.from(again.items[0].envelope.content),Buffer.from(literal));
@@ -158,11 +158,11 @@ test('W09/S07 source simulation: save rollback and host switch suspend actual P2
     x.store.onBoundary({reason:'clock_regression'});
     await assert.rejects(player(x,'rollback',0,'michael'),/timeline_write_suspended/);
     assert.equal(x.store.timelineWritable,false);
-    await x.store.confirmTimeline(x.timelineId);
+    await x.store.confirmTimeline(x.timelineId,{confirmation:x.timelineId});
     assert.equal((await player(x,'after-confirm',0,'michael')).inserted,true);
     x.store.setVerifiedHostContext({...x.host,hostRunId:id(),worldEpoch:2});
     await assert.rejects(player(x,'epoch-change',0,'michael'),/timeline_write_suspended/);
-    await x.store.confirmTimeline(x.timelineId);
+    await x.store.confirmTimeline(x.timelineId,{confirmation:x.timelineId});
     assert.equal((await player(x,'new-host',0,'michael')).inserted,true);
     assert.equal((await x.store.readDialogueLines({
       characterId:x.characters[0].characterId,timelineId:x.timelineId,limit:100})).length,3);
@@ -224,7 +224,7 @@ test('W09/P2 stress: 201+ player lines, 2501+ verified PS2 source-sidecar events
       await assert.rejects(reopened.readCommittedEvidenceCursor({
         scope:x.scope(0),consumerId:'w09-events-0'}),/timeline_write_suspended/);
       reopened.setVerifiedHostContext({...x.host,hostRunId:id(),worldEpoch:2});
-      await reopened.confirmTimeline(x.timelineId);
+      await reopened.confirmTimeline(x.timelineId,{confirmation:x.timelineId});
       for(let who=0;who<2;who++){
         const cp=await reopened.readCommittedEvidenceCursor({
           scope:x.scope(who),consumerId:'w09-events-'+who});
@@ -282,7 +282,7 @@ test('W09 cursor crash windows: SQLite source commit without ack replays; acknow
     await second.initialize();
     try{
       second.setVerifiedHostContext({...x.host,hostRunId:id(),worldEpoch:2});
-      await second.confirmTimeline(x.timelineId);
+      await second.confirmTimeline(x.timelineId,{confirmation:x.timelineId});
       const unchanged=await second.readCommittedEvidenceCursor({scope:s,consumerId});
       assert.equal(unchanged.cursor,prior.cursor);
       const replay=await second.readCommittedEvidencePage({scope:s,cursor:unchanged.cursor});
@@ -299,7 +299,7 @@ test('W09 cursor crash windows: SQLite source commit without ack replays; acknow
     await third.initialize();
     try{
       third.setVerifiedHostContext({...x.host,hostRunId:id(),worldEpoch:3});
-      await third.confirmTimeline(x.timelineId);
+      await third.confirmTimeline(x.timelineId,{confirmation:x.timelineId});
       const cp=await third.readCommittedEvidenceCursor({scope:s,consumerId});
       assert.equal(cp.cursor,page.cursor);
       assert.equal((await third.readCommittedEvidencePage({scope:s,cursor:cp.cursor})).items.length,0);
@@ -362,7 +362,7 @@ test('W09 M6 positive after T6 merge: production P2 checkpoint/page/ack, CAS and
     await reopened.initialize();
     try{
       reopened.setVerifiedHostContext({...x.host,hostRunId:id(),worldEpoch:2});
-      await reopened.confirmTimeline(x.timelineId);
+      await reopened.confirmTimeline(x.timelineId,{confirmation:x.timelineId});
       const restored=await reopened.readM6Checkpoint({scope});
       assert.equal(restored.cursor,committed.cursor);
       const noReplayedRows=await reopened.readM6JournalPage({

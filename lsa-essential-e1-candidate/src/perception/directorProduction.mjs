@@ -1,4 +1,4 @@
-import {selectDirectorIntent,PS6_13A_EVENTS} from './sceneDirector.mjs';
+import {selectDirectorIntent,DIRECTOR_SPEECH_LIMITS,PS6_13A_EVENTS} from './sceneDirector.mjs';
 
 const speechTypes=new Set(PS6_13A_EVENTS);
 // Pure diagnostic classification only. Never creates witness evidence or a
@@ -20,6 +20,26 @@ export function directorCandidateBlockReason(candidates,facts) {
      c.decision?.expiresAtMonotonicMs<=facts?.nowMonotonicMs))
     return 'ps3_evidence_expired';
   return 'candidate_filtered';
+}
+import {traceCode} from '../observability/traceCode.mjs';
+
+// A decision key is selectable for at most routineCandidateTtlMs after its
+// observation revision was stored (selectDirectorIntent enforces the age), so
+// remembering an attempted key for 6x that window is exact replay protection.
+// The former ten-minute memory let 128 attempts fail-close the pump for up to
+// ten minutes. The native and companion admission ledgers stay authoritative.
+export const DIRECTOR_PUMP_SEEN_TTL_MS=DIRECTOR_SPEECH_LIMITS.routineCandidateTtlMs*6;
+// Pure pacing vetoes are retried while the original evidence is still fresh;
+// they never consume the original PS3 decision. Every other outcome is final.
+const PACING_DEFERRALS=new Set(['ticket_already_active','rate_limited','scene_or_speaker_cooldown']);
+// One-way correlation code of the original native event signal behind a
+// proposal; the same code is logged by perception_trace and the native log.
+export function proposalTraceCode(proposal,candidates) {
+  const candidate=(candidates||[]).find(c=>c?.observation?.observationId===proposal?.observationId &&
+    c.observation.revision===proposal.observationRevision);
+  const signalId=candidate?.observation?.claims?.find(c=>c?.certainty==='supported' &&
+    c.evidence?.channel!=='report' && typeof c.details?.eventSignalId==='string')?.details?.eventSignalId;
+  return traceCode(signalId)??null;
 }
 
 // Bounded companion-side source adapter. Runs only when the authenticated PS
@@ -79,13 +99,16 @@ export class DirectorObservationPump {
       this.seen.clear();this.lastDiagnostic=null;this.epoch=epoch;this.world=world;
     }
     if(!epoch || runtime.directorRequestVersion!==1){this.diagnose('channel_or_protocol_unavailable');return null;}
+    // A silent native owner fiber (text entry, pause) can still hold leases,
+    // but it can never be the basis of NEW speech authority.
+    if(typeof runtime.stalled==='function' && runtime.stalled()){this.diagnose('native_owner_stalled');return null;}
     const players=[...runtime.anchors.values()].filter(a=>a.kind==='player' && runtime.current(a.captureRef));
     if(players.length!==1){this.diagnose('player_anchor_unavailable');return null;}
     const player=players[0].captureRef,now=this.now();
     if(!Number.isSafeInteger(now) || now<0)return null;
     // Expire old attempted decisions; extended sessions must not permanently
     // exhaust a bounded 128-entry de-duplication table.
-    for(const [key,at] of this.seen)if(at<=now-600_000)this.seen.delete(key);
+    for(const [key,at] of this.seen)if(at<=now-DIRECTOR_PUMP_SEEN_TTL_MS)this.seen.delete(key);
     // Native observer membership and P2 owner lifetime are prerequisite
     // evidence. Never infer ownership from the latest conversation target.
     const eligible=[];
@@ -118,9 +141,19 @@ export class DirectorObservationPump {
     eligible.sort((a,b)=>(b.proposal.urgency==='urgent')-(a.proposal.urgency==='urgent') ||
       a.proposal.expiresAtMonotonicMs-b.proposal.expiresAtMonotonicMs ||
       a.proposal.observationId.localeCompare(b.proposal.observationId));
-    const selected=eligible[0];
+    // Read-only pacing pre-check (identical to reserve()'s synchronous pacing
+    // gates). A cooldown/rate/active-ticket veto defers the proposal without
+    // spending its key; previously the key was burned before the attempt.
+    let selected=null,deferred=null;
+    for(const item of eligible){
+      let pacing=null;
+      try {pacing=this.coordinator.pacingVeto?.(item.proposal)??null;}catch{pacing=null;}
+      if(pacing==='decision_already_attempted'){this.seen.set(item.proposal.decisionKey,now);continue;}
+      if(PACING_DEFERRALS.has(pacing)){deferred??=pacing;continue;}
+      selected=item;break;
+    }
     if(!selected){
-      this.diagnose(!owned?'no_owned_observer':!sourceOwners?'owner_proof_unavailable':
+      this.diagnose(deferred?'deferred_'+deferred:!owned?'no_owned_observer':!sourceOwners?'owner_proof_unavailable':
         !ps3Candidates?'no_ps3_response_candidate':filteredReason??'candidate_filtered');
       return null;
     }
@@ -148,6 +181,7 @@ export class DirectorObservationPump {
     // native/PS3/turn vetoes retain the existing one-shot no-replay behavior.
     this.seen.set(selected.proposal.decisionKey,now);
     this.inFlight=true;
+    const trace=proposalTraceCode(selected.proposal,selected.candidates);
     try {
       const outcome=await this.coordinator.attempt({
         candidates:selected.candidates,facts:selected.facts,stamp,
@@ -156,12 +190,12 @@ export class DirectorObservationPump {
       // Preserve the coordinator's status and execution behavior.
       const diagnosticReason=outcome?.status==='original_ps3_unavailable' ?
         (stamp?'original_ps3_entitlement_unverified':'stamp_unavailable'):null;
-      try {this.onResult(Object.freeze({...outcome,
-        ...(diagnosticReason?{diagnosticReason}:{}),
-        ...(speechTypes.has(eventType)?{eventType}:{})}));}catch{}
+      try {this.onResult(Object.freeze({...outcome,...(diagnosticReason?{diagnosticReason}:{}),
+        traceCode:trace,urgency:selected.proposal.urgency,
+         ...(speechTypes.has(eventType)?{eventType}:{})}));}catch{}
       return outcome;
     } catch {
-      const result=Object.freeze({status:'producer_failed',
+      const result=Object.freeze({status:'producer_failed',traceCode:trace,
         ...(speechTypes.has(eventType)?{eventType}:{})});
       try {this.onResult(result);}catch{}
       return result;

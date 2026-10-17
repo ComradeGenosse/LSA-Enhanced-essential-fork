@@ -158,7 +158,7 @@ export async function d01Harness(t,{config={},corroboration=true,roster={},pedId
   // C-13 verified host context + explicit timeline confirmation (user action).
   store.setVerifiedHostContext(client.runtime.hostContext);
   const timelineId=await store.createTimeline({label:'D01 offline acceptance'});
-  await store.confirmTimeline(timelineId);
+  await store.confirmTimeline(timelineId,{confirmation:timelineId});
   const {trustedNamespaces,...persistentIdentity}=f.config.persistentIdentity;
   const h=await stockHarness('openai',{identityEvidence:f.evidence,profileStore:store,
     nativeOwner:f.native,config:{persistentIdentity,promotedCharacters:f.config.promotedCharacters,

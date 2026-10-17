@@ -9,7 +9,8 @@
     "pipeName": "LSA.Intelligence.v1",
     "directorMode": "off",
     "radio": "off",
-    "directorAttemptPreset": "normal"
+    "directorAttemptPreset": "normal",
+    "protagonistEvidence": "off"
   },
   "activities": {
     "mode": "off",
@@ -21,5 +22,11 @@
     "pipeName": "LSA.Reactions.v1",
     "disabled": [],
     "allowDuringOwnedBehavior": false
+  },
+  "npcVoicePresence": {
+    "mode": "off",
+    "mouthEnabled": false,
+    "mouthOpenLevel": 0.015,
+    "levelLog": false
   }
 }

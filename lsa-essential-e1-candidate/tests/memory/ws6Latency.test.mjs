@@ -171,7 +171,7 @@ test('WS6 latency: disk P2 busy 10k, cold/restart M4 to PS4, original-runner pre
  const reopened=createEssentialMemoryStorage({filePath:x.store.filePath,worldProfileId,sourceRequired:true});
  try{
   await reopened.initialize();reopened.setVerifiedHostContext({hostContextVersion:1,hostRunId:randomUUID(),worldEpoch:2});
-  await reopened.confirmTimeline(scope.timelineId);
+  await reopened.confirmTimeline(scope.timelineId,{confirmation:scope.timelineId});
   const ready=performance.now();await run(reopened);
   console.log('WS6_LATENCY '+JSON.stringify({path:'disk_P2_M4_PS4_restart_busy_10000',n:1,
    reopenAndConfirmMs:ready-restartStart,firstRecallMs:performance.now()-ready}));

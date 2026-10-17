@@ -30,7 +30,7 @@ test('E2 storage-only bootstrap keeps mandatory privacy across all M2–M9 off, 
  let store=runtime.characterService.store;
  const npc=await store.create(profile()),timelineId=await store.createTimeline({label:'E2 independent'});
  const host={hostContextVersion:1,hostRunId:randomUUID(),worldEpoch:1};
- store.setVerifiedHostContext(host);await store.confirmTimeline(timelineId);
+ store.setVerifiedHostContext(host);await store.confirmTimeline(timelineId,{confirmation:timelineId});
  const scope={worldProfileId,characterId:npc.characterId,timelineId,protagonistKey:'franklin'};
  const recorder=createConversationJournalRecorder(store);
  const line=await recorder.recordPlayerAccepted({characterId:npc.characterId,
@@ -51,7 +51,7 @@ test('E2 storage-only bootstrap keeps mandatory privacy across all M2–M9 off, 
  assert.ok((await store.listSuppressedMemoryIds({...scope,protagonistKey:'trevor'})).includes(line.recordId));
  runtime=await runtime.restart();store=runtime.characterService.store;
  assertOff();assert.equal(store.timelineWritable,false,'restart cannot inherit source authorization');
- store.setVerifiedHostContext({...host,hostRunId:randomUUID()});await store.confirmTimeline(timelineId);
+ store.setVerifiedHostContext({...host,hostRunId:randomUUID()});await store.confirmTimeline(timelineId,{confirmation:timelineId});
  assert.ok((await store.listSuppressedMemoryIds({...scope,protagonistKey:'michael'})).includes(line.recordId));
  assert.deepEqual((await store.readCommittedEvidencePage({scope})).items,[]);
  store.setVerifiedHostContext(null);

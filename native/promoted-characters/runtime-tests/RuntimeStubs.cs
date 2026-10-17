@@ -99,6 +99,7 @@ namespace LSA.PromotedCharacters
         public LSA.Intelligence.OwnedParticipant[] PerceptionRoster()=>RosterOverride;
         public object SampleMemoryNativeAuthority()=>null;
         public object SampleMemoryCurrentOwnerPlayer()=>null;
+        internal void ConfigureVoicePresence(string mode,bool mouthEnabled=false,float openLevel=0.015f,bool levelLog=false) { }
         public void Prepare()
         {
             Interlocked.Increment(ref Prepared);PreparationThread=Thread.CurrentThread.ManagedThreadId;prepared=true;
@@ -136,7 +137,7 @@ namespace LSA.Intelligence
     public sealed class OwnedParticipant { public Rage.Ped Ped; public Func<object> PrimaryOwner; public Func<bool> Current; }
     public sealed class IntelligenceIntegration
     {
-        public IntelligenceIntegration(Func<OwnedParticipant[]> roster,string pipeName,LSA.PromotedCharacters.HostContext host=null,bool directorShadow=false,bool directorExperimental=false,string radioMode="off",int directorAttemptsPerMinute=4,Func<object> memoryAuthoritySample=null,Func<object> memoryCurrentOwnerPlayerSample=null,NativeProducerPolicy producerPolicy=null) { }
+        public IntelligenceIntegration(Func<OwnedParticipant[]> roster,string pipeName,LSA.PromotedCharacters.HostContext host=null,bool directorShadow=false,bool directorExperimental=false,string radioMode="off",int directorAttemptsPerMinute=4,Func<object> memoryAuthoritySample=null,Func<object> memoryCurrentOwnerPlayerSample=null,NativeProducerPolicy producerPolicy=null,bool protagonistEvidenceEnabled=false) { }
         public void OwnerRetired(string incarnationId) { }
         public void Shutdown() { }
         public void Shutdown(string reason) { }

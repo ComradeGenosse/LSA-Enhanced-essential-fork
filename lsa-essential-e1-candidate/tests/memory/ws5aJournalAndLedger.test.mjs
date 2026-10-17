@@ -28,7 +28,7 @@ async function setup(t){
   const a=await store.create(profile());
   const timelineId=await store.createTimeline({label:'ws5a'});
   store.setVerifiedHostContext(host);
-  await store.confirmTimeline(timelineId);
+  await store.confirmTimeline(timelineId,{confirmation:timelineId});
   const sessionId=journalIdentityUuid(['session',host.hostRunId,1,'17']);
   const attribution={sessionId,protagonist:'franklin',hostRunId:host.hostRunId,worldEpoch:1};
   const base={version:1,characterId:a.characterId,worldProfileId,timelineId,kind:'dialogue_line'};

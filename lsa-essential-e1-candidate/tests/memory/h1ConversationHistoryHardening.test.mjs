@@ -24,7 +24,7 @@ async function setup(t){
   const timelineId=await store.createTimeline({label:'H1-C original P2'});
   let host={hostContextVersion:1,hostRunId:uid(),worldEpoch:1};
   store.setVerifiedHostContext(host);
-  await store.confirmTimeline(timelineId);
+  await store.confirmTimeline(timelineId,{confirmation:timelineId});
   let index=0;
   const identity=()=>({pedId:'101',turnId:'h1c-'+ ++index,generationId:'gen-1',sessionNonce:'h1c-session'});
   const record=async(person,text,{avatar='franklin',source='typed',secondsAgo=0,npc=false}={})=>{
@@ -56,7 +56,7 @@ async function setup(t){
     await store.initialize();
     host={hostContextVersion:1,hostRunId:uid(),worldEpoch:host.worldEpoch+1};
     store.setVerifiedHostContext(host);
-    await store.confirmTimeline(timelineId);
+    await store.confirmTimeline(timelineId,{confirmation:timelineId});
   };
   return {people,scope,args,record,privacy,restart,get store(){return store;},timelineId};
 }

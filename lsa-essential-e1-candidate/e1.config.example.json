@@ -12,10 +12,6 @@
     "pipeName": "LSA.Activities.v1",
     "dialogueReceipts": false
   },
-  "reactions": {
-    "mode": "off",
-    "pipeName": "LSA.Reactions.v1"
-  },
   "persistentIdentity": {
     "enabled": false,
     "mode": "shadow",
@@ -33,9 +29,6 @@
     "pipeName": "LSA.PromotedCharacters.v1",
     "editorPort": 37921,
     "summonWaitMs": 30000
-  },
-  "memoryK": {
-    "capabilities": {}
   },
   "dialogueLogging": {
     "enabled": false,
@@ -64,6 +57,7 @@
   ],
   "voiceAssignment": "character-aware-session",
   "ttsSpeed": 1,
+  "ttsVolume": 1,
   "actingEnabled": true,
   "maxOutputTokens": 300,
   "providerWorkDeadlineMs": 45000,
@@ -132,5 +126,23 @@
   "spontaneousSpeech": {
     "mode": "off",
     "preset": "normal"
+  },
+  "speechProvider": "openai",
+  "elevenLabs": {
+    "modelId": "eleven_v4_turbo",
+    "voices": {}
+  },
+  "expressiveDelivery": {
+    "mode": "off",
+    "intensity": "subtle",
+    "maxTaggedSegmentsPerTurn": 2,
+    "lunaDeliveryVersion": 0
+  },
+  "reactions": {
+    "mode": "off",
+    "pipeName": "LSA.Reactions.v1"
+  },
+  "memoryK": {
+    "capabilities": {}
   }
 }

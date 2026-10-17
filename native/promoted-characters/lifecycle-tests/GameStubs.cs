@@ -233,7 +233,7 @@ namespace LSA.Intelligence
         // actual production source authority remains in native/intelligence/.
         public IntelligenceIntegration(Func<OwnedParticipant[]> roster,string pipeName,LSA.PromotedCharacters.HostContext host,
             bool directorShadow,bool directorExperimental,string radioMode,int maxAttemptsPerMinute,
-            Func<object> sampleNativeAuthority,Func<object> sampleOwnerPlayer,object producerPolicy) { }
+            Func<object> sampleNativeAuthority,Func<object> sampleOwnerPlayer,object producerPolicy,bool protagonistEvidenceEnabled=false) { }
         public void OwnerRetired(string incarnationId) { }
         public void Initialize() { }
         internal void Shutdown(string reason) { }

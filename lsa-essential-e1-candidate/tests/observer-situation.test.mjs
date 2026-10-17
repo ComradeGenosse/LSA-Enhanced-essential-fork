@@ -9,7 +9,10 @@ const fixture=(options={})=>{
   assert.equal(runtime.ingest(hello,{authenticated:true}),true);let sequence=0;const captureRef=randomUUID();
   const send=(type,payload)=>runtime.ingest({version:1,type,adapterEpoch:hello.adapterEpoch,streamId:hello.streamId,sequence:++sequence,payload},{authenticated:true});
   send('anchors',[{captureRef,kind:'ped',observer:true,owned:options.owned===true}]);send('observer_index',[{captureRef,kind:'ped',owned:options.owned===true,...(options.owned?{encounterId:randomUUID(),incarnationId:randomUUID()}:{})}]);
-  return {runtime,captureRef,send,setNow:value=>{now=value;}};
+  // Keep the native stream active (no-op frames) while leases age; a silent
+  // owner fiber alone is a bounded stall that pauses leases.
+  const age=ms=>{for(let step=0;step<ms;step+=500){now+=500;send('retire_batch',[]);}};
+  return {runtime,captureRef,send,age,setNow:value=>{now=value;}};
 };
 test('qualified physical situation feeds PS3 and preserves original paired inputs',()=>{
   const f=fixture();assert.equal(f.send('observer_situation',[{captureRef:f.captureRef,sampledGameTick:10,activity:'driving',situationRevision:1}]),true);
@@ -21,7 +24,9 @@ test('qualified physical situation feeds PS3 and preserves original paired input
   f.runtime.salience.decisions.clear();assert.equal(f.runtime.salience.snapshotForObserver(f.captureRef,f.runtime.observations)[0].situation.activity,'conversation');
 });
 test('sample expiry and retirement cannot leave a fabricated physical mode',()=>{
-  const f=fixture();f.send('observer_situation',[{captureRef:f.captureRef,sampledGameTick:10,activity:'passenger',situationRevision:1}]);f.setNow(3002);assert.equal(f.runtime.situationFor(f.captureRef).activity,'unknown');
+  const f=fixture();f.send('observer_situation',[{captureRef:f.captureRef,sampledGameTick:10,activity:'passenger',situationRevision:1}]);
+  f.setNow(3002);assert.equal(f.runtime.situationFor(f.captureRef).activity,'passenger');
+  f.age(3500);assert.equal(f.runtime.situationFor(f.captureRef).activity,'unknown');
   f.runtime.retire(f.captureRef);assert.equal(f.runtime.observerSituations.size,0);
 });
 test('self injury_state is observer knowledge with its supported target and sampled basis',()=>{
@@ -63,7 +68,7 @@ test('qualified C06 ownership reaches frozen salience inputs without turning con
  const original=f.runtime.salience.snapshotForObserver(f.captureRef,f.runtime.observations)[0];assert.equal(original.situation.primaryOwner.mode,'wait');assert.ok(Object.isFrozen(original.situation.primaryOwner));
  f.send('observer_situation',[{captureRef:f.captureRef,sampledGameTick:11,activity:'following',situationRevision:2,primaryOwner:{owner:'essential_residual',mode:'follow',since:11}}]);
  assert.equal(original.situation.primaryOwner.owner,'p2');assert.equal(f.runtime.salience.snapshotForObserver(f.captureRef,f.runtime.observations)[0].situation.primaryOwner.owner,'essential_residual');
- f.setNow(3002);assert.equal(f.runtime.situationFor(f.captureRef).primaryOwner,null);
+ f.age(3500);assert.equal(f.runtime.situationFor(f.captureRef).primaryOwner,null);
 });
 test('C06 ownership rejects legacy/unowned and malformed association',()=>{
  const row=f=>({captureRef:f.captureRef,sampledGameTick:10,activity:'unknown',situationRevision:1,primaryOwner:{owner:'act',mode:'activity',since:10}});
@@ -88,7 +93,7 @@ test('native source P2 proof revision preserves exact incarnation and rejects st
  assert.equal(f.send('observer_situation',[row(5,2)]),true);
  assert.equal(original.proofRevision,3);
  assert.equal(f.runtime.directorOwnerProofFor(f.captureRef).proofRevision,5);
- f.setNow(3002);
+ f.age(3500);
  assert.equal(f.runtime.directorOwnerProofFor(f.captureRef),null);
  f.runtime.retire(f.captureRef);
  assert.equal(f.runtime.directorOwnerProofFor(f.captureRef),null);

@@ -1,5 +1,16 @@
 import {assertDirectorSpeechDecision} from '../perception/directorDecisionGuard.mjs';
+import {scalePcm16} from '../voice/pcmVolume.mjs';
+import {createSpeechDeliveryResolver} from '../voice/emotion/resolveSpeechDelivery.mjs';
+const ELEVENLABS_MAX_NATIVE_LEAD_MS=900;
+const ELEVENLABS_PACE_POLL_MS=50;
+const PCM_BYTES_PER_MS=24_000*2/1_000;
 const PLAYER_SOURCES = new Set(['player_text', 'player_mic']);
+// Closed vocabulary for the single, content-free PCM forward-failure event.
+const SAFE_PCM_FAILURES = new Set([
+  'native_rejected', 'native_authorization_rejected', 'chunk_after_end',
+  'stale_or_cancelled', 'provider_attempt_inactive', 'streaming_pcm_limit',
+  'cancelled', 'superseded', 'disconnected',
+]);
 const RECOVERABLE_PRE_SEND = new Set(['memory_stale','recall_stale','opinion_stale']);
 // Only optional context invalidation may cause a rebuilt request. Identity,
 // provider, native and post-send privacy failures are never replayed.
@@ -30,7 +41,7 @@ function terminalForAbort(signal) {
 function terminalForError(error, stage) {
   const code = String(error?.code || '').toLowerCase();
   const message = String(error?.message || '').toLowerCase();
-  if (['invalid_response','incomplete_response','response_too_large'].includes(code)) return 'invalid_decision';
+  if (['invalid_response','incomplete_response','response_too_large'].includes(code) || code.startsWith('segment_')) return 'invalid_decision';
   if (['timeout','attempt_timeout','deadline_exceeded'].includes(code) || message.includes('deadline')) return 'provider_timeout';
   if (message.includes('refused')) return 'model_refusal';
   if (message.includes('invalid decision') || message.includes('decision must') || message.includes('decision fields') ||
@@ -76,6 +87,8 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
   let authorization;
   let retired = false;
   let endSent = false;
+  let nativePlaybackStartedAt = null;
+  let playbackCommitted = false;
   let providerTimer = null;
   const metrics = host.telemetry?.beginTurn(identity, source, { inputChars: String(input || '').length, bytes: pcm?.byteLength || 0, sampleRate: sampleRate || 0 }) || null;
 
@@ -84,6 +97,11 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
   const transition = next => { state = next; metrics?.stage(next); notifyVoice('stage', identity, next); host.log?.(identity, next, { source }); };
   const chooseTerminal = reason => { if (!terminalReason) terminalReason = reason; return terminalReason; };
   const valid = () => !retired && !controller.signal.aborted && host.isCurrent(identity);
+  const expressiveDelivery = createSpeechDeliveryResolver({
+    config: services.config, identity, source, turn,
+    adapter: services.emotionalActing, telemetry: metrics, isActive: valid,
+  });
+  const renderedDeliveries = [];
   const check = () => {
     if (valid()) return;
     if (!controller.signal.aborted && !host.isCurrent(identity)) chooseTerminal('superseded');
@@ -167,6 +185,8 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
     } catch { try { metrics?.event('memory_journal_not_committed', { role: 'npc' }); } catch {} }
   };
   let nativeHandoffStarted = false;
+  // ElevenLabs text submission can bill before PCM. No automatic retry.
+  const canRetryTts=()=>!nativeHandoffStarted && services.config.speechProvider!=='elevenlabs';
   let pcmBytesTotal = 0;
   let pcmChunksTotal = 0;
   const forwardPcm = async (chunk, isActive = () => true) => {
@@ -176,6 +196,17 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
     if (services.config.structuredStreamingEnabled === true && services.config.earlyTtsEnabled === true &&
         pcmBytesTotal + chunk.byteLength > services.config.streamingMaxPcmBytes) {
       throw Object.assign(new Error('streaming_pcm_limit'), { code: 'streaming_pcm_limit' });
+    }
+    if(services.config.speechProvider==='elevenlabs') {
+      while(true) {
+        if(!isActive())throw new Error('provider_attempt_inactive');
+        check();
+        const playedMs=nativePlaybackStartedAt===null?0:Math.max(0,performance.now()-nativePlaybackStartedAt);
+        const aheadMs=pcmBytesTotal/PCM_BYTES_PER_MS-playedMs;
+        if(aheadMs<=ELEVENLABS_MAX_NATIVE_LEAD_MS)break;
+        await new Promise(resolve=>setTimeout(resolve,
+          Math.max(1,Math.min(ELEVENLABS_PACE_POLL_MS,aheadMs-ELEVENLABS_MAX_NATIVE_LEAD_MS))));
+      }
     }
     if (!nativeHandoffStarted) {
       nativeHandoffStarted = true;
@@ -197,11 +228,25 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
     }
     await authorization;
     check();
-    await emit({ type: 'audio', chunk });
-    pcmBytesTotal += chunk.byteLength;
-    pcmChunksTotal += 1;
-    metrics?.audioPcm(chunk.byteLength);
-    check();
+    // One gain stage after either TTS provider, before native playback.
+    try {
+      await emit({ type: 'audio', chunk:scalePcm16(chunk,services.config.ttsVolume??1) });
+      pcmBytesTotal += chunk.byteLength;
+      pcmChunksTotal += 1;
+      metrics?.audioPcm(chunk.byteLength);
+      check();
+    } catch (error) {
+      // Record the callback/native failure category once, without exposing
+      // dialogue, vendor responses, API credentials or arbitrary error text.
+      const cause = String(error?.code || error?.message || '');
+      const reason = SAFE_PCM_FAILURES.has(cause) ? cause : 'unclassified_pcm_forward_error';
+      metrics?.event('native_pcm_forward_failed', {
+        reason, chunkBytes: chunk.byteLength,
+        forwardedBytes: pcmBytesTotal, forwardedChunks: pcmChunksTotal,
+        playbackStarted: nativePlaybackStartedAt !== null,
+      });
+      throw error;
+    }
   };
   try {
     check();
@@ -230,6 +275,7 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
       };
       const type = map[event.type];
       if (!type) return;
+      if(event.type==='playback_started')nativePlaybackStartedAt=performance.now();
       dialogueTurn?.native({ type: event.type, reason: event.reason || null, wasInterrupted: event.wasInterrupted ?? null, hadAudio: event.hadAudio ?? null, playbackStarted: event.playbackStarted ?? null });
       const key = type === 'native_playback_started' ? 'playbackStartedCount' : type === 'native_playback_ended' ? 'playbackEndedCount' : type === 'native_authorization_accepted' ? 'authorizationAcceptedCount' : 'authorizationRejectedCount';
       metrics?.count(key);
@@ -406,16 +452,21 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
     const spokenTtsSegments = []; // exact accepted speech-provider source strings
     let streamMode = null;
     let earlyAudio = null;
+    let bufferedLunaHint=null;
+    const lunaDeliveryVersion=services.config.expressiveDelivery?.mode==='experimental'
+      ?services.config.expressiveDelivery.lunaDeliveryVersion??0:0;
     if (services.config.structuredStreamingEnabled === true) {
       const allowEarlyTts = services.config.earlyTtsEnabled === true;
       const modelOptions = ({ signal, timeoutMs, telemetry, dialogueAttempt }) => services.providerStack.decideStreaming({
         identity, context: reasoningContext(), source,knowledgeProjection:turn.knowledgeProjection,knowledgeDelivery:turn.knowledgeDelivery,
         input: isPlayer ? finalInput : '', history: priorHistory, signal, timeoutMs, telemetry, dialogueAttempt,
+        lunaDeliveryVersion,
       });
       if (!allowEarlyTts) {
         const result = await performProvider('model', services.providerStack.reasoning.id, modelOptions);
         decision = result.decision;
         streamMode = result.mode;
+        if(result.segments?.length===1)bufferedLunaHint=result.segments[0].delivery??null;
       } else {
         let queueClosed = false;
         let queueFailure = null;
@@ -454,15 +505,18 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
             const ledgerIndex = Number.isSafeInteger(segment.sequence) && segment.sequence > 0
               ? segment.sequence - 1 : null; // invalid ordinals fail closed in the ledger
             try { ledgerSegment = speech?.beginSegment({ sequence: ledgerIndex, text: segment.text }) ?? null; } catch { ledgerSegment = null; }
+            const delivery=expressiveDelivery.forSegment({text:segment.text,sequence:segment.sequence,lunaHint:segment.delivery});
             let audio;
             try {
               audio = await performProvider('tts', services.providerStack.speech.id,
                 ({ signal, timeoutMs, telemetry, isActive: active }) => services.speak({
-                  identity, dialogue: segment.text, speechProfile: turn.speechProfile, signal, timeoutMs, telemetry,
+                  identity, dialogue: segment.text, ...(delivery?{delivery}:{}), speechProfile: turn.speechProfile, signal, timeoutMs, telemetry,
+                  playbackStartedAt:()=>nativePlaybackStartedAt,
                   onPcm: chunk => forwardPcm(chunk, active).then(() => { try { ledgerSegment?.forwarded(chunk.byteLength); } catch {} }),
-                }), () => !nativeHandoffStarted);
+                }), canRetryTts);
               if (!audio?.bytes) throw new Error('empty_segment_audio');
               if (audio.discardedTrailingByte) throw Object.assign(new Error('partial_pcm16_sample'), { code: 'partial_pcm16_sample' });
+              if(delivery)renderedDeliveries.push({delivery,providerResult:audio});
             } catch (error) {
               try { ledgerSegment?.failed(); } catch {}
               throw error;
@@ -485,6 +539,7 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
           ({ signal, timeoutMs, telemetry, isActive, dialogueAttempt }) => services.providerStack.decideStreaming({
             identity, context: reasoningContext(), source,knowledgeProjection:turn.knowledgeProjection,knowledgeDelivery:turn.knowledgeDelivery,
             input: isPlayer ? finalInput : '', history: priorHistory, signal, timeoutMs, telemetry, dialogueAttempt,
+             lunaDeliveryVersion,
             onSegment: async (segment, mode) => {
               if (!isActive()) throw new Error('provider_attempt_inactive');
               check();
@@ -504,6 +559,7 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
           const result = await modelTask;
           decision = result.decision;
           streamMode = result.mode;
+          if(result.segments?.length===1)bufferedLunaHint=result.segments[0].delivery??null;
           recordReasoningSuccess(decision);
           closeQueue();
           // A final command is invalid in dialogue_only mode (also checked by the
@@ -565,13 +621,16 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
     const successfulEarlySpeech = !!audio && spokenTtsSegments.length>0;
     let bufferedSegment = null;
     if (!audio) {
+       const delivery=expressiveDelivery.forSegment({text:decision.dialogue,sequence:1,lunaHint:bufferedLunaHint});
       try { bufferedSegment = speech?.beginSegment({ sequence: 0, text: decision.dialogue }) ?? null; } catch { bufferedSegment = null; }
       try {
         audio = await performProvider('tts', services.providerStack?.speech.id || 'openai.speech',
           ({ signal, timeoutMs, telemetry, isActive }) => services.speak({
-            identity, dialogue: decision.dialogue, speechProfile: turn.speechProfile, signal, timeoutMs, telemetry,
+            identity, dialogue: decision.dialogue, ...(delivery?{delivery}:{}), speechProfile: turn.speechProfile, signal, timeoutMs, telemetry,
+             playbackStartedAt:()=>nativePlaybackStartedAt,
             onPcm: chunk => forwardPcm(chunk, isActive).then(() => { try { bufferedSegment?.forwarded(chunk.byteLength); } catch {} }),
-          }), () => !hasAction && !nativeHandoffStarted);
+          }), () => !hasAction && canRetryTts());
+        if(audio?.bytes&&delivery)renderedDeliveries.push({delivery,providerResult:audio});
       } catch (error) {
         try { bufferedSegment?.failed(); } catch {}
         throw error;
@@ -612,7 +671,10 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
     }
     chooseTerminal('completed');
     if (!history.acceptPlaybackResult({ ...result, playbackSucceeded: true })) throw new Error('history_commit_rejected');
+    playbackCommitted=true;
     try { speech?.historyAccepted(result); } catch { /* evidence only */ }
+    for(const {delivery,providerResult} of renderedDeliveries)expressiveDelivery.synthesized(delivery,result,providerResult);
+    expressiveDelivery.complete(result,{historyAccepted:true});
     // Only a native terminal receipt that RAM history also admitted, with every
     // PCM chunk counted by the ledger, can classify the line `completed`. D03
     // reads that evidence itself: nothing here supplies text or a status.
@@ -661,6 +723,7 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
     metrics?.finish({ reason: terminalReason, stage: stageAtFailure, cause, assistantCommitted: false });
     return { status: state, terminalReason, stage: state, cause };
   } finally {
+    expressiveDelivery.retire(playbackCommitted);
     retired = true;
     // Any awaited D03 write has settled by now; drop the receipt and lease.
     try { acceptance?.release(); } catch {}

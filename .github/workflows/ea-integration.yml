@@ -1,0 +1,162 @@
+name: EA0-EA9 Exact-Head Offline Acceptance
+
+on:
+  push:
+    branches:
+      - integration/elevenlabs-emotional-acting-ea0-ea4-20261011
+      - 'integration/*emotional*'
+      - 'feature/ea-final-*'
+      - 'fix/ea-final-*'
+  pull_request:
+    branches:
+      - integration/elevenlabs-emotional-acting-ea0-ea4-20261011
+      - 'integration/*emotional*'
+      - 'feature/ea-final-h-unified-player-emotions-20261011'
+      - plan/elevenlabs-v4-emotional-acting-20261011
+      - feature/elevenlabs-v4-tts-provider-20261011
+  workflow_dispatch:
+    inputs:
+      require_combined:
+        description: 'Fail if any EA0-EA9 suite is absent (Agent F release gate)'
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ea9-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  EA_EXPECTED_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+  ELEVENLABS_API_KEY: ''
+  LSA_EA9_BILLING_APPROVED: '0'
+  LSA_CI_FAILURE_DETAILS: '1'
+
+jobs:
+  offline-node24:
+    name: Node 24 EA matrix / full Essential / Python (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.EA_EXPECTED_HEAD }}
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Establish exact source provenance
+        shell: bash
+        run: |
+          test "$(git rev-parse HEAD)" = "$EA_EXPECTED_HEAD"
+          node --version
+          git status --short
+      - name: Compile Windows C-05 test helper
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: dotnet build native/activities/tests/ActivityTests.csproj --configuration Debug
+      - name: EA0-EA9 acceptance matrix with blocked/missing phase evidence
+        shell: bash
+        run: node tools/ea9/matrix.mjs --run --expected-head "$EA_EXPECTED_HEAD" --report ea9-matrix-report.json
+      - name: Enforce all EA phases for manual F combined-head acceptance
+        if: ${{ inputs.require_combined == true || github.head_ref == 'integration/elevenlabs-emotional-acting-final-20261011' || github.ref_name == 'integration/elevenlabs-emotional-acting-final-20261011' || github.head_ref == 'integration/elevenlabs-emotional-acting-consolidated-20261012' || github.ref_name == 'integration/elevenlabs-emotional-acting-consolidated-20261012' }}
+        shell: bash
+        run: node tools/ea9/matrix.mjs --require-combined --expected-head "$EA_EXPECTED_HEAD" --report ea9-combined-readiness.json
+      - name: Full Essential offline Node suite
+        working-directory: lsa-essential-e1-candidate
+        run: npm test
+      - name: Cross-module isolated Python harness
+        shell: bash
+        run: python tools/isolated-offline-tests/run.py "$GITHUB_WORKSPACE/lsa-essential-e1-candidate"
+      - name: Publish per-platform exact-head evidence even on failure
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ea9-node24-${{ matrix.os }}-${{ env.EA_EXPECTED_HEAD }}
+          path: |
+            ea9-matrix-report.json
+            ea9-combined-readiness.json
+          if-no-files-found: warn
+
+  legacy-json:
+    name: Node 22 legacy JSON startup (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.EA_EXPECTED_HEAD }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify HEAD and legacy JSON behavior without SQLite
+        shell: bash
+        run: |
+          test "$(git rev-parse HEAD)" = "$EA_EXPECTED_HEAD"
+          node --version
+          cd lsa-essential-e1-candidate
+          node --test tests/p2-authority.test.mjs tests/p2-contract.test.mjs tests/character-aware-voice-connection.test.mjs
+
+  native-windows:
+    name: Production pinned native / ABI / ACT / PS / C-05 / EA5
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.EA_EXPECTED_HEAD }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Exact source identity
+        shell: bash
+        run: test "$(git rev-parse HEAD)" = "$EA_EXPECTED_HEAD"
+      - name: Compile production native against pinned RPH, RNUI and DamageTracker SDKs
+        shell: bash
+        run: node tools/native-sdk/compileProductionNative.mjs
+      - name: Assert Essential Core ABI against pinned DLL
+        shell: pwsh
+        run: dotnet run --project tools/essential-abi/EssentialAbi.csproj -c Release
+      - name: C-05 / ACT contracts
+        shell: pwsh
+        run: |
+          dotnet build native/activities/tests/ActivityTests.csproj -c Debug
+          & .\native\activities\tests\bin\Debug\net481\ActivityTests.exe
+      - name: Intelligence owner / PS contracts
+        shell: pwsh
+        run: |
+          dotnet build native/intelligence/tests/IntelligenceTests.csproj -c Debug
+          & .\native\intelligence\tests\bin\Debug\net481\IntelligenceTests.exe
+      - name: PS6 director native admission
+        shell: pwsh
+        run: |
+          dotnet build native/intelligence/director-tests/DirectorTests.csproj -c Debug
+          & .\native\intelligence\director-tests\bin\Debug\net481\DirectorTests.exe
+      - name: P2 native owner lifecycle
+        shell: pwsh
+        run: |
+          dotnet build native/promoted-characters/lifecycle-tests/LifecycleTests.csproj -c Debug
+          & .\native\promoted-characters\lifecycle-tests\bin\Debug\net481\LifecycleTests.exe
+      - name: Native host epoch/reset
+        shell: pwsh
+        run: |
+          dotnet build native/promoted-characters/host-context-tests/HostContextTests.csproj -c Debug
+          & .\native\promoted-characters\host-context-tests\bin\Debug\net481\HostContextTests.exe
+      - name: Native PS integration / EA5 source-backed tests
+        shell: pwsh
+        run: |
+          dotnet build native/intelligence/integration-tests/IntegrationTests.csproj -c Debug
+          & .\native\intelligence\integration-tests\bin\Debug\net481\IntegrationTests.exe
+      - name: Native input controller regression
+        shell: pwsh
+        run: dotnet run --project native/enhanced/input-tests/InputTests.csproj -c Release

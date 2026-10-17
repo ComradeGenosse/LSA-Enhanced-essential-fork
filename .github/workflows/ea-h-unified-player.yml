@@ -1,0 +1,44 @@
+name: EA-H Unified Player and Native Source Regression
+
+on:
+  push:
+    branches:
+      - fix/ea-final-h-completion-audit-20261012
+  pull_request:
+    branches:
+      - feature/ea-final-h-unified-player-emotions-20261011
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  unified-player:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Syntax-check source touched by Agent H
+        run: |
+          node --check lsa-essential-e1-candidate/src/voice/emotion/moodRuntime.mjs
+          node --check lsa-essential-e1-candidate/src/voice/emotion/moodStore.mjs
+          node --check lsa-essential-e1-candidate/src/perception/intelligenceClient.mjs
+      - name: H unified-player, C-13 and audible mood regressions
+        working-directory: lsa-essential-e1-candidate
+        run: >-
+          node --test
+          tests/ea-final-h-unified-player.test.mjs
+          tests/emotional-mood-continuity.test.mjs
+          tests/ea4-runtime-integration.test.mjs
+          tests/ea7-emotional-continuity-completion.test.mjs
+          tests/ea5-native-protagonist-authority.test.mjs
+          tests/ea-final-a-native-intake.test.mjs
+          tests/ea-final-c-emotional-delivery.test.mjs
+          tests/ea-final-integration-wiring.test.mjs
+          tests/ea8-elevenlabs-provider-safety.test.mjs
