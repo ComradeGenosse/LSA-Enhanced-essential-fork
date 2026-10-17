@@ -133,6 +133,27 @@ function similarity(row,terms,searchTerms,nowMs,focusKind,speaker,anchoredIds) {
   const lexical=exact?12*exact/Math.max(1,terms.length)+exact:6+Math.min(related,2);
   return lexical+recency+(row.sourceKind==='dialogue_line'&&focusKind==='dialogue_line'?2:0);
 }
+// Prefer explicit, authenticated player facts when the user asks for a set of
+// pet names. A prior NPC reply about forgotten names is not an original fact.
+// These patterns affect selection order only; they never create memory claims.
+const PET_NAME_ASSERTIONS=[
+  /\b(?:dogs?|corgis?|pomsk(?:y|ies)|pupp(?:y|ies)|pets?|cats?)\s+(?:named|called)\s+[A-Z][a-z]{2,31}\b/,
+  /\b(?:my|our|the)\s+(?:(?:two|three|four|\d+|other|more)\s+){0,3}(?:dogs?|corgis?|pomsk(?:y|ies)|pupp(?:y|ies)|pets?|cats?)\s+[A-Z][a-z]{2,31}\b/,
+  /\b[A-Z][a-z]{2,31}(?:['’]s|\s+(?:is|was))\s+(?:(?:my|our|a|an|the)\s+)?(?:dogs?|corgis?|pomsk(?:y|ies)|pupp(?:y|ies)|pets?|cats?)\b/,
+  /\b[A-Z][a-z]{2,31}(?:\s+(?:and|,)\s+[A-Z][a-z]{2,31}){0,3}\s+(?:are|were)\s+(?:(?:my|our|the)\s+)?(?:(?:two|three|four|\d+)\s+)?(?:dogs?|corgis?|pomsk(?:y|ies)|pupp(?:y|ies)|pets?|cats?)\b/,
+  /\b(?:my|our)\s+(?:dogs?|corgis?|pomsk(?:y|ies)|pupp(?:y|ies)|pets?|cats?)\s+(?:are|were|is|was)\s+(?:(?:named|called)\s+)?[A-Z][a-z]{2,31}\b/
+];
+const RELATED_NAME_LIST=/^\s*[A-Z][a-z]{2,31}(?:,\s*(?:and\s+)?[A-Z][a-z]{2,31}|\s+and\s+[A-Z][a-z]{2,31}){1,7}\.?\s*$/;
+function playerPetFactBoost(row,petNamesQuestion){
+  if(!petNamesQuestion||row.sourceKind!=='dialogue_line'||row.envelope?.speaker!=='player')return 0;
+  const content=row.content;
+  // Questions about a fact, including the current user's older questions,
+  // must not crowd out statements actually supplying that fact.
+  if(content.includes('?'))return 0;
+  if(PET_NAME_ASSERTIONS.some(pattern=>pattern.test(content))||
+     (row.contextAnchorId&&RELATED_NAME_LIST.test(content)))return 24;
+  return 4; // Other player statements still outrank an NPC's retelling at equal relevance.
+}
 function emptyBundle(query,status) {
   return sealRecallBundle({version:1,characterId:query.characterId,worldProfileId:query.worldProfileId,timelineId:query.timelineId,kind:'recall_bundle',queryId:query.queryId,status,items:[],coverage:{status,returnedCount:0,matchedCount:0},totalBytes:0},query.maxBytes);
 }
@@ -190,6 +211,7 @@ export async function recallMemory({query,readAdapter,protagonistKey,nowUtc=new 
   const expandDialogueContext=terms.length>0&&focusKind===null&&speaker===null&&
     /\b(?:all|every|each|list|names?|which|remember.*(?:dogs?|pets?))\b/i.test(query.question);
   const expandRelatedFacts=expandDialogueContext&&!window.fromUtc&&!window.toUtc;
+  const petNamesQuestion=expandRelatedFacts&&terms.some(term=>PET_GROUPS[1].includes(term));
   let result;
   try{result=await readAdapter.read({scope,terms:searchTerms,fromUtc:window.fromUtc,toUtc:window.toUtc,
     sourceKind:focusKind,speaker,limit:384,expandDialogueContext,expandRelatedFacts});}
@@ -203,7 +225,8 @@ export async function recallMemory({query,readAdapter,protagonistKey,nowUtc=new 
     searchTerms.some(t=>tokenize(row.content).includes(t))).map(row=>row.recordId));
   const sortRecent=/\b(last|latest|most recent|just|earlier today)\b/i.test(query.question);
   const sortOldest=/\b(first|earliest|oldest)\b/i.test(query.question);
-  rows=rows.map(row=>({...row,score:similarity(row,terms,searchTerms,nowMs,focusKind,speaker,anchoredIds)}))
+  rows=rows.map(row=>({...row,score:similarity(row,terms,searchTerms,nowMs,focusKind,speaker,anchoredIds)+
+    playerPetFactBoost(row,petNamesQuestion)}))
     .filter(row=>Number.isFinite(row.score))
     .sort((a,b)=>(sortRecent||sortOldest?0:b.score-a.score)||(sortOldest?a.atMs-b.atMs:b.atMs-a.atMs)||a.recordId.localeCompare(b.recordId));
   const distinct=new Set();rows=rows.filter(r=>{if(distinct.has(r.recordId))return false;distinct.add(r.recordId);return true;});
