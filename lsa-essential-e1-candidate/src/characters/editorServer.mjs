@@ -14,7 +14,7 @@ function editorHtml(token, summonWaitMs) {
   return `<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>LSA Characters</title>
 <style>body{font:16px system-ui;background:#151b24;color:#e4eaf4;max-width:1100px;margin:32px auto;padding:0 20px}button,input,textarea,select{font:inherit;padding:8px;margin:5px 0;border-radius:5px;border:1px solid #596779;background:#202a38;color:inherit}button{cursor:pointer}main{display:grid;grid-template-columns:260px 1fr;gap:24px}label{display:block}input,textarea{box-sizing:border-box;width:100%}textarea{min-height:65px}#list button{display:block;width:100%;text-align:left}.controls{display:flex;gap:8px;flex-wrap:wrap}.danger{border-color:#da6373}#status{white-space:pre-wrap}small{color:#aebcce}@media(max-width:700px){main{display:block}}</style>
 <h1>LSA Characters</h1><p>Promote the NPC currently selected in Essential, then keep their character, voice, and memories between game sessions.</p>
-<div class="controls"><button id="promote">Promote current NPC</button><button id="refresh">Refresh</button></div><p id="status" role="status"></p>
+<div class="controls"><button id="promote">Promote current NPC</button><button id="refresh">Refresh</button><button id="socialStart" type="button">NPC: start a conversation</button></div><p id="status" role="status"></p>
 <p id="memoryStatus" role="status"></p>
 <details id="exportPanel" hidden><summary>Back up current SQLite profiles</summary>
 <p><small>Creates a NEW rollback snapshot; never overwrites existing JSON. This is not an automatic rollback and does not contain future episodic journals.</small></p>
@@ -91,6 +91,11 @@ $('memories').replaceChildren();for(const memory of profile.memories){const bloc
 async function refresh(id=current?.characterId){profiles=await api('list');$('list').replaceChildren();for(const profile of profiles){const button=document.createElement('button');button.textContent=profile.name+' · '+profile.runtimeStatus;button.onclick=()=>select(profile);$('list').append(button);}const profile=profiles.find(item=>item.characterId===id);if(profile)select(profile);else {$('detail').hidden=true;current=null;inspectorReset();}}
 function editMemory(memory){editingMemory=memory.memoryId;const form=$('memory');form.elements.text.value=memory.text;form.elements.category.value=memory.category;form.elements.importance.value=memory.importance;form.elements.selected.checked=memory.selectedForContext;form.querySelector('button').textContent='Save memory';form.scrollIntoView({behavior:'smooth'});}
 $('promote').onclick=()=>run(async()=>{const profile=await api('promote');await refresh(profile.characterId);});$('refresh').onclick=()=>run(()=>refresh());
+$('socialStart').onclick=()=>run(async()=>{
+  const result=await api('director_social_manual');
+  if(!result.queued)throw Error('native_director_unavailable');
+  status('Manual invitation queued for native validation. In GTA, select the promoted NPC and watch the Director diagnostics for admission or rejection.');
+});
 for(const operation of ['summon','follow','wait','dismiss','despawn']){const button=document.createElement('button');button.textContent=operation[0].toUpperCase()+operation.slice(1);button.onclick=()=>operation==='summon'?summon(button):run(async()=>{await api('control',{characterId:current.characterId,operation});await refresh(current.characterId);});$('controls').append(button);}
 async function summon(button){if(summonPending||!current)return;const characterId=current.characterId;summonPending=true;button.disabled=true;status('Waiting for GTA — return to gameplay to complete summon (up to '+Math.ceil(summonWaitMs/1000)+' seconds).');try{await api('control',{characterId,operation:'summon'});await refresh(characterId);status('Character summoned.');}catch(error){status(error.message==='summon_wait_timeout'?'Summon timed out. Return to gameplay, then try Summon again.':error.message.replaceAll('_',' '));}finally{summonPending=false;button.disabled=false;}}
 $('profile').onsubmit=event=>{event.preventDefault();run(async()=>{const f=event.target.elements;await api('edit',{characterId:current.characterId,expectedRevision:current.revision,patch:{name:f.name.value.trim(),nicknames:lines(f.nicknames.value),biography:f.biography.value,personality:{description:f.personality.value,traits:lines(f.traits.value)},relationship:{state:f.relationshipState.value,description:f.relationship.value},playerNotes:f.playerNotes.value,status:f.availability.value}});await refresh();});};
@@ -101,7 +106,7 @@ ${inspectorScript()}
 run(()=>refresh());run(()=>refreshTimelines());
 </script></html>`;
 }
-export async function startCharacterEditor(service,{ port = service.config.promotedCharacters.editorPort,endpointPath = null,inspectorControls=null,diagnostics=null,voiceStatus=null } = {}) {
+export async function startCharacterEditor(service,{ port = service.config.promotedCharacters.editorPort,endpointPath = null,inspectorControls=null,diagnostics=null,voiceStatus=null,socialConversation=null } = {}) {
   const token = randomBytes(32).toString('hex'); let origin;
   const server = http.createServer(async (request,response) => {
     response.setHeader('cache-control','no-store'); response.setHeader('x-content-type-options','nosniff');
@@ -166,6 +171,9 @@ export async function startCharacterEditor(service,{ port = service.config.promo
             throw new Error('explicit_confirmation_required');
           result = {timelineId:await service.store.confirmTimeline(body.timelineId,{confirmation:body.confirmation})};
           break;
+        case 'director_social_manual':
+          if(typeof socialConversation!=='function')throw Error('native_director_unavailable');
+          result=socialConversation();break;
         case 'promote': result = await service.promote(expectedEncounter(body.expectedEncounterId)); break;
         case 'edit': result = await service.edit(body.characterId,body.patch,body.expectedRevision); break;
         case 'memory': result = await service.memory(body.characterId,body.operation,{memoryId:body.memoryId,patch:body.patch,expectedRevision:body.expectedRevision}); break;
