@@ -783,9 +783,19 @@ class Program
                 }
 
                 var beforeConversation=conversationAnchor.CaptureRef;NpcTargeting.Conversation=wireNextConversation;Tick(integration);
-                Dictionary<string,object> NextAnchor() {for(int n=0;n<16;n++) {var frame=ReadFrame(reader);if((string)frame["type"]=="anchors") return frame;}throw new Exception("missing anchor transition");}
-                var demotion=NextAnchor();var promotion=NextAnchor();Check((string)demotion["type"]=="anchors"&&(string)promotion["type"]=="anchors","observer state changes use anchor frames");
-                var demotedWire=Anchor(beforeConversation,demotion);var promotedWire=Anchor(anchors.Current.Single(a=>ReferenceEquals(a.Entity,wireNextConversation)).CaptureRef,promotion);
+                Dictionary<string,object> NextAnchor(string expectedCaptureRef) {
+                    for(int n=0;n<32;n++) {
+                        var frame=ReadFrame(reader);
+                        if((string)frame["type"]=="anchors" &&
+                            FrameAnchors(frame).Any(a=>(string)a["captureRef"]==expectedCaptureRef))
+                            return frame;
+                    }
+                    throw new Exception("missing expected anchor transition");
+                }
+                var nextConversationRef=anchors.Current.Single(a=>ReferenceEquals(a.Entity,wireNextConversation)).CaptureRef;
+                var demotion=NextAnchor(beforeConversation);var promotion=NextAnchor(nextConversationRef);
+                Check((string)demotion["type"]=="anchors"&&(string)promotion["type"]=="anchors","observer state changes use anchor frames");
+                var demotedWire=Anchor(beforeConversation,demotion);var promotedWire=Anchor(nextConversationRef,promotion);
                 Check((bool)demotedWire["observer"]==false&&(bool)demotedWire["conversation"]==false,"transport sends observer/conversation demotion first");
                 Check((bool)promotedWire["observer"]&&(bool)promotedWire["conversation"],"transport sends conversation promotion after demotion");
                 Check((bool)demotedWire["owned"]==false&&anchors.ObserverCount==16,"transport transition preserves ownership and hard observer cap");
