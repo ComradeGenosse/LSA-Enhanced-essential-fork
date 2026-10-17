@@ -17,7 +17,7 @@ const ACT5_SLOTS = Object.freeze({
   resume_previous: Object.freeze({}),
   sit_here: Object.freeze({}),
 });
-const clean = value => String(value || '').trim().toLowerCase().replace(/[.!?]+$/g, '').replace(/\s+/g, ' ');
+const clean = value => String(value || '').trim().toLowerCase().replace(/[.,!?]+/g, ' ').replace(/\s+/g, ' ').trim();
 const keyFor = identity => identity && String(identity.pedId) + ':' + String(identity.sessionNonce);
 const sameTurn = (a, b) => a?.pedId === b?.pedId && a?.sessionNonce === b?.sessionNonce &&
   a?.turnId === b?.turnId && a?.generationId === b?.generationId;
