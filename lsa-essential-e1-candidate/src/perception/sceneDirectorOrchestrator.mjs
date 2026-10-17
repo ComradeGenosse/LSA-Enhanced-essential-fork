@@ -30,9 +30,9 @@ export class SceneDirectorSpeech {
     this.mode=mode;
     if(mode!=='active')this.admission.setEnabled(false);
   }
-  originalGrantCurrent(proposal,stamp) {
+  originalGrantCurrent(proposal,stamp,ticketId=null) {
     let record;
-    try {record=this.originalEntitlement(proposal,stamp);}
+    try {record=this.originalEntitlement(proposal,stamp,ticketId);}
     catch {return false;}
     return (proposal?.source==='native_director_social'
       ?record?.source==='native_director_social'
@@ -81,30 +81,35 @@ export class SceneDirectorSpeech {
     let failureStage='native_reserve';
     try {
       let receipt=await request('reserve');
-      if(receipt?.ticketId!==ticket.ticketId || receipt.status!=='reserved')
+      if(receipt?.ticketId!==ticket.ticketId || receipt.status!=='reserved') {
+        // A native BUSY receipt is the only retryable native reserve result;
+        // it cannot have claimed a PS3/social scene or submitted a turn.
+        if(socialProposal && receipt?.ticketId===ticket.ticketId && receipt.status==='busy')
+          this.admission.deferNativeBusy?.(ticket.ticketId);
         return Object.freeze({status:'native_rejected',nativeReason:nativeVeto(receipt)});
+      }
       // Distinguish PS3/P2 source changes from an independent C-11 ticket,
       // cooldown, expiry or player-priority fence. Never retry a spent ticket.
-      if(!this.originalGrantCurrent(proposal,stamp))
+      if(!this.originalGrantCurrent(proposal,stamp,ticket.ticketId))
         return Object.freeze({status:'stale_after_reserve',
           diagnosticReason:'original_ps3_entitlement_changed'});
       if(!this.admission.consume(ticket.ticketId,stamp))
         return Object.freeze({status:'stale_after_reserve',
           diagnosticReason:'reservation_recheck_veto'});
-      if(!this.originalGrantCurrent(proposal,stamp))
+      if(!this.originalGrantCurrent(proposal,stamp,ticket.ticketId))
         return Object.freeze({status:'stale_before_submit'});
       failureStage='native_submit';
       receipt=await request('submit');
       if(receipt?.ticketId!==ticket.ticketId || receipt.status!=='submitted')
         return Object.freeze({status:'native_submit_rejected',nativeReason:nativeVeto(receipt)});
-      if(!this.originalGrantCurrent(proposal,stamp))
+      if(!this.originalGrantCurrent(proposal,stamp,ticket.ticketId))
         return Object.freeze({status:'stale_before_intake'});
       let hydrated=false,publication=false;
       const gates=Object.freeze({
-        hydrated:()=>hydrated=this.originalGrantCurrent(proposal,stamp) &&
+        hydrated:()=>hydrated=this.originalGrantCurrent(proposal,stamp,ticket.ticketId) &&
           this.admission.afterHydration(ticket.ticketId,stamp),
         publication:()=>publication=hydrated &&
-          this.originalGrantCurrent(proposal,stamp) &&
+          this.originalGrantCurrent(proposal,stamp,ticket.ticketId) &&
           this.admission.beforePublication(ticket.ticketId,stamp),
       });
       failureStage='stock_dispatch';
