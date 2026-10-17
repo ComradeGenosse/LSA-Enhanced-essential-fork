@@ -53,3 +53,32 @@ No merge, deployment or physical GTA acceptance is asserted by this report.
 ## Wrap-up boundary
 
 The user requested stopping additional validation to conserve usage and reassess. All corrections are pushed to #216; it remains draft and unmerged. The practical next step is a focused GTA smoke test with the existing working ElevenLabs configuration, followed by reassessment of the remaining formal source gates and intermittent harness shutdown.
+
+## Promotion reconciliation: `main` merged into #216 — 2026-10-17
+
+Branch `reconcile/main-into-216-20261017` is #216 (`bc3cf6dd`, which already contains the #217 reconnect fix and the #218 H2 correction) with `main` (`d9734fe`, PRs #54 and #118) merged in by an ordinary merge commit. `main` and #216 are both ancestors; no history was rewritten. `main` has no file that #216 lacks, so the work was reconciling 43 shared files. #216's evolved architecture was kept wherever the two overlapped (owner/dispose lifecycle, Memory K gates, exact-whitespace TTS, SQLite shared brain, source-authenticated timeline). The net delta over #216 is 13 files (+611/−83).
+
+Carried over from `main` because #216 did not have it:
+
+- PS2/PS3/radio `perception_trace` and `radio_trace` bounded diagnostics and the owner-stall/owner-resumed notifications, with the matching telemetry allowlist entries in `eventContract.mjs`.
+- Native radio hardening: three-sample stable debounce, listener-join revalidation, and the hash → name → retired fallback route for radio natives (`SensorAdapters.cs`, `IntelligenceIntegration.cs`) plus the SDK-accurate game stub and radio integration assertions.
+- Shared-brain source-tree digest in the candidate build manifest, and `protagonistEvidence: "off"` in the promoted-characters example.
+- New in the merge: bounded `native_pcm_forward_failed` telemetry around PCM forwarding (closed reason tokens, byte counts only, no text or audio) that rethrows, so failure handling and ElevenLabs no-auto-retry billing protection are unchanged.
+
+Three auto-merge hazards were found and fixed rather than left in: a duplicate `protagonistProtocol` import, a duplicate `CharacterService.closeStorage` that silently shadowed the ready-clearing shutdown, and a duplicate `protagonist_model` branch/double salience note in the radio path. ElevenLabs configuration, voices, provider, PCM gain/pacing and feature-default switches are not modified; experimental features remain off by default.
+
+Validation on the merge commit (`549f3486`, exact clean HEAD), run on Linux, Node 22:
+
+- Registered EA/Memory K corpus, `--profile all`: 2,228 tests; 2,215 passed; 10 failed; 3 skipped. All 215 scoped regression files passed. The ten failures are exactly S01–S10. The skips match #216's own run on the same machine (two Windows-only tests and the conditional #138 baseline comparison). This covers the #217 auto-resume and #218 H2 tests.
+- Python isolation harness: 158 files, 1,504 passing tests; only S01–S10 failed.
+- Production Windows net481 plugin and loader compile against the SHA-256-pinned RagePluginHook 1.124.0, RAGENativeUI 1.9.3 and DamageTrackerLib 2.0.0.
+- Native test executables under Mono were compared with pristine #216 and are identical in outcome. `IntegrationTests` now runs 191 production assertions (165 before) because the radio assertions were added. Eight tests need real Windows (named-pipe ACLs, process APIs) and cannot run under Mono; they must pass on Windows CI before merge.
+- `ws6Latency` is timing-sensitive and also failed intermittently on pristine #216 under load; it passed on the merged tree. It was not altered.
+
+No test was disabled, skipped or weakened, and no security check was relaxed.
+
+### Not established by this work
+
+- **S01–S10 remain failing by design** (`SOURCE_BLOCKED_Sxx`). They are mandatory original release gates and this merge does not and cannot close them. Merge readiness must not be claimed from the passing scoped suite alone.
+- **GTA-only behavior is unverified:** real ElevenLabs voice and emotional-acting output, PCM pacing and billing behavior against the live provider, native radio route/debounce and listener revalidation on a running game, UX4 hold/tap/microphone routing, and Luna fallback in game. No provider call or GTA run occurred.
+- The Windows-only native tests listed above and the hosted Windows CI have not run on this merge commit.

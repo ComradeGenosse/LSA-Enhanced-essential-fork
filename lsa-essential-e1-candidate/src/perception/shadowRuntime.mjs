@@ -7,9 +7,15 @@ import { SharedTranscriptStore } from './sharedTranscriptStore.mjs';
 import { SalienceCache, situationFromCharacterView, sameSalienceSituationPolicy } from './salienceEngine.mjs';
 import { readHostContext } from '../context/hostContext.mjs';
 import { RadioTrackTextCatalog, normalizeRadioSignal } from './radioTrackTextCatalog.mjs';
+import { traceCode } from '../observability/traceCode.mjs';
 
 const MAX_COUNTER = 2147483647;
 export const OWNER_STALL_BOUNDS = Object.freeze({ startMs: 1500, resetMs: 60000 });
+// Per-event PS2/PS3 traces are rate-bounded: no per-frame logging. Events
+// involving an owned (P2) observer get the larger budget.
+export const PERCEPTION_TRACE_BOUNDS = Object.freeze({ windowMs: 10000, owned: 20, other: 6, radio: 16 });
+const TRACED_KINDS = new Set(['firing','damage','death','injury_state']);
+const RESPONSE_ORDER = Object.freeze({ not_evaluated: -1, none: 0, eligible: 1, urgent: 2 });
 const PS3_REASON_COUNTERS = Object.freeze({
   safety_self_danger:'safetySelfDanger',
   safety_player_harm:'safetyPlayerHarm',
@@ -21,7 +27,7 @@ const PS3_REASON_COUNTERS = Object.freeze({
 });
 
 export class ShadowRuntime {
-  constructor({ mode='off', radio='off', radioCatalog=null, now=()=>Math.floor(performance.now()), situationFor=()=>({}), acceptedObservationTap=null, consumers=null }={}) {
+  constructor({ mode='off', radio='off', radioCatalog=null, now=()=>Math.floor(performance.now()), situationFor=()=>({}), acceptedObservationTap=null, consumers=null, trace=null, stall=null }={}) {
     this.mode=mode;this.radio=radio==='shadow'?'shadow':'off';this.now=now;this.anchors=new Map();this.signals=[];this.sequence=0;this.producers=new Map();this.epoch=null;this.stream=null;this.lastReceipt=0;
     this.hostContext=null;this.observerIndexVersion=null;this.memoryCurrentOwnerPlayerVersion=null;this.observerIndex=new Map();this.observerSituations=new Map();this.observerSituationVersion=null;this.primaryBehaviorOwnerVersion=null;this.directorRequestVersion=null;this.directorPriority=null;this.directorReceipts=[];this.situationProvider=situationFor;
     this.counters=Object.fromEntries(['received','dropped','stale','malformed','duplicate','gaps','expired','resets'].map(k=>[k,0]));
@@ -35,6 +41,10 @@ export class ShadowRuntime {
     // Pause presentation leases during bounded native owner-fiber stalls.
     // Memory authority continues to require its independent wall-clock proof.
     this.leaseBase=0;this.stallNotified=false;this.stallDiagnostics={stalls:0,maxMs:0};
+    // Optional bounded diagnostic sinks; they never affect perception state.
+    this.onTrace=typeof trace==='function'?trace:null;this.onStall=typeof stall==='function'?stall:null;
+    this.traceWindow={start:-Infinity,owned:0,other:0,radio:0};this.traceDiagnostics={emitted:0,suppressed:0};
+    this.radioDiagnostics={changed:0,stopped:0,known:0,unknown:0,mismatch:0,off:0,observations:0,ownedObservations:0};
     this.consumerActivation=consumers;
     const ps2=mode==='shadow'&&(consumers===null||consumers.ps2?.enabled===true);
     const ps3=ps2&&(consumers===null||consumers.ps3?.enabled===true);
@@ -44,12 +54,12 @@ export class ShadowRuntime {
     this.correlator=ps2?new EpisodeCorrelator({episodes:this.episodes,observations:this.observations,now,current:ref=>this.current(ref),anchor:ref=>this.anchors.get(ref)}):null;
     this.transcripts=ps2?new SharedTranscriptStore({now,current:ref=>this.current(ref)}):null;
     this.salience=ps3?new SalienceCache({now}):null;
-    this.ps2Diagnostics={correlated:0,witnessed:0,duplicates:0,dropped:0,speechGate:'unsupported_capture_receipt'};
+    this.ps2Diagnostics={correlated:0,witnessed:0,ownedWitnessed:0,duplicates:0,dropped:0,speechGate:'unsupported_capture_receipt'};
     // M3 opt-in synchronous acceptance tap. Off by default. It may enqueue a
     // frozen receipt, never do async SQLite or let an exception break PS2.
     this.acceptedObservationTap=ps2&&typeof acceptedObservationTap==='function'?acceptedObservationTap:null;
     this.memoryTapDiagnostics={delivered:0,rejected:0,faults:0};
-    this.ps3Diagnostics={decisions:0,urgent:0,eligible:0,staged:0,suppressed:0,faults:0,reasons:Object.fromEntries(Object.values(PS3_REASON_COUNTERS).map(k=>[k,0]))};
+    this.ps3Diagnostics={decisions:0,urgent:0,eligible:0,staged:0,suppressed:0,faults:0,ownedDecisions:0,ownedEligible:0,ownedUrgent:0,reasons:Object.fromEntries(Object.values(PS3_REASON_COUNTERS).map(k=>[k,0]))};
   }
   #tapAcceptedObservation(observation) {
     if(!this.acceptedObservationTap)return;
@@ -125,8 +135,40 @@ export class ShadowRuntime {
     const key={initialization:'initializations',disconnect:'disconnects',fault:'faults',timeout:'timeouts',manual:'manual'}[reason]||'manual';this.bump(this.resetDiagnostics,key);
   }
   current(ref) {const a=this.anchors.get(ref);return Boolean(a && a.expires>this.leaseNow() && this.epoch);}
+  owned(ref) { return this.observerIndex.get(ref)?.owned===true; }
+  // Fixed-vocabulary, rate-bounded per-event diagnostics. Only a one-way trace
+  // code of the random native signal ID is emitted, never refs or content.
+  emitTrace(event,ownedRelevant,record) {
+    if(!this.onTrace) return;
+    const now=this.now(),window=this.traceWindow;
+    if(!(now>=window.start && now-window.start<PERCEPTION_TRACE_BOUNDS.windowMs)) {window.start=now;window.owned=0;window.other=0;window.radio=0;}
+    const lane=event==='radio_trace'?'radio':ownedRelevant?'owned':'other';
+    if(window[lane]>=PERCEPTION_TRACE_BOUNDS[lane]) {this.bump(this.traceDiagnostics,'suppressed');return;}
+    window[lane]++;this.bump(this.traceDiagnostics,'emitted');
+    try {this.onTrace(event,Object.freeze(record));} catch {}
+  }
+  qualifiedObservers(receipts) {
+    const refs=new Set();
+    for(const r of receipts) if(r && (r.status==='witnessed'||r.status==='reported') && r.evidence && this.current(r.observer?.captureRef) && this.anchors.get(r.observer.captureRef)?.kind==='ped') refs.add(r.observer.captureRef);
+    return refs;
+  }
+  // PS3 per observation; records the best owned-observer outcome for traces.
+  noteObservations(observations,outcome) {
+    for(const observation of observations||[]) {
+      const decision=this.noteSalience(observation);
+      if(!this.owned(observation.observer.captureRef)) continue;
+      outcome.ownedObservations++;
+      const response=decision?.response??'not_evaluated';
+      if((RESPONSE_ORDER[response]??-1)>RESPONSE_ORDER[outcome.ps3Owned]) {outcome.ps3Owned=response;outcome.ps3Reason=decision?.reasons?.[0]??'none';}
+      else if(outcome.ps3Reason==='none' && decision?.reasons?.length) outcome.ps3Reason=decision.reasons[0];
+    }
+  }
   expire() {
     if(this.epoch && this.now()-this.lastReceipt>this.sourceSilenceMs()) {this.reset('timeout');return;}
+    if(this.stalled() && !this.stallNotified) {
+      this.stallNotified=true;
+      try {this.onStall?.(Object.freeze({stage:'stalled',stallMs:Math.min(MAX_COUNTER,this.now()-this.lastReceipt)}));} catch {}
+    }
     for(const [ref,a] of this.anchors) if(a.expires<=this.leaseNow()) this.retire(ref,'lease_expired');
     this.signals=this.signals.filter(s=>{ if(s.expires<=this.now()) {this.bump(this.historyDiagnostics,'expired');return false;} return true; });
     this.observations?.expire();
@@ -294,16 +336,44 @@ export class ShadowRuntime {
     if(s.producer==='radio') {
       this.retainSignal(value,false,this.now()+BOUNDS.signalTtlMs-s.ageMs);
       const normalized=s.kind==='radio_changed'?normalizeRadioSignal(s,this.radioCatalog):null;
-      if(s.kind==='radio_changed' && !normalized) {this.ps2Diagnostics.dropped=Math.min(MAX_COUNTER,this.ps2Diagnostics.dropped+1);return true;}
+      this.bump(this.radioDiagnostics,s.kind==='radio_changed'?'changed':'stopped');
+      const catalog=s.kind==='radio_stopped'?'stopped':!normalized?'invalid':normalized.contentKind==='off'?'off':
+        normalized.trackKnown?'known':normalized.catalogMismatch?'mismatch':'unknown';
+      if(['known','unknown','mismatch','off'].includes(catalog)) this.bump(this.radioDiagnostics,catalog);
+      const catalogRow=s.kind==='radio_changed' ? this.radioCatalog?.tracks?.[String(s.facts.trackTextId)] : null;
+      const catalogReason=s.kind==='radio_stopped'?'radio_stopped':
+         !this.radioCatalog?.loaded?'catalog_unavailable':
+         !Number.isSafeInteger(s.facts.trackTextId)||s.facts.trackTextId<=0?'text_id_unavailable':
+         !catalogRow?'text_id_not_cataloged':
+         !catalogRow.stations.includes(s.facts.station)?'station_mismatch':
+         normalized?.contentKind==='off'?'semantic_off':
+         normalized?.trackKnown?'resolved':'catalog_metadata_incomplete';
+      const radioReceipts=s.witnessReceipts||[],radioWitnesses=this.qualifiedObservers(radioReceipts);
+      const radioTrace={traceCode:traceCode(s.signalId),signalKind:s.kind,catalog,catalogReason,
+         trackTextId:Number.isSafeInteger(s.facts.trackTextId)?s.facts.trackTextId:0,
+         soundHashPresent:Number.isSafeInteger(s.facts.soundHash)&&s.facts.soundHash!==0,
+         catalogStationCount:Array.isArray(catalogRow?.stations)?catalogRow.stations.length:0,
+         stationCataloged:Boolean(this.radioCatalog?.stations?.[s.facts.station]),receipts:radioReceipts.length,
+        qualified:radioWitnesses.size,ownedQualified:[...radioWitnesses].filter(ref=>this.owned(ref)).length,
+        ownedObservers:[...this.observerIndex.values()].filter(row=>row.owned && this.current(row.captureRef)).length,
+        ps2:'dropped',ps2Reason:'none',observations:0,ownedObservations:0,ps3Owned:'not_evaluated',ps3Reason:'none'};
+      if(s.kind==='radio_changed' && !normalized) {this.ps2Diagnostics.dropped=Math.min(MAX_COUNTER,this.ps2Diagnostics.dropped+1);radioTrace.ps2Reason='radio_normalization_failed';this.emitTrace('radio_trace',radioTrace.ownedQualified>0,radioTrace);return true;}
       const semanticOff=normalized?.contentKind==='off';
       const correlationSignal=semanticOff?{...s,kind:'radio_stopped',facts:{station:'',soundHash:0,trackTextId:0}}:s;
-      const correlated=this.correlator.ingest({nativeRun:this.epoch,signal:correlationSignal,radio:semanticOff?null:normalized,witnessReceipts:semanticOff?[]:(s.witnessReceipts||[])});
+      const correlated=this.correlator.ingest({nativeRun:this.epoch,signal:correlationSignal,radio:semanticOff?null:normalized,witnessReceipts:semanticOff?[]:radioReceipts});
       if(correlated.duplicate) this.ps2Diagnostics.duplicates=Math.min(MAX_COUNTER,this.ps2Diagnostics.duplicates+1);
       else if(correlated.accepted) {this.ps2Diagnostics.correlated=Math.min(MAX_COUNTER,this.ps2Diagnostics.correlated+Number(Boolean(correlated.episodeId)));this.ps2Diagnostics.witnessed=Math.min(MAX_COUNTER,this.ps2Diagnostics.witnessed+correlated.observations.length);}
       if(!correlated.accepted) this.ps2Diagnostics.dropped=Math.min(MAX_COUNTER,this.ps2Diagnostics.dropped+1);
       for(const observationId of correlated.removedObservationIds||[]) this.salience?.forgetObservation(observationId);
-      for(const observation of correlated.observations||[]) {this.#tapAcceptedObservation(observation);this.noteSalience(observation);}
+      for(const observation of correlated.observations||[]) this.#tapAcceptedObservation(observation);
       // R4 ranks radio locally only. R5 remains responsible for model-visible projection.
+      this.noteObservations(correlated.observations,radioTrace);
+      this.radioDiagnostics.observations=Math.min(MAX_COUNTER,this.radioDiagnostics.observations+(correlated.observations?.length??0));
+      this.radioDiagnostics.ownedObservations=Math.min(MAX_COUNTER,this.radioDiagnostics.ownedObservations+radioTrace.ownedObservations);
+      this.ps2Diagnostics.ownedWitnessed=Math.min(MAX_COUNTER,this.ps2Diagnostics.ownedWitnessed+radioTrace.ownedObservations);
+      radioTrace.ps2=correlated.duplicate?'duplicate':!correlated.accepted?'dropped':(correlated.observations?.length?'accepted':'unwitnessed');
+      radioTrace.ps2Reason=correlated.reason??'none';radioTrace.observations=correlated.observations?.length??0;
+      this.emitTrace('radio_trace',radioTrace.ownedQualified>0||radioTrace.ownedObservations>0,radioTrace);
       return true;
     }
     const selfReceipts=[];
@@ -312,11 +382,23 @@ export class ShadowRuntime {
       const involved=s.target===anchor.captureRef&&(s.kind==='damage'||s.kind==='death'||s.kind==='injury_state') || s.source===anchor.captureRef&&s.kind==='firing';
       if(involved) selfReceipts.push({observer:{captureRef:anchor.captureRef,kind:'ped'},sampledGameTick:s.gameTick,status:'witnessed',reason:'self_involvement',knowsSource:s.source===anchor.captureRef,knowsTarget:s.target===anchor.captureRef,evidence:{channel:'self',basis:s.producer==='state'?'sampled_state':'native_callback',sampledGameTick:s.gameTick}});
     }
-    const correlated=this.correlator.ingest({nativeRun:this.epoch,signal:s,witnessReceipts:[...(s.witnessReceipts||[]),...selfReceipts]});
+    const receipts=[...(s.witnessReceipts||[]),...selfReceipts];
+    const correlated=this.correlator.ingest({nativeRun:this.epoch,signal:s,witnessReceipts:receipts});
     if(correlated.duplicate) this.ps2Diagnostics.duplicates=Math.min(MAX_COUNTER,this.ps2Diagnostics.duplicates+1);
     else if(correlated.accepted) {this.ps2Diagnostics.correlated=Math.min(MAX_COUNTER,this.ps2Diagnostics.correlated+Number(Boolean(correlated.episodeId)));this.ps2Diagnostics.witnessed=Math.min(MAX_COUNTER,this.ps2Diagnostics.witnessed+correlated.observations.length);}
     if(!correlated.accepted) this.ps2Diagnostics.dropped=Math.min(MAX_COUNTER,this.ps2Diagnostics.dropped+1);
-    for(const observation of correlated.observations||[]) {this.#tapAcceptedObservation(observation);this.noteSalience(observation);}
+    for(const observation of correlated.observations||[]) this.#tapAcceptedObservation(observation);
+    const traced=TRACED_KINDS.has(s.kind) && (s.kind!=='injury_state' || s.facts.injured===true);
+    const witnesses=traced?this.qualifiedObservers(receipts):null;
+    const outcome={traceCode:traced?traceCode(s.signalId):null,signalKind:s.kind,producer:s.producer,
+      receipts:(s.witnessReceipts||[]).length,selfReceipts:selfReceipts.length,qualified:witnesses?.size??0,
+      ownedQualified:witnesses?[...witnesses].filter(ref=>this.owned(ref)).length:0,
+      ownedObservers:traced?[...this.observerIndex.values()].filter(row=>row.owned && this.current(row.captureRef)).length:0,
+      ps2:correlated.duplicate?'duplicate':!correlated.accepted?'dropped':(correlated.observations?.length?'accepted':'unwitnessed'),
+      ps2Reason:correlated.reason??'none',observations:correlated.observations?.length??0,ownedObservations:0,ps3Owned:'not_evaluated',ps3Reason:'none'};
+    this.noteObservations(correlated.observations,outcome);
+    this.ps2Diagnostics.ownedWitnessed=Math.min(MAX_COUNTER,this.ps2Diagnostics.ownedWitnessed+outcome.ownedObservations);
+    if(traced) this.emitTrace('perception_trace',outcome.ownedQualified>0||outcome.ownedObservations>0,outcome);
     // Raw signals are retained only for bounded diagnostics. Retention pressure
     // must never reject an otherwise valid signal before PS2/PS3 processing.
     this.retainSignal(value,critical,this.now()+BOUNDS.signalTtlMs-s.ageMs);
@@ -506,6 +588,11 @@ export class ShadowRuntime {
       if(decision.response==='urgent') stats.urgent=Math.min(MAX_COUNTER,stats.urgent+1);
       else if(decision.response==='eligible') stats.eligible=Math.min(MAX_COUNTER,stats.eligible+1);
       if(decision.memory==='stage') stats.staged=Math.min(MAX_COUNTER,stats.staged+1);
+      if(this.owned(observation.observer.captureRef)) {
+        stats.ownedDecisions=Math.min(MAX_COUNTER,stats.ownedDecisions+1);
+        if(decision.response==='urgent') stats.ownedUrgent=Math.min(MAX_COUNTER,stats.ownedUrgent+1);
+        else if(decision.response==='eligible') stats.ownedEligible=Math.min(MAX_COUNTER,stats.ownedEligible+1);
+      }
       if(decision.reasons.some(reason=>reason==='repetition_suppressed'||reason==='revision_stale'||reason==='suppression_capacity')) stats.suppressed=Math.min(MAX_COUNTER,stats.suppressed+1);
       for(const reason of decision.reasons) {
         const key=PS3_REASON_COUNTERS[reason];
