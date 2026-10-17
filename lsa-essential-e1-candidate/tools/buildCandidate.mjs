@@ -403,6 +403,11 @@ export async function buildCandidate({ nativePayloadPath, sourcePath = stockBund
     }
   }
   const knowledgePayload=await verifyDialogueKnowledgePayload(resolvedNativePayloadPath,perceptionContract);
+  if(!knowledgePayload.contract.available) {
+    console.warn('[PS4] Build has no verified native knowledge payload; perceived '+
+      'context will be unavailable. Run npm run build:ps4 or provide '+
+      'LSA_PS4_NATIVE_PAYLOAD from the matching native build.');
+  }
   const patched = patchSource(source);
   if (patched.edits.length !== expectedPatchCount) throw new Error(`AST patch inventory changed: expected ${expectedPatchCount}, found ${patched.edits.length}. Re-audit the source seam list before building.`);
   const entry = path.join(target, launcherName);
