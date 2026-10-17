@@ -10,6 +10,41 @@ export function projectActivityKnowledge(inputs){
  const binding=inputs?.binding;
  if(inputs?.ownerPendingProof || inputs?.reason || !isUuid(binding?.characterId) || !isUuid(binding?.encounterId) || !isUuid(binding?.incarnationId) || !readHostContext(binding.hostContext))return immutableSnapshot({facts:[],references:[],omitted:0});
  const facts=[],references=[];let omitted=0;
+ // ACT4 adds one latest source-qualified state, not an inferred action or a
+ // second prompt writer. Identifiers and lease tokens stay in private refs.
+ const state=inputs.state;
+ if(state){
+  const allowed=['admitting','resolving','preflighting','running','holding','paused','resuming','completed','failed','cancelled','abandoned','expired','superseded'];
+  if(state.stateVersion!==1 || state.characterId!==binding.characterId ||
+    state.encounterId!==binding.encounterId || state.incarnationId!==binding.incarnationId ||
+    !sameHostContext(state.hostContext,binding.hostContext) || !Object.hasOwn(INTENTS,state.intent) ||
+    !allowed.includes(state.status) || typeof state.modeObserved!=='boolean' ||
+    typeof state.physicallyCompleted!=='boolean' || typeof state.resumeEligible!=='boolean'){omitted++;}
+  else {
+   const verb=INTENTS[state.intent], mode=MODES[state.intent];let text;
+   if(['admitting','resolving','preflighting'].includes(state.status))
+    text='My current request to '+verb+' is being prepared. Physical execution has not been verified.';
+   else if(['running','holding'].includes(state.status))
+    text=state.modeObserved
+     ?mode+' mode has native mode evidence and is currently active; this does not establish arrival or overall completion.'
+     :'My request to '+verb+' is underway, but physical mode establishment is not verified.';
+   else if(state.status==='paused')
+    text='My request to '+verb+' is paused, not completed. '+(state.resumeEligible
+      ?'A guarded resume may be attempted only by the existing activity engine with current authority.'
+      :'A valid resume is not currently established.')+' Conversation alone does not resume the task.';
+   else if(state.status==='resuming')
+    text='My request to '+verb+' is resuming under the activity engine; physical re-establishment is not yet verified.';
+   else if(state.status==='completed')
+    text=state.physicallyCompleted
+      ?'My request to '+verb+' was physically completed with supporting native evidence.'
+      :'My request to '+verb+' was marked complete, but physical completion was not verified.';
+   else text='My request to '+verb+' ended as '+state.status+
+     (state.reason?' ('+String(state.reason).replace(/_/g,' ')+')':'')+'. It is not currently running.';
+   facts.push({kind:'activity_state',evidence:state.modeObserved?'mode_flag':state.physicallyCompleted?'world_strong':'none',text});
+   references.push({kind:'activity_state',snapshot:state});
+  }
+ }
+
  for(const fact of (Array.isArray(inputs.facts)?inputs.facts:[]).slice(-16).reverse()){
   if(fact?.factVersion!==1 || !isUuid(fact.factId) || !isUuid(fact.activityId) || !isUuid(fact.goalId) || fact.characterId!==binding.characterId || fact.provenance?.encounterId!==binding.encounterId || fact.provenance?.incarnationId!==binding.incarnationId || !sameHostContext(fact.provenance,binding.hostContext) || !Object.hasOwn(INTENTS,fact.intent) || !KINDS.has(fact.kind) || !EVIDENCE.has(fact.evidence) || !Number.isSafeInteger(fact.atMs) || fact.atMs<0){omitted++;continue;}
   const action=INTENTS[fact.intent],mode=MODES[fact.intent];let text=null;
@@ -41,19 +76,30 @@ export function captureActivityKnowledge({knowledgeInputs,characterInputs,activi
  const binding={characterId:profile.characterId,encounterId:association.encounterId,incarnationId:association.incarnationId,hostContext};
  let facts;try{facts=activities.factsForCharacter(binding);}catch{return null;}
  if(!Array.isArray(facts))return null;
- return immutableSnapshot({version:1,binding,facts:facts.slice(-16),nativeRun:client.nativeRun,adapterEpoch:client.adapterEpoch,ownerPendingProof:true,reason:null});
+ let state=null;try{state=activities.stateForCharacter?.(binding)||null;}catch{}
+ return immutableSnapshot({version:1,binding,facts:facts.slice(-16),state,nativeRun:client.nativeRun,adapterEpoch:client.adapterEpoch,ownerPendingProof:true,reason:null});
 }
 export function releaseActivityKnowledge(inputs,characterId){
  if(!inputs)return null;
  return immutableSnapshot({...inputs,ownerPendingProof:inputs.binding?.characterId!==characterId,reason:inputs.binding?.characterId===characterId?null:'owner_unverified'});
 }
+
 export function assertActivityKnowledgeCurrent(inputs,activities,references=null){
  if(!inputs || inputs.ownerPendingProof || inputs.reason)return 'owner_unverified';
  const client=activities?.client?.runtime;
  if(client?.ready!==true || client.nativeRun!==inputs.nativeRun || client.adapterEpoch!==inputs.adapterEpoch)return 'channel_unhealthy';
  if(!sameHostContext(client.hostContext,inputs.binding?.hostContext))return 'host_mismatch';
+ if(references!==null && !Array.isArray(references))return 'revision_mismatch';
  let current;try{current=activities.factsForCharacter?.(inputs.binding);}catch{return 'channel_unhealthy';}
- const selected=references===null?inputs.facts:references.map(ref=>inputs.facts.find(fact=>fact.factId===ref.factId && fact.activityId===ref.activityId && ref.encounterId===inputs.binding.encounterId && ref.incarnationId===inputs.binding.incarnationId));
+ const refs=references===null?[]:references;
+ const stateRefs=references===null?(inputs.state?[{kind:'activity_state',snapshot:inputs.state}]:[]):refs.filter(ref=>ref?.kind==='activity_state');
+ if(stateRefs.length){
+  if(stateRefs.length!==1 || !inputs.state || JSON.stringify(stateRefs[0].snapshot)!==JSON.stringify(inputs.state))return 'revision_mismatch';
+  let live;try{live=activities.stateForCharacter?.(inputs.binding);}catch{return 'channel_unhealthy';}
+  if(!live || JSON.stringify(live)!==JSON.stringify(inputs.state))return 'participant_retired';
+ }
+ const factRefs=references===null?null:refs.filter(ref=>ref?.kind!=='activity_state');
+ const selected=factRefs===null?inputs.facts:factRefs.map(ref=>inputs.facts.find(fact=>fact.factId===ref.factId && fact.activityId===ref.activityId && ref.encounterId===inputs.binding.encounterId && ref.incarnationId===inputs.binding.incarnationId));
  if(selected.some(fact=>!fact))return 'revision_mismatch';
  if(!Array.isArray(current) || selected.some(captured=>!current.some(fact=>fact.factId===captured.factId && JSON.stringify(fact)===JSON.stringify(captured))))return 'participant_retired';
  return null;
