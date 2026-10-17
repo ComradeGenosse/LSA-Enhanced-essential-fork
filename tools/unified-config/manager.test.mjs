@@ -308,15 +308,15 @@ test('incomplete or unparseable Essential bindings block active UX4 and router s
   await run('import',{game});
   await editMaster(files,m=>{m.sections.ux.talkTargeting.enabled=true;m.sections.ux.talkTargeting.key='Mouse4';});
   const bindings=path.join(game,'plugins','LosSantosAlive','LosSantosAlive.config');
-  await fs.writeFile(bindings,'TalkKey=Mouse4\\nTextKey=F9\\nMarkPedKey=F5\\n');
+  await fs.writeFile(bindings,'TalkKey=Mouse4\nTextKey=F9\nMarkPedKey=F5\n');
   let report=await run('validate',{game});
   assert.equal(report.ok,false);
   assert.ok(report.problems.some(x=>x.code==='ESSENTIAL_BINDINGS_INCOMPLETE'),JSON.stringify(report));
   assert.equal((await run('apply',{game,activate:true})).ok,false);
-  await fs.writeFile(bindings,'TalkKey=InvalidKey\\nTextKey=F9\\nMarkPedKey=F5\\nMarkedPedTalkKey=Mouse5\\n');
+  await fs.writeFile(bindings,'TalkKey=InvalidKey\nTextKey=F9\nMarkPedKey=F5\nMarkedPedTalkKey=Mouse5\n');
   report=await run('validate',{game});
   assert.ok(report.problems.some(x=>x.code==='ESSENTIAL_BINDINGS_INCOMPLETE'),JSON.stringify(report));
-  await fs.writeFile(bindings,'TalkKey=Mouse4\\nTextKey=F9\\nMarkPedKey=F5\\nMarkedPedTalkKey=Mouse5\\nTalkKey=F10\\n');
+  await fs.writeFile(bindings,'TalkKey=Mouse4\nTextKey=F9\nMarkPedKey=F5\nMarkedPedTalkKey=Mouse5\nTalkKey=F10\n');
   report=await run('validate',{game});
   assert.ok(report.problems.some(x=>x.code==='ESSENTIAL_BINDINGS_INCOMPLETE'),JSON.stringify(report));
 });
