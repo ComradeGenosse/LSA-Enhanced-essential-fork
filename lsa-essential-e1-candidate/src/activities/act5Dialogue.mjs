@@ -66,6 +66,27 @@ const replyKind = (response, intent) => {
       new Set(['have at it','yeah do that','sure do that','okay do that']).has(response)) return 'approve';
   return null;
 };
+// This is only a read-only advertisement filter, never authorization to act.
+// Native inspect supplies fresh booleans; admission still reacquires C-02
+// anchors and native preflight after the player's consent.
+export function act5WorldAvailable(intent, slots, state) {
+  if (!['scenario_here','approach_and_face','board_vehicle','ride_along',
+        'exit_vehicle_and_hold','leave_scene','take_cover_and_hold'].includes(intent)) return true;
+  if (state?.version !== 1 || state.safe !== true) return false;
+  if (intent === 'board_vehicle' || intent === 'ride_along') {
+    if (state.actorInVehicle !== false || state.vehicleAvailable !== true ||
+        state.vehicleStopped !== true) return false;
+    if (slots.seat === 'passenger') return state.frontFree === true;
+    if (slots.seat === 'rear') return state.rearFree === true;
+    return state.passengerFree === true;
+  }
+  if (intent === 'exit_vehicle_and_hold') return state.actorInVehicle === true;
+  if (intent === 'scenario_here') return state.actorOnFoot === true && state.scenarioReady === true;
+  if (intent === 'approach_and_face' || intent === 'leave_scene')
+    return state.actorOnFoot === true && state.playerNearby === true;
+  if (intent === 'take_cover_and_hold') return state.actorOnFoot === true;
+  return false;
+}
 const keyFor = identity => identity && String(identity.pedId) + ':' + String(identity.sessionNonce);
 const sameTurn = (a, b) => a?.pedId === b?.pedId && a?.sessionNonce === b?.sessionNonce &&
   a?.turnId === b?.turnId && a?.generationId === b?.generationId;
@@ -135,6 +156,7 @@ export class Act5Dialogue {
           incarnationId: live.claim.incarnationId },
         nativeRun: runtime.nativeRun, adapterEpoch: runtime.adapterEpoch,
         hostContext: runtime.hostContext, sessionKey: keyFor(turn.identity),
+        activityOffer: live.activityOffer || null,
       };
     } catch { return null; }
   }
@@ -155,33 +177,42 @@ export class Act5Dialogue {
         !sameHostContext(pending.owner.hostContext,owner.hostContext))) this.pending.delete(characterId);
     const activityStatus = this.activities.status(characterId);
     const busy = !TERMINAL.has(activityStatus?.status);
-    const intents = busy || this.pending.has(characterId) || (this.cooldown.get(characterId) || 0) > this.now()
-      ? [] : Object.keys(ACT5_CHOICES).filter(intent => ACT5_CHOICES[intent].some(slots => {
-          const spec = planSpec(intent, slots);
-          if (!Array.isArray(spec.steps) || !spec.steps.length) return false;
-          return spec.steps.every(step => {
-            const capability = step.capability;
-            const row = this.activities.engine.registry.get(capability);
-            if (!row || !['ACT2','ACT3'].includes(row.phase)) return false;
-            if (row.phase === 'ACT3' && !(this.activities.engine.config.act3Capabilities || []).includes(capability)) return false;
-            if (!row.allowedSources.includes('player_dialogue') ||
-                !row.allowedPriority.includes('player_direct') || row.execution.path === 'none') return false;
-            return this.activities.engine.registry.enabled(capability, {
-              mode: 'on', hello: this.activities.engine.hello?.capabilities, requested: [capability],
-              passedProbes: this.activities.engine.config.passedProbes || [],
-              source: 'player_dialogue', priority: 'player_direct',
+    const canOffer = !busy && !this.pending.has(characterId) &&
+      (this.cooldown.get(characterId) || 0) <= this.now();
+    const eligible = Object.fromEntries(Object.entries(ACT5_CHOICES).map(([intent, options]) => [
+      intent, !canOffer ? [] : options.filter(slots => {
+        if (!act5WorldAvailable(intent,slots,owner.activityOffer)) return false;
+        const spec = planSpec(intent, slots);
+        if (!Array.isArray(spec.steps) || !spec.steps.length) return false;
+        return spec.steps.every(step => {
+          const capability = step.capability;
+          const row = this.activities.engine.registry.get(capability);
+          if (!row || !['ACT2','ACT3'].includes(row.phase)) return false;
+          if (row.phase === 'ACT3' &&
+              !(this.activities.engine.config.act3Capabilities || []).includes(capability)) return false;
+          return row.allowedSources.includes('player_dialogue') &&
+            row.allowedPriority.includes('player_direct') && row.execution.path !== 'none' &&
+            this.activities.engine.registry.enabled(capability, {
+              mode:'on', hello:this.activities.engine.hello?.capabilities, requested:[capability],
+              passedProbes:this.activities.engine.config.passedProbes || [],
+              source:'player_dialogue', priority:'player_direct',
             });
-          });
-        }));
-    return Object.freeze({ owner, intents: Object.freeze(intents), activityStatus: activityStatus?.status || 'unknown',
-      pendingIntent: this.pending.get(characterId)?.activity.intent || null,
-      availableChoices: Object.freeze(Object.fromEntries(intents.map(intent => [
-        intent, ACT5_CHOICES[intent].map(slots => structuredClone(slots))]))) });
+        });
+      }),
+    ]));
+    const intents = Object.keys(eligible).filter(intent => eligible[intent].length);
+    return Object.freeze({ owner, intents:Object.freeze(intents), activityStatus:activityStatus?.status || 'unknown',
+      pendingIntent:this.pending.get(characterId)?.activity.intent || null,
+      availableChoices:Object.freeze(Object.fromEntries(intents.map(intent => [
+        intent, eligible[intent].map(slots => structuredClone(slots))]))) });
   }
 
   async publish(turn, decision, context, isCurrent) {
     if (!decision?.activity || !context?.intents?.includes(decision.activity.intent) ||
-        !validateAct5Choice(decision.activity, context.intents) || !isCurrent?.()) return false;
+        !validateAct5Choice(decision.activity, context.intents) ||
+        !context.availableChoices?.[decision.activity.intent]?.some(slots =>
+          JSON.stringify(slots) === JSON.stringify(decision.activity.slots)) ||
+        !isCurrent?.()) return false;
     const idKey = keyFor(turn.identity) + ':' + turn.identity.turnId + ':' + turn.identity.generationId;
     if (this.seenTurns.has(idKey)) return false;
     const current = await this.#owner(turn);
@@ -192,6 +223,7 @@ export class Act5Dialogue {
         current.adapterEpoch !== context.owner.adapterEpoch ||
         current.sessionKey !== context.owner.sessionKey ||
         !sameHostContext(current.hostContext,context.owner.hostContext) ||
+        !act5WorldAvailable(decision.activity.intent,decision.activity.slots,current.activityOffer) ||
         (this.cooldown.get(current.binding.characterId) || 0) > this.now()) return false;
     const characterId = current.binding.characterId;
     if (this.pending.has(characterId) || !TERMINAL.has(this.activities.status(characterId).status)) return false;
@@ -280,7 +312,8 @@ export class Act5Dialogue {
         current.nativeRun !== owner.nativeRun || current.adapterEpoch !== owner.adapterEpoch ||
         current.sessionKey !== owner.sessionKey ||
         !sameHostContext(current.hostContext,owner.hostContext) ||
-        !TERMINAL.has(this.activities.status(characterId).status)) {
+        !TERMINAL.has(this.activities.status(characterId).status) ||
+        !act5WorldAvailable(pending.activity.intent,pending.activity.slots,current.activityOffer)) {
       this.report('act5_rejected',{reason:'owner_or_activity_changed'});
       return {ok:false,reason:'owner_or_activity_changed'};
     }
