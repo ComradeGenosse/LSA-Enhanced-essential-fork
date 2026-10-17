@@ -588,6 +588,12 @@ export async function createRuntimeForBundle(options = {}) {
       // actual Luna speech merely because a request entered the pipe.
       nativeResult:client.runtime.socialManualResult?.reason??null,
     });
+    // Dedicated extended diagnostics preserve the legacy status shape.
+    runtime.services.spontaneousSocialStatus=()=>Object.freeze({
+      source:client.runtime.socialDiagnostics?{...client.runtime.socialDiagnostics}:null,
+      activeScenes:client.runtime.socialScenes?.size??0,
+      lastManualResult:client.runtime.socialManualResult??null,
+    });
     runtime.services.spontaneousSpeechStatus=()=>Object.freeze({
       requested:config.spontaneousSpeech.mode,
       preset:config.spontaneousSpeech.preset,
@@ -599,8 +605,6 @@ export async function createRuntimeForBundle(options = {}) {
         client.runtime.directorPriority?.experimentalEnabled===true &&
         client.runtime.directorRequestVersion===1,
       reason:experimental?'native_opt_in_and_live_C06_required':'shadow_only',
-      social:client.runtime.socialDiagnostics?Object.freeze({...client.runtime.socialDiagnostics}):null,
-      lastManualResult:client.runtime.socialManualResult??null,
     });
     owner.own('director.subscription',client.subscribeKnowledgeInvalidation(()=>{void pump.tick();}),unsubscribe=>unsubscribe());
   }
