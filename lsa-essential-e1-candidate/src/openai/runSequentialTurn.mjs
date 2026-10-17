@@ -624,7 +624,7 @@ export async function runSequentialTurn({ connection, turn, controller = new Abo
       if (act5Context) {
         const {validateAct5Choice} = await import('../activities/act5Dialogue.mjs');
         if (!Object.hasOwn(decision, 'activity') ||
-            !validateAct5Choice(decision.activity, act5Context.intents) ||
+            !validateAct5Choice(decision.activity, act5Context.intents, act5Context.availableChoices) ||
             (decision.activity !== null && (decision.command || streamMode && streamMode !== 'buffered_action')))
           throw new TypeError('ACT5 decision rejected before stock publication.');
       } else if (Object.hasOwn(decision, 'activity')) {
