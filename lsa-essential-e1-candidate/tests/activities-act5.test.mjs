@@ -49,13 +49,19 @@ function harness({ enabled = true, act3Capabilities = [], extraProbes = [], base
     ? {ownerAlias, encounterId: currentEncounter}
     : {ownerAlias, encounterId: currentEncounter, ownershipToken:currentToken,
       activityOffer:{...activityOffer},claim: {incarnationId:currentIncarnation}} };
-  const activities = { engine, client: {runtime: {ready:true, ...host, hostContext:host, nativeRun, adapterEpoch}},
+  const activities = { engine, client: {clientRun:id(),runtime: {ready:true, ...host, hostContext:host, nativeRun, adapterEpoch}},
     status: characterId => engine.status(characterId),
     cancel: characterId => engine.cancel(characterId) };
   const dialogue = new Act5Dialogue({ activities, characterService: {native}, now:()=>now, id });
-  return {dialogue,engine,commands,advance: ms => {now += ms},retire:()=>{currentEncounter=id()},
+  return {dialogue,engine,activities,commands,advance: ms => {now += ms},retire:()=>{currentEncounter=id()},
     changeToken:()=>{currentToken='other-token'},changeIncarnation:()=>{currentIncarnation=id()},
-    setOffer:update=>{activityOffer={...activityOffer,...update}}};
+    setOffer:update=>{activityOffer={...activityOffer,...update}},
+    restart:()=>{const nextEpoch=id();activities.client.runtime.adapterEpoch=nextEpoch;
+      engine.noteHello({...hello,adapterEpoch:nextEpoch});},
+    reconnect:()=>{activities.client.clientRun=id();engine.noteHello({...hello,clientRestart:true});
+      engine.noteHello(hello);},
+    sessionChange:()=>{activities.client.clientRun=id();}};
+
 }
 
 test('ACT5 is opt-in and never advertises contract-only ACT3 native verbs', async () => {
@@ -428,4 +434,93 @@ test('one native-published invitation cannot be repeated immediately after globa
   h.advance(210_000);
   after=await h.dialogue.prepare(turn(),'player_text');
   assert.equal(after.intents.includes('hold_position'),true);
+});
+
+// Integrated from main ACT5 native epoch/receipt hardening; keep both safety contracts.
+test('native adapter replacement retires pending offers and previously admitted replay IDs', async () => {
+  const h = harness(), p=turn(), ctx=await h.dialogue.prepare(p,'player_text');
+  await h.dialogue.publish(p,decision(choice('hold_position')),ctx,()=>true);
+  const yes = turn(), before=await h.dialogue.prepare(yes,'player_text');
+  h.restart();
+  assert.equal((await h.dialogue.onPlayerInput(yes,'sure',before,()=>true))?.kind,'unavailable',
+    'stale adapter consent is explicitly rejected');
+  assert.equal(h.engine.goals.goals.length,0);
+  const owner={characterId:actor,ownerAlias,ownershipToken:'native-token',encounterId:encounter,incarnationId:incarnation};
+  const proposal={proposalVersion:1,proposalId:id(),source:'player_dialogue',subject:{characterId:actor},
+    intent:'hold_position',slots:{},priority:'player_direct',origin:{turn:{...turn().identity}},proposedAtMs:10000};
+  assert.equal(h.engine.assign(proposal,owner,{playerApproved:true}).ok,true);
+  assert.equal(h.engine.assign(proposal,owner,{playerApproved:true}).ok,true,'same-epoch replay is idempotent');
+  h.reconnect();
+  assert.equal(h.engine.assign(proposal,owner,{playerApproved:true}).reason,'epoch_changed');
+  assert.equal(h.engine.goals.goals.length,1);
+  assert.equal(h.commands.filter(item=>item.type==='actor.acquire').length,1);
+});
+
+test('receipt correlation rejects a mismatched activity, step, actor, capability or attempt', () => {
+  const h=harness(), t=turn();
+  const owner={characterId:actor,ownerAlias,ownershipToken:'native-token',encounterId:encounter,incarnationId:incarnation};
+  const proposal={proposalVersion:1,proposalId:id(),source:'player_dialogue',subject:{characterId:actor},
+    intent:'resume_previous',slots:{},priority:'player_direct',origin:{turn:{...t.identity}},proposedAtMs:10000};
+  assert.equal(h.engine.assign(proposal,owner,{playerApproved:true}).ok,true);
+  const acquire = h.commands.find(item=>item.type==='actor.acquire');
+  h.engine.ingest({type:'actor.acquired',requestId:acquire.requestId,encounterId:encounter,incarnationId:incarnation,leaseEpoch:1});
+  const preflight = h.commands.find(item=>item.type==='step.preflight');
+  h.engine.ingest({type:'step.preflighted',requestId:preflight.requestId});
+  const begin=h.commands.find(item=>item.type==='step.begin');
+  const activity=h.engine.activities[0], step=activity.steps[0], blank=JSON.stringify(activity.status);
+  const frame={executionId:begin.executionId,activityId:activity.activityId,stepId:step.stepId,
+    actorEncounterId:encounter,capability:step.capability,attempt:step.attempts,state:'HANDLER_ACCEPTED',
+    sequence:1,epochs:{nativeRun,adapterEpoch,leaseEpoch:1}};
+  for(const patch of [{activityId:id()},{stepId:id()},{actorEncounterId:id()},{capability:'follow_person'},{attempt:8}]) {
+    h.engine.ingest({type:'receipt',receipt:{...frame,...patch}});
+    assert.equal(JSON.stringify(activity.status),blank,'rejected before state mutation');
+  }
+  assert.equal(h.engine.staleReceipts,5);
+  h.engine.ingest({type:'receipt',receipt:frame});
+  assert.equal(activity.status,'running');
+  h.engine.ingest({type:'receipt',receipt:frame});
+  assert.equal(h.engine.staleReceipts,6,'duplicated sequence rejected');
+  assert.equal(h.engine.cancel(actor).ok,true);
+  h.engine.ingest({type:'receipt',receipt:{...frame,sequence:2}});
+  assert.equal(activity.status,'cancelled','terminal goal never resurrected');
+});
+
+test('client-session replacement without native epoch rotation invalidates prior consent', async () => {
+  const h=harness(), proposed=turn(), context=await h.dialogue.prepare(proposed,'player_text');
+  await h.dialogue.publish(proposed,decision(choice('sit_here')),context,()=>true);
+  const yes=turn(), previous=await h.dialogue.prepare(yes,'player_text');
+  h.sessionChange(); // Same nativeRun and adapterEpoch; only the authenticated pipe session changed.
+  assert.equal((await h.dialogue.onPlayerInput(yes,'yes',previous,()=>true))?.kind,'unavailable');
+  assert.equal(h.engine.goals.goals.length,0);
+});
+
+test('ACT5 cancel never cancels a newer non-ACT5 activity', async () => {
+  const h=harness(), t=turn(), context=await h.dialogue.prepare(t,'player_text');
+  await h.dialogue.publish(t,decision(choice('hold_position')),context,()=>true);
+  const yes=turn(), ctx=await h.dialogue.prepare(yes,'player_text');
+  assert.equal((await h.dialogue.onPlayerInput(yes,'sure',ctx,()=>true)).kind,'approval_pending');
+  assert.equal((await h.dialogue.commitApproved(yes,()=>true)).ok,true);
+  const old=h.engine.activities.at(-1);
+  h.engine.cancel(actor);
+  const newOwner={characterId:actor,ownerAlias,ownershipToken:'native-token',encounterId:encounter,incarnationId:incarnation};
+  const fresh={proposalVersion:1,proposalId:id(),source:'player_ux',subject:{characterId:actor},
+    intent:'sit_here',slots:{},priority:'player_direct',origin:{},proposedAtMs:10000};
+  assert.equal(h.engine.assign(fresh,newOwner).ok,true);
+  const stop=turn(), prepared=await h.dialogue.prepare(stop,'player_text');
+  assert.equal(await h.dialogue.onPlayerInput(stop,'stop',prepared,()=>true),null);
+  assert.equal(old.status,'cancelled');
+  assert.notEqual(h.engine.activities.at(-1).status,'cancelled');
+});
+
+test('contextual approval retains mainline speakable coffee and boarding affirmations', async () => {
+  for (const [intent,slots,phrase] of [
+    ['board_vehicle',{vehicle:{kind:'player_vehicle'},seat:'any_passenger'},'You can hop in'],
+    ['ride_along',{seat:'rear'},'Sure, ride along'],
+    ['scenario_here',{scenario:'drink_coffee'},'Sure grab a coffee'],
+  ]) {
+    const h=nativeHarness(),t=turn(),ctx=await h.dialogue.prepare(t,'player_text');
+    assert.equal(await h.dialogue.publish(t,decision(choice(intent,slots)),ctx,()=>true),true);
+    const reply=turn(),next=await h.dialogue.prepare(reply,'player_text');
+    assert.equal((await h.dialogue.onPlayerInput(reply,phrase,next,()=>true))?.kind,'approval_pending',intent);
+  }
 });

@@ -12,13 +12,29 @@ const YES = new Set(['yes', 'yeah', 'yep', 'sure', 'ok', 'okay', 'alright', 'go 
   'yeah lets do that', 'yes lets do that', 'sure go ahead', 'yeah go ahead',
   'okay go ahead', 'ok go ahead', 'yeah sure', 'sure thing', 'yes go ahead',
   'go for it', 'sounds great', 'that sounds good', 'lets go', 'yeah lets go',
-  'alright lets do it', 'okay lets do it', 'absolutely', 'please do']);
+  'alright lets do it', 'okay lets do it', 'absolutely', 'please do', 'sounds great do it',
+  'sounds good do it', 'yes please do', 'that sounds great']);
 const NO = new Set(['no', 'nope', 'nah', 'not now', 'no thanks', 'maybe later',
   'never mind', 'nevermind', "don't", 'dont', 'cancel that', 'forget it',
   'actually never mind', 'actually no', 'no stay here instead',
-  'no just stay here', 'no stay here', 'not right now', 'better not', 'please dont']);
+  'no just stay here', 'no stay here', 'not right now', 'better not', 'please dont',
+  'nah thanks', 'no please dont']);
 const CANCEL = new Set(['stop', 'stop that', 'cancel the activity', 'cancel that activity',
-  'stop doing that', 'stop what youre doing', 'stop doing it', 'please stop']);
+  'stop doing that', 'stop what youre doing', 'stop doing it', 'please stop',
+  'stop please', 'cancel it']);
+const INTENT_YES = Object.freeze({
+  board_vehicle: new Set(['sure hop in','yeah hop in','yes hop in','go ahead hop in',
+    'sure get in','yes get in','go ahead get in','you can hop in']),
+  ride_along: new Set(['sure hop in','yeah hop in','yes hop in','come along',
+    'sure come along','sure ride along','yes ride along','go ahead and ride along']),
+  exit_vehicle_and_hold: new Set(['sure get out','yes get out','go ahead get out',
+    'get out and wait','sure get out and wait']),
+  scenario_here: new Set(['sure grab a coffee','yes grab a coffee','go ahead grab a coffee',
+    'sure have a coffee','go ahead have a coffee']),
+  approach_and_face: new Set(['sure come over','yeah come over','yes come over']),
+  leave_scene: new Set(['sure head out','yeah head out','go ahead head out']),
+  take_cover_and_hold: new Set(['sure take cover','yes take cover','go ahead take cover']),
+});
 const OFFER_MS = 90_000;
 const TERMINAL = new Set(['none','completed','failed','cancelled','superseded','expired','abandoned']);
 const COOLDOWN_MS = 90_000;
@@ -55,7 +71,7 @@ const clean = value => String(value || '').trim().toLowerCase()
   .replace(/\s+/g, ' ').trim();
 const replyKind = (response, intent) => {
   if (NO.has(response) || CANCEL.has(response)) return 'decline';
-  if (YES.has(response)) return 'approve';
+  if (YES.has(response) || INTENT_YES[intent]?.has(response) === true) return 'approve';
   if ((intent === 'board_vehicle' || intent === 'ride_along') &&
       new Set(['okay get in','ok get in','sure hop in','yeah hop in','yes get in',
         'go ahead get in','hop in','get in','come on in','ride with me']).has(response)) return 'approve';
@@ -143,6 +159,9 @@ export class Act5Dialogue {
 
   async #owner(turn) {
     const runtime = this.#ready();
+    const initialNativeRun = runtime?.nativeRun;
+    const initialAdapterEpoch = runtime?.adapterEpoch;
+    const initialClientRun = this.activities?.client?.clientRun;
     const profile = turn?.characterInputs?.profile;
     const claim = turn?.characterInputs?.claim;
     if (!runtime || turn?.characterProjection?.persistent !== true ||
@@ -160,14 +179,17 @@ export class Act5Dialogue {
           live.encounterId !== capture.encounterId ||
           live.encounterId !== turn.knowledgeInputs.activityInputs.binding.encounterId ||
           live.claim?.incarnationId !== claim.incarnationId ||
-          !this.#ready() || !sameHostContext(runtime.hostContext, this.activities.client.runtime.hostContext)) return null;
+          !this.#ready() || this.activities.client.runtime.nativeRun !== initialNativeRun ||
+          this.activities.client.runtime.adapterEpoch !== initialAdapterEpoch ||
+          this.activities.client.clientRun !== initialClientRun ||
+          !sameHostContext(runtime.hostContext, this.activities.client.runtime.hostContext)) return null;
       return {
         binding: { characterId: profile.characterId, ownerAlias: live.ownerAlias,
           ownershipToken: live.ownershipToken, encounterId: live.encounterId,
           incarnationId: live.claim.incarnationId },
         nativeRun: runtime.nativeRun, adapterEpoch: runtime.adapterEpoch,
-        hostContext: runtime.hostContext, sessionKey: keyFor(turn.identity),
-        activityOffer: live.activityOffer || null,
+        hostContext: runtime.hostContext, nativeClientRun: initialClientRun,
+        sessionKey: keyFor(turn.identity), activityOffer: live.activityOffer || null,
       };
     } catch { return null; }
   }
@@ -184,6 +206,7 @@ export class Act5Dialogue {
         pending.owner.sessionKey !== owner.sessionKey ||
         pending.owner.nativeRun !== owner.nativeRun ||
         pending.owner.adapterEpoch !== owner.adapterEpoch ||
+        pending.owner.nativeClientRun !== owner.nativeClientRun ||
         pending.owner.binding.ownershipToken !== owner.binding.ownershipToken ||
         !sameHostContext(pending.owner.hostContext,owner.hostContext))) this.pending.delete(characterId);
     const activityStatus = this.activities.status(characterId);
@@ -230,8 +253,10 @@ export class Act5Dialogue {
     if (!current || !isCurrent() || current.binding.characterId !== context.owner.binding.characterId ||
         current.binding.ownershipToken !== context.owner.binding.ownershipToken ||
         current.binding.encounterId !== context.owner.binding.encounterId ||
+        current.binding.incarnationId !== context.owner.binding.incarnationId ||
         current.nativeRun !== context.owner.nativeRun ||
         current.adapterEpoch !== context.owner.adapterEpoch ||
+        current.nativeClientRun !== context.owner.nativeClientRun ||
         current.sessionKey !== context.owner.sessionKey ||
         !sameHostContext(current.hostContext,context.owner.hostContext) ||
         !act5WorldAvailable(decision.activity.intent,decision.activity.slots,current.activityOffer) ||
@@ -265,7 +290,9 @@ export class Act5Dialogue {
       const last = this.lastAccepted.get(characterId);
       if (!last) return null;
       const owner = await this.#owner(turn);
-      if (!owner || !isCurrent() || owner.binding.encounterId !== context.owner.binding.encounterId) return null;
+      if (!owner || !isCurrent() || owner.binding.encounterId !== context.owner.binding.encounterId ||
+          owner.binding.ownershipToken !== context.owner.binding.ownershipToken ||
+          owner.nativeClientRun !== context.owner.nativeClientRun) return null;
       const running = this.activities.engine.activities.find(a => a.activityId === last &&
         a.source === 'player_dialogue' &&
         !['cancelled','failed','completed','superseded','expired','abandoned'].includes(a.status));
@@ -273,6 +300,7 @@ export class Act5Dialogue {
       // Never accidentally cancel a later player-UX or stock Essential action.
       if (!running || this.activities.engine.activities.filter(a => a.actor.characterId === characterId).at(-1)?.activityId !== last ||
           owner.binding.ownershipToken !== running.actor.ownershipToken ||
+          owner.binding.encounterId !== running.actor.encounterId ||
           owner.binding.incarnationId !== running.actor.incarnationId) return null;
       const result = this.activities.cancel(characterId);
       this.report('act5_cancelled', { ok: result?.ok === true });
@@ -293,6 +321,7 @@ export class Act5Dialogue {
         owner.binding.ownershipToken !== pending.owner.binding.ownershipToken ||
         owner.nativeRun !== pending.owner.nativeRun ||
         owner.adapterEpoch !== pending.owner.adapterEpoch ||
+        owner.nativeClientRun !== pending.owner.nativeClientRun ||
         !sameHostContext(owner.hostContext,pending.owner.hostContext) ||
         owner.sessionKey !== pending.owner.sessionKey ||
         !TERMINAL.has(this.activities.status(characterId).status)) {
@@ -322,6 +351,7 @@ export class Act5Dialogue {
         current.binding.incarnationId !== owner.binding.incarnationId ||
         current.binding.ownershipToken !== owner.binding.ownershipToken ||
         current.nativeRun !== owner.nativeRun || current.adapterEpoch !== owner.adapterEpoch ||
+        current.nativeClientRun !== owner.nativeClientRun ||
         current.sessionKey !== owner.sessionKey ||
         !sameHostContext(current.hostContext,owner.hostContext) ||
         !TERMINAL.has(this.activities.status(characterId).status) ||
